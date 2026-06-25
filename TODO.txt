@@ -7,4 +7,3 @@
 - add a peasant and have him change position every 1h 
 - make sure that during the night time, the moon shines on the farm town creating nice shadows and so that it's not too dark
 - have a button undo to be able to undo the lastest following actions: mark watched, mark as in progress, unmark
-- make the peasant 50% smaller
