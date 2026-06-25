@@ -34,6 +34,20 @@ const NIGHT_VISUAL_END_HOUR = 1
 const NIGHT_VISUAL_DURATION_MINUTES = 30
 const NIGHT_VISUAL_TOTAL_MINUTES = (24 - NIGHT_START_HOUR + NIGHT_VISUAL_END_HOUR) * 60
 const NIGHT_VISUAL_TYPES = ['aurora', 'ufo', 'meteors']
+const CITY_LEVELS = [
+  { threshold: 0, label: '🌑 Empty land' },
+  { threshold: 5, label: '🌱 First tree' },
+  { threshold: 12, label: '🌲 Two trees' },
+  { threshold: 20, label: '🏡 Farmhouse — goal hit!' },
+  { threshold: 28, label: '🚜 Tractor arrives' },
+  { threshold: 35, label: '🌾 Barn built' },
+  { threshold: 45, label: '🚗 Farm car' },
+  { threshold: 50, label: '🪣 Homestead' },
+  { threshold: 65, label: '🏠 Two houses' },
+  { threshold: 75, label: '🏗️ Crane crew' },
+  { threshold: 85, label: '⚙️ Windmill rising' },
+  { threshold: 100, label: '🏘️ Full village' }
+]
 const PEASANT_POSITIONS = [
   [118, 222], [176, 220], [254, 224], [340, 222], [430, 222], [518, 222],
   [606, 222], [694, 222], [782, 223], [738, 216], [650, 216], [560, 218],
@@ -517,15 +531,12 @@ function calcCityScore(stats, s) {
 }
 
 function getCityStage(score) {
-  if (score >= 100) return '🏘️ Full village'
-  if (score >= 85)  return '⚙️ Windmill rising'
-  if (score >= 65)  return '🏠 Two houses'
-  if (score >= 50)  return '🪣 Homestead'
-  if (score >= 35)  return '🌾 Barn built'
-  if (score >= 20)  return '🏡 Farmhouse — goal hit!'
-  if (score >= 12)  return '🌲 Two trees'
-  if (score >= 5)   return '🌱 First tree'
-  return '🌑 Empty land'
+  const unlocked = CITY_LEVELS.filter(level => score >= level.threshold)
+  return (unlocked[unlocked.length - 1] || CITY_LEVELS[0]).label
+}
+
+function getNextCityLevel(score) {
+  return CITY_LEVELS.find(level => score < level.threshold) || null
 }
 
 function getTimeOfDay(date = new Date()) {
@@ -643,6 +654,10 @@ function renderAnkiStatus(s) {
 function renderCity(score, s) {
   document.getElementById('cityScore').textContent = score
   document.getElementById('cityLabel').textContent = getCityStage(score)
+  const nextLevel = getNextCityLevel(score)
+  document.getElementById('cityNextLevel').textContent = nextLevel
+    ? `${nextLevel.threshold - score} pts to ${nextLevel.label}`
+    : 'Max level'
 
   // Reveal elements whose threshold has been reached
   document.querySelectorAll('[data-threshold]').forEach(el => {

@@ -218,6 +218,18 @@
           <line x1="477" y1="205" x2="477" y2="218" stroke="#c4956a" stroke-width="1.5"/>
         </g>
 
+        <!-- threshold=28 │ Tractor                         -->
+        <g data-threshold="28" opacity="0">
+          <rect x="190" y="229" width="47" height="16" fill="#b6b840" rx="3"/>
+          <rect x="220" y="215" width="22" height="20" fill="#8b7a46" rx="2"/>
+          <rect x="226" y="219" width="10" height="7" fill="#d8d8b8" opacity="0.65"/>
+          <rect x="182" y="224" width="15" height="7" fill="#8b2e10" rx="2"/>
+          <circle cx="204" cy="246" r="12" fill="#151515"/>
+          <circle cx="204" cy="246" r="6" fill="#6d6d58"/>
+          <circle cx="238" cy="246" r="8" fill="#151515"/>
+          <circle cx="238" cy="246" r="4" fill="#6d6d58"/>
+        </g>
+
         <!-- threshold=35 │ Barn                            -->
         <g data-threshold="35" opacity="0">
           <rect x="530" y="202" width="82" height="46" fill="#8b2e10"/>
@@ -230,6 +242,17 @@
           <line x1="566" y1="214" x2="566" y2="248" stroke="#6a2010" stroke-width="2"/>
           <rect x="534" y="212" width="10" height="7" fill="#2a0808"/>
           <rect x="592" y="212" width="10" height="7" fill="#2a0808"/>
+        </g>
+
+        <!-- threshold=45 │ Farm car                        -->
+        <g data-threshold="45" opacity="0">
+          <rect x="723" y="230" width="52" height="15" fill="#3f6f8d" rx="5"/>
+          <polygon points="736,230 747,216 762,216 773,230" fill="#6f8fa6"/>
+          <rect x="748" y="219" width="11" height="8" fill="#d8e8ee" opacity="0.75" rx="1"/>
+          <circle cx="737" cy="246" r="8" fill="#151515"/>
+          <circle cx="737" cy="246" r="4" fill="#777"/>
+          <circle cx="763" cy="246" r="8" fill="#151515"/>
+          <circle cx="763" cy="246" r="4" fill="#777"/>
         </g>
 
         <!-- threshold=50 │ Well + chicken coop             -->
@@ -265,6 +288,20 @@
           <line x1="314" y1="201" x2="336" y2="201" stroke="#c4956a" stroke-width="1.5"/>
         </g>
 
+        <!-- threshold=75 │ Crane crew                      -->
+        <g data-threshold="75" opacity="0" transform="translate(-145 0)">
+          <rect x="186" y="211" width="8" height="37" fill="#6a4018" rx="1"/>
+          <rect x="176" y="205" width="54" height="7" fill="#b6b840" rx="2"/>
+          <line x1="193" y1="205" x2="229" y2="181" stroke="#7a5028" stroke-width="4"/>
+          <line x1="229" y1="181" x2="263" y2="181" stroke="#7a5028" stroke-width="4"/>
+          <line x1="263" y1="181" x2="263" y2="213" stroke="#8b5e30" stroke-width="2.5"/>
+          <rect x="256" y="213" width="15" height="12" fill="#8a8a8a" rx="2"/>
+          <circle cx="182" cy="249" r="9" fill="#151515"/>
+          <circle cx="182" cy="249" r="4" fill="#777"/>
+          <circle cx="220" cy="249" r="9" fill="#151515"/>
+          <circle cx="220" cy="249" r="4" fill="#777"/>
+        </g>
+
         <!-- threshold=85 │ Windmill                        -->
         <g data-threshold="85" opacity="0">
           <polygon points="672,248 678,172 702,172 708,248" fill="#c0bfbd"/>
@@ -292,23 +329,26 @@
         </g>
 
         <g id="cityPeasant" transform="translate(118 222)" aria-label="Peasant">
-          <ellipse cx="0" cy="24" rx="16" ry="4" fill="#000" opacity="0.28" filter="url(#softShadow)"/>
-          <line x1="-8" y1="12" x2="-14" y2="23" stroke="#050505" stroke-width="4" stroke-linecap="round"/>
-          <line x1="8" y1="12" x2="14" y2="23" stroke="#050505" stroke-width="4" stroke-linecap="round"/>
-          <line x1="-8" y1="-1" x2="-17" y2="9" stroke="#050505" stroke-width="4" stroke-linecap="round"/>
-          <line x1="9" y1="-1" x2="20" y2="7" stroke="#050505" stroke-width="4" stroke-linecap="round"/>
-          <rect x="-9" y="-3" width="18" height="18" rx="5" fill="#12bcea" stroke="#050505" stroke-width="4"/>
-          <circle cx="0" cy="-15" r="9" fill="#c9ef68" stroke="#050505" stroke-width="4"/>
-          <path d="M-14 -18 L14 -18 L7 -27 L-6 -27 Z" fill="#82d2ef" stroke="#050505" stroke-width="4" stroke-linejoin="round"/>
-          <line x1="17" y1="-10" x2="27" y2="20" stroke="#050505" stroke-width="4" stroke-linecap="round"/>
-          <path d="M20 19 Q29 15 31 23" fill="none" stroke="#050505" stroke-width="4" stroke-linecap="round"/>
+          <ellipse cx="0" cy="23" rx="12" ry="3" fill="#000" opacity="0.22" filter="url(#softShadow)"/>
+          <line x1="-5" y1="11" x2="-9" y2="22" stroke="#2a1808" stroke-width="3" stroke-linecap="round"/>
+          <line x1="5" y1="11" x2="9" y2="22" stroke="#2a1808" stroke-width="3" stroke-linecap="round"/>
+          <line x1="-6" y1="0" x2="-13" y2="8" stroke="#5c3010" stroke-width="3" stroke-linecap="round"/>
+          <line x1="6" y1="0" x2="13" y2="7" stroke="#5c3010" stroke-width="3" stroke-linecap="round"/>
+          <rect x="-7" y="-2" width="14" height="16" rx="3" fill="#8b5e3c"/>
+          <circle cx="0" cy="-13" r="7" fill="#c4956a"/>
+          <polygon points="-10,-17 10,-17 5,-24 -5,-24" fill="#7a2018"/>
+          <rect x="-3" y="-9" width="6" height="2" fill="#3e1a08" opacity="0.7"/>
+          <line x1="12" y1="-7" x2="20" y2="19" stroke="#5c3010" stroke-width="3" stroke-linecap="round"/>
         </g>
 
         <rect id="cityLightTint" x="0" y="0" width="900" height="280" fill="#000" opacity="0" pointer-events="none"/>
       </svg>
 
       <div class="city-footer">
-        <span class="city-stage" id="cityLabel">Empty land</span>
+        <span class="city-stage">
+          <span id="cityLabel">Empty land</span>
+          <span class="city-next" id="cityNextLevel"></span>
+        </span>
         <span class="city-pts"><span id="cityScore">0</span> pts this week</span>
       </div>
     </section>

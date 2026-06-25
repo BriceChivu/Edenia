@@ -3,5 +3,3 @@
 - add light and dark modes
 - make sure the Mark watched and pause buttom are always at the bottom of the video card, even if the video title is short
 - have a button undo to be able to undo the lastest following actions: mark watched, mark as in progress, unmark
-- next to the current score (e.g., empty land), add how many points needed to reach the next "level" and also show what that next level is
-- add some vehicles (e.g., tractor, crane, car) as scoring levelup

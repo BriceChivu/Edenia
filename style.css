@@ -291,9 +291,22 @@ select option { background: var(--surface); }
   border-top: 2px solid var(--planet-black);
 }
 .city-stage {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   font-size: 0.82rem;
   color: var(--muted);
   font-weight: 500;
+}
+.city-next {
+  background: #eefbd0;
+  border: 2px solid var(--planet-black);
+  border-radius: 999px;
+  color: #466915;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 9px;
 }
 .city-pts {
   font-family: 'Bebas Neue', sans-serif;
