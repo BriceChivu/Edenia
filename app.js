@@ -28,6 +28,12 @@ const TIME_OF_DAY_MODES = {
   sunset:    { start: 17, sky: '#0a3a4f', activeSky: '#0d526b', horizon: '#12bcea', wash: 0.58, sun: [770, 125, 0.68], moon: 0.28, stars: 0.18, tint: '#c9ef68', tintOpacity: 0.10, shadows: 0.62, shadowShift: '-32 0', cityFilter: 'brightness(0.98) saturate(1.2)' },
   night:     { start: 19, sky: '#031018', activeSky: '#062638', horizon: '#12bcea', wash: 0.16, sun: [760, 72, 0],    moon: 0.85, stars: 1,    tint: '#02080b', tintOpacity: 0.20, shadows: 0.70, shadowShift: '0 0',  cityFilter: 'brightness(0.78) saturate(0.96)' }
 }
+const NIGHT_START_HOUR = 19
+const NIGHT_END_HOUR = 5
+const NIGHT_VISUAL_END_HOUR = 1
+const NIGHT_VISUAL_DURATION_MINUTES = 30
+const NIGHT_VISUAL_TOTAL_MINUTES = (24 - NIGHT_START_HOUR + NIGHT_VISUAL_END_HOUR) * 60
+const NIGHT_VISUAL_TYPES = ['aurora', 'ufo', 'meteors']
 const PEASANT_POSITIONS = [
   [118, 222], [176, 220], [254, 224], [340, 222], [430, 222], [518, 222],
   [606, 222], [694, 222], [782, 223], [738, 216], [650, 216], [560, 218],
@@ -89,6 +95,7 @@ function defaultState(apiKey, goalHours, channels) {
     videos:  {},   // { [videoId]: VideoRecord }
     streak:  { current: 0, longest: 0, lastActivityDate: null },
     anki:    {},   // { 'YYYY-MM-DD': { reviewed, created } }
+    nightVisuals: null,
     lastFetched: null
   }
 }
@@ -531,6 +538,60 @@ function getTimeOfDay(date = new Date()) {
   return 'night'
 }
 
+function isNightTime(date = new Date()) {
+  const hour = date.getHours()
+  return hour >= NIGHT_START_HOUR || hour < NIGHT_END_HOUR
+}
+
+function getNightKey(date = new Date()) {
+  const d = new Date(date)
+  if (d.getHours() < NIGHT_END_HOUR) d.setDate(d.getDate() - 1)
+  return toDateKey(d)
+}
+
+function getNightMinute(date = new Date()) {
+  const hour = date.getHours()
+  const minute = date.getMinutes()
+  return hour >= NIGHT_START_HOUR
+    ? (hour - NIGHT_START_HOUR) * 60 + minute
+    : (24 - NIGHT_START_HOUR + hour) * 60 + minute
+}
+
+function isNightVisualTime(date = new Date()) {
+  if (!isNightTime(date)) return false
+  return getNightMinute(date) < NIGHT_VISUAL_TOTAL_MINUTES
+}
+
+function createNightVisualSchedule() {
+  const slots = []
+  const maxStart = NIGHT_VISUAL_TOTAL_MINUTES - NIGHT_VISUAL_DURATION_MINUTES
+
+  NIGHT_VISUAL_TYPES.forEach(type => {
+    const candidates = Array.from({ length: maxStart + 1 }, (_, start) => start)
+      .filter(start => !slots.some(event =>
+        start < event.startMinute + NIGHT_VISUAL_DURATION_MINUTES &&
+        event.startMinute < start + NIGHT_VISUAL_DURATION_MINUTES
+      ))
+    const start = candidates[Math.floor(Math.random() * candidates.length)]
+    slots.push({ type, startMinute: start })
+  })
+
+  return slots.sort((a, b) => a.startMinute - b.startMinute)
+}
+
+function ensureNightVisualSchedule(s, date = new Date()) {
+  const nightKey = getNightKey(date)
+  if (s.nightVisuals?.nightKey === nightKey && Array.isArray(s.nightVisuals.events)) return false
+
+  s.nightVisuals = {
+    nightKey,
+    durationMinutes: NIGHT_VISUAL_DURATION_MINUTES,
+    events: createNightVisualSchedule()
+  }
+  saveState(s)
+  return true
+}
+
 // ════════════════════════════════════════════════════════════
 // RENDERING
 // ════════════════════════════════════════════════════════════
@@ -590,6 +651,7 @@ function renderCity(score, s) {
 
   applyCityTimeOfDay(s.streak.lastActivityDate === toDateKey())
   applyPeasantPosition()
+  applyNightVisuals(s)
 }
 
 function applyCityTimeOfDay(activeStreak = false) {
@@ -636,7 +698,10 @@ function startCityClock() {
   clearInterval(startCityClock._timer)
   startCityClock._timer = setInterval(() => {
     const state = loadState()
-    if (state) applyCityTimeOfDay(state.streak.lastActivityDate === toDateKey())
+    if (state) {
+      applyCityTimeOfDay(state.streak.lastActivityDate === toDateKey())
+      applyNightVisuals(state)
+    }
     applyPeasantPosition()
   }, 60_000)
 }
@@ -646,6 +711,31 @@ function applyPeasantPosition(date = new Date()) {
   if (!peasant) return
   const [x, y] = PEASANT_POSITIONS[date.getHours() % PEASANT_POSITIONS.length]
   peasant.setAttribute('transform', `translate(${x} ${y}) scale(0.5)`)
+}
+
+function applyNightVisuals(s, date = new Date()) {
+  const layers = {
+    aurora: document.getElementById('nightVisualAurora'),
+    ufo: document.getElementById('nightVisualUfo'),
+    meteors: document.getElementById('nightVisualMeteors')
+  }
+
+  Object.values(layers).forEach(layer => {
+    if (layer) layer.setAttribute('opacity', '0')
+  })
+
+  if (!s || !isNightVisualTime(date)) return
+
+  ensureNightVisualSchedule(s, date)
+  const minute = getNightMinute(date)
+  const active = s.nightVisuals.events.find(event =>
+    minute >= event.startMinute &&
+    minute < event.startMinute + NIGHT_VISUAL_DURATION_MINUTES
+  )
+
+  if (active && layers[active.type]) {
+    layers[active.type].setAttribute('opacity', '1')
+  }
 }
 
 function renderFeed(s) {

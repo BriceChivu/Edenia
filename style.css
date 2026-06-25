@@ -198,12 +198,10 @@ select option { background: var(--surface); }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 2px solid var(--planet-black);
+  padding: 18px 20px 12px;
   position: sticky;
   top: 0;
-  background: rgba(248,253,255,0.92);
-  backdrop-filter: blur(8px);
+  background: transparent;
   z-index: 50;
   gap: 12px;
 }
@@ -249,8 +247,12 @@ select option { background: var(--surface); }
    CITY SECTION
 ═══════════════════════════════════════════════════════════ */
 .city-section {
-  border-bottom: 2px solid var(--planet-black);
+  border: 3px solid var(--planet-black);
+  border-radius: 18px;
   background: var(--planet-black);
+  box-shadow: 0 5px 0 rgba(5,5,5,0.14);
+  margin: 10px 20px var(--gap);
+  overflow: hidden;
 }
 #cityscape {
   display: block;
@@ -264,10 +266,14 @@ select option { background: var(--surface); }
 #cityLightTint,
 #cityShadows,
 #cityPeasant,
+.night-visual,
 .city-star,
 .city-moon,
 .city-moon-cutout {
   transition: fill 1.2s ease, opacity 1.2s ease, transform 1.2s ease;
+}
+.night-visual {
+  transition: opacity 1.8s ease;
 }
 #cityPeasant {
   transform-box: fill-box;
@@ -432,6 +438,29 @@ select option { background: var(--surface); }
   display: flex;
   gap: 8px;
   align-items: center;
+}
+.feed-controls select {
+  appearance: none;
+  background:
+    linear-gradient(45deg, transparent 50%, var(--text) 50%) calc(100% - 16px) 50% / 6px 6px no-repeat,
+    linear-gradient(135deg, var(--text) 50%, transparent 50%) calc(100% - 11px) 50% / 6px 6px no-repeat,
+    var(--planet-white);
+  border: 2px solid var(--planet-black);
+  border-radius: 999px;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 700;
+  padding: 9px 32px 9px 16px;
+  transition: background-color 0.15s;
+}
+.feed-controls select:hover {
+  background:
+    linear-gradient(45deg, transparent 50%, var(--text) 50%) calc(100% - 16px) 50% / 6px 6px no-repeat,
+    linear-gradient(135deg, var(--text) 50%, transparent 50%) calc(100% - 11px) 50% / 6px 6px no-repeat,
+    #e9f8ed;
+}
+.feed-controls select:focus {
+  border-color: var(--planet-black);
 }
 #refreshBtn.loading {
   opacity: 0.6;

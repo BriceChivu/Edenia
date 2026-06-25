@@ -87,6 +87,9 @@
           <filter id="softShadow">
             <feGaussianBlur stdDeviation="2.4"/>
           </filter>
+          <filter id="nightVisualGlow">
+            <feGaussianBlur stdDeviation="6"/>
+          </filter>
           <linearGradient id="horizonWash" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="#ffffff" stop-opacity="0"/>
             <stop id="horizonWashColor" offset="100%" stop-color="#f5a623" stop-opacity="0.28"/>
@@ -116,6 +119,21 @@
         <circle class="city-moon" cx="822" cy="48" r="28" fill="#e8e8f8" opacity="0.85"/>
         <circle class="city-moon-cutout" cx="834" cy="40" r="24" fill="#06060e"/>
 
+        <g id="nightVisualAurora" class="night-visual" opacity="0" pointer-events="none">
+          <path d="M70 92 C150 38 230 125 320 72 S490 58 596 103 S760 94 852 40" fill="none" stroke="#82d2ef" stroke-width="28" stroke-linecap="round" opacity="0.25" filter="url(#nightVisualGlow)"/>
+          <path d="M92 111 C184 52 258 138 350 90 S522 72 620 118 S748 112 830 63" fill="none" stroke="#c9ef68" stroke-width="18" stroke-linecap="round" opacity="0.34" filter="url(#nightVisualGlow)"/>
+          <path d="M126 72 C222 130 292 62 385 106 S542 135 672 82" fill="none" stroke="#12bcea" stroke-width="12" stroke-linecap="round" opacity="0.32"/>
+        </g>
+
+        <g id="nightVisualUfo" class="night-visual" opacity="0" pointer-events="none">
+          <ellipse cx="616" cy="78" rx="54" ry="10" fill="#82d2ef" stroke="#050505" stroke-width="5"/>
+          <ellipse cx="616" cy="68" rx="26" ry="17" fill="#c9ef68" stroke="#050505" stroke-width="5"/>
+          <circle cx="586" cy="78" r="4" fill="#ffffff"/>
+          <circle cx="616" cy="80" r="4" fill="#ffffff"/>
+          <circle cx="646" cy="78" r="4" fill="#ffffff"/>
+          <polygon points="596,88 636,88 676,235 556,235" fill="#82d2ef" opacity="0.13"/>
+        </g>
+
         <!-- Background mountains (silhouette, always visible) -->
         <polygon points="0,280 0,162 78,108 165,140 258,175 315,280" fill="#0b0b20"/>
         <polygon points="580,280 632,150 703,116 778,142 858,170 900,188 900,280" fill="#0d0d24"/>
@@ -130,6 +148,16 @@
         <rect x="552" y="244" width="3" height="8" fill="#1e4a12"/>
         <rect x="720" y="245" width="3" height="7" fill="#1e4a12"/>
         <rect x="872" y="244" width="4" height="8" fill="#1e4a12"/>
+
+        <g id="nightVisualMeteors" class="night-visual" opacity="0" pointer-events="none">
+          <line x1="185" y1="38" x2="282" y2="122" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+          <line x1="486" y1="28" x2="584" y2="116" stroke="#82d2ef" stroke-width="4" stroke-linecap="round"/>
+          <line x1="710" y1="42" x2="638" y2="104" stroke="#c9ef68" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="282" cy="122" r="7" fill="#ffffff" filter="url(#nightVisualGlow)"/>
+          <circle cx="584" cy="116" r="6" fill="#82d2ef" filter="url(#nightVisualGlow)"/>
+          <path d="M674 247 L692 223 L710 247 Z" fill="#c9ef68" opacity="0.82"/>
+          <circle cx="692" cy="245" r="22" fill="#c9ef68" opacity="0.16" filter="url(#nightVisualGlow)"/>
+        </g>
 
         <g id="cityShadows" opacity="0.35" filter="url(#softShadow)">
           <ellipse class="city-shadow" cx="130" cy="250" rx="62" ry="7" fill="#000"/>
