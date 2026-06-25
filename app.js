@@ -15,24 +15,54 @@ const DEFAULT_CHANNELS = [
 // ════════════════════════════════════════════════════════════
 
 const STORAGE_KEY = 'studybuild_v1'
+const CONFIG_COOKIE_KEY = 'studybuild_config'
 
-function loadState() {
+function getCookie(key) {
+  return document.cookie.split('; ').reduce((value, part) => {
+    const [name, val] = part.split('=')
+    return name === key ? decodeURIComponent(val) : value
+  }, null)
+}
+
+function loadConfigCookie() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = getCookie(CONFIG_COOKIE_KEY)
     return raw ? JSON.parse(raw) : null
   } catch { return null }
 }
 
-function saveState(s) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch {}
+function saveConfigCookie(config) {
+  try {
+    const value = encodeURIComponent(JSON.stringify(config))
+    document.cookie = `${CONFIG_COOKIE_KEY}=${value}; max-age=31536000; path=/`
+  } catch {}
 }
 
-function defaultState(apiKey, goalHours) {
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch {}
+
+  const fallback = loadConfigCookie()
+  if (fallback?.apiKey) {
+    return defaultState(fallback.apiKey, fallback.weeklyGoalHours || 4, fallback.channels)
+  }
+
+  return null
+}
+
+function saveState(s) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch {}
+  saveConfigCookie(s.config)
+}
+
+function defaultState(apiKey, goalHours, channels) {
   return {
     config: {
       apiKey,
       weeklyGoalHours: goalHours || 4,
-      channels: DEFAULT_CHANNELS.map(c => ({ ...c }))
+      channels: channels?.length ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c }))
     },
     videos:  {},   // { [videoId]: VideoRecord }
     streak:  { current: 0, longest: 0, lastActivityDate: null },
@@ -102,26 +132,15 @@ function escHtml(str) {
 // ════════════════════════════════════════════════════════════
 
 function init() {
-  const state = loadState()
-  if (!state?.config?.apiKey) {
-    show('setupScreen')
-  } else {
-    show('mainApp')
-    renderAll(state)
-    if (!state.lastFetched) showToast('Add or edit channels in ⚙ Settings, then hit ↻ Refresh', 'warn')
+  let state = loadState()
+  if (!state) {
+    state = defaultState('', 4, DEFAULT_CHANNELS)
+    saveState(state)
   }
-}
 
-function completeSetup() {
-  const apiKey = document.getElementById('setupApiKey').value.trim()
-  const goal   = parseInt(document.getElementById('setupGoal').value) || 4
-  if (!apiKey) { showToast('Paste your API key first', 'warn'); return }
-  const s = defaultState(apiKey, goal)
-  saveState(s)
-  hide('setupScreen')
   show('mainApp')
-  renderAll(s)
-  showToast('All set! Open ⚙ Settings to confirm channels, then ↻ Refresh', 'warn')
+  renderAll(state)
+  if (!state.lastFetched) showToast('Add or edit channels in ⚙ Settings, then hit ↻ Refresh', 'warn')
 }
 
 function openSettings() {
@@ -192,6 +211,7 @@ function renderChannelList(channels) {
 function resetApp() {
   if (!confirm('This will delete all your watch history, streak, and Anki data. Continue?')) return
   localStorage.removeItem(STORAGE_KEY)
+  document.cookie = `${CONFIG_COOKIE_KEY}=; max-age=0; path=/`
   location.reload()
 }
 

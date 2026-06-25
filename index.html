@@ -12,39 +12,6 @@
 <body>
 
   <!-- ═══════════════════════════════════════════════════════ -->
-  <!-- SETUP SCREEN                                           -->
-  <!-- ═══════════════════════════════════════════════════════ -->
-  <div id="setupScreen" class="setup-screen hidden">
-    <div class="setup-card">
-      <div class="setup-logo">STUDY BUILD</div>
-      <p class="setup-sub">Your personal learning dashboard. Set up in 2 minutes.</p>
-
-      <div class="setup-step">
-        <div class="step-num">1</div>
-        <div class="step-body">
-          <label for="setupApiKey">YouTube Data API v3 Key</label>
-          <p class="step-hint">
-            Get one free at
-            <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a>
-            → New project → Enable <em>YouTube Data API v3</em> → Credentials → Create API key
-          </p>
-          <input type="text" id="setupApiKey" placeholder="AIzaSy…" autocomplete="off" spellcheck="false">
-        </div>
-      </div>
-
-      <div class="setup-step">
-        <div class="step-num">2</div>
-        <div class="step-body">
-          <label for="setupGoal">Weekly video goal (hours)</label>
-          <input type="number" id="setupGoal" value="4" min="1" max="99">
-        </div>
-      </div>
-
-      <button class="btn-primary btn-full" onclick="completeSetup()">Start learning →</button>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════════ -->
   <!-- SETTINGS PANEL                                        -->
   <!-- ═══════════════════════════════════════════════════════ -->
   <div id="settingsPanel" class="settings-panel hidden">
