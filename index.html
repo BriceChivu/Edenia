@@ -395,34 +395,30 @@
           <span>~<b id="videosRemaining">?</b> to go</span>
         </div>
       </div>
-
-      <div class="stat-row">
-        <div class="stat-pill">
-          <span class="stat-val" id="ankiReviewedStat">—</span>
-          <span class="stat-lbl">Anki reviews</span>
-        </div>
-        <div class="stat-pill">
-          <span class="stat-val" id="ankiCreatedStat">—</span>
-          <span class="stat-lbl">new cards</span>
-        </div>
-        <div class="stat-pill">
-          <span class="stat-val" id="streakLongest">0</span>
-          <span class="stat-lbl">best streak</span>
-        </div>
-      </div>
     </section>
 
-    <!-- ANKI LOGGER ─────────────────────────────────────── -->
+    <!-- ANKI STATS ──────────────────────────────────────── -->
     <section class="anki-section">
       <div class="section-header">
-        <h2 class="section-title">Log Anki</h2>
-        <span class="anki-status" id="ankiTodayStatus">Today: not logged</span>
+        <h2 class="section-title">Anki Stats</h2>
+        <span class="anki-status" id="ankiConnectStatus">Checking AnkiConnect…</span>
       </div>
-      <div class="anki-form">
-        <input type="number" id="ankiReviewedInput" placeholder="Reviewed" min="0">
-        <input type="number" id="ankiCreatedInput"  placeholder="New cards" min="0">
-        <button class="btn-primary"    onclick="logAnkiSession()">Log</button>
-        <button class="btn-secondary"  onclick="tryAnkiConnect()" title="Auto-fill from Anki desktop">⚡ AnkiConnect</button>
+      <div class="anki-stats-grid">
+        <div class="anki-stat">
+          <span class="anki-stat-val" id="ankiReviewedToday">—</span>
+          <span class="anki-stat-lbl">reviewed today</span>
+        </div>
+        <div class="anki-stat">
+          <span class="anki-stat-val" id="ankiNewToday">—</span>
+          <span class="anki-stat-lbl">new today</span>
+        </div>
+        <div class="anki-stat">
+          <span class="anki-stat-val" id="ankiDueCards">—</span>
+          <span class="anki-stat-lbl">due now</span>
+        </div>
+      </div>
+      <div class="anki-actions">
+        <button class="btn-secondary" onclick="refreshAnkiStats()">Refresh Anki</button>
       </div>
     </section>
 

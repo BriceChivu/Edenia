@@ -17,6 +17,7 @@ const DEFAULT_CHANNELS = [
 const STORAGE_KEY = 'studybuild_v1'
 const CONFIG_COOKIE_KEY = 'studybuild_config'
 const DEFAULT_API_KEY = 'AIzaSyAVmsqp-5o1ufYCuMak38jigQRHFhf0g1Y'
+const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = 50
 const MAX_FETCH_PAGES_PER_CHANNEL = 10
@@ -54,6 +55,7 @@ const PEASANT_POSITIONS = [
   [470, 219], [382, 218], [294, 217], [204, 218], [138, 226], [244, 226],
   [348, 226], [452, 226], [556, 226], [660, 226], [760, 226], [820, 224]
 ]
+let ankiStatsCache = null
 
 function getCookie(key) {
   return document.cookie.split('; ').reduce((value, part) => {
@@ -184,6 +186,7 @@ function init() {
   show('mainApp')
   renderAll(state)
   startCityClock()
+  refreshAnkiStats({ silent: true })
   if (!state.lastFetched) showToast('Add or edit channels in ⚙ Settings, then hit ↻ Refresh', 'warn')
 }
 
@@ -442,35 +445,117 @@ function isStreakAlive(s) {
 // ANKI
 // ════════════════════════════════════════════════════════════
 
-function logAnkiSession() {
-  const reviewed = parseInt(document.getElementById('ankiReviewedInput').value) || 0
-  const created  = parseInt(document.getElementById('ankiCreatedInput').value)  || 0
-  if (!reviewed && !created) { showToast('Enter at least one number', 'warn'); return }
-
-  const s = loadState()
-  s.anki[toDateKey()] = { reviewed, created, loggedAt: new Date().toISOString() }
-  bumpStreak(s)
-  saveState(s)
-
-  document.getElementById('ankiReviewedInput').value = ''
-  document.getElementById('ankiCreatedInput').value  = ''
-  renderAll(s)
-  showToast('Anki session logged ✓')
-}
-
-async function tryAnkiConnect() {
+async function ankiConnect(action, params = {}, timeoutMs = 2500) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const res  = await fetch('http://localhost:8765', {
+    const res = await fetch(ANKI_CONNECT_URL, {
       method: 'POST',
-      body:   JSON.stringify({ action: 'getNumCardsReviewedToday', version: 6 }),
-      signal: AbortSignal.timeout(2000)
+      body: JSON.stringify({ action, version: 6, params }),
+      signal: controller.signal
     })
     const data = await res.json()
     if (data.error) throw new Error(data.error)
-    document.getElementById('ankiReviewedInput').value = data.result ?? 0
-    showToast(`AnkiConnect: ${data.result} reviews today — adjust if needed and hit Log`)
-  } catch {
-    showToast('AnkiConnect not available. Open Anki and install the AnkiConnect plugin first.', 'warn')
+    return data.result
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function fetchAnkiStats() {
+  const actions = [
+    { action: 'getNumCardsReviewedToday' },
+    { action: 'findCards', params: { query: 'added:1' } },
+    { action: 'findCards', params: { query: 'is:due' } }
+  ]
+  const result = await ankiConnect('multi', { actions })
+  const unwrap = (idx, fallback) => {
+    const item = result?.[idx]
+    if (item == null) return fallback
+    if (typeof item === 'object' && !Array.isArray(item) && 'error' in item) {
+      if (item.error) return fallback
+      return item.result ?? fallback
+    }
+    return item
+  }
+
+  const newToday = unwrap(1, [])
+  const dueCards = unwrap(2, [])
+  return {
+    reviewedToday: unwrap(0, 0) || 0,
+    newToday: Array.isArray(newToday) ? newToday.length : 0,
+    dueCards: Array.isArray(dueCards) ? dueCards.length : 0,
+    fetchedAt: new Date().toISOString()
+  }
+}
+
+async function refreshAnkiStats({ silent = false } = {}) {
+  const statusEl = document.getElementById('ankiConnectStatus')
+  if (statusEl) {
+    statusEl.textContent = 'Checking AnkiConnect…'
+    statusEl.classList.remove('logged')
+  }
+
+  try {
+    ankiStatsCache = await fetchAnkiStats()
+    syncAnkiStatsToState(ankiStatsCache)
+    renderAnkiStatus(loadState())
+    if (!silent) showToast('Anki stats updated')
+  } catch (err) {
+    ankiStatsCache = null
+    renderAnkiStatus(loadState())
+    const message = err?.message ? `AnkiConnect failed: ${err.message}` : 'AnkiConnect not available'
+    const statusEl = document.getElementById('ankiConnectStatus')
+    if (statusEl) statusEl.textContent = message
+    if (!silent) showToast(message, 'warn')
+  }
+}
+
+function syncAnkiStatsToState(stats) {
+  const s = loadState()
+  if (!s || !stats) return
+
+  s.anki[toDateKey()] = {
+    reviewed: stats.reviewedToday,
+    created: stats.newToday,
+    loggedAt: stats.fetchedAt,
+    source: 'ankiconnect'
+  }
+  if (stats.reviewedToday || stats.newToday) bumpStreak(s)
+  saveState(s)
+  renderHeader(s)
+  renderAnalytics(getWeeklyStats(s), s)
+  const score = calcCityScore(getWeeklyStats(s), s)
+  renderCity(score, s)
+}
+
+function setAnkiStatText(id, value) {
+  const el = document.getElementById(id)
+  if (el) el.textContent = value ?? '—'
+}
+
+function formatAnkiStatus(stats) {
+  if (!stats?.fetchedAt) return 'Open Anki to load live stats'
+  return `Updated ${timeAgo(stats.fetchedAt)}`
+}
+
+function renderAnkiStatsPanel(s) {
+  const todayLog = s?.anki?.[toDateKey()]
+  const stats = ankiStatsCache || (todayLog ? {
+    reviewedToday: todayLog.reviewed,
+    newToday: todayLog.created,
+    dueCards: null,
+    fetchedAt: todayLog.loggedAt
+  } : null)
+
+  setAnkiStatText('ankiReviewedToday', stats?.reviewedToday)
+  setAnkiStatText('ankiNewToday', stats?.newToday)
+  setAnkiStatText('ankiDueCards', stats?.dueCards)
+
+  const el = document.getElementById('ankiConnectStatus')
+  if (el) {
+    el.textContent = formatAnkiStatus(stats)
+    el.classList.toggle('logged', !!stats)
   }
 }
 
@@ -630,9 +715,6 @@ function renderAnalytics(stats, s) {
   document.getElementById('videosWatched').textContent   = stats.videosWatched
   document.getElementById('videosPartial').textContent   = stats.videosPartial
   document.getElementById('videosRemaining').textContent = formatHoursMinutes(stats.remainingSeconds)
-  document.getElementById('ankiReviewedStat').textContent = stats.ankiReviewed || '—'
-  document.getElementById('ankiCreatedStat').textContent  = stats.ankiCreated  || '—'
-  document.getElementById('streakLongest').textContent   = s.streak.longest
 
   const bar = document.getElementById('goalProgressBar')
   bar.style.width = `${stats.goalProgress}%`
@@ -640,15 +722,7 @@ function renderAnalytics(stats, s) {
 }
 
 function renderAnkiStatus(s) {
-  const log = s.anki[toDateKey()]
-  const el  = document.getElementById('ankiTodayStatus')
-  if (log) {
-    el.textContent = `Today: ${log.reviewed} reviewed · ${log.created} new`
-    el.classList.add('logged')
-  } else {
-    el.textContent = 'Today: not logged yet'
-    el.classList.remove('logged')
-  }
+  renderAnkiStatsPanel(s)
 }
 
 function renderCity(score, s) {

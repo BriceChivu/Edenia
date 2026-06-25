@@ -4,4 +4,4 @@
 - make sure the Mark watched and pause buttom are always at the bottom of the video card, even if the video title is short
 - have a button undo to be able to undo the lastest following actions: mark watched, mark as in progress, unmark
 - add 1 cow, 1 horse, 1 pig as scoring level up
-- make the settings icon slightly bigger, and push STUDY BUILD Week 25 · Jun 22 – Jun 28 slightly to the right so that when I scroll down, the left side of the S of "Study" does not touch the left edge of the farmtown
+- on the left on the Videos section refresh button, have two buttons: one that lets me filter by status (unwatched, etc.) and one that lets me filter by channel
