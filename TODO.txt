@@ -1,7 +1,6 @@
-- have the scoring points system in the settings so I can modify them on the fly
-- instead of the Log Anki section, show some Anki statistics directly pulled from AnkiConnect
 - add light and dark modes
 - make sure the Mark watched and pause buttom are always at the bottom of the video card, even if the video title is short
 - have a button undo to be able to undo the lastest following actions: mark watched, mark as in progress, unmark
 - add 1 cow, 1 horse, 1 pig as scoring level up
 - on the left on the Videos section refresh button, have two buttons: one that lets me filter by status (unwatched, etc.) and one that lets me filter by channel
+- have the paused videos (in progress watching) at the beginning of the video sections, even though they might have been released later and make the paused status more obvious on the video card

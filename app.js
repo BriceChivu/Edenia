@@ -861,9 +861,15 @@ function renderFeed(s) {
 
 function getVisibleActiveVideos(videos) {
   const byChannel = new Map()
+  const activeSort = (a, b) => {
+    const partialPriority = (b.status === 'partial') - (a.status === 'partial')
+    if (partialPriority) return partialPriority
+    return new Date(b.publishedAt) - new Date(a.publishedAt)
+  }
 
   videos
     .filter(v => v.status !== 'watched')
+    .sort(activeSort)
     .forEach(v => {
       const key = v.channelId || v.channelTitle || 'unknown'
       const channelVideos = byChannel.get(key) || []
@@ -875,7 +881,7 @@ function getVisibleActiveVideos(videos) {
 
   return Array.from(byChannel.values())
     .flat()
-    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+    .sort(activeSort)
 }
 
 function renderCard(v, compact = false) {
@@ -889,8 +895,10 @@ function renderCard(v, compact = false) {
         <span class="dur-badge">${formatDuration(v.duration)}</span>
         ${isWatched ? '<span class="overlay-badge watched-badge">✓</span>' : ''}
         ${isPartial ? '<span class="overlay-badge partial-badge">⏸</span>' : ''}
+        ${isPartial ? '<span class="progress-ribbon">In progress</span>' : ''}
       </a>
       <div class="card-body">
+        ${isPartial ? '<div class="card-status partial-status">⏸ Resume watching</div>' : ''}
         <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
         <div class="card-meta">
           <span class="channel-name">${escHtml(v.channelTitle || '')}</span>
