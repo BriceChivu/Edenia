@@ -1,6 +1,10 @@
 - have the scoring points system in the settings so I can modify them on the fly
-- have a dawn, morning, noon, afternoon, sunset, night mode corresponding to the real time of the day, which would affect the light and shadows of the farm town visuals
 - instead of the Log Anki section, show some Anki statistics directly pulled from AnkiConnect
-- change the color palette of the website to my planet.png
 - add light and dark modes
 - make sure the Mark watched and pause buttom are always at the bottom of the video card, even if the video title is short
+- have 3 other visual modes for the farm town that appear randomly once only during the night mode for just 30min. Make sure they don't overlap. The 3 new visuals are: Northern Lights (aurora borealis), Alien spaceship, meteros crashing on earth
+- website overall design: looks too futuristic/neon. I want something slightly more "cute". Also when I scroll down and reach the bottom, I see the white beneath the website.
+- add a peasant and have him change position every 1h 
+- make sure that during the night time, the moon shines on the farm town creating nice shadows and so that it's not too dark
+- have a button undo to be able to undo the lastest following actions: mark watched, mark as in progress, unmark
+- make the peasant 50% smaller

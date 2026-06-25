@@ -21,13 +21,19 @@ const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = 50
 const MAX_FETCH_PAGES_PER_CHANNEL = 10
 const TIME_OF_DAY_MODES = {
-  dawn:      { start: 5,  sky: '#2d2448', activeSky: '#342c58', horizon: '#ffb26b', wash: 0.58, sun: [150, 88, 0.54], moon: 0.18, stars: 0.28, tint: '#ff8f48', tintOpacity: 0.08, shadows: 0.52, shadowShift: '34 0', cityFilter: 'brightness(1.05) saturate(1.08)' },
-  morning:   { start: 7,  sky: '#6da8d8', activeSky: '#78b7ea', horizon: '#ffe0a0', wash: 0.30, sun: [705, 70, 0.88], moon: 0.04, stars: 0,    tint: '#fff2c8', tintOpacity: 0.03, shadows: 0.34, shadowShift: '22 0', cityFilter: 'brightness(1.12) saturate(1.05)' },
-  noon:      { start: 11, sky: '#74c7ef', activeSky: '#82d7ff', horizon: '#ffffff', wash: 0.10, sun: [450, 34, 1],    moon: 0,    stars: 0,    tint: '#ffffff', tintOpacity: 0.02, shadows: 0.18, shadowShift: '0 0',  cityFilter: 'brightness(1.2) saturate(1)' },
-  afternoon: { start: 14, sky: '#5aa6df', activeSky: '#67b6ef', horizon: '#ffd482', wash: 0.22, sun: [680, 68, 0.9],  moon: 0,    stars: 0,    tint: '#ffd184', tintOpacity: 0.05, shadows: 0.38, shadowShift: '-18 0', cityFilter: 'brightness(1.1) saturate(1.06)' },
-  sunset:    { start: 17, sky: '#3b2b57', activeSky: '#463665', horizon: '#ff7a4a', wash: 0.68, sun: [770, 125, 0.68], moon: 0.28, stars: 0.18, tint: '#ff6c3c', tintOpacity: 0.13, shadows: 0.62, shadowShift: '-32 0', cityFilter: 'brightness(0.95) saturate(1.18)' },
-  night:     { start: 19, sky: '#06060e', activeSky: '#08102a', horizon: '#24305e', wash: 0.12, sun: [760, 72, 0],    moon: 0.85, stars: 1,    tint: '#020312', tintOpacity: 0.18, shadows: 0.70, shadowShift: '0 0',  cityFilter: 'brightness(0.78) saturate(0.92)' }
+  dawn:      { start: 5,  sky: '#11556d', activeSky: '#176b82', horizon: '#c9ef68', wash: 0.46, sun: [150, 88, 0.54], moon: 0.18, stars: 0.28, tint: '#82d2ef', tintOpacity: 0.08, shadows: 0.52, shadowShift: '34 0', cityFilter: 'brightness(1.06) saturate(1.16)' },
+  morning:   { start: 7,  sky: '#12bcea', activeSky: '#45cdec', horizon: '#c9ef68', wash: 0.30, sun: [705, 70, 0.88], moon: 0.04, stars: 0,    tint: '#ffffff', tintOpacity: 0.03, shadows: 0.34, shadowShift: '22 0', cityFilter: 'brightness(1.14) saturate(1.08)' },
+  noon:      { start: 11, sky: '#82d2ef', activeSky: '#a2e5f7', horizon: '#ffffff', wash: 0.10, sun: [450, 34, 1],    moon: 0,    stars: 0,    tint: '#ffffff', tintOpacity: 0.02, shadows: 0.18, shadowShift: '0 0',  cityFilter: 'brightness(1.22) saturate(1.02)' },
+  afternoon: { start: 14, sky: '#0fb5e3', activeSky: '#45cdec', horizon: '#c9ef68', wash: 0.26, sun: [680, 68, 0.9],  moon: 0,    stars: 0,    tint: '#c9ef68', tintOpacity: 0.06, shadows: 0.38, shadowShift: '-18 0', cityFilter: 'brightness(1.12) saturate(1.12)' },
+  sunset:    { start: 17, sky: '#0a3a4f', activeSky: '#0d526b', horizon: '#12bcea', wash: 0.58, sun: [770, 125, 0.68], moon: 0.28, stars: 0.18, tint: '#c9ef68', tintOpacity: 0.10, shadows: 0.62, shadowShift: '-32 0', cityFilter: 'brightness(0.98) saturate(1.2)' },
+  night:     { start: 19, sky: '#031018', activeSky: '#062638', horizon: '#12bcea', wash: 0.16, sun: [760, 72, 0],    moon: 0.85, stars: 1,    tint: '#02080b', tintOpacity: 0.20, shadows: 0.70, shadowShift: '0 0',  cityFilter: 'brightness(0.78) saturate(0.96)' }
 }
+const PEASANT_POSITIONS = [
+  [118, 222], [176, 220], [254, 224], [340, 222], [430, 222], [518, 222],
+  [606, 222], [694, 222], [782, 223], [738, 216], [650, 216], [560, 218],
+  [470, 219], [382, 218], [294, 217], [204, 218], [138, 226], [244, 226],
+  [348, 226], [452, 226], [556, 226], [660, 226], [760, 226], [820, 224]
+]
 
 function getCookie(key) {
   return document.cookie.split('; ').reduce((value, part) => {
@@ -583,6 +589,7 @@ function renderCity(score, s) {
   })
 
   applyCityTimeOfDay(s.streak.lastActivityDate === toDateKey())
+  applyPeasantPosition()
 }
 
 function applyCityTimeOfDay(activeStreak = false) {
@@ -630,7 +637,15 @@ function startCityClock() {
   startCityClock._timer = setInterval(() => {
     const state = loadState()
     if (state) applyCityTimeOfDay(state.streak.lastActivityDate === toDateKey())
+    applyPeasantPosition()
   }, 60_000)
+}
+
+function applyPeasantPosition(date = new Date()) {
+  const peasant = document.getElementById('cityPeasant')
+  if (!peasant) return
+  const [x, y] = PEASANT_POSITIONS[date.getHours() % PEASANT_POSITIONS.length]
+  peasant.setAttribute('transform', `translate(${x} ${y})`)
 }
 
 function renderFeed(s) {
