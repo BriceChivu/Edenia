@@ -108,6 +108,7 @@ function loadState() {
       const state = JSON.parse(raw)
       if (state?.config && !state.config.apiKey) state.config.apiKey = DEFAULT_API_KEY
       if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
+      if (state && !Object.prototype.hasOwnProperty.call(state, 'lastUndo')) state.lastUndo = null
       return state
     }
   } catch {}
@@ -137,6 +138,7 @@ function defaultState(apiKey, goalHours, channels, theme) {
     streak:  { current: 0, longest: 0, lastActivityDate: null },
     anki:    {},   // { 'YYYY-MM-DD': { reviewed, created } }
     nightVisuals: null,
+    lastUndo: null,
     lastFetched: null
   }
 }
@@ -447,14 +449,60 @@ function markVideo(videoId, newStatus) {
   const s     = loadState()
   const video = s.videos[videoId]
   if (!video) return
+  if (video.status === newStatus) return
+
+  s.lastUndo = {
+    type: 'video-status',
+    videoId,
+    before: {
+      status: video.status,
+      watchedAt: video.watchedAt || null
+    },
+    after: {
+      status: newStatus
+    },
+    streak: {
+      current: s.streak.current,
+      longest: s.streak.longest,
+      lastActivityDate: s.streak.lastActivityDate
+    }
+  }
 
   video.status    = newStatus
   video.watchedAt = newStatus !== 'unwatched' ? new Date().toISOString() : null
+  s.lastUndo.after.watchedAt = video.watchedAt
 
   if (newStatus !== 'unwatched') bumpStreak(s)
 
   saveState(s)
   renderAll(s)
+}
+
+function undoLastVideoAction() {
+  const s = loadState()
+  const undo = s.lastUndo
+  if (undo?.type !== 'video-status') {
+    showToast('Nothing to undo', 'warn')
+    return
+  }
+
+  const video = s.videos[undo.videoId]
+  if (!video) {
+    s.lastUndo = null
+    saveState(s)
+    renderAll(s)
+    showToast('That video is no longer available', 'warn')
+    return
+  }
+
+  video.status = undo.before.status
+  video.watchedAt = undo.before.watchedAt
+  s.streak = { ...s.streak, ...undo.streak }
+  s.lastUndo = null
+
+  saveState(s)
+  renderAll(s)
+  showToast('Last video action undone')
 }
 
 function bumpStreak(s) {
@@ -733,6 +781,7 @@ function renderAll(s) {
   renderAnkiStatus(s)
   renderCity(score, s)
   renderFeed(s)
+  renderUndoButton(s)
 }
 
 function renderHeader(s) {
@@ -897,6 +946,14 @@ function renderFeed(s) {
   watchedCount.textContent = watchedVideos.length
   watchedSection.classList.toggle('hidden', !showWatched || !watchedVideos.length)
   watchedGrid.innerHTML = showWatched ? watchedVideos.map(v => renderCard(v, true)).join('') : ''
+}
+
+function renderUndoButton(s) {
+  const btn = document.getElementById('undoBtn')
+  if (!btn) return
+  const canUndo = s.lastUndo?.type === 'video-status'
+  btn.disabled = !canUndo
+  btn.title = canUndo ? 'Undo latest video status change' : 'Nothing to undo'
 }
 
 function renderChannelFilterOptions(s) {
