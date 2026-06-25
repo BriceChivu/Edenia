@@ -219,7 +219,7 @@ async function ytFetch(url) {
 
 async function fetchChannelVideos(channel, apiKey) {
   const pid  = uploadsId(channel.id)
-  const url  = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=15&playlistId=${pid}&key=${apiKey}`
+  const url  = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=5&playlistId=${pid}&key=${apiKey}`
   const data = await ytFetch(url)
   return data.items.map(item => ({
     id:           item.snippet.resourceId.videoId,

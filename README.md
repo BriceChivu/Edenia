@@ -38,7 +38,7 @@ Click **↻ Refresh** to load the latest videos. Channel names update automatica
 
 | Feature | How it works |
 |---|---|
-| Video feed | Latest 15 videos per channel, sorted by date |
+| Video feed | Latest 5 videos per channel, sorted by date |
 | Watch tracking | Mark videos as ✓ Watched or ⏸ In Progress |
 | Hours tracker | Full watch = full duration, partial = 50% |
 | Weekly goal | Progress bar toward your hour target |
