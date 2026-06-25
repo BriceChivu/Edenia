@@ -39,12 +39,12 @@ const CITY_LEVELS = [
   { threshold: 5, label: '🌱 First tree' },
   { threshold: 12, label: '🌲 Two trees' },
   { threshold: 20, label: '🏡 Farmhouse — goal hit!' },
-  { threshold: 28, label: '🚜 Tractor arrives' },
+  { threshold: 28, label: 'Farm wagon' },
   { threshold: 35, label: '🌾 Barn built' },
-  { threshold: 45, label: '🚗 Farm car' },
+  { threshold: 45, label: 'Horse cart' },
   { threshold: 50, label: '🪣 Homestead' },
   { threshold: 65, label: '🏠 Two houses' },
-  { threshold: 75, label: '🏗️ Crane crew' },
+  { threshold: 75, label: 'Timber crane' },
   { threshold: 85, label: '⚙️ Windmill rising' },
   { threshold: 100, label: '🏘️ Full village' }
 ]
