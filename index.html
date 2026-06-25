@@ -491,11 +491,14 @@
       <div class="section-header">
         <h2 class="section-title">Videos</h2>
         <div class="feed-controls">
-          <select id="filterSelect" onchange="filterFeed()">
+          <select id="statusFilterSelect" onchange="filterFeed()" aria-label="Filter by status">
             <option value="all">All</option>
             <option value="unwatched">Unwatched</option>
             <option value="partial">In progress</option>
             <option value="watched">Watched</option>
+          </select>
+          <select id="channelFilterSelect" onchange="filterFeed()" aria-label="Filter by channel">
+            <option value="all">All channels</option>
           </select>
           <button class="btn-secondary" id="refreshBtn" onclick="refreshFeed()">↻ Refresh</button>
         </div>

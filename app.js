@@ -861,7 +861,10 @@ function applyNightVisuals(s, date = new Date()) {
 }
 
 function renderFeed(s) {
-  const filter = document.getElementById('filterSelect').value
+  renderChannelFilterOptions(s)
+
+  const statusFilter = document.getElementById('statusFilterSelect').value
+  const channelFilter = document.getElementById('channelFilterSelect').value
   const grid   = document.getElementById('videoGrid')
   const watchedSection = document.getElementById('watchedSection')
   const watchedGrid = document.getElementById('watchedGrid')
@@ -871,17 +874,21 @@ function renderFeed(s) {
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
 
   const activeVideos = getVisibleActiveVideos(allVideos)
-    .filter(v => ['all', 'unwatched', 'partial'].includes(filter) && (filter === 'all' || v.status === filter))
+    .filter(v => ['all', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || v.status === statusFilter))
+    .filter(v => matchesChannelFilter(v, channelFilter))
 
-  const watchedVideos = allVideos.filter(v => v.status === 'watched')
-  const showWatched = filter === 'all' || filter === 'watched'
+  const watchedVideos = allVideos
+    .filter(v => v.status === 'watched')
+    .filter(v => matchesChannelFilter(v, channelFilter))
+  const showWatched = statusFilter === 'all' || statusFilter === 'watched'
 
-  if (filter === 'watched') {
+  if (statusFilter === 'watched') {
     grid.innerHTML = ''
   } else if (!activeVideos.length) {
-    const msg = filter === 'all'
+    const channelMsg = channelFilter === 'all' ? '' : ' for this channel'
+    const msg = statusFilter === 'all' && channelFilter === 'all'
       ? 'No videos yet — click ↻ Refresh to load your feed.'
-      : `No ${filter === 'partial' ? 'in-progress' : filter} videos right now.`
+      : `No ${statusFilter === 'all' ? 'active' : statusFilter === 'partial' ? 'in-progress' : statusFilter} videos${channelMsg} right now.`
     grid.innerHTML = `<div class="empty-state">${msg}</div>`
   } else {
     grid.innerHTML = activeVideos.map(v => renderCard(v)).join('')
@@ -890,6 +897,34 @@ function renderFeed(s) {
   watchedCount.textContent = watchedVideos.length
   watchedSection.classList.toggle('hidden', !showWatched || !watchedVideos.length)
   watchedGrid.innerHTML = showWatched ? watchedVideos.map(v => renderCard(v, true)).join('') : ''
+}
+
+function renderChannelFilterOptions(s) {
+  const select = document.getElementById('channelFilterSelect')
+  if (!select) return
+  const current = select.value || 'all'
+  const channels = new Map()
+
+  s.config.channels.forEach(channel => {
+    channels.set(channel.id, channel.name || channel.id)
+  })
+  Object.values(s.videos).forEach(video => {
+    const key = video.channelId || video.channelTitle
+    if (key) channels.set(key, video.channelTitle || channels.get(key) || key)
+  })
+
+  select.innerHTML = [
+    '<option value="all">All channels</option>',
+    ...Array.from(channels.entries())
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .map(([id, name]) => `<option value="${escHtml(id)}">${escHtml(name)}</option>`)
+  ].join('')
+  select.value = channels.has(current) ? current : 'all'
+}
+
+function matchesChannelFilter(video, channelFilter) {
+  if (channelFilter === 'all') return true
+  return video.channelId === channelFilter || video.channelTitle === channelFilter
 }
 
 function getVisibleActiveVideos(videos) {

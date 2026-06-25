@@ -519,6 +519,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 .feed-controls select {
   appearance: none;
@@ -533,6 +534,11 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   font-weight: 700;
   padding: 9px 32px 9px 16px;
   transition: background-color 0.15s;
+}
+#statusFilterSelect { width: 132px; }
+#channelFilterSelect {
+  max-width: 220px;
+  min-width: 150px;
 }
 .feed-controls select:hover {
   background:
@@ -817,6 +823,9 @@ body[data-theme="dark"] .action-btn.partial-btn.active { background: #173947; co
    RESPONSIVE
 ═══════════════════════════════════════════════════════════ */
 @media (max-width: 480px) {
+  .feed-controls { width: 100%; }
+  .feed-controls select { flex: 1 1 140px; }
+  #channelFilterSelect { max-width: none; }
   .video-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .watched-grid { grid-template-columns: 1fr; }
   .anki-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
