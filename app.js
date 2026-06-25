@@ -645,7 +645,7 @@ function applyPeasantPosition(date = new Date()) {
   const peasant = document.getElementById('cityPeasant')
   if (!peasant) return
   const [x, y] = PEASANT_POSITIONS[date.getHours() % PEASANT_POSITIONS.length]
-  peasant.setAttribute('transform', `translate(${x} ${y})`)
+  peasant.setAttribute('transform', `translate(${x} ${y}) scale(0.5)`)
 }
 
 function renderFeed(s) {
