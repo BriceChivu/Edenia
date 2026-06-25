@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Study Build</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- SETUP SCREEN                                           -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="setupScreen" class="setup-screen hidden">
+    <div class="setup-card">
+      <div class="setup-logo">STUDY BUILD</div>
+      <p class="setup-sub">Your personal learning dashboard. Set up in 2 minutes.</p>
+
+      <div class="setup-step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <label for="setupApiKey">YouTube Data API v3 Key</label>
+          <p class="step-hint">
+            Get one free at
+            <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a>
+            → New project → Enable <em>YouTube Data API v3</em> → Credentials → Create API key
+          </p>
+          <input type="text" id="setupApiKey" placeholder="AIzaSy…" autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+
+      <div class="setup-step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <label for="setupGoal">Weekly video goal (hours)</label>
+          <input type="number" id="setupGoal" value="4" min="1" max="99">
+        </div>
+      </div>
+
+      <button class="btn-primary btn-full" onclick="completeSetup()">Start learning →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- SETTINGS PANEL                                        -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="settingsPanel" class="settings-panel hidden">
+    <div class="settings-overlay" onclick="closeSettings()"></div>
+    <div class="settings-drawer">
+      <div class="settings-header">
+        <span class="settings-title">Settings</span>
+        <button class="btn-icon" onclick="closeSettings()">✕</button>
+      </div>
+
+      <div class="settings-group">
+        <label>API Key</label>
+        <input type="password" id="settingsApiKey" autocomplete="off">
+      </div>
+
+      <div class="settings-group">
+        <label>Weekly goal (hours)</label>
+        <input type="number" id="settingsGoal" min="1" max="99">
+      </div>
+
+      <div class="settings-group">
+        <label>Channels</label>
+        <div id="channelList" class="channel-list"></div>
+        <div class="add-channel-row">
+          <input type="text" id="newChannelId" placeholder="Channel ID  (UCxxxxxxxx)">
+          <input type="text" id="newChannelName" placeholder="Label">
+          <button class="btn-secondary" onclick="addChannel()">Add</button>
+        </div>
+        <p class="step-hint">
+          Find a channel ID: visit their YouTube page → share icon → Copy channel ID.
+          Or look at the URL: youtube.com/channel/<strong>UCxxxxxxxx</strong>
+        </p>
+      </div>
+
+      <div class="settings-actions">
+        <button class="btn-primary" onclick="saveSettings()">Save</button>
+        <button class="btn-ghost" onclick="resetApp()">Reset everything</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- MAIN APP                                              -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div id="mainApp" class="hidden">
+
+    <!-- HEADER -->
+    <header class="app-header">
+      <div class="header-left">
+        <h1 class="app-title">STUDY BUILD</h1>
+        <span class="week-label" id="weekLabel"></span>
+      </div>
+      <div class="header-right">
+        <div class="streak-pill" id="streakDisplay">
+          <span class="streak-icon">🔥</span>
+          <span class="streak-num" id="streakCount">0</span>
+          <span class="streak-text">day streak</span>
+        </div>
+        <button class="btn-icon gear-btn" onclick="openSettings()" title="Settings">⚙</button>
+      </div>
+    </header>
+
+    <!-- CITY BUILDER ──────────────────────────────────────── -->
+    <section class="city-section">
+      <svg id="cityscape" viewBox="0 0 900 280" xmlns="http://www.w3.org/2000/svg"
+           aria-label="Study city — grows as you learn">
+
+        <defs>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3.5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+
+        <!-- SKY (id so JS can lighten it when streak is active) -->
+        <rect id="citySky" x="0" y="0" width="900" height="280" fill="#06060e"/>
+
+        <!-- Stars -->
+        <circle cx="48"  cy="28" r="1.5" fill="#fff" opacity="0.7"/>
+        <circle cx="130" cy="55" r="1"   fill="#fff" opacity="0.5"/>
+        <circle cx="220" cy="22" r="2"   fill="#fff" opacity="0.8"/>
+        <circle cx="315" cy="70" r="1"   fill="#fff" opacity="0.4"/>
+        <circle cx="415" cy="35" r="1.5" fill="#fff" opacity="0.6"/>
+        <circle cx="500" cy="18" r="1"   fill="#fff" opacity="0.7"/>
+        <circle cx="590" cy="50" r="1.5" fill="#fff" opacity="0.5"/>
+        <circle cx="668" cy="28" r="1"   fill="#fff" opacity="0.6"/>
+        <circle cx="758" cy="58" r="1.5" fill="#fff" opacity="0.7"/>
+        <circle cx="845" cy="22" r="1"   fill="#fff" opacity="0.4"/>
+        <circle cx="80"  cy="80" r="1"   fill="#fff" opacity="0.3"/>
+        <circle cx="540" cy="65" r="1"   fill="#fff" opacity="0.5"/>
+
+        <!-- Moon (crescent effect via overlapping circles) -->
+        <circle cx="822" cy="48" r="28" fill="#e8e8f8" opacity="0.85"/>
+        <circle cx="834" cy="40" r="24" fill="#06060e"/>
+
+        <!-- Background mountains (silhouette, always visible) -->
+        <polygon points="0,280 0,162 78,108 165,140 258,175 315,280" fill="#0b0b20"/>
+        <polygon points="580,280 632,150 703,116 778,142 858,170 900,188 900,280" fill="#0d0d24"/>
+
+        <!-- Ground -->
+        <rect x="0" y="248" width="900" height="32" fill="#0c2208"/>
+        <rect x="0" y="248" width="900" height="7"  fill="#163010"/>
+        <!-- Grass tufts -->
+        <rect x="30"  y="245" width="3" height="7" fill="#1e4a12"/>
+        <rect x="190" y="244" width="3" height="8" fill="#1e4a12"/>
+        <rect x="350" y="245" width="4" height="7" fill="#1e4a12"/>
+        <rect x="552" y="244" width="3" height="8" fill="#1e4a12"/>
+        <rect x="720" y="245" width="3" height="7" fill="#1e4a12"/>
+        <rect x="872" y="244" width="4" height="8" fill="#1e4a12"/>
+
+        <!-- ─────────────────────────────────────────────── -->
+        <!-- threshold=5 │ Left pine trees (~1h video)      -->
+        <g data-threshold="5" opacity="0">
+          <rect x="107" y="218" width="7" height="30" fill="#4a2e0e" rx="1"/>
+          <polygon points="110,175 92,211 128,211"  fill="#1a5010"/>
+          <polygon points="110,194 89,223 131,223"  fill="#226614"/>
+          <polygon points="110,210 87,239 133,239"  fill="#2a7a1c"/>
+          <rect x="152" y="224" width="6" height="24" fill="#4a2e0e" rx="1"/>
+          <polygon points="155,188 139,217 171,217" fill="#1a5010"/>
+          <polygon points="155,206 137,231 173,231" fill="#226614"/>
+          <polygon points="155,221 135,245 175,245" fill="#2a7a1c"/>
+        </g>
+
+        <!-- threshold=12 │ Right pine trees (~2h video)    -->
+        <g data-threshold="12" opacity="0">
+          <rect x="748" y="220" width="7" height="28" fill="#4a2e0e" rx="1"/>
+          <polygon points="751,178 733,212 769,212" fill="#1a5010"/>
+          <polygon points="751,197 731,225 771,225" fill="#226614"/>
+          <polygon points="751,213 729,242 773,242" fill="#2a7a1c"/>
+          <rect x="785" y="226" width="6" height="22" fill="#4a2e0e" rx="1"/>
+          <polygon points="788,192 773,219 803,219" fill="#1a5010"/>
+          <polygon points="788,208 771,231 805,231" fill="#226614"/>
+          <polygon points="788,222 769,245 807,245" fill="#2a7a1c"/>
+        </g>
+
+        <!-- threshold=20 │ Farmhouse — goal unlocked! 🏡   -->
+        <g data-threshold="20" opacity="0">
+          <!-- Fence -->
+          <rect x="396" y="228" width="5" height="20" fill="#7a5028" rx="1"/>
+          <rect x="407" y="228" width="5" height="20" fill="#7a5028" rx="1"/>
+          <rect x="490" y="228" width="5" height="20" fill="#7a5028" rx="1"/>
+          <rect x="501" y="228" width="5" height="20" fill="#7a5028" rx="1"/>
+          <rect x="396" y="231" width="112" height="4" fill="#6a4018" rx="2"/>
+          <rect x="396" y="240" width="112" height="4" fill="#6a4018" rx="2"/>
+          <!-- Wall -->
+          <rect x="415" y="195" width="76" height="53" fill="#c4956a"/>
+          <!-- Roof -->
+          <polygon points="408,195 453,154 494,195" fill="#7a2018"/>
+          <!-- Chimney -->
+          <rect x="465" y="157" width="11" height="27" fill="#9a9a9a"/>
+          <rect x="463" y="155" width="15" height="6"  fill="#888"/>
+          <!-- Door -->
+          <rect x="441" y="219" width="22" height="29" fill="#3e1a08" rx="2"/>
+          <circle cx="459" cy="235" r="2.5" fill="#c4a020"/>
+          <!-- Windows (glowing yellow) -->
+          <rect x="421" y="205" width="18" height="13" fill="#f8e858" filter="url(#glow)" rx="1"/>
+          <line x1="430" y1="205" x2="430" y2="218" stroke="#c4956a" stroke-width="1.5"/>
+          <rect x="468" y="205" width="18" height="13" fill="#f8e858" filter="url(#glow)" rx="1"/>
+          <line x1="477" y1="205" x2="477" y2="218" stroke="#c4956a" stroke-width="1.5"/>
+        </g>
+
+        <!-- threshold=35 │ Barn                            -->
+        <g data-threshold="35" opacity="0">
+          <rect x="530" y="202" width="82" height="46" fill="#8b2e10"/>
+          <polygon points="523,202 571,162 614,202" fill="#6a1e08"/>
+          <!-- Loft vent -->
+          <polygon points="558,186 571,171 584,186" fill="#4a1008"/>
+          <!-- Double barn door -->
+          <rect x="548" y="214" width="18" height="34" fill="#4a1008"/>
+          <rect x="566" y="214" width="18" height="34" fill="#3e0e06"/>
+          <line x1="566" y1="214" x2="566" y2="248" stroke="#6a2010" stroke-width="2"/>
+          <rect x="534" y="212" width="10" height="7" fill="#2a0808"/>
+          <rect x="592" y="212" width="10" height="7" fill="#2a0808"/>
+        </g>
+
+        <!-- threshold=50 │ Well + chicken coop             -->
+        <g data-threshold="50" opacity="0">
+          <!-- Well -->
+          <rect x="376" y="228" width="30" height="20" fill="#8a8a8a" rx="2"/>
+          <rect x="373" y="225" width="36" height="6"  fill="#aaa" rx="2"/>
+          <rect x="375" y="213" width="4" height="18" fill="#7a5028"/>
+          <rect x="403" y="213" width="4" height="18" fill="#7a5028"/>
+          <rect x="374" y="213" width="34" height="4" fill="#8b5e30" rx="2"/>
+          <polygon points="372,216 391,203 410,216" fill="#5c3010"/>
+          <rect x="389" y="215" width="4" height="14" fill="#c8a060"/>
+          <!-- Chicken coop -->
+          <rect x="627" y="228" width="36" height="20" fill="#c4956a"/>
+          <polygon points="624,228 645,215 664,228" fill="#7a2018"/>
+          <rect x="638" y="232" width="10" height="16" fill="#3e1a08" rx="1"/>
+        </g>
+
+        <!-- threshold=65 │ Second house (left area)        -->
+        <g data-threshold="65" opacity="0">
+          <rect x="258" y="183" width="84" height="65" fill="#d4aa7d"/>
+          <polygon points="250,183 300,139 350,183" fill="#8b2018"/>
+          <rect x="316" y="142" width="12" height="31" fill="#9a9a9a"/>
+          <rect x="314" y="140" width="16" height="7"  fill="#888"/>
+          <rect x="286" y="222" width="24" height="26" fill="#4a2808" rx="2"/>
+          <circle cx="306" cy="236" r="2.5" fill="#c4a020"/>
+          <!-- Windows -->
+          <rect x="264" y="194" width="22" height="15" fill="#f8e858" filter="url(#glow)" rx="1"/>
+          <line x1="275" y1="194" x2="275" y2="209" stroke="#c4956a" stroke-width="1.5"/>
+          <line x1="264" y1="201" x2="286" y2="201" stroke="#c4956a" stroke-width="1.5"/>
+          <rect x="314" y="194" width="22" height="15" fill="#f8e858" filter="url(#glow)" rx="1"/>
+          <line x1="325" y1="194" x2="325" y2="209" stroke="#c4956a" stroke-width="1.5"/>
+          <line x1="314" y1="201" x2="336" y2="201" stroke="#c4956a" stroke-width="1.5"/>
+        </g>
+
+        <!-- threshold=85 │ Windmill                        -->
+        <g data-threshold="85" opacity="0">
+          <polygon points="672,248 678,172 702,172 708,248" fill="#c0bfbd"/>
+          <polygon points="674,175 690,151 706,175" fill="#8b5e3c"/>
+          <circle cx="690" cy="172" r="6" fill="#888"/>
+          <circle cx="690" cy="172" r="3" fill="#ccc"/>
+          <!-- 4 blades at different angles -->
+          <rect x="688" y="132" width="4" height="36" fill="#d8d8d8" rx="2" transform="rotate(-22 690 172)"/>
+          <rect x="688" y="132" width="4" height="36" fill="#d0d0d0" rx="2" transform="rotate(68 690 172)"/>
+          <rect x="688" y="132" width="4" height="36" fill="#d8d8d8" rx="2" transform="rotate(158 690 172)"/>
+          <rect x="688" y="132" width="4" height="36" fill="#d0d0d0" rx="2" transform="rotate(248 690 172)"/>
+          <rect x="683" y="228" width="14" height="20" fill="#8b5e3c" rx="2"/>
+        </g>
+
+        <!-- threshold=100 │ Full village glow               -->
+        <g data-threshold="100" opacity="0">
+          <circle cx="430" cy="211" r="24" fill="#f8d820" opacity="0.08"/>
+          <circle cx="477" cy="211" r="24" fill="#f8d820" opacity="0.08"/>
+          <circle cx="275" cy="201" r="26" fill="#f8d820" opacity="0.07"/>
+          <circle cx="325" cy="201" r="26" fill="#f8d820" opacity="0.07"/>
+          <!-- Extra twinkling stars -->
+          <circle cx="175" cy="40" r="2.5" fill="#fff" opacity="0.9"/>
+          <circle cx="450" cy="12" r="2"   fill="#fff" opacity="0.85"/>
+          <circle cx="640" cy="38" r="2.5" fill="#fff" opacity="0.9"/>
+        </g>
+
+      </svg>
+
+      <div class="city-footer">
+        <span class="city-stage" id="cityLabel">Empty land</span>
+        <span class="city-pts"><span id="cityScore">0</span> pts this week</span>
+      </div>
+    </section>
+
+    <!-- ANALYTICS ────────────────────────────────────────── -->
+    <section class="analytics-section">
+      <div class="goal-card">
+        <div class="goal-header">
+          <span>Weekly goal</span>
+          <span class="goal-nums">
+            <span id="hoursWatched">0.0</span>h
+            <span class="goal-slash">/</span>
+            <span id="goalHours">4</span>h
+          </span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="goalProgressBar" style="width:0%"></div>
+        </div>
+        <div class="goal-sub">
+          <span><b id="videosWatched">0</b> watched</span>
+          <span class="dot">·</span>
+          <span><b id="videosPartial">0</b> in progress</span>
+          <span class="dot">·</span>
+          <span>~<b id="videosRemaining">?</b> videos to go</span>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat-pill">
+          <span class="stat-val" id="ankiReviewedStat">—</span>
+          <span class="stat-lbl">Anki reviews</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-val" id="ankiCreatedStat">—</span>
+          <span class="stat-lbl">new cards</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-val" id="streakLongest">0</span>
+          <span class="stat-lbl">best streak</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ANKI LOGGER ─────────────────────────────────────── -->
+    <section class="anki-section">
+      <div class="section-header">
+        <h2 class="section-title">Log Anki</h2>
+        <span class="anki-status" id="ankiTodayStatus">Today: not logged</span>
+      </div>
+      <div class="anki-form">
+        <input type="number" id="ankiReviewedInput" placeholder="Reviewed" min="0">
+        <input type="number" id="ankiCreatedInput"  placeholder="New cards" min="0">
+        <button class="btn-primary"    onclick="logAnkiSession()">Log</button>
+        <button class="btn-secondary"  onclick="tryAnkiConnect()" title="Auto-fill from Anki desktop">⚡ AnkiConnect</button>
+      </div>
+    </section>
+
+    <!-- VIDEO FEED ──────────────────────────────────────── -->
+    <section class="feed-section">
+      <div class="section-header">
+        <h2 class="section-title">Videos</h2>
+        <div class="feed-controls">
+          <select id="filterSelect" onchange="filterFeed()">
+            <option value="all">All</option>
+            <option value="unwatched">Unwatched</option>
+            <option value="partial">In progress</option>
+            <option value="watched">Watched</option>
+          </select>
+          <button class="btn-secondary" id="refreshBtn" onclick="refreshFeed()">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="video-grid" id="videoGrid">
+        <div class="empty-state">No videos yet — click ↻ Refresh to load your feed.</div>
+      </div>
+    </section>
+
+  </div><!-- /mainApp -->
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
