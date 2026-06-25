@@ -1,0 +1,6 @@
+- suggest ways to handle the watched videos and pull new videos (e.g., put the watched videos into a folder and have new videos pulled from the same channel?)
+- have the scoring points system in the settings so I can modify them on the fly
+- have a dawn, morning, noon, afternoon, sunset, night mode corresponding to the real time of the day, which would affect the light and shadows of the farm town visuals
+- instead of the Log Anki section, show some Anki statistics directly pulled from AnkiConnect
+- change the color palette of the website to my planet.png
+- 
