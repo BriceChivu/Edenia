@@ -426,14 +426,7 @@ function getWeeklyStats(s) {
   const hoursWatched = secondsWatched / 3600
   const goalHours    = s.config.weeklyGoalHours || 4
   const goalProgress = Math.min((hoursWatched / goalHours) * 100, 100)
-
-  // Estimate videos remaining based on average duration so far
-  const avgSecs = watched.length
-    ? watched.reduce((sum, v) => sum + (v.duration || 0), 0) / watched.length
-    : 0
-  const videosRemaining = avgSecs > 0
-    ? Math.ceil(Math.max(0, goalHours * 3600 - secondsWatched) / avgSecs)
-    : '?'
+  const remainingSeconds = Math.max(0, Math.round(goalHours * 3600 - secondsWatched))
 
   // Anki totals for this week
   const ankiThisWeek = Object.entries(s.anki)
@@ -444,10 +437,19 @@ function getWeeklyStats(s) {
     hoursWatched, secondsWatched, goalHours, goalProgress,
     videosWatched: watched.length,
     videosPartial: partial.length,
-    videosRemaining,
+    remainingSeconds,
     ankiReviewed: ankiThisWeek.reviewed,
     ankiCreated:  ankiThisWeek.created
   }
+}
+
+function formatHoursMinutes(secs) {
+  const hours = Math.floor(secs / 3600)
+  const minutes = Math.ceil((secs % 3600) / 60)
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
+  }
+  return `${minutes}m`
 }
 
 function calcCityScore(stats, s) {
@@ -497,7 +499,7 @@ function renderAnalytics(stats, s) {
   document.getElementById('goalHours').textContent       = stats.goalHours
   document.getElementById('videosWatched').textContent   = stats.videosWatched
   document.getElementById('videosPartial').textContent   = stats.videosPartial
-  document.getElementById('videosRemaining').textContent = stats.videosRemaining
+  document.getElementById('videosRemaining').textContent = formatHoursMinutes(stats.remainingSeconds)
   document.getElementById('ankiReviewedStat').textContent = stats.ankiReviewed || '—'
   document.getElementById('ankiCreatedStat').textContent  = stats.ankiCreated  || '—'
   document.getElementById('streakLongest').textContent   = s.streak.longest
