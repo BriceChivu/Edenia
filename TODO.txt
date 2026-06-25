@@ -1,4 +1,4 @@
 - add light and dark modes
 - have a button undo to be able to undo the lastest following actions: mark watched, mark as in progress, unmark
-- add 1 cow, 1 horse, 1 pig as scoring level up
 - on the left on the Videos section refresh button, have two buttons: one that lets me filter by status (unwatched, etc.) and one that lets me filter by channel
+- change the design of the 3 random events such that they match the rest of the style (simple SVG)

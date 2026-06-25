@@ -21,6 +21,8 @@ const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = 50
 const MAX_FETCH_PAGES_PER_CHANNEL = 10
+const DEFAULT_THEME = 'light'
+const THEMES = ['light', 'dark']
 const TIME_OF_DAY_MODES = {
   dawn:      { start: 5,  sky: '#11556d', activeSky: '#176b82', horizon: '#c9ef68', wash: 0.46, sun: [150, 88, 0.54], moon: 0.18, stars: 0.28, tint: '#82d2ef', tintOpacity: 0.08, shadows: 0.52, shadowShift: '34 0', cityFilter: 'brightness(1.06) saturate(1.16)' },
   morning:   { start: 7,  sky: '#12bcea', activeSky: '#45cdec', horizon: '#c9ef68', wash: 0.30, sun: [705, 70, 0.88], moon: 0.04, stars: 0,    tint: '#ffffff', tintOpacity: 0.03, shadows: 0.34, shadowShift: '22 0', cityFilter: 'brightness(1.14) saturate(1.08)' },
@@ -82,19 +84,37 @@ function saveConfigCookie(config) {
   } catch {}
 }
 
+function normalizeTheme(theme) {
+  return THEMES.includes(theme) ? theme : DEFAULT_THEME
+}
+
+function applyTheme(theme) {
+  const normalizedTheme = normalizeTheme(theme)
+  document.documentElement.dataset.theme = normalizedTheme
+  document.body.dataset.theme = normalizedTheme
+  const toggle = document.getElementById('themeToggle')
+  if (toggle) {
+    const isDark = normalizedTheme === 'dark'
+    toggle.dataset.theme = normalizedTheme
+    toggle.title = isDark ? 'Switch to light mode' : 'Switch to dark mode'
+    toggle.setAttribute('aria-label', toggle.title)
+  }
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const state = JSON.parse(raw)
       if (state?.config && !state.config.apiKey) state.config.apiKey = DEFAULT_API_KEY
+      if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
       return state
     }
   } catch {}
 
   const fallback = loadConfigCookie()
   if (fallback?.apiKey) {
-    return defaultState(fallback.apiKey, fallback.weeklyGoalHours || 4, fallback.channels)
+    return defaultState(fallback.apiKey, fallback.weeklyGoalHours || 4, fallback.channels, fallback.theme)
   }
 
   return null
@@ -105,11 +125,12 @@ function saveState(s) {
   saveConfigCookie(s.config)
 }
 
-function defaultState(apiKey, goalHours, channels) {
+function defaultState(apiKey, goalHours, channels, theme) {
   return {
     config: {
       apiKey: apiKey || DEFAULT_API_KEY,
       weeklyGoalHours: goalHours || 4,
+      theme: normalizeTheme(theme),
       channels: channels?.length ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c }))
     },
     videos:  {},   // { [videoId]: VideoRecord }
@@ -187,6 +208,7 @@ function init() {
     saveState(state)
   }
 
+  applyTheme(state.config.theme)
   show('mainApp')
   renderAll(state)
   startCityClock()
@@ -215,6 +237,13 @@ function saveSettings() {
   closeSettings()
   renderAll(s)
   showToast('Settings saved')
+}
+
+function toggleTheme() {
+  const s = loadState()
+  s.config.theme = normalizeTheme(s.config.theme) === 'dark' ? 'light' : 'dark'
+  saveState(s)
+  applyTheme(s.config.theme)
 }
 
 function addChannel() {
