@@ -242,6 +242,17 @@ select option { background: var(--surface); }
   display: block;
   width: 100%;
   height: auto;
+  transition: filter 1.2s ease;
+}
+#citySky,
+#cityHorizonWash,
+#citySun,
+#cityLightTint,
+#cityShadows,
+.city-star,
+.city-moon,
+.city-moon-cutout {
+  transition: fill 1.2s ease, opacity 1.2s ease, transform 1.2s ease;
 }
 /* City elements fade in/out via JS (opacity) */
 [data-threshold] { transition: opacity 1.5s ease; }
@@ -435,6 +446,63 @@ select option { background: var(--surface); }
 .video-card.status-watched { border-left-color: var(--green); opacity: 0.75; }
 .video-card.status-watched:hover { opacity: 1; }
 
+.watched-section {
+  border-top: 1px solid var(--border);
+  padding-top: var(--gap);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.watched-count {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.watched-grid {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+}
+.compact-card {
+  min-height: 36px;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  border-radius: 8px;
+}
+.compact-card:hover { transform: none; }
+.compact-card .thumb-link {
+  aspect-ratio: auto;
+  height: 36px;
+}
+.compact-card .dur-badge,
+.compact-card .overlay-badge,
+.compact-card .card-meta,
+.compact-card .partial-btn {
+  display: none;
+}
+.compact-card .card-body {
+  align-items: center;
+  flex-direction: row;
+  min-width: 0;
+  padding: 4px 6px;
+  gap: 6px;
+}
+.compact-card .card-title {
+  flex: 1;
+  font-size: 0.72rem;
+  line-height: 1.15;
+  -webkit-line-clamp: 1;
+}
+.compact-card .card-actions {
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+.compact-card .action-btn {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  font-size: 0.68rem;
+  line-height: 1.2;
+}
+
 /* Thumbnail */
 .thumb-link {
   display: block;
@@ -562,6 +630,7 @@ select option { background: var(--surface); }
 ═══════════════════════════════════════════════════════════ */
 @media (max-width: 480px) {
   .video-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .watched-grid { grid-template-columns: 1fr; }
   .anki-form { flex-direction: column; }
   .anki-form input { width: 100%; }
   .card-title { font-size: 0.78rem; }

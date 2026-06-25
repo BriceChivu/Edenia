@@ -1,6 +1,6 @@
-- keep the API key as default in the settings: AIzaSyAVmsqp-5o1ufYCuMak38jigQRHFhf0g1Y
-- When hitting refresh, videos tagged "watched" should go at the bottom of the website in a "Watched" section like the "Videos" section and have their height be 1/7th of the height of the not watched videos. In other words, the watched videos would take a lot less space (which makes sense since in a few months I'd have watched many videos). Then, videos should be pulled such that there are always 5 videos being shown to me to watch per channel. If I have watched the latest 5 videos from channel A, 5 older videos from channel A should appear in the video section.
 - have the scoring points system in the settings so I can modify them on the fly
 - have a dawn, morning, noon, afternoon, sunset, night mode corresponding to the real time of the day, which would affect the light and shadows of the farm town visuals
 - instead of the Log Anki section, show some Anki statistics directly pulled from AnkiConnect
 - change the color palette of the website to my planet.png
+- add light and dark modes
+- make sure the Mark watched and pause buttom are always at the bottom of the video card, even if the video title is short

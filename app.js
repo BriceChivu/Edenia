@@ -17,6 +17,17 @@ const DEFAULT_CHANNELS = [
 const STORAGE_KEY = 'studybuild_v1'
 const CONFIG_COOKIE_KEY = 'studybuild_config'
 const DEFAULT_API_KEY = 'AIzaSyAVmsqp-5o1ufYCuMak38jigQRHFhf0g1Y'
+const ACTIVE_VIDEOS_PER_CHANNEL = 5
+const FETCH_PAGE_SIZE = 50
+const MAX_FETCH_PAGES_PER_CHANNEL = 10
+const TIME_OF_DAY_MODES = {
+  dawn:      { start: 5,  sky: '#2d2448', activeSky: '#342c58', horizon: '#ffb26b', wash: 0.58, sun: [150, 88, 0.54], moon: 0.18, stars: 0.28, tint: '#ff8f48', tintOpacity: 0.08, shadows: 0.52, shadowShift: '34 0', cityFilter: 'brightness(1.05) saturate(1.08)' },
+  morning:   { start: 7,  sky: '#6da8d8', activeSky: '#78b7ea', horizon: '#ffe0a0', wash: 0.30, sun: [705, 70, 0.88], moon: 0.04, stars: 0,    tint: '#fff2c8', tintOpacity: 0.03, shadows: 0.34, shadowShift: '22 0', cityFilter: 'brightness(1.12) saturate(1.05)' },
+  noon:      { start: 11, sky: '#74c7ef', activeSky: '#82d7ff', horizon: '#ffffff', wash: 0.10, sun: [450, 34, 1],    moon: 0,    stars: 0,    tint: '#ffffff', tintOpacity: 0.02, shadows: 0.18, shadowShift: '0 0',  cityFilter: 'brightness(1.2) saturate(1)' },
+  afternoon: { start: 14, sky: '#5aa6df', activeSky: '#67b6ef', horizon: '#ffd482', wash: 0.22, sun: [680, 68, 0.9],  moon: 0,    stars: 0,    tint: '#ffd184', tintOpacity: 0.05, shadows: 0.38, shadowShift: '-18 0', cityFilter: 'brightness(1.1) saturate(1.06)' },
+  sunset:    { start: 17, sky: '#3b2b57', activeSky: '#463665', horizon: '#ff7a4a', wash: 0.68, sun: [770, 125, 0.68], moon: 0.28, stars: 0.18, tint: '#ff6c3c', tintOpacity: 0.13, shadows: 0.62, shadowShift: '-32 0', cityFilter: 'brightness(0.95) saturate(1.18)' },
+  night:     { start: 19, sky: '#06060e', activeSky: '#08102a', horizon: '#24305e', wash: 0.12, sun: [760, 72, 0],    moon: 0.85, stars: 1,    tint: '#020312', tintOpacity: 0.18, shadows: 0.70, shadowShift: '0 0',  cityFilter: 'brightness(0.78) saturate(0.92)' }
+}
 
 function getCookie(key) {
   return document.cookie.split('; ').reduce((value, part) => {
@@ -145,6 +156,7 @@ function init() {
 
   show('mainApp')
   renderAll(state)
+  startCityClock()
   if (!state.lastFetched) showToast('Add or edit channels in ⚙ Settings, then hit ↻ Refresh', 'warn')
 }
 
@@ -242,20 +254,45 @@ async function ytFetch(url) {
   return res.json()
 }
 
-async function fetchChannelVideos(channel, apiKey) {
+async function fetchChannelVideosPage(channel, apiKey, pageToken = '') {
   const pid  = uploadsId(channel.id)
-  const url  = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=5&playlistId=${pid}&key=${apiKey}`
+  const tokenParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''
+  const url  = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=${FETCH_PAGE_SIZE}&playlistId=${pid}&key=${apiKey}${tokenParam}`
   const data = await ytFetch(url)
-  return data.items.map(item => ({
-    id:           item.snippet.resourceId.videoId,
-    title:        item.snippet.title,
-    channelTitle: item.snippet.channelTitle,
-    channelId:    channel.id,
-    thumbnail:    item.snippet.thumbnails?.high?.url
-                  || item.snippet.thumbnails?.medium?.url
-                  || item.snippet.thumbnails?.default?.url,
-    publishedAt:  item.snippet.publishedAt
-  }))
+  return {
+    videos: data.items.map(item => ({
+      id:           item.snippet.resourceId.videoId,
+      title:        item.snippet.title,
+      channelTitle: item.snippet.channelTitle,
+      channelId:    channel.id,
+      thumbnail:    item.snippet.thumbnails?.high?.url
+                    || item.snippet.thumbnails?.medium?.url
+                    || item.snippet.thumbnails?.default?.url,
+      publishedAt:  item.snippet.publishedAt
+    })),
+    nextPageToken: data.nextPageToken || null
+  }
+}
+
+async function fetchChannelVideos(channel, apiKey, knownVideos = {}) {
+  const fetched = []
+  let pageToken = ''
+  let pages = 0
+
+  while (pages < MAX_FETCH_PAGES_PER_CHANNEL) {
+    const page = await fetchChannelVideosPage(channel, apiKey, pageToken)
+    pages += 1
+    fetched.push(...page.videos)
+
+    const activeCount = fetched
+      .filter(v => (knownVideos[v.id]?.status || 'unwatched') !== 'watched')
+      .length
+
+    if (activeCount >= ACTIVE_VIDEOS_PER_CHANNEL || !page.nextPageToken) break
+    pageToken = page.nextPageToken
+  }
+
+  return fetched
 }
 
 async function fetchDurations(videoIds, apiKey) {
@@ -288,7 +325,7 @@ async function refreshFeed() {
     // Fetch each channel concurrently
     await Promise.all(s.config.channels.map(async ch => {
       try {
-        const vids = await fetchChannelVideos(ch, s.config.apiKey)
+        const vids = await fetchChannelVideos(ch, s.config.apiKey, s.videos)
         all.push(...vids)
         // Auto-update stored channel name from API response
         const first = vids[0]
@@ -478,6 +515,16 @@ function getCityStage(score) {
   return '🌑 Empty land'
 }
 
+function getTimeOfDay(date = new Date()) {
+  const hour = date.getHours()
+  if (hour >= TIME_OF_DAY_MODES.sunset.start) return hour >= TIME_OF_DAY_MODES.night.start ? 'night' : 'sunset'
+  if (hour >= TIME_OF_DAY_MODES.afternoon.start) return 'afternoon'
+  if (hour >= TIME_OF_DAY_MODES.noon.start) return 'noon'
+  if (hour >= TIME_OF_DAY_MODES.morning.start) return 'morning'
+  if (hour >= TIME_OF_DAY_MODES.dawn.start) return 'dawn'
+  return 'night'
+}
+
 // ════════════════════════════════════════════════════════════
 // RENDERING
 // ════════════════════════════════════════════════════════════
@@ -535,34 +582,114 @@ function renderCity(score, s) {
     el.style.opacity = score >= parseInt(el.dataset.threshold) ? '1' : '0'
   })
 
-  // Lighten the sky slightly on an active streak day
-  const active = s.streak.lastActivityDate === toDateKey()
-  document.getElementById('citySky').setAttribute('fill', active ? '#08102a' : '#06060e')
+  applyCityTimeOfDay(s.streak.lastActivityDate === toDateKey())
+}
+
+function applyCityTimeOfDay(activeStreak = false) {
+  const modeName = getTimeOfDay()
+  const mode = TIME_OF_DAY_MODES[modeName]
+  const sky = document.getElementById('citySky')
+  const sun = document.getElementById('citySun')
+  const horizon = document.getElementById('cityHorizonWash')
+  const horizonColor = document.getElementById('horizonWashColor')
+  const moon = document.querySelectorAll('.city-moon')
+  const moonCutout = document.querySelector('.city-moon-cutout')
+  const stars = document.querySelectorAll('.city-star')
+  const shadows = document.getElementById('cityShadows')
+  const tint = document.getElementById('cityLightTint')
+  const cityscape = document.getElementById('cityscape')
+
+  if (!mode || !sky) return
+
+  cityscape.dataset.timeOfDay = modeName
+  cityscape.setAttribute('aria-label', `Study city — grows as you learn, currently ${modeName}`)
+  cityscape.style.filter = mode.cityFilter
+  sky.setAttribute('fill', activeStreak ? mode.activeSky : mode.sky)
+  horizon.setAttribute('opacity', mode.wash)
+  horizonColor.setAttribute('stop-color', mode.horizon)
+  sun.setAttribute('cx', mode.sun[0])
+  sun.setAttribute('cy', mode.sun[1])
+  sun.setAttribute('opacity', mode.sun[2])
+  moon.forEach(el => el.setAttribute('opacity', mode.moon))
+  if (moonCutout) {
+    moonCutout.setAttribute('opacity', mode.moon)
+    moonCutout.setAttribute('fill', activeStreak ? mode.activeSky : mode.sky)
+  }
+  stars.forEach(el => {
+    if (!el.dataset.baseOpacity) el.dataset.baseOpacity = el.getAttribute('opacity') || '1'
+    el.setAttribute('opacity', mode.stars * (parseFloat(el.dataset.baseOpacity) || 1))
+  })
+  shadows.setAttribute('opacity', mode.shadows)
+  shadows.setAttribute('transform', `translate(${mode.shadowShift})`)
+  tint.setAttribute('fill', mode.tint)
+  tint.setAttribute('opacity', mode.tintOpacity)
+}
+
+function startCityClock() {
+  clearInterval(startCityClock._timer)
+  startCityClock._timer = setInterval(() => {
+    const state = loadState()
+    if (state) applyCityTimeOfDay(state.streak.lastActivityDate === toDateKey())
+  }, 60_000)
 }
 
 function renderFeed(s) {
   const filter = document.getElementById('filterSelect').value
   const grid   = document.getElementById('videoGrid')
+  const watchedSection = document.getElementById('watchedSection')
+  const watchedGrid = document.getElementById('watchedGrid')
+  const watchedCount = document.getElementById('watchedCount')
 
-  const videos = Object.values(s.videos)
-    .filter(v => filter === 'all' || v.status === filter)
+  const allVideos = Object.values(s.videos)
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
 
-  if (!videos.length) {
+  const activeVideos = getVisibleActiveVideos(allVideos)
+    .filter(v => ['all', 'unwatched', 'partial'].includes(filter) && (filter === 'all' || v.status === filter))
+
+  const watchedVideos = allVideos.filter(v => v.status === 'watched')
+  const showWatched = filter === 'all' || filter === 'watched'
+
+  if (filter === 'watched') {
+    grid.innerHTML = ''
+  } else if (!activeVideos.length) {
     const msg = filter === 'all'
       ? 'No videos yet — click ↻ Refresh to load your feed.'
       : `No ${filter === 'partial' ? 'in-progress' : filter} videos right now.`
     grid.innerHTML = `<div class="empty-state">${msg}</div>`
-    return
+  } else {
+    grid.innerHTML = activeVideos.map(v => renderCard(v)).join('')
   }
-  grid.innerHTML = videos.map(renderCard).join('')
+
+  watchedCount.textContent = watchedVideos.length
+  watchedSection.classList.toggle('hidden', !showWatched || !watchedVideos.length)
+  watchedGrid.innerHTML = showWatched ? watchedVideos.map(v => renderCard(v, true)).join('') : ''
 }
 
-function renderCard(v) {
+function getVisibleActiveVideos(videos) {
+  const byChannel = new Map()
+
+  videos
+    .filter(v => v.status !== 'watched')
+    .forEach(v => {
+      const key = v.channelId || v.channelTitle || 'unknown'
+      const channelVideos = byChannel.get(key) || []
+      if (channelVideos.length < ACTIVE_VIDEOS_PER_CHANNEL) {
+        channelVideos.push(v)
+        byChannel.set(key, channelVideos)
+      }
+    })
+
+  return Array.from(byChannel.values())
+    .flat()
+    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+}
+
+function renderCard(v, compact = false) {
   const isWatched = v.status === 'watched'
   const isPartial = v.status === 'partial'
+  const watchedLabel = compact ? 'Unmark' : `✓ ${isWatched ? 'Watched' : 'Mark watched'}`
   return `
-    <div class="video-card status-${v.status}">
+    <div class="video-card ${compact ? 'compact-card' : ''} status-${v.status}">
       <a href="https://youtube.com/watch?v=${v.id}" target="_blank" rel="noopener" class="thumb-link">
         <img src="${escHtml(v.thumbnail)}" alt="" class="thumb" loading="lazy">
         <span class="dur-badge">${formatDuration(v.duration)}</span>
@@ -579,7 +706,7 @@ function renderCard(v) {
           <button class="action-btn ${isWatched ? 'active' : ''}"
             onclick="markVideo('${v.id}','${isWatched ? 'unwatched' : 'watched'}')"
             title="${isWatched ? 'Unmark' : 'Mark as watched'}">
-            ✓ ${isWatched ? 'Watched' : 'Mark watched'}
+            ${watchedLabel}
           </button>
           <button class="action-btn partial-btn ${isPartial ? 'active' : ''}"
             onclick="markVideo('${v.id}','${isPartial ? 'unwatched' : 'partial'}')"

@@ -84,28 +84,37 @@
             <feGaussianBlur stdDeviation="3.5" result="blur"/>
             <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
           </filter>
+          <filter id="softShadow">
+            <feGaussianBlur stdDeviation="2.4"/>
+          </filter>
+          <linearGradient id="horizonWash" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0"/>
+            <stop id="horizonWashColor" offset="100%" stop-color="#f5a623" stop-opacity="0.28"/>
+          </linearGradient>
         </defs>
 
         <!-- SKY (id so JS can lighten it when streak is active) -->
         <rect id="citySky" x="0" y="0" width="900" height="280" fill="#06060e"/>
+        <rect id="cityHorizonWash" x="0" y="0" width="900" height="248" fill="url(#horizonWash)" opacity="0"/>
+        <circle id="citySun" cx="760" cy="72" r="26" fill="#ffe08a" opacity="0"/>
 
         <!-- Stars -->
-        <circle cx="48"  cy="28" r="1.5" fill="#fff" opacity="0.7"/>
-        <circle cx="130" cy="55" r="1"   fill="#fff" opacity="0.5"/>
-        <circle cx="220" cy="22" r="2"   fill="#fff" opacity="0.8"/>
-        <circle cx="315" cy="70" r="1"   fill="#fff" opacity="0.4"/>
-        <circle cx="415" cy="35" r="1.5" fill="#fff" opacity="0.6"/>
-        <circle cx="500" cy="18" r="1"   fill="#fff" opacity="0.7"/>
-        <circle cx="590" cy="50" r="1.5" fill="#fff" opacity="0.5"/>
-        <circle cx="668" cy="28" r="1"   fill="#fff" opacity="0.6"/>
-        <circle cx="758" cy="58" r="1.5" fill="#fff" opacity="0.7"/>
-        <circle cx="845" cy="22" r="1"   fill="#fff" opacity="0.4"/>
-        <circle cx="80"  cy="80" r="1"   fill="#fff" opacity="0.3"/>
-        <circle cx="540" cy="65" r="1"   fill="#fff" opacity="0.5"/>
+        <circle class="city-star" cx="48"  cy="28" r="1.5" fill="#fff" opacity="0.7"/>
+        <circle class="city-star" cx="130" cy="55" r="1"   fill="#fff" opacity="0.5"/>
+        <circle class="city-star" cx="220" cy="22" r="2"   fill="#fff" opacity="0.8"/>
+        <circle class="city-star" cx="315" cy="70" r="1"   fill="#fff" opacity="0.4"/>
+        <circle class="city-star" cx="415" cy="35" r="1.5" fill="#fff" opacity="0.6"/>
+        <circle class="city-star" cx="500" cy="18" r="1"   fill="#fff" opacity="0.7"/>
+        <circle class="city-star" cx="590" cy="50" r="1.5" fill="#fff" opacity="0.5"/>
+        <circle class="city-star" cx="668" cy="28" r="1"   fill="#fff" opacity="0.6"/>
+        <circle class="city-star" cx="758" cy="58" r="1.5" fill="#fff" opacity="0.7"/>
+        <circle class="city-star" cx="845" cy="22" r="1"   fill="#fff" opacity="0.4"/>
+        <circle class="city-star" cx="80"  cy="80" r="1"   fill="#fff" opacity="0.3"/>
+        <circle class="city-star" cx="540" cy="65" r="1"   fill="#fff" opacity="0.5"/>
 
         <!-- Moon (crescent effect via overlapping circles) -->
-        <circle cx="822" cy="48" r="28" fill="#e8e8f8" opacity="0.85"/>
-        <circle cx="834" cy="40" r="24" fill="#06060e"/>
+        <circle class="city-moon" cx="822" cy="48" r="28" fill="#e8e8f8" opacity="0.85"/>
+        <circle class="city-moon-cutout" cx="834" cy="40" r="24" fill="#06060e"/>
 
         <!-- Background mountains (silhouette, always visible) -->
         <polygon points="0,280 0,162 78,108 165,140 258,175 315,280" fill="#0b0b20"/>
@@ -121,6 +130,14 @@
         <rect x="552" y="244" width="3" height="8" fill="#1e4a12"/>
         <rect x="720" y="245" width="3" height="7" fill="#1e4a12"/>
         <rect x="872" y="244" width="4" height="8" fill="#1e4a12"/>
+
+        <g id="cityShadows" opacity="0.35" filter="url(#softShadow)">
+          <ellipse class="city-shadow" cx="130" cy="250" rx="62" ry="7" fill="#000"/>
+          <ellipse class="city-shadow" cx="452" cy="251" rx="82" ry="9" fill="#000"/>
+          <ellipse class="city-shadow" cx="572" cy="251" rx="70" ry="8" fill="#000"/>
+          <ellipse class="city-shadow" cx="690" cy="251" rx="64" ry="7" fill="#000"/>
+          <ellipse class="city-shadow" cx="302" cy="251" rx="70" ry="8" fill="#000"/>
+        </g>
 
         <!-- ─────────────────────────────────────────────── -->
         <!-- threshold=5 │ Left pine trees (~1h video)      -->
@@ -241,11 +258,12 @@
           <circle cx="275" cy="201" r="26" fill="#f8d820" opacity="0.07"/>
           <circle cx="325" cy="201" r="26" fill="#f8d820" opacity="0.07"/>
           <!-- Extra twinkling stars -->
-          <circle cx="175" cy="40" r="2.5" fill="#fff" opacity="0.9"/>
-          <circle cx="450" cy="12" r="2"   fill="#fff" opacity="0.85"/>
-          <circle cx="640" cy="38" r="2.5" fill="#fff" opacity="0.9"/>
+          <circle class="city-star" cx="175" cy="40" r="2.5" fill="#fff" opacity="0.9"/>
+          <circle class="city-star" cx="450" cy="12" r="2"   fill="#fff" opacity="0.85"/>
+          <circle class="city-star" cx="640" cy="38" r="2.5" fill="#fff" opacity="0.9"/>
         </g>
 
+        <rect id="cityLightTint" x="0" y="0" width="900" height="280" fill="#000" opacity="0" pointer-events="none"/>
       </svg>
 
       <div class="city-footer">
@@ -323,6 +341,13 @@
       </div>
       <div class="video-grid" id="videoGrid">
         <div class="empty-state">No videos yet — click ↻ Refresh to load your feed.</div>
+      </div>
+      <div class="watched-section" id="watchedSection">
+        <div class="section-header">
+          <h2 class="section-title">Watched</h2>
+          <span class="watched-count" id="watchedCount">0</span>
+        </div>
+        <div class="video-grid watched-grid" id="watchedGrid"></div>
       </div>
     </section>
 
