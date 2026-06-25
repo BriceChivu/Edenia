@@ -16,6 +16,7 @@ const DEFAULT_CHANNELS = [
 
 const STORAGE_KEY = 'studybuild_v1'
 const CONFIG_COOKIE_KEY = 'studybuild_config'
+const DEFAULT_API_KEY = 'AIzaSyAVmsqp-5o1ufYCuMak38jigQRHFhf0g1Y'
 
 function getCookie(key) {
   return document.cookie.split('; ').reduce((value, part) => {
@@ -41,7 +42,11 @@ function saveConfigCookie(config) {
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
+    if (raw) {
+      const state = JSON.parse(raw)
+      if (state?.config && !state.config.apiKey) state.config.apiKey = DEFAULT_API_KEY
+      return state
+    }
   } catch {}
 
   const fallback = loadConfigCookie()
@@ -60,7 +65,7 @@ function saveState(s) {
 function defaultState(apiKey, goalHours, channels) {
   return {
     config: {
-      apiKey,
+      apiKey: apiKey || DEFAULT_API_KEY,
       weeklyGoalHours: goalHours || 4,
       channels: channels?.length ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c }))
     },
