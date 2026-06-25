@@ -150,13 +150,19 @@
         <rect x="872" y="244" width="4" height="8" fill="#1e4a12"/>
 
         <g id="nightVisualMeteors" class="night-visual" opacity="0" pointer-events="none">
-          <line x1="185" y1="38" x2="282" y2="122" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
-          <line x1="486" y1="28" x2="584" y2="116" stroke="#82d2ef" stroke-width="4" stroke-linecap="round"/>
-          <line x1="710" y1="42" x2="638" y2="104" stroke="#c9ef68" stroke-width="4" stroke-linecap="round"/>
-          <circle cx="282" cy="122" r="7" fill="#ffffff" filter="url(#nightVisualGlow)"/>
-          <circle cx="584" cy="116" r="6" fill="#82d2ef" filter="url(#nightVisualGlow)"/>
-          <path d="M674 247 L692 223 L710 247 Z" fill="#c9ef68" opacity="0.82"/>
-          <circle cx="692" cy="245" r="22" fill="#c9ef68" opacity="0.16" filter="url(#nightVisualGlow)"/>
+          <g transform="translate(210 34) rotate(-39) scale(0.76)">
+            <path d="M0 0 L118 42 L88 55 L152 78 L72 83 L105 112 L-10 80 C-32 71 -42 46 -32 25 C-25 9 -14 1 0 0 Z" fill="#f5c842" filter="url(#nightVisualGlow)"/>
+            <circle cx="-12" cy="45" r="28" fill="#ef805a"/>
+          </g>
+          <g transform="translate(540 28) rotate(-40) scale(0.46)">
+            <path d="M0 0 L118 42 L88 55 L152 78 L72 83 L105 112 L-10 80 C-32 71 -42 46 -32 25 C-25 9 -14 1 0 0 Z" fill="#f5c842" opacity="0.9" filter="url(#nightVisualGlow)"/>
+            <circle cx="-12" cy="45" r="28" fill="#ef805a" opacity="0.9"/>
+          </g>
+          <g transform="translate(700 78) rotate(-40) scale(0.34)">
+            <path d="M0 0 L118 42 L88 55 L152 78 L72 83 L105 112 L-10 80 C-32 71 -42 46 -32 25 C-25 9 -14 1 0 0 Z" fill="#f5c842" opacity="0.88" filter="url(#nightVisualGlow)"/>
+            <circle cx="-12" cy="45" r="28" fill="#ef805a" opacity="0.88"/>
+          </g>
+          <circle cx="692" cy="245" r="24" fill="#f5c842" opacity="0.16" filter="url(#nightVisualGlow)"/>
         </g>
 
         <g id="cityShadows" opacity="0.35" filter="url(#softShadow)">
