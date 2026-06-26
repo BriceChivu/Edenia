@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260626-1">
+  <link rel="stylesheet" href="style.css?v=20260626-3">
 </head>
 <body>
 
@@ -497,12 +497,10 @@
       <div class="section-header">
         <h2 class="section-title">Videos</h2>
         <div class="feed-controls">
-          <select id="statusFilterSelect" onchange="filterFeed()" aria-label="Filter by status">
-            <option value="all">All</option>
-            <option value="unwatched">Unwatched</option>
-            <option value="partial">In progress</option>
-            <option value="watched">Watched</option>
-          </select>
+          <div class="status-filter" id="statusFilter">
+            <button type="button" class="btn-secondary channel-filter-btn status-filter-btn" id="statusFilterBtn" onclick="toggleStatusFilterMenu()" aria-haspopup="true" aria-expanded="false">All</button>
+            <div class="channel-filter-menu status-filter-menu hidden" id="statusFilterMenu"></div>
+          </div>
           <div class="channel-filter" id="channelFilter">
             <button type="button" class="btn-secondary channel-filter-btn" id="channelFilterBtn" onclick="toggleChannelFilterMenu()" aria-haspopup="true" aria-expanded="false">All channels</button>
             <div class="channel-filter-menu hidden" id="channelFilterMenu"></div>
@@ -528,6 +526,6 @@
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=20260626-1"></script>
+  <script src="app.js?v=20260626-3"></script>
 </body>
 </html>

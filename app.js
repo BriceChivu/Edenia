@@ -65,8 +65,15 @@ const PEASANT_POSITIONS = [
   [348, 226], [452, 226], [556, 226], [660, 226], [760, 226], [820, 224]
 ]
 let ankiStatsCache = null
+let selectedStatusFilter = 'all'
 let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
+const STATUS_FILTERS = [
+  ['all', 'All'],
+  ['unwatched', 'Unwatched'],
+  ['partial', 'In progress'],
+  ['watched', 'Watched']
+]
 
 function getCookie(key) {
   return document.cookie.split('; ').reduce((value, part) => {
@@ -940,9 +947,10 @@ function applyNightVisuals(s, date = new Date()) {
 }
 
 function renderFeed(s) {
+  renderStatusFilterOptions()
   renderChannelFilterOptions(s)
 
-  const statusFilter = document.getElementById('statusFilterSelect')?.value || 'all'
+  const statusFilter = selectedStatusFilter
   const channelFilters = getSelectedChannelFilters(s)
   const grid   = document.getElementById('videoGrid')
   const watchedSection = document.getElementById('watchedSection')
@@ -985,6 +993,47 @@ function renderUndoButton(s) {
   const canUndo = s.lastUndo?.type === 'video-status'
   btn.disabled = !canUndo
   btn.title = canUndo ? 'Undo latest video status change' : 'Nothing to undo'
+}
+
+function renderStatusFilterOptions() {
+  const btn = document.getElementById('statusFilterBtn')
+  const menu = document.getElementById('statusFilterMenu')
+  if (!btn || !menu) return
+
+  btn.textContent = getStatusFilterLabel(selectedStatusFilter)
+  menu.innerHTML = STATUS_FILTERS.map(([value, label]) => `
+    <label class="channel-filter-option">
+      <input type="radio" name="statusFilter" data-status="${value}" ${selectedStatusFilter === value ? 'checked' : ''} onchange="setStatusFilter(this.dataset.status)">
+      <span>${label}</span>
+    </label>
+  `).join('')
+}
+
+function getStatusFilterLabel(status) {
+  return STATUS_FILTERS.find(([value]) => value === status)?.[1] || 'All'
+}
+
+function setStatusFilter(status) {
+  selectedStatusFilter = STATUS_FILTERS.some(([value]) => value === status) ? status : 'all'
+  closeStatusFilterMenu()
+  renderFeed(loadState())
+}
+
+function toggleStatusFilterMenu() {
+  const btn = document.getElementById('statusFilterBtn')
+  const menu = document.getElementById('statusFilterMenu')
+  if (!btn || !menu) return
+  closeChannelFilterMenu()
+  const isOpen = menu.classList.toggle('hidden') === false
+  btn.setAttribute('aria-expanded', String(isOpen))
+}
+
+function closeStatusFilterMenu() {
+  const btn = document.getElementById('statusFilterBtn')
+  const menu = document.getElementById('statusFilterMenu')
+  if (!btn || !menu) return
+  menu.classList.add('hidden')
+  btn.setAttribute('aria-expanded', 'false')
 }
 
 function renderChannelFilterOptions(s) {
@@ -1061,6 +1110,7 @@ function toggleChannelFilterMenu() {
   const btn = document.getElementById('channelFilterBtn')
   const menu = document.getElementById('channelFilterMenu')
   if (!btn || !menu || btn.disabled) return
+  closeStatusFilterMenu()
   const isOpen = menu.classList.toggle('hidden') === false
   btn.setAttribute('aria-expanded', String(isOpen))
 }
@@ -1074,8 +1124,10 @@ function closeChannelFilterMenu() {
 }
 
 function closeChannelFilterMenuOnOutsideClick(event) {
-  const filter = document.getElementById('channelFilter')
-  if (!filter || filter.contains(event.target)) return
+  const channelFilter = document.getElementById('channelFilter')
+  const statusFilter = document.getElementById('statusFilter')
+  if (channelFilter?.contains(event.target) || statusFilter?.contains(event.target)) return
+  closeStatusFilterMenu()
   closeChannelFilterMenu()
 }
 

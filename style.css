@@ -536,6 +536,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   transition: background-color 0.15s;
 }
 #statusFilterSelect { width: 132px; }
+.status-filter,
 .channel-filter {
   position: relative;
 }
@@ -543,6 +544,10 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   max-width: 220px;
   min-width: 150px;
   text-align: left;
+}
+.status-filter-btn {
+  max-width: 160px;
+  min-width: 132px;
 }
 .channel-filter-menu {
   position: absolute;
@@ -877,6 +882,8 @@ body[data-theme="dark"] .action-btn.partial-btn.active { background: #173947; co
 @media (max-width: 480px) {
   .feed-controls { width: 100%; }
   .feed-controls select { flex: 1 1 140px; }
+  .status-filter { flex: 1 1 132px; }
+  .status-filter-btn { width: 100%; }
   .channel-filter { flex: 1 1 150px; }
   .channel-filter-btn { max-width: none; width: 100%; }
   .video-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
