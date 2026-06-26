@@ -476,7 +476,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   position: absolute;
   top: 50%;
   right: 0;
-  width: 3px;
+  width: 2px;
   height: 12px;
   border-radius: 999px;
   background: var(--planet-black);
