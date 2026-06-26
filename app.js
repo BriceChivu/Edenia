@@ -40,6 +40,7 @@ const NIGHT_VISUAL_END_HOUR = 1
 const NIGHT_VISUAL_DURATION_MINUTES = 30
 const NIGHT_VISUAL_TOTAL_MINUTES = (24 - NIGHT_START_HOUR + NIGHT_VISUAL_END_HOUR) * 60
 const NIGHT_VISUAL_TYPES = ['aurora', 'ufo', 'meteors']
+const ANKI_AUTO_REFRESH_MS = 5 * 60_000
 const CITY_LEVELS = [
   { threshold: 0, label: '🌑 Empty land' },
   { threshold: 5, label: '🌱 First tree' },
@@ -72,6 +73,7 @@ let selectedStatusFilter = 'all'
 let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
 let selectedHistoryRange = 'week'
+let selectedHistoryView = 'summary'
 const STATUS_FILTERS = [
   ['all', 'All'],
   ['watch-later', 'Watch later'],
@@ -246,6 +248,7 @@ function init() {
   renderAll(state)
   startCityClock()
   refreshAnkiStats({ silent: true })
+  startAnkiAutoRefresh()
   if (!state.lastFetched) showToast('Add or edit channels in ⚙ Settings, then hit ↻ Refresh', 'warn')
 }
 
@@ -670,6 +673,17 @@ async function refreshAnkiStats({ silent = false } = {}) {
   }
 }
 
+function startAnkiAutoRefresh() {
+  clearInterval(startAnkiAutoRefresh._timer)
+  startAnkiAutoRefresh._timer = setInterval(() => {
+    if (!document.hidden) refreshAnkiStats({ silent: true })
+  }, ANKI_AUTO_REFRESH_MS)
+}
+
+function refreshAnkiStatsOnVisible() {
+  if (!document.hidden) refreshAnkiStats({ silent: true })
+}
+
 function syncAnkiStatsToState(stats) {
   const s = loadState()
   if (!s || !stats) return
@@ -715,6 +729,12 @@ function getHistoryRange(range = selectedHistoryRange, from = new Date()) {
   return { start, end }
 }
 
+function addDays(date, days) {
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return next
+}
+
 function createHistoryBucket(dateKey) {
   return {
     dateKey,
@@ -727,6 +747,10 @@ function createHistoryBucket(dateKey) {
 
 function getStudyHistory(s, range = selectedHistoryRange) {
   const { start, end } = getHistoryRange(range)
+  return getStudyHistoryBetween(s, start, end)
+}
+
+function getStudyHistoryBetween(s, start, end) {
   const buckets = new Map()
   const ensureBucket = dateKey => {
     if (!buckets.has(dateKey)) buckets.set(dateKey, createHistoryBucket(dateKey))
@@ -788,6 +812,11 @@ function renderStudyHistoryPanel(s) {
   document.querySelectorAll('.history-range-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.historyRange === selectedHistoryRange)
   })
+  document.querySelectorAll('.history-view-btn').forEach(btn => {
+    const isActive = btn.dataset.historyView === selectedHistoryView
+    btn.classList.toggle('active', isActive)
+    btn.setAttribute('aria-selected', String(isActive))
+  })
 
   const history = getStudyHistory(s || { videos: {}, anki: {} })
   setText('historyStudyTime', formatHistoryTime(history.summary.secondsWatched))
@@ -796,25 +825,79 @@ function renderStudyHistoryPanel(s) {
   setText('historyAnkiCreated', history.summary.ankiCreated)
 
   const table = document.getElementById('historyTable')
-  if (!table) return
-  table.innerHTML = history.rows.length
-    ? `
-      <div class="history-row history-row-head">
-        <span>Date</span>
-        <span>Video</span>
-        <span>Watched</span>
-        <span>Anki</span>
-      </div>
-      ${history.rows.map(row => `
-        <div class="history-row">
-          <span>${formatHistoryDate(row.dateKey)}</span>
-          <span>${formatHistoryTime(row.secondsWatched)}</span>
-          <span>${row.videosWatched}</span>
-          <span>${row.ankiReviewed} / ${row.ankiCreated}</span>
+  if (table) {
+    table.innerHTML = history.rows.length
+      ? `
+        <div class="history-row history-row-head">
+          <span>Date</span>
+          <span>Video</span>
+          <span>Watched</span>
+          <span>Anki</span>
         </div>
-      `).join('')}
-    `
-    : '<div class="history-empty">No activity in this range.</div>'
+        ${history.rows.map(row => `
+          <div class="history-row">
+            <span>${formatHistoryDate(row.dateKey)}</span>
+            <span>${formatHistoryTime(row.secondsWatched)}</span>
+            <span>${row.videosWatched}</span>
+            <span>${row.ankiReviewed} / ${row.ankiCreated}</span>
+          </div>
+        `).join('')}
+      `
+      : '<div class="history-empty">No activity in this range.</div>'
+  }
+
+  const summaryView = document.getElementById('historySummaryView')
+  const heatmapView = document.getElementById('historyHeatmapView')
+  const rangeToolbar = document.getElementById('historyRangeToolbar')
+  if (rangeToolbar) rangeToolbar.classList.toggle('hidden', selectedHistoryView === 'heatmap')
+  if (summaryView) summaryView.classList.toggle('hidden', selectedHistoryView !== 'summary')
+  if (heatmapView) {
+    heatmapView.classList.toggle('hidden', selectedHistoryView !== 'heatmap')
+    if (selectedHistoryView === 'heatmap') renderHistoryHeatmap(s || { videos: {}, anki: {} }, heatmapView)
+  }
+}
+
+function getHistoryHeatLevel(row) {
+  const minutes = Math.ceil(row.secondsWatched / 60)
+  const score = row.videosWatched * 2 + Math.floor(minutes / 30) + Math.floor(row.ankiReviewed / 25) + Math.floor(row.ankiCreated / 5)
+  if (score <= 0) return 0
+  if (score < 2) return 1
+  if (score < 4) return 2
+  if (score < 7) return 3
+  return 4
+}
+
+function formatHeatmapTitle(row) {
+  const date = new Date(`${row.dateKey}T00:00:00`)
+  const dateLabel = date.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })
+  return `${dateLabel}: ${formatHistoryTime(row.secondsWatched)} video time; ${row.videosWatched} videos watched; ${row.ankiReviewed} Anki cards reviewed; ${row.ankiCreated} new Anki cards created`
+}
+
+function renderHistoryHeatmap(s, container) {
+  const end = new Date()
+  end.setHours(23, 59, 59, 999)
+  const start = addDays(end, -364)
+  start.setHours(0, 0, 0, 0)
+  const gridStart = addDays(start, -start.getDay())
+  const history = getStudyHistoryBetween(s, gridStart, end)
+  const rowsByDate = new Map(history.rows.map(row => [row.dateKey, row]))
+  const days = []
+  for (let date = new Date(gridStart); date <= end; date = addDays(date, 1)) {
+    const dateKey = toDateKey(date)
+    const row = rowsByDate.get(dateKey) || createHistoryBucket(dateKey)
+    days.push(row)
+  }
+  const weekCount = Math.ceil(days.length / 7)
+
+  container.innerHTML = `
+    <div class="heatmap-scroll">
+      <div class="heatmap-grid" style="grid-template-columns: repeat(${weekCount}, 12px)">
+        ${days.map(row => `
+          <span class="heatmap-day level-${getHistoryHeatLevel(row)}" title="${escHtml(formatHeatmapTitle(row))}" aria-label="${escHtml(formatHeatmapTitle(row))}"></span>
+        `).join('')}
+      </div>
+    </div>
+  `
 }
 
 // ════════════════════════════════════════════════════════════
@@ -995,6 +1078,11 @@ function renderAnkiStatus(s) {
 
 function setHistoryRange(range) {
   selectedHistoryRange = HISTORY_RANGES.includes(range) ? range : 'week'
+  renderStudyHistoryPanel(loadState())
+}
+
+function setHistoryView(view) {
+  selectedHistoryView = view === 'heatmap' ? 'heatmap' : 'summary'
   renderStudyHistoryPanel(loadState())
 }
 
@@ -1389,3 +1477,4 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 
 document.addEventListener('DOMContentLoaded', init)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
+document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)

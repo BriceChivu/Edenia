@@ -71,13 +71,13 @@ Anki stats are optional. To enable them:
 
 1. Install the [AnkiConnect plugin](https://ankiweb.net/shared/info/2055492159).
 2. Open Anki.
-3. In Study Build, click `Refresh Anki`.
+3. Open Study Build.
 
-The app reads from AnkiConnect at `http://127.0.0.1:8765`. It stores today's reviewed and created-card counts locally, but it does not modify the Anki collection.
+The app reads from AnkiConnect at `http://127.0.0.1:8765` automatically on startup, periodically while open, and when the tab becomes visible. It stores today's reviewed and created-card counts locally, but it does not modify the Anki collection.
 
 ## Study History
 
-The Study History section aggregates local activity by day, week, or month. It combines watched video time, watched video counts, Anki reviews, and new Anki cards.
+The Study History section aggregates local activity by day, week, or month. It combines watched video time, watched video counts, Anki reviews, and new Anki cards. The Heatmap view shows the last year as daily squares; hover a square to see that day's breakdown.
 
 ## Scoring
 
@@ -162,7 +162,7 @@ Recommended workflow:
 5. Confirm that settings changes persist without a save button.
 6. Confirm that video status changes update weekly totals, streak state, watched history, and undo behavior.
 7. Confirm that refresh still preserves existing video status.
-8. If testing Anki features, keep Anki open with AnkiConnect installed, then use `Refresh Anki`.
+8. If testing Anki features, keep Anki open with AnkiConnect installed and wait for the automatic refresh.
 
 Do not treat browser data as portable test fixtures unless it has been deliberately exported from `localStorage`.
 
