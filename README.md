@@ -10,6 +10,7 @@ The app is intentionally simple: `index.html`, `style.css`, and `app.js` are all
 - Tracks each video as unwatched, watch later, in progress, or watched.
 - Counts watched time toward a weekly hours goal.
 - Syncs today's Anki review/new-card counts through AnkiConnect when Anki is open.
+- Shows study history totals by day, week, or month.
 - Maintains a study streak.
 - Updates the city builder scene from video, Anki, and streak progress.
 - Saves settings immediately as they change.
@@ -71,6 +72,10 @@ Anki stats are optional. To enable them:
 3. In Study Build, click `Refresh Anki`.
 
 The app reads from AnkiConnect at `http://127.0.0.1:8765`. It stores today's reviewed and created-card counts locally, but it does not modify the Anki collection.
+
+## Study History
+
+The Study History section aggregates local activity by day, week, or month. It combines watched video time, watched video counts, Anki reviews, and new Anki cards.
 
 ## Scoring
 

@@ -71,6 +71,7 @@ let ankiStatsCache = null
 let selectedStatusFilter = 'all'
 let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
+let selectedHistoryRange = 'week'
 const STATUS_FILTERS = [
   ['all', 'All'],
   ['watch-later', 'Watch later'],
@@ -78,6 +79,7 @@ const STATUS_FILTERS = [
   ['partial', 'In progress'],
   ['watched', 'Watched']
 ]
+const HISTORY_RANGES = ['day', 'week', 'month']
 
 function getCookie(key) {
   return document.cookie.split('; ').reduce((value, part) => {
@@ -656,17 +658,96 @@ function syncAnkiStatsToState(stats) {
   renderCity(score, s)
 }
 
-function setAnkiStatText(id, value) {
-  const el = document.getElementById(id)
-  if (el) el.textContent = value ?? '—'
-}
-
 function formatAnkiStatus(stats) {
   if (!stats?.fetchedAt) return 'Open Anki to load live stats'
   return `Updated ${timeAgo(stats.fetchedAt)}`
 }
 
-function renderAnkiStatsPanel(s) {
+function setText(id, value) {
+  const el = document.getElementById(id)
+  if (el) el.textContent = value ?? '—'
+}
+
+function getHistoryRange(range = selectedHistoryRange, from = new Date()) {
+  const end = new Date(from)
+  end.setHours(23, 59, 59, 999)
+
+  const start = new Date(from)
+  if (range === 'month') {
+    start.setDate(1)
+    start.setHours(0, 0, 0, 0)
+  } else if (range === 'week') {
+    start.setTime(getWeekStart(from).getTime())
+  } else {
+    start.setHours(0, 0, 0, 0)
+  }
+
+  return { start, end }
+}
+
+function createHistoryBucket(dateKey) {
+  return {
+    dateKey,
+    secondsWatched: 0,
+    videosWatched: 0,
+    videosPartial: 0,
+    ankiReviewed: 0,
+    ankiCreated: 0
+  }
+}
+
+function getStudyHistory(s, range = selectedHistoryRange) {
+  const { start, end } = getHistoryRange(range)
+  const buckets = new Map()
+  const ensureBucket = dateKey => {
+    if (!buckets.has(dateKey)) buckets.set(dateKey, createHistoryBucket(dateKey))
+    return buckets.get(dateKey)
+  }
+
+  for (const video of Object.values(s.videos || {})) {
+    if (!video.watchedAt || !['partial', 'watched'].includes(video.status)) continue
+    const date = new Date(video.watchedAt)
+    if (date < start || date > end) continue
+    const bucket = ensureBucket(toDateKey(date))
+    if (video.status === 'watched') {
+      bucket.videosWatched += 1
+      bucket.secondsWatched += video.duration || 0
+    } else {
+      bucket.videosPartial += 1
+      bucket.secondsWatched += Math.floor((video.duration || 0) * 0.5)
+    }
+  }
+
+  for (const [dateKey, day] of Object.entries(s.anki || {})) {
+    const date = new Date(`${dateKey}T00:00:00`)
+    if (date < start || date > end) continue
+    const bucket = ensureBucket(dateKey)
+    bucket.ankiReviewed += day.reviewed || 0
+    bucket.ankiCreated += day.created || 0
+  }
+
+  const rows = Array.from(buckets.values()).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
+  const summary = rows.reduce((acc, row) => ({
+    secondsWatched: acc.secondsWatched + row.secondsWatched,
+    videosWatched: acc.videosWatched + row.videosWatched,
+    videosPartial: acc.videosPartial + row.videosPartial,
+    ankiReviewed: acc.ankiReviewed + row.ankiReviewed,
+    ankiCreated: acc.ankiCreated + row.ankiCreated
+  }), createHistoryBucket('summary'))
+
+  return { rows, summary }
+}
+
+function formatHistoryDate(dateKey) {
+  const date = new Date(`${dateKey}T00:00:00`)
+  const today = toDateKey()
+  const yesterday = toDateKey(new Date(Date.now() - 86_400_000))
+  if (dateKey === today) return 'Today'
+  if (dateKey === yesterday) return 'Yesterday'
+  return date.toLocaleDateString('en', { month: 'short', day: 'numeric' })
+}
+
+function renderStudyHistoryPanel(s) {
   const todayLog = s?.anki?.[toDateKey()]
   const stats = ankiStatsCache || (todayLog ? {
     reviewedToday: todayLog.reviewed,
@@ -675,15 +756,42 @@ function renderAnkiStatsPanel(s) {
     fetchedAt: todayLog.loggedAt
   } : null)
 
-  setAnkiStatText('ankiReviewedToday', stats?.reviewedToday)
-  setAnkiStatText('ankiNewToday', stats?.newToday)
-  setAnkiStatText('ankiDueCards', stats?.dueCards)
-
   const el = document.getElementById('ankiConnectStatus')
   if (el) {
     el.textContent = formatAnkiStatus(stats)
     el.classList.toggle('logged', !!stats)
   }
+
+  document.querySelectorAll('.history-range-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.historyRange === selectedHistoryRange)
+  })
+
+  const history = getStudyHistory(s || { videos: {}, anki: {} })
+  setText('historyStudyTime', formatHoursMinutes(history.summary.secondsWatched))
+  setText('historyVideosWatched', history.summary.videosWatched)
+  setText('historyAnkiReviewed', history.summary.ankiReviewed)
+  setText('historyAnkiCreated', history.summary.ankiCreated)
+
+  const table = document.getElementById('historyTable')
+  if (!table) return
+  table.innerHTML = history.rows.length
+    ? `
+      <div class="history-row history-row-head">
+        <span>Date</span>
+        <span>Video</span>
+        <span>Watched</span>
+        <span>Anki</span>
+      </div>
+      ${history.rows.map(row => `
+        <div class="history-row">
+          <span>${formatHistoryDate(row.dateKey)}</span>
+          <span>${formatHoursMinutes(row.secondsWatched)}</span>
+          <span>${row.videosWatched}</span>
+          <span>${row.ankiReviewed} / ${row.ankiCreated}</span>
+        </div>
+      `).join('')}
+    `
+    : '<div class="history-empty">No activity in this range.</div>'
 }
 
 // ════════════════════════════════════════════════════════════
@@ -850,7 +958,12 @@ function renderAnalytics(stats, s) {
 }
 
 function renderAnkiStatus(s) {
-  renderAnkiStatsPanel(s)
+  renderStudyHistoryPanel(s)
+}
+
+function setHistoryRange(range) {
+  selectedHistoryRange = HISTORY_RANGES.includes(range) ? range : 'week'
+  renderStudyHistoryPanel(loadState())
 }
 
 function renderCity(score, s) {

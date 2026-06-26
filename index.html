@@ -473,26 +473,36 @@
       </div>
     </section>
 
-    <!-- ANKI STATS ──────────────────────────────────────── -->
-    <section class="anki-section">
+    <!-- STUDY HISTORY ───────────────────────────────────── -->
+    <section class="study-history-section">
       <div class="section-header">
-        <h2 class="section-title">Anki Stats</h2>
+        <h2 class="section-title">Study History</h2>
         <span class="anki-status" id="ankiConnectStatus">Checking AnkiConnect…</span>
       </div>
-      <div class="anki-stats-grid">
-        <div class="anki-stat">
-          <span class="anki-stat-val" id="ankiReviewedToday">—</span>
-          <span class="anki-stat-lbl">reviewed today</span>
+      <div class="history-toolbar" role="group" aria-label="Study history range">
+        <button type="button" class="history-range-btn" data-history-range="day" onclick="setHistoryRange('day')">Day</button>
+        <button type="button" class="history-range-btn active" data-history-range="week" onclick="setHistoryRange('week')">Week</button>
+        <button type="button" class="history-range-btn" data-history-range="month" onclick="setHistoryRange('month')">Month</button>
+      </div>
+      <div class="study-history-grid">
+        <div class="history-stat">
+          <span class="history-stat-val" id="historyStudyTime">0m</span>
+          <span class="history-stat-lbl">video time</span>
         </div>
-        <div class="anki-stat">
-          <span class="anki-stat-val" id="ankiNewToday">—</span>
-          <span class="anki-stat-lbl">new today</span>
+        <div class="history-stat">
+          <span class="history-stat-val" id="historyVideosWatched">0</span>
+          <span class="history-stat-lbl">watched</span>
         </div>
-        <div class="anki-stat">
-          <span class="anki-stat-val" id="ankiDueCards">—</span>
-          <span class="anki-stat-lbl">due now</span>
+        <div class="history-stat">
+          <span class="history-stat-val" id="historyAnkiReviewed">0</span>
+          <span class="history-stat-lbl">reviewed</span>
+        </div>
+        <div class="history-stat">
+          <span class="history-stat-val" id="historyAnkiCreated">0</span>
+          <span class="history-stat-lbl">new cards</span>
         </div>
       </div>
+      <div class="history-table" id="historyTable"></div>
       <div class="anki-actions">
         <button class="btn-secondary" onclick="refreshAnkiStats()">Refresh Anki</button>
       </div>
@@ -532,6 +542,6 @@
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=20260626-8"></script>
+  <script src="app.js?v=20260626-9"></script>
 </body>
 </html>

@@ -1,4 +1,3 @@
-be able to mark videos as "watch later" so that I don't forget to watch them
 Replace the Anki stats section by some kind of study history section so i can see how many videos i've watched, anki cards done etc. I should be able to aggregate by day, week or month
 when I click on a video to watch, make the video card selected so when I come back from youtube I know which video to set as "watched"
 make the point system slightly more rewarding, i.e., 1 video watched should still give some kind of point(s) even if it's not 1h long
