@@ -59,7 +59,7 @@ Each video can be marked:
 - `In progress`
 - `Watched`
 
-Watched videos count for their full duration. In-progress videos count for half their duration. Watch later videos are reminders and do not count toward weekly progress or streaks. Moving a video back to unwatched removes its watched timestamp from weekly progress.
+Watched videos count for their full duration. In-progress and watch later videos are reminders and do not count toward weekly progress or streaks. Moving a video back to unwatched removes its watched timestamp from weekly progress.
 
 The `Undo` button reverses the most recent video status change, including the related streak state.
 

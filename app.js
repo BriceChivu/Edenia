@@ -503,10 +503,10 @@ function markVideo(videoId, newStatus) {
   }
 
   video.status    = newStatus
-  video.watchedAt = ['partial', 'watched'].includes(newStatus) ? new Date().toISOString() : null
+  video.watchedAt = newStatus === 'watched' ? new Date().toISOString() : null
   s.lastUndo.after.watchedAt = video.watchedAt
 
-  if (['partial', 'watched'].includes(newStatus)) bumpStreak(s)
+  if (newStatus === 'watched') bumpStreak(s)
 
   saveState(s)
   renderAll(s)
@@ -690,7 +690,6 @@ function createHistoryBucket(dateKey) {
     dateKey,
     secondsWatched: 0,
     videosWatched: 0,
-    videosPartial: 0,
     ankiReviewed: 0,
     ankiCreated: 0
   }
@@ -705,17 +704,12 @@ function getStudyHistory(s, range = selectedHistoryRange) {
   }
 
   for (const video of Object.values(s.videos || {})) {
-    if (!video.watchedAt || !['partial', 'watched'].includes(video.status)) continue
+    if (!video.watchedAt || video.status !== 'watched') continue
     const date = new Date(video.watchedAt)
     if (date < start || date > end) continue
     const bucket = ensureBucket(toDateKey(date))
-    if (video.status === 'watched') {
-      bucket.videosWatched += 1
-      bucket.secondsWatched += video.duration || 0
-    } else {
-      bucket.videosPartial += 1
-      bucket.secondsWatched += Math.floor((video.duration || 0) * 0.5)
-    }
+    bucket.videosWatched += 1
+    bucket.secondsWatched += video.duration || 0
   }
 
   for (const [dateKey, day] of Object.entries(s.anki || {})) {
@@ -730,7 +724,6 @@ function getStudyHistory(s, range = selectedHistoryRange) {
   const summary = rows.reduce((acc, row) => ({
     secondsWatched: acc.secondsWatched + row.secondsWatched,
     videosWatched: acc.videosWatched + row.videosWatched,
-    videosPartial: acc.videosPartial + row.videosPartial,
     ankiReviewed: acc.ankiReviewed + row.ankiReviewed,
     ankiCreated: acc.ankiCreated + row.ankiCreated
   }), createHistoryBucket('summary'))
@@ -801,16 +794,14 @@ function renderStudyHistoryPanel(s) {
 function getWeeklyStats(s) {
   const weekStart = getWeekStart()
 
-  const weekVids = Object.values(s.videos)
+  const videos = Object.values(s.videos)
+  const weekVids = videos
     .filter(v => v.watchedAt && new Date(v.watchedAt) >= weekStart)
 
   const watched = weekVids.filter(v => v.status === 'watched')
-  const partial = weekVids.filter(v => v.status === 'partial')
+  const partial = videos.filter(v => v.status === 'partial')
 
-  // Full watch = full duration; partial = 50%
-  const secondsWatched =
-    watched.reduce((sum, v) => sum + (v.duration || 0), 0) +
-    partial.reduce((sum, v) => sum + Math.floor((v.duration || 0) * 0.5), 0)
+  const secondsWatched = watched.reduce((sum, v) => sum + (v.duration || 0), 0)
 
   const hoursWatched = secondsWatched / 3600
   const goalHours    = s.config.weeklyGoalHours || 4
