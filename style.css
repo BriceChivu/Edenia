@@ -700,6 +700,15 @@ body[data-theme="dark"] .video-card.status-partial { background: #2b2615; }
 }
 .video-card.status-watched { border-left-color: var(--green); opacity: 0.75; }
 .video-card.status-watched:hover { opacity: 1; }
+.video-card.status-watch-later {
+  background: #f3fbff;
+  border-left-color: var(--planet-cyan);
+  box-shadow: 0 4px 0 rgba(18,188,234,0.28);
+}
+body[data-theme="dark"] .video-card.status-watch-later { background: #102934; }
+.video-card.status-watch-later:hover {
+  box-shadow: 0 5px 0 rgba(18,188,234,0.38);
+}
 
 .watched-section {
   border-top: 2px dashed var(--border);
@@ -733,7 +742,8 @@ body[data-theme="dark"] .video-card.status-partial { background: #2b2615; }
 .compact-card .progress-ribbon,
 .compact-card .card-status,
 .compact-card .card-meta,
-.compact-card .partial-btn {
+.compact-card .partial-btn,
+.compact-card .watch-later-btn {
   display: none;
 }
 .compact-card .card-body {
@@ -800,6 +810,7 @@ body[data-theme="dark"] .dur-badge { color: #ffffff; }
 }
 .watched-badge { background: rgba(201,239,104,0.36); color: var(--planet-lime); }
 .partial-badge  { background: rgba(252,184,49,0.30); color: #5f3d00; }
+.watch-later-badge { background: rgba(18,188,234,0.26); color: #05566f; }
 .progress-ribbon {
   position: absolute;
   top: 7px;
@@ -813,6 +824,10 @@ body[data-theme="dark"] .dur-badge { color: #ffffff; }
   line-height: 1;
   padding: 4px 8px;
   box-shadow: 0 2px 0 rgba(5,5,5,0.18);
+}
+.watch-later-ribbon {
+  background: #82d2ef;
+  color: #053847;
 }
 
 /* Card body */
@@ -845,6 +860,11 @@ body[data-theme="dark"] .dur-badge { color: #ffffff; }
   background: #fcb831;
   border: 2px solid var(--planet-black);
   color: #3d2b04;
+}
+.watch-later-status {
+  background: #82d2ef;
+  border: 2px solid var(--planet-black);
+  color: #053847;
 }
 .card-meta {
   display: flex;
@@ -883,9 +903,11 @@ body[data-theme="dark"] .dur-badge { color: #ffffff; }
 .action-btn:hover         { background: #e9f8ed; color: var(--text); border-color: var(--planet-black); }
 .action-btn.active        { background: #eefbd0; border-color: var(--green); color: #466915; }
 .action-btn.partial-btn.active { background: #dff8ff; border-color: var(--amber); color: #087fa6; }
+.action-btn.watch-later-btn.active { background: #dff8ff; border-color: var(--planet-cyan); color: #087fa6; }
 body[data-theme="dark"] .action-btn:hover { background: var(--surface-hi); }
 body[data-theme="dark"] .action-btn.active { background: #243a20; color: #dff7a8; }
 body[data-theme="dark"] .action-btn.partial-btn.active { background: #173947; color: #b8f0ff; }
+body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947; color: #b8f0ff; }
 
 /* ═══════════════════════════════════════════════════════════
    TOAST

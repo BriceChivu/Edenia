@@ -7,7 +7,7 @@ The app is intentionally simple: `index.html`, `style.css`, and `app.js` are all
 ## What It Does
 
 - Loads recent videos from configured YouTube channels.
-- Tracks each video as unwatched, in progress, or watched.
+- Tracks each video as unwatched, watch later, in progress, or watched.
 - Counts watched time toward a weekly hours goal.
 - Syncs today's Anki review/new-card counts through AnkiConnect when Anki is open.
 - Maintains a study streak.
@@ -54,10 +54,11 @@ On refresh, Study Build fetches videos from each channel's uploads playlist, sto
 Each video can be marked:
 
 - `Unwatched`
+- `Watch later`
 - `In progress`
 - `Watched`
 
-Watched videos count for their full duration. In-progress videos count for half their duration. Moving a video back to unwatched removes its watched timestamp from weekly progress.
+Watched videos count for their full duration. In-progress videos count for half their duration. Watch later videos are reminders and do not count toward weekly progress or streaks. Moving a video back to unwatched removes its watched timestamp from weekly progress.
 
 The `Undo` button reverses the most recent video status change, including the related streak state.
 
@@ -117,7 +118,7 @@ The stored object includes:
 
 - `config`: API key, weekly goal, theme, and configured channels.
 - `videos`: video records keyed by YouTube video ID. This is where watched/in-progress/unwatched status lives.
-- `videos[videoId].status`: one of `unwatched`, `partial`, or `watched`.
+- `videos[videoId].status`: one of `unwatched`, `watch-later`, `partial`, or `watched`.
 - `videos[videoId].watchedAt`: local timestamp used for weekly progress and watched history.
 - `streak`: current streak, longest streak, and last activity date.
 - `anki`: daily Anki logs keyed by `YYYY-MM-DD`.

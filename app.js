@@ -73,6 +73,7 @@ let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
 const STATUS_FILTERS = [
   ['all', 'All'],
+  ['watch-later', 'Watch later'],
   ['unwatched', 'Unwatched'],
   ['partial', 'In progress'],
   ['watched', 'Watched']
@@ -500,10 +501,10 @@ function markVideo(videoId, newStatus) {
   }
 
   video.status    = newStatus
-  video.watchedAt = newStatus !== 'unwatched' ? new Date().toISOString() : null
+  video.watchedAt = ['partial', 'watched'].includes(newStatus) ? new Date().toISOString() : null
   s.lastUndo.after.watchedAt = video.watchedAt
 
-  if (newStatus !== 'unwatched') bumpStreak(s)
+  if (['partial', 'watched'].includes(newStatus)) bumpStreak(s)
 
   saveState(s)
   renderAll(s)
@@ -556,6 +557,7 @@ function isStreakAlive(s) {
 function formatVideoStatus(status) {
   return {
     unwatched: 'Unwatched',
+    'watch-later': 'Watch later',
     partial: 'In progress',
     watched: 'Watched'
   }[status] || 'its previous status'
@@ -970,7 +972,7 @@ function renderFeed(s) {
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
 
   const activeVideos = getVisibleActiveVideos(allVideos)
-    .filter(v => ['all', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || v.status === statusFilter))
+    .filter(v => ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || v.status === statusFilter))
     .filter(v => matchesChannelFilter(v, channelFilters))
 
   const watchedVideos = allVideos
@@ -982,9 +984,10 @@ function renderFeed(s) {
     grid.innerHTML = ''
   } else if (!activeVideos.length) {
     const channelMsg = channelFilters.size === getChannelFilterEntries(s).length ? '' : ' for the selected channels'
+    const filterName = statusFilter === 'partial' ? 'in-progress' : statusFilter === 'watch-later' ? 'watch later' : statusFilter
     const msg = statusFilter === 'all' && !channelMsg
       ? 'No videos yet — click ↻ Refresh to load your feed.'
-      : `No ${statusFilter === 'all' ? 'active' : statusFilter === 'partial' ? 'in-progress' : statusFilter} videos${channelMsg} right now.`
+      : `No ${statusFilter === 'all' ? 'active' : filterName} videos${channelMsg} right now.`
     grid.innerHTML = `<div class="empty-state">${msg}</div>`
   } else {
     grid.innerHTML = activeVideos.map(v => renderCard(v)).join('')
@@ -1146,8 +1149,12 @@ function matchesChannelFilter(video, selectedChannelIds) {
 function getVisibleActiveVideos(videos) {
   const byChannel = new Map()
   const activeSort = (a, b) => {
-    const partialPriority = (b.status === 'partial') - (a.status === 'partial')
-    if (partialPriority) return partialPriority
+    const statusPriority = {
+      partial: 2,
+      'watch-later': 1
+    }
+    const priorityDiff = (statusPriority[b.status] || 0) - (statusPriority[a.status] || 0)
+    if (priorityDiff) return priorityDiff
     return new Date(b.publishedAt) - new Date(a.publishedAt)
   }
 
@@ -1171,6 +1178,7 @@ function getVisibleActiveVideos(videos) {
 function renderCard(v, compact = false) {
   const isWatched = v.status === 'watched'
   const isPartial = v.status === 'partial'
+  const isWatchLater = v.status === 'watch-later'
   const watchedLabel = compact ? 'Unmark' : `✓ ${isWatched ? 'Watched' : 'Mark watched'}`
   return `
     <div class="video-card ${compact ? 'compact-card' : ''} status-${v.status}">
@@ -1179,10 +1187,13 @@ function renderCard(v, compact = false) {
         <span class="dur-badge">${formatDuration(v.duration)}</span>
         ${isWatched ? '<span class="overlay-badge watched-badge">✓</span>' : ''}
         ${isPartial ? '<span class="overlay-badge partial-badge">⏸</span>' : ''}
+        ${isWatchLater ? '<span class="overlay-badge watch-later-badge">★</span>' : ''}
         ${isPartial ? '<span class="progress-ribbon">In progress</span>' : ''}
+        ${isWatchLater ? '<span class="progress-ribbon watch-later-ribbon">Watch later</span>' : ''}
       </a>
       <div class="card-body">
         ${isPartial ? '<div class="card-status partial-status">⏸ Resume watching</div>' : ''}
+        ${isWatchLater ? '<div class="card-status watch-later-status">★ Watch later</div>' : ''}
         <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
         <div class="card-meta">
           <span class="channel-name">${escHtml(v.channelTitle || '')}</span>
@@ -1197,6 +1208,9 @@ function renderCard(v, compact = false) {
           <button class="action-btn partial-btn ${isPartial ? 'active' : ''}"
             onclick="markVideo('${v.id}','${isPartial ? 'unwatched' : 'partial'}')"
             title="${isPartial ? 'Clear' : 'Mark as in progress'}">⏸</button>
+          <button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
+            onclick="markVideo('${v.id}','${isWatchLater ? 'unwatched' : 'watch-later'}')"
+            title="${isWatchLater ? 'Remove from watch later' : 'Watch later'}">★</button>
         </div>
       </div>
     </div>
