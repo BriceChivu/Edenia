@@ -64,6 +64,9 @@ const PEASANT_POSITIONS = [
   [470, 219], [382, 218], [294, 217], [204, 218], [138, 226], [244, 226],
   [348, 226], [452, 226], [556, 226], [660, 226], [760, 226], [820, 224]
 ]
+const PEASANT_SCALE = 0.5
+const PEASANT_GROUND_Y = 248
+const PEASANT_FOOT_Y = 23
 let ankiStatsCache = null
 let selectedStatusFilter = 'all'
 let selectedChannelFilters = null
@@ -922,7 +925,8 @@ function applyPeasantPosition(date = new Date()) {
   const peasant = document.getElementById('cityPeasant')
   if (!peasant) return
   const [x, y] = PEASANT_POSITIONS[date.getHours() % PEASANT_POSITIONS.length]
-  peasant.setAttribute('transform', `translate(${x} ${y}) scale(0.5)`)
+  const groundY = PEASANT_GROUND_Y - PEASANT_FOOT_Y * PEASANT_SCALE
+  peasant.setAttribute('transform', `translate(${x} ${Math.max(y, groundY)}) scale(${PEASANT_SCALE})`)
 }
 
 function applyNightVisuals(s, date = new Date()) {
