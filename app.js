@@ -512,6 +512,36 @@ function markVideo(videoId, newStatus) {
   renderAll(s)
 }
 
+function markVideoInProgressOnOpen(videoId) {
+  const s     = loadState()
+  const video = s.videos[videoId]
+  if (!video || ['partial', 'watched'].includes(video.status)) return
+
+  s.lastUndo = {
+    type: 'video-status',
+    videoId,
+    before: {
+      status: video.status,
+      watchedAt: video.watchedAt || null
+    },
+    after: {
+      status: 'partial',
+      watchedAt: null
+    },
+    streak: {
+      current: s.streak.current,
+      longest: s.streak.longest,
+      lastActivityDate: s.streak.lastActivityDate
+    }
+  }
+
+  video.status = 'partial'
+  video.watchedAt = null
+
+  saveState(s)
+  setTimeout(() => renderAll(loadState()), 0)
+}
+
 function undoLastVideoAction() {
   const s = loadState()
   const undo = s.lastUndo
@@ -1296,7 +1326,7 @@ function renderCard(v, compact = false) {
   const watchedLabel = compact ? 'Unmark' : `✓ ${isWatched ? 'Watched' : 'Mark watched'}`
   return `
     <div class="video-card ${compact ? 'compact-card' : ''} status-${v.status}">
-      <a href="https://youtube.com/watch?v=${v.id}" target="_blank" rel="noopener" class="thumb-link">
+      <a href="https://youtube.com/watch?v=${v.id}" target="_blank" rel="noopener" class="thumb-link" onclick="markVideoInProgressOnOpen('${v.id}')">
         <img src="${escHtml(v.thumbnail)}" alt="" class="thumb" loading="lazy">
         <span class="dur-badge">${formatDuration(v.duration)}</span>
         ${isWatched ? '<span class="overlay-badge watched-badge">✓</span>' : ''}
