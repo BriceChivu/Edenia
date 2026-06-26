@@ -760,7 +760,7 @@ function renderStudyHistoryPanel(s) {
   })
 
   const history = getStudyHistory(s || { videos: {}, anki: {} })
-  setText('historyStudyTime', formatHoursMinutes(history.summary.secondsWatched))
+  setText('historyStudyTime', formatHistoryTime(history.summary.secondsWatched))
   setText('historyVideosWatched', history.summary.videosWatched)
   setText('historyAnkiReviewed', history.summary.ankiReviewed)
   setText('historyAnkiCreated', history.summary.ankiCreated)
@@ -778,7 +778,7 @@ function renderStudyHistoryPanel(s) {
       ${history.rows.map(row => `
         <div class="history-row">
           <span>${formatHistoryDate(row.dateKey)}</span>
-          <span>${formatHoursMinutes(row.secondsWatched)}</span>
+          <span>${formatHistoryTime(row.secondsWatched)}</span>
           <span>${row.videosWatched}</span>
           <span>${row.ankiReviewed} / ${row.ankiCreated}</span>
         </div>
@@ -830,6 +830,15 @@ function formatHoursMinutes(secs) {
     return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
   }
   return `${minutes}m`
+}
+
+function formatHistoryTime(secs) {
+  const hours = Math.floor(secs / 3600)
+  const minutes = Math.ceil((secs % 3600) / 60)
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes} min` : `${hours}h`
+  }
+  return `${minutes} min`
 }
 
 function calcCityScore(stats, s) {
@@ -945,6 +954,7 @@ function renderAnalytics(stats, s) {
 
   const bar = document.getElementById('goalProgressBar')
   bar.style.width = `${stats.goalProgress}%`
+  bar.classList.toggle('has-progress', stats.goalProgress > 0)
   bar.classList.toggle('complete', stats.goalProgress >= 100)
 }
 

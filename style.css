@@ -465,10 +465,22 @@ body[data-theme="dark"] .city-next {
 }
 body[data-theme="dark"] .progress-track { background: #07171d; }
 .progress-fill {
+  position: relative;
   height: 100%;
   background: linear-gradient(90deg, var(--planet-cyan), var(--planet-lime));
   border-radius: 99px;
   transition: width 0.6s ease;
+}
+.progress-fill.has-progress::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 3px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--planet-black);
+  transform: translate(50%, -50%);
 }
 .progress-fill.complete { background: var(--green); }
 
