@@ -1,87 +1,162 @@
-# Study Build 📺
+# Study Build
 
-A personal learning dashboard for tracking YouTube study content, Anki progress, and streaks — with a city builder that grows as you learn.
+Study Build is a browser-only learning dashboard for tracking YouTube study videos, Anki activity, weekly study goals, and a city scene that grows as study progress accumulates.
 
-## Setup (5 minutes)
+The app is intentionally simple: `index.html`, `style.css`, and `app.js` are all it needs. There is no build step and no backend service.
 
-### 1. Get a YouTube API key
+## What It Does
 
-1. Go to [console.cloud.google.com](https://console.cloud.google.com)
-2. Create a new project (name it anything)
-3. Search for **"YouTube Data API v3"** → Enable it
-4. Go to **Credentials** → **Create Credentials** → **API key**
-5. Copy the key
-6. Optional but recommended: click **Edit key** → restrict it to *YouTube Data API v3*
+- Loads recent videos from configured YouTube channels.
+- Tracks each video as unwatched, in progress, or watched.
+- Counts watched time toward a weekly hours goal.
+- Syncs today's Anki review/new-card counts through AnkiConnect when Anki is open.
+- Maintains a study streak.
+- Updates the city builder scene from video, Anki, and streak progress.
+- Saves settings immediately as they change.
 
-### 2. Run the app
+## Running Locally
 
-Open `index.html` in any browser — no build step, no server needed.
+Serve the folder from the project root:
 
-On first load, you'll see a setup screen. Paste your API key and set your weekly goal.
+```bash
+python3 -m http.server 8000
+```
 
-### 3. Add your channels
+Then open [http://localhost:8000/](http://localhost:8000/) in Chrome.
 
-Click **⚙ Settings** → paste a channel ID and a display name → **Add**.
+The app can also be opened from `index.html` directly, but new feature testing should use the local server URL in Safari so the runtime path matches the expected development workflow.
 
-**How to find a channel ID:**
-- Go to the channel's YouTube page
-- Click the share icon → **Share** → **Copy channel ID** (starts with `UC`)
-- Or check the URL: `youtube.com/channel/UCxxxxxxxx`
+## Setup
 
-### 4. Refresh
+1. Open the app.
+2. Click the settings button.
+3. Add or update the YouTube API key.
+4. Set the weekly goal in hours.
+5. Add YouTube channel IDs.
+6. Click `Refresh` to load the latest videos.
 
-Click **↻ Refresh** to load the latest videos. Channel names update automatically from the API.
+Settings are saved on the fly. There is no separate save button.
 
----
+## YouTube Channels
 
-## Features
+Channel IDs should start with `UC`.
 
-| Feature | How it works |
-|---|---|
-| Video feed | Latest 5 videos per channel, sorted by date |
-| Watch tracking | Mark videos as ✓ Watched or ⏸ In Progress |
-| Hours tracker | Full watch = full duration, partial = 50% |
-| Weekly goal | Progress bar toward your hour target |
-| Streak | Bumps when you watch or log Anki |
-| Anki logger | Manual entry or auto-fill via AnkiConnect |
-| City builder | Visual reward — grows as weekly score increases |
+To find one:
 
-## City score formula
+1. Visit the YouTube channel page.
+2. Use the share menu and choose `Copy channel ID`, or inspect a URL like `youtube.com/channel/UCxxxxxxxx`.
+3. Paste the ID into the settings panel and click `Add`.
+
+On refresh, Study Build fetches videos from each channel's uploads playlist, stores the latest active video records, and updates channel display names from the YouTube API when available.
+
+## Watch Status
+
+Each video can be marked:
+
+- `Unwatched`
+- `In progress`
+- `Watched`
+
+Watched videos count for their full duration. In-progress videos count for half their duration. Moving a video back to unwatched removes its watched timestamp from weekly progress.
+
+The `Undo` button reverses the most recent video status change, including the related streak state.
+
+## AnkiConnect
+
+Anki stats are optional. To enable them:
+
+1. Install the [AnkiConnect plugin](https://ankiweb.net/shared/info/2055492159).
+2. Open Anki.
+3. In Study Build, click `Refresh Anki`.
+
+The app reads from AnkiConnect at `http://127.0.0.1:8765`. It stores today's reviewed and created-card counts locally, but it does not modify the Anki collection.
+
+## Scoring
+
+The weekly city score is calculated from:
 
 | Activity | Points |
-|---|---|
-| 1 hour of video | 5 pts |
-| 50 Anki reviews | 3 pts |
-| 10 new Anki cards | 4 pts |
-| 1 streak day | 0.5 pts |
+| --- | ---: |
+| 1 hour of watched video time | 5 |
+| 50 Anki reviews | 3 |
+| 10 new Anki cards | 4 |
+| 1 current streak day | 0.5 |
+
+City milestones currently include:
 
 | Score | City stage |
-|---|---|
-| 0–4 | 🌑 Empty land |
-| 5–11 | 🌱 First tree |
-| 12–19 | 🌲 Two trees |
-| 20–34 | 🏡 Farmhouse (goal reached!) |
-| 35–49 | 🌾 Barn built |
-| 50–64 | 🪣 Homestead |
-| 65–84 | 🏠 Two houses |
-| 85–99 | ⚙️ Windmill |
-| 100+ | 🏘️ Full village |
+| ---: | --- |
+| 0 | Empty land |
+| 5 | First trees |
+| 12 | More trees |
+| 20 | Farmhouse |
+| 28 | Farm wagon |
+| 35 | Barn |
+| 45 | Horse cart |
+| 50 | Homestead |
+| 58 | Flying pig |
+| 65 | Two houses |
+| 70 | Pasture cow |
+| 75 | Timber crane |
+| 85 | Windmill rising |
+| 88 | Eagle overhead |
+| 92 | Stable horse |
+| 100 | Full village |
 
-## AnkiConnect (optional)
+## Where Status Data Is Stored
 
-Install the [AnkiConnect plugin](https://ankiweb.net/shared/info/2055492159) in Anki. With Anki open, click **⚡ AnkiConnect** in the dashboard to auto-fill today's review count.
+All current status data is stored in the user's browser, not in the repository and not on a server.
 
-## Hosting on GitHub Pages
+Primary storage:
 
-Since all data is stored in `localStorage`, you can host this as a public repo without exposing your API key — the key is entered through the setup screen and never touches your code.
+- Browser `localStorage`
+- Key: `studybuild_v1`
+- Defined in `app.js` as `STORAGE_KEY`
 
-1. Push `index.html`, `style.css`, `app.js` to a GitHub repo
-2. Go to Settings → Pages → Deploy from branch → `main` / `root`
-3. Visit `yourusername.github.io/repo-name`
-4. Enter your API key on first visit (stored locally in your browser)
+The stored object includes:
 
-## Data & privacy
+- `config`: API key, weekly goal, theme, and configured channels.
+- `videos`: video records keyed by YouTube video ID. This is where watched/in-progress/unwatched status lives.
+- `videos[videoId].status`: one of `unwatched`, `partial`, or `watched`.
+- `videos[videoId].watchedAt`: local timestamp used for weekly progress and watched history.
+- `streak`: current streak, longest streak, and last activity date.
+- `anki`: daily Anki logs keyed by `YYYY-MM-DD`.
+- `nightVisuals`: generated schedule for night city events.
+- `lastUndo`: previous video status change for the undo button.
+- `lastFetched`: last successful YouTube refresh timestamp.
 
-All watch history, streaks, and Anki logs are stored in your browser's `localStorage`. Nothing is sent anywhere except YouTube's API to fetch video metadata.
+Secondary storage:
 
-To export or reset: open browser DevTools → Application → Local Storage → `studybuild_v1`.
+- Browser cookie
+- Key: `studybuild_config`
+- Defined in `app.js` as `CONFIG_COOKIE_KEY`
+
+The cookie mirrors configuration data so the app can restore basic settings if the main state is unavailable.
+
+To inspect or clear the data in Safari:
+
+1. Open Safari Web Inspector for `http://localhost:8000/`.
+2. Check Storage for `localStorage`.
+3. Inspect or remove the `studybuild_v1` entry.
+4. Use the in-app `Reset everything` action when testing a clean first-run state.
+
+## Testing New Features
+
+Manual feature testing should be done in Safari at [http://localhost:8000/](http://localhost:8000/).
+
+Recommended workflow:
+
+1. Start the local static server from the project root with `python3 -m http.server 8000`.
+2. Open `http://localhost:8000/` in Safari.
+3. Test with existing `studybuild_v1` data first.
+4. Test again after using `Reset everything` for a clean local state.
+5. Confirm that settings changes persist without a save button.
+6. Confirm that video status changes update weekly totals, streak state, watched history, and undo behavior.
+7. Confirm that refresh still preserves existing video status.
+8. If testing Anki features, keep Anki open with AnkiConnect installed, then use `Refresh Anki`.
+
+Do not treat browser data as portable test fixtures unless it has been deliberately exported from `localStorage`.
+
+## Privacy
+
+Study Build stores personal progress locally in the browser. The app calls the YouTube Data API to fetch channel and video metadata, and it calls local AnkiConnect only when available. It does not send watch status, streaks, or Anki logs to an app server.
