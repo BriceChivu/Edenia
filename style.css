@@ -266,14 +266,30 @@ body[data-theme="dark"] .reset-confirm {
   padding: 18px 20px 12px;
   position: sticky;
   top: 0;
-  background: transparent;
   z-index: 50;
   gap: 12px;
+}
+.app-header::before {
+  -webkit-backdrop-filter: blur(3px) saturate(1.03);
+  backdrop-filter: blur(3px) saturate(1.03);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 100%);
+  background: linear-gradient(to bottom, rgba(223,248,255,0.62), rgba(223,248,255,0));
+  content: "";
+  inset: 0 0 -18px;
+  mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 100%);
+  pointer-events: none;
+  position: absolute;
+  z-index: 0;
+}
+body[data-theme="dark"] .app-header::before {
+  background: linear-gradient(to bottom, rgba(7,23,29,0.62), rgba(7,23,29,0));
 }
 .header-left {
   display: flex;
   flex-direction: column;
   margin-left: 16px;
+  position: relative;
+  z-index: 1;
 }
 .app-title {
   font-family: 'Bebas Neue', sans-serif;
@@ -289,7 +305,7 @@ body[data-theme="dark"] .reset-confirm {
   letter-spacing: 0.04em;
   margin-top: 2px;
 }
-.header-right { display: flex; align-items: center; gap: 10px; }
+.header-right { display: flex; align-items: center; gap: 10px; position: relative; z-index: 1; }
 
 .streak-pill {
   display: flex;

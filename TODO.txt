@@ -1,5 +1,5 @@
-when I click on a video to watch, automatically make the video card as in progress
 make the point system slightly more rewarding, i.e., 1 video watched should still give some kind of point(s) even if it's not 1h long
 consider the videos as 1 tab, another tab would be the same but for Youtube posts only
 have an icon in the browser tab 
 Below weekly goal, have a summary of what i've done today
+when scrolling down, can I have whatever is behind Study goal, the week, the day streaks and settings buttons (i.e., the top pannel) slightly blurred
