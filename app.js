@@ -858,8 +858,7 @@ function renderStudyHistoryPanel(s) {
 }
 
 function getHistoryHeatLevel(row) {
-  const minutes = Math.ceil(row.secondsWatched / 60)
-  const score = row.videosWatched * 2 + Math.floor(minutes / 30) + Math.floor(row.ankiReviewed / 25) + Math.floor(row.ankiCreated / 5)
+  const score = getHistoryDayPoints(row)
   if (score <= 0) return 0
   if (score < 2) return 1
   if (score < 4) return 2
@@ -867,10 +866,27 @@ function getHistoryHeatLevel(row) {
   return 4
 }
 
+function getHistoryDayPoints(row) {
+  const hoursWatched = row.secondsWatched / 3600
+  const score =
+    (hoursWatched * 5) +
+    row.videosWatched +
+    (Math.floor(row.ankiReviewed / 50) * 3) +
+    (Math.floor(row.ankiCreated / 10) * 4)
+  return Math.floor(score)
+}
+
+function hasHistoryActivity(row) {
+  return row.secondsWatched > 0 || row.videosWatched > 0 || row.ankiReviewed > 0 || row.ankiCreated > 0
+}
+
 function formatHeatmapTitle(row) {
   const date = new Date(`${row.dateKey}T00:00:00`)
-  const dateLabel = date.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })
-  return `${dateLabel}: ${formatHistoryTime(row.secondsWatched)} video time; ${row.videosWatched} videos watched; ${row.ankiReviewed} Anki cards reviewed; ${row.ankiCreated} new Anki cards created`
+  return date.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function formatHeatmapAriaLabel(row) {
+  return `${formatHeatmapTitle(row)}: ${getHistoryDayPoints(row)} points; ${formatHistoryTime(row.secondsWatched)} video time; ${row.videosWatched} videos watched; ${row.ankiReviewed} Anki cards reviewed; ${row.ankiCreated} new Anki cards created`
 }
 
 function renderHistoryHeatmap(s, container) {
@@ -878,8 +894,16 @@ function renderHistoryHeatmap(s, container) {
   end.setHours(23, 59, 59, 999)
   const start = addDays(end, -364)
   start.setHours(0, 0, 0, 0)
-  const gridStart = addDays(start, -start.getDay())
-  const history = getStudyHistoryBetween(s, gridStart, end)
+  const history = getStudyHistoryBetween(s, start, end)
+  const firstActive = history.rows
+    .slice()
+    .reverse()
+    .find(hasHistoryActivity)
+  if (!firstActive) {
+    container.innerHTML = '<div class="history-empty">No activity to map yet.</div>'
+    return
+  }
+  const gridStart = new Date(`${firstActive.dateKey}T00:00:00`)
   const rowsByDate = new Map(history.rows.map(row => [row.dateKey, row]))
   const days = []
   for (let date = new Date(gridStart); date <= end; date = addDays(date, 1)) {
@@ -893,11 +917,51 @@ function renderHistoryHeatmap(s, container) {
     <div class="heatmap-scroll">
       <div class="heatmap-grid" style="grid-template-columns: repeat(${weekCount}, 12px)">
         ${days.map(row => `
-          <span class="heatmap-day level-${getHistoryHeatLevel(row)}" title="${escHtml(formatHeatmapTitle(row))}" aria-label="${escHtml(formatHeatmapTitle(row))}"></span>
+          <span class="heatmap-day level-${getHistoryHeatLevel(row)}" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row))}" tabindex="0" onmouseenter="showHeatmapTooltip(event)" onmousemove="positionHeatmapTooltip(event.currentTarget)" onmouseleave="hideHeatmapTooltip()" onfocus="showHeatmapTooltip(event)" onblur="hideHeatmapTooltip()"></span>
         `).join('')}
       </div>
     </div>
   `
+}
+
+function showHeatmapTooltip(event) {
+  const target = event.currentTarget
+  const tooltip = document.getElementById('heatmapTooltip')
+  if (!target || !tooltip) return
+  tooltip.innerHTML = `
+    <div class="heatmap-tooltip-head">
+      <div class="heatmap-tooltip-title">${escHtml(target.dataset.date)}</div>
+      <div class="heatmap-tooltip-points">${escHtml(target.dataset.points)} pts</div>
+    </div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">⏱</span><span>Video time</span><b>${escHtml(target.dataset.time)}</b></div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">✓</span><span>Videos watched</span><b>${escHtml(target.dataset.videos)}</b></div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">A</span><span>Anki reviewed</span><b>${escHtml(target.dataset.reviewed)}</b></div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">+</span><span>New Anki cards</span><b>${escHtml(target.dataset.created)}</b></div>
+  `
+  tooltip.classList.add('show')
+  positionHeatmapTooltip(target)
+}
+
+function positionHeatmapTooltip(target) {
+  const tooltip = document.getElementById('heatmapTooltip')
+  if (!target || !tooltip || !tooltip.classList.contains('show')) return
+  const rect = target.getBoundingClientRect()
+  const gap = 10
+  const margin = 8
+  const left = Math.min(
+    window.innerWidth - tooltip.offsetWidth - margin,
+    Math.max(margin, rect.left + rect.width / 2 - tooltip.offsetWidth / 2)
+  )
+  let top = rect.top - tooltip.offsetHeight - gap
+  if (top < margin) top = rect.bottom + gap
+  tooltip.style.left = `${left}px`
+  tooltip.style.top = `${top}px`
+}
+
+function hideHeatmapTooltip() {
+  const tooltip = document.getElementById('heatmapTooltip')
+  if (!tooltip) return
+  tooltip.classList.remove('show')
 }
 
 // ════════════════════════════════════════════════════════════

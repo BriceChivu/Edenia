@@ -625,6 +625,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   border: 2px solid var(--planet-black);
   border-radius: var(--radius);
   box-shadow: 0 3px 0 rgba(5,5,5,0.12);
+  margin-top: 12px;
   overflow: hidden;
 }
 .history-row {
@@ -674,11 +675,99 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   border: 1px solid rgba(5,5,5,0.16);
   border-radius: 3px;
   background: #d8edf2;
+  cursor: default;
 }
 .heatmap-day.level-1 { background: #c9ef68; }
 .heatmap-day.level-2 { background: #a9dd4e; }
 .heatmap-day.level-3 { background: #79bd31; }
 .heatmap-day.level-4 { background: #487d1c; }
+.heatmap-day:hover,
+.heatmap-day:focus-visible {
+  border-color: var(--planet-black);
+  outline: none;
+}
+.heatmap-tooltip {
+  background: var(--surface);
+  border: 2px solid var(--planet-black);
+  border-radius: 8px;
+  box-shadow: 0 4px 0 rgba(5,5,5,0.16);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+  max-width: 250px;
+  opacity: 0;
+  padding: 9px 10px;
+  pointer-events: none;
+  position: fixed;
+  text-align: left;
+  width: 230px;
+  z-index: 500;
+}
+.heatmap-tooltip.show {
+  opacity: 1;
+}
+.heatmap-tooltip-head {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+.heatmap-tooltip-title {
+  color: var(--accent);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+.heatmap-tooltip-points {
+  background: var(--planet-lime);
+  border: 1px solid var(--planet-black);
+  border-radius: 999px;
+  color: #243a20;
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 4px 7px;
+}
+.heatmap-tooltip-row {
+  align-items: center;
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 18px 1fr auto;
+  margin-top: 4px;
+}
+.heatmap-tooltip-row b {
+  background: #eefbd0;
+  border: 1px solid rgba(5,5,5,0.18);
+  border-radius: 999px;
+  color: #466915;
+  font-size: 0.68rem;
+  line-height: 1;
+  padding: 3px 6px;
+}
+.heatmap-tooltip-icon {
+  align-items: center;
+  background: var(--planet-cyan);
+  border: 1px solid var(--planet-black);
+  border-radius: 999px;
+  color: #053847;
+  display: inline-flex;
+  font-size: 0.66rem;
+  font-weight: 900;
+  height: 18px;
+  justify-content: center;
+  width: 18px;
+}
+body[data-theme="dark"] .heatmap-tooltip {
+  background: var(--surface-hi);
+}
+body[data-theme="dark"] .heatmap-tooltip-row b {
+  background: #243a20;
+  color: #dff7a8;
+}
 body[data-theme="dark"] .heatmap-day {
   background: #17333b;
   border-color: rgba(130,210,239,0.16);
