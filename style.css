@@ -536,9 +536,57 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   transition: background-color 0.15s;
 }
 #statusFilterSelect { width: 132px; }
-#channelFilterSelect {
+.channel-filter {
+  position: relative;
+}
+.channel-filter-btn {
   max-width: 220px;
   min-width: 150px;
+  text-align: left;
+}
+.channel-filter-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  width: min(260px, 82vw);
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 2px solid var(--planet-black);
+  border-radius: 12px;
+  box-shadow: 0 4px 0 rgba(5,5,5,0.18);
+  padding: 6px;
+}
+.channel-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+.channel-filter-option:hover {
+  background: var(--surface-hi);
+}
+.channel-filter-option input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--green);
+  flex-shrink: 0;
+}
+.channel-filter-option span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.channel-filter-empty {
+  padding: 8px;
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 .undo-btn:disabled {
   cursor: not-allowed;
@@ -829,7 +877,8 @@ body[data-theme="dark"] .action-btn.partial-btn.active { background: #173947; co
 @media (max-width: 480px) {
   .feed-controls { width: 100%; }
   .feed-controls select { flex: 1 1 140px; }
-  #channelFilterSelect { max-width: none; }
+  .channel-filter { flex: 1 1 150px; }
+  .channel-filter-btn { max-width: none; width: 100%; }
   .video-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .watched-grid { grid-template-columns: 1fr; }
   .anki-stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

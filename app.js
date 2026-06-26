@@ -8,7 +8,10 @@ const DEFAULT_CHANNELS = [
   { id: 'UCfsNycNoClXZA1FuUJSGT0w', name: 'Channel 1' },
   { id: 'UCIhaNRLn4OQDWZJiVvdhl5A', name: 'Channel 2' },
   { id: 'UCVBf2Zflj4WabkdCvEAFWew', name: 'Channel 3' },
+  { id: 'UCsZo8ByA7boMHhNszNI9L4A', name: 'Channel 4' },
+  { id: 'UC5p8WSPGtnSWpeQzXv9F7XQ', name: 'Channel 5' },
 ]
+const DEFAULT_CHANNELS_VERSION = 2
 
 // ════════════════════════════════════════════════════════════
 // STATE
@@ -62,6 +65,8 @@ const PEASANT_POSITIONS = [
   [348, 226], [452, 226], [556, 226], [660, 226], [760, 226], [820, 224]
 ]
 let ankiStatsCache = null
+let selectedChannelFilters = null
+let knownChannelFilterIds = new Set()
 
 function getCookie(key) {
   return document.cookie.split('; ').reduce((value, part) => {
@@ -108,6 +113,12 @@ function loadState() {
       const state = JSON.parse(raw)
       if (state?.config && !state.config.apiKey) state.config.apiKey = DEFAULT_API_KEY
       if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
+      if (state?.config && !Array.isArray(state.config.channels)) state.config.channels = []
+      if (state?.config && (state.defaultChannelsVersion || 1) < DEFAULT_CHANNELS_VERSION) {
+        addMissingDefaultChannels(state.config.channels)
+        state.defaultChannelsVersion = DEFAULT_CHANNELS_VERSION
+        saveState(state)
+      }
       if (state && !Object.prototype.hasOwnProperty.call(state, 'lastUndo')) state.lastUndo = null
       return state
     }
@@ -139,8 +150,15 @@ function defaultState(apiKey, goalHours, channels, theme) {
     anki:    {},   // { 'YYYY-MM-DD': { reviewed, created } }
     nightVisuals: null,
     lastUndo: null,
-    lastFetched: null
+    lastFetched: null,
+    defaultChannelsVersion: DEFAULT_CHANNELS_VERSION
   }
+}
+
+function addMissingDefaultChannels(channels) {
+  DEFAULT_CHANNELS.forEach(channel => {
+    if (!channels.find(c => c.id === channel.id)) channels.push({ ...channel })
+  })
 }
 
 // ════════════════════════════════════════════════════════════
@@ -924,30 +942,31 @@ function applyNightVisuals(s, date = new Date()) {
 function renderFeed(s) {
   renderChannelFilterOptions(s)
 
-  const statusFilter = document.getElementById('statusFilterSelect').value
-  const channelFilter = document.getElementById('channelFilterSelect').value
+  const statusFilter = document.getElementById('statusFilterSelect')?.value || 'all'
+  const channelFilters = getSelectedChannelFilters(s)
   const grid   = document.getElementById('videoGrid')
   const watchedSection = document.getElementById('watchedSection')
   const watchedGrid = document.getElementById('watchedGrid')
   const watchedCount = document.getElementById('watchedCount')
+  if (!grid || !watchedSection || !watchedGrid || !watchedCount) return
 
   const allVideos = Object.values(s.videos)
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
 
   const activeVideos = getVisibleActiveVideos(allVideos)
     .filter(v => ['all', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || v.status === statusFilter))
-    .filter(v => matchesChannelFilter(v, channelFilter))
+    .filter(v => matchesChannelFilter(v, channelFilters))
 
   const watchedVideos = allVideos
     .filter(v => v.status === 'watched')
-    .filter(v => matchesChannelFilter(v, channelFilter))
+    .filter(v => matchesChannelFilter(v, channelFilters))
   const showWatched = statusFilter === 'all' || statusFilter === 'watched'
 
   if (statusFilter === 'watched') {
     grid.innerHTML = ''
   } else if (!activeVideos.length) {
-    const channelMsg = channelFilter === 'all' ? '' : ' for this channel'
-    const msg = statusFilter === 'all' && channelFilter === 'all'
+    const channelMsg = channelFilters.size === getChannelFilterEntries(s).length ? '' : ' for the selected channels'
+    const msg = statusFilter === 'all' && !channelMsg
       ? 'No videos yet — click ↻ Refresh to load your feed.'
       : `No ${statusFilter === 'all' ? 'active' : statusFilter === 'partial' ? 'in-progress' : statusFilter} videos${channelMsg} right now.`
     grid.innerHTML = `<div class="empty-state">${msg}</div>`
@@ -969,11 +988,38 @@ function renderUndoButton(s) {
 }
 
 function renderChannelFilterOptions(s) {
-  const select = document.getElementById('channelFilterSelect')
-  if (!select) return
-  const current = select.value || 'all'
-  const channels = new Map()
+  const btn = document.getElementById('channelFilterBtn')
+  const menu = document.getElementById('channelFilterMenu')
+  if (!btn || !menu) return
 
+  const entries = getChannelFilterEntries(s)
+  const ids = new Set(entries.map(([id]) => id))
+  if (selectedChannelFilters) {
+    entries.forEach(([id]) => {
+      if (!knownChannelFilterIds.has(id)) selectedChannelFilters.add(id)
+    })
+    selectedChannelFilters = new Set([...selectedChannelFilters].filter(id => ids.has(id)))
+  }
+  knownChannelFilterIds = ids
+
+  const selected = getSelectedChannelFilters(s)
+  const selectedCount = selected.size
+  btn.textContent = getChannelFilterLabel(entries, selected)
+  btn.disabled = !entries.length
+
+  menu.innerHTML = entries.length
+    ? entries.map(([id, name]) => `
+      <label class="channel-filter-option">
+        <input type="checkbox" data-channel-id="${escHtml(id)}" ${selected.has(id) ? 'checked' : ''} onchange="setChannelFilter(this.dataset.channelId, this.checked)">
+        <span>${escHtml(name)}</span>
+      </label>
+    `).join('')
+    : '<div class="channel-filter-empty">No channels yet</div>'
+  menu.dataset.selectedCount = selectedCount
+}
+
+function getChannelFilterEntries(s) {
+  const channels = new Map()
   s.config.channels.forEach(channel => {
     channels.set(channel.id, channel.name || channel.id)
   })
@@ -981,19 +1027,46 @@ function renderChannelFilterOptions(s) {
     const key = video.channelId || video.channelTitle
     if (key) channels.set(key, video.channelTitle || channels.get(key) || key)
   })
-
-  select.innerHTML = [
-    '<option value="all">All channels</option>',
-    ...Array.from(channels.entries())
-      .sort((a, b) => a[1].localeCompare(b[1]))
-      .map(([id, name]) => `<option value="${escHtml(id)}">${escHtml(name)}</option>`)
-  ].join('')
-  select.value = channels.has(current) ? current : 'all'
+  return Array.from(channels.entries()).sort((a, b) => a[1].localeCompare(b[1]))
 }
 
-function matchesChannelFilter(video, channelFilter) {
-  if (channelFilter === 'all') return true
-  return video.channelId === channelFilter || video.channelTitle === channelFilter
+function getSelectedChannelFilters(s) {
+  const ids = getChannelFilterEntries(s).map(([id]) => id)
+  if (!selectedChannelFilters) return new Set(ids)
+  return new Set(ids.filter(id => selectedChannelFilters.has(id)))
+}
+
+function getChannelFilterLabel(entries, selected) {
+  if (!entries.length) return 'No channels'
+  if (selected.size === entries.length) return 'All channels'
+  if (!selected.size) return 'No channels'
+  if (selected.size === 1) {
+    const selectedEntry = entries.find(([id]) => selected.has(id))
+    return selectedEntry?.[1] || '1 channel'
+  }
+  return `${selected.size} channels`
+}
+
+function setChannelFilter(channelId, enabled) {
+  const s = loadState()
+  if (!selectedChannelFilters) {
+    selectedChannelFilters = new Set(getChannelFilterEntries(s).map(([id]) => id))
+  }
+  if (enabled) selectedChannelFilters.add(channelId)
+  else selectedChannelFilters.delete(channelId)
+  renderFeed(s)
+}
+
+function toggleChannelFilterMenu() {
+  const btn = document.getElementById('channelFilterBtn')
+  const menu = document.getElementById('channelFilterMenu')
+  if (!btn || !menu || btn.disabled) return
+  const isOpen = menu.classList.toggle('hidden') === false
+  btn.setAttribute('aria-expanded', String(isOpen))
+}
+
+function matchesChannelFilter(video, selectedChannelIds) {
+  return selectedChannelIds.has(video.channelId) || selectedChannelIds.has(video.channelTitle)
 }
 
 function getVisibleActiveVideos(videos) {
