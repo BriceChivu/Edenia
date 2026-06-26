@@ -874,6 +874,7 @@ function formatHistoryTime(secs) {
 function calcCityScore(stats, s) {
   let score = 0
   score += stats.hoursWatched * 5                        // 5 pts per hour
+  score += stats.videosWatched                           // 1 pt per watched video
   score += Math.floor(stats.ankiReviewed / 50) * 3      // 3 pts per 50 reviews
   score += Math.floor(stats.ankiCreated  / 10) * 4      // 4 pts per 10 new cards
   score += (s.streak.current || 0) * 0.5                // 0.5 pts per streak day

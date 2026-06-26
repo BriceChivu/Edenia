@@ -86,6 +86,7 @@ The weekly city score is calculated from:
 | Activity | Points |
 | --- | ---: |
 | 1 hour of watched video time | 5 |
+| 1 watched video | 1 |
 | 50 Anki reviews | 3 |
 | 10 new Anki cards | 4 |
 | 1 current streak day | 0.5 |
