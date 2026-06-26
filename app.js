@@ -1065,6 +1065,20 @@ function toggleChannelFilterMenu() {
   btn.setAttribute('aria-expanded', String(isOpen))
 }
 
+function closeChannelFilterMenu() {
+  const btn = document.getElementById('channelFilterBtn')
+  const menu = document.getElementById('channelFilterMenu')
+  if (!btn || !menu) return
+  menu.classList.add('hidden')
+  btn.setAttribute('aria-expanded', 'false')
+}
+
+function closeChannelFilterMenuOnOutsideClick(event) {
+  const filter = document.getElementById('channelFilter')
+  if (!filter || filter.contains(event.target)) return
+  closeChannelFilterMenu()
+}
+
 function matchesChannelFilter(video, selectedChannelIds) {
   return selectedChannelIds.has(video.channelId) || selectedChannelIds.has(video.channelTitle)
 }
@@ -1155,3 +1169,4 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 // ════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', init)
+document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
