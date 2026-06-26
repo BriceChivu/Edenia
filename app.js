@@ -502,7 +502,7 @@ function undoLastVideoAction() {
 
   saveState(s)
   renderAll(s)
-  showToast('Last video action undone')
+  showToast(`Undid change: "${formatToastTitle(video.title)}" is back to ${formatVideoStatus(undo.before.status)}.`)
 }
 
 function bumpStreak(s) {
@@ -520,6 +520,19 @@ function isStreakAlive(s) {
   const today     = toDateKey()
   const yesterday = toDateKey(new Date(Date.now() - 86_400_000))
   return s.streak.lastActivityDate === today || s.streak.lastActivityDate === yesterday
+}
+
+function formatVideoStatus(status) {
+  return {
+    unwatched: 'Unwatched',
+    partial: 'In progress',
+    watched: 'Watched'
+  }[status] || 'its previous status'
+}
+
+function formatToastTitle(title) {
+  const clean = title || 'Video'
+  return clean.length > 48 ? `${clean.slice(0, 45)}...` : clean
 }
 
 // ════════════════════════════════════════════════════════════
