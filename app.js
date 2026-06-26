@@ -42,6 +42,7 @@ const NIGHT_VISUAL_TOTAL_MINUTES = (24 - NIGHT_START_HOUR + NIGHT_VISUAL_END_HOU
 const NIGHT_VISUAL_TYPES = ['aurora', 'ufo', 'meteors']
 const ANKI_AUTO_REFRESH_MS = 5 * 60_000
 const MIN_DAILY_STREAK_POINTS = 3
+const UNDO_STACK_LIMIT = 50
 const CITY_LEVELS = [
   { threshold: 0, label: '🌑 Empty land' },
   { threshold: 5, label: '🌱 First tree' },
@@ -135,7 +136,7 @@ function loadState() {
         state.defaultChannelsVersion = DEFAULT_CHANNELS_VERSION
         saveState(state)
       }
-      if (state && !Object.prototype.hasOwnProperty.call(state, 'lastUndo')) state.lastUndo = null
+      normalizeUndoState(state)
       return state
     }
   } catch {}
@@ -165,10 +166,22 @@ function defaultState(apiKey, goalHours, channels, theme) {
     streak:  { current: 0, longest: 0, lastActivityDate: null },
     anki:    {},   // { 'YYYY-MM-DD': { reviewed, created } }
     nightVisuals: null,
-    lastUndo: null,
+    undoStack: [],
     lastFetched: null,
     defaultChannelsVersion: DEFAULT_CHANNELS_VERSION
   }
+}
+
+function normalizeUndoState(state) {
+  if (!state) return
+  if (!Array.isArray(state.undoStack)) state.undoStack = []
+  if (state.lastUndo?.type === 'video-status' && !state.undoStack.length) {
+    state.undoStack.push(state.lastUndo)
+  }
+  state.undoStack = state.undoStack
+    .filter(action => action?.type === 'video-status')
+    .slice(-UNDO_STACK_LIMIT)
+  delete state.lastUndo
 }
 
 function addMissingDefaultChannels(channels) {
@@ -491,7 +504,7 @@ function markVideo(videoId, newStatus) {
   if (!video) return
   if (video.status === newStatus) return
 
-  s.lastUndo = {
+  const undoAction = {
     type: 'video-status',
     videoId,
     before: {
@@ -500,17 +513,13 @@ function markVideo(videoId, newStatus) {
     },
     after: {
       status: newStatus
-    },
-    streak: {
-      current: s.streak.current,
-      longest: s.streak.longest,
-      lastActivityDate: s.streak.lastActivityDate
     }
   }
 
   video.status    = newStatus
   video.watchedAt = newStatus === 'watched' ? new Date().toISOString() : null
-  s.lastUndo.after.watchedAt = video.watchedAt
+  undoAction.after.watchedAt = video.watchedAt
+  pushUndoAction(s, undoAction)
 
   syncStreak(s)
 
@@ -523,7 +532,7 @@ function markVideoInProgressOnOpen(videoId) {
   const video = s.videos[videoId]
   if (!video || ['partial', 'watched'].includes(video.status)) return
 
-  s.lastUndo = {
+  pushUndoAction(s, {
     type: 'video-status',
     videoId,
     before: {
@@ -533,13 +542,8 @@ function markVideoInProgressOnOpen(videoId) {
     after: {
       status: 'partial',
       watchedAt: null
-    },
-    streak: {
-      current: s.streak.current,
-      longest: s.streak.longest,
-      lastActivityDate: s.streak.lastActivityDate
     }
-  }
+  })
 
   video.status = 'partial'
   video.watchedAt = null
@@ -548,9 +552,17 @@ function markVideoInProgressOnOpen(videoId) {
   setTimeout(() => renderAll(loadState()), 0)
 }
 
+function pushUndoAction(s, action) {
+  normalizeUndoState(s)
+  s.undoStack.push(action)
+  if (s.undoStack.length > UNDO_STACK_LIMIT) {
+    s.undoStack.splice(0, s.undoStack.length - UNDO_STACK_LIMIT)
+  }
+}
+
 function undoLastVideoAction() {
   const s = loadState()
-  const undo = s.lastUndo
+  const undo = s.undoStack.pop()
   if (undo?.type !== 'video-status') {
     showToast('Nothing to undo', 'warn')
     return
@@ -558,7 +570,6 @@ function undoLastVideoAction() {
 
   const video = s.videos[undo.videoId]
   if (!video) {
-    s.lastUndo = null
     saveState(s)
     renderAll(s)
     showToast('That video is no longer available', 'warn')
@@ -567,8 +578,7 @@ function undoLastVideoAction() {
 
   video.status = undo.before.status
   video.watchedAt = undo.before.watchedAt
-  s.streak = { ...s.streak, ...undo.streak }
-  s.lastUndo = null
+  syncStreak(s)
 
   saveState(s)
   renderAll(s)
@@ -1340,9 +1350,11 @@ function renderFeed(s) {
 function renderUndoButton(s) {
   const btn = document.getElementById('undoBtn')
   if (!btn) return
-  const canUndo = s.lastUndo?.type === 'video-status'
+  const undoCount = Array.isArray(s.undoStack) ? s.undoStack.length : 0
+  const canUndo = undoCount > 0
   btn.disabled = !canUndo
-  btn.title = canUndo ? 'Undo latest video status change' : 'Nothing to undo'
+  btn.textContent = undoCount > 1 ? `Undo (${undoCount})` : 'Undo'
+  btn.title = canUndo ? `Undo latest video status change (${undoCount} available)` : 'Nothing to undo'
 }
 
 function renderStatusFilterOptions() {
