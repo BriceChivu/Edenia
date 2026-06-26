@@ -113,6 +113,26 @@ body[data-theme="dark"] .btn-secondary:hover { background: var(--surface-hi); }
   transition: color 0.15s, border-color 0.15s;
 }
 .btn-ghost:hover { color: var(--accent); border-color: var(--accent); }
+.btn-danger {
+  color: #9e2a24;
+  border-color: #d96b61;
+  background: #fff0ee;
+}
+.btn-danger:hover {
+  color: #741d19;
+  border-color: #9e2a24;
+  background: #ffe2df;
+}
+body[data-theme="dark"] .btn-danger {
+  color: #ffb4ad;
+  border-color: #b84a42;
+  background: #3a1615;
+}
+body[data-theme="dark"] .btn-danger:hover {
+  color: #ffd1cc;
+  border-color: #ff8e84;
+  background: #4a1d1b;
+}
 
 .btn-icon {
   background: none;
@@ -216,6 +236,25 @@ body[data-theme="dark"] select option { color: var(--text); }
 }
 .add-channel-row input { flex: 1; min-width: 100px; }
 .settings-actions { display: flex; gap: 10px; flex-direction: column; }
+.reset-confirm {
+  border: 2px solid #d96b61;
+  border-radius: 12px;
+  background: #fff7f5;
+  color: #741d19;
+  padding: 10px;
+  font-size: 0.84rem;
+}
+.reset-confirm p { margin-bottom: 10px; }
+.reset-confirm-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+body[data-theme="dark"] .reset-confirm {
+  background: #2a1110;
+  border-color: #b84a42;
+  color: #ffd1cc;
+}
 
 /* ═══════════════════════════════════════════════════════════
    APP HEADER

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260626-3">
+  <link rel="stylesheet" href="style.css?v=20260626-7">
 </head>
 <body>
 
@@ -24,12 +24,12 @@
 
       <div class="settings-group">
         <label>API Key</label>
-        <input type="password" id="settingsApiKey" autocomplete="off">
+        <input type="password" id="settingsApiKey" autocomplete="off" oninput="saveSettingsOnTheFly()">
       </div>
 
       <div class="settings-group">
         <label>Weekly goal (hours)</label>
-        <input type="number" id="settingsGoal" min="1" max="99">
+        <input type="number" id="settingsGoal" min="1" max="99" onchange="saveSettingsOnTheFly()" oninput="saveSettingsOnTheFly()">
       </div>
 
       <div class="settings-group">
@@ -46,8 +46,14 @@
       </div>
 
       <div class="settings-actions">
-        <button class="btn-primary" onclick="saveSettings()">Save</button>
-        <button class="btn-ghost" onclick="resetApp()">Reset everything</button>
+        <button class="btn-ghost btn-danger" onclick="showResetConfirm()">Reset everything</button>
+        <div id="resetConfirm" class="reset-confirm hidden">
+          <p>This will delete this app's local watch history, streak, saved settings, and cached Anki stats. Your Anki collection will not be changed.</p>
+          <div class="reset-confirm-actions">
+            <button class="btn-ghost" onclick="hideResetConfirm()">Cancel</button>
+            <button class="btn-ghost btn-danger" onclick="resetApp()">Delete data</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -526,6 +532,6 @@
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
-  <script src="app.js?v=20260626-3"></script>
+  <script src="app.js?v=20260626-7"></script>
 </body>
 </html>

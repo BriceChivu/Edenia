@@ -1,2 +1,1 @@
-- in the settings, have a tick box next to each channel to allow me to disable a channel, i.e., hide it from the feed of videos. By default, a new channel will be enabled.
 remove the save button, just make sure changes are saved on the fly

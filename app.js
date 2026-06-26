@@ -253,17 +253,14 @@ function openSettings() {
 
 function closeSettings() { hide('settingsPanel') }
 
-function saveSettings() {
+function saveSettingsOnTheFly() {
   const s      = loadState()
   const apiKey = document.getElementById('settingsApiKey').value.trim()
   const goal   = parseInt(document.getElementById('settingsGoal').value) || 4
-  if (!apiKey) { showToast('API key cannot be empty', 'warn'); return }
-  s.config.apiKey          = apiKey
+  if (apiKey) s.config.apiKey = apiKey
   s.config.weeklyGoalHours = goal
   saveState(s)
-  closeSettings()
   renderAll(s)
-  showToast('Settings saved')
 }
 
 function toggleTheme() {
@@ -314,8 +311,15 @@ function renderChannelList(channels) {
   `).join('')
 }
 
+function showResetConfirm() {
+  document.getElementById('resetConfirm')?.classList.remove('hidden')
+}
+
+function hideResetConfirm() {
+  document.getElementById('resetConfirm')?.classList.add('hidden')
+}
+
 function resetApp() {
-  if (!confirm('This will delete all your watch history, streak, and Anki data. Continue?')) return
   localStorage.removeItem(STORAGE_KEY)
   document.cookie = `${CONFIG_COOKIE_KEY}=; max-age=0; path=/`
   location.reload()
