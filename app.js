@@ -41,6 +41,7 @@ const NIGHT_VISUAL_DURATION_MINUTES = 30
 const NIGHT_VISUAL_TOTAL_MINUTES = (24 - NIGHT_START_HOUR + NIGHT_VISUAL_END_HOUR) * 60
 const NIGHT_VISUAL_TYPES = ['aurora', 'ufo', 'meteors']
 const ANKI_AUTO_REFRESH_MS = 5 * 60_000
+const MIN_DAILY_STREAK_POINTS = 3
 const CITY_LEVELS = [
   { threshold: 0, label: '🌑 Empty land' },
   { threshold: 5, label: '🌱 First tree' },
@@ -243,6 +244,8 @@ function init() {
     saveState(state)
   }
 
+  syncStreak(state)
+  saveState(state)
   applyTheme(state.config.theme)
   show('mainApp')
   renderAll(state)
@@ -509,7 +512,7 @@ function markVideo(videoId, newStatus) {
   video.watchedAt = newStatus === 'watched' ? new Date().toISOString() : null
   s.lastUndo.after.watchedAt = video.watchedAt
 
-  if (newStatus === 'watched') bumpStreak(s)
+  syncStreak(s)
 
   saveState(s)
   renderAll(s)
@@ -572,20 +575,59 @@ function undoLastVideoAction() {
   showToast(`Undid change: "${formatToastTitle(video.title)}" is back to ${formatVideoStatus(undo.before.status)}.`)
 }
 
-function bumpStreak(s) {
-  const today     = toDateKey()
-  const yesterday = toDateKey(new Date(Date.now() - 86_400_000))
-  const last      = s.streak.lastActivityDate
+function dateKeyToLocalDate(dateKey) {
+  return new Date(`${dateKey}T00:00:00`)
+}
 
-  if (last === today)     return                // already logged today
-  s.streak.current = last === yesterday ? s.streak.current + 1 : 1
-  s.streak.longest = Math.max(s.streak.longest, s.streak.current)
-  s.streak.lastActivityDate = today
+function getPreviousDateKey(dateKey) {
+  const date = dateKeyToLocalDate(dateKey)
+  date.setDate(date.getDate() - 1)
+  return toDateKey(date)
+}
+
+function getDaysBetweenDateKeys(prevKey, nextKey) {
+  return Math.round((dateKeyToLocalDate(nextKey) - dateKeyToLocalDate(prevKey)) / 86_400_000)
+}
+
+function syncStreak(s) {
+  const today = toDateKey()
+  const end = dateKeyToLocalDate(today)
+  end.setHours(23, 59, 59, 999)
+
+  const qualifyingDays = getStudyHistoryBetween(s, new Date(0), end).rows
+    .filter(row => getHistoryDayPoints(row) >= MIN_DAILY_STREAK_POINTS)
+    .map(row => row.dateKey)
+    .sort()
+
+  const qualifyingSet = new Set(qualifyingDays)
+  let longest = 0
+  let run = 0
+  let previous = null
+
+  for (const dateKey of qualifyingDays) {
+    run = previous && getDaysBetweenDateKeys(previous, dateKey) === 1 ? run + 1 : 1
+    longest = Math.max(longest, run)
+    previous = dateKey
+  }
+
+  const yesterday = getPreviousDateKey(today)
+  const anchor = qualifyingSet.has(today) ? today : qualifyingSet.has(yesterday) ? yesterday : null
+  let current = 0
+  let cursor = anchor
+
+  while (cursor && qualifyingSet.has(cursor)) {
+    current += 1
+    cursor = getPreviousDateKey(cursor)
+  }
+
+  s.streak.current = current
+  s.streak.longest = longest
+  s.streak.lastActivityDate = qualifyingDays[qualifyingDays.length - 1] || null
 }
 
 function isStreakAlive(s) {
   const today     = toDateKey()
-  const yesterday = toDateKey(new Date(Date.now() - 86_400_000))
+  const yesterday = getPreviousDateKey(today)
   return s.streak.lastActivityDate === today || s.streak.lastActivityDate === yesterday
 }
 
@@ -694,7 +736,7 @@ function syncAnkiStatsToState(stats) {
     loggedAt: stats.fetchedAt,
     source: 'ankiconnect'
   }
-  if (stats.reviewedToday || stats.newToday) bumpStreak(s)
+  syncStreak(s)
   saveState(s)
   renderHeader(s)
   renderAnalytics(getWeeklyStats(s), s)
