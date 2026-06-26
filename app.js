@@ -250,9 +250,8 @@ function toggleTheme() {
 
 function addChannel() {
   const idEl   = document.getElementById('newChannelId')
-  const nameEl = document.getElementById('newChannelName')
   const id     = idEl.value.trim()
-  const name   = nameEl.value.trim() || id
+  const name   = id
 
   if (!id.startsWith('UC') || id.length < 20) {
     showToast('Channel ID should start with UC and be ~24 characters', 'warn')
@@ -265,7 +264,7 @@ function addChannel() {
   s.config.channels.push({ id, name })
   saveState(s)
   renderChannelList(s.config.channels)
-  idEl.value = nameEl.value = ''
+  idEl.value = ''
   showToast(`${name} added`)
 }
 
