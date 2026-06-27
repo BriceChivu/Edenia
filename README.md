@@ -95,14 +95,14 @@ The weekly city score is calculated from:
 
 City milestones currently include:
 
-| Score | City stage |
-| ---: | --- |
-| 0 | 🏠 Lonely house |
-| 5 | ⛵ We got a boat and a fishing line! |
-| 12 | 🌳 A nice park for the kids |
-| 20 | 👋 Welcome to our neighbors! |
-| 28 | 🏊 That pool looks nice |
-| 35 | 🏝️ A tiny island... |
+| Level | Score | City stage |
+| ---: | ---: | --- |
+| 1 | 0 | 🏠 Lonely house |
+| 2 | 5 | ⛵ We got a boat and a fishing line! |
+| 3 | 12 | 🌳 A nice park for the kids |
+| 4 | 20 | 👋 Welcome to our neighbors! |
+| 5 | 28 | 🏊 That pool looks nice |
+| 6 | 35 | 🏝️ A tiny island... |
 
 ## Where Status Data Is Stored
 
