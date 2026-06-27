@@ -375,6 +375,7 @@ function init() {
     saveState(state)
   }
 
+  document.title = IS_SANDBOX ? 'Sandbox - Study Build' : 'Study Build'
   document.body.dataset.sandbox = IS_SANDBOX ? 'true' : 'false'
   const sandboxTools = document.getElementById('sandboxTools')
   if (sandboxTools) sandboxTools.classList.toggle('hidden', !IS_SANDBOX)
