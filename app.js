@@ -44,12 +44,12 @@ const ANKI_AUTO_REFRESH_MS = 5 * 60_000
 const MIN_DAILY_STREAK_POINTS = 3
 const UNDO_STACK_LIMIT = 50
 const CITY_LEVELS = [
-  { threshold: 0, label: 'Lonely house' },
-  { threshold: 5, label: 'We got a boat and a fishing line!' },
-  { threshold: 12, label: 'A nice park for the kids' },
-  { threshold: 20, label: 'Welcome to our neighbors!' },
-  { threshold: 28, label: 'That pool looks nice' },
-  { threshold: 35, label: 'A tiny island...' }
+  { threshold: 0, label: '🏠 Lonely house' },
+  { threshold: 5, label: '⛵ We got a boat and a fishing line!' },
+  { threshold: 12, label: '🌳 A nice park for the kids' },
+  { threshold: 20, label: '👋 Welcome to our neighbors!' },
+  { threshold: 28, label: '🏊 That pool looks nice' },
+  { threshold: 35, label: '🏝️ A tiny island...' }
 ]
 const CITY_IMAGE_PATHS = [
   'images/level%201.png',

@@ -97,12 +97,12 @@ City milestones currently include:
 
 | Score | City stage |
 | ---: | --- |
-| 0 | Lonely house |
-| 5 | We got a boat and a fishing line! |
-| 12 | A nice park for the kids |
-| 20 | Welcome to our neighbors! |
-| 28 | That pool looks nice |
-| 35 | A tiny island... |
+| 0 | 🏠 Lonely house |
+| 5 | ⛵ We got a boat and a fishing line! |
+| 12 | 🌳 A nice park for the kids |
+| 20 | 👋 Welcome to our neighbors! |
+| 28 | 🏊 That pool looks nice |
+| 35 | 🏝️ A tiny island... |
 
 ## Where Status Data Is Stored
 
