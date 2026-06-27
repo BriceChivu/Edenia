@@ -45,20 +45,20 @@ const MIN_DAILY_STREAK_POINTS = 3
 const UNDO_STACK_LIMIT = 50
 const CITY_LEVELS = [
   { threshold: 0, label: '🌑 Empty land' },
-  { threshold: 5, label: '🌱 First tree' },
-  { threshold: 12, label: '🌲 Two trees' },
+  { threshold: 5, label: '🌲 Left pine trees' },
+  { threshold: 12, label: '🌲 Right pine trees' },
   { threshold: 20, label: '🏡 Farmhouse' },
-  { threshold: 28, label: 'Farm wagon' },
+  { threshold: 28, label: '🚜 Farm wagon' },
   { threshold: 35, label: '🌾 Barn built' },
-  { threshold: 45, label: 'Horse cart' },
-  { threshold: 50, label: '🪣 Homestead' },
-  { threshold: 58, label: 'Flying pig' },
+  { threshold: 45, label: '🐴 Horse cart' },
+  { threshold: 50, label: '🪣 Well and coop' },
+  { threshold: 58, label: '🐷 Flying pig' },
   { threshold: 65, label: '🏠 Two houses' },
-  { threshold: 70, label: 'Pasture cow' },
-  { threshold: 75, label: 'Timber crane' },
+  { threshold: 70, label: '🐄 Pasture cow' },
+  { threshold: 75, label: '🪵 Timber crane' },
   { threshold: 85, label: '⚙️ Windmill rising' },
-  { threshold: 88, label: 'Eagle overhead' },
-  { threshold: 92, label: 'Stable horse' },
+  { threshold: 88, label: '🦅 Eagle overhead' },
+  { threshold: 92, label: '🐎 Stable horse' },
   { threshold: 100, label: '🏘️ Full village' }
 ]
 const PEASANT_POSITIONS = [
