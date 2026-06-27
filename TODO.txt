@@ -1,1 +1,0 @@
-remove the save button, just make sure changes are saved on the fly

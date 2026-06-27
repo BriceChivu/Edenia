@@ -40,22 +40,25 @@ const NIGHT_VISUAL_END_HOUR = 1
 const NIGHT_VISUAL_DURATION_MINUTES = 30
 const NIGHT_VISUAL_TOTAL_MINUTES = (24 - NIGHT_START_HOUR + NIGHT_VISUAL_END_HOUR) * 60
 const NIGHT_VISUAL_TYPES = ['aurora', 'ufo', 'meteors']
+const ANKI_AUTO_REFRESH_MS = 5 * 60_000
+const MIN_DAILY_STREAK_POINTS = 3
+const UNDO_STACK_LIMIT = 50
 const CITY_LEVELS = [
   { threshold: 0, label: '🌑 Empty land' },
-  { threshold: 5, label: '🌱 First tree' },
-  { threshold: 12, label: '🌲 Two trees' },
+  { threshold: 5, label: '🌲 Left pine trees' },
+  { threshold: 12, label: '🌲 Right pine trees' },
   { threshold: 20, label: '🏡 Farmhouse' },
-  { threshold: 28, label: 'Farm wagon' },
+  { threshold: 28, label: '🚜 Farm wagon' },
   { threshold: 35, label: '🌾 Barn built' },
-  { threshold: 45, label: 'Horse cart' },
-  { threshold: 50, label: '🪣 Homestead' },
-  { threshold: 58, label: 'Flying pig' },
+  { threshold: 45, label: '🐴 Horse cart' },
+  { threshold: 50, label: '🪣 Well and coop' },
+  { threshold: 58, label: '🐷 Flying pig' },
   { threshold: 65, label: '🏠 Two houses' },
-  { threshold: 70, label: 'Pasture cow' },
-  { threshold: 75, label: 'Timber crane' },
+  { threshold: 70, label: '🐄 Pasture cow' },
+  { threshold: 75, label: '🪵 Timber crane' },
   { threshold: 85, label: '⚙️ Windmill rising' },
-  { threshold: 88, label: 'Eagle overhead' },
-  { threshold: 92, label: 'Stable horse' },
+  { threshold: 88, label: '🦅 Eagle overhead' },
+  { threshold: 92, label: '🐎 Stable horse' },
   { threshold: 100, label: '🏘️ Full village' }
 ]
 const PEASANT_POSITIONS = [
@@ -64,16 +67,23 @@ const PEASANT_POSITIONS = [
   [470, 219], [382, 218], [294, 217], [204, 218], [138, 226], [244, 226],
   [348, 226], [452, 226], [556, 226], [660, 226], [760, 226], [820, 224]
 ]
+const PEASANT_SCALE = 0.5
+const PEASANT_GROUND_Y = 248
+const PEASANT_FOOT_Y = 23
 let ankiStatsCache = null
 let selectedStatusFilter = 'all'
 let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
+let selectedHistoryRange = 'week'
+let selectedHistoryView = 'summary'
 const STATUS_FILTERS = [
   ['all', 'All'],
+  ['watch-later', 'Watch later'],
   ['unwatched', 'Unwatched'],
   ['partial', 'In progress'],
   ['watched', 'Watched']
 ]
+const HISTORY_RANGES = ['day', 'week', 'month']
 
 function getCookie(key) {
   return document.cookie.split('; ').reduce((value, part) => {
@@ -126,7 +136,7 @@ function loadState() {
         state.defaultChannelsVersion = DEFAULT_CHANNELS_VERSION
         saveState(state)
       }
-      if (state && !Object.prototype.hasOwnProperty.call(state, 'lastUndo')) state.lastUndo = null
+      normalizeUndoState(state)
       return state
     }
   } catch {}
@@ -156,10 +166,22 @@ function defaultState(apiKey, goalHours, channels, theme) {
     streak:  { current: 0, longest: 0, lastActivityDate: null },
     anki:    {},   // { 'YYYY-MM-DD': { reviewed, created } }
     nightVisuals: null,
-    lastUndo: null,
+    undoStack: [],
     lastFetched: null,
     defaultChannelsVersion: DEFAULT_CHANNELS_VERSION
   }
+}
+
+function normalizeUndoState(state) {
+  if (!state) return
+  if (!Array.isArray(state.undoStack)) state.undoStack = []
+  if (state.lastUndo?.type === 'video-status' && !state.undoStack.length) {
+    state.undoStack.push(state.lastUndo)
+  }
+  state.undoStack = state.undoStack
+    .filter(action => action?.type === 'video-status')
+    .slice(-UNDO_STACK_LIMIT)
+  delete state.lastUndo
 }
 
 function addMissingDefaultChannels(channels) {
@@ -235,11 +257,14 @@ function init() {
     saveState(state)
   }
 
+  syncStreak(state)
+  saveState(state)
   applyTheme(state.config.theme)
   show('mainApp')
   renderAll(state)
   startCityClock()
   refreshAnkiStats({ silent: true })
+  startAnkiAutoRefresh()
   if (!state.lastFetched) showToast('Add or edit channels in ⚙ Settings, then hit ↻ Refresh', 'warn')
 }
 
@@ -479,7 +504,7 @@ function markVideo(videoId, newStatus) {
   if (!video) return
   if (video.status === newStatus) return
 
-  s.lastUndo = {
+  const undoAction = {
     type: 'video-status',
     videoId,
     before: {
@@ -488,27 +513,56 @@ function markVideo(videoId, newStatus) {
     },
     after: {
       status: newStatus
-    },
-    streak: {
-      current: s.streak.current,
-      longest: s.streak.longest,
-      lastActivityDate: s.streak.lastActivityDate
     }
   }
 
   video.status    = newStatus
-  video.watchedAt = newStatus !== 'unwatched' ? new Date().toISOString() : null
-  s.lastUndo.after.watchedAt = video.watchedAt
+  video.watchedAt = newStatus === 'watched' ? new Date().toISOString() : null
+  undoAction.after.watchedAt = video.watchedAt
+  pushUndoAction(s, undoAction)
 
-  if (newStatus !== 'unwatched') bumpStreak(s)
+  syncStreak(s)
 
   saveState(s)
   renderAll(s)
 }
 
+function markVideoInProgressOnOpen(videoId) {
+  const s     = loadState()
+  const video = s.videos[videoId]
+  if (!video || ['partial', 'watched'].includes(video.status)) return
+
+  pushUndoAction(s, {
+    type: 'video-status',
+    videoId,
+    before: {
+      status: video.status,
+      watchedAt: video.watchedAt || null
+    },
+    after: {
+      status: 'partial',
+      watchedAt: null
+    }
+  })
+
+  video.status = 'partial'
+  video.watchedAt = null
+
+  saveState(s)
+  setTimeout(() => renderAll(loadState()), 0)
+}
+
+function pushUndoAction(s, action) {
+  normalizeUndoState(s)
+  s.undoStack.push(action)
+  if (s.undoStack.length > UNDO_STACK_LIMIT) {
+    s.undoStack.splice(0, s.undoStack.length - UNDO_STACK_LIMIT)
+  }
+}
+
 function undoLastVideoAction() {
   const s = loadState()
-  const undo = s.lastUndo
+  const undo = s.undoStack.pop()
   if (undo?.type !== 'video-status') {
     showToast('Nothing to undo', 'warn')
     return
@@ -516,7 +570,6 @@ function undoLastVideoAction() {
 
   const video = s.videos[undo.videoId]
   if (!video) {
-    s.lastUndo = null
     saveState(s)
     renderAll(s)
     showToast('That video is no longer available', 'warn')
@@ -525,34 +578,73 @@ function undoLastVideoAction() {
 
   video.status = undo.before.status
   video.watchedAt = undo.before.watchedAt
-  s.streak = { ...s.streak, ...undo.streak }
-  s.lastUndo = null
+  syncStreak(s)
 
   saveState(s)
   renderAll(s)
   showToast(`Undid change: "${formatToastTitle(video.title)}" is back to ${formatVideoStatus(undo.before.status)}.`)
 }
 
-function bumpStreak(s) {
-  const today     = toDateKey()
-  const yesterday = toDateKey(new Date(Date.now() - 86_400_000))
-  const last      = s.streak.lastActivityDate
+function dateKeyToLocalDate(dateKey) {
+  return new Date(`${dateKey}T00:00:00`)
+}
 
-  if (last === today)     return                // already logged today
-  s.streak.current = last === yesterday ? s.streak.current + 1 : 1
-  s.streak.longest = Math.max(s.streak.longest, s.streak.current)
-  s.streak.lastActivityDate = today
+function getPreviousDateKey(dateKey) {
+  const date = dateKeyToLocalDate(dateKey)
+  date.setDate(date.getDate() - 1)
+  return toDateKey(date)
+}
+
+function getDaysBetweenDateKeys(prevKey, nextKey) {
+  return Math.round((dateKeyToLocalDate(nextKey) - dateKeyToLocalDate(prevKey)) / 86_400_000)
+}
+
+function syncStreak(s) {
+  const today = toDateKey()
+  const end = dateKeyToLocalDate(today)
+  end.setHours(23, 59, 59, 999)
+
+  const qualifyingDays = getStudyHistoryBetween(s, new Date(0), end).rows
+    .filter(row => getHistoryDayPoints(row) >= MIN_DAILY_STREAK_POINTS)
+    .map(row => row.dateKey)
+    .sort()
+
+  const qualifyingSet = new Set(qualifyingDays)
+  let longest = 0
+  let run = 0
+  let previous = null
+
+  for (const dateKey of qualifyingDays) {
+    run = previous && getDaysBetweenDateKeys(previous, dateKey) === 1 ? run + 1 : 1
+    longest = Math.max(longest, run)
+    previous = dateKey
+  }
+
+  const yesterday = getPreviousDateKey(today)
+  const anchor = qualifyingSet.has(today) ? today : qualifyingSet.has(yesterday) ? yesterday : null
+  let current = 0
+  let cursor = anchor
+
+  while (cursor && qualifyingSet.has(cursor)) {
+    current += 1
+    cursor = getPreviousDateKey(cursor)
+  }
+
+  s.streak.current = current
+  s.streak.longest = longest
+  s.streak.lastActivityDate = qualifyingDays[qualifyingDays.length - 1] || null
 }
 
 function isStreakAlive(s) {
   const today     = toDateKey()
-  const yesterday = toDateKey(new Date(Date.now() - 86_400_000))
+  const yesterday = getPreviousDateKey(today)
   return s.streak.lastActivityDate === today || s.streak.lastActivityDate === yesterday
 }
 
 function formatVideoStatus(status) {
   return {
     unwatched: 'Unwatched',
+    'watch-later': 'Watch later',
     partial: 'In progress',
     watched: 'Watched'
   }[status] || 'its previous status'
@@ -633,6 +725,17 @@ async function refreshAnkiStats({ silent = false } = {}) {
   }
 }
 
+function startAnkiAutoRefresh() {
+  clearInterval(startAnkiAutoRefresh._timer)
+  startAnkiAutoRefresh._timer = setInterval(() => {
+    if (!document.hidden) refreshAnkiStats({ silent: true })
+  }, ANKI_AUTO_REFRESH_MS)
+}
+
+function refreshAnkiStatsOnVisible() {
+  if (!document.hidden) refreshAnkiStats({ silent: true })
+}
+
 function syncAnkiStatsToState(stats) {
   const s = loadState()
   if (!s || !stats) return
@@ -643,7 +746,7 @@ function syncAnkiStatsToState(stats) {
     loggedAt: stats.fetchedAt,
     source: 'ankiconnect'
   }
-  if (stats.reviewedToday || stats.newToday) bumpStreak(s)
+  syncStreak(s)
   saveState(s)
   renderHeader(s)
   renderAnalytics(getWeeklyStats(s), s)
@@ -651,17 +754,99 @@ function syncAnkiStatsToState(stats) {
   renderCity(score, s)
 }
 
-function setAnkiStatText(id, value) {
-  const el = document.getElementById(id)
-  if (el) el.textContent = value ?? '—'
-}
-
 function formatAnkiStatus(stats) {
   if (!stats?.fetchedAt) return 'Open Anki to load live stats'
   return `Updated ${timeAgo(stats.fetchedAt)}`
 }
 
-function renderAnkiStatsPanel(s) {
+function setText(id, value) {
+  const el = document.getElementById(id)
+  if (el) el.textContent = value ?? '—'
+}
+
+function getHistoryRange(range = selectedHistoryRange, from = new Date()) {
+  const end = new Date(from)
+  end.setHours(23, 59, 59, 999)
+
+  const start = new Date(from)
+  if (range === 'month') {
+    start.setDate(1)
+    start.setHours(0, 0, 0, 0)
+  } else if (range === 'week') {
+    start.setTime(getWeekStart(from).getTime())
+  } else {
+    start.setHours(0, 0, 0, 0)
+  }
+
+  return { start, end }
+}
+
+function addDays(date, days) {
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return next
+}
+
+function createHistoryBucket(dateKey) {
+  return {
+    dateKey,
+    secondsWatched: 0,
+    videosWatched: 0,
+    ankiReviewed: 0,
+    ankiCreated: 0
+  }
+}
+
+function getStudyHistory(s, range = selectedHistoryRange) {
+  const { start, end } = getHistoryRange(range)
+  return getStudyHistoryBetween(s, start, end)
+}
+
+function getStudyHistoryBetween(s, start, end) {
+  const buckets = new Map()
+  const ensureBucket = dateKey => {
+    if (!buckets.has(dateKey)) buckets.set(dateKey, createHistoryBucket(dateKey))
+    return buckets.get(dateKey)
+  }
+
+  for (const video of Object.values(s.videos || {})) {
+    if (!video.watchedAt || video.status !== 'watched') continue
+    const date = new Date(video.watchedAt)
+    if (date < start || date > end) continue
+    const bucket = ensureBucket(toDateKey(date))
+    bucket.videosWatched += 1
+    bucket.secondsWatched += video.duration || 0
+  }
+
+  for (const [dateKey, day] of Object.entries(s.anki || {})) {
+    const date = new Date(`${dateKey}T00:00:00`)
+    if (date < start || date > end) continue
+    const bucket = ensureBucket(dateKey)
+    bucket.ankiReviewed += day.reviewed || 0
+    bucket.ankiCreated += day.created || 0
+  }
+
+  const rows = Array.from(buckets.values()).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
+  const summary = rows.reduce((acc, row) => ({
+    secondsWatched: acc.secondsWatched + row.secondsWatched,
+    videosWatched: acc.videosWatched + row.videosWatched,
+    ankiReviewed: acc.ankiReviewed + row.ankiReviewed,
+    ankiCreated: acc.ankiCreated + row.ankiCreated
+  }), createHistoryBucket('summary'))
+
+  return { rows, summary }
+}
+
+function formatHistoryDate(dateKey) {
+  const date = new Date(`${dateKey}T00:00:00`)
+  const today = toDateKey()
+  const yesterday = toDateKey(new Date(Date.now() - 86_400_000))
+  if (dateKey === today) return 'Today'
+  if (dateKey === yesterday) return 'Yesterday'
+  return date.toLocaleDateString('en', { month: 'short', day: 'numeric' })
+}
+
+function renderStudyHistoryPanel(s) {
   const todayLog = s?.anki?.[toDateKey()]
   const stats = ankiStatsCache || (todayLog ? {
     reviewedToday: todayLog.reviewed,
@@ -670,15 +855,165 @@ function renderAnkiStatsPanel(s) {
     fetchedAt: todayLog.loggedAt
   } : null)
 
-  setAnkiStatText('ankiReviewedToday', stats?.reviewedToday)
-  setAnkiStatText('ankiNewToday', stats?.newToday)
-  setAnkiStatText('ankiDueCards', stats?.dueCards)
-
   const el = document.getElementById('ankiConnectStatus')
   if (el) {
     el.textContent = formatAnkiStatus(stats)
     el.classList.toggle('logged', !!stats)
   }
+
+  document.querySelectorAll('.history-range-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.historyRange === selectedHistoryRange)
+  })
+  document.querySelectorAll('.history-view-btn').forEach(btn => {
+    const isActive = btn.dataset.historyView === selectedHistoryView
+    btn.classList.toggle('active', isActive)
+    btn.setAttribute('aria-selected', String(isActive))
+  })
+
+  const history = getStudyHistory(s || { videos: {}, anki: {} })
+  setText('historyStudyTime', formatHistoryTime(history.summary.secondsWatched))
+  setText('historyVideosWatched', history.summary.videosWatched)
+  setText('historyAnkiReviewed', history.summary.ankiReviewed)
+  setText('historyAnkiCreated', history.summary.ankiCreated)
+
+  const table = document.getElementById('historyTable')
+  if (table) {
+    table.innerHTML = history.rows.length
+      ? `
+        <div class="history-row history-row-head">
+          <span>Date</span>
+          <span>Video</span>
+          <span>Watched</span>
+          <span>Anki</span>
+        </div>
+        ${history.rows.map(row => `
+          <div class="history-row">
+            <span>${formatHistoryDate(row.dateKey)}</span>
+            <span>${formatHistoryTime(row.secondsWatched)}</span>
+            <span>${row.videosWatched}</span>
+            <span>${row.ankiReviewed} / ${row.ankiCreated}</span>
+          </div>
+        `).join('')}
+      `
+      : '<div class="history-empty">No activity in this range.</div>'
+  }
+
+  const summaryView = document.getElementById('historySummaryView')
+  const heatmapView = document.getElementById('historyHeatmapView')
+  const rangeToolbar = document.getElementById('historyRangeToolbar')
+  if (rangeToolbar) rangeToolbar.classList.toggle('hidden', selectedHistoryView === 'heatmap')
+  if (summaryView) summaryView.classList.toggle('hidden', selectedHistoryView !== 'summary')
+  if (heatmapView) {
+    heatmapView.classList.toggle('hidden', selectedHistoryView !== 'heatmap')
+    if (selectedHistoryView === 'heatmap') renderHistoryHeatmap(s || { videos: {}, anki: {} }, heatmapView)
+  }
+}
+
+function getHistoryHeatLevel(row) {
+  const score = getHistoryDayPoints(row)
+  if (score <= 0) return 0
+  if (score < 2) return 1
+  if (score < 4) return 2
+  if (score < 7) return 3
+  return 4
+}
+
+function getHistoryDayPoints(row) {
+  const hoursWatched = row.secondsWatched / 3600
+  const score =
+    (hoursWatched * 5) +
+    row.videosWatched +
+    (Math.floor(row.ankiReviewed / 50) * 3) +
+    (Math.floor(row.ankiCreated / 10) * 4)
+  return Math.floor(score)
+}
+
+function hasHistoryActivity(row) {
+  return row.secondsWatched > 0 || row.videosWatched > 0 || row.ankiReviewed > 0 || row.ankiCreated > 0
+}
+
+function formatHeatmapTitle(row) {
+  const date = new Date(`${row.dateKey}T00:00:00`)
+  return date.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function formatHeatmapAriaLabel(row) {
+  return `${formatHeatmapTitle(row)}: ${getHistoryDayPoints(row)} points; ${formatHistoryTime(row.secondsWatched)} video time; ${row.videosWatched} videos watched; ${row.ankiReviewed} Anki cards reviewed; ${row.ankiCreated} new Anki cards created`
+}
+
+function renderHistoryHeatmap(s, container) {
+  const end = new Date()
+  end.setHours(23, 59, 59, 999)
+  const start = addDays(end, -364)
+  start.setHours(0, 0, 0, 0)
+  const history = getStudyHistoryBetween(s, start, end)
+  const firstActive = history.rows
+    .slice()
+    .reverse()
+    .find(hasHistoryActivity)
+  if (!firstActive) {
+    container.innerHTML = '<div class="history-empty">No activity to map yet.</div>'
+    return
+  }
+  const gridStart = new Date(`${firstActive.dateKey}T00:00:00`)
+  const rowsByDate = new Map(history.rows.map(row => [row.dateKey, row]))
+  const days = []
+  for (let date = new Date(gridStart); date <= end; date = addDays(date, 1)) {
+    const dateKey = toDateKey(date)
+    const row = rowsByDate.get(dateKey) || createHistoryBucket(dateKey)
+    days.push(row)
+  }
+  const weekCount = Math.ceil(days.length / 7)
+
+  container.innerHTML = `
+    <div class="heatmap-scroll">
+      <div class="heatmap-grid" style="grid-template-columns: repeat(${weekCount}, 12px)">
+        ${days.map(row => `
+          <span class="heatmap-day level-${getHistoryHeatLevel(row)}" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row))}" tabindex="0" onmouseenter="showHeatmapTooltip(event)" onmousemove="positionHeatmapTooltip(event.currentTarget)" onmouseleave="hideHeatmapTooltip()" onfocus="showHeatmapTooltip(event)" onblur="hideHeatmapTooltip()"></span>
+        `).join('')}
+      </div>
+    </div>
+  `
+}
+
+function showHeatmapTooltip(event) {
+  const target = event.currentTarget
+  const tooltip = document.getElementById('heatmapTooltip')
+  if (!target || !tooltip) return
+  tooltip.innerHTML = `
+    <div class="heatmap-tooltip-head">
+      <div class="heatmap-tooltip-title">${escHtml(target.dataset.date)}</div>
+      <div class="heatmap-tooltip-points">${escHtml(target.dataset.points)} pts</div>
+    </div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">⏱</span><span>Video time</span><b>${escHtml(target.dataset.time)}</b></div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">✓</span><span>Videos watched</span><b>${escHtml(target.dataset.videos)}</b></div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">A</span><span>Anki reviewed</span><b>${escHtml(target.dataset.reviewed)}</b></div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">+</span><span>New Anki cards</span><b>${escHtml(target.dataset.created)}</b></div>
+  `
+  tooltip.classList.add('show')
+  positionHeatmapTooltip(target)
+}
+
+function positionHeatmapTooltip(target) {
+  const tooltip = document.getElementById('heatmapTooltip')
+  if (!target || !tooltip || !tooltip.classList.contains('show')) return
+  const rect = target.getBoundingClientRect()
+  const gap = 10
+  const margin = 8
+  const left = Math.min(
+    window.innerWidth - tooltip.offsetWidth - margin,
+    Math.max(margin, rect.left + rect.width / 2 - tooltip.offsetWidth / 2)
+  )
+  let top = rect.top - tooltip.offsetHeight - gap
+  if (top < margin) top = rect.bottom + gap
+  tooltip.style.left = `${left}px`
+  tooltip.style.top = `${top}px`
+}
+
+function hideHeatmapTooltip() {
+  const tooltip = document.getElementById('heatmapTooltip')
+  if (!tooltip) return
+  tooltip.classList.remove('show')
 }
 
 // ════════════════════════════════════════════════════════════
@@ -688,16 +1023,14 @@ function renderAnkiStatsPanel(s) {
 function getWeeklyStats(s) {
   const weekStart = getWeekStart()
 
-  const weekVids = Object.values(s.videos)
+  const videos = Object.values(s.videos)
+  const weekVids = videos
     .filter(v => v.watchedAt && new Date(v.watchedAt) >= weekStart)
 
   const watched = weekVids.filter(v => v.status === 'watched')
-  const partial = weekVids.filter(v => v.status === 'partial')
+  const partial = videos.filter(v => v.status === 'partial')
 
-  // Full watch = full duration; partial = 50%
-  const secondsWatched =
-    watched.reduce((sum, v) => sum + (v.duration || 0), 0) +
-    partial.reduce((sum, v) => sum + Math.floor((v.duration || 0) * 0.5), 0)
+  const secondsWatched = watched.reduce((sum, v) => sum + (v.duration || 0), 0)
 
   const hoursWatched = secondsWatched / 3600
   const goalHours    = s.config.weeklyGoalHours || 4
@@ -728,9 +1061,19 @@ function formatHoursMinutes(secs) {
   return `${minutes}m`
 }
 
+function formatHistoryTime(secs) {
+  const hours = Math.floor(secs / 3600)
+  const minutes = Math.ceil((secs % 3600) / 60)
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes} min` : `${hours}h`
+  }
+  return `${minutes} min`
+}
+
 function calcCityScore(stats, s) {
   let score = 0
   score += stats.hoursWatched * 5                        // 5 pts per hour
+  score += stats.videosWatched                           // 1 pt per watched video
   score += Math.floor(stats.ankiReviewed / 50) * 3      // 3 pts per 50 reviews
   score += Math.floor(stats.ankiCreated  / 10) * 4      // 4 pts per 10 new cards
   score += (s.streak.current || 0) * 0.5                // 0.5 pts per streak day
@@ -841,11 +1184,22 @@ function renderAnalytics(stats, s) {
 
   const bar = document.getElementById('goalProgressBar')
   bar.style.width = `${stats.goalProgress}%`
+  bar.classList.toggle('has-progress', stats.goalProgress > 0)
   bar.classList.toggle('complete', stats.goalProgress >= 100)
 }
 
 function renderAnkiStatus(s) {
-  renderAnkiStatsPanel(s)
+  renderStudyHistoryPanel(s)
+}
+
+function setHistoryRange(range) {
+  selectedHistoryRange = HISTORY_RANGES.includes(range) ? range : 'week'
+  renderStudyHistoryPanel(loadState())
+}
+
+function setHistoryView(view) {
+  selectedHistoryView = view === 'heatmap' ? 'heatmap' : 'summary'
+  renderStudyHistoryPanel(loadState())
 }
 
 function renderCity(score, s) {
@@ -922,7 +1276,8 @@ function applyPeasantPosition(date = new Date()) {
   const peasant = document.getElementById('cityPeasant')
   if (!peasant) return
   const [x, y] = PEASANT_POSITIONS[date.getHours() % PEASANT_POSITIONS.length]
-  peasant.setAttribute('transform', `translate(${x} ${y}) scale(0.5)`)
+  const groundY = PEASANT_GROUND_Y - PEASANT_FOOT_Y * PEASANT_SCALE
+  peasant.setAttribute('transform', `translate(${x} ${Math.max(y, groundY)}) scale(${PEASANT_SCALE})`)
 }
 
 function applyNightVisuals(s, date = new Date()) {
@@ -966,7 +1321,7 @@ function renderFeed(s) {
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
 
   const activeVideos = getVisibleActiveVideos(allVideos)
-    .filter(v => ['all', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || v.status === statusFilter))
+    .filter(v => ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || v.status === statusFilter))
     .filter(v => matchesChannelFilter(v, channelFilters))
 
   const watchedVideos = allVideos
@@ -978,9 +1333,10 @@ function renderFeed(s) {
     grid.innerHTML = ''
   } else if (!activeVideos.length) {
     const channelMsg = channelFilters.size === getChannelFilterEntries(s).length ? '' : ' for the selected channels'
+    const filterName = statusFilter === 'partial' ? 'in-progress' : statusFilter === 'watch-later' ? 'watch later' : statusFilter
     const msg = statusFilter === 'all' && !channelMsg
       ? 'No videos yet — click ↻ Refresh to load your feed.'
-      : `No ${statusFilter === 'all' ? 'active' : statusFilter === 'partial' ? 'in-progress' : statusFilter} videos${channelMsg} right now.`
+      : `No ${statusFilter === 'all' ? 'active' : filterName} videos${channelMsg} right now.`
     grid.innerHTML = `<div class="empty-state">${msg}</div>`
   } else {
     grid.innerHTML = activeVideos.map(v => renderCard(v)).join('')
@@ -993,10 +1349,42 @@ function renderFeed(s) {
 
 function renderUndoButton(s) {
   const btn = document.getElementById('undoBtn')
+  const tooltip = document.getElementById('undoTooltip')
   if (!btn) return
-  const canUndo = s.lastUndo?.type === 'video-status'
+  const undoCount = Array.isArray(s.undoStack) ? s.undoStack.length : 0
+  const canUndo = undoCount > 0
   btn.disabled = !canUndo
-  btn.title = canUndo ? 'Undo latest video status change' : 'Nothing to undo'
+  btn.textContent = undoCount > 1 ? `Undo (${undoCount})` : 'Undo'
+  btn.title = canUndo ? `Undo latest video status change (${undoCount} available)` : 'Nothing to undo'
+  if (tooltip) tooltip.innerHTML = renderUndoTooltip(s)
+}
+
+function renderUndoTooltip(s) {
+  const actions = Array.isArray(s.undoStack) ? s.undoStack.slice().reverse() : []
+  if (!actions.length) {
+    return '<div class="undo-tooltip-title">Nothing to undo</div>'
+  }
+
+  const visibleActions = actions.slice(0, 8)
+  const hiddenCount = actions.length - visibleActions.length
+  return `
+    <div class="undo-tooltip-title">Undo queue</div>
+    ${visibleActions.map(action => renderUndoTooltipItem(action, s)).join('')}
+    ${hiddenCount > 0 ? `<div class="undo-tooltip-more">+ ${hiddenCount} older ${hiddenCount === 1 ? 'action' : 'actions'}</div>` : ''}
+  `
+}
+
+function renderUndoTooltipItem(action, s) {
+  const video = s.videos?.[action.videoId]
+  const title = video?.title || 'Unavailable video'
+  const currentStatus = formatVideoStatus(action.after?.status || video?.status)
+  const previousStatus = formatVideoStatus(action.before?.status)
+  return `
+    <div class="undo-tooltip-item">
+      <span class="undo-tooltip-video">${escHtml(title)}</span>
+      <span class="undo-tooltip-action">${escHtml(currentStatus)} → back to ${escHtml(previousStatus)}</span>
+    </div>
+  `
 }
 
 function renderStatusFilterOptions() {
@@ -1142,8 +1530,12 @@ function matchesChannelFilter(video, selectedChannelIds) {
 function getVisibleActiveVideos(videos) {
   const byChannel = new Map()
   const activeSort = (a, b) => {
-    const partialPriority = (b.status === 'partial') - (a.status === 'partial')
-    if (partialPriority) return partialPriority
+    const statusPriority = {
+      partial: 2,
+      'watch-later': 1
+    }
+    const priorityDiff = (statusPriority[b.status] || 0) - (statusPriority[a.status] || 0)
+    if (priorityDiff) return priorityDiff
     return new Date(b.publishedAt) - new Date(a.publishedAt)
   }
 
@@ -1167,18 +1559,22 @@ function getVisibleActiveVideos(videos) {
 function renderCard(v, compact = false) {
   const isWatched = v.status === 'watched'
   const isPartial = v.status === 'partial'
+  const isWatchLater = v.status === 'watch-later'
   const watchedLabel = compact ? 'Unmark' : `✓ ${isWatched ? 'Watched' : 'Mark watched'}`
   return `
     <div class="video-card ${compact ? 'compact-card' : ''} status-${v.status}">
-      <a href="https://youtube.com/watch?v=${v.id}" target="_blank" rel="noopener" class="thumb-link">
+      <a href="https://youtube.com/watch?v=${v.id}" target="_blank" rel="noopener" class="thumb-link" onclick="markVideoInProgressOnOpen('${v.id}')">
         <img src="${escHtml(v.thumbnail)}" alt="" class="thumb" loading="lazy">
         <span class="dur-badge">${formatDuration(v.duration)}</span>
         ${isWatched ? '<span class="overlay-badge watched-badge">✓</span>' : ''}
         ${isPartial ? '<span class="overlay-badge partial-badge">⏸</span>' : ''}
+        ${isWatchLater ? '<span class="overlay-badge watch-later-badge">★</span>' : ''}
         ${isPartial ? '<span class="progress-ribbon">In progress</span>' : ''}
+        ${isWatchLater ? '<span class="progress-ribbon watch-later-ribbon">Watch later</span>' : ''}
       </a>
       <div class="card-body">
         ${isPartial ? '<div class="card-status partial-status">⏸ Resume watching</div>' : ''}
+        ${isWatchLater ? '<div class="card-status watch-later-status">★ Watch later</div>' : ''}
         <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
         <div class="card-meta">
           <span class="channel-name">${escHtml(v.channelTitle || '')}</span>
@@ -1193,6 +1589,9 @@ function renderCard(v, compact = false) {
           <button class="action-btn partial-btn ${isPartial ? 'active' : ''}"
             onclick="markVideo('${v.id}','${isPartial ? 'unwatched' : 'partial'}')"
             title="${isPartial ? 'Clear' : 'Mark as in progress'}">⏸</button>
+          <button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
+            onclick="markVideo('${v.id}','${isWatchLater ? 'unwatched' : 'watch-later'}')"
+            title="${isWatchLater ? 'Remove from watch later' : 'Watch later'}">★</button>
         </div>
       </div>
     </div>
@@ -1226,3 +1625,4 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 
 document.addEventListener('DOMContentLoaded', init)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
+document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
