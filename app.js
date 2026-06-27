@@ -61,6 +61,13 @@ const CITY_LEVELS = [
   { threshold: 92, label: '🐎 Stable horse' },
   { threshold: 100, label: '🏘️ Full village' }
 ]
+const CITY_IMAGE_PATHS = [
+  'images/level%201.png',
+  'images/level%202.png',
+  'images/level%203.png',
+  'images/level%204.png',
+  'images/level%205.png'
+]
 const PEASANT_POSITIONS = [
   [118, 222], [176, 220], [254, 224], [340, 222], [430, 222], [518, 222],
   [606, 222], [694, 222], [782, 223], [738, 216], [650, 216], [560, 218],
@@ -1080,9 +1087,13 @@ function calcCityScore(stats, s) {
   return Math.floor(score)
 }
 
-function getCityStage(score) {
+function getCityLevel(score) {
   const unlocked = CITY_LEVELS.filter(level => score >= level.threshold)
-  return (unlocked[unlocked.length - 1] || CITY_LEVELS[0]).label
+  return unlocked[unlocked.length - 1] || CITY_LEVELS[0]
+}
+
+function getCityStage(score) {
+  return getCityLevel(score).label
 }
 
 function getNextCityLevel(score) {
@@ -1215,9 +1226,39 @@ function renderCity(score, s) {
     el.style.opacity = score >= parseInt(el.dataset.threshold) ? '1' : '0'
   })
 
+  updateCityMilestoneImage(score)
   applyCityTimeOfDay(s.streak.lastActivityDate === toDateKey())
   applyPeasantPosition()
   applyNightVisuals(s)
+}
+
+function updateCityMilestoneImage(score) {
+  const image = document.getElementById('cityMilestoneImage')
+  if (!image || CITY_IMAGE_PATHS.length === 0) return
+
+  const levelIndex = CITY_LEVELS.indexOf(getCityLevel(score))
+  const imageIndex = Math.min(Math.max(levelIndex, 0), CITY_IMAGE_PATHS.length - 1)
+  const nextSrc = CITY_IMAGE_PATHS[imageIndex]
+  const nextAlt = `Study city milestone: ${getCityStage(score).replace(/[^\p{L}\p{N}\s-]/gu, '').trim()}`
+
+  image.alt = nextAlt
+  if (image.dataset.citySrc === nextSrc) return
+  if (image.getAttribute('src') === nextSrc) {
+    image.dataset.citySrc = nextSrc
+    image.classList.remove('loading')
+    return
+  }
+
+  image.dataset.citySrc = nextSrc
+  image.classList.add('loading')
+  image.onload = () => image.classList.remove('loading')
+  image.src = nextSrc
+
+  const preloadSrc = CITY_IMAGE_PATHS[imageIndex + 1]
+  if (preloadSrc) {
+    const preload = new Image()
+    preload.src = preloadSrc
+  }
 }
 
 function applyCityTimeOfDay(activeStreak = false) {

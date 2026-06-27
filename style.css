@@ -371,8 +371,26 @@ html[data-theme="dark"] .theme-icon-sun {
   margin: 10px 20px var(--gap);
   overflow: hidden;
 }
-#cityscape {
+.city-image-wrap {
+  aspect-ratio: 1672 / 941;
+  background: var(--planet-black);
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+.city-milestone-image {
   display: block;
+  height: 100%;
+  object-fit: cover;
+  opacity: 1;
+  transition: opacity 0.45s ease;
+  width: 100%;
+}
+.city-milestone-image.loading {
+  opacity: 0;
+}
+#cityscape {
+  display: none;
   width: 100%;
   height: auto;
   transition: filter 1.2s ease;
