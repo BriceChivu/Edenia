@@ -83,6 +83,7 @@ let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
 let selectedHistoryRange = 'week'
 let selectedHistoryView = 'summary'
+let selectedCityDayOffset = 0
 const STATUS_FILTERS = [
   ['all', 'All'],
   ['watch-later', 'Watch later'],
@@ -1078,12 +1079,20 @@ function formatHistoryTime(secs) {
 }
 
 function calcCityScore(stats, s) {
+  return calcCityScoreWithStreak(stats, s.streak.current || 0)
+}
+
+function calcCityScoreWithoutStreak(stats) {
+  return calcCityScoreWithStreak(stats, 0)
+}
+
+function calcCityScoreWithStreak(stats, streakDays) {
   let score = 0
   score += stats.hoursWatched * 5                        // 5 pts per hour
   score += stats.videosWatched                           // 1 pt per watched video
   score += Math.floor(stats.ankiReviewed / 50) * 3      // 3 pts per 50 reviews
   score += Math.floor(stats.ankiCreated  / 10) * 4      // 4 pts per 10 new cards
-  score += (s.streak.current || 0) * 0.5                // 0.5 pts per streak day
+  score += streakDays * 0.5                             // 0.5 pts per streak day
   return Math.floor(score)
 }
 
@@ -1213,23 +1222,120 @@ function setHistoryView(view) {
   renderStudyHistoryPanel(loadState())
 }
 
+function stepCityDay(delta) {
+  const state = loadState()
+  if (!state) return
+  selectedCityDayOffset = clampCityDayOffset(state, selectedCityDayOffset + delta)
+  renderCity(calcCityScore(getWeeklyStats(state), state), state)
+}
+
+function resetCityDay() {
+  selectedCityDayOffset = 0
+  const state = loadState()
+  if (state) renderCity(calcCityScore(getWeeklyStats(state), state), state)
+}
+
 function renderCity(score, s) {
-  document.getElementById('cityScore').textContent = score
-  document.getElementById('cityLabel').textContent = getCityStage(score)
-  const nextLevel = getNextCityLevel(score)
+  const snapshot = getCitySnapshot(score, s)
+  document.getElementById('cityScore').textContent = snapshot.score
+  document.getElementById('cityLabel').textContent = getCityStage(snapshot.score)
+  const scoreContext = document.getElementById('cityScoreContext')
+  if (scoreContext) scoreContext.textContent = snapshot.isToday ? 'pts this week' : 'pts by then'
+  const nextLevel = getNextCityLevel(snapshot.score)
   document.getElementById('cityNextLevel').textContent = nextLevel
-    ? `${nextLevel.threshold - score} pts to ${nextLevel.label}`
+    ? `${nextLevel.threshold - snapshot.score} pts to ${nextLevel.label}`
     : 'Max level'
 
   // Reveal elements whose threshold has been reached
   document.querySelectorAll('[data-threshold]').forEach(el => {
-    el.style.opacity = score >= parseInt(el.dataset.threshold) ? '1' : '0'
+    el.style.opacity = snapshot.score >= parseInt(el.dataset.threshold) ? '1' : '0'
   })
 
-  updateCityMilestoneImage(score)
+  renderCityTimeControls(snapshot)
+  updateCityMilestoneImage(snapshot.score)
   applyCityTimeOfDay(s.streak.lastActivityDate === toDateKey())
   applyPeasantPosition()
   applyNightVisuals(s)
+}
+
+function getCitySnapshot(currentScore, s) {
+  selectedCityDayOffset = clampCityDayOffset(s, selectedCityDayOffset)
+  const date = addDays(new Date(), selectedCityDayOffset)
+  const isToday = selectedCityDayOffset === 0
+  const minOffset = getFirstCityDayOffset(s)
+  if (isToday) return { date, isToday, minOffset, score: currentScore }
+
+  const stats = getCityStatsThroughDate(s, date)
+  return { date, isToday, minOffset, score: calcCityScoreWithoutStreak(stats) }
+}
+
+function clampCityDayOffset(s, offset) {
+  const firstOffset = getFirstCityDayOffset(s)
+  return Math.max(firstOffset, Math.min(0, offset))
+}
+
+function getFirstCityDayOffset(s) {
+  const firstDateKey = getFirstStudyActionDateKey(s)
+  if (!firstDateKey) return 0
+  return Math.min(0, daysBetweenDateKeys(toDateKey(), firstDateKey))
+}
+
+function getFirstStudyActionDateKey(s) {
+  const dates = []
+
+  Object.values(s?.videos || {}).forEach(video => {
+    if (video.watchedAt) dates.push(toDateKey(new Date(video.watchedAt)))
+  })
+
+  Object.entries(s?.anki || {}).forEach(([dateKey, day]) => {
+    if ((day.reviewed || 0) > 0 || (day.created || 0) > 0) dates.push(dateKey)
+  })
+
+  return dates.sort()[0] || null
+}
+
+function daysBetweenDateKeys(fromKey, toKey) {
+  const from = new Date(`${fromKey}T00:00:00`)
+  const to = new Date(`${toKey}T00:00:00`)
+  return Math.round((to - from) / 86_400_000)
+}
+
+function getCityStatsThroughDate(s, date) {
+  const start = getWeekStart(date)
+  const end = new Date(date)
+  end.setHours(23, 59, 59, 999)
+  const history = getStudyHistoryBetween(s || { videos: {}, anki: {} }, start, end)
+  const summary = history.summary
+
+  return {
+    hoursWatched: summary.secondsWatched / 3600,
+    secondsWatched: summary.secondsWatched,
+    videosWatched: summary.videosWatched,
+    videosPartial: 0,
+    remainingSeconds: 0,
+    ankiReviewed: summary.ankiReviewed,
+    ankiCreated: summary.ankiCreated
+  }
+}
+
+function renderCityTimeControls(snapshot) {
+  const chip = document.getElementById('cityTimeChip')
+  const previous = document.getElementById('cityPreviousDayBtn')
+  const next = document.getElementById('cityNextDayBtn')
+  if (chip) {
+    chip.textContent = snapshot.isToday
+      ? 'Today'
+      : `${formatCitySnapshotDate(snapshot.date)}, ${snapshot.score} pts`
+    chip.title = snapshot.isToday ? 'Showing today' : 'Back to today'
+  }
+  if (previous) previous.disabled = selectedCityDayOffset <= snapshot.minOffset
+  if (next) next.disabled = snapshot.isToday
+}
+
+function formatCitySnapshotDate(date) {
+  const dateKey = toDateKey(date)
+  if (dateKey === toDateKey(new Date(Date.now() - 86_400_000))) return 'Yesterday'
+  return date.toLocaleDateString('en', { month: 'short', day: 'numeric' })
 }
 
 function updateCityMilestoneImage(score) {

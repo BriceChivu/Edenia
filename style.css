@@ -389,6 +389,63 @@ html[data-theme="dark"] .theme-icon-sun {
 .city-milestone-image.loading {
   opacity: 0;
 }
+.city-time-controls {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  bottom: 10px;
+  box-shadow: none;
+  display: flex;
+  gap: 3px;
+  opacity: 0.68;
+  padding: 0;
+  position: absolute;
+  right: 10px;
+  transition: opacity 0.15s ease;
+  z-index: 2;
+}
+.city-time-controls:hover,
+.city-time-controls:focus-within {
+  opacity: 1;
+}
+.city-time-btn,
+.city-time-chip {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.64);
+  border: 0;
+  color: #142028;
+  cursor: pointer;
+  display: inline-flex;
+  font-family: inherit;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 26px;
+}
+.city-time-btn {
+  border-radius: 50%;
+  font-size: 1rem;
+  line-height: 1;
+  width: 26px;
+}
+.city-time-chip {
+  border-radius: 999px;
+  font-size: 0.68rem;
+  max-width: min(38vw, 176px);
+  min-width: 52px;
+  overflow: hidden;
+  padding: 0 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.city-time-btn:hover,
+.city-time-chip:hover {
+  background: rgba(255, 255, 255, 0.9);
+}
+.city-time-btn:disabled {
+  cursor: default;
+  opacity: 0.26;
+}
 #cityscape {
   display: none;
   width: 100%;
@@ -1279,6 +1336,13 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
     font-size: 0.7rem;
     gap: 5px;
     padding: 8px;
+  }
+  .city-time-controls {
+    bottom: 7px;
+    right: 7px;
+  }
+  .city-time-chip {
+    max-width: 42vw;
   }
   .card-title { font-size: 0.78rem; }
 }

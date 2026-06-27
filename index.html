@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260627-3">
+  <link rel="stylesheet" href="style.css?v=20260627-5">
 </head>
 <body>
 
@@ -93,6 +93,11 @@
     <section class="city-section">
       <div class="city-image-wrap">
         <img id="cityMilestoneImage" class="city-milestone-image" src="images/level%201.png" alt="Study city milestone: Empty land">
+        <div class="city-time-controls" aria-label="City history controls">
+          <button class="city-time-btn" id="cityPreviousDayBtn" type="button" onclick="stepCityDay(-1)" title="Previous day" aria-label="Previous day">‹</button>
+          <button class="city-time-chip" id="cityTimeChip" type="button" onclick="resetCityDay()" title="Back to today">Today</button>
+          <button class="city-time-btn" id="cityNextDayBtn" type="button" onclick="stepCityDay(1)" title="Next day" aria-label="Next day">›</button>
+        </div>
       </div>
 
       <svg id="cityscape" class="legacy-cityscape" viewBox="0 0 900 280" xmlns="http://www.w3.org/2000/svg"
@@ -450,7 +455,7 @@
           <span id="cityLabel">🌑 Empty land</span>
           <span class="city-next" id="cityNextLevel"></span>
         </span>
-        <span class="city-pts"><span id="cityScore">0</span> pts this week</span>
+        <span class="city-pts"><span id="cityScore">0</span> <span id="cityScoreContext">pts this week</span></span>
       </div>
     </section>
 
@@ -555,6 +560,6 @@
   <div class="toast" id="toast"></div>
   <div class="heatmap-tooltip" id="heatmapTooltip"></div>
 
-  <script src="app.js?v=20260627-3"></script>
+  <script src="app.js?v=20260627-5"></script>
 </body>
 </html>
