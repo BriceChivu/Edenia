@@ -152,6 +152,7 @@ function loadState() {
         saveState(state)
       }
       normalizeUndoState(state)
+      normalizeCityProgress(state)
       return state
     }
   } catch {}
@@ -180,6 +181,7 @@ function defaultState(apiKey, goalHours, channels, theme) {
     videos:  {},   // { [videoId]: VideoRecord }
     streak:  { current: 0, longest: 0, lastActivityDate: null },
     anki:    {},   // { 'YYYY-MM-DD': { reviewed, created } }
+    cityProgress: { maxLevelIndex: 0 },
     nightVisuals: null,
     undoStack: [],
     lastFetched: null,
@@ -298,6 +300,17 @@ function normalizeUndoState(state) {
     .filter(action => action?.type === 'video-status')
     .slice(-UNDO_STACK_LIMIT)
   delete state.lastUndo
+}
+
+function normalizeCityProgress(state) {
+  if (!state) return
+  const historicMax = getHistoricMaxCityLevelIndex(state)
+  const storedMax = Number.isInteger(state.cityProgress?.maxLevelIndex)
+    ? state.cityProgress.maxLevelIndex
+    : 0
+  state.cityProgress = {
+    maxLevelIndex: clampNumber(Math.max(storedMax, historicMax), 0, CITY_LEVELS.length - 1)
+  }
 }
 
 function addMissingDefaultChannels(channels) {
@@ -1247,8 +1260,19 @@ function calcCityScoreWithStreak(stats, streakDays) {
 }
 
 function getCityLevel(score) {
-  const unlocked = CITY_LEVELS.filter(level => score >= level.threshold)
-  return unlocked[unlocked.length - 1] || CITY_LEVELS[0]
+  return CITY_LEVELS[getCityLevelIndex(score)]
+}
+
+function getCityLevelIndex(score) {
+  let index = 0
+  CITY_LEVELS.forEach((level, i) => {
+    if (score >= level.threshold) index = i
+  })
+  return index
+}
+
+function getCityScoreForLevelIndex(index) {
+  return CITY_LEVELS[clampNumber(index, 0, CITY_LEVELS.length - 1)]?.threshold || 0
 }
 
 function getCityStage(score) {
@@ -1388,21 +1412,21 @@ function resetCityDay() {
 function renderCity(score, s) {
   const snapshot = getCitySnapshot(score, s)
   document.getElementById('cityScore').textContent = snapshot.score
-  document.getElementById('cityLabel').textContent = getCityStage(snapshot.score)
+  document.getElementById('cityLabel').textContent = getCityStage(snapshot.visualScore)
   const scoreContext = document.getElementById('cityScoreContext')
   if (scoreContext) scoreContext.textContent = snapshot.isToday ? 'pts this week' : 'pts by then'
-  const nextLevel = getNextCityLevel(snapshot.score)
+  const nextLevel = CITY_LEVELS[snapshot.visualLevelIndex + 1] || null
   document.getElementById('cityNextLevel').textContent = nextLevel
     ? `${nextLevel.threshold - snapshot.score} pts to ${nextLevel.label}`
     : 'Max level'
 
   // Reveal elements whose threshold has been reached
   document.querySelectorAll('[data-threshold]').forEach(el => {
-    el.style.opacity = snapshot.score >= parseInt(el.dataset.threshold) ? '1' : '0'
+    el.style.opacity = snapshot.visualScore >= parseInt(el.dataset.threshold) ? '1' : '0'
   })
 
   renderCityTimeControls(snapshot)
-  updateCityMilestoneImage(snapshot.score)
+  updateCityMilestoneImage(snapshot.visualScore)
   applyCityTimeOfDay(s.streak.lastActivityDate === toDateKey())
   applyPeasantPosition()
   applyNightVisuals(s)
@@ -1413,10 +1437,40 @@ function getCitySnapshot(currentScore, s) {
   const date = addDays(new Date(), selectedCityDayOffset)
   const isToday = selectedCityDayOffset === 0
   const minOffset = getFirstCityDayOffset(s)
-  if (isToday) return { date, isToday, minOffset, score: currentScore }
+  if (isToday) {
+    const visualLevelIndex = updatePersistentCityLevel(s, currentScore)
+    return {
+      date,
+      isToday,
+      minOffset,
+      score: currentScore,
+      visualLevelIndex,
+      visualScore: getCityScoreForLevelIndex(visualLevelIndex)
+    }
+  }
 
   const stats = getCityStatsThroughDate(s, date)
-  return { date, isToday, minOffset, score: calcCityScoreWithoutStreak(stats) }
+  const score = calcCityScoreWithoutStreak(stats)
+  const visualLevelIndex = getHistoricMaxCityLevelIndex(s, date)
+  return {
+    date,
+    isToday,
+    minOffset,
+    score,
+    visualLevelIndex,
+    visualScore: getCityScoreForLevelIndex(visualLevelIndex)
+  }
+}
+
+function updatePersistentCityLevel(s, score) {
+  normalizeCityProgress(s)
+  const scoreLevelIndex = getCityLevelIndex(score)
+  const nextMax = Math.max(s.cityProgress.maxLevelIndex, scoreLevelIndex)
+  if (nextMax !== s.cityProgress.maxLevelIndex) {
+    s.cityProgress.maxLevelIndex = nextMax
+    saveState(s)
+  }
+  return s.cityProgress.maxLevelIndex
 }
 
 function clampCityDayOffset(s, offset) {
@@ -1466,6 +1520,43 @@ function getCityStatsThroughDate(s, date) {
     ankiReviewed: summary.ankiReviewed,
     ankiCreated: summary.ankiCreated
   }
+}
+
+function getHistoricMaxCityLevelIndex(s, endDate = new Date()) {
+  const firstDateKey = getFirstStudyActionDateKey(s)
+  if (!firstDateKey) return 0
+
+  const start = dateKeyToLocalDate(firstDateKey)
+  const end = new Date(endDate)
+  end.setHours(23, 59, 59, 999)
+  const history = getStudyHistoryBetween(s || { videos: {}, anki: {} }, start, end)
+  const weeklyBuckets = new Map()
+
+  history.rows.forEach(row => {
+    const weekKey = toDateKey(getWeekStart(dateKeyToLocalDate(row.dateKey)))
+    const bucket = weeklyBuckets.get(weekKey) || {
+      hoursWatched: 0,
+      secondsWatched: 0,
+      videosWatched: 0,
+      videosPartial: 0,
+      remainingSeconds: 0,
+      ankiReviewed: 0,
+      ankiCreated: 0
+    }
+
+    bucket.secondsWatched += row.secondsWatched
+    bucket.hoursWatched = bucket.secondsWatched / 3600
+    bucket.videosWatched += row.videosWatched
+    bucket.ankiReviewed += row.ankiReviewed
+    bucket.ankiCreated += row.ankiCreated
+    weeklyBuckets.set(weekKey, bucket)
+  })
+
+  let maxLevelIndex = 0
+  weeklyBuckets.forEach(bucket => {
+    maxLevelIndex = Math.max(maxLevelIndex, getCityLevelIndex(calcCityScoreWithoutStreak(bucket)))
+  })
+  return maxLevelIndex
 }
 
 function renderCityTimeControls(snapshot) {

@@ -120,6 +120,7 @@ The stored object includes:
 - `videos`: video records keyed by YouTube video ID. This is where watched/in-progress/unwatched status lives.
 - `videos[videoId].status`: one of `unwatched`, `watch-later`, `partial`, or `watched`.
 - `videos[videoId].watchedAt`: local timestamp used for weekly progress and watched history.
+- `cityProgress`: highest unlocked city image level, preserved even when weekly score drops.
 - `streak`: current streak, longest streak, and last activity date.
 - `anki`: daily Anki logs keyed by `YYYY-MM-DD`.
 - `nightVisuals`: generated schedule for night city events.
