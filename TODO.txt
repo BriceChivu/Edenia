@@ -1,1 +1,4 @@
 new milestones (add emojis): cute little pond, oh! a tourist boat is approaching...
+Remove Demo button. Reset button should bring the town to level 1, nothing was ever studied.
+Remove the "day" in study history summary. When hovering over the numbre of videos watched in the table, show a small pop up of the name + thumbnail of the videos watched
+make the waveform always at the bottom right corner of the image rectangle. Also keep the waveform a certain length, even if there are many many past days. In that case, have the waveform scroll horizontally when hovering over the left or right edge of it.

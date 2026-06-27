@@ -429,7 +429,6 @@ html[data-theme="dark"] .theme-icon-sun {
 .city-milestone-image.loading {
   opacity: 0;
 }
-.city-time-controls,
 .city-zoom-controls {
   align-items: center;
   background: transparent;
@@ -450,14 +449,11 @@ html[data-theme="dark"] .theme-icon-sun {
   bottom: 10px;
   left: 10px;
 }
-.city-time-controls:hover,
-.city-time-controls:focus-within,
 .city-zoom-controls:hover,
 .city-zoom-controls:focus-within {
   opacity: 1;
 }
-.city-image-btn,
-.city-time-chip {
+.city-image-btn {
   align-items: center;
   background: rgba(255, 255, 255, 0.64);
   border: 0;
@@ -468,30 +464,125 @@ html[data-theme="dark"] .theme-icon-sun {
   font-weight: 700;
   justify-content: center;
   min-height: 26px;
-}
-.city-image-btn {
   border-radius: 50%;
   font-size: 1rem;
   line-height: 1;
   width: 26px;
 }
-.city-time-chip {
-  border-radius: 999px;
-  font-size: 0.68rem;
-  max-width: min(38vw, 176px);
-  min-width: 52px;
-  overflow: hidden;
-  padding: 0 9px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.city-image-btn:hover,
-.city-time-chip:hover {
+.city-image-btn:hover {
   background: rgba(255, 255, 255, 0.9);
 }
 .city-image-btn:disabled {
   cursor: default;
   opacity: 0.26;
+}
+.city-time-waveform {
+  align-items: center;
+  bottom: 10px;
+  display: flex;
+  height: 42px;
+  justify-content: center;
+  max-width: min(52vw, 360px);
+  opacity: 0.76;
+  padding: 0 10px;
+  position: absolute;
+  right: 10px;
+  transition: opacity 0.15s ease;
+  width: min(52vw, 360px);
+  z-index: 3;
+}
+.city-time-waveform:hover,
+.city-time-waveform:focus-within {
+  opacity: 1;
+}
+.city-wave-bars {
+  align-items: center;
+  display: flex;
+  gap: 2px;
+  height: 34px;
+  justify-content: center;
+  overflow: hidden;
+  width: 100%;
+}
+.city-wave-bar {
+  --bar-height: 9px;
+  --hover-boost: 0px;
+  background: rgba(245, 247, 248, 0.62);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  flex: 1 1 2px;
+  height: calc(var(--bar-height) + var(--hover-boost));
+  max-width: 5px;
+  min-width: 2px;
+  opacity: 0.72;
+  padding: 0;
+  transition: height 0.12s ease, opacity 0.12s ease, background 0.12s ease;
+}
+.city-wave-bar:nth-child(2n) {
+  --bar-height: 10px;
+}
+.city-wave-bar:nth-child(3n) {
+  --bar-height: 16px;
+}
+.city-wave-bar:nth-child(5n) {
+  --bar-height: 22px;
+}
+.city-wave-bar:nth-child(8n) {
+  --bar-height: 8px;
+}
+.city-wave-bar.is-hidden-wave-day {
+  display: none;
+}
+.city-wave-bar.is-anchor-wave-day {
+  opacity: 0.72;
+}
+.city-wave-bar.has-activity {
+  background: rgba(245, 247, 248, 0.78);
+}
+.city-wave-bar.selected {
+  background: rgba(5, 5, 5, 0.88);
+  height: 31px;
+  opacity: 1;
+}
+.city-wave-bar:hover,
+.city-wave-bar:focus {
+  opacity: 1;
+  outline: none;
+}
+.city-wave-tooltip {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(5, 5, 5, 0.24);
+  border-radius: 999px;
+  bottom: 39px;
+  color: #142028;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0;
+  padding: 5px 8px;
+  pointer-events: none;
+  position: absolute;
+  left: var(--tooltip-left, 50%);
+  transform: translateX(-50%);
+  transition: opacity 0.12s ease;
+  white-space: nowrap;
+}
+.city-wave-tooltip::after {
+  background: rgba(255, 255, 255, 0.9);
+  border-right: 1px solid rgba(5, 5, 5, 0.24);
+  border-top: 1px solid rgba(5, 5, 5, 0.24);
+  content: "";
+  height: 7px;
+  left: 50%;
+  position: absolute;
+  top: calc(100% - 3px);
+  transform: translateX(-50%) rotate(135deg);
+  width: 7px;
+}
+.city-time-waveform:hover .city-wave-tooltip,
+.city-time-waveform:focus-within .city-wave-tooltip {
+  opacity: 1;
 }
 #cityscape {
   display: none;
@@ -1384,16 +1475,17 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
     gap: 5px;
     padding: 8px;
   }
-  .city-time-controls {
-    bottom: 7px;
-    right: 7px;
-  }
   .city-zoom-controls {
     bottom: 7px;
     left: 7px;
   }
-  .city-time-chip {
-    max-width: 42vw;
+  .city-time-waveform {
+    bottom: 6px;
+    height: 38px;
+    max-width: 54vw;
+    padding: 0 8px;
+    right: 6px;
+    width: 54vw;
   }
   .card-title { font-size: 0.78rem; }
 }

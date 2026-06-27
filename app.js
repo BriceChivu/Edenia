@@ -428,6 +428,78 @@ function resetSandboxState() {
   loadSandboxDemo()
 }
 
+function addSandboxDay() {
+  if (!IS_SANDBOX) return
+  const state = loadState() || createSandboxDemoState()
+  const nextDate = addDays(getLastSandboxActivityDate(state), 1)
+  addSandboxStudyDay(state, nextDate)
+  syncStreak(state)
+  saveState(state)
+  selectedCityDayOffset = Math.min(0, daysBetweenDateKeys(toDateKey(), toDateKey(nextDate)))
+  selectedHistoryView = 'heatmap'
+  renderAll(state)
+  showToast(`Added sandbox study day: ${formatCitySnapshotDate(nextDate)}`, 'success')
+}
+
+function getLastSandboxActivityDate(state) {
+  const dateKeys = []
+
+  Object.values(state?.videos || {}).forEach(video => {
+    if (video.watchedAt) dateKeys.push(toDateKey(new Date(video.watchedAt)))
+  })
+
+  Object.entries(state?.anki || {}).forEach(([dateKey, day]) => {
+    if ((day.reviewed || 0) > 0 || (day.created || 0) > 0) dateKeys.push(dateKey)
+  })
+
+  const latestKey = dateKeys.sort().pop()
+  return latestKey ? dateKeyToLocalDate(latestKey) : new Date()
+}
+
+function getSandboxHeatmapEndDate(state) {
+  const previewEnd = addDays(new Date(), 90)
+  const latestActivityDate = getLastSandboxActivityDate(state)
+  return latestActivityDate > previewEnd ? latestActivityDate : previewEnd
+}
+
+function addSandboxStudyDay(state, date) {
+  const dateKey = toDateKey(date)
+  const daySeed = Math.abs(daysBetweenDateKeys('2024-01-01', dateKey))
+  const channels = state.config.channels.length ? state.config.channels : DEFAULT_CHANNELS
+  const reviewed = randomInt(25, 220)
+  const created = randomInt(0, 34)
+
+  state.anki[dateKey] = {
+    reviewed,
+    created,
+    loggedAt: setLocalTime(date, 21, randomInt(0, 45)).toISOString(),
+    source: 'sandbox'
+  }
+
+  const videoCount = randomInt(1, 3)
+  for (let i = 0; i < videoCount; i += 1) {
+    const id = `sandbox-added-${dateKey}-${Date.now()}-${i}`
+    const channel = channels[(daySeed + i) % channels.length]
+    state.videos[id] = {
+      id,
+      title: `Sandbox added study day ${dateKey}.${i + 1}`,
+      channelId: channel.id,
+      channelTitle: channel.name,
+      thumbnail: makeSandboxThumbnail(channel.name, daySeed + i),
+      publishedAt: setLocalTime(addDays(date, -randomInt(4, 28)), 9, randomInt(0, 45)).toISOString(),
+      duration: randomInt(20, 72) * 60,
+      status: 'watched',
+      watchedAt: setLocalTime(date, 17 + i, randomInt(0, 45)).toISOString()
+    }
+  }
+
+  state.lastFetched = new Date().toISOString()
+}
+
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+
 function openSettings() {
   const s = loadState()
   document.getElementById('settingsApiKey').value = s.config.apiKey
@@ -1107,7 +1179,7 @@ function formatHeatmapAriaLabel(row) {
 }
 
 function renderHistoryHeatmap(s, container) {
-  const end = IS_SANDBOX ? addDays(new Date(), 90) : new Date()
+  const end = IS_SANDBOX ? getSandboxHeatmapEndDate(s) : new Date()
   end.setHours(23, 59, 59, 999)
   const start = addDays(end, -364)
   start.setHours(0, 0, 0, 0)
@@ -1409,8 +1481,29 @@ function resetCityDay() {
   if (state) renderCity(calcCityScore(getWeeklyStats(state), state), state)
 }
 
+function setCityDayOffset(offset) {
+  const state = loadState()
+  if (!state) return
+  selectedCityDayOffset = clampCityDayOffset(state, offset)
+  renderCity(calcCityScore(getWeeklyStats(state), state), state)
+}
+
+function previewCityDayOffset(offset) {
+  const state = loadState()
+  if (!state) return
+  const previousOffset = selectedCityDayOffset
+  selectedCityDayOffset = clampCityDayOffset(state, offset)
+  const snapshot = getCitySnapshot(calcCityScore(getWeeklyStats(state), state), state)
+  selectedCityDayOffset = previousOffset
+  renderCitySnapshot(snapshot, state, false)
+}
+
 function renderCity(score, s) {
   const snapshot = getCitySnapshot(score, s)
+  renderCitySnapshot(snapshot, s, true)
+}
+
+function renderCitySnapshot(snapshot, s, includeTimeline = true) {
   document.getElementById('cityScore').textContent = snapshot.score
   document.getElementById('cityLabel').textContent = getCityStage(snapshot.visualScore)
   const scoreContext = document.getElementById('cityScoreContext')
@@ -1425,7 +1518,7 @@ function renderCity(score, s) {
     el.style.opacity = snapshot.visualScore >= parseInt(el.dataset.threshold) ? '1' : '0'
   })
 
-  renderCityTimeControls(snapshot)
+  if (includeTimeline) renderCityTimeControls(snapshot)
   updateCityMilestoneImage(snapshot.visualScore)
   applyCityTimeOfDay(s.streak.lastActivityDate === toDateKey())
   applyPeasantPosition()
@@ -1560,17 +1653,104 @@ function getHistoricMaxCityLevelIndex(s, endDate = new Date()) {
 }
 
 function renderCityTimeControls(snapshot) {
-  const chip = document.getElementById('cityTimeChip')
-  const previous = document.getElementById('cityPreviousDayBtn')
-  const next = document.getElementById('cityNextDayBtn')
-  if (chip) {
-    chip.textContent = snapshot.isToday
-      ? 'Today'
-      : `${formatCitySnapshotDate(snapshot.date)}, ${snapshot.score} pts`
-    chip.title = snapshot.isToday ? 'Showing today' : 'Back to today'
+  const waveform = document.getElementById('cityTimeWaveform')
+  const bars = document.getElementById('cityWaveBars')
+  const tooltip = document.getElementById('cityWaveTooltip')
+  if (!waveform || !bars || !tooltip) return
+
+  const state = loadState()
+  const rowsByDate = getCityHistoryRowsByDate(state)
+  const days = getCityWaveformDays(snapshot.minOffset)
+  const selectedIndex = days.findIndex(day => day.offset === selectedCityDayOffset)
+
+  bars.innerHTML = days.map((day, index) => {
+    const row = rowsByDate.get(day.dateKey)
+    const points = row ? getHistoryDayPoints(row) : 0
+    const height = 8 + Math.min(20, points * 2)
+    const label = formatCitySnapshotDate(day.date)
+    const ariaLabel = `${label}, ${points} pts`
+    return `
+      <button class="city-wave-bar ${points > 0 ? 'has-activity' : ''} ${index === selectedIndex ? 'selected' : ''}"
+        type="button"
+        data-index="${index}"
+        data-offset="${day.offset}"
+        data-label="${escHtml(label)}"
+        style="--bar-height:${height}px; --hover-boost:0px"
+        aria-label="${escHtml(ariaLabel)}"
+        onclick="setCityDayOffset(${day.offset})"
+        onmouseenter="previewCityWaveBar(this)"
+        onmousemove="previewCityWaveBar(this)"
+        onfocus="previewCityWaveBar(this)"></button>
+    `
+  }).join('')
+
+  const selectedBar = bars.querySelector('.city-wave-bar.selected')
+  if (selectedBar) positionCityWaveTooltip(selectedBar)
+}
+
+function getCityWaveformDays(minOffset) {
+  const days = []
+  for (let offset = minOffset; offset <= 0; offset += 1) {
+    const date = addDays(new Date(), offset)
+    days.push({ offset, date, dateKey: toDateKey(date) })
   }
-  if (previous) previous.disabled = selectedCityDayOffset <= snapshot.minOffset
-  if (next) next.disabled = snapshot.isToday
+  return days
+}
+
+function getCityHistoryRowsByDate(s) {
+  const rows = new Map()
+  const firstDateKey = getFirstStudyActionDateKey(s)
+  if (!firstDateKey) return rows
+
+  const start = dateKeyToLocalDate(firstDateKey)
+  const end = new Date()
+  end.setHours(23, 59, 59, 999)
+  getStudyHistoryBetween(s || { videos: {}, anki: {} }, start, end).rows
+    .forEach(row => rows.set(row.dateKey, row))
+  return rows
+}
+
+function previewCityWaveBar(bar, options = {}) {
+  const waveform = document.getElementById('cityTimeWaveform')
+  if (!bar || !waveform) return
+
+  const index = parseInt(bar.dataset.index, 10)
+  const bars = Array.from(waveform.querySelectorAll('.city-wave-bar'))
+  bars.forEach((item, itemIndex) => {
+    const distance = Math.abs(itemIndex - index)
+    const boost = Math.max(0, 16 - distance * 5)
+    item.style.setProperty('--hover-boost', `${boost}px`)
+  })
+
+  previewCityDayOffset(parseInt(bar.dataset.offset, 10))
+  positionCityWaveTooltip(bar)
+
+  if (!options.persist) {
+    clearTimeout(previewCityWaveBar._timer)
+  }
+}
+
+function positionCityWaveTooltip(bar) {
+  const waveform = document.getElementById('cityTimeWaveform')
+  const tooltip = document.getElementById('cityWaveTooltip')
+  if (!bar || !waveform || !tooltip) return
+
+  tooltip.textContent = bar.dataset.label || ''
+  const barRect = bar.getBoundingClientRect()
+  const waveRect = waveform.getBoundingClientRect()
+  const left = barRect.left + barRect.width / 2 - waveRect.left
+  tooltip.style.setProperty('--tooltip-left', `${left}px`)
+}
+
+function clearCityWaveformPreview() {
+  clearTimeout(previewCityWaveBar._timer)
+  document.querySelectorAll('.city-wave-bar').forEach(bar => {
+    bar.style.setProperty('--hover-boost', '0px')
+  })
+  const selected = document.querySelector('.city-wave-bar.selected')
+  if (selected) positionCityWaveTooltip(selected)
+  const state = loadState()
+  if (state) renderCity(calcCityScore(getWeeklyStats(state), state), state)
 }
 
 function formatCitySnapshotDate(date) {
