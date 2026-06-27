@@ -863,6 +863,73 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   color: var(--muted);
   font-size: 0.82rem;
 }
+.undo-wrap {
+  position: relative;
+}
+.undo-tooltip {
+  background: var(--surface);
+  border: 2px solid var(--planet-black);
+  border-radius: 8px;
+  box-shadow: 0 4px 0 rgba(5,5,5,0.16);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.25;
+  opacity: 0;
+  padding: 9px 10px;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  text-align: left;
+  top: calc(100% + 8px);
+  transform: translateY(-3px);
+  transition: opacity 90ms ease, transform 90ms ease;
+  visibility: hidden;
+  width: min(300px, 82vw);
+  z-index: 80;
+}
+.undo-wrap:hover .undo-tooltip,
+.undo-wrap:focus-within .undo-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+  visibility: visible;
+}
+.undo-tooltip-title {
+  color: var(--accent);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  margin-bottom: 7px;
+}
+.undo-tooltip-item {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 3px;
+  padding: 7px 0;
+}
+.undo-tooltip-item:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+.undo-tooltip-title + .undo-tooltip-item {
+  border-top: 0;
+  padding-top: 0;
+}
+.undo-tooltip-video {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.undo-tooltip-action,
+.undo-tooltip-more {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+.undo-tooltip-more {
+  border-top: 1px solid var(--border);
+  padding-top: 7px;
+}
 .undo-btn:disabled {
   cursor: not-allowed;
   opacity: 0.45;

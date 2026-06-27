@@ -25,6 +25,8 @@ python3 -m http.server 8000
 
 Then open [http://localhost:8000/](http://localhost:8000/) in Chrome.
 
+If Chrome does not show recent code or styling changes, hard-refresh the page with `Cmd + Shift + R`. Chrome may keep using cached `app.js` or `style.css` after normal reloads.
+
 The app can also be opened from `index.html` directly, but new feature testing should use the local server URL in Safari so the runtime path matches the expected development workflow.
 
 ## Setup
@@ -163,6 +165,8 @@ Recommended workflow:
 6. Confirm that video status changes update weekly totals, streak state, watched history, and undo behavior.
 7. Confirm that refresh still preserves existing video status.
 8. If testing Anki features, keep Anki open with AnkiConnect installed and wait for the automatic refresh.
+
+If a change works in another browser but not Chrome, first try `Cmd + Shift + R` on `http://localhost:8000/` to force Chrome to reload the local files instead of cached copies.
 
 Do not treat browser data as portable test fixtures unless it has been deliberately exported from `localStorage`.
 

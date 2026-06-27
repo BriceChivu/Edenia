@@ -526,7 +526,10 @@
             <button type="button" class="btn-secondary channel-filter-btn" id="channelFilterBtn" onclick="toggleChannelFilterMenu()" aria-haspopup="true" aria-expanded="false">All channels</button>
             <div class="channel-filter-menu hidden" id="channelFilterMenu"></div>
           </div>
-          <button class="btn-secondary undo-btn" id="undoBtn" onclick="undoLastVideoAction()" disabled>Undo</button>
+          <div class="undo-wrap">
+            <button class="btn-secondary undo-btn" id="undoBtn" onclick="undoLastVideoAction()" aria-describedby="undoTooltip" disabled>Undo</button>
+            <div class="undo-tooltip" id="undoTooltip" role="tooltip">Nothing to undo</div>
+          </div>
           <button class="btn-secondary" id="refreshBtn" onclick="refreshFeed()">↻ Refresh</button>
         </div>
       </div>

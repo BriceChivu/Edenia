@@ -1349,12 +1349,42 @@ function renderFeed(s) {
 
 function renderUndoButton(s) {
   const btn = document.getElementById('undoBtn')
+  const tooltip = document.getElementById('undoTooltip')
   if (!btn) return
   const undoCount = Array.isArray(s.undoStack) ? s.undoStack.length : 0
   const canUndo = undoCount > 0
   btn.disabled = !canUndo
   btn.textContent = undoCount > 1 ? `Undo (${undoCount})` : 'Undo'
   btn.title = canUndo ? `Undo latest video status change (${undoCount} available)` : 'Nothing to undo'
+  if (tooltip) tooltip.innerHTML = renderUndoTooltip(s)
+}
+
+function renderUndoTooltip(s) {
+  const actions = Array.isArray(s.undoStack) ? s.undoStack.slice().reverse() : []
+  if (!actions.length) {
+    return '<div class="undo-tooltip-title">Nothing to undo</div>'
+  }
+
+  const visibleActions = actions.slice(0, 8)
+  const hiddenCount = actions.length - visibleActions.length
+  return `
+    <div class="undo-tooltip-title">Undo queue</div>
+    ${visibleActions.map(action => renderUndoTooltipItem(action, s)).join('')}
+    ${hiddenCount > 0 ? `<div class="undo-tooltip-more">+ ${hiddenCount} older ${hiddenCount === 1 ? 'action' : 'actions'}</div>` : ''}
+  `
+}
+
+function renderUndoTooltipItem(action, s) {
+  const video = s.videos?.[action.videoId]
+  const title = video?.title || 'Unavailable video'
+  const currentStatus = formatVideoStatus(action.after?.status || video?.status)
+  const previousStatus = formatVideoStatus(action.before?.status)
+  return `
+    <div class="undo-tooltip-item">
+      <span class="undo-tooltip-video">${escHtml(title)}</span>
+      <span class="undo-tooltip-action">${escHtml(currentStatus)} → back to ${escHtml(previousStatus)}</span>
+    </div>
+  `
 }
 
 function renderStatusFilterOptions() {
