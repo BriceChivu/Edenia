@@ -44,29 +44,20 @@ const ANKI_AUTO_REFRESH_MS = 5 * 60_000
 const MIN_DAILY_STREAK_POINTS = 3
 const UNDO_STACK_LIMIT = 50
 const CITY_LEVELS = [
-  { threshold: 0, label: '🌑 Empty land' },
-  { threshold: 5, label: '🌲 Left pine trees' },
-  { threshold: 12, label: '🌲 Right pine trees' },
-  { threshold: 20, label: '🏡 Farmhouse' },
-  { threshold: 28, label: '🚜 Farm wagon' },
-  { threshold: 35, label: '🌾 Barn built' },
-  { threshold: 45, label: '🐴 Horse cart' },
-  { threshold: 50, label: '🪣 Well and coop' },
-  { threshold: 58, label: '🐷 Flying pig' },
-  { threshold: 65, label: '🏠 Two houses' },
-  { threshold: 70, label: '🐄 Pasture cow' },
-  { threshold: 75, label: '🪵 Timber crane' },
-  { threshold: 85, label: '⚙️ Windmill rising' },
-  { threshold: 88, label: '🦅 Eagle overhead' },
-  { threshold: 92, label: '🐎 Stable horse' },
-  { threshold: 100, label: '🏘️ Full village' }
+  { threshold: 0, label: 'Lonely house' },
+  { threshold: 5, label: 'We got a boat and a fishing line!' },
+  { threshold: 12, label: 'A nice park for the kids' },
+  { threshold: 20, label: 'Welcome to our neighbors!' },
+  { threshold: 28, label: 'That pool looks nice' },
+  { threshold: 35, label: 'A tiny island...' }
 ]
 const CITY_IMAGE_PATHS = [
   'images/level%201.png',
   'images/level%202.png',
   'images/level%203.png',
   'images/level%204.png',
-  'images/level%205.png'
+  'images/level%205.png',
+  'images/level%206.png'
 ]
 const PEASANT_POSITIONS = [
   [118, 222], [176, 220], [254, 224], [340, 222], [430, 222], [518, 222],

@@ -97,22 +97,12 @@ City milestones currently include:
 
 | Score | City stage |
 | ---: | --- |
-| 0 | Empty land |
-| 5 | First trees |
-| 12 | More trees |
-| 20 | Farmhouse |
-| 28 | Farm wagon |
-| 35 | Barn |
-| 45 | Horse cart |
-| 50 | Homestead |
-| 58 | Flying pig |
-| 65 | Two houses |
-| 70 | Pasture cow |
-| 75 | Timber crane |
-| 85 | Windmill rising |
-| 88 | Eagle overhead |
-| 92 | Stable horse |
-| 100 | Full village |
+| 0 | Lonely house |
+| 5 | We got a boat and a fishing line! |
+| 12 | A nice park for the kids |
+| 20 | Welcome to our neighbors! |
+| 28 | That pool looks nice |
+| 35 | A tiny island... |
 
 ## Where Status Data Is Stored
 
