@@ -141,6 +141,14 @@ To inspect or clear the data in Safari:
 3. Inspect or remove the `studybuild_v1` entry.
 4. Use the in-app `Reset everything` action when testing a clean first-run state.
 
+Sandbox mode uses separate browser storage:
+
+- URL: `http://localhost:8001/?sandbox=1`
+- `localStorage` key: `studybuild_v1_sandbox`
+- Cookie key: `studybuild_config_sandbox`
+
+When sandbox mode is opened with no saved sandbox state, the app creates demo progress automatically. The header shows a `Sandbox` badge plus `Demo` and `Reset` actions. Sandbox demo data includes watched videos, Anki logs, unlocked city images, and future-dated activity for heatmap previews. It does not touch the normal `studybuild_v1` progress state.
+
 ## Testing New Features
 
 Manual feature testing should be done in Safari at [http://localhost:8000/](http://localhost:8000/).

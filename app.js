@@ -17,8 +17,9 @@ const DEFAULT_CHANNELS_VERSION = 2
 // STATE
 // ════════════════════════════════════════════════════════════
 
-const STORAGE_KEY = 'studybuild_v1'
-const CONFIG_COOKIE_KEY = 'studybuild_config'
+const IS_SANDBOX = new URLSearchParams(window.location.search).get('sandbox') === '1'
+const STORAGE_KEY = IS_SANDBOX ? 'studybuild_v1_sandbox' : 'studybuild_v1'
+const CONFIG_COOKIE_KEY = IS_SANDBOX ? 'studybuild_config_sandbox' : 'studybuild_config'
 const DEFAULT_API_KEY = 'AIzaSyAVmsqp-5o1ufYCuMak38jigQRHFhf0g1Y'
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const ACTIVE_VIDEOS_PER_CHANNEL = 5
@@ -75,6 +76,21 @@ let knownChannelFilterIds = new Set()
 let selectedHistoryRange = 'week'
 let selectedHistoryView = 'summary'
 let selectedCityDayOffset = 0
+const CITY_IMAGE_MIN_ZOOM = 1
+const CITY_IMAGE_MAX_ZOOM = 3
+const CITY_IMAGE_ZOOM_STEP = 0.25
+const CITY_IMAGE_WHEEL_ZOOM_STEP = 0.06
+const cityImageView = {
+  scale: 1,
+  x: 0,
+  y: 0,
+  dragging: false,
+  pointerId: null,
+  startX: 0,
+  startY: 0,
+  originX: 0,
+  originY: 0
+}
 const STATUS_FILTERS = [
   ['all', 'All'],
   ['watch-later', 'Watch later'],
@@ -171,6 +187,107 @@ function defaultState(apiKey, goalHours, channels, theme) {
   }
 }
 
+function createSandboxDemoState() {
+  const state = defaultState('', 4, [
+    { id: 'sandbox-focus', name: 'Sandbox Focus' },
+    { id: 'sandbox-memory', name: 'Sandbox Memory' },
+    { id: 'sandbox-projects', name: 'Sandbox Projects' }
+  ], DEFAULT_THEME)
+  const today = new Date()
+
+  state.videos = {}
+  state.anki = {}
+  state.streak = { current: 42, longest: 64, lastActivityDate: toDateKey(today) }
+  state.lastFetched = today.toISOString()
+
+  for (let offset = -120; offset <= 90; offset += 1) {
+    const date = addDays(today, offset)
+    const dateKey = toDateKey(date)
+    const rhythm = Math.abs(offset) % 9
+    const activeDay = offset >= -20 || rhythm < 5
+
+    if (activeDay) {
+      state.anki[dateKey] = {
+        reviewed: 20 + (Math.abs(offset) * 7) % 170,
+        created: Math.abs(offset) % 4 === 0 ? 12 + (Math.abs(offset) % 18) : Math.abs(offset) % 7,
+        loggedAt: setLocalTime(date, 21, 0).toISOString(),
+        source: 'sandbox'
+      }
+    }
+
+    if (activeDay && Math.abs(offset) % 3 !== 1) {
+      const videosForDay = offset >= -5 && offset <= 7 ? 2 : 1
+      for (let i = 0; i < videosForDay; i += 1) {
+        const id = `sandbox-${offset + 120}-${i}`
+        const channel = state.config.channels[(Math.abs(offset) + i) % state.config.channels.length]
+        state.videos[id] = {
+          id,
+          title: `Sandbox study session ${dateKey}${videosForDay > 1 ? `.${i + 1}` : ''}`,
+          channelId: channel.id,
+          channelTitle: channel.name,
+          thumbnail: makeSandboxThumbnail(channel.name, i),
+          publishedAt: setLocalTime(addDays(date, -14 - i), 9, 0).toISOString(),
+          duration: (28 + ((Math.abs(offset) + i * 11) % 42)) * 60,
+          status: 'watched',
+          watchedAt: setLocalTime(date, 18 + i, 10).toISOString()
+        }
+      }
+    }
+  }
+
+  for (let i = 0; i < 8; i += 1) {
+    const channel = state.config.channels[i % state.config.channels.length]
+    state.videos[`sandbox-active-${i}`] = {
+      id: `sandbox-active-${i}`,
+      title: `Sandbox upcoming lesson ${i + 1}`,
+      channelId: channel.id,
+      channelTitle: channel.name,
+      thumbnail: makeSandboxThumbnail(channel.name, i),
+      publishedAt: addDays(today, -i).toISOString(),
+      duration: (22 + i * 6) * 60,
+      status: i % 3 === 0 ? 'partial' : i % 3 === 1 ? 'watch-later' : 'unwatched',
+      watchedAt: null
+    }
+  }
+
+  return state
+}
+
+function setLocalTime(date, hour, minute) {
+  const next = new Date(date)
+  next.setHours(hour, minute, 0, 0)
+  return next
+}
+
+function makeSandboxThumbnail(label, index) {
+  const colors = [
+    ['#12bcea', '#c9ef68'],
+    ['#f5c842', '#ef805a'],
+    ['#82d2ef', '#254f6f'],
+    ['#ffafcc', '#bde0fe']
+  ][index % 4]
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 270">
+      <rect width="480" height="270" fill="${colors[0]}"/>
+      <circle cx="395" cy="58" r="38" fill="${colors[1]}" opacity="0.92"/>
+      <rect x="0" y="184" width="480" height="86" fill="#173947"/>
+      <rect x="72" y="118" width="80" height="66" rx="8" fill="#fff6cc" stroke="#050505" stroke-width="8"/>
+      <path d="M58 122 L112 76 L166 122 Z" fill="#ef805a" stroke="#050505" stroke-width="8"/>
+      <rect x="238" y="96" width="98" height="88" rx="9" fill="#ffffff" stroke="#050505" stroke-width="8"/>
+      <path d="M224 100 L287 48 L350 100 Z" fill="#c9ef68" stroke="#050505" stroke-width="8"/>
+      <text x="32" y="238" font-family="Arial, sans-serif" font-size="30" font-weight="700" fill="#ffffff">${escapeSvgText(label)}</text>
+    </svg>
+  `
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
+}
+
+function escapeSvgText(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
 function normalizeUndoState(state) {
   if (!state) return
   if (!Array.isArray(state.undoStack)) state.undoStack = []
@@ -212,6 +329,8 @@ function toDateKey(d = new Date()) {
 
 function timeAgo(iso) {
   const days = Math.floor((Date.now() - new Date(iso)) / 86_400_000)
+  if (days < -1) return `in ${Math.abs(days)}d`
+  if (days === -1) return 'tomorrow'
   if (days === 0) return 'today'
   if (days === 1) return 'yesterday'
   if (days < 7)  return `${days}d ago`
@@ -252,19 +371,47 @@ function escHtml(str) {
 function init() {
   let state = loadState()
   if (!state) {
-    state = defaultState('', 4, DEFAULT_CHANNELS)
+    state = IS_SANDBOX ? createSandboxDemoState() : defaultState('', 4, DEFAULT_CHANNELS)
     saveState(state)
   }
 
+  document.body.dataset.sandbox = IS_SANDBOX ? 'true' : 'false'
+  const sandboxTools = document.getElementById('sandboxTools')
+  if (sandboxTools) sandboxTools.classList.toggle('hidden', !IS_SANDBOX)
+  if (IS_SANDBOX) selectedHistoryView = 'heatmap'
   syncStreak(state)
   saveState(state)
   applyTheme(state.config.theme)
   show('mainApp')
   renderAll(state)
+  initCityImagePanZoom()
   startCityClock()
-  refreshAnkiStats({ silent: true })
-  startAnkiAutoRefresh()
-  if (!state.lastFetched) showToast('Add or edit channels in ⚙ Settings, then hit ↻ Refresh', 'warn')
+  if (!IS_SANDBOX) {
+    refreshAnkiStats({ silent: true })
+    startAnkiAutoRefresh()
+    if (!state.lastFetched) showToast('Add or edit channels in ⚙ Settings, then hit ↻ Refresh', 'warn')
+  } else {
+    showToast('Sandbox mode: demo data is isolated from your real progress', 'warn')
+  }
+}
+
+function loadSandboxDemo() {
+  if (!IS_SANDBOX) return
+  const state = createSandboxDemoState()
+  saveState(state)
+  selectedCityDayOffset = 0
+  selectedHistoryView = 'heatmap'
+  selectedHistoryRange = 'month'
+  ankiStatsCache = null
+  renderAll(state)
+  showToast('Sandbox demo timeline loaded', 'success')
+}
+
+function resetSandboxState() {
+  if (!IS_SANDBOX) return
+  localStorage.removeItem(STORAGE_KEY)
+  document.cookie = `${CONFIG_COOKIE_KEY}=; max-age=0; path=/`
+  loadSandboxDemo()
 }
 
 function openSettings() {
@@ -430,6 +577,11 @@ async function refreshFeed() {
   btn.disabled = true
 
   try {
+    if (IS_SANDBOX) {
+      loadSandboxDemo()
+      return
+    }
+
     const s = loadState()
     if (!s.config.channels.length) {
       showToast('Add at least one channel in ⚙ Settings first', 'warn')
@@ -941,7 +1093,7 @@ function formatHeatmapAriaLabel(row) {
 }
 
 function renderHistoryHeatmap(s, container) {
-  const end = new Date()
+  const end = IS_SANDBOX ? addDays(new Date(), 90) : new Date()
   end.setHours(23, 59, 59, 999)
   const start = addDays(end, -364)
   start.setHours(0, 0, 0, 0)
@@ -1021,10 +1173,15 @@ function hideHeatmapTooltip() {
 
 function getWeeklyStats(s) {
   const weekStart = getWeekStart()
+  const now = new Date()
 
   const videos = Object.values(s.videos)
   const weekVids = videos
-    .filter(v => v.watchedAt && new Date(v.watchedAt) >= weekStart)
+    .filter(v => {
+      if (!v.watchedAt) return false
+      const watchedAt = new Date(v.watchedAt)
+      return watchedAt >= weekStart && watchedAt <= now
+    })
 
   const watched = weekVids.filter(v => v.status === 'watched')
   const partial = videos.filter(v => v.status === 'partial')
@@ -1037,8 +1194,9 @@ function getWeeklyStats(s) {
   const remainingSeconds = Math.max(0, Math.round(goalHours * 3600 - secondsWatched))
 
   // Anki totals for this week
+  const todayKey = toDateKey()
   const ankiThisWeek = Object.entries(s.anki)
-    .filter(([date]) => new Date(date) >= weekStart)
+    .filter(([date]) => new Date(date) >= weekStart && date <= todayKey)
     .reduce((acc, [, d]) => ({ reviewed: acc.reviewed + (d.reviewed||0), created: acc.created + (d.created||0) }), { reviewed: 0, created: 0 })
 
   return {
@@ -1327,6 +1485,122 @@ function formatCitySnapshotDate(date) {
   const dateKey = toDateKey(date)
   if (dateKey === toDateKey(new Date(Date.now() - 86_400_000))) return 'Yesterday'
   return date.toLocaleDateString('en', { month: 'short', day: 'numeric' })
+}
+
+function initCityImagePanZoom() {
+  const wrap = document.querySelector('.city-image-wrap')
+  const image = document.getElementById('cityMilestoneImage')
+  if (!wrap || !image || wrap.dataset.panZoomReady === 'true') return
+
+  wrap.dataset.panZoomReady = 'true'
+  image.draggable = false
+  image.addEventListener('dragstart', event => event.preventDefault())
+  applyCityImageTransform()
+
+  wrap.addEventListener('wheel', event => {
+    event.preventDefault()
+    zoomCityImageBy(event.deltaY > 0 ? -getWheelZoomAmount(event) : getWheelZoomAmount(event), event)
+  }, { passive: false })
+
+  wrap.addEventListener('pointerdown', event => {
+    if (event.target.closest('button')) return
+    event.preventDefault()
+    cityImageView.dragging = true
+    cityImageView.pointerId = event.pointerId
+    cityImageView.startX = event.clientX
+    cityImageView.startY = event.clientY
+    cityImageView.originX = cityImageView.x
+    cityImageView.originY = cityImageView.y
+    wrap.classList.add('is-dragging')
+    wrap.setPointerCapture(event.pointerId)
+  })
+
+  wrap.addEventListener('pointermove', event => {
+    if (!cityImageView.dragging || cityImageView.pointerId !== event.pointerId) return
+    cityImageView.x = cityImageView.originX + event.clientX - cityImageView.startX
+    cityImageView.y = cityImageView.originY + event.clientY - cityImageView.startY
+    clampCityImagePan()
+    applyCityImageTransform()
+  })
+
+  const endDrag = event => {
+    if (cityImageView.pointerId !== event.pointerId) return
+    cityImageView.dragging = false
+    cityImageView.pointerId = null
+    wrap.classList.remove('is-dragging')
+  }
+  wrap.addEventListener('pointerup', endDrag)
+  wrap.addEventListener('pointercancel', endDrag)
+  window.addEventListener('resize', () => {
+    clampCityImagePan()
+    applyCityImageTransform()
+  })
+}
+
+function zoomCityImage(direction, event = null) {
+  zoomCityImageBy(direction * CITY_IMAGE_ZOOM_STEP, event)
+}
+
+function getWheelZoomAmount(event) {
+  return Math.min(0.12, Math.max(0.025, Math.abs(event.deltaY) / 120 * CITY_IMAGE_WHEEL_ZOOM_STEP))
+}
+
+function zoomCityImageBy(delta, event = null) {
+  const previousScale = cityImageView.scale
+  const nextScale = clampNumber(
+    previousScale + delta,
+    CITY_IMAGE_MIN_ZOOM,
+    CITY_IMAGE_MAX_ZOOM
+  )
+  if (nextScale === previousScale) return
+
+  if (event) {
+    const wrap = document.querySelector('.city-image-wrap')
+    const rect = wrap?.getBoundingClientRect()
+    if (rect) {
+      const focusX = event.clientX - rect.left - rect.width / 2
+      const focusY = event.clientY - rect.top - rect.height / 2
+      const ratio = nextScale / previousScale
+      cityImageView.x = focusX - (focusX - cityImageView.x) * ratio
+      cityImageView.y = focusY - (focusY - cityImageView.y) * ratio
+    }
+  }
+
+  cityImageView.scale = nextScale
+  clampCityImagePan()
+  applyCityImageTransform()
+}
+
+function resetCityImageView() {
+  cityImageView.scale = 1
+  cityImageView.x = 0
+  cityImageView.y = 0
+  applyCityImageTransform()
+}
+
+function clampCityImagePan() {
+  const wrap = document.querySelector('.city-image-wrap')
+  if (!wrap || cityImageView.scale <= 1) {
+    cityImageView.x = 0
+    cityImageView.y = 0
+    return
+  }
+
+  const rect = wrap.getBoundingClientRect()
+  const maxX = rect.width * (cityImageView.scale - 1) / 2
+  const maxY = rect.height * (cityImageView.scale - 1) / 2
+  cityImageView.x = clampNumber(cityImageView.x, -maxX, maxX)
+  cityImageView.y = clampNumber(cityImageView.y, -maxY, maxY)
+}
+
+function applyCityImageTransform() {
+  const image = document.getElementById('cityMilestoneImage')
+  if (!image) return
+  image.style.transform = `translate(${cityImageView.x}px, ${cityImageView.y}px) scale(${cityImageView.scale})`
+}
+
+function clampNumber(value, min, max) {
+  return Math.max(min, Math.min(max, value))
 }
 
 function updateCityMilestoneImage(score) {

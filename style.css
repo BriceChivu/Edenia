@@ -307,6 +307,35 @@ body[data-theme="dark"] .app-header::before {
 }
 .header-right { display: flex; align-items: center; gap: 10px; position: relative; z-index: 1; }
 
+.sandbox-tools {
+  align-items: center;
+  display: flex;
+  gap: 5px;
+}
+.sandbox-badge,
+.sandbox-btn {
+  background: #fff6cc;
+  border: 2px solid var(--planet-black);
+  border-radius: 999px;
+  color: #5c4312;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 6px 9px;
+}
+.sandbox-btn {
+  cursor: pointer;
+  font-family: inherit;
+}
+.sandbox-btn:hover {
+  background: #fff;
+}
+body[data-theme="dark"] .sandbox-badge,
+body[data-theme="dark"] .sandbox-btn {
+  background: #3b3017;
+  color: #ffe8a0;
+}
+
 .streak-pill {
   display: flex;
   align-items: center;
@@ -372,24 +401,36 @@ html[data-theme="dark"] .theme-icon-sun {
   overflow: hidden;
 }
 .city-image-wrap {
-  aspect-ratio: 1672 / 941;
+  aspect-ratio: 1672 / 720;
   background: var(--planet-black);
   overflow: hidden;
   position: relative;
+  touch-action: none;
   width: 100%;
 }
 .city-milestone-image {
+  cursor: grab;
   display: block;
   height: 100%;
   object-fit: cover;
   opacity: 1;
-  transition: opacity 0.45s ease;
+  transform: translate(0, 0) scale(1);
+  transform-origin: center center;
+  transition: opacity 0.45s ease, transform 0.16s ease;
+  -webkit-user-drag: none;
+  user-select: none;
   width: 100%;
+  will-change: transform;
+}
+.city-image-wrap.is-dragging .city-milestone-image {
+  cursor: grabbing;
+  transition: opacity 0.45s ease;
 }
 .city-milestone-image.loading {
   opacity: 0;
 }
-.city-time-controls {
+.city-time-controls,
+.city-zoom-controls {
   align-items: center;
   background: transparent;
   border: 0;
@@ -405,11 +446,17 @@ html[data-theme="dark"] .theme-icon-sun {
   transition: opacity 0.15s ease;
   z-index: 2;
 }
+.city-zoom-controls {
+  bottom: 10px;
+  left: 10px;
+}
 .city-time-controls:hover,
-.city-time-controls:focus-within {
+.city-time-controls:focus-within,
+.city-zoom-controls:hover,
+.city-zoom-controls:focus-within {
   opacity: 1;
 }
-.city-time-btn,
+.city-image-btn,
 .city-time-chip {
   align-items: center;
   background: rgba(255, 255, 255, 0.64);
@@ -422,7 +469,7 @@ html[data-theme="dark"] .theme-icon-sun {
   justify-content: center;
   min-height: 26px;
 }
-.city-time-btn {
+.city-image-btn {
   border-radius: 50%;
   font-size: 1rem;
   line-height: 1;
@@ -438,11 +485,11 @@ html[data-theme="dark"] .theme-icon-sun {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.city-time-btn:hover,
+.city-image-btn:hover,
 .city-time-chip:hover {
   background: rgba(255, 255, 255, 0.9);
 }
-.city-time-btn:disabled {
+.city-image-btn:disabled {
   cursor: default;
   opacity: 0.26;
 }
@@ -1340,6 +1387,10 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
   .city-time-controls {
     bottom: 7px;
     right: 7px;
+  }
+  .city-zoom-controls {
+    bottom: 7px;
+    left: 7px;
   }
   .city-time-chip {
     max-width: 42vw;
