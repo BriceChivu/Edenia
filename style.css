@@ -184,6 +184,8 @@ body[data-theme="dark"] select option { color: var(--text); }
   background: var(--surface);
   border-left: 3px solid var(--planet-black);
   width: min(420px, 92vw);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   overflow-y: auto;
   padding: 24px;
   display: flex;
@@ -217,7 +219,7 @@ body[data-theme="dark"] select option { color: var(--text); }
   font-size: 0.88rem;
 }
 .channel-item-name { font-weight: 500; }
-.channel-item-id   { color: var(--muted); font-size: 0.75rem; margin-top: 2px; }
+.channel-item-id   { color: var(--muted); font-size: 0.75rem; margin-top: 2px; overflow-wrap: anywhere; }
 .channel-remove {
   background: none;
   border: none;
@@ -1669,6 +1671,43 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
    RESPONSIVE
 ═══════════════════════════════════════════════════════════ */
 @media (max-width: 640px) {
+  .settings-overlay {
+    display: none;
+  }
+  .settings-drawer {
+    border-left: 0;
+    height: 100dvh;
+    padding: max(18px, env(safe-area-inset-top)) 16px max(22px, env(safe-area-inset-bottom));
+    width: 100vw;
+  }
+  .settings-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--surface);
+    margin: -2px 0 0;
+    padding: 2px 0 8px;
+  }
+  .settings-group input,
+  .settings-group select {
+    font-size: 16px;
+  }
+  .channel-item {
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .channel-remove {
+    flex: 0 0 auto;
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .add-channel-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .add-channel-row input {
+    min-width: 0;
+  }
   .app-header {
     align-items: flex-start;
     flex-wrap: wrap;
@@ -1756,6 +1795,13 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
   }
   .sync-actions {
     grid-template-columns: 1fr;
+  }
+  .add-channel-row {
+    grid-template-columns: 1fr;
+  }
+  .add-channel-row .btn-secondary,
+  .reset-confirm-actions .btn-ghost {
+    width: 100%;
   }
   .feed-controls { width: 100%; }
   .status-filter { flex: 1 1 132px; }
