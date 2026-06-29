@@ -286,8 +286,10 @@ body[data-theme="dark"] .app-header::before {
 }
 .header-left {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   margin-left: 16px;
+  min-width: 0;
   position: relative;
   z-index: 1;
 }
@@ -321,11 +323,22 @@ body[data-theme="dark"] .sandbox-version-label {
   letter-spacing: 0.04em;
   margin-top: 2px;
 }
-.header-right { display: flex; align-items: center; gap: 10px; position: relative; z-index: 1; }
+.header-right {
+  align-items: center;
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
 
 .sandbox-tools {
   align-items: center;
   display: flex;
+  flex: 0 0 auto;
   gap: 5px;
 }
 .sandbox-btn {
@@ -353,6 +366,7 @@ body[data-theme="dark"] .sandbox-btn {
 .streak-pill {
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 5px;
   background: var(--planet-white);
   border: 2px solid var(--planet-black);
@@ -1639,7 +1653,53 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
 /* ═══════════════════════════════════════════════════════════
    RESPONSIVE
 ═══════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .app-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px 14px 10px;
+  }
+  .header-left {
+    flex: 1 1 180px;
+    margin-left: 0;
+  }
+  .header-right {
+    flex: 1 1 100%;
+    gap: 8px;
+    justify-content: space-between;
+  }
+  .app-title {
+    font-size: 1.65rem;
+  }
+  .sandbox-version-label {
+    font-size: 0.68rem;
+  }
+  .streak-pill {
+    padding: 6px 10px;
+  }
+}
 @media (max-width: 480px) {
+  .app-header {
+    padding: 12px 12px 8px;
+  }
+  .header-right {
+    justify-content: flex-start;
+  }
+  .sandbox-tools {
+    flex: 1 1 auto;
+  }
+  .sandbox-btn {
+    padding: 7px 9px;
+  }
+  .streak-pill {
+    padding: 6px 9px;
+  }
+  .streak-text {
+    max-width: 42px;
+    white-space: normal;
+    line-height: 1.05;
+  }
   .feed-controls { width: 100%; }
   .status-filter { flex: 1 1 132px; }
   .status-filter-btn { width: 100%; }
