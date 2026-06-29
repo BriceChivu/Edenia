@@ -656,34 +656,6 @@ html[data-theme="dark"] .theme-icon-sun {
 .city-time-waveform:focus-within .city-wave-tooltip {
   opacity: 1;
 }
-#cityscape {
-  display: none;
-  width: 100%;
-  height: auto;
-  transition: filter 1.2s ease;
-}
-#citySky,
-#cityHorizonWash,
-#citySun,
-#cityLightTint,
-#cityShadows,
-#cityPeasant,
-.night-visual,
-.city-star,
-.city-moon,
-.city-moon-cutout {
-  transition: fill 1.2s ease, opacity 1.2s ease, transform 1.2s ease;
-}
-.night-visual {
-  transition: opacity 1.8s ease;
-}
-#cityPeasant {
-  transform-box: fill-box;
-  transform-origin: center bottom;
-}
-/* City elements fade in/out via JS (opacity) */
-[data-threshold] { transition: opacity 1.5s ease; }
-
 .city-footer {
   display: flex;
   align-items: center;

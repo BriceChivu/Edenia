@@ -122,7 +122,6 @@ The stored object includes:
 - `cityProgress`: revealed city image level plus any pending level-up unlocked by cumulative study score.
 - `streak`: current streak, longest streak, and last activity date.
 - `anki`: daily Anki logs keyed by `YYYY-MM-DD`.
-- `nightVisuals`: generated schedule for night city events.
 - `lastUndo`: previous video status change for the undo button.
 - `lastFetched`: last successful YouTube refresh timestamp.
 

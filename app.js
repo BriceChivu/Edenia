@@ -26,20 +26,6 @@ const FETCH_PAGE_SIZE = ACTIVE_VIDEOS_PER_CHANNEL
 const MAX_FETCH_PAGES_PER_CHANNEL = 3
 const DEFAULT_THEME = 'light'
 const THEMES = ['light', 'dark']
-const TIME_OF_DAY_MODES = {
-  dawn:      { start: 5,  sky: '#11556d', activeSky: '#176b82', horizon: '#c9ef68', wash: 0.46, sun: [150, 88, 0.54], moon: 0.18, stars: 0.28, tint: '#82d2ef', tintOpacity: 0.08, shadows: 0.52, shadowShift: '34 0', cityFilter: 'brightness(1.06) saturate(1.16)' },
-  morning:   { start: 7,  sky: '#12bcea', activeSky: '#45cdec', horizon: '#c9ef68', wash: 0.30, sun: [705, 70, 0.88], moon: 0.04, stars: 0,    tint: '#ffffff', tintOpacity: 0.03, shadows: 0.34, shadowShift: '22 0', cityFilter: 'brightness(1.14) saturate(1.08)' },
-  noon:      { start: 11, sky: '#82d2ef', activeSky: '#a2e5f7', horizon: '#ffffff', wash: 0.10, sun: [450, 34, 1],    moon: 0,    stars: 0,    tint: '#ffffff', tintOpacity: 0.02, shadows: 0.18, shadowShift: '0 0',  cityFilter: 'brightness(1.22) saturate(1.02)' },
-  afternoon: { start: 14, sky: '#0fb5e3', activeSky: '#45cdec', horizon: '#c9ef68', wash: 0.26, sun: [680, 68, 0.9],  moon: 0,    stars: 0,    tint: '#c9ef68', tintOpacity: 0.06, shadows: 0.38, shadowShift: '-18 0', cityFilter: 'brightness(1.12) saturate(1.12)' },
-  sunset:    { start: 17, sky: '#0a3a4f', activeSky: '#0d526b', horizon: '#12bcea', wash: 0.58, sun: [770, 125, 0.68], moon: 0.28, stars: 0.18, tint: '#c9ef68', tintOpacity: 0.10, shadows: 0.62, shadowShift: '-32 0', cityFilter: 'brightness(0.98) saturate(1.2)' },
-  night:     { start: 19, sky: '#031018', activeSky: '#062638', horizon: '#12bcea', wash: 0.16, sun: [760, 72, 0],    moon: 0.85, stars: 1,    tint: '#02080b', tintOpacity: 0.20, shadows: 0.70, shadowShift: '0 0',  cityFilter: 'brightness(0.78) saturate(0.96)' }
-}
-const NIGHT_START_HOUR = 19
-const NIGHT_END_HOUR = 5
-const NIGHT_VISUAL_END_HOUR = 1
-const NIGHT_VISUAL_DURATION_MINUTES = 30
-const NIGHT_VISUAL_TOTAL_MINUTES = (24 - NIGHT_START_HOUR + NIGHT_VISUAL_END_HOUR) * 60
-const NIGHT_VISUAL_TYPES = ['aurora', 'ufo', 'meteors']
 const ANKI_AUTO_REFRESH_MS = 5 * 60_000
 const MIN_DAILY_STREAK_POINTS = 3
 const UNDO_STACK_LIMIT = 50
@@ -61,15 +47,6 @@ const CITY_IMAGE_PATHS = [
   'images/photoshop/level%206.png',
   'images/photoshop/level%207.png'
 ]
-const PEASANT_POSITIONS = [
-  [118, 222], [176, 220], [254, 224], [340, 222], [430, 222], [518, 222],
-  [606, 222], [694, 222], [782, 223], [738, 216], [650, 216], [560, 218],
-  [470, 219], [382, 218], [294, 217], [204, 218], [138, 226], [244, 226],
-  [348, 226], [452, 226], [556, 226], [660, 226], [760, 226], [820, 224]
-]
-const PEASANT_SCALE = 0.5
-const PEASANT_GROUND_Y = 248
-const PEASANT_FOOT_Y = 23
 let ankiStatsCache = null
 let selectedStatusFilter = 'all'
 let selectedChannelFilters = null
@@ -161,6 +138,7 @@ function loadState() {
       normalizeUndoState(state)
       normalizeSandboxState(state)
       normalizeCityProgress(state)
+      delete state.nightVisuals
       return state
     }
   } catch {}
@@ -194,7 +172,6 @@ function defaultState(apiKey, goalHours, channels, theme, removedDefaultChannelI
     streak:  { current: 0, longest: 0, lastActivityDate: null },
     anki:    {},   // { 'YYYY-MM-DD': { reviewed, created } }
     cityProgress: { maxLevelIndex: 0, pendingLevelIndex: null },
-    nightVisuals: null,
     undoStack: [],
     lastFetched: null,
     defaultChannelsVersion: DEFAULT_CHANNELS_VERSION
@@ -501,7 +478,6 @@ function init() {
   show('mainApp')
   renderAll(state)
   initCityImagePanZoom()
-  startCityClock()
   if (!IS_SANDBOX) {
     refreshAnkiStats({ silent: true })
     startAnkiAutoRefresh()
@@ -1683,70 +1659,6 @@ function getNextCityLevel(score) {
   return CITY_LEVELS.find(level => score < level.threshold) || null
 }
 
-function getTimeOfDay(date = new Date()) {
-  const hour = date.getHours()
-  if (hour >= TIME_OF_DAY_MODES.sunset.start) return hour >= TIME_OF_DAY_MODES.night.start ? 'night' : 'sunset'
-  if (hour >= TIME_OF_DAY_MODES.afternoon.start) return 'afternoon'
-  if (hour >= TIME_OF_DAY_MODES.noon.start) return 'noon'
-  if (hour >= TIME_OF_DAY_MODES.morning.start) return 'morning'
-  if (hour >= TIME_OF_DAY_MODES.dawn.start) return 'dawn'
-  return 'night'
-}
-
-function isNightTime(date = new Date()) {
-  const hour = date.getHours()
-  return hour >= NIGHT_START_HOUR || hour < NIGHT_END_HOUR
-}
-
-function getNightKey(date = new Date()) {
-  const d = new Date(date)
-  if (d.getHours() < NIGHT_END_HOUR) d.setDate(d.getDate() - 1)
-  return toDateKey(d)
-}
-
-function getNightMinute(date = new Date()) {
-  const hour = date.getHours()
-  const minute = date.getMinutes()
-  return hour >= NIGHT_START_HOUR
-    ? (hour - NIGHT_START_HOUR) * 60 + minute
-    : (24 - NIGHT_START_HOUR + hour) * 60 + minute
-}
-
-function isNightVisualTime(date = new Date()) {
-  if (!isNightTime(date)) return false
-  return getNightMinute(date) < NIGHT_VISUAL_TOTAL_MINUTES
-}
-
-function createNightVisualSchedule() {
-  const slots = []
-  const maxStart = NIGHT_VISUAL_TOTAL_MINUTES - NIGHT_VISUAL_DURATION_MINUTES
-
-  NIGHT_VISUAL_TYPES.forEach(type => {
-    const candidates = Array.from({ length: maxStart + 1 }, (_, start) => start)
-      .filter(start => !slots.some(event =>
-        start < event.startMinute + NIGHT_VISUAL_DURATION_MINUTES &&
-        event.startMinute < start + NIGHT_VISUAL_DURATION_MINUTES
-      ))
-    const start = candidates[Math.floor(Math.random() * candidates.length)]
-    slots.push({ type, startMinute: start })
-  })
-
-  return slots.sort((a, b) => a.startMinute - b.startMinute)
-}
-
-function ensureNightVisualSchedule(s, date = new Date()) {
-  const nightKey = getNightKey(date)
-  if (s.nightVisuals?.nightKey === nightKey && Array.isArray(s.nightVisuals.events)) return false
-
-  s.nightVisuals = {
-    nightKey,
-    durationMinutes: NIGHT_VISUAL_DURATION_MINUTES,
-    events: createNightVisualSchedule()
-  }
-  saveState(s)
-  return true
-}
-
 // ════════════════════════════════════════════════════════════
 // RENDERING
 // ════════════════════════════════════════════════════════════
@@ -1850,16 +1762,8 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
     : 'Max level'
   if (includeTimeline) renderLevelUpButton(snapshot)
 
-  // Reveal elements whose threshold has been reached
-  document.querySelectorAll('[data-threshold]').forEach(el => {
-    el.style.opacity = snapshot.visualScore >= parseInt(el.dataset.threshold) ? '1' : '0'
-  })
-
   if (includeTimeline) renderCityTimeControls(snapshot)
   updateCityMilestoneImage(snapshot.visualScore)
-  applyCityTimeOfDay(s.streak.lastActivityDate === toDateKey())
-  applyPeasantPosition()
-  applyNightVisuals(s)
 }
 
 function getCitySnapshot(currentScore, s) {
@@ -2402,91 +2306,6 @@ function updateCityMilestoneImage(score) {
   if (preloadSrc) {
     const preload = new Image()
     preload.src = preloadSrc
-  }
-}
-
-function applyCityTimeOfDay(activeStreak = false) {
-  const modeName = getTimeOfDay()
-  const mode = TIME_OF_DAY_MODES[modeName]
-  const sky = document.getElementById('citySky')
-  const sun = document.getElementById('citySun')
-  const horizon = document.getElementById('cityHorizonWash')
-  const horizonColor = document.getElementById('horizonWashColor')
-  const moon = document.querySelectorAll('.city-moon')
-  const moonCutout = document.querySelector('.city-moon-cutout')
-  const stars = document.querySelectorAll('.city-star')
-  const shadows = document.getElementById('cityShadows')
-  const tint = document.getElementById('cityLightTint')
-  const cityscape = document.getElementById('cityscape')
-
-  if (!mode || !sky) return
-
-  cityscape.dataset.timeOfDay = modeName
-  cityscape.setAttribute('aria-label', `Study city — grows as you learn, currently ${modeName}`)
-  cityscape.style.filter = mode.cityFilter
-  sky.setAttribute('fill', activeStreak ? mode.activeSky : mode.sky)
-  horizon.setAttribute('opacity', mode.wash)
-  horizonColor.setAttribute('stop-color', mode.horizon)
-  sun.setAttribute('cx', mode.sun[0])
-  sun.setAttribute('cy', mode.sun[1])
-  sun.setAttribute('opacity', mode.sun[2])
-  moon.forEach(el => el.setAttribute('opacity', mode.moon))
-  if (moonCutout) {
-    moonCutout.setAttribute('opacity', mode.moon)
-    moonCutout.setAttribute('fill', activeStreak ? mode.activeSky : mode.sky)
-  }
-  stars.forEach(el => {
-    if (!el.dataset.baseOpacity) el.dataset.baseOpacity = el.getAttribute('opacity') || '1'
-    el.setAttribute('opacity', mode.stars * (parseFloat(el.dataset.baseOpacity) || 1))
-  })
-  shadows.setAttribute('opacity', mode.shadows)
-  shadows.setAttribute('transform', `translate(${mode.shadowShift})`)
-  tint.setAttribute('fill', mode.tint)
-  tint.setAttribute('opacity', mode.tintOpacity)
-}
-
-function startCityClock() {
-  clearInterval(startCityClock._timer)
-  startCityClock._timer = setInterval(() => {
-    const state = loadState()
-    if (state) {
-      applyCityTimeOfDay(state.streak.lastActivityDate === toDateKey())
-      applyNightVisuals(state)
-    }
-    applyPeasantPosition()
-  }, 60_000)
-}
-
-function applyPeasantPosition(date = new Date()) {
-  const peasant = document.getElementById('cityPeasant')
-  if (!peasant) return
-  const [x, y] = PEASANT_POSITIONS[date.getHours() % PEASANT_POSITIONS.length]
-  const groundY = PEASANT_GROUND_Y - PEASANT_FOOT_Y * PEASANT_SCALE
-  peasant.setAttribute('transform', `translate(${x} ${Math.max(y, groundY)}) scale(${PEASANT_SCALE})`)
-}
-
-function applyNightVisuals(s, date = new Date()) {
-  const layers = {
-    aurora: document.getElementById('nightVisualAurora'),
-    ufo: document.getElementById('nightVisualUfo'),
-    meteors: document.getElementById('nightVisualMeteors')
-  }
-
-  Object.values(layers).forEach(layer => {
-    if (layer) layer.setAttribute('opacity', '0')
-  })
-
-  if (!s || !isNightVisualTime(date)) return
-
-  ensureNightVisualSchedule(s, date)
-  const minute = getNightMinute(date)
-  const active = s.nightVisuals.events.find(event =>
-    minute >= event.startMinute &&
-    minute < event.startMinute + NIGHT_VISUAL_DURATION_MINUTES
-  )
-
-  if (active && layers[active.type]) {
-    layers[active.type].setAttribute('opacity', '1')
   }
 }
 
