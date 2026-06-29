@@ -91,6 +91,12 @@ const cityImageView = {
   originX: 0,
   originY: 0
 }
+const cityWaveformScroll = {
+  frame: null,
+  speed: 0,
+  pointerX: 0,
+  pointerY: 0
+}
 const STATUS_FILTERS = [
   ['all', 'All'],
   ['watch-later', 'Watch later'],
@@ -152,6 +158,7 @@ function loadState() {
         saveState(state)
       }
       normalizeUndoState(state)
+      normalizeSandboxState(state)
       normalizeCityProgress(state)
       return state
     }
@@ -196,6 +203,8 @@ function createSandboxDemoState() {
     { id: 'sandbox-projects', name: 'Sandbox Projects' }
   ], DEFAULT_THEME)
   const today = new Date()
+  state.sandboxStartDate = toDateKey(addDays(today, -120))
+  state.sandboxLastDate = toDateKey(addDays(today, 90))
 
   state.videos = {}
   state.anki = {}
@@ -256,11 +265,22 @@ function createSandboxDemoState() {
 }
 
 function createEmptySandboxState() {
-  return defaultState('', 4, [
+  const state = defaultState('', 4, [
     { id: 'sandbox-focus', name: 'Sandbox Focus' },
     { id: 'sandbox-memory', name: 'Sandbox Memory' },
     { id: 'sandbox-projects', name: 'Sandbox Projects' }
   ], DEFAULT_THEME)
+  const startDate = new Date()
+  const startKey = toDateKey(startDate)
+  state.sandboxStartDate = startKey
+  state.sandboxLastDate = startKey
+  state.anki[startKey] = {
+    reviewed: 0,
+    created: 0,
+    loggedAt: setLocalTime(startDate, 0, 0).toISOString(),
+    source: 'sandbox-baseline'
+  }
+  return state
 }
 
 function setLocalTime(date, hour, minute) {
@@ -318,6 +338,21 @@ function normalizeCityProgress(state) {
   }
 }
 
+function normalizeSandboxState(state) {
+  if (!IS_SANDBOX || !state) return
+  const firstKey = getFirstStudyActionDateKey(state) || toDateKey()
+  if (!state.sandboxStartDate) state.sandboxStartDate = firstKey
+  if (!state.sandboxLastDate) state.sandboxLastDate = getLatestSandboxDateKey(state) || state.sandboxStartDate
+  if (!state.anki[state.sandboxStartDate]) {
+    state.anki[state.sandboxStartDate] = {
+      reviewed: 0,
+      created: 0,
+      loggedAt: setLocalTime(dateKeyToLocalDate(state.sandboxStartDate), 0, 0).toISOString(),
+      source: 'sandbox-baseline'
+    }
+  }
+}
+
 function addMissingDefaultChannels(channels) {
   DEFAULT_CHANNELS.forEach(channel => {
     if (!channels.find(c => c.id === channel.id)) channels.push({ ...channel })
@@ -343,6 +378,17 @@ function toDateKey(d = new Date()) {
   const mo = String(d.getMonth() + 1).padStart(2, '0')
   const dy = String(d.getDate()).padStart(2, '0')
   return `${y}-${mo}-${dy}`
+}
+
+function getCurrentAppDate(state = null) {
+  if (!IS_SANDBOX) return new Date()
+  const sandboxState = state || loadState()
+  const latestKey = sandboxState?.sandboxLastDate || getLatestSandboxDateKey(sandboxState)
+  return latestKey ? dateKeyToLocalDate(latestKey) : new Date()
+}
+
+function getCurrentAppDateKey(state = null) {
+  return toDateKey(getCurrentAppDate(state))
 }
 
 function timeAgo(iso) {
@@ -389,7 +435,7 @@ function escHtml(str) {
 function init() {
   let state = loadState()
   if (!state) {
-    state = IS_SANDBOX ? createSandboxDemoState() : defaultState('', 4, DEFAULT_CHANNELS)
+    state = IS_SANDBOX ? createEmptySandboxState() : defaultState('', 4, DEFAULT_CHANNELS)
     saveState(state)
   }
 
@@ -398,6 +444,7 @@ function init() {
   const sandboxTools = document.getElementById('sandboxTools')
   if (sandboxTools) sandboxTools.classList.toggle('hidden', !IS_SANDBOX)
   if (IS_SANDBOX) selectedHistoryView = 'heatmap'
+  setDefaultCityDayOffset(state)
   syncStreak(state)
   saveState(state)
   applyTheme(state.config.theme)
@@ -418,7 +465,7 @@ function loadSandboxDemo() {
   if (!IS_SANDBOX) return
   const state = createSandboxDemoState()
   saveState(state)
-  selectedCityDayOffset = 0
+  setDefaultCityDayOffset(state)
   selectedHistoryView = 'heatmap'
   selectedHistoryRange = 'month'
   ankiStatsCache = null
@@ -430,7 +477,7 @@ function resetSandboxState() {
   if (!IS_SANDBOX) return
   const state = createEmptySandboxState()
   saveState(state)
-  selectedCityDayOffset = 0
+  setDefaultCityDayOffset(state)
   selectedHistoryView = 'heatmap'
   selectedHistoryRange = 'month'
   ankiStatsCache = null
@@ -447,25 +494,32 @@ function addSandboxDay() {
   addSandboxStudyDay(state, nextDate, scoreTarget)
   syncStreak(state)
   saveState(state)
-  selectedCityDayOffset = daysBetweenDateKeys(toDateKey(), toDateKey(nextDate))
+  setDefaultCityDayOffset(state)
   selectedHistoryView = 'heatmap'
   renderAll(state)
   showToast(`Added sandbox study day: ${formatCitySnapshotDate(nextDate)}`, 'success')
 }
 
 function getLastSandboxActivityDate(state) {
+  const latestKey = state?.sandboxLastDate || getLatestSandboxDateKey(state)
+  return latestKey ? dateKeyToLocalDate(latestKey) : null
+}
+
+function getLatestSandboxDateKey(state) {
   const dateKeys = []
+
+  if (state?.sandboxStartDate) dateKeys.push(state.sandboxStartDate)
 
   Object.values(state?.videos || {}).forEach(video => {
     if (video.watchedAt) dateKeys.push(toDateKey(new Date(video.watchedAt)))
+    else if (video.publishedAt && video.id?.startsWith?.('sandbox-added-')) {
+      dateKeys.push(toDateKey(new Date(video.publishedAt)))
+    }
   })
 
-  Object.entries(state?.anki || {}).forEach(([dateKey, day]) => {
-    if ((day.reviewed || 0) > 0 || (day.created || 0) > 0) dateKeys.push(dateKey)
-  })
+  Object.keys(state?.anki || {}).forEach(dateKey => dateKeys.push(dateKey))
 
-  const latestKey = dateKeys.sort().pop()
-  return latestKey ? dateKeyToLocalDate(latestKey) : null
+  return dateKeys.sort().pop() || null
 }
 
 function getSandboxHeatmapEndDate(state) {
@@ -475,23 +529,7 @@ function getSandboxHeatmapEndDate(state) {
 }
 
 function getSandboxAddedDayScoreTarget(state, date) {
-  normalizeCityProgress(state)
-  const currentLevelIndex = state.cityProgress.maxLevelIndex
-  const targetLevelIndex = Math.min(currentLevelIndex + 1, CITY_LEVELS.length - 1)
-  const nextLevelAfterTarget = CITY_LEVELS[targetLevelIndex + 1]
-  const currentTotalScore = calcCityScoreWithoutStreak(getCityStatsThroughDate(state, date))
-  const maxAllowedScore = nextLevelAfterTarget ? nextLevelAfterTarget.threshold - 1 : currentTotalScore + 12
-  const maxAdditionalScore = Math.max(0, maxAllowedScore - currentTotalScore)
-
-  if (maxAdditionalScore <= 0) return 0
-
-  const targetThreshold = CITY_LEVELS[targetLevelIndex]?.threshold || 0
-  const minAdditionalScore = currentTotalScore < targetThreshold
-    ? Math.max(1, targetThreshold - currentTotalScore)
-    : 1
-  const minScore = Math.min(minAdditionalScore, maxAdditionalScore)
-  const maxScore = Math.min(maxAdditionalScore, Math.max(minScore, 11))
-  return randomInt(minScore, maxScore)
+  return randomInt(0, 5)
 }
 
 function addSandboxStudyDay(state, date, scoreTarget = 6) {
@@ -524,11 +562,79 @@ function addSandboxStudyDay(state, date, scoreTarget = 6) {
     }
   }
 
+  const activeId = `sandbox-added-active-${dateKey}-${Date.now()}`
+  const activeChannel = channels[(daySeed + videoCount + 1) % channels.length]
+  state.videos[activeId] = {
+    id: activeId,
+    title: `Sandbox upcoming lesson ${dateKey}`,
+    channelId: activeChannel.id,
+    channelTitle: activeChannel.name,
+    thumbnail: makeSandboxThumbnail(activeChannel.name, daySeed + videoCount + 1),
+    publishedAt: setLocalTime(date, 12, randomInt(0, 45)).toISOString(),
+    duration: randomInt(18, 46) * 60,
+    status: scoreTarget === 0 ? 'unwatched' : 'watch-later',
+    watchedAt: null
+  }
+
+  state.sandboxLastDate = dateKey
   state.lastFetched = new Date().toISOString()
+}
+
+function createSandboxRecentVideos(state) {
+  const channels = state.config.channels.length ? state.config.channels : DEFAULT_CHANNELS
+  const now = new Date()
+  const videos = []
+
+  channels.forEach((channel, channelIndex) => {
+    for (let i = 0; i < ACTIVE_VIDEOS_PER_CHANNEL; i += 1) {
+      const publishedAt = new Date(now)
+      publishedAt.setHours(now.getHours() - (channelIndex * ACTIVE_VIDEOS_PER_CHANNEL + i) * 6)
+      videos.push({
+        id: `sandbox-refresh-${channel.id}-${i}`,
+        title: `Sandbox recent lesson ${channelIndex + 1}.${i + 1}`,
+        channelId: channel.id,
+        channelTitle: channel.name || channel.id,
+        thumbnail: makeSandboxThumbnail(channel.name || channel.id, channelIndex + i),
+        publishedAt: publishedAt.toISOString(),
+        duration: (18 + ((channelIndex * 7 + i * 5) % 38)) * 60
+      })
+    }
+  })
+
+  return videos
+}
+
+function refreshSandboxFeed() {
+  const s = loadState() || createEmptySandboxState()
+  if (!s.config.channels.length) {
+    showToast('Add at least one channel in ⚙ Settings first', 'warn')
+    return
+  }
+
+  const videos = createSandboxRecentVideos(s)
+  videos.forEach(v => {
+    const existing = s.videos[v.id]
+    s.videos[v.id] = {
+      ...v,
+      status: existing?.status ?? 'unwatched',
+      watchedAt: existing?.watchedAt ?? null
+    }
+  })
+
+  s.lastFetched = new Date().toISOString()
+  saveState(s)
+  renderAll(s)
+  showToast(`${videos.length} dummy videos loaded`, 'success')
 }
 
 function makeSandboxActivityForScore(scoreTarget) {
   let remaining = Math.max(0, Math.floor(scoreTarget))
+  const videoDurations = []
+
+  if (remaining > 0) {
+    videoDurations.push(randomInt(60, 180))
+    remaining -= 1
+  }
 
   const createdChunks = remaining >= 4 ? randomInt(0, Math.floor(remaining / 4)) : 0
   const created = createdChunks * 10 + (createdChunks ? randomInt(0, 9) : randomInt(0, 4))
@@ -538,18 +644,19 @@ function makeSandboxActivityForScore(scoreTarget) {
   const reviewed = reviewedChunks * 50 + randomInt(0, 49)
   remaining -= reviewedChunks * 3
 
-  let videoCount = 0
   if (remaining > 0) {
-    videoCount = randomInt(1, Math.min(3, remaining))
-    remaining -= videoCount
+    const extraVideoCount = randomInt(0, Math.min(2, remaining))
+    for (let i = 0; i < extraVideoCount; i += 1) {
+      videoDurations.push(randomInt(60, 180))
+    }
+    remaining -= extraVideoCount
   }
 
   const durationPoints = remaining
-  const videoDurations = []
-  for (let i = 0; i < videoCount; i += 1) {
+  for (let i = 0; i < videoDurations.length; i += 1) {
     const scoredSeconds = i === 0 ? durationPoints * 12 * 60 : 0
     const unscoredSeconds = i === 0 ? randomInt(60, 300) : randomInt(60, 180)
-    videoDurations.push(scoredSeconds + unscoredSeconds)
+    videoDurations[i] += scoredSeconds + unscoredSeconds
   }
 
   return { reviewed, created, videoDurations }
@@ -723,7 +830,7 @@ async function refreshFeed() {
 
   try {
     if (IS_SANDBOX) {
-      addSandboxDay()
+      refreshSandboxFeed()
       return
     }
 
@@ -1317,15 +1424,17 @@ function hideHeatmapTooltip() {
 // ════════════════════════════════════════════════════════════
 
 function getWeeklyStats(s) {
-  const weekStart = getWeekStart()
-  const now = new Date()
+  const currentDate = getCurrentAppDate(s)
+  const weekStart = getWeekStart(currentDate)
+  const weekEnd = new Date(currentDate)
+  if (IS_SANDBOX) weekEnd.setHours(23, 59, 59, 999)
 
   const videos = Object.values(s.videos)
   const weekVids = videos
     .filter(v => {
       if (!v.watchedAt) return false
       const watchedAt = new Date(v.watchedAt)
-      return watchedAt >= weekStart && watchedAt <= now
+      return watchedAt >= weekStart && watchedAt <= weekEnd
     })
 
   const watched = weekVids.filter(v => v.status === 'watched')
@@ -1339,7 +1448,7 @@ function getWeeklyStats(s) {
   const remainingSeconds = Math.max(0, Math.round(goalHours * 3600 - secondsWatched))
 
   // Anki totals for this week
-  const todayKey = toDateKey()
+  const todayKey = getCurrentAppDateKey(s)
   const ankiThisWeek = Object.entries(s.anki)
     .filter(([date]) => new Date(date) >= weekStart && date <= todayKey)
     .reduce((acc, [, d]) => ({ reviewed: acc.reviewed + (d.reviewed||0), created: acc.created + (d.created||0) }), { reviewed: 0, created: 0 })
@@ -1529,9 +1638,13 @@ function stepCityDay(delta) {
   renderCity(getCurrentCityScore(state), state)
 }
 
+function setDefaultCityDayOffset(state) {
+  selectedCityDayOffset = IS_SANDBOX ? getLastCityDayOffset(state) : 0
+}
+
 function resetCityDay() {
-  selectedCityDayOffset = 0
   const state = loadState()
+  if (state) setDefaultCityDayOffset(state)
   if (state) renderCity(getCurrentCityScore(state), state)
 }
 
@@ -1645,6 +1758,8 @@ function getLastCityDayOffset(s) {
 function getFirstStudyActionDateKey(s) {
   const dates = []
 
+  if (IS_SANDBOX && s?.sandboxStartDate) dates.push(s.sandboxStartDate)
+
   Object.values(s?.videos || {}).forEach(video => {
     if (video.watchedAt) dates.push(toDateKey(new Date(video.watchedAt)))
   })
@@ -1658,6 +1773,8 @@ function getFirstStudyActionDateKey(s) {
 
 function getLastStudyActionDateKey(s) {
   const dates = []
+
+  if (IS_SANDBOX && s?.sandboxLastDate) dates.push(s.sandboxLastDate)
 
   Object.values(s?.videos || {}).forEach(video => {
     if (video.watchedAt) dates.push(toDateKey(new Date(video.watchedAt)))
@@ -1731,8 +1848,18 @@ function renderCityTimeControls(snapshot) {
     `
   }).join('')
 
+  updateCityWaveformScrollState()
   const selectedBar = bars.querySelector('.city-wave-bar.selected')
-  if (selectedBar) positionCityWaveTooltip(selectedBar)
+  if (selectedBar) {
+    centerCityWaveBar(selectedBar)
+    positionCityWaveTooltip(selectedBar)
+  }
+}
+
+function updateCityWaveformScrollState() {
+  const bars = document.getElementById('cityWaveBars')
+  if (!bars) return
+  bars.classList.toggle('is-scrollable', bars.scrollWidth > bars.clientWidth + 1)
 }
 
 function getCityWaveformDays(minOffset, maxOffset = 0) {
@@ -1777,6 +1904,77 @@ function previewCityWaveBar(bar, options = {}) {
   }
 }
 
+function handleCityWaveformMouseMove(event) {
+  const waveform = event.currentTarget
+  const bars = document.getElementById('cityWaveBars')
+  cityWaveformScroll.pointerX = event.clientX
+  cityWaveformScroll.pointerY = event.clientY
+  if (!waveform || !bars || bars.scrollWidth <= bars.clientWidth) {
+    stopCityWaveformAutoScroll()
+    return
+  }
+
+  const rect = waveform.getBoundingClientRect()
+  const edgeSize = Math.min(56, rect.width * 0.45)
+  const leftDistance = event.clientX - rect.left
+  const rightDistance = rect.right - event.clientX
+
+  let speed = 0
+  if (leftDistance < edgeSize) {
+    speed = -1 * (1 - leftDistance / edgeSize)
+  } else if (rightDistance < edgeSize) {
+    speed = 1 - rightDistance / edgeSize
+  }
+
+  cityWaveformScroll.speed = speed * 14
+  if (cityWaveformScroll.speed === 0) {
+    stopCityWaveformAutoScroll()
+  } else {
+    startCityWaveformAutoScroll()
+  }
+}
+
+function startCityWaveformAutoScroll() {
+  if (cityWaveformScroll.frame) return
+
+  const step = () => {
+    const bars = document.getElementById('cityWaveBars')
+    if (!bars || cityWaveformScroll.speed === 0) {
+      stopCityWaveformAutoScroll()
+      return
+    }
+    bars.scrollLeft += cityWaveformScroll.speed
+    previewCityWaveformBarAtPointer()
+    cityWaveformScroll.frame = requestAnimationFrame(step)
+  }
+
+  cityWaveformScroll.frame = requestAnimationFrame(step)
+}
+
+function stopCityWaveformAutoScroll() {
+  cityWaveformScroll.speed = 0
+  if (!cityWaveformScroll.frame) return
+  cancelAnimationFrame(cityWaveformScroll.frame)
+  cityWaveformScroll.frame = null
+}
+
+function centerCityWaveBar(bar) {
+  const bars = document.getElementById('cityWaveBars')
+  if (!bar || !bars || bars.scrollWidth <= bars.clientWidth) return
+
+  const targetLeft = bar.offsetLeft - (bars.clientWidth / 2) + (bar.offsetWidth / 2)
+  const maxScroll = bars.scrollWidth - bars.clientWidth
+  bars.scrollLeft = clampNumber(targetLeft, 0, maxScroll)
+}
+
+function previewCityWaveformBarAtPointer() {
+  const target = document.elementFromPoint(cityWaveformScroll.pointerX, cityWaveformScroll.pointerY)
+  const bar = target?.closest?.('.city-wave-bar')
+  const bars = document.getElementById('cityWaveBars')
+  if (!bar || !bars?.contains(bar)) return
+  previewCityWaveBar(bar, { persist: true })
+}
+
 function positionCityWaveTooltip(bar) {
   const waveform = document.getElementById('cityTimeWaveform')
   const tooltip = document.getElementById('cityWaveTooltip')
@@ -1791,6 +1989,7 @@ function positionCityWaveTooltip(bar) {
 
 function clearCityWaveformPreview() {
   clearTimeout(previewCityWaveBar._timer)
+  stopCityWaveformAutoScroll()
   document.querySelectorAll('.city-wave-bar').forEach(bar => {
     bar.style.setProperty('--hover-boost', '0px')
   })
@@ -2065,7 +2264,9 @@ function renderFeed(s) {
   } else if (!activeVideos.length) {
     const channelMsg = channelFilters.size === getChannelFilterEntries(s).length ? '' : ' for the selected channels'
     const filterName = statusFilter === 'partial' ? 'in-progress' : statusFilter === 'watch-later' ? 'watch later' : statusFilter
-    const msg = statusFilter === 'all' && !channelMsg
+    const msg = statusFilter === 'all' && watchedVideos.length
+      ? 'No active videos right now. Watched videos are below.'
+      : statusFilter === 'all' && !channelMsg
       ? 'No videos yet — click ↻ Refresh to load your feed.'
       : `No ${statusFilter === 'all' ? 'active' : filterName} videos${channelMsg} right now.`
     grid.innerHTML = `<div class="empty-state">${msg}</div>`

@@ -147,7 +147,7 @@ Sandbox mode uses separate browser storage:
 - `localStorage` key: `studybuild_v1_sandbox`
 - Cookie key: `studybuild_config_sandbox`
 
-When sandbox mode is opened with no saved sandbox state, the app creates demo progress automatically. The header shows a `Sandbox` badge plus `Add day` and `Reset` actions. `Add day` appends a random sandbox-only study day after the latest sandbox activity so future heatmap and city-progress states can be explored quickly. `Reset` saves a blank sandbox state with no watched videos, no Anki logs, and the town back at level 1. Sandbox data does not touch the normal `studybuild_v1` progress state.
+When sandbox mode is opened with no saved sandbox state, the app starts from a blank baseline day at level 1 with 0 points. The header shows a `Sandbox` badge plus `Add day` and `Reset` actions. `Add day` appends a random sandbox-only study day worth 0 to 5 points after the latest sandbox day, and keeps the first baseline day unchanged. `Reset` returns to the same blank baseline state. Sandbox data does not touch the normal `studybuild_v1` progress state.
 
 ## Testing New Features
 

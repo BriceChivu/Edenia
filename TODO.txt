@@ -1,3 +1,16 @@
 new milestones (add emojis): cute little pond, oh! a tourist boat is approaching...
 Remove the "day" in study history summary. When hovering over the numbre of videos watched in the table, show a small pop up of the name + thumbnail of the videos watched
-make the waveform always at the bottom right corner of the image rectangle. Also keep the waveform a certain length, even if there are many many past days. In that case, have the waveform scroll horizontally when hovering over the left or right edge of it.
+In the watched section, add when the video was watched in the video card, in a subtle way
+Refresh button should load that many videos at once. I'm afraid about the Youtube API usage.
+
+
+Sandbox:
+refresh button should have the same behavior as the real website, i.e. just load dummy recent videos 
+weekly goal progress is not being updated when "Add a day" is hit.
+waveform horizontal scrolling is not working. Hovering to the waveform edge does nothing.
+ONLY IN SANDBOX: when many days, the default view of the image should always be the most future date
+
+In the heatmap, we whouldn't see the future squares
+
+
+Go throw the entire code and flag any potential bugs or incoherence 
