@@ -104,7 +104,7 @@ const STATUS_FILTERS = [
   ['partial', 'In progress'],
   ['watched', 'Watched']
 ]
-const HISTORY_RANGES = ['day', 'week', 'month']
+const HISTORY_RANGES = ['week', 'month']
 
 function getCookie(key) {
   return document.cookie.split('; ').reduce((value, part) => {
@@ -1196,7 +1196,8 @@ function createHistoryBucket(dateKey) {
     secondsWatched: 0,
     videosWatched: 0,
     ankiReviewed: 0,
-    ankiCreated: 0
+    ankiCreated: 0,
+    watchedVideos: []
   }
 }
 
@@ -1219,6 +1220,13 @@ function getStudyHistoryBetween(s, start, end) {
     const bucket = ensureBucket(toDateKey(date))
     bucket.videosWatched += 1
     bucket.secondsWatched += video.duration || 0
+    bucket.watchedVideos.push({
+      id: video.id || '',
+      title: video.title || 'Untitled video',
+      thumbnail: video.thumbnail || '',
+      duration: video.duration || 0,
+      watchedAt: video.watchedAt
+    })
   }
 
   for (const [dateKey, day] of Object.entries(s.anki || {})) {
@@ -1230,14 +1238,73 @@ function getStudyHistoryBetween(s, start, end) {
   }
 
   const rows = Array.from(buckets.values()).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
-  const summary = rows.reduce((acc, row) => ({
-    secondsWatched: acc.secondsWatched + row.secondsWatched,
-    videosWatched: acc.videosWatched + row.videosWatched,
-    ankiReviewed: acc.ankiReviewed + row.ankiReviewed,
-    ankiCreated: acc.ankiCreated + row.ankiCreated
-  }), createHistoryBucket('summary'))
+  rows.forEach(row => {
+    row.watchedVideos.sort((a, b) => new Date(b.watchedAt) - new Date(a.watchedAt))
+  })
+
+  const summary = rows.reduce((acc, row) => {
+    acc.secondsWatched += row.secondsWatched
+    acc.videosWatched += row.videosWatched
+    acc.ankiReviewed += row.ankiReviewed
+    acc.ankiCreated += row.ankiCreated
+    acc.watchedVideos.push(...row.watchedVideos)
+    return acc
+  }, createHistoryBucket('summary'))
 
   return { rows, summary }
+}
+
+function renderHistoryWatchedCell(row) {
+  if (!row.videosWatched || !row.watchedVideos.length) return '0'
+  return `
+    <span class="history-video-cell">
+      <button type="button" class="history-video-count" onclick="toggleHistoryVideoPopover(event)" aria-expanded="false" aria-label="Show ${row.videosWatched} videos watched on ${escHtml(formatHeatmapTitle(row))}">
+        <span class="history-video-count-number">${row.videosWatched}</span>
+        <span class="history-video-count-caret" aria-hidden="true"></span>
+      </button>
+      <span class="history-video-popover" role="dialog" aria-label="Watched videos">
+        ${row.watchedVideos.map(video => `
+          <span class="history-video-popover-item">
+            ${video.thumbnail
+              ? `<img src="${escHtml(video.thumbnail)}" alt="" class="history-video-thumb" loading="lazy">`
+              : '<span class="history-video-thumb history-video-thumb-empty"></span>'}
+            <span class="history-video-details">
+              <span class="history-video-title">${escHtml(video.title)}</span>
+              <span class="history-video-duration">${formatDuration(video.duration)}</span>
+            </span>
+          </span>
+        `).join('')}
+      </span>
+    </span>
+  `
+}
+
+function toggleHistoryVideoPopover(event) {
+  event.stopPropagation()
+  const cell = event.currentTarget.closest('.history-video-cell')
+  if (!cell) return
+  const shouldOpen = !cell.classList.contains('open')
+  closeHistoryVideoPopovers(cell)
+  cell.classList.toggle('open', shouldOpen)
+  event.currentTarget.setAttribute('aria-expanded', String(shouldOpen))
+}
+
+function closeHistoryVideoPopovers(exceptCell = null) {
+  document.querySelectorAll('.history-video-cell.open').forEach(cell => {
+    if (cell === exceptCell) return
+    cell.classList.remove('open')
+    cell.querySelector('.history-video-count')?.setAttribute('aria-expanded', 'false')
+  })
+}
+
+function closeHistoryVideoPopoversOnOutsideClick(event) {
+  if (event.target.closest('.history-video-cell')) return
+  closeHistoryVideoPopovers()
+}
+
+function closeHistoryVideoPopoversOnEscape(event) {
+  if (event.key !== 'Escape') return
+  closeHistoryVideoPopovers()
 }
 
 function formatHistoryDate(dateKey) {
@@ -1293,7 +1360,7 @@ function renderStudyHistoryPanel(s) {
           <div class="history-row">
             <span>${formatHistoryDate(row.dateKey)}</span>
             <span>${formatHistoryTime(row.secondsWatched)}</span>
-            <span>${row.videosWatched}</span>
+            <span>${renderHistoryWatchedCell(row)}</span>
             <span>${row.ankiReviewed} / ${row.ankiCreated}</span>
           </div>
         `).join('')}
@@ -2563,4 +2630,6 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 
 document.addEventListener('DOMContentLoaded', init)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
+document.addEventListener('click', closeHistoryVideoPopoversOnOutsideClick)
+document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
 document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
