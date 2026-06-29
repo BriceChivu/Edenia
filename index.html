@@ -104,7 +104,9 @@
           <button class="city-image-btn" type="button" onclick="zoomCityImage(1)" title="Zoom in" aria-label="Zoom in">+</button>
         </div>
         <div class="city-time-waveform" id="cityTimeWaveform" aria-label="City history timeline" onmouseenter="handleCityWaveformMouseMove(event)" onmousemove="handleCityWaveformMouseMove(event)" onmouseleave="clearCityWaveformPreview()">
-          <div class="city-wave-bars" id="cityWaveBars"></div>
+          <div class="city-wave-bars" id="cityWaveBars">
+            <div class="city-wave-track" id="cityWaveTrack"></div>
+          </div>
           <div class="city-wave-tooltip" id="cityWaveTooltip">Today</div>
         </div>
       </div>

@@ -532,11 +532,8 @@ html[data-theme="dark"] .theme-icon-sun {
 }
 .city-wave-bars {
   align-items: center;
-  display: flex;
   flex: 1 1 auto;
-  gap: 2px;
   height: 34px;
-  justify-content: flex-end;
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
@@ -545,11 +542,20 @@ html[data-theme="dark"] .theme-icon-sun {
   scrollbar-width: none;
   width: 100%;
 }
-.city-wave-bars.is-scrollable {
-  justify-content: flex-start;
-}
 .city-wave-bars::-webkit-scrollbar {
   display: none;
+}
+.city-wave-track {
+  align-items: center;
+  display: flex;
+  gap: 2px;
+  justify-content: flex-end;
+  min-height: 100%;
+  min-width: 100%;
+  width: max-content;
+}
+.city-wave-bars.is-scrollable .city-wave-track {
+  justify-content: flex-start;
 }
 .city-wave-bar {
   --bar-height: 9px;

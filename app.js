@@ -1987,15 +1987,16 @@ function getHistoricMaxCityLevelIndex(s, endDate = new Date()) {
 function renderCityTimeControls(snapshot) {
   const waveform = document.getElementById('cityTimeWaveform')
   const bars = document.getElementById('cityWaveBars')
+  const track = document.getElementById('cityWaveTrack')
   const tooltip = document.getElementById('cityWaveTooltip')
-  if (!waveform || !bars || !tooltip) return
+  if (!waveform || !bars || !track || !tooltip) return
 
   const state = loadState()
   const rowsByDate = getCityHistoryRowsByDate(state)
   const days = getCityWaveformDays(snapshot.minOffset, snapshot.maxOffset)
   const selectedIndex = days.findIndex(day => day.offset === selectedCityDayOffset)
 
-  bars.innerHTML = days.map((day, index) => {
+  track.innerHTML = days.map((day, index) => {
     const row = rowsByDate.get(day.dateKey)
     const points = row ? getHistoryDayPoints(row) : 0
     const height = 8 + Math.min(20, points * 2)
@@ -2017,7 +2018,7 @@ function renderCityTimeControls(snapshot) {
   }).join('')
 
   updateCityWaveformScrollState()
-  const selectedBar = bars.querySelector('.city-wave-bar.selected')
+  const selectedBar = track.querySelector('.city-wave-bar.selected')
   if (selectedBar) {
     centerCityWaveBar(selectedBar)
     positionCityWaveTooltip(selectedBar)
@@ -2073,32 +2074,39 @@ function previewCityWaveBar(bar, options = {}) {
 }
 
 function handleCityWaveformMouseMove(event) {
+  const waveform = document.getElementById('cityTimeWaveform')
   const bars = document.getElementById('cityWaveBars')
   cityWaveformScroll.pointerX = event.clientX
   cityWaveformScroll.pointerY = event.clientY
-  if (!bars || bars.scrollWidth <= bars.clientWidth) {
+  if (!waveform || !bars || bars.scrollWidth <= bars.clientWidth) {
     stopCityWaveformAutoScroll()
     return
   }
 
-  const rect = bars.getBoundingClientRect()
-  const edgeSize = Math.min(56, rect.width * 0.45)
+  const rect = waveform.getBoundingClientRect()
+  const edgeSize = Math.min(64, rect.width * 0.5)
   const leftDistance = event.clientX - rect.left
   const rightDistance = rect.right - event.clientX
 
   let speed = 0
   if (leftDistance >= 0 && leftDistance < edgeSize) {
-    speed = -1 * (1 - leftDistance / edgeSize)
+    speed = -getCityWaveformEdgeSpeed(leftDistance, edgeSize)
   } else if (rightDistance >= 0 && rightDistance < edgeSize) {
-    speed = 1 - rightDistance / edgeSize
+    speed = getCityWaveformEdgeSpeed(rightDistance, edgeSize)
   }
 
-  cityWaveformScroll.speed = speed * 14
+  cityWaveformScroll.speed = speed
   if (cityWaveformScroll.speed === 0) {
     stopCityWaveformAutoScroll()
   } else {
     startCityWaveformAutoScroll()
   }
+}
+
+function getCityWaveformEdgeSpeed(distance, edgeSize) {
+  const intensity = 1 - clampNumber(distance / edgeSize, 0, 1)
+  if (intensity <= 0) return 0
+  return 4 + (intensity * intensity * 18)
 }
 
 function startCityWaveformAutoScroll() {
@@ -2135,7 +2143,10 @@ function centerCityWaveBar(bar) {
   const bars = document.getElementById('cityWaveBars')
   if (!bar || !bars || bars.scrollWidth <= bars.clientWidth) return
 
-  const targetLeft = bar.offsetLeft - (bars.clientWidth / 2) + (bar.offsetWidth / 2)
+  const barRect = bar.getBoundingClientRect()
+  const barsRect = bars.getBoundingClientRect()
+  const barLeftInScroll = barRect.left - barsRect.left + bars.scrollLeft
+  const targetLeft = barLeftInScroll - (bars.clientWidth / 2) + (barRect.width / 2)
   const maxScroll = bars.scrollWidth - bars.clientWidth
   bars.scrollLeft = clampNumber(targetLeft, 0, maxScroll)
 }
