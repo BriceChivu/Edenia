@@ -2257,6 +2257,7 @@ function initCityImagePanZoom() {
 
   wrap.addEventListener('pointerdown', event => {
     if (event.target.closest('button, .city-time-waveform')) return
+    if (event.pointerType === 'touch' && cityImageView.scale <= 1) return
     event.preventDefault()
     cityImageView.dragging = true
     cityImageView.pointerId = event.pointerId
@@ -2349,6 +2350,7 @@ function clampCityImagePan() {
 function applyCityImageTransform() {
   const image = document.getElementById('cityMilestoneImage')
   if (!image) return
+  document.querySelector('.city-image-wrap')?.classList.toggle('is-zoomed', cityImageView.scale > 1)
   image.style.transform = `translate(${cityImageView.x}px, ${cityImageView.y}px) scale(${cityImageView.scale})`
 }
 
