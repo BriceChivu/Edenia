@@ -1773,11 +1773,41 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
   .history-view-btn {
     flex: 1;
   }
+  .history-row-head {
+    display: none;
+  }
   .history-row {
-    grid-template-columns: 1fr repeat(3, minmax(48px, 0.7fr));
-    font-size: 0.7rem;
-    gap: 5px;
-    padding: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    font-size: 0.78rem;
+    gap: 10px;
+    padding: 10px;
+  }
+  .history-row > span {
+    min-width: 0;
+  }
+  .history-row > span::before {
+    color: var(--muted);
+    content: attr(data-label);
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .history-video-cell {
+    width: 100%;
+  }
+  .history-video-popover {
+    bottom: auto;
+    left: 12px;
+    max-height: min(360px, 70vh);
+    position: fixed;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: auto;
+    z-index: 600;
   }
   .city-zoom-controls {
     bottom: 7px;
@@ -1805,6 +1835,11 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
   .heatmap-day {
     border-radius: 4px;
     cursor: pointer;
+  }
+  .history-video-count {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 9px 12px;
   }
   .btn-primary,
   .btn-secondary,

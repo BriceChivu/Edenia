@@ -1456,10 +1456,10 @@ function renderStudyHistoryPanel(s) {
         </div>
         ${history.rows.map(row => `
           <div class="history-row">
-            <span>${formatHistoryDate(row.dateKey, s)}</span>
-            <span>${formatHistoryTime(row.secondsWatched)}</span>
-            <span>${renderHistoryWatchedCell(row)}</span>
-            <span>${row.ankiReviewed} / ${row.ankiCreated}</span>
+            <span data-label="Date">${formatHistoryDate(row.dateKey, s)}</span>
+            <span data-label="Video">${formatHistoryTime(row.secondsWatched)}</span>
+            <span data-label="Watched">${renderHistoryWatchedCell(row)}</span>
+            <span data-label="Anki">${row.ankiReviewed} / ${row.ankiCreated}</span>
           </div>
         `).join('')}
       `
