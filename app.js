@@ -188,7 +188,7 @@ function defaultState(apiKey, goalHours, channels, theme) {
     videos:  {},   // { [videoId]: VideoRecord }
     streak:  { current: 0, longest: 0, lastActivityDate: null },
     anki:    {},   // { 'YYYY-MM-DD': { reviewed, created } }
-    cityProgress: { maxLevelIndex: 0 },
+    cityProgress: { maxLevelIndex: 0, pendingLevelIndex: null },
     nightVisuals: null,
     undoStack: [],
     lastFetched: null,
@@ -332,9 +332,21 @@ function normalizeUndoState(state) {
 
 function normalizeCityProgress(state) {
   if (!state) return
-  const historicMax = getHistoricMaxCityLevelIndex(state)
+  const currentProgress = state.cityProgress || {}
+  const revealedLevelIndex = Number.isInteger(currentProgress.maxLevelIndex)
+    ? currentProgress.maxLevelIndex
+    : 0
+  const pendingLevelIndex = Number.isInteger(currentProgress.pendingLevelIndex)
+    ? currentProgress.pendingLevelIndex
+    : null
   state.cityProgress = {
-    maxLevelIndex: clampNumber(historicMax, 0, CITY_LEVELS.length - 1)
+    maxLevelIndex: clampNumber(revealedLevelIndex, 0, CITY_LEVELS.length - 1),
+    pendingLevelIndex: pendingLevelIndex === null
+      ? null
+      : clampNumber(pendingLevelIndex, 0, CITY_LEVELS.length - 1)
+  }
+  if (state.cityProgress.pendingLevelIndex !== null && state.cityProgress.pendingLevelIndex <= state.cityProgress.maxLevelIndex) {
+    state.cityProgress.pendingLevelIndex = null
   }
 }
 
@@ -1588,7 +1600,7 @@ function formatHistoryTime(secs) {
 }
 
 function getCurrentCityScore(s) {
-  return calcCityScoreWithoutStreak(getCityStatsThroughDate(s, new Date()))
+  return calcCityScoreWithoutStreak(getCityStatsThroughDate(s, getCurrentAppDate(s)))
 }
 
 function calcCityScoreWithoutStreak(stats) {
@@ -1772,6 +1784,7 @@ function previewCityDayOffset(offset) {
 }
 
 function renderCity(score, s) {
+  updatePersistentCityLevel(s, score)
   const snapshot = getCitySnapshot(score, s)
   renderCitySnapshot(snapshot, s, true)
 }
@@ -1781,10 +1794,14 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
   document.getElementById('cityLabel').textContent = getCityStage(snapshot.visualScore)
   const scoreContext = document.getElementById('cityScoreContext')
   if (scoreContext) scoreContext.textContent = snapshot.isToday ? 'total pts' : 'pts by then'
-  const nextLevel = CITY_LEVELS[snapshot.visualLevelIndex + 1] || null
+  const nextLevel = CITY_LEVELS[snapshot.pendingLevelIndex || snapshot.visualLevelIndex + 1] || null
+  const hasEarnedUnrevealedLevel = snapshot.earnedLevelIndex > snapshot.visualLevelIndex
   document.getElementById('cityNextLevel').textContent = nextLevel
-    ? `${nextLevel.threshold - snapshot.score} pts to ${nextLevel.label}`
+    ? snapshot.hasPendingLevel || hasEarnedUnrevealedLevel
+      ? `Ready for ${nextLevel.label}`
+      : `${nextLevel.threshold - snapshot.score} pts to ${nextLevel.label}`
     : 'Max level'
+  if (includeTimeline) renderLevelUpButton(snapshot)
 
   // Reveal elements whose threshold has been reached
   document.querySelectorAll('[data-threshold]').forEach(el => {
@@ -1805,7 +1822,8 @@ function getCitySnapshot(currentScore, s) {
   const minOffset = getFirstCityDayOffset(s)
   const maxOffset = getLastCityDayOffset(s)
   if (isToday) {
-    const visualLevelIndex = updatePersistentCityLevel(s, currentScore)
+    normalizeCityProgress(s)
+    const visualLevelIndex = s.cityProgress.maxLevelIndex
     return {
       date,
       isToday,
@@ -1813,13 +1831,19 @@ function getCitySnapshot(currentScore, s) {
       maxOffset,
       score: currentScore,
       visualLevelIndex,
-      visualScore: getCityScoreForLevelIndex(visualLevelIndex)
+      visualScore: getCityScoreForLevelIndex(visualLevelIndex),
+      earnedLevelIndex: getCityLevelIndex(currentScore),
+      pendingLevelIndex: s.cityProgress?.pendingLevelIndex ?? null,
+      hasPendingLevel: Number.isInteger(s.cityProgress?.pendingLevelIndex) && s.cityProgress.pendingLevelIndex > visualLevelIndex
     }
   }
 
   const stats = getCityStatsThroughDate(s, date)
   const score = calcCityScoreWithoutStreak(stats)
-  const visualLevelIndex = getHistoricMaxCityLevelIndex(s, date)
+  const revealedLevelIndex = Number.isInteger(s.cityProgress?.maxLevelIndex)
+    ? s.cityProgress.maxLevelIndex
+    : 0
+  const visualLevelIndex = Math.min(getHistoricMaxCityLevelIndex(s, date), revealedLevelIndex)
   return {
     date,
     isToday,
@@ -1827,19 +1851,57 @@ function getCitySnapshot(currentScore, s) {
     maxOffset,
     score,
     visualLevelIndex,
-    visualScore: getCityScoreForLevelIndex(visualLevelIndex)
+    visualScore: getCityScoreForLevelIndex(visualLevelIndex),
+    earnedLevelIndex: getCityLevelIndex(score),
+    pendingLevelIndex: s.cityProgress?.pendingLevelIndex ?? null,
+    hasPendingLevel: Number.isInteger(s.cityProgress?.pendingLevelIndex) && s.cityProgress.pendingLevelIndex > revealedLevelIndex
   }
 }
 
 function updatePersistentCityLevel(s, score) {
-  const previousMax = Number.isInteger(s.cityProgress?.maxLevelIndex)
-    ? s.cityProgress.maxLevelIndex
-    : 0
+  const previous = JSON.stringify(s.cityProgress || {})
   normalizeCityProgress(s)
-  if (s.cityProgress.maxLevelIndex !== previousMax) {
+  const earnedLevelIndex = getCityLevelIndex(score)
+  if (earnedLevelIndex > s.cityProgress.maxLevelIndex) {
+    const nextLevelIndex = s.cityProgress.maxLevelIndex + 1
+    s.cityProgress.pendingLevelIndex = Math.min(
+      Math.max(s.cityProgress.pendingLevelIndex || nextLevelIndex, nextLevelIndex),
+      earnedLevelIndex
+    )
+  } else if (s.cityProgress.pendingLevelIndex && s.cityProgress.pendingLevelIndex <= s.cityProgress.maxLevelIndex) {
+    s.cityProgress.pendingLevelIndex = null
+  }
+  if (JSON.stringify(s.cityProgress) !== previous) {
     saveState(s)
   }
   return s.cityProgress.maxLevelIndex
+}
+
+function renderLevelUpButton(snapshot) {
+  const button = document.getElementById('levelUpButton')
+  if (!button) return
+  button.classList.toggle('show', !!snapshot.hasPendingLevel)
+  button.disabled = !snapshot.hasPendingLevel
+  button.setAttribute('aria-hidden', String(!snapshot.hasPendingLevel))
+}
+
+function claimCityLevelUp() {
+  const s = loadState()
+  if (!s) return
+  normalizeCityProgress(s)
+  const earnedLevelIndex = getCityLevelIndex(getCurrentCityScore(s))
+  const pendingLevelIndex = Math.min(
+    s.cityProgress.pendingLevelIndex || s.cityProgress.maxLevelIndex + 1,
+    earnedLevelIndex
+  )
+  if (pendingLevelIndex <= s.cityProgress.maxLevelIndex) return
+
+  s.cityProgress.maxLevelIndex = clampNumber(pendingLevelIndex, 0, CITY_LEVELS.length - 1)
+  s.cityProgress.pendingLevelIndex = null
+  saveState(s)
+  resetCityImageView()
+  renderAll(s)
+  showToast(`Level up! ${CITY_LEVELS[s.cityProgress.maxLevelIndex].label}`, 'success')
 }
 
 function clampCityDayOffset(s, offset) {

@@ -429,6 +429,51 @@ html[data-theme="dark"] .theme-icon-sun {
 .city-milestone-image.loading {
   opacity: 0;
 }
+.level-up-button {
+  align-items: center;
+  background: var(--planet-lime);
+  border: 3px solid var(--planet-black);
+  border-radius: 999px;
+  bottom: 46px;
+  box-shadow: 0 5px 0 rgba(5,5,5,0.22);
+  color: #243a20;
+  cursor: pointer;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  left: 50%;
+  max-width: min(420px, calc(100% - 32px));
+  padding: 10px 18px;
+  position: absolute;
+  text-align: center;
+  transform: translateX(-50%);
+  z-index: 5;
+}
+.level-up-button.show {
+  animation: levelUpBounce 1.25s ease-in-out infinite;
+  display: flex;
+}
+.level-up-button:hover,
+.level-up-button:focus-visible {
+  background: #e6ff7b;
+  outline: none;
+}
+.level-up-button span {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.18rem;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+.level-up-button small {
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+@keyframes levelUpBounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  45% { transform: translateX(-50%) translateY(-7px); }
+  65% { transform: translateX(-50%) translateY(-3px); }
+}
 .city-zoom-controls {
   align-items: center;
   background: transparent;
@@ -1634,6 +1679,16 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
     max-width: calc(100% - 12px);
     right: 6px;
     width: clamp(56px, 15.4%, 91px);
+  }
+  .level-up-button {
+    bottom: 40px;
+    padding: 8px 12px;
+  }
+  .level-up-button span {
+    font-size: 1rem;
+  }
+  .level-up-button small {
+    font-size: 0.6rem;
   }
   .card-title { font-size: 0.78rem; }
 }
