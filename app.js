@@ -894,11 +894,13 @@ async function refreshFeed() {
 
     const all    = []
     const errors = []
+    let successfulChannels = 0
 
     // Fetch each channel concurrently
     await Promise.all(s.config.channels.map(async ch => {
       try {
         const vids = await fetchChannelVideos(ch, s.config.apiKey, s.videos)
+        successfulChannels += 1
         all.push(...vids)
         // Auto-update stored channel name from API response
         const first = vids[0]
@@ -910,6 +912,11 @@ async function refreshFeed() {
         errors.push(ch.name)
       }
     }))
+
+    if (successfulChannels === 0) {
+      showToast(`Refresh failed: ${errors.length} channel${errors.length > 1 ? 's' : ''} failed`, 'error')
+      return
+    }
 
     // Deduplicate
     const seen   = new Set()
