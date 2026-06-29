@@ -33,7 +33,7 @@ The app can also be opened from `index.html` directly, but new feature testing s
 
 1. Open the app.
 2. Click the settings button.
-3. Add or update the YouTube API key.
+3. Add your YouTube API key. The app does not include a bundled key.
 4. Set the weekly goal in hours.
 5. Add YouTube channel IDs.
 6. Click `Refresh` to load the latest videos.

@@ -20,7 +20,6 @@ const DEFAULT_CHANNELS_VERSION = 2
 const IS_SANDBOX = new URLSearchParams(window.location.search).get('sandbox') === '1'
 const STORAGE_KEY = IS_SANDBOX ? 'studybuild_v1_sandbox' : 'studybuild_v1'
 const CONFIG_COOKIE_KEY = IS_SANDBOX ? 'studybuild_config_sandbox' : 'studybuild_config'
-const DEFAULT_API_KEY = 'AIzaSyAVmsqp-5o1ufYCuMak38jigQRHFhf0g1Y'
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = ACTIVE_VIDEOS_PER_CHANNEL
@@ -151,7 +150,6 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const state = JSON.parse(raw)
-      if (state?.config && !state.config.apiKey) state.config.apiKey = DEFAULT_API_KEY
       if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
       if (state?.config && !Array.isArray(state.config.channels)) state.config.channels = []
       if (state?.config && (state.defaultChannelsVersion || 1) < DEFAULT_CHANNELS_VERSION) {
@@ -167,8 +165,8 @@ function loadState() {
   } catch {}
 
   const fallback = loadConfigCookie()
-  if (fallback?.apiKey) {
-    return defaultState(fallback.apiKey, fallback.weeklyGoalHours || 4, fallback.channels, fallback.theme)
+  if (fallback) {
+    return defaultState(fallback.apiKey || '', fallback.weeklyGoalHours || 4, fallback.channels, fallback.theme)
   }
 
   return null
@@ -182,7 +180,7 @@ function saveState(s) {
 function defaultState(apiKey, goalHours, channels, theme) {
   return {
     config: {
-      apiKey: apiKey || DEFAULT_API_KEY,
+      apiKey: apiKey || '',
       weeklyGoalHours: goalHours || 4,
       theme: normalizeTheme(theme),
       channels: channels?.length ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c }))
@@ -703,7 +701,7 @@ function saveSettingsOnTheFly() {
   const s      = loadState()
   const apiKey = document.getElementById('settingsApiKey').value.trim()
   const goal   = parseInt(document.getElementById('settingsGoal').value) || 4
-  if (apiKey) s.config.apiKey = apiKey
+  s.config.apiKey = apiKey
   s.config.weeklyGoalHours = goal
   saveState(s)
   renderAll(s)
@@ -885,6 +883,10 @@ async function refreshFeed() {
     }
 
     const s = loadState()
+    if (!s.config.apiKey?.trim()) {
+      showToast('Add your YouTube API key in ⚙ Settings first', 'warn')
+      return
+    }
     if (!s.config.channels.length) {
       showToast('Add at least one channel in ⚙ Settings first', 'warn')
       return
