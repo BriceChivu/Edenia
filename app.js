@@ -82,6 +82,9 @@ const STATUS_FILTERS = [
   ['partial', 'In progress'],
   ['watched', 'Watched']
 ]
+const VIDEO_STATUSES = STATUS_FILTERS
+  .map(([value]) => value)
+  .filter(value => value !== 'all')
 const HISTORY_RANGES = ['week', 'month']
 
 function getCookie(key) {
@@ -681,7 +684,7 @@ function renderChannelList(channels) {
         <div class="channel-item-name">${escHtml(c.name)}</div>
         <div class="channel-item-id">${escHtml(c.id)}</div>
       </div>
-      <button class="channel-remove" onclick="removeChannel('${c.id}')" title="Remove">✕</button>
+      <button class="channel-remove" data-channel-id="${escHtml(c.id)}" onclick="removeChannel(this.dataset.channelId)" title="Remove">✕</button>
     </div>
   `).join('')
 }
@@ -743,7 +746,11 @@ async function fetchChannelVideosPage(channel, apiKey, pageToken = '') {
 }
 
 function getVideoStatus(video) {
-  return video?.status || 'unwatched'
+  return normalizeVideoStatus(video?.status)
+}
+
+function normalizeVideoStatus(status) {
+  return VIDEO_STATUSES.includes(status) ? status : 'unwatched'
 }
 
 function isActiveRefreshVideo(video) {
@@ -895,6 +902,7 @@ async function refreshFeed() {
 // ════════════════════════════════════════════════════════════
 
 function markVideo(videoId, newStatus) {
+  newStatus = normalizeVideoStatus(newStatus)
   const s     = loadState()
   const video = s.videos[videoId]
   if (!video) return
@@ -926,7 +934,7 @@ function markVideo(videoId, newStatus) {
 function markVideoInProgressOnOpen(videoId) {
   const s     = loadState()
   const video = s.videos[videoId]
-  if (!video || ['partial', 'watched'].includes(video.status)) return
+  if (!video || ['partial', 'watched'].includes(getVideoStatus(video))) return
 
   pushUndoAction(s, {
     type: 'video-status',
@@ -2466,14 +2474,21 @@ function getVisibleActiveVideos(videos) {
 }
 
 function renderCard(v, compact = false) {
-  const isWatched = v.status === 'watched'
-  const isPartial = v.status === 'partial'
-  const isWatchLater = v.status === 'watch-later'
+  const status = getVideoStatus(v)
+  const videoId = String(v.id ?? '')
+  const safeVideoId = escHtml(videoId)
+  const videoUrl = escHtml(`https://youtube.com/watch?v=${encodeURIComponent(videoId)}`)
+  const isWatched = status === 'watched'
+  const isPartial = status === 'partial'
+  const isWatchLater = status === 'watch-later'
+  const watchedNextStatus = isWatched ? 'unwatched' : 'watched'
+  const partialNextStatus = isPartial ? 'unwatched' : 'partial'
+  const watchLaterNextStatus = isWatchLater ? 'unwatched' : 'watch-later'
   const watchedLabel = compact ? 'Unmark' : `✓ ${isWatched ? 'Watched' : 'Mark watched'}`
   const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
   return `
-    <div class="video-card ${compact ? 'compact-card' : ''} status-${v.status}">
-      <a href="https://youtube.com/watch?v=${v.id}" target="_blank" rel="noopener" class="thumb-link" onclick="markVideoInProgressOnOpen('${v.id}')">
+    <div class="video-card ${compact ? 'compact-card' : ''} status-${status}">
+      <a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">
         <img src="${escHtml(v.thumbnail)}" alt="" class="thumb" loading="lazy">
         <span class="dur-badge">${formatDuration(v.duration)}</span>
         ${isWatched ? '<span class="overlay-badge watched-badge">✓</span>' : ''}
@@ -2495,15 +2510,21 @@ function renderCard(v, compact = false) {
         </div>
         <div class="card-actions">
           <button class="action-btn ${isWatched ? 'active' : ''}"
-            onclick="markVideo('${v.id}','${isWatched ? 'unwatched' : 'watched'}')"
+            data-video-id="${safeVideoId}"
+            data-status="${watchedNextStatus}"
+            onclick="markVideo(this.dataset.videoId, this.dataset.status)"
             title="${isWatched ? 'Unmark' : 'Mark as watched'}">
             ${watchedLabel}
           </button>
           <button class="action-btn partial-btn ${isPartial ? 'active' : ''}"
-            onclick="markVideo('${v.id}','${isPartial ? 'unwatched' : 'partial'}')"
+            data-video-id="${safeVideoId}"
+            data-status="${partialNextStatus}"
+            onclick="markVideo(this.dataset.videoId, this.dataset.status)"
             title="${isPartial ? 'Clear' : 'Mark as in progress'}">⏸</button>
           <button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
-            onclick="markVideo('${v.id}','${isWatchLater ? 'unwatched' : 'watch-later'}')"
+            data-video-id="${safeVideoId}"
+            data-status="${watchLaterNextStatus}"
+            onclick="markVideo(this.dataset.videoId, this.dataset.status)"
             title="${isWatchLater ? 'Remove from watch later' : 'Watch later'}">★</button>
         </div>
       </div>
