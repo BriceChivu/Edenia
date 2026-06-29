@@ -2223,11 +2223,9 @@ function updateCityMilestoneImage(score) {
 }
 
 function renderFeed(s) {
-  renderStatusFilterOptions()
   renderChannelFilterOptions(s)
 
   const statusFilter = selectedStatusFilter
-  const channelFilters = getSelectedChannelFilters(s)
   const grid   = document.getElementById('videoGrid')
   const watchedSection = document.getElementById('watchedSection')
   const watchedGrid = document.getElementById('watchedGrid')
@@ -2236,13 +2234,15 @@ function renderFeed(s) {
 
   const allVideos = Object.values(s.videos)
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+  const channelFilters = getSelectedChannelFilters(s)
+  renderStatusFilterOptions(allVideos, channelFilters)
 
   const activeVideos = getVisibleActiveVideos(allVideos)
-    .filter(v => ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || v.status === statusFilter))
+    .filter(v => ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || getVideoStatus(v) === statusFilter))
     .filter(v => matchesChannelFilter(v, channelFilters))
 
   const watchedVideos = allVideos
-    .filter(v => v.status === 'watched')
+    .filter(v => getVideoStatus(v) === 'watched')
     .filter(v => matchesChannelFilter(v, channelFilters))
   const showWatched = statusFilter === 'all' || statusFilter === 'watched'
 
@@ -2306,18 +2306,40 @@ function renderUndoTooltipItem(action, s) {
   `
 }
 
-function renderStatusFilterOptions() {
+function renderStatusFilterOptions(allVideos = [], channelFilters = null) {
   const btn = document.getElementById('statusFilterBtn')
   const menu = document.getElementById('statusFilterMenu')
   if (!btn || !menu) return
 
+  const counts = getStatusFilterCounts(allVideos, channelFilters)
   btn.textContent = getStatusFilterLabel(selectedStatusFilter)
   menu.innerHTML = STATUS_FILTERS.map(([value, label]) => `
-    <label class="channel-filter-option">
+    <label class="channel-filter-option status-filter-option">
       <input type="radio" name="statusFilter" data-status="${value}" ${selectedStatusFilter === value ? 'checked' : ''} onchange="setStatusFilter(this.dataset.status)">
-      <span>${label}</span>
+      <span class="status-filter-label">${label}</span>
+      <span class="status-filter-count">${counts[value] ?? 0}</span>
     </label>
   `).join('')
+}
+
+function getStatusFilterCounts(allVideos = [], channelFilters = null) {
+  const selectedChannels = channelFilters || new Set()
+  const matchesSelection = video => !channelFilters || matchesChannelFilter(video, selectedChannels)
+  const activeVideos = getVisibleActiveVideos(allVideos).filter(matchesSelection)
+  const counts = Object.fromEntries(STATUS_FILTERS.map(([value]) => [value, 0]))
+
+  activeVideos.forEach(video => {
+    const status = getVideoStatus(video)
+    if (status !== 'watched') counts[status] += 1
+  })
+
+  counts.watched = allVideos
+    .filter(video => getVideoStatus(video) === 'watched')
+    .filter(matchesSelection)
+    .length
+  counts.all = activeVideos.length + counts.watched
+
+  return counts
 }
 
 function getStatusFilterLabel(status) {
@@ -2453,13 +2475,13 @@ function getVisibleActiveVideos(videos) {
       partial: 2,
       'watch-later': 1
     }
-    const priorityDiff = (statusPriority[b.status] || 0) - (statusPriority[a.status] || 0)
+    const priorityDiff = (statusPriority[getVideoStatus(b)] || 0) - (statusPriority[getVideoStatus(a)] || 0)
     if (priorityDiff) return priorityDiff
     return new Date(b.publishedAt) - new Date(a.publishedAt)
   }
 
   videos
-    .filter(v => v.status !== 'watched')
+    .filter(v => getVideoStatus(v) !== 'watched')
     .sort(activeSort)
     .forEach(v => {
       const key = v.channelId || v.channelTitle || 'unknown'

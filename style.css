@@ -1234,6 +1234,22 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.status-filter-label {
+  flex: 1 1 auto;
+}
+.status-filter-count {
+  background: var(--surface-hi);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  min-width: 26px;
+  padding: 3px 7px;
+  text-align: center;
+}
 .channel-filter-empty {
   padding: 8px;
   color: var(--muted);
