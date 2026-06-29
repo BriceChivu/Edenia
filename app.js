@@ -46,19 +46,17 @@ const MIN_DAILY_STREAK_POINTS = 3
 const UNDO_STACK_LIMIT = 50
 const CITY_LEVELS = [
   { threshold: 0, label: '🏠 Lonely house' },
-  { threshold: 5, label: '⛵ We got a boat and a fishing line!' },
-  { threshold: 12, label: '🌳 A nice park for the kids' },
-  { threshold: 20, label: '👋 Welcome to our neighbors!' },
-  { threshold: 28, label: '🏊 That pool looks nice' },
+  { threshold: 5, label: '⛵ Your house got a fresh new look! Plus a boat!' },
+  { threshold: 12, label: '🏝️ Oh look! a tiny island! Cute.' },
+  { threshold: 20, label: '🛝 Kids are gonna have fun now!' },
+  { threshold: 28, label: '🏊 That pool gives holiday vibes...' },
   { threshold: 35, label: '🏝️ A tiny island...' }
 ]
 const CITY_IMAGE_PATHS = [
-  'images/upscaled/level%201.png',
-  'images/upscaled/level%202.png',
-  'images/level%203.png',
-  'images/level%204.png',
-  'images/level%205.png',
-  'images/level%206.png'
+  'images/photoshop/level%201.png',
+  'images/photoshop/level%202.png',
+  'images/photoshop/level%203.png',
+  'images/photoshop/level%204.png'
 ]
 const PEASANT_POSITIONS = [
   [118, 222], [176, 220], [254, 224], [340, 222], [430, 222], [518, 222],
@@ -1798,8 +1796,8 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
   const hasEarnedUnrevealedLevel = snapshot.earnedLevelIndex > snapshot.visualLevelIndex
   document.getElementById('cityNextLevel').textContent = nextLevel
     ? snapshot.hasPendingLevel || hasEarnedUnrevealedLevel
-      ? `Ready for ${nextLevel.label}`
-      : `${nextLevel.threshold - snapshot.score} pts to ${nextLevel.label}`
+      ? 'Ready for next level'
+      : `${nextLevel.threshold - snapshot.score} pts to next level`
     : 'Max level'
   if (includeTimeline) renderLevelUpButton(snapshot)
 
