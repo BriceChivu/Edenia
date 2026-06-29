@@ -435,8 +435,8 @@ function formatDuration(secs) {
   return h ? `${h}:${z(m)}:${z(s)}` : `${m}:${z(s)}`
 }
 
-function getWeekLabel() {
-  const start = getWeekStart()
+function getWeekLabel(state = null) {
+  const start = getWeekStart(getCurrentAppDate(state))
   const end   = new Date(start)
   end.setDate(end.getDate() + 6)
   const jan4  = new Date(start.getFullYear(), 0, 4)
@@ -1056,8 +1056,8 @@ function getDaysBetweenDateKeys(prevKey, nextKey) {
 }
 
 function syncStreak(s) {
-  const today = toDateKey()
-  const end = dateKeyToLocalDate(today)
+  const today = getCurrentAppDateKey(s)
+  const end = getCurrentAppDate(s)
   end.setHours(23, 59, 59, 999)
 
   const qualifyingDays = getStudyHistoryBetween(s, new Date(0), end).rows
@@ -1092,7 +1092,7 @@ function syncStreak(s) {
 }
 
 function isStreakAlive(s) {
-  const today     = toDateKey()
+  const today     = getCurrentAppDateKey(s)
   const yesterday = getPreviousDateKey(today)
   return s.streak.lastActivityDate === today || s.streak.lastActivityDate === yesterday
 }
@@ -1255,7 +1255,7 @@ function createHistoryBucket(dateKey) {
 }
 
 function getStudyHistory(s, range = selectedHistoryRange) {
-  const { start, end } = getHistoryRange(range)
+  const { start, end } = getHistoryRange(range, getCurrentAppDate(s))
   return getStudyHistoryBetween(s, start, end)
 }
 
@@ -1360,17 +1360,18 @@ function closeHistoryVideoPopoversOnEscape(event) {
   closeHistoryVideoPopovers()
 }
 
-function formatHistoryDate(dateKey) {
+function formatHistoryDate(dateKey, state = null) {
   const date = new Date(`${dateKey}T00:00:00`)
-  const today = toDateKey()
-  const yesterday = toDateKey(new Date(Date.now() - 86_400_000))
+  const todayDate = getCurrentAppDate(state)
+  const today = toDateKey(todayDate)
+  const yesterday = toDateKey(addDays(todayDate, -1))
   if (dateKey === today) return 'Today'
   if (dateKey === yesterday) return 'Yesterday'
   return date.toLocaleDateString('en', { month: 'short', day: 'numeric' })
 }
 
 function renderStudyHistoryPanel(s) {
-  const todayLog = s?.anki?.[toDateKey()]
+  const todayLog = s?.anki?.[getCurrentAppDateKey(s)]
   const stats = ankiStatsCache || (todayLog ? {
     reviewedToday: todayLog.reviewed,
     newToday: todayLog.created,
@@ -1411,7 +1412,7 @@ function renderStudyHistoryPanel(s) {
         </div>
         ${history.rows.map(row => `
           <div class="history-row">
-            <span>${formatHistoryDate(row.dateKey)}</span>
+            <span>${formatHistoryDate(row.dateKey, s)}</span>
             <span>${formatHistoryTime(row.secondsWatched)}</span>
             <span>${renderHistoryWatchedCell(row)}</span>
             <span>${row.ankiReviewed} / ${row.ankiCreated}</span>
@@ -1718,7 +1719,7 @@ function renderAll(s) {
 }
 
 function renderHeader(s) {
-  document.getElementById('weekLabel').textContent  = getWeekLabel()
+  document.getElementById('weekLabel').textContent  = getWeekLabel(s)
   document.getElementById('streakCount').textContent = s.streak.current
   const pill = document.getElementById('streakDisplay')
   pill.classList.toggle('alive', isStreakAlive(s))
