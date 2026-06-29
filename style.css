@@ -207,6 +207,12 @@ body[data-theme="dark"] select option { color: var(--text); }
 .settings-group label { font-weight: 600; font-size: 0.9rem; }
 .settings-group input { width: 100%; }
 .settings-group select { width: 100%; }
+.step-hint,
+.settings-note {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
 .channel-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .channel-item {
   display: flex;

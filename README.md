@@ -134,7 +134,7 @@ The cookie mirrors configuration data so the app can restore basic settings if t
 
 Sync files:
 
-Use Settings -> `Export sync file` to download a private JSON backup of the current browser state, then open Study Build on another device and use Settings -> `Import sync file` to copy that progress there.
+Progress is local to each browser and device. Use Settings -> `Export sync file` to download a private JSON backup of the current browser state, then open Study Build on another device or browser and use Settings -> `Import sync file` to copy that progress there.
 
 The sync file includes progress, configured channels, weekly goal, theme, cached video data, Anki logs, undo history, and the locally saved YouTube API key. Treat it like a private backup file and only import normal sync files into the normal app, or sandbox sync files into sandbox mode.
 

@@ -52,6 +52,7 @@
           <button class="btn-secondary" type="button" onclick="document.getElementById('syncFileInput').click()">Import sync file</button>
           <input class="hidden" type="file" id="syncFileInput" accept="application/json,.json" onchange="importSyncFileFromInput(this)">
         </div>
+        <p class="settings-note">Progress is saved in this browser. Use sync files to copy the same progress to another device or browser.</p>
         <button class="btn-ghost btn-danger" onclick="showResetConfirm()">Reset everything</button>
         <div id="resetConfirm" class="reset-confirm hidden">
           <p>This will delete this app's local watch history, streak, saved settings, and cached Anki stats. Your Anki collection will not be changed.</p>
