@@ -2084,7 +2084,7 @@ function handleCityWaveformMouseMove(event) {
   }
 
   const rect = waveform.getBoundingClientRect()
-  const edgeSize = Math.min(64, rect.width * 0.5)
+  const edgeSize = Math.min(28, rect.width * 0.24)
   const leftDistance = event.clientX - rect.left
   const rightDistance = rect.right - event.clientX
 
@@ -2106,7 +2106,7 @@ function handleCityWaveformMouseMove(event) {
 function getCityWaveformEdgeSpeed(distance, edgeSize) {
   const intensity = 1 - clampNumber(distance / edgeSize, 0, 1)
   if (intensity <= 0) return 0
-  return 4 + (intensity * intensity * 18)
+  return 1.5 + (intensity * intensity * 7)
 }
 
 function startCityWaveformAutoScroll() {
