@@ -1809,7 +1809,30 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
   .channel-filter { flex: 1 1 150px; }
   .channel-filter-btn { max-width: none; width: 100%; }
   .video-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
-  .watched-grid { grid-template-columns: 1fr; }
+  .watched-grid {
+    gap: 10px;
+    grid-template-columns: 1fr;
+  }
+  .compact-card {
+    grid-template-columns: 74px minmax(0, 1fr);
+    min-height: 64px;
+  }
+  .compact-card .thumb-link {
+    height: 100%;
+    min-height: 64px;
+  }
+  .compact-card .card-body {
+    gap: 8px;
+    padding: 8px;
+  }
+  .compact-card .card-title {
+    font-size: 0.78rem;
+    line-height: 1.25;
+    -webkit-line-clamp: 2;
+  }
+  .compact-card .card-watched-at {
+    line-height: 1.15;
+  }
   .study-history-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .history-toolbar,
   .history-view-tabs {
@@ -1926,6 +1949,14 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
     min-height: 44px;
     min-width: 44px;
     padding: 6px 10px;
+  }
+  .compact-card .card-actions {
+    align-self: stretch;
+  }
+  .compact-card .card-actions .action-btn {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
   }
   .city-zoom-controls {
     gap: 7px;
