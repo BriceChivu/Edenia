@@ -1855,6 +1855,7 @@ function renderCityTimeControls(snapshot) {
   const state = loadState()
   const rowsByDate = getCityHistoryRowsByDate(state)
   const days = getCityWaveformDays(snapshot.minOffset, snapshot.maxOffset)
+  const levelChangeDates = getCityWaveformLevelChangeDates(state, days)
   const selectedIndex = days.findIndex(day => day.offset === selectedCityDayOffset)
 
   track.innerHTML = days.map((day, index) => {
@@ -1862,9 +1863,10 @@ function renderCityTimeControls(snapshot) {
     const points = row ? getHistoryDayPoints(row) : 0
     const height = 8 + Math.min(20, points * 2)
     const label = formatCitySnapshotDate(day.date)
-    const ariaLabel = `${label}, ${points} pts`
+    const hasLevelChange = levelChangeDates.has(day.dateKey)
+    const ariaLabel = `${label}, ${points} pts${hasLevelChange ? ', city image changed' : ''}`
     return `
-      <button class="city-wave-bar ${points > 0 ? 'has-activity' : ''} ${index === selectedIndex ? 'selected' : ''}"
+      <button class="city-wave-bar ${points > 0 ? 'has-activity' : ''} ${hasLevelChange ? 'has-level-change' : ''} ${index === selectedIndex ? 'selected' : ''}"
         type="button"
         data-index="${index}"
         data-offset="${day.offset}"
@@ -1884,6 +1886,27 @@ function renderCityTimeControls(snapshot) {
     centerCityWaveBar(selectedBar)
     positionCityWaveTooltip(selectedBar)
   }
+}
+
+function getCityWaveformLevelChangeDates(s, days) {
+  const changeDates = new Set()
+  if (!s || !days.length) return changeDates
+
+  const revealedLevelIndex = Number.isInteger(s.cityProgress?.maxLevelIndex)
+    ? s.cityProgress.maxLevelIndex
+    : 0
+  let previousLevelIndex = null
+
+  days.forEach(day => {
+    const historicLevelIndex = getHistoricMaxCityLevelIndex(s, day.date)
+    const visualLevelIndex = Math.min(historicLevelIndex, revealedLevelIndex)
+    if (previousLevelIndex !== null && visualLevelIndex > previousLevelIndex) {
+      changeDates.add(day.dateKey)
+    }
+    previousLevelIndex = visualLevelIndex
+  })
+
+  return changeDates
 }
 
 function updateCityWaveformScrollState() {

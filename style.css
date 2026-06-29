@@ -626,10 +626,16 @@ html[data-theme="dark"] .theme-icon-sun {
 .city-wave-bar.has-activity {
   background: rgba(245, 247, 248, 0.78);
 }
+.city-wave-bar.has-level-change {
+  background: rgba(246, 194, 86, 0.86);
+}
 .city-wave-bar.selected {
   background: rgba(5, 5, 5, 0.88);
   height: 31px;
   opacity: 1;
+}
+.city-wave-bar.has-level-change.selected {
+  background: linear-gradient(180deg, rgba(255, 218, 126, 0.94), rgba(5, 5, 5, 0.88));
 }
 .city-wave-bar:hover,
 .city-wave-bar:focus {
