@@ -1,6 +1,6 @@
 # CHANGES:
 Minor changes:
-
+- in the waveform, make the bars where the image has changed (i.e., level up) slightly gold
 
 Big changes:
 

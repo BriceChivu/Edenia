@@ -1075,6 +1075,8 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   text-align: center;
 }
 .history-heatmap {
+  --heatmap-cell-size: 12px;
+  --heatmap-gap: 3px;
   background: var(--surface);
   border: 2px solid var(--planet-black);
   border-radius: var(--radius);
@@ -1082,19 +1084,20 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   padding: 12px;
 }
 .heatmap-scroll {
+  -webkit-overflow-scrolling: touch;
   overflow-x: auto;
   padding-bottom: 2px;
 }
 .heatmap-grid {
   display: grid;
   grid-auto-flow: column;
-  grid-template-rows: repeat(7, 12px);
-  gap: 3px;
+  grid-template-rows: repeat(7, var(--heatmap-cell-size));
+  gap: var(--heatmap-gap);
   width: max-content;
 }
 .heatmap-day {
-  width: 12px;
-  height: 12px;
+  width: var(--heatmap-cell-size);
+  height: var(--heatmap-cell-size);
   border: 1px solid rgba(5,5,5,0.16);
   border-radius: 3px;
   background: #d8edf2;
@@ -1790,6 +1793,19 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
   .card-title { font-size: 0.78rem; }
 }
 @media (pointer: coarse) {
+  .history-heatmap {
+    --heatmap-cell-size: 16px;
+    --heatmap-gap: 4px;
+    padding: 14px;
+  }
+  .heatmap-scroll {
+    padding-bottom: 8px;
+    scroll-padding-inline: 12px;
+  }
+  .heatmap-day {
+    border-radius: 4px;
+    cursor: pointer;
+  }
   .btn-primary,
   .btn-secondary,
   .btn-ghost,

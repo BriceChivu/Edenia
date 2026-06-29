@@ -1535,13 +1535,22 @@ function renderHistoryHeatmap(s, container) {
 
   container.innerHTML = `
     <div class="heatmap-scroll">
-      <div class="heatmap-grid" style="grid-template-columns: repeat(${weekCount}, 12px)">
+      <div class="heatmap-grid" style="grid-template-columns: repeat(${weekCount}, var(--heatmap-cell-size))">
         ${days.map(row => `
           <span class="heatmap-day level-${getHistoryHeatLevel(row)}" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row))}" tabindex="0" onmouseenter="showHeatmapTooltip(event)" onmousemove="positionHeatmapTooltip(event.currentTarget)" onmouseleave="hideHeatmapTooltip()" onclick="toggleHeatmapTooltip(event)" onfocus="showHeatmapTooltip(event)" onblur="hideHeatmapTooltip()"></span>
         `).join('')}
       </div>
     </div>
   `
+  scrollHeatmapToLatestOnTouch(container)
+}
+
+function scrollHeatmapToLatestOnTouch(container) {
+  const scroll = container?.querySelector?.('.heatmap-scroll')
+  if (!scroll || !window.matchMedia?.('(pointer: coarse)').matches) return
+  requestAnimationFrame(() => {
+    scroll.scrollLeft = scroll.scrollWidth
+  })
 }
 
 function toggleHeatmapTooltip(event) {
