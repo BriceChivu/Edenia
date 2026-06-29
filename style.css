@@ -1644,7 +1644,8 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
 ═══════════════════════════════════════════════════════════ */
 .toast {
   position: fixed;
-  bottom: 24px;
+  --toast-bottom: 24px;
+  bottom: var(--toast-bottom);
   left: 50%;
   transform: translateX(-50%) translateY(12px);
   background: var(--surface);
@@ -1671,6 +1672,13 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
    RESPONSIVE
 ═══════════════════════════════════════════════════════════ */
 @media (max-width: 640px) {
+  .toast {
+    --toast-bottom: max(18px, calc(env(safe-area-inset-bottom) + 14px));
+    border-radius: 14px;
+    line-height: 1.35;
+    max-width: calc(100vw - 28px);
+    white-space: normal;
+  }
   .settings-overlay {
     display: none;
   }
