@@ -1818,7 +1818,7 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
 function getCitySnapshot(currentScore, s) {
   selectedCityDayOffset = clampCityDayOffset(s, selectedCityDayOffset)
   const date = addDays(new Date(), selectedCityDayOffset)
-  const isToday = selectedCityDayOffset === 0
+  const isToday = toDateKey(date) === getCurrentAppDateKey(s)
   const minOffset = getFirstCityDayOffset(s)
   const maxOffset = getLastCityDayOffset(s)
   if (isToday) {
@@ -2120,6 +2120,7 @@ function startCityWaveformAutoScroll() {
     const maxScroll = bars.scrollWidth - bars.clientWidth
     const nextLeft = clampNumber(bars.scrollLeft + cityWaveformScroll.speed, 0, maxScroll)
     if (nextLeft === bars.scrollLeft) {
+      previewCityWaveformBarAtPointer()
       stopCityWaveformAutoScroll()
       return
     }
@@ -2151,11 +2152,34 @@ function centerCityWaveBar(bar) {
 }
 
 function previewCityWaveformBarAtPointer() {
-  const target = document.elementFromPoint(cityWaveformScroll.pointerX, cityWaveformScroll.pointerY)
-  const bar = target?.closest?.('.city-wave-bar')
   const bars = document.getElementById('cityWaveBars')
+  const target = document.elementFromPoint(cityWaveformScroll.pointerX, cityWaveformScroll.pointerY)
+  const directBar = target?.closest?.('.city-wave-bar')
+  const bar = directBar && bars?.contains(directBar)
+    ? directBar
+    : getClosestCityWaveBarAtPointer(bars)
   if (!bar || !bars?.contains(bar)) return
   previewCityWaveBar(bar, { persist: true })
+}
+
+function getClosestCityWaveBarAtPointer(bars) {
+  if (!bars) return null
+  const pointerX = cityWaveformScroll.pointerX
+  const pointerY = cityWaveformScroll.pointerY
+  const barsRect = bars.getBoundingClientRect()
+  if (pointerX < barsRect.left || pointerX > barsRect.right || pointerY < barsRect.top || pointerY > barsRect.bottom) return null
+
+  return Array.from(bars.querySelectorAll('.city-wave-bar'))
+    .filter(bar => {
+      const rect = bar.getBoundingClientRect()
+      return rect.right >= barsRect.left && rect.left <= barsRect.right
+    })
+    .reduce((closest, bar) => {
+      const rect = bar.getBoundingClientRect()
+      const center = rect.left + rect.width / 2
+      const distance = Math.abs(pointerX - center)
+      return !closest || distance < closest.distance ? { bar, distance } : closest
+    }, null)?.bar || null
 }
 
 function positionCityWaveTooltip(bar) {

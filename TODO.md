@@ -1,7 +1,6 @@
 # CHANGES:
 Minor changes:
-- make the level up animation smoother + make the text shine
-- when leveling up, keep the zoom in and position the same for the next image
+
 
 
 Big changes:

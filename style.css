@@ -553,7 +553,6 @@ html[data-theme="dark"] .theme-icon-sun {
   opacity: 1;
 }
 .city-wave-bars {
-  align-items: center;
   flex: 1 1 auto;
   height: 34px;
   min-width: 0;
