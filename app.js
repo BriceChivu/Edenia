@@ -53,8 +53,8 @@ const CITY_LEVELS = [
   { threshold: 35, label: '🏝️ A tiny island...' }
 ]
 const CITY_IMAGE_PATHS = [
-  'images/level%201.png',
-  'images/level%202.png',
+  'images/upscaled/level%201.png',
+  'images/upscaled/level%202.png',
   'images/level%203.png',
   'images/level%204.png',
   'images/level%205.png',
@@ -313,11 +313,8 @@ function normalizeUndoState(state) {
 function normalizeCityProgress(state) {
   if (!state) return
   const historicMax = getHistoricMaxCityLevelIndex(state)
-  const storedMax = Number.isInteger(state.cityProgress?.maxLevelIndex)
-    ? state.cityProgress.maxLevelIndex
-    : 0
   state.cityProgress = {
-    maxLevelIndex: clampNumber(Math.max(storedMax, historicMax), 0, CITY_LEVELS.length - 1)
+    maxLevelIndex: clampNumber(historicMax, 0, CITY_LEVELS.length - 1)
   }
 }
 
@@ -1621,11 +1618,11 @@ function getCitySnapshot(currentScore, s) {
 }
 
 function updatePersistentCityLevel(s, score) {
+  const previousMax = Number.isInteger(s.cityProgress?.maxLevelIndex)
+    ? s.cityProgress.maxLevelIndex
+    : 0
   normalizeCityProgress(s)
-  const scoreLevelIndex = getCityLevelIndex(score)
-  const nextMax = Math.max(s.cityProgress.maxLevelIndex, scoreLevelIndex)
-  if (nextMax !== s.cityProgress.maxLevelIndex) {
-    s.cityProgress.maxLevelIndex = nextMax
+  if (s.cityProgress.maxLevelIndex !== previousMax) {
     saveState(s)
   }
   return s.cityProgress.maxLevelIndex
