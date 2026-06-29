@@ -1168,21 +1168,6 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   align-items: center;
   flex-wrap: wrap;
 }
-.feed-controls select {
-  appearance: none;
-  background:
-    linear-gradient(45deg, transparent 50%, var(--text) 50%) calc(100% - 16px) 50% / 6px 6px no-repeat,
-    linear-gradient(135deg, var(--text) 50%, transparent 50%) calc(100% - 11px) 50% / 6px 6px no-repeat,
-    var(--planet-white);
-  border: 2px solid var(--planet-black);
-  border-radius: 999px;
-  color: var(--text);
-  cursor: pointer;
-  font-weight: 700;
-  padding: 9px 32px 9px 16px;
-  transition: background-color 0.15s;
-}
-#statusFilterSelect { width: 132px; }
 .status-filter,
 .channel-filter {
   position: relative;
@@ -1310,21 +1295,6 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
 .undo-btn:disabled {
   cursor: not-allowed;
   opacity: 0.45;
-}
-.feed-controls select:hover {
-  background:
-    linear-gradient(45deg, transparent 50%, var(--text) 50%) calc(100% - 16px) 50% / 6px 6px no-repeat,
-    linear-gradient(135deg, var(--text) 50%, transparent 50%) calc(100% - 11px) 50% / 6px 6px no-repeat,
-    #e9f8ed;
-}
-body[data-theme="dark"] .feed-controls select:hover {
-  background:
-    linear-gradient(45deg, transparent 50%, var(--text) 50%) calc(100% - 16px) 50% / 6px 6px no-repeat,
-    linear-gradient(135deg, var(--text) 50%, transparent 50%) calc(100% - 11px) 50% / 6px 6px no-repeat,
-    var(--surface-hi);
-}
-.feed-controls select:focus {
-  border-color: var(--planet-black);
 }
 #refreshBtn.loading {
   opacity: 0.6;
@@ -1635,7 +1605,6 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
 ═══════════════════════════════════════════════════════════ */
 @media (max-width: 480px) {
   .feed-controls { width: 100%; }
-  .feed-controls select { flex: 1 1 140px; }
   .status-filter { flex: 1 1 132px; }
   .status-filter-btn { width: 100%; }
   .channel-filter { flex: 1 1 150px; }

@@ -178,74 +178,6 @@ function defaultState(apiKey, goalHours, channels, theme, removedDefaultChannelI
   }
 }
 
-function createSandboxDemoState() {
-  const state = defaultState('', 4, [
-    { id: 'sandbox-focus', name: 'Sandbox Focus' },
-    { id: 'sandbox-memory', name: 'Sandbox Memory' },
-    { id: 'sandbox-projects', name: 'Sandbox Projects' }
-  ], DEFAULT_THEME)
-  const today = new Date()
-  state.sandboxStartDate = toDateKey(addDays(today, -120))
-  state.sandboxLastDate = toDateKey(addDays(today, 90))
-
-  state.videos = {}
-  state.anki = {}
-  state.streak = { current: 42, longest: 64, lastActivityDate: toDateKey(today) }
-  state.lastFetched = today.toISOString()
-
-  for (let offset = -120; offset <= 90; offset += 1) {
-    const date = addDays(today, offset)
-    const dateKey = toDateKey(date)
-    const rhythm = Math.abs(offset) % 9
-    const activeDay = offset >= -20 || rhythm < 5
-
-    if (activeDay) {
-      state.anki[dateKey] = {
-        reviewed: 20 + (Math.abs(offset) * 7) % 170,
-        created: Math.abs(offset) % 4 === 0 ? 12 + (Math.abs(offset) % 18) : Math.abs(offset) % 7,
-        loggedAt: setLocalTime(date, 21, 0).toISOString(),
-        source: 'sandbox'
-      }
-    }
-
-    if (activeDay && Math.abs(offset) % 3 !== 1) {
-      const videosForDay = offset >= -5 && offset <= 7 ? 2 : 1
-      for (let i = 0; i < videosForDay; i += 1) {
-        const id = `sandbox-${offset + 120}-${i}`
-        const channel = state.config.channels[(Math.abs(offset) + i) % state.config.channels.length]
-        state.videos[id] = {
-          id,
-          title: `Sandbox study session ${dateKey}${videosForDay > 1 ? `.${i + 1}` : ''}`,
-          channelId: channel.id,
-          channelTitle: channel.name,
-          thumbnail: makeSandboxThumbnail(channel.name, i),
-          publishedAt: setLocalTime(addDays(date, -14 - i), 9, 0).toISOString(),
-          duration: (28 + ((Math.abs(offset) + i * 11) % 42)) * 60,
-          status: 'watched',
-          watchedAt: setLocalTime(date, 18 + i, 10).toISOString()
-        }
-      }
-    }
-  }
-
-  for (let i = 0; i < 8; i += 1) {
-    const channel = state.config.channels[i % state.config.channels.length]
-    state.videos[`sandbox-active-${i}`] = {
-      id: `sandbox-active-${i}`,
-      title: `Sandbox upcoming lesson ${i + 1}`,
-      channelId: channel.id,
-      channelTitle: channel.name,
-      thumbnail: makeSandboxThumbnail(channel.name, i),
-      publishedAt: addDays(today, -i).toISOString(),
-      duration: (22 + i * 6) * 60,
-      status: i % 3 === 0 ? 'partial' : i % 3 === 1 ? 'watch-later' : 'unwatched',
-      watchedAt: null
-    }
-  }
-
-  return state
-}
-
 function createEmptySandboxState() {
   const state = defaultState('', 4, [
     { id: 'sandbox-focus', name: 'Sandbox Focus' },
@@ -485,18 +417,6 @@ function init() {
   } else {
     showToast('Sandbox mode: demo data is isolated from your real progress', 'warn')
   }
-}
-
-function loadSandboxDemo() {
-  if (!IS_SANDBOX) return
-  const state = createSandboxDemoState()
-  saveState(state)
-  setDefaultCityDayOffset(state)
-  selectedHistoryView = 'heatmap'
-  selectedHistoryRange = 'month'
-  ankiStatsCache = null
-  renderAll(state)
-  showToast('Sandbox demo timeline loaded', 'success')
 }
 
 function resetSandboxState() {
@@ -1655,10 +1575,6 @@ function getCityStage(score) {
   return getCityLevel(score).label
 }
 
-function getNextCityLevel(score) {
-  return CITY_LEVELS.find(level => score < level.threshold) || null
-}
-
 // ════════════════════════════════════════════════════════════
 // RENDERING
 // ════════════════════════════════════════════════════════════
@@ -1708,21 +1624,8 @@ function setHistoryView(view) {
   renderStudyHistoryPanel(loadState())
 }
 
-function stepCityDay(delta) {
-  const state = loadState()
-  if (!state) return
-  selectedCityDayOffset = clampCityDayOffset(state, selectedCityDayOffset + delta)
-  renderCity(getCurrentCityScore(state), state)
-}
-
 function setDefaultCityDayOffset(state) {
   selectedCityDayOffset = IS_SANDBOX ? getLastCityDayOffset(state) : 0
-}
-
-function resetCityDay() {
-  const state = loadState()
-  if (state) setDefaultCityDayOffset(state)
-  if (state) renderCity(getCurrentCityScore(state), state)
 }
 
 function setCityDayOffset(offset) {
@@ -2623,8 +2526,6 @@ function showToast(msg, type = 'success') {
 // ════════════════════════════════════════════════════════════
 // FILTER & UI HELPERS
 // ════════════════════════════════════════════════════════════
-
-function filterFeed() { renderFeed(loadState()) }
 
 function show(id) { document.getElementById(id).classList.remove('hidden') }
 function hide(id) { document.getElementById(id).classList.add('hidden') }
