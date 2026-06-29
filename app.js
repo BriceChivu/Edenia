@@ -50,7 +50,8 @@ const CITY_LEVELS = [
   { threshold: 12, label: '🏝️ Oh look! a tiny island! Cute.' },
   { threshold: 20, label: '🛝 Kids are gonna have fun now!' },
   { threshold: 28, label: '🏊 That pool gives holiday vibes...' },
-  { threshold: 35, label: '🐟 Oh! Small friends are coming to say hi...' }
+  { threshold: 35, label: '🐟 Oh! Small friends are coming to say hi...' },
+  { threshold: 42, label: '🌿 This garden brings a nice atmosphere' }
 ]
 const CITY_IMAGE_PATHS = [
   'images/photoshop/level%201.png',
@@ -58,7 +59,8 @@ const CITY_IMAGE_PATHS = [
   'images/photoshop/level%203.png',
   'images/photoshop/level%204.png',
   'images/photoshop/level%205.png',
-  'images/photoshop/level%206.png'
+  'images/photoshop/level%206.png',
+  'images/photoshop/level%207.png'
 ]
 const PEASANT_POSITIONS = [
   [118, 222], [176, 220], [254, 224], [340, 222], [430, 222], [518, 222],
@@ -1187,7 +1189,7 @@ function startAnkiAutoRefresh() {
 }
 
 function refreshAnkiStatsOnVisible() {
-  if (!document.hidden) refreshAnkiStats({ silent: true })
+  if (!IS_SANDBOX && !document.hidden) refreshAnkiStats({ silent: true })
 }
 
 function syncAnkiStatsToState(stats) {
@@ -2771,4 +2773,4 @@ document.addEventListener('DOMContentLoaded', init)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
 document.addEventListener('click', closeHistoryVideoPopoversOnOutsideClick)
 document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
-document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
+if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
