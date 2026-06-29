@@ -83,7 +83,7 @@ The Study History section aggregates local activity by day, week, or month. It c
 
 ## Scoring
 
-The weekly city score is calculated from:
+The city score is cumulative across all study history. Points do not reset each week, so partial progress toward the next city milestone carries forward.
 
 | Activity | Points |
 | --- | ---: |
@@ -91,7 +91,6 @@ The weekly city score is calculated from:
 | 1 watched video | 1 |
 | 50 Anki reviews | 3 |
 | 10 new Anki cards | 4 |
-| 1 current streak day | 0.5 |
 
 City milestones currently include:
 
@@ -120,7 +119,7 @@ The stored object includes:
 - `videos`: video records keyed by YouTube video ID. This is where watched/in-progress/unwatched status lives.
 - `videos[videoId].status`: one of `unwatched`, `watch-later`, `partial`, or `watched`.
 - `videos[videoId].watchedAt`: local timestamp used for weekly progress and watched history.
-- `cityProgress`: highest unlocked city image level, preserved even when weekly score drops.
+- `cityProgress`: unlocked city image level derived from cumulative study score.
 - `streak`: current streak, longest streak, and last activity date.
 - `anki`: daily Anki logs keyed by `YYYY-MM-DD`.
 - `nightVisuals`: generated schedule for night city events.

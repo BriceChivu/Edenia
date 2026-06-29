@@ -479,15 +479,15 @@ function getSandboxAddedDayScoreTarget(state, date) {
   const currentLevelIndex = state.cityProgress.maxLevelIndex
   const targetLevelIndex = Math.min(currentLevelIndex + 1, CITY_LEVELS.length - 1)
   const nextLevelAfterTarget = CITY_LEVELS[targetLevelIndex + 1]
-  const currentWeekScore = calcCityScoreWithoutStreak(getCityStatsThroughDate(state, date))
-  const maxAllowedScore = nextLevelAfterTarget ? nextLevelAfterTarget.threshold - 1 : currentWeekScore + 12
-  const maxAdditionalScore = Math.max(0, maxAllowedScore - currentWeekScore)
+  const currentTotalScore = calcCityScoreWithoutStreak(getCityStatsThroughDate(state, date))
+  const maxAllowedScore = nextLevelAfterTarget ? nextLevelAfterTarget.threshold - 1 : currentTotalScore + 12
+  const maxAdditionalScore = Math.max(0, maxAllowedScore - currentTotalScore)
 
   if (maxAdditionalScore <= 0) return 0
 
   const targetThreshold = CITY_LEVELS[targetLevelIndex]?.threshold || 0
-  const minAdditionalScore = currentWeekScore < targetThreshold
-    ? Math.max(1, targetThreshold - currentWeekScore)
+  const minAdditionalScore = currentTotalScore < targetThreshold
+    ? Math.max(1, targetThreshold - currentTotalScore)
     : 1
   const minScore = Math.min(minAdditionalScore, maxAdditionalScore)
   const maxScore = Math.min(maxAdditionalScore, Math.max(minScore, 11))
@@ -1046,7 +1046,7 @@ function syncAnkiStatsToState(stats) {
   saveState(s)
   renderHeader(s)
   renderAnalytics(getWeeklyStats(s), s)
-  const score = calcCityScore(getWeeklyStats(s), s)
+  const score = getCurrentCityScore(s)
   renderCity(score, s)
 }
 
@@ -1372,21 +1372,16 @@ function formatHistoryTime(secs) {
   return `${minutes} min`
 }
 
-function calcCityScore(stats, s) {
-  return calcCityScoreWithStreak(stats, s.streak.current || 0)
+function getCurrentCityScore(s) {
+  return calcCityScoreWithoutStreak(getCityStatsThroughDate(s, new Date()))
 }
 
 function calcCityScoreWithoutStreak(stats) {
-  return calcCityScoreWithStreak(stats, 0)
-}
-
-function calcCityScoreWithStreak(stats, streakDays) {
   let score = 0
   score += stats.hoursWatched * 5                        // 5 pts per hour
   score += stats.videosWatched                           // 1 pt per watched video
   score += Math.floor(stats.ankiReviewed / 50) * 3      // 3 pts per 50 reviews
   score += Math.floor(stats.ankiCreated  / 10) * 4      // 4 pts per 10 new cards
-  score += streakDays * 0.5                             // 0.5 pts per streak day
   return Math.floor(score)
 }
 
@@ -1484,7 +1479,7 @@ function ensureNightVisualSchedule(s, date = new Date()) {
 
 function renderAll(s) {
   const stats = getWeeklyStats(s)
-  const score = calcCityScore(stats, s)
+  const score = getCurrentCityScore(s)
   renderHeader(s)
   renderAnalytics(stats, s)
   renderAnkiStatus(s)
@@ -1531,20 +1526,20 @@ function stepCityDay(delta) {
   const state = loadState()
   if (!state) return
   selectedCityDayOffset = clampCityDayOffset(state, selectedCityDayOffset + delta)
-  renderCity(calcCityScore(getWeeklyStats(state), state), state)
+  renderCity(getCurrentCityScore(state), state)
 }
 
 function resetCityDay() {
   selectedCityDayOffset = 0
   const state = loadState()
-  if (state) renderCity(calcCityScore(getWeeklyStats(state), state), state)
+  if (state) renderCity(getCurrentCityScore(state), state)
 }
 
 function setCityDayOffset(offset) {
   const state = loadState()
   if (!state) return
   selectedCityDayOffset = clampCityDayOffset(state, offset)
-  renderCity(calcCityScore(getWeeklyStats(state), state), state)
+  renderCity(getCurrentCityScore(state), state)
 }
 
 function previewCityDayOffset(offset) {
@@ -1552,7 +1547,7 @@ function previewCityDayOffset(offset) {
   if (!state) return
   const previousOffset = selectedCityDayOffset
   selectedCityDayOffset = clampCityDayOffset(state, offset)
-  const snapshot = getCitySnapshot(calcCityScore(getWeeklyStats(state), state), state)
+  const snapshot = getCitySnapshot(getCurrentCityScore(state), state)
   selectedCityDayOffset = previousOffset
   renderCitySnapshot(snapshot, state, false)
 }
@@ -1566,7 +1561,7 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
   document.getElementById('cityScore').textContent = snapshot.score
   document.getElementById('cityLabel').textContent = getCityStage(snapshot.visualScore)
   const scoreContext = document.getElementById('cityScoreContext')
-  if (scoreContext) scoreContext.textContent = snapshot.isToday ? 'pts this week' : 'pts by then'
+  if (scoreContext) scoreContext.textContent = snapshot.isToday ? 'total pts' : 'pts by then'
   const nextLevel = CITY_LEVELS[snapshot.visualLevelIndex + 1] || null
   document.getElementById('cityNextLevel').textContent = nextLevel
     ? `${nextLevel.threshold - snapshot.score} pts to ${nextLevel.label}`
@@ -1682,7 +1677,8 @@ function daysBetweenDateKeys(fromKey, toKey) {
 }
 
 function getCityStatsThroughDate(s, date) {
-  const start = getWeekStart(date)
+  const firstDateKey = getFirstStudyActionDateKey(s)
+  const start = firstDateKey ? dateKeyToLocalDate(firstDateKey) : new Date(0)
   const end = new Date(date)
   end.setHours(23, 59, 59, 999)
   const history = getStudyHistoryBetween(s || { videos: {}, anki: {} }, start, end)
@@ -1700,40 +1696,7 @@ function getCityStatsThroughDate(s, date) {
 }
 
 function getHistoricMaxCityLevelIndex(s, endDate = new Date()) {
-  const firstDateKey = getFirstStudyActionDateKey(s)
-  if (!firstDateKey) return 0
-
-  const start = dateKeyToLocalDate(firstDateKey)
-  const end = new Date(endDate)
-  end.setHours(23, 59, 59, 999)
-  const history = getStudyHistoryBetween(s || { videos: {}, anki: {} }, start, end)
-  const weeklyBuckets = new Map()
-
-  history.rows.forEach(row => {
-    const weekKey = toDateKey(getWeekStart(dateKeyToLocalDate(row.dateKey)))
-    const bucket = weeklyBuckets.get(weekKey) || {
-      hoursWatched: 0,
-      secondsWatched: 0,
-      videosWatched: 0,
-      videosPartial: 0,
-      remainingSeconds: 0,
-      ankiReviewed: 0,
-      ankiCreated: 0
-    }
-
-    bucket.secondsWatched += row.secondsWatched
-    bucket.hoursWatched = bucket.secondsWatched / 3600
-    bucket.videosWatched += row.videosWatched
-    bucket.ankiReviewed += row.ankiReviewed
-    bucket.ankiCreated += row.ankiCreated
-    weeklyBuckets.set(weekKey, bucket)
-  })
-
-  let maxLevelIndex = 0
-  weeklyBuckets.forEach(bucket => {
-    maxLevelIndex = Math.max(maxLevelIndex, getCityLevelIndex(calcCityScoreWithoutStreak(bucket)))
-  })
-  return maxLevelIndex
+  return getCityLevelIndex(calcCityScoreWithoutStreak(getCityStatsThroughDate(s, endDate)))
 }
 
 function renderCityTimeControls(snapshot) {
@@ -1834,7 +1797,7 @@ function clearCityWaveformPreview() {
   const selected = document.querySelector('.city-wave-bar.selected')
   if (selected) positionCityWaveTooltip(selected)
   const state = loadState()
-  if (state) renderCity(calcCityScore(getWeeklyStats(state), state), state)
+  if (state) renderCity(getCurrentCityScore(state), state)
 }
 
 function formatCitySnapshotDate(date) {
