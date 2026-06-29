@@ -98,10 +98,6 @@
     <section class="city-section">
       <div class="city-image-wrap">
         <img id="cityMilestoneImage" class="city-milestone-image" src="images/upscaled/level%201.png" alt="Study city milestone: Lonely house" draggable="false">
-        <button class="level-up-button" id="levelUpButton" type="button" onclick="claimCityLevelUp()" aria-hidden="true" disabled>
-          <span>Level up</span>
-          <small>You collected enough study points to level-up!</small>
-        </button>
         <div class="city-zoom-controls" aria-label="City zoom controls">
           <button class="city-image-btn" type="button" onclick="zoomCityImage(-1)" title="Zoom out" aria-label="Zoom out">−</button>
           <button class="city-image-btn" type="button" onclick="resetCityImageView()" title="Reset view" aria-label="Reset view">⌂</button>
@@ -467,6 +463,7 @@
         <span class="city-stage">
           <span id="cityLabel">🏠 Lonely house</span>
           <span class="city-next" id="cityNextLevel"></span>
+          <button class="level-up-button" id="levelUpButton" type="button" onclick="claimCityLevelUp()" aria-hidden="true" disabled>Level up</button>
         </span>
         <span class="city-pts"><span id="cityScore">0</span> <span id="cityScoreContext">total pts</span></span>
       </div>
