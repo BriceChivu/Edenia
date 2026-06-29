@@ -79,12 +79,9 @@ const STATUS_FILTERS = [
   ['all', 'All'],
   ['watch-later', 'Watch later'],
   ['unwatched', 'Unwatched'],
-  ['partial', 'In progress'],
-  ['watched', 'Watched']
+  ['partial', 'In progress']
 ]
-const VIDEO_STATUSES = STATUS_FILTERS
-  .map(([value]) => value)
-  .filter(value => value !== 'all')
+const VIDEO_STATUSES = ['watch-later', 'unwatched', 'partial', 'watched']
 const HISTORY_RANGES = ['week', 'month']
 
 function getCookie(key) {
@@ -474,9 +471,8 @@ function getLatestSandboxDateKey(state) {
 }
 
 function getSandboxHeatmapEndDate(state) {
-  const previewEnd = addDays(new Date(), 90)
   const latestActivityDate = getLastSandboxActivityDate(state)
-  return latestActivityDate && latestActivityDate > previewEnd ? latestActivityDate : previewEnd
+  return latestActivityDate || new Date()
 }
 
 function getSandboxAddedDayScoreTarget(state, date) {
@@ -2244,11 +2240,8 @@ function renderFeed(s) {
   const watchedVideos = allVideos
     .filter(v => getVideoStatus(v) === 'watched')
     .filter(v => matchesChannelFilter(v, channelFilters))
-  const showWatched = statusFilter === 'all' || statusFilter === 'watched'
 
-  if (statusFilter === 'watched') {
-    grid.innerHTML = ''
-  } else if (!activeVideos.length) {
+  if (!activeVideos.length) {
     const channelMsg = channelFilters.size === getChannelFilterEntries(s).length ? '' : ' for the selected channels'
     const filterName = statusFilter === 'partial' ? 'in-progress' : statusFilter === 'watch-later' ? 'watch later' : statusFilter
     const msg = statusFilter === 'all' && watchedVideos.length
@@ -2262,8 +2255,8 @@ function renderFeed(s) {
   }
 
   watchedCount.textContent = watchedVideos.length
-  watchedSection.classList.toggle('hidden', !showWatched || !watchedVideos.length)
-  watchedGrid.innerHTML = showWatched ? watchedVideos.map(v => renderCard(v, true)).join('') : ''
+  watchedSection.classList.toggle('hidden', !watchedVideos.length)
+  watchedGrid.innerHTML = watchedVideos.map(v => renderCard(v, true)).join('')
 }
 
 function renderUndoButton(s) {
@@ -2333,11 +2326,7 @@ function getStatusFilterCounts(allVideos = [], channelFilters = null) {
     if (status !== 'watched') counts[status] += 1
   })
 
-  counts.watched = allVideos
-    .filter(video => getVideoStatus(video) === 'watched')
-    .filter(matchesSelection)
-    .length
-  counts.all = activeVideos.length + counts.watched
+  counts.all = activeVideos.length
 
   return counts
 }
