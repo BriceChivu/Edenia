@@ -499,9 +499,11 @@ html[data-theme="dark"] .theme-icon-sun {
 .city-wave-bars {
   align-items: center;
   display: flex;
+  flex: 1 1 auto;
   gap: 2px;
   height: 34px;
   justify-content: flex-end;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0 10px;

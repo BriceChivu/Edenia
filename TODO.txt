@@ -11,6 +11,7 @@ waveform horizontal scrolling is not working. Hovering to the waveform edge does
 ONLY IN SANDBOX: when many days, the default view of the image should always be the most future date
 
 In the heatmap, we whouldn't see the future squares
-
+Remove the "sandbox" that looks like a button next to "Add day". Instead, add "Sandbox version" next to "STUDY BUILD" in red so it's pretty obivous, but do not make it look like a button
+Fix the "day streak" to be aligned with "Add day"
 
 Go throw the entire code and flag any potential bugs or incoherence 

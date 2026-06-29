@@ -1905,24 +1905,23 @@ function previewCityWaveBar(bar, options = {}) {
 }
 
 function handleCityWaveformMouseMove(event) {
-  const waveform = event.currentTarget
   const bars = document.getElementById('cityWaveBars')
   cityWaveformScroll.pointerX = event.clientX
   cityWaveformScroll.pointerY = event.clientY
-  if (!waveform || !bars || bars.scrollWidth <= bars.clientWidth) {
+  if (!bars || bars.scrollWidth <= bars.clientWidth) {
     stopCityWaveformAutoScroll()
     return
   }
 
-  const rect = waveform.getBoundingClientRect()
+  const rect = bars.getBoundingClientRect()
   const edgeSize = Math.min(56, rect.width * 0.45)
   const leftDistance = event.clientX - rect.left
   const rightDistance = rect.right - event.clientX
 
   let speed = 0
-  if (leftDistance < edgeSize) {
+  if (leftDistance >= 0 && leftDistance < edgeSize) {
     speed = -1 * (1 - leftDistance / edgeSize)
-  } else if (rightDistance < edgeSize) {
+  } else if (rightDistance >= 0 && rightDistance < edgeSize) {
     speed = 1 - rightDistance / edgeSize
   }
 
@@ -1943,7 +1942,13 @@ function startCityWaveformAutoScroll() {
       stopCityWaveformAutoScroll()
       return
     }
-    bars.scrollLeft += cityWaveformScroll.speed
+    const maxScroll = bars.scrollWidth - bars.clientWidth
+    const nextLeft = clampNumber(bars.scrollLeft + cityWaveformScroll.speed, 0, maxScroll)
+    if (nextLeft === bars.scrollLeft) {
+      stopCityWaveformAutoScroll()
+      return
+    }
+    bars.scrollLeft = nextLeft
     previewCityWaveformBarAtPointer()
     cityWaveformScroll.frame = requestAnimationFrame(step)
   }
@@ -2016,12 +2021,13 @@ function initCityImagePanZoom() {
   applyCityImageTransform()
 
   wrap.addEventListener('wheel', event => {
+    if (event.target.closest('.city-time-waveform')) return
     event.preventDefault()
     zoomCityImageBy(event.deltaY > 0 ? -getWheelZoomAmount(event) : getWheelZoomAmount(event), event)
   }, { passive: false })
 
   wrap.addEventListener('pointerdown', event => {
-    if (event.target.closest('button')) return
+    if (event.target.closest('button, .city-time-waveform')) return
     event.preventDefault()
     cityImageView.dragging = true
     cityImageView.pointerId = event.pointerId
