@@ -441,27 +441,49 @@ html[data-theme="dark"] .theme-icon-sun {
   font-size: 0.72rem;
   font-weight: 800;
   line-height: 1;
+  overflow: hidden;
   padding: 3px 9px;
   position: relative;
   text-align: center;
   transform: translateY(0);
+  will-change: transform;
 }
 .level-up-button.show {
-  animation: levelUpBounce 1.25s ease-in-out infinite;
+  animation: levelUpFloat 2.4s ease-in-out infinite;
   display: inline-flex;
+}
+.level-up-button.show::after {
+  background: linear-gradient(110deg, transparent 0%, transparent 38%, rgba(255,255,255,0.9) 50%, transparent 62%, transparent 100%);
+  content: "";
+  inset: 0;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-120%);
+  animation: levelUpShine 2.4s ease-in-out infinite;
 }
 .level-up-button:hover,
 .level-up-button:focus-visible {
+  animation-play-state: paused;
   background: var(--planet-lime);
   border-color: var(--planet-black);
   box-shadow: 0 3px 0 rgba(5,5,5,0.16);
   color: #243a20;
   outline: none;
 }
-@keyframes levelUpBounce {
+.level-up-button:hover::after,
+.level-up-button:focus-visible::after {
+  animation-play-state: paused;
+}
+@keyframes levelUpFloat {
   0%, 100% { transform: translateY(0); }
-  45% { transform: translateY(-4px); }
-  65% { transform: translateY(-2px); }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+@keyframes levelUpShine {
+  0%, 28% { transform: translateX(-120%); }
+  62%, 100% { transform: translateX(120%); }
 }
 .city-zoom-controls {
   align-items: center;

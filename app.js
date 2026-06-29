@@ -50,13 +50,15 @@ const CITY_LEVELS = [
   { threshold: 12, label: '🏝️ Oh look! a tiny island! Cute.' },
   { threshold: 20, label: '🛝 Kids are gonna have fun now!' },
   { threshold: 28, label: '🏊 That pool gives holiday vibes...' },
-  { threshold: 35, label: '🏝️ A tiny island...' }
+  { threshold: 35, label: '🐟 Oh! Small friends are coming to say hi...' }
 ]
 const CITY_IMAGE_PATHS = [
   'images/photoshop/level%201.png',
   'images/photoshop/level%202.png',
   'images/photoshop/level%203.png',
-  'images/photoshop/level%204.png'
+  'images/photoshop/level%204.png',
+  'images/photoshop/level%205.png',
+  'images/photoshop/level%206.png'
 ]
 const PEASANT_POSITIONS = [
   [118, 222], [176, 220], [254, 224], [340, 222], [430, 222], [518, 222],
@@ -1897,7 +1899,6 @@ function claimCityLevelUp() {
   s.cityProgress.maxLevelIndex = clampNumber(pendingLevelIndex, 0, CITY_LEVELS.length - 1)
   s.cityProgress.pendingLevelIndex = null
   saveState(s)
-  resetCityImageView()
   renderAll(s)
   showToast(`Level up! ${CITY_LEVELS[s.cityProgress.maxLevelIndex].label}`, 'success')
 }

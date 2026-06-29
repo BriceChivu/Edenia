@@ -1,11 +1,5 @@
 # CHANGES:
 Minor changes:
-- change the level labels to: 
-level 2. Your house got a fresh new look! Plus a boat!
-level 3. Oh look! a tiny island! Cute.
-level 4. Kids are gonna have fun now!
-level 5. That pool gives holiday vibes...
-And add 1 emoji for each label
 - make the level up animation smoother + make the text shine
 - when leveling up, keep the zoom in and position the same for the next image
 
