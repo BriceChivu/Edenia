@@ -25,9 +25,7 @@ python3 -m http.server 8000
 
 Then open [http://localhost:8000/](http://localhost:8000/) in Chrome.
 
-If Chrome does not show recent code or styling changes, hard-refresh the page with `Cmd + Shift + R`. Chrome may keep using cached `app.js` or `style.css` after normal reloads.
-
-The app can also be opened from `index.html` directly, but new feature testing should use the local server URL in Safari so the runtime path matches the expected development workflow.
+The app can also be opened from `index.html` directly, but new feature testing should use the local server URL in Chrome so the runtime path matches the expected development workflow.
 
 ## Setup
 
@@ -97,11 +95,12 @@ City milestones currently include:
 | Level | Score | City stage |
 | ---: | ---: | --- |
 | 1 | 0 | 🏠 Lonely house |
-| 2 | 5 | ⛵ We got a boat and a fishing line! |
-| 3 | 12 | 🌳 A nice park for the kids |
-| 4 | 20 | 👋 Welcome to our neighbors! |
-| 5 | 28 | 🏊 That pool looks nice |
-| 6 | 35 | 🏝️ A tiny island... |
+| 2 | 5 | ⛵ Your house got a fresh new look! Plus a boat! |
+| 3 | 12 | 🏝️ Oh look! a tiny island! Cute. |
+| 4 | 20 | 🛝 Kids are gonna have fun now! |
+| 5 | 28 | 🏊 That pool gives holiday vibes... |
+| 6 | 35 | 🐟 Oh! Small friends are coming to say hi... |
+| 7 | 42 | 🌿 This garden brings a nice atmosphere |
 
 ## Where Status Data Is Stored
 
@@ -122,7 +121,7 @@ The stored object includes:
 - `cityProgress`: revealed city image level plus any pending level-up unlocked by cumulative study score.
 - `streak`: current streak, longest streak, and last activity date.
 - `anki`: daily Anki logs keyed by `YYYY-MM-DD`.
-- `lastUndo`: previous video status change for the undo button.
+- `undoStack`: recent video status changes for the undo button.
 - `lastFetched`: last successful YouTube refresh timestamp.
 
 Secondary storage:
@@ -133,9 +132,9 @@ Secondary storage:
 
 The cookie mirrors configuration data so the app can restore basic settings if the main state is unavailable.
 
-To inspect or clear the data in Safari:
+To inspect or clear the data in Chrome:
 
-1. Open Safari Web Inspector for `http://localhost:8000/`.
+1. Open Chrome DevTools for `http://localhost:8000/`.
 2. Check Storage for `localStorage`.
 3. Inspect or remove the `studybuild_v1` entry.
 4. Use the in-app `Reset everything` action when testing a clean first-run state.
@@ -150,12 +149,12 @@ When sandbox mode is opened with no saved sandbox state, the app starts from a b
 
 ## Testing New Features
 
-Manual feature testing should be done in Safari at [http://localhost:8000/](http://localhost:8000/).
+Manual feature testing should be done in Chrome at [http://localhost:8000/](http://localhost:8000/).
 
 Recommended workflow:
 
 1. Start the local static server from the project root with `python3 -m http.server 8000`.
-2. Open `http://localhost:8000/` in Safari.
+2. Open `http://localhost:8000/` in Chrome.
 3. Test with existing `studybuild_v1` data first.
 4. Test again after using `Reset everything` for a clean local state.
 5. Confirm that settings changes persist without a save button.
