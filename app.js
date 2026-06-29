@@ -152,8 +152,9 @@ function loadState() {
       const state = JSON.parse(raw)
       if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
       if (state?.config && !Array.isArray(state.config.channels)) state.config.channels = []
+      normalizeRemovedDefaultChannels(state)
       if (state?.config && (state.defaultChannelsVersion || 1) < DEFAULT_CHANNELS_VERSION) {
-        addMissingDefaultChannels(state.config.channels)
+        addMissingDefaultChannels(state.config.channels, state.config.removedDefaultChannelIds)
         state.defaultChannelsVersion = DEFAULT_CHANNELS_VERSION
         saveState(state)
       }
@@ -166,7 +167,7 @@ function loadState() {
 
   const fallback = loadConfigCookie()
   if (fallback) {
-    return defaultState(fallback.apiKey || '', fallback.weeklyGoalHours || 4, fallback.channels, fallback.theme)
+    return defaultState(fallback.apiKey || '', fallback.weeklyGoalHours || 4, fallback.channels, fallback.theme, fallback.removedDefaultChannelIds)
   }
 
   return null
@@ -177,13 +178,17 @@ function saveState(s) {
   saveConfigCookie(s.config)
 }
 
-function defaultState(apiKey, goalHours, channels, theme) {
+function defaultState(apiKey, goalHours, channels, theme, removedDefaultChannelIds = null) {
+  const restoredRemovedDefaultIds = Array.isArray(removedDefaultChannelIds)
+    ? removedDefaultChannelIds.filter(isDefaultChannelId)
+    : null
   return {
     config: {
       apiKey: apiKey || '',
       weeklyGoalHours: goalHours || 4,
       theme: normalizeTheme(theme),
-      channels: channels?.length ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c }))
+      channels: channels?.length ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
+      removedDefaultChannelIds: restoredRemovedDefaultIds || (channels?.length ? getMissingDefaultChannelIds(channels) : [])
     },
     videos:  {},   // { [videoId]: VideoRecord }
     streak:  { current: 0, longest: 0, lastActivityDate: null },
@@ -365,9 +370,33 @@ function normalizeSandboxState(state) {
   }
 }
 
-function addMissingDefaultChannels(channels) {
+function getMissingDefaultChannelIds(channels) {
+  const channelIds = new Set((channels || []).map(channel => channel.id))
+  return DEFAULT_CHANNELS
+    .filter(channel => !channelIds.has(channel.id))
+    .map(channel => channel.id)
+}
+
+function isDefaultChannelId(id) {
+  return DEFAULT_CHANNELS.some(channel => channel.id === id)
+}
+
+function normalizeRemovedDefaultChannels(state) {
+  if (!state?.config) return
+  const hadRemovedList = Array.isArray(state.config.removedDefaultChannelIds)
+  const removedIds = new Set(hadRemovedList ? state.config.removedDefaultChannelIds : [])
+
+  if (!hadRemovedList && (state.defaultChannelsVersion || 1) >= DEFAULT_CHANNELS_VERSION) {
+    getMissingDefaultChannelIds(state.config.channels).forEach(id => removedIds.add(id))
+  }
+
+  state.config.removedDefaultChannelIds = [...removedIds].filter(isDefaultChannelId)
+}
+
+function addMissingDefaultChannels(channels, removedDefaultChannelIds = []) {
+  const removedIds = new Set(removedDefaultChannelIds)
   DEFAULT_CHANNELS.forEach(channel => {
-    if (!channels.find(c => c.id === channel.id)) channels.push({ ...channel })
+    if (!removedIds.has(channel.id) && !channels.find(c => c.id === channel.id)) channels.push({ ...channel })
   })
 }
 
@@ -728,6 +757,9 @@ function addChannel() {
     showToast('Already added', 'warn'); return
   }
   s.config.channels.push({ id, name })
+  if (isDefaultChannelId(id)) {
+    s.config.removedDefaultChannelIds = (s.config.removedDefaultChannelIds || []).filter(channelId => channelId !== id)
+  }
   saveState(s)
   renderChannelList(s.config.channels)
   idEl.value = ''
@@ -737,6 +769,9 @@ function addChannel() {
 function removeChannel(id) {
   const s = loadState()
   s.config.channels = s.config.channels.filter(c => c.id !== id)
+  if (isDefaultChannelId(id) && !s.config.removedDefaultChannelIds.includes(id)) {
+    s.config.removedDefaultChannelIds.push(id)
+  }
   saveState(s)
   renderChannelList(s.config.channels)
 }

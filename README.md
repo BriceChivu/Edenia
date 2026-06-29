@@ -115,7 +115,7 @@ Primary storage:
 
 The stored object includes:
 
-- `config`: API key, weekly goal, theme, and configured channels.
+- `config`: API key, weekly goal, theme, configured channels, and removed default-channel IDs.
 - `videos`: video records keyed by YouTube video ID. This is where watched/in-progress/unwatched status lives.
 - `videos[videoId].status`: one of `unwatched`, `watch-later`, `partial`, or `watched`.
 - `videos[videoId].watchedAt`: local timestamp used for weekly progress and watched history.
