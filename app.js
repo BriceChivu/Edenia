@@ -47,6 +47,7 @@ const CITY_IMAGE_PATHS = [
   'images/photoshop/level%206.png',
   'images/photoshop/level%207.png'
 ]
+const cityImagePreloadCache = new Map()
 let ankiStatsCache = null
 let selectedStatusFilter = 'all'
 let selectedChannelFilters = null
@@ -411,6 +412,7 @@ function init() {
   applyTheme(state.config.theme)
   show('mainApp')
   renderAll(state)
+  preloadCityImages()
   initCityImagePanZoom()
   if (!IS_SANDBOX) {
     refreshAnkiStats({ silent: true })
@@ -2189,6 +2191,27 @@ function clampNumber(value, min, max) {
   return Math.max(min, Math.min(max, value))
 }
 
+function preloadCityImages() {
+  CITY_IMAGE_PATHS.forEach(preloadCityImage)
+}
+
+function preloadCityImage(src) {
+  if (!src) return null
+  const cached = cityImagePreloadCache.get(src)
+  if (cached) return cached
+
+  const img = new Image()
+  const promise = new Promise(resolve => {
+    img.onload = () => resolve(true)
+    img.onerror = () => resolve(false)
+  })
+  img.src = src
+
+  const entry = { img, promise }
+  cityImagePreloadCache.set(src, entry)
+  return entry
+}
+
 function updateCityMilestoneImage(score) {
   const image = document.getElementById('cityMilestoneImage')
   if (!image || CITY_IMAGE_PATHS.length === 0) return
@@ -2206,16 +2229,25 @@ function updateCityMilestoneImage(score) {
     return
   }
 
-  image.dataset.citySrc = nextSrc
-  image.classList.add('loading')
-  image.onload = () => image.classList.remove('loading')
-  image.src = nextSrc
+  image.dataset.cityTargetSrc = nextSrc
+  const applyImage = () => {
+    if (image.dataset.cityTargetSrc !== nextSrc) return
+    image.dataset.citySrc = nextSrc
+    image.classList.remove('loading')
+    image.src = nextSrc
+  }
+
+  const preload = preloadCityImage(nextSrc)
+  if (preload?.img.complete && preload.img.naturalWidth > 0) {
+    applyImage()
+  } else {
+    preload?.promise.then(loaded => {
+      if (loaded) applyImage()
+    })
+  }
 
   const preloadSrc = CITY_IMAGE_PATHS[imageIndex + 1]
-  if (preloadSrc) {
-    const preload = new Image()
-    preload.src = preloadSrc
-  }
+  if (preloadSrc) preloadCityImage(preloadSrc)
 }
 
 function renderFeed(s) {
