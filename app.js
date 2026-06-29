@@ -635,6 +635,102 @@ function saveSettingsOnTheFly() {
   renderAll(s)
 }
 
+function exportSyncFile() {
+  const state = loadState()
+  if (!state) {
+    showToast('Nothing to sync yet', 'warn')
+    return
+  }
+
+  const payload = {
+    app: 'study-build',
+    syncVersion: 1,
+    exportedAt: new Date().toISOString(),
+    sandbox: IS_SANDBOX,
+    state
+  }
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `study-build-${IS_SANDBOX ? 'sandbox-' : ''}sync-${toDateKey()}.json`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+  showToast('Sync file exported')
+}
+
+function importSyncFileFromInput(input) {
+  const file = input?.files?.[0]
+  if (!file) return
+
+  const reader = new FileReader()
+  reader.onload = () => {
+    try {
+      const payload = JSON.parse(String(reader.result || ''))
+      const importedState = getImportedSyncState(payload)
+      if (!importedState) {
+        showToast('That sync file is not valid', 'error')
+        return
+      }
+      if (payload?.app === 'study-build' && Boolean(payload.sandbox) !== IS_SANDBOX) {
+        showToast(IS_SANDBOX ? 'Use a sandbox sync file here' : 'Use a normal Study Build sync file here', 'warn')
+        return
+      }
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(importedState))
+      const normalizedState = loadState()
+      if (!normalizedState) {
+        showToast('Could not import that sync file', 'error')
+        return
+      }
+      saveState(normalizedState)
+      applyTheme(normalizedState.config.theme)
+      setDefaultCityDayOffset(normalizedState)
+      renderAll(normalizedState)
+      renderChannelList(normalizedState.config.channels)
+      document.getElementById('settingsApiKey').value = normalizedState.config.apiKey
+      document.getElementById('settingsGoal').value = normalizedState.config.weeklyGoalHours
+      showToast('Sync file imported')
+    } catch {
+      showToast('Could not read that sync file', 'error')
+    } finally {
+      input.value = ''
+    }
+  }
+  reader.onerror = () => {
+    showToast('Could not read that sync file', 'error')
+    input.value = ''
+  }
+  reader.readAsText(file)
+}
+
+function getImportedSyncState(payload) {
+  const state = payload?.app === 'study-build' ? payload.state : payload
+  if (!state || typeof state !== 'object') return null
+  if (!state.config || typeof state.config !== 'object') return null
+  if (!state.videos || typeof state.videos !== 'object' || Array.isArray(state.videos)) return null
+  if (!state.anki || typeof state.anki !== 'object' || Array.isArray(state.anki)) return null
+
+  const baseState = defaultState(
+    state.config.apiKey || '',
+    state.config.weeklyGoalHours || 4,
+    state.config.channels,
+    state.config.theme,
+    state.config.removedDefaultChannelIds
+  )
+
+  return {
+    ...baseState,
+    ...state,
+    config: {
+      ...baseState.config,
+      ...state.config
+    }
+  }
+}
+
 function toggleTheme() {
   const s = loadState()
   s.config.theme = normalizeTheme(s.config.theme) === 'dark' ? 'light' : 'dark'
@@ -1441,11 +1537,23 @@ function renderHistoryHeatmap(s, container) {
     <div class="heatmap-scroll">
       <div class="heatmap-grid" style="grid-template-columns: repeat(${weekCount}, 12px)">
         ${days.map(row => `
-          <span class="heatmap-day level-${getHistoryHeatLevel(row)}" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row))}" tabindex="0" onmouseenter="showHeatmapTooltip(event)" onmousemove="positionHeatmapTooltip(event.currentTarget)" onmouseleave="hideHeatmapTooltip()" onfocus="showHeatmapTooltip(event)" onblur="hideHeatmapTooltip()"></span>
+          <span class="heatmap-day level-${getHistoryHeatLevel(row)}" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row))}" tabindex="0" onmouseenter="showHeatmapTooltip(event)" onmousemove="positionHeatmapTooltip(event.currentTarget)" onmouseleave="hideHeatmapTooltip()" onclick="toggleHeatmapTooltip(event)" onfocus="showHeatmapTooltip(event)" onblur="hideHeatmapTooltip()"></span>
         `).join('')}
       </div>
     </div>
   `
+}
+
+function toggleHeatmapTooltip(event) {
+  const target = event.currentTarget
+  const tooltip = document.getElementById('heatmapTooltip')
+  if (!target || !tooltip) return
+  event.stopPropagation()
+  if (tooltip.classList.contains('show') && tooltip._target === target) {
+    hideHeatmapTooltip()
+    return
+  }
+  showHeatmapTooltip(event)
 }
 
 function showHeatmapTooltip(event) {
@@ -1462,6 +1570,7 @@ function showHeatmapTooltip(event) {
     <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">A</span><span>Anki reviewed</span><b>${escHtml(target.dataset.reviewed)}</b></div>
     <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">+</span><span>New Anki cards</span><b>${escHtml(target.dataset.created)}</b></div>
   `
+  tooltip._target = target
   tooltip.classList.add('show')
   positionHeatmapTooltip(target)
 }
@@ -1485,7 +1594,15 @@ function positionHeatmapTooltip(target) {
 function hideHeatmapTooltip() {
   const tooltip = document.getElementById('heatmapTooltip')
   if (!tooltip) return
+  tooltip._target = null
   tooltip.classList.remove('show')
+}
+
+function hideHeatmapTooltipOnOutsideClick(event) {
+  const tooltip = document.getElementById('heatmapTooltip')
+  if (!tooltip?.classList.contains('show')) return
+  if (event.target?.closest?.('.heatmap-day') || tooltip.contains(event.target)) return
+  hideHeatmapTooltip()
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1873,7 +1990,7 @@ function renderCityTimeControls(snapshot) {
         data-label="${escHtml(label)}"
         style="--bar-height:${height}px; --hover-boost:0px"
         aria-label="${escHtml(ariaLabel)}"
-        onclick="setCityDayOffset(${day.offset})"
+        onclick="selectCityWaveBar(this)"
         onmouseenter="previewCityWaveBar(this)"
         onmousemove="previewCityWaveBar(this)"
         onfocus="previewCityWaveBar(this)"></button>
@@ -1955,6 +2072,23 @@ function previewCityWaveBar(bar, options = {}) {
   if (!options.persist) {
     clearTimeout(previewCityWaveBar._timer)
   }
+}
+
+function selectCityWaveBar(bar) {
+  const offset = parseInt(bar?.dataset?.offset, 10)
+  if (!Number.isFinite(offset)) return
+  setCityDayOffset(offset)
+
+  const waveform = document.getElementById('cityTimeWaveform')
+  const selected = waveform?.querySelector(`.city-wave-bar[data-offset="${offset}"]`)
+  if (!waveform || !selected) return
+
+  previewCityWaveBar(selected, { persist: true })
+  waveform.classList.add('has-touch-preview')
+  clearTimeout(selectCityWaveBar._timer)
+  selectCityWaveBar._timer = setTimeout(() => {
+    waveform.classList.remove('has-touch-preview')
+  }, 2600)
 }
 
 function handleCityWaveformMouseMove(event) {
@@ -2082,6 +2216,7 @@ function positionCityWaveTooltip(bar) {
 function clearCityWaveformPreview() {
   clearTimeout(previewCityWaveBar._timer)
   stopCityWaveformAutoScroll()
+  document.getElementById('cityTimeWaveform')?.classList.remove('has-touch-preview')
   document.querySelectorAll('.city-wave-bar').forEach(bar => {
     bar.style.setProperty('--hover-boost', '0px')
   })
@@ -2089,6 +2224,13 @@ function clearCityWaveformPreview() {
   if (selected) positionCityWaveTooltip(selected)
   const state = loadState()
   if (state) renderCity(getCurrentCityScore(state), state)
+}
+
+function clearCityWaveformPreviewOnOutsideClick(event) {
+  if (event.target?.closest?.('.city-time-waveform')) return
+  const waveform = document.getElementById('cityTimeWaveform')
+  if (!waveform?.classList.contains('has-touch-preview')) return
+  clearCityWaveformPreview()
 }
 
 function formatCitySnapshotDate(date) {
@@ -2649,5 +2791,7 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 document.addEventListener('DOMContentLoaded', init)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
 document.addEventListener('click', closeHistoryVideoPopoversOnOutsideClick)
+document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
+document.addEventListener('click', clearCityWaveformPreviewOnOutsideClick)
 document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)

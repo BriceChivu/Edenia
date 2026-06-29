@@ -236,6 +236,14 @@ body[data-theme="dark"] select option { color: var(--text); }
 }
 .add-channel-row input { flex: 1; min-width: 100px; }
 .settings-actions { display: flex; gap: 10px; flex-direction: column; }
+.sync-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.sync-actions .btn-secondary {
+  width: 100%;
+}
 .reset-confirm {
   border: 2px solid #d96b61;
   border-radius: 12px;
@@ -687,7 +695,8 @@ html[data-theme="dark"] .theme-icon-sun {
   width: 7px;
 }
 .city-time-waveform:hover .city-wave-tooltip,
-.city-time-waveform:focus-within .city-wave-tooltip {
+.city-time-waveform:focus-within .city-wave-tooltip,
+.city-time-waveform.has-touch-preview .city-wave-tooltip {
   opacity: 1;
 }
 .city-footer {
@@ -1739,6 +1748,9 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
   #refreshBtn {
     flex: 1 1 116px;
   }
+  .sync-actions {
+    grid-template-columns: 1fr;
+  }
   .feed-controls { width: 100%; }
   .status-filter { flex: 1 1 132px; }
   .status-filter-btn { width: 100%; }
@@ -1773,6 +1785,94 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
     width: clamp(56px, 15.4%, 91px);
   }
   .card-title { font-size: 0.78rem; }
+}
+@media (pointer: coarse) {
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .sandbox-btn,
+  .action-btn {
+    min-height: 44px;
+  }
+  .btn-icon,
+  .theme-btn,
+  .gear-btn,
+  .city-image-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .sandbox-btn {
+    padding: 9px 12px;
+  }
+  .feed-controls {
+    gap: 10px;
+  }
+  .channel-filter-option {
+    min-height: 44px;
+    padding: 9px 10px;
+  }
+  .channel-filter-option input {
+    height: 22px;
+    width: 22px;
+  }
+  .card-actions {
+    gap: 8px;
+  }
+  .action-btn {
+    min-width: 44px;
+    padding: 9px 8px;
+  }
+  .compact-card .action-btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 6px 10px;
+  }
+  .city-zoom-controls {
+    gap: 7px;
+    opacity: 0.9;
+  }
+  .city-image-btn {
+    font-size: 1.12rem;
+    width: 44px;
+  }
+  .city-time-waveform {
+    height: 54px;
+    width: clamp(132px, 34%, 220px);
+  }
+  .city-wave-bars {
+    height: 44px;
+    padding: 0 12px;
+  }
+  .city-wave-track {
+    gap: 4px;
+  }
+  .city-wave-bar {
+    flex-basis: 8px;
+    min-height: 24px;
+  }
+  .city-wave-bar.selected {
+    height: 40px;
+  }
+  .level-up-button {
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+  .undo-tooltip {
+    display: none;
+  }
+  .video-card:hover {
+    box-shadow: 0 4px 0 rgba(5,5,5,0.14);
+    transform: none;
+  }
+  .video-card.status-partial:hover {
+    box-shadow: 0 4px 0 rgba(252,184,49,0.32);
+  }
+  .video-card.status-watch-later:hover {
+    box-shadow: 0 4px 0 rgba(18,188,234,0.28);
+  }
+  .video-card:hover .thumb {
+    transform: none;
+  }
 }
 @media (min-width: 900px) {
   #mainApp { max-width: 1100px; margin: 0 auto; }
