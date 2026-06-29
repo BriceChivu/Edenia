@@ -404,7 +404,9 @@ function init() {
   document.title = IS_SANDBOX ? 'Sandbox - Study Build' : 'Study Build'
   document.body.dataset.sandbox = IS_SANDBOX ? 'true' : 'false'
   const sandboxTools = document.getElementById('sandboxTools')
+  const sandboxVersionLabel = document.getElementById('sandboxVersionLabel')
   if (sandboxTools) sandboxTools.classList.toggle('hidden', !IS_SANDBOX)
+  if (sandboxVersionLabel) sandboxVersionLabel.classList.toggle('hidden', !IS_SANDBOX)
   if (IS_SANDBOX) selectedHistoryView = 'heatmap'
   setDefaultCityDayOffset(state)
   syncStreak(state)

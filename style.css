@@ -291,6 +291,12 @@ body[data-theme="dark"] .app-header::before {
   position: relative;
   z-index: 1;
 }
+.title-row {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .app-title {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 1.8rem;
@@ -298,6 +304,16 @@ body[data-theme="dark"] .app-header::before {
   color: var(--accent);
   text-shadow: 1px 1px 0 var(--planet-black);
   line-height: 1;
+}
+.sandbox-version-label {
+  color: #d92323;
+  font-size: 0.76rem;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+}
+body[data-theme="dark"] .sandbox-version-label {
+  color: #ff6b6b;
 }
 .week-label {
   font-size: 0.72rem;
@@ -312,7 +328,6 @@ body[data-theme="dark"] .app-header::before {
   display: flex;
   gap: 5px;
 }
-.sandbox-badge,
 .sandbox-btn {
   background: #fff6cc;
   border: 2px solid var(--planet-black);
@@ -330,7 +345,6 @@ body[data-theme="dark"] .app-header::before {
 .sandbox-btn:hover {
   background: #fff;
 }
-body[data-theme="dark"] .sandbox-badge,
 body[data-theme="dark"] .sandbox-btn {
   background: #3b3017;
   color: #ffe8a0;
