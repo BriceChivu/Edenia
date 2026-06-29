@@ -1,7 +1,6 @@
 # CHANGES:
 Minor changes:
 - new milestones (add emojis): cute little pond, oh! a tourist boat is approaching...
-- In the watched section, add when the video was watched on the video card, in a subtle way
 - Refresh button should load that many videos at once. I'm afraid about the Youtube API usage.
 
 Big changes:

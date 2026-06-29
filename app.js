@@ -403,6 +403,15 @@ function timeAgo(iso) {
   return `${Math.floor(days / 30)}mo ago`
 }
 
+function formatWatchedAt(iso) {
+  if (!iso) return ''
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return ''
+  const relative = timeAgo(iso)
+  if (['today', 'yesterday'].includes(relative) || relative.endsWith('ago')) return `Watched ${relative}`
+  return `Watched ${date.toLocaleDateString('en', { month: 'short', day: 'numeric' })}`
+}
+
 function formatDuration(secs) {
   if (!secs) return '—'
   const h = Math.floor(secs / 3600)
@@ -2566,6 +2575,7 @@ function renderCard(v, compact = false) {
   const isPartial = v.status === 'partial'
   const isWatchLater = v.status === 'watch-later'
   const watchedLabel = compact ? 'Unmark' : `✓ ${isWatched ? 'Watched' : 'Mark watched'}`
+  const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
   return `
     <div class="video-card ${compact ? 'compact-card' : ''} status-${v.status}">
       <a href="https://youtube.com/watch?v=${v.id}" target="_blank" rel="noopener" class="thumb-link" onclick="markVideoInProgressOnOpen('${v.id}')">
@@ -2580,7 +2590,10 @@ function renderCard(v, compact = false) {
       <div class="card-body">
         ${isPartial ? '<div class="card-status partial-status">⏸ Resume watching</div>' : ''}
         ${isWatchLater ? '<div class="card-status watch-later-status">★ Watch later</div>' : ''}
-        <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
+        <div class="card-copy">
+          <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
+          ${watchedAtLabel ? `<div class="card-watched-at">${escHtml(watchedAtLabel)}</div>` : ''}
+        </div>
         <div class="card-meta">
           <span class="channel-name">${escHtml(v.channelTitle || '')}</span>
           <span class="pub-ago">${timeAgo(v.publishedAt)}</span>
