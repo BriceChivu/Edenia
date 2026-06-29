@@ -255,6 +255,14 @@ function createSandboxDemoState() {
   return state
 }
 
+function createEmptySandboxState() {
+  return defaultState('', 4, [
+    { id: 'sandbox-focus', name: 'Sandbox Focus' },
+    { id: 'sandbox-memory', name: 'Sandbox Memory' },
+    { id: 'sandbox-projects', name: 'Sandbox Projects' }
+  ], DEFAULT_THEME)
+}
+
 function setLocalTime(date, hour, minute) {
   const next = new Date(date)
   next.setHours(hour, minute, 0, 0)
@@ -423,19 +431,26 @@ function loadSandboxDemo() {
 
 function resetSandboxState() {
   if (!IS_SANDBOX) return
-  localStorage.removeItem(STORAGE_KEY)
-  document.cookie = `${CONFIG_COOKIE_KEY}=; max-age=0; path=/`
-  loadSandboxDemo()
+  const state = createEmptySandboxState()
+  saveState(state)
+  selectedCityDayOffset = 0
+  selectedHistoryView = 'heatmap'
+  selectedHistoryRange = 'month'
+  ankiStatsCache = null
+  renderAll(state)
+  showToast('Sandbox reset: no study progress yet', 'success')
 }
 
 function addSandboxDay() {
   if (!IS_SANDBOX) return
-  const state = loadState() || createSandboxDemoState()
-  const nextDate = addDays(getLastSandboxActivityDate(state), 1)
-  addSandboxStudyDay(state, nextDate)
+  const state = loadState() || createEmptySandboxState()
+  const latestActivityDate = getLastSandboxActivityDate(state)
+  const nextDate = latestActivityDate ? addDays(latestActivityDate, 1) : new Date()
+  const scoreTarget = getSandboxAddedDayScoreTarget(state, nextDate)
+  addSandboxStudyDay(state, nextDate, scoreTarget)
   syncStreak(state)
   saveState(state)
-  selectedCityDayOffset = Math.min(0, daysBetweenDateKeys(toDateKey(), toDateKey(nextDate)))
+  selectedCityDayOffset = daysBetweenDateKeys(toDateKey(), toDateKey(nextDate))
   selectedHistoryView = 'heatmap'
   renderAll(state)
   showToast(`Added sandbox study day: ${formatCitySnapshotDate(nextDate)}`, 'success')
@@ -453,30 +468,49 @@ function getLastSandboxActivityDate(state) {
   })
 
   const latestKey = dateKeys.sort().pop()
-  return latestKey ? dateKeyToLocalDate(latestKey) : new Date()
+  return latestKey ? dateKeyToLocalDate(latestKey) : null
 }
 
 function getSandboxHeatmapEndDate(state) {
   const previewEnd = addDays(new Date(), 90)
   const latestActivityDate = getLastSandboxActivityDate(state)
-  return latestActivityDate > previewEnd ? latestActivityDate : previewEnd
+  return latestActivityDate && latestActivityDate > previewEnd ? latestActivityDate : previewEnd
 }
 
-function addSandboxStudyDay(state, date) {
+function getSandboxAddedDayScoreTarget(state, date) {
+  normalizeCityProgress(state)
+  const currentLevelIndex = state.cityProgress.maxLevelIndex
+  const targetLevelIndex = Math.min(currentLevelIndex + 1, CITY_LEVELS.length - 1)
+  const nextLevelAfterTarget = CITY_LEVELS[targetLevelIndex + 1]
+  const currentWeekScore = calcCityScoreWithoutStreak(getCityStatsThroughDate(state, date))
+  const maxAllowedScore = nextLevelAfterTarget ? nextLevelAfterTarget.threshold - 1 : currentWeekScore + 12
+  const maxAdditionalScore = Math.max(0, maxAllowedScore - currentWeekScore)
+
+  if (maxAdditionalScore <= 0) return 0
+
+  const targetThreshold = CITY_LEVELS[targetLevelIndex]?.threshold || 0
+  const minAdditionalScore = currentWeekScore < targetThreshold
+    ? Math.max(1, targetThreshold - currentWeekScore)
+    : 1
+  const minScore = Math.min(minAdditionalScore, maxAdditionalScore)
+  const maxScore = Math.min(maxAdditionalScore, Math.max(minScore, 11))
+  return randomInt(minScore, maxScore)
+}
+
+function addSandboxStudyDay(state, date, scoreTarget = 6) {
   const dateKey = toDateKey(date)
   const daySeed = Math.abs(daysBetweenDateKeys('2024-01-01', dateKey))
   const channels = state.config.channels.length ? state.config.channels : DEFAULT_CHANNELS
-  const reviewed = randomInt(25, 220)
-  const created = randomInt(0, 34)
+  const activity = makeSandboxActivityForScore(scoreTarget)
 
   state.anki[dateKey] = {
-    reviewed,
-    created,
+    reviewed: activity.reviewed,
+    created: activity.created,
     loggedAt: setLocalTime(date, 21, randomInt(0, 45)).toISOString(),
     source: 'sandbox'
   }
 
-  const videoCount = randomInt(1, 3)
+  const videoCount = activity.videoDurations.length
   for (let i = 0; i < videoCount; i += 1) {
     const id = `sandbox-added-${dateKey}-${Date.now()}-${i}`
     const channel = channels[(daySeed + i) % channels.length]
@@ -487,13 +521,41 @@ function addSandboxStudyDay(state, date) {
       channelTitle: channel.name,
       thumbnail: makeSandboxThumbnail(channel.name, daySeed + i),
       publishedAt: setLocalTime(addDays(date, -randomInt(4, 28)), 9, randomInt(0, 45)).toISOString(),
-      duration: randomInt(20, 72) * 60,
+      duration: activity.videoDurations[i],
       status: 'watched',
       watchedAt: setLocalTime(date, 17 + i, randomInt(0, 45)).toISOString()
     }
   }
 
   state.lastFetched = new Date().toISOString()
+}
+
+function makeSandboxActivityForScore(scoreTarget) {
+  let remaining = Math.max(0, Math.floor(scoreTarget))
+
+  const createdChunks = remaining >= 4 ? randomInt(0, Math.floor(remaining / 4)) : 0
+  const created = createdChunks * 10 + (createdChunks ? randomInt(0, 9) : randomInt(0, 4))
+  remaining -= createdChunks * 4
+
+  const reviewedChunks = remaining >= 3 ? randomInt(0, Math.floor(remaining / 3)) : 0
+  const reviewed = reviewedChunks * 50 + randomInt(0, 49)
+  remaining -= reviewedChunks * 3
+
+  let videoCount = 0
+  if (remaining > 0) {
+    videoCount = randomInt(1, Math.min(3, remaining))
+    remaining -= videoCount
+  }
+
+  const durationPoints = remaining
+  const videoDurations = []
+  for (let i = 0; i < videoCount; i += 1) {
+    const scoredSeconds = i === 0 ? durationPoints * 12 * 60 : 0
+    const unscoredSeconds = i === 0 ? randomInt(60, 300) : randomInt(60, 180)
+    videoDurations.push(scoredSeconds + unscoredSeconds)
+  }
+
+  return { reviewed, created, videoDurations }
 }
 
 function randomInt(min, max) {
@@ -664,7 +726,7 @@ async function refreshFeed() {
 
   try {
     if (IS_SANDBOX) {
-      loadSandboxDemo()
+      addSandboxDay()
       return
     }
 
@@ -1530,12 +1592,14 @@ function getCitySnapshot(currentScore, s) {
   const date = addDays(new Date(), selectedCityDayOffset)
   const isToday = selectedCityDayOffset === 0
   const minOffset = getFirstCityDayOffset(s)
+  const maxOffset = getLastCityDayOffset(s)
   if (isToday) {
     const visualLevelIndex = updatePersistentCityLevel(s, currentScore)
     return {
       date,
       isToday,
       minOffset,
+      maxOffset,
       score: currentScore,
       visualLevelIndex,
       visualScore: getCityScoreForLevelIndex(visualLevelIndex)
@@ -1549,6 +1613,7 @@ function getCitySnapshot(currentScore, s) {
     date,
     isToday,
     minOffset,
+    maxOffset,
     score,
     visualLevelIndex,
     visualScore: getCityScoreForLevelIndex(visualLevelIndex)
@@ -1568,13 +1633,21 @@ function updatePersistentCityLevel(s, score) {
 
 function clampCityDayOffset(s, offset) {
   const firstOffset = getFirstCityDayOffset(s)
-  return Math.max(firstOffset, Math.min(0, offset))
+  const lastOffset = getLastCityDayOffset(s)
+  return Math.max(firstOffset, Math.min(lastOffset, offset))
 }
 
 function getFirstCityDayOffset(s) {
   const firstDateKey = getFirstStudyActionDateKey(s)
   if (!firstDateKey) return 0
   return Math.min(0, daysBetweenDateKeys(toDateKey(), firstDateKey))
+}
+
+function getLastCityDayOffset(s) {
+  if (!IS_SANDBOX) return 0
+  const lastDateKey = getLastStudyActionDateKey(s)
+  if (!lastDateKey) return 0
+  return Math.max(0, daysBetweenDateKeys(toDateKey(), lastDateKey))
 }
 
 function getFirstStudyActionDateKey(s) {
@@ -1589,6 +1662,20 @@ function getFirstStudyActionDateKey(s) {
   })
 
   return dates.sort()[0] || null
+}
+
+function getLastStudyActionDateKey(s) {
+  const dates = []
+
+  Object.values(s?.videos || {}).forEach(video => {
+    if (video.watchedAt) dates.push(toDateKey(new Date(video.watchedAt)))
+  })
+
+  Object.entries(s?.anki || {}).forEach(([dateKey, day]) => {
+    if ((day.reviewed || 0) > 0 || (day.created || 0) > 0) dates.push(dateKey)
+  })
+
+  return dates.sort().pop() || null
 }
 
 function daysBetweenDateKeys(fromKey, toKey) {
@@ -1660,7 +1747,7 @@ function renderCityTimeControls(snapshot) {
 
   const state = loadState()
   const rowsByDate = getCityHistoryRowsByDate(state)
-  const days = getCityWaveformDays(snapshot.minOffset)
+  const days = getCityWaveformDays(snapshot.minOffset, snapshot.maxOffset)
   const selectedIndex = days.findIndex(day => day.offset === selectedCityDayOffset)
 
   bars.innerHTML = days.map((day, index) => {
@@ -1688,9 +1775,9 @@ function renderCityTimeControls(snapshot) {
   if (selectedBar) positionCityWaveTooltip(selectedBar)
 }
 
-function getCityWaveformDays(minOffset) {
+function getCityWaveformDays(minOffset, maxOffset = 0) {
   const days = []
-  for (let offset = minOffset; offset <= 0; offset += 1) {
+  for (let offset = minOffset; offset <= maxOffset; offset += 1) {
     const date = addDays(new Date(), offset)
     days.push({ offset, date, dateKey: toDateKey(date) })
   }
@@ -1703,7 +1790,7 @@ function getCityHistoryRowsByDate(s) {
   if (!firstDateKey) return rows
 
   const start = dateKeyToLocalDate(firstDateKey)
-  const end = new Date()
+  const end = IS_SANDBOX ? getSandboxHeatmapEndDate(s) : new Date()
   end.setHours(23, 59, 59, 999)
   getStudyHistoryBetween(s || { videos: {}, anki: {} }, start, end).rows
     .forEach(row => rows.set(row.dateKey, row))
