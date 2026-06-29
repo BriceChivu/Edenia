@@ -1,7 +1,6 @@
 # CHANGES:
 Minor changes:
 - new milestones (add emojis): cute little pond, oh! a tourist boat is approaching...
-- Refresh button should load that many videos at once. I'm afraid about the Youtube API usage.
 
 Big changes:
 - For gamification purposes, when reaching to the next level, do not directly change the image. Let the user click a cute boucing animated "Level up" button that says "You collected enough study points to level-up!". After the user clicks, show the image corresponding to the new level.

@@ -23,8 +23,8 @@ const CONFIG_COOKIE_KEY = IS_SANDBOX ? 'studybuild_config_sandbox' : 'studybuild
 const DEFAULT_API_KEY = 'AIzaSyAVmsqp-5o1ufYCuMak38jigQRHFhf0g1Y'
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const ACTIVE_VIDEOS_PER_CHANNEL = 5
-const FETCH_PAGE_SIZE = 50
-const MAX_FETCH_PAGES_PER_CHANNEL = 10
+const FETCH_PAGE_SIZE = ACTIVE_VIDEOS_PER_CHANNEL
+const MAX_FETCH_PAGES_PER_CHANNEL = 3
 const DEFAULT_THEME = 'light'
 const THEMES = ['light', 'dark']
 const TIME_OF_DAY_MODES = {
@@ -799,21 +799,48 @@ async function fetchChannelVideosPage(channel, apiKey, pageToken = '') {
   }
 }
 
+function getVideoStatus(video) {
+  return video?.status || 'unwatched'
+}
+
+function isActiveRefreshVideo(video) {
+  return getVideoStatus(video) !== 'watched'
+}
+
+function getKnownChannelActiveCount(channel, knownVideos = {}) {
+  return Object.values(knownVideos)
+    .filter(video => video.channelId === channel.id)
+    .filter(isActiveRefreshVideo)
+    .length
+}
+
 async function fetchChannelVideos(channel, apiKey, knownVideos = {}) {
   const fetched = []
   let pageToken = ''
   let pages = 0
+  let newCount = 0
+  let knownActiveCount = getKnownChannelActiveCount(channel, knownVideos)
 
   while (pages < MAX_FETCH_PAGES_PER_CHANNEL) {
     const page = await fetchChannelVideosPage(channel, apiKey, pageToken)
     pages += 1
     fetched.push(...page.videos)
 
-    const activeCount = fetched
-      .filter(v => (knownVideos[v.id]?.status || 'unwatched') !== 'watched')
-      .length
+    const pageNewVideos = page.videos.filter(v => !knownVideos[v.id])
+    newCount += pageNewVideos.length
 
-    if (activeCount >= ACTIVE_VIDEOS_PER_CHANNEL || !page.nextPageToken) break
+    const pageKnownOnly = pageNewVideos.length === 0
+    const pageActiveCount = page.videos
+      .filter(v => isActiveRefreshVideo(knownVideos[v.id] || v))
+      .length
+    knownActiveCount += pageNewVideos.filter(isActiveRefreshVideo).length
+
+    if (
+      newCount >= ACTIVE_VIDEOS_PER_CHANNEL ||
+      (knownActiveCount >= ACTIVE_VIDEOS_PER_CHANNEL && pageKnownOnly) ||
+      pageActiveCount >= ACTIVE_VIDEOS_PER_CHANNEL ||
+      !page.nextPageToken
+    ) break
     pageToken = page.nextPageToken
   }
 
@@ -872,8 +899,11 @@ async function refreshFeed() {
     const seen   = new Set()
     const unique = all.filter(v => { if (seen.has(v.id)) return false; seen.add(v.id); return true })
 
-    // Fetch durations (single batch call per 50 videos)
-    const durations = await fetchDurations(unique.map(v => v.id), s.config.apiKey)
+    // Fetch durations only for videos that are not already cached.
+    const durationIds = unique
+      .filter(v => !s.videos[v.id] || typeof s.videos[v.id].duration !== 'number')
+      .map(v => v.id)
+    const durations = await fetchDurations(durationIds, s.config.apiKey)
 
     // Merge into state — preserve existing watch status
     unique.forEach(v => {

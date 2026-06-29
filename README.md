@@ -50,7 +50,7 @@ To find one:
 2. Use the share menu and choose `Copy channel ID`, or inspect a URL like `youtube.com/channel/UCxxxxxxxx`.
 3. Paste the ID into the settings panel and click `Add`.
 
-On refresh, Study Build fetches videos from each channel's uploads playlist, stores the latest active video records, and updates channel display names from the YouTube API when available.
+On refresh, Study Build fetches a small recent batch from each channel's uploads playlist, stores the latest active video records, and updates channel display names from the YouTube API when available. It reuses cached video records and durations where possible to keep YouTube API usage lower.
 
 ## Watch Status
 
