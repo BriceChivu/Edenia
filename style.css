@@ -1678,6 +1678,35 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
   .streak-pill {
     padding: 6px 10px;
   }
+  .feed-section {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .feed-section .section-header {
+    align-items: flex-start;
+  }
+  .feed-controls {
+    align-items: stretch;
+    width: 100%;
+  }
+  .status-filter,
+  .channel-filter {
+    flex: 1 1 180px;
+    min-width: 0;
+  }
+  .status-filter-btn,
+  .channel-filter-btn {
+    max-width: none;
+    min-width: 0;
+    width: 100%;
+  }
+  .channel-filter-menu {
+    max-height: min(320px, 58vh);
+    width: min(320px, calc(100vw - 24px));
+  }
+  .channel-filter-option {
+    min-height: 40px;
+  }
 }
 @media (max-width: 480px) {
   .app-header {
@@ -1699,6 +1728,16 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
     max-width: 42px;
     white-space: normal;
     line-height: 1.05;
+  }
+  .undo-wrap {
+    flex: 1 1 92px;
+  }
+  .undo-btn,
+  #refreshBtn {
+    width: 100%;
+  }
+  #refreshBtn {
+    flex: 1 1 116px;
   }
   .feed-controls { width: 100%; }
   .status-filter { flex: 1 1 132px; }

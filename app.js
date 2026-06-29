@@ -2368,6 +2368,7 @@ function renderStatusFilterOptions(allVideos = [], channelFilters = null) {
       <span class="status-filter-count">${counts[value] ?? 0}</span>
     </label>
   `).join('')
+  if (!menu.classList.contains('hidden')) positionFilterMenuWithinViewport(menu)
 }
 
 function getStatusFilterCounts(allVideos = [], channelFilters = null) {
@@ -2403,6 +2404,7 @@ function toggleStatusFilterMenu() {
   closeChannelFilterMenu()
   const isOpen = menu.classList.toggle('hidden') === false
   btn.setAttribute('aria-expanded', String(isOpen))
+  if (isOpen) positionFilterMenuWithinViewport(menu)
 }
 
 function closeStatusFilterMenu() {
@@ -2410,6 +2412,7 @@ function closeStatusFilterMenu() {
   const menu = document.getElementById('statusFilterMenu')
   if (!btn || !menu) return
   menu.classList.add('hidden')
+  menu.style.left = ''
   btn.setAttribute('aria-expanded', 'false')
 }
 
@@ -2442,6 +2445,7 @@ function renderChannelFilterOptions(s) {
     `).join('')
     : '<div class="channel-filter-empty">No channels yet</div>'
   menu.dataset.selectedCount = selectedCount
+  if (!menu.classList.contains('hidden')) positionFilterMenuWithinViewport(menu)
 }
 
 function getChannelFilterEntries(s) {
@@ -2490,6 +2494,7 @@ function toggleChannelFilterMenu() {
   closeStatusFilterMenu()
   const isOpen = menu.classList.toggle('hidden') === false
   btn.setAttribute('aria-expanded', String(isOpen))
+  if (isOpen) positionFilterMenuWithinViewport(menu)
 }
 
 function closeChannelFilterMenu() {
@@ -2497,7 +2502,25 @@ function closeChannelFilterMenu() {
   const menu = document.getElementById('channelFilterMenu')
   if (!btn || !menu) return
   menu.classList.add('hidden')
+  menu.style.left = ''
   btn.setAttribute('aria-expanded', 'false')
+}
+
+function positionFilterMenuWithinViewport(menu) {
+  if (!menu || menu.classList.contains('hidden')) return
+  menu.style.left = '0px'
+  const margin = 12
+  const rect = menu.getBoundingClientRect()
+  let shift = 0
+
+  if (rect.right > window.innerWidth - margin) {
+    shift = window.innerWidth - margin - rect.right
+  }
+  if (rect.left + shift < margin) {
+    shift += margin - (rect.left + shift)
+  }
+
+  menu.style.left = `${Math.round(shift)}px`
 }
 
 function closeChannelFilterMenuOnOutsideClick(event) {
