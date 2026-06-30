@@ -74,7 +74,7 @@ To find one:
 2. Use the share menu and choose `Copy channel ID`, or inspect a URL like `youtube.com/channel/UCxxxxxxxx`.
 3. Paste the ID into the settings panel and click `Add`.
 
-On refresh, Study Build fetches a small recent batch from each channel's uploads playlist, stores the latest active video records, and updates channel display names from the YouTube API when available. It reuses cached video records and durations where possible to keep YouTube API usage lower.
+On refresh, Edenia fetches a small recent batch from each channel's uploads playlist, stores the latest active video records, and updates channel display names from the YouTube API when available. It reuses cached video records and durations where possible to keep YouTube API usage lower.
 
 ## Watch Status
 
@@ -156,7 +156,7 @@ Secondary storage:
 - Key: `studybuild_config`
 - Defined in `app.js` as `CONFIG_COOKIE_KEY`
 
-The cookie mirrors configuration data so the app can restore basic settings if the main state is unavailable.
+The cookie mirrors configuration data so the app can restore basic settings if the main state is unavailable. The storage keys still use the original `studybuild` prefix for compatibility with existing browser data.
 
 Sync files:
 
@@ -173,11 +173,11 @@ To inspect or clear the data in Chrome:
 
 Sandbox mode uses separate browser storage:
 
-- URL: `http://localhost:8001/?sandbox=1`
+- URL: `http://localhost:8000/?sandbox=1`
 - `localStorage` key: `studybuild_v1_sandbox`
 - Cookie key: `studybuild_config_sandbox`
 
-When sandbox mode is opened with no saved sandbox state, the app starts from a blank baseline day at level 1 with 0 points. The header shows a `Sandbox` badge plus `Add day` and `Reset` actions. `Add day` appends a random sandbox-only study day worth 0 to 5 points after the latest sandbox day, and keeps the first baseline day unchanged. `Reset` returns to the same blank baseline state. Sandbox data does not touch the normal `studybuild_v1` progress state.
+When sandbox mode is opened with no saved sandbox state, the app starts from a blank baseline day at level 1 with 0 points. The header shows a `Sandbox version` badge plus `Add day` and `Reset` actions. `Add day` appends a random sandbox-only study day worth 0 to 5 points after the latest sandbox day, and keeps the first baseline day unchanged. `Reset` returns to the same blank baseline state. Sandbox data does not touch the normal `studybuild_v1` progress state.
 
 ## Testing New Features
 
@@ -187,7 +187,7 @@ Recommended workflow:
 
 1. Start the local static server from the project root with `python3 -m http.server 8000`.
 2. Open `http://localhost:8000/` in Chrome.
-3. Test with existing `studybuild_v1` data first.
+3. Test with existing Edenia browser data first.
 4. Test again after using `Reset everything` for a clean local state.
 5. Confirm that settings changes persist without a save button.
 6. Confirm that video status changes update weekly totals, streak state, watched history, and undo behavior.
