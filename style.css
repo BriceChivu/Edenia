@@ -1431,9 +1431,9 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   width: min(300px, 82vw);
   z-index: 80;
 }
-.undo-action-wrap:hover .undo-tooltip,
-.undo-action-wrap:focus-within .undo-tooltip {
+.undo-action-wrap.open .undo-tooltip {
   opacity: 1;
+  pointer-events: auto;
   transform: translateY(0);
   visibility: visible;
 }
@@ -1450,6 +1450,27 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   display: grid;
   gap: 3px;
   padding: 7px 0;
+}
+.undo-tooltip-action-btn {
+  background: transparent;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  margin-left: -6px;
+  margin-right: -6px;
+  padding-left: 6px;
+  padding-right: 6px;
+  text-align: left;
+  width: calc(100% + 12px);
+}
+.undo-tooltip-action-btn:hover,
+.undo-tooltip-action-btn:focus-visible {
+  background: var(--soft-blue);
+  border-radius: 6px;
+  outline: none;
 }
 .undo-tooltip-item:first-of-type {
   border-top: 0;
@@ -2195,7 +2216,8 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
     padding: 8px 12px;
   }
   .undo-tooltip {
-    display: none;
+    right: 0;
+    width: min(300px, calc(100vw - 24px));
   }
   .video-card:hover {
     box-shadow: 0 4px 0 rgba(5,5,5,0.14);

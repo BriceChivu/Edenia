@@ -216,12 +216,12 @@
           </div>
           <div class="undo-wrap">
             <span class="undo-action-wrap">
-              <button class="btn-secondary undo-btn" id="undoBtn" onclick="undoLastVideoAction()" aria-describedby="undoTooltip" disabled>Undo</button>
-              <div class="undo-tooltip" id="undoTooltip" role="tooltip">Nothing to undo</div>
+              <button type="button" class="btn-secondary undo-btn" id="undoBtn" onclick="toggleHistoryActionPopover(event, 'undo')" aria-haspopup="true" aria-expanded="false" aria-describedby="undoTooltip" disabled>Undo</button>
+              <div class="undo-tooltip" id="undoTooltip" role="dialog" aria-label="Undo actions">Nothing to undo</div>
             </span>
             <span class="undo-action-wrap">
-              <button class="btn-secondary undo-btn redo-btn" id="redoBtn" onclick="redoLastVideoAction()" aria-describedby="redoTooltip" disabled>Redo</button>
-              <div class="undo-tooltip" id="redoTooltip" role="tooltip">Nothing to redo</div>
+              <button type="button" class="btn-secondary undo-btn redo-btn" id="redoBtn" onclick="toggleHistoryActionPopover(event, 'redo')" aria-haspopup="true" aria-expanded="false" aria-describedby="redoTooltip" disabled>Redo</button>
+              <div class="undo-tooltip" id="redoTooltip" role="dialog" aria-label="Redo actions">Nothing to redo</div>
             </span>
           </div>
         </div>
