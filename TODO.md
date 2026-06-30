@@ -4,9 +4,11 @@ Minor changes:
 - allows ESCAPE keyboard key to exit the settings menu
 - if my mouse is on the town image and i try to scroll down and the iamge is already at the max zoom out, then it should scroll down. Currently, it keeps try to zoom out and I have to put my mouse outside of the image to be able to scroll down.
 - make the blur transition from the top pannel even more progressive, i.e., less abrupt.
+- For the Undo button, if I click on it, the pop up stays and then I should be able to choose which action to undo from the list
+- Possibility of adding the timestamp of the video I started to watch (which is now in progress) so that I know where to continue next time
 
 Big changes:
-
+- Have the possibility of adding a URl corresponding to a video I've watched that is not present in the video channels
 
 Sandbox:
 
