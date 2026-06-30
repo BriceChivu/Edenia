@@ -51,6 +51,19 @@ Recommended Google Cloud restrictions:
 3. Set quota alerts and review usage regularly.
 4. Keep a second restricted key available for rotation.
 
+## GitHub Pages Deployment
+
+The GitHub Pages workflow generates `config.local.js` during deployment from a repository secret. The real key stays out of Git history, but the deployed website still serves it to browsers, so the Google Cloud restrictions above are required.
+
+To set it up:
+
+1. In GitHub, open the repository settings.
+2. Go to **Secrets and variables** -> **Actions**.
+3. Add a repository secret named `YOUTUBE_API_KEY`.
+4. Paste the restricted YouTube API key as the value.
+5. Go to **Pages** and set the source to **GitHub Actions**.
+6. Push to `main` or `master`, or run the `Deploy GitHub Pages` workflow manually.
+
 ## YouTube Channels
 
 Channel IDs should start with `UC`.
