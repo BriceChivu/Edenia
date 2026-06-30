@@ -24,6 +24,7 @@
   --streak:       #8bbd28;
   --radius:       14px;
   --gap:          14px;
+  --compact-control-height: 36px;
 }
 
 html[data-theme="dark"],
@@ -866,6 +867,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   border: 2px solid var(--planet-black);
   border-radius: 999px;
   box-shadow: 0 3px 0 rgba(5,5,5,0.12);
+  height: var(--compact-control-height);
   overflow: visible;
   width: 178px;
 }
@@ -887,9 +889,10 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   font-size: 0.76rem;
   font-weight: 800;
   gap: 5px;
+  height: 100%;
   justify-content: center;
   line-height: 1;
-  padding: 8px 12px;
+  padding: 0 12px;
   position: relative;
   transition: background 120ms ease, color 120ms ease;
 }
@@ -969,20 +972,24 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   border: 2px solid var(--planet-black);
   border-radius: 999px;
   box-shadow: 0 3px 0 rgba(5,5,5,0.12);
+  height: var(--compact-control-height);
   overflow: hidden;
   width: 178px;
 }
 .history-view-btn {
+  align-items: center;
   border: 0;
   border-right: 2px solid var(--planet-black);
   background: transparent;
   color: var(--muted);
   cursor: pointer;
+  display: inline-flex;
   flex: 1;
   font-size: 0.76rem;
   font-weight: 800;
+  justify-content: center;
   line-height: 1;
-  padding: 8px 12px;
+  padding: 0 12px;
 }
 .history-view-btn:last-child { border-right: 0; }
 .history-view-btn:hover,
@@ -1332,7 +1339,20 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
 .channel-filter {
   position: relative;
 }
+.feed-controls .status-filter-btn,
+.feed-controls .channel-filter-btn,
+.feed-controls .undo-btn,
+.feed-controls .redo-btn {
+  align-items: center;
+  display: inline-flex;
+  height: var(--compact-control-height);
+  line-height: 1;
+  min-height: var(--compact-control-height);
+  padding-bottom: 0;
+  padding-top: 0;
+}
 .channel-filter-btn {
+  justify-content: flex-start;
   max-width: 220px;
   min-width: 150px;
   text-align: left;
@@ -1340,6 +1360,10 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
 .status-filter-btn {
   max-width: 160px;
   min-width: 132px;
+}
+.feed-controls .undo-btn,
+.feed-controls .redo-btn {
+  justify-content: center;
 }
 .channel-filter-menu {
   position: absolute;
