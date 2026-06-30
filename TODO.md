@@ -4,7 +4,6 @@ Minor changes:
 - if my mouse is on the town image and i try to scroll down and the iamge is already at the max zoom out, then it should scroll down. Currently, it keeps try to zoom out and I have to put my mouse outside of the image to be able to scroll down.
 - make the blur transition from the top pannel even more progressive, i.e., less abrupt.
 - normalize height of each row in the summary table, even when no video was watched some day
-- make the videos section buttons (status filter, channel filter, undo, redo) the same height as study history summary/heatmap and week/month buttons for consistency
 - In the study history summary table, add a PTS column at the very right for both week and month tables
 
 Big changes:
