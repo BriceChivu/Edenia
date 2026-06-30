@@ -21,6 +21,7 @@ const IS_SANDBOX = new URLSearchParams(window.location.search).get('sandbox') ==
 const STORAGE_KEY = IS_SANDBOX ? 'studybuild_v1_sandbox' : 'studybuild_v1'
 const CONFIG_COOKIE_KEY = IS_SANDBOX ? 'studybuild_config_sandbox' : 'studybuild_config'
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
+const YOUTUBE_REFRESH_INTERVAL_MS = 5 * 60 * 60_000
 const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = ACTIVE_VIDEOS_PER_CHANNEL
 const MAX_FETCH_PAGES_PER_CHANNEL = 3
@@ -99,9 +100,26 @@ function loadConfigCookie() {
   } catch { return null }
 }
 
+function publicConfig() {
+  return window.EDENIA_CONFIG || {}
+}
+
+function getYoutubeApiKey() {
+  return String(publicConfig().youtubeApiKey || '').trim()
+}
+
+function hasYoutubeApiKey() {
+  return Boolean(getYoutubeApiKey())
+}
+
+function sanitizeConfigForStorage(config = {}) {
+  const { apiKey, ...safeConfig } = config
+  return safeConfig
+}
+
 function saveConfigCookie(config) {
   try {
-    const value = encodeURIComponent(JSON.stringify(config))
+    const value = encodeURIComponent(JSON.stringify(sanitizeConfigForStorage(config)))
     document.cookie = `${CONFIG_COOKIE_KEY}=${value}; max-age=31536000; path=/`
   } catch {}
 }
@@ -130,6 +148,7 @@ function loadState() {
       const state = JSON.parse(raw)
       if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
       if (state?.config && !Array.isArray(state.config.channels)) state.config.channels = []
+      if (state?.config) delete state.config.apiKey
       normalizeRemovedDefaultChannels(state)
       if (state?.config && (state.defaultChannelsVersion || 1) < DEFAULT_CHANNELS_VERSION) {
         addMissingDefaultChannels(state.config.channels, state.config.removedDefaultChannelIds)
@@ -146,7 +165,7 @@ function loadState() {
 
   const fallback = loadConfigCookie()
   if (fallback) {
-    return defaultState(fallback.apiKey || '', fallback.weeklyGoalHours || 4, fallback.channels, fallback.theme, fallback.removedDefaultChannelIds)
+    return defaultState(fallback.weeklyGoalHours || 4, fallback.channels, fallback.theme, fallback.removedDefaultChannelIds)
   }
 
   return null
@@ -157,13 +176,12 @@ function saveState(s) {
   saveConfigCookie(s.config)
 }
 
-function defaultState(apiKey, goalHours, channels, theme, removedDefaultChannelIds = null) {
+function defaultState(goalHours, channels, theme, removedDefaultChannelIds = null) {
   const restoredRemovedDefaultIds = Array.isArray(removedDefaultChannelIds)
     ? removedDefaultChannelIds.filter(isDefaultChannelId)
     : null
   return {
     config: {
-      apiKey: apiKey || '',
       weeklyGoalHours: goalHours || 4,
       theme: normalizeTheme(theme),
       channels: channels?.length ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
@@ -180,7 +198,7 @@ function defaultState(apiKey, goalHours, channels, theme, removedDefaultChannelI
 }
 
 function createEmptySandboxState() {
-  const state = defaultState('', 4, [
+  const state = defaultState(4, [
     { id: 'sandbox-focus', name: 'Sandbox Focus' },
     { id: 'sandbox-memory', name: 'Sandbox Memory' },
     { id: 'sandbox-projects', name: 'Sandbox Projects' }
@@ -395,7 +413,7 @@ function escHtml(str) {
 function init() {
   let state = loadState()
   if (!state) {
-    state = IS_SANDBOX ? createEmptySandboxState() : defaultState('', 4, DEFAULT_CHANNELS)
+    state = IS_SANDBOX ? createEmptySandboxState() : defaultState(4, DEFAULT_CHANNELS)
     saveState(state)
   }
 
@@ -417,7 +435,8 @@ function init() {
   if (!IS_SANDBOX) {
     refreshAnkiStats({ silent: true })
     startAnkiAutoRefresh()
-    if (!state.lastFetched) showToast('Add or edit channels in ⚙ Settings, then hit ↻ Refresh', 'warn')
+    startYoutubeAutoRefresh()
+    maybeRefreshFeed()
   } else {
     showToast('Sandbox mode: demo data is isolated from your real progress', 'warn')
   }
@@ -617,7 +636,6 @@ function randomInt(min, max) {
 
 function openSettings() {
   const s = loadState()
-  document.getElementById('settingsApiKey').value = s.config.apiKey
   document.getElementById('settingsGoal').value   = s.config.weeklyGoalHours
   renderChannelList(s.config.channels)
   show('settingsPanel')
@@ -627,9 +645,7 @@ function closeSettings() { hide('settingsPanel') }
 
 function saveSettingsOnTheFly() {
   const s      = loadState()
-  const apiKey = document.getElementById('settingsApiKey').value.trim()
   const goal   = parseInt(document.getElementById('settingsGoal').value) || 4
-  s.config.apiKey = apiKey
   s.config.weeklyGoalHours = goal
   saveState(s)
   renderAll(s)
@@ -725,10 +741,10 @@ async function ytFetch(url) {
   return res.json()
 }
 
-async function fetchChannelVideosPage(channel, apiKey, pageToken = '') {
+async function fetchChannelVideosPage(channel, pageToken = '') {
   const pid  = uploadsId(channel.id)
   const tokenParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''
-  const url  = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=${FETCH_PAGE_SIZE}&playlistId=${pid}&key=${apiKey}${tokenParam}`
+  const url  = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=${FETCH_PAGE_SIZE}&playlistId=${pid}&key=${encodeURIComponent(getYoutubeApiKey())}${tokenParam}`
   const data = await ytFetch(url)
   return {
     videos: data.items.map(item => ({
@@ -764,7 +780,7 @@ function getKnownChannelActiveCount(channel, knownVideos = {}) {
     .length
 }
 
-async function fetchChannelVideos(channel, apiKey, knownVideos = {}) {
+async function fetchChannelVideos(channel, knownVideos = {}) {
   const fetched = []
   let pageToken = ''
   let pages = 0
@@ -772,7 +788,7 @@ async function fetchChannelVideos(channel, apiKey, knownVideos = {}) {
   let knownActiveCount = getKnownChannelActiveCount(channel, knownVideos)
 
   while (pages < MAX_FETCH_PAGES_PER_CHANNEL) {
-    const page = await fetchChannelVideosPage(channel, apiKey, pageToken)
+    const page = await fetchChannelVideosPage(channel, pageToken)
     pages += 1
     fetched.push(...page.videos)
 
@@ -797,22 +813,62 @@ async function fetchChannelVideos(channel, apiKey, knownVideos = {}) {
   return fetched
 }
 
-async function fetchDurations(videoIds, apiKey) {
+async function fetchDurations(videoIds) {
   const result = {}
   for (let i = 0; i < videoIds.length; i += 50) {
     const batch = videoIds.slice(i, i + 50).join(',')
-    const url   = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${batch}&key=${apiKey}`
+    const url   = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${batch}&key=${encodeURIComponent(getYoutubeApiKey())}`
     const data  = await ytFetch(url)
     data.items.forEach(item => { result[item.id] = parseDuration(item.contentDetails?.duration) })
   }
   return result
 }
 
-async function refreshFeed() {
+function shouldRefreshYoutubeFeed(s) {
+  if (IS_SANDBOX || !hasYoutubeApiKey() || !s.config.channels.length) return false
+  if (!s.lastFetched) return true
+  const lastFetchedMs = new Date(s.lastFetched).getTime()
+  if (!Number.isFinite(lastFetchedMs)) return true
+  return Date.now() - lastFetchedMs >= YOUTUBE_REFRESH_INTERVAL_MS
+}
+
+function getYoutubeRefreshRemainingMs(s) {
+  if (!s.lastFetched) return 0
+  const lastFetchedMs = new Date(s.lastFetched).getTime()
+  if (!Number.isFinite(lastFetchedMs)) return 0
+  return Math.max(0, YOUTUBE_REFRESH_INTERVAL_MS - (Date.now() - lastFetchedMs))
+}
+
+function formatRefreshWait(ms) {
+  const totalMinutes = Math.ceil(ms / 60_000)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (hours && minutes) return `${hours}h ${minutes}m`
+  if (hours) return `${hours}h`
+  return `${minutes}m`
+}
+
+function maybeRefreshFeed() {
+  const s = loadState()
+  if (shouldRefreshYoutubeFeed(s)) {
+    refreshFeed({ silent: Boolean(s.lastFetched) })
+  } else if (!hasYoutubeApiKey()) {
+    showToast('Add the shared YouTube API key to config.local.js', 'warn')
+  }
+}
+
+function startYoutubeAutoRefresh() {
+  clearInterval(startYoutubeAutoRefresh._timer)
+  startYoutubeAutoRefresh._timer = setInterval(maybeRefreshFeed, YOUTUBE_REFRESH_INTERVAL_MS)
+}
+
+async function refreshFeed({ silent = false } = {}) {
   const btn = document.getElementById('refreshBtn')
-  btn.textContent = '↻ Refreshing…'
-  btn.classList.add('loading')
-  btn.disabled = true
+  if (btn) {
+    btn.textContent = '↻ Refreshing…'
+    btn.classList.add('loading')
+    btn.disabled = true
+  }
 
   try {
     if (IS_SANDBOX) {
@@ -821,12 +877,16 @@ async function refreshFeed() {
     }
 
     const s = loadState()
-    if (!s.config.apiKey?.trim()) {
-      showToast('Add your YouTube API key in ⚙ Settings first', 'warn')
+    if (!hasYoutubeApiKey()) {
+      showToast('Add the shared YouTube API key to config.local.js', 'warn')
       return
     }
     if (!s.config.channels.length) {
       showToast('Add at least one channel in ⚙ Settings first', 'warn')
+      return
+    }
+    if (!shouldRefreshYoutubeFeed(s)) {
+      if (!silent) showToast(`Next YouTube refresh in ${formatRefreshWait(getYoutubeRefreshRemainingMs(s))}`, 'warn')
       return
     }
 
@@ -837,7 +897,7 @@ async function refreshFeed() {
     // Fetch each channel concurrently
     await Promise.all(s.config.channels.map(async ch => {
       try {
-        const vids = await fetchChannelVideos(ch, s.config.apiKey, s.videos)
+        const vids = await fetchChannelVideos(ch, s.videos)
         successfulChannels += 1
         all.push(...vids)
         // Auto-update stored channel name from API response
@@ -864,7 +924,7 @@ async function refreshFeed() {
     const durationIds = unique
       .filter(v => !s.videos[v.id] || typeof s.videos[v.id].duration !== 'number')
       .map(v => v.id)
-    const durations = await fetchDurations(durationIds, s.config.apiKey)
+    const durations = await fetchDurations(durationIds)
 
     // Merge into state — preserve existing watch status
     unique.forEach(v => {
@@ -884,16 +944,17 @@ async function refreshFeed() {
     const msg = errors.length
       ? `Loaded ${unique.length} videos (${errors.length} channel${errors.length > 1 ? 's' : ''} failed)`
       : `${unique.length} videos loaded`
-    showToast(msg, errors.length ? 'warn' : 'success')
+    if (!silent || errors.length) showToast(msg, errors.length ? 'warn' : 'success')
 
   } catch (err) {
     console.error(err)
     showToast(`Refresh failed: ${err.message}`, 'error')
   } finally {
-    // Always re-enable the button, even if we returned early or threw
-    btn.textContent = '↻ Refresh'
-    btn.classList.remove('loading')
-    btn.disabled = false
+    if (btn) {
+      btn.textContent = '↻ Refresh'
+      btn.classList.remove('loading')
+      btn.disabled = false
+    }
   }
 }
 
@@ -2302,7 +2363,7 @@ function renderFeed(s) {
     const msg = statusFilter === 'all' && watchedVideos.length
       ? 'No active videos right now. Watched videos are below.'
       : statusFilter === 'all' && !channelMsg
-      ? 'No videos yet — click ↻ Refresh to load your feed.'
+      ? 'No videos yet. Edenia loads your feed automatically.'
       : `No ${statusFilter === 'all' ? 'active' : filterName} videos${channelMsg} right now.`
     grid.innerHTML = `<div class="empty-state">${msg}</div>`
   } else {
