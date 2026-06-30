@@ -30,6 +30,8 @@ const THEMES = ['light', 'dark']
 const ANKI_AUTO_REFRESH_MS = 5 * 60_000
 const MIN_DAILY_STREAK_POINTS = 3
 const UNDO_STACK_LIMIT = 50
+const MIN_WEEKLY_GOAL_HOURS = 1
+const MAX_WEEKLY_GOAL_HOURS = 99
 const CITY_LEVELS = [
   { threshold: 0, label: '🏠 Lonely house' },
   { threshold: 5, label: '⛵ Your house got a fresh new look! Plus a boat!' },
@@ -128,6 +130,12 @@ function normalizeTheme(theme) {
   return THEMES.includes(theme) ? theme : DEFAULT_THEME
 }
 
+function normalizeWeeklyGoalHours(value) {
+  const parsed = parseInt(value, 10)
+  if (!Number.isFinite(parsed)) return 4
+  return clampNumber(parsed, MIN_WEEKLY_GOAL_HOURS, MAX_WEEKLY_GOAL_HOURS)
+}
+
 function applyTheme(theme) {
   const normalizedTheme = normalizeTheme(theme)
   document.documentElement.dataset.theme = normalizedTheme
@@ -147,6 +155,7 @@ function loadState() {
     if (raw) {
       const state = JSON.parse(raw)
       if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
+      if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
       if (state?.config && !Array.isArray(state.config.channels)) state.config.channels = []
       if (state?.config) delete state.config.apiKey
       normalizeRemovedDefaultChannels(state)
@@ -182,7 +191,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
     : null
   return {
     config: {
-      weeklyGoalHours: goalHours || 4,
+      weeklyGoalHours: normalizeWeeklyGoalHours(goalHours),
       theme: normalizeTheme(theme),
       channels: channels?.length ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
       removedDefaultChannelIds: restoredRemovedDefaultIds || (channels?.length ? getMissingDefaultChannelIds(channels) : [])
@@ -645,8 +654,9 @@ function closeSettings() { hide('settingsPanel') }
 
 function saveSettingsOnTheFly() {
   const s      = loadState()
-  const goal   = parseInt(document.getElementById('settingsGoal').value) || 4
+  const goal   = normalizeWeeklyGoalHours(document.getElementById('settingsGoal').value)
   s.config.weeklyGoalHours = goal
+  document.getElementById('settingsGoal').value = goal
   saveState(s)
   renderAll(s)
 }
@@ -1697,7 +1707,7 @@ function getWeeklyStats(s) {
   const secondsWatched = watched.reduce((sum, v) => sum + (v.duration || 0), 0)
 
   const hoursWatched = secondsWatched / 3600
-  const goalHours    = s.config.weeklyGoalHours || 4
+  const goalHours    = normalizeWeeklyGoalHours(s.config.weeklyGoalHours)
   const goalProgress = Math.min((hoursWatched / goalHours) * 100, 100)
   const remainingSeconds = Math.max(0, Math.round(goalHours * 3600 - secondsWatched))
 
