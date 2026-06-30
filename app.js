@@ -1689,7 +1689,15 @@ function getStudyHistoryBetween(s, start, end) {
 }
 
 function renderHistoryWatchedCell(row) {
-  if (!row.videosWatched || !row.watchedVideos.length) return '0'
+  if (!row.videosWatched || !row.watchedVideos.length) {
+    return `
+      <span class="history-video-cell">
+        <span class="history-video-count history-video-count-empty">
+          <span class="history-video-count-number">0</span>
+        </span>
+      </span>
+    `
+  }
   return `
     <span class="history-video-cell">
       <button type="button" class="history-video-count" onclick="toggleHistoryVideoPopover(event)" aria-expanded="false" aria-label="Show ${row.videosWatched} videos watched on ${escHtml(formatHeatmapTitle(row))}">
@@ -1813,6 +1821,7 @@ function renderStudyHistoryPanel(s) {
           <span>Video</span>
           <span>Watched</span>
           <span>Anki</span>
+          <span class="history-points-col">PTS</span>
         </div>
         ${history.rows.map(row => `
           <div class="history-row">
@@ -1820,6 +1829,7 @@ function renderStudyHistoryPanel(s) {
             <span data-label="Video">${formatHistoryTime(row.secondsWatched)}</span>
             <span data-label="Watched">${renderHistoryWatchedCell(row)}</span>
             <span data-label="Anki">${row.ankiReviewed} / ${row.ankiCreated}</span>
+            <span class="history-points-col" data-label="PTS">${getHistoryDayPoints(row)}</span>
           </div>
         `).join('')}
       `

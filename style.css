@@ -867,7 +867,6 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   border: 2px solid var(--planet-black);
   border-radius: 999px;
   box-shadow: 0 3px 0 rgba(5,5,5,0.12);
-  height: var(--compact-control-height);
   overflow: visible;
   width: 178px;
 }
@@ -889,9 +888,9 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   font-size: 0.76rem;
   font-weight: 800;
   gap: 5px;
-  height: 100%;
   justify-content: center;
   line-height: 1;
+  min-height: calc(var(--compact-control-height) - 4px);
   padding: 0 12px;
   position: relative;
   transition: background 120ms ease, color 120ms ease;
@@ -972,7 +971,6 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   border: 2px solid var(--planet-black);
   border-radius: 999px;
   box-shadow: 0 3px 0 rgba(5,5,5,0.12);
-  height: var(--compact-control-height);
   overflow: hidden;
   width: 178px;
 }
@@ -989,6 +987,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   font-weight: 800;
   justify-content: center;
   line-height: 1;
+  min-height: calc(var(--compact-control-height) - 4px);
   padding: 0 12px;
 }
 .history-view-btn:last-child { border-right: 0; }
@@ -1035,10 +1034,11 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
 }
 .history-row {
   display: grid;
-  grid-template-columns: 1.2fr repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1.15fr repeat(3, minmax(0, 1fr)) 0.55fr;
   gap: 8px;
   align-items: center;
-  padding: 8px 10px;
+  min-height: 46px;
+  padding: 8px 14px 8px 10px;
   border-top: 1px solid var(--border);
   color: var(--text);
   font-size: 0.76rem;
@@ -1051,7 +1051,17 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   border-radius: calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0 0;
   color: var(--muted);
   font-size: 0.68rem;
+  min-height: 34px;
   text-transform: uppercase;
+}
+.history-points-col {
+  color: var(--accent);
+  font-weight: 800;
+  padding-right: 4px;
+  text-align: right;
+}
+.history-row-head .history-points-col {
+  color: inherit;
 }
 .history-video-cell {
   display: inline-flex;
@@ -1087,6 +1097,15 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   color: #053847;
   box-shadow: 0 3px 0 rgba(5,5,5,0.14);
   transform: translateY(-1px);
+}
+.history-video-count-empty,
+.history-video-count-empty:hover {
+  background: var(--surface-hi);
+  border-color: var(--border);
+  box-shadow: none;
+  color: var(--muted);
+  cursor: default;
+  transform: none;
 }
 .history-video-cell.open .history-video-count {
   background: var(--planet-lime);
