@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   STUDY BUILD — app.js
+   EDENIA — app.js
    All logic: state, YouTube API, streak, Anki, city, rendering
 ═══════════════════════════════════════════════════════════ */
 
@@ -399,7 +399,7 @@ function init() {
     saveState(state)
   }
 
-  document.title = IS_SANDBOX ? 'Sandbox - Study Build' : 'Study Build'
+  document.title = IS_SANDBOX ? 'Sandbox - Edenia' : 'Edenia'
   document.body.dataset.sandbox = IS_SANDBOX ? 'true' : 'false'
   const sandboxTools = document.getElementById('sandboxTools')
   const sandboxVersionLabel = document.getElementById('sandboxVersionLabel')

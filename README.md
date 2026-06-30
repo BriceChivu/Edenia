@@ -1,6 +1,6 @@
-# Study Build
+# Edenia
 
-Study Build is a browser-only learning dashboard for tracking YouTube study videos, Anki activity, weekly study goals, and a city scene that grows as study progress accumulates.
+Edenia is a browser-only learning dashboard for tracking YouTube study videos, Anki activity, weekly study goals, and a city scene that grows as study progress accumulates.
 
 The app is intentionally simple: `index.html`, `style.css`, and `app.js` are all it needs. There is no build step and no backend service.
 
@@ -48,7 +48,7 @@ To find one:
 2. Use the share menu and choose `Copy channel ID`, or inspect a URL like `youtube.com/channel/UCxxxxxxxx`.
 3. Paste the ID into the settings panel and click `Add`.
 
-On refresh, Study Build fetches a small recent batch from each channel's uploads playlist, stores the latest active video records, and updates channel display names from the YouTube API when available. It reuses cached video records and durations where possible to keep YouTube API usage lower.
+On refresh, Edenia fetches a small recent batch from each channel's uploads playlist, stores the latest active video records, and updates channel display names from the YouTube API when available. It reuses cached video records and durations where possible to keep YouTube API usage lower.
 
 ## Watch Status
 
@@ -71,7 +71,7 @@ Anki stats are optional. To enable them:
 
 1. Install the [AnkiConnect plugin](https://ankiweb.net/shared/info/2055492159).
 2. Open Anki.
-3. Open Study Build.
+3. Open Edenia.
 
 The app reads from AnkiConnect at `http://127.0.0.1:8765` automatically on startup, periodically while open, and when the tab becomes visible. It stores today's reviewed and created-card counts locally, but it does not modify the Anki collection.
 
@@ -168,4 +168,4 @@ Do not treat browser data as portable test fixtures unless it has been deliberat
 
 ## Privacy
 
-Study Build stores personal progress locally in the browser. The app calls the YouTube Data API to fetch channel and video metadata, and it calls local AnkiConnect only when available. It does not send watch status, streaks, or Anki logs to an app server.
+Edenia stores personal progress locally in the browser. The app calls the YouTube Data API to fetch channel and video metadata, and it calls local AnkiConnect only when available. It does not send watch status, streaks, or Anki logs to an app server.
