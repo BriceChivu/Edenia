@@ -1995,16 +1995,7 @@ function formatHistoryTime(secs) {
 }
 
 function getCurrentCityScore(s) {
-  return calcCityScoreWithoutStreak(getCityStatsThroughDate(s, getCurrentAppDate(s)))
-}
-
-function calcCityScoreWithoutStreak(stats) {
-  let score = 0
-  score += stats.hoursWatched * VIDEO_HOUR_POINTS
-  score += stats.videosWatched * VIDEO_WATCHED_POINTS
-  score += Math.floor(stats.ankiReviewed / ANKI_REVIEW_CHUNK_SIZE) * ANKI_REVIEW_CHUNK_POINTS
-  score += Math.floor(stats.ankiCreated / ANKI_CREATED_CHUNK_SIZE) * ANKI_CREATED_CHUNK_POINTS
-  return Math.floor(score)
+  return getCityScoreThroughDate(s, getCurrentAppDate(s))
 }
 
 function getCityLevel(score) {
@@ -2195,8 +2186,7 @@ function getCitySnapshot(currentScore, s) {
     }
   }
 
-  const stats = getCityStatsThroughDate(s, date)
-  const score = calcCityScoreWithoutStreak(stats)
+  const score = getCityScoreThroughDate(s, date)
   const revealedLevelIndex = Number.isInteger(s.cityProgress?.maxLevelIndex)
     ? s.cityProgress.maxLevelIndex
     : 0
@@ -2325,27 +2315,17 @@ function daysBetweenDateKeys(fromKey, toKey) {
   return Math.round((to - from) / 86_400_000)
 }
 
-function getCityStatsThroughDate(s, date) {
+function getCityScoreThroughDate(s, date) {
   const firstDateKey = getFirstStudyActionDateKey(s)
   const start = firstDateKey ? dateKeyToLocalDate(firstDateKey) : new Date(0)
   const end = new Date(date)
   end.setHours(23, 59, 59, 999)
   const history = getStudyHistoryBetween(s || { videos: {}, anki: {} }, start, end)
-  const summary = history.summary
-
-  return {
-    hoursWatched: summary.secondsWatched / 3600,
-    secondsWatched: summary.secondsWatched,
-    videosWatched: summary.videosWatched,
-    videosPartial: 0,
-    remainingSeconds: 0,
-    ankiReviewed: summary.ankiReviewed,
-    ankiCreated: summary.ankiCreated
-  }
+  return history.rows.reduce((total, row) => total + getHistoryDayPoints(row), 0)
 }
 
 function getHistoricMaxCityLevelIndex(s, endDate = new Date()) {
-  return getCityLevelIndex(calcCityScoreWithoutStreak(getCityStatsThroughDate(s, endDate)))
+  return getCityLevelIndex(getCityScoreThroughDate(s, endDate))
 }
 
 function renderCityTimeControls(snapshot) {
