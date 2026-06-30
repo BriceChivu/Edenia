@@ -38,6 +38,8 @@ The app can also be opened from `index.html` directly, but new feature testing s
 
 Edenia loads YouTube videos automatically on startup when the feed has never been fetched or when the last successful fetch is at least 5 hours old. The shared key is not saved in browser storage.
 
+`config.example.js` is only a local-development template. GitHub Pages deployment does not read it; the workflow creates `config.local.js` from the `YOUTUBE_API_KEY` repository secret.
+
 Settings are saved on the fly. There is no separate save button.
 
 ## Shared YouTube API Key
@@ -135,7 +137,7 @@ All current status data is stored in the user's browser, not in the repository a
 Primary storage:
 
 - Browser `localStorage`
-- Key: `studybuild_v1`
+- Key: `edenia_v1`
 - Defined in `app.js` as `STORAGE_KEY`
 
 The stored object includes:
@@ -153,10 +155,10 @@ The stored object includes:
 Secondary storage:
 
 - Browser cookie
-- Key: `studybuild_config`
+- Key: `edenia_config`
 - Defined in `app.js` as `CONFIG_COOKIE_KEY`
 
-The cookie mirrors configuration data so the app can restore basic settings if the main state is unavailable. The storage keys still use the original `studybuild` prefix for compatibility with existing browser data.
+The cookie mirrors configuration data so the app can restore basic settings if the main state is unavailable.
 
 Sync files:
 
@@ -168,16 +170,16 @@ To inspect or clear the data in Chrome:
 
 1. Open Chrome DevTools for `http://localhost:8000/`.
 2. Check Storage for `localStorage`.
-3. Inspect or remove the `studybuild_v1` entry.
+3. Inspect or remove the `edenia_v1` entry.
 4. Use the in-app `Reset everything` action when testing a clean first-run state.
 
 Sandbox mode uses separate browser storage:
 
 - URL: `http://localhost:8000/?sandbox=1`
-- `localStorage` key: `studybuild_v1_sandbox`
-- Cookie key: `studybuild_config_sandbox`
+- `localStorage` key: `edenia_v1_sandbox`
+- Cookie key: `edenia_config_sandbox`
 
-When sandbox mode is opened with no saved sandbox state, the app starts from a blank baseline day at level 1 with 0 points. The header shows a `Sandbox version` badge plus `Add day` and `Reset` actions. `Add day` appends a random sandbox-only study day worth 0 to 5 points after the latest sandbox day, and keeps the first baseline day unchanged. `Reset` returns to the same blank baseline state. Sandbox data does not touch the normal `studybuild_v1` progress state.
+When sandbox mode is opened with no saved sandbox state, the app starts from a blank baseline day at level 1 with 0 points. The header shows a `Sandbox version` badge plus `Add day` and `Reset` actions. `Add day` appends a random sandbox-only study day worth 0 to 5 points after the latest sandbox day, and keeps the first baseline day unchanged. `Reset` returns to the same blank baseline state. Sandbox data does not touch the normal `edenia_v1` progress state.
 
 ## Testing New Features
 

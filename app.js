@@ -18,8 +18,8 @@ const DEFAULT_CHANNELS_VERSION = 2
 // ════════════════════════════════════════════════════════════
 
 const IS_SANDBOX = new URLSearchParams(window.location.search).get('sandbox') === '1'
-const STORAGE_KEY = IS_SANDBOX ? 'studybuild_v1_sandbox' : 'studybuild_v1'
-const CONFIG_COOKIE_KEY = IS_SANDBOX ? 'studybuild_config_sandbox' : 'studybuild_config'
+const STORAGE_KEY = IS_SANDBOX ? 'edenia_v1_sandbox' : 'edenia_v1'
+const CONFIG_COOKIE_KEY = IS_SANDBOX ? 'edenia_config_sandbox' : 'edenia_config'
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const YOUTUBE_REFRESH_INTERVAL_MS = 5 * 60 * 60_000
 const ACTIVE_VIDEOS_PER_CHANNEL = 5
@@ -669,7 +669,7 @@ function exportSyncFile() {
   }
 
   const payload = {
-    app: 'study-build',
+    app: 'edenia',
     syncVersion: 1,
     exportedAt: new Date().toISOString(),
     sandbox: IS_SANDBOX,
@@ -679,7 +679,7 @@ function exportSyncFile() {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `study-build-${IS_SANDBOX ? 'sandbox-' : ''}sync-${toDateKey()}.json`
+  link.download = `edenia-${IS_SANDBOX ? 'sandbox-' : ''}sync-${toDateKey()}.json`
   document.body.appendChild(link)
   link.click()
   link.remove()
@@ -700,8 +700,8 @@ function importSyncFileFromInput(input) {
         showToast('That sync file is not valid', 'error')
         return
       }
-      if (payload?.app === 'study-build' && Boolean(payload.sandbox) !== IS_SANDBOX) {
-        showToast(IS_SANDBOX ? 'Use a sandbox sync file here' : 'Use a normal Study Build sync file here', 'warn')
+      if (payload?.app === 'edenia' && Boolean(payload.sandbox) !== IS_SANDBOX) {
+        showToast(IS_SANDBOX ? 'Use a sandbox sync file here' : 'Use a normal Edenia sync file here', 'warn')
         return
       }
 
@@ -732,7 +732,7 @@ function importSyncFileFromInput(input) {
 }
 
 function getImportedSyncState(payload) {
-  const state = payload?.app === 'study-build' ? payload.state : payload
+  const state = payload?.app === 'edenia' ? payload.state : payload
   if (!state || typeof state !== 'object') return null
   if (!state.config || typeof state.config !== 'object') return null
   if (!state.videos || typeof state.videos !== 'object' || Array.isArray(state.videos)) return null
