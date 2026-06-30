@@ -706,7 +706,6 @@ function importSyncFileFromInput(input) {
       setDefaultCityDayOffset(normalizedState)
       renderAll(normalizedState)
       renderChannelList(normalizedState.config.channels)
-      document.getElementById('settingsApiKey').value = normalizedState.config.apiKey
       document.getElementById('settingsGoal').value = normalizedState.config.weeklyGoalHours
       showToast('Sync file imported')
     } catch {
@@ -730,7 +729,6 @@ function getImportedSyncState(payload) {
   if (!state.anki || typeof state.anki !== 'object' || Array.isArray(state.anki)) return null
 
   const baseState = defaultState(
-    state.config.apiKey || '',
     state.config.weeklyGoalHours || 4,
     state.config.channels,
     state.config.theme,
