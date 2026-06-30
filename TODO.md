@@ -7,6 +7,7 @@ Minor changes:
 - normalize height of each row in the summary table, even when no video was watched some day
 - make the videos section buttons (status, channel filter, undo) the same height as study history summary/heatmap and week/month buttons for consistency
 - Add a Redo button
+- In the study history summary table, add a PTS column at the very right for both week and month tables
 
 Big changes:
 - Have the possibility of adding a URl corresponding to a video I've watched that is not present in the video channels
