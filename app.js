@@ -1560,6 +1560,7 @@ function toggleHistoryVideoPopover(event) {
   const cell = event.currentTarget.closest('.history-video-cell')
   if (!cell) return
   const shouldOpen = !cell.classList.contains('open')
+  closeHistoryPeriodPopovers()
   closeHistoryVideoPopovers(cell)
   cell.classList.toggle('open', shouldOpen)
   event.currentTarget.setAttribute('aria-expanded', String(shouldOpen))
@@ -1610,6 +1611,7 @@ function renderStudyHistoryPanel(s) {
 
   document.querySelectorAll('.history-range-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.historyRange === selectedHistoryRange)
+    btn.setAttribute('aria-expanded', String(btn.closest('.history-period-cell')?.classList.contains('open') || false))
   })
   document.querySelectorAll('.history-view-btn').forEach(btn => {
     const isActive = btn.dataset.historyView === selectedHistoryView
@@ -1617,8 +1619,8 @@ function renderStudyHistoryPanel(s) {
     btn.setAttribute('aria-selected', String(isActive))
   })
 
-  renderHistoryPeriodSelect('week', 'historyWeekPeriodSelect', s || { videos: {}, anki: {} })
-  renderHistoryPeriodSelect('month', 'historyMonthPeriodSelect', s || { videos: {}, anki: {} })
+  renderHistoryPeriodPopover('week', 'historyWeekPeriodPopover', s || { videos: {}, anki: {} })
+  renderHistoryPeriodPopover('month', 'historyMonthPeriodPopover', s || { videos: {}, anki: {} })
 
   const history = getStudyHistory(s || { videos: {}, anki: {} })
   setText('historyStudyTime', formatHistoryTime(history.summary.secondsWatched))
@@ -1935,20 +1937,54 @@ function setHistoryRange(range) {
   renderStudyHistoryPanel(loadState())
 }
 
-function renderHistoryPeriodSelect(range, selectId, state) {
+function renderHistoryPeriodPopover(range, popoverId, state) {
   const options = range === selectedHistoryRange ? syncHistoryPeriodSelection(state) : getHistoryPeriodOptions(state, range)
-  const select = document.getElementById(selectId)
-  if (!select) return
-  select.innerHTML = options.length
-    ? options.map(option => `<option value="${escHtml(option.key)}">${escHtml(option.label)}</option>`).join('')
-    : '<option value="">No activity yet</option>'
-  select.value = selectedHistoryPeriod[range] || options[0]?.key || ''
-  select.disabled = !options.length
+  const popover = document.getElementById(popoverId)
+  if (!popover) return
+  popover.innerHTML = options.length
+    ? options.map(option => `
+        <button type="button" class="history-period-option ${selectedHistoryPeriod[range] === option.key ? 'active' : ''}" onclick="setHistoryPeriodForRange('${range}', '${escHtml(option.key)}')" aria-pressed="${selectedHistoryPeriod[range] === option.key}">
+          ${escHtml(option.label)}
+        </button>
+      `).join('')
+    : '<span class="history-period-empty">No activity yet</span>'
+}
+
+function toggleHistoryPeriodPopover(event, range) {
+  event.stopPropagation()
+  selectedHistoryRange = HISTORY_RANGES.includes(range) ? range : 'week'
+  const cell = event.currentTarget.closest('.history-period-cell')
+  if (!cell) return
+  const shouldOpen = !cell.classList.contains('open')
+  closeHistoryVideoPopovers()
+  closeHistoryPeriodPopovers(cell)
+  cell.classList.toggle('open', shouldOpen)
+  event.currentTarget.setAttribute('aria-expanded', String(shouldOpen))
+  renderStudyHistoryPanel(loadState())
+}
+
+function closeHistoryPeriodPopovers(exceptCell = null) {
+  document.querySelectorAll('.history-period-cell.open').forEach(cell => {
+    if (cell === exceptCell) return
+    cell.classList.remove('open')
+    cell.querySelector('.history-range-btn')?.setAttribute('aria-expanded', 'false')
+  })
+}
+
+function closeHistoryPeriodPopoversOnOutsideClick(event) {
+  if (event.target.closest('.history-period-cell')) return
+  closeHistoryPeriodPopovers()
+}
+
+function closeHistoryPeriodPopoversOnEscape(event) {
+  if (event.key !== 'Escape') return
+  closeHistoryPeriodPopovers()
 }
 
 function setHistoryPeriodForRange(range, periodKey) {
   selectedHistoryRange = HISTORY_RANGES.includes(range) ? range : 'week'
   selectedHistoryPeriod[selectedHistoryRange] = periodKey || null
+  closeHistoryPeriodPopovers()
   renderStudyHistoryPanel(loadState())
 }
 
@@ -3001,7 +3037,9 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 document.addEventListener('DOMContentLoaded', init)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
 document.addEventListener('click', closeHistoryVideoPopoversOnOutsideClick)
+document.addEventListener('click', closeHistoryPeriodPopoversOnOutsideClick)
 document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
 document.addEventListener('click', clearCityWaveformPreviewOnOutsideClick)
 document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
+document.addEventListener('keydown', closeHistoryPeriodPopoversOnEscape)
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)

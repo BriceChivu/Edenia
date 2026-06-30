@@ -6,6 +6,7 @@ Minor changes:
 - make the blur transition from the top pannel even more progressive, i.e., less abrupt.
 - For the Undo button, if I click on it, the pop up stays and then I should be able to choose which action to undo from the list
 - Possibility of adding the timestamp of the video I started to watch (which is now in progress) so that I know where to continue next time
+- In the video watched popup inside the study summary table, allow me to click on the video to jump to where that video is (i.e., in the watched section) and quickly flash the video card so that I know where to look at
 
 Big changes:
 - Have the possibility of adding a URl corresponding to a video I've watched that is not present in the video channels
