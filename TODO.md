@@ -6,6 +6,7 @@ Minor changes:
 - For the Undo button, if I click on it, the pop up stays and then I should be able to choose which action to undo from the list
 - normalize height of each row in the summary table, even when no video was watched some day
 - make the videos section buttons (status, channel filter, undo) the same height as study history summary/heatmap and week/month buttons for consistency
+- Add a Redo button
 
 Big changes:
 - Have the possibility of adding a URl corresponding to a video I've watched that is not present in the video channels
