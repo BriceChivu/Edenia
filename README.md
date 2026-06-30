@@ -29,14 +29,40 @@ The app can also be opened from `index.html` directly, but new feature testing s
 
 ## Setup
 
-1. Open the app.
-2. Click the settings button.
-3. Add your YouTube API key. The app does not include a bundled key.
-4. Set the weekly goal in hours.
-5. Add YouTube channel IDs.
-6. Click `Refresh` to load the latest videos.
+1. Copy `config.example.js` to `config.local.js`.
+2. Paste the shared YouTube API key into `config.local.js`.
+3. Open the app.
+4. Click the settings button.
+5. Set the weekly goal in hours.
+6. Add YouTube channel IDs.
+
+Edenia loads YouTube videos automatically on startup when the feed has never been fetched or when the last successful fetch is at least 5 hours old. The shared key is not saved in browser storage.
 
 Settings are saved on the fly. There is no separate save button.
+
+## Shared YouTube API Key
+
+`config.local.js` is intentionally ignored by Git so the real shared key is not committed. For a hosted static deployment, the key is still visible to browsers because frontend code and config files are delivered to users. Treat it as a public restricted key, not a secret.
+
+Recommended Google Cloud restrictions:
+
+1. Restrict the key to **YouTube Data API v3** only.
+2. Restrict browser usage to the exact hosted domain with HTTP referrers.
+3. Set quota alerts and review usage regularly.
+4. Keep a second restricted key available for rotation.
+
+## GitHub Pages Deployment
+
+The GitHub Pages workflow generates `config.local.js` during deployment from a repository secret. The real key stays out of Git history, but the deployed website still serves it to browsers, so the Google Cloud restrictions above are required.
+
+To set it up:
+
+1. In GitHub, open the repository settings.
+2. Go to **Secrets and variables** -> **Actions**.
+3. Add a repository secret named `YOUTUBE_API_KEY`.
+4. Paste the restricted YouTube API key as the value.
+5. Go to **Pages** and set the source to **GitHub Actions**.
+6. Push to `main` or `master`, or run the `Deploy GitHub Pages` workflow manually.
 
 ## YouTube Channels
 
@@ -48,7 +74,7 @@ To find one:
 2. Use the share menu and choose `Copy channel ID`, or inspect a URL like `youtube.com/channel/UCxxxxxxxx`.
 3. Paste the ID into the settings panel and click `Add`.
 
-On refresh, Edenia fetches a small recent batch from each channel's uploads playlist, stores the latest active video records, and updates channel display names from the YouTube API when available. It reuses cached video records and durations where possible to keep YouTube API usage lower.
+On refresh, Study Build fetches a small recent batch from each channel's uploads playlist, stores the latest active video records, and updates channel display names from the YouTube API when available. It reuses cached video records and durations where possible to keep YouTube API usage lower.
 
 ## Watch Status
 
@@ -114,7 +140,7 @@ Primary storage:
 
 The stored object includes:
 
-- `config`: API key, weekly goal, theme, configured channels, and removed default-channel IDs.
+- `config`: weekly goal, theme, configured channels, and removed default-channel IDs.
 - `videos`: video records keyed by YouTube video ID. This is where watched/in-progress/unwatched status lives.
 - `videos[videoId].status`: one of `unwatched`, `watch-later`, `partial`, or `watched`.
 - `videos[videoId].watchedAt`: local timestamp used for weekly progress and watched history.
@@ -165,7 +191,7 @@ Recommended workflow:
 4. Test again after using `Reset everything` for a clean local state.
 5. Confirm that settings changes persist without a save button.
 6. Confirm that video status changes update weekly totals, streak state, watched history, and undo behavior.
-7. Confirm that refresh still preserves existing video status.
+7. Confirm that automatic refresh still preserves existing video status.
 8. If testing Anki features, keep Anki open with AnkiConnect installed and wait for the automatic refresh.
 
 If a change works in another browser but not Chrome, first try `Cmd + Shift + R` on `http://localhost:8000/` to force Chrome to reload the local files instead of cached copies.

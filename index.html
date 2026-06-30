@@ -4,11 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Edenia</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/png" href="Edenia_favicon_round.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css?v=20260629-6">
+  <script src="config.local.js"></script>
 </head>
 <body>
 
@@ -25,7 +26,7 @@
 
       <div class="settings-group">
         <label>API Key</label>
-        <input type="password" id="settingsApiKey" autocomplete="off" autocapitalize="off" spellcheck="false" oninput="saveSettingsOnTheFly()">
+        <input type="password" id="settingsApiKey" autocomplete="off" oninput="saveSettingsOnTheFly()">
       </div>
 
       <div class="settings-group">
@@ -208,11 +209,10 @@
             <button class="btn-secondary undo-btn" id="undoBtn" onclick="undoLastVideoAction()" aria-describedby="undoTooltip" disabled>Undo</button>
             <div class="undo-tooltip" id="undoTooltip" role="tooltip">Nothing to undo</div>
           </div>
-          <button class="btn-secondary" id="refreshBtn" onclick="refreshFeed()">↻ Refresh</button>
         </div>
       </div>
       <div class="video-grid" id="videoGrid">
-        <div class="empty-state">No videos yet — click ↻ Refresh to load your feed.</div>
+        <div class="empty-state">No videos yet. Edenia loads your feed automatically.</div>
       </div>
       <div class="watched-section" id="watchedSection">
         <div class="section-header">
