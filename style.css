@@ -289,17 +289,17 @@ body[data-theme="dark"] .reset-confirm {
 .app-header::before {
   -webkit-backdrop-filter: blur(3px) saturate(1.03);
   backdrop-filter: blur(3px) saturate(1.03);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 100%);
-  background: linear-gradient(to bottom, rgba(223,248,255,0.62), rgba(223,248,255,0));
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.94) 38%, rgba(0,0,0,0.68) 64%, rgba(0,0,0,0.26) 86%, transparent 100%);
+  background: linear-gradient(to bottom, rgba(223,248,255,0.62) 0%, rgba(223,248,255,0.44) 48%, rgba(223,248,255,0.18) 78%, rgba(223,248,255,0) 100%);
   content: "";
-  inset: 0 0 -18px;
-  mask-image: linear-gradient(to bottom, #000 0%, #000 58%, transparent 100%);
+  inset: 0 0 -38px;
+  mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.94) 38%, rgba(0,0,0,0.68) 64%, rgba(0,0,0,0.26) 86%, transparent 100%);
   pointer-events: none;
   position: absolute;
   z-index: 0;
 }
 body[data-theme="dark"] .app-header::before {
-  background: linear-gradient(to bottom, rgba(7,23,29,0.62), rgba(7,23,29,0));
+  background: linear-gradient(to bottom, rgba(7,23,29,0.62) 0%, rgba(7,23,29,0.44) 48%, rgba(7,23,29,0.18) 78%, rgba(7,23,29,0) 100%);
 }
 .header-left {
   display: flex;
