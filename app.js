@@ -1252,44 +1252,32 @@ function pushUndoAction(s, action) {
 function undoLastVideoAction() {
   const s = loadState()
   normalizeUndoState(s)
-  const undo = s.undoStack.pop()
-  if (undo?.type !== 'video-status') {
-    showToast('Nothing to undo', 'warn')
-    return
-  }
-
-  const video = s.videos[undo.videoId]
-  if (!video) {
-    saveState(s)
-    renderAll(s)
-    showToast('That video is no longer available', 'warn')
-    return
-  }
-
-  video.status = undo.before.status
-  video.watchedAt = undo.before.watchedAt
-  video.resumeAtSeconds = normalizeResumeAtSeconds(undo.before.resumeAtSeconds, video.duration)
-  s.redoStack.push(undo)
-  if (s.redoStack.length > UNDO_STACK_LIMIT) {
-    s.redoStack.splice(0, s.redoStack.length - UNDO_STACK_LIMIT)
-  }
-  syncStreak(s)
-
-  saveState(s)
-  renderAll(s)
-  showToast(`Undid change: "${formatToastTitle(video.title)}" is back to ${formatVideoStatus(undo.before.status)}.`)
+  applyHistoryAction('undo', s.undoStack.length - 1)
 }
 
 function redoLastVideoAction() {
   const s = loadState()
   normalizeUndoState(s)
-  const redo = s.redoStack.pop()
-  if (redo?.type !== 'video-status') {
-    showToast('Nothing to redo', 'warn')
+  applyHistoryAction('redo', s.redoStack.length - 1)
+}
+
+function applyHistoryAction(direction, actionIndex) {
+  const s = loadState()
+  normalizeUndoState(s)
+  const sourceStack = direction === 'redo' ? s.redoStack : s.undoStack
+  const targetStack = direction === 'redo' ? s.undoStack : s.redoStack
+  const index = Number(actionIndex)
+  const action = sourceStack[index]
+
+  if (action?.type !== 'video-status') {
+    showToast(direction === 'redo' ? 'Nothing to redo' : 'Nothing to undo', 'warn')
     return
   }
 
-  const video = s.videos[redo.videoId]
+  sourceStack.splice(index, 1)
+  const targetSnapshot = direction === 'redo' ? action.after : action.before
+  const video = applyVideoStatusActionSnapshot(s, action.videoId, targetSnapshot)
+
   if (!video) {
     saveState(s)
     renderAll(s)
@@ -1297,18 +1285,30 @@ function redoLastVideoAction() {
     return
   }
 
-  video.status = redo.after.status
-  video.watchedAt = redo.after.watchedAt
-  video.resumeAtSeconds = normalizeResumeAtSeconds(redo.after.resumeAtSeconds, video.duration)
-  s.undoStack.push(redo)
-  if (s.undoStack.length > UNDO_STACK_LIMIT) {
-    s.undoStack.splice(0, s.undoStack.length - UNDO_STACK_LIMIT)
+  targetStack.push(action)
+  if (targetStack.length > UNDO_STACK_LIMIT) {
+    targetStack.splice(0, targetStack.length - UNDO_STACK_LIMIT)
   }
   syncStreak(s)
 
+  closeHistoryActionPopovers()
   saveState(s)
   renderAll(s)
-  showToast(`Redid change: "${formatToastTitle(video.title)}" is back to ${formatVideoStatus(redo.after.status)}.`)
+  showToast(formatHistoryActionToast(direction, video, targetSnapshot))
+}
+
+function applyVideoStatusActionSnapshot(s, videoId, snapshot) {
+  const video = s.videos?.[videoId]
+  if (!video || !snapshot) return null
+  video.status = snapshot.status
+  video.watchedAt = snapshot.watchedAt
+  video.resumeAtSeconds = normalizeResumeAtSeconds(snapshot.resumeAtSeconds, video.duration)
+  return video
+}
+
+function formatHistoryActionToast(direction, video, snapshot) {
+  const verb = direction === 'redo' ? 'Redid' : 'Undid'
+  return `${verb} change: "${formatToastTitle(video.title)}" is back to ${formatVideoStatus(snapshot.status)}.`
 }
 
 function dateKeyToLocalDate(dateKey) {
@@ -2897,28 +2897,34 @@ function renderHistoryActionButton({ buttonId, tooltipId, actions, state, label,
   if (!btn) return
   const count = actions.length
   const canUse = count > 0
+  const wrap = btn.closest('.undo-action-wrap')
   btn.disabled = !canUse
   btn.textContent = count > 1 ? `${label} (${count})` : label
   btn.title = canUse ? `${titleVerb} (${count} available)` : emptyTitle
+  if (!canUse) wrap?.classList.remove('open')
+  btn.setAttribute('aria-expanded', String(Boolean(canUse && wrap?.classList.contains('open'))))
   if (tooltip) tooltip.innerHTML = renderHistoryActionTooltip(actions, state, emptyTitle, queueTitle, direction)
 }
 
 function renderHistoryActionTooltip(actions, s, emptyTitle, queueTitle, direction) {
-  actions = Array.isArray(actions) ? actions.slice().reverse() : []
-  if (!actions.length) {
+  const indexedActions = Array.isArray(actions)
+    ? actions.map((action, index) => ({ action, index })).reverse()
+    : []
+  if (!indexedActions.length) {
     return `<div class="undo-tooltip-title">${escHtml(emptyTitle)}</div>`
   }
 
-  const visibleActions = actions.slice(0, 8)
-  const hiddenCount = actions.length - visibleActions.length
+  const visibleActions = indexedActions.slice(0, 8)
+  const hiddenCount = indexedActions.length - visibleActions.length
   return `
     <div class="undo-tooltip-title">${escHtml(queueTitle)}</div>
-    ${visibleActions.map(action => renderHistoryActionTooltipItem(action, s, direction)).join('')}
+    ${visibleActions.map(entry => renderHistoryActionTooltipItem(entry, s, direction)).join('')}
     ${hiddenCount > 0 ? `<div class="undo-tooltip-more">+ ${hiddenCount} older ${hiddenCount === 1 ? 'action' : 'actions'}</div>` : ''}
   `
 }
 
-function renderHistoryActionTooltipItem(action, s, direction) {
+function renderHistoryActionTooltipItem(entry, s, direction) {
+  const { action, index } = entry
   const video = s.videos?.[action.videoId]
   const title = video?.title || 'Unavailable video'
   const fromStatus = direction === 'redo'
@@ -2931,11 +2937,45 @@ function renderHistoryActionTooltipItem(action, s, direction) {
     ? `${fromStatus} → ${toStatus}`
     : `${fromStatus} → back to ${toStatus}`
   return `
-    <div class="undo-tooltip-item">
+    <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
       <span class="undo-tooltip-video">${escHtml(title)}</span>
       <span class="undo-tooltip-action">${escHtml(actionText)}</span>
-    </div>
+    </button>
   `
+}
+
+function toggleHistoryActionPopover(event, direction) {
+  event.stopPropagation()
+  const btn = event.currentTarget
+  if (!btn || btn.disabled) return
+  const wrap = btn.closest('.undo-action-wrap')
+  if (!wrap) return
+  const shouldOpen = !wrap.classList.contains('open')
+  closeStatusFilterMenu()
+  closeChannelFilterMenu()
+  closeHistoryVideoPopovers()
+  closeHistoryPeriodPopovers()
+  closeHistoryActionPopovers(wrap)
+  wrap.classList.toggle('open', shouldOpen)
+  btn.setAttribute('aria-expanded', String(shouldOpen))
+}
+
+function closeHistoryActionPopovers(exceptWrap = null) {
+  document.querySelectorAll('.undo-action-wrap.open').forEach(wrap => {
+    if (wrap === exceptWrap) return
+    wrap.classList.remove('open')
+    wrap.querySelector('.undo-btn')?.setAttribute('aria-expanded', 'false')
+  })
+}
+
+function closeHistoryActionPopoversOnOutsideClick(event) {
+  if (event.target.closest('.undo-action-wrap')) return
+  closeHistoryActionPopovers()
+}
+
+function closeHistoryActionPopoversOnEscape(event) {
+  if (event.key !== 'Escape') return
+  closeHistoryActionPopovers()
 }
 
 function renderStatusFilterOptions(allVideos = [], channelFilters = null) {
@@ -3248,8 +3288,10 @@ document.addEventListener('DOMContentLoaded', init)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
 document.addEventListener('click', closeHistoryVideoPopoversOnOutsideClick)
 document.addEventListener('click', closeHistoryPeriodPopoversOnOutsideClick)
+document.addEventListener('click', closeHistoryActionPopoversOnOutsideClick)
 document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
 document.addEventListener('click', clearCityWaveformPreviewOnOutsideClick)
 document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryPeriodPopoversOnEscape)
+document.addEventListener('keydown', closeHistoryActionPopoversOnEscape)
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
