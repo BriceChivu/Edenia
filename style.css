@@ -1665,6 +1665,51 @@ body[data-theme="dark"] .dur-badge { color: #ffffff; }
   font-weight: 700;
   line-height: 1;
 }
+.resume-time-field {
+  align-items: center;
+  align-self: flex-start;
+  background: rgba(255,255,255,0.48);
+  border: 1px solid rgba(5,5,5,0.14);
+  border-radius: 999px;
+  color: var(--muted);
+  display: inline-flex;
+  gap: 5px;
+  margin-top: 6px;
+  max-width: 100%;
+  padding: 4px 7px;
+}
+.resume-time-field span {
+  flex: 0 0 auto;
+  font-size: 0.64rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.resume-time-field input {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  line-height: 1;
+  min-width: 4.5ch;
+  outline: 0;
+  padding: 0;
+  width: 7ch;
+}
+.resume-time-field input::placeholder {
+  color: var(--muted);
+  opacity: 0.72;
+}
+.resume-time-field:focus-within {
+  background: var(--surface-hi);
+  border-color: var(--planet-black);
+  box-shadow: 0 0 0 3px rgba(252,184,49,0.22);
+}
+body[data-theme="dark"] .resume-time-field {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.16);
+}
 .card-status {
   align-self: flex-start;
   border-radius: 999px;

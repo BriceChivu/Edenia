@@ -400,6 +400,34 @@ function formatDuration(secs) {
   return h ? `${h}:${z(m)}:${z(s)}` : `${m}:${z(s)}`
 }
 
+function parseResumeTimestamp(value, duration = null) {
+  const raw = String(value ?? '').trim()
+  if (!raw) return null
+
+  if (/^\d+$/.test(raw)) {
+    return normalizeResumeAtSeconds(Number(raw), duration)
+  }
+
+  const parts = raw.split(':')
+  if (parts.length < 2 || parts.length > 3 || !parts.every(part => /^\d+$/.test(part))) return NaN
+
+  const nums = parts.map(part => Number(part))
+  const seconds = nums.length === 3
+    ? (nums[0] * 3600) + (nums[1] * 60) + nums[2]
+    : (nums[0] * 60) + nums[1]
+  return normalizeResumeAtSeconds(seconds, duration)
+}
+
+function formatResumeTimestamp(seconds) {
+  const normalized = normalizeResumeAtSeconds(seconds)
+  if (normalized === null) return ''
+  const h = Math.floor(normalized / 3600)
+  const m = Math.floor((normalized % 3600) / 60)
+  const s = normalized % 60
+  const z = n => String(n).padStart(2, '0')
+  return h ? `${h}:${z(m)}:${z(s)}` : `${m}:${z(s)}`
+}
+
 function getWeekLabel(state = null) {
   const start = getWeekStart(getCurrentAppDate(state))
   const end   = new Date(start)
@@ -874,6 +902,14 @@ function normalizeVideoStatus(status) {
   return VIDEO_STATUSES.includes(status) ? status : 'unwatched'
 }
 
+function normalizeResumeAtSeconds(value, duration = null) {
+  const seconds = Number(value)
+  if (!Number.isFinite(seconds) || seconds < 0) return null
+  const rounded = Math.floor(seconds)
+  if (Number.isFinite(duration) && duration > 0) return Math.min(rounded, Math.max(0, duration - 1))
+  return rounded
+}
+
 function isActiveRefreshVideo(video) {
   return getVideoStatus(video) !== 'watched'
 }
@@ -1038,7 +1074,8 @@ async function refreshFeed({ silent = false } = {}) {
         ...v,
         duration:   durations[v.id] ?? existing?.duration ?? 0,
         status:     existing?.status    ?? 'unwatched',
-        watchedAt:  existing?.watchedAt ?? null
+        watchedAt:  existing?.watchedAt ?? null,
+        resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, durations[v.id] ?? existing?.duration ?? 0)
       }
     })
 
@@ -1079,7 +1116,8 @@ function markVideo(videoId, newStatus) {
     videoId,
     before: {
       status: video.status,
-      watchedAt: video.watchedAt || null
+      watchedAt: video.watchedAt || null,
+      resumeAtSeconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
     },
     after: {
       status: newStatus
@@ -1088,7 +1126,11 @@ function markVideo(videoId, newStatus) {
 
   video.status    = newStatus
   video.watchedAt = newStatus === 'watched' ? new Date().toISOString() : null
+  video.resumeAtSeconds = newStatus === 'partial'
+    ? normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
+    : null
   undoAction.after.watchedAt = video.watchedAt
+  undoAction.after.resumeAtSeconds = video.resumeAtSeconds
   pushUndoAction(s, undoAction)
 
   syncStreak(s)
@@ -1107,19 +1149,39 @@ function markVideoInProgressOnOpen(videoId) {
     videoId,
     before: {
       status: video.status,
-      watchedAt: video.watchedAt || null
+      watchedAt: video.watchedAt || null,
+      resumeAtSeconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
     },
     after: {
       status: 'partial',
-      watchedAt: null
+      watchedAt: null,
+      resumeAtSeconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
     }
   })
 
   video.status = 'partial'
   video.watchedAt = null
+  video.resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
 
   saveState(s)
   setTimeout(() => renderAll(loadState()), 0)
+}
+
+function saveVideoResumeTime(videoId, value) {
+  const s = loadState()
+  const video = s?.videos?.[videoId]
+  if (!video || getVideoStatus(video) !== 'partial') return
+
+  const parsed = parseResumeTimestamp(value, video.duration)
+  if (Number.isNaN(parsed)) {
+    showToast('Use a timestamp like 12:34 or 1:02:03', 'warn')
+    renderAll(s)
+    return
+  }
+
+  video.resumeAtSeconds = parsed
+  saveState(s)
+  renderAll(s)
 }
 
 function pushUndoAction(s, action) {
@@ -1148,6 +1210,7 @@ function undoLastVideoAction() {
 
   video.status = undo.before.status
   video.watchedAt = undo.before.watchedAt
+  video.resumeAtSeconds = normalizeResumeAtSeconds(undo.before.resumeAtSeconds, video.duration)
   syncStreak(s)
 
   saveState(s)
@@ -2965,6 +3028,7 @@ function renderCard(v, compact = false) {
   const watchLaterNextStatus = isWatchLater ? 'unwatched' : 'watch-later'
   const watchedLabel = compact ? 'Unmark' : `✓ ${isWatched ? 'Watched' : 'Mark watched'}`
   const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
+  const resumeAtValue = isPartial ? formatResumeTimestamp(v.resumeAtSeconds) : ''
   return `
     <div class="video-card ${compact ? 'compact-card' : ''} status-${status}">
       <a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">
@@ -2982,6 +3046,19 @@ function renderCard(v, compact = false) {
         <div class="card-copy">
           <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
           ${watchedAtLabel ? `<div class="card-watched-at">${escHtml(watchedAtLabel)}</div>` : ''}
+          ${isPartial ? `
+            <label class="resume-time-field">
+              <span>Continue at</span>
+              <input type="text"
+                value="${escHtml(resumeAtValue)}"
+                placeholder="0:00"
+                inputmode="text"
+                data-video-id="${safeVideoId}"
+                onchange="saveVideoResumeTime(this.dataset.videoId, this.value)"
+                onkeydown="if (event.key === 'Enter') this.blur()"
+                aria-label="Continue watching timestamp">
+            </label>
+          ` : ''}
         </div>
         <div class="card-meta">
           <span class="channel-name">${escHtml(v.channelTitle || '')}</span>
