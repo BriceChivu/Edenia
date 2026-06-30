@@ -1,6 +1,6 @@
 # CHANGES:
 Minor changes:
-
+- In the study history section summary, make it possible to select the week or the month. Make the selection design subtle and clean, so that it matches the rest of the website. E.g., I could select December. Make it so I can only select months or weeks where at least 1 study activity was done
 
 Big changes:
 
