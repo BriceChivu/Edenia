@@ -33,6 +33,13 @@ const MIN_DAILY_STREAK_POINTS = 3
 const UNDO_STACK_LIMIT = 50
 const MIN_WEEKLY_GOAL_HOURS = 1
 const MAX_WEEKLY_GOAL_HOURS = 99
+const VIDEO_HOUR_POINTS = 5
+const VIDEO_WATCHED_POINTS = 1
+const ANKI_REVIEW_CHUNK_SIZE = 60
+const ANKI_REVIEW_CHUNK_POINTS = 3
+const ANKI_CREATED_CHUNK_SIZE = 12
+const ANKI_CREATED_CHUNK_POINTS = 4
+const SCORING_RULES_VERSION = 2
 const CITY_LEVELS = [
   { threshold: 0, label: '🏠 Lonely house' },
   { threshold: 5, label: '⛵ Your house got a fresh new look! Plus a boat!' },
@@ -286,11 +293,15 @@ function normalizeCityProgress(state) {
   const pendingLevelIndex = Number.isInteger(currentProgress.pendingLevelIndex)
     ? currentProgress.pendingLevelIndex
     : null
+  const scoringVersion = Number.isInteger(currentProgress.scoringVersion)
+    ? currentProgress.scoringVersion
+    : 1
   state.cityProgress = {
     maxLevelIndex: clampNumber(revealedLevelIndex, 0, CITY_LEVELS.length - 1),
     pendingLevelIndex: pendingLevelIndex === null
       ? null
-      : clampNumber(pendingLevelIndex, 0, CITY_LEVELS.length - 1)
+      : clampNumber(pendingLevelIndex, 0, CITY_LEVELS.length - 1),
+    scoringVersion
   }
   if (state.cityProgress.pendingLevelIndex !== null && state.cityProgress.pendingLevelIndex <= state.cityProgress.maxLevelIndex) {
     state.cityProgress.pendingLevelIndex = null
@@ -682,13 +693,13 @@ function makeSandboxActivityForScore(scoreTarget) {
     remaining -= 1
   }
 
-  const createdChunks = remaining >= 4 ? randomInt(0, Math.floor(remaining / 4)) : 0
-  const created = createdChunks * 10 + (createdChunks ? randomInt(0, 9) : randomInt(0, 4))
-  remaining -= createdChunks * 4
+  const createdChunks = remaining >= ANKI_CREATED_CHUNK_POINTS ? randomInt(0, Math.floor(remaining / ANKI_CREATED_CHUNK_POINTS)) : 0
+  const created = createdChunks * ANKI_CREATED_CHUNK_SIZE + (createdChunks ? randomInt(0, ANKI_CREATED_CHUNK_SIZE - 1) : randomInt(0, 4))
+  remaining -= createdChunks * ANKI_CREATED_CHUNK_POINTS
 
-  const reviewedChunks = remaining >= 3 ? randomInt(0, Math.floor(remaining / 3)) : 0
-  const reviewed = reviewedChunks * 50 + randomInt(0, 49)
-  remaining -= reviewedChunks * 3
+  const reviewedChunks = remaining >= ANKI_REVIEW_CHUNK_POINTS ? randomInt(0, Math.floor(remaining / ANKI_REVIEW_CHUNK_POINTS)) : 0
+  const reviewed = reviewedChunks * ANKI_REVIEW_CHUNK_SIZE + randomInt(0, ANKI_REVIEW_CHUNK_SIZE - 1)
+  remaining -= reviewedChunks * ANKI_REVIEW_CHUNK_POINTS
 
   if (remaining > 0) {
     const extraVideoCount = randomInt(0, Math.min(2, remaining))
@@ -1796,10 +1807,10 @@ function getHistoryHeatLevel(row) {
 function getHistoryDayPoints(row) {
   const hoursWatched = row.secondsWatched / 3600
   const score =
-    (hoursWatched * 5) +
-    row.videosWatched +
-    (Math.floor(row.ankiReviewed / 50) * 3) +
-    (Math.floor(row.ankiCreated / 10) * 4)
+    (hoursWatched * VIDEO_HOUR_POINTS) +
+    (row.videosWatched * VIDEO_WATCHED_POINTS) +
+    (Math.floor(row.ankiReviewed / ANKI_REVIEW_CHUNK_SIZE) * ANKI_REVIEW_CHUNK_POINTS) +
+    (Math.floor(row.ankiCreated / ANKI_CREATED_CHUNK_SIZE) * ANKI_CREATED_CHUNK_POINTS)
   return Math.floor(score)
 }
 
@@ -1989,10 +2000,10 @@ function getCurrentCityScore(s) {
 
 function calcCityScoreWithoutStreak(stats) {
   let score = 0
-  score += stats.hoursWatched * 5                        // 5 pts per hour
-  score += stats.videosWatched                           // 1 pt per watched video
-  score += Math.floor(stats.ankiReviewed / 50) * 3      // 3 pts per 50 reviews
-  score += Math.floor(stats.ankiCreated  / 10) * 4      // 4 pts per 10 new cards
+  score += stats.hoursWatched * VIDEO_HOUR_POINTS
+  score += stats.videosWatched * VIDEO_WATCHED_POINTS
+  score += Math.floor(stats.ankiReviewed / ANKI_REVIEW_CHUNK_SIZE) * ANKI_REVIEW_CHUNK_POINTS
+  score += Math.floor(stats.ankiCreated / ANKI_CREATED_CHUNK_SIZE) * ANKI_CREATED_CHUNK_POINTS
   return Math.floor(score)
 }
 
@@ -2208,15 +2219,23 @@ function updatePersistentCityLevel(s, score) {
   const previous = JSON.stringify(s.cityProgress || {})
   normalizeCityProgress(s)
   const earnedLevelIndex = getCityLevelIndex(score)
-  if (earnedLevelIndex > s.cityProgress.maxLevelIndex) {
+  const scoringRulesChanged = s.cityProgress.scoringVersion !== SCORING_RULES_VERSION
+  if (scoringRulesChanged && earnedLevelIndex < s.cityProgress.maxLevelIndex) {
+    s.cityProgress.maxLevelIndex = earnedLevelIndex
+    s.cityProgress.pendingLevelIndex = null
+  } else if (earnedLevelIndex > s.cityProgress.maxLevelIndex) {
     const nextLevelIndex = s.cityProgress.maxLevelIndex + 1
     s.cityProgress.pendingLevelIndex = Math.min(
       Math.max(s.cityProgress.pendingLevelIndex || nextLevelIndex, nextLevelIndex),
       earnedLevelIndex
     )
-  } else if (s.cityProgress.pendingLevelIndex && s.cityProgress.pendingLevelIndex <= s.cityProgress.maxLevelIndex) {
+  } else if (
+    s.cityProgress.pendingLevelIndex &&
+    (s.cityProgress.pendingLevelIndex <= s.cityProgress.maxLevelIndex || s.cityProgress.pendingLevelIndex > earnedLevelIndex)
+  ) {
     s.cityProgress.pendingLevelIndex = null
   }
+  s.cityProgress.scoringVersion = SCORING_RULES_VERSION
   if (JSON.stringify(s.cityProgress) !== previous) {
     saveState(s)
   }
