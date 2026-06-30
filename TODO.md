@@ -7,6 +7,7 @@ Minor changes:
 - Possibility of adding the timestamp of the video I started to watch (which is now in progress) so that I know where to continue next time
 - In the video watched popup inside the study summary table, allow me to click on the video to jump to where that video is (i.e., in the watched section) and quickly flash the video card so that I know where to look at
 - make the week/month button the same legnth as summary/heatmap button so they align nicely
+- normalize height of each row in the summary table, even when no video was watched some day
 
 Big changes:
 - Have the possibility of adding a URl corresponding to a video I've watched that is not present in the video channels
