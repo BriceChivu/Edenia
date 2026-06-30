@@ -851,7 +851,15 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   color: var(--muted);
 }
 .anki-status.logged { color: var(--green); }
+.history-period-panel {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+  margin-bottom: 10px;
+}
 .history-toolbar {
+  align-items: center;
   display: inline-flex;
   align-self: flex-start;
   background: var(--surface);
@@ -861,21 +869,62 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   overflow: hidden;
 }
 .history-range-btn {
+  align-items: center;
+  appearance: none;
+  background: transparent;
   border: 0;
   border-right: 2px solid var(--planet-black);
-  background: transparent;
   color: var(--muted);
   cursor: pointer;
+  display: inline-flex;
   font-size: 0.76rem;
   font-weight: 800;
+  gap: 5px;
   line-height: 1;
-  padding: 8px 12px;
+  padding: 8px 28px 8px 12px;
+  position: relative;
+  transition: background 120ms ease, color 120ms ease;
 }
-.history-range-btn:last-child { border-right: 0; }
+.history-range-btn:last-child {
+  border-right: 0;
+}
 .history-range-btn:hover,
 .history-range-btn.active {
   background: var(--planet-lime);
   color: #243a20;
+}
+.history-range-btn::after {
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid currentColor;
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-40%);
+}
+.history-range-select {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  height: 100%;
+  min-width: 24px;
+  outline: 0;
+  padding: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 28px;
+}
+.history-range-select:disabled {
+  opacity: 0.45;
+}
+.history-range-select option {
+  color: var(--text);
 }
 .history-view-tabs {
   display: inline-flex;
@@ -1848,6 +1897,10 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
     line-height: 1.15;
   }
   .study-history-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .history-period-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
   .history-toolbar,
   .history-view-tabs {
     width: 100%;

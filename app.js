@@ -57,6 +57,7 @@ let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
 let selectedHistoryRange = 'week'
 let selectedHistoryView = 'summary'
+const selectedHistoryPeriod = { week: null, month: null }
 let selectedCityDayOffset = 0
 const CITY_IMAGE_MIN_ZOOM = 1
 const CITY_IMAGE_MAX_ZOOM = 3
@@ -1352,7 +1353,8 @@ function setText(id, value) {
   if (el) el.textContent = value ?? '—'
 }
 
-function getHistoryRange(range = selectedHistoryRange, from = new Date()) {
+function getHistoryRange(range = selectedHistoryRange, from = new Date(), state = null) {
+  const currentDate = getCurrentAppDate(state)
   const end = new Date(from)
   end.setHours(23, 59, 59, 999)
 
@@ -1360,12 +1362,21 @@ function getHistoryRange(range = selectedHistoryRange, from = new Date()) {
   if (range === 'month') {
     start.setDate(1)
     start.setHours(0, 0, 0, 0)
+    end.setMonth(start.getMonth() + 1, 0)
+    end.setHours(23, 59, 59, 999)
   } else if (range === 'week') {
     start.setTime(getWeekStart(from).getTime())
+    end.setTime(start.getTime())
+    end.setDate(start.getDate() + 6)
+    end.setHours(23, 59, 59, 999)
   } else {
     start.setHours(0, 0, 0, 0)
   }
 
+  if (end > currentDate) {
+    end.setTime(currentDate.getTime())
+    end.setHours(23, 59, 59, 999)
+  }
   return { start, end }
 }
 
@@ -1386,9 +1397,88 @@ function createHistoryBucket(dateKey) {
   }
 }
 
-function getStudyHistory(s, range = selectedHistoryRange) {
-  const { start, end } = getHistoryRange(range, getCurrentAppDate(s))
+function getStudyHistory(s, range = selectedHistoryRange, periodKey = selectedHistoryPeriod[range]) {
+  const options = getHistoryPeriodOptions(s, range)
+  const selectedOption = options.find(option => option.key === periodKey) || options[0]
+  if (!selectedOption) return { rows: [], summary: createHistoryBucket('summary') }
+  const { start, end } = getHistoryRange(range, selectedOption.start, s)
   return getStudyHistoryBetween(s, start, end)
+}
+
+function getStudyActivityDateKeys(s) {
+  const dateKeys = new Set()
+  for (const video of Object.values(s?.videos || {})) {
+    if (!video.watchedAt || video.status !== 'watched') continue
+    const date = new Date(video.watchedAt)
+    if (Number.isNaN(date.getTime())) continue
+    dateKeys.add(toDateKey(date))
+  }
+
+  for (const [dateKey, day] of Object.entries(s?.anki || {})) {
+    if ((day.reviewed || 0) <= 0 && (day.created || 0) <= 0) continue
+    dateKeys.add(dateKey)
+  }
+
+  return [...dateKeys].sort((a, b) => b.localeCompare(a))
+}
+
+function getHistoryPeriodOptions(s, range = selectedHistoryRange) {
+  const periods = new Map()
+  getStudyActivityDateKeys(s).forEach(dateKey => {
+    const date = dateKeyToLocalDate(dateKey)
+    const start = range === 'month'
+      ? new Date(date.getFullYear(), date.getMonth(), 1)
+      : getWeekStart(date)
+    const key = range === 'month'
+      ? `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`
+      : toDateKey(start)
+
+    if (!periods.has(key)) {
+      periods.set(key, {
+        key,
+        start,
+        label: range === 'month' ? formatHistoryMonthOption(start) : formatHistoryWeekOption(start)
+      })
+    }
+  })
+
+  return [...periods.values()].sort((a, b) => b.start - a.start)
+}
+
+function formatHistoryMonthOption(start) {
+  return start.toLocaleDateString('en', { month: 'long', year: 'numeric' })
+}
+
+function formatHistoryWeekOption(start) {
+  const end = addDays(start, 6)
+  const sameYear = start.getFullYear() === end.getFullYear()
+  const startText = start.toLocaleDateString('en', {
+    month: 'short',
+    day: 'numeric',
+    year: sameYear ? undefined : 'numeric'
+  })
+  const endText = end.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })
+  return `${startText} - ${endText}`
+}
+
+function syncHistoryPeriodSelection(s) {
+  const options = getHistoryPeriodOptions(s, selectedHistoryRange)
+  if (!options.length) {
+    selectedHistoryPeriod[selectedHistoryRange] = null
+    return options
+  }
+
+  const currentKey = selectedHistoryPeriod[selectedHistoryRange]
+  if (!options.some(option => option.key === currentKey)) {
+    const currentRange = getHistoryRange(selectedHistoryRange, getCurrentAppDate(s), s)
+    const currentPeriodKey = selectedHistoryRange === 'month'
+      ? `${currentRange.start.getFullYear()}-${String(currentRange.start.getMonth() + 1).padStart(2, '0')}`
+      : toDateKey(currentRange.start)
+    selectedHistoryPeriod[selectedHistoryRange] =
+      options.find(option => option.key === currentPeriodKey)?.key || options[0].key
+  }
+
+  return options
 }
 
 function getStudyHistoryBetween(s, start, end) {
@@ -1415,6 +1505,7 @@ function getStudyHistoryBetween(s, start, end) {
   }
 
   for (const [dateKey, day] of Object.entries(s.anki || {})) {
+    if ((day.reviewed || 0) <= 0 && (day.created || 0) <= 0) continue
     const date = new Date(`${dateKey}T00:00:00`)
     if (date < start || date > end) continue
     const bucket = ensureBucket(dateKey)
@@ -1525,6 +1616,9 @@ function renderStudyHistoryPanel(s) {
     btn.classList.toggle('active', isActive)
     btn.setAttribute('aria-selected', String(isActive))
   })
+
+  renderHistoryPeriodSelect('week', 'historyWeekPeriodSelect', s || { videos: {}, anki: {} })
+  renderHistoryPeriodSelect('month', 'historyMonthPeriodSelect', s || { videos: {}, anki: {} })
 
   const history = getStudyHistory(s || { videos: {}, anki: {} })
   setText('historyStudyTime', formatHistoryTime(history.summary.secondsWatched))
@@ -1838,6 +1932,23 @@ function renderAnkiStatus(s) {
 
 function setHistoryRange(range) {
   selectedHistoryRange = HISTORY_RANGES.includes(range) ? range : 'week'
+  renderStudyHistoryPanel(loadState())
+}
+
+function renderHistoryPeriodSelect(range, selectId, state) {
+  const options = range === selectedHistoryRange ? syncHistoryPeriodSelection(state) : getHistoryPeriodOptions(state, range)
+  const select = document.getElementById(selectId)
+  if (!select) return
+  select.innerHTML = options.length
+    ? options.map(option => `<option value="${escHtml(option.key)}">${escHtml(option.label)}</option>`).join('')
+    : '<option value="">No activity yet</option>'
+  select.value = selectedHistoryPeriod[range] || options[0]?.key || ''
+  select.disabled = !options.length
+}
+
+function setHistoryPeriodForRange(range, periodKey) {
+  selectedHistoryRange = HISTORY_RANGES.includes(range) ? range : 'week'
+  selectedHistoryPeriod[selectedHistoryRange] = periodKey || null
   renderStudyHistoryPanel(loadState())
 }
 

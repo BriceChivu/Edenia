@@ -159,11 +159,19 @@
         <button type="button" class="history-view-btn active" data-history-view="summary" onclick="setHistoryView('summary')" role="tab" aria-selected="true">Summary</button>
         <button type="button" class="history-view-btn" data-history-view="heatmap" onclick="setHistoryView('heatmap')" role="tab" aria-selected="false">Heatmap</button>
       </div>
-      <div class="history-toolbar" id="historyRangeToolbar" role="group" aria-label="Study history range">
-        <button type="button" class="history-range-btn active" data-history-range="week" onclick="setHistoryRange('week')">Week</button>
-        <button type="button" class="history-range-btn" data-history-range="month" onclick="setHistoryRange('month')">Month</button>
-      </div>
       <div id="historySummaryView">
+        <div class="history-period-panel" id="historyRangeToolbar">
+          <div class="history-toolbar" role="group" aria-label="Study history range">
+            <label class="history-range-btn active" data-history-range="week" onclick="if (event.target.tagName !== 'SELECT') setHistoryRange('week')">
+              <span>Week</span>
+              <select class="history-range-select" id="historyWeekPeriodSelect" aria-label="Select week" onchange="setHistoryPeriodForRange('week', this.value)"></select>
+            </label>
+            <label class="history-range-btn" data-history-range="month" onclick="if (event.target.tagName !== 'SELECT') setHistoryRange('month')">
+              <span>Month</span>
+              <select class="history-range-select" id="historyMonthPeriodSelect" aria-label="Select month" onchange="setHistoryPeriodForRange('month', this.value)"></select>
+            </label>
+          </div>
+        </div>
         <div class="study-history-grid">
           <div class="history-stat">
             <span class="history-stat-val" id="historyStudyTime">0 min</span>
