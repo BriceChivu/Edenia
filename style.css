@@ -867,9 +867,11 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   border-radius: 999px;
   box-shadow: 0 3px 0 rgba(5,5,5,0.12);
   overflow: visible;
+  width: 178px;
 }
 .history-period-cell {
   display: inline-flex;
+  flex: 1;
   position: relative;
 }
 .history-range-btn {
@@ -881,9 +883,11 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   color: var(--muted);
   cursor: pointer;
   display: inline-flex;
+  flex: 1;
   font-size: 0.76rem;
   font-weight: 800;
   gap: 5px;
+  justify-content: center;
   line-height: 1;
   padding: 8px 12px;
   position: relative;
@@ -966,6 +970,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   border-radius: 999px;
   box-shadow: 0 3px 0 rgba(5,5,5,0.12);
   overflow: hidden;
+  width: 178px;
 }
 .history-view-btn {
   border: 0;
@@ -973,6 +978,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   background: transparent;
   color: var(--muted);
   cursor: pointer;
+  flex: 1;
   font-size: 0.76rem;
   font-weight: 800;
   line-height: 1;
