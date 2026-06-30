@@ -1402,6 +1402,11 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   font-size: 0.82rem;
 }
 .undo-wrap {
+  display: flex;
+  gap: 6px;
+}
+.undo-action-wrap {
+  display: inline-flex;
   position: relative;
 }
 .undo-tooltip {
@@ -1426,8 +1431,8 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   width: min(300px, 82vw);
   z-index: 80;
 }
-.undo-wrap:hover .undo-tooltip,
-.undo-wrap:focus-within .undo-tooltip {
+.undo-action-wrap:hover .undo-tooltip,
+.undo-action-wrap:focus-within .undo-tooltip {
   opacity: 1;
   transform: translateY(0);
   visibility: visible;
@@ -1468,7 +1473,8 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   border-top: 1px solid var(--border);
   padding-top: 7px;
 }
-.undo-btn:disabled {
+.undo-btn:disabled,
+.redo-btn:disabled {
   cursor: not-allowed;
   opacity: 0.45;
 }
@@ -1969,9 +1975,13 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
     line-height: 1.05;
   }
   .undo-wrap {
-    flex: 1 1 92px;
+    flex: 1 1 150px;
+  }
+  .undo-action-wrap {
+    flex: 1;
   }
   .undo-btn,
+  .redo-btn,
   #refreshBtn {
     width: 100%;
   }

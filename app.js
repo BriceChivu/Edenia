@@ -213,6 +213,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
     anki:    {},   // { 'YYYY-MM-DD': { reviewed, created } }
     cityProgress: { maxLevelIndex: 0, pendingLevelIndex: null },
     undoStack: [],
+    redoStack: [],
     lastFetched: null,
     defaultChannelsVersion: DEFAULT_CHANNELS_VERSION
   }
@@ -275,10 +276,14 @@ function escapeSvgText(value) {
 function normalizeUndoState(state) {
   if (!state) return
   if (!Array.isArray(state.undoStack)) state.undoStack = []
+  if (!Array.isArray(state.redoStack)) state.redoStack = []
   if (state.lastUndo?.type === 'video-status' && !state.undoStack.length) {
     state.undoStack.push(state.lastUndo)
   }
   state.undoStack = state.undoStack
+    .filter(action => action?.type === 'video-status')
+    .slice(-UNDO_STACK_LIMIT)
+  state.redoStack = state.redoStack
     .filter(action => action?.type === 'video-status')
     .slice(-UNDO_STACK_LIMIT)
   delete state.lastUndo
@@ -1238,6 +1243,7 @@ function saveVideoResumeTime(videoId, value) {
 function pushUndoAction(s, action) {
   normalizeUndoState(s)
   s.undoStack.push(action)
+  s.redoStack = []
   if (s.undoStack.length > UNDO_STACK_LIMIT) {
     s.undoStack.splice(0, s.undoStack.length - UNDO_STACK_LIMIT)
   }
@@ -1245,6 +1251,7 @@ function pushUndoAction(s, action) {
 
 function undoLastVideoAction() {
   const s = loadState()
+  normalizeUndoState(s)
   const undo = s.undoStack.pop()
   if (undo?.type !== 'video-status') {
     showToast('Nothing to undo', 'warn')
@@ -1262,11 +1269,46 @@ function undoLastVideoAction() {
   video.status = undo.before.status
   video.watchedAt = undo.before.watchedAt
   video.resumeAtSeconds = normalizeResumeAtSeconds(undo.before.resumeAtSeconds, video.duration)
+  s.redoStack.push(undo)
+  if (s.redoStack.length > UNDO_STACK_LIMIT) {
+    s.redoStack.splice(0, s.redoStack.length - UNDO_STACK_LIMIT)
+  }
   syncStreak(s)
 
   saveState(s)
   renderAll(s)
   showToast(`Undid change: "${formatToastTitle(video.title)}" is back to ${formatVideoStatus(undo.before.status)}.`)
+}
+
+function redoLastVideoAction() {
+  const s = loadState()
+  normalizeUndoState(s)
+  const redo = s.redoStack.pop()
+  if (redo?.type !== 'video-status') {
+    showToast('Nothing to redo', 'warn')
+    return
+  }
+
+  const video = s.videos[redo.videoId]
+  if (!video) {
+    saveState(s)
+    renderAll(s)
+    showToast('That video is no longer available', 'warn')
+    return
+  }
+
+  video.status = redo.after.status
+  video.watchedAt = redo.after.watchedAt
+  video.resumeAtSeconds = normalizeResumeAtSeconds(redo.after.resumeAtSeconds, video.duration)
+  s.undoStack.push(redo)
+  if (s.undoStack.length > UNDO_STACK_LIMIT) {
+    s.undoStack.splice(0, s.undoStack.length - UNDO_STACK_LIMIT)
+  }
+  syncStreak(s)
+
+  saveState(s)
+  renderAll(s)
+  showToast(`Redid change: "${formatToastTitle(video.title)}" is back to ${formatVideoStatus(redo.after.status)}.`)
 }
 
 function dateKeyToLocalDate(dateKey) {
@@ -2825,41 +2867,73 @@ function renderFeed(s) {
 }
 
 function renderUndoButton(s) {
-  const btn = document.getElementById('undoBtn')
-  const tooltip = document.getElementById('undoTooltip')
-  if (!btn) return
-  const undoCount = Array.isArray(s.undoStack) ? s.undoStack.length : 0
-  const canUndo = undoCount > 0
-  btn.disabled = !canUndo
-  btn.textContent = undoCount > 1 ? `Undo (${undoCount})` : 'Undo'
-  btn.title = canUndo ? `Undo latest video status change (${undoCount} available)` : 'Nothing to undo'
-  if (tooltip) tooltip.innerHTML = renderUndoTooltip(s)
+  renderHistoryActionButton({
+    buttonId: 'undoBtn',
+    tooltipId: 'undoTooltip',
+    actions: Array.isArray(s.undoStack) ? s.undoStack : [],
+    state: s,
+    label: 'Undo',
+    emptyTitle: 'Nothing to undo',
+    queueTitle: 'Undo queue',
+    titleVerb: 'Undo latest video status change',
+    direction: 'undo'
+  })
+  renderHistoryActionButton({
+    buttonId: 'redoBtn',
+    tooltipId: 'redoTooltip',
+    actions: Array.isArray(s.redoStack) ? s.redoStack : [],
+    state: s,
+    label: 'Redo',
+    emptyTitle: 'Nothing to redo',
+    queueTitle: 'Redo queue',
+    titleVerb: 'Redo latest video status change',
+    direction: 'redo'
+  })
 }
 
-function renderUndoTooltip(s) {
-  const actions = Array.isArray(s.undoStack) ? s.undoStack.slice().reverse() : []
+function renderHistoryActionButton({ buttonId, tooltipId, actions, state, label, emptyTitle, queueTitle, titleVerb, direction }) {
+  const btn = document.getElementById(buttonId)
+  const tooltip = document.getElementById(tooltipId)
+  if (!btn) return
+  const count = actions.length
+  const canUse = count > 0
+  btn.disabled = !canUse
+  btn.textContent = count > 1 ? `${label} (${count})` : label
+  btn.title = canUse ? `${titleVerb} (${count} available)` : emptyTitle
+  if (tooltip) tooltip.innerHTML = renderHistoryActionTooltip(actions, state, emptyTitle, queueTitle, direction)
+}
+
+function renderHistoryActionTooltip(actions, s, emptyTitle, queueTitle, direction) {
+  actions = Array.isArray(actions) ? actions.slice().reverse() : []
   if (!actions.length) {
-    return '<div class="undo-tooltip-title">Nothing to undo</div>'
+    return `<div class="undo-tooltip-title">${escHtml(emptyTitle)}</div>`
   }
 
   const visibleActions = actions.slice(0, 8)
   const hiddenCount = actions.length - visibleActions.length
   return `
-    <div class="undo-tooltip-title">Undo queue</div>
-    ${visibleActions.map(action => renderUndoTooltipItem(action, s)).join('')}
+    <div class="undo-tooltip-title">${escHtml(queueTitle)}</div>
+    ${visibleActions.map(action => renderHistoryActionTooltipItem(action, s, direction)).join('')}
     ${hiddenCount > 0 ? `<div class="undo-tooltip-more">+ ${hiddenCount} older ${hiddenCount === 1 ? 'action' : 'actions'}</div>` : ''}
   `
 }
 
-function renderUndoTooltipItem(action, s) {
+function renderHistoryActionTooltipItem(action, s, direction) {
   const video = s.videos?.[action.videoId]
   const title = video?.title || 'Unavailable video'
-  const currentStatus = formatVideoStatus(action.after?.status || video?.status)
-  const previousStatus = formatVideoStatus(action.before?.status)
+  const fromStatus = direction === 'redo'
+    ? formatVideoStatus(action.before?.status)
+    : formatVideoStatus(action.after?.status || video?.status)
+  const toStatus = direction === 'redo'
+    ? formatVideoStatus(action.after?.status)
+    : formatVideoStatus(action.before?.status)
+  const actionText = direction === 'redo'
+    ? `${fromStatus} → ${toStatus}`
+    : `${fromStatus} → back to ${toStatus}`
   return `
     <div class="undo-tooltip-item">
       <span class="undo-tooltip-video">${escHtml(title)}</span>
-      <span class="undo-tooltip-action">${escHtml(currentStatus)} → back to ${escHtml(previousStatus)}</span>
+      <span class="undo-tooltip-action">${escHtml(actionText)}</span>
     </div>
   `
 }
