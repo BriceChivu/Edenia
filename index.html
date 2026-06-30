@@ -162,14 +162,20 @@
       <div id="historySummaryView">
         <div class="history-period-panel" id="historyRangeToolbar">
           <div class="history-toolbar" role="group" aria-label="Study history range">
-            <label class="history-range-btn active" data-history-range="week" onclick="if (event.target.tagName !== 'SELECT') setHistoryRange('week')">
+            <span class="history-period-cell" data-history-period-range="week">
+            <button type="button" class="history-range-btn active" data-history-range="week" onclick="toggleHistoryPeriodPopover(event, 'week')" aria-expanded="false" aria-label="Select week">
               <span>Week</span>
-              <select class="history-range-select" id="historyWeekPeriodSelect" aria-label="Select week" onchange="setHistoryPeriodForRange('week', this.value)"></select>
-            </label>
-            <label class="history-range-btn" data-history-range="month" onclick="if (event.target.tagName !== 'SELECT') setHistoryRange('month')">
+              <span class="history-range-caret" aria-hidden="true"></span>
+            </button>
+            <span class="history-period-popover" id="historyWeekPeriodPopover" role="dialog" aria-label="Available weeks"></span>
+            </span>
+            <span class="history-period-cell" data-history-period-range="month">
+            <button type="button" class="history-range-btn" data-history-range="month" onclick="toggleHistoryPeriodPopover(event, 'month')" aria-expanded="false" aria-label="Select month">
               <span>Month</span>
-              <select class="history-range-select" id="historyMonthPeriodSelect" aria-label="Select month" onchange="setHistoryPeriodForRange('month', this.value)"></select>
-            </label>
+              <span class="history-range-caret" aria-hidden="true"></span>
+            </button>
+            <span class="history-period-popover" id="historyMonthPeriodPopover" role="dialog" aria-label="Available months"></span>
+            </span>
           </div>
         </div>
         <div class="study-history-grid">
