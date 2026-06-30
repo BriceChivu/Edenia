@@ -1603,7 +1603,7 @@ function renderHistoryWatchedCell(row) {
       </button>
       <span class="history-video-popover" role="dialog" aria-label="Watched videos">
         ${row.watchedVideos.map(video => `
-          <span class="history-video-popover-item">
+          <button type="button" class="history-video-popover-item" data-video-id="${escHtml(video.id)}" onclick="jumpToWatchedVideo(this.dataset.videoId)">
             ${video.thumbnail
               ? `<img src="${escHtml(video.thumbnail)}" alt="" class="history-video-thumb" loading="lazy">`
               : '<span class="history-video-thumb history-video-thumb-empty"></span>'}
@@ -1611,7 +1611,7 @@ function renderHistoryWatchedCell(row) {
               <span class="history-video-title">${escHtml(video.title)}</span>
               <span class="history-video-duration">${formatDuration(video.duration)}</span>
             </span>
-          </span>
+          </button>
         `).join('')}
       </span>
     </span>
@@ -1645,6 +1645,24 @@ function closeHistoryVideoPopoversOnOutsideClick(event) {
 function closeHistoryVideoPopoversOnEscape(event) {
   if (event.key !== 'Escape') return
   closeHistoryVideoPopovers()
+}
+
+function jumpToWatchedVideo(videoId) {
+  const targetId = String(videoId ?? '')
+  const card = Array.from(document.querySelectorAll('#watchedGrid .video-card'))
+    .find(el => el.dataset.videoId === targetId)
+  if (!card) {
+    showToast('That watched video is hidden by the current filters', 'warn')
+    closeHistoryVideoPopovers()
+    return
+  }
+
+  closeHistoryVideoPopovers()
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  card.classList.remove('flash-target')
+  void card.offsetWidth
+  card.classList.add('flash-target')
+  window.setTimeout(() => card.classList.remove('flash-target'), 1900)
 }
 
 function formatHistoryDate(dateKey, state = null) {
@@ -3030,7 +3048,7 @@ function renderCard(v, compact = false) {
   const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
   const resumeAtValue = isPartial ? formatResumeTimestamp(v.resumeAtSeconds) : ''
   return `
-    <div class="video-card ${compact ? 'compact-card' : ''} status-${status}">
+    <div class="video-card ${compact ? 'compact-card' : ''} status-${status}" data-video-id="${safeVideoId}">
       <a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">
         <img src="${escHtml(v.thumbnail)}" alt="" class="thumb" loading="lazy">
         <span class="dur-badge">${formatDuration(v.duration)}</span>
