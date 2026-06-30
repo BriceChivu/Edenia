@@ -215,8 +215,14 @@
             <div class="channel-filter-menu hidden" id="channelFilterMenu"></div>
           </div>
           <div class="undo-wrap">
-            <button class="btn-secondary undo-btn" id="undoBtn" onclick="undoLastVideoAction()" aria-describedby="undoTooltip" disabled>Undo</button>
-            <div class="undo-tooltip" id="undoTooltip" role="tooltip">Nothing to undo</div>
+            <span class="undo-action-wrap">
+              <button class="btn-secondary undo-btn" id="undoBtn" onclick="undoLastVideoAction()" aria-describedby="undoTooltip" disabled>Undo</button>
+              <div class="undo-tooltip" id="undoTooltip" role="tooltip">Nothing to undo</div>
+            </span>
+            <span class="undo-action-wrap">
+              <button class="btn-secondary undo-btn redo-btn" id="redoBtn" onclick="redoLastVideoAction()" aria-describedby="redoTooltip" disabled>Redo</button>
+              <div class="undo-tooltip" id="redoTooltip" role="tooltip">Nothing to redo</div>
+            </span>
           </div>
         </div>
       </div>

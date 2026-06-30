@@ -5,12 +5,13 @@ Minor changes:
 - make the blur transition from the top pannel even more progressive, i.e., less abrupt.
 - For the Undo button, if I click on it, the pop up stays and then I should be able to choose which action to undo from the list
 - normalize height of each row in the summary table, even when no video was watched some day
-- make the videos section buttons (status, channel filter, undo) the same height as study history summary/heatmap and week/month buttons for consistency
+- make the videos section buttons (status filter, channel filter, undo, redo) the same height as study history summary/heatmap and week/month buttons for consistency
 - Add a Redo button
 - In the study history summary table, add a PTS column at the very right for both week and month tables
 
 Big changes:
-- Have the possibility of adding a URl corresponding to a video I've watched that is not present in the video channels
+- Have the possibility of adding a URl corresponding to a video I've watched that is not present in the video channels. That would also score points.
+- in settings, have the option to not fetch youtube shorts
 
 Sandbox:
 
