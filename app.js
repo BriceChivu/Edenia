@@ -28,6 +28,7 @@ const MAX_FETCH_PAGES_PER_CHANNEL = 3
 const DEFAULT_THEME = 'light'
 const THEMES = ['light', 'dark']
 const ANKI_AUTO_REFRESH_MS = 5 * 60_000
+const ANKI_DAY_START_HOUR = 4
 const MIN_DAILY_STREAK_POINTS = 3
 const UNDO_STACK_LIMIT = 50
 const MIN_WEEKLY_GOAL_HOURS = 1
@@ -155,6 +156,7 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const state = JSON.parse(raw)
+      let shouldSave = false
       if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
       if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
       if (state?.config && !Array.isArray(state.config.channels)) state.config.channels = []
@@ -163,12 +165,14 @@ function loadState() {
       if (state?.config && (state.defaultChannelsVersion || 1) < DEFAULT_CHANNELS_VERSION) {
         addMissingDefaultChannels(state.config.channels, state.config.removedDefaultChannelIds)
         state.defaultChannelsVersion = DEFAULT_CHANNELS_VERSION
-        saveState(state)
+        shouldSave = true
       }
+      if (normalizeAnkiDateKeys(state)) shouldSave = true
       normalizeUndoState(state)
       normalizeSandboxState(state)
       normalizeCityProgress(state)
       delete state.nightVisuals
+      if (shouldSave) saveState(state)
       return state
     }
   } catch {}
@@ -331,6 +335,32 @@ function normalizeRemovedDefaultChannels(state) {
   state.config.removedDefaultChannelIds = [...removedIds].filter(isDefaultChannelId)
 }
 
+function normalizeAnkiDateKeys(state) {
+  if (!state?.anki || typeof state.anki !== 'object' || Array.isArray(state.anki)) return false
+  let changed = false
+
+  for (const [dateKey, day] of Object.entries({ ...state.anki })) {
+    if (day?.source !== 'ankiconnect' || !day.loggedAt) continue
+    const loggedAt = new Date(day.loggedAt)
+    if (Number.isNaN(loggedAt.getTime())) continue
+
+    const ankiDateKey = getAnkiDateKey(loggedAt)
+    if (ankiDateKey === dateKey) continue
+
+    const existing = state.anki[ankiDateKey]
+    state.anki[ankiDateKey] = {
+      reviewed: Math.max(existing?.reviewed || 0, day.reviewed || 0),
+      created: Math.max(existing?.created || 0, day.created || 0),
+      loggedAt: existing?.loggedAt && new Date(existing.loggedAt) > loggedAt ? existing.loggedAt : day.loggedAt,
+      source: existing?.source || day.source
+    }
+    delete state.anki[dateKey]
+    changed = true
+  }
+
+  return changed
+}
+
 function addMissingDefaultChannels(channels, removedDefaultChannelIds = []) {
   const removedIds = new Set(removedDefaultChannelIds)
   DEFAULT_CHANNELS.forEach(channel => {
@@ -368,6 +398,16 @@ function getCurrentAppDate(state = null) {
 
 function getCurrentAppDateKey(state = null) {
   return toDateKey(getCurrentAppDate(state))
+}
+
+function getAnkiDateKey(from = new Date()) {
+  const date = new Date(from)
+  if (date.getHours() < ANKI_DAY_START_HOUR) date.setDate(date.getDate() - 1)
+  return toDateKey(date)
+}
+
+function getCurrentAnkiDateKey() {
+  return getAnkiDateKey(new Date())
 }
 
 function timeAgo(iso) {
@@ -1332,7 +1372,8 @@ async function fetchAnkiStats() {
     reviewedToday: unwrap(0, 0) || 0,
     newToday: Array.isArray(newToday) ? newToday.length : 0,
     dueCards: Array.isArray(dueCards) ? dueCards.length : 0,
-    fetchedAt: new Date().toISOString()
+    fetchedAt: new Date().toISOString(),
+    ankiDateKey: getCurrentAnkiDateKey()
   }
 }
 
@@ -1392,7 +1433,8 @@ function syncAnkiStatsToState(stats) {
   const s = loadState()
   if (!s || !stats) return
 
-  s.anki[toDateKey()] = {
+  const ankiDateKey = stats.ankiDateKey || getAnkiDateKey(new Date(stats.fetchedAt || Date.now()))
+  s.anki[ankiDateKey] = {
     reviewed: stats.reviewedToday,
     created: stats.newToday,
     loggedAt: stats.fetchedAt,
@@ -1676,7 +1718,7 @@ function formatHistoryDate(dateKey, state = null) {
 }
 
 function renderStudyHistoryPanel(s) {
-  const todayLog = s?.anki?.[getCurrentAppDateKey(s)]
+  const todayLog = s?.anki?.[getCurrentAnkiDateKey()]
   const stats = ankiStatsCache || (todayLog ? {
     reviewedToday: todayLog.reviewed,
     newToday: todayLog.created,
