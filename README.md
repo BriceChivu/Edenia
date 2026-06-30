@@ -101,6 +101,8 @@ Anki stats are optional. To enable them:
 2. Open Anki.
 3. Open Edenia.
 
+For the hosted GitHub Pages site, AnkiConnect also needs to allow Edenia's origin. In Anki, open the AnkiConnect add-on config and include `https://bricechivu.github.io` in `webCorsOriginList`, then restart Anki.
+
 The app reads from AnkiConnect at `http://127.0.0.1:8765` automatically on startup, periodically while open, and when the tab becomes visible. It stores today's reviewed and created-card counts locally, but it does not modify the Anki collection.
 
 ## Study History

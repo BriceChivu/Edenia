@@ -1272,6 +1272,25 @@ async function fetchAnkiStats() {
   }
 }
 
+function isHostedOrigin() {
+  return window.location.protocol === 'https:' && !['localhost', '127.0.0.1'].includes(window.location.hostname)
+}
+
+function formatAnkiConnectError(err) {
+  if (err?.name === 'AbortError') {
+    return 'AnkiConnect unavailable: open Anki with AnkiConnect installed'
+  }
+
+  const message = err?.message || ''
+  if (message === 'Failed to fetch') {
+    return isHostedOrigin()
+      ? 'AnkiConnect blocked: add this site to AnkiConnect webCorsOriginList'
+      : 'AnkiConnect unavailable: open Anki with AnkiConnect installed'
+  }
+
+  return message ? `AnkiConnect failed: ${message}` : 'AnkiConnect not available'
+}
+
 async function refreshAnkiStats({ silent = false } = {}) {
   const statusEl = document.getElementById('ankiConnectStatus')
   if (statusEl) {
@@ -1287,7 +1306,7 @@ async function refreshAnkiStats({ silent = false } = {}) {
   } catch (err) {
     ankiStatsCache = null
     renderAnkiStatus(loadState())
-    const message = err?.message ? `AnkiConnect failed: ${err.message}` : 'AnkiConnect not available'
+    const message = formatAnkiConnectError(err)
     const statusEl = document.getElementById('ankiConnectStatus')
     if (statusEl) statusEl.textContent = message
     if (!silent) showToast(message, 'warn')
