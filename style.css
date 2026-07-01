@@ -2040,8 +2040,7 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
   z-index: 260;
 }
 .walkthrough-scrim {
-  background: rgba(5, 5, 5, 0.58);
-  backdrop-filter: blur(1px);
+  background: transparent;
   pointer-events: auto;
   position: fixed;
 }
@@ -2051,7 +2050,8 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
   box-shadow:
     0 0 0 2px rgba(5,5,5,0.22),
     0 0 0 8px rgba(201,239,104,0.18),
-    0 12px 34px rgba(5,5,5,0.28);
+    0 12px 34px rgba(5,5,5,0.28),
+    0 0 0 9999px rgba(5, 5, 5, 0.58);
   pointer-events: none;
   position: fixed;
   transition: left 0.18s ease, top 0.18s ease, width 0.18s ease, height 0.18s ease;
@@ -2176,14 +2176,12 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
     transform: scale(1.018);
   }
 }
-body[data-theme="dark"] .walkthrough-scrim {
-  background: rgba(5, 5, 5, 0.68);
-}
 body[data-theme="dark"] .walkthrough-highlight {
   box-shadow:
     0 0 0 2px rgba(130,210,239,0.22),
     0 0 0 8px rgba(201,239,104,0.14),
-    0 12px 34px rgba(0,0,0,0.36);
+    0 12px 34px rgba(0,0,0,0.36),
+    0 0 0 9999px rgba(5, 5, 5, 0.68);
 }
 
 /* ═══════════════════════════════════════════════════════════
