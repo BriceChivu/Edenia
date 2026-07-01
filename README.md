@@ -153,7 +153,7 @@ The stored object includes:
 - `streak`: current streak, longest streak, and last activity date.
 - `anki`: daily Anki logs keyed by `YYYY-MM-DD`.
 - `undoStack`: recent video status changes for the undo button.
-- `lastFetched`: last successful YouTube refresh timestamp.
+- `channelRefreshes`: per-channel YouTube refresh timestamps, latest refresh errors, and short failure backoff timestamps.
 
 Edenia also keeps recent local backup snapshots in the same browser. These snapshots are created automatically before normal saves at a limited interval and immediately before risky actions such as sync import, reset, sandbox reset, or automatic cleanup. Use Settings -> `Recent local backups` to restore one of the latest snapshots after a bad import, reset, or corrupted save.
 
