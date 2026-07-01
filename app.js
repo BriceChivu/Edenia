@@ -92,7 +92,8 @@ const walkthroughState = {
   index: 0,
   steps: [],
   elements: null,
-  frame: null
+  frame: null,
+  isTransitioning: false
 }
 const STATUS_FILTERS = [
   ['all', 'All'],
@@ -112,28 +113,73 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'settings',
     target: '.gear-btn',
-    text: 'Open Settings to add your YouTube channels, adjust your goal, and manage sync files.',
-    placement: 'left'
+    text: 'Click Settings to add your YouTube channels, adjust your goal, and manage sync files.',
+    placement: 'left',
+    advanceOn: 'target-click',
+    actionLabel: 'Click Settings',
+    hooks: {
+      beforeEnter: ['closeTransientUi', 'keepSettingsClosed'],
+      targetClick: 'advanceAfterTargetClick'
+    }
+  },
+  {
+    id: 'channels',
+    target: '.add-channel-row',
+    text: 'Paste a YouTube channel ID here. Edenia will use your channels to build the study feed.',
+    placement: 'left',
+    hooks: {
+      beforeEnter: 'closeTransientUi',
+      beforeExit: 'keepSettingsClosed'
+    }
   },
   {
     id: 'weekly-goal',
     target: '.goal-card',
     text: 'Your weekly goal turns watched study time into a quick progress check.',
-    placement: 'bottom'
+    placement: 'bottom',
+    hooks: {
+      beforeEnter: 'closeTransientUi'
+    }
   },
   {
     id: 'study-history',
     target: '.study-history-section',
     text: 'Study History keeps the summary and heatmap of what you have done over time.',
-    placement: 'top'
+    placement: 'top',
+    hooks: {
+      beforeEnter: 'closeTransientUi'
+    }
   },
   {
     id: 'videos',
     target: '.feed-controls',
     text: 'Use these controls to filter videos, add watched URLs, and undo or redo status changes.',
-    placement: 'top'
+    placement: 'top',
+    hooks: {
+      beforeEnter: 'closeTransientUi'
+    }
   }
 ]
+const WALKTHROUGH_HOOKS = {
+  closeTransientUi() {
+    closeStatusFilterMenu()
+    closeChannelFilterMenu()
+    closeManualVideoPopover()
+    closeHistoryVideoPopovers()
+    closeHistoryPeriodPopovers()
+    closeHistoryActionPopovers()
+    hideHeatmapTooltip()
+  },
+  keepSettingsClosed() {
+    closeSettings()
+  },
+  refreshSpotlight() {
+    scheduleWalkthroughPosition()
+  },
+  advanceAfterTargetClick() {
+    window.setTimeout(() => moveWalkthrough(1), 140)
+  }
+}
 
 function getCookie(key) {
   return document.cookie.split('; ').reduce((value, part) => {
@@ -781,6 +827,7 @@ function maybeStartOnboarding(state) {
 function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {
   const availableSteps = steps.filter(step => step?.target && document.querySelector(step.target))
   if (!availableSteps.length) return
+  if (walkthroughState.active) endWalkthrough({ markCompleted: false })
 
   walkthroughState.active = true
   walkthroughState.steps = availableSteps
@@ -790,8 +837,9 @@ function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {
   walkthroughState.elements.layer.classList.remove('hidden')
   window.addEventListener('resize', scheduleWalkthroughPosition)
   window.addEventListener('scroll', scheduleWalkthroughPosition, true)
+  document.addEventListener('click', handleWalkthroughTargetClick)
   document.addEventListener('keydown', handleWalkthroughKey)
-  renderWalkthroughStep()
+  showWalkthroughStep(walkthroughState.index)
 }
 
 function ensureWalkthroughElements() {
@@ -846,9 +894,10 @@ function ensureWalkthroughElements() {
 function renderWalkthroughStep() {
   if (!walkthroughState.active) return
   const step = walkthroughState.steps[walkthroughState.index]
+  runWalkthroughHooks(step, 'beforeEnter')
   const target = step ? document.querySelector(step.target) : null
   if (!target || !isWalkthroughTargetVisible(target)) {
-    moveWalkthrough(1)
+    window.setTimeout(() => moveWalkthrough(1), 0)
     return
   }
 
@@ -856,7 +905,10 @@ function renderWalkthroughStep() {
   elements.progress.textContent = `${walkthroughState.index + 1} / ${walkthroughState.steps.length}`
   elements.text.textContent = step.text
   elements.back.disabled = walkthroughState.index === 0
-  elements.next.textContent = walkthroughState.index === walkthroughState.steps.length - 1 ? 'Done' : 'Next'
+  elements.next.disabled = step.advanceOn === 'target-click'
+  elements.next.textContent = step.actionLabel || (walkthroughState.index === walkthroughState.steps.length - 1 ? 'Done' : 'Next')
+  elements.card.classList.toggle('walkthrough-card-waiting', step.advanceOn === 'target-click')
+  elements.card.classList.toggle('walkthrough-card-no-arrow', step.showArrow === false)
 
   target.scrollIntoView({
     behavior: prefersReducedMotion() ? 'auto' : 'smooth',
@@ -865,6 +917,7 @@ function renderWalkthroughStep() {
   })
   scheduleWalkthroughPosition()
   window.setTimeout(scheduleWalkthroughPosition, prefersReducedMotion() ? 0 : 220)
+  runWalkthroughHooks(step, 'afterEnter', { target })
 }
 
 function moveWalkthrough(delta) {
@@ -875,14 +928,29 @@ function moveWalkthrough(delta) {
     endWalkthrough({ markCompleted: true })
     return
   }
-  walkthroughState.index = nextIndex
+  showWalkthroughStep(nextIndex, { direction: delta })
+}
+
+function showWalkthroughStep(nextIndex, options = {}) {
+  if (!walkthroughState.active || walkthroughState.isTransitioning) return
+  const previousStep = walkthroughState.steps[walkthroughState.index]
+  const isSameStep = nextIndex === walkthroughState.index
+  walkthroughState.isTransitioning = true
+
+  if (!isSameStep) runWalkthroughHooks(previousStep, 'beforeExit', options)
+  walkthroughState.index = clampNumber(nextIndex, 0, walkthroughState.steps.length - 1)
   renderWalkthroughStep()
+  if (!isSameStep) runWalkthroughHooks(previousStep, 'afterExit', options)
+
+  walkthroughState.isTransitioning = false
 }
 
 function endWalkthrough(options = {}) {
   const { markCompleted = true } = options
   if (!walkthroughState.active) return
 
+  const currentStep = walkthroughState.steps[walkthroughState.index]
+  runWalkthroughHooks(currentStep, 'beforeExit', { completed: markCompleted })
   walkthroughState.active = false
   if (walkthroughState.frame) {
     cancelAnimationFrame(walkthroughState.frame)
@@ -892,8 +960,18 @@ function endWalkthrough(options = {}) {
   document.body.classList.remove('walkthrough-active')
   window.removeEventListener('resize', scheduleWalkthroughPosition)
   window.removeEventListener('scroll', scheduleWalkthroughPosition, true)
+  document.removeEventListener('click', handleWalkthroughTargetClick)
   document.removeEventListener('keydown', handleWalkthroughKey)
+  runWalkthroughHooks(currentStep, 'afterExit', { completed: markCompleted })
   if (markCompleted) completeOnboarding()
+}
+
+function handleWalkthroughTargetClick(event) {
+  if (!walkthroughState.active) return
+  const step = walkthroughState.steps[walkthroughState.index]
+  const target = step?.target ? event.target.closest(step.target) : null
+  if (!target) return
+  runWalkthroughHooks(step, 'targetClick', { event, target })
 }
 
 function handleWalkthroughKey(event) {
@@ -931,12 +1009,14 @@ function positionWalkthrough() {
   const highlightRect = getWalkthroughHighlightRect(targetRect, viewportWidth, viewportHeight)
 
   positionWalkthroughScrims(elements.scrims, highlightRect, viewportWidth, viewportHeight)
+  elements.highlight.style.borderRadius = getWalkthroughSpotlightRadius(step, highlightRect)
   setFixedRect(elements.highlight, highlightRect)
   positionWalkthroughCard(elements.card, highlightRect, step.placement || 'bottom', viewportWidth, viewportHeight)
 }
 
 function getWalkthroughHighlightRect(rect, viewportWidth, viewportHeight) {
-  const padding = 8
+  const step = walkthroughState.steps[walkthroughState.index]
+  const padding = Number.isFinite(step?.spotlightPadding) ? step.spotlightPadding : 8
   const left = clampNumber(rect.left - padding, 8, viewportWidth - 8)
   const top = clampNumber(rect.top - padding, 8, viewportHeight - 8)
   const right = clampNumber(rect.right + padding, left + 1, viewportWidth - 8)
@@ -949,6 +1029,12 @@ function getWalkthroughHighlightRect(rect, viewportWidth, viewportHeight) {
     right,
     bottom
   }
+}
+
+function getWalkthroughSpotlightRadius(step, rect) {
+  if (step?.spotlightShape === 'circle') return `${Math.max(rect.width, rect.height)}px`
+  if (Number.isFinite(step?.spotlightRadius)) return `${step.spotlightRadius}px`
+  return '16px'
 }
 
 function positionWalkthroughScrims(scrims, rect, viewportWidth, viewportHeight) {
@@ -1027,6 +1113,22 @@ function positionWalkthroughArrow(card, rect, cardPosition, cardRect) {
 function uniqueWalkthroughPlacements(placements) {
   const valid = new Set(['top', 'right', 'bottom', 'left'])
   return placements.filter((placement, index, list) => valid.has(placement) && list.indexOf(placement) === index)
+}
+
+function runWalkthroughHooks(step, phase, context = {}) {
+  const hooks = getWalkthroughHookList(step?.hooks?.[phase])
+  hooks.forEach(hook => {
+    if (typeof hook === 'function') {
+      hook({ ...context, step, phase })
+      return
+    }
+    WALKTHROUGH_HOOKS[hook]?.({ ...context, step, phase })
+  })
+}
+
+function getWalkthroughHookList(hooks) {
+  if (!hooks) return []
+  return Array.isArray(hooks) ? hooks : [hooks]
 }
 
 function isWalkthroughTargetVisible(target) {

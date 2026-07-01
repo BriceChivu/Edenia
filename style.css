@@ -2053,6 +2053,15 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
   position: fixed;
   transition: left 0.18s ease, top 0.18s ease, width 0.18s ease, height 0.18s ease;
 }
+.walkthrough-highlight::after {
+  animation: walkthroughSpotlightPulse 1.8s ease-in-out infinite;
+  border: 2px solid rgba(201,239,104,0.38);
+  border-radius: inherit;
+  content: "";
+  inset: -6px;
+  pointer-events: none;
+  position: absolute;
+}
 .walkthrough-card {
   --walkthrough-arrow-left: 50%;
   --walkthrough-arrow-top: 50%;
@@ -2100,6 +2109,20 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
   cursor: default;
   opacity: 0.45;
 }
+.walkthrough-next:disabled {
+  background: var(--surface-hi);
+  border-color: var(--border);
+  box-shadow: none;
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.86;
+}
+.walkthrough-card-waiting .walkthrough-progress::after {
+  color: var(--muted);
+  content: " · click highlighted area";
+  font-weight: 700;
+  letter-spacing: 0;
+}
 .walkthrough-arrow {
   background: var(--surface);
   border: 2px solid var(--planet-black);
@@ -2136,6 +2159,19 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
   left: -8px;
   margin-top: -7px;
   top: var(--walkthrough-arrow-top);
+}
+.walkthrough-card-no-arrow .walkthrough-arrow {
+  display: none;
+}
+@keyframes walkthroughSpotlightPulse {
+  0%, 100% {
+    opacity: 0.42;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.018);
+  }
 }
 body[data-theme="dark"] .walkthrough-scrim {
   background: rgba(5, 5, 5, 0.68);
