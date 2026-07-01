@@ -25,6 +25,7 @@ const STATE_BACKUP_AUTO_INTERVAL_MS = 10 * 60_000
 const CONFIG_COOKIE_KEY = IS_SANDBOX ? 'edenia_config_sandbox' : 'edenia_config'
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const YOUTUBE_REFRESH_INTERVAL_MS = 5 * 60 * 60_000
+const YOUTUBE_REFRESH_ERROR_BACKOFF_MS = 30 * 60_000
 const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = ACTIVE_VIDEOS_PER_CHANNEL
 const MAX_FETCH_PAGES_PER_CHANNEL = 3
@@ -186,6 +187,7 @@ function loadState() {
       }
       if (normalizeAnkiDateKeys(state)) shouldSave = true
       normalizeUndoState(state)
+      if (normalizeChannelRefreshState(state)) shouldSave = true
       normalizeSandboxState(state)
       normalizeCityProgress(state)
       delete state.nightVisuals
@@ -239,7 +241,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
     cityProgress: { maxLevelIndex: 0, pendingLevelIndex: null },
     undoStack: [],
     redoStack: [],
-    lastFetched: null,
+    channelRefreshes: {},
     defaultChannelsVersion: DEFAULT_CHANNELS_VERSION
   }
 }
@@ -413,6 +415,49 @@ function normalizeUndoState(state) {
     .filter(action => action?.type === 'video-status')
     .slice(-UNDO_STACK_LIMIT)
   delete state.lastUndo
+}
+
+function isValidTimestamp(value) {
+  return Boolean(value && Number.isFinite(new Date(value).getTime()))
+}
+
+function normalizeChannelRefreshState(state) {
+  if (!state) return false
+  let changed = false
+  const existing = state.channelRefreshes && typeof state.channelRefreshes === 'object' && !Array.isArray(state.channelRefreshes)
+    ? state.channelRefreshes
+    : {}
+  const legacyLastFetched = isValidTimestamp(state.lastFetched) ? state.lastFetched : null
+  const channelIds = new Set((state.config?.channels || []).map(channel => channel.id).filter(Boolean))
+  const normalized = {}
+
+  channelIds.forEach(channelId => {
+    const entry = existing[channelId]
+    const lastFetchedAt = isValidTimestamp(entry?.lastFetchedAt)
+      ? entry.lastFetchedAt
+      : legacyLastFetched
+    const lastFailedAt = isValidTimestamp(entry?.lastFailedAt) ? entry.lastFailedAt : null
+    const lastError = typeof entry?.lastError === 'string' ? entry.lastError : null
+    if (lastFetchedAt) {
+      normalized[channelId] = {
+        lastFetchedAt,
+        lastError,
+        lastFailedAt
+      }
+    } else if (entry) {
+      normalized[channelId] = {
+        lastFetchedAt: null,
+        lastError,
+        lastFailedAt
+      }
+    }
+  })
+
+  if (JSON.stringify(existing) !== JSON.stringify(normalized)) changed = true
+  if ('lastFetched' in state) changed = true
+  state.channelRefreshes = normalized
+  delete state.lastFetched
+  return changed
 }
 
 function normalizeCityProgress(state) {
@@ -774,7 +819,8 @@ function addSandboxStudyDay(state, date, scoreTarget = 6) {
   }
 
   state.sandboxLastDate = dateKey
-  state.lastFetched = new Date().toISOString()
+  const refreshedAt = new Date().toISOString()
+  channels.forEach(channel => markChannelRefreshSuccess(state, channel.id, refreshedAt))
 }
 
 function createSandboxRecentVideos(state) {
@@ -818,7 +864,8 @@ function refreshSandboxFeed() {
     }
   })
 
-  s.lastFetched = new Date().toISOString()
+  const refreshedAt = new Date().toISOString()
+  s.config.channels.forEach(channel => markChannelRefreshSuccess(s, channel.id, refreshedAt))
   saveState(s)
   renderAll(s)
   showToast(`${videos.length} dummy videos loaded`, 'success')
@@ -1090,6 +1137,7 @@ function addChannel() {
 function removeChannel(id) {
   const s = loadState()
   s.config.channels = s.config.channels.filter(c => c.id !== id)
+  delete getChannelRefreshes(s)[id]
   if (isDefaultChannelId(id) && !s.config.removedDefaultChannelIds.includes(id)) {
     s.config.removedDefaultChannelIds.push(id)
   }
@@ -1355,19 +1403,75 @@ async function fetchVideoDetails(videoIds, { detectShorts = false } = {}) {
   return result
 }
 
+function getChannelRefreshes(s) {
+  if (!s.channelRefreshes || typeof s.channelRefreshes !== 'object' || Array.isArray(s.channelRefreshes)) {
+    s.channelRefreshes = {}
+  }
+  return s.channelRefreshes
+}
+
+function getChannelLastFetchedMs(s, channelId) {
+  const lastFetchedAt = getChannelRefreshes(s)[channelId]?.lastFetchedAt
+  const lastFetchedMs = new Date(lastFetchedAt).getTime()
+  return Number.isFinite(lastFetchedMs) ? lastFetchedMs : null
+}
+
+function getChannelLastFailedMs(s, channelId) {
+  const lastFailedAt = getChannelRefreshes(s)[channelId]?.lastFailedAt
+  const lastFailedMs = new Date(lastFailedAt).getTime()
+  return Number.isFinite(lastFailedMs) ? lastFailedMs : null
+}
+
+function getChannelRefreshWaitMs(s, channelId) {
+  const lastFetchedMs = getChannelLastFetchedMs(s, channelId)
+  const lastFailedMs = getChannelLastFailedMs(s, channelId)
+  const successWait = lastFetchedMs
+    ? Math.max(0, YOUTUBE_REFRESH_INTERVAL_MS - (Date.now() - lastFetchedMs))
+    : 0
+  const failureWait = lastFailedMs
+    ? Math.max(0, YOUTUBE_REFRESH_ERROR_BACKOFF_MS - (Date.now() - lastFailedMs))
+    : 0
+  return Math.max(successWait, failureWait)
+}
+
+function isChannelRefreshDue(s, channelId) {
+  return getChannelRefreshWaitMs(s, channelId) <= 0
+}
+
+function getDueYoutubeChannels(s) {
+  if (IS_SANDBOX || !hasYoutubeApiKey() || !s.config.channels.length) return []
+  return s.config.channels.filter(channel => isChannelRefreshDue(s, channel.id))
+}
+
+function hasAnyChannelRefreshTimestamp(s) {
+  return Object.values(getChannelRefreshes(s)).some(entry => isValidTimestamp(entry?.lastFetchedAt))
+}
+
+function markChannelRefreshSuccess(s, channelId, timestamp = new Date().toISOString()) {
+  getChannelRefreshes(s)[channelId] = {
+    lastFetchedAt: timestamp,
+    lastError: null,
+    lastFailedAt: null
+  }
+}
+
+function markChannelRefreshError(s, channelId, error) {
+  const refreshes = getChannelRefreshes(s)
+  refreshes[channelId] = {
+    lastFetchedAt: refreshes[channelId]?.lastFetchedAt || null,
+    lastError: String(error?.message || error || 'Refresh failed'),
+    lastFailedAt: new Date().toISOString()
+  }
+}
+
 function shouldRefreshYoutubeFeed(s) {
-  if (IS_SANDBOX || !hasYoutubeApiKey() || !s.config.channels.length) return false
-  if (!s.lastFetched) return true
-  const lastFetchedMs = new Date(s.lastFetched).getTime()
-  if (!Number.isFinite(lastFetchedMs)) return true
-  return Date.now() - lastFetchedMs >= YOUTUBE_REFRESH_INTERVAL_MS
+  return getDueYoutubeChannels(s).length > 0
 }
 
 function getYoutubeRefreshRemainingMs(s) {
-  if (!s.lastFetched) return 0
-  const lastFetchedMs = new Date(s.lastFetched).getTime()
-  if (!Number.isFinite(lastFetchedMs)) return 0
-  return Math.max(0, YOUTUBE_REFRESH_INTERVAL_MS - (Date.now() - lastFetchedMs))
+  if (IS_SANDBOX || !s.config.channels.length) return 0
+  const waits = s.config.channels.map(channel => getChannelRefreshWaitMs(s, channel.id))
+  return Math.min(...waits)
 }
 
 function formatRefreshWait(ms) {
@@ -1382,7 +1486,7 @@ function formatRefreshWait(ms) {
 function maybeRefreshFeed() {
   const s = loadState()
   if (shouldRefreshYoutubeFeed(s)) {
-    refreshFeed({ silent: Boolean(s.lastFetched) })
+    refreshFeed({ silent: hasAnyChannelRefreshTimestamp(s) })
   } else if (!hasYoutubeApiKey()) {
     showToast('Add the shared YouTube API key to config.local.js', 'warn')
   }
@@ -1462,7 +1566,8 @@ async function refreshFeed({ silent = false } = {}) {
       showToast('Add at least one channel in ⚙ Settings first', 'warn')
       return
     }
-    if (!shouldRefreshYoutubeFeed(s)) {
+    const channelsToRefresh = getDueYoutubeChannels(s)
+    if (!channelsToRefresh.length) {
       if (!silent) showToast(`Next YouTube refresh in ${formatRefreshWait(getYoutubeRefreshRemainingMs(s))}`, 'warn')
       return
     }
@@ -1471,24 +1576,25 @@ async function refreshFeed({ silent = false } = {}) {
     const errors = []
     let successfulChannels = 0
 
-    // Fetch each channel concurrently
-    await Promise.all(s.config.channels.map(async ch => {
+    await Promise.all(channelsToRefresh.map(async ch => {
       try {
         const vids = await fetchChannelVideos(ch, s.videos)
         successfulChannels += 1
         all.push(...vids)
-        // Auto-update stored channel name from API response
         const first = vids[0]
         if (first?.channelTitle && first.channelTitle !== ch.name) {
           ch.name = first.channelTitle
         }
+        markChannelRefreshSuccess(s, ch.id)
       } catch (err) {
         console.warn(`${ch.name}:`, err.message)
+        markChannelRefreshError(s, ch.id, err)
         errors.push(ch.name)
       }
     }))
 
     if (successfulChannels === 0) {
+      saveState(s)
       showToast(`Refresh failed: ${errors.length} channel${errors.length > 1 ? 's' : ''} failed`, 'error')
       return
     }
@@ -1498,14 +1604,13 @@ async function refreshFeed({ silent = false } = {}) {
     const detailsById = await getFetchedVideoDetails(s, unique, includeShorts)
     const { mergedCount, skippedShorts } = mergeFetchedVideos(s, unique, detailsById, includeShorts)
 
-    s.lastFetched = new Date().toISOString()
     saveState(s)
     renderAll(s)
 
     const shortsMsg = formatSkippedShortsMessage(skippedShorts)
     const msg = errors.length
       ? `Loaded ${mergedCount} videos${shortsMsg} (${errors.length} channel${errors.length > 1 ? 's' : ''} failed)`
-      : `${mergedCount} videos loaded${shortsMsg}`
+      : `${mergedCount} videos loaded from ${successfulChannels} channel${successfulChannels === 1 ? '' : 's'}${shortsMsg}`
     if (!silent || errors.length) showToast(msg, errors.length ? 'warn' : 'success')
 
   } catch (err) {
@@ -1538,6 +1643,7 @@ async function refreshAddedChannel(channelId) {
     const detailsById = await getFetchedVideoDetails(s, videos, includeShorts)
     const { mergedCount, skippedShorts } = mergeFetchedVideos(s, videos, detailsById, includeShorts)
 
+    markChannelRefreshSuccess(s, channel.id)
     saveState(s)
     renderAll(s)
     renderChannelList(s.config.channels)
@@ -1547,6 +1653,11 @@ async function refreshAddedChannel(channelId) {
     showToast(`${channelName}: ${mergedCount} videos loaded${shortsMsg}`, 'success')
   } catch (err) {
     console.error(err)
+    const s = loadState()
+    if (s?.config?.channels?.some(channel => channel.id === channelId)) {
+      markChannelRefreshError(s, channelId, err)
+      saveState(s)
+    }
     showToast(`Channel added, but recent videos could not load: ${err.message}`, 'warn')
   }
 }
