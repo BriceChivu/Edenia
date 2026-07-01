@@ -180,6 +180,7 @@ function loadState() {
       }
       if (normalizeAnkiDateKeys(state)) shouldSave = true
       normalizeUndoState(state)
+      if (normalizeOnboardingState(state)) shouldSave = true
       if (normalizeChannelRefreshState(state)) shouldSave = true
       normalizeSandboxState(state)
       normalizeCityProgress(state)
@@ -235,6 +236,10 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
     undoStack: [],
     redoStack: [],
     channelRefreshes: {},
+    onboarding: {
+      completed: false,
+      completedAt: null
+    },
     defaultChannelsVersion: DEFAULT_CHANNELS_VERSION
   }
 }
@@ -451,6 +456,33 @@ function normalizeChannelRefreshState(state) {
   state.channelRefreshes = normalized
   delete state.lastFetched
   return changed
+}
+
+function normalizeOnboardingState(state) {
+  if (!state) return false
+  const existing = state.onboarding && typeof state.onboarding === 'object' && !Array.isArray(state.onboarding)
+    ? state.onboarding
+    : {}
+  const normalized = {
+    completed: existing.completed === true,
+    completedAt: existing.completed === true && isValidTimestamp(existing.completedAt)
+      ? existing.completedAt
+      : null
+  }
+  const changed = JSON.stringify(existing) !== JSON.stringify(normalized)
+  state.onboarding = normalized
+  return changed
+}
+
+function completeOnboarding(state = loadState()) {
+  if (!state) return null
+  normalizeOnboardingState(state)
+  if (!state.onboarding.completed) {
+    state.onboarding.completed = true
+    state.onboarding.completedAt = new Date().toISOString()
+    saveState(state)
+  }
+  return state
 }
 
 function normalizeCityProgress(state) {
