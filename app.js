@@ -737,6 +737,13 @@ function openSettings() {
 
 function closeSettings() { hide('settingsPanel') }
 
+function closeSettingsOnEscape(event) {
+  if (event.key !== 'Escape') return
+  const panel = document.getElementById('settingsPanel')
+  if (!panel || panel.classList.contains('hidden')) return
+  closeSettings()
+}
+
 function saveSettingsOnTheFly() {
   const s      = loadState()
   const goal   = normalizeWeeklyGoalHours(document.getElementById('settingsGoal').value)
@@ -2669,8 +2676,10 @@ function initCityImagePanZoom() {
 
   wrap.addEventListener('wheel', event => {
     if (event.target.closest('.city-time-waveform')) return
+    const zoomDelta = getCityImageWheelZoomDelta(event)
+    if (!canZoomCityImageBy(zoomDelta)) return
     event.preventDefault()
-    zoomCityImageBy(event.deltaY > 0 ? -getWheelZoomAmount(event) : getWheelZoomAmount(event), event)
+    zoomCityImageBy(zoomDelta, event)
   }, { passive: false })
 
   wrap.addEventListener('pointerdown', event => {
@@ -2715,6 +2724,21 @@ function zoomCityImage(direction, event = null) {
 
 function getWheelZoomAmount(event) {
   return Math.min(0.12, Math.max(0.025, Math.abs(event.deltaY) / 120 * CITY_IMAGE_WHEEL_ZOOM_STEP))
+}
+
+function getCityImageWheelZoomDelta(event) {
+  if (!event.deltaY) return 0
+  return event.deltaY > 0 ? -getWheelZoomAmount(event) : getWheelZoomAmount(event)
+}
+
+function canZoomCityImageBy(delta) {
+  if (!delta) return false
+  const nextScale = clampNumber(
+    cityImageView.scale + delta,
+    CITY_IMAGE_MIN_ZOOM,
+    CITY_IMAGE_MAX_ZOOM
+  )
+  return nextScale !== cityImageView.scale
 }
 
 function zoomCityImageBy(delta, event = null) {
@@ -3304,4 +3328,5 @@ document.addEventListener('click', clearCityWaveformPreviewOnOutsideClick)
 document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryPeriodPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryActionPopoversOnEscape)
+document.addEventListener('keydown', closeSettingsOnEscape)
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
