@@ -35,6 +35,7 @@ const MIN_WEEKLY_GOAL_HOURS = 1
 const MAX_WEEKLY_GOAL_HOURS = 99
 const VIDEO_HOUR_POINTS = 5
 const VIDEO_WATCHED_POINTS = 1
+const SHORTS_MAX_DURATION_SECONDS = 180
 const ANKI_REVIEW_CHUNK_SIZE = 60
 const ANKI_REVIEW_CHUNK_POINTS = 3
 const ANKI_CREATED_CHUNK_SIZE = 12
@@ -145,6 +146,10 @@ function normalizeWeeklyGoalHours(value) {
   return clampNumber(parsed, MIN_WEEKLY_GOAL_HOURS, MAX_WEEKLY_GOAL_HOURS)
 }
 
+function normalizeIncludeShorts(value) {
+  return value !== false
+}
+
 function applyTheme(theme) {
   const normalizedTheme = normalizeTheme(theme)
   document.documentElement.dataset.theme = normalizedTheme
@@ -166,6 +171,7 @@ function loadState() {
       let shouldSave = false
       if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
       if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
+      if (state?.config) state.config.includeShorts = normalizeIncludeShorts(state.config.includeShorts)
       if (state?.config && !Array.isArray(state.config.channels)) state.config.channels = []
       if (state?.config) delete state.config.apiKey
       normalizeRemovedDefaultChannels(state)
@@ -205,6 +211,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
     config: {
       weeklyGoalHours: normalizeWeeklyGoalHours(goalHours),
       theme: normalizeTheme(theme),
+      includeShorts: true,
       channels: channels?.length ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
       removedDefaultChannelIds: restoredRemovedDefaultIds || (channels?.length ? getMissingDefaultChannelIds(channels) : [])
     },
@@ -731,6 +738,7 @@ function randomInt(min, max) {
 function openSettings() {
   const s = loadState()
   document.getElementById('settingsGoal').value   = s.config.weeklyGoalHours
+  document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(s.config.includeShorts)
   renderChannelList(s.config.channels)
   show('settingsPanel')
 }
@@ -748,6 +756,7 @@ function saveSettingsOnTheFly() {
   const s      = loadState()
   const goal   = normalizeWeeklyGoalHours(document.getElementById('settingsGoal').value)
   s.config.weeklyGoalHours = goal
+  s.config.includeShorts = Boolean(document.getElementById('settingsIncludeShorts')?.checked)
   document.getElementById('settingsGoal').value = goal
   saveState(s)
   renderAll(s)
@@ -809,6 +818,7 @@ function importSyncFileFromInput(input) {
       renderAll(normalizedState)
       renderChannelList(normalizedState.config.channels)
       document.getElementById('settingsGoal').value = normalizedState.config.weeklyGoalHours
+      document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(normalizedState.config.includeShorts)
       showToast('Sync file imported')
     } catch {
       showToast('Could not read that sync file', 'error')
@@ -926,6 +936,67 @@ function parseDuration(iso) {
   if (!iso) return 0  // live streams / premieres have no duration field
   const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
   return m ? (parseInt(m[1]||0)*3600 + parseInt(m[2]||0)*60 + parseInt(m[3]||0)) : 0
+}
+
+function hasVerticalThumbnail(thumbnails = {}) {
+  return Object.values(thumbnails).some(thumb => {
+    const width = Number(thumb?.width)
+    const height = Number(thumb?.height)
+    return width > 0 && height > width * 1.12
+  })
+}
+
+function hasShortsMetadataCue(snippet = {}) {
+  const tags = Array.isArray(snippet.tags) ? snippet.tags : []
+  const hashtagText = [snippet.title, snippet.description, ...tags].filter(Boolean).join(' ')
+  return /(^|\s)#shorts?\b/i.test(hashtagText) || tags.some(tag => /^#?shorts?$/i.test(String(tag || '').trim()))
+}
+
+function isLikelyYoutubeShort(detail = {}) {
+  const duration = Number(detail.duration || 0)
+  if (!duration || duration > SHORTS_MAX_DURATION_SECONDS) return false
+  return Boolean(detail.shortsMetadataCue || detail.verticalThumbnail || detail.shortsAspectThumbnail)
+}
+
+function getVideoDetailFromItem(item) {
+  const snippet = item?.snippet || {}
+  const detail = {
+    duration: parseDuration(item?.contentDetails?.duration),
+    shortsMetadataCue: hasShortsMetadataCue(snippet),
+    verticalThumbnail: hasVerticalThumbnail(snippet.thumbnails)
+  }
+  detail.isShort = isLikelyYoutubeShort(detail)
+  return detail
+}
+
+function probeShortsAspectThumbnail(videoId) {
+  if (typeof Image === 'undefined') return Promise.resolve(false)
+  return new Promise(resolve => {
+    const img = new Image()
+    let settled = false
+    const finish = value => {
+      if (settled) return
+      settled = true
+      resolve(value)
+    }
+    img.onload = () => finish(img.naturalHeight > img.naturalWidth * 1.12)
+    img.onerror = () => finish(false)
+    window.setTimeout(() => finish(false), 1200)
+    img.src = `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/oardefault.jpg`
+  })
+}
+
+async function addShortsAspectSignals(detailsById) {
+  const candidates = Object.entries(detailsById)
+    .filter(([, detail]) => {
+      const duration = Number(detail?.duration || 0)
+      return duration > 0 && duration <= SHORTS_MAX_DURATION_SECONDS && !detail.isShort
+    })
+
+  await Promise.all(candidates.map(async ([videoId, detail]) => {
+    detail.shortsAspectThumbnail = await probeShortsAspectThumbnail(videoId)
+    detail.isShort = isLikelyYoutubeShort(detail)
+  }))
 }
 
 async function ytFetch(url) {
@@ -1071,14 +1142,15 @@ async function fetchChannelVideos(channel, knownVideos = {}) {
   return fetched
 }
 
-async function fetchDurations(videoIds) {
+async function fetchVideoDetails(videoIds, { detectShorts = false } = {}) {
   const result = {}
   for (let i = 0; i < videoIds.length; i += 50) {
     const batch = videoIds.slice(i, i + 50).join(',')
-    const url   = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${batch}&key=${encodeURIComponent(getYoutubeApiKey())}`
+    const url   = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${batch}&key=${encodeURIComponent(getYoutubeApiKey())}`
     const data  = await ytFetch(url)
-    data.items.forEach(item => { result[item.id] = parseDuration(item.contentDetails?.duration) })
+    data.items.forEach(item => { result[item.id] = getVideoDetailFromItem(item) })
   }
+  if (detectShorts) await addShortsAspectSignals(result)
   return result
 }
 
@@ -1178,23 +1250,30 @@ async function refreshFeed({ silent = false } = {}) {
     const seen   = new Set()
     const unique = all.filter(v => { if (seen.has(v.id)) return false; seen.add(v.id); return true })
 
-    // Fetch durations only for videos that are not already cached.
-    const durationIds = unique
+    const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
+
+    // Fetch details for videos that are new, need cached duration repair, or may need Shorts filtering.
+    const detailIds = unique
       .filter(v => !s.videos[v.id] || typeof s.videos[v.id].duration !== 'number')
       .map(v => v.id)
-    const durations = await fetchDurations(durationIds)
+    const detailsById = await fetchVideoDetails(detailIds, { detectShorts: !includeShorts })
+    const videosToMerge = includeShorts
+      ? unique
+      : unique.filter(v => s.videos[v.id] || !detailsById[v.id]?.isShort)
 
     // Merge into state — preserve existing watch status
-    unique.forEach(v => {
+    videosToMerge.forEach(v => {
       const existing = s.videos[v.id]
+      const detail = detailsById[v.id] || {}
       s.videos[v.id] = {
         ...v,
-        duration:   durations[v.id] ?? existing?.duration ?? 0,
+        duration:   detail.duration ?? existing?.duration ?? 0,
         status:     existing?.status    ?? 'unwatched',
         watchedAt:  existing?.watchedAt ?? null,
-        resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, durations[v.id] ?? existing?.duration ?? 0),
+        resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, detail.duration ?? existing?.duration ?? 0),
         source: existing?.source || v.source || null,
-        manuallyAdded: Boolean(existing?.manuallyAdded || v.manuallyAdded)
+        manuallyAdded: Boolean(existing?.manuallyAdded || v.manuallyAdded),
+        isShort: Boolean(detail.isShort || existing?.isShort)
       }
     })
 
@@ -1202,9 +1281,11 @@ async function refreshFeed({ silent = false } = {}) {
     saveState(s)
     renderAll(s)
 
+    const skippedShorts = includeShorts ? 0 : unique.length - videosToMerge.length
+    const shortsMsg = skippedShorts ? `, skipped ${skippedShorts} Short${skippedShorts === 1 ? '' : 's'}` : ''
     const msg = errors.length
-      ? `Loaded ${unique.length} videos (${errors.length} channel${errors.length > 1 ? 's' : ''} failed)`
-      : `${unique.length} videos loaded`
+      ? `Loaded ${videosToMerge.length} videos${shortsMsg} (${errors.length} channel${errors.length > 1 ? 's' : ''} failed)`
+      : `${videosToMerge.length} videos loaded${shortsMsg}`
     if (!silent || errors.length) showToast(msg, errors.length ? 'warn' : 'success')
 
   } catch (err) {

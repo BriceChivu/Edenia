@@ -208,6 +208,19 @@ body[data-theme="dark"] select option { color: var(--text); }
 .settings-group label { font-weight: 600; font-size: 0.9rem; }
 .settings-group input { width: 100%; }
 .settings-group select { width: 100%; }
+.settings-check {
+  align-items: center;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  gap: 9px;
+}
+.settings-check input {
+  accent-color: var(--green);
+  flex: 0 0 auto;
+  height: 17px;
+  width: 17px;
+}
 .step-hint,
 .settings-note {
   color: var(--muted);
