@@ -30,6 +30,14 @@
       </div>
 
       <div class="settings-group">
+        <label class="settings-check">
+          <input type="checkbox" id="settingsIncludeShorts" onchange="saveSettingsOnTheFly()">
+          <span>Fetch YouTube Shorts</span>
+        </label>
+        <p class="step-hint">Turn this off to skip new Shorts during channel refreshes.</p>
+      </div>
+
+      <div class="settings-group">
         <label>Channels</label>
         <div id="channelList" class="channel-list"></div>
         <div class="add-channel-row">
