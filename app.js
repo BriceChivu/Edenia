@@ -14,6 +14,7 @@ const DEFAULT_CHANNELS_VERSION = 2
 const IS_SANDBOX = new URLSearchParams(window.location.search).get('sandbox') === '1'
 const STORAGE_KEY = IS_SANDBOX ? 'edenia_v1_sandbox' : 'edenia_v1'
 const STATE_BACKUP_KEY = `${STORAGE_KEY}_backups`
+const SANDBOX_WALKTHROUGH_AFTER_RESET_KEY = `${STORAGE_KEY}_walkthrough_after_reset`
 const STATE_BACKUP_LIMIT = 8
 const STATE_BACKUP_AUTO_INTERVAL_MS = 10 * 60_000
 const CONFIG_COOKIE_KEY = IS_SANDBOX ? 'edenia_config_sandbox' : 'edenia_config'
@@ -820,8 +821,28 @@ function init() {
 }
 
 function maybeStartOnboarding(state) {
+  if (consumeSandboxWalkthroughAfterReset()) {
+    window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS, { manual: true, reason: 'sandbox-reset' }), 350)
+    return
+  }
   if (IS_SANDBOX || state?.onboarding?.completed) return
   window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS), 350)
+}
+
+function queueSandboxWalkthroughAfterReset() {
+  if (!IS_SANDBOX) return
+  try { sessionStorage.setItem(SANDBOX_WALKTHROUGH_AFTER_RESET_KEY, '1') } catch {}
+}
+
+function consumeSandboxWalkthroughAfterReset() {
+  if (!IS_SANDBOX) return false
+  try {
+    const shouldStart = sessionStorage.getItem(SANDBOX_WALKTHROUGH_AFTER_RESET_KEY) === '1'
+    sessionStorage.removeItem(SANDBOX_WALKTHROUGH_AFTER_RESET_KEY)
+    return shouldStart
+  } catch {
+    return false
+  }
 }
 
 function showWalkthroughAgain() {
@@ -1608,6 +1629,7 @@ function hideResetConfirm() {
 
 function resetApp() {
   createStateBackup('before reset', { force: true })
+  queueSandboxWalkthroughAfterReset()
   localStorage.removeItem(STORAGE_KEY)
   document.cookie = `${CONFIG_COOKIE_KEY}=; max-age=0; path=/`
   location.reload()
