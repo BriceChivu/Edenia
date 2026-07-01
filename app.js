@@ -1886,6 +1886,15 @@ function formatHeatmapAriaLabel(row) {
   return `${formatHeatmapTitle(row)}: ${getHistoryDayPoints(row)} points; ${formatHistoryTime(row.secondsWatched)} video time; ${row.videosWatched} videos watched; ${row.ankiReviewed} Anki cards reviewed; ${row.ankiCreated} new Anki cards created`
 }
 
+function getWeekMonday(date) {
+  const monday = new Date(date)
+  const day = monday.getDay()
+  const offset = day === 0 ? -6 : 1 - day
+  monday.setDate(monday.getDate() + offset)
+  monday.setHours(0, 0, 0, 0)
+  return monday
+}
+
 function renderHistoryHeatmap(s, container) {
   const end = IS_SANDBOX ? getSandboxHeatmapEndDate(s) : new Date()
   end.setHours(23, 59, 59, 999)
@@ -1900,7 +1909,7 @@ function renderHistoryHeatmap(s, container) {
     container.innerHTML = '<div class="history-empty">No activity to map yet.</div>'
     return
   }
-  const gridStart = new Date(`${firstActive.dateKey}T00:00:00`)
+  const gridStart = getWeekMonday(new Date(`${firstActive.dateKey}T00:00:00`))
   const rowsByDate = new Map(history.rows.map(row => [row.dateKey, row]))
   const days = []
   for (let date = new Date(gridStart); date <= end; date = addDays(date, 1)) {
