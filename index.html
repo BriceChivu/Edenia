@@ -214,6 +214,15 @@
             <button type="button" class="btn-secondary channel-filter-btn" id="channelFilterBtn" onclick="toggleChannelFilterMenu()" aria-haspopup="true" aria-expanded="false">All channels</button>
             <div class="channel-filter-menu hidden" id="channelFilterMenu"></div>
           </div>
+          <div class="manual-video" id="manualVideo">
+            <button type="button" class="btn-secondary manual-video-btn" id="manualVideoBtn" onclick="toggleManualVideoPopover(event)" aria-haspopup="true" aria-expanded="false">+ Watched URL</button>
+            <div class="manual-video-popover hidden" id="manualVideoPopover" role="dialog" aria-label="Add watched YouTube URL">
+              <form class="manual-video-form" onsubmit="addWatchedVideoFromUrl(event)">
+                <input type="text" id="manualVideoUrlInput" placeholder="youtube.com/watch?v=..." autocomplete="off">
+                <button type="submit" class="btn-secondary manual-video-submit" id="manualVideoAddBtn">Add</button>
+              </form>
+            </div>
+          </div>
           <div class="undo-wrap">
             <span class="undo-action-wrap">
               <button type="button" class="btn-secondary undo-btn" id="undoBtn" onclick="toggleHistoryActionPopover(event, 'undo')" aria-haspopup="true" aria-expanded="false" aria-describedby="undoTooltip" disabled>Undo</button>

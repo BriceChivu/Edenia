@@ -957,6 +957,60 @@ async function fetchChannelVideosPage(channel, pageToken = '') {
   }
 }
 
+function getBestThumbnail(thumbnails = {}) {
+  return thumbnails.maxres?.url
+    || thumbnails.high?.url
+    || thumbnails.medium?.url
+    || thumbnails.default?.url
+    || ''
+}
+
+function parseYoutubeVideoId(value) {
+  const raw = String(value || '').trim()
+  if (/^[A-Za-z0-9_-]{11}$/.test(raw)) return raw
+
+  const normalized = /^[a-z][a-z\d+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`
+  try {
+    const url = new URL(normalized)
+    const host = url.hostname.replace(/^www\./, '').replace(/^m\./, '')
+    if (host === 'youtu.be') {
+      const id = url.pathname.split('/').filter(Boolean)[0]
+      if (/^[A-Za-z0-9_-]{11}$/.test(id || '')) return id
+    }
+    if (host === 'youtube.com' || host.endsWith('.youtube.com') || host === 'youtube-nocookie.com') {
+      const watchedId = url.searchParams.get('v')
+      if (/^[A-Za-z0-9_-]{11}$/.test(watchedId || '')) return watchedId
+      const parts = url.pathname.split('/').filter(Boolean)
+      if (['embed', 'shorts', 'live', 'v'].includes(parts[0]) && /^[A-Za-z0-9_-]{11}$/.test(parts[1] || '')) {
+        return parts[1]
+      }
+    }
+  } catch {
+    // Fall back to pattern matching below.
+  }
+
+  const match = raw.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/|v\/))([A-Za-z0-9_-]{11})/)
+  return match?.[1] || ''
+}
+
+async function fetchVideoMetadata(videoId) {
+  const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(getYoutubeApiKey())}`
+  const data = await ytFetch(url)
+  const item = data.items?.[0]
+  if (!item) throw new Error('No YouTube video found for that URL')
+  return {
+    id: item.id,
+    title: item.snippet?.title || 'Untitled video',
+    channelTitle: item.snippet?.channelTitle || 'YouTube',
+    channelId: item.snippet?.channelId || 'manual-youtube',
+    thumbnail: getBestThumbnail(item.snippet?.thumbnails) || `https://i.ytimg.com/vi/${encodeURIComponent(item.id)}/hqdefault.jpg`,
+    publishedAt: item.snippet?.publishedAt || new Date().toISOString(),
+    duration: parseDuration(item.contentDetails?.duration),
+    source: 'manual',
+    manuallyAdded: true
+  }
+}
+
 function getVideoStatus(video) {
   return normalizeVideoStatus(video?.status)
 }
@@ -1138,7 +1192,9 @@ async function refreshFeed({ silent = false } = {}) {
         duration:   durations[v.id] ?? existing?.duration ?? 0,
         status:     existing?.status    ?? 'unwatched',
         watchedAt:  existing?.watchedAt ?? null,
-        resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, durations[v.id] ?? existing?.duration ?? 0)
+        resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, durations[v.id] ?? existing?.duration ?? 0),
+        source: existing?.source || v.source || null,
+        manuallyAdded: Boolean(existing?.manuallyAdded || v.manuallyAdded)
       }
     })
 
@@ -1228,6 +1284,90 @@ function markVideoInProgressOnOpen(videoId) {
 
   saveState(s)
   setTimeout(() => renderAll(loadState()), 0)
+}
+
+async function addWatchedVideoFromUrl(event) {
+  event.preventDefault()
+  const input = document.getElementById('manualVideoUrlInput')
+  const btn = document.getElementById('manualVideoAddBtn')
+  const rawUrl = input?.value?.trim() || ''
+  const videoId = parseYoutubeVideoId(rawUrl)
+
+  if (!videoId) {
+    showToast('Use a valid YouTube video URL', 'warn')
+    input?.focus()
+    return
+  }
+  if (!hasYoutubeApiKey()) {
+    showToast('Add the shared YouTube API key to config.local.js', 'warn')
+    return
+  }
+
+  if (btn) {
+    btn.disabled = true
+    btn.textContent = 'Adding...'
+  }
+
+  try {
+    const metadata = await fetchVideoMetadata(videoId)
+    const s = loadState()
+    const existing = s.videos[videoId]
+    const before = {
+      status: existing?.status || 'unwatched',
+      watchedAt: existing?.watchedAt || null,
+      resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, existing?.duration ?? metadata.duration)
+    }
+
+    if (existing?.status === 'watched' && existing?.watchedAt) {
+      showToast('That video is already marked watched', 'warn')
+      input.value = ''
+      closeManualVideoPopover()
+      return
+    }
+
+    const watchedAt = new Date().toISOString()
+    s.videos[videoId] = {
+      ...metadata,
+      ...existing,
+      id: videoId,
+      title: metadata.title || existing?.title || 'Untitled video',
+      channelTitle: metadata.channelTitle || existing?.channelTitle || 'YouTube',
+      channelId: metadata.channelId || existing?.channelId || 'manual-youtube',
+      thumbnail: metadata.thumbnail || existing?.thumbnail || `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`,
+      publishedAt: metadata.publishedAt || existing?.publishedAt || watchedAt,
+      duration: metadata.duration || existing?.duration || 0,
+      status: 'watched',
+      watchedAt,
+      resumeAtSeconds: null,
+      source: existing?.source || 'manual',
+      manuallyAdded: true
+    }
+
+    pushUndoAction(s, {
+      type: 'video-status',
+      videoId,
+      before,
+      after: {
+        status: 'watched',
+        watchedAt,
+        resumeAtSeconds: null
+      }
+    })
+    syncStreak(s)
+    saveState(s)
+    input.value = ''
+    closeManualVideoPopover()
+    renderAll(s)
+    showToast(`Added watched video: "${formatToastTitle(s.videos[videoId].title)}"`, 'success')
+  } catch (err) {
+    console.warn(err)
+    showToast(err.message || 'Could not add that video', 'error')
+  } finally {
+    if (btn) {
+      btn.disabled = false
+      btn.textContent = 'Add'
+    }
+  }
 }
 
 function saveVideoResumeTime(videoId, value) {
@@ -1733,6 +1873,7 @@ function toggleHistoryVideoPopover(event) {
   const cell = event.currentTarget.closest('.history-video-cell')
   if (!cell) return
   const shouldOpen = !cell.classList.contains('open')
+  closeManualVideoPopover()
   closeHistoryPeriodPopovers()
   closeHistoryVideoPopovers(cell)
   cell.classList.toggle('open', shouldOpen)
@@ -2154,6 +2295,7 @@ function toggleHistoryPeriodPopover(event, range) {
   const cell = event.currentTarget.closest('.history-period-cell')
   if (!cell) return
   const shouldOpen = !cell.classList.contains('open')
+  closeManualVideoPopover()
   closeHistoryVideoPopovers()
   closeHistoryPeriodPopovers(cell)
   cell.classList.toggle('open', shouldOpen)
@@ -3001,6 +3143,7 @@ function toggleHistoryActionPopover(event, direction) {
   const shouldOpen = !wrap.classList.contains('open')
   closeStatusFilterMenu()
   closeChannelFilterMenu()
+  closeManualVideoPopover()
   closeHistoryVideoPopovers()
   closeHistoryPeriodPopovers()
   closeHistoryActionPopovers(wrap)
@@ -3074,6 +3217,7 @@ function toggleStatusFilterMenu() {
   const menu = document.getElementById('statusFilterMenu')
   if (!btn || !menu) return
   closeChannelFilterMenu()
+  closeManualVideoPopover()
   const isOpen = menu.classList.toggle('hidden') === false
   btn.setAttribute('aria-expanded', String(isOpen))
   if (isOpen) positionFilterMenuWithinViewport(menu)
@@ -3164,6 +3308,7 @@ function toggleChannelFilterMenu() {
   const menu = document.getElementById('channelFilterMenu')
   if (!btn || !menu || btn.disabled) return
   closeStatusFilterMenu()
+  closeManualVideoPopover()
   const isOpen = menu.classList.toggle('hidden') === false
   btn.setAttribute('aria-expanded', String(isOpen))
   if (isOpen) positionFilterMenuWithinViewport(menu)
@@ -3172,6 +3317,32 @@ function toggleChannelFilterMenu() {
 function closeChannelFilterMenu() {
   const btn = document.getElementById('channelFilterBtn')
   const menu = document.getElementById('channelFilterMenu')
+  if (!btn || !menu) return
+  menu.classList.add('hidden')
+  menu.style.left = ''
+  btn.setAttribute('aria-expanded', 'false')
+}
+
+function toggleManualVideoPopover(event) {
+  event.stopPropagation()
+  const btn = document.getElementById('manualVideoBtn')
+  const menu = document.getElementById('manualVideoPopover')
+  const input = document.getElementById('manualVideoUrlInput')
+  if (!btn || !menu) return
+  closeStatusFilterMenu()
+  closeChannelFilterMenu()
+  closeHistoryActionPopovers()
+  const isOpen = menu.classList.toggle('hidden') === false
+  btn.setAttribute('aria-expanded', String(isOpen))
+  if (isOpen) {
+    positionFilterMenuWithinViewport(menu)
+    setTimeout(() => input?.focus(), 0)
+  }
+}
+
+function closeManualVideoPopover() {
+  const btn = document.getElementById('manualVideoBtn')
+  const menu = document.getElementById('manualVideoPopover')
   if (!btn || !menu) return
   menu.classList.add('hidden')
   menu.style.left = ''
@@ -3201,6 +3372,16 @@ function closeChannelFilterMenuOnOutsideClick(event) {
   if (channelFilter?.contains(event.target) || statusFilter?.contains(event.target)) return
   closeStatusFilterMenu()
   closeChannelFilterMenu()
+}
+
+function closeManualVideoPopoverOnOutsideClick(event) {
+  if (event.target.closest('.manual-video')) return
+  closeManualVideoPopover()
+}
+
+function closeManualVideoPopoverOnEscape(event) {
+  if (event.key !== 'Escape') return
+  closeManualVideoPopover()
 }
 
 function matchesChannelFilter(video, selectedChannelIds) {
@@ -3337,10 +3518,12 @@ document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
 document.addEventListener('click', closeHistoryVideoPopoversOnOutsideClick)
 document.addEventListener('click', closeHistoryPeriodPopoversOnOutsideClick)
 document.addEventListener('click', closeHistoryActionPopoversOnOutsideClick)
+document.addEventListener('click', closeManualVideoPopoverOnOutsideClick)
 document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
 document.addEventListener('click', clearCityWaveformPreviewOnOutsideClick)
 document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryPeriodPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryActionPopoversOnEscape)
+document.addEventListener('keydown', closeManualVideoPopoverOnEscape)
 document.addEventListener('keydown', closeSettingsOnEscape)
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
