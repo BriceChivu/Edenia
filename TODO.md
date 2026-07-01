@@ -1,7 +1,5 @@
 # CHANGES:
 Minor changes:
-- in the weekly goal, if the current watched hour is under 1h, show minutes instead 0.Xh
-- BUG:  "理查老师上课啦 | Teacher Richard's class is starting!" is flagged as Watched today but I watched it yesterday (Taiwan time). In other words it does not correspond to the heatmap info
 
 Big changes:
 
