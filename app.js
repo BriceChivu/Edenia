@@ -44,10 +44,11 @@ const CITY_LEVELS = [
   { threshold: 0, label: '🏠 Lonely house' },
   { threshold: 5, label: '⛵ Your house got a fresh new look! Plus a boat!' },
   { threshold: 12, label: '🏝️ Oh look! A tiny island! Cute.' },
-  { threshold: 20, label: '🛝 Kids are gonna have fun now!' },
-  { threshold: 28, label: '🏊 That pool gives holiday vibes...' },
-  { threshold: 35, label: '🐟 Oh! Small friends are coming to say hi...' },
-  { threshold: 42, label: '🌿 This garden brings a nice atmosphere' }
+  { threshold: 20, label: 'Kids are gonna have fun now!' },
+  { threshold: 28, label: "Let's add a pool to chill" },
+  { threshold: 35, label: 'Oh! Some friends are coming to say hi...' },
+  { threshold: 42, label: 'You expanded your small island!' },
+  { threshold: 50, label: "That's a nice deckchair and some pretty flowers! 🌸" }
 ]
 const CITY_IMAGE_PATHS = [
   'images/photoshop/level%201.png',
@@ -56,7 +57,8 @@ const CITY_IMAGE_PATHS = [
   'images/photoshop/level%204.png',
   'images/photoshop/level%205.png',
   'images/photoshop/level%206.png',
-  'images/photoshop/level%207.png'
+  'images/photoshop/level%207.png',
+  'images/photoshop/level%208.png'
 ]
 const cityImagePreloadCache = new Map()
 let ankiStatsCache = null
