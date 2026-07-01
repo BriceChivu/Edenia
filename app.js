@@ -824,6 +824,11 @@ function maybeStartOnboarding(state) {
   window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS), 350)
 }
 
+function showWalkthroughAgain() {
+  closeSettings()
+  window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS, { manual: true }), 120)
+}
+
 function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {
   const availableSteps = steps.filter(step => step?.target && document.querySelector(step.target))
   if (!availableSteps.length) return

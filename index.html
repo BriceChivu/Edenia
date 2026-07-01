@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260701-2">
+  <link rel="stylesheet" href="style.css?v=20260701-3">
   <script src="config.local.js"></script>
 </head>
 <body>
@@ -57,6 +57,7 @@
           <input class="hidden" type="file" id="syncFileInput" accept="application/json,.json" onchange="importSyncFileFromInput(this)">
         </div>
         <p class="settings-note">Progress is saved in this browser. Use sync files to copy the same progress to another device or browser.</p>
+        <button class="btn-secondary walkthrough-replay-btn" type="button" onclick="showWalkthroughAgain()">Show walkthrough again</button>
         <div class="backup-panel">
           <div class="backup-panel-header">
             <span>Recent local backups</span>
@@ -269,6 +270,6 @@
   <div class="toast" id="toast"></div>
   <div class="heatmap-tooltip" id="heatmapTooltip"></div>
 
-  <script src="app.js?v=20260701-2"></script>
+  <script src="app.js?v=20260701-3"></script>
 </body>
 </html>
