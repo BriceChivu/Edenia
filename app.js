@@ -3,14 +3,8 @@
    All logic: state, YouTube API, streak, Anki, city, rendering
 ═══════════════════════════════════════════════════════════ */
 
-// Pre-loaded channels (update names via Settings after first refresh)
-const DEFAULT_CHANNELS = [
-  { id: 'UCfsNycNoClXZA1FuUJSGT0w', name: 'Channel 1' },
-  { id: 'UCIhaNRLn4OQDWZJiVvdhl5A', name: 'Channel 2' },
-  { id: 'UCVBf2Zflj4WabkdCvEAFWew', name: 'Channel 3' },
-  { id: 'UCsZo8ByA7boMHhNszNI9L4A', name: 'Channel 4' },
-  { id: 'UC5p8WSPGtnSWpeQzXv9F7XQ', name: 'Channel 5' },
-]
+// Fresh public-beta users start with no pre-filled YouTube channels.
+const DEFAULT_CHANNELS = []
 const DEFAULT_CHANNELS_VERSION = 2
 
 // ════════════════════════════════════════════════════════════
@@ -181,7 +175,6 @@ function loadState() {
       if (state?.config) delete state.config.apiKey
       normalizeRemovedDefaultChannels(state)
       if (state?.config && (state.defaultChannelsVersion || 1) < DEFAULT_CHANNELS_VERSION) {
-        addMissingDefaultChannels(state.config.channels, state.config.removedDefaultChannelIds)
         state.defaultChannelsVersion = DEFAULT_CHANNELS_VERSION
         shouldSave = true
       }
@@ -232,8 +225,8 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
       weeklyGoalHours: normalizeWeeklyGoalHours(goalHours),
       theme: normalizeTheme(theme),
       includeShorts: true,
-      channels: channels?.length ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
-      removedDefaultChannelIds: restoredRemovedDefaultIds || (channels?.length ? getMissingDefaultChannelIds(channels) : [])
+      channels: Array.isArray(channels) ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
+      removedDefaultChannelIds: restoredRemovedDefaultIds || []
     },
     videos:  {},   // { [videoId]: VideoRecord }
     streak:  { current: 0, longest: 0, lastActivityDate: null },
@@ -546,13 +539,6 @@ function normalizeAnkiDateKeys(state) {
   }
 
   return changed
-}
-
-function addMissingDefaultChannels(channels, removedDefaultChannelIds = []) {
-  const removedIds = new Set(removedDefaultChannelIds)
-  DEFAULT_CHANNELS.forEach(channel => {
-    if (!removedIds.has(channel.id) && !channels.find(c => c.id === channel.id)) channels.push({ ...channel })
-  })
 }
 
 // ════════════════════════════════════════════════════════════
