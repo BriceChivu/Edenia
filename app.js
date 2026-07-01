@@ -3535,7 +3535,7 @@ function renderChannelFilterOptions(s) {
 
   menu.innerHTML = entries.length
     ? entries.map(([id, name]) => `
-      <label class="channel-filter-option">
+      <label class="channel-filter-option" data-channel-id="${escHtml(id)}" onclick="handleChannelFilterOptionClick(event, this.dataset.channelId)">
         <input type="checkbox" data-channel-id="${escHtml(id)}" ${selected.has(id) ? 'checked' : ''} onchange="setChannelFilter(this.dataset.channelId, this.checked)">
         <span>${escHtml(name)}</span>
       </label>
@@ -3581,6 +3581,21 @@ function setChannelFilter(channelId, enabled) {
   }
   if (enabled) selectedChannelFilters.add(channelId)
   else selectedChannelFilters.delete(channelId)
+  renderFeed(s)
+}
+
+function handleChannelFilterOptionClick(event, channelId) {
+  if (!event?.altKey) return
+  event.preventDefault()
+  event.stopPropagation()
+  selectOnlyChannelFilter(channelId)
+}
+
+function selectOnlyChannelFilter(channelId) {
+  const s = loadState()
+  const ids = new Set(getChannelFilterEntries(s).map(([id]) => id))
+  if (!ids.has(channelId)) return
+  selectedChannelFilters = new Set([channelId])
   renderFeed(s)
 }
 
