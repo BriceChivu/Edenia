@@ -1664,9 +1664,15 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   white-space: nowrap;
 }
 .undo-tooltip-action,
+.undo-tooltip-time,
 .undo-tooltip-more {
   color: var(--muted);
   font-size: 0.68rem;
+}
+.undo-tooltip-time {
+  font-size: 0.64rem;
+  font-weight: 500;
+  opacity: 0.78;
 }
 .undo-tooltip-more {
   border-top: 1px solid var(--border);

@@ -1662,6 +1662,7 @@ function saveVideoResumeTime(videoId, value) {
 
 function pushUndoAction(s, action) {
   normalizeUndoState(s)
+  if (!action.createdAt) action.createdAt = new Date().toISOString()
   s.undoStack.push(action)
   s.redoStack = []
   if (s.undoStack.length > UNDO_STACK_LIMIT) {
@@ -3398,6 +3399,7 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
   const { action, index } = entry
   const video = s.videos?.[action.videoId]
   const title = video?.title || 'Unavailable video'
+  const timestamp = formatHistoryActionTimestamp(action)
   const fromStatus = direction === 'redo'
     ? formatVideoStatus(action.before?.status)
     : formatVideoStatus(action.after?.status || video?.status)
@@ -3411,8 +3413,21 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
     <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
       <span class="undo-tooltip-video">${escHtml(title)}</span>
       <span class="undo-tooltip-action">${escHtml(actionText)}</span>
+      <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
     </button>
   `
+}
+
+function formatHistoryActionTimestamp(action) {
+  if (!action?.createdAt) return 'Time unavailable'
+  const date = new Date(action.createdAt)
+  if (Number.isNaN(date.getTime())) return 'Time unavailable'
+  return `Done ${date.toLocaleString('en', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })}`
 }
 
 function toggleHistoryActionPopover(event, direction) {
