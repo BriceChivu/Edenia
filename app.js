@@ -87,6 +87,13 @@ const cityWaveformScroll = {
   pointerX: 0,
   pointerY: 0
 }
+const walkthroughState = {
+  active: false,
+  index: 0,
+  steps: [],
+  elements: null,
+  frame: null
+}
 const STATUS_FILTERS = [
   ['all', 'All'],
   ['watch-later', 'Watch later'],
@@ -95,6 +102,38 @@ const STATUS_FILTERS = [
 ]
 const VIDEO_STATUSES = ['watch-later', 'unwatched', 'partial', 'watched']
 const HISTORY_RANGES = ['week', 'month']
+const WALKTHROUGH_STEPS = [
+  {
+    id: 'town',
+    target: '.city-image-wrap',
+    text: 'This is your floating town. Your progress will upgrade it.',
+    placement: 'bottom'
+  },
+  {
+    id: 'settings',
+    target: '.gear-btn',
+    text: 'Open Settings to add your YouTube channels, adjust your goal, and manage sync files.',
+    placement: 'left'
+  },
+  {
+    id: 'weekly-goal',
+    target: '.goal-card',
+    text: 'Your weekly goal turns watched study time into a quick progress check.',
+    placement: 'bottom'
+  },
+  {
+    id: 'study-history',
+    target: '.study-history-section',
+    text: 'Study History keeps the summary and heatmap of what you have done over time.',
+    placement: 'top'
+  },
+  {
+    id: 'videos',
+    target: '.feed-controls',
+    text: 'Use these controls to filter videos, add watched URLs, and undo or redo status changes.',
+    placement: 'top'
+  }
+]
 
 function getCookie(key) {
   return document.cookie.split('; ').reduce((value, part) => {
@@ -731,6 +770,281 @@ function init() {
   } else {
     showToast('Sandbox mode: demo data is isolated from your real progress', 'warn')
   }
+  maybeStartOnboarding(state)
+}
+
+function maybeStartOnboarding(state) {
+  if (IS_SANDBOX || state?.onboarding?.completed) return
+  window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS), 350)
+}
+
+function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {
+  const availableSteps = steps.filter(step => step?.target && document.querySelector(step.target))
+  if (!availableSteps.length) return
+
+  walkthroughState.active = true
+  walkthroughState.steps = availableSteps
+  walkthroughState.index = clampNumber(options.startIndex || 0, 0, availableSteps.length - 1)
+  ensureWalkthroughElements()
+  document.body.classList.add('walkthrough-active')
+  walkthroughState.elements.layer.classList.remove('hidden')
+  window.addEventListener('resize', scheduleWalkthroughPosition)
+  window.addEventListener('scroll', scheduleWalkthroughPosition, true)
+  document.addEventListener('keydown', handleWalkthroughKey)
+  renderWalkthroughStep()
+}
+
+function ensureWalkthroughElements() {
+  if (walkthroughState.elements) return walkthroughState.elements
+
+  const layer = document.createElement('div')
+  layer.className = 'walkthrough-layer hidden'
+  layer.innerHTML = `
+    <div class="walkthrough-scrim walkthrough-scrim-top"></div>
+    <div class="walkthrough-scrim walkthrough-scrim-right"></div>
+    <div class="walkthrough-scrim walkthrough-scrim-bottom"></div>
+    <div class="walkthrough-scrim walkthrough-scrim-left"></div>
+    <div class="walkthrough-highlight" aria-hidden="true"></div>
+    <div class="walkthrough-card" role="dialog" aria-live="polite" aria-label="App walkthrough">
+      <div class="walkthrough-progress"></div>
+      <p class="walkthrough-text"></p>
+      <div class="walkthrough-actions">
+        <button class="btn-ghost walkthrough-skip" type="button">Skip</button>
+        <span class="walkthrough-step-controls">
+          <button class="btn-ghost walkthrough-back" type="button">Back</button>
+          <button class="btn-secondary walkthrough-next" type="button">Next</button>
+        </span>
+      </div>
+      <span class="walkthrough-arrow" aria-hidden="true"></span>
+    </div>
+  `
+  document.body.appendChild(layer)
+
+  const elements = {
+    layer,
+    scrims: {
+      top: layer.querySelector('.walkthrough-scrim-top'),
+      right: layer.querySelector('.walkthrough-scrim-right'),
+      bottom: layer.querySelector('.walkthrough-scrim-bottom'),
+      left: layer.querySelector('.walkthrough-scrim-left')
+    },
+    highlight: layer.querySelector('.walkthrough-highlight'),
+    card: layer.querySelector('.walkthrough-card'),
+    progress: layer.querySelector('.walkthrough-progress'),
+    text: layer.querySelector('.walkthrough-text'),
+    skip: layer.querySelector('.walkthrough-skip'),
+    back: layer.querySelector('.walkthrough-back'),
+    next: layer.querySelector('.walkthrough-next')
+  }
+  elements.skip.addEventListener('click', () => endWalkthrough({ markCompleted: true }))
+  elements.back.addEventListener('click', () => moveWalkthrough(-1))
+  elements.next.addEventListener('click', () => moveWalkthrough(1))
+  walkthroughState.elements = elements
+  return elements
+}
+
+function renderWalkthroughStep() {
+  if (!walkthroughState.active) return
+  const step = walkthroughState.steps[walkthroughState.index]
+  const target = step ? document.querySelector(step.target) : null
+  if (!target || !isWalkthroughTargetVisible(target)) {
+    moveWalkthrough(1)
+    return
+  }
+
+  const elements = ensureWalkthroughElements()
+  elements.progress.textContent = `${walkthroughState.index + 1} / ${walkthroughState.steps.length}`
+  elements.text.textContent = step.text
+  elements.back.disabled = walkthroughState.index === 0
+  elements.next.textContent = walkthroughState.index === walkthroughState.steps.length - 1 ? 'Done' : 'Next'
+
+  target.scrollIntoView({
+    behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+    block: 'center',
+    inline: 'center'
+  })
+  scheduleWalkthroughPosition()
+  window.setTimeout(scheduleWalkthroughPosition, prefersReducedMotion() ? 0 : 220)
+}
+
+function moveWalkthrough(delta) {
+  if (!walkthroughState.active) return
+  const nextIndex = walkthroughState.index + delta
+  if (nextIndex < 0) return
+  if (nextIndex >= walkthroughState.steps.length) {
+    endWalkthrough({ markCompleted: true })
+    return
+  }
+  walkthroughState.index = nextIndex
+  renderWalkthroughStep()
+}
+
+function endWalkthrough(options = {}) {
+  const { markCompleted = true } = options
+  if (!walkthroughState.active) return
+
+  walkthroughState.active = false
+  if (walkthroughState.frame) {
+    cancelAnimationFrame(walkthroughState.frame)
+    walkthroughState.frame = null
+  }
+  walkthroughState.elements?.layer.classList.add('hidden')
+  document.body.classList.remove('walkthrough-active')
+  window.removeEventListener('resize', scheduleWalkthroughPosition)
+  window.removeEventListener('scroll', scheduleWalkthroughPosition, true)
+  document.removeEventListener('keydown', handleWalkthroughKey)
+  if (markCompleted) completeOnboarding()
+}
+
+function handleWalkthroughKey(event) {
+  if (!walkthroughState.active) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    endWalkthrough({ markCompleted: true })
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    moveWalkthrough(1)
+  } else if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    moveWalkthrough(-1)
+  }
+}
+
+function scheduleWalkthroughPosition() {
+  if (!walkthroughState.active || walkthroughState.frame) return
+  walkthroughState.frame = requestAnimationFrame(() => {
+    walkthroughState.frame = null
+    positionWalkthrough()
+  })
+}
+
+function positionWalkthrough() {
+  if (!walkthroughState.active) return
+  const step = walkthroughState.steps[walkthroughState.index]
+  const target = step ? document.querySelector(step.target) : null
+  if (!target || !isWalkthroughTargetVisible(target)) return
+
+  const elements = ensureWalkthroughElements()
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const targetRect = target.getBoundingClientRect()
+  const highlightRect = getWalkthroughHighlightRect(targetRect, viewportWidth, viewportHeight)
+
+  positionWalkthroughScrims(elements.scrims, highlightRect, viewportWidth, viewportHeight)
+  setFixedRect(elements.highlight, highlightRect)
+  positionWalkthroughCard(elements.card, highlightRect, step.placement || 'bottom', viewportWidth, viewportHeight)
+}
+
+function getWalkthroughHighlightRect(rect, viewportWidth, viewportHeight) {
+  const padding = 8
+  const left = clampNumber(rect.left - padding, 8, viewportWidth - 8)
+  const top = clampNumber(rect.top - padding, 8, viewportHeight - 8)
+  const right = clampNumber(rect.right + padding, left + 1, viewportWidth - 8)
+  const bottom = clampNumber(rect.bottom + padding, top + 1, viewportHeight - 8)
+  return {
+    left,
+    top,
+    width: right - left,
+    height: bottom - top,
+    right,
+    bottom
+  }
+}
+
+function positionWalkthroughScrims(scrims, rect, viewportWidth, viewportHeight) {
+  setFixedRect(scrims.top, { left: 0, top: 0, width: viewportWidth, height: rect.top })
+  setFixedRect(scrims.right, { left: rect.right, top: rect.top, width: viewportWidth - rect.right, height: rect.height })
+  setFixedRect(scrims.bottom, { left: 0, top: rect.bottom, width: viewportWidth, height: viewportHeight - rect.bottom })
+  setFixedRect(scrims.left, { left: 0, top: rect.top, width: rect.left, height: rect.height })
+}
+
+function positionWalkthroughCard(card, rect, preferredPlacement, viewportWidth, viewportHeight) {
+  const margin = 14
+  const gap = 18
+  const cardRect = card.getBoundingClientRect()
+  const placements = uniqueWalkthroughPlacements([preferredPlacement, 'bottom', 'top', 'right', 'left'])
+  let chosen = null
+
+  for (const placement of placements) {
+    const candidate = getWalkthroughCardPosition(rect, cardRect, placement, gap)
+    if (
+      candidate.left >= margin &&
+      candidate.top >= margin &&
+      candidate.left + cardRect.width <= viewportWidth - margin &&
+      candidate.top + cardRect.height <= viewportHeight - margin
+    ) {
+      chosen = { ...candidate, placement }
+      break
+    }
+  }
+
+  if (!chosen) {
+    const fallback = getWalkthroughCardPosition(rect, cardRect, preferredPlacement, gap)
+    chosen = {
+      placement: preferredPlacement,
+      left: clampNumber(fallback.left, margin, viewportWidth - cardRect.width - margin),
+      top: clampNumber(fallback.top, margin, viewportHeight - cardRect.height - margin)
+    }
+  }
+
+  card.dataset.placement = chosen.placement
+  card.style.left = `${Math.round(chosen.left)}px`
+  card.style.top = `${Math.round(chosen.top)}px`
+  positionWalkthroughArrow(card, rect, chosen, cardRect)
+}
+
+function getWalkthroughCardPosition(rect, cardRect, placement, gap) {
+  const centerX = rect.left + rect.width / 2
+  const centerY = rect.top + rect.height / 2
+  if (placement === 'top') {
+    return { left: centerX - cardRect.width / 2, top: rect.top - cardRect.height - gap }
+  }
+  if (placement === 'left') {
+    return { left: rect.left - cardRect.width - gap, top: centerY - cardRect.height / 2 }
+  }
+  if (placement === 'right') {
+    return { left: rect.right + gap, top: centerY - cardRect.height / 2 }
+  }
+  return { left: centerX - cardRect.width / 2, top: rect.bottom + gap }
+}
+
+function positionWalkthroughArrow(card, rect, cardPosition, cardRect) {
+  const targetCenterX = rect.left + rect.width / 2
+  const targetCenterY = rect.top + rect.height / 2
+  const arrowInset = 28
+
+  if (cardPosition.placement === 'top' || cardPosition.placement === 'bottom') {
+    const arrowLeft = clampNumber(targetCenterX - cardPosition.left, arrowInset, cardRect.width - arrowInset)
+    card.style.setProperty('--walkthrough-arrow-left', `${Math.round(arrowLeft)}px`)
+    card.style.setProperty('--walkthrough-arrow-top', '')
+  } else {
+    const arrowTop = clampNumber(targetCenterY - cardPosition.top, arrowInset, cardRect.height - arrowInset)
+    card.style.setProperty('--walkthrough-arrow-left', '')
+    card.style.setProperty('--walkthrough-arrow-top', `${Math.round(arrowTop)}px`)
+  }
+}
+
+function uniqueWalkthroughPlacements(placements) {
+  const valid = new Set(['top', 'right', 'bottom', 'left'])
+  return placements.filter((placement, index, list) => valid.has(placement) && list.indexOf(placement) === index)
+}
+
+function isWalkthroughTargetVisible(target) {
+  const rect = target.getBoundingClientRect()
+  const style = window.getComputedStyle(target)
+  return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'
+}
+
+function setFixedRect(element, rect) {
+  if (!element) return
+  element.style.left = `${Math.round(rect.left)}px`
+  element.style.top = `${Math.round(rect.top)}px`
+  element.style.width = `${Math.max(0, Math.round(rect.width))}px`
+  element.style.height = `${Math.max(0, Math.round(rect.height))}px`
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 }
 
 function resetSandboxState() {
