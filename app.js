@@ -568,8 +568,16 @@ function formatWatchedAt(iso) {
   if (!iso) return ''
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
-  const relative = timeAgo(iso)
-  if (['today', 'yesterday'].includes(relative) || relative.endsWith('ago')) return `Watched ${relative}`
+  const watchedDateKey = toDateKey(date)
+  const today = getCurrentAppDate()
+  const todayKey = toDateKey(today)
+  const yesterdayKey = toDateKey(addDays(today, -1))
+  if (watchedDateKey === todayKey) return 'Watched today'
+  if (watchedDateKey === yesterdayKey) return 'Watched yesterday'
+  const days = daysBetweenDateKeys(watchedDateKey, todayKey)
+  if (days > 1 && days < 7) return `Watched ${days}d ago`
+  if (days >= 7 && days < 14) return 'Watched 1 week ago'
+  if (days >= 14 && days < 30) return `Watched ${Math.floor(days / 7)}w ago`
   return `Watched ${date.toLocaleDateString('en', { month: 'short', day: 'numeric' })}`
 }
 
