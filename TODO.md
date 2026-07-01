@@ -1,10 +1,10 @@
 # CHANGES:
 Minor changes:
-- allows ESCAPE keyboard key to exit the settings menu
-- if my mouse is on the town image and i try to scroll down and the iamge is already at the max zoom out, then it should scroll down. Currently, it keeps try to zoom out and I have to put my mouse outside of the image to be able to scroll down.
+- in the weekly goal, if the current watched hour is under 1h, show minutes instead 0.Xh
+- BUG:  "理查老师上课啦 | Teacher Richard's class is starting!" is flagged as Watched today but I watched it yesterday (Taiwan time). In other words it does not correspond to the heatmap info
 
 Big changes:
-- Have the possibility of adding a URl corresponding to a video I've watched that is not present in the video channels. That would also score points.
+- Make sure the "Possibility of adding manually videos watched outside of the channels" commit is working as intended. Do not write code. Just check
 - in settings, have the option to not fetch youtube shorts
 
 Sandbox:
