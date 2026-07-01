@@ -108,13 +108,13 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'town',
     target: '.city-image-wrap',
-    text: 'This is your floating town. Your progress will upgrade it.',
+    text: 'This is your floating town. When you study, your town grows little by little. It gives you a quick picture of your progress.',
     placement: 'bottom'
   },
   {
     id: 'settings',
     target: '.gear-btn',
-    text: 'Click Settings to add your YouTube channels, adjust your goal, and manage sync files.',
+    text: 'Click Settings when you are ready to set up Edenia. This is where you add your YouTube channels, choose your weekly goal, and keep your progress safe.',
     placement: 'left',
     advanceOn: 'target-click',
     actionLabel: 'Click Settings',
@@ -126,7 +126,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'channels',
     target: '.add-channel-row',
-    text: 'Paste a YouTube channel ID here. Edenia will use your channels to build the study feed.',
+    text: 'Add the YouTube channels you study from here. Edenia will show recent videos from those channels so you can choose what to watch next.',
     placement: 'left',
     hooks: {
       beforeEnter: 'closeTransientUi',
@@ -136,7 +136,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'weekly-goal',
     target: '.goal-card',
-    text: 'Your weekly goal turns watched study time into a quick progress check.',
+    text: 'This shows your weekly study goal. As you watch study videos, the bar fills up so you can quickly see how close you are.',
     placement: 'bottom',
     hooks: {
       beforeEnter: 'closeTransientUi'
@@ -145,7 +145,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'study-history',
     target: '.study-history-section',
-    text: 'Study History keeps the summary and heatmap of what you have done over time.',
+    text: 'Study History shows what you did over time. Use the summary for clear numbers, and the heatmap to spot your active days quickly.',
     placement: 'top',
     hooks: {
       beforeEnter: 'closeTransientUi'
@@ -154,7 +154,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'videos',
     target: '.feed-controls',
-    text: 'Use these controls to filter videos, add watched URLs, and undo or redo status changes.',
+    text: 'This is your video area. You can filter the list, mark videos as watched, add a watched video by URL, and undo changes if you click the wrong thing.',
     placement: 'top',
     hooks: {
       beforeEnter: 'closeTransientUi'
