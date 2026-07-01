@@ -19,6 +19,9 @@ const DEFAULT_CHANNELS_VERSION = 2
 
 const IS_SANDBOX = new URLSearchParams(window.location.search).get('sandbox') === '1'
 const STORAGE_KEY = IS_SANDBOX ? 'edenia_v1_sandbox' : 'edenia_v1'
+const STATE_BACKUP_KEY = `${STORAGE_KEY}_backups`
+const STATE_BACKUP_LIMIT = 8
+const STATE_BACKUP_AUTO_INTERVAL_MS = 10 * 60_000
 const CONFIG_COOKIE_KEY = IS_SANDBOX ? 'edenia_config_sandbox' : 'edenia_config'
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const YOUTUBE_REFRESH_INTERVAL_MS = 5 * 60 * 60_000
@@ -164,6 +167,7 @@ function applyTheme(theme) {
 }
 
 function loadState() {
+  let storageError = false
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
@@ -185,10 +189,17 @@ function loadState() {
       normalizeSandboxState(state)
       normalizeCityProgress(state)
       delete state.nightVisuals
-      if (shouldSave) saveState(state)
+      if (shouldSave) saveState(state, { backupReason: 'before automatic cleanup', forceBackup: true })
       return state
     }
-  } catch {}
+  } catch {
+    storageError = true
+  }
+
+  if (storageError) {
+    const recoveredState = getLatestBackupState()
+    if (recoveredState) return recoveredState
+  }
 
   const fallback = loadConfigCookie()
   if (fallback) {
@@ -198,8 +209,15 @@ function loadState() {
   return null
 }
 
-function saveState(s) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch {}
+function saveState(s, options = {}) {
+  const { backup = true, backupReason = 'automatic backup', forceBackup = false } = options
+  if (backup) createStateBackup(backupReason, { force: forceBackup })
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
+  } catch {
+    pruneOldestStateBackup()
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch {}
+  }
   saveConfigCookie(s.config)
 }
 
@@ -224,6 +242,107 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
     lastFetched: null,
     defaultChannelsVersion: DEFAULT_CHANNELS_VERSION
   }
+}
+
+function isValidStateShape(state) {
+  return Boolean(
+    state &&
+    typeof state === 'object' &&
+    state.config &&
+    typeof state.config === 'object' &&
+    state.videos &&
+    typeof state.videos === 'object' &&
+    !Array.isArray(state.videos) &&
+    state.anki &&
+    typeof state.anki === 'object' &&
+    !Array.isArray(state.anki)
+  )
+}
+
+function getStateBackupEntries() {
+  try {
+    const raw = localStorage.getItem(STATE_BACKUP_KEY)
+    const entries = raw ? JSON.parse(raw) : []
+    if (!Array.isArray(entries)) return []
+    return entries
+      .filter(entry => entry?.id && entry?.createdAt && isValidStateShape(entry.state))
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, STATE_BACKUP_LIMIT)
+  } catch {
+    return []
+  }
+}
+
+function writeStateBackupEntries(entries) {
+  let nextEntries = entries.slice(0, STATE_BACKUP_LIMIT)
+  while (nextEntries.length) {
+    try {
+      localStorage.setItem(STATE_BACKUP_KEY, JSON.stringify(nextEntries))
+      return
+    } catch {
+      nextEntries = nextEntries.slice(0, -1)
+    }
+  }
+  try { localStorage.removeItem(STATE_BACKUP_KEY) } catch {}
+}
+
+function pruneOldestStateBackup() {
+  const entries = getStateBackupEntries()
+  if (!entries.length) return false
+  writeStateBackupEntries(entries.slice(0, -1))
+  return true
+}
+
+function prepareStateForBackup(state) {
+  const backupState = getImportedSyncState({
+    app: 'edenia',
+    state
+  })
+  if (!backupState) return null
+  if (backupState.config) delete backupState.config.apiKey
+  return backupState
+}
+
+function getStoredStateForBackup() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return null
+    return prepareStateForBackup(JSON.parse(raw))
+  } catch {
+    return null
+  }
+}
+
+function createStateBackup(reason = 'automatic backup', options = {}) {
+  const { force = false } = options
+  const state = getStoredStateForBackup()
+  if (!state) return null
+
+  const entries = getStateBackupEntries()
+  const latest = entries[0]
+  const now = new Date()
+  const isAutomatic = reason === 'automatic backup'
+  const latestAgeMs = latest ? now - new Date(latest.createdAt) : Number.POSITIVE_INFINITY
+  if (!force && isAutomatic && latest && latestAgeMs < STATE_BACKUP_AUTO_INTERVAL_MS) return null
+
+  try {
+    if (latest && JSON.stringify(latest.state) === JSON.stringify(state)) return null
+  } catch {}
+
+  const entry = {
+    id: `${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: now.toISOString(),
+    reason,
+    sandbox: IS_SANDBOX,
+    state
+  }
+  writeStateBackupEntries([entry, ...entries])
+  return entry
+}
+
+function getLatestBackupState() {
+  const entry = getStateBackupEntries()[0]
+  return entry ? prepareStateForBackup(entry.state) : null
 }
 
 function createEmptySandboxState() {
@@ -545,8 +664,9 @@ function init() {
 
 function resetSandboxState() {
   if (!IS_SANDBOX) return
+  createStateBackup('before sandbox reset', { force: true })
   const state = createEmptySandboxState()
-  saveState(state)
+  saveState(state, { backup: false })
   setDefaultCityDayOffset(state)
   selectedHistoryView = 'heatmap'
   selectedHistoryRange = 'month'
@@ -740,6 +860,7 @@ function openSettings() {
   document.getElementById('settingsGoal').value   = s.config.weeklyGoalHours
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(s.config.includeShorts)
   renderChannelList(s.config.channels)
+  renderBackupList()
   show('settingsPanel')
 }
 
@@ -806,17 +927,19 @@ function importSyncFileFromInput(input) {
         return
       }
 
+      createStateBackup('before sync import', { force: true })
       localStorage.setItem(STORAGE_KEY, JSON.stringify(importedState))
       const normalizedState = loadState()
       if (!normalizedState) {
         showToast('Could not import that sync file', 'error')
         return
       }
-      saveState(normalizedState)
+      saveState(normalizedState, { backup: false })
       applyTheme(normalizedState.config.theme)
       setDefaultCityDayOffset(normalizedState)
       renderAll(normalizedState)
       renderChannelList(normalizedState.config.channels)
+      renderBackupList()
       document.getElementById('settingsGoal').value = normalizedState.config.weeklyGoalHours
       document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(normalizedState.config.includeShorts)
       showToast('Sync file imported')
@@ -831,6 +954,66 @@ function importSyncFileFromInput(input) {
     input.value = ''
   }
   reader.readAsText(file)
+}
+
+function formatBackupTimestamp(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Unknown time'
+  return date.toLocaleString('en', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+function formatBackupReason(reason) {
+  return String(reason || 'automatic backup')
+    .replace(/^before /, 'Before ')
+    .replace(/^automatic backup$/, 'Automatic backup')
+}
+
+function renderBackupList() {
+  const el = document.getElementById('backupList')
+  if (!el) return
+
+  const entries = getStateBackupEntries()
+  if (!entries.length) {
+    el.innerHTML = '<p class="backup-empty">No local backups yet</p>'
+    return
+  }
+
+  el.innerHTML = entries.slice(0, 4).map(entry => `
+    <div class="backup-item">
+      <div class="backup-item-copy">
+        <span class="backup-time">${escHtml(formatBackupTimestamp(entry.createdAt))}</span>
+        <span class="backup-reason">${escHtml(formatBackupReason(entry.reason))}</span>
+      </div>
+      <button class="btn-ghost backup-restore-btn" type="button" data-backup-id="${escHtml(entry.id)}" onclick="restoreStateBackup(this.dataset.backupId)">Restore</button>
+    </div>
+  `).join('')
+}
+
+function restoreStateBackup(id) {
+  const entry = getStateBackupEntries().find(candidate => candidate.id === id)
+  const state = entry ? prepareStateForBackup(entry.state) : null
+  if (!state) {
+    showToast('That backup is not available anymore', 'error')
+    renderBackupList()
+    return
+  }
+
+  createStateBackup('before backup restore', { force: true })
+  syncStreak(state)
+  saveState(state, { backup: false })
+  applyTheme(state.config.theme)
+  setDefaultCityDayOffset(state)
+  renderAll(state)
+  renderChannelList(state.config.channels)
+  renderBackupList()
+  document.getElementById('settingsGoal').value = state.config.weeklyGoalHours
+  document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(state.config.includeShorts)
+  showToast('Backup restored', 'success')
 }
 
 function getImportedSyncState(payload) {
@@ -920,6 +1103,7 @@ function hideResetConfirm() {
 }
 
 function resetApp() {
+  createStateBackup('before reset', { force: true })
   localStorage.removeItem(STORAGE_KEY)
   document.cookie = `${CONFIG_COOKIE_KEY}=; max-age=0; path=/`
   location.reload()

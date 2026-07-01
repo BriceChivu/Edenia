@@ -266,6 +266,63 @@ body[data-theme="dark"] select option { color: var(--text); }
 .sync-actions .btn-secondary {
   width: 100%;
 }
+.backup-panel {
+  background: var(--planet-white);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+}
+.backup-panel-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.backup-refresh-btn,
+.backup-restore-btn {
+  border-width: 1px;
+  font-size: 0.75rem;
+  padding: 5px 10px;
+}
+.backup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.backup-item {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 7px;
+}
+.backup-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.backup-item-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.backup-time {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.backup-reason,
+.backup-empty {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+.backup-empty {
+  margin: 0;
+}
 .reset-confirm {
   border: 2px solid #d96b61;
   border-radius: 12px;
@@ -284,6 +341,9 @@ body[data-theme="dark"] .reset-confirm {
   background: #2a1110;
   border-color: #b84a42;
   color: #ffd1cc;
+}
+body[data-theme="dark"] .backup-panel {
+  background: var(--surface-hi);
 }
 
 /* ═══════════════════════════════════════════════════════════

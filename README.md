@@ -140,6 +140,7 @@ Primary storage:
 
 - Browser `localStorage`
 - Key: `edenia_v1`
+- Backup key: `edenia_v1_backups`
 - Defined in `app.js` as `STORAGE_KEY`
 
 The stored object includes:
@@ -154,6 +155,8 @@ The stored object includes:
 - `undoStack`: recent video status changes for the undo button.
 - `lastFetched`: last successful YouTube refresh timestamp.
 
+Edenia also keeps recent local backup snapshots in the same browser. These snapshots are created automatically before normal saves at a limited interval and immediately before risky actions such as sync import, reset, sandbox reset, or automatic cleanup. Use Settings -> `Recent local backups` to restore one of the latest snapshots after a bad import, reset, or corrupted save.
+
 Secondary storage:
 
 - Browser cookie
@@ -164,7 +167,7 @@ The cookie mirrors configuration data so the app can restore basic settings if t
 
 Sync files:
 
-Progress is local to each browser and device. Use Settings -> `Export sync file` to download a private JSON backup of the current browser state, then open Edenia on another device or browser and use Settings -> `Import sync file` to copy that progress there.
+Progress is local to each browser and device. Local backup snapshots help inside the same browser, but they do not protect against clearing site data, deleting the browser profile, or losing the device. Use Settings -> `Export sync file` to download a private JSON backup of the current browser state, then open Edenia on another device or browser and use Settings -> `Import sync file` to copy that progress there.
 
 The sync file includes progress, configured channels, weekly goal, theme, cached video data, Anki logs, and undo history. It does not include the YouTube API key; local development reads that from `config.local.js`, and GitHub Pages gets it from the generated deployment config. Treat sync files like private backup files and only import normal sync files into the normal app, or sandbox sync files into sandbox mode.
 
