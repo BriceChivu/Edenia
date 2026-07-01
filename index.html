@@ -57,9 +57,17 @@
           <input class="hidden" type="file" id="syncFileInput" accept="application/json,.json" onchange="importSyncFileFromInput(this)">
         </div>
         <p class="settings-note">Progress is saved in this browser. Use sync files to copy the same progress to another device or browser.</p>
+        <div class="backup-panel">
+          <div class="backup-panel-header">
+            <span>Recent local backups</span>
+            <button class="btn-ghost backup-refresh-btn" type="button" onclick="renderBackupList()">Refresh</button>
+          </div>
+          <div id="backupList" class="backup-list"></div>
+          <p class="settings-note">Local backups can recover from a bad import, reset, or app save. Export a sync file for protection outside this browser.</p>
+        </div>
         <button class="btn-ghost btn-danger" onclick="showResetConfirm()">Reset everything</button>
         <div id="resetConfirm" class="reset-confirm hidden">
-          <p>This will delete this app's local watch history, streak, saved settings, and cached Anki stats. Your Anki collection will not be changed.</p>
+          <p>This will clear this app's local watch history, streak, saved settings, and cached Anki stats. A rollback backup will be kept here. Your Anki collection will not be changed.</p>
           <div class="reset-confirm-actions">
             <button class="btn-ghost" onclick="hideResetConfirm()">Cancel</button>
             <button class="btn-ghost btn-danger" onclick="resetApp()">Delete data</button>

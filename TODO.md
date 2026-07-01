@@ -4,7 +4,7 @@ Minor changes:
 - BUG:  "理查老师上课啦 | Teacher Richard's class is starting!" is flagged as Watched today but I watched it yesterday (Taiwan time). In other words it does not correspond to the heatmap info
 
 Big changes:
-- Have a safety feature that prevent from losing my progress data in case of a browser local storage catastrophy. Do not code. Give me suggestions first.
+
 
 Sandbox:
 
