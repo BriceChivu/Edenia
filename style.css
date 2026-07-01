@@ -266,6 +266,9 @@ body[data-theme="dark"] select option { color: var(--text); }
 .sync-actions .btn-secondary {
   width: 100%;
 }
+.walkthrough-replay-btn {
+  width: 100%;
+}
 .backup-panel {
   background: var(--planet-white);
   border: 2px solid var(--border);
