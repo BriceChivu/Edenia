@@ -1075,7 +1075,16 @@ function addChannel() {
   saveState(s)
   renderChannelList(s.config.channels)
   idEl.value = ''
-  showToast(`${name} added`)
+  if (IS_SANDBOX) {
+    showToast(`${name} added`)
+    return
+  }
+  if (!hasYoutubeApiKey()) {
+    showToast(`${name} added. Add the shared YouTube API key to load videos.`, 'warn')
+    return
+  }
+  showToast(`${name} added · loading recent videos...`)
+  refreshAddedChannel(id)
 }
 
 function removeChannel(id) {
@@ -1384,6 +1393,52 @@ function startYoutubeAutoRefresh() {
   startYoutubeAutoRefresh._timer = setInterval(maybeRefreshFeed, YOUTUBE_REFRESH_INTERVAL_MS)
 }
 
+function dedupeVideos(videos = []) {
+  const seen = new Set()
+  return videos.filter(video => {
+    if (seen.has(video.id)) return false
+    seen.add(video.id)
+    return true
+  })
+}
+
+async function getFetchedVideoDetails(s, videos, includeShorts) {
+  const detailIds = videos
+    .filter(v => !s.videos[v.id] || typeof s.videos[v.id].duration !== 'number')
+    .map(v => v.id)
+  return fetchVideoDetails(detailIds, { detectShorts: !includeShorts })
+}
+
+function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
+  const videosToMerge = includeShorts
+    ? videos
+    : videos.filter(v => s.videos[v.id] || !detailsById[v.id]?.isShort)
+
+  videosToMerge.forEach(v => {
+    const existing = s.videos[v.id]
+    const detail = detailsById[v.id] || {}
+    s.videos[v.id] = {
+      ...v,
+      duration:   detail.duration ?? existing?.duration ?? 0,
+      status:     existing?.status    ?? 'unwatched',
+      watchedAt:  existing?.watchedAt ?? null,
+      resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, detail.duration ?? existing?.duration ?? 0),
+      source: existing?.source || v.source || null,
+      manuallyAdded: Boolean(existing?.manuallyAdded || v.manuallyAdded),
+      isShort: Boolean(detail.isShort || existing?.isShort)
+    }
+  })
+
+  return {
+    mergedCount: videosToMerge.length,
+    skippedShorts: includeShorts ? 0 : videos.length - videosToMerge.length
+  }
+}
+
+function formatSkippedShortsMessage(skippedShorts) {
+  return skippedShorts ? `, skipped ${skippedShorts} Short${skippedShorts === 1 ? '' : 's'}` : ''
+}
+
 async function refreshFeed({ silent = false } = {}) {
   const btn = document.getElementById('refreshBtn')
   if (btn) {
@@ -1438,46 +1493,19 @@ async function refreshFeed({ silent = false } = {}) {
       return
     }
 
-    // Deduplicate
-    const seen   = new Set()
-    const unique = all.filter(v => { if (seen.has(v.id)) return false; seen.add(v.id); return true })
-
+    const unique = dedupeVideos(all)
     const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
-
-    // Fetch details for videos that are new, need cached duration repair, or may need Shorts filtering.
-    const detailIds = unique
-      .filter(v => !s.videos[v.id] || typeof s.videos[v.id].duration !== 'number')
-      .map(v => v.id)
-    const detailsById = await fetchVideoDetails(detailIds, { detectShorts: !includeShorts })
-    const videosToMerge = includeShorts
-      ? unique
-      : unique.filter(v => s.videos[v.id] || !detailsById[v.id]?.isShort)
-
-    // Merge into state — preserve existing watch status
-    videosToMerge.forEach(v => {
-      const existing = s.videos[v.id]
-      const detail = detailsById[v.id] || {}
-      s.videos[v.id] = {
-        ...v,
-        duration:   detail.duration ?? existing?.duration ?? 0,
-        status:     existing?.status    ?? 'unwatched',
-        watchedAt:  existing?.watchedAt ?? null,
-        resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, detail.duration ?? existing?.duration ?? 0),
-        source: existing?.source || v.source || null,
-        manuallyAdded: Boolean(existing?.manuallyAdded || v.manuallyAdded),
-        isShort: Boolean(detail.isShort || existing?.isShort)
-      }
-    })
+    const detailsById = await getFetchedVideoDetails(s, unique, includeShorts)
+    const { mergedCount, skippedShorts } = mergeFetchedVideos(s, unique, detailsById, includeShorts)
 
     s.lastFetched = new Date().toISOString()
     saveState(s)
     renderAll(s)
 
-    const skippedShorts = includeShorts ? 0 : unique.length - videosToMerge.length
-    const shortsMsg = skippedShorts ? `, skipped ${skippedShorts} Short${skippedShorts === 1 ? '' : 's'}` : ''
+    const shortsMsg = formatSkippedShortsMessage(skippedShorts)
     const msg = errors.length
-      ? `Loaded ${videosToMerge.length} videos${shortsMsg} (${errors.length} channel${errors.length > 1 ? 's' : ''} failed)`
-      : `${videosToMerge.length} videos loaded${shortsMsg}`
+      ? `Loaded ${mergedCount} videos${shortsMsg} (${errors.length} channel${errors.length > 1 ? 's' : ''} failed)`
+      : `${mergedCount} videos loaded${shortsMsg}`
     if (!silent || errors.length) showToast(msg, errors.length ? 'warn' : 'success')
 
   } catch (err) {
@@ -1489,6 +1517,37 @@ async function refreshFeed({ silent = false } = {}) {
       btn.classList.remove('loading')
       btn.disabled = false
     }
+  }
+}
+
+async function refreshAddedChannel(channelId) {
+  if (IS_SANDBOX || !hasYoutubeApiKey()) return
+
+  try {
+    const s = loadState()
+    const channel = s.config.channels.find(ch => ch.id === channelId)
+    if (!channel) return
+
+    const videos = dedupeVideos(await fetchChannelVideos(channel, s.videos))
+    const first = videos[0]
+    if (first?.channelTitle && first.channelTitle !== channel.name) {
+      channel.name = first.channelTitle
+    }
+
+    const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
+    const detailsById = await getFetchedVideoDetails(s, videos, includeShorts)
+    const { mergedCount, skippedShorts } = mergeFetchedVideos(s, videos, detailsById, includeShorts)
+
+    saveState(s)
+    renderAll(s)
+    renderChannelList(s.config.channels)
+
+    const channelName = channel.name || channelId
+    const shortsMsg = formatSkippedShortsMessage(skippedShorts)
+    showToast(`${channelName}: ${mergedCount} videos loaded${shortsMsg}`, 'success')
+  } catch (err) {
+    console.error(err)
+    showToast(`Channel added, but recent videos could not load: ${err.message}`, 'warn')
   }
 }
 
