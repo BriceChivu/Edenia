@@ -1814,33 +1814,80 @@ function isActiveRefreshVideo(video) {
   return getVideoStatus(video) !== 'watched'
 }
 
-function getKnownChannelActiveCount(channel, knownVideos = {}) {
+function isCountableRefreshVideo(video, includeShorts) {
+  return isActiveRefreshVideo(video) && (includeShorts || !video?.isShort)
+}
+
+function getRefreshCountCandidate(video, knownVideos = {}) {
+  const known = knownVideos[video.id]
+  return known
+    ? { ...video, ...known, isShort: Boolean(video.isShort || known.isShort) }
+    : video
+}
+
+function getKnownChannelActiveCount(channel, knownVideos = {}, includeShorts = true) {
   return Object.values(knownVideos)
     .filter(video => video.channelId === channel.id)
-    .filter(isActiveRefreshVideo)
+    .filter(video => isCountableRefreshVideo(video, includeShorts))
     .length
 }
 
-async function fetchChannelVideos(channel, knownVideos = {}) {
+function applyFetchedVideoDetails(videos, detailsById = {}) {
+  return videos.map(video => {
+    const detail = detailsById[video.id]
+    return detail
+      ? { ...video, duration: detail.duration, isShort: Boolean(detail.isShort) }
+      : video
+  })
+}
+
+function getRefreshCandidateDetails(s, videos) {
+  const detailsById = {}
+  videos.forEach(video => {
+    const existing = s.videos[video.id]
+    if (Number.isFinite(Number(video.duration))) {
+      detailsById[video.id] = {
+        duration: Number(video.duration),
+        isShort: Boolean(video.isShort)
+      }
+    } else if (existing && typeof existing.duration === 'number') {
+      detailsById[video.id] = {
+        duration: existing.duration,
+        isShort: Boolean(existing.isShort)
+      }
+    }
+  })
+  return detailsById
+}
+
+async function fetchChannelVideos(channel, knownVideos = {}, options = {}) {
+  const includeShorts = normalizeIncludeShorts(options.includeShorts)
   const fetched = []
   let pageToken = ''
   let pages = 0
   let newCount = 0
-  let knownActiveCount = getKnownChannelActiveCount(channel, knownVideos)
+  let knownActiveCount = getKnownChannelActiveCount(channel, knownVideos, includeShorts)
 
   while (pages < MAX_FETCH_PAGES_PER_CHANNEL) {
     const page = await fetchChannelVideosPage(channel, pageToken)
     pages += 1
-    fetched.push(...page.videos)
+    const detailsById = includeShorts
+      ? {}
+      : await fetchVideoDetails(page.videos.map(video => video.id), { detectShorts: true })
+    const acceptedVideos = includeShorts
+      ? page.videos
+      : page.videos.filter(video => knownVideos[video.id] || !detailsById[video.id]?.isShort)
+    const detailedAcceptedVideos = applyFetchedVideoDetails(acceptedVideos, detailsById)
+    fetched.push(...detailedAcceptedVideos)
 
-    const pageNewVideos = page.videos.filter(v => !knownVideos[v.id])
+    const pageNewVideos = detailedAcceptedVideos.filter(v => !knownVideos[v.id])
     newCount += pageNewVideos.length
 
     const pageKnownOnly = pageNewVideos.length === 0
-    const pageActiveCount = page.videos
-      .filter(v => isActiveRefreshVideo(knownVideos[v.id] || v))
+    const pageActiveCount = detailedAcceptedVideos
+      .filter(v => isCountableRefreshVideo(getRefreshCountCandidate(v, knownVideos), includeShorts))
       .length
-    knownActiveCount += pageNewVideos.filter(isActiveRefreshVideo).length
+    knownActiveCount += pageNewVideos.filter(video => isCountableRefreshVideo(video, includeShorts)).length
 
     if (
       newCount >= ACTIVE_VIDEOS_PER_CHANNEL ||
@@ -1970,10 +2017,14 @@ function dedupeVideos(videos = []) {
 }
 
 async function getFetchedVideoDetails(s, videos, includeShorts) {
+  const knownDetailsById = getRefreshCandidateDetails(s, videos)
   const detailIds = videos
-    .filter(v => !s.videos[v.id] || typeof s.videos[v.id].duration !== 'number')
+    .filter(v => !knownDetailsById[v.id])
     .map(v => v.id)
-  return fetchVideoDetails(detailIds, { detectShorts: !includeShorts })
+  return {
+    ...knownDetailsById,
+    ...await fetchVideoDetails(detailIds, { detectShorts: !includeShorts })
+  }
 }
 
 function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
@@ -1984,15 +2035,16 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
   videosToMerge.forEach(v => {
     const existing = s.videos[v.id]
     const detail = detailsById[v.id] || {}
+    const duration = detail.duration ?? v.duration ?? existing?.duration ?? 0
     s.videos[v.id] = {
       ...v,
-      duration:   detail.duration ?? existing?.duration ?? 0,
+      duration,
       status:     existing?.status    ?? 'unwatched',
       watchedAt:  existing?.watchedAt ?? null,
-      resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, detail.duration ?? existing?.duration ?? 0),
+      resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, duration),
       source: existing?.source || v.source || null,
       manuallyAdded: Boolean(existing?.manuallyAdded || v.manuallyAdded),
-      isShort: Boolean(detail.isShort || existing?.isShort)
+      isShort: Boolean(detail.isShort || v.isShort || existing?.isShort)
     }
   })
 
@@ -2038,10 +2090,11 @@ async function refreshFeed({ silent = false } = {}) {
     const all    = []
     const errors = []
     let successfulChannels = 0
+    const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
 
     await Promise.all(channelsToRefresh.map(async ch => {
       try {
-        const vids = await fetchChannelVideos(ch, s.videos)
+        const vids = await fetchChannelVideos(ch, s.videos, { includeShorts })
         successfulChannels += 1
         all.push(...vids)
         const first = vids[0]
@@ -2063,7 +2116,6 @@ async function refreshFeed({ silent = false } = {}) {
     }
 
     const unique = dedupeVideos(all)
-    const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
     const detailsById = await getFetchedVideoDetails(s, unique, includeShorts)
     const { mergedCount, skippedShorts } = mergeFetchedVideos(s, unique, detailsById, includeShorts)
 
@@ -2096,13 +2148,13 @@ async function refreshAddedChannel(channelId) {
     const channel = s.config.channels.find(ch => ch.id === channelId)
     if (!channel) return
 
-    const videos = dedupeVideos(await fetchChannelVideos(channel, s.videos))
+    const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
+    const videos = dedupeVideos(await fetchChannelVideos(channel, s.videos, { includeShorts }))
     const first = videos[0]
     if (first?.channelTitle && first.channelTitle !== channel.name) {
       channel.name = first.channelTitle
     }
 
-    const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
     const detailsById = await getFetchedVideoDetails(s, videos, includeShorts)
     const { mergedCount, skippedShorts } = mergeFetchedVideos(s, videos, detailsById, includeShorts)
 
