@@ -47,7 +47,7 @@ const SCORING_RULES_VERSION = 2
 const CITY_LEVELS = [
   { threshold: 0, label: '🏠 Lonely house' },
   { threshold: 5, label: '⛵ Your house got a fresh new look! Plus a boat!' },
-  { threshold: 12, label: '🏝️ Oh look! a tiny island! Cute.' },
+  { threshold: 12, label: '🏝️ Oh look! A tiny island! Cute.' },
   { threshold: 20, label: '🛝 Kids are gonna have fun now!' },
   { threshold: 28, label: '🏊 That pool gives holiday vibes...' },
   { threshold: 35, label: '🐟 Oh! Small friends are coming to say hi...' },
@@ -2472,6 +2472,14 @@ function formatHoursMinutes(secs) {
   return `${minutes}m`
 }
 
+function formatWeeklyWatchedTime(secs) {
+  if (secs < 3600) {
+    const minutes = secs > 0 ? Math.max(1, Math.floor(secs / 60)) : 0
+    return `${minutes}m`
+  }
+  return `${(secs / 3600).toFixed(1)}h`
+}
+
 function formatHistoryTime(secs) {
   const hours = Math.floor(secs / 3600)
   const minutes = Math.ceil((secs % 3600) / 60)
@@ -2528,7 +2536,7 @@ function renderHeader(s) {
 }
 
 function renderAnalytics(stats, s) {
-  document.getElementById('hoursWatched').textContent    = stats.hoursWatched.toFixed(1)
+  document.getElementById('hoursWatched').textContent    = formatWeeklyWatchedTime(stats.secondsWatched)
   document.getElementById('goalHours').textContent       = stats.goalHours
   document.getElementById('videosWatched').textContent   = stats.videosWatched
   document.getElementById('videosPartial').textContent   = stats.videosPartial
