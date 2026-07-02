@@ -2366,6 +2366,8 @@ async function addWatchedVideoFromUrl(event) {
     const s = loadState()
     const existing = s.videos[videoId]
     const before = {
+      exists: Boolean(existing),
+      video: existing ? cloneVideoForHistoryAction(existing) : null,
       status: existing?.status || 'unwatched',
       watchedAt: existing?.watchedAt || null,
       resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, existing?.duration ?? metadata.duration)
@@ -2401,6 +2403,8 @@ async function addWatchedVideoFromUrl(event) {
       videoId,
       before,
       after: {
+        exists: true,
+        video: cloneVideoForHistoryAction(s.videos[videoId]),
         status: 'watched',
         watchedAt,
         resumeAtSeconds: null
@@ -2450,6 +2454,10 @@ function pushUndoAction(s, action) {
   }
 }
 
+function cloneVideoForHistoryAction(video) {
+  return video ? { ...video } : null
+}
+
 function undoLastVideoAction() {
   const s = loadState()
   normalizeUndoState(s)
@@ -2477,7 +2485,7 @@ function applyHistoryAction(direction, actionIndex) {
 
   sourceStack.splice(index, 1)
   const targetSnapshot = direction === 'redo' ? action.after : action.before
-  const video = applyVideoStatusActionSnapshot(s, action.videoId, targetSnapshot)
+  const video = applyVideoStatusActionSnapshot(s, action.videoId, targetSnapshot, action, direction)
 
   if (!video) {
     saveState(s)
@@ -2498,17 +2506,48 @@ function applyHistoryAction(direction, actionIndex) {
   showToast(formatHistoryActionToast(direction, video, targetSnapshot))
 }
 
-function applyVideoStatusActionSnapshot(s, videoId, snapshot) {
-  const video = s.videos?.[videoId]
-  if (!video || !snapshot) return null
+function applyVideoStatusActionSnapshot(s, videoId, snapshot, action = null, direction = 'undo') {
+  if (!snapshot) return null
+  let video = s.videos?.[videoId]
+  if (!video && snapshot.video) {
+    s.videos[videoId] = cloneVideoForHistoryAction(snapshot.video)
+    video = s.videos[videoId]
+  }
+  if (!video) return null
+  if (shouldDeleteManualVideoOnUndo(video, action, snapshot, direction)) {
+    if (!Object.prototype.hasOwnProperty.call(snapshot, 'exists')) snapshot.exists = false
+    if (action?.after && !action.after.video) action.after.video = cloneVideoForHistoryAction(video)
+    delete s.videos[videoId]
+    return cloneVideoForHistoryAction(video)
+  }
+  if (snapshot.video) {
+    s.videos[videoId] = cloneVideoForHistoryAction(snapshot.video)
+    return s.videos[videoId]
+  }
   video.status = snapshot.status
   video.watchedAt = snapshot.watchedAt
   video.resumeAtSeconds = normalizeResumeAtSeconds(snapshot.resumeAtSeconds, video.duration)
   return video
 }
 
+function shouldDeleteManualVideoOnUndo(video, action, snapshot, direction) {
+  if (direction !== 'undo') return false
+  if (snapshot?.exists === false) return true
+  if (Object.prototype.hasOwnProperty.call(snapshot || {}, 'exists')) return false
+  return Boolean(
+    video?.manuallyAdded &&
+    video?.source === 'manual' &&
+    action?.after?.status === 'watched' &&
+    action?.before?.status === 'unwatched' &&
+    !action?.before?.watchedAt
+  )
+}
+
 function formatHistoryActionToast(direction, video, snapshot) {
   const verb = direction === 'redo' ? 'Redid' : 'Undid'
+  if (snapshot?.exists === false) {
+    return `${verb} change: "${formatToastTitle(video.title)}" was removed.`
+  }
   return `${verb} change: "${formatToastTitle(video.title)}" is back to ${formatVideoStatus(snapshot.status)}.`
 }
 
