@@ -37,9 +37,7 @@ const VIDEO_WATCHED_POINTS = 1
 const SHORTS_MAX_DURATION_SECONDS = 180
 const ANKI_REVIEW_CHUNK_SIZE = 60
 const ANKI_REVIEW_CHUNK_POINTS = 3
-const ANKI_CREATED_CHUNK_SIZE = 12
-const ANKI_CREATED_CHUNK_POINTS = 4
-const SCORING_RULES_VERSION = 2
+const SCORING_RULES_VERSION = 3
 const CITY_LEVELS = [
   { threshold: 0, label: '🏠 Lonely house' },
   { threshold: 5, label: '⛵ Your house got a fresh new look! Plus a boat!' },
@@ -1341,9 +1339,7 @@ function makeSandboxActivityForScore(scoreTarget) {
     remaining -= 1
   }
 
-  const createdChunks = remaining >= ANKI_CREATED_CHUNK_POINTS ? randomInt(0, Math.floor(remaining / ANKI_CREATED_CHUNK_POINTS)) : 0
-  const created = createdChunks * ANKI_CREATED_CHUNK_SIZE + (createdChunks ? randomInt(0, ANKI_CREATED_CHUNK_SIZE - 1) : randomInt(0, 4))
-  remaining -= createdChunks * ANKI_CREATED_CHUNK_POINTS
+  const created = randomInt(0, 8)
 
   const reviewedChunks = remaining >= ANKI_REVIEW_CHUNK_POINTS ? randomInt(0, Math.floor(remaining / ANKI_REVIEW_CHUNK_POINTS)) : 0
   const reviewed = reviewedChunks * ANKI_REVIEW_CHUNK_SIZE + randomInt(0, ANKI_REVIEW_CHUNK_SIZE - 1)
@@ -3019,8 +3015,7 @@ function getHistoryDayPoints(row) {
   const score =
     (hoursWatched * VIDEO_HOUR_POINTS) +
     (row.videosWatched * VIDEO_WATCHED_POINTS) +
-    (Math.floor(row.ankiReviewed / ANKI_REVIEW_CHUNK_SIZE) * ANKI_REVIEW_CHUNK_POINTS) +
-    (Math.floor(row.ankiCreated / ANKI_CREATED_CHUNK_SIZE) * ANKI_CREATED_CHUNK_POINTS)
+    (Math.floor(row.ankiReviewed / ANKI_REVIEW_CHUNK_SIZE) * ANKI_REVIEW_CHUNK_POINTS)
   return Math.floor(score)
 }
 

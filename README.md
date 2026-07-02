@@ -107,7 +107,7 @@ The app reads from AnkiConnect at `http://127.0.0.1:8765` automatically on start
 
 ## Study History
 
-The Study History section aggregates local activity by day, week, or month. It combines watched video time, watched video counts, Anki reviews, and new Anki cards. The Heatmap view shows the last year as daily squares; hover a square to see that day's breakdown.
+The Study History section aggregates local activity by day, week, or month. It tracks watched video time, watched video counts, Anki reviews, and new Anki cards. New Anki cards are shown for context, but they do not add points. The Heatmap view shows the last year as daily squares; hover a square to see that day's breakdown.
 
 ## Scoring
 
@@ -117,8 +117,7 @@ The city score is cumulative across all study history. Points do not reset each 
 | --- | ---: |
 | 1 hour of watched video time | 5 |
 | 1 watched video | 1 |
-| 50 Anki reviews | 3 |
-| 10 new Anki cards | 4 |
+| 60 Anki reviews | 3 |
 
 City milestones currently include:
 
