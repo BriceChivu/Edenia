@@ -32,12 +32,12 @@ const MIN_DAILY_STREAK_POINTS = 3
 const UNDO_STACK_LIMIT = 50
 const MIN_WEEKLY_GOAL_HOURS = 1
 const MAX_WEEKLY_GOAL_HOURS = 99
-const VIDEO_HOUR_POINTS = 5
+const VIDEO_HOUR_POINTS = 3
 const VIDEO_WATCHED_POINTS = 1
 const SHORTS_MAX_DURATION_SECONDS = 180
 const ANKI_REVIEW_CHUNK_SIZE = 60
 const ANKI_REVIEW_CHUNK_POINTS = 3
-const SCORING_RULES_VERSION = 3
+const SCORING_RULES_VERSION = 4
 const CITY_LEVELS = [
   { threshold: 0, label: '🏠 Lonely house' },
   { threshold: 5, label: '⛵ Your house got a fresh new look! Plus a boat!' },
@@ -1354,8 +1354,9 @@ function makeSandboxActivityForScore(scoreTarget) {
   }
 
   const durationPoints = remaining
+  const scoredSecondsPerPoint = 3600 / VIDEO_HOUR_POINTS
   for (let i = 0; i < videoDurations.length; i += 1) {
-    const scoredSeconds = i === 0 ? durationPoints * 12 * 60 : 0
+    const scoredSeconds = i === 0 ? durationPoints * scoredSecondsPerPoint : 0
     const unscoredSeconds = i === 0 ? randomInt(60, 300) : randomInt(60, 180)
     videoDurations[i] += scoredSeconds + unscoredSeconds
   }
