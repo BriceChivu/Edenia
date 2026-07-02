@@ -4098,6 +4098,7 @@ function renderFeed(s) {
   const watchedVideos = allVideos
     .filter(v => getVideoStatus(v) === 'watched')
     .filter(v => matchesChannelFilter(v, channelFilters))
+    .sort((a, b) => new Date(b.watchedAt || 0) - new Date(a.watchedAt || 0))
 
   if (!activeVideos.length) {
     const channelMsg = channelFilters.size === getChannelFilterEntries(s).length ? '' : ' for the selected channels'
