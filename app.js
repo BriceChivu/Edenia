@@ -3442,8 +3442,7 @@ function updatePersistentCityLevel(s, score) {
   const previous = JSON.stringify(s.cityProgress || {})
   normalizeCityProgress(s)
   const earnedLevelIndex = getCityLevelIndex(score)
-  const scoringRulesChanged = s.cityProgress.scoringVersion !== SCORING_RULES_VERSION
-  if (scoringRulesChanged && earnedLevelIndex < s.cityProgress.maxLevelIndex) {
+  if (earnedLevelIndex < s.cityProgress.maxLevelIndex) {
     s.cityProgress.maxLevelIndex = earnedLevelIndex
     s.cityProgress.pendingLevelIndex = null
   } else if (earnedLevelIndex > s.cityProgress.maxLevelIndex) {
