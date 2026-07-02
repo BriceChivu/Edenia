@@ -115,7 +115,7 @@ The city score is cumulative across all study history. Points do not reset each 
 
 | Activity | Points |
 | --- | ---: |
-| 1 hour of watched video time | 5 |
+| 1 hour of watched video time | 3 |
 | 1 watched video | 1 |
 | 60 Anki reviews | 3 |
 
