@@ -243,6 +243,14 @@ function normalizeIncludeShorts(value) {
   return value !== false
 }
 
+function getDefaultHistoryView() {
+  return IS_SANDBOX ? 'heatmap' : 'summary'
+}
+
+function normalizeHistoryView(view) {
+  return view === 'heatmap' || view === 'summary' ? view : getDefaultHistoryView()
+}
+
 function applyTheme(theme) {
   const normalizedTheme = normalizeTheme(theme)
   document.documentElement.dataset.theme = normalizedTheme
@@ -266,6 +274,11 @@ function loadState() {
       if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
       if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
       if (state?.config) state.config.includeShorts = normalizeIncludeShorts(state.config.includeShorts)
+      if (state?.config) {
+        const historyView = normalizeHistoryView(state.config.historyView)
+        if (state.config.historyView !== historyView) shouldSave = true
+        state.config.historyView = historyView
+      }
       if (state?.config && !Array.isArray(state.config.channels)) state.config.channels = []
       if (state?.config) delete state.config.apiKey
       normalizeRemovedDefaultChannels(state)
@@ -323,6 +336,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
       weeklyGoalHours: normalizeWeeklyGoalHours(goalHours),
       theme: normalizeTheme(theme),
       includeShorts: true,
+      historyView: getDefaultHistoryView(),
       channels: Array.isArray(channels) ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
       removedDefaultChannelIds: restoredRemovedDefaultIds || []
     },
@@ -869,7 +883,7 @@ function init() {
   const sandboxVersionLabel = document.getElementById('sandboxVersionLabel')
   if (sandboxTools) sandboxTools.classList.toggle('hidden', !IS_SANDBOX)
   if (sandboxVersionLabel) sandboxVersionLabel.classList.toggle('hidden', !IS_SANDBOX)
-  if (IS_SANDBOX) selectedHistoryView = 'heatmap'
+  selectedHistoryView = normalizeHistoryView(state.config.historyView)
   setDefaultCityDayOffset(state)
   syncStreak(state)
   saveState(state)
@@ -1274,7 +1288,6 @@ function addSandboxDay() {
   syncStreak(state)
   saveState(state)
   setDefaultCityDayOffset(state)
-  selectedHistoryView = 'heatmap'
   renderAll(state)
   showToast(`Added sandbox study day: ${formatCitySnapshotDate(nextDate)}`, 'success')
 }
@@ -3783,7 +3796,12 @@ function setHistoryPeriodForRange(range, periodKey) {
 
 function setHistoryView(view) {
   selectedHistoryView = view === 'heatmap' ? 'heatmap' : 'summary'
-  renderStudyHistoryPanel(loadState())
+  const state = loadState()
+  if (state?.config) {
+    state.config.historyView = selectedHistoryView
+    saveState(state, { backup: false })
+  }
+  renderStudyHistoryPanel(state)
 }
 
 function setDefaultCityDayOffset(state) {
