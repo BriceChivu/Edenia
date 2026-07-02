@@ -3701,7 +3701,10 @@ function renderHeader(s) {
   document.getElementById('weekLabel').textContent  = getWeekLabel(s)
   document.getElementById('streakCount').textContent = s.streak.current
   const pill = document.getElementById('streakDisplay')
-  pill.classList.toggle('alive', isStreakAlive(s))
+  const streakCount = Math.max(0, Number(s.streak.current) || 0)
+  pill.classList.toggle('streak-zero', streakCount === 0)
+  pill.classList.toggle('streak-low', streakCount > 0 && streakCount < 5)
+  pill.classList.toggle('streak-high', streakCount >= 5)
 }
 
 function renderAnalytics(stats, s) {

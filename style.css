@@ -570,13 +570,49 @@ body[data-theme="dark"] .sandbox-btn {
   align-items: center;
   flex: 0 0 auto;
   gap: 5px;
+  position: relative;
   background: var(--planet-white);
   border: 2px solid var(--planet-black);
   border-radius: 999px;
   padding: 6px 14px;
   transition: border-color 0.3s;
 }
-.streak-pill.alive { border-color: var(--streak); }
+.streak-pill::before {
+  border-radius: inherit;
+  content: '';
+  inset: -2px;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  transition: opacity 0.25s;
+  z-index: 0;
+}
+.streak-pill > * {
+  position: relative;
+  z-index: 1;
+}
+.streak-pill.streak-zero {
+  border-color: #fff;
+}
+.streak-pill.streak-low {
+  border-color: var(--planet-black);
+}
+.streak-pill.streak-high {
+  border-color: transparent;
+}
+.streak-pill.streak-high::before {
+  background: linear-gradient(110deg, #ff6b6b, #ffd166, #8bd450, #45c4ff, #b181ff, #ff6bcb);
+  opacity: 1;
+  padding: 2px;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+body[data-theme="dark"] .streak-pill.streak-low {
+  border-color: #8f9ca4;
+}
 .streak-icon { font-size: 1rem; }
 .streak-num {
   font-family: 'Bebas Neue', sans-serif;
