@@ -4046,9 +4046,10 @@ function renderFeed(s) {
   const allVideos = Object.values(s.videos)
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
   const channelFilters = getSelectedChannelFilters(s)
-  renderStatusFilterOptions(allVideos, channelFilters)
+  const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
+  renderStatusFilterOptions(allVideos, channelFilters, includeShorts)
 
-  const activeVideos = getVisibleActiveVideos(allVideos)
+  const activeVideos = getVisibleActiveVideos(allVideos, includeShorts)
     .filter(v => ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || getVideoStatus(v) === statusFilter))
     .filter(v => matchesChannelFilter(v, channelFilters))
 
@@ -4257,12 +4258,12 @@ function closeHistoryActionPopoversOnEscape(event) {
   closeHistoryActionPopovers()
 }
 
-function renderStatusFilterOptions(allVideos = [], channelFilters = null) {
+function renderStatusFilterOptions(allVideos = [], channelFilters = null, includeShorts = true) {
   const btn = document.getElementById('statusFilterBtn')
   const menu = document.getElementById('statusFilterMenu')
   if (!btn || !menu) return
 
-  const counts = getStatusFilterCounts(allVideos, channelFilters)
+  const counts = getStatusFilterCounts(allVideos, channelFilters, includeShorts)
   btn.textContent = getStatusFilterLabel(selectedStatusFilter)
   menu.innerHTML = STATUS_FILTERS.map(([value, label]) => `
     <label class="channel-filter-option status-filter-option">
@@ -4274,10 +4275,10 @@ function renderStatusFilterOptions(allVideos = [], channelFilters = null) {
   if (!menu.classList.contains('hidden')) positionFilterMenuWithinViewport(menu)
 }
 
-function getStatusFilterCounts(allVideos = [], channelFilters = null) {
+function getStatusFilterCounts(allVideos = [], channelFilters = null, includeShorts = true) {
   const selectedChannels = channelFilters || new Set()
   const matchesSelection = video => !channelFilters || matchesChannelFilter(video, selectedChannels)
-  const activeVideos = getVisibleActiveVideos(allVideos).filter(matchesSelection)
+  const activeVideos = getVisibleActiveVideos(allVideos, includeShorts).filter(matchesSelection)
   const counts = Object.fromEntries(STATUS_FILTERS.map(([value]) => [value, 0]))
 
   activeVideos.forEach(video => {
@@ -4496,7 +4497,11 @@ function matchesChannelFilter(video, selectedChannelIds) {
   return selectedChannelIds.has(video.channelId) || selectedChannelIds.has(video.channelTitle)
 }
 
-function getVisibleActiveVideos(videos) {
+function isHiddenShortVideo(video, includeShorts) {
+  return !includeShorts && Boolean(video?.isShort || hasShortsMetadataCue(video))
+}
+
+function getVisibleActiveVideos(videos, includeShorts = true) {
   const byChannel = new Map()
   const activeSort = (a, b) => {
     const statusPriority = {
@@ -4510,6 +4515,7 @@ function getVisibleActiveVideos(videos) {
 
   videos
     .filter(v => getVideoStatus(v) !== 'watched')
+    .filter(v => !isHiddenShortVideo(v, includeShorts))
     .sort(activeSort)
     .forEach(v => {
       const key = v.channelId || v.channelTitle || 'unknown'
