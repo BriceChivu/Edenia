@@ -1,6 +1,7 @@
 # CHANGES:
 Minor changes:
 - Should I keep the Unmark button? If so should it remove points scored previously?
+- The watched videos should be sorted by the time and date i watched them
 
 Big changes:
 - Have some kind of log history of all previous actions

@@ -35,6 +35,7 @@ const MAX_WEEKLY_GOAL_HOURS = 99
 const VIDEO_HOUR_POINTS = 3
 const VIDEO_WATCHED_POINTS = 1
 const SHORTS_MAX_DURATION_SECONDS = 180
+const SHORTS_DETECTION_VERSION = 1
 const ANKI_REVIEW_CHUNK_SIZE = 60
 const ANKI_REVIEW_CHUNK_POINTS = 3
 const SCORING_RULES_VERSION = 4
@@ -812,6 +813,7 @@ function init() {
   applyTheme(state.config.theme)
   show('mainApp')
   renderAll(state)
+  repairStoredShortsDetection()
   preloadCityImages()
   initCityImagePanZoom()
   if (!IS_SANDBOX) {
@@ -1399,6 +1401,7 @@ function saveSettingsOnTheFly() {
   document.getElementById('settingsGoal').value = goal
   saveState(s)
   renderAll(s)
+  if (!normalizeIncludeShorts(s.config.includeShorts)) repairStoredShortsDetection()
 }
 
 function exportSyncFile() {
@@ -1456,6 +1459,7 @@ function importSyncFileFromInput(input) {
       applyTheme(normalizedState.config.theme)
       setDefaultCityDayOffset(normalizedState)
       renderAll(normalizedState)
+      if (!normalizeIncludeShorts(normalizedState.config.includeShorts)) repairStoredShortsDetection()
       renderChannelList(normalizedState.config.channels)
       renderBackupList()
       document.getElementById('settingsGoal').value = normalizedState.config.weeklyGoalHours
@@ -1527,6 +1531,7 @@ function restoreStateBackup(id) {
   applyTheme(state.config.theme)
   setDefaultCityDayOffset(state)
   renderAll(state)
+  if (!normalizeIncludeShorts(state.config.includeShorts)) repairStoredShortsDetection()
   renderChannelList(state.config.channels)
   renderBackupList()
   document.getElementById('settingsGoal').value = state.config.weeklyGoalHours
@@ -1837,7 +1842,13 @@ function applyFetchedVideoDetails(videos, detailsById = {}) {
   return videos.map(video => {
     const detail = detailsById[video.id]
     return detail
-      ? { ...video, duration: detail.duration, isShort: Boolean(detail.isShort) }
+      ? {
+        ...video,
+        duration: detail.duration,
+        isShort: Boolean(detail.isShort),
+        shortsCheckedAt: detail.shortsCheckedAt,
+        shortsDetectionVersion: detail.shortsDetectionVersion
+      }
       : video
   })
 }
@@ -1849,12 +1860,16 @@ function getRefreshCandidateDetails(s, videos) {
     if (Number.isFinite(Number(video.duration))) {
       detailsById[video.id] = {
         duration: Number(video.duration),
-        isShort: Boolean(video.isShort)
+        isShort: Boolean(video.isShort),
+        shortsCheckedAt: video.shortsCheckedAt || null,
+        shortsDetectionVersion: video.shortsDetectionVersion || null
       }
     } else if (existing && typeof existing.duration === 'number') {
       detailsById[video.id] = {
         duration: existing.duration,
-        isShort: Boolean(existing.isShort)
+        isShort: Boolean(existing.isShort),
+        shortsCheckedAt: existing.shortsCheckedAt || null,
+        shortsDetectionVersion: existing.shortsDetectionVersion || null
       }
     }
   })
@@ -1910,7 +1925,14 @@ async function fetchVideoDetails(videoIds, { detectShorts = false } = {}) {
     const data  = await ytFetch(url)
     data.items.forEach(item => { result[item.id] = getVideoDetailFromItem(item) })
   }
-  if (detectShorts) await addShortsAspectSignals(result)
+  if (detectShorts) {
+    await addShortsAspectSignals(result)
+    const checkedAt = new Date().toISOString()
+    Object.values(result).forEach(detail => {
+      detail.shortsCheckedAt = checkedAt
+      detail.shortsDetectionVersion = SHORTS_DETECTION_VERSION
+    })
+  }
   return result
 }
 
@@ -2096,13 +2118,74 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
       resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, duration),
       source: existing?.source || v.source || null,
       manuallyAdded: Boolean(existing?.manuallyAdded || v.manuallyAdded),
-      isShort: Boolean(detail.isShort || v.isShort || existing?.isShort)
+      isShort: Boolean(detail.isShort || v.isShort || existing?.isShort),
+      shortsCheckedAt: detail.shortsCheckedAt || existing?.shortsCheckedAt || null,
+      shortsDetectionVersion: detail.shortsDetectionVersion || existing?.shortsDetectionVersion || null
     }
   })
 
   return {
     mergedCount: videosToMerge.length,
     skippedShorts: includeShorts ? 0 : videos.length - videosToMerge.length
+  }
+}
+
+function isYoutubeVideoId(id) {
+  return /^[\w-]{11}$/.test(String(id || ''))
+}
+
+function needsStoredShortsDetection(video) {
+  return Boolean(
+    video &&
+    isYoutubeVideoId(video.id) &&
+    getVideoStatus(video) !== 'watched' &&
+    !video.isShort &&
+    !hasShortsMetadataCue(video) &&
+    video.shortsDetectionVersion !== SHORTS_DETECTION_VERSION
+  )
+}
+
+function getStoredShortsDetectionCandidates(s) {
+  if (!s?.videos) return []
+  return Object.values(s.videos).filter(needsStoredShortsDetection)
+}
+
+async function repairStoredShortsDetection() {
+  if (IS_SANDBOX || !hasYoutubeApiKey()) return
+  if (repairStoredShortsDetection._running) return
+
+  const initialState = loadState()
+  if (!initialState || normalizeIncludeShorts(initialState.config?.includeShorts)) return
+  const candidates = getStoredShortsDetectionCandidates(initialState)
+  if (!candidates.length) return
+
+  repairStoredShortsDetection._running = true
+  try {
+    const detailsById = await fetchVideoDetails(candidates.map(video => video.id), { detectShorts: true })
+    const s = loadState()
+    if (!s || normalizeIncludeShorts(s.config?.includeShorts)) return
+
+    let changed = false
+    candidates.forEach(candidate => {
+      const video = s.videos?.[candidate.id]
+      const detail = detailsById[candidate.id]
+      if (!video || !detail || !needsStoredShortsDetection(video)) return
+
+      video.duration = detail.duration ?? video.duration ?? 0
+      video.isShort = Boolean(detail.isShort)
+      video.shortsCheckedAt = detail.shortsCheckedAt || new Date().toISOString()
+      video.shortsDetectionVersion = detail.shortsDetectionVersion || SHORTS_DETECTION_VERSION
+      changed = true
+    })
+
+    if (changed) {
+      saveState(s)
+      renderAll(s)
+    }
+  } catch (err) {
+    console.warn('Could not re-check stored Shorts:', err)
+  } finally {
+    repairStoredShortsDetection._running = false
   }
 }
 
