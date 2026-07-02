@@ -1527,7 +1527,7 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   top: calc(100% + 6px);
   left: 0;
   z-index: 50;
-  width: min(260px, 82vw);
+  width: min(320px, 86vw);
   max-height: 260px;
   overflow-y: auto;
   background: var(--surface);
@@ -1556,13 +1556,13 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   accent-color: var(--green);
   flex-shrink: 0;
 }
-.channel-filter-option span {
+.channel-filter-label,
+.status-filter-label {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.status-filter-label {
-  flex: 1 1 auto;
 }
 .status-filter-count {
   background: var(--surface-hi);
@@ -1576,6 +1576,19 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   min-width: 26px;
   padding: 3px 7px;
   text-align: center;
+}
+.channel-filter-refresh {
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  opacity: 0.68;
+  white-space: nowrap;
+}
+.channel-filter-option:hover .channel-filter-refresh {
+  opacity: 0.9;
 }
 .channel-filter-empty {
   padding: 8px;

@@ -1926,6 +1926,28 @@ function getChannelLastFetchedMs(s, channelId) {
   return Number.isFinite(lastFetchedMs) ? lastFetchedMs : null
 }
 
+function formatChannelLastRefreshLabel(s, channelId) {
+  const lastFetchedMs = getChannelLastFetchedMs(s, channelId)
+  if (!lastFetchedMs) return 'Not yet'
+
+  const elapsedMs = Date.now() - lastFetchedMs
+  if (elapsedMs < 60_000) return 'just now'
+  if (elapsedMs < 3_600_000) return `${Math.floor(elapsedMs / 60_000)}m ago`
+  if (elapsedMs < 86_400_000) return `${Math.floor(elapsedMs / 3_600_000)}h ago`
+  return timeAgo(new Date(lastFetchedMs).toISOString())
+}
+
+function formatChannelLastRefreshTitle(s, channelId) {
+  const lastFetchedMs = getChannelLastFetchedMs(s, channelId)
+  if (!lastFetchedMs) return 'Not refreshed yet'
+  return `Last refreshed ${new Date(lastFetchedMs).toLocaleString('en', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  })}`
+}
+
 function getChannelLastFailedMs(s, channelId) {
   const lastFailedAt = getChannelRefreshes(s)[channelId]?.lastFailedAt
   const lastFailedMs = new Date(lastFailedAt).getTime()
@@ -4234,12 +4256,17 @@ function renderChannelFilterOptions(s) {
   btn.disabled = !entries.length
 
   menu.innerHTML = entries.length
-    ? entries.map(([id, name]) => `
+    ? entries.map(([id, name]) => {
+      const refreshLabel = formatChannelLastRefreshLabel(s, id)
+      const refreshTitle = formatChannelLastRefreshTitle(s, id)
+      return `
       <label class="channel-filter-option" data-channel-id="${escHtml(id)}" onclick="handleChannelFilterOptionClick(event, this.dataset.channelId)">
         <input type="checkbox" data-channel-id="${escHtml(id)}" ${selected.has(id) ? 'checked' : ''} onchange="setChannelFilter(this.dataset.channelId, this.checked)">
-        <span>${escHtml(name)}</span>
+        <span class="channel-filter-label">${escHtml(name)}</span>
+        <span class="channel-filter-refresh" title="${escHtml(refreshTitle)}">${escHtml(refreshLabel)}</span>
       </label>
-    `).join('')
+    `
+    }).join('')
     : '<div class="channel-filter-empty">No channels yet</div>'
   menu.dataset.selectedCount = selectedCount
   if (!menu.classList.contains('hidden')) positionFilterMenuWithinViewport(menu)
