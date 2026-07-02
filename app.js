@@ -815,7 +815,6 @@ function init() {
     refreshAnkiStats({ silent: true })
     startAnkiAutoRefresh()
     startYoutubeAutoRefresh()
-    maybeRefreshFeed()
   } else {
     showToast('Sandbox mode: demo data is isolated from your real progress', 'warn')
   }
@@ -2015,18 +2014,47 @@ function formatRefreshWait(ms) {
   return `${minutes}m`
 }
 
-function maybeRefreshFeed() {
+async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
+  if (maybeRefreshFeed._running) return
+  maybeRefreshFeed._running = true
   const s = loadState()
-  if (shouldRefreshYoutubeFeed(s)) {
-    refreshFeed({ silent: hasAnyChannelRefreshTimestamp(s) })
-  } else if (!hasYoutubeApiKey()) {
-    showToast('Add the shared YouTube API key to config.local.js', 'warn')
+  try {
+    if (shouldRefreshYoutubeFeed(s)) {
+      await refreshFeed({ silent: hasAnyChannelRefreshTimestamp(s) })
+    } else if (!hasYoutubeApiKey() && notifyMissingKey) {
+      showToast('Add the shared YouTube API key to config.local.js', 'warn')
+    }
+  } finally {
+    maybeRefreshFeed._running = false
+    scheduleYoutubeAutoRefresh(loadState())
   }
 }
 
 function startYoutubeAutoRefresh() {
-  clearInterval(startYoutubeAutoRefresh._timer)
-  startYoutubeAutoRefresh._timer = setInterval(maybeRefreshFeed, YOUTUBE_REFRESH_INTERVAL_MS)
+  clearTimeout(startYoutubeAutoRefresh._timer)
+  window.removeEventListener('focus', handleYoutubeRefreshWake)
+  window.removeEventListener('online', handleYoutubeRefreshWake)
+  document.removeEventListener('visibilitychange', handleYoutubeRefreshVisibility)
+  window.addEventListener('focus', handleYoutubeRefreshWake)
+  window.addEventListener('online', handleYoutubeRefreshWake)
+  document.addEventListener('visibilitychange', handleYoutubeRefreshVisibility)
+  maybeRefreshFeed({ notifyMissingKey: true })
+}
+
+function scheduleYoutubeAutoRefresh(s = loadState()) {
+  clearTimeout(startYoutubeAutoRefresh._timer)
+  if (IS_SANDBOX || !hasYoutubeApiKey() || !s?.config?.channels?.length) return
+
+  const waitMs = getYoutubeRefreshRemainingMs(s)
+  startYoutubeAutoRefresh._timer = setTimeout(maybeRefreshFeed, Math.max(1_000, waitMs))
+}
+
+function handleYoutubeRefreshWake() {
+  maybeRefreshFeed()
+}
+
+function handleYoutubeRefreshVisibility() {
+  if (!document.hidden) maybeRefreshFeed()
 }
 
 function dedupeVideos(videos = []) {
@@ -2159,6 +2187,7 @@ async function refreshFeed({ silent = false } = {}) {
       btn.classList.remove('loading')
       btn.disabled = false
     }
+    if (!IS_SANDBOX) scheduleYoutubeAutoRefresh(loadState())
   }
 }
 
