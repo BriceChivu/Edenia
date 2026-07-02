@@ -34,8 +34,8 @@ const MIN_WEEKLY_GOAL_HOURS = 1
 const MAX_WEEKLY_GOAL_HOURS = 99
 const VIDEO_HOUR_POINTS = 3
 const VIDEO_WATCHED_POINTS = 1
-const SHORTS_MAX_DURATION_SECONDS = 180
-const SHORTS_DETECTION_VERSION = 1
+const SHORT_VIDEO_MAX_DURATION_SECONDS = 180
+const SHORT_VIDEO_DETECTION_VERSION = 1
 const ANKI_REVIEW_CHUNK_SIZE = 60
 const ANKI_REVIEW_CHUNK_POINTS = 3
 const SCORING_RULES_VERSION = 4
@@ -1656,65 +1656,21 @@ function parseDuration(iso) {
   return m ? (parseInt(m[1]||0)*3600 + parseInt(m[2]||0)*60 + parseInt(m[3]||0)) : 0
 }
 
-function hasVerticalThumbnail(thumbnails = {}) {
-  return Object.values(thumbnails).some(thumb => {
-    const width = Number(thumb?.width)
-    const height = Number(thumb?.height)
-    return width > 0 && height > width * 1.12
-  })
+function isShortDuration(seconds) {
+  const duration = Number(seconds || 0)
+  return duration > 0 && duration < SHORT_VIDEO_MAX_DURATION_SECONDS
 }
 
-function hasShortsMetadataCue(snippet = {}) {
-  const tags = Array.isArray(snippet.tags) ? snippet.tags : []
-  const hashtagText = [snippet.title, snippet.description, ...tags].filter(Boolean).join(' ')
-  return /(^|\s)#shorts?\b/i.test(hashtagText) || tags.some(tag => /^#?shorts?$/i.test(String(tag || '').trim()))
-}
-
-function isLikelyYoutubeShort(detail = {}) {
-  const duration = Number(detail.duration || 0)
-  if (!duration || duration > SHORTS_MAX_DURATION_SECONDS) return false
-  return Boolean(detail.shortsMetadataCue || detail.verticalThumbnail || detail.shortsAspectThumbnail)
+function isShortVideoDetail(detail = {}) {
+  return isShortDuration(detail.duration)
 }
 
 function getVideoDetailFromItem(item) {
-  const snippet = item?.snippet || {}
   const detail = {
-    duration: parseDuration(item?.contentDetails?.duration),
-    shortsMetadataCue: hasShortsMetadataCue(snippet),
-    verticalThumbnail: hasVerticalThumbnail(snippet.thumbnails)
+    duration: parseDuration(item?.contentDetails?.duration)
   }
-  detail.isShort = isLikelyYoutubeShort(detail)
+  detail.isShort = isShortVideoDetail(detail)
   return detail
-}
-
-function probeShortsAspectThumbnail(videoId) {
-  if (typeof Image === 'undefined') return Promise.resolve(false)
-  return new Promise(resolve => {
-    const img = new Image()
-    let settled = false
-    const finish = value => {
-      if (settled) return
-      settled = true
-      resolve(value)
-    }
-    img.onload = () => finish(img.naturalHeight > img.naturalWidth * 1.12)
-    img.onerror = () => finish(false)
-    window.setTimeout(() => finish(false), 1200)
-    img.src = `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/oardefault.jpg`
-  })
-}
-
-async function addShortsAspectSignals(detailsById) {
-  const candidates = Object.entries(detailsById)
-    .filter(([, detail]) => {
-      const duration = Number(detail?.duration || 0)
-      return duration > 0 && duration <= SHORTS_MAX_DURATION_SECONDS && !detail.isShort
-    })
-
-  await Promise.all(candidates.map(async ([videoId, detail]) => {
-    detail.shortsAspectThumbnail = await probeShortsAspectThumbnail(videoId)
-    detail.isShort = isLikelyYoutubeShort(detail)
-  }))
 }
 
 async function ytFetch(url) {
@@ -1821,7 +1777,7 @@ function isActiveRefreshVideo(video) {
 }
 
 function isCountableRefreshVideo(video, includeShorts) {
-  return isActiveRefreshVideo(video) && (includeShorts || !video?.isShort)
+  return isActiveRefreshVideo(video) && (includeShorts || !isShortDuration(video?.duration))
 }
 
 function getRefreshCountCandidate(video, knownVideos = {}) {
@@ -1926,11 +1882,10 @@ async function fetchVideoDetails(videoIds, { detectShorts = false } = {}) {
     data.items.forEach(item => { result[item.id] = getVideoDetailFromItem(item) })
   }
   if (detectShorts) {
-    await addShortsAspectSignals(result)
     const checkedAt = new Date().toISOString()
     Object.values(result).forEach(detail => {
       detail.shortsCheckedAt = checkedAt
-      detail.shortsDetectionVersion = SHORTS_DETECTION_VERSION
+      detail.shortsDetectionVersion = SHORT_VIDEO_DETECTION_VERSION
     })
   }
   return result
@@ -2118,7 +2073,7 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
       resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, duration),
       source: existing?.source || v.source || null,
       manuallyAdded: Boolean(existing?.manuallyAdded || v.manuallyAdded),
-      isShort: Boolean(detail.isShort || v.isShort || existing?.isShort),
+      isShort: isShortDuration(duration),
       shortsCheckedAt: detail.shortsCheckedAt || existing?.shortsCheckedAt || null,
       shortsDetectionVersion: detail.shortsDetectionVersion || existing?.shortsDetectionVersion || null
     }
@@ -2134,14 +2089,18 @@ function isYoutubeVideoId(id) {
   return /^[\w-]{11}$/.test(String(id || ''))
 }
 
+function hasKnownVideoDuration(video) {
+  return Number(video?.duration || 0) > 0
+}
+
 function needsStoredShortsDetection(video) {
   return Boolean(
     video &&
     isYoutubeVideoId(video.id) &&
     getVideoStatus(video) !== 'watched' &&
-    !video.isShort &&
-    !hasShortsMetadataCue(video) &&
-    video.shortsDetectionVersion !== SHORTS_DETECTION_VERSION
+    !hasKnownVideoDuration(video) &&
+    !isShortDuration(video.duration) &&
+    video.shortsDetectionVersion !== SHORT_VIDEO_DETECTION_VERSION
   )
 }
 
@@ -2172,9 +2131,9 @@ async function repairStoredShortsDetection() {
       if (!video || !detail || !needsStoredShortsDetection(video)) return
 
       video.duration = detail.duration ?? video.duration ?? 0
-      video.isShort = Boolean(detail.isShort)
+      video.isShort = isShortDuration(detail.duration)
       video.shortsCheckedAt = detail.shortsCheckedAt || new Date().toISOString()
-      video.shortsDetectionVersion = detail.shortsDetectionVersion || SHORTS_DETECTION_VERSION
+      video.shortsDetectionVersion = detail.shortsDetectionVersion || SHORT_VIDEO_DETECTION_VERSION
       changed = true
     })
 
@@ -2183,14 +2142,14 @@ async function repairStoredShortsDetection() {
       renderAll(s)
     }
   } catch (err) {
-    console.warn('Could not re-check stored Shorts:', err)
+    console.warn('Could not re-check stored short videos:', err)
   } finally {
     repairStoredShortsDetection._running = false
   }
 }
 
 function formatSkippedShortsMessage(skippedShorts) {
-  return skippedShorts ? `, skipped ${skippedShorts} Short${skippedShorts === 1 ? '' : 's'}` : ''
+  return skippedShorts ? `, skipped ${skippedShorts} short video${skippedShorts === 1 ? '' : 's'}` : ''
 }
 
 async function refreshFeed({ silent = false } = {}) {
@@ -4581,7 +4540,7 @@ function matchesChannelFilter(video, selectedChannelIds) {
 }
 
 function isHiddenShortVideo(video, includeShorts) {
-  return !includeShorts && Boolean(video?.isShort || hasShortsMetadataCue(video))
+  return !includeShorts && isShortDuration(video?.duration)
 }
 
 function getVisibleActiveVideos(videos, includeShorts = true) {
