@@ -16,6 +16,7 @@ const STORAGE_KEY = IS_SANDBOX ? 'edenia_v1_sandbox' : 'edenia_v1'
 const STATE_BACKUP_KEY = `${STORAGE_KEY}_backups`
 const SANDBOX_WALKTHROUGH_AFTER_RESET_KEY = `${STORAGE_KEY}_walkthrough_after_reset`
 const STATE_BACKUP_LIMIT = 8
+const ACTIVITY_LOG_LIMIT = 500
 const STATE_BACKUP_AUTO_INTERVAL_MS = 10 * 60_000
 const CONFIG_COOKIE_KEY = IS_SANDBOX ? 'edenia_config_sandbox' : 'edenia_config'
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
@@ -66,6 +67,7 @@ let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
 let selectedHistoryRange = 'week'
 let selectedHistoryView = 'summary'
+let selectedActivityLogFilter = 'all'
 const selectedHistoryPeriod = { week: null, month: null }
 let selectedCityDayOffset = 0
 const CITY_IMAGE_MIN_ZOOM = 1
@@ -110,6 +112,7 @@ const STATUS_FILTERS = [
 ]
 const VIDEO_STATUSES = ['watch-later', 'unwatched', 'partial', 'watched']
 const HISTORY_RANGES = ['week', 'month']
+const ACTIVITY_LOG_FILTERS = ['all', 'user', 'auto', 'issues']
 const WALKTHROUGH_STEPS = [
   {
     id: 'town',
@@ -272,6 +275,7 @@ function loadState() {
       }
       if (normalizeAnkiDateKeys(state)) shouldSave = true
       normalizeUndoState(state)
+      if (normalizeActivityLogState(state)) shouldSave = true
       if (normalizeOnboardingState(state)) shouldSave = true
       if (normalizeChannelRefreshState(state)) shouldSave = true
       normalizeSandboxState(state)
@@ -299,6 +303,7 @@ function loadState() {
 
 function saveState(s, options = {}) {
   const { backup = true, backupReason = 'automatic backup', forceBackup = false } = options
+  normalizeActivityLogState(s)
   if (backup) createStateBackup(backupReason, { force: forceBackup })
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
@@ -327,6 +332,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
     cityProgress: { maxLevelIndex: 0, pendingLevelIndex: null },
     undoStack: [],
     redoStack: [],
+    activityLog: [],
     channelRefreshes: {},
     onboarding: {
       completed: false,
@@ -505,6 +511,63 @@ function normalizeUndoState(state) {
     .filter(action => action?.type === 'video-status')
     .slice(-UNDO_STACK_LIMIT)
   delete state.lastUndo
+}
+
+function normalizeActivityLogState(state) {
+  if (!state) return false
+  const existing = Array.isArray(state.activityLog) ? state.activityLog : []
+  const normalized = existing
+    .filter(entry => entry && typeof entry === 'object')
+    .map(entry => {
+      const createdAt = isValidTimestamp(entry.createdAt) ? entry.createdAt : new Date().toISOString()
+      const normalizedEntry = {
+        id: typeof entry.id === 'string' && entry.id ? entry.id : makeActivityLogId(),
+        createdAt,
+        actor: entry.actor === 'auto' ? 'auto' : 'user',
+        type: typeof entry.type === 'string' && entry.type ? entry.type : 'general',
+        status: ['success', 'warn', 'error', 'info'].includes(entry.status) ? entry.status : 'info',
+        title: typeof entry.title === 'string' && entry.title ? entry.title : 'Activity',
+        detail: typeof entry.detail === 'string' ? entry.detail : ''
+      }
+      if (entry.meta && typeof entry.meta === 'object' && !Array.isArray(entry.meta)) {
+        normalizedEntry.meta = entry.meta
+      }
+      return normalizedEntry
+    })
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, ACTIVITY_LOG_LIMIT)
+
+  const changed = !Array.isArray(state.activityLog) || JSON.stringify(state.activityLog) !== JSON.stringify(normalized)
+  state.activityLog = normalized
+  return changed
+}
+
+function makeActivityLogId() {
+  const now = Date.now().toString(36)
+  const random = Math.random().toString(36).slice(2, 8)
+  return `${now}-${random}`
+}
+
+function appendActivityLog(state, entry = {}) {
+  if (!state) return null
+  normalizeActivityLogState(state)
+  const nextEntry = {
+    id: makeActivityLogId(),
+    createdAt: isValidTimestamp(entry.createdAt) ? entry.createdAt : new Date().toISOString(),
+    actor: entry.actor === 'auto' ? 'auto' : 'user',
+    type: typeof entry.type === 'string' && entry.type ? entry.type : 'general',
+    status: ['success', 'warn', 'error', 'info'].includes(entry.status) ? entry.status : 'info',
+    title: typeof entry.title === 'string' && entry.title ? entry.title : 'Activity',
+    detail: typeof entry.detail === 'string' ? entry.detail : ''
+  }
+  if (entry.meta && typeof entry.meta === 'object' && !Array.isArray(entry.meta)) {
+    nextEntry.meta = entry.meta
+  }
+  state.activityLog.unshift(nextEntry)
+  if (state.activityLog.length > ACTIVITY_LOG_LIMIT) {
+    state.activityLog.splice(ACTIVITY_LOG_LIMIT)
+  }
+  return nextEntry
 }
 
 function isValidTimestamp(value) {
@@ -1185,6 +1248,13 @@ function resetSandboxState() {
   if (!IS_SANDBOX) return
   createStateBackup('before sandbox reset', { force: true })
   const state = createEmptySandboxState()
+  appendActivityLog(state, {
+    actor: 'user',
+    type: 'reset',
+    status: 'warn',
+    title: 'Sandbox reset',
+    detail: 'Sandbox progress was reset after keeping a rollback backup.'
+  })
   saveState(state, { backup: false })
   setDefaultCityDayOffset(state)
   selectedHistoryView = 'heatmap'
@@ -1381,6 +1451,7 @@ function openSettings() {
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(s.config.includeShorts)
   renderChannelList(s.config.channels)
   renderBackupList()
+  renderActivityLog(s)
   show('settingsPanel')
 }
 
@@ -1395,12 +1466,33 @@ function closeSettingsOnEscape(event) {
 
 function saveSettingsOnTheFly() {
   const s      = loadState()
+  const previousGoal = normalizeWeeklyGoalHours(s.config.weeklyGoalHours)
+  const previousIncludeShorts = normalizeIncludeShorts(s.config.includeShorts)
   const goal   = normalizeWeeklyGoalHours(document.getElementById('settingsGoal').value)
   s.config.weeklyGoalHours = goal
   s.config.includeShorts = Boolean(document.getElementById('settingsIncludeShorts')?.checked)
   document.getElementById('settingsGoal').value = goal
+  if (goal !== previousGoal) {
+    appendActivityLog(s, {
+      actor: 'user',
+      type: 'weekly-goal',
+      status: 'success',
+      title: 'Weekly goal changed',
+      detail: `${previousGoal}h to ${goal}h`
+    })
+  }
+  if (normalizeIncludeShorts(s.config.includeShorts) !== previousIncludeShorts) {
+    appendActivityLog(s, {
+      actor: 'user',
+      type: 'short-videos',
+      status: 'success',
+      title: 'Short video setting changed',
+      detail: normalizeIncludeShorts(s.config.includeShorts) ? 'Short videos are shown.' : 'Short videos are hidden.'
+    })
+  }
   saveState(s)
   renderAll(s)
+  renderActivityLog(s)
   if (!normalizeIncludeShorts(s.config.includeShorts)) repairStoredShortsDetection()
 }
 
@@ -1448,13 +1540,29 @@ function importSyncFileFromInput(input) {
         return
       }
 
-      createStateBackup('before sync import', { force: true })
+      const rollbackBackup = createStateBackup('before sync import', { force: true })
       localStorage.setItem(STORAGE_KEY, JSON.stringify(importedState))
       const normalizedState = loadState()
       if (!normalizedState) {
         showToast('Could not import that sync file', 'error')
         return
       }
+      if (rollbackBackup) {
+        appendActivityLog(normalizedState, {
+          actor: 'auto',
+          type: 'backup',
+          status: 'info',
+          title: 'Rollback backup created',
+          detail: 'Saved a local backup before importing a sync file.'
+        })
+      }
+      appendActivityLog(normalizedState, {
+        actor: 'user',
+        type: 'import',
+        status: 'success',
+        title: 'Sync file imported',
+        detail: file.name || 'Imported progress from a sync file.'
+      })
       saveState(normalizedState, { backup: false })
       applyTheme(normalizedState.config.theme)
       setDefaultCityDayOffset(normalizedState)
@@ -1462,6 +1570,7 @@ function importSyncFileFromInput(input) {
       if (!normalizeIncludeShorts(normalizedState.config.includeShorts)) repairStoredShortsDetection()
       renderChannelList(normalizedState.config.channels)
       renderBackupList()
+      renderActivityLog(normalizedState)
       document.getElementById('settingsGoal').value = normalizedState.config.weeklyGoalHours
       document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(normalizedState.config.includeShorts)
       showToast('Sync file imported')
@@ -1516,6 +1625,65 @@ function renderBackupList() {
   `).join('')
 }
 
+function formatActivityLogTimestamp(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Unknown time'
+  return date.toLocaleString('en', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+function setActivityLogFilter(filter) {
+  selectedActivityLogFilter = ACTIVITY_LOG_FILTERS.includes(filter) ? filter : 'all'
+  renderActivityLog()
+}
+
+function getFilteredActivityLogEntries(state) {
+  const entries = Array.isArray(state?.activityLog) ? state.activityLog : []
+  if (selectedActivityLogFilter === 'user') return entries.filter(entry => entry.actor === 'user')
+  if (selectedActivityLogFilter === 'auto') return entries.filter(entry => entry.actor === 'auto')
+  if (selectedActivityLogFilter === 'issues') return entries.filter(entry => ['warn', 'error'].includes(entry.status))
+  return entries
+}
+
+function formatActivityLogLabel(entry) {
+  const actor = entry.actor === 'auto' ? 'Auto' : 'User'
+  const status = entry.status === 'error' ? 'Error' : entry.status === 'warn' ? 'Warn' : entry.status === 'success' ? 'Done' : 'Info'
+  return `${actor} · ${status}`
+}
+
+function renderActivityLog(state = loadState()) {
+  const list = document.getElementById('activityLogList')
+  if (!list) return
+
+  document.querySelectorAll('[data-activity-log-filter]').forEach(button => {
+    const isActive = button.dataset.activityLogFilter === selectedActivityLogFilter
+    button.classList.toggle('active', isActive)
+    button.setAttribute('aria-selected', String(isActive))
+  })
+
+  normalizeActivityLogState(state)
+  const entries = getFilteredActivityLogEntries(state)
+  if (!entries.length) {
+    list.innerHTML = '<p class="activity-log-empty">No activity logged yet</p>'
+    return
+  }
+
+  list.innerHTML = entries.map(entry => `
+    <div class="activity-log-item">
+      <div class="activity-log-row">
+        <span class="activity-log-time">${escHtml(formatActivityLogTimestamp(entry.createdAt))}</span>
+        <span class="activity-log-chip ${escHtml(entry.status)}">${escHtml(formatActivityLogLabel(entry))}</span>
+      </div>
+      <div class="activity-log-title">${escHtml(entry.title)}</div>
+      ${entry.detail ? `<p class="activity-log-detail">${escHtml(entry.detail)}</p>` : ''}
+    </div>
+  `).join('')
+}
+
 function restoreStateBackup(id) {
   const entry = getStateBackupEntries().find(candidate => candidate.id === id)
   const state = entry ? prepareStateForBackup(entry.state) : null
@@ -1525,8 +1693,24 @@ function restoreStateBackup(id) {
     return
   }
 
-  createStateBackup('before backup restore', { force: true })
+  const rollbackBackup = createStateBackup('before backup restore', { force: true })
   syncStreak(state)
+  if (rollbackBackup) {
+    appendActivityLog(state, {
+      actor: 'auto',
+      type: 'backup',
+      status: 'info',
+      title: 'Rollback backup created',
+      detail: 'Saved a local backup before restoring another backup.'
+    })
+  }
+  appendActivityLog(state, {
+    actor: 'user',
+    type: 'backup-restore',
+    status: 'success',
+    title: 'Backup restored',
+    detail: formatBackupTimestamp(entry.createdAt)
+  })
   saveState(state, { backup: false })
   applyTheme(state.config.theme)
   setDefaultCityDayOffset(state)
@@ -1534,6 +1718,7 @@ function restoreStateBackup(id) {
   if (!normalizeIncludeShorts(state.config.includeShorts)) repairStoredShortsDetection()
   renderChannelList(state.config.channels)
   renderBackupList()
+  renderActivityLog(state)
   document.getElementById('settingsGoal').value = state.config.weeklyGoalHours
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(state.config.includeShorts)
   showToast('Backup restored', 'success')
@@ -1566,8 +1751,16 @@ function getImportedSyncState(payload) {
 function toggleTheme() {
   const s = loadState()
   s.config.theme = normalizeTheme(s.config.theme) === 'dark' ? 'light' : 'dark'
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'theme',
+    status: 'success',
+    title: 'Theme changed',
+    detail: s.config.theme === 'dark' ? 'Dark theme enabled.' : 'Light theme enabled.'
+  })
   saveState(s)
   applyTheme(s.config.theme)
+  renderActivityLog(s)
 }
 
 function addChannel() {
@@ -1587,8 +1780,16 @@ function addChannel() {
   if (isDefaultChannelId(id)) {
     s.config.removedDefaultChannelIds = (s.config.removedDefaultChannelIds || []).filter(channelId => channelId !== id)
   }
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'channel-add',
+    status: 'success',
+    title: 'Channel added',
+    detail: name
+  })
   saveState(s)
   renderChannelList(s.config.channels)
+  renderActivityLog(s)
   idEl.value = ''
   if (IS_SANDBOX) {
     showToast(`${name} added`)
@@ -1604,13 +1805,22 @@ function addChannel() {
 
 function removeChannel(id) {
   const s = loadState()
+  const channel = s.config.channels.find(c => c.id === id)
   s.config.channels = s.config.channels.filter(c => c.id !== id)
   delete getChannelRefreshes(s)[id]
   if (isDefaultChannelId(id) && !s.config.removedDefaultChannelIds.includes(id)) {
     s.config.removedDefaultChannelIds.push(id)
   }
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'channel-remove',
+    status: 'success',
+    title: 'Channel removed',
+    detail: channel?.name || id
+  })
   saveState(s)
   renderChannelList(s.config.channels)
+  renderActivityLog(s)
 }
 
 function renderChannelList(channels) {
@@ -1638,8 +1848,15 @@ function hideResetConfirm() {
 function resetApp() {
   createStateBackup('before reset', { force: true })
   queueSandboxWalkthroughAfterReset()
-  localStorage.removeItem(STORAGE_KEY)
-  document.cookie = `${CONFIG_COOKIE_KEY}=; max-age=0; path=/`
+  const nextState = IS_SANDBOX ? createEmptySandboxState() : defaultState(4, DEFAULT_CHANNELS, DEFAULT_THEME)
+  appendActivityLog(nextState, {
+    actor: 'user',
+    type: 'reset',
+    status: 'warn',
+    title: 'Reset everything',
+    detail: 'Started fresh after keeping a rollback backup.'
+  })
+  saveState(nextState, { backup: false })
   location.reload()
 }
 
@@ -2125,6 +2342,8 @@ async function repairStoredShortsDetection() {
     if (!s || normalizeIncludeShorts(s.config?.includeShorts)) return
 
     let changed = false
+    let checkedCount = 0
+    let shortCount = 0
     candidates.forEach(candidate => {
       const video = s.videos?.[candidate.id]
       const detail = detailsById[candidate.id]
@@ -2134,15 +2353,36 @@ async function repairStoredShortsDetection() {
       video.isShort = isShortDuration(detail.duration)
       video.shortsCheckedAt = detail.shortsCheckedAt || new Date().toISOString()
       video.shortsDetectionVersion = detail.shortsDetectionVersion || SHORT_VIDEO_DETECTION_VERSION
+      checkedCount += 1
+      if (video.isShort) shortCount += 1
       changed = true
     })
 
     if (changed) {
+      appendActivityLog(s, {
+        actor: 'auto',
+        type: 'short-videos',
+        status: 'info',
+        title: 'Short videos checked',
+        detail: `${checkedCount} stored video${checkedCount === 1 ? '' : 's'} checked; ${shortCount} short video${shortCount === 1 ? '' : 's'} found.`,
+        meta: { checkedCount, shortCount }
+      })
       saveState(s)
       renderAll(s)
     }
   } catch (err) {
     console.warn('Could not re-check stored short videos:', err)
+    const s = loadState()
+    if (s) {
+      appendActivityLog(s, {
+        actor: 'auto',
+        type: 'short-videos',
+        status: 'warn',
+        title: 'Short video check failed',
+        detail: err.message || 'Could not check stored short videos.'
+      })
+      saveState(s)
+    }
   } finally {
     repairStoredShortsDetection._running = false
   }
@@ -2196,9 +2436,25 @@ async function refreshFeed({ silent = false } = {}) {
           ch.name = first.channelTitle
         }
         markChannelRefreshSuccess(s, ch.id)
+        appendActivityLog(s, {
+          actor: 'auto',
+          type: 'youtube-refresh',
+          status: 'success',
+          title: 'YouTube channel refreshed',
+          detail: `${ch.name}: ${vids.length} video${vids.length === 1 ? '' : 's'} fetched.`,
+          meta: { channelId: ch.id, fetchedCount: vids.length }
+        })
       } catch (err) {
         console.warn(`${ch.name}:`, err.message)
         markChannelRefreshError(s, ch.id, err)
+        appendActivityLog(s, {
+          actor: 'auto',
+          type: 'youtube-refresh',
+          status: 'error',
+          title: 'YouTube channel refresh failed',
+          detail: `${ch.name}: ${err.message || 'Unknown error'}`,
+          meta: { channelId: ch.id }
+        })
         errors.push(ch.name)
       }
     }))
@@ -2212,6 +2468,16 @@ async function refreshFeed({ silent = false } = {}) {
     const unique = dedupeVideos(all)
     const detailsById = await getFetchedVideoDetails(s, unique, includeShorts)
     const { mergedCount, skippedShorts } = mergeFetchedVideos(s, unique, detailsById, includeShorts)
+    if (skippedShorts) {
+      appendActivityLog(s, {
+        actor: 'auto',
+        type: 'short-videos',
+        status: 'info',
+        title: 'Short videos skipped',
+        detail: `${skippedShorts} short video${skippedShorts === 1 ? '' : 's'} skipped during refresh.`,
+        meta: { skippedShorts }
+      })
+    }
 
     saveState(s)
     renderAll(s)
@@ -2224,6 +2490,17 @@ async function refreshFeed({ silent = false } = {}) {
 
   } catch (err) {
     console.error(err)
+    const s = loadState()
+    if (s) {
+      appendActivityLog(s, {
+        actor: 'auto',
+        type: 'youtube-refresh',
+        status: 'error',
+        title: 'YouTube refresh failed',
+        detail: err.message || 'Unknown refresh error'
+      })
+      saveState(s)
+    }
     showToast(`Refresh failed: ${err.message}`, 'error')
   } finally {
     if (btn) {
@@ -2254,6 +2531,14 @@ async function refreshAddedChannel(channelId) {
     const { mergedCount, skippedShorts } = mergeFetchedVideos(s, videos, detailsById, includeShorts)
 
     markChannelRefreshSuccess(s, channel.id)
+    appendActivityLog(s, {
+      actor: 'auto',
+      type: 'youtube-refresh',
+      status: 'success',
+      title: 'YouTube channel refreshed',
+      detail: `${channel.name || channelId}: ${mergedCount} video${mergedCount === 1 ? '' : 's'} loaded.`,
+      meta: { channelId, fetchedCount: videos.length, mergedCount, skippedShorts }
+    })
     saveState(s)
     renderAll(s)
     renderChannelList(s.config.channels)
@@ -2266,6 +2551,14 @@ async function refreshAddedChannel(channelId) {
     const s = loadState()
     if (s?.config?.channels?.some(channel => channel.id === channelId)) {
       markChannelRefreshError(s, channelId, err)
+      appendActivityLog(s, {
+        actor: 'auto',
+        type: 'youtube-refresh',
+        status: 'error',
+        title: 'YouTube channel refresh failed',
+        detail: `${channelId}: ${err.message || 'Unknown error'}`,
+        meta: { channelId }
+      })
       saveState(s)
     }
     showToast(`Channel added, but recent videos could not load: ${err.message}`, 'warn')
@@ -2306,6 +2599,14 @@ function markVideo(videoId, newStatus) {
   pushUndoAction(s, undoAction)
 
   syncStreak(s)
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'video-status',
+    status: 'success',
+    title: 'Video status changed',
+    detail: `"${formatToastTitle(video.title)}" is now ${formatVideoStatus(newStatus)}.`,
+    meta: { videoId, status: newStatus }
+  })
 
   saveState(s)
   renderAll(s)
@@ -2334,6 +2635,14 @@ function markVideoInProgressOnOpen(videoId) {
   video.status = 'partial'
   video.watchedAt = null
   video.resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'video-status',
+    status: 'success',
+    title: 'Video status changed',
+    detail: `"${formatToastTitle(video.title)}" is now In progress.`,
+    meta: { videoId, status: 'partial' }
+  })
 
   saveState(s)
   setTimeout(() => renderAll(loadState()), 0)
@@ -2411,6 +2720,14 @@ async function addWatchedVideoFromUrl(event) {
       }
     })
     syncStreak(s)
+    appendActivityLog(s, {
+      actor: 'user',
+      type: 'manual-video',
+      status: 'success',
+      title: 'Watched URL added',
+      detail: `"${formatToastTitle(s.videos[videoId].title)}" was added as watched.`,
+      meta: { videoId }
+    })
     saveState(s)
     input.value = ''
     closeManualVideoPopover()
@@ -2499,6 +2816,14 @@ function applyHistoryAction(direction, actionIndex) {
     targetStack.splice(0, targetStack.length - UNDO_STACK_LIMIT)
   }
   syncStreak(s)
+  appendActivityLog(s, {
+    actor: 'user',
+    type: direction === 'redo' ? 'redo' : 'undo',
+    status: 'success',
+    title: direction === 'redo' ? 'Redo action' : 'Undo action',
+    detail: formatHistoryActionToast(direction, video, targetSnapshot),
+    meta: { videoId: action.videoId }
+  })
 
   closeHistoryActionPopovers()
   saveState(s)
@@ -2703,7 +3028,19 @@ async function refreshAnkiStats({ silent = false } = {}) {
     if (!silent) showToast('Anki stats updated')
   } catch (err) {
     ankiStatsCache = null
-    renderAnkiStatus(loadState())
+    const s = loadState()
+    if (s) {
+      const message = formatAnkiConnectError(err)
+      appendActivityLog(s, {
+        actor: 'auto',
+        type: 'anki-refresh',
+        status: 'warn',
+        title: 'Anki refresh failed',
+        detail: message
+      })
+      saveState(s)
+    }
+    renderAnkiStatus(s)
     const message = formatAnkiConnectError(err)
     const statusEl = document.getElementById('ankiConnectStatus')
     if (statusEl) statusEl.textContent = message
@@ -2733,6 +3070,19 @@ function syncAnkiStatsToState(stats) {
     loggedAt: stats.fetchedAt,
     source: 'ankiconnect'
   }
+  appendActivityLog(s, {
+    actor: 'auto',
+    type: 'anki-refresh',
+    status: 'success',
+    title: 'Anki stats refreshed',
+    detail: `${stats.reviewedToday} reviewed today, ${stats.newToday} new card${stats.newToday === 1 ? '' : 's'} found.`,
+    meta: {
+      ankiDateKey,
+      reviewedToday: stats.reviewedToday,
+      newToday: stats.newToday,
+      dueCards: stats.dueCards
+    }
+  })
   syncStreak(s)
   saveState(s)
   renderHeader(s)
@@ -3567,6 +3917,14 @@ function claimCityLevelUp() {
 
   s.cityProgress.maxLevelIndex = clampNumber(pendingLevelIndex, 0, CITY_LEVELS.length - 1)
   s.cityProgress.pendingLevelIndex = null
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'level-claim',
+    status: 'success',
+    title: 'Level-up claimed',
+    detail: CITY_LEVELS[s.cityProgress.maxLevelIndex].label,
+    meta: { levelIndex: s.cityProgress.maxLevelIndex }
+  })
   saveState(s)
   renderAll(s)
   showToast(`Level up! ${CITY_LEVELS[s.cityProgress.maxLevelIndex].label}`, 'success')

@@ -349,6 +349,115 @@ body[data-theme="dark"] .backup-panel {
   background: var(--surface-hi);
 }
 
+.activity-log-panel {
+  background: var(--planet-white);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+}
+.activity-log-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.activity-log-refresh-btn {
+  border-width: 1px;
+  font-size: 0.75rem;
+  padding: 5px 10px;
+}
+.activity-log-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  margin-bottom: 8px;
+}
+.activity-log-filter {
+  appearance: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 5px 7px;
+}
+.activity-log-filter.active {
+  background: var(--mint);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.55);
+}
+.activity-log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 280px;
+  overflow: auto;
+  padding-right: 2px;
+}
+.activity-log-item {
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+}
+.activity-log-item:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.activity-log-row {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+.activity-log-time {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.activity-log-chip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 6px;
+  text-transform: uppercase;
+}
+.activity-log-chip.success { color: #3c6b20; }
+.activity-log-chip.warn { color: #9b6424; }
+.activity-log-chip.error { color: #9a2f2a; }
+.activity-log-title {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.activity-log-detail,
+.activity-log-empty {
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+.activity-log-detail {
+  margin: 0;
+}
+.activity-log-empty {
+  margin: 0;
+}
+body[data-theme="dark"] .activity-log-panel {
+  background: var(--surface-hi);
+}
+
 /* ═══════════════════════════════════════════════════════════
    APP HEADER
 ═══════════════════════════════════════════════════════════ */
