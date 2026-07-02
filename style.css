@@ -477,7 +477,7 @@ body[data-theme="dark"] .activity-log-panel {
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.94) 38%, rgba(0,0,0,0.68) 64%, rgba(0,0,0,0.26) 86%, transparent 100%);
   background: linear-gradient(to bottom, rgba(223,248,255,0.62) 0%, rgba(223,248,255,0.44) 48%, rgba(223,248,255,0.18) 78%, rgba(223,248,255,0) 100%);
   content: "";
-  inset: 0 0 -38px;
+  inset: 0 0 -25px;
   mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0.94) 38%, rgba(0,0,0,0.68) 64%, rgba(0,0,0,0.26) 86%, transparent 100%);
   pointer-events: none;
   position: absolute;
