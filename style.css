@@ -1639,6 +1639,12 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   line-height: 1;
   margin-bottom: 7px;
 }
+.undo-tooltip-scroll {
+  max-height: min(286px, 52vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
 .undo-tooltip-item {
   border-top: 1px solid var(--border);
   display: grid;
