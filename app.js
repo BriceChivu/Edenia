@@ -88,6 +88,11 @@ const cityWaveformScroll = {
   pointerX: 0,
   pointerY: 0
 }
+const historyActionScroll = {
+  frame: null,
+  scroller: null,
+  speed: 0
+}
 const walkthroughState = {
   active: false,
   index: 0,
@@ -4117,12 +4122,11 @@ function renderHistoryActionTooltip(actions, s, emptyTitle, queueTitle, directio
     return `<div class="undo-tooltip-title">${escHtml(emptyTitle)}</div>`
   }
 
-  const visibleActions = indexedActions.slice(0, 8)
-  const hiddenCount = indexedActions.length - visibleActions.length
   return `
     <div class="undo-tooltip-title">${escHtml(queueTitle)}</div>
-    ${visibleActions.map(entry => renderHistoryActionTooltipItem(entry, s, direction)).join('')}
-    ${hiddenCount > 0 ? `<div class="undo-tooltip-more">+ ${hiddenCount} older ${hiddenCount === 1 ? 'action' : 'actions'}</div>` : ''}
+    <div class="undo-tooltip-scroll" onmousemove="handleHistoryActionScrollHover(event)" onmouseleave="stopHistoryActionAutoScroll()">
+      ${indexedActions.map(entry => renderHistoryActionTooltipItem(entry, s, direction)).join('')}
+    </div>
   `
 }
 
@@ -4161,6 +4165,62 @@ function formatHistoryActionTimestamp(action) {
   })}`
 }
 
+function handleHistoryActionScrollHover(event) {
+  const scroller = event.currentTarget
+  if (!scroller || scroller.scrollHeight <= scroller.clientHeight) {
+    stopHistoryActionAutoScroll()
+    return
+  }
+
+  const edgeSize = 44
+  const maxSpeed = 8
+  const rect = scroller.getBoundingClientRect()
+  const topDistance = event.clientY - rect.top
+  const bottomDistance = rect.bottom - event.clientY
+  let speed = 0
+
+  if (topDistance < edgeSize) {
+    speed = -Math.ceil(((edgeSize - Math.max(0, topDistance)) / edgeSize) * maxSpeed)
+  } else if (bottomDistance < edgeSize) {
+    speed = Math.ceil(((edgeSize - Math.max(0, bottomDistance)) / edgeSize) * maxSpeed)
+  }
+
+  startHistoryActionAutoScroll(scroller, speed)
+}
+
+function startHistoryActionAutoScroll(scroller, speed) {
+  if (!speed) {
+    stopHistoryActionAutoScroll()
+    return
+  }
+  historyActionScroll.scroller = scroller
+  historyActionScroll.speed = speed
+  if (historyActionScroll.frame) return
+  historyActionScroll.frame = requestAnimationFrame(stepHistoryActionAutoScroll)
+}
+
+function stepHistoryActionAutoScroll() {
+  const scroller = historyActionScroll.scroller
+  if (!scroller || !historyActionScroll.speed) {
+    stopHistoryActionAutoScroll()
+    return
+  }
+  const before = scroller.scrollTop
+  scroller.scrollTop += historyActionScroll.speed
+  if (scroller.scrollTop === before) {
+    stopHistoryActionAutoScroll()
+    return
+  }
+  historyActionScroll.frame = requestAnimationFrame(stepHistoryActionAutoScroll)
+}
+
+function stopHistoryActionAutoScroll() {
+  if (historyActionScroll.frame) cancelAnimationFrame(historyActionScroll.frame)
+  historyActionScroll.frame = null
+  historyActionScroll.scroller = null
+  historyActionScroll.speed = 0
+}
+
 function toggleHistoryActionPopover(event, direction) {
   event.stopPropagation()
   const btn = event.currentTarget
@@ -4179,6 +4239,7 @@ function toggleHistoryActionPopover(event, direction) {
 }
 
 function closeHistoryActionPopovers(exceptWrap = null) {
+  stopHistoryActionAutoScroll()
   document.querySelectorAll('.undo-action-wrap.open').forEach(wrap => {
     if (wrap === exceptWrap) return
     wrap.classList.remove('open')
