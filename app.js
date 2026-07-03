@@ -298,6 +298,10 @@ const I18N_EN = {
   'time.weekAgo': '1 week ago',
   'time.weeksAgo': '{count}w ago',
   'time.monthsAgo': '{count}mo ago',
+  'time.hourShort': 'h',
+  'time.hoursMinutesCompact': '{hours}h {minutes}m',
+  'time.hoursCompact': '{hours}h',
+  'time.minutesCompact': '{minutes}m',
   'time.notYet': 'Not yet',
   'time.justNow': 'just now',
   'time.notRefreshedYet': 'Not refreshed yet',
@@ -312,6 +316,9 @@ const I18N_EN = {
   'time.hoursMinutes': '{hours}h {minutes} min',
   'time.hours': '{hours}h',
   'time.minutes': '{minutes} min',
+  'points.short': 'pts',
+  'city.timelineAria': '{date}, {points} pts{changed}',
+  'city.timelineChanged': ', city image changed',
   'toast.sandboxMode': 'Sandbox mode: demo data is isolated from your real progress',
   'toast.sandboxReset': 'Sandbox reset: no study progress yet',
   'toast.sandboxDayAdded': 'Added sandbox study day: {date}',
@@ -441,6 +448,8 @@ const I18N = {
     'sandbox.addDay': '新增一天',
     'sandbox.reset': '重置',
     'city.levelUp': '升級',
+    'city.totalPts': '總分',
+    'city.ptsByThen': '當時分數',
     'city.readyNext': '可以升到下一級',
     'city.ptsToNext': '還差 {count} 分到下一級',
     'city.maxLevel': '最高等級',
@@ -469,6 +478,7 @@ const I18N = {
     'history.table.video': '影片',
     'history.table.watched': '已看',
     'history.table.anki': 'Anki',
+    'history.table.points': '分數',
     'history.emptyRange': '這個範圍沒有活動。',
     'history.noActivityMap': '還沒有活動可以顯示。',
     'history.noActivityYet': '還沒有活動',
@@ -478,6 +488,8 @@ const I18N = {
     'history.tooltip.videosWatched': '已看影片',
     'history.tooltip.ankiReviewed': 'Anki 複習',
     'history.tooltip.ankiCreated': '新增 Anki 卡',
+    'history.tooltip.points': '{count} 分',
+    'history.heatmapAria': '{date}：{points} 分；{time} 影片時間；已看 {videos} 部影片；複習 {reviewed} 張 Anki 卡；新增 {created} 張 Anki 卡',
     'videos.title': '影片',
     'videos.status.all': '全部',
     'videos.status.watchLater': '稍後觀看',
@@ -513,6 +525,15 @@ const I18N = {
     'time.today': '今天',
     'time.yesterday': '昨天',
     'time.tomorrow': '明天',
+    'time.inDays': '{count} 天後',
+    'time.daysAgo': '{count} 天前',
+    'time.weekAgo': '1 週前',
+    'time.weeksAgo': '{count} 週前',
+    'time.monthsAgo': '{count} 個月前',
+    'time.hourShort': '小時',
+    'time.hoursMinutesCompact': '{hours} 小時 {minutes} 分',
+    'time.hoursCompact': '{hours} 小時',
+    'time.minutesCompact': '{minutes} 分',
     'time.watchedToday': '今天觀看',
     'time.watchedYesterday': '昨天觀看',
     'time.watchedDaysAgo': '{count} 天前觀看',
@@ -520,6 +541,12 @@ const I18N = {
     'time.watchedWeeksAgo': '{count} 週前觀看',
     'time.watchedDate': '{date} 觀看',
     'time.weekLabel': '第 {week} 週 · {start} - {end}',
+    'time.hoursMinutes': '{hours} 小時 {minutes} 分鐘',
+    'time.hours': '{hours} 小時',
+    'time.minutes': '{minutes} 分鐘',
+    'points.short': '分',
+    'city.timelineAria': '{date}，{points} 分{changed}',
+    'city.timelineChanged': '，小鎮圖片已改變',
     'time.notYet': '尚未',
     'time.justNow': '剛剛',
     'time.notRefreshedYet': '尚未刷新',
@@ -585,6 +612,8 @@ const I18N = {
     'sandbox.addDay': '添加一天',
     'sandbox.reset': '重置',
     'city.levelUp': '升级',
+    'city.totalPts': '总分',
+    'city.ptsByThen': '当时分数',
     'city.readyNext': '可以升到下一级',
     'city.ptsToNext': '还差 {count} 分到下一级',
     'city.maxLevel': '最高等级',
@@ -612,7 +641,10 @@ const I18N = {
     'history.table.date': '日期',
     'history.table.video': '视频',
     'history.table.watched': '已看',
+    'history.table.points': '分数',
     'history.emptyRange': '这个范围没有活动。',
+    'history.heatmapAria': '{date}：{points} 分；{time} 视频时间；已看 {videos} 部视频；复习 {reviewed} 张 Anki 卡；新增 {created} 张 Anki 卡',
+    'history.tooltip.points': '{count} 分',
     'videos.title': '视频',
     'videos.status.all': '全部',
     'videos.status.watchLater': '稍后观看',
@@ -638,6 +670,15 @@ const I18N = {
     'time.today': '今天',
     'time.yesterday': '昨天',
     'time.tomorrow': '明天',
+    'time.inDays': '{count} 天后',
+    'time.daysAgo': '{count} 天前',
+    'time.weekAgo': '1 周前',
+    'time.weeksAgo': '{count} 周前',
+    'time.monthsAgo': '{count} 个月前',
+    'time.hourShort': '小时',
+    'time.hoursMinutesCompact': '{hours} 小时 {minutes} 分',
+    'time.hoursCompact': '{hours} 小时',
+    'time.minutesCompact': '{minutes} 分',
     'time.watchedToday': '今天观看',
     'time.watchedYesterday': '昨天观看',
     'time.watchedDaysAgo': '{count} 天前观看',
@@ -645,6 +686,12 @@ const I18N = {
     'time.watchedWeeksAgo': '{count} 周前观看',
     'time.watchedDate': '{date} 观看',
     'time.weekLabel': '第 {week} 周 · {start} - {end}',
+    'time.hoursMinutes': '{hours} 小时 {minutes} 分钟',
+    'time.hours': '{hours} 小时',
+    'time.minutes': '{minutes} 分钟',
+    'points.short': '分',
+    'city.timelineAria': '{date}，{points} 分{changed}',
+    'city.timelineChanged': '，小镇图片已改变',
     'time.notYet': '尚未',
     'time.justNow': '刚刚',
     'time.notRefreshedYet': '尚未刷新',
@@ -710,6 +757,8 @@ const I18N = {
     'sandbox.addDay': 'Añadir día',
     'sandbox.reset': 'Restablecer',
     'city.levelUp': 'Subir nivel',
+    'city.totalPts': 'pts totales',
+    'city.ptsByThen': 'pts hasta entonces',
     'city.readyNext': 'Listo para el siguiente nivel',
     'city.ptsToNext': '{count} pts para el siguiente nivel',
     'city.maxLevel': 'Nivel máximo',
@@ -737,7 +786,10 @@ const I18N = {
     'history.table.date': 'Fecha',
     'history.table.video': 'Video',
     'history.table.watched': 'Vistos',
+    'history.table.points': 'PTS',
     'history.emptyRange': 'No hay actividad en este rango.',
+    'history.heatmapAria': '{date}: {points} puntos; {time} de video; {videos} videos vistos; {reviewed} tarjetas Anki repasadas; {created} tarjetas Anki nuevas',
+    'history.tooltip.points': '{count} pts',
     'history.today': 'Hoy',
     'history.yesterday': 'Ayer',
     'videos.title': 'Videos',
@@ -765,6 +817,15 @@ const I18N = {
     'time.today': 'hoy',
     'time.yesterday': 'ayer',
     'time.tomorrow': 'mañana',
+    'time.inDays': 'en {count} d',
+    'time.daysAgo': 'hace {count} d',
+    'time.weekAgo': 'hace 1 semana',
+    'time.weeksAgo': 'hace {count} sem',
+    'time.monthsAgo': 'hace {count} meses',
+    'time.hourShort': 'h',
+    'time.hoursMinutesCompact': '{hours} h {minutes} min',
+    'time.hoursCompact': '{hours} h',
+    'time.minutesCompact': '{minutes} min',
     'time.watchedToday': 'Visto hoy',
     'time.watchedYesterday': 'Visto ayer',
     'time.watchedDaysAgo': 'Visto hace {count} d',
@@ -772,6 +833,12 @@ const I18N = {
     'time.watchedWeeksAgo': 'Visto hace {count} sem',
     'time.watchedDate': 'Visto el {date}',
     'time.weekLabel': 'Semana {week} · {start} - {end}',
+    'time.hoursMinutes': '{hours} h {minutes} min',
+    'time.hours': '{hours} h',
+    'time.minutes': '{minutes} min',
+    'points.short': 'pts',
+    'city.timelineAria': '{date}, {points} pts{changed}',
+    'city.timelineChanged': ', imagen de ciudad cambiada',
     'time.notYet': 'Aún no',
     'time.justNow': 'ahora mismo',
     'time.notRefreshedYet': 'Aún no actualizado',
@@ -837,6 +904,8 @@ const I18N = {
     'sandbox.addDay': 'Ajouter un jour',
     'sandbox.reset': 'Réinitialiser',
     'city.levelUp': 'Niveau suivant',
+    'city.totalPts': 'pts au total',
+    'city.ptsByThen': 'pts jusque-là',
     'city.readyNext': 'Prêt pour le niveau suivant',
     'city.ptsToNext': '{count} pts avant le niveau suivant',
     'city.maxLevel': 'Niveau maximum',
@@ -864,7 +933,10 @@ const I18N = {
     'history.table.date': 'Date',
     'history.table.video': 'Vidéo',
     'history.table.watched': 'Vues',
+    'history.table.points': 'PTS',
     'history.emptyRange': 'Aucune activité dans cette période.',
+    'history.heatmapAria': '{date} : {points} points ; {time} de vidéo ; {videos} vidéos vues ; {reviewed} cartes Anki révisées ; {created} nouvelles cartes Anki',
+    'history.tooltip.points': '{count} pts',
     'history.today': 'Aujourd’hui',
     'history.yesterday': 'Hier',
     'videos.title': 'Vidéos',
@@ -892,6 +964,15 @@ const I18N = {
     'time.today': 'aujourd’hui',
     'time.yesterday': 'hier',
     'time.tomorrow': 'demain',
+    'time.inDays': 'dans {count} j',
+    'time.daysAgo': 'il y a {count} j',
+    'time.weekAgo': 'il y a 1 semaine',
+    'time.weeksAgo': 'il y a {count} sem',
+    'time.monthsAgo': 'il y a {count} mois',
+    'time.hourShort': 'h',
+    'time.hoursMinutesCompact': '{hours} h {minutes} min',
+    'time.hoursCompact': '{hours} h',
+    'time.minutesCompact': '{minutes} min',
     'time.watchedToday': 'Vue aujourd’hui',
     'time.watchedYesterday': 'Vue hier',
     'time.watchedDaysAgo': 'Vue il y a {count} j',
@@ -899,6 +980,12 @@ const I18N = {
     'time.watchedWeeksAgo': 'Vue il y a {count} sem',
     'time.watchedDate': 'Vue le {date}',
     'time.weekLabel': 'Semaine {week} · {start} - {end}',
+    'time.hoursMinutes': '{hours} h {minutes} min',
+    'time.hours': '{hours} h',
+    'time.minutes': '{minutes} min',
+    'points.short': 'pts',
+    'city.timelineAria': '{date}, {points} pts{changed}',
+    'city.timelineChanged': ', image de ville modifiée',
     'time.notYet': 'Pas encore',
     'time.justNow': 'à l’instant',
     'time.notRefreshedYet': 'Pas encore actualisé',
@@ -3303,9 +3390,9 @@ function formatRefreshWait(ms) {
   const totalMinutes = Math.ceil(ms / 60_000)
   const hours = Math.floor(totalMinutes / 60)
   const minutes = totalMinutes % 60
-  if (hours && minutes) return `${hours}h ${minutes}m`
-  if (hours) return `${hours}h`
-  return `${minutes}m`
+  if (hours && minutes) return t('time.hoursMinutesCompact', { hours, minutes })
+  if (hours) return t('time.hoursCompact', { hours })
+  return t('time.minutesCompact', { minutes })
 }
 
 async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
@@ -4892,17 +4979,19 @@ function formatHoursMinutes(secs) {
   const hours = Math.floor(secs / 3600)
   const minutes = Math.ceil((secs % 3600) / 60)
   if (hours > 0) {
-    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`
+    return minutes > 0
+      ? t('time.hoursMinutesCompact', { hours, minutes })
+      : t('time.hoursCompact', { hours })
   }
-  return `${minutes}m`
+  return t('time.minutesCompact', { minutes })
 }
 
 function formatWeeklyWatchedTime(secs) {
   if (secs < 3600) {
     const minutes = secs > 0 ? Math.max(1, Math.floor(secs / 60)) : 0
-    return `${minutes}m`
+    return t('time.minutesCompact', { minutes })
   }
-  return `${(secs / 3600).toFixed(1)}h`
+  return t('time.hoursCompact', { hours: (secs / 3600).toFixed(1) })
 }
 
 function formatHistoryTime(secs) {
@@ -5290,7 +5379,11 @@ function renderCityTimeControls(snapshot) {
     const height = 8 + Math.min(20, points * 2)
     const label = formatCitySnapshotDate(day.date)
     const hasLevelChange = levelChangeDates.has(day.dateKey)
-    const ariaLabel = `${label}, ${points} pts${hasLevelChange ? ', city image changed' : ''}`
+    const ariaLabel = t('city.timelineAria', {
+      date: label,
+      points,
+      changed: hasLevelChange ? t('city.timelineChanged') : ''
+    })
     return `
       <button class="city-wave-bar ${points > 0 ? 'has-activity' : ''} ${hasLevelChange ? 'has-level-change' : ''} ${index === selectedIndex ? 'selected' : ''}"
         type="button"
