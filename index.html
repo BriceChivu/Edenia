@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260703-1">
+  <link rel="stylesheet" href="style.css?v=20260703-6">
   <script src="config.local.js"></script>
 </head>
 <body>
@@ -20,71 +20,73 @@
     <div class="settings-overlay" onclick="closeSettings()"></div>
     <div class="settings-drawer">
       <div class="settings-header">
-        <span class="settings-title">Settings</span>
-        <button class="btn-icon" onclick="closeSettings()">✕</button>
+        <span class="settings-title" data-i18n="settings.title">Settings</span>
+        <button class="btn-icon" onclick="closeSettings()" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">✕</button>
+      </div>
+
+      <div class="settings-group settings-locale-group">
+        <label for="settingsLocale" data-i18n="settings.language.label">Language</label>
+        <select id="settingsLocale" onchange="saveLocaleFromSettings()"></select>
       </div>
 
       <div class="settings-group settings-goal-group">
-        <label>Weekly goal (hours)</label>
+        <label data-i18n="settings.weeklyGoal.label">Weekly goal (hours)</label>
         <input type="number" id="settingsGoal" min="1" max="99" onchange="saveSettingsOnTheFly()" oninput="saveSettingsOnTheFly()">
       </div>
 
       <div class="settings-group settings-channels-group">
-        <label>Channels</label>
+        <label data-i18n="settings.channels.label">Channels</label>
         <div id="channelList" class="channel-list"></div>
         <div class="add-channel-row">
-          <input type="text" id="newChannelId" placeholder="Channel ID  (UCxxxxxxxx)" autocomplete="off" autocapitalize="off" spellcheck="false">
-          <button class="btn-secondary" onclick="addChannel()">Add</button>
+          <input type="text" id="newChannelId" placeholder="Channel ID  (UCxxxxxxxx)" data-i18n-placeholder="settings.channels.placeholder" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <button class="btn-secondary" onclick="addChannel()" data-i18n="settings.channels.add">Add</button>
         </div>
-        <p class="step-hint">
-          Find a channel ID: visit their YouTube page → share icon → Copy channel ID.
-          Or look at the URL: youtube.com/channel/<strong>UCxxxxxxxx</strong>
-        </p>
+        <p class="step-hint" data-i18n="settings.channels.hint">Find a channel ID: visit their YouTube page -> share icon -> Copy channel ID. Or look at the URL: youtube.com/channel/UCxxxxxxxx</p>
       </div>
 
       <div class="settings-group settings-shorts-group">
         <label class="settings-check">
           <input type="checkbox" id="settingsIncludeShorts" onchange="saveSettingsOnTheFly()">
-          <span>Show short videos</span>
+          <span data-i18n="settings.shorts.label">Show short videos</span>
         </label>
-        <p class="step-hint">When off, videos under 3 minutes are skipped during refresh and hidden from your active video list.</p>
+        <p class="step-hint" data-i18n="settings.shorts.hint">When off, videos under 3 minutes are skipped during refresh and hidden from your active video list.</p>
       </div>
 
       <div class="settings-actions">
         <div class="activity-log-panel">
           <div class="activity-log-header">
-            <span>Activity log</span>
-            <button class="btn-ghost activity-log-refresh-btn" type="button" onclick="renderActivityLog()">Refresh</button>
+            <span data-i18n="settings.activity.title">Activity log</span>
+            <button class="btn-ghost activity-log-refresh-btn" type="button" onclick="renderActivityLog()" data-i18n="settings.refresh">Refresh</button>
           </div>
-          <div class="activity-log-filters" role="tablist" aria-label="Activity log filters">
-            <button class="activity-log-filter active" type="button" data-activity-log-filter="all" onclick="setActivityLogFilter(this.dataset.activityLogFilter)">All</button>
-            <button class="activity-log-filter" type="button" data-activity-log-filter="user" onclick="setActivityLogFilter(this.dataset.activityLogFilter)">User</button>
-            <button class="activity-log-filter" type="button" data-activity-log-filter="auto" onclick="setActivityLogFilter(this.dataset.activityLogFilter)">Auto</button>
-            <button class="activity-log-filter" type="button" data-activity-log-filter="issues" onclick="setActivityLogFilter(this.dataset.activityLogFilter)">Issues</button>
+          <div class="activity-log-filters" role="tablist" aria-label="Activity log filters" data-i18n-aria-label="settings.activity.filtersLabel">
+            <button class="activity-log-filter active" type="button" data-activity-log-filter="all" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.all">All</button>
+            <button class="activity-log-filter" type="button" data-activity-log-filter="user" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.user">User</button>
+            <button class="activity-log-filter" type="button" data-activity-log-filter="auto" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.auto">Auto</button>
+            <button class="activity-log-filter" type="button" data-activity-log-filter="issues" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.issues">Issues</button>
           </div>
           <div id="activityLogList" class="activity-log-list"></div>
         </div>
         <div class="sync-actions">
-          <button class="btn-secondary" type="button" onclick="exportSyncFile()">Export sync file</button>
-          <button class="btn-secondary" type="button" onclick="document.getElementById('syncFileInput').click()">Import sync file</button>
+          <button class="btn-secondary" type="button" onclick="exportSyncFile()" data-i18n="settings.sync.export">Export sync file</button>
+          <button class="btn-secondary" type="button" onclick="document.getElementById('syncFileInput').click()" data-i18n="settings.sync.import">Import sync file</button>
           <input class="hidden" type="file" id="syncFileInput" accept="application/json,.json" onchange="importSyncFileFromInput(this)">
         </div>
-        <p class="settings-note">Progress is saved in this browser. Use sync files to copy the same progress to another device or browser.</p>
-        <button class="btn-secondary walkthrough-replay-btn" type="button" onclick="showWalkthroughAgain()">Show walkthrough again</button>
+        <p class="settings-note" data-i18n="settings.sync.note">Progress is saved in this browser. Use sync files to copy the same progress to another device or browser.</p>
+        <button class="btn-secondary walkthrough-replay-btn" type="button" onclick="showWalkthroughAgain()" data-i18n="settings.walkthroughAgain">Show walkthrough again</button>
         <div class="backup-panel">
           <div class="backup-panel-header">
-            <span>Recent local backups</span>
-            <button class="btn-ghost backup-refresh-btn" type="button" onclick="renderBackupList()">Refresh</button>
+            <span data-i18n="settings.backups.title">Recent local backups</span>
+            <button class="btn-ghost backup-refresh-btn" type="button" onclick="renderBackupList()" data-i18n="settings.refresh">Refresh</button>
           </div>
           <div id="backupList" class="backup-list"></div>
-          <p class="settings-note">Local backups can recover from a bad import, reset, or app save. Export a sync file for protection outside this browser.</p>
+          <p class="settings-note" data-i18n="settings.backups.note">Local backups can recover from a bad import, reset, or app save. Export a sync file for protection outside this browser.</p>
         </div>
-        <button class="btn-ghost btn-danger settings-reset-btn" onclick="showResetConfirm()">Reset everything</button>
+        <button class="btn-ghost btn-danger settings-reset-btn" onclick="showResetConfirm()" data-i18n="settings.reset.open">Reset everything</button>
         <div id="resetConfirm" class="reset-confirm hidden">
-          <p>This will clear this app's local watch history, streak, saved settings, and cached Anki stats. A rollback backup will be kept here. Your Anki collection will not be changed.</p>
+          <p data-i18n="settings.reset.warning">This will clear this app's local watch history, streak, saved settings, and cached Anki stats. A rollback backup will be kept here. Your Anki collection will not be changed.</p>
           <div class="reset-confirm-actions">
-            <button class="btn-ghost" onclick="hideResetConfirm()">Cancel</button>
-            <button class="btn-ghost btn-danger" onclick="resetApp()">Delete data</button>
+            <button class="btn-ghost" onclick="hideResetConfirm()" data-i18n="settings.reset.cancel">Cancel</button>
+            <button class="btn-ghost btn-danger" onclick="resetApp()" data-i18n="settings.reset.delete">Delete data</button>
           </div>
         </div>
       </div>
@@ -101,7 +103,7 @@
       <div class="header-left">
         <div class="title-row">
           <h1 class="app-title">EDENIA</h1>
-          <span class="sandbox-version-label hidden" id="sandboxVersionLabel">Sandbox version</span>
+          <span class="sandbox-version-label hidden" id="sandboxVersionLabel" data-i18n="header.sandbox">Sandbox version</span>
         </div>
         <span class="week-label" id="weekLabel"></span>
       </div>
@@ -109,21 +111,21 @@
         <div class="streak-pill" id="streakDisplay">
           <span class="streak-icon">🔥</span>
           <span class="streak-num" id="streakCount">0</span>
-          <span class="streak-text">day streak</span>
+          <span class="streak-text" data-i18n="streak.day">day streak</span>
         </div>
         <div class="sandbox-tools hidden" id="sandboxTools">
-          <button class="sandbox-btn" type="button" onclick="addSandboxDay()">Add day</button>
-          <button class="sandbox-btn" type="button" onclick="resetSandboxState()">Reset</button>
+          <button class="sandbox-btn" type="button" onclick="addSandboxDay()" data-i18n="sandbox.addDay">Add day</button>
+          <button class="sandbox-btn" type="button" onclick="resetSandboxState()" data-i18n="sandbox.reset">Reset</button>
         </div>
         <div class="video-search" id="videoSearch">
-          <button class="btn-icon search-btn" id="videoSearchBtn" type="button" onclick="toggleVideoSearchPopover(event)" title="Search videos" aria-label="Search videos" aria-haspopup="true" aria-expanded="false">
+          <button class="btn-icon search-btn" id="videoSearchBtn" type="button" onclick="toggleVideoSearchPopover(event)" title="Search videos" aria-label="Search videos" data-i18n-title="header.search.title" data-i18n-aria-label="header.search.title" aria-haspopup="true" aria-expanded="false">
             <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="11" cy="11" r="6"></circle>
               <path d="M16 16l4 4"></path>
             </svg>
           </button>
-          <div class="video-search-popover hidden" id="videoSearchPopover" role="dialog" aria-label="Search saved videos">
-            <input type="search" class="video-search-input" id="videoSearchInput" placeholder="Search videos..." autocomplete="off" oninput="renderVideoSearchResults(this.value)" onkeydown="handleVideoSearchInputKey(event)">
+          <div class="video-search-popover hidden" id="videoSearchPopover" role="dialog" aria-label="Search saved videos" data-i18n-aria-label="header.search.dialog">
+            <input type="search" class="video-search-input" id="videoSearchInput" placeholder="Search videos..." data-i18n-placeholder="header.search.placeholder" autocomplete="off" oninput="renderVideoSearchResults(this.value)" onkeydown="handleVideoSearchInputKey(event)">
             <div class="video-search-results" id="videoSearchResults"></div>
           </div>
         </div>
@@ -136,24 +138,24 @@
             <path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/>
           </svg>
         </button>
-        <button class="btn-icon gear-btn" onclick="openSettings()" title="Settings">⚙</button>
+        <button class="btn-icon gear-btn" onclick="openSettings()" title="Settings" data-i18n-title="header.settings" data-i18n-aria-label="header.settings">⚙</button>
       </div>
     </header>
 
     <!-- CITY BUILDER ──────────────────────────────────────── -->
     <section class="city-section">
       <div class="city-image-wrap">
-        <img id="cityMilestoneImage" class="city-milestone-image" src="images/photoshop/level%201.png" alt="Study city milestone: Lonely house" draggable="false">
-        <div class="city-zoom-controls" aria-label="City zoom controls">
-          <button class="city-image-btn" type="button" onclick="zoomCityImage(-1)" title="Zoom out" aria-label="Zoom out">−</button>
-          <button class="city-image-btn" type="button" onclick="resetCityImageView()" title="Reset view" aria-label="Reset view">⌂</button>
-          <button class="city-image-btn" type="button" onclick="zoomCityImage(1)" title="Zoom in" aria-label="Zoom in">+</button>
+        <img id="cityMilestoneImage" class="city-milestone-image" src="images/photoshop/level%201.png" alt="Study city milestone: Lonely house" data-i18n-alt="city.imageAlt" draggable="false">
+        <div class="city-zoom-controls" aria-label="City zoom controls" data-i18n-aria-label="city.zoom.controls">
+          <button class="city-image-btn" type="button" onclick="zoomCityImage(-1)" title="Zoom out" aria-label="Zoom out" data-i18n-title="city.zoom.out" data-i18n-aria-label="city.zoom.out">−</button>
+          <button class="city-image-btn" type="button" onclick="resetCityImageView()" title="Reset view" aria-label="Reset view" data-i18n-title="city.zoom.reset" data-i18n-aria-label="city.zoom.reset">⌂</button>
+          <button class="city-image-btn" type="button" onclick="zoomCityImage(1)" title="Zoom in" aria-label="Zoom in" data-i18n-title="city.zoom.in" data-i18n-aria-label="city.zoom.in">+</button>
         </div>
-        <div class="city-time-waveform" id="cityTimeWaveform" aria-label="City history timeline" onmouseenter="handleCityWaveformMouseMove(event)" onmousemove="handleCityWaveformMouseMove(event)" onmouseleave="clearCityWaveformPreview()">
+        <div class="city-time-waveform" id="cityTimeWaveform" aria-label="City history timeline" data-i18n-aria-label="city.timeline" onmouseenter="handleCityWaveformMouseMove(event)" onmousemove="handleCityWaveformMouseMove(event)" onmouseleave="clearCityWaveformPreview()">
           <div class="city-wave-bars" id="cityWaveBars">
             <div class="city-wave-track" id="cityWaveTrack"></div>
           </div>
-          <div class="city-wave-tooltip" id="cityWaveTooltip">Today</div>
+          <div class="city-wave-tooltip" id="cityWaveTooltip" data-i18n="city.timeline.today">Today</div>
         </div>
       </div>
 
@@ -161,9 +163,9 @@
         <span class="city-stage">
           <span id="cityLabel">🏠 Lonely house</span>
           <span class="city-next" id="cityNextLevel"></span>
-          <button class="level-up-button" id="levelUpButton" type="button" onclick="claimCityLevelUp()" aria-hidden="true" disabled>Level up</button>
+          <button class="level-up-button" id="levelUpButton" type="button" onclick="claimCityLevelUp()" aria-hidden="true" disabled data-i18n="city.levelUp">Level up</button>
         </span>
-        <span class="city-pts"><span id="cityScore">0</span> <span id="cityScoreContext">total pts</span></span>
+        <span class="city-pts"><span id="cityScore">0</span> <span id="cityScoreContext" data-i18n="city.totalPts">total pts</span></span>
       </div>
     </section>
 
@@ -171,7 +173,7 @@
     <section class="analytics-section">
       <div class="goal-card">
         <div class="goal-header">
-          <span>Weekly goal</span>
+          <span data-i18n="goal.title">Weekly goal</span>
           <span class="goal-nums">
             <span id="hoursWatched">0m</span>
             <span class="goal-slash">/</span>
@@ -182,11 +184,11 @@
           <div class="progress-fill" id="goalProgressBar" style="width:0%"></div>
         </div>
         <div class="goal-sub">
-          <span><b id="videosWatched">0</b> watched</span>
+          <span><b id="videosWatched">0</b> <span data-i18n="goal.watched">watched</span></span>
           <span class="dot">·</span>
-          <span><b id="videosPartial">0</b> in progress</span>
+          <span><b id="videosPartial">0</b> <span data-i18n="goal.inProgress">in progress</span></span>
           <span class="dot">·</span>
-          <span>~<b id="videosRemaining">?</b> to go</span>
+          <span>~<b id="videosRemaining">?</b> <span data-i18n="goal.toGo">to go</span></span>
         </div>
       </div>
     </section>
@@ -194,48 +196,48 @@
     <!-- STUDY HISTORY ───────────────────────────────────── -->
     <section class="study-history-section">
       <div class="section-header">
-        <h2 class="section-title">Study History</h2>
-        <span class="anki-status" id="ankiConnectStatus">Checking AnkiConnect…</span>
+        <h2 class="section-title" data-i18n="history.title">Study History</h2>
+        <span class="anki-status" id="ankiConnectStatus" data-i18n="anki.checking">Checking AnkiConnect...</span>
       </div>
-      <div class="history-view-tabs" role="tablist" aria-label="Study history view">
-        <button type="button" class="history-view-btn active" data-history-view="summary" onclick="setHistoryView('summary')" role="tab" aria-selected="true">Summary</button>
-        <button type="button" class="history-view-btn" data-history-view="heatmap" onclick="setHistoryView('heatmap')" role="tab" aria-selected="false">Heatmap</button>
+      <div class="history-view-tabs" role="tablist" aria-label="Study history view" data-i18n-aria-label="history.viewLabel">
+        <button type="button" class="history-view-btn active" data-history-view="summary" onclick="setHistoryView('summary')" role="tab" aria-selected="true" data-i18n="history.summary">Summary</button>
+        <button type="button" class="history-view-btn" data-history-view="heatmap" onclick="setHistoryView('heatmap')" role="tab" aria-selected="false" data-i18n="history.heatmap">Heatmap</button>
       </div>
       <div id="historySummaryView">
         <div class="history-period-panel" id="historyRangeToolbar">
-          <div class="history-toolbar" role="group" aria-label="Study history range">
+          <div class="history-toolbar" role="group" aria-label="Study history range" data-i18n-aria-label="history.rangeLabel">
             <span class="history-period-cell" data-history-period-range="week">
-            <button type="button" class="history-range-btn active" data-history-range="week" onclick="toggleHistoryPeriodPopover(event, 'week')" aria-expanded="false" aria-label="Select week">
-              <span>Week</span>
+            <button type="button" class="history-range-btn active" data-history-range="week" onclick="toggleHistoryPeriodPopover(event, 'week')" aria-expanded="false" aria-label="Select week" data-i18n-aria-label="history.selectWeek">
+              <span data-i18n="history.week">Week</span>
               <span class="history-range-caret" aria-hidden="true"></span>
             </button>
-            <span class="history-period-popover" id="historyWeekPeriodPopover" role="dialog" aria-label="Available weeks"></span>
+            <span class="history-period-popover" id="historyWeekPeriodPopover" role="dialog" aria-label="Available weeks" data-i18n-aria-label="history.availableWeeks"></span>
             </span>
             <span class="history-period-cell" data-history-period-range="month">
-            <button type="button" class="history-range-btn" data-history-range="month" onclick="toggleHistoryPeriodPopover(event, 'month')" aria-expanded="false" aria-label="Select month">
-              <span>Month</span>
+            <button type="button" class="history-range-btn" data-history-range="month" onclick="toggleHistoryPeriodPopover(event, 'month')" aria-expanded="false" aria-label="Select month" data-i18n-aria-label="history.selectMonth">
+              <span data-i18n="history.month">Month</span>
               <span class="history-range-caret" aria-hidden="true"></span>
             </button>
-            <span class="history-period-popover" id="historyMonthPeriodPopover" role="dialog" aria-label="Available months"></span>
+            <span class="history-period-popover" id="historyMonthPeriodPopover" role="dialog" aria-label="Available months" data-i18n-aria-label="history.availableMonths"></span>
             </span>
           </div>
         </div>
         <div class="study-history-grid">
           <div class="history-stat">
             <span class="history-stat-val" id="historyStudyTime">0 min</span>
-            <span class="history-stat-lbl">video time</span>
+            <span class="history-stat-lbl" data-i18n="history.videoTime">video time</span>
           </div>
           <div class="history-stat">
             <span class="history-stat-val" id="historyVideosWatched">0</span>
-            <span class="history-stat-lbl">videos watched</span>
+            <span class="history-stat-lbl" data-i18n="history.videosWatched">videos watched</span>
           </div>
           <div class="history-stat">
             <span class="history-stat-val" id="historyAnkiReviewed">0</span>
-            <span class="history-stat-lbl">Anki cards reviewed</span>
+            <span class="history-stat-lbl" data-i18n="history.ankiReviewed">Anki cards reviewed</span>
           </div>
           <div class="history-stat">
             <span class="history-stat-val" id="historyAnkiCreated">0</span>
-            <span class="history-stat-lbl">new Anki cards created</span>
+            <span class="history-stat-lbl" data-i18n="history.ankiCreated">new Anki cards created</span>
           </div>
         </div>
         <div class="history-table" id="historyTable"></div>
@@ -246,7 +248,7 @@
     <!-- VIDEO FEED ──────────────────────────────────────── -->
     <section class="feed-section">
       <div class="section-header">
-        <h2 class="section-title">Videos</h2>
+        <h2 class="section-title" data-i18n="videos.title">Videos</h2>
         <div class="feed-controls">
           <div class="status-filter" id="statusFilter">
             <button type="button" class="btn-secondary channel-filter-btn status-filter-btn" id="statusFilterBtn" onclick="toggleStatusFilterMenu()" aria-haspopup="true" aria-expanded="false">All</button>
@@ -257,11 +259,11 @@
             <div class="channel-filter-menu hidden" id="channelFilterMenu"></div>
           </div>
           <div class="manual-video" id="manualVideo">
-            <button type="button" class="btn-secondary manual-video-btn" id="manualVideoBtn" onclick="toggleManualVideoPopover(event)" aria-haspopup="true" aria-expanded="false">+ Watched URL</button>
-            <div class="manual-video-popover hidden" id="manualVideoPopover" role="dialog" aria-label="Add watched YouTube URL">
+            <button type="button" class="btn-secondary manual-video-btn" id="manualVideoBtn" onclick="toggleManualVideoPopover(event)" aria-haspopup="true" aria-expanded="false" data-i18n="videos.manual.button">+ Watched URL</button>
+            <div class="manual-video-popover hidden" id="manualVideoPopover" role="dialog" aria-label="Add watched YouTube URL" data-i18n-aria-label="videos.manual.dialog">
               <form class="manual-video-form" onsubmit="addWatchedVideoFromUrl(event)">
-                <input type="text" id="manualVideoUrlInput" placeholder="youtube.com/watch?v=..." autocomplete="off">
-                <button type="submit" class="btn-secondary manual-video-submit" id="manualVideoAddBtn">Add</button>
+                <input type="text" id="manualVideoUrlInput" placeholder="youtube.com/watch?v=..." data-i18n-placeholder="videos.manual.placeholder" autocomplete="off">
+                <button type="submit" class="btn-secondary manual-video-submit" id="manualVideoAddBtn" data-i18n="videos.manual.add">Add</button>
               </form>
             </div>
           </div>
@@ -278,11 +280,11 @@
         </div>
       </div>
       <div class="video-grid" id="videoGrid">
-        <div class="empty-state">No videos yet. Edenia loads your feed automatically.</div>
+        <div class="empty-state" data-i18n="videos.empty.default">No videos yet. Edenia loads your feed automatically.</div>
       </div>
       <div class="watched-section" id="watchedSection">
         <div class="section-header">
-          <h2 class="section-title">Watched</h2>
+          <h2 class="section-title" data-i18n="videos.watchedSection">Watched</h2>
           <span class="watched-count" id="watchedCount">0</span>
         </div>
         <div class="video-grid watched-grid" id="watchedGrid"></div>
@@ -295,6 +297,6 @@
   <div class="toast" id="toast"></div>
   <div class="heatmap-tooltip" id="heatmapTooltip"></div>
 
-  <script src="app.js?v=20260703-5"></script>
+  <script src="app.js?v=20260703-6"></script>
 </body>
 </html>
