@@ -29,14 +29,6 @@
         <input type="number" id="settingsGoal" min="1" max="99" onchange="saveSettingsOnTheFly()" oninput="saveSettingsOnTheFly()">
       </div>
 
-      <div class="settings-group settings-shorts-group">
-        <label class="settings-check">
-          <input type="checkbox" id="settingsIncludeShorts" onchange="saveSettingsOnTheFly()">
-          <span>Show short videos</span>
-        </label>
-        <p class="step-hint">When off, videos under 3 minutes are skipped during refresh and hidden from your active video list.</p>
-      </div>
-
       <div class="settings-group settings-channels-group">
         <label>Channels</label>
         <div id="channelList" class="channel-list"></div>
@@ -50,7 +42,28 @@
         </p>
       </div>
 
+      <div class="settings-group settings-shorts-group">
+        <label class="settings-check">
+          <input type="checkbox" id="settingsIncludeShorts" onchange="saveSettingsOnTheFly()">
+          <span>Show short videos</span>
+        </label>
+        <p class="step-hint">When off, videos under 3 minutes are skipped during refresh and hidden from your active video list.</p>
+      </div>
+
       <div class="settings-actions">
+        <div class="activity-log-panel">
+          <div class="activity-log-header">
+            <span>Activity log</span>
+            <button class="btn-ghost activity-log-refresh-btn" type="button" onclick="renderActivityLog()">Refresh</button>
+          </div>
+          <div class="activity-log-filters" role="tablist" aria-label="Activity log filters">
+            <button class="activity-log-filter active" type="button" data-activity-log-filter="all" onclick="setActivityLogFilter(this.dataset.activityLogFilter)">All</button>
+            <button class="activity-log-filter" type="button" data-activity-log-filter="user" onclick="setActivityLogFilter(this.dataset.activityLogFilter)">User</button>
+            <button class="activity-log-filter" type="button" data-activity-log-filter="auto" onclick="setActivityLogFilter(this.dataset.activityLogFilter)">Auto</button>
+            <button class="activity-log-filter" type="button" data-activity-log-filter="issues" onclick="setActivityLogFilter(this.dataset.activityLogFilter)">Issues</button>
+          </div>
+          <div id="activityLogList" class="activity-log-list"></div>
+        </div>
         <div class="sync-actions">
           <button class="btn-secondary" type="button" onclick="exportSyncFile()">Export sync file</button>
           <button class="btn-secondary" type="button" onclick="document.getElementById('syncFileInput').click()">Import sync file</button>
@@ -65,19 +78,6 @@
           </div>
           <div id="backupList" class="backup-list"></div>
           <p class="settings-note">Local backups can recover from a bad import, reset, or app save. Export a sync file for protection outside this browser.</p>
-        </div>
-        <div class="activity-log-panel">
-          <div class="activity-log-header">
-            <span>Activity log</span>
-            <button class="btn-ghost activity-log-refresh-btn" type="button" onclick="renderActivityLog()">Refresh</button>
-          </div>
-          <div class="activity-log-filters" role="tablist" aria-label="Activity log filters">
-            <button class="activity-log-filter active" type="button" data-activity-log-filter="all" onclick="setActivityLogFilter(this.dataset.activityLogFilter)">All</button>
-            <button class="activity-log-filter" type="button" data-activity-log-filter="user" onclick="setActivityLogFilter(this.dataset.activityLogFilter)">User</button>
-            <button class="activity-log-filter" type="button" data-activity-log-filter="auto" onclick="setActivityLogFilter(this.dataset.activityLogFilter)">Auto</button>
-            <button class="activity-log-filter" type="button" data-activity-log-filter="issues" onclick="setActivityLogFilter(this.dataset.activityLogFilter)">Issues</button>
-          </div>
-          <div id="activityLogList" class="activity-log-list"></div>
         </div>
         <button class="btn-ghost btn-danger settings-reset-btn" onclick="showResetConfirm()">Reset everything</button>
         <div id="resetConfirm" class="reset-confirm hidden">
