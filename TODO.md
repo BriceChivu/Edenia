@@ -1,9 +1,9 @@
 # CHANGES:
 Minor changes:
 - Continue at: timestamp should be {HOUR}:{MIN}
+- remove the Anki status from the main page, the Anki status should only appear in the logs
 
 Big changes:
-- How can I add other languages versions of the app (mainly Traditional mandarin, simplified mandarin, spanish, french)
 
 Sandbox:
 

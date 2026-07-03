@@ -50,14 +50,14 @@ const ANKI_REVIEW_CHUNK_SIZE = 60
 const ANKI_REVIEW_CHUNK_POINTS = 3
 const SCORING_RULES_VERSION = 4
 const CITY_LEVELS = [
-  { threshold: 0, label: '🏠 Lonely house' },
-  { threshold: 5, label: '⛵ Your house got a fresh new look! Plus a boat!' },
-  { threshold: 12, label: '🏝️ Oh look! A tiny island! Cute.' },
-  { threshold: 20, label: 'Kids are gonna have fun now!' },
-  { threshold: 28, label: "Let's add a pool to chill" },
-  { threshold: 35, label: 'Oh! Some friends are coming to say hi...' },
-  { threshold: 42, label: 'You expanded your small island!' },
-  { threshold: 50, label: "That's a nice deckchair and some pretty flowers! 🌸" }
+  { threshold: 0, labelKey: 'city.level.0', label: '🏠 Lonely house' },
+  { threshold: 5, labelKey: 'city.level.1', label: '⛵ Your house got a fresh new look! Plus a boat!' },
+  { threshold: 12, labelKey: 'city.level.2', label: '🏝️ Oh look! A tiny island! Cute.' },
+  { threshold: 20, labelKey: 'city.level.3', label: 'Kids are gonna have fun now!' },
+  { threshold: 28, labelKey: 'city.level.4', label: "Let's add a pool to chill" },
+  { threshold: 35, labelKey: 'city.level.5', label: 'Oh! Some friends are coming to say hi...' },
+  { threshold: 42, labelKey: 'city.level.6', label: 'You expanded your small island!' },
+  { threshold: 50, labelKey: 'city.level.7', label: "That's a nice deckchair and some pretty flowers! 🌸" }
 ]
 const CITY_IMAGE_PATHS = [
   'images/photoshop/level%201.png',
@@ -178,6 +178,14 @@ const I18N_EN = {
   'city.readyNext': 'Ready for next level',
   'city.ptsToNext': '{count} pts to next level',
   'city.maxLevel': 'Max level',
+  'city.level.0': '🏠 Lonely house',
+  'city.level.1': '⛵ Your house got a fresh new look! Plus a boat!',
+  'city.level.2': '🏝️ Oh look! A tiny island! Cute.',
+  'city.level.3': 'Kids are gonna have fun now!',
+  'city.level.4': "Let's add a pool to chill",
+  'city.level.5': 'Oh! Some friends are coming to say hi...',
+  'city.level.6': 'You expanded your small island!',
+  'city.level.7': "That's a nice deckchair and some pretty flowers! 🌸",
   'goal.title': 'Weekly goal',
   'goal.watched': 'watched',
   'goal.inProgress': 'in progress',
@@ -436,6 +444,18 @@ const I18N = {
     'streak.day': '天連續',
     'sandbox.addDay': '新增一天',
     'sandbox.reset': '重置',
+    'city.levelUp': '升級',
+    'city.readyNext': '可以升到下一級',
+    'city.ptsToNext': '還差 {count} 分到下一級',
+    'city.maxLevel': '最高等級',
+    'city.level.0': '🏠 孤單的小屋',
+    'city.level.1': '⛵ 你的小屋煥然一新！還多了一艘船！',
+    'city.level.2': '🏝️ 看！一座小小島！好可愛。',
+    'city.level.3': '孩子們現在會玩得很開心！',
+    'city.level.4': '來加一個泳池放鬆一下',
+    'city.level.5': '喔！有朋友要來打招呼了...',
+    'city.level.6': '你的小島擴大了！',
+    'city.level.7': '漂亮的躺椅和可愛的花！🌸',
     'goal.title': '每週目標',
     'goal.watched': '已看',
     'goal.inProgress': '進行中',
@@ -499,6 +519,10 @@ const I18N = {
     'time.tomorrow': '明天',
     'time.watchedToday': '今天觀看',
     'time.watchedYesterday': '昨天觀看',
+    'time.watchedDaysAgo': '{count} 天前觀看',
+    'time.watchedWeekAgo': '1 週前觀看',
+    'time.watchedWeeksAgo': '{count} 週前觀看',
+    'time.watchedDate': '{date} 觀看',
     'time.weekLabel': '第 {week} 週 · {start} - {end}',
     'time.notYet': '尚未',
     'time.justNow': '剛剛',
@@ -566,6 +590,18 @@ const I18N = {
     'streak.day': '天连续',
     'sandbox.addDay': '添加一天',
     'sandbox.reset': '重置',
+    'city.levelUp': '升级',
+    'city.readyNext': '可以升到下一级',
+    'city.ptsToNext': '还差 {count} 分到下一级',
+    'city.maxLevel': '最高等级',
+    'city.level.0': '🏠 孤单的小屋',
+    'city.level.1': '⛵ 你的小屋焕然一新！还多了一艘船！',
+    'city.level.2': '🏝️ 看！一座小小岛！好可爱。',
+    'city.level.3': '孩子们现在会玩得很开心！',
+    'city.level.4': '来加一个泳池放松一下',
+    'city.level.5': '哦！有朋友要来打招呼了...',
+    'city.level.6': '你的小岛扩大了！',
+    'city.level.7': '漂亮的躺椅和可爱的花！🌸',
     'goal.title': '每周目标',
     'goal.watched': '已看',
     'goal.inProgress': '进行中',
@@ -610,6 +646,10 @@ const I18N = {
     'time.tomorrow': '明天',
     'time.watchedToday': '今天观看',
     'time.watchedYesterday': '昨天观看',
+    'time.watchedDaysAgo': '{count} 天前观看',
+    'time.watchedWeekAgo': '1 周前观看',
+    'time.watchedWeeksAgo': '{count} 周前观看',
+    'time.watchedDate': '{date} 观看',
     'time.weekLabel': '第 {week} 周 · {start} - {end}',
     'time.notYet': '尚未',
     'time.justNow': '刚刚',
@@ -677,6 +717,18 @@ const I18N = {
     'streak.day': 'días de racha',
     'sandbox.addDay': 'Añadir día',
     'sandbox.reset': 'Restablecer',
+    'city.levelUp': 'Subir nivel',
+    'city.readyNext': 'Listo para el siguiente nivel',
+    'city.ptsToNext': '{count} pts para el siguiente nivel',
+    'city.maxLevel': 'Nivel máximo',
+    'city.level.0': '🏠 Casa solitaria',
+    'city.level.1': '⛵ ¡Tu casa recibió una mejora! ¡Y un barco!',
+    'city.level.2': '🏝️ ¡Mira! ¡Una isla pequeña! Qué linda.',
+    'city.level.3': '¡Ahora los niños se van a divertir!',
+    'city.level.4': 'Añadamos una piscina para relajarnos',
+    'city.level.5': '¡Oh! Vienen algunos amigos a saludar...',
+    'city.level.6': '¡Expandiste tu pequeña isla!',
+    'city.level.7': '¡Una linda reposera y flores bonitas! 🌸',
     'goal.title': 'Objetivo semanal',
     'goal.watched': 'vistos',
     'goal.inProgress': 'en progreso',
@@ -723,6 +775,10 @@ const I18N = {
     'time.tomorrow': 'mañana',
     'time.watchedToday': 'Visto hoy',
     'time.watchedYesterday': 'Visto ayer',
+    'time.watchedDaysAgo': 'Visto hace {count} d',
+    'time.watchedWeekAgo': 'Visto hace 1 semana',
+    'time.watchedWeeksAgo': 'Visto hace {count} sem',
+    'time.watchedDate': 'Visto el {date}',
     'time.weekLabel': 'Semana {week} · {start} - {end}',
     'time.notYet': 'Aún no',
     'time.justNow': 'ahora mismo',
@@ -790,6 +846,18 @@ const I18N = {
     'streak.day': 'jours de série',
     'sandbox.addDay': 'Ajouter un jour',
     'sandbox.reset': 'Réinitialiser',
+    'city.levelUp': 'Niveau suivant',
+    'city.readyNext': 'Prêt pour le niveau suivant',
+    'city.ptsToNext': '{count} pts avant le niveau suivant',
+    'city.maxLevel': 'Niveau maximum',
+    'city.level.0': '🏠 Maison solitaire',
+    'city.level.1': '⛵ Votre maison a fière allure ! Et il y a un bateau !',
+    'city.level.2': '🏝️ Oh ! Une toute petite île ! Adorable.',
+    'city.level.3': 'Les enfants vont pouvoir s’amuser maintenant !',
+    'city.level.4': 'Ajoutons une piscine pour se détendre',
+    'city.level.5': 'Oh ! Des amis arrivent dire bonjour...',
+    'city.level.6': 'Vous avez agrandi votre petite île !',
+    'city.level.7': 'Une belle chaise longue et de jolies fleurs ! 🌸',
     'goal.title': 'Objectif hebdomadaire',
     'goal.watched': 'vues',
     'goal.inProgress': 'en cours',
@@ -836,6 +904,10 @@ const I18N = {
     'time.tomorrow': 'demain',
     'time.watchedToday': 'Vue aujourd’hui',
     'time.watchedYesterday': 'Vue hier',
+    'time.watchedDaysAgo': 'Vue il y a {count} j',
+    'time.watchedWeekAgo': 'Vue il y a 1 semaine',
+    'time.watchedWeeksAgo': 'Vue il y a {count} sem',
+    'time.watchedDate': 'Vue le {date}',
     'time.weekLabel': 'Semaine {week} · {start} - {end}',
     'time.notYet': 'Pas encore',
     'time.justNow': 'à l’instant',
@@ -4908,7 +4980,12 @@ function getCityScoreForLevelIndex(index) {
 }
 
 function getCityStage(score) {
-  return getCityLevel(score).label
+  return getCityLevelLabel(getCityLevel(score))
+}
+
+function getCityLevelLabel(level) {
+  if (!level) return ''
+  return level.labelKey ? t(level.labelKey) : level.label
 }
 
 // ════════════════════════════════════════════════════════════
@@ -5159,12 +5236,12 @@ function claimCityLevelUp() {
     type: 'level-claim',
     status: 'success',
     title: 'Level-up claimed',
-    detail: CITY_LEVELS[s.cityProgress.maxLevelIndex].label,
+    detail: getCityLevelLabel(CITY_LEVELS[s.cityProgress.maxLevelIndex]),
     meta: { levelIndex: s.cityProgress.maxLevelIndex }
   })
   saveState(s)
   renderAll(s)
-  showToast(t('toast.levelUp', { label: CITY_LEVELS[s.cityProgress.maxLevelIndex].label }), 'success')
+  showToast(t('toast.levelUp', { label: getCityLevelLabel(CITY_LEVELS[s.cityProgress.maxLevelIndex]) }), 'success')
 }
 
 function clampCityDayOffset(s, offset) {
