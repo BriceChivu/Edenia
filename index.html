@@ -115,6 +115,18 @@
           <button class="sandbox-btn" type="button" onclick="addSandboxDay()">Add day</button>
           <button class="sandbox-btn" type="button" onclick="resetSandboxState()">Reset</button>
         </div>
+        <div class="video-search" id="videoSearch">
+          <button class="btn-icon search-btn" id="videoSearchBtn" type="button" onclick="toggleVideoSearchPopover(event)" title="Search videos" aria-label="Search videos" aria-haspopup="true" aria-expanded="false">
+            <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="6"></circle>
+              <path d="M16 16l4 4"></path>
+            </svg>
+          </button>
+          <div class="video-search-popover hidden" id="videoSearchPopover" role="dialog" aria-label="Search saved videos">
+            <input type="search" class="video-search-input" id="videoSearchInput" placeholder="Search videos..." autocomplete="off" oninput="renderVideoSearchResults(this.value)" onkeydown="handleVideoSearchInputKey(event)">
+            <div class="video-search-results" id="videoSearchResults"></div>
+          </div>
+        </div>
         <button class="btn-icon theme-btn" id="themeToggle" onclick="toggleTheme()" title="Switch to dark mode" aria-label="Switch to dark mode">
           <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M21 13A8.5 8.5 0 1 1 11 3.1A7 7 0 0 0 21 13Z"/>
@@ -283,6 +295,6 @@
   <div class="toast" id="toast"></div>
   <div class="heatmap-tooltip" id="heatmapTooltip"></div>
 
-  <script src="app.js?v=20260703-4"></script>
+  <script src="app.js?v=20260703-5"></script>
 </body>
 </html>

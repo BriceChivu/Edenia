@@ -68,6 +68,7 @@ let knownChannelFilterIds = new Set()
 let selectedHistoryRange = 'week'
 let selectedHistoryView = 'summary'
 let selectedActivityLogFilter = 'all'
+let forcedSearchVideoId = null
 const selectedHistoryPeriod = { week: null, month: null }
 let selectedCityDayOffset = 0
 const CITY_IMAGE_MIN_ZOOM = 1
@@ -113,6 +114,7 @@ const STATUS_FILTERS = [
 const VIDEO_STATUSES = ['watch-later', 'unwatched', 'partial', 'watched']
 const HISTORY_RANGES = ['week', 'month']
 const ACTIVITY_LOG_FILTERS = ['all', 'user', 'auto', 'issues']
+const VIDEO_SEARCH_RESULT_LIMIT = 8
 const WALKTHROUGH_STEPS = [
   {
     id: 'town',
@@ -3481,20 +3483,201 @@ function closeHistoryVideoPopoversOnEscape(event) {
 
 function jumpToWatchedVideo(videoId) {
   const targetId = String(videoId ?? '')
-  const card = Array.from(document.querySelectorAll('#watchedGrid .video-card'))
-    .find(el => el.dataset.videoId === targetId)
-  if (!card) {
+  if (!scrollToVideoCard(targetId, '#watchedGrid .video-card')) {
     showToast('That watched video is hidden by the current filters', 'warn')
     closeHistoryVideoPopovers()
     return
   }
 
   closeHistoryVideoPopovers()
+}
+
+function scrollToVideoCard(videoId, selector = '.video-card') {
+  const targetId = String(videoId ?? '')
+  const card = Array.from(document.querySelectorAll(selector))
+    .find(el => el.dataset.videoId === targetId)
+  if (!card) return false
+  flashVideoCard(card)
+  return true
+}
+
+function flashVideoCard(card) {
   card.scrollIntoView({ behavior: 'smooth', block: 'center' })
   card.classList.remove('flash-target')
   void card.offsetWidth
   card.classList.add('flash-target')
   window.setTimeout(() => card.classList.remove('flash-target'), 1900)
+}
+
+function toggleVideoSearchPopover(event) {
+  event?.stopPropagation()
+  const popover = document.getElementById('videoSearchPopover')
+  const button = document.getElementById('videoSearchBtn')
+  const input = document.getElementById('videoSearchInput')
+  if (!popover || !button || !input) return
+
+  const shouldOpen = popover.classList.contains('hidden')
+  if (!shouldOpen) {
+    closeVideoSearchPopover()
+    return
+  }
+
+  closeStatusFilterMenu()
+  closeChannelFilterMenu()
+  closeManualVideoPopover()
+  closeHistoryVideoPopovers()
+  closeHistoryPeriodPopovers()
+  closeHistoryActionPopovers()
+  closeVideoSearchPopover()
+  hideHeatmapTooltip()
+  popover.classList.remove('hidden')
+  button.setAttribute('aria-expanded', 'true')
+  renderVideoSearchResults(input.value)
+  window.setTimeout(() => input.focus(), 0)
+}
+
+function closeVideoSearchPopover() {
+  const popover = document.getElementById('videoSearchPopover')
+  const button = document.getElementById('videoSearchBtn')
+  if (popover) popover.classList.add('hidden')
+  if (button) button.setAttribute('aria-expanded', 'false')
+}
+
+function closeVideoSearchPopoverOnOutsideClick(event) {
+  if (event.target.closest('.video-search')) return
+  closeVideoSearchPopover()
+}
+
+function closeVideoSearchPopoverOnEscape(event) {
+  if (event.key !== 'Escape') return
+  closeVideoSearchPopover()
+}
+
+function handleVideoSearchInputKey(event) {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeVideoSearchPopover()
+    return
+  }
+  if (event.key !== 'Enter') return
+  const firstResult = document.querySelector('#videoSearchResults .video-search-result')
+  if (!firstResult) return
+  event.preventDefault()
+  firstResult.click()
+}
+
+function renderVideoSearchResults(query = '') {
+  const list = document.getElementById('videoSearchResults')
+  if (!list) return
+
+  const normalizedQuery = normalizeVideoSearchText(query)
+  if (!normalizedQuery) {
+    list.innerHTML = '<p class="video-search-empty">Search saved videos by title or channel.</p>'
+    return
+  }
+
+  const results = getVideoSearchMatches(normalizedQuery, loadState())
+  if (!results.length) {
+    list.innerHTML = '<p class="video-search-empty">No matching videos found.</p>'
+    return
+  }
+
+  list.innerHTML = results.map(video => `
+    <button type="button" class="video-search-result" data-video-id="${escHtml(video.id)}" onclick="jumpToVideoFromSearch(this.dataset.videoId)">
+      ${video.thumbnail
+        ? `<img src="${escHtml(video.thumbnail)}" alt="" class="video-search-thumb" loading="lazy">`
+        : '<span class="video-search-thumb video-search-thumb-empty"></span>'}
+      <span class="video-search-copy">
+        <span class="video-search-title">${escHtml(video.title || 'Untitled video')}</span>
+        <span class="video-search-meta">
+          <span>${escHtml(video.channelTitle || 'YouTube')}</span>
+          <span class="video-search-status">${escHtml(formatVideoStatus(getVideoStatus(video)))}</span>
+        </span>
+      </span>
+    </button>
+  `).join('')
+}
+
+function normalizeVideoSearchText(value) {
+  return String(value ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function getVideoSearchMatches(query, state = loadState()) {
+  const normalizedQuery = normalizeVideoSearchText(query)
+  if (!normalizedQuery || !state?.videos) return []
+  const tokens = normalizedQuery.split(' ').filter(Boolean)
+
+  return Object.values(state.videos)
+    .filter(video => videoMatchesSearch(video, normalizedQuery, tokens))
+    .map(video => ({
+      video,
+      score: getVideoSearchScore(video, normalizedQuery, tokens)
+    }))
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score
+      return getVideoSearchTimestamp(b.video) - getVideoSearchTimestamp(a.video)
+    })
+    .slice(0, VIDEO_SEARCH_RESULT_LIMIT)
+    .map(entry => entry.video)
+}
+
+function videoMatchesSearch(video, query, tokens) {
+  const title = normalizeVideoSearchText(video?.title)
+  const channel = normalizeVideoSearchText(video?.channelTitle)
+  const haystack = `${title} ${channel}`
+  return haystack.includes(query) || tokens.every(token => haystack.includes(token))
+}
+
+function getVideoSearchScore(video, query, tokens) {
+  const title = normalizeVideoSearchText(video?.title)
+  const channel = normalizeVideoSearchText(video?.channelTitle)
+  const statusPriority = {
+    partial: 18,
+    'watch-later': 12,
+    watched: 8,
+    unwatched: 0
+  }
+  let score = statusPriority[getVideoStatus(video)] || 0
+
+  if (title === query) score += 120
+  else if (title.startsWith(query)) score += 95
+  else if (title.includes(query)) score += 75
+  else score += tokens.filter(token => title.includes(token)).length * 18
+
+  if (channel === query) score += 70
+  else if (channel.startsWith(query)) score += 52
+  else if (channel.includes(query)) score += 40
+  else score += tokens.filter(token => channel.includes(token)).length * 10
+
+  return score
+}
+
+function getVideoSearchTimestamp(video) {
+  const watchedAt = new Date(video?.watchedAt || 0).getTime()
+  const publishedAt = new Date(video?.publishedAt || 0).getTime()
+  return Math.max(
+    Number.isFinite(watchedAt) ? watchedAt : 0,
+    Number.isFinite(publishedAt) ? publishedAt : 0
+  )
+}
+
+function jumpToVideoFromSearch(videoId) {
+  const targetId = String(videoId ?? '')
+  const state = loadState()
+  if (!state?.videos?.[targetId]) {
+    closeVideoSearchPopover()
+    showToast('That video is no longer available', 'warn')
+    return
+  }
+
+  closeVideoSearchPopover()
+  forcedSearchVideoId = targetId
+  renderFeed(state)
+  window.setTimeout(() => {
+    const found = scrollToVideoCard(targetId)
+    forcedSearchVideoId = null
+    if (!found) showToast('Could not show that video right now', 'warn')
+  }, 0)
 }
 
 function formatHistoryDate(dateKey, state = null) {
@@ -4634,14 +4817,26 @@ function renderFeed(s) {
   const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
   renderStatusFilterOptions(allVideos, channelFilters, includeShorts)
 
-  const activeVideos = getVisibleActiveVideos(allVideos, includeShorts)
+  const forcedSearchVideo = forcedSearchVideoId && s.videos?.[forcedSearchVideoId]
+    ? s.videos[forcedSearchVideoId]
+    : null
+
+  let activeVideos = getVisibleActiveVideos(allVideos, includeShorts)
     .filter(v => ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || getVideoStatus(v) === statusFilter))
     .filter(v => matchesChannelFilter(v, channelFilters))
 
-  const watchedVideos = allVideos
+  let watchedVideos = allVideos
     .filter(v => getVideoStatus(v) === 'watched')
     .filter(v => matchesChannelFilter(v, channelFilters))
     .sort((a, b) => new Date(b.watchedAt || 0) - new Date(a.watchedAt || 0))
+
+  if (forcedSearchVideo) {
+    if (getVideoStatus(forcedSearchVideo) === 'watched') {
+      watchedVideos = includeForcedSearchVideo(watchedVideos, forcedSearchVideo)
+    } else {
+      activeVideos = includeForcedSearchVideo(activeVideos, forcedSearchVideo)
+    }
+  }
 
   if (!activeVideos.length) {
     const channelMsg = channelFilters.size === getChannelFilterEntries(s).length ? '' : ' for the selected channels'
@@ -4659,6 +4854,12 @@ function renderFeed(s) {
   watchedCount.textContent = watchedVideos.length
   watchedSection.classList.toggle('hidden', !watchedVideos.length)
   watchedGrid.innerHTML = watchedVideos.map(v => renderCard(v, true)).join('')
+}
+
+function includeForcedSearchVideo(videos, forcedVideo) {
+  if (!forcedVideo?.id) return videos
+  if (videos.some(video => video.id === forcedVideo.id)) return videos
+  return [forcedVideo, ...videos]
 }
 
 function renderUndoButton(s) {
@@ -5219,11 +5420,13 @@ document.addEventListener('click', closeHistoryVideoPopoversOnOutsideClick)
 document.addEventListener('click', closeHistoryPeriodPopoversOnOutsideClick)
 document.addEventListener('click', closeHistoryActionPopoversOnOutsideClick)
 document.addEventListener('click', closeManualVideoPopoverOnOutsideClick)
+document.addEventListener('click', closeVideoSearchPopoverOnOutsideClick)
 document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
 document.addEventListener('click', clearCityWaveformPreviewOnOutsideClick)
 document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryPeriodPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryActionPopoversOnEscape)
 document.addEventListener('keydown', closeManualVideoPopoverOnEscape)
+document.addEventListener('keydown', closeVideoSearchPopoverOnEscape)
 document.addEventListener('keydown', closeSettingsOnEscape)
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
