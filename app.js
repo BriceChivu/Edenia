@@ -344,19 +344,15 @@ const I18N_EN = {
   'toast.alreadyWatched': 'That video is already marked watched',
   'toast.addedWatchedVideo': 'Added watched video: "{title}"',
   'toast.addVideoFailed': 'Could not add that video',
-  'toast.timestampFormat': 'Use a timestamp like 12:34 or 1:02:03',
+  'toast.timestampFormat': 'Use a timestamp like 1:23 (hour:minute)',
   'toast.nothingRedo': 'Nothing to redo',
   'toast.nothingUndo': 'Nothing to undo',
   'toast.videoGone': 'That video is no longer available',
   'toast.watchedHidden': 'That watched video is hidden by the current filters',
   'toast.couldNotShowVideo': 'Could not show that video right now',
-  'toast.ankiUpdated': 'Anki stats updated',
   'toast.levelUp': 'Level up! {label}',
   'toast.localeChanged': 'Language changed to {language}',
   'toast.skippedShorts': ', skipped {count} short video{plural}',
-  'anki.checking': 'Checking AnkiConnect...',
-  'anki.openToLoad': 'Open Anki to load live stats',
-  'anki.updated': 'Updated {time}',
   'anki.unavailableOpen': 'AnkiConnect unavailable: open Anki with AnkiConnect installed',
   'anki.blockedHosted': 'AnkiConnect blocked: add this site to AnkiConnect webCorsOriginList',
   'anki.failed': 'AnkiConnect failed: {message}',
@@ -528,8 +524,6 @@ const I18N = {
     'time.justNow': '剛剛',
     'time.notRefreshedYet': '尚未刷新',
     'time.lastRefreshed': '上次刷新：{time}',
-    'anki.openToLoad': '打開 Anki 以載入即時統計',
-    'anki.updated': '已更新 {time}',
     'toast.localeChanged': '語言已改為 {language}',
     'walkthrough.next': '下一步',
     'walkthrough.back': '上一步',
@@ -655,8 +649,6 @@ const I18N = {
     'time.justNow': '刚刚',
     'time.notRefreshedYet': '尚未刷新',
     'time.lastRefreshed': '上次刷新：{time}',
-    'anki.openToLoad': '打开 Anki 以加载实时统计',
-    'anki.updated': '已更新 {time}',
     'toast.localeChanged': '语言已改为 {language}',
     'walkthrough.next': '下一步',
     'walkthrough.back': '上一步',
@@ -784,8 +776,6 @@ const I18N = {
     'time.justNow': 'ahora mismo',
     'time.notRefreshedYet': 'Aún no actualizado',
     'time.lastRefreshed': 'Última actualización: {time}',
-    'anki.openToLoad': 'Abre Anki para cargar estadísticas en vivo',
-    'anki.updated': 'Actualizado {time}',
     'toast.localeChanged': 'Idioma cambiado a {language}',
     'walkthrough.next': 'Siguiente',
     'walkthrough.back': 'Atrás',
@@ -913,8 +903,6 @@ const I18N = {
     'time.justNow': 'à l’instant',
     'time.notRefreshedYet': 'Pas encore actualisé',
     'time.lastRefreshed': 'Dernière actualisation : {time}',
-    'anki.openToLoad': 'Ouvrez Anki pour charger les statistiques en direct',
-    'anki.updated': 'Mis à jour {time}',
     'toast.localeChanged': 'Langue changée en {language}',
     'walkthrough.next': 'Suivant',
     'walkthrough.back': 'Retour',
@@ -1871,7 +1859,7 @@ function parseResumeTimestamp(value, duration = null) {
   if (!raw) return null
 
   if (/^\d+$/.test(raw)) {
-    return normalizeResumeAtSeconds(Number(raw), duration)
+    return normalizeResumeAtSeconds(Number(raw) * 60, duration)
   }
 
   const parts = raw.split(':')
@@ -1880,7 +1868,7 @@ function parseResumeTimestamp(value, duration = null) {
   const nums = parts.map(part => Number(part))
   const seconds = nums.length === 3
     ? (nums[0] * 3600) + (nums[1] * 60) + nums[2]
-    : (nums[0] * 60) + nums[1]
+    : (nums[0] * 3600) + (nums[1] * 60)
   return normalizeResumeAtSeconds(seconds, duration)
 }
 
@@ -1889,9 +1877,8 @@ function formatResumeTimestamp(seconds) {
   if (normalized === null) return ''
   const h = Math.floor(normalized / 3600)
   const m = Math.floor((normalized % 3600) / 60)
-  const s = normalized % 60
   const z = n => String(n).padStart(2, '0')
-  return h ? `${h}:${z(m)}:${z(s)}` : `${m}:${z(s)}`
+  return `${h}:${z(m)}`
 }
 
 function getWeekLabel(state = null) {
@@ -4126,17 +4113,10 @@ function formatAnkiConnectError(err) {
 }
 
 async function refreshAnkiStats({ silent = false } = {}) {
-  const statusEl = document.getElementById('ankiConnectStatus')
-  if (statusEl) {
-    statusEl.textContent = t('anki.checking')
-    statusEl.classList.remove('logged')
-  }
-
   try {
     ankiStatsCache = await fetchAnkiStats()
     syncAnkiStatsToState(ankiStatsCache)
     renderAnkiStatus(loadState())
-    if (!silent) showToast(t('toast.ankiUpdated'))
   } catch (err) {
     ankiStatsCache = null
     const s = loadState()
@@ -4152,10 +4132,6 @@ async function refreshAnkiStats({ silent = false } = {}) {
       saveState(s)
     }
     renderAnkiStatus(s)
-    const message = formatAnkiConnectError(err)
-    const statusEl = document.getElementById('ankiConnectStatus')
-    if (statusEl) statusEl.textContent = message
-    if (!silent) showToast(message, 'warn')
   }
 }
 
@@ -4200,11 +4176,6 @@ function syncAnkiStatsToState(stats) {
   renderAnalytics(getWeeklyStats(s), s)
   const score = getCurrentCityScore(s)
   renderCity(score, s)
-}
-
-function formatAnkiStatus(stats) {
-  if (!stats?.fetchedAt) return t('anki.openToLoad')
-  return t('anki.updated', { time: timeAgo(stats.fetchedAt) })
 }
 
 function setText(id, value) {
@@ -4662,20 +4633,6 @@ function formatHistoryDate(dateKey, state = null) {
 }
 
 function renderStudyHistoryPanel(s) {
-  const todayLog = s?.anki?.[getCurrentAnkiDateKey()]
-  const stats = ankiStatsCache || (todayLog ? {
-    reviewedToday: todayLog.reviewed,
-    newToday: todayLog.created,
-    dueCards: null,
-    fetchedAt: todayLog.loggedAt
-  } : null)
-
-  const el = document.getElementById('ankiConnectStatus')
-  if (el) {
-    el.textContent = formatAnkiStatus(stats)
-    el.classList.toggle('logged', !!stats)
-  }
-
   document.querySelectorAll('.history-range-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.historyRange === selectedHistoryRange)
     btn.setAttribute('aria-expanded', String(btn.closest('.history-period-cell')?.classList.contains('open') || false))
@@ -6346,7 +6303,7 @@ function renderCard(v, compact = false) {
               <span>${escHtml(t('videos.card.continueAt'))}</span>
               <input type="text"
                 value="${escHtml(resumeAtValue)}"
-                placeholder="0:00"
+                placeholder="1:23"
                 inputmode="text"
                 data-video-id="${safeVideoId}"
                 onchange="saveVideoResumeTime(this.dataset.videoId, this.value)"
