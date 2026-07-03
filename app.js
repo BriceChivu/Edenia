@@ -27,6 +27,15 @@ const FETCH_PAGE_SIZE = ACTIVE_VIDEOS_PER_CHANNEL
 const MAX_FETCH_PAGES_PER_CHANNEL = 3
 const DEFAULT_THEME = 'light'
 const THEMES = ['light', 'dark']
+const DEFAULT_LOCALE = 'en'
+const SUPPORTED_LOCALES = ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr']
+const LOCALE_LABELS = {
+  en: 'English',
+  'zh-Hant': '繁體中文',
+  'zh-Hans': '简体中文',
+  es: 'Español',
+  fr: 'Français'
+}
 const ANKI_AUTO_REFRESH_MS = 5 * 60_000
 const ANKI_DAY_START_HOUR = 4
 const MIN_DAILY_STREAK_POINTS = 3
@@ -69,6 +78,7 @@ let selectedHistoryRange = 'week'
 let selectedHistoryView = 'summary'
 let selectedActivityLogFilter = 'all'
 let forcedSearchVideoId = null
+let currentLocale = DEFAULT_LOCALE
 const selectedHistoryPeriod = { week: null, month: null }
 let selectedCityDayOffset = 0
 const CITY_IMAGE_MIN_ZOOM = 1
@@ -106,26 +116,771 @@ const walkthroughState = {
   isTransitioning: false
 }
 const STATUS_FILTERS = [
-  ['all', 'All'],
-  ['watch-later', 'Watch later'],
-  ['unwatched', 'Unwatched'],
-  ['partial', 'In progress']
+  ['all', 'videos.status.all'],
+  ['watch-later', 'videos.status.watchLater'],
+  ['unwatched', 'videos.status.unwatched'],
+  ['partial', 'videos.status.partial']
 ]
 const VIDEO_STATUSES = ['watch-later', 'unwatched', 'partial', 'watched']
 const HISTORY_RANGES = ['week', 'month']
 const ACTIVITY_LOG_FILTERS = ['all', 'user', 'auto', 'issues']
 const VIDEO_SEARCH_RESULT_LIMIT = 8
+const I18N_EN = {
+  'app.title.sandbox': 'Sandbox - Edenia',
+  'settings.title': 'Settings',
+  'settings.close': 'Close settings',
+  'settings.language.label': 'Language',
+  'settings.weeklyGoal.label': 'Weekly goal (hours)',
+  'settings.channels.label': 'Channels',
+  'settings.channels.placeholder': 'Channel ID  (UCxxxxxxxx)',
+  'settings.channels.add': 'Add',
+  'settings.channels.hint': 'Find a channel ID: visit their YouTube page -> share icon -> Copy channel ID. Or look at the URL: youtube.com/channel/UCxxxxxxxx',
+  'settings.shorts.label': 'Show short videos',
+  'settings.shorts.hint': 'When off, videos under 3 minutes are skipped during refresh and hidden from your active video list.',
+  'settings.activity.title': 'Activity log',
+  'settings.activity.filtersLabel': 'Activity log filters',
+  'settings.activity.all': 'All',
+  'settings.activity.user': 'User',
+  'settings.activity.auto': 'Auto',
+  'settings.activity.issues': 'Issues',
+  'settings.refresh': 'Refresh',
+  'settings.remove': 'Remove',
+  'settings.sync.export': 'Export sync file',
+  'settings.sync.import': 'Import sync file',
+  'settings.sync.note': 'Progress is saved in this browser. Use sync files to copy the same progress to another device or browser.',
+  'settings.walkthroughAgain': 'Show walkthrough again',
+  'settings.backups.title': 'Recent local backups',
+  'settings.backups.note': 'Local backups can recover from a bad import, reset, or app save. Export a sync file for protection outside this browser.',
+  'settings.reset.open': 'Reset everything',
+  'settings.reset.warning': "This will clear this app's local watch history, streak, saved settings, and cached Anki stats. A rollback backup will be kept here. Your Anki collection will not be changed.",
+  'settings.reset.cancel': 'Cancel',
+  'settings.reset.delete': 'Delete data',
+  'header.sandbox': 'Sandbox version',
+  'header.search.title': 'Search videos',
+  'header.search.dialog': 'Search saved videos',
+  'header.search.placeholder': 'Search videos...',
+  'header.theme.dark': 'Switch to dark mode',
+  'header.theme.light': 'Switch to light mode',
+  'header.settings': 'Settings',
+  'streak.day': 'day streak',
+  'sandbox.addDay': 'Add day',
+  'sandbox.reset': 'Reset',
+  'city.imageAlt': 'Study city milestone: Lonely house',
+  'city.zoom.controls': 'City zoom controls',
+  'city.zoom.out': 'Zoom out',
+  'city.zoom.reset': 'Reset view',
+  'city.zoom.in': 'Zoom in',
+  'city.timeline': 'City history timeline',
+  'city.timeline.today': 'Today',
+  'city.levelUp': 'Level up',
+  'city.totalPts': 'total pts',
+  'city.ptsByThen': 'pts by then',
+  'city.readyNext': 'Ready for next level',
+  'city.ptsToNext': '{count} pts to next level',
+  'city.maxLevel': 'Max level',
+  'goal.title': 'Weekly goal',
+  'goal.watched': 'watched',
+  'goal.inProgress': 'in progress',
+  'goal.toGo': 'to go',
+  'history.title': 'Study History',
+  'history.viewLabel': 'Study history view',
+  'history.summary': 'Summary',
+  'history.heatmap': 'Heatmap',
+  'history.rangeLabel': 'Study history range',
+  'history.selectWeek': 'Select week',
+  'history.availableWeeks': 'Available weeks',
+  'history.week': 'Week',
+  'history.selectMonth': 'Select month',
+  'history.availableMonths': 'Available months',
+  'history.month': 'Month',
+  'history.videoTime': 'video time',
+  'history.videosWatched': 'videos watched',
+  'history.ankiReviewed': 'Anki cards reviewed',
+  'history.ankiCreated': 'new Anki cards created',
+  'history.table.date': 'Date',
+  'history.table.video': 'Video',
+  'history.table.watched': 'Watched',
+  'history.table.anki': 'Anki',
+  'history.table.points': 'PTS',
+  'history.emptyRange': 'No activity in this range.',
+  'history.noActivityMap': 'No activity to map yet.',
+  'history.noActivityYet': 'No activity yet',
+  'history.showWatched': 'Show {count} videos watched on {date}',
+  'history.watchedDialog': 'Watched videos',
+  'history.today': 'Today',
+  'history.yesterday': 'Yesterday',
+  'history.weekdays.mon': 'Mon',
+  'history.weekdays.tue': 'Tue',
+  'history.weekdays.wed': 'Wed',
+  'history.weekdays.thu': 'Thu',
+  'history.weekdays.fri': 'Fri',
+  'history.weekdays.sat': 'Sat',
+  'history.weekdays.sun': 'Sun',
+  'history.heatmapAria': '{date}: {points} points; {time} video time; {videos} videos watched; {reviewed} Anki cards reviewed; {created} new Anki cards created',
+  'history.tooltip.points': '{count} pts',
+  'history.tooltip.videoTime': 'Video time',
+  'history.tooltip.videosWatched': 'Videos watched',
+  'history.tooltip.ankiReviewed': 'Anki reviewed',
+  'history.tooltip.ankiCreated': 'New Anki cards',
+  'videos.title': 'Videos',
+  'videos.status.all': 'All',
+  'videos.status.watchLater': 'Watch later',
+  'videos.status.unwatched': 'Unwatched',
+  'videos.status.partial': 'In progress',
+  'videos.status.watched': 'Watched',
+  'videos.status.previous': 'its previous status',
+  'videos.channels.all': 'All channels',
+  'videos.channels.none': 'No channels',
+  'videos.channels.one': '1 channel',
+  'videos.channels.count': '{count} channels',
+  'videos.manual.button': '+ Watched URL',
+  'videos.manual.dialog': 'Add watched YouTube URL',
+  'videos.manual.placeholder': 'youtube.com/watch?v=...',
+  'videos.manual.add': 'Add',
+  'videos.manual.adding': 'Adding...',
+  'videos.undo': 'Undo',
+  'videos.redo': 'Redo',
+  'videos.undo.empty': 'Nothing to undo',
+  'videos.redo.empty': 'Nothing to redo',
+  'videos.undo.queue': 'Undo queue',
+  'videos.redo.queue': 'Redo queue',
+  'videos.undo.title': 'Undo latest video status change',
+  'videos.redo.title': 'Redo latest video status change',
+  'videos.watchedSection': 'Watched',
+  'videos.empty.default': 'No videos yet. Edenia loads your feed automatically.',
+  'videos.empty.activeBelow': 'No active videos right now. Watched videos are below.',
+  'videos.empty.filtered': 'No {filter} videos{channelText} right now.',
+  'videos.empty.selectedChannels': ' for the selected channels',
+  'videos.filter.active': 'active',
+  'videos.filter.inProgress': 'in-progress',
+  'videos.filter.watchLater': 'watch later',
+  'videos.search.empty': 'Search saved videos by title or channel.',
+  'videos.search.noMatches': 'No matching videos found.',
+  'videos.search.untitled': 'Untitled video',
+  'videos.search.youtube': 'YouTube',
+  'videos.card.markWatched': 'Mark watched',
+  'videos.card.markWatchedTitle': 'Mark as watched',
+  'videos.card.unmark': 'Unmark',
+  'videos.card.clear': 'Clear',
+  'videos.card.markProgress': 'Mark as in progress',
+  'videos.card.removeWatchLater': 'Remove from watch later',
+  'videos.card.watchLater': 'Watch later',
+  'videos.card.resume': 'Resume watching',
+  'videos.card.continueAt': 'Continue at',
+  'videos.card.timestampLabel': 'Continue watching timestamp',
+  'videos.card.inProgressRibbon': 'In progress',
+  'videos.refreshing': 'Refreshing...',
+  'videos.refresh': 'Refresh',
+  'activity.empty': 'No activity logged yet',
+  'activity.auto': 'Auto',
+  'activity.user': 'User',
+  'activity.error': 'Error',
+  'activity.warn': 'Warn',
+  'activity.done': 'Done',
+  'activity.info': 'Info',
+  'backups.empty': 'No local backups yet',
+  'backups.restore': 'Restore',
+  'backups.unknownTime': 'Unknown time',
+  'backups.automatic': 'Automatic backup',
+  'time.tomorrow': 'tomorrow',
+  'time.today': 'today',
+  'time.yesterday': 'yesterday',
+  'time.inDays': 'in {count}d',
+  'time.daysAgo': '{count}d ago',
+  'time.weekAgo': '1 week ago',
+  'time.weeksAgo': '{count}w ago',
+  'time.monthsAgo': '{count}mo ago',
+  'time.notYet': 'Not yet',
+  'time.justNow': 'just now',
+  'time.notRefreshedYet': 'Not refreshed yet',
+  'time.lastRefreshed': 'Last refreshed {time}',
+  'time.watchedToday': 'Watched today',
+  'time.watchedYesterday': 'Watched yesterday',
+  'time.watchedDaysAgo': 'Watched {count}d ago',
+  'time.watchedWeekAgo': 'Watched 1 week ago',
+  'time.watchedWeeksAgo': 'Watched {count}w ago',
+  'time.watchedDate': 'Watched {date}',
+  'time.weekLabel': 'Week {week} · {start} - {end}',
+  'time.hoursMinutes': '{hours}h {minutes} min',
+  'time.hours': '{hours}h',
+  'time.minutes': '{minutes} min',
+  'toast.sandboxMode': 'Sandbox mode: demo data is isolated from your real progress',
+  'toast.sandboxReset': 'Sandbox reset: no study progress yet',
+  'toast.sandboxDayAdded': 'Added sandbox study day: {date}',
+  'toast.addChannelFirst': 'Add at least one channel in Settings first',
+  'toast.dummyVideosLoaded': '{count} dummy videos loaded',
+  'toast.nothingToSync': 'Nothing to sync yet',
+  'toast.syncExported': 'Sync file exported',
+  'toast.invalidSync': 'That sync file is not valid',
+  'toast.useSandboxSync': 'Use a sandbox sync file here',
+  'toast.useNormalSync': 'Use a normal Edenia sync file here',
+  'toast.importFailed': 'Could not import that sync file',
+  'toast.syncImported': 'Sync file imported',
+  'toast.readSyncFailed': 'Could not read that sync file',
+  'toast.backupUnavailable': 'That backup is not available anymore',
+  'toast.backupRestored': 'Backup restored',
+  'toast.channelInvalid': 'Channel ID should start with UC and be ~24 characters',
+  'toast.channelDuplicate': 'Already added',
+  'toast.channelAdded': '{name} added',
+  'toast.channelAddedNoKey': '{name} added. Add the shared YouTube API key to load videos.',
+  'toast.channelAddedLoading': '{name} added · loading recent videos...',
+  'toast.apiKeyMissing': 'Add the shared YouTube API key to config.local.js',
+  'toast.nextRefresh': 'Next YouTube refresh in {time}',
+  'toast.refreshFailedChannels': 'Refresh failed: {count} channel{plural} failed',
+  'toast.refreshLoadedWithErrors': 'Loaded {count} videos{shorts} ({errors} channel{plural} failed)',
+  'toast.refreshLoaded': '{count} videos loaded from {channels} channel{plural}{shorts}',
+  'toast.refreshFailed': 'Refresh failed: {message}',
+  'toast.channelLoaded': '{name}: {count} videos loaded{shorts}',
+  'toast.channelAddLoadFailed': 'Channel added, but recent videos could not load: {message}',
+  'toast.validYoutubeUrl': 'Use a valid YouTube video URL',
+  'toast.alreadyWatched': 'That video is already marked watched',
+  'toast.addedWatchedVideo': 'Added watched video: "{title}"',
+  'toast.addVideoFailed': 'Could not add that video',
+  'toast.timestampFormat': 'Use a timestamp like 12:34 or 1:02:03',
+  'toast.nothingRedo': 'Nothing to redo',
+  'toast.nothingUndo': 'Nothing to undo',
+  'toast.videoGone': 'That video is no longer available',
+  'toast.watchedHidden': 'That watched video is hidden by the current filters',
+  'toast.couldNotShowVideo': 'Could not show that video right now',
+  'toast.ankiUpdated': 'Anki stats updated',
+  'toast.levelUp': 'Level up! {label}',
+  'toast.localeChanged': 'Language changed to {language}',
+  'toast.skippedShorts': ', skipped {count} short video{plural}',
+  'anki.checking': 'Checking AnkiConnect...',
+  'anki.openToLoad': 'Open Anki to load live stats',
+  'anki.updated': 'Updated {time}',
+  'anki.unavailableOpen': 'AnkiConnect unavailable: open Anki with AnkiConnect installed',
+  'anki.blockedHosted': 'AnkiConnect blocked: add this site to AnkiConnect webCorsOriginList',
+  'anki.failed': 'AnkiConnect failed: {message}',
+  'anki.notAvailable': 'AnkiConnect not available',
+  'undo.removed': '{verb} change: "{title}" was removed.',
+  'undo.backTo': '{verb} change: "{title}" is back to {status}.',
+  'undo.redid': 'Redid',
+  'undo.undid': 'Undid',
+  'undo.backToStatus': '{from} -> back to {to}',
+  'undo.statusChange': '{from} -> {to}',
+  'undo.timeUnavailable': 'Time unavailable',
+  'undo.doneAt': 'Done {time}',
+  'walkthrough.next': 'Next',
+  'walkthrough.back': 'Back',
+  'walkthrough.skip': 'Skip',
+  'walkthrough.done': 'Done',
+  'walkthrough.close': 'Close walkthrough',
+  'walkthrough.progress': '{current} / {total}',
+  'walkthrough.town': 'This is your floating town. When you study, your town grows little by little. It gives you a quick picture of your progress without needing to read every number.',
+  'walkthrough.weeklyGoal': 'This is your weekly goal. Watched study time fills the bar, so you can quickly see if you are on track for the week.',
+  'walkthrough.studyHistory': 'Study History shows what happened over time. It combines watched videos and Anki reviews so you can understand your real study rhythm.',
+  'walkthrough.historyViews': 'Use Summary when you want clear numbers, and Heatmap when you want to see active days at a glance. Edenia remembers which view you prefer.',
+  'walkthrough.videos': 'This is the video area. New videos from your channels appear here, and watched videos move into the Watched section below.',
+  'walkthrough.videoFilters': 'These controls help you keep the list manageable. You can filter by status, filter by channel, add a watched URL, and fix mistakes.',
+  'walkthrough.manualWatchedUrl': 'Use Watched URL when you studied from a YouTube video that is not in your channels. Paste the link, add it as watched, and it counts toward your progress.',
+  'walkthrough.undoRedo': 'Undo and Redo let you recover from accidental clicks. Open the list, choose the action, and Edenia will update the score and history again.',
+  'walkthrough.settings': 'Click Settings when you are ready to set up Edenia. This is where you add your YouTube channels, choose your weekly goal, and keep your progress safe.',
+  'walkthrough.clickSettings': 'Click Settings',
+  'walkthrough.channels': 'Add YouTube channels here. Edenia uses them to find recent study videos, then keeps the feed fresh without you hunting through YouTube every time.',
+  'walkthrough.shortVideos': 'This setting controls short videos. Turn it off if you want Edenia to skip and hide videos under 3 minutes, so your study list stays focused.',
+  'walkthrough.settingsWeeklyGoal': 'You can change your weekly goal here. This only changes the target you are aiming for; it does not erase your history.',
+  'walkthrough.syncFiles': 'Sync files are for moving your progress to another browser or device. Export a file from here, then import it where you want the same progress.',
+  'walkthrough.localBackups': 'Recent local backups help after risky actions like import, restore, reset, or a bad save. They stay in this browser and give you a quick rollback point.',
+  'walkthrough.activityLog': 'Activity Log is the calm record of what happened. It shows your actions and automatic events, like YouTube refreshes, Anki updates, imports, and issues.',
+  'walkthrough.replay': 'If you ever want this tour again, use Show walkthrough again. It is useful after new features are added or if you share Edenia with someone else.',
+  'walkthrough.resetSafety': 'Reset everything starts fresh, but Edenia keeps a rollback backup first. Use it carefully, and export a sync file when you want protection outside this browser.',
+  'log.weeklyGoal.title': 'Weekly goal changed',
+  'log.weeklyGoal.detail': '{from}h to {to}h',
+  'log.shortVideos.title': 'Short video setting changed',
+  'log.shortVideos.shown': 'Short videos are shown.',
+  'log.shortVideos.hidden': 'Short videos are hidden.',
+  'log.theme.title': 'Theme changed',
+  'log.theme.dark': 'Dark theme enabled.',
+  'log.theme.light': 'Light theme enabled.',
+  'log.locale.title': 'Language changed',
+  'log.locale.detail': 'Language set to {language}.'
+}
+
+const I18N = {
+  en: I18N_EN,
+  'zh-Hant': {
+    ...I18N_EN,
+    'settings.title': '設定',
+    'settings.close': '關閉設定',
+    'settings.language.label': '語言',
+    'settings.weeklyGoal.label': '每週目標（小時）',
+    'settings.channels.label': '頻道',
+    'settings.channels.add': '新增',
+    'settings.channels.hint': '找頻道 ID：打開 YouTube 頻道頁 -> 分享圖示 -> 複製頻道 ID。也可以看網址：youtube.com/channel/UCxxxxxxxx',
+    'settings.shorts.label': '顯示短影片',
+    'settings.shorts.hint': '關閉時，刷新會跳過 3 分鐘以下的影片，並從主要影片清單隱藏。',
+    'settings.activity.title': '活動紀錄',
+    'settings.activity.filtersLabel': '活動紀錄篩選',
+    'settings.activity.all': '全部',
+    'settings.activity.user': '使用者',
+    'settings.activity.auto': '自動',
+    'settings.activity.issues': '問題',
+    'settings.refresh': '刷新',
+    'settings.sync.export': '匯出同步檔',
+    'settings.sync.import': '匯入同步檔',
+    'settings.sync.note': '進度會儲存在這個瀏覽器。使用同步檔可以把同一份進度帶到其他裝置或瀏覽器。',
+    'settings.walkthroughAgain': '再次顯示導覽',
+    'settings.backups.title': '最近本機備份',
+    'settings.backups.note': '本機備份可以在匯入、重置或儲存出錯後復原。若要保護到瀏覽器之外，請匯出同步檔。',
+    'settings.reset.open': '全部重置',
+    'settings.reset.warning': '這會清除本機觀看紀錄、連續天數、設定與快取的 Anki 統計。這裡會先保留一份回復備份。你的 Anki 牌組不會被更動。',
+    'settings.reset.cancel': '取消',
+    'settings.reset.delete': '刪除資料',
+    'header.sandbox': '沙盒版本',
+    'header.search.title': '搜尋影片',
+    'header.search.dialog': '搜尋已儲存影片',
+    'header.search.placeholder': '搜尋影片...',
+    'header.theme.dark': '切換到深色模式',
+    'header.theme.light': '切換到淺色模式',
+    'streak.day': '天連續',
+    'sandbox.addDay': '新增一天',
+    'sandbox.reset': '重置',
+    'goal.title': '每週目標',
+    'goal.watched': '已看',
+    'goal.inProgress': '進行中',
+    'goal.toGo': '還差',
+    'history.title': '學習紀錄',
+    'history.summary': '摘要',
+    'history.heatmap': '熱力圖',
+    'history.week': '週',
+    'history.month': '月',
+    'history.videoTime': '影片時間',
+    'history.videosWatched': '已看影片',
+    'history.ankiReviewed': '已複習 Anki 卡',
+    'history.ankiCreated': '新增 Anki 卡',
+    'history.table.date': '日期',
+    'history.table.video': '影片',
+    'history.table.watched': '已看',
+    'history.table.anki': 'Anki',
+    'history.emptyRange': '這個範圍沒有活動。',
+    'history.noActivityMap': '還沒有活動可以顯示。',
+    'history.noActivityYet': '還沒有活動',
+    'history.today': '今天',
+    'history.yesterday': '昨天',
+    'history.tooltip.videoTime': '影片時間',
+    'history.tooltip.videosWatched': '已看影片',
+    'history.tooltip.ankiReviewed': 'Anki 複習',
+    'history.tooltip.ankiCreated': '新增 Anki 卡',
+    'videos.title': '影片',
+    'videos.status.all': '全部',
+    'videos.status.watchLater': '稍後觀看',
+    'videos.status.unwatched': '未觀看',
+    'videos.status.partial': '進行中',
+    'videos.status.watched': '已看',
+    'videos.channels.all': '全部頻道',
+    'videos.channels.none': '沒有頻道',
+    'videos.manual.button': '+ 已看網址',
+    'videos.manual.dialog': '新增已看的 YouTube 網址',
+    'videos.manual.add': '新增',
+    'videos.undo': '復原',
+    'videos.redo': '重做',
+    'videos.undo.empty': '沒有可復原動作',
+    'videos.redo.empty': '沒有可重做動作',
+    'videos.watchedSection': '已看',
+    'videos.empty.default': '還沒有影片。Edenia 會自動載入你的影片清單。',
+    'videos.empty.activeBelow': '目前沒有待看影片。已看影片在下方。',
+    'videos.search.empty': '依標題或頻道搜尋已儲存影片。',
+    'videos.search.noMatches': '找不到符合的影片。',
+    'videos.card.markWatched': '標記已看',
+    'videos.card.markWatchedTitle': '標記為已看',
+    'videos.card.unmark': '取消標記',
+    'videos.card.clear': '清除',
+    'videos.card.resume': '繼續觀看',
+    'videos.card.continueAt': '繼續於',
+    'activity.empty': '還沒有活動紀錄',
+    'activity.auto': '自動',
+    'activity.user': '使用者',
+    'activity.done': '完成',
+    'backups.empty': '還沒有本機備份',
+    'backups.restore': '復原',
+    'time.today': '今天',
+    'time.yesterday': '昨天',
+    'time.tomorrow': '明天',
+    'time.watchedToday': '今天觀看',
+    'time.watchedYesterday': '昨天觀看',
+    'time.weekLabel': '第 {week} 週 · {start} - {end}',
+    'time.notYet': '尚未',
+    'time.justNow': '剛剛',
+    'time.notRefreshedYet': '尚未刷新',
+    'time.lastRefreshed': '上次刷新：{time}',
+    'anki.openToLoad': '打開 Anki 以載入即時統計',
+    'anki.updated': '已更新 {time}',
+    'toast.localeChanged': '語言已改為 {language}',
+    'walkthrough.next': '下一步',
+    'walkthrough.back': '上一步',
+    'walkthrough.skip': '略過',
+    'walkthrough.done': '完成',
+    'walkthrough.progress': '{current} / {total}',
+    'walkthrough.town': '這是你的浮空小鎮。你學習時，小鎮會一點一點成長，讓你不用讀很多數字也能快速看見進度。',
+    'walkthrough.weeklyGoal': '這是你的每週目標。你看過的學習影片時間會填滿進度條，幫你知道這週是否跟上目標。',
+    'walkthrough.studyHistory': '學習紀錄會顯示你一段時間內做了什麼。它會把看過的影片和 Anki 複習放在一起，讓你看懂真正的學習節奏。',
+    'walkthrough.historyViews': '摘要適合看清楚的數字，熱力圖適合快速看哪些天有學習。Edenia 會記住你偏好的視圖。',
+    'walkthrough.videos': '這裡是影片區。你加入的頻道會出現新影片，已看影片會移到下方的已看區。',
+    'walkthrough.videoFilters': '這些控制可以讓清單更好管理。你可以依狀態或頻道篩選，新增已看的網址，也可以修正誤點。',
+    'walkthrough.manualWatchedUrl': '如果你看的 YouTube 影片不在頻道清單裡，可以用已看網址。貼上連結後，它會算進你的進度。',
+    'walkthrough.undoRedo': '復原和重做可以幫你修正誤點。打開清單，選一個動作，Edenia 會重新計算分數和紀錄。',
+    'walkthrough.settings': '準備設定 Edenia 時，請點設定。你可以在這裡加入 YouTube 頻道、選每週目標，並保護進度資料。',
+    'walkthrough.clickSettings': '點設定',
+    'walkthrough.channels': '在這裡加入 YouTube 頻道。Edenia 會用它們尋找最近的學習影片，讓你不用每次都去 YouTube 找。',
+    'walkthrough.shortVideos': '這個設定控制短影片。關閉後，Edenia 會跳過並隱藏 3 分鐘以下的影片，讓清單更專注。',
+    'walkthrough.settingsWeeklyGoal': '你可以在這裡改每週目標。這只會改你想達成的目標，不會清除紀錄。',
+    'walkthrough.syncFiles': '同步檔可以把進度搬到其他瀏覽器或裝置。先在這裡匯出，再到另一邊匯入。',
+    'walkthrough.localBackups': '最近本機備份可以在匯入、復原、重置或儲存出錯後幫你回到較安全的狀態。',
+    'walkthrough.activityLog': '活動紀錄會安靜地記下發生過的事，例如你的操作、YouTube 刷新、Anki 更新、匯入和問題。',
+    'walkthrough.replay': '如果想再看一次導覽，可以用再次顯示導覽。新功能加入或分享給別人時很有用。',
+    'walkthrough.resetSafety': '全部重置會重新開始，但 Edenia 會先保留回復備份。請小心使用，想要瀏覽器外的保護時請匯出同步檔。'
+  },
+  'zh-Hans': {
+    ...I18N_EN,
+    'settings.title': '设置',
+    'settings.close': '关闭设置',
+    'settings.language.label': '语言',
+    'settings.weeklyGoal.label': '每周目标（小时）',
+    'settings.channels.label': '频道',
+    'settings.channels.add': '添加',
+    'settings.channels.hint': '找频道 ID：打开 YouTube 频道页 -> 分享图标 -> 复制频道 ID。也可以看网址：youtube.com/channel/UCxxxxxxxx',
+    'settings.shorts.label': '显示短视频',
+    'settings.shorts.hint': '关闭时，刷新会跳过 3 分钟以下的视频，并从主要视频列表隐藏。',
+    'settings.activity.title': '活动记录',
+    'settings.activity.all': '全部',
+    'settings.activity.user': '用户',
+    'settings.activity.auto': '自动',
+    'settings.activity.issues': '问题',
+    'settings.refresh': '刷新',
+    'settings.sync.export': '导出同步文件',
+    'settings.sync.import': '导入同步文件',
+    'settings.sync.note': '进度会保存在这个浏览器。使用同步文件可以把同一份进度带到其他设备或浏览器。',
+    'settings.walkthroughAgain': '再次显示导览',
+    'settings.backups.title': '最近本地备份',
+    'settings.backups.note': '本地备份可以在导入、重置或保存出错后恢复。若要保护到浏览器之外，请导出同步文件。',
+    'settings.reset.open': '全部重置',
+    'settings.reset.warning': '这会清除本地观看记录、连续天数、设置与缓存的 Anki 统计。这里会先保留一份回滚备份。你的 Anki 牌组不会被更改。',
+    'settings.reset.cancel': '取消',
+    'settings.reset.delete': '删除数据',
+    'header.sandbox': '沙盒版本',
+    'header.search.title': '搜索视频',
+    'header.search.placeholder': '搜索视频...',
+    'header.theme.dark': '切换到深色模式',
+    'header.theme.light': '切换到浅色模式',
+    'streak.day': '天连续',
+    'sandbox.addDay': '添加一天',
+    'sandbox.reset': '重置',
+    'goal.title': '每周目标',
+    'goal.watched': '已看',
+    'goal.inProgress': '进行中',
+    'goal.toGo': '还差',
+    'history.title': '学习记录',
+    'history.summary': '摘要',
+    'history.heatmap': '热力图',
+    'history.week': '周',
+    'history.month': '月',
+    'history.videoTime': '视频时间',
+    'history.videosWatched': '已看视频',
+    'history.ankiReviewed': '已复习 Anki 卡',
+    'history.ankiCreated': '新增 Anki 卡',
+    'history.table.date': '日期',
+    'history.table.video': '视频',
+    'history.table.watched': '已看',
+    'history.emptyRange': '这个范围没有活动。',
+    'videos.title': '视频',
+    'videos.status.all': '全部',
+    'videos.status.watchLater': '稍后观看',
+    'videos.status.unwatched': '未观看',
+    'videos.status.partial': '进行中',
+    'videos.status.watched': '已看',
+    'videos.channels.all': '全部频道',
+    'videos.channels.none': '没有频道',
+    'videos.manual.button': '+ 已看网址',
+    'videos.manual.add': '添加',
+    'videos.undo': '撤销',
+    'videos.redo': '重做',
+    'videos.watchedSection': '已看',
+    'videos.empty.default': '还没有视频。Edenia 会自动加载你的视频列表。',
+    'videos.search.empty': '按标题或频道搜索已保存视频。',
+    'videos.card.markWatched': '标记已看',
+    'videos.card.unmark': '取消标记',
+    'videos.card.resume': '继续观看',
+    'videos.card.continueAt': '继续于',
+    'activity.empty': '还没有活动记录',
+    'backups.empty': '还没有本地备份',
+    'backups.restore': '恢复',
+    'time.today': '今天',
+    'time.yesterday': '昨天',
+    'time.tomorrow': '明天',
+    'time.watchedToday': '今天观看',
+    'time.watchedYesterday': '昨天观看',
+    'time.weekLabel': '第 {week} 周 · {start} - {end}',
+    'time.notYet': '尚未',
+    'time.justNow': '刚刚',
+    'time.notRefreshedYet': '尚未刷新',
+    'time.lastRefreshed': '上次刷新：{time}',
+    'anki.openToLoad': '打开 Anki 以加载实时统计',
+    'anki.updated': '已更新 {time}',
+    'toast.localeChanged': '语言已改为 {language}',
+    'walkthrough.next': '下一步',
+    'walkthrough.back': '上一步',
+    'walkthrough.skip': '跳过',
+    'walkthrough.done': '完成',
+    'walkthrough.progress': '{current} / {total}',
+    'walkthrough.town': '这是你的浮空小镇。你学习时，小镇会一点一点成长，让你不用读很多数字也能快速看到进度。',
+    'walkthrough.weeklyGoal': '这是你的每周目标。你看过的学习视频时间会填满进度条，帮助你知道这周是否跟上目标。',
+    'walkthrough.studyHistory': '学习记录会显示你一段时间内做了什么。它会把看过的视频和 Anki 复习放在一起，让你看懂真正的学习节奏。',
+    'walkthrough.historyViews': '摘要适合看清楚的数字，热力图适合快速看哪些天有学习。Edenia 会记住你偏好的视图。',
+    'walkthrough.videos': '这里是视频区。你加入的频道会出现新视频，已看视频会移到下方的已看区。',
+    'walkthrough.videoFilters': '这些控制可以让列表更好管理。你可以按状态或频道筛选，添加已看的网址，也可以修正误点。',
+    'walkthrough.manualWatchedUrl': '如果你看的 YouTube 视频不在频道列表里，可以用已看网址。粘贴链接后，它会算进你的进度。',
+    'walkthrough.undoRedo': '撤销和重做可以帮你修正误点。打开列表，选一个动作，Edenia 会重新计算分数和记录。',
+    'walkthrough.settings': '准备设置 Edenia 时，请点设置。你可以在这里添加 YouTube 频道、选择每周目标，并保护进度数据。',
+    'walkthrough.clickSettings': '点设置',
+    'walkthrough.channels': '在这里添加 YouTube 频道。Edenia 会用它们寻找最近的学习视频，让你不用每次都去 YouTube 找。',
+    'walkthrough.shortVideos': '这个设置控制短视频。关闭后，Edenia 会跳过并隐藏 3 分钟以下的视频，让列表更专注。',
+    'walkthrough.settingsWeeklyGoal': '你可以在这里改每周目标。这只会改你想达成的目标，不会清除记录。',
+    'walkthrough.syncFiles': '同步文件可以把进度搬到其他浏览器或设备。先在这里导出，再到另一边导入。',
+    'walkthrough.localBackups': '最近本地备份可以在导入、恢复、重置或保存出错后帮你回到较安全的状态。',
+    'walkthrough.activityLog': '活动记录会安静地记下发生过的事，例如你的操作、YouTube 刷新、Anki 更新、导入和问题。',
+    'walkthrough.replay': '如果想再看一次导览，可以用再次显示导览。新功能加入或分享给别人时很有用。',
+    'walkthrough.resetSafety': '全部重置会重新开始，但 Edenia 会先保留回滚备份。请小心使用，想要浏览器外的保护时请导出同步文件。'
+  },
+  es: {
+    ...I18N_EN,
+    'settings.title': 'Ajustes',
+    'settings.close': 'Cerrar ajustes',
+    'settings.language.label': 'Idioma',
+    'settings.weeklyGoal.label': 'Objetivo semanal (horas)',
+    'settings.channels.label': 'Canales',
+    'settings.channels.add': 'Añadir',
+    'settings.channels.hint': 'Busca el ID del canal: abre su página de YouTube -> icono de compartir -> Copiar ID del canal. O mira la URL: youtube.com/channel/UCxxxxxxxx',
+    'settings.shorts.label': 'Mostrar videos cortos',
+    'settings.shorts.hint': 'Si está desactivado, los videos de menos de 3 minutos se omiten al actualizar y se ocultan de la lista activa.',
+    'settings.activity.title': 'Registro de actividad',
+    'settings.activity.all': 'Todo',
+    'settings.activity.user': 'Usuario',
+    'settings.activity.auto': 'Auto',
+    'settings.activity.issues': 'Problemas',
+    'settings.refresh': 'Actualizar',
+    'settings.sync.export': 'Exportar archivo',
+    'settings.sync.import': 'Importar archivo',
+    'settings.sync.note': 'El progreso se guarda en este navegador. Usa archivos de sincronización para copiarlo a otro dispositivo o navegador.',
+    'settings.walkthroughAgain': 'Ver guía otra vez',
+    'settings.backups.title': 'Copias locales recientes',
+    'settings.backups.note': 'Las copias locales ayudan después de una mala importación, un reinicio o un error de guardado. Exporta un archivo para protegerte fuera de este navegador.',
+    'settings.reset.open': 'Restablecer todo',
+    'settings.reset.warning': 'Esto borrará el historial local de videos, la racha, los ajustes y las estadísticas de Anki en caché. Se guardará una copia de recuperación aquí. Tu colección de Anki no cambiará.',
+    'settings.reset.cancel': 'Cancelar',
+    'settings.reset.delete': 'Borrar datos',
+    'header.sandbox': 'Versión sandbox',
+    'header.search.title': 'Buscar videos',
+    'header.search.placeholder': 'Buscar videos...',
+    'header.theme.dark': 'Cambiar a modo oscuro',
+    'header.theme.light': 'Cambiar a modo claro',
+    'streak.day': 'días de racha',
+    'sandbox.addDay': 'Añadir día',
+    'sandbox.reset': 'Restablecer',
+    'goal.title': 'Objetivo semanal',
+    'goal.watched': 'vistos',
+    'goal.inProgress': 'en progreso',
+    'goal.toGo': 'restantes',
+    'history.title': 'Historial de estudio',
+    'history.summary': 'Resumen',
+    'history.heatmap': 'Mapa',
+    'history.week': 'Semana',
+    'history.month': 'Mes',
+    'history.videoTime': 'tiempo de video',
+    'history.videosWatched': 'videos vistos',
+    'history.ankiReviewed': 'tarjetas Anki repasadas',
+    'history.ankiCreated': 'tarjetas Anki nuevas',
+    'history.table.date': 'Fecha',
+    'history.table.video': 'Video',
+    'history.table.watched': 'Vistos',
+    'history.emptyRange': 'No hay actividad en este rango.',
+    'history.today': 'Hoy',
+    'history.yesterday': 'Ayer',
+    'videos.title': 'Videos',
+    'videos.status.all': 'Todo',
+    'videos.status.watchLater': 'Ver luego',
+    'videos.status.unwatched': 'Sin ver',
+    'videos.status.partial': 'En progreso',
+    'videos.status.watched': 'Visto',
+    'videos.channels.all': 'Todos los canales',
+    'videos.channels.none': 'Sin canales',
+    'videos.manual.button': '+ URL vista',
+    'videos.manual.add': 'Añadir',
+    'videos.undo': 'Deshacer',
+    'videos.redo': 'Rehacer',
+    'videos.watchedSection': 'Vistos',
+    'videos.empty.default': 'Aún no hay videos. Edenia carga tu feed automáticamente.',
+    'videos.search.empty': 'Busca videos guardados por título o canal.',
+    'videos.card.markWatched': 'Marcar visto',
+    'videos.card.unmark': 'Desmarcar',
+    'videos.card.resume': 'Continuar viendo',
+    'videos.card.continueAt': 'Continuar en',
+    'activity.empty': 'Aún no hay actividad registrada',
+    'backups.empty': 'Aún no hay copias locales',
+    'backups.restore': 'Restaurar',
+    'time.today': 'hoy',
+    'time.yesterday': 'ayer',
+    'time.tomorrow': 'mañana',
+    'time.watchedToday': 'Visto hoy',
+    'time.watchedYesterday': 'Visto ayer',
+    'time.weekLabel': 'Semana {week} · {start} - {end}',
+    'time.notYet': 'Aún no',
+    'time.justNow': 'ahora mismo',
+    'time.notRefreshedYet': 'Aún no actualizado',
+    'time.lastRefreshed': 'Última actualización: {time}',
+    'anki.openToLoad': 'Abre Anki para cargar estadísticas en vivo',
+    'anki.updated': 'Actualizado {time}',
+    'toast.localeChanged': 'Idioma cambiado a {language}',
+    'walkthrough.next': 'Siguiente',
+    'walkthrough.back': 'Atrás',
+    'walkthrough.skip': 'Saltar',
+    'walkthrough.done': 'Listo',
+    'walkthrough.progress': '{current} / {total}',
+    'walkthrough.town': 'Este es tu pueblo flotante. Cuando estudias, crece poco a poco. Te da una imagen rápida de tu progreso sin tener que leer todos los números.',
+    'walkthrough.weeklyGoal': 'Este es tu objetivo semanal. El tiempo de videos estudiados llena la barra, para que veas rápido si vas bien esta semana.',
+    'walkthrough.studyHistory': 'El historial de estudio muestra lo que pasó con el tiempo. Junta videos vistos y repasos de Anki para que entiendas tu ritmo real.',
+    'walkthrough.historyViews': 'Usa Resumen para ver números claros, y Mapa para ver tus días activos de un vistazo. Edenia recuerda la vista que prefieres.',
+    'walkthrough.videos': 'Esta es la zona de videos. Aquí aparecen videos nuevos de tus canales, y los videos vistos pasan a la sección Vistos.',
+    'walkthrough.videoFilters': 'Estos controles ayudan a mantener la lista clara. Puedes filtrar por estado, filtrar por canal, añadir una URL vista y corregir errores.',
+    'walkthrough.manualWatchedUrl': 'Usa URL vista cuando estudiaste con un video de YouTube que no está en tus canales. Pega el enlace y contará para tu progreso.',
+    'walkthrough.undoRedo': 'Deshacer y Rehacer te ayudan si haces clic por error. Abre la lista, elige la acción y Edenia recalculará el puntaje y el historial.',
+    'walkthrough.settings': 'Haz clic en Ajustes cuando quieras configurar Edenia. Aquí añades canales de YouTube, eliges tu objetivo semanal y proteges tu progreso.',
+    'walkthrough.clickSettings': 'Abrir ajustes',
+    'walkthrough.channels': 'Añade canales de YouTube aquí. Edenia los usa para encontrar videos recientes de estudio y mantener la lista fresca.',
+    'walkthrough.shortVideos': 'Este ajuste controla los videos cortos. Desactívalo si quieres que Edenia salte y oculte videos de menos de 3 minutos.',
+    'walkthrough.settingsWeeklyGoal': 'Puedes cambiar tu objetivo semanal aquí. Solo cambia la meta; no borra tu historial.',
+    'walkthrough.syncFiles': 'Los archivos de sincronización sirven para mover tu progreso a otro navegador o dispositivo. Exporta aquí e importa allí.',
+    'walkthrough.localBackups': 'Las copias locales recientes ayudan después de acciones riesgosas como importar, restaurar, reiniciar o un mal guardado.',
+    'walkthrough.activityLog': 'El registro de actividad guarda con calma lo que pasó: tus acciones, actualizaciones de YouTube, Anki, importaciones y problemas.',
+    'walkthrough.replay': 'Si quieres ver esta guía otra vez, usa Ver guía otra vez. Es útil después de nuevas funciones o al compartir Edenia.',
+    'walkthrough.resetSafety': 'Restablecer todo empieza de cero, pero Edenia guarda primero una copia de recuperación. Úsalo con cuidado y exporta un archivo para protegerte fuera del navegador.'
+  },
+  fr: {
+    ...I18N_EN,
+    'settings.title': 'Réglages',
+    'settings.close': 'Fermer les réglages',
+    'settings.language.label': 'Langue',
+    'settings.weeklyGoal.label': 'Objectif hebdomadaire (heures)',
+    'settings.channels.label': 'Chaînes',
+    'settings.channels.add': 'Ajouter',
+    'settings.channels.hint': 'Trouver un ID de chaîne : ouvrez sa page YouTube -> icône partager -> Copier l’ID de chaîne. Ou regardez l’URL : youtube.com/channel/UCxxxxxxxx',
+    'settings.shorts.label': 'Afficher les vidéos courtes',
+    'settings.shorts.hint': 'Quand c’est désactivé, les vidéos de moins de 3 minutes sont ignorées au rafraîchissement et cachées de la liste active.',
+    'settings.activity.title': 'Journal d’activité',
+    'settings.activity.all': 'Tout',
+    'settings.activity.user': 'Utilisateur',
+    'settings.activity.auto': 'Auto',
+    'settings.activity.issues': 'Problèmes',
+    'settings.refresh': 'Actualiser',
+    'settings.sync.export': 'Exporter le fichier',
+    'settings.sync.import': 'Importer le fichier',
+    'settings.sync.note': 'La progression est enregistrée dans ce navigateur. Utilisez les fichiers de synchronisation pour la copier sur un autre appareil ou navigateur.',
+    'settings.walkthroughAgain': 'Revoir la visite guidée',
+    'settings.backups.title': 'Sauvegardes locales récentes',
+    'settings.backups.note': 'Les sauvegardes locales aident après une mauvaise importation, une réinitialisation ou une erreur de sauvegarde. Exportez un fichier pour protéger vos données hors de ce navigateur.',
+    'settings.reset.open': 'Tout réinitialiser',
+    'settings.reset.warning': 'Cela effacera l’historique local, la série, les réglages et les statistiques Anki mises en cache. Une sauvegarde de retour arrière sera gardée ici. Votre collection Anki ne sera pas modifiée.',
+    'settings.reset.cancel': 'Annuler',
+    'settings.reset.delete': 'Supprimer les données',
+    'header.sandbox': 'Version sandbox',
+    'header.search.title': 'Rechercher des vidéos',
+    'header.search.placeholder': 'Rechercher des vidéos...',
+    'header.theme.dark': 'Passer en mode sombre',
+    'header.theme.light': 'Passer en mode clair',
+    'streak.day': 'jours de série',
+    'sandbox.addDay': 'Ajouter un jour',
+    'sandbox.reset': 'Réinitialiser',
+    'goal.title': 'Objectif hebdomadaire',
+    'goal.watched': 'vues',
+    'goal.inProgress': 'en cours',
+    'goal.toGo': 'restant',
+    'history.title': 'Historique d’étude',
+    'history.summary': 'Résumé',
+    'history.heatmap': 'Carte',
+    'history.week': 'Semaine',
+    'history.month': 'Mois',
+    'history.videoTime': 'temps vidéo',
+    'history.videosWatched': 'vidéos vues',
+    'history.ankiReviewed': 'cartes Anki révisées',
+    'history.ankiCreated': 'nouvelles cartes Anki',
+    'history.table.date': 'Date',
+    'history.table.video': 'Vidéo',
+    'history.table.watched': 'Vues',
+    'history.emptyRange': 'Aucune activité dans cette période.',
+    'history.today': 'Aujourd’hui',
+    'history.yesterday': 'Hier',
+    'videos.title': 'Vidéos',
+    'videos.status.all': 'Tout',
+    'videos.status.watchLater': 'À voir',
+    'videos.status.unwatched': 'Non vue',
+    'videos.status.partial': 'En cours',
+    'videos.status.watched': 'Vue',
+    'videos.channels.all': 'Toutes les chaînes',
+    'videos.channels.none': 'Aucune chaîne',
+    'videos.manual.button': '+ URL vue',
+    'videos.manual.add': 'Ajouter',
+    'videos.undo': 'Annuler',
+    'videos.redo': 'Rétablir',
+    'videos.watchedSection': 'Vues',
+    'videos.empty.default': 'Aucune vidéo pour l’instant. Edenia charge votre liste automatiquement.',
+    'videos.search.empty': 'Recherchez les vidéos enregistrées par titre ou chaîne.',
+    'videos.card.markWatched': 'Marquer vue',
+    'videos.card.unmark': 'Retirer',
+    'videos.card.resume': 'Continuer',
+    'videos.card.continueAt': 'Reprendre à',
+    'activity.empty': 'Aucune activité enregistrée',
+    'backups.empty': 'Aucune sauvegarde locale',
+    'backups.restore': 'Restaurer',
+    'time.today': 'aujourd’hui',
+    'time.yesterday': 'hier',
+    'time.tomorrow': 'demain',
+    'time.watchedToday': 'Vue aujourd’hui',
+    'time.watchedYesterday': 'Vue hier',
+    'time.weekLabel': 'Semaine {week} · {start} - {end}',
+    'time.notYet': 'Pas encore',
+    'time.justNow': 'à l’instant',
+    'time.notRefreshedYet': 'Pas encore actualisé',
+    'time.lastRefreshed': 'Dernière actualisation : {time}',
+    'anki.openToLoad': 'Ouvrez Anki pour charger les statistiques en direct',
+    'anki.updated': 'Mis à jour {time}',
+    'toast.localeChanged': 'Langue changée en {language}',
+    'walkthrough.next': 'Suivant',
+    'walkthrough.back': 'Retour',
+    'walkthrough.skip': 'Passer',
+    'walkthrough.done': 'Terminé',
+    'walkthrough.progress': '{current} / {total}',
+    'walkthrough.town': 'Voici votre ville flottante. Quand vous étudiez, elle grandit peu à peu. Elle donne une image rapide de vos progrès sans lire tous les chiffres.',
+    'walkthrough.weeklyGoal': 'Voici votre objectif hebdomadaire. Le temps de vidéos étudiées remplit la barre, pour voir vite si vous êtes sur la bonne voie.',
+    'walkthrough.studyHistory': 'L’historique d’étude montre ce qui s’est passé au fil du temps. Il réunit les vidéos vues et les révisions Anki pour montrer votre vrai rythme.',
+    'walkthrough.historyViews': 'Utilisez Résumé pour des chiffres clairs, et Carte pour voir vos jours actifs en un coup d’œil. Edenia mémorise votre vue préférée.',
+    'walkthrough.videos': 'Voici la zone des vidéos. Les nouvelles vidéos de vos chaînes apparaissent ici, et les vidéos vues passent dans la section Vues.',
+    'walkthrough.videoFilters': 'Ces contrôles gardent la liste lisible. Vous pouvez filtrer par statut, par chaîne, ajouter une URL vue et corriger les erreurs.',
+    'walkthrough.manualWatchedUrl': 'Utilisez URL vue quand vous avez étudié avec une vidéo YouTube absente de vos chaînes. Collez le lien et elle comptera dans vos progrès.',
+    'walkthrough.undoRedo': 'Annuler et Rétablir aident après un clic accidentel. Ouvrez la liste, choisissez l’action, et Edenia recalculera le score et l’historique.',
+    'walkthrough.settings': 'Cliquez sur Réglages pour configurer Edenia. Vous pouvez y ajouter vos chaînes YouTube, choisir votre objectif hebdomadaire et protéger vos données.',
+    'walkthrough.clickSettings': 'Ouvrir les réglages',
+    'walkthrough.channels': 'Ajoutez vos chaînes YouTube ici. Edenia les utilise pour trouver des vidéos d’étude récentes et garder la liste à jour.',
+    'walkthrough.shortVideos': 'Ce réglage contrôle les vidéos courtes. Désactivez-le pour ignorer et cacher les vidéos de moins de 3 minutes.',
+    'walkthrough.settingsWeeklyGoal': 'Vous pouvez changer votre objectif hebdomadaire ici. Cela change seulement la cible, sans effacer votre historique.',
+    'walkthrough.syncFiles': 'Les fichiers de synchronisation déplacent votre progression vers un autre navigateur ou appareil. Exportez ici, puis importez ailleurs.',
+    'walkthrough.localBackups': 'Les sauvegardes locales récentes aident après une importation, une restauration, une réinitialisation ou une mauvaise sauvegarde.',
+    'walkthrough.activityLog': 'Le journal d’activité garde une trace calme de ce qui arrive : actions, actualisations YouTube, Anki, importations et problèmes.',
+    'walkthrough.replay': 'Pour revoir cette visite, utilisez Revoir la visite guidée. C’est utile après de nouvelles fonctions ou pour partager Edenia.',
+    'walkthrough.resetSafety': 'Tout réinitialiser recommence à zéro, mais Edenia garde d’abord une sauvegarde de retour arrière. Utilisez-le avec prudence et exportez un fichier pour protéger vos données hors du navigateur.'
+  }
+}
+
 const WALKTHROUGH_STEPS = [
   {
     id: 'town',
     target: '.city-image-wrap',
-    text: 'This is your floating town. When you study, your town grows little by little. It gives you a quick picture of your progress without needing to read every number.',
+    textKey: 'walkthrough.town',
     placement: 'bottom'
   },
   {
     id: 'weekly-goal',
     target: '.goal-card',
-    text: 'This is your weekly goal. Watched study time fills the bar, so you can quickly see if you are on track for the week.',
+    textKey: 'walkthrough.weeklyGoal',
     placement: 'bottom',
     hooks: {
       beforeEnter: 'closeTransientUi'
@@ -134,7 +889,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'study-history',
     target: '.study-history-section',
-    text: 'Study History shows what happened over time. It combines watched videos and Anki reviews so you can understand your real study rhythm.',
+    textKey: 'walkthrough.studyHistory',
     placement: 'top',
     hooks: {
       beforeEnter: 'closeTransientUi'
@@ -143,7 +898,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'history-views',
     target: '.history-view-tabs',
-    text: 'Use Summary when you want clear numbers, and Heatmap when you want to see active days at a glance. Edenia remembers which view you prefer.',
+    textKey: 'walkthrough.historyViews',
     placement: 'bottom',
     hooks: {
       beforeEnter: 'closeTransientUi'
@@ -152,7 +907,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'videos',
     target: '.feed-section',
-    text: 'This is the video area. New videos from your channels appear here, and watched videos move into the Watched section below.',
+    textKey: 'walkthrough.videos',
     placement: 'top',
     hooks: {
       beforeEnter: 'closeTransientUi'
@@ -161,7 +916,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'video-filters',
     target: '.feed-controls',
-    text: 'These controls help you keep the list manageable. You can filter by status, filter by channel, add a watched URL, and fix mistakes.',
+    textKey: 'walkthrough.videoFilters',
     placement: 'top',
     hooks: {
       beforeEnter: 'closeTransientUi'
@@ -170,7 +925,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'manual-watched-url',
     target: '.manual-video',
-    text: 'Use Watched URL when you studied from a YouTube video that is not in your channels. Paste the link, add it as watched, and it counts toward your progress.',
+    textKey: 'walkthrough.manualWatchedUrl',
     placement: 'top',
     hooks: {
       beforeEnter: 'closeTransientUi'
@@ -179,7 +934,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'undo-redo',
     target: '.undo-wrap',
-    text: 'Undo and Redo let you recover from accidental clicks. Open the list, choose the action, and Edenia will update the score and history again.',
+    textKey: 'walkthrough.undoRedo',
     placement: 'top',
     hooks: {
       beforeEnter: 'closeTransientUi'
@@ -188,10 +943,10 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'settings',
     target: '.gear-btn',
-    text: 'Click Settings when you are ready to set up Edenia. This is where you add your YouTube channels, choose your weekly goal, and keep your progress safe.',
+    textKey: 'walkthrough.settings',
     placement: 'left',
     advanceOn: 'target-click',
-    actionLabel: 'Click Settings',
+    actionLabelKey: 'walkthrough.clickSettings',
     hooks: {
       beforeEnter: ['closeTransientUi', 'keepSettingsClosed'],
       targetClick: 'advanceAfterTargetClick'
@@ -200,7 +955,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'channels',
     target: '.settings-channels-group',
-    text: 'Add YouTube channels here. Edenia uses them to find recent study videos, then keeps the feed fresh without you hunting through YouTube every time.',
+    textKey: 'walkthrough.channels',
     placement: 'left',
     hooks: {
       beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
@@ -210,7 +965,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'short-videos-setting',
     target: '.settings-shorts-group',
-    text: 'This setting controls short videos. Turn it off if you want Edenia to skip and hide videos under 3 minutes, so your study list stays focused.',
+    textKey: 'walkthrough.shortVideos',
     placement: 'left',
     hooks: {
       beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
@@ -220,7 +975,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'settings-weekly-goal',
     target: '.settings-goal-group',
-    text: 'You can change your weekly goal here. This only changes the target you are aiming for; it does not erase your history.',
+    textKey: 'walkthrough.settingsWeeklyGoal',
     placement: 'left',
     hooks: {
       beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
@@ -230,7 +985,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'sync-files',
     target: '.sync-actions',
-    text: 'Sync files are for moving your progress to another browser or device. Export a file from here, then import it where you want the same progress.',
+    textKey: 'walkthrough.syncFiles',
     placement: 'left',
     hooks: {
       beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
@@ -240,7 +995,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'local-backups',
     target: '.backup-panel',
-    text: 'Recent local backups help after risky actions like import, restore, reset, or a bad save. They stay in this browser and give you a quick rollback point.',
+    textKey: 'walkthrough.localBackups',
     placement: 'left',
     hooks: {
       beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
@@ -250,7 +1005,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'activity-log',
     target: '.activity-log-panel',
-    text: 'Activity Log is the calm record of what happened. It shows your actions and automatic events, like YouTube refreshes, Anki updates, imports, and issues.',
+    textKey: 'walkthrough.activityLog',
     placement: 'left',
     hooks: {
       beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
@@ -260,7 +1015,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'walkthrough-replay',
     target: '.walkthrough-replay-btn',
-    text: 'If you ever want this tour again, use Show walkthrough again. It is useful after new features are added or if you share Edenia with someone else.',
+    textKey: 'walkthrough.replay',
     placement: 'left',
     hooks: {
       beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
@@ -270,7 +1025,7 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'reset-safety',
     target: '.settings-reset-btn',
-    text: 'Reset everything starts fresh, but Edenia keeps a rollback backup first. Use it carefully, and export a sync file when you want protection outside this browser.',
+    textKey: 'walkthrough.resetSafety',
     placement: 'left',
     hooks: {
       beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
@@ -342,6 +1097,96 @@ function hasYoutubeApiKey() {
   return Boolean(getYoutubeApiKey())
 }
 
+function normalizeLocale(locale) {
+  const value = String(locale || '').trim()
+  if (SUPPORTED_LOCALES.includes(value)) return value
+  const lower = value.toLowerCase()
+  if (lower === 'zh-tw' || lower === 'zh-hk' || lower === 'zh-mo' || lower === 'zh-hant') return 'zh-Hant'
+  if (lower === 'zh' || lower === 'zh-cn' || lower === 'zh-sg' || lower === 'zh-hans') return 'zh-Hans'
+  if (lower.startsWith('es')) return 'es'
+  if (lower.startsWith('fr')) return 'fr'
+  if (lower.startsWith('en')) return 'en'
+  return DEFAULT_LOCALE
+}
+
+function getBrowserDefaultLocale() {
+  const candidates = Array.isArray(navigator.languages) && navigator.languages.length
+    ? navigator.languages
+    : [navigator.language]
+  return normalizeLocale(candidates.find(Boolean) || DEFAULT_LOCALE)
+}
+
+function getLocaleLabel(locale = currentLocale) {
+  const normalized = normalizeLocale(locale)
+  return LOCALE_LABELS[normalized] || LOCALE_LABELS[DEFAULT_LOCALE]
+}
+
+function t(key, params = {}) {
+  const dictionary = I18N[currentLocale] || I18N[DEFAULT_LOCALE]
+  const template = dictionary?.[key] ?? I18N[DEFAULT_LOCALE]?.[key] ?? key
+  return String(template).replace(/\{(\w+)\}/g, (_, name) => {
+    return Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : `{${name}}`
+  })
+}
+
+function applyLocale(locale = currentLocale) {
+  currentLocale = normalizeLocale(locale)
+  document.documentElement.lang = currentLocale
+  applyTranslations()
+}
+
+function applyTranslations(root = document) {
+  root.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n)
+  })
+  root.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.setAttribute('placeholder', t(el.dataset.i18nPlaceholder))
+  })
+  root.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.setAttribute('title', t(el.dataset.i18nTitle))
+  })
+  root.querySelectorAll('[data-i18n-aria-label]').forEach(el => {
+    el.setAttribute('aria-label', t(el.dataset.i18nAriaLabel))
+  })
+  root.querySelectorAll('[data-i18n-alt]').forEach(el => {
+    el.setAttribute('alt', t(el.dataset.i18nAlt))
+  })
+  renderLocaleSelect()
+}
+
+function renderLocaleSelect() {
+  const select = document.getElementById('settingsLocale')
+  if (!select) return
+  select.innerHTML = SUPPORTED_LOCALES.map(locale => `
+    <option value="${escHtml(locale)}" ${locale === currentLocale ? 'selected' : ''}>${escHtml(getLocaleLabel(locale))}</option>
+  `).join('')
+  select.value = currentLocale
+}
+
+function reportMissingI18nKeys() {
+  const sourceKeys = Object.keys(I18N[DEFAULT_LOCALE] || {})
+  const missing = SUPPORTED_LOCALES.flatMap(locale => {
+    const dictionary = I18N[locale] || {}
+    return sourceKeys
+      .filter(key => !Object.prototype.hasOwnProperty.call(dictionary, key))
+      .map(key => `${locale}:${key}`)
+  })
+  if (missing.length) console.warn('Missing Edenia translations:', missing)
+  return missing
+}
+
+function formatLocaleDate(value, options = {}) {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString(currentLocale, options)
+}
+
+function formatLocaleDateTime(value, options = {}) {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString(currentLocale, options)
+}
+
 function sanitizeConfigForStorage(config = {}) {
   const { apiKey, ...safeConfig } = config
   return safeConfig
@@ -384,7 +1229,7 @@ function applyTheme(theme) {
   if (toggle) {
     const isDark = normalizedTheme === 'dark'
     toggle.dataset.theme = normalizedTheme
-    toggle.title = isDark ? 'Switch to light mode' : 'Switch to dark mode'
+    toggle.title = isDark ? t('header.theme.light') : t('header.theme.dark')
     toggle.setAttribute('aria-label', toggle.title)
   }
 }
@@ -397,6 +1242,7 @@ function loadState() {
       const state = JSON.parse(raw)
       let shouldSave = false
       if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
+      if (state?.config) state.config.locale = normalizeLocale(state.config.locale || getBrowserDefaultLocale())
       if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
       if (state?.config) state.config.includeShorts = normalizeIncludeShorts(state.config.includeShorts)
       if (state?.config) {
@@ -433,7 +1279,7 @@ function loadState() {
 
   const fallback = loadConfigCookie()
   if (fallback) {
-    return defaultState(fallback.weeklyGoalHours || 4, fallback.channels, fallback.theme, fallback.removedDefaultChannelIds)
+    return defaultState(fallback.weeklyGoalHours || 4, fallback.channels, fallback.theme, fallback.removedDefaultChannelIds, fallback.locale)
   }
 
   return null
@@ -452,7 +1298,7 @@ function saveState(s, options = {}) {
   saveConfigCookie(s.config)
 }
 
-function defaultState(goalHours, channels, theme, removedDefaultChannelIds = null) {
+function defaultState(goalHours, channels, theme, removedDefaultChannelIds = null, locale = null) {
   const restoredRemovedDefaultIds = Array.isArray(removedDefaultChannelIds)
     ? removedDefaultChannelIds.filter(isDefaultChannelId)
     : null
@@ -460,6 +1306,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
     config: {
       weeklyGoalHours: normalizeWeeklyGoalHours(goalHours),
       theme: normalizeTheme(theme),
+      locale: normalizeLocale(locale || getBrowserDefaultLocale()),
       includeShorts: true,
       historyView: getDefaultHistoryView(),
       channels: Array.isArray(channels) ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
@@ -911,14 +1758,14 @@ function getCurrentAnkiDateKey() {
 
 function timeAgo(iso) {
   const days = Math.floor((Date.now() - new Date(iso)) / 86_400_000)
-  if (days < -1) return `in ${Math.abs(days)}d`
-  if (days === -1) return 'tomorrow'
-  if (days === 0) return 'today'
-  if (days === 1) return 'yesterday'
-  if (days < 7)  return `${days}d ago`
-  if (days < 14) return '1 week ago'
-  if (days < 30) return `${Math.floor(days / 7)}w ago`
-  return `${Math.floor(days / 30)}mo ago`
+  if (days < -1) return t('time.inDays', { count: Math.abs(days) })
+  if (days === -1) return t('time.tomorrow')
+  if (days === 0) return t('time.today')
+  if (days === 1) return t('time.yesterday')
+  if (days < 7)  return t('time.daysAgo', { count: days })
+  if (days < 14) return t('time.weekAgo')
+  if (days < 30) return t('time.weeksAgo', { count: Math.floor(days / 7) })
+  return t('time.monthsAgo', { count: Math.floor(days / 30) })
 }
 
 function formatWatchedAt(iso) {
@@ -929,13 +1776,13 @@ function formatWatchedAt(iso) {
   const today = getCurrentAppDate()
   const todayKey = toDateKey(today)
   const yesterdayKey = toDateKey(addDays(today, -1))
-  if (watchedDateKey === todayKey) return 'Watched today'
-  if (watchedDateKey === yesterdayKey) return 'Watched yesterday'
+  if (watchedDateKey === todayKey) return t('time.watchedToday')
+  if (watchedDateKey === yesterdayKey) return t('time.watchedYesterday')
   const days = daysBetweenDateKeys(watchedDateKey, todayKey)
-  if (days > 1 && days < 7) return `Watched ${days}d ago`
-  if (days >= 7 && days < 14) return 'Watched 1 week ago'
-  if (days >= 14 && days < 30) return `Watched ${Math.floor(days / 7)}w ago`
-  return `Watched ${date.toLocaleDateString('en', { month: 'short', day: 'numeric' })}`
+  if (days > 1 && days < 7) return t('time.watchedDaysAgo', { count: days })
+  if (days >= 7 && days < 14) return t('time.watchedWeekAgo')
+  if (days >= 14 && days < 30) return t('time.watchedWeeksAgo', { count: Math.floor(days / 7) })
+  return t('time.watchedDate', { date: formatLocaleDate(date, { month: 'short', day: 'numeric' }) })
 }
 
 function formatDuration(secs) {
@@ -981,8 +1828,8 @@ function getWeekLabel(state = null) {
   end.setDate(end.getDate() + 6)
   const jan4  = new Date(start.getFullYear(), 0, 4)
   const wk    = Math.ceil(((start - jan4) / 86_400_000 + jan4.getDay() + 1) / 7)
-  const fmt   = d => d.toLocaleDateString('en', { month: 'short', day: 'numeric' })
-  return `Week ${wk} · ${fmt(start)} – ${fmt(end)}`
+  const fmt   = d => formatLocaleDate(d, { month: 'short', day: 'numeric' })
+  return t('time.weekLabel', { week: wk, start: fmt(start), end: fmt(end) })
 }
 
 function escHtml(str) {
@@ -996,13 +1843,15 @@ function escHtml(str) {
 // ════════════════════════════════════════════════════════════
 
 function init() {
+  reportMissingI18nKeys()
   let state = loadState()
   if (!state) {
     state = IS_SANDBOX ? createEmptySandboxState() : defaultState(4, DEFAULT_CHANNELS)
     saveState(state)
   }
 
-  document.title = IS_SANDBOX ? 'Sandbox - Edenia' : 'Edenia'
+  applyLocale(state.config.locale)
+  document.title = IS_SANDBOX ? t('app.title.sandbox') : 'Edenia'
   document.body.dataset.sandbox = IS_SANDBOX ? 'true' : 'false'
   const sandboxTools = document.getElementById('sandboxTools')
   const sandboxVersionLabel = document.getElementById('sandboxVersionLabel')
@@ -1023,7 +1872,7 @@ function init() {
     startAnkiAutoRefresh()
     startYoutubeAutoRefresh()
   } else {
-    showToast('Sandbox mode: demo data is isolated from your real progress', 'warn')
+    showToast(t('toast.sandboxMode'), 'warn')
   }
   maybeStartOnboarding(state)
 }
@@ -1087,14 +1936,14 @@ function ensureWalkthroughElements() {
     <div class="walkthrough-scrim walkthrough-scrim-bottom"></div>
     <div class="walkthrough-scrim walkthrough-scrim-left"></div>
     <div class="walkthrough-highlight" aria-hidden="true"></div>
-    <div class="walkthrough-card" role="dialog" aria-live="polite" aria-label="App walkthrough">
+    <div class="walkthrough-card" role="dialog" aria-live="polite" aria-label="${escHtml(t('walkthrough.close'))}">
       <div class="walkthrough-progress"></div>
       <p class="walkthrough-text"></p>
       <div class="walkthrough-actions">
-        <button class="btn-ghost walkthrough-skip" type="button">Skip</button>
+        <button class="btn-ghost walkthrough-skip" type="button">${escHtml(t('walkthrough.skip'))}</button>
         <span class="walkthrough-step-controls">
-          <button class="btn-ghost walkthrough-back" type="button">Back</button>
-          <button class="btn-secondary walkthrough-next" type="button">Next</button>
+          <button class="btn-ghost walkthrough-back" type="button">${escHtml(t('walkthrough.back'))}</button>
+          <button class="btn-secondary walkthrough-next" type="button">${escHtml(t('walkthrough.next'))}</button>
         </span>
       </div>
       <span class="walkthrough-arrow" aria-hidden="true"></span>
@@ -1136,11 +1985,15 @@ function renderWalkthroughStep() {
   }
 
   const elements = ensureWalkthroughElements()
-  elements.progress.textContent = `${walkthroughState.index + 1} / ${walkthroughState.steps.length}`
-  elements.text.textContent = step.text
+  elements.progress.textContent = t('walkthrough.progress', { current: walkthroughState.index + 1, total: walkthroughState.steps.length })
+  elements.text.textContent = step.textKey ? t(step.textKey) : step.text
   elements.back.disabled = walkthroughState.index === 0
   elements.next.disabled = step.advanceOn === 'target-click'
-  elements.next.textContent = step.actionLabel || (walkthroughState.index === walkthroughState.steps.length - 1 ? 'Done' : 'Next')
+  elements.back.textContent = t('walkthrough.back')
+  elements.skip.textContent = t('walkthrough.skip')
+  elements.next.textContent = step.actionLabelKey
+    ? t(step.actionLabelKey)
+    : (walkthroughState.index === walkthroughState.steps.length - 1 ? t('walkthrough.done') : t('walkthrough.next'))
   elements.card.classList.toggle('walkthrough-card-waiting', step.advanceOn === 'target-click')
   elements.card.classList.toggle('walkthrough-card-no-arrow', step.showArrow === false)
 
@@ -1402,7 +2255,7 @@ function resetSandboxState() {
   selectedHistoryRange = 'month'
   ankiStatsCache = null
   renderAll(state)
-  showToast('Sandbox reset: no study progress yet', 'success')
+  showToast(t('toast.sandboxReset'), 'success')
 }
 
 function addSandboxDay() {
@@ -1416,7 +2269,7 @@ function addSandboxDay() {
   saveState(state)
   setDefaultCityDayOffset(state)
   renderAll(state)
-  showToast(`Added sandbox study day: ${formatCitySnapshotDate(nextDate)}`, 'success')
+  showToast(t('toast.sandboxDayAdded', { date: formatCitySnapshotDate(nextDate) }), 'success')
 }
 
 function getLastSandboxActivityDate(state) {
@@ -1526,7 +2379,7 @@ function createSandboxRecentVideos(state) {
 function refreshSandboxFeed() {
   const s = loadState() || createEmptySandboxState()
   if (!s.config.channels.length) {
-    showToast('Add at least one channel in ⚙ Settings first', 'warn')
+    showToast(t('toast.addChannelFirst'), 'warn')
     return
   }
 
@@ -1544,7 +2397,7 @@ function refreshSandboxFeed() {
   s.config.channels.forEach(channel => markChannelRefreshSuccess(s, channel.id, refreshedAt))
   saveState(s)
   renderAll(s)
-  showToast(`${videos.length} dummy videos loaded`, 'success')
+  showToast(t('toast.dummyVideosLoaded', { count: videos.length }), 'success')
 }
 
 function makeSandboxActivityForScore(scoreTarget) {
@@ -1588,6 +2441,8 @@ function randomInt(min, max) {
 function openSettings() {
   const s = loadState()
   document.getElementById('settingsGoal').value   = s.config.weeklyGoalHours
+  const localeSelect = document.getElementById('settingsLocale')
+  if (localeSelect) localeSelect.value = normalizeLocale(s.config.locale)
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(s.config.includeShorts)
   renderChannelList(s.config.channels)
   renderBackupList()
@@ -1636,10 +2491,36 @@ function saveSettingsOnTheFly() {
   if (!normalizeIncludeShorts(s.config.includeShorts)) repairStoredShortsDetection()
 }
 
+function saveLocaleFromSettings() {
+  const s = loadState()
+  if (!s?.config) return
+  const previousLocale = normalizeLocale(s.config.locale)
+  const nextLocale = normalizeLocale(document.getElementById('settingsLocale')?.value)
+  if (previousLocale === nextLocale) return
+
+  s.config.locale = nextLocale
+  applyLocale(nextLocale)
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'locale',
+    status: 'success',
+    title: t('log.locale.title'),
+    detail: t('log.locale.detail', { language: getLocaleLabel(nextLocale) })
+  })
+  saveState(s)
+  document.title = IS_SANDBOX ? t('app.title.sandbox') : 'Edenia'
+  applyTheme(s.config.theme)
+  renderAll(s)
+  renderChannelList(s.config.channels)
+  renderBackupList()
+  renderActivityLog(s)
+  showToast(t('toast.localeChanged', { language: getLocaleLabel(nextLocale) }))
+}
+
 function exportSyncFile() {
   const state = loadState()
   if (!state) {
-    showToast('Nothing to sync yet', 'warn')
+    showToast(t('toast.nothingToSync'), 'warn')
     return
   }
 
@@ -1659,7 +2540,7 @@ function exportSyncFile() {
   link.click()
   link.remove()
   URL.revokeObjectURL(url)
-  showToast('Sync file exported')
+  showToast(t('toast.syncExported'))
 }
 
 function importSyncFileFromInput(input) {
@@ -1672,11 +2553,11 @@ function importSyncFileFromInput(input) {
       const payload = JSON.parse(String(reader.result || ''))
       const importedState = getImportedSyncState(payload)
       if (!importedState) {
-        showToast('That sync file is not valid', 'error')
+        showToast(t('toast.invalidSync'), 'error')
         return
       }
       if (payload?.app === 'edenia' && Boolean(payload.sandbox) !== IS_SANDBOX) {
-        showToast(IS_SANDBOX ? 'Use a sandbox sync file here' : 'Use a normal Edenia sync file here', 'warn')
+        showToast(IS_SANDBOX ? t('toast.useSandboxSync') : t('toast.useNormalSync'), 'warn')
         return
       }
 
@@ -1684,7 +2565,7 @@ function importSyncFileFromInput(input) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(importedState))
       const normalizedState = loadState()
       if (!normalizedState) {
-        showToast('Could not import that sync file', 'error')
+        showToast(t('toast.importFailed'), 'error')
         return
       }
       if (rollbackBackup) {
@@ -1704,6 +2585,8 @@ function importSyncFileFromInput(input) {
         detail: file.name || 'Imported progress from a sync file.'
       })
       saveState(normalizedState, { backup: false })
+      applyLocale(normalizedState.config.locale)
+      document.title = IS_SANDBOX ? t('app.title.sandbox') : 'Edenia'
       applyTheme(normalizedState.config.theme)
       setDefaultCityDayOffset(normalizedState)
       renderAll(normalizedState)
@@ -1712,16 +2595,18 @@ function importSyncFileFromInput(input) {
       renderBackupList()
       renderActivityLog(normalizedState)
       document.getElementById('settingsGoal').value = normalizedState.config.weeklyGoalHours
+      const localeSelect = document.getElementById('settingsLocale')
+      if (localeSelect) localeSelect.value = normalizeLocale(normalizedState.config.locale)
       document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(normalizedState.config.includeShorts)
-      showToast('Sync file imported')
+      showToast(t('toast.syncImported'))
     } catch {
-      showToast('Could not read that sync file', 'error')
+      showToast(t('toast.readSyncFailed'), 'error')
     } finally {
       input.value = ''
     }
   }
   reader.onerror = () => {
-    showToast('Could not read that sync file', 'error')
+    showToast(t('toast.readSyncFailed'), 'error')
     input.value = ''
   }
   reader.readAsText(file)
@@ -1729,8 +2614,8 @@ function importSyncFileFromInput(input) {
 
 function formatBackupTimestamp(value) {
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Unknown time'
-  return date.toLocaleString('en', {
+  if (Number.isNaN(date.getTime())) return t('backups.unknownTime')
+  return formatLocaleDateTime(date, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -1741,7 +2626,7 @@ function formatBackupTimestamp(value) {
 function formatBackupReason(reason) {
   return String(reason || 'automatic backup')
     .replace(/^before /, 'Before ')
-    .replace(/^automatic backup$/, 'Automatic backup')
+    .replace(/^automatic backup$/, t('backups.automatic'))
 }
 
 function renderBackupList() {
@@ -1750,7 +2635,7 @@ function renderBackupList() {
 
   const entries = getStateBackupEntries()
   if (!entries.length) {
-    el.innerHTML = '<p class="backup-empty">No local backups yet</p>'
+    el.innerHTML = `<p class="backup-empty">${escHtml(t('backups.empty'))}</p>`
     return
   }
 
@@ -1760,15 +2645,15 @@ function renderBackupList() {
         <span class="backup-time">${escHtml(formatBackupTimestamp(entry.createdAt))}</span>
         <span class="backup-reason">${escHtml(formatBackupReason(entry.reason))}</span>
       </div>
-      <button class="btn-ghost backup-restore-btn" type="button" data-backup-id="${escHtml(entry.id)}" onclick="restoreStateBackup(this.dataset.backupId)">Restore</button>
+      <button class="btn-ghost backup-restore-btn" type="button" data-backup-id="${escHtml(entry.id)}" onclick="restoreStateBackup(this.dataset.backupId)">${escHtml(t('backups.restore'))}</button>
     </div>
   `).join('')
 }
 
 function formatActivityLogTimestamp(value) {
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Unknown time'
-  return date.toLocaleString('en', {
+  if (Number.isNaN(date.getTime())) return t('backups.unknownTime')
+  return formatLocaleDateTime(date, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -1790,8 +2675,8 @@ function getFilteredActivityLogEntries(state) {
 }
 
 function formatActivityLogLabel(entry) {
-  const actor = entry.actor === 'auto' ? 'Auto' : 'User'
-  const status = entry.status === 'error' ? 'Error' : entry.status === 'warn' ? 'Warn' : entry.status === 'success' ? 'Done' : 'Info'
+  const actor = entry.actor === 'auto' ? t('activity.auto') : t('activity.user')
+  const status = entry.status === 'error' ? t('activity.error') : entry.status === 'warn' ? t('activity.warn') : entry.status === 'success' ? t('activity.done') : t('activity.info')
   return `${actor} · ${status}`
 }
 
@@ -1808,7 +2693,7 @@ function renderActivityLog(state = loadState()) {
   normalizeActivityLogState(state)
   const entries = getFilteredActivityLogEntries(state)
   if (!entries.length) {
-    list.innerHTML = '<p class="activity-log-empty">No activity logged yet</p>'
+    list.innerHTML = `<p class="activity-log-empty">${escHtml(t('activity.empty'))}</p>`
     return
   }
 
@@ -1828,7 +2713,7 @@ function restoreStateBackup(id) {
   const entry = getStateBackupEntries().find(candidate => candidate.id === id)
   const state = entry ? prepareStateForBackup(entry.state) : null
   if (!state) {
-    showToast('That backup is not available anymore', 'error')
+    showToast(t('toast.backupUnavailable'), 'error')
     renderBackupList()
     return
   }
@@ -1852,6 +2737,8 @@ function restoreStateBackup(id) {
     detail: formatBackupTimestamp(entry.createdAt)
   })
   saveState(state, { backup: false })
+  applyLocale(state.config.locale)
+  document.title = IS_SANDBOX ? t('app.title.sandbox') : 'Edenia'
   applyTheme(state.config.theme)
   setDefaultCityDayOffset(state)
   renderAll(state)
@@ -1860,8 +2747,10 @@ function restoreStateBackup(id) {
   renderBackupList()
   renderActivityLog(state)
   document.getElementById('settingsGoal').value = state.config.weeklyGoalHours
+  const localeSelect = document.getElementById('settingsLocale')
+  if (localeSelect) localeSelect.value = normalizeLocale(state.config.locale)
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(state.config.includeShorts)
-  showToast('Backup restored', 'success')
+  showToast(t('toast.backupRestored'), 'success')
 }
 
 function getImportedSyncState(payload) {
@@ -1875,7 +2764,8 @@ function getImportedSyncState(payload) {
     state.config.weeklyGoalHours || 4,
     state.config.channels,
     state.config.theme,
-    state.config.removedDefaultChannelIds
+    state.config.removedDefaultChannelIds,
+    state.config.locale
   )
 
   return {
@@ -1909,12 +2799,12 @@ function addChannel() {
   const name   = id
 
   if (!id.startsWith('UC') || id.length < 20) {
-    showToast('Channel ID should start with UC and be ~24 characters', 'warn')
+    showToast(t('toast.channelInvalid'), 'warn')
     return
   }
   const s = loadState()
   if (s.config.channels.find(c => c.id === id)) {
-    showToast('Already added', 'warn'); return
+    showToast(t('toast.channelDuplicate'), 'warn'); return
   }
   s.config.channels.push({ id, name })
   if (isDefaultChannelId(id)) {
@@ -1932,14 +2822,14 @@ function addChannel() {
   renderActivityLog(s)
   idEl.value = ''
   if (IS_SANDBOX) {
-    showToast(`${name} added`)
+    showToast(t('toast.channelAdded', { name }))
     return
   }
   if (!hasYoutubeApiKey()) {
-    showToast(`${name} added. Add the shared YouTube API key to load videos.`, 'warn')
+    showToast(t('toast.channelAddedNoKey', { name }), 'warn')
     return
   }
-  showToast(`${name} added · loading recent videos...`)
+  showToast(t('toast.channelAddedLoading', { name }))
   refreshAddedChannel(id)
 }
 
@@ -1965,14 +2855,14 @@ function removeChannel(id) {
 
 function renderChannelList(channels) {
   const el = document.getElementById('channelList')
-  if (!channels.length) { el.innerHTML = '<p style="color:var(--muted);font-size:.82rem">No channels yet</p>'; return }
+  if (!channels.length) { el.innerHTML = `<p style="color:var(--muted);font-size:.82rem">${escHtml(t('videos.channels.none'))}</p>`; return }
   el.innerHTML = channels.map(c => `
     <div class="channel-item">
       <div>
         <div class="channel-item-name">${escHtml(c.name)}</div>
         <div class="channel-item-id">${escHtml(c.id)}</div>
       </div>
-      <button class="channel-remove" data-channel-id="${escHtml(c.id)}" onclick="removeChannel(this.dataset.channelId)" title="Remove">✕</button>
+      <button class="channel-remove" data-channel-id="${escHtml(c.id)}" onclick="removeChannel(this.dataset.channelId)" title="${escHtml(t('settings.remove'))}">✕</button>
     </div>
   `).join('')
 }
@@ -2272,10 +3162,10 @@ function getChannelLastFetchedMs(s, channelId) {
 
 function formatChannelLastRefreshLabel(s, channelId) {
   const lastFetchedMs = getChannelLastFetchedMs(s, channelId)
-  if (!lastFetchedMs) return 'Not yet'
+  if (!lastFetchedMs) return t('time.notYet')
 
   const elapsedMs = Date.now() - lastFetchedMs
-  if (elapsedMs < 60_000) return 'just now'
+  if (elapsedMs < 60_000) return t('time.justNow')
   if (elapsedMs < 3_600_000) return `${Math.floor(elapsedMs / 60_000)}m ago`
   if (elapsedMs < 86_400_000) return `${Math.floor(elapsedMs / 3_600_000)}h ago`
   return timeAgo(new Date(lastFetchedMs).toISOString())
@@ -2283,13 +3173,13 @@ function formatChannelLastRefreshLabel(s, channelId) {
 
 function formatChannelLastRefreshTitle(s, channelId) {
   const lastFetchedMs = getChannelLastFetchedMs(s, channelId)
-  if (!lastFetchedMs) return 'Not refreshed yet'
-  return `Last refreshed ${new Date(lastFetchedMs).toLocaleString('en', {
+  if (!lastFetchedMs) return t('time.notRefreshedYet')
+  return t('time.lastRefreshed', { time: formatLocaleDateTime(new Date(lastFetchedMs), {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit'
-  })}`
+  }) })
 }
 
 function getChannelLastFailedMs(s, channelId) {
@@ -2367,7 +3257,7 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
     if (shouldRefreshYoutubeFeed(s)) {
       await refreshFeed({ silent: hasAnyChannelRefreshTimestamp(s) })
     } else if (!hasYoutubeApiKey() && notifyMissingKey) {
-      showToast('Add the shared YouTube API key to config.local.js', 'warn')
+      showToast(t('toast.apiKeyMissing'), 'warn')
     }
   } finally {
     maybeRefreshFeed._running = false
@@ -2538,13 +3428,13 @@ async function repairStoredShortsDetection() {
 }
 
 function formatSkippedShortsMessage(skippedShorts) {
-  return skippedShorts ? `, skipped ${skippedShorts} short video${skippedShorts === 1 ? '' : 's'}` : ''
+  return skippedShorts ? t('toast.skippedShorts', { count: skippedShorts, plural: skippedShorts === 1 ? '' : 's' }) : ''
 }
 
 async function refreshFeed({ silent = false } = {}) {
   const btn = document.getElementById('refreshBtn')
   if (btn) {
-    btn.textContent = '↻ Refreshing…'
+    btn.textContent = `↻ ${t('videos.refreshing')}`
     btn.classList.add('loading')
     btn.disabled = true
   }
@@ -2557,16 +3447,16 @@ async function refreshFeed({ silent = false } = {}) {
 
     const s = loadState()
     if (!hasYoutubeApiKey()) {
-      showToast('Add the shared YouTube API key to config.local.js', 'warn')
+      showToast(t('toast.apiKeyMissing'), 'warn')
       return
     }
     if (!s.config.channels.length) {
-      showToast('Add at least one channel in ⚙ Settings first', 'warn')
+      showToast(t('toast.addChannelFirst'), 'warn')
       return
     }
     const channelsToRefresh = getDueYoutubeChannels(s)
     if (!channelsToRefresh.length) {
-      if (!silent) showToast(`Next YouTube refresh in ${formatRefreshWait(getYoutubeRefreshRemainingMs(s))}`, 'warn')
+      if (!silent) showToast(t('toast.nextRefresh', { time: formatRefreshWait(getYoutubeRefreshRemainingMs(s)) }), 'warn')
       return
     }
 
@@ -2610,7 +3500,7 @@ async function refreshFeed({ silent = false } = {}) {
 
     if (successfulChannels === 0) {
       saveState(s)
-      showToast(`Refresh failed: ${errors.length} channel${errors.length > 1 ? 's' : ''} failed`, 'error')
+      showToast(t('toast.refreshFailedChannels', { count: errors.length, plural: errors.length > 1 ? 's' : '' }), 'error')
       return
     }
 
@@ -2633,8 +3523,8 @@ async function refreshFeed({ silent = false } = {}) {
 
     const shortsMsg = formatSkippedShortsMessage(skippedShorts)
     const msg = errors.length
-      ? `Loaded ${mergedCount} videos${shortsMsg} (${errors.length} channel${errors.length > 1 ? 's' : ''} failed)`
-      : `${mergedCount} videos loaded from ${successfulChannels} channel${successfulChannels === 1 ? '' : 's'}${shortsMsg}`
+      ? t('toast.refreshLoadedWithErrors', { count: mergedCount, shorts: shortsMsg, errors: errors.length, plural: errors.length > 1 ? 's' : '' })
+      : t('toast.refreshLoaded', { count: mergedCount, channels: successfulChannels, plural: successfulChannels === 1 ? '' : 's', shorts: shortsMsg })
     if (!silent || errors.length) showToast(msg, errors.length ? 'warn' : 'success')
 
   } catch (err) {
@@ -2650,10 +3540,10 @@ async function refreshFeed({ silent = false } = {}) {
       })
       saveState(s)
     }
-    showToast(`Refresh failed: ${err.message}`, 'error')
+    showToast(t('toast.refreshFailed', { message: err.message }), 'error')
   } finally {
     if (btn) {
-      btn.textContent = '↻ Refresh'
+      btn.textContent = `↻ ${t('videos.refresh')}`
       btn.classList.remove('loading')
       btn.disabled = false
     }
@@ -2694,7 +3584,7 @@ async function refreshAddedChannel(channelId) {
 
     const channelName = channel.name || channelId
     const shortsMsg = formatSkippedShortsMessage(skippedShorts)
-    showToast(`${channelName}: ${mergedCount} videos loaded${shortsMsg}`, 'success')
+    showToast(t('toast.channelLoaded', { name: channelName, count: mergedCount, shorts: shortsMsg }), 'success')
   } catch (err) {
     console.error(err)
     const s = loadState()
@@ -2710,7 +3600,7 @@ async function refreshAddedChannel(channelId) {
       })
       saveState(s)
     }
-    showToast(`Channel added, but recent videos could not load: ${err.message}`, 'warn')
+    showToast(t('toast.channelAddLoadFailed', { message: err.message }), 'warn')
   }
 }
 
@@ -2789,7 +3679,7 @@ function markVideoInProgressOnOpen(videoId) {
     type: 'video-status',
     status: 'success',
     title: 'Video status changed',
-    detail: `"${formatToastTitle(video.title)}" is now In progress.`,
+    detail: `"${formatToastTitle(video.title)}" is now ${formatVideoStatus('partial')}.`,
     meta: { videoId, status: 'partial' }
   })
 
@@ -2805,18 +3695,18 @@ async function addWatchedVideoFromUrl(event) {
   const videoId = parseYoutubeVideoId(rawUrl)
 
   if (!videoId) {
-    showToast('Use a valid YouTube video URL', 'warn')
+    showToast(t('toast.validYoutubeUrl'), 'warn')
     input?.focus()
     return
   }
   if (!hasYoutubeApiKey()) {
-    showToast('Add the shared YouTube API key to config.local.js', 'warn')
+    showToast(t('toast.apiKeyMissing'), 'warn')
     return
   }
 
   if (btn) {
     btn.disabled = true
-    btn.textContent = 'Adding...'
+    btn.textContent = t('videos.manual.adding')
   }
 
   try {
@@ -2832,7 +3722,7 @@ async function addWatchedVideoFromUrl(event) {
     }
 
     if (existing?.status === 'watched' && existing?.watchedAt) {
-      showToast('That video is already marked watched', 'warn')
+      showToast(t('toast.alreadyWatched'), 'warn')
       input.value = ''
       closeManualVideoPopover()
       return
@@ -2881,14 +3771,14 @@ async function addWatchedVideoFromUrl(event) {
     input.value = ''
     closeManualVideoPopover()
     renderAll(s)
-    showToast(`Added watched video: "${formatToastTitle(s.videos[videoId].title)}"`, 'success')
+    showToast(t('toast.addedWatchedVideo', { title: formatToastTitle(s.videos[videoId].title) }), 'success')
   } catch (err) {
     console.warn(err)
-    showToast(err.message || 'Could not add that video', 'error')
+    showToast(err.message || t('toast.addVideoFailed'), 'error')
   } finally {
     if (btn) {
       btn.disabled = false
-      btn.textContent = 'Add'
+      btn.textContent = t('videos.manual.add')
     }
   }
 }
@@ -2900,7 +3790,7 @@ function saveVideoResumeTime(videoId, value) {
 
   const parsed = parseResumeTimestamp(value, video.duration)
   if (Number.isNaN(parsed)) {
-    showToast('Use a timestamp like 12:34 or 1:02:03', 'warn')
+    showToast(t('toast.timestampFormat'), 'warn')
     renderAll(s)
     return
   }
@@ -2945,7 +3835,7 @@ function applyHistoryAction(direction, actionIndex) {
   const action = sourceStack[index]
 
   if (action?.type !== 'video-status') {
-    showToast(direction === 'redo' ? 'Nothing to redo' : 'Nothing to undo', 'warn')
+    showToast(direction === 'redo' ? t('toast.nothingRedo') : t('toast.nothingUndo'), 'warn')
     return
   }
 
@@ -2956,7 +3846,7 @@ function applyHistoryAction(direction, actionIndex) {
   if (!video) {
     saveState(s)
     renderAll(s)
-    showToast('That video is no longer available', 'warn')
+    showToast(t('toast.videoGone'), 'warn')
     return
   }
 
@@ -3018,11 +3908,11 @@ function shouldDeleteManualVideoOnUndo(video, action, snapshot, direction) {
 }
 
 function formatHistoryActionToast(direction, video, snapshot) {
-  const verb = direction === 'redo' ? 'Redid' : 'Undid'
+  const verb = direction === 'redo' ? t('undo.redid') : t('undo.undid')
   if (snapshot?.exists === false) {
-    return `${verb} change: "${formatToastTitle(video.title)}" was removed.`
+    return t('undo.removed', { verb, title: formatToastTitle(video.title) })
   }
-  return `${verb} change: "${formatToastTitle(video.title)}" is back to ${formatVideoStatus(snapshot.status)}.`
+  return t('undo.backTo', { verb, title: formatToastTitle(video.title), status: formatVideoStatus(snapshot.status) })
 }
 
 function dateKeyToLocalDate(dateKey) {
@@ -3083,11 +3973,11 @@ function isStreakAlive(s) {
 
 function formatVideoStatus(status) {
   return {
-    unwatched: 'Unwatched',
-    'watch-later': 'Watch later',
-    partial: 'In progress',
-    watched: 'Watched'
-  }[status] || 'its previous status'
+    unwatched: t('videos.status.unwatched'),
+    'watch-later': t('videos.status.watchLater'),
+    partial: t('videos.status.partial'),
+    watched: t('videos.status.watched')
+  }[status] || t('videos.status.previous')
 }
 
 function formatToastTitle(title) {
@@ -3150,23 +4040,23 @@ function isHostedOrigin() {
 
 function formatAnkiConnectError(err) {
   if (err?.name === 'AbortError') {
-    return 'AnkiConnect unavailable: open Anki with AnkiConnect installed'
+    return t('anki.unavailableOpen')
   }
 
   const message = err?.message || ''
   if (message === 'Failed to fetch') {
     return isHostedOrigin()
-      ? 'AnkiConnect blocked: add this site to AnkiConnect webCorsOriginList'
-      : 'AnkiConnect unavailable: open Anki with AnkiConnect installed'
+      ? t('anki.blockedHosted')
+      : t('anki.unavailableOpen')
   }
 
-  return message ? `AnkiConnect failed: ${message}` : 'AnkiConnect not available'
+  return message ? t('anki.failed', { message }) : t('anki.notAvailable')
 }
 
 async function refreshAnkiStats({ silent = false } = {}) {
   const statusEl = document.getElementById('ankiConnectStatus')
   if (statusEl) {
-    statusEl.textContent = 'Checking AnkiConnect…'
+    statusEl.textContent = t('anki.checking')
     statusEl.classList.remove('logged')
   }
 
@@ -3174,7 +4064,7 @@ async function refreshAnkiStats({ silent = false } = {}) {
     ankiStatsCache = await fetchAnkiStats()
     syncAnkiStatsToState(ankiStatsCache)
     renderAnkiStatus(loadState())
-    if (!silent) showToast('Anki stats updated')
+    if (!silent) showToast(t('toast.ankiUpdated'))
   } catch (err) {
     ankiStatsCache = null
     const s = loadState()
@@ -3241,8 +4131,8 @@ function syncAnkiStatsToState(stats) {
 }
 
 function formatAnkiStatus(stats) {
-  if (!stats?.fetchedAt) return 'Open Anki to load live stats'
-  return `Updated ${timeAgo(stats.fetchedAt)}`
+  if (!stats?.fetchedAt) return t('anki.openToLoad')
+  return t('anki.updated', { time: timeAgo(stats.fetchedAt) })
 }
 
 function setText(id, value) {
@@ -3343,18 +4233,18 @@ function getHistoryPeriodOptions(s, range = selectedHistoryRange) {
 }
 
 function formatHistoryMonthOption(start) {
-  return start.toLocaleDateString('en', { month: 'long', year: 'numeric' })
+  return formatLocaleDate(start, { month: 'long', year: 'numeric' })
 }
 
 function formatHistoryWeekOption(start) {
   const end = addDays(start, 6)
   const sameYear = start.getFullYear() === end.getFullYear()
-  const startText = start.toLocaleDateString('en', {
+  const startText = formatLocaleDate(start, {
     month: 'short',
     day: 'numeric',
     year: sameYear ? undefined : 'numeric'
   })
-  const endText = end.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })
+  const endText = formatLocaleDate(end, { month: 'short', day: 'numeric', year: 'numeric' })
   return `${startText} - ${endText}`
 }
 
@@ -3439,11 +4329,11 @@ function renderHistoryWatchedCell(row) {
   }
   return `
     <span class="history-video-cell">
-      <button type="button" class="history-video-count" onclick="toggleHistoryVideoPopover(event)" aria-expanded="false" aria-label="Show ${row.videosWatched} videos watched on ${escHtml(formatHeatmapTitle(row))}">
+      <button type="button" class="history-video-count" onclick="toggleHistoryVideoPopover(event)" aria-expanded="false" aria-label="${escHtml(t('history.showWatched', { count: row.videosWatched, date: formatHeatmapTitle(row) }))}">
         <span class="history-video-count-number">${row.videosWatched}</span>
         <span class="history-video-count-caret" aria-hidden="true"></span>
       </button>
-      <span class="history-video-popover" role="dialog" aria-label="Watched videos">
+      <span class="history-video-popover" role="dialog" aria-label="${escHtml(t('history.watchedDialog'))}">
         ${row.watchedVideos.map(video => `
           <button type="button" class="history-video-popover-item" data-video-id="${escHtml(video.id)}" onclick="jumpToWatchedVideo(this.dataset.videoId)">
             ${video.thumbnail
@@ -3493,7 +4383,7 @@ function closeHistoryVideoPopoversOnEscape(event) {
 function jumpToWatchedVideo(videoId) {
   const targetId = String(videoId ?? '')
   if (!scrollToVideoCard(targetId, '#watchedGrid .video-card')) {
-    showToast('That watched video is hidden by the current filters', 'warn')
+    showToast(t('toast.watchedHidden'), 'warn')
     closeHistoryVideoPopovers()
     return
   }
@@ -3581,13 +4471,13 @@ function renderVideoSearchResults(query = '') {
 
   const normalizedQuery = normalizeVideoSearchText(query)
   if (!normalizedQuery) {
-    list.innerHTML = '<p class="video-search-empty">Search saved videos by title or channel.</p>'
+    list.innerHTML = `<p class="video-search-empty">${escHtml(t('videos.search.empty'))}</p>`
     return
   }
 
   const results = getVideoSearchMatches(normalizedQuery, loadState())
   if (!results.length) {
-    list.innerHTML = '<p class="video-search-empty">No matching videos found.</p>'
+    list.innerHTML = `<p class="video-search-empty">${escHtml(t('videos.search.noMatches'))}</p>`
     return
   }
 
@@ -3597,9 +4487,9 @@ function renderVideoSearchResults(query = '') {
         ? `<img src="${escHtml(video.thumbnail)}" alt="" class="video-search-thumb" loading="lazy">`
         : '<span class="video-search-thumb video-search-thumb-empty"></span>'}
       <span class="video-search-copy">
-        <span class="video-search-title">${escHtml(video.title || 'Untitled video')}</span>
+        <span class="video-search-title">${escHtml(video.title || t('videos.search.untitled'))}</span>
         <span class="video-search-meta">
-          <span>${escHtml(video.channelTitle || 'YouTube')}</span>
+          <span>${escHtml(video.channelTitle || t('videos.search.youtube'))}</span>
           <span class="video-search-status">${escHtml(formatVideoStatus(getVideoStatus(video)))}</span>
         </span>
       </span>
@@ -3675,7 +4565,7 @@ function jumpToVideoFromSearch(videoId) {
   const state = loadState()
   if (!state?.videos?.[targetId]) {
     closeVideoSearchPopover()
-    showToast('That video is no longer available', 'warn')
+    showToast(t('toast.videoGone'), 'warn')
     return
   }
 
@@ -3685,7 +4575,7 @@ function jumpToVideoFromSearch(videoId) {
   window.setTimeout(() => {
     const found = scrollToVideoCard(targetId)
     forcedSearchVideoId = null
-    if (!found) showToast('Could not show that video right now', 'warn')
+    if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
   }, 0)
 }
 
@@ -3694,9 +4584,9 @@ function formatHistoryDate(dateKey, state = null) {
   const todayDate = getCurrentAppDate(state)
   const today = toDateKey(todayDate)
   const yesterday = toDateKey(addDays(todayDate, -1))
-  if (dateKey === today) return 'Today'
-  if (dateKey === yesterday) return 'Yesterday'
-  return date.toLocaleDateString('en', { month: 'short', day: 'numeric' })
+  if (dateKey === today) return t('history.today')
+  if (dateKey === yesterday) return t('history.yesterday')
+  return formatLocaleDate(date, { month: 'short', day: 'numeric' })
 }
 
 function renderStudyHistoryPanel(s) {
@@ -3738,23 +4628,23 @@ function renderStudyHistoryPanel(s) {
     table.innerHTML = history.rows.length
       ? `
         <div class="history-row history-row-head">
-          <span>Date</span>
-          <span>Video</span>
-          <span>Watched</span>
-          <span>Anki</span>
-          <span class="history-points-col">PTS</span>
+          <span>${escHtml(t('history.table.date'))}</span>
+          <span>${escHtml(t('history.table.video'))}</span>
+          <span>${escHtml(t('history.table.watched'))}</span>
+          <span>${escHtml(t('history.table.anki'))}</span>
+          <span class="history-points-col">${escHtml(t('history.table.points'))}</span>
         </div>
         ${history.rows.map(row => `
           <div class="history-row">
-            <span data-label="Date">${formatHistoryDate(row.dateKey, s)}</span>
-            <span data-label="Video">${formatHistoryTime(row.secondsWatched)}</span>
-            <span data-label="Watched">${renderHistoryWatchedCell(row)}</span>
-            <span data-label="Anki">${row.ankiReviewed} / ${row.ankiCreated}</span>
-            <span class="history-points-col" data-label="PTS">${getHistoryDayPoints(row)}</span>
+            <span data-label="${escHtml(t('history.table.date'))}">${formatHistoryDate(row.dateKey, s)}</span>
+            <span data-label="${escHtml(t('history.table.video'))}">${formatHistoryTime(row.secondsWatched)}</span>
+            <span data-label="${escHtml(t('history.table.watched'))}">${renderHistoryWatchedCell(row)}</span>
+            <span data-label="${escHtml(t('history.table.anki'))}">${row.ankiReviewed} / ${row.ankiCreated}</span>
+            <span class="history-points-col" data-label="${escHtml(t('history.table.points'))}">${getHistoryDayPoints(row)}</span>
           </div>
         `).join('')}
       `
-      : '<div class="history-empty">No activity in this range.</div>'
+      : `<div class="history-empty">${escHtml(t('history.emptyRange'))}</div>`
   }
 
   const summaryView = document.getElementById('historySummaryView')
@@ -3792,11 +4682,18 @@ function hasHistoryActivity(row) {
 
 function formatHeatmapTitle(row) {
   const date = new Date(`${row.dateKey}T00:00:00`)
-  return date.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })
+  return formatLocaleDate(date, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function formatHeatmapAriaLabel(row) {
-  return `${formatHeatmapTitle(row)}: ${getHistoryDayPoints(row)} points; ${formatHistoryTime(row.secondsWatched)} video time; ${row.videosWatched} videos watched; ${row.ankiReviewed} Anki cards reviewed; ${row.ankiCreated} new Anki cards created`
+  return t('history.heatmapAria', {
+    date: formatHeatmapTitle(row),
+    points: getHistoryDayPoints(row),
+    time: formatHistoryTime(row.secondsWatched),
+    videos: row.videosWatched,
+    reviewed: row.ankiReviewed,
+    created: row.ankiCreated
+  })
 }
 
 function getWeekMonday(date) {
@@ -3819,7 +4716,7 @@ function renderHistoryHeatmap(s, container) {
     .reverse()
     .find(hasHistoryActivity)
   if (!firstActive) {
-    container.innerHTML = '<div class="history-empty">No activity to map yet.</div>'
+    container.innerHTML = `<div class="history-empty">${escHtml(t('history.noActivityMap'))}</div>`
     return
   }
   const gridStart = getWeekMonday(new Date(`${firstActive.dateKey}T00:00:00`))
@@ -3835,7 +4732,7 @@ function renderHistoryHeatmap(s, container) {
   container.innerHTML = `
     <div class="heatmap-body">
       <div class="heatmap-weekday-labels" aria-hidden="true">
-        ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => `<span>${day}</span>`).join('')}
+        ${['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map(day => `<span>${escHtml(t(`history.weekdays.${day}`))}</span>`).join('')}
       </div>
       <div class="heatmap-scroll">
         <div class="heatmap-grid" style="grid-template-columns: repeat(${weekCount}, var(--heatmap-cell-size))">
@@ -3876,12 +4773,12 @@ function showHeatmapTooltip(event) {
   tooltip.innerHTML = `
     <div class="heatmap-tooltip-head">
       <div class="heatmap-tooltip-title">${escHtml(target.dataset.date)}</div>
-      <div class="heatmap-tooltip-points">${escHtml(target.dataset.points)} pts</div>
+      <div class="heatmap-tooltip-points">${escHtml(t('history.tooltip.points', { count: target.dataset.points }))}</div>
     </div>
-    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">⏱</span><span>Video time</span><b>${escHtml(target.dataset.time)}</b></div>
-    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">✓</span><span>Videos watched</span><b>${escHtml(target.dataset.videos)}</b></div>
-    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">A</span><span>Anki reviewed</span><b>${escHtml(target.dataset.reviewed)}</b></div>
-    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">+</span><span>New Anki cards</span><b>${escHtml(target.dataset.created)}</b></div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">⏱</span><span>${escHtml(t('history.tooltip.videoTime'))}</span><b>${escHtml(target.dataset.time)}</b></div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">✓</span><span>${escHtml(t('history.tooltip.videosWatched'))}</span><b>${escHtml(target.dataset.videos)}</b></div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">A</span><span>${escHtml(t('history.tooltip.ankiReviewed'))}</span><b>${escHtml(target.dataset.reviewed)}</b></div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">+</span><span>${escHtml(t('history.tooltip.ankiCreated'))}</span><b>${escHtml(target.dataset.created)}</b></div>
   `
   tooltip._target = target
   tooltip.classList.add('show')
@@ -3983,9 +4880,11 @@ function formatHistoryTime(secs) {
   const hours = Math.floor(secs / 3600)
   const minutes = Math.ceil((secs % 3600) / 60)
   if (hours > 0) {
-    return minutes > 0 ? `${hours}h ${minutes} min` : `${hours}h`
+    return minutes > 0
+      ? t('time.hoursMinutes', { hours, minutes })
+      : t('time.hours', { hours })
   }
-  return `${minutes} min`
+  return t('time.minutes', { minutes })
 }
 
 function getCurrentCityScore(s) {
@@ -4069,7 +4968,7 @@ function renderHistoryPeriodPopover(range, popoverId, state) {
           ${escHtml(option.label)}
         </button>
       `).join('')
-    : '<span class="history-period-empty">No activity yet</span>'
+    : `<span class="history-period-empty">${escHtml(t('history.noActivityYet'))}</span>`
 }
 
 function toggleHistoryPeriodPopover(event, range) {
@@ -4152,14 +5051,14 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
   document.getElementById('cityScore').textContent = snapshot.score
   document.getElementById('cityLabel').textContent = getCityStage(snapshot.visualScore)
   const scoreContext = document.getElementById('cityScoreContext')
-  if (scoreContext) scoreContext.textContent = snapshot.isToday ? 'total pts' : 'pts by then'
+  if (scoreContext) scoreContext.textContent = snapshot.isToday ? t('city.totalPts') : t('city.ptsByThen')
   const nextLevel = CITY_LEVELS[snapshot.pendingLevelIndex || snapshot.visualLevelIndex + 1] || null
   const hasEarnedUnrevealedLevel = snapshot.earnedLevelIndex > snapshot.visualLevelIndex
   document.getElementById('cityNextLevel').textContent = nextLevel
     ? snapshot.hasPendingLevel || hasEarnedUnrevealedLevel
-      ? 'Ready for next level'
-      : `${nextLevel.threshold - snapshot.score} pts to next level`
-    : 'Max level'
+      ? t('city.readyNext')
+      : t('city.ptsToNext', { count: nextLevel.threshold - snapshot.score })
+    : t('city.maxLevel')
   if (includeTimeline) renderLevelUpButton(snapshot)
 
   if (includeTimeline) renderCityTimeControls(snapshot)
@@ -4265,7 +5164,7 @@ function claimCityLevelUp() {
   })
   saveState(s)
   renderAll(s)
-  showToast(`Level up! ${CITY_LEVELS[s.cityProgress.maxLevelIndex].label}`, 'success')
+  showToast(t('toast.levelUp', { label: CITY_LEVELS[s.cityProgress.maxLevelIndex].label }), 'success')
 }
 
 function clampCityDayOffset(s, offset) {
@@ -4611,8 +5510,8 @@ function clearCityWaveformPreviewOnOutsideClick(event) {
 
 function formatCitySnapshotDate(date) {
   const dateKey = toDateKey(date)
-  if (dateKey === toDateKey(new Date(Date.now() - 86_400_000))) return 'Yesterday'
-  return date.toLocaleDateString('en', { month: 'short', day: 'numeric' })
+  if (dateKey === toDateKey(new Date(Date.now() - 86_400_000))) return t('history.yesterday')
+  return formatLocaleDate(date, { month: 'short', day: 'numeric' })
 }
 
 function initCityImagePanZoom() {
@@ -4848,14 +5747,18 @@ function renderFeed(s) {
   }
 
   if (!activeVideos.length) {
-    const channelMsg = channelFilters.size === getChannelFilterEntries(s).length ? '' : ' for the selected channels'
-    const filterName = statusFilter === 'partial' ? 'in-progress' : statusFilter === 'watch-later' ? 'watch later' : statusFilter
+    const channelMsg = channelFilters.size === getChannelFilterEntries(s).length ? '' : t('videos.empty.selectedChannels')
+    const filterName = statusFilter === 'partial'
+      ? t('videos.filter.inProgress')
+      : statusFilter === 'watch-later'
+      ? t('videos.filter.watchLater')
+      : getStatusFilterLabel(statusFilter).toLowerCase()
     const msg = statusFilter === 'all' && watchedVideos.length
-      ? 'No active videos right now. Watched videos are below.'
+      ? t('videos.empty.activeBelow')
       : statusFilter === 'all' && !channelMsg
-      ? 'No videos yet. Edenia loads your feed automatically.'
-      : `No ${statusFilter === 'all' ? 'active' : filterName} videos${channelMsg} right now.`
-    grid.innerHTML = `<div class="empty-state">${msg}</div>`
+      ? t('videos.empty.default')
+      : t('videos.empty.filtered', { filter: statusFilter === 'all' ? t('videos.filter.active') : filterName, channelText: channelMsg })
+    grid.innerHTML = `<div class="empty-state">${escHtml(msg)}</div>`
   } else {
     grid.innerHTML = activeVideos.map(v => renderCard(v)).join('')
   }
@@ -4877,10 +5780,10 @@ function renderUndoButton(s) {
     tooltipId: 'undoTooltip',
     actions: Array.isArray(s.undoStack) ? s.undoStack : [],
     state: s,
-    label: 'Undo',
-    emptyTitle: 'Nothing to undo',
-    queueTitle: 'Undo queue',
-    titleVerb: 'Undo latest video status change',
+    label: t('videos.undo'),
+    emptyTitle: t('videos.undo.empty'),
+    queueTitle: t('videos.undo.queue'),
+    titleVerb: t('videos.undo.title'),
     direction: 'undo'
   })
   renderHistoryActionButton({
@@ -4888,10 +5791,10 @@ function renderUndoButton(s) {
     tooltipId: 'redoTooltip',
     actions: Array.isArray(s.redoStack) ? s.redoStack : [],
     state: s,
-    label: 'Redo',
-    emptyTitle: 'Nothing to redo',
-    queueTitle: 'Redo queue',
-    titleVerb: 'Redo latest video status change',
+    label: t('videos.redo'),
+    emptyTitle: t('videos.redo.empty'),
+    queueTitle: t('videos.redo.queue'),
+    titleVerb: t('videos.redo.title'),
     direction: 'redo'
   })
 }
@@ -4930,7 +5833,7 @@ function renderHistoryActionTooltip(actions, s, emptyTitle, queueTitle, directio
 function renderHistoryActionTooltipItem(entry, s, direction) {
   const { action, index } = entry
   const video = s.videos?.[action.videoId]
-  const title = video?.title || 'Unavailable video'
+  const title = video?.title || t('videos.search.untitled')
   const timestamp = formatHistoryActionTimestamp(action)
   const fromStatus = direction === 'redo'
     ? formatVideoStatus(action.before?.status)
@@ -4939,8 +5842,8 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
     ? formatVideoStatus(action.after?.status)
     : formatVideoStatus(action.before?.status)
   const actionText = direction === 'redo'
-    ? `${fromStatus} → ${toStatus}`
-    : `${fromStatus} → back to ${toStatus}`
+    ? t('undo.statusChange', { from: fromStatus, to: toStatus })
+    : t('undo.backToStatus', { from: fromStatus, to: toStatus })
   return `
     <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
       <span class="undo-tooltip-video">${escHtml(title)}</span>
@@ -4951,15 +5854,15 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
 }
 
 function formatHistoryActionTimestamp(action) {
-  if (!action?.createdAt) return 'Time unavailable'
+  if (!action?.createdAt) return t('undo.timeUnavailable')
   const date = new Date(action.createdAt)
-  if (Number.isNaN(date.getTime())) return 'Time unavailable'
-  return `Done ${date.toLocaleString('en', {
+  if (Number.isNaN(date.getTime())) return t('undo.timeUnavailable')
+  return t('undo.doneAt', { time: formatLocaleDateTime(date, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit'
-  })}`
+  }) })
 }
 
 function handleHistoryActionScrollHover(event) {
@@ -5064,7 +5967,7 @@ function renderStatusFilterOptions(allVideos = [], channelFilters = null, includ
   menu.innerHTML = STATUS_FILTERS.map(([value, label]) => `
     <label class="channel-filter-option status-filter-option">
       <input type="radio" name="statusFilter" data-status="${value}" ${selectedStatusFilter === value ? 'checked' : ''} onchange="setStatusFilter(this.dataset.status)">
-      <span class="status-filter-label">${label}</span>
+      <span class="status-filter-label">${escHtml(t(label))}</span>
       <span class="status-filter-count">${counts[value] ?? 0}</span>
     </label>
   `).join('')
@@ -5088,7 +5991,8 @@ function getStatusFilterCounts(allVideos = [], channelFilters = null, includeSho
 }
 
 function getStatusFilterLabel(status) {
-  return STATUS_FILTERS.find(([value]) => value === status)?.[1] || 'All'
+  const key = STATUS_FILTERS.find(([value]) => value === status)?.[1] || 'videos.status.all'
+  return t(key)
 }
 
 function setStatusFilter(status) {
@@ -5149,7 +6053,7 @@ function renderChannelFilterOptions(s) {
       </label>
     `
     }).join('')
-    : '<div class="channel-filter-empty">No channels yet</div>'
+    : `<div class="channel-filter-empty">${escHtml(t('videos.channels.none'))}</div>`
   menu.dataset.selectedCount = selectedCount
   if (!menu.classList.contains('hidden')) positionFilterMenuWithinViewport(menu)
 }
@@ -5173,14 +6077,14 @@ function getSelectedChannelFilters(s) {
 }
 
 function getChannelFilterLabel(entries, selected) {
-  if (!entries.length) return 'No channels'
-  if (selected.size === entries.length) return 'All channels'
-  if (!selected.size) return 'No channels'
+  if (!entries.length) return t('videos.channels.none')
+  if (selected.size === entries.length) return t('videos.channels.all')
+  if (!selected.size) return t('videos.channels.none')
   if (selected.size === 1) {
     const selectedEntry = entries.find(([id]) => selected.has(id))
-    return selectedEntry?.[1] || '1 channel'
+    return selectedEntry?.[1] || t('videos.channels.one')
   }
-  return `${selected.size} channels`
+  return t('videos.channels.count', { count: selected.size })
 }
 
 function setChannelFilter(channelId, enabled) {
@@ -5338,7 +6242,9 @@ function renderCard(v, compact = false) {
   const watchedNextStatus = isWatched ? 'unwatched' : 'watched'
   const partialNextStatus = isPartial ? 'unwatched' : 'partial'
   const watchLaterNextStatus = isWatchLater ? 'unwatched' : 'watch-later'
-  const watchedLabel = compact ? 'Unmark' : `✓ ${isWatched ? 'Watched' : 'Mark watched'}`
+  const watchedLabel = compact
+    ? t('videos.card.unmark')
+    : `✓ ${isWatched ? t('videos.status.watched') : t('videos.card.markWatched')}`
   const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
   const resumeAtValue = isPartial ? formatResumeTimestamp(v.resumeAtSeconds) : ''
   return `
@@ -5349,18 +6255,18 @@ function renderCard(v, compact = false) {
         ${isWatched ? '<span class="overlay-badge watched-badge">✓</span>' : ''}
         ${isPartial ? '<span class="overlay-badge partial-badge">⏸</span>' : ''}
         ${isWatchLater ? '<span class="overlay-badge watch-later-badge">★</span>' : ''}
-        ${isPartial ? '<span class="progress-ribbon">In progress</span>' : ''}
-        ${isWatchLater ? '<span class="progress-ribbon watch-later-ribbon">Watch later</span>' : ''}
+        ${isPartial ? `<span class="progress-ribbon">${escHtml(t('videos.card.inProgressRibbon'))}</span>` : ''}
+        ${isWatchLater ? `<span class="progress-ribbon watch-later-ribbon">${escHtml(t('videos.card.watchLater'))}</span>` : ''}
       </a>
       <div class="card-body">
-        ${isPartial ? '<div class="card-status partial-status">⏸ Resume watching</div>' : ''}
-        ${isWatchLater ? '<div class="card-status watch-later-status">★ Watch later</div>' : ''}
+        ${isPartial ? `<div class="card-status partial-status">⏸ ${escHtml(t('videos.card.resume'))}</div>` : ''}
+        ${isWatchLater ? `<div class="card-status watch-later-status">★ ${escHtml(t('videos.card.watchLater'))}</div>` : ''}
         <div class="card-copy">
           <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
           ${watchedAtLabel ? `<div class="card-watched-at">${escHtml(watchedAtLabel)}</div>` : ''}
           ${isPartial ? `
             <label class="resume-time-field">
-              <span>Continue at</span>
+              <span>${escHtml(t('videos.card.continueAt'))}</span>
               <input type="text"
                 value="${escHtml(resumeAtValue)}"
                 placeholder="0:00"
@@ -5368,7 +6274,7 @@ function renderCard(v, compact = false) {
                 data-video-id="${safeVideoId}"
                 onchange="saveVideoResumeTime(this.dataset.videoId, this.value)"
                 onkeydown="if (event.key === 'Enter') this.blur()"
-                aria-label="Continue watching timestamp">
+                aria-label="${escHtml(t('videos.card.timestampLabel'))}">
             </label>
           ` : ''}
         </div>
@@ -5381,19 +6287,19 @@ function renderCard(v, compact = false) {
             data-video-id="${safeVideoId}"
             data-status="${watchedNextStatus}"
             onclick="markVideo(this.dataset.videoId, this.dataset.status)"
-            title="${isWatched ? 'Unmark' : 'Mark as watched'}">
+            title="${escHtml(isWatched ? t('videos.card.unmark') : t('videos.card.markWatchedTitle'))}">
             ${watchedLabel}
           </button>
           <button class="action-btn partial-btn ${isPartial ? 'active' : ''}"
             data-video-id="${safeVideoId}"
             data-status="${partialNextStatus}"
             onclick="markVideo(this.dataset.videoId, this.dataset.status)"
-            title="${isPartial ? 'Clear' : 'Mark as in progress'}">⏸</button>
+            title="${escHtml(isPartial ? t('videos.card.clear') : t('videos.card.markProgress'))}">⏸</button>
           <button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
             data-video-id="${safeVideoId}"
             data-status="${watchLaterNextStatus}"
             onclick="markVideo(this.dataset.videoId, this.dataset.status)"
-            title="${isWatchLater ? 'Remove from watch later' : 'Watch later'}">★</button>
+            title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">★</button>
         </div>
       </div>
     </div>

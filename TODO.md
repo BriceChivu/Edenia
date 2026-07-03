@@ -1,6 +1,6 @@
 # CHANGES:
 Minor changes:
-
+- Continue at: timestamp should be {HOUR}:{MIN}
 
 Big changes:
 - How can I add other languages versions of the app (mainly Traditional mandarin, simplified mandarin, spanish, french)
