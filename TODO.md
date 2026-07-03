@@ -3,7 +3,7 @@ Minor changes:
 
 
 Big changes:
-
+- How can I add other languages versions of the app (mainly Traditional mandarin, simplified mandarin, spanish, french)
 
 Sandbox:
 
