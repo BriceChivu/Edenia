@@ -117,8 +117,71 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'town',
     target: '.city-image-wrap',
-    text: 'This is your floating town. When you study, your town grows little by little. It gives you a quick picture of your progress.',
+    text: 'This is your floating town. When you study, your town grows little by little. It gives you a quick picture of your progress without needing to read every number.',
     placement: 'bottom'
+  },
+  {
+    id: 'weekly-goal',
+    target: '.goal-card',
+    text: 'This is your weekly goal. Watched study time fills the bar, so you can quickly see if you are on track for the week.',
+    placement: 'bottom',
+    hooks: {
+      beforeEnter: 'closeTransientUi'
+    }
+  },
+  {
+    id: 'study-history',
+    target: '.study-history-section',
+    text: 'Study History shows what happened over time. It combines watched videos and Anki reviews so you can understand your real study rhythm.',
+    placement: 'top',
+    hooks: {
+      beforeEnter: 'closeTransientUi'
+    }
+  },
+  {
+    id: 'history-views',
+    target: '.history-view-tabs',
+    text: 'Use Summary when you want clear numbers, and Heatmap when you want to see active days at a glance. Edenia remembers which view you prefer.',
+    placement: 'bottom',
+    hooks: {
+      beforeEnter: 'closeTransientUi'
+    }
+  },
+  {
+    id: 'videos',
+    target: '.feed-section',
+    text: 'This is the video area. New videos from your channels appear here, and watched videos move into the Watched section below.',
+    placement: 'top',
+    hooks: {
+      beforeEnter: 'closeTransientUi'
+    }
+  },
+  {
+    id: 'video-filters',
+    target: '.feed-controls',
+    text: 'These controls help you keep the list manageable. You can filter by status, filter by channel, add a watched URL, and fix mistakes.',
+    placement: 'top',
+    hooks: {
+      beforeEnter: 'closeTransientUi'
+    }
+  },
+  {
+    id: 'manual-watched-url',
+    target: '.manual-video',
+    text: 'Use Watched URL when you studied from a YouTube video that is not in your channels. Paste the link, add it as watched, and it counts toward your progress.',
+    placement: 'top',
+    hooks: {
+      beforeEnter: 'closeTransientUi'
+    }
+  },
+  {
+    id: 'undo-redo',
+    target: '.undo-wrap',
+    text: 'Undo and Redo let you recover from accidental clicks. Open the list, choose the action, and Edenia will update the score and history again.',
+    placement: 'top',
+    hooks: {
+      beforeEnter: 'closeTransientUi'
+    }
   },
   {
     id: 'settings',
@@ -134,39 +197,83 @@ const WALKTHROUGH_STEPS = [
   },
   {
     id: 'channels',
-    target: '.add-channel-row',
-    text: 'Add the YouTube channels you study from here. Edenia will show recent videos from those channels so you can choose what to watch next.',
+    target: '.settings-channels-group',
+    text: 'Add YouTube channels here. Edenia uses them to find recent study videos, then keeps the feed fresh without you hunting through YouTube every time.',
     placement: 'left',
     hooks: {
-      beforeEnter: 'closeTransientUi',
-      beforeExit: 'keepSettingsClosed'
+      beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
+      afterEnter: 'settleWalkthroughTarget'
     }
   },
   {
-    id: 'weekly-goal',
-    target: '.goal-card',
-    text: 'This shows your weekly study goal. As you watch study videos, the bar fills up so you can quickly see how close you are.',
-    placement: 'bottom',
+    id: 'short-videos-setting',
+    target: '.settings-shorts-group',
+    text: 'This setting controls short videos. Turn it off if you want Edenia to skip and hide videos under 3 minutes, so your study list stays focused.',
+    placement: 'left',
     hooks: {
-      beforeEnter: 'closeTransientUi'
+      beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
+      afterEnter: 'settleWalkthroughTarget'
     }
   },
   {
-    id: 'study-history',
-    target: '.study-history-section',
-    text: 'Study History shows what you did over time. Use the summary for clear numbers, and the heatmap to spot your active days quickly.',
-    placement: 'top',
+    id: 'settings-weekly-goal',
+    target: '.settings-goal-group',
+    text: 'You can change your weekly goal here. This only changes the target you are aiming for; it does not erase your history.',
+    placement: 'left',
     hooks: {
-      beforeEnter: 'closeTransientUi'
+      beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
+      afterEnter: 'settleWalkthroughTarget'
     }
   },
   {
-    id: 'videos',
-    target: '.feed-controls',
-    text: 'This is your video area. You can filter the list, mark videos as watched, add a watched video by URL, and undo changes if you click the wrong thing.',
-    placement: 'top',
+    id: 'sync-files',
+    target: '.sync-actions',
+    text: 'Sync files are for moving your progress to another browser or device. Export a file from here, then import it where you want the same progress.',
+    placement: 'left',
     hooks: {
-      beforeEnter: 'closeTransientUi'
+      beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
+      afterEnter: 'settleWalkthroughTarget'
+    }
+  },
+  {
+    id: 'local-backups',
+    target: '.backup-panel',
+    text: 'Recent local backups help after risky actions like import, restore, reset, or a bad save. They stay in this browser and give you a quick rollback point.',
+    placement: 'left',
+    hooks: {
+      beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
+      afterEnter: 'settleWalkthroughTarget'
+    }
+  },
+  {
+    id: 'activity-log',
+    target: '.activity-log-panel',
+    text: 'Activity Log is the calm record of what happened. It shows your actions and automatic events, like YouTube refreshes, Anki updates, imports, and issues.',
+    placement: 'left',
+    hooks: {
+      beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
+      afterEnter: 'settleWalkthroughTarget'
+    }
+  },
+  {
+    id: 'walkthrough-replay',
+    target: '.walkthrough-replay-btn',
+    text: 'If you ever want this tour again, use Show walkthrough again. It is useful after new features are added or if you share Edenia with someone else.',
+    placement: 'left',
+    hooks: {
+      beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
+      afterEnter: 'settleWalkthroughTarget'
+    }
+  },
+  {
+    id: 'reset-safety',
+    target: '.settings-reset-btn',
+    text: 'Reset everything starts fresh, but Edenia keeps a rollback backup first. Use it carefully, and export a sync file when you want protection outside this browser.',
+    placement: 'left',
+    hooks: {
+      beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
+      afterEnter: 'settleWalkthroughTarget',
+      beforeExit: 'closeSettingsWhenCompleted'
     }
   }
 ]
@@ -182,6 +289,22 @@ const WALKTHROUGH_HOOKS = {
   },
   keepSettingsClosed() {
     closeSettings()
+  },
+  keepSettingsOpen() {
+    const panel = document.getElementById('settingsPanel')
+    if (!panel || panel.classList.contains('hidden')) openSettings()
+  },
+  settleWalkthroughTarget({ target }) {
+    target?.scrollIntoView({
+      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+      block: 'center',
+      inline: 'nearest'
+    })
+    scheduleWalkthroughPosition()
+    window.setTimeout(scheduleWalkthroughPosition, prefersReducedMotion() ? 0 : 180)
+  },
+  closeSettingsWhenCompleted({ completed }) {
+    if (completed) closeSettings()
   },
   refreshSpotlight() {
     scheduleWalkthroughPosition()
@@ -1090,6 +1213,8 @@ function handleWalkthroughKey(event) {
     endWalkthrough({ markCompleted: true })
   } else if (event.key === 'ArrowRight') {
     event.preventDefault()
+    const step = walkthroughState.steps[walkthroughState.index]
+    if (step?.advanceOn === 'target-click') return
     moveWalkthrough(1)
   } else if (event.key === 'ArrowLeft') {
     event.preventDefault()
