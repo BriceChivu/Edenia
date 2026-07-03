@@ -2129,6 +2129,15 @@ function normalizeResumeAtSeconds(value, duration = null) {
   return rounded
 }
 
+function getVideoUrl(video) {
+  const videoId = String(video?.id ?? '')
+  const url = `https://youtube.com/watch?v=${encodeURIComponent(videoId)}`
+  const resumeAtSeconds = getVideoStatus(video) === 'partial'
+    ? normalizeResumeAtSeconds(video?.resumeAtSeconds, video?.duration)
+    : null
+  return resumeAtSeconds !== null ? `${url}&t=${resumeAtSeconds}s` : url
+}
+
 function isActiveRefreshVideo(video) {
   return getVideoStatus(video) !== 'watched'
 }
@@ -5322,7 +5331,7 @@ function renderCard(v, compact = false) {
   const status = getVideoStatus(v)
   const videoId = String(v.id ?? '')
   const safeVideoId = escHtml(videoId)
-  const videoUrl = escHtml(`https://youtube.com/watch?v=${encodeURIComponent(videoId)}`)
+  const videoUrl = escHtml(getVideoUrl(v))
   const isWatched = status === 'watched'
   const isPartial = status === 'partial'
   const isWatchLater = status === 'watch-later'
