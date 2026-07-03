@@ -1,6 +1,6 @@
 # CHANGES:
 Minor changes:
-- Should I keep the Unmark button? If so should it remove points scored previously?
+
 
 Big changes:
 
