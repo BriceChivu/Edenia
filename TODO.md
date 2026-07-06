@@ -13,6 +13,7 @@ Minor changes:
 - Enable disabling Anki in the settings (that means no Anki in the heatmap pop up, no Anki info in the history summary, no Anki refresh attempts)
 - Adding channels in the settings is not intuitive for users, I should find a better way
 - move light/dark theme into settings. Should I keep it as a logo?
+- what is the current behavior when videos of a channel are fetched? How many are fetched? 5? What happens if all 5 videos have been watched? Does it trigger another fetch? What happens if 4 videos have been watched and the user doesn't wanna watch the 5th one but wants to watch older ones (of the same chanel)?
 
 
 Big changes:
