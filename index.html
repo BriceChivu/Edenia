@@ -38,10 +38,10 @@
         <label data-i18n="settings.channels.label">Channels</label>
         <div id="channelList" class="channel-list"></div>
         <div class="add-channel-row">
-          <input type="text" id="newChannelId" placeholder="Channel ID  (UCxxxxxxxx)" data-i18n-placeholder="settings.channels.placeholder" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <input type="text" id="newChannelId" placeholder="Channel URL or ID" data-i18n-placeholder="settings.channels.placeholder" autocomplete="off" autocapitalize="off" spellcheck="false">
           <button class="btn-secondary" onclick="addChannel()" data-i18n="settings.channels.add">Add</button>
         </div>
-        <p class="step-hint" data-i18n="settings.channels.hint">Find a channel ID: visit their YouTube page -> share icon -> Copy channel ID. Or look at the URL: youtube.com/channel/UCxxxxxxxx</p>
+        <p class="step-hint" data-i18n="settings.channels.hint">Paste a YouTube channel URL, @handle, or channel ID. Best examples: youtube.com/@channel or youtube.com/channel/UCxxxxxxxx.</p>
       </div>
 
       <div class="settings-group settings-shorts-group">
@@ -296,6 +296,6 @@
   <div class="toast" id="toast"></div>
   <div class="heatmap-tooltip" id="heatmapTooltip"></div>
 
-  <script src="app.js?v=20260703-9"></script>
+  <script src="app.js?v=20260703-10"></script>
 </body>
 </html>

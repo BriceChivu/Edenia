@@ -25,6 +25,8 @@ const YOUTUBE_REFRESH_ERROR_BACKOFF_MS = 30 * 60_000
 const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = ACTIVE_VIDEOS_PER_CHANNEL
 const MAX_FETCH_PAGES_PER_CHANNEL = 3
+const YOUTUBE_CHANNEL_ID_RE = /^UC[A-Za-z0-9_-]{20,}$/
+const YOUTUBE_HANDLE_RE = /^@[A-Za-z0-9._-]{3,30}$/
 const DEFAULT_THEME = 'light'
 const THEMES = ['light', 'dark']
 const DEFAULT_LOCALE = 'en'
@@ -132,9 +134,9 @@ const I18N_EN = {
   'settings.language.label': 'Language',
   'settings.weeklyGoal.label': 'Weekly goal (hours)',
   'settings.channels.label': 'Channels',
-  'settings.channels.placeholder': 'Channel ID  (UCxxxxxxxx)',
+  'settings.channels.placeholder': 'Channel URL or ID',
   'settings.channels.add': 'Add',
-  'settings.channels.hint': 'Find a channel ID: visit their YouTube page -> share icon -> Copy channel ID. Or look at the URL: youtube.com/channel/UCxxxxxxxx',
+  'settings.channels.hint': 'Paste a YouTube channel URL, @handle, or channel ID. Best examples: youtube.com/@channel or youtube.com/channel/UCxxxxxxxx.',
   'settings.shorts.label': 'Show short videos',
   'settings.shorts.hint': 'When off, videos under 3 minutes are skipped during refresh and hidden from your active video list.',
   'settings.activity.title': 'Activity log',
@@ -334,7 +336,10 @@ const I18N_EN = {
   'toast.readSyncFailed': 'Could not read that sync file',
   'toast.backupUnavailable': 'That backup is not available anymore',
   'toast.backupRestored': 'Backup restored',
-  'toast.channelInvalid': 'Channel ID should start with UC and be ~24 characters',
+  'toast.channelInvalid': 'Use a YouTube channel URL, @handle, or UC channel ID',
+  'toast.channelResolveNeedsKey': 'Add the shared YouTube API key to use @handle or /user URLs, or paste the /channel/UC... URL.',
+  'toast.channelResolveNotFound': 'Could not find that YouTube channel',
+  'toast.channelCustomUrlUnsupported': 'That custom channel URL cannot be resolved reliably yet. Try the /channel/UC... URL or @handle.',
   'toast.channelDuplicate': 'Already added',
   'toast.channelAdded': '{name} added',
   'toast.channelAddedNoKey': '{name} added. Add the shared YouTube API key to load videos.',
@@ -388,7 +393,7 @@ const I18N_EN = {
   'walkthrough.undoRedo': 'Undo and Redo let you recover from accidental clicks. Open the list, choose the action, and Edenia will update the score and history again.',
   'walkthrough.settings': 'Click Settings when you are ready to set up Edenia. This is where you add your YouTube channels, choose your weekly goal, and keep your progress safe.',
   'walkthrough.clickSettings': 'Click Settings',
-  'walkthrough.channels': 'Add YouTube channels here. Edenia uses them to find recent study videos, then keeps the feed fresh without you hunting through YouTube every time.',
+  'walkthrough.channels': 'Add YouTube channels here. Paste a channel URL, @handle, or channel ID. Edenia uses them to find recent study videos, then keeps the feed fresh without you hunting through YouTube every time.',
   'walkthrough.shortVideos': 'This setting controls short videos. Turn it off if you want Edenia to skip and hide videos under 3 minutes, so your study list stays focused.',
   'walkthrough.settingsWeeklyGoal': 'You can change your weekly goal here. This only changes the target you are aiming for; it does not erase your history.',
   'walkthrough.syncFiles': 'Sync files are for moving your progress to another browser or device. Export a file from here, then import it where you want the same progress.',
@@ -417,8 +422,9 @@ const I18N = {
     'settings.language.label': '語言',
     'settings.weeklyGoal.label': '每週目標（小時）',
     'settings.channels.label': '頻道',
+    'settings.channels.placeholder': '頻道網址或 ID',
     'settings.channels.add': '新增',
-    'settings.channels.hint': '找頻道 ID：打開 YouTube 頻道頁 -> 分享圖示 -> 複製頻道 ID。也可以看網址：youtube.com/channel/UCxxxxxxxx',
+    'settings.channels.hint': '貼上 YouTube 頻道網址、@handle 或頻道 ID。建議格式：youtube.com/@channel 或 youtube.com/channel/UCxxxxxxxx。',
     'settings.shorts.label': '顯示短影片',
     'settings.shorts.hint': '關閉時，刷新會跳過 3 分鐘以下的影片，並從主要影片清單隱藏。',
     'settings.activity.title': '活動紀錄',
@@ -438,6 +444,10 @@ const I18N = {
     'settings.reset.warning': '這會清除本機觀看紀錄、連續天數、設定與快取的 Anki 統計。這裡會先保留一份回復備份。你的 Anki 牌組不會被更動。',
     'settings.reset.cancel': '取消',
     'settings.reset.delete': '刪除資料',
+    'toast.channelInvalid': '請使用 YouTube 頻道網址、@handle 或 UC 頻道 ID',
+    'toast.channelResolveNeedsKey': '若要使用 @handle 或 /user 網址，請先加入共用 YouTube API key；或貼上 /channel/UC... 網址。',
+    'toast.channelResolveNotFound': '找不到這個 YouTube 頻道',
+    'toast.channelCustomUrlUnsupported': '這種自訂頻道網址目前無法可靠解析。請試試 /channel/UC... 網址或 @handle。',
     'header.sandbox': '沙盒版本',
     'header.search.title': '搜尋影片',
     'header.search.dialog': '搜尋已儲存影片',
@@ -567,7 +577,7 @@ const I18N = {
     'walkthrough.undoRedo': '復原和重做可以幫你修正誤點。打開清單，選一個動作，Edenia 會重新計算分數和紀錄。',
     'walkthrough.settings': '準備設定 Edenia 時，請點設定。你可以在這裡加入 YouTube 頻道、選每週目標，並保護進度資料。',
     'walkthrough.clickSettings': '點設定',
-    'walkthrough.channels': '在這裡加入 YouTube 頻道。Edenia 會用它們尋找最近的學習影片，讓你不用每次都去 YouTube 找。',
+    'walkthrough.channels': '在這裡加入 YouTube 頻道。你可以貼上頻道網址、@handle 或頻道 ID。Edenia 會用它們尋找最近的學習影片，讓你不用每次都去 YouTube 找。',
     'walkthrough.shortVideos': '這個設定控制短影片。關閉後，Edenia 會跳過並隱藏 3 分鐘以下的影片，讓清單更專注。',
     'walkthrough.settingsWeeklyGoal': '你可以在這裡改每週目標。這只會改你想達成的目標，不會清除紀錄。',
     'walkthrough.syncFiles': '同步檔可以把進度搬到其他瀏覽器或裝置。先在這裡匯出，再到另一邊匯入。',
@@ -583,8 +593,9 @@ const I18N = {
     'settings.language.label': '语言',
     'settings.weeklyGoal.label': '每周目标（小时）',
     'settings.channels.label': '频道',
+    'settings.channels.placeholder': '频道网址或 ID',
     'settings.channels.add': '添加',
-    'settings.channels.hint': '找频道 ID：打开 YouTube 频道页 -> 分享图标 -> 复制频道 ID。也可以看网址：youtube.com/channel/UCxxxxxxxx',
+    'settings.channels.hint': '粘贴 YouTube 频道网址、@handle 或频道 ID。建议格式：youtube.com/@channel 或 youtube.com/channel/UCxxxxxxxx。',
     'settings.shorts.label': '显示短视频',
     'settings.shorts.hint': '关闭时，刷新会跳过 3 分钟以下的视频，并从主要视频列表隐藏。',
     'settings.activity.title': '活动记录',
@@ -603,6 +614,10 @@ const I18N = {
     'settings.reset.warning': '这会清除本地观看记录、连续天数、设置与缓存的 Anki 统计。这里会先保留一份回滚备份。你的 Anki 牌组不会被更改。',
     'settings.reset.cancel': '取消',
     'settings.reset.delete': '删除数据',
+    'toast.channelInvalid': '请使用 YouTube 频道网址、@handle 或 UC 频道 ID',
+    'toast.channelResolveNeedsKey': '若要使用 @handle 或 /user 网址，请先加入共享 YouTube API key；或粘贴 /channel/UC... 网址。',
+    'toast.channelResolveNotFound': '找不到这个 YouTube 频道',
+    'toast.channelCustomUrlUnsupported': '这种自定义频道网址目前无法可靠解析。请试试 /channel/UC... 网址或 @handle。',
     'header.sandbox': '沙盒版本',
     'header.search.title': '搜索视频',
     'header.search.placeholder': '搜索视频...',
@@ -712,7 +727,7 @@ const I18N = {
     'walkthrough.undoRedo': '撤销和重做可以帮你修正误点。打开列表，选一个动作，Edenia 会重新计算分数和记录。',
     'walkthrough.settings': '准备设置 Edenia 时，请点设置。你可以在这里添加 YouTube 频道、选择每周目标，并保护进度数据。',
     'walkthrough.clickSettings': '点设置',
-    'walkthrough.channels': '在这里添加 YouTube 频道。Edenia 会用它们寻找最近的学习视频，让你不用每次都去 YouTube 找。',
+    'walkthrough.channels': '在这里添加 YouTube 频道。你可以粘贴频道网址、@handle 或频道 ID。Edenia 会用它们寻找最近的学习视频，让你不用每次都去 YouTube 找。',
     'walkthrough.shortVideos': '这个设置控制短视频。关闭后，Edenia 会跳过并隐藏 3 分钟以下的视频，让列表更专注。',
     'walkthrough.settingsWeeklyGoal': '你可以在这里改每周目标。这只会改你想达成的目标，不会清除记录。',
     'walkthrough.syncFiles': '同步文件可以把进度搬到其他浏览器或设备。先在这里导出，再到另一边导入。',
@@ -728,8 +743,9 @@ const I18N = {
     'settings.language.label': 'Idioma',
     'settings.weeklyGoal.label': 'Objetivo semanal (horas)',
     'settings.channels.label': 'Canales',
+    'settings.channels.placeholder': 'URL o ID del canal',
     'settings.channels.add': 'Añadir',
-    'settings.channels.hint': 'Busca el ID del canal: abre su página de YouTube -> icono de compartir -> Copiar ID del canal. O mira la URL: youtube.com/channel/UCxxxxxxxx',
+    'settings.channels.hint': 'Pega una URL de canal de YouTube, @handle o ID del canal. Mejores ejemplos: youtube.com/@channel o youtube.com/channel/UCxxxxxxxx.',
     'settings.shorts.label': 'Mostrar videos cortos',
     'settings.shorts.hint': 'Si está desactivado, los videos de menos de 3 minutos se omiten al actualizar y se ocultan de la lista activa.',
     'settings.activity.title': 'Registro de actividad',
@@ -748,6 +764,10 @@ const I18N = {
     'settings.reset.warning': 'Esto borrará el historial local de videos, la racha, los ajustes y las estadísticas de Anki en caché. Se guardará una copia de recuperación aquí. Tu colección de Anki no cambiará.',
     'settings.reset.cancel': 'Cancelar',
     'settings.reset.delete': 'Borrar datos',
+    'toast.channelInvalid': 'Usa una URL de canal de YouTube, @handle o ID de canal UC',
+    'toast.channelResolveNeedsKey': 'Añade la clave compartida de YouTube API para usar URLs @handle o /user, o pega la URL /channel/UC...',
+    'toast.channelResolveNotFound': 'No se encontró ese canal de YouTube',
+    'toast.channelCustomUrlUnsupported': 'Esa URL personalizada del canal aún no se puede resolver de forma fiable. Prueba la URL /channel/UC... o @handle.',
     'header.sandbox': 'Versión sandbox',
     'header.search.title': 'Buscar videos',
     'header.search.placeholder': 'Buscar videos...',
@@ -859,7 +879,7 @@ const I18N = {
     'walkthrough.undoRedo': 'Deshacer y Rehacer te ayudan si haces clic por error. Abre la lista, elige la acción y Edenia recalculará el puntaje y el historial.',
     'walkthrough.settings': 'Haz clic en Ajustes cuando quieras configurar Edenia. Aquí añades canales de YouTube, eliges tu objetivo semanal y proteges tu progreso.',
     'walkthrough.clickSettings': 'Abrir ajustes',
-    'walkthrough.channels': 'Añade canales de YouTube aquí. Edenia los usa para encontrar videos recientes de estudio y mantener la lista fresca.',
+    'walkthrough.channels': 'Añade canales de YouTube aquí. Puedes pegar una URL del canal, @handle o ID. Edenia los usa para encontrar videos recientes de estudio y mantener la lista fresca.',
     'walkthrough.shortVideos': 'Este ajuste controla los videos cortos. Desactívalo si quieres que Edenia salte y oculte videos de menos de 3 minutos.',
     'walkthrough.settingsWeeklyGoal': 'Puedes cambiar tu objetivo semanal aquí. Solo cambia la meta; no borra tu historial.',
     'walkthrough.syncFiles': 'Los archivos de sincronización sirven para mover tu progreso a otro navegador o dispositivo. Exporta aquí e importa allí.',
@@ -875,8 +895,9 @@ const I18N = {
     'settings.language.label': 'Langue',
     'settings.weeklyGoal.label': 'Objectif hebdomadaire (heures)',
     'settings.channels.label': 'Chaînes',
+    'settings.channels.placeholder': 'URL ou ID de la chaîne',
     'settings.channels.add': 'Ajouter',
-    'settings.channels.hint': 'Trouver un ID de chaîne : ouvrez sa page YouTube -> icône partager -> Copier l’ID de chaîne. Ou regardez l’URL : youtube.com/channel/UCxxxxxxxx',
+    'settings.channels.hint': 'Collez une URL de chaîne YouTube, un @handle ou un ID de chaîne. Exemples conseillés : youtube.com/@channel ou youtube.com/channel/UCxxxxxxxx.',
     'settings.shorts.label': 'Afficher les vidéos courtes',
     'settings.shorts.hint': 'Quand c’est désactivé, les vidéos de moins de 3 minutes sont ignorées au rafraîchissement et cachées de la liste active.',
     'settings.activity.title': 'Journal d’activité',
@@ -895,6 +916,10 @@ const I18N = {
     'settings.reset.warning': 'Cela effacera l’historique local, la série, les réglages et les statistiques Anki mises en cache. Une sauvegarde de retour arrière sera gardée ici. Votre collection Anki ne sera pas modifiée.',
     'settings.reset.cancel': 'Annuler',
     'settings.reset.delete': 'Supprimer les données',
+    'toast.channelInvalid': 'Utilisez une URL de chaîne YouTube, un @handle ou un ID de chaîne UC',
+    'toast.channelResolveNeedsKey': 'Ajoutez la clé YouTube API partagée pour utiliser les URL @handle ou /user, ou collez l’URL /channel/UC...',
+    'toast.channelResolveNotFound': 'Impossible de trouver cette chaîne YouTube',
+    'toast.channelCustomUrlUnsupported': 'Cette URL personnalisée de chaîne ne peut pas encore être résolue de façon fiable. Essayez l’URL /channel/UC... ou @handle.',
     'header.sandbox': 'Version sandbox',
     'header.search.title': 'Rechercher des vidéos',
     'header.search.placeholder': 'Rechercher des vidéos...',
@@ -1006,7 +1031,7 @@ const I18N = {
     'walkthrough.undoRedo': 'Annuler et Rétablir aident après un clic accidentel. Ouvrez la liste, choisissez l’action, et Edenia recalculera le score et l’historique.',
     'walkthrough.settings': 'Cliquez sur Réglages pour configurer Edenia. Vous pouvez y ajouter vos chaînes YouTube, choisir votre objectif hebdomadaire et protéger vos données.',
     'walkthrough.clickSettings': 'Ouvrir les réglages',
-    'walkthrough.channels': 'Ajoutez vos chaînes YouTube ici. Edenia les utilise pour trouver des vidéos d’étude récentes et garder la liste à jour.',
+    'walkthrough.channels': 'Ajoutez vos chaînes YouTube ici. Vous pouvez coller une URL de chaîne, un @handle ou un ID. Edenia les utilise pour trouver des vidéos d’étude récentes et garder la liste à jour.',
     'walkthrough.shortVideos': 'Ce réglage contrôle les vidéos courtes. Désactivez-le pour ignorer et cacher les vidéos de moins de 3 minutes.',
     'walkthrough.settingsWeeklyGoal': 'Vous pouvez changer votre objectif hebdomadaire ici. Cela change seulement la cible, sans effacer votre historique.',
     'walkthrough.syncFiles': 'Les fichiers de synchronisation déplacent votre progression vers un autre navigateur ou appareil. Exportez ici, puis importez ailleurs.',
@@ -2939,15 +2964,20 @@ function toggleTheme() {
   renderActivityLog(s)
 }
 
-function addChannel() {
+async function addChannel() {
   const idEl   = document.getElementById('newChannelId')
-  const id     = idEl.value.trim()
-  const name   = id
+  const raw    = idEl.value.trim()
+  let resolved
 
-  if (!id.startsWith('UC') || id.length < 20) {
-    showToast(t('toast.channelInvalid'), 'warn')
+  try {
+    resolved = await resolveYoutubeChannelInput(raw)
+  } catch (err) {
+    showToast(err.message || t('toast.channelInvalid'), 'warn')
     return
   }
+
+  const id   = resolved.id
+  const name = resolved.name || id
   const s = loadState()
   if (s.config.channels.find(c => c.id === id)) {
     showToast(t('toast.channelDuplicate'), 'warn'); return
@@ -3073,6 +3103,77 @@ async function ytFetch(url) {
     throw new Error(err?.error?.message || `HTTP ${res.status}`)
   }
   return res.json()
+}
+
+function normalizeYoutubeUrlHost(hostname = '') {
+  return String(hostname || '').toLowerCase().replace(/^www\./, '').replace(/^m\./, '')
+}
+
+function isYoutubeHost(host) {
+  return host === 'youtube.com' || host.endsWith('.youtube.com') || host === 'youtube-nocookie.com'
+}
+
+function decodePathPart(value = '') {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
+
+function parseYoutubeChannelInput(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return null
+  if (YOUTUBE_CHANNEL_ID_RE.test(raw)) return { kind: 'id', channelId: raw }
+  if (YOUTUBE_HANDLE_RE.test(raw)) return { kind: 'handle', handle: raw }
+
+  const normalized = /^[a-z][a-z\d+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`
+  try {
+    const url = new URL(normalized)
+    const host = normalizeYoutubeUrlHost(url.hostname)
+    if (!isYoutubeHost(host)) return null
+
+    const parts = url.pathname.split('/').filter(Boolean).map(decodePathPart)
+    const [first, second] = parts
+    if (first === 'channel' && YOUTUBE_CHANNEL_ID_RE.test(second || '')) {
+      return { kind: 'id', channelId: second }
+    }
+    if (YOUTUBE_HANDLE_RE.test(first || '')) {
+      return { kind: 'handle', handle: first }
+    }
+    if (first === 'user' && second) {
+      return { kind: 'username', username: second }
+    }
+    if ((first === 'c' && second) || (first && !['watch', 'embed', 'shorts', 'live', 'playlist'].includes(first))) {
+      return { kind: 'custom-url' }
+    }
+  } catch {
+    return null
+  }
+
+  return null
+}
+
+async function fetchYoutubeChannelByFilter(filter, value) {
+  const url = `https://www.googleapis.com/youtube/v3/channels?part=snippet&maxResults=1&${filter}=${encodeURIComponent(value)}&key=${encodeURIComponent(getYoutubeApiKey())}`
+  const data = await ytFetch(url)
+  const item = data.items?.[0]
+  if (!item?.id) throw new Error(t('toast.channelResolveNotFound'))
+  return {
+    id: item.id,
+    name: item.snippet?.title || item.id
+  }
+}
+
+async function resolveYoutubeChannelInput(value) {
+  const parsed = parseYoutubeChannelInput(value)
+  if (!parsed) throw new Error(t('toast.channelInvalid'))
+  if (parsed.kind === 'id') return { id: parsed.channelId, name: parsed.channelId }
+  if (parsed.kind === 'custom-url') throw new Error(t('toast.channelCustomUrlUnsupported'))
+  if (!hasYoutubeApiKey()) throw new Error(t('toast.channelResolveNeedsKey'))
+  if (parsed.kind === 'handle') return fetchYoutubeChannelByFilter('forHandle', parsed.handle)
+  if (parsed.kind === 'username') return fetchYoutubeChannelByFilter('forUsername', parsed.username)
+  throw new Error(t('toast.channelInvalid'))
 }
 
 async function fetchChannelVideosPage(channel, pageToken = '') {
