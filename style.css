@@ -1887,6 +1887,14 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 7px;
 }
+.manual-video-hint {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  grid-column: 1 / -1;
+  line-height: 1.25;
+  margin: 0;
+}
 .manual-video-form input {
   border-radius: 10px;
   min-width: 0;

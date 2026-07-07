@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260703-7">
+  <link rel="stylesheet" href="style.css?v=20260703-8">
   <script src="config.local.js"></script>
 </head>
 <body>
@@ -258,9 +258,10 @@
             <div class="channel-filter-menu hidden" id="channelFilterMenu"></div>
           </div>
           <div class="manual-video" id="manualVideo">
-            <button type="button" class="btn-secondary manual-video-btn" id="manualVideoBtn" onclick="toggleManualVideoPopover(event)" aria-haspopup="true" aria-expanded="false" data-i18n="videos.manual.button">+ Watched URL</button>
-            <div class="manual-video-popover hidden" id="manualVideoPopover" role="dialog" aria-label="Add watched YouTube URL" data-i18n-aria-label="videos.manual.dialog">
-              <form class="manual-video-form" onsubmit="addWatchedVideoFromUrl(event)">
+            <button type="button" class="btn-secondary manual-video-btn" id="manualVideoBtn" onclick="toggleManualVideoPopover(event)" aria-haspopup="true" aria-expanded="false" data-i18n="videos.manual.button">Add video</button>
+            <div class="manual-video-popover hidden" id="manualVideoPopover" role="dialog" aria-label="Add YouTube video" data-i18n-aria-label="videos.manual.dialog">
+              <form class="manual-video-form" onsubmit="addVideoFromUrl(event)">
+                <p class="manual-video-hint" data-i18n="videos.manual.hint">Here you can paste the URL of a YouTube video that is not in your tracked channels.</p>
                 <input type="text" id="manualVideoUrlInput" placeholder="youtube.com/watch?v=..." data-i18n-placeholder="videos.manual.placeholder" autocomplete="off">
                 <button type="submit" class="btn-secondary manual-video-submit" id="manualVideoAddBtn" data-i18n="videos.manual.add">Add</button>
               </form>
@@ -296,6 +297,6 @@
   <div class="toast" id="toast"></div>
   <div class="heatmap-tooltip" id="heatmapTooltip"></div>
 
-  <script src="app.js?v=20260703-17"></script>
+  <script src="app.js?v=20260703-18"></script>
 </body>
 </html>
