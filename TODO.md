@@ -9,7 +9,6 @@ Minor changes:
 - the last time refreshed time showing in the video filter pop up should be updated more frequently. It was showing "10 min ago" but then when I refreshed the website page it was showing "2h ago"
 - FIX: when Edenia loads it shows the level 1 picture for some time before switching to the current level.
 - Undo messages should be translated as well
-- + watched URL should be changed to "+ URL" and it should add the video to the video grid and highlight it so I can put the added URL as watched or in progress or to be watched later
 - Enable disabling Anki in the settings (that means no Anki in the heatmap pop up, no Anki info in the history summary, no Anki refresh attempts)
 - Adding channels in the settings is not intuitive for users, I should find a better way
 - move light/dark theme into settings. Should I keep it as a logo?

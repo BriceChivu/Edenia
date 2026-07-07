@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260703-8">
+  <link rel="stylesheet" href="style.css?v=20260703-9">
   <script src="config.local.js"></script>
 </head>
 <body>
@@ -63,6 +63,7 @@
             <button class="activity-log-filter" type="button" data-activity-log-filter="user" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.user">User</button>
             <button class="activity-log-filter" type="button" data-activity-log-filter="auto" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.auto">Auto</button>
             <button class="activity-log-filter" type="button" data-activity-log-filter="issues" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.issues">Issues</button>
+            <button class="activity-log-filter" type="button" data-activity-log-filter="points" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.points">Points</button>
           </div>
           <div id="activityLogList" class="activity-log-list"></div>
         </div>
@@ -297,6 +298,6 @@
   <div class="toast" id="toast"></div>
   <div class="heatmap-tooltip" id="heatmapTooltip"></div>
 
-  <script src="app.js?v=20260703-18"></script>
+  <script src="app.js?v=20260703-21"></script>
 </body>
 </html>

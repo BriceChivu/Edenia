@@ -124,7 +124,7 @@ const STATUS_FILTERS = [
 ]
 const VIDEO_STATUSES = ['watch-later', 'unwatched', 'partial', 'watched']
 const HISTORY_RANGES = ['week', 'month']
-const ACTIVITY_LOG_FILTERS = ['all', 'user', 'auto', 'issues']
+const ACTIVITY_LOG_FILTERS = ['all', 'user', 'auto', 'issues', 'points']
 const VIDEO_SEARCH_RESULT_LIMIT = 8
 const I18N_EN = {
   'app.title.sandbox': 'Sandbox - Edenia',
@@ -144,6 +144,14 @@ const I18N_EN = {
   'settings.activity.user': 'User',
   'settings.activity.auto': 'Auto',
   'settings.activity.issues': 'Issues',
+  'settings.activity.points': 'Points',
+  'activity.pointsLabel': 'Points',
+  'activity.points.empty': 'No scored points yet.',
+  'activity.points.videoTitle': 'Watched {time} of {title}',
+  'activity.points.ankiTitle': 'Reviewed {count} Anki cards',
+  'activity.points.unmarkTitle': 'Unmarked {title}',
+  'activity.points.undoTitle': 'Undo: {title}',
+  'activity.points.redoTitle': 'Redo: {title}',
   'settings.refresh': 'Refresh',
   'settings.remove': 'Remove',
   'settings.sync.export': 'Export sync file',
@@ -442,6 +450,14 @@ const I18N = {
     'settings.activity.user': '使用者',
     'settings.activity.auto': '自動',
     'settings.activity.issues': '問題',
+    'settings.activity.points': '分數',
+    'activity.pointsLabel': '分數',
+    'activity.points.empty': '還沒有得分紀錄。',
+    'activity.points.videoTitle': '觀看 {title} {time}',
+    'activity.points.ankiTitle': '複習 {count} 張 Anki 卡',
+    'activity.points.unmarkTitle': '取消標記 {title}',
+    'activity.points.undoTitle': '復原：{title}',
+    'activity.points.redoTitle': '重做：{title}',
     'settings.refresh': '刷新',
     'settings.sync.export': '匯出同步檔',
     'settings.sync.import': '匯入同步檔',
@@ -622,6 +638,14 @@ const I18N = {
     'settings.activity.user': '用户',
     'settings.activity.auto': '自动',
     'settings.activity.issues': '问题',
+    'settings.activity.points': '分数',
+    'activity.pointsLabel': '分数',
+    'activity.points.empty': '还没有得分记录。',
+    'activity.points.videoTitle': '观看 {title} {time}',
+    'activity.points.ankiTitle': '复习 {count} 张 Anki 卡',
+    'activity.points.unmarkTitle': '取消标记 {title}',
+    'activity.points.undoTitle': '撤销：{title}',
+    'activity.points.redoTitle': '重做：{title}',
     'settings.refresh': '刷新',
     'settings.sync.export': '导出同步文件',
     'settings.sync.import': '导入同步文件',
@@ -782,6 +806,14 @@ const I18N = {
     'settings.activity.user': 'Usuario',
     'settings.activity.auto': 'Auto',
     'settings.activity.issues': 'Problemas',
+    'settings.activity.points': 'Puntos',
+    'activity.pointsLabel': 'Puntos',
+    'activity.points.empty': 'Aún no hay puntos ganados.',
+    'activity.points.videoTitle': 'Visto {time} de {title}',
+    'activity.points.ankiTitle': '{count} repasos de Anki',
+    'activity.points.unmarkTitle': 'Desmarcado {title}',
+    'activity.points.undoTitle': 'Deshacer: {title}',
+    'activity.points.redoTitle': 'Rehacer: {title}',
     'settings.refresh': 'Actualizar',
     'settings.sync.export': 'Exportar archivo',
     'settings.sync.import': 'Importar archivo',
@@ -944,6 +976,14 @@ const I18N = {
     'settings.activity.user': 'Utilisateur',
     'settings.activity.auto': 'Auto',
     'settings.activity.issues': 'Problèmes',
+    'settings.activity.points': 'Points',
+    'activity.pointsLabel': 'Points',
+    'activity.points.empty': 'Aucun point gagné pour le moment.',
+    'activity.points.videoTitle': '{time} de {title} vues',
+    'activity.points.ankiTitle': '{count} révisions Anki',
+    'activity.points.unmarkTitle': '{title} retirée',
+    'activity.points.undoTitle': 'Annuler : {title}',
+    'activity.points.redoTitle': 'Rétablir : {title}',
     'settings.refresh': 'Actualiser',
     'settings.sync.export': 'Exporter le fichier',
     'settings.sync.import': 'Importer le fichier',
@@ -2942,10 +2982,78 @@ function getFilteredActivityLogEntries(state) {
   return entries
 }
 
+function getPointActivityLogEntries(state) {
+  const entries = []
+  const end = getCurrentAppDate(state)
+  end.setHours(23, 59, 59, 999)
+  const history = getStudyHistoryBetween(state || { videos: {}, anki: {} }, new Date(0), end)
+
+  history.rows.forEach(row => {
+    const ankiPoints = Math.floor(((row.ankiReviewed || 0) / ANKI_REVIEW_CHUNK_SIZE) * ANKI_REVIEW_CHUNK_POINTS)
+    if (ankiPoints > 0) {
+      entries.push({
+        createdAt: `${row.dateKey}T23:59:59`,
+        status: 'success',
+        points: ankiPoints,
+        title: t('activity.points.ankiTitle', { count: row.ankiReviewed }),
+        detail: formatHeatmapTitle(row)
+      })
+    }
+
+    ;(row.watchedVideos || []).forEach(video => {
+      const videoPoints = Math.floor(((video.duration || 0) / 3600) * VIDEO_HOUR_POINTS)
+      if (videoPoints <= 0) return
+      entries.push({
+        createdAt: video.watchedAt || `${row.dateKey}T23:59:59`,
+        status: 'success',
+        points: videoPoints,
+        title: t('activity.points.videoTitle', {
+          time: formatHistoryTime(video.duration || 0),
+          title: video.title || t('videos.search.untitled')
+        }),
+        detail: formatHeatmapTitle(row)
+      })
+    })
+  })
+
+  const pointDeltas = (Array.isArray(state?.activityLog) ? state.activityLog : [])
+    .filter(entry => entry?.type === 'point-delta' && Number(entry.meta?.pointsDelta || 0) !== 0)
+    .map(entry => ({
+      createdAt: entry.createdAt,
+      status: entry.status || (Number(entry.meta?.pointsDelta || 0) < 0 ? 'warn' : 'success'),
+      points: Number(entry.meta?.pointsDelta || 0),
+      title: entry.title || t('activity.pointsLabel'),
+      detail: entry.detail || ''
+    }))
+
+  return entries
+    .concat(pointDeltas)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+}
+
 function formatActivityLogLabel(entry) {
   const actor = entry.actor === 'auto' ? t('activity.auto') : t('activity.user')
   const status = entry.status === 'error' ? t('activity.error') : entry.status === 'warn' ? t('activity.warn') : entry.status === 'success' ? t('activity.done') : t('activity.info')
   return `${actor} · ${status}`
+}
+
+function renderPointActivityLog(state, list) {
+  const entries = getPointActivityLogEntries(state)
+  if (!entries.length) {
+    list.innerHTML = `<p class="activity-log-empty">${escHtml(t('activity.points.empty'))}</p>`
+    return
+  }
+
+  list.innerHTML = entries.map(entry => `
+    <div class="activity-log-item">
+      <div class="activity-log-row">
+        <span class="activity-log-time">${escHtml(formatActivityLogTimestamp(entry.createdAt))}</span>
+        <span class="activity-log-chip ${entry.points < 0 ? 'warn' : 'success'}">${escHtml(t('activity.pointsLabel'))} · ${escHtml(formatSignedHistoryPointLabel(entry.points))}</span>
+      </div>
+      <div class="activity-log-title">${escHtml(entry.title)}</div>
+      ${entry.detail ? `<p class="activity-log-detail">${escHtml(entry.detail)}</p>` : ''}
+    </div>
+  `).join('')
 }
 
 function renderActivityLog(state = loadState()) {
@@ -2959,6 +3067,11 @@ function renderActivityLog(state = loadState()) {
   })
 
   normalizeActivityLogState(state)
+  if (selectedActivityLogFilter === 'points') {
+    renderPointActivityLog(state, list)
+    return
+  }
+
   const entries = getFilteredActivityLogEntries(state)
   if (!entries.length) {
     list.innerHTML = `<p class="activity-log-empty">${escHtml(t('activity.empty'))}</p>`
@@ -4041,6 +4154,14 @@ function markVideo(videoId, newStatus) {
     detail: `"${formatToastTitle(video.title)}" is now ${formatVideoStatus(newStatus)}.`,
     meta: { videoId, status: newStatus }
   })
+  if (getVideoActionPointDelta(undoAction, 'redo') < 0) {
+    appendPointDeltaActivityLog(s, {
+      action: undoAction,
+      direction: 'redo',
+      reason: 'unmark',
+      video
+    })
+  }
 
   saveState(s)
   renderAll(s)
@@ -4301,6 +4422,13 @@ function applyHistoryAction(direction, actionIndex) {
     title: direction === 'redo' ? 'Redo action' : 'Undo action',
     detail: formatHistoryActionToast(direction, video, targetSnapshot),
     meta: { videoId: action.videoId }
+  })
+  appendPointDeltaActivityLog(s, {
+    action,
+    direction,
+    reason: direction,
+    video,
+    createdAt: new Date().toISOString()
   })
 
   closeHistoryActionPopovers()
@@ -4791,6 +4919,54 @@ function formatHistoryPointNumber(points) {
 function formatHistoryPointLabel(points) {
   const value = Number(points || 0)
   return t('points.many', { count: formatHistoryPointNumber(value) })
+}
+
+function formatSignedHistoryPointLabel(points) {
+  const value = Number(points || 0)
+  const sign = value > 0 ? '+' : ''
+  return t('points.many', { count: `${sign}${formatHistoryPointNumber(value)}` })
+}
+
+function getVideoSnapshotPoints(video) {
+  const secondsByDate = new Map()
+  getVideoWatchProgressEntries(video).forEach(entry => {
+    const dateKey = toDateKey(new Date(entry.watchedAt))
+    secondsByDate.set(dateKey, (secondsByDate.get(dateKey) || 0) + (entry.seconds || 0))
+  })
+  return Array.from(secondsByDate.values())
+    .reduce((sum, seconds) => sum + Math.floor((seconds / 3600) * VIDEO_HOUR_POINTS), 0)
+}
+
+function getVideoActionPointDelta(action, direction = 'redo') {
+  if (!action?.before || !action?.after) return 0
+  const beforePoints = getVideoSnapshotPoints(action.before.video)
+  const afterPoints = getVideoSnapshotPoints(action.after.video)
+  return direction === 'undo'
+    ? beforePoints - afterPoints
+    : afterPoints - beforePoints
+}
+
+function appendPointDeltaActivityLog(state, { action, direction = 'redo', reason = 'redo', video = null, createdAt = null } = {}) {
+  const delta = getVideoActionPointDelta(action, direction)
+  if (!delta) return null
+  const sourceVideo = video || action?.after?.video || action?.before?.video
+  const titleKey = reason === 'unmark'
+    ? 'activity.points.unmarkTitle'
+    : direction === 'undo'
+    ? 'activity.points.undoTitle'
+    : 'activity.points.redoTitle'
+  return appendActivityLog(state, {
+    actor: 'user',
+    type: 'point-delta',
+    status: delta < 0 ? 'warn' : 'success',
+    title: t(titleKey, { title: formatToastTitle(sourceVideo?.title || t('videos.search.untitled')) }),
+    detail: formatSignedHistoryPointLabel(delta),
+    createdAt: isValidTimestamp(createdAt) ? createdAt : new Date().toISOString(),
+    meta: {
+      pointsDelta: delta,
+      videoId: action?.videoId || sourceVideo?.id || null
+    }
+  })
 }
 
 function getHistoryPointBreakdown(row) {
