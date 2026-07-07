@@ -1,5 +1,9 @@
 # CHANGES:
 Minor changes:
+- what is the current behavior when videos of a channel are fetched? How many are fetched? 5? What happens if all 5 videos have been watched? Does it trigger another fetch? What happens if 4 videos have been watched and the user doesn't wanna watch the 5th one but wants to watch older ones (of the same chanel)? After doing some research, it seems that fetching 5 videos or 50 in all call would be the same cost, unit wise. If that's the case, I would rather call 50 videos per channel and cache each video info so that users won't run out of videos to watch if they've watched the 5 newest videos of a channel. What we are trying to accomplish here is two folds: provide users with many "in stock" videos so that they don't run out of it AND be cost efficient in terms of Youtube API calls since we are using just one key for all users. So ideally, we fetch 50 videos per channel, show only the latest 5 in the grid, and automatically show the next ones such that there are always 5 videos being shown per channel. If indeed this makes sense in terms of API calls cost, proceed to implement that. If there are concerns to have regarding API cost, do warn me first, then we can start implementing whatever is best.
+
+- when hovering the mouse over the points scored in the summary study table, show a small popup like the one for the watched videos that shows how the points were scored. E.g., Anki reviews gave 1 pnt, watching 25 min of video A gave 1 pnt, etc. There should not be any visual indicators that this mouse hover pop up is possible. In other words, keep the "PTS" visual the same in the summary table
+
 - small duck walking around/popup giving motivational quotes
 - Photoshop: add the duck on the island. sometimes shifting to different locations (like on the deck, in the water floating, or in front of the door of the house)
 - setting lags, looks like refresh rate is low
@@ -13,18 +17,22 @@ Minor changes:
 - Enable disabling Anki in the settings (that means no Anki in the heatmap pop up, no Anki info in the history summary, no Anki refresh attempts)
 - Adding channels in the settings is not intuitive for users, I should find a better way
 - move light/dark theme into settings. Should I keep it as a logo?
-- what is the current behavior when videos of a channel are fetched? How many are fetched? 5? What happens if all 5 videos have been watched? Does it trigger another fetch? What happens if 4 videos have been watched and the user doesn't wanna watch the 5th one but wants to watch older ones (of the same chanel)?
-
+- in the summary study table, the video watched time should be rounded. Currently, I see that one video is 12:18 long but it shows at 13min 
+- in the activity log, add a tab that shows the log of the points scored only. E.g., watched 23min of video A so scored X
 
 Big changes:
-- being able to share the youtube channel URL, instead of the channel ID
 - How feasible/complicated this is? Being able to view videos on the website itself (e.g., pop up window when video is clicked). When pausing, the in progress timestamp should be populated automatically in hh:mm:ss format
 - Build Android app
 
 Sandbox:
 
+Mobile:
+- fix the mark as watched text going over the button
+- for the walkthrough, step 9, click settings should be clickable to redirect to the settings tab. Currently, it is telling me to click on the settings myself but the button is hidden
+
 For later:
 - Go throw the entire code and flag any potential bugs or incoherence. Do not fix anything, just tell me.
+- Go throw the entire README.md and update it to reflect the current status of the codebase.
 
 # NOTES:
 - How to keep images consistent over time when using AI?
