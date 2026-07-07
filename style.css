@@ -2864,6 +2864,20 @@ body[data-theme="dark"] .walkthrough-highlight {
     justify-content: center;
     width: 100%;
   }
+  .history-period-cell:first-child .history-period-popover {
+    left: 0;
+    right: auto;
+    transform: none;
+  }
+  .history-period-cell:last-child .history-period-popover {
+    left: auto;
+    right: 0;
+    transform: none;
+  }
+  .history-period-popover {
+    max-width: calc(100vw - 28px);
+    width: min(260px, calc(100vw - 28px));
+  }
   .history-range-btn,
   .history-view-btn {
     flex: 1;
@@ -3074,6 +3088,36 @@ body[data-theme="dark"] .walkthrough-highlight {
   }
   .video-card:hover .thumb {
     transform: none;
+  }
+}
+@media (max-width: 480px) and (pointer: coarse) {
+  .city-zoom-controls {
+    gap: 4px;
+    opacity: 0.82;
+  }
+  .city-image-btn {
+    font-size: 0.92rem;
+    min-height: 32px;
+    min-width: 32px;
+    width: 32px;
+  }
+  .city-time-waveform {
+    height: 34px;
+    width: clamp(82px, 22%, 132px);
+  }
+  .city-wave-bars {
+    height: 30px;
+    padding: 0 8px;
+  }
+  .city-wave-track {
+    gap: 3px;
+  }
+  .city-wave-bar {
+    flex-basis: 6px;
+    min-height: 17px;
+  }
+  .city-wave-bar.selected {
+    height: 28px;
   }
 }
 @media (min-width: 900px) {

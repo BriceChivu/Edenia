@@ -5160,6 +5160,10 @@ function toggleHistoryPointsPopover(event) {
   event.stopPropagation()
   const cell = event.currentTarget.closest('.history-points-cell')
   if (!cell) return
+  if (window.matchMedia?.('(pointer: coarse)').matches) {
+    openHistoryPointsCell(cell, true)
+    return
+  }
   const shouldOpen = !cell.classList.contains('open')
   openHistoryPointsCell(cell, shouldOpen)
 }
