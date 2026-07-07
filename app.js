@@ -25,6 +25,7 @@ const YOUTUBE_REFRESH_ERROR_BACKOFF_MS = 30 * 60_000
 const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = 50
 const MAX_FETCH_PAGES_PER_CHANNEL = 1
+const UNDO_ACTION_TYPES = ['video-status', 'channel-remove']
 const YOUTUBE_CHANNEL_ID_RE = /^UC[A-Za-z0-9_-]{20,}$/
 const YOUTUBE_HANDLE_RE = /^@[A-Za-z0-9._-]{3,30}$/
 const DEFAULT_THEME = 'light'
@@ -281,8 +282,8 @@ const I18N_EN = {
   'videos.redo.empty': 'Nothing to redo',
   'videos.undo.queue': 'Undo queue',
   'videos.redo.queue': 'Redo queue',
-  'videos.undo.title': 'Undo latest video status change',
-  'videos.redo.title': 'Redo latest video status change',
+  'videos.undo.title': 'Undo latest action',
+  'videos.redo.title': 'Redo latest action',
   'videos.watchedSection': 'Watched',
   'videos.empty.default': 'No videos yet. Edenia loads your feed automatically.',
   'videos.empty.activeBelow': 'No active videos right now. Watched videos are below.',
@@ -354,7 +355,7 @@ const I18N_EN = {
   'toast.sandboxMode': 'Sandbox mode: demo data is isolated from your real progress',
   'toast.sandboxReset': 'Sandbox reset: no study progress yet',
   'toast.sandboxDayAdded': 'Added sandbox study day: {date}',
-  'toast.addChannelFirst': 'Add at least one channel in Settings first',
+  'toast.addChannelFirst': 'Add at least one channel from the channel filter first',
   'toast.dummyVideosLoaded': '{count} dummy videos loaded',
   'toast.nothingToSync': 'Nothing to sync yet',
   'toast.syncExported': 'Sync file exported',
@@ -410,6 +411,10 @@ const I18N_EN = {
   'undo.doneAt': 'Done {time}',
   'undo.logUndoTitle': 'Undo action',
   'undo.logRedoTitle': 'Redo action',
+  'undo.restoreChannel': 'Restore channel',
+  'undo.removeChannelAgain': 'Remove channel again',
+  'undo.channelRestored': 'Restored channel: {name}',
+  'undo.channelRemoved': 'Removed channel again: {name}',
   'log.videoRemovedFromGrid': 'Video removed from grid',
   'walkthrough.next': 'Next',
   'walkthrough.back': 'Back',
@@ -425,9 +430,9 @@ const I18N_EN = {
   'walkthrough.videoFilters': 'These controls help you keep the list manageable. You can filter by status, filter by channel, add a video URL, and fix mistakes.',
   'walkthrough.manualWatchedUrl': 'Use Add video when you want to add a YouTube video that is not in your tracked channels. Paste the link, then choose whether it is watched, in progress, or saved for later.',
   'walkthrough.undoRedo': 'Undo and Redo let you recover from accidental clicks. Open the list, choose the action, and Edenia will update the score and history again.',
-  'walkthrough.settings': 'Click Settings when you are ready to set up Edenia. This is where you add your YouTube channels, choose your weekly goal, and keep your progress safe.',
+  'walkthrough.settings': 'Click Settings when you want to adjust Edenia. This is where you choose your weekly goal, language, short-video preference, backups, and sync files.',
   'walkthrough.clickSettings': 'Click Settings',
-  'walkthrough.channels': 'Add YouTube channels here. Paste a channel URL, @handle, or channel ID. Edenia uses them to find recent study videos, then keeps the feed fresh without you hunting through YouTube every time.',
+  'walkthrough.channels': 'Use this channel button to add YouTube channels and choose which ones appear in the video list. Paste a channel URL, @handle, or channel ID at the top of the popup. The small cross next to a tracked channel removes it, and Undo can bring it back.',
   'walkthrough.shortVideos': 'This setting controls short videos. Turn it off if you want Edenia to skip and hide videos under 3 minutes, so your study list stays focused.',
   'walkthrough.settingsWeeklyGoal': 'You can change your weekly goal here. This only changes the target you are aiming for; it does not erase your history.',
   'walkthrough.syncFiles': 'Sync files are for moving your progress to another browser or device. Export a file from here, then import it where you want the same progress.',
@@ -487,6 +492,7 @@ const I18N = {
     'settings.reset.cancel': '取消',
     'settings.reset.delete': '刪除資料',
     'toast.channelInvalid': '請使用 YouTube 頻道網址、@handle 或 UC 頻道 ID',
+    'toast.addChannelFirst': '請先從頻道篩選加入至少一個頻道',
     'toast.channelResolveNeedsKey': '若要使用 @handle 或 /user 網址，請先加入共用 YouTube API key；或貼上 /channel/UC... 網址。',
     'toast.channelResolveNotFound': '找不到這個 YouTube 頻道',
     'toast.channelCustomUrlUnsupported': '這種自訂頻道網址目前無法可靠解析。請試試 /channel/UC... 網址或 @handle。',
@@ -571,8 +577,8 @@ const I18N = {
     'videos.redo.empty': '沒有可重做動作',
     'videos.undo.queue': '復原佇列',
     'videos.redo.queue': '重做佇列',
-    'videos.undo.title': '復原最近的影片狀態變更',
-    'videos.redo.title': '重做最近的影片狀態變更',
+    'videos.undo.title': '復原最近的動作',
+    'videos.redo.title': '重做最近的動作',
     'videos.watchedSection': '已看',
     'videos.empty.default': '還沒有影片。Edenia 會自動載入你的影片清單。',
     'videos.empty.activeBelow': '目前沒有待看影片。已看影片在下方。',
@@ -636,6 +642,10 @@ const I18N = {
     'undo.doneAt': '完成於 {time}',
     'undo.logUndoTitle': '復原動作',
     'undo.logRedoTitle': '重做動作',
+    'undo.restoreChannel': '恢復頻道',
+    'undo.removeChannelAgain': '再次移除頻道',
+    'undo.channelRestored': '已恢復頻道：{name}',
+    'undo.channelRemoved': '已再次移除頻道：{name}',
     'log.videoRemovedFromGrid': '影片已從清單移除',
     'walkthrough.next': '下一步',
     'walkthrough.back': '上一步',
@@ -650,9 +660,9 @@ const I18N = {
     'walkthrough.videoFilters': '這些控制可以讓清單更好管理。你可以依狀態或頻道篩選，新增影片網址，也可以修正誤點。',
     'walkthrough.manualWatchedUrl': '如果想加入不在追蹤頻道中的 YouTube 影片，可以用新增影片。貼上連結後，再選擇已看、進行中或稍後觀看。',
     'walkthrough.undoRedo': '復原和重做可以幫你修正誤點。打開清單，選一個動作，Edenia 會重新計算分數和紀錄。',
-    'walkthrough.settings': '準備設定 Edenia 時，請點設定。你可以在這裡加入 YouTube 頻道、選每週目標，並保護進度資料。',
+    'walkthrough.settings': '想調整 Edenia 時，請點設定。你可以在這裡選每週目標、語言、短影片偏好、備份和同步檔。',
     'walkthrough.clickSettings': '點設定',
-    'walkthrough.channels': '在這裡加入 YouTube 頻道。你可以貼上頻道網址、@handle 或頻道 ID。Edenia 會用它們尋找最近的學習影片，讓你不用每次都去 YouTube 找。',
+    'walkthrough.channels': '用這個頻道按鈕加入 YouTube 頻道，並選擇哪些頻道顯示在影片清單中。在彈窗上方貼上頻道網址、@handle 或頻道 ID。已追蹤頻道旁的小叉可以移除頻道，也可以用復原加回來。',
     'walkthrough.shortVideos': '這個設定控制短影片。關閉後，Edenia 會跳過並隱藏 3 分鐘以下的影片，讓清單更專注。',
     'walkthrough.settingsWeeklyGoal': '你可以在這裡改每週目標。這只會改你想達成的目標，不會清除紀錄。',
     'walkthrough.syncFiles': '同步檔可以把進度搬到其他瀏覽器或裝置。先在這裡匯出，再到另一邊匯入。',
@@ -698,6 +708,7 @@ const I18N = {
     'settings.reset.cancel': '取消',
     'settings.reset.delete': '删除数据',
     'toast.channelInvalid': '请使用 YouTube 频道网址、@handle 或 UC 频道 ID',
+    'toast.addChannelFirst': '请先从频道筛选添加至少一个频道',
     'toast.channelResolveNeedsKey': '若要使用 @handle 或 /user 网址，请先加入共享 YouTube API key；或粘贴 /channel/UC... 网址。',
     'toast.channelResolveNotFound': '找不到这个 YouTube 频道',
     'toast.channelCustomUrlUnsupported': '这种自定义频道网址目前无法可靠解析。请试试 /channel/UC... 网址或 @handle。',
@@ -771,8 +782,8 @@ const I18N = {
     'videos.redo.empty': '没有可重做动作',
     'videos.undo.queue': '撤销队列',
     'videos.redo.queue': '重做队列',
-    'videos.undo.title': '撤销最近的视频状态变更',
-    'videos.redo.title': '重做最近的视频状态变更',
+    'videos.undo.title': '撤销最近的动作',
+    'videos.redo.title': '重做最近的动作',
     'videos.watchedSection': '已看',
     'videos.empty.default': '还没有视频。Edenia 会自动加载你的视频列表。',
     'videos.search.empty': '按标题或频道搜索已保存视频。',
@@ -829,6 +840,10 @@ const I18N = {
     'undo.doneAt': '完成于 {time}',
     'undo.logUndoTitle': '撤销动作',
     'undo.logRedoTitle': '重做动作',
+    'undo.restoreChannel': '恢复频道',
+    'undo.removeChannelAgain': '再次移除频道',
+    'undo.channelRestored': '已恢复频道：{name}',
+    'undo.channelRemoved': '已再次移除频道：{name}',
     'log.videoRemovedFromGrid': '视频已从列表移除',
     'walkthrough.next': '下一步',
     'walkthrough.back': '上一步',
@@ -843,9 +858,9 @@ const I18N = {
     'walkthrough.videoFilters': '这些控制可以让列表更好管理。你可以按状态或频道筛选，添加视频网址，也可以修正误点。',
     'walkthrough.manualWatchedUrl': '如果想添加不在追踪频道中的 YouTube 视频，可以用添加视频。粘贴链接后，再选择已看、进行中或稍后观看。',
     'walkthrough.undoRedo': '撤销和重做可以帮你修正误点。打开列表，选一个动作，Edenia 会重新计算分数和记录。',
-    'walkthrough.settings': '准备设置 Edenia 时，请点设置。你可以在这里添加 YouTube 频道、选择每周目标，并保护进度数据。',
+    'walkthrough.settings': '想调整 Edenia 时，请点设置。你可以在这里选择每周目标、语言、短视频偏好、备份和同步文件。',
     'walkthrough.clickSettings': '点设置',
-    'walkthrough.channels': '在这里添加 YouTube 频道。你可以粘贴频道网址、@handle 或频道 ID。Edenia 会用它们寻找最近的学习视频，让你不用每次都去 YouTube 找。',
+    'walkthrough.channels': '用这个频道按钮添加 YouTube 频道，并选择哪些频道显示在视频列表中。在弹窗上方粘贴频道网址、@handle 或频道 ID。已追踪频道旁的小叉可以移除频道，也可以用撤销加回来。',
     'walkthrough.shortVideos': '这个设置控制短视频。关闭后，Edenia 会跳过并隐藏 3 分钟以下的视频，让列表更专注。',
     'walkthrough.settingsWeeklyGoal': '你可以在这里改每周目标。这只会改你想达成的目标，不会清除记录。',
     'walkthrough.syncFiles': '同步文件可以把进度搬到其他浏览器或设备。先在这里导出，再到另一边导入。',
@@ -891,6 +906,7 @@ const I18N = {
     'settings.reset.cancel': 'Cancelar',
     'settings.reset.delete': 'Borrar datos',
     'toast.channelInvalid': 'Usa una URL de canal de YouTube, @handle o ID de canal UC',
+    'toast.addChannelFirst': 'Añade al menos un canal desde el filtro de canales primero',
     'toast.channelResolveNeedsKey': 'Añade la clave compartida de YouTube API para usar URLs @handle o /user, o pega la URL /channel/UC...',
     'toast.channelResolveNotFound': 'No se encontró ese canal de YouTube',
     'toast.channelCustomUrlUnsupported': 'Esa URL personalizada del canal aún no se puede resolver de forma fiable. Prueba la URL /channel/UC... o @handle.',
@@ -966,8 +982,8 @@ const I18N = {
     'videos.redo.empty': 'Nada que rehacer',
     'videos.undo.queue': 'Cola de deshacer',
     'videos.redo.queue': 'Cola de rehacer',
-    'videos.undo.title': 'Deshacer el último cambio de estado del video',
-    'videos.redo.title': 'Rehacer el último cambio de estado del video',
+    'videos.undo.title': 'Deshacer la última acción',
+    'videos.redo.title': 'Rehacer la última acción',
     'videos.watchedSection': 'Vistos',
     'videos.empty.default': 'Aún no hay videos. Edenia carga tu feed automáticamente.',
     'videos.search.empty': 'Busca videos guardados por título o canal.',
@@ -1024,6 +1040,10 @@ const I18N = {
     'undo.doneAt': 'Hecho {time}',
     'undo.logUndoTitle': 'Acción deshecha',
     'undo.logRedoTitle': 'Acción rehecha',
+    'undo.restoreChannel': 'Restaurar canal',
+    'undo.removeChannelAgain': 'Quitar canal otra vez',
+    'undo.channelRestored': 'Canal restaurado: {name}',
+    'undo.channelRemoved': 'Canal quitado otra vez: {name}',
     'log.videoRemovedFromGrid': 'Video quitado de la lista',
     'walkthrough.next': 'Siguiente',
     'walkthrough.back': 'Atrás',
@@ -1038,9 +1058,9 @@ const I18N = {
     'walkthrough.videoFilters': 'Estos controles ayudan a mantener la lista clara. Puedes filtrar por estado, filtrar por canal, añadir una URL de video y corregir errores.',
     'walkthrough.manualWatchedUrl': 'Usa Añadir video para agregar un video de YouTube que no está en tus canales seguidos. Pega el enlace y luego elige si está visto, en progreso o guardado para después.',
     'walkthrough.undoRedo': 'Deshacer y Rehacer te ayudan si haces clic por error. Abre la lista, elige la acción y Edenia recalculará el puntaje y el historial.',
-    'walkthrough.settings': 'Haz clic en Ajustes cuando quieras configurar Edenia. Aquí añades canales de YouTube, eliges tu objetivo semanal y proteges tu progreso.',
+    'walkthrough.settings': 'Haz clic en Ajustes cuando quieras cambiar Edenia. Aquí eliges tu objetivo semanal, idioma, preferencia de videos cortos, copias y archivos de sincronización.',
     'walkthrough.clickSettings': 'Abrir ajustes',
-    'walkthrough.channels': 'Añade canales de YouTube aquí. Puedes pegar una URL del canal, @handle o ID. Edenia los usa para encontrar videos recientes de estudio y mantener la lista fresca.',
+    'walkthrough.channels': 'Usa este botón de canales para añadir canales de YouTube y elegir cuáles aparecen en la lista. Pega una URL de canal, @handle o ID arriba del popup. La cruz pequeña junto a un canal seguido lo quita, y Deshacer puede recuperarlo.',
     'walkthrough.shortVideos': 'Este ajuste controla los videos cortos. Desactívalo si quieres que Edenia salte y oculte videos de menos de 3 minutos.',
     'walkthrough.settingsWeeklyGoal': 'Puedes cambiar tu objetivo semanal aquí. Solo cambia la meta; no borra tu historial.',
     'walkthrough.syncFiles': 'Los archivos de sincronización sirven para mover tu progreso a otro navegador o dispositivo. Exporta aquí e importa allí.',
@@ -1086,6 +1106,7 @@ const I18N = {
     'settings.reset.cancel': 'Annuler',
     'settings.reset.delete': 'Supprimer les données',
     'toast.channelInvalid': 'Utilisez une URL de chaîne YouTube, un @handle ou un ID de chaîne UC',
+    'toast.addChannelFirst': 'Ajoutez d’abord au moins une chaîne depuis le filtre de chaînes',
     'toast.channelResolveNeedsKey': 'Ajoutez la clé YouTube API partagée pour utiliser les URL @handle ou /user, ou collez l’URL /channel/UC...',
     'toast.channelResolveNotFound': 'Impossible de trouver cette chaîne YouTube',
     'toast.channelCustomUrlUnsupported': 'Cette URL personnalisée de chaîne ne peut pas encore être résolue de façon fiable. Essayez l’URL /channel/UC... ou @handle.',
@@ -1161,8 +1182,8 @@ const I18N = {
     'videos.redo.empty': 'Rien à rétablir',
     'videos.undo.queue': 'File d’annulation',
     'videos.redo.queue': 'File de rétablissement',
-    'videos.undo.title': 'Annuler le dernier changement d’état de la vidéo',
-    'videos.redo.title': 'Rétablir le dernier changement d’état de la vidéo',
+    'videos.undo.title': 'Annuler la dernière action',
+    'videos.redo.title': 'Rétablir la dernière action',
     'videos.watchedSection': 'Vues',
     'videos.empty.default': 'Aucune vidéo pour l’instant. Edenia charge votre liste automatiquement.',
     'videos.search.empty': 'Recherchez les vidéos enregistrées par titre ou chaîne.',
@@ -1219,6 +1240,10 @@ const I18N = {
     'undo.doneAt': 'Fait {time}',
     'undo.logUndoTitle': 'Action annulée',
     'undo.logRedoTitle': 'Action rétablie',
+    'undo.restoreChannel': 'Restaurer la chaîne',
+    'undo.removeChannelAgain': 'Retirer la chaîne à nouveau',
+    'undo.channelRestored': 'Chaîne restaurée : {name}',
+    'undo.channelRemoved': 'Chaîne retirée à nouveau : {name}',
     'log.videoRemovedFromGrid': 'Vidéo retirée de la liste',
     'walkthrough.next': 'Suivant',
     'walkthrough.back': 'Retour',
@@ -1233,9 +1258,9 @@ const I18N = {
     'walkthrough.videoFilters': 'Ces contrôles gardent la liste lisible. Vous pouvez filtrer par statut, par chaîne, ajouter une URL de vidéo et corriger les erreurs.',
     'walkthrough.manualWatchedUrl': 'Utilisez Ajouter une vidéo pour ajouter une vidéo YouTube absente de vos chaînes suivies. Collez le lien, puis choisissez si elle est vue, en cours ou gardée pour plus tard.',
     'walkthrough.undoRedo': 'Annuler et Rétablir aident après un clic accidentel. Ouvrez la liste, choisissez l’action, et Edenia recalculera le score et l’historique.',
-    'walkthrough.settings': 'Cliquez sur Réglages pour configurer Edenia. Vous pouvez y ajouter vos chaînes YouTube, choisir votre objectif hebdomadaire et protéger vos données.',
+    'walkthrough.settings': 'Cliquez sur Réglages pour ajuster Edenia. Vous pouvez y choisir votre objectif hebdomadaire, la langue, les vidéos courtes, les sauvegardes et les fichiers de synchronisation.',
     'walkthrough.clickSettings': 'Ouvrir les réglages',
-    'walkthrough.channels': 'Ajoutez vos chaînes YouTube ici. Vous pouvez coller une URL de chaîne, un @handle ou un ID. Edenia les utilise pour trouver des vidéos d’étude récentes et garder la liste à jour.',
+    'walkthrough.channels': 'Utilisez ce bouton de chaînes pour ajouter des chaînes YouTube et choisir celles qui apparaissent dans la liste. Collez une URL de chaîne, un @handle ou un ID en haut du popup. La petite croix à côté d’une chaîne suivie la retire, et Annuler peut la restaurer.',
     'walkthrough.shortVideos': 'Ce réglage contrôle les vidéos courtes. Désactivez-le pour ignorer et cacher les vidéos de moins de 3 minutes.',
     'walkthrough.settingsWeeklyGoal': 'Vous pouvez changer votre objectif hebdomadaire ici. Cela change seulement la cible, sans effacer votre historique.',
     'walkthrough.syncFiles': 'Les fichiers de synchronisation déplacent votre progression vers un autre navigateur ou appareil. Exportez ici, puis importez ailleurs.',
@@ -1299,6 +1324,15 @@ const WALKTHROUGH_STEPS = [
     }
   },
   {
+    id: 'channels',
+    target: '.channel-filter',
+    textKey: 'walkthrough.channels',
+    placement: 'top',
+    hooks: {
+      beforeEnter: 'closeTransientUi'
+    }
+  },
+  {
     id: 'manual-watched-url',
     target: '.manual-video',
     textKey: 'walkthrough.manualWatchedUrl',
@@ -1326,16 +1360,6 @@ const WALKTHROUGH_STEPS = [
     hooks: {
       beforeEnter: ['closeTransientUi', 'keepSettingsClosed'],
       targetClick: 'advanceAfterTargetClick'
-    }
-  },
-  {
-    id: 'channels',
-    target: '.settings-channels-group',
-    textKey: 'walkthrough.channels',
-    placement: 'left',
-    hooks: {
-      beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
-      afterEnter: 'settleWalkthroughTarget'
     }
   },
   {
@@ -1630,6 +1654,7 @@ function loadState() {
       if (state?.config && !Array.isArray(state.config.channels)) state.config.channels = []
       if (state?.config) delete state.config.apiKey
       normalizeRemovedDefaultChannels(state)
+      normalizeRemovedChannels(state)
       if (state?.config && (state.defaultChannelsVersion || 1) < DEFAULT_CHANNELS_VERSION) {
         state.defaultChannelsVersion = DEFAULT_CHANNELS_VERSION
         shouldSave = true
@@ -1689,7 +1714,8 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
       includeShorts: true,
       historyView: getDefaultHistoryView(),
       channels: Array.isArray(channels) ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
-      removedDefaultChannelIds: restoredRemovedDefaultIds || []
+      removedDefaultChannelIds: restoredRemovedDefaultIds || [],
+      removedChannelIds: []
     },
     videos:  {},   // { [videoId]: VideoRecord }
     streak:  { current: 0, longest: 0, lastActivityDate: null },
@@ -1870,10 +1896,10 @@ function normalizeUndoState(state) {
     state.undoStack.push(state.lastUndo)
   }
   state.undoStack = state.undoStack
-    .filter(action => action?.type === 'video-status')
+    .filter(action => UNDO_ACTION_TYPES.includes(action?.type))
     .slice(-UNDO_STACK_LIMIT)
   state.redoStack = state.redoStack
-    .filter(action => action?.type === 'video-status')
+    .filter(action => UNDO_ACTION_TYPES.includes(action?.type))
     .slice(-UNDO_STACK_LIMIT)
   delete state.lastUndo
 }
@@ -2099,6 +2125,16 @@ function normalizeRemovedDefaultChannels(state) {
   }
 
   state.config.removedDefaultChannelIds = [...removedIds].filter(isDefaultChannelId)
+}
+
+function normalizeRemovedChannels(state) {
+  if (!state?.config) return
+  const configuredIds = new Set((state.config.channels || []).map(channel => channel.id).filter(Boolean))
+  const removedIds = Array.isArray(state.config.removedChannelIds)
+    ? state.config.removedChannelIds.filter(Boolean)
+    : []
+  state.config.removedChannelIds = [...new Set(removedIds)]
+    .filter(id => !configuredIds.has(id))
 }
 
 function normalizeAnkiDateKeys(state) {
@@ -3290,24 +3326,38 @@ function toggleTheme() {
 }
 
 async function addChannel() {
-  const idEl   = document.getElementById('newChannelId')
-  const raw    = idEl.value.trim()
+  const idEl   = document.getElementById('channelFilterAddInput') || document.getElementById('newChannelId')
+  const btn    = document.getElementById('channelFilterAddBtn')
+  const raw    = idEl?.value?.trim() || ''
   let resolved
 
   try {
     resolved = await resolveYoutubeChannelInput(raw)
   } catch (err) {
     showToast(err.message || t('toast.channelInvalid'), 'warn')
+    idEl?.focus()
     return
+  }
+
+  if (btn) {
+    btn.disabled = true
+    btn.textContent = t('videos.manual.adding')
   }
 
   const id   = resolved.id
   const name = resolved.name || id
   const s = loadState()
   if (s.config.channels.find(c => c.id === id)) {
-    showToast(t('toast.channelDuplicate'), 'warn'); return
+    if (btn) {
+      btn.disabled = false
+      btn.textContent = t('settings.channels.add')
+    }
+    showToast(t('toast.channelDuplicate'), 'warn')
+    return
   }
   s.config.channels.push({ id, name })
+  s.config.removedChannelIds = (s.config.removedChannelIds || []).filter(channelId => channelId !== id)
+  restoreChannelVideosToGrid(s, id)
   if (isDefaultChannelId(id)) {
     s.config.removedDefaultChannelIds = (s.config.removedDefaultChannelIds || []).filter(channelId => channelId !== id)
   }
@@ -3319,9 +3369,13 @@ async function addChannel() {
     detail: name
   })
   saveState(s)
-  renderChannelList(s.config.channels)
+  renderFeed(s)
   renderActivityLog(s)
-  idEl.value = ''
+  if (idEl) idEl.value = ''
+  if (btn) {
+    btn.disabled = false
+    btn.textContent = t('settings.channels.add')
+  }
   if (IS_SANDBOX) {
     showToast(t('toast.channelAdded', { name }))
     return
@@ -3334,14 +3388,33 @@ async function addChannel() {
   refreshAddedChannel(id)
 }
 
+function addChannelFromFilter(event) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  addChannel()
+}
+
+function removeChannelFromFilter(event, channelId) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  removeChannel(channelId)
+}
+
 function removeChannel(id) {
   const s = loadState()
   const channel = s.config.channels.find(c => c.id === id)
-  s.config.channels = s.config.channels.filter(c => c.id !== id)
-  delete getChannelRefreshes(s)[id]
-  if (isDefaultChannelId(id) && !s.config.removedDefaultChannelIds.includes(id)) {
-    s.config.removedDefaultChannelIds.push(id)
-  }
+  if (!channel) return
+  const before = getChannelRemoveSnapshot(s, id, channel)
+
+  applyChannelRemoval(s, id)
+  const after = getChannelRemoveSnapshot(s, id)
+  pushUndoAction(s, {
+    type: 'channel-remove',
+    channelId: id,
+    channelName: channel.name || id,
+    before,
+    after
+  })
   appendActivityLog(s, {
     actor: 'user',
     type: 'channel-remove',
@@ -3350,12 +3423,63 @@ function removeChannel(id) {
     detail: channel?.name || id
   })
   saveState(s)
-  renderChannelList(s.config.channels)
+  renderAll(s)
   renderActivityLog(s)
+}
+
+function applyChannelRemoval(s, channelId) {
+  const refreshes = getChannelRefreshes(s)
+  s.config.channels = (s.config.channels || []).filter(c => c.id !== channelId)
+  delete refreshes[channelId]
+  if (!Array.isArray(s.config.removedChannelIds)) s.config.removedChannelIds = []
+  if (!s.config.removedChannelIds.includes(channelId)) {
+    s.config.removedChannelIds.push(channelId)
+  }
+  if (!Array.isArray(s.config.removedDefaultChannelIds)) s.config.removedDefaultChannelIds = []
+  if (isDefaultChannelId(channelId) && !s.config.removedDefaultChannelIds.includes(channelId)) {
+    s.config.removedDefaultChannelIds.push(channelId)
+  }
+  Object.values(s.videos || {}).forEach(video => {
+    if (!isChannelRemovalVideo(video, channelId)) return
+    video.hiddenFromGrid = true
+    video.hiddenFromGridAt = getCurrentAppTimestamp(s)
+  })
+}
+
+function restoreChannelVideosToGrid(s, channelId) {
+  Object.values(s.videos || {}).forEach(video => {
+    if (!isChannelRemovalVideo(video, channelId)) return
+    video.hiddenFromGrid = false
+    video.hiddenFromGridAt = null
+  })
+}
+
+function getChannelRemoveSnapshot(s, channelId, channel = null) {
+  const refreshes = getChannelRefreshes(s)
+  return {
+    channel: channel
+      ? { ...channel }
+      : (s.config.channels || []).find(c => c.id === channelId) || null,
+    refresh: refreshes[channelId] ? { ...refreshes[channelId] } : null,
+    removedChannelIds: [...(s.config.removedChannelIds || [])],
+    removedDefaultChannelIds: [...(s.config.removedDefaultChannelIds || [])],
+    videos: Object.fromEntries(Object.entries(s.videos || {})
+      .filter(([, video]) => isChannelRemovalVideo(video, channelId))
+      .map(([videoId, video]) => [videoId, cloneVideoForHistoryAction(video)]))
+  }
+}
+
+function isChannelRemovalVideo(video, channelId) {
+  return Boolean(
+    video &&
+    video.channelId === channelId &&
+    !(video.manuallyAdded && video.source === 'manual')
+  )
 }
 
 function renderChannelList(channels) {
   const el = document.getElementById('channelList')
+  if (!el) return
   if (!channels.length) { el.innerHTML = `<p style="color:var(--muted);font-size:.82rem">${escHtml(t('videos.channels.none'))}</p>`; return }
   el.innerHTML = channels.map(c => `
     <div class="channel-item">
@@ -4513,16 +4637,30 @@ function applyHistoryAction(direction, actionIndex) {
   const index = Number(actionIndex)
   const action = sourceStack[index]
 
-  if (action?.type !== 'video-status') {
+  if (!UNDO_ACTION_TYPES.includes(action?.type)) {
     showToast(direction === 'redo' ? t('toast.nothingRedo') : t('toast.nothingUndo'), 'warn')
     return
   }
 
   sourceStack.splice(index, 1)
   const targetSnapshot = direction === 'redo' ? action.after : action.before
-  const video = applyVideoStatusActionSnapshot(s, action.videoId, targetSnapshot, action, direction)
+  let historyResult = null
 
-  if (!video) {
+  if (action.type === 'channel-remove') {
+    historyResult = applyChannelRemoveActionSnapshot(s, action, targetSnapshot, direction)
+  } else {
+    const video = applyVideoStatusActionSnapshot(s, action.videoId, targetSnapshot, action, direction)
+    if (video) {
+      historyResult = {
+        detail: formatHistoryActionToast(direction, video, targetSnapshot),
+        toast: formatHistoryActionToast(direction, video, targetSnapshot),
+        meta: { videoId: action.videoId },
+        video
+      }
+    }
+  }
+
+  if (!historyResult) {
     saveState(s)
     renderAll(s)
     showToast(t('toast.videoGone'), 'warn')
@@ -4539,21 +4677,67 @@ function applyHistoryAction(direction, actionIndex) {
     type: direction === 'redo' ? 'redo' : 'undo',
     status: 'success',
     title: direction === 'redo' ? t('undo.logRedoTitle') : t('undo.logUndoTitle'),
-    detail: formatHistoryActionToast(direction, video, targetSnapshot),
-    meta: { videoId: action.videoId }
+    detail: historyResult.detail,
+    meta: historyResult.meta
   })
-  appendPointDeltaActivityLog(s, {
-    action,
-    direction,
-    reason: direction,
-    video,
-    createdAt: new Date().toISOString()
-  })
+  if (action.type === 'video-status') {
+    appendPointDeltaActivityLog(s, {
+      action,
+      direction,
+      reason: direction,
+      video: historyResult.video,
+      createdAt: new Date().toISOString()
+    })
+  }
 
   closeHistoryActionPopovers()
   saveState(s)
   renderAll(s)
-  showToast(formatHistoryActionToast(direction, video, targetSnapshot))
+  showToast(historyResult.toast)
+}
+
+function applyChannelRemoveActionSnapshot(s, action, snapshot, direction = 'undo') {
+  if (!snapshot) return null
+  const channelId = action.channelId
+  const channel = snapshot.channel || action.before?.channel || action.after?.channel || {
+    id: channelId,
+    name: action.channelName || channelId
+  }
+
+  s.config.channels = Array.isArray(s.config.channels) ? s.config.channels : []
+  s.config.removedChannelIds = [...(snapshot.removedChannelIds || [])]
+  s.config.removedDefaultChannelIds = [...(snapshot.removedDefaultChannelIds || [])]
+
+  const channelIndex = s.config.channels.findIndex(existing => existing.id === channelId)
+  if (snapshot.channel) {
+    if (channelIndex >= 0) s.config.channels[channelIndex] = { ...channel }
+    else s.config.channels.push({ ...channel })
+  } else if (channelIndex >= 0) {
+    s.config.channels.splice(channelIndex, 1)
+  }
+
+  const refreshes = getChannelRefreshes(s)
+  if (snapshot.refresh) refreshes[channelId] = { ...snapshot.refresh }
+  else delete refreshes[channelId]
+
+  Object.entries(snapshot.videos || {}).forEach(([videoId, video]) => {
+    if (video) s.videos[videoId] = cloneVideoForHistoryAction(video)
+  })
+  if (!snapshot.channel) {
+    Object.values(s.videos || {}).forEach(video => {
+      if (!isChannelRemovalVideo(video, channelId)) return
+      video.hiddenFromGrid = true
+      video.hiddenFromGridAt = getCurrentAppTimestamp(s)
+    })
+  }
+
+  normalizeRemovedChannels(s)
+
+  return {
+    detail: formatChannelRemoveActionToast(direction, channel, snapshot),
+    toast: formatChannelRemoveActionToast(direction, channel, snapshot),
+    meta: { channelId }
+  }
 }
 
 function applyVideoStatusActionSnapshot(s, videoId, snapshot, action = null, direction = 'undo') {
@@ -4599,6 +4783,13 @@ function formatHistoryActionToast(direction, video, snapshot) {
     return t('undo.removed', { verb, title: formatToastTitle(video.title) })
   }
   return t('undo.backTo', { verb, title: formatToastTitle(video.title), status: formatVideoStatus(snapshot.status) })
+}
+
+function formatChannelRemoveActionToast(direction, channel, snapshot) {
+  const channelName = channel?.name || channel?.id || t('videos.channels.one')
+  return snapshot?.channel
+    ? t('undo.channelRestored', { name: channelName })
+    : t('undo.channelRemoved', { name: channelName })
 }
 
 function dateKeyToLocalDate(dateKey) {
@@ -6585,6 +6776,7 @@ function renderFeed(s) {
 
   let watchedVideos = allVideos
     .filter(v => getVideoStatus(v) === 'watched')
+    .filter(v => !isHiddenFromVideoGrid(v))
     .filter(v => matchesChannelFilter(v, channelFilters))
     .sort((a, b) => new Date(b.watchedAt || 0) - new Date(a.watchedAt || 0))
 
@@ -6682,6 +6874,18 @@ function renderHistoryActionTooltip(actions, s, emptyTitle, queueTitle, directio
 
 function renderHistoryActionTooltipItem(entry, s, direction) {
   const { action, index } = entry
+  if (action.type === 'channel-remove') {
+    const channelName = action.channelName || action.before?.channel?.name || action.channelId || t('videos.channels.one')
+    const actionText = direction === 'redo' ? t('undo.removeChannelAgain') : t('undo.restoreChannel')
+    return `
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
+        <span class="undo-tooltip-video">${escHtml(channelName)}</span>
+        <span class="undo-tooltip-action">${escHtml(actionText)}</span>
+        <span class="undo-tooltip-time">${escHtml(formatHistoryActionTimestamp(action))}</span>
+      </button>
+    `
+  }
+
   const video = s.videos?.[action.videoId]
   const title = video?.title || t('videos.search.untitled')
   const timestamp = formatHistoryActionTimestamp(action)
@@ -6890,32 +7094,49 @@ function renderChannelFilterOptions(s) {
   const selected = getSelectedChannelFilters(s)
   const selectedCount = selected.size
   btn.textContent = getChannelFilterLabel(entries, selected)
-  btn.disabled = !entries.length
+  btn.disabled = false
 
-  menu.innerHTML = entries.length
+  const addForm = `
+    <form class="channel-filter-add" onsubmit="addChannelFromFilter(event)">
+      <input type="text"
+        id="channelFilterAddInput"
+        placeholder="${escHtml(t('settings.channels.placeholder'))}"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false">
+      <button type="submit" class="btn-secondary channel-filter-add-btn" id="channelFilterAddBtn">${escHtml(t('settings.channels.add'))}</button>
+    </form>
+  `
+  const trackedChannelIds = new Set((s.config.channels || []).map(channel => channel.id))
+  const options = entries.length
     ? entries.map(([id, name]) => {
       const refreshLabel = formatChannelLastRefreshLabel(s, id)
       const refreshTitle = formatChannelLastRefreshTitle(s, id)
+      const canRemove = trackedChannelIds.has(id)
       return `
-      <label class="channel-filter-option" data-channel-id="${escHtml(id)}" onclick="handleChannelFilterOptionClick(event, this.dataset.channelId)">
+      <div class="channel-filter-option" data-channel-id="${escHtml(id)}" onclick="handleChannelFilterOptionClick(event, this.dataset.channelId)">
         <input type="checkbox" data-channel-id="${escHtml(id)}" ${selected.has(id) ? 'checked' : ''} onchange="setChannelFilter(this.dataset.channelId, this.checked)">
         <span class="channel-filter-label">${escHtml(name)}</span>
         <span class="channel-filter-refresh" title="${escHtml(refreshTitle)}">${escHtml(refreshLabel)}</span>
-      </label>
+        ${canRemove ? `<button type="button" class="channel-filter-remove" data-channel-id="${escHtml(id)}" onclick="removeChannelFromFilter(event, this.dataset.channelId)" title="${escHtml(t('settings.remove'))}" aria-label="${escHtml(t('settings.remove'))}">×</button>` : ''}
+      </div>
     `
     }).join('')
     : `<div class="channel-filter-empty">${escHtml(t('videos.channels.none'))}</div>`
+  menu.innerHTML = addForm + options
   menu.dataset.selectedCount = selectedCount
   if (!menu.classList.contains('hidden')) positionFilterMenuWithinViewport(menu)
 }
 
 function getChannelFilterEntries(s) {
   const channels = new Map()
+  const removedChannelIds = new Set(s.config?.removedChannelIds || [])
   s.config.channels.forEach(channel => {
     channels.set(channel.id, channel.name || channel.id)
   })
   Object.values(s.videos).forEach(video => {
     const key = video.channelId || video.channelTitle
+    if (key && removedChannelIds.has(key)) return
     if (key) channels.set(key, video.channelTitle || channels.get(key) || key)
   })
   return Array.from(channels.entries()).sort((a, b) => a[1].localeCompare(b[1]))
@@ -6949,10 +7170,18 @@ function setChannelFilter(channelId, enabled) {
 }
 
 function handleChannelFilterOptionClick(event, channelId) {
-  if (!event?.altKey) return
-  event.preventDefault()
-  event.stopPropagation()
-  selectOnlyChannelFilter(channelId)
+  if (event?.target?.closest?.('.channel-filter-remove')) return
+  if (event?.altKey) {
+    event.preventDefault()
+    event.stopPropagation()
+    selectOnlyChannelFilter(channelId)
+    return
+  }
+  if (event?.target?.matches?.('input')) return
+  const checkbox = event.currentTarget?.querySelector?.('input[type="checkbox"]')
+  if (!checkbox) return
+  checkbox.checked = !checkbox.checked
+  setChannelFilter(channelId, checkbox.checked)
 }
 
 function selectOnlyChannelFilter(channelId) {
@@ -7068,7 +7297,7 @@ function getVisibleActiveVideos(videos, includeShorts = true) {
 
   videos
     .filter(v => getVideoStatus(v) !== 'watched')
-    .filter(v => !isHiddenFromActiveGrid(v))
+    .filter(v => !isHiddenFromVideoGrid(v))
     .filter(v => !isHiddenShortVideo(v, includeShorts))
     .sort(activeSort)
     .forEach(v => {
@@ -7092,7 +7321,7 @@ function getActiveVideoGroupKey(video) {
   return video?.channelId || video?.channelTitle || 'unknown'
 }
 
-function isHiddenFromActiveGrid(video) {
+function isHiddenFromVideoGrid(video) {
   return Boolean(video?.hiddenFromGrid)
 }
 

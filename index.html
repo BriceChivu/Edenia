@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260703-10">
+  <link rel="stylesheet" href="style.css?v=20260703-11">
   <script src="config.local.js"></script>
 </head>
 <body>
@@ -32,16 +32,6 @@
       <div class="settings-group settings-goal-group">
         <label data-i18n="settings.weeklyGoal.label">Weekly goal (hours)</label>
         <input type="number" id="settingsGoal" min="1" max="99" onchange="saveSettingsOnTheFly()" oninput="saveSettingsOnTheFly()">
-      </div>
-
-      <div class="settings-group settings-channels-group">
-        <label data-i18n="settings.channels.label">Channels</label>
-        <div id="channelList" class="channel-list"></div>
-        <div class="add-channel-row">
-          <input type="text" id="newChannelId" placeholder="Channel URL or ID" data-i18n-placeholder="settings.channels.placeholder" autocomplete="off" autocapitalize="off" spellcheck="false">
-          <button class="btn-secondary" onclick="addChannel()" data-i18n="settings.channels.add">Add</button>
-        </div>
-        <p class="step-hint" data-i18n="settings.channels.hint">Paste a YouTube channel URL, @handle, or channel ID. Best examples: youtube.com/@channel or youtube.com/channel/UCxxxxxxxx.</p>
       </div>
 
       <div class="settings-group settings-shorts-group">
@@ -298,6 +288,6 @@
   <div class="toast" id="toast"></div>
   <div class="heatmap-tooltip" id="heatmapTooltip"></div>
 
-  <script src="app.js?v=20260703-27"></script>
+  <script src="app.js?v=20260703-28"></script>
 </body>
 </html>
