@@ -9,11 +9,9 @@ Minor changes:
 - FIX: when Edenia loads it shows the level 1 picture for some time before switching to the current level.
 - Undo messages should be translated as well
 - Enable disabling Anki in the settings (that means no Anki in the heatmap pop up, no Anki info in the history summary, no Anki refresh attempts)
-- Adding channels in the settings is not intuitive for users, I should find a better way
 - move light/dark theme into settings. Should I keep it as a logo?
-- in the summary study table, the video watched time should be rounded. Currently, I see that one video is 12:18 long but it shows at 13min 
 - How does a new user connect to his ANki?
-- Once a manually added video is not in the video grid anymore, its channel name should disappear from the channel filter popup
+
 
 Big changes:
 - Add a "View filter" button next to the "video status filter" button that allows to display videos to watch by date (from newer to older, all channels mixed together) or by channel (filtered by channel first then within each channel by date, newer to older)
