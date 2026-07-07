@@ -216,6 +216,13 @@ const I18N_EN = {
   'history.noActivityYet': 'No activity yet',
   'history.showWatched': 'Show {count} videos watched on {date}',
   'history.watchedDialog': 'Watched videos',
+  'history.showPoints': 'Show points scored on {date}',
+  'history.pointsDialog': 'Point breakdown',
+  'history.pointsAnkiReviews': 'Anki reviews',
+  'history.pointsReviewsCount': '{count} reviews',
+  'history.pointsDailyTotal': 'Daily total',
+  'history.pointsRounding': 'rounded down',
+  'history.pointsNone': 'No points scored',
   'history.today': 'Today',
   'history.yesterday': 'Yesterday',
   'history.weekdays.mon': 'Mon',
@@ -318,6 +325,8 @@ const I18N_EN = {
   'time.hours': '{hours}h',
   'time.minutes': '{minutes} min',
   'points.short': 'pts',
+  'points.one': '{count} pnt',
+  'points.many': '{count} pts',
   'city.timelineAria': '{date}, {points} pts{changed}',
   'city.timelineChanged': ', city image changed',
   'toast.sandboxMode': 'Sandbox mode: demo data is isolated from your real progress',
@@ -491,6 +500,13 @@ const I18N = {
     'history.emptyRange': '這個範圍沒有活動。',
     'history.noActivityMap': '還沒有活動可以顯示。',
     'history.noActivityYet': '還沒有活動',
+    'history.showPoints': '顯示 {date} 的得分方式',
+    'history.pointsDialog': '得分明細',
+    'history.pointsAnkiReviews': 'Anki 複習',
+    'history.pointsReviewsCount': '{count} 張複習',
+    'history.pointsDailyTotal': '當日總分',
+    'history.pointsRounding': '向下取整',
+    'history.pointsNone': '沒有得分',
     'history.today': '今天',
     'history.yesterday': '昨天',
     'history.tooltip.videoTime': '影片時間',
@@ -554,6 +570,8 @@ const I18N = {
     'time.hours': '{hours} 小時',
     'time.minutes': '{minutes} 分鐘',
     'points.short': '分',
+    'points.one': '{count} 分',
+    'points.many': '{count} 分',
     'city.timelineAria': '{date}，{points} 分{changed}',
     'city.timelineChanged': '，小鎮圖片已改變',
     'time.notYet': '尚未',
@@ -657,6 +675,13 @@ const I18N = {
     'history.table.watched': '已看',
     'history.table.points': '分数',
     'history.emptyRange': '这个范围没有活动。',
+    'history.showPoints': '显示 {date} 的得分方式',
+    'history.pointsDialog': '得分明细',
+    'history.pointsAnkiReviews': 'Anki 复习',
+    'history.pointsReviewsCount': '{count} 张复习',
+    'history.pointsDailyTotal': '当日总分',
+    'history.pointsRounding': '向下取整',
+    'history.pointsNone': '没有得分',
     'history.heatmapAria': '{date}：{points} 分；{time} 视频时间；已看 {videos} 部视频；复习 {reviewed} 张 Anki 卡；新增 {created} 张 Anki 卡',
     'history.tooltip.points': '{count} 分',
     'videos.title': '视频',
@@ -704,6 +729,8 @@ const I18N = {
     'time.hours': '{hours} 小时',
     'time.minutes': '{minutes} 分钟',
     'points.short': '分',
+    'points.one': '{count} 分',
+    'points.many': '{count} 分',
     'city.timelineAria': '{date}，{points} 分{changed}',
     'city.timelineChanged': '，小镇图片已改变',
     'time.notYet': '尚未',
@@ -807,6 +834,13 @@ const I18N = {
     'history.table.watched': 'Vistos',
     'history.table.points': 'PTS',
     'history.emptyRange': 'No hay actividad en este rango.',
+    'history.showPoints': 'Mostrar puntos ganados el {date}',
+    'history.pointsDialog': 'Detalle de puntos',
+    'history.pointsAnkiReviews': 'Repasos de Anki',
+    'history.pointsReviewsCount': '{count} repasos',
+    'history.pointsDailyTotal': 'Total del día',
+    'history.pointsRounding': 'redondeado hacia abajo',
+    'history.pointsNone': 'No se ganaron puntos',
     'history.heatmapAria': '{date}: {points} puntos; {time} de video; {videos} videos vistos; {reviewed} tarjetas Anki repasadas; {created} tarjetas Anki nuevas',
     'history.tooltip.points': '{count} pts',
     'history.today': 'Hoy',
@@ -856,6 +890,8 @@ const I18N = {
     'time.hours': '{hours} h',
     'time.minutes': '{minutes} min',
     'points.short': 'pts',
+    'points.one': '{count} pto',
+    'points.many': '{count} pts',
     'city.timelineAria': '{date}, {points} pts{changed}',
     'city.timelineChanged': ', imagen de ciudad cambiada',
     'time.notYet': 'Aún no',
@@ -959,6 +995,13 @@ const I18N = {
     'history.table.watched': 'Vues',
     'history.table.points': 'PTS',
     'history.emptyRange': 'Aucune activité dans cette période.',
+    'history.showPoints': 'Afficher les points gagnés le {date}',
+    'history.pointsDialog': 'Détail des points',
+    'history.pointsAnkiReviews': 'Révisions Anki',
+    'history.pointsReviewsCount': '{count} révisions',
+    'history.pointsDailyTotal': 'Total du jour',
+    'history.pointsRounding': 'arrondi vers le bas',
+    'history.pointsNone': 'Aucun point gagné',
     'history.heatmapAria': '{date} : {points} points ; {time} de vidéo ; {videos} vidéos vues ; {reviewed} cartes Anki révisées ; {created} nouvelles cartes Anki',
     'history.tooltip.points': '{count} pts',
     'history.today': 'Aujourd’hui',
@@ -1008,6 +1051,8 @@ const I18N = {
     'time.hours': '{hours} h',
     'time.minutes': '{minutes} min',
     'points.short': 'pts',
+    'points.one': '{count} pt',
+    'points.many': '{count} pts',
     'city.timelineAria': '{date}, {points} pts{changed}',
     'city.timelineChanged': ', image de ville modifiée',
     'time.notYet': 'Pas encore',
@@ -1211,6 +1256,7 @@ const WALKTHROUGH_HOOKS = {
     closeChannelFilterMenu()
     closeManualVideoPopover()
     closeHistoryVideoPopovers()
+    closeHistoryPointsPopovers()
     closeHistoryPeriodPopovers()
     closeHistoryActionPopovers()
     hideHeatmapTooltip()
@@ -4726,12 +4772,86 @@ function renderHistoryWatchedCell(row) {
   `
 }
 
+function formatHistoryPointNumber(points) {
+  const value = Number(points || 0)
+  return new Intl.NumberFormat(currentLocale, {
+    maximumFractionDigits: Number.isInteger(value) ? 0 : 2
+  }).format(value)
+}
+
+function formatHistoryPointLabel(points) {
+  const value = Number(points || 0)
+  const key = Math.abs(value - 1) < 0.0001 ? 'points.one' : 'points.many'
+  return t(key, { count: formatHistoryPointNumber(value) })
+}
+
+function getHistoryPointBreakdown(row) {
+  const videoItems = (row.watchedVideos || [])
+    .filter(video => (video.duration || 0) > 0)
+    .map(video => ({
+      type: 'video',
+      title: video.title || 'Untitled video',
+      detail: formatHistoryTime(video.duration || 0),
+      points: ((video.duration || 0) / 3600) * VIDEO_HOUR_POINTS
+    }))
+
+  const ankiPoints = ((row.ankiReviewed || 0) / ANKI_REVIEW_CHUNK_SIZE) * ANKI_REVIEW_CHUNK_POINTS
+  const items = []
+  if ((row.ankiReviewed || 0) > 0) {
+    items.push({
+      type: 'anki',
+      title: t('history.pointsAnkiReviews'),
+      detail: t('history.pointsReviewsCount', { count: row.ankiReviewed }),
+      points: ankiPoints
+    })
+  }
+  items.push(...videoItems)
+
+  const rawTotal = items.reduce((total, item) => total + item.points, 0)
+  return {
+    items,
+    rawTotal,
+    total: Math.floor(rawTotal)
+  }
+}
+
+function renderHistoryPointsCell(row) {
+  const breakdown = getHistoryPointBreakdown(row)
+  const points = getHistoryDayPoints(row)
+  return `
+    <span class="history-points-cell" onmouseenter="openHistoryPointsPopover(event)" onmouseleave="closeHistoryPointsPopoverSoon()" onfocusin="openHistoryPointsPopover(event)" onfocusout="closeHistoryPointsPopoverSoon()" onclick="toggleHistoryPointsPopover(event)">
+      <button type="button" class="history-points-trigger" aria-expanded="false" aria-label="${escHtml(t('history.showPoints', { date: formatHeatmapTitle(row) }))}">
+        ${points}
+      </button>
+      <span class="history-points-popover" role="dialog" aria-label="${escHtml(t('history.pointsDialog'))}">
+        ${breakdown.items.length
+          ? breakdown.items.map(item => `
+            <span class="history-points-popover-item">
+              <span class="history-points-popover-title">${escHtml(item.title)}</span>
+              <span class="history-points-popover-detail">${escHtml(item.detail)}</span>
+              <span class="history-points-popover-score">${escHtml(formatHistoryPointLabel(Math.floor(item.points)))}</span>
+            </span>
+          `).join('')
+          : `<span class="history-points-popover-empty">${escHtml(t('history.pointsNone'))}</span>`}
+        <span class="history-points-popover-total">
+          <span>${escHtml(t('history.pointsDailyTotal'))}</span>
+          <b>${escHtml(formatHistoryPointLabel(breakdown.total))}</b>
+          ${breakdown.rawTotal !== breakdown.total
+            ? `<small>${escHtml(formatHistoryPointLabel(breakdown.rawTotal))} ${escHtml(t('history.pointsRounding'))}</small>`
+            : ''}
+        </span>
+      </span>
+    </span>
+  `
+}
+
 function toggleHistoryVideoPopover(event) {
   event.stopPropagation()
   const cell = event.currentTarget.closest('.history-video-cell')
   if (!cell) return
   const shouldOpen = !cell.classList.contains('open')
   closeManualVideoPopover()
+  closeHistoryPointsPopovers()
   closeHistoryPeriodPopovers()
   closeHistoryVideoPopovers(cell)
   cell.classList.toggle('open', shouldOpen)
@@ -4754,6 +4874,54 @@ function closeHistoryVideoPopoversOnOutsideClick(event) {
 function closeHistoryVideoPopoversOnEscape(event) {
   if (event.key !== 'Escape') return
   closeHistoryVideoPopovers()
+}
+
+function toggleHistoryPointsPopover(event) {
+  event.stopPropagation()
+  const cell = event.currentTarget.closest('.history-points-cell')
+  if (!cell) return
+  const shouldOpen = !cell.classList.contains('open')
+  openHistoryPointsCell(cell, shouldOpen)
+}
+
+function openHistoryPointsPopover(event) {
+  const cell = event.currentTarget.closest('.history-points-cell')
+  if (!cell) return
+  openHistoryPointsCell(cell, true)
+}
+
+function closeHistoryPointsPopoverSoon() {
+  clearTimeout(openHistoryPointsCell._closeTimer)
+  openHistoryPointsCell._closeTimer = window.setTimeout(() => closeHistoryPointsPopovers(), 80)
+}
+
+function openHistoryPointsCell(cell, shouldOpen = true) {
+  clearTimeout(openHistoryPointsCell._closeTimer)
+  closeManualVideoPopover()
+  closeHistoryVideoPopovers()
+  closeHistoryPeriodPopovers()
+  closeHistoryPointsPopovers(cell)
+  cell.classList.toggle('open', shouldOpen)
+  cell.querySelector('.history-points-trigger')?.setAttribute('aria-expanded', String(shouldOpen))
+}
+
+function closeHistoryPointsPopovers(exceptCell = null) {
+  clearTimeout(openHistoryPointsCell._closeTimer)
+  document.querySelectorAll('.history-points-cell.open').forEach(cell => {
+    if (cell === exceptCell) return
+    cell.classList.remove('open')
+    cell.querySelector('.history-points-trigger')?.setAttribute('aria-expanded', 'false')
+  })
+}
+
+function closeHistoryPointsPopoversOnOutsideClick(event) {
+  if (event.target.closest('.history-points-cell')) return
+  closeHistoryPointsPopovers()
+}
+
+function closeHistoryPointsPopoversOnEscape(event) {
+  if (event.key !== 'Escape') return
+  closeHistoryPointsPopovers()
 }
 
 function jumpToWatchedVideo(videoId) {
@@ -4809,6 +4977,7 @@ function toggleVideoSearchPopover(event) {
   closeChannelFilterMenu()
   closeManualVideoPopover()
   closeHistoryVideoPopovers()
+  closeHistoryPointsPopovers()
   closeHistoryPeriodPopovers()
   closeHistoryActionPopovers()
   closeVideoSearchPopover()
@@ -5010,7 +5179,7 @@ function renderStudyHistoryPanel(s) {
             <span data-label="${escHtml(t('history.table.video'))}">${formatHistoryTime(row.secondsWatched)}</span>
             <span data-label="${escHtml(t('history.table.watched'))}">${renderHistoryWatchedCell(row)}</span>
             <span data-label="${escHtml(t('history.table.anki'))}">${row.ankiReviewed} / ${row.ankiCreated}</span>
-            <span class="history-points-col" data-label="${escHtml(t('history.table.points'))}">${getHistoryDayPoints(row)}</span>
+            <span class="history-points-col" data-label="${escHtml(t('history.table.points'))}">${renderHistoryPointsCell(row)}</span>
           </div>
         `).join('')}
       `
@@ -5347,6 +5516,7 @@ function toggleHistoryPeriodPopover(event, range) {
   const shouldOpen = !cell.classList.contains('open')
   closeManualVideoPopover()
   closeHistoryVideoPopovers()
+  closeHistoryPointsPopovers()
   closeHistoryPeriodPopovers(cell)
   cell.classList.toggle('open', shouldOpen)
   event.currentTarget.setAttribute('aria-expanded', String(shouldOpen))
@@ -6304,6 +6474,7 @@ function toggleHistoryActionPopover(event, direction) {
   closeChannelFilterMenu()
   closeManualVideoPopover()
   closeHistoryVideoPopovers()
+  closeHistoryPointsPopovers()
   closeHistoryPeriodPopovers()
   closeHistoryActionPopovers(wrap)
   wrap.classList.toggle('open', shouldOpen)
@@ -6490,6 +6661,7 @@ function toggleChannelFilterMenu() {
   if (!btn || !menu || btn.disabled) return
   closeStatusFilterMenu()
   closeManualVideoPopover()
+  closeHistoryPointsPopovers()
   const isOpen = menu.classList.toggle('hidden') === false
   btn.setAttribute('aria-expanded', String(isOpen))
   if (isOpen) positionFilterMenuWithinViewport(menu)
@@ -6512,6 +6684,7 @@ function toggleManualVideoPopover(event) {
   if (!btn || !menu) return
   closeStatusFilterMenu()
   closeChannelFilterMenu()
+  closeHistoryPointsPopovers()
   closeHistoryActionPopovers()
   const isOpen = menu.classList.toggle('hidden') === false
   btn.setAttribute('aria-expanded', String(isOpen))
@@ -6704,6 +6877,7 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 document.addEventListener('DOMContentLoaded', init)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
 document.addEventListener('click', closeHistoryVideoPopoversOnOutsideClick)
+document.addEventListener('click', closeHistoryPointsPopoversOnOutsideClick)
 document.addEventListener('click', closeHistoryPeriodPopoversOnOutsideClick)
 document.addEventListener('click', closeHistoryActionPopoversOnOutsideClick)
 document.addEventListener('click', closeManualVideoPopoverOnOutsideClick)
@@ -6711,6 +6885,7 @@ document.addEventListener('click', closeVideoSearchPopoverOnOutsideClick)
 document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
 document.addEventListener('click', clearCityWaveformPreviewOnOutsideClick)
 document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
+document.addEventListener('keydown', closeHistoryPointsPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryPeriodPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryActionPopoversOnEscape)
 document.addEventListener('keydown', closeManualVideoPopoverOnEscape)
