@@ -7152,10 +7152,15 @@ function getChannelFilterEntries(s) {
   })
   Object.values(s.videos).forEach(video => {
     const key = video.channelId || video.channelTitle
+    if (isHiddenManualVideoChannelEntry(video)) return
     if (key && removedChannelIds.has(key)) return
     if (key) channels.set(key, video.channelTitle || channels.get(key) || key)
   })
   return Array.from(channels.entries()).sort((a, b) => a[1].localeCompare(b[1]))
+}
+
+function isHiddenManualVideoChannelEntry(video) {
+  return Boolean(video?.manuallyAdded && video?.source === 'manual' && isHiddenFromVideoGrid(video))
 }
 
 function getSelectedChannelFilters(s) {
