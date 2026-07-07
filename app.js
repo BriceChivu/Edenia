@@ -45,7 +45,6 @@ const UNDO_STACK_LIMIT = 50
 const MIN_WEEKLY_GOAL_HOURS = 1
 const MAX_WEEKLY_GOAL_HOURS = 99
 const VIDEO_HOUR_POINTS = 3
-const VIDEO_WATCHED_POINTS = 1
 const SHORT_VIDEO_MAX_DURATION_SECONDS = 180
 const SHORT_VIDEO_DETECTION_VERSION = 1
 const ANKI_REVIEW_CHUNK_SIZE = 60
@@ -1430,6 +1429,7 @@ function loadState() {
         shouldSave = true
       }
       if (normalizeAnkiDateKeys(state)) shouldSave = true
+      if (normalizeVideoWatchProgressState(state)) shouldSave = true
       normalizeUndoState(state)
       if (normalizeActivityLogState(state)) shouldSave = true
       if (normalizeOnboardingState(state)) shouldSave = true
@@ -1460,6 +1460,7 @@ function loadState() {
 function saveState(s, options = {}) {
   const { backup = true, backupReason = 'automatic backup', forceBackup = false } = options
   normalizeActivityLogState(s)
+  normalizeVideoWatchProgressState(s)
   if (backup) createStateBackup(backupReason, { force: forceBackup })
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
@@ -1669,6 +1670,40 @@ function normalizeUndoState(state) {
     .filter(action => action?.type === 'video-status')
     .slice(-UNDO_STACK_LIMIT)
   delete state.lastUndo
+}
+
+function normalizeVideoWatchProgress(progress, duration = null) {
+  const entries = Array.isArray(progress) ? progress : []
+  const maxSeconds = Number.isFinite(Number(duration)) && Number(duration) > 0
+    ? Math.floor(Number(duration))
+    : null
+
+  return entries
+    .filter(entry => entry && typeof entry === 'object')
+    .map(entry => {
+      const watchedAt = isValidTimestamp(entry.watchedAt) ? entry.watchedAt : null
+      const rawSeconds = Math.floor(Number(entry.seconds || 0))
+      const seconds = maxSeconds === null
+        ? Math.max(0, rawSeconds)
+        : clampNumber(rawSeconds, 0, maxSeconds)
+      return watchedAt && seconds > 0 ? { watchedAt, seconds } : null
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.watchedAt) - new Date(b.watchedAt))
+}
+
+function normalizeVideoWatchProgressState(state) {
+  if (!state?.videos || typeof state.videos !== 'object') return false
+  let changed = false
+  Object.values(state.videos).forEach(video => {
+    const normalized = normalizeVideoWatchProgress(video.watchProgress, video.duration)
+    const previous = Array.isArray(video.watchProgress) ? video.watchProgress : []
+    if (JSON.stringify(previous) !== JSON.stringify(normalized)) {
+      video.watchProgress = normalized
+      changed = true
+    }
+  })
+  return changed
 }
 
 function normalizeActivityLogState(state) {
@@ -1916,6 +1951,14 @@ function getCurrentAppDate(state = null) {
 
 function getCurrentAppDateKey(state = null) {
   return toDateKey(getCurrentAppDate(state))
+}
+
+function getCurrentAppTimestamp(state = null) {
+  if (!IS_SANDBOX) return new Date().toISOString()
+  const now = new Date()
+  const date = getCurrentAppDate(state)
+  date.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds())
+  return date.toISOString()
 }
 
 function getAnkiDateKey(from = new Date()) {
@@ -2454,8 +2497,9 @@ function getLatestSandboxDateKey(state) {
   if (state?.sandboxStartDate) dateKeys.push(state.sandboxStartDate)
 
   Object.values(state?.videos || {}).forEach(video => {
-    if (video.watchedAt) dateKeys.push(toDateKey(new Date(video.watchedAt)))
-    else if (video.publishedAt && video.id?.startsWith?.('sandbox-added-')) {
+    const watchedDateKeys = getVideoWatchActivityDateKeys(video)
+    watchedDateKeys.forEach(dateKey => dateKeys.push(dateKey))
+    if (!watchedDateKeys.length && video.publishedAt && video.id?.startsWith?.('sandbox-added-')) {
       dateKeys.push(toDateKey(new Date(video.publishedAt)))
     }
   })
@@ -3275,6 +3319,46 @@ function getVideoUrl(video) {
   return resumeAtSeconds !== null ? `${url}&t=${resumeAtSeconds}s` : url
 }
 
+function getVideoWatchProgressEntries(video) {
+  const entries = normalizeVideoWatchProgress(video?.watchProgress, video?.duration)
+  if (entries.length) return entries
+
+  if (video?.watchedAt && getVideoStatus(video) === 'watched') {
+    const seconds = Math.max(0, Math.floor(Number(video.duration || 0)))
+    return seconds > 0 ? [{ watchedAt: video.watchedAt, seconds }] : []
+  }
+
+  return []
+}
+
+function getTotalVideoWatchProgressSeconds(video) {
+  return getVideoWatchProgressEntries(video)
+    .reduce((total, entry) => total + (entry.seconds || 0), 0)
+}
+
+function addVideoWatchProgress(video, seconds, watchedAt = new Date().toISOString()) {
+  if (!video) return false
+  const normalizedSeconds = Math.max(0, Math.floor(Number(seconds || 0)))
+  if (!normalizedSeconds || !isValidTimestamp(watchedAt)) return false
+
+  const entries = normalizeVideoWatchProgress(video.watchProgress, video.duration)
+  const duration = Math.max(0, Math.floor(Number(video.duration || 0)))
+  const alreadyWatched = entries.reduce((total, entry) => total + entry.seconds, 0)
+  const secondsToAdd = duration > 0
+    ? Math.min(normalizedSeconds, Math.max(0, duration - alreadyWatched))
+    : normalizedSeconds
+
+  if (!secondsToAdd) return false
+  entries.push({ watchedAt, seconds: secondsToAdd })
+  video.watchProgress = normalizeVideoWatchProgress(entries, video.duration)
+  return true
+}
+
+function getVideoWatchActivityDateKeys(video) {
+  return getVideoWatchProgressEntries(video)
+    .map(entry => toDateKey(new Date(entry.watchedAt)))
+}
+
 function isActiveRefreshVideo(video) {
   return getVideoStatus(video) !== 'watched'
 }
@@ -3574,6 +3658,7 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
       status:     existing?.status    ?? 'unwatched',
       watchedAt:  existing?.watchedAt ?? null,
       resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, duration),
+      watchProgress: normalizeVideoWatchProgress(existing?.watchProgress ?? v.watchProgress, duration),
       source: existing?.source || v.source || null,
       manuallyAdded: Boolean(existing?.manuallyAdded || v.manuallyAdded),
       isShort: isShortDuration(duration),
@@ -3861,11 +3946,13 @@ function markVideo(videoId, newStatus) {
   const video = s.videos[videoId]
   if (!video) return
   if (video.status === newStatus) return
+  const previousStatus = getVideoStatus(video)
 
   const undoAction = {
     type: 'video-status',
     videoId,
     before: {
+      video: cloneVideoForHistoryAction(video),
       status: video.status,
       watchedAt: video.watchedAt || null,
       resumeAtSeconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
@@ -3876,12 +3963,20 @@ function markVideo(videoId, newStatus) {
   }
 
   video.status    = newStatus
-  video.watchedAt = newStatus === 'watched' ? new Date().toISOString() : null
+  const watchedAt = newStatus === 'watched' ? getCurrentAppTimestamp(s) : null
+  if (watchedAt) {
+    const missingSeconds = Math.max(0, Math.floor(Number(video.duration || 0)) - getTotalVideoWatchProgressSeconds(video))
+    if (missingSeconds > 0) addVideoWatchProgress(video, missingSeconds, watchedAt)
+  } else if (newStatus === 'unwatched' || newStatus === 'watch-later' || previousStatus === 'watched') {
+    video.watchProgress = []
+  }
+  video.watchedAt = watchedAt
   video.resumeAtSeconds = newStatus === 'partial'
     ? normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
     : null
   undoAction.after.watchedAt = video.watchedAt
   undoAction.after.resumeAtSeconds = video.resumeAtSeconds
+  undoAction.after.video = cloneVideoForHistoryAction(video)
   pushUndoAction(s, undoAction)
 
   syncStreak(s)
@@ -3907,11 +4002,13 @@ function markVideoInProgressOnOpen(videoId) {
     type: 'video-status',
     videoId,
     before: {
+      video: cloneVideoForHistoryAction(video),
       status: video.status,
       watchedAt: video.watchedAt || null,
       resumeAtSeconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
     },
     after: {
+      video: null,
       status: 'partial',
       watchedAt: null,
       resumeAtSeconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
@@ -3921,6 +4018,10 @@ function markVideoInProgressOnOpen(videoId) {
   video.status = 'partial'
   video.watchedAt = null
   video.resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
+  const action = s.undoStack[s.undoStack.length - 1]
+  if (action?.videoId === videoId && action.after) {
+    action.after.video = cloneVideoForHistoryAction(video)
+  }
   appendActivityLog(s, {
     actor: 'user',
     type: 'video-status',
@@ -3975,7 +4076,8 @@ async function addWatchedVideoFromUrl(event) {
       return
     }
 
-    const watchedAt = new Date().toISOString()
+    const watchedAt = getCurrentAppTimestamp(s)
+    const watchProgress = normalizeVideoWatchProgress(existing?.watchProgress, existing?.duration ?? metadata.duration)
     s.videos[videoId] = {
       ...metadata,
       ...existing,
@@ -3989,9 +4091,12 @@ async function addWatchedVideoFromUrl(event) {
       status: 'watched',
       watchedAt,
       resumeAtSeconds: null,
+      watchProgress,
       source: existing?.source || 'manual',
       manuallyAdded: true
     }
+    const missingSeconds = Math.max(0, Math.floor(Number(s.videos[videoId].duration || 0)) - getTotalVideoWatchProgressSeconds(s.videos[videoId]))
+    if (missingSeconds > 0) addVideoWatchProgress(s.videos[videoId], missingSeconds, watchedAt)
 
     pushUndoAction(s, {
       type: 'video-status',
@@ -4042,7 +4147,34 @@ function saveVideoResumeTime(videoId, value) {
     return
   }
 
+  const beforeVideo = cloneVideoForHistoryAction(video)
+  const previousResume = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
+  const nextResume = parsed || 0
+  if (nextResume === previousResume) {
+    renderAll(s)
+    return
+  }
+  const watchedAt = getCurrentAppTimestamp(s)
+  const progressDelta = Math.max(0, nextResume - previousResume)
+  if (progressDelta > 0) addVideoWatchProgress(video, progressDelta, watchedAt)
   video.resumeAtSeconds = parsed
+  pushUndoAction(s, {
+    type: 'video-status',
+    videoId,
+    before: {
+      video: beforeVideo,
+      status: beforeVideo.status,
+      watchedAt: beforeVideo.watchedAt || null,
+      resumeAtSeconds: normalizeResumeAtSeconds(beforeVideo.resumeAtSeconds, beforeVideo.duration)
+    },
+    after: {
+      video: cloneVideoForHistoryAction(video),
+      status: video.status,
+      watchedAt: video.watchedAt || null,
+      resumeAtSeconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
+    }
+  })
+  syncStreak(s)
   saveState(s)
   renderAll(s)
 }
@@ -4058,7 +4190,10 @@ function pushUndoAction(s, action) {
 }
 
 function cloneVideoForHistoryAction(video) {
-  return video ? { ...video } : null
+  return video ? {
+    ...video,
+    watchProgress: normalizeVideoWatchProgress(video.watchProgress, video.duration)
+  } : null
 }
 
 function undoLastVideoAction() {
@@ -4426,10 +4561,7 @@ function getStudyHistory(s, range = selectedHistoryRange, periodKey = selectedHi
 function getStudyActivityDateKeys(s) {
   const dateKeys = new Set()
   for (const video of Object.values(s?.videos || {})) {
-    if (!video.watchedAt || video.status !== 'watched') continue
-    const date = new Date(video.watchedAt)
-    if (Number.isNaN(date.getTime())) continue
-    dateKeys.add(toDateKey(date))
+    getVideoWatchActivityDateKeys(video).forEach(dateKey => dateKeys.add(dateKey))
   }
 
   for (const [dateKey, day] of Object.entries(s?.anki || {})) {
@@ -4507,18 +4639,28 @@ function getStudyHistoryBetween(s, start, end) {
   }
 
   for (const video of Object.values(s.videos || {})) {
-    if (!video.watchedAt || video.status !== 'watched') continue
-    const date = new Date(video.watchedAt)
-    if (date < start || date > end) continue
-    const bucket = ensureBucket(toDateKey(date))
-    bucket.videosWatched += 1
-    bucket.secondsWatched += video.duration || 0
-    bucket.watchedVideos.push({
-      id: video.id || '',
-      title: video.title || 'Untitled video',
-      thumbnail: video.thumbnail || '',
-      duration: video.duration || 0,
-      watchedAt: video.watchedAt
+    getVideoWatchProgressEntries(video).forEach(entry => {
+      const date = new Date(entry.watchedAt)
+      if (date < start || date > end) return
+      const bucket = ensureBucket(toDateKey(date))
+      if (!bucket.watchedVideoMap) bucket.watchedVideoMap = new Map()
+      const videoId = video.id || ''
+      let watchedVideo = bucket.watchedVideoMap.get(videoId)
+      if (!watchedVideo) {
+        watchedVideo = {
+          id: videoId,
+          title: video.title || 'Untitled video',
+          thumbnail: video.thumbnail || '',
+          duration: 0,
+          watchedAt: entry.watchedAt
+        }
+        bucket.watchedVideoMap.set(videoId, watchedVideo)
+        bucket.watchedVideos.push(watchedVideo)
+        bucket.videosWatched += 1
+      }
+      watchedVideo.duration += entry.seconds || 0
+      if (new Date(entry.watchedAt) > new Date(watchedVideo.watchedAt)) watchedVideo.watchedAt = entry.watchedAt
+      bucket.secondsWatched += entry.seconds || 0
     })
   }
 
@@ -4534,6 +4676,7 @@ function getStudyHistoryBetween(s, start, end) {
   const rows = Array.from(buckets.values()).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
   rows.forEach(row => {
     row.watchedVideos.sort((a, b) => new Date(b.watchedAt) - new Date(a.watchedAt))
+    delete row.watchedVideoMap
   })
 
   const summary = rows.reduce((acc, row) => {
@@ -4613,13 +4756,21 @@ function closeHistoryVideoPopoversOnEscape(event) {
 
 function jumpToWatchedVideo(videoId) {
   const targetId = String(videoId ?? '')
-  if (!scrollToVideoCard(targetId, '#watchedGrid .video-card')) {
-    showToast(t('toast.watchedHidden'), 'warn')
+  const state = loadState()
+  if (!state?.videos?.[targetId]) {
     closeHistoryVideoPopovers()
+    showToast(t('toast.videoGone'), 'warn')
     return
   }
 
   closeHistoryVideoPopovers()
+  forcedSearchVideoId = targetId
+  renderFeed(state)
+  window.setTimeout(() => {
+    const found = scrollToVideoCard(targetId)
+    forcedSearchVideoId = null
+    if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
+  }, 0)
 }
 
 function scrollToVideoCard(videoId, selector = '.video-card') {
@@ -4888,7 +5039,6 @@ function getHistoryDayPoints(row) {
   const hoursWatched = row.secondsWatched / 3600
   const score =
     (hoursWatched * VIDEO_HOUR_POINTS) +
-    (row.videosWatched * VIDEO_WATCHED_POINTS) +
     (Math.floor(row.ankiReviewed / ANKI_REVIEW_CHUNK_SIZE) * ANKI_REVIEW_CHUNK_POINTS)
   return Math.floor(score)
 }
@@ -5043,17 +5193,9 @@ function getWeeklyStats(s) {
   if (IS_SANDBOX) weekEnd.setHours(23, 59, 59, 999)
 
   const videos = Object.values(s.videos)
-  const weekVids = videos
-    .filter(v => {
-      if (!v.watchedAt) return false
-      const watchedAt = new Date(v.watchedAt)
-      return watchedAt >= weekStart && watchedAt <= weekEnd
-    })
-
-  const watched = weekVids.filter(v => v.status === 'watched')
   const partial = videos.filter(v => v.status === 'partial')
-
-  const secondsWatched = watched.reduce((sum, v) => sum + (v.duration || 0), 0)
+  const weekHistory = getStudyHistoryBetween(s, weekStart, weekEnd).summary
+  const secondsWatched = weekHistory.secondsWatched
 
   const hoursWatched = secondsWatched / 3600
   const goalHours    = normalizeWeeklyGoalHours(s.config.weeklyGoalHours)
@@ -5068,7 +5210,7 @@ function getWeeklyStats(s) {
 
   return {
     hoursWatched, secondsWatched, goalHours, goalProgress,
-    videosWatched: watched.length,
+    videosWatched: weekHistory.videosWatched,
     videosPartial: partial.length,
     remainingSeconds,
     ankiReviewed: ankiThisWeek.reviewed,
@@ -5416,7 +5558,7 @@ function getFirstStudyActionDateKey(s) {
   if (IS_SANDBOX && s?.sandboxStartDate) dates.push(s.sandboxStartDate)
 
   Object.values(s?.videos || {}).forEach(video => {
-    if (video.watchedAt) dates.push(toDateKey(new Date(video.watchedAt)))
+    getVideoWatchActivityDateKeys(video).forEach(dateKey => dates.push(dateKey))
   })
 
   Object.entries(s?.anki || {}).forEach(([dateKey, day]) => {
@@ -5432,7 +5574,7 @@ function getLastStudyActionDateKey(s) {
   if (IS_SANDBOX && s?.sandboxLastDate) dates.push(s.sandboxLastDate)
 
   Object.values(s?.videos || {}).forEach(video => {
-    if (video.watchedAt) dates.push(toDateKey(new Date(video.watchedAt)))
+    getVideoWatchActivityDateKeys(video).forEach(dateKey => dates.push(dateKey))
   })
 
   Object.entries(s?.anki || {}).forEach(([dateKey, day]) => {
