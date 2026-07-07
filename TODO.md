@@ -1,5 +1,6 @@
 # CHANGES:
 Minor changes:
+- add a small and subtle cross in the right corner of each video in the video "to watch" grid so that the user can remove a video from the grid, even if it's from a channel. This removed video should automatically be replaced by the next newest video of that channel. E.g., video 1, 2, 3, 4 and 5 of channel A are loaded in the video grid. The user removed the video 1. Video 6 of channel A should then be displayed.
 - BRICE to think about: rewrite the walkthrough to make it shorter and in correct order
 - small duck walking around/popup giving motivational quotes
 - Photoshop: add the duck on the island. sometimes shifting to different locations (like on the deck, in the water floating, or in front of the door of the house)
@@ -12,8 +13,10 @@ Minor changes:
 - Adding channels in the settings is not intuitive for users, I should find a better way
 - move light/dark theme into settings. Should I keep it as a logo?
 - in the summary study table, the video watched time should be rounded. Currently, I see that one video is 12:18 long but it shows at 13min 
+- How does a new user connect to his ANki?
 
 Big changes:
+- Add a "View filter" button next to the "video status filter" button that allows to display videos to watch by date (from newer to older, all channels mixed together) or by channel (filtered by channel first then within each channel by date, newer to older)
 - How feasible/complicated this is? Being able to view videos on the website itself (e.g., pop up window when video is clicked). When pausing, the in progress timestamp should be populated automatically in hh:mm:ss format
 - Build Android app
 

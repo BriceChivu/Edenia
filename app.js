@@ -306,6 +306,7 @@ const I18N_EN = {
   'videos.card.continueAt': 'Continue at',
   'videos.card.timestampLabel': 'Continue watching timestamp',
   'videos.card.inProgressRibbon': 'In progress',
+  'videos.card.removeFromGrid': 'Remove from grid',
   'videos.refreshing': 'Refreshing...',
   'videos.refresh': 'Refresh',
   'activity.empty': 'No activity logged yet',
@@ -391,6 +392,7 @@ const I18N_EN = {
   'toast.videoGone': 'That video is no longer available',
   'toast.watchedHidden': 'That watched video is hidden by the current filters',
   'toast.couldNotShowVideo': 'Could not show that video right now',
+  'toast.videoRemovedFromGrid': 'Removed from the video grid',
   'toast.levelUp': 'Level up! {label}',
   'toast.localeChanged': 'Language changed to {language}',
   'toast.skippedShorts': ', skipped {count} short video{plural}',
@@ -408,6 +410,7 @@ const I18N_EN = {
   'undo.doneAt': 'Done {time}',
   'undo.logUndoTitle': 'Undo action',
   'undo.logRedoTitle': 'Redo action',
+  'log.videoRemovedFromGrid': 'Video removed from grid',
   'walkthrough.next': 'Next',
   'walkthrough.back': 'Back',
   'walkthrough.skip': 'Skip',
@@ -581,6 +584,7 @@ const I18N = {
     'videos.card.clear': '清除',
     'videos.card.resume': '繼續觀看',
     'videos.card.continueAt': '繼續於',
+    'videos.card.removeFromGrid': '從清單移除',
     'activity.empty': '還沒有活動紀錄',
     'activity.auto': '自動',
     'activity.user': '使用者',
@@ -621,6 +625,7 @@ const I18N = {
     'toast.localeChanged': '語言已改為 {language}',
     'toast.nothingRedo': '沒有可重做動作',
     'toast.nothingUndo': '沒有可復原動作',
+    'toast.videoRemovedFromGrid': '已從影片清單移除',
     'undo.removed': '{verb}變更：「{title}」已移除。',
     'undo.backTo': '{verb}變更：「{title}」已回到{status}。',
     'undo.redid': '已重做',
@@ -631,6 +636,7 @@ const I18N = {
     'undo.doneAt': '完成於 {time}',
     'undo.logUndoTitle': '復原動作',
     'undo.logRedoTitle': '重做動作',
+    'log.videoRemovedFromGrid': '影片已從清單移除',
     'walkthrough.next': '下一步',
     'walkthrough.back': '上一步',
     'walkthrough.skip': '略過',
@@ -774,6 +780,7 @@ const I18N = {
     'videos.card.unmark': '取消标记',
     'videos.card.resume': '继续观看',
     'videos.card.continueAt': '继续于',
+    'videos.card.removeFromGrid': '从列表移除',
     'activity.empty': '还没有活动记录',
     'backups.empty': '还没有本地备份',
     'backups.restore': '恢复',
@@ -811,6 +818,7 @@ const I18N = {
     'toast.localeChanged': '语言已改为 {language}',
     'toast.nothingRedo': '没有可重做动作',
     'toast.nothingUndo': '没有可撤销动作',
+    'toast.videoRemovedFromGrid': '已从视频列表移除',
     'undo.removed': '{verb}变更：“{title}”已移除。',
     'undo.backTo': '{verb}变更：“{title}”已回到{status}。',
     'undo.redid': '已重做',
@@ -821,6 +829,7 @@ const I18N = {
     'undo.doneAt': '完成于 {time}',
     'undo.logUndoTitle': '撤销动作',
     'undo.logRedoTitle': '重做动作',
+    'log.videoRemovedFromGrid': '视频已从列表移除',
     'walkthrough.next': '下一步',
     'walkthrough.back': '上一步',
     'walkthrough.skip': '跳过',
@@ -966,6 +975,7 @@ const I18N = {
     'videos.card.unmark': 'Desmarcar',
     'videos.card.resume': 'Continuar viendo',
     'videos.card.continueAt': 'Continuar en',
+    'videos.card.removeFromGrid': 'Quitar de la lista',
     'activity.empty': 'Aún no hay actividad registrada',
     'backups.empty': 'Aún no hay copias locales',
     'backups.restore': 'Restaurar',
@@ -1003,6 +1013,7 @@ const I18N = {
     'toast.localeChanged': 'Idioma cambiado a {language}',
     'toast.nothingRedo': 'Nada que rehacer',
     'toast.nothingUndo': 'Nada que deshacer',
+    'toast.videoRemovedFromGrid': 'Quitado de la lista de videos',
     'undo.removed': '{verb} cambio: "{title}" se eliminó.',
     'undo.backTo': '{verb} cambio: "{title}" vuelve a {status}.',
     'undo.redid': 'Rehecho',
@@ -1013,6 +1024,7 @@ const I18N = {
     'undo.doneAt': 'Hecho {time}',
     'undo.logUndoTitle': 'Acción deshecha',
     'undo.logRedoTitle': 'Acción rehecha',
+    'log.videoRemovedFromGrid': 'Video quitado de la lista',
     'walkthrough.next': 'Siguiente',
     'walkthrough.back': 'Atrás',
     'walkthrough.skip': 'Saltar',
@@ -1158,6 +1170,7 @@ const I18N = {
     'videos.card.unmark': 'Retirer',
     'videos.card.resume': 'Continuer',
     'videos.card.continueAt': 'Reprendre à',
+    'videos.card.removeFromGrid': 'Retirer de la liste',
     'activity.empty': 'Aucune activité enregistrée',
     'backups.empty': 'Aucune sauvegarde locale',
     'backups.restore': 'Restaurer',
@@ -1195,6 +1208,7 @@ const I18N = {
     'toast.localeChanged': 'Langue changée en {language}',
     'toast.nothingRedo': 'Rien à rétablir',
     'toast.nothingUndo': 'Rien à annuler',
+    'toast.videoRemovedFromGrid': 'Retirée de la liste des vidéos',
     'undo.removed': '{verb} le changement : "{title}" a été supprimé.',
     'undo.backTo': '{verb} le changement : "{title}" revient à {status}.',
     'undo.redid': 'Rétabli',
@@ -1205,6 +1219,7 @@ const I18N = {
     'undo.doneAt': 'Fait {time}',
     'undo.logUndoTitle': 'Action annulée',
     'undo.logRedoTitle': 'Action rétablie',
+    'log.videoRemovedFromGrid': 'Vidéo retirée de la liste',
     'walkthrough.next': 'Suivant',
     'walkthrough.back': 'Retour',
     'walkthrough.skip': 'Passer',
@@ -3927,6 +3942,8 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
       watchProgress: normalizeVideoWatchProgress(existing?.watchProgress ?? v.watchProgress, duration),
       source: existing?.source || v.source || null,
       manuallyAdded: Boolean(existing?.manuallyAdded || v.manuallyAdded),
+      hiddenFromGrid: Boolean(existing?.hiddenFromGrid || v.hiddenFromGrid),
+      hiddenFromGridAt: existing?.hiddenFromGridAt || v.hiddenFromGridAt || null,
       isShort: isShortDuration(duration),
       shortsCheckedAt: detail.shortsCheckedAt || existing?.shortsCheckedAt || null,
       shortsDetectionVersion: detail.shortsDetectionVersion || existing?.shortsDetectionVersion || null
@@ -7049,6 +7066,7 @@ function getVisibleActiveVideos(videos, includeShorts = true) {
 
   videos
     .filter(v => getVideoStatus(v) !== 'watched')
+    .filter(v => !isHiddenFromActiveGrid(v))
     .filter(v => !isHiddenShortVideo(v, includeShorts))
     .sort(activeSort)
     .forEach(v => {
@@ -7063,6 +7081,10 @@ function getVisibleActiveVideos(videos, includeShorts = true) {
   return Array.from(byChannel.values())
     .flat()
     .sort(activeSort)
+}
+
+function isHiddenFromActiveGrid(video) {
+  return Boolean(video?.hiddenFromGrid)
 }
 
 function renderCard(v, compact = false) {
@@ -7084,8 +7106,17 @@ function renderCard(v, compact = false) {
     : `<span class="watched-btn-icon" aria-hidden="true">✓</span><span class="watched-btn-text">${escHtml(watchedText)}</span>`
   const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
   const resumeAtValue = isPartial ? formatResumeTimestamp(v.resumeAtSeconds) : ''
+  const removeFromGridButton = !compact && !isWatched
+    ? `<button type="button"
+        class="video-grid-remove"
+        data-video-id="${safeVideoId}"
+        onclick="removeVideoFromGrid(event, this.dataset.videoId)"
+        title="${escHtml(t('videos.card.removeFromGrid'))}"
+        aria-label="${escHtml(t('videos.card.removeFromGrid'))}">×</button>`
+    : ''
   return `
     <div class="video-card ${compact ? 'compact-card' : ''} status-${status}" data-video-id="${safeVideoId}">
+      ${removeFromGridButton}
       <a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">
         <img src="${escHtml(v.thumbnail)}" alt="" class="thumb" loading="lazy">
         <span class="dur-badge">${formatDuration(v.duration)}</span>
@@ -7141,6 +7172,32 @@ function renderCard(v, compact = false) {
       </div>
     </div>
   `
+}
+
+function removeVideoFromGrid(event, videoId) {
+  event?.preventDefault()
+  event?.stopPropagation()
+
+  const s = loadState()
+  const video = s?.videos?.[videoId]
+  if (!video) {
+    showToast(t('toast.videoGone'), 'warn')
+    return
+  }
+
+  video.hiddenFromGrid = true
+  video.hiddenFromGridAt = getCurrentAppTimestamp(s)
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'video-grid',
+    status: 'success',
+    title: t('log.videoRemovedFromGrid'),
+    detail: `"${formatToastTitle(video.title)}"`,
+    meta: { videoId }
+  })
+  saveState(s)
+  renderAll(s)
+  showToast(t('toast.videoRemovedFromGrid'), 'success')
 }
 
 // ════════════════════════════════════════════════════════════
