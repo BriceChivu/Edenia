@@ -270,12 +270,12 @@
           </div>
           <div class="undo-wrap">
             <span class="undo-action-wrap">
-              <button type="button" class="btn-secondary undo-btn" id="undoBtn" onclick="toggleHistoryActionPopover(event, 'undo')" aria-haspopup="true" aria-expanded="false" aria-describedby="undoTooltip" disabled>Undo</button>
-              <div class="undo-tooltip" id="undoTooltip" role="dialog" aria-label="Undo actions">Nothing to undo</div>
+              <button type="button" class="btn-secondary undo-btn" id="undoBtn" onclick="toggleHistoryActionPopover(event, 'undo')" aria-haspopup="true" aria-expanded="false" aria-describedby="undoTooltip" data-i18n="videos.undo" disabled>Undo</button>
+              <div class="undo-tooltip" id="undoTooltip" role="dialog" aria-label="Undo queue" data-i18n-aria-label="videos.undo.queue" data-i18n="videos.undo.empty">Nothing to undo</div>
             </span>
             <span class="undo-action-wrap">
-              <button type="button" class="btn-secondary undo-btn redo-btn" id="redoBtn" onclick="toggleHistoryActionPopover(event, 'redo')" aria-haspopup="true" aria-expanded="false" aria-describedby="redoTooltip" disabled>Redo</button>
-              <div class="undo-tooltip" id="redoTooltip" role="dialog" aria-label="Redo actions">Nothing to redo</div>
+              <button type="button" class="btn-secondary undo-btn redo-btn" id="redoBtn" onclick="toggleHistoryActionPopover(event, 'redo')" aria-haspopup="true" aria-expanded="false" aria-describedby="redoTooltip" data-i18n="videos.redo" disabled>Redo</button>
+              <div class="undo-tooltip" id="redoTooltip" role="dialog" aria-label="Redo queue" data-i18n-aria-label="videos.redo.queue" data-i18n="videos.redo.empty">Nothing to redo</div>
             </span>
           </div>
         </div>
@@ -298,6 +298,6 @@
   <div class="toast" id="toast"></div>
   <div class="heatmap-tooltip" id="heatmapTooltip"></div>
 
-  <script src="app.js?v=20260703-24"></script>
+  <script src="app.js?v=20260703-25"></script>
 </body>
 </html>
