@@ -10,7 +10,7 @@ Minor changes:
 - Undo messages should be translated as well
 - Enable disabling Anki in the settings (that means no Anki in the heatmap pop up, no Anki info in the history summary, no Anki refresh attempts)
 - move light/dark theme into settings. Should I keep it as a logo?
-- How does a new user connect to his ANki?
+
 
 
 Big changes:

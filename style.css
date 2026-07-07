@@ -232,6 +232,43 @@ body[data-theme="dark"] select option { color: var(--text); }
   font-size: 0.78rem;
   line-height: 1.45;
 }
+.settings-anki-group {
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+}
+.settings-anki-steps {
+  color: var(--text);
+  display: grid;
+  font-size: 0.8rem;
+  gap: 6px;
+  line-height: 1.45;
+  margin: 0;
+  padding-left: 18px;
+}
+.settings-anki-steps li::marker {
+  color: var(--muted);
+  font-weight: 700;
+}
+.settings-code-block {
+  background: var(--surface-hi);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  display: grid;
+  font-size: 0.76rem;
+  gap: 2px;
+  line-height: 1.45;
+  overflow-x: auto;
+  padding: 8px 10px;
+}
+.settings-code-block code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  white-space: pre;
+}
+.settings-anki-steps .settings-code-block {
+  margin-top: 7px;
+}
 .channel-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 .channel-item {
   display: flex;

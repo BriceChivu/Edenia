@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260703-12">
+  <link rel="stylesheet" href="style.css?v=20260703-14">
   <script src="config.local.js"></script>
 </head>
 <body>
@@ -40,6 +40,27 @@
           <span data-i18n="settings.shorts.label">Show short videos</span>
         </label>
         <p class="step-hint" data-i18n="settings.shorts.hint">When off, videos under 3 minutes are skipped during refresh and hidden from your active video list.</p>
+      </div>
+
+      <div class="settings-group settings-anki-group">
+        <label data-i18n="settings.anki.title">Connect Anki</label>
+        <p class="step-hint" data-i18n="settings.anki.intro">Edenia can count your Anki reviews automatically. To let Edenia talk to Anki, install AnkiConnect and allow Edenia in its settings.</p>
+        <ol class="settings-anki-steps">
+          <li data-i18n="settings.anki.step1">Open Anki. In Tools, click Add-ons, then Get Add-ons, then paste this code: 2055492159.</li>
+          <li>
+            <span data-i18n="settings.anki.step2">After restarting Anki, go to Tools again, Add-ons, click AnkiConnect, then Config. Make sure the text after "...," is at the end of the config.</span>
+            <div class="settings-code-block" aria-label="AnkiConnect webCorsOriginList">
+              <code>{</code>
+              <code>    ...,</code>
+              <code>    "webCorsOriginList": [</code>
+              <code>        "https://bricechivu.github.io"</code>
+              <code>    ]</code>
+              <code>}</code>
+            </div>
+          </li>
+          <li data-i18n="settings.anki.step3">Restart Anki and keep Anki open while you use Edenia.</li>
+        </ol>
+        <p class="settings-note" data-i18n="settings.anki.note">Edenia only reads your review count for your study history. It does not change your Anki cards.</p>
       </div>
 
       <div class="settings-actions">
@@ -288,6 +309,6 @@
   <div class="toast" id="toast"></div>
   <div class="heatmap-tooltip" id="heatmapTooltip"></div>
 
-  <script src="app.js?v=20260703-31"></script>
+  <script src="app.js?v=20260703-33"></script>
 </body>
 </html>
