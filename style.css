@@ -376,7 +376,7 @@ body[data-theme="dark"] .backup-panel {
 }
 .activity-log-filters {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
   gap: 5px;
   margin-bottom: 8px;
 }
