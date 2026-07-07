@@ -1,6 +1,6 @@
 # CHANGES:
 Minor changes:
-- in the settings, remove the functionality of adding new channels. Instead, let's put it in the "channels filter" button popup. There should be a text bar at the top like the "Add video" button where i can add a new channel. Also, there should be a cross at the right side of each channel inside the filter popup that allows me to remove channels (and therefore all their videos in the grid)
+- removing a video from the video grid with the small right corner cross should be an action that can be undone with the Undo button
 - BRICE to think about: rewrite the walkthrough to make it shorter and in correct order
 - small duck walking around/popup giving motivational quotes
 - Photoshop: add the duck on the island. sometimes shifting to different locations (like on the deck, in the water floating, or in front of the door of the house)
