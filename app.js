@@ -49,7 +49,7 @@ const SHORT_VIDEO_MAX_DURATION_SECONDS = 180
 const SHORT_VIDEO_DETECTION_VERSION = 1
 const ANKI_REVIEW_CHUNK_SIZE = 60
 const ANKI_REVIEW_CHUNK_POINTS = 2
-const SCORING_RULES_VERSION = 5
+const SCORING_RULES_VERSION = 6
 const CITY_LEVELS = [
   { threshold: 0, labelKey: 'city.level.0', label: '🏠 Lonely house' },
   { threshold: 5, labelKey: 'city.level.1', label: '⛵ Your house got a fresh new look! Plus a boat!' },
@@ -4806,11 +4806,10 @@ function getHistoryPointBreakdown(row) {
   }
   items.push(...videoItems)
 
-  const rawTotal = items.reduce((total, item) => total + item.points, 0)
+  const total = items.reduce((sum, item) => sum + Math.floor(item.points), 0)
   return {
     items,
-    rawTotal,
-    total: Math.floor(rawTotal)
+    total
   }
 }
 
@@ -4835,9 +4834,6 @@ function renderHistoryPointsCell(row) {
         <span class="history-points-popover-total">
           <span>${escHtml(t('history.pointsDailyTotal'))}</span>
           <b>${escHtml(formatHistoryPointLabel(breakdown.total))}</b>
-          ${breakdown.rawTotal !== breakdown.total
-            ? `<small>${escHtml(formatHistoryPointLabel(breakdown.rawTotal))} ${escHtml(t('history.pointsRounding'))}</small>`
-            : ''}
         </span>
       </span>
     </span>
@@ -5206,11 +5202,12 @@ function getHistoryHeatLevel(row) {
 }
 
 function getHistoryDayPoints(row) {
-  const hoursWatched = row.secondsWatched / 3600
-  const score =
-    (hoursWatched * VIDEO_HOUR_POINTS) +
-    ((row.ankiReviewed / ANKI_REVIEW_CHUNK_SIZE) * ANKI_REVIEW_CHUNK_POINTS)
-  return Math.floor(score)
+  const ankiPoints = Math.floor(((row.ankiReviewed || 0) / ANKI_REVIEW_CHUNK_SIZE) * ANKI_REVIEW_CHUNK_POINTS)
+  const watchedVideos = Array.isArray(row.watchedVideos) ? row.watchedVideos : []
+  const videoPoints = watchedVideos.length
+    ? watchedVideos.reduce((sum, video) => sum + Math.floor(((video.duration || 0) / 3600) * VIDEO_HOUR_POINTS), 0)
+    : Math.floor(((row.secondsWatched || 0) / 3600) * VIDEO_HOUR_POINTS)
+  return ankiPoints + videoPoints
 }
 
 function hasHistoryActivity(row) {
