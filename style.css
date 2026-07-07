@@ -232,12 +232,14 @@ body[data-theme="dark"] select option { color: var(--text); }
   font-size: 0.78rem;
   line-height: 1.45;
 }
-.settings-anki-group {
+.settings-anki-group,
+.settings-scoring-group {
   border: 1.5px solid var(--border);
   border-radius: 10px;
   padding: 12px;
 }
-.settings-anki-steps {
+.settings-anki-steps,
+.settings-scoring-list {
   color: var(--text);
   display: grid;
   font-size: 0.8rem;
@@ -246,9 +248,17 @@ body[data-theme="dark"] select option { color: var(--text); }
   margin: 0;
   padding-left: 18px;
 }
-.settings-anki-steps li::marker {
+.settings-anki-steps li::marker,
+.settings-scoring-list li::marker {
   color: var(--muted);
   font-weight: 700;
+}
+.settings-scoring-subtitle {
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 2px 0 -2px;
 }
 .settings-code-block {
   background: var(--surface-hi);

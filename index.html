@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260703-14">
+  <link rel="stylesheet" href="style.css?v=20260703-15">
   <script src="config.local.js"></script>
 </head>
 <body>
@@ -61,6 +61,20 @@
           <li data-i18n="settings.anki.step3">Restart Anki and keep Anki open while you use Edenia.</li>
         </ol>
         <p class="settings-note" data-i18n="settings.anki.note">Edenia only reads your review count for your study history. It does not change your Anki cards.</p>
+      </div>
+
+      <div class="settings-group settings-scoring-group">
+        <label data-i18n="settings.scoring.title">How points work</label>
+        <p class="step-hint" data-i18n="settings.scoring.intro">Points reward video study time and Anki reviews. Edenia rounds each source down before adding the points to your day.</p>
+        <ul class="settings-scoring-list">
+          <li data-i18n="settings.scoring.video">Watching 1 hour of video gives 3 pts.</li>
+          <li data-i18n="settings.scoring.anki">60 Anki reviews gives 2 pts.</li>
+        </ul>
+        <p class="settings-scoring-subtitle" data-i18n="settings.scoring.examples">Examples:</p>
+        <ul class="settings-scoring-list">
+          <li data-i18n="settings.scoring.exampleVideo">Watching 30 min of video gives 1 pts (1.5 rounded down to 1).</li>
+          <li data-i18n="settings.scoring.exampleAnki">Doing 30 Anki reviews gives 1 pts but doing 29 reviews gives 0 pts (0.9 rounded down to 0).</li>
+        </ul>
       </div>
 
       <div class="settings-actions">
@@ -309,6 +323,6 @@
   <div class="toast" id="toast"></div>
   <div class="heatmap-tooltip" id="heatmapTooltip"></div>
 
-  <script src="app.js?v=20260703-34"></script>
+  <script src="app.js?v=20260703-35"></script>
 </body>
 </html>
