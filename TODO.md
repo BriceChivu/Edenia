@@ -1,6 +1,6 @@
 # CHANGES:
 Minor changes:
-- add a small and subtle cross in the right corner of each video in the video "to watch" grid so that the user can remove a video from the grid, even if it's from a channel. This removed video should automatically be replaced by the next newest video of that channel. E.g., video 1, 2, 3, 4 and 5 of channel A are loaded in the video grid. The user removed the video 1. Video 6 of channel A should then be displayed.
+- in the settings, remove the functionality of adding new channels. Instead, let's put it in the "channels filter" button popup. There should be a text bar at the top like the "Add video" button where i can add a new channel. Also, there should be a cross at the right side of each channel inside the filter popup that allows me to remove channels (and therefore all their videos in the grid)
 - BRICE to think about: rewrite the walkthrough to make it shorter and in correct order
 - small duck walking around/popup giving motivational quotes
 - Photoshop: add the duck on the island. sometimes shifting to different locations (like on the deck, in the water floating, or in front of the door of the house)

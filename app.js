@@ -4391,7 +4391,9 @@ async function addVideoFromUrl(event) {
         : null,
       watchProgress,
       source: existing?.source || 'manual',
-      manuallyAdded: true
+      manuallyAdded: true,
+      hiddenFromGrid: false,
+      hiddenFromGridAt: null
     }
 
     pushUndoAction(s, {
@@ -7070,7 +7072,7 @@ function getVisibleActiveVideos(videos, includeShorts = true) {
     .filter(v => !isHiddenShortVideo(v, includeShorts))
     .sort(activeSort)
     .forEach(v => {
-      const key = v.channelId || v.channelTitle || 'unknown'
+      const key = getActiveVideoGroupKey(v)
       const channelVideos = byChannel.get(key) || []
       if (channelVideos.length < ACTIVE_VIDEOS_PER_CHANNEL) {
         channelVideos.push(v)
@@ -7081,6 +7083,13 @@ function getVisibleActiveVideos(videos, includeShorts = true) {
   return Array.from(byChannel.values())
     .flat()
     .sort(activeSort)
+}
+
+function getActiveVideoGroupKey(video) {
+  if (video?.manuallyAdded && video?.source === 'manual') {
+    return `manual:${video.id || video.title || 'unknown'}`
+  }
+  return video?.channelId || video?.channelTitle || 'unknown'
 }
 
 function isHiddenFromActiveGrid(video) {
