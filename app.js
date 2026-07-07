@@ -3432,7 +3432,7 @@ function removeChannelFromFilter(event, channelId) {
 
 function removeChannel(id) {
   const s = loadState()
-  const channel = s.config.channels.find(c => c.id === id)
+  const channel = s.config.channels.find(c => c.id === id) || getInferredChannelEntry(s, id)
   if (!channel) return
   const before = getChannelRemoveSnapshot(s, id, channel)
 
@@ -3497,6 +3497,11 @@ function getChannelRemoveSnapshot(s, channelId, channel = null) {
       .filter(([, video]) => isChannelRemovalVideo(video, channelId))
       .map(([videoId, video]) => [videoId, cloneVideoForHistoryAction(video)]))
   }
+}
+
+function getInferredChannelEntry(s, channelId) {
+  const video = Object.values(s.videos || {}).find(candidate => isChannelRemovalVideo(candidate, channelId))
+  return video ? { id: channelId, name: video.channelTitle || channelId } : null
 }
 
 function isChannelRemovalVideo(video, channelId) {
@@ -7138,7 +7143,13 @@ function renderChannelFilterOptions(s) {
       <button type="submit" class="btn-secondary channel-filter-add-btn" id="channelFilterAddBtn">${escHtml(t('settings.channels.add'))}</button>
     </form>
   `
-  const trackedChannelIds = new Set((s.config.channels || []).map(channel => channel.id))
+  const removableChannelIds = new Set([
+    ...(s.config.channels || []).map(channel => channel.id),
+    ...Object.values(s.videos || {})
+      .filter(video => !isHiddenManualVideoChannelEntry(video))
+      .map(video => video.channelId || video.channelTitle)
+      .filter(Boolean)
+  ])
   const allChannelsControl = entries.length
     ? `
       <div class="channel-filter-select-all" onclick="handleChannelFilterSelectAllClick(event)">
@@ -7155,7 +7166,7 @@ function renderChannelFilterOptions(s) {
     ? entries.map(([id, name]) => {
       const refreshLabel = formatChannelLastRefreshLabel(s, id)
       const refreshTitle = formatChannelLastRefreshTitle(s, id)
-      const canRemove = trackedChannelIds.has(id)
+      const canRemove = removableChannelIds.has(id)
       return `
       <div class="channel-filter-option" data-channel-id="${escHtml(id)}" onclick="handleChannelFilterOptionClick(event, this.dataset.channelId)">
         <input type="checkbox" data-channel-id="${escHtml(id)}" ${selected.has(id) ? 'checked' : ''} onchange="setChannelFilter(this.dataset.channelId, this.checked)">

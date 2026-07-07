@@ -14,6 +14,7 @@ Minor changes:
 
 
 Big changes:
+- make the video cards draggable 
 - Add a "View filter" button next to the "video status filter" button that allows to display videos to watch by date (from newer to older, all channels mixed together) or by channel (filtered by channel first then within each channel by date, newer to older)
 - How feasible/complicated this is? Being able to view videos on the website itself (e.g., pop up window when video is clicked). When pausing, the in progress timestamp should be populated automatically in hh:mm:ss format
 - Build Android app
