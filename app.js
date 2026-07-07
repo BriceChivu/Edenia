@@ -5578,6 +5578,10 @@ function toggleHeatmapTooltip(event) {
   const tooltip = document.getElementById('heatmapTooltip')
   if (!target || !tooltip) return
   event.stopPropagation()
+  if (window.matchMedia?.('(pointer: coarse)').matches) {
+    showHeatmapTooltip(event)
+    return
+  }
   if (tooltip.classList.contains('show') && tooltip._target === target) {
     hideHeatmapTooltip()
     return
@@ -7068,9 +7072,12 @@ function renderCard(v, compact = false) {
   const watchedNextStatus = isWatched ? 'unwatched' : 'watched'
   const partialNextStatus = isPartial ? 'unwatched' : 'partial'
   const watchLaterNextStatus = isWatchLater ? 'unwatched' : 'watch-later'
-  const watchedLabel = compact
+  const watchedText = compact
     ? t('videos.card.unmark')
-    : `✓ ${isWatched ? t('videos.status.watched') : t('videos.card.markWatched')}`
+    : (isWatched ? t('videos.status.watched') : t('videos.card.markWatched'))
+  const watchedLabel = compact
+    ? `<span class="watched-btn-text">${escHtml(watchedText)}</span>`
+    : `<span class="watched-btn-icon" aria-hidden="true">✓</span><span class="watched-btn-text">${escHtml(watchedText)}</span>`
   const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
   const resumeAtValue = isPartial ? formatResumeTimestamp(v.resumeAtSeconds) : ''
   return `
@@ -7109,7 +7116,7 @@ function renderCard(v, compact = false) {
           <span class="pub-ago">${timeAgo(v.publishedAt)}</span>
         </div>
         <div class="card-actions">
-          <button class="action-btn ${isWatched ? 'active' : ''}"
+          <button class="action-btn watched-btn ${isWatched ? 'active' : ''}"
             data-video-id="${safeVideoId}"
             data-status="${watchedNextStatus}"
             onclick="markVideo(this.dataset.videoId, this.dataset.status)"
