@@ -7108,6 +7108,18 @@ function renderChannelFilterOptions(s) {
     </form>
   `
   const trackedChannelIds = new Set((s.config.channels || []).map(channel => channel.id))
+  const allChannelsControl = entries.length
+    ? `
+      <div class="channel-filter-select-all" onclick="handleChannelFilterSelectAllClick(event)">
+        <input type="checkbox"
+          id="channelFilterSelectAll"
+          ${selectedCount === entries.length ? 'checked' : ''}
+          onchange="setAllChannelFilters(this.checked)"
+          aria-label="${escHtml(t('videos.channels.all'))}">
+        <span>${escHtml(t('videos.channels.all'))}</span>
+      </div>
+    `
+    : ''
   const options = entries.length
     ? entries.map(([id, name]) => {
       const refreshLabel = formatChannelLastRefreshLabel(s, id)
@@ -7123,7 +7135,11 @@ function renderChannelFilterOptions(s) {
     `
     }).join('')
     : `<div class="channel-filter-empty">${escHtml(t('videos.channels.none'))}</div>`
-  menu.innerHTML = addForm + options
+  menu.innerHTML = addForm + allChannelsControl + options
+  const selectAllInput = document.getElementById('channelFilterSelectAll')
+  if (selectAllInput) {
+    selectAllInput.indeterminate = selectedCount > 0 && selectedCount < entries.length
+  }
   menu.dataset.selectedCount = selectedCount
   if (!menu.classList.contains('hidden')) positionFilterMenuWithinViewport(menu)
 }
@@ -7167,6 +7183,22 @@ function setChannelFilter(channelId, enabled) {
   if (enabled) selectedChannelFilters.add(channelId)
   else selectedChannelFilters.delete(channelId)
   renderFeed(s)
+}
+
+function setAllChannelFilters(enabled) {
+  const s = loadState()
+  selectedChannelFilters = enabled
+    ? new Set(getChannelFilterEntries(s).map(([id]) => id))
+    : new Set()
+  renderFeed(s)
+}
+
+function handleChannelFilterSelectAllClick(event) {
+  if (event?.target?.matches?.('input')) return
+  const checkbox = event.currentTarget?.querySelector?.('input[type="checkbox"]')
+  if (!checkbox) return
+  checkbox.checked = !checkbox.checked
+  setAllChannelFilters(checkbox.checked)
 }
 
 function handleChannelFilterOptionClick(event, channelId) {

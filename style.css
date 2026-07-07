@@ -1954,6 +1954,27 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   cursor: wait;
   opacity: 0.62;
 }
+.channel-filter-select-all {
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  font-size: 0.78rem;
+  font-weight: 700;
+  gap: 8px;
+  margin-bottom: 4px;
+  padding: 6px 8px 7px;
+}
+.channel-filter-select-all:hover {
+  color: var(--text);
+}
+.channel-filter-select-all input {
+  accent-color: var(--green);
+  flex: 0 0 auto;
+  height: 14px;
+  width: 14px;
+}
 .channel-filter-option {
   display: flex;
   align-items: center;
