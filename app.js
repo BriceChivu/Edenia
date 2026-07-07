@@ -2032,8 +2032,9 @@ function formatResumeTimestamp(seconds) {
   if (normalized === null) return ''
   const h = Math.floor(normalized / 3600)
   const m = Math.floor((normalized % 3600) / 60)
+  const s = normalized % 60
   const z = n => String(n).padStart(2, '0')
-  return `${h}:${z(m)}`
+  return `${z(h)}:${z(m)}:${z(s)}`
 }
 
 function getWeekLabel(state = null) {
@@ -6639,7 +6640,7 @@ function renderCard(v, compact = false) {
               <span>${escHtml(t('videos.card.continueAt'))}</span>
               <input type="text"
                 value="${escHtml(resumeAtValue)}"
-                placeholder="1:23"
+                placeholder="00:01:23"
                 inputmode="text"
                 data-video-id="${safeVideoId}"
                 onchange="saveVideoResumeTime(this.dataset.videoId, this.value)"
