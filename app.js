@@ -325,7 +325,7 @@ const I18N_EN = {
   'time.hours': '{hours}h',
   'time.minutes': '{minutes} min',
   'points.short': 'pts',
-  'points.one': '{count} pnt',
+  'points.one': '{count} pts',
   'points.many': '{count} pts',
   'city.timelineAria': '{date}, {points} pts{changed}',
   'city.timelineChanged': ', city image changed',
@@ -890,7 +890,7 @@ const I18N = {
     'time.hours': '{hours} h',
     'time.minutes': '{minutes} min',
     'points.short': 'pts',
-    'points.one': '{count} pto',
+    'points.one': '{count} pts',
     'points.many': '{count} pts',
     'city.timelineAria': '{date}, {points} pts{changed}',
     'city.timelineChanged': ', imagen de ciudad cambiada',
@@ -1051,7 +1051,7 @@ const I18N = {
     'time.hours': '{hours} h',
     'time.minutes': '{minutes} min',
     'points.short': 'pts',
-    'points.one': '{count} pt',
+    'points.one': '{count} pts',
     'points.many': '{count} pts',
     'city.timelineAria': '{date}, {points} pts{changed}',
     'city.timelineChanged': ', image de ville modifiée',
@@ -4781,8 +4781,7 @@ function formatHistoryPointNumber(points) {
 
 function formatHistoryPointLabel(points) {
   const value = Number(points || 0)
-  const key = Math.abs(value - 1) < 0.0001 ? 'points.one' : 'points.many'
-  return t(key, { count: formatHistoryPointNumber(value) })
+  return t('points.many', { count: formatHistoryPointNumber(value) })
 }
 
 function getHistoryPointBreakdown(row) {
