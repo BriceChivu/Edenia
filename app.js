@@ -5908,8 +5908,9 @@ function formatWeeklyWatchedTime(secs) {
 }
 
 function formatHistoryTime(secs) {
-  const hours = Math.floor(secs / 3600)
-  const minutes = Math.ceil((secs % 3600) / 60)
+  const totalMinutes = secs > 0 ? Math.max(1, Math.round(secs / 60)) : 0
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
   if (hours > 0) {
     return minutes > 0
       ? t('time.hoursMinutes', { hours, minutes })
