@@ -2119,6 +2119,7 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: relative;
   transition: border-color 0.2s, transform 0.15s;
   box-shadow: 0 4px 0 rgba(5,5,5,0.14);
   border-left-width: 6px;
@@ -2148,6 +2149,50 @@ body[data-theme="dark"] .video-card.status-partial { background: #2b2615; }
 body[data-theme="dark"] .video-card.status-watch-later { background: #102934; }
 .video-card.status-watch-later:hover {
   box-shadow: 0 5px 0 rgba(18,188,234,0.38);
+}
+.video-grid-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(5,5,5,0.18);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.74);
+  color: rgba(5,5,5,0.56);
+  font-size: 16px;
+  line-height: 18px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.16s ease, transform 0.16s ease, background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+  cursor: pointer;
+}
+.video-card:hover .video-grid-remove,
+.video-grid-remove:focus-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.video-grid-remove:hover,
+.video-grid-remove:focus-visible {
+  background: var(--surface);
+  color: var(--planet-black);
+  border-color: rgba(5,5,5,0.38);
+  outline: none;
+}
+body[data-theme="dark"] .video-grid-remove {
+  background: rgba(25,29,31,0.76);
+  border-color: rgba(255,255,255,0.22);
+  color: rgba(255,255,255,0.64);
+}
+body[data-theme="dark"] .video-grid-remove:hover,
+body[data-theme="dark"] .video-grid-remove:focus-visible {
+  background: var(--surface);
+  color: var(--text);
+  border-color: rgba(255,255,255,0.38);
 }
 
 .watched-section {
