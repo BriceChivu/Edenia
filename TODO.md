@@ -5,7 +5,6 @@ Minor changes:
 - Photoshop: add the duck on the island. sometimes shifting to different locations (like on the deck, in the water floating, or in front of the door of the house)
 - setting lags, looks like refresh rate is low
 - translation of "Undo Queue" and "review queue" popups
-- Add another 5 common languages
 - the last time refreshed time showing in the video filter pop up should be updated more frequently. It was showing "10 min ago" but then when I refreshed the website page it was showing "2h ago"
 - FIX: when Edenia loads it shows the level 1 picture for some time before switching to the current level.
 - Undo messages should be translated as well
@@ -13,7 +12,6 @@ Minor changes:
 - Adding channels in the settings is not intuitive for users, I should find a better way
 - move light/dark theme into settings. Should I keep it as a logo?
 - in the summary study table, the video watched time should be rounded. Currently, I see that one video is 12:18 long but it shows at 13min 
-- in the activity log, add a tab that shows the log of the points scored only. E.g., watched 23min of video A so scored X
 
 Big changes:
 - How feasible/complicated this is? Being able to view videos on the website itself (e.g., pop up window when video is clicked). When pausing, the in progress timestamp should be populated automatically in hh:mm:ss format
