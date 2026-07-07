@@ -1,13 +1,11 @@
 # CHANGES:
 Minor changes:
-- when hovering the mouse over the points scored in the summary study table, show a small popup like the one for the watched videos that shows how the points were scored. E.g., Anki reviews gave 1 pnt, watching 25 min of video A gave 1 pnt, etc. There should not be any visual indicators that this mouse hover pop up is possible. In other words, keep the "PTS" visual the same in the summary table
-
+- BRICE to think about: rewrite the walkthrough to make it shorter and in correct order
 - small duck walking around/popup giving motivational quotes
 - Photoshop: add the duck on the island. sometimes shifting to different locations (like on the deck, in the water floating, or in front of the door of the house)
 - setting lags, looks like refresh rate is low
 - translation of "Undo Queue" and "review queue" popups
 - Add another 5 common languages
-- Rearrange the walkthrough order so it makes more sense
 - the last time refreshed time showing in the video filter pop up should be updated more frequently. It was showing "10 min ago" but then when I refreshed the website page it was showing "2h ago"
 - FIX: when Edenia loads it shows the level 1 picture for some time before switching to the current level.
 - Undo messages should be translated as well
@@ -29,8 +27,9 @@ Mobile:
 - for the walkthrough, step 9, click settings should be clickable to redirect to the settings tab. Currently, it is telling me to click on the settings myself but the button is hidden
 
 For later:
-- Go throw the entire code and flag any potential bugs or incoherence. Do not fix anything, just tell me.
-- Go throw the entire README.md and update it to reflect the current status of the codebase.
+- Go through the entire code and flag any potential bugs or incoherence. Do not fix anything, just tell me.
+- Go through the entire README.md and update it to reflect the current status of the codebase.
+- Go through the different languages and make sure the translations from English are correct
 
 # NOTES:
 - How to keep images consistent over time when using AI?

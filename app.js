@@ -249,8 +249,9 @@ const I18N_EN = {
   'videos.channels.none': 'No channels',
   'videos.channels.one': '1 channel',
   'videos.channels.count': '{count} channels',
-  'videos.manual.button': '+ Watched URL',
-  'videos.manual.dialog': 'Add watched YouTube URL',
+  'videos.manual.button': 'Add video',
+  'videos.manual.dialog': 'Add YouTube video',
+  'videos.manual.hint': 'Here you can paste the URL of a YouTube video that is not in your tracked channels.',
   'videos.manual.placeholder': 'youtube.com/watch?v=...',
   'videos.manual.add': 'Add',
   'videos.manual.adding': 'Adding...',
@@ -362,7 +363,7 @@ const I18N_EN = {
   'toast.channelAddLoadFailed': 'Channel added, but recent videos could not load: {message}',
   'toast.validYoutubeUrl': 'Use a valid YouTube video URL',
   'toast.alreadyWatched': 'That video is already marked watched',
-  'toast.addedWatchedVideo': 'Added watched video: "{title}"',
+  'toast.addedWatchedVideo': 'Added video: "{title}"',
   'toast.addVideoFailed': 'Could not add that video',
   'toast.timestampFormat': 'Use a timestamp like 1:23 (hour:minute)',
   'toast.nothingRedo': 'Nothing to redo',
@@ -396,8 +397,8 @@ const I18N_EN = {
   'walkthrough.studyHistory': 'Study History shows what happened over time. It combines watched videos and Anki reviews so you can understand your real study rhythm.',
   'walkthrough.historyViews': 'Use Summary when you want clear numbers, and Heatmap when you want to see active days at a glance. Edenia remembers which view you prefer.',
   'walkthrough.videos': 'This is the video area. New videos from your channels appear here, and watched videos move into the Watched section below.',
-  'walkthrough.videoFilters': 'These controls help you keep the list manageable. You can filter by status, filter by channel, add a watched URL, and fix mistakes.',
-  'walkthrough.manualWatchedUrl': 'Use Watched URL when you studied from a YouTube video that is not in your channels. Paste the link, add it as watched, and it counts toward your progress.',
+  'walkthrough.videoFilters': 'These controls help you keep the list manageable. You can filter by status, filter by channel, add a video URL, and fix mistakes.',
+  'walkthrough.manualWatchedUrl': 'Use Add video when you want to add a YouTube video that is not in your tracked channels. Paste the link, then choose whether it is watched, in progress, or saved for later.',
   'walkthrough.undoRedo': 'Undo and Redo let you recover from accidental clicks. Open the list, choose the action, and Edenia will update the score and history again.',
   'walkthrough.settings': 'Click Settings when you are ready to set up Edenia. This is where you add your YouTube channels, choose your weekly goal, and keep your progress safe.',
   'walkthrough.clickSettings': 'Click Settings',
@@ -523,8 +524,9 @@ const I18N = {
     'videos.status.watched': '已看',
     'videos.channels.all': '全部頻道',
     'videos.channels.none': '沒有頻道',
-    'videos.manual.button': '+ 已看網址',
-    'videos.manual.dialog': '新增已看的 YouTube 網址',
+    'videos.manual.button': '新增影片',
+    'videos.manual.dialog': '新增 YouTube 影片',
+    'videos.manual.hint': '你可以在這裡貼上不在追蹤頻道中的 YouTube 影片網址。',
     'videos.manual.add': '新增',
     'videos.undo': '復原',
     'videos.redo': '重做',
@@ -589,8 +591,8 @@ const I18N = {
     'walkthrough.studyHistory': '學習紀錄會顯示你一段時間內做了什麼。它會把看過的影片和 Anki 複習放在一起，讓你看懂真正的學習節奏。',
     'walkthrough.historyViews': '摘要適合看清楚的數字，熱力圖適合快速看哪些天有學習。Edenia 會記住你偏好的視圖。',
     'walkthrough.videos': '這裡是影片區。你加入的頻道會出現新影片，已看影片會移到下方的已看區。',
-    'walkthrough.videoFilters': '這些控制可以讓清單更好管理。你可以依狀態或頻道篩選，新增已看的網址，也可以修正誤點。',
-    'walkthrough.manualWatchedUrl': '如果你看的 YouTube 影片不在頻道清單裡，可以用已看網址。貼上連結後，它會算進你的進度。',
+    'walkthrough.videoFilters': '這些控制可以讓清單更好管理。你可以依狀態或頻道篩選，新增影片網址，也可以修正誤點。',
+    'walkthrough.manualWatchedUrl': '如果想加入不在追蹤頻道中的 YouTube 影片，可以用新增影片。貼上連結後，再選擇已看、進行中或稍後觀看。',
     'walkthrough.undoRedo': '復原和重做可以幫你修正誤點。打開清單，選一個動作，Edenia 會重新計算分數和紀錄。',
     'walkthrough.settings': '準備設定 Edenia 時，請點設定。你可以在這裡加入 YouTube 頻道、選每週目標，並保護進度資料。',
     'walkthrough.clickSettings': '點設定',
@@ -692,7 +694,8 @@ const I18N = {
     'videos.status.watched': '已看',
     'videos.channels.all': '全部频道',
     'videos.channels.none': '没有频道',
-    'videos.manual.button': '+ 已看网址',
+    'videos.manual.button': '添加视频',
+    'videos.manual.hint': '你可以在这里粘贴不在追踪频道中的 YouTube 视频网址。',
     'videos.manual.add': '添加',
     'videos.undo': '撤销',
     'videos.redo': '重做',
@@ -748,8 +751,8 @@ const I18N = {
     'walkthrough.studyHistory': '学习记录会显示你一段时间内做了什么。它会把看过的视频和 Anki 复习放在一起，让你看懂真正的学习节奏。',
     'walkthrough.historyViews': '摘要适合看清楚的数字，热力图适合快速看哪些天有学习。Edenia 会记住你偏好的视图。',
     'walkthrough.videos': '这里是视频区。你加入的频道会出现新视频，已看视频会移到下方的已看区。',
-    'walkthrough.videoFilters': '这些控制可以让列表更好管理。你可以按状态或频道筛选，添加已看的网址，也可以修正误点。',
-    'walkthrough.manualWatchedUrl': '如果你看的 YouTube 视频不在频道列表里，可以用已看网址。粘贴链接后，它会算进你的进度。',
+    'walkthrough.videoFilters': '这些控制可以让列表更好管理。你可以按状态或频道筛选，添加视频网址，也可以修正误点。',
+    'walkthrough.manualWatchedUrl': '如果想添加不在追踪频道中的 YouTube 视频，可以用添加视频。粘贴链接后，再选择已看、进行中或稍后观看。',
     'walkthrough.undoRedo': '撤销和重做可以帮你修正误点。打开列表，选一个动作，Edenia 会重新计算分数和记录。',
     'walkthrough.settings': '准备设置 Edenia 时，请点设置。你可以在这里添加 YouTube 频道、选择每周目标，并保护进度数据。',
     'walkthrough.clickSettings': '点设置',
@@ -853,7 +856,8 @@ const I18N = {
     'videos.status.watched': 'Visto',
     'videos.channels.all': 'Todos los canales',
     'videos.channels.none': 'Sin canales',
-    'videos.manual.button': '+ URL vista',
+    'videos.manual.button': 'Añadir video',
+    'videos.manual.hint': 'Aquí puedes pegar la URL de un video de YouTube que no está en tus canales seguidos.',
     'videos.manual.add': 'Añadir',
     'videos.undo': 'Deshacer',
     'videos.redo': 'Rehacer',
@@ -909,8 +913,8 @@ const I18N = {
     'walkthrough.studyHistory': 'El historial de estudio muestra lo que pasó con el tiempo. Junta videos vistos y repasos de Anki para que entiendas tu ritmo real.',
     'walkthrough.historyViews': 'Usa Resumen para ver números claros, y Mapa para ver tus días activos de un vistazo. Edenia recuerda la vista que prefieres.',
     'walkthrough.videos': 'Esta es la zona de videos. Aquí aparecen videos nuevos de tus canales, y los videos vistos pasan a la sección Vistos.',
-    'walkthrough.videoFilters': 'Estos controles ayudan a mantener la lista clara. Puedes filtrar por estado, filtrar por canal, añadir una URL vista y corregir errores.',
-    'walkthrough.manualWatchedUrl': 'Usa URL vista cuando estudiaste con un video de YouTube que no está en tus canales. Pega el enlace y contará para tu progreso.',
+    'walkthrough.videoFilters': 'Estos controles ayudan a mantener la lista clara. Puedes filtrar por estado, filtrar por canal, añadir una URL de video y corregir errores.',
+    'walkthrough.manualWatchedUrl': 'Usa Añadir video para agregar un video de YouTube que no está en tus canales seguidos. Pega el enlace y luego elige si está visto, en progreso o guardado para después.',
     'walkthrough.undoRedo': 'Deshacer y Rehacer te ayudan si haces clic por error. Abre la lista, elige la acción y Edenia recalculará el puntaje y el historial.',
     'walkthrough.settings': 'Haz clic en Ajustes cuando quieras configurar Edenia. Aquí añades canales de YouTube, eliges tu objetivo semanal y proteges tu progreso.',
     'walkthrough.clickSettings': 'Abrir ajustes',
@@ -1014,7 +1018,8 @@ const I18N = {
     'videos.status.watched': 'Vue',
     'videos.channels.all': 'Toutes les chaînes',
     'videos.channels.none': 'Aucune chaîne',
-    'videos.manual.button': '+ URL vue',
+    'videos.manual.button': 'Ajouter une vidéo',
+    'videos.manual.hint': 'Vous pouvez coller ici l’URL d’une vidéo YouTube qui n’est pas dans vos chaînes suivies.',
     'videos.manual.add': 'Ajouter',
     'videos.undo': 'Annuler',
     'videos.redo': 'Rétablir',
@@ -1070,8 +1075,8 @@ const I18N = {
     'walkthrough.studyHistory': 'L’historique d’étude montre ce qui s’est passé au fil du temps. Il réunit les vidéos vues et les révisions Anki pour montrer votre vrai rythme.',
     'walkthrough.historyViews': 'Utilisez Résumé pour des chiffres clairs, et Carte pour voir vos jours actifs en un coup d’œil. Edenia mémorise votre vue préférée.',
     'walkthrough.videos': 'Voici la zone des vidéos. Les nouvelles vidéos de vos chaînes apparaissent ici, et les vidéos vues passent dans la section Vues.',
-    'walkthrough.videoFilters': 'Ces contrôles gardent la liste lisible. Vous pouvez filtrer par statut, par chaîne, ajouter une URL vue et corriger les erreurs.',
-    'walkthrough.manualWatchedUrl': 'Utilisez URL vue quand vous avez étudié avec une vidéo YouTube absente de vos chaînes. Collez le lien et elle comptera dans vos progrès.',
+    'walkthrough.videoFilters': 'Ces contrôles gardent la liste lisible. Vous pouvez filtrer par statut, par chaîne, ajouter une URL de vidéo et corriger les erreurs.',
+    'walkthrough.manualWatchedUrl': 'Utilisez Ajouter une vidéo pour ajouter une vidéo YouTube absente de vos chaînes suivies. Collez le lien, puis choisissez si elle est vue, en cours ou gardée pour plus tard.',
     'walkthrough.undoRedo': 'Annuler et Rétablir aident après un clic accidentel. Ouvrez la liste, choisissez l’action, et Edenia recalculera le score et l’historique.',
     'walkthrough.settings': 'Cliquez sur Réglages pour configurer Edenia. Vous pouvez y ajouter vos chaînes YouTube, choisir votre objectif hebdomadaire et protéger vos données.',
     'walkthrough.clickSettings': 'Ouvrir les réglages',
@@ -4083,7 +4088,17 @@ function markVideoInProgressOnOpen(videoId) {
   setTimeout(() => renderAll(loadState()), 0)
 }
 
-async function addWatchedVideoFromUrl(event) {
+function revealAddedVideoCard(videoId, state) {
+  forcedSearchVideoId = String(videoId ?? '')
+  renderAll(state)
+  window.setTimeout(() => {
+    const found = scrollToVideoCard(forcedSearchVideoId)
+    forcedSearchVideoId = null
+    if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
+  }, 0)
+}
+
+async function addVideoFromUrl(event) {
   event.preventDefault()
   const input = document.getElementById('manualVideoUrlInput')
   const btn = document.getElementById('manualVideoAddBtn')
@@ -4117,15 +4132,10 @@ async function addWatchedVideoFromUrl(event) {
       resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, existing?.duration ?? metadata.duration)
     }
 
-    if (existing?.status === 'watched' && existing?.watchedAt) {
-      showToast(t('toast.alreadyWatched'), 'warn')
-      input.value = ''
-      closeManualVideoPopover()
-      return
-    }
-
-    const watchedAt = getCurrentAppTimestamp(s)
     const watchProgress = normalizeVideoWatchProgress(existing?.watchProgress, existing?.duration ?? metadata.duration)
+    const status = existing ? getVideoStatus(existing) : 'unwatched'
+    const watchedAt = status === 'watched' ? existing?.watchedAt || null : null
+    const duration = metadata.duration || existing?.duration || 0
     s.videos[videoId] = {
       ...metadata,
       ...existing,
@@ -4134,17 +4144,17 @@ async function addWatchedVideoFromUrl(event) {
       channelTitle: metadata.channelTitle || existing?.channelTitle || 'YouTube',
       channelId: metadata.channelId || existing?.channelId || 'manual-youtube',
       thumbnail: metadata.thumbnail || existing?.thumbnail || `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`,
-      publishedAt: metadata.publishedAt || existing?.publishedAt || watchedAt,
-      duration: metadata.duration || existing?.duration || 0,
-      status: 'watched',
+      publishedAt: metadata.publishedAt || existing?.publishedAt || getCurrentAppTimestamp(s),
+      duration,
+      status,
       watchedAt,
-      resumeAtSeconds: null,
+      resumeAtSeconds: status === 'partial'
+        ? normalizeResumeAtSeconds(existing?.resumeAtSeconds, duration)
+        : null,
       watchProgress,
       source: existing?.source || 'manual',
       manuallyAdded: true
     }
-    const missingSeconds = Math.max(0, Math.floor(Number(s.videos[videoId].duration || 0)) - getTotalVideoWatchProgressSeconds(s.videos[videoId]))
-    if (missingSeconds > 0) addVideoWatchProgress(s.videos[videoId], missingSeconds, watchedAt)
 
     pushUndoAction(s, {
       type: 'video-status',
@@ -4153,24 +4163,23 @@ async function addWatchedVideoFromUrl(event) {
       after: {
         exists: true,
         video: cloneVideoForHistoryAction(s.videos[videoId]),
-        status: 'watched',
+        status,
         watchedAt,
-        resumeAtSeconds: null
+        resumeAtSeconds: s.videos[videoId].resumeAtSeconds
       }
     })
-    syncStreak(s)
     appendActivityLog(s, {
       actor: 'user',
       type: 'manual-video',
       status: 'success',
-      title: 'Watched URL added',
-      detail: `"${formatToastTitle(s.videos[videoId].title)}" was added as watched.`,
+      title: 'Video URL added',
+      detail: `"${formatToastTitle(s.videos[videoId].title)}" was added to the video grid.`,
       meta: { videoId }
     })
     saveState(s)
     input.value = ''
     closeManualVideoPopover()
-    renderAll(s)
+    revealAddedVideoCard(videoId, s)
     showToast(t('toast.addedWatchedVideo', { title: formatToastTitle(s.videos[videoId].title) }), 'success')
   } catch (err) {
     console.warn(err)
