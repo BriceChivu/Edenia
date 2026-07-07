@@ -20,8 +20,7 @@ Big changes:
 Sandbox:
 
 Mobile:
-- fix the mark as watched text going over the button
-- for the walkthrough, step 9, click settings should be clickable to redirect to the settings tab. Currently, it is telling me to click on the settings myself but the button is hidden
+
 
 For later:
 - Go through the entire code and flag any potential bugs or incoherence. Do not fix anything, just tell me.
