@@ -1664,7 +1664,13 @@ function formatLocaleDateTime(value, options = {}) {
 }
 
 function sanitizeConfigForStorage(config = {}) {
-  const { apiKey, ...safeConfig } = config
+  const {
+    apiKey,
+    ankiDisabledAt,
+    ankiResumeBaselines,
+    ankiPendingResumeBaseline,
+    ...safeConfig
+  } = config
   return safeConfig
 }
 
@@ -1695,6 +1701,83 @@ function normalizeAnkiEnabled(value) {
 
 function isAnkiEnabled(state) {
   return normalizeAnkiEnabled(state?.config?.ankiEnabled)
+}
+
+function normalizeAnkiCount(value) {
+  const count = Math.floor(Number(value) || 0)
+  return Math.max(0, count)
+}
+
+function getTrackedAnkiCounts(s, dateKey) {
+  const day = s?.anki?.[dateKey] || {}
+  return {
+    reviewed: normalizeAnkiCount(day.reviewed),
+    created: normalizeAnkiCount(day.created)
+  }
+}
+
+function normalizeAnkiTrackingConfig(state) {
+  if (!state?.config) return false
+  let changed = false
+  state.config.ankiEnabled = normalizeAnkiEnabled(state.config.ankiEnabled)
+
+  if (state.config.ankiDisabledAt && !isValidTimestamp(state.config.ankiDisabledAt)) {
+    state.config.ankiDisabledAt = null
+    changed = true
+  }
+
+  if (!state.config.ankiEnabled && !state.config.ankiDisabledAt) {
+    state.config.ankiDisabledAt = new Date().toISOString()
+    changed = true
+  }
+
+  if (state.config.ankiEnabled && state.config.ankiDisabledAt) {
+    state.config.ankiDisabledAt = null
+    changed = true
+  }
+
+  if (!state.config.ankiResumeBaselines || typeof state.config.ankiResumeBaselines !== 'object' || Array.isArray(state.config.ankiResumeBaselines)) {
+    state.config.ankiResumeBaselines = {}
+    changed = true
+  }
+
+  const pending = state.config.ankiPendingResumeBaseline
+  if (pending && (typeof pending !== 'object' || Array.isArray(pending) || !pending.dateKey)) {
+    state.config.ankiPendingResumeBaseline = null
+    changed = true
+  }
+
+  return changed
+}
+
+function setAnkiResumeBaselineFromStats(s, stats, createdAt = new Date().toISOString()) {
+  if (!s?.config || !stats) return null
+  const dateKey = stats.ankiDateKey || getAnkiDateKey(new Date(stats.fetchedAt || Date.now()))
+  const tracked = getTrackedAnkiCounts(s, dateKey)
+  if (!s.config.ankiResumeBaselines || typeof s.config.ankiResumeBaselines !== 'object' || Array.isArray(s.config.ankiResumeBaselines)) {
+    s.config.ankiResumeBaselines = {}
+  }
+  s.config.ankiResumeBaselines[dateKey] = {
+    rawReviewed: normalizeAnkiCount(stats.reviewedToday),
+    rawCreated: normalizeAnkiCount(stats.newToday),
+    trackedReviewed: tracked.reviewed,
+    trackedCreated: tracked.created,
+    createdAt
+  }
+  if (s.config.ankiPendingResumeBaseline?.dateKey === dateKey) s.config.ankiPendingResumeBaseline = null
+  return s.config.ankiResumeBaselines[dateKey]
+}
+
+function setPendingAnkiResumeBaseline(s, dateKey = getCurrentAnkiDateKey(), createdAt = new Date().toISOString()) {
+  if (!s?.config) return null
+  const tracked = getTrackedAnkiCounts(s, dateKey)
+  s.config.ankiPendingResumeBaseline = {
+    dateKey,
+    trackedReviewed: tracked.reviewed,
+    trackedCreated: tracked.created,
+    createdAt
+  }
+  return s.config.ankiPendingResumeBaseline
 }
 
 function getDefaultHistoryView() {
@@ -1729,7 +1812,7 @@ function loadState() {
       if (state?.config) state.config.locale = normalizeLocale(state.config.locale || getBrowserDefaultLocale())
       if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
       if (state?.config) state.config.includeShorts = normalizeIncludeShorts(state.config.includeShorts)
-      if (state?.config) state.config.ankiEnabled = normalizeAnkiEnabled(state.config.ankiEnabled)
+      if (normalizeAnkiTrackingConfig(state)) shouldSave = true
       if (state?.config) {
         const historyView = normalizeHistoryView(state.config.historyView)
         if (state.config.historyView !== historyView) shouldSave = true
@@ -1797,6 +1880,9 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
       locale: normalizeLocale(locale || getBrowserDefaultLocale()),
       includeShorts: true,
       ankiEnabled: true,
+      ankiDisabledAt: null,
+      ankiResumeBaselines: {},
+      ankiPendingResumeBaseline: null,
       historyView: getDefaultHistoryView(),
       channels: Array.isArray(channels) ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
       removedDefaultChannelIds: restoredRemovedDefaultIds || [],
@@ -3004,15 +3090,38 @@ function closeSettingsOnEscape(event) {
   closeSettings()
 }
 
-function saveSettingsOnTheFly() {
+async function saveSettingsOnTheFly() {
   const s      = loadState()
   const previousGoal = normalizeWeeklyGoalHours(s.config.weeklyGoalHours)
   const previousIncludeShorts = normalizeIncludeShorts(s.config.includeShorts)
   const previousAnkiEnabled = isAnkiEnabled(s)
   const goal   = normalizeWeeklyGoalHours(document.getElementById('settingsGoal').value)
+  const nextAnkiEnabled = Boolean(document.getElementById('settingsAnkiEnabled')?.checked)
+  const ankiPreferenceChanged = nextAnkiEnabled !== previousAnkiEnabled
+  const now = new Date().toISOString()
+
+  if (ankiPreferenceChanged && previousAnkiEnabled && !nextAnkiEnabled && !IS_SANDBOX) {
+    try {
+      const stats = await fetchAnkiStats()
+      applyAnkiStatsToState(s, stats)
+    } catch {
+      ankiStatsCache = null
+    }
+  }
+
+  if (ankiPreferenceChanged && !previousAnkiEnabled && nextAnkiEnabled && !IS_SANDBOX) {
+    try {
+      const stats = await fetchAnkiStats()
+      setAnkiResumeBaselineFromStats(s, stats, now)
+    } catch {
+      setPendingAnkiResumeBaseline(s, getCurrentAnkiDateKey(), now)
+    }
+  }
+
   s.config.weeklyGoalHours = goal
   s.config.includeShorts = Boolean(document.getElementById('settingsIncludeShorts')?.checked)
-  s.config.ankiEnabled = Boolean(document.getElementById('settingsAnkiEnabled')?.checked)
+  s.config.ankiEnabled = nextAnkiEnabled
+  s.config.ankiDisabledAt = nextAnkiEnabled ? null : now
   document.getElementById('settingsGoal').value = goal
   if (goal !== previousGoal) {
     appendActivityLog(s, {
@@ -3032,7 +3141,6 @@ function saveSettingsOnTheFly() {
       detail: normalizeIncludeShorts(s.config.includeShorts) ? 'Short videos are shown.' : 'Short videos are hidden.'
     })
   }
-  const ankiPreferenceChanged = isAnkiEnabled(s) !== previousAnkiEnabled
   if (ankiPreferenceChanged) {
     appendActivityLog(s, {
       actor: 'user',
@@ -5094,23 +5202,21 @@ function syncAnkiStatsToState(stats) {
   const s = loadState()
   if (!s || !stats) return
 
+  applyAnkiStatsToState(s, stats)
   const ankiDateKey = stats.ankiDateKey || getAnkiDateKey(new Date(stats.fetchedAt || Date.now()))
-  s.anki[ankiDateKey] = {
-    reviewed: stats.reviewedToday,
-    created: stats.newToday,
-    loggedAt: stats.fetchedAt,
-    source: 'ankiconnect'
-  }
+  const tracked = getTrackedAnkiCounts(s, ankiDateKey)
   appendActivityLog(s, {
     actor: 'auto',
     type: 'anki-refresh',
     status: 'success',
     title: 'Anki stats refreshed',
-    detail: `${stats.reviewedToday} reviewed today, ${stats.newToday} new card${stats.newToday === 1 ? '' : 's'} found.`,
+    detail: `${tracked.reviewed} tracked review${tracked.reviewed === 1 ? '' : 's'} today, ${tracked.created} new card${tracked.created === 1 ? '' : 's'} found.`,
     meta: {
       ankiDateKey,
-      reviewedToday: stats.reviewedToday,
-      newToday: stats.newToday,
+      reviewedToday: tracked.reviewed,
+      newToday: tracked.created,
+      rawReviewedToday: stats.reviewedToday,
+      rawNewToday: stats.newToday,
       dueCards: stats.dueCards
     }
   })
@@ -5120,6 +5226,46 @@ function syncAnkiStatsToState(stats) {
   renderAnalytics(getWeeklyStats(s), s)
   const score = getCurrentCityScore(s)
   renderCity(score, s)
+}
+
+function applyAnkiStatsToState(s, stats) {
+  if (!s || !stats) return null
+  const ankiDateKey = stats.ankiDateKey || getAnkiDateKey(new Date(stats.fetchedAt || Date.now()))
+  const rawReviewed = normalizeAnkiCount(stats.reviewedToday)
+  const rawCreated = normalizeAnkiCount(stats.newToday)
+  const pending = s.config?.ankiPendingResumeBaseline
+
+  if (pending?.dateKey === ankiDateKey) {
+    if (!s.config.ankiResumeBaselines || typeof s.config.ankiResumeBaselines !== 'object' || Array.isArray(s.config.ankiResumeBaselines)) {
+      s.config.ankiResumeBaselines = {}
+    }
+    s.config.ankiResumeBaselines[ankiDateKey] = {
+      rawReviewed,
+      rawCreated,
+      trackedReviewed: normalizeAnkiCount(pending.trackedReviewed),
+      trackedCreated: normalizeAnkiCount(pending.trackedCreated),
+      createdAt: pending.createdAt || new Date().toISOString()
+    }
+    s.config.ankiPendingResumeBaseline = null
+  }
+
+  const baseline = s.config?.ankiResumeBaselines?.[ankiDateKey]
+  const reviewed = baseline
+    ? normalizeAnkiCount(baseline.trackedReviewed) + Math.max(0, rawReviewed - normalizeAnkiCount(baseline.rawReviewed))
+    : rawReviewed
+  const created = baseline
+    ? normalizeAnkiCount(baseline.trackedCreated) + Math.max(0, rawCreated - normalizeAnkiCount(baseline.rawCreated))
+    : rawCreated
+
+  s.anki[ankiDateKey] = {
+    reviewed,
+    created,
+    loggedAt: stats.fetchedAt,
+    source: 'ankiconnect',
+    rawReviewed,
+    rawCreated
+  }
+  return s.anki[ankiDateKey]
 }
 
 function setText(id, value) {
@@ -5185,11 +5331,11 @@ function getStudyActivityDateKeys(s) {
     getVideoWatchActivityDateKeys(video).forEach(dateKey => dateKeys.add(dateKey))
   }
 
-  if (isAnkiEnabled(s)) {
-    for (const [dateKey, day] of Object.entries(s?.anki || {})) {
-      if ((day.reviewed || 0) <= 0 && (day.created || 0) <= 0) continue
-      dateKeys.add(dateKey)
-    }
+  for (const [dateKey, day] of Object.entries(s?.anki || {})) {
+    const reviewed = normalizeAnkiCount(day.reviewed)
+    const created = normalizeAnkiCount(day.created)
+    if (reviewed <= 0 && created <= 0) continue
+    dateKeys.add(dateKey)
   }
 
   return [...dateKeys].sort((a, b) => b.localeCompare(a))
@@ -5287,15 +5433,15 @@ function getStudyHistoryBetween(s, start, end) {
     })
   }
 
-  if (isAnkiEnabled(s)) {
-    for (const [dateKey, day] of Object.entries(s.anki || {})) {
-      if ((day.reviewed || 0) <= 0 && (day.created || 0) <= 0) continue
-      const date = new Date(`${dateKey}T00:00:00`)
-      if (date < start || date > end) continue
-      const bucket = ensureBucket(dateKey)
-      bucket.ankiReviewed += day.reviewed || 0
-      bucket.ankiCreated += day.created || 0
-    }
+  for (const [dateKey, day] of Object.entries(s.anki || {})) {
+    const reviewed = normalizeAnkiCount(day.reviewed)
+    const created = normalizeAnkiCount(day.created)
+    if (reviewed <= 0 && created <= 0) continue
+    const date = new Date(`${dateKey}T00:00:00`)
+    if (date < start || date > end) continue
+    const bucket = ensureBucket(dateKey)
+    bucket.ankiReviewed += reviewed
+    bucket.ankiCreated += created
   }
 
   const rows = Array.from(buckets.values()).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
@@ -5767,7 +5913,6 @@ function formatHistoryDate(dateKey, state = null) {
 }
 
 function renderStudyHistoryPanel(s) {
-  const ankiEnabled = isAnkiEnabled(s)
   document.querySelectorAll('.history-range-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.historyRange === selectedHistoryRange)
     btn.setAttribute('aria-expanded', String(btn.closest('.history-period-cell')?.classList.contains('open') || false))
@@ -5782,29 +5927,30 @@ function renderStudyHistoryPanel(s) {
   renderHistoryPeriodPopover('month', 'historyMonthPeriodPopover', s || { videos: {}, anki: {} })
 
   const history = getStudyHistory(s || { videos: {}, anki: {} })
+  const showAnkiColumns = isAnkiEnabled(s) || history.rows.some(row => row.ankiReviewed > 0 || row.ankiCreated > 0)
   setText('historyStudyTime', formatHistoryTime(history.summary.secondsWatched))
   setText('historyVideosWatched', history.summary.videosWatched)
   setText('historyAnkiReviewed', history.summary.ankiReviewed)
   setText('historyAnkiCreated', history.summary.ankiCreated)
-  document.querySelectorAll('.history-anki-stat').forEach(el => el.classList.toggle('hidden', !ankiEnabled))
+  document.querySelectorAll('.history-anki-stat').forEach(el => el.classList.toggle('hidden', !showAnkiColumns))
 
   const table = document.getElementById('historyTable')
   if (table) {
     table.innerHTML = history.rows.length
       ? `
-        <div class="history-row history-row-head ${ankiEnabled ? '' : 'history-row-no-anki'}">
+        <div class="history-row history-row-head ${showAnkiColumns ? '' : 'history-row-no-anki'}">
           <span>${escHtml(t('history.table.date'))}</span>
           <span>${escHtml(t('history.table.video'))}</span>
           <span>${escHtml(t('history.table.watched'))}</span>
-          ${ankiEnabled ? `<span>${escHtml(t('history.table.anki'))}</span>` : ''}
+          ${showAnkiColumns ? `<span>${escHtml(t('history.table.anki'))}</span>` : ''}
           <span class="history-points-col">${escHtml(t('history.table.points'))}</span>
         </div>
         ${history.rows.map(row => `
-          <div class="history-row ${ankiEnabled ? '' : 'history-row-no-anki'}">
+          <div class="history-row ${showAnkiColumns ? '' : 'history-row-no-anki'}">
             <span data-label="${escHtml(t('history.table.date'))}">${formatHistoryDate(row.dateKey, s)}</span>
             <span data-label="${escHtml(t('history.table.video'))}">${formatHistoryTime(row.secondsWatched)}</span>
             <span data-label="${escHtml(t('history.table.watched'))}">${renderHistoryWatchedCell(row)}</span>
-            ${ankiEnabled ? `<span data-label="${escHtml(t('history.table.anki'))}">${row.ankiReviewed} / ${row.ankiCreated}</span>` : ''}
+            ${showAnkiColumns ? `<span data-label="${escHtml(t('history.table.anki'))}">${row.ankiReviewed} / ${row.ankiCreated}</span>` : ''}
             <span class="history-points-col" data-label="${escHtml(t('history.table.points'))}">${renderHistoryPointsCell(row)}</span>
           </div>
         `).join('')}
@@ -5903,9 +6049,11 @@ function renderHistoryHeatmap(s, container) {
       </div>
       <div class="heatmap-scroll">
         <div class="heatmap-grid" style="grid-template-columns: repeat(${weekCount}, var(--heatmap-cell-size))">
-          ${days.map(row => `
-            <span class="heatmap-day level-${getHistoryHeatLevel(row)}" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-anki-enabled="${ankiEnabled ? 'true' : 'false'}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row, ankiEnabled))}" tabindex="0" onmouseenter="showHeatmapTooltip(event)" onmousemove="positionHeatmapTooltip(event.currentTarget)" onmouseleave="hideHeatmapTooltip()" onclick="toggleHeatmapTooltip(event)" onfocus="showHeatmapTooltip(event)" onblur="hideHeatmapTooltip()"></span>
-          `).join('')}
+          ${days.map(row => {
+            const showAnkiForRow = ankiEnabled || row.ankiReviewed > 0 || row.ankiCreated > 0
+            return `
+            <span class="heatmap-day level-${getHistoryHeatLevel(row)}" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-anki-enabled="${showAnkiForRow ? 'true' : 'false'}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row, showAnkiForRow))}" tabindex="0" onmouseenter="showHeatmapTooltip(event)" onmousemove="positionHeatmapTooltip(event.currentTarget)" onmouseleave="hideHeatmapTooltip()" onclick="toggleHeatmapTooltip(event)" onfocus="showHeatmapTooltip(event)" onblur="hideHeatmapTooltip()"></span>
+          `}).join('')}
         </div>
       </div>
     </div>
@@ -6011,20 +6159,13 @@ function getWeeklyStats(s) {
   const goalProgress = Math.min((hoursWatched / goalHours) * 100, 100)
   const remainingSeconds = Math.max(0, Math.round(goalHours * 3600 - secondsWatched))
 
-  const todayKey = getCurrentAppDateKey(s)
-  const ankiThisWeek = isAnkiEnabled(s)
-    ? Object.entries(s.anki)
-      .filter(([date]) => new Date(date) >= weekStart && date <= todayKey)
-      .reduce((acc, [, d]) => ({ reviewed: acc.reviewed + (d.reviewed||0), created: acc.created + (d.created||0) }), { reviewed: 0, created: 0 })
-    : { reviewed: 0, created: 0 }
-
   return {
     hoursWatched, secondsWatched, goalHours, goalProgress,
     videosWatched: weekHistory.videosWatched,
     videosPartial: partial.length,
     remainingSeconds,
-    ankiReviewed: ankiThisWeek.reviewed,
-    ankiCreated:  ankiThisWeek.created
+    ankiReviewed: weekHistory.ankiReviewed,
+    ankiCreated:  weekHistory.ankiCreated
   }
 }
 
@@ -6373,11 +6514,9 @@ function getFirstStudyActionDateKey(s) {
     getVideoWatchActivityDateKeys(video).forEach(dateKey => dates.push(dateKey))
   })
 
-  if (isAnkiEnabled(s)) {
-    Object.entries(s?.anki || {}).forEach(([dateKey, day]) => {
-      if ((day.reviewed || 0) > 0 || (day.created || 0) > 0) dates.push(dateKey)
-    })
-  }
+  Object.entries(s?.anki || {}).forEach(([dateKey, day]) => {
+    if (normalizeAnkiCount(day.reviewed) > 0 || normalizeAnkiCount(day.created) > 0) dates.push(dateKey)
+  })
 
   return dates.sort()[0] || null
 }
@@ -6391,11 +6530,9 @@ function getLastStudyActionDateKey(s) {
     getVideoWatchActivityDateKeys(video).forEach(dateKey => dates.push(dateKey))
   })
 
-  if (isAnkiEnabled(s)) {
-    Object.entries(s?.anki || {}).forEach(([dateKey, day]) => {
-      if ((day.reviewed || 0) > 0 || (day.created || 0) > 0) dates.push(dateKey)
-    })
-  }
+  Object.entries(s?.anki || {}).forEach(([dateKey, day]) => {
+    if (normalizeAnkiCount(day.reviewed) > 0 || normalizeAnkiCount(day.created) > 0) dates.push(dateKey)
+  })
 
   return dates.sort().pop() || null
 }
