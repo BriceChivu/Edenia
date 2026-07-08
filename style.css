@@ -684,7 +684,11 @@ body[data-theme="dark"] .streak-pill.streak-low {
   padding: 0;
   width: 34px;
 }
-.gear-btn { font-size: 1.35rem; }
+.gear-btn {
+  font-size: 1.35rem;
+  position: relative;
+  top: -1.4px;
+}
 .theme-btn {
   font-size: 1rem;
 }
