@@ -2386,6 +2386,7 @@ function init() {
   applyTheme(state.config.theme)
   show('mainApp')
   renderAll(state)
+  startChannelRefreshLabelTicker()
   repairStoredShortsDetection()
   preloadCityImages()
   initCityImagePanZoom()
@@ -7221,6 +7222,17 @@ function renderChannelFilterOptions(s) {
   if (!menu.classList.contains('hidden')) positionFilterMenuWithinViewport(menu)
 }
 
+function refreshOpenChannelFilterTimestamps() {
+  const menu = document.getElementById('channelFilterMenu')
+  if (!menu || menu.classList.contains('hidden')) return
+  renderChannelFilterOptions(loadState())
+}
+
+function startChannelRefreshLabelTicker() {
+  clearInterval(startChannelRefreshLabelTicker._timer)
+  startChannelRefreshLabelTicker._timer = setInterval(refreshOpenChannelFilterTimestamps, 30_000)
+}
+
 function getChannelFilterEntries(s) {
   const channels = new Map()
   const removedChannelIds = new Set(s.config?.removedChannelIds || [])
@@ -7576,6 +7588,7 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 // ════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', init)
+document.addEventListener('visibilitychange', refreshOpenChannelFilterTimestamps)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
 document.addEventListener('click', closeHistoryVideoPopoversOnOutsideClick)
 document.addEventListener('click', closeHistoryPointsPopoversOnOutsideClick)

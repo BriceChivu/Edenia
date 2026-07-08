@@ -4,7 +4,6 @@ Minor changes:
 - small duck walking around/popup giving motivational quotes
 - Photoshop: add the duck on the island. sometimes shifting to different locations (like on the deck, in the water floating, or in front of the door of the house)
 - setting lags, looks like refresh rate is low
-- translation of "Undo Queue" and "review queue" popups
 - the last time refreshed time showing in the video filter pop up should be updated more frequently. It was showing "10 min ago" but then when I refreshed the website page it was showing "2h ago"
 - FIX: when Edenia loads it shows the level 1 picture for some time before switching to the current level.
 - Undo messages should be translated as well
