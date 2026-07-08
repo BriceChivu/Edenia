@@ -685,12 +685,24 @@ body[data-theme="dark"] .streak-pill.streak-low {
   width: 34px;
 }
 .gear-btn {
-  font-size: 1.35rem;
   position: relative;
-  top: -1.4px;
+  align-items: center;
+  display: inline-flex;
+  height: 34px;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  width: 34px;
+}
+.gear-btn-icon {
+  display: inline-block;
+  font-size: 1.28rem;
+  line-height: 1;
+  transform: translateY(-1px);
 }
 .theme-btn {
   font-size: 1rem;
+  position: relative;
 }
 .video-search {
   position: relative;

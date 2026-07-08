@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260703-16">
+  <link rel="stylesheet" href="style.css?v=20260703-18">
   <script src="config.local.js"></script>
 </head>
 <body>
@@ -168,7 +168,9 @@
             <path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/>
           </svg>
         </button>
-        <button class="btn-icon gear-btn" onclick="openSettings()" title="Settings" data-i18n-title="header.settings" data-i18n-aria-label="header.settings">☰</button>
+        <button class="btn-icon gear-btn" onclick="openSettings()" title="Settings" data-i18n-title="header.settings" data-i18n-aria-label="header.settings">
+          <span class="gear-btn-icon" aria-hidden="true">☰</span>
+        </button>
       </div>
     </header>
 
