@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=20260703-15">
+  <link rel="stylesheet" href="style.css?v=20260703-16">
   <script src="config.local.js"></script>
 </head>
 <body>
@@ -44,6 +44,10 @@
 
       <div class="settings-group settings-anki-group">
         <label data-i18n="settings.anki.title">Connect Anki</label>
+        <label class="settings-check">
+          <input type="checkbox" id="settingsAnkiEnabled" onchange="saveSettingsOnTheFly()">
+          <span data-i18n="settings.anki.enabled">Enable Anki tracking</span>
+        </label>
         <p class="step-hint" data-i18n="settings.anki.intro">Edenia can count your Anki reviews automatically. To let Edenia talk to Anki, install AnkiConnect and allow Edenia in its settings.</p>
         <ol class="settings-anki-steps">
           <li data-i18n="settings.anki.step1">Open Anki. In Tools, click Add-ons, then Get Add-ons, then paste this code: 2055492159.</li>
@@ -256,11 +260,11 @@
             <span class="history-stat-val" id="historyVideosWatched">0</span>
             <span class="history-stat-lbl" data-i18n="history.videosWatched">videos watched</span>
           </div>
-          <div class="history-stat">
+          <div class="history-stat history-anki-stat">
             <span class="history-stat-val" id="historyAnkiReviewed">0</span>
             <span class="history-stat-lbl" data-i18n="history.ankiReviewed">Anki cards reviewed</span>
           </div>
-          <div class="history-stat">
+          <div class="history-stat history-anki-stat">
             <span class="history-stat-val" id="historyAnkiCreated">0</span>
             <span class="history-stat-lbl" data-i18n="history.ankiCreated">new Anki cards created</span>
           </div>
@@ -323,6 +327,6 @@
   <div class="toast" id="toast"></div>
   <div class="heatmap-tooltip" id="heatmapTooltip"></div>
 
-  <script src="app.js?v=20260703-36"></script>
+  <script src="app.js?v=20260703-37"></script>
 </body>
 </html>

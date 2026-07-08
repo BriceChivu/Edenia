@@ -148,6 +148,7 @@ const I18N_EN = {
   'settings.shorts.label': 'Show short videos',
   'settings.shorts.hint': 'When off, videos under 3 minutes are skipped during refresh and hidden from your active video list.',
   'settings.anki.title': 'Connect Anki',
+  'settings.anki.enabled': 'Enable Anki tracking',
   'settings.anki.intro': 'Edenia can count your Anki reviews automatically. To let Edenia talk to Anki, install AnkiConnect and allow Edenia in its settings.',
   'settings.anki.step1': 'Open Anki. In Tools, click Add-ons, then Get Add-ons, then paste this code: 2055492159.',
   'settings.anki.step2': 'After restarting Anki, go to Tools again, Add-ons, click AnkiConnect, then Config. Make sure the text after "...," is at the end of the config.',
@@ -267,6 +268,7 @@ const I18N_EN = {
   'history.weekdays.sat': 'Sat',
   'history.weekdays.sun': 'Sun',
   'history.heatmapAria': '{date}: {points} points; {time} video time; {videos} videos watched; {reviewed} Anki cards reviewed; {created} new Anki cards created',
+  'history.heatmapAriaNoAnki': '{date}: {points} points; {time} video time; {videos} videos watched',
   'history.tooltip.points': '{count} pts',
   'history.tooltip.videoTime': 'Video time',
   'history.tooltip.videosWatched': 'Videos watched',
@@ -480,6 +482,7 @@ const I18N = {
     'settings.shorts.label': '顯示短影片',
     'settings.shorts.hint': '關閉時，刷新會跳過 3 分鐘以下的影片，並從主要影片清單隱藏。',
     'settings.anki.title': '連接 Anki',
+    'settings.anki.enabled': '啟用 Anki 追蹤',
     'settings.anki.intro': 'Edenia 可以自動計算你的 Anki 複習量。要讓 Edenia 和 Anki 連接，請安裝 AnkiConnect，並在設定中允許 Edenia。',
     'settings.anki.step1': '打開 Anki。在 Tools 點 Add-ons，再點 Get Add-ons，然後貼上這個代碼：2055492159。',
     'settings.anki.step2': '重新啟動 Anki 後，再到 Tools、Add-ons，點 AnkiConnect，然後點 Config。請確認下面這段文字在 config 的最後面。',
@@ -585,6 +588,7 @@ const I18N = {
     'history.tooltip.ankiCreated': '新增 Anki 卡',
     'history.tooltip.points': '{count} 分',
     'history.heatmapAria': '{date}：{points} 分；{time} 影片時間；已看 {videos} 部影片；複習 {reviewed} 張 Anki 卡；新增 {created} 張 Anki 卡',
+    'history.heatmapAriaNoAnki': '{date}：{points} 分；{time} 影片時間；已看 {videos} 部影片',
     'videos.title': '影片',
     'videos.status.all': '全部',
     'videos.status.watchLater': '稍後觀看',
@@ -710,6 +714,7 @@ const I18N = {
     'settings.shorts.label': '显示短视频',
     'settings.shorts.hint': '关闭时，刷新会跳过 3 分钟以下的视频，并从主要视频列表隐藏。',
     'settings.anki.title': '连接 Anki',
+    'settings.anki.enabled': '启用 Anki 追踪',
     'settings.anki.intro': 'Edenia 可以自动计算你的 Anki 复习量。要让 Edenia 和 Anki 连接，请安装 AnkiConnect，并在设置中允许 Edenia。',
     'settings.anki.step1': '打开 Anki。在 Tools 点 Add-ons，再点 Get Add-ons，然后粘贴这个代码：2055492159。',
     'settings.anki.step2': '重新启动 Anki 后，再到 Tools、Add-ons，点击 AnkiConnect，然后点击 Config。请确认下面这段文字在 config 的最后面。',
@@ -803,6 +808,7 @@ const I18N = {
     'history.pointsRounding': '向下取整',
     'history.pointsNone': '没有得分',
     'history.heatmapAria': '{date}：{points} 分；{time} 视频时间；已看 {videos} 部视频；复习 {reviewed} 张 Anki 卡；新增 {created} 张 Anki 卡',
+    'history.heatmapAriaNoAnki': '{date}：{points} 分；{time} 视频时间；已看 {videos} 部视频',
     'history.tooltip.points': '{count} 分',
     'videos.title': '视频',
     'videos.status.all': '全部',
@@ -921,6 +927,7 @@ const I18N = {
     'settings.shorts.label': 'Mostrar videos cortos',
     'settings.shorts.hint': 'Si está desactivado, los videos de menos de 3 minutos se omiten al actualizar y se ocultan de la lista activa.',
     'settings.anki.title': 'Conectar Anki',
+    'settings.anki.enabled': 'Activar seguimiento de Anki',
     'settings.anki.intro': 'Edenia puede contar tus repasos de Anki automáticamente. Para que Edenia pueda hablar con Anki, instala AnkiConnect y permite Edenia en sus ajustes.',
     'settings.anki.step1': 'Abre Anki. En Tools, haz clic en Add-ons, luego Get Add-ons, y pega este código: 2055492159.',
     'settings.anki.step2': 'Después de reiniciar Anki, vuelve a Tools, Add-ons, haz clic en AnkiConnect y luego en Config. Asegúrate de que el texto de abajo esté al final de la configuración.',
@@ -1014,6 +1021,7 @@ const I18N = {
     'history.pointsRounding': 'redondeado hacia abajo',
     'history.pointsNone': 'No se ganaron puntos',
     'history.heatmapAria': '{date}: {points} puntos; {time} de video; {videos} videos vistos; {reviewed} tarjetas Anki repasadas; {created} tarjetas Anki nuevas',
+    'history.heatmapAriaNoAnki': '{date}: {points} puntos; {time} de video; {videos} videos vistos',
     'history.tooltip.points': '{count} pts',
     'history.today': 'Hoy',
     'history.yesterday': 'Ayer',
@@ -1134,6 +1142,7 @@ const I18N = {
     'settings.shorts.label': 'Afficher les vidéos courtes',
     'settings.shorts.hint': 'Quand c’est désactivé, les vidéos de moins de 3 minutes sont ignorées au rafraîchissement et cachées de la liste active.',
     'settings.anki.title': 'Connecter Anki',
+    'settings.anki.enabled': 'Activer le suivi Anki',
     'settings.anki.intro': 'Edenia peut compter automatiquement vos révisions Anki. Pour permettre à Edenia de communiquer avec Anki, installez AnkiConnect et autorisez Edenia dans ses réglages.',
     'settings.anki.step1': 'Ouvrez Anki. Dans Tools, cliquez sur Add-ons, puis Get Add-ons, puis collez ce code : 2055492159.',
     'settings.anki.step2': 'Après avoir redémarré Anki, retournez dans Tools, Add-ons, cliquez sur AnkiConnect, puis Config. Vérifiez que le texte ci-dessous est à la fin de la configuration.',
@@ -1227,6 +1236,7 @@ const I18N = {
     'history.pointsRounding': 'arrondi vers le bas',
     'history.pointsNone': 'Aucun point gagné',
     'history.heatmapAria': '{date} : {points} points ; {time} de vidéo ; {videos} vidéos vues ; {reviewed} cartes Anki révisées ; {created} nouvelles cartes Anki',
+    'history.heatmapAriaNoAnki': '{date} : {points} points ; {time} de vidéo ; {videos} vidéos vues',
     'history.tooltip.points': '{count} pts',
     'history.today': 'Aujourd’hui',
     'history.yesterday': 'Hier',
@@ -1679,6 +1689,14 @@ function normalizeIncludeShorts(value) {
   return value !== false
 }
 
+function normalizeAnkiEnabled(value) {
+  return value !== false
+}
+
+function isAnkiEnabled(state) {
+  return normalizeAnkiEnabled(state?.config?.ankiEnabled)
+}
+
 function getDefaultHistoryView() {
   return IS_SANDBOX ? 'heatmap' : 'summary'
 }
@@ -1711,6 +1729,7 @@ function loadState() {
       if (state?.config) state.config.locale = normalizeLocale(state.config.locale || getBrowserDefaultLocale())
       if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
       if (state?.config) state.config.includeShorts = normalizeIncludeShorts(state.config.includeShorts)
+      if (state?.config) state.config.ankiEnabled = normalizeAnkiEnabled(state.config.ankiEnabled)
       if (state?.config) {
         const historyView = normalizeHistoryView(state.config.historyView)
         if (state.config.historyView !== historyView) shouldSave = true
@@ -1777,6 +1796,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
       theme: normalizeTheme(theme),
       locale: normalizeLocale(locale || getBrowserDefaultLocale()),
       includeShorts: true,
+      ankiEnabled: true,
       historyView: getDefaultHistoryView(),
       channels: Array.isArray(channels) ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
       removedDefaultChannelIds: restoredRemovedDefaultIds || [],
@@ -2391,8 +2411,7 @@ function init() {
   preloadCityImages()
   initCityImagePanZoom()
   if (!IS_SANDBOX) {
-    refreshAnkiStats({ silent: true })
-    startAnkiAutoRefresh()
+    applyAnkiRefreshPreference(state)
     startYoutubeAutoRefresh()
   } else {
     showToast(t('toast.sandboxMode'), 'warn')
@@ -2969,6 +2988,7 @@ function openSettings() {
   const localeSelect = document.getElementById('settingsLocale')
   if (localeSelect) localeSelect.value = normalizeLocale(s.config.locale)
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(s.config.includeShorts)
+  document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(s)
   renderChannelList(s.config.channels)
   renderBackupList()
   renderActivityLog(s)
@@ -2988,9 +3008,11 @@ function saveSettingsOnTheFly() {
   const s      = loadState()
   const previousGoal = normalizeWeeklyGoalHours(s.config.weeklyGoalHours)
   const previousIncludeShorts = normalizeIncludeShorts(s.config.includeShorts)
+  const previousAnkiEnabled = isAnkiEnabled(s)
   const goal   = normalizeWeeklyGoalHours(document.getElementById('settingsGoal').value)
   s.config.weeklyGoalHours = goal
   s.config.includeShorts = Boolean(document.getElementById('settingsIncludeShorts')?.checked)
+  s.config.ankiEnabled = Boolean(document.getElementById('settingsAnkiEnabled')?.checked)
   document.getElementById('settingsGoal').value = goal
   if (goal !== previousGoal) {
     appendActivityLog(s, {
@@ -3010,7 +3032,19 @@ function saveSettingsOnTheFly() {
       detail: normalizeIncludeShorts(s.config.includeShorts) ? 'Short videos are shown.' : 'Short videos are hidden.'
     })
   }
+  const ankiPreferenceChanged = isAnkiEnabled(s) !== previousAnkiEnabled
+  if (ankiPreferenceChanged) {
+    appendActivityLog(s, {
+      actor: 'user',
+      type: 'anki-setting',
+      status: 'success',
+      title: 'Anki setting changed',
+      detail: isAnkiEnabled(s) ? 'Anki tracking is enabled.' : 'Anki tracking is disabled.'
+    })
+    syncStreak(s)
+  }
   saveState(s)
+  if (ankiPreferenceChanged) applyAnkiRefreshPreference(s)
   renderAll(s)
   renderActivityLog(s)
   if (!normalizeIncludeShorts(s.config.includeShorts)) repairStoredShortsDetection()
@@ -3109,6 +3143,7 @@ function importSyncFileFromInput(input) {
         title: 'Sync file imported',
         detail: file.name || 'Imported progress from a sync file.'
       })
+      syncStreak(normalizedState)
       saveState(normalizedState, { backup: false })
       applyLocale(normalizedState.config.locale)
       document.title = IS_SANDBOX ? t('app.title.sandbox') : 'Edenia'
@@ -3123,6 +3158,8 @@ function importSyncFileFromInput(input) {
       const localeSelect = document.getElementById('settingsLocale')
       if (localeSelect) localeSelect.value = normalizeLocale(normalizedState.config.locale)
       document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(normalizedState.config.includeShorts)
+      document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(normalizedState)
+      applyAnkiRefreshPreference(normalizedState)
       showToast(t('toast.syncImported'))
     } catch {
       showToast(t('toast.readSyncFailed'), 'error')
@@ -3348,6 +3385,8 @@ function restoreStateBackup(id) {
   const localeSelect = document.getElementById('settingsLocale')
   if (localeSelect) localeSelect.value = normalizeLocale(state.config.locale)
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(state.config.includeShorts)
+  document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(state)
+  applyAnkiRefreshPreference(state)
   showToast(t('toast.backupRestored'), 'success')
 }
 
@@ -5002,6 +5041,7 @@ function formatAnkiConnectError(err) {
 }
 
 async function refreshAnkiStats({ silent = false } = {}) {
+  if (!isAnkiEnabled(loadState())) return
   try {
     ankiStatsCache = await fetchAnkiStats()
     syncAnkiStatsToState(ankiStatsCache)
@@ -5027,12 +5067,27 @@ async function refreshAnkiStats({ silent = false } = {}) {
 function startAnkiAutoRefresh() {
   clearInterval(startAnkiAutoRefresh._timer)
   startAnkiAutoRefresh._timer = setInterval(() => {
-    if (!document.hidden) refreshAnkiStats({ silent: true })
+    if (!document.hidden && isAnkiEnabled(loadState())) refreshAnkiStats({ silent: true })
   }, ANKI_AUTO_REFRESH_MS)
 }
 
+function stopAnkiAutoRefresh() {
+  clearInterval(startAnkiAutoRefresh._timer)
+  startAnkiAutoRefresh._timer = null
+  ankiStatsCache = null
+}
+
+function applyAnkiRefreshPreference(state = loadState()) {
+  if (IS_SANDBOX || !isAnkiEnabled(state)) {
+    stopAnkiAutoRefresh()
+    return
+  }
+  startAnkiAutoRefresh()
+  refreshAnkiStats({ silent: true })
+}
+
 function refreshAnkiStatsOnVisible() {
-  if (!IS_SANDBOX && !document.hidden) refreshAnkiStats({ silent: true })
+  if (!IS_SANDBOX && !document.hidden && isAnkiEnabled(loadState())) refreshAnkiStats({ silent: true })
 }
 
 function syncAnkiStatsToState(stats) {
@@ -5130,9 +5185,11 @@ function getStudyActivityDateKeys(s) {
     getVideoWatchActivityDateKeys(video).forEach(dateKey => dateKeys.add(dateKey))
   }
 
-  for (const [dateKey, day] of Object.entries(s?.anki || {})) {
-    if ((day.reviewed || 0) <= 0 && (day.created || 0) <= 0) continue
-    dateKeys.add(dateKey)
+  if (isAnkiEnabled(s)) {
+    for (const [dateKey, day] of Object.entries(s?.anki || {})) {
+      if ((day.reviewed || 0) <= 0 && (day.created || 0) <= 0) continue
+      dateKeys.add(dateKey)
+    }
   }
 
   return [...dateKeys].sort((a, b) => b.localeCompare(a))
@@ -5230,13 +5287,15 @@ function getStudyHistoryBetween(s, start, end) {
     })
   }
 
-  for (const [dateKey, day] of Object.entries(s.anki || {})) {
-    if ((day.reviewed || 0) <= 0 && (day.created || 0) <= 0) continue
-    const date = new Date(`${dateKey}T00:00:00`)
-    if (date < start || date > end) continue
-    const bucket = ensureBucket(dateKey)
-    bucket.ankiReviewed += day.reviewed || 0
-    bucket.ankiCreated += day.created || 0
+  if (isAnkiEnabled(s)) {
+    for (const [dateKey, day] of Object.entries(s.anki || {})) {
+      if ((day.reviewed || 0) <= 0 && (day.created || 0) <= 0) continue
+      const date = new Date(`${dateKey}T00:00:00`)
+      if (date < start || date > end) continue
+      const bucket = ensureBucket(dateKey)
+      bucket.ankiReviewed += day.reviewed || 0
+      bucket.ankiCreated += day.created || 0
+    }
   }
 
   const rows = Array.from(buckets.values()).sort((a, b) => b.dateKey.localeCompare(a.dateKey))
@@ -5708,6 +5767,7 @@ function formatHistoryDate(dateKey, state = null) {
 }
 
 function renderStudyHistoryPanel(s) {
+  const ankiEnabled = isAnkiEnabled(s)
   document.querySelectorAll('.history-range-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.historyRange === selectedHistoryRange)
     btn.setAttribute('aria-expanded', String(btn.closest('.history-period-cell')?.classList.contains('open') || false))
@@ -5726,24 +5786,25 @@ function renderStudyHistoryPanel(s) {
   setText('historyVideosWatched', history.summary.videosWatched)
   setText('historyAnkiReviewed', history.summary.ankiReviewed)
   setText('historyAnkiCreated', history.summary.ankiCreated)
+  document.querySelectorAll('.history-anki-stat').forEach(el => el.classList.toggle('hidden', !ankiEnabled))
 
   const table = document.getElementById('historyTable')
   if (table) {
     table.innerHTML = history.rows.length
       ? `
-        <div class="history-row history-row-head">
+        <div class="history-row history-row-head ${ankiEnabled ? '' : 'history-row-no-anki'}">
           <span>${escHtml(t('history.table.date'))}</span>
           <span>${escHtml(t('history.table.video'))}</span>
           <span>${escHtml(t('history.table.watched'))}</span>
-          <span>${escHtml(t('history.table.anki'))}</span>
+          ${ankiEnabled ? `<span>${escHtml(t('history.table.anki'))}</span>` : ''}
           <span class="history-points-col">${escHtml(t('history.table.points'))}</span>
         </div>
         ${history.rows.map(row => `
-          <div class="history-row">
+          <div class="history-row ${ankiEnabled ? '' : 'history-row-no-anki'}">
             <span data-label="${escHtml(t('history.table.date'))}">${formatHistoryDate(row.dateKey, s)}</span>
             <span data-label="${escHtml(t('history.table.video'))}">${formatHistoryTime(row.secondsWatched)}</span>
             <span data-label="${escHtml(t('history.table.watched'))}">${renderHistoryWatchedCell(row)}</span>
-            <span data-label="${escHtml(t('history.table.anki'))}">${row.ankiReviewed} / ${row.ankiCreated}</span>
+            ${ankiEnabled ? `<span data-label="${escHtml(t('history.table.anki'))}">${row.ankiReviewed} / ${row.ankiCreated}</span>` : ''}
             <span class="history-points-col" data-label="${escHtml(t('history.table.points'))}">${renderHistoryPointsCell(row)}</span>
           </div>
         `).join('')}
@@ -5789,8 +5850,9 @@ function formatHeatmapTitle(row) {
   return formatLocaleDate(date, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function formatHeatmapAriaLabel(row) {
-  return t('history.heatmapAria', {
+function formatHeatmapAriaLabel(row, ankiEnabled = true) {
+  const key = ankiEnabled ? 'history.heatmapAria' : 'history.heatmapAriaNoAnki'
+  return t(key, {
     date: formatHeatmapTitle(row),
     points: getHistoryDayPoints(row),
     time: formatHistoryTime(row.secondsWatched),
@@ -5810,6 +5872,7 @@ function getWeekMonday(date) {
 }
 
 function renderHistoryHeatmap(s, container) {
+  const ankiEnabled = isAnkiEnabled(s)
   const end = IS_SANDBOX ? getSandboxHeatmapEndDate(s) : new Date()
   end.setHours(23, 59, 59, 999)
   const start = addDays(end, -364)
@@ -5841,7 +5904,7 @@ function renderHistoryHeatmap(s, container) {
       <div class="heatmap-scroll">
         <div class="heatmap-grid" style="grid-template-columns: repeat(${weekCount}, var(--heatmap-cell-size))">
           ${days.map(row => `
-            <span class="heatmap-day level-${getHistoryHeatLevel(row)}" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row))}" tabindex="0" onmouseenter="showHeatmapTooltip(event)" onmousemove="positionHeatmapTooltip(event.currentTarget)" onmouseleave="hideHeatmapTooltip()" onclick="toggleHeatmapTooltip(event)" onfocus="showHeatmapTooltip(event)" onblur="hideHeatmapTooltip()"></span>
+            <span class="heatmap-day level-${getHistoryHeatLevel(row)}" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-anki-enabled="${ankiEnabled ? 'true' : 'false'}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row, ankiEnabled))}" tabindex="0" onmouseenter="showHeatmapTooltip(event)" onmousemove="positionHeatmapTooltip(event.currentTarget)" onmouseleave="hideHeatmapTooltip()" onclick="toggleHeatmapTooltip(event)" onfocus="showHeatmapTooltip(event)" onblur="hideHeatmapTooltip()"></span>
           `).join('')}
         </div>
       </div>
@@ -5878,6 +5941,12 @@ function showHeatmapTooltip(event) {
   const target = event.currentTarget
   const tooltip = document.getElementById('heatmapTooltip')
   if (!target || !tooltip) return
+  const ankiRows = target.dataset.ankiEnabled === 'true'
+    ? `
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">A</span><span>${escHtml(t('history.tooltip.ankiReviewed'))}</span><b>${escHtml(target.dataset.reviewed)}</b></div>
+    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">+</span><span>${escHtml(t('history.tooltip.ankiCreated'))}</span><b>${escHtml(target.dataset.created)}</b></div>
+  `
+    : ''
   tooltip.innerHTML = `
     <div class="heatmap-tooltip-head">
       <div class="heatmap-tooltip-title">${escHtml(target.dataset.date)}</div>
@@ -5885,8 +5954,7 @@ function showHeatmapTooltip(event) {
     </div>
     <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">⏱</span><span>${escHtml(t('history.tooltip.videoTime'))}</span><b>${escHtml(target.dataset.time)}</b></div>
     <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">✓</span><span>${escHtml(t('history.tooltip.videosWatched'))}</span><b>${escHtml(target.dataset.videos)}</b></div>
-    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">A</span><span>${escHtml(t('history.tooltip.ankiReviewed'))}</span><b>${escHtml(target.dataset.reviewed)}</b></div>
-    <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">+</span><span>${escHtml(t('history.tooltip.ankiCreated'))}</span><b>${escHtml(target.dataset.created)}</b></div>
+    ${ankiRows}
   `
   tooltip._target = target
   tooltip.classList.add('show')
@@ -5943,11 +6011,12 @@ function getWeeklyStats(s) {
   const goalProgress = Math.min((hoursWatched / goalHours) * 100, 100)
   const remainingSeconds = Math.max(0, Math.round(goalHours * 3600 - secondsWatched))
 
-  // Anki totals for this week
   const todayKey = getCurrentAppDateKey(s)
-  const ankiThisWeek = Object.entries(s.anki)
-    .filter(([date]) => new Date(date) >= weekStart && date <= todayKey)
-    .reduce((acc, [, d]) => ({ reviewed: acc.reviewed + (d.reviewed||0), created: acc.created + (d.created||0) }), { reviewed: 0, created: 0 })
+  const ankiThisWeek = isAnkiEnabled(s)
+    ? Object.entries(s.anki)
+      .filter(([date]) => new Date(date) >= weekStart && date <= todayKey)
+      .reduce((acc, [, d]) => ({ reviewed: acc.reviewed + (d.reviewed||0), created: acc.created + (d.created||0) }), { reviewed: 0, created: 0 })
+    : { reviewed: 0, created: 0 }
 
   return {
     hoursWatched, secondsWatched, goalHours, goalProgress,
@@ -6304,9 +6373,11 @@ function getFirstStudyActionDateKey(s) {
     getVideoWatchActivityDateKeys(video).forEach(dateKey => dates.push(dateKey))
   })
 
-  Object.entries(s?.anki || {}).forEach(([dateKey, day]) => {
-    if ((day.reviewed || 0) > 0 || (day.created || 0) > 0) dates.push(dateKey)
-  })
+  if (isAnkiEnabled(s)) {
+    Object.entries(s?.anki || {}).forEach(([dateKey, day]) => {
+      if ((day.reviewed || 0) > 0 || (day.created || 0) > 0) dates.push(dateKey)
+    })
+  }
 
   return dates.sort()[0] || null
 }
@@ -6320,9 +6391,11 @@ function getLastStudyActionDateKey(s) {
     getVideoWatchActivityDateKeys(video).forEach(dateKey => dates.push(dateKey))
   })
 
-  Object.entries(s?.anki || {}).forEach(([dateKey, day]) => {
-    if ((day.reviewed || 0) > 0 || (day.created || 0) > 0) dates.push(dateKey)
-  })
+  if (isAnkiEnabled(s)) {
+    Object.entries(s?.anki || {}).forEach(([dateKey, day]) => {
+      if ((day.reviewed || 0) > 0 || (day.created || 0) > 0) dates.push(dateKey)
+    })
+  }
 
   return dates.sort().pop() || null
 }
