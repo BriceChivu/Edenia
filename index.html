@@ -43,11 +43,21 @@
       </div>
 
       <div class="settings-group settings-anki-group">
-        <label data-i18n="settings.anki.title">Connect Anki</label>
         <label class="settings-check">
           <input type="checkbox" id="settingsAnkiEnabled" onchange="saveSettingsOnTheFly()">
           <span data-i18n="settings.anki.enabled">Enable Anki tracking</span>
         </label>
+        <p class="step-hint" data-i18n="settings.anki.toggleHint">When on, Edenia can read Anki review counts while Anki is open.</p>
+      </div>
+
+      <div class="settings-group settings-howto-group">
+        <button type="button" class="settings-howto-toggle" onclick="toggleSettingsHowTo()" aria-expanded="false" aria-controls="settingsHowToContent">
+          <span data-i18n="settings.howto.title">How to</span>
+          <span class="settings-howto-caret" aria-hidden="true"></span>
+        </button>
+        <div class="settings-howto-content" id="settingsHowToContent" hidden>
+          <section class="settings-howto-section">
+            <h3 data-i18n="settings.anki.title">Connect to Anki</h3>
         <p class="step-hint" data-i18n="settings.anki.intro">Edenia can count your Anki reviews automatically. To let Edenia talk to Anki, install AnkiConnect and allow Edenia in its settings.</p>
         <ol class="settings-anki-steps">
           <li data-i18n="settings.anki.step1">Open Anki. In Tools, click Add-ons, then Get Add-ons, then paste this code: 2055492159.</li>
@@ -65,10 +75,10 @@
           <li data-i18n="settings.anki.step3">Restart Anki and keep Anki open while you use Edenia.</li>
         </ol>
         <p class="settings-note" data-i18n="settings.anki.note">Edenia only reads your review count for your study history. It does not change your Anki cards.</p>
-      </div>
 
-      <div class="settings-group settings-scoring-group">
-        <label data-i18n="settings.scoring.title">How points work</label>
+          </section>
+          <section class="settings-howto-section">
+            <h3 data-i18n="settings.scoring.title">How points work</h3>
         <p class="step-hint" data-i18n="settings.scoring.intro">Points reward video study time and Anki reviews. Edenia rounds each source down before adding the points to your day.</p>
         <ul class="settings-scoring-list">
           <li data-i18n="settings.scoring.video">Watching 1 hour of video gives 3 pts.</li>
@@ -79,6 +89,12 @@
           <li data-i18n="settings.scoring.exampleVideo">Watching 30 min of video gives 1 pts (1.5 rounded down to 1).</li>
           <li data-i18n="settings.scoring.exampleAnki">Doing 30 Anki reviews gives 1 pts but doing 29 reviews gives 0 pts (0.9 rounded down to 0).</li>
         </ul>
+          </section>
+          <section class="settings-howto-section">
+            <h3 data-i18n="settings.workflow.title">Typical Edenia workflow</h3>
+            <p class="settings-note" data-i18n="settings.workflow.body">Refresh your channels, study from the video list, keep Anki open if tracking is enabled, then check Study History to see the day&apos;s points.</p>
+          </section>
+        </div>
       </div>
 
       <div class="settings-actions">
