@@ -147,8 +147,10 @@ const I18N_EN = {
   'settings.channels.hint': 'Paste a YouTube channel URL, @handle, or channel ID. Best examples: youtube.com/@channel or youtube.com/channel/UCxxxxxxxx.',
   'settings.shorts.label': 'Show short videos',
   'settings.shorts.hint': 'When off, videos under 3 minutes are skipped during refresh and hidden from your active video list.',
-  'settings.anki.title': 'Connect Anki',
+  'settings.howto.title': 'How to',
+  'settings.anki.title': 'Connect to Anki',
   'settings.anki.enabled': 'Enable Anki tracking',
+  'settings.anki.toggleHint': 'When on, Edenia can read Anki review counts while Anki is open.',
   'settings.anki.intro': 'Edenia can count your Anki reviews automatically. To let Edenia talk to Anki, install AnkiConnect and allow Edenia in its settings.',
   'settings.anki.step1': 'Open Anki. In Tools, click Add-ons, then Get Add-ons, then paste this code: 2055492159.',
   'settings.anki.step2': 'After restarting Anki, go to Tools again, Add-ons, click AnkiConnect, then Config. Make sure the text after "...," is at the end of the config.',
@@ -161,6 +163,8 @@ const I18N_EN = {
   'settings.scoring.examples': 'Examples:',
   'settings.scoring.exampleVideo': 'Watching 30 min of video gives 1 pts (1.5 rounded down to 1).',
   'settings.scoring.exampleAnki': 'Doing 30 Anki reviews gives 1 pts but doing 29 reviews gives 0 pts (0.9 rounded down to 0).',
+  'settings.workflow.title': 'Typical Edenia workflow',
+  'settings.workflow.body': "Refresh your channels, study from the video list, keep Anki open if tracking is enabled, then check Study History to see the day's points.",
   'settings.activity.title': 'Activity log',
   'settings.activity.filtersLabel': 'Activity log filters',
   'settings.activity.all': 'All',
@@ -482,8 +486,10 @@ const I18N = {
     'settings.channels.hint': '貼上 YouTube 頻道網址、@handle 或頻道 ID。建議格式：youtube.com/@channel 或 youtube.com/channel/UCxxxxxxxx。',
     'settings.shorts.label': '顯示短影片',
     'settings.shorts.hint': '關閉時，刷新會跳過 3 分鐘以下的影片，並從主要影片清單隱藏。',
-    'settings.anki.title': '連接 Anki',
+    'settings.howto.title': '使用說明',
+    'settings.anki.title': '連接到 Anki',
     'settings.anki.enabled': '啟用 Anki 追蹤',
+    'settings.anki.toggleHint': '開啟後，Edenia 可以在 Anki 開著時讀取複習數量。',
     'settings.anki.intro': 'Edenia 可以自動計算你的 Anki 複習量。要讓 Edenia 和 Anki 連接，請安裝 AnkiConnect，並在設定中允許 Edenia。',
     'settings.anki.step1': '打開 Anki。在 Tools 點 Add-ons，再點 Get Add-ons，然後貼上這個代碼：2055492159。',
     'settings.anki.step2': '重新啟動 Anki 後，再到 Tools、Add-ons，點 AnkiConnect，然後點 Config。請確認下面這段文字在 config 的最後面。',
@@ -496,6 +502,8 @@ const I18N = {
     'settings.scoring.examples': '例子：',
     'settings.scoring.exampleVideo': '觀看 30 分鐘影片會得到 1 分（1.5 向下取整為 1）。',
     'settings.scoring.exampleAnki': '複習 30 張 Anki 卡會得到 1 分，但複習 29 張會得到 0 分（0.9 向下取整為 0）。',
+    'settings.workflow.title': '典型 Edenia 流程',
+    'settings.workflow.body': '刷新頻道，從影片清單開始學習；如果啟用了 Anki 追蹤，請保持 Anki 開著，然後到學習紀錄查看當天分數。',
     'settings.activity.title': '活動紀錄',
     'settings.activity.filtersLabel': '活動紀錄篩選',
     'settings.activity.all': '全部',
@@ -715,8 +723,10 @@ const I18N = {
     'settings.channels.hint': '粘贴 YouTube 频道网址、@handle 或频道 ID。建议格式：youtube.com/@channel 或 youtube.com/channel/UCxxxxxxxx。',
     'settings.shorts.label': '显示短视频',
     'settings.shorts.hint': '关闭时，刷新会跳过 3 分钟以下的视频，并从主要视频列表隐藏。',
+    'settings.howto.title': '使用说明',
     'settings.anki.title': '连接 Anki',
     'settings.anki.enabled': '启用 Anki 追踪',
+    'settings.anki.toggleHint': '开启后，Edenia 可以在 Anki 打开时读取复习数量。',
     'settings.anki.intro': 'Edenia 可以自动计算你的 Anki 复习量。要让 Edenia 和 Anki 连接，请安装 AnkiConnect，并在设置中允许 Edenia。',
     'settings.anki.step1': '打开 Anki。在 Tools 点 Add-ons，再点 Get Add-ons，然后粘贴这个代码：2055492159。',
     'settings.anki.step2': '重新启动 Anki 后，再到 Tools、Add-ons，点击 AnkiConnect，然后点击 Config。请确认下面这段文字在 config 的最后面。',
@@ -729,6 +739,8 @@ const I18N = {
     'settings.scoring.examples': '例子：',
     'settings.scoring.exampleVideo': '观看 30 分钟视频会得到 1 分（1.5 向下取整为 1）。',
     'settings.scoring.exampleAnki': '复习 30 张 Anki 卡会得到 1 分，但复习 29 张会得到 0 分（0.9 向下取整为 0）。',
+    'settings.workflow.title': '典型 Edenia 流程',
+    'settings.workflow.body': '刷新频道，从视频列表开始学习；如果启用了 Anki 追踪，请保持 Anki 打开，然后到学习记录查看当天分数。',
     'settings.activity.title': '活动记录',
     'settings.activity.all': '全部',
     'settings.activity.user': '用户',
@@ -929,8 +941,10 @@ const I18N = {
     'settings.channels.hint': 'Pega una URL de canal de YouTube, @handle o ID del canal. Mejores ejemplos: youtube.com/@channel o youtube.com/channel/UCxxxxxxxx.',
     'settings.shorts.label': 'Mostrar videos cortos',
     'settings.shorts.hint': 'Si está desactivado, los videos de menos de 3 minutos se omiten al actualizar y se ocultan de la lista activa.',
+    'settings.howto.title': 'Cómo usar',
     'settings.anki.title': 'Conectar Anki',
     'settings.anki.enabled': 'Activar seguimiento de Anki',
+    'settings.anki.toggleHint': 'Cuando está activo, Edenia puede leer tus repasos de Anki mientras Anki está abierto.',
     'settings.anki.intro': 'Edenia puede contar tus repasos de Anki automáticamente. Para que Edenia pueda hablar con Anki, instala AnkiConnect y permite Edenia en sus ajustes.',
     'settings.anki.step1': 'Abre Anki. En Tools, haz clic en Add-ons, luego Get Add-ons, y pega este código: 2055492159.',
     'settings.anki.step2': 'Después de reiniciar Anki, vuelve a Tools, Add-ons, haz clic en AnkiConnect y luego en Config. Asegúrate de que el texto de abajo esté al final de la configuración.',
@@ -943,6 +957,8 @@ const I18N = {
     'settings.scoring.examples': 'Ejemplos:',
     'settings.scoring.exampleVideo': 'Ver 30 min de video da 1 pts (1.5 redondeado hacia abajo a 1).',
     'settings.scoring.exampleAnki': 'Hacer 30 repasos de Anki da 1 pts, pero hacer 29 repasos da 0 pts (0.9 redondeado hacia abajo a 0).',
+    'settings.workflow.title': 'Flujo típico de Edenia',
+    'settings.workflow.body': 'Actualiza tus canales, estudia desde la lista de videos, mantén Anki abierto si el seguimiento está activo y revisa Study History para ver los puntos del día.',
     'settings.activity.title': 'Registro de actividad',
     'settings.activity.all': 'Todo',
     'settings.activity.user': 'Usuario',
@@ -1145,8 +1161,10 @@ const I18N = {
     'settings.channels.hint': 'Collez une URL de chaîne YouTube, un @handle ou un ID de chaîne. Exemples conseillés : youtube.com/@channel ou youtube.com/channel/UCxxxxxxxx.',
     'settings.shorts.label': 'Afficher les vidéos courtes',
     'settings.shorts.hint': 'Quand c’est désactivé, les vidéos de moins de 3 minutes sont ignorées au rafraîchissement et cachées de la liste active.',
+    'settings.howto.title': 'Mode d’emploi',
     'settings.anki.title': 'Connecter Anki',
     'settings.anki.enabled': 'Activer le suivi Anki',
+    'settings.anki.toggleHint': 'Quand il est activé, Edenia peut lire vos révisions Anki pendant qu’Anki est ouvert.',
     'settings.anki.intro': 'Edenia peut compter automatiquement vos révisions Anki. Pour permettre à Edenia de communiquer avec Anki, installez AnkiConnect et autorisez Edenia dans ses réglages.',
     'settings.anki.step1': 'Ouvrez Anki. Dans Tools, cliquez sur Add-ons, puis Get Add-ons, puis collez ce code : 2055492159.',
     'settings.anki.step2': 'Après avoir redémarré Anki, retournez dans Tools, Add-ons, cliquez sur AnkiConnect, puis Config. Vérifiez que le texte ci-dessous est à la fin de la configuration.',
@@ -1159,6 +1177,8 @@ const I18N = {
     'settings.scoring.examples': 'Exemples :',
     'settings.scoring.exampleVideo': 'Regarder 30 min de vidéo donne 1 pts (1,5 arrondi vers le bas à 1).',
     'settings.scoring.exampleAnki': 'Faire 30 révisions Anki donne 1 pts, mais faire 29 révisions donne 0 pts (0,9 arrondi vers le bas à 0).',
+    'settings.workflow.title': 'Flux Edenia typique',
+    'settings.workflow.body': 'Actualisez vos chaînes, étudiez depuis la liste de vidéos, gardez Anki ouvert si le suivi est activé, puis consultez Study History pour voir les points du jour.',
     'settings.activity.title': 'Journal d’activité',
     'settings.activity.all': 'Tout',
     'settings.activity.user': 'Utilisateur',
@@ -3083,10 +3103,27 @@ function openSettings() {
   renderChannelList(s.config.channels)
   renderBackupList()
   renderActivityLog(s)
+  setSettingsHowToOpen(false)
   show('settingsPanel')
 }
 
 function closeSettings() { hide('settingsPanel') }
+
+function setSettingsHowToOpen(isOpen) {
+  const content = document.getElementById('settingsHowToContent')
+  const toggle = document.querySelector('.settings-howto-toggle')
+  const group = document.querySelector('.settings-howto-group')
+  if (!content || !toggle || !group) return
+  content.hidden = !isOpen
+  toggle.setAttribute('aria-expanded', String(isOpen))
+  group.classList.toggle('open', isOpen)
+}
+
+function toggleSettingsHowTo() {
+  const content = document.getElementById('settingsHowToContent')
+  if (!content) return
+  setSettingsHowToOpen(content.hidden)
+}
 
 function closeSettingsOnEscape(event) {
   if (event.key !== 'Escape') return
