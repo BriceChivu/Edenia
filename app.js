@@ -5483,7 +5483,7 @@ function renderHistoryWatchedCell(row) {
         <span class="history-video-count-number">${row.videosWatched}</span>
         <span class="history-video-count-caret" aria-hidden="true"></span>
       </button>
-      <span class="history-video-popover" role="dialog" aria-label="${escHtml(t('history.watchedDialog'))}">
+      <span class="history-video-popover" role="dialog" aria-label="${escHtml(t('history.watchedDialog'))}" onmouseenter="openHistoryVideoPopover(event)" onmouseleave="closeHistoryVideoPopoverSoon()">
         ${row.watchedVideos.map(video => `
           <button type="button" class="history-video-popover-item" data-video-id="${escHtml(video.id)}" onclick="jumpToWatchedVideo(this.dataset.videoId)">
             ${video.thumbnail
