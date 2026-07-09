@@ -2972,13 +2972,63 @@ body[data-theme="dark"] .walkthrough-highlight {
   .reset-confirm-actions .btn-ghost {
     width: 100%;
   }
-  .feed-controls { width: 100%; }
-  .status-filter { flex: 1 1 132px; }
-  .status-filter-btn { width: 100%; }
-  .channel-filter { flex: 1 1 150px; }
-  .channel-filter-btn { max-width: none; width: 100%; }
-  .manual-video { flex: 1 1 160px; }
-  .manual-video-btn { width: 100%; }
+  .feed-controls {
+    align-items: stretch;
+    width: 100%;
+    display: grid;
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "status channel"
+      "add-video actions";
+  }
+  .status-filter,
+  .channel-filter,
+  .manual-video {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+  .status-filter { grid-area: status; }
+  .channel-filter { grid-area: channel; }
+  .manual-video { grid-area: add-video; }
+  .undo-wrap {
+    grid-area: actions;
+    display: flex;
+    flex-direction: row;
+    gap: 6px;
+    justify-content: stretch;
+    width: 100%;
+  }
+  .undo-action-wrap {
+    flex: 1 1 0;
+  }
+  .status-filter-btn,
+  .channel-filter-btn,
+  .manual-video-btn {
+    max-width: none;
+    min-width: 0;
+    width: 100%;
+    justify-content: flex-start;
+    text-align: left;
+  }
+  .undo-wrap {
+    gap: 6px;
+  }
+  .undo-action-wrap {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .undo-btn,
+  .redo-btn {
+    max-width: none;
+    min-width: 0;
+    width: 100%;
+    padding-left: 8px;
+    padding-right: 8px;
+    font-size: 0.9rem;
+    justify-content: center;
+    text-align: center;
+  }
   .manual-video-form {
     grid-template-columns: 1fr;
   }
