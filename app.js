@@ -7586,19 +7586,23 @@ function closeManualVideoPopover() {
 
 function positionFilterMenuWithinViewport(menu) {
   if (!menu || menu.classList.contains('hidden')) return
+
   menu.style.left = '0px'
+  menu.style.right = 'auto'
+
   const margin = 12
-  const rect = menu.getBoundingClientRect()
-  let shift = 0
+  const parentRect = menu.parentElement?.getBoundingClientRect()
+  const buttonRect = menu.parentElement?.querySelector?.('button')?.getBoundingClientRect()
+  const menuWidth = menu.offsetWidth || 320
 
-  if (rect.right > window.innerWidth - margin) {
-    shift = window.innerWidth - margin - rect.right
-  }
-  if (rect.left + shift < margin) {
-    shift += margin - (rect.left + shift)
-  }
+  if (!parentRect || !buttonRect) return
 
-  menu.style.left = `${Math.round(shift)}px`
+  const desiredLeft = Math.round(buttonRect.left - parentRect.left)
+  const minLeft = Math.round(margin - parentRect.left)
+  const maxLeft = Math.round(window.innerWidth - margin - menuWidth - parentRect.left)
+  const clampedLeft = Math.max(minLeft, Math.min(desiredLeft, maxLeft))
+
+  menu.style.left = `${clampedLeft}px`
 }
 
 function closeChannelFilterMenuOnOutsideClick(event) {
