@@ -3,7 +3,6 @@ Minor changes:
 - BRICE to think about: rewrite the walkthrough to make it shorter and in correct order
 - small duck walking around/popup giving motivational quotes
 - Photoshop: add the duck on the island. sometimes shifting to different locations (like on the deck, in the water floating, or in front of the door of the house)
-- FIX: when Edenia loads it shows the level 1 picture for some time before switching to the current level.
 - separate info from buttons. I want a "How to" section that can be expanded and that reveals info about: how pts are scored, what is Anki and how to connect to it, a typical Edenia workflow
 
 
