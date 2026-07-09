@@ -282,6 +282,7 @@ const I18N_EN = {
   'videos.status.watched': 'Watched',
   'videos.status.previous': 'its previous status',
   'videos.channels.all': 'All channels',
+  'videos.channels.manage': 'Manage channels',
   'videos.channels.none': 'No channels',
   'videos.channels.one': '1 channel',
   'videos.channels.count': '{count} channels',
@@ -596,6 +597,7 @@ const I18N = {
     'videos.status.partial': '進行中',
     'videos.status.watched': '已看',
     'videos.channels.all': '全部頻道',
+    'videos.channels.manage': '管理頻道',
     'videos.channels.none': '沒有頻道',
     'videos.manual.button': '新增影片',
     'videos.manual.dialog': '新增 YouTube 影片',
@@ -817,6 +819,7 @@ const I18N = {
     'videos.status.partial': '进行中',
     'videos.status.watched': '已看',
     'videos.channels.all': '全部频道',
+    'videos.channels.manage': '管理频道',
     'videos.channels.none': '没有频道',
     'videos.manual.button': '添加视频',
     'videos.manual.hint': '你可以在这里粘贴不在追踪频道中的 YouTube 视频网址。',
@@ -1032,6 +1035,7 @@ const I18N = {
     'videos.status.partial': 'En progreso',
     'videos.status.watched': 'Visto',
     'videos.channels.all': 'Todos los canales',
+    'videos.channels.manage': 'Gestionar canales',
     'videos.channels.none': 'Sin canales',
     'videos.manual.button': 'Añadir video',
     'videos.manual.hint': 'Aquí puedes pegar la URL de un video de YouTube que no está en tus canales seguidos.',
@@ -1247,6 +1251,7 @@ const I18N = {
     'videos.status.partial': 'En cours',
     'videos.status.watched': 'Vue',
     'videos.channels.all': 'Toutes les chaînes',
+    'videos.channels.manage': 'Gérer les chaînes',
     'videos.channels.none': 'Aucune chaîne',
     'videos.manual.button': 'Ajouter une vidéo',
     'videos.manual.hint': 'Vous pouvez coller ici l’URL d’une vidéo YouTube qui n’est pas dans vos chaînes suivies.',
@@ -7478,7 +7483,7 @@ function getSelectedChannelFilters(s) {
 
 function getChannelFilterLabel(entries, selected) {
   if (!entries.length) return t('videos.channels.none')
-  if (selected.size === entries.length) return t('videos.channels.all')
+  if (selected.size === entries.length) return t('videos.channels.manage')
   if (!selected.size) return t('videos.channels.none')
   if (selected.size === 1) {
     const selectedEntry = entries.find(([id]) => selected.has(id))
