@@ -3194,6 +3194,11 @@ body[data-theme="dark"] .walkthrough-highlight {
     --heatmap-gap: 4px;
     padding: 14px;
   }
+  .heatmap-tooltip {
+    max-width: calc(100vw - 24px);
+    position: absolute;
+    width: min(250px, calc(100vw - 24px));
+  }
   .heatmap-scroll {
     padding-bottom: 8px;
     scroll-padding-inline: 12px;
