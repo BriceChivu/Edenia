@@ -127,10 +127,6 @@ const cityWaveformScroll = {
   pointerX: 0,
   pointerY: 0
 }
-const cityImageTransition = {
-  id: 0,
-  buffer: null
-}
 const historyActionScroll = {
   frame: null,
   scroller: null,
@@ -7082,68 +7078,6 @@ function preloadCityImage(src) {
   return entry
 }
 
-function preloadNearbyCityImages(imageIndex) {
-  ;[imageIndex - 1, imageIndex + 1].forEach(index => {
-    const src = getCityImageSrc(index)
-    if (src) preloadCityImage(src)
-  })
-}
-
-function waitForCityImageReady(src) {
-  const preload = preloadCityImage(src)
-  if (!preload) return Promise.resolve(false)
-
-  return preload.promise.then(loaded => {
-    if (!loaded) return false
-    if (typeof preload.img.decode !== 'function') return true
-    return preload.img.decode()
-      .then(() => true)
-      .catch(() => true)
-  })
-}
-
-function transitionCityMilestoneImage(image, nextSrc) {
-  const wrap = image.closest('.city-image-wrap')
-  if (!wrap) {
-    image.src = nextSrc
-    return
-  }
-
-  cityImageTransition.id += 1
-  const transitionId = cityImageTransition.id
-  cityImageTransition.buffer?.remove()
-
-  const buffer = image.cloneNode(false)
-  buffer.removeAttribute('id')
-  buffer.classList.remove('loading')
-  buffer.classList.add('city-milestone-image-buffer')
-  buffer.setAttribute('aria-hidden', 'true')
-  buffer.alt = ''
-  buffer.src = nextSrc
-  cityImageTransition.buffer = buffer
-  wrap.appendChild(buffer)
-
-  requestAnimationFrame(() => {
-    if (cityImageTransition.id !== transitionId) return
-    buffer.classList.add('show')
-  })
-
-  const finish = () => {
-    if (cityImageTransition.id !== transitionId) return
-    image.dataset.citySrc = nextSrc
-    image.classList.remove('loading')
-    image.src = nextSrc
-    requestAnimationFrame(() => {
-      if (cityImageTransition.id !== transitionId) return
-      buffer.remove()
-      cityImageTransition.buffer = null
-    })
-  }
-
-  buffer.addEventListener('transitionend', finish, { once: true })
-  setTimeout(finish, 520)
-}
-
 function updateCityMilestoneImage(score) {
   const image = document.getElementById('cityMilestoneImage')
   if (!image || CITY_IMAGE_PATHS.length === 0) return
@@ -7182,19 +7116,28 @@ function updateCityMilestoneImage(score) {
       image.src = src
     }
     loadInitialImage(nextSrc)
-    preloadNearbyCityImages(imageIndex)
+    preloadCityImage(getCityImageSrc(imageIndex + 1))
     return
   }
 
   const applyImage = () => {
     if (image.dataset.cityTargetSrc !== nextSrc) return
-    transitionCityMilestoneImage(image, nextSrc)
+    image.dataset.citySrc = nextSrc
+    image.classList.remove('loading')
+    image.src = nextSrc
   }
 
-  waitForCityImageReady(nextSrc).then(loaded => {
-    if (loaded) applyImage()
-  })
-  preloadNearbyCityImages(imageIndex)
+  const preload = preloadCityImage(nextSrc)
+  if (preload?.img.complete && preload.img.naturalWidth > 0) {
+    applyImage()
+  } else {
+    preload?.promise.then(loaded => {
+      if (loaded) applyImage()
+    })
+  }
+
+  const preloadSrc = getCityImageSrc(imageIndex + 1)
+  if (preloadSrc) preloadCityImage(preloadSrc)
 }
 
 function renderFeed(s) {
