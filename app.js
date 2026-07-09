@@ -5503,7 +5503,7 @@ function renderHistoryWatchedCell(row) {
 function formatHistoryPointNumber(points) {
   const value = Number(points || 0)
   return new Intl.NumberFormat(currentLocale, {
-    maximumFractionDigits: Number.isInteger(value) ? 0 : 2
+    maximumFractionDigits: Number.isInteger(value) ? 0 : 1
   }).format(value)
 }
 
