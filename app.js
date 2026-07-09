@@ -7144,7 +7144,7 @@ function renderHistoryActionButton({ buttonId, tooltipId, actions, state, label,
   const canUse = count > 0
   const wrap = btn.closest('.undo-action-wrap')
   btn.disabled = !canUse
-  btn.textContent = count > 1 ? `${label} (${count})` : label
+  btn.textContent = label
   btn.title = canUse ? `${titleVerb} (${count} available)` : emptyTitle
   if (!canUse) wrap?.classList.remove('open')
   btn.setAttribute('aria-expanded', String(Boolean(canUse && wrap?.classList.contains('open'))))

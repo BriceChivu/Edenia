@@ -3,11 +3,7 @@ Minor changes:
 - BRICE to think about: rewrite the walkthrough to make it shorter and in correct order
 - small duck walking around/popup giving motivational quotes
 - Photoshop: add the duck on the island. sometimes shifting to different locations (like on the deck, in the water floating, or in front of the door of the house)
-- setting lags, looks like refresh rate is low
 - FIX: when Edenia loads it shows the level 1 picture for some time before switching to the current level.
-- Undo messages should be translated as well
-- Enable disabling Anki in the settings (that means no Anki in the heatmap pop up, no Anki info in the history summary, no Anki refresh attempts)
-- pts scoring: should be floor(videos + Anki). In the study summary table, the pts pop up details should should decimal pts for each activity. E.g.,  video A: 0.9 pts, video B: 0.2 pts. Daily total: 1.1 pts rounded down to 1pts
 - separate info from buttons. I want a "How to" section that can be expanded and that reveals info about: how pts are scored, what is Anki and how to connect to it, a typical Edenia workflow
 
 
@@ -21,7 +17,6 @@ Big changes:
 Sandbox:
 
 Mobile:
-- All channels filter pop up going out on the right side
 - the video grid filter buttons should be aligned in the following manner: status (e.g., in progress) and Add video buttons should have the same length, length of {All channels} button should be equal to length of {Undo + spacing + Redo} buttons such that they aligned nicely
 - the number of Undo in parentheses should be next to Undo, not bellow
 - in the summary study table, the videos watched per day button should be invisible, like the one for the pts. That means, I can click on it but there shouldn't be any visuals indicating that I can click on it 
