@@ -3189,6 +3189,24 @@ body[data-theme="dark"] .walkthrough-highlight {
   .card-title { font-size: 0.78rem; }
 }
 @media (pointer: coarse) {
+  button,
+  [role="button"],
+  a,
+  input,
+  select,
+  textarea,
+  summary,
+  [tabindex] {
+    -webkit-tap-highlight-color: transparent;
+    tap-highlight-color: transparent;
+  }
+  button:focus:not(:focus-visible),
+  [role="button"]:focus:not(:focus-visible),
+  a:focus:not(:focus-visible),
+  summary:focus:not(:focus-visible),
+  [tabindex]:focus:not(:focus-visible) {
+    outline: none;
+  }
   .history-heatmap {
     --heatmap-cell-size: 16px;
     --heatmap-gap: 4px;
