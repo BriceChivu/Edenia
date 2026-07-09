@@ -5478,8 +5478,8 @@ function renderHistoryWatchedCell(row) {
     `
   }
   return `
-    <span class="history-video-cell">
-      <button type="button" class="history-video-count" onclick="toggleHistoryVideoPopover(event)" aria-expanded="false" aria-label="${escHtml(t('history.showWatched', { count: row.videosWatched, date: formatHeatmapTitle(row) }))}">
+    <span class="history-video-cell" onmouseenter="openHistoryVideoPopover(event)" onmouseleave="closeHistoryVideoPopoverSoon()" onfocusin="openHistoryVideoPopover(event)" onfocusout="closeHistoryVideoPopoverSoon()" onclick="toggleHistoryVideoPopover(event)">
+      <button type="button" class="history-video-count" aria-expanded="false" aria-label="${escHtml(t('history.showWatched', { count: row.videosWatched, date: formatHeatmapTitle(row) }))}">
         <span class="history-video-count-number">${row.videosWatched}</span>
         <span class="history-video-count-caret" aria-hidden="true"></span>
       </button>
@@ -5629,6 +5629,7 @@ function toggleHistoryVideoPopover(event) {
   const cell = event.currentTarget.closest('.history-video-cell')
   if (!cell) return
   const shouldOpen = !cell.classList.contains('open')
+  clearTimeout(openHistoryVideoPopover._closeTimer)
   closeManualVideoPopover()
   closeHistoryPointsPopovers()
   closeHistoryPeriodPopovers()
@@ -5638,11 +5639,29 @@ function toggleHistoryVideoPopover(event) {
 }
 
 function closeHistoryVideoPopovers(exceptCell = null) {
+  clearTimeout(openHistoryVideoPopover._closeTimer)
   document.querySelectorAll('.history-video-cell.open').forEach(cell => {
     if (cell === exceptCell) return
     cell.classList.remove('open')
     cell.querySelector('.history-video-count')?.setAttribute('aria-expanded', 'false')
   })
+}
+
+function openHistoryVideoPopover(event) {
+  const cell = event.currentTarget.closest('.history-video-cell')
+  if (!cell) return
+  clearTimeout(openHistoryVideoPopover._closeTimer)
+  closeManualVideoPopover()
+  closeHistoryPointsPopovers()
+  closeHistoryPeriodPopovers()
+  closeHistoryVideoPopovers(cell)
+  cell.classList.add('open')
+  cell.querySelector('.history-video-count')?.setAttribute('aria-expanded', 'true')
+}
+
+function closeHistoryVideoPopoverSoon() {
+  clearTimeout(openHistoryVideoPopover._closeTimer)
+  openHistoryVideoPopover._closeTimer = window.setTimeout(() => closeHistoryVideoPopovers(), 80)
 }
 
 function closeHistoryVideoPopoversOnOutsideClick(event) {

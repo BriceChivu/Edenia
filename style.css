@@ -1595,61 +1595,36 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  min-width: 40px;
-  min-height: 28px;
-  background: var(--surface-hi);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  box-shadow: 0 2px 0 rgba(5,5,5,0.10);
-  color: var(--text);
-  cursor: pointer;
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  cursor: default;
   font: inherit;
-  font-weight: 800;
-  line-height: 1;
-  padding: 6px 9px;
-  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+  font-weight: inherit;
+  line-height: inherit;
+  padding: 0;
+  text-align: inherit;
 }
 .history-video-count:hover,
 .history-video-cell.open .history-video-count {
-  background: var(--planet-cyan);
-  border-color: var(--planet-black);
-  color: #053847;
-  box-shadow: 0 3px 0 rgba(5,5,5,0.14);
-  transform: translateY(-1px);
+  background: transparent;
+  color: var(--accent);
 }
 .history-video-count-empty,
 .history-video-count-empty:hover {
-  background: var(--surface-hi);
-  border-color: var(--border);
-  box-shadow: none;
+  background: transparent;
   color: var(--muted);
   cursor: default;
-  transform: none;
-}
-.history-video-cell.open .history-video-count {
-  background: var(--planet-lime);
-  color: #243a20;
 }
 .history-video-count-number {
   min-width: 1ch;
   text-align: center;
 }
 .history-video-count-caret {
-  width: 0;
-  height: 0;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-top: 5px solid currentColor;
-  opacity: 0.78;
-  transition: transform 120ms ease;
-}
-.history-video-cell.open .history-video-count-caret {
-  transform: rotate(180deg);
+  display: none;
 }
 .history-video-count:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(72,199,239,0.24);
 }
 .history-video-popover {
   position: absolute;
@@ -3226,11 +3201,6 @@ body[data-theme="dark"] .walkthrough-highlight {
   .heatmap-day {
     border-radius: 4px;
     cursor: pointer;
-  }
-  .history-video-count {
-    min-height: 44px;
-    min-width: 44px;
-    padding: 9px 12px;
   }
   .btn-primary,
   .btn-secondary,
