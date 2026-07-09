@@ -6147,14 +6147,23 @@ function positionHeatmapTooltip(target) {
   const rect = target.getBoundingClientRect()
   const gap = 10
   const margin = 8
-  const left = Math.min(
+  const isCoarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches || window.innerWidth <= 768
+  const baseLeft = rect.left + (isCoarsePointer ? window.scrollX : 0)
+  const baseTop = rect.top + (isCoarsePointer ? window.scrollY : 0)
+  const viewportLeft = Math.min(
     window.innerWidth - tooltip.offsetWidth - margin,
     Math.max(margin, rect.left + rect.width / 2 - tooltip.offsetWidth / 2)
   )
   let top = rect.top - tooltip.offsetHeight - gap
   if (top < margin) top = rect.bottom + gap
-  tooltip.style.left = `${left}px`
-  tooltip.style.top = `${top}px`
+  const absoluteLeft = Math.min(
+    window.scrollX + window.innerWidth - tooltip.offsetWidth - margin,
+    Math.max(window.scrollX + margin, baseLeft + rect.width / 2 - tooltip.offsetWidth / 2)
+  )
+  const absoluteTop = (top < margin ? baseTop + rect.height + gap : baseTop - tooltip.offsetHeight - gap)
+  tooltip.style.position = isCoarsePointer ? 'absolute' : 'fixed'
+  tooltip.style.left = `${isCoarsePointer ? absoluteLeft : viewportLeft}px`
+  tooltip.style.top = `${isCoarsePointer ? absoluteTop : top}px`
 }
 
 function hideHeatmapTooltip() {

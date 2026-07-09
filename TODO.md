@@ -17,8 +17,6 @@ Big changes:
 Sandbox:
 
 Mobile:
-- in the summary study table, the videos watched per day button should be invisible, like the one for the pts. That means, I can click on it but there shouldn't be any visuals indicating that I can click on it 
-- Any popup window shouldn't be placed in the center of my mobile's screen and static. They should be below (or above in some cases if it's better) the button clicked and moved alongside the screen when scrolled. Currently, the popup of the video grid buttons are correctly attached to the button, but that's not the case for the summary study table daily pts popup for example. Those need to be fixed
 - the buttons of the video cards (e.g., put in progress) should be more elegant and subtle (maybe remove the circle around the logo of the button? Or find another elegant way I don't know)
 - there is a subtle visual bug: there is a light blue line in the study history at the top edge of the rectangle of the study summary table
 - every time I press a button, I can briefly see the blue rectangle of the actual button. This is not elegant
