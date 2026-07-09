@@ -79,21 +79,6 @@ const CITY_IMAGE_PATHS = [
   'images/photoshop/level%2011.png',
   'images/photoshop/level%2012.png'
 ]
-const CITY_MOBILE_IMAGE_PATHS = [
-  'images/mobile/level%201.png',
-  'images/mobile/level%202.png',
-  'images/mobile/level%203.png',
-  'images/mobile/level%204.png',
-  'images/mobile/level%205.png',
-  'images/mobile/level%206.png',
-  'images/mobile/level%207.png',
-  'images/mobile/level%208.png',
-  'images/mobile/level%209.png',
-  'images/mobile/level%2010.png',
-  'images/mobile/level%2011.png',
-  'images/mobile/level%2012.png'
-]
-const CITY_MOBILE_IMAGE_QUERY = '(max-width: 700px), (pointer: coarse)'
 const cityImagePreloadCache = new Map()
 let ankiStatsCache = null
 let selectedStatusFilter = 'all'
@@ -2514,8 +2499,8 @@ function init() {
   renderAll(state)
   startChannelRefreshLabelTicker()
   repairStoredShortsDetection()
+  preloadCityImages()
   initCityImagePanZoom()
-  initCityImageSourceWatcher()
   if (!IS_SANDBOX) {
     applyAnkiRefreshPreference(state)
     startYoutubeAutoRefresh()
@@ -7029,36 +7014,8 @@ function clampNumber(value, min, max) {
   return Math.max(min, Math.min(max, value))
 }
 
-function shouldUseMobileCityImages() {
-  return typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia(CITY_MOBILE_IMAGE_QUERY).matches
-}
-
-function getCityImagePaths() {
-  return shouldUseMobileCityImages() ? CITY_MOBILE_IMAGE_PATHS : CITY_IMAGE_PATHS
-}
-
-function getCityImageSrc(index) {
-  return getCityImagePaths()[index] || CITY_IMAGE_PATHS[index]
-}
-
-function initCityImageSourceWatcher() {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-
-  const mediaQuery = window.matchMedia(CITY_MOBILE_IMAGE_QUERY)
-  const refreshCityImageSource = () => {
-    const state = loadState()
-    if (!state) return
-    const snapshot = getCitySnapshot(getCurrentCityScore(state), state)
-    updateCityMilestoneImage(snapshot.visualScore)
-  }
-
-  if (typeof mediaQuery.addEventListener === 'function') {
-    mediaQuery.addEventListener('change', refreshCityImageSource)
-  } else if (typeof mediaQuery.addListener === 'function') {
-    mediaQuery.addListener(refreshCityImageSource)
-  }
+function preloadCityImages() {
+  CITY_IMAGE_PATHS.forEach(preloadCityImage)
 }
 
 function preloadCityImage(src) {
@@ -7084,7 +7041,7 @@ function updateCityMilestoneImage(score) {
 
   const levelIndex = CITY_LEVELS.indexOf(getCityLevel(score))
   const imageIndex = Math.min(Math.max(levelIndex, 0), CITY_IMAGE_PATHS.length - 1)
-  const nextSrc = getCityImageSrc(imageIndex)
+  const nextSrc = CITY_IMAGE_PATHS[imageIndex]
   const nextAlt = `Study city milestone: ${getCityStage(score).replace(/[^\p{L}\p{N}\s-]/gu, '').trim()}`
 
   image.alt = nextAlt
@@ -7096,30 +7053,6 @@ function updateCityMilestoneImage(score) {
   }
 
   image.dataset.cityTargetSrc = nextSrc
-  if (!image.getAttribute('src')) {
-    image.classList.add('loading')
-    const fallbackSrc = CITY_IMAGE_PATHS[imageIndex]
-    const loadInitialImage = src => {
-      image.dataset.cityTargetSrc = src
-      image.addEventListener('load', () => {
-        if (image.dataset.cityTargetSrc !== src) return
-        image.dataset.citySrc = src
-        image.classList.remove('loading')
-      }, { once: true })
-      image.addEventListener('error', () => {
-        if (fallbackSrc && fallbackSrc !== src) {
-          loadInitialImage(fallbackSrc)
-          return
-        }
-        image.classList.remove('loading')
-      }, { once: true })
-      image.src = src
-    }
-    loadInitialImage(nextSrc)
-    preloadCityImage(getCityImageSrc(imageIndex + 1))
-    return
-  }
-
   const applyImage = () => {
     if (image.dataset.cityTargetSrc !== nextSrc) return
     image.dataset.citySrc = nextSrc
@@ -7136,7 +7069,7 @@ function updateCityMilestoneImage(score) {
     })
   }
 
-  const preloadSrc = getCityImageSrc(imageIndex + 1)
+  const preloadSrc = CITY_IMAGE_PATHS[imageIndex + 1]
   if (preloadSrc) preloadCityImage(preloadSrc)
 }
 
