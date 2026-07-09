@@ -5507,6 +5507,14 @@ function formatHistoryPointLabel(points) {
   return t('points.many', { count: formatHistoryPointNumber(value) })
 }
 
+function getVideoPointsFromSeconds(seconds) {
+  return ((Number(seconds) || 0) / 3600) * VIDEO_HOUR_POINTS
+}
+
+function getAnkiPointsFromReviews(reviews) {
+  return ((Number(reviews) || 0) / ANKI_REVIEW_CHUNK_SIZE) * ANKI_REVIEW_CHUNK_POINTS
+}
+
 function formatSignedHistoryPointLabel(points) {
   const value = Number(points || 0)
   const sign = value > 0 ? '+' : ''
@@ -5562,10 +5570,10 @@ function getHistoryPointBreakdown(row) {
       type: 'video',
       title: video.title || 'Untitled video',
       detail: formatHistoryTime(video.duration || 0),
-      points: ((video.duration || 0) / 3600) * VIDEO_HOUR_POINTS
+      points: getVideoPointsFromSeconds(video.duration || 0)
     }))
 
-  const ankiPoints = ((row.ankiReviewed || 0) / ANKI_REVIEW_CHUNK_SIZE) * ANKI_REVIEW_CHUNK_POINTS
+  const ankiPoints = getAnkiPointsFromReviews(row.ankiReviewed || 0)
   const items = []
   if ((row.ankiReviewed || 0) > 0) {
     items.push({
@@ -5577,7 +5585,7 @@ function getHistoryPointBreakdown(row) {
   }
   items.push(...videoItems)
 
-  const total = items.reduce((sum, item) => sum + Math.floor(item.points), 0)
+  const total = Math.floor(items.reduce((sum, item) => sum + item.points, 0))
   return {
     items,
     total
@@ -5598,7 +5606,7 @@ function renderHistoryPointsCell(row) {
             <span class="history-points-popover-item">
               <span class="history-points-popover-title">${escHtml(item.title)}</span>
               <span class="history-points-popover-detail">${escHtml(item.detail)}</span>
-              <span class="history-points-popover-score">${escHtml(formatHistoryPointLabel(Math.floor(item.points)))}</span>
+              <span class="history-points-popover-score">${escHtml(formatHistoryPointLabel(item.points))}</span>
             </span>
           `).join('')
           : `<span class="history-points-popover-empty">${escHtml(t('history.pointsNone'))}</span>`}
@@ -5979,12 +5987,12 @@ function getHistoryHeatLevel(row) {
 }
 
 function getHistoryDayPoints(row) {
-  const ankiPoints = Math.floor(((row.ankiReviewed || 0) / ANKI_REVIEW_CHUNK_SIZE) * ANKI_REVIEW_CHUNK_POINTS)
+  const ankiPoints = getAnkiPointsFromReviews(row.ankiReviewed || 0)
   const watchedVideos = Array.isArray(row.watchedVideos) ? row.watchedVideos : []
   const videoPoints = watchedVideos.length
-    ? watchedVideos.reduce((sum, video) => sum + Math.floor(((video.duration || 0) / 3600) * VIDEO_HOUR_POINTS), 0)
-    : Math.floor(((row.secondsWatched || 0) / 3600) * VIDEO_HOUR_POINTS)
-  return ankiPoints + videoPoints
+    ? watchedVideos.reduce((sum, video) => sum + getVideoPointsFromSeconds(video.duration || 0), 0)
+    : getVideoPointsFromSeconds(row.secondsWatched || 0)
+  return Math.floor(ankiPoints + videoPoints)
 }
 
 function hasHistoryActivity(row) {
