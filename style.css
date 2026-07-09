@@ -3155,24 +3155,24 @@ body[data-theme="dark"] .walkthrough-highlight {
   }
   .history-points-popover {
     bottom: auto;
-    left: 12px;
+    left: 50%;
     max-height: min(360px, 70vh);
-    position: fixed;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: auto;
+    position: absolute;
+    right: auto;
+    top: calc(100% + 8px);
+    transform: translateX(-50%);
+    width: min(286px, calc(100vw - 24px));
     z-index: 600;
   }
   .history-video-popover {
     bottom: auto;
-    left: 12px;
+    left: 50%;
     max-height: min(360px, 70vh);
-    position: fixed;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: auto;
+    position: absolute;
+    right: auto;
+    top: calc(100% + 8px);
+    transform: translateX(-50%);
+    width: min(286px, calc(100vw - 24px));
     z-index: 600;
   }
   .city-zoom-controls {
