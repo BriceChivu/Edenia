@@ -79,7 +79,28 @@ const CITY_IMAGE_PATHS = [
   'images/photoshop/level%2011.png',
   'images/photoshop/level%2012.png'
 ]
+const CITY_IMAGE_WEBP_PATHS = [
+  'images/city/level%201.webp',
+  'images/city/level%202.webp',
+  'images/city/level%203.webp',
+  'images/city/level%204.webp',
+  'images/city/level%205.webp',
+  'images/city/level%206.webp',
+  'images/city/level%207.webp',
+  'images/city/level%208.webp',
+  'images/city/level%209.webp',
+  'images/city/level%2010.webp',
+  'images/city/level%2011.webp',
+  'images/city/level%2012.webp'
+]
+const CITY_IMAGE_SOURCES = CITY_IMAGE_PATHS.map((fallback, index) => ({
+  primary: CITY_IMAGE_WEBP_PATHS[index],
+  fallback
+}))
 const cityImagePreloadCache = new Map()
+const cityImagePreloadQueue = []
+let cityImagePreloadQueueRunning = false
+let activeCityImagePreloadCenter = null
 let ankiStatsCache = null
 let selectedStatusFilter = 'all'
 let selectedChannelFilters = null
@@ -2519,7 +2540,6 @@ function init() {
   renderAll(state)
   startChannelRefreshLabelTicker()
   repairStoredShortsDetection()
-  preloadCityImages()
   initCityImagePanZoom()
   if (!IS_SANDBOX) {
     applyAnkiRefreshPreference(state)
@@ -7051,63 +7071,174 @@ function clampNumber(value, min, max) {
   return Math.max(min, Math.min(max, value))
 }
 
-function preloadCityImages() {
-  CITY_IMAGE_PATHS.forEach(preloadCityImage)
+function getCityImageSource(index) {
+  if (CITY_IMAGE_SOURCES.length === 0) return null
+  return CITY_IMAGE_SOURCES[clampNumber(index, 0, CITY_IMAGE_SOURCES.length - 1)]
 }
 
-function preloadCityImage(src) {
-  if (!src) return null
-  const cached = cityImagePreloadCache.get(src)
+function normalizeCityImageSource(source) {
+  if (!source) return null
+  if (typeof source === 'string') return { primary: source, fallback: source }
+  const primary = source.primary || source.fallback
+  const fallback = source.fallback || source.primary
+  if (!primary && !fallback) return null
+  return { primary, fallback }
+}
+
+function getCityImageCacheKey(source) {
+  const normalized = normalizeCityImageSource(source)
+  return normalized?.primary || normalized?.fallback || ''
+}
+
+function isCityImageLoaded(source) {
+  return Boolean(cityImagePreloadCache.get(getCityImageCacheKey(source))?.loaded)
+}
+
+function preloadCityImages(centerIndex = 0) {
+  queueCityImagePreloadsAround(centerIndex)
+}
+
+function preloadCityImage(source, options = {}) {
+  const normalized = normalizeCityImageSource(source)
+  if (!normalized) return null
+
+  const cacheKey = getCityImageCacheKey(normalized)
+  const cached = cityImagePreloadCache.get(cacheKey)
   if (cached) return cached
 
   const img = new Image()
-  const promise = new Promise(resolve => {
-    img.onload = () => resolve(true)
-    img.onerror = () => resolve(false)
-  })
-  img.src = src
+  img.decoding = 'async'
+  if ('fetchPriority' in img) img.fetchPriority = options.fetchPriority || 'low'
 
-  const entry = { img, promise }
-  cityImagePreloadCache.set(src, entry)
+  const entry = {
+    img,
+    loaded: false,
+    loadedSrc: null,
+    promise: null,
+    source: normalized
+  }
+  const promise = new Promise(resolve => {
+    let triedFallback = false
+    const finish = (loaded, src = null) => {
+      entry.loaded = loaded
+      entry.loadedSrc = src
+      resolve({ loaded, src })
+    }
+
+    img.onload = () => finish(true, img.currentSrc || img.src)
+    img.onerror = () => {
+      if (!triedFallback && normalized.fallback && normalized.fallback !== normalized.primary) {
+        triedFallback = true
+        img.src = normalized.fallback
+        return
+      }
+      finish(false)
+    }
+  })
+
+  entry.promise = promise
+  cityImagePreloadCache.set(cacheKey, entry)
+  img.src = normalized.primary || normalized.fallback
   return entry
+}
+
+function getCityImagePreloadOrder(centerIndex) {
+  const order = []
+  for (let i = centerIndex - 1; i >= 0; i -= 1) order.push(i)
+  if (centerIndex + 1 < CITY_IMAGE_SOURCES.length) order.push(centerIndex + 1)
+  for (let i = centerIndex + 2; i < CITY_IMAGE_SOURCES.length; i += 1) order.push(i)
+  return order
+}
+
+function queueCityImagePreloadsAround(centerIndex) {
+  if (!Number.isInteger(centerIndex) || CITY_IMAGE_SOURCES.length === 0) return
+  if (activeCityImagePreloadCenter === centerIndex) return
+
+  activeCityImagePreloadCenter = centerIndex
+  cityImagePreloadQueue.length = 0
+  getCityImagePreloadOrder(centerIndex).forEach(index => {
+    const source = getCityImageSource(index)
+    if (source && !isCityImageLoaded(source)) cityImagePreloadQueue.push(source)
+  })
+  runCityImagePreloadQueue()
+}
+
+function scheduleCityImagePreloadStep(callback) {
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(callback, { timeout: 1500 })
+  } else {
+    setTimeout(callback, 120)
+  }
+}
+
+function runCityImagePreloadQueue() {
+  if (cityImagePreloadQueueRunning) return
+  cityImagePreloadQueueRunning = true
+
+  const loadNext = () => {
+    const source = cityImagePreloadQueue.shift()
+    if (!source) {
+      cityImagePreloadQueueRunning = false
+      return
+    }
+
+    const preload = preloadCityImage(source, { fetchPriority: 'low' })
+    if (!preload) {
+      scheduleCityImagePreloadStep(loadNext)
+      return
+    }
+    preload.promise.then(() => scheduleCityImagePreloadStep(loadNext))
+  }
+
+  scheduleCityImagePreloadStep(loadNext)
 }
 
 function updateCityMilestoneImage(score) {
   const image = document.getElementById('cityMilestoneImage')
-  if (!image || CITY_IMAGE_PATHS.length === 0) return
+  if (!image || CITY_IMAGE_SOURCES.length === 0) return
 
   const levelIndex = CITY_LEVELS.indexOf(getCityLevel(score))
-  const imageIndex = Math.min(Math.max(levelIndex, 0), CITY_IMAGE_PATHS.length - 1)
-  const nextSrc = CITY_IMAGE_PATHS[imageIndex]
+  const imageIndex = Math.min(Math.max(levelIndex, 0), CITY_IMAGE_SOURCES.length - 1)
+  const nextSource = getCityImageSource(imageIndex)
+  const nextKey = getCityImageCacheKey(nextSource)
   const nextAlt = `Study city milestone: ${getCityStage(score).replace(/[^\p{L}\p{N}\s-]/gu, '').trim()}`
 
   image.alt = nextAlt
-  if (image.dataset.citySrc === nextSrc) return
-  if (image.getAttribute('src') === nextSrc) {
-    image.dataset.citySrc = nextSrc
+  if (image.dataset.citySourceKey === nextKey) {
+    queueCityImagePreloadsAround(imageIndex)
+    return
+  }
+  if (image.getAttribute('src') === nextSource.primary) {
+    image.dataset.citySourceKey = nextKey
+    image.dataset.citySrc = nextSource.primary
     image.classList.remove('loading')
+    queueCityImagePreloadsAround(imageIndex)
     return
   }
 
-  image.dataset.cityTargetSrc = nextSrc
-  const applyImage = () => {
-    if (image.dataset.cityTargetSrc !== nextSrc) return
-    image.dataset.citySrc = nextSrc
+  image.dataset.cityTargetKey = nextKey
+  if ('fetchPriority' in image) image.fetchPriority = 'high'
+  const applyImage = result => {
+    if (image.dataset.cityTargetKey !== nextKey) return
+    const loadedSrc = result?.src || result?.loadedSrc || nextSource.fallback || nextSource.primary
+    image.dataset.citySourceKey = nextKey
+    image.dataset.citySrc = loadedSrc
     image.classList.remove('loading')
-    image.src = nextSrc
+    image.src = loadedSrc
   }
 
-  const preload = preloadCityImage(nextSrc)
-  if (preload?.img.complete && preload.img.naturalWidth > 0) {
-    applyImage()
+  const preload = preloadCityImage(nextSource, { fetchPriority: 'high' })
+  if (preload?.loaded && preload.loadedSrc) {
+    applyImage(preload)
+    queueCityImagePreloadsAround(imageIndex)
   } else {
-    preload?.promise.then(loaded => {
-      if (loaded) applyImage()
+    preload?.promise.then(result => {
+      if (result.loaded) {
+        applyImage(result)
+        if (image.dataset.cityTargetKey === nextKey) queueCityImagePreloadsAround(imageIndex)
+      }
     })
   }
-
-  const preloadSrc = CITY_IMAGE_PATHS[imageIndex + 1]
-  if (preloadSrc) preloadCityImage(preloadSrc)
 }
 
 function renderFeed(s) {
