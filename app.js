@@ -7243,9 +7243,11 @@ function updateCityMilestoneImage(score, options = {}) {
     image.dataset.citySrc = loadedSrc
     image.src = loadedSrc
     requestAnimationFrame(() => {
-      if (image.dataset.citySourceKey === nextKey && image.dataset.cityTargetKey === nextKey) {
-        image.classList.remove('loading')
-      }
+      requestAnimationFrame(() => {
+        if (image.dataset.citySourceKey === nextKey && image.dataset.cityTargetKey === nextKey) {
+          image.classList.remove('loading')
+        }
+      })
     })
   }
 
