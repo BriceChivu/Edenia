@@ -3008,6 +3008,9 @@ function randomInt(min, max) {
 }
 
 function openSettings() {
+  const panel = document.getElementById('settingsPanel')
+  const main = document.getElementById('mainApp')
+  if (panel?.classList.contains('hidden')) openSettings.returnFocus = document.activeElement
   const s = loadState()
   document.getElementById('settingsGoal').value   = s.config.weeklyGoalHours
   applyLocale(s.config.locale)
@@ -3020,9 +3023,20 @@ function openSettings() {
   setSettingsActivityLogOpen(false)
   setSettingsBackupsOpen(false)
   show('settingsPanel')
+  if (main) main.inert = true
+  window.setTimeout(() => document.getElementById('settingsCloseBtn')?.focus(), 0)
 }
 
-function closeSettings() { hide('settingsPanel') }
+function closeSettings() {
+  const panel = document.getElementById('settingsPanel')
+  if (!panel || panel.classList.contains('hidden')) return
+  hide('settingsPanel')
+  const main = document.getElementById('mainApp')
+  if (main) main.inert = false
+  const returnFocus = openSettings.returnFocus
+  openSettings.returnFocus = null
+  if (returnFocus?.isConnected) window.setTimeout(() => returnFocus.focus(), 0)
+}
 
 function setSettingsAccordionOpen(contentId, toggleSelector, groupSelector, isOpen) {
   const content = document.getElementById(contentId)
@@ -3064,11 +3078,34 @@ function toggleSettingsBackups() {
   setSettingsBackupsOpen(content.hidden)
 }
 
-function closeSettingsOnEscape(event) {
-  if (event.key !== 'Escape') return
+function handleSettingsKeydown(event) {
   const panel = document.getElementById('settingsPanel')
   if (!panel || panel.classList.contains('hidden')) return
-  closeSettings()
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeSettings()
+    return
+  }
+  if (event.key !== 'Tab') return
+
+  const focusable = Array.from(panel.querySelectorAll(
+    'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+  )).filter(el => !el.hidden && !el.closest('.hidden') && !el.closest('[hidden]') && el.getClientRects().length)
+  if (!focusable.length) {
+    event.preventDefault()
+    return
+  }
+
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  const active = document.activeElement
+  if (event.shiftKey && (active === first || !panel.contains(active))) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && (active === last || !panel.contains(active))) {
+    event.preventDefault()
+    first.focus()
+  }
 }
 
 async function saveSettingsOnTheFly() {
@@ -8021,5 +8058,5 @@ document.addEventListener('keydown', closeHistoryActionPopoversOnEscape)
 document.addEventListener('keydown', closeManualVideoPopoverOnEscape)
 document.addEventListener('keydown', closeVideoSearchPopoverOnEscape)
 document.addEventListener('keydown', closeLocaleMenuOnEscape)
-document.addEventListener('keydown', closeSettingsOnEscape)
+document.addEventListener('keydown', handleSettingsKeydown)
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)

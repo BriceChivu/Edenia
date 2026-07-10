@@ -22,10 +22,10 @@
   <!-- ═══════════════════════════════════════════════════════ -->
   <div id="settingsPanel" class="settings-panel hidden">
     <div class="settings-overlay" onclick="closeSettings()"></div>
-    <div class="settings-drawer">
+    <div class="settings-drawer" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
       <div class="settings-header">
-        <span class="settings-title" data-i18n="settings.title">Settings</span>
-        <button class="btn-icon" onclick="closeSettings()" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">✕</button>
+        <span class="settings-title" id="settingsTitle" data-i18n="settings.title">Settings</span>
+        <button class="btn-icon" id="settingsCloseBtn" onclick="closeSettings()" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">✕</button>
       </div>
 
       <div class="settings-group settings-locale-group">
