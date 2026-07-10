@@ -40,6 +40,9 @@ jobs:
       - name: Minify deployed CSS
         run: npx --yes clean-css-cli@5.6.3 -o _site/style.css style.css
 
+      - name: Minify deployed JavaScript
+        run: npx --yes terser@5.49.0 app.js --compress --mangle --output _site/app.js
+
       - name: Generate public runtime config
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
