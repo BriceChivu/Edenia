@@ -1167,15 +1167,28 @@ html[data-theme="dark"] .theme-icon-sun {
 .city-wave-bar {
   --bar-height: 9px;
   --hover-boost: 0px;
-  background: rgba(245, 247, 248, 0.62);
+  --bar-color: rgba(245, 247, 248, 0.62);
+  background: transparent;
   border: 0;
-  border-radius: 999px;
   cursor: pointer;
-  flex: 0 0 4px;
-  height: calc(var(--bar-height) + var(--hover-boost));
+  flex: 0 0 24px;
+  height: 34px;
   opacity: 0.72;
   padding: 0;
-  transition: height 0.12s ease, opacity 0.12s ease, background 0.12s ease;
+  position: relative;
+  transition: opacity 0.12s ease;
+}
+.city-wave-bar::before {
+  background: var(--bar-color);
+  border-radius: 999px;
+  content: '';
+  height: calc(var(--bar-height) + var(--hover-boost));
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transition: height 0.12s ease, background 0.12s ease;
+  width: 4px;
 }
 .city-wave-bar:nth-child(2n) {
   --bar-height: 10px;
@@ -1196,17 +1209,19 @@ html[data-theme="dark"] .theme-icon-sun {
   opacity: 0.72;
 }
 .city-wave-bar.has-activity {
-  background: rgba(245, 247, 248, 0.78);
+  --bar-color: rgba(245, 247, 248, 0.78);
 }
 .city-wave-bar.has-level-change {
-  background: rgba(246, 194, 86, 0.86);
+  --bar-color: rgba(246, 194, 86, 0.86);
 }
 .city-wave-bar.selected {
-  background: rgba(5, 5, 5, 0.88);
-  height: 31px;
+  --bar-color: rgba(5, 5, 5, 0.88);
   opacity: 1;
 }
-.city-wave-bar.has-level-change.selected {
+.city-wave-bar.selected::before {
+  height: 31px;
+}
+.city-wave-bar.has-level-change.selected::before {
   background: linear-gradient(180deg, rgba(255, 218, 126, 0.94), rgba(5, 5, 5, 0.88));
 }
 .city-wave-bar:hover,
@@ -3467,10 +3482,12 @@ body[data-theme="dark"] .walkthrough-highlight {
     gap: 4px;
   }
   .city-wave-bar {
-    flex-basis: 8px;
-    min-height: 24px;
+    height: 44px;
   }
-  .city-wave-bar.selected {
+  .city-wave-bar::before {
+    width: 8px;
+  }
+  .city-wave-bar.selected::before {
     height: 40px;
   }
   .level-up-button {
@@ -3518,10 +3535,12 @@ body[data-theme="dark"] .walkthrough-highlight {
     gap: 3px;
   }
   .city-wave-bar {
-    flex-basis: 6px;
-    min-height: 17px;
+    height: 30px;
   }
-  .city-wave-bar.selected {
+  .city-wave-bar::before {
+    width: 6px;
+  }
+  .city-wave-bar.selected::before {
     height: 28px;
   }
 }
