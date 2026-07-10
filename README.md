@@ -76,7 +76,7 @@ To set it up:
 3. Add a repository secret named `YOUTUBE_API_KEY`.
 4. Paste the restricted YouTube API key as the value.
 5. Go to **Pages** and set the source to **GitHub Actions**.
-6. Push to `public-main` or `master`, or run the `Deploy GitHub Pages` workflow manually.
+6. Push to `master`, or run the `Deploy GitHub Pages` workflow manually.
 
 ## YouTube Channels And Videos
 
