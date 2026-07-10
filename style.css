@@ -1171,7 +1171,7 @@ html[data-theme="dark"] .theme-icon-sun {
   background: transparent;
   border: 0;
   cursor: pointer;
-  flex: 0 0 24px;
+  flex: 0 0 4px;
   height: 34px;
   opacity: 0.72;
   padding: 0;
@@ -3481,6 +3481,7 @@ body[data-theme="dark"] .walkthrough-highlight {
     gap: 4px;
   }
   .city-wave-bar {
+    flex-basis: 8px;
     height: 44px;
   }
   .city-wave-bar::before {
@@ -3534,6 +3535,7 @@ body[data-theme="dark"] .walkthrough-highlight {
     gap: 3px;
   }
   .city-wave-bar {
+    flex-basis: 6px;
     height: 30px;
   }
   .city-wave-bar::before {
