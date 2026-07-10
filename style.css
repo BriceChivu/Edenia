@@ -949,11 +949,13 @@ html[data-theme="dark"] .theme-icon-sun {
   opacity: 1;
   transform: translate(0, 0) scale(1);
   transform-origin: center center;
-  transition: opacity 0.45s ease, transform 0.16s ease;
+  transition:
+    opacity 1.35s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 1.35s cubic-bezier(0.16, 1, 0.3, 1);
   -webkit-user-drag: none;
   user-select: none;
   width: 100%;
-  will-change: transform;
+  will-change: opacity, transform;
 }
 .city-image-wrap.is-dragging .city-milestone-image {
   cursor: grabbing;
@@ -961,6 +963,7 @@ html[data-theme="dark"] .theme-icon-sun {
 }
 .city-milestone-image.loading {
   opacity: 0;
+  transform: translate(0, 0) scale(1.012);
 }
 .level-up-button {
   align-items: center;
