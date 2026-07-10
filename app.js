@@ -7984,6 +7984,7 @@ function removeVideoFromGrid(event, videoId) {
 
 function showToast(msg, type = 'success') {
   const el = document.getElementById('toast')
+  el.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite')
   el.textContent = msg
   el.className   = `toast toast-${type} show`
   clearTimeout(el._t)
