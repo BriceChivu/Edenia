@@ -56,7 +56,10 @@
   --accent:       #079cc8;
   --accent-dim:   #087fa6;
   --green:        #8bbd28;
-  --amber:        #3aaed1;
+  --amber:        #b86b00;
+  --error:        #9e2a24;
+  --mint:         #eefbd0;
+  --soft-blue:    #e3f6fb;
   --streak:       #8bbd28;
   --focus-ring:   #a44f00;
   --radius:       14px;
@@ -79,6 +82,9 @@ body[data-theme="dark"] {
   --accent-dim:   #12bcea;
   --green:        #c9ef68;
   --amber:        #fcb831;
+  --error:        #ff8e84;
+  --mint:         #243a20;
+  --soft-blue:    #173947;
   --streak:       #c9ef68;
   --focus-ring:   #fcb831;
 }
@@ -2966,7 +2972,7 @@ body[data-theme="dark"] .walkthrough-highlight {
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast.toast-warn  { border-color: var(--amber); color: var(--amber); }
-.toast.toast-error { border-color: var(--planet-lime); color: var(--planet-lime); }
+.toast.toast-error { border-color: var(--error); color: var(--error); }
 
 /* ── Keyboard focus ───────────────────────────────────────── */
 button:focus-visible,
