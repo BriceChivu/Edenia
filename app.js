@@ -1566,12 +1566,17 @@ function applyTranslations(root = document) {
 }
 
 function renderLocaleSelect() {
-  const select = document.getElementById('settingsLocale')
-  if (!select) return
-  select.innerHTML = SUPPORTED_LOCALES.map(locale => `
-    <option value="${escHtml(locale)}" ${locale === currentLocale ? 'selected' : ''}>${escHtml(getLocaleLabel(locale))}</option>
+  const btn = document.getElementById('settingsLocaleBtn')
+  const label = document.getElementById('settingsLocaleLabel')
+  const menu = document.getElementById('settingsLocaleMenu')
+  if (!btn || !label || !menu) return
+  label.textContent = getLocaleLabel(currentLocale)
+  menu.innerHTML = SUPPORTED_LOCALES.map(locale => `
+    <label class="settings-locale-option">
+      <input type="radio" name="settingsLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} onchange="saveLocaleFromSettings(this.value)">
+      <span>${escHtml(getLocaleLabel(locale))}</span>
+    </label>
   `).join('')
-  select.value = currentLocale
 }
 
 function reportMissingI18nKeys() {
@@ -3005,8 +3010,7 @@ function randomInt(min, max) {
 function openSettings() {
   const s = loadState()
   document.getElementById('settingsGoal').value   = s.config.weeklyGoalHours
-  const localeSelect = document.getElementById('settingsLocale')
-  if (localeSelect) localeSelect.value = normalizeLocale(s.config.locale)
+  applyLocale(s.config.locale)
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(s.config.includeShorts)
   document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(s)
   renderChannelList(s.config.channels)
@@ -3135,15 +3139,17 @@ async function saveSettingsOnTheFly() {
   if (!normalizeIncludeShorts(s.config.includeShorts)) repairStoredShortsDetection()
 }
 
-function saveLocaleFromSettings() {
+function saveLocaleFromSettings(locale = null) {
   const s = loadState()
   if (!s?.config) return
   const previousLocale = normalizeLocale(s.config.locale)
-  const nextLocale = normalizeLocale(document.getElementById('settingsLocale')?.value)
+  const selectedInput = document.querySelector('input[name="settingsLocale"]:checked')
+  const nextLocale = normalizeLocale(locale || selectedInput?.value)
   if (previousLocale === nextLocale) return
 
   s.config.locale = nextLocale
   applyLocale(nextLocale)
+  closeLocaleMenu()
   appendActivityLog(s, {
     actor: 'user',
     type: 'locale',
@@ -3240,8 +3246,7 @@ function importSyncFileFromInput(input) {
       renderBackupList()
       renderActivityLog(normalizedState)
       document.getElementById('settingsGoal').value = normalizedState.config.weeklyGoalHours
-      const localeSelect = document.getElementById('settingsLocale')
-      if (localeSelect) localeSelect.value = normalizeLocale(normalizedState.config.locale)
+      renderLocaleSelect()
       document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(normalizedState.config.includeShorts)
       document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(normalizedState)
       applyAnkiRefreshPreference(normalizedState)
@@ -3467,8 +3472,7 @@ function restoreStateBackup(id) {
   renderBackupList()
   renderActivityLog(state)
   document.getElementById('settingsGoal').value = state.config.weeklyGoalHours
-  const localeSelect = document.getElementById('settingsLocale')
-  if (localeSelect) localeSelect.value = normalizeLocale(state.config.locale)
+  renderLocaleSelect()
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(state.config.includeShorts)
   document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(state)
   applyAnkiRefreshPreference(state)
@@ -7442,6 +7446,40 @@ function closeHistoryActionPopoversOnEscape(event) {
   closeHistoryActionPopovers()
 }
 
+function toggleLocaleMenu(event) {
+  event.stopPropagation()
+  const btn = document.getElementById('settingsLocaleBtn')
+  const menu = document.getElementById('settingsLocaleMenu')
+  if (!btn || !menu) return
+  closeStatusFilterMenu()
+  closeChannelFilterMenu()
+  closeManualVideoPopover()
+  closeHistoryPointsPopovers()
+  closeHistoryActionPopovers()
+  const isOpen = menu.classList.toggle('hidden') === false
+  btn.setAttribute('aria-expanded', String(isOpen))
+  if (isOpen) positionFilterMenuWithinViewport(menu)
+}
+
+function closeLocaleMenu() {
+  const btn = document.getElementById('settingsLocaleBtn')
+  const menu = document.getElementById('settingsLocaleMenu')
+  if (!btn || !menu) return
+  menu.classList.add('hidden')
+  menu.style.left = ''
+  btn.setAttribute('aria-expanded', 'false')
+}
+
+function closeLocaleMenuOnOutsideClick(event) {
+  if (event.target.closest('.settings-locale-picker')) return
+  closeLocaleMenu()
+}
+
+function closeLocaleMenuOnEscape(event) {
+  if (event.key !== 'Escape') return
+  closeLocaleMenu()
+}
+
 function renderStatusFilterOptions(allVideos = [], channelFilters = null, includeShorts = true) {
   const btn = document.getElementById('statusFilterBtn')
   const menu = document.getElementById('statusFilterMenu')
@@ -7476,6 +7514,7 @@ function getStatusFilterCounts(allVideos = [], channelFilters = null, includeSho
 }
 
 function getStatusFilterLabel(status) {
+  if (status === 'all') return 'All videos'
   const key = STATUS_FILTERS.find(([value]) => value === status)?.[1] || 'videos.status.all'
   return t(key)
 }
@@ -7962,6 +8001,7 @@ document.addEventListener('click', closeHistoryPeriodPopoversOnOutsideClick)
 document.addEventListener('click', closeHistoryActionPopoversOnOutsideClick)
 document.addEventListener('click', closeManualVideoPopoverOnOutsideClick)
 document.addEventListener('click', closeVideoSearchPopoverOnOutsideClick)
+document.addEventListener('click', closeLocaleMenuOnOutsideClick)
 document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
 document.addEventListener('click', clearCityWaveformPreviewOnOutsideClick)
 document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
@@ -7970,5 +8010,6 @@ document.addEventListener('keydown', closeHistoryPeriodPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryActionPopoversOnEscape)
 document.addEventListener('keydown', closeManualVideoPopoverOnEscape)
 document.addEventListener('keydown', closeVideoSearchPopoverOnEscape)
+document.addEventListener('keydown', closeLocaleMenuOnEscape)
 document.addEventListener('keydown', closeSettingsOnEscape)
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
