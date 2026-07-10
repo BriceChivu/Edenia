@@ -713,7 +713,7 @@ const I18N = {
     'walkthrough.skip': '略過',
     'walkthrough.done': '完成',
     'walkthrough.progress': '{current} / {total}',
-    'walkthrough.town': '這是你的浮空小鎮。你學習時，小鎮會一點一點成長，讓你不用讀很多數字也能快速看見進度。',
+    'walkthrough.town': '這是你的漂浮小鎮。你學習時，小鎮會一點一點成長，讓你不用讀很多數字也能快速看見進度。',
     'walkthrough.weeklyGoal': '這是你的每週目標。你看過的學習影片時間會填滿進度條，幫你知道這週是否跟上目標。',
     'walkthrough.studyHistory': '學習紀錄會顯示你一段時間內做了什麼。它會把看過的影片和 Anki 複習放在一起，讓你看懂真正的學習節奏。',
     'walkthrough.historyViews': '摘要適合看清楚的數字，熱力圖適合快速看哪些天有學習。Edenia 會記住你偏好的視圖。',
@@ -931,7 +931,7 @@ const I18N = {
     'walkthrough.skip': '跳过',
     'walkthrough.done': '完成',
     'walkthrough.progress': '{current} / {total}',
-    'walkthrough.town': '这是你的浮空小镇。你学习时，小镇会一点一点成长，让你不用读很多数字也能快速看到进度。',
+    'walkthrough.town': '这是你的漂浮小镇。你学习时，小镇会一点一点成长，让你不用读很多数字也能快速看到进度。',
     'walkthrough.weeklyGoal': '这是你的每周目标。你看过的学习视频时间会填满进度条，帮助你知道这周是否跟上目标。',
     'walkthrough.studyHistory': '学习记录会显示你一段时间内做了什么。它会把看过的视频和 Anki 复习放在一起，让你看懂真正的学习节奏。',
     'walkthrough.historyViews': '摘要适合看清楚的数字，热力图适合快速看哪些天有学习。Edenia 会记住你偏好的视图。',
@@ -1519,7 +1519,7 @@ const WALKTHROUGH_STEPS = [
     textKey: 'walkthrough.localBackups',
     placement: 'left',
     hooks: {
-      beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
+      beforeEnter: ['keepSettingsOpen', 'closeTransientUi', 'openSettingsBackups'],
       afterEnter: 'settleWalkthroughTarget'
     }
   },
@@ -1529,7 +1529,7 @@ const WALKTHROUGH_STEPS = [
     textKey: 'walkthrough.activityLog',
     placement: 'left',
     hooks: {
-      beforeEnter: ['keepSettingsOpen', 'closeTransientUi'],
+      beforeEnter: ['keepSettingsOpen', 'closeTransientUi', 'openSettingsActivityLog'],
       afterEnter: 'settleWalkthroughTarget'
     }
   },
@@ -1572,6 +1572,12 @@ const WALKTHROUGH_HOOKS = {
   keepSettingsOpen() {
     const panel = document.getElementById('settingsPanel')
     if (!panel || panel.classList.contains('hidden')) openSettings()
+  },
+  openSettingsActivityLog() {
+    setSettingsActivityLogOpen(true)
+  },
+  openSettingsBackups() {
+    setSettingsBackupsOpen(true)
   },
   settleWalkthroughTarget({ target }) {
     target?.scrollIntoView({
@@ -3124,25 +3130,51 @@ function openSettings() {
   renderBackupList()
   renderActivityLog(s)
   setSettingsHowToOpen(false)
+  setSettingsActivityLogOpen(false)
+  setSettingsBackupsOpen(false)
   show('settingsPanel')
 }
 
 function closeSettings() { hide('settingsPanel') }
 
-function setSettingsHowToOpen(isOpen) {
-  const content = document.getElementById('settingsHowToContent')
-  const toggle = document.querySelector('.settings-howto-toggle')
-  const group = document.querySelector('.settings-howto-group')
+function setSettingsAccordionOpen(contentId, toggleSelector, groupSelector, isOpen) {
+  const content = document.getElementById(contentId)
+  const toggle = document.querySelector(toggleSelector)
+  const group = document.querySelector(groupSelector)
   if (!content || !toggle || !group) return
   content.hidden = !isOpen
   toggle.setAttribute('aria-expanded', String(isOpen))
   group.classList.toggle('open', isOpen)
 }
 
+function setSettingsHowToOpen(isOpen) {
+  setSettingsAccordionOpen('settingsHowToContent', '.settings-howto-toggle', '.settings-howto-group', isOpen)
+}
+
 function toggleSettingsHowTo() {
   const content = document.getElementById('settingsHowToContent')
   if (!content) return
   setSettingsHowToOpen(content.hidden)
+}
+
+function setSettingsActivityLogOpen(isOpen) {
+  setSettingsAccordionOpen('activityLogContent', '.activity-log-toggle', '.activity-log-panel', isOpen)
+}
+
+function toggleSettingsActivityLog() {
+  const content = document.getElementById('activityLogContent')
+  if (!content) return
+  setSettingsActivityLogOpen(content.hidden)
+}
+
+function setSettingsBackupsOpen(isOpen) {
+  setSettingsAccordionOpen('backupContent', '.backup-toggle', '.backup-panel', isOpen)
+}
+
+function toggleSettingsBackups() {
+  const content = document.getElementById('backupContent')
+  if (!content) return
+  setSettingsBackupsOpen(content.hidden)
 }
 
 function closeSettingsOnEscape(event) {
