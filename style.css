@@ -1297,7 +1297,7 @@ body[data-theme="dark"] .city-next {
 .city-pts {
   font-family: 'Bebas Neue', sans-serif;
   font-size: 1.1rem;
-  color: var(--accent);
+  color: var(--accent-dim);
   letter-spacing: 0.04em;
 }
 
@@ -1877,7 +1877,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   grid-template-rows: repeat(7, var(--heatmap-cell-size));
   letter-spacing: 0;
   line-height: 1;
-  opacity: 0.62;
+  opacity: 1;
   padding-top: 1px;
   width: 22px;
 }
@@ -2446,8 +2446,7 @@ body[data-theme="dark"] .video-card.status-partial { background: #2b2615; }
 .video-card.status-partial:hover {
   box-shadow: 0 5px 0 rgba(252,184,49,0.42);
 }
-.video-card.status-watched { border-left-color: var(--green); opacity: 0.75; }
-.video-card.status-watched:hover { opacity: 1; }
+.video-card.status-watched { border-left-color: var(--green); }
 .video-card.status-watch-later {
   background: #f3fbff;
   border-left-color: var(--planet-cyan);
