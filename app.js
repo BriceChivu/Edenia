@@ -6479,7 +6479,7 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
   if (includeTimeline) renderLevelUpButton(snapshot)
 
   if (includeTimeline) renderCityTimeControls(snapshot)
-  updateCityMilestoneImage(snapshot.visualScore)
+  updateCityMilestoneImage(snapshot.visualScore, { preloadCenterIndex: getCurrentCityImageIndex(s) })
 }
 
 function getCitySnapshot(currentScore, s) {
@@ -7076,6 +7076,12 @@ function getCityImageSource(index) {
   return CITY_IMAGE_SOURCES[clampNumber(index, 0, CITY_IMAGE_SOURCES.length - 1)]
 }
 
+function getCurrentCityImageIndex(state) {
+  if (!state) return 0
+  normalizeCityProgress(state)
+  return clampNumber(state.cityProgress.maxLevelIndex, 0, CITY_IMAGE_SOURCES.length - 1)
+}
+
 function normalizeCityImageSource(source) {
   if (!source) return null
   if (typeof source === 'string') return { primary: source, fallback: source }
@@ -7092,6 +7098,11 @@ function getCityImageCacheKey(source) {
 
 function isCityImageLoaded(source) {
   return Boolean(cityImagePreloadCache.get(getCityImageCacheKey(source))?.loaded)
+}
+
+function decodeCityPreloadImage(img) {
+  if (!img?.decode) return Promise.resolve()
+  return img.decode().catch(() => {})
 }
 
 function preloadCityImages(centerIndex = 0) {
@@ -7125,7 +7136,10 @@ function preloadCityImage(source, options = {}) {
       resolve({ loaded, src })
     }
 
-    img.onload = () => finish(true, img.currentSrc || img.src)
+    img.onload = () => {
+      const loadedSrc = img.currentSrc || img.src
+      decodeCityPreloadImage(img).then(() => finish(true, loadedSrc))
+    }
     img.onerror = () => {
       if (!triedFallback && normalized.fallback && normalized.fallback !== normalized.primary) {
         triedFallback = true
@@ -7193,26 +7207,29 @@ function runCityImagePreloadQueue() {
   scheduleCityImagePreloadStep(loadNext)
 }
 
-function updateCityMilestoneImage(score) {
+function updateCityMilestoneImage(score, options = {}) {
   const image = document.getElementById('cityMilestoneImage')
   if (!image || CITY_IMAGE_SOURCES.length === 0) return
 
   const levelIndex = CITY_LEVELS.indexOf(getCityLevel(score))
   const imageIndex = Math.min(Math.max(levelIndex, 0), CITY_IMAGE_SOURCES.length - 1)
+  const preloadCenterIndex = Number.isInteger(options.preloadCenterIndex)
+    ? clampNumber(options.preloadCenterIndex, 0, CITY_IMAGE_SOURCES.length - 1)
+    : imageIndex
   const nextSource = getCityImageSource(imageIndex)
   const nextKey = getCityImageCacheKey(nextSource)
   const nextAlt = `Study city milestone: ${getCityStage(score).replace(/[^\p{L}\p{N}\s-]/gu, '').trim()}`
 
   image.alt = nextAlt
   if (image.dataset.citySourceKey === nextKey) {
-    queueCityImagePreloadsAround(imageIndex)
+    queueCityImagePreloadsAround(preloadCenterIndex)
     return
   }
   if (image.getAttribute('src') === nextSource.primary) {
     image.dataset.citySourceKey = nextKey
     image.dataset.citySrc = nextSource.primary
     image.classList.remove('loading')
-    queueCityImagePreloadsAround(imageIndex)
+    queueCityImagePreloadsAround(preloadCenterIndex)
     return
   }
 
@@ -7230,12 +7247,12 @@ function updateCityMilestoneImage(score) {
   const preload = preloadCityImage(nextSource, { fetchPriority: 'high' })
   if (preload?.loaded && preload.loadedSrc) {
     applyImage(preload)
-    queueCityImagePreloadsAround(imageIndex)
+    queueCityImagePreloadsAround(preloadCenterIndex)
   } else {
     preload?.promise.then(result => {
       if (result.loaded) {
         applyImage(result)
-        if (image.dataset.cityTargetKey === nextKey) queueCityImagePreloadsAround(imageIndex)
+        if (image.dataset.cityTargetKey === nextKey) queueCityImagePreloadsAround(preloadCenterIndex)
       }
     })
   }
