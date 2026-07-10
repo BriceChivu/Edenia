@@ -7886,7 +7886,7 @@ function renderCard(v, compact = false) {
   return `
     <div class="video-card ${compact ? 'compact-card' : ''} status-${status}" data-video-id="${safeVideoId}">
       ${removeFromGridButton}
-      <a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">
+      <a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">
         <img src="${escHtml(v.thumbnail)}" alt="" class="thumb" loading="lazy">
         <span class="dur-badge">${formatDuration(v.duration)}</span>
         ${isWatched ? '<span class="overlay-badge watched-badge">✓</span>' : ''}
