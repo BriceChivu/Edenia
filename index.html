@@ -105,9 +105,6 @@
             <span class="settings-accordion-caret" aria-hidden="true"></span>
           </button>
           <div class="settings-accordion-content activity-log-content" id="activityLogContent" hidden>
-            <div class="activity-log-toolbar">
-              <button class="btn-ghost activity-log-refresh-btn" type="button" onclick="renderActivityLog()" data-i18n="settings.refresh">Refresh</button>
-            </div>
             <div class="activity-log-filters" role="tablist" aria-label="Activity log filters" data-i18n-aria-label="settings.activity.filtersLabel">
               <button class="activity-log-filter active" type="button" data-activity-log-filter="all" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.all">All</button>
               <button class="activity-log-filter" type="button" data-activity-log-filter="user" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.user">User</button>
@@ -124,9 +121,6 @@
             <span class="settings-accordion-caret" aria-hidden="true"></span>
           </button>
           <div class="settings-accordion-content backup-content" id="backupContent" hidden>
-            <div class="backup-toolbar">
-              <button class="btn-ghost backup-refresh-btn" type="button" onclick="renderBackupList()" data-i18n="settings.refresh">Refresh</button>
-            </div>
             <div id="backupList" class="backup-list"></div>
             <p class="settings-note" data-i18n="settings.backups.note">Local backups can recover from a bad import, reset, or app save. Export a sync file for protection outside this browser.</p>
           </div>

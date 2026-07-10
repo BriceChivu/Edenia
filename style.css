@@ -428,13 +428,6 @@ body[data-theme="dark"] select option { color: var(--text); }
 .backup-panel {
   flex: 0 0 auto;
 }
-.backup-toolbar {
-  align-items: center;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-.backup-refresh-btn,
 .backup-restore-btn {
   border-width: 1px;
   font-size: 0.75rem;
@@ -501,17 +494,6 @@ body[data-theme="dark"] .backup-panel {
 
 .activity-log-panel {
   flex: 0 0 auto;
-}
-.activity-log-toolbar {
-  align-items: center;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-.activity-log-refresh-btn {
-  border-width: 1px;
-  font-size: 0.75rem;
-  padding: 5px 10px;
 }
 .activity-log-filters {
   display: grid;
