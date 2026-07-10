@@ -7930,6 +7930,7 @@ function renderCard(v, compact = false) {
             data-video-id="${safeVideoId}"
             data-status="${watchedNextStatus}"
             onclick="markVideo(this.dataset.videoId, this.dataset.status)"
+            aria-label="${escHtml(isWatched ? t('videos.card.unmark') : t('videos.card.markWatchedTitle'))}"
             title="${escHtml(isWatched ? t('videos.card.unmark') : t('videos.card.markWatchedTitle'))}">
             ${watchedLabel}
           </button>
@@ -7937,11 +7938,13 @@ function renderCard(v, compact = false) {
             data-video-id="${safeVideoId}"
             data-status="${partialNextStatus}"
             onclick="markVideo(this.dataset.videoId, this.dataset.status)"
+            aria-label="${escHtml(isPartial ? t('videos.card.clear') : t('videos.card.markProgress'))}"
             title="${escHtml(isPartial ? t('videos.card.clear') : t('videos.card.markProgress'))}">⏸</button>
           <button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
             data-video-id="${safeVideoId}"
             data-status="${watchLaterNextStatus}"
             onclick="markVideo(this.dataset.videoId, this.dataset.status)"
+            aria-label="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}"
             title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">★</button>
         </div>
       </div>
