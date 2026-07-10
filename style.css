@@ -338,7 +338,8 @@ body[data-theme="dark"] select option { color: var(--text); }
   margin: 0;
 }
 .settings-anki-steps,
-.settings-scoring-list {
+.settings-scoring-list,
+.settings-workflow-list {
   color: var(--text);
   display: grid;
   font-size: 0.8rem;
@@ -348,7 +349,8 @@ body[data-theme="dark"] select option { color: var(--text); }
   padding-left: 18px;
 }
 .settings-anki-steps li::marker,
-.settings-scoring-list li::marker {
+.settings-scoring-list li::marker,
+.settings-workflow-list li::marker {
   color: var(--muted);
   font-weight: 700;
 }
@@ -1991,6 +1993,37 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   max-width: 220px;
   min-width: 150px;
   text-align: left;
+}
+.channel-filter-empty-highlight .channel-filter-btn {
+  position: relative;
+}
+.channel-filter-empty-highlight .channel-filter-btn::before {
+  animation: walkthroughSpotlightPulse 1.8s ease-in-out infinite;
+  border: 2px solid var(--planet-lime);
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 2px rgba(5,5,5,0.22),
+    0 0 0 8px rgba(201,239,104,0.18),
+    0 12px 34px rgba(5,5,5,0.28);
+  content: "";
+  inset: -6px;
+  pointer-events: none;
+  position: absolute;
+}
+.channel-filter-empty-highlight .channel-filter-btn::after {
+  animation: walkthroughSpotlightPulse 1.8s ease-in-out infinite;
+  border: 2px solid rgba(201,239,104,0.38);
+  border-radius: 18px;
+  content: "";
+  inset: -12px;
+  pointer-events: none;
+  position: absolute;
+}
+body[data-theme="dark"] .channel-filter-empty-highlight .channel-filter-btn::before {
+  box-shadow:
+    0 0 0 2px rgba(130,210,239,0.22),
+    0 0 0 8px rgba(201,239,104,0.14),
+    0 12px 34px rgba(0,0,0,0.36);
 }
 .status-filter-btn {
   max-width: 160px;

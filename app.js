@@ -181,7 +181,10 @@ const I18N_EN = {
   'settings.scoring.video': 'Watching 1 hour of video gives 3 pts.',
   'settings.scoring.anki': '60 Anki reviews gives 2 pts.',
   'settings.workflow.title': 'Typical Edenia workflow',
-  'settings.workflow.body': "Refresh your channels, study from the video list, keep Anki open if tracking is enabled, then check Study History to see the day's points.",
+  'settings.workflow.item1': "Watch videos from the channels you've added.",
+  'settings.workflow.item2': 'If you want to watch a video without tracking its channel, use the Add video button.',
+  'settings.workflow.item3': 'Check your studies with the study history summary and heatmap.',
+  'settings.workflow.item4': 'Watch your town grow.',
   'settings.activity.title': 'Activity log',
   'settings.activity.filtersLabel': 'Activity log filters',
   'settings.activity.all': 'All',
@@ -304,6 +307,7 @@ const I18N_EN = {
   'videos.status.previous': 'its previous status',
   'videos.channels.all': 'All channels',
   'videos.channels.manage': 'Manage channels',
+  'videos.channels.add': 'Add channels',
   'videos.channels.none': 'No channels',
   'videos.channels.one': '1 channel',
   'videos.channels.count': '{count} channels',
@@ -514,13 +518,16 @@ const I18N = {
     'settings.anki.note': 'Edenia 只會讀取你的複習數量，用在學習紀錄中。它不會修改你的 Anki 卡片。',
     'settings.scoring.title': '分數怎麼算',
     'settings.scoring.intro': '分數來自影片學習時間和 Anki 複習。Edenia 會先把每一種來源的分數向下取整，再加到當天。',
-    'settings.scoring.video': '觀看 1 小時影片會得到 3 分。',
-    'settings.scoring.anki': '複習 60 張 Anki 卡會得到 2 分。',
-    'settings.scoring.examples': '例子：',
-    'settings.scoring.exampleVideo': '觀看 30 分鐘影片會得到 1 分（1.5 向下取整為 1）。',
-    'settings.scoring.exampleAnki': '複習 30 張 Anki 卡會得到 1 分，但複習 29 張會得到 0 分（0.9 向下取整為 0）。',
-    'settings.workflow.title': '典型 Edenia 流程',
-    'settings.workflow.body': '刷新頻道，從影片清單開始學習；如果啟用了 Anki 追蹤，請保持 Anki 開著，然後到學習紀錄查看當天分數。',
+  'settings.scoring.video': '觀看 1 小時影片會得到 3 分。',
+  'settings.scoring.anki': '複習 60 張 Anki 卡會得到 2 分。',
+  'settings.scoring.examples': '例子：',
+  'settings.scoring.exampleVideo': '觀看 30 分鐘影片會得到 1 分（1.5 向下取整為 1）。',
+  'settings.scoring.exampleAnki': '複習 30 張 Anki 卡會得到 1 分，但複習 29 張會得到 0 分（0.9 向下取整為 0）。',
+  'settings.workflow.title': '典型 Edenia 流程',
+  'settings.workflow.item1': '觀看你已新增的頻道中的影片。',
+  'settings.workflow.item2': '如果你想觀看不追蹤頻道的影片，請使用 Add video 按鈕。',
+  'settings.workflow.item3': '使用學習歷史摘要和熱圖查看你的學習情況。',
+  'settings.workflow.item4': '看著你的城鎮成長。',
     'settings.activity.title': '活動紀錄',
     'settings.activity.filtersLabel': '活動紀錄篩選',
     'settings.activity.all': '全部',
@@ -623,6 +630,7 @@ const I18N = {
     'videos.status.watched': '已看',
     'videos.channels.all': '全部頻道',
     'videos.channels.manage': '管理頻道',
+    'videos.channels.add': '新增頻道',
     'videos.channels.none': '沒有頻道',
     'videos.manual.button': '新增影片',
     'videos.manual.dialog': '新增 YouTube 影片',
@@ -751,13 +759,16 @@ const I18N = {
     'settings.anki.note': 'Edenia 只会读取你的复习数量，用在学习记录中。它不会修改你的 Anki 卡片。',
     'settings.scoring.title': '分数怎么算',
     'settings.scoring.intro': '分数来自视频学习时间和 Anki 复习。Edenia 会先把每一种来源的分数向下取整，再加到当天。',
-    'settings.scoring.video': '观看 1 小时视频会得到 3 分。',
-    'settings.scoring.anki': '复习 60 张 Anki 卡会得到 2 分。',
-    'settings.scoring.examples': '例子：',
-    'settings.scoring.exampleVideo': '观看 30 分钟视频会得到 1 分（1.5 向下取整为 1）。',
-    'settings.scoring.exampleAnki': '复习 30 张 Anki 卡会得到 1 分，但复习 29 张会得到 0 分（0.9 向下取整为 0）。',
-    'settings.workflow.title': '典型 Edenia 流程',
-    'settings.workflow.body': '刷新频道，从视频列表开始学习；如果启用了 Anki 追踪，请保持 Anki 打开，然后到学习记录查看当天分数。',
+  'settings.scoring.video': '观看 1 小时视频会得到 3 分。',
+  'settings.scoring.anki': '复习 60 张 Anki 卡会得到 2 分。',
+  'settings.scoring.examples': '例子：',
+  'settings.scoring.exampleVideo': '观看 30 分钟视频会得到 1 分（1.5 向下取整为 1）。',
+  'settings.scoring.exampleAnki': '复习 30 张 Anki 卡会得到 1 分，但复习 29 张会得到 0 分（0.9 向下取整为 0）。',
+  'settings.workflow.title': '典型 Edenia 流程',
+  'settings.workflow.item1': '观看你已添加的频道中的视频。',
+  'settings.workflow.item2': '如果你想观看不追踪频道的视频，请使用 Add video 按钮。',
+  'settings.workflow.item3': '通过学习历史摘要和热图查看你的学习情况。',
+  'settings.workflow.item4': '看着你的城镇成长。',
     'settings.activity.title': '活动记录',
     'settings.activity.all': '全部',
     'settings.activity.user': '用户',
@@ -849,6 +860,7 @@ const I18N = {
     'videos.status.watched': '已看',
     'videos.channels.all': '全部频道',
     'videos.channels.manage': '管理频道',
+    'videos.channels.add': '添加频道',
     'videos.channels.none': '没有频道',
     'videos.manual.button': '添加视频',
     'videos.manual.hint': '你可以在这里粘贴不在追踪频道中的 YouTube 视频网址。',
@@ -969,13 +981,16 @@ const I18N = {
     'settings.anki.note': 'Edenia solo lee tu número de repasos para el historial de estudio. No cambia tus tarjetas de Anki.',
     'settings.scoring.title': 'Cómo funcionan los puntos',
     'settings.scoring.intro': 'Los puntos recompensan el tiempo de estudio con videos y los repasos de Anki. Edenia redondea cada fuente hacia abajo antes de sumar los puntos al día.',
-    'settings.scoring.video': 'Ver 1 hora de video da 3 pts.',
-    'settings.scoring.anki': '60 repasos de Anki dan 2 pts.',
-    'settings.scoring.examples': 'Ejemplos:',
-    'settings.scoring.exampleVideo': 'Ver 30 min de video da 1 pts (1.5 redondeado hacia abajo a 1).',
-    'settings.scoring.exampleAnki': 'Hacer 30 repasos de Anki da 1 pts, pero hacer 29 repasos da 0 pts (0.9 redondeado hacia abajo a 0).',
-    'settings.workflow.title': 'Flujo típico de Edenia',
-    'settings.workflow.body': 'Actualiza tus canales, estudia desde la lista de videos, mantén Anki abierto si el seguimiento está activo y revisa Study History para ver los puntos del día.',
+  'settings.scoring.video': 'Ver 1 hora de video da 3 pts.',
+  'settings.scoring.anki': '60 repasos de Anki dan 2 pts.',
+  'settings.scoring.examples': 'Ejemplos:',
+  'settings.scoring.exampleVideo': 'Ver 30 min de video da 1 pts (1.5 redondeado hacia abajo a 1).',
+  'settings.scoring.exampleAnki': 'Hacer 30 repasos de Anki da 1 pts, pero hacer 29 repasos da 0 pts (0.9 redondeado hacia abajo a 0).',
+  'settings.workflow.title': 'Flujo típico de Edenia',
+  'settings.workflow.item1': 'Mira videos de los canales que has añadido.',
+  'settings.workflow.item2': 'Si quieres ver un video sin registrar su canal, usa el botón Add video.',
+  'settings.workflow.item3': 'Revisa tus estudios con el resumen del historial y el mapa de calor.',
+  'settings.workflow.item4': 'Mira crecer tu ciudad.',
     'settings.activity.title': 'Registro de actividad',
     'settings.activity.all': 'Todo',
     'settings.activity.user': 'Usuario',
@@ -1069,6 +1084,7 @@ const I18N = {
     'videos.status.watched': 'Visto',
     'videos.channels.all': 'Todos los canales',
     'videos.channels.manage': 'Gestionar canales',
+    'videos.channels.add': 'Añadir canales',
     'videos.channels.none': 'Sin canales',
     'videos.manual.button': 'Añadir video',
     'videos.manual.hint': 'Aquí puedes pegar la URL de un video de YouTube que no está en tus canales seguidos.',
@@ -1189,13 +1205,16 @@ const I18N = {
     'settings.anki.note': 'Edenia lit seulement votre nombre de révisions pour l’historique d’étude. Il ne modifie pas vos cartes Anki.',
     'settings.scoring.title': 'Fonctionnement des points',
     'settings.scoring.intro': 'Les points récompensent le temps d’étude en vidéo et les révisions Anki. Edenia arrondit chaque source vers le bas avant de l’ajouter à la journée.',
-    'settings.scoring.video': 'Regarder 1 heure de vidéo donne 3 pts.',
-    'settings.scoring.anki': '60 révisions Anki donnent 2 pts.',
-    'settings.scoring.examples': 'Exemples :',
-    'settings.scoring.exampleVideo': 'Regarder 30 min de vidéo donne 1 pts (1,5 arrondi vers le bas à 1).',
-    'settings.scoring.exampleAnki': 'Faire 30 révisions Anki donne 1 pts, mais faire 29 révisions donne 0 pts (0,9 arrondi vers le bas à 0).',
-    'settings.workflow.title': 'Flux Edenia typique',
-    'settings.workflow.body': 'Actualisez vos chaînes, étudiez depuis la liste de vidéos, gardez Anki ouvert si le suivi est activé, puis consultez Study History pour voir les points du jour.',
+  'settings.scoring.video': 'Regarder 1 heure de vidéo donne 3 pts.',
+  'settings.scoring.anki': '60 révisions Anki donnent 2 pts.',
+  'settings.scoring.examples': 'Exemples :',
+  'settings.scoring.exampleVideo': 'Regarder 30 min de vidéo donne 1 pts (1,5 arrondi vers le bas à 1).',
+  'settings.scoring.exampleAnki': 'Faire 30 révisions Anki donne 1 pts, mais faire 29 révisions donne 0 pts (0,9 arrondi vers le bas à 0).',
+  'settings.workflow.title': 'Flux Edenia typique',
+  'settings.workflow.item1': 'Regardez les vidéos des chaînes que vous avez ajoutées.',
+  'settings.workflow.item2': 'Si vous voulez regarder une vidéo sans suivre sa chaîne, utilisez le bouton Add video.',
+  'settings.workflow.item3': 'Consultez vos études avec le résumé de l’historique et la carte thermique.',
+  'settings.workflow.item4': 'Regardez votre ville grandir.',
     'settings.activity.title': 'Journal d’activité',
     'settings.activity.all': 'Tout',
     'settings.activity.user': 'Utilisateur',
@@ -1289,6 +1308,7 @@ const I18N = {
     'videos.status.watched': 'Vue',
     'videos.channels.all': 'Toutes les chaînes',
     'videos.channels.manage': 'Gérer les chaînes',
+    'videos.channels.add': 'Ajouter des chaînes',
     'videos.channels.none': 'Aucune chaîne',
     'videos.manual.button': 'Ajouter une vidéo',
     'videos.manual.hint': 'Vous pouvez coller ici l’URL d’une vidéo YouTube qui n’est pas dans vos chaînes suivies.',
@@ -7620,11 +7640,13 @@ function closeStatusFilterMenu() {
 }
 
 function renderChannelFilterOptions(s) {
+  const filter = document.getElementById('channelFilter')
   const btn = document.getElementById('channelFilterBtn')
   const menu = document.getElementById('channelFilterMenu')
   if (!btn || !menu) return
 
   const entries = getChannelFilterEntries(s)
+  const hasConfiguredChannels = Boolean(s.config?.channels?.length)
   const ids = new Set(entries.map(([id]) => id))
   if (selectedChannelFilters) {
     entries.forEach(([id]) => {
@@ -7636,8 +7658,9 @@ function renderChannelFilterOptions(s) {
 
   const selected = getSelectedChannelFilters(s)
   const selectedCount = selected.size
-  btn.textContent = getChannelFilterLabel(entries, selected)
+  btn.textContent = getChannelFilterLabel(entries, selected, hasConfiguredChannels)
   btn.disabled = false
+  filter?.classList.toggle('channel-filter-empty-highlight', !hasConfiguredChannels)
 
   const addForm = `
     <form class="channel-filter-add" onsubmit="addChannelFromFilter(event)">
@@ -7729,7 +7752,8 @@ function getSelectedChannelFilters(s) {
   return new Set(ids.filter(id => selectedChannelFilters.has(id)))
 }
 
-function getChannelFilterLabel(entries, selected) {
+function getChannelFilterLabel(entries, selected, hasConfiguredChannels = true) {
+  if (!hasConfiguredChannels) return t('videos.channels.add')
   if (!entries.length) return t('videos.channels.none')
   if (selected.size === entries.length) return t('videos.channels.manage')
   if (!selected.size) return t('videos.channels.none')
