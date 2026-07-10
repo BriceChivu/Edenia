@@ -3369,6 +3369,18 @@ body[data-theme="dark"] .walkthrough-highlight {
   }
   .card-title { font-size: 0.78rem; }
 }
+@media (max-width: 420px) {
+  .video-grid {
+    grid-template-columns: 1fr;
+  }
+  .video-card:not(.compact-card) .card-actions {
+    grid-template-columns: minmax(0, 1fr) 44px 44px;
+    justify-content: stretch;
+  }
+  .video-card:not(.compact-card) .watched-btn-text {
+    display: inline;
+  }
+}
 @media (pointer: coarse) {
   button,
   [role="button"],
