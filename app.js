@@ -7234,14 +7234,19 @@ function updateCityMilestoneImage(score, options = {}) {
   }
 
   image.dataset.cityTargetKey = nextKey
+  image.classList.add('loading')
   if ('fetchPriority' in image) image.fetchPriority = 'high'
   const applyImage = result => {
     if (image.dataset.cityTargetKey !== nextKey) return
     const loadedSrc = result?.src || result?.loadedSrc || nextSource.fallback || nextSource.primary
     image.dataset.citySourceKey = nextKey
     image.dataset.citySrc = loadedSrc
-    image.classList.remove('loading')
     image.src = loadedSrc
+    requestAnimationFrame(() => {
+      if (image.dataset.citySourceKey === nextKey && image.dataset.cityTargetKey === nextKey) {
+        image.classList.remove('loading')
+      }
+    })
   }
 
   const preload = preloadCityImage(nextSource, { fetchPriority: 'high' })

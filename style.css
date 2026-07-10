@@ -916,7 +916,7 @@ html[data-theme="dark"] .theme-icon-sun {
 }
 .city-image-wrap {
   aspect-ratio: 1672 / 720;
-  background: var(--planet-black);
+  background: var(--planet-black) url("images/city/level%200.webp") center / cover no-repeat;
   overflow: hidden;
   position: relative;
   touch-action: pan-y;
