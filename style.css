@@ -2119,9 +2119,10 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   width: 14px;
 }
 .channel-filter-option {
-  display: flex;
   align-items: center;
   gap: 8px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto 32px;
   padding: 7px 8px;
   border-radius: 8px;
   color: var(--text);
@@ -2180,17 +2181,19 @@ body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
   color: var(--muted);
   cursor: pointer;
   display: inline-flex;
-  flex: 0 0 auto;
   font-size: 1rem;
   font-weight: 700;
-  height: 22px;
+  height: 32px;
   justify-content: center;
   line-height: 1;
-  margin-right: -2px;
+  margin: -5px -5px -5px 0;
   opacity: 0.68;
   padding: 0;
+  position: relative;
+  touch-action: manipulation;
   transition: background 0.15s ease, color 0.15s ease, opacity 0.15s ease;
-  width: 22px;
+  width: 32px;
+  z-index: 1;
 }
 .channel-filter-remove:hover,
 .channel-filter-remove:focus-visible {
