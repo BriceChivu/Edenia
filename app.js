@@ -7152,8 +7152,10 @@ function updateCityMilestoneImage(score, options = {}) {
     return
   }
 
+  const shouldAnimateTransition = image.dataset.initialCityTransitionStarted !== 'true'
+  image.dataset.initialCityTransitionStarted = 'true'
   image.dataset.cityTargetKey = nextKey
-  image.classList.add('loading')
+  image.classList.toggle('loading', shouldAnimateTransition)
   if ('fetchPriority' in image) image.fetchPriority = 'high'
   const applyImage = result => {
     if (image.dataset.cityTargetKey !== nextKey) return
@@ -7161,6 +7163,10 @@ function updateCityMilestoneImage(score, options = {}) {
     image.dataset.citySourceKey = nextKey
     image.dataset.citySrc = loadedSrc
     image.src = loadedSrc
+    if (!shouldAnimateTransition) {
+      image.classList.remove('loading')
+      return
+    }
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         if (image.dataset.citySourceKey === nextKey && image.dataset.cityTargetKey === nextKey) {
