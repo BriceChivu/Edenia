@@ -3,6 +3,22 @@
    Fonts: Bebas Neue (display) + Space Grotesk (UI)
 ═══════════════════════════════════════════════════════════ */
 
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: optional;
+  src: url("assets/fonts/space-grotesk-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: 'Bebas Neue';
+  font-style: normal;
+  font-weight: 400;
+  font-display: optional;
+  src: url("assets/fonts/bebas-neue-latin.woff2") format("woff2");
+}
+
 /* ── Tokens ───────────────────────────────────────────────── */
 :root {
   --planet-black: #050505;
