@@ -1892,6 +1892,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   border-radius: 3px;
   background: #d8edf2;
   cursor: default;
+  padding: 0;
 }
 .heatmap-day.level-1 { background: #c9ef68; }
 .heatmap-day.level-2 { background: #a9dd4e; }
