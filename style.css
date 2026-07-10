@@ -3526,14 +3526,36 @@ body[data-theme="dark"] .walkthrough-highlight {
 }
 @media (max-width: 480px) and (pointer: coarse) {
   .city-zoom-controls {
-    gap: 4px;
+    gap: 0;
     opacity: 0.82;
   }
   .city-image-btn {
+    background: transparent;
     font-size: 0.92rem;
-    min-height: 32px;
-    min-width: 32px;
+    isolation: isolate;
+    min-height: 44px;
+    min-width: 44px;
+    position: relative;
+    width: 44px;
+  }
+  .city-image-btn::before {
+    background: rgba(255, 255, 255, 0.64);
+    border-radius: 50%;
+    content: "";
+    height: 32px;
+    left: 50%;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
     width: 32px;
+    z-index: -1;
+  }
+  .city-image-btn:hover {
+    background: transparent;
+  }
+  .city-image-btn:hover::before,
+  .city-image-btn:focus-visible::before {
+    background: rgba(255, 255, 255, 0.9);
   }
   .city-time-waveform {
     height: 34px;
