@@ -243,11 +243,66 @@ body[data-theme="dark"] select option { color: var(--text); }
 .settings-group { display: flex; flex-direction: column; gap: 8px; }
 .settings-group label { font-weight: 600; font-size: 0.9rem; }
 .settings-group input { width: 100%; }
-.settings-group select { width: 100%; }
-.settings-locale-group select {
-  background-color: var(--planet-white);
-  border-color: var(--border);
+.settings-locale-picker {
+  position: relative;
+}
+.settings-locale-btn {
+  align-items: center;
+  display: inline-flex;
+  gap: 10px;
+  justify-content: space-between;
+  width: 100%;
+}
+.settings-locale-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-locale-caret {
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  flex: 0 0 auto;
+  height: 0;
+  opacity: 0.72;
+  transition: transform 120ms ease;
+  width: 0;
+}
+.settings-locale-btn[aria-expanded="true"] .settings-locale-caret {
+  transform: rotate(180deg);
+}
+.settings-locale-menu {
+  background: var(--surface);
+  border: 2px solid var(--planet-black);
+  border-radius: 12px;
+  box-shadow: 0 4px 0 rgba(5,5,5,0.18);
+  left: 0;
+  padding: 6px;
+  position: absolute;
+  top: calc(100% + 6px);
+  width: min(320px, 86vw);
+  z-index: 70;
+}
+.settings-locale-option {
+  align-items: center;
+  border-radius: 8px;
   color: var(--text);
+  cursor: pointer;
+  display: flex;
+  font-size: 0.84rem;
+  font-weight: 600;
+  gap: 8px;
+  padding: 7px 8px;
+}
+.settings-locale-option:hover {
+  background: var(--surface-hi);
+}
+.settings-locale-option input {
+  accent-color: var(--green);
+  flex: 0 0 auto;
+  height: 16px;
+  width: 16px;
 }
 .settings-check {
   align-items: center;
