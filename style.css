@@ -409,6 +409,9 @@ body[data-theme="dark"] select option { color: var(--text); }
 }
 .add-channel-row input { flex: 1; min-width: 100px; }
 .settings-actions { display: flex; gap: 10px; flex-direction: column; }
+.settings-howto-group + .settings-actions {
+  margin-top: -14px;
+}
 .sync-actions {
   display: grid;
   gap: 8px;
