@@ -268,7 +268,7 @@ body[data-theme="dark"] select option { color: var(--text); }
   font-size: 0.78rem;
   line-height: 1.45;
 }
-.settings-howto-group {
+.settings-accordion {
   background: color-mix(in srgb, var(--surface-hi) 58%, transparent);
   border: 1.5px solid var(--border);
   border-radius: 10px;
@@ -276,7 +276,7 @@ body[data-theme="dark"] select option { color: var(--text); }
   gap: 0;
   overflow: hidden;
 }
-.settings-howto-toggle {
+.settings-accordion-toggle {
   align-items: center;
   appearance: none;
   background: transparent;
@@ -295,12 +295,12 @@ body[data-theme="dark"] select option { color: var(--text); }
   text-align: left;
   width: 100%;
 }
-.settings-howto-toggle:hover,
-.settings-howto-group.open .settings-howto-toggle {
+.settings-accordion-toggle:hover,
+.settings-accordion.open .settings-accordion-toggle {
   background: var(--planet-lime);
   color: #243a20;
 }
-.settings-howto-caret {
+.settings-accordion-caret {
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
   border-top: 5px solid currentColor;
@@ -310,16 +310,16 @@ body[data-theme="dark"] select option { color: var(--text); }
   transition: transform 120ms ease;
   width: 0;
 }
-.settings-howto-group.open .settings-howto-caret {
+.settings-accordion.open .settings-accordion-caret {
   transform: rotate(180deg);
 }
-.settings-howto-content {
+.settings-accordion-content {
   border-top: 1px solid var(--border);
   display: grid;
   gap: 14px;
   padding: 12px;
 }
-.settings-howto-content[hidden] {
+.settings-accordion-content[hidden] {
   display: none;
 }
 .settings-howto-section {
@@ -421,19 +421,13 @@ body[data-theme="dark"] select option { color: var(--text); }
   width: 100%;
 }
 .backup-panel {
-  background: var(--planet-white);
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  padding: 10px;
+  flex: 0 0 auto;
 }
-.backup-panel-header {
+.backup-toolbar {
   align-items: center;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
-  font-size: 0.86rem;
-  font-weight: 700;
-  margin-bottom: 8px;
 }
 .backup-refresh-btn,
 .backup-restore-btn {
@@ -497,23 +491,17 @@ body[data-theme="dark"] .reset-confirm {
   color: #ffd1cc;
 }
 body[data-theme="dark"] .backup-panel {
-  background: var(--surface-hi);
+  background: color-mix(in srgb, var(--surface-hi) 58%, transparent);
 }
 
 .activity-log-panel {
-  background: var(--planet-white);
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  padding: 10px;
+  flex: 0 0 auto;
 }
-.activity-log-header {
+.activity-log-toolbar {
   align-items: center;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
-  font-size: 0.86rem;
-  font-weight: 700;
-  margin-bottom: 8px;
 }
 .activity-log-refresh-btn {
   border-width: 1px;
@@ -606,7 +594,7 @@ body[data-theme="dark"] .backup-panel {
   margin: 0;
 }
 body[data-theme="dark"] .activity-log-panel {
-  background: var(--surface-hi);
+  background: color-mix(in srgb, var(--surface-hi) 58%, transparent);
 }
 
 /* ═══════════════════════════════════════════════════════════

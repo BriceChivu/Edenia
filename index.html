@@ -10,7 +10,7 @@
   <link rel="preload" as="font" href="assets/fonts/space-grotesk-latin-ext.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin-ext.woff2" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=20260703-23">
+  <link rel="stylesheet" href="style.css?v=20260703-24">
   <script src="config.local.js"></script>
 </head>
 <body>
@@ -52,12 +52,12 @@
         <p class="step-hint" data-i18n="settings.anki.toggleHint">When on, Edenia can read Anki review counts while Anki is open.</p>
       </div>
 
-      <div class="settings-group settings-howto-group">
-        <button type="button" class="settings-howto-toggle" onclick="toggleSettingsHowTo()" aria-expanded="false" aria-controls="settingsHowToContent">
+      <div class="settings-group settings-accordion settings-howto-group">
+        <button type="button" class="settings-accordion-toggle settings-howto-toggle" onclick="toggleSettingsHowTo()" aria-expanded="false" aria-controls="settingsHowToContent">
           <span data-i18n="settings.howto.title">How to</span>
-          <span class="settings-howto-caret" aria-hidden="true"></span>
+          <span class="settings-accordion-caret settings-howto-caret" aria-hidden="true"></span>
         </button>
-        <div class="settings-howto-content" id="settingsHowToContent" hidden>
+        <div class="settings-accordion-content settings-howto-content" id="settingsHowToContent" hidden>
           <section class="settings-howto-section">
             <h3 data-i18n="settings.anki.title">Connect to Anki</h3>
         <p class="step-hint" data-i18n="settings.anki.intro">Edenia can count your Anki reviews automatically. To let Edenia talk to Anki, install AnkiConnect and allow Edenia in its settings.</p>
@@ -100,35 +100,45 @@
       </div>
 
       <div class="settings-actions">
-        <div class="activity-log-panel">
-          <div class="activity-log-header">
+        <div class="settings-accordion activity-log-panel">
+          <button type="button" class="settings-accordion-toggle activity-log-toggle" onclick="toggleSettingsActivityLog()" aria-expanded="false" aria-controls="activityLogContent">
             <span data-i18n="settings.activity.title">Activity log</span>
-            <button class="btn-ghost activity-log-refresh-btn" type="button" onclick="renderActivityLog()" data-i18n="settings.refresh">Refresh</button>
+            <span class="settings-accordion-caret" aria-hidden="true"></span>
+          </button>
+          <div class="settings-accordion-content activity-log-content" id="activityLogContent" hidden>
+            <div class="activity-log-toolbar">
+              <button class="btn-ghost activity-log-refresh-btn" type="button" onclick="renderActivityLog()" data-i18n="settings.refresh">Refresh</button>
+            </div>
+            <div class="activity-log-filters" role="tablist" aria-label="Activity log filters" data-i18n-aria-label="settings.activity.filtersLabel">
+              <button class="activity-log-filter active" type="button" data-activity-log-filter="all" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.all">All</button>
+              <button class="activity-log-filter" type="button" data-activity-log-filter="user" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.user">User</button>
+              <button class="activity-log-filter" type="button" data-activity-log-filter="auto" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.auto">Auto</button>
+              <button class="activity-log-filter" type="button" data-activity-log-filter="issues" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.issues">Issues</button>
+              <button class="activity-log-filter" type="button" data-activity-log-filter="points" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.points">Points</button>
+            </div>
+            <div id="activityLogList" class="activity-log-list"></div>
           </div>
-          <div class="activity-log-filters" role="tablist" aria-label="Activity log filters" data-i18n-aria-label="settings.activity.filtersLabel">
-            <button class="activity-log-filter active" type="button" data-activity-log-filter="all" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.all">All</button>
-            <button class="activity-log-filter" type="button" data-activity-log-filter="user" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.user">User</button>
-            <button class="activity-log-filter" type="button" data-activity-log-filter="auto" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.auto">Auto</button>
-            <button class="activity-log-filter" type="button" data-activity-log-filter="issues" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.issues">Issues</button>
-            <button class="activity-log-filter" type="button" data-activity-log-filter="points" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.points">Points</button>
-          </div>
-          <div id="activityLogList" class="activity-log-list"></div>
         </div>
+        <div class="settings-accordion backup-panel">
+          <button type="button" class="settings-accordion-toggle backup-toggle" onclick="toggleSettingsBackups()" aria-expanded="false" aria-controls="backupContent">
+            <span data-i18n="settings.backups.title">Recent local backups</span>
+            <span class="settings-accordion-caret" aria-hidden="true"></span>
+          </button>
+          <div class="settings-accordion-content backup-content" id="backupContent" hidden>
+            <div class="backup-toolbar">
+              <button class="btn-ghost backup-refresh-btn" type="button" onclick="renderBackupList()" data-i18n="settings.refresh">Refresh</button>
+            </div>
+            <div id="backupList" class="backup-list"></div>
+            <p class="settings-note" data-i18n="settings.backups.note">Local backups can recover from a bad import, reset, or app save. Export a sync file for protection outside this browser.</p>
+          </div>
+        </div>
+        <button class="btn-secondary walkthrough-replay-btn" type="button" onclick="showWalkthroughAgain()" data-i18n="settings.walkthroughAgain">Show walkthrough again</button>
         <div class="sync-actions">
           <button class="btn-secondary" type="button" onclick="exportSyncFile()" data-i18n="settings.sync.export">Export sync file</button>
           <button class="btn-secondary" type="button" onclick="document.getElementById('syncFileInput').click()" data-i18n="settings.sync.import">Import sync file</button>
           <input class="hidden" type="file" id="syncFileInput" accept="application/json,.json" onchange="importSyncFileFromInput(this)">
         </div>
         <p class="settings-note" data-i18n="settings.sync.note">Progress is saved in this browser. Use sync files to copy the same progress to another device or browser.</p>
-        <button class="btn-secondary walkthrough-replay-btn" type="button" onclick="showWalkthroughAgain()" data-i18n="settings.walkthroughAgain">Show walkthrough again</button>
-        <div class="backup-panel">
-          <div class="backup-panel-header">
-            <span data-i18n="settings.backups.title">Recent local backups</span>
-            <button class="btn-ghost backup-refresh-btn" type="button" onclick="renderBackupList()" data-i18n="settings.refresh">Refresh</button>
-          </div>
-          <div id="backupList" class="backup-list"></div>
-          <p class="settings-note" data-i18n="settings.backups.note">Local backups can recover from a bad import, reset, or app save. Export a sync file for protection outside this browser.</p>
-        </div>
         <button class="btn-ghost btn-danger settings-reset-btn" onclick="showResetConfirm()" data-i18n="settings.reset.open">Reset everything</button>
         <div id="resetConfirm" class="reset-confirm hidden">
           <p data-i18n="settings.reset.warning">This will clear this app's local watch history, streak, saved settings, and cached Anki stats. A rollback backup will be kept here. Your Anki collection will not be changed.</p>
@@ -347,6 +357,6 @@
   <div class="toast" id="toast"></div>
   <div class="heatmap-tooltip" id="heatmapTooltip"></div>
 
-  <script src="app.js?v=20260703-39"></script>
+  <script src="app.js?v=20260703-40"></script>
 </body>
 </html>
