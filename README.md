@@ -45,7 +45,7 @@ The app can also be opened from `index.html` directly, but feature testing shoul
 5. Choose the level that best describes your current ability.
 6. Review the preselected starter channels, deselect any you do not want, and click `Start my journey`.
 7. Follow the brief first-study walkthrough pointing out channel controls and the real video feed.
-8. Use Settings to adjust the learning profile, weekly goal, interface language, short-video preference, channels, or optional Anki integration.
+8. Use Settings to adjust the weekly goal, interface language, short-video preference, channels, or optional Anki integration.
 
 Edenia loads YouTube videos automatically on startup when the feed has never been fetched or when the last successful fetch is at least 5 hours old. Each channel also has a 30-minute backoff after a refresh error. The shared key is not saved in browser storage or sync files.
 
@@ -58,8 +58,6 @@ Settings are saved on the fly. There is no separate save button.
 The first-run profile currently asks for one primary learning language and one approximate level. Edenia uses that pair to select up to three matching entries from its curated starter catalog. Recommendations are preselected but optional, so the learner can keep, remove, or add choices before continuing.
 
 Catalog entries use YouTube `@handle` values. When `Start my journey` is selected, Edenia resolves every chosen handle through the YouTube Data API, saves the resulting channels, and attempts to load their recent videos before opening the real dashboard. Successfully resolved channels appear in the Channels menu and fetched videos appear in the grid. Partial channel or video-fetch failures are reported after the dashboard opens; onboarding only stays on the starter-channel step when none of the selected channels can be resolved. A configured YouTube API key is required for this process.
-
-After setup, Settings shows a compact learning-profile summary and an `Edit learning profile` action. Reopening the flow starts on the starter suggestions, while `Back` reaches the level and language choices. Saving can add newly selected starter channels and returns directly to the dashboard; channels already added are removed from the channel menu rather than by changing the recommendation profile.
 
 Existing browser states that recorded the previous `onboarding.completed` flag are migrated to both `setupCompleted` and `walkthroughCompleted`. Those users keep their existing setup and are not sent through the new first-run flow again.
 

@@ -17,7 +17,6 @@ const NORMAL_STORAGE_KEY = 'edenia_v1'
 const STORAGE_KEY = IS_SANDBOX ? 'edenia_v1_sandbox' : NORMAL_STORAGE_KEY
 const STATE_BACKUP_KEY = `${STORAGE_KEY}_backups`
 const SANDBOX_WALKTHROUGH_AFTER_RESET_KEY = `${STORAGE_KEY}_walkthrough_after_reset`
-const ONBOARDING_RECONFIGURE_KEY = 'edenia_onboarding_reconfigure'
 const ONBOARDING_NOTICE_KEY = 'edenia_onboarding_notice'
 const STATE_BACKUP_LIMIT = 8
 const ACTIVITY_LOG_LIMIT = 500
@@ -152,7 +151,6 @@ const walkthroughState = {
 }
 const personalizedOnboardingState = {
   active: false,
-  isReconfiguring: false,
   step: 'language',
   languageId: null,
   levelId: null,
@@ -350,16 +348,12 @@ const I18N_EN = {
   'onboarding.back': 'Back',
   'onboarding.build': 'Start my journey',
   'onboarding.building': 'Starting your journey...',
-  'onboarding.cancel': 'Return to dashboard',
   'onboarding.private': 'No account required · Your real progress stays in this browser',
   'onboarding.channelIssue': '{count} starter channel{plural} could not be added. You can add it manually later.',
   'onboarding.videoIssue': 'Your channels were added, but their recent videos could not load yet. Check YouTube access, then try again.',
   'settings.title': 'Settings',
   'settings.close': 'Close settings',
   'settings.language.label': 'Language',
-  'settings.learningProfile.label': 'Learning profile',
-  'settings.learningProfile.summary': '{language} · {level} · {count} starter channel{plural}',
-  'settings.learningProfile.change': 'Edit learning profile',
   'settings.weeklyGoal.label': 'Weekly goal (hours)',
   'settings.channels.label': 'Channels',
   'settings.channels.placeholder': 'Channel URL or ID',
@@ -2840,44 +2834,18 @@ function startPersonalizedOnboarding(state = loadState()) {
   if (!state || IS_SANDBOX) return
   normalizeLearnerProfileState(state)
   personalizedOnboardingState.active = true
-  const shouldReconfigure = consumeOnboardingReconfigureRequest()
-  personalizedOnboardingState.isReconfiguring = Boolean(shouldReconfigure && state.onboarding?.setupCompleted)
-  personalizedOnboardingState.step = shouldReconfigure && state.learnerProfile.languages[0] && state.learnerProfile.level
-    ? 'channels'
-    : (state.learnerProfile.languages[0] ? 'level' : 'language')
+  personalizedOnboardingState.step = state.learnerProfile.languages[0]
+    ? (state.learnerProfile.level ? 'channels' : 'level')
+    : 'language'
   personalizedOnboardingState.languageId = state.learnerProfile.languages[0] || null
   personalizedOnboardingState.levelId = state.learnerProfile.level || null
   personalizedOnboardingState.selectedChannelCatalogIds = [...state.learnerProfile.selectedChannelCatalogIds]
-  personalizedOnboardingState.channelSelectionsInitialized = personalizedOnboardingState.isReconfiguring || state.learnerProfile.selectedChannelCatalogIds.length > 0
+  personalizedOnboardingState.channelSelectionsInitialized = state.learnerProfile.selectedChannelCatalogIds.length > 0
   personalizedOnboardingState.isApplyingChannels = false
   document.body.classList.add('onboarding-active')
   document.getElementById('mainApp')?.setAttribute('inert', '')
   document.getElementById('onboardingPanel')?.classList.remove('hidden')
-  const cancelButton = document.getElementById('onboardingCancelBtn')
-  if (cancelButton) cancelButton.classList.toggle('hidden', !personalizedOnboardingState.isReconfiguring)
   renderPersonalizedOnboarding()
-}
-
-function cancelPersonalizedOnboarding() {
-  if (!personalizedOnboardingState.active || !personalizedOnboardingState.isReconfiguring) return
-  personalizedOnboardingState.active = false
-  personalizedOnboardingState.isReconfiguring = false
-  personalizedOnboardingState.isApplyingChannels = false
-  document.body.classList.remove('onboarding-active')
-  document.getElementById('onboardingPanel')?.classList.add('hidden')
-  document.getElementById('onboardingCancelBtn')?.classList.add('hidden')
-  document.getElementById('mainApp')?.removeAttribute('inert')
-  window.setTimeout(() => document.querySelector('.gear-btn')?.focus(), 0)
-}
-
-function consumeOnboardingReconfigureRequest() {
-  try {
-    const requested = sessionStorage.getItem(ONBOARDING_RECONFIGURE_KEY) === '1'
-    sessionStorage.removeItem(ONBOARDING_RECONFIGURE_KEY)
-    return requested
-  } catch {
-    return false
-  }
 }
 
 function renderPersonalizedOnboarding() {
@@ -3711,7 +3679,6 @@ function openSettings() {
   applyLocale(s.config.locale)
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(s.config.includeShorts)
   document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(s)
-  renderSettingsLearnerProfile(s)
   renderChannelList(s.config.channels)
   renderBackupList()
   renderActivityLog(s)
@@ -3721,38 +3688,6 @@ function openSettings() {
   show('settingsPanel')
   if (main) main.inert = true
   window.setTimeout(() => document.getElementById('settingsCloseBtn')?.focus(), 0)
-}
-
-function renderSettingsLearnerProfile(state) {
-  const group = document.getElementById('settingsLearningProfileGroup')
-  const summary = document.getElementById('settingsLearningProfileSummary')
-  if (!group || !summary) return
-  normalizeLearnerProfileState(state)
-  const language = getLearnerLanguageOption(state?.learnerProfile?.languages?.[0])
-  const level = getLearnerLevelOption(state?.learnerProfile?.level)
-  const shouldHide = IS_SANDBOX || !language || !level
-  group.classList.toggle('hidden', shouldHide)
-  if (shouldHide) {
-    summary.textContent = ''
-    return
-  }
-  const count = state.learnerProfile.selectedChannelCatalogIds.length
-  summary.textContent = t('settings.learningProfile.summary', {
-    language: language.label,
-    level: level.label,
-    count,
-    plural: count === 1 ? '' : 's'
-  })
-}
-
-function editLearningProfile() {
-  if (IS_SANDBOX) return
-  const state = loadState()
-  if (!state) return
-  try { sessionStorage.setItem(ONBOARDING_RECONFIGURE_KEY, '1') } catch {}
-  openSettings.returnFocus = null
-  closeSettings()
-  window.setTimeout(() => startPersonalizedOnboarding(state), 120)
 }
 
 function closeSettings() {
