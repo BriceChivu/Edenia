@@ -8003,11 +8003,6 @@ function renderCard(v, compact = false) {
       <a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">
         <img src="${escHtml(v.thumbnail)}" alt="" class="thumb" loading="lazy">
         <span class="dur-badge">${formatDuration(v.duration)}</span>
-        ${isWatched ? '<span class="overlay-badge watched-badge">✓</span>' : ''}
-        ${isPartial ? '<span class="overlay-badge partial-badge">⏸</span>' : ''}
-        ${isWatchLater ? '<span class="overlay-badge watch-later-badge">★</span>' : ''}
-        ${isPartial ? `<span class="progress-ribbon">${escHtml(t('videos.card.inProgressRibbon'))}</span>` : ''}
-        ${isWatchLater ? `<span class="progress-ribbon watch-later-ribbon">${escHtml(t('videos.card.watchLater'))}</span>` : ''}
       </a>
       <div class="card-body">
         ${isPartial ? `<div class="card-status partial-status">⏸ ${escHtml(t('videos.card.resume'))}</div>` : ''}

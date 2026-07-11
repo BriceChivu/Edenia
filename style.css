@@ -2544,22 +2544,14 @@ body[data-theme="dark"] .channel-filter-remove:focus-visible {
 .video-card.status-partial {
   background: #fff8df;
   border-left-color: var(--amber);
-  box-shadow: 0 4px 0 rgba(252,184,49,0.32);
 }
 body[data-theme="dark"] .video-card.status-partial { background: #2b2615; }
-.video-card.status-partial:hover {
-  box-shadow: 0 5px 0 rgba(252,184,49,0.42);
-}
 .video-card.status-watched { border-left-color: var(--green); }
 .video-card.status-watch-later {
   background: #f3fbff;
   border-left-color: var(--planet-cyan);
-  box-shadow: 0 4px 0 rgba(18,188,234,0.28);
 }
 body[data-theme="dark"] .video-card.status-watch-later { background: #102934; }
-.video-card.status-watch-later:hover {
-  box-shadow: 0 5px 0 rgba(18,188,234,0.38);
-}
 .video-grid-remove {
   position: absolute;
   top: 8px;
@@ -2655,8 +2647,6 @@ body[data-theme="dark"] .video-grid-remove:focus-visible {
   height: 36px;
 }
 .compact-card .dur-badge,
-.compact-card .overlay-badge,
-.compact-card .progress-ribbon,
 .compact-card .card-status,
 .compact-card .card-meta,
 .compact-card .partial-btn,
@@ -2725,36 +2715,6 @@ body[data-theme="dark"] .video-grid-remove:focus-visible {
   letter-spacing: 0.02em;
 }
 body[data-theme="dark"] .dur-badge { color: #ffffff; }
-.overlay-badge {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.8rem;
-}
-.watched-badge { background: rgba(201,239,104,0.36); color: var(--planet-lime); }
-.partial-badge  { background: rgba(252,184,49,0.30); color: #5f3d00; }
-.watch-later-badge { background: rgba(18,188,234,0.26); color: #05566f; }
-.progress-ribbon {
-  position: absolute;
-  top: 7px;
-  left: 7px;
-  background: #fcb831;
-  border: 2px solid var(--planet-black);
-  border-radius: 999px;
-  color: #3d2b04;
-  font-size: 0.68rem;
-  font-weight: 800;
-  line-height: 1;
-  padding: 4px 8px;
-  box-shadow: 0 2px 0 rgba(5,5,5,0.18);
-}
-.watch-later-ribbon {
-  background: #82d2ef;
-  color: #053847;
-}
-
 /* Card body */
 .card-body {
   padding: 10px 12px 10px;
@@ -3679,12 +3639,6 @@ summary:focus-visible,
   .video-card:hover {
     box-shadow: 0 4px 0 rgba(5,5,5,0.14);
     transform: none;
-  }
-  .video-card.status-partial:hover {
-    box-shadow: 0 4px 0 rgba(252,184,49,0.32);
-  }
-  .video-card.status-watch-later:hover {
-    box-shadow: 0 4px 0 rgba(18,188,234,0.28);
   }
   .video-card:hover .thumb {
     transform: none;
