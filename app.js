@@ -246,6 +246,9 @@ const I18N_EN = {
   'city.level.11': 'The little purple house has a cute garden!',
   'city.level.12': "Damn! A volcano appeared! I hope it won't erupt...",
   'goal.title': 'Weekly goal',
+  'nextStudy.title': 'Continue studying',
+  'nextStudy.resume': 'Resume video',
+  'nextStudy.watch': 'Watch next',
   'goal.watched': 'watched',
   'goal.inProgress': 'in progress',
   'goal.toGo': 'to go',
@@ -584,6 +587,9 @@ const I18N = {
     'city.level.11': '紫色小屋有了一座可愛的花園！',
     'city.level.12': '天啊！出現了一座火山！希望它不要爆發...',
     'goal.title': '每週目標',
+    'nextStudy.title': '繼續學習',
+    'nextStudy.resume': '繼續觀看',
+    'nextStudy.watch': '開始觀看',
     'goal.watched': '已看',
     'goal.inProgress': '進行中',
     'goal.toGo': '還差',
@@ -822,6 +828,9 @@ const I18N = {
     'city.level.11': '紫色小屋有了一座可爱的花园！',
     'city.level.12': '天啊！出现了一座火山！希望它不要爆发...',
     'goal.title': '每周目标',
+    'nextStudy.title': '继续学习',
+    'nextStudy.resume': '继续观看',
+    'nextStudy.watch': '开始观看',
     'goal.watched': '已看',
     'goal.inProgress': '进行中',
     'goal.toGo': '还差',
@@ -1043,6 +1052,9 @@ const I18N = {
     'city.level.11': '¡La casita morada tiene un jardín precioso!',
     'city.level.12': '¡Caramba! ¡Apareció un volcán! Espero que no haga erupción...',
     'goal.title': 'Objetivo semanal',
+    'nextStudy.title': 'Seguir estudiando',
+    'nextStudy.resume': 'Continuar vídeo',
+    'nextStudy.watch': 'Ver siguiente',
     'goal.watched': 'vistos',
     'goal.inProgress': 'en progreso',
     'goal.toGo': 'restantes',
@@ -1266,6 +1278,9 @@ const I18N = {
     'city.level.11': 'La petite maison violette a un joli jardin !',
     'city.level.12': 'Mince ! Un volcan est apparu ! Espérons qu’il n’entre pas en éruption...',
     'goal.title': 'Objectif hebdomadaire',
+    'nextStudy.title': 'Continuer à étudier',
+    'nextStudy.resume': 'Reprendre la vidéo',
+    'nextStudy.watch': 'Regarder ensuite',
     'goal.watched': 'vues',
     'goal.inProgress': 'en cours',
     'goal.toGo': 'restant',
@@ -6319,6 +6334,34 @@ function renderAnalytics(stats, s) {
   bar.style.width = `${stats.goalProgress}%`
   bar.classList.toggle('has-progress', stats.goalProgress > 0)
   bar.classList.toggle('complete', stats.goalProgress >= 100)
+  renderNextStudy(s)
+}
+
+function renderNextStudy(s) {
+  const container = document.getElementById('nextStudyCard')
+  if (!container) return
+  const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
+  const nextVideo = getVisibleActiveVideos(Object.values(s.videos || {}), includeShorts)[0]
+  container.classList.toggle('hidden', !nextVideo)
+  if (!nextVideo) {
+    container.innerHTML = ''
+    return
+  }
+
+  const status = getVideoStatus(nextVideo)
+  const safeVideoId = escHtml(nextVideo.id)
+  const cta = status === 'partial' ? t('nextStudy.resume') : t('nextStudy.watch')
+  container.innerHTML = `
+    <a class="next-study-link" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">
+      <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
+      <span class="next-study-copy">
+        <span class="next-study-eyebrow">${escHtml(t('nextStudy.title'))}</span>
+        <span class="next-study-title">${escHtml(nextVideo.title)}</span>
+        <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(formatVideoStatus(status))}</span>
+      </span>
+      <span class="next-study-cta">${escHtml(cta)} <span aria-hidden="true">→</span></span>
+    </a>
+  `
 }
 
 function renderAnkiStatus(s) {

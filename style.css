@@ -1381,6 +1381,71 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
 .goal-sub b { color: var(--text); font-weight: 600; }
 .dot { color: var(--border-hi); }
 
+.next-study-card {
+  background: var(--surface);
+  border: 2px solid var(--planet-black);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 0 rgba(5,5,5,0.12);
+  overflow: hidden;
+}
+.next-study-link {
+  align-items: center;
+  color: inherit;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 88px minmax(0, 1fr) auto;
+  padding: 9px;
+}
+.next-study-link:hover {
+  text-decoration: none;
+}
+.next-study-thumb {
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: block;
+  object-fit: cover;
+  width: 88px;
+}
+.next-study-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.next-study-eyebrow {
+  color: var(--accent);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.next-study-title {
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.next-study-meta {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.next-study-cta {
+  background: var(--planet-lime);
+  border: 2px solid var(--planet-black);
+  border-radius: 999px;
+  color: #243a20;
+  font-size: 0.74rem;
+  font-weight: 800;
+  padding: 7px 11px;
+  white-space: nowrap;
+}
+
 /* ═══════════════════════════════════════════════════════════
    STUDY HISTORY SECTION
 ═══════════════════════════════════════════════════════════ */
@@ -3378,6 +3443,24 @@ summary:focus-visible,
     max-width: calc(100% - 12px);
     right: 6px;
     width: clamp(56px, 15.4%, 91px);
+  }
+  .next-study-link {
+    align-items: start;
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+  .next-study-thumb {
+    width: 72px;
+  }
+  .next-study-title {
+    display: -webkit-box;
+    line-height: 1.25;
+    white-space: normal;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .next-study-cta {
+    grid-column: 2;
+    justify-self: start;
   }
   .card-title { font-size: 0.78rem; }
 }
