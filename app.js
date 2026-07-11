@@ -7970,6 +7970,15 @@ function isHiddenFromVideoGrid(video) {
   return Boolean(video?.hiddenFromGrid)
 }
 
+function renderVideoActionIcon(type) {
+  const paths = {
+    watched: '<path d="M5 12.5l4 4L19 6.5"></path>',
+    partial: '<rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect>',
+    'watch-later': '<path d="M6 4h12v16l-6-4-6 4V4Z"></path>'
+  }
+  return `<svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">${paths[type] || ''}</svg>`
+}
+
 function renderCard(v, compact = false) {
   const status = getVideoStatus(v)
   const videoId = String(v.id ?? '')
@@ -7986,7 +7995,7 @@ function renderCard(v, compact = false) {
     : (isWatched ? t('videos.status.watched') : t('videos.card.markWatched'))
   const watchedLabel = compact
     ? `<span class="watched-btn-text">${escHtml(watchedText)}</span>`
-    : `<span class="watched-btn-icon" aria-hidden="true">✓</span><span class="watched-btn-text">${escHtml(watchedText)}</span>`
+    : `${renderVideoActionIcon('watched')}<span class="watched-btn-text">${escHtml(watchedText)}</span>`
   const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
   const resumeAtValue = isPartial ? formatResumeTimestamp(v.resumeAtSeconds) : ''
   const removeFromGridButton = !compact && !isWatched
@@ -8005,8 +8014,8 @@ function renderCard(v, compact = false) {
         <span class="dur-badge">${formatDuration(v.duration)}</span>
       </a>
       <div class="card-body">
-        ${isPartial ? `<div class="card-status partial-status">⏸ ${escHtml(t('videos.card.resume'))}</div>` : ''}
-        ${isWatchLater ? `<div class="card-status watch-later-status">★ ${escHtml(t('videos.card.watchLater'))}</div>` : ''}
+        ${isPartial ? `<div class="card-status partial-status">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</div>` : ''}
+        ${isWatchLater ? `<div class="card-status watch-later-status">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>` : ''}
         <div class="card-copy">
           <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
           ${watchedAtLabel ? `<div class="card-watched-at">${escHtml(watchedAtLabel)}</div>` : ''}
@@ -8042,13 +8051,13 @@ function renderCard(v, compact = false) {
             data-status="${partialNextStatus}"
             onclick="markVideo(this.dataset.videoId, this.dataset.status)"
             aria-label="${escHtml(isPartial ? t('videos.card.clear') : t('videos.card.markProgress'))}"
-            title="${escHtml(isPartial ? t('videos.card.clear') : t('videos.card.markProgress'))}">⏸</button>
+            title="${escHtml(isPartial ? t('videos.card.clear') : t('videos.card.markProgress'))}">${renderVideoActionIcon('partial')}</button>
           <button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
             data-video-id="${safeVideoId}"
             data-status="${watchLaterNextStatus}"
             onclick="markVideo(this.dataset.videoId, this.dataset.status)"
             aria-label="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}"
-            title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">★</button>
+            title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">${renderVideoActionIcon('watch-later')}</button>
         </div>
       </div>
     </div>

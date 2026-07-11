@@ -2790,10 +2790,13 @@ body[data-theme="dark"] .resume-time-field {
   border-color: rgba(255,255,255,0.16);
 }
 .card-status {
+  align-items: center;
   align-self: flex-start;
   border-radius: 999px;
+  display: inline-flex;
   font-size: 0.68rem;
   font-weight: 800;
+  gap: 4px;
   line-height: 1;
   padding: 4px 8px;
 }
@@ -2846,6 +2849,17 @@ body[data-theme="dark"] .resume-time-field {
   display: inline-flex;
   gap: 4px;
   justify-content: center;
+}
+.action-icon {
+  display: block;
+  fill: none;
+  flex: 0 0 auto;
+  height: 14px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  width: 14px;
 }
 .action-btn:hover         { background: #e9f8ed; color: var(--text); border-color: var(--planet-black); }
 .action-btn.active        { background: #eefbd0; border-color: var(--green); color: #466915; }
