@@ -18,6 +18,7 @@ const STORAGE_KEY = IS_SANDBOX ? 'edenia_v1_sandbox' : NORMAL_STORAGE_KEY
 const STATE_BACKUP_KEY = `${STORAGE_KEY}_backups`
 const SANDBOX_WALKTHROUGH_AFTER_RESET_KEY = `${STORAGE_KEY}_walkthrough_after_reset`
 const ONBOARDING_RECONFIGURE_KEY = 'edenia_onboarding_reconfigure'
+const ONBOARDING_NOTICE_KEY = 'edenia_onboarding_notice'
 const STATE_BACKUP_LIMIT = 8
 const ACTIVITY_LOG_LIMIT = 500
 const STATE_BACKUP_AUTO_INTERVAL_MS = 10 * 60_000
@@ -2780,6 +2781,21 @@ function init() {
     if (IS_SANDBOX) showToast(t('toast.sandboxMode'), 'warn')
   }
   maybeStartOnboarding(state)
+  showPendingOnboardingNotice()
+}
+
+function queueOnboardingNotice(message) {
+  if (!message) return
+  try { sessionStorage.setItem(ONBOARDING_NOTICE_KEY, message) } catch {}
+}
+
+function showPendingOnboardingNotice() {
+  let message = ''
+  try {
+    message = sessionStorage.getItem(ONBOARDING_NOTICE_KEY) || ''
+    sessionStorage.removeItem(ONBOARDING_NOTICE_KEY)
+  } catch {}
+  if (message) window.setTimeout(() => showToast(message, 'warn'), 500)
 }
 
 function startLiveIntegrations(state = loadState()) {
@@ -3064,7 +3080,7 @@ async function finishPersonalizedOnboarding() {
   saveState(state, { backup: false })
 
   const resolution = await resolveStarterChannelSelections(state.learnerProfile.selectedChannelCatalogIds)
-  if (resolution.failedCount) {
+  if (resolution.failedCount && !resolution.channels.length) {
     personalizedOnboardingState.isApplyingChannels = false
     renderPersonalizedOnboarding()
     const firstFailure = resolution.failures[0]?.message
@@ -3074,6 +3090,16 @@ async function finishPersonalizedOnboarding() {
     })
     showToast(firstFailure ? `${issue} ${firstFailure}` : issue, 'warn')
     return
+  }
+
+  let completionNotice = ''
+  if (resolution.failedCount) {
+    const firstFailure = resolution.failures[0]?.message
+    const issue = t('onboarding.channelIssue', {
+      count: resolution.failedCount,
+      plural: resolution.failedCount === 1 ? '' : 's'
+    })
+    completionNotice = firstFailure ? `${issue} ${firstFailure}` : issue
   }
 
   state = loadState() || state
@@ -3093,11 +3119,9 @@ async function finishPersonalizedOnboarding() {
       channelIds: resolution.channels.map(channel => channel.id)
     })
     if (!refreshResult?.ok) {
-      personalizedOnboardingState.isApplyingChannels = false
-      renderPersonalizedOnboarding()
       const firstError = refreshResult?.errors?.[0]?.message || refreshResult?.error?.message
-      showToast(firstError ? `${t('onboarding.videoIssue')} ${firstError}` : t('onboarding.videoIssue'), 'warn')
-      return
+      const videoIssue = firstError ? `${t('onboarding.videoIssue')} ${firstError}` : t('onboarding.videoIssue')
+      completionNotice = completionNotice ? `${completionNotice} ${videoIssue}` : videoIssue
     }
     state = loadState() || state
   }
@@ -3114,6 +3138,7 @@ async function finishPersonalizedOnboarding() {
     detail: `${getLearnerLanguageOption(personalizedOnboardingState.languageId)?.label || 'Language'} · ${getLearnerLevelOption(personalizedOnboardingState.levelId)?.label || 'Level'} · ${resolution.channels.length} channels`
   })
   saveState(state)
+  queueOnboardingNotice(completionNotice)
   window.location.assign(getNormalAppUrl())
 }
 
