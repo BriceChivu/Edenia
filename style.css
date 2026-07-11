@@ -410,7 +410,13 @@ body.onboarding-active { overflow: hidden; }
   height: 42px;
   justify-content: center;
   letter-spacing: 0.04em;
+  overflow: hidden;
   width: 42px;
+}
+.onboarding-channel-avatar img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 .onboarding-channel-copy { display: grid; gap: 3px; min-width: 0; }
 .onboarding-channel-name { font-size: 0.86rem; font-weight: 900; }

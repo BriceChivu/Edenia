@@ -155,9 +155,12 @@ const personalizedOnboardingState = {
   languageId: null,
   levelId: null,
   selectedChannelCatalogIds: [],
+  channelAvatars: {},
+  requestedChannelAvatarIds: new Set(),
   channelSelectionsInitialized: false,
   isApplyingChannels: false
 }
+const curatedChannelResolutionCache = new Map()
 const STATUS_FILTERS = [
   ['all', 'videos.status.all'],
   ['watch-later', 'videos.status.watchLater'],
@@ -2867,6 +2870,7 @@ function renderPersonalizedOnboarding() {
   } else {
     prepareOnboardingChannelSelections()
     renderOnboardingChannelsStep(content)
+    loadOnboardingChannelAvatars()
   }
 }
 
@@ -2928,10 +2932,14 @@ function renderOnboardingChannelsStep(content) {
   const channelMarkup = recommendations.length
     ? recommendations.map(channel => {
         const selected = selectedIds.has(channel.id)
-        const avatar = language?.icon || channel.name.slice(0, 2).toUpperCase()
+        const avatarUrl = personalizedOnboardingState.channelAvatars[channel.id]
+        const avatarFallback = language?.icon || channel.name.slice(0, 2).toUpperCase()
+        const avatar = avatarUrl
+          ? `<img src="${escHtml(avatarUrl)}" alt="" loading="eager">`
+          : escHtml(avatarFallback)
         return `
           <button type="button" class="onboarding-channel" data-catalog-id="${escHtml(channel.id)}" aria-pressed="${selected}" onclick="toggleOnboardingChannel(this.dataset.catalogId)">
-            <span class="onboarding-channel-avatar" aria-hidden="true">${escHtml(avatar)}</span>
+            <span class="onboarding-channel-avatar" aria-hidden="true">${avatar}</span>
             <span class="onboarding-channel-copy">
               <span class="onboarding-channel-name">${escHtml(channel.name)}</span>
               <span class="onboarding-channel-meta">${escHtml(channel.style)}</span>
@@ -2995,6 +3003,43 @@ function toggleOnboardingChannel(catalogId) {
   renderPersonalizedOnboarding()
 }
 
+function resolveCuratedChannelEntry(entry) {
+  const cached = curatedChannelResolutionCache.get(entry.id)
+  if (cached) return cached
+  const request = resolveYoutubeChannelInput(entry.input).catch(error => {
+    curatedChannelResolutionCache.delete(entry.id)
+    throw error
+  })
+  curatedChannelResolutionCache.set(entry.id, request)
+  return request
+}
+
+async function loadOnboardingChannelAvatars() {
+  if (!hasYoutubeApiKey() || personalizedOnboardingState.step !== 'channels') return
+  const recommendations = getRecommendedChannelCatalog({
+    languages: [personalizedOnboardingState.languageId],
+    level: personalizedOnboardingState.levelId
+  })
+  const pendingEntries = recommendations.filter(entry => {
+    if (personalizedOnboardingState.channelAvatars[entry.id]) return false
+    if (personalizedOnboardingState.requestedChannelAvatarIds.has(entry.id)) return false
+    personalizedOnboardingState.requestedChannelAvatarIds.add(entry.id)
+    return true
+  })
+  if (!pendingEntries.length) return
+
+  const results = await Promise.allSettled(pendingEntries.map(resolveCuratedChannelEntry))
+  let changed = false
+  results.forEach((result, index) => {
+    if (result.status !== 'fulfilled' || !result.value?.thumbnail) return
+    personalizedOnboardingState.channelAvatars[pendingEntries[index].id] = result.value.thumbnail
+    changed = true
+  })
+  if (changed && personalizedOnboardingState.active && personalizedOnboardingState.step === 'channels') {
+    renderPersonalizedOnboarding()
+  }
+}
+
 async function resolveStarterChannelSelections(catalogIds) {
   const entries = catalogIds.map(getCuratedChannelEntry).filter(Boolean)
   if (!entries.length) return { channels: [], failures: [], failedCount: 0, attempted: false }
@@ -3003,7 +3048,7 @@ async function resolveStarterChannelSelections(catalogIds) {
     const failures = entries.map(entry => ({ catalogId: entry.id, name: entry.name, message }))
     return { channels: [], failures, failedCount: failures.length, attempted: false }
   }
-  const results = await Promise.allSettled(entries.map(entry => resolveYoutubeChannelInput(entry.input)))
+  const results = await Promise.allSettled(entries.map(resolveCuratedChannelEntry))
   const channels = []
   const failures = []
   const seenIds = new Set()
@@ -4509,7 +4554,8 @@ async function fetchYoutubeChannelByFilter(filter, value) {
   if (!item?.id) throw new Error(t('toast.channelResolveNotFound'))
   return {
     id: item.id,
-    name: item.snippet?.title || item.id
+    name: item.snippet?.title || item.id,
+    thumbnail: getBestThumbnail(item.snippet?.thumbnails)
   }
 }
 
