@@ -3159,6 +3159,38 @@ summary:focus-visible,
   .channel-filter-option {
     min-height: 40px;
   }
+  .app-header.is-compact {
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 6px;
+    padding: 8px 12px 6px;
+  }
+  .app-header.is-compact .header-left {
+    flex: 0 1 auto;
+  }
+  .app-header.is-compact .title-row {
+    flex-wrap: nowrap;
+  }
+  .app-header.is-compact .app-title {
+    font-size: 1.35rem;
+  }
+  .app-header.is-compact .week-label,
+  .app-header.is-compact .sandbox-version-label,
+  .app-header.is-compact .streak-text {
+    display: none;
+  }
+  .app-header.is-compact .header-right {
+    flex: 0 1 auto;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin-left: auto;
+  }
+  .app-header.is-compact .streak-pill {
+    padding: 5px 8px;
+  }
+  body[data-sandbox="true"] .app-header.is-compact .streak-pill {
+    display: none;
+  }
 }
 @media (max-width: 480px) {
   .app-header {

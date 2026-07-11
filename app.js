@@ -2447,6 +2447,7 @@ function init() {
   applyTheme(state.config.theme)
   show('mainApp')
   renderAll(state)
+  syncHeaderCompactState()
   startChannelRefreshLabelTicker()
   repairStoredShortsDetection()
   initCityImagePanZoom()
@@ -2457,6 +2458,11 @@ function init() {
     showToast(t('toast.sandboxMode'), 'warn')
   }
   maybeStartOnboarding(state)
+}
+
+function syncHeaderCompactState() {
+  const header = document.querySelector('.app-header')
+  if (header) header.classList.toggle('is-compact', window.scrollY > 48)
 }
 
 function maybeStartOnboarding(state) {
@@ -8083,6 +8089,7 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 // ════════════════════════════════════════════════════════════
 
 document.addEventListener('DOMContentLoaded', init)
+window.addEventListener('scroll', syncHeaderCompactState, { passive: true })
 document.addEventListener('visibilitychange', refreshOpenChannelFilterTimestamps)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
 document.addEventListener('click', closeHistoryVideoPopoversOnOutsideClick)
