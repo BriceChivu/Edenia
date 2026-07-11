@@ -6,6 +6,9 @@ The app is intentionally simple: `index.html`, `style.css`, `app.js`, image asse
 
 ## What It Does
 
+- Personalizes first run around one primary learning language and an approximate level.
+- Recommends a preselected starter set from a curated, language-and-level-specific YouTube channel catalog.
+- Offers an isolated sample journey so new learners can explore a populated feed, weekly progress, study history, streak, and city before starting with real data.
 - Loads recent videos from configured YouTube channels.
 - Accepts YouTube channel IDs, `@handle` URLs, `/channel/UC...` URLs, and legacy `/user/...` URLs for channels.
 - Lets you manually add a YouTube video URL that is not in a tracked channel.
@@ -39,17 +42,32 @@ The app can also be opened from `index.html` directly, but feature testing shoul
 1. Copy `config.example.js` to `config.local.js`.
 2. Paste the shared YouTube API key into `config.local.js`.
 3. Open the app.
-4. Click the settings button.
-5. Pick a language if needed.
-6. Set the weekly goal in hours.
-7. Add YouTube channels.
-8. Choose whether short videos should be shown.
+4. Choose one primary learning language.
+5. Choose the level that best describes your current ability.
+6. Review the preselected starter channels, deselect any you do not want, and click `Preview my journey`.
+7. Explore the populated sample journey, then choose `Start my real journey` from its banner.
+8. Use Settings to adjust the learning profile, weekly goal, interface language, short-video preference, channels, or optional Anki integration.
 
 Edenia loads YouTube videos automatically on startup when the feed has never been fetched or when the last successful fetch is at least 5 hours old. Each channel also has a 30-minute backoff after a refresh error. The shared key is not saved in browser storage or sync files.
 
 `config.example.js` is only a local-development template. GitHub Pages deployment does not read it; the workflow creates `config.local.js` from the `YOUTUBE_API_KEY` repository secret.
 
 Settings are saved on the fly. There is no separate save button.
+
+## First-Run Journey
+
+The first-run profile currently asks for one primary learning language and one approximate level. Edenia uses that pair to select up to three matching entries from its curated starter catalog. Recommendations are preselected but optional, so the learner can keep, remove, or add choices before continuing.
+
+Catalog entries use YouTube `@handle` values. When `Preview my journey` is selected, Edenia resolves the chosen handles through the YouTube Data API, adds the channels that resolve successfully to the normal configured-channel list, and continues even if a handle cannot be resolved. A configured YouTube API key is required for this resolution; without one, the learner can still preview the sample journey and add channels later.
+
+The preview opens at `?sample=1` and builds a populated demonstration from the learner's language and channel choices. Its progress is synthetic and isolated from the real dashboard. The sample banner provides two exits:
+
+- `Change recommendations` returns to the starter-channel step without copying sample activity into the real profile.
+- `Start my real journey` returns to the normal dashboard, where the selected real channels remain and a brief first-study walkthrough points out channel controls and the real video feed.
+
+After setup, Settings shows a compact learning-profile summary and an `Edit learning profile` action. Reopening the flow starts on the starter suggestions, while `Back` reaches the level and language choices. Saving can add newly selected starter channels and returns directly to the dashboard; channels already added are removed from the channel menu rather than by changing the recommendation profile.
+
+Existing browser states that recorded the previous `onboarding.completed` flag are migrated to both `setupCompleted` and `walkthroughCompleted`. Those users keep their existing setup and are not sent through the new first-run flow again.
 
 ## Shared YouTube API Key
 
@@ -166,7 +184,7 @@ Primary storage:
 - Browser `localStorage`
 - Key: `edenia_v1`
 - Backup key: `edenia_v1_backups`
-- Defined in `app.js` as `STORAGE_KEY` and `STATE_BACKUP_KEY`
+- Defined in `app.js` as `NORMAL_STORAGE_KEY`; `STORAGE_KEY` selects the normal, sample, or sandbox key for the current URL mode.
 
 The stored object includes:
 
@@ -182,6 +200,8 @@ The stored object includes:
 - `undoStack` and `redoStack`: recent video actions for undo and redo.
 - `activityLog`: recent user, automatic, point, backup, import, refresh, and issue entries.
 - `channelRefreshes`: per-channel YouTube refresh timestamps, latest refresh errors, and short failure backoff timestamps.
+- `learnerProfile`: the selected primary learning language, approximate level, curated starter-channel IDs, and profile timestamps.
+- `onboarding`: separate setup and walkthrough completion state, plus timestamps for viewing the sample and applying recommendations.
 
 Edenia also keeps recent local backup snapshots in the same browser. These snapshots are created automatically before normal saves at a limited interval and immediately before risky actions such as sync import, reset, sandbox reset, or automatic cleanup. Use Settings -> `Recent local backups` to restore one of the latest snapshots after a bad import, reset, or corrupted save.
 
@@ -205,6 +225,15 @@ To inspect or clear the data in Chrome:
 2. Check Storage for `localStorage`.
 3. Inspect or remove the `edenia_v1` entry.
 4. Use the in-app `Reset everything` action when testing a clean first-run state.
+
+Sample journey mode uses separate browser storage:
+
+- URL: `http://localhost:8000/?sample=1`
+- `localStorage` key: `edenia_v1_sample`
+- Backup key: `edenia_v1_sample_backups`
+- Cookie key: `edenia_config_sample`
+
+Each sample visit is generated from the normal learner profile and written to the sample key. Its demonstration videos, Anki totals, streak, history, points, and city level are never copied into the normal `edenia_v1` state. The banner actions only update normal onboarding state so Edenia can resume setup or record that the sample was viewed.
 
 Sandbox mode uses separate browser storage:
 
