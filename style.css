@@ -213,6 +213,28 @@ select { cursor: pointer; }
 select option { background: var(--surface); }
 body[data-theme="dark"] select option { color: var(--text); }
 
+@keyframes popoverEnter {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+.settings-locale-menu:not(.hidden),
+.video-search-popover:not(.hidden),
+.manual-video-popover:not(.hidden),
+.channel-filter-menu:not(.hidden),
+.history-period-cell.open .history-period-popover,
+.history-points-cell.open .history-points-popover,
+.history-video-cell.open .history-video-popover {
+  animation: popoverEnter var(--motion-base) var(--ease-emphasized);
+  transform-origin: top center;
+}
+
 /* ═══════════════════════════════════════════════════════════
    SETUP SCREEN
 ═══════════════════════════════════════════════════════════ */
@@ -2051,6 +2073,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   pointer-events: none;
   position: fixed;
   text-align: left;
+  transition: opacity var(--motion-fast) var(--ease-standard);
   width: 230px;
   z-index: 500;
 }
@@ -2434,7 +2457,7 @@ body[data-theme="dark"] .channel-filter-remove:focus-visible {
   text-align: left;
   top: calc(100% + 8px);
   transform: translateY(-3px);
-  transition: opacity 90ms ease, transform 90ms ease;
+  transition: opacity var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
   visibility: hidden;
   width: min(300px, 82vw);
   z-index: 80;
