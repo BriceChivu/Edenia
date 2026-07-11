@@ -2857,8 +2857,20 @@ body[data-theme="dark"] .resume-time-field {
 .watched-btn {
   align-items: center;
   display: inline-flex;
+  flex: 1.2;
   gap: 4px;
   justify-content: center;
+}
+.partial-btn,
+.watch-later-btn {
+  align-items: center;
+  display: inline-flex;
+  flex: 0.9;
+  justify-content: center;
+}
+.partial-btn .action-icon,
+.watch-later-btn .action-icon {
+  margin-inline: auto;
 }
 .action-icon {
   display: block;
