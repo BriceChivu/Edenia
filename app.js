@@ -2477,7 +2477,19 @@ function init() {
 
 function syncHeaderCompactState() {
   const header = document.querySelector('.app-header')
-  if (header) header.classList.toggle('is-compact', window.scrollY > 48)
+  if (!header) return
+  if (!window.matchMedia?.('(max-width: 640px)').matches) {
+    header.classList.remove('is-compact')
+    return
+  }
+
+  const isCompact = header.classList.contains('is-compact')
+  const collapseAt = header.offsetHeight + 24
+  const expandAt = 16
+  const shouldCompact = isCompact
+    ? window.scrollY > expandAt
+    : window.scrollY > collapseAt
+  if (shouldCompact !== isCompact) header.classList.toggle('is-compact', shouldCompact)
 }
 
 function maybeStartOnboarding(state) {
