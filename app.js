@@ -11,14 +11,19 @@ const DEFAULT_CHANNELS_VERSION = 2
 // STATE
 // ════════════════════════════════════════════════════════════
 
-const IS_SANDBOX = new URLSearchParams(window.location.search).get('sandbox') === '1'
-const STORAGE_KEY = IS_SANDBOX ? 'edenia_v1_sandbox' : 'edenia_v1'
+const URL_PARAMS = new URLSearchParams(window.location.search)
+const IS_SANDBOX = URL_PARAMS.get('sandbox') === '1'
+const IS_SAMPLE_JOURNEY = !IS_SANDBOX && URL_PARAMS.get('sample') === '1'
+const NORMAL_STORAGE_KEY = 'edenia_v1'
+const SAMPLE_STORAGE_KEY = 'edenia_v1_sample'
+const STORAGE_KEY = IS_SANDBOX ? 'edenia_v1_sandbox' : (IS_SAMPLE_JOURNEY ? SAMPLE_STORAGE_KEY : NORMAL_STORAGE_KEY)
 const STATE_BACKUP_KEY = `${STORAGE_KEY}_backups`
 const SANDBOX_WALKTHROUGH_AFTER_RESET_KEY = `${STORAGE_KEY}_walkthrough_after_reset`
+const ONBOARDING_RECONFIGURE_KEY = 'edenia_onboarding_reconfigure'
 const STATE_BACKUP_LIMIT = 8
 const ACTIVITY_LOG_LIMIT = 500
 const STATE_BACKUP_AUTO_INTERVAL_MS = 10 * 60_000
-const CONFIG_COOKIE_KEY = IS_SANDBOX ? 'edenia_config_sandbox' : 'edenia_config'
+const CONFIG_COOKIE_KEY = IS_SANDBOX ? 'edenia_config_sandbox' : (IS_SAMPLE_JOURNEY ? 'edenia_config_sample' : 'edenia_config')
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const YOUTUBE_REFRESH_INTERVAL_MS = 5 * 60 * 60_000
 const YOUTUBE_REFRESH_ERROR_BACKOFF_MS = 30 * 60_000
@@ -152,6 +157,7 @@ const personalizedOnboardingState = {
   languageId: null,
   levelId: null,
   selectedChannelCatalogIds: [],
+  channelSelectionsInitialized: false,
   isApplyingChannels: false
 }
 const STATUS_FILTERS = [
@@ -329,6 +335,7 @@ const CURATED_CHANNEL_CATALOG = [
 ]
 const I18N_EN = {
   'app.title.sandbox': 'Sandbox - Edenia',
+  'app.title.sample': 'Sample Journey - Edenia',
   'onboarding.progress': 'Step {current} of {total}',
   'onboarding.eyebrow': 'Make your study visible',
   'onboarding.language.title': 'What language are you learning?',
@@ -342,10 +349,16 @@ const I18N_EN = {
   'onboarding.channels.none': 'No starter channels match this combination yet. You can still continue and add your own.',
   'onboarding.continue': 'Continue',
   'onboarding.back': 'Back',
-  'onboarding.build': 'Build my study feed',
-  'onboarding.building': 'Building your feed...',
+  'onboarding.build': 'Preview my journey',
+  'onboarding.building': 'Preparing your journey...',
   'onboarding.private': 'No account required · Your real progress stays in this browser',
   'onboarding.channelIssue': '{count} starter channel{plural} could not be added. You can add it manually later.',
+  'sample.badge': 'Sample journey',
+  'sample.title': 'Explore a {language} learning journey',
+  'sample.note': 'Explore a populated Edenia dashboard. Nothing here affects your real progress.',
+  'sample.change': 'Change recommendations',
+  'sample.start': 'Start my real journey',
+  'sample.previewOnly': 'This is a sample recommendation. Your real videos will open on YouTube.',
   'settings.title': 'Settings',
   'settings.close': 'Close settings',
   'settings.language.label': 'Language',
@@ -1939,7 +1952,7 @@ function setPendingAnkiResumeBaseline(s, dateKey = getCurrentAnkiDateKey(), crea
 }
 
 function getDefaultHistoryView() {
-  return IS_SANDBOX ? 'heatmap' : 'summary'
+  return IS_SANDBOX || IS_SAMPLE_JOURNEY ? 'heatmap' : 'summary'
 }
 
 function normalizeHistoryView(view) {
@@ -2258,6 +2271,151 @@ function createEmptySandboxState() {
     loggedAt: setLocalTime(startDate, 0, 0).toISOString(),
     source: 'sandbox-baseline'
   }
+  return state
+}
+
+function getNormalStateForSampleJourney() {
+  try {
+    const raw = localStorage.getItem(NORMAL_STORAGE_KEY)
+    if (!raw) return null
+    const state = JSON.parse(raw)
+    if (!isValidStateShape(state)) return null
+    normalizeLearnerProfileState(state)
+    normalizeOnboardingState(state)
+    return state
+  } catch {
+    return null
+  }
+}
+
+function createSampleJourneyState(realState = getNormalStateForSampleJourney()) {
+  const profile = realState?.learnerProfile || {
+    languages: ['spanish'],
+    level: 'beginner',
+    selectedChannelCatalogIds: []
+  }
+  const primaryLanguageId = profile.languages?.[0] || 'spanish'
+  const language = getLearnerLanguageOption(primaryLanguageId) || getLearnerLanguageOption('spanish')
+  const selectedCatalog = (profile.selectedChannelCatalogIds || [])
+    .map(getCuratedChannelEntry)
+    .filter(Boolean)
+  const recommendedCatalog = selectedCatalog.length
+    ? selectedCatalog
+    : getRecommendedChannelCatalog({ languages: [language.id], level: profile.level }, 3)
+  const sampleChannels = (recommendedCatalog.length ? recommendedCatalog : [{
+    id: `sample-${language.id}`,
+    name: `${language.shortLabel} Study`,
+    style: 'Comprehensible input'
+  }]).map(channel => ({
+    id: `sample-${channel.id}`,
+    name: channel.name
+  }))
+  const state = defaultState(
+    realState?.config?.weeklyGoalHours || 4,
+    sampleChannels,
+    realState?.config?.theme || DEFAULT_THEME,
+    [],
+    realState?.config?.locale || getBrowserDefaultLocale()
+  )
+  const now = new Date()
+  const dayPlans = [
+    { offset: -5, minutes: 30, reviewed: 60, created: 5 },
+    { offset: -4, minutes: 40, reviewed: 90, created: 8 },
+    { offset: -3, minutes: 35, reviewed: 120, created: 4 },
+    { offset: -2, minutes: 45, reviewed: 30, created: 6 },
+    { offset: -1, minutes: 25, reviewed: 80, created: 3 },
+    { offset: 0, minutes: 50, reviewed: 100, created: 7 }
+  ]
+  const studyTopics = [
+    'A slow morning at the market',
+    'Talking about weekend plans',
+    'A story about finding a new café',
+    'Everyday listening: ordering lunch',
+    'How people describe their hometown',
+    'A relaxed conversation about hobbies'
+  ]
+
+  dayPlans.forEach((plan, index) => {
+    const studyDate = addDays(now, plan.offset)
+    const dateKey = toDateKey(studyDate)
+    const channel = sampleChannels[index % sampleChannels.length]
+    const watchedAt = setLocalTime(studyDate, 18 + (index % 3), 12 + index).toISOString()
+    const videoId = `sample-watched-${dateKey}-${index}`
+    state.videos[videoId] = {
+      id: videoId,
+      title: `${language.shortLabel}: ${studyTopics[index]}`,
+      channelId: channel.id,
+      channelTitle: channel.name,
+      thumbnail: makeSandboxThumbnail(channel.name, index),
+      publishedAt: setLocalTime(addDays(studyDate, -3), 9, 0).toISOString(),
+      duration: plan.minutes * 60,
+      status: 'watched',
+      watchedAt,
+      sampleJourney: true
+    }
+    state.anki[dateKey] = {
+      reviewed: plan.reviewed,
+      created: plan.created,
+      loggedAt: setLocalTime(studyDate, 21, 20).toISOString(),
+      source: 'sample-journey'
+    }
+  })
+
+  const activeChannel = sampleChannels[0]
+  const activeId = `sample-active-${language.id}`
+  state.videos[activeId] = {
+    id: activeId,
+    title: `${language.shortLabel}: Continue your listening journey`,
+    channelId: activeChannel.id,
+    channelTitle: activeChannel.name,
+    thumbnail: makeSandboxThumbnail(activeChannel.name, 7),
+    publishedAt: new Date(now.getTime() - 2 * 3_600_000).toISOString(),
+    duration: 32 * 60,
+    status: 'partial',
+    watchedAt: null,
+    resumeAtSeconds: 8 * 60 + 24,
+    sampleJourney: true
+  }
+  sampleChannels.slice(1).forEach((channel, index) => {
+    const id = `sample-up-next-${language.id}-${index}`
+    state.videos[id] = {
+      id,
+      title: `${language.shortLabel}: ${index === 0 ? 'A story for your next session' : 'Natural conversation practice'}`,
+      channelId: channel.id,
+      channelTitle: channel.name,
+      thumbnail: makeSandboxThumbnail(channel.name, 9 + index),
+      publishedAt: setLocalTime(addDays(now, -(index + 1)), 8, 30).toISOString(),
+      duration: (24 + index * 7) * 60,
+      status: index === 0 ? 'watch-later' : 'unwatched',
+      watchedAt: null,
+      sampleJourney: true
+    }
+  })
+
+  state.learnerProfile = {
+    languages: [language.id],
+    level: profile.level || 'beginner',
+    selectedChannelCatalogIds: recommendedCatalog.map(channel => channel.id),
+    createdAt: realState?.learnerProfile?.createdAt || now.toISOString(),
+    updatedAt: now.toISOString()
+  }
+  state.onboarding = {
+    version: ONBOARDING_VERSION,
+    setupCompleted: true,
+    setupCompletedAt: now.toISOString(),
+    walkthroughCompleted: true,
+    walkthroughCompletedAt: now.toISOString(),
+    sampleViewedAt: now.toISOString(),
+    recommendationsAppliedAt: now.toISOString()
+  }
+  state.config.historyView = 'heatmap'
+  state.cityProgress = { maxLevelIndex: 3, pendingLevelIndex: null, scoringVersion: SCORING_RULES_VERSION }
+  state.sampleJourney = {
+    languageId: language.id,
+    generatedAt: now.toISOString()
+  }
+  sampleChannels.forEach(channel => markChannelRefreshSuccess(state, channel.id, now.toISOString()))
+  syncStreak(state)
   return state
 }
 
@@ -2720,19 +2878,29 @@ function escHtml(str) {
 
 function init() {
   reportMissingI18nKeys()
-  let state = loadState()
+  let state = IS_SAMPLE_JOURNEY ? createSampleJourneyState() : loadState()
   if (!state) {
     state = IS_SANDBOX ? createEmptySandboxState() : defaultState(4, DEFAULT_CHANNELS)
     saveState(state)
+  } else if (IS_SAMPLE_JOURNEY) {
+    saveState(state, { backup: false })
   }
 
   applyLocale(state.config.locale)
-  document.title = IS_SANDBOX ? t('app.title.sandbox') : 'Edenia'
+  document.title = IS_SANDBOX ? t('app.title.sandbox') : (IS_SAMPLE_JOURNEY ? t('app.title.sample') : 'Edenia')
   document.body.dataset.sandbox = IS_SANDBOX ? 'true' : 'false'
+  document.body.dataset.sampleJourney = IS_SAMPLE_JOURNEY ? 'true' : 'false'
   const sandboxTools = document.getElementById('sandboxTools')
   const sandboxVersionLabel = document.getElementById('sandboxVersionLabel')
+  const sampleJourneyBanner = document.getElementById('sampleJourneyBanner')
   if (sandboxTools) sandboxTools.classList.toggle('hidden', !IS_SANDBOX)
   if (sandboxVersionLabel) sandboxVersionLabel.classList.toggle('hidden', !IS_SANDBOX)
+  if (sampleJourneyBanner) sampleJourneyBanner.classList.toggle('hidden', !IS_SAMPLE_JOURNEY)
+  if (IS_SAMPLE_JOURNEY) {
+    const language = getLearnerLanguageOption(state.sampleJourney?.languageId) || getLearnerLanguageOption('spanish')
+    const title = document.getElementById('sampleJourneyTitle')
+    if (title) title.textContent = t('sample.title', { language: language.shortLabel })
+  }
   selectedHistoryView = normalizeHistoryView(state.config.historyView)
   setDefaultCityDayOffset(state)
   syncStreak(state)
@@ -2744,16 +2912,16 @@ function init() {
   startChannelRefreshLabelTicker()
   repairStoredShortsDetection()
   initCityImagePanZoom()
-  if (!IS_SANDBOX) {
+  if (!IS_SANDBOX && !IS_SAMPLE_JOURNEY) {
     if (state.onboarding.setupCompleted) startLiveIntegrations(state)
   } else {
-    showToast(t('toast.sandboxMode'), 'warn')
+    if (IS_SANDBOX) showToast(t('toast.sandboxMode'), 'warn')
   }
   maybeStartOnboarding(state)
 }
 
 function startLiveIntegrations(state = loadState()) {
-  if (IS_SANDBOX || !state?.onboarding?.setupCompleted) return
+  if (IS_SANDBOX || IS_SAMPLE_JOURNEY || !state?.onboarding?.setupCompleted) return
   applyAnkiRefreshPreference(state)
   startYoutubeAutoRefresh()
 }
@@ -2780,7 +2948,7 @@ function maybeStartOnboarding(state) {
     window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS, { manual: true, reason: 'sandbox-reset' }), 350)
     return
   }
-  if (IS_SANDBOX) return
+  if (IS_SANDBOX || IS_SAMPLE_JOURNEY) return
   if (!state?.onboarding?.setupCompleted) {
     window.setTimeout(() => startPersonalizedOnboarding(state), 220)
     return
@@ -2794,15 +2962,29 @@ function startPersonalizedOnboarding(state = loadState()) {
   if (!state || IS_SANDBOX) return
   normalizeLearnerProfileState(state)
   personalizedOnboardingState.active = true
-  personalizedOnboardingState.step = state.learnerProfile.languages[0] ? 'level' : 'language'
+  const shouldReconfigure = consumeOnboardingReconfigureRequest()
+  personalizedOnboardingState.step = shouldReconfigure && state.learnerProfile.languages[0] && state.learnerProfile.level
+    ? 'channels'
+    : (state.learnerProfile.languages[0] ? 'level' : 'language')
   personalizedOnboardingState.languageId = state.learnerProfile.languages[0] || null
   personalizedOnboardingState.levelId = state.learnerProfile.level || null
   personalizedOnboardingState.selectedChannelCatalogIds = [...state.learnerProfile.selectedChannelCatalogIds]
+  personalizedOnboardingState.channelSelectionsInitialized = state.learnerProfile.selectedChannelCatalogIds.length > 0
   personalizedOnboardingState.isApplyingChannels = false
   document.body.classList.add('onboarding-active')
   document.getElementById('mainApp')?.setAttribute('inert', '')
   document.getElementById('onboardingPanel')?.classList.remove('hidden')
   renderPersonalizedOnboarding()
+}
+
+function consumeOnboardingReconfigureRequest() {
+  try {
+    const requested = sessionStorage.getItem(ONBOARDING_RECONFIGURE_KEY) === '1'
+    sessionStorage.removeItem(ONBOARDING_RECONFIGURE_KEY)
+    return requested
+  } catch {
+    return false
+  }
 }
 
 function renderPersonalizedOnboarding() {
@@ -2914,6 +3096,7 @@ function selectOnboardingLanguage(languageId) {
   if (!getLearnerLanguageOption(languageId)) return
   personalizedOnboardingState.languageId = languageId
   personalizedOnboardingState.selectedChannelCatalogIds = []
+  personalizedOnboardingState.channelSelectionsInitialized = false
   renderPersonalizedOnboarding()
 }
 
@@ -2921,6 +3104,7 @@ function selectOnboardingLevel(levelId) {
   if (!getLearnerLevelOption(levelId)) return
   personalizedOnboardingState.levelId = levelId
   personalizedOnboardingState.selectedChannelCatalogIds = []
+  personalizedOnboardingState.channelSelectionsInitialized = false
   renderPersonalizedOnboarding()
 }
 
@@ -2933,11 +3117,12 @@ function setPersonalizedOnboardingStep(step) {
 }
 
 function prepareOnboardingChannelSelections() {
-  if (personalizedOnboardingState.selectedChannelCatalogIds.length) return
+  if (personalizedOnboardingState.channelSelectionsInitialized) return
   personalizedOnboardingState.selectedChannelCatalogIds = getRecommendedChannelCatalog({
     languages: [personalizedOnboardingState.languageId],
     level: personalizedOnboardingState.levelId
   }).map(channel => channel.id)
+  personalizedOnboardingState.channelSelectionsInitialized = true
 }
 
 function toggleOnboardingChannel(catalogId) {
@@ -3007,20 +3192,49 @@ async function finishPersonalizedOnboarding() {
     detail: `${getLearnerLanguageOption(personalizedOnboardingState.languageId)?.label || 'Language'} · ${getLearnerLevelOption(personalizedOnboardingState.levelId)?.label || 'Level'} · ${resolution.channels.length} channels`
   })
   saveState(state)
+  const sampleUrl = new URL(window.location.href)
+  sampleUrl.search = ''
+  sampleUrl.searchParams.set('sample', '1')
+  window.location.assign(sampleUrl.toString())
+}
 
-  personalizedOnboardingState.active = false
-  personalizedOnboardingState.isApplyingChannels = false
-  document.getElementById('onboardingPanel')?.classList.add('hidden')
-  document.getElementById('mainApp')?.removeAttribute('inert')
-  document.body.classList.remove('onboarding-active')
-  renderAll(state)
-  startLiveIntegrations(state)
-  if (resolution.failedCount > 0 && resolution.attempted) {
-    showToast(t('onboarding.channelIssue', { count: resolution.failedCount, plural: resolution.failedCount === 1 ? '' : 's' }), 'warn')
+function updateNormalOnboardingFromSample(update) {
+  const state = getNormalStateForSampleJourney()
+  if (!state) return null
+  update(state)
+  try {
+    localStorage.setItem(NORMAL_STORAGE_KEY, JSON.stringify(state))
+  } catch {
+    return null
   }
-  if (!state.onboarding.walkthroughCompleted) {
-    window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS), 280)
-  }
+  return state
+}
+
+function getNormalAppUrl() {
+  const url = new URL(window.location.href)
+  url.search = ''
+  return url.toString()
+}
+
+function finishSampleJourney() {
+  if (!IS_SAMPLE_JOURNEY) return
+  updateNormalOnboardingFromSample(state => {
+    normalizeOnboardingState(state)
+    state.onboarding.sampleViewedAt = new Date().toISOString()
+  })
+  window.location.assign(getNormalAppUrl())
+}
+
+function changeSampleJourneyRecommendations() {
+  if (!IS_SAMPLE_JOURNEY) return
+  updateNormalOnboardingFromSample(state => {
+    normalizeOnboardingState(state)
+    state.onboarding.setupCompleted = false
+    state.onboarding.setupCompletedAt = null
+    state.onboarding.recommendationsAppliedAt = null
+  })
+  try { sessionStorage.setItem(ONBOARDING_RECONFIGURE_KEY, '1') } catch {}
+  window.location.assign(getNormalAppUrl())
 }
 
 function queueSandboxWalkthroughAfterReset() {
@@ -4127,6 +4341,10 @@ function toggleTheme() {
 }
 
 async function addChannel() {
+  if (IS_SAMPLE_JOURNEY) {
+    showSamplePreviewOnly()
+    return
+  }
   const idEl   = document.getElementById('channelFilterAddInput') || document.getElementById('newChannelId')
   const btn    = document.getElementById('channelFilterAddBtn')
   const raw    = idEl?.value?.trim() || ''
@@ -4977,6 +5195,10 @@ function formatSkippedShortsMessage(skippedShorts) {
 }
 
 async function refreshFeed({ silent = false } = {}) {
+  if (IS_SAMPLE_JOURNEY) {
+    showSamplePreviewOnly()
+    return
+  }
   const btn = document.getElementById('refreshBtn')
   if (btn) {
     btn.textContent = `↻ ${t('videos.refreshing')}`
@@ -5268,6 +5490,10 @@ function revealAddedVideoCard(videoId, state) {
 
 async function addVideoFromUrl(event) {
   event.preventDefault()
+  if (IS_SAMPLE_JOURNEY) {
+    showSamplePreviewOnly()
+    return
+  }
   const input = document.getElementById('manualVideoUrlInput')
   const btn = document.getElementById('manualVideoAddBtn')
   const rawUrl = input?.value?.trim() || ''
@@ -5737,6 +5963,7 @@ function formatAnkiConnectError(err) {
 }
 
 async function refreshAnkiStats({ silent = false } = {}) {
+  if (IS_SAMPLE_JOURNEY) return
   if (!isAnkiEnabled(loadState())) return
   try {
     ankiStatsCache = await fetchAnkiStats()
@@ -5774,7 +6001,7 @@ function stopAnkiAutoRefresh() {
 }
 
 function applyAnkiRefreshPreference(state = loadState()) {
-  if (IS_SANDBOX || !isAnkiEnabled(state)) {
+  if (IS_SANDBOX || IS_SAMPLE_JOURNEY || !isAnkiEnabled(state)) {
     stopAnkiAutoRefresh()
     return
   }
@@ -5783,7 +6010,7 @@ function applyAnkiRefreshPreference(state = loadState()) {
 }
 
 function refreshAnkiStatsOnVisible() {
-  if (!IS_SANDBOX && !document.hidden && isAnkiEnabled(loadState())) refreshAnkiStats({ silent: true })
+  if (!IS_SANDBOX && !IS_SAMPLE_JOURNEY && !document.hidden && isAnkiEnabled(loadState())) refreshAnkiStats({ silent: true })
 }
 
 function syncAnkiStatsToState(stats) {
@@ -6929,17 +7156,24 @@ function renderNextStudy(s) {
   const status = getVideoStatus(nextVideo)
   const safeVideoId = escHtml(nextVideo.id)
   const cta = status === 'partial' ? t('nextStudy.resume') : t('nextStudy.watch')
-  container.innerHTML = `
-    <a class="next-study-link" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">
-      <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
-      <span class="next-study-copy">
-        <span class="next-study-eyebrow">${escHtml(t('nextStudy.title'))}</span>
-        <span class="next-study-title">${escHtml(nextVideo.title)}</span>
-        <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(formatVideoStatus(status))}</span>
-      </span>
-      <span class="next-study-cta">${escHtml(cta)} <span aria-hidden="true">→</span></span>
-    </a>
+  const nextStudyContent = `
+    <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
+    <span class="next-study-copy">
+      <span class="next-study-eyebrow">${escHtml(t('nextStudy.title'))}</span>
+      <span class="next-study-title">${escHtml(nextVideo.title)}</span>
+      <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(formatVideoStatus(status))}</span>
+    </span>
+    <span class="next-study-cta">${escHtml(cta)} <span aria-hidden="true">→</span></span>
   `
+  container.innerHTML = `
+    ${IS_SAMPLE_JOURNEY
+      ? `<button class="next-study-link sample-preview-link" type="button" onclick="showSamplePreviewOnly()">${nextStudyContent}</button>`
+      : `<a class="next-study-link" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${nextStudyContent}</a>`}
+  `
+}
+
+function showSamplePreviewOnly() {
+  showToast(t('sample.previewOnly'), 'warn')
 }
 
 function renderAnkiStatus(s) {
@@ -8556,13 +8790,17 @@ function renderCard(v, compact = false) {
         title="${escHtml(t('videos.card.removeFromGrid'))}"
         aria-label="${escHtml(t('videos.card.removeFromGrid'))}">×</button>`
     : ''
+  const thumbnailContent = `
+    <img src="${escHtml(v.thumbnail)}" alt="" class="thumb" loading="lazy">
+    <span class="dur-badge">${formatDuration(v.duration)}</span>
+  `
+  const thumbnailLink = IS_SAMPLE_JOURNEY
+    ? `<button type="button" class="thumb-link sample-preview-link" aria-label="${escHtml(v.title)}" onclick="showSamplePreviewOnly()">${thumbnailContent}</button>`
+    : `<a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${thumbnailContent}</a>`
   return `
     <div class="video-card ${compact ? 'compact-card' : ''} status-${status}" data-video-id="${safeVideoId}">
       ${removeFromGridButton}
-      <a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">
-        <img src="${escHtml(v.thumbnail)}" alt="" class="thumb" loading="lazy">
-        <span class="dur-badge">${formatDuration(v.duration)}</span>
-      </a>
+      ${thumbnailLink}
       <div class="card-body">
         ${isPartial ? `<div class="card-status partial-status">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</div>` : ''}
         ${isWatchLater ? `<div class="card-status watch-later-status">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>` : ''}
@@ -8685,4 +8923,4 @@ document.addEventListener('keydown', closeManualVideoPopoverOnEscape)
 document.addEventListener('keydown', closeVideoSearchPopoverOnEscape)
 document.addEventListener('keydown', closeLocaleMenuOnEscape)
 document.addEventListener('keydown', handleSettingsKeydown)
-if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
+if (!IS_SANDBOX && !IS_SAMPLE_JOURNEY) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
