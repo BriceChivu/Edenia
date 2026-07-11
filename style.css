@@ -1936,6 +1936,16 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   display: flex;
   gap: 8px;
 }
+.history-heatmap.is-sparse {
+  --heatmap-cell-size: 18px;
+  --heatmap-gap: 4px;
+}
+.history-heatmap.is-sparse .heatmap-body {
+  justify-content: center;
+}
+.history-heatmap.is-sparse .heatmap-scroll {
+  flex: 0 0 auto;
+}
 .heatmap-weekday-labels {
   color: var(--muted);
   display: grid;
@@ -1986,6 +1996,30 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
 .heatmap-day:focus-visible {
   border-color: var(--planet-black);
 }
+.heatmap-legend {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  font-size: 0.64rem;
+  font-weight: 650;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+.history-heatmap.is-sparse .heatmap-legend {
+  justify-content: center;
+}
+.heatmap-legend-cell {
+  background: #d8edf2;
+  border: 1px solid rgba(5,5,5,0.16);
+  border-radius: 3px;
+  height: 11px;
+  width: 11px;
+}
+.heatmap-legend-cell.level-1 { background: #c9ef68; }
+.heatmap-legend-cell.level-2 { background: #a9dd4e; }
+.heatmap-legend-cell.level-3 { background: #79bd31; }
+.heatmap-legend-cell.level-4 { background: #487d1c; }
 .heatmap-tooltip {
   background: var(--surface);
   border: 2px solid var(--planet-black);
@@ -2076,6 +2110,11 @@ body[data-theme="dark"] .heatmap-day.level-1 { background: #355322; }
 body[data-theme="dark"] .heatmap-day.level-2 { background: #5f8f2d; }
 body[data-theme="dark"] .heatmap-day.level-3 { background: #93c843; }
 body[data-theme="dark"] .heatmap-day.level-4 { background: #c9ef68; }
+body[data-theme="dark"] .heatmap-legend-cell { background: #17333b; border-color: rgba(130,210,239,0.16); }
+body[data-theme="dark"] .heatmap-legend-cell.level-1 { background: #355322; }
+body[data-theme="dark"] .heatmap-legend-cell.level-2 { background: #5f8f2d; }
+body[data-theme="dark"] .heatmap-legend-cell.level-3 { background: #93c843; }
+body[data-theme="dark"] .heatmap-legend-cell.level-4 { background: #c9ef68; }
 /* ═══════════════════════════════════════════════════════════
    VIDEO FEED
 ═══════════════════════════════════════════════════════════ */

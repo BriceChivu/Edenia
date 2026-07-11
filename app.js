@@ -274,6 +274,9 @@ const I18N_EN = {
   'history.table.points': 'PTS',
   'history.emptyRange': 'No activity in this range.',
   'history.noActivityMap': 'No activity to map yet.',
+  'history.heatmap.less': 'Less',
+  'history.heatmap.more': 'More',
+  'history.heatmap.legend': 'Study activity intensity',
   'history.noActivityYet': 'No activity yet',
   'history.showWatched': 'Show {count} videos watched on {date}',
   'history.watchedDialog': 'Watched videos',
@@ -609,6 +612,9 @@ const I18N = {
     'history.table.points': '分數',
     'history.emptyRange': '這個範圍沒有活動。',
     'history.noActivityMap': '還沒有活動可以顯示。',
+    'history.heatmap.less': '較少',
+    'history.heatmap.more': '較多',
+    'history.heatmap.legend': '學習活動強度',
     'history.noActivityYet': '還沒有活動',
     'history.showPoints': '顯示 {date} 的得分方式',
     'history.pointsDialog': '得分明細',
@@ -848,6 +854,9 @@ const I18N = {
     'history.table.watched': '已看',
     'history.table.points': '分数',
     'history.emptyRange': '这个范围没有活动。',
+    'history.heatmap.less': '较少',
+    'history.heatmap.more': '较多',
+    'history.heatmap.legend': '学习活动强度',
     'history.showPoints': '显示 {date} 的得分方式',
     'history.pointsDialog': '得分明细',
     'history.pointsAnkiReviews': 'Anki 复习',
@@ -1072,6 +1081,9 @@ const I18N = {
     'history.table.watched': 'Vistos',
     'history.table.points': 'PTS',
     'history.emptyRange': 'No hay actividad en este rango.',
+    'history.heatmap.less': 'Menos',
+    'history.heatmap.more': 'Más',
+    'history.heatmap.legend': 'Intensidad de estudio',
     'history.showPoints': 'Mostrar puntos ganados el {date}',
     'history.pointsDialog': 'Detalle de puntos',
     'history.pointsAnkiReviews': 'Repasos de Anki',
@@ -1298,6 +1310,9 @@ const I18N = {
     'history.table.watched': 'Vues',
     'history.table.points': 'PTS',
     'history.emptyRange': 'Aucune activité dans cette période.',
+    'history.heatmap.less': 'Moins',
+    'history.heatmap.more': 'Plus',
+    'history.heatmap.legend': 'Intensité des études',
     'history.showPoints': 'Afficher les points gagnés le {date}',
     'history.pointsDialog': 'Détail des points',
     'history.pointsAnkiReviews': 'Révisions Anki',
@@ -6084,6 +6099,7 @@ function getWeekMonday(date) {
 }
 
 function renderHistoryHeatmap(s, container) {
+  container.classList.remove('is-sparse')
   const ankiEnabled = isAnkiEnabled(s)
   const end = IS_SANDBOX ? getSandboxHeatmapEndDate(s) : new Date()
   end.setHours(23, 59, 59, 999)
@@ -6107,6 +6123,7 @@ function renderHistoryHeatmap(s, container) {
     days.push(row)
   }
   const weekCount = Math.ceil(days.length / 7)
+  container.classList.toggle('is-sparse', weekCount <= 8)
 
   container.innerHTML = `
     <div class="heatmap-body">
@@ -6122,6 +6139,11 @@ function renderHistoryHeatmap(s, container) {
           `}).join('')}
         </div>
       </div>
+    </div>
+    <div class="heatmap-legend" aria-label="${escHtml(t('history.heatmap.legend'))}">
+      <span>${escHtml(t('history.heatmap.less'))}</span>
+      ${[0, 1, 2, 3, 4].map(level => `<span class="heatmap-legend-cell level-${level}" aria-hidden="true"></span>`).join('')}
+      <span>${escHtml(t('history.heatmap.more'))}</span>
     </div>
   `
   scrollHeatmapToLatestOnTouch(container)
