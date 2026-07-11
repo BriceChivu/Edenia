@@ -352,6 +352,7 @@ const I18N_EN = {
   'onboarding.cancel': 'Return to dashboard',
   'onboarding.private': 'No account required · Your real progress stays in this browser',
   'onboarding.channelIssue': '{count} starter channel{plural} could not be added. You can add it manually later.',
+  'onboarding.videoIssue': 'Your channels were added, but their recent videos could not load yet. Check YouTube access, then try again.',
   'settings.title': 'Settings',
   'settings.close': 'Close settings',
   'settings.language.label': 'Language',
@@ -3012,18 +3013,34 @@ function toggleOnboardingChannel(catalogId) {
 
 async function resolveStarterChannelSelections(catalogIds) {
   const entries = catalogIds.map(getCuratedChannelEntry).filter(Boolean)
-  if (!entries.length || !hasYoutubeApiKey()) return { channels: [], failedCount: entries.length, attempted: false }
+  if (!entries.length) return { channels: [], failures: [], failedCount: 0, attempted: false }
+  if (!hasYoutubeApiKey()) {
+    const message = t('toast.channelResolveNeedsKey')
+    const failures = entries.map(entry => ({ catalogId: entry.id, name: entry.name, message }))
+    return { channels: [], failures, failedCount: failures.length, attempted: false }
+  }
   const results = await Promise.allSettled(entries.map(entry => resolveYoutubeChannelInput(entry.input)))
   const channels = []
+  const failures = []
   const seenIds = new Set()
-  results.forEach(result => {
-    if (result.status !== 'fulfilled' || !result.value?.id || seenIds.has(result.value.id)) return
+  results.forEach((result, index) => {
+    const entry = entries[index]
+    if (result.status !== 'fulfilled' || !result.value?.id) {
+      failures.push({
+        catalogId: entry.id,
+        name: entry.name,
+        message: result.status === 'rejected' ? String(result.reason?.message || result.reason) : t('toast.channelResolveNotFound')
+      })
+      return
+    }
+    if (seenIds.has(result.value.id)) return
     seenIds.add(result.value.id)
     channels.push({ id: result.value.id, name: result.value.name || result.value.id })
   })
   return {
     channels,
-    failedCount: results.length - channels.length,
+    failures,
+    failedCount: failures.length,
     attempted: true
   }
 }
@@ -3047,6 +3064,18 @@ async function finishPersonalizedOnboarding() {
   saveState(state, { backup: false })
 
   const resolution = await resolveStarterChannelSelections(state.learnerProfile.selectedChannelCatalogIds)
+  if (resolution.failedCount) {
+    personalizedOnboardingState.isApplyingChannels = false
+    renderPersonalizedOnboarding()
+    const firstFailure = resolution.failures[0]?.message
+    const issue = t('onboarding.channelIssue', {
+      count: resolution.failedCount,
+      plural: resolution.failedCount === 1 ? '' : 's'
+    })
+    showToast(firstFailure ? `${issue} ${firstFailure}` : issue, 'warn')
+    return
+  }
+
   state = loadState() || state
   const existingIds = new Set((state.config.channels || []).map(channel => channel.id))
   resolution.channels.forEach(channel => {
@@ -3056,6 +3085,23 @@ async function finishPersonalizedOnboarding() {
     }
     state.config.removedChannelIds = (state.config.removedChannelIds || []).filter(channelId => channelId !== channel.id)
   })
+  saveState(state, { backup: false })
+
+  if (resolution.channels.length) {
+    const refreshResult = await refreshFeed({
+      silent: true,
+      channelIds: resolution.channels.map(channel => channel.id)
+    })
+    if (!refreshResult?.ok) {
+      personalizedOnboardingState.isApplyingChannels = false
+      renderPersonalizedOnboarding()
+      const firstError = refreshResult?.errors?.[0]?.message || refreshResult?.error?.message
+      showToast(firstError ? `${t('onboarding.videoIssue')} ${firstError}` : t('onboarding.videoIssue'), 'warn')
+      return
+    }
+    state = loadState() || state
+  }
+
   state.onboarding.version = ONBOARDING_VERSION
   state.onboarding.setupCompleted = true
   state.onboarding.setupCompletedAt = now
@@ -5063,7 +5109,7 @@ function formatSkippedShortsMessage(skippedShorts) {
   return skippedShorts ? t('toast.skippedShorts', { count: skippedShorts, plural: skippedShorts === 1 ? '' : 's' }) : ''
 }
 
-async function refreshFeed({ silent = false } = {}) {
+async function refreshFeed({ silent = false, channelIds = null } = {}) {
   const btn = document.getElementById('refreshBtn')
   if (btn) {
     btn.textContent = `↻ ${t('videos.refreshing')}`
@@ -5074,22 +5120,25 @@ async function refreshFeed({ silent = false } = {}) {
   try {
     if (IS_SANDBOX) {
       refreshSandboxFeed()
-      return
+      return { ok: true, sandbox: true }
     }
 
     const s = loadState()
     if (!hasYoutubeApiKey()) {
       showToast(t('toast.apiKeyMissing'), 'warn')
-      return
+      return { ok: false, reason: 'missing-key', errors: [] }
     }
     if (!s.config.channels.length) {
       showToast(t('toast.addChannelFirst'), 'warn')
-      return
+      return { ok: false, reason: 'no-channels', errors: [] }
     }
-    const channelsToRefresh = getDueYoutubeChannels(s)
+    const requestedChannelIds = Array.isArray(channelIds) ? new Set(channelIds) : null
+    const channelsToRefresh = requestedChannelIds
+      ? s.config.channels.filter(channel => requestedChannelIds.has(channel.id))
+      : getDueYoutubeChannels(s)
     if (!channelsToRefresh.length) {
       if (!silent) showToast(t('toast.nextRefresh', { time: formatRefreshWait(getYoutubeRefreshRemainingMs(s)) }), 'warn')
-      return
+      return { ok: true, skipped: true, mergedCount: 0, successfulChannels: 0, errors: [] }
     }
 
     const all    = []
@@ -5126,14 +5175,14 @@ async function refreshFeed({ silent = false } = {}) {
           detail: `${ch.name}: ${err.message || 'Unknown error'}`,
           meta: { channelId: ch.id }
         })
-        errors.push(ch.name)
+        errors.push({ channelId: ch.id, name: ch.name, message: err.message || 'Unknown error' })
       }
     }))
 
     if (successfulChannels === 0) {
       saveState(s)
       showToast(t('toast.refreshFailedChannels', { count: errors.length, plural: errors.length > 1 ? 's' : '' }), 'error')
-      return
+      return { ok: false, mergedCount: 0, successfulChannels, errors }
     }
 
     const unique = dedupeVideos(all)
@@ -5158,6 +5207,12 @@ async function refreshFeed({ silent = false } = {}) {
       ? t('toast.refreshLoadedWithErrors', { count: mergedCount, shorts: shortsMsg, errors: errors.length, plural: errors.length > 1 ? 's' : '' })
       : t('toast.refreshLoaded', { count: mergedCount, channels: successfulChannels, plural: successfulChannels === 1 ? '' : 's', shorts: shortsMsg })
     if (!silent || errors.length) showToast(msg, errors.length ? 'warn' : 'success')
+    return {
+      ok: errors.length === 0,
+      mergedCount,
+      successfulChannels,
+      errors
+    }
 
   } catch (err) {
     console.error(err)
@@ -5173,6 +5228,7 @@ async function refreshFeed({ silent = false } = {}) {
       saveState(s)
     }
     showToast(t('toast.refreshFailed', { message: err.message }), 'error')
+    return { ok: false, error: err, errors: [{ message: err.message || 'Unknown refresh error' }] }
   } finally {
     if (btn) {
       btn.textContent = `↻ ${t('videos.refresh')}`

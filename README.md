@@ -57,7 +57,7 @@ Settings are saved on the fly. There is no separate save button.
 
 The first-run profile currently asks for one primary learning language and one approximate level. Edenia uses that pair to select up to three matching entries from its curated starter catalog. Recommendations are preselected but optional, so the learner can keep, remove, or add choices before continuing.
 
-Catalog entries use YouTube `@handle` values. When `Start my journey` is selected, Edenia resolves the chosen handles through the YouTube Data API, adds the channels that resolve successfully, and opens the real dashboard. The flow continues even if a handle cannot be resolved. A configured YouTube API key is required for this resolution; without one, the learner can still start and add channels later.
+Catalog entries use YouTube `@handle` values. When `Start my journey` is selected, Edenia resolves every chosen handle through the YouTube Data API, saves the resulting channels, and loads their recent videos before opening the real dashboard. The selected channels then appear in the Channels menu and their videos are ready in the grid. If a handle cannot be resolved or its initial videos cannot load, onboarding stays on the starter-channel step and shows the failure so the learner can retry. A configured YouTube API key is required for this process.
 
 After setup, Settings shows a compact learning-profile summary and an `Edit learning profile` action. Reopening the flow starts on the starter suggestions, while `Back` reaches the level and language choices. Saving can add newly selected starter channels and returns directly to the dashboard; channels already added are removed from the channel menu rather than by changing the recommendation profile.
 
