@@ -1955,7 +1955,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   letter-spacing: 0;
   line-height: 1;
   opacity: 1;
-  padding-top: 1px;
+  padding-top: 20px;
   width: 22px;
 }
 .heatmap-weekday-labels span {
@@ -1969,6 +1969,22 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   min-width: 0;
   overflow-x: auto;
   padding-bottom: 2px;
+}
+.heatmap-months {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.68rem;
+  font-weight: 650;
+  gap: var(--heatmap-gap);
+  line-height: 1;
+  margin-bottom: 6px;
+  min-height: 14px;
+  width: max-content;
+}
+.heatmap-month-label {
+  overflow: visible;
+  white-space: nowrap;
+  width: var(--heatmap-cell-size);
 }
 .heatmap-grid {
   display: grid;

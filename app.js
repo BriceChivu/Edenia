@@ -6098,6 +6098,18 @@ function getWeekMonday(date) {
   return monday
 }
 
+function getHeatmapMonthLabels(gridStart, end, weekCount) {
+  return Array.from({ length: weekCount }, (_, index) => {
+    const weekStart = addDays(gridStart, index * 7)
+    const weekEnd = addDays(weekStart, 6)
+    const nextMonthStart = new Date(weekStart.getFullYear(), weekStart.getMonth() + 1, 1)
+    const labelDate = nextMonthStart <= weekEnd && nextMonthStart <= end
+      ? nextMonthStart
+      : (index === 0 ? weekStart : null)
+    return labelDate ? formatLocaleDate(labelDate, { month: 'short' }) : ''
+  })
+}
+
 function renderHistoryHeatmap(s, container) {
   container.classList.remove('is-sparse')
   const ankiEnabled = isAnkiEnabled(s)
@@ -6123,6 +6135,7 @@ function renderHistoryHeatmap(s, container) {
     days.push(row)
   }
   const weekCount = Math.ceil(days.length / 7)
+  const monthLabels = getHeatmapMonthLabels(gridStart, end, weekCount)
   container.classList.toggle('is-sparse', weekCount <= 8)
 
   container.innerHTML = `
@@ -6131,6 +6144,9 @@ function renderHistoryHeatmap(s, container) {
         ${['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map(day => `<span>${escHtml(t(`history.weekdays.${day}`))}</span>`).join('')}
       </div>
       <div class="heatmap-scroll">
+        <div class="heatmap-months" style="grid-template-columns: repeat(${weekCount}, var(--heatmap-cell-size))" aria-hidden="true">
+          ${monthLabels.map(label => `<span class="heatmap-month-label">${escHtml(label)}</span>`).join('')}
+        </div>
         <div class="heatmap-grid" style="grid-template-columns: repeat(${weekCount}, var(--heatmap-cell-size))">
           ${days.map(row => {
             const showAnkiForRow = ankiEnabled || row.ankiReviewed > 0 || row.ankiCreated > 0
