@@ -11,9 +11,9 @@
   <link rel="preload" as="font" href="assets/fonts/space-grotesk-latin-ext.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin-ext.woff2" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=20260711-30">
+  <link rel="stylesheet" href="style.css?v=20260712-31">
   <script src="config.local.js" defer></script>
-  <script src="app.js?v=20260711-44" defer></script>
+  <script src="app.js?v=20260712-45" defer></script>
 </head>
 <body>
 
@@ -22,7 +22,10 @@
   <!-- ═══════════════════════════════════════════════════════ -->
   <section class="onboarding-panel hidden" id="onboardingPanel" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
     <div class="onboarding-card">
-      <div class="onboarding-brand" aria-hidden="true">EDENIA</div>
+      <div class="onboarding-card-header">
+        <div class="onboarding-brand" aria-hidden="true">EDENIA</div>
+        <button class="btn-icon onboarding-cancel hidden" id="onboardingCancelBtn" type="button" onclick="cancelPersonalizedOnboarding()" data-i18n-title="onboarding.cancel" data-i18n-aria-label="onboarding.cancel">✕</button>
+      </div>
       <div class="onboarding-progress" aria-hidden="true">
         <span class="onboarding-progress-label" id="onboardingProgressLabel"></span>
         <span class="onboarding-progress-track"><span class="onboarding-progress-fill" id="onboardingProgressFill"></span></span>
@@ -51,6 +54,12 @@
           </button>
           <div class="settings-locale-menu hidden" id="settingsLocaleMenu" role="radiogroup" aria-label="Language" data-i18n-aria-label="settings.language.label"></div>
         </div>
+      </div>
+
+      <div class="settings-group settings-learning-profile-group hidden" id="settingsLearningProfileGroup">
+        <label data-i18n="settings.learningProfile.label">Learning profile</label>
+        <p class="step-hint" id="settingsLearningProfileSummary"></p>
+        <button class="btn-secondary settings-learning-profile-btn" type="button" onclick="editLearningProfile()" data-i18n="settings.learningProfile.change">Edit learning profile</button>
       </div>
 
       <div class="settings-group settings-goal-group">
@@ -370,7 +379,7 @@
         </div>
       </div>
       <div class="video-grid" id="videoGrid">
-        <div class="empty-state" data-i18n="videos.empty.default">No videos yet. Edenia loads your feed automatically.</div>
+        <div class="empty-state" data-i18n="videos.empty.default">Your study feed is ready to grow. Add a YouTube channel or paste one video to begin.</div>
       </div>
       <div class="watched-section" id="watchedSection">
         <div class="section-header">

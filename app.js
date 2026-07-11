@@ -153,6 +153,7 @@ const walkthroughState = {
 }
 const personalizedOnboardingState = {
   active: false,
+  isReconfiguring: false,
   step: 'language',
   languageId: null,
   levelId: null,
@@ -344,13 +345,14 @@ const I18N_EN = {
   'onboarding.level.title': 'Where are you in the journey?',
   'onboarding.level.subtitle': 'An approximate level is enough. This only changes the channels Edenia recommends.',
   'onboarding.channels.title': 'Your starter study feed',
-  'onboarding.channels.subtitle': 'We picked channels that suit your language and level. Keep the ones you want—you can change them anytime.',
+  'onboarding.channels.subtitle': 'We picked channels that suit your language and level. Keep the ones you want to add; remove channels already in your feed from the channel menu anytime.',
   'onboarding.channels.selected': '{count} selected',
   'onboarding.channels.none': 'No starter channels match this combination yet. You can still continue and add your own.',
   'onboarding.continue': 'Continue',
   'onboarding.back': 'Back',
   'onboarding.build': 'Preview my journey',
   'onboarding.building': 'Preparing your journey...',
+  'onboarding.cancel': 'Return to dashboard',
   'onboarding.private': 'No account required · Your real progress stays in this browser',
   'onboarding.channelIssue': '{count} starter channel{plural} could not be added. You can add it manually later.',
   'sample.badge': 'Sample journey',
@@ -362,6 +364,9 @@ const I18N_EN = {
   'settings.title': 'Settings',
   'settings.close': 'Close settings',
   'settings.language.label': 'Language',
+  'settings.learningProfile.label': 'Learning profile',
+  'settings.learningProfile.summary': '{language} · {level} · {count} starter channel{plural}',
+  'settings.learningProfile.change': 'Edit learning profile',
   'settings.weeklyGoal.label': 'Weekly goal (hours)',
   'settings.channels.label': 'Channels',
   'settings.channels.placeholder': 'Channel URL or ID',
@@ -532,7 +537,7 @@ const I18N_EN = {
   'videos.undo.title': 'Undo latest action',
   'videos.redo.title': 'Redo latest action',
   'videos.watchedSection': 'Watched',
-  'videos.empty.default': 'No videos yet. Edenia loads your feed automatically.',
+  'videos.empty.default': 'Your study feed is ready to grow. Add a YouTube channel or paste one video to begin.',
   'videos.empty.activeBelow': 'No active videos right now. Watched videos are below.',
   'videos.empty.filtered': 'No {filter} videos{channelText} right now.',
   'videos.empty.selectedChannels': ' for the selected channels',
@@ -674,6 +679,8 @@ const I18N_EN = {
   'walkthrough.studyHistory': 'Study History shows what happened over time. It combines watched videos and Anki reviews so you can understand your real study rhythm.',
   'walkthrough.historyViews': 'Use Summary when you want clear numbers, and Heatmap when you want to see active days at a glance. Edenia remembers which view you prefer.',
   'walkthrough.videos': 'This is the video area. New videos from your channels appear here, and watched videos move into the Watched section below.',
+  'walkthrough.firstStudyChannels': 'Your channel controls live here. Open this menu to add, remove, or filter study sources at any time.',
+  'walkthrough.firstStudyFeed': 'This is your real study feed. Choose a video, then mark it watched, in progress, or watch later. Your goal, history, and town update from what you actually study.',
   'walkthrough.videoFilters': 'These controls help you keep the list manageable. You can filter by status, filter by channel, add a video URL, and fix mistakes.',
   'walkthrough.manualWatchedUrl': 'Use Add video when you want to add a YouTube video that is not in your tracked channels. Paste the link, then choose whether it is watched, in progress, or saved for later.',
   'walkthrough.undoRedo': 'Undo and Redo let you recover from accidental clicks. Open the list, choose the action, and Edenia will update the score and history again.',
@@ -856,7 +863,7 @@ const I18N = {
     'videos.undo.title': '復原最近的動作',
     'videos.redo.title': '重做最近的動作',
     'videos.watchedSection': '已看',
-    'videos.empty.default': '還沒有影片。Edenia 會自動載入你的影片清單。',
+    'videos.empty.default': '你的學習清單準備好成長了。新增 YouTube 頻道或貼上一部影片即可開始。',
     'videos.empty.activeBelow': '目前沒有待看影片。已看影片在下方。',
     'videos.search.empty': '依標題或頻道搜尋已儲存影片。',
     'videos.search.noMatches': '找不到符合的影片。',
@@ -1090,7 +1097,7 @@ const I18N = {
     'videos.undo.title': '撤销最近的动作',
     'videos.redo.title': '重做最近的动作',
     'videos.watchedSection': '已看',
-    'videos.empty.default': '还没有视频。Edenia 会自动加载你的视频列表。',
+    'videos.empty.default': '你的学习列表准备好成长了。添加 YouTube 频道或粘贴一个视频即可开始。',
     'videos.search.empty': '按标题或频道搜索已保存视频。',
     'videos.card.markWatched': '标记已看',
     'videos.card.unmark': '取消标记',
@@ -1319,7 +1326,7 @@ const I18N = {
     'videos.undo.title': 'Deshacer la última acción',
     'videos.redo.title': 'Rehacer la última acción',
     'videos.watchedSection': 'Vistos',
-    'videos.empty.default': 'Aún no hay videos. Edenia carga tu feed automáticamente.',
+    'videos.empty.default': 'Tu lista de estudio está lista para crecer. Añade un canal de YouTube o pega un video para empezar.',
     'videos.search.empty': 'Busca videos guardados por título o canal.',
     'videos.card.markWatched': 'Marcar visto',
     'videos.card.unmark': 'Desmarcar',
@@ -1548,7 +1555,7 @@ const I18N = {
     'videos.undo.title': 'Annuler la dernière action',
     'videos.redo.title': 'Rétablir la dernière action',
     'videos.watchedSection': 'Vues',
-    'videos.empty.default': 'Aucune vidéo pour l’instant. Edenia charge votre liste automatiquement.',
+    'videos.empty.default': 'Votre liste d’étude est prête à s’enrichir. Ajoutez une chaîne YouTube ou collez une vidéo pour commencer.',
     'videos.search.empty': 'Recherchez les vidéos enregistrées par titre ou chaîne.',
     'videos.card.markWatched': 'Marquer vue',
     'videos.card.unmark': 'Retirer',
@@ -1663,6 +1670,26 @@ const WALKTHROUGH_STEPS = [
     id: 'videos',
     target: '.feed-section',
     textKey: 'walkthrough.videos',
+    placement: 'top',
+    hooks: {
+      beforeEnter: 'closeTransientUi'
+    }
+  }
+]
+const FIRST_STUDY_WALKTHROUGH_STEPS = [
+  {
+    id: 'first-study-channels',
+    target: '#channelFilterBtn',
+    textKey: 'walkthrough.firstStudyChannels',
+    placement: 'bottom',
+    hooks: {
+      beforeEnter: 'closeTransientUi'
+    }
+  },
+  {
+    id: 'first-study-feed',
+    target: '#videoGrid',
+    textKey: 'walkthrough.firstStudyFeed',
     placement: 'top',
     hooks: {
       beforeEnter: 'closeTransientUi'
@@ -2954,7 +2981,7 @@ function maybeStartOnboarding(state) {
     return
   }
   if (!state?.onboarding?.walkthroughCompleted) {
-    window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS), 350)
+    window.setTimeout(() => startWalkthrough(FIRST_STUDY_WALKTHROUGH_STEPS), 350)
   }
 }
 
@@ -2963,18 +2990,33 @@ function startPersonalizedOnboarding(state = loadState()) {
   normalizeLearnerProfileState(state)
   personalizedOnboardingState.active = true
   const shouldReconfigure = consumeOnboardingReconfigureRequest()
+  personalizedOnboardingState.isReconfiguring = Boolean(shouldReconfigure && state.onboarding?.setupCompleted)
   personalizedOnboardingState.step = shouldReconfigure && state.learnerProfile.languages[0] && state.learnerProfile.level
     ? 'channels'
     : (state.learnerProfile.languages[0] ? 'level' : 'language')
   personalizedOnboardingState.languageId = state.learnerProfile.languages[0] || null
   personalizedOnboardingState.levelId = state.learnerProfile.level || null
   personalizedOnboardingState.selectedChannelCatalogIds = [...state.learnerProfile.selectedChannelCatalogIds]
-  personalizedOnboardingState.channelSelectionsInitialized = state.learnerProfile.selectedChannelCatalogIds.length > 0
+  personalizedOnboardingState.channelSelectionsInitialized = personalizedOnboardingState.isReconfiguring || state.learnerProfile.selectedChannelCatalogIds.length > 0
   personalizedOnboardingState.isApplyingChannels = false
   document.body.classList.add('onboarding-active')
   document.getElementById('mainApp')?.setAttribute('inert', '')
   document.getElementById('onboardingPanel')?.classList.remove('hidden')
+  const cancelButton = document.getElementById('onboardingCancelBtn')
+  if (cancelButton) cancelButton.classList.toggle('hidden', !personalizedOnboardingState.isReconfiguring)
   renderPersonalizedOnboarding()
+}
+
+function cancelPersonalizedOnboarding() {
+  if (!personalizedOnboardingState.active || !personalizedOnboardingState.isReconfiguring) return
+  personalizedOnboardingState.active = false
+  personalizedOnboardingState.isReconfiguring = false
+  personalizedOnboardingState.isApplyingChannels = false
+  document.body.classList.remove('onboarding-active')
+  document.getElementById('onboardingPanel')?.classList.add('hidden')
+  document.getElementById('onboardingCancelBtn')?.classList.add('hidden')
+  document.getElementById('mainApp')?.removeAttribute('inert')
+  window.setTimeout(() => document.querySelector('.gear-btn')?.focus(), 0)
 }
 
 function consumeOnboardingReconfigureRequest() {
@@ -3154,6 +3196,7 @@ async function resolveStarterChannelSelections(catalogIds) {
 
 async function finishPersonalizedOnboarding() {
   if (personalizedOnboardingState.isApplyingChannels) return
+  const isReconfiguring = personalizedOnboardingState.isReconfiguring
   personalizedOnboardingState.isApplyingChannels = true
   renderPersonalizedOnboarding()
 
@@ -3192,6 +3235,10 @@ async function finishPersonalizedOnboarding() {
     detail: `${getLearnerLanguageOption(personalizedOnboardingState.languageId)?.label || 'Language'} · ${getLearnerLevelOption(personalizedOnboardingState.levelId)?.label || 'Level'} · ${resolution.channels.length} channels`
   })
   saveState(state)
+  if (isReconfiguring) {
+    window.location.assign(getNormalAppUrl())
+    return
+  }
   const sampleUrl = new URL(window.location.href)
   sampleUrl.search = ''
   sampleUrl.searchParams.set('sample', '1')
@@ -3800,6 +3847,7 @@ function openSettings() {
   applyLocale(s.config.locale)
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(s.config.includeShorts)
   document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(s)
+  renderSettingsLearnerProfile(s)
   renderChannelList(s.config.channels)
   renderBackupList()
   renderActivityLog(s)
@@ -3809,6 +3857,38 @@ function openSettings() {
   show('settingsPanel')
   if (main) main.inert = true
   window.setTimeout(() => document.getElementById('settingsCloseBtn')?.focus(), 0)
+}
+
+function renderSettingsLearnerProfile(state) {
+  const group = document.getElementById('settingsLearningProfileGroup')
+  const summary = document.getElementById('settingsLearningProfileSummary')
+  if (!group || !summary) return
+  normalizeLearnerProfileState(state)
+  const language = getLearnerLanguageOption(state?.learnerProfile?.languages?.[0])
+  const level = getLearnerLevelOption(state?.learnerProfile?.level)
+  const shouldHide = IS_SANDBOX || IS_SAMPLE_JOURNEY || !language || !level
+  group.classList.toggle('hidden', shouldHide)
+  if (shouldHide) {
+    summary.textContent = ''
+    return
+  }
+  const count = state.learnerProfile.selectedChannelCatalogIds.length
+  summary.textContent = t('settings.learningProfile.summary', {
+    language: language.label,
+    level: level.label,
+    count,
+    plural: count === 1 ? '' : 's'
+  })
+}
+
+function editLearningProfile() {
+  if (IS_SANDBOX || IS_SAMPLE_JOURNEY) return
+  const state = loadState()
+  if (!state) return
+  try { sessionStorage.setItem(ONBOARDING_RECONFIGURE_KEY, '1') } catch {}
+  openSettings.returnFocus = null
+  closeSettings()
+  window.setTimeout(() => startPersonalizedOnboarding(state), 120)
 }
 
 function closeSettings() {

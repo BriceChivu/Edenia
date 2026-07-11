@@ -272,6 +272,11 @@ body.onboarding-active { overflow: hidden; }
   padding: clamp(20px, 4vw, 36px);
   width: min(760px, calc(100vw - 36px));
 }
+.onboarding-card-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
 .onboarding-brand {
   color: var(--accent);
   font-family: 'Bebas Neue', sans-serif;
@@ -279,6 +284,11 @@ body.onboarding-active { overflow: hidden; }
   letter-spacing: 0.09em;
   line-height: 1;
   text-shadow: 1px 1px 0 var(--planet-black);
+}
+.onboarding-cancel {
+  border: 2px solid var(--planet-black);
+  color: var(--text);
+  flex: 0 0 auto;
 }
 .onboarding-progress { display: grid; gap: 6px; }
 .onboarding-progress-label {
@@ -499,6 +509,7 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
 .settings-group { display: flex; flex-direction: column; gap: 8px; }
 .settings-group label { font-weight: 600; font-size: 0.9rem; }
 .settings-group input { width: 100%; }
+.settings-learning-profile-btn { align-self: flex-start; }
 .settings-locale-picker {
   position: relative;
 }
