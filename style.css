@@ -1941,9 +1941,6 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   --heatmap-cell-size: 18px;
   --heatmap-gap: 4px;
 }
-.history-heatmap.is-sparse .heatmap-body {
-  justify-content: center;
-}
 .history-heatmap.is-sparse .heatmap-scroll {
   flex: 0 0 auto;
 }
@@ -2006,9 +2003,6 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   gap: 4px;
   justify-content: flex-end;
   margin-top: 10px;
-}
-.history-heatmap.is-sparse .heatmap-legend {
-  justify-content: center;
 }
 .heatmap-legend-cell {
   background: #d8edf2;
