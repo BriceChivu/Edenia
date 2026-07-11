@@ -1066,9 +1066,10 @@ html[data-theme="dark"] .theme-icon-sun {
   position: relative;
   text-align: center;
   transform: translateY(0);
+  will-change: transform;
 }
 .level-up-button.show {
-  animation: levelUpFloat 900ms var(--ease-emphasized) 1;
+  animation: levelUpFloat 2.4s ease-in-out infinite;
   display: inline-flex;
 }
 .level-up-button.show::after {
@@ -1079,7 +1080,7 @@ html[data-theme="dark"] .theme-icon-sun {
   pointer-events: none;
   position: absolute;
   transform: translateX(-120%);
-  animation: levelUpShine 900ms var(--ease-emphasized) 1 both;
+  animation: levelUpShine 2.4s ease-in-out infinite;
 }
 .level-up-button:hover,
 .level-up-button:focus-visible {
