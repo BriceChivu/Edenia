@@ -146,6 +146,14 @@ const walkthroughState = {
   frame: null,
   isTransitioning: false
 }
+const personalizedOnboardingState = {
+  active: false,
+  step: 'language',
+  languageId: null,
+  levelId: null,
+  selectedChannelCatalogIds: [],
+  isApplyingChannels: false
+}
 const STATUS_FILTERS = [
   ['all', 'videos.status.all'],
   ['watch-later', 'videos.status.watchLater'],
@@ -321,6 +329,23 @@ const CURATED_CHANNEL_CATALOG = [
 ]
 const I18N_EN = {
   'app.title.sandbox': 'Sandbox - Edenia',
+  'onboarding.progress': 'Step {current} of {total}',
+  'onboarding.eyebrow': 'Make your study visible',
+  'onboarding.language.title': 'What language are you learning?',
+  'onboarding.language.subtitle': 'Choose your primary language. Edenia will use it to build a focused starter feed; you can add more channels later.',
+  'onboarding.language.hint': 'Choose one language to continue.',
+  'onboarding.level.title': 'Where are you in the journey?',
+  'onboarding.level.subtitle': 'An approximate level is enough. This only changes the channels Edenia recommends.',
+  'onboarding.channels.title': 'Your starter study feed',
+  'onboarding.channels.subtitle': 'We picked channels that suit your language and level. Keep the ones you want—you can change them anytime.',
+  'onboarding.channels.selected': '{count} selected',
+  'onboarding.channels.none': 'No starter channels match this combination yet. You can still continue and add your own.',
+  'onboarding.continue': 'Continue',
+  'onboarding.back': 'Back',
+  'onboarding.build': 'Build my study feed',
+  'onboarding.building': 'Building your feed...',
+  'onboarding.private': 'No account required · Your real progress stays in this browser',
+  'onboarding.channelIssue': '{count} starter channel{plural} could not be added. You can add it manually later.',
   'settings.title': 'Settings',
   'settings.close': 'Close settings',
   'settings.language.label': 'Language',
@@ -2098,8 +2123,10 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
     channelRefreshes: {},
     onboarding: {
       version: ONBOARDING_VERSION,
-      completed: false,
-      completedAt: null,
+      setupCompleted: false,
+      setupCompletedAt: null,
+      walkthroughCompleted: false,
+      walkthroughCompletedAt: null,
       sampleViewedAt: null,
       recommendationsAppliedAt: null
     },
@@ -2424,11 +2451,18 @@ function normalizeOnboardingState(state) {
   const existing = state.onboarding && typeof state.onboarding === 'object' && !Array.isArray(state.onboarding)
     ? state.onboarding
     : {}
+  const legacyCompleted = existing.completed === true
+  const setupCompleted = existing.setupCompleted === true || legacyCompleted
+  const walkthroughCompleted = existing.walkthroughCompleted === true || legacyCompleted
   const normalized = {
     version: Number.isInteger(existing.version) ? existing.version : ONBOARDING_VERSION,
-    completed: existing.completed === true,
-    completedAt: existing.completed === true && isValidTimestamp(existing.completedAt)
-      ? existing.completedAt
+    setupCompleted,
+    setupCompletedAt: setupCompleted
+      ? (isValidTimestamp(existing.setupCompletedAt) ? existing.setupCompletedAt : (isValidTimestamp(existing.completedAt) ? existing.completedAt : null))
+      : null,
+    walkthroughCompleted,
+    walkthroughCompletedAt: walkthroughCompleted
+      ? (isValidTimestamp(existing.walkthroughCompletedAt) ? existing.walkthroughCompletedAt : (isValidTimestamp(existing.completedAt) ? existing.completedAt : null))
       : null,
     sampleViewedAt: isValidTimestamp(existing.sampleViewedAt) ? existing.sampleViewedAt : null,
     recommendationsAppliedAt: isValidTimestamp(existing.recommendationsAppliedAt) ? existing.recommendationsAppliedAt : null
@@ -2438,13 +2472,13 @@ function normalizeOnboardingState(state) {
   return changed
 }
 
-function completeOnboarding(state = loadState()) {
+function completeWalkthrough(state = loadState()) {
   if (!state) return null
   normalizeOnboardingState(state)
-  if (!state.onboarding.completed) {
+  if (!state.onboarding.walkthroughCompleted) {
     state.onboarding.version = ONBOARDING_VERSION
-    state.onboarding.completed = true
-    state.onboarding.completedAt = new Date().toISOString()
+    state.onboarding.walkthroughCompleted = true
+    state.onboarding.walkthroughCompletedAt = new Date().toISOString()
     saveState(state)
   }
   return state
@@ -2711,12 +2745,17 @@ function init() {
   repairStoredShortsDetection()
   initCityImagePanZoom()
   if (!IS_SANDBOX) {
-    applyAnkiRefreshPreference(state)
-    startYoutubeAutoRefresh()
+    if (state.onboarding.setupCompleted) startLiveIntegrations(state)
   } else {
     showToast(t('toast.sandboxMode'), 'warn')
   }
   maybeStartOnboarding(state)
+}
+
+function startLiveIntegrations(state = loadState()) {
+  if (IS_SANDBOX || !state?.onboarding?.setupCompleted) return
+  applyAnkiRefreshPreference(state)
+  startYoutubeAutoRefresh()
 }
 
 function syncHeaderCompactState() {
@@ -2741,8 +2780,247 @@ function maybeStartOnboarding(state) {
     window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS, { manual: true, reason: 'sandbox-reset' }), 350)
     return
   }
-  if (IS_SANDBOX || state?.onboarding?.completed) return
-  window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS), 350)
+  if (IS_SANDBOX) return
+  if (!state?.onboarding?.setupCompleted) {
+    window.setTimeout(() => startPersonalizedOnboarding(state), 220)
+    return
+  }
+  if (!state?.onboarding?.walkthroughCompleted) {
+    window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS), 350)
+  }
+}
+
+function startPersonalizedOnboarding(state = loadState()) {
+  if (!state || IS_SANDBOX) return
+  normalizeLearnerProfileState(state)
+  personalizedOnboardingState.active = true
+  personalizedOnboardingState.step = state.learnerProfile.languages[0] ? 'level' : 'language'
+  personalizedOnboardingState.languageId = state.learnerProfile.languages[0] || null
+  personalizedOnboardingState.levelId = state.learnerProfile.level || null
+  personalizedOnboardingState.selectedChannelCatalogIds = [...state.learnerProfile.selectedChannelCatalogIds]
+  personalizedOnboardingState.isApplyingChannels = false
+  document.body.classList.add('onboarding-active')
+  document.getElementById('mainApp')?.setAttribute('inert', '')
+  document.getElementById('onboardingPanel')?.classList.remove('hidden')
+  renderPersonalizedOnboarding()
+}
+
+function renderPersonalizedOnboarding() {
+  if (!personalizedOnboardingState.active) return
+  const content = document.getElementById('onboardingContent')
+  const progressLabel = document.getElementById('onboardingProgressLabel')
+  const progressFill = document.getElementById('onboardingProgressFill')
+  if (!content || !progressLabel || !progressFill) return
+
+  const stepOrder = ['language', 'level', 'channels']
+  const stepIndex = Math.max(0, stepOrder.indexOf(personalizedOnboardingState.step))
+  progressLabel.textContent = t('onboarding.progress', { current: stepIndex + 1, total: stepOrder.length })
+  progressFill.style.width = `${((stepIndex + 1) / stepOrder.length) * 100}%`
+
+  if (personalizedOnboardingState.step === 'language') {
+    renderOnboardingLanguageStep(content)
+  } else if (personalizedOnboardingState.step === 'level') {
+    renderOnboardingLevelStep(content)
+  } else {
+    prepareOnboardingChannelSelections()
+    renderOnboardingChannelsStep(content)
+  }
+}
+
+function renderOnboardingHeading(titleKey, subtitleKey) {
+  return `
+    <div class="onboarding-heading">
+      <span class="onboarding-eyebrow">${escHtml(t('onboarding.eyebrow'))}</span>
+      <h2 class="onboarding-title" id="onboardingTitle">${escHtml(t(titleKey))}</h2>
+      <p class="onboarding-subtitle">${escHtml(t(subtitleKey))}</p>
+    </div>
+  `
+}
+
+function renderOnboardingLanguageStep(content) {
+  const selectedLanguageId = personalizedOnboardingState.languageId
+  content.innerHTML = `
+    ${renderOnboardingHeading('onboarding.language.title', 'onboarding.language.subtitle')}
+    <div class="onboarding-choice-grid" role="radiogroup" aria-label="${escHtml(t('onboarding.language.title'))}">
+      ${LEARNER_LANGUAGE_OPTIONS.map(option => `
+        <button type="button" class="onboarding-choice" data-language-id="${escHtml(option.id)}" aria-pressed="${option.id === selectedLanguageId}" onclick="selectOnboardingLanguage(this.dataset.languageId)">
+          <span class="onboarding-choice-icon" aria-hidden="true">${escHtml(option.icon)}</span>
+          <span class="onboarding-choice-label">${escHtml(option.label)}</span>
+        </button>
+      `).join('')}
+    </div>
+    <div class="onboarding-actions onboarding-actions-end">
+      <button type="button" class="btn-primary" onclick="setPersonalizedOnboardingStep('level')" ${selectedLanguageId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
+    </div>
+    <p class="onboarding-private-note">${escHtml(t('onboarding.private'))}</p>
+  `
+}
+
+function renderOnboardingLevelStep(content) {
+  const selectedLevelId = personalizedOnboardingState.levelId
+  content.innerHTML = `
+    ${renderOnboardingHeading('onboarding.level.title', 'onboarding.level.subtitle')}
+    <div class="onboarding-level-grid" role="radiogroup" aria-label="${escHtml(t('onboarding.level.title'))}">
+      ${LEARNER_LEVEL_OPTIONS.map(option => `
+        <button type="button" class="onboarding-choice onboarding-level-choice" data-level-id="${escHtml(option.id)}" aria-pressed="${option.id === selectedLevelId}" onclick="selectOnboardingLevel(this.dataset.levelId)">
+          <span class="onboarding-choice-label">${escHtml(option.label)}</span>
+          <span class="onboarding-choice-detail">${escHtml(option.detail)}</span>
+        </button>
+      `).join('')}
+    </div>
+    <div class="onboarding-actions">
+      <button type="button" class="btn-ghost" onclick="setPersonalizedOnboardingStep('language')">${escHtml(t('onboarding.back'))}</button>
+      <button type="button" class="btn-primary" onclick="setPersonalizedOnboardingStep('channels')" ${selectedLevelId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
+    </div>
+  `
+}
+
+function renderOnboardingChannelsStep(content) {
+  const recommendations = getRecommendedChannelCatalog({
+    languages: [personalizedOnboardingState.languageId],
+    level: personalizedOnboardingState.levelId
+  })
+  const selectedIds = new Set(personalizedOnboardingState.selectedChannelCatalogIds)
+  const language = getLearnerLanguageOption(personalizedOnboardingState.languageId)
+  const channelMarkup = recommendations.length
+    ? recommendations.map(channel => {
+        const selected = selectedIds.has(channel.id)
+        const avatar = language?.icon || channel.name.slice(0, 2).toUpperCase()
+        return `
+          <button type="button" class="onboarding-channel" data-catalog-id="${escHtml(channel.id)}" aria-pressed="${selected}" onclick="toggleOnboardingChannel(this.dataset.catalogId)">
+            <span class="onboarding-channel-avatar" aria-hidden="true">${escHtml(avatar)}</span>
+            <span class="onboarding-channel-copy">
+              <span class="onboarding-channel-name">${escHtml(channel.name)}</span>
+              <span class="onboarding-channel-meta">${escHtml(channel.style)}</span>
+              <span class="onboarding-channel-description">${escHtml(channel.description)}</span>
+            </span>
+            <span class="onboarding-channel-check" aria-hidden="true">✓</span>
+          </button>
+        `
+      }).join('')
+    : `<div class="onboarding-empty">${escHtml(t('onboarding.channels.none'))}</div>`
+  content.innerHTML = `
+    ${renderOnboardingHeading('onboarding.channels.title', 'onboarding.channels.subtitle')}
+    <span class="onboarding-selection-count">${escHtml(t('onboarding.channels.selected', { count: selectedIds.size }))}</span>
+    <div class="onboarding-channel-list">${channelMarkup}</div>
+    <div class="onboarding-actions">
+      <button type="button" class="btn-ghost" onclick="setPersonalizedOnboardingStep('level')" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
+      <button type="button" class="btn-primary" onclick="finishPersonalizedOnboarding()" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}</button>
+    </div>
+  `
+}
+
+function selectOnboardingLanguage(languageId) {
+  if (!getLearnerLanguageOption(languageId)) return
+  personalizedOnboardingState.languageId = languageId
+  personalizedOnboardingState.selectedChannelCatalogIds = []
+  renderPersonalizedOnboarding()
+}
+
+function selectOnboardingLevel(levelId) {
+  if (!getLearnerLevelOption(levelId)) return
+  personalizedOnboardingState.levelId = levelId
+  personalizedOnboardingState.selectedChannelCatalogIds = []
+  renderPersonalizedOnboarding()
+}
+
+function setPersonalizedOnboardingStep(step) {
+  if (!['language', 'level', 'channels'].includes(step)) return
+  if (step !== 'language' && !personalizedOnboardingState.languageId) return
+  if (step === 'channels' && !personalizedOnboardingState.levelId) return
+  personalizedOnboardingState.step = step
+  renderPersonalizedOnboarding()
+}
+
+function prepareOnboardingChannelSelections() {
+  if (personalizedOnboardingState.selectedChannelCatalogIds.length) return
+  personalizedOnboardingState.selectedChannelCatalogIds = getRecommendedChannelCatalog({
+    languages: [personalizedOnboardingState.languageId],
+    level: personalizedOnboardingState.levelId
+  }).map(channel => channel.id)
+}
+
+function toggleOnboardingChannel(catalogId) {
+  if (!getCuratedChannelEntry(catalogId) || personalizedOnboardingState.isApplyingChannels) return
+  const selectedIds = new Set(personalizedOnboardingState.selectedChannelCatalogIds)
+  if (selectedIds.has(catalogId)) selectedIds.delete(catalogId)
+  else selectedIds.add(catalogId)
+  personalizedOnboardingState.selectedChannelCatalogIds = [...selectedIds]
+  renderPersonalizedOnboarding()
+}
+
+async function resolveStarterChannelSelections(catalogIds) {
+  const entries = catalogIds.map(getCuratedChannelEntry).filter(Boolean)
+  if (!entries.length || !hasYoutubeApiKey()) return { channels: [], failedCount: entries.length, attempted: false }
+  const results = await Promise.allSettled(entries.map(entry => resolveYoutubeChannelInput(entry.input)))
+  const channels = []
+  const seenIds = new Set()
+  results.forEach(result => {
+    if (result.status !== 'fulfilled' || !result.value?.id || seenIds.has(result.value.id)) return
+    seenIds.add(result.value.id)
+    channels.push({ id: result.value.id, name: result.value.name || result.value.id })
+  })
+  return {
+    channels,
+    failedCount: results.length - channels.length,
+    attempted: true
+  }
+}
+
+async function finishPersonalizedOnboarding() {
+  if (personalizedOnboardingState.isApplyingChannels) return
+  personalizedOnboardingState.isApplyingChannels = true
+  renderPersonalizedOnboarding()
+
+  const now = new Date().toISOString()
+  let state = loadState() || defaultState(4, DEFAULT_CHANNELS)
+  normalizeLearnerProfileState(state)
+  normalizeOnboardingState(state)
+  state.learnerProfile = {
+    languages: [personalizedOnboardingState.languageId].filter(Boolean),
+    level: personalizedOnboardingState.levelId,
+    selectedChannelCatalogIds: [...personalizedOnboardingState.selectedChannelCatalogIds],
+    createdAt: state.learnerProfile.createdAt || now,
+    updatedAt: now
+  }
+  saveState(state, { backup: false })
+
+  const resolution = await resolveStarterChannelSelections(state.learnerProfile.selectedChannelCatalogIds)
+  state = loadState() || state
+  const existingIds = new Set((state.config.channels || []).map(channel => channel.id))
+  resolution.channels.forEach(channel => {
+    if (!existingIds.has(channel.id)) {
+      state.config.channels.push(channel)
+      existingIds.add(channel.id)
+    }
+    state.config.removedChannelIds = (state.config.removedChannelIds || []).filter(channelId => channelId !== channel.id)
+  })
+  state.onboarding.version = ONBOARDING_VERSION
+  state.onboarding.setupCompleted = true
+  state.onboarding.setupCompletedAt = now
+  state.onboarding.recommendationsAppliedAt = resolution.attempted ? now : null
+  appendActivityLog(state, {
+    actor: 'user',
+    type: 'onboarding',
+    status: 'success',
+    title: 'Starter feed created',
+    detail: `${getLearnerLanguageOption(personalizedOnboardingState.languageId)?.label || 'Language'} · ${getLearnerLevelOption(personalizedOnboardingState.levelId)?.label || 'Level'} · ${resolution.channels.length} channels`
+  })
+  saveState(state)
+
+  personalizedOnboardingState.active = false
+  personalizedOnboardingState.isApplyingChannels = false
+  document.getElementById('onboardingPanel')?.classList.add('hidden')
+  document.getElementById('mainApp')?.removeAttribute('inert')
+  document.body.classList.remove('onboarding-active')
+  renderAll(state)
+  startLiveIntegrations(state)
+  if (resolution.failedCount > 0 && resolution.attempted) {
+    showToast(t('onboarding.channelIssue', { count: resolution.failedCount, plural: resolution.failedCount === 1 ? '' : 's' }), 'warn')
+  }
+  if (!state.onboarding.walkthroughCompleted) {
+    window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS), 280)
+  }
 }
 
 function queueSandboxWalkthroughAfterReset() {
@@ -2909,7 +3187,7 @@ function endWalkthrough(options = {}) {
   document.removeEventListener('click', handleWalkthroughTargetClick)
   document.removeEventListener('keydown', handleWalkthroughKey)
   runWalkthroughHooks(currentStep, 'afterExit', { completed: markCompleted })
-  if (markCompleted) completeOnboarding()
+  if (markCompleted) completeWalkthrough()
 }
 
 function handleWalkthroughTargetClick(event) {

@@ -18,6 +18,20 @@
 <body>
 
   <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- FIRST-RUN ONBOARDING                                  -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <section class="onboarding-panel hidden" id="onboardingPanel" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+    <div class="onboarding-card">
+      <div class="onboarding-brand" aria-hidden="true">EDENIA</div>
+      <div class="onboarding-progress" aria-hidden="true">
+        <span class="onboarding-progress-label" id="onboardingProgressLabel"></span>
+        <span class="onboarding-progress-track"><span class="onboarding-progress-fill" id="onboardingProgressFill"></span></span>
+      </div>
+      <div class="onboarding-content" id="onboardingContent"></div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
   <!-- SETTINGS PANEL                                        -->
   <!-- ═══════════════════════════════════════════════════════ -->
   <div id="settingsPanel" class="settings-panel hidden">
