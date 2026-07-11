@@ -616,7 +616,7 @@ body[data-theme="dark"] .backup-panel {
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--muted);
-  font-size: 0.65rem;
+  font-size: 0.68rem;
   font-weight: 700;
   line-height: 1;
   padding: 3px 6px;
@@ -944,7 +944,7 @@ body[data-theme="dark"] .streak-pill.streak-low {
   border: 1px solid var(--border);
   border-radius: 999px;
   flex: 0 0 auto;
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   line-height: 1;
   padding: 3px 6px;
 }
@@ -1644,8 +1644,9 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
 }
 .history-stat-lbl {
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 600;
+  line-height: 1.25;
 }
 .history-table {
   background: var(--surface);
@@ -1676,7 +1677,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   background: var(--surface-hi);
   border-radius: calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0 0;
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   min-height: 34px;
   text-transform: uppercase;
 }
@@ -1950,7 +1951,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   color: var(--muted);
   display: grid;
   flex: 0 0 auto;
-  font-size: 0.56rem;
+  font-size: 0.64rem;
   font-weight: 400;
   gap: var(--heatmap-gap);
   grid-template-rows: repeat(7, var(--heatmap-cell-size));
@@ -2739,7 +2740,7 @@ body[data-theme="dark"] .dur-badge { color: #ffffff; }
 .card-watched-at {
   color: var(--muted);
   display: none;
-  font-size: 0.64rem;
+  font-size: 0.7rem;
   font-weight: 700;
   line-height: 1;
 }
@@ -2758,7 +2759,7 @@ body[data-theme="dark"] .dur-badge { color: #ffffff; }
 }
 .resume-time-field span {
   flex: 0 0 auto;
-  font-size: 0.64rem;
+  font-size: 0.7rem;
   font-weight: 800;
   line-height: 1;
 }
@@ -2767,7 +2768,7 @@ body[data-theme="dark"] .dur-badge { color: #ffffff; }
   border: 0;
   color: var(--text);
   font: inherit;
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 800;
   line-height: 1;
   min-width: 4.5ch;
@@ -3424,7 +3425,7 @@ summary:focus-visible,
     color: var(--muted);
     content: attr(data-label);
     display: block;
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     font-weight: 800;
     line-height: 1;
     margin-bottom: 4px;
