@@ -1238,44 +1238,6 @@ html[data-theme="dark"] .theme-icon-sun {
 /* ═══════════════════════════════════════════════════════════
    CITY SECTION
 ═══════════════════════════════════════════════════════════ */
-.sample-journey-banner {
-  align-items: center;
-  background: var(--surface);
-  border: 2px solid var(--planet-black);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 0 rgba(5,5,5,0.12);
-  display: flex;
-  gap: 18px;
-  justify-content: space-between;
-  margin: 8px 20px var(--gap);
-  padding: 14px 16px;
-}
-.sample-journey-copy { align-items: center; display: flex; gap: 12px; min-width: 0; }
-.sample-journey-badge {
-  background: var(--soft-blue);
-  border: 2px solid var(--planet-cyan);
-  border-radius: 999px;
-  color: var(--accent-dim);
-  flex: 0 0 auto;
-  font-size: 0.7rem;
-  font-weight: 900;
-  padding: 5px 9px;
-  text-transform: uppercase;
-}
-.sample-journey-copy h2 {
-  color: var(--text);
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 1.25rem;
-  font-weight: 400;
-  letter-spacing: 0.04em;
-  line-height: 1.05;
-}
-.sample-journey-copy p { color: var(--muted); font-size: 0.76rem; line-height: 1.4; margin-top: 3px; }
-.sample-journey-actions { align-items: center; display: flex; flex: 0 0 auto; gap: 8px; }
-.sample-journey-actions .btn-primary,
-.sample-journey-actions .btn-ghost { font-size: 0.78rem; min-height: 40px; padding: 8px 13px; }
-body[data-theme="dark"] .sample-journey-badge { background: var(--soft-blue); color: var(--planet-sky); }
-
 .city-section {
   border: 3px solid var(--planet-black);
   border-radius: 18px;
@@ -1692,14 +1654,6 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   gap: 12px;
   grid-template-columns: 88px minmax(0, 1fr) auto;
   padding: 9px;
-}
-.next-study-link.sample-preview-link {
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-  width: 100%;
 }
 .next-study-link:hover {
   text-decoration: none;
@@ -3000,12 +2954,6 @@ body[data-theme="dark"] .video-grid-remove:focus-visible {
   overflow: hidden;
   background: var(--planet-black);
 }
-.thumb-link.sample-preview-link {
-  border: 0;
-  cursor: pointer;
-  padding: 0;
-  width: 100%;
-}
 .thumb {
   width: 100%;
   height: 100%;
@@ -3443,19 +3391,6 @@ summary:focus-visible,
   .onboarding-actions .btn-primary,
   .onboarding-actions .btn-secondary,
   .onboarding-actions .btn-ghost {
-    width: 100%;
-  }
-  .sample-journey-banner,
-  .sample-journey-copy,
-  .sample-journey-actions {
-    align-items: stretch;
-    flex-direction: column;
-  }
-  .sample-journey-banner {
-    margin: 8px 12px var(--gap);
-  }
-  .sample-journey-actions .btn-primary,
-  .sample-journey-actions .btn-ghost {
     width: 100%;
   }
   .toast {
