@@ -156,6 +156,169 @@ const VIDEO_STATUSES = ['watch-later', 'unwatched', 'partial', 'watched']
 const HISTORY_RANGES = ['week', 'month']
 const ACTIVITY_LOG_FILTERS = ['all', 'user', 'auto', 'issues', 'points']
 const VIDEO_SEARCH_RESULT_LIMIT = 8
+const ONBOARDING_VERSION = 2
+const LEARNER_LANGUAGE_OPTIONS = [
+  { id: 'mandarin', label: 'Mandarin Chinese', shortLabel: 'Mandarin', icon: '中' },
+  { id: 'japanese', label: 'Japanese', shortLabel: 'Japanese', icon: '日' },
+  { id: 'korean', label: 'Korean', shortLabel: 'Korean', icon: '한' },
+  { id: 'spanish', label: 'Spanish', shortLabel: 'Spanish', icon: 'ES' },
+  { id: 'french', label: 'French', shortLabel: 'French', icon: 'FR' },
+  { id: 'german', label: 'German', shortLabel: 'German', icon: 'DE' },
+  { id: 'english', label: 'English', shortLabel: 'English', icon: 'EN' }
+]
+const LEARNER_LEVEL_OPTIONS = [
+  { id: 'starting', label: 'Just starting', detail: 'I understand very little so far.' },
+  { id: 'beginner', label: 'Beginner', detail: 'I know basic words and sentences.' },
+  { id: 'intermediate', label: 'Intermediate', detail: 'I can follow learner content and some native material.' },
+  { id: 'advanced', label: 'Advanced', detail: 'I mostly learn through native content.' },
+  { id: 'not-sure', label: 'Not sure', detail: 'Give me a balanced starter mix.' }
+]
+const CURATED_CHANNEL_CATALOG = [
+  {
+    id: 'mandarin-comprehensible',
+    language: 'mandarin',
+    input: '@ComprehensibleMandarin',
+    name: 'Comprehensible Mandarin',
+    levels: ['starting', 'beginner', 'intermediate'],
+    style: 'Comprehensible input',
+    description: 'Visual, learner-friendly Mandarin spoken at an understandable pace.'
+  },
+  {
+    id: 'mandarin-corner',
+    language: 'mandarin',
+    input: '@MandarinCorner2',
+    name: 'Mandarin Corner',
+    levels: ['beginner', 'intermediate', 'advanced'],
+    style: 'Conversations and stories',
+    description: 'Long-form listening, street interviews, and everyday Mandarin.'
+  },
+  {
+    id: 'mandarin-grace',
+    language: 'mandarin',
+    input: '@GraceMandarinChinese',
+    name: 'Grace Mandarin Chinese',
+    levels: ['starting', 'beginner', 'intermediate'],
+    style: 'Clear explanations',
+    description: 'Practical pronunciation, vocabulary, and culture lessons.'
+  },
+  {
+    id: 'japanese-comprehensible',
+    language: 'japanese',
+    input: '@cijapanese',
+    name: 'Comprehensible Japanese',
+    levels: ['starting', 'beginner', 'intermediate'],
+    style: 'Comprehensible input',
+    description: 'Illustrated Japanese stories designed to be understood in context.'
+  },
+  {
+    id: 'japanese-ammo',
+    language: 'japanese',
+    input: '@JapaneseAmmowithMisa',
+    name: 'Japanese Ammo with Misa',
+    levels: ['beginner', 'intermediate', 'advanced'],
+    style: 'Detailed lessons',
+    description: 'Grammar, nuance, and natural Japanese explained in depth.'
+  },
+  {
+    id: 'japanese-zero',
+    language: 'japanese',
+    input: '@JapaneseFromZero',
+    name: 'Japanese From Zero!',
+    levels: ['starting', 'beginner'],
+    style: 'Structured lessons',
+    description: 'Friendly, step-by-step Japanese lessons for new learners.'
+  },
+  {
+    id: 'korean-comprehensible',
+    language: 'korean',
+    input: '@ComprehensibleInputKorean',
+    name: 'Comprehensible Input Korean',
+    levels: ['starting', 'beginner', 'intermediate'],
+    style: 'Comprehensible input',
+    description: 'Context-rich Korean listening for building natural comprehension.'
+  },
+  {
+    id: 'korean-ttmik',
+    language: 'korean',
+    input: '@talktomeinkorean',
+    name: 'Talk To Me In Korean',
+    levels: ['starting', 'beginner', 'intermediate', 'advanced'],
+    style: 'Lessons and conversations',
+    description: 'A broad library of practical Korean lessons and native conversations.'
+  },
+  {
+    id: 'spanish-dreaming',
+    language: 'spanish',
+    input: '@DreamingSpanish',
+    name: 'Dreaming Spanish',
+    levels: ['starting', 'beginner', 'intermediate', 'advanced'],
+    style: 'Comprehensible input',
+    description: 'Levelled Spanish immersion built around interesting, understandable videos.'
+  },
+  {
+    id: 'spanish-easy',
+    language: 'spanish',
+    input: '@EasySpanish',
+    name: 'Easy Spanish',
+    levels: ['beginner', 'intermediate', 'advanced'],
+    style: 'Street interviews',
+    description: 'Authentic conversations with subtitles and learner-focused explanations.'
+  },
+  {
+    id: 'french-easy',
+    language: 'french',
+    input: '@EasyFrench',
+    name: 'Easy French',
+    levels: ['beginner', 'intermediate', 'advanced'],
+    style: 'Street interviews',
+    description: 'Real French conversations with supportive subtitles and context.'
+  },
+  {
+    id: 'french-input',
+    language: 'french',
+    input: '@FrenchComprehensibleInput',
+    name: 'French Comprehensible Input',
+    levels: ['starting', 'beginner', 'intermediate'],
+    style: 'Comprehensible input',
+    description: 'Stories and explanations delivered in accessible French.'
+  },
+  {
+    id: 'german-easy',
+    language: 'german',
+    input: '@EasyGerman',
+    name: 'Easy German',
+    levels: ['beginner', 'intermediate', 'advanced'],
+    style: 'Street interviews',
+    description: 'Natural German conversations with bilingual subtitles.'
+  },
+  {
+    id: 'german-lingoni',
+    language: 'german',
+    input: '@lingoniGERMAN',
+    name: 'lingoni GERMAN',
+    levels: ['starting', 'beginner', 'intermediate'],
+    style: 'Structured lessons',
+    description: 'Levelled grammar, vocabulary, and listening lessons.'
+  },
+  {
+    id: 'english-easy',
+    language: 'english',
+    input: '@EasyEnglishVideos',
+    name: 'Easy English',
+    levels: ['beginner', 'intermediate', 'advanced'],
+    style: 'Street interviews',
+    description: 'Everyday English from real speakers with learner-friendly subtitles.'
+  },
+  {
+    id: 'english-lucy',
+    language: 'english',
+    input: '@EnglishwithLucy',
+    name: 'English with Lucy',
+    levels: ['beginner', 'intermediate', 'advanced'],
+    style: 'Clear explanations',
+    description: 'Pronunciation, vocabulary, and natural British English lessons.'
+  }
+]
 const I18N_EN = {
   'app.title.sandbox': 'Sandbox - Edenia',
   'settings.title': 'Settings',
@@ -1771,6 +1934,72 @@ function applyTheme(theme) {
   }
 }
 
+function getLearnerLanguageOption(languageId) {
+  return LEARNER_LANGUAGE_OPTIONS.find(option => option.id === languageId) || null
+}
+
+function getLearnerLevelOption(levelId) {
+  return LEARNER_LEVEL_OPTIONS.find(option => option.id === levelId) || null
+}
+
+function getCuratedChannelEntry(catalogId) {
+  return CURATED_CHANNEL_CATALOG.find(channel => channel.id === catalogId) || null
+}
+
+function normalizeLearnerProfileState(state) {
+  if (!state) return false
+  const existing = state.learnerProfile && typeof state.learnerProfile === 'object' && !Array.isArray(state.learnerProfile)
+    ? state.learnerProfile
+    : {}
+  const validLanguageIds = new Set(LEARNER_LANGUAGE_OPTIONS.map(option => option.id))
+  const validLevelIds = new Set(LEARNER_LEVEL_OPTIONS.map(option => option.id))
+  const validCatalogIds = new Set(CURATED_CHANNEL_CATALOG.map(channel => channel.id))
+  const languages = Array.from(new Set(
+    (Array.isArray(existing.languages) ? existing.languages : [])
+      .filter(languageId => validLanguageIds.has(languageId))
+  ))
+  const selectedChannelCatalogIds = Array.from(new Set(
+    (Array.isArray(existing.selectedChannelCatalogIds) ? existing.selectedChannelCatalogIds : [])
+      .filter(catalogId => validCatalogIds.has(catalogId))
+  ))
+  const normalized = {
+    languages,
+    level: validLevelIds.has(existing.level) ? existing.level : null,
+    selectedChannelCatalogIds,
+    createdAt: isValidTimestamp(existing.createdAt) ? existing.createdAt : null,
+    updatedAt: isValidTimestamp(existing.updatedAt) ? existing.updatedAt : null
+  }
+  const changed = JSON.stringify(existing) !== JSON.stringify(normalized)
+  state.learnerProfile = normalized
+  return changed
+}
+
+function getRecommendedChannelCatalog(profile, limit = 6) {
+  const normalizedLimit = Math.max(1, Math.floor(Number(limit) || 6))
+  const languages = Array.isArray(profile?.languages) ? profile.languages : []
+  const level = getLearnerLevelOption(profile?.level)?.id || 'not-sure'
+  const byLanguage = languages.map(languageId => {
+    const matches = CURATED_CHANNEL_CATALOG.filter(channel => {
+      if (channel.language !== languageId) return false
+      return level === 'not-sure' || channel.levels.includes(level)
+    })
+    const fallbacks = CURATED_CHANNEL_CATALOG.filter(channel => channel.language === languageId)
+    return (matches.length ? matches : fallbacks).slice(0, 3)
+  })
+  const recommendations = []
+  for (let index = 0; recommendations.length < normalizedLimit; index += 1) {
+    let addedAtThisIndex = false
+    byLanguage.forEach(channels => {
+      const channel = channels[index]
+      if (!channel || recommendations.length >= normalizedLimit) return
+      recommendations.push(channel)
+      addedAtThisIndex = true
+    })
+    if (!addedAtThisIndex) break
+  }
+  return recommendations
+}
+
 function loadState() {
   let storageError = false
   try {
@@ -1800,6 +2029,7 @@ function loadState() {
       if (normalizeVideoWatchProgressState(state)) shouldSave = true
       normalizeUndoState(state)
       if (normalizeActivityLogState(state)) shouldSave = true
+      if (normalizeLearnerProfileState(state)) shouldSave = true
       if (normalizeOnboardingState(state)) shouldSave = true
       if (normalizeChannelRefreshState(state)) shouldSave = true
       normalizeSandboxState(state)
@@ -1867,8 +2097,18 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
     activityLog: [],
     channelRefreshes: {},
     onboarding: {
+      version: ONBOARDING_VERSION,
       completed: false,
-      completedAt: null
+      completedAt: null,
+      sampleViewedAt: null,
+      recommendationsAppliedAt: null
+    },
+    learnerProfile: {
+      languages: [],
+      level: null,
+      selectedChannelCatalogIds: [],
+      createdAt: null,
+      updatedAt: null
     },
     defaultChannelsVersion: DEFAULT_CHANNELS_VERSION
   }
@@ -2185,10 +2425,13 @@ function normalizeOnboardingState(state) {
     ? state.onboarding
     : {}
   const normalized = {
+    version: Number.isInteger(existing.version) ? existing.version : ONBOARDING_VERSION,
     completed: existing.completed === true,
     completedAt: existing.completed === true && isValidTimestamp(existing.completedAt)
       ? existing.completedAt
-      : null
+      : null,
+    sampleViewedAt: isValidTimestamp(existing.sampleViewedAt) ? existing.sampleViewedAt : null,
+    recommendationsAppliedAt: isValidTimestamp(existing.recommendationsAppliedAt) ? existing.recommendationsAppliedAt : null
   }
   const changed = JSON.stringify(existing) !== JSON.stringify(normalized)
   state.onboarding = normalized
@@ -2199,6 +2442,7 @@ function completeOnboarding(state = loadState()) {
   if (!state) return null
   normalizeOnboardingState(state)
   if (!state.onboarding.completed) {
+    state.onboarding.version = ONBOARDING_VERSION
     state.onboarding.completed = true
     state.onboarding.completedAt = new Date().toISOString()
     saveState(state)
