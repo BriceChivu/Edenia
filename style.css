@@ -65,6 +65,11 @@
   --radius:       14px;
   --gap:          14px;
   --compact-control-height: 36px;
+  --motion-fast:  100ms;
+  --motion-base:  160ms;
+  --motion-slow:  240ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 html[data-theme="dark"],
@@ -129,7 +134,7 @@ input[type=number]::-webkit-inner-spin-button { opacity: 1; }
   font-size: 0.9rem;
   cursor: pointer;
   box-shadow: 0 3px 0 var(--planet-black);
-  transition: background 0.15s, transform 0.1s, box-shadow 0.1s;
+  transition: background var(--motion-base) var(--ease-standard), transform var(--motion-fast) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard);
 }
 .btn-primary:hover  { background: #d9f789; }
 .btn-primary:active { box-shadow: 0 1px 0 var(--planet-black); transform: translateY(2px); }
@@ -142,7 +147,7 @@ input[type=number]::-webkit-inner-spin-button { opacity: 1; }
   border-radius: 999px;
   padding: 9px 16px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--motion-base) var(--ease-standard);
 }
 .btn-secondary:hover { background: #e9f8ed; }
 body[data-theme="dark"] .btn-secondary:hover { background: var(--surface-hi); }
@@ -155,7 +160,7 @@ body[data-theme="dark"] .btn-secondary:hover { background: var(--surface-hi); }
   padding: 9px 16px;
   cursor: pointer;
   font-size: 0.85rem;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color var(--motion-base) var(--ease-standard), border-color var(--motion-base) var(--ease-standard);
 }
 .btn-ghost:hover { color: var(--accent); border-color: var(--accent); }
 .btn-danger {
@@ -187,7 +192,7 @@ body[data-theme="dark"] .btn-danger:hover {
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 6px;
-  transition: color 0.15s, background 0.15s;
+  transition: color var(--motion-base) var(--ease-standard), background var(--motion-base) var(--ease-standard);
   line-height: 1;
 }
 .btn-icon:hover { color: var(--text); background: var(--planet-white); }
@@ -200,7 +205,7 @@ input[type=text], input[type=number], input[type=password], input[type=search], 
   color: var(--text);
   padding: 9px 12px;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color var(--motion-base) var(--ease-standard);
 }
 input:focus, select:focus { border-color: var(--accent); }
 input::placeholder { color: var(--muted); }
@@ -1355,7 +1360,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   height: 100%;
   background: linear-gradient(90deg, var(--planet-cyan), var(--planet-lime));
   border-radius: 99px;
-  transition: width 0.6s ease;
+  transition: width var(--motion-slow) var(--ease-emphasized);
 }
 .progress-fill.has-progress::after {
   content: "";
@@ -2542,7 +2547,7 @@ body[data-theme="dark"] .channel-filter-remove:focus-visible {
   display: flex;
   flex-direction: column;
   position: relative;
-  transition: border-color 0.2s, transform 0.15s;
+  transition: border-color var(--motion-base) var(--ease-standard), transform var(--motion-base) var(--ease-standard);
   box-shadow: 0 4px 0 rgba(5,5,5,0.14);
   border-left-width: 6px;
   border-left-color: transparent;
@@ -2709,7 +2714,7 @@ body[data-theme="dark"] .video-grid-remove:focus-visible {
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.2s;
+  transition: transform var(--motion-base) var(--ease-standard);
 }
 .video-card:hover .thumb { transform: scale(1.03); }
 
@@ -2851,7 +2856,7 @@ body[data-theme="dark"] .resume-time-field {
   border-radius: 999px;
   color: var(--muted);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background var(--motion-base) var(--ease-standard), color var(--motion-base) var(--ease-standard), border-color var(--motion-base) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
   white-space: nowrap;
 }
 .watched-btn {
@@ -3065,7 +3070,7 @@ body[data-theme="dark"] .walkthrough-highlight {
   font-weight: 500;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.2s, transform 0.2s;
+  transition: opacity var(--motion-base) var(--ease-standard), transform var(--motion-base) var(--ease-emphasized);
   z-index: 200;
   max-width: 90vw;
   text-align: center;
