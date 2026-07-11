@@ -2659,26 +2659,16 @@ body[data-theme="dark"] .video-grid-remove:focus-visible {
 }
 .compact-card:hover { transform: none; }
 .video-card.flash-target {
-  animation: watched-card-flash 1.8s ease-out;
+  animation: watchedCardConfirm 700ms var(--ease-emphasized);
   opacity: 1;
 }
-@keyframes watched-card-flash {
+@keyframes watchedCardConfirm {
   0%, 100% {
     box-shadow: 0 4px 0 rgba(5,5,5,0.14);
   }
-  10%, 42%, 74% {
-    border-color: var(--planet-black);
-    box-shadow:
-      0 0 0 5px rgba(252,184,49,0.82),
-      0 0 0 10px rgba(18,188,234,0.32),
-      0 10px 0 rgba(5,5,5,0.22);
-  }
-  24%, 58% {
-    border-color: var(--planet-black);
-    box-shadow:
-      0 0 0 3px rgba(201,239,104,0.92),
-      0 0 0 8px rgba(252,184,49,0.34),
-      0 8px 0 rgba(5,5,5,0.20);
+  38% {
+    border-color: var(--green);
+    box-shadow: 0 0 0 4px rgba(139,189,40,0.34), 0 6px 0 rgba(5,5,5,0.18);
   }
 }
 .compact-card .thumb-link {
