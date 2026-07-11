@@ -3323,9 +3323,6 @@ body[data-theme="dark"] .walkthrough-highlight {
 /* ── Keyboard focus ───────────────────────────────────────── */
 button:focus-visible,
 a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
 summary:focus-visible,
 [role="button"]:focus-visible,
 [tabindex]:focus-visible {
