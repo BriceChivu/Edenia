@@ -2135,6 +2135,7 @@ const FIRST_STUDY_WALKTHROUGH_STEPS = [
     target: '#videoGrid',
     textKey: 'walkthrough.firstStudyFeed',
     placement: 'top',
+    scrollTarget: '.feed-controls',
     hooks: {
       beforeEnter: 'closeTransientUi'
     }
@@ -3702,7 +3703,8 @@ function renderWalkthroughStep() {
   elements.card.classList.toggle('walkthrough-card-waiting', step.advanceOn === 'target-click')
   elements.card.classList.toggle('walkthrough-card-no-arrow', step.showArrow === false)
 
-  target.scrollIntoView({
+  const scrollTarget = step.scrollTarget ? document.querySelector(step.scrollTarget) : target
+  scrollTarget.scrollIntoView({
     behavior: prefersReducedMotion() ? 'auto' : 'smooth',
     block: 'center',
     inline: 'center'
