@@ -2,7 +2,8 @@
 Minor changes:
 - small duck walking around/popup giving motivational quotes
 - Photoshop: add the duck on the island. sometimes shifting to different locations (like on the deck, in the water floating, or in front of the door of the house)
-
+- by default, the Show short videos option should be disabled
+- Increase the number of recommended channels for each language to learn (except chinese). Take chinese as a an example. Try not to recommend the same channels for different levels.
 
 
 
