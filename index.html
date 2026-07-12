@@ -11,9 +11,9 @@
   <link rel="preload" as="font" href="assets/fonts/space-grotesk-latin-ext.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin-ext.woff2" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=20260712-35">
+  <link rel="stylesheet" href="style.css?v=20260712-36">
   <script src="config.local.js" defer></script>
-  <script src="app.js?v=20260712-51" defer></script>
+  <script src="app.js?v=20260712-52" defer></script>
 </head>
 <body>
 
@@ -265,6 +265,10 @@
           <span><b id="videosPartial">0</b> <span data-i18n="goal.inProgress">in progress</span></span>
           <span class="dot">·</span>
           <span>~<b id="videosRemaining">?</b> <span data-i18n="goal.toGo">to go</span></span>
+        </div>
+        <div class="goal-pace hidden" id="goalPaceGuidance" role="status">
+          <span class="goal-pace-icon" id="goalPaceIcon" aria-hidden="true"></span>
+          <span id="goalPaceText"></span>
         </div>
       </div>
       <div class="next-study-card hidden" id="nextStudyCard"></div>

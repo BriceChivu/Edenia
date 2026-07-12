@@ -16,6 +16,7 @@ The app is intentionally simple: `index.html`, `style.css`, `app.js`, image asse
 - Filters the active video list by status and channel, and searches saved videos from the header.
 - Can hide short videos under 3 minutes during refresh and from the active video list.
 - Counts watched time toward a weekly hours goal.
+- Translates the remaining weekly goal into compact, truthful daily pace guidance when study videos are available.
 - Syncs today's Anki review/new-card counts through AnkiConnect when Anki is open.
 - Shows study history totals by week or month, with summary and heatmap views.
 - Maintains a study streak.

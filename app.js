@@ -691,6 +691,10 @@ const I18N_EN = {
   'goal.watched': 'watched',
   'goal.inProgress': 'in progress',
   'goal.toGo': 'to go',
+  'goal.pace.session': 'One {minutes}-minute session today keeps you on track.',
+  'goal.pace.longSession': 'Aim for {time} today to get back on track.',
+  'goal.pace.onTrack': 'You’re on track for this week.',
+  'goal.pace.complete': 'Weekly goal complete. Nice work.',
   'history.title': 'Study History',
   'history.viewLabel': 'Study history view',
   'history.summary': 'Summary',
@@ -7494,7 +7498,56 @@ function renderAnalytics(stats, s) {
   bar.style.width = `${stats.goalProgress}%`
   bar.classList.toggle('has-progress', stats.goalProgress > 0)
   bar.classList.toggle('complete', stats.goalProgress >= 100)
+  renderGoalPaceGuidance(stats, s)
   renderNextStudy(s)
+}
+
+function getFriendlyPaceMinutes(minutes) {
+  const roundedMinutes = Math.max(1, Math.ceil(Number(minutes) || 0))
+  const friendlySteps = [5, 10, 15, 20, 30, 45, 60]
+  return friendlySteps.find(step => roundedMinutes <= step) || Math.ceil(roundedMinutes / 15) * 15
+}
+
+function getGoalPaceGuidance(stats, state) {
+  if (stats.goalProgress >= 100 || stats.remainingSeconds <= 0) {
+    return { state: 'complete', icon: '✓', text: t('goal.pace.complete') }
+  }
+  const includeShorts = normalizeIncludeShorts(state.config.includeShorts)
+  const hasStudyVideo = getVisibleActiveVideos(Object.values(state.videos || {}), includeShorts).length > 0
+  if (!hasStudyVideo) return null
+
+  const currentDate = getCurrentAppDate(state)
+  const dayIndex = (currentDate.getDay() + 6) % 7
+  const expectedThroughToday = stats.goalHours * 3600 * ((dayIndex + 1) / 7)
+  if (stats.secondsWatched > 0 && stats.secondsWatched >= expectedThroughToday) {
+    return { state: 'on-track', icon: '✓', text: t('goal.pace.onTrack') }
+  }
+
+  const remainingDays = Math.max(1, 7 - dayIndex)
+  const paceMinutes = getFriendlyPaceMinutes(stats.remainingSeconds / remainingDays / 60)
+  const text = paceMinutes <= 60
+    ? t('goal.pace.session', { minutes: paceMinutes })
+    : t('goal.pace.longSession', { time: formatHoursMinutes(paceMinutes * 60) })
+  return { state: 'action', icon: '◷', text }
+}
+
+function renderGoalPaceGuidance(stats, state) {
+  const container = document.getElementById('goalPaceGuidance')
+  const icon = document.getElementById('goalPaceIcon')
+  const text = document.getElementById('goalPaceText')
+  if (!container || !icon || !text) return
+
+  const guidance = getGoalPaceGuidance(stats, state)
+  container.classList.toggle('hidden', !guidance)
+  if (!guidance) {
+    container.removeAttribute('data-state')
+    icon.textContent = ''
+    text.textContent = ''
+    return
+  }
+  container.dataset.state = guidance.state
+  icon.textContent = guidance.icon
+  text.textContent = guidance.text
 }
 
 function renderNextStudy(s) {
