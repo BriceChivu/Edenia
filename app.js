@@ -547,6 +547,7 @@ const CURATED_CHANNEL_CATALOG = [
 const I18N_EN = {
   'app.title.sandbox': 'Sandbox - Edenia',
   'onboarding.progress': 'Step {current} of {total}',
+  'onboarding.promise': 'Turn YouTube and Anki into visible language-learning progress.',
   'onboarding.eyebrow': 'Make your study visible',
   'onboarding.language.title': 'What language are you learning?',
   'onboarding.language.subtitle': 'Choose your primary language. Edenia will use it to build a focused starter feed; you can add more channels later.',

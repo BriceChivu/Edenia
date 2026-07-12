@@ -280,6 +280,14 @@ body.onboarding-active { overflow: hidden; }
   line-height: 1;
   text-shadow: 1px 1px 0 var(--planet-black);
 }
+.onboarding-promise {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.45;
+  margin-top: -8px;
+  max-width: 52ch;
+}
 .onboarding-progress { display: grid; gap: 6px; }
 .onboarding-progress-label {
   color: var(--muted);
