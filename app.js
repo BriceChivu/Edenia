@@ -155,8 +155,6 @@ const personalizedOnboardingState = {
   languageId: null,
   levelId: null,
   selectedChannelCatalogIds: [],
-  channelAvatars: {},
-  requestedChannelAvatarIds: new Set(),
   channelSelectionsInitialized: false,
   isApplyingChannels: false
 }
@@ -219,7 +217,7 @@ const CURATED_CHANNEL_CATALOG = [
   {
     id: 'japanese-comprehensible',
     language: 'japanese',
-    input: '@cijapanese',
+    input: '@nihongo-no-jikan',
     name: 'Comprehensible Japanese',
     levels: ['starting', 'beginner', 'intermediate'],
     style: 'Comprehensible input',
@@ -2001,6 +1999,10 @@ function getCuratedChannelEntry(catalogId) {
   return CURATED_CHANNEL_CATALOG.find(channel => channel.id === catalogId) || null
 }
 
+function getCuratedChannelAvatarPath(catalogId) {
+  return `images/channel-avatars/${encodeURIComponent(catalogId)}.jpg`
+}
+
 function normalizeLearnerProfileState(state) {
   if (!state) return false
   const existing = state.learnerProfile && typeof state.learnerProfile === 'object' && !Array.isArray(state.learnerProfile)
@@ -2870,7 +2872,6 @@ function renderPersonalizedOnboarding() {
   } else {
     prepareOnboardingChannelSelections()
     renderOnboardingChannelsStep(content)
-    loadOnboardingChannelAvatars()
   }
 }
 
@@ -2932,7 +2933,7 @@ function renderOnboardingChannelsStep(content) {
   const channelMarkup = recommendations.length
     ? recommendations.map(channel => {
         const selected = selectedIds.has(channel.id)
-        const avatarUrl = personalizedOnboardingState.channelAvatars[channel.id]
+        const avatarUrl = getCuratedChannelAvatarPath(channel.id)
         const avatarFallback = language?.icon || channel.name.slice(0, 2).toUpperCase()
         const avatar = avatarUrl
           ? `<img src="${escHtml(avatarUrl)}" alt="" loading="eager">`
@@ -3012,32 +3013,6 @@ function resolveCuratedChannelEntry(entry) {
   })
   curatedChannelResolutionCache.set(entry.id, request)
   return request
-}
-
-async function loadOnboardingChannelAvatars() {
-  if (!hasYoutubeApiKey() || personalizedOnboardingState.step !== 'channels') return
-  const recommendations = getRecommendedChannelCatalog({
-    languages: [personalizedOnboardingState.languageId],
-    level: personalizedOnboardingState.levelId
-  })
-  const pendingEntries = recommendations.filter(entry => {
-    if (personalizedOnboardingState.channelAvatars[entry.id]) return false
-    if (personalizedOnboardingState.requestedChannelAvatarIds.has(entry.id)) return false
-    personalizedOnboardingState.requestedChannelAvatarIds.add(entry.id)
-    return true
-  })
-  if (!pendingEntries.length) return
-
-  const results = await Promise.allSettled(pendingEntries.map(resolveCuratedChannelEntry))
-  let changed = false
-  results.forEach((result, index) => {
-    if (result.status !== 'fulfilled' || !result.value?.thumbnail) return
-    personalizedOnboardingState.channelAvatars[pendingEntries[index].id] = result.value.thumbnail
-    changed = true
-  })
-  if (changed && personalizedOnboardingState.active && personalizedOnboardingState.step === 'channels') {
-    renderPersonalizedOnboarding()
-  }
 }
 
 async function resolveStarterChannelSelections(catalogIds) {
