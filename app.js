@@ -188,31 +188,118 @@ const LEARNER_LEVEL_OPTIONS = [
 ]
 const CURATED_CHANNEL_CATALOG = [
   {
-    id: 'mandarin-comprehensible',
+    id: 'mandarin-grace',
     language: 'mandarin',
-    input: '@ComprehensibleMandarin',
-    name: 'Comprehensible Mandarin',
-    levels: ['starting', 'beginner', 'intermediate'],
-    style: 'Comprehensible input',
-    description: 'Visual, learner-friendly Mandarin spoken at an understandable pace.'
+    input: '@GraceMandarinChinese',
+    name: 'Grace Mandarin Chinese',
+    levels: ['starting'],
+    style: 'Clear explanations',
+    description: 'Practical pronunciation, vocabulary, and culture lessons.'
+  },
+  {
+    id: 'mandarin-stickynote',
+    language: 'mandarin',
+    input: '@Stickynote.Chinese',
+    name: 'Jun - Stickynote Chinese',
+    levels: ['starting', 'beginner'],
+    style: 'Comprehensible input'
+  },
+  {
+    id: 'mandarin-xiaogua',
+    language: 'mandarin',
+    input: '@xiaoguachinese',
+    name: 'Xiaogua Chinese',
+    levels: ['beginner'],
+    style: 'Comprehensible input'
+  },
+  {
+    id: 'mandarin-lazy',
+    language: 'mandarin',
+    input: '@Lazy-Chinese',
+    name: 'Lazy Chinese - Comprehensible Input',
+    levels: ['beginner'],
+    style: 'Comprehensible input'
+  },
+  {
+    id: 'mandarin-dashu',
+    language: 'mandarin',
+    input: '@dashumandarin',
+    name: 'Dashu Mandarin 大叔中文',
+    levels: ['intermediate'],
+    style: 'Conversations and interviews'
+  },
+  {
+    id: 'mandarin-annie-kerin',
+    language: 'mandarin',
+    input: '@LearnChinesewithAnnieandKerin',
+    name: '俩北京姑娘闲聊',
+    levels: ['intermediate'],
+    style: 'Casual conversations'
   },
   {
     id: 'mandarin-corner',
     language: 'mandarin',
     input: '@MandarinCorner2',
     name: 'Mandarin Corner',
-    levels: ['beginner', 'intermediate', 'advanced'],
+    levels: ['intermediate'],
     style: 'Conversations and stories',
     description: 'Long-form listening, street interviews, and everyday Mandarin.'
   },
   {
-    id: 'mandarin-grace',
+    id: 'mandarin-free-to-learn',
     language: 'mandarin',
-    input: '@GraceMandarinChinese',
-    name: 'Grace Mandarin Chinese',
-    levels: ['starting', 'beginner', 'intermediate'],
-    style: 'Clear explanations',
-    description: 'Practical pronunciation, vocabulary, and culture lessons.'
+    input: '@DANLIAOFreeToLearnChinese',
+    name: 'Free To Learn Chinese',
+    levels: ['intermediate'],
+    style: 'Natural Mandarin'
+  },
+  {
+    id: 'mandarin-out-of-office',
+    language: 'mandarin',
+    input: '@theOutofOfficePodcast',
+    name: '不上班 / Out of Office',
+    levels: ['advanced'],
+    style: 'Podcast'
+  },
+  {
+    id: 'mandarin-muerstalk',
+    language: 'mandarin',
+    input: '@muerstalk',
+    name: '周慕姿放心說',
+    levels: ['advanced'],
+    style: 'Psychology and conversations'
+  },
+  {
+    id: 'mandarin-bailingguo',
+    language: 'mandarin',
+    input: '@bailingguo',
+    name: 'Bailingguo News',
+    levels: ['advanced'],
+    style: 'News and commentary'
+  },
+  {
+    id: 'mandarin-mediastorm',
+    language: 'mandarin',
+    input: '@mediastorm6801',
+    name: 'Mediastorm影视飓风',
+    levels: ['advanced'],
+    style: 'Film and technology'
+  },
+  {
+    id: 'mandarin-hahatai',
+    language: 'mandarin',
+    input: '@Hahatai',
+    name: 'HahaTai 哈哈台',
+    levels: ['advanced'],
+    style: 'Street interviews'
+  },
+  {
+    id: 'mandarin-one-in-billion',
+    language: 'mandarin',
+    input: '@One-In-a-Billion',
+    name: '亿点点不一样',
+    levels: ['advanced'],
+    style: 'Native entertainment'
   },
   {
     id: 'japanese-comprehensible',
@@ -2041,7 +2128,7 @@ function getRecommendedChannelCatalog(profile, limit = 6) {
       return level === 'not-sure' || channel.levels.includes(level)
     })
     const fallbacks = CURATED_CHANNEL_CATALOG.filter(channel => channel.language === languageId)
-    return (matches.length ? matches : fallbacks).slice(0, 3)
+    return (matches.length ? matches : fallbacks).slice(0, normalizedLimit)
   })
   const recommendations = []
   for (let index = 0; recommendations.length < normalizedLimit; index += 1) {
@@ -2944,7 +3031,6 @@ function renderOnboardingChannelsStep(content) {
             <span class="onboarding-channel-copy">
               <span class="onboarding-channel-name">${escHtml(channel.name)}</span>
               <span class="onboarding-channel-meta">${escHtml(channel.style)}</span>
-              <span class="onboarding-channel-description">${escHtml(channel.description)}</span>
             </span>
             <span class="onboarding-channel-check" aria-hidden="true">✓</span>
           </button>
@@ -2954,7 +3040,7 @@ function renderOnboardingChannelsStep(content) {
   content.innerHTML = `
     ${renderOnboardingHeading('onboarding.channels.title', 'onboarding.channels.subtitle')}
     <span class="onboarding-selection-count">${escHtml(t('onboarding.channels.selected', { count: selectedIds.size }))}</span>
-    <div class="onboarding-channel-list">${channelMarkup}</div>
+    <div class="onboarding-channel-list${recommendations.length >= 4 ? ' onboarding-channel-list-grid' : ''}">${channelMarkup}</div>
     <div class="onboarding-actions">
       <button type="button" class="btn-ghost" onclick="setPersonalizedOnboardingStep('level')" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
       <button type="button" class="btn-primary" onclick="finishPersonalizedOnboarding()" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}</button>

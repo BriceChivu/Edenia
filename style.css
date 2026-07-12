@@ -383,6 +383,7 @@ body.onboarding-active { overflow: hidden; }
   overflow-y: auto;
   padding: 2px 5px 5px 2px;
 }
+.onboarding-channel-list-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .onboarding-channel {
   align-items: center;
   background: var(--planet-white);
@@ -420,9 +421,7 @@ body.onboarding-active { overflow: hidden; }
 }
 .onboarding-channel-copy { display: grid; gap: 3px; min-width: 0; }
 .onboarding-channel-name { font-size: 0.86rem; font-weight: 900; }
-.onboarding-channel-meta,
-.onboarding-channel-description { color: var(--muted); font-size: 0.72rem; line-height: 1.35; }
-.onboarding-channel-meta { color: var(--accent-dim); font-weight: 800; }
+.onboarding-channel-meta { color: var(--accent-dim); font-size: 0.72rem; font-weight: 800; line-height: 1.35; }
 .onboarding-channel-check {
   align-items: center;
   border: 2px solid var(--border);
@@ -3375,6 +3374,9 @@ summary:focus-visible,
   }
   .onboarding-channel-list {
     max-height: none;
+  }
+  .onboarding-channel-list-grid {
+    grid-template-columns: 1fr;
   }
   .onboarding-actions {
     align-items: stretch;

@@ -55,7 +55,7 @@ Settings are saved on the fly. There is no separate save button.
 
 ## First-Run Journey
 
-The first-run profile currently asks for one primary learning language and one approximate level. Edenia uses that pair to select up to three matching entries from its curated starter catalog. Recommendation cards load each channel's current YouTube profile image, with the language badge as a fallback. Recommendations are preselected but optional, so the learner can keep, remove, or add choices before continuing.
+The first-run profile currently asks for one primary learning language and one approximate level. Edenia uses that pair to select matching entries from its curated starter catalog, with up to five recommendations depending on the language and level. Recommendation cards use locally bundled channel profile images, with the language badge as a fallback. Recommendations are preselected but optional, so the learner can keep, remove, or add choices before continuing.
 
 Catalog entries use YouTube `@handle` values. When `Start my journey` is selected, Edenia resolves every chosen handle through the YouTube Data API, saves the resulting channels, and attempts to load their recent videos before opening the real dashboard. Successfully resolved channels appear in the Channels menu and fetched videos appear in the grid. Partial channel or video-fetch failures are reported after the dashboard opens; onboarding only stays on the starter-channel step when none of the selected channels can be resolved. A configured YouTube API key is required for this process.
 
