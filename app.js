@@ -8466,10 +8466,11 @@ function getGoalPaceGuidance(stats, state) {
 
   const remainingDays = Math.max(1, 7 - dayIndex)
   const paceMinutes = getFriendlyPaceMinutes(stats.remainingSeconds / remainingDays / 60)
-  const text = paceMinutes <= 60
+  const isShortSession = paceMinutes <= 60
+  const text = isShortSession
     ? t('goal.pace.session', { minutes: paceMinutes })
     : t('goal.pace.longSession', { time: formatHoursMinutes(paceMinutes * 60) })
-  return { state: 'action', icon: '◷', text }
+  return { state: 'action', icon: isShortSession ? '' : '◷', text }
 }
 
 function renderGoalPaceGuidance(stats, state) {
@@ -8482,11 +8483,13 @@ function renderGoalPaceGuidance(stats, state) {
   container.classList.toggle('hidden', !guidance)
   if (!guidance) {
     container.removeAttribute('data-state')
+    icon.classList.add('hidden')
     icon.textContent = ''
     text.textContent = ''
     return
   }
   container.dataset.state = guidance.state
+  icon.classList.toggle('hidden', !guidance.icon)
   icon.textContent = guidance.icon
   text.textContent = guidance.text
 }
