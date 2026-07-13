@@ -57,7 +57,6 @@ const SCORING_RULES_VERSION = 6
 const STUDY_INSIGHT_LOOKBACK_DAYS = 42
 const STUDY_INSIGHT_MIN_ACTIVE_DAYS = 8
 const STUDY_INSIGHT_MIN_VIDEO_SECONDS = 2 * 60 * 60
-const STUDY_INSIGHT_SNOOZE_DAYS = 14
 const STUDY_INSIGHT_HISTORY_LIMIT = 12
 const STUDY_INSIGHT_TIME_WINDOWS = [
   { id: 'morning', startHour: 5, endHour: 12 },
@@ -722,8 +721,9 @@ const I18N_EN = {
   'insights.title.short-sessions': 'Small sessions are working',
   'insights.body.short-sessions': 'Your typical video-study session lasts about {minutes} minutes. Keeping a short session ready can make consistency easier.',
   'insights.evidence.short-sessions': '{sessions} study sessions across {days} active days.',
-  'insights.snooze': 'Hide study insights for two weeks',
-  'insights.snoozed': 'Insight hidden for two weeks.',
+  'insights.collapse': 'Collapse study insights',
+  'insights.reopen': 'Insights',
+  'insights.reopen.aria': 'Show study insights',
   'insights.tabs.aria': 'Study insight views',
   'insights.tab.current': 'Current',
   'insights.tab.previous': 'Previous',
@@ -1145,8 +1145,9 @@ const I18N = {
     'insights.title.short-sessions': '短時間學習也很有效',
     'insights.body.short-sessions': '你的影片學習通常一次約 {minutes} 分鐘。預留一個短時間選項，能讓持續學習更容易。',
     'insights.evidence.short-sessions': '{days} 個有學習的日子中，共記錄了 {sessions} 次學習。',
-    'insights.snooze': '兩週內不顯示學習洞察',
-    'insights.snoozed': '已隱藏這則洞察兩週。',
+    'insights.collapse': '收合學習洞察',
+    'insights.reopen': '學習洞察',
+    'insights.reopen.aria': '顯示學習洞察',
     'insights.tabs.aria': '學習洞察檢視',
     'insights.tab.current': '目前',
     'insights.tab.previous': '過往',
@@ -1469,8 +1470,9 @@ const I18N = {
     'insights.title.short-sessions': '短时间学习也很有效',
     'insights.body.short-sessions': '你的视频学习通常一次约 {minutes} 分钟。预留一个短时间选项，能让持续学习更容易。',
     'insights.evidence.short-sessions': '{days} 个有学习的日子中，共记录了 {sessions} 次学习。',
-    'insights.snooze': '两周内不显示学习洞察',
-    'insights.snoozed': '已隐藏这则洞察两周。',
+    'insights.collapse': '收起学习洞察',
+    'insights.reopen': '学习洞察',
+    'insights.reopen.aria': '显示学习洞察',
     'insights.tabs.aria': '学习洞察视图',
     'insights.tab.current': '当前',
     'insights.tab.previous': '过往',
@@ -1776,8 +1778,9 @@ const I18N = {
     'insights.title.short-sessions': 'Las sesiones cortas funcionan',
     'insights.body.short-sessions': 'Tu sesión habitual con vídeos dura unos {minutes} minutos. Tener preparada una opción corta puede facilitar la constancia.',
     'insights.evidence.short-sessions': '{sessions} sesiones de estudio durante {days} días activos.',
-    'insights.snooze': 'Ocultar las observaciones de estudio durante dos semanas',
-    'insights.snoozed': 'Observación oculta durante dos semanas.',
+    'insights.collapse': 'Contraer las observaciones de estudio',
+    'insights.reopen': 'Observaciones',
+    'insights.reopen.aria': 'Mostrar las observaciones de estudio',
     'insights.tabs.aria': 'Vistas de observaciones de estudio',
     'insights.tab.current': 'Actual',
     'insights.tab.previous': 'Anteriores',
@@ -2085,8 +2088,9 @@ const I18N = {
     'insights.title.short-sessions': 'Les courtes sessions fonctionnent',
     'insights.body.short-sessions': 'Votre session habituelle en vidéo dure environ {minutes} minutes. Garder une option courte à portée de main peut faciliter la régularité.',
     'insights.evidence.short-sessions': '{sessions} sessions d’étude pendant {days} jours actifs.',
-    'insights.snooze': 'Masquer les observations d’étude pendant deux semaines',
-    'insights.snoozed': 'Observation masquée pendant deux semaines.',
+    'insights.collapse': 'Réduire les observations d’étude',
+    'insights.reopen': 'Observations',
+    'insights.reopen.aria': 'Afficher les observations d’étude',
     'insights.tabs.aria': 'Vues des observations d’étude',
     'insights.tab.current': 'Actuelle',
     'insights.tab.previous': 'Précédentes',
@@ -2540,24 +2544,11 @@ function normalizeAnkiTrackingConfig(state) {
   return changed
 }
 
-function normalizeStudyInsightConfig(state, now = new Date()) {
+function normalizeStudyInsightConfig(state) {
   if (!state?.config) return false
   const existing = state.config.studyInsights && typeof state.config.studyInsights === 'object' && !Array.isArray(state.config.studyInsights)
     ? state.config.studyInsights
     : {}
-  const existingSnoozed = existing.snoozedUntil && typeof existing.snoozedUntil === 'object' && !Array.isArray(existing.snoozedUntil)
-    ? existing.snoozedUntil
-    : {}
-  const nowTime = new Date(now).getTime()
-  const snoozedUntil = Object.fromEntries(
-    Object.entries(existingSnoozed)
-      .filter(([insightId, until]) => (
-        typeof insightId === 'string' &&
-        insightId.length <= 80 &&
-        isValidTimestamp(until) &&
-        new Date(until).getTime() > nowTime
-      ))
-  )
   const history = (Array.isArray(existing.history) ? existing.history : [])
     .filter(entry => entry && typeof entry === 'object' && !Array.isArray(entry))
     .map(entry => {
@@ -2586,7 +2577,7 @@ function normalizeStudyInsightConfig(state, now = new Date()) {
     .sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt))
     .filter((entry, index, entries) => entries.findIndex(candidate => candidate.key === entry.key) === index)
     .slice(0, STUDY_INSIGHT_HISTORY_LIMIT)
-  const normalized = { snoozedUntil, history }
+  const normalized = { collapsed: existing.collapsed === true, history }
   const changed = JSON.stringify(existing) !== JSON.stringify(normalized)
   state.config.studyInsights = normalized
   return changed
@@ -2799,7 +2790,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
       ankiResumeBaselines: {},
       ankiPendingResumeBaseline: null,
       historyView: getDefaultHistoryView(),
-      studyInsights: { snoozedUntil: {}, history: [] },
+      studyInsights: { collapsed: false, history: [] },
       channels: Array.isArray(channels) ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
       removedDefaultChannelIds: restoredRemovedDefaultIds || [],
       removedChannelIds: []
@@ -7698,10 +7689,8 @@ function getStudyInsightCandidates(state, referenceDate = getCurrentAppDate(stat
   return candidates.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
 }
 
-function getStudyInsight(state, referenceDate = getCurrentAppDate(state), now = new Date()) {
-  const snoozedUntil = state?.config?.studyInsights?.snoozedUntil || {}
+function getStudyInsight(state, referenceDate = getCurrentAppDate(state)) {
   const candidates = getStudyInsightCandidates(state, referenceDate)
-    .filter(candidate => !isValidTimestamp(snoozedUntil[candidate.id]) || new Date(snoozedUntil[candidate.id]) <= now)
   if (!candidates.length) return null
 
   const date = new Date(referenceDate)
@@ -7993,6 +7982,7 @@ function setStudyInsightView(view) {
 
 function renderStudyInsight(state) {
   const container = document.getElementById('studyInsightCard')
+  const reopenButton = document.getElementById('studyInsightReopen')
   const icon = document.getElementById('studyInsightIcon')
   const title = document.getElementById('studyInsightTitle')
   const body = document.getElementById('studyInsightBody')
@@ -8004,13 +7994,18 @@ function renderStudyInsight(state) {
   const historyCount = document.getElementById('studyInsightHistoryCount')
   if (!container || !icon || !title || !body || !evidence) return
 
+  normalizeStudyInsightConfig(state)
   const insight = getStudyInsight(state)
   const viewModel = getStudyInsightViewModel(insight, state)
-  const currentKey = insight && viewModel ? recordStudyInsight(state, insight) : ''
+  const collapsed = state.config.studyInsights.collapsed === true
+  const currentKey = insight && viewModel
+    ? (collapsed ? getStudyInsightHistoryKey(insight, state) : recordStudyInsight(state, insight))
+    : ''
   const previousInsights = getPreviousStudyInsights(state, currentKey)
   if (selectedStudyInsightView === 'previous' && !previousInsights.length) selectedStudyInsightView = 'current'
   const showingHistory = selectedStudyInsightView === 'previous'
-  container.classList.toggle('hidden', !viewModel)
+  container.classList.toggle('hidden', !viewModel || collapsed)
+  reopenButton?.classList.toggle('hidden', !viewModel || !collapsed)
   if (!viewModel) {
     selectedStudyInsightView = 'current'
     container.removeAttribute('data-insight-id')
@@ -8047,21 +8042,17 @@ function renderStudyInsight(state) {
   }
 }
 
-function snoozeStudyInsights() {
+function setStudyInsightsCollapsed(collapsed) {
   const state = loadState()
   if (!state) return
   normalizeStudyInsightConfig(state)
-  const candidates = getStudyInsightCandidates(state)
-  if (!candidates.length) return
-
-  const snoozedUntil = new Date(Date.now() + STUDY_INSIGHT_SNOOZE_DAYS * 86_400_000).toISOString()
-  candidates.forEach(candidate => {
-    state.config.studyInsights.snoozedUntil[candidate.id] = snoozedUntil
-  })
-  selectedStudyInsightView = 'current'
+  state.config.studyInsights.collapsed = collapsed === true
   saveState(state, { backup: false })
   renderStudyInsight(state)
-  showToast(t('insights.snoozed'), 'success')
+  requestAnimationFrame(() => {
+    if (collapsed) document.getElementById('studyInsightReopen')?.focus()
+    else document.querySelector('.study-insight-tab.active')?.focus()
+  })
 }
 
 function renderNextStudy(s) {

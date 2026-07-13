@@ -291,8 +291,12 @@
           </div>
           <div class="study-insight-history-panel hidden" id="studyInsightHistoryPanel" role="tabpanel" aria-labelledby="studyInsightPreviousTab"></div>
         </div>
-        <button class="study-insight-snooze" type="button" onclick="snoozeStudyInsights()" title="Hide study insights for two weeks" aria-label="Hide study insights for two weeks" data-i18n-title="insights.snooze" data-i18n-aria-label="insights.snooze">×</button>
+        <button class="study-insight-collapse" type="button" onclick="setStudyInsightsCollapsed(true)" title="Collapse study insights" aria-label="Collapse study insights" data-i18n-title="insights.collapse" data-i18n-aria-label="insights.collapse">×</button>
       </aside>
+      <button class="study-insight-reopen hidden" id="studyInsightReopen" type="button" onclick="setStudyInsightsCollapsed(false)" aria-controls="studyInsightCard" aria-expanded="false" aria-label="Show study insights" data-i18n-aria-label="insights.reopen.aria">
+        <span aria-hidden="true">✦</span>
+        <span data-i18n="insights.reopen">Insights</span>
+      </button>
       <div class="next-study-card hidden" id="nextStudyCard"></div>
     </section>
 
