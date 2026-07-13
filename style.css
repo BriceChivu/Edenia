@@ -4338,16 +4338,11 @@ body[data-theme="dark"] .walkthrough-highlight {
 .toast.toast-error { border-color: var(--error); color: var(--error); }
 
 /* ── Keyboard focus ───────────────────────────────────────── */
-button:focus-visible,
 a:focus-visible,
 summary:focus-visible,
-[role="button"]:focus-visible,
-[tabindex]:focus-visible {
+[tabindex]:not(button):not([role="button"]):focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
-}
-.suppress-return-focus-ring:focus {
-  outline: none;
 }
 
 @media (max-height: 720px) and (min-width: 641px) {

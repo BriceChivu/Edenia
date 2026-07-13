@@ -5051,7 +5051,7 @@ function openSettings() {
   window.setTimeout(() => document.getElementById('settingsCloseBtn')?.focus(), 0)
 }
 
-function closeSettings({ suppressReturnFocusRing = false } = {}) {
+function closeSettings() {
   const panel = document.getElementById('settingsPanel')
   if (!panel || panel.classList.contains('hidden')) return
   hide('settingsPanel')
@@ -5059,13 +5059,7 @@ function closeSettings({ suppressReturnFocusRing = false } = {}) {
   if (main) main.inert = false
   const returnFocus = openSettings.returnFocus
   openSettings.returnFocus = null
-  if (returnFocus?.isConnected) window.setTimeout(() => {
-    if (suppressReturnFocusRing) {
-      returnFocus.classList.add('suppress-return-focus-ring')
-      returnFocus.addEventListener('blur', () => returnFocus.classList.remove('suppress-return-focus-ring'), { once: true })
-    }
-    returnFocus.focus()
-  }, 0)
+  if (returnFocus?.isConnected) window.setTimeout(() => returnFocus.focus(), 0)
 }
 
 function setSettingsAccordionOpen(contentId, toggleSelector, groupSelector, isOpen) {
@@ -5113,7 +5107,7 @@ function handleSettingsKeydown(event) {
   if (!panel || panel.classList.contains('hidden')) return
   if (event.key === 'Escape') {
     event.preventDefault()
-    closeSettings({ suppressReturnFocusRing: true })
+    closeSettings()
     return
   }
   if (event.key !== 'Tab') return
