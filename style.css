@@ -1717,6 +1717,7 @@ body[data-theme="dark"] .study-insight-card {
   display: flex;
   gap: 10px;
   justify-content: space-between;
+  min-height: 28px;
   min-width: 0;
 }
 .study-insight-eyebrow {
@@ -1728,14 +1729,10 @@ body[data-theme="dark"] .study-insight-card {
 }
 .study-insight-tabs {
   align-items: center;
-  background: rgba(255,255,255,0.48);
-  border: 1px solid var(--border-hi);
-  border-radius: 999px;
   display: inline-flex;
   flex: 0 0 auto;
-  padding: 2px;
+  height: 28px;
 }
-body[data-theme="dark"] .study-insight-tabs { background: rgba(5,5,5,0.18); }
 .study-insight-tab {
   align-items: center;
   background: transparent;
@@ -1748,6 +1745,7 @@ body[data-theme="dark"] .study-insight-tabs { background: rgba(5,5,5,0.18); }
   font-weight: 750;
   gap: 4px;
   line-height: 1;
+  min-height: 28px;
   padding: 5px 8px;
 }
 .study-insight-tab.active {
