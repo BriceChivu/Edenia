@@ -54,6 +54,16 @@ const SHORT_VIDEO_DETECTION_VERSION = 1
 const ANKI_REVIEW_CHUNK_SIZE = 60
 const ANKI_REVIEW_CHUNK_POINTS = 2
 const SCORING_RULES_VERSION = 6
+const STUDY_INSIGHT_LOOKBACK_DAYS = 42
+const STUDY_INSIGHT_MIN_ACTIVE_DAYS = 8
+const STUDY_INSIGHT_MIN_VIDEO_SECONDS = 2 * 60 * 60
+const STUDY_INSIGHT_SNOOZE_DAYS = 14
+const STUDY_INSIGHT_TIME_WINDOWS = [
+  { id: 'morning', startHour: 5, endHour: 12 },
+  { id: 'afternoon', startHour: 12, endHour: 17 },
+  { id: 'evening', startHour: 17, endHour: 22 },
+  { id: 'night', startHour: 22, endHour: 5 }
+]
 const CITY_LEVELS = [
   { threshold: 0, labelKey: 'city.level.1', label: '🏠 Lonely house' },
   { threshold: 5, labelKey: 'city.level.2', label: '⛵ Your house got a fresh new look! Plus a boat!' },
@@ -2418,6 +2428,30 @@ function normalizeAnkiTrackingConfig(state) {
   return changed
 }
 
+function normalizeStudyInsightConfig(state, now = new Date()) {
+  if (!state?.config) return false
+  const existing = state.config.studyInsights && typeof state.config.studyInsights === 'object' && !Array.isArray(state.config.studyInsights)
+    ? state.config.studyInsights
+    : {}
+  const existingSnoozed = existing.snoozedUntil && typeof existing.snoozedUntil === 'object' && !Array.isArray(existing.snoozedUntil)
+    ? existing.snoozedUntil
+    : {}
+  const nowTime = new Date(now).getTime()
+  const snoozedUntil = Object.fromEntries(
+    Object.entries(existingSnoozed)
+      .filter(([insightId, until]) => (
+        typeof insightId === 'string' &&
+        insightId.length <= 80 &&
+        isValidTimestamp(until) &&
+        new Date(until).getTime() > nowTime
+      ))
+  )
+  const normalized = { snoozedUntil }
+  const changed = JSON.stringify(existing) !== JSON.stringify(normalized)
+  state.config.studyInsights = normalized
+  return changed
+}
+
 function setAnkiResumeBaselineFromStats(s, stats, createdAt = new Date().toISOString()) {
   if (!s?.config || !stats) return null
   const dateKey = stats.ankiDateKey || getAnkiDateKey(new Date(stats.fetchedAt || Date.now()))
@@ -2551,6 +2585,7 @@ function loadState() {
       if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
       if (state?.config) state.config.includeShorts = normalizeIncludeShorts(state.config.includeShorts)
       if (normalizeAnkiTrackingConfig(state)) shouldSave = true
+      if (normalizeStudyInsightConfig(state)) shouldSave = true
       if (state?.config) {
         const historyView = normalizeHistoryView(state.config.historyView)
         if (state.config.historyView !== historyView) shouldSave = true
@@ -2598,6 +2633,7 @@ function saveState(s, options = {}) {
   const { backup = true, backupReason = 'automatic backup', forceBackup = false } = options
   normalizeActivityLogState(s)
   normalizeVideoWatchProgressState(s)
+  normalizeStudyInsightConfig(s)
   if (backup) createStateBackup(backupReason, { force: forceBackup })
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
@@ -2623,6 +2659,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
       ankiResumeBaselines: {},
       ankiPendingResumeBaseline: null,
       historyView: getDefaultHistoryView(),
+      studyInsights: { snoozedUntil: {} },
       channels: Array.isArray(channels) ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
       removedDefaultChannelIds: restoredRemovedDefaultIds || [],
       removedChannelIds: []
@@ -7395,6 +7432,143 @@ function hideHeatmapTooltipOnOutsideClick(event) {
 // ════════════════════════════════════════════════════════════
 // ANALYTICS & CITY SCORE
 // ════════════════════════════════════════════════════════════
+
+function getStudyInsightTimeWindow(hour) {
+  const normalizedHour = clampNumber(Math.floor(Number(hour) || 0), 0, 23)
+  return STUDY_INSIGHT_TIME_WINDOWS.find(window => (
+    window.startHour < window.endHour
+      ? normalizedHour >= window.startHour && normalizedHour < window.endHour
+      : normalizedHour >= window.startHour || normalizedHour < window.endHour
+  ))?.id || 'night'
+}
+
+function getStudyInsightEvents(state, referenceDate = getCurrentAppDate(state)) {
+  const end = new Date(referenceDate)
+  if (IS_SANDBOX) end.setHours(23, 59, 59, 999)
+  const start = new Date(end)
+  start.setDate(start.getDate() - (STUDY_INSIGHT_LOOKBACK_DAYS - 1))
+  start.setHours(0, 0, 0, 0)
+
+  return Object.values(state?.videos || {})
+    .flatMap(video => getVideoWatchProgressEntries(video))
+    .map(entry => {
+      const watchedAt = new Date(entry.watchedAt)
+      const seconds = Math.max(0, Math.floor(Number(entry.seconds) || 0))
+      if (!seconds || watchedAt < start || watchedAt > end) return null
+      return {
+        watchedAt: entry.watchedAt,
+        dateKey: toDateKey(watchedAt),
+        seconds,
+        windowId: getStudyInsightTimeWindow(watchedAt.getHours())
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(a.watchedAt) - new Date(b.watchedAt))
+}
+
+function getMedianNumber(values) {
+  const sorted = values
+    .map(Number)
+    .filter(Number.isFinite)
+    .sort((a, b) => a - b)
+  if (!sorted.length) return 0
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2
+    ? sorted[middle]
+    : (sorted[middle - 1] + sorted[middle]) / 2
+}
+
+function getStudyInsightCandidates(state, referenceDate = getCurrentAppDate(state)) {
+  const events = getStudyInsightEvents(state, referenceDate)
+  const activeDateKeys = new Set(events.map(event => event.dateKey))
+  const totalSeconds = events.reduce((sum, event) => sum + event.seconds, 0)
+  if (activeDateKeys.size < STUDY_INSIGHT_MIN_ACTIVE_DAYS || totalSeconds < STUDY_INSIGHT_MIN_VIDEO_SECONDS) return []
+
+  const firstStudyDate = new Date(`${events[0].dateKey}T12:00:00`)
+  const lastObservationDate = new Date(referenceDate)
+  lastObservationDate.setHours(12, 0, 0, 0)
+  const observationDays = Math.min(
+    STUDY_INSIGHT_LOOKBACK_DAYS,
+    Math.max(1, Math.floor((lastObservationDate - firstStudyDate) / 86_400_000) + 1)
+  )
+  if (observationDays < 14) return []
+
+  const distribution = Object.fromEntries(STUDY_INSIGHT_TIME_WINDOWS.map(window => [window.id, {
+    seconds: 0,
+    activeDateKeys: new Set()
+  }]))
+  events.forEach(event => {
+    distribution[event.windowId].seconds += event.seconds
+    distribution[event.windowId].activeDateKeys.add(event.dateKey)
+  })
+
+  const typicalMinutes = Math.max(1, Math.round(getMedianNumber(events.map(event => event.seconds)) / 60))
+  const suggestedMinutes = [10, 15, 20, 30].find(minutes => minutes >= Math.min(typicalMinutes, 30)) || 30
+  const candidates = []
+  const dominantWindow = STUDY_INSIGHT_TIME_WINDOWS
+    .map(window => ({
+      id: window.id,
+      seconds: distribution[window.id].seconds,
+      activeDays: distribution[window.id].activeDateKeys.size,
+      ratio: distribution[window.id].seconds / totalSeconds
+    }))
+    .sort((a, b) => b.ratio - a.ratio)[0]
+
+  if (dominantWindow?.ratio >= 0.55 && dominantWindow.activeDays >= 4) {
+    candidates.push({
+      id: `preferred-${dominantWindow.id}`,
+      type: 'preferred-window',
+      score: dominantWindow.ratio + 0.18,
+      windowId: dominantWindow.id,
+      percent: Math.round(dominantWindow.ratio * 100),
+      suggestedMinutes,
+      activeDays: activeDateKeys.size,
+      observationDays
+    })
+  }
+
+  const morning = distribution.morning
+  const morningRatio = morning.seconds / totalSeconds
+  if (morningRatio <= 0.08 && morning.activeDateKeys.size <= 1) {
+    candidates.push({
+      id: 'morning-opportunity',
+      type: 'morning-opportunity',
+      score: 0.72 + Math.max(0, 0.08 - morningRatio),
+      windowId: 'morning',
+      percent: Math.round(morningRatio * 100),
+      suggestedMinutes: 15,
+      activeDays: activeDateKeys.size,
+      observationDays
+    })
+  }
+
+  if (events.length >= 6 && typicalMinutes <= 25) {
+    candidates.push({
+      id: 'short-sessions',
+      type: 'short-sessions',
+      score: 0.65 + Math.max(0, (25 - typicalMinutes) / 100),
+      typicalMinutes,
+      suggestedMinutes,
+      sessionCount: events.length,
+      activeDays: activeDateKeys.size,
+      observationDays
+    })
+  }
+
+  return candidates.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
+}
+
+function getStudyInsight(state, referenceDate = getCurrentAppDate(state), now = new Date()) {
+  const snoozedUntil = state?.config?.studyInsights?.snoozedUntil || {}
+  const candidates = getStudyInsightCandidates(state, referenceDate)
+    .filter(candidate => !isValidTimestamp(snoozedUntil[candidate.id]) || new Date(snoozedUntil[candidate.id]) <= now)
+  if (!candidates.length) return null
+
+  const date = new Date(referenceDate)
+  date.setHours(12, 0, 0, 0)
+  const weekIndex = Math.floor(date.getTime() / (7 * 86_400_000))
+  return candidates[weekIndex % candidates.length]
+}
 
 function getWeeklyStats(s) {
   const currentDate = getCurrentAppDate(s)
