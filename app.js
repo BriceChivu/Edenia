@@ -33,6 +33,8 @@ const YOUTUBE_CHANNEL_ID_RE = /^UC[A-Za-z0-9_-]{20,}$/
 const YOUTUBE_HANDLE_RE = /^@[A-Za-z0-9._-]{3,30}$/
 const DEFAULT_THEME = 'light'
 const THEMES = ['light', 'dark']
+const BACKGROUND_PHYSICS_RADIUS = 130
+const BACKGROUND_PHYSICS_MAX_PARTICLES = 2600
 const DEFAULT_LOCALE = 'en'
 const SUPPORTED_LOCALES = ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr']
 const LOCALE_LABELS = {
@@ -135,6 +137,7 @@ let selectedStudyInsightView = 'current'
 let selectedActivityLogFilter = 'all'
 let forcedSearchVideoId = null
 let currentLocale = DEFAULT_LOCALE
+let backgroundPhysics = null
 const selectedHistoryPeriod = { week: null, month: null }
 let selectedCityDayOffset = 0
 const CITY_IMAGE_MIN_ZOOM = 1
@@ -2996,6 +2999,7 @@ function applyTheme(theme) {
   const normalizedTheme = normalizeTheme(theme)
   document.documentElement.dataset.theme = normalizedTheme
   document.body.dataset.theme = normalizedTheme
+  backgroundPhysics?.setTheme()
   const toggle = document.getElementById('themeToggle')
   if (toggle) {
     const isDark = normalizedTheme === 'dark'
@@ -3772,6 +3776,231 @@ function escHtml(str) {
 // SETUP & SETTINGS
 // ════════════════════════════════════════════════════════════
 
+function initBackgroundPhysics() {
+  const canvas = document.getElementById('backgroundPhysics')
+  const context = canvas?.getContext('2d', { alpha: true })
+  if (!canvas || !context) return null
+
+  const staticCanvas = document.createElement('canvas')
+  const staticContext = staticCanvas.getContext('2d', { alpha: true })
+  if (!staticContext) return null
+
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const coarsePointer = window.matchMedia('(pointer: coarse)')
+  const particles = []
+  const activeParticles = new Set()
+  const pointer = {
+    x: -BACKGROUND_PHYSICS_RADIUS,
+    y: -BACKGROUND_PHYSICS_RADIUS,
+    vx: 0,
+    vy: 0,
+    lastX: 0,
+    lastY: 0,
+    lastEventAt: 0,
+    hasPosition: false,
+    activeUntil: 0
+  }
+  let width = 0
+  let height = 0
+  let pixelRatio = 1
+  let spacing = 20
+  let columns = 0
+  let rows = 0
+  let frame = null
+  let lastFrameAt = 0
+  let resizeTimer = null
+
+  const getDotColor = () => document.body.dataset.theme === 'dark'
+    ? 'rgba(130, 210, 239, 0.13)'
+    : 'rgba(5, 5, 5, 0.075)'
+
+  const drawParticlePath = (targetContext, items, xKey, yKey, radius) => {
+    targetContext.beginPath()
+    items.forEach(particle => {
+      targetContext.moveTo(particle[xKey] + radius, particle[yKey])
+      targetContext.arc(particle[xKey], particle[yKey], radius, 0, Math.PI * 2)
+    })
+    targetContext.fill()
+  }
+
+  const renderStaticLayer = () => {
+    staticContext.setTransform(1, 0, 0, 1, 0, 0)
+    staticContext.clearRect(0, 0, staticCanvas.width, staticCanvas.height)
+    staticContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+    staticContext.fillStyle = getDotColor()
+    drawParticlePath(staticContext, particles, 'homeX', 'homeY', 1)
+  }
+
+  const draw = () => {
+    context.setTransform(1, 0, 0, 1, 0, 0)
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    context.drawImage(staticCanvas, 0, 0)
+    if (!activeParticles.size) return
+
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+    context.globalCompositeOperation = 'destination-out'
+    context.fillStyle = '#000'
+    drawParticlePath(context, activeParticles, 'homeX', 'homeY', 2.2)
+    context.globalCompositeOperation = 'source-over'
+    context.fillStyle = getDotColor()
+    drawParticlePath(context, activeParticles, 'x', 'y', 1.15)
+  }
+
+  const resetParticles = () => {
+    width = Math.max(1, window.innerWidth)
+    height = Math.max(1, window.innerHeight)
+    pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5)
+    const isLowPower = coarsePointer.matches || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4)
+    const particleLimit = isLowPower ? 1200 : BACKGROUND_PHYSICS_MAX_PARTICLES
+    spacing = Math.max(18, Math.min(34, Math.sqrt((width * height) / particleLimit)))
+    columns = Math.ceil(width / spacing) + 1
+    rows = Math.ceil(height / spacing) + 1
+
+    canvas.width = Math.ceil(width * pixelRatio)
+    canvas.height = Math.ceil(height * pixelRatio)
+    staticCanvas.width = canvas.width
+    staticCanvas.height = canvas.height
+    particles.length = 0
+    activeParticles.clear()
+
+    for (let row = 0; row < rows; row += 1) {
+      for (let column = 0; column < columns; column += 1) {
+        const homeX = (column * spacing) + (spacing * 0.5)
+        const homeY = (row * spacing) + (spacing * 0.5)
+        particles.push({ homeX, homeY, x: homeX, y: homeY, vx: 0, vy: 0 })
+      }
+    }
+
+    renderStaticLayer()
+    draw()
+  }
+
+  const activateParticlesNearPointer = () => {
+    const radius = BACKGROUND_PHYSICS_RADIUS
+    const minColumn = Math.max(0, Math.floor((pointer.x - radius) / spacing))
+    const maxColumn = Math.min(columns - 1, Math.ceil((pointer.x + radius) / spacing))
+    const minRow = Math.max(0, Math.floor((pointer.y - radius) / spacing))
+    const maxRow = Math.min(rows - 1, Math.ceil((pointer.y + radius) / spacing))
+    const radiusSquared = radius * radius
+
+    for (let row = minRow; row <= maxRow; row += 1) {
+      for (let column = minColumn; column <= maxColumn; column += 1) {
+        const particle = particles[(row * columns) + column]
+        if (!particle) continue
+        const dx = particle.homeX - pointer.x
+        const dy = particle.homeY - pointer.y
+        if ((dx * dx) + (dy * dy) <= radiusSquared) activeParticles.add(particle)
+      }
+    }
+  }
+
+  const tick = now => {
+    const timeStep = Math.min(2, Math.max(0.5, (now - lastFrameAt) / 16.67 || 1))
+    const pointerIsActive = now < pointer.activeUntil
+    const radiusSquared = BACKGROUND_PHYSICS_RADIUS * BACKGROUND_PHYSICS_RADIUS
+    const damping = Math.pow(0.82, timeStep)
+    lastFrameAt = now
+    pointer.vx *= Math.pow(0.72, timeStep)
+    pointer.vy *= Math.pow(0.72, timeStep)
+
+    activeParticles.forEach(particle => {
+      if (pointerIsActive) {
+        const dx = particle.x - pointer.x
+        const dy = particle.y - pointer.y
+        const distanceSquared = (dx * dx) + (dy * dy)
+        if (distanceSquared < radiusSquared) {
+          const distance = Math.max(1, Math.sqrt(distanceSquared))
+          const influence = 1 - (distance / BACKGROUND_PHYSICS_RADIUS)
+          const push = influence * influence * 1.8 * timeStep
+          particle.vx += ((dx / distance) * push) + (pointer.vx * influence * 0.16)
+          particle.vy += ((dy / distance) * push) + (pointer.vy * influence * 0.16)
+        }
+      }
+
+      particle.vx = (particle.vx + ((particle.homeX - particle.x) * 0.055 * timeStep)) * damping
+      particle.vy = (particle.vy + ((particle.homeY - particle.y) * 0.055 * timeStep)) * damping
+      particle.x += particle.vx * timeStep
+      particle.y += particle.vy * timeStep
+
+      const distanceHome = Math.abs(particle.homeX - particle.x) + Math.abs(particle.homeY - particle.y)
+      const speed = Math.abs(particle.vx) + Math.abs(particle.vy)
+      if (!pointerIsActive && distanceHome < 0.08 && speed < 0.04) {
+        particle.x = particle.homeX
+        particle.y = particle.homeY
+        particle.vx = 0
+        particle.vy = 0
+        activeParticles.delete(particle)
+      }
+    })
+
+    draw()
+    if (activeParticles.size) {
+      frame = window.requestAnimationFrame(tick)
+    } else {
+      frame = null
+    }
+  }
+
+  const requestTick = () => {
+    if (frame !== null) return
+    lastFrameAt = performance.now()
+    frame = window.requestAnimationFrame(tick)
+  }
+
+  const handlePointerMove = event => {
+    if (reducedMotion.matches || coarsePointer.matches || event.pointerType === 'touch') return
+    const now = performance.now()
+    if (pointer.hasPosition) {
+      const elapsedFrames = Math.max(0.5, (now - pointer.lastEventAt) / 16.67)
+      pointer.vx = Math.max(-18, Math.min(18, (event.clientX - pointer.lastX) / elapsedFrames))
+      pointer.vy = Math.max(-18, Math.min(18, (event.clientY - pointer.lastY) / elapsedFrames))
+    }
+    pointer.x = event.clientX
+    pointer.y = event.clientY
+    pointer.lastX = event.clientX
+    pointer.lastY = event.clientY
+    pointer.lastEventAt = now
+    pointer.hasPosition = true
+    pointer.activeUntil = now + 90
+    activateParticlesNearPointer()
+    requestTick()
+  }
+
+  const handleResize = () => {
+    window.clearTimeout(resizeTimer)
+    resizeTimer = window.setTimeout(resetParticles, 120)
+  }
+
+  const handleMotionPreference = () => {
+    pointer.activeUntil = 0
+    if (reducedMotion.matches || coarsePointer.matches) {
+      if (frame !== null) window.cancelAnimationFrame(frame)
+      frame = null
+      particles.forEach(particle => {
+        particle.x = particle.homeX
+        particle.y = particle.homeY
+        particle.vx = 0
+        particle.vy = 0
+      })
+      activeParticles.clear()
+      draw()
+    }
+  }
+
+  window.addEventListener('pointermove', handlePointerMove, { passive: true })
+  window.addEventListener('resize', handleResize, { passive: true })
+  reducedMotion.addEventListener?.('change', handleMotionPreference)
+  coarsePointer.addEventListener?.('change', handleMotionPreference)
+  resetParticles()
+
+  return {
+    setTheme() {
+      renderStaticLayer()
+      draw()
+    }
+  }
+}
+
 function init() {
   reportMissingI18nKeys()
   let state = loadState()
@@ -3792,6 +4021,7 @@ function init() {
   syncStreak(state)
   saveState(state)
   applyTheme(state.config.theme)
+  backgroundPhysics = initBackgroundPhysics()
   show('mainApp')
   renderAll(state)
   syncHeaderCompactState()
@@ -4083,24 +4313,25 @@ function scheduleIntroMusicChord() {
   if (!context || !output || context.state === 'closed') return
 
   const chords = [
-    [130.81, 164.81, 196, 246.94],
-    [110, 130.81, 164.81, 196],
-    [87.31, 130.81, 164.81, 220],
-    [98, 123.47, 146.83, 196]
+    [196, 261.63, 329.63, 392],
+    [220, 261.63, 329.63, 440],
+    [174.61, 261.63, 349.23, 440],
+    [196, 246.94, 329.63, 392]
   ]
-  const chord = chords[introTrailerState.musicStep % chords.length]
+  const melody = [523.25, 659.25, 587.33, 493.88]
+  const chordIndex = introTrailerState.musicStep % chords.length
+  const chord = chords[chordIndex]
   const startAt = context.currentTime + 0.04
   const endAt = startAt + 5.1
 
   chord.forEach((frequency, index) => {
     const oscillator = context.createOscillator()
     const noteGain = context.createGain()
-    oscillator.type = index % 2 === 0 ? 'sine' : 'triangle'
+    oscillator.type = 'sine'
     oscillator.frequency.setValueAtTime(frequency, startAt)
-    oscillator.detune.setValueAtTime((index - 1.5) * 2, startAt)
     noteGain.gain.setValueAtTime(0.0001, startAt)
-    noteGain.gain.exponentialRampToValueAtTime(0.026, startAt + 1.2)
-    noteGain.gain.exponentialRampToValueAtTime(0.016, startAt + 3.8)
+    noteGain.gain.exponentialRampToValueAtTime(index === 0 ? 0.018 : 0.024, startAt + 1.2)
+    noteGain.gain.exponentialRampToValueAtTime(index === 0 ? 0.011 : 0.015, startAt + 3.8)
     noteGain.gain.exponentialRampToValueAtTime(0.0001, endAt)
     oscillator.connect(noteGain)
     noteGain.connect(output)
@@ -4111,7 +4342,7 @@ function scheduleIntroMusicChord() {
   const chime = context.createOscillator()
   const chimeGain = context.createGain()
   chime.type = 'sine'
-  chime.frequency.setValueAtTime(chord[3] * 2, startAt + 0.55)
+  chime.frequency.setValueAtTime(melody[chordIndex], startAt + 0.55)
   chimeGain.gain.setValueAtTime(0.0001, startAt + 0.55)
   chimeGain.gain.exponentialRampToValueAtTime(0.012, startAt + 0.68)
   chimeGain.gain.exponentialRampToValueAtTime(0.0001, startAt + 2.3)
