@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="100 330 220 220" role="img" aria-labelledby="title">
+  <title id="title">Anki</title>
+  <defs>
+    <linearGradient id="ankiBlue" x1="254" x2="188" y1="413" y2="542" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0084dd"/>
+      <stop offset="1" stop-color="#fff"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#ankiBlue)" stroke="#fff" stroke-linejoin="round" stroke-width="16" d="M294.469 523.453c-9.08 8.813-45.575-17.77-58.102-15.978-12.526 1.793-40.1 37.546-51.287 31.633-11.188-5.912 2.816-48.835-2.76-60.195s-48.099-26.534-45.933-39.002c2.166-12.467 47.316-12.412 56.396-21.225s10.373-53.945 22.9-55.738 26.425 41.165 37.613 47.077c11.188 5.913 54.51-6.805 60.086 4.555s-30.983 37.853-33.15 50.32c-2.165 12.468 23.317 49.74 14.237 58.553z"/>
+</svg>

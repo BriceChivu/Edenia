@@ -171,6 +171,13 @@ const walkthroughState = {
   frame: null,
   isTransitioning: false
 }
+const INTRO_TRAILER_SCENE_DURATIONS = [6500, 4300, 5400, 4600, 4800]
+const introTrailerState = {
+  active: false,
+  sceneIndex: 0,
+  sceneTimer: null,
+  cityLevelTimers: []
+}
 const personalizedOnboardingState = {
   active: false,
   step: 'language',
@@ -568,6 +575,30 @@ const CURATED_CHANNEL_CATALOG = [
 ]
 const I18N_EN = {
   'app.title.sandbox': 'Sandbox - Edenia',
+  'intro.skip': 'Skip intro',
+  'intro.opening.kicker': 'Your language-learning world',
+  'intro.opening.title': 'Make every lesson build something.',
+  'intro.purpose.kicker': 'Study your way',
+  'intro.purpose.title': 'Turn YouTube and Anki into visible progress.',
+  'intro.purpose.body': 'Watch the channels you love, review your cards, and let Edenia connect the pieces.',
+  'intro.purpose.progress': 'Study points',
+  'intro.purpose.watched': 'watched',
+  'intro.purpose.reviews': 'reviews',
+  'intro.city.kicker': 'Progress becomes a place',
+  'intro.city.title': 'Study. Earn points. Watch your town evolve.',
+  'intro.city.level': 'Town level',
+  'intro.features.history': 'Study history',
+  'intro.features.week': 'This week',
+  'intro.features.studied': 'studied',
+  'intro.features.streak': 'day streak',
+  'intro.features.goal': 'Weekly goal',
+  'intro.features.kicker': 'See the journey',
+  'intro.features.title': 'Your rhythm, history, and momentum—at a glance.',
+  'intro.features.body': 'Heatmaps, goals, streaks, and study history make every small win visible.',
+  'intro.finale.kicker': 'A little progress. A whole world.',
+  'intro.finale.title': 'What will you build?',
+  'intro.finale.body': 'Create your study feed and begin your Edenia.',
+  'intro.finale.cta': 'Start my journey',
   'onboarding.progress': 'Step {current} of {total}',
   'onboarding.promise': 'Turn YouTube and Anki into visible language-learning progress.',
   'onboarding.eyebrow': 'Make your study visible',
@@ -1025,6 +1056,30 @@ const I18N = {
   en: I18N_EN,
   'zh-Hant': {
     ...I18N_EN,
+    'intro.skip': '跳過介紹',
+    'intro.opening.kicker': '你的語言學習世界',
+    'intro.opening.title': '讓每一堂課都建造出看得見的成果。',
+    'intro.purpose.kicker': '用你的方式學習',
+    'intro.purpose.title': '把 YouTube 和 Anki 變成看得見的進步。',
+    'intro.purpose.body': '觀看你喜愛的頻道、複習卡片，讓 Edenia 把每一份努力連在一起。',
+    'intro.purpose.progress': '學習積分',
+    'intro.purpose.watched': '已觀看',
+    'intro.purpose.reviews': '次複習',
+    'intro.city.kicker': '讓進步成為一個地方',
+    'intro.city.title': '學習、獲得積分，看著你的城鎮進化。',
+    'intro.city.level': '城鎮等級',
+    'intro.features.history': '學習歷史',
+    'intro.features.week': '本週',
+    'intro.features.studied': '學習時間',
+    'intro.features.streak': '天連續學習',
+    'intro.features.goal': '每週目標',
+    'intro.features.kicker': '看見整段旅程',
+    'intro.features.title': '你的節奏、歷史與動力，一眼掌握。',
+    'intro.features.body': '熱圖、目標、連續紀錄和學習歷史，讓每個小小勝利都清楚可見。',
+    'intro.finale.kicker': '一點點進步，一整個世界。',
+    'intro.finale.title': '你會建造出什麼？',
+    'intro.finale.body': '建立你的學習影片清單，開始屬於你的 Edenia。',
+    'intro.finale.cta': '開始我的旅程',
     'onboarding.progress': '第 {current} 步，共 {total} 步',
     'onboarding.promise': '把 YouTube 和 Anki 轉化為看得見的語言學習進步。',
     'onboarding.eyebrow': '讓學習成果看得見',
@@ -1385,6 +1440,30 @@ const I18N = {
   },
   'zh-Hans': {
     ...I18N_EN,
+    'intro.skip': '跳过介绍',
+    'intro.opening.kicker': '你的语言学习世界',
+    'intro.opening.title': '让每一堂课都建造出看得见的成果。',
+    'intro.purpose.kicker': '用你的方式学习',
+    'intro.purpose.title': '把 YouTube 和 Anki 变成看得见的进步。',
+    'intro.purpose.body': '观看你喜爱的频道、复习卡片，让 Edenia 把每一份努力连接起来。',
+    'intro.purpose.progress': '学习积分',
+    'intro.purpose.watched': '已观看',
+    'intro.purpose.reviews': '次复习',
+    'intro.city.kicker': '让进步成为一个地方',
+    'intro.city.title': '学习、获得积分，看着你的城镇进化。',
+    'intro.city.level': '城镇等级',
+    'intro.features.history': '学习历史',
+    'intro.features.week': '本周',
+    'intro.features.studied': '学习时间',
+    'intro.features.streak': '天连续学习',
+    'intro.features.goal': '每周目标',
+    'intro.features.kicker': '看见整段旅程',
+    'intro.features.title': '你的节奏、历史与动力，一眼掌握。',
+    'intro.features.body': '热图、目标、连续记录和学习历史，让每一个小胜利都清晰可见。',
+    'intro.finale.kicker': '一点点进步，一整个世界。',
+    'intro.finale.title': '你会建造出什么？',
+    'intro.finale.body': '建立你的学习视频清单，开始属于你的 Edenia。',
+    'intro.finale.cta': '开始我的旅程',
     'onboarding.progress': '第 {current} 步，共 {total} 步',
     'onboarding.promise': '把 YouTube 和 Anki 转化为看得见的语言学习进步。',
     'onboarding.eyebrow': '让学习成果看得见',
@@ -1726,6 +1805,30 @@ const I18N = {
   },
   es: {
     ...I18N_EN,
+    'intro.skip': 'Omitir introducción',
+    'intro.opening.kicker': 'Tu mundo de aprendizaje',
+    'intro.opening.title': 'Haz que cada lección construya algo.',
+    'intro.purpose.kicker': 'Estudia a tu manera',
+    'intro.purpose.title': 'Convierte YouTube y Anki en progreso visible.',
+    'intro.purpose.body': 'Mira los canales que te gustan, repasa tus tarjetas y deja que Edenia conecte cada esfuerzo.',
+    'intro.purpose.progress': 'Puntos de estudio',
+    'intro.purpose.watched': 'vistos',
+    'intro.purpose.reviews': 'repasos',
+    'intro.city.kicker': 'El progreso se convierte en un lugar',
+    'intro.city.title': 'Estudia. Gana puntos. Mira cómo evoluciona tu ciudad.',
+    'intro.city.level': 'Nivel de ciudad',
+    'intro.features.history': 'Historial de estudio',
+    'intro.features.week': 'Esta semana',
+    'intro.features.studied': 'estudiado',
+    'intro.features.streak': 'días de racha',
+    'intro.features.goal': 'Objetivo semanal',
+    'intro.features.kicker': 'Contempla el viaje',
+    'intro.features.title': 'Tu ritmo, historial e impulso de un vistazo.',
+    'intro.features.body': 'Los mapas de actividad, objetivos, rachas e historial hacen visible cada pequeño logro.',
+    'intro.finale.kicker': 'Un poco de progreso. Todo un mundo.',
+    'intro.finale.title': '¿Qué vas a construir?',
+    'intro.finale.body': 'Crea tu selección de estudio y comienza tu Edenia.',
+    'intro.finale.cta': 'Empezar mi viaje',
     'onboarding.progress': 'Paso {current} de {total}',
     'onboarding.promise': 'Convierte YouTube y Anki en un progreso visible en el aprendizaje de idiomas.',
     'onboarding.eyebrow': 'Haz visible tu aprendizaje',
@@ -2069,6 +2172,30 @@ const I18N = {
   },
   fr: {
     ...I18N_EN,
+    'intro.skip': 'Passer l’introduction',
+    'intro.opening.kicker': 'Votre monde d’apprentissage',
+    'intro.opening.title': 'Faites de chaque leçon une construction.',
+    'intro.purpose.kicker': 'Étudiez à votre façon',
+    'intro.purpose.title': 'Transformez YouTube et Anki en progrès visible.',
+    'intro.purpose.body': 'Regardez les chaînes que vous aimez, révisez vos cartes et laissez Edenia relier tous vos efforts.',
+    'intro.purpose.progress': 'Points d’étude',
+    'intro.purpose.watched': 'regardées',
+    'intro.purpose.reviews': 'révisions',
+    'intro.city.kicker': 'Le progrès devient un lieu',
+    'intro.city.title': 'Étudiez. Gagnez des points. Regardez votre ville évoluer.',
+    'intro.city.level': 'Niveau de la ville',
+    'intro.features.history': 'Historique d’étude',
+    'intro.features.week': 'Cette semaine',
+    'intro.features.studied': 'étudiées',
+    'intro.features.streak': 'jours de série',
+    'intro.features.goal': 'Objectif hebdomadaire',
+    'intro.features.kicker': 'Voyez le chemin parcouru',
+    'intro.features.title': 'Votre rythme, votre historique et votre élan en un coup d’œil.',
+    'intro.features.body': 'Cartes d’activité, objectifs, séries et historique rendent chaque petite victoire visible.',
+    'intro.finale.kicker': 'Un peu de progrès. Tout un monde.',
+    'intro.finale.title': 'Qu’allez-vous construire ?',
+    'intro.finale.body': 'Créez votre sélection d’étude et commencez votre Edenia.',
+    'intro.finale.cta': 'Commencer mon voyage',
     'onboarding.progress': 'Étape {current} sur {total}',
     'onboarding.promise': 'Transformez YouTube et Anki en progrès visibles dans votre apprentissage des langues.',
     'onboarding.eyebrow': 'Rendez votre apprentissage visible',
@@ -2596,6 +2723,8 @@ function applyTranslations(root = document) {
 }
 
 function renderLocaleSelect() {
+  const introSelect = document.getElementById('introLocaleSelect')
+  if (introSelect) introSelect.value = currentLocale
   const btn = document.getElementById('settingsLocaleBtn')
   const label = document.getElementById('settingsLocaleLabel')
   const menu = document.getElementById('settingsLocaleMenu')
@@ -3005,6 +3134,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
     channelRefreshes: {},
     onboarding: {
       version: ONBOARDING_VERSION,
+      introSeenAt: null,
       setupCompleted: false,
       setupCompletedAt: null,
       walkthroughCompleted: false,
@@ -3335,12 +3465,14 @@ function normalizeOnboardingState(state) {
   const legacyCompleted = existing.completed === true
   const setupCompleted = existing.setupCompleted === true || legacyCompleted
   const walkthroughCompleted = existing.walkthroughCompleted === true || legacyCompleted
+  const setupCompletedAt = setupCompleted
+    ? (isValidTimestamp(existing.setupCompletedAt) ? existing.setupCompletedAt : (isValidTimestamp(existing.completedAt) ? existing.completedAt : null))
+    : null
   const normalized = {
     version: Number.isInteger(existing.version) ? existing.version : ONBOARDING_VERSION,
+    introSeenAt: isValidTimestamp(existing.introSeenAt) ? existing.introSeenAt : setupCompletedAt,
     setupCompleted,
-    setupCompletedAt: setupCompleted
-      ? (isValidTimestamp(existing.setupCompletedAt) ? existing.setupCompletedAt : (isValidTimestamp(existing.completedAt) ? existing.completedAt : null))
-      : null,
+    setupCompletedAt,
     walkthroughCompleted,
     walkthroughCompletedAt: walkthroughCompleted
       ? (isValidTimestamp(existing.walkthroughCompletedAt) ? existing.walkthroughCompletedAt : (isValidTimestamp(existing.completedAt) ? existing.completedAt : null))
@@ -3677,12 +3809,136 @@ function maybeStartOnboarding(state) {
   }
   if (IS_SANDBOX) return
   if (!state?.onboarding?.setupCompleted) {
-    window.setTimeout(() => startPersonalizedOnboarding(state), 220)
+    if (!state?.onboarding?.introSeenAt) {
+      window.setTimeout(() => startIntroTrailer(), 220)
+    } else {
+      window.setTimeout(() => startPersonalizedOnboarding(state), 220)
+    }
     return
   }
   if (!state?.onboarding?.walkthroughCompleted) {
     window.setTimeout(() => startWalkthrough(FIRST_STUDY_WALKTHROUGH_STEPS), 350)
   }
+}
+
+function startIntroTrailer() {
+  if (IS_SANDBOX || introTrailerState.active) return
+  const trailer = document.getElementById('introTrailer')
+  if (!trailer) {
+    startPersonalizedOnboarding()
+    return
+  }
+
+  introTrailerState.active = true
+  document.body.classList.add('intro-active')
+  document.getElementById('mainApp')?.setAttribute('inert', '')
+  trailer.classList.remove('hidden')
+
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  setIntroTrailerScene(reduceMotion ? INTRO_TRAILER_SCENE_DURATIONS.length - 1 : 0, { autoAdvance: !reduceMotion })
+}
+
+function setIntroTrailerScene(sceneIndex, { autoAdvance = true } = {}) {
+  if (!introTrailerState.active) return
+  const trailer = document.getElementById('introTrailer')
+  const timeline = document.getElementById('introTimeline')
+  const previousButton = document.getElementById('introPreviousBtn')
+  const nextButton = document.getElementById('introNextBtn')
+  if (!trailer) return
+
+  window.clearTimeout(introTrailerState.sceneTimer)
+  introTrailerState.cityLevelTimers.forEach(timer => window.clearTimeout(timer))
+  introTrailerState.cityLevelTimers = []
+  introTrailerState.sceneIndex = Math.max(0, Math.min(sceneIndex, INTRO_TRAILER_SCENE_DURATIONS.length - 1))
+  const duration = INTRO_TRAILER_SCENE_DURATIONS[introTrailerState.sceneIndex]
+
+  trailer.dataset.scene = String(introTrailerState.sceneIndex)
+  trailer.style.setProperty('--intro-duration', `${duration}ms`)
+  if (previousButton) previousButton.disabled = introTrailerState.sceneIndex === 0
+  if (nextButton) nextButton.disabled = introTrailerState.sceneIndex === INTRO_TRAILER_SCENE_DURATIONS.length - 1
+  timeline?.querySelectorAll('span').forEach((segment, index) => {
+    segment.classList.toggle('is-complete', index < introTrailerState.sceneIndex)
+    segment.classList.toggle('is-active', index === introTrailerState.sceneIndex)
+  })
+
+  if (introTrailerState.sceneIndex === 2) animateIntroCityLevel()
+  const isFinalScene = introTrailerState.sceneIndex === INTRO_TRAILER_SCENE_DURATIONS.length - 1
+  if (!autoAdvance || isFinalScene) return
+  introTrailerState.sceneTimer = window.setTimeout(() => {
+    const nextScene = introTrailerState.sceneIndex + 1
+    if (nextScene < INTRO_TRAILER_SCENE_DURATIONS.length) setIntroTrailerScene(nextScene)
+  }, duration)
+}
+
+function navigateIntroTrailer(direction) {
+  if (!introTrailerState.active) return
+  const nextScene = introTrailerState.sceneIndex + Math.sign(Number(direction) || 0)
+  if (nextScene < 0 || nextScene >= INTRO_TRAILER_SCENE_DURATIONS.length) return
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  setIntroTrailerScene(nextScene, { autoAdvance: !reduceMotion })
+}
+
+function changeIntroLocale(locale) {
+  const state = loadState()
+  if (!state?.config) return
+  const nextLocale = normalizeLocale(locale)
+  state.config.locale = nextLocale
+  saveState(state, { backup: false })
+  applyLocale(nextLocale)
+  document.title = IS_SANDBOX ? t('app.title.sandbox') : 'Edenia'
+
+  if (introTrailerState.active && introTrailerState.sceneIndex === 0) {
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    setIntroTrailerScene(0, { autoAdvance: !reduceMotion })
+  }
+}
+
+function handleIntroTrailerKeydown(event) {
+  if (!introTrailerState.active || event.defaultPrevented) return
+  if (event.target instanceof Element && event.target.closest('select, input, textarea')) return
+  if (event.altKey || event.ctrlKey || event.metaKey) return
+
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    navigateIntroTrailer(-1)
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    navigateIntroTrailer(1)
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    finishIntroTrailer()
+  }
+}
+
+function animateIntroCityLevel() {
+  const level = document.getElementById('introCityLevel')
+  if (!level) return
+  level.textContent = '1'
+  ;[[1250, '4'], [2550, '8'], [3850, '12']].forEach(([delay, value]) => {
+    introTrailerState.cityLevelTimers.push(window.setTimeout(() => {
+      level.textContent = value
+    }, delay))
+  })
+}
+
+function finishIntroTrailer() {
+  if (!introTrailerState.active) return
+  window.clearTimeout(introTrailerState.sceneTimer)
+  introTrailerState.cityLevelTimers.forEach(timer => window.clearTimeout(timer))
+  introTrailerState.cityLevelTimers = []
+  introTrailerState.active = false
+
+  const trailer = document.getElementById('introTrailer')
+  trailer?.classList.add('hidden')
+  document.body.classList.remove('intro-active')
+
+  const state = loadState()
+  if (state) {
+    normalizeOnboardingState(state)
+    state.onboarding.introSeenAt = state.onboarding.introSeenAt || new Date().toISOString()
+    saveState(state, { backup: false })
+  }
+  startPersonalizedOnboarding(state)
 }
 
 function startPersonalizedOnboarding(state = loadState()) {
@@ -10192,4 +10448,5 @@ document.addEventListener('keydown', closeManualVideoPopoverOnEscape)
 document.addEventListener('keydown', closeVideoSearchPopoverOnEscape)
 document.addEventListener('keydown', closeLocaleMenuOnEscape)
 document.addEventListener('keydown', handleSettingsKeydown)
+document.addEventListener('keydown', handleIntroTrailerKeydown)
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)

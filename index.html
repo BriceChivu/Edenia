@@ -18,6 +18,137 @@
 <body>
 
   <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- FIRST-RUN INTRO TRAILER                               -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <section class="intro-trailer hidden" id="introTrailer" data-scene="0" role="dialog" aria-modal="true" aria-labelledby="introTrailerTitle">
+    <button class="intro-skip" type="button" onclick="finishIntroTrailer()" data-i18n="intro.skip">Skip intro</button>
+
+    <div class="intro-stage" aria-live="polite">
+      <button class="intro-nav-btn intro-nav-previous" id="introPreviousBtn" type="button" onclick="navigateIntroTrailer(-1)" data-i18n-title="onboarding.back" data-i18n-aria-label="onboarding.back">
+        <span aria-hidden="true">←</span>
+      </button>
+      <button class="intro-nav-btn intro-nav-next" id="introNextBtn" type="button" onclick="navigateIntroTrailer(1)" data-i18n-title="onboarding.continue" data-i18n-aria-label="onboarding.continue">
+        <span aria-hidden="true">→</span>
+      </button>
+
+      <article class="intro-scene intro-scene-opening" data-intro-scene="0">
+        <label class="intro-language-picker" for="introLocaleSelect">
+          <span aria-hidden="true">◎</span>
+          <span data-i18n="settings.language.label">Language</span>
+          <select id="introLocaleSelect" onchange="changeIntroLocale(this.value)" data-i18n-aria-label="settings.language.label">
+            <option value="en">English</option>
+            <option value="zh-Hant">繁體中文</option>
+            <option value="zh-Hans">简体中文</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+          </select>
+        </label>
+        <div class="intro-orbit intro-orbit-one" aria-hidden="true"></div>
+        <div class="intro-orbit intro-orbit-two" aria-hidden="true"></div>
+        <img class="intro-mark" src="Edenia_favicon_round.png" alt="" aria-hidden="true">
+        <p class="intro-kicker" data-i18n="intro.opening.kicker">Your language-learning world</p>
+        <h1 class="intro-logo" id="introTrailerTitle">EDENIA</h1>
+        <p class="intro-lede" data-i18n="intro.opening.title">Make every lesson build something.</p>
+      </article>
+
+      <article class="intro-scene intro-scene-purpose" data-intro-scene="1">
+        <div class="intro-copy">
+          <p class="intro-kicker" data-i18n="intro.purpose.kicker">Study your way</p>
+          <h2 data-i18n="intro.purpose.title">Turn YouTube and Anki into visible progress.</h2>
+          <p data-i18n="intro.purpose.body">Watch the channels you love, review your cards, and let Edenia connect the pieces.</p>
+        </div>
+        <div class="intro-source-flow" aria-hidden="true">
+          <span class="intro-source-aura"></span>
+          <svg class="intro-source-paths" viewBox="0 0 420 360" preserveAspectRatio="none">
+            <path d="M104 112 C122 196 174 202 210 278"></path>
+            <path d="M316 112 C298 196 246 202 210 278"></path>
+            <circle cx="104" cy="112" r="5"></circle>
+            <circle cx="316" cy="112" r="5"></circle>
+          </svg>
+          <div class="intro-source-card intro-source-youtube">
+            <span class="intro-source-card-top">
+              <span class="intro-brand-logo intro-brand-logo-youtube"><img src="images/brands/youtube.svg" alt=""></span>
+              <strong>YouTube</strong>
+              <span class="intro-source-check">✓</span>
+            </span>
+            <span class="intro-source-metric"><b>42 min</b><small data-i18n="intro.purpose.watched">watched</small></span>
+            <span class="intro-source-activity"><i></i><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="intro-source-card intro-source-anki">
+            <span class="intro-source-card-top">
+              <span class="intro-brand-logo intro-brand-logo-anki"><img src="images/brands/anki.svg" alt=""></span>
+              <strong>Anki</strong>
+              <span class="intro-source-check">✓</span>
+            </span>
+            <span class="intro-source-metric"><b>60</b><small data-i18n="intro.purpose.reviews">reviews</small></span>
+            <span class="intro-source-activity intro-source-activity-anki"><i></i><i></i><i></i><i></i><i></i></span>
+          </div>
+          <div class="intro-progress-spark">
+            <span class="intro-progress-orbit"></span>
+            <img class="intro-progress-mark" src="Edenia_favicon_round.png" alt="">
+            <span class="intro-spark-ring">+3</span>
+            <strong data-i18n="intro.purpose.progress">Study points</strong>
+          </div>
+          <span class="intro-source-particle intro-source-particle-one"></span>
+          <span class="intro-source-particle intro-source-particle-two"></span>
+          <span class="intro-source-particle intro-source-particle-three"></span>
+        </div>
+      </article>
+
+      <article class="intro-scene intro-scene-city" data-intro-scene="2">
+        <div class="intro-city-copy">
+          <p class="intro-kicker" data-i18n="intro.city.kicker">Progress becomes a place</p>
+          <h2 data-i18n="intro.city.title">Study. Earn points. Watch your town evolve.</h2>
+        </div>
+        <div class="intro-city-viewport" aria-hidden="true">
+          <img class="intro-city-frame intro-city-frame-one" src="images/city/level%200.webp" alt="">
+          <img class="intro-city-frame intro-city-frame-two" src="images/city/level%204.webp" alt="">
+          <img class="intro-city-frame intro-city-frame-three" src="images/city/level%208.webp" alt="">
+          <img class="intro-city-frame intro-city-frame-four" src="images/city/level%2012.webp" alt="">
+          <span class="intro-level-chip"><span data-i18n="intro.city.level">Town level</span> <b id="introCityLevel">1</b></span>
+        </div>
+      </article>
+
+      <article class="intro-scene intro-scene-features" data-intro-scene="3">
+        <div class="intro-feature-demo" aria-hidden="true">
+          <div class="intro-demo-head">
+            <span data-i18n="intro.features.history">Study history</span>
+            <span class="intro-demo-pill" data-i18n="intro.features.week">This week</span>
+          </div>
+          <div class="intro-demo-stats">
+            <div><b>6h 24m</b><span data-i18n="intro.features.studied">studied</span></div>
+            <div><b>7</b><span data-i18n="intro.features.streak">day streak</span></div>
+          </div>
+          <div class="intro-demo-heatmap">
+            <i></i><i class="level-1"></i><i></i><i class="level-2"></i><i class="level-3"></i><i></i><i class="level-1"></i>
+            <i class="level-1"></i><i class="level-2"></i><i class="level-2"></i><i></i><i class="level-4"></i><i class="level-3"></i><i></i>
+            <i></i><i class="level-1"></i><i class="level-3"></i><i class="level-4"></i><i class="level-2"></i><i class="level-1"></i><i class="level-3"></i>
+            <i class="level-2"></i><i></i><i class="level-1"></i><i class="level-3"></i><i class="level-4"></i><i class="level-2"></i><i class="level-4"></i>
+          </div>
+          <div class="intro-demo-goal"><span></span><b>80%</b><small data-i18n="intro.features.goal">Weekly goal</small></div>
+        </div>
+        <div class="intro-copy intro-feature-copy">
+          <p class="intro-kicker" data-i18n="intro.features.kicker">See the journey</p>
+          <h2 data-i18n="intro.features.title">Your rhythm, history, and momentum—at a glance.</h2>
+          <p data-i18n="intro.features.body">Heatmaps, goals, streaks, and study history make every small win visible.</p>
+        </div>
+      </article>
+
+      <article class="intro-scene intro-scene-finale" data-intro-scene="4">
+        <img class="intro-finale-mark" src="Edenia_favicon_round.png" alt="" aria-hidden="true">
+        <p class="intro-kicker" data-i18n="intro.finale.kicker">A little progress. A whole world.</p>
+        <h2 data-i18n="intro.finale.title">What will you build?</h2>
+        <p data-i18n="intro.finale.body">Create your study feed and begin your Edenia.</p>
+        <button class="btn-primary intro-start" type="button" onclick="finishIntroTrailer()" data-i18n="intro.finale.cta">Start my journey</button>
+      </article>
+    </div>
+
+    <div class="intro-timeline" id="introTimeline" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
   <!-- FIRST-RUN ONBOARDING                                  -->
   <!-- ═══════════════════════════════════════════════════════ -->
   <section class="onboarding-panel hidden" id="onboardingPanel" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">

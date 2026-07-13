@@ -2,7 +2,8 @@
 Minor changes:
 - small duck walking around/popup giving motivational quotes
 - Photoshop: add the duck on the island. sometimes shifting to different locations (like on the deck, in the water floating, or in front of the door of the house)
-
+- "Continue studying" should feel like a button. It is completely static as of now.
+- Add an adictive sound when clicking on "Level up" and "mark as watched". Add a pleasant sound when scrolling in the waveform. 
 
 
 
