@@ -2755,8 +2755,18 @@ function applyTranslations(root = document) {
 }
 
 function renderLocaleSelect() {
-  const introSelect = document.getElementById('introLocaleSelect')
-  if (introSelect) introSelect.value = currentLocale
+  const introButton = document.getElementById('introLocaleBtn')
+  const introLabel = document.getElementById('introLocaleLabel')
+  const introMenu = document.getElementById('introLocaleMenu')
+  if (introButton && introLabel && introMenu) {
+    introLabel.textContent = getLocaleLabel(currentLocale)
+    introMenu.innerHTML = SUPPORTED_LOCALES.map(locale => `
+      <label class="settings-locale-option">
+        <input type="radio" name="introLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} onchange="changeIntroLocale(this.value)">
+        <span>${escHtml(getLocaleLabel(locale))}</span>
+      </label>
+    `).join('')
+  }
   const btn = document.getElementById('settingsLocaleBtn')
   const label = document.getElementById('settingsLocaleLabel')
   const menu = document.getElementById('settingsLocaleMenu')
@@ -3920,6 +3930,7 @@ function navigateIntroTrailer(direction) {
 }
 
 function changeIntroLocale(locale) {
+  closeIntroLocaleMenu()
   const state = loadState()
   if (!state?.config) return
   const nextLocale = normalizeLocale(locale)
@@ -3948,8 +3959,35 @@ function handleIntroTrailerKeydown(event) {
     navigateIntroTrailer(1)
   } else if (event.key === 'Escape') {
     event.preventDefault()
+    const localeMenu = document.getElementById('introLocaleMenu')
+    if (localeMenu && !localeMenu.classList.contains('hidden')) {
+      closeIntroLocaleMenu()
+      return
+    }
     finishIntroTrailer()
   }
+}
+
+function toggleIntroLocaleMenu(event) {
+  event.stopPropagation()
+  const button = document.getElementById('introLocaleBtn')
+  const menu = document.getElementById('introLocaleMenu')
+  if (!button || !menu) return
+  const isOpen = menu.classList.toggle('hidden') === false
+  button.setAttribute('aria-expanded', String(isOpen))
+}
+
+function closeIntroLocaleMenu() {
+  const button = document.getElementById('introLocaleBtn')
+  const menu = document.getElementById('introLocaleMenu')
+  if (!button || !menu) return
+  menu.classList.add('hidden')
+  button.setAttribute('aria-expanded', 'false')
+}
+
+function closeIntroLocaleMenuOnOutsideClick(event) {
+  if (event.target.closest('.intro-language-picker')) return
+  closeIntroLocaleMenu()
 }
 
 function animateIntroCityLevel() {
@@ -5013,7 +5051,7 @@ function openSettings() {
   window.setTimeout(() => document.getElementById('settingsCloseBtn')?.focus(), 0)
 }
 
-function closeSettings() {
+function closeSettings({ suppressReturnFocusRing = false } = {}) {
   const panel = document.getElementById('settingsPanel')
   if (!panel || panel.classList.contains('hidden')) return
   hide('settingsPanel')
@@ -5021,7 +5059,13 @@ function closeSettings() {
   if (main) main.inert = false
   const returnFocus = openSettings.returnFocus
   openSettings.returnFocus = null
-  if (returnFocus?.isConnected) window.setTimeout(() => returnFocus.focus(), 0)
+  if (returnFocus?.isConnected) window.setTimeout(() => {
+    if (suppressReturnFocusRing) {
+      returnFocus.classList.add('suppress-return-focus-ring')
+      returnFocus.addEventListener('blur', () => returnFocus.classList.remove('suppress-return-focus-ring'), { once: true })
+    }
+    returnFocus.focus()
+  }, 0)
 }
 
 function setSettingsAccordionOpen(contentId, toggleSelector, groupSelector, isOpen) {
@@ -5069,7 +5113,7 @@ function handleSettingsKeydown(event) {
   if (!panel || panel.classList.contains('hidden')) return
   if (event.key === 'Escape') {
     event.preventDefault()
-    closeSettings()
+    closeSettings({ suppressReturnFocusRing: true })
     return
   }
   if (event.key !== 'Tab') return
@@ -10632,6 +10676,7 @@ document.addEventListener('click', closeHistoryActionPopoversOnOutsideClick)
 document.addEventListener('click', closeManualVideoPopoverOnOutsideClick)
 document.addEventListener('click', closeVideoSearchPopoverOnOutsideClick)
 document.addEventListener('click', closeLocaleMenuOnOutsideClick)
+document.addEventListener('click', closeIntroLocaleMenuOnOutsideClick)
 document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
 document.addEventListener('click', clearCityWaveformPreviewOnOutsideClick)
 document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)

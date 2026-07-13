@@ -11,9 +11,9 @@
   <link rel="preload" as="font" href="assets/fonts/space-grotesk-latin-ext.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin-ext.woff2" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=20260713-55">
+  <link rel="stylesheet" href="style.css?v=20260713-58">
   <script src="config.local.js" defer></script>
-  <script src="app.js?v=20260713-68" defer></script>
+  <script src="app.js?v=20260713-70" defer></script>
 </head>
 <body>
 
@@ -43,17 +43,13 @@
       </button>
 
       <article class="intro-scene intro-scene-opening" data-intro-scene="0">
-        <label class="intro-language-picker" for="introLocaleSelect">
-          <span aria-hidden="true">◎</span>
-          <span data-i18n="settings.language.label">Language</span>
-          <select id="introLocaleSelect" onchange="changeIntroLocale(this.value)" data-i18n-aria-label="settings.language.label">
-            <option value="en">English</option>
-            <option value="zh-Hant">繁體中文</option>
-            <option value="zh-Hans">简体中文</option>
-            <option value="es">Español</option>
-            <option value="fr">Français</option>
-          </select>
-        </label>
+        <div class="intro-language-picker" id="introLocalePicker">
+          <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="introLocaleBtn" onclick="toggleIntroLocaleMenu(event)" aria-haspopup="true" aria-expanded="false">
+            <span class="settings-locale-label" id="introLocaleLabel">English</span>
+            <span class="settings-locale-caret" aria-hidden="true"></span>
+          </button>
+          <div class="settings-locale-menu intro-locale-menu hidden" id="introLocaleMenu" role="radiogroup" aria-label="Language" data-i18n-aria-label="settings.language.label"></div>
+        </div>
         <div class="intro-orbit intro-orbit-one" aria-hidden="true"></div>
         <div class="intro-orbit intro-orbit-two" aria-hidden="true"></div>
         <img class="intro-mark" src="Edenia_favicon_round.png" alt="" aria-hidden="true">
