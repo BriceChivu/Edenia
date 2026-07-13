@@ -64,6 +64,17 @@ const STUDY_INSIGHT_TIME_WINDOWS = [
   { id: 'evening', startHour: 17, endHour: 22 },
   { id: 'night', startHour: 22, endHour: 5 }
 ]
+const STUDY_INSIGHT_TYPES = [
+  'preferred-window',
+  'morning-opportunity',
+  'short-sessions',
+  'reliable-weekday',
+  'weekend-opportunity',
+  'momentum-up',
+  'momentum-reset',
+  'long-sessions'
+]
+const STUDY_INSIGHT_VARIANT_COUNT = 2
 const CITY_LEVELS = [
   { threshold: 0, labelKey: 'city.level.1', label: '🏠 Lonely house' },
   { threshold: 5, labelKey: 'city.level.2', label: '⛵ Your house got a fresh new look! Plus a boat!' },
@@ -716,13 +727,44 @@ const I18N_EN = {
   'insights.window.night': 'late evening',
   'insights.title.preferred-window': 'Protect what already works',
   'insights.body.preferred-window': 'The {window} is your most reliable study window. Try protecting a {minutes}-minute slot there on busy days.',
+  'insights.title.preferred-window.alt': 'Defend your best study window',
+  'insights.body.preferred-window.alt': 'Your study repeatedly lands in the {window}. Reserve even {minutes} minutes there when the day gets crowded.',
   'insights.evidence.preferred-window': '{percent}% of your video study happened in the {window} across {days} active days.',
   'insights.title.morning-opportunity': 'A small morning experiment',
   'insights.body.morning-opportunity': 'You almost never study in the morning. Would a {minutes}-minute {subject} session fit into your morning routine?',
+  'insights.title.morning-opportunity.alt': 'Test a different start to the day',
+  'insights.body.morning-opportunity.alt': 'Morning is still mostly unused for study. Try one {minutes}-minute {subject} block and see whether it feels sustainable.',
   'insights.evidence.morning-opportunity': 'Morning sessions made up {percent}% of your video study across {days} active days.',
   'insights.title.short-sessions': 'Small sessions are working',
   'insights.body.short-sessions': 'Your typical video-study session lasts about {minutes} minutes. Keeping a short session ready can make consistency easier.',
+  'insights.title.short-sessions.alt': 'Your rhythm fits compact sessions',
+  'insights.body.short-sessions.alt': 'You often make progress in roughly {minutes}-minute blocks. Treat that as a valid default, not a backup plan.',
   'insights.evidence.short-sessions': '{sessions} study sessions across {days} active days.',
+  'insights.title.reliable-weekday': 'Make {weekday} your weekly anchor',
+  'insights.body.reliable-weekday': '{weekday} appears more reliably than other days. Protecting that recurring slot could stabilize the rest of your week.',
+  'insights.title.reliable-weekday.alt': '{weekday} keeps showing up',
+  'insights.body.reliable-weekday.alt': 'Your history points to {weekday} as a dependable study day. Plan around that strength before adding new commitments.',
+  'insights.evidence.reliable-weekday': '{percent}% of your active study days fell on {weekday}.',
+  'insights.title.weekend-opportunity': 'Leave a small weekend doorway',
+  'insights.body.weekend-opportunity': 'Weekends are almost absent from your study pattern. A flexible {minutes}-minute session could prevent a full two-day gap.',
+  'insights.title.weekend-opportunity.alt': 'Try a weekend fallback',
+  'insights.body.weekend-opportunity.alt': 'Your routine is strongly weekday-based. Keep one low-pressure {minutes}-minute option available for Saturday or Sunday.',
+  'insights.evidence.weekend-opportunity': '{percent}% of your video study happened on weekends.',
+  'insights.title.momentum-up': 'Your momentum is building',
+  'insights.body.momentum-up': 'Study time increased meaningfully over the last two weeks. Keep the next step familiar so the pace remains sustainable.',
+  'insights.title.momentum-up.alt': 'The last two weeks moved upward',
+  'insights.body.momentum-up.alt': 'Your recent study volume is above the previous period. Repeat the routine that made the increase possible.',
+  'insights.evidence.momentum-up': 'The latest 14 days included {recentMinutes} minutes, {comparisonPercent}% more than the prior 14 days.',
+  'insights.title.momentum-reset': 'Make the restart smaller',
+  'insights.body.momentum-reset': 'Recent study time dipped compared with the previous two weeks. Restart with one easy {minutes}-minute session instead of catching up all at once.',
+  'insights.title.momentum-reset.alt': 'Lower the cost of getting started',
+  'insights.body.momentum-reset.alt': 'Your recent pace is quieter than before. Choose the easiest {minutes}-minute study action and rebuild from there.',
+  'insights.evidence.momentum-reset': 'The latest 14 days included {recentMinutes} minutes, {comparisonPercent}% below the prior 14 days.',
+  'insights.title.long-sessions': 'Add a short-session safety net',
+  'insights.body.long-sessions': 'Your typical session lasts about {minutes} minutes. On crowded days, a {suggestedMinutes}-minute fallback can protect continuity.',
+  'insights.title.long-sessions.alt': 'Keep a lighter option ready',
+  'insights.body.long-sessions.alt': 'You usually study in substantial blocks of about {minutes} minutes. Define a smaller version for days when that block will not fit.',
+  'insights.evidence.long-sessions': '{sessions} sessions across {days} active days; the typical session was {typicalMinutes} minutes.',
   'insights.collapse': 'Collapse study insights',
   'insights.reopen': 'Insights',
   'insights.reopen.aria': 'Show study insights',
@@ -1149,6 +1191,37 @@ const I18N = {
     'insights.title.short-sessions': '短時間學習也很有效',
     'insights.body.short-sessions': '你的影片學習通常一次約 {minutes} 分鐘。預留一個短時間選項，能讓持續學習更容易。',
     'insights.evidence.short-sessions': '{days} 個有學習的日子中，共記錄了 {sessions} 次學習。',
+    'insights.title.preferred-window.alt': '守住最適合你的學習時段',
+    'insights.body.preferred-window.alt': '你的學習一再落在{window}。行程擁擠時，也先留下 {minutes} 分鐘。',
+    'insights.title.morning-opportunity.alt': '試著用不同方式開始一天',
+    'insights.body.morning-opportunity.alt': '早上仍很少用來學習。先試一次 {minutes} 分鐘的{subject}學習，看看是否能持續。',
+    'insights.title.short-sessions.alt': '你的節奏適合精簡學習',
+    'insights.body.short-sessions.alt': '你經常在約 {minutes} 分鐘內取得進展。把這當作有效的預設方式，而不是備案。',
+    'insights.title.reliable-weekday': '讓{weekday}成為每週錨點',
+    'insights.body.reliable-weekday': '{weekday}比其他日子更穩定地出現學習。保留這個固定時段，能讓整週更穩定。',
+    'insights.title.reliable-weekday.alt': '{weekday}一再出現',
+    'insights.body.reliable-weekday.alt': '紀錄顯示{weekday}是你可靠的學習日。加入新安排前，先圍繞這個優勢規劃。',
+    'insights.evidence.reliable-weekday': '你的有效學習日中，{percent}% 落在{weekday}。',
+    'insights.title.weekend-opportunity': '週末留一個小入口',
+    'insights.body.weekend-opportunity': '週末幾乎沒有出現在你的學習模式中。彈性的 {minutes} 分鐘學習可避免連續兩天空白。',
+    'insights.title.weekend-opportunity.alt': '試試週末備案',
+    'insights.body.weekend-opportunity.alt': '你的節奏很偏向平日。為週六或週日準備一個低壓力的 {minutes} 分鐘選項。',
+    'insights.evidence.weekend-opportunity': '週末影片學習佔比為 {percent}%。',
+    'insights.title.momentum-up': '你的動力正在增強',
+    'insights.body.momentum-up': '過去兩週的學習時間明顯增加。繼續熟悉的下一步，讓這個速度能持續。',
+    'insights.title.momentum-up.alt': '最近兩週向上走',
+    'insights.body.momentum-up.alt': '最近的學習量高於前一階段。重複促成這次增長的例行節奏。',
+    'insights.evidence.momentum-up': '最近 14 天學習 {recentMinutes} 分鐘，比前 14 天多 {comparisonPercent}%。',
+    'insights.title.momentum-reset': '把重新開始變得更小',
+    'insights.body.momentum-reset': '最近的學習時間比前兩週少。別一次追進度，先從輕鬆的 {minutes} 分鐘開始。',
+    'insights.title.momentum-reset.alt': '降低開始的門檻',
+    'insights.body.momentum-reset.alt': '你最近的節奏比以前安靜。選擇最容易的 {minutes} 分鐘學習行動，再慢慢重建。',
+    'insights.evidence.momentum-reset': '最近 14 天學習 {recentMinutes} 分鐘，比前 14 天少 {comparisonPercent}%。',
+    'insights.title.long-sessions': '加上短時間學習安全網',
+    'insights.body.long-sessions': '你典型的學習約 {minutes} 分鐘。忙碌時，可用 {suggestedMinutes} 分鐘備案保持連續性。',
+    'insights.title.long-sessions.alt': '準備一個輕量版本',
+    'insights.body.long-sessions.alt': '你通常以約 {minutes} 分鐘的大塊時間學習。為無法安排這段時間的日子定義一個小版本。',
+    'insights.evidence.long-sessions': '{days} 個有學習的日子共 {sessions} 次；典型學習時長為 {typicalMinutes} 分鐘。',
     'insights.collapse': '收合學習洞察',
     'insights.reopen': '學習洞察',
     'insights.reopen.aria': '顯示學習洞察',
@@ -1476,6 +1549,37 @@ const I18N = {
     'insights.title.short-sessions': '短时间学习也很有效',
     'insights.body.short-sessions': '你的视频学习通常一次约 {minutes} 分钟。预留一个短时间选项，能让持续学习更容易。',
     'insights.evidence.short-sessions': '{days} 个有学习的日子中，共记录了 {sessions} 次学习。',
+    'insights.title.preferred-window.alt': '守住最适合你的学习时段',
+    'insights.body.preferred-window.alt': '你的学习一再落在{window}。行程拥挤时，也先留下 {minutes} 分钟。',
+    'insights.title.morning-opportunity.alt': '试着用不同方式开始一天',
+    'insights.body.morning-opportunity.alt': '早上仍很少用来学习。先试一次 {minutes} 分钟的{subject}学习，看看是否能持续。',
+    'insights.title.short-sessions.alt': '你的节奏适合精简学习',
+    'insights.body.short-sessions.alt': '你经常在约 {minutes} 分钟内取得进展。把这当作有效的默认方式，而不是备案。',
+    'insights.title.reliable-weekday': '让{weekday}成为每周锚点',
+    'insights.body.reliable-weekday': '{weekday}比其他日子更稳定地出现学习。保留这个固定时段，能让整周更稳定。',
+    'insights.title.reliable-weekday.alt': '{weekday}一再出现',
+    'insights.body.reliable-weekday.alt': '记录显示{weekday}是你可靠的学习日。加入新安排前，先围绕这个优势规划。',
+    'insights.evidence.reliable-weekday': '你的有效学习日中，{percent}% 落在{weekday}。',
+    'insights.title.weekend-opportunity': '周末留一个小入口',
+    'insights.body.weekend-opportunity': '周末几乎没有出现在你的学习模式中。灵活的 {minutes} 分钟学习可避免连续两天空白。',
+    'insights.title.weekend-opportunity.alt': '试试周末备案',
+    'insights.body.weekend-opportunity.alt': '你的节奏很偏向工作日。为周六或周日准备一个低压力的 {minutes} 分钟选项。',
+    'insights.evidence.weekend-opportunity': '周末视频学习占比为 {percent}%。',
+    'insights.title.momentum-up': '你的动力正在增强',
+    'insights.body.momentum-up': '过去两周的学习时间明显增加。继续熟悉的下一步，让这个速度能持续。',
+    'insights.title.momentum-up.alt': '最近两周向上走',
+    'insights.body.momentum-up.alt': '最近的学习量高于前一阶段。重复促成这次增长的日常节奏。',
+    'insights.evidence.momentum-up': '最近 14 天学习 {recentMinutes} 分钟，比前 14 天多 {comparisonPercent}%。',
+    'insights.title.momentum-reset': '把重新开始变得更小',
+    'insights.body.momentum-reset': '最近的学习时间比前两周少。别一次追进度，先从轻松的 {minutes} 分钟开始。',
+    'insights.title.momentum-reset.alt': '降低开始的门槛',
+    'insights.body.momentum-reset.alt': '你最近的节奏比以前安静。选择最容易的 {minutes} 分钟学习行动，再慢慢重建。',
+    'insights.evidence.momentum-reset': '最近 14 天学习 {recentMinutes} 分钟，比前 14 天少 {comparisonPercent}%。',
+    'insights.title.long-sessions': '加上短时间学习安全网',
+    'insights.body.long-sessions': '你典型的学习约 {minutes} 分钟。忙碌时，可用 {suggestedMinutes} 分钟备案保持连续性。',
+    'insights.title.long-sessions.alt': '准备一个轻量版本',
+    'insights.body.long-sessions.alt': '你通常以约 {minutes} 分钟的大块时间学习。为无法安排这段时间的日子定义一个小版本。',
+    'insights.evidence.long-sessions': '{days} 个有学习的日子共 {sessions} 次；典型学习时长为 {typicalMinutes} 分钟。',
     'insights.collapse': '收起学习洞察',
     'insights.reopen': '学习洞察',
     'insights.reopen.aria': '显示学习洞察',
@@ -1786,6 +1890,37 @@ const I18N = {
     'insights.title.short-sessions': 'Las sesiones cortas funcionan',
     'insights.body.short-sessions': 'Tu sesión habitual con vídeos dura unos {minutes} minutos. Tener preparada una opción corta puede facilitar la constancia.',
     'insights.evidence.short-sessions': '{sessions} sesiones de estudio durante {days} días activos.',
+    'insights.title.preferred-window.alt': 'Defiende tu mejor momento de estudio',
+    'insights.body.preferred-window.alt': 'Tu estudio vuelve una y otra vez a la {window}. Reserva al menos {minutes} minutos cuando el día esté lleno.',
+    'insights.title.morning-opportunity.alt': 'Prueba otra forma de empezar el día',
+    'insights.body.morning-opportunity.alt': 'La mañana sigue casi sin usarse para estudiar. Prueba un bloque de {subject} de {minutes} minutos y comprueba si es sostenible.',
+    'insights.title.short-sessions.alt': 'Tu ritmo encaja con sesiones compactas',
+    'insights.body.short-sessions.alt': 'Sueles avanzar en bloques de unos {minutes} minutos. Trátalos como una opción válida, no como un plan B.',
+    'insights.title.reliable-weekday': 'Haz del {weekday} tu punto de apoyo',
+    'insights.body.reliable-weekday': 'El {weekday} aparece con más constancia que otros días. Proteger ese espacio puede estabilizar el resto de la semana.',
+    'insights.title.reliable-weekday.alt': 'El {weekday} sigue apareciendo',
+    'insights.body.reliable-weekday.alt': 'Tu historial señala el {weekday} como un día fiable. Planifica desde esa fortaleza antes de añadir compromisos.',
+    'insights.evidence.reliable-weekday': 'El {percent}% de tus días de estudio activos fueron {weekday}.',
+    'insights.title.weekend-opportunity': 'Deja una pequeña puerta para el fin de semana',
+    'insights.body.weekend-opportunity': 'Los fines de semana casi no aparecen en tu patrón. Una sesión flexible de {minutes} minutos puede evitar dos días vacíos.',
+    'insights.title.weekend-opportunity.alt': 'Prueba un plan B de fin de semana',
+    'insights.body.weekend-opportunity.alt': 'Tu rutina se concentra entre semana. Deja disponible una opción tranquila de {minutes} minutos para sábado o domingo.',
+    'insights.evidence.weekend-opportunity': 'El {percent}% de tu estudio con vídeos ocurrió durante el fin de semana.',
+    'insights.title.momentum-up': 'Tu impulso está creciendo',
+    'insights.body.momentum-up': 'El tiempo de estudio aumentó claramente en las últimas dos semanas. Mantén familiar el siguiente paso para sostener el ritmo.',
+    'insights.title.momentum-up.alt': 'Las últimas dos semanas fueron a más',
+    'insights.body.momentum-up.alt': 'Tu volumen reciente supera al periodo anterior. Repite la rutina que hizo posible ese aumento.',
+    'insights.evidence.momentum-up': 'Los últimos 14 días sumaron {recentMinutes} minutos, un {comparisonPercent}% más que los 14 anteriores.',
+    'insights.title.momentum-reset': 'Haz más pequeño el reinicio',
+    'insights.body.momentum-reset': 'El estudio reciente bajó frente a las dos semanas anteriores. Vuelve con una sesión sencilla de {minutes} minutos, sin recuperar todo de golpe.',
+    'insights.title.momentum-reset.alt': 'Reduce el esfuerzo de empezar',
+    'insights.body.momentum-reset.alt': 'Tu ritmo reciente está más tranquilo. Elige la acción de {minutes} minutos más fácil y reconstruye desde ahí.',
+    'insights.evidence.momentum-reset': 'Los últimos 14 días sumaron {recentMinutes} minutos, un {comparisonPercent}% menos que los 14 anteriores.',
+    'insights.title.long-sessions': 'Añade una red de seguridad corta',
+    'insights.body.long-sessions': 'Tu sesión habitual dura unos {minutes} minutos. En días llenos, una alternativa de {suggestedMinutes} minutos puede mantener la continuidad.',
+    'insights.title.long-sessions.alt': 'Ten preparada una versión más ligera',
+    'insights.body.long-sessions.alt': 'Sueles estudiar en bloques amplios de unos {minutes} minutos. Define una versión menor para los días en que no quepan.',
+    'insights.evidence.long-sessions': '{sessions} sesiones en {days} días activos; la sesión habitual duró {typicalMinutes} minutos.',
     'insights.collapse': 'Contraer las observaciones de estudio',
     'insights.reopen': 'Observaciones',
     'insights.reopen.aria': 'Mostrar las observaciones de estudio',
@@ -2098,6 +2233,37 @@ const I18N = {
     'insights.title.short-sessions': 'Les courtes sessions fonctionnent',
     'insights.body.short-sessions': 'Votre session habituelle en vidéo dure environ {minutes} minutes. Garder une option courte à portée de main peut faciliter la régularité.',
     'insights.evidence.short-sessions': '{sessions} sessions d’étude pendant {days} jours actifs.',
+    'insights.title.preferred-window.alt': 'Protégez votre meilleur créneau',
+    'insights.body.preferred-window.alt': 'Votre travail revient régulièrement sur le créneau « {window} ». Réservez-y au moins {minutes} minutes les jours chargés.',
+    'insights.title.morning-opportunity.alt': 'Testez un autre début de journée',
+    'insights.body.morning-opportunity.alt': 'Le matin reste presque inutilisé pour étudier. Essayez {minutes} minutes de {subject} et voyez si ce rythme vous convient.',
+    'insights.title.short-sessions.alt': 'Votre rythme convient aux sessions compactes',
+    'insights.body.short-sessions.alt': 'Vous progressez souvent par blocs d’environ {minutes} minutes. Considérez-les comme un vrai format, pas comme un plan de secours.',
+    'insights.title.reliable-weekday': 'Faites du {weekday} votre point d’ancrage',
+    'insights.body.reliable-weekday': 'Le {weekday} revient plus régulièrement que les autres jours. Protéger ce créneau peut stabiliser toute la semaine.',
+    'insights.title.reliable-weekday.alt': 'Le {weekday} revient souvent',
+    'insights.body.reliable-weekday.alt': 'Votre historique désigne le {weekday} comme un jour fiable. Organisez-vous autour de cette force avant d’ajouter des contraintes.',
+    'insights.evidence.reliable-weekday': '{percent} % de vos jours d’étude actifs étaient des {weekday}.',
+    'insights.title.weekend-opportunity': 'Laissez une petite place au week-end',
+    'insights.body.weekend-opportunity': 'Le week-end est presque absent de votre rythme. Une session souple de {minutes} minutes peut éviter deux jours entièrement vides.',
+    'insights.title.weekend-opportunity.alt': 'Prévoyez un plan B pour le week-end',
+    'insights.body.weekend-opportunity.alt': 'Votre routine se concentre en semaine. Gardez une option sans pression de {minutes} minutes pour samedi ou dimanche.',
+    'insights.evidence.weekend-opportunity': '{percent} % de votre étude en vidéo a eu lieu le week-end.',
+    'insights.title.momentum-up': 'Votre élan se renforce',
+    'insights.body.momentum-up': 'Votre temps d’étude a nettement augmenté ces deux dernières semaines. Gardez une prochaine étape familière pour tenir ce rythme.',
+    'insights.title.momentum-up.alt': 'Les deux dernières semaines progressent',
+    'insights.body.momentum-up.alt': 'Votre volume récent dépasse la période précédente. Répétez la routine qui a permis cette hausse.',
+    'insights.evidence.momentum-up': 'Les 14 derniers jours totalisent {recentMinutes} minutes, soit {comparisonPercent} % de plus que les 14 jours précédents.',
+    'insights.title.momentum-reset': 'Rendez la reprise plus petite',
+    'insights.body.momentum-reset': 'Le temps d’étude récent a baissé. Reprenez avec une session simple de {minutes} minutes plutôt que de tout rattraper.',
+    'insights.title.momentum-reset.alt': 'Réduisez l’effort pour commencer',
+    'insights.body.momentum-reset.alt': 'Votre rythme récent est plus calme. Choisissez l’action de {minutes} minutes la plus facile et reconstruisez à partir de là.',
+    'insights.evidence.momentum-reset': 'Les 14 derniers jours totalisent {recentMinutes} minutes, soit {comparisonPercent} % de moins que les 14 jours précédents.',
+    'insights.title.long-sessions': 'Ajoutez un filet de sécurité court',
+    'insights.body.long-sessions': 'Votre session habituelle dure environ {minutes} minutes. Les jours chargés, une option de {suggestedMinutes} minutes peut préserver la continuité.',
+    'insights.title.long-sessions.alt': 'Gardez une version plus légère',
+    'insights.body.long-sessions.alt': 'Vous travaillez souvent par blocs d’environ {minutes} minutes. Définissez une version réduite pour les jours où ce bloc ne tient pas.',
+    'insights.evidence.long-sessions': '{sessions} sessions sur {days} jours actifs ; la session habituelle durait {typicalMinutes} minutes.',
     'insights.collapse': 'Réduire les observations d’étude',
     'insights.reopen': 'Observations',
     'insights.reopen.aria': 'Afficher les observations d’étude',
@@ -2563,10 +2729,11 @@ function normalizeStudyInsightConfig(state) {
   const existing = state.config.studyInsights && typeof state.config.studyInsights === 'object' && !Array.isArray(state.config.studyInsights)
     ? state.config.studyInsights
     : {}
+  const legacyVariantCounts = new Map()
   const history = (Array.isArray(existing.history) ? existing.history : [])
     .filter(entry => entry && typeof entry === 'object' && !Array.isArray(entry))
     .map(entry => {
-      const type = ['preferred-window', 'morning-opportunity', 'short-sessions'].includes(entry.type)
+      const type = STUDY_INSIGHT_TYPES.includes(entry.type)
         ? entry.type
         : null
       const windowId = STUDY_INSIGHT_TIME_WINDOWS.some(window => window.id === entry.windowId)
@@ -2577,8 +2744,17 @@ function normalizeStudyInsightConfig(state) {
         key: String(entry.key).slice(0, 140),
         insightId: String(entry.insightId || '').slice(0, 80),
         type,
+        variant: Number.isInteger(entry.variant)
+          ? clampNumber(entry.variant, 0, STUDY_INSIGHT_VARIANT_COUNT - 1)
+          : null,
         windowId,
+        weekdayIndex: Number.isInteger(entry.weekdayIndex) && entry.weekdayIndex >= 0 && entry.weekdayIndex <= 6
+          ? entry.weekdayIndex
+          : null,
         percent: clampNumber(Math.round(Number(entry.percent) || 0), 0, 100),
+        comparisonPercent: Math.max(0, Math.round(Number(entry.comparisonPercent) || 0)),
+        recentMinutes: Math.max(0, Math.round(Number(entry.recentMinutes) || 0)),
+        previousMinutes: Math.max(0, Math.round(Number(entry.previousMinutes) || 0)),
         suggestedMinutes: clampNumber(Math.round(Number(entry.suggestedMinutes) || 0), 1, 180),
         typicalMinutes: clampNumber(Math.round(Number(entry.typicalMinutes) || 0), 0, 180),
         sessionCount: Math.max(0, Math.round(Number(entry.sessionCount) || 0)),
@@ -2590,6 +2766,12 @@ function normalizeStudyInsightConfig(state) {
     .filter(Boolean)
     .sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt))
     .filter((entry, index, entries) => entries.findIndex(candidate => candidate.key === entry.key) === index)
+    .map(entry => {
+      if (entry.variant !== null) return entry
+      const count = legacyVariantCounts.get(entry.insightId) || 0
+      legacyVariantCounts.set(entry.insightId, count + 1)
+      return { ...entry, variant: count % STUDY_INSIGHT_VARIANT_COUNT }
+    })
     .slice(0, STUDY_INSIGHT_HISTORY_LIMIT)
   const normalized = {
     enabled: existing.enabled !== false,
@@ -7671,6 +7853,40 @@ function getStudyInsightCandidates(state, referenceDate = getCurrentAppDate(stat
   const typicalMinutes = Math.max(1, Math.round(getMedianNumber(events.map(event => event.seconds)) / 60))
   const suggestedMinutes = [10, 15, 20, 30].find(minutes => minutes >= Math.min(typicalMinutes, 30)) || 30
   const candidates = []
+  const activeDates = Array.from(activeDateKeys).map(dateKey => new Date(`${dateKey}T12:00:00`))
+  const weekdayCounts = Array(7).fill(0)
+  activeDates.forEach(date => { weekdayCounts[date.getDay()] += 1 })
+  const dominantWeekdayIndex = weekdayCounts.reduce(
+    (bestIndex, count, index) => count > weekdayCounts[bestIndex] ? index : bestIndex,
+    0
+  )
+  const dominantWeekdayDays = weekdayCounts[dominantWeekdayIndex]
+  const dominantWeekdayRatio = dominantWeekdayDays / activeDateKeys.size
+  const weekendDateKeys = new Set(events
+    .filter(event => {
+      const day = new Date(`${event.dateKey}T12:00:00`).getDay()
+      return day === 0 || day === 6
+    })
+    .map(event => event.dateKey))
+  const weekendSeconds = events
+    .filter(event => weekendDateKeys.has(event.dateKey))
+    .reduce((sum, event) => sum + event.seconds, 0)
+  const weekendRatio = weekendSeconds / totalSeconds
+  const comparisonEnd = new Date(referenceDate)
+  comparisonEnd.setHours(23, 59, 59, 999)
+  const recentStart = new Date(comparisonEnd)
+  recentStart.setDate(recentStart.getDate() - 13)
+  recentStart.setHours(0, 0, 0, 0)
+  const previousStart = new Date(recentStart)
+  previousStart.setDate(previousStart.getDate() - 14)
+  const recentEvents = events.filter(event => new Date(event.watchedAt) >= recentStart)
+  const previousEvents = events.filter(event => {
+    const watchedAt = new Date(event.watchedAt)
+    return watchedAt >= previousStart && watchedAt < recentStart
+  })
+  const recentSeconds = recentEvents.reduce((sum, event) => sum + event.seconds, 0)
+  const previousSeconds = previousEvents.reduce((sum, event) => sum + event.seconds, 0)
+  const recentActiveDays = new Set(recentEvents.map(event => event.dateKey)).size
   const dominantWindow = STUDY_INSIGHT_TIME_WINDOWS
     .map(window => ({
       id: window.id,
@@ -7721,6 +7937,68 @@ function getStudyInsightCandidates(state, referenceDate = getCurrentAppDate(stat
     })
   }
 
+  if (dominantWeekdayDays >= 4 && dominantWeekdayRatio >= 0.28) {
+    candidates.push({
+      id: `reliable-weekday-${dominantWeekdayIndex}`,
+      type: 'reliable-weekday',
+      score: 0.62 + dominantWeekdayRatio,
+      weekdayIndex: dominantWeekdayIndex,
+      percent: Math.round(dominantWeekdayRatio * 100),
+      activeDays: activeDateKeys.size,
+      observationDays
+    })
+  }
+
+  if (weekendRatio <= 0.08 && weekendDateKeys.size <= 1) {
+    candidates.push({
+      id: 'weekend-opportunity',
+      type: 'weekend-opportunity',
+      score: 0.6 + Math.max(0, 0.08 - weekendRatio),
+      percent: Math.round(weekendRatio * 100),
+      suggestedMinutes: 15,
+      activeDays: activeDateKeys.size,
+      observationDays
+    })
+  }
+
+  if (previousSeconds >= 30 * 60 && recentSeconds >= previousSeconds * 1.4 && recentActiveDays >= 3) {
+    candidates.push({
+      id: 'momentum-up',
+      type: 'momentum-up',
+      score: 0.78,
+      comparisonPercent: Math.round((recentSeconds / previousSeconds - 1) * 100),
+      recentMinutes: Math.round(recentSeconds / 60),
+      previousMinutes: Math.round(previousSeconds / 60),
+      activeDays: recentActiveDays,
+      observationDays
+    })
+  } else if (previousSeconds >= 60 * 60 && recentSeconds <= previousSeconds * 0.55) {
+    candidates.push({
+      id: 'momentum-reset',
+      type: 'momentum-reset',
+      score: 0.74,
+      comparisonPercent: Math.round((1 - recentSeconds / previousSeconds) * 100),
+      recentMinutes: Math.round(recentSeconds / 60),
+      previousMinutes: Math.round(previousSeconds / 60),
+      suggestedMinutes: 15,
+      activeDays: recentActiveDays,
+      observationDays
+    })
+  }
+
+  if (events.length >= 6 && typicalMinutes >= 45) {
+    candidates.push({
+      id: 'long-sessions',
+      type: 'long-sessions',
+      score: 0.66 + Math.min(0.12, (typicalMinutes - 45) / 200),
+      typicalMinutes,
+      suggestedMinutes: 15,
+      sessionCount: events.length,
+      activeDays: activeDateKeys.size,
+      observationDays
+    })
+  }
+
   return candidates.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
 }
 
@@ -7731,7 +8009,15 @@ function getStudyInsight(state, referenceDate = getCurrentAppDate(state)) {
   const date = new Date(referenceDate)
   date.setHours(12, 0, 0, 0)
   const weekIndex = Math.floor(date.getTime() / (7 * 86_400_000))
-  return candidates[weekIndex % candidates.length]
+  const candidate = candidates[weekIndex % candidates.length]
+  const history = state?.config?.studyInsights?.history || []
+  const currentKey = getStudyInsightHistoryKey(candidate, state, referenceDate)
+  const currentEntry = history.find(entry => entry.key === currentKey)
+  const previousEntry = history.find(entry => entry.insightId === candidate.id)
+  const variant = currentEntry
+    ? currentEntry.variant
+    : ((Number(previousEntry?.variant) || 0) + (previousEntry ? 1 : 0)) % STUDY_INSIGHT_VARIANT_COUNT
+  return { ...candidate, variant }
 }
 
 function getStudyInsightHistoryKey(insight, state, referenceDate = getCurrentAppDate(state)) {
@@ -7750,8 +8036,13 @@ function recordStudyInsight(state, insight, referenceDate = getCurrentAppDate(st
     key,
     insightId: insight.id,
     type: insight.type,
+    variant: insight.variant || 0,
     windowId: insight.windowId || null,
+    weekdayIndex: Number.isInteger(insight.weekdayIndex) ? insight.weekdayIndex : null,
     percent: insight.percent || 0,
+    comparisonPercent: insight.comparisonPercent || 0,
+    recentMinutes: insight.recentMinutes || 0,
+    previousMinutes: insight.previousMinutes || 0,
     suggestedMinutes: insight.suggestedMinutes || 0,
     typicalMinutes: insight.typicalMinutes || 0,
     sessionCount: insight.sessionCount || 0,
@@ -7955,10 +8246,20 @@ function getStudyInsightSubject(state) {
 function getStudyInsightViewModel(insight, state) {
   if (!insight) return null
   const windowLabel = insight.windowId ? t(`insights.window.${insight.windowId}`) : ''
+  const weekday = Number.isInteger(insight.weekdayIndex)
+    ? formatLocaleDate(new Date(2026, 0, 4 + insight.weekdayIndex), { weekday: 'long' })
+    : ''
+  const suffix = insight.variant === 1 ? '.alt' : ''
   const common = {
     window: windowLabel,
+    weekday,
     minutes: insight.suggestedMinutes,
+    suggestedMinutes: insight.suggestedMinutes,
+    typicalMinutes: insight.typicalMinutes,
     percent: insight.percent,
+    comparisonPercent: insight.comparisonPercent,
+    recentMinutes: insight.recentMinutes,
+    previousMinutes: insight.previousMinutes,
     days: insight.activeDays,
     sessions: insight.sessionCount,
     subject: getStudyInsightSubject(state)
@@ -7966,26 +8267,58 @@ function getStudyInsightViewModel(insight, state) {
 
   if (insight.type === 'preferred-window') {
     return {
-      icon: '◷',
-      title: t('insights.title.preferred-window'),
-      body: t('insights.body.preferred-window', common),
+      title: t(`insights.title.preferred-window${suffix}`),
+      body: t(`insights.body.preferred-window${suffix}`, common),
       evidence: t('insights.evidence.preferred-window', common)
     }
   }
   if (insight.type === 'morning-opportunity') {
     return {
-      icon: '☀',
-      title: t('insights.title.morning-opportunity'),
-      body: t('insights.body.morning-opportunity', common),
+      title: t(`insights.title.morning-opportunity${suffix}`),
+      body: t(`insights.body.morning-opportunity${suffix}`, common),
       evidence: t('insights.evidence.morning-opportunity', common)
     }
   }
   if (insight.type === 'short-sessions') {
     return {
-      icon: '≈',
-      title: t('insights.title.short-sessions'),
-      body: t('insights.body.short-sessions', { ...common, minutes: insight.typicalMinutes }),
+      title: t(`insights.title.short-sessions${suffix}`),
+      body: t(`insights.body.short-sessions${suffix}`, { ...common, minutes: insight.typicalMinutes }),
       evidence: t('insights.evidence.short-sessions', common)
+    }
+  }
+  if (insight.type === 'reliable-weekday') {
+    return {
+      title: t(`insights.title.reliable-weekday${suffix}`, common),
+      body: t(`insights.body.reliable-weekday${suffix}`, common),
+      evidence: t('insights.evidence.reliable-weekday', common)
+    }
+  }
+  if (insight.type === 'weekend-opportunity') {
+    return {
+      title: t(`insights.title.weekend-opportunity${suffix}`),
+      body: t(`insights.body.weekend-opportunity${suffix}`, common),
+      evidence: t('insights.evidence.weekend-opportunity', common)
+    }
+  }
+  if (insight.type === 'momentum-up') {
+    return {
+      title: t(`insights.title.momentum-up${suffix}`),
+      body: t(`insights.body.momentum-up${suffix}`, common),
+      evidence: t('insights.evidence.momentum-up', common)
+    }
+  }
+  if (insight.type === 'momentum-reset') {
+    return {
+      title: t(`insights.title.momentum-reset${suffix}`),
+      body: t(`insights.body.momentum-reset${suffix}`, common),
+      evidence: t('insights.evidence.momentum-reset', common)
+    }
+  }
+  if (insight.type === 'long-sessions') {
+    return {
+      title: t(`insights.title.long-sessions${suffix}`),
+      body: t(`insights.body.long-sessions${suffix}`, { ...common, minutes: insight.typicalMinutes }),
+      evidence: t('insights.evidence.long-sessions', common)
     }
   }
   return null
