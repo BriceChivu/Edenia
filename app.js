@@ -186,7 +186,9 @@ const introTrailerState = {
   masterGain: null,
   musicOutput: null,
   musicTimer: null,
-  musicStep: 0
+  musicStep: 0,
+  musicNextChordAt: 0,
+  musicResumeDelay: 3800
 }
 const personalizedOnboardingState = {
   active: false,
@@ -4351,6 +4353,15 @@ function scheduleIntroMusicChord() {
   chime.start(startAt + 0.55)
   chime.stop(startAt + 2.35)
   introTrailerState.musicStep += 1
+  introTrailerState.musicNextChordAt = context.currentTime + 3.8
+}
+
+function scheduleIntroMusicLoop(delay = 3800) {
+  window.clearTimeout(introTrailerState.musicTimer)
+  introTrailerState.musicTimer = window.setTimeout(() => {
+    scheduleIntroMusicChord()
+    introTrailerState.musicTimer = window.setInterval(scheduleIntroMusicChord, 3800)
+  }, Math.max(0, delay))
 }
 
 async function startIntroMusic() {
@@ -4373,10 +4384,11 @@ async function startIntroMusic() {
   introTrailerState.masterGain = masterGain
   introTrailerState.musicOutput = filter
   introTrailerState.musicStep = 0
+  introTrailerState.musicResumeDelay = 3800
   introTrailerState.soundEnabled = true
   updateIntroSoundButton()
   scheduleIntroMusicChord()
-  introTrailerState.musicTimer = window.setInterval(scheduleIntroMusicChord, 3800)
+  scheduleIntroMusicLoop()
   if (context.state === 'suspended') {
     window.addEventListener('pointerdown', unlockIntroMusic, { capture: true })
     window.addEventListener('keydown', unlockIntroMusic, { capture: true })
@@ -4407,17 +4419,37 @@ function stopIntroMusic({ fadeDuration = 0.28 } = {}) {
   introTrailerState.masterGain = null
   introTrailerState.musicOutput = null
   introTrailerState.musicStep = 0
+  introTrailerState.musicNextChordAt = 0
+  introTrailerState.musicResumeDelay = 3800
   introTrailerState.soundEnabled = false
   updateIntroSoundButton()
 }
 
 async function toggleIntroSound() {
   if (introTrailerState.soundEnabled) {
-    stopIntroMusic()
+    const context = introTrailerState.audioContext
+    if (!context || context.state === 'closed') {
+      stopIntroMusic()
+      return
+    }
+    introTrailerState.musicResumeDelay = Math.max(0, (introTrailerState.musicNextChordAt - context.currentTime) * 1000)
+    window.clearTimeout(introTrailerState.musicTimer)
+    introTrailerState.musicTimer = null
+    introTrailerState.soundEnabled = false
+    updateIntroSoundButton()
+    await context.suspend()
     return
   }
   try {
-    await startIntroMusic()
+    const context = introTrailerState.audioContext
+    if (context && context.state !== 'closed') {
+      introTrailerState.soundEnabled = true
+      updateIntroSoundButton()
+      await context.resume()
+      scheduleIntroMusicLoop(introTrailerState.musicResumeDelay)
+    } else {
+      await startIntroMusic()
+    }
   } catch (error) {
     stopIntroMusic()
     console.warn('Unable to start intro music.', error)
