@@ -174,6 +174,7 @@ const walkthroughState = {
 const INTRO_TRAILER_SCENE_DURATIONS = [6500, 4300, 5400, 4600, 4800]
 const introTrailerState = {
   active: false,
+  replayMode: false,
   sceneIndex: 0,
   sceneTimer: null,
   cityLevelTimers: []
@@ -599,6 +600,7 @@ const I18N_EN = {
   'intro.finale.title': 'What will you build?',
   'intro.finale.body': 'Create your study feed and begin your Edenia.',
   'intro.finale.cta': 'Start my journey',
+  'intro.finale.return': 'Back to Edenia',
   'onboarding.progress': 'Step {current} of {total}',
   'onboarding.promise': 'Turn YouTube and Anki into visible language-learning progress.',
   'onboarding.eyebrow': 'Make your study visible',
@@ -698,6 +700,7 @@ const I18N_EN = {
   'settings.sync.import': 'Import sync file',
   'settings.sync.note': 'Progress is saved in this browser. Use sync files to copy the same progress to another device or browser.',
   'settings.walkthroughAgain': 'Show walkthrough again',
+  'settings.trailerAgain': 'Show trailer again',
   'settings.backups.title': 'Recent local backups',
   'settings.backups.note': 'Local backups can recover from a bad import, reset, or app save. Export a sync file for protection outside this browser.',
   'settings.reset.open': 'Reset everything',
@@ -1080,6 +1083,7 @@ const I18N = {
     'intro.finale.title': '你會建造出什麼？',
     'intro.finale.body': '建立你的學習影片清單，開始屬於你的 Edenia。',
     'intro.finale.cta': '開始我的旅程',
+    'intro.finale.return': '返回 Edenia',
     'onboarding.progress': '第 {current} 步，共 {total} 步',
     'onboarding.promise': '把 YouTube 和 Anki 轉化為看得見的語言學習進步。',
     'onboarding.eyebrow': '讓學習成果看得見',
@@ -1182,6 +1186,7 @@ const I18N = {
     'settings.sync.import': '匯入同步檔',
     'settings.sync.note': '進度會儲存在這個瀏覽器。使用同步檔可以把同一份進度帶到其他裝置或瀏覽器。',
     'settings.walkthroughAgain': '再次顯示導覽',
+    'settings.trailerAgain': '再次播放預告片',
     'settings.backups.title': '最近本機備份',
     'settings.backups.note': '本機備份可以在匯入、重置或儲存出錯後復原。若要保護到瀏覽器之外，請匯出同步檔。',
     'settings.reset.open': '全部重置',
@@ -1464,6 +1469,7 @@ const I18N = {
     'intro.finale.title': '你会建造出什么？',
     'intro.finale.body': '建立你的学习视频清单，开始属于你的 Edenia。',
     'intro.finale.cta': '开始我的旅程',
+    'intro.finale.return': '返回 Edenia',
     'onboarding.progress': '第 {current} 步，共 {total} 步',
     'onboarding.promise': '把 YouTube 和 Anki 转化为看得见的语言学习进步。',
     'onboarding.eyebrow': '让学习成果看得见',
@@ -1565,6 +1571,7 @@ const I18N = {
     'settings.sync.import': '导入同步文件',
     'settings.sync.note': '进度会保存在这个浏览器。使用同步文件可以把同一份进度带到其他设备或浏览器。',
     'settings.walkthroughAgain': '再次显示导览',
+    'settings.trailerAgain': '再次播放预告片',
     'settings.backups.title': '最近本地备份',
     'settings.backups.note': '本地备份可以在导入、重置或保存出错后恢复。若要保护到浏览器之外，请导出同步文件。',
     'settings.reset.open': '全部重置',
@@ -1829,6 +1836,7 @@ const I18N = {
     'intro.finale.title': '¿Qué vas a construir?',
     'intro.finale.body': 'Crea tu selección de estudio y comienza tu Edenia.',
     'intro.finale.cta': 'Empezar mi viaje',
+    'intro.finale.return': 'Volver a Edenia',
     'onboarding.progress': 'Paso {current} de {total}',
     'onboarding.promise': 'Convierte YouTube y Anki en un progreso visible en el aprendizaje de idiomas.',
     'onboarding.eyebrow': 'Haz visible tu aprendizaje',
@@ -1930,6 +1938,7 @@ const I18N = {
     'settings.sync.import': 'Importar archivo',
     'settings.sync.note': 'El progreso se guarda en este navegador. Usa archivos de sincronización para copiarlo a otro dispositivo o navegador.',
     'settings.walkthroughAgain': 'Ver guía otra vez',
+    'settings.trailerAgain': 'Ver tráiler otra vez',
     'settings.backups.title': 'Copias locales recientes',
     'settings.backups.note': 'Las copias locales ayudan después de una mala importación, un reinicio o un error de guardado. Exporta un archivo para protegerte fuera de este navegador.',
     'settings.reset.open': 'Restablecer todo',
@@ -2196,6 +2205,7 @@ const I18N = {
     'intro.finale.title': 'Qu’allez-vous construire ?',
     'intro.finale.body': 'Créez votre sélection d’étude et commencez votre Edenia.',
     'intro.finale.cta': 'Commencer mon voyage',
+    'intro.finale.return': 'Retour à Edenia',
     'onboarding.progress': 'Étape {current} sur {total}',
     'onboarding.promise': 'Transformez YouTube et Anki en progrès visibles dans votre apprentissage des langues.',
     'onboarding.eyebrow': 'Rendez votre apprentissage visible',
@@ -2297,6 +2307,7 @@ const I18N = {
     'settings.sync.import': 'Importer le fichier',
     'settings.sync.note': 'La progression est enregistrée dans ce navigateur. Utilisez les fichiers de synchronisation pour la copier sur un autre appareil ou navigateur.',
     'settings.walkthroughAgain': 'Revoir la visite guidée',
+    'settings.trailerAgain': 'Revoir la bande-annonce',
     'settings.backups.title': 'Sauvegardes locales récentes',
     'settings.backups.note': 'Les sauvegardes locales aident après une mauvaise importation, une réinitialisation ou une erreur de sauvegarde. Exportez un fichier pour protéger vos données hors de ce navigateur.',
     'settings.reset.open': 'Tout réinitialiser',
@@ -3821,18 +3832,25 @@ function maybeStartOnboarding(state) {
   }
 }
 
-function startIntroTrailer() {
-  if (IS_SANDBOX || introTrailerState.active) return
+function startIntroTrailer({ replay = false } = {}) {
+  if ((IS_SANDBOX && !replay) || introTrailerState.active) return
   const trailer = document.getElementById('introTrailer')
   if (!trailer) {
-    startPersonalizedOnboarding()
+    if (!replay) startPersonalizedOnboarding()
     return
   }
 
   introTrailerState.active = true
+  introTrailerState.replayMode = replay
   document.body.classList.add('intro-active')
   document.getElementById('mainApp')?.setAttribute('inert', '')
   trailer.classList.remove('hidden')
+  const startButton = document.getElementById('introStartBtn')
+  if (startButton) {
+    const labelKey = replay ? 'intro.finale.return' : 'intro.finale.cta'
+    startButton.dataset.i18n = labelKey
+    startButton.textContent = t(labelKey)
+  }
 
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   setIntroTrailerScene(reduceMotion ? INTRO_TRAILER_SCENE_DURATIONS.length - 1 : 0, { autoAdvance: !reduceMotion })
@@ -3923,14 +3941,21 @@ function animateIntroCityLevel() {
 
 function finishIntroTrailer() {
   if (!introTrailerState.active) return
+  const wasReplay = introTrailerState.replayMode
   window.clearTimeout(introTrailerState.sceneTimer)
   introTrailerState.cityLevelTimers.forEach(timer => window.clearTimeout(timer))
   introTrailerState.cityLevelTimers = []
   introTrailerState.active = false
+  introTrailerState.replayMode = false
 
   const trailer = document.getElementById('introTrailer')
   trailer?.classList.add('hidden')
   document.body.classList.remove('intro-active')
+
+  if (wasReplay) {
+    document.getElementById('mainApp')?.removeAttribute('inert')
+    return
+  }
 
   const state = loadState()
   if (state) {
@@ -4260,6 +4285,11 @@ function consumeSandboxWalkthroughAfterReset() {
 function showWalkthroughAgain() {
   closeSettings()
   window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS, { manual: true }), 120)
+}
+
+function showTrailerAgain() {
+  closeSettings()
+  window.setTimeout(() => startIntroTrailer({ replay: true }), 120)
 }
 
 function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {

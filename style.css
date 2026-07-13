@@ -668,31 +668,91 @@ html:lang(zh-Hans) .intro-scene-finale h2 {
   width: 48px;
 }
 .intro-scene-city {
+  align-items: center;
   align-content: center;
-  gap: clamp(18px, 3vw, 32px);
-  grid-template-rows: auto minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 62px);
+  grid-template-columns: minmax(230px, 0.72fr) minmax(0, 1.28fr);
 }
-.intro-city-copy { display: grid; gap: 8px; text-align: center; }
-.intro-city-copy h2 { font-size: clamp(2rem, 4.4vw, 4.2rem); }
+.intro-city-copy { align-content: center; display: grid; gap: clamp(10px, 1.5vw, 16px); text-align: left; }
+.intro-city-copy h2 {
+  font-size: clamp(2rem, 3.1vw, 3.5rem);
+  line-height: 0.98;
+  max-width: 12ch;
+}
+html:lang(es) .intro-city-copy h2,
+html:lang(fr) .intro-city-copy h2 { font-size: clamp(1.85rem, 2.8vw, 3.15rem); line-height: 1.03; max-width: 14ch; }
+html:lang(zh-Hant) .intro-city-copy h2,
+html:lang(zh-Hans) .intro-city-copy h2 { font-size: clamp(1.75rem, 2.8vw, 3rem); line-height: 1.16; max-width: 10ch; }
+.intro-city-growth {
+  align-items: center;
+  display: grid;
+  grid-template-columns: 30px minmax(12px, 1fr) 30px minmax(12px, 1fr) 30px minmax(12px, 1fr) 34px;
+  margin-top: clamp(4px, 1vw, 10px);
+  max-width: 340px;
+  width: 100%;
+}
+.intro-city-growth span {
+  align-items: center;
+  background: var(--planet-white);
+  border: 2px solid var(--planet-black);
+  border-radius: 50%;
+  color: var(--text);
+  display: flex;
+  font-size: 0.68rem;
+  font-weight: 900;
+  height: 30px;
+  justify-content: center;
+  position: relative;
+  width: 30px;
+  z-index: 2;
+}
+.intro-city-growth span:last-child { height: 34px; width: 34px; }
+.intro-city-growth i {
+  background: var(--soft-blue);
+  border-block: 2px solid var(--planet-black);
+  display: block;
+  height: 8px;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.intro-trailer[data-scene="2"] .intro-city-growth span { animation: introGrowthStep 420ms var(--ease-emphasized) both; }
+.intro-trailer[data-scene="2"] .intro-city-growth i { animation: introGrowthRail 520ms var(--ease-emphasized) both; }
+.intro-trailer[data-scene="2"] .intro-city-growth i:nth-of-type(1),
+.intro-trailer[data-scene="2"] .intro-city-growth span:nth-of-type(2) { animation-delay: 1150ms; }
+.intro-trailer[data-scene="2"] .intro-city-growth i:nth-of-type(2),
+.intro-trailer[data-scene="2"] .intro-city-growth span:nth-of-type(3) { animation-delay: 2450ms; }
+.intro-trailer[data-scene="2"] .intro-city-growth i:nth-of-type(3),
+.intro-trailer[data-scene="2"] .intro-city-growth span:nth-of-type(4) { animation-delay: 3750ms; }
 .intro-city-viewport {
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 4 / 3;
   background: #dff8ff;
   border: 3px solid var(--planet-black);
   border-radius: clamp(14px, 2vw, 24px);
-  box-shadow: 0 7px 0 rgba(5,5,5,0.14);
-  justify-self: center;
-  max-height: 46vh;
+  box-shadow: 0 8px 0 rgba(5,5,5,0.15), 0 24px 48px rgba(25,75,88,0.16);
+  justify-self: stretch;
+  max-height: min(58vh, 590px);
   overflow: hidden;
   position: relative;
-  width: min(100%, 820px);
+  width: 100%;
+}
+.intro-city-viewport::after {
+  background: linear-gradient(180deg, rgba(255,255,255,0.12), transparent 32%, rgba(7,23,29,0.08));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.28);
+  content: '';
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 3;
 }
 .intro-city-frame {
   height: 100%;
   inset: 0;
   object-fit: cover;
+  object-position: center 66%;
   opacity: 0;
   position: absolute;
-  transform: scale(1.035);
+  transform: scale(1.22);
+  transform-origin: center 66%;
   width: 100%;
 }
 .intro-trailer[data-scene="2"] .intro-city-frame-one { animation: introCityOne 5200ms linear both; }
@@ -844,10 +904,12 @@ html:lang(zh-Hans) .intro-scene-finale h2 {
 @keyframes introSparkPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(201,239,104,0.5); } 50% { box-shadow: 0 0 0 14px rgba(201,239,104,0); } }
 @keyframes introTimelineFill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes introHeatmapCell { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
-@keyframes introCityOne { 0%, 20% { opacity: 1; transform: scale(1.035); } 28%, 100% { opacity: 0; transform: scale(1); } }
+@keyframes introGrowthStep { from { background: var(--planet-white); transform: scale(0.78); } to { background: var(--planet-lime); transform: scale(1); } }
+@keyframes introGrowthRail { from { background: var(--soft-blue); transform: scaleX(0); } to { background: linear-gradient(90deg, var(--planet-cyan), var(--planet-lime)); transform: scaleX(1); } }
+@keyframes introCityOne { 0%, 20% { opacity: 1; transform: scale(1.22); } 28%, 100% { opacity: 0; transform: scale(1.16); } }
 @keyframes introCityTwo { 0%, 20% { opacity: 0; } 28%, 43% { opacity: 1; } 51%, 100% { opacity: 0; } }
 @keyframes introCityThree { 0%, 43% { opacity: 0; } 51%, 68% { opacity: 1; } 76%, 100% { opacity: 0; } }
-@keyframes introCityFour { 0%, 68% { opacity: 0; transform: scale(1.035); } 76%, 100% { opacity: 1; transform: scale(1); } }
+@keyframes introCityFour { 0%, 68% { opacity: 0; transform: scale(1.22); } 76%, 100% { opacity: 1; transform: scale(1.16); } }
 
 /* ═══════════════════════════════════════════════════════════
    SETTINGS PANEL
@@ -4208,7 +4270,7 @@ summary:focus-visible,
     will-change: auto;
   }
   .intro-trailer[data-scene="2"] .intro-city-frame { display: none; }
-  .intro-trailer[data-scene="2"] .intro-city-frame-four { display: block; opacity: 1; transform: none; }
+  .intro-trailer[data-scene="2"] .intro-city-frame-four { display: block; opacity: 1; transform: scale(1.16); }
   .intro-demo-heatmap i { opacity: 1; transform: none; }
 }
 
@@ -4270,8 +4332,11 @@ summary:focus-visible,
   .intro-scene-features { gap: 28px; grid-template-columns: 1fr; }
   .intro-scene-purpose { align-content: center; grid-template-rows: auto auto; }
   .intro-source-flow { justify-self: center; max-width: 320px; width: 100%; }
-  .intro-scene-city { grid-template-rows: auto auto; }
-  .intro-city-viewport { max-height: none; width: 100%; }
+  .intro-scene-city { gap: 20px; grid-template-columns: 1fr; grid-template-rows: auto auto; }
+  .intro-city-copy { justify-items: center; text-align: center; }
+  .intro-scene-city .intro-city-copy h2 { max-width: 100%; }
+  .intro-city-growth { max-width: 300px; }
+  .intro-city-viewport { aspect-ratio: 16 / 10; justify-self: center; max-height: none; max-width: 520px; width: 100%; }
   .intro-scene-features { align-content: center; }
   .intro-feature-demo { justify-self: center; max-width: 360px; order: 2; width: calc(100% - 18px); }
   .intro-feature-copy { order: 1; }

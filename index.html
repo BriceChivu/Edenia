@@ -11,9 +11,9 @@
   <link rel="preload" as="font" href="assets/fonts/space-grotesk-latin-ext.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin-ext.woff2" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=20260713-46">
+  <link rel="stylesheet" href="style.css?v=20260713-47">
   <script src="config.local.js" defer></script>
-  <script src="app.js?v=20260713-63" defer></script>
+  <script src="app.js?v=20260713-64" defer></script>
 </head>
 <body>
 
@@ -99,6 +99,9 @@
         <div class="intro-city-copy">
           <p class="intro-kicker" data-i18n="intro.city.kicker">Progress becomes a place</p>
           <h2 data-i18n="intro.city.title">Study. Earn points. Watch your town evolve.</h2>
+          <div class="intro-city-growth" aria-hidden="true">
+            <span>1</span><i></i><span>4</span><i></i><span>8</span><i></i><span>12</span>
+          </div>
         </div>
         <div class="intro-city-viewport" aria-hidden="true">
           <img class="intro-city-frame intro-city-frame-one" src="images/city/level%200.webp" alt="">
@@ -139,7 +142,7 @@
         <p class="intro-kicker" data-i18n="intro.finale.kicker">A little progress. A whole world.</p>
         <h2 data-i18n="intro.finale.title">What will you build?</h2>
         <p data-i18n="intro.finale.body">Create your study feed and begin your Edenia.</p>
-        <button class="btn-primary intro-start" type="button" onclick="finishIntroTrailer()" data-i18n="intro.finale.cta">Start my journey</button>
+        <button class="btn-primary intro-start" id="introStartBtn" type="button" onclick="finishIntroTrailer()" data-i18n="intro.finale.cta">Start my journey</button>
       </article>
     </div>
 
@@ -288,6 +291,7 @@
           </div>
         </div>
         <button class="btn-secondary walkthrough-replay-btn" type="button" onclick="showWalkthroughAgain()" data-i18n="settings.walkthroughAgain">Show walkthrough again</button>
+        <button class="btn-secondary walkthrough-replay-btn" type="button" onclick="showTrailerAgain()" data-i18n="settings.trailerAgain">Show trailer again</button>
         <div class="sync-actions">
           <button class="btn-secondary" type="button" onclick="exportSyncFile()" data-i18n="settings.sync.export">Export sync file</button>
           <button class="btn-secondary" type="button" onclick="document.getElementById('syncFileInput').click()" data-i18n="settings.sync.import">Import sync file</button>
