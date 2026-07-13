@@ -1694,17 +1694,9 @@ body[data-theme="dark"] .study-insight-card {
     linear-gradient(135deg, var(--surface), #102d38);
 }
 .study-insight-icon {
-  align-items: center;
-  background: var(--planet-lime);
-  border: 2px solid var(--planet-black);
-  border-radius: 50%;
-  color: #243a20;
-  display: inline-flex;
-  font-size: 1rem;
-  font-weight: 800;
+  display: block;
   height: 38px;
-  justify-content: center;
-  line-height: 1;
+  object-fit: contain;
   width: 38px;
 }
 .study-insight-copy {
@@ -1816,15 +1808,16 @@ body[data-theme="dark"] .study-insight-card {
 }
 body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.16); }
 .study-insight-history-head {
-  align-items: baseline;
+  align-items: center;
   display: grid;
   gap: 6px;
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
 .study-insight-history-icon {
-  color: var(--accent-dim);
-  font-size: 0.75rem;
-  font-weight: 800;
+  display: block;
+  height: 18px;
+  object-fit: contain;
+  width: 18px;
 }
 .study-insight-history-item .study-insight-title { font-size: 0.8rem; }
 .study-insight-history-item .study-insight-body { font-size: 0.74rem; }
@@ -3791,7 +3784,6 @@ summary:focus-visible,
     padding: 12px;
   }
   .study-insight-icon {
-    font-size: 0.9rem;
     height: 34px;
     width: 34px;
   }

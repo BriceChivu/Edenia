@@ -7999,7 +7999,7 @@ function renderPreviousStudyInsightItem(entry, state) {
   return `
     <article class="study-insight-history-item">
       <span class="study-insight-history-head">
-        <span class="study-insight-history-icon" aria-hidden="true">${escHtml(viewModel.icon)}</span>
+        <img class="study-insight-history-icon" src="Edenia_favicon_round.png" alt="" aria-hidden="true">
         <strong class="study-insight-title">${escHtml(viewModel.title)}</strong>
         <time class="study-insight-history-date" datetime="${escHtml(recordedAt.toISOString())}">${escHtml(dateLabel)}</time>
       </span>
@@ -8046,7 +8046,6 @@ function renderStudyInsight(state) {
     selectedStudyInsightView = 'current'
     container.removeAttribute('data-insight-id')
     container.classList.remove('showing-history')
-    icon.textContent = ''
     title.textContent = ''
     body.textContent = ''
     evidence.textContent = ''
@@ -8055,7 +8054,6 @@ function renderStudyInsight(state) {
 
   container.dataset.insightId = insight.id
   container.classList.toggle('showing-history', showingHistory)
-  icon.textContent = showingHistory ? '↶' : viewModel.icon
   title.textContent = viewModel.title
   body.textContent = viewModel.body
   evidence.textContent = viewModel.evidence
