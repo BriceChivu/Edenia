@@ -177,7 +177,13 @@ const introTrailerState = {
   replayMode: false,
   sceneIndex: 0,
   sceneTimer: null,
-  cityLevelTimers: []
+  cityLevelTimers: [],
+  soundEnabled: false,
+  audioContext: null,
+  masterGain: null,
+  musicOutput: null,
+  musicTimer: null,
+  musicStep: 0
 }
 const personalizedOnboardingState = {
   active: false,
@@ -577,6 +583,8 @@ const CURATED_CHANNEL_CATALOG = [
 const I18N_EN = {
   'app.title.sandbox': 'Sandbox - Edenia',
   'intro.skip': 'Skip intro',
+  'intro.sound.off': 'Sound off',
+  'intro.sound.on': 'Sound on',
   'intro.opening.kicker': 'Your language-learning world',
   'intro.opening.title': 'Make every lesson build something.',
   'intro.purpose.kicker': 'Study your way',
@@ -595,7 +603,8 @@ const I18N_EN = {
   'intro.features.goal': 'Weekly goal',
   'intro.features.kicker': 'See the journey',
   'intro.features.title': 'Your rhythm, history, and momentum—at a glance.',
-  'intro.features.body': 'Heatmaps, goals, streaks, and study history make every small win visible.',
+  'intro.features.body': 'Heatmaps, goals, streaks, and Study Insights turn your history into a clearer next step.',
+  'intro.features.insightBody': 'Your recent rhythm is stronger. Repeat the routine that made it work.',
   'intro.finale.kicker': 'A little progress. A whole world.',
   'intro.finale.title': 'What will you build?',
   'intro.finale.body': 'Create your study feed and begin your Edenia.',
@@ -1060,6 +1069,8 @@ const I18N = {
   'zh-Hant': {
     ...I18N_EN,
     'intro.skip': '跳過介紹',
+    'intro.sound.off': '聲音關閉',
+    'intro.sound.on': '聲音開啟',
     'intro.opening.kicker': '你的語言學習世界',
     'intro.opening.title': '讓每一堂課都建造出看得見的成果。',
     'intro.purpose.kicker': '用你的方式學習',
@@ -1078,7 +1089,8 @@ const I18N = {
     'intro.features.goal': '每週目標',
     'intro.features.kicker': '看見整段旅程',
     'intro.features.title': '你的節奏、歷史與動力，一眼掌握。',
-    'intro.features.body': '熱圖、目標、連續紀錄和學習歷史，讓每個小小勝利都清楚可見。',
+    'intro.features.body': '熱圖、目標、連續紀錄和學習洞察，將你的歷史轉化為更清楚的下一步。',
+    'intro.features.insightBody': '你最近的學習節奏正在增強。延續有效的方式，讓動力保持下去。',
     'intro.finale.kicker': '一點點進步，一整個世界。',
     'intro.finale.title': '你會建造出什麼？',
     'intro.finale.body': '建立你的學習影片清單，開始屬於你的 Edenia。',
@@ -1446,6 +1458,8 @@ const I18N = {
   'zh-Hans': {
     ...I18N_EN,
     'intro.skip': '跳过介绍',
+    'intro.sound.off': '声音关闭',
+    'intro.sound.on': '声音开启',
     'intro.opening.kicker': '你的语言学习世界',
     'intro.opening.title': '让每一堂课都建造出看得见的成果。',
     'intro.purpose.kicker': '用你的方式学习',
@@ -1464,7 +1478,8 @@ const I18N = {
     'intro.features.goal': '每周目标',
     'intro.features.kicker': '看见整段旅程',
     'intro.features.title': '你的节奏、历史与动力，一眼掌握。',
-    'intro.features.body': '热图、目标、连续记录和学习历史，让每一个小胜利都清晰可见。',
+    'intro.features.body': '热图、目标、连续记录和学习洞察，将你的历史转化为更清楚的下一步。',
+    'intro.features.insightBody': '你最近的学习节奏正在增强。延续有效的方式，让动力保持下去。',
     'intro.finale.kicker': '一点点进步，一整个世界。',
     'intro.finale.title': '你会建造出什么？',
     'intro.finale.body': '建立你的学习视频清单，开始属于你的 Edenia。',
@@ -1813,6 +1828,8 @@ const I18N = {
   es: {
     ...I18N_EN,
     'intro.skip': 'Omitir introducción',
+    'intro.sound.off': 'Sonido desactivado',
+    'intro.sound.on': 'Sonido activado',
     'intro.opening.kicker': 'Tu mundo de aprendizaje',
     'intro.opening.title': 'Haz que cada lección construya algo.',
     'intro.purpose.kicker': 'Estudia a tu manera',
@@ -1831,7 +1848,8 @@ const I18N = {
     'intro.features.goal': 'Objetivo semanal',
     'intro.features.kicker': 'Contempla el viaje',
     'intro.features.title': 'Tu ritmo, historial e impulso de un vistazo.',
-    'intro.features.body': 'Los mapas de actividad, objetivos, rachas e historial hacen visible cada pequeño logro.',
+    'intro.features.body': 'Los mapas de actividad, objetivos, rachas y observaciones convierten tu historial en un próximo paso más claro.',
+    'intro.features.insightBody': 'Tu ritmo reciente es más fuerte. Repite la rutina que lo hizo posible.',
     'intro.finale.kicker': 'Un poco de progreso. Todo un mundo.',
     'intro.finale.title': '¿Qué vas a construir?',
     'intro.finale.body': 'Crea tu selección de estudio y comienza tu Edenia.',
@@ -2182,6 +2200,8 @@ const I18N = {
   fr: {
     ...I18N_EN,
     'intro.skip': 'Passer l’introduction',
+    'intro.sound.off': 'Son désactivé',
+    'intro.sound.on': 'Son activé',
     'intro.opening.kicker': 'Votre monde d’apprentissage',
     'intro.opening.title': 'Faites de chaque leçon une construction.',
     'intro.purpose.kicker': 'Étudiez à votre façon',
@@ -2200,7 +2220,8 @@ const I18N = {
     'intro.features.goal': 'Objectif hebdomadaire',
     'intro.features.kicker': 'Voyez le chemin parcouru',
     'intro.features.title': 'Votre rythme, votre historique et votre élan en un coup d’œil.',
-    'intro.features.body': 'Cartes d’activité, objectifs, séries et historique rendent chaque petite victoire visible.',
+    'intro.features.body': 'Cartes d’activité, objectifs, séries et observations transforment votre historique en prochaine étape claire.',
+    'intro.features.insightBody': 'Votre rythme récent se renforce. Reprenez la routine qui a permis cet élan.',
     'intro.finale.kicker': 'Un peu de progrès. Tout un monde.',
     'intro.finale.title': 'Qu’allez-vous construire ?',
     'intro.finale.body': 'Créez votre sélection d’étude et commencez votre Edenia.',
@@ -3842,6 +3863,7 @@ function startIntroTrailer({ replay = false } = {}) {
 
   introTrailerState.active = true
   introTrailerState.replayMode = replay
+  stopIntroMusic()
   document.body.classList.add('intro-active')
   document.getElementById('mainApp')?.setAttribute('inert', '')
   trailer.classList.remove('hidden')
@@ -3854,6 +3876,7 @@ function startIntroTrailer({ replay = false } = {}) {
 
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   setIntroTrailerScene(reduceMotion ? INTRO_TRAILER_SCENE_DURATIONS.length - 1 : 0, { autoAdvance: !reduceMotion })
+  startIntroMusic().catch(() => {})
 }
 
 function setIntroTrailerScene(sceneIndex, { autoAdvance = true } = {}) {
@@ -3903,6 +3926,7 @@ function changeIntroLocale(locale) {
   state.config.locale = nextLocale
   saveState(state, { backup: false })
   applyLocale(nextLocale)
+  updateIntroSoundButton()
   document.title = IS_SANDBOX ? t('app.title.sandbox') : 'Edenia'
 
   if (introTrailerState.active && introTrailerState.sceneIndex === 0) {
@@ -3939,9 +3963,151 @@ function animateIntroCityLevel() {
   })
 }
 
+function updateIntroSoundButton() {
+  const button = document.getElementById('introSoundBtn')
+  const labelKey = introTrailerState.soundEnabled ? 'intro.sound.on' : 'intro.sound.off'
+  const labelText = t(labelKey)
+  if (button) {
+    button.setAttribute('aria-pressed', String(introTrailerState.soundEnabled))
+    button.setAttribute('aria-label', labelText)
+    button.title = labelText
+  }
+}
+
+function removeIntroMusicUnlockListeners() {
+  window.removeEventListener('pointerdown', unlockIntroMusic, true)
+  window.removeEventListener('keydown', unlockIntroMusic, true)
+}
+
+function unlockIntroMusic() {
+  const context = introTrailerState.audioContext
+  if (!introTrailerState.active || !introTrailerState.soundEnabled || !context || context.state !== 'suspended') {
+    removeIntroMusicUnlockListeners()
+    return
+  }
+  context.resume().then(removeIntroMusicUnlockListeners).catch(() => {})
+}
+
+function scheduleIntroMusicChord() {
+  const context = introTrailerState.audioContext
+  const output = introTrailerState.musicOutput
+  if (!context || !output || context.state === 'closed') return
+
+  const chords = [
+    [130.81, 164.81, 196, 246.94],
+    [110, 130.81, 164.81, 196],
+    [87.31, 130.81, 164.81, 220],
+    [98, 123.47, 146.83, 196]
+  ]
+  const chord = chords[introTrailerState.musicStep % chords.length]
+  const startAt = context.currentTime + 0.04
+  const endAt = startAt + 5.1
+
+  chord.forEach((frequency, index) => {
+    const oscillator = context.createOscillator()
+    const noteGain = context.createGain()
+    oscillator.type = index % 2 === 0 ? 'sine' : 'triangle'
+    oscillator.frequency.setValueAtTime(frequency, startAt)
+    oscillator.detune.setValueAtTime((index - 1.5) * 2, startAt)
+    noteGain.gain.setValueAtTime(0.0001, startAt)
+    noteGain.gain.exponentialRampToValueAtTime(0.026, startAt + 1.2)
+    noteGain.gain.exponentialRampToValueAtTime(0.016, startAt + 3.8)
+    noteGain.gain.exponentialRampToValueAtTime(0.0001, endAt)
+    oscillator.connect(noteGain)
+    noteGain.connect(output)
+    oscillator.start(startAt)
+    oscillator.stop(endAt + 0.05)
+  })
+
+  const chime = context.createOscillator()
+  const chimeGain = context.createGain()
+  chime.type = 'sine'
+  chime.frequency.setValueAtTime(chord[3] * 2, startAt + 0.55)
+  chimeGain.gain.setValueAtTime(0.0001, startAt + 0.55)
+  chimeGain.gain.exponentialRampToValueAtTime(0.012, startAt + 0.68)
+  chimeGain.gain.exponentialRampToValueAtTime(0.0001, startAt + 2.3)
+  chime.connect(chimeGain)
+  chimeGain.connect(output)
+  chime.start(startAt + 0.55)
+  chime.stop(startAt + 2.35)
+  introTrailerState.musicStep += 1
+}
+
+async function startIntroMusic() {
+  if (!introTrailerState.active || introTrailerState.audioContext) return
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext
+  if (!AudioContextClass) return
+
+  const context = new AudioContextClass()
+  const filter = context.createBiquadFilter()
+  const masterGain = context.createGain()
+  filter.type = 'lowpass'
+  filter.frequency.setValueAtTime(1800, context.currentTime)
+  filter.Q.setValueAtTime(0.35, context.currentTime)
+  masterGain.gain.setValueAtTime(0.0001, context.currentTime)
+  masterGain.gain.exponentialRampToValueAtTime(0.42, context.currentTime + 1.4)
+  filter.connect(masterGain)
+  masterGain.connect(context.destination)
+
+  introTrailerState.audioContext = context
+  introTrailerState.masterGain = masterGain
+  introTrailerState.musicOutput = filter
+  introTrailerState.musicStep = 0
+  introTrailerState.soundEnabled = true
+  updateIntroSoundButton()
+  scheduleIntroMusicChord()
+  introTrailerState.musicTimer = window.setInterval(scheduleIntroMusicChord, 3800)
+  if (context.state === 'suspended') {
+    window.addEventListener('pointerdown', unlockIntroMusic, { capture: true })
+    window.addEventListener('keydown', unlockIntroMusic, { capture: true })
+    context.resume().then(removeIntroMusicUnlockListeners).catch(() => {})
+  }
+}
+
+function stopIntroMusic({ fadeDuration = 0.28 } = {}) {
+  window.clearInterval(introTrailerState.musicTimer)
+  introTrailerState.musicTimer = null
+  removeIntroMusicUnlockListeners()
+  const context = introTrailerState.audioContext
+  const masterGain = introTrailerState.masterGain
+  if (context && context.state !== 'closed') {
+    const now = context.currentTime
+    const duration = Math.max(fadeDuration, 0.01)
+    const startingGain = Math.max(masterGain?.gain.value || 0.0001, 0.0001)
+    const fadeCurve = Float32Array.from({ length: 96 }, (_, index) => {
+      const progress = index / 95
+      const smoothLevel = 0.5 + (0.5 * Math.cos(Math.PI * progress))
+      return Math.max(startingGain * smoothLevel, 0.0001)
+    })
+    masterGain?.gain.cancelScheduledValues(now)
+    masterGain?.gain.setValueCurveAtTime(fadeCurve, now, duration)
+    window.setTimeout(() => context.close().catch(() => {}), Math.max(duration * 1000 + 120, 100))
+  }
+  introTrailerState.audioContext = null
+  introTrailerState.masterGain = null
+  introTrailerState.musicOutput = null
+  introTrailerState.musicStep = 0
+  introTrailerState.soundEnabled = false
+  updateIntroSoundButton()
+}
+
+async function toggleIntroSound() {
+  if (introTrailerState.soundEnabled) {
+    stopIntroMusic()
+    return
+  }
+  try {
+    await startIntroMusic()
+  } catch (error) {
+    stopIntroMusic()
+    console.warn('Unable to start intro music.', error)
+  }
+}
+
 function finishIntroTrailer() {
   if (!introTrailerState.active) return
   const wasReplay = introTrailerState.replayMode
+  stopIntroMusic({ fadeDuration: 7.5 })
   window.clearTimeout(introTrailerState.sceneTimer)
   introTrailerState.cityLevelTimers.forEach(timer => window.clearTimeout(timer))
   introTrailerState.cityLevelTimers = []

@@ -6,14 +6,14 @@
   <meta name="description" content="Edenia turns YouTube study time and Anki activity into study history, daily progress, and a growing city.">
   <title>Edenia</title>
   <link rel="icon" type="image/png" href="Edenia_favicon_round.png">
-  <link rel="preload" as="image" href="images/city/level%200.webp" type="image/webp" fetchpriority="high">
+  <link rel="preload" as="image" href="images/city/level%201.webp" type="image/webp" fetchpriority="high">
   <link rel="preload" as="font" href="assets/fonts/space-grotesk-latin.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/space-grotesk-latin-ext.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin-ext.woff2" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=20260713-47">
+  <link rel="stylesheet" href="style.css?v=20260713-55">
   <script src="config.local.js" defer></script>
-  <script src="app.js?v=20260713-64" defer></script>
+  <script src="app.js?v=20260713-68" defer></script>
 </head>
 <body>
 
@@ -21,7 +21,18 @@
   <!-- FIRST-RUN INTRO TRAILER                               -->
   <!-- ═══════════════════════════════════════════════════════ -->
   <section class="intro-trailer hidden" id="introTrailer" data-scene="0" role="dialog" aria-modal="true" aria-labelledby="introTrailerTitle">
-    <button class="intro-skip" type="button" onclick="finishIntroTrailer()" data-i18n="intro.skip">Skip intro</button>
+    <div class="intro-top-actions">
+      <button class="intro-sound" id="introSoundBtn" type="button" onclick="toggleIntroSound()" aria-pressed="false">
+        <span class="intro-sound-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path class="intro-sound-speaker" d="M4 9.2h3.4L12 5.5v13l-4.6-3.7H4z"></path>
+            <path class="intro-sound-wave" d="M15.2 9.1c1.6 1.7 1.6 4.1 0 5.8M17.8 6.8c3 3 3 7.4 0 10.4"></path>
+            <path class="intro-sound-cross" d="M4.8 4.8 19.2 19.2"></path>
+          </svg>
+        </span>
+      </button>
+      <button class="intro-skip" type="button" onclick="finishIntroTrailer()" data-i18n="intro.skip">Skip intro</button>
+    </div>
 
     <div class="intro-stage" aria-live="polite">
       <button class="intro-nav-btn intro-nav-previous" id="introPreviousBtn" type="button" onclick="navigateIntroTrailer(-1)" data-i18n-title="onboarding.back" data-i18n-aria-label="onboarding.back">
@@ -104,7 +115,7 @@
           </div>
         </div>
         <div class="intro-city-viewport" aria-hidden="true">
-          <img class="intro-city-frame intro-city-frame-one" src="images/city/level%200.webp" alt="">
+          <img class="intro-city-frame intro-city-frame-one" src="images/city/level%201.webp" alt="">
           <img class="intro-city-frame intro-city-frame-two" src="images/city/level%204.webp" alt="">
           <img class="intro-city-frame intro-city-frame-three" src="images/city/level%208.webp" alt="">
           <img class="intro-city-frame intro-city-frame-four" src="images/city/level%2012.webp" alt="">
@@ -128,12 +139,23 @@
             <i></i><i class="level-1"></i><i class="level-3"></i><i class="level-4"></i><i class="level-2"></i><i class="level-1"></i><i class="level-3"></i>
             <i class="level-2"></i><i></i><i class="level-1"></i><i class="level-3"></i><i class="level-4"></i><i class="level-2"></i><i class="level-4"></i>
           </div>
+          <div class="intro-demo-insight">
+            <div class="intro-demo-insight-head">
+              <span class="intro-demo-insight-brand">
+                <img src="Edenia_favicon_round.png" alt="">
+                <span data-i18n="insights.eyebrow">Study insight</span>
+              </span>
+              <span class="intro-demo-insight-trend">↗ +18%</span>
+            </div>
+            <strong data-i18n="insights.title.momentum-up">Your momentum is building</strong>
+            <p data-i18n="intro.features.insightBody">Your recent rhythm is stronger. Repeat the routine that made it work.</p>
+          </div>
           <div class="intro-demo-goal"><span></span><b>80%</b><small data-i18n="intro.features.goal">Weekly goal</small></div>
         </div>
         <div class="intro-copy intro-feature-copy">
           <p class="intro-kicker" data-i18n="intro.features.kicker">See the journey</p>
           <h2 data-i18n="intro.features.title">Your rhythm, history, and momentum—at a glance.</h2>
-          <p data-i18n="intro.features.body">Heatmaps, goals, streaks, and study history make every small win visible.</p>
+          <p data-i18n="intro.features.body">Heatmaps, goals, streaks, and Study Insights turn your history into a clearer next step.</p>
         </div>
       </article>
 
