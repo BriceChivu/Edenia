@@ -171,7 +171,7 @@ const walkthroughState = {
   frame: null,
   isTransitioning: false
 }
-const INTRO_TRAILER_SCENE_DURATIONS = [6500, 4300, 5400, 4600, 4800]
+const INTRO_TRAILER_SCENE_DURATIONS = [13000, 8600, 10800, 9200, 9600]
 const introTrailerState = {
   active: false,
   replayMode: false,
@@ -3994,7 +3994,7 @@ function animateIntroCityLevel() {
   const level = document.getElementById('introCityLevel')
   if (!level) return
   level.textContent = '1'
-  ;[[1250, '4'], [2550, '8'], [3850, '12']].forEach(([delay, value]) => {
+  ;[[2500, '4'], [5100, '8'], [7700, '12']].forEach(([delay, value]) => {
     introTrailerState.cityLevelTimers.push(window.setTimeout(() => {
       level.textContent = value
     }, delay))
