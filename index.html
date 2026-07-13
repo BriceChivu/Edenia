@@ -411,10 +411,12 @@
         </div>
       </div>
       <aside class="study-insight-card hidden" id="studyInsightCard" aria-live="polite" aria-label="Study insight" data-i18n-aria-label="insights.eyebrow">
-        <img class="study-insight-icon" id="studyInsightIcon" src="Edenia_favicon_round.png" alt="" aria-hidden="true">
         <div class="study-insight-copy">
           <div class="study-insight-heading">
-            <span class="study-insight-eyebrow" data-i18n="insights.eyebrow">Study insight</span>
+            <span class="study-insight-label">
+              <span class="study-insight-eyebrow" data-i18n="insights.eyebrow">Study insight</span>
+              <img class="study-insight-icon" id="studyInsightIcon" src="Edenia_favicon_round.png" alt="" aria-hidden="true">
+            </span>
             <div class="study-insight-tabs" role="tablist" aria-label="Study insight views" data-i18n-aria-label="insights.tabs.aria">
               <button class="study-insight-tab active" id="studyInsightCurrentTab" type="button" role="tab" aria-selected="true" aria-controls="studyInsightCurrentPanel" onclick="setStudyInsightView('current')" data-i18n="insights.tab.current">Current</button>
               <button class="study-insight-tab" id="studyInsightPreviousTab" type="button" role="tab" aria-selected="false" aria-controls="studyInsightHistoryPanel" onclick="setStudyInsightView('previous')">

@@ -2296,7 +2296,7 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   box-shadow: 0 4px 0 rgba(5,5,5,0.12);
   display: grid;
   gap: 12px;
-  grid-template-columns: 26px minmax(0, 1fr) 28px;
+  grid-template-columns: minmax(0, 1fr) 28px;
   padding: 14px 16px;
 }
 body[data-theme="dark"] .study-insight-card {
@@ -2306,9 +2306,10 @@ body[data-theme="dark"] .study-insight-card {
 }
 .study-insight-icon {
   display: block;
-  height: 26px;
+  flex: 0 0 auto;
+  height: 24px;
   object-fit: contain;
-  width: 26px;
+  width: 24px;
 }
 .study-insight-copy {
   display: grid;
@@ -2321,6 +2322,12 @@ body[data-theme="dark"] .study-insight-card {
   gap: 10px;
   justify-content: space-between;
   min-height: 28px;
+  min-width: 0;
+}
+.study-insight-label {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
   min-width: 0;
 }
 .study-insight-eyebrow {
@@ -4465,12 +4472,8 @@ summary:focus-visible,
 @media (max-width: 480px) {
   .study-insight-card {
     gap: 10px;
-    grid-template-columns: 24px minmax(0, 1fr) 28px;
+    grid-template-columns: minmax(0, 1fr) 28px;
     padding: 12px;
-  }
-  .study-insight-icon {
-    height: 24px;
-    width: 24px;
   }
   .study-insight-title { font-size: 0.88rem; }
   .study-insight-body { font-size: 0.78rem; }
