@@ -1675,6 +1675,68 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   color: var(--green);
 }
 
+.study-insight-card {
+  align-items: start;
+  background:
+    radial-gradient(circle at 100% 0, rgba(201, 239, 104, 0.34), transparent 42%),
+    linear-gradient(135deg, var(--surface), var(--soft-blue));
+  border: 2px solid var(--planet-black);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 0 rgba(5,5,5,0.12);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 38px minmax(0, 1fr);
+  padding: 14px 16px;
+}
+body[data-theme="dark"] .study-insight-card {
+  background:
+    radial-gradient(circle at 100% 0, rgba(122, 161, 46, 0.22), transparent 42%),
+    linear-gradient(135deg, var(--surface), #102d38);
+}
+.study-insight-icon {
+  align-items: center;
+  background: var(--planet-lime);
+  border: 2px solid var(--planet-black);
+  border-radius: 50%;
+  color: #243a20;
+  display: inline-flex;
+  font-size: 1rem;
+  font-weight: 800;
+  height: 38px;
+  justify-content: center;
+  line-height: 1;
+  width: 38px;
+}
+.study-insight-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.study-insight-eyebrow {
+  color: var(--accent-dim);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.study-insight-title {
+  color: var(--text);
+  font-size: 0.94rem;
+  line-height: 1.25;
+}
+.study-insight-body {
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+.study-insight-evidence {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.35;
+  margin-top: 2px;
+}
+
 .next-study-card {
   background: var(--surface);
   border: 2px solid var(--planet-black);
@@ -3565,6 +3627,18 @@ summary:focus-visible,
   }
 }
 @media (max-width: 480px) {
+  .study-insight-card {
+    gap: 10px;
+    grid-template-columns: 34px minmax(0, 1fr);
+    padding: 12px;
+  }
+  .study-insight-icon {
+    font-size: 0.9rem;
+    height: 34px;
+    width: 34px;
+  }
+  .study-insight-title { font-size: 0.88rem; }
+  .study-insight-body { font-size: 0.78rem; }
   .app-header {
     padding: 12px 12px 8px;
   }

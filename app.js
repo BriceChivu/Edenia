@@ -705,6 +705,21 @@ const I18N_EN = {
   'goal.pace.longSession': 'Aim for {time} today to get back on track.',
   'goal.pace.onTrack': 'You’re on track for this week.',
   'goal.pace.complete': 'Weekly goal complete. Nice work.',
+  'insights.eyebrow': 'Study insight',
+  'insights.subject.study': 'study',
+  'insights.window.morning': 'morning',
+  'insights.window.afternoon': 'afternoon',
+  'insights.window.evening': 'evening',
+  'insights.window.night': 'late evening',
+  'insights.title.preferred-window': 'Protect what already works',
+  'insights.body.preferred-window': 'The {window} is your most reliable study window. Try protecting a {minutes}-minute slot there on busy days.',
+  'insights.evidence.preferred-window': '{percent}% of your video study happened in the {window} across {days} active days.',
+  'insights.title.morning-opportunity': 'A small morning experiment',
+  'insights.body.morning-opportunity': 'You almost never study in the morning. Would a {minutes}-minute {subject} session fit into your morning routine?',
+  'insights.evidence.morning-opportunity': 'Morning sessions made up {percent}% of your video study across {days} active days.',
+  'insights.title.short-sessions': 'Small sessions are working',
+  'insights.body.short-sessions': 'Your typical video-study session lasts about {minutes} minutes. Keeping a short session ready can make consistency easier.',
+  'insights.evidence.short-sessions': '{sessions} study sessions across {days} active days.',
   'history.title': 'Study History',
   'history.viewLabel': 'Study history view',
   'history.summary': 'Summary',
@@ -7693,6 +7708,7 @@ function renderAnalytics(stats, s) {
   bar.classList.toggle('has-progress', stats.goalProgress > 0)
   bar.classList.toggle('complete', stats.goalProgress >= 100)
   renderGoalPaceGuidance(stats, s)
+  renderStudyInsight(s)
   renderNextStudy(s)
 }
 
@@ -7742,6 +7758,80 @@ function renderGoalPaceGuidance(stats, state) {
   container.dataset.state = guidance.state
   icon.textContent = guidance.icon
   text.textContent = guidance.text
+}
+
+function getStudyInsightSubject(state) {
+  const languages = Array.isArray(state?.learnerProfile?.languages)
+    ? Array.from(new Set(state.learnerProfile.languages))
+    : []
+  const language = languages.length === 1 ? getLearnerLanguageOption(languages[0]) : null
+  return language ? t(`onboarding.language.${language.id}`) : t('insights.subject.study')
+}
+
+function getStudyInsightViewModel(insight, state) {
+  if (!insight) return null
+  const windowLabel = insight.windowId ? t(`insights.window.${insight.windowId}`) : ''
+  const common = {
+    window: windowLabel,
+    minutes: insight.suggestedMinutes,
+    percent: insight.percent,
+    days: insight.activeDays,
+    sessions: insight.sessionCount,
+    subject: getStudyInsightSubject(state)
+  }
+
+  if (insight.type === 'preferred-window') {
+    return {
+      icon: '◷',
+      title: t('insights.title.preferred-window'),
+      body: t('insights.body.preferred-window', common),
+      evidence: t('insights.evidence.preferred-window', common)
+    }
+  }
+  if (insight.type === 'morning-opportunity') {
+    return {
+      icon: '☀',
+      title: t('insights.title.morning-opportunity'),
+      body: t('insights.body.morning-opportunity', common),
+      evidence: t('insights.evidence.morning-opportunity', common)
+    }
+  }
+  if (insight.type === 'short-sessions') {
+    return {
+      icon: '≈',
+      title: t('insights.title.short-sessions'),
+      body: t('insights.body.short-sessions', { ...common, minutes: insight.typicalMinutes }),
+      evidence: t('insights.evidence.short-sessions', common)
+    }
+  }
+  return null
+}
+
+function renderStudyInsight(state) {
+  const container = document.getElementById('studyInsightCard')
+  const icon = document.getElementById('studyInsightIcon')
+  const title = document.getElementById('studyInsightTitle')
+  const body = document.getElementById('studyInsightBody')
+  const evidence = document.getElementById('studyInsightEvidence')
+  if (!container || !icon || !title || !body || !evidence) return
+
+  const insight = getStudyInsight(state)
+  const viewModel = getStudyInsightViewModel(insight, state)
+  container.classList.toggle('hidden', !viewModel)
+  if (!viewModel) {
+    container.removeAttribute('data-insight-id')
+    icon.textContent = ''
+    title.textContent = ''
+    body.textContent = ''
+    evidence.textContent = ''
+    return
+  }
+
+  container.dataset.insightId = insight.id
+  icon.textContent = viewModel.icon
+  title.textContent = viewModel.title
+  body.textContent = viewModel.body
+  evidence.textContent = viewModel.evidence
 }
 
 function renderNextStudy(s) {
