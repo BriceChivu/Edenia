@@ -622,6 +622,8 @@ const I18N_EN = {
   'settings.anki.title': 'Connect to Anki',
   'settings.anki.enabled': 'Enable Anki tracking',
   'settings.anki.toggleHint': 'When on, Edenia can read Anki review counts while Anki is open.',
+  'settings.insights.enabled': 'Enable study insights',
+  'settings.insights.toggleHint': 'Controls whether insights appear in Analytics. Insight tracking and history continue when hidden.',
   'settings.anki.intro': 'Edenia can count your Anki reviews automatically. To let Edenia talk to Anki, install AnkiConnect and allow Edenia in its settings.',
   'settings.anki.step1': 'Open Anki. In Tools, click Add-ons, then Get Add-ons, then paste this code: 2055492159.',
   'settings.anki.step2': 'In Add-ons, click AnkiConnect, then Config. Make sure the text after "...," is at the end of the config.',
@@ -1046,6 +1048,8 @@ const I18N = {
     'settings.anki.title': '連接到 Anki',
     'settings.anki.enabled': '啟用 Anki 追蹤',
     'settings.anki.toggleHint': '開啟後，Edenia 可以在 Anki 開著時讀取複習數量。',
+    'settings.insights.enabled': '啟用學習洞察',
+    'settings.insights.toggleHint': '控制是否在分析中顯示洞察。隱藏後仍會持續追蹤洞察並保留紀錄。',
     'settings.anki.intro': 'Edenia 可以自動計算你的 Anki 複習量。要讓 Edenia 和 Anki 連接，請安裝 AnkiConnect，並在設定中允許 Edenia。',
     'settings.anki.step1': '打開 Anki。在 Tools 點 Add-ons，再點 Get Add-ons，然後貼上這個代碼：2055492159。',
     'settings.anki.step2': '重新啟動 Anki 後，再到 Tools、Add-ons，點 AnkiConnect，然後點 Config。請確認下面這段文字在 config 的最後面。',
@@ -1373,6 +1377,8 @@ const I18N = {
     'settings.anki.title': '连接 Anki',
     'settings.anki.enabled': '启用 Anki 追踪',
     'settings.anki.toggleHint': '开启后，Edenia 可以在 Anki 打开时读取复习数量。',
+    'settings.insights.enabled': '启用学习洞察',
+    'settings.insights.toggleHint': '控制是否在分析中显示洞察。隐藏后仍会继续追踪洞察并保留记录。',
     'settings.anki.intro': 'Edenia 可以自动计算你的 Anki 复习量。要让 Edenia 和 Anki 连接，请安装 AnkiConnect，并在设置中允许 Edenia。',
     'settings.anki.step1': '打开 Anki。在 Tools 点 Add-ons，再点 Get Add-ons，然后粘贴这个代码：2055492159。',
     'settings.anki.step2': '重新启动 Anki 后，再到 Tools、Add-ons，点击 AnkiConnect，然后点击 Config。请确认下面这段文字在 config 的最后面。',
@@ -1681,6 +1687,8 @@ const I18N = {
     'settings.anki.title': 'Conectar Anki',
     'settings.anki.enabled': 'Activar seguimiento de Anki',
     'settings.anki.toggleHint': 'Cuando está activo, Edenia puede leer tus repasos de Anki mientras Anki está abierto.',
+    'settings.insights.enabled': 'Activar observaciones de estudio',
+    'settings.insights.toggleHint': 'Controla si las observaciones aparecen en Análisis. El seguimiento y el historial continúan cuando están ocultas.',
     'settings.anki.intro': 'Edenia puede contar tus repasos de Anki automáticamente. Para que Edenia pueda hablar con Anki, instala AnkiConnect y permite Edenia en sus ajustes.',
     'settings.anki.step1': 'Abre Anki. En Tools, haz clic en Add-ons, luego Get Add-ons, y pega este código: 2055492159.',
     'settings.anki.step2': 'Después de reiniciar Anki, vuelve a Tools, Add-ons, haz clic en AnkiConnect y luego en Config. Asegúrate de que el texto de abajo esté al final de la configuración.',
@@ -1991,6 +1999,8 @@ const I18N = {
     'settings.anki.title': 'Connecter Anki',
     'settings.anki.enabled': 'Activer le suivi Anki',
     'settings.anki.toggleHint': 'Quand il est activé, Edenia peut lire vos révisions Anki pendant qu’Anki est ouvert.',
+    'settings.insights.enabled': 'Activer les observations d’étude',
+    'settings.insights.toggleHint': 'Contrôle l’affichage des observations dans Analyses. Le suivi et l’historique continuent lorsqu’elles sont masquées.',
     'settings.anki.intro': 'Edenia peut compter automatiquement vos révisions Anki. Pour permettre à Edenia de communiquer avec Anki, installez AnkiConnect et autorisez Edenia dans ses réglages.',
     'settings.anki.step1': 'Ouvrez Anki. Dans Tools, cliquez sur Add-ons, puis Get Add-ons, puis collez ce code : 2055492159.',
     'settings.anki.step2': 'Après avoir redémarré Anki, retournez dans Tools, Add-ons, cliquez sur AnkiConnect, puis Config. Vérifiez que le texte ci-dessous est à la fin de la configuration.',
@@ -2497,6 +2507,10 @@ function isAnkiEnabled(state) {
   return normalizeAnkiEnabled(state?.config?.ankiEnabled)
 }
 
+function isStudyInsightsEnabled(state) {
+  return state?.config?.studyInsights?.enabled !== false
+}
+
 function normalizeAnkiCount(value) {
   const count = Math.floor(Number(value) || 0)
   return Math.max(0, count)
@@ -2577,7 +2591,11 @@ function normalizeStudyInsightConfig(state) {
     .sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt))
     .filter((entry, index, entries) => entries.findIndex(candidate => candidate.key === entry.key) === index)
     .slice(0, STUDY_INSIGHT_HISTORY_LIMIT)
-  const normalized = { collapsed: existing.collapsed === true, history }
+  const normalized = {
+    enabled: existing.enabled !== false,
+    collapsed: existing.collapsed === true,
+    history
+  }
   const changed = JSON.stringify(existing) !== JSON.stringify(normalized)
   state.config.studyInsights = normalized
   return changed
@@ -2790,7 +2808,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
       ankiResumeBaselines: {},
       ankiPendingResumeBaseline: null,
       historyView: getDefaultHistoryView(),
-      studyInsights: { collapsed: false, history: [] },
+      studyInsights: { enabled: true, collapsed: false, history: [] },
       channels: Array.isArray(channels) ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
       removedDefaultChannelIds: restoredRemovedDefaultIds || [],
       removedChannelIds: []
@@ -4349,6 +4367,7 @@ function openSettings() {
   applyLocale(s.config.locale)
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(s.config.includeShorts)
   document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(s)
+  document.getElementById('settingsInsightsEnabled').checked = isStudyInsightsEnabled(s)
   renderChannelList(s.config.channels)
   renderBackupList()
   renderActivityLog(s)
@@ -4443,12 +4462,16 @@ function handleSettingsKeydown(event) {
 
 async function saveSettingsOnTheFly() {
   const s      = loadState()
+  normalizeStudyInsightConfig(s)
   const previousGoal = normalizeWeeklyGoalHours(s.config.weeklyGoalHours)
   const previousIncludeShorts = normalizeIncludeShorts(s.config.includeShorts)
   const previousAnkiEnabled = isAnkiEnabled(s)
+  const previousInsightsEnabled = isStudyInsightsEnabled(s)
   const goal   = normalizeWeeklyGoalHours(document.getElementById('settingsGoal').value)
   const nextAnkiEnabled = Boolean(document.getElementById('settingsAnkiEnabled')?.checked)
+  const nextInsightsEnabled = Boolean(document.getElementById('settingsInsightsEnabled')?.checked)
   const ankiPreferenceChanged = nextAnkiEnabled !== previousAnkiEnabled
+  const insightsPreferenceChanged = nextInsightsEnabled !== previousInsightsEnabled
   const now = new Date().toISOString()
 
   if (ankiPreferenceChanged && previousAnkiEnabled && !nextAnkiEnabled && !IS_SANDBOX) {
@@ -4473,6 +4496,7 @@ async function saveSettingsOnTheFly() {
   s.config.includeShorts = Boolean(document.getElementById('settingsIncludeShorts')?.checked)
   s.config.ankiEnabled = nextAnkiEnabled
   s.config.ankiDisabledAt = nextAnkiEnabled ? null : now
+  s.config.studyInsights.enabled = nextInsightsEnabled
   document.getElementById('settingsGoal').value = goal
   if (goal !== previousGoal) {
     appendActivityLog(s, {
@@ -4501,6 +4525,15 @@ async function saveSettingsOnTheFly() {
       detail: isAnkiEnabled(s) ? 'Anki tracking is enabled.' : 'Anki tracking is disabled.'
     })
     syncStreak(s)
+  }
+  if (insightsPreferenceChanged) {
+    appendActivityLog(s, {
+      actor: 'user',
+      type: 'study-insights-setting',
+      status: 'success',
+      title: 'Study insights setting changed',
+      detail: nextInsightsEnabled ? 'Study insights are shown.' : 'Study insights are hidden.'
+    })
   }
   saveState(s)
   if (ankiPreferenceChanged) applyAnkiRefreshPreference(s)
@@ -4619,6 +4652,7 @@ function importSyncFileFromInput(input) {
       renderLocaleSelect()
       document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(normalizedState.config.includeShorts)
       document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(normalizedState)
+      document.getElementById('settingsInsightsEnabled').checked = isStudyInsightsEnabled(normalizedState)
       applyAnkiRefreshPreference(normalizedState)
       showToast(t('toast.syncImported'))
     } catch {
@@ -4845,6 +4879,7 @@ function restoreStateBackup(id) {
   renderLocaleSelect()
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(state.config.includeShorts)
   document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(state)
+  document.getElementById('settingsInsightsEnabled').checked = isStudyInsightsEnabled(state)
   applyAnkiRefreshPreference(state)
   showToast(t('toast.backupRestored'), 'success')
 }
@@ -7997,15 +8032,16 @@ function renderStudyInsight(state) {
   normalizeStudyInsightConfig(state)
   const insight = getStudyInsight(state)
   const viewModel = getStudyInsightViewModel(insight, state)
+  const enabled = isStudyInsightsEnabled(state)
   const collapsed = state.config.studyInsights.collapsed === true
   const currentKey = insight && viewModel
-    ? (collapsed ? getStudyInsightHistoryKey(insight, state) : recordStudyInsight(state, insight))
+    ? (collapsed && enabled ? getStudyInsightHistoryKey(insight, state) : recordStudyInsight(state, insight))
     : ''
   const previousInsights = getPreviousStudyInsights(state, currentKey)
   if (selectedStudyInsightView === 'previous' && !previousInsights.length) selectedStudyInsightView = 'current'
   const showingHistory = selectedStudyInsightView === 'previous'
-  container.classList.toggle('hidden', !viewModel || collapsed)
-  reopenButton?.classList.toggle('hidden', !viewModel || !collapsed)
+  container.classList.toggle('hidden', !viewModel || collapsed || !enabled)
+  reopenButton?.classList.toggle('hidden', !viewModel || !collapsed || !enabled)
   if (!viewModel) {
     selectedStudyInsightView = 'current'
     container.removeAttribute('data-insight-id')
