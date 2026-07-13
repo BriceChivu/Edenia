@@ -58,6 +58,7 @@ const STUDY_INSIGHT_LOOKBACK_DAYS = 42
 const STUDY_INSIGHT_MIN_ACTIVE_DAYS = 8
 const STUDY_INSIGHT_MIN_VIDEO_SECONDS = 2 * 60 * 60
 const STUDY_INSIGHT_SNOOZE_DAYS = 14
+const STUDY_INSIGHT_HISTORY_LIMIT = 12
 const STUDY_INSIGHT_TIME_WINDOWS = [
   { id: 'morning', startHour: 5, endHour: 12 },
   { id: 'afternoon', startHour: 12, endHour: 17 },
@@ -2531,7 +2532,35 @@ function normalizeStudyInsightConfig(state, now = new Date()) {
         new Date(until).getTime() > nowTime
       ))
   )
-  const normalized = { snoozedUntil }
+  const history = (Array.isArray(existing.history) ? existing.history : [])
+    .filter(entry => entry && typeof entry === 'object' && !Array.isArray(entry))
+    .map(entry => {
+      const type = ['preferred-window', 'morning-opportunity', 'short-sessions'].includes(entry.type)
+        ? entry.type
+        : null
+      const windowId = STUDY_INSIGHT_TIME_WINDOWS.some(window => window.id === entry.windowId)
+        ? entry.windowId
+        : null
+      if (!entry.key || !type || !isValidTimestamp(entry.recordedAt)) return null
+      return {
+        key: String(entry.key).slice(0, 140),
+        insightId: String(entry.insightId || '').slice(0, 80),
+        type,
+        windowId,
+        percent: clampNumber(Math.round(Number(entry.percent) || 0), 0, 100),
+        suggestedMinutes: clampNumber(Math.round(Number(entry.suggestedMinutes) || 0), 1, 180),
+        typicalMinutes: clampNumber(Math.round(Number(entry.typicalMinutes) || 0), 0, 180),
+        sessionCount: Math.max(0, Math.round(Number(entry.sessionCount) || 0)),
+        activeDays: Math.max(0, Math.round(Number(entry.activeDays) || 0)),
+        observationDays: clampNumber(Math.round(Number(entry.observationDays) || 0), 0, STUDY_INSIGHT_LOOKBACK_DAYS),
+        recordedAt: new Date(entry.recordedAt).toISOString()
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt))
+    .filter((entry, index, entries) => entries.findIndex(candidate => candidate.key === entry.key) === index)
+    .slice(0, STUDY_INSIGHT_HISTORY_LIMIT)
+  const normalized = { snoozedUntil, history }
   const changed = JSON.stringify(existing) !== JSON.stringify(normalized)
   state.config.studyInsights = normalized
   return changed
@@ -2744,7 +2773,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
       ankiResumeBaselines: {},
       ankiPendingResumeBaseline: null,
       historyView: getDefaultHistoryView(),
-      studyInsights: { snoozedUntil: {} },
+      studyInsights: { snoozedUntil: {}, history: [] },
       channels: Array.isArray(channels) ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
       removedDefaultChannelIds: restoredRemovedDefaultIds || [],
       removedChannelIds: []
@@ -7655,6 +7684,41 @@ function getStudyInsight(state, referenceDate = getCurrentAppDate(state), now = 
   return candidates[weekIndex % candidates.length]
 }
 
+function getStudyInsightHistoryKey(insight, state, referenceDate = getCurrentAppDate(state)) {
+  if (!insight?.id) return ''
+  return `${toDateKey(getWeekStart(referenceDate))}:${insight.id}`
+}
+
+function recordStudyInsight(state, insight, referenceDate = getCurrentAppDate(state)) {
+  if (!state?.config || !insight) return ''
+  normalizeStudyInsightConfig(state)
+  const key = getStudyInsightHistoryKey(insight, state, referenceDate)
+  if (!key) return ''
+  if (state.config.studyInsights.history.some(entry => entry.key === key)) return key
+
+  state.config.studyInsights.history.unshift({
+    key,
+    insightId: insight.id,
+    type: insight.type,
+    windowId: insight.windowId || null,
+    percent: insight.percent || 0,
+    suggestedMinutes: insight.suggestedMinutes || 0,
+    typicalMinutes: insight.typicalMinutes || 0,
+    sessionCount: insight.sessionCount || 0,
+    activeDays: insight.activeDays || 0,
+    observationDays: insight.observationDays || 0,
+    recordedAt: getCurrentAppTimestamp(state)
+  })
+  normalizeStudyInsightConfig(state)
+  saveState(state, { backup: false })
+  return key
+}
+
+function getPreviousStudyInsights(state, currentKey = '') {
+  normalizeStudyInsightConfig(state)
+  return state.config.studyInsights.history.filter(entry => entry.key !== currentKey)
+}
+
 function getWeeklyStats(s) {
   const currentDate = getCurrentAppDate(s)
   const weekStart = getWeekStart(currentDate)
@@ -7887,6 +7951,7 @@ function renderStudyInsight(state) {
 
   const insight = getStudyInsight(state)
   const viewModel = getStudyInsightViewModel(insight, state)
+  if (insight && viewModel) recordStudyInsight(state, insight)
   container.classList.toggle('hidden', !viewModel)
   if (!viewModel) {
     container.removeAttribute('data-insight-id')
