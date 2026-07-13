@@ -271,14 +271,26 @@
           <span id="goalPaceText"></span>
         </div>
       </div>
-      <aside class="study-insight-card hidden" id="studyInsightCard" aria-live="polite" aria-labelledby="studyInsightTitle" aria-describedby="studyInsightBody studyInsightEvidence">
+      <aside class="study-insight-card hidden" id="studyInsightCard" aria-live="polite" aria-label="Study insight" data-i18n-aria-label="insights.eyebrow">
         <span class="study-insight-icon" id="studyInsightIcon" aria-hidden="true"></span>
-        <span class="study-insight-copy">
-          <span class="study-insight-eyebrow" data-i18n="insights.eyebrow">Study insight</span>
-          <strong class="study-insight-title" id="studyInsightTitle"></strong>
-          <span class="study-insight-body" id="studyInsightBody"></span>
-          <span class="study-insight-evidence" id="studyInsightEvidence"></span>
-        </span>
+        <div class="study-insight-copy">
+          <div class="study-insight-heading">
+            <span class="study-insight-eyebrow" data-i18n="insights.eyebrow">Study insight</span>
+            <div class="study-insight-tabs" role="tablist" aria-label="Study insight views" data-i18n-aria-label="insights.tabs.aria">
+              <button class="study-insight-tab active" id="studyInsightCurrentTab" type="button" role="tab" aria-selected="true" aria-controls="studyInsightCurrentPanel" onclick="setStudyInsightView('current')" data-i18n="insights.tab.current">Current</button>
+              <button class="study-insight-tab" id="studyInsightPreviousTab" type="button" role="tab" aria-selected="false" aria-controls="studyInsightHistoryPanel" onclick="setStudyInsightView('previous')">
+                <span data-i18n="insights.tab.previous">Previous</span>
+                <span class="study-insight-tab-count" id="studyInsightHistoryCount">0</span>
+              </button>
+            </div>
+          </div>
+          <div class="study-insight-current-panel" id="studyInsightCurrentPanel" role="tabpanel" aria-labelledby="studyInsightCurrentTab">
+            <strong class="study-insight-title" id="studyInsightTitle"></strong>
+            <span class="study-insight-body" id="studyInsightBody"></span>
+            <span class="study-insight-evidence" id="studyInsightEvidence"></span>
+          </div>
+          <div class="study-insight-history-panel hidden" id="studyInsightHistoryPanel" role="tabpanel" aria-labelledby="studyInsightPreviousTab"></div>
+        </div>
         <button class="study-insight-snooze" type="button" onclick="snoozeStudyInsights()" title="Hide study insights for two weeks" aria-label="Hide study insights for two weeks" data-i18n-title="insights.snooze" data-i18n-aria-label="insights.snooze">×</button>
       </aside>
       <div class="next-study-card hidden" id="nextStudyCard"></div>

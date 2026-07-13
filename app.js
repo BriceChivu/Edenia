@@ -121,6 +121,7 @@ let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
 let selectedHistoryRange = 'week'
 let selectedHistoryView = 'summary'
+let selectedStudyInsightView = 'current'
 let selectedActivityLogFilter = 'all'
 let forcedSearchVideoId = null
 let currentLocale = DEFAULT_LOCALE
@@ -723,6 +724,11 @@ const I18N_EN = {
   'insights.evidence.short-sessions': '{sessions} study sessions across {days} active days.',
   'insights.snooze': 'Hide study insights for two weeks',
   'insights.snoozed': 'Insight hidden for two weeks.',
+  'insights.tabs.aria': 'Study insight views',
+  'insights.tab.current': 'Current',
+  'insights.tab.previous': 'Previous',
+  'insights.previous.aria': 'Show {count} previous insights',
+  'insights.previous.empty': 'Past insights will appear here as your study pattern changes.',
   'history.title': 'Study History',
   'history.viewLabel': 'Study history view',
   'history.summary': 'Summary',
@@ -1141,6 +1147,11 @@ const I18N = {
     'insights.evidence.short-sessions': '{days} 個有學習的日子中，共記錄了 {sessions} 次學習。',
     'insights.snooze': '兩週內不顯示學習洞察',
     'insights.snoozed': '已隱藏這則洞察兩週。',
+    'insights.tabs.aria': '學習洞察檢視',
+    'insights.tab.current': '目前',
+    'insights.tab.previous': '過往',
+    'insights.previous.aria': '顯示 {count} 則過往洞察',
+    'insights.previous.empty': '當你的學習模式改變時，過往洞察會顯示在這裡。',
     'history.title': '學習紀錄',
     'history.summary': '摘要',
     'history.heatmap': '熱力圖',
@@ -1460,6 +1471,11 @@ const I18N = {
     'insights.evidence.short-sessions': '{days} 个有学习的日子中，共记录了 {sessions} 次学习。',
     'insights.snooze': '两周内不显示学习洞察',
     'insights.snoozed': '已隐藏这则洞察两周。',
+    'insights.tabs.aria': '学习洞察视图',
+    'insights.tab.current': '当前',
+    'insights.tab.previous': '过往',
+    'insights.previous.aria': '显示 {count} 则过往洞察',
+    'insights.previous.empty': '当你的学习模式改变时，过往洞察会显示在这里。',
     'history.title': '学习记录',
     'history.summary': '摘要',
     'history.heatmap': '热力图',
@@ -1762,6 +1778,11 @@ const I18N = {
     'insights.evidence.short-sessions': '{sessions} sesiones de estudio durante {days} días activos.',
     'insights.snooze': 'Ocultar las observaciones de estudio durante dos semanas',
     'insights.snoozed': 'Observación oculta durante dos semanas.',
+    'insights.tabs.aria': 'Vistas de observaciones de estudio',
+    'insights.tab.current': 'Actual',
+    'insights.tab.previous': 'Anteriores',
+    'insights.previous.aria': 'Mostrar {count} observaciones anteriores',
+    'insights.previous.empty': 'Las observaciones anteriores aparecerán aquí cuando cambie tu patrón de estudio.',
     'history.title': 'Historial de estudio',
     'history.summary': 'Resumen',
     'history.heatmap': 'Mapa',
@@ -2066,6 +2087,11 @@ const I18N = {
     'insights.evidence.short-sessions': '{sessions} sessions d’étude pendant {days} jours actifs.',
     'insights.snooze': 'Masquer les observations d’étude pendant deux semaines',
     'insights.snoozed': 'Observation masquée pendant deux semaines.',
+    'insights.tabs.aria': 'Vues des observations d’étude',
+    'insights.tab.current': 'Actuelle',
+    'insights.tab.previous': 'Précédentes',
+    'insights.previous.aria': 'Afficher {count} observations précédentes',
+    'insights.previous.empty': 'Les anciennes observations apparaîtront ici lorsque votre rythme d’étude évoluera.',
     'history.title': 'Historique d’étude',
     'history.summary': 'Résumé',
     'history.heatmap': 'Carte',
@@ -7941,20 +7967,54 @@ function getStudyInsightViewModel(insight, state) {
   return null
 }
 
+function renderPreviousStudyInsightItem(entry, state) {
+  const viewModel = getStudyInsightViewModel(entry, state)
+  if (!viewModel) return ''
+  const recordedAt = new Date(entry.recordedAt)
+  const dateLabel = formatLocaleDate(recordedAt, { year: 'numeric', month: 'short', day: 'numeric' })
+  return `
+    <article class="study-insight-history-item">
+      <span class="study-insight-history-head">
+        <span class="study-insight-history-icon" aria-hidden="true">${escHtml(viewModel.icon)}</span>
+        <strong class="study-insight-title">${escHtml(viewModel.title)}</strong>
+        <time class="study-insight-history-date" datetime="${escHtml(recordedAt.toISOString())}">${escHtml(dateLabel)}</time>
+      </span>
+      <span class="study-insight-body">${escHtml(viewModel.body)}</span>
+      <span class="study-insight-evidence">${escHtml(viewModel.evidence)}</span>
+    </article>
+  `
+}
+
+function setStudyInsightView(view) {
+  selectedStudyInsightView = view === 'previous' ? 'previous' : 'current'
+  const state = loadState()
+  if (state) renderStudyInsight(state)
+}
+
 function renderStudyInsight(state) {
   const container = document.getElementById('studyInsightCard')
   const icon = document.getElementById('studyInsightIcon')
   const title = document.getElementById('studyInsightTitle')
   const body = document.getElementById('studyInsightBody')
   const evidence = document.getElementById('studyInsightEvidence')
+  const currentTab = document.getElementById('studyInsightCurrentTab')
+  const previousTab = document.getElementById('studyInsightPreviousTab')
+  const currentPanel = document.getElementById('studyInsightCurrentPanel')
+  const historyPanel = document.getElementById('studyInsightHistoryPanel')
+  const historyCount = document.getElementById('studyInsightHistoryCount')
   if (!container || !icon || !title || !body || !evidence) return
 
   const insight = getStudyInsight(state)
   const viewModel = getStudyInsightViewModel(insight, state)
-  if (insight && viewModel) recordStudyInsight(state, insight)
+  const currentKey = insight && viewModel ? recordStudyInsight(state, insight) : ''
+  const previousInsights = getPreviousStudyInsights(state, currentKey)
+  if (selectedStudyInsightView === 'previous' && !previousInsights.length) selectedStudyInsightView = 'current'
+  const showingHistory = selectedStudyInsightView === 'previous'
   container.classList.toggle('hidden', !viewModel)
   if (!viewModel) {
+    selectedStudyInsightView = 'current'
     container.removeAttribute('data-insight-id')
+    container.classList.remove('showing-history')
     icon.textContent = ''
     title.textContent = ''
     body.textContent = ''
@@ -7963,10 +8023,28 @@ function renderStudyInsight(state) {
   }
 
   container.dataset.insightId = insight.id
-  icon.textContent = viewModel.icon
+  container.classList.toggle('showing-history', showingHistory)
+  icon.textContent = showingHistory ? '↶' : viewModel.icon
   title.textContent = viewModel.title
   body.textContent = viewModel.body
   evidence.textContent = viewModel.evidence
+
+  currentTab?.classList.toggle('active', !showingHistory)
+  currentTab?.setAttribute('aria-selected', String(!showingHistory))
+  currentTab?.setAttribute('tabindex', showingHistory ? '-1' : '0')
+  previousTab?.classList.toggle('active', showingHistory)
+  previousTab?.setAttribute('aria-selected', String(showingHistory))
+  previousTab?.setAttribute('tabindex', showingHistory ? '0' : '-1')
+  previousTab?.toggleAttribute('disabled', !previousInsights.length)
+  previousTab?.setAttribute('aria-label', t('insights.previous.aria', { count: previousInsights.length }))
+  currentPanel?.classList.toggle('hidden', showingHistory)
+  historyPanel?.classList.toggle('hidden', !showingHistory)
+  if (historyCount) historyCount.textContent = String(previousInsights.length)
+  if (historyPanel) {
+    historyPanel.innerHTML = previousInsights.length
+      ? previousInsights.map(entry => renderPreviousStudyInsightItem(entry, state)).join('')
+      : `<span class="study-insight-history-empty">${escHtml(t('insights.previous.empty'))}</span>`
+  }
 }
 
 function snoozeStudyInsights() {
@@ -7980,6 +8058,7 @@ function snoozeStudyInsights() {
   candidates.forEach(candidate => {
     state.config.studyInsights.snoozedUntil[candidate.id] = snoozedUntil
   })
+  selectedStudyInsightView = 'current'
   saveState(state, { backup: false })
   renderStudyInsight(state)
   showToast(t('insights.snoozed'), 'success')
