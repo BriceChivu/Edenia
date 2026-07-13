@@ -8451,7 +8451,7 @@ function getFriendlyPaceMinutes(minutes) {
 
 function getGoalPaceGuidance(stats, state) {
   if (stats.goalProgress >= 100 || stats.remainingSeconds <= 0) {
-    return { state: 'complete', icon: '✓', text: t('goal.pace.complete') }
+    return { state: 'complete', text: t('goal.pace.complete') }
   }
   const includeShorts = normalizeIncludeShorts(state.config.includeShorts)
   const hasStudyVideo = getVisibleActiveVideos(Object.values(state.videos || {}), includeShorts).length > 0
@@ -8461,7 +8461,7 @@ function getGoalPaceGuidance(stats, state) {
   const dayIndex = (currentDate.getDay() + 6) % 7
   const expectedThroughToday = stats.goalHours * 3600 * ((dayIndex + 1) / 7)
   if (stats.secondsWatched > 0 && stats.secondsWatched >= expectedThroughToday) {
-    return { state: 'on-track', icon: '✓', text: t('goal.pace.onTrack') }
+    return { state: 'on-track', text: t('goal.pace.onTrack') }
   }
 
   const remainingDays = Math.max(1, 7 - dayIndex)
@@ -8470,27 +8470,22 @@ function getGoalPaceGuidance(stats, state) {
   const text = isShortSession
     ? t('goal.pace.session', { minutes: paceMinutes })
     : t('goal.pace.longSession', { time: formatHoursMinutes(paceMinutes * 60) })
-  return { state: 'action', icon: isShortSession ? '' : '◷', text }
+  return { state: 'action', text }
 }
 
 function renderGoalPaceGuidance(stats, state) {
   const container = document.getElementById('goalPaceGuidance')
-  const icon = document.getElementById('goalPaceIcon')
   const text = document.getElementById('goalPaceText')
-  if (!container || !icon || !text) return
+  if (!container || !text) return
 
   const guidance = getGoalPaceGuidance(stats, state)
   container.classList.toggle('hidden', !guidance)
   if (!guidance) {
     container.removeAttribute('data-state')
-    icon.classList.add('hidden')
-    icon.textContent = ''
     text.textContent = ''
     return
   }
   container.dataset.state = guidance.state
-  icon.classList.toggle('hidden', !guidance.icon)
-  icon.textContent = guidance.icon
   text.textContent = guidance.text
 }
 

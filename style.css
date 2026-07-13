@@ -2264,27 +2264,8 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   margin-top: 10px;
   padding-top: 8px;
 }
-.goal-pace-icon {
-  align-items: center;
-  background: var(--soft-blue);
-  border: 1px solid var(--border-hi);
-  border-radius: 50%;
-  color: var(--accent-dim);
-  display: inline-flex;
-  flex: 0 0 auto;
-  font-size: 0.7rem;
-  height: 20px;
-  justify-content: center;
-  width: 20px;
-}
 .goal-pace[data-state="on-track"],
 .goal-pace[data-state="complete"] { color: var(--green); }
-.goal-pace[data-state="on-track"] .goal-pace-icon,
-.goal-pace[data-state="complete"] .goal-pace-icon {
-  background: var(--mint);
-  border-color: var(--green);
-  color: var(--green);
-}
 
 .study-insight-card {
   align-items: start;
