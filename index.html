@@ -271,7 +271,7 @@
           <span id="goalPaceText"></span>
         </div>
       </div>
-      <aside class="study-insight-card hidden" id="studyInsightCard" aria-labelledby="studyInsightTitle" aria-describedby="studyInsightBody studyInsightEvidence">
+      <aside class="study-insight-card hidden" id="studyInsightCard" aria-live="polite" aria-labelledby="studyInsightTitle" aria-describedby="studyInsightBody studyInsightEvidence">
         <span class="study-insight-icon" id="studyInsightIcon" aria-hidden="true"></span>
         <span class="study-insight-copy">
           <span class="study-insight-eyebrow" data-i18n="insights.eyebrow">Study insight</span>
@@ -279,6 +279,7 @@
           <span class="study-insight-body" id="studyInsightBody"></span>
           <span class="study-insight-evidence" id="studyInsightEvidence"></span>
         </span>
+        <button class="study-insight-snooze" type="button" onclick="snoozeStudyInsights()" title="Hide study insights for two weeks" aria-label="Hide study insights for two weeks" data-i18n-title="insights.snooze" data-i18n-aria-label="insights.snooze">×</button>
       </aside>
       <div class="next-study-card hidden" id="nextStudyCard"></div>
     </section>

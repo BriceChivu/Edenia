@@ -720,6 +720,8 @@ const I18N_EN = {
   'insights.title.short-sessions': 'Small sessions are working',
   'insights.body.short-sessions': 'Your typical video-study session lasts about {minutes} minutes. Keeping a short session ready can make consistency easier.',
   'insights.evidence.short-sessions': '{sessions} study sessions across {days} active days.',
+  'insights.snooze': 'Hide study insights for two weeks',
+  'insights.snoozed': 'Insight hidden for two weeks.',
   'history.title': 'Study History',
   'history.viewLabel': 'Study history view',
   'history.summary': 'Summary',
@@ -1121,6 +1123,23 @@ const I18N = {
     'goal.pace.longSession': '今天以 {time} 為目標，讓進度回到正軌。',
     'goal.pace.onTrack': '你本週的進度正按計畫前進。',
     'goal.pace.complete': '本週目標已完成。做得好！',
+    'insights.eyebrow': '學習洞察',
+    'insights.subject.study': '學習',
+    'insights.window.morning': '早晨',
+    'insights.window.afternoon': '下午',
+    'insights.window.evening': '傍晚',
+    'insights.window.night': '深夜',
+    'insights.title.preferred-window': '保留已經有效的節奏',
+    'insights.body.preferred-window': '{window}是你最穩定的學習時段。忙碌的日子也可以試著保留 {minutes} 分鐘給自己。',
+    'insights.evidence.preferred-window': '在 {days} 個有學習的日子中，{percent}% 的影片學習發生在{window}。',
+    'insights.title.morning-opportunity': '試試小小的晨間學習',
+    'insights.body.morning-opportunity': '你幾乎不在早晨學習。要不要在晨間作息中安排一段 {minutes} 分鐘的{subject}時間？',
+    'insights.evidence.morning-opportunity': '在 {days} 個有學習的日子中，早晨只占影片學習的 {percent}%。',
+    'insights.title.short-sessions': '短時間學習也很有效',
+    'insights.body.short-sessions': '你的影片學習通常一次約 {minutes} 分鐘。預留一個短時間選項，能讓持續學習更容易。',
+    'insights.evidence.short-sessions': '{days} 個有學習的日子中，共記錄了 {sessions} 次學習。',
+    'insights.snooze': '兩週內不顯示學習洞察',
+    'insights.snoozed': '已隱藏這則洞察兩週。',
     'history.title': '學習紀錄',
     'history.summary': '摘要',
     'history.heatmap': '熱力圖',
@@ -1423,6 +1442,23 @@ const I18N = {
     'goal.pace.longSession': '今天以 {time} 为目标，让进度回到正轨。',
     'goal.pace.onTrack': '你本周的进度正按计划前进。',
     'goal.pace.complete': '本周目标已完成。做得好！',
+    'insights.eyebrow': '学习洞察',
+    'insights.subject.study': '学习',
+    'insights.window.morning': '早晨',
+    'insights.window.afternoon': '下午',
+    'insights.window.evening': '傍晚',
+    'insights.window.night': '深夜',
+    'insights.title.preferred-window': '保留已经有效的节奏',
+    'insights.body.preferred-window': '{window}是你最稳定的学习时段。忙碌的日子也可以试着保留 {minutes} 分钟给自己。',
+    'insights.evidence.preferred-window': '在 {days} 个有学习的日子中，{percent}% 的视频学习发生在{window}。',
+    'insights.title.morning-opportunity': '试试小小的晨间学习',
+    'insights.body.morning-opportunity': '你几乎不在早晨学习。要不要在晨间作息中安排一段 {minutes} 分钟的{subject}时间？',
+    'insights.evidence.morning-opportunity': '在 {days} 个有学习的日子中，早晨只占视频学习的 {percent}%。',
+    'insights.title.short-sessions': '短时间学习也很有效',
+    'insights.body.short-sessions': '你的视频学习通常一次约 {minutes} 分钟。预留一个短时间选项，能让持续学习更容易。',
+    'insights.evidence.short-sessions': '{days} 个有学习的日子中，共记录了 {sessions} 次学习。',
+    'insights.snooze': '两周内不显示学习洞察',
+    'insights.snoozed': '已隐藏这则洞察两周。',
     'history.title': '学习记录',
     'history.summary': '摘要',
     'history.heatmap': '热力图',
@@ -1708,6 +1744,23 @@ const I18N = {
     'goal.pace.longSession': 'Intenta estudiar {time} hoy para volver al ritmo previsto.',
     'goal.pace.onTrack': 'Vas por buen camino esta semana.',
     'goal.pace.complete': 'Objetivo semanal completado. ¡Buen trabajo!',
+    'insights.eyebrow': 'Observación de estudio',
+    'insights.subject.study': 'estudio',
+    'insights.window.morning': 'mañana',
+    'insights.window.afternoon': 'tarde',
+    'insights.window.evening': 'noche',
+    'insights.window.night': 'noche',
+    'insights.title.preferred-window': 'Protege lo que ya funciona',
+    'insights.body.preferred-window': 'La {window} es tu momento de estudio más fiable. En los días ocupados, intenta reservar allí {minutes} minutos.',
+    'insights.evidence.preferred-window': 'El {percent}% de tu estudio con vídeos ocurrió por la {window}, a lo largo de {days} días activos.',
+    'insights.title.morning-opportunity': 'Un pequeño experimento matutino',
+    'insights.body.morning-opportunity': 'Casi nunca estudias por la mañana. ¿Encajaría una sesión de {subject} de {minutes} minutos en tu rutina matutina?',
+    'insights.evidence.morning-opportunity': 'Las sesiones matutinas representaron el {percent}% de tu estudio con vídeos durante {days} días activos.',
+    'insights.title.short-sessions': 'Las sesiones cortas funcionan',
+    'insights.body.short-sessions': 'Tu sesión habitual con vídeos dura unos {minutes} minutos. Tener preparada una opción corta puede facilitar la constancia.',
+    'insights.evidence.short-sessions': '{sessions} sesiones de estudio durante {days} días activos.',
+    'insights.snooze': 'Ocultar las observaciones de estudio durante dos semanas',
+    'insights.snoozed': 'Observación oculta durante dos semanas.',
     'history.title': 'Historial de estudio',
     'history.summary': 'Resumen',
     'history.heatmap': 'Mapa',
@@ -1995,6 +2048,23 @@ const I18N = {
     'goal.pace.longSession': 'Visez {time} aujourd’hui pour reprendre le bon rythme.',
     'goal.pace.onTrack': 'Vous êtes dans le bon rythme cette semaine.',
     'goal.pace.complete': 'Objectif hebdomadaire atteint. Bravo !',
+    'insights.eyebrow': 'Observation d’étude',
+    'insights.subject.study': 'travail',
+    'insights.window.morning': 'matin',
+    'insights.window.afternoon': 'après-midi',
+    'insights.window.evening': 'soirée',
+    'insights.window.night': 'fin de soirée',
+    'insights.title.preferred-window': 'Préservez ce qui fonctionne déjà',
+    'insights.body.preferred-window': 'Le créneau « {window} » est votre moment d’étude le plus fiable. Les jours chargés, essayez d’y préserver {minutes} minutes.',
+    'insights.evidence.preferred-window': '{percent} % de votre étude en vidéo a eu lieu sur le créneau « {window} », pendant {days} jours actifs.',
+    'insights.title.morning-opportunity': 'Une petite expérience matinale',
+    'insights.body.morning-opportunity': 'Vous étudiez très rarement le matin. Une session de {subject} de {minutes} minutes pourrait-elle s’intégrer à votre routine matinale ?',
+    'insights.evidence.morning-opportunity': 'Les sessions matinales ont représenté {percent} % de votre étude en vidéo pendant {days} jours actifs.',
+    'insights.title.short-sessions': 'Les courtes sessions fonctionnent',
+    'insights.body.short-sessions': 'Votre session habituelle en vidéo dure environ {minutes} minutes. Garder une option courte à portée de main peut faciliter la régularité.',
+    'insights.evidence.short-sessions': '{sessions} sessions d’étude pendant {days} jours actifs.',
+    'insights.snooze': 'Masquer les observations d’étude pendant deux semaines',
+    'insights.snoozed': 'Observation masquée pendant deux semaines.',
     'history.title': 'Historique d’étude',
     'history.summary': 'Résumé',
     'history.heatmap': 'Carte',
@@ -7832,6 +7902,22 @@ function renderStudyInsight(state) {
   title.textContent = viewModel.title
   body.textContent = viewModel.body
   evidence.textContent = viewModel.evidence
+}
+
+function snoozeStudyInsights() {
+  const state = loadState()
+  if (!state) return
+  normalizeStudyInsightConfig(state)
+  const candidates = getStudyInsightCandidates(state)
+  if (!candidates.length) return
+
+  const snoozedUntil = new Date(Date.now() + STUDY_INSIGHT_SNOOZE_DAYS * 86_400_000).toISOString()
+  candidates.forEach(candidate => {
+    state.config.studyInsights.snoozedUntil[candidate.id] = snoozedUntil
+  })
+  saveState(state, { backup: false })
+  renderStudyInsight(state)
+  showToast(t('insights.snoozed'), 'success')
 }
 
 function renderNextStudy(s) {
