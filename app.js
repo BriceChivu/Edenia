@@ -3938,6 +3938,7 @@ function changeIntroLocale(locale) {
   saveState(state, { backup: false })
   applyLocale(nextLocale)
   updateIntroSoundButton()
+  updateIntroCityLevelControls(document.getElementById('introCityLevel')?.textContent || '1')
   document.title = IS_SANDBOX ? t('app.title.sandbox') : 'Edenia'
 
   if (introTrailerState.active && introTrailerState.sceneIndex === 0) {
@@ -3991,14 +3992,64 @@ function closeIntroLocaleMenuOnOutsideClick(event) {
 }
 
 function animateIntroCityLevel() {
-  const level = document.getElementById('introCityLevel')
-  if (!level) return
-  level.textContent = '1'
+  const trailer = document.getElementById('introTrailer')
+  trailer?.classList.remove('is-manual-city-level')
+  trailer?.querySelectorAll('[data-intro-city-frame]').forEach(frame => frame.classList.remove('is-selected'))
+  trailer?.querySelectorAll('.intro-city-growth button, .intro-city-growth i').forEach(marker => marker.classList.remove('is-selected', 'is-reached'))
+  updateIntroCityLevelControls(1)
   ;[[2500, '4'], [5100, '8'], [7700, '12']].forEach(([delay, value]) => {
     introTrailerState.cityLevelTimers.push(window.setTimeout(() => {
-      level.textContent = value
+      updateIntroCityLevelControls(value)
     }, delay))
   })
+}
+
+function updateIntroCityLevelControls(level) {
+  const normalizedLevel = String(level)
+  const levelLabel = document.getElementById('introCityLevel')
+  if (levelLabel) levelLabel.textContent = normalizedLevel
+  document.querySelectorAll('[data-intro-city-level]').forEach(button => {
+    const isSelected = button.dataset.introCityLevel === normalizedLevel
+    button.setAttribute('aria-pressed', String(isSelected))
+    button.setAttribute('aria-label', `${t('intro.city.level')} ${button.dataset.introCityLevel}`)
+  })
+}
+
+function selectIntroCityLevel(level) {
+  if (!introTrailerState.active || introTrailerState.sceneIndex !== 2) return
+  const normalizedLevel = String(level)
+  if (!['1', '4', '8', '12'].includes(normalizedLevel)) return
+  const trailer = document.getElementById('introTrailer')
+  if (!trailer) return
+
+  window.clearTimeout(introTrailerState.sceneTimer)
+  introTrailerState.cityLevelTimers.forEach(timer => window.clearTimeout(timer))
+  introTrailerState.cityLevelTimers = []
+  trailer.classList.add('is-manual-city-level')
+  const levels = ['1', '4', '8', '12']
+  const selectedIndex = levels.indexOf(normalizedLevel)
+  const showLevel = nextLevel => {
+    const nextIndex = levels.indexOf(nextLevel)
+    trailer.querySelectorAll('[data-intro-city-frame]').forEach(frame => {
+      frame.classList.toggle('is-selected', frame.dataset.introCityFrame === nextLevel)
+    })
+    trailer.querySelectorAll('[data-intro-city-level]').forEach((button, index) => {
+      button.classList.toggle('is-selected', index === nextIndex)
+      button.classList.toggle('is-reached', index <= nextIndex)
+    })
+    trailer.querySelectorAll('.intro-city-growth i').forEach((rail, index) => {
+      rail.classList.toggle('is-reached', index < nextIndex)
+    })
+    updateIntroCityLevelControls(nextLevel)
+  }
+
+  showLevel(normalizedLevel)
+  const levelPause = 2800
+  levels.slice(selectedIndex + 1).forEach((nextLevel, index) => {
+    introTrailerState.cityLevelTimers.push(window.setTimeout(() => showLevel(nextLevel), levelPause * (index + 1)))
+  })
+  const remainingLevelCount = levels.length - selectedIndex - 1
+  introTrailerState.sceneTimer = window.setTimeout(() => setIntroTrailerScene(3), levelPause * (remainingLevelCount + 1))
 }
 
 function updateIntroSoundButton() {

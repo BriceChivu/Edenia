@@ -11,9 +11,9 @@
   <link rel="preload" as="font" href="assets/fonts/space-grotesk-latin-ext.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin-ext.woff2" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=20260713-58">
+  <link rel="stylesheet" href="style.css?v=20260713-59">
   <script src="config.local.js" defer></script>
-  <script src="app.js?v=20260713-70" defer></script>
+  <script src="app.js?v=20260713-72" defer></script>
 </head>
 <body>
 
@@ -106,15 +106,18 @@
         <div class="intro-city-copy">
           <p class="intro-kicker" data-i18n="intro.city.kicker">Progress becomes a place</p>
           <h2 data-i18n="intro.city.title">Study. Earn points. Watch your town evolve.</h2>
-          <div class="intro-city-growth" aria-hidden="true">
-            <span>1</span><i></i><span>4</span><i></i><span>8</span><i></i><span>12</span>
+          <div class="intro-city-growth">
+            <button type="button" data-intro-city-level="1" onclick="selectIntroCityLevel(1)">1</button><i></i>
+            <button type="button" data-intro-city-level="4" onclick="selectIntroCityLevel(4)">4</button><i></i>
+            <button type="button" data-intro-city-level="8" onclick="selectIntroCityLevel(8)">8</button><i></i>
+            <button type="button" data-intro-city-level="12" onclick="selectIntroCityLevel(12)">12</button>
           </div>
         </div>
         <div class="intro-city-viewport" aria-hidden="true">
-          <img class="intro-city-frame intro-city-frame-one" src="images/city/level%201.webp" alt="">
-          <img class="intro-city-frame intro-city-frame-two" src="images/city/level%204.webp" alt="">
-          <img class="intro-city-frame intro-city-frame-three" src="images/city/level%208.webp" alt="">
-          <img class="intro-city-frame intro-city-frame-four" src="images/city/level%2012.webp" alt="">
+          <img class="intro-city-frame intro-city-frame-one" data-intro-city-frame="1" src="images/city/level%201.webp" alt="">
+          <img class="intro-city-frame intro-city-frame-two" data-intro-city-frame="4" src="images/city/level%204.webp" alt="">
+          <img class="intro-city-frame intro-city-frame-three" data-intro-city-frame="8" src="images/city/level%208.webp" alt="">
+          <img class="intro-city-frame intro-city-frame-four" data-intro-city-frame="12" src="images/city/level%2012.webp" alt="">
           <span class="intro-level-chip"><span data-i18n="intro.city.level">Town level</span> <b id="introCityLevel">1</b></span>
         </div>
       </article>
