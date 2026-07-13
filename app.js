@@ -7999,7 +7999,6 @@ function renderPreviousStudyInsightItem(entry, state) {
   return `
     <article class="study-insight-history-item">
       <span class="study-insight-history-head">
-        <img class="study-insight-history-icon" src="Edenia_favicon_round.png" alt="" aria-hidden="true">
         <strong class="study-insight-title">${escHtml(viewModel.title)}</strong>
         <time class="study-insight-history-date" datetime="${escHtml(recordedAt.toISOString())}">${escHtml(dateLabel)}</time>
       </span>
