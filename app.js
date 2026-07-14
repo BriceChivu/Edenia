@@ -731,6 +731,12 @@ const I18N_EN = {
   'streak.day': 'day streak',
   'sandbox.addDay': 'Add day',
   'sandbox.reset': 'Reset',
+  'sandbox.channel.focus': 'Sandbox Focus',
+  'sandbox.channel.memory': 'Sandbox Memory',
+  'sandbox.channel.projects': 'Sandbox Projects',
+  'sandbox.video.addedDay': 'Sandbox added study day {date}.{index}',
+  'sandbox.video.upcoming': 'Sandbox upcoming lesson {date}',
+  'sandbox.video.recent': 'Sandbox recent lesson {channel}.{index}',
   'city.imageAlt': 'Study city milestone: Lonely house',
   'city.zoom.controls': 'City zoom controls',
   'city.zoom.out': 'Zoom out',
@@ -936,6 +942,11 @@ const I18N_EN = {
   'backups.restore': 'Restore',
   'backups.unknownTime': 'Unknown time',
   'backups.automatic': 'Automatic backup',
+  'backups.reason.automaticCleanup': 'Before automatic cleanup',
+  'backups.reason.sandboxReset': 'Before sandbox reset',
+  'backups.reason.syncImport': 'Before sync import',
+  'backups.reason.backupRestore': 'Before backup restore',
+  'backups.reason.reset': 'Before reset',
   'time.tomorrow': 'tomorrow',
   'time.today': 'today',
   'time.yesterday': 'yesterday',
@@ -999,6 +1010,7 @@ const I18N_EN = {
   'toast.channelLoaded': '{name}: {count} videos loaded{shorts}',
   'toast.channelAddLoadFailed': 'Channel added, but recent videos could not load: {message}',
   'toast.validYoutubeUrl': 'Use a valid YouTube video URL',
+  'toast.videoNotFound': 'No YouTube video was found for that URL',
   'toast.alreadyWatched': 'That video is already marked watched',
   'toast.addedWatchedVideo': 'Added video: "{title}"',
   'toast.addVideoFailed': 'Could not add that video',
@@ -1066,7 +1078,48 @@ const I18N_EN = {
   'log.theme.dark': 'Dark theme enabled.',
   'log.theme.light': 'Light theme enabled.',
   'log.locale.title': 'Language changed',
-  'log.locale.detail': 'Language set to {language}.'
+  'log.locale.detail': 'Language set to {language}.',
+  'log.onboarding.title': 'Starter feed created',
+  'log.onboarding.detail': '{language} · {level} · {count} channels',
+  'log.sandboxReset.title': 'Sandbox reset',
+  'log.sandboxReset.detail': 'Sandbox progress was reset after keeping a rollback backup.',
+  'log.ankiSetting.title': 'Anki setting changed',
+  'log.ankiSetting.enabled': 'Anki tracking is enabled.',
+  'log.ankiSetting.disabled': 'Anki tracking is disabled.',
+  'log.insightsSetting.title': 'Study insights setting changed',
+  'log.insightsSetting.shown': 'Study insights are shown.',
+  'log.insightsSetting.hidden': 'Study insights are hidden.',
+  'log.rollback.title': 'Rollback backup created',
+  'log.rollback.beforeImport': 'Saved a local backup before importing a sync file.',
+  'log.rollback.beforeRestore': 'Saved a local backup before restoring another backup.',
+  'log.syncImported.title': 'Sync file imported',
+  'log.syncImported.detail': 'Imported progress from a sync file.',
+  'log.backupRestored.title': 'Backup restored',
+  'log.channelAdded.title': 'Channel added',
+  'log.channelRemoved.title': 'Channel removed',
+  'log.reset.title': 'Reset everything',
+  'log.reset.detail': 'Started fresh after keeping a rollback backup.',
+  'log.shortsChecked.title': 'Short videos checked',
+  'log.shortsChecked.detail': '{checked} stored videos checked; {shorts} short videos found.',
+  'log.shortsCheckFailed.title': 'Short video check failed',
+  'log.shortsCheckFailed.detail': 'Could not check stored short videos.',
+  'log.channelRefreshed.title': 'YouTube channel refreshed',
+  'log.channelRefreshed.fetched': '{name}: {count} videos fetched.',
+  'log.channelRefreshed.loaded': '{name}: {count} videos loaded.',
+  'log.channelRefreshFailed.title': 'YouTube channel refresh failed',
+  'log.unknownError': 'Unknown error',
+  'log.shortsSkipped.title': 'Short videos skipped',
+  'log.shortsSkipped.detail': '{count} short videos skipped during refresh.',
+  'log.refreshFailed.title': 'YouTube refresh failed',
+  'log.unknownRefreshError': 'Unknown refresh error',
+  'log.videoStatus.title': 'Video status changed',
+  'log.videoStatus.detail': '“{title}” is now {status}.',
+  'log.videoAdded.title': 'Video URL added',
+  'log.videoAdded.detail': '“{title}” was added to the video grid.',
+  'log.ankiRefreshFailed.title': 'Anki refresh failed',
+  'log.ankiStats.title': 'Anki stats refreshed',
+  'log.ankiStats.detail': '{reviewed} tracked reviews today, {created} new cards found.',
+  'log.levelUp.title': 'Level-up claimed'
 }
 
 const I18N = {
@@ -2576,6 +2629,679 @@ const I18N = {
   }
 }
 
+Object.assign(I18N['zh-Hant'], {
+  'app.title.sandbox': '沙盒版 - Edenia',
+  'settings.remove': '移除',
+  'header.settings': '設定',
+  'city.imageAlt': '學習城鎮里程碑：孤單的小屋',
+  'city.zoom.controls': '城鎮縮放控制',
+  'city.zoom.out': '縮小',
+  'city.zoom.reset': '重設視圖',
+  'city.zoom.in': '放大',
+  'city.timeline': '城鎮歷史時間軸',
+  'city.timeline.today': '今天',
+  'history.viewLabel': '學習歷史視圖',
+  'history.rangeLabel': '學習歷史範圍',
+  'history.selectWeek': '選擇週次',
+  'history.availableWeeks': '可選週次',
+  'history.selectMonth': '選擇月份',
+  'history.availableMonths': '可選月份',
+  'history.showWatched': '顯示 {date} 已觀看的 {count} 部影片',
+  'history.watchedDialog': '已觀看影片',
+  'history.weekdays.mon': '週一',
+  'history.weekdays.tue': '週二',
+  'history.weekdays.wed': '週三',
+  'history.weekdays.thu': '週四',
+  'history.weekdays.fri': '週五',
+  'history.weekdays.sat': '週六',
+  'history.weekdays.sun': '週日',
+  'videos.status.previous': '先前狀態',
+  'videos.channels.one': '1 個頻道',
+  'videos.channels.count': '{count} 個頻道',
+  'videos.manual.placeholder': 'youtube.com/watch?v=...',
+  'videos.manual.adding': '新增中…',
+  'videos.empty.filtered': '沒有符合「{filter}」{channelText}的影片。',
+  'videos.empty.selectedChannels': '（已選頻道）',
+  'videos.filter.active': '使用中',
+  'videos.filter.inProgress': '進行中',
+  'videos.filter.watchLater': '稍後觀看',
+  'videos.search.untitled': '未命名影片',
+  'videos.search.youtube': 'YouTube',
+  'videos.card.markProgress': '標記為進行中',
+  'videos.card.removeWatchLater': '從稍後觀看移除',
+  'videos.card.watchLater': '稍後觀看',
+  'videos.card.timestampLabel': '繼續播放時間',
+  'videos.card.inProgressRibbon': '進行中',
+  'videos.refreshing': '刷新中…',
+  'videos.refresh': '刷新',
+  'activity.error': '錯誤',
+  'activity.warn': '警告',
+  'activity.info': '資訊',
+  'backups.unknownTime': '時間不明',
+  'backups.automatic': '自動備份',
+  'backups.reason.automaticCleanup': '自動清理前',
+  'backups.reason.sandboxReset': '沙盒重設前',
+  'backups.reason.syncImport': '匯入同步檔前',
+  'backups.reason.backupRestore': '還原備份前',
+  'backups.reason.reset': '全部重置前',
+  'sandbox.channel.focus': '沙盒專注',
+  'sandbox.channel.memory': '沙盒記憶',
+  'sandbox.channel.projects': '沙盒專案',
+  'sandbox.video.addedDay': '沙盒新增學習日 {date}.{index}',
+  'sandbox.video.upcoming': '沙盒即將學習的課程 {date}',
+  'sandbox.video.recent': '沙盒近期課程 {channel}.{index}',
+  'toast.sandboxMode': '沙盒模式已啟用。變更不會影響一般資料。',
+  'toast.sandboxReset': '沙盒資料已重設',
+  'toast.sandboxDayAdded': '已新增沙盒學習日期：{date}',
+  'toast.dummyVideosLoaded': '已載入 {count} 部示範影片',
+  'toast.nothingToSync': '目前沒有可匯出的進度',
+  'toast.syncExported': '同步檔已匯出',
+  'toast.invalidSync': '這不是有效的 Edenia 同步檔',
+  'toast.useSandboxSync': '請在沙盒版匯入這個沙盒同步檔',
+  'toast.useNormalSync': '請在一般版匯入這個同步檔',
+  'toast.importFailed': '無法匯入同步檔',
+  'toast.syncImported': '同步檔已匯入',
+  'toast.readSyncFailed': '無法讀取同步檔',
+  'toast.backupUnavailable': '找不到這個備份',
+  'toast.backupRestored': '備份已還原',
+  'toast.channelDuplicate': '這個頻道已經加入',
+  'toast.channelAdded': '已加入 {name}',
+  'toast.channelAddedNoKey': '已加入 {name}。設定 YouTube API 金鑰後即可載入影片。',
+  'toast.channelAddedLoading': '已加入 {name}，正在載入影片…',
+  'toast.apiKeyMissing': '請先設定 YouTube API 金鑰',
+  'toast.nextRefresh': '可在 {time} 後再次刷新',
+  'toast.refreshFailedChannels': '{count} 個頻道刷新失敗',
+  'toast.refreshLoadedWithErrors': '已載入 {count} 部影片{shorts}，但有 {errors} 個頻道失敗',
+  'toast.refreshLoaded': '已從 {channels} 個頻道載入 {count} 部影片{shorts}',
+  'toast.refreshFailed': '刷新失敗：{message}',
+  'toast.channelLoaded': '已從 {name} 載入 {count} 部影片{shorts}',
+  'toast.channelAddLoadFailed': '頻道已加入，但影片載入失敗：{message}',
+  'toast.validYoutubeUrl': '請貼上有效的 YouTube 影片網址',
+  'toast.videoNotFound': '找不到這個網址對應的 YouTube 影片',
+  'toast.alreadyWatched': '這部影片已標記為已觀看',
+  'toast.addedWatchedVideo': '已加入並標記為已觀看：{title}',
+  'toast.addVideoFailed': '無法新增影片',
+  'toast.timestampFormat': '請使用 HH:MM:SS 或 MM:SS 格式',
+  'toast.videoGone': '找不到這部影片',
+  'toast.watchedHidden': '已觀看影片會顯示在學習歷史中',
+  'toast.couldNotShowVideo': '無法顯示這部影片',
+  'toast.levelUp': '城鎮升級：{label}',
+  'toast.skippedShorts': '，已略過 {count} 部短影片',
+  'anki.unavailableOpen': '請開啟 Anki，讓 Edenia 讀取今天的複習資料。',
+  'anki.blockedHosted': '瀏覽器封鎖了本機 Anki 連線。請在 localhost 使用 Edenia，或允許此連線。',
+  'anki.failed': 'Anki 連線失敗：{message}',
+  'anki.notAvailable': '目前無法使用 Anki',
+  'log.weeklyGoal.title': '每週目標已變更',
+  'log.weeklyGoal.detail': '從 {from} 小時改為 {to} 小時',
+  'log.shortVideos.title': '短影片設定已變更',
+  'log.shortVideos.shown': '顯示短影片。',
+  'log.shortVideos.hidden': '隱藏短影片。',
+  'log.theme.title': '主題已變更',
+  'log.theme.dark': '已啟用深色主題。',
+  'log.theme.light': '已啟用淺色主題。',
+  'log.locale.title': '語言已變更',
+  'log.locale.detail': '語言已設為 {language}。',
+  'log.onboarding.title': '已建立入門學習清單',
+  'log.onboarding.detail': '{language} · {level} · {count} 個頻道',
+  'log.sandboxReset.title': '沙盒已重設',
+  'log.sandboxReset.detail': '保留回復備份後，沙盒進度已重設。',
+  'log.ankiSetting.title': 'Anki 設定已變更',
+  'log.ankiSetting.enabled': '已啟用 Anki 追蹤。',
+  'log.ankiSetting.disabled': '已停用 Anki 追蹤。',
+  'log.insightsSetting.title': '學習洞察設定已變更',
+  'log.insightsSetting.shown': '顯示學習洞察。',
+  'log.insightsSetting.hidden': '隱藏學習洞察。',
+  'log.rollback.title': '已建立回復備份',
+  'log.rollback.beforeImport': '匯入同步檔前已儲存本機備份。',
+  'log.rollback.beforeRestore': '還原其他備份前已儲存本機備份。',
+  'log.syncImported.title': '同步檔已匯入',
+  'log.syncImported.detail': '已從同步檔匯入進度。',
+  'log.backupRestored.title': '備份已還原',
+  'log.channelAdded.title': '頻道已加入',
+  'log.channelRemoved.title': '頻道已移除',
+  'log.reset.title': '全部重置',
+  'log.reset.detail': '保留回復備份後已重新開始。',
+  'log.shortsChecked.title': '短影片檢查完成',
+  'log.shortsChecked.detail': '已檢查 {checked} 部已儲存影片；找到 {shorts} 部短影片。',
+  'log.shortsCheckFailed.title': '短影片檢查失敗',
+  'log.shortsCheckFailed.detail': '無法檢查已儲存的短影片。',
+  'log.channelRefreshed.title': 'YouTube 頻道已刷新',
+  'log.channelRefreshed.fetched': '{name}：已取得 {count} 部影片。',
+  'log.channelRefreshed.loaded': '{name}：已載入 {count} 部影片。',
+  'log.channelRefreshFailed.title': 'YouTube 頻道刷新失敗',
+  'log.unknownError': '未知錯誤',
+  'log.shortsSkipped.title': '已略過短影片',
+  'log.shortsSkipped.detail': '刷新時略過了 {count} 部短影片。',
+  'log.refreshFailed.title': 'YouTube 刷新失敗',
+  'log.unknownRefreshError': '未知的刷新錯誤',
+  'log.videoStatus.title': '影片狀態已變更',
+  'log.videoStatus.detail': '「{title}」現在是{status}。',
+  'log.videoAdded.title': '已加入影片網址',
+  'log.videoAdded.detail': '「{title}」已加入影片清單。',
+  'log.ankiRefreshFailed.title': 'Anki 刷新失敗',
+  'log.ankiStats.title': 'Anki 統計已刷新',
+  'log.ankiStats.detail': '今天追蹤到 {reviewed} 次複習，並找到 {created} 張新卡片。',
+  'log.levelUp.title': '已領取城鎮升級'
+})
+
+Object.assign(I18N['zh-Hans'], {
+  'app.title.sandbox': '沙盒版 - Edenia',
+  'settings.activity.filtersLabel': '活动记录筛选',
+  'settings.remove': '移除',
+  'header.search.dialog': '搜索已保存的视频',
+  'header.settings': '设置',
+  'city.imageAlt': '学习城镇里程碑：孤单的小屋',
+  'city.zoom.controls': '城镇缩放控制',
+  'city.zoom.out': '缩小',
+  'city.zoom.reset': '重置视图',
+  'city.zoom.in': '放大',
+  'city.timeline': '城镇历史时间轴',
+  'city.timeline.today': '今天',
+  'history.viewLabel': '学习历史视图',
+  'history.rangeLabel': '学习历史范围',
+  'history.selectWeek': '选择周次',
+  'history.availableWeeks': '可选周次',
+  'history.selectMonth': '选择月份',
+  'history.availableMonths': '可选月份',
+  'history.table.anki': 'Anki',
+  'history.noActivityMap': '还没有可显示的活动。',
+  'history.noActivityYet': '还没有活动',
+  'history.showWatched': '显示 {date} 已观看的 {count} 个视频',
+  'history.watchedDialog': '已观看视频',
+  'history.today': '今天',
+  'history.yesterday': '昨天',
+  'history.weekdays.mon': '周一',
+  'history.weekdays.tue': '周二',
+  'history.weekdays.wed': '周三',
+  'history.weekdays.thu': '周四',
+  'history.weekdays.fri': '周五',
+  'history.weekdays.sat': '周六',
+  'history.weekdays.sun': '周日',
+  'history.tooltip.videoTime': '视频时间',
+  'history.tooltip.videosWatched': '已观看视频',
+  'history.tooltip.ankiReviewed': 'Anki 已复习',
+  'history.tooltip.ankiCreated': 'Anki 新建卡片',
+  'videos.status.previous': '之前状态',
+  'videos.channels.one': '1 个频道',
+  'videos.channels.count': '{count} 个频道',
+  'videos.manual.dialog': '添加 YouTube 视频',
+  'videos.manual.placeholder': 'youtube.com/watch?v=...',
+  'videos.manual.adding': '添加中…',
+  'videos.empty.activeBelow': '当前筛选条件下没有视频。',
+  'videos.empty.filtered': '没有符合“{filter}”{channelText}的视频。',
+  'videos.empty.selectedChannels': '（已选频道）',
+  'videos.filter.active': '使用中',
+  'videos.filter.inProgress': '进行中',
+  'videos.filter.watchLater': '稍后观看',
+  'videos.search.noMatches': '没有匹配的视频',
+  'videos.search.untitled': '未命名视频',
+  'videos.search.youtube': 'YouTube',
+  'videos.card.markWatchedTitle': '标记为已观看',
+  'videos.card.clear': '清除状态',
+  'videos.card.markProgress': '标记为进行中',
+  'videos.card.removeWatchLater': '从稍后观看移除',
+  'videos.card.watchLater': '稍后观看',
+  'videos.card.timestampLabel': '继续播放时间',
+  'videos.card.inProgressRibbon': '进行中',
+  'videos.refreshing': '刷新中…',
+  'videos.refresh': '刷新',
+  'activity.auto': '自动',
+  'activity.user': '用户',
+  'activity.error': '错误',
+  'activity.warn': '警告',
+  'activity.done': '完成',
+  'activity.info': '信息',
+  'backups.unknownTime': '时间未知',
+  'backups.automatic': '自动备份',
+  'backups.reason.automaticCleanup': '自动清理前',
+  'backups.reason.sandboxReset': '沙盒重置前',
+  'backups.reason.syncImport': '导入同步文件前',
+  'backups.reason.backupRestore': '恢复备份前',
+  'backups.reason.reset': '全部重置前',
+  'sandbox.channel.focus': '沙盒专注',
+  'sandbox.channel.memory': '沙盒记忆',
+  'sandbox.channel.projects': '沙盒项目',
+  'sandbox.video.addedDay': '沙盒添加学习日 {date}.{index}',
+  'sandbox.video.upcoming': '沙盒即将学习的课程 {date}',
+  'sandbox.video.recent': '沙盒近期课程 {channel}.{index}',
+  'toast.sandboxMode': '沙盒模式已启用。更改不会影响普通数据。',
+  'toast.sandboxReset': '沙盒数据已重置',
+  'toast.sandboxDayAdded': '已添加沙盒学习日期：{date}',
+  'toast.dummyVideosLoaded': '已加载 {count} 个示例视频',
+  'toast.nothingToSync': '目前没有可导出的进度',
+  'toast.syncExported': '同步文件已导出',
+  'toast.invalidSync': '这不是有效的 Edenia 同步文件',
+  'toast.useSandboxSync': '请在沙盒版中导入这个沙盒同步文件',
+  'toast.useNormalSync': '请在普通版中导入这个同步文件',
+  'toast.importFailed': '无法导入同步文件',
+  'toast.syncImported': '同步文件已导入',
+  'toast.readSyncFailed': '无法读取同步文件',
+  'toast.backupUnavailable': '找不到这个备份',
+  'toast.backupRestored': '备份已恢复',
+  'toast.channelDuplicate': '这个频道已经添加',
+  'toast.channelAdded': '已添加 {name}',
+  'toast.channelAddedNoKey': '已添加 {name}。设置 YouTube API 密钥后即可加载视频。',
+  'toast.channelAddedLoading': '已添加 {name}，正在加载视频…',
+  'toast.apiKeyMissing': '请先设置 YouTube API 密钥',
+  'toast.nextRefresh': '可在 {time} 后再次刷新',
+  'toast.refreshFailedChannels': '{count} 个频道刷新失败',
+  'toast.refreshLoadedWithErrors': '已加载 {count} 个视频{shorts}，但有 {errors} 个频道失败',
+  'toast.refreshLoaded': '已从 {channels} 个频道加载 {count} 个视频{shorts}',
+  'toast.refreshFailed': '刷新失败：{message}',
+  'toast.channelLoaded': '已从 {name} 加载 {count} 个视频{shorts}',
+  'toast.channelAddLoadFailed': '频道已添加，但视频加载失败：{message}',
+  'toast.validYoutubeUrl': '请粘贴有效的 YouTube 视频网址',
+  'toast.videoNotFound': '找不到这个网址对应的 YouTube 视频',
+  'toast.alreadyWatched': '这个视频已标记为已观看',
+  'toast.addedWatchedVideo': '已添加并标记为已观看：{title}',
+  'toast.addVideoFailed': '无法添加视频',
+  'toast.timestampFormat': '请使用 HH:MM:SS 或 MM:SS 格式',
+  'toast.videoGone': '找不到这个视频',
+  'toast.watchedHidden': '已观看视频会显示在学习历史中',
+  'toast.couldNotShowVideo': '无法显示这个视频',
+  'toast.levelUp': '城镇升级：{label}',
+  'toast.skippedShorts': '，已跳过 {count} 个短视频',
+  'anki.unavailableOpen': '请打开 Anki，让 Edenia 读取今天的复习数据。',
+  'anki.blockedHosted': '浏览器阻止了本地 Anki 连接。请在 localhost 使用 Edenia，或允许此连接。',
+  'anki.failed': 'Anki 连接失败：{message}',
+  'anki.notAvailable': '目前无法使用 Anki',
+  'log.weeklyGoal.title': '每周目标已更改',
+  'log.weeklyGoal.detail': '从 {from} 小时改为 {to} 小时',
+  'log.shortVideos.title': '短视频设置已更改',
+  'log.shortVideos.shown': '显示短视频。',
+  'log.shortVideos.hidden': '隐藏短视频。',
+  'log.theme.title': '主题已更改',
+  'log.theme.dark': '已启用深色主题。',
+  'log.theme.light': '已启用浅色主题。',
+  'log.locale.title': '语言已更改',
+  'log.locale.detail': '语言已设为 {language}。',
+  'log.onboarding.title': '已创建入门学习列表',
+  'log.onboarding.detail': '{language} · {level} · {count} 个频道',
+  'log.sandboxReset.title': '沙盒已重置',
+  'log.sandboxReset.detail': '保留回滚备份后，沙盒进度已重置。',
+  'log.ankiSetting.title': 'Anki 设置已更改',
+  'log.ankiSetting.enabled': '已启用 Anki 追踪。',
+  'log.ankiSetting.disabled': '已停用 Anki 追踪。',
+  'log.insightsSetting.title': '学习洞察设置已更改',
+  'log.insightsSetting.shown': '显示学习洞察。',
+  'log.insightsSetting.hidden': '隐藏学习洞察。',
+  'log.rollback.title': '已创建回滚备份',
+  'log.rollback.beforeImport': '导入同步文件前已保存本地备份。',
+  'log.rollback.beforeRestore': '恢复其他备份前已保存本地备份。',
+  'log.syncImported.title': '同步文件已导入',
+  'log.syncImported.detail': '已从同步文件导入进度。',
+  'log.backupRestored.title': '备份已恢复',
+  'log.channelAdded.title': '频道已添加',
+  'log.channelRemoved.title': '频道已移除',
+  'log.reset.title': '全部重置',
+  'log.reset.detail': '保留回滚备份后已重新开始。',
+  'log.shortsChecked.title': '短视频检查完成',
+  'log.shortsChecked.detail': '已检查 {checked} 个已保存视频；找到 {shorts} 个短视频。',
+  'log.shortsCheckFailed.title': '短视频检查失败',
+  'log.shortsCheckFailed.detail': '无法检查已保存的短视频。',
+  'log.channelRefreshed.title': 'YouTube 频道已刷新',
+  'log.channelRefreshed.fetched': '{name}：已获取 {count} 个视频。',
+  'log.channelRefreshed.loaded': '{name}：已加载 {count} 个视频。',
+  'log.channelRefreshFailed.title': 'YouTube 频道刷新失败',
+  'log.unknownError': '未知错误',
+  'log.shortsSkipped.title': '已跳过短视频',
+  'log.shortsSkipped.detail': '刷新时跳过了 {count} 个短视频。',
+  'log.refreshFailed.title': 'YouTube 刷新失败',
+  'log.unknownRefreshError': '未知的刷新错误',
+  'log.videoStatus.title': '视频状态已更改',
+  'log.videoStatus.detail': '“{title}”现在是{status}。',
+  'log.videoAdded.title': '已添加视频网址',
+  'log.videoAdded.detail': '“{title}”已添加到视频列表。',
+  'log.ankiRefreshFailed.title': 'Anki 刷新失败',
+  'log.ankiStats.title': 'Anki 统计已刷新',
+  'log.ankiStats.detail': '今天追踪到 {reviewed} 次复习，并找到 {created} 张新卡片。',
+  'log.levelUp.title': '已领取城镇升级'
+})
+
+Object.assign(I18N.es, {
+  'app.title.sandbox': 'Entorno de prueba - Edenia',
+  'settings.activity.filtersLabel': 'Filtros del registro de actividad',
+  'settings.remove': 'Quitar',
+  'header.search.dialog': 'Buscar videos guardados',
+  'header.settings': 'Ajustes',
+  'city.imageAlt': 'Hito de la ciudad de estudio: casa solitaria',
+  'city.zoom.controls': 'Controles de zoom de la ciudad',
+  'city.zoom.out': 'Alejar',
+  'city.zoom.reset': 'Restablecer vista',
+  'city.zoom.in': 'Acercar',
+  'city.timeline': 'Cronología de la ciudad',
+  'city.timeline.today': 'Hoy',
+  'history.viewLabel': 'Vista del historial de estudio',
+  'history.rangeLabel': 'Período del historial de estudio',
+  'history.selectWeek': 'Seleccionar semana',
+  'history.availableWeeks': 'Semanas disponibles',
+  'history.selectMonth': 'Seleccionar mes',
+  'history.availableMonths': 'Meses disponibles',
+  'history.table.anki': 'Anki',
+  'history.noActivityMap': 'Todavía no hay actividad para mostrar.',
+  'history.noActivityYet': 'Todavía no hay actividad',
+  'history.showWatched': 'Mostrar {count} videos vistos el {date}',
+  'history.watchedDialog': 'Videos vistos',
+  'history.weekdays.mon': 'Lun',
+  'history.weekdays.tue': 'Mar',
+  'history.weekdays.wed': 'Mié',
+  'history.weekdays.thu': 'Jue',
+  'history.weekdays.fri': 'Vie',
+  'history.weekdays.sat': 'Sáb',
+  'history.weekdays.sun': 'Dom',
+  'history.tooltip.videoTime': 'Tiempo de video',
+  'history.tooltip.videosWatched': 'Videos vistos',
+  'history.tooltip.ankiReviewed': 'Anki repasadas',
+  'history.tooltip.ankiCreated': 'Tarjetas Anki nuevas',
+  'videos.status.previous': 'estado anterior',
+  'videos.channels.one': '1 canal',
+  'videos.channels.count': '{count} canales',
+  'videos.manual.dialog': 'Añadir video de YouTube',
+  'videos.manual.placeholder': 'youtube.com/watch?v=...',
+  'videos.manual.adding': 'Añadiendo…',
+  'videos.empty.activeBelow': 'No hay videos con los filtros actuales.',
+  'videos.empty.filtered': 'No hay videos que coincidan con «{filter}» {channelText}.',
+  'videos.empty.selectedChannels': 'en los canales seleccionados',
+  'videos.filter.active': 'Activos',
+  'videos.filter.inProgress': 'En progreso',
+  'videos.filter.watchLater': 'Ver después',
+  'videos.search.noMatches': 'No hay videos que coincidan',
+  'videos.search.untitled': 'Video sin título',
+  'videos.search.youtube': 'YouTube',
+  'videos.card.markWatchedTitle': 'Marcar como visto',
+  'videos.card.clear': 'Borrar estado',
+  'videos.card.markProgress': 'Marcar en progreso',
+  'videos.card.removeWatchLater': 'Quitar de Ver después',
+  'videos.card.watchLater': 'Ver después',
+  'videos.card.timestampLabel': 'Hora para continuar',
+  'videos.card.inProgressRibbon': 'En progreso',
+  'videos.refreshing': 'Actualizando…',
+  'videos.refresh': 'Actualizar',
+  'activity.auto': 'Automático',
+  'activity.user': 'Usuario',
+  'activity.error': 'Error',
+  'activity.warn': 'Aviso',
+  'activity.done': 'Hecho',
+  'activity.info': 'Información',
+  'backups.unknownTime': 'Hora desconocida',
+  'backups.automatic': 'Copia automática',
+  'backups.reason.automaticCleanup': 'Antes de la limpieza automática',
+  'backups.reason.sandboxReset': 'Antes de restablecer el entorno de prueba',
+  'backups.reason.syncImport': 'Antes de importar la sincronización',
+  'backups.reason.backupRestore': 'Antes de restaurar una copia',
+  'backups.reason.reset': 'Antes de restablecer todo',
+  'sandbox.channel.focus': 'Prueba de concentración',
+  'sandbox.channel.memory': 'Prueba de memoria',
+  'sandbox.channel.projects': 'Prueba de proyectos',
+  'sandbox.video.addedDay': 'Día de estudio de prueba {date}.{index}',
+  'sandbox.video.upcoming': 'Próxima lección de prueba {date}',
+  'sandbox.video.recent': 'Lección reciente de prueba {channel}.{index}',
+  'toast.sandboxMode': 'El modo de prueba está activo. Los cambios no afectan a los datos normales.',
+  'toast.sandboxReset': 'Datos de prueba restablecidos',
+  'toast.sandboxDayAdded': 'Día de estudio de prueba añadido: {date}',
+  'toast.dummyVideosLoaded': 'Se cargaron {count} videos de ejemplo',
+  'toast.nothingToSync': 'Todavía no hay progreso para exportar',
+  'toast.syncExported': 'Archivo de sincronización exportado',
+  'toast.invalidSync': 'No es un archivo de sincronización válido de Edenia',
+  'toast.useSandboxSync': 'Importa este archivo de prueba en la versión de prueba',
+  'toast.useNormalSync': 'Importa este archivo en la versión normal',
+  'toast.importFailed': 'No se pudo importar el archivo de sincronización',
+  'toast.syncImported': 'Archivo de sincronización importado',
+  'toast.readSyncFailed': 'No se pudo leer el archivo de sincronización',
+  'toast.backupUnavailable': 'Esta copia ya no está disponible',
+  'toast.backupRestored': 'Copia restaurada',
+  'toast.channelDuplicate': 'Este canal ya está añadido',
+  'toast.channelAdded': 'Se añadió {name}',
+  'toast.channelAddedNoKey': 'Se añadió {name}. Configura la clave de la API de YouTube para cargar videos.',
+  'toast.channelAddedLoading': 'Se añadió {name}; cargando videos…',
+  'toast.apiKeyMissing': 'Configura primero la clave de la API de YouTube',
+  'toast.nextRefresh': 'Puedes volver a actualizar en {time}',
+  'toast.refreshFailedChannels': 'No se pudieron actualizar {count} canales',
+  'toast.refreshLoadedWithErrors': 'Se cargaron {count} videos{shorts}, pero fallaron {errors} canales',
+  'toast.refreshLoaded': 'Se cargaron {count} videos de {channels} canales{shorts}',
+  'toast.refreshFailed': 'Falló la actualización: {message}',
+  'toast.channelLoaded': 'Se cargaron {count} videos de {name}{shorts}',
+  'toast.channelAddLoadFailed': 'El canal se añadió, pero sus videos no se cargaron: {message}',
+  'toast.validYoutubeUrl': 'Pega una URL válida de un video de YouTube',
+  'toast.videoNotFound': 'No se encontró ningún video de YouTube para esa URL',
+  'toast.alreadyWatched': 'Este video ya está marcado como visto',
+  'toast.addedWatchedVideo': 'Añadido y marcado como visto: {title}',
+  'toast.addVideoFailed': 'No se pudo añadir el video',
+  'toast.timestampFormat': 'Usa el formato HH:MM:SS o MM:SS',
+  'toast.videoGone': 'Este video ya no está disponible',
+  'toast.watchedHidden': 'Los videos vistos aparecen en el historial de estudio',
+  'toast.couldNotShowVideo': 'No se pudo mostrar este video',
+  'toast.levelUp': 'La ciudad subió de nivel: {label}',
+  'toast.skippedShorts': '; se omitieron {count} videos cortos',
+  'anki.unavailableOpen': 'Abre Anki para que Edenia pueda leer los repasos de hoy.',
+  'anki.blockedHosted': 'El navegador bloqueó la conexión local con Anki. Usa Edenia en localhost o permite la conexión.',
+  'anki.failed': 'Falló la conexión con Anki: {message}',
+  'anki.notAvailable': 'Anki no está disponible ahora',
+  'log.weeklyGoal.title': 'Objetivo semanal cambiado',
+  'log.weeklyGoal.detail': 'De {from} h a {to} h',
+  'log.shortVideos.title': 'Ajuste de videos cortos cambiado',
+  'log.shortVideos.shown': 'Se muestran los videos cortos.',
+  'log.shortVideos.hidden': 'Se ocultan los videos cortos.',
+  'log.theme.title': 'Tema cambiado',
+  'log.theme.dark': 'Tema oscuro activado.',
+  'log.theme.light': 'Tema claro activado.',
+  'log.locale.title': 'Idioma cambiado',
+  'log.locale.detail': 'Idioma establecido en {language}.',
+  'log.onboarding.title': 'Lista inicial creada',
+  'log.onboarding.detail': '{language} · {level} · {count} canales',
+  'log.sandboxReset.title': 'Entorno de prueba restablecido',
+  'log.sandboxReset.detail': 'El progreso de prueba se restableció después de guardar una copia de recuperación.',
+  'log.ankiSetting.title': 'Ajuste de Anki cambiado',
+  'log.ankiSetting.enabled': 'El seguimiento de Anki está activado.',
+  'log.ankiSetting.disabled': 'El seguimiento de Anki está desactivado.',
+  'log.insightsSetting.title': 'Ajuste de conclusiones cambiado',
+  'log.insightsSetting.shown': 'Se muestran las conclusiones de estudio.',
+  'log.insightsSetting.hidden': 'Se ocultan las conclusiones de estudio.',
+  'log.rollback.title': 'Copia de recuperación creada',
+  'log.rollback.beforeImport': 'Se guardó una copia local antes de importar un archivo de sincronización.',
+  'log.rollback.beforeRestore': 'Se guardó una copia local antes de restaurar otra copia.',
+  'log.syncImported.title': 'Archivo de sincronización importado',
+  'log.syncImported.detail': 'Se importó el progreso desde un archivo de sincronización.',
+  'log.backupRestored.title': 'Copia restaurada',
+  'log.channelAdded.title': 'Canal añadido',
+  'log.channelRemoved.title': 'Canal eliminado',
+  'log.reset.title': 'Restablecer todo',
+  'log.reset.detail': 'Se empezó de cero después de guardar una copia de recuperación.',
+  'log.shortsChecked.title': 'Videos cortos comprobados',
+  'log.shortsChecked.detail': 'Se comprobaron {checked} videos guardados; se encontraron {shorts} videos cortos.',
+  'log.shortsCheckFailed.title': 'Falló la comprobación de videos cortos',
+  'log.shortsCheckFailed.detail': 'No se pudieron comprobar los videos cortos guardados.',
+  'log.channelRefreshed.title': 'Canal de YouTube actualizado',
+  'log.channelRefreshed.fetched': '{name}: se obtuvieron {count} videos.',
+  'log.channelRefreshed.loaded': '{name}: se cargaron {count} videos.',
+  'log.channelRefreshFailed.title': 'Falló la actualización del canal de YouTube',
+  'log.unknownError': 'Error desconocido',
+  'log.shortsSkipped.title': 'Videos cortos omitidos',
+  'log.shortsSkipped.detail': 'Se omitieron {count} videos cortos durante la actualización.',
+  'log.refreshFailed.title': 'Falló la actualización de YouTube',
+  'log.unknownRefreshError': 'Error de actualización desconocido',
+  'log.videoStatus.title': 'Estado del video cambiado',
+  'log.videoStatus.detail': '«{title}» ahora está {status}.',
+  'log.videoAdded.title': 'URL de video añadida',
+  'log.videoAdded.detail': '«{title}» se añadió a la lista de videos.',
+  'log.ankiRefreshFailed.title': 'Falló la actualización de Anki',
+  'log.ankiStats.title': 'Estadísticas de Anki actualizadas',
+  'log.ankiStats.detail': '{reviewed} repasos registrados hoy; {created} tarjetas nuevas encontradas.',
+  'log.levelUp.title': 'Subida de nivel reclamada'
+})
+
+Object.assign(I18N.fr, {
+  'app.title.sandbox': 'Bac à sable - Edenia',
+  'settings.activity.filtersLabel': 'Filtres du journal d’activité',
+  'settings.remove': 'Retirer',
+  'header.search.dialog': 'Rechercher dans les vidéos enregistrées',
+  'header.settings': 'Réglages',
+  'city.imageAlt': 'Étape de la ville d’étude : maison solitaire',
+  'city.zoom.controls': 'Commandes de zoom de la ville',
+  'city.zoom.out': 'Dézoomer',
+  'city.zoom.reset': 'Réinitialiser la vue',
+  'city.zoom.in': 'Zoomer',
+  'city.timeline': 'Chronologie de la ville',
+  'city.timeline.today': 'Aujourd’hui',
+  'history.viewLabel': 'Vue de l’historique d’étude',
+  'history.rangeLabel': 'Période de l’historique d’étude',
+  'history.selectWeek': 'Sélectionner une semaine',
+  'history.availableWeeks': 'Semaines disponibles',
+  'history.selectMonth': 'Sélectionner un mois',
+  'history.availableMonths': 'Mois disponibles',
+  'history.table.anki': 'Anki',
+  'history.noActivityMap': 'Aucune activité à afficher pour le moment.',
+  'history.noActivityYet': 'Aucune activité pour le moment',
+  'history.showWatched': 'Afficher les {count} vidéos vues le {date}',
+  'history.watchedDialog': 'Vidéos vues',
+  'history.weekdays.mon': 'Lun',
+  'history.weekdays.tue': 'Mar',
+  'history.weekdays.wed': 'Mer',
+  'history.weekdays.thu': 'Jeu',
+  'history.weekdays.fri': 'Ven',
+  'history.weekdays.sat': 'Sam',
+  'history.weekdays.sun': 'Dim',
+  'history.tooltip.videoTime': 'Temps vidéo',
+  'history.tooltip.videosWatched': 'Vidéos vues',
+  'history.tooltip.ankiReviewed': 'Cartes Anki révisées',
+  'history.tooltip.ankiCreated': 'Nouvelles cartes Anki',
+  'videos.status.previous': 'état précédent',
+  'videos.channels.one': '1 chaîne',
+  'videos.channels.count': '{count} chaînes',
+  'videos.manual.dialog': 'Ajouter une vidéo YouTube',
+  'videos.manual.placeholder': 'youtube.com/watch?v=...',
+  'videos.manual.adding': 'Ajout…',
+  'videos.empty.activeBelow': 'Aucune vidéo avec les filtres actuels.',
+  'videos.empty.filtered': 'Aucune vidéo ne correspond à « {filter} » {channelText}.',
+  'videos.empty.selectedChannels': 'dans les chaînes sélectionnées',
+  'videos.filter.active': 'Actives',
+  'videos.filter.inProgress': 'En cours',
+  'videos.filter.watchLater': 'À regarder',
+  'videos.search.noMatches': 'Aucune vidéo correspondante',
+  'videos.search.untitled': 'Vidéo sans titre',
+  'videos.search.youtube': 'YouTube',
+  'videos.card.markWatchedTitle': 'Marquer comme vue',
+  'videos.card.clear': 'Effacer l’état',
+  'videos.card.markProgress': 'Marquer comme en cours',
+  'videos.card.removeWatchLater': 'Retirer de À regarder',
+  'videos.card.watchLater': 'À regarder',
+  'videos.card.timestampLabel': 'Heure de reprise',
+  'videos.card.inProgressRibbon': 'En cours',
+  'videos.refreshing': 'Actualisation…',
+  'videos.refresh': 'Actualiser',
+  'activity.auto': 'Automatique',
+  'activity.user': 'Utilisateur',
+  'activity.error': 'Erreur',
+  'activity.warn': 'Avertissement',
+  'activity.done': 'Terminé',
+  'activity.info': 'Information',
+  'backups.unknownTime': 'Heure inconnue',
+  'backups.automatic': 'Sauvegarde automatique',
+  'backups.reason.automaticCleanup': 'Avant le nettoyage automatique',
+  'backups.reason.sandboxReset': 'Avant la réinitialisation du bac à sable',
+  'backups.reason.syncImport': 'Avant l’importation de la synchronisation',
+  'backups.reason.backupRestore': 'Avant la restauration d’une sauvegarde',
+  'backups.reason.reset': 'Avant la réinitialisation complète',
+  'sandbox.channel.focus': 'Test de concentration',
+  'sandbox.channel.memory': 'Test de mémoire',
+  'sandbox.channel.projects': 'Test de projets',
+  'sandbox.video.addedDay': 'Jour d’étude de test {date}.{index}',
+  'sandbox.video.upcoming': 'Prochaine leçon de test {date}',
+  'sandbox.video.recent': 'Leçon récente de test {channel}.{index}',
+  'toast.sandboxMode': 'Le mode bac à sable est actif. Les changements ne touchent pas les données normales.',
+  'toast.sandboxReset': 'Données du bac à sable réinitialisées',
+  'toast.sandboxDayAdded': 'Jour d’étude de test ajouté : {date}',
+  'toast.dummyVideosLoaded': '{count} vidéos d’exemple chargées',
+  'toast.nothingToSync': 'Aucune progression à exporter pour le moment',
+  'toast.syncExported': 'Fichier de synchronisation exporté',
+  'toast.invalidSync': 'Ce fichier de synchronisation Edenia n’est pas valide',
+  'toast.useSandboxSync': 'Importez ce fichier de test dans la version bac à sable',
+  'toast.useNormalSync': 'Importez ce fichier dans la version normale',
+  'toast.importFailed': 'Impossible d’importer le fichier de synchronisation',
+  'toast.syncImported': 'Fichier de synchronisation importé',
+  'toast.readSyncFailed': 'Impossible de lire le fichier de synchronisation',
+  'toast.backupUnavailable': 'Cette sauvegarde n’est plus disponible',
+  'toast.backupRestored': 'Sauvegarde restaurée',
+  'toast.channelDuplicate': 'Cette chaîne est déjà ajoutée',
+  'toast.channelAdded': '{name} ajoutée',
+  'toast.channelAddedNoKey': '{name} ajoutée. Configurez la clé API YouTube pour charger les vidéos.',
+  'toast.channelAddedLoading': '{name} ajoutée ; chargement des vidéos…',
+  'toast.apiKeyMissing': 'Configurez d’abord la clé API YouTube',
+  'toast.nextRefresh': 'Nouvelle actualisation possible dans {time}',
+  'toast.refreshFailedChannels': 'Échec de l’actualisation de {count} chaînes',
+  'toast.refreshLoadedWithErrors': '{count} vidéos chargées{shorts}, mais {errors} chaînes ont échoué',
+  'toast.refreshLoaded': '{count} vidéos chargées depuis {channels} chaînes{shorts}',
+  'toast.refreshFailed': 'Échec de l’actualisation : {message}',
+  'toast.channelLoaded': '{count} vidéos chargées depuis {name}{shorts}',
+  'toast.channelAddLoadFailed': 'La chaîne a été ajoutée, mais ses vidéos n’ont pas été chargées : {message}',
+  'toast.validYoutubeUrl': 'Collez une URL de vidéo YouTube valide',
+  'toast.videoNotFound': 'Aucune vidéo YouTube n’a été trouvée pour cette URL',
+  'toast.alreadyWatched': 'Cette vidéo est déjà marquée comme vue',
+  'toast.addedWatchedVideo': 'Ajoutée et marquée comme vue : {title}',
+  'toast.addVideoFailed': 'Impossible d’ajouter la vidéo',
+  'toast.timestampFormat': 'Utilisez le format HH:MM:SS ou MM:SS',
+  'toast.videoGone': 'Cette vidéo n’est plus disponible',
+  'toast.watchedHidden': 'Les vidéos vues apparaissent dans l’historique d’étude',
+  'toast.couldNotShowVideo': 'Impossible d’afficher cette vidéo',
+  'toast.levelUp': 'La ville passe au niveau supérieur : {label}',
+  'toast.skippedShorts': ' ; {count} vidéos courtes ignorées',
+  'anki.unavailableOpen': 'Ouvrez Anki pour qu’Edenia puisse lire les révisions du jour.',
+  'anki.blockedHosted': 'Le navigateur a bloqué la connexion locale à Anki. Utilisez Edenia sur localhost ou autorisez la connexion.',
+  'anki.failed': 'Échec de la connexion à Anki : {message}',
+  'anki.notAvailable': 'Anki n’est pas disponible pour le moment',
+  'log.weeklyGoal.title': 'Objectif hebdomadaire modifié',
+  'log.weeklyGoal.detail': 'De {from} h à {to} h',
+  'log.shortVideos.title': 'Réglage des vidéos courtes modifié',
+  'log.shortVideos.shown': 'Les vidéos courtes sont affichées.',
+  'log.shortVideos.hidden': 'Les vidéos courtes sont masquées.',
+  'log.theme.title': 'Thème modifié',
+  'log.theme.dark': 'Thème sombre activé.',
+  'log.theme.light': 'Thème clair activé.',
+  'log.locale.title': 'Langue modifiée',
+  'log.locale.detail': 'Langue réglée sur {language}.',
+  'log.onboarding.title': 'Liste de départ créée',
+  'log.onboarding.detail': '{language} · {level} · {count} chaînes',
+  'log.sandboxReset.title': 'Bac à sable réinitialisé',
+  'log.sandboxReset.detail': 'La progression de test a été réinitialisée après la création d’une sauvegarde de retour.',
+  'log.ankiSetting.title': 'Réglage Anki modifié',
+  'log.ankiSetting.enabled': 'Le suivi Anki est activé.',
+  'log.ankiSetting.disabled': 'Le suivi Anki est désactivé.',
+  'log.insightsSetting.title': 'Réglage des analyses modifié',
+  'log.insightsSetting.shown': 'Les analyses d’étude sont affichées.',
+  'log.insightsSetting.hidden': 'Les analyses d’étude sont masquées.',
+  'log.rollback.title': 'Sauvegarde de retour créée',
+  'log.rollback.beforeImport': 'Une sauvegarde locale a été créée avant l’importation du fichier de synchronisation.',
+  'log.rollback.beforeRestore': 'Une sauvegarde locale a été créée avant la restauration d’une autre sauvegarde.',
+  'log.syncImported.title': 'Fichier de synchronisation importé',
+  'log.syncImported.detail': 'Progression importée depuis un fichier de synchronisation.',
+  'log.backupRestored.title': 'Sauvegarde restaurée',
+  'log.channelAdded.title': 'Chaîne ajoutée',
+  'log.channelRemoved.title': 'Chaîne retirée',
+  'log.reset.title': 'Tout réinitialiser',
+  'log.reset.detail': 'Un nouveau départ a été créé après une sauvegarde de retour.',
+  'log.shortsChecked.title': 'Vidéos courtes vérifiées',
+  'log.shortsChecked.detail': '{checked} vidéos enregistrées vérifiées ; {shorts} vidéos courtes trouvées.',
+  'log.shortsCheckFailed.title': 'Échec de la vérification des vidéos courtes',
+  'log.shortsCheckFailed.detail': 'Impossible de vérifier les vidéos courtes enregistrées.',
+  'log.channelRefreshed.title': 'Chaîne YouTube actualisée',
+  'log.channelRefreshed.fetched': '{name} : {count} vidéos récupérées.',
+  'log.channelRefreshed.loaded': '{name} : {count} vidéos chargées.',
+  'log.channelRefreshFailed.title': 'Échec de l’actualisation de la chaîne YouTube',
+  'log.unknownError': 'Erreur inconnue',
+  'log.shortsSkipped.title': 'Vidéos courtes ignorées',
+  'log.shortsSkipped.detail': '{count} vidéos courtes ignorées pendant l’actualisation.',
+  'log.refreshFailed.title': 'Échec de l’actualisation YouTube',
+  'log.unknownRefreshError': 'Erreur d’actualisation inconnue',
+  'log.videoStatus.title': 'État de la vidéo modifié',
+  'log.videoStatus.detail': '« {title} » est maintenant {status}.',
+  'log.videoAdded.title': 'URL de vidéo ajoutée',
+  'log.videoAdded.detail': '« {title} » a été ajoutée à la liste des vidéos.',
+  'log.ankiRefreshFailed.title': 'Échec de l’actualisation Anki',
+  'log.ankiStats.title': 'Statistiques Anki actualisées',
+  'log.ankiStats.detail': '{reviewed} révisions suivies aujourd’hui ; {created} nouvelles cartes trouvées.',
+  'log.levelUp.title': 'Niveau supérieur obtenu'
+})
+
 const WALKTHROUGH_STEPS = [
   {
     id: 'town',
@@ -3303,9 +4029,9 @@ function getLatestBackupState() {
 
 function createEmptySandboxState() {
   const state = defaultState(4, [
-    { id: 'sandbox-focus', name: 'Sandbox Focus' },
-    { id: 'sandbox-memory', name: 'Sandbox Memory' },
-    { id: 'sandbox-projects', name: 'Sandbox Projects' }
+    { id: 'sandbox-focus', name: t('sandbox.channel.focus') },
+    { id: 'sandbox-memory', name: t('sandbox.channel.memory') },
+    { id: 'sandbox-projects', name: t('sandbox.channel.projects') }
   ], DEFAULT_THEME)
   const startDate = new Date()
   const startKey = toDateKey(startDate)
@@ -3418,7 +4144,7 @@ function normalizeActivityLogState(state) {
         actor: entry.actor === 'auto' ? 'auto' : 'user',
         type: typeof entry.type === 'string' && entry.type ? entry.type : 'general',
         status: ['success', 'warn', 'error', 'info'].includes(entry.status) ? entry.status : 'info',
-        title: typeof entry.title === 'string' && entry.title ? entry.title : 'Activity',
+        title: typeof entry.title === 'string' && entry.title ? entry.title : t('settings.activity.title'),
         detail: typeof entry.detail === 'string' ? entry.detail : ''
       }
       if (entry.meta && typeof entry.meta === 'object' && !Array.isArray(entry.meta)) {
@@ -3449,7 +4175,7 @@ function appendActivityLog(state, entry = {}) {
     actor: entry.actor === 'auto' ? 'auto' : 'user',
     type: typeof entry.type === 'string' && entry.type ? entry.type : 'general',
     status: ['success', 'warn', 'error', 'info'].includes(entry.status) ? entry.status : 'info',
-    title: typeof entry.title === 'string' && entry.title ? entry.title : 'Activity',
+    title: typeof entry.title === 'string' && entry.title ? entry.title : t('settings.activity.title'),
     detail: typeof entry.detail === 'string' ? entry.detail : ''
   }
   if (entry.meta && typeof entry.meta === 'object' && !Array.isArray(entry.meta)) {
@@ -4770,8 +5496,12 @@ async function finishPersonalizedOnboarding() {
     actor: 'user',
     type: 'onboarding',
     status: 'success',
-    title: 'Starter feed created',
-    detail: `${getLearnerLanguageOption(personalizedOnboardingState.languageId)?.label || 'Language'} · ${getLearnerLevelOption(personalizedOnboardingState.levelId)?.label || 'Level'} · ${resolution.channels.length} channels`
+    title: t('log.onboarding.title'),
+    detail: t('log.onboarding.detail', {
+      language: t(`onboarding.language.${personalizedOnboardingState.languageId}`),
+      level: t(`onboarding.level.${personalizedOnboardingState.levelId}.label`),
+      count: resolution.channels.length
+    })
   })
   saveState(state)
   queueOnboardingNotice(completionNotice)
@@ -5150,8 +5880,8 @@ function resetSandboxState() {
     actor: 'user',
     type: 'reset',
     status: 'warn',
-    title: 'Sandbox reset',
-    detail: 'Sandbox progress was reset after keeping a rollback backup.'
+    title: t('log.sandboxReset.title'),
+    detail: t('log.sandboxReset.detail')
   })
   saveState(state, { backup: false })
   setDefaultCityDayOffset(state)
@@ -5227,7 +5957,7 @@ function addSandboxStudyDay(state, date, scoreTarget = 6) {
     const channel = channels[(daySeed + i) % channels.length]
     state.videos[id] = {
       id,
-      title: `Sandbox added study day ${dateKey}.${i + 1}`,
+      title: t('sandbox.video.addedDay', { date: dateKey, index: i + 1 }),
       channelId: channel.id,
       channelTitle: channel.name,
       thumbnail: makeSandboxThumbnail(channel.name, daySeed + i),
@@ -5242,7 +5972,7 @@ function addSandboxStudyDay(state, date, scoreTarget = 6) {
   const activeChannel = channels[(daySeed + videoCount + 1) % channels.length]
   state.videos[activeId] = {
     id: activeId,
-    title: `Sandbox upcoming lesson ${dateKey}`,
+    title: t('sandbox.video.upcoming', { date: dateKey }),
     channelId: activeChannel.id,
     channelTitle: activeChannel.name,
     thumbnail: makeSandboxThumbnail(activeChannel.name, daySeed + videoCount + 1),
@@ -5268,7 +5998,7 @@ function createSandboxRecentVideos(state) {
       publishedAt.setHours(now.getHours() - (channelIndex * ACTIVE_VIDEOS_PER_CHANNEL + i) * 6)
       videos.push({
         id: `sandbox-refresh-${channel.id}-${i}`,
-        title: `Sandbox recent lesson ${channelIndex + 1}.${i + 1}`,
+        title: t('sandbox.video.recent', { channel: channelIndex + 1, index: i + 1 }),
         channelId: channel.id,
         channelTitle: channel.name || channel.id,
         thumbnail: makeSandboxThumbnail(channel.name || channel.id, channelIndex + i),
@@ -5489,8 +6219,8 @@ async function saveSettingsOnTheFly() {
       actor: 'user',
       type: 'weekly-goal',
       status: 'success',
-      title: 'Weekly goal changed',
-      detail: `${previousGoal}h to ${goal}h`
+      title: t('log.weeklyGoal.title'),
+      detail: t('log.weeklyGoal.detail', { from: previousGoal, to: goal })
     })
   }
   if (normalizeIncludeShorts(s.config.includeShorts) !== previousIncludeShorts) {
@@ -5498,8 +6228,8 @@ async function saveSettingsOnTheFly() {
       actor: 'user',
       type: 'short-videos',
       status: 'success',
-      title: 'Short video setting changed',
-      detail: normalizeIncludeShorts(s.config.includeShorts) ? 'Short videos are shown.' : 'Short videos are hidden.'
+      title: t('log.shortVideos.title'),
+      detail: t(normalizeIncludeShorts(s.config.includeShorts) ? 'log.shortVideos.shown' : 'log.shortVideos.hidden')
     })
   }
   if (ankiPreferenceChanged) {
@@ -5507,8 +6237,8 @@ async function saveSettingsOnTheFly() {
       actor: 'user',
       type: 'anki-setting',
       status: 'success',
-      title: 'Anki setting changed',
-      detail: isAnkiEnabled(s) ? 'Anki tracking is enabled.' : 'Anki tracking is disabled.'
+      title: t('log.ankiSetting.title'),
+      detail: t(isAnkiEnabled(s) ? 'log.ankiSetting.enabled' : 'log.ankiSetting.disabled')
     })
     syncStreak(s)
   }
@@ -5517,8 +6247,8 @@ async function saveSettingsOnTheFly() {
       actor: 'user',
       type: 'study-insights-setting',
       status: 'success',
-      title: 'Study insights setting changed',
-      detail: nextInsightsEnabled ? 'Study insights are shown.' : 'Study insights are hidden.'
+      title: t('log.insightsSetting.title'),
+      detail: t(nextInsightsEnabled ? 'log.insightsSetting.shown' : 'log.insightsSetting.hidden')
     })
   }
   saveState(s)
@@ -5612,16 +6342,16 @@ function importSyncFileFromInput(input) {
           actor: 'auto',
           type: 'backup',
           status: 'info',
-          title: 'Rollback backup created',
-          detail: 'Saved a local backup before importing a sync file.'
+          title: t('log.rollback.title'),
+          detail: t('log.rollback.beforeImport')
         })
       }
       appendActivityLog(normalizedState, {
         actor: 'user',
         type: 'import',
         status: 'success',
-        title: 'Sync file imported',
-        detail: file.name || 'Imported progress from a sync file.'
+        title: t('log.syncImported.title'),
+        detail: file.name || t('log.syncImported.detail')
       })
       syncStreak(normalizedState)
       saveState(normalizedState, { backup: false })
@@ -5666,9 +6396,15 @@ function formatBackupTimestamp(value) {
 }
 
 function formatBackupReason(reason) {
-  return String(reason || 'automatic backup')
-    .replace(/^before /, 'Before ')
-    .replace(/^automatic backup$/, t('backups.automatic'))
+  const key = {
+    'automatic backup': 'backups.automatic',
+    'before automatic cleanup': 'backups.reason.automaticCleanup',
+    'before sandbox reset': 'backups.reason.sandboxReset',
+    'before sync import': 'backups.reason.syncImport',
+    'before backup restore': 'backups.reason.backupRestore',
+    'before reset': 'backups.reason.reset'
+  }[String(reason || 'automatic backup')]
+  return key ? t(key) : String(reason || t('backups.automatic'))
 }
 
 function renderBackupList() {
@@ -5840,15 +6576,15 @@ function restoreStateBackup(id) {
       actor: 'auto',
       type: 'backup',
       status: 'info',
-      title: 'Rollback backup created',
-      detail: 'Saved a local backup before restoring another backup.'
+      title: t('log.rollback.title'),
+      detail: t('log.rollback.beforeRestore')
     })
   }
   appendActivityLog(state, {
     actor: 'user',
     type: 'backup-restore',
     status: 'success',
-    title: 'Backup restored',
+    title: t('log.backupRestored.title'),
     detail: formatBackupTimestamp(entry.createdAt)
   })
   saveState(state, { backup: false })
@@ -5902,8 +6638,8 @@ function toggleTheme() {
     actor: 'user',
     type: 'theme',
     status: 'success',
-    title: 'Theme changed',
-    detail: s.config.theme === 'dark' ? 'Dark theme enabled.' : 'Light theme enabled.'
+    title: t('log.theme.title'),
+    detail: t(s.config.theme === 'dark' ? 'log.theme.dark' : 'log.theme.light')
   })
   saveState(s)
   applyTheme(s.config.theme)
@@ -5950,7 +6686,7 @@ async function addChannel() {
     actor: 'user',
     type: 'channel-add',
     status: 'success',
-    title: 'Channel added',
+    title: t('log.channelAdded.title'),
     detail: name
   })
   saveState(s)
@@ -6004,7 +6740,7 @@ function removeChannel(id) {
     actor: 'user',
     type: 'channel-remove',
     status: 'success',
-    title: 'Channel removed',
+    title: t('log.channelRemoved.title'),
     detail: channel?.name || id
   })
   saveState(s)
@@ -6098,8 +6834,8 @@ function resetApp() {
     actor: 'user',
     type: 'reset',
     status: 'warn',
-    title: 'Reset everything',
-    detail: 'Started fresh after keeping a rollback backup.'
+    title: t('log.reset.title'),
+    detail: t('log.reset.detail')
   })
   saveState(nextState, { backup: false })
   location.reload()
@@ -6276,11 +7012,11 @@ async function fetchVideoMetadata(videoId) {
   const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(getYoutubeApiKey())}`
   const data = await ytFetch(url)
   const item = data.items?.[0]
-  if (!item) throw new Error('No YouTube video found for that URL')
+  if (!item) throw new Error(t('toast.videoNotFound'))
   return {
     id: item.id,
-    title: item.snippet?.title || 'Untitled video',
-    channelTitle: item.snippet?.channelTitle || 'YouTube',
+    title: item.snippet?.title || t('videos.search.untitled'),
+    channelTitle: item.snippet?.channelTitle || t('videos.search.youtube'),
     channelId: item.snippet?.channelId || 'manual-youtube',
     thumbnail: getBestThumbnail(item.snippet?.thumbnails) || `https://i.ytimg.com/vi/${encodeURIComponent(item.id)}/hqdefault.jpg`,
     publishedAt: item.snippet?.publishedAt || new Date().toISOString(),
@@ -6732,8 +7468,8 @@ async function repairStoredShortsDetection() {
         actor: 'auto',
         type: 'short-videos',
         status: 'info',
-        title: 'Short videos checked',
-        detail: `${checkedCount} stored video${checkedCount === 1 ? '' : 's'} checked; ${shortCount} short video${shortCount === 1 ? '' : 's'} found.`,
+        title: t('log.shortsChecked.title'),
+        detail: t('log.shortsChecked.detail', { checked: checkedCount, shorts: shortCount }),
         meta: { checkedCount, shortCount }
       })
       saveState(s)
@@ -6747,8 +7483,8 @@ async function repairStoredShortsDetection() {
         actor: 'auto',
         type: 'short-videos',
         status: 'warn',
-        title: 'Short video check failed',
-        detail: err.message || 'Could not check stored short videos.'
+        title: t('log.shortsCheckFailed.title'),
+        detail: err.message || t('log.shortsCheckFailed.detail')
       })
       saveState(s)
     }
@@ -6812,8 +7548,8 @@ async function refreshFeed({ silent = false, channelIds = null } = {}) {
           actor: 'auto',
           type: 'youtube-refresh',
           status: 'success',
-          title: 'YouTube channel refreshed',
-          detail: `${ch.name}: ${vids.length} video${vids.length === 1 ? '' : 's'} fetched.`,
+          title: t('log.channelRefreshed.title'),
+          detail: t('log.channelRefreshed.fetched', { name: ch.name, count: vids.length }),
           meta: { channelId: ch.id, fetchedCount: vids.length }
         })
       } catch (err) {
@@ -6823,11 +7559,11 @@ async function refreshFeed({ silent = false, channelIds = null } = {}) {
           actor: 'auto',
           type: 'youtube-refresh',
           status: 'error',
-          title: 'YouTube channel refresh failed',
-          detail: `${ch.name}: ${err.message || 'Unknown error'}`,
+          title: t('log.channelRefreshFailed.title'),
+          detail: `${ch.name}: ${err.message || t('log.unknownError')}`,
           meta: { channelId: ch.id }
         })
-        errors.push({ channelId: ch.id, name: ch.name, message: err.message || 'Unknown error' })
+        errors.push({ channelId: ch.id, name: ch.name, message: err.message || t('log.unknownError') })
       }
     }))
 
@@ -6845,8 +7581,8 @@ async function refreshFeed({ silent = false, channelIds = null } = {}) {
         actor: 'auto',
         type: 'short-videos',
         status: 'info',
-        title: 'Short videos skipped',
-        detail: `${skippedShorts} short video${skippedShorts === 1 ? '' : 's'} skipped during refresh.`,
+        title: t('log.shortsSkipped.title'),
+        detail: t('log.shortsSkipped.detail', { count: skippedShorts }),
         meta: { skippedShorts }
       })
     }
@@ -6874,13 +7610,13 @@ async function refreshFeed({ silent = false, channelIds = null } = {}) {
         actor: 'auto',
         type: 'youtube-refresh',
         status: 'error',
-        title: 'YouTube refresh failed',
-        detail: err.message || 'Unknown refresh error'
+        title: t('log.refreshFailed.title'),
+        detail: err.message || t('log.unknownRefreshError')
       })
       saveState(s)
     }
     showToast(t('toast.refreshFailed', { message: err.message }), 'error')
-    return { ok: false, error: err, errors: [{ message: err.message || 'Unknown refresh error' }] }
+    return { ok: false, error: err, errors: [{ message: err.message || t('log.unknownRefreshError') }] }
   } finally {
     if (btn) {
       btn.textContent = `↻ ${t('videos.refresh')}`
@@ -6914,8 +7650,8 @@ async function refreshAddedChannel(channelId) {
       actor: 'auto',
       type: 'youtube-refresh',
       status: 'success',
-      title: 'YouTube channel refreshed',
-      detail: `${channel.name || channelId}: ${mergedCount} video${mergedCount === 1 ? '' : 's'} loaded.`,
+      title: t('log.channelRefreshed.title'),
+      detail: t('log.channelRefreshed.loaded', { name: channel.name || channelId, count: mergedCount }),
       meta: { channelId, fetchedCount: videos.length, mergedCount, skippedShorts }
     })
     saveState(s)
@@ -6934,8 +7670,8 @@ async function refreshAddedChannel(channelId) {
         actor: 'auto',
         type: 'youtube-refresh',
         status: 'error',
-        title: 'YouTube channel refresh failed',
-        detail: `${channelId}: ${err.message || 'Unknown error'}`,
+        title: t('log.channelRefreshFailed.title'),
+        detail: `${channelId}: ${err.message || t('log.unknownError')}`,
         meta: { channelId }
       })
       saveState(s)
@@ -6992,8 +7728,8 @@ function markVideo(videoId, newStatus) {
     actor: 'user',
     type: 'video-status',
     status: 'success',
-    title: 'Video status changed',
-    detail: `"${formatToastTitle(video.title)}" is now ${formatVideoStatus(newStatus)}.`,
+    title: t('log.videoStatus.title'),
+    detail: t('log.videoStatus.detail', { title: formatToastTitle(video.title), status: formatVideoStatus(newStatus) }),
     meta: { videoId, status: newStatus }
   })
   if (getVideoActionPointDelta(undoAction, 'redo') < 0) {
@@ -7042,8 +7778,8 @@ function markVideoInProgressOnOpen(videoId) {
     actor: 'user',
     type: 'video-status',
     status: 'success',
-    title: 'Video status changed',
-    detail: `"${formatToastTitle(video.title)}" is now ${formatVideoStatus('partial')}.`,
+    title: t('log.videoStatus.title'),
+    detail: t('log.videoStatus.detail', { title: formatToastTitle(video.title), status: formatVideoStatus('partial') }),
     meta: { videoId, status: 'partial' }
   })
 
@@ -7103,7 +7839,7 @@ async function addVideoFromUrl(event) {
       ...metadata,
       ...existing,
       id: videoId,
-      title: metadata.title || existing?.title || 'Untitled video',
+      title: metadata.title || existing?.title || t('videos.search.untitled'),
       channelTitle: metadata.channelTitle || existing?.channelTitle || 'YouTube',
       channelId: metadata.channelId || existing?.channelId || 'manual-youtube',
       thumbnail: metadata.thumbnail || existing?.thumbnail || `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`,
@@ -7137,8 +7873,8 @@ async function addVideoFromUrl(event) {
       actor: 'user',
       type: 'manual-video',
       status: 'success',
-      title: 'Video URL added',
-      detail: `"${formatToastTitle(s.videos[videoId].title)}" was added to the video grid.`,
+      title: t('log.videoAdded.title'),
+      detail: t('log.videoAdded.detail', { title: formatToastTitle(s.videos[videoId].title) }),
       meta: { videoId }
     })
     saveState(s)
@@ -7546,7 +8282,7 @@ async function refreshAnkiStats({ silent = false } = {}) {
         actor: 'auto',
         type: 'anki-refresh',
         status: 'warn',
-        title: 'Anki refresh failed',
+        title: t('log.ankiRefreshFailed.title'),
         detail: message
       })
       saveState(s)
@@ -7592,8 +8328,8 @@ function syncAnkiStatsToState(stats) {
     actor: 'auto',
     type: 'anki-refresh',
     status: 'success',
-    title: 'Anki stats refreshed',
-    detail: `${tracked.reviewed} tracked review${tracked.reviewed === 1 ? '' : 's'} today, ${tracked.created} new card${tracked.created === 1 ? '' : 's'} found.`,
+    title: t('log.ankiStats.title'),
+    detail: t('log.ankiStats.detail', { reviewed: tracked.reviewed, created: tracked.created }),
     meta: {
       ankiDateKey,
       reviewedToday: tracked.reviewed,
@@ -7801,7 +8537,7 @@ function getStudyHistoryBetween(s, start, end) {
       if (!watchedVideo) {
         watchedVideo = {
           id: videoId,
-          title: video.title || 'Untitled video',
+          title: video.title || t('videos.search.untitled'),
           thumbnail: video.thumbnail || '',
           duration: 0,
           watchedAt: entry.watchedAt
@@ -7951,7 +8687,7 @@ function getHistoryPointBreakdown(row) {
     .filter(video => (video.duration || 0) > 0)
     .map(video => ({
       type: 'video',
-      title: video.title || 'Untitled video',
+      title: video.title || t('videos.search.untitled'),
       detail: formatHistoryTime(video.duration || 0),
       points: getVideoPointsFromSeconds(video.duration || 0)
     }))
@@ -9460,7 +10196,7 @@ function claimCityLevelUp() {
     actor: 'user',
     type: 'level-claim',
     status: 'success',
-    title: 'Level-up claimed',
+    title: t('log.levelUp.title'),
     detail: getCityLevelLabel(CITY_LEVELS[s.cityProgress.maxLevelIndex]),
     meta: { levelIndex: s.cityProgress.maxLevelIndex }
   })
@@ -10486,7 +11222,7 @@ function getStatusFilterCounts(allVideos = [], channelFilters = null, includeSho
 }
 
 function getStatusFilterLabel(status) {
-  if (status === 'all') return 'All videos'
+  if (status === 'all') return t('videos.status.all')
   const key = STATUS_FILTERS.find(([value]) => value === status)?.[1] || 'videos.status.all'
   return t(key)
 }
