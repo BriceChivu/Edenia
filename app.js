@@ -10924,6 +10924,7 @@ function renderFeed(s) {
   const allVideos = Object.values(s.videos)
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
   const channelFilters = getSelectedChannelFilters(s)
+  const removedChannelIds = new Set(s.config?.removedChannelIds || [])
   const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
   renderStatusFilterOptions(allVideos, channelFilters, includeShorts)
 
@@ -10938,7 +10939,7 @@ function renderFeed(s) {
   let watchedVideos = allVideos
     .filter(v => getVideoStatus(v) === 'watched')
     .filter(v => !isHiddenFromVideoGrid(v))
-    .filter(v => matchesChannelFilter(v, channelFilters))
+    .filter(v => matchesWatchedChannelFilter(v, channelFilters, removedChannelIds))
     .sort((a, b) => new Date(b.watchedAt || 0) - new Date(a.watchedAt || 0))
 
   if (forcedSearchVideo) {
@@ -11535,6 +11536,12 @@ function closeManualVideoPopoverOnEscape(event) {
 
 function matchesChannelFilter(video, selectedChannelIds) {
   return selectedChannelIds.has(video.channelId) || selectedChannelIds.has(video.channelTitle)
+}
+
+function matchesWatchedChannelFilter(video, selectedChannelIds, removedChannelIds) {
+  return matchesChannelFilter(video, selectedChannelIds)
+    || removedChannelIds.has(video.channelId)
+    || removedChannelIds.has(video.channelTitle)
 }
 
 function isHiddenShortVideo(video, includeShorts) {
