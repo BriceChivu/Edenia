@@ -8720,6 +8720,10 @@ function renderHistoryPointsCell(row) {
         ${points}
       </button>
       <span class="history-points-popover" role="dialog" aria-label="${escHtml(t('history.pointsDialog'))}">
+        <span class="history-points-popover-total">
+          <span>${escHtml(t('history.pointsDailyTotal'))}</span>
+          <b>${escHtml(formatHistoryPointLabel(breakdown.total))}</b>
+        </span>
         ${breakdown.items.length
           ? breakdown.items.map(item => `
             <span class="history-points-popover-item">
@@ -8729,10 +8733,6 @@ function renderHistoryPointsCell(row) {
             </span>
           `).join('')
           : `<span class="history-points-popover-empty">${escHtml(t('history.pointsNone'))}</span>`}
-        <span class="history-points-popover-total">
-          <span>${escHtml(t('history.pointsDailyTotal'))}</span>
-          <b>${escHtml(formatHistoryPointLabel(breakdown.total))}</b>
-        </span>
       </span>
     </span>
   `

@@ -3153,13 +3153,13 @@ body[data-theme="dark"] .next-study-cta:hover { background: var(--surface-hi); }
 }
 .history-points-popover-total {
   align-items: baseline;
-  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   color: var(--text);
   display: grid;
   gap: 2px 8px;
   grid-template-columns: minmax(0, 1fr) auto;
-  margin-top: 2px;
-  padding: 8px 4px 2px;
+  margin-bottom: 2px;
+  padding: 2px 4px 8px;
 }
 .history-points-popover-total span {
   color: var(--muted);
