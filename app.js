@@ -46,7 +46,7 @@ const LOCALE_LABELS = {
 }
 const ANKI_AUTO_REFRESH_MS = 5 * 60_000
 const ANKI_DAY_START_HOUR = 4
-const MIN_DAILY_STREAK_POINTS = 3
+const MIN_DAILY_STREAK_POINTS = 0.5
 const UNDO_STACK_LIMIT = 50
 const MIN_WEEKLY_GOAL_HOURS = 1
 const MAX_WEEKLY_GOAL_HOURS = 99
@@ -8205,7 +8205,7 @@ function syncStreak(s) {
   end.setHours(23, 59, 59, 999)
 
   const qualifyingDays = getStudyHistoryBetween(s, new Date(0), end).rows
-    .filter(row => getHistoryDayPoints(row) >= MIN_DAILY_STREAK_POINTS)
+    .filter(row => getHistoryDayRawPoints(row) >= MIN_DAILY_STREAK_POINTS)
     .map(row => row.dateKey)
     .sort()
 
@@ -9180,13 +9180,17 @@ function getHistoryHeatLevel(row) {
   return 4
 }
 
-function getHistoryDayPoints(row) {
+function getHistoryDayRawPoints(row) {
   const ankiPoints = getAnkiPointsFromReviews(row.ankiReviewed || 0)
   const watchedVideos = Array.isArray(row.watchedVideos) ? row.watchedVideos : []
   const videoPoints = watchedVideos.length
     ? watchedVideos.reduce((sum, video) => sum + getVideoPointsFromSeconds(video.duration || 0), 0)
     : getVideoPointsFromSeconds(row.secondsWatched || 0)
-  return Math.floor(ankiPoints + videoPoints)
+  return ankiPoints + videoPoints
+}
+
+function getHistoryDayPoints(row) {
+  return Math.floor(getHistoryDayRawPoints(row))
 }
 
 function hasHistoryActivity(row) {

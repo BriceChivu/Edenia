@@ -49,7 +49,7 @@ Undo and redo cover recent status, progress, manual-video, and channel-removal a
 - Tracks watched video time against a weekly goal from 1 to 99 hours.
 - Shows watched and in-progress counts, remaining time, and goal completion.
 - Converts the remaining goal into localized daily pace guidance when study videos are available.
-- Maintains current and longest study streaks; a day qualifies after earning at least 3 points.
+- Maintains current and longest study streaks; a day qualifies after earning at least 0.5 points.
 - Aggregates activity by selectable week or month.
 - Provides a detailed Summary view and a one-year Heatmap view with localized month and weekday labels.
 - Shows the videos watched and the point breakdown for each active day.
