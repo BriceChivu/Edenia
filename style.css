@@ -2678,22 +2678,25 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
 }
 
 .next-study-card {
+  align-items: center;
   background: var(--surface);
   border: 2px solid var(--planet-black);
   border-radius: var(--radius);
   box-shadow: 0 4px 0 rgba(5,5,5,0.12);
-  overflow: hidden;
-}
-.next-study-link {
-  align-items: center;
-  color: inherit;
   display: grid;
   gap: 12px;
   grid-template-columns: 88px minmax(0, 1fr) auto;
+  overflow: hidden;
   padding: 9px;
 }
-.next-study-link:hover {
-  text-decoration: none;
+.next-study-thumb-link {
+  border-radius: 8px;
+  display: block;
+  overflow: hidden;
+}
+.next-study-thumb-link:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
 }
 .next-study-thumb {
   aspect-ratio: 16 / 9;
@@ -2701,8 +2704,10 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   border-radius: 8px;
   display: block;
   object-fit: cover;
+  transition: transform var(--motion-base) var(--ease-standard);
   width: 88px;
 }
+.next-study-thumb-link:hover .next-study-thumb { transform: scale(1.03); }
 .next-study-copy {
   display: grid;
   gap: 2px;
@@ -2732,14 +2737,27 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   white-space: nowrap;
 }
 .next-study-cta {
-  background: var(--planet-lime);
-  border: 2px solid var(--planet-black);
+  background: var(--planet-white);
+  border: 2px solid var(--border);
   border-radius: 999px;
-  color: #243a20;
+  color: var(--muted);
+  cursor: pointer;
   font-size: 0.74rem;
-  font-weight: 800;
+  font-weight: 600;
   padding: 7px 11px;
+  transition: background var(--motion-base) var(--ease-standard), color var(--motion-base) var(--ease-standard), border-color var(--motion-base) var(--ease-standard);
   white-space: nowrap;
+}
+.next-study-cta:hover {
+  background: #e9f8ed;
+  border-color: var(--planet-black);
+  color: var(--text);
+  text-decoration: none;
+}
+body[data-theme="dark"] .next-study-cta:hover { background: var(--surface-hi); }
+.next-study-cta:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -4956,7 +4974,7 @@ summary:focus-visible,
     right: 6px;
     width: clamp(56px, 15.4%, 91px);
   }
-  .next-study-link {
+  .next-study-card {
     align-items: start;
     grid-template-columns: 72px minmax(0, 1fr);
   }

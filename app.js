@@ -9237,16 +9237,17 @@ function renderNextStudy(s) {
   const status = getVideoStatus(nextVideo)
   const safeVideoId = escHtml(nextVideo.id)
   const cta = status === 'partial' ? t('nextStudy.resume') : t('nextStudy.watch')
-  const nextStudyContent = `
-    <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
+  container.innerHTML = `
+    <a class="next-study-thumb-link" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}">
+      <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
+    </a>
     <span class="next-study-copy">
       <span class="next-study-eyebrow">${escHtml(t('nextStudy.title'))}</span>
       <span class="next-study-title">${escHtml(nextVideo.title)}</span>
       <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(formatVideoStatus(status))}</span>
     </span>
-    <span class="next-study-cta">${escHtml(cta)} <span aria-hidden="true">→</span></span>
+    <a class="next-study-cta" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${escHtml(cta)}</a>
   `
-  container.innerHTML = `<a class="next-study-link" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${nextStudyContent}</a>`
 }
 
 function renderAnkiStatus(s) {
