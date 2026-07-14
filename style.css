@@ -314,9 +314,8 @@ body.intro-active { overflow: hidden; }
 .intro-creator-name > span {
   font-size: 0.62rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   opacity: 0.72;
-  text-transform: uppercase;
 }
 .intro-creator-name strong {
   color: #10252c;
@@ -330,23 +329,24 @@ body.intro-active { overflow: hidden; }
   gap: 4px;
 }
 .intro-social-link {
-  border: 1px solid rgba(5,5,5,0.26);
+  background: transparent;
+  border: 1px solid rgba(5,5,5,0.2);
   border-radius: 999px;
   box-shadow: 0 2px 0 rgba(5,5,5,0.22);
-  color: #fff;
+  color: #31515a;
   font-size: 0.58rem;
   font-weight: 900;
   line-height: 1;
   padding: 4px 7px;
   text-decoration: none;
-  transition: box-shadow 160ms ease, filter 160ms ease, transform 160ms ease;
+  transition: background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease, transform 160ms ease;
 }
-.intro-social-link:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.intro-social-link:hover { transform: translateY(-1px); }
 .intro-social-link:active { box-shadow: none; transform: translateY(1px); }
 .intro-social-link:focus-visible { outline: 3px solid rgba(18,188,234,0.55); outline-offset: 2px; }
-.intro-social-youtube { background: #f03; }
-.intro-social-twitch { background: #9146ff; }
-.intro-social-kick { background: #53fc18; color: #07120a; }
+.intro-social-youtube:hover { background: #f03; border-color: #f03; color: #fff; }
+.intro-social-twitch:hover { background: #9146ff; border-color: #9146ff; color: #fff; }
+.intro-social-kick:hover { background: #53fc18; border-color: #53fc18; color: #07120a; }
 .intro-top-actions {
   align-items: center;
   display: flex;
@@ -448,6 +448,13 @@ body[data-theme="dark"] .intro-creator {
   color: var(--text);
 }
 body[data-theme="dark"] .intro-creator-name strong { color: var(--text); }
+body[data-theme="dark"] .intro-social-link {
+  border-color: rgba(255,255,255,0.2);
+  color: var(--text);
+}
+body[data-theme="dark"] .intro-social-youtube:hover,
+body[data-theme="dark"] .intro-social-twitch:hover { color: #fff; }
+body[data-theme="dark"] .intro-social-kick:hover { color: #07120a; }
 body[data-theme="dark"] .intro-sound[aria-pressed="true"] {
   background: #bfe85f;
   border-color: #e7ffae;
