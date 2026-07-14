@@ -1,252 +1,255 @@
 # Edenia
 
-Edenia is a browser-only learning dashboard for tracking YouTube study videos, optional Anki activity, weekly study goals, and a city scene that grows as study progress accumulates.
+Edenia turns YouTube study time and optional Anki activity into visible language-learning progress. It combines a focused video queue, weekly goals, study history, local pattern insights, streaks, and a town that evolves as study points accumulate.
 
-The app is intentionally simple: `index.html`, `style.css`, `app.js`, image assets, and a runtime config file are all it needs. There is no build step and no backend service.
+The app is browser-first and has no application backend. Its interface and progress state run from static HTML, CSS, and JavaScript, with YouTube Data API access supplied through a runtime configuration file. Personal study data remains in the browser unless the user explicitly exports a sync file.
 
-## What It Does
+## Current Features
 
-- Personalizes first run around one primary learning language and an approximate level.
-- Recommends a preselected starter set from a curated, language-and-level-specific YouTube channel catalog.
-- Loads recent videos from configured YouTube channels.
-- Accepts YouTube channel IDs, `@handle` URLs, `/channel/UC...` URLs, and legacy `/user/...` URLs for channels.
-- Lets you manually add a YouTube video URL that is not in a tracked channel.
-- Tracks videos as unwatched, watch later, in progress, or watched.
-- Stores an optional continue-watching timestamp for in-progress videos.
-- Filters the active video list by status and channel, and searches saved videos from the header.
-- Can hide short videos under 3 minutes during refresh and from the active video list.
-- Counts watched time toward a weekly hours goal.
-- Translates the remaining weekly goal into compact, truthful daily pace guidance when study videos are available.
-- Syncs today's Anki review/new-card counts through AnkiConnect when Anki is open.
-- Shows study history totals by week or month, with summary and heatmap views.
-- Maintains a study streak.
-- Updates a zoomable/pannable city scene from video, Anki, and streak progress.
-- Supports light/dark theme and English, Traditional Chinese, Simplified Chinese, Spanish, and French UI text.
-- Keeps an activity log for user actions, automatic refreshes, imports, backups, point changes, and issues.
-- Saves settings immediately as they change.
+### Personalized first run
 
-## Running Locally
+- Opens with a localized animated introduction to Edenia's study loop, town progression, history, and insights.
+- Includes trailer navigation, a language picker, optional procedural music, and a skip action.
+- Asks for one primary learning language: Mandarin Chinese, Japanese, Korean, Spanish, French, German, or English.
+- Asks for an approximate level: just starting, beginner, intermediate, advanced, or not sure.
+- Suggests up to six level-matched channels from a curated catalog.
+- Uses repository-bundled channel avatars so recommendation cards do not need separate profile-image API requests.
+- Resolves selected YouTube handles, saves the working channels, and attempts the first video refresh before opening the dashboard.
+- Continues after partial channel or refresh failures and reports what could not be loaded.
+- Finishes with a short walkthrough of the real dashboard controls.
 
-Serve the folder from the project root:
+### YouTube study queue
 
-```bash
-python3 -m http.server 8000
-```
+- Accepts raw `UC...` channel IDs, `@handle` values, `/channel/UC...` URLs, and legacy `/user/...` URLs.
+- Fetches one recent uploads page per due channel and maintains a target of five active videos per channel.
+- Preserves cached video metadata and existing study status across refreshes.
+- Automatically refreshes an unfetched or stale feed after five hours.
+- Applies a 30-minute per-channel backoff after refresh errors.
+- Adds individual YouTube videos manually when they do not belong to a tracked channel.
+- Searches saved videos from the header.
+- Filters the active queue by status and by any combination of channels.
+- Lets users add, select all, remove, and manage channels from the channel filter.
+- Lets users remove a video from the active grid without deleting its study history.
+- Hides videos of three minutes or less by default; the preference can be changed in Settings.
+- Shows a contextual **Continue studying** card for the next active video, including a clickable thumbnail.
 
-Then open [http://localhost:8000/](http://localhost:8000/) in Chrome.
-
-The app can also be opened from `index.html` directly, but feature testing should use the local server URL in Chrome so the runtime path matches the expected development workflow.
-
-## Setup
-
-1. Copy `config.example.js` to `config.local.js`.
-2. Paste the shared YouTube API key into `config.local.js`.
-3. Open the app.
-4. Choose one primary learning language.
-5. Choose the level that best describes your current ability.
-6. Review the preselected starter channels, deselect any you do not want, and click `Start my journey`.
-7. Follow the brief first-study walkthrough pointing out channel controls and the real video feed.
-8. Use Settings to adjust the weekly goal, interface language, short-video preference, channels, or optional Anki integration.
-
-Edenia loads YouTube videos automatically on startup when the feed has never been fetched or when the last successful fetch is at least 5 hours old. Each channel also has a 30-minute backoff after a refresh error. The shared key is not saved in browser storage or sync files.
-
-`config.example.js` is only a local-development template. GitHub Pages deployment does not read it; the workflow creates `config.local.js` from the `YOUTUBE_API_KEY` repository secret.
-
-Settings are saved on the fly. There is no separate save button.
-
-## First-Run Journey
-
-The onboarding header anchors all three steps with Edenia's promise: “Turn YouTube and Anki into visible language-learning progress.” The first-run profile then asks for one primary learning language and one approximate level. Edenia uses that pair to select matching entries from its curated starter catalog, with up to six recommendations depending on the language and level. Recommendation cards use locally bundled channel profile images, with the language badge as a fallback. Recommendations are preselected but optional, so the learner can keep, remove, or add choices before continuing.
-
-Catalog entries use YouTube `@handle` values. When `Start my journey` is selected, Edenia resolves every chosen handle through the YouTube Data API, saves the resulting channels, and attempts to load their recent videos before opening the real dashboard. Successfully resolved channels appear in the Channels menu and fetched videos appear in the grid. Partial channel or video-fetch failures are reported after the dashboard opens; onboarding only stays on the starter-channel step when none of the selected channels can be resolved. A configured YouTube API key is required for this process.
-
-Existing browser states that recorded the previous `onboarding.completed` flag are migrated to both `setupCompleted` and `walkthroughCompleted`. Those users keep their existing setup and are not sent through the new first-run flow again.
-
-## Shared YouTube API Key
-
-`config.local.js` is intentionally ignored by Git so the real shared key is not committed. For a hosted static deployment, the key is still visible to browsers because frontend code and config files are delivered to users. Treat it as a public restricted key, not a secret.
-
-Recommended Google Cloud restrictions:
-
-1. Restrict the key to **YouTube Data API v3** only.
-2. Restrict browser usage to the exact hosted domain with HTTP referrers.
-3. For this GitHub Pages deployment, allow `https://bricechivu.github.io/*`.
-4. Set quota alerts and review usage regularly.
-5. Keep a second restricted key available for rotation.
-
-## GitHub Pages Deployment
-
-The GitHub Pages workflow generates `config.local.js` during deployment from a repository secret. The real key stays out of Git history, but the deployed website still serves it to browsers, so the Google Cloud restrictions above are required.
-
-The workflow stages only the static site files into `_site`: `index.html`, `app.js`, `style.css`, `Edenia_favicon_round.png`, `images/`, and the generated `config.local.js`.
-
-To set it up:
-
-1. In GitHub, open the repository settings.
-2. Go to **Secrets and variables** -> **Actions**.
-3. Add a repository secret named `YOUTUBE_API_KEY`.
-4. Paste the restricted YouTube API key as the value.
-5. Go to **Pages** and set the source to **GitHub Actions**.
-6. Push to `master`, or run the `Deploy GitHub Pages` workflow manually.
-
-## YouTube Channels And Videos
-
-Channel IDs should start with `UC`.
-
-The channel field accepts:
-
-- A raw channel ID like `UCxxxxxxxx`.
-- A channel URL like `youtube.com/channel/UCxxxxxxxx`.
-- A handle URL like `youtube.com/@channel`.
-- A legacy username URL like `youtube.com/user/name`.
-
-Custom `/c/...` YouTube URLs are not resolved automatically. Use a channel ID, handle, or supported URL instead.
-
-On refresh, Edenia fetches one recent uploads-playlist page per due channel, keeps up to 5 active videos per channel target, stores video durations, and updates channel display names from the YouTube API when available. It reuses cached video records and durations where possible to keep YouTube API usage lower.
-
-Use `Add video` to paste a specific YouTube video URL that is not in a tracked channel. Manually added videos are stored with the rest of the local video state and can be undone.
-
-## Watch Status
-
-Each video can be marked:
+Supported video states are:
 
 - `Unwatched`
 - `Watch later`
 - `In progress`
 - `Watched`
 
-Watched videos count for their full duration. In-progress videos can store a resume timestamp and count watched progress up to that timestamp. Watch-later videos are reminders and do not count toward weekly progress or streaks. Moving a video back to unwatched removes its watched progress from weekly totals.
+Opening an unwatched or watch-later video marks it in progress. In-progress videos can retain a continue-watching timestamp and watched-progress segments. Watch-later remains a reminder state and does not count toward goals, streaks, or points.
 
-Opening an unwatched or watch-later video marks it as in progress automatically.
+Undo and redo cover recent status, progress, manual-video, and channel-removal actions together with their related history and score changes.
 
-`Undo` and `Redo` reverse or replay recent video status, resume-time, and manual-video actions, including related score and history changes.
+### Goals, history, and insights
 
-## AnkiConnect
+- Tracks watched video time against a weekly goal from 1 to 99 hours.
+- Shows watched and in-progress counts, remaining time, and goal completion.
+- Converts the remaining goal into localized daily pace guidance when study videos are available.
+- Maintains current and longest study streaks; a day qualifies after earning at least 3 points.
+- Aggregates activity by selectable week or month.
+- Provides a detailed Summary view and a one-year Heatmap view with localized month and weekday labels.
+- Shows the videos watched and the point breakdown for each active day.
+- Allows watched-history entries to jump back to their saved video.
+- Generates local study-pattern insights after enough activity has accumulated.
+- Can surface preferred study windows, typical session length, reliable weekdays, weekend opportunities, and recent momentum changes.
+- Keeps up to 12 previously shown insights, supports collapse/reopen, and can be disabled in Settings.
 
-Anki stats are optional. To enable them:
+Study insights are calculated locally from up to 42 days of recorded video progress. They appear only after at least 8 active days, 2 hours of video study, and a 14-day observation window.
 
-1. Install the [AnkiConnect plugin](https://ankiweb.net/shared/info/2055492159).
-2. Open Anki.
-3. Open Edenia.
+### AnkiConnect
 
-For the hosted GitHub Pages site, AnkiConnect also needs to allow Edenia's origin. In Anki, open the AnkiConnect add-on config and include `https://bricechivu.github.io` in `webCorsOriginList`, then restart Anki.
+- Optionally reads today's review and new-card counts from Anki through AnkiConnect.
+- Refreshes on startup, every five minutes while the app is open, and when the tab becomes visible.
+- Stores the daily totals locally and never modifies the Anki collection.
+- Can be disabled without rewriting earlier Anki history; re-enabling establishes a same-day baseline before counting new activity.
+- Hides Anki-specific dashboard and history details when disabled unless older Anki activity exists for the selected period.
 
-The app reads from AnkiConnect at `http://127.0.0.1:8765` automatically on startup, every 5 minutes while open, and when the tab becomes visible. It stores today's reviewed and created-card counts locally, but it does not modify the Anki collection.
+### Town progression
 
-## Study History
+- Awards cumulative points for recorded video study time and Anki reviews.
+- Evolves through 12 town stages as the total score crosses milestone thresholds.
+- Reveals unlocked stages with a level-up animation and dual-corner confetti.
+- Uses optimized WebP town images with PNG fallbacks and priority-aware preloading.
+- Supports zooming, panning, reset, and a timeline for previewing the town on earlier activity days.
+- Keeps progress toward the next stage across weekly boundaries.
 
-The Study History section aggregates local activity by week or month. It tracks watched video time, watched video counts, Anki reviews, new Anki cards, and scored points. New Anki cards are shown for context, but they do not add points.
+### Interface and accessibility
 
-The Summary view shows period totals and a day-by-day table. The Heatmap view shows the last year as daily squares; hover or click a square to see that day's breakdown.
-
-The city timeline under the city image previews how the city looked across activity days.
+- Supports light and dark themes.
+- Translates the full interface into English, Traditional Chinese, Simplified Chinese, Spanish, and French.
+- Saves Settings changes immediately; there is no separate save button.
+- Uses a keyboard-accessible Settings modal, labeled controls, live toast announcements, semantic heatmap buttons, and visible focus treatment for non-button controls.
+- Honors reduced-motion preferences.
+- Includes responsive video cards, larger mobile tap targets, anchored mobile popovers, a compact scrolling header, and touch-friendly town controls.
+- Keeps an activity log with user, automatic, issue, and point filters.
 
 ## Scoring
 
-The city score is cumulative across all study history. Points do not reset each week, so partial progress toward the next city milestone carries forward.
+Town score is cumulative and does not reset each week. Edenia calculates points separately for each activity day, combines that day's video and Anki contributions, and then rounds the daily total down to a whole number:
+
+```text
+daily points = floor((video seconds / 3600 × 3) + (Anki reviews / 60 × 2))
+```
 
 | Activity | Points |
 | --- | ---: |
 | 1 hour of watched video time | 3 |
-| 1 watched video | 1 |
 | 60 Anki reviews | 2 |
 
-City milestones currently include:
+There is no separate bonus for marking a video watched or for the number of videos completed. New Anki cards are recorded for context but do not award points.
 
-| Level | Score | City stage |
-| ---: | ---: | --- |
-| 1 | 0 | 🏠 Lonely house |
-| 2 | 5 | ⛵ Your house got a fresh new look! Plus a boat! |
-| 3 | 12 | 🏝️ Oh look! A tiny island! Cute. |
-| 4 | 20 | Kids are gonna have fun now! |
-| 5 | 28 | Let's add a pool to chill |
-| 6 | 35 | Oh! Some friends are coming to say hi... |
-| 7 | 42 | You expanded your small island! |
-| 8 | 50 | That's a nice deckchair and some pretty flowers! 🌸 |
-| 9 | 60 | You built a cute house in the backyard |
-| 10 | 70 | Oh wow! You got a neighbor! 🏠 |
-| 11 | 80 | The little purple house has a cute garden! |
-| 12 | 90 | Damn! A volcano appeared! I hope it won't erupt... |
+Examples:
 
-## Where Status Data Is Stored
+- 30 minutes of video produces `1.5` points, which becomes `1` point when it is the only activity that day.
+- 30 Anki reviews produce `1` point.
+- 30 minutes of video plus 30 Anki reviews produce `2.5` points together, which becomes `2` points for that day.
+- Fractional points do not carry into another day.
 
-All current status data is stored in the user's browser, not in the repository and not on a server.
+| Level | Required score |
+| ---: | ---: |
+| 1 | 0 |
+| 2 | 5 |
+| 3 | 12 |
+| 4 | 20 |
+| 5 | 28 |
+| 6 | 35 |
+| 7 | 42 |
+| 8 | 50 |
+| 9 | 60 |
+| 10 | 70 |
+| 11 | 80 |
+| 12 | 90 |
 
-Primary storage:
+## Run Locally
 
-- Browser `localStorage`
-- Key: `edenia_v1`
-- Backup key: `edenia_v1_backups`
-- Defined in `app.js` as `NORMAL_STORAGE_KEY`; `STORAGE_KEY` selects the normal or sandbox key for the current URL mode.
+1. Copy `config.example.js` to `config.local.js`.
+2. Add a YouTube Data API v3 key to `config.local.js`:
 
-The stored object includes:
+   ```js
+   window.EDENIA_CONFIG = {
+     youtubeApiKey: 'YOUR_RESTRICTED_KEY'
+   }
+   ```
 
-- `config`: weekly goal, theme, locale, short-video preference, configured channels, and removed default-channel IDs.
-- `videos`: video records keyed by YouTube video ID. This is where watched/in-progress/unwatched/watch-later status lives.
-- `videos[videoId].status`: one of `unwatched`, `watch-later`, `partial`, or `watched`.
-- `videos[videoId].watchedAt`: local timestamp used for weekly progress and watched history.
-- `videos[videoId].resumeAtSeconds`: continue-watching timestamp for in-progress videos.
-- `videos[videoId].watchProgress`: watched-progress segments used for partial progress.
-- `cityProgress`: revealed city image level plus any pending level-up unlocked by cumulative study score.
-- `streak`: current streak, longest streak, and last activity date.
-- `anki`: daily Anki logs keyed by `YYYY-MM-DD`.
-- `undoStack` and `redoStack`: recent video actions for undo and redo.
-- `activityLog`: recent user, automatic, point, backup, import, refresh, and issue entries.
-- `channelRefreshes`: per-channel YouTube refresh timestamps, latest refresh errors, and short failure backoff timestamps.
-- `learnerProfile`: the selected primary learning language, approximate level, curated starter-channel IDs, and profile timestamps.
-- `onboarding`: separate setup and walkthrough completion state, plus the recommendation-application timestamp.
+3. Serve the repository root:
 
-Edenia also keeps recent local backup snapshots in the same browser. These snapshots are created automatically before normal saves at a limited interval and immediately before risky actions such as sync import, reset, sandbox reset, or automatic cleanup. Use Settings -> `Recent local backups` to restore one of the latest snapshots after a bad import, reset, or corrupted save.
+   ```bash
+   python3 -m http.server 8000
+   ```
 
-Secondary storage:
+4. Open [http://localhost:8000/](http://localhost:8000/).
 
-- Browser cookie
-- Key: `edenia_config`
-- Defined in `app.js` as `CONFIG_COOKIE_KEY`
+There is no dependency installation or local build step. Opening `index.html` directly may display the interface, but serving the folder provides the expected runtime origin and file-loading behavior.
 
-The cookie mirrors configuration data so the app can restore basic settings if the main state is unavailable.
+`config.local.js` is ignored by Git. `config.example.js` is only the local-development template and is not used by the GitHub Pages workflow.
 
-Sync files:
+## YouTube API Configuration
 
-Progress is local to each browser and device. Local backup snapshots help inside the same browser, but they do not protect against clearing site data, deleting the browser profile, or losing the device. Use Settings -> `Export sync file` to download a private JSON backup of the current browser state, then open Edenia on another device or browser and use Settings -> `Import sync file` to copy that progress there.
+The app reads the key from `window.EDENIA_CONFIG.youtubeApiKey`. The key is not stored in Edenia state, local backups, cookies, activity logs, or exported sync files.
 
-The sync file includes progress, configured channels, weekly goal, theme, locale, short-video preference, cached video data, Anki logs, activity log, and undo/redo history. It does not include the YouTube API key; local development reads that from `config.local.js`, and GitHub Pages gets it from the generated deployment config. Treat sync files like private backup files and only import normal sync files into the normal app, or sandbox sync files into sandbox mode.
+Because Edenia is a static browser app, a deployed key is delivered to visitors and is therefore inspectable. Treat it as a public restricted credential rather than a server-side secret.
 
-To inspect or clear the data in Chrome:
+Recommended Google Cloud restrictions:
 
-1. Open Chrome DevTools for `http://localhost:8000/`.
-2. Check Storage for `localStorage`.
-3. Inspect or remove the `edenia_v1` entry.
-4. Use the in-app `Reset everything` action when testing a clean first-run state.
+1. Restrict the key to **YouTube Data API v3**.
+2. Add an HTTP referrer restriction for the exact hosted origin.
+3. For the current GitHub Pages site, allow `https://bricechivu.github.io/*`.
+4. Monitor quota usage and configure alerts.
+5. Keep a second restricted key ready for rotation.
 
-Sandbox mode uses separate browser storage:
+Custom `/c/...` channel URLs are not resolved automatically. Use a channel ID, handle, supported channel URL, or legacy username URL instead.
 
-- URL: `http://localhost:8000/?sandbox=1`
-- `localStorage` key: `edenia_v1_sandbox`
-- Backup key: `edenia_v1_sandbox_backups`
-- Cookie key: `edenia_config_sandbox`
+## Anki Setup
 
-When sandbox mode is opened with no saved sandbox state, the app starts from a blank baseline day at level 1 with 0 points. The header shows a `Sandbox version` badge plus `Add day` and `Reset` actions. `Add day` appends a random sandbox-only study day after the latest sandbox day and keeps the first baseline day unchanged. `Reset` returns to the same blank baseline state. Sandbox data does not touch the normal `edenia_v1` progress state.
+1. Install [AnkiConnect](https://ankiweb.net/shared/info/2055492159).
+2. Open Anki and keep it running while using Edenia.
+3. For the hosted site, add `https://bricechivu.github.io` to AnkiConnect's `webCorsOriginList` and restart Anki.
+4. Leave **Track Anki activity** enabled in Edenia Settings.
 
-## Testing New Features
+Edenia communicates only with the local AnkiConnect endpoint at `http://127.0.0.1:8765`.
 
-Manual feature testing should be done in Chrome at [http://localhost:8000/](http://localhost:8000/).
+## Data Storage and Portability
 
-Recommended workflow:
+Normal and sandbox progress are isolated in browser storage.
 
-1. Start the local static server from the project root with `python3 -m http.server 8000`.
-2. Open `http://localhost:8000/` in Chrome.
-3. Test with existing Edenia browser data first.
-4. Test again after using `Reset everything` for a clean local state.
-5. Confirm that settings changes persist without a save button.
-6. Confirm that video status changes update weekly totals, streak state, watched history, activity log, and undo/redo behavior.
-7. Confirm that automatic refresh still preserves existing video status.
-8. If testing Anki features, keep Anki open with AnkiConnect installed and wait for the automatic refresh.
+| Mode | URL | State key | Backup key | Config cookie |
+| --- | --- | --- | --- | --- |
+| Normal | `/` | `edenia_v1` | `edenia_v1_backups` | `edenia_config` |
+| Sandbox | `/?sandbox=1` | `edenia_v1_sandbox` | `edenia_v1_sandbox_backups` | `edenia_config_sandbox` |
 
-If a change works in another browser but not Chrome, first try `Cmd + Shift + R` on `http://localhost:8000/` to force Chrome to reload the local files instead of cached copies.
+The primary state includes:
 
-Do not treat browser data as portable test fixtures unless it has been deliberately exported from `localStorage`.
+- settings, channels, channel refresh metadata, and removed-channel records;
+- video metadata, statuses, timestamps, and watched-progress segments;
+- weekly progress inputs, streaks, Anki daily logs, and town progression;
+- learner profile and onboarding completion state;
+- study-insight preferences and previously shown insights;
+- undo and redo queues;
+- the activity log.
 
-## Privacy
+The config cookie mirrors basic configuration so Edenia can recover settings if the main state is unavailable.
 
-Edenia stores personal progress locally in the browser. The app calls the YouTube Data API to fetch channel and video metadata, and it calls local AnkiConnect only when available. It does not send watch status, streaks, Anki logs, activity logs, or sync files to an app server.
+Edenia maintains up to eight recent local backup snapshots. It creates interval-limited automatic backups and forced rollback points before risky operations such as imports, resets, restores, and cleanup. Backups can be restored from **Settings -> Recent local backups**.
+
+Use **Export sync file** to download the complete current state and **Import sync file** to move it to another browser or device. Normal and sandbox sync files cannot be imported into the opposite mode. Sync files contain personal study history and should be treated as private backups.
+
+Clearing site data, deleting the browser profile, or losing the device also removes local progress unless a sync file exists elsewhere.
+
+## Sandbox Mode
+
+Open `/?sandbox=1` to use a separate demonstration and testing state.
+
+- Starts from a blank baseline day at level 1 with 0 points when no sandbox save exists.
+- Shows a **Sandbox version** badge with **Add day** and **Reset** controls.
+- **Add day** appends a generated study day after the latest sandbox date.
+- **Reset** returns to the isolated baseline and can replay the walkthrough.
+- Never reads or changes normal `edenia_v1` progress.
+
+## GitHub Pages Deployment
+
+The workflow in `.github/workflows/deploy-pages.yml` deploys on pushes to `master` or by manual dispatch.
+
+During deployment it:
+
+1. Copies `index.html`, `app.js`, `analytics.js`, `style.css`, the favicon, fonts, and images into `_site`.
+2. Minifies the deployed CSS and main JavaScript.
+3. Generates `_site/config.local.js` from the `YOUTUBE_API_KEY` repository secret.
+4. Uploads and deploys the static Pages artifact.
+
+Repository setup:
+
+1. Add a restricted repository secret named `YOUTUBE_API_KEY` under **Settings -> Secrets and variables -> Actions**.
+2. Set **Settings -> Pages -> Source** to **GitHub Actions**.
+3. Push to `master` or run **Deploy GitHub Pages** manually.
+
+The secret stays out of Git history, but the generated key remains visible in the deployed browser configuration and must retain the restrictions described above.
+
+## Privacy and Analytics
+
+Study state remains local: Edenia does not upload video titles, video IDs, channel IDs, watch timestamps, Anki logs, activity logs, backups, or sync files to an Edenia server.
+
+The app makes these external connections:
+
+- YouTube Data API v3 for channel and video metadata.
+- Local AnkiConnect when Anki tracking is enabled and Anki is available.
+- PostHog only on the official `https://bricechivu.github.io/Edenia/` deployment.
+
+Production analytics use anonymous sessions with autocapture and session recording disabled. Edenia records controlled button actions and aggregate outcome events for onboarding completion, channel additions, refresh results, video opens, and watched completions. Event properties describe categories and counts rather than study-content identifiers. PostHog is not initialized on localhost, alternate domains, or other paths.
+
+## Project Structure
+
+| Path | Purpose |
+| --- | --- |
+| `index.html` | App structure, first-run trailer, runtime script loading, and production analytics initialization |
+| `style.css` | Responsive layout, themes, motion, accessibility, and component styling |
+| `app.js` | State, localization, onboarding, YouTube and Anki integrations, history, insights, scoring, and rendering |
+| `analytics.js` | Controlled PostHog event forwarding and button-action tracking |
+| `config.example.js` | Safe local runtime-config template |
+| `assets/fonts/` | Self-hosted Space Grotesk and Bebas Neue font subsets |
+| `images/channel-avatars/` | Bundled curated-channel avatars |
+| `images/city/` | Optimized town progression images |
+| `.github/workflows/deploy-pages.yml` | Static GitHub Pages build and deployment workflow |
