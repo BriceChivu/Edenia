@@ -10179,6 +10179,47 @@ function renderLevelUpButton(snapshot) {
   button.setAttribute('aria-hidden', String(!snapshot.hasPendingLevel))
 }
 
+function launchCityLevelUpConfetti() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+  const cityImageWrap = document.querySelector('.city-image-wrap')
+  if (!cityImageWrap) return
+
+  cityImageWrap.querySelector('.city-level-up-confetti')?.remove()
+  const burst = document.createElement('div')
+  burst.className = 'city-level-up-confetti'
+  burst.setAttribute('aria-hidden', 'true')
+  const colors = ['#dfff45', '#12bcea', '#ff5f87', '#ffd84a', '#ffffff', '#9f7aea']
+  const { width, height } = cityImageWrap.getBoundingClientRect()
+
+  ;['left', 'right'].forEach(corner => {
+    const emitter = document.createElement('div')
+    emitter.className = `city-confetti-emitter city-confetti-emitter-${corner}`
+    const direction = corner === 'left' ? 1 : -1
+
+    for (let index = 0; index < 44; index += 1) {
+      const particle = document.createElement('i')
+      const particleKind = index % 5 === 0 ? 'ribbon' : index % 4 === 0 ? 'streamer' : 'paper'
+      particle.className = `city-confetti-${particleKind}`
+      const horizontalDistance = direction * width * (0.08 + Math.random() * 0.42)
+      const verticalDistance = -height * (0.52 + Math.random() * 0.48)
+      particle.style.setProperty('--confetti-x', `${horizontalDistance.toFixed(1)}px`)
+      particle.style.setProperty('--confetti-y', `${verticalDistance.toFixed(1)}px`)
+      particle.style.setProperty('--confetti-rotation', `${Math.round((Math.random() - 0.5) * 1080)}deg`)
+      particle.style.setProperty('--confetti-delay', `${(Math.random() * 90).toFixed(0)}ms`)
+      particle.style.setProperty('--confetti-duration', `${(780 + Math.random() * 520).toFixed(0)}ms`)
+      particle.style.setProperty('--confetti-color', colors[index % colors.length])
+      particle.style.setProperty('--confetti-width', `${(4 + Math.random() * 5).toFixed(1)}px`)
+      particle.style.setProperty('--confetti-height', `${(7 + Math.random() * 7).toFixed(1)}px`)
+      emitter.appendChild(particle)
+    }
+
+    burst.appendChild(emitter)
+  })
+
+  cityImageWrap.appendChild(burst)
+  window.setTimeout(() => burst.remove(), 1700)
+}
+
 function claimCityLevelUp() {
   const s = loadState()
   if (!s) return
@@ -10202,6 +10243,7 @@ function claimCityLevelUp() {
   })
   saveState(s)
   renderAll(s)
+  launchCityLevelUpConfetti()
   showToast(t('toast.levelUp', { label: getCityLevelLabel(CITY_LEVELS[s.cityProgress.maxLevelIndex]) }), 'success')
 }
 
