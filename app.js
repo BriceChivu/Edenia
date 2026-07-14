@@ -6700,7 +6700,11 @@ function applyChannelRemoval(s, channelId) {
   }
   Object.values(s.videos || {}).forEach(video => {
     if (!isChannelRemovalVideo(video, channelId)) return
-    if (getVideoStatus(video) === 'watched') return
+    if (getVideoStatus(video) === 'watched') {
+      video.hiddenFromGrid = false
+      video.hiddenFromGridAt = null
+      return
+    }
     video.hiddenFromGrid = true
     video.hiddenFromGridAt = getCurrentAppTimestamp(s)
   })
