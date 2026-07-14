@@ -6787,6 +6787,7 @@ function applyChannelRemoval(s, channelId) {
   }
   Object.values(s.videos || {}).forEach(video => {
     if (!isChannelRemovalVideo(video, channelId)) return
+    if (getVideoStatus(video) === 'watched') return
     video.hiddenFromGrid = true
     video.hiddenFromGridAt = getCurrentAppTimestamp(s)
   })
@@ -6823,7 +6824,7 @@ function getInferredChannelEntry(s, channelId) {
 function isChannelRemovalVideo(video, channelId) {
   return Boolean(
     video &&
-    video.channelId === channelId &&
+    (video.channelId || video.channelTitle) === channelId &&
     !(video.manuallyAdded && video.source === 'manual')
   )
 }
