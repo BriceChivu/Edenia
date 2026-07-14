@@ -1632,6 +1632,10 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
 }
 .add-channel-row input { flex: 1; min-width: 100px; }
 .settings-actions { display: flex; gap: 10px; flex-direction: column; }
+.settings-creator {
+  align-self: center;
+  margin-top: auto;
+}
 .settings-howto-group + .settings-actions {
   margin-top: -14px;
 }
