@@ -6824,8 +6824,7 @@ function getInferredChannelEntry(s, channelId) {
 function isChannelRemovalVideo(video, channelId) {
   return Boolean(
     video &&
-    (video.channelId || video.channelTitle) === channelId &&
-    !(video.manuallyAdded && video.source === 'manual')
+    (video.channelId || video.channelTitle) === channelId
   )
 }
 

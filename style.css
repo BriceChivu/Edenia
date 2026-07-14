@@ -277,14 +277,80 @@ body.intro-active { overflow: hidden; }
   pointer-events: none;
   position: absolute;
 }
+.intro-top-bar {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  left: max(18px, env(safe-area-inset-left));
+  pointer-events: none;
+  position: absolute;
+  right: max(18px, env(safe-area-inset-right));
+  top: max(18px, env(safe-area-inset-top));
+  z-index: 7;
+}
+.intro-top-bar > * { pointer-events: auto; }
+.intro-creator {
+  align-items: center;
+  color: #31515a;
+  display: grid;
+  font-family: 'Space Grotesk', sans-serif;
+  gap: 4px 9px;
+  grid-template-columns: 42px minmax(0, auto);
+}
+.intro-creator-logo {
+  filter: drop-shadow(0 3px 4px rgba(5,5,5,0.16));
+  grid-row: 1 / span 2;
+  height: 42px;
+  width: 42px;
+}
+.intro-creator-name {
+  align-items: baseline;
+  display: flex;
+  gap: 5px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.intro-creator-name > span {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0.72;
+  text-transform: uppercase;
+}
+.intro-creator-name strong {
+  color: #10252c;
+  font-size: 0.88rem;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+}
+.intro-creator-name strong span { color: var(--accent); }
+.intro-creator-links {
+  display: flex;
+  gap: 4px;
+}
+.intro-social-link {
+  border: 1px solid rgba(5,5,5,0.26);
+  border-radius: 999px;
+  box-shadow: 0 2px 0 rgba(5,5,5,0.22);
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 4px 7px;
+  text-decoration: none;
+  transition: box-shadow 160ms ease, filter 160ms ease, transform 160ms ease;
+}
+.intro-social-link:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.intro-social-link:active { box-shadow: none; transform: translateY(1px); }
+.intro-social-link:focus-visible { outline: 3px solid rgba(18,188,234,0.55); outline-offset: 2px; }
+.intro-social-youtube { background: #f03; }
+.intro-social-twitch { background: #9146ff; }
+.intro-social-kick { background: #53fc18; color: #07120a; }
 .intro-top-actions {
   align-items: center;
   display: flex;
   gap: 8px;
-  position: absolute;
-  right: max(18px, env(safe-area-inset-right));
-  top: max(18px, env(safe-area-inset-top));
-  z-index: 4;
 }
 .intro-skip,
 .intro-sound {
@@ -378,6 +444,10 @@ body[data-theme="dark"] .intro-sound {
   border-color: rgba(130,210,239,0.24);
   color: var(--text);
 }
+body[data-theme="dark"] .intro-creator {
+  color: var(--text);
+}
+body[data-theme="dark"] .intro-creator-name strong { color: var(--text); }
 body[data-theme="dark"] .intro-sound[aria-pressed="true"] {
   background: #bfe85f;
   border-color: #e7ffae;
@@ -4509,13 +4579,28 @@ summary:focus-visible,
 ═══════════════════════════════════════════════════════════ */
 @media (max-width: 640px) {
   .intro-trailer { align-items: stretch; padding: 0; }
-  .intro-top-actions {
+  .intro-top-bar {
+    gap: 8px;
+    left: max(12px, env(safe-area-inset-left));
     right: max(12px, env(safe-area-inset-right));
     top: max(12px, env(safe-area-inset-top));
   }
+  .intro-creator {
+    gap: 2px 5px;
+    grid-template-columns: 30px minmax(0, auto);
+    min-width: 0;
+  }
+  .intro-creator-logo { height: 30px; width: 30px; }
+  .intro-creator-name { gap: 3px; }
+  .intro-creator-name > span { font-size: 0.5rem; }
+  .intro-creator-name strong { font-size: 0.7rem; }
+  .intro-creator-links { gap: 3px; }
+  .intro-social-link { font-size: 0.5rem; padding: 3px 5px; }
+  .intro-top-actions { flex: 0 0 auto; gap: 6px; }
   .intro-skip {
     line-height: 1.1;
     max-width: 42vw;
+    padding: 8px 10px;
     text-align: center;
     white-space: normal;
   }
@@ -4536,7 +4621,7 @@ summary:focus-visible,
   }
   .intro-language-picker {
     left: max(12px, env(safe-area-inset-left));
-    top: max(12px, env(safe-area-inset-top));
+    top: max(76px, calc(env(safe-area-inset-top) + 68px));
     width: 112px;
   }
   .intro-locale-btn { padding: 8px 11px; }
@@ -4553,7 +4638,7 @@ summary:focus-visible,
   .intro-scene {
     overflow-x: hidden;
     overflow-y: auto;
-    padding: max(76px, calc(env(safe-area-inset-top) + 64px)) 22px max(86px, calc(env(safe-area-inset-bottom) + 70px));
+    padding: max(120px, calc(env(safe-area-inset-top) + 108px)) 22px max(86px, calc(env(safe-area-inset-bottom) + 70px));
   }
   .intro-copy h2,
   .intro-city-copy h2 { font-size: clamp(1.85rem, 9vw, 2.8rem); line-height: 1.02; }
