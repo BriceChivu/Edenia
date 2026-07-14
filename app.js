@@ -182,13 +182,7 @@ const introTrailerState = {
   sceneTimer: null,
   cityLevelTimers: [],
   soundEnabled: false,
-  audioContext: null,
-  masterGain: null,
-  musicOutput: null,
-  musicTimer: null,
-  musicStep: 0,
-  musicNextChordAt: 0,
-  musicResumeDelay: 3800
+  audio: null
 }
 const personalizedOnboardingState = {
   active: false,
@@ -5027,152 +5021,71 @@ function removeIntroMusicUnlockListeners() {
 }
 
 function unlockIntroMusic() {
-  const context = introTrailerState.audioContext
-  if (!introTrailerState.active || !introTrailerState.soundEnabled || !context || context.state !== 'suspended') {
+  const audio = introTrailerState.audio
+  if (!introTrailerState.active || !introTrailerState.soundEnabled || !audio) {
     removeIntroMusicUnlockListeners()
     return
   }
-  context.resume().then(removeIntroMusicUnlockListeners).catch(() => {})
-}
-
-function scheduleIntroMusicChord() {
-  const context = introTrailerState.audioContext
-  const output = introTrailerState.musicOutput
-  if (!context || !output || context.state === 'closed') return
-
-  const chords = [
-    [196, 261.63, 329.63, 392],
-    [220, 261.63, 329.63, 440],
-    [174.61, 261.63, 349.23, 440],
-    [196, 246.94, 329.63, 392]
-  ]
-  const melody = [523.25, 659.25, 587.33, 493.88]
-  const chordIndex = introTrailerState.musicStep % chords.length
-  const chord = chords[chordIndex]
-  const startAt = context.currentTime + 0.04
-  const endAt = startAt + 5.1
-
-  chord.forEach((frequency, index) => {
-    const oscillator = context.createOscillator()
-    const noteGain = context.createGain()
-    oscillator.type = 'sine'
-    oscillator.frequency.setValueAtTime(frequency, startAt)
-    noteGain.gain.setValueAtTime(0.0001, startAt)
-    noteGain.gain.exponentialRampToValueAtTime(index === 0 ? 0.018 : 0.024, startAt + 1.2)
-    noteGain.gain.exponentialRampToValueAtTime(index === 0 ? 0.011 : 0.015, startAt + 3.8)
-    noteGain.gain.exponentialRampToValueAtTime(0.0001, endAt)
-    oscillator.connect(noteGain)
-    noteGain.connect(output)
-    oscillator.start(startAt)
-    oscillator.stop(endAt + 0.05)
-  })
-
-  const chime = context.createOscillator()
-  const chimeGain = context.createGain()
-  chime.type = 'sine'
-  chime.frequency.setValueAtTime(melody[chordIndex], startAt + 0.55)
-  chimeGain.gain.setValueAtTime(0.0001, startAt + 0.55)
-  chimeGain.gain.exponentialRampToValueAtTime(0.012, startAt + 0.68)
-  chimeGain.gain.exponentialRampToValueAtTime(0.0001, startAt + 2.3)
-  chime.connect(chimeGain)
-  chimeGain.connect(output)
-  chime.start(startAt + 0.55)
-  chime.stop(startAt + 2.35)
-  introTrailerState.musicStep += 1
-  introTrailerState.musicNextChordAt = context.currentTime + 3.8
-}
-
-function scheduleIntroMusicLoop(delay = 3800) {
-  window.clearTimeout(introTrailerState.musicTimer)
-  introTrailerState.musicTimer = window.setTimeout(() => {
-    scheduleIntroMusicChord()
-    introTrailerState.musicTimer = window.setInterval(scheduleIntroMusicChord, 3800)
-  }, Math.max(0, delay))
+  audio.play().then(removeIntroMusicUnlockListeners).catch(() => {})
 }
 
 async function startIntroMusic() {
-  if (!introTrailerState.active || introTrailerState.audioContext) return
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext
-  if (!AudioContextClass) return
-
-  const context = new AudioContextClass()
-  const filter = context.createBiquadFilter()
-  const masterGain = context.createGain()
-  filter.type = 'lowpass'
-  filter.frequency.setValueAtTime(1800, context.currentTime)
-  filter.Q.setValueAtTime(0.35, context.currentTime)
-  masterGain.gain.setValueAtTime(0.0001, context.currentTime)
-  masterGain.gain.exponentialRampToValueAtTime(0.42, context.currentTime + 1.4)
-  filter.connect(masterGain)
-  masterGain.connect(context.destination)
-
-  introTrailerState.audioContext = context
-  introTrailerState.masterGain = masterGain
-  introTrailerState.musicOutput = filter
-  introTrailerState.musicStep = 0
-  introTrailerState.musicResumeDelay = 3800
+  if (!introTrailerState.active || introTrailerState.audio) return
+  const audio = new Audio('assets/audio/intro-trailer-rainy-10pm.mp4')
+  audio.loop = true
+  audio.preload = 'auto'
+  audio.volume = 0.42
+  introTrailerState.audio = audio
   introTrailerState.soundEnabled = true
   updateIntroSoundButton()
-  scheduleIntroMusicChord()
-  scheduleIntroMusicLoop()
-  if (context.state === 'suspended') {
+  try {
+    await audio.play()
+  } catch (error) {
     window.addEventListener('pointerdown', unlockIntroMusic, { capture: true })
     window.addEventListener('keydown', unlockIntroMusic, { capture: true })
-    context.resume().then(removeIntroMusicUnlockListeners).catch(() => {})
   }
 }
 
 function stopIntroMusic({ fadeDuration = 0.28 } = {}) {
-  window.clearInterval(introTrailerState.musicTimer)
-  introTrailerState.musicTimer = null
   removeIntroMusicUnlockListeners()
-  const context = introTrailerState.audioContext
-  const masterGain = introTrailerState.masterGain
-  if (context && context.state !== 'closed') {
-    const now = context.currentTime
-    const duration = Math.max(fadeDuration, 0.01)
-    const startingGain = Math.max(masterGain?.gain.value || 0.0001, 0.0001)
-    const fadeCurve = Float32Array.from({ length: 96 }, (_, index) => {
-      const progress = index / 95
-      const smoothLevel = 0.5 + (0.5 * Math.cos(Math.PI * progress))
-      return Math.max(startingGain * smoothLevel, 0.0001)
-    })
-    masterGain?.gain.cancelScheduledValues(now)
-    masterGain?.gain.setValueCurveAtTime(fadeCurve, now, duration)
-    window.setTimeout(() => context.close().catch(() => {}), Math.max(duration * 1000 + 120, 100))
+  const audio = introTrailerState.audio
+  if (audio) {
+    const duration = Math.max(fadeDuration * 1000, 10)
+    const startedAt = performance.now()
+    const startingVolume = audio.volume
+    const fadeTimer = window.setInterval(() => {
+      const progress = Math.min((performance.now() - startedAt) / duration, 1)
+      audio.volume = startingVolume * (0.5 + (0.5 * Math.cos(Math.PI * progress)))
+      if (progress < 1) return
+      window.clearInterval(fadeTimer)
+      audio.pause()
+      audio.currentTime = 0
+    }, 50)
   }
-  introTrailerState.audioContext = null
-  introTrailerState.masterGain = null
-  introTrailerState.musicOutput = null
-  introTrailerState.musicStep = 0
-  introTrailerState.musicNextChordAt = 0
-  introTrailerState.musicResumeDelay = 3800
+  introTrailerState.audio = null
   introTrailerState.soundEnabled = false
   updateIntroSoundButton()
 }
 
 async function toggleIntroSound() {
   if (introTrailerState.soundEnabled) {
-    const context = introTrailerState.audioContext
-    if (!context || context.state === 'closed') {
+    const audio = introTrailerState.audio
+    if (!audio) {
       stopIntroMusic()
       return
     }
-    introTrailerState.musicResumeDelay = Math.max(0, (introTrailerState.musicNextChordAt - context.currentTime) * 1000)
-    window.clearTimeout(introTrailerState.musicTimer)
-    introTrailerState.musicTimer = null
+    removeIntroMusicUnlockListeners()
+    audio.pause()
     introTrailerState.soundEnabled = false
     updateIntroSoundButton()
-    await context.suspend()
     return
   }
   try {
-    const context = introTrailerState.audioContext
-    if (context && context.state !== 'closed') {
+    const audio = introTrailerState.audio
+    if (audio) {
       introTrailerState.soundEnabled = true
       updateIntroSoundButton()
-      await context.resume()
-      scheduleIntroMusicLoop(introTrailerState.musicResumeDelay)
+      await audio.play()
     } else {
       await startIntroMusic()
     }
