@@ -32,7 +32,7 @@ jobs:
       - name: Prepare static site
         run: |
           mkdir -p _site
-          cp index.html app.js style.css Edenia_favicon_round.png _site/
+          cp index.html app.js analytics.js style.css Edenia_favicon_round.png _site/
           cp -R assets _site/assets
           cp -R images _site/images
 
