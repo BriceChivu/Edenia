@@ -448,7 +448,9 @@ body[data-theme="dark"] .intro-nav-btn { background: rgba(16,36,43,0.9); color: 
 .intro-scene span,
 .intro-scene small {
   max-width: 100%;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
 }
 .intro-trailer[data-scene="0"] [data-intro-scene="0"],
 .intro-trailer[data-scene="1"] [data-intro-scene="1"],
@@ -745,11 +747,22 @@ html:lang(zh-Hans) .intro-scene-finale h2 {
   font-size: clamp(2rem, 3.1vw, 3.5rem);
   line-height: 0.98;
   max-width: 12ch;
+  white-space: pre-line;
 }
 html:lang(es) .intro-city-copy h2,
 html:lang(fr) .intro-city-copy h2 { font-size: clamp(1.85rem, 2.8vw, 3.15rem); line-height: 1.03; max-width: 14ch; }
 html:lang(zh-Hant) .intro-city-copy h2,
-html:lang(zh-Hans) .intro-city-copy h2 { font-size: clamp(1.75rem, 2.8vw, 3rem); line-height: 1.16; max-width: 10ch; }
+html:lang(zh-Hans) .intro-city-copy h2 {
+  font-size: clamp(1.65rem, 2.55vw, 2.7rem);
+  line-height: 1.16;
+  max-width: 100%;
+  word-break: keep-all;
+}
+html:lang(zh-Hant) .intro-scene-purpose .intro-copy h2,
+html:lang(zh-Hans) .intro-scene-purpose .intro-copy h2 {
+  white-space: pre-line;
+  word-break: keep-all;
+}
 .intro-city-growth {
   align-items: center;
   display: grid;
@@ -4551,6 +4564,8 @@ summary:focus-visible,
   html:lang(zh-Hans) .intro-city-copy h2,
   html:lang(zh-Hant) .intro-scene-finale h2,
   html:lang(zh-Hans) .intro-scene-finale h2 { font-size: clamp(1.65rem, 7.5vw, 2.35rem); line-height: 1.18; }
+  html:lang(zh-Hant) .intro-scene-city .intro-city-copy h2,
+  html:lang(zh-Hans) .intro-scene-city .intro-city-copy h2 { font-size: clamp(1.35rem, 5.8vw, 1.8rem); }
   .intro-copy > p:last-child,
   .intro-scene-finale > p:not(.intro-kicker) { font-size: clamp(0.8rem, 3.8vw, 0.98rem); }
   .intro-scene-purpose,
