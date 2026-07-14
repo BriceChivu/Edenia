@@ -5466,22 +5466,26 @@ async function finishPersonalizedOnboarding() {
 
   state = loadState() || state
   const existingIds = new Set((state.config.channels || []).map(channel => channel.id))
+  let addedChannelCount = 0
   resolution.channels.forEach(channel => {
     if (!existingIds.has(channel.id)) {
       state.config.channels.push(channel)
       existingIds.add(channel.id)
+      addedChannelCount += 1
     }
     state.config.removedChannelIds = (state.config.removedChannelIds || []).filter(channelId => channelId !== channel.id)
   })
   saveState(state, { backup: false })
 
+  let onboardingRefreshResult = null
   if (resolution.channels.length) {
-    const refreshResult = await refreshFeed({
+    onboardingRefreshResult = await refreshFeed({
       silent: true,
-      channelIds: resolution.channels.map(channel => channel.id)
+      channelIds: resolution.channels.map(channel => channel.id),
+      trigger: 'onboarding'
     })
-    if (!refreshResult?.ok) {
-      const firstError = refreshResult?.errors?.[0]?.message || refreshResult?.error?.message
+    if (!onboardingRefreshResult?.ok) {
+      const firstError = onboardingRefreshResult?.errors?.[0]?.message || onboardingRefreshResult?.error?.message
       const videoIssue = firstError ? `${t('onboarding.videoIssue')} ${firstError}` : t('onboarding.videoIssue')
       completionNotice = completionNotice ? `${completionNotice} ${videoIssue}` : videoIssue
     }
@@ -5504,6 +5508,22 @@ async function finishPersonalizedOnboarding() {
     })
   })
   saveState(state)
+  if (addedChannelCount > 0) {
+    window.trackEdeniaEvent?.('channel_added', {
+      source: 'onboarding',
+      added_count: addedChannelCount,
+      total_channel_count: state.config.channels.length
+    })
+  }
+  window.trackEdeniaEvent?.('onboarding_completed', {
+    selected_channel_count: state.learnerProfile.selectedChannelCatalogIds.length,
+    added_channel_count: addedChannelCount,
+    resolved_channel_count: resolution.channels.length,
+    failed_channel_count: resolution.failedCount,
+    refresh_result: !onboardingRefreshResult
+      ? 'not_requested'
+      : (onboardingRefreshResult.ok ? 'success' : 'partial_or_failed')
+  })
   queueOnboardingNotice(completionNotice)
   window.location.assign(getNormalAppUrl())
 }
@@ -6690,6 +6710,11 @@ async function addChannel() {
     detail: name
   })
   saveState(s)
+  window.trackEdeniaEvent?.('channel_added', {
+    source: 'manual',
+    added_count: 1,
+    total_channel_count: s.config.channels.length
+  })
   renderFeed(s)
   renderActivityLog(s)
   if (idEl) idEl.value = ''
@@ -7497,7 +7522,7 @@ function formatSkippedShortsMessage(skippedShorts) {
   return skippedShorts ? t('toast.skippedShorts', { count: skippedShorts, plural: skippedShorts === 1 ? '' : 's' }) : ''
 }
 
-async function refreshFeed({ silent = false, channelIds = null } = {}) {
+async function refreshFeed({ silent = false, channelIds = null, trigger = 'automatic' } = {}) {
   const btn = document.getElementById('refreshBtn')
   if (btn) {
     btn.textContent = `↻ ${t('videos.refreshing')}`
@@ -7595,6 +7620,14 @@ async function refreshFeed({ silent = false, channelIds = null } = {}) {
       ? t('toast.refreshLoadedWithErrors', { count: mergedCount, shorts: shortsMsg, errors: errors.length, plural: errors.length > 1 ? 's' : '' })
       : t('toast.refreshLoaded', { count: mergedCount, channels: successfulChannels, plural: successfulChannels === 1 ? '' : 's', shorts: shortsMsg })
     if (!silent || errors.length) showToast(msg, errors.length ? 'warn' : 'success')
+    window.trackEdeniaEvent?.('refresh_completed', {
+      trigger,
+      result: errors.length ? 'partial' : 'success',
+      refreshed_channel_count: successfulChannels,
+      failed_channel_count: errors.length,
+      new_video_count: mergedCount,
+      skipped_short_count: skippedShorts
+    })
     return {
       ok: errors.length === 0,
       mergedCount,
@@ -7661,6 +7694,14 @@ async function refreshAddedChannel(channelId) {
     const channelName = channel.name || channelId
     const shortsMsg = formatSkippedShortsMessage(skippedShorts)
     showToast(t('toast.channelLoaded', { name: channelName, count: mergedCount, shorts: shortsMsg }), 'success')
+    window.trackEdeniaEvent?.('refresh_completed', {
+      trigger: 'channel_added',
+      result: 'success',
+      refreshed_channel_count: 1,
+      failed_channel_count: 0,
+      new_video_count: mergedCount,
+      skipped_short_count: skippedShorts
+    })
   } catch (err) {
     console.error(err)
     const s = loadState()
@@ -7743,12 +7784,27 @@ function markVideo(videoId, newStatus) {
 
   saveState(s)
   renderAll(s)
+  if (newStatus === 'watched') {
+    window.trackEdeniaEvent?.('video_marked_watched', {
+      previous_status: previousStatus,
+      video_source: video.manuallyAdded ? 'manual' : 'channel',
+      is_short: Boolean(video.isShort)
+    })
+  }
 }
 
 function markVideoInProgressOnOpen(videoId) {
   const s     = loadState()
   const video = s.videos[videoId]
-  if (!video || ['partial', 'watched'].includes(getVideoStatus(video))) return
+  if (!video) return
+  const previousStatus = getVideoStatus(video)
+  window.trackEdeniaEvent?.('video_opened', {
+    previous_status: previousStatus,
+    video_source: video.manuallyAdded ? 'manual' : 'channel',
+    is_short: Boolean(video.isShort),
+    resumed: previousStatus === 'partial' && normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) !== null
+  })
+  if (['partial', 'watched'].includes(previousStatus)) return
 
   pushUndoAction(s, {
     type: 'video-status',
