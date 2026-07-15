@@ -135,6 +135,7 @@ let selectedHistoryRange = 'week'
 let selectedHistoryView = 'summary'
 let selectedStudyInsightView = 'current'
 let selectedActivityLogFilter = 'all'
+let mobileActivityLogVisibleCount = 20
 let forcedSearchVideoId = null
 let currentLocale = DEFAULT_LOCALE
 let backgroundPhysics = null
@@ -153,13 +154,29 @@ const cityImageView = {
   startX: 0,
   startY: 0,
   originX: 0,
-  originY: 0
+  originY: 0,
+  touchPointers: new Map(),
+  pinching: false,
+  pinchStartDistance: 0,
+  pinchStartScale: 1,
+  pinchStartX: 0,
+  pinchStartY: 0,
+  pinchStartCenterX: 0,
+  pinchStartCenterY: 0
 }
 const cityWaveformScroll = {
   frame: null,
   speed: 0,
   pointerX: 0,
-  pointerY: 0
+  pointerY: 0,
+  touchPointerId: null,
+  touchStartX: 0,
+  touchStartY: 0,
+  touchStartScrollLeft: 0,
+  touchDragging: false,
+  touchPreviewOffset: null,
+  touchPreviewFrame: null,
+  suppressClickUntil: 0
 }
 const historyActionScroll = {
   frame: null,
@@ -926,6 +943,7 @@ const I18N_EN = {
   'videos.refreshing': 'Refreshing...',
   'videos.refresh': 'Refresh',
   'activity.empty': 'No activity logged yet',
+  'activity.showOlder': 'Show older',
   'activity.auto': 'Auto',
   'activity.user': 'User',
   'activity.error': 'Error',
@@ -1048,6 +1066,7 @@ const I18N_EN = {
   'walkthrough.studyHistory': 'Study History shows what happened over time. It combines watched videos and Anki reviews so you can understand your real study rhythm.',
   'walkthrough.historyViews': 'Use Summary when you want clear numbers, and Heatmap when you want to see active days at a glance. Edenia remembers which view you prefer.',
   'walkthrough.videos': 'This is the video area. New videos from your channels appear here, and watched videos move into the Watched section below.',
+  'walkthrough.videosMobile': 'This is the video area. New videos from your channels appear here. When you mark one watched, Edenia moves it into a Watched section to keep your active feed clear.',
   'walkthrough.firstStudyChannels': 'Your channel controls live here. Open this menu to add, remove, or filter study sources at any time.',
   'walkthrough.firstStudyFeed': 'This is your real study feed. Choose a video, then mark it watched, in progress, or watch later. Your goal, history, and town update from what you actually study.',
   'walkthrough.videoFilters': 'These controls help you keep the list manageable. You can filter by status, filter by channel, add a video URL, and fix mistakes.',
@@ -1425,6 +1444,7 @@ const I18N = {
     'videos.card.continueAt': '繼續於',
     'videos.card.removeFromGrid': '從清單移除',
     'activity.empty': '還沒有活動紀錄',
+    'activity.showOlder': '顯示較舊紀錄',
     'activity.auto': '自動',
     'activity.user': '使用者',
     'activity.done': '完成',
@@ -1491,6 +1511,7 @@ const I18N = {
     'walkthrough.studyHistory': '學習紀錄會顯示你一段時間內做了什麼。它會把看過的影片和 Anki 複習放在一起，讓你看懂真正的學習節奏。',
     'walkthrough.historyViews': '摘要適合看清楚的數字，熱力圖適合快速看哪些天有學習。Edenia 會記住你偏好的視圖。',
     'walkthrough.videos': '這裡是影片區。你加入的頻道會出現新影片，已看影片會移到下方的已看區。',
+    'walkthrough.videosMobile': '這裡是影片區。你加入的頻道會在這裡顯示新影片。標記為已看後，Edenia 會把影片移到「已看」區，讓進行中的清單保持清楚。',
     'walkthrough.firstStudyChannels': '你的頻道控制都在這裡。打開這個選單，即可隨時新增、移除或篩選學習來源。',
     'walkthrough.firstStudyFeed': '這是你真正的學習清單。選擇一部影片，再標記為已看、進行中或稍後觀看。你的目標、紀錄和小鎮都會依照實際學習更新。',
     'walkthrough.videoFilters': '這些控制可以讓清單更好管理。你可以依狀態或頻道篩選，新增影片網址，也可以修正誤點。',
@@ -1798,6 +1819,7 @@ const I18N = {
     'videos.card.continueAt': '继续于',
     'videos.card.removeFromGrid': '从列表移除',
     'activity.empty': '还没有活动记录',
+    'activity.showOlder': '显示较早记录',
     'backups.empty': '还没有本地备份',
     'backups.restore': '恢复',
     'time.today': '今天',
@@ -1861,6 +1883,7 @@ const I18N = {
     'walkthrough.studyHistory': '学习记录会显示你一段时间内做了什么。它会把看过的视频和 Anki 复习放在一起，让你看懂真正的学习节奏。',
     'walkthrough.historyViews': '摘要适合看清楚的数字，热力图适合快速看哪些天有学习。Edenia 会记住你偏好的视图。',
     'walkthrough.videos': '这里是视频区。你加入的频道会出现新视频，已看视频会移到下方的已看区。',
+    'walkthrough.videosMobile': '这里是视频区。你添加的频道会在这里显示新视频。标记为已看后，Edenia 会把视频移到“已看”区，让当前列表保持清晰。',
     'walkthrough.firstStudyChannels': '你的频道控制都在这里。打开这个菜单，即可随时添加、移除或筛选学习来源。',
     'walkthrough.firstStudyFeed': '这是你真正的学习列表。选择一个视频，再标记为已看、进行中或稍后观看。你的目标、记录和小镇都会按照实际学习更新。',
     'walkthrough.videoFilters': '这些控制可以让列表更好管理。你可以按状态或频道筛选，添加视频网址，也可以修正误点。',
@@ -2170,6 +2193,7 @@ const I18N = {
     'videos.card.continueAt': 'Continuar en',
     'videos.card.removeFromGrid': 'Quitar de la lista',
     'activity.empty': 'Aún no hay actividad registrada',
+    'activity.showOlder': 'Mostrar anteriores',
     'backups.empty': 'Aún no hay copias locales',
     'backups.restore': 'Restaurar',
     'time.today': 'hoy',
@@ -2233,6 +2257,7 @@ const I18N = {
     'walkthrough.studyHistory': 'El historial de estudio muestra lo que pasó con el tiempo. Junta videos vistos y repasos de Anki para que entiendas tu ritmo real.',
     'walkthrough.historyViews': 'Usa Resumen para ver números claros, y Mapa para ver tus días activos de un vistazo. Edenia recuerda la vista que prefieres.',
     'walkthrough.videos': 'Esta es la zona de videos. Aquí aparecen videos nuevos de tus canales, y los videos vistos pasan a la sección Vistos.',
+    'walkthrough.videosMobile': 'Esta es la zona de videos. Aquí aparecen videos nuevos de tus canales. Cuando marcas uno como visto, Edenia lo mueve a una sección Vistos para mantener clara tu lista activa.',
     'walkthrough.firstStudyChannels': 'Aquí están los controles de tus canales. Abre este menú para añadir, quitar o filtrar tus fuentes de estudio cuando quieras.',
     'walkthrough.firstStudyFeed': 'Esta es tu lista de estudio real. Elige un video y márcalo como visto, en progreso o para ver después. Tu objetivo, historial y pueblo se actualizan con lo que estudias de verdad.',
     'walkthrough.videoFilters': 'Estos controles ayudan a mantener la lista clara. Puedes filtrar por estado, filtrar por canal, añadir una URL de video y corregir errores.',
@@ -2542,6 +2567,7 @@ const I18N = {
     'videos.card.continueAt': 'Reprendre à',
     'videos.card.removeFromGrid': 'Retirer de la liste',
     'activity.empty': 'Aucune activité enregistrée',
+    'activity.showOlder': 'Afficher les plus anciennes',
     'backups.empty': 'Aucune sauvegarde locale',
     'backups.restore': 'Restaurer',
     'time.today': 'aujourd’hui',
@@ -2605,6 +2631,7 @@ const I18N = {
     'walkthrough.studyHistory': 'L’historique d’étude montre ce qui s’est passé au fil du temps. Il réunit les vidéos vues et les révisions Anki pour montrer votre vrai rythme.',
     'walkthrough.historyViews': 'Utilisez Résumé pour des chiffres clairs, et Carte pour voir vos jours actifs en un coup d’œil. Edenia mémorise votre vue préférée.',
     'walkthrough.videos': 'Voici la zone des vidéos. Les nouvelles vidéos de vos chaînes apparaissent ici, et les vidéos vues passent dans la section Vues.',
+    'walkthrough.videosMobile': 'Voici la zone des vidéos. Les nouvelles vidéos de vos chaînes apparaissent ici. Quand vous en marquez une comme vue, Edenia la déplace dans une section Vues pour garder la liste active claire.',
     'walkthrough.firstStudyChannels': 'Les contrôles de vos chaînes se trouvent ici. Ouvrez ce menu pour ajouter, retirer ou filtrer vos sources d’étude à tout moment.',
     'walkthrough.firstStudyFeed': 'Voici votre véritable liste d’étude. Choisissez une vidéo, puis marquez-la comme vue, en cours ou à regarder plus tard. Votre objectif, votre historique et votre ville évoluent selon ce que vous étudiez réellement.',
     'walkthrough.videoFilters': 'Ces contrôles gardent la liste lisible. Vous pouvez filtrer par statut, par chaîne, ajouter une URL de vidéo et corriger les erreurs.',
@@ -3324,7 +3351,9 @@ const WALKTHROUGH_STEPS = [
   {
     id: 'videos',
     target: '.feed-section',
+    mobileTarget: '.feed-section > .section-header',
     textKey: 'walkthrough.videos',
+    mobileTextKey: 'walkthrough.videosMobile',
     placement: 'top',
     hooks: {
       beforeEnter: 'closeTransientUi'
@@ -4750,6 +4779,7 @@ function init() {
   startChannelRefreshLabelTicker()
   repairStoredShortsDetection()
   initCityImagePanZoom()
+  initCityWaveformTouchNavigation()
   if (!IS_SANDBOX) {
     if (state.onboarding.setupCompleted) startLiveIntegrations(state)
   } else {
@@ -4782,7 +4812,11 @@ function startLiveIntegrations(state = loadState()) {
 function syncHeaderCompactState() {
   const header = document.querySelector('.app-header')
   if (!header) return
-  if (!window.matchMedia?.('(max-width: 640px)').matches) {
+  if (!isMobileLayout()) {
+    header.classList.remove('is-compact')
+    return
+  }
+  if (document.body.classList.contains('walkthrough-active')) {
     header.classList.remove('is-compact')
     return
   }
@@ -5463,7 +5497,22 @@ function consumeSandboxWalkthroughAfterReset() {
   }
 }
 
+function isMobileLayout() {
+  return Boolean(window.matchMedia?.('(max-width: 640px)').matches)
+}
+
+function getWalkthroughTargetSelector(step) {
+  if (!step) return ''
+  return isMobileLayout() && step.mobileTarget ? step.mobileTarget : step.target
+}
+
+function getWalkthroughTarget(step) {
+  const selector = getWalkthroughTargetSelector(step)
+  return selector ? document.querySelector(selector) : null
+}
+
 function showWalkthroughAgain() {
+  if (isMobileLayout()) openSettings.returnFocus = null
   closeSettings()
   window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS, { manual: true }), 120)
 }
@@ -5474,7 +5523,7 @@ function showTrailerAgain() {
 }
 
 function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {
-  const availableSteps = steps.filter(step => step?.target && document.querySelector(step.target))
+  const availableSteps = steps.filter(step => getWalkthroughTarget(step))
   if (!availableSteps.length) return
   if (walkthroughState.active) endWalkthrough({ markCompleted: false })
 
@@ -5483,6 +5532,8 @@ function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {
   walkthroughState.index = clampNumber(options.startIndex || 0, 0, availableSteps.length - 1)
   ensureWalkthroughElements()
   document.body.classList.add('walkthrough-active')
+  if (isMobileLayout()) document.activeElement?.blur?.()
+  syncHeaderCompactState()
   walkthroughState.elements.layer.classList.remove('hidden')
   window.addEventListener('resize', scheduleWalkthroughPosition)
   window.addEventListener('scroll', scheduleWalkthroughPosition, true)
@@ -5544,7 +5595,7 @@ function renderWalkthroughStep() {
   if (!walkthroughState.active) return
   const step = walkthroughState.steps[walkthroughState.index]
   runWalkthroughHooks(step, 'beforeEnter')
-  const target = step ? document.querySelector(step.target) : null
+  const target = getWalkthroughTarget(step)
   if (!target || !isWalkthroughTargetVisible(target)) {
     window.setTimeout(() => moveWalkthrough(1), 0)
     return
@@ -5552,7 +5603,8 @@ function renderWalkthroughStep() {
 
   const elements = ensureWalkthroughElements()
   elements.progress.textContent = t('walkthrough.progress', { current: walkthroughState.index + 1, total: walkthroughState.steps.length })
-  elements.text.textContent = step.textKey ? t(step.textKey) : step.text
+  const textKey = isMobileLayout() && step.mobileTextKey ? step.mobileTextKey : step.textKey
+  elements.text.textContent = textKey ? t(textKey) : step.text
   elements.back.disabled = walkthroughState.index === 0
   elements.next.disabled = step.advanceOn === 'target-click'
   elements.back.textContent = t('walkthrough.back')
@@ -5612,6 +5664,7 @@ function endWalkthrough(options = {}) {
   }
   walkthroughState.elements?.layer.classList.add('hidden')
   document.body.classList.remove('walkthrough-active')
+  syncHeaderCompactState()
   window.removeEventListener('resize', scheduleWalkthroughPosition)
   window.removeEventListener('scroll', scheduleWalkthroughPosition, true)
   document.removeEventListener('click', handleWalkthroughTargetClick)
@@ -5623,7 +5676,8 @@ function endWalkthrough(options = {}) {
 function handleWalkthroughTargetClick(event) {
   if (!walkthroughState.active) return
   const step = walkthroughState.steps[walkthroughState.index]
-  const target = step?.target ? event.target.closest(step.target) : null
+  const selector = getWalkthroughTargetSelector(step)
+  const target = selector ? event.target.closest(selector) : null
   if (!target) return
   runWalkthroughHooks(step, 'targetClick', { event, target })
 }
@@ -5655,7 +5709,7 @@ function scheduleWalkthroughPosition() {
 function positionWalkthrough() {
   if (!walkthroughState.active) return
   const step = walkthroughState.steps[walkthroughState.index]
-  const target = step ? document.querySelector(step.target) : null
+  const target = getWalkthroughTarget(step)
   if (!target || !isWalkthroughTargetVisible(target)) return
 
   const elements = ensureWalkthroughElements()
@@ -6019,11 +6073,15 @@ function openSettings() {
   document.getElementById('settingsInsightsEnabled').checked = isStudyInsightsEnabled(s)
   renderChannelList(s.config.channels)
   renderBackupList()
+  mobileActivityLogVisibleCount = 20
   renderActivityLog(s)
   setSettingsHowToOpen(false)
   setSettingsActivityLogOpen(false)
   setSettingsBackupsOpen(false)
+  closeLocaleMenu()
   show('settingsPanel')
+  const drawer = panel?.querySelector('.settings-drawer')
+  if (drawer && isMobileLayout()) drawer.scrollTop = 0
   if (main) main.inert = true
   window.setTimeout(() => document.getElementById('settingsCloseBtn')?.focus(), 0)
 }
@@ -6051,6 +6109,9 @@ function setSettingsAccordionOpen(contentId, toggleSelector, groupSelector, isOp
 
 function setSettingsHowToOpen(isOpen) {
   setSettingsAccordionOpen('settingsHowToContent', '.settings-howto-toggle', '.settings-howto-group', isOpen)
+  const drawer = document.querySelector('#settingsPanel .settings-drawer')
+  drawer?.classList.toggle('settings-howto-mode', Boolean(isOpen && isMobileLayout()))
+  if (drawer && isMobileLayout()) drawer.scrollTop = 0
 }
 
 function toggleSettingsHowTo() {
@@ -6374,6 +6435,7 @@ function formatActivityLogTimestamp(value) {
 
 function setActivityLogFilter(filter) {
   selectedActivityLogFilter = ACTIVITY_LOG_FILTERS.includes(filter) ? filter : 'all'
+  mobileActivityLogVisibleCount = 20
   renderActivityLog()
 }
 
@@ -6440,14 +6502,60 @@ function formatActivityLogLabel(entry) {
   return `${actor} · ${status}`
 }
 
+function groupMobileActivityLogEntries(entries) {
+  if (!isMobileLayout()) return entries
+
+  return entries.reduce((grouped, entry) => {
+    const previous = grouped[grouped.length - 1]
+    const canGroup = entry?.actor === 'auto'
+      && entry?.type === 'anki-refresh'
+      && previous?.actor === 'auto'
+      && previous?.type === 'anki-refresh'
+      && previous?.status === entry.status
+      && previous?.title === entry.title
+      && previous?.detail === entry.detail
+
+    if (canGroup) {
+      previous.mobileRepeatCount = (previous.mobileRepeatCount || 1) + 1
+      return grouped
+    }
+
+    grouped.push({ ...entry, mobileRepeatCount: 1 })
+    return grouped
+  }, [])
+}
+
+function getMobileActivityLogPage(entries, { groupAnki = false } = {}) {
+  const prepared = groupAnki ? groupMobileActivityLogEntries(entries) : entries
+  if (!isMobileLayout()) return { entries: prepared, totalCount: prepared.length }
+  return {
+    entries: prepared.slice(0, mobileActivityLogVisibleCount),
+    totalCount: prepared.length
+  }
+}
+
+function appendMobileActivityLogMoreButton(list, totalCount) {
+  if (!isMobileLayout() || totalCount <= mobileActivityLogVisibleCount) return
+  list.insertAdjacentHTML('beforeend', `
+    <button class="btn-ghost activity-log-more" type="button" onclick="showOlderActivityLogEntries()">${escHtml(t('activity.showOlder'))}</button>
+  `)
+}
+
+function showOlderActivityLogEntries() {
+  mobileActivityLogVisibleCount += 20
+  renderActivityLog()
+}
+
 function renderPointActivityLog(state, list) {
-  const entries = getPointActivityLogEntries(state)
-  if (!entries.length) {
+  const allEntries = getPointActivityLogEntries(state)
+  if (!allEntries.length) {
     list.innerHTML = `<p class="activity-log-empty">${escHtml(t('activity.points.empty'))}</p>`
     return
   }
 
-  list.innerHTML = entries.map(entry => `
+  const page = getMobileActivityLogPage(allEntries)
+
+  list.innerHTML = page.entries.map(entry => `
     <div class="activity-log-item">
       <div class="activity-log-row">
         <span class="activity-log-time">${escHtml(formatActivityLogTimestamp(entry.createdAt))}</span>
@@ -6457,6 +6565,7 @@ function renderPointActivityLog(state, list) {
       ${entry.detail ? `<p class="activity-log-detail">${escHtml(entry.detail)}</p>` : ''}
     </div>
   `).join('')
+  appendMobileActivityLogMoreButton(list, page.totalCount)
 }
 
 function renderActivityLog(state = loadState()) {
@@ -6475,22 +6584,26 @@ function renderActivityLog(state = loadState()) {
     return
   }
 
-  const entries = getFilteredActivityLogEntries(state)
-  if (!entries.length) {
+  const allEntries = getFilteredActivityLogEntries(state)
+  if (!allEntries.length) {
     list.innerHTML = `<p class="activity-log-empty">${escHtml(t('activity.empty'))}</p>`
     return
   }
 
-  list.innerHTML = entries.map(entry => `
+  const page = getMobileActivityLogPage(allEntries, { groupAnki: true })
+
+  list.innerHTML = page.entries.map(entry => `
     <div class="activity-log-item">
       <div class="activity-log-row">
         <span class="activity-log-time">${escHtml(formatActivityLogTimestamp(entry.createdAt))}</span>
         <span class="activity-log-chip ${escHtml(entry.status)}">${escHtml(formatActivityLogLabel(entry))}</span>
+        ${entry.mobileRepeatCount > 1 ? `<span class="activity-log-repeat">×${entry.mobileRepeatCount}</span>` : ''}
       </div>
       <div class="activity-log-title">${escHtml(entry.title)}</div>
       ${entry.detail ? `<p class="activity-log-detail">${escHtml(entry.detail)}</p>` : ''}
     </div>
   `).join('')
+  appendMobileActivityLogMoreButton(list, page.totalCount)
 }
 
 function restoreStateBackup(id) {
@@ -6582,6 +6695,7 @@ function toggleTheme() {
 async function addChannel() {
   const idEl   = document.getElementById('channelFilterAddInput') || document.getElementById('newChannelId')
   const btn    = document.getElementById('channelFilterAddBtn')
+  const addedFromFilter = Boolean(document.getElementById('channelFilterAddInput'))
   const raw    = idEl?.value?.trim() || ''
   let resolved
 
@@ -6635,6 +6749,7 @@ async function addChannel() {
     btn.disabled = false
     btn.textContent = t('settings.channels.add')
   }
+  if (addedFromFilter && isMobileLayout()) closeChannelFilterMenu()
   if (IS_SANDBOX) {
     showToast(t('toast.channelAdded', { name }))
     return
@@ -8886,11 +9001,12 @@ function toggleVideoSearchPopover(event) {
   window.setTimeout(() => input.focus(), 0)
 }
 
-function closeVideoSearchPopover() {
+function closeVideoSearchPopover(restoreFocus = false) {
   const popover = document.getElementById('videoSearchPopover')
   const button = document.getElementById('videoSearchBtn')
   if (popover) popover.classList.add('hidden')
   if (button) button.setAttribute('aria-expanded', 'false')
+  if (restoreFocus && button && isMobileLayout()) window.setTimeout(() => button.focus(), 0)
 }
 
 function closeVideoSearchPopoverOnOutsideClick(event) {
@@ -8900,13 +9016,14 @@ function closeVideoSearchPopoverOnOutsideClick(event) {
 
 function closeVideoSearchPopoverOnEscape(event) {
   if (event.key !== 'Escape') return
-  closeVideoSearchPopover()
+  if (document.getElementById('videoSearchPopover')?.classList.contains('hidden')) return
+  closeVideoSearchPopover(true)
 }
 
 function handleVideoSearchInputKey(event) {
   if (event.key === 'Escape') {
     event.preventDefault()
-    closeVideoSearchPopover()
+    closeVideoSearchPopover(true)
     return
   }
   if (event.key !== 'Enter') return
@@ -9041,6 +9158,8 @@ function formatHistoryDate(dateKey, state = null) {
 }
 
 function renderStudyHistoryPanel(s) {
+  const historyState = s || { videos: {}, anki: {} }
+  const hasHistoryActivity = getStudyActivityDateKeys(historyState).length > 0
   document.querySelectorAll('.history-range-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.historyRange === selectedHistoryRange)
     btn.setAttribute('aria-expanded', String(btn.closest('.history-period-cell')?.classList.contains('open') || false))
@@ -9051,10 +9170,10 @@ function renderStudyHistoryPanel(s) {
     btn.setAttribute('aria-selected', String(isActive))
   })
 
-  renderHistoryPeriodPopover('week', 'historyWeekPeriodPopover', s || { videos: {}, anki: {} })
-  renderHistoryPeriodPopover('month', 'historyMonthPeriodPopover', s || { videos: {}, anki: {} })
+  renderHistoryPeriodPopover('week', 'historyWeekPeriodPopover', historyState)
+  renderHistoryPeriodPopover('month', 'historyMonthPeriodPopover', historyState)
 
-  const history = getStudyHistory(s || { videos: {}, anki: {} })
+  const history = getStudyHistory(historyState)
   const showAnkiColumns = isAnkiEnabled(s) || history.rows.some(row => row.ankiReviewed > 0 || row.ankiCreated > 0)
   setText('historyStudyTime', formatHistoryTime(history.summary.secondsWatched))
   setText('historyVideosWatched', history.summary.videosWatched)
@@ -9089,7 +9208,10 @@ function renderStudyHistoryPanel(s) {
   const summaryView = document.getElementById('historySummaryView')
   const heatmapView = document.getElementById('historyHeatmapView')
   const rangeToolbar = document.getElementById('historyRangeToolbar')
-  if (rangeToolbar) rangeToolbar.classList.toggle('hidden', selectedHistoryView === 'heatmap')
+  if (rangeToolbar) {
+    rangeToolbar.classList.toggle('hidden', selectedHistoryView === 'heatmap')
+    rangeToolbar.classList.toggle('mobile-history-empty', !hasHistoryActivity)
+  }
   if (summaryView) summaryView.classList.toggle('hidden', selectedHistoryView !== 'summary')
   if (heatmapView) {
     heatmapView.classList.toggle('hidden', selectedHistoryView !== 'heatmap')
@@ -9996,6 +10118,8 @@ function renderHistoryPeriodPopover(range, popoverId, state) {
 
 function toggleHistoryPeriodPopover(event, range) {
   event.stopPropagation()
+  const state = loadState()
+  if (isMobileLayout() && getHistoryPeriodOptions(state || { videos: {}, anki: {} }, range).length === 0) return
   selectedHistoryRange = HISTORY_RANGES.includes(range) ? range : 'week'
   const cell = event.currentTarget.closest('.history-period-cell')
   if (!cell) return
@@ -10006,7 +10130,7 @@ function toggleHistoryPeriodPopover(event, range) {
   closeHistoryPeriodPopovers(cell)
   cell.classList.toggle('open', shouldOpen)
   event.currentTarget.setAttribute('aria-expanded', String(shouldOpen))
-  renderStudyHistoryPanel(loadState())
+  renderStudyHistoryPanel(state)
 }
 
 function closeHistoryPeriodPopovers(exceptCell = null) {
@@ -10377,6 +10501,87 @@ function updateCityWaveformScrollState() {
   bars.classList.toggle('is-scrollable', bars.scrollWidth > bars.clientWidth + 1)
 }
 
+function initCityWaveformTouchNavigation() {
+  const bars = document.getElementById('cityWaveBars')
+  if (!bars || bars.dataset.touchNavigationReady === 'true') return
+  bars.dataset.touchNavigationReady = 'true'
+
+  bars.addEventListener('pointerdown', event => {
+    if (!isMobileLayout() || event.pointerType !== 'touch' || cityWaveformScroll.touchPointerId !== null) return
+    cityWaveformScroll.touchPointerId = event.pointerId
+    cityWaveformScroll.touchStartX = event.clientX
+    cityWaveformScroll.touchStartY = event.clientY
+    cityWaveformScroll.touchStartScrollLeft = bars.scrollLeft
+    cityWaveformScroll.touchDragging = false
+    cityWaveformScroll.touchPreviewOffset = null
+  })
+
+  bars.addEventListener('pointermove', event => {
+    if (event.pointerId !== cityWaveformScroll.touchPointerId) return
+    const deltaX = event.clientX - cityWaveformScroll.touchStartX
+    const deltaY = event.clientY - cityWaveformScroll.touchStartY
+
+    if (!cityWaveformScroll.touchDragging) {
+      if (Math.abs(deltaX) < 6 && Math.abs(deltaY) < 6) return
+      if (Math.abs(deltaY) >= Math.abs(deltaX)) return
+      cityWaveformScroll.touchDragging = true
+      bars.classList.add('is-touch-dragging')
+      try { bars.setPointerCapture(event.pointerId) } catch {}
+    }
+
+    event.preventDefault()
+    const maxScroll = Math.max(0, bars.scrollWidth - bars.clientWidth)
+    bars.scrollLeft = clampNumber(cityWaveformScroll.touchStartScrollLeft - deltaX, 0, maxScroll)
+    scheduleCityWaveformTouchPreview(bars, { pointerX: event.clientX })
+  }, { passive: false })
+
+  const finishTouchNavigation = event => {
+    if (event.pointerId !== cityWaveformScroll.touchPointerId) return
+    const didDrag = cityWaveformScroll.touchDragging
+    if (didDrag) {
+      scheduleCityWaveformTouchPreview(bars, { commit: true, pointerX: event.clientX })
+      cityWaveformScroll.suppressClickUntil = Date.now() + 450
+    }
+    bars.classList.remove('is-touch-dragging')
+    cityWaveformScroll.touchPointerId = null
+    cityWaveformScroll.touchDragging = false
+    try { bars.releasePointerCapture(event.pointerId) } catch {}
+  }
+
+  bars.addEventListener('pointerup', finishTouchNavigation)
+  bars.addEventListener('pointercancel', finishTouchNavigation)
+  bars.addEventListener('click', event => {
+    if (Date.now() > cityWaveformScroll.suppressClickUntil) return
+    event.preventDefault()
+    event.stopPropagation()
+  }, true)
+}
+
+function scheduleCityWaveformTouchPreview(bars, { commit = false, pointerX = null } = {}) {
+  if (!bars) return
+  if (cityWaveformScroll.touchPreviewFrame) cancelAnimationFrame(cityWaveformScroll.touchPreviewFrame)
+  cityWaveformScroll.touchPreviewFrame = requestAnimationFrame(() => {
+    cityWaveformScroll.touchPreviewFrame = null
+    const rect = bars.getBoundingClientRect()
+    cityWaveformScroll.pointerX = bars.scrollWidth > bars.clientWidth + 1
+      ? rect.left + rect.width / 2
+      : clampNumber(pointerX ?? rect.left + rect.width / 2, rect.left, rect.right)
+    cityWaveformScroll.pointerY = rect.top + rect.height / 2
+    const bar = getClosestCityWaveBarAtPointer(bars)
+    const offset = Number.parseInt(bar?.dataset?.offset, 10)
+    if (!bar || !Number.isFinite(offset)) return
+
+    if (commit) {
+      selectCityWaveBar(bar)
+      return
+    }
+    if (offset === cityWaveformScroll.touchPreviewOffset) return
+    cityWaveformScroll.touchPreviewOffset = offset
+    previewCityWaveBar(bar, { persist: true })
+    document.getElementById('cityTimeWaveform')?.classList.add('has-touch-preview')
+  })
+}
+
 function getCityWaveformDays(minOffset, maxOffset = 0) {
   const days = []
   for (let offset = minOffset; offset <= maxOffset; offset += 1) {
@@ -10437,6 +10642,7 @@ function selectCityWaveBar(bar) {
 }
 
 function handleCityWaveformMouseMove(event) {
+  if (isMobileLayout()) return
   const waveform = document.getElementById('cityTimeWaveform')
   const bars = document.getElementById('cityWaveBars')
   cityWaveformScroll.pointerX = event.clientX
@@ -10604,6 +10810,17 @@ function initCityImagePanZoom() {
 
   wrap.addEventListener('pointerdown', event => {
     if (event.target.closest('button, .city-time-waveform')) return
+    if (event.pointerType === 'touch' && isMobileLayout()) {
+      cityImageView.touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      if (cityImageView.touchPointers.size >= 2) {
+        event.preventDefault()
+        beginCityImagePinch(wrap)
+      } else if (cityImageView.scale > 1) {
+        event.preventDefault()
+        beginCityImageTouchDrag(wrap, event.pointerId, event.clientX, event.clientY)
+      }
+      return
+    }
     if (event.pointerType === 'touch' && cityImageView.scale <= 1) return
     event.preventDefault()
     cityImageView.dragging = true
@@ -10617,7 +10834,16 @@ function initCityImagePanZoom() {
   })
 
   wrap.addEventListener('pointermove', event => {
+    if (event.pointerType === 'touch' && isMobileLayout() && cityImageView.touchPointers.has(event.pointerId)) {
+      cityImageView.touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      if (cityImageView.pinching && cityImageView.touchPointers.size >= 2) {
+        event.preventDefault()
+        updateCityImagePinch(wrap)
+        return
+      }
+    }
     if (!cityImageView.dragging || cityImageView.pointerId !== event.pointerId) return
+    if (event.pointerType === 'touch') event.preventDefault()
     cityImageView.x = cityImageView.originX + event.clientX - cityImageView.startX
     cityImageView.y = cityImageView.originY + event.clientY - cityImageView.startY
     clampCityImagePan()
@@ -10625,6 +10851,27 @@ function initCityImagePanZoom() {
   })
 
   const endDrag = event => {
+    if (event.pointerType === 'touch' && isMobileLayout()) {
+      const trackedTouch = cityImageView.touchPointers.has(event.pointerId)
+      cityImageView.touchPointers.delete(event.pointerId)
+      if (trackedTouch && cityImageView.pinching) {
+        cityImageView.pinching = false
+        if (cityImageView.touchPointers.size >= 2) {
+          beginCityImagePinch(wrap)
+          return
+        }
+        const remaining = cityImageView.touchPointers.entries().next().value
+        if (remaining && cityImageView.scale > 1) {
+          const [pointerId, point] = remaining
+          beginCityImageTouchDrag(wrap, pointerId, point.x, point.y)
+        } else {
+          cityImageView.dragging = false
+          cityImageView.pointerId = null
+          wrap.classList.remove('is-dragging')
+        }
+        return
+      }
+    }
     if (cityImageView.pointerId !== event.pointerId) return
     cityImageView.dragging = false
     cityImageView.pointerId = null
@@ -10636,6 +10883,67 @@ function initCityImagePanZoom() {
     clampCityImagePan()
     applyCityImageTransform()
   })
+}
+
+function beginCityImageTouchDrag(wrap, pointerId, clientX, clientY) {
+  cityImageView.pinching = false
+  cityImageView.dragging = true
+  cityImageView.pointerId = pointerId
+  cityImageView.startX = clientX
+  cityImageView.startY = clientY
+  cityImageView.originX = cityImageView.x
+  cityImageView.originY = cityImageView.y
+  wrap.classList.add('is-dragging')
+  try { wrap.setPointerCapture(pointerId) } catch {}
+}
+
+function beginCityImagePinch(wrap) {
+  const points = Array.from(cityImageView.touchPointers.values()).slice(0, 2)
+  if (points.length < 2) return
+  const rect = wrap.getBoundingClientRect()
+  const center = getCityImageTouchCenter(points, rect)
+  cityImageView.pinching = true
+  cityImageView.dragging = false
+  cityImageView.pointerId = null
+  cityImageView.pinchStartDistance = Math.max(1, getCityImageTouchDistance(points))
+  cityImageView.pinchStartScale = cityImageView.scale
+  cityImageView.pinchStartX = cityImageView.x
+  cityImageView.pinchStartY = cityImageView.y
+  cityImageView.pinchStartCenterX = center.x
+  cityImageView.pinchStartCenterY = center.y
+  wrap.classList.add('is-dragging')
+  cityImageView.touchPointers.forEach((_point, pointerId) => {
+    try { wrap.setPointerCapture(pointerId) } catch {}
+  })
+}
+
+function updateCityImagePinch(wrap) {
+  const points = Array.from(cityImageView.touchPointers.values()).slice(0, 2)
+  if (points.length < 2 || !cityImageView.pinchStartDistance) return
+  const rect = wrap.getBoundingClientRect()
+  const center = getCityImageTouchCenter(points, rect)
+  const nextScale = clampNumber(
+    cityImageView.pinchStartScale * getCityImageTouchDistance(points) / cityImageView.pinchStartDistance,
+    CITY_IMAGE_MIN_ZOOM,
+    CITY_IMAGE_MAX_ZOOM
+  )
+  const scaleRatio = nextScale / cityImageView.pinchStartScale
+  cityImageView.scale = nextScale
+  cityImageView.x = center.x - (cityImageView.pinchStartCenterX - cityImageView.pinchStartX) * scaleRatio
+  cityImageView.y = center.y - (cityImageView.pinchStartCenterY - cityImageView.pinchStartY) * scaleRatio
+  clampCityImagePan()
+  applyCityImageTransform()
+}
+
+function getCityImageTouchDistance(points) {
+  return Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y)
+}
+
+function getCityImageTouchCenter(points, rect) {
+  return {
+    x: (points[0].x + points[1].x) / 2 - rect.left - rect.width / 2,
+    y: (points[0].y + points[1].y) / 2 - rect.top - rect.height / 2
+  }
 }
 
 function zoomCityImage(direction, event = null) {
@@ -10688,6 +10996,10 @@ function zoomCityImageBy(delta, event = null) {
 }
 
 function resetCityImageView() {
+  cityImageView.touchPointers.clear()
+  cityImageView.pinching = false
+  cityImageView.dragging = false
+  cityImageView.pointerId = null
   cityImageView.scale = 1
   cityImageView.x = 0
   cityImageView.y = 0
@@ -11204,6 +11516,7 @@ function closeLocaleMenu() {
   if (!btn || !menu) return
   menu.classList.add('hidden')
   menu.style.left = ''
+  menu.style.right = ''
   btn.setAttribute('aria-expanded', 'false')
 }
 
@@ -11224,7 +11537,12 @@ function renderStatusFilterOptions(allVideos = [], channelFilters = null, includ
 
   const counts = getStatusFilterCounts(allVideos, channelFilters, includeShorts)
   btn.textContent = getStatusFilterLabel(selectedStatusFilter)
-  menu.innerHTML = STATUS_FILTERS.map(([value, label]) => `
+  menu.innerHTML = `
+    <div class="mobile-popover-header">
+      <strong>${escHtml(getStatusFilterLabel(selectedStatusFilter))}</strong>
+      <button class="mobile-popover-close" type="button" onclick="closeStatusFilterMenu(true)" title="${escHtml(t('settings.close'))}" aria-label="${escHtml(t('settings.close'))}">×</button>
+    </div>
+  ` + STATUS_FILTERS.map(([value, label]) => `
     <label class="channel-filter-option status-filter-option">
       <input type="radio" name="statusFilter" data-status="${value}" ${selectedStatusFilter === value ? 'checked' : ''} onchange="setStatusFilter(this.dataset.status)">
       <span class="status-filter-label">${escHtml(t(label))}</span>
@@ -11273,13 +11591,15 @@ function toggleStatusFilterMenu() {
   if (isOpen) positionFilterMenuWithinViewport(menu)
 }
 
-function closeStatusFilterMenu() {
+function closeStatusFilterMenu(restoreFocus = false) {
   const btn = document.getElementById('statusFilterBtn')
   const menu = document.getElementById('statusFilterMenu')
   if (!btn || !menu) return
   menu.classList.add('hidden')
   menu.style.left = ''
+  menu.style.right = ''
   btn.setAttribute('aria-expanded', 'false')
+  if (restoreFocus && isMobileLayout()) window.setTimeout(() => btn.focus(), 0)
 }
 
 function renderChannelFilterOptions(s) {
@@ -11305,6 +11625,12 @@ function renderChannelFilterOptions(s) {
   btn.disabled = false
   filter?.classList.toggle('channel-filter-empty-highlight', !hasConfiguredChannels)
 
+  const mobileHeader = `
+    <div class="mobile-popover-header">
+      <strong>${escHtml(hasConfiguredChannels ? t('videos.channels.manage') : t('videos.channels.add'))}</strong>
+      <button class="mobile-popover-close" type="button" onclick="closeChannelFilterMenu(true)" title="${escHtml(t('settings.close'))}" aria-label="${escHtml(t('settings.close'))}">×</button>
+    </div>
+  `
   const addForm = `
     <form class="channel-filter-add" onsubmit="addChannelFromFilter(event)">
       <input type="text"
@@ -11350,7 +11676,7 @@ function renderChannelFilterOptions(s) {
     `
     }).join('')
     : `<div class="channel-filter-empty">${escHtml(t('videos.channels.none'))}</div>`
-  menu.innerHTML = addForm + allChannelsControl + options
+  menu.innerHTML = mobileHeader + addForm + allChannelsControl + options
   const selectAllInput = document.getElementById('channelFilterSelectAll')
   if (selectAllInput) {
     selectAllInput.indeterminate = selectedCount > 0 && selectedCount < entries.length
@@ -11468,13 +11794,15 @@ function toggleChannelFilterMenu() {
   if (isOpen) positionFilterMenuWithinViewport(menu)
 }
 
-function closeChannelFilterMenu() {
+function closeChannelFilterMenu(restoreFocus = false) {
   const btn = document.getElementById('channelFilterBtn')
   const menu = document.getElementById('channelFilterMenu')
   if (!btn || !menu) return
   menu.classList.add('hidden')
   menu.style.left = ''
+  menu.style.right = ''
   btn.setAttribute('aria-expanded', 'false')
+  if (restoreFocus && isMobileLayout()) window.setTimeout(() => btn.focus(), 0)
 }
 
 function toggleManualVideoPopover(event) {
@@ -11495,17 +11823,25 @@ function toggleManualVideoPopover(event) {
   }
 }
 
-function closeManualVideoPopover() {
+function closeManualVideoPopover(restoreFocus = false) {
   const btn = document.getElementById('manualVideoBtn')
   const menu = document.getElementById('manualVideoPopover')
   if (!btn || !menu) return
   menu.classList.add('hidden')
   menu.style.left = ''
+  menu.style.right = ''
   btn.setAttribute('aria-expanded', 'false')
+  if (restoreFocus && isMobileLayout()) window.setTimeout(() => btn.focus(), 0)
 }
 
 function positionFilterMenuWithinViewport(menu) {
   if (!menu || menu.classList.contains('hidden')) return
+
+  if (isMobileLayout()) {
+    menu.style.left = ''
+    menu.style.right = ''
+    return
+  }
 
   menu.style.left = '0px'
   menu.style.right = 'auto'
@@ -11533,6 +11869,17 @@ function closeChannelFilterMenuOnOutsideClick(event) {
   closeChannelFilterMenu()
 }
 
+function closeFilterMenusOnEscape(event) {
+  if (event.key !== 'Escape') return
+  const statusMenu = document.getElementById('statusFilterMenu')
+  const channelMenu = document.getElementById('channelFilterMenu')
+  if (statusMenu && !statusMenu.classList.contains('hidden')) {
+    closeStatusFilterMenu(true)
+  } else if (channelMenu && !channelMenu.classList.contains('hidden')) {
+    closeChannelFilterMenu(true)
+  }
+}
+
 function closeManualVideoPopoverOnOutsideClick(event) {
   if (event.target.closest('.manual-video')) return
   closeManualVideoPopover()
@@ -11540,7 +11887,8 @@ function closeManualVideoPopoverOnOutsideClick(event) {
 
 function closeManualVideoPopoverOnEscape(event) {
   if (event.key !== 'Escape') return
-  closeManualVideoPopover()
+  if (document.getElementById('manualVideoPopover')?.classList.contains('hidden')) return
+  closeManualVideoPopover(true)
 }
 
 function matchesChannelFilter(video, selectedChannelIds) {
@@ -11763,6 +12111,7 @@ document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryPointsPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryPeriodPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryActionPopoversOnEscape)
+document.addEventListener('keydown', closeFilterMenusOnEscape)
 document.addEventListener('keydown', closeManualVideoPopoverOnEscape)
 document.addEventListener('keydown', closeVideoSearchPopoverOnEscape)
 document.addEventListener('keydown', closeLocaleMenuOnEscape)
