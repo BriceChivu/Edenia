@@ -5671,7 +5671,7 @@ summary:focus-visible,
     grid-auto-rows: max-content;
     padding-bottom: max(74px, calc(env(safe-area-inset-bottom) + 62px));
     padding-top: max(126px, calc(env(safe-area-inset-top) + 114px));
-    scale: 1.42;
+    /* scale: 1.42; */
   }
   .intro-feature-copy {
     gap: 4px;
