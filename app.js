@@ -6392,7 +6392,7 @@ function getPointActivityLogEntries(state) {
   const history = getStudyHistoryBetween(state || { videos: {}, anki: {} }, new Date(0), end)
 
   history.rows.forEach(row => {
-    const ankiPoints = Math.floor(((row.ankiReviewed || 0) / ANKI_REVIEW_CHUNK_SIZE) * ANKI_REVIEW_CHUNK_POINTS)
+    const ankiPoints = getAnkiPointsFromReviews(row.ankiReviewed || 0)
     if (ankiPoints > 0) {
       entries.push({
         createdAt: `${row.dateKey}T23:59:59`,
@@ -6404,7 +6404,7 @@ function getPointActivityLogEntries(state) {
     }
 
     ;(row.watchedVideos || []).forEach(video => {
-      const videoPoints = Math.floor(((video.duration || 0) / 3600) * VIDEO_HOUR_POINTS)
+      const videoPoints = getVideoPointsFromSeconds(video.duration || 0)
       if (videoPoints <= 0) return
       entries.push({
         createdAt: video.watchedAt || `${row.dateKey}T23:59:59`,
@@ -6451,7 +6451,7 @@ function renderPointActivityLog(state, list) {
     <div class="activity-log-item">
       <div class="activity-log-row">
         <span class="activity-log-time">${escHtml(formatActivityLogTimestamp(entry.createdAt))}</span>
-        <span class="activity-log-chip ${entry.points < 0 ? 'warn' : 'success'}">${escHtml(t('activity.pointsLabel'))} · ${escHtml(formatSignedHistoryPointLabel(entry.points))}</span>
+        <span class="activity-log-chip ${entry.points < 0 ? 'warn' : 'success'}">${escHtml(t('activity.pointsLabel'))} · ${escHtml(formatSignedActivityLogPointLabel(entry.points))}</span>
       </div>
       <div class="activity-log-title">${escHtml(entry.title)}</div>
       ${entry.detail ? `<p class="activity-log-detail">${escHtml(entry.detail)}</p>` : ''}
@@ -8611,6 +8611,15 @@ function formatSignedHistoryPointLabel(points) {
   const value = Number(points || 0)
   const sign = value > 0 ? '+' : ''
   return t('points.many', { count: `${sign}${formatHistoryPointNumber(value)}` })
+}
+
+function formatSignedActivityLogPointLabel(points) {
+  const value = Number(points || 0)
+  const sign = value > 0 ? '+' : ''
+  const count = new Intl.NumberFormat(currentLocale, {
+    maximumFractionDigits: Number.isInteger(value) ? 0 : 2
+  }).format(value)
+  return t('points.many', { count: `${sign}${count}` })
 }
 
 function getVideoSnapshotPoints(video) {
