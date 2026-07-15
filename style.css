@@ -4676,8 +4676,8 @@ summary:focus-visible,
   .intro-city-viewport { aspect-ratio: 16 / 10; justify-self: center; max-height: none; max-width: 520px; width: 100%; }
   .intro-city-frame {
     bottom: auto;
-    scale: 1.04;
-    top: -15px;
+    scale: 1.3;
+    top: -35px;
   }
   .intro-scene-features { align-content: center; }
   .intro-feature-demo { justify-self: center; max-width: 360px; order: 2; width: calc(100% - 18px); }
@@ -5781,6 +5781,11 @@ summary:focus-visible,
   .settings-anki-group .step-hint,
   .settings-insights-group .step-hint {
     margin: 0;
+  }
+  .settings-shorts-group,
+  .settings-anki-group,
+  .settings-insights-group {
+    gap: 0;
   }
   .settings-drawer.settings-howto-mode > :not(.settings-header):not(.settings-howto-group) {
     display: none !important;
