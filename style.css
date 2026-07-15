@@ -4676,7 +4676,8 @@ summary:focus-visible,
   .intro-city-viewport { aspect-ratio: 16 / 10; justify-self: center; max-height: none; max-width: 520px; width: 100%; }
   .intro-city-frame {
     bottom: auto;
-    top: -8px;
+    scale: 1.04;
+    top: -15px;
   }
   .intro-scene-features { align-content: center; }
   .intro-feature-demo { justify-self: center; max-width: 360px; order: 2; width: calc(100% - 18px); }
