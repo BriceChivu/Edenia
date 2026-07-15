@@ -618,7 +618,7 @@ const I18N_EN = {
   'intro.features.streak': 'day streak',
   'intro.features.goal': 'Weekly goal',
   'intro.features.kicker': 'See the journey',
-  'intro.features.title': 'Your rhythm, history, and momentum—at a glance.',
+  'intro.features.title': 'Your rhythm, history,\nand momentum- at a glance',
   'intro.features.body': 'Heatmaps, goals, streaks, and Study Insights turn your history into a clearer next step.',
   'intro.features.insightBody': 'Your recent rhythm is stronger. Repeat the routine that made it work.',
   'intro.finale.kicker': 'A little progress. A whole world.',

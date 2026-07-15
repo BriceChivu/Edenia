@@ -5679,6 +5679,10 @@ summary:focus-visible,
     line-height: 1.02;
     max-width: 15ch;
   }
+  html:lang(en) .intro-feature-copy h2 {
+    max-width: 100%;
+    white-space: pre-line;
+  }
   .intro-feature-copy > p:last-child {
     font-size: 0.76rem;
     line-height: 1.25;
