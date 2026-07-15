@@ -5772,6 +5772,11 @@ summary:focus-visible,
     height: 22px;
     width: 22px;
   }
+  .settings-shorts-group .step-hint,
+  .settings-anki-group .step-hint,
+  .settings-insights-group .step-hint {
+    margin: 0;
+  }
   .settings-drawer.settings-howto-mode > :not(.settings-header):not(.settings-howto-group) {
     display: none !important;
   }
@@ -5779,7 +5784,7 @@ summary:focus-visible,
     border-radius: 12px;
     flex: 1 0 auto;
   }
-  .settings-howto-group + .settings-actions { margin-top: 0; }
+  .settings-howto-group + .settings-actions { margin-top: -6px; }
   .activity-log-list {
     max-height: none;
     overflow: visible;
