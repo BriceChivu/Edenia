@@ -4674,6 +4674,10 @@ summary:focus-visible,
   .intro-scene-city .intro-city-copy h2 { max-width: 100%; }
   .intro-city-growth { max-width: 300px; }
   .intro-city-viewport { aspect-ratio: 16 / 10; justify-self: center; max-height: none; max-width: 520px; width: 100%; }
+  .intro-city-frame {
+    bottom: auto;
+    top: -8px;
+  }
   .intro-scene-features { align-content: center; }
   .intro-feature-demo { justify-self: center; max-width: 360px; order: 2; width: calc(100% - 18px); }
   .intro-feature-copy { order: 1; }
