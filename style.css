@@ -4668,6 +4668,10 @@ summary:focus-visible,
   .intro-scene-purpose,
   .intro-scene-features { gap: 28px; grid-template-columns: 1fr; }
   .intro-scene-purpose { align-content: center; grid-template-rows: auto auto; }
+  .intro-scene-purpose .intro-copy {
+    justify-items: center;
+    text-align: center;
+  }
   .intro-source-flow { justify-self: center; max-width: 320px; width: 100%; }
   .intro-scene-city { gap: 20px; grid-template-columns: 1fr; grid-template-rows: auto auto; }
   .intro-city-copy { justify-items: center; text-align: center; }
@@ -5667,7 +5671,7 @@ summary:focus-visible,
     grid-auto-rows: max-content;
     padding-bottom: max(74px, calc(env(safe-area-inset-bottom) + 62px));
     padding-top: max(126px, calc(env(safe-area-inset-top) + 114px));
-    scale: 1.12;
+    scale: 1.42;
   }
   .intro-feature-copy {
     gap: 4px;
