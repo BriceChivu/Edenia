@@ -8846,7 +8846,7 @@ function toggleHistoryVideoPopover(event) {
   closeHistoryPeriodPopovers()
   closeHistoryVideoPopovers(cell)
   cell.classList.toggle('open', shouldOpen)
-  event.currentTarget.setAttribute('aria-expanded', String(shouldOpen))
+  cell.querySelector('.history-video-count')?.setAttribute('aria-expanded', String(shouldOpen))
 }
 
 function closeHistoryVideoPopovers(exceptCell = null) {
@@ -8859,6 +8859,7 @@ function closeHistoryVideoPopovers(exceptCell = null) {
 }
 
 function openHistoryVideoPopover(event) {
+  if (isMobileLayout()) return
   const cell = event.currentTarget.closest('.history-video-cell')
   if (!cell) return
   clearTimeout(openHistoryVideoPopover._closeTimer)
