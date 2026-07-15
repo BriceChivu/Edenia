@@ -5537,19 +5537,34 @@ summary:focus-visible,
   }
   .city-wave-bar.selected::before { height: 31px; }
   .city-footer {
+    align-items: center;
     display: grid;
     gap: 8px;
     grid-template-columns: minmax(0, 1fr) auto;
     padding: 8px 12px;
   }
   .city-stage {
+    flex-wrap: nowrap;
     gap: 6px;
     min-width: 0;
+    overflow: hidden;
   }
+  .city-stage #cityLabel {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .city-next { display: none; }
   .city-pts {
     align-self: center;
     flex: 0 0 auto;
     white-space: nowrap;
+  }
+
+  .watched-grid .compact-card .card-actions .partial-btn,
+  .watched-grid .compact-card .card-actions .watch-later-btn {
+    display: none;
   }
 
   .intro-top-bar .intro-creator {
