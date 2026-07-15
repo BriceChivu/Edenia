@@ -5650,41 +5650,72 @@ summary:focus-visible,
   }
   .intro-scene-features {
     align-content: center;
-    gap: 14px;
+    gap: 8px;
     grid-auto-rows: max-content;
+    padding-bottom: max(74px, calc(env(safe-area-inset-bottom) + 62px));
+    padding-top: max(126px, calc(env(safe-area-inset-top) + 114px));
   }
   .intro-feature-copy {
-    gap: 7px;
+    gap: 4px;
     justify-items: center;
     text-align: center;
   }
+  .intro-feature-copy .intro-kicker { font-size: 0.62rem; }
   .intro-feature-copy h2 {
-    font-size: clamp(1.65rem, 7.5vw, 2.2rem);
+    font-size: clamp(1.5rem, 6.8vw, 2rem);
     line-height: 1.02;
     max-width: 15ch;
   }
   .intro-feature-copy > p:last-child {
-    line-height: 1.35;
-    max-width: 34ch;
+    font-size: 0.76rem;
+    line-height: 1.25;
+    max-width: 32ch;
   }
   .intro-feature-demo {
-    gap: 9px;
-    max-width: 310px;
-    padding: 12px;
+    gap: 7px 10px;
+    grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+    max-width: 300px;
+    padding: 10px;
     transform: rotate(-1deg);
     width: 100%;
   }
+  .intro-feature-demo .intro-demo-head { grid-column: 1 / -1; }
+  .intro-feature-demo .intro-demo-stats {
+    align-content: center;
+    gap: 5px;
+    grid-column: 1;
+    grid-row: 2;
+    grid-template-columns: 1fr;
+  }
+  .intro-feature-demo .intro-demo-stats b { font-size: 1.1rem; }
+  .intro-feature-demo .intro-demo-stats span { font-size: 0.58rem; }
+  .intro-feature-demo .intro-demo-heatmap {
+    align-self: center;
+    gap: 3px;
+    grid-column: 2;
+    grid-row: 2;
+  }
   .intro-scene-features .intro-demo-insight {
     bottom: auto;
+    gap: 3px;
+    grid-column: 1 / -1;
+    grid-row: 3;
     left: auto;
+    margin-right: 54px;
+    padding: 8px;
     position: relative;
     right: auto;
-    width: 100%;
+    width: auto;
+  }
+  .intro-scene-features .intro-demo-insight > p { display: none; }
+  .intro-scene-features .intro-demo-insight-brand img {
+    height: 18px;
+    width: 18px;
   }
   .intro-scene-features .intro-demo-goal {
-    bottom: -10px;
-    height: 70px;
-    right: -10px;
+    bottom: -8px;
+    height: 62px;
+    right: -8px;
   }
   .intro-city-growth {
     grid-template-columns: 44px minmax(8px, 1fr) 44px minmax(8px, 1fr) 44px minmax(8px, 1fr) 44px;
