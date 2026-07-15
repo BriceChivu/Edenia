@@ -5550,12 +5550,12 @@ summary:focus-visible,
     overflow: hidden;
   }
   .city-stage #cityLabel {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: none;
+  }
+  .city-next {
+    display: inline-flex;
     white-space: nowrap;
   }
-  .city-next { display: none; }
   .city-pts {
     align-self: center;
     flex: 0 0 auto;
