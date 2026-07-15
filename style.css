@@ -5661,6 +5661,24 @@ summary:focus-visible,
     margin: 7px auto 0;
     max-width: 26ch;
   }
+  .intro-scene-finale {
+    align-content: center;
+    gap: 10px;
+    grid-auto-rows: max-content;
+  }
+  .intro-scene-finale .intro-finale-mark {
+    margin: 0 0 2px;
+  }
+  .intro-scene-finale .intro-kicker,
+  .intro-scene-finale > p:not(.intro-kicker) {
+    margin: 0;
+  }
+  .intro-scene-finale h2 {
+    margin: 4px 0;
+  }
+  .intro-scene-finale .intro-start {
+    margin-top: 8px;
+  }
   .intro-scene-features {
     align-content: center;
     gap: 8px;
