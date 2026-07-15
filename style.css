@@ -5567,6 +5567,20 @@ summary:focus-visible,
     display: none;
   }
 
+  .history-points-popover,
+  .history-video-popover {
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 12px;
+    max-height: min(70dvh, 520px);
+    max-width: none;
+    position: fixed;
+    right: 12px;
+    top: auto;
+    transform: none;
+    width: auto;
+    z-index: 600;
+  }
+
   .intro-top-bar .intro-creator {
     gap: 3px 6px;
     grid-template-columns: 34px minmax(0, auto);
