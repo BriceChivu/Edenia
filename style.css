@@ -5561,6 +5561,19 @@ summary:focus-visible,
     flex: 0 0 auto;
     white-space: nowrap;
   }
+  .level-up-button {
+    min-height: 24px;
+    overflow: visible;
+    padding: 3px 9px;
+  }
+  .level-up-button::before {
+    content: "";
+    inset: -10px -8px;
+    position: absolute;
+  }
+  .level-up-button.show::after {
+    display: none;
+  }
 
   .watched-grid .compact-card .card-actions .partial-btn,
   .watched-grid .compact-card .card-actions .watch-later-btn {
