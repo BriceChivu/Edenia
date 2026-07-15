@@ -4871,7 +4871,8 @@ function startIntroTrailer({ replay = false } = {}) {
   }
 
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  setIntroTrailerScene(reduceMotion ? INTRO_TRAILER_SCENE_DURATIONS.length - 1 : 0, { autoAdvance: !reduceMotion })
+  const initialScene = replay ? 0 : (reduceMotion ? INTRO_TRAILER_SCENE_DURATIONS.length - 1 : 0)
+  setIntroTrailerScene(initialScene, { autoAdvance: !reduceMotion })
   startIntroMusic().catch(() => {})
 }
 
