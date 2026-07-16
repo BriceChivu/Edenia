@@ -229,7 +229,8 @@ const LEARNER_LANGUAGE_OPTIONS = [
   { id: 'spanish', label: 'Spanish', shortLabel: 'Spanish', icon: 'ES' },
   { id: 'french', label: 'French', shortLabel: 'French', icon: 'FR' },
   { id: 'german', label: 'German', shortLabel: 'German', icon: 'DE' },
-  { id: 'english', label: 'English', shortLabel: 'English', icon: 'EN' }
+  { id: 'english', label: 'English', shortLabel: 'English', icon: 'EN' },
+  { id: 'other', label: 'Other', shortLabel: 'Other', icon: '···' }
 ]
 const LEARNER_LEVEL_OPTIONS = [
   { id: 'starting', label: 'Just starting', detail: 'I understand very little so far.' },
@@ -652,6 +653,10 @@ const I18N_EN = {
   'onboarding.language.french': 'French',
   'onboarding.language.german': 'German',
   'onboarding.language.english': 'English',
+  'onboarding.language.other': 'Other',
+  'onboarding.other.title': 'Every language belongs here',
+  'onboarding.other.subtitle': 'Edenia works with any language. Once you enter the app, add the YouTube channels you want to learn from and build a study feed that is entirely your own.',
+  'onboarding.other.note': 'No recommendations are needed—you can choose your own channels after entering Edenia.',
   'onboarding.level.starting.label': 'Just starting',
   'onboarding.level.starting.detail': 'I understand very little so far.',
   'onboarding.level.beginner.label': 'Beginner',
@@ -682,12 +687,19 @@ const I18N_EN = {
   'settings.language.label': 'Language',
   'settings.weeklyGoal.label': 'Weekly goal (hours)',
   'settings.channels.label': 'Channels',
-  'settings.channels.placeholder': 'Channel URL or ID',
+  'settings.channels.placeholder': 'Channel URL or @',
   'settings.channels.add': 'Add',
   'settings.channels.hint': 'Paste a YouTube channel URL, @handle, or channel ID. Best examples: youtube.com/@channel or youtube.com/channel/UCxxxxxxxx.',
   'settings.shorts.label': 'Show short videos',
   'settings.shorts.hint': 'When off, videos under 3 minutes are skipped during refresh and hidden from your active video list.',
   'settings.howto.title': 'How to',
+  'settings.youtube.title': 'Add a YouTube channel',
+  'settings.youtube.intro': 'Add a channel by copying its YouTube URL. You can also use its @handle.',
+  'settings.youtube.step1': "On YouTube, open the channel you want and copy its URL from your browser's address bar.",
+  'settings.youtube.step2': 'In Edenia, open Add channels above your video list and paste the URL.',
+  'settings.youtube.step3': 'Click Add to add the channel to your study feed.',
+  'settings.anki.whatTitle': 'What is Anki?',
+  'settings.anki.whatIntro': 'Anki is a flashcard app that schedules reviews to help you remember words and ideas over time. Using Anki with Edenia is optional.',
   'settings.anki.title': 'Connect to Anki',
   'settings.anki.enabled': 'Enable Anki tracking',
   'settings.anki.toggleHint': 'When on, Edenia can read Anki review counts while Anki is open.',
@@ -1094,6 +1106,7 @@ const I18N_EN = {
   'log.locale.detail': 'Language set to {language}.',
   'log.onboarding.title': 'Starter feed created',
   'log.onboarding.detail': '{language} · {level} · {count} channels',
+  'log.onboarding.otherDetail': '{language} · Choose your own channels',
   'log.sandboxReset.title': 'Sandbox reset',
   'log.sandboxReset.detail': 'Sandbox progress was reset after keeping a rollback backup.',
   'log.ankiSetting.title': 'Anki setting changed',
@@ -1193,6 +1206,10 @@ const I18N = {
     'onboarding.language.french': '法語',
     'onboarding.language.german': '德語',
     'onboarding.language.english': '英語',
+    'onboarding.language.other': '其他',
+    'onboarding.other.title': '每種語言都能在這裡學習',
+    'onboarding.other.subtitle': 'Edenia 適用於任何語言。進入應用程式後，你可以加入想學習的 YouTube 頻道，建立完全屬於自己的學習清單。',
+    'onboarding.other.note': '不需要推薦內容——進入 Edenia 後，你可以自行選擇頻道。',
     'onboarding.level.starting.label': '剛開始',
     'onboarding.level.starting.detail': '目前只能理解很少的內容。',
     'onboarding.level.beginner.label': '初級',
@@ -1223,12 +1240,19 @@ const I18N = {
     'settings.language.label': '語言',
     'settings.weeklyGoal.label': '每週目標（小時）',
     'settings.channels.label': '頻道',
-    'settings.channels.placeholder': '頻道網址或 ID',
+    'settings.channels.placeholder': 'Channel URL or @',
     'settings.channels.add': '新增',
     'settings.channels.hint': '貼上 YouTube 頻道網址、@handle 或頻道 ID。建議格式：youtube.com/@channel 或 youtube.com/channel/UCxxxxxxxx。',
     'settings.shorts.label': '顯示短影片',
     'settings.shorts.hint': '關閉時，刷新會跳過 3 分鐘以下的影片，並從主要影片清單隱藏。',
     'settings.howto.title': '使用說明',
+    'settings.youtube.title': '新增 YouTube 頻道',
+    'settings.youtube.intro': '複製 YouTube 頻道網址即可新增頻道。你也可以使用頻道的 @handle。',
+    'settings.youtube.step1': '在 YouTube 打開你想新增的頻道，從瀏覽器網址列複製其網址。',
+    'settings.youtube.step2': '在 Edenia 中，打開影片清單上方的「新增頻道」，並貼上網址。',
+    'settings.youtube.step3': '點「新增」，將頻道加入你的學習動態。',
+    'settings.anki.whatTitle': 'Anki 是什麼？',
+    'settings.anki.whatIntro': 'Anki 是一款單字卡應用程式，會安排複習時間，幫助你長期記住單字和概念。你可以選擇是否搭配 Edenia 使用 Anki。',
     'settings.anki.title': '連接到 Anki',
     'settings.anki.enabled': '啟用 Anki 追蹤',
     'settings.anki.toggleHint': '開啟後，Edenia 可以在 Anki 開著時讀取複習數量。',
@@ -1584,6 +1608,10 @@ const I18N = {
     'onboarding.language.french': '法语',
     'onboarding.language.german': '德语',
     'onboarding.language.english': '英语',
+    'onboarding.language.other': '其他',
+    'onboarding.other.title': '每种语言都能在这里学习',
+    'onboarding.other.subtitle': 'Edenia 适用于任何语言。进入应用后，你可以添加想学习的 YouTube 频道，建立完全属于自己的学习列表。',
+    'onboarding.other.note': '不需要推荐内容——进入 Edenia 后，你可以自行选择频道。',
     'onboarding.level.starting.label': '刚开始',
     'onboarding.level.starting.detail': '目前只能理解很少的内容。',
     'onboarding.level.beginner.label': '初级',
@@ -1614,12 +1642,19 @@ const I18N = {
     'settings.language.label': '语言',
     'settings.weeklyGoal.label': '每周目标（小时）',
     'settings.channels.label': '频道',
-    'settings.channels.placeholder': '频道网址或 ID',
+    'settings.channels.placeholder': 'Channel URL or @',
     'settings.channels.add': '添加',
     'settings.channels.hint': '粘贴 YouTube 频道网址、@handle 或频道 ID。建议格式：youtube.com/@channel 或 youtube.com/channel/UCxxxxxxxx。',
     'settings.shorts.label': '显示短视频',
     'settings.shorts.hint': '关闭时，刷新会跳过 3 分钟以下的视频，并从主要视频列表隐藏。',
     'settings.howto.title': '使用说明',
+    'settings.youtube.title': '添加 YouTube 频道',
+    'settings.youtube.intro': '复制 YouTube 频道网址即可添加频道。你也可以使用频道的 @handle。',
+    'settings.youtube.step1': '在 YouTube 打开你想添加的频道，从浏览器地址栏复制其网址。',
+    'settings.youtube.step2': '在 Edenia 中，打开视频列表上方的“添加频道”，并粘贴网址。',
+    'settings.youtube.step3': '点击“添加”，将频道加入你的学习动态。',
+    'settings.anki.whatTitle': '什么是 Anki？',
+    'settings.anki.whatIntro': 'Anki 是一款抽认卡应用，会安排复习时间，帮助你长期记住单词和概念。你可以选择是否搭配 Edenia 使用 Anki。',
     'settings.anki.title': '连接 Anki',
     'settings.anki.enabled': '启用 Anki 追踪',
     'settings.anki.toggleHint': '开启后，Edenia 可以在 Anki 打开时读取复习数量。',
@@ -1956,6 +1991,10 @@ const I18N = {
     'onboarding.language.french': 'Francés',
     'onboarding.language.german': 'Alemán',
     'onboarding.language.english': 'Inglés',
+    'onboarding.language.other': 'Otro',
+    'onboarding.other.title': 'Todos los idiomas tienen cabida aquí',
+    'onboarding.other.subtitle': 'Edenia funciona con cualquier idioma. Cuando entres en la aplicación, añade los canales de YouTube con los que quieras aprender y crea una lista de estudio totalmente tuya.',
+    'onboarding.other.note': 'No necesitas recomendaciones: podrás elegir tus propios canales después de entrar en Edenia.',
     'onboarding.level.starting.label': 'Recién empiezo',
     'onboarding.level.starting.detail': 'Todavía entiendo muy poco.',
     'onboarding.level.beginner.label': 'Principiante',
@@ -1986,12 +2025,19 @@ const I18N = {
     'settings.language.label': 'Idioma',
     'settings.weeklyGoal.label': 'Objetivo semanal (horas)',
     'settings.channels.label': 'Canales',
-    'settings.channels.placeholder': 'URL o ID del canal',
+    'settings.channels.placeholder': 'Channel URL or @',
     'settings.channels.add': 'Añadir',
     'settings.channels.hint': 'Pega una URL de canal de YouTube, @handle o ID del canal. Mejores ejemplos: youtube.com/@channel o youtube.com/channel/UCxxxxxxxx.',
     'settings.shorts.label': 'Mostrar videos cortos',
     'settings.shorts.hint': 'Si está desactivado, los videos de menos de 3 minutos se omiten al actualizar y se ocultan de la lista activa.',
     'settings.howto.title': 'Cómo usar',
+    'settings.youtube.title': 'Añadir un canal de YouTube',
+    'settings.youtube.intro': 'Añade un canal copiando su URL de YouTube. También puedes usar su @handle.',
+    'settings.youtube.step1': 'En YouTube, abre el canal que quieras y copia su URL desde la barra de direcciones del navegador.',
+    'settings.youtube.step2': 'En Edenia, abre Añadir canales encima de la lista de videos y pega la URL.',
+    'settings.youtube.step3': 'Haz clic en Añadir para agregar el canal a tu lista de estudio.',
+    'settings.anki.whatTitle': '¿Qué es Anki?',
+    'settings.anki.whatIntro': 'Anki es una aplicación de tarjetas que programa repasos para ayudarte a recordar palabras e ideas a largo plazo. Usar Anki con Edenia es opcional.',
     'settings.anki.title': 'Conectar Anki',
     'settings.anki.enabled': 'Activar seguimiento de Anki',
     'settings.anki.toggleHint': 'Cuando está activo, Edenia puede leer tus repasos de Anki mientras Anki está abierto.',
@@ -2330,6 +2376,10 @@ const I18N = {
     'onboarding.language.french': 'Français',
     'onboarding.language.german': 'Allemand',
     'onboarding.language.english': 'Anglais',
+    'onboarding.language.other': 'Autre',
+    'onboarding.other.title': 'Toutes les langues ont leur place ici',
+    'onboarding.other.subtitle': 'Edenia fonctionne avec toutes les langues. Une fois dans l’application, ajoutez les chaînes YouTube avec lesquelles vous souhaitez apprendre et créez une liste d’étude qui vous ressemble.',
+    'onboarding.other.note': 'Aucune recommandation n’est nécessaire : vous pourrez choisir vos propres chaînes après être entré dans Edenia.',
     'onboarding.level.starting.label': 'Je débute',
     'onboarding.level.starting.detail': 'Je comprends encore très peu de choses.',
     'onboarding.level.beginner.label': 'Débutant',
@@ -2360,12 +2410,19 @@ const I18N = {
     'settings.language.label': 'Langue',
     'settings.weeklyGoal.label': 'Objectif hebdomadaire (heures)',
     'settings.channels.label': 'Chaînes',
-    'settings.channels.placeholder': 'URL ou ID de la chaîne',
+    'settings.channels.placeholder': 'Channel URL or @',
     'settings.channels.add': 'Ajouter',
     'settings.channels.hint': 'Collez une URL de chaîne YouTube, un @handle ou un ID de chaîne. Exemples conseillés : youtube.com/@channel ou youtube.com/channel/UCxxxxxxxx.',
     'settings.shorts.label': 'Afficher les vidéos courtes',
     'settings.shorts.hint': 'Quand c’est désactivé, les vidéos de moins de 3 minutes sont ignorées au rafraîchissement et cachées de la liste active.',
     'settings.howto.title': 'Mode d’emploi',
+    'settings.youtube.title': 'Ajouter une chaîne YouTube',
+    'settings.youtube.intro': 'Ajoutez une chaîne en copiant son URL YouTube. Vous pouvez aussi utiliser son @handle.',
+    'settings.youtube.step1': 'Sur YouTube, ouvrez la chaîne souhaitée et copiez son URL depuis la barre d’adresse du navigateur.',
+    'settings.youtube.step2': 'Dans Edenia, ouvrez Ajouter des chaînes au-dessus de votre liste de vidéos et collez l’URL.',
+    'settings.youtube.step3': 'Cliquez sur Ajouter pour intégrer la chaîne à votre fil d’étude.',
+    'settings.anki.whatTitle': 'Qu’est-ce qu’Anki ?',
+    'settings.anki.whatIntro': 'Anki est une application de cartes mémoire qui programme les révisions pour vous aider à retenir des mots et des idées dans le temps. Utiliser Anki avec Edenia est facultatif.',
     'settings.anki.title': 'Connecter Anki',
     'settings.anki.enabled': 'Activer le suivi Anki',
     'settings.anki.toggleHint': 'Quand il est activé, Edenia peut lire vos révisions Anki pendant qu’Anki est ouvert.',
@@ -2764,6 +2821,7 @@ Object.assign(I18N['zh-Hant'], {
   'log.locale.detail': '語言已設為 {language}。',
   'log.onboarding.title': '已建立入門學習清單',
   'log.onboarding.detail': '{language} · {level} · {count} 個頻道',
+  'log.onboarding.otherDetail': '{language} · 自行選擇頻道',
   'log.sandboxReset.title': '沙盒已重設',
   'log.sandboxReset.detail': '保留回復備份後，沙盒進度已重設。',
   'log.ankiSetting.title': 'Anki 設定已變更',
@@ -2938,6 +2996,7 @@ Object.assign(I18N['zh-Hans'], {
   'log.locale.detail': '语言已设为 {language}。',
   'log.onboarding.title': '已创建入门学习列表',
   'log.onboarding.detail': '{language} · {level} · {count} 个频道',
+  'log.onboarding.otherDetail': '{language} · 自行选择频道',
   'log.sandboxReset.title': '沙盒已重置',
   'log.sandboxReset.detail': '保留回滚备份后，沙盒进度已重置。',
   'log.ankiSetting.title': 'Anki 设置已更改',
@@ -3110,6 +3169,7 @@ Object.assign(I18N.es, {
   'log.locale.detail': 'Idioma establecido en {language}.',
   'log.onboarding.title': 'Lista inicial creada',
   'log.onboarding.detail': '{language} · {level} · {count} canales',
+  'log.onboarding.otherDetail': '{language} · Elige tus propios canales',
   'log.sandboxReset.title': 'Entorno de prueba restablecido',
   'log.sandboxReset.detail': 'El progreso de prueba se restableció después de guardar una copia de recuperación.',
   'log.ankiSetting.title': 'Ajuste de Anki cambiado',
@@ -3282,6 +3342,7 @@ Object.assign(I18N.fr, {
   'log.locale.detail': 'Langue réglée sur {language}.',
   'log.onboarding.title': 'Liste de départ créée',
   'log.onboarding.detail': '{language} · {level} · {count} chaînes',
+  'log.onboarding.otherDetail': '{language} · Choisissez vos propres chaînes',
   'log.sandboxReset.title': 'Bac à sable réinitialisé',
   'log.sandboxReset.detail': 'La progression de test a été réinitialisée après la création d’une sauvegarde de retour.',
   'log.ankiSetting.title': 'Réglage Anki modifié',
@@ -5163,7 +5224,9 @@ function startPersonalizedOnboarding(state = loadState()) {
   normalizeLearnerProfileState(state)
   personalizedOnboardingState.active = true
   personalizedOnboardingState.step = state.learnerProfile.languages[0]
-    ? (state.learnerProfile.level ? 'channels' : 'level')
+    ? (state.learnerProfile.languages[0] === 'other'
+        ? 'other'
+        : (state.learnerProfile.level ? 'channels' : 'level'))
     : 'language'
   personalizedOnboardingState.languageId = state.learnerProfile.languages[0] || null
   personalizedOnboardingState.levelId = state.learnerProfile.level || null
@@ -5183,7 +5246,9 @@ function renderPersonalizedOnboarding() {
   const progressFill = document.getElementById('onboardingProgressFill')
   if (!content || !progressLabel || !progressFill) return
 
-  const stepOrder = ['language', 'level', 'channels']
+  const stepOrder = personalizedOnboardingState.languageId === 'other'
+    ? ['language', 'other']
+    : ['language', 'level', 'channels']
   const stepIndex = Math.max(0, stepOrder.indexOf(personalizedOnboardingState.step))
   progressLabel.textContent = t('onboarding.progress', { current: stepIndex + 1, total: stepOrder.length })
   progressFill.style.width = `${((stepIndex + 1) / stepOrder.length) * 100}%`
@@ -5192,9 +5257,11 @@ function renderPersonalizedOnboarding() {
     renderOnboardingLanguageStep(content)
   } else if (personalizedOnboardingState.step === 'level') {
     renderOnboardingLevelStep(content)
-  } else {
+  } else if (personalizedOnboardingState.step === 'channels') {
     prepareOnboardingChannelSelections()
     renderOnboardingChannelsStep(content)
+  } else {
+    renderOnboardingOtherStep(content)
   }
 }
 
@@ -5221,9 +5288,20 @@ function renderOnboardingLanguageStep(content) {
       `).join('')}
     </div>
     <div class="onboarding-actions onboarding-actions-end">
-      <button type="button" class="btn-primary" onclick="setPersonalizedOnboardingStep('level')" ${selectedLanguageId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
+      <button type="button" class="btn-primary" onclick="continuePersonalizedOnboardingFromLanguage()" ${selectedLanguageId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
     </div>
     <p class="onboarding-private-note">${escHtml(t('onboarding.private'))}</p>
+  `
+}
+
+function renderOnboardingOtherStep(content) {
+  content.innerHTML = `
+    ${renderOnboardingHeading('onboarding.other.title', 'onboarding.other.subtitle')}
+    <div class="onboarding-empty">${escHtml(t('onboarding.other.note'))}</div>
+    <div class="onboarding-actions">
+      <button type="button" class="btn-ghost" onclick="setPersonalizedOnboardingStep('language')" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
+      <button type="button" class="btn-primary" onclick="finishPersonalizedOnboarding()" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}</button>
+    </div>
   `
 }
 
@@ -5287,9 +5365,14 @@ function renderOnboardingChannelsStep(content) {
 function selectOnboardingLanguage(languageId) {
   if (!getLearnerLanguageOption(languageId)) return
   personalizedOnboardingState.languageId = languageId
+  if (languageId === 'other') personalizedOnboardingState.levelId = null
   personalizedOnboardingState.selectedChannelCatalogIds = []
   personalizedOnboardingState.channelSelectionsInitialized = false
   renderPersonalizedOnboarding()
+}
+
+function continuePersonalizedOnboardingFromLanguage() {
+  setPersonalizedOnboardingStep(personalizedOnboardingState.languageId === 'other' ? 'other' : 'level')
 }
 
 function selectOnboardingLevel(levelId) {
@@ -5301,8 +5384,10 @@ function selectOnboardingLevel(levelId) {
 }
 
 function setPersonalizedOnboardingStep(step) {
-  if (!['language', 'level', 'channels'].includes(step)) return
+  if (!['language', 'level', 'channels', 'other'].includes(step)) return
   if (step !== 'language' && !personalizedOnboardingState.languageId) return
+  if (step === 'other' && personalizedOnboardingState.languageId !== 'other') return
+  if ((step === 'level' || step === 'channels') && personalizedOnboardingState.languageId === 'other') return
   if (step === 'channels' && !personalizedOnboardingState.levelId) return
   personalizedOnboardingState.step = step
   renderPersonalizedOnboarding()
@@ -5444,16 +5529,21 @@ async function finishPersonalizedOnboarding() {
   state.onboarding.setupCompleted = true
   state.onboarding.setupCompletedAt = now
   state.onboarding.recommendationsAppliedAt = resolution.attempted ? now : null
+  const onboardingDetail = personalizedOnboardingState.levelId
+    ? t('log.onboarding.detail', {
+        language: t(`onboarding.language.${personalizedOnboardingState.languageId}`),
+        level: t(`onboarding.level.${personalizedOnboardingState.levelId}.label`),
+        count: resolution.channels.length
+      })
+    : t('log.onboarding.otherDetail', {
+        language: t(`onboarding.language.${personalizedOnboardingState.languageId}`)
+      })
   appendActivityLog(state, {
     actor: 'user',
     type: 'onboarding',
     status: 'success',
     title: t('log.onboarding.title'),
-    detail: t('log.onboarding.detail', {
-      language: t(`onboarding.language.${personalizedOnboardingState.languageId}`),
-      level: t(`onboarding.level.${personalizedOnboardingState.levelId}.label`),
-      count: resolution.channels.length
-    })
+    detail: onboardingDetail
   })
   saveState(state)
   if (addedChannelCount > 0) {
