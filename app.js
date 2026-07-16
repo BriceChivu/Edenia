@@ -11965,7 +11965,11 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
                   data-channel-id="${escHtml(group.key)}"
                   onclick="removeChannelFromFilter(event, this.dataset.channelId)"
                   title="${escHtml(t('settings.remove'))}"
-                  aria-label="${escHtml(t('settings.remove'))}">×</button>
+                  aria-label="${escHtml(t('settings.remove'))}">
+                  <svg class="channel-shelf-remove-icon" viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M4 4l8 8M12 4l-8 8"></path>
+                  </svg>
+                </button>
               </span>
               <span>${escHtml(countLabel)}</span>
             </span>

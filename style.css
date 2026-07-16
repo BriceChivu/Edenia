@@ -6427,7 +6427,7 @@ summary:focus-visible,
     line-height: 1;
     margin-left: 1px;
     opacity: 0;
-    padding: 0 0 2px;
+    padding: 0;
     pointer-events: none;
     transform: scale(0.86);
     transition:
@@ -6436,6 +6436,14 @@ summary:focus-visible,
       color var(--motion-fast) var(--ease-standard),
       opacity var(--motion-fast) var(--ease-standard),
       transform var(--motion-fast) var(--ease-standard);
+  }
+  .channel-shelf-remove-icon {
+    fill: none;
+    height: 12px;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-width: 2;
+    width: 12px;
   }
   .channel-shelf:hover .channel-shelf-remove,
   .channel-shelf:focus-within .channel-shelf-remove {
