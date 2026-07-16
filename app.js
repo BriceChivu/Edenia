@@ -998,7 +998,6 @@ const I18N_EN = {
   'videos.search.youtube': 'YouTube',
   'videos.card.markWatched': 'Mark watched',
   'videos.card.new': 'New',
-  'videos.card.uploadedToday': 'Uploaded today',
   'videos.card.markWatchedTitle': 'Mark as watched',
   'videos.card.unmark': 'Unmark',
   'videos.card.clear': 'Clear',
@@ -1551,7 +1550,6 @@ const I18N = {
     'videos.search.noMatches': '找不到符合的影片。',
     'videos.card.markWatched': '標記已看',
     'videos.card.new': '新片',
-    'videos.card.uploadedToday': '今天上傳',
     'videos.card.markWatchedTitle': '標記為已看',
     'videos.card.unmark': '取消標記',
     'videos.card.clear': '清除',
@@ -1972,7 +1970,6 @@ const I18N = {
     'videos.search.empty': '按标题或频道搜索已保存视频。',
     'videos.card.markWatched': '标记已看',
     'videos.card.new': '新视频',
-    'videos.card.uploadedToday': '今天上传',
     'videos.card.unmark': '取消标记',
     'videos.card.resume': '继续观看',
     'videos.card.continueAt': '继续于',
@@ -2390,7 +2387,6 @@ const I18N = {
     'videos.search.empty': 'Busca videos guardados por título o canal.',
     'videos.card.markWatched': 'Marcar visto',
     'videos.card.new': 'Nuevo',
-    'videos.card.uploadedToday': 'Subido hoy',
     'videos.card.unmark': 'Desmarcar',
     'videos.card.resume': 'Continuar viendo',
     'videos.card.continueAt': 'Continuar en',
@@ -2808,7 +2804,6 @@ const I18N = {
     'videos.search.empty': 'Recherchez les vidéos enregistrées par titre ou chaîne.',
     'videos.card.markWatched': 'Marquer vue',
     'videos.card.new': 'Nouveau',
-    'videos.card.uploadedToday': 'Mise en ligne aujourd’hui',
     'videos.card.unmark': 'Retirer',
     'videos.card.resume': 'Continuer',
     'videos.card.continueAt': 'Reprendre à',
@@ -11814,14 +11809,7 @@ function getVideoPublishedTimestamp(video) {
 function getVideoUploadRibbon(video, currentDateKey = getCurrentAppDateKey()) {
   const publishedAt = new Date(video?.publishedAt || '')
   if (Number.isNaN(publishedAt.getTime())) return null
-  const ageInDays = daysBetweenDateKeys(toDateKey(publishedAt), currentDateKey)
-  if (ageInDays === 0) {
-    return { kind: 'today', label: t('videos.card.uploadedToday') }
-  }
-  if (ageInDays > 0 && ageInDays <= 7) {
-    return { kind: 'new', label: t('videos.card.new') }
-  }
-  return null
+  return toDateKey(publishedAt) === currentDateKey ? t('videos.card.new') : null
 }
 
 function groupActiveVideosByChannel(videos) {
@@ -12722,7 +12710,7 @@ function renderCard(v, compact = false, options = {}) {
     : ''
   const thumbnailContent = `
     <img src="${escHtml(v.thumbnail)}" alt="" class="thumb" loading="lazy">
-    ${uploadRibbon ? `<span class="video-upload-ribbon ${uploadRibbon.kind === 'today' ? 'uploaded-today' : 'new-upload'}">${escHtml(uploadRibbon.label)}</span>` : ''}
+    ${uploadRibbon ? `<span class="video-upload-ribbon">${escHtml(uploadRibbon)}</span>` : ''}
     <span class="dur-badge">${formatDuration(v.duration)}</span>
   `
   const thumbnailLink = `<a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${thumbnailContent}</a>`

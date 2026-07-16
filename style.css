@@ -4535,9 +4535,6 @@ body[data-theme="dark"] .dur-badge { color: #ffffff; }
   white-space: nowrap;
   z-index: 4;
 }
-.video-upload-ribbon.uploaded-today {
-  background: #e50914;
-}
 /* Card body */
 .card-body {
   padding: 10px 12px 10px;
