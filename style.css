@@ -6664,6 +6664,14 @@ summary:focus-visible,
     transition: right var(--motion-base) var(--ease-standard);
     z-index: 2;
   }
+  .channel-shelf-card:not(.is-previewing) .dur-badge {
+    background: rgba(5,5,5,0.56);
+    color: rgba(255,255,255,0.82);
+    font-size: 0.62rem;
+    font-weight: 550;
+    opacity: 0.72;
+    padding: 2px 5px;
+  }
   .channel-shelf-card.is-floating-preview {
     height: var(--shelf-preview-origin-height);
     inset: auto;
