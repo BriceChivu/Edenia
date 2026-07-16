@@ -4904,6 +4904,9 @@ summary:focus-visible,
    RESPONSIVE
 ═══════════════════════════════════════════════════════════ */
 @media (max-width: 640px) {
+  .goal-pace[data-state="complete"] {
+    display: none;
+  }
   .intro-trailer { align-items: stretch; padding: 0; }
   .intro-top-bar {
     gap: 8px;
