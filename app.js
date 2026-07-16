@@ -11715,7 +11715,9 @@ function renderFeed(s) {
     ? s.videos[forcedSearchVideoId]
     : null
 
-  let activeVideos = getVisibleActiveVideos(allVideos, includeShorts)
+  let activeVideos = getVisibleActiveVideos(allVideos, includeShorts, {
+    limitPerChannel: !isChannelView
+  })
     .filter(v => ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || getVideoStatus(v) === statusFilter))
     .filter(v => matchesChannelFilter(v, channelFilters))
 
@@ -12557,7 +12559,8 @@ function isHiddenShortVideo(video, includeShorts) {
   return !includeShorts && isShortDuration(video?.duration)
 }
 
-function getVisibleActiveVideos(videos, includeShorts = true) {
+function getVisibleActiveVideos(videos, includeShorts = true, options = {}) {
+  const limitPerChannel = options.limitPerChannel !== false
   const byChannel = new Map()
   const activeSort = (a, b) => {
     const statusPriority = {
@@ -12569,19 +12572,22 @@ function getVisibleActiveVideos(videos, includeShorts = true) {
     return new Date(b.publishedAt) - new Date(a.publishedAt)
   }
 
-  videos
+  const visibleVideos = videos
     .filter(v => getVideoStatus(v) !== 'watched')
     .filter(v => !isHiddenFromVideoGrid(v))
     .filter(v => !isHiddenShortVideo(v, includeShorts))
     .sort(activeSort)
-    .forEach(v => {
-      const key = getActiveVideoGroupKey(v)
-      const channelVideos = byChannel.get(key) || []
-      if (channelVideos.length < ACTIVE_VIDEOS_PER_CHANNEL) {
-        channelVideos.push(v)
-        byChannel.set(key, channelVideos)
-      }
-    })
+
+  if (!limitPerChannel) return visibleVideos
+
+  visibleVideos.forEach(v => {
+    const key = getActiveVideoGroupKey(v)
+    const channelVideos = byChannel.get(key) || []
+    if (channelVideos.length < ACTIVE_VIDEOS_PER_CHANNEL) {
+      channelVideos.push(v)
+      byChannel.set(key, channelVideos)
+    }
+  })
 
   return Array.from(byChannel.values())
     .flat()
