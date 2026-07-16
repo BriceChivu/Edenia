@@ -3634,6 +3634,18 @@ function renderLocaleSelect() {
       </label>
     `).join('')
   }
+  const onboardingButton = document.getElementById('onboardingLocaleBtn')
+  const onboardingLabel = document.getElementById('onboardingLocaleLabel')
+  const onboardingMenu = document.getElementById('onboardingLocaleMenu')
+  if (onboardingButton && onboardingLabel && onboardingMenu) {
+    onboardingLabel.textContent = getLocaleLabel(currentLocale)
+    onboardingMenu.innerHTML = SUPPORTED_LOCALES.map(locale => `
+      <label class="settings-locale-option">
+        <input type="radio" name="onboardingLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} onchange="changeOnboardingLocale(this.value)">
+        <span>${escHtml(getLocaleLabel(locale))}</span>
+      </label>
+    `).join('')
+  }
   const btn = document.getElementById('settingsLocaleBtn')
   const label = document.getElementById('settingsLocaleLabel')
   const menu = document.getElementById('settingsLocaleMenu')
@@ -5069,6 +5081,40 @@ function closeIntroLocaleMenuOnOutsideClick(event) {
   closeIntroLocaleMenu()
 }
 
+function toggleOnboardingLocaleMenu(event) {
+  event.stopPropagation()
+  const button = document.getElementById('onboardingLocaleBtn')
+  const menu = document.getElementById('onboardingLocaleMenu')
+  if (!button || !menu) return
+  const isOpen = menu.classList.toggle('hidden') === false
+  button.setAttribute('aria-expanded', String(isOpen))
+}
+
+function closeOnboardingLocaleMenu() {
+  const button = document.getElementById('onboardingLocaleBtn')
+  const menu = document.getElementById('onboardingLocaleMenu')
+  if (!button || !menu) return
+  menu.classList.add('hidden')
+  button.setAttribute('aria-expanded', 'false')
+}
+
+function closeOnboardingLocaleMenuOnOutsideClick(event) {
+  if (event.target.closest('.onboarding-language-picker')) return
+  closeOnboardingLocaleMenu()
+}
+
+function changeOnboardingLocale(locale) {
+  closeOnboardingLocaleMenu()
+  const state = loadState()
+  if (!state?.config) return
+  const nextLocale = normalizeLocale(locale)
+  state.config.locale = nextLocale
+  saveState(state, { backup: false })
+  applyLocale(nextLocale)
+  document.title = IS_SANDBOX ? t('app.title.sandbox') : 'Edenia'
+  renderPersonalizedOnboarding()
+}
+
 function animateIntroCityLevel() {
   const trailer = document.getElementById('introTrailer')
   trailer?.classList.remove('is-manual-city-level')
@@ -5272,6 +5318,7 @@ function startPersonalizedOnboarding(state = loadState()) {
 function renderPersonalizedOnboarding() {
   if (!personalizedOnboardingState.active) return
   const content = document.getElementById('onboardingContent')
+  const localePicker = document.getElementById('onboardingLocalePicker')
   const progressLabel = document.getElementById('onboardingProgressLabel')
   const progressFill = document.getElementById('onboardingProgressFill')
   if (!content || !progressLabel || !progressFill) return
@@ -5282,6 +5329,7 @@ function renderPersonalizedOnboarding() {
   const stepIndex = Math.max(0, stepOrder.indexOf(personalizedOnboardingState.step))
   progressLabel.textContent = t('onboarding.progress', { current: stepIndex + 1, total: stepOrder.length })
   progressFill.style.width = `${((stepIndex + 1) / stepOrder.length) * 100}%`
+  localePicker?.classList.toggle('hidden', personalizedOnboardingState.step !== 'language')
 
   if (personalizedOnboardingState.step === 'language') {
     renderOnboardingLanguageStep(content)
@@ -5309,7 +5357,7 @@ function renderOnboardingLanguageStep(content) {
   const selectedLanguageId = personalizedOnboardingState.languageId
   content.innerHTML = `
     ${renderOnboardingHeading('onboarding.language.title', 'onboarding.language.subtitle')}
-    <div class="onboarding-choice-grid" role="radiogroup" aria-label="${escHtml(t('onboarding.language.title'))}">
+    <div class="onboarding-choice-grid onboarding-language-grid" role="radiogroup" aria-label="${escHtml(t('onboarding.language.title'))}">
       ${LEARNER_LANGUAGE_OPTIONS.map(option => `
         <button type="button" class="onboarding-choice" data-language-id="${escHtml(option.id)}" aria-pressed="${option.id === selectedLanguageId}" onclick="selectOnboardingLanguage(this.dataset.languageId)">
           <span class="onboarding-choice-icon" aria-hidden="true">${escHtml(option.icon)}</span>
@@ -5322,6 +5370,7 @@ function renderOnboardingLanguageStep(content) {
     </div>
     <p class="onboarding-private-note">${escHtml(t('onboarding.private'))}</p>
   `
+  renderLocaleSelect()
 }
 
 function renderOnboardingOtherStep(content) {
@@ -12269,6 +12318,7 @@ document.addEventListener('click', closeManualVideoPopoverOnOutsideClick)
 document.addEventListener('click', closeVideoSearchPopoverOnOutsideClick)
 document.addEventListener('click', closeLocaleMenuOnOutsideClick)
 document.addEventListener('click', closeIntroLocaleMenuOnOutsideClick)
+document.addEventListener('click', closeOnboardingLocaleMenuOnOutsideClick)
 document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
 document.addEventListener('click', clearCityWaveformPreviewOnOutsideClick)
 document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)

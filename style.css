@@ -417,9 +417,9 @@ body.intro-active { overflow: hidden; }
   font-size: 0.72rem;
   font-weight: 800;
   gap: 6px;
-  left: clamp(16px, 2.5vw, 28px);
+  right: clamp(16px, 2.5vw, 28px);
   position: absolute;
-  top: clamp(16px, 2.5vw, 28px);
+  top: clamp(66px, 6vw, 76px);
   width: min(190px, 42vw);
   z-index: 5;
 }
@@ -1209,6 +1209,14 @@ body.onboarding-active { overflow: hidden; }
   width: 33.333%;
 }
 .onboarding-content { display: grid; gap: 20px; }
+.onboarding-language-picker {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  top: max(66px, calc(env(safe-area-inset-top) + 58px));
+  width: min(190px, 52vw);
+  z-index: 5;
+}
+.onboarding-language-picker .intro-locale-menu { width: 100%; }
 .onboarding-heading { display: grid; gap: 8px; }
 .onboarding-eyebrow {
   color: var(--accent-dim);
@@ -4610,8 +4618,13 @@ summary:focus-visible,
     width: 100vw;
   }
   .intro-language-picker {
-    left: max(12px, env(safe-area-inset-left));
-    top: max(76px, calc(env(safe-area-inset-top) + 68px));
+    right: max(12px, env(safe-area-inset-right));
+    top: max(60px, calc(env(safe-area-inset-top) + 52px));
+    width: 112px;
+  }
+  .onboarding-language-picker {
+    right: max(12px, env(safe-area-inset-right));
+    top: max(60px, calc(env(safe-area-inset-top) + 52px));
     width: 112px;
   }
   .intro-locale-btn { padding: 8px 11px; }
@@ -4630,6 +4643,8 @@ summary:focus-visible,
     overflow-y: auto;
     padding: max(120px, calc(env(safe-area-inset-top) + 108px)) 22px max(86px, calc(env(safe-area-inset-bottom) + 70px));
   }
+  .intro-orbit-one { height: 54%; }
+  .intro-orbit-two { height: 72%; }
   .intro-copy h2,
   .intro-city-copy h2 { font-size: clamp(1.85rem, 9vw, 2.8rem); line-height: 1.02; }
   .intro-scene-finale h2 { font-size: clamp(2.8rem, 14vw, 4.5rem); }
@@ -4671,6 +4686,7 @@ summary:focus-visible,
     padding: 0;
   }
   .onboarding-card {
+    align-content: center;
     border: 0;
     border-radius: 0;
     box-shadow: none;
@@ -4681,6 +4697,9 @@ summary:focus-visible,
   .onboarding-choice-grid,
   .onboarding-level-grid {
     grid-template-columns: 1fr;
+  }
+  .onboarding-language-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .onboarding-choice {
     min-height: 58px;
@@ -5486,9 +5505,9 @@ summary:focus-visible,
 
   .channel-filter-empty-highlight .channel-filter-btn::before {
     animation: none;
-    border-radius: 12px;
+    border-radius: 14px;
     box-shadow: 0 0 0 3px rgba(201,239,104,0.2);
-    inset: -3px;
+    inset: -5px;
   }
   .channel-filter-empty-highlight .channel-filter-btn::after { display: none; }
 
@@ -5594,7 +5613,11 @@ summary:focus-visible,
     padding: 8px 12px;
   }
   .intro-language-picker {
-    top: max(124px, calc(env(safe-area-inset-top) + 112px));
+    top: max(68px, calc(env(safe-area-inset-top) + 60px));
+    width: 132px;
+  }
+  .onboarding-language-picker {
+    top: max(68px, calc(env(safe-area-inset-top) + 60px));
     width: 132px;
   }
   .intro-locale-btn { min-height: 44px; }
