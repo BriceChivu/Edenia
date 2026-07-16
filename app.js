@@ -5677,7 +5677,12 @@ async function resolveStarterChannelSelections(catalogIds) {
     }
     if (seenIds.has(result.value.id)) return
     seenIds.add(result.value.id)
-    channels.push({ id: result.value.id, name: result.value.name || result.value.id })
+    channels.push({
+      id: result.value.id,
+      name: result.value.name || result.value.id,
+      imageUrl: getCuratedChannelAvatarPath(entry.id),
+      catalogId: entry.id
+    })
   })
   return {
     channels,
@@ -7045,7 +7050,7 @@ async function addChannel(options = {}) {
     showToast(t('toast.channelDuplicate'), 'warn')
     return
   }
-  s.config.channels.push({ id, name })
+  s.config.channels.push({ id, name, imageUrl: resolved.thumbnail || '' })
   s.config.removedChannelIds = (s.config.removedChannelIds || []).filter(channelId => channelId !== id)
   restoreChannelVideosToGrid(s, id)
   if (isDefaultChannelId(id)) {
@@ -7324,7 +7329,10 @@ async function fetchYoutubeChannelByFilter(filter, value) {
 async function resolveYoutubeChannelInput(value) {
   const parsed = parseYoutubeChannelInput(value)
   if (!parsed) throw new Error(t('toast.channelInvalid'))
-  if (parsed.kind === 'id') return { id: parsed.channelId, name: parsed.channelId }
+  if (parsed.kind === 'id') {
+    if (hasYoutubeApiKey()) return fetchYoutubeChannelByFilter('id', parsed.channelId)
+    return { id: parsed.channelId, name: parsed.channelId }
+  }
   if (parsed.kind === 'custom-url') throw new Error(t('toast.channelCustomUrlUnsupported'))
   if (!hasYoutubeApiKey()) throw new Error(t('toast.channelResolveNeedsKey'))
   if (parsed.kind === 'handle') return fetchYoutubeChannelByFilter('forHandle', parsed.handle)
@@ -7358,6 +7366,33 @@ function getBestThumbnail(thumbnails = {}) {
     || thumbnails.medium?.url
     || thumbnails.default?.url
     || ''
+}
+
+async function hydrateYoutubeChannelProfiles(channels = []) {
+  const missingChannels = Array.from(new Map(
+    channels
+      .filter(channel => channel?.id && !channel.imageUrl)
+      .map(channel => [channel.id, channel])
+  ).values())
+  let updatedCount = 0
+
+  for (let index = 0; index < missingChannels.length; index += 50) {
+    const batch = missingChannels.slice(index, index + 50)
+    const ids = batch.map(channel => channel.id).join(',')
+    const url = `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${encodeURIComponent(ids)}&key=${encodeURIComponent(getYoutubeApiKey())}`
+    const data = await ytFetch(url)
+    const profiles = new Map((data.items || []).map(item => [item.id, item]))
+
+    batch.forEach(channel => {
+      const profile = profiles.get(channel.id)
+      const imageUrl = getBestThumbnail(profile?.snippet?.thumbnails)
+      if (!imageUrl) return
+      channel.imageUrl = imageUrl
+      updatedCount += 1
+    })
+  }
+
+  return updatedCount
 }
 
 function parseYoutubeVideoId(value) {
@@ -7914,6 +7949,12 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     let successfulChannels = 0
     const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
 
+    try {
+      await hydrateYoutubeChannelProfiles(channelsToRefresh)
+    } catch (err) {
+      console.warn('Channel profile pictures:', err.message)
+    }
+
     await Promise.all(channelsToRefresh.map(async ch => {
       try {
         const vids = await fetchChannelVideos(ch, s.videos, { includeShorts })
@@ -8022,6 +8063,12 @@ async function refreshAddedChannel(channelId) {
     const s = loadState()
     const channel = s.config.channels.find(ch => ch.id === channelId)
     if (!channel) return
+
+    try {
+      await hydrateYoutubeChannelProfiles([channel])
+    } catch (err) {
+      console.warn('Channel profile picture:', err.message)
+    }
 
     const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
     const videos = dedupeVideos(await fetchChannelVideos(channel, s.videos, { includeShorts }))
@@ -11777,7 +11824,12 @@ function renderFeed(s) {
   } else if (!activeVideos.length) {
     grid.innerHTML = ''
   } else {
-    grid.innerHTML = renderChannelVideoGroups(activeVideos, cardOptions, s.config?.channelShelfOrder)
+    grid.innerHTML = renderChannelVideoGroups(
+      activeVideos,
+      cardOptions,
+      s.config?.channelShelfOrder,
+      s.config?.channels
+    )
   }
   requestAnimationFrame(() => {
     document.querySelectorAll('.channel-shelf-track').forEach(syncVideoChannelShelfControls)
@@ -11840,16 +11892,24 @@ function normalizeChannelShelfOrder(order) {
   ))
 }
 
-function groupActiveVideosByChannel(videos, channelOrder = []) {
+function groupActiveVideosByChannel(videos, channelOrder = [], configuredChannels = []) {
   const groups = new Map()
+  const configuredChannelsById = new Map(
+    configuredChannels
+      .filter(channel => channel?.id)
+      .map(channel => [channel.id, channel])
+  )
   videos.forEach(video => {
     const key = getVideoDisplayChannelKey(video)
+    const configuredChannel = configuredChannelsById.get(key)
     const group = groups.get(key) || {
       key,
       title: video.channelTitle || t('videos.search.youtube'),
-      imageUrl: video.channelImageUrl || '',
+      imageUrl: video.channelImageUrl || configuredChannel?.imageUrl || '',
+      catalogId: configuredChannel?.catalogId || '',
       videos: []
     }
+    if (!group.imageUrl && video.channelImageUrl) group.imageUrl = video.channelImageUrl
     group.videos.push(video)
     groups.set(key, group)
   })
@@ -11873,8 +11933,8 @@ function groupActiveVideosByChannel(videos, channelOrder = []) {
     })
 }
 
-function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = []) {
-  return groupActiveVideosByChannel(videos, channelOrder).map((group, index) => {
+function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], configuredChannels = []) {
+  return groupActiveVideosByChannel(videos, channelOrder, configuredChannels).map((group, index) => {
     const countLabel = group.videos.length === 1
       ? t('videos.channel.oneVideo')
       : t('videos.channel.videoCount', { count: group.videos.length })
@@ -11950,13 +12010,22 @@ function renderChannelShelfAvatar(group) {
     .map(part => part[0])
     .join('')
     .toUpperCase() || 'YT'
-  const normalizedTitle = title.toLocaleLowerCase()
-  const curatedChannel = CURATED_CHANNEL_CATALOG.find(channel => channel.name.toLocaleLowerCase() === normalizedTitle)
+  const normalizedTitle = title
+    .normalize('NFKD')
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, '')
+  const curatedChannel = CURATED_CHANNEL_CATALOG.find(channel => (
+    channel.name
+      .normalize('NFKD')
+      .toLocaleLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, '') === normalizedTitle
+  ))
   const sandboxChannel = IS_SANDBOX
     ? SANDBOX_CHANNEL_DEFINITIONS.find(channel => channel.id === group?.key)
     : null
   const avatarUrl = group?.imageUrl
     || sandboxChannel?.imageUrl
+    || (group?.catalogId ? getCuratedChannelAvatarPath(group.catalogId) : '')
     || (curatedChannel ? getCuratedChannelAvatarPath(curatedChannel.id) : '')
   const avatarImage = avatarUrl
     ? `<img src="${escHtml(avatarUrl)}" alt="" loading="lazy" draggable="false" referrerpolicy="no-referrer" onerror="this.hidden=true">`
