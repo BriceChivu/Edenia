@@ -235,6 +235,7 @@ body[data-theme="dark"] select option { color: var(--text); }
 .settings-locale-menu:not(.hidden),
 .video-search-popover:not(.hidden),
 .manual-video-popover:not(.hidden),
+.undo-tooltip:not(.hidden),
 .channel-filter-menu:not(.hidden),
 .history-period-cell.open .history-period-popover,
 .history-points-cell.open .history-points-popover,
@@ -3991,8 +3992,16 @@ body[data-theme="dark"] .channel-filter-remove:focus-visible {
   display: inline-flex;
   position: relative;
 }
-.undo-action-wrap + .undo-action-wrap {
-  border-left: 1px solid var(--border);
+.undo-action-wrap + .undo-action-wrap::before {
+  background: var(--border);
+  bottom: 8px;
+  content: "";
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  top: 8px;
+  width: 1px;
+  z-index: 1;
 }
 .undo-action-wrap:first-child .undo-btn {
   border-radius: 999px 0 0 999px;
@@ -4027,30 +4036,20 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
 .undo-tooltip {
   background: var(--surface);
   border: 2px solid var(--planet-black);
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: 0 4px 0 rgba(5,5,5,0.16);
   color: var(--text);
   font-size: 0.72rem;
   font-weight: 700;
+  left: 0;
   line-height: 1.25;
-  opacity: 0;
   padding: 9px 10px;
-  pointer-events: none;
   position: absolute;
-  right: 0;
+  right: auto;
   text-align: left;
   top: calc(100% + 8px);
-  transform: translateY(-3px);
-  transition: opacity var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
-  visibility: hidden;
   width: min(300px, 82vw);
   z-index: 80;
-}
-.undo-action-wrap.open .undo-tooltip {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
-  visibility: visible;
 }
 .undo-tooltip-title {
   color: var(--accent);
@@ -5666,7 +5665,6 @@ summary:focus-visible,
     padding: 8px 12px;
   }
   .undo-tooltip {
-    right: 0;
     width: min(300px, calc(100vw - 24px));
   }
   .video-card:hover {
@@ -5960,7 +5958,8 @@ summary:focus-visible,
 
   .status-filter-menu,
   .channel-filter-menu,
-  .manual-video-popover {
+  .manual-video-popover,
+  .undo-tooltip {
     bottom: max(12px, env(safe-area-inset-bottom));
     left: 12px !important;
     max-height: min(70dvh, 520px);
@@ -5971,6 +5970,9 @@ summary:focus-visible,
     top: auto !important;
     width: auto;
     z-index: 230;
+  }
+  .undo-tooltip-title {
+    display: none;
   }
   .channel-filter-add input,
   .channel-filter-add-btn,

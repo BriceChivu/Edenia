@@ -12335,7 +12335,10 @@ function renderHistoryActionButton({ buttonId, tooltipId, actions, state, label,
   btn.disabled = !canUse
   btn.textContent = label
   btn.title = canUse ? `${titleVerb} (${count} available)` : emptyTitle
-  if (!canUse) wrap?.classList.remove('open')
+  if (!canUse) {
+    wrap?.classList.remove('open')
+    tooltip?.classList.add('hidden')
+  }
   btn.setAttribute('aria-expanded', String(Boolean(canUse && wrap?.classList.contains('open'))))
   if (tooltip) tooltip.innerHTML = renderHistoryActionTooltip(actions, state, emptyTitle, queueTitle, direction)
 }
@@ -12349,6 +12352,10 @@ function renderHistoryActionTooltip(actions, s, emptyTitle, queueTitle, directio
   }
 
   return `
+    <div class="mobile-popover-header">
+      <strong>${escHtml(queueTitle)}</strong>
+      <button class="mobile-popover-close" type="button" onclick="closeHistoryActionPopovers(null, true)" title="${escHtml(t('settings.close'))}" aria-label="${escHtml(t('settings.close'))}">×</button>
+    </div>
     <div class="undo-tooltip-title">${escHtml(queueTitle)}</div>
     <div class="undo-tooltip-scroll" onmousemove="handleHistoryActionScrollHover(event)" onmouseleave="stopHistoryActionAutoScroll()">
       ${indexedActions.map(entry => renderHistoryActionTooltipItem(entry, s, direction)).join('')}
@@ -12464,8 +12471,9 @@ function toggleHistoryActionPopover(event, direction) {
   const btn = event.currentTarget
   if (!btn || btn.disabled) return
   const wrap = btn.closest('.undo-action-wrap')
-  if (!wrap) return
-  const shouldOpen = !wrap.classList.contains('open')
+  const popover = wrap?.querySelector('.undo-tooltip')
+  if (!wrap || !popover) return
+  const shouldOpen = popover.classList.contains('hidden')
   closeStatusFilterMenu()
   closeChannelFilterMenu()
   closeManualVideoPopover()
@@ -12474,16 +12482,31 @@ function toggleHistoryActionPopover(event, direction) {
   closeHistoryPeriodPopovers()
   closeHistoryActionPopovers(wrap)
   wrap.classList.toggle('open', shouldOpen)
+  popover.classList.toggle('hidden', !shouldOpen)
   btn.setAttribute('aria-expanded', String(shouldOpen))
+  if (shouldOpen) {
+    positionFilterMenuWithinViewport(popover)
+    if (isMobileLayout()) window.setTimeout(() => popover.querySelector('.undo-tooltip-action-btn')?.focus(), 0)
+  }
 }
 
-function closeHistoryActionPopovers(exceptWrap = null) {
+function closeHistoryActionPopovers(exceptWrap = null, restoreFocus = false) {
   stopHistoryActionAutoScroll()
+  let focusButton = null
   document.querySelectorAll('.undo-action-wrap.open').forEach(wrap => {
     if (wrap === exceptWrap) return
     wrap.classList.remove('open')
-    wrap.querySelector('.undo-btn')?.setAttribute('aria-expanded', 'false')
+    const btn = wrap.querySelector('.undo-btn')
+    const popover = wrap.querySelector('.undo-tooltip')
+    btn?.setAttribute('aria-expanded', 'false')
+    popover?.classList.add('hidden')
+    if (popover) {
+      popover.style.left = ''
+      popover.style.right = ''
+    }
+    if (!focusButton) focusButton = btn
   })
+  if (restoreFocus && isMobileLayout()) window.setTimeout(() => focusButton?.focus(), 0)
 }
 
 function closeHistoryActionPopoversOnOutsideClick(event) {
@@ -12493,7 +12516,8 @@ function closeHistoryActionPopoversOnOutsideClick(event) {
 
 function closeHistoryActionPopoversOnEscape(event) {
   if (event.key !== 'Escape') return
-  closeHistoryActionPopovers()
+  if (!document.querySelector('.undo-action-wrap.open')) return
+  closeHistoryActionPopovers(null, true)
 }
 
 function toggleLocaleMenu(event) {
