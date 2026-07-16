@@ -814,6 +814,7 @@ const I18N_EN = {
   'nextStudy.title': 'Continue watching',
   'nextStudy.resume': 'Resume video',
   'nextStudy.watch': 'Watch next',
+  'nextStudy.unwatch': 'Mark unwatched',
   'goal.watched': 'watched',
   'goal.inProgress': 'in progress',
   'goal.toGo': 'to go',
@@ -1394,6 +1395,7 @@ const I18N = {
     'nextStudy.title': '繼續觀看',
     'nextStudy.resume': '繼續觀看',
     'nextStudy.watch': '開始觀看',
+    'nextStudy.unwatch': '標記為未觀看',
     'goal.watched': '已看',
     'goal.inProgress': '進行中',
     'goal.toGo': '還差',
@@ -1827,6 +1829,7 @@ const I18N = {
     'nextStudy.title': '继续观看',
     'nextStudy.resume': '继续观看',
     'nextStudy.watch': '开始观看',
+    'nextStudy.unwatch': '标记为未观看',
     'goal.watched': '已看',
     'goal.inProgress': '进行中',
     'goal.toGo': '还差',
@@ -2243,6 +2246,7 @@ const I18N = {
     'nextStudy.title': 'Seguir viendo',
     'nextStudy.resume': 'Continuar vídeo',
     'nextStudy.watch': 'Ver siguiente',
+    'nextStudy.unwatch': 'Marcar sin ver',
     'goal.watched': 'vistos',
     'goal.inProgress': 'en progreso',
     'goal.toGo': 'restantes',
@@ -2661,6 +2665,7 @@ const I18N = {
     'nextStudy.title': 'Continuer à regarder',
     'nextStudy.resume': 'Reprendre la vidéo',
     'nextStudy.watch': 'Regarder ensuite',
+    'nextStudy.unwatch': 'Marquer non vue',
     'goal.watched': 'vues',
     'goal.inProgress': 'en cours',
     'goal.toGo': 'restant',
@@ -10576,7 +10581,13 @@ function renderNextStudy(activeVideos = []) {
       <span class="next-study-title">${escHtml(nextVideo.title)}</span>
       <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(formatVideoStatus(status))}</span>
     </span>
-    <a class="next-study-cta" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${escHtml(cta)}</a>
+    <span class="next-study-actions">
+      <a class="next-study-cta" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${escHtml(cta)}</a>
+      <button type="button"
+        class="next-study-cta next-study-reset"
+        data-video-id="${safeVideoId}"
+        onclick="markVideo(this.dataset.videoId, 'unwatched')">${escHtml(t('nextStudy.unwatch'))}</button>
+    </span>
   `
   return nextVideo
 }

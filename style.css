@@ -2907,17 +2907,27 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.next-study-actions {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
 .next-study-cta {
   background: var(--planet-white);
   border: 2px solid var(--border);
   border-radius: 999px;
   color: var(--muted);
   cursor: pointer;
+  font-family: inherit;
   font-size: 0.74rem;
   font-weight: 600;
   padding: 7px 11px;
   transition: background var(--motion-base) var(--ease-standard), color var(--motion-base) var(--ease-standard), border-color var(--motion-base) var(--ease-standard);
   white-space: nowrap;
+}
+.next-study-reset {
+  background: transparent;
+  color: var(--muted);
 }
 .next-study-cta:hover {
   background: #e9f8ed;
@@ -5534,7 +5544,7 @@ summary:focus-visible,
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
   }
-  .next-study-cta {
+  .next-study-actions {
     grid-column: 2;
     justify-self: start;
   }
