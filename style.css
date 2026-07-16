@@ -2845,14 +2845,14 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
 }
 
 .next-study-card {
-  align-items: center;
+  align-items: stretch;
   background: var(--surface);
   border: 2px solid var(--planet-black);
   border-radius: var(--radius);
   box-shadow: 0 4px 0 rgba(5,5,5,0.12);
   display: grid;
   gap: 12px;
-  grid-template-columns: 88px minmax(0, 1fr) auto;
+  grid-template-columns: 88px minmax(0, 1fr);
   overflow: hidden;
   padding: 9px;
 }
@@ -2860,6 +2860,7 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   max-width: 100%;
 }
 .next-study-thumb-link {
+  align-self: stretch;
   border-radius: 8px;
   display: block;
   overflow: hidden;
@@ -2869,15 +2870,16 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   outline-offset: 3px;
 }
 .next-study-thumb {
-  aspect-ratio: 16 / 9;
   border: 1px solid var(--border);
   border-radius: 8px;
   display: block;
+  height: 100%;
   object-fit: cover;
+  transform: scale(1.34);
   transition: transform var(--motion-base) var(--ease-standard);
   width: 88px;
 }
-.next-study-thumb-link:hover .next-study-thumb { transform: scale(1.03); }
+.next-study-thumb-link:hover .next-study-thumb { transform: scale(1.39); }
 .next-study-copy {
   display: grid;
   gap: 2px;
@@ -5523,10 +5525,6 @@ summary:focus-visible,
     white-space: normal;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
-  }
-  .next-study-actions {
-    grid-column: 2;
-    justify-self: start;
   }
   .card-title { font-size: 0.78rem; }
 }
