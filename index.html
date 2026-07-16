@@ -590,7 +590,11 @@ and momentum—at a glance</h2>
     <!-- VIDEO FEED ──────────────────────────────────────── -->
     <section class="feed-section">
       <div class="section-header">
-        <h2 class="section-title" data-i18n="videos.title">Videos</h2>
+        <h2 class="section-title" data-i18n="videos.title">Videos to watch</h2>
+        <div class="video-view-switch" role="tablist" aria-label="Video layout" data-i18n-aria-label="videos.view.label">
+          <button type="button" class="video-view-btn active" data-video-view="channel" onclick="setVideoFeedView('channel')" role="tab" aria-selected="true" data-i18n="videos.view.byChannel">By channel</button>
+          <button type="button" class="video-view-btn" data-video-view="newest" onclick="setVideoFeedView('newest')" role="tab" aria-selected="false" data-i18n="videos.view.newest">Newest</button>
+        </div>
         <div class="feed-controls">
           <div class="status-filter" id="statusFilter">
             <button type="button" class="btn-secondary channel-filter-btn status-filter-btn" id="statusFilterBtn" onclick="toggleStatusFilterMenu()" aria-haspopup="true" aria-expanded="false">All videos</button>

@@ -130,6 +130,7 @@ let cityImagePreloadQueueRunning = false
 let activeCityImagePreloadCenter = null
 let ankiStatsCache = null
 let selectedStatusFilter = 'all'
+let selectedVideoFeedView = 'channel'
 let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
 let selectedHistoryRange = 'week'
@@ -218,6 +219,7 @@ const STATUS_FILTERS = [
   ['unwatched', 'videos.status.unwatched'],
   ['partial', 'videos.status.partial']
 ]
+const VIDEO_FEED_VIEWS = ['channel', 'newest']
 const VIDEO_STATUSES = ['watch-later', 'unwatched', 'partial', 'watched']
 const HISTORY_RANGES = ['week', 'month']
 const ACTIVITY_LOG_FILTERS = ['all', 'user', 'auto', 'issues', 'points']
@@ -922,7 +924,12 @@ const I18N_EN = {
   'history.tooltip.videosWatched': 'Videos watched',
   'history.tooltip.ankiReviewed': 'Anki reviewed',
   'history.tooltip.ankiCreated': 'New Anki cards',
-  'videos.title': 'Videos',
+  'videos.title': 'Videos to watch',
+  'videos.view.label': 'Video layout',
+  'videos.view.byChannel': 'By channel',
+  'videos.view.newest': 'Newest',
+  'videos.channel.oneVideo': '1 video',
+  'videos.channel.videoCount': '{count} videos',
   'videos.status.all': 'All',
   'videos.status.watchLater': 'Watch later',
   'videos.status.unwatched': 'Unwatched',
@@ -1474,7 +1481,12 @@ const I18N = {
     'history.tooltip.points': '{count} 分',
     'history.heatmapAria': '{date}：{points} 分；{time} 影片時間；已看 {videos} 部影片；複習 {reviewed} 張 Anki 卡；新增 {created} 張 Anki 卡',
     'history.heatmapAriaNoAnki': '{date}：{points} 分；{time} 影片時間；已看 {videos} 部影片',
-    'videos.title': '影片',
+    'videos.title': '待看影片',
+    'videos.view.label': '影片排列',
+    'videos.view.byChannel': '依頻道',
+    'videos.view.newest': '最新',
+    'videos.channel.oneVideo': '1 部影片',
+    'videos.channel.videoCount': '{count} 部影片',
     'videos.status.all': '全部',
     'videos.status.watchLater': '稍後觀看',
     'videos.status.unwatched': '未觀看',
@@ -1885,7 +1897,12 @@ const I18N = {
     'history.heatmapAria': '{date}：{points} 分；{time} 视频时间；已看 {videos} 部视频；复习 {reviewed} 张 Anki 卡；新增 {created} 张 Anki 卡',
     'history.heatmapAriaNoAnki': '{date}：{points} 分；{time} 视频时间；已看 {videos} 部视频',
     'history.tooltip.points': '{count} 分',
-    'videos.title': '视频',
+    'videos.title': '待看视频',
+    'videos.view.label': '视频排列',
+    'videos.view.byChannel': '按频道',
+    'videos.view.newest': '最新',
+    'videos.channel.oneVideo': '1 个视频',
+    'videos.channel.videoCount': '{count} 个视频',
     'videos.status.all': '全部',
     'videos.status.watchLater': '稍后观看',
     'videos.status.unwatched': '未观看',
@@ -2290,7 +2307,12 @@ const I18N = {
     'history.tooltip.points': '{count} pts',
     'history.today': 'Hoy',
     'history.yesterday': 'Ayer',
-    'videos.title': 'Videos',
+    'videos.title': 'Vídeos para ver',
+    'videos.view.label': 'Vista de vídeos',
+    'videos.view.byChannel': 'Por canal',
+    'videos.view.newest': 'Más recientes',
+    'videos.channel.oneVideo': '1 vídeo',
+    'videos.channel.videoCount': '{count} vídeos',
     'videos.status.all': 'Todo',
     'videos.status.watchLater': 'Ver luego',
     'videos.status.unwatched': 'Sin ver',
@@ -2695,7 +2717,12 @@ const I18N = {
     'history.tooltip.points': '{count} pts',
     'history.today': 'Aujourd’hui',
     'history.yesterday': 'Hier',
-    'videos.title': 'Vidéos',
+    'videos.title': 'À regarder',
+    'videos.view.label': 'Disposition des vidéos',
+    'videos.view.byChannel': 'Par chaîne',
+    'videos.view.newest': 'Plus récentes',
+    'videos.channel.oneVideo': '1 vidéo',
+    'videos.channel.videoCount': '{count} vidéos',
     'videos.status.all': 'Tout',
     'videos.status.watchLater': 'À voir',
     'videos.status.unwatched': 'Non vue',
@@ -11585,6 +11612,7 @@ function updateCityMilestoneImage(score, options = {}) {
 
 function renderFeed(s) {
   renderChannelFilterOptions(s)
+  renderVideoFeedViewToggle()
 
   const statusFilter = selectedStatusFilter
   const grid   = document.getElementById('videoGrid')
@@ -11592,6 +11620,9 @@ function renderFeed(s) {
   const watchedGrid = document.getElementById('watchedGrid')
   const watchedCount = document.getElementById('watchedCount')
   if (!grid || !watchedSection || !watchedGrid || !watchedCount) return
+  const isChannelView = selectedVideoFeedView === 'channel'
+  grid.classList.toggle('channel-view', isChannelView)
+  grid.classList.toggle('newest-view', !isChannelView)
 
   const allVideos = Object.values(s.videos)
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
@@ -11635,6 +11666,8 @@ function renderFeed(s) {
       ? t('videos.empty.default')
       : t('videos.empty.filtered', { filter: statusFilter === 'all' ? t('videos.filter.active') : filterName, channelText: channelMsg })
     grid.innerHTML = `<div class="empty-state">${escHtml(msg)}</div>`
+  } else if (isChannelView) {
+    grid.innerHTML = renderChannelVideoGroups(activeVideos)
   } else {
     grid.innerHTML = activeVideos.map(v => renderCard(v)).join('')
   }
@@ -11642,6 +11675,58 @@ function renderFeed(s) {
   watchedCount.textContent = watchedVideos.length
   watchedSection.classList.toggle('hidden', !watchedVideos.length)
   watchedGrid.innerHTML = watchedVideos.map(v => renderCard(v, true)).join('')
+}
+
+function renderVideoFeedViewToggle() {
+  document.querySelectorAll('[data-video-view]').forEach(button => {
+    const isActive = button.dataset.videoView === selectedVideoFeedView
+    button.classList.toggle('active', isActive)
+    button.setAttribute('aria-selected', String(isActive))
+    button.setAttribute('tabindex', isActive ? '0' : '-1')
+  })
+}
+
+function setVideoFeedView(view) {
+  selectedVideoFeedView = VIDEO_FEED_VIEWS.includes(view) ? view : 'channel'
+  renderFeed(loadState())
+}
+
+function getVideoDisplayChannelKey(video) {
+  return video?.channelId || video?.channelTitle || `video:${video?.id || 'unknown'}`
+}
+
+function groupActiveVideosByChannel(videos) {
+  const groups = new Map()
+  videos.forEach(video => {
+    const key = getVideoDisplayChannelKey(video)
+    const group = groups.get(key) || {
+      key,
+      title: video.channelTitle || t('videos.search.youtube'),
+      videos: []
+    }
+    group.videos.push(video)
+    groups.set(key, group)
+  })
+  return Array.from(groups.values())
+}
+
+function renderChannelVideoGroups(videos) {
+  return groupActiveVideosByChannel(videos).map(group => {
+    const countLabel = group.videos.length === 1
+      ? t('videos.channel.oneVideo')
+      : t('videos.channel.videoCount', { count: group.videos.length })
+    return `
+      <section class="channel-video-group" data-channel-key="${escHtml(group.key)}">
+        <div class="channel-video-group-header">
+          <strong>${escHtml(group.title)}</strong>
+          <span>${escHtml(countLabel)}</span>
+        </div>
+        <div class="video-grid channel-video-list">
+          ${group.videos.map(video => renderCard(video)).join('')}
+        </div>
+      </section>
+    `
+  }).join('')
 }
 
 function includeForcedSearchVideo(videos, forcedVideo) {
