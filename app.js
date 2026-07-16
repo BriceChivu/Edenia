@@ -11987,8 +11987,16 @@ function openVideoShelfPreview(card) {
   const slot = card.closest('.channel-shelf-slot')
   if (!slot) return
   const rect = slot.getBoundingClientRect()
-  const previewSize = Math.min(Math.max(rect.width * 1.12, rect.width + 24), 310)
   const viewportMargin = 12
+  const maxPreviewSize = Math.max(
+    rect.width,
+    Math.min(
+      390,
+      window.innerWidth - (viewportMargin * 2),
+      window.innerHeight - (viewportMargin * 2)
+    )
+  )
+  const previewSize = Math.min(Math.max(rect.width * 1.5, 360), maxPreviewSize)
   const targetLeft = clampNumber(
     rect.left - ((previewSize - rect.width) / 2),
     viewportMargin,
