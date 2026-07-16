@@ -6506,9 +6506,6 @@ summary:focus-visible,
     background: rgba(18,188,234,0.92);
     color: #052a36;
   }
-  .channel-shelf-card.is-previewing .channel-shelf-priority-badge {
-    opacity: 0;
-  }
   .channel-shelf-card .thumb-link {
     aspect-ratio: auto;
     height: 100%;
@@ -6659,6 +6656,9 @@ summary:focus-visible,
   }
   .channel-shelf-card.is-previewing .resume-time-field {
     display: inline-flex;
+  }
+  .channel-shelf-card.is-previewing .card-status {
+    display: none;
   }
   .channel-shelf-card.is-previewing .dur-badge {
     bottom: 6px;
