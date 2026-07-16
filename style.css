@@ -5996,7 +5996,10 @@ summary:focus-visible,
   .channel-filter-empty-highlight .channel-filter-btn::after { display: none; }
 
   .city-zoom-controls { display: none; }
-  .city-image-wrap { touch-action: pan-y; }
+  .city-image-wrap {
+    aspect-ratio: 1672 / 1080;
+    touch-action: pan-y;
+  }
   .city-image-wrap.is-zoomed { touch-action: none; }
   .city-time-waveform {
     bottom: 5px;
