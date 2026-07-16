@@ -39,6 +39,7 @@ const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const YOUTUBE_REFRESH_INTERVAL_MS = 5 * 60 * 60_000
 const YOUTUBE_REFRESH_ERROR_BACKOFF_MS = 30 * 60_000
 const ACTIVE_VIDEOS_PER_CHANNEL = 5
+const SANDBOX_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = 50
 const MAX_FETCH_PAGES_PER_CHANNEL = 1
 const UNDO_ACTION_TYPES = ['video-status', 'channel-remove']
@@ -6294,9 +6295,9 @@ function createSandboxRecentVideos(state) {
   const videos = []
 
   channels.forEach((channel, channelIndex) => {
-    for (let i = 0; i < ACTIVE_VIDEOS_PER_CHANNEL; i += 1) {
+    for (let i = 0; i < SANDBOX_VIDEOS_PER_CHANNEL; i += 1) {
       const publishedAt = new Date(now)
-      publishedAt.setHours(now.getHours() - (channelIndex * ACTIVE_VIDEOS_PER_CHANNEL + i) * 6)
+      publishedAt.setHours(now.getHours() - (channelIndex * SANDBOX_VIDEOS_PER_CHANNEL + i) * 6)
       videos.push({
         id: `sandbox-refresh-${channel.id}-${i}`,
         title: t('sandbox.video.recent', { channel: channelIndex + 1, index: i + 1 }),
