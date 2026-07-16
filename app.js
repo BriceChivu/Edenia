@@ -74,7 +74,9 @@ const STUDY_INSIGHT_TYPES = [
   'weekend-opportunity',
   'momentum-up',
   'momentum-reset',
-  'long-sessions'
+  'long-sessions',
+  'anki-fallback',
+  'steady-process'
 ]
 const STUDY_INSIGHT_VARIANT_COUNT = 2
 const CITY_LEVELS = [
@@ -842,6 +844,16 @@ const I18N_EN = {
   'insights.title.long-sessions.alt': 'Keep a lighter option ready',
   'insights.body.long-sessions.alt': 'You usually study in substantial blocks of about {minutes} minutes. Define a smaller version for days when that block will not fit.',
   'insights.evidence.long-sessions': '{sessions} sessions across {days} active days; the typical session was {typicalMinutes} minutes.',
+  'insights.title.anki-fallback': 'Keep a 15-card fallback',
+  'insights.body.anki-fallback': 'No time for a video today? Reviewing 15 Anki cards still keeps the language close and the habit moving.',
+  'insights.title.anki-fallback.alt': 'A small review still counts',
+  'insights.body.anki-fallback.alt': 'When a video will not fit, try 15 Anki cards. A lighter study day is still part of the process.',
+  'insights.evidence.anki-fallback': 'You reviewed {reviewedCards} cards across {ankiDays} days in this period.',
+  'insights.title.steady-process': 'Think in seasons, not days',
+  'insights.body.steady-process': 'Language learning is a long-term commitment. Steady contact matters more than one perfect study day.',
+  'insights.title.steady-process.alt': 'Let consistency do the heavy lifting',
+  'insights.body.steady-process.alt': 'Fluency grows through ordinary sessions repeated over time. Keep choosing the next sustainable step.',
+  'insights.evidence.steady-process': '{days} active study days across the last {observationDays} days.',
   'insights.collapse': 'Collapse study insights',
   'insights.reopen': 'Insights',
   'insights.reopen.aria': 'Show study insights',
@@ -1389,6 +1401,16 @@ const I18N = {
     'insights.title.long-sessions.alt': '準備一個輕量版本',
     'insights.body.long-sessions.alt': '你通常以約 {minutes} 分鐘的大塊時間學習。為無法安排這段時間的日子定義一個小版本。',
     'insights.evidence.long-sessions': '{days} 個有學習的日子共 {sessions} 次；典型學習時長為 {typicalMinutes} 分鐘。',
+    'insights.title.anki-fallback': '準備 15 張卡片的備案',
+    'insights.body.anki-fallback': '今天沒時間看影片嗎？複習 15 張 Anki 卡片，仍能讓語言保持熟悉，也讓習慣繼續前進。',
+    'insights.title.anki-fallback.alt': '小小的複習也算數',
+    'insights.body.anki-fallback.alt': '沒時間看影片時，試著複習 15 張 Anki 卡片。輕量的學習日也是過程的一部分。',
+    'insights.evidence.anki-fallback': '這段期間，你在 {ankiDays} 天內共複習了 {reviewedCards} 張卡片。',
+    'insights.title.steady-process': '用季節衡量，而不是一天',
+    'insights.body.steady-process': '語言學習是長期承諾。穩定接觸，比某一天學得完美更重要。',
+    'insights.title.steady-process.alt': '讓持續累積發揮力量',
+    'insights.body.steady-process.alt': '流利來自長時間重複的平凡練習。繼續選擇下一個能持續的步驟。',
+    'insights.evidence.steady-process': '最近 {observationDays} 天中，你有 {days} 個有效學習日。',
     'insights.collapse': '收合學習洞察',
     'insights.reopen': '學習洞察',
     'insights.reopen.aria': '顯示學習洞察',
@@ -1789,6 +1811,16 @@ const I18N = {
     'insights.title.long-sessions.alt': '准备一个轻量版本',
     'insights.body.long-sessions.alt': '你通常以约 {minutes} 分钟的大块时间学习。为无法安排这段时间的日子定义一个小版本。',
     'insights.evidence.long-sessions': '{days} 个有学习的日子共 {sessions} 次；典型学习时长为 {typicalMinutes} 分钟。',
+    'insights.title.anki-fallback': '准备 15 张卡片的备案',
+    'insights.body.anki-fallback': '今天没时间看视频吗？复习 15 张 Anki 卡片，仍能让语言保持熟悉，也让习惯继续前进。',
+    'insights.title.anki-fallback.alt': '小小的复习也算数',
+    'insights.body.anki-fallback.alt': '没时间看视频时，试着复习 15 张 Anki 卡片。轻量的学习日也是过程的一部分。',
+    'insights.evidence.anki-fallback': '这段期间，你在 {ankiDays} 天内共复习了 {reviewedCards} 张卡片。',
+    'insights.title.steady-process': '用季节衡量，而不是一天',
+    'insights.body.steady-process': '语言学习是长期承诺。稳定接触，比某一天学得完美更重要。',
+    'insights.title.steady-process.alt': '让持续积累发挥力量',
+    'insights.body.steady-process.alt': '流利来自长时间重复的平凡练习。继续选择下一个能持续的步骤。',
+    'insights.evidence.steady-process': '最近 {observationDays} 天中，你有 {days} 个有效学习日。',
     'insights.collapse': '收起学习洞察',
     'insights.reopen': '学习洞察',
     'insights.reopen.aria': '显示学习洞察',
@@ -2172,6 +2204,16 @@ const I18N = {
     'insights.title.long-sessions.alt': 'Ten preparada una versión más ligera',
     'insights.body.long-sessions.alt': 'Sueles estudiar en bloques amplios de unos {minutes} minutos. Define una versión menor para los días en que no quepan.',
     'insights.evidence.long-sessions': '{sessions} sesiones en {days} días activos; la sesión habitual duró {typicalMinutes} minutos.',
+    'insights.title.anki-fallback': 'Ten una alternativa de 15 tarjetas',
+    'insights.body.anki-fallback': '¿Hoy no tienes tiempo para un video? Repasar 15 tarjetas de Anki mantiene el idioma cerca y el hábito en marcha.',
+    'insights.title.anki-fallback.alt': 'Un repaso pequeño también cuenta',
+    'insights.body.anki-fallback.alt': 'Cuando no quepa un video, prueba con 15 tarjetas de Anki. Un día más ligero también forma parte del proceso.',
+    'insights.evidence.anki-fallback': 'Repasaste {reviewedCards} tarjetas durante {ankiDays} días de este periodo.',
+    'insights.title.steady-process': 'Piensa en temporadas, no en días',
+    'insights.body.steady-process': 'Aprender un idioma es un compromiso a largo plazo. El contacto constante importa más que un día perfecto.',
+    'insights.title.steady-process.alt': 'Deja que la constancia haga el trabajo',
+    'insights.body.steady-process.alt': 'La fluidez crece con sesiones normales repetidas en el tiempo. Sigue eligiendo el próximo paso sostenible.',
+    'insights.evidence.steady-process': '{days} días activos de estudio durante los últimos {observationDays} días.',
     'insights.collapse': 'Contraer las observaciones de estudio',
     'insights.reopen': 'Observaciones',
     'insights.reopen.aria': 'Mostrar las observaciones de estudio',
@@ -2557,6 +2599,16 @@ const I18N = {
     'insights.title.long-sessions.alt': 'Gardez une version plus légère',
     'insights.body.long-sessions.alt': 'Vous travaillez souvent par blocs d’environ {minutes} minutes. Définissez une version réduite pour les jours où ce bloc ne tient pas.',
     'insights.evidence.long-sessions': '{sessions} sessions sur {days} jours actifs ; la session habituelle durait {typicalMinutes} minutes.',
+    'insights.title.anki-fallback': 'Gardez une option de 15 cartes',
+    'insights.body.anki-fallback': 'Pas le temps de regarder une vidéo aujourd’hui ? Réviser 15 cartes Anki entretient la langue et maintient l’habitude.',
+    'insights.title.anki-fallback.alt': 'Une petite révision compte aussi',
+    'insights.body.anki-fallback.alt': 'Quand une vidéo ne tient pas dans la journée, essayez 15 cartes Anki. Une journée plus légère fait aussi partie du processus.',
+    'insights.evidence.anki-fallback': 'Vous avez révisé {reviewedCards} cartes pendant {ankiDays} jours sur cette période.',
+    'insights.title.steady-process': 'Pensez en saisons, pas en journées',
+    'insights.body.steady-process': 'Apprendre une langue est un engagement à long terme. Un contact régulier compte plus qu’une journée parfaite.',
+    'insights.title.steady-process.alt': 'Laissez la régularité faire son travail',
+    'insights.body.steady-process.alt': 'L’aisance grandit grâce à des sessions ordinaires répétées dans le temps. Choisissez toujours la prochaine étape durable.',
+    'insights.evidence.steady-process': '{days} jours d’étude actifs au cours des {observationDays} derniers jours.',
     'insights.collapse': 'Réduire les observations d’étude',
     'insights.reopen': 'Observations',
     'insights.reopen.aria': 'Afficher les observations d’étude',
@@ -3745,6 +3797,8 @@ function normalizeStudyInsightConfig(state) {
         typicalMinutes: clampNumber(Math.round(Number(entry.typicalMinutes) || 0), 0, 180),
         sessionCount: Math.max(0, Math.round(Number(entry.sessionCount) || 0)),
         activeDays: Math.max(0, Math.round(Number(entry.activeDays) || 0)),
+        ankiDays: Math.max(0, Math.round(Number(entry.ankiDays) || 0)),
+        reviewedCards: Math.max(0, Math.round(Number(entry.reviewedCards) || 0)),
         observationDays: clampNumber(Math.round(Number(entry.observationDays) || 0), 0, STUDY_INSIGHT_LOOKBACK_DAYS),
         recordedAt: new Date(entry.recordedAt).toISOString()
       }
@@ -9565,6 +9619,14 @@ function getStudyInsightCandidates(state, referenceDate = getCurrentAppDate(stat
   const typicalMinutes = Math.max(1, Math.round(getMedianNumber(events.map(event => event.seconds)) / 60))
   const suggestedMinutes = [10, 15, 20, 30].find(minutes => minutes >= Math.min(typicalMinutes, 30)) || 30
   const candidates = []
+  const ankiLookbackStart = new Date(referenceDate)
+  ankiLookbackStart.setDate(ankiLookbackStart.getDate() - (STUDY_INSIGHT_LOOKBACK_DAYS - 1))
+  const ankiLookbackStartKey = toDateKey(ankiLookbackStart)
+  const ankiLookbackEndKey = toDateKey(referenceDate)
+  const ankiReviewDays = Object.entries(state?.anki || {})
+    .map(([dateKey, day]) => ({ dateKey, reviewed: normalizeAnkiCount(day?.reviewed) }))
+    .filter(day => day.dateKey >= ankiLookbackStartKey && day.dateKey <= ankiLookbackEndKey && day.reviewed > 0)
+  const reviewedCards = ankiReviewDays.reduce((sum, day) => sum + day.reviewed, 0)
   const activeDates = Array.from(activeDateKeys).map(dateKey => new Date(`${dateKey}T12:00:00`))
   const weekdayCounts = Array(7).fill(0)
   activeDates.forEach(date => { weekdayCounts[date.getDay()] += 1 })
@@ -9711,6 +9773,26 @@ function getStudyInsightCandidates(state, referenceDate = getCurrentAppDate(stat
     })
   }
 
+  if (isAnkiEnabled(state) && ankiReviewDays.length >= 2 && reviewedCards >= 30) {
+    candidates.push({
+      id: 'anki-fallback',
+      type: 'anki-fallback',
+      score: 0.64,
+      ankiDays: ankiReviewDays.length,
+      reviewedCards,
+      activeDays: activeDateKeys.size,
+      observationDays
+    })
+  }
+
+  candidates.push({
+    id: 'steady-process',
+    type: 'steady-process',
+    score: 0.54,
+    activeDays: activeDateKeys.size,
+    observationDays
+  })
+
   return candidates.sort((a, b) => b.score - a.score || a.id.localeCompare(b.id))
 }
 
@@ -9759,6 +9841,8 @@ function recordStudyInsight(state, insight, referenceDate = getCurrentAppDate(st
     typicalMinutes: insight.typicalMinutes || 0,
     sessionCount: insight.sessionCount || 0,
     activeDays: insight.activeDays || 0,
+    ankiDays: insight.ankiDays || 0,
+    reviewedCards: insight.reviewedCards || 0,
     observationDays: insight.observationDays || 0,
     recordedAt: getCurrentAppTimestamp(state)
   })
@@ -9971,6 +10055,9 @@ function getStudyInsightViewModel(insight, state) {
     recentMinutes: insight.recentMinutes,
     previousMinutes: insight.previousMinutes,
     days: insight.activeDays,
+    ankiDays: insight.ankiDays,
+    reviewedCards: insight.reviewedCards,
+    observationDays: insight.observationDays,
     sessions: insight.sessionCount,
     subject: getStudyInsightSubject(state)
   }
@@ -10029,6 +10116,20 @@ function getStudyInsightViewModel(insight, state) {
       title: t(`insights.title.long-sessions${suffix}`),
       body: t(`insights.body.long-sessions${suffix}`, { ...common, minutes: insight.typicalMinutes }),
       evidence: t('insights.evidence.long-sessions', common)
+    }
+  }
+  if (insight.type === 'anki-fallback') {
+    return {
+      title: t(`insights.title.anki-fallback${suffix}`),
+      body: t(`insights.body.anki-fallback${suffix}`),
+      evidence: t('insights.evidence.anki-fallback', common)
+    }
+  }
+  if (insight.type === 'steady-process') {
+    return {
+      title: t(`insights.title.steady-process${suffix}`),
+      body: t(`insights.body.steady-process${suffix}`),
+      evidence: t('insights.evidence.steady-process', common)
     }
   }
   return null
