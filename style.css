@@ -3979,8 +3979,8 @@ body[data-theme="dark"] .channel-filter-remove:focus-visible {
   font-size: 0.82rem;
 }
 .undo-wrap {
-  background: var(--surface-hi);
-  border: 1.5px solid var(--border);
+  background: var(--planet-white);
+  border: 2px solid var(--planet-black);
   border-radius: 999px;
   display: flex;
   gap: 0;
@@ -4017,13 +4017,6 @@ body[data-theme="dark"] .channel-filter-remove:focus-visible {
   height: 100%;
   min-height: 0;
   min-width: 58px;
-}
-.undo-wrap:has(.undo-btn:not(:disabled), .redo-btn:not(:disabled)) {
-  border: 2px solid var(--planet-black);
-}
-.feed-action-controls .undo-btn:not(:disabled),
-.feed-action-controls .redo-btn:not(:disabled) {
-  background: var(--planet-white);
 }
 .feed-action-controls .undo-btn:not(:disabled):hover,
 .feed-action-controls .redo-btn:not(:disabled):hover {
@@ -5892,6 +5885,11 @@ summary:focus-visible,
   .settings-drawer input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
   .action-btn {
     min-height: 44px;
+  }
+  .feed-action-controls .undo-btn,
+  .feed-action-controls .redo-btn {
+    height: 100%;
+    min-height: 0;
   }
 
   .app-header.is-compact .week-label {
