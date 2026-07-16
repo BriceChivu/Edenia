@@ -67,14 +67,13 @@ const STUDY_INSIGHT_TIME_WINDOWS = [
   { id: 'night', startHour: 22, endHour: 5 }
 ]
 const STUDY_INSIGHT_TYPES = [
+  'weekly-summary',
   'preferred-window',
   'morning-opportunity',
-  'short-sessions',
   'reliable-weekday',
   'weekend-opportunity',
   'momentum-up',
   'momentum-reset',
-  'long-sessions',
   'anki-fallback',
   'steady-process'
 ]
@@ -799,6 +798,16 @@ const I18N_EN = {
   'goal.pace.onTrack': 'You’re on track for this week.',
   'goal.pace.complete': 'Weekly goal complete. Nice work.',
   'insights.eyebrow': 'Study insight',
+  'insights.weekly.title': 'Your week in review',
+  'insights.weekly.summary.zero': 'No video study time was recorded this week.',
+  'insights.weekly.summary.one': 'You studied {time} across 1 video this week.',
+  'insights.weekly.summary.many': 'You studied {time} across {videos} videos this week.',
+  'insights.weekly.channels': 'By channel: {channels}.',
+  'insights.weekly.noChannels': 'No channel watch time was recorded.',
+  'insights.weekly.otherChannel': 'Other channels',
+  'insights.weekly.topVideo': 'Most watched: {video} ({time})',
+  'insights.weekly.activeDays': '{days} active days',
+  'insights.weekly.anki': 'Anki: {reviewed} reviewed, {created} new',
   'insights.subject.study': 'study',
   'insights.window.morning': 'morning',
   'insights.window.afternoon': 'afternoon',
@@ -1356,6 +1365,16 @@ const I18N = {
     'goal.pace.onTrack': '你本週的進度正按計畫前進。',
     'goal.pace.complete': '本週目標已完成。做得好！',
     'insights.eyebrow': '學習洞察',
+    'insights.weekly.title': '本週學習回顧',
+    'insights.weekly.summary.zero': '本週沒有記錄到影片學習時間。',
+    'insights.weekly.summary.one': '本週你在 1 部影片中累積了 {time}。',
+    'insights.weekly.summary.many': '本週你在 {videos} 部影片中累積了 {time}。',
+    'insights.weekly.channels': '各頻道：{channels}。',
+    'insights.weekly.noChannels': '本週沒有記錄到頻道觀看時間。',
+    'insights.weekly.otherChannel': '其他頻道',
+    'insights.weekly.topVideo': '觀看最多：{video}（{time}）',
+    'insights.weekly.activeDays': '{days} 個活躍日',
+    'insights.weekly.anki': 'Anki：複習 {reviewed} 張、新增 {created} 張',
     'insights.subject.study': '學習',
     'insights.window.morning': '早晨',
     'insights.window.afternoon': '下午',
@@ -1766,6 +1785,16 @@ const I18N = {
     'goal.pace.onTrack': '你本周的进度正按计划前进。',
     'goal.pace.complete': '本周目标已完成。做得好！',
     'insights.eyebrow': '学习洞察',
+    'insights.weekly.title': '本周学习回顾',
+    'insights.weekly.summary.zero': '本周没有记录到视频学习时间。',
+    'insights.weekly.summary.one': '本周你在 1 部视频中累计了 {time}。',
+    'insights.weekly.summary.many': '本周你在 {videos} 部视频中累计了 {time}。',
+    'insights.weekly.channels': '各频道：{channels}。',
+    'insights.weekly.noChannels': '本周没有记录到频道观看时间。',
+    'insights.weekly.otherChannel': '其他频道',
+    'insights.weekly.topVideo': '观看最多：{video}（{time}）',
+    'insights.weekly.activeDays': '{days} 个活跃日',
+    'insights.weekly.anki': 'Anki：复习 {reviewed} 张、新增 {created} 张',
     'insights.subject.study': '学习',
     'insights.window.morning': '早晨',
     'insights.window.afternoon': '下午',
@@ -2159,6 +2188,16 @@ const I18N = {
     'goal.pace.onTrack': 'Vas por buen camino esta semana.',
     'goal.pace.complete': 'Objetivo semanal completado. ¡Buen trabajo!',
     'insights.eyebrow': 'Observación de estudio',
+    'insights.weekly.title': 'Tu semana en resumen',
+    'insights.weekly.summary.zero': 'Esta semana no se registró tiempo de estudio con vídeos.',
+    'insights.weekly.summary.one': 'Esta semana estudiaste {time} con 1 vídeo.',
+    'insights.weekly.summary.many': 'Esta semana estudiaste {time} con {videos} vídeos.',
+    'insights.weekly.channels': 'Por canal: {channels}.',
+    'insights.weekly.noChannels': 'No se registró tiempo de visualización por canal.',
+    'insights.weekly.otherChannel': 'Otros canales',
+    'insights.weekly.topVideo': 'Más visto: {video} ({time})',
+    'insights.weekly.activeDays': '{days} días activos',
+    'insights.weekly.anki': 'Anki: {reviewed} repasadas, {created} nuevas',
     'insights.subject.study': 'estudio',
     'insights.window.morning': 'mañana',
     'insights.window.afternoon': 'tarde',
@@ -2554,6 +2593,16 @@ const I18N = {
     'goal.pace.onTrack': 'Vous êtes dans le bon rythme cette semaine.',
     'goal.pace.complete': 'Objectif hebdomadaire atteint. Bravo !',
     'insights.eyebrow': 'Observation d’étude',
+    'insights.weekly.title': 'Votre semaine en bref',
+    'insights.weekly.summary.zero': 'Aucun temps d’étude en vidéo n’a été enregistré cette semaine.',
+    'insights.weekly.summary.one': 'Cette semaine, vous avez étudié {time} avec 1 vidéo.',
+    'insights.weekly.summary.many': 'Cette semaine, vous avez étudié {time} avec {videos} vidéos.',
+    'insights.weekly.channels': 'Par chaîne : {channels}.',
+    'insights.weekly.noChannels': 'Aucun temps de visionnage par chaîne n’a été enregistré.',
+    'insights.weekly.otherChannel': 'Autres chaînes',
+    'insights.weekly.topVideo': 'Vidéo la plus regardée : {video} ({time})',
+    'insights.weekly.activeDays': '{days} jours actifs',
+    'insights.weekly.anki': 'Anki : {reviewed} révisées, {created} nouvelles',
     'insights.subject.study': 'travail',
     'insights.window.morning': 'matin',
     'insights.window.afternoon': 'après-midi',
@@ -3806,11 +3855,22 @@ function normalizeStudyInsightConfig(state) {
         recentMinutes: Math.max(0, Math.round(Number(entry.recentMinutes) || 0)),
         previousMinutes: Math.max(0, Math.round(Number(entry.previousMinutes) || 0)),
         suggestedMinutes: clampNumber(Math.round(Number(entry.suggestedMinutes) || 0), 1, 180),
-        typicalMinutes: clampNumber(Math.round(Number(entry.typicalMinutes) || 0), 0, 180),
-        sessionCount: Math.max(0, Math.round(Number(entry.sessionCount) || 0)),
         activeDays: Math.max(0, Math.round(Number(entry.activeDays) || 0)),
         ankiDays: Math.max(0, Math.round(Number(entry.ankiDays) || 0)),
         reviewedCards: Math.max(0, Math.round(Number(entry.reviewedCards) || 0)),
+        ankiCreated: Math.max(0, Math.round(Number(entry.ankiCreated) || 0)),
+        totalSeconds: Math.max(0, Math.round(Number(entry.totalSeconds) || 0)),
+        videoCount: Math.max(0, Math.round(Number(entry.videoCount) || 0)),
+        topVideoTitle: String(entry.topVideoTitle || '').slice(0, 180),
+        topVideoSeconds: Math.max(0, Math.round(Number(entry.topVideoSeconds) || 0)),
+        channelBreakdown: (Array.isArray(entry.channelBreakdown) ? entry.channelBreakdown : [])
+          .filter(channel => channel && typeof channel === 'object' && !Array.isArray(channel) && channel.name)
+          .map(channel => ({
+            name: String(channel.name).slice(0, 100),
+            seconds: Math.max(0, Math.round(Number(channel.seconds) || 0))
+          }))
+          .filter(channel => channel.seconds > 0)
+          .slice(0, 5),
         observationDays: clampNumber(Math.round(Number(entry.observationDays) || 0), 0, STUDY_INSIGHT_LOOKBACK_DAYS),
         recordedAt: new Date(entry.recordedAt).toISOString()
       }
@@ -9613,7 +9673,13 @@ function getStudyInsightEvents(state, referenceDate = getCurrentAppDate(state)) 
   start.setHours(0, 0, 0, 0)
 
   return Object.values(state?.videos || {})
-    .flatMap(video => getVideoWatchProgressEntries(video))
+    .flatMap(video => getVideoWatchProgressEntries(video).map(entry => ({
+      ...entry,
+      videoId: video.id || '',
+      videoTitle: video.title || '',
+      channelId: video.channelId || '',
+      channelTitle: video.channelTitle || ''
+    })))
     .map(entry => {
       const watchedAt = new Date(entry.watchedAt)
       const seconds = Math.max(0, Math.floor(Number(entry.seconds) || 0))
@@ -9622,6 +9688,10 @@ function getStudyInsightEvents(state, referenceDate = getCurrentAppDate(state)) 
         watchedAt: entry.watchedAt,
         dateKey: toDateKey(watchedAt),
         seconds,
+        videoId: entry.videoId,
+        videoTitle: entry.videoTitle,
+        channelId: entry.channelId,
+        channelTitle: entry.channelTitle,
         windowId: getStudyInsightTimeWindow(watchedAt.getHours())
       }
     })
@@ -9629,16 +9699,77 @@ function getStudyInsightEvents(state, referenceDate = getCurrentAppDate(state)) 
     .sort((a, b) => new Date(a.watchedAt) - new Date(b.watchedAt))
 }
 
-function getMedianNumber(values) {
-  const sorted = values
-    .map(Number)
-    .filter(Number.isFinite)
-    .sort((a, b) => a - b)
-  if (!sorted.length) return 0
-  const middle = Math.floor(sorted.length / 2)
-  return sorted.length % 2
-    ? sorted[middle]
-    : (sorted[middle - 1] + sorted[middle]) / 2
+function getWeeklySummaryInsight(state, referenceDate = getCurrentAppDate(state)) {
+  const end = new Date(referenceDate)
+  if (end.getDay() !== 0) return null
+  if (IS_SANDBOX) end.setHours(23, 59, 59, 999)
+  const start = getWeekStart(end)
+  const events = getStudyInsightEvents(state, end).filter(event => {
+    const watchedAt = new Date(event.watchedAt)
+    return watchedAt >= start && watchedAt <= end
+  })
+  const totalSeconds = events.reduce((sum, event) => sum + event.seconds, 0)
+  const videoTotals = new Map()
+  events.forEach(event => {
+    const key = event.videoId || event.videoTitle
+    if (!key) return
+    const current = videoTotals.get(key) || {
+      title: event.videoTitle || t('videos.search.untitled'),
+      seconds: 0
+    }
+    current.seconds += event.seconds
+    videoTotals.set(key, current)
+  })
+  const topVideo = Array.from(videoTotals.values()).sort((a, b) => b.seconds - a.seconds)[0] || null
+  const channelTotals = new Map()
+  events.forEach(event => {
+    const key = event.channelId || event.channelTitle || 'youtube'
+    const current = channelTotals.get(key) || {
+      name: event.channelTitle || t('videos.search.youtube'),
+      seconds: 0
+    }
+    current.seconds += event.seconds
+    channelTotals.set(key, current)
+  })
+  const sortedChannels = Array.from(channelTotals.values()).sort((a, b) => b.seconds - a.seconds)
+  const channelBreakdown = sortedChannels.slice(0, 4)
+  if (sortedChannels.length > 4) {
+    channelBreakdown.push({
+      name: t('insights.weekly.otherChannel'),
+      seconds: sortedChannels.slice(4).reduce((sum, channel) => sum + channel.seconds, 0)
+    })
+  }
+
+  const startKey = toDateKey(start)
+  const endKey = toDateKey(end)
+  const weeklyAnki = Object.entries(state?.anki || {})
+    .filter(([dateKey]) => dateKey >= startKey && dateKey <= endKey)
+    .map(([dateKey, day]) => ({
+      dateKey,
+      reviewed: normalizeAnkiCount(day?.reviewed),
+      created: normalizeAnkiCount(day?.created)
+    }))
+  const reviewedCards = weeklyAnki.reduce((sum, day) => sum + day.reviewed, 0)
+  const ankiCreated = weeklyAnki.reduce((sum, day) => sum + day.created, 0)
+  const activeDateKeys = new Set(events.map(event => event.dateKey))
+  weeklyAnki.forEach(day => {
+    if (day.reviewed > 0 || day.created > 0) activeDateKeys.add(day.dateKey)
+  })
+
+  return {
+    id: 'weekly-summary',
+    type: 'weekly-summary',
+    variant: 0,
+    totalSeconds,
+    activeDays: activeDateKeys.size,
+    videoCount: videoTotals.size,
+    topVideoTitle: topVideo?.title || '',
+    topVideoSeconds: topVideo?.seconds || 0,
+    reviewedCards,
+    ankiCreated,
+    channelBreakdown,
+    observationDays: 7
+  }
 }
 
 function getStudyInsightCandidates(state, referenceDate = getCurrentAppDate(state)) {
@@ -9665,8 +9796,7 @@ function getStudyInsightCandidates(state, referenceDate = getCurrentAppDate(stat
     distribution[event.windowId].activeDateKeys.add(event.dateKey)
   })
 
-  const typicalMinutes = Math.max(1, Math.round(getMedianNumber(events.map(event => event.seconds)) / 60))
-  const suggestedMinutes = [10, 15, 20, 30].find(minutes => minutes >= Math.min(typicalMinutes, 30)) || 30
+  const suggestedMinutes = 15
   const candidates = []
   const ankiLookbackStart = new Date(referenceDate)
   ankiLookbackStart.setDate(ankiLookbackStart.getDate() - (STUDY_INSIGHT_LOOKBACK_DAYS - 1))
@@ -9747,19 +9877,6 @@ function getStudyInsightCandidates(state, referenceDate = getCurrentAppDate(stat
     })
   }
 
-  if (events.length >= 6 && typicalMinutes <= 25) {
-    candidates.push({
-      id: 'short-sessions',
-      type: 'short-sessions',
-      score: 0.65 + Math.max(0, (25 - typicalMinutes) / 100),
-      typicalMinutes,
-      suggestedMinutes,
-      sessionCount: events.length,
-      activeDays: activeDateKeys.size,
-      observationDays
-    })
-  }
-
   if (dominantWeekdayDays >= 4 && dominantWeekdayRatio >= 0.28) {
     candidates.push({
       id: `reliable-weekday-${dominantWeekdayIndex}`,
@@ -9809,19 +9926,6 @@ function getStudyInsightCandidates(state, referenceDate = getCurrentAppDate(stat
     })
   }
 
-  if (events.length >= 6 && typicalMinutes >= 45) {
-    candidates.push({
-      id: 'long-sessions',
-      type: 'long-sessions',
-      score: 0.66 + Math.min(0.12, (typicalMinutes - 45) / 200),
-      typicalMinutes,
-      suggestedMinutes: 15,
-      sessionCount: events.length,
-      activeDays: activeDateKeys.size,
-      observationDays
-    })
-  }
-
   if (isAnkiEnabled(state) && ankiReviewDays.length >= 2 && reviewedCards >= 30) {
     candidates.push({
       id: 'anki-fallback',
@@ -9846,6 +9950,8 @@ function getStudyInsightCandidates(state, referenceDate = getCurrentAppDate(stat
 }
 
 function getStudyInsight(state, referenceDate = getCurrentAppDate(state)) {
+  const weeklySummary = getWeeklySummaryInsight(state, referenceDate)
+  if (weeklySummary) return weeklySummary
   const candidates = getStudyInsightCandidates(state, referenceDate)
   if (!candidates.length) return null
 
@@ -9873,9 +9979,7 @@ function recordStudyInsight(state, insight, referenceDate = getCurrentAppDate(st
   normalizeStudyInsightConfig(state)
   const key = getStudyInsightHistoryKey(insight, state, referenceDate)
   if (!key) return ''
-  if (state.config.studyInsights.history.some(entry => entry.key === key)) return key
-
-  state.config.studyInsights.history.unshift({
+  const historyEntry = {
     key,
     insightId: insight.id,
     type: insight.type,
@@ -9887,14 +9991,25 @@ function recordStudyInsight(state, insight, referenceDate = getCurrentAppDate(st
     recentMinutes: insight.recentMinutes || 0,
     previousMinutes: insight.previousMinutes || 0,
     suggestedMinutes: insight.suggestedMinutes || 0,
-    typicalMinutes: insight.typicalMinutes || 0,
-    sessionCount: insight.sessionCount || 0,
     activeDays: insight.activeDays || 0,
     ankiDays: insight.ankiDays || 0,
     reviewedCards: insight.reviewedCards || 0,
+    ankiCreated: insight.ankiCreated || 0,
+    totalSeconds: insight.totalSeconds || 0,
+    videoCount: insight.videoCount || 0,
+    topVideoTitle: insight.topVideoTitle || '',
+    topVideoSeconds: insight.topVideoSeconds || 0,
+    channelBreakdown: insight.channelBreakdown || [],
     observationDays: insight.observationDays || 0,
     recordedAt: getCurrentAppTimestamp(state)
-  })
+  }
+  const existingIndex = state.config.studyInsights.history.findIndex(entry => entry.key === key)
+  if (existingIndex >= 0) {
+    if (insight.type !== 'weekly-summary') return key
+    state.config.studyInsights.history[existingIndex] = historyEntry
+  } else {
+    state.config.studyInsights.history.unshift(historyEntry)
+  }
   normalizeStudyInsightConfig(state)
   saveState(state, { backup: false })
   return key
@@ -10098,7 +10213,6 @@ function getStudyInsightViewModel(insight, state) {
     weekday,
     minutes: insight.suggestedMinutes,
     suggestedMinutes: insight.suggestedMinutes,
-    typicalMinutes: insight.typicalMinutes,
     percent: insight.percent,
     comparisonPercent: insight.comparisonPercent,
     recentMinutes: insight.recentMinutes,
@@ -10107,8 +10221,44 @@ function getStudyInsightViewModel(insight, state) {
     ankiDays: insight.ankiDays,
     reviewedCards: insight.reviewedCards,
     observationDays: insight.observationDays,
-    sessions: insight.sessionCount,
     subject: getStudyInsightSubject(state)
+  }
+
+  if (insight.type === 'weekly-summary') {
+    const summaryKey = insight.videoCount === 0
+      ? 'insights.weekly.summary.zero'
+      : insight.videoCount === 1
+        ? 'insights.weekly.summary.one'
+        : 'insights.weekly.summary.many'
+    const summary = t(summaryKey, {
+      time: formatHoursMinutes(insight.totalSeconds),
+      videos: insight.videoCount
+    })
+    const channelText = insight.channelBreakdown?.length
+      ? t('insights.weekly.channels', {
+          channels: insight.channelBreakdown
+            .map(channel => `${channel.name} ${formatHoursMinutes(channel.seconds)}`)
+            .join(', ')
+        })
+      : ''
+    const details = [t('insights.weekly.activeDays', { days: insight.activeDays })]
+    if (insight.topVideoTitle && insight.topVideoSeconds > 0) {
+      details.push(t('insights.weekly.topVideo', {
+        video: insight.topVideoTitle,
+        time: formatHoursMinutes(insight.topVideoSeconds)
+      }))
+    }
+    if (insight.reviewedCards > 0 || insight.ankiCreated > 0) {
+      details.push(t('insights.weekly.anki', {
+        reviewed: insight.reviewedCards,
+        created: insight.ankiCreated
+      }))
+    }
+    return {
+      title: t('insights.weekly.title'),
+      body: channelText ? `${summary} ${channelText}` : summary,
+      evidence: details.join(' · ')
+    }
   }
 
   if (insight.type === 'preferred-window') {
@@ -10123,13 +10273,6 @@ function getStudyInsightViewModel(insight, state) {
       title: t(`insights.title.morning-opportunity${suffix}`),
       body: t(`insights.body.morning-opportunity${suffix}`, common),
       evidence: t('insights.evidence.morning-opportunity', common)
-    }
-  }
-  if (insight.type === 'short-sessions') {
-    return {
-      title: t(`insights.title.short-sessions${suffix}`),
-      body: t(`insights.body.short-sessions${suffix}`, { ...common, minutes: insight.typicalMinutes }),
-      evidence: t('insights.evidence.short-sessions', common)
     }
   }
   if (insight.type === 'reliable-weekday') {
@@ -10158,13 +10301,6 @@ function getStudyInsightViewModel(insight, state) {
       title: t(`insights.title.momentum-reset${suffix}`),
       body: t(`insights.body.momentum-reset${suffix}`, common),
       evidence: t('insights.evidence.momentum-reset', common)
-    }
-  }
-  if (insight.type === 'long-sessions') {
-    return {
-      title: t(`insights.title.long-sessions${suffix}`),
-      body: t(`insights.body.long-sessions${suffix}`, { ...common, minutes: insight.typicalMinutes }),
-      evidence: t('insights.evidence.long-sessions', common)
     }
   }
   if (insight.type === 'anki-fallback') {

@@ -2675,8 +2675,8 @@ body[data-theme="dark"] .study-insight-card {
   min-width: 0;
 }
 .study-insight-eyebrow {
-  color: var(--accent-dim);
-  font-size: 0.65rem;
+  color: var(--accent);
+  font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.07em;
   text-transform: uppercase;

@@ -11,6 +11,9 @@ Minor changes:
 Big changes:
 - How feasible/complicated this is? Being able to view videos on the website itself (e.g., pop up window when video is clicked). When pausing, the in progress timestamp should be populated automatically in hh:mm:ss format
 - Build Android app
+- Next to Heatmap: dashboard, with detailed views, etc. (Plus or premium version)
+- Change how the way video cards are display (i would prefer grouping them by channel)
+- have a small duck pop up next to Edenia title that says stuff like "You studied 4h 20m across 7 sessions this week. See what drove your strongest days with Edenia Plus." or "You started building this town 3 months ago. Upgrade to Plus to revisit every week and see how your consistency has changed.". It pops up only to say those things and then the user can close the dialogue box.
 
 Sandbox:
 
