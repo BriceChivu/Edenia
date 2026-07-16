@@ -6243,6 +6243,81 @@ summary:focus-visible,
     padding: 12px;
   }
 }
+@media (min-width: 641px) and (hover: hover) and (pointer: fine) {
+  .channel-deck:not(.expanded):not(.single-card) {
+    position: relative;
+    z-index: 1;
+  }
+  .channel-deck:not(.expanded):not(.single-card):is(:hover, :focus-within) {
+    z-index: 20;
+  }
+  .channel-deck:not(.expanded):not(.single-card):is(:hover, :focus-within) .channel-deck-body {
+    padding-bottom: 26px;
+    padding-right: 4px;
+  }
+  .channel-deck:not(.expanded):not(.single-card):is(:hover, :focus-within) .channel-deck-body::before,
+  .channel-deck:not(.expanded):not(.single-card):is(:hover, :focus-within) .channel-deck-body::after {
+    opacity: 0;
+  }
+  .channel-deck:not(.expanded):not(.single-card) .channel-video-list {
+    display: block;
+  }
+  .channel-deck:not(.expanded):not(.single-card) .channel-video-list > .video-card {
+    transform-origin: bottom center;
+    transition:
+      filter var(--motion-base) var(--ease-standard),
+      opacity var(--motion-base) var(--ease-standard),
+      transform var(--motion-base) var(--ease-emphasized),
+      width var(--motion-base) var(--ease-emphasized);
+    will-change: transform, width;
+  }
+  .channel-deck:not(.expanded):not(.single-card) .channel-video-list > .video-card:first-child {
+    position: relative;
+    z-index: 3;
+  }
+  .channel-deck:not(.expanded):not(.single-card) .channel-video-list > .video-card:nth-child(2),
+  .channel-deck:not(.expanded):not(.single-card) .channel-video-list > .video-card:nth-child(3) {
+    display: flex;
+    height: 100%;
+    left: 0;
+    opacity: 0;
+    pointer-events: none;
+    position: absolute;
+    top: 0;
+  }
+  .channel-deck:not(.expanded):not(.single-card) .channel-video-list > .video-card:nth-child(2) {
+    filter: brightness(0.94) saturate(0.94);
+    z-index: 2;
+  }
+  .channel-deck:not(.expanded):not(.single-card) .channel-video-list > .video-card:nth-child(3) {
+    filter: brightness(0.88) saturate(0.88);
+    z-index: 1;
+  }
+  .channel-deck[data-preview-count="2"]:not(.expanded):is(:hover, :focus-within) .channel-video-list > .video-card:first-child {
+    transform: rotate(-2deg);
+    width: 84%;
+  }
+  .channel-deck[data-preview-count="2"]:not(.expanded) .channel-video-list > .video-card:nth-child(2) {
+    transform: translateX(19%) rotate(2.4deg);
+    width: 84%;
+  }
+  .channel-deck[data-preview-count="3"]:not(.expanded):is(:hover, :focus-within) .channel-video-list > .video-card:first-child {
+    transform: rotate(-2.6deg);
+    width: 74%;
+  }
+  .channel-deck[data-preview-count="3"]:not(.expanded) .channel-video-list > .video-card:nth-child(2) {
+    transform: translateX(18%) rotate(0.6deg);
+    width: 74%;
+  }
+  .channel-deck[data-preview-count="3"]:not(.expanded) .channel-video-list > .video-card:nth-child(3) {
+    transform: translateX(36%) rotate(2.8deg);
+    width: 74%;
+  }
+  .channel-deck:not(.expanded):not(.single-card):is(:hover, :focus-within) .channel-video-list > .video-card:nth-child(2),
+  .channel-deck:not(.expanded):not(.single-card):is(:hover, :focus-within) .channel-video-list > .video-card:nth-child(3) {
+    opacity: 1;
+  }
+}
 @media (min-width: 900px) {
   #mainApp { max-width: 1100px; margin: 0 auto; }
   .video-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }

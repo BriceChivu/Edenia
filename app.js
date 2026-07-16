@@ -11786,6 +11786,11 @@ function getVideoDisplayChannelKey(video) {
   return video?.channelId || video?.channelTitle || `video:${video?.id || 'unknown'}`
 }
 
+function getVideoPublishedTimestamp(video) {
+  const timestamp = Date.parse(video?.publishedAt || '')
+  return Number.isFinite(timestamp) ? timestamp : 0
+}
+
 function groupActiveVideosByChannel(videos) {
   const groups = new Map()
   videos.forEach(video => {
@@ -11800,6 +11805,11 @@ function groupActiveVideosByChannel(videos) {
     groups.set(key, group)
   })
   return Array.from(groups.values())
+    .map(group => ({
+      ...group,
+      videos: group.videos.sort((a, b) => getVideoPublishedTimestamp(b) - getVideoPublishedTimestamp(a))
+    }))
+    .sort((a, b) => getVideoPublishedTimestamp(b.videos[0]) - getVideoPublishedTimestamp(a.videos[0]))
 }
 
 function renderChannelVideoGroups(videos) {
@@ -11814,7 +11824,7 @@ function renderChannelVideoGroups(videos) {
       ? t('videos.channel.collapseLabel', { channel: group.title })
       : t('videos.channel.expandLabel', { channel: group.title, count: group.videos.length })
     return `
-      <section class="channel-video-group channel-deck ${isExpanded ? 'expanded' : ''} ${canExpand ? '' : 'single-card'}" data-channel-key="${escHtml(group.key)}">
+      <section class="channel-video-group channel-deck ${isExpanded ? 'expanded' : ''} ${canExpand ? '' : 'single-card'}" data-channel-key="${escHtml(group.key)}" data-preview-count="${Math.min(group.videos.length, 3)}">
         <button type="button"
           class="channel-deck-toggle"
           onclick="toggleVideoChannelDeck(this)"
