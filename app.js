@@ -11978,8 +11978,21 @@ function canUseVideoShelfPreview() {
   return window.matchMedia('(min-width: 641px) and (hover: hover) and (pointer: fine)').matches
 }
 
+function isVideoShelfCardFullyVisible(card) {
+  const slot = card?.closest?.('.channel-shelf-slot')
+  const track = card?.closest?.('.channel-shelf-track')
+  if (!slot || !track) return false
+
+  const slotRect = slot.getBoundingClientRect()
+  const trackRect = track.getBoundingClientRect()
+  const edgeTolerance = 1
+  return slotRect.left >= trackRect.left - edgeTolerance
+    && slotRect.right <= trackRect.right + edgeTolerance
+}
+
 function openVideoShelfPreview(card) {
   if (!card || !canUseVideoShelfPreview() || card.classList.contains('is-floating-preview')) return
+  if (!isVideoShelfCardFullyVisible(card)) return
   if (activeVideoShelfPreview && activeVideoShelfPreview !== card) {
     closeVideoShelfPreview(activeVideoShelfPreview, true)
   }
