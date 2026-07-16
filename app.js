@@ -9447,12 +9447,14 @@ function renderStudyHistoryPanel(s) {
 }
 
 function getHistoryHeatLevel(row) {
-  const score = getHistoryDayPoints(row)
+  const score = getHistoryDayRawPoints(row)
   if (score <= 0) return 0
-  if (score < 2) return 1
-  if (score < 4) return 2
-  if (score < 7) return 3
-  return 4
+  if (score < 0.5) return 1
+  if (score < 1) return 2
+  if (score < 2) return 3
+  if (score < 4) return 4
+  if (score < 7) return 5
+  return 6
 }
 
 function getHistoryDayRawPoints(row) {
@@ -9558,7 +9560,7 @@ function renderHistoryHeatmap(s, container) {
     </div>
     <div class="heatmap-legend" aria-label="${escHtml(t('history.heatmap.legend'))}">
       <span>${escHtml(t('history.heatmap.less'))}</span>
-      ${[0, 1, 2, 3, 4].map(level => `<span class="heatmap-legend-cell level-${level}" aria-hidden="true"></span>`).join('')}
+      ${[0, 1, 2, 3, 4, 5, 6].map(level => `<span class="heatmap-legend-cell level-${level}" aria-hidden="true"></span>`).join('')}
       <span>${escHtml(t('history.heatmap.more'))}</span>
     </div>
   `
