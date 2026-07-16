@@ -11955,11 +11955,7 @@ function renderChannelShelfAvatar(group) {
 
 function syncVideoChannelShelfControls(track) {
   if (!track) return
-  if (
-    activeVideoShelfPreview
-    && track.contains(activeVideoShelfPreview)
-    && videoShelfWheelScrollTrack !== track
-  ) {
+  if (activeVideoShelfPreview && track.contains(activeVideoShelfPreview)) {
     closeVideoShelfPreview(activeVideoShelfPreview, true)
   }
   const shelf = track.closest('.channel-shelf')
@@ -11981,38 +11977,6 @@ function scrollVideoChannelShelf(button, direction) {
     left: (direction < 0 ? -1 : 1) * amount,
     behavior: reduceMotion ? 'auto' : 'smooth'
   })
-}
-
-function scrollVideoChannelShelfOnWheel(event, card) {
-  if (!event || !card || !canUseVideoShelfPreview() || event.ctrlKey) return
-  const track = card.closest('.channel-shelf-track')
-  if (!track) return
-
-  const rawDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY)
-    ? event.deltaX
-    : event.deltaY
-  if (!rawDelta) return
-
-  const deltaScale = event.deltaMode === 1
-    ? 32
-    : event.deltaMode === 2
-    ? track.clientWidth
-    : 1
-  const maxScrollLeft = Math.max(0, track.scrollWidth - track.clientWidth)
-  const nextScrollLeft = clampNumber(track.scrollLeft + (rawDelta * deltaScale), 0, maxScrollLeft)
-  if (Math.abs(nextScrollLeft - track.scrollLeft) < 1) return
-
-  event.preventDefault()
-  videoShelfWheelScrollTrack = track
-  window.clearTimeout(videoShelfWheelScrollTimer)
-  track.scrollLeft = nextScrollLeft
-  videoShelfWheelScrollTimer = window.setTimeout(() => {
-    const preview = activeVideoShelfPreview && track.contains(activeVideoShelfPreview)
-      ? activeVideoShelfPreview
-      : null
-    videoShelfWheelScrollTrack = null
-    if (preview) closeVideoShelfPreview(preview, true)
-  }, 180)
 }
 
 let activeChannelShelfDrag = null
@@ -12134,8 +12098,6 @@ function finishChannelShelfDrag() {
 
 let activeVideoShelfPreview = null
 let videoShelfPreviewCleanupTimer = null
-let videoShelfWheelScrollTimer = null
-let videoShelfWheelScrollTrack = null
 
 function canUseVideoShelfPreview() {
   return window.matchMedia('(min-width: 641px) and (hover: hover) and (pointer: fine)').matches
@@ -12945,7 +12907,7 @@ function renderCard(v, compact = false, options = {}) {
     ? `<div class="channel-shelf-priority-badge watch-later-priority-badge">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>`
     : ''
   const shelfPreviewHandlers = options.shelf
-    ? 'onmouseenter="openVideoShelfPreview(this)" onmouseleave="closeVideoShelfPreview(this)" onfocusin="openVideoShelfPreview(this)" onfocusout="closeVideoShelfPreviewAfterFocus(this)" onwheel="scrollVideoChannelShelfOnWheel(event, this)"'
+    ? 'onmouseenter="openVideoShelfPreview(this)" onmouseleave="closeVideoShelfPreview(this)" onfocusin="openVideoShelfPreview(this)" onfocusout="closeVideoShelfPreviewAfterFocus(this)"'
     : ''
   return `
     <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
