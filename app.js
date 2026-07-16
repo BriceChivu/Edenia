@@ -4163,6 +4163,121 @@ function saveState(s, options = {}) {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch {}
   }
   saveConfigCookie(s.config)
+  syncPersistedStateToAnalytics(s)
+}
+
+function roundAnalyticsNumber(value, decimals = 3) {
+  const multiplier = 10 ** decimals
+  return Math.round((Number(value) || 0) * multiplier) / multiplier
+}
+
+function getAnalyticsChannelAddedAt(state, channel) {
+  const channelLog = (Array.isArray(state?.activityLog) ? state.activityLog : []).find(entry => (
+    entry?.type === 'channel-add'
+    && (
+      entry.meta?.channelId === channel.id
+      || entry.detail === channel.name
+      || entry.detail === channel.id
+    )
+  ))
+  if (channelLog?.createdAt) {
+    return { addedAt: channelLog.createdAt, addedAtSource: 'activity_log' }
+  }
+
+  if (state?.onboarding?.setupCompletedAt) {
+    return {
+      addedAt: state.onboarding.setupCompletedAt,
+      addedAtSource: 'onboarding_completed'
+    }
+  }
+
+  return { addedAt: null, addedAtSource: 'first_sync' }
+}
+
+function getEdeniaAnalyticsSnapshot(state) {
+  const historyEnd = getCurrentAppDate(state)
+  historyEnd.setHours(23, 59, 59, 999)
+  const studyDays = getStudyHistoryBetween(state, new Date(0), historyEnd).rows
+    .map(row => {
+      const rawPoints = getHistoryDayRawPoints(row)
+      return {
+        date: row.dateKey,
+        videoSeconds: Math.max(0, Math.round(Number(row.secondsWatched) || 0)),
+        videosWatched: Math.max(0, Math.round(Number(row.videosWatched) || 0)),
+        ankiReviewed: Math.max(0, Math.round(Number(row.ankiReviewed) || 0)),
+        ankiCreated: Math.max(0, Math.round(Number(row.ankiCreated) || 0)),
+        rawPoints: roundAnalyticsNumber(rawPoints),
+        points: Math.floor(rawPoints),
+        qualifiesForStreak: rawPoints >= MIN_DAILY_STREAK_POINTS
+      }
+    })
+    .sort((left, right) => left.date.localeCompare(right.date))
+
+  const currentScore = getCurrentCityScore(state)
+  const visibleLevelIndex = clampNumber(
+    Number(state?.cityProgress?.maxLevelIndex) || 0,
+    0,
+    CITY_LEVELS.length - 1
+  )
+  const earnedLevelIndex = getCityLevelIndex(currentScore)
+  const pendingLevelIndex = Number.isInteger(state?.cityProgress?.pendingLevelIndex)
+    ? clampNumber(state.cityProgress.pendingLevelIndex, 0, CITY_LEVELS.length - 1)
+    : null
+  const channels = (Array.isArray(state?.config?.channels) ? state.config.channels : [])
+    .filter(channel => channel?.id)
+    .map(channel => ({
+      id: String(channel.id),
+      name: String(channel.name || channel.id),
+      ...getAnalyticsChannelAddedAt(state, channel)
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id))
+
+  return {
+    schemaVersion: 2,
+    capturedAt: new Date().toISOString(),
+    channels,
+    studyDays,
+    streak: {
+      currentDays: Math.max(0, Number(state?.streak?.current) || 0),
+      longestDays: Math.max(0, Number(state?.streak?.longest) || 0),
+      lastActivityDate: state?.streak?.lastActivityDate || null
+    },
+    town: {
+      visibleLevelIndex,
+      earnedLevelIndex,
+      pendingLevelIndex,
+      hasPendingLevel: pendingLevelIndex !== null && pendingLevelIndex > visibleLevelIndex,
+      totalStudyScore: roundAnalyticsNumber(currentScore)
+    },
+    settings: {
+      locale: normalizeLocale(state?.config?.locale),
+      theme: normalizeTheme(state?.config?.theme),
+      weeklyGoalHours: normalizeWeeklyGoalHours(state?.config?.weeklyGoalHours),
+      includeShortVideos: normalizeIncludeShorts(state?.config?.includeShorts),
+      ankiEnabled: isAnkiEnabled(state),
+      studyInsightsEnabled: isStudyInsightsEnabled(state),
+      historyView: normalizeHistoryView(state?.config?.historyView),
+      channelShelfOrder: normalizeChannelShelfOrder(state?.config?.channelShelfOrder),
+      learningLanguages: Array.isArray(state?.learnerProfile?.languages)
+        ? state.learnerProfile.languages.map(String)
+        : [],
+      learnerLevel: state?.learnerProfile?.level || null,
+      onboardingCompleted: Boolean(state?.onboarding?.setupCompleted)
+    }
+  }
+}
+
+function syncPersistedStateToAnalytics(state) {
+  if (
+    IS_SANDBOX
+    || !window.EDENIA_ANALYTICS_ENABLED
+    || typeof window.syncEdeniaAnalyticsState !== 'function'
+    || !state
+  ) return
+
+  try {
+    window.syncEdeniaAnalyticsState(getEdeniaAnalyticsSnapshot(state))
+  } catch {}
 }
 
 function defaultState(goalHours, channels, theme, removedDefaultChannelIds = null, locale = null) {
@@ -5782,13 +5897,6 @@ async function finishPersonalizedOnboarding() {
     detail: onboardingDetail
   })
   saveState(state)
-  if (addedChannelCount > 0) {
-    window.trackEdeniaEvent?.('channel_added', {
-      source: 'onboarding',
-      added_count: addedChannelCount,
-      total_channel_count: state.config.channels.length
-    })
-  }
   window.trackEdeniaEvent?.('onboarding_completed', {
     selected_channel_count: state.learnerProfile.selectedChannelCatalogIds.length,
     added_channel_count: addedChannelCount,
@@ -7065,14 +7173,10 @@ async function addChannel(options = {}) {
     type: 'channel-add',
     status: 'success',
     title: t('log.channelAdded.title'),
-    detail: name
+    detail: name,
+    meta: { channelId: id }
   })
   saveState(s)
-  window.trackEdeniaEvent?.('channel_added', {
-    source: 'manual',
-    added_count: 1,
-    total_channel_count: s.config.channels.length
-  })
   renderFeed(s)
   renderActivityLog(s)
   if (idEl) idEl.value = ''
@@ -7126,7 +7230,8 @@ function removeChannel(id) {
     type: 'channel-remove',
     status: 'success',
     title: t('log.channelRemoved.title'),
-    detail: channel?.name || id
+    detail: channel?.name || id,
+    meta: { channelId: id }
   })
   saveState(s)
   renderAll(s)

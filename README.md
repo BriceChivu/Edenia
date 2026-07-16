@@ -238,7 +238,7 @@ The app makes these external connections:
 - Local AnkiConnect when Anki tracking is enabled and Anki is available.
 - PostHog only on the official `https://bricechivu.github.io/Edenia/` deployment.
 
-Production analytics use anonymous sessions with autocapture and session recording disabled. Edenia records controlled button actions and aggregate outcome events for onboarding completion, channel additions, refresh results, video opens, and watched completions. Event properties describe categories and counts rather than study-content identifiers. PostHog is not initialized on localhost, alternate domains, or other paths.
+Production analytics create a PostHog person profile for each browser installation, with autocapture and session recording disabled. Edenia records controlled button actions, channel additions and removals with channel IDs and names, aggregate daily study progress, streak changes, current and earned town levels, current settings, onboarding completion, refresh results, video opens, and watched completions. Existing local study days and configured channels are synchronized once when this analytics schema is first seen, then only changed values generate additional state events. Video titles, video URLs, YouTube API keys, sync-file contents, and raw browser state are not sent. PostHog is not initialized on localhost, alternate domains, sandbox mode, or other paths.
 
 ## Project Structure
 
@@ -247,7 +247,7 @@ Production analytics use anonymous sessions with autocapture and session recordi
 | `index.html` | App structure, first-run trailer, runtime script loading, and production analytics initialization |
 | `style.css` | Responsive layout, themes, motion, accessibility, and component styling |
 | `app.js` | State, localization, onboarding, YouTube and Anki integrations, history, insights, scoring, and rendering |
-| `analytics.js` | Controlled PostHog event forwarding and button-action tracking |
+| `analytics.js` | PostHog person profiles, deduplicated state synchronization, historical aggregate backfill, and controlled button-action tracking |
 | `config.example.js` | Safe local runtime-config template |
 | `assets/fonts/` | Self-hosted Space Grotesk and Bebas Neue font subsets |
 | `images/channel-avatars/` | Bundled curated-channel avatars |
