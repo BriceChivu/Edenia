@@ -4162,7 +4162,7 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
 .channel-shelf-avatar {
   align-items: center;
   background: var(--soft-blue);
-  border: 2px solid var(--planet-black);
+  border: 1px solid var(--planet-black);
   border-radius: 999px;
   color: var(--accent);
   display: inline-flex;
