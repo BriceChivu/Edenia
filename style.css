@@ -4512,34 +4512,25 @@ body[data-theme="dark"] .video-grid-remove:focus-visible {
 }
 body[data-theme="dark"] .dur-badge { color: #ffffff; }
 .video-upload-ribbon {
-  --ribbon-fold: #719523;
-  background: var(--planet-lime);
-  border: 1.5px solid var(--planet-black);
-  border-radius: 6px 6px 6px 2px;
-  box-shadow: 0 2px 0 rgba(5,5,5,0.2);
-  color: var(--planet-black);
-  font-size: 0.62rem;
+  background: #e50914;
+  border: 0;
+  border-radius: 4px 4px 0 0;
+  bottom: 0;
+  box-shadow: 0 2px 6px rgba(5,5,5,0.34);
+  color: #ffffff;
+  font-size: 0.7rem;
   font-weight: 850;
   left: 8px;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   line-height: 1;
-  padding: 4px 7px;
+  padding: 6px 10px 7px;
   position: absolute;
-  text-transform: uppercase;
-  top: 8px;
+  top: auto;
+  white-space: nowrap;
   z-index: 4;
 }
-.video-upload-ribbon::after {
-  border-left: 4px solid transparent;
-  border-top: 4px solid var(--ribbon-fold);
-  content: "";
-  left: 0;
-  position: absolute;
-  top: calc(100% + 1px);
-}
 .video-upload-ribbon.uploaded-today {
-  --ribbon-fold: #087fa6;
-  background: var(--planet-cyan);
+  background: #e50914;
 }
 /* Card body */
 .card-body {
@@ -5867,6 +5858,11 @@ summary:focus-visible,
     right: 44px;
     top: 8px;
     z-index: 3;
+  }
+  .channel-shelf-card .video-upload-ribbon {
+    border-radius: 4px;
+    bottom: auto;
+    top: 8px;
   }
   .channel-shelf-card:hover,
   .channel-shelf-card:hover .thumb {
