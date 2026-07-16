@@ -3052,6 +3052,10 @@ body[data-theme="dark"] .next-study-cta:hover { background: var(--surface-hi); }
   width: min(260px, calc(100vw - 48px));
   z-index: 30;
 }
+.history-period-cell:first-child .history-period-popover {
+  left: 0;
+  transform: none;
+}
 .history-period-cell.open .history-period-popover {
   display: grid;
   gap: 7px;
