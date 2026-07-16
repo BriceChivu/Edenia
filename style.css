@@ -6548,6 +6548,11 @@ summary:focus-visible,
   .channel-shelf-card.status-partial:not(.is-previewing) {
     border-color: #c68b17;
   }
+  .channel-shelf-card.status-partial {
+    --shelf-resume-bg: rgba(252,184,49,0.92);
+    --shelf-resume-border: #c68b17;
+    --shelf-resume-text: #3c2800;
+  }
   .channel-shelf-card.status-watch-later:not(.is-previewing) {
     border-color: #087fa6;
   }
@@ -6571,8 +6576,8 @@ summary:focus-visible,
     z-index: 3;
   }
   .partial-priority-badge {
-    background: rgba(252,184,49,0.92);
-    color: #3c2800;
+    background: var(--shelf-resume-bg);
+    color: var(--shelf-resume-text);
   }
   .watch-later-priority-badge {
     background: rgba(18,188,234,0.92);
@@ -6741,14 +6746,14 @@ summary:focus-visible,
     display: none;
   }
   .channel-shelf-card.is-previewing .partial-btn.active {
-    background: #8a5c00;
-    border-color: #5f3a00;
-    color: #fff8e8;
+    background: var(--shelf-resume-bg);
+    border-color: var(--shelf-resume-border);
+    color: var(--shelf-resume-text);
   }
   body[data-theme="dark"] .channel-shelf-card.is-previewing .partial-btn.active {
-    background: #8a5c00;
-    border-color: #d59a3a;
-    color: #fff8e8;
+    background: var(--shelf-resume-bg);
+    border-color: var(--shelf-resume-border);
+    color: var(--shelf-resume-text);
   }
   .channel-shelf-card.is-previewing .dur-badge {
     bottom: 6px;
