@@ -6406,6 +6406,7 @@ summary:focus-visible,
     overflow: hidden;
     transform-origin: center;
     transition:
+      aspect-ratio var(--motion-base) var(--ease-emphasized),
       border-color var(--motion-base) var(--ease-standard),
       box-shadow var(--motion-base) var(--ease-standard),
       transform var(--motion-base) var(--ease-emphasized);
@@ -6497,15 +6498,36 @@ summary:focus-visible,
     z-index: 2;
   }
   .channel-shelf-card:is(:hover, :focus-within) {
+    aspect-ratio: 1;
     border-color: var(--planet-black);
     box-shadow: 0 12px 24px rgba(5,5,5,0.28), 0 4px 0 rgba(5,5,5,0.24);
-    transform: scale(1.12);
+    transform: scale(1.08);
     z-index: 12;
   }
+  .channel-shelf-card:is(:hover, :focus-within) .thumb-link {
+    bottom: auto;
+    height: 55%;
+  }
   .channel-shelf-card:is(:hover, :focus-within) .card-body {
+    background: var(--surface);
+    color: var(--text);
+    height: 45%;
+    inset: auto 0 0;
     opacity: 1;
+    padding: 8px 10px 9px;
     pointer-events: auto;
     transform: translateY(0);
+  }
+  .channel-shelf-card:is(:hover, :focus-within) .card-title {
+    color: var(--text);
+    text-shadow: none;
+  }
+  .channel-shelf-card:is(:hover, :focus-within) .card-meta,
+  .channel-shelf-card:is(:hover, :focus-within) .pub-ago {
+    color: var(--muted);
+  }
+  .channel-shelf-card:is(:hover, :focus-within) .card-status {
+    display: none;
   }
   .channel-shelf-card:is(:hover, :focus-within) .dur-badge {
     right: 36px;
