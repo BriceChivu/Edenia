@@ -4748,8 +4748,8 @@ function initBackgroundPhysics() {
   let resizeTimer = null
 
   const getDotColor = () => document.body.dataset.theme === 'dark'
-    ? 'rgba(130, 210, 239, 0.13)'
-    : 'rgba(5, 5, 5, 0.075)'
+    ? 'rgba(130, 210, 239, 0.17)'
+    : 'rgba(5, 5, 5, 0.095)'
 
   const drawParticlePath = (targetContext, items, xKey, yKey, radius) => {
     targetContext.beginPath()
