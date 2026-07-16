@@ -11882,18 +11882,13 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = []) {
         ondragover="moveChannelShelfDrag(event, this)"
         ondragleave="leaveChannelShelfDrag(event, this)"
         ondrop="dropChannelShelf(event, this)">
-        <header class="channel-shelf-header">
+        <header class="channel-shelf-header"
+          draggable="true"
+          ondragstart="startChannelShelfDrag(event, this)"
+          ondragend="finishChannelShelfDrag()"
+          aria-label="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}"
+          title="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}">
           <div class="channel-shelf-identity">
-            <button type="button"
-              class="channel-shelf-drag-handle"
-              draggable="true"
-              tabindex="-1"
-              ondragstart="startChannelShelfDrag(event, this)"
-              ondragend="finishChannelShelfDrag()"
-              aria-label="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}"
-              title="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}">
-              <span aria-hidden="true">⠿</span>
-            </button>
             ${renderChannelShelfAvatar(group)}
             <span class="channel-shelf-heading">
               <strong>${escHtml(group.title)}</strong>
@@ -11953,7 +11948,7 @@ function renderChannelShelfAvatar(group) {
     || sandboxChannel?.imageUrl
     || (curatedChannel ? getCuratedChannelAvatarPath(curatedChannel.id) : '')
   const avatarImage = avatarUrl
-    ? `<img src="${escHtml(avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.hidden=true">`
+    ? `<img src="${escHtml(avatarUrl)}" alt="" loading="lazy" draggable="false" referrerpolicy="no-referrer" onerror="this.hidden=true">`
     : ''
   return `<span class="channel-shelf-avatar" aria-hidden="true"><span>${escHtml(initials)}</span>${avatarImage}</span>`
 }
@@ -12035,21 +12030,24 @@ function clearChannelShelfDropIndicators() {
 
 function createChannelShelfDragPreview(shelf) {
   activeChannelShelfDragPreview?.remove()
-  const identity = shelf.querySelector('.channel-shelf-identity')?.cloneNode(true)
-  identity?.querySelector('.channel-shelf-drag-handle')?.remove()
-  if (!identity) return null
+  const header = shelf.querySelector('.channel-shelf-header')?.cloneNode(true)
+  if (!header) return null
+  header.removeAttribute('draggable')
+  header.removeAttribute('ondragstart')
+  header.removeAttribute('ondragend')
+  header.removeAttribute('title')
 
   const preview = document.createElement('div')
   preview.className = 'channel-shelf-drag-preview'
   preview.style.width = `${Math.min(Math.max(shelf.getBoundingClientRect().width * 0.42, 280), 420)}px`
-  preview.append(identity)
+  preview.append(header)
   document.body.append(preview)
   activeChannelShelfDragPreview = preview
   return preview
 }
 
-function startChannelShelfDrag(event, handle) {
-  const shelf = handle?.closest?.('.channel-shelf')
+function startChannelShelfDrag(event, dragTarget) {
+  const shelf = dragTarget?.closest?.('.channel-shelf')
   if (!event || !shelf || !canReorderChannelShelves()) {
     event?.preventDefault()
     return

@@ -4176,9 +4176,6 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
   gap: 9px;
   min-width: 0;
 }
-.channel-shelf-drag-handle {
-  display: none;
-}
 .channel-shelf-avatar {
   align-items: center;
   background: var(--soft-blue);
@@ -6405,29 +6402,14 @@ summary:focus-visible,
       transform var(--motion-slow) var(--ease-emphasized);
     z-index: 1;
   }
-  .channel-shelf-drag-handle {
-    align-items: center;
-    background: transparent;
-    border: 0;
-    border-radius: 6px;
-    color: var(--muted);
+  .channel-shelf-header,
+  .channel-shelf-header .channel-shelf-scroll {
     cursor: grab;
-    display: inline-flex;
-    flex: 0 0 18px;
-    font: inherit;
-    font-size: 1rem;
-    height: 30px;
-    justify-content: center;
-    line-height: 1;
-    padding: 0;
-    width: 18px;
+    user-select: none;
   }
-  .channel-shelf-drag-handle:hover {
-    background: var(--surface-hi);
-    color: var(--text);
-  }
-  .channel-shelf-drag-handle:active,
-  .channel-shelf.is-dragging .channel-shelf-drag-handle {
+  .channel-shelf-header:active,
+  .channel-shelf.is-dragging .channel-shelf-header,
+  .channel-shelf.is-dragging .channel-shelf-scroll {
     cursor: grabbing;
   }
   .channel-shelf.is-dragging {
@@ -6486,6 +6468,11 @@ summary:focus-visible,
     pointer-events: none;
     position: fixed;
     top: -10000px;
+  }
+  .channel-shelf-drag-preview .channel-shelf-header {
+    margin: 0;
+    padding: 0;
+    width: 100%;
   }
   .channel-shelf-drag-preview .channel-shelf-identity {
     gap: 11px;
