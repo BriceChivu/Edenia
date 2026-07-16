@@ -956,6 +956,7 @@ const I18N_EN = {
   'videos.channel.shelfLabel': '{channel} videos',
   'videos.channel.previousLabel': 'Scroll {channel} videos left',
   'videos.channel.nextLabel': 'Scroll {channel} videos right',
+  'videos.channel.dragLabel': 'Reorder {channel}',
   'videos.status.all': 'All',
   'videos.status.watchLater': 'Watch later',
   'videos.status.unwatched': 'Unwatched',
@@ -1520,6 +1521,7 @@ const I18N = {
     'videos.channel.shelfLabel': '{channel} 的影片',
     'videos.channel.previousLabel': '向左瀏覽 {channel} 的影片',
     'videos.channel.nextLabel': '向右瀏覽 {channel} 的影片',
+    'videos.channel.dragLabel': '重新排列 {channel}',
     'videos.status.all': '全部',
     'videos.status.watchLater': '稍後觀看',
     'videos.status.unwatched': '未觀看',
@@ -1943,6 +1945,7 @@ const I18N = {
     'videos.channel.shelfLabel': '{channel} 的视频',
     'videos.channel.previousLabel': '向左浏览 {channel} 的视频',
     'videos.channel.nextLabel': '向右浏览 {channel} 的视频',
+    'videos.channel.dragLabel': '重新排列 {channel}',
     'videos.status.all': '全部',
     'videos.status.watchLater': '稍后观看',
     'videos.status.unwatched': '未观看',
@@ -2360,6 +2363,7 @@ const I18N = {
     'videos.channel.shelfLabel': 'Vídeos de {channel}',
     'videos.channel.previousLabel': 'Desplazar los vídeos de {channel} a la izquierda',
     'videos.channel.nextLabel': 'Desplazar los vídeos de {channel} a la derecha',
+    'videos.channel.dragLabel': 'Reordenar {channel}',
     'videos.status.all': 'Todo',
     'videos.status.watchLater': 'Ver luego',
     'videos.status.unwatched': 'Sin ver',
@@ -2777,6 +2781,7 @@ const I18N = {
     'videos.channel.shelfLabel': 'Vidéos de {channel}',
     'videos.channel.previousLabel': 'Faire défiler les vidéos de {channel} vers la gauche',
     'videos.channel.nextLabel': 'Faire défiler les vidéos de {channel} vers la droite',
+    'videos.channel.dragLabel': 'Réorganiser {channel}',
     'videos.status.all': 'Tout',
     'videos.status.watchLater': 'À voir',
     'videos.status.unwatched': 'Non vue',
@@ -4189,6 +4194,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
       historyView: getDefaultHistoryView(),
       studyInsights: { enabled: true, collapsed: false, history: [] },
       channels: Array.isArray(channels) ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
+      channelShelfOrder: [],
       removedDefaultChannelIds: restoredRemovedDefaultIds || [],
       removedChannelIds: []
     },
@@ -11752,7 +11758,7 @@ function renderFeed(s) {
   } else if (!activeVideos.length) {
     grid.innerHTML = ''
   } else if (isChannelView) {
-    grid.innerHTML = renderChannelVideoGroups(activeVideos, cardOptions)
+    grid.innerHTML = renderChannelVideoGroups(activeVideos, cardOptions, s.config?.channelShelfOrder)
   } else {
     grid.innerHTML = activeVideos.map(v => renderCard(v, false, cardOptions)).join('')
   }
@@ -11822,7 +11828,16 @@ function getVideoUploadRibbon(video, currentDateKey = getCurrentAppDateKey()) {
   return toDateKey(publishedAt) === currentDateKey ? t('videos.card.new') : null
 }
 
-function groupActiveVideosByChannel(videos) {
+function normalizeChannelShelfOrder(order) {
+  if (!Array.isArray(order)) return []
+  return Array.from(new Set(
+    order
+      .map(key => String(key || '').trim())
+      .filter(Boolean)
+  ))
+}
+
+function groupActiveVideosByChannel(videos, channelOrder = []) {
   const groups = new Map()
   videos.forEach(video => {
     const key = getVideoDisplayChannelKey(video)
@@ -11835,28 +11850,50 @@ function groupActiveVideosByChannel(videos) {
     group.videos.push(video)
     groups.set(key, group)
   })
+  const orderedChannelIndexes = new Map(
+    normalizeChannelShelfOrder(channelOrder).map((key, index) => [key, index])
+  )
   return Array.from(groups.values())
     .map(group => ({
       ...group,
       videos: group.videos.sort(compareActiveVideos)
     }))
     .sort((a, b) => {
+      const aIndex = orderedChannelIndexes.get(a.key)
+      const bIndex = orderedChannelIndexes.get(b.key)
+      if (aIndex !== undefined && bIndex !== undefined) return aIndex - bIndex
+      if (aIndex !== undefined) return -1
+      if (bIndex !== undefined) return 1
       const latestB = Math.max(...b.videos.map(getVideoPublishedTimestamp))
       const latestA = Math.max(...a.videos.map(getVideoPublishedTimestamp))
       return latestB - latestA
     })
 }
 
-function renderChannelVideoGroups(videos, cardOptions = {}) {
-  return groupActiveVideosByChannel(videos).map((group, index) => {
+function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = []) {
+  return groupActiveVideosByChannel(videos, channelOrder).map((group, index) => {
     const countLabel = group.videos.length === 1
       ? t('videos.channel.oneVideo')
       : t('videos.channel.videoCount', { count: group.videos.length })
     const trackId = `channelShelfTrack${index}`
     return `
-      <section class="channel-video-group channel-shelf" data-channel-key="${escHtml(group.key)}">
+      <section class="channel-video-group channel-shelf"
+        data-channel-key="${escHtml(group.key)}"
+        ondragover="moveChannelShelfDrag(event, this)"
+        ondragleave="leaveChannelShelfDrag(event, this)"
+        ondrop="dropChannelShelf(event, this)">
         <header class="channel-shelf-header">
           <div class="channel-shelf-identity">
+            <button type="button"
+              class="channel-shelf-drag-handle"
+              draggable="true"
+              tabindex="-1"
+              ondragstart="startChannelShelfDrag(event, this)"
+              ondragend="finishChannelShelfDrag()"
+              aria-label="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}"
+              title="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}">
+              <span aria-hidden="true">⠿</span>
+            </button>
             ${renderChannelShelfAvatar(group)}
             <span class="channel-shelf-heading">
               <strong>${escHtml(group.title)}</strong>
@@ -11971,6 +12008,93 @@ function scrollVideoChannelShelfOnWheel(event, card) {
   track.scrollLeft = nextScrollLeft
 }
 
+let activeChannelShelfDrag = null
+
+function canReorderChannelShelves() {
+  return window.matchMedia('(min-width: 641px) and (hover: hover) and (pointer: fine)').matches
+}
+
+function clearChannelShelfDropIndicators() {
+  document.querySelectorAll('.channel-shelf.drag-over-before, .channel-shelf.drag-over-after').forEach(shelf => {
+    shelf.classList.remove('drag-over-before', 'drag-over-after')
+  })
+}
+
+function startChannelShelfDrag(event, handle) {
+  const shelf = handle?.closest?.('.channel-shelf')
+  if (!event || !shelf || !canReorderChannelShelves()) {
+    event?.preventDefault()
+    return
+  }
+
+  closeVideoShelfPreview(activeVideoShelfPreview, true)
+  activeChannelShelfDrag = shelf
+  shelf.classList.add('is-dragging')
+  document.body.classList.add('channel-shelf-dragging')
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', shelf.dataset.channelKey || '')
+}
+
+function getChannelShelfDropPosition(event, shelf) {
+  const rect = shelf.getBoundingClientRect()
+  return event.clientY < rect.top + (rect.height / 2) ? 'before' : 'after'
+}
+
+function moveChannelShelfDrag(event, shelf) {
+  if (!activeChannelShelfDrag || !shelf || shelf === activeChannelShelfDrag) return
+  event.preventDefault()
+  event.dataTransfer.dropEffect = 'move'
+  const position = getChannelShelfDropPosition(event, shelf)
+  clearChannelShelfDropIndicators()
+  shelf.classList.add(position === 'before' ? 'drag-over-before' : 'drag-over-after')
+}
+
+function leaveChannelShelfDrag(event, shelf) {
+  if (!shelf || shelf.contains(event.relatedTarget)) return
+  shelf.classList.remove('drag-over-before', 'drag-over-after')
+}
+
+function saveChannelShelfOrder(grid) {
+  const visibleOrder = Array.from(grid?.querySelectorAll?.('.channel-shelf') || [])
+    .map(shelf => shelf.dataset.channelKey)
+    .filter(Boolean)
+  if (!visibleOrder.length) return
+
+  const state = loadState()
+  if (!state?.config) return
+  const visibleKeys = new Set(visibleOrder)
+  const mergedOrder = normalizeChannelShelfOrder(state.config.channelShelfOrder)
+  visibleOrder.forEach(key => {
+    if (!mergedOrder.includes(key)) mergedOrder.push(key)
+  })
+  let visibleIndex = 0
+  state.config.channelShelfOrder = mergedOrder.map(key => (
+    visibleKeys.has(key) ? visibleOrder[visibleIndex++] : key
+  ))
+  saveState(state)
+}
+
+function dropChannelShelf(event, shelf) {
+  if (!activeChannelShelfDrag || !shelf || shelf === activeChannelShelfDrag) return
+  event.preventDefault()
+  const grid = shelf.closest('.video-grid')
+  const position = getChannelShelfDropPosition(event, shelf)
+  if (position === 'before') {
+    shelf.before(activeChannelShelfDrag)
+  } else {
+    shelf.after(activeChannelShelfDrag)
+  }
+  saveChannelShelfOrder(grid)
+  finishChannelShelfDrag()
+}
+
+function finishChannelShelfDrag() {
+  activeChannelShelfDrag?.classList.remove('is-dragging')
+  activeChannelShelfDrag = null
+  clearChannelShelfDropIndicators()
+  document.body.classList.remove('channel-shelf-dragging')
+}
+
 let activeVideoShelfPreview = null
 let videoShelfPreviewCleanupTimer = null
 
@@ -11992,6 +12116,7 @@ function isVideoShelfCardFullyVisible(card) {
 
 function openVideoShelfPreview(card) {
   if (!card || !canUseVideoShelfPreview() || card.classList.contains('is-floating-preview')) return
+  if (activeChannelShelfDrag) return
   if (!isVideoShelfCardFullyVisible(card)) return
   if (activeVideoShelfPreview && activeVideoShelfPreview !== card) {
     closeVideoShelfPreview(activeVideoShelfPreview, true)

@@ -4176,6 +4176,9 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
   gap: 9px;
   min-width: 0;
 }
+.channel-shelf-drag-handle {
+  display: none;
+}
 .channel-shelf-avatar {
   align-items: center;
   background: var(--soft-blue);
@@ -6397,6 +6400,56 @@ summary:focus-visible,
   .channel-shelf {
     position: relative;
     z-index: 1;
+  }
+  .channel-shelf-drag-handle {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 6px;
+    color: var(--muted);
+    cursor: grab;
+    display: inline-flex;
+    flex: 0 0 18px;
+    font: inherit;
+    font-size: 1rem;
+    height: 30px;
+    justify-content: center;
+    line-height: 1;
+    padding: 0;
+    width: 18px;
+  }
+  .channel-shelf-drag-handle:hover {
+    background: var(--surface-hi);
+    color: var(--text);
+  }
+  .channel-shelf-drag-handle:active,
+  .channel-shelf.is-dragging .channel-shelf-drag-handle {
+    cursor: grabbing;
+  }
+  .channel-shelf.is-dragging {
+    opacity: 0.42;
+  }
+  .channel-shelf.drag-over-before::before,
+  .channel-shelf.drag-over-after::after {
+    background: var(--accent);
+    border: 1px solid var(--planet-black);
+    border-radius: 999px;
+    content: "";
+    height: 4px;
+    left: 4px;
+    pointer-events: none;
+    position: absolute;
+    right: 4px;
+    z-index: 30;
+  }
+  .channel-shelf.drag-over-before::before {
+    top: -13px;
+  }
+  .channel-shelf.drag-over-after::after {
+    bottom: -13px;
+  }
+  body.channel-shelf-dragging .channel-shelf-card {
+    pointer-events: none;
   }
   .channel-shelf:has(.channel-shelf-card:is(:hover, :focus-within)) {
     z-index: 20;
