@@ -3834,21 +3834,6 @@ body[data-theme="dark"] .channel-filter-empty-highlight .channel-filter-btn::bef
   cursor: wait;
   opacity: 0.62;
 }
-.manual-video-channel-options {
-  border-top: 1px solid var(--border);
-  margin-top: 8px;
-  max-height: 220px;
-  overflow-y: auto;
-  padding-top: 5px;
-}
-.manual-video-channel-title {
-  color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  padding: 3px 8px 5px;
-  text-transform: uppercase;
-}
 .channel-filter-menu {
   position: absolute;
   top: calc(100% + 6px);
@@ -4230,6 +4215,9 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
   color: var(--muted);
   font-size: 0.7rem;
   font-weight: 700;
+}
+.channel-shelf-remove {
+  display: none;
 }
 .channel-shelf-controls {
   align-items: center;
@@ -6431,6 +6419,46 @@ summary:focus-visible,
   }
   .channel-shelf-scroll {
     cursor: pointer;
+  }
+  .channel-shelf-remove {
+    align-items: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: var(--muted);
+    cursor: pointer;
+    display: inline-flex;
+    flex: 0 0 24px;
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    height: 24px;
+    justify-content: center;
+    line-height: 1;
+    margin-left: 1px;
+    opacity: 0;
+    padding: 0 0 2px;
+    pointer-events: none;
+    transform: scale(0.86);
+    transition:
+      background var(--motion-fast) var(--ease-standard),
+      border-color var(--motion-fast) var(--ease-standard),
+      color var(--motion-fast) var(--ease-standard),
+      opacity var(--motion-fast) var(--ease-standard),
+      transform var(--motion-fast) var(--ease-standard);
+  }
+  .channel-shelf:hover .channel-shelf-remove,
+  .channel-shelf:focus-within .channel-shelf-remove {
+    opacity: 0.68;
+    pointer-events: auto;
+    transform: scale(1);
+  }
+  .channel-shelf-remove:hover,
+  .channel-shelf-remove:focus-visible {
+    background: var(--surface-hi);
+    border-color: var(--border);
+    color: var(--text);
+    opacity: 1;
   }
   .channel-shelf.is-dragging {
     filter: saturate(0.65);

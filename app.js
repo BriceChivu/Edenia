@@ -11922,6 +11922,12 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = []) {
               <strong>${escHtml(group.title)}</strong>
               <span>${escHtml(countLabel)}</span>
             </span>
+            <button type="button"
+              class="channel-shelf-remove"
+              data-channel-id="${escHtml(group.key)}"
+              onclick="removeChannelFromFilter(event, this.dataset.channelId)"
+              title="${escHtml(t('settings.remove'))}"
+              aria-label="${escHtml(t('settings.remove'))}">×</button>
           </div>
           <div class="channel-shelf-controls">
             <button type="button"
