@@ -6366,10 +6366,21 @@ summary:focus-visible,
     color: #e7f6f8;
   }
   body[data-theme="dark"] :is(.undo-btn:disabled, .redo-btn:disabled) {
-    background: #122a31;
-    border-color: #4f737e;
+    background: transparent;
+    border-color: transparent;
     color: #9db9c0;
     opacity: 0.72;
+  }
+  body[data-theme="dark"] .undo-wrap {
+    background: #17323a;
+    border-color: #5f8793;
+  }
+  body[data-theme="dark"] .feed-action-controls :is(.undo-btn, .redo-btn) {
+    background: transparent;
+    border: 0;
+  }
+  body[data-theme="dark"] .undo-action-wrap + .undo-action-wrap::before {
+    background: #5f8793;
   }
   body[data-theme="dark"] :is(
     .empty-state,
