@@ -4289,6 +4289,9 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
 .channel-shelf-card {
   width: 100%;
 }
+.channel-shelf-priority-badge {
+  display: none;
+}
 .channel-view .channel-name {
   display: none;
 }
@@ -6416,6 +6419,42 @@ summary:focus-visible,
     transition:
       border-color var(--motion-base) var(--ease-standard),
       box-shadow var(--motion-base) var(--ease-standard);
+  }
+  .channel-shelf-card.status-partial:not(.is-previewing) {
+    border-color: #c68b17;
+  }
+  .channel-shelf-card.status-watch-later:not(.is-previewing) {
+    border-color: #087fa6;
+  }
+  .channel-shelf-priority-badge {
+    align-items: center;
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255,255,255,0.58);
+    border-radius: 999px;
+    box-shadow: 0 2px 6px rgba(5,5,5,0.24);
+    display: inline-flex;
+    font-size: 0.66rem;
+    font-weight: 800;
+    gap: 4px;
+    left: 8px;
+    line-height: 1;
+    padding: 4px 7px;
+    pointer-events: none;
+    position: absolute;
+    top: 8px;
+    transition: opacity var(--motion-fast) var(--ease-standard);
+    z-index: 3;
+  }
+  .partial-priority-badge {
+    background: rgba(252,184,49,0.92);
+    color: #3c2800;
+  }
+  .watch-later-priority-badge {
+    background: rgba(18,188,234,0.92);
+    color: #052a36;
+  }
+  .channel-shelf-card.is-previewing .channel-shelf-priority-badge {
+    opacity: 0;
   }
   .channel-shelf-card .thumb-link {
     aspect-ratio: auto;

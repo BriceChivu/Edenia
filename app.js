@@ -11806,6 +11806,16 @@ function getVideoPublishedTimestamp(video) {
   return Number.isFinite(timestamp) ? timestamp : 0
 }
 
+function compareActiveVideos(a, b) {
+  const statusPriority = {
+    partial: 2,
+    'watch-later': 1
+  }
+  const priorityDiff = (statusPriority[getVideoStatus(b)] || 0) - (statusPriority[getVideoStatus(a)] || 0)
+  if (priorityDiff) return priorityDiff
+  return getVideoPublishedTimestamp(b) - getVideoPublishedTimestamp(a)
+}
+
 function getVideoUploadRibbon(video, currentDateKey = getCurrentAppDateKey()) {
   const publishedAt = new Date(video?.publishedAt || '')
   if (Number.isNaN(publishedAt.getTime())) return null
@@ -11828,9 +11838,13 @@ function groupActiveVideosByChannel(videos) {
   return Array.from(groups.values())
     .map(group => ({
       ...group,
-      videos: group.videos.sort((a, b) => getVideoPublishedTimestamp(b) - getVideoPublishedTimestamp(a))
+      videos: group.videos.sort(compareActiveVideos)
     }))
-    .sort((a, b) => getVideoPublishedTimestamp(b.videos[0]) - getVideoPublishedTimestamp(a.videos[0]))
+    .sort((a, b) => {
+      const latestB = Math.max(...b.videos.map(getVideoPublishedTimestamp))
+      const latestA = Math.max(...a.videos.map(getVideoPublishedTimestamp))
+      return latestB - latestA
+    })
 }
 
 function renderChannelVideoGroups(videos, cardOptions = {}) {
@@ -12639,21 +12653,12 @@ function isHiddenShortVideo(video, includeShorts) {
 function getVisibleActiveVideos(videos, includeShorts = true, options = {}) {
   const limitPerChannel = options.limitPerChannel !== false
   const byChannel = new Map()
-  const activeSort = (a, b) => {
-    const statusPriority = {
-      partial: 2,
-      'watch-later': 1
-    }
-    const priorityDiff = (statusPriority[getVideoStatus(b)] || 0) - (statusPriority[getVideoStatus(a)] || 0)
-    if (priorityDiff) return priorityDiff
-    return new Date(b.publishedAt) - new Date(a.publishedAt)
-  }
 
   const visibleVideos = videos
     .filter(v => getVideoStatus(v) !== 'watched')
     .filter(v => !isHiddenFromVideoGrid(v))
     .filter(v => !isHiddenShortVideo(v, includeShorts))
-    .sort(activeSort)
+    .sort(compareActiveVideos)
 
   if (!limitPerChannel) return visibleVideos
 
@@ -12668,7 +12673,7 @@ function getVisibleActiveVideos(videos, includeShorts = true, options = {}) {
 
   return Array.from(byChannel.values())
     .flat()
-    .sort(activeSort)
+    .sort(compareActiveVideos)
 }
 
 function getActiveVideoGroupKey(video) {
@@ -12725,6 +12730,11 @@ function renderCard(v, compact = false, options = {}) {
     <span class="dur-badge">${formatDuration(v.duration)}</span>
   `
   const thumbnailLink = `<a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${thumbnailContent}</a>`
+  const shelfPriorityBadge = options.shelf && isPartial
+    ? `<div class="channel-shelf-priority-badge partial-priority-badge">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</div>`
+    : options.shelf && isWatchLater
+    ? `<div class="channel-shelf-priority-badge watch-later-priority-badge">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>`
+    : ''
   const shelfPreviewHandlers = options.shelf
     ? 'onmouseenter="openVideoShelfPreview(this)" onmouseleave="closeVideoShelfPreview(this)" onfocusin="openVideoShelfPreview(this)" onfocusout="closeVideoShelfPreviewAfterFocus(this)"'
     : ''
@@ -12732,6 +12742,7 @@ function renderCard(v, compact = false, options = {}) {
     <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
       ${removeFromGridButton}
       ${thumbnailLink}
+      ${shelfPriorityBadge}
       <div class="card-body">
         ${isPartial ? `<div class="card-status partial-status">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</div>` : ''}
         ${isWatchLater ? `<div class="card-status watch-later-status">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>` : ''}
