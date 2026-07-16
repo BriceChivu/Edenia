@@ -926,6 +926,7 @@ const I18N_EN = {
   'history.tooltip.ankiReviewed': 'Anki reviewed',
   'history.tooltip.ankiCreated': 'New Anki cards',
   'videos.title': 'Videos to watch',
+  'videos.status.label': 'Video status',
   'videos.view.label': 'Video layout',
   'videos.view.byChannel': 'By channel',
   'videos.view.newest': 'Newest',
@@ -1485,6 +1486,7 @@ const I18N = {
     'history.heatmapAria': '{date}：{points} 分；{time} 影片時間；已看 {videos} 部影片；複習 {reviewed} 張 Anki 卡；新增 {created} 張 Anki 卡',
     'history.heatmapAriaNoAnki': '{date}：{points} 分；{time} 影片時間；已看 {videos} 部影片',
     'videos.title': '待看影片',
+    'videos.status.label': '影片狀態',
     'videos.view.label': '影片排列',
     'videos.view.byChannel': '依頻道',
     'videos.view.newest': '最新',
@@ -1903,6 +1905,7 @@ const I18N = {
     'history.heatmapAriaNoAnki': '{date}：{points} 分；{time} 视频时间；已看 {videos} 部视频',
     'history.tooltip.points': '{count} 分',
     'videos.title': '待看视频',
+    'videos.status.label': '视频状态',
     'videos.view.label': '视频排列',
     'videos.view.byChannel': '按频道',
     'videos.view.newest': '最新',
@@ -2315,6 +2318,7 @@ const I18N = {
     'history.today': 'Hoy',
     'history.yesterday': 'Ayer',
     'videos.title': 'Vídeos para ver',
+    'videos.status.label': 'Estado del vídeo',
     'videos.view.label': 'Vista de vídeos',
     'videos.view.byChannel': 'Por canal',
     'videos.view.newest': 'Más recientes',
@@ -2727,6 +2731,7 @@ const I18N = {
     'history.today': 'Aujourd’hui',
     'history.yesterday': 'Hier',
     'videos.title': 'À regarder',
+    'videos.status.label': 'Statut des vidéos',
     'videos.view.label': 'Disposition des vidéos',
     'videos.view.byChannel': 'Par chaîne',
     'videos.view.newest': 'Plus récentes',
@@ -12043,6 +12048,15 @@ function renderStatusFilterOptions(allVideos = [], channelFilters = null, includ
   if (!btn || !menu) return
 
   const counts = getStatusFilterCounts(allVideos, channelFilters, includeShorts)
+  document.querySelectorAll('[data-status-tab]').forEach(tab => {
+    const status = tab.dataset.statusTab
+    const isActive = selectedStatusFilter === status
+    tab.classList.toggle('active', isActive)
+    tab.setAttribute('aria-selected', String(isActive))
+    tab.setAttribute('tabindex', isActive ? '0' : '-1')
+    const count = tab.querySelector('.status-tab-count')
+    if (count) count.textContent = String(counts[status] ?? 0)
+  })
   btn.textContent = getStatusFilterLabel(selectedStatusFilter)
   menu.innerHTML = `
     <div class="mobile-popover-header">

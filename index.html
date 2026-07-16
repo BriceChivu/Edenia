@@ -594,7 +594,15 @@ and momentum—at a glance</h2>
           <button type="button" class="video-view-btn active" data-video-view="channel" onclick="setVideoFeedView('channel')" role="tab" aria-selected="true" data-i18n="videos.view.byChannel">By channel</button>
           <button type="button" class="video-view-btn" data-video-view="newest" onclick="setVideoFeedView('newest')" role="tab" aria-selected="false" data-i18n="videos.view.newest">Newest</button>
         </div>
-        <div class="feed-controls">
+      </div>
+      <div class="feed-controls feed-toolbar">
+        <div class="feed-filter-controls">
+          <div class="status-tabs" id="statusTabs" role="tablist" aria-label="Video status" data-i18n-aria-label="videos.status.label">
+            <button type="button" class="status-tab active" data-status-tab="all" onclick="setStatusFilter('all')" role="tab" aria-selected="true"><span data-i18n="videos.status.all">All</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab" data-status-tab="unwatched" onclick="setStatusFilter('unwatched')" role="tab" aria-selected="false"><span data-i18n="videos.status.unwatched">Unwatched</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab" data-status-tab="partial" onclick="setStatusFilter('partial')" role="tab" aria-selected="false"><span data-i18n="videos.status.partial">In progress</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab" data-status-tab="watch-later" onclick="setStatusFilter('watch-later')" role="tab" aria-selected="false"><span data-i18n="videos.status.watchLater">Watch later</span><span class="status-tab-count">0</span></button>
+          </div>
           <div class="status-filter" id="statusFilter">
             <button type="button" class="btn-secondary channel-filter-btn status-filter-btn" id="statusFilterBtn" onclick="toggleStatusFilterMenu()" aria-haspopup="true" aria-expanded="false">All videos</button>
             <div class="channel-filter-menu status-filter-menu hidden" id="statusFilterMenu"></div>
@@ -603,6 +611,8 @@ and momentum—at a glance</h2>
             <button type="button" class="btn-secondary channel-filter-btn" id="channelFilterBtn" onclick="toggleChannelFilterMenu()" aria-haspopup="true" aria-expanded="false">All channels</button>
             <div class="channel-filter-menu hidden" id="channelFilterMenu"></div>
           </div>
+        </div>
+        <div class="feed-action-controls">
           <div class="manual-video" id="manualVideo">
             <button type="button" class="btn-secondary manual-video-btn" id="manualVideoBtn" onclick="toggleManualVideoPopover(event)" aria-haspopup="true" aria-expanded="false" data-i18n="videos.manual.button">Add video</button>
             <div class="manual-video-popover hidden" id="manualVideoPopover" role="dialog" aria-label="Add YouTube video" data-i18n-aria-label="videos.manual.dialog">
