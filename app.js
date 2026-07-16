@@ -11930,15 +11930,17 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = []) {
           <div class="channel-shelf-identity">
             ${renderChannelShelfAvatar(group)}
             <span class="channel-shelf-heading">
-              <strong>${escHtml(group.title)}</strong>
+              <span class="channel-shelf-title-row">
+                <strong>${escHtml(group.title)}</strong>
+                <button type="button"
+                  class="channel-shelf-remove"
+                  data-channel-id="${escHtml(group.key)}"
+                  onclick="removeChannelFromFilter(event, this.dataset.channelId)"
+                  title="${escHtml(t('settings.remove'))}"
+                  aria-label="${escHtml(t('settings.remove'))}">×</button>
+              </span>
               <span>${escHtml(countLabel)}</span>
             </span>
-            <button type="button"
-              class="channel-shelf-remove"
-              data-channel-id="${escHtml(group.key)}"
-              onclick="removeChannelFromFilter(event, this.dataset.channelId)"
-              title="${escHtml(t('settings.remove'))}"
-              aria-label="${escHtml(t('settings.remove'))}">×</button>
           </div>
           <div class="channel-shelf-controls">
             <button type="button"
