@@ -12156,12 +12156,12 @@ function openVideoShelfPreview(card) {
   const maxPreviewSize = Math.max(
     rect.width,
     Math.min(
-      360,
+      345,
       window.innerWidth - (viewportMargin * 2),
       window.innerHeight - (viewportMargin * 2)
     )
   )
-  const previewSize = Math.min(Math.max(rect.width * 1.4, 340), maxPreviewSize)
+  const previewSize = Math.min(Math.max(rect.width * 1.35, 325), maxPreviewSize)
   const targetLeft = clampNumber(
     rect.left - ((previewSize - rect.width) / 2),
     viewportMargin,
