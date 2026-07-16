@@ -147,7 +147,6 @@ let selectedStatusFilter = 'all'
 let selectedVideoFeedView = 'channel'
 let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
-const expandedVideoChannelKeys = new Set()
 let isWatchedSectionCollapsed = null
 let selectedHistoryRange = 'week'
 let selectedHistoryView = 'summary'
@@ -954,8 +953,9 @@ const I18N_EN = {
   'videos.view.newest': 'Newest',
   'videos.channel.oneVideo': '1 video',
   'videos.channel.videoCount': '{count} videos',
-  'videos.channel.expandLabel': 'Show all {count} videos from {channel}',
-  'videos.channel.collapseLabel': 'Collapse videos from {channel}',
+  'videos.channel.shelfLabel': '{channel} videos',
+  'videos.channel.previousLabel': 'Scroll {channel} videos left',
+  'videos.channel.nextLabel': 'Scroll {channel} videos right',
   'videos.status.all': 'All',
   'videos.status.watchLater': 'Watch later',
   'videos.status.unwatched': 'Unwatched',
@@ -1516,8 +1516,9 @@ const I18N = {
     'videos.view.newest': '最新',
     'videos.channel.oneVideo': '1 部影片',
     'videos.channel.videoCount': '{count} 部影片',
-    'videos.channel.expandLabel': '顯示 {channel} 的全部 {count} 部影片',
-    'videos.channel.collapseLabel': '收合 {channel} 的影片',
+    'videos.channel.shelfLabel': '{channel} 的影片',
+    'videos.channel.previousLabel': '向左瀏覽 {channel} 的影片',
+    'videos.channel.nextLabel': '向右瀏覽 {channel} 的影片',
     'videos.status.all': '全部',
     'videos.status.watchLater': '稍後觀看',
     'videos.status.unwatched': '未觀看',
@@ -1937,8 +1938,9 @@ const I18N = {
     'videos.view.newest': '最新',
     'videos.channel.oneVideo': '1 个视频',
     'videos.channel.videoCount': '{count} 个视频',
-    'videos.channel.expandLabel': '显示 {channel} 的全部 {count} 个视频',
-    'videos.channel.collapseLabel': '收起 {channel} 的视频',
+    'videos.channel.shelfLabel': '{channel} 的视频',
+    'videos.channel.previousLabel': '向左浏览 {channel} 的视频',
+    'videos.channel.nextLabel': '向右浏览 {channel} 的视频',
     'videos.status.all': '全部',
     'videos.status.watchLater': '稍后观看',
     'videos.status.unwatched': '未观看',
@@ -2352,8 +2354,9 @@ const I18N = {
     'videos.view.newest': 'Más recientes',
     'videos.channel.oneVideo': '1 vídeo',
     'videos.channel.videoCount': '{count} vídeos',
-    'videos.channel.expandLabel': 'Mostrar los {count} vídeos de {channel}',
-    'videos.channel.collapseLabel': 'Contraer los vídeos de {channel}',
+    'videos.channel.shelfLabel': 'Vídeos de {channel}',
+    'videos.channel.previousLabel': 'Desplazar los vídeos de {channel} a la izquierda',
+    'videos.channel.nextLabel': 'Desplazar los vídeos de {channel} a la derecha',
     'videos.status.all': 'Todo',
     'videos.status.watchLater': 'Ver luego',
     'videos.status.unwatched': 'Sin ver',
@@ -2767,8 +2770,9 @@ const I18N = {
     'videos.view.newest': 'Plus récentes',
     'videos.channel.oneVideo': '1 vidéo',
     'videos.channel.videoCount': '{count} vidéos',
-    'videos.channel.expandLabel': 'Afficher les {count} vidéos de {channel}',
-    'videos.channel.collapseLabel': 'Replier les vidéos de {channel}',
+    'videos.channel.shelfLabel': 'Vidéos de {channel}',
+    'videos.channel.previousLabel': 'Faire défiler les vidéos de {channel} vers la gauche',
+    'videos.channel.nextLabel': 'Faire défiler les vidéos de {channel} vers la droite',
     'videos.status.all': 'Tout',
     'videos.status.watchLater': 'À voir',
     'videos.status.unwatched': 'Non vue',
@@ -11744,6 +11748,9 @@ function renderFeed(s) {
   } else {
     grid.innerHTML = activeVideos.map(v => renderCard(v)).join('')
   }
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.channel-shelf-track').forEach(syncVideoChannelShelfControls)
+  })
 
   watchedCount.textContent = watchedVideos.length
   watchedSection.classList.toggle('hidden', !watchedVideos.length)
@@ -11817,39 +11824,49 @@ function renderChannelVideoGroups(videos) {
     const countLabel = group.videos.length === 1
       ? t('videos.channel.oneVideo')
       : t('videos.channel.videoCount', { count: group.videos.length })
-    const isExpanded = expandedVideoChannelKeys.has(group.key)
-    const canExpand = group.videos.length > 1
-    const bodyId = `channelDeckBody${index}`
-    const toggleLabel = isExpanded
-      ? t('videos.channel.collapseLabel', { channel: group.title })
-      : t('videos.channel.expandLabel', { channel: group.title, count: group.videos.length })
+    const trackId = `channelShelfTrack${index}`
     return `
-      <section class="channel-video-group channel-deck ${isExpanded ? 'expanded' : ''} ${canExpand ? '' : 'single-card'}" data-channel-key="${escHtml(group.key)}" data-preview-count="${Math.min(group.videos.length, 3)}">
-        <button type="button"
-          class="channel-deck-toggle"
-          onclick="toggleVideoChannelDeck(this)"
-          aria-expanded="${isExpanded}"
-          aria-controls="${bodyId}"
-          aria-label="${escHtml(toggleLabel)}"
-          ${canExpand ? '' : 'disabled'}>
-          ${renderChannelDeckAvatar(group)}
-          <span class="channel-deck-heading">
-            <strong>${escHtml(group.title)}</strong>
-            <span>${escHtml(countLabel)}</span>
-          </span>
-          ${canExpand ? '<span class="channel-deck-caret" aria-hidden="true"></span>' : ''}
-        </button>
-        <div class="channel-deck-body" id="${bodyId}">
-          <div class="video-grid channel-video-list">
-            ${group.videos.map(video => renderCard(video)).join('')}
+      <section class="channel-video-group channel-shelf" data-channel-key="${escHtml(group.key)}">
+        <header class="channel-shelf-header">
+          <div class="channel-shelf-identity">
+            ${renderChannelShelfAvatar(group)}
+            <span class="channel-shelf-heading">
+              <strong>${escHtml(group.title)}</strong>
+              <span>${escHtml(countLabel)}</span>
+            </span>
           </div>
+          <div class="channel-shelf-controls">
+            <button type="button"
+              class="channel-shelf-scroll channel-shelf-scroll-prev"
+              data-shelf-direction="-1"
+              onclick="scrollVideoChannelShelf(this, -1)"
+              aria-controls="${trackId}"
+              aria-label="${escHtml(t('videos.channel.previousLabel', { channel: group.title }))}">
+              <span aria-hidden="true">‹</span>
+            </button>
+            <button type="button"
+              class="channel-shelf-scroll channel-shelf-scroll-next"
+              data-shelf-direction="1"
+              onclick="scrollVideoChannelShelf(this, 1)"
+              aria-controls="${trackId}"
+              aria-label="${escHtml(t('videos.channel.nextLabel', { channel: group.title }))}">
+              <span aria-hidden="true">›</span>
+            </button>
+          </div>
+        </header>
+        <div class="channel-shelf-track"
+          id="${trackId}"
+          tabindex="0"
+          aria-label="${escHtml(t('videos.channel.shelfLabel', { channel: group.title }))}"
+          onscroll="syncVideoChannelShelfControls(this)">
+          ${group.videos.map(video => renderCard(video, false, { shelf: true })).join('')}
         </div>
       </section>
     `
   }).join('')
 }
 
-function renderChannelDeckAvatar(group) {
+function renderChannelShelfAvatar(group) {
   const title = String(group?.title || t('videos.search.youtube')).trim()
   const initials = title
     .split(/\s+/)
@@ -11869,23 +11886,30 @@ function renderChannelDeckAvatar(group) {
   const avatarImage = avatarUrl
     ? `<img src="${escHtml(avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.hidden=true">`
     : ''
-  return `<span class="channel-deck-avatar" aria-hidden="true"><span>${escHtml(initials)}</span>${avatarImage}</span>`
+  return `<span class="channel-shelf-avatar" aria-hidden="true"><span>${escHtml(initials)}</span>${avatarImage}</span>`
 }
 
-function toggleVideoChannelDeck(button) {
-  const deck = button?.closest?.('.channel-deck')
-  if (!deck || deck.classList.contains('single-card')) return
-  const key = deck.dataset.channelKey
-  const isExpanded = !deck.classList.contains('expanded')
-  if (isExpanded) expandedVideoChannelKeys.add(key)
-  else expandedVideoChannelKeys.delete(key)
-  deck.classList.toggle('expanded', isExpanded)
-  button.setAttribute('aria-expanded', String(isExpanded))
-  const channel = button.querySelector('.channel-deck-heading strong')?.textContent || t('videos.search.youtube')
-  const count = deck.querySelectorAll('.channel-video-list > .video-card').length
-  button.setAttribute('aria-label', isExpanded
-    ? t('videos.channel.collapseLabel', { channel })
-    : t('videos.channel.expandLabel', { channel, count }))
+function syncVideoChannelShelfControls(track) {
+  if (!track) return
+  const shelf = track.closest('.channel-shelf')
+  const atStart = track.scrollLeft <= 2
+  const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 2
+  const previousButton = shelf?.querySelector('[data-shelf-direction="-1"]')
+  const nextButton = shelf?.querySelector('[data-shelf-direction="1"]')
+  if (previousButton) previousButton.disabled = atStart
+  if (nextButton) nextButton.disabled = atEnd
+}
+
+function scrollVideoChannelShelf(button, direction) {
+  const shelf = button?.closest?.('.channel-shelf')
+  const track = shelf?.querySelector('.channel-shelf-track')
+  if (!track) return
+  const amount = Math.max(track.clientWidth * 0.82, 240)
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  track.scrollBy({
+    left: (direction < 0 ? -1 : 1) * amount,
+    behavior: reduceMotion ? 'auto' : 'smooth'
+  })
 }
 
 function includeForcedSearchVideo(videos, forcedVideo) {
@@ -12560,7 +12584,7 @@ function renderVideoActionIcon(type) {
   return `<svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">${paths[type] || ''}</svg>`
 }
 
-function renderCard(v, compact = false) {
+function renderCard(v, compact = false, options = {}) {
   const status = getVideoStatus(v)
   const videoId = String(v.id ?? '')
   const safeVideoId = escHtml(videoId)
@@ -12593,7 +12617,7 @@ function renderCard(v, compact = false) {
   `
   const thumbnailLink = `<a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${thumbnailContent}</a>`
   return `
-    <div class="video-card ${compact ? 'compact-card' : ''} status-${status}" data-video-id="${safeVideoId}">
+    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} status-${status}" data-video-id="${safeVideoId}">
       ${removeFromGridButton}
       ${thumbnailLink}
       <div class="card-body">
