@@ -3998,7 +3998,9 @@ body[data-theme="dark"] .channel-filter-remove:focus-visible {
   border-radius: 999px;
   display: flex;
   gap: 0;
-  padding: 2px;
+  height: var(--compact-control-height);
+  overflow: visible;
+  padding: 0;
 }
 .undo-action-wrap {
   display: inline-flex;
@@ -4007,13 +4009,35 @@ body[data-theme="dark"] .channel-filter-remove:focus-visible {
 .undo-action-wrap + .undo-action-wrap {
   border-left: 1px solid var(--border);
 }
+.undo-action-wrap:first-child .undo-btn {
+  border-radius: 999px 0 0 999px;
+}
+.undo-action-wrap:last-child .redo-btn {
+  border-radius: 0 999px 999px 0;
+}
 .feed-action-controls .undo-btn,
 .feed-action-controls .redo-btn {
   background: transparent;
   border: 0;
-  border-radius: 999px;
   box-shadow: none;
+  height: 100%;
+  min-height: 0;
   min-width: 58px;
+}
+.undo-wrap:has(.undo-btn:not(:disabled), .redo-btn:not(:disabled)) {
+  border: 2px solid var(--planet-black);
+}
+.feed-action-controls .undo-btn:not(:disabled),
+.feed-action-controls .redo-btn:not(:disabled) {
+  background: var(--planet-white);
+}
+.feed-action-controls .undo-btn:not(:disabled):hover,
+.feed-action-controls .redo-btn:not(:disabled):hover {
+  background: #e9f8ed;
+}
+body[data-theme="dark"] .feed-action-controls .undo-btn:not(:disabled):hover,
+body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
+  background: var(--surface-hi);
 }
 .undo-tooltip {
   background: var(--surface);
