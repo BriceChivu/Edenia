@@ -11960,7 +11960,11 @@ function renderChannelShelfAvatar(group) {
 
 function syncVideoChannelShelfControls(track) {
   if (!track) return
-  if (activeVideoShelfPreview && track.contains(activeVideoShelfPreview)) {
+  if (
+    activeVideoShelfPreview
+    && track.contains(activeVideoShelfPreview)
+    && videoShelfWheelScrollTrack !== track
+  ) {
     closeVideoShelfPreview(activeVideoShelfPreview, true)
   }
   const shelf = track.closest('.channel-shelf')
@@ -12004,8 +12008,16 @@ function scrollVideoChannelShelfOnWheel(event, card) {
   if (Math.abs(nextScrollLeft - track.scrollLeft) < 1) return
 
   event.preventDefault()
-  closeVideoShelfPreview(card, true)
+  videoShelfWheelScrollTrack = track
+  window.clearTimeout(videoShelfWheelScrollTimer)
   track.scrollLeft = nextScrollLeft
+  videoShelfWheelScrollTimer = window.setTimeout(() => {
+    const preview = activeVideoShelfPreview && track.contains(activeVideoShelfPreview)
+      ? activeVideoShelfPreview
+      : null
+    videoShelfWheelScrollTrack = null
+    if (preview) closeVideoShelfPreview(preview, true)
+  }, 180)
 }
 
 let activeChannelShelfDrag = null
@@ -12124,6 +12136,8 @@ function finishChannelShelfDrag() {
 
 let activeVideoShelfPreview = null
 let videoShelfPreviewCleanupTimer = null
+let videoShelfWheelScrollTimer = null
+let videoShelfWheelScrollTrack = null
 
 function canUseVideoShelfPreview() {
   return window.matchMedia('(min-width: 641px) and (hover: hover) and (pointer: fine)').matches
