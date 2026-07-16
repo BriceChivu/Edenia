@@ -997,6 +997,8 @@ const I18N_EN = {
   'videos.search.untitled': 'Untitled video',
   'videos.search.youtube': 'YouTube',
   'videos.card.markWatched': 'Mark watched',
+  'videos.card.new': 'New',
+  'videos.card.uploadedToday': 'Uploaded today',
   'videos.card.markWatchedTitle': 'Mark as watched',
   'videos.card.unmark': 'Unmark',
   'videos.card.clear': 'Clear',
@@ -1548,6 +1550,8 @@ const I18N = {
     'videos.search.empty': '依標題或頻道搜尋已儲存影片。',
     'videos.search.noMatches': '找不到符合的影片。',
     'videos.card.markWatched': '標記已看',
+    'videos.card.new': '新片',
+    'videos.card.uploadedToday': '今天上傳',
     'videos.card.markWatchedTitle': '標記為已看',
     'videos.card.unmark': '取消標記',
     'videos.card.clear': '清除',
@@ -1967,6 +1971,8 @@ const I18N = {
     'videos.empty.default': '你的学习列表准备好成长了。添加 YouTube 频道或粘贴一个视频即可开始。',
     'videos.search.empty': '按标题或频道搜索已保存视频。',
     'videos.card.markWatched': '标记已看',
+    'videos.card.new': '新视频',
+    'videos.card.uploadedToday': '今天上传',
     'videos.card.unmark': '取消标记',
     'videos.card.resume': '继续观看',
     'videos.card.continueAt': '继续于',
@@ -2383,6 +2389,8 @@ const I18N = {
     'videos.empty.default': 'Tu lista de estudio está lista para crecer. Añade un canal de YouTube o pega un video para empezar.',
     'videos.search.empty': 'Busca videos guardados por título o canal.',
     'videos.card.markWatched': 'Marcar visto',
+    'videos.card.new': 'Nuevo',
+    'videos.card.uploadedToday': 'Subido hoy',
     'videos.card.unmark': 'Desmarcar',
     'videos.card.resume': 'Continuar viendo',
     'videos.card.continueAt': 'Continuar en',
@@ -2799,6 +2807,8 @@ const I18N = {
     'videos.empty.default': 'Votre liste d’étude est prête à s’enrichir. Ajoutez une chaîne YouTube ou collez une vidéo pour commencer.',
     'videos.search.empty': 'Recherchez les vidéos enregistrées par titre ou chaîne.',
     'videos.card.markWatched': 'Marquer vue',
+    'videos.card.new': 'Nouveau',
+    'videos.card.uploadedToday': 'Mise en ligne aujourd’hui',
     'videos.card.unmark': 'Retirer',
     'videos.card.resume': 'Continuer',
     'videos.card.continueAt': 'Reprendre à',
@@ -11727,6 +11737,7 @@ function renderFeed(s) {
   if (continueWatchingVideo) {
     activeVideos = activeVideos.filter(video => video.id !== continueWatchingVideo.id)
   }
+  const cardOptions = { currentDateKey: getCurrentAppDateKey(s) }
 
   if (!activeVideos.length && !continueWatchingVideo) {
     const channelMsg = channelFilters.size === getChannelFilterEntries(s).length ? '' : t('videos.empty.selectedChannels')
@@ -11744,9 +11755,9 @@ function renderFeed(s) {
   } else if (!activeVideos.length) {
     grid.innerHTML = ''
   } else if (isChannelView) {
-    grid.innerHTML = renderChannelVideoGroups(activeVideos)
+    grid.innerHTML = renderChannelVideoGroups(activeVideos, cardOptions)
   } else {
-    grid.innerHTML = activeVideos.map(v => renderCard(v)).join('')
+    grid.innerHTML = activeVideos.map(v => renderCard(v, false, cardOptions)).join('')
   }
   requestAnimationFrame(() => {
     document.querySelectorAll('.channel-shelf-track').forEach(syncVideoChannelShelfControls)
@@ -11762,7 +11773,7 @@ function renderFeed(s) {
     watchedToggle.setAttribute('aria-expanded', String(!watchedCollapsed))
     watchedToggle.setAttribute('aria-label', t(watchedCollapsed ? 'videos.watched.show' : 'videos.watched.hide'))
   }
-  watchedGrid.innerHTML = watchedVideos.map(v => renderCard(v, true)).join('')
+  watchedGrid.innerHTML = watchedVideos.map(v => renderCard(v, true, cardOptions)).join('')
 }
 
 function toggleWatchedSection() {
@@ -11798,6 +11809,19 @@ function getVideoPublishedTimestamp(video) {
   return Number.isFinite(timestamp) ? timestamp : 0
 }
 
+function getVideoUploadRibbon(video, currentDateKey = getCurrentAppDateKey()) {
+  const publishedAt = new Date(video?.publishedAt || '')
+  if (Number.isNaN(publishedAt.getTime())) return null
+  const ageInDays = daysBetweenDateKeys(toDateKey(publishedAt), currentDateKey)
+  if (ageInDays === 0) {
+    return { kind: 'today', label: t('videos.card.uploadedToday') }
+  }
+  if (ageInDays > 0 && ageInDays <= 7) {
+    return { kind: 'new', label: t('videos.card.new') }
+  }
+  return null
+}
+
 function groupActiveVideosByChannel(videos) {
   const groups = new Map()
   videos.forEach(video => {
@@ -11819,7 +11843,7 @@ function groupActiveVideosByChannel(videos) {
     .sort((a, b) => getVideoPublishedTimestamp(b.videos[0]) - getVideoPublishedTimestamp(a.videos[0]))
 }
 
-function renderChannelVideoGroups(videos) {
+function renderChannelVideoGroups(videos, cardOptions = {}) {
   return groupActiveVideosByChannel(videos).map((group, index) => {
     const countLabel = group.videos.length === 1
       ? t('videos.channel.oneVideo')
@@ -11859,7 +11883,7 @@ function renderChannelVideoGroups(videos) {
           tabindex="0"
           aria-label="${escHtml(t('videos.channel.shelfLabel', { channel: group.title }))}"
           onscroll="syncVideoChannelShelfControls(this)">
-          ${group.videos.map(video => renderCard(video, false, { shelf: true })).join('')}
+          ${group.videos.map(video => renderCard(video, false, { ...cardOptions, shelf: true })).join('')}
         </div>
       </section>
     `
@@ -12603,6 +12627,7 @@ function renderCard(v, compact = false, options = {}) {
     : `${renderVideoActionIcon('watched')}<span class="watched-btn-text">${escHtml(watchedText)}</span>`
   const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
   const resumeAtValue = isPartial ? formatResumeTimestamp(v.resumeAtSeconds) : ''
+  const uploadRibbon = compact ? null : getVideoUploadRibbon(v, options.currentDateKey)
   const removeFromGridButton = !compact && !isWatched
     ? `<button type="button"
         class="video-grid-remove"
@@ -12613,6 +12638,7 @@ function renderCard(v, compact = false, options = {}) {
     : ''
   const thumbnailContent = `
     <img src="${escHtml(v.thumbnail)}" alt="" class="thumb" loading="lazy">
+    ${uploadRibbon ? `<span class="video-upload-ribbon ${uploadRibbon.kind === 'today' ? 'uploaded-today' : 'new-upload'}">${escHtml(uploadRibbon.label)}</span>` : ''}
     <span class="dur-badge">${formatDuration(v.duration)}</span>
   `
   const thumbnailLink = `<a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${thumbnailContent}</a>`

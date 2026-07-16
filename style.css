@@ -4511,6 +4511,36 @@ body[data-theme="dark"] .video-grid-remove:focus-visible {
   letter-spacing: 0.02em;
 }
 body[data-theme="dark"] .dur-badge { color: #ffffff; }
+.video-upload-ribbon {
+  --ribbon-fold: #719523;
+  background: var(--planet-lime);
+  border: 1.5px solid var(--planet-black);
+  border-radius: 6px 6px 6px 2px;
+  box-shadow: 0 2px 0 rgba(5,5,5,0.2);
+  color: var(--planet-black);
+  font-size: 0.62rem;
+  font-weight: 850;
+  left: 8px;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 4px 7px;
+  position: absolute;
+  text-transform: uppercase;
+  top: 8px;
+  z-index: 4;
+}
+.video-upload-ribbon::after {
+  border-left: 4px solid transparent;
+  border-top: 4px solid var(--ribbon-fold);
+  content: "";
+  left: 0;
+  position: absolute;
+  top: calc(100% + 1px);
+}
+.video-upload-ribbon.uploaded-today {
+  --ribbon-fold: #087fa6;
+  background: var(--planet-cyan);
+}
 /* Card body */
 .card-body {
   padding: 10px 12px 10px;
