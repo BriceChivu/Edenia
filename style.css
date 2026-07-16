@@ -6793,6 +6793,13 @@ summary:focus-visible,
     background: rgba(255,255,255,0.78);
     bottom: calc(45% + 6px);
   }
+  body[data-theme="dark"] .channel-shelf-card.is-previewing .thumbnail-resume-time-field {
+    border-color: rgba(5,5,5,0.28);
+    color: #24414a;
+  }
+  body[data-theme="dark"] .channel-shelf-card.is-previewing .thumbnail-resume-time-field input {
+    color: #10232a;
+  }
   .channel-shelf-card.is-previewing .card-status {
     display: none;
   }
