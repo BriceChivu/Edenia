@@ -6399,6 +6399,10 @@ summary:focus-visible,
 @media (min-width: 641px) and (hover: hover) and (pointer: fine) {
   .channel-shelf {
     position: relative;
+    transition:
+      filter var(--motion-base) var(--ease-standard),
+      opacity var(--motion-base) var(--ease-standard),
+      transform var(--motion-slow) var(--ease-emphasized);
     z-index: 1;
   }
   .channel-shelf-drag-handle {
@@ -6427,15 +6431,29 @@ summary:focus-visible,
     cursor: grabbing;
   }
   .channel-shelf.is-dragging {
-    opacity: 0.42;
+    filter: saturate(0.65);
+    opacity: 0.3;
+    transform: scale(0.985);
+  }
+  .channel-shelf.drag-over-before {
+    transform: translateY(8px);
+  }
+  .channel-shelf.drag-over-after {
+    transform: translateY(-8px);
+  }
+  .channel-shelf.just-dropped {
+    animation: channelShelfDropSettle 480ms var(--ease-emphasized);
   }
   .channel-shelf.drag-over-before::before,
   .channel-shelf.drag-over-after::after {
-    background: var(--accent);
+    animation: channelShelfDropMarker 620ms ease-in-out infinite alternate;
+    background: linear-gradient(90deg, var(--accent), var(--planet-cyan), var(--accent));
+    background-size: 200% 100%;
     border: 1px solid var(--planet-black);
     border-radius: 999px;
+    box-shadow: 0 0 0 4px rgba(18,188,234,0.14), 0 3px 8px rgba(5,5,5,0.2);
     content: "";
-    height: 4px;
+    height: 5px;
     left: 4px;
     pointer-events: none;
     position: absolute;
@@ -6450,6 +6468,60 @@ summary:focus-visible,
   }
   body.channel-shelf-dragging .channel-shelf-card {
     pointer-events: none;
+  }
+  body.channel-shelf-dragging {
+    cursor: grabbing;
+  }
+  .channel-shelf-drag-preview {
+    align-items: center;
+    background: var(--surface);
+    border: 2px solid var(--planet-black);
+    border-radius: 12px;
+    box-shadow: 0 14px 28px rgba(5,5,5,0.28), 0 4px 0 rgba(5,5,5,0.2);
+    display: flex;
+    left: -10000px;
+    min-height: 58px;
+    opacity: 0.96;
+    padding: 10px 14px;
+    pointer-events: none;
+    position: fixed;
+    top: -10000px;
+  }
+  .channel-shelf-drag-preview .channel-shelf-identity {
+    gap: 11px;
+  }
+  .channel-shelf-drag-preview .channel-shelf-avatar {
+    box-shadow: 0 0 0 3px rgba(18,188,234,0.16);
+    flex-basis: 38px;
+    height: 38px;
+    width: 38px;
+  }
+  .channel-shelf-drag-preview .channel-shelf-heading strong {
+    font-size: 0.96rem;
+  }
+  @keyframes channelShelfDropMarker {
+    from {
+      background-position: 0% 50%;
+      box-shadow: 0 0 0 3px rgba(18,188,234,0.1), 0 2px 6px rgba(5,5,5,0.16);
+    }
+    to {
+      background-position: 100% 50%;
+      box-shadow: 0 0 0 6px rgba(18,188,234,0.18), 0 4px 10px rgba(5,5,5,0.22);
+    }
+  }
+  @keyframes channelShelfDropSettle {
+    0% {
+      filter: brightness(1.08);
+      transform: scale(0.985);
+    }
+    55% {
+      box-shadow: 0 0 0 4px rgba(18,188,234,0.18);
+      transform: scale(1.008);
+    }
+    100% {
+      filter: none;
+      transform: none;
+    }
   }
   .channel-shelf:has(.channel-shelf-card:is(:hover, :focus-within)) {
     z-index: 20;
@@ -6682,6 +6754,13 @@ summary:focus-visible,
 @media (prefers-reduced-motion: reduce) {
   .channel-shelf-track {
     scroll-behavior: auto;
+  }
+  .channel-shelf,
+  .channel-shelf.just-dropped,
+  .channel-shelf.drag-over-before::before,
+  .channel-shelf.drag-over-after::after {
+    animation: none;
+    transition: none;
   }
   .channel-shelf-card,
   .channel-shelf-card .card-body,

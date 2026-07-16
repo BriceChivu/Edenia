@@ -12009,6 +12009,7 @@ function scrollVideoChannelShelfOnWheel(event, card) {
 }
 
 let activeChannelShelfDrag = null
+let activeChannelShelfDragPreview = null
 
 function canReorderChannelShelves() {
   return window.matchMedia('(min-width: 641px) and (hover: hover) and (pointer: fine)').matches
@@ -12018,6 +12019,21 @@ function clearChannelShelfDropIndicators() {
   document.querySelectorAll('.channel-shelf.drag-over-before, .channel-shelf.drag-over-after').forEach(shelf => {
     shelf.classList.remove('drag-over-before', 'drag-over-after')
   })
+}
+
+function createChannelShelfDragPreview(shelf) {
+  activeChannelShelfDragPreview?.remove()
+  const identity = shelf.querySelector('.channel-shelf-identity')?.cloneNode(true)
+  identity?.querySelector('.channel-shelf-drag-handle')?.remove()
+  if (!identity) return null
+
+  const preview = document.createElement('div')
+  preview.className = 'channel-shelf-drag-preview'
+  preview.style.width = `${Math.min(Math.max(shelf.getBoundingClientRect().width * 0.42, 280), 420)}px`
+  preview.append(identity)
+  document.body.append(preview)
+  activeChannelShelfDragPreview = preview
+  return preview
 }
 
 function startChannelShelfDrag(event, handle) {
@@ -12033,6 +12049,10 @@ function startChannelShelfDrag(event, handle) {
   document.body.classList.add('channel-shelf-dragging')
   event.dataTransfer.effectAllowed = 'move'
   event.dataTransfer.setData('text/plain', shelf.dataset.channelKey || '')
+  const dragPreview = createChannelShelfDragPreview(shelf)
+  if (dragPreview) {
+    event.dataTransfer.setDragImage(dragPreview, 28, dragPreview.offsetHeight / 2)
+  }
 }
 
 function getChannelShelfDropPosition(event, shelf) {
@@ -12045,8 +12065,10 @@ function moveChannelShelfDrag(event, shelf) {
   event.preventDefault()
   event.dataTransfer.dropEffect = 'move'
   const position = getChannelShelfDropPosition(event, shelf)
+  const indicatorClass = position === 'before' ? 'drag-over-before' : 'drag-over-after'
+  if (shelf.classList.contains(indicatorClass)) return
   clearChannelShelfDropIndicators()
-  shelf.classList.add(position === 'before' ? 'drag-over-before' : 'drag-over-after')
+  shelf.classList.add(indicatorClass)
 }
 
 function leaveChannelShelfDrag(event, shelf) {
@@ -12078,19 +12100,24 @@ function dropChannelShelf(event, shelf) {
   if (!activeChannelShelfDrag || !shelf || shelf === activeChannelShelfDrag) return
   event.preventDefault()
   const grid = shelf.closest('.video-grid')
+  const movedShelf = activeChannelShelfDrag
   const position = getChannelShelfDropPosition(event, shelf)
   if (position === 'before') {
-    shelf.before(activeChannelShelfDrag)
+    shelf.before(movedShelf)
   } else {
-    shelf.after(activeChannelShelfDrag)
+    shelf.after(movedShelf)
   }
   saveChannelShelfOrder(grid)
   finishChannelShelfDrag()
+  movedShelf.classList.add('just-dropped')
+  window.setTimeout(() => movedShelf.classList.remove('just-dropped'), 520)
 }
 
 function finishChannelShelfDrag() {
   activeChannelShelfDrag?.classList.remove('is-dragging')
   activeChannelShelfDrag = null
+  activeChannelShelfDragPreview?.remove()
+  activeChannelShelfDragPreview = null
   clearChannelShelfDropIndicators()
   document.body.classList.remove('channel-shelf-dragging')
 }
