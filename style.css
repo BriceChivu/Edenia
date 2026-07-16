@@ -6407,7 +6407,7 @@ summary:focus-visible,
     scroll-padding-inline: 20px;
   }
   .channel-shelf-slot {
-    aspect-ratio: 16 / 10;
+    aspect-ratio: 16 / 9;
     flex-basis: clamp(218px, 24vw, 252px);
   }
   .channel-shelf-card {
