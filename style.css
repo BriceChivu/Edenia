@@ -6697,11 +6697,11 @@ summary:focus-visible,
     z-index: 2;
   }
   .channel-shelf-card:not(.is-previewing) .dur-badge {
-    background: rgba(5,5,5,0.56);
-    color: rgba(255,255,255,0.82);
-    font-size: 0.62rem;
-    font-weight: 550;
-    opacity: 0.72;
+    background: rgba(5,5,5,0.68);
+    color: rgba(255,255,255,0.9);
+    font-size: 0.64rem;
+    font-weight: 600;
+    opacity: 0.86;
     padding: 2px 5px;
   }
   .channel-shelf-card.is-floating-preview {
