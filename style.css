@@ -6646,6 +6646,15 @@ summary:focus-visible,
   .channel-shelf-card:not(.is-previewing) .resume-time-field {
     display: none;
   }
+  .channel-shelf-card .thumbnail-resume-time-field,
+  .channel-shelf-card:not(.is-previewing) .thumbnail-resume-time-field {
+    bottom: 6px;
+    display: inline-flex;
+    left: 8px;
+    margin: 0;
+    position: absolute;
+    z-index: 4;
+  }
   .channel-shelf-card:not(.is-previewing) .card-status {
     backdrop-filter: blur(5px);
     font-size: 0.62rem;
@@ -6767,6 +6776,9 @@ summary:focus-visible,
   }
   .channel-shelf-card.is-previewing .resume-time-field {
     display: inline-flex;
+  }
+  .channel-shelf-card.is-previewing .thumbnail-resume-time-field {
+    bottom: calc(45% + 6px);
   }
   .channel-shelf-card.is-previewing .card-status {
     display: none;

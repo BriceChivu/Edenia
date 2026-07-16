@@ -12958,7 +12958,9 @@ function renderCard(v, compact = false, options = {}) {
     : `${renderVideoActionIcon('watched')}<span class="watched-btn-text">${escHtml(watchedText)}</span>`
   const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
   const resumeAtValue = isPartial ? formatResumeTimestamp(v.resumeAtSeconds) : ''
-  const uploadRibbon = compact ? null : getVideoUploadRibbon(v, options.currentDateKey)
+  const uploadRibbon = compact || (options.shelf && isPartial)
+    ? null
+    : getVideoUploadRibbon(v, options.currentDateKey)
   const removeFromGridButton = !compact && !isWatched
     ? `<button type="button"
         class="video-grid-remove"
@@ -12973,6 +12975,21 @@ function renderCard(v, compact = false, options = {}) {
     <span class="dur-badge">${formatDuration(v.duration)}</span>
   `
   const thumbnailLink = `<a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${thumbnailContent}</a>`
+  const shelfResumeTimeField = options.shelf && isPartial
+    ? `
+      <label class="resume-time-field thumbnail-resume-time-field">
+        <span>${escHtml(t('videos.card.continueAt'))}</span>
+        <input type="text"
+          value="${escHtml(resumeAtValue)}"
+          placeholder="00:01:23"
+          inputmode="text"
+          data-video-id="${safeVideoId}"
+          onchange="saveVideoResumeTime(this.dataset.videoId, this.value)"
+          onkeydown="if (event.key === 'Enter') this.blur()"
+          aria-label="${escHtml(t('videos.card.timestampLabel'))}">
+      </label>
+    `
+    : ''
   const shelfPriorityBadge = options.shelf && isPartial
     ? `<div class="channel-shelf-priority-badge partial-priority-badge">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</div>`
     : options.shelf && isWatchLater
@@ -12985,6 +13002,7 @@ function renderCard(v, compact = false, options = {}) {
     <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
       ${removeFromGridButton}
       ${thumbnailLink}
+      ${shelfResumeTimeField}
       ${shelfPriorityBadge}
       <div class="card-body">
         ${isPartial ? `<div class="card-status partial-status">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</div>` : ''}
@@ -12992,7 +13010,7 @@ function renderCard(v, compact = false, options = {}) {
         <div class="card-copy">
           <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
           ${watchedAtLabel ? `<div class="card-watched-at">${escHtml(watchedAtLabel)}</div>` : ''}
-          ${isPartial ? `
+          ${isPartial && !options.shelf ? `
             <label class="resume-time-field">
               <span>${escHtml(t('videos.card.continueAt'))}</span>
               <input type="text"
