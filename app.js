@@ -13,6 +13,19 @@ const DEFAULT_CHANNELS_VERSION = 2
 
 const URL_PARAMS = new URLSearchParams(window.location.search)
 const IS_SANDBOX = URL_PARAMS.get('sandbox') === '1'
+const SANDBOX_CHANNELS_VERSION = 2
+const SANDBOX_CHANNEL_DEFINITIONS = [
+  { id: 'sandbox-focus', nameKey: 'sandbox.channel.focus', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Dermot_Mulroney_Photo_Op_Nightmare_Weekend_Chicago_2025.jpg/250px-Dermot_Mulroney_Photo_Op_Nightmare_Weekend_Chicago_2025.jpg' },
+  { id: 'sandbox-memory', nameKey: 'sandbox.channel.memory', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/Apink_on_19_April_2022.jpg/250px-Apink_on_19_April_2022.jpg' },
+  { id: 'sandbox-projects', nameKey: 'sandbox.channel.projects', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Ulughbegsaurus.webp/250px-Ulughbegsaurus.webp.png' },
+  { id: 'sandbox-language', nameKey: 'sandbox.channel.language', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/0f/Brown_Rot_on_Apple.jpg/250px-Brown_Rot_on_Apple.jpg' },
+  { id: 'sandbox-science', nameKey: 'sandbox.channel.science', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Waltraud_Strotzer_%28cropped%29.jpg/250px-Waltraud_Strotzer_%28cropped%29.jpg' },
+  { id: 'sandbox-history', nameKey: 'sandbox.channel.history', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Hemicycla_mascaensis_01.JPG/250px-Hemicycla_mascaensis_01.JPG' },
+  { id: 'sandbox-design', nameKey: 'sandbox.channel.design', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/ba/Movie_Madness_storefront_Oct_20_2017_%28cropped%29.jpg/250px-Movie_Madness_storefront_Oct_20_2017_%28cropped%29.jpg' },
+  { id: 'sandbox-music', nameKey: 'sandbox.channel.music', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/Savitha_Shri_B_2019_Karlsruhe.jpg/250px-Savitha_Shri_B_2019_Karlsruhe.jpg' },
+  { id: 'sandbox-travel', nameKey: 'sandbox.channel.travel', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Ideogram_human_chromosome_3.svg/250px-Ideogram_human_chromosome_3.svg.png' },
+  { id: 'sandbox-culture', nameKey: 'sandbox.channel.culture', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/SNYDER_MILL%2C_EXETER_TWP.%2C_BERKS_COUNTY.jpg/250px-SNYDER_MILL%2C_EXETER_TWP.%2C_BERKS_COUNTY.jpg' }
+]
 const NORMAL_STORAGE_KEY = 'edenia_v1'
 const STORAGE_KEY = IS_SANDBOX ? 'edenia_v1_sandbox' : NORMAL_STORAGE_KEY
 const STATE_BACKUP_KEY = `${STORAGE_KEY}_backups`
@@ -762,6 +775,13 @@ const I18N_EN = {
   'sandbox.channel.focus': 'Sandbox Focus',
   'sandbox.channel.memory': 'Sandbox Memory',
   'sandbox.channel.projects': 'Sandbox Projects',
+  'sandbox.channel.language': 'Sandbox Language',
+  'sandbox.channel.science': 'Sandbox Science',
+  'sandbox.channel.history': 'Sandbox History',
+  'sandbox.channel.design': 'Sandbox Design',
+  'sandbox.channel.music': 'Sandbox Music',
+  'sandbox.channel.travel': 'Sandbox Travel',
+  'sandbox.channel.culture': 'Sandbox Culture',
   'sandbox.video.addedDay': 'Sandbox added study day {date}.{index}',
   'sandbox.video.upcoming': 'Sandbox upcoming lesson {date}',
   'sandbox.video.recent': 'Sandbox recent lesson {channel}.{index}',
@@ -4291,12 +4311,17 @@ function getLatestBackupState() {
   return entry ? prepareStateForBackup(entry.state) : null
 }
 
+function getSandboxChannels() {
+  return SANDBOX_CHANNEL_DEFINITIONS.map(channel => ({
+    id: channel.id,
+    name: t(channel.nameKey),
+    imageUrl: channel.imageUrl
+  }))
+}
+
 function createEmptySandboxState() {
-  const state = defaultState(4, [
-    { id: 'sandbox-focus', name: t('sandbox.channel.focus') },
-    { id: 'sandbox-memory', name: t('sandbox.channel.memory') },
-    { id: 'sandbox-projects', name: t('sandbox.channel.projects') }
-  ], DEFAULT_THEME)
+  const state = defaultState(4, getSandboxChannels(), DEFAULT_THEME)
+  state.sandboxChannelsVersion = SANDBOX_CHANNELS_VERSION
   const startDate = new Date()
   const startKey = toDateKey(startDate)
   state.sandboxStartDate = startKey
@@ -4560,6 +4585,15 @@ function normalizeCityProgress(state) {
 
 function normalizeSandboxState(state) {
   if (!IS_SANDBOX || !state) return
+  if (state.sandboxChannelsVersion !== SANDBOX_CHANNELS_VERSION) {
+    const existingChannels = new Map((state.config?.channels || []).map(channel => [channel.id, channel]))
+    state.config.channels = getSandboxChannels().map(channel => ({
+      ...channel,
+      ...(existingChannels.get(channel.id) || {}),
+      imageUrl: channel.imageUrl
+    }))
+    state.sandboxChannelsVersion = SANDBOX_CHANNELS_VERSION
+  }
   const firstKey = getFirstStudyActionDateKey(state) || toDateKey()
   if (!state.sandboxStartDate) state.sandboxStartDate = firstKey
   if (!state.sandboxLastDate) state.sandboxLastDate = getLatestSandboxDateKey(state) || state.sandboxStartDate
@@ -6268,6 +6302,7 @@ function createSandboxRecentVideos(state) {
         title: t('sandbox.video.recent', { channel: channelIndex + 1, index: i + 1 }),
         channelId: channel.id,
         channelTitle: channel.name || channel.id,
+        channelImageUrl: channel.imageUrl || '',
         thumbnail: makeSandboxThumbnail(channel.name || channel.id, channelIndex + i),
         publishedAt: publishedAt.toISOString(),
         duration: (18 + ((channelIndex * 7 + i * 5) % 38)) * 60
@@ -11757,6 +11792,7 @@ function groupActiveVideosByChannel(videos) {
     const group = groups.get(key) || {
       key,
       title: video.channelTitle || t('videos.search.youtube'),
+      imageUrl: video.channelImageUrl || '',
       videos: []
     }
     group.videos.push(video)
@@ -11813,8 +11849,14 @@ function renderChannelDeckAvatar(group) {
     .toUpperCase() || 'YT'
   const normalizedTitle = title.toLocaleLowerCase()
   const curatedChannel = CURATED_CHANNEL_CATALOG.find(channel => channel.name.toLocaleLowerCase() === normalizedTitle)
-  const avatarImage = curatedChannel
-    ? `<img src="${escHtml(getCuratedChannelAvatarPath(curatedChannel.id))}" alt="" loading="lazy" onerror="this.hidden=true">`
+  const sandboxChannel = IS_SANDBOX
+    ? SANDBOX_CHANNEL_DEFINITIONS.find(channel => channel.id === group?.key)
+    : null
+  const avatarUrl = group?.imageUrl
+    || sandboxChannel?.imageUrl
+    || (curatedChannel ? getCuratedChannelAvatarPath(curatedChannel.id) : '')
+  const avatarImage = avatarUrl
+    ? `<img src="${escHtml(avatarUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.hidden=true">`
     : ''
   return `<span class="channel-deck-avatar" aria-hidden="true"><span>${escHtml(initials)}</span>${avatarImage}</span>`
 }
