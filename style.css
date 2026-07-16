@@ -5136,7 +5136,10 @@ summary:focus-visible,
     display: none;
   }
   .status-filter {
-    display: block;
+    display: none;
+  }
+  .feed-filter-controls {
+    display: none;
   }
   .feed-filter-controls,
   .feed-action-controls {
@@ -5273,13 +5276,13 @@ summary:focus-visible,
     display: grid;
     gap: 8px;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-areas:
-      "status status"
-      "add-video actions";
+    grid-template-areas: "add-video actions";
   }
-  .feed-filter-controls,
   .feed-action-controls {
     display: contents;
+  }
+  .feed-filter-controls {
+    display: none;
   }
   .status-filter,
   .manual-video {
