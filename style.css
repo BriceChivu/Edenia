@@ -4564,28 +4564,6 @@ summary:focus-visible,
   html:lang(zh-Hans) .intro-scene-finale h2 { font-size: clamp(1.65rem, 3.4vw, 3rem); }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  html:focus-within {
-    scroll-behavior: auto;
-  }
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
-  }
-  .city-milestone-image {
-    will-change: auto;
-  }
-  .intro-trailer[data-scene="2"] .intro-city-frame { display: none; }
-  .intro-trailer[data-scene="2"] .intro-city-frame-four { display: block; opacity: 1; transform: translateX(-4%) scale(1.16); }
-  .intro-trailer.is-manual-city-level[data-scene="2"] .intro-city-frame-four:not(.is-selected) { display: none; }
-  .intro-trailer.is-manual-city-level[data-scene="2"] .intro-city-frame.is-selected { display: block; }
-  .intro-demo-heatmap i { opacity: 1; transform: none; }
-}
-
 /* ═══════════════════════════════════════════════════════════
    RESPONSIVE
 ═══════════════════════════════════════════════════════════ */

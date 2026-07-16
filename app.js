@@ -3468,12 +3468,12 @@ const WALKTHROUGH_HOOKS = {
   },
   settleWalkthroughTarget({ target }) {
     target?.scrollIntoView({
-      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+      behavior: 'smooth',
       block: 'center',
       inline: 'nearest'
     })
     scheduleWalkthroughPosition()
-    window.setTimeout(scheduleWalkthroughPosition, prefersReducedMotion() ? 0 : 180)
+    window.setTimeout(scheduleWalkthroughPosition, 180)
   },
   closeSettingsWhenCompleted({ completed }) {
     if (completed) closeSettings()
@@ -4597,7 +4597,6 @@ function initBackgroundPhysics() {
   const staticContext = staticCanvas.getContext('2d', { alpha: true })
   if (!staticContext) return null
 
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
   const coarsePointer = window.matchMedia('(pointer: coarse)')
   const particles = []
   const activeParticles = new Set()
@@ -4760,7 +4759,6 @@ function initBackgroundPhysics() {
   }
 
   const handlePointerMove = event => {
-    if (reducedMotion.matches || coarsePointer.matches || event.pointerType === 'touch') return
     const now = performance.now()
     if (pointer.hasPosition) {
       const elapsedFrames = Math.max(0.5, (now - pointer.lastEventAt) / 16.67)
@@ -4783,26 +4781,8 @@ function initBackgroundPhysics() {
     resizeTimer = window.setTimeout(resetParticles, 120)
   }
 
-  const handleMotionPreference = () => {
-    pointer.activeUntil = 0
-    if (reducedMotion.matches || coarsePointer.matches) {
-      if (frame !== null) window.cancelAnimationFrame(frame)
-      frame = null
-      particles.forEach(particle => {
-        particle.x = particle.homeX
-        particle.y = particle.homeY
-        particle.vx = 0
-        particle.vy = 0
-      })
-      activeParticles.clear()
-      draw()
-    }
-  }
-
   window.addEventListener('pointermove', handlePointerMove, { passive: true })
   window.addEventListener('resize', handleResize, { passive: true })
-  reducedMotion.addEventListener?.('change', handleMotionPreference)
-  coarsePointer.addEventListener?.('change', handleMotionPreference)
   resetParticles()
 
   return {
@@ -4931,9 +4911,7 @@ function startIntroTrailer({ replay = false } = {}) {
     startButton.textContent = t(labelKey)
   }
 
-  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  const initialScene = replay ? 0 : (reduceMotion ? INTRO_TRAILER_SCENE_DURATIONS.length - 1 : 0)
-  setIntroTrailerScene(initialScene, { autoAdvance: !reduceMotion })
+  setIntroTrailerScene(0)
   startIntroMusic().catch(() => {})
 }
 
@@ -4973,8 +4951,7 @@ function navigateIntroTrailer(direction) {
   if (!introTrailerState.active) return
   const nextScene = introTrailerState.sceneIndex + Math.sign(Number(direction) || 0)
   if (nextScene < 0 || nextScene >= INTRO_TRAILER_SCENE_DURATIONS.length) return
-  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-  setIntroTrailerScene(nextScene, { autoAdvance: !reduceMotion })
+  setIntroTrailerScene(nextScene)
 }
 
 function changeIntroLocale(locale) {
@@ -4990,8 +4967,7 @@ function changeIntroLocale(locale) {
   document.title = IS_SANDBOX ? t('app.title.sandbox') : 'Edenia'
 
   if (introTrailerState.active && introTrailerState.sceneIndex === 0) {
-    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    setIntroTrailerScene(0, { autoAdvance: !reduceMotion })
+    setIntroTrailerScene(0)
   }
 }
 
@@ -5708,12 +5684,12 @@ function renderWalkthroughStep() {
 
   const scrollTarget = step.scrollTarget ? document.querySelector(step.scrollTarget) : target
   scrollTarget.scrollIntoView({
-    behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+    behavior: 'smooth',
     block: 'center',
     inline: 'center'
   })
   scheduleWalkthroughPosition()
-  window.setTimeout(scheduleWalkthroughPosition, prefersReducedMotion() ? 0 : 220)
+  window.setTimeout(scheduleWalkthroughPosition, 220)
   runWalkthroughHooks(step, 'afterEnter', { target })
 }
 
@@ -5944,10 +5920,6 @@ function setFixedRect(element, rect) {
   element.style.top = `${Math.round(rect.top)}px`
   element.style.width = `${Math.max(0, Math.round(rect.width))}px`
   element.style.height = `${Math.max(0, Math.round(rect.height))}px`
-}
-
-function prefersReducedMotion() {
-  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 }
 
 function resetSandboxState() {
@@ -10382,7 +10354,6 @@ function renderLevelUpButton(snapshot) {
 }
 
 function launchCityLevelUpConfetti() {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
   const cityImageWrap = document.querySelector('.city-image-wrap')
   if (!cityImageWrap) return
 
