@@ -11879,13 +11879,13 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = []) {
     return `
       <section class="channel-video-group channel-shelf"
         data-channel-key="${escHtml(group.key)}"
+        draggable="true"
+        ondragstart="startChannelShelfDrag(event, this)"
+        ondragend="finishChannelShelfDrag()"
         ondragover="moveChannelShelfDrag(event, this)"
         ondragleave="leaveChannelShelfDrag(event, this)"
         ondrop="dropChannelShelf(event, this)">
         <header class="channel-shelf-header"
-          draggable="true"
-          ondragstart="startChannelShelfDrag(event, this)"
-          ondragend="finishChannelShelfDrag()"
           aria-label="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}"
           title="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}">
           <div class="channel-shelf-identity">
@@ -12014,6 +12014,10 @@ function startChannelShelfDrag(event, dragTarget) {
   const shelf = dragTarget?.closest?.('.channel-shelf')
   if (!event || !shelf || !canReorderChannelShelves()) {
     event?.preventDefault()
+    return
+  }
+  if (event.target?.closest?.('.channel-shelf-card, button, a, input, label, select, textarea')) {
+    event.preventDefault()
     return
   }
 

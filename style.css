@@ -6395,6 +6395,7 @@ summary:focus-visible,
 }
 @media (min-width: 641px) and (hover: hover) and (pointer: fine) {
   .channel-shelf {
+    cursor: grab;
     position: relative;
     transition:
       filter var(--motion-base) var(--ease-standard),
@@ -6403,14 +6404,21 @@ summary:focus-visible,
     z-index: 1;
   }
   .channel-shelf-header,
-  .channel-shelf-header .channel-shelf-scroll {
+  .channel-shelf-track {
     cursor: grab;
     user-select: none;
   }
-  .channel-shelf-header:active,
+  .channel-shelf:active,
   .channel-shelf.is-dragging .channel-shelf-header,
-  .channel-shelf.is-dragging .channel-shelf-scroll {
+  .channel-shelf.is-dragging .channel-shelf-track {
     cursor: grabbing;
+  }
+  .channel-shelf-card {
+    cursor: default;
+    user-select: auto;
+  }
+  .channel-shelf-scroll {
+    cursor: pointer;
   }
   .channel-shelf.is-dragging {
     filter: saturate(0.65);
