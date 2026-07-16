@@ -4280,9 +4280,14 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
-.channel-shelf-card {
+.channel-shelf-slot {
   flex: 0 0 clamp(210px, 24vw, 250px);
+  min-width: 0;
+  position: relative;
   scroll-snap-align: start;
+}
+.channel-shelf-card {
+  width: 100%;
 }
 .channel-view .channel-name {
   display: none;
@@ -5776,11 +5781,16 @@ summary:focus-visible,
   .channel-shelf-track::-webkit-scrollbar {
     display: none;
   }
-  .channel-shelf-card {
+  .channel-shelf-slot {
     aspect-ratio: 16 / 10;
-    box-shadow: 0 3px 0 rgba(5,5,5,0.16);
     flex: 0 0 min(82vw, 310px);
+  }
+  .channel-shelf-card {
+    box-shadow: 0 3px 0 rgba(5,5,5,0.16);
+    height: 100%;
+    inset: 0;
     overflow: hidden;
+    position: absolute;
   }
   .channel-shelf-card .thumb-link {
     aspect-ratio: auto;
@@ -6396,17 +6406,19 @@ summary:focus-visible,
     padding: 24px 20px 26px;
     scroll-padding-inline: 20px;
   }
-  .channel-shelf-card {
+  .channel-shelf-slot {
     aspect-ratio: 16 / 10;
-    box-shadow: 0 3px 0 rgba(5,5,5,0.14);
     flex-basis: clamp(218px, 24vw, 252px);
+  }
+  .channel-shelf-card {
+    box-shadow: 0 3px 0 rgba(5,5,5,0.14);
+    height: 100%;
+    inset: 0;
     overflow: hidden;
-    transform-origin: center;
+    position: absolute;
     transition:
-      aspect-ratio var(--motion-base) var(--ease-emphasized),
       border-color var(--motion-base) var(--ease-standard),
-      box-shadow var(--motion-base) var(--ease-standard),
-      transform var(--motion-base) var(--ease-emphasized);
+      box-shadow var(--motion-base) var(--ease-standard);
   }
   .channel-shelf-card .thumb-link {
     aspect-ratio: auto;
@@ -6494,18 +6506,35 @@ summary:focus-visible,
     transition: right var(--motion-base) var(--ease-standard);
     z-index: 2;
   }
-  .channel-shelf-card:is(:hover, :focus-within) {
-    aspect-ratio: 1;
+  .channel-shelf-card.is-floating-preview {
+    height: var(--shelf-preview-origin-height);
+    inset: auto;
+    left: var(--shelf-preview-origin-left);
+    position: fixed;
+    top: var(--shelf-preview-origin-top);
+    transition:
+      border-color var(--motion-base) var(--ease-standard),
+      box-shadow var(--motion-base) var(--ease-standard),
+      height var(--motion-base) var(--ease-emphasized),
+      left var(--motion-base) var(--ease-emphasized),
+      top var(--motion-base) var(--ease-emphasized),
+      width var(--motion-base) var(--ease-emphasized);
+    width: var(--shelf-preview-origin-width);
+    z-index: 1000;
+  }
+  .channel-shelf-card.is-floating-preview.is-previewing {
     border-color: var(--planet-black);
     box-shadow: 0 12px 24px rgba(5,5,5,0.28), 0 4px 0 rgba(5,5,5,0.24);
-    transform: scale(1.08);
-    z-index: 12;
+    height: var(--shelf-preview-size);
+    left: var(--shelf-preview-left);
+    top: var(--shelf-preview-top);
+    width: var(--shelf-preview-size);
   }
-  .channel-shelf-card:is(:hover, :focus-within) .thumb-link {
+  .channel-shelf-card.is-previewing .thumb-link {
     bottom: auto;
     height: 55%;
   }
-  .channel-shelf-card:is(:hover, :focus-within) .card-body {
+  .channel-shelf-card.is-previewing .card-body {
     background: var(--surface);
     color: var(--text);
     height: 45%;
@@ -6515,21 +6544,21 @@ summary:focus-visible,
     pointer-events: auto;
     transform: translateY(0);
   }
-  .channel-shelf-card:is(:hover, :focus-within) .card-title {
+  .channel-shelf-card.is-previewing .card-title {
     color: var(--text);
     text-shadow: none;
   }
-  .channel-shelf-card:is(:hover, :focus-within) .card-meta,
-  .channel-shelf-card:is(:hover, :focus-within) .pub-ago {
+  .channel-shelf-card.is-previewing .card-meta,
+  .channel-shelf-card.is-previewing .pub-ago {
     color: var(--muted);
   }
-  .channel-shelf-card:is(:hover, :focus-within) .card-status {
+  .channel-shelf-card.is-previewing .card-status {
     display: none;
   }
-  .channel-shelf-card:is(:hover, :focus-within) .dur-badge {
+  .channel-shelf-card.is-previewing .dur-badge {
     right: 36px;
   }
-  .channel-shelf-card:is(:hover, :focus-within) .thumb {
+  .channel-shelf-card.is-previewing .thumb {
     transform: scale(1.06);
   }
 }

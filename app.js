@@ -11885,7 +11885,11 @@ function renderChannelVideoGroups(videos, cardOptions = {}) {
           tabindex="0"
           aria-label="${escHtml(t('videos.channel.shelfLabel', { channel: group.title }))}"
           onscroll="syncVideoChannelShelfControls(this)">
-          ${group.videos.map(video => renderCard(video, false, { ...cardOptions, shelf: true })).join('')}
+          ${group.videos.map(video => `
+            <div class="channel-shelf-slot">
+              ${renderCard(video, false, { ...cardOptions, shelf: true })}
+            </div>
+          `).join('')}
         </div>
       </section>
     `
@@ -11917,6 +11921,9 @@ function renderChannelShelfAvatar(group) {
 
 function syncVideoChannelShelfControls(track) {
   if (!track) return
+  if (activeVideoShelfPreview && track.contains(activeVideoShelfPreview)) {
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
+  }
   const shelf = track.closest('.channel-shelf')
   const atStart = track.scrollLeft <= 2
   const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - 2
@@ -11936,6 +11943,77 @@ function scrollVideoChannelShelf(button, direction) {
     left: (direction < 0 ? -1 : 1) * amount,
     behavior: reduceMotion ? 'auto' : 'smooth'
   })
+}
+
+let activeVideoShelfPreview = null
+let videoShelfPreviewCleanupTimer = null
+
+function canUseVideoShelfPreview() {
+  return window.matchMedia('(min-width: 641px) and (hover: hover) and (pointer: fine)').matches
+}
+
+function openVideoShelfPreview(card) {
+  if (!card || !canUseVideoShelfPreview() || card.classList.contains('is-floating-preview')) return
+  if (activeVideoShelfPreview && activeVideoShelfPreview !== card) {
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
+  }
+
+  const slot = card.closest('.channel-shelf-slot')
+  if (!slot) return
+  const rect = slot.getBoundingClientRect()
+  const previewSize = Math.min(Math.max(rect.width * 1.12, rect.width + 24), 310)
+  const viewportMargin = 12
+  const targetLeft = clampNumber(
+    rect.left - ((previewSize - rect.width) / 2),
+    viewportMargin,
+    Math.max(viewportMargin, window.innerWidth - previewSize - viewportMargin)
+  )
+  const targetTop = clampNumber(
+    rect.top - ((previewSize - rect.height) / 2),
+    viewportMargin,
+    Math.max(viewportMargin, window.innerHeight - previewSize - viewportMargin)
+  )
+
+  window.clearTimeout(videoShelfPreviewCleanupTimer)
+  card.style.setProperty('--shelf-preview-origin-left', `${rect.left}px`)
+  card.style.setProperty('--shelf-preview-origin-top', `${rect.top}px`)
+  card.style.setProperty('--shelf-preview-origin-width', `${rect.width}px`)
+  card.style.setProperty('--shelf-preview-origin-height', `${rect.height}px`)
+  card.style.setProperty('--shelf-preview-left', `${targetLeft}px`)
+  card.style.setProperty('--shelf-preview-top', `${targetTop}px`)
+  card.style.setProperty('--shelf-preview-size', `${previewSize}px`)
+  card.classList.add('is-floating-preview')
+  activeVideoShelfPreview = card
+  requestAnimationFrame(() => card.classList.add('is-previewing'))
+}
+
+function closeVideoShelfPreview(card, force = false) {
+  if (!card?.classList.contains('is-floating-preview')) return
+  if (!force && (card.matches(':hover') || card.matches(':focus-within'))) return
+
+  const cleanup = () => {
+    if (card.classList.contains('is-previewing')) return
+    card.classList.remove('is-floating-preview')
+    card.style.removeProperty('--shelf-preview-origin-left')
+    card.style.removeProperty('--shelf-preview-origin-top')
+    card.style.removeProperty('--shelf-preview-origin-width')
+    card.style.removeProperty('--shelf-preview-origin-height')
+    card.style.removeProperty('--shelf-preview-left')
+    card.style.removeProperty('--shelf-preview-top')
+    card.style.removeProperty('--shelf-preview-size')
+    if (activeVideoShelfPreview === card) activeVideoShelfPreview = null
+  }
+  card.classList.remove('is-previewing')
+  window.clearTimeout(videoShelfPreviewCleanupTimer)
+  if (force) {
+    cleanup()
+    return
+  }
+  videoShelfPreviewCleanupTimer = window.setTimeout(cleanup, 220)
+}
+
+function closeVideoShelfPreviewAfterFocus(card) {
+  requestAnimationFrame(() => closeVideoShelfPreview(card))
 }
 
 function includeForcedSearchVideo(videos, forcedVideo) {
@@ -12648,8 +12726,11 @@ function renderCard(v, compact = false, options = {}) {
     <span class="dur-badge">${formatDuration(v.duration)}</span>
   `
   const thumbnailLink = `<a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${thumbnailContent}</a>`
+  const shelfPreviewHandlers = options.shelf
+    ? 'onmouseenter="openVideoShelfPreview(this)" onmouseleave="closeVideoShelfPreview(this)" onfocusin="openVideoShelfPreview(this)" onfocusout="closeVideoShelfPreviewAfterFocus(this)"'
+    : ''
   return `
-    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} status-${status}" data-video-id="${safeVideoId}">
+    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
       ${removeFromGridButton}
       ${thumbnailLink}
       <div class="card-body">
@@ -12755,6 +12836,8 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 
 document.addEventListener('DOMContentLoaded', init)
 window.addEventListener('scroll', syncHeaderCompactState, { passive: true })
+window.addEventListener('scroll', () => closeVideoShelfPreview(activeVideoShelfPreview, true), { passive: true })
+window.addEventListener('resize', () => closeVideoShelfPreview(activeVideoShelfPreview, true), { passive: true })
 document.addEventListener('visibilitychange', refreshOpenChannelFilterTimestamps)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
 document.addEventListener('click', closeHistoryVideoPopoversOnOutsideClick)
