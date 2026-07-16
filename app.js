@@ -11982,10 +11982,19 @@ function scrollVideoChannelShelf(button, direction) {
   const shelf = button?.closest?.('.channel-shelf')
   const track = shelf?.querySelector('.channel-shelf-track')
   if (!track) return
-  const amount = Math.max(track.clientWidth * 0.82, 240)
+  const firstSlot = track.querySelector('.channel-shelf-slot')
+  const slotWidth = firstSlot?.getBoundingClientRect().width || 0
+  const gap = Number.parseFloat(getComputedStyle(track).columnGap || getComputedStyle(track).gap) || 0
+  const cardPitch = slotWidth + gap
+  const currentCardIndex = cardPitch > 0 ? Math.round(track.scrollLeft / cardPitch) : 0
+  const targetCardIndex = Math.max(0, currentCardIndex + (direction < 0 ? -4 : 4))
+  const maxScrollLeft = Math.max(0, track.scrollWidth - track.clientWidth)
+  const targetLeft = cardPitch > 0
+    ? Math.min(targetCardIndex * cardPitch, maxScrollLeft)
+    : clampNumber(track.scrollLeft + ((direction < 0 ? -1 : 1) * track.clientWidth), 0, maxScrollLeft)
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  track.scrollBy({
-    left: (direction < 0 ? -1 : 1) * amount,
+  track.scrollTo({
+    left: targetLeft,
     behavior: reduceMotion ? 'auto' : 'smooth'
   })
 }
