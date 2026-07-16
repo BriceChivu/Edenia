@@ -6790,7 +6790,7 @@ summary:focus-visible,
     display: inline-flex;
   }
   .channel-shelf-card.is-previewing .thumbnail-resume-time-field {
-    background: rgba(255,255,255,0.62);
+    background: rgba(255,255,255,0.78);
     bottom: calc(45% + 6px);
   }
   .channel-shelf-card.is-previewing .card-status {
