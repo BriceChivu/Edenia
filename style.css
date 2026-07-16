@@ -4351,6 +4351,40 @@ body[data-theme="dark"] .video-grid-remove:focus-visible {
   font-size: 0.78rem;
   font-weight: 600;
 }
+.watched-section-toggle {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  gap: 7px;
+  min-height: 32px;
+  padding: 4px 8px;
+}
+.watched-section-toggle:hover {
+  background: var(--surface-hi);
+  border-color: var(--border);
+}
+.watched-section-toggle:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+.watched-section-caret {
+  border-bottom: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  height: 7px;
+  transform: rotate(225deg);
+  transition: transform var(--motion-base) var(--ease-standard);
+  width: 7px;
+}
+.watched-section.collapsed .watched-section-caret {
+  transform: rotate(45deg) translateY(-2px);
+}
+.watched-section.collapsed .watched-grid {
+  display: none;
+}
 .watched-grid {
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 8px;

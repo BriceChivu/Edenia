@@ -134,6 +134,7 @@ let selectedVideoFeedView = 'channel'
 let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
 const expandedVideoChannelKeys = new Set()
+let isWatchedSectionCollapsed = null
 let selectedHistoryRange = 'week'
 let selectedHistoryView = 'summary'
 let selectedStudyInsightView = 'current'
@@ -961,6 +962,8 @@ const I18N_EN = {
   'videos.undo.title': 'Undo latest action',
   'videos.redo.title': 'Redo latest action',
   'videos.watchedSection': 'Watched',
+  'videos.watched.show': 'Show watched videos',
+  'videos.watched.hide': 'Hide watched videos',
   'videos.empty.default': 'Your study feed is ready to grow. Add a YouTube channel or paste one video to begin.',
   'videos.empty.activeBelow': 'No active videos right now. Watched videos are below.',
   'videos.empty.filtered': 'No {filter} videos{channelText} right now.',
@@ -1516,6 +1519,8 @@ const I18N = {
     'videos.undo.title': '復原最近的動作',
     'videos.redo.title': '重做最近的動作',
     'videos.watchedSection': '已看',
+    'videos.watched.show': '顯示已看影片',
+    'videos.watched.hide': '隱藏已看影片',
     'videos.empty.default': '你的學習清單準備好成長了。新增 YouTube 頻道或貼上一部影片即可開始。',
     'videos.empty.activeBelow': '目前沒有待看影片。已看影片在下方。',
     'videos.search.empty': '依標題或頻道搜尋已儲存影片。',
@@ -1934,6 +1939,8 @@ const I18N = {
     'videos.undo.title': '撤销最近的动作',
     'videos.redo.title': '重做最近的动作',
     'videos.watchedSection': '已看',
+    'videos.watched.show': '显示已看视频',
+    'videos.watched.hide': '隐藏已看视频',
     'videos.empty.default': '你的学习列表准备好成长了。添加 YouTube 频道或粘贴一个视频即可开始。',
     'videos.search.empty': '按标题或频道搜索已保存视频。',
     'videos.card.markWatched': '标记已看',
@@ -2347,6 +2354,8 @@ const I18N = {
     'videos.undo.title': 'Deshacer la última acción',
     'videos.redo.title': 'Rehacer la última acción',
     'videos.watchedSection': 'Vistos',
+    'videos.watched.show': 'Mostrar vídeos vistos',
+    'videos.watched.hide': 'Ocultar vídeos vistos',
     'videos.empty.default': 'Tu lista de estudio está lista para crecer. Añade un canal de YouTube o pega un video para empezar.',
     'videos.search.empty': 'Busca videos guardados por título o canal.',
     'videos.card.markWatched': 'Marcar visto',
@@ -2760,6 +2769,8 @@ const I18N = {
     'videos.undo.title': 'Annuler la dernière action',
     'videos.redo.title': 'Rétablir la dernière action',
     'videos.watchedSection': 'Vues',
+    'videos.watched.show': 'Afficher les vidéos regardées',
+    'videos.watched.hide': 'Masquer les vidéos regardées',
     'videos.empty.default': 'Votre liste d’étude est prête à s’enrichir. Ajoutez une chaîne YouTube ou collez une vidéo pour commencer.',
     'videos.search.empty': 'Recherchez les vidéos enregistrées par titre ou chaîne.',
     'videos.card.markWatched': 'Marquer vue',
@@ -11637,6 +11648,7 @@ function renderFeed(s) {
   const watchedSection = document.getElementById('watchedSection')
   const watchedGrid = document.getElementById('watchedGrid')
   const watchedCount = document.getElementById('watchedCount')
+  const watchedToggle = document.getElementById('watchedSectionToggle')
   if (!grid || !watchedSection || !watchedGrid || !watchedCount) return
   const isChannelView = selectedVideoFeedView === 'channel'
   grid.classList.toggle('channel-view', isChannelView)
@@ -11699,7 +11711,25 @@ function renderFeed(s) {
 
   watchedCount.textContent = watchedVideos.length
   watchedSection.classList.toggle('hidden', !watchedVideos.length)
+  const watchedCollapsed = isWatchedSectionCollapsed === null
+    ? watchedVideos.length > 6
+    : isWatchedSectionCollapsed
+  watchedSection.classList.toggle('collapsed', watchedCollapsed)
+  if (watchedToggle) {
+    watchedToggle.setAttribute('aria-expanded', String(!watchedCollapsed))
+    watchedToggle.setAttribute('aria-label', t(watchedCollapsed ? 'videos.watched.show' : 'videos.watched.hide'))
+  }
   watchedGrid.innerHTML = watchedVideos.map(v => renderCard(v, true)).join('')
+}
+
+function toggleWatchedSection() {
+  const watchedSection = document.getElementById('watchedSection')
+  const watchedToggle = document.getElementById('watchedSectionToggle')
+  if (!watchedSection || !watchedToggle) return
+  isWatchedSectionCollapsed = !watchedSection.classList.contains('collapsed')
+  watchedSection.classList.toggle('collapsed', isWatchedSectionCollapsed)
+  watchedToggle.setAttribute('aria-expanded', String(!isWatchedSectionCollapsed))
+  watchedToggle.setAttribute('aria-label', t(isWatchedSectionCollapsed ? 'videos.watched.show' : 'videos.watched.hide'))
 }
 
 function renderVideoFeedViewToggle() {
