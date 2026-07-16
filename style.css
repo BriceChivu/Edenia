@@ -6660,6 +6660,16 @@ summary:focus-visible,
   .channel-shelf-card.is-previewing .card-status {
     display: none;
   }
+  .channel-shelf-card.is-previewing .partial-btn.active {
+    background: #8a5c00;
+    border-color: #5f3a00;
+    color: #fff8e8;
+  }
+  body[data-theme="dark"] .channel-shelf-card.is-previewing .partial-btn.active {
+    background: #8a5c00;
+    border-color: #d59a3a;
+    color: #fff8e8;
+  }
   .channel-shelf-card.is-previewing .dur-badge {
     bottom: 6px;
     right: 6px;
