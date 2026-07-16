@@ -11947,6 +11947,30 @@ function scrollVideoChannelShelf(button, direction) {
   })
 }
 
+function scrollVideoChannelShelfOnWheel(event, card) {
+  if (!event || !card || !canUseVideoShelfPreview() || event.ctrlKey) return
+  const track = card.closest('.channel-shelf-track')
+  if (!track) return
+
+  const rawDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY)
+    ? event.deltaX
+    : event.deltaY
+  if (!rawDelta) return
+
+  const deltaScale = event.deltaMode === 1
+    ? 32
+    : event.deltaMode === 2
+    ? track.clientWidth
+    : 1
+  const maxScrollLeft = Math.max(0, track.scrollWidth - track.clientWidth)
+  const nextScrollLeft = clampNumber(track.scrollLeft + (rawDelta * deltaScale), 0, maxScrollLeft)
+  if (Math.abs(nextScrollLeft - track.scrollLeft) < 1) return
+
+  event.preventDefault()
+  closeVideoShelfPreview(card, true)
+  track.scrollLeft = nextScrollLeft
+}
+
 let activeVideoShelfPreview = null
 let videoShelfPreviewCleanupTimer = null
 
@@ -12736,7 +12760,7 @@ function renderCard(v, compact = false, options = {}) {
     ? `<div class="channel-shelf-priority-badge watch-later-priority-badge">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>`
     : ''
   const shelfPreviewHandlers = options.shelf
-    ? 'onmouseenter="openVideoShelfPreview(this)" onmouseleave="closeVideoShelfPreview(this)" onfocusin="openVideoShelfPreview(this)" onfocusout="closeVideoShelfPreviewAfterFocus(this)"'
+    ? 'onmouseenter="openVideoShelfPreview(this)" onmouseleave="closeVideoShelfPreview(this)" onfocusin="openVideoShelfPreview(this)" onfocusout="closeVideoShelfPreviewAfterFocus(this)" onwheel="scrollVideoChannelShelfOnWheel(event, this)"'
     : ''
   return `
     <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
