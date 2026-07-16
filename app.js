@@ -790,7 +790,7 @@ const I18N_EN = {
   'city.level.11': 'The little purple house has a cute garden!',
   'city.level.12': "Damn! A volcano appeared! I hope it won't erupt...",
   'goal.title': 'Weekly goal',
-  'nextStudy.title': 'Continue studying',
+  'nextStudy.title': 'Continue watching',
   'nextStudy.resume': 'Resume video',
   'nextStudy.watch': 'Watch next',
   'goal.watched': 'watched',
@@ -1364,7 +1364,7 @@ const I18N = {
     'city.level.11': '紫色小屋有了一座可愛的花園！',
     'city.level.12': '天啊！出現了一座火山！希望它不要爆發...',
     'goal.title': '每週目標',
-    'nextStudy.title': '繼續學習',
+    'nextStudy.title': '繼續觀看',
     'nextStudy.resume': '繼續觀看',
     'nextStudy.watch': '開始觀看',
     'goal.watched': '已看',
@@ -1791,7 +1791,7 @@ const I18N = {
     'city.level.11': '紫色小屋有了一座可爱的花园！',
     'city.level.12': '天啊！出现了一座火山！希望它不要爆发...',
     'goal.title': '每周目标',
-    'nextStudy.title': '继续学习',
+    'nextStudy.title': '继续观看',
     'nextStudy.resume': '继续观看',
     'nextStudy.watch': '开始观看',
     'goal.watched': '已看',
@@ -2201,7 +2201,7 @@ const I18N = {
     'city.level.11': '¡La casita morada tiene un jardín precioso!',
     'city.level.12': '¡Caramba! ¡Apareció un volcán! Espero que no haga erupción...',
     'goal.title': 'Objetivo semanal',
-    'nextStudy.title': 'Seguir estudiando',
+    'nextStudy.title': 'Seguir viendo',
     'nextStudy.resume': 'Continuar vídeo',
     'nextStudy.watch': 'Ver siguiente',
     'goal.watched': 'vistos',
@@ -2613,7 +2613,7 @@ const I18N = {
     'city.level.11': 'La petite maison violette a un joli jardin !',
     'city.level.12': 'Mince ! Un volcan est apparu ! Espérons qu’il n’entre pas en éruption...',
     'goal.title': 'Objectif hebdomadaire',
-    'nextStudy.title': 'Continuer à étudier',
+    'nextStudy.title': 'Continuer à regarder',
     'nextStudy.resume': 'Reprendre la vidéo',
     'nextStudy.watch': 'Regarder ensuite',
     'goal.watched': 'vues',
@@ -10184,7 +10184,6 @@ function renderAnalytics(stats, s) {
   bar.classList.toggle('complete', stats.goalProgress >= 100)
   renderGoalPaceGuidance(stats, s)
   renderStudyInsight(s)
-  renderNextStudy(s)
 }
 
 function getFriendlyPaceMinutes(minutes) {
@@ -10457,15 +10456,17 @@ function setStudyInsightsCollapsed(collapsed) {
   })
 }
 
-function renderNextStudy(s) {
+function renderNextStudy(activeVideos = []) {
   const container = document.getElementById('nextStudyCard')
-  if (!container) return
-  const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
-  const nextVideo = getVisibleActiveVideos(Object.values(s.videos || {}), includeShorts)[0]
+  if (!container) return null
+  const shouldShow = selectedStatusFilter === 'all' || selectedStatusFilter === 'partial'
+  const nextVideo = shouldShow
+    ? activeVideos.find(video => getVideoStatus(video) === 'partial')
+    : null
   container.classList.toggle('hidden', !nextVideo)
   if (!nextVideo) {
     container.innerHTML = ''
-    return
+    return null
   }
 
   const status = getVideoStatus(nextVideo)
@@ -10482,6 +10483,7 @@ function renderNextStudy(s) {
     </span>
     <a class="next-study-cta" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${escHtml(cta)}</a>
   `
+  return nextVideo
 }
 
 function renderAnkiStatus(s) {
@@ -11664,7 +11666,12 @@ function renderFeed(s) {
     }
   }
 
-  if (!activeVideos.length) {
+  const continueWatchingVideo = renderNextStudy(activeVideos)
+  if (continueWatchingVideo) {
+    activeVideos = activeVideos.filter(video => video.id !== continueWatchingVideo.id)
+  }
+
+  if (!activeVideos.length && !continueWatchingVideo) {
     const channelMsg = channelFilters.size === getChannelFilterEntries(s).length ? '' : t('videos.empty.selectedChannels')
     const filterName = statusFilter === 'partial'
       ? t('videos.filter.inProgress')
@@ -11677,6 +11684,8 @@ function renderFeed(s) {
       ? t('videos.empty.default')
       : t('videos.empty.filtered', { filter: statusFilter === 'all' ? t('videos.filter.active') : filterName, channelText: channelMsg })
     grid.innerHTML = `<div class="empty-state">${escHtml(msg)}</div>`
+  } else if (!activeVideos.length) {
+    grid.innerHTML = ''
   } else if (isChannelView) {
     grid.innerHTML = renderChannelVideoGroups(activeVideos)
   } else {

@@ -2856,6 +2856,10 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   overflow: hidden;
   padding: 9px;
 }
+.continue-watching-card {
+  border-left: 6px solid var(--amber);
+  max-width: 100%;
+}
 .next-study-thumb-link {
   border-radius: 8px;
   display: block;
