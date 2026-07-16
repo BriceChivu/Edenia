@@ -5753,6 +5753,126 @@ summary:focus-visible,
 @media (max-width: 640px) {
   #mainApp { --compact-control-height: 44px; }
 
+  .video-grid.channel-view {
+    gap: 18px;
+  }
+  .channel-shelf-header {
+    margin-bottom: 5px;
+    padding-inline: 0;
+  }
+  .channel-shelf-avatar {
+    flex-basis: 36px;
+    height: 36px;
+    width: 36px;
+  }
+  .channel-shelf-heading strong {
+    font-size: 0.9rem;
+  }
+  .channel-shelf-controls {
+    display: none;
+  }
+  .channel-shelf-track {
+    gap: 10px;
+    margin-inline: -14px;
+    overflow-y: hidden;
+    padding: 4px 14px 12px;
+    scroll-padding-inline: 14px;
+    scrollbar-width: none;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
+  }
+  .channel-shelf-track::-webkit-scrollbar {
+    display: none;
+  }
+  .channel-shelf-card {
+    aspect-ratio: 16 / 10;
+    box-shadow: 0 3px 0 rgba(5,5,5,0.16);
+    flex: 0 0 min(82vw, 310px);
+    overflow: hidden;
+  }
+  .channel-shelf-card .thumb-link {
+    aspect-ratio: auto;
+    height: 100%;
+    inset: 0;
+    position: absolute;
+    width: 100%;
+  }
+  .channel-shelf-card .card-body {
+    background: linear-gradient(180deg, rgba(5,5,5,0.02) 4%, rgba(5,5,5,0.18) 24%, rgba(5,5,5,0.9) 58%, rgba(5,5,5,0.98) 100%);
+    color: #ffffff;
+    inset: 0;
+    justify-content: flex-end;
+    padding: 32px 10px 9px;
+    position: absolute;
+    z-index: 2;
+  }
+  .channel-shelf-card .card-title {
+    color: #ffffff;
+    font-size: 0.8rem;
+    line-height: 1.2;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+  }
+  .channel-shelf-card .card-meta,
+  .channel-shelf-card .pub-ago {
+    color: rgba(255,255,255,0.82);
+  }
+  .channel-shelf-card .card-meta {
+    margin-bottom: 0;
+  }
+  .channel-shelf-card .resume-time-field {
+    display: none;
+  }
+  .channel-shelf-card .card-status {
+    display: none;
+  }
+  .channel-shelf-card .partial-status {
+    background: rgba(252,184,49,0.88);
+    border-color: rgba(255,255,255,0.52);
+    color: #3c2800;
+  }
+  .channel-shelf-card .watch-later-status {
+    background: rgba(18,188,234,0.88);
+    border-color: rgba(255,255,255,0.5);
+    color: #052a36;
+  }
+  body[data-theme="dark"] .channel-shelf-card .partial-status {
+    color: #3c2800;
+  }
+  body[data-theme="dark"] .channel-shelf-card .watch-later-status {
+    color: #052a36;
+  }
+  .channel-shelf-card .card-actions {
+    display: flex;
+    gap: 5px;
+  }
+  .channel-shelf-card .action-btn {
+    background: rgba(255,255,255,0.94);
+    border-color: rgba(255,255,255,0.86);
+    color: #24414a;
+    font-size: 0.7rem;
+    padding: 5px 4px;
+  }
+  .channel-shelf-card .watched-btn {
+    flex: 1.45;
+  }
+  .channel-shelf-card .watched-btn-text {
+    display: inline;
+  }
+  .channel-shelf-card .partial-btn,
+  .channel-shelf-card .watch-later-btn {
+    flex: 0 0 44px;
+  }
+  .channel-shelf-card .dur-badge {
+    bottom: auto;
+    right: 44px;
+    top: 8px;
+    z-index: 3;
+  }
+  .channel-shelf-card:hover,
+  .channel-shelf-card:hover .thumb {
+    transform: none;
+  }
+
   .theme-btn,
   .gear-btn,
   .search-btn,
