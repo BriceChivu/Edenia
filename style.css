@@ -6236,6 +6236,144 @@ summary:focus-visible,
     padding: 12px;
   }
 }
+@media (min-width: 641px) and (hover: hover) and (pointer: fine) {
+  .channel-shelf {
+    position: relative;
+    z-index: 1;
+  }
+  .channel-shelf:has(.channel-shelf-card:is(:hover, :focus-within)) {
+    z-index: 20;
+  }
+  .channel-shelf-track {
+    margin: -18px -16px -20px;
+    padding: 24px 20px 26px;
+    scroll-padding-inline: 20px;
+  }
+  .channel-shelf-card {
+    aspect-ratio: 16 / 10;
+    box-shadow: 0 3px 0 rgba(5,5,5,0.14);
+    flex-basis: clamp(218px, 24vw, 252px);
+    overflow: hidden;
+    transform-origin: center;
+    transition:
+      border-color var(--motion-base) var(--ease-standard),
+      box-shadow var(--motion-base) var(--ease-standard),
+      transform var(--motion-base) var(--ease-emphasized);
+  }
+  .channel-shelf-card .thumb-link {
+    aspect-ratio: auto;
+    height: 100%;
+    inset: 0;
+    position: absolute;
+    width: 100%;
+  }
+  .channel-shelf-card .card-body {
+    background: linear-gradient(180deg, rgba(5,5,5,0.02) 5%, rgba(5,5,5,0.18) 25%, rgba(5,5,5,0.9) 58%, rgba(5,5,5,0.97) 100%);
+    color: #ffffff;
+    inset: 0;
+    justify-content: flex-end;
+    opacity: 0;
+    padding: 38px 10px 9px;
+    pointer-events: none;
+    position: absolute;
+    transform: translateY(8px);
+    transition: opacity var(--motion-base) var(--ease-standard), transform var(--motion-base) var(--ease-emphasized);
+    z-index: 2;
+  }
+  .channel-shelf-card .card-title {
+    color: #ffffff;
+    font-size: 0.76rem;
+    line-height: 1.2;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+  }
+  .channel-shelf-card .card-meta,
+  .channel-shelf-card .pub-ago {
+    color: rgba(255,255,255,0.82);
+  }
+  .channel-shelf-card .card-meta {
+    font-size: 0.68rem;
+    margin-bottom: 0;
+  }
+  .channel-shelf-card .resume-time-field {
+    display: none;
+  }
+  .channel-shelf-card .card-status {
+    backdrop-filter: blur(5px);
+    font-size: 0.62rem;
+    padding: 3px 6px;
+  }
+  .channel-shelf-card .partial-status {
+    background: rgba(252,184,49,0.88);
+    border-color: rgba(255,255,255,0.52);
+    color: #3c2800;
+  }
+  .channel-shelf-card .watch-later-status {
+    background: rgba(18,188,234,0.88);
+    border-color: rgba(255,255,255,0.5);
+    color: #052a36;
+  }
+  body[data-theme="dark"] .channel-shelf-card .partial-status {
+    color: #3c2800;
+  }
+  body[data-theme="dark"] .channel-shelf-card .watch-later-status {
+    color: #052a36;
+  }
+  .channel-shelf-card .card-actions {
+    gap: 5px;
+  }
+  .channel-shelf-card .action-btn {
+    background: rgba(255,255,255,0.94);
+    border-color: rgba(255,255,255,0.86);
+    color: #24414a;
+    font-size: 0.68rem;
+    min-height: 27px;
+    padding: 4px;
+  }
+  .channel-shelf-card .action-btn:hover {
+    background: #ffffff;
+    border-color: var(--planet-lime);
+    color: #10232a;
+  }
+  body[data-theme="dark"] .channel-shelf-card .action-btn:hover {
+    background: #ffffff;
+    border-color: var(--planet-lime);
+    color: #10232a;
+  }
+  .channel-shelf-card .dur-badge {
+    bottom: auto;
+    right: 8px;
+    top: 8px;
+    transition: right var(--motion-base) var(--ease-standard);
+    z-index: 2;
+  }
+  .channel-shelf-card:is(:hover, :focus-within) {
+    border-color: var(--planet-black);
+    box-shadow: 0 12px 24px rgba(5,5,5,0.28), 0 4px 0 rgba(5,5,5,0.24);
+    transform: scale(1.12);
+    z-index: 12;
+  }
+  .channel-shelf-card:is(:hover, :focus-within) .card-body {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+  .channel-shelf-card:is(:hover, :focus-within) .dur-badge {
+    right: 36px;
+  }
+  .channel-shelf-card:is(:hover, :focus-within) .thumb {
+    transform: scale(1.06);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .channel-shelf-track {
+    scroll-behavior: auto;
+  }
+  .channel-shelf-card,
+  .channel-shelf-card .card-body,
+  .channel-shelf-card .thumb {
+    transition: none;
+  }
+}
 @media (min-width: 900px) {
   #mainApp { max-width: 1100px; margin: 0 auto; }
   .video-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
