@@ -714,7 +714,7 @@ const I18N_EN = {
   'settings.youtube.title': 'Add a YouTube channel',
   'settings.youtube.intro': 'Add a channel by copying its YouTube URL. You can also use its @handle.',
   'settings.youtube.step1': "On YouTube, open the channel you want and copy its URL from your browser's address bar.",
-  'settings.youtube.step2': 'In Edenia, open Add channels above your video list and paste the URL.',
+  'settings.youtube.step2': 'In Edenia, open Add above your video list and paste the URL.',
   'settings.youtube.step3': 'Click Add to add the channel to your study feed.',
   'settings.anki.whatTitle': 'What is Anki?',
   'settings.anki.whatIntro': 'Anki is a flashcard app that schedules reviews to help you remember words and ideas over time. Using Anki with Edenia is optional.',
@@ -733,7 +733,7 @@ const I18N_EN = {
   'settings.scoring.anki': '60 Anki reviews gives 2 pts.',
   'settings.workflow.title': 'Typical Edenia workflow',
   'settings.workflow.item1': "Watch videos from the channels you've added.",
-  'settings.workflow.item2': 'If you want to watch a video without tracking its channel, use the Add video button.',
+  'settings.workflow.item2': 'Use Add to paste either a YouTube video or channel URL.',
   'settings.workflow.item3': 'Check your studies with the study history summary and heatmap.',
   'settings.workflow.item4': 'Watch your town grow.',
   'settings.activity.title': 'Activity log',
@@ -969,10 +969,10 @@ const I18N_EN = {
   'videos.channels.none': 'No channels',
   'videos.channels.one': '1 channel',
   'videos.channels.count': '{count} channels',
-  'videos.manual.button': 'Add video',
-  'videos.manual.dialog': 'Add YouTube video',
-  'videos.manual.hint': 'Here you can paste the URL of a YouTube video that is not in your tracked channels.',
-  'videos.manual.placeholder': 'youtube.com/watch?v=...',
+  'videos.manual.button': 'Add',
+  'videos.manual.dialog': 'Add YouTube video or channel',
+  'videos.manual.hint': 'Here you can paste the URL of a YouTube video or a channel.',
+  'videos.manual.placeholder': 'YouTube video or channel URL',
   'videos.manual.add': 'Add',
   'videos.manual.adding': 'Adding...',
   'videos.undo': 'Undo',
@@ -1091,7 +1091,7 @@ const I18N_EN = {
   'toast.refreshFailed': 'Refresh failed: {message}',
   'toast.channelLoaded': '{name}: {count} videos loaded{shorts}',
   'toast.channelAddLoadFailed': 'Channel added, but recent videos could not load: {message}',
-  'toast.validYoutubeUrl': 'Use a valid YouTube video URL',
+  'toast.validYoutubeUrl': 'Use a valid YouTube video or channel URL',
   'toast.videoNotFound': 'No YouTube video was found for that URL',
   'toast.alreadyWatched': 'That video is already marked watched',
   'toast.addedWatchedVideo': 'Added video: "{title}"',
@@ -1140,7 +1140,7 @@ const I18N_EN = {
   'walkthrough.firstStudyChannels': 'Your channel controls live here. Open this menu to add, remove, or filter study sources at any time.',
   'walkthrough.firstStudyFeed': 'This is your real study feed. Choose a video, then mark it watched, in progress, or watch later. Your goal, history, and town update from what you actually study.',
   'walkthrough.videoFilters': 'These controls help you keep the list manageable. You can filter by status, filter by channel, add a video URL, and fix mistakes.',
-  'walkthrough.manualWatchedUrl': 'Use Add video when you want to add a YouTube video that is not in your tracked channels. Paste the link, then choose whether it is watched, in progress, or saved for later.',
+  'walkthrough.manualWatchedUrl': 'Use Add to paste a YouTube video or channel URL. Edenia will recognize which one you entered.',
   'walkthrough.undoRedo': 'Undo and Redo let you recover from accidental clicks. Open the list, choose the action, and Edenia will update the score and history again.',
   'walkthrough.settings': 'Click Settings when you want to adjust Edenia. This is where you choose your weekly goal, language, short-video preference, backups, and sync files.',
   'walkthrough.clickSettings': 'Click Settings',
@@ -1307,7 +1307,7 @@ const I18N = {
     'settings.youtube.title': '新增 YouTube 頻道',
     'settings.youtube.intro': '複製 YouTube 頻道網址即可新增頻道。你也可以使用頻道的 @handle。',
     'settings.youtube.step1': '在 YouTube 打開你想新增的頻道，從瀏覽器網址列複製其網址。',
-    'settings.youtube.step2': '在 Edenia 中，打開影片清單上方的「新增頻道」，並貼上網址。',
+    'settings.youtube.step2': '在 Edenia 中，打開影片清單上方的「新增」，並貼上網址。',
     'settings.youtube.step3': '點「新增」，將頻道加入你的學習動態。',
     'settings.anki.whatTitle': 'Anki 是什麼？',
     'settings.anki.whatIntro': 'Anki 是一款單字卡應用程式，會安排複習時間，幫助你長期記住單字和概念。你可以選擇是否搭配 Edenia 使用 Anki。',
@@ -1330,7 +1330,7 @@ const I18N = {
   'settings.scoring.exampleAnki': '複習 30 張 Anki 卡會得到 1 分，但複習 29 張會得到 0 分（0.9 向下取整為 0）。',
   'settings.workflow.title': '典型 Edenia 流程',
   'settings.workflow.item1': '觀看你已新增的頻道中的影片。',
-  'settings.workflow.item2': '如果你想觀看不追蹤頻道的影片，請使用 Add video 按鈕。',
+  'settings.workflow.item2': '使用「新增」貼上 YouTube 影片或頻道網址。',
   'settings.workflow.item3': '使用學習歷史摘要和熱圖查看你的學習情況。',
   'settings.workflow.item4': '看著你的城鎮成長。',
     'settings.activity.title': '活動紀錄',
@@ -1531,9 +1531,9 @@ const I18N = {
     'videos.channels.manage': '管理頻道',
     'videos.channels.add': '新增頻道',
     'videos.channels.none': '沒有頻道',
-    'videos.manual.button': '新增影片',
-    'videos.manual.dialog': '新增 YouTube 影片',
-    'videos.manual.hint': '你可以在這裡貼上不在追蹤頻道中的 YouTube 影片網址。',
+    'videos.manual.button': '新增',
+    'videos.manual.dialog': '新增 YouTube 影片或頻道',
+    'videos.manual.hint': '你可以在這裡貼上 YouTube 影片或頻道網址。',
     'videos.manual.add': '新增',
     'videos.undo': '復原',
     'videos.redo': '重做',
@@ -1630,7 +1630,7 @@ const I18N = {
     'walkthrough.firstStudyChannels': '你的頻道控制都在這裡。打開這個選單，即可隨時新增、移除或篩選學習來源。',
     'walkthrough.firstStudyFeed': '這是你真正的學習清單。選擇一部影片，再標記為已看、進行中或稍後觀看。你的目標、紀錄和小鎮都會依照實際學習更新。',
     'walkthrough.videoFilters': '這些控制可以讓清單更好管理。你可以依狀態或頻道篩選，新增影片網址，也可以修正誤點。',
-    'walkthrough.manualWatchedUrl': '如果想加入不在追蹤頻道中的 YouTube 影片，可以用新增影片。貼上連結後，再選擇已看、進行中或稍後觀看。',
+    'walkthrough.manualWatchedUrl': '使用「新增」貼上 YouTube 影片或頻道網址，Edenia 會自動辨識內容。',
     'walkthrough.undoRedo': '復原和重做可以幫你修正誤點。打開清單，選一個動作，Edenia 會重新計算分數和紀錄。',
     'walkthrough.settings': '想調整 Edenia 時，請點設定。你可以在這裡選每週目標、語言、短影片偏好、備份和同步檔。',
     'walkthrough.clickSettings': '點設定',
@@ -1742,7 +1742,7 @@ const I18N = {
     'settings.youtube.title': '添加 YouTube 频道',
     'settings.youtube.intro': '复制 YouTube 频道网址即可添加频道。你也可以使用频道的 @handle。',
     'settings.youtube.step1': '在 YouTube 打开你想添加的频道，从浏览器地址栏复制其网址。',
-    'settings.youtube.step2': '在 Edenia 中，打开视频列表上方的“添加频道”，并粘贴网址。',
+    'settings.youtube.step2': '在 Edenia 中，打开视频列表上方的“添加”，并粘贴网址。',
     'settings.youtube.step3': '点击“添加”，将频道加入你的学习动态。',
     'settings.anki.whatTitle': '什么是 Anki？',
     'settings.anki.whatIntro': 'Anki 是一款抽认卡应用，会安排复习时间，帮助你长期记住单词和概念。你可以选择是否搭配 Edenia 使用 Anki。',
@@ -1765,7 +1765,7 @@ const I18N = {
   'settings.scoring.exampleAnki': '复习 30 张 Anki 卡会得到 1 分，但复习 29 张会得到 0 分（0.9 向下取整为 0）。',
   'settings.workflow.title': '典型 Edenia 流程',
   'settings.workflow.item1': '观看你已添加的频道中的视频。',
-  'settings.workflow.item2': '如果你想观看不追踪频道的视频，请使用 Add video 按钮。',
+  'settings.workflow.item2': '使用“添加”粘贴 YouTube 视频或频道网址。',
   'settings.workflow.item3': '通过学习历史摘要和热图查看你的学习情况。',
   'settings.workflow.item4': '看着你的城镇成长。',
     'settings.activity.title': '活动记录',
@@ -1955,8 +1955,8 @@ const I18N = {
     'videos.channels.manage': '管理频道',
     'videos.channels.add': '添加频道',
     'videos.channels.none': '没有频道',
-    'videos.manual.button': '添加视频',
-    'videos.manual.hint': '你可以在这里粘贴不在追踪频道中的 YouTube 视频网址。',
+    'videos.manual.button': '添加',
+    'videos.manual.hint': '你可以在这里粘贴 YouTube 视频或频道网址。',
     'videos.manual.add': '添加',
     'videos.undo': '撤销',
     'videos.redo': '重做',
@@ -2046,7 +2046,7 @@ const I18N = {
     'walkthrough.firstStudyChannels': '你的频道控制都在这里。打开这个菜单，即可随时添加、移除或筛选学习来源。',
     'walkthrough.firstStudyFeed': '这是你真正的学习列表。选择一个视频，再标记为已看、进行中或稍后观看。你的目标、记录和小镇都会按照实际学习更新。',
     'walkthrough.videoFilters': '这些控制可以让列表更好管理。你可以按状态或频道筛选，添加视频网址，也可以修正误点。',
-    'walkthrough.manualWatchedUrl': '如果想添加不在追踪频道中的 YouTube 视频，可以用添加视频。粘贴链接后，再选择已看、进行中或稍后观看。',
+    'walkthrough.manualWatchedUrl': '使用“添加”粘贴 YouTube 视频或频道网址，Edenia 会自动识别内容。',
     'walkthrough.undoRedo': '撤销和重做可以帮你修正误点。打开列表，选一个动作，Edenia 会重新计算分数和记录。',
     'walkthrough.settings': '想调整 Edenia 时，请点设置。你可以在这里选择每周目标、语言、短视频偏好、备份和同步文件。',
     'walkthrough.clickSettings': '点设置',
@@ -2158,7 +2158,7 @@ const I18N = {
     'settings.youtube.title': 'Añadir un canal de YouTube',
     'settings.youtube.intro': 'Añade un canal copiando su URL de YouTube. También puedes usar su @handle.',
     'settings.youtube.step1': 'En YouTube, abre el canal que quieras y copia su URL desde la barra de direcciones del navegador.',
-    'settings.youtube.step2': 'En Edenia, abre Añadir canales encima de la lista de videos y pega la URL.',
+    'settings.youtube.step2': 'En Edenia, abre Añadir encima de la lista de videos y pega la URL.',
     'settings.youtube.step3': 'Haz clic en Añadir para agregar el canal a tu lista de estudio.',
     'settings.anki.whatTitle': '¿Qué es Anki?',
     'settings.anki.whatIntro': 'Anki es una aplicación de tarjetas que programa repasos para ayudarte a recordar palabras e ideas a largo plazo. Usar Anki con Edenia es opcional.',
@@ -2181,7 +2181,7 @@ const I18N = {
   'settings.scoring.exampleAnki': 'Hacer 30 repasos de Anki da 1 pts, pero hacer 29 repasos da 0 pts (0.9 redondeado hacia abajo a 0).',
   'settings.workflow.title': 'Flujo típico de Edenia',
   'settings.workflow.item1': 'Mira videos de los canales que has añadido.',
-  'settings.workflow.item2': 'Si quieres ver un video sin registrar su canal, usa el botón Add video.',
+  'settings.workflow.item2': 'Usa Añadir para pegar la URL de un video o canal de YouTube.',
   'settings.workflow.item3': 'Revisa tus estudios con el resumen del historial y el mapa de calor.',
   'settings.workflow.item4': 'Mira crecer tu ciudad.',
     'settings.activity.title': 'Registro de actividad',
@@ -2373,8 +2373,8 @@ const I18N = {
     'videos.channels.manage': 'Gestionar canales',
     'videos.channels.add': 'Añadir canales',
     'videos.channels.none': 'Sin canales',
-    'videos.manual.button': 'Añadir video',
-    'videos.manual.hint': 'Aquí puedes pegar la URL de un video de YouTube que no está en tus canales seguidos.',
+    'videos.manual.button': 'Añadir',
+    'videos.manual.hint': 'Aquí puedes pegar la URL de un video o canal de YouTube.',
     'videos.manual.add': 'Añadir',
     'videos.undo': 'Deshacer',
     'videos.redo': 'Rehacer',
@@ -2464,7 +2464,7 @@ const I18N = {
     'walkthrough.firstStudyChannels': 'Aquí están los controles de tus canales. Abre este menú para añadir, quitar o filtrar tus fuentes de estudio cuando quieras.',
     'walkthrough.firstStudyFeed': 'Esta es tu lista de estudio real. Elige un video y márcalo como visto, en progreso o para ver después. Tu objetivo, historial y pueblo se actualizan con lo que estudias de verdad.',
     'walkthrough.videoFilters': 'Estos controles ayudan a mantener la lista clara. Puedes filtrar por estado, filtrar por canal, añadir una URL de video y corregir errores.',
-    'walkthrough.manualWatchedUrl': 'Usa Añadir video para agregar un video de YouTube que no está en tus canales seguidos. Pega el enlace y luego elige si está visto, en progreso o guardado para después.',
+    'walkthrough.manualWatchedUrl': 'Usa Añadir para pegar la URL de un video o canal de YouTube. Edenia reconocerá cuál has introducido.',
     'walkthrough.undoRedo': 'Deshacer y Rehacer te ayudan si haces clic por error. Abre la lista, elige la acción y Edenia recalculará el puntaje y el historial.',
     'walkthrough.settings': 'Haz clic en Ajustes cuando quieras cambiar Edenia. Aquí eliges tu objetivo semanal, idioma, preferencia de videos cortos, copias y archivos de sincronización.',
     'walkthrough.clickSettings': 'Abrir ajustes',
@@ -2576,7 +2576,7 @@ const I18N = {
     'settings.youtube.title': 'Ajouter une chaîne YouTube',
     'settings.youtube.intro': 'Ajoutez une chaîne en copiant son URL YouTube. Vous pouvez aussi utiliser son @handle.',
     'settings.youtube.step1': 'Sur YouTube, ouvrez la chaîne souhaitée et copiez son URL depuis la barre d’adresse du navigateur.',
-    'settings.youtube.step2': 'Dans Edenia, ouvrez Ajouter des chaînes au-dessus de votre liste de vidéos et collez l’URL.',
+    'settings.youtube.step2': 'Dans Edenia, ouvrez Ajouter au-dessus de votre liste de vidéos et collez l’URL.',
     'settings.youtube.step3': 'Cliquez sur Ajouter pour intégrer la chaîne à votre fil d’étude.',
     'settings.anki.whatTitle': 'Qu’est-ce qu’Anki ?',
     'settings.anki.whatIntro': 'Anki est une application de cartes mémoire qui programme les révisions pour vous aider à retenir des mots et des idées dans le temps. Utiliser Anki avec Edenia est facultatif.',
@@ -2599,7 +2599,7 @@ const I18N = {
   'settings.scoring.exampleAnki': 'Faire 30 révisions Anki donne 1 pts, mais faire 29 révisions donne 0 pts (0,9 arrondi vers le bas à 0).',
   'settings.workflow.title': 'Flux Edenia typique',
   'settings.workflow.item1': 'Regardez les vidéos des chaînes que vous avez ajoutées.',
-  'settings.workflow.item2': 'Si vous voulez regarder une vidéo sans suivre sa chaîne, utilisez le bouton Add video.',
+  'settings.workflow.item2': 'Utilisez Ajouter pour coller l’URL d’une vidéo ou d’une chaîne YouTube.',
   'settings.workflow.item3': 'Consultez vos études avec le résumé de l’historique et la carte thermique.',
   'settings.workflow.item4': 'Regardez votre ville grandir.',
     'settings.activity.title': 'Journal d’activité',
@@ -2791,8 +2791,8 @@ const I18N = {
     'videos.channels.manage': 'Gérer les chaînes',
     'videos.channels.add': 'Ajouter des chaînes',
     'videos.channels.none': 'Aucune chaîne',
-    'videos.manual.button': 'Ajouter une vidéo',
-    'videos.manual.hint': 'Vous pouvez coller ici l’URL d’une vidéo YouTube qui n’est pas dans vos chaînes suivies.',
+    'videos.manual.button': 'Ajouter',
+    'videos.manual.hint': 'Vous pouvez coller ici l’URL d’une vidéo ou d’une chaîne YouTube.',
     'videos.manual.add': 'Ajouter',
     'videos.undo': 'Annuler',
     'videos.redo': 'Rétablir',
@@ -2882,7 +2882,7 @@ const I18N = {
     'walkthrough.firstStudyChannels': 'Les contrôles de vos chaînes se trouvent ici. Ouvrez ce menu pour ajouter, retirer ou filtrer vos sources d’étude à tout moment.',
     'walkthrough.firstStudyFeed': 'Voici votre véritable liste d’étude. Choisissez une vidéo, puis marquez-la comme vue, en cours ou à regarder plus tard. Votre objectif, votre historique et votre ville évoluent selon ce que vous étudiez réellement.',
     'walkthrough.videoFilters': 'Ces contrôles gardent la liste lisible. Vous pouvez filtrer par statut, par chaîne, ajouter une URL de vidéo et corriger les erreurs.',
-    'walkthrough.manualWatchedUrl': 'Utilisez Ajouter une vidéo pour ajouter une vidéo YouTube absente de vos chaînes suivies. Collez le lien, puis choisissez si elle est vue, en cours ou gardée pour plus tard.',
+    'walkthrough.manualWatchedUrl': 'Utilisez Ajouter pour coller l’URL d’une vidéo ou d’une chaîne YouTube. Edenia reconnaîtra le type de lien.',
     'walkthrough.undoRedo': 'Annuler et Rétablir aident après un clic accidentel. Ouvrez la liste, choisissez l’action, et Edenia recalculera le score et l’historique.',
     'walkthrough.settings': 'Cliquez sur Réglages pour ajuster Edenia. Vous pouvez y choisir votre objectif hebdomadaire, la langue, les vidéos courtes, les sauvegardes et les fichiers de synchronisation.',
     'walkthrough.clickSettings': 'Ouvrir les réglages',
@@ -2926,7 +2926,7 @@ Object.assign(I18N['zh-Hant'], {
   'videos.status.previous': '先前狀態',
   'videos.channels.one': '1 個頻道',
   'videos.channels.count': '{count} 個頻道',
-  'videos.manual.placeholder': 'youtube.com/watch?v=...',
+  'videos.manual.placeholder': 'YouTube 影片或頻道網址',
   'videos.manual.adding': '新增中…',
   'videos.empty.filtered': '沒有符合「{filter}」{channelText}的影片。',
   'videos.empty.selectedChannels': '（已選頻道）',
@@ -2984,7 +2984,7 @@ Object.assign(I18N['zh-Hant'], {
   'toast.refreshFailed': '刷新失敗：{message}',
   'toast.channelLoaded': '已從 {name} 載入 {count} 部影片{shorts}',
   'toast.channelAddLoadFailed': '頻道已加入，但影片載入失敗：{message}',
-  'toast.validYoutubeUrl': '請貼上有效的 YouTube 影片網址',
+  'toast.validYoutubeUrl': '請貼上有效的 YouTube 影片或頻道網址',
   'toast.videoNotFound': '找不到這個網址對應的 YouTube 影片',
   'toast.alreadyWatched': '這部影片已標記為已觀看',
   'toast.addedWatchedVideo': '已加入並標記為已觀看：{title}',
@@ -3093,8 +3093,8 @@ Object.assign(I18N['zh-Hans'], {
   'videos.status.previous': '之前状态',
   'videos.channels.one': '1 个频道',
   'videos.channels.count': '{count} 个频道',
-  'videos.manual.dialog': '添加 YouTube 视频',
-  'videos.manual.placeholder': 'youtube.com/watch?v=...',
+  'videos.manual.dialog': '添加 YouTube 视频或频道',
+  'videos.manual.placeholder': 'YouTube 视频或频道网址',
   'videos.manual.adding': '添加中…',
   'videos.empty.activeBelow': '当前筛选条件下没有视频。',
   'videos.empty.filtered': '没有符合“{filter}”{channelText}的视频。',
@@ -3159,7 +3159,7 @@ Object.assign(I18N['zh-Hans'], {
   'toast.refreshFailed': '刷新失败：{message}',
   'toast.channelLoaded': '已从 {name} 加载 {count} 个视频{shorts}',
   'toast.channelAddLoadFailed': '频道已添加，但视频加载失败：{message}',
-  'toast.validYoutubeUrl': '请粘贴有效的 YouTube 视频网址',
+  'toast.validYoutubeUrl': '请粘贴有效的 YouTube 视频或频道网址',
   'toast.videoNotFound': '找不到这个网址对应的 YouTube 视频',
   'toast.alreadyWatched': '这个视频已标记为已观看',
   'toast.addedWatchedVideo': '已添加并标记为已观看：{title}',
@@ -3266,8 +3266,8 @@ Object.assign(I18N.es, {
   'videos.status.previous': 'estado anterior',
   'videos.channels.one': '1 canal',
   'videos.channels.count': '{count} canales',
-  'videos.manual.dialog': 'Añadir video de YouTube',
-  'videos.manual.placeholder': 'youtube.com/watch?v=...',
+  'videos.manual.dialog': 'Añadir video o canal de YouTube',
+  'videos.manual.placeholder': 'URL de video o canal de YouTube',
   'videos.manual.adding': 'Añadiendo…',
   'videos.empty.activeBelow': 'No hay videos con los filtros actuales.',
   'videos.empty.filtered': 'No hay videos que coincidan con «{filter}» {channelText}.',
@@ -3332,7 +3332,7 @@ Object.assign(I18N.es, {
   'toast.refreshFailed': 'Falló la actualización: {message}',
   'toast.channelLoaded': 'Se cargaron {count} videos de {name}{shorts}',
   'toast.channelAddLoadFailed': 'El canal se añadió, pero sus videos no se cargaron: {message}',
-  'toast.validYoutubeUrl': 'Pega una URL válida de un video de YouTube',
+  'toast.validYoutubeUrl': 'Pega una URL válida de un video o canal de YouTube',
   'toast.videoNotFound': 'No se encontró ningún video de YouTube para esa URL',
   'toast.alreadyWatched': 'Este video ya está marcado como visto',
   'toast.addedWatchedVideo': 'Añadido y marcado como visto: {title}',
@@ -3439,8 +3439,8 @@ Object.assign(I18N.fr, {
   'videos.status.previous': 'état précédent',
   'videos.channels.one': '1 chaîne',
   'videos.channels.count': '{count} chaînes',
-  'videos.manual.dialog': 'Ajouter une vidéo YouTube',
-  'videos.manual.placeholder': 'youtube.com/watch?v=...',
+  'videos.manual.dialog': 'Ajouter une vidéo ou une chaîne YouTube',
+  'videos.manual.placeholder': 'URL de vidéo ou de chaîne YouTube',
   'videos.manual.adding': 'Ajout…',
   'videos.empty.activeBelow': 'Aucune vidéo avec les filtres actuels.',
   'videos.empty.filtered': 'Aucune vidéo ne correspond à « {filter} » {channelText}.',
@@ -3505,7 +3505,7 @@ Object.assign(I18N.fr, {
   'toast.refreshFailed': 'Échec de l’actualisation : {message}',
   'toast.channelLoaded': '{count} vidéos chargées depuis {name}{shorts}',
   'toast.channelAddLoadFailed': 'La chaîne a été ajoutée, mais ses vidéos n’ont pas été chargées : {message}',
-  'toast.validYoutubeUrl': 'Collez une URL de vidéo YouTube valide',
+  'toast.validYoutubeUrl': 'Collez une URL valide de vidéo ou de chaîne YouTube',
   'toast.videoNotFound': 'Aucune vidéo YouTube n’a été trouvée pour cette URL',
   'toast.alreadyWatched': 'Cette vidéo est déjà marquée comme vue',
   'toast.addedWatchedVideo': 'Ajoutée et marquée comme vue : {title}',
@@ -3614,7 +3614,7 @@ const WALKTHROUGH_STEPS = [
 const FIRST_STUDY_WALKTHROUGH_STEPS = [
   {
     id: 'first-study-channels',
-    target: '#channelFilterBtn',
+    target: '#manualVideoBtn',
     textKey: 'walkthrough.firstStudyChannels',
     placement: 'bottom',
     hooks: {
@@ -7023,10 +7023,13 @@ function toggleTheme() {
   renderActivityLog(s)
 }
 
-async function addChannel() {
-  const idEl   = document.getElementById('channelFilterAddInput') || document.getElementById('newChannelId')
-  const btn    = document.getElementById('channelFilterAddBtn')
-  const addedFromFilter = Boolean(document.getElementById('channelFilterAddInput'))
+async function addChannel(options = {}) {
+  const idEl = options.input
+    || document.getElementById('channelFilterAddInput')
+    || document.getElementById('newChannelId')
+  const btn = options.button || document.getElementById('channelFilterAddBtn')
+  const idleButtonText = options.idleButtonText || t('settings.channels.add')
+  const addedFromFilter = !options.input && Boolean(document.getElementById('channelFilterAddInput'))
   const raw    = idEl?.value?.trim() || ''
   let resolved
 
@@ -7049,7 +7052,7 @@ async function addChannel() {
   if (s.config.channels.find(c => c.id === id)) {
     if (btn) {
       btn.disabled = false
-      btn.textContent = t('settings.channels.add')
+      btn.textContent = idleButtonText
     }
     showToast(t('toast.channelDuplicate'), 'warn')
     return
@@ -7078,8 +7081,9 @@ async function addChannel() {
   if (idEl) idEl.value = ''
   if (btn) {
     btn.disabled = false
-    btn.textContent = t('settings.channels.add')
+    btn.textContent = idleButtonText
   }
+  if (options.closePopover) closeManualVideoPopover()
   if (addedFromFilter && isMobileLayout()) closeChannelFilterMenu()
   if (IS_SANDBOX) {
     showToast(t('toast.channelAdded', { name }))
@@ -8310,6 +8314,30 @@ async function addVideoFromUrl(event) {
       btn.textContent = t('videos.manual.add')
     }
   }
+}
+
+async function addYoutubeInput(event) {
+  event.preventDefault()
+  const input = document.getElementById('manualVideoUrlInput')
+  const btn = document.getElementById('manualVideoAddBtn')
+  const rawUrl = input?.value?.trim() || ''
+
+  if (parseYoutubeVideoId(rawUrl)) {
+    await addVideoFromUrl(event)
+    return
+  }
+  if (parseYoutubeChannelInput(rawUrl)) {
+    await addChannel({
+      input,
+      button: btn,
+      idleButtonText: t('videos.manual.add'),
+      closePopover: true
+    })
+    return
+  }
+
+  showToast(t('toast.validYoutubeUrl'), 'warn')
+  input?.focus()
 }
 
 function saveVideoResumeTime(videoId, value) {
@@ -12523,13 +12551,10 @@ function closeStatusFilterMenu(restoreFocus = false) {
 }
 
 function renderChannelFilterOptions(s) {
-  const filter = document.getElementById('channelFilter')
-  const btn = document.getElementById('channelFilterBtn')
-  const menu = document.getElementById('channelFilterMenu')
-  if (!btn || !menu) return
+  const optionsWrap = document.getElementById('manualVideoChannelOptions')
+  if (!optionsWrap) return
 
   const entries = getChannelFilterEntries(s)
-  const hasConfiguredChannels = Boolean(s.config?.channels?.length)
   const ids = new Set(entries.map(([id]) => id))
   if (selectedChannelFilters) {
     entries.forEach(([id]) => {
@@ -12541,27 +12566,6 @@ function renderChannelFilterOptions(s) {
 
   const selected = getSelectedChannelFilters(s)
   const selectedCount = selected.size
-  btn.textContent = getChannelFilterLabel(entries, selected, hasConfiguredChannels)
-  btn.disabled = false
-  filter?.classList.toggle('channel-filter-empty-highlight', !hasConfiguredChannels)
-
-  const mobileHeader = `
-    <div class="mobile-popover-header">
-      <strong>${escHtml(hasConfiguredChannels ? t('videos.channels.manage') : t('videos.channels.add'))}</strong>
-      <button class="mobile-popover-close" type="button" onclick="closeChannelFilterMenu(true)" title="${escHtml(t('settings.close'))}" aria-label="${escHtml(t('settings.close'))}">×</button>
-    </div>
-  `
-  const addForm = `
-    <form class="channel-filter-add" onsubmit="addChannelFromFilter(event)">
-      <input type="text"
-        id="channelFilterAddInput"
-        placeholder="${escHtml(t('settings.channels.placeholder'))}"
-        autocomplete="off"
-        autocapitalize="off"
-        spellcheck="false">
-      <button type="submit" class="btn-secondary channel-filter-add-btn" id="channelFilterAddBtn">${escHtml(t('settings.channels.add'))}</button>
-    </form>
-  `
   const removableChannelIds = new Set([
     ...(s.config.channels || []).map(channel => channel.id),
     ...Object.values(s.videos || {})
@@ -12596,18 +12600,21 @@ function renderChannelFilterOptions(s) {
     `
     }).join('')
     : `<div class="channel-filter-empty">${escHtml(t('videos.channels.none'))}</div>`
-  menu.innerHTML = mobileHeader + addForm + allChannelsControl + options
+  optionsWrap.innerHTML = `
+    <div class="manual-video-channel-title">${escHtml(t('videos.channels.manage'))}</div>
+    ${allChannelsControl}
+    ${options}
+  `
   const selectAllInput = document.getElementById('channelFilterSelectAll')
   if (selectAllInput) {
     selectAllInput.indeterminate = selectedCount > 0 && selectedCount < entries.length
   }
-  menu.dataset.selectedCount = selectedCount
-  if (!menu.classList.contains('hidden')) positionFilterMenuWithinViewport(menu)
+  optionsWrap.dataset.selectedCount = selectedCount
 }
 
 function refreshOpenChannelFilterTimestamps() {
-  const menu = document.getElementById('channelFilterMenu')
-  if (!menu || menu.classList.contains('hidden')) return
+  const popover = document.getElementById('manualVideoPopover')
+  if (!popover || popover.classList.contains('hidden')) return
   renderChannelFilterOptions(loadState())
 }
 

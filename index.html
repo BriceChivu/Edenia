@@ -290,7 +290,7 @@ and momentum—at a glance</h2>
             <p class="step-hint" data-i18n="settings.youtube.intro">Add a channel by copying its YouTube URL. You can also use its @handle.</p>
             <ol class="settings-workflow-list">
               <li data-i18n="settings.youtube.step1">On YouTube, open the channel you want and copy its URL from your browser's address bar.</li>
-              <li data-i18n="settings.youtube.step2">In Edenia, open Add channels above your video list and paste the URL.</li>
+              <li data-i18n="settings.youtube.step2">In Edenia, open Add above your video list and paste the URL.</li>
               <li data-i18n="settings.youtube.step3">Click Add to add the channel to your study feed.</li>
             </ol>
           </section>
@@ -330,7 +330,7 @@ and momentum—at a glance</h2>
             <h3 data-i18n="settings.workflow.title">Typical Edenia workflow</h3>
             <ul class="settings-workflow-list">
               <li data-i18n="settings.workflow.item1">Watch videos from the channels you've added.</li>
-              <li data-i18n="settings.workflow.item2">If you want to watch a video without tracking its channel, use the Add video button.</li>
+              <li data-i18n="settings.workflow.item2">Use Add to paste either a YouTube video or channel URL.</li>
               <li data-i18n="settings.workflow.item3">Check your studies with the study history summary and heatmap.</li>
               <li data-i18n="settings.workflow.item4">Watch your town grow.</li>
             </ul>
@@ -607,24 +607,21 @@ and momentum—at a glance</h2>
             <button type="button" class="btn-secondary channel-filter-btn status-filter-btn" id="statusFilterBtn" onclick="toggleStatusFilterMenu()" aria-haspopup="true" aria-expanded="false">All videos</button>
             <div class="channel-filter-menu status-filter-menu hidden" id="statusFilterMenu"></div>
           </div>
-          <div class="channel-filter" id="channelFilter">
-            <button type="button" class="btn-secondary channel-filter-btn" id="channelFilterBtn" onclick="toggleChannelFilterMenu()" aria-haspopup="true" aria-expanded="false">All channels</button>
-            <div class="channel-filter-menu hidden" id="channelFilterMenu"></div>
-          </div>
         </div>
         <div class="feed-action-controls">
           <div class="manual-video" id="manualVideo">
-            <button type="button" class="btn-secondary manual-video-btn" id="manualVideoBtn" onclick="toggleManualVideoPopover(event)" aria-haspopup="true" aria-expanded="false" data-i18n="videos.manual.button">Add video</button>
-            <div class="manual-video-popover hidden" id="manualVideoPopover" role="dialog" aria-label="Add YouTube video" data-i18n-aria-label="videos.manual.dialog">
+            <button type="button" class="btn-secondary manual-video-btn" id="manualVideoBtn" onclick="toggleManualVideoPopover(event)" aria-haspopup="true" aria-expanded="false" data-i18n="videos.manual.button">Add</button>
+            <div class="manual-video-popover hidden" id="manualVideoPopover" role="dialog" aria-label="Add YouTube video or channel" data-i18n-aria-label="videos.manual.dialog">
               <div class="mobile-popover-header">
-                <strong data-i18n="videos.manual.button">Add video</strong>
+                <strong data-i18n="videos.manual.button">Add</strong>
                 <button class="mobile-popover-close" type="button" onclick="closeManualVideoPopover(true)" title="Close" aria-label="Close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">×</button>
               </div>
-              <form class="manual-video-form" onsubmit="addVideoFromUrl(event)">
-                <p class="manual-video-hint" data-i18n="videos.manual.hint">Here you can paste the URL of a YouTube video that is not in your tracked channels.</p>
-                <input type="text" id="manualVideoUrlInput" placeholder="youtube.com/watch?v=..." data-i18n-placeholder="videos.manual.placeholder" autocomplete="off">
+              <form class="manual-video-form" onsubmit="addYoutubeInput(event)">
+                <p class="manual-video-hint" data-i18n="videos.manual.hint">Here you can paste the URL of a YouTube video or a channel.</p>
+                <input type="text" id="manualVideoUrlInput" placeholder="YouTube video or channel URL" data-i18n-placeholder="videos.manual.placeholder" autocomplete="off">
                 <button type="submit" class="btn-secondary manual-video-submit" id="manualVideoAddBtn" data-i18n="videos.manual.add">Add</button>
               </form>
+              <div class="manual-video-channel-options" id="manualVideoChannelOptions"></div>
             </div>
           </div>
           <div class="undo-wrap">
