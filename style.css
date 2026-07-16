@@ -4252,6 +4252,7 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
   opacity: 0.3;
 }
 .channel-shelf-track {
+  align-items: flex-start;
   display: flex;
   gap: 12px;
   min-width: 0;
