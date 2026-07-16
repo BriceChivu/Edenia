@@ -133,6 +133,7 @@ let selectedStatusFilter = 'all'
 let selectedVideoFeedView = 'channel'
 let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
+const expandedVideoChannelKeys = new Set()
 let selectedHistoryRange = 'week'
 let selectedHistoryView = 'summary'
 let selectedStudyInsightView = 'current'
@@ -930,6 +931,8 @@ const I18N_EN = {
   'videos.view.newest': 'Newest',
   'videos.channel.oneVideo': '1 video',
   'videos.channel.videoCount': '{count} videos',
+  'videos.channel.expandLabel': 'Show all {count} videos from {channel}',
+  'videos.channel.collapseLabel': 'Collapse videos from {channel}',
   'videos.status.all': 'All',
   'videos.status.watchLater': 'Watch later',
   'videos.status.unwatched': 'Unwatched',
@@ -1487,6 +1490,8 @@ const I18N = {
     'videos.view.newest': '最新',
     'videos.channel.oneVideo': '1 部影片',
     'videos.channel.videoCount': '{count} 部影片',
+    'videos.channel.expandLabel': '顯示 {channel} 的全部 {count} 部影片',
+    'videos.channel.collapseLabel': '收合 {channel} 的影片',
     'videos.status.all': '全部',
     'videos.status.watchLater': '稍後觀看',
     'videos.status.unwatched': '未觀看',
@@ -1903,6 +1908,8 @@ const I18N = {
     'videos.view.newest': '最新',
     'videos.channel.oneVideo': '1 个视频',
     'videos.channel.videoCount': '{count} 个视频',
+    'videos.channel.expandLabel': '显示 {channel} 的全部 {count} 个视频',
+    'videos.channel.collapseLabel': '收起 {channel} 的视频',
     'videos.status.all': '全部',
     'videos.status.watchLater': '稍后观看',
     'videos.status.unwatched': '未观看',
@@ -2313,6 +2320,8 @@ const I18N = {
     'videos.view.newest': 'Más recientes',
     'videos.channel.oneVideo': '1 vídeo',
     'videos.channel.videoCount': '{count} vídeos',
+    'videos.channel.expandLabel': 'Mostrar los {count} vídeos de {channel}',
+    'videos.channel.collapseLabel': 'Contraer los vídeos de {channel}',
     'videos.status.all': 'Todo',
     'videos.status.watchLater': 'Ver luego',
     'videos.status.unwatched': 'Sin ver',
@@ -2723,6 +2732,8 @@ const I18N = {
     'videos.view.newest': 'Plus récentes',
     'videos.channel.oneVideo': '1 vidéo',
     'videos.channel.videoCount': '{count} vidéos',
+    'videos.channel.expandLabel': 'Afficher les {count} vidéos de {channel}',
+    'videos.channel.collapseLabel': 'Replier les vidéos de {channel}',
     'videos.status.all': 'Tout',
     'videos.status.watchLater': 'À voir',
     'videos.status.unwatched': 'Non vue',
@@ -11711,22 +11722,73 @@ function groupActiveVideosByChannel(videos) {
 }
 
 function renderChannelVideoGroups(videos) {
-  return groupActiveVideosByChannel(videos).map(group => {
+  return groupActiveVideosByChannel(videos).map((group, index) => {
     const countLabel = group.videos.length === 1
       ? t('videos.channel.oneVideo')
       : t('videos.channel.videoCount', { count: group.videos.length })
+    const isExpanded = expandedVideoChannelKeys.has(group.key)
+    const canExpand = group.videos.length > 1
+    const bodyId = `channelDeckBody${index}`
+    const toggleLabel = isExpanded
+      ? t('videos.channel.collapseLabel', { channel: group.title })
+      : t('videos.channel.expandLabel', { channel: group.title, count: group.videos.length })
     return `
-      <section class="channel-video-group" data-channel-key="${escHtml(group.key)}">
-        <div class="channel-video-group-header">
-          <strong>${escHtml(group.title)}</strong>
-          <span>${escHtml(countLabel)}</span>
-        </div>
-        <div class="video-grid channel-video-list">
-          ${group.videos.map(video => renderCard(video)).join('')}
+      <section class="channel-video-group channel-deck ${isExpanded ? 'expanded' : ''} ${canExpand ? '' : 'single-card'}" data-channel-key="${escHtml(group.key)}">
+        <button type="button"
+          class="channel-deck-toggle"
+          onclick="toggleVideoChannelDeck(this)"
+          aria-expanded="${isExpanded}"
+          aria-controls="${bodyId}"
+          aria-label="${escHtml(toggleLabel)}"
+          ${canExpand ? '' : 'disabled'}>
+          ${renderChannelDeckAvatar(group)}
+          <span class="channel-deck-heading">
+            <strong>${escHtml(group.title)}</strong>
+            <span>${escHtml(countLabel)}</span>
+          </span>
+          ${canExpand ? '<span class="channel-deck-caret" aria-hidden="true"></span>' : ''}
+        </button>
+        <div class="channel-deck-body" id="${bodyId}">
+          <div class="video-grid channel-video-list">
+            ${group.videos.map(video => renderCard(video)).join('')}
+          </div>
         </div>
       </section>
     `
   }).join('')
+}
+
+function renderChannelDeckAvatar(group) {
+  const title = String(group?.title || t('videos.search.youtube')).trim()
+  const initials = title
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join('')
+    .toUpperCase() || 'YT'
+  const normalizedTitle = title.toLocaleLowerCase()
+  const curatedChannel = CURATED_CHANNEL_CATALOG.find(channel => channel.name.toLocaleLowerCase() === normalizedTitle)
+  const avatarImage = curatedChannel
+    ? `<img src="${escHtml(getCuratedChannelAvatarPath(curatedChannel.id))}" alt="" loading="lazy" onerror="this.hidden=true">`
+    : ''
+  return `<span class="channel-deck-avatar" aria-hidden="true"><span>${escHtml(initials)}</span>${avatarImage}</span>`
+}
+
+function toggleVideoChannelDeck(button) {
+  const deck = button?.closest?.('.channel-deck')
+  if (!deck || deck.classList.contains('single-card')) return
+  const key = deck.dataset.channelKey
+  const isExpanded = !deck.classList.contains('expanded')
+  if (isExpanded) expandedVideoChannelKeys.add(key)
+  else expandedVideoChannelKeys.delete(key)
+  deck.classList.toggle('expanded', isExpanded)
+  button.setAttribute('aria-expanded', String(isExpanded))
+  const channel = button.querySelector('.channel-deck-heading strong')?.textContent || t('videos.search.youtube')
+  const count = deck.querySelectorAll('.channel-video-list > .video-card').length
+  button.setAttribute('aria-label', isExpanded
+    ? t('videos.channel.collapseLabel', { channel })
+    : t('videos.channel.expandLabel', { channel, count }))
 }
 
 function includeForcedSearchVideo(videos, forcedVideo) {
