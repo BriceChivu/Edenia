@@ -6509,15 +6509,19 @@ summary:focus-visible,
     left: var(--shelf-preview-origin-left);
     position: fixed;
     top: var(--shelf-preview-origin-top);
+    transform: none;
+    transition: none;
+    width: var(--shelf-preview-origin-width);
+    z-index: 1000;
+  }
+  .channel-shelf-card.is-floating-preview.is-preview-armed {
     transition:
       border-color var(--motion-base) var(--ease-standard),
       box-shadow var(--motion-base) var(--ease-standard),
-      height var(--motion-base) var(--ease-emphasized),
-      left var(--motion-base) var(--ease-emphasized),
-      top var(--motion-base) var(--ease-emphasized),
-      width var(--motion-base) var(--ease-emphasized);
-    width: var(--shelf-preview-origin-width);
-    z-index: 1000;
+      height 220ms var(--ease-emphasized),
+      left 220ms var(--ease-emphasized),
+      top 220ms var(--ease-emphasized),
+      width 220ms var(--ease-emphasized);
   }
   .channel-shelf-card.is-floating-preview.is-previewing {
     border-color: var(--planet-black);

@@ -11972,7 +11972,17 @@ function openVideoShelfPreview(card) {
   card.style.setProperty('--shelf-preview-size', `${previewSize}px`)
   card.classList.add('is-floating-preview')
   activeVideoShelfPreview = card
-  requestAnimationFrame(() => card.classList.add('is-previewing'))
+  card.getBoundingClientRect()
+  requestAnimationFrame(() => {
+    if (!card.classList.contains('is-floating-preview')) return
+    if (!card.matches(':hover') && !card.matches(':focus-within')) return
+    card.classList.add('is-preview-armed')
+    requestAnimationFrame(() => {
+      if (!card.classList.contains('is-preview-armed')) return
+      if (!card.matches(':hover') && !card.matches(':focus-within')) return
+      card.classList.add('is-previewing')
+    })
+  })
 }
 
 function closeVideoShelfPreview(card, force = false) {
@@ -11981,6 +11991,7 @@ function closeVideoShelfPreview(card, force = false) {
 
   const cleanup = () => {
     if (card.classList.contains('is-previewing')) return
+    card.classList.remove('is-preview-armed')
     card.classList.remove('is-floating-preview')
     card.style.removeProperty('--shelf-preview-origin-left')
     card.style.removeProperty('--shelf-preview-origin-top')
