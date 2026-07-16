@@ -7051,6 +7051,10 @@ async function addChannel(options = {}) {
     return
   }
   s.config.channels.push({ id, name, imageUrl: resolved.thumbnail || '' })
+  s.config.channelShelfOrder = [
+    id,
+    ...normalizeChannelShelfOrder(s.config.channelShelfOrder).filter(channelId => channelId !== id)
+  ]
   s.config.removedChannelIds = (s.config.removedChannelIds || []).filter(channelId => channelId !== id)
   restoreChannelVideosToGrid(s, id)
   if (isDefaultChannelId(id)) {
