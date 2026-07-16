@@ -144,7 +144,6 @@ let cityImagePreloadQueueRunning = false
 let activeCityImagePreloadCenter = null
 let ankiStatsCache = null
 let selectedStatusFilter = 'all'
-let selectedVideoFeedView = 'channel'
 let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
 let isWatchedSectionCollapsed = null
@@ -234,7 +233,6 @@ const STATUS_FILTERS = [
   ['unwatched', 'videos.status.unwatched'],
   ['partial', 'videos.status.partial']
 ]
-const VIDEO_FEED_VIEWS = ['channel', 'newest']
 const VIDEO_STATUSES = ['watch-later', 'unwatched', 'partial', 'watched']
 const HISTORY_RANGES = ['week', 'month']
 const ACTIVITY_LOG_FILTERS = ['all', 'user', 'auto', 'issues', 'points']
@@ -949,9 +947,6 @@ const I18N_EN = {
   'history.tooltip.ankiCreated': 'New Anki cards',
   'videos.title': 'Videos to watch',
   'videos.status.label': 'Video status',
-  'videos.view.label': 'Video layout',
-  'videos.view.byChannel': 'By channel',
-  'videos.view.newest': 'Newest',
   'videos.channel.oneVideo': '1 video',
   'videos.channel.videoCount': '{count} videos',
   'videos.channel.shelfLabel': '{channel} videos',
@@ -1515,9 +1510,6 @@ const I18N = {
     'history.heatmapAriaNoAnki': '{date}：{points} 分；{time} 影片時間；已看 {videos} 部影片',
     'videos.title': '待看影片',
     'videos.status.label': '影片狀態',
-    'videos.view.label': '影片排列',
-    'videos.view.byChannel': '依頻道',
-    'videos.view.newest': '最新',
     'videos.channel.oneVideo': '1 部影片',
     'videos.channel.videoCount': '{count} 部影片',
     'videos.channel.shelfLabel': '{channel} 的影片',
@@ -1940,9 +1932,6 @@ const I18N = {
     'history.tooltip.points': '{count} 分',
     'videos.title': '待看视频',
     'videos.status.label': '视频状态',
-    'videos.view.label': '视频排列',
-    'videos.view.byChannel': '按频道',
-    'videos.view.newest': '最新',
     'videos.channel.oneVideo': '1 个视频',
     'videos.channel.videoCount': '{count} 个视频',
     'videos.channel.shelfLabel': '{channel} 的视频',
@@ -2359,9 +2348,6 @@ const I18N = {
     'history.yesterday': 'Ayer',
     'videos.title': 'Vídeos para ver',
     'videos.status.label': 'Estado del vídeo',
-    'videos.view.label': 'Vista de vídeos',
-    'videos.view.byChannel': 'Por canal',
-    'videos.view.newest': 'Más recientes',
     'videos.channel.oneVideo': '1 vídeo',
     'videos.channel.videoCount': '{count} vídeos',
     'videos.channel.shelfLabel': 'Vídeos de {channel}',
@@ -2778,9 +2764,6 @@ const I18N = {
     'history.yesterday': 'Hier',
     'videos.title': 'À regarder',
     'videos.status.label': 'Statut des vidéos',
-    'videos.view.label': 'Disposition des vidéos',
-    'videos.view.byChannel': 'Par chaîne',
-    'videos.view.newest': 'Plus récentes',
     'videos.channel.oneVideo': '1 vidéo',
     'videos.channel.videoCount': '{count} vidéos',
     'videos.channel.shelfLabel': 'Vidéos de {channel}',
@@ -11731,7 +11714,6 @@ function updateCityMilestoneImage(score, options = {}) {
 
 function renderFeed(s) {
   renderChannelFilterOptions(s)
-  renderVideoFeedViewToggle()
 
   const statusFilter = selectedStatusFilter
   const grid   = document.getElementById('videoGrid')
@@ -11740,9 +11722,7 @@ function renderFeed(s) {
   const watchedCount = document.getElementById('watchedCount')
   const watchedToggle = document.getElementById('watchedSectionToggle')
   if (!grid || !watchedSection || !watchedGrid || !watchedCount) return
-  const isChannelView = selectedVideoFeedView === 'channel'
-  grid.classList.toggle('channel-view', isChannelView)
-  grid.classList.toggle('newest-view', !isChannelView)
+  grid.classList.add('channel-view')
 
   const allVideos = Object.values(s.videos)
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
@@ -11756,7 +11736,7 @@ function renderFeed(s) {
     : null
 
   let activeVideos = getVisibleActiveVideos(allVideos, includeShorts, {
-    limitPerChannel: !isChannelView
+    limitPerChannel: false
   })
     .filter(v => ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || getVideoStatus(v) === statusFilter))
     .filter(v => matchesChannelFilter(v, channelFilters))
@@ -11796,10 +11776,8 @@ function renderFeed(s) {
     grid.innerHTML = `<div class="empty-state">${escHtml(msg)}</div>`
   } else if (!activeVideos.length) {
     grid.innerHTML = ''
-  } else if (isChannelView) {
-    grid.innerHTML = renderChannelVideoGroups(activeVideos, cardOptions, s.config?.channelShelfOrder)
   } else {
-    grid.innerHTML = activeVideos.map(v => renderCard(v, false, cardOptions)).join('')
+    grid.innerHTML = renderChannelVideoGroups(activeVideos, cardOptions, s.config?.channelShelfOrder)
   }
   requestAnimationFrame(() => {
     document.querySelectorAll('.channel-shelf-track').forEach(syncVideoChannelShelfControls)
@@ -11826,20 +11804,6 @@ function toggleWatchedSection() {
   watchedSection.classList.toggle('collapsed', isWatchedSectionCollapsed)
   watchedToggle.setAttribute('aria-expanded', String(!isWatchedSectionCollapsed))
   watchedToggle.setAttribute('aria-label', t(isWatchedSectionCollapsed ? 'videos.watched.show' : 'videos.watched.hide'))
-}
-
-function renderVideoFeedViewToggle() {
-  document.querySelectorAll('[data-video-view]').forEach(button => {
-    const isActive = button.dataset.videoView === selectedVideoFeedView
-    button.classList.toggle('active', isActive)
-    button.setAttribute('aria-selected', String(isActive))
-    button.setAttribute('tabindex', isActive ? '0' : '-1')
-  })
-}
-
-function setVideoFeedView(view) {
-  selectedVideoFeedView = VIDEO_FEED_VIEWS.includes(view) ? view : 'channel'
-  renderFeed(loadState())
 }
 
 function getVideoDisplayChannelKey(video) {
