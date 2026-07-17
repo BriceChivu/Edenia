@@ -43,7 +43,7 @@ const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const SANDBOX_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = 50
 const MAX_FETCH_PAGES_PER_CHANNEL = 1
-const UNDO_ACTION_TYPES = ['video-status', 'video-grid-remove', 'channel-remove']
+const UNDO_ACTION_TYPES = ['video-status', 'video-resume-time', 'video-grid-remove', 'channel-remove']
 const YOUTUBE_CHANNEL_ID_RE = /^UC[A-Za-z0-9_-]{20,}$/
 const YOUTUBE_HANDLE_RE = /^@[A-Za-z0-9._-]{3,30}$/
 const DEFAULT_THEME = 'light'
@@ -1131,6 +1131,9 @@ const I18N_EN = {
   'undo.undid': 'Undid',
   'undo.backToStatus': '{from} -> back to {to}',
   'undo.statusChange': '{from} -> {to}',
+  'undo.continueAtBack': 'Continue at {from} -> back to {to}',
+  'undo.continueAtChange': 'Continue at {from} -> {to}',
+  'undo.continueAtSet': '{verb} change: "{title}" continues at {time}.',
   'undo.timeUnavailable': 'Time unavailable',
   'undo.doneAt': 'Done {time}',
   'undo.logUndoTitle': 'Undo action',
@@ -1624,6 +1627,9 @@ const I18N = {
     'undo.undid': '已復原',
     'undo.backToStatus': '{from} -> 回到 {to}',
     'undo.statusChange': '{from} -> {to}',
+    'undo.continueAtBack': '繼續於 {from} -> 回到 {to}',
+    'undo.continueAtChange': '繼續於 {from} -> {to}',
+    'undo.continueAtSet': '{verb}變更：「{title}」將從 {time} 繼續。',
     'undo.timeUnavailable': '時間不可用',
     'undo.doneAt': '完成於 {time}',
     'undo.logUndoTitle': '復原動作',
@@ -2043,6 +2049,9 @@ const I18N = {
     'undo.undid': '已撤销',
     'undo.backToStatus': '{from} -> 回到 {to}',
     'undo.statusChange': '{from} -> {to}',
+    'undo.continueAtBack': '继续于 {from} -> 回到 {to}',
+    'undo.continueAtChange': '继续于 {from} -> {to}',
+    'undo.continueAtSet': '{verb}变更：“{title}”将从 {time} 继续。',
     'undo.timeUnavailable': '时间不可用',
     'undo.doneAt': '完成于 {time}',
     'undo.logUndoTitle': '撤销动作',
@@ -2464,6 +2473,9 @@ const I18N = {
     'undo.undid': 'Deshecho',
     'undo.backToStatus': '{from} -> vuelve a {to}',
     'undo.statusChange': '{from} -> {to}',
+    'undo.continueAtBack': 'Continuar en {from} -> vuelve a {to}',
+    'undo.continueAtChange': 'Continuar en {from} -> {to}',
+    'undo.continueAtSet': '{verb} cambio: "{title}" continúa en {time}.',
     'undo.timeUnavailable': 'Hora no disponible',
     'undo.doneAt': 'Hecho {time}',
     'undo.logUndoTitle': 'Acción deshecha',
@@ -2885,6 +2897,9 @@ const I18N = {
     'undo.undid': 'Annulé',
     'undo.backToStatus': '{from} -> retour à {to}',
     'undo.statusChange': '{from} -> {to}',
+    'undo.continueAtBack': 'Reprendre à {from} -> retour à {to}',
+    'undo.continueAtChange': 'Reprendre à {from} -> {to}',
+    'undo.continueAtSet': '{verb} le changement : "{title}" reprend à {time}.',
     'undo.timeUnavailable': 'Heure indisponible',
     'undo.doneAt': 'Fait {time}',
     'undo.logUndoTitle': 'Action annulée',
@@ -8787,7 +8802,7 @@ function markVideoInProgressOnOpen(videoId) {
   }
 
   pushUndoAction(s, {
-    type: 'video-status',
+    type: 'video-resume-time',
     videoId,
     before: {
       video: cloneVideoForHistoryAction(video),
@@ -9082,7 +9097,7 @@ function applyHistoryAction(direction, actionIndex) {
     detail: historyResult.detail,
     meta: historyResult.meta
   })
-  if (action.type === 'video-status') {
+  if (action.type === 'video-status' || action.type === 'video-resume-time') {
     appendPointDeltaActivityLog(s, {
       action,
       direction,
@@ -9186,6 +9201,13 @@ function formatHistoryActionToast(direction, video, snapshot, action = null) {
       : t('undo.videoRestored', { title: formatToastTitle(video.title) })
   }
   const verb = direction === 'redo' ? t('undo.redid') : t('undo.undid')
+  if (action?.type === 'video-resume-time') {
+    return t('undo.continueAtSet', {
+      verb,
+      title: formatToastTitle(video.title),
+      time: formatResumeTimestamp(snapshot?.resumeAtSeconds) || '00:00:00'
+    })
+  }
   if (snapshot?.exists === false) {
     return t('undo.removed', { verb, title: formatToastTitle(video.title) })
   }
@@ -13004,6 +13026,24 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
   const timestamp = formatHistoryActionTimestamp(action)
   if (action.type === 'video-grid-remove') {
     const actionText = direction === 'redo' ? t('undo.removeVideoAgain') : t('undo.restoreVideo')
+    return `
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
+        <span class="undo-tooltip-video">${escHtml(title)}</span>
+        <span class="undo-tooltip-action">${escHtml(actionText)}</span>
+        <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
+      </button>
+    `
+  }
+  if (action.type === 'video-resume-time') {
+    const fromTime = formatResumeTimestamp(
+      direction === 'redo' ? action.before?.resumeAtSeconds : action.after?.resumeAtSeconds
+    ) || '00:00:00'
+    const toTime = formatResumeTimestamp(
+      direction === 'redo' ? action.after?.resumeAtSeconds : action.before?.resumeAtSeconds
+    ) || '00:00:00'
+    const actionText = direction === 'redo'
+      ? t('undo.continueAtChange', { from: fromTime, to: toTime })
+      : t('undo.continueAtBack', { from: fromTime, to: toTime })
     return `
       <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
         <span class="undo-tooltip-video">${escHtml(title)}</span>

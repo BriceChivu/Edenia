@@ -2932,6 +2932,8 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
 }
 .next-study-continue {
   align-items: center;
+  background: transparent;
+  border-color: transparent;
   cursor: default;
   display: inline-flex;
   gap: 5px;
@@ -2940,7 +2942,6 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
 .next-study-time-input {
   background: transparent;
   border: 0;
-  border-bottom: 1px dashed currentColor;
   color: inherit;
   font: inherit;
   min-width: 0;
@@ -2949,8 +2950,11 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   width: 62px;
 }
 .next-study-time-input:focus {
-  border-bottom-style: solid;
   outline: 0;
+}
+.next-study-continue:hover {
+  background: transparent;
+  border-color: transparent;
 }
 .next-study-play {
   align-items: center;
