@@ -10720,6 +10720,13 @@ function renderNextStudy(activeVideos = []) {
       <span class="next-study-title">${escHtml(nextVideo.title)}</span>
       <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(formatVideoStatus(status))}</span>
     </span>
+    <span class="next-study-actions">
+      <button type="button"
+        class="next-study-cta next-study-reset"
+        data-video-id="${safeVideoId}"
+        onclick="markVideo(this.dataset.videoId, 'unwatched')">${escHtml(t('nextStudy.unwatch'))}</button>
+      <a class="next-study-cta" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${escHtml(cta)}</a>
+    </span>
   `
   return nextVideo
 }
