@@ -4241,11 +4241,23 @@ function getEdeniaAnalyticsSnapshot(state) {
       ...getAnalyticsChannelAddedAt(state, channel)
     }))
     .sort((left, right) => left.id.localeCompare(right.id))
+  const watchedVideos = Object.entries(state?.videos || {})
+    .filter(([, video]) => getVideoStatus(video) === 'watched')
+    .map(([videoId, video]) => ({
+      id: String(video.id || videoId),
+      channelId: video.channelId ? String(video.channelId) : null,
+      watchedAt: isValidTimestamp(video.watchedAt) ? video.watchedAt : null,
+      durationSeconds: Math.max(0, Math.round(Number(video.duration) || 0)),
+      source: video.manuallyAdded ? 'manual' : 'channel',
+      isShort: Boolean(video.isShort)
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id))
 
   return {
     schemaVersion: 2,
     capturedAt: new Date().toISOString(),
     channels,
+    watchedVideos,
     studyDays,
     streak: {
       currentDays: Math.max(0, Number(state?.streak?.current) || 0),
@@ -8388,13 +8400,6 @@ function markVideo(videoId, newStatus) {
 
   saveState(s)
   renderAll(s)
-  if (newStatus === 'watched') {
-    window.trackEdeniaEvent?.('video_marked_watched', {
-      previous_status: previousStatus,
-      video_source: video.manuallyAdded ? 'manual' : 'channel',
-      is_short: Boolean(video.isShort)
-    })
-  }
 }
 
 function markVideoInProgressOnOpen(videoId) {

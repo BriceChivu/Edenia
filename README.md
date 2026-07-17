@@ -230,7 +230,7 @@ The secret stays out of Git history, but the generated key remains visible in th
 
 ## Privacy and Analytics
 
-Study state remains local: Edenia does not upload video titles, video IDs, channel IDs, watch timestamps, Anki logs, activity logs, backups, or sync files to an Edenia server.
+Study state remains local: Edenia has no application server and does not upload the complete video library, Anki logs, activity logs, backups, or sync files. The limited analytics fields described below are sent directly to PostHog on the official production deployment.
 
 The app makes these external connections:
 
@@ -238,7 +238,7 @@ The app makes these external connections:
 - Local AnkiConnect when Anki tracking is enabled and Anki is available.
 - PostHog only on the official `https://bricechivu.github.io/Edenia/` deployment.
 
-Production analytics create a PostHog person profile for each browser installation, with autocapture and session recording disabled. Edenia records controlled button actions, channel additions and removals with channel IDs and names, aggregate daily study progress, streak changes, current and earned town levels, current settings, onboarding completion, refresh results, video opens, and watched completions. Existing local study days and configured channels are synchronized once when this analytics schema is first seen, then only changed values generate additional state events. Video titles, video URLs, YouTube API keys, sync-file contents, and raw browser state are not sent. PostHog is not initialized on localhost, alternate domains, sandbox mode, or other paths.
+Production analytics create a PostHog person profile for each browser installation, with autocapture and session recording disabled. Edenia records controlled button actions, channel additions and removals with channel IDs and names, aggregate daily study progress, streak changes, current and earned town levels, current settings, onboarding completion, refresh results, video opens, and watched-state changes. Each person profile includes the current watched-video IDs and count; watched and unwatched events include the video ID, channel ID, watched timestamp, duration, source, and short-video status. Existing local study days, configured channels, and watched videos are synchronized once, then only changed values generate additional state events. Video titles, video URLs, YouTube API keys, sync-file contents, and raw browser state are not sent. PostHog is not initialized on localhost, alternate domains, sandbox mode, or other paths.
 
 ## Project Structure
 

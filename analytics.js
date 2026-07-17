@@ -45,6 +45,7 @@
 
   function getPersonProperties(snapshot) {
     const channels = Array.isArray(snapshot.channels) ? snapshot.channels : [];
+    const watchedVideos = Array.isArray(snapshot.watchedVideos) ? snapshot.watchedVideos : [];
     const settings = snapshot.settings || {};
     const streak = snapshot.streak || {};
     const town = snapshot.town || {};
@@ -61,6 +62,8 @@
       current_channel_ids: channels.map(channel => channel.id),
       current_channel_names: channels.map(channel => channel.name),
       current_channel_count: channels.length,
+      current_watched_video_ids: watchedVideos.map(video => video.id),
+      current_watched_video_count: watchedVideos.length,
       current_streak_days: streak.currentDays || 0,
       longest_streak_days: streak.longestDays || 0,
       last_streak_activity_date: streak.lastActivityDate || null,
@@ -187,6 +190,45 @@
     analyticsState.studyDays = currentDays;
   }
 
+  function getWatchedVideoEventProperties(video, updateReason) {
+    return {
+      video_id: video.id,
+      channel_id: video.channelId || null,
+      watched_at: video.watchedAt || null,
+      duration_seconds: video.durationSeconds || 0,
+      video_source: video.source || 'channel',
+      is_short: Boolean(video.isShort),
+      update_reason: updateReason
+    };
+  }
+
+  function syncWatchedVideos(snapshot, analyticsState, isInitialSync) {
+    const previousVideos = analyticsState.watchedVideos || {};
+    const currentVideos = toObjectMap(snapshot.watchedVideos, 'id');
+    const isInitialWatchedSync = isInitialSync
+      || !Object.prototype.hasOwnProperty.call(analyticsState, 'watchedVideos');
+
+    Object.entries(currentVideos).forEach(([videoId, video]) => {
+      if (!isInitialWatchedSync && previousVideos[videoId]) return;
+      capture('video_marked_watched', getWatchedVideoEventProperties(
+        video,
+        isInitialWatchedSync ? 'initial_backfill' : 'state_change'
+      ));
+    });
+
+    if (!isInitialWatchedSync) {
+      Object.entries(previousVideos).forEach(([videoId, video]) => {
+        if (currentVideos[videoId]) return;
+        capture('video_marked_unwatched', {
+          ...getWatchedVideoEventProperties(video, 'state_change'),
+          unwatched_at: snapshot.capturedAt
+        });
+      });
+    }
+
+    analyticsState.watchedVideos = currentVideos;
+  }
+
   function syncStreak(snapshot, analyticsState, isInitialSync) {
     const currentStreak = snapshot.streak || {};
     const previousStreak = analyticsState.streak || null;
@@ -264,6 +306,7 @@
 
     syncPersonProperties(snapshot, analyticsState);
     syncChannels(snapshot, analyticsState, isInitialSync);
+    syncWatchedVideos(snapshot, analyticsState, isInitialSync);
     syncStudyDays(snapshot, analyticsState, isInitialSync);
     syncStreak(snapshot, analyticsState, isInitialSync);
     syncTown(snapshot, analyticsState, isInitialSync);
