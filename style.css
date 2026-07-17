@@ -2930,6 +2930,53 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   transition: background var(--motion-base) var(--ease-standard), color var(--motion-base) var(--ease-standard), border-color var(--motion-base) var(--ease-standard);
   white-space: nowrap;
 }
+.next-study-continue {
+  align-items: center;
+  cursor: default;
+  display: inline-flex;
+  gap: 5px;
+  padding: 4px 5px 4px 11px;
+}
+.next-study-time-input {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px dashed currentColor;
+  color: inherit;
+  font: inherit;
+  min-width: 0;
+  padding: 2px 0;
+  text-align: center;
+  width: 62px;
+}
+.next-study-time-input:focus {
+  border-bottom-style: solid;
+  outline: 0;
+}
+.next-study-play {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 50%;
+  color: var(--planet-white);
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  transition: filter var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
+  width: 24px;
+}
+.next-study-play:hover {
+  filter: brightness(0.92);
+  text-decoration: none;
+  transform: scale(1.06);
+}
+.next-study-play:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.next-study-play svg {
+  fill: currentColor;
+  height: 13px;
+  width: 13px;
+}
 .next-study-reset {
   background: transparent;
   color: var(--muted);

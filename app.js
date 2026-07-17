@@ -11191,7 +11191,6 @@ function renderNextStudy(activeVideos = []) {
   const safeVideoId = escHtml(nextVideo.id)
   const cta = status === 'partial' ? t('nextStudy.resume') : t('nextStudy.watch')
   const resumeAt = formatResumeTimestamp(nextVideo.resumeAtSeconds) || '00:00:00'
-  const continueAtLabel = `${t('videos.card.continueAt')} ${resumeAt}`
   container.innerHTML = `
     <a class="next-study-thumb-link" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}">
       <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
@@ -11202,7 +11201,27 @@ function renderNextStudy(activeVideos = []) {
       <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(formatVideoStatus(status))}</span>
     </span>
     <span class="next-study-actions">
-      <a class="next-study-cta next-study-continue" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${escHtml(continueAtLabel)}</a>
+      <span class="next-study-cta next-study-continue">
+        <span>${escHtml(t('videos.card.continueAt'))}</span>
+        <input type="text"
+          class="next-study-time-input"
+          value="${escHtml(resumeAt)}"
+          placeholder="00:01:23"
+          inputmode="text"
+          data-video-id="${safeVideoId}"
+          onchange="saveVideoResumeTime(this.dataset.videoId, this.value)"
+          onkeydown="if (event.key === 'Enter') this.blur()"
+          aria-label="${escHtml(t('videos.card.timestampLabel'))}">
+        <a class="next-study-play"
+          href="${escHtml(getVideoUrl(nextVideo))}"
+          target="_blank"
+          rel="noopener"
+          data-video-id="${safeVideoId}"
+          onclick="markVideoInProgressOnOpen(this.dataset.videoId)"
+          aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5L8 5.5Z"></path></svg>
+        </a>
+      </span>
       <button type="button"
         class="next-study-cta next-study-reset"
         data-video-id="${safeVideoId}"
