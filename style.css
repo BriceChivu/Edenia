@@ -6841,7 +6841,7 @@ summary:focus-visible,
     transform: scale(1.03);
   }
 }
-@media (min-width: 641px) and (max-width: 899px) {
+@media (min-width: 641px) {
   .channel-shelf-heading strong {
     flex-shrink: 0;
     overflow: visible;
