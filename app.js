@@ -11223,7 +11223,12 @@ function renderNextStudy(activeVideos = []) {
       <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(formatVideoStatus(status))}</span>
     </span>
     <span class="next-study-actions">
-      <span class="next-study-cta next-study-continue">
+      <button type="button"
+        class="next-study-cta next-study-reset"
+        data-video-id="${safeVideoId}"
+        onclick="markVideo(this.dataset.videoId, 'unwatched')">${escHtml(t('nextStudy.unwatch'))}</button>
+      <span class="next-study-cta next-study-continue"
+        onclick="if (!event.target.closest('input, a')) this.querySelector('.next-study-play')?.click()">
         <span>${escHtml(t('videos.card.continueAt'))}</span>
         <input type="text"
           class="next-study-time-input"
@@ -11244,10 +11249,6 @@ function renderNextStudy(activeVideos = []) {
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5L8 5.5Z"></path></svg>
         </a>
       </span>
-      <button type="button"
-        class="next-study-cta next-study-reset"
-        data-video-id="${safeVideoId}"
-        onclick="markVideo(this.dataset.videoId, 'unwatched')">${escHtml(t('nextStudy.unwatch'))}</button>
     </span>
   `
   return nextVideo
