@@ -1143,7 +1143,7 @@ body[data-theme="dark"] .intro-demo-insight > p { color: var(--muted); }
   align-items: center;
   background:
     radial-gradient(circle, rgba(5,5,5,0.045) 1px, transparent 1.8px) 0 0 / 16px 16px,
-    linear-gradient(145deg, rgba(223,248,255,0.98), rgba(238,251,208,0.98));
+    linear-gradient(145deg, rgb(223,248,255), rgb(238,251,208));
   display: flex;
   inset: 0;
   justify-content: center;
@@ -1155,7 +1155,7 @@ body[data-theme="dark"] .intro-demo-insight > p { color: var(--muted); }
 body[data-theme="dark"] .onboarding-panel {
   background:
     radial-gradient(circle, rgba(130,210,239,0.07) 1px, transparent 1.8px) 0 0 / 16px 16px,
-    linear-gradient(145deg, rgba(7,23,29,0.99), rgba(16,36,43,0.99));
+    linear-gradient(145deg, rgb(7,23,29), rgb(16,36,43));
 }
 body.onboarding-active { overflow: hidden; }
 .onboarding-card {
