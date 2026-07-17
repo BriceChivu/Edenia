@@ -217,7 +217,11 @@ const introTrailerState = {
   sceneTimer: null,
   cityLevelTimers: [],
   soundEnabled: false,
-  audio: null
+  audio: null,
+  touchIdentifier: null,
+  touchStartX: 0,
+  touchStartY: 0,
+  touchAxis: null
 }
 const personalizedOnboardingState = {
   active: false,
@@ -5161,6 +5165,7 @@ function init() {
   repairStoredShortsDetection()
   initCityImagePanZoom()
   initCityWaveformTouchNavigation()
+  initIntroTrailerTouchNavigation()
   if (!IS_SANDBOX) {
     if (state.onboarding.setupCompleted) startLiveIntegrations(state)
   } else {
@@ -5292,6 +5297,56 @@ function navigateIntroTrailer(direction) {
   const nextScene = introTrailerState.sceneIndex + Math.sign(Number(direction) || 0)
   if (nextScene < 0 || nextScene >= INTRO_TRAILER_SCENE_DURATIONS.length) return
   setIntroTrailerScene(nextScene)
+}
+
+function resetIntroTrailerTouchNavigation() {
+  introTrailerState.touchIdentifier = null
+  introTrailerState.touchStartX = 0
+  introTrailerState.touchStartY = 0
+  introTrailerState.touchAxis = null
+}
+
+function initIntroTrailerTouchNavigation() {
+  const trailer = document.getElementById('introTrailer')
+  if (!trailer) return
+
+  trailer.addEventListener('touchstart', event => {
+    resetIntroTrailerTouchNavigation()
+    if (!introTrailerState.active || event.touches.length !== 1) return
+    if (event.target instanceof Element && event.target.closest('button, a, input, select, textarea, label, [role="button"]')) return
+
+    const touch = event.touches[0]
+    introTrailerState.touchIdentifier = touch.identifier
+    introTrailerState.touchStartX = touch.clientX
+    introTrailerState.touchStartY = touch.clientY
+  }, { passive: true })
+
+  trailer.addEventListener('touchmove', event => {
+    const touch = Array.from(event.touches).find(item => item.identifier === introTrailerState.touchIdentifier)
+    if (!touch) return
+
+    const deltaX = touch.clientX - introTrailerState.touchStartX
+    const deltaY = touch.clientY - introTrailerState.touchStartY
+    if (!introTrailerState.touchAxis && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= 10) {
+      introTrailerState.touchAxis = Math.abs(deltaX) > Math.abs(deltaY) * 1.15 ? 'horizontal' : 'vertical'
+    }
+    if (introTrailerState.touchAxis === 'horizontal' && event.cancelable) event.preventDefault()
+  }, { passive: false })
+
+  trailer.addEventListener('touchend', event => {
+    const touch = Array.from(event.changedTouches).find(item => item.identifier === introTrailerState.touchIdentifier)
+    if (!touch) return
+
+    const deltaX = touch.clientX - introTrailerState.touchStartX
+    const deltaY = touch.clientY - introTrailerState.touchStartY
+    const isHorizontalSwipe = introTrailerState.touchAxis !== 'vertical'
+      && Math.abs(deltaX) >= 56
+      && Math.abs(deltaX) > Math.abs(deltaY) * 1.25
+    resetIntroTrailerTouchNavigation()
+    if (isHorizontalSwipe) navigateIntroTrailer(deltaX < 0 ? 1 : -1)
+  }, { passive: true })
+
+  trailer.addEventListener('touchcancel', resetIntroTrailerTouchNavigation, { passive: true })
 }
 
 function changeIntroLocale(locale) {
