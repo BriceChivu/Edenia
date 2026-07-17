@@ -1158,6 +1158,7 @@ body[data-theme="dark"] .onboarding-panel {
     linear-gradient(145deg, rgb(7,23,29), rgb(16,36,43));
 }
 body.onboarding-active { overflow: hidden; }
+body.onboarding-active #mainApp { visibility: hidden; }
 .onboarding-card {
   background: var(--surface);
   border: 3px solid var(--planet-black);
