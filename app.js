@@ -43,7 +43,7 @@ const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const SANDBOX_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = 50
 const MAX_FETCH_PAGES_PER_CHANNEL = 1
-const UNDO_ACTION_TYPES = ['video-status', 'channel-remove']
+const UNDO_ACTION_TYPES = ['video-status', 'video-grid-remove', 'channel-remove']
 const YOUTUBE_CHANNEL_ID_RE = /^UC[A-Za-z0-9_-]{20,}$/
 const YOUTUBE_HANDLE_RE = /^@[A-Za-z0-9._-]{3,30}$/
 const DEFAULT_THEME = 'light'
@@ -1127,6 +1127,10 @@ const I18N_EN = {
   'undo.removeChannelAgain': 'Remove channel again',
   'undo.channelRestored': 'Restored channel: {name}',
   'undo.channelRemoved': 'Removed channel again: {name}',
+  'undo.restoreVideo': 'Restore to video grid',
+  'undo.removeVideoAgain': 'Remove from video grid again',
+  'undo.videoRestored': 'Restored to video grid: {title}',
+  'undo.videoRemoved': 'Removed from video grid again: {title}',
   'log.videoRemovedFromGrid': 'Video removed from grid',
   'walkthrough.next': 'Next',
   'walkthrough.back': 'Back',
@@ -1616,6 +1620,10 @@ const I18N = {
     'undo.removeChannelAgain': '再次移除頻道',
     'undo.channelRestored': '已恢復頻道：{name}',
     'undo.channelRemoved': '已再次移除頻道：{name}',
+    'undo.restoreVideo': '恢復至影片清單',
+    'undo.removeVideoAgain': '再次從影片清單移除',
+    'undo.videoRestored': '已恢復至影片清單：{title}',
+    'undo.videoRemoved': '已再次從影片清單移除：{title}',
     'log.videoRemovedFromGrid': '影片已從清單移除',
     'walkthrough.next': '下一步',
     'walkthrough.back': '上一步',
@@ -2031,6 +2039,10 @@ const I18N = {
     'undo.removeChannelAgain': '再次移除频道',
     'undo.channelRestored': '已恢复频道：{name}',
     'undo.channelRemoved': '已再次移除频道：{name}',
+    'undo.restoreVideo': '恢复至视频列表',
+    'undo.removeVideoAgain': '再次从视频列表移除',
+    'undo.videoRestored': '已恢复至视频列表：{title}',
+    'undo.videoRemoved': '已再次从视频列表移除：{title}',
     'log.videoRemovedFromGrid': '视频已从列表移除',
     'walkthrough.next': '下一步',
     'walkthrough.back': '上一步',
@@ -2448,6 +2460,10 @@ const I18N = {
     'undo.removeChannelAgain': 'Quitar canal otra vez',
     'undo.channelRestored': 'Canal restaurado: {name}',
     'undo.channelRemoved': 'Canal quitado otra vez: {name}',
+    'undo.restoreVideo': 'Restaurar a la lista de videos',
+    'undo.removeVideoAgain': 'Quitar de la lista de videos otra vez',
+    'undo.videoRestored': 'Restaurado a la lista de videos: {title}',
+    'undo.videoRemoved': 'Quitado de la lista de videos otra vez: {title}',
     'log.videoRemovedFromGrid': 'Video quitado de la lista',
     'walkthrough.next': 'Siguiente',
     'walkthrough.back': 'Atrás',
@@ -2865,6 +2881,10 @@ const I18N = {
     'undo.removeChannelAgain': 'Retirer la chaîne à nouveau',
     'undo.channelRestored': 'Chaîne restaurée : {name}',
     'undo.channelRemoved': 'Chaîne retirée à nouveau : {name}',
+    'undo.restoreVideo': 'Restaurer dans la liste des vidéos',
+    'undo.removeVideoAgain': 'Retirer à nouveau de la liste des vidéos',
+    'undo.videoRestored': 'Restaurée dans la liste des vidéos : {title}',
+    'undo.videoRemoved': 'Retirée à nouveau de la liste des vidéos : {title}',
     'log.videoRemovedFromGrid': 'Vidéo retirée de la liste',
     'walkthrough.next': 'Suivant',
     'walkthrough.back': 'Retour',
@@ -8695,8 +8715,8 @@ function applyHistoryAction(direction, actionIndex) {
     const video = applyVideoStatusActionSnapshot(s, action.videoId, targetSnapshot, action, direction)
     if (video) {
       historyResult = {
-        detail: formatHistoryActionToast(direction, video, targetSnapshot),
-        toast: formatHistoryActionToast(direction, video, targetSnapshot),
+        detail: formatHistoryActionToast(direction, video, targetSnapshot, action),
+        toast: formatHistoryActionToast(direction, video, targetSnapshot, action),
         meta: { videoId: action.videoId },
         video
       }
@@ -8820,7 +8840,12 @@ function shouldDeleteManualVideoOnUndo(video, action, snapshot, direction) {
   )
 }
 
-function formatHistoryActionToast(direction, video, snapshot) {
+function formatHistoryActionToast(direction, video, snapshot, action = null) {
+  if (action?.type === 'video-grid-remove') {
+    return direction === 'redo'
+      ? t('undo.videoRemoved', { title: formatToastTitle(video.title) })
+      : t('undo.videoRestored', { title: formatToastTitle(video.title) })
+  }
   const verb = direction === 'redo' ? t('undo.redid') : t('undo.undid')
   if (snapshot?.exists === false) {
     return t('undo.removed', { verb, title: formatToastTitle(video.title) })
@@ -12611,8 +12636,18 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
   }
 
   const video = s.videos?.[action.videoId]
-  const title = video?.title || t('videos.search.untitled')
+  const title = video?.title || action.before?.video?.title || action.after?.video?.title || t('videos.search.untitled')
   const timestamp = formatHistoryActionTimestamp(action)
+  if (action.type === 'video-grid-remove') {
+    const actionText = direction === 'redo' ? t('undo.removeVideoAgain') : t('undo.restoreVideo')
+    return `
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
+        <span class="undo-tooltip-video">${escHtml(title)}</span>
+        <span class="undo-tooltip-action">${escHtml(actionText)}</span>
+        <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
+      </button>
+    `
+  }
   const fromStatus = direction === 'redo'
     ? formatVideoStatus(action.before?.status)
     : formatVideoStatus(action.after?.status || video?.status)
@@ -13324,8 +13359,15 @@ function removeVideoFromGrid(event, videoId) {
     return
   }
 
+  const before = cloneVideoForHistoryAction(video)
   video.hiddenFromGrid = true
   video.hiddenFromGridAt = getCurrentAppTimestamp(s)
+  pushUndoAction(s, {
+    type: 'video-grid-remove',
+    videoId,
+    before: { video: before },
+    after: { video: cloneVideoForHistoryAction(video) }
+  })
   appendActivityLog(s, {
     actor: 'user',
     type: 'video-grid',
