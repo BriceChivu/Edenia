@@ -8,7 +8,6 @@ Minor changes:
 - add more recommended yt channels in the onboarding and review them, and limit selection to 5
 - when a video card is zoomed in, allow for the mouse to select text like the title
 - in the search bar, remove "saved" in "Search saved videos by title or channel."
-- continue at value should be a undoable action
 
 
 
@@ -34,7 +33,6 @@ For later:
 # NOTES:
 - How to keep images consistent over time when using AI?
 - How to upscale images (pixelbin model from https://www.upscale.media/zh/upload was good but no more credit)
-
 
 
 

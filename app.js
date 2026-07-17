@@ -8802,7 +8802,7 @@ function markVideoInProgressOnOpen(videoId) {
   }
 
   pushUndoAction(s, {
-    type: 'video-resume-time',
+    type: 'video-status',
     videoId,
     before: {
       video: cloneVideoForHistoryAction(video),
@@ -8997,7 +8997,7 @@ function saveVideoResumeTime(videoId, value) {
   if (progressDelta > 0) addVideoWatchProgress(video, progressDelta, watchedAt)
   video.resumeAtSeconds = parsed
   pushUndoAction(s, {
-    type: 'video-status',
+    type: 'video-resume-time',
     videoId,
     before: {
       video: beforeVideo,
