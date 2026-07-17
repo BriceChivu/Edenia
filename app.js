@@ -1142,6 +1142,7 @@ const I18N_EN = {
   'walkthrough.videosMobile': 'This is the video area. New videos from your channels appear here. When you mark one watched, Edenia moves it into a Watched section to keep your active feed clear.',
   'walkthrough.firstStudyChannels': 'Your channel controls live here. Open this menu to add, remove, or filter study sources at any time.',
   'walkthrough.firstStudyFeed': 'This is your real study feed. Choose a video, then mark it watched, in progress, or watch later. Your goal, history, and town update from what you actually study.',
+  'walkthrough.startWatching': 'Start watching a video!',
   'walkthrough.videoFilters': 'These controls help you keep the list manageable. You can filter by status, filter by channel, add a video URL, and fix mistakes.',
   'walkthrough.manualWatchedUrl': 'Use Add to paste a YouTube video or channel URL. Edenia will recognize which one you entered.',
   'walkthrough.undoRedo': 'Undo and Redo let you recover from accidental clicks. Open the list, choose the action, and Edenia will update the score and history again.',
@@ -1630,6 +1631,7 @@ const I18N = {
     'walkthrough.videosMobile': '這裡是影片區。你加入的頻道會在這裡顯示新影片。標記為已看後，Edenia 會把影片移到「已看」區，讓進行中的清單保持清楚。',
     'walkthrough.firstStudyChannels': '你的頻道控制都在這裡。打開這個選單，即可隨時新增、移除或篩選學習來源。',
     'walkthrough.firstStudyFeed': '這是你真正的學習清單。選擇一部影片，再標記為已看、進行中或稍後觀看。你的目標、紀錄和小鎮都會依照實際學習更新。',
+    'walkthrough.startWatching': '開始觀看影片吧！',
     'walkthrough.videoFilters': '這些控制可以讓清單更好管理。你可以依狀態或頻道篩選，新增影片網址，也可以修正誤點。',
     'walkthrough.manualWatchedUrl': '使用「新增」貼上 YouTube 影片或頻道網址，Edenia 會自動辨識內容。',
     'walkthrough.undoRedo': '復原和重做可以幫你修正誤點。打開清單，選一個動作，Edenia 會重新計算分數和紀錄。',
@@ -2044,6 +2046,7 @@ const I18N = {
     'walkthrough.videosMobile': '这里是视频区。你添加的频道会在这里显示新视频。标记为已看后，Edenia 会把视频移到“已看”区，让当前列表保持清晰。',
     'walkthrough.firstStudyChannels': '你的频道控制都在这里。打开这个菜单，即可随时添加、移除或筛选学习来源。',
     'walkthrough.firstStudyFeed': '这是你真正的学习列表。选择一个视频，再标记为已看、进行中或稍后观看。你的目标、记录和小镇都会按照实际学习更新。',
+    'walkthrough.startWatching': '开始观看视频吧！',
     'walkthrough.videoFilters': '这些控制可以让列表更好管理。你可以按状态或频道筛选，添加视频网址，也可以修正误点。',
     'walkthrough.manualWatchedUrl': '使用“添加”粘贴 YouTube 视频或频道网址，Edenia 会自动识别内容。',
     'walkthrough.undoRedo': '撤销和重做可以帮你修正误点。打开列表，选一个动作，Edenia 会重新计算分数和记录。',
@@ -2460,6 +2463,7 @@ const I18N = {
     'walkthrough.videosMobile': 'Esta es la zona de videos. Aquí aparecen videos nuevos de tus canales. Cuando marcas uno como visto, Edenia lo mueve a una sección Vistos para mantener clara tu lista activa.',
     'walkthrough.firstStudyChannels': 'Aquí están los controles de tus canales. Abre este menú para añadir, quitar o filtrar tus fuentes de estudio cuando quieras.',
     'walkthrough.firstStudyFeed': 'Esta es tu lista de estudio real. Elige un video y márcalo como visto, en progreso o para ver después. Tu objetivo, historial y pueblo se actualizan con lo que estudias de verdad.',
+    'walkthrough.startWatching': '¡Empieza a ver un video!',
     'walkthrough.videoFilters': 'Estos controles ayudan a mantener la lista clara. Puedes filtrar por estado, filtrar por canal, añadir una URL de video y corregir errores.',
     'walkthrough.manualWatchedUrl': 'Usa Añadir para pegar la URL de un video o canal de YouTube. Edenia reconocerá cuál has introducido.',
     'walkthrough.undoRedo': 'Deshacer y Rehacer te ayudan si haces clic por error. Abre la lista, elige la acción y Edenia recalculará el puntaje y el historial.',
@@ -2876,6 +2880,7 @@ const I18N = {
     'walkthrough.videosMobile': 'Voici la zone des vidéos. Les nouvelles vidéos de vos chaînes apparaissent ici. Quand vous en marquez une comme vue, Edenia la déplace dans une section Vues pour garder la liste active claire.',
     'walkthrough.firstStudyChannels': 'Les contrôles de vos chaînes se trouvent ici. Ouvrez ce menu pour ajouter, retirer ou filtrer vos sources d’étude à tout moment.',
     'walkthrough.firstStudyFeed': 'Voici votre véritable liste d’étude. Choisissez une vidéo, puis marquez-la comme vue, en cours ou à regarder plus tard. Votre objectif, votre historique et votre ville évoluent selon ce que vous étudiez réellement.',
+    'walkthrough.startWatching': 'Commencez à regarder une vidéo !',
     'walkthrough.videoFilters': 'Ces contrôles gardent la liste lisible. Vous pouvez filtrer par statut, par chaîne, ajouter une URL de vidéo et corriger les erreurs.',
     'walkthrough.manualWatchedUrl': 'Utilisez Ajouter pour coller l’URL d’une vidéo ou d’une chaîne YouTube. Edenia reconnaîtra le type de lien.',
     'walkthrough.undoRedo': 'Annuler et Rétablir aident après un clic accidentel. Ouvrez la liste, choisissez l’action, et Edenia recalculera le score et l’historique.',
@@ -3629,10 +3634,22 @@ const FIRST_STUDY_WALKTHROUGH_STEPS = [
     hooks: {
       beforeEnter: 'closeTransientUi'
     }
+  },
+  {
+    id: 'first-study-video',
+    target: '#videoGrid .channel-video-group:first-child .channel-shelf-slot:first-child .video-card',
+    textKey: 'walkthrough.startWatching',
+    placement: 'top',
+    spotlightPadding: 6,
+    spotlightRadius: 12,
+    hooks: {
+      beforeEnter: 'closeTransientUi'
+    }
   }
 ]
 const WALKTHROUGH_HOOKS = {
   closeTransientUi() {
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
     closeStatusFilterMenu()
     closeChannelFilterMenu()
     closeManualVideoPopover()
@@ -12407,7 +12424,8 @@ let activeVideoShelfPreview = null
 let videoShelfPreviewCleanupTimer = null
 
 function canUseVideoShelfPreview() {
-  return window.matchMedia('(min-width: 641px) and (hover: hover) and (pointer: fine)').matches
+  return !document.body.classList.contains('walkthrough-active')
+    && window.matchMedia('(min-width: 641px) and (hover: hover) and (pointer: fine)').matches
 }
 
 function isVideoShelfCardFullyVisible(card) {
