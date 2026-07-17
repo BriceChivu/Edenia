@@ -22,7 +22,10 @@
         api_host: 'https://us.i.posthog.com',
         defaults: '2026-05-30',
         autocapture: false,
-        disable_session_recording: true,
+        disable_session_recording: false,
+        session_recording: {
+          maskAllInputs: false
+        },
         person_profiles: 'always'
       });
     }
