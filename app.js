@@ -12009,13 +12009,10 @@ function renderFeed(s) {
     }
   }
 
-  const continueWatchingVideo = renderNextStudy(activeVideos)
-  if (continueWatchingVideo) {
-    activeVideos = activeVideos.filter(video => video.id !== continueWatchingVideo.id)
-  }
+  renderNextStudy(activeVideos)
   const cardOptions = { currentDateKey: getCurrentAppDateKey(s) }
 
-  if (!activeVideos.length && !continueWatchingVideo) {
+  if (!activeVideos.length) {
     const channelMsg = channelFilters.size === getChannelFilterEntries(s).length ? '' : t('videos.empty.selectedChannels')
     const filterName = statusFilter === 'partial'
       ? t('videos.filter.inProgress')
@@ -12028,8 +12025,6 @@ function renderFeed(s) {
       ? t('videos.empty.default')
       : t('videos.empty.filtered', { filter: statusFilter === 'all' ? t('videos.filter.active') : filterName, channelText: channelMsg })
     grid.innerHTML = `<div class="empty-state">${escHtml(msg)}</div>`
-  } else if (!activeVideos.length) {
-    grid.innerHTML = ''
   } else {
     grid.innerHTML = renderChannelVideoGroups(
       activeVideos,
