@@ -788,7 +788,6 @@ html:lang(zh-Hans) .intro-scene-finale h2 {
 .intro-source-particle-one { left: 3%; top: 58%; }
 .intro-source-particle-two { animation-delay: -0.8s; right: 5%; top: 62%; }
 .intro-source-particle-three { animation-delay: -1.6s; height: 8px; left: 68%; top: 48%; width: 8px; }
-}
 .intro-progress-spark {
   align-items: center;
   color: var(--muted);
