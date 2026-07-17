@@ -4492,6 +4492,10 @@ body[data-theme="dark"] .video-grid-remove:focus-visible {
   transition: transform var(--motion-base) var(--ease-standard);
 }
 .video-card:hover .thumb { transform: scale(1.03); }
+body.walkthrough-active .video-card:hover,
+body.walkthrough-active .video-card:hover .thumb {
+  transform: none;
+}
 
 .dur-badge {
   position: absolute;
