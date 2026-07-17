@@ -5771,7 +5771,7 @@ summary:focus-visible,
     padding: 4px 14px 12px;
     scroll-padding-inline: 14px;
     scrollbar-width: none;
-    touch-action: pan-x;
+    touch-action: pan-x pan-y;
     -webkit-overflow-scrolling: touch;
   }
   .channel-shelf-track::-webkit-scrollbar {
