@@ -161,6 +161,8 @@ let activeVideoWatchReminderId = null
 let shouldGuideActiveVideoWatchReminder = false
 let videoWatchReminderTimer = null
 let videoWatchReminderRenderFrame = null
+let videoWatchReminderZoomTimer = null
+let videoWatchReminderPopupTimer = null
 let currentLocale = DEFAULT_LOCALE
 let backgroundPhysics = null
 const selectedHistoryPeriod = { week: null, month: null }
@@ -8520,6 +8522,11 @@ function clearVideoWatchReminderInState(state, videoId) {
 }
 
 function removeVideoWatchReminderUi() {
+  window.clearTimeout(videoWatchReminderZoomTimer)
+  videoWatchReminderZoomTimer = null
+  window.clearTimeout(videoWatchReminderPopupTimer)
+  videoWatchReminderPopupTimer = null
+  closeVideoShelfPreview(activeVideoShelfPreview, true)
   if (videoWatchReminderRenderFrame !== null) {
     window.cancelAnimationFrame(videoWatchReminderRenderFrame)
     videoWatchReminderRenderFrame = null
@@ -8576,16 +8583,30 @@ function renderActiveVideoWatchReminder(state = null) {
   if (card) {
     closeVideoShelfPreview(activeVideoShelfPreview, true)
     card.classList.add('watch-reminder-target')
-    card.insertAdjacentHTML('beforeend', getVideoWatchReminderMarkup(videoId))
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (shouldGuideActiveVideoWatchReminder) {
       card.classList.add('watch-reminder-arriving')
       card.scrollIntoView({
-        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        behavior: reduceMotion ? 'auto' : 'smooth',
         block: 'center',
         inline: 'center'
       })
       window.setTimeout(() => card.classList.remove('watch-reminder-arriving'), 1800)
     }
+    const targetVideoId = videoId
+    videoWatchReminderZoomTimer = window.setTimeout(() => {
+      if (activeVideoWatchReminderId !== targetVideoId) return
+      const targetCard = Array.from(document.querySelectorAll('.video-card'))
+        .find(candidate => candidate.dataset.videoId === targetVideoId)
+      openVideoShelfPreview(targetCard, true)
+      videoWatchReminderPopupTimer = window.setTimeout(() => {
+        if (activeVideoWatchReminderId !== targetVideoId) return
+        const zoomedCard = Array.from(document.querySelectorAll('.video-card'))
+          .find(candidate => candidate.dataset.videoId === targetVideoId)
+        if (!zoomedCard || zoomedCard.querySelector('.video-watch-reminder-popover')) return
+        zoomedCard.insertAdjacentHTML('beforeend', getVideoWatchReminderMarkup(targetVideoId))
+      }, reduceMotion ? 80 : 260)
+    }, shouldGuideActiveVideoWatchReminder && !reduceMotion ? 750 : 0)
   } else {
     const globalReminder = document.getElementById('videoWatchReminderGlobal')
     if (globalReminder) {
@@ -8619,6 +8640,7 @@ function showNextDueVideoWatchReminder(state = null) {
   }
 
   entry.reminder.promptedAt = new Date().toISOString()
+  closeVideoShelfPreview(activeVideoShelfPreview, true)
   activeVideoWatchReminderId = entry.videoId
   shouldGuideActiveVideoWatchReminder = true
   forcedSearchVideoId = entry.videoId
@@ -8667,9 +8689,7 @@ function handleVideoWatchReminderVisibilityChange() {
   if (!document.hidden && activeVideoWatchReminderId) queueActiveVideoWatchReminderRender(state)
 }
 
-function dismissVideoWatchReminder(event, videoId) {
-  event?.preventDefault()
-  event?.stopPropagation()
+function completeVideoWatchReminderDismissal(videoId) {
   const state = loadState()
   if (!state) return
   clearVideoWatchReminderInState(state, videoId)
@@ -8677,6 +8697,22 @@ function dismissVideoWatchReminder(event, videoId) {
   renderFeed(state)
   removeVideoWatchReminderUi()
   scheduleVideoWatchReminderTimer(state)
+}
+
+function dismissVideoWatchReminder(event, videoId) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  completeVideoWatchReminderDismissal(videoId)
+}
+
+function dismissVideoWatchReminderOnOutsideClick(event) {
+  const videoId = activeVideoWatchReminderId
+  if (!videoId) return
+  const target = event.target instanceof Element ? event.target : null
+  const targetCard = target?.closest('.video-card')
+  if (targetCard?.dataset.videoId === videoId) return
+  if (target?.closest('#videoWatchReminderGlobal')) return
+  completeVideoWatchReminderDismissal(videoId)
 }
 
 function markVideoFromWatchReminder(event, videoId) {
@@ -12849,15 +12885,16 @@ function isVideoShelfCardFullyVisible(card) {
     && slotRect.right <= trackRect.right + edgeTolerance
 }
 
-function openVideoShelfPreview(card) {
+function openVideoShelfPreview(card, force = false) {
   if (
     !card
     || !canUseVideoShelfPreview()
+    || (activeVideoWatchReminderId && !force)
     || card.classList.contains('is-floating-preview')
-    || card.classList.contains('watch-reminder-target')
+    || (card.classList.contains('watch-reminder-target') && !force)
   ) return
   if (activeChannelShelfDrag) return
-  if (!isVideoShelfCardFullyVisible(card)) return
+  if (!force && !isVideoShelfCardFullyVisible(card)) return
   if (activeVideoShelfPreview && activeVideoShelfPreview !== card) {
     closeVideoShelfPreview(activeVideoShelfPreview, true)
   }
@@ -12899,11 +12936,11 @@ function openVideoShelfPreview(card) {
   card.getBoundingClientRect()
   requestAnimationFrame(() => {
     if (!card.classList.contains('is-floating-preview')) return
-    if (!card.matches(':hover') && !card.matches(':focus-within')) return
+    if (!force && !card.matches(':hover') && !card.matches(':focus-within')) return
     card.classList.add('is-preview-armed')
     requestAnimationFrame(() => {
       if (!card.classList.contains('is-preview-armed')) return
-      if (!card.matches(':hover') && !card.matches(':focus-within')) return
+      if (!force && !card.matches(':hover') && !card.matches(':focus-within')) return
       card.classList.add('is-previewing')
     })
   })
@@ -12911,6 +12948,7 @@ function openVideoShelfPreview(card) {
 
 function closeVideoShelfPreview(card, force = false) {
   if (!card?.classList.contains('is-floating-preview')) return
+  if (!force && activeVideoWatchReminderId && card.dataset.videoId === activeVideoWatchReminderId) return
   if (!force && (card.matches(':hover') || card.matches(':focus-within'))) return
 
   const cleanup = () => {
@@ -12937,6 +12975,15 @@ function closeVideoShelfPreview(card, force = false) {
 
 function closeVideoShelfPreviewAfterFocus(card) {
   requestAnimationFrame(() => closeVideoShelfPreview(card))
+}
+
+function closeVideoShelfPreviewOnViewportChange() {
+  const isActiveReminderPreview = Boolean(
+    activeVideoWatchReminderId
+    && activeVideoShelfPreview?.dataset.videoId === activeVideoWatchReminderId
+  )
+  if (isActiveReminderPreview) return
+  closeVideoShelfPreview(activeVideoShelfPreview, true)
 }
 
 function includeForcedSearchVideo(videos, forcedVideo) {
@@ -13812,8 +13859,8 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 
 document.addEventListener('DOMContentLoaded', init)
 window.addEventListener('scroll', syncHeaderCompactState, { passive: true })
-window.addEventListener('scroll', () => closeVideoShelfPreview(activeVideoShelfPreview, true), { passive: true })
-window.addEventListener('resize', () => closeVideoShelfPreview(activeVideoShelfPreview, true), { passive: true })
+window.addEventListener('scroll', closeVideoShelfPreviewOnViewportChange, { passive: true })
+window.addEventListener('resize', closeVideoShelfPreviewOnViewportChange, { passive: true })
 document.addEventListener('visibilitychange', refreshOpenChannelFilterTimestamps)
 document.addEventListener('visibilitychange', handleVideoWatchReminderVisibilityChange)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
@@ -13828,6 +13875,7 @@ document.addEventListener('click', closeIntroLocaleMenuOnOutsideClick)
 document.addEventListener('click', closeOnboardingLocaleMenuOnOutsideClick)
 document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
 document.addEventListener('click', clearCityWaveformPreviewOnOutsideClick)
+document.addEventListener('click', dismissVideoWatchReminderOnOutsideClick)
 document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryPointsPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryPeriodPopoversOnEscape)
