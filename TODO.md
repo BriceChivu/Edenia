@@ -2,8 +2,13 @@
 Minor changes:
 - small duck walking around/popup giving motivational quotes
 - Photoshop: add the duck on the island. sometimes shifting to different locations (like on the deck, in the water floating, or in front of the door of the house)
-- "Continue studying" should feel like a button. It is completely static as of now.
-- Add an adictive sound when clicking on "Level up" and "mark as watched". Add a pleasant sound when scrolling in the waveform. 
+- Add an addictive sound when clicking on "Level up" and "mark as watched". Add a pleasant sound when scrolling in the waveform. 
+- add more supported languages
+- add more suggested languages to learn
+- add more recommended yt channels in the onboarding and review them, and limit selection to 5
+- when a video card is zoomed in, allow for the mouse to select text like the title
+- in the search bar, remove "saved" in "Search saved videos by title or channel."
+- continue at value should be a undoable action
 
 
 
@@ -12,7 +17,6 @@ Big changes:
 - How feasible/complicated this is? Being able to view videos on the website itself (e.g., pop up window when video is clicked). When pausing, the in progress timestamp should be populated automatically in hh:mm:ss format
 - Build Android app
 - Next to Heatmap: dashboard, with detailed views, etc. (Plus or premium version)
-- Change how the way video cards are display (i would prefer grouping them by channel)
 - have a small duck pop up next to Edenia title that says stuff like "You studied 4h 20m across 7 sessions this week. See what drove your strongest days with Edenia Plus." or "You started building this town 3 months ago. Upgrade to Plus to revisit every week and see how your consistency has changed.". It pops up only to say those things and then the user can close the dialogue box.
 
 Sandbox:
