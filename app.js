@@ -10826,21 +10826,23 @@ function renderNextStudy(activeVideos = []) {
   const status = getVideoStatus(nextVideo)
   const safeVideoId = escHtml(nextVideo.id)
   const cta = status === 'partial' ? t('nextStudy.resume') : t('nextStudy.watch')
+  const resumeAt = formatResumeTimestamp(nextVideo.resumeAtSeconds) || '00:00:00'
+  const continueAtLabel = `${t('videos.card.continueAt')} ${resumeAt}`
   container.innerHTML = `
     <a class="next-study-thumb-link" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}">
       <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
     </a>
     <span class="next-study-copy">
       <span class="next-study-eyebrow">${escHtml(t('nextStudy.title'))}</span>
-      <span class="next-study-title">${escHtml(nextVideo.title)}</span>
+      <span class="next-study-title" title="${escHtml(nextVideo.title)}">${escHtml(nextVideo.title)}</span>
       <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(formatVideoStatus(status))}</span>
     </span>
     <span class="next-study-actions">
+      <a class="next-study-cta next-study-continue" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${escHtml(continueAtLabel)}</a>
       <button type="button"
         class="next-study-cta next-study-reset"
         data-video-id="${safeVideoId}"
         onclick="markVideo(this.dataset.videoId, 'unwatched')">${escHtml(t('nextStudy.unwatch'))}</button>
-      <a class="next-study-cta" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${escHtml(cta)}</a>
     </span>
   `
   return nextVideo

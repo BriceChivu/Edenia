@@ -2893,11 +2893,15 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
 }
 .next-study-title {
   color: var(--text);
+  display: -webkit-box;
   font-size: 0.84rem;
   font-weight: 750;
+  line-height: 1.25;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 .next-study-meta {
   color: var(--muted);
@@ -2910,6 +2914,7 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
 .next-study-actions {
   align-items: center;
   display: flex;
+  flex-shrink: 0;
   gap: 6px;
 }
 .next-study-cta {
