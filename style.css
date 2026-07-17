@@ -1130,10 +1130,10 @@ body[data-theme="dark"] .intro-demo-insight > p { color: var(--muted); }
 @keyframes introInsightIn { from { opacity: 0; transform: translateY(14px) rotate(1deg) scale(0.96); } to { opacity: 1; transform: translateY(0) rotate(1deg) scale(1); } }
 @keyframes introGrowthStep { from { background: var(--planet-white); transform: scale(0.78); } to { background: var(--planet-lime); transform: scale(1); } }
 @keyframes introGrowthRail { from { background: var(--soft-blue); transform: scaleX(0); } to { background: linear-gradient(90deg, var(--planet-cyan), var(--planet-lime)); transform: scaleX(1); } }
-@keyframes introCityOne { 0%, 20% { opacity: 1; transform: scale(1.22); } 28%, 100% { opacity: 0; transform: scale(1.16); } }
-@keyframes introCityTwo { 0%, 20% { opacity: 0; } 28%, 43% { opacity: 1; } 51%, 100% { opacity: 0; } }
-@keyframes introCityThree { 0%, 43% { opacity: 0; } 51%, 68% { opacity: 1; } 76%, 100% { opacity: 0; } }
-@keyframes introCityFour { 0%, 68% { opacity: 0; transform: translateX(-4%) scale(1.22); } 76%, 100% { opacity: 1; transform: translateX(-4%) scale(1.16); } }
+@keyframes introCityOne { 0%, 22.12% { opacity: 1; transform: scale(1.22); } 26.16%, 100% { opacity: 0; transform: scale(1.16); } }
+@keyframes introCityTwo { 0%, 22.12% { opacity: 0; } 26.16%, 47.12% { opacity: 1; } 51.16%, 100% { opacity: 0; } }
+@keyframes introCityThree { 0%, 47.12% { opacity: 0; } 51.16%, 72.12% { opacity: 1; } 76.16%, 100% { opacity: 0; } }
+@keyframes introCityFour { 0%, 72.12% { opacity: 0; transform: translateX(-4%) scale(1.22); } 76.16%, 100% { opacity: 1; transform: translateX(-4%) scale(1.16); } }
 
 /* ═══════════════════════════════════════════════════════════
    SETTINGS PANEL
@@ -4902,6 +4902,21 @@ summary:focus-visible,
 /* ═══════════════════════════════════════════════════════════
    RESPONSIVE
 ═══════════════════════════════════════════════════════════ */
+@media (min-width: 1025px) {
+  .intro-progress-spark {
+    gap: 3px;
+    justify-content: center;
+    margin-top: 0;
+  }
+  .intro-progress-mark { margin-bottom: 0; }
+}
+
+@media (max-width: 1024px) {
+  .intro-progress-spark { gap: 4px; }
+  .intro-progress-mark { margin-bottom: 0; }
+  .intro-progress-spark strong { display: none; }
+}
+
 @media (max-width: 640px) {
   .goal-pace[data-state="complete"] {
     display: none;
