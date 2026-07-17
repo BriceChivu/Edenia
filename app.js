@@ -66,6 +66,7 @@ const UNDO_STACK_LIMIT = 50
 const MIN_WEEKLY_GOAL_HOURS = 1
 const MAX_WEEKLY_GOAL_HOURS = 99
 const VIDEO_HOUR_POINTS = 3
+const VIDEO_WATCH_COOLDOWN_GRACE_SECONDS = 30
 const SHORT_VIDEO_MAX_DURATION_SECONDS = 180
 const SHORT_VIDEO_DETECTION_VERSION = 1
 const ANKI_REVIEW_CHUNK_SIZE = 60
@@ -8256,7 +8257,10 @@ function getLastVideoMarkedWatchedAt(state) {
 
 function getVideoWatchCooldownRemainingMs(state, video) {
   if (IS_SANDBOX || IS_LOCALHOST) return 0
-  const durationMs = Math.max(0, Math.floor(Number(video?.duration || 0))) * 1000
+  const durationMs = Math.max(
+    0,
+    Math.floor(Number(video?.duration || 0)) - VIDEO_WATCH_COOLDOWN_GRACE_SECONDS
+  ) * 1000
   const lastMarkedAt = getLastVideoMarkedWatchedAt(state)
   if (!durationMs || !lastMarkedAt) return 0
   return Math.max(0, durationMs - (Date.now() - new Date(lastMarkedAt).getTime()))
