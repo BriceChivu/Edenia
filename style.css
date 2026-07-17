@@ -5788,6 +5788,39 @@ summary:focus-visible,
     overflow: hidden;
     position: absolute;
   }
+  .channel-shelf-card.status-partial {
+    border-color: #fcb831;
+    box-shadow: 0 3px 0 rgba(198,139,23,0.34);
+  }
+  .channel-shelf-card.status-watch-later {
+    border-color: #12bcea;
+    box-shadow: 0 3px 0 rgba(8,127,166,0.34);
+  }
+  .channel-shelf-card .channel-shelf-priority-badge {
+    align-items: center;
+    border: 1px solid rgba(255,255,255,0.72);
+    border-radius: 999px;
+    box-shadow: 0 2px 6px rgba(5,5,5,0.3);
+    display: inline-flex;
+    font-size: 0.68rem;
+    font-weight: 800;
+    gap: 4px;
+    left: 8px;
+    line-height: 1;
+    padding: 5px 8px;
+    pointer-events: none;
+    position: absolute;
+    top: 8px;
+    z-index: 3;
+  }
+  .channel-shelf-card .partial-priority-badge {
+    background: #fcb831;
+    color: #3c2800;
+  }
+  .channel-shelf-card .watch-later-priority-badge {
+    background: #12bcea;
+    color: #052a36;
+  }
   .channel-shelf-card .thumb-link {
     aspect-ratio: auto;
     height: 100%;
