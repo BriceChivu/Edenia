@@ -13,6 +13,7 @@ const DEFAULT_CHANNELS_VERSION = 2
 
 const URL_PARAMS = new URLSearchParams(window.location.search)
 const IS_SANDBOX = URL_PARAMS.get('sandbox') === '1'
+const IS_LOCALHOST = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
 const SANDBOX_CHANNELS_VERSION = 2
 const SANDBOX_CHANNEL_DEFINITIONS = [
   { id: 'sandbox-focus', nameKey: 'sandbox.channel.focus', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Dermot_Mulroney_Photo_Op_Nightmare_Weekend_Chicago_2025.jpg/250px-Dermot_Mulroney_Photo_Op_Nightmare_Weekend_Chicago_2025.jpg' },
@@ -1090,6 +1091,7 @@ const I18N_EN = {
   'toast.validYoutubeUrl': 'Use a valid YouTube video or channel URL',
   'toast.videoNotFound': 'No YouTube video was found for that URL',
   'toast.alreadyWatched': 'That video is already marked watched',
+  'toast.watchCooldown': 'You can mark another video as watched in {time}',
   'toast.addedWatchedVideo': 'Added video: "{title}"',
   'toast.addVideoFailed': 'Could not add that video',
   'toast.timestampFormat': 'Use a timestamp like 1:23 (hour:minute)',
@@ -2975,6 +2977,7 @@ Object.assign(I18N['zh-Hant'], {
   'toast.validYoutubeUrl': '請貼上有效的 YouTube 影片或頻道網址',
   'toast.videoNotFound': '找不到這個網址對應的 YouTube 影片',
   'toast.alreadyWatched': '這部影片已標記為已觀看',
+  'toast.watchCooldown': '再過 {time} 就能將另一部影片標記為已觀看',
   'toast.addedWatchedVideo': '已加入並標記為已觀看：{title}',
   'toast.addVideoFailed': '無法新增影片',
   'toast.timestampFormat': '請使用 HH:MM:SS 或 MM:SS 格式',
@@ -3150,6 +3153,7 @@ Object.assign(I18N['zh-Hans'], {
   'toast.validYoutubeUrl': '请粘贴有效的 YouTube 视频或频道网址',
   'toast.videoNotFound': '找不到这个网址对应的 YouTube 视频',
   'toast.alreadyWatched': '这个视频已标记为已观看',
+  'toast.watchCooldown': '再过 {time} 就能将另一个视频标记为已观看',
   'toast.addedWatchedVideo': '已添加并标记为已观看：{title}',
   'toast.addVideoFailed': '无法添加视频',
   'toast.timestampFormat': '请使用 HH:MM:SS 或 MM:SS 格式',
@@ -3323,6 +3327,7 @@ Object.assign(I18N.es, {
   'toast.validYoutubeUrl': 'Pega una URL válida de un video o canal de YouTube',
   'toast.videoNotFound': 'No se encontró ningún video de YouTube para esa URL',
   'toast.alreadyWatched': 'Este video ya está marcado como visto',
+  'toast.watchCooldown': 'Podrás marcar otro video como visto en {time}',
   'toast.addedWatchedVideo': 'Añadido y marcado como visto: {title}',
   'toast.addVideoFailed': 'No se pudo añadir el video',
   'toast.timestampFormat': 'Usa el formato HH:MM:SS o MM:SS',
@@ -3496,6 +3501,7 @@ Object.assign(I18N.fr, {
   'toast.validYoutubeUrl': 'Collez une URL valide de vidéo ou de chaîne YouTube',
   'toast.videoNotFound': 'Aucune vidéo YouTube n’a été trouvée pour cette URL',
   'toast.alreadyWatched': 'Cette vidéo est déjà marquée comme vue',
+  'toast.watchCooldown': 'Vous pourrez marquer une autre vidéo comme vue dans {time}',
   'toast.addedWatchedVideo': 'Ajoutée et marquée comme vue : {title}',
   'toast.addVideoFailed': 'Impossible d’ajouter la vidéo',
   'toast.timestampFormat': 'Utilisez le format HH:MM:SS ou MM:SS',
@@ -4307,6 +4313,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
     undoStack: [],
     redoStack: [],
     activityLog: [],
+    lastVideoMarkedWatchedAt: null,
     channelRefreshes: {},
     onboarding: {
       version: ONBOARDING_VERSION,
@@ -8235,12 +8242,39 @@ async function refreshAddedChannel(channelId) {
 // WATCH STATUS & STREAK
 // ════════════════════════════════════════════════════════════
 
+function getLastVideoMarkedWatchedAt(state) {
+  if (isValidTimestamp(state?.lastVideoMarkedWatchedAt)) {
+    return state.lastVideoMarkedWatchedAt
+  }
+
+  return Object.values(state?.videos || {}).reduce((latest, video) => {
+    if (!isValidTimestamp(video?.watchedAt)) return latest
+    if (!latest || new Date(video.watchedAt) > new Date(latest)) return video.watchedAt
+    return latest
+  }, null)
+}
+
+function getVideoWatchCooldownRemainingMs(state, video) {
+  if (IS_SANDBOX || IS_LOCALHOST) return 0
+  const durationMs = Math.max(0, Math.floor(Number(video?.duration || 0))) * 1000
+  const lastMarkedAt = getLastVideoMarkedWatchedAt(state)
+  if (!durationMs || !lastMarkedAt) return 0
+  return Math.max(0, durationMs - (Date.now() - new Date(lastMarkedAt).getTime()))
+}
+
 function markVideo(videoId, newStatus) {
   newStatus = normalizeVideoStatus(newStatus)
   const s     = loadState()
   const video = s.videos[videoId]
   if (!video) return
   if (video.status === newStatus) return
+  if (newStatus === 'watched') {
+    const remainingMs = getVideoWatchCooldownRemainingMs(s, video)
+    if (remainingMs > 0) {
+      showToast(t('toast.watchCooldown', { time: formatDuration(Math.ceil(remainingMs / 1000)) }), 'warn')
+      return
+    }
+  }
   const previousStatus = getVideoStatus(video)
 
   const undoAction = {
@@ -8266,6 +8300,7 @@ function markVideo(videoId, newStatus) {
     video.watchProgress = []
   }
   video.watchedAt = watchedAt
+  if (watchedAt) s.lastVideoMarkedWatchedAt = watchedAt
   video.resumeAtSeconds = newStatus === 'partial'
     ? normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
     : null
