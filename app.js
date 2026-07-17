@@ -3703,10 +3703,9 @@ function normalizeLocale(locale) {
 }
 
 function getBrowserDefaultLocale() {
-  const candidates = Array.isArray(navigator.languages) && navigator.languages.length
-    ? navigator.languages
-    : [navigator.language]
-  return normalizeLocale(candidates.find(Boolean) || DEFAULT_LOCALE)
+  const primaryLocale = navigator.language
+    || (Array.isArray(navigator.languages) ? navigator.languages.find(Boolean) : '')
+  return normalizeLocale(primaryLocale || DEFAULT_LOCALE)
 }
 
 function getLocaleLabel(locale = currentLocale) {
@@ -12143,7 +12142,15 @@ function renderChannelShelfAvatar(group) {
   const avatarImage = avatarUrl
     ? `<img src="${escHtml(avatarUrl)}" alt="" loading="lazy" draggable="false" referrerpolicy="no-referrer" onerror="this.hidden=true">`
     : ''
-  return `<span class="channel-shelf-avatar" aria-hidden="true"><span>${escHtml(initials)}</span>${avatarImage}</span>`
+  const channelId = String(group?.key || '').trim()
+  const channelUrl = YOUTUBE_CHANNEL_ID_RE.test(channelId)
+    ? `https://www.youtube.com/channel/${encodeURIComponent(channelId)}`
+    : ''
+  const avatarContent = `<span aria-hidden="true">${escHtml(initials)}</span>${avatarImage}`
+  if (!channelUrl) {
+    return `<span class="channel-shelf-avatar" aria-hidden="true">${avatarContent}</span>`
+  }
+  return `<a class="channel-shelf-avatar" href="${escHtml(channelUrl)}" target="_blank" rel="noopener noreferrer" draggable="false" aria-label="${escHtml(`${title} — YouTube`)}">${avatarContent}</a>`
 }
 
 function syncVideoChannelShelfControls(track) {

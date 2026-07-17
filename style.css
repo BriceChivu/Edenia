@@ -4165,6 +4165,7 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
   justify-content: center;
   overflow: hidden;
   position: relative;
+  text-decoration: none;
   width: 34px;
 }
 .channel-shelf-avatar img {
