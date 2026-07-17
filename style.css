@@ -2952,10 +2952,6 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
 .next-study-time-input:focus {
   outline: 0;
 }
-.next-study-continue:hover {
-  background: transparent;
-  border-color: transparent;
-}
 .next-study-play {
   align-items: center;
   background: var(--accent);
@@ -2992,6 +2988,11 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   text-decoration: none;
 }
 body[data-theme="dark"] .next-study-cta:hover { background: var(--surface-hi); }
+.next-study-cta.next-study-continue:hover,
+body[data-theme="dark"] .next-study-cta.next-study-continue:hover {
+  background: transparent;
+  border-color: transparent;
+}
 .next-study-cta:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 3px;
