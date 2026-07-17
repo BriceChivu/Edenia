@@ -5796,14 +5796,21 @@ summary:focus-visible,
     width: 100%;
   }
   .channel-shelf-card .card-body {
-    background: linear-gradient(180deg, rgba(5,5,5,0.02) 4%, rgba(5,5,5,0.18) 24%, rgba(5,5,5,0.9) 58%, rgba(5,5,5,0.98) 100%);
+    align-items: flex-end;
+    background: transparent;
     color: #ffffff;
+    flex-direction: row;
+    gap: 8px;
     inset: 0;
     justify-content: space-between;
     padding: 0 10px 9px;
     pointer-events: none;
     position: absolute;
     z-index: 2;
+  }
+  .channel-shelf-card .card-copy {
+    flex: 1 1 auto;
+    min-width: 0;
   }
   .channel-shelf-card .card-title {
     color: #ffffff;
@@ -5838,14 +5845,19 @@ summary:focus-visible,
   }
   .channel-shelf-card .card-actions {
     display: flex;
+    flex: 0 0 auto;
     gap: 5px;
     margin-top: 0;
     pointer-events: none;
   }
   .channel-shelf-card .action-btn {
+    align-items: center;
     background: rgba(255,255,255,0.94);
     border-color: rgba(255,255,255,0.86);
+    border-radius: 50%;
     color: #24414a;
+    display: inline-flex;
+    flex: 0 0 44px;
     font-size: 0.7rem;
     height: 44px;
     justify-content: center;
