@@ -5799,8 +5799,9 @@ summary:focus-visible,
     background: linear-gradient(180deg, rgba(5,5,5,0.02) 4%, rgba(5,5,5,0.18) 24%, rgba(5,5,5,0.9) 58%, rgba(5,5,5,0.98) 100%);
     color: #ffffff;
     inset: 0;
-    justify-content: flex-end;
-    padding: 32px 10px 9px;
+    justify-content: space-between;
+    padding: 0 10px 9px;
+    pointer-events: none;
     position: absolute;
     z-index: 2;
   }
@@ -5810,12 +5811,8 @@ summary:focus-visible,
     line-height: 1.2;
     text-shadow: 0 1px 2px rgba(0,0,0,0.7);
   }
-  .channel-shelf-card .card-meta,
-  .channel-shelf-card .pub-ago {
-    color: rgba(255,255,255,0.82);
-  }
   .channel-shelf-card .card-meta {
-    margin-bottom: 0;
+    display: none;
   }
   .channel-shelf-card .resume-time-field {
     display: none;
@@ -5842,13 +5839,19 @@ summary:focus-visible,
   .channel-shelf-card .card-actions {
     display: flex;
     gap: 5px;
+    margin-top: 0;
+    pointer-events: none;
   }
   .channel-shelf-card .action-btn {
     background: rgba(255,255,255,0.94);
     border-color: rgba(255,255,255,0.86);
     color: #24414a;
     font-size: 0.7rem;
-    padding: 5px 4px;
+    height: 44px;
+    justify-content: center;
+    padding: 0;
+    pointer-events: auto;
+    width: 44px;
   }
   .channel-shelf-card .watched-btn {
     flex: 1.45;
@@ -5861,10 +5864,10 @@ summary:focus-visible,
     flex: 0 0 44px;
   }
   .channel-shelf-card .dur-badge {
-    bottom: auto;
-    right: 44px;
-    top: 8px;
-    z-index: 3;
+    display: none;
+  }
+  .channel-shelf-card .video-grid-remove {
+    display: none;
   }
   .channel-shelf-card .video-upload-ribbon {
     border-radius: 4px;
