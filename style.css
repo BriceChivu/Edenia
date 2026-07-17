@@ -6108,7 +6108,7 @@ summary:focus-visible,
     width: 132px;
   }
   .onboarding-language-picker {
-    top: max(68px, calc(env(safe-area-inset-top) + 60px));
+    top: max(12px, calc(env(safe-area-inset-top) + 8px));
     width: 132px;
   }
   .intro-locale-btn { min-height: 44px; }
