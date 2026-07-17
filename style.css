@@ -5778,7 +5778,7 @@ summary:focus-visible,
     display: none;
   }
   .channel-shelf-slot {
-    aspect-ratio: 16 / 10;
+    aspect-ratio: 16 / 9;
     flex: 0 0 min(82vw, 310px);
   }
   .channel-shelf-card {
@@ -5866,10 +5866,14 @@ summary:focus-visible,
     width: 44px;
   }
   .channel-shelf-card .watched-btn {
-    flex: 1.45;
+    flex: 0 0 44px;
   }
-  .channel-shelf-card .watched-btn-text {
-    display: inline;
+  .channel-shelf-card .watched-btn .watched-btn-text {
+    display: none;
+  }
+  .channel-shelf-card .watched-btn .action-icon {
+    display: block;
+    margin: 0;
   }
   .channel-shelf-card .partial-btn,
   .channel-shelf-card .watch-later-btn {
