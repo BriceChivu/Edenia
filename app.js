@@ -6146,7 +6146,7 @@ function isMobileLayout() {
 function syncMobileAddButtonWidth() {
   const addControl = document.getElementById('manualVideo')
   const undoRedoControl = document.querySelector('.feed-action-controls .undo-wrap')
-  const shouldShrinkAddControl = Boolean(window.matchMedia?.('(max-aspect-ratio: 562/986)').matches)
+  const shouldShrinkAddControl = Boolean(window.matchMedia?.('(max-aspect-ratio: 590/736)').matches)
   if (!addControl) return
 
   addControl.style.removeProperty('flex')
