@@ -6121,21 +6121,42 @@ summary:focus-visible,
     flex-direction: row;
     gap: 8px;
     inset: 0;
+    isolation: isolate;
     justify-content: space-between;
     padding: 0 10px 9px;
     pointer-events: none;
     position: absolute;
     z-index: 2;
   }
+  .channel-shelf-card .card-body::before {
+    background: radial-gradient(ellipse at center, rgba(5,5,5,0.54) 0%, rgba(5,5,5,0.48) 25%, rgba(5,5,5,0.37) 49%, rgba(5,5,5,0.23) 69%, rgba(5,5,5,0.1) 85%, transparent 100%);
+    bottom: -18px;
+    content: "";
+    height: 112px;
+    left: -24px;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 38%, #000 82%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 38%, #000 82%, transparent 100%);
+    pointer-events: none;
+    position: absolute;
+    right: -24px;
+    z-index: -1;
+  }
   .channel-shelf-card .card-copy {
     flex: 1 1 auto;
     min-width: 0;
   }
   .channel-shelf-card .card-title {
+    background: transparent;
+    border-radius: 5px;
     color: #ffffff;
+    display: -webkit-box;
     font-size: 0.8rem;
     line-height: 1.2;
+    overflow: hidden;
+    padding: 0 5px;
     text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
   .channel-shelf-card .card-meta {
     display: none;
