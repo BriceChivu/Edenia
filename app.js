@@ -5307,6 +5307,7 @@ function init() {
   syncHeaderCompactState()
   startChannelRefreshLabelTicker()
   repairStoredShortsDetection()
+  hydrateStoredManualVideoChannelImages()
   initCityImagePanZoom()
   initCityWaveformTouchNavigation()
   initIntroTrailerTouchNavigation()
@@ -7765,16 +7766,66 @@ async function fetchVideoMetadata(videoId) {
   const data = await ytFetch(url)
   const item = data.items?.[0]
   if (!item) throw new Error(t('toast.videoNotFound'))
+  const channelId = item.snippet?.channelId || 'manual-youtube'
+  const channelProfile = YOUTUBE_CHANNEL_ID_RE.test(channelId)
+    ? await fetchYoutubeChannelByFilter('id', channelId).catch(err => {
+        console.warn('Could not load the manually added video channel profile:', err)
+        return null
+      })
+    : null
   return {
     id: item.id,
     title: item.snippet?.title || t('videos.search.untitled'),
     channelTitle: item.snippet?.channelTitle || t('videos.search.youtube'),
-    channelId: item.snippet?.channelId || 'manual-youtube',
+    channelId,
+    channelImageUrl: channelProfile?.thumbnail || '',
     thumbnail: getBestThumbnail(item.snippet?.thumbnails) || `https://i.ytimg.com/vi/${encodeURIComponent(item.id)}/hqdefault.jpg`,
     publishedAt: item.snippet?.publishedAt || new Date().toISOString(),
     duration: parseDuration(item.contentDetails?.duration),
     source: 'manual',
     manuallyAdded: true
+  }
+}
+
+async function hydrateStoredManualVideoChannelImages() {
+  if (IS_SANDBOX || !hasYoutubeApiKey() || hydrateStoredManualVideoChannelImages._running) return
+
+  const initialState = loadState()
+  const channelIds = Array.from(new Set(
+    Object.values(initialState?.videos || {})
+      .filter(video => video?.manuallyAdded && !video.channelImageUrl && YOUTUBE_CHANNEL_ID_RE.test(video.channelId || ''))
+      .map(video => video.channelId)
+  ))
+  if (!channelIds.length) return
+
+  hydrateStoredManualVideoChannelImages._running = true
+  try {
+    const channelProfiles = channelIds.map(id => ({ id, imageUrl: '' }))
+    await hydrateYoutubeChannelProfiles(channelProfiles)
+    const imageUrlsByChannelId = new Map(
+      channelProfiles
+        .filter(channel => channel.imageUrl)
+        .map(channel => [channel.id, channel.imageUrl])
+    )
+    if (!imageUrlsByChannelId.size) return
+
+    const state = loadState()
+    let changed = false
+    Object.values(state?.videos || {}).forEach(video => {
+      if (!video?.manuallyAdded || video.channelImageUrl) return
+      const imageUrl = imageUrlsByChannelId.get(video.channelId)
+      if (!imageUrl) return
+      video.channelImageUrl = imageUrl
+      changed = true
+    })
+    if (changed) {
+      saveState(state)
+      renderFeed(state)
+    }
+  } catch (err) {
+    console.warn('Could not load stored manual video channel profiles:', err)
+  } finally {
+    hydrateStoredManualVideoChannelImages._running = false
   }
 }
 
@@ -8956,6 +9007,7 @@ async function addVideoFromUrl(event) {
       title: metadata.title || existing?.title || t('videos.search.untitled'),
       channelTitle: metadata.channelTitle || existing?.channelTitle || 'YouTube',
       channelId: metadata.channelId || existing?.channelId || 'manual-youtube',
+      channelImageUrl: metadata.channelImageUrl || existing?.channelImageUrl || '',
       thumbnail: metadata.thumbnail || existing?.thumbnail || `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`,
       publishedAt: metadata.publishedAt || existing?.publishedAt || getCurrentAppTimestamp(s),
       duration,
