@@ -2890,6 +2890,7 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 .next-study-title {
   color: var(--text);
@@ -2940,6 +2941,18 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   gap: 5px;
   padding: 4px 5px 4px 11px;
 }
+.next-study-continue-short {
+  display: none;
+}
+@media (max-aspect-ratio: 536/986) {
+  .next-study-continue-at,
+  .next-study-continue .next-study-time-input {
+    display: none;
+  }
+  .next-study-continue-short {
+    display: inline;
+  }
+}
 input.next-study-time-input {
   appearance: none;
   background: transparent;
@@ -2988,6 +3001,17 @@ input.next-study-time-input:focus {
 .next-study-reset {
   background: transparent;
   color: var(--muted);
+}
+.desktop-english-copy {
+  display: none;
+}
+@media (min-width: 641px) {
+  html[lang="en"] .desktop-english-copy {
+    display: inline;
+  }
+  html[lang="en"] .desktop-english-copy + .responsive-default-copy {
+    display: none;
+  }
 }
 .next-study-cta:hover {
   background: #e9f8ed;

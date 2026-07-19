@@ -826,7 +826,8 @@ const I18N_EN = {
   'nextStudy.title': 'Continue watching',
   'nextStudy.resume': 'Resume video',
   'nextStudy.watch': 'Watch next',
-  'nextStudy.unwatch': 'Mark unwatched',
+  'nextStudy.unwatch': 'Unwatch',
+  'nextStudy.continueShort': 'Continue',
   'goal.watched': 'watched',
   'goal.inProgress': 'in progress',
   'goal.toGo': 'to go',
@@ -1420,6 +1421,7 @@ const I18N = {
     'nextStudy.resume': '繼續觀看',
     'nextStudy.watch': '開始觀看',
     'nextStudy.unwatch': '標記為未觀看',
+    'nextStudy.continueShort': '繼續',
     'goal.watched': '已看',
     'goal.inProgress': '進行中',
     'goal.toGo': '還差',
@@ -1859,6 +1861,7 @@ const I18N = {
     'nextStudy.resume': '继续观看',
     'nextStudy.watch': '开始观看',
     'nextStudy.unwatch': '标记为未观看',
+    'nextStudy.continueShort': '继续',
     'goal.watched': '已看',
     'goal.inProgress': '进行中',
     'goal.toGo': '还差',
@@ -2281,6 +2284,7 @@ const I18N = {
     'nextStudy.resume': 'Continuar vídeo',
     'nextStudy.watch': 'Ver siguiente',
     'nextStudy.unwatch': 'Marcar sin ver',
+    'nextStudy.continueShort': 'Continuar',
     'goal.watched': 'vistos',
     'goal.inProgress': 'en progreso',
     'goal.toGo': 'restantes',
@@ -2705,6 +2709,7 @@ const I18N = {
     'nextStudy.resume': 'Reprendre la vidéo',
     'nextStudy.watch': 'Regarder ensuite',
     'nextStudy.unwatch': 'Marquer non vue',
+    'nextStudy.continueShort': 'Continuer',
     'goal.watched': 'vues',
     'goal.inProgress': 'en cours',
     'goal.toGo': 'restant',
@@ -6136,6 +6141,21 @@ function consumeSandboxWalkthroughAfterReset() {
 
 function isMobileLayout() {
   return Boolean(window.matchMedia?.('(max-width: 640px)').matches)
+}
+
+function syncMobileAddButtonWidth() {
+  const addControl = document.getElementById('manualVideo')
+  const undoRedoControl = document.querySelector('.feed-action-controls .undo-wrap')
+  if (!addControl) return
+
+  addControl.style.removeProperty('flex')
+  addControl.style.removeProperty('width')
+  if (!undoRedoControl || !isMobileLayout() || window.innerWidth <= 480) return
+
+  const undoRedoWidth = undoRedoControl.getBoundingClientRect().width
+  if (undoRedoWidth <= 0) return
+  addControl.style.flex = `0 0 ${undoRedoWidth}px`
+  addControl.style.width = `${undoRedoWidth}px`
 }
 
 function getWalkthroughTargetSelector(step) {
@@ -10935,6 +10955,7 @@ function renderAll(s) {
   renderCity(score, s)
   renderFeed(s)
   renderUndoButton(s)
+  syncMobileAddButtonWidth()
 }
 
 function renderHeader(s) {
@@ -11265,7 +11286,8 @@ function renderNextStudy(activeVideos = []) {
         onclick="markVideo(this.dataset.videoId, 'unwatched')">${escHtml(t('nextStudy.unwatch'))}</button>
       <span class="next-study-cta next-study-continue"
         onclick="if (!event.target.closest('input, a')) this.querySelector('.next-study-play')?.click()">
-        <span>${escHtml(t('videos.card.continueAt'))}</span>
+        <span class="next-study-continue-at">${escHtml(t('videos.card.continueAt'))}</span>
+        <span class="next-study-continue-short">${escHtml(t('nextStudy.continueShort'))}</span>
         <input type="text"
           class="next-study-time-input"
           value="${escHtml(resumeAt)}"
@@ -13131,6 +13153,11 @@ function formatHistoryActionTimestamp(action) {
 }
 
 function handleHistoryActionScrollHover(event) {
+  if (!isMobileLayout()) {
+    stopHistoryActionAutoScroll()
+    return
+  }
+
   const scroller = event.currentTarget
   if (!scroller || scroller.scrollHeight <= scroller.clientHeight) {
     stopHistoryActionAutoScroll()
@@ -13698,9 +13725,12 @@ function renderCard(v, compact = false, options = {}) {
   const watchedText = compact
     ? t('videos.card.unmark')
     : (isWatched ? t('videos.status.watched') : t('videos.card.markWatched'))
+  const watchedTextLabel = !compact && !isWatched
+    ? `<span class="desktop-english-copy">Watched</span><span class="responsive-default-copy">${escHtml(watchedText)}</span>`
+    : escHtml(watchedText)
   const watchedLabel = compact
-    ? `<span class="watched-btn-text">${escHtml(watchedText)}</span>`
-    : `${renderVideoActionIcon('watched')}<span class="watched-btn-text">${escHtml(watchedText)}</span>`
+    ? `<span class="watched-btn-text">${watchedTextLabel}</span>`
+    : `${renderVideoActionIcon('watched')}<span class="watched-btn-text">${watchedTextLabel}</span>`
   const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
   const resumeAtValue = isPartial ? formatResumeTimestamp(v.resumeAtSeconds) : ''
   const uploadRibbon = compact || (options.shelf && isPartial)
@@ -13861,6 +13891,7 @@ document.addEventListener('DOMContentLoaded', init)
 window.addEventListener('scroll', syncHeaderCompactState, { passive: true })
 window.addEventListener('scroll', closeVideoShelfPreviewOnViewportChange, { passive: true })
 window.addEventListener('resize', closeVideoShelfPreviewOnViewportChange, { passive: true })
+window.addEventListener('resize', syncMobileAddButtonWidth, { passive: true })
 document.addEventListener('visibilitychange', refreshOpenChannelFilterTimestamps)
 document.addEventListener('visibilitychange', handleVideoWatchReminderVisibilityChange)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
