@@ -6146,16 +6146,18 @@ function isMobileLayout() {
 function syncMobileAddButtonWidth() {
   const addControl = document.getElementById('manualVideo')
   const undoRedoControl = document.querySelector('.feed-action-controls .undo-wrap')
+  const shouldShrinkAddControl = Boolean(window.matchMedia?.('(max-aspect-ratio: 562/986)').matches)
   if (!addControl) return
 
   addControl.style.removeProperty('flex')
   addControl.style.removeProperty('width')
-  if (!undoRedoControl || !isMobileLayout() || window.innerWidth <= 480) return
+  if (!undoRedoControl || (!isMobileLayout() && !shouldShrinkAddControl)) return
 
   const undoRedoWidth = undoRedoControl.getBoundingClientRect().width
   if (undoRedoWidth <= 0) return
-  addControl.style.flex = `0 0 ${undoRedoWidth}px`
-  addControl.style.width = `${undoRedoWidth}px`
+  const addControlWidth = shouldShrinkAddControl ? undoRedoWidth / 2 : undoRedoWidth
+  addControl.style.flex = `0 0 ${addControlWidth}px`
+  addControl.style.width = `${addControlWidth}px`
 }
 
 function getWalkthroughTargetSelector(step) {
@@ -13732,6 +13734,9 @@ function renderCard(v, compact = false, options = {}) {
     ? `<span class="watched-btn-text">${watchedTextLabel}</span>`
     : `${renderVideoActionIcon('watched')}<span class="watched-btn-text">${watchedTextLabel}</span>`
   const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
+  const thumbnailUrl = compact
+    ? String(v.thumbnail || '').replace(/\/hqdefault\.jpg(?=\?|$)/, '/mqdefault.jpg')
+    : v.thumbnail
   const resumeAtValue = isPartial ? formatResumeTimestamp(v.resumeAtSeconds) : ''
   const uploadRibbon = compact || (options.shelf && isPartial)
     ? null
@@ -13745,7 +13750,7 @@ function renderCard(v, compact = false, options = {}) {
         aria-label="${escHtml(t('videos.card.removeFromGrid'))}">×</button>`
     : ''
   const thumbnailContent = `
-    <img src="${escHtml(v.thumbnail)}" alt="" class="thumb" loading="lazy">
+    <img src="${escHtml(thumbnailUrl)}" alt="" class="thumb" loading="lazy">
     ${uploadRibbon ? `<span class="video-upload-ribbon">${escHtml(uploadRibbon)}</span>` : ''}
     <span class="dur-badge">${formatDuration(v.duration)}</span>
   `

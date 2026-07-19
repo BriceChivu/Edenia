@@ -4398,7 +4398,6 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
   background: var(--surface);
 }
 body[data-theme="dark"] .video-card.status-partial { background: var(--surface); }
-.video-card.status-watched { border-left: 4px solid var(--green); }
 .video-card.status-watch-later {
   background: var(--surface);
 }
@@ -4498,9 +4497,9 @@ body[data-theme="dark"] .video-grid-remove:focus-visible {
   gap: 8px;
 }
 .compact-card {
-  min-height: 36px;
+  min-height: 59px;
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr);
+  grid-template-columns: 104px minmax(0, 1fr);
   border-radius: 8px;
 }
 .compact-card:hover { transform: none; }
@@ -4670,8 +4669,8 @@ body[data-theme="dark"] .video-watch-reminder-later {
   right: auto;
 }
 .compact-card .thumb-link {
-  aspect-ratio: auto;
-  height: 36px;
+  aspect-ratio: 16 / 9;
+  height: auto;
 }
 .compact-card .dur-badge,
 .compact-card .card-status,
@@ -4710,6 +4709,18 @@ body[data-theme="dark"] .video-watch-reminder-later {
   padding: 2px 6px;
   font-size: 0.68rem;
   line-height: 1.2;
+}
+.compact-card .watched-btn.active,
+body[data-theme="dark"] .compact-card .watched-btn.active {
+  background: var(--planet-white);
+  border-color: var(--planet-black);
+  color: var(--text);
+}
+.compact-card .watched-btn.active:hover {
+  background: #e9f8ed;
+}
+body[data-theme="dark"] .compact-card .watched-btn.active:hover {
+  background: var(--surface-hi);
 }
 
 /* Thumbnail */
@@ -5503,14 +5514,6 @@ summary:focus-visible,
     white-space: normal;
     line-height: 1.05;
   }
-  .undo-wrap {
-    flex: 1 1 150px;
-  }
-  .undo-action-wrap {
-    flex: 1;
-  }
-  .undo-btn,
-  .redo-btn,
   #refreshBtn {
     width: 100%;
   }
@@ -5526,61 +5529,6 @@ summary:focus-visible,
   .add-channel-row .btn-secondary,
   .reset-confirm-actions .btn-ghost {
     width: 100%;
-  }
-  .feed-controls {
-    align-items: stretch;
-    width: 100%;
-    display: grid;
-    gap: 8px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-areas: "add-video actions";
-  }
-  .feed-action-controls {
-    display: contents;
-  }
-  .feed-filter-controls {
-    display: none;
-  }
-  .status-filter,
-  .manual-video {
-    flex: 0 0 auto;
-    min-width: 0;
-  }
-  .status-filter { grid-area: status; }
-  .manual-video { grid-area: add-video; }
-  .undo-wrap {
-    grid-area: actions;
-    display: flex;
-    flex-direction: row;
-    gap: 0;
-    justify-content: stretch;
-    width: 100%;
-  }
-  .undo-action-wrap {
-    flex: 1 1 0;
-  }
-  .status-filter-btn,
-  .manual-video-btn {
-    max-width: none;
-    min-width: 0;
-    width: 100%;
-    justify-content: flex-start;
-    text-align: left;
-  }
-  .undo-action-wrap {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-  .undo-btn,
-  .redo-btn {
-    max-width: none;
-    min-width: 0;
-    width: 100%;
-    padding-left: 8px;
-    padding-right: 8px;
-    font-size: 0.9rem;
-    justify-content: center;
-    text-align: center;
   }
   .manual-video-form {
     grid-template-columns: 1fr;
@@ -5627,12 +5575,13 @@ summary:focus-visible,
     grid-template-columns: 1fr;
   }
   .compact-card {
-    grid-template-columns: 74px minmax(0, 1fr);
-    min-height: 64px;
+    grid-template-columns: 112px minmax(0, 1fr);
+    min-height: 63px;
   }
   .compact-card .thumb-link {
-    height: 100%;
-    min-height: 64px;
+    aspect-ratio: 16 / 9;
+    height: auto;
+    min-height: 0;
   }
   .compact-card .card-body {
     gap: 8px;
@@ -5682,6 +5631,9 @@ summary:focus-visible,
   }
   .history-row-head {
     display: none;
+  }
+  .history-row-head + .history-row {
+    border-top: 0;
   }
   .history-row {
     align-items: stretch;
