@@ -9161,13 +9161,32 @@ function markVideoInProgressOnOpen(videoId) {
 function revealAddedVideoCard(videoId, state) {
   forcedSearchVideoId = String(videoId ?? '')
   renderAll(state)
-  window.setTimeout(() => {
+  const revealCard = () => {
     const card = findVideoCard(forcedSearchVideoId)
     const found = Boolean(card)
     forcedSearchVideoId = null
-    if (card) showAddedVideoSpotlight(card, 1800)
+    if (card) {
+      if (usesTabletAddedVideoReveal()) {
+        flashVideoCard(card, {
+          duration: 1800,
+          highlightTarget: 'spotlight'
+        })
+      } else {
+        showAddedVideoSpotlight(card, 1800)
+      }
+    }
     if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
-  }, 0)
+  }
+
+  if (usesTabletAddedVideoReveal()) {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(revealCard))
+  } else {
+    window.setTimeout(revealCard, 0)
+  }
+}
+
+function usesTabletAddedVideoReveal() {
+  return Boolean(window.matchMedia?.('(min-width: 641px) and (any-pointer: coarse)').matches)
 }
 
 async function addVideoFromUrl(event) {
@@ -9268,6 +9287,7 @@ async function addVideoFromUrl(event) {
     }
     saveState(s)
     input.value = ''
+    if (usesTabletAddedVideoReveal()) input.blur()
     closeManualVideoPopover()
     revealAddedVideoCard(videoId, s)
     showToast(t('toast.addedWatchedVideo', { title: formatToastTitle(s.videos[videoId].title) }), 'success')
