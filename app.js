@@ -8592,6 +8592,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
 
 async function refreshAddedChannel(channelId, options = {}) {
   if (IS_SANDBOX || !hasYoutubeApiKey()) return
+  const revealNotBefore = Date.now() + Math.max(0, Number(options.revealDelayMs) || 0)
 
   try {
     const s = loadState()
@@ -8613,6 +8614,10 @@ async function refreshAddedChannel(channelId, options = {}) {
 
     const detailsById = await getFetchedVideoDetails(s, videos, includeShorts)
     const { mergedCount, skippedShorts } = mergeFetchedVideos(s, videos, detailsById, includeShorts)
+    const revealDelayRemaining = revealNotBefore - Date.now()
+    if (revealDelayRemaining > 0) {
+      await new Promise(resolve => window.setTimeout(resolve, revealDelayRemaining))
+    }
 
     markChannelRefreshSuccess(s, channel.id)
     appendActivityLog(s, {
@@ -8636,12 +8641,16 @@ async function refreshAddedChannel(channelId, options = {}) {
       window.requestAnimationFrame(() => {
         scrollToVideoCard(focusVideoId, '.video-card', {
           className: 'added-video-target',
-          duration: 3200
+          duration: 1800,
+          highlightTarget: 'slot'
         })
+        const focusedCard = findVideoCard(focusVideoId)
+        const refreshedShelf = focusedCard?.closest('.channel-refresh-arriving')
+        window.setTimeout(() => refreshedShelf?.classList.remove('channel-refresh-arriving'), 900)
         window.setTimeout(() => {
           if (forcedSearchVideoId === focusVideoId) forcedSearchVideoId = null
           if (pendingAddedChannelReveal === activeReveal) pendingAddedChannelReveal = null
-        }, 3200)
+        }, 1800)
       })
     }
 
@@ -9129,11 +9138,10 @@ function revealAddedVideoCard(videoId, state) {
   forcedSearchVideoId = String(videoId ?? '')
   renderAll(state)
   window.setTimeout(() => {
-    const found = scrollToVideoCard(forcedSearchVideoId, '.video-card', {
-      className: 'added-video-target',
-      duration: 2800
-    })
+    const card = findVideoCard(forcedSearchVideoId)
+    const found = Boolean(card)
     forcedSearchVideoId = null
+    window.setTimeout(() => card?.closest('.channel-shelf-slot')?.classList.remove('added-video-target'), 1400)
     if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
   }, 0)
 }
@@ -9240,7 +9248,10 @@ async function addVideoFromUrl(event) {
     revealAddedVideoCard(videoId, s)
     showToast(t('toast.addedWatchedVideo', { title: formatToastTitle(s.videos[videoId].title) }), 'success')
     if (channelWasAdded) {
-      window.setTimeout(() => refreshAddedChannel(metadata.channelId, { focusVideoId: videoId }), 3000)
+      refreshAddedChannel(metadata.channelId, {
+        focusVideoId: videoId,
+        revealDelayMs: 1500
+      })
     }
   } catch (err) {
     console.warn(err)
@@ -10266,22 +10277,46 @@ function jumpToWatchedVideo(videoId) {
 }
 
 function scrollToVideoCard(videoId, selector = '.video-card', options = {}) {
-  const targetId = String(videoId ?? '')
-  const card = Array.from(document.querySelectorAll(selector))
-    .find(el => el.dataset.videoId === targetId)
+  const card = findVideoCard(videoId, selector)
   if (!card) return false
   flashVideoCard(card, options)
   return true
 }
 
+function findVideoCard(videoId, selector = '.video-card') {
+  const targetId = String(videoId ?? '')
+  return Array.from(document.querySelectorAll(selector))
+    .find(element => element.dataset.videoId === targetId) || null
+}
+
+function scrollVideoCardIntoView(card) {
+  const slot = card.closest('.channel-shelf-slot')
+  const track = card.closest('.channel-shelf-track')
+  const shelf = card.closest('.channel-shelf')
+  if (!slot || !track || !shelf) {
+    card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+    return
+  }
+
+  shelf.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  const centeredLeft = slot.offsetLeft - ((track.clientWidth - slot.offsetWidth) / 2)
+  track.scrollTo({
+    behavior: 'smooth',
+    left: Math.max(0, centeredLeft)
+  })
+}
+
 function flashVideoCard(card, options = {}) {
   const className = options.className || 'flash-target'
   const duration = Math.max(0, Number(options.duration) || 1900)
-  card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
-  card.classList.remove(className)
-  void card.offsetWidth
-  card.classList.add(className)
-  window.setTimeout(() => card.classList.remove(className), duration)
+  const highlightTarget = options.highlightTarget === 'slot'
+    ? card.closest('.channel-shelf-slot') || card
+    : card
+  scrollVideoCardIntoView(card)
+  highlightTarget.classList.remove(className)
+  void highlightTarget.offsetWidth
+  highlightTarget.classList.add(className)
+  window.setTimeout(() => highlightTarget.classList.remove(className), duration)
 }
 
 function toggleVideoSearchPopover(event) {
@@ -12829,12 +12864,6 @@ function getVideoPublishedTimestamp(video) {
 }
 
 function compareActiveVideos(a, b) {
-  const statusPriority = {
-    partial: 2,
-    'watch-later': 1
-  }
-  const priorityDiff = (statusPriority[getVideoStatus(b)] || 0) - (statusPriority[getVideoStatus(a)] || 0)
-  if (priorityDiff) return priorityDiff
   return getVideoPublishedTimestamp(b) - getVideoPublishedTimestamp(a)
 }
 
@@ -12853,7 +12882,7 @@ function normalizeChannelShelfOrder(order) {
   ))
 }
 
-function groupActiveVideosByChannel(videos, channelOrder = [], configuredChannels = [], focusedVideoId = '') {
+function groupActiveVideosByChannel(videos, channelOrder = [], configuredChannels = []) {
   const groups = new Map()
   const configuredChannelsById = new Map(
     configuredChannels
@@ -12880,11 +12909,7 @@ function groupActiveVideosByChannel(videos, channelOrder = [], configuredChannel
   return Array.from(groups.values())
     .map(group => ({
       ...group,
-      videos: group.videos.sort((a, b) => {
-        if (a.id === focusedVideoId) return -1
-        if (b.id === focusedVideoId) return 1
-        return compareActiveVideos(a, b)
-      })
+      videos: group.videos.sort(compareActiveVideos)
     }))
     .sort((a, b) => {
       const aIndex = orderedChannelIndexes.get(a.key)
@@ -12902,8 +12927,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
   return groupActiveVideosByChannel(
     videos,
     channelOrder,
-    configuredChannels,
-    cardOptions.focusedVideoId
+    configuredChannels
   ).map((group, index) => {
     const countLabel = group.videos.length === 1
       ? t('videos.channel.oneVideo')
@@ -12967,11 +12991,10 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
           aria-label="${escHtml(t('videos.channel.shelfLabel', { channel: group.title }))}"
           onscroll="syncVideoChannelShelfControls(this)">
           ${group.videos.map((video, videoIndex) => `
-            <div class="channel-shelf-slot" style="--channel-refresh-delay: ${Math.min(videoIndex, 8) * 45}ms">
+            <div class="channel-shelf-slot ${video.id === cardOptions.focusedVideoId ? 'added-video-target' : ''}" style="--channel-refresh-delay: ${Math.min(videoIndex, 8) * 45}ms">
               ${renderCard(video, false, {
                 ...cardOptions,
-                shelf: true,
-                focused: video.id === cardOptions.focusedVideoId
+                shelf: true
               })}
             </div>
           `).join('')}
@@ -14239,7 +14262,7 @@ function renderCard(v, compact = false, options = {}) {
     ? 'onclick="toggleVideoShelfPreviewOnTouch(event, this)" onmouseenter="openVideoShelfPreview(this)" onmouseleave="closeVideoShelfPreview(this)" onfocusin="openVideoShelfPreviewFromFocus(this)" onfocusout="closeVideoShelfPreviewAfterFocus(this)"'
     : ''
   return `
-    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${options.focused ? 'added-video-target' : ''} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
+    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
       ${removeFromGridButton}
       ${thumbnailLink}
       ${shelfResumeTimeField}
