@@ -761,7 +761,15 @@ html:lang(zh-Hans) .intro-scene-finale h2 {
   inset: -14px;
   position: absolute;
 }
-.intro-progress-mark { filter: drop-shadow(0 5px 5px rgba(5,5,5,0.14)); margin-bottom: 4px; width: clamp(38px, 5vw, 54px); }
+.intro-progress-mark {
+  bottom: -18px;
+  filter: drop-shadow(0 5px 5px rgba(5,5,5,0.14));
+  margin: 0;
+  position: absolute;
+  right: -20px;
+  width: clamp(38px, 5vw, 54px);
+  z-index: 2;
+}
 .intro-progress-spark strong { font-size: clamp(0.62rem, 1.1vw, 0.76rem); line-height: 1.05; max-width: 78%; text-align: center; }
 .intro-spark-ring {
   align-items: center;
@@ -801,6 +809,7 @@ html:lang(zh-Hans) .intro-scene-finale h2 {
   font-weight: 800;
   gap: 7px;
   grid-column: 1 / -1;
+  justify-content: center;
   margin-top: 6px;
 }
 .intro-spark-ring {
@@ -5244,7 +5253,6 @@ summary:focus-visible,
 @media (max-width: 1024px) {
   .intro-progress-spark { gap: 4px; }
   .intro-progress-mark { margin-bottom: 0; }
-  .intro-progress-spark strong { display: none; }
 }
 
 /* Above the phone breakpoint, preserve the English 1710 x 986 reference
