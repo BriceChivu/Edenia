@@ -13574,15 +13574,16 @@ function openVideoShelfPreview(card, force = false) {
     )
   )
   const previewSize = Math.min(Math.max(rect.width * 1.25, 295), maxPreviewSize)
+  const previewHeight = previewSize * 0.9
   const targetLeft = clampNumber(
     rect.left - ((previewSize - rect.width) / 2),
     viewportMargin,
     Math.max(viewportMargin, window.innerWidth - previewSize - viewportMargin)
   )
   const targetTop = clampNumber(
-    rect.top - ((previewSize - rect.height) / 2),
+    rect.top - ((previewHeight - rect.height) / 2),
     viewportMargin,
-    Math.max(viewportMargin, window.innerHeight - previewSize - viewportMargin)
+    Math.max(viewportMargin, window.innerHeight - previewHeight - viewportMargin)
   )
 
   window.clearTimeout(videoShelfPreviewCleanupTimer)
@@ -13593,6 +13594,7 @@ function openVideoShelfPreview(card, force = false) {
   card.style.setProperty('--shelf-preview-left', `${targetLeft}px`)
   card.style.setProperty('--shelf-preview-top', `${targetTop}px`)
   card.style.setProperty('--shelf-preview-size', `${previewSize}px`)
+  card.style.setProperty('--shelf-preview-height', `${previewHeight}px`)
   card.classList.add('is-floating-preview')
   activeVideoShelfPreview = card
   card.getBoundingClientRect()
@@ -13624,6 +13626,7 @@ function closeVideoShelfPreview(card, force = false) {
     card.style.removeProperty('--shelf-preview-left')
     card.style.removeProperty('--shelf-preview-top')
     card.style.removeProperty('--shelf-preview-size')
+    card.style.removeProperty('--shelf-preview-height')
     if (activeVideoShelfPreview === card) activeVideoShelfPreview = null
   }
   card.classList.remove('is-previewing')

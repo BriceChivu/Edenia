@@ -7432,7 +7432,7 @@ summary:focus-visible,
   .channel-shelf-card.is-floating-preview.is-previewing {
     border-color: var(--planet-black);
     box-shadow: 0 12px 24px rgba(5,5,5,0.28), 0 4px 0 rgba(5,5,5,0.24);
-    height: var(--shelf-preview-size);
+    height: var(--shelf-preview-height);
     left: var(--shelf-preview-left);
     top: var(--shelf-preview-top);
     width: var(--shelf-preview-size);
