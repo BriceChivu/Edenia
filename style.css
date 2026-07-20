@@ -1171,6 +1171,7 @@ body[data-theme="dark"] .onboarding-panel {
 }
 body.onboarding-active { overflow: hidden; }
 body.onboarding-active #mainApp { visibility: hidden; }
+body.onboarding-active .toast { z-index: 320; }
 .onboarding-card {
   background: var(--surface);
   border: 3px solid var(--planet-black);

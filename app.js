@@ -237,6 +237,7 @@ const introTrailerState = {
   touchStartY: 0,
   touchAxis: null
 }
+const ONBOARDING_CHANNEL_SELECTION_LIMIT = 5
 const personalizedOnboardingState = {
   active: false,
   step: 'language',
@@ -308,6 +309,38 @@ const BASE_CURATED_CHANNEL_CATALOG = [
     input: '@Stickynote.Chinese',
     name: 'Jun - Stickynote Chinese',
     levels: ['starting', 'beginner'],
+    style: 'Comprehensible input'
+  },
+  {
+    id: 'mandarin-everyday-chinese',
+    language: 'mandarin',
+    input: '@EverydayChinese',
+    name: 'Everyday Chinese',
+    levels: ['starting'],
+    style: 'Structured lessons'
+  },
+  {
+    id: 'mandarin-chinese-for-us',
+    language: 'mandarin',
+    input: '@ChineseForUsOfficial',
+    name: 'ChineseFor.Us',
+    levels: ['starting'],
+    style: 'Structured lessons'
+  },
+  {
+    id: 'mandarin-espresso-chinese',
+    language: 'mandarin',
+    input: '@espressochinese',
+    name: 'Espresso Chinese - John Wang',
+    levels: ['starting'],
+    style: 'Clear explanations'
+  },
+  {
+    id: 'mandarin-harbin',
+    language: 'mandarin',
+    input: '@HarbinMandarin',
+    name: 'Harbin Mandarin',
+    levels: ['starting'],
     style: 'Comprehensible input'
   },
   {
@@ -673,6 +706,7 @@ const I18N_EN = {
   'onboarding.channels.title': 'Your starter study feed',
   'onboarding.channels.subtitle': 'Select up to 5 channels. You can modify them anytime later on.',
   'onboarding.channels.selected': '{count} selected',
+  'onboarding.channels.limit': 'You can select up to {count} channels. Deselect one to add another.',
   'onboarding.channels.none': 'No starter channels match this combination yet. You can still continue and add your own.',
   'onboarding.continue': 'Continue',
   'onboarding.back': 'Back',
@@ -1279,6 +1313,7 @@ const I18N = {
     'onboarding.channels.title': '你的入門學習清單',
     'onboarding.channels.subtitle': '最多選擇 5 個頻道。之後可以隨時修改。',
     'onboarding.channels.selected': '已選擇 {count} 個',
+    'onboarding.channels.limit': '最多只能選擇 {count} 個頻道。請先取消一個，再加入其他頻道。',
     'onboarding.channels.none': '目前沒有符合這個組合的入門頻道。你仍可繼續並自行新增。',
     'onboarding.continue': '繼續',
     'onboarding.back': '返回',
@@ -1720,6 +1755,7 @@ const I18N = {
     'onboarding.channels.title': '你的入门学习列表',
     'onboarding.channels.subtitle': '最多选择 5 个频道。之后可以随时修改。',
     'onboarding.channels.selected': '已选择 {count} 个',
+    'onboarding.channels.limit': '最多只能选择 {count} 个频道。请先取消一个，再添加其他频道。',
     'onboarding.channels.none': '目前没有符合这个组合的入门频道。你仍可继续并自行添加。',
     'onboarding.continue': '继续',
     'onboarding.back': '返回',
@@ -2142,6 +2178,7 @@ const I18N = {
     'onboarding.channels.title': 'Tu lista de estudio inicial',
     'onboarding.channels.subtitle': 'Selecciona hasta 5 canales. Podrás modificarlos en cualquier momento más adelante.',
     'onboarding.channels.selected': '{count} seleccionados',
+    'onboarding.channels.limit': 'Puedes seleccionar hasta {count} canales. Deselecciona uno para añadir otro.',
     'onboarding.channels.none': 'Aún no hay canales iniciales para esta combinación. Puedes continuar y añadir los tuyos.',
     'onboarding.continue': 'Continuar',
     'onboarding.back': 'Atrás',
@@ -2566,6 +2603,7 @@ const I18N = {
     'onboarding.channels.title': 'Votre liste d’étude de départ',
     'onboarding.channels.subtitle': 'Sélectionnez jusqu’à 5 chaînes. Vous pourrez les modifier à tout moment par la suite.',
     'onboarding.channels.selected': '{count} sélectionnées',
+    'onboarding.channels.limit': 'Vous pouvez sélectionner jusqu’à {count} chaînes. Désélectionnez-en une pour en ajouter une autre.',
     'onboarding.channels.none': 'Aucune chaîne de départ ne correspond encore à cette combinaison. Vous pouvez continuer et ajouter les vôtres.',
     'onboarding.continue': 'Continuer',
     'onboarding.back': 'Retour',
@@ -5794,7 +5832,7 @@ function startPersonalizedOnboarding(state = loadState()) {
     : 'language'
   personalizedOnboardingState.languageId = state.learnerProfile.languages[0] || null
   personalizedOnboardingState.levelId = state.learnerProfile.level || null
-  personalizedOnboardingState.selectedChannelCatalogIds = [...state.learnerProfile.selectedChannelCatalogIds]
+  personalizedOnboardingState.selectedChannelCatalogIds = state.learnerProfile.selectedChannelCatalogIds.slice(0, ONBOARDING_CHANNEL_SELECTION_LIMIT)
   personalizedOnboardingState.channelSelectionsInitialized = state.learnerProfile.selectedChannelCatalogIds.length > 0
   personalizedOnboardingState.isApplyingChannels = false
   document.body.classList.add('onboarding-active')
@@ -5965,7 +6003,7 @@ function prepareOnboardingChannelSelections() {
   personalizedOnboardingState.selectedChannelCatalogIds = getRecommendedChannelCatalog({
     languages: [personalizedOnboardingState.languageId],
     level: personalizedOnboardingState.levelId
-  }).map(channel => channel.id)
+  }).slice(0, ONBOARDING_CHANNEL_SELECTION_LIMIT).map(channel => channel.id)
   personalizedOnboardingState.channelSelectionsInitialized = true
 }
 
@@ -5973,7 +6011,13 @@ function toggleOnboardingChannel(catalogId) {
   if (!getCuratedChannelEntry(catalogId) || personalizedOnboardingState.isApplyingChannels) return
   const selectedIds = new Set(personalizedOnboardingState.selectedChannelCatalogIds)
   if (selectedIds.has(catalogId)) selectedIds.delete(catalogId)
-  else selectedIds.add(catalogId)
+  else {
+    if (selectedIds.size >= ONBOARDING_CHANNEL_SELECTION_LIMIT) {
+      showToast(t('onboarding.channels.limit', { count: ONBOARDING_CHANNEL_SELECTION_LIMIT }), 'warn')
+      return
+    }
+    selectedIds.add(catalogId)
+  }
   personalizedOnboardingState.selectedChannelCatalogIds = [...selectedIds]
   renderPersonalizedOnboarding()
 }
@@ -6040,7 +6084,7 @@ async function finishPersonalizedOnboarding() {
   state.learnerProfile = {
     languages: [personalizedOnboardingState.languageId].filter(Boolean),
     level: personalizedOnboardingState.levelId,
-    selectedChannelCatalogIds: [...personalizedOnboardingState.selectedChannelCatalogIds],
+    selectedChannelCatalogIds: personalizedOnboardingState.selectedChannelCatalogIds.slice(0, ONBOARDING_CHANNEL_SELECTION_LIMIT),
     createdAt: state.learnerProfile.createdAt || now,
     updatedAt: now
   }
