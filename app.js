@@ -13044,6 +13044,15 @@ function compareActiveVideos(a, b) {
   return getVideoPublishedTimestamp(b) - getVideoPublishedTimestamp(a)
 }
 
+function compareChannelTimelineVideos(a, b) {
+  const statusPriority = {
+    partial: 0,
+    'watch-later': 1
+  }
+  const priorityDifference = (statusPriority[getVideoStatus(a)] ?? 2) - (statusPriority[getVideoStatus(b)] ?? 2)
+  return priorityDifference || compareActiveVideos(a, b)
+}
+
 function getVideoUploadRibbon(video, currentDateKey = getCurrentAppDateKey()) {
   const publishedAt = new Date(video?.publishedAt || '')
   if (Number.isNaN(publishedAt.getTime())) return null
@@ -13086,7 +13095,7 @@ function groupActiveVideosByChannel(videos, channelOrder = [], configuredChannel
   return Array.from(groups.values())
     .map(group => ({
       ...group,
-      videos: group.videos.sort(compareActiveVideos)
+      videos: group.videos.sort(compareChannelTimelineVideos)
     }))
     .sort((a, b) => {
       const aIndex = orderedChannelIndexes.get(a.key)
