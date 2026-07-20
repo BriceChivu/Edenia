@@ -7467,6 +7467,36 @@ function toggleTheme() {
   renderActivityLog(s)
 }
 
+function addTrackedYoutubeChannelToState(state, channel) {
+  const id = String(channel?.id || '').trim()
+  if (!state?.config || !id) return false
+
+  if (!Array.isArray(state.config.channels)) state.config.channels = []
+  const existing = state.config.channels.find(entry => entry.id === id)
+  if (existing) {
+    if (!existing.name && channel.name) existing.name = channel.name
+    if (!existing.imageUrl && channel.imageUrl) existing.imageUrl = channel.imageUrl
+  } else {
+    state.config.channels.push({
+      id,
+      name: channel.name || id,
+      imageUrl: channel.imageUrl || ''
+    })
+    state.config.channelShelfOrder = [
+      id,
+      ...normalizeChannelShelfOrder(state.config.channelShelfOrder).filter(channelId => channelId !== id)
+    ]
+  }
+
+  state.config.removedChannelIds = (state.config.removedChannelIds || []).filter(channelId => channelId !== id)
+  restoreChannelVideosToGrid(state, id)
+  if (isDefaultChannelId(id)) {
+    state.config.removedDefaultChannelIds = (state.config.removedDefaultChannelIds || []).filter(channelId => channelId !== id)
+  }
+  selectedChannelFilters?.add(id)
+  return !existing
+}
+
 async function addChannel(options = {}) {
   const idEl = options.input
     || document.getElementById('channelFilterAddInput')
@@ -7501,16 +7531,7 @@ async function addChannel(options = {}) {
     showToast(t('toast.channelDuplicate'), 'warn')
     return
   }
-  s.config.channels.push({ id, name, imageUrl: resolved.thumbnail || '' })
-  s.config.channelShelfOrder = [
-    id,
-    ...normalizeChannelShelfOrder(s.config.channelShelfOrder).filter(channelId => channelId !== id)
-  ]
-  s.config.removedChannelIds = (s.config.removedChannelIds || []).filter(channelId => channelId !== id)
-  restoreChannelVideosToGrid(s, id)
-  if (isDefaultChannelId(id)) {
-    s.config.removedDefaultChannelIds = (s.config.removedDefaultChannelIds || []).filter(channelId => channelId !== id)
-  }
+  addTrackedYoutubeChannelToState(s, { id, name, imageUrl: resolved.thumbnail || '' })
   appendActivityLog(s, {
     actor: 'user',
     type: 'channel-add',
@@ -9123,6 +9144,11 @@ async function addVideoFromUrl(event) {
     const status = existing ? getVideoStatus(existing) : 'unwatched'
     const watchedAt = status === 'watched' ? existing?.watchedAt || null : null
     const duration = metadata.duration || existing?.duration || 0
+    const channelWasAdded = addTrackedYoutubeChannelToState(s, {
+      id: metadata.channelId,
+      name: metadata.channelTitle,
+      imageUrl: metadata.channelImageUrl
+    })
     s.videos[videoId] = {
       ...metadata,
       ...existing,
@@ -9166,11 +9192,22 @@ async function addVideoFromUrl(event) {
       detail: t('log.videoAdded.detail', { title: formatToastTitle(s.videos[videoId].title) }),
       meta: { videoId }
     })
+    if (channelWasAdded) {
+      appendActivityLog(s, {
+        actor: 'user',
+        type: 'channel-add',
+        status: 'success',
+        title: t('log.channelAdded.title'),
+        detail: metadata.channelTitle || metadata.channelId,
+        meta: { channelId: metadata.channelId }
+      })
+    }
     saveState(s)
     input.value = ''
     closeManualVideoPopover()
     revealAddedVideoCard(videoId, s)
     showToast(t('toast.addedWatchedVideo', { title: formatToastTitle(s.videos[videoId].title) }), 'success')
+    if (channelWasAdded) refreshAddedChannel(metadata.channelId)
   } catch (err) {
     console.warn(err)
     showToast(err.message || t('toast.addVideoFailed'), 'error')
@@ -13685,7 +13722,9 @@ function renderStatusFilterOptions(allVideos = [], channelFilters = null, includ
 function getStatusFilterCounts(allVideos = [], channelFilters = null, includeShorts = true) {
   const selectedChannels = channelFilters || new Set()
   const matchesSelection = video => !channelFilters || matchesChannelFilter(video, selectedChannels)
-  const activeVideos = getVisibleActiveVideos(allVideos, includeShorts).filter(matchesSelection)
+  const activeVideos = getVisibleActiveVideos(allVideos, includeShorts, {
+    limitPerChannel: false
+  }).filter(matchesSelection)
   const counts = Object.fromEntries(STATUS_FILTERS.map(([value]) => [value, 0]))
 
   activeVideos.forEach(video => {
