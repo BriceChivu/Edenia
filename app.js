@@ -39,6 +39,7 @@ const CONFIG_COOKIE_KEY = IS_SANDBOX ? 'edenia_config_sandbox' : 'edenia_config'
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const YOUTUBE_REFRESH_INTERVAL_MS = 5 * 60 * 60_000
 const YOUTUBE_REFRESH_ERROR_BACKOFF_MS = 30 * 60_000
+const SHORTS_ENABLE_REFETCH_COOLDOWN_MS = YOUTUBE_REFRESH_INTERVAL_MS
 const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const SANDBOX_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = 50
@@ -158,6 +159,7 @@ let selectedActivityLogFilter = 'all'
 let mobileActivityLogVisibleCount = 20
 let forcedSearchVideoId = null
 let pendingAddedChannelReveal = null
+let shortsEnableRefetchPromise = null
 const addedVideoSpotlightState = {
   element: null,
   frame: null,
@@ -1221,6 +1223,8 @@ const I18N_EN = {
   'toast.levelUp': 'Level up! {label}',
   'toast.localeChanged': 'Language changed to {language}',
   'toast.skippedShorts': ', skipped {count} short video{plural}',
+  'toast.skippedShortsSettingsHint': '; fetched {count} short video{plural}, then filtered them out. To include them, enable “Show short videos” in Settings',
+  'toast.shortsRefetching': 'Refreshing all channels to load short videos…',
   'anki.unavailableOpen': 'AnkiConnect unavailable: open Anki with AnkiConnect installed',
   'anki.blockedHosted': 'AnkiConnect blocked: add this site to AnkiConnect webCorsOriginList',
   'anki.failed': 'AnkiConnect failed: {message}',
@@ -3206,6 +3210,8 @@ Object.assign(I18N['zh-Hant'], {
   'toast.couldNotShowVideo': '無法顯示這部影片',
   'toast.levelUp': '城鎮升級：{label}',
   'toast.skippedShorts': '，已略過 {count} 部短影片',
+  'toast.skippedShortsSettingsHint': '；已擷取 {count} 部短影片，但已將其篩除。如要顯示，請在設定中啟用「顯示短影片」',
+  'toast.shortsRefetching': '正在重新整理所有頻道以載入短影片…',
   'anki.unavailableOpen': '請開啟 Anki，讓 Edenia 讀取今天的複習資料。',
   'anki.blockedHosted': '瀏覽器封鎖了本機 Anki 連線。請在 localhost 使用 Edenia，或允許此連線。',
   'anki.failed': 'Anki 連線失敗：{message}',
@@ -3388,6 +3394,8 @@ Object.assign(I18N['zh-Hans'], {
   'toast.couldNotShowVideo': '无法显示这个视频',
   'toast.levelUp': '城镇升级：{label}',
   'toast.skippedShorts': '，已跳过 {count} 个短视频',
+  'toast.skippedShortsSettingsHint': '；已获取 {count} 个短视频，但已将其过滤。如要显示，请在设置中启用“显示短视频”',
+  'toast.shortsRefetching': '正在刷新所有频道以加载短视频…',
   'anki.unavailableOpen': '请打开 Anki，让 Edenia 读取今天的复习数据。',
   'anki.blockedHosted': '浏览器阻止了本地 Anki 连接。请在 localhost 使用 Edenia，或允许此连接。',
   'anki.failed': 'Anki 连接失败：{message}',
@@ -3568,6 +3576,8 @@ Object.assign(I18N.es, {
   'toast.couldNotShowVideo': 'No se pudo mostrar este video',
   'toast.levelUp': 'La ciudad subió de nivel: {label}',
   'toast.skippedShorts': '; se omitieron {count} videos cortos',
+  'toast.skippedShortsSettingsHint': '; se obtuvieron {count} videos cortos, pero se filtraron. Para incluirlos, activa «Mostrar videos cortos» en Ajustes',
+  'toast.shortsRefetching': 'Actualizando todos los canales para cargar videos cortos…',
   'anki.unavailableOpen': 'Abre Anki para que Edenia pueda leer los repasos de hoy.',
   'anki.blockedHosted': 'El navegador bloqueó la conexión local con Anki. Usa Edenia en localhost o permite la conexión.',
   'anki.failed': 'Falló la conexión con Anki: {message}',
@@ -3748,6 +3758,8 @@ Object.assign(I18N.fr, {
   'toast.couldNotShowVideo': 'Impossible d’afficher cette vidéo',
   'toast.levelUp': 'La ville passe au niveau supérieur : {label}',
   'toast.skippedShorts': ' ; {count} vidéos courtes ignorées',
+  'toast.skippedShortsSettingsHint': ' ; {count} vidéos courtes récupérées puis filtrées. Pour les inclure, activez « Afficher les vidéos courtes » dans Réglages',
+  'toast.shortsRefetching': 'Actualisation de toutes les chaînes pour charger les vidéos courtes…',
   'anki.unavailableOpen': 'Ouvrez Anki pour qu’Edenia puisse lire les révisions du jour.',
   'anki.blockedHosted': 'Le navigateur a bloqué la connexion locale à Anki. Utilisez Edenia sur localhost ou autorisez la connexion.',
   'anki.failed': 'Échec de la connexion à Anki : {message}',
@@ -4581,6 +4593,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
       theme: normalizeTheme(theme),
       locale: normalizeLocale(locale || getBrowserDefaultLocale()),
       includeShorts: false,
+      shortsEnableRefetchAvailableAt: null,
       ankiEnabled: true,
       ankiDisabledAt: null,
       ankiResumeBaselines: {},
@@ -7050,6 +7063,7 @@ async function saveSettingsOnTheFly() {
 
   s.config.weeklyGoalHours = goal
   s.config.includeShorts = Boolean(document.getElementById('settingsIncludeShorts')?.checked)
+  const shortsWereEnabled = !previousIncludeShorts && normalizeIncludeShorts(s.config.includeShorts)
   s.config.ankiEnabled = nextAnkiEnabled
   s.config.ankiDisabledAt = nextAnkiEnabled ? null : now
   s.config.studyInsights.enabled = nextInsightsEnabled
@@ -7095,7 +7109,8 @@ async function saveSettingsOnTheFly() {
   if (ankiPreferenceChanged) applyAnkiRefreshPreference(s)
   renderAll(s)
   renderActivityLog(s)
-  if (!normalizeIncludeShorts(s.config.includeShorts)) repairStoredShortsDetection()
+  if (shortsWereEnabled) refetchAllChannelsAfterShortsEnabled()
+  else if (!normalizeIncludeShorts(s.config.includeShorts)) repairStoredShortsDetection()
 }
 
 function saveLocaleFromSettings(locale = null) {
@@ -8167,6 +8182,7 @@ function getRefreshCandidateDetails(s, videos) {
 async function fetchChannelVideos(channel, knownVideos = {}, options = {}) {
   const includeShorts = normalizeIncludeShorts(options.includeShorts)
   const fetched = []
+  let filteredShorts = 0
   let pageToken = ''
   let pages = 0
   let newCount = 0
@@ -8181,6 +8197,7 @@ async function fetchChannelVideos(channel, knownVideos = {}, options = {}) {
     const acceptedVideos = includeShorts
       ? page.videos
       : page.videos.filter(video => knownVideos[video.id] || !detailsById[video.id]?.isShort)
+    filteredShorts += page.videos.length - acceptedVideos.length
     const detailedAcceptedVideos = applyFetchedVideoDetails(acceptedVideos, detailsById)
     fetched.push(...detailedAcceptedVideos)
 
@@ -8202,7 +8219,7 @@ async function fetchChannelVideos(channel, knownVideos = {}, options = {}) {
     pageToken = page.nextPageToken
   }
 
-  return fetched
+  return { videos: fetched, filteredShorts }
 }
 
 async function fetchVideoDetails(videoIds, { detectShorts = false } = {}) {
@@ -8506,8 +8523,48 @@ async function repairStoredShortsDetection() {
   }
 }
 
-function formatSkippedShortsMessage(skippedShorts) {
-  return skippedShorts ? t('toast.skippedShorts', { count: skippedShorts, plural: skippedShorts === 1 ? '' : 's' }) : ''
+function formatSkippedShortsMessage(skippedShorts, loadedVideos = 0) {
+  if (!skippedShorts) return ''
+  const showSettingsHint = loadedVideos < ACTIVE_VIDEOS_PER_CHANNEL
+    && skippedShorts >= ACTIVE_VIDEOS_PER_CHANNEL
+  const key = showSettingsHint ? 'toast.skippedShortsSettingsHint' : 'toast.skippedShorts'
+  return t(key, { count: skippedShorts, plural: skippedShorts === 1 ? '' : 's' })
+}
+
+function refetchAllChannelsAfterShortsEnabled() {
+  if (IS_SANDBOX || !hasYoutubeApiKey() || shortsEnableRefetchPromise) return shortsEnableRefetchPromise
+
+  const state = loadState()
+  const refetchAvailableAt = new Date(state?.config?.shortsEnableRefetchAvailableAt).getTime()
+  if (Number.isFinite(refetchAvailableAt) && Date.now() < refetchAvailableAt) return null
+
+  const channelIds = (state?.config?.channels || []).map(channel => channel.id).filter(Boolean)
+  if (!channelIds.length) return null
+
+  const input = document.getElementById('settingsIncludeShorts')
+  if (input) input.disabled = true
+  showToast(t('toast.shortsRefetching'))
+
+  const request = refreshFeed({
+    silent: false,
+    channelIds,
+    trigger: 'shorts_enabled'
+  }).then(result => {
+    const latestState = loadState()
+    if (latestState?.config) {
+      const cooldownMs = result?.successfulChannels > 0
+        ? SHORTS_ENABLE_REFETCH_COOLDOWN_MS
+        : YOUTUBE_REFRESH_ERROR_BACKOFF_MS
+      latestState.config.shortsEnableRefetchAvailableAt = new Date(Date.now() + cooldownMs).toISOString()
+      saveState(latestState, { backup: false })
+    }
+    return result
+  }).finally(() => {
+    if (shortsEnableRefetchPromise === request) shortsEnableRefetchPromise = null
+    if (input) input.disabled = false
+  })
+  shortsEnableRefetchPromise = request
+  return request
 }
 
 async function refreshFeed({ silent = false, channelIds = null, trigger = 'automatic' } = {}) {
@@ -8545,6 +8602,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     const all    = []
     const errors = []
     let successfulChannels = 0
+    let filteredShortsDuringFetch = 0
     const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
 
     try {
@@ -8555,9 +8613,10 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
 
     await Promise.all(channelsToRefresh.map(async ch => {
       try {
-        const vids = await fetchChannelVideos(ch, s.videos, { includeShorts })
+        const { videos: vids, filteredShorts } = await fetchChannelVideos(ch, s.videos, { includeShorts })
         successfulChannels += 1
         all.push(...vids)
+        filteredShortsDuringFetch += filteredShorts
         const first = vids[0]
         if (first?.channelTitle && first.channelTitle !== ch.name) {
           ch.name = first.channelTitle
@@ -8594,7 +8653,9 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
 
     const unique = dedupeVideos(all)
     const detailsById = await getFetchedVideoDetails(s, unique, includeShorts)
-    const { mergedCount, skippedShorts } = mergeFetchedVideos(s, unique, detailsById, includeShorts)
+    const mergeResult = mergeFetchedVideos(s, unique, detailsById, includeShorts)
+    const mergedCount = mergeResult.mergedCount
+    const skippedShorts = filteredShortsDuringFetch + mergeResult.skippedShorts
     if (skippedShorts) {
       appendActivityLog(s, {
         actor: 'auto',
@@ -8609,7 +8670,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     saveState(s)
     renderAll(s)
 
-    const shortsMsg = formatSkippedShortsMessage(skippedShorts)
+    const shortsMsg = formatSkippedShortsMessage(skippedShorts, mergedCount)
     const msg = errors.length
       ? t('toast.refreshLoadedWithErrors', { count: mergedCount, shorts: shortsMsg, errors: errors.length, plural: errors.length > 1 ? 's' : '' })
       : t('toast.refreshLoaded', { count: mergedCount, channels: successfulChannels, plural: successfulChannels === 1 ? '' : 's', shorts: shortsMsg })
@@ -8670,14 +8731,17 @@ async function refreshAddedChannel(channelId, options = {}) {
     }
 
     const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
-    const videos = dedupeVideos(await fetchChannelVideos(channel, s.videos, { includeShorts }))
+    const fetchResult = await fetchChannelVideos(channel, s.videos, { includeShorts })
+    const videos = dedupeVideos(fetchResult.videos)
     const first = videos[0]
     if (first?.channelTitle && first.channelTitle !== channel.name) {
       channel.name = first.channelTitle
     }
 
     const detailsById = await getFetchedVideoDetails(s, videos, includeShorts)
-    const { mergedCount, skippedShorts } = mergeFetchedVideos(s, videos, detailsById, includeShorts)
+    const mergeResult = mergeFetchedVideos(s, videos, detailsById, includeShorts)
+    const mergedCount = mergeResult.mergedCount
+    const skippedShorts = fetchResult.filteredShorts + mergeResult.skippedShorts
     const revealDelayRemaining = revealNotBefore - Date.now()
     if (revealDelayRemaining > 0) {
       await new Promise(resolve => window.setTimeout(resolve, revealDelayRemaining))
@@ -8720,7 +8784,7 @@ async function refreshAddedChannel(channelId, options = {}) {
     }
 
     const channelName = channel.name || channelId
-    const shortsMsg = formatSkippedShortsMessage(skippedShorts)
+    const shortsMsg = formatSkippedShortsMessage(skippedShorts, mergedCount)
     showToast(t('toast.channelLoaded', { name: channelName, count: mergedCount, shorts: shortsMsg }), 'success')
     window.trackEdeniaEvent?.('refresh_completed', {
       trigger: 'channel_added',
@@ -12949,8 +13013,11 @@ function renderFeed(s) {
   const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
   renderStatusFilterOptions(allVideos, channelFilters, includeShorts, removedChannelIds)
 
-  const forcedSearchVideo = forcedSearchVideoId && s.videos?.[forcedSearchVideoId]
+  const forcedSearchCandidate = forcedSearchVideoId && s.videos?.[forcedSearchVideoId]
     ? s.videos[forcedSearchVideoId]
+    : null
+  const forcedSearchVideo = forcedSearchCandidate && !isHiddenShortVideo(forcedSearchCandidate, includeShorts)
+    ? forcedSearchCandidate
     : null
 
   const visibleActiveVideos = getVisibleActiveVideos(allVideos, includeShorts, {
@@ -12963,6 +13030,7 @@ function renderFeed(s) {
   let watchedVideos = allVideos
     .filter(v => getVideoStatus(v) === 'watched')
     .filter(v => !isHiddenFromVideoGrid(v))
+    .filter(v => !isHiddenShortVideo(v, includeShorts))
     .filter(v => matchesWatchedChannelFilter(v, channelFilters, removedChannelIds))
     .sort((a, b) => new Date(b.watchedAt || 0) - new Date(a.watchedAt || 0))
 
