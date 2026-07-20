@@ -12694,10 +12694,10 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
         ondragleave="leaveChannelShelfDrag(event, this)"
         ondrop="dropChannelShelf(event, this)">
         <header class="channel-shelf-header"
-          onpointerdown="startMobileChannelShelfDrag(event, this)"
           aria-label="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}"
           title="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}">
-          <div class="channel-shelf-identity">
+          <div class="channel-shelf-identity"
+            onpointerdown="startTouchChannelShelfDrag(event, this)">
             ${renderChannelShelfAvatar(group)}
             <span class="channel-shelf-heading">
               <span class="channel-shelf-title-row">
@@ -12843,13 +12843,13 @@ function clearChannelShelfDropIndicators() {
   })
 }
 
-function canUseMobileChannelShelfDrag(event) {
-  return event?.pointerType !== 'mouse' && window.matchMedia('(max-width: 640px)').matches
+function canUseTouchChannelShelfDrag(event) {
+  return event?.pointerType !== 'mouse'
 }
 
-function startMobileChannelShelfDrag(event, dragTarget) {
+function startTouchChannelShelfDrag(event, dragTarget) {
   const shelf = dragTarget?.closest?.('.channel-shelf')
-  if (!event || !shelf || !canUseMobileChannelShelfDrag(event)) return
+  if (!event || !shelf || !canUseTouchChannelShelfDrag(event)) return
   if (event.target?.closest?.('button, a, input, label, select, textarea')) return
 
   event.preventDefault()
@@ -12860,12 +12860,12 @@ function startMobileChannelShelfDrag(event, dragTarget) {
   shelf.classList.add('is-dragging')
   document.body.classList.add('channel-shelf-dragging')
   dragTarget.setPointerCapture?.(event.pointerId)
-  window.addEventListener('pointermove', moveMobileChannelShelfDrag, { passive: false })
-  window.addEventListener('pointerup', finishMobileChannelShelfDrag)
-  window.addEventListener('pointercancel', cancelMobileChannelShelfDrag)
+  window.addEventListener('pointermove', moveTouchChannelShelfDrag, { passive: false })
+  window.addEventListener('pointerup', finishTouchChannelShelfDrag)
+  window.addEventListener('pointercancel', cancelTouchChannelShelfDrag)
 }
 
-function moveMobileChannelShelfDrag(event) {
+function moveTouchChannelShelfDrag(event) {
   if (event.pointerId !== activeChannelShelfPointerId || !activeChannelShelfDrag) return
   event.preventDefault()
 
@@ -12894,7 +12894,7 @@ function moveMobileChannelShelfDrag(event) {
   activeChannelShelfDropPosition = position
 }
 
-function finishMobileChannelShelfDrag(event) {
+function finishTouchChannelShelfDrag(event) {
   if (event.pointerId !== activeChannelShelfPointerId) return
   const movedShelf = activeChannelShelfDrag
   if (movedShelf && activeChannelShelfDropTarget && activeChannelShelfDropPosition) {
@@ -12906,7 +12906,7 @@ function finishMobileChannelShelfDrag(event) {
   finishChannelShelfDrag()
 }
 
-function cancelMobileChannelShelfDrag(event) {
+function cancelTouchChannelShelfDrag(event) {
   if (event.pointerId === activeChannelShelfPointerId) finishChannelShelfDrag()
 }
 
@@ -13020,9 +13020,9 @@ function finishChannelShelfDrag() {
   ) {
     activeChannelShelfPointerSource?.releasePointerCapture?.(activeChannelShelfPointerId)
   }
-  window.removeEventListener('pointermove', moveMobileChannelShelfDrag)
-  window.removeEventListener('pointerup', finishMobileChannelShelfDrag)
-  window.removeEventListener('pointercancel', cancelMobileChannelShelfDrag)
+  window.removeEventListener('pointermove', moveTouchChannelShelfDrag)
+  window.removeEventListener('pointerup', finishTouchChannelShelfDrag)
+  window.removeEventListener('pointercancel', cancelTouchChannelShelfDrag)
   activeChannelShelfDrag?.classList.remove('is-dragging')
   activeChannelShelfDrag = null
   activeChannelShelfPointerId = null
@@ -13038,9 +13038,16 @@ function finishChannelShelfDrag() {
 let activeVideoShelfPreview = null
 let videoShelfPreviewCleanupTimer = null
 
+function usesTapVideoShelfPreview() {
+  return window.matchMedia('(min-width: 641px) and (hover: none)').matches
+}
+
 function canUseVideoShelfPreview() {
   return !document.body.classList.contains('walkthrough-active')
-    && window.matchMedia('(min-width: 641px) and (hover: hover) and (pointer: fine)').matches
+    && (
+      window.matchMedia('(min-width: 641px) and (hover: hover) and (pointer: fine)').matches
+      || usesTapVideoShelfPreview()
+    )
 }
 
 function isVideoShelfCardFullyVisible(card) {
@@ -13145,6 +13152,27 @@ function closeVideoShelfPreview(card, force = false) {
 
 function closeVideoShelfPreviewAfterFocus(card) {
   requestAnimationFrame(() => closeVideoShelfPreview(card))
+}
+
+function openVideoShelfPreviewFromFocus(card) {
+  if (usesTapVideoShelfPreview()) return
+  openVideoShelfPreview(card)
+}
+
+function toggleVideoShelfPreviewOnTouch(event, card) {
+  if (!usesTapVideoShelfPreview() || !card) return
+  if (event?.target?.closest?.('button, input, label, select, textarea')) return
+  if (card.classList.contains('is-previewing')) return
+
+  event?.preventDefault()
+  event?.stopPropagation()
+  openVideoShelfPreview(card, true)
+}
+
+function closeVideoShelfPreviewOnOutsideClick(event) {
+  if (!usesTapVideoShelfPreview() || !activeVideoShelfPreview) return
+  if (activeVideoShelfPreview.contains(event.target)) return
+  closeVideoShelfPreview(activeVideoShelfPreview, true)
 }
 
 function closeVideoShelfPreviewOnViewportChange() {
@@ -13922,7 +13950,7 @@ function renderCard(v, compact = false, options = {}) {
     ? `<div class="channel-shelf-priority-badge watch-later-priority-badge">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>`
     : ''
   const shelfPreviewHandlers = options.shelf
-    ? 'onmouseenter="openVideoShelfPreview(this)" onmouseleave="closeVideoShelfPreview(this)" onfocusin="openVideoShelfPreview(this)" onfocusout="closeVideoShelfPreviewAfterFocus(this)"'
+    ? 'onclick="toggleVideoShelfPreviewOnTouch(event, this)" onmouseenter="openVideoShelfPreview(this)" onmouseleave="closeVideoShelfPreview(this)" onfocusin="openVideoShelfPreviewFromFocus(this)" onfocusout="closeVideoShelfPreviewAfterFocus(this)"'
     : ''
   return `
     <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
@@ -14053,6 +14081,7 @@ document.addEventListener('click', closeHistoryActionPopoversOnOutsideClick)
 document.addEventListener('click', closeManualVideoPopoverOnOutsideClick)
 document.addEventListener('click', closeVideoSearchPopoverOnOutsideClick)
 document.addEventListener('click', closeLocaleMenuOnOutsideClick)
+document.addEventListener('click', closeVideoShelfPreviewOnOutsideClick)
 document.addEventListener('click', closeIntroLocaleMenuOnOutsideClick)
 document.addEventListener('click', closeOnboardingLocaleMenuOnOutsideClick)
 document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)

@@ -5807,6 +5807,8 @@ summary:focus-visible,
   [tabindex]:focus:not(:focus-visible) {
     outline: none;
   }
+}
+@media (max-width: 640px) {
   .history-heatmap {
     --heatmap-cell-size: 16px;
     --heatmap-gap: 4px;
@@ -5924,7 +5926,7 @@ summary:focus-visible,
     transform: none;
   }
 }
-@media (max-width: 480px) and (pointer: coarse) {
+@media (max-width: 480px) {
   .city-zoom-controls {
     gap: 0;
     opacity: 0.82;
@@ -6023,9 +6025,11 @@ summary:focus-visible,
     cursor: grab;
     margin-bottom: 5px;
     padding-inline: 0;
-    touch-action: none;
     user-select: none;
     -webkit-user-select: none;
+  }
+  .channel-shelf-identity {
+    touch-action: none;
   }
   .channel-shelf {
     position: relative;
@@ -6816,7 +6820,7 @@ summary:focus-visible,
     padding: 12px;
   }
 }
-@media (min-width: 641px) and (hover: hover) and (pointer: fine) {
+@media (min-width: 641px) {
   .channel-shelf {
     cursor: grab;
     position: relative;
@@ -7256,6 +7260,39 @@ summary:focus-visible,
   }
   .channel-shelf-card.is-previewing .thumb {
     transform: scale(1.03);
+  }
+}
+@media (min-width: 641px) and (any-pointer: coarse) {
+  .channel-shelf-identity {
+    touch-action: none;
+  }
+  .channel-shelf-track {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+@media (min-width: 641px) and (hover: none) {
+  .city-zoom-controls,
+  .city-time-waveform {
+    opacity: 1;
+  }
+  .channel-shelf-remove {
+    opacity: 0.68;
+    pointer-events: auto;
+    position: relative;
+    transform: scale(1);
+  }
+  .channel-shelf-remove::before,
+  .channel-shelf-card.is-previewing .video-grid-remove::before {
+    content: "";
+    inset: -10px;
+    position: absolute;
+  }
+  .channel-shelf-card.is-previewing .video-grid-remove {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 @media (min-width: 641px) {
