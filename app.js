@@ -158,6 +158,11 @@ let selectedActivityLogFilter = 'all'
 let mobileActivityLogVisibleCount = 20
 let forcedSearchVideoId = null
 let pendingAddedChannelReveal = null
+const addedVideoSpotlightState = {
+  element: null,
+  frame: null,
+  timer: null
+}
 let activeVideoWatchReminderId = null
 let shouldGuideActiveVideoWatchReminder = false
 let videoWatchReminderTimer = null
@@ -7627,7 +7632,7 @@ function applyChannelRemoval(s, channelId) {
   }
   Object.values(s.videos || {}).forEach(video => {
     if (!isChannelRemovalVideo(video, channelId)) return
-    if (getVideoStatus(video) === 'watched') {
+    if (getVideoStatus(video) === 'watched' || isSavedActiveVideo(video)) {
       video.hiddenFromGrid = false
       video.hiddenFromGridAt = null
       return
@@ -8640,9 +8645,8 @@ async function refreshAddedChannel(channelId, options = {}) {
       const activeReveal = pendingAddedChannelReveal
       window.requestAnimationFrame(() => {
         scrollToVideoCard(focusVideoId, '.video-card', {
-          className: 'added-video-target',
           duration: 1800,
-          highlightTarget: 'slot'
+          highlightTarget: 'spotlight'
         })
         const focusedCard = findVideoCard(focusVideoId)
         const refreshedShelf = focusedCard?.closest('.channel-refresh-arriving')
@@ -9141,7 +9145,7 @@ function revealAddedVideoCard(videoId, state) {
     const card = findVideoCard(forcedSearchVideoId)
     const found = Boolean(card)
     forcedSearchVideoId = null
-    window.setTimeout(() => card?.closest('.channel-shelf-slot')?.classList.remove('added-video-target'), 1400)
+    if (card) showAddedVideoSpotlight(card, 1800)
     if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
   }, 0)
 }
@@ -10299,6 +10303,7 @@ function scrollVideoCardIntoView(card) {
   }
 
   shelf.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (isVideoShelfCardFullyVisible(card)) return
   const centeredLeft = slot.offsetLeft - ((track.clientWidth - slot.offsetWidth) / 2)
   track.scrollTo({
     behavior: 'smooth',
@@ -10306,13 +10311,61 @@ function scrollVideoCardIntoView(card) {
   })
 }
 
+function removeAddedVideoSpotlight() {
+  if (addedVideoSpotlightState.frame) window.cancelAnimationFrame(addedVideoSpotlightState.frame)
+  if (addedVideoSpotlightState.timer) window.clearTimeout(addedVideoSpotlightState.timer)
+  addedVideoSpotlightState.element?.remove()
+  addedVideoSpotlightState.element = null
+  addedVideoSpotlightState.frame = null
+  addedVideoSpotlightState.timer = null
+}
+
+function showAddedVideoSpotlight(card, duration = 1800) {
+  removeAddedVideoSpotlight()
+  if (!card?.isConnected) return
+
+  const spotlight = document.createElement('div')
+  spotlight.className = 'walkthrough-highlight added-video-spotlight'
+  spotlight.setAttribute('aria-hidden', 'true')
+  document.body.appendChild(spotlight)
+  addedVideoSpotlightState.element = spotlight
+
+  const positionSpotlight = () => {
+    if (!card.isConnected || addedVideoSpotlightState.element !== spotlight) {
+      removeAddedVideoSpotlight()
+      return
+    }
+    const rect = card.getBoundingClientRect()
+    const padding = 6
+    const left = clampNumber(rect.left - padding, 8, window.innerWidth - 8)
+    const top = clampNumber(rect.top - padding, 8, window.innerHeight - 8)
+    const right = clampNumber(rect.right + padding, left + 1, window.innerWidth - 8)
+    const bottom = clampNumber(rect.bottom + padding, top + 1, window.innerHeight - 8)
+    spotlight.style.borderRadius = '12px'
+    setFixedRect(spotlight, {
+      left,
+      top,
+      width: right - left,
+      height: bottom - top
+    })
+    addedVideoSpotlightState.frame = window.requestAnimationFrame(positionSpotlight)
+  }
+
+  positionSpotlight()
+  addedVideoSpotlightState.timer = window.setTimeout(removeAddedVideoSpotlight, Math.max(0, Number(duration) || 1800))
+}
+
 function flashVideoCard(card, options = {}) {
   const className = options.className || 'flash-target'
   const duration = Math.max(0, Number(options.duration) || 1900)
+  scrollVideoCardIntoView(card)
+  if (options.highlightTarget === 'spotlight') {
+    showAddedVideoSpotlight(card, duration)
+    return
+  }
   const highlightTarget = options.highlightTarget === 'slot'
     ? card.closest('.channel-shelf-slot') || card
     : card
-  scrollVideoCardIntoView(card)
   highlightTarget.classList.remove(className)
   void highlightTarget.offsetWidth
   highlightTarget.classList.add(className)
@@ -12771,7 +12824,7 @@ function renderFeed(s) {
   const channelFilters = getSelectedChannelFilters(s)
   const removedChannelIds = new Set(s.config?.removedChannelIds || [])
   const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
-  renderStatusFilterOptions(allVideos, channelFilters, includeShorts)
+  renderStatusFilterOptions(allVideos, channelFilters, includeShorts, removedChannelIds)
 
   const forcedSearchVideo = forcedSearchVideoId && s.videos?.[forcedSearchVideoId]
     ? s.videos[forcedSearchVideoId]
@@ -12780,7 +12833,7 @@ function renderFeed(s) {
   const visibleActiveVideos = getVisibleActiveVideos(allVideos, includeShorts, {
     limitPerChannel: false
   })
-    .filter(v => matchesChannelFilter(v, channelFilters))
+    .filter(v => matchesActiveChannelFilter(v, channelFilters, removedChannelIds))
   let activeVideos = visibleActiveVideos
     .filter(v => ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || getVideoStatus(v) === statusFilter))
 
@@ -12802,7 +12855,8 @@ function renderFeed(s) {
   const cardOptions = {
     currentDateKey: getCurrentAppDateKey(s),
     focusedVideoId: pendingAddedChannelReveal?.videoId || forcedSearchVideoId,
-    arrivingChannelId: pendingAddedChannelReveal?.channelId || ''
+    arrivingChannelId: pendingAddedChannelReveal?.channelId || '',
+    removedChannelIds
   }
 
   if (!activeVideos.length) {
@@ -12934,6 +12988,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
       : t('videos.channel.videoCount', { count: group.videos.length })
     const trackId = `channelShelfTrack${index}`
     const isArrivingChannel = group.key === cardOptions.arrivingChannelId
+    const isRemovedChannel = cardOptions.removedChannelIds?.has(group.key)
     return `
       <section class="channel-video-group channel-shelf ${isArrivingChannel ? 'channel-refresh-arriving' : ''}"
         data-channel-key="${escHtml(group.key)}"
@@ -12952,7 +13007,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
             <span class="channel-shelf-heading">
               <span class="channel-shelf-title-row">
                 <strong>${escHtml(group.title)}</strong>
-                <button type="button"
+                ${isRemovedChannel ? '' : `<button type="button"
                   class="channel-shelf-remove"
                   data-channel-id="${escHtml(group.key)}"
                   onclick="removeChannelFromFilter(event, this.dataset.channelId)"
@@ -12961,7 +13016,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
                   <svg class="channel-shelf-remove-icon" viewBox="0 0 16 16" aria-hidden="true">
                     <path d="M4 4l8 8M12 4l-8 8"></path>
                   </svg>
-                </button>
+                </button>`}
               </span>
               <span>${escHtml(countLabel)}</span>
             </span>
@@ -12991,7 +13046,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
           aria-label="${escHtml(t('videos.channel.shelfLabel', { channel: group.title }))}"
           onscroll="syncVideoChannelShelfControls(this)">
           ${group.videos.map((video, videoIndex) => `
-            <div class="channel-shelf-slot ${video.id === cardOptions.focusedVideoId ? 'added-video-target' : ''}" style="--channel-refresh-delay: ${Math.min(videoIndex, 8) * 45}ms">
+            <div class="channel-shelf-slot ${video.id === cardOptions.focusedVideoId ? 'channel-refresh-focus' : ''}" style="--channel-refresh-delay: ${Math.min(videoIndex, 8) * 45}ms">
               ${renderCard(video, false, {
                 ...cardOptions,
                 shelf: true
@@ -13785,12 +13840,12 @@ function closeLocaleMenuOnEscape(event) {
   closeLocaleMenu()
 }
 
-function renderStatusFilterOptions(allVideos = [], channelFilters = null, includeShorts = true) {
+function renderStatusFilterOptions(allVideos = [], channelFilters = null, includeShorts = true, removedChannelIds = new Set()) {
   const btn = document.getElementById('statusFilterBtn')
   const menu = document.getElementById('statusFilterMenu')
   if (!btn || !menu) return
 
-  const counts = getStatusFilterCounts(allVideos, channelFilters, includeShorts)
+  const counts = getStatusFilterCounts(allVideos, channelFilters, includeShorts, removedChannelIds)
   document.querySelectorAll('[data-status-tab]').forEach(tab => {
     const status = tab.dataset.statusTab
     const isActive = selectedStatusFilter === status
@@ -13816,9 +13871,10 @@ function renderStatusFilterOptions(allVideos = [], channelFilters = null, includ
   if (!menu.classList.contains('hidden')) positionFilterMenuWithinViewport(menu)
 }
 
-function getStatusFilterCounts(allVideos = [], channelFilters = null, includeShorts = true) {
+function getStatusFilterCounts(allVideos = [], channelFilters = null, includeShorts = true, removedChannelIds = new Set()) {
   const selectedChannels = channelFilters || new Set()
-  const matchesSelection = video => !channelFilters || matchesChannelFilter(video, selectedChannels)
+  const matchesSelection = video => !channelFilters
+    || matchesActiveChannelFilter(video, selectedChannels, removedChannelIds)
   const activeVideos = getVisibleActiveVideos(allVideos, includeShorts, {
     limitPerChannel: false
   }).filter(matchesSelection)
@@ -14138,6 +14194,21 @@ function closeManualVideoPopoverOnEscape(event) {
 
 function matchesChannelFilter(video, selectedChannelIds) {
   return selectedChannelIds.has(video.channelId) || selectedChannelIds.has(video.channelTitle)
+}
+
+function isSavedActiveVideo(video) {
+  return ['partial', 'watch-later'].includes(getVideoStatus(video))
+}
+
+function matchesActiveChannelFilter(video, selectedChannelIds, removedChannelIds) {
+  return matchesChannelFilter(video, selectedChannelIds)
+    || (
+      isSavedActiveVideo(video)
+      && (
+        removedChannelIds.has(video.channelId)
+        || removedChannelIds.has(video.channelTitle)
+      )
+    )
 }
 
 function matchesWatchedChannelFilter(video, selectedChannelIds, removedChannelIds) {
