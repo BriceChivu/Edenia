@@ -1742,12 +1742,13 @@ body[data-theme="dark"] .backup-panel {
   flex: 0 0 auto;
 }
 .activity-log-filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 5px;
   margin-bottom: 8px;
 }
 .activity-log-filter {
+  flex: 1 0 auto;
   appearance: none;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -1758,6 +1759,7 @@ body[data-theme="dark"] .backup-panel {
   font-size: 0.72rem;
   font-weight: 700;
   padding: 5px 7px;
+  white-space: nowrap;
 }
 .activity-log-filter.active {
   background: var(--mint);
@@ -5267,7 +5269,9 @@ summary:focus-visible,
   html:lang(zh-Hant) .intro-scene-finale h2,
   html:lang(zh-Hans) .intro-scene-finale h2 { font-size: clamp(1.65rem, 7.5vw, 2.35rem); line-height: 1.18; }
   html:lang(zh-Hant) .intro-scene-city .intro-city-copy h2,
-  html:lang(zh-Hans) .intro-scene-city .intro-city-copy h2 { font-size: clamp(1.35rem, 5.8vw, 1.8rem); }
+  html:lang(zh-Hans) .intro-scene-city .intro-city-copy h2 { font-size: clamp(1.65rem, 7.5vw, 2.35rem); }
+  html:lang(es) .intro-scene-city .intro-city-copy h2,
+  html:lang(fr) .intro-scene-city .intro-city-copy h2 { font-size: clamp(1.85rem, 9vw, 2.8rem); line-height: 1.02; }
   .intro-copy > p:last-child,
   .intro-scene-finale > p:not(.intro-kicker) { font-size: clamp(0.8rem, 3.8vw, 0.98rem); }
   .intro-scene-purpose,
@@ -5280,16 +5284,16 @@ summary:focus-visible,
   .intro-source-flow { justify-self: center; max-width: 320px; width: 100%; }
   .intro-scene-city { gap: 20px; grid-template-columns: 1fr; grid-template-rows: auto auto; }
   .intro-city-copy { justify-items: center; text-align: center; }
-  .intro-scene-city .intro-city-copy h2 { max-width: 100%; }
+  .intro-scene-city .intro-city-copy h2 { max-width: 100%; text-align: center; }
   .intro-city-growth { max-width: 300px; }
-  .intro-city-viewport { aspect-ratio: 16 / 10; justify-self: center; max-height: none; max-width: 520px; width: 100%; }
+  .intro-city-viewport { aspect-ratio: 16 / 10; justify-self: center; max-height: none; max-width: 320px; width: 100%; }
   .intro-city-frame {
     bottom: auto;
     scale: 1.3;
     top: -35px;
   }
   .intro-scene-features { align-content: center; }
-  .intro-feature-demo { justify-self: center; max-width: 360px; order: 2; width: calc(100% - 18px); }
+  .intro-feature-demo { justify-self: center; max-width: 320px; order: 2; width: 100%; }
   .intro-feature-copy { order: 1; }
   .intro-demo-goal { bottom: -14px; right: -14px; }
   .intro-timeline { bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px)); }
@@ -6557,12 +6561,13 @@ summary:focus-visible,
   }
   .intro-scene-features {
     align-content: center;
-    gap: 8px;
+    gap: 44px;
     grid-auto-rows: max-content;
     padding-bottom: max(74px, calc(env(safe-area-inset-bottom) + 62px));
     padding-top: max(126px, calc(env(safe-area-inset-top) + 114px));
     /* scale: 1.42; */
   }
+  .intro-scene-city { gap: 44px; }
   .intro-feature-copy {
     gap: 4px;
     justify-items: center;
@@ -6570,23 +6575,34 @@ summary:focus-visible,
   }
   .intro-feature-copy .intro-kicker { font-size: 0.62rem; }
   .intro-feature-copy h2 {
-    font-size: clamp(1.5rem, 6.8vw, 2rem);
+    font-size: clamp(1.85rem, 9vw, 2.8rem);
     line-height: 1.02;
     max-width: 15ch;
   }
-  html:lang(en) .intro-feature-copy h2 {
+  html:lang(en) .intro-feature-copy h2,
+  html:lang(es) .intro-feature-copy h2,
+  html:lang(fr) .intro-feature-copy h2 {
     max-width: 100%;
     white-space: pre-line;
   }
+  html:lang(es) .intro-scene-purpose .intro-copy h2,
+  html:lang(es) .intro-scene-city .intro-city-copy h2,
+  html:lang(es) .intro-scene-finale h2,
+  html:lang(fr) .intro-scene-purpose .intro-copy h2,
+  html:lang(fr) .intro-scene-city .intro-city-copy h2,
+  html:lang(fr) .intro-scene-finale h2 {
+    max-width: 100%;
+    width: 100%;
+  }
   .intro-feature-copy > p:last-child {
-    font-size: 0.76rem;
+    font-size: clamp(0.8rem, 3.8vw, 0.98rem);
     line-height: 1.25;
     max-width: 32ch;
   }
   .intro-feature-demo {
     gap: 7px 10px;
     grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
-    max-width: 300px;
+    max-width: 320px;
     padding: 10px;
     transform: rotate(-1deg);
     width: 100%;
