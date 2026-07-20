@@ -664,9 +664,8 @@ const I18N_EN = {
   'onboarding.language.subtitle': 'Choose your primary language. Edenia will use it to build a focused starter feed; you can add more channels later.',
   'onboarding.language.hint': 'Choose one language to continue.',
   'onboarding.level.title': 'Where are you in the journey?',
-  'onboarding.level.subtitle': 'An approximate level is enough. This only changes the channels Edenia recommends.',
   'onboarding.channels.title': 'Your starter study feed',
-  'onboarding.channels.subtitle': 'We picked channels that suit your language and level. Keep the ones you want to add; remove channels already in your feed from the channel menu anytime.',
+  'onboarding.channels.subtitle': 'Select up to 5 channels. You can modify them anytime later on.',
   'onboarding.channels.selected': '{count} selected',
   'onboarding.channels.none': 'No starter channels match this combination yet. You can still continue and add your own.',
   'onboarding.continue': 'Continue',
@@ -1111,7 +1110,7 @@ const I18N_EN = {
   'toast.validYoutubeUrl': 'Use a valid YouTube video or channel URL',
   'toast.videoNotFound': 'No YouTube video was found for that URL',
   'toast.alreadyWatched': 'That video is already marked watched',
-  'toast.watchCooldown': 'You can mark another video as watched in {time}',
+  'toast.watchCooldown': 'You can mark this video as watched in {time}',
   'toast.addedWatchedVideo': 'Added video: "{title}"',
   'toast.addVideoFailed': 'Could not add that video',
   'toast.timestampFormat': 'Use a timestamp like 1:23 (hour:minute)',
@@ -1162,8 +1161,8 @@ const I18N_EN = {
   'walkthrough.historyViews': 'Use Summary when you want clear numbers, and Heatmap when you want to see active days at a glance. Edenia remembers which view you prefer.',
   'walkthrough.videos': 'This is the video area. New videos from your channels appear here, and watched videos move into the Watched section below.',
   'walkthrough.videosMobile': 'This is the video area. New videos from your channels appear here. When you mark one watched, Edenia moves it into a Watched section to keep your active feed clear.',
-  'walkthrough.firstStudyChannels': 'Your channel controls live here. Open this menu to add, remove, or filter study sources at any time.',
-  'walkthrough.firstStudyFeed': 'This is your real study feed. Choose a video, then mark it watched, in progress, or watch later. Your goal, history, and town update from what you actually study.',
+  'walkthrough.firstStudyChannels': 'You can add YouTube channels or individual videos here.',
+  'walkthrough.firstStudyFeed': 'This is your study feed. Choose a video, then mark it watched, in progress, or watch later. Your goal, history, and town update from what you study.',
   'walkthrough.startWatching': 'Start watching a video!',
   'walkthrough.videoFilters': 'These controls help you keep the list manageable. You can filter by status, filter by channel, add a video URL, and fix mistakes.',
   'walkthrough.manualWatchedUrl': 'Use Add to paste a YouTube video or channel URL. Edenia will recognize which one you entered.',
@@ -1271,9 +1270,8 @@ const I18N = {
     'onboarding.language.subtitle': '選擇你的主要學習語言。Edenia 會據此建立專注的入門影片清單，之後仍可加入更多頻道。',
     'onboarding.language.hint': '選擇一種語言以繼續。',
     'onboarding.level.title': '你目前學到哪個階段？',
-    'onboarding.level.subtitle': '大概選擇即可。這只會影響 Edenia 推薦的頻道。',
     'onboarding.channels.title': '你的入門學習清單',
-    'onboarding.channels.subtitle': '我們依照你的語言和程度挑選了頻道。保留想加入的頻道；之後可隨時從頻道選單移除。',
+    'onboarding.channels.subtitle': '最多選擇 5 個頻道。之後可以隨時修改。',
     'onboarding.channels.selected': '已選擇 {count} 個',
     'onboarding.channels.none': '目前沒有符合這個組合的入門頻道。你仍可繼續並自行新增。',
     'onboarding.continue': '繼續',
@@ -1659,8 +1657,8 @@ const I18N = {
     'walkthrough.historyViews': '摘要適合看清楚的數字，熱力圖適合快速看哪些天有學習。Edenia 會記住你偏好的視圖。',
     'walkthrough.videos': '這裡是影片區。你加入的頻道會出現新影片，已看影片會移到下方的已看區。',
     'walkthrough.videosMobile': '這裡是影片區。你加入的頻道會在這裡顯示新影片。標記為已看後，Edenia 會把影片移到「已看」區，讓進行中的清單保持清楚。',
-    'walkthrough.firstStudyChannels': '你的頻道控制都在這裡。打開這個選單，即可隨時新增、移除或篩選學習來源。',
-    'walkthrough.firstStudyFeed': '這是你真正的學習清單。選擇一部影片，再標記為已看、進行中或稍後觀看。你的目標、紀錄和小鎮都會依照實際學習更新。',
+    'walkthrough.firstStudyChannels': '你可以在這裡新增 YouTube 頻道或單部影片。',
+    'walkthrough.firstStudyFeed': '這是你的學習清單。選擇一部影片，再標記為已看、進行中或稍後觀看。你的目標、紀錄和小鎮都會隨著你的學習更新。',
     'walkthrough.startWatching': '開始觀看影片吧！',
     'walkthrough.videoFilters': '這些控制可以讓清單更好管理。你可以依狀態或頻道篩選，新增影片網址，也可以修正誤點。',
     'walkthrough.manualWatchedUrl': '使用「新增」貼上 YouTube 影片或頻道網址，Edenia 會自動辨識內容。',
@@ -1713,9 +1711,8 @@ const I18N = {
     'onboarding.language.subtitle': '选择你的主要学习语言。Edenia 会据此建立专注的入门视频列表，之后仍可添加更多频道。',
     'onboarding.language.hint': '选择一种语言以继续。',
     'onboarding.level.title': '你目前学到哪个阶段？',
-    'onboarding.level.subtitle': '大概选择即可。这只会影响 Edenia 推荐的频道。',
     'onboarding.channels.title': '你的入门学习列表',
-    'onboarding.channels.subtitle': '我们按照你的语言和水平挑选了频道。保留想添加的频道；之后可随时从频道菜单移除。',
+    'onboarding.channels.subtitle': '最多选择 5 个频道。之后可以随时修改。',
     'onboarding.channels.selected': '已选择 {count} 个',
     'onboarding.channels.none': '目前没有符合这个组合的入门频道。你仍可继续并自行添加。',
     'onboarding.continue': '继续',
@@ -2082,8 +2079,8 @@ const I18N = {
     'walkthrough.historyViews': '摘要适合看清楚的数字，热力图适合快速看哪些天有学习。Edenia 会记住你偏好的视图。',
     'walkthrough.videos': '这里是视频区。你加入的频道会出现新视频，已看视频会移到下方的已看区。',
     'walkthrough.videosMobile': '这里是视频区。你添加的频道会在这里显示新视频。标记为已看后，Edenia 会把视频移到“已看”区，让当前列表保持清晰。',
-    'walkthrough.firstStudyChannels': '你的频道控制都在这里。打开这个菜单，即可随时添加、移除或筛选学习来源。',
-    'walkthrough.firstStudyFeed': '这是你真正的学习列表。选择一个视频，再标记为已看、进行中或稍后观看。你的目标、记录和小镇都会按照实际学习更新。',
+    'walkthrough.firstStudyChannels': '你可以在这里添加 YouTube 频道或单个视频。',
+    'walkthrough.firstStudyFeed': '这是你的学习列表。选择一个视频，再标记为已看、进行中或稍后观看。你的目标、记录和小镇都会随着你的学习更新。',
     'walkthrough.startWatching': '开始观看视频吧！',
     'walkthrough.videoFilters': '这些控制可以让列表更好管理。你可以按状态或频道筛选，添加视频网址，也可以修正误点。',
     'walkthrough.manualWatchedUrl': '使用“添加”粘贴 YouTube 视频或频道网址，Edenia 会自动识别内容。',
@@ -2136,9 +2133,8 @@ const I18N = {
     'onboarding.language.subtitle': 'Elige tu idioma principal. Edenia lo usará para crear una lista inicial enfocada; podrás añadir más canales después.',
     'onboarding.language.hint': 'Elige un idioma para continuar.',
     'onboarding.level.title': '¿En qué punto del camino estás?',
-    'onboarding.level.subtitle': 'Una estimación es suficiente. Esto solo cambia los canales que recomienda Edenia.',
     'onboarding.channels.title': 'Tu lista de estudio inicial',
-    'onboarding.channels.subtitle': 'Elegimos canales adecuados para tu idioma y nivel. Conserva los que quieras añadir; podrás quitarlos desde el menú de canales cuando quieras.',
+    'onboarding.channels.subtitle': 'Selecciona hasta 5 canales. Podrás modificarlos en cualquier momento más adelante.',
     'onboarding.channels.selected': '{count} seleccionados',
     'onboarding.channels.none': 'Aún no hay canales iniciales para esta combinación. Puedes continuar y añadir los tuyos.',
     'onboarding.continue': 'Continuar',
@@ -2507,8 +2503,8 @@ const I18N = {
     'walkthrough.historyViews': 'Usa Resumen para ver números claros, y Mapa para ver tus días activos de un vistazo. Edenia recuerda la vista que prefieres.',
     'walkthrough.videos': 'Esta es la zona de videos. Aquí aparecen videos nuevos de tus canales, y los videos vistos pasan a la sección Vistos.',
     'walkthrough.videosMobile': 'Esta es la zona de videos. Aquí aparecen videos nuevos de tus canales. Cuando marcas uno como visto, Edenia lo mueve a una sección Vistos para mantener clara tu lista activa.',
-    'walkthrough.firstStudyChannels': 'Aquí están los controles de tus canales. Abre este menú para añadir, quitar o filtrar tus fuentes de estudio cuando quieras.',
-    'walkthrough.firstStudyFeed': 'Esta es tu lista de estudio real. Elige un video y márcalo como visto, en progreso o para ver después. Tu objetivo, historial y pueblo se actualizan con lo que estudias de verdad.',
+    'walkthrough.firstStudyChannels': 'Aquí puedes añadir canales de YouTube o videos individuales.',
+    'walkthrough.firstStudyFeed': 'Esta es tu lista de estudio. Elige un video y márcalo como visto, en progreso o para ver después. Tu objetivo, historial y pueblo se actualizan con lo que estudias.',
     'walkthrough.startWatching': '¡Empieza a ver un video!',
     'walkthrough.videoFilters': 'Estos controles ayudan a mantener la lista clara. Puedes filtrar por estado, filtrar por canal, añadir una URL de video y corregir errores.',
     'walkthrough.manualWatchedUrl': 'Usa Añadir para pegar la URL de un video o canal de YouTube. Edenia reconocerá cuál has introducido.',
@@ -2555,15 +2551,14 @@ const I18N = {
     'intro.finale.cta': 'Commencer mon voyage',
     'intro.finale.return': 'Retour à Edenia',
     'onboarding.progress': 'Étape {current} sur {total}',
-    'onboarding.promise': 'Transformez YouTube et Anki en progrès visibles dans votre apprentissage des langues.',
+    'onboarding.promise': 'Transformez Youtube et Anki en progrès visibles.',
     'onboarding.eyebrow': 'Rendez votre apprentissage visible',
     'onboarding.language.title': 'Quelle langue apprenez-vous ?',
     'onboarding.language.subtitle': 'Choisissez votre langue principale. Edenia créera une liste de départ ciblée ; vous pourrez ajouter d’autres chaînes plus tard.',
     'onboarding.language.hint': 'Choisissez une langue pour continuer.',
-    'onboarding.level.title': 'Où en êtes-vous dans votre parcours ?',
-    'onboarding.level.subtitle': 'Une estimation suffit. Cela modifie seulement les chaînes recommandées par Edenia.',
+    'onboarding.level.title': 'Où en êtes-vous ?',
     'onboarding.channels.title': 'Votre liste d’étude de départ',
-    'onboarding.channels.subtitle': 'Nous avons choisi des chaînes adaptées à votre langue et à votre niveau. Gardez celles que vous souhaitez ajouter ; vous pourrez les retirer depuis le menu des chaînes.',
+    'onboarding.channels.subtitle': 'Sélectionnez jusqu’à 5 chaînes. Vous pourrez les modifier à tout moment par la suite.',
     'onboarding.channels.selected': '{count} sélectionnées',
     'onboarding.channels.none': 'Aucune chaîne de départ ne correspond encore à cette combinaison. Vous pouvez continuer et ajouter les vôtres.',
     'onboarding.continue': 'Continuer',
@@ -2932,8 +2927,8 @@ const I18N = {
     'walkthrough.historyViews': 'Utilisez Résumé pour des chiffres clairs, et Carte pour voir vos jours actifs en un coup d’œil. Edenia mémorise votre vue préférée.',
     'walkthrough.videos': 'Voici la zone des vidéos. Les nouvelles vidéos de vos chaînes apparaissent ici, et les vidéos vues passent dans la section Vues.',
     'walkthrough.videosMobile': 'Voici la zone des vidéos. Les nouvelles vidéos de vos chaînes apparaissent ici. Quand vous en marquez une comme vue, Edenia la déplace dans une section Vues pour garder la liste active claire.',
-    'walkthrough.firstStudyChannels': 'Les contrôles de vos chaînes se trouvent ici. Ouvrez ce menu pour ajouter, retirer ou filtrer vos sources d’étude à tout moment.',
-    'walkthrough.firstStudyFeed': 'Voici votre véritable liste d’étude. Choisissez une vidéo, puis marquez-la comme vue, en cours ou à regarder plus tard. Votre objectif, votre historique et votre ville évoluent selon ce que vous étudiez réellement.',
+    'walkthrough.firstStudyChannels': 'Vous pouvez ajouter ici des chaînes YouTube ou des vidéos individuelles.',
+    'walkthrough.firstStudyFeed': 'Voici votre liste d’étude. Choisissez une vidéo, puis marquez-la comme vue, en cours ou à regarder plus tard. Votre objectif, votre historique et votre ville évoluent selon ce que vous étudiez.',
     'walkthrough.startWatching': 'Commencez à regarder une vidéo !',
     'walkthrough.videoFilters': 'Ces contrôles gardent la liste lisible. Vous pouvez filtrer par statut, par chaîne, ajouter une URL de vidéo et corriger les erreurs.',
     'walkthrough.manualWatchedUrl': 'Utilisez Ajouter pour coller l’URL d’une vidéo ou d’une chaîne YouTube. Edenia reconnaîtra le type de lien.',
@@ -3047,7 +3042,7 @@ Object.assign(I18N['zh-Hant'], {
   'toast.validYoutubeUrl': '請貼上有效的 YouTube 影片或頻道網址',
   'toast.videoNotFound': '找不到這個網址對應的 YouTube 影片',
   'toast.alreadyWatched': '這部影片已標記為已觀看',
-  'toast.watchCooldown': '再過 {time} 就能將另一部影片標記為已觀看',
+  'toast.watchCooldown': '再過 {time} 就能將這部影片標記為已觀看',
   'toast.addedWatchedVideo': '已加入並標記為已觀看：{title}',
   'toast.addVideoFailed': '無法新增影片',
   'toast.timestampFormat': '請使用 HH:MM:SS 或 MM:SS 格式',
@@ -3229,7 +3224,7 @@ Object.assign(I18N['zh-Hans'], {
   'toast.validYoutubeUrl': '请粘贴有效的 YouTube 视频或频道网址',
   'toast.videoNotFound': '找不到这个网址对应的 YouTube 视频',
   'toast.alreadyWatched': '这个视频已标记为已观看',
-  'toast.watchCooldown': '再过 {time} 就能将另一个视频标记为已观看',
+  'toast.watchCooldown': '再过 {time} 就能将这个视频标记为已观看',
   'toast.addedWatchedVideo': '已添加并标记为已观看：{title}',
   'toast.addVideoFailed': '无法添加视频',
   'toast.timestampFormat': '请使用 HH:MM:SS 或 MM:SS 格式',
@@ -3409,7 +3404,7 @@ Object.assign(I18N.es, {
   'toast.validYoutubeUrl': 'Pega una URL válida de un video o canal de YouTube',
   'toast.videoNotFound': 'No se encontró ningún video de YouTube para esa URL',
   'toast.alreadyWatched': 'Este video ya está marcado como visto',
-  'toast.watchCooldown': 'Podrás marcar otro video como visto en {time}',
+  'toast.watchCooldown': 'Podrás marcar este video como visto en {time}',
   'toast.addedWatchedVideo': 'Añadido y marcado como visto: {title}',
   'toast.addVideoFailed': 'No se pudo añadir el video',
   'toast.timestampFormat': 'Usa el formato HH:MM:SS o MM:SS',
@@ -3589,7 +3584,7 @@ Object.assign(I18N.fr, {
   'toast.validYoutubeUrl': 'Collez une URL valide de vidéo ou de chaîne YouTube',
   'toast.videoNotFound': 'Aucune vidéo YouTube n’a été trouvée pour cette URL',
   'toast.alreadyWatched': 'Cette vidéo est déjà marquée comme vue',
-  'toast.watchCooldown': 'Vous pourrez marquer une autre vidéo comme vue dans {time}',
+  'toast.watchCooldown': 'Vous pourrez marquer cette vidéo comme vue dans {time}',
   'toast.addedWatchedVideo': 'Ajoutée et marquée comme vue : {title}',
   'toast.addVideoFailed': 'Impossible d’ajouter la vidéo',
   'toast.timestampFormat': 'Utilisez le format HH:MM:SS ou MM:SS',
@@ -5818,12 +5813,12 @@ function renderPersonalizedOnboarding() {
   }
 }
 
-function renderOnboardingHeading(titleKey, subtitleKey) {
+function renderOnboardingHeading(titleKey, subtitleKey = '') {
   return `
     <div class="onboarding-heading">
       <span class="onboarding-eyebrow">${escHtml(t('onboarding.eyebrow'))}</span>
       <h2 class="onboarding-title" id="onboardingTitle">${escHtml(t(titleKey))}</h2>
-      <p class="onboarding-subtitle">${escHtml(t(subtitleKey))}</p>
+      ${subtitleKey ? `<p class="onboarding-subtitle">${escHtml(t(subtitleKey))}</p>` : ''}
     </div>
   `
 }
@@ -5862,7 +5857,7 @@ function renderOnboardingOtherStep(content) {
 function renderOnboardingLevelStep(content) {
   const selectedLevelId = personalizedOnboardingState.levelId
   content.innerHTML = `
-    ${renderOnboardingHeading('onboarding.level.title', 'onboarding.level.subtitle')}
+    ${renderOnboardingHeading('onboarding.level.title')}
     <div class="onboarding-level-grid" role="radiogroup" aria-label="${escHtml(t('onboarding.level.title'))}">
       ${LEARNER_LEVEL_OPTIONS.map(option => `
         <button type="button" class="onboarding-choice onboarding-level-choice" data-level-id="${escHtml(option.id)}" aria-pressed="${option.id === selectedLevelId}" onclick="selectOnboardingLevel(this.dataset.levelId)">
@@ -8817,6 +8812,15 @@ function getVideoWatchCooldownRemainingMs(state, video) {
   return Math.max(0, durationMs - (Date.now() - new Date(lastMarkedAt).getTime()))
 }
 
+function formatVideoWatchCooldown(ms) {
+  const totalMinutes = Math.max(1, Math.ceil(ms / 60_000))
+  if (ms < 3_600_000) return t('time.minutes', { minutes: totalMinutes })
+  return t('time.hoursMinutes', {
+    hours: Math.floor(totalMinutes / 60),
+    minutes: totalMinutes % 60
+  })
+}
+
 function markVideo(videoId, newStatus) {
   newStatus = normalizeVideoStatus(newStatus)
   const s     = loadState()
@@ -8828,7 +8832,7 @@ function markVideo(videoId, newStatus) {
       ? 0
       : getVideoWatchCooldownRemainingMs(s, video)
     if (remainingMs > 0) {
-      showToast(t('toast.watchCooldown', { time: formatDuration(Math.ceil(remainingMs / 1000)) }), 'warn')
+      showToast(t('toast.watchCooldown', { time: formatVideoWatchCooldown(remainingMs) }), 'warn')
       return
     }
   }
@@ -11325,6 +11329,7 @@ function renderNextStudy(activeVideos = []) {
   const cta = status === 'partial' ? t('nextStudy.resume') : t('nextStudy.watch')
   const resumeAt = formatResumeTimestamp(nextVideo.resumeAtSeconds) || '00:00:00'
   container.innerHTML = `
+    <a class="next-study-mobile-link" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}"></a>
     <a class="next-study-thumb-link" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}">
       <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
     </a>
@@ -12689,6 +12694,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
         ondragleave="leaveChannelShelfDrag(event, this)"
         ondrop="dropChannelShelf(event, this)">
         <header class="channel-shelf-header"
+          onpointerdown="startMobileChannelShelfDrag(event, this)"
           aria-label="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}"
           title="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}">
           <div class="channel-shelf-identity">
@@ -12822,6 +12828,10 @@ function scrollVideoChannelShelf(button, direction) {
 
 let activeChannelShelfDrag = null
 let activeChannelShelfDragPreview = null
+let activeChannelShelfPointerId = null
+let activeChannelShelfPointerSource = null
+let activeChannelShelfDropTarget = null
+let activeChannelShelfDropPosition = null
 
 function canReorderChannelShelves() {
   return window.matchMedia('(min-width: 641px) and (hover: hover) and (pointer: fine)').matches
@@ -12831,6 +12841,73 @@ function clearChannelShelfDropIndicators() {
   document.querySelectorAll('.channel-shelf.drag-over-before, .channel-shelf.drag-over-after').forEach(shelf => {
     shelf.classList.remove('drag-over-before', 'drag-over-after')
   })
+}
+
+function canUseMobileChannelShelfDrag(event) {
+  return event?.pointerType !== 'mouse' && window.matchMedia('(max-width: 640px)').matches
+}
+
+function startMobileChannelShelfDrag(event, dragTarget) {
+  const shelf = dragTarget?.closest?.('.channel-shelf')
+  if (!event || !shelf || !canUseMobileChannelShelfDrag(event)) return
+  if (event.target?.closest?.('button, a, input, label, select, textarea')) return
+
+  event.preventDefault()
+  closeVideoShelfPreview(activeVideoShelfPreview, true)
+  activeChannelShelfDrag = shelf
+  activeChannelShelfPointerId = event.pointerId
+  activeChannelShelfPointerSource = dragTarget
+  shelf.classList.add('is-dragging')
+  document.body.classList.add('channel-shelf-dragging')
+  dragTarget.setPointerCapture?.(event.pointerId)
+  window.addEventListener('pointermove', moveMobileChannelShelfDrag, { passive: false })
+  window.addEventListener('pointerup', finishMobileChannelShelfDrag)
+  window.addEventListener('pointercancel', cancelMobileChannelShelfDrag)
+}
+
+function moveMobileChannelShelfDrag(event) {
+  if (event.pointerId !== activeChannelShelfPointerId || !activeChannelShelfDrag) return
+  event.preventDefault()
+
+  const edgeSize = 72
+  if (event.clientY < edgeSize) {
+    window.scrollBy(0, -12)
+  } else if (event.clientY > window.innerHeight - edgeSize) {
+    window.scrollBy(0, 12)
+  }
+
+  const shelf = document.elementFromPoint(event.clientX, event.clientY)?.closest?.('.channel-shelf')
+  const dragGrid = activeChannelShelfDrag.closest('.video-grid')
+  if (!shelf || shelf === activeChannelShelfDrag || shelf.closest('.video-grid') !== dragGrid) {
+    activeChannelShelfDropTarget = null
+    activeChannelShelfDropPosition = null
+    clearChannelShelfDropIndicators()
+    return
+  }
+
+  const position = getChannelShelfDropPosition(event, shelf)
+  const indicatorClass = position === 'before' ? 'drag-over-before' : 'drag-over-after'
+  if (shelf === activeChannelShelfDropTarget && position === activeChannelShelfDropPosition) return
+  clearChannelShelfDropIndicators()
+  shelf.classList.add(indicatorClass)
+  activeChannelShelfDropTarget = shelf
+  activeChannelShelfDropPosition = position
+}
+
+function finishMobileChannelShelfDrag(event) {
+  if (event.pointerId !== activeChannelShelfPointerId) return
+  const movedShelf = activeChannelShelfDrag
+  if (movedShelf && activeChannelShelfDropTarget && activeChannelShelfDropPosition) {
+    placeChannelShelf(movedShelf, activeChannelShelfDropTarget, activeChannelShelfDropPosition)
+    saveChannelShelfOrder(movedShelf.closest('.video-grid'))
+    movedShelf.classList.add('just-dropped')
+    window.setTimeout(() => movedShelf.classList.remove('just-dropped'), 520)
+  }
+  finishChannelShelfDrag()
+}
+
+function cancelMobileChannelShelfDrag(event) {
+  if (event.pointerId === activeChannelShelfPointerId) finishChannelShelfDrag()
 }
 
 function createChannelShelfDragPreview(shelf) {
@@ -12915,17 +12992,21 @@ function saveChannelShelfOrder(grid) {
   saveState(state)
 }
 
+function placeChannelShelf(movedShelf, targetShelf, position) {
+  if (position === 'before') {
+    targetShelf.before(movedShelf)
+  } else {
+    targetShelf.after(movedShelf)
+  }
+}
+
 function dropChannelShelf(event, shelf) {
   if (!activeChannelShelfDrag || !shelf || shelf === activeChannelShelfDrag) return
   event.preventDefault()
   const grid = shelf.closest('.video-grid')
   const movedShelf = activeChannelShelfDrag
   const position = getChannelShelfDropPosition(event, shelf)
-  if (position === 'before') {
-    shelf.before(movedShelf)
-  } else {
-    shelf.after(movedShelf)
-  }
+  placeChannelShelf(movedShelf, shelf, position)
   saveChannelShelfOrder(grid)
   finishChannelShelfDrag()
   movedShelf.classList.add('just-dropped')
@@ -12933,8 +13014,21 @@ function dropChannelShelf(event, shelf) {
 }
 
 function finishChannelShelfDrag() {
+  if (
+    activeChannelShelfPointerId !== null
+    && activeChannelShelfPointerSource?.hasPointerCapture?.(activeChannelShelfPointerId)
+  ) {
+    activeChannelShelfPointerSource?.releasePointerCapture?.(activeChannelShelfPointerId)
+  }
+  window.removeEventListener('pointermove', moveMobileChannelShelfDrag)
+  window.removeEventListener('pointerup', finishMobileChannelShelfDrag)
+  window.removeEventListener('pointercancel', cancelMobileChannelShelfDrag)
   activeChannelShelfDrag?.classList.remove('is-dragging')
   activeChannelShelfDrag = null
+  activeChannelShelfPointerId = null
+  activeChannelShelfPointerSource = null
+  activeChannelShelfDropTarget = null
+  activeChannelShelfDropPosition = null
   activeChannelShelfDragPreview?.remove()
   activeChannelShelfDragPreview = null
   clearChannelShelfDropIndicators()

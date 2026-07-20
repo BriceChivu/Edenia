@@ -1206,8 +1206,20 @@ body.onboarding-active #mainApp { visibility: hidden; }
   background: linear-gradient(90deg, var(--planet-cyan), var(--planet-lime));
   display: block;
   height: 100%;
+  position: relative;
   transition: width var(--motion-slow) var(--ease-emphasized);
   width: 33.333%;
+}
+.onboarding-progress-fill::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 2px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--planet-black);
+  transform: translate(50%, -50%);
 }
 .onboarding-content { display: grid; gap: 20px; }
 .onboarding-language-picker {
@@ -2856,9 +2868,13 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   grid-template-columns: 88px minmax(0, 1fr) auto;
   overflow: hidden;
   padding: 9px;
+  position: relative;
 }
 .continue-watching-card {
   max-width: 100%;
+}
+.next-study-mobile-link {
+  display: none;
 }
 .next-study-thumb-link {
   border-radius: 8px;
@@ -4471,8 +4487,8 @@ body[data-theme="dark"] .video-grid-remove:focus-visible {
   padding: 4px 8px;
 }
 .watched-section-toggle:hover {
-  background: var(--surface-hi);
-  border-color: var(--border);
+  background: transparent;
+  border-color: transparent;
 }
 .watched-section-toggle:focus-visible {
   outline: 3px solid var(--focus);
@@ -5718,7 +5734,19 @@ summary:focus-visible,
   }
   .next-study-card {
     align-items: start;
+    cursor: pointer;
     grid-template-columns: 72px minmax(0, 1fr);
+  }
+  .next-study-mobile-link {
+    display: block;
+    inset: 0;
+    position: absolute;
+    z-index: 1;
+  }
+  .next-study-mobile-link:focus-visible {
+    border-radius: calc(var(--radius) - 2px);
+    outline: 3px solid var(--focus);
+    outline-offset: -3px;
   }
   .next-study-thumb-link {
     align-self: stretch;
@@ -5988,8 +6016,57 @@ summary:focus-visible,
     gap: 18px;
   }
   .channel-shelf-header {
+    cursor: grab;
     margin-bottom: 5px;
     padding-inline: 0;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .channel-shelf {
+    position: relative;
+    transition:
+      filter var(--motion-base) var(--ease-standard),
+      opacity var(--motion-base) var(--ease-standard),
+      transform var(--motion-slow) var(--ease-emphasized);
+  }
+  .channel-shelf.is-dragging {
+    filter: saturate(0.65);
+    opacity: 0.3;
+    transform: scale(0.985);
+  }
+  .channel-shelf.drag-over-before {
+    transform: translateY(8px);
+  }
+  .channel-shelf.drag-over-after {
+    transform: translateY(-8px);
+  }
+  .channel-shelf.just-dropped {
+    animation: channelShelfDropSettle 480ms var(--ease-emphasized);
+  }
+  .channel-shelf.drag-over-before::before,
+  .channel-shelf.drag-over-after::after {
+    background: linear-gradient(90deg, var(--accent), var(--planet-cyan), var(--accent));
+    border: 1px solid var(--planet-black);
+    border-radius: 999px;
+    box-shadow: 0 0 0 4px rgba(18,188,234,0.14), 0 3px 8px rgba(5,5,5,0.2);
+    content: "";
+    height: 5px;
+    left: 4px;
+    pointer-events: none;
+    position: absolute;
+    right: 4px;
+    z-index: 30;
+  }
+  .channel-shelf.drag-over-before::before {
+    top: -11px;
+  }
+  .channel-shelf.drag-over-after::after {
+    bottom: -11px;
+  }
+  body.channel-shelf-dragging {
+    overflow-x: hidden;
+    overscroll-behavior: none;
   }
   .channel-shelf-avatar {
     flex-basis: 36px;
