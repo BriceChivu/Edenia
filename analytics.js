@@ -328,18 +328,53 @@
   window.trackEdeniaEvent = capture;
   window.syncEdeniaAnalyticsState = syncStateSnapshot;
 
+  function normalizeClickEventName(action) {
+    return String(action || '')
+      .trim()
+      .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+      .replace(/[^a-zA-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .toLowerCase()
+      .slice(0, 80);
+  }
+
+  function getControlClickDetails(control) {
+    const translatedChild = control.querySelector('[data-i18n]');
+    const inlineHandler = control.getAttribute('onclick') || '';
+    const handlerName = inlineHandler.match(/^\s*([a-zA-Z_$][\w$]*)\s*\(/)?.[1] || '';
+    const visibleLabel = String(
+      control.dataset.analyticsLabel
+      || control.getAttribute('aria-label')
+      || control.getAttribute('title')
+      || control.textContent
+      || ''
+    ).trim().replace(/\s+/g, ' ');
+    const action = control.dataset.analyticsAction
+      || control.dataset.i18n
+      || translatedChild?.dataset.i18n
+      || control.dataset.i18nAriaLabel
+      || control.dataset.i18nTitle
+      || control.id
+      || handlerName
+      || visibleLabel;
+
+    return {
+      action,
+      eventName: normalizeClickEventName(action),
+      visibleLabel
+    };
+  }
+
   document.addEventListener('click', event => {
     const control = event.target.closest('button, a');
     if (!control || control.disabled) return;
 
-    const action = control.dataset.analyticsAction
-      || control.id
-      || control.dataset.i18n;
+    const { action, eventName, visibleLabel } = getControlClickDetails(control);
+    if (!eventName) return;
 
-    if (!action) return;
-
-    capture('button_clicked', {
+    capture(`${eventName}_clicked`, {
       action,
+      button_name: visibleLabel || action,
       control_type: control.tagName.toLowerCase()
     });
   });
