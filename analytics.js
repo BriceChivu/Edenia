@@ -43,6 +43,11 @@
     }, {});
   }
 
+  function getYoutubeVideoUrl(video) {
+    const videoId = String(video?.id || '');
+    return videoId ? `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}` : '';
+  }
+
   function getPersonProperties(snapshot) {
     const channels = Array.isArray(snapshot.channels) ? snapshot.channels : [];
     const watchedVideos = Array.isArray(snapshot.watchedVideos) ? snapshot.watchedVideos : [];
@@ -62,7 +67,7 @@
       current_channel_ids: channels.map(channel => channel.id),
       current_channel_names: channels.map(channel => channel.name),
       current_channel_count: channels.length,
-      current_watched_video_ids: watchedVideos.map(video => video.id),
+      current_watched_video_urls: watchedVideos.map(getYoutubeVideoUrl).filter(Boolean),
       current_watched_video_count: watchedVideos.length,
       current_streak_days: streak.currentDays || 0,
       longest_streak_days: streak.longestDays || 0,
@@ -192,7 +197,7 @@
 
   function getWatchedVideoEventProperties(video, updateReason) {
     return {
-      video_id: video.id,
+      video_url: getYoutubeVideoUrl(video),
       channel_id: video.channelId || null,
       watched_at: video.watchedAt || null,
       duration_seconds: video.durationSeconds || 0,
