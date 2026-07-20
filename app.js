@@ -43,7 +43,7 @@ const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const SANDBOX_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = 50
 const MAX_FETCH_PAGES_PER_CHANNEL = 1
-const UNDO_ACTION_TYPES = ['video-status', 'video-resume-time', 'video-grid-remove', 'channel-remove']
+const UNDO_ACTION_TYPES = ['video-status', 'video-resume-time', 'video-grid-remove', 'channel-remove', 'manual-video-add']
 const YOUTUBE_CHANNEL_ID_RE = /^UC[A-Za-z0-9_-]{20,}$/
 const YOUTUBE_HANDLE_RE = /^@[A-Za-z0-9._-]{3,30}$/
 const DEFAULT_THEME = 'light'
@@ -1246,6 +1246,14 @@ const I18N_EN = {
   'undo.removeVideoAgain': 'Remove from video grid again',
   'undo.videoRestored': 'Restored to video grid: {title}',
   'undo.videoRemoved': 'Removed from video grid again: {title}',
+  'undo.restoreAddedVideoAndChannel': 'Restore added video and channel',
+  'undo.restoreAddedVideo': 'Restore added video',
+  'undo.removeAddedVideoAndChannel': 'Remove added video and channel',
+  'undo.removeAddedVideo': 'Remove added video',
+  'undo.addedVideoAndChannelRestored': 'Restored added video "{title}" and channel {channel}.',
+  'undo.addedVideoRestored': 'Restored added video: "{title}".',
+  'undo.addedVideoAndChannelRemoved': 'Removed added video "{title}" and channel {channel}.',
+  'undo.addedVideoRemoved': 'Removed added video: "{title}".',
   'log.videoRemovedFromGrid': 'Video removed from grid',
   'walkthrough.next': 'Next',
   'walkthrough.back': 'Back',
@@ -1746,6 +1754,14 @@ const I18N = {
     'undo.removeVideoAgain': '再次從影片清單移除',
     'undo.videoRestored': '已恢復至影片清單：{title}',
     'undo.videoRemoved': '已再次從影片清單移除：{title}',
+    'undo.restoreAddedVideoAndChannel': '恢復已新增的影片和頻道',
+    'undo.restoreAddedVideo': '恢復已新增的影片',
+    'undo.removeAddedVideoAndChannel': '移除已新增的影片和頻道',
+    'undo.removeAddedVideo': '移除已新增的影片',
+    'undo.addedVideoAndChannelRestored': '已恢復新增的影片「{title}」及頻道 {channel}。',
+    'undo.addedVideoRestored': '已恢復新增的影片：「{title}」。',
+    'undo.addedVideoAndChannelRemoved': '已移除新增的影片「{title}」及頻道 {channel}。',
+    'undo.addedVideoRemoved': '已移除新增的影片：「{title}」。',
     'log.videoRemovedFromGrid': '影片已從清單移除',
     'walkthrough.next': '下一步',
     'walkthrough.back': '上一步',
@@ -2172,6 +2188,14 @@ const I18N = {
     'undo.removeVideoAgain': '再次从视频列表移除',
     'undo.videoRestored': '已恢复至视频列表：{title}',
     'undo.videoRemoved': '已再次从视频列表移除：{title}',
+    'undo.restoreAddedVideoAndChannel': '恢复已添加的视频和频道',
+    'undo.restoreAddedVideo': '恢复已添加的视频',
+    'undo.removeAddedVideoAndChannel': '移除已添加的视频和频道',
+    'undo.removeAddedVideo': '移除已添加的视频',
+    'undo.addedVideoAndChannelRestored': '已恢复添加的视频“{title}”及频道 {channel}。',
+    'undo.addedVideoRestored': '已恢复添加的视频：“{title}”。',
+    'undo.addedVideoAndChannelRemoved': '已移除添加的视频“{title}”及频道 {channel}。',
+    'undo.addedVideoRemoved': '已移除添加的视频：“{title}”。',
     'log.videoRemovedFromGrid': '视频已从列表移除',
     'walkthrough.next': '下一步',
     'walkthrough.back': '上一步',
@@ -2600,6 +2624,14 @@ const I18N = {
     'undo.removeVideoAgain': 'Quitar de la lista de videos otra vez',
     'undo.videoRestored': 'Restaurado a la lista de videos: {title}',
     'undo.videoRemoved': 'Quitado de la lista de videos otra vez: {title}',
+    'undo.restoreAddedVideoAndChannel': 'Restaurar video y canal añadidos',
+    'undo.restoreAddedVideo': 'Restaurar video añadido',
+    'undo.removeAddedVideoAndChannel': 'Eliminar video y canal añadidos',
+    'undo.removeAddedVideo': 'Eliminar video añadido',
+    'undo.addedVideoAndChannelRestored': 'Se restauraron el video añadido "{title}" y el canal {channel}.',
+    'undo.addedVideoRestored': 'Se restauró el video añadido: "{title}".',
+    'undo.addedVideoAndChannelRemoved': 'Se eliminaron el video añadido "{title}" y el canal {channel}.',
+    'undo.addedVideoRemoved': 'Se eliminó el video añadido: "{title}".',
     'log.videoRemovedFromGrid': 'Video quitado de la lista',
     'walkthrough.next': 'Siguiente',
     'walkthrough.back': 'Atrás',
@@ -3028,6 +3060,14 @@ const I18N = {
     'undo.removeVideoAgain': 'Retirer à nouveau de la liste des vidéos',
     'undo.videoRestored': 'Restaurée dans la liste des vidéos : {title}',
     'undo.videoRemoved': 'Retirée à nouveau de la liste des vidéos : {title}',
+    'undo.restoreAddedVideoAndChannel': 'Restaurer la vidéo ajoutée et sa chaîne',
+    'undo.restoreAddedVideo': 'Restaurer la vidéo ajoutée',
+    'undo.removeAddedVideoAndChannel': 'Retirer la vidéo ajoutée et sa chaîne',
+    'undo.removeAddedVideo': 'Retirer la vidéo ajoutée',
+    'undo.addedVideoAndChannelRestored': 'La vidéo ajoutée « {title} » et la chaîne {channel} ont été restaurées.',
+    'undo.addedVideoRestored': 'Vidéo ajoutée restaurée : « {title} ».',
+    'undo.addedVideoAndChannelRemoved': 'La vidéo ajoutée « {title} » et la chaîne {channel} ont été retirées.',
+    'undo.addedVideoRemoved': 'Vidéo ajoutée retirée : « {title} ».',
     'log.videoRemovedFromGrid': 'Vidéo retirée de la liste',
     'walkthrough.next': 'Suivant',
     'walkthrough.back': 'Retour',
@@ -8643,6 +8683,8 @@ async function refreshAddedChannel(channelId, options = {}) {
     if (revealDelayRemaining > 0) {
       await new Promise(resolve => window.setTimeout(resolve, revealDelayRemaining))
     }
+    const currentState = loadState()
+    if (!currentState.config.channels.some(currentChannel => currentChannel.id === channel.id)) return
 
     markChannelRefreshSuccess(s, channel.id)
     appendActivityLog(s, {
@@ -9215,12 +9257,11 @@ async function addVideoFromUrl(event) {
     const metadata = await fetchVideoMetadata(videoId)
     const s = loadState()
     const existing = s.videos[videoId]
+    const existingChannel = s.config.channels.find(channel => channel.id === metadata.channelId) || null
     const before = {
       exists: Boolean(existing),
       video: existing ? cloneVideoForHistoryAction(existing) : null,
-      status: existing?.status || 'unwatched',
-      watchedAt: existing?.watchedAt || null,
-      resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, existing?.duration ?? metadata.duration)
+      channel: existingChannel ? { ...existingChannel } : null
     }
 
     const watchProgress = normalizeVideoWatchProgress(existing?.watchProgress, existing?.duration ?? metadata.duration)
@@ -9256,15 +9297,18 @@ async function addVideoFromUrl(event) {
     }
 
     pushUndoAction(s, {
-      type: 'video-status',
+      type: 'manual-video-add',
       videoId,
+      channelId: metadata.channelId,
+      channelName: metadata.channelTitle || metadata.channelId,
+      channelWasAdded,
       before,
       after: {
         exists: true,
         video: cloneVideoForHistoryAction(s.videos[videoId]),
-        status,
-        watchedAt,
-        resumeAtSeconds: s.videos[videoId].resumeAtSeconds
+        channel: s.config.channels.find(channel => channel.id === metadata.channelId)
+          ? { ...s.config.channels.find(channel => channel.id === metadata.channelId) }
+          : null
       }
     })
     appendActivityLog(s, {
@@ -9424,6 +9468,8 @@ function applyHistoryAction(direction, actionIndex) {
 
   if (action.type === 'channel-remove') {
     historyResult = applyChannelRemoveActionSnapshot(s, action, targetSnapshot, direction)
+  } else if (action.type === 'manual-video-add') {
+    historyResult = applyManualVideoAddActionSnapshot(s, action, targetSnapshot, direction)
   } else {
     const video = applyVideoStatusActionSnapshot(s, action.videoId, targetSnapshot, action, direction)
     if (video) {
@@ -9513,6 +9559,44 @@ function applyChannelRemoveActionSnapshot(s, action, snapshot, direction = 'undo
     detail: formatChannelRemoveActionToast(direction, channel, snapshot),
     toast: formatChannelRemoveActionToast(direction, channel, snapshot),
     meta: { channelId }
+  }
+}
+
+function applyManualVideoAddActionSnapshot(s, action, snapshot, direction = 'undo') {
+  if (!snapshot) return null
+  const videoId = action.videoId
+  const channelId = action.channelId
+  const actionVideo = snapshot.video || action.after?.video || action.before?.video
+  if (!videoId || !actionVideo) return null
+
+  if (direction === 'undo') {
+    if (action.channelWasAdded && channelId) applyChannelRemoval(s, channelId)
+    if (snapshot.exists && snapshot.video) {
+      s.videos[videoId] = cloneVideoForHistoryAction(snapshot.video)
+    } else {
+      delete s.videos[videoId]
+    }
+  } else {
+    if (action.channelWasAdded && snapshot.channel) {
+      addTrackedYoutubeChannelToState(s, snapshot.channel)
+    }
+    s.videos[videoId] = cloneVideoForHistoryAction(snapshot.video)
+  }
+
+  const title = formatToastTitle(actionVideo.title)
+  const channelName = action.channelName || snapshot.channel?.name || channelId
+  const detail = direction === 'redo'
+    ? action.channelWasAdded
+      ? t('undo.addedVideoAndChannelRestored', { title, channel: channelName })
+      : t('undo.addedVideoRestored', { title })
+    : action.channelWasAdded
+      ? t('undo.addedVideoAndChannelRemoved', { title, channel: channelName })
+      : t('undo.addedVideoRemoved', { title })
+
+  return {
+    detail,
+    toast: detail,
+    meta: { videoId, channelId }
   }
 }
 
@@ -13672,6 +13756,22 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
   const video = s.videos?.[action.videoId]
   const title = video?.title || action.before?.video?.title || action.after?.video?.title || t('videos.search.untitled')
   const timestamp = formatHistoryActionTimestamp(action)
+  if (action.type === 'manual-video-add') {
+    const actionText = direction === 'redo'
+      ? action.channelWasAdded
+        ? t('undo.restoreAddedVideoAndChannel')
+        : t('undo.restoreAddedVideo')
+      : action.channelWasAdded
+        ? t('undo.removeAddedVideoAndChannel')
+        : t('undo.removeAddedVideo')
+    return `
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
+        <span class="undo-tooltip-video">${escHtml(title)}</span>
+        <span class="undo-tooltip-action">${escHtml(actionText)}</span>
+        <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
+      </button>
+    `
+  }
   if (action.type === 'video-grid-remove') {
     const actionText = direction === 'redo' ? t('undo.removeVideoAgain') : t('undo.restoreVideo')
     return `
