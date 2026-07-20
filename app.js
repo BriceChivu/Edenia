@@ -9450,24 +9450,25 @@ async function addYoutubeInput(event) {
   input?.focus()
 }
 
-function saveVideoResumeTime(videoId, value) {
+function saveVideoResumeTime(videoId, value, options = {}) {
+  const shouldRender = options.render !== false
   const s = loadState()
   const video = s?.videos?.[videoId]
-  if (!video || getVideoStatus(video) !== 'partial') return
+  if (!video || getVideoStatus(video) !== 'partial') return false
 
   const parsed = parseResumeTimestamp(value, video.duration)
   if (Number.isNaN(parsed)) {
     showToast(t('toast.timestampFormat'), 'warn')
-    renderAll(s)
-    return
+    if (shouldRender) renderAll(s)
+    return false
   }
 
   const beforeVideo = cloneVideoForHistoryAction(video)
   const previousResume = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
   const nextResume = parsed || 0
   if (nextResume === previousResume) {
-    renderAll(s)
-    return
+    if (shouldRender) renderAll(s)
+    return true
   }
   const watchedAt = getCurrentAppTimestamp(s)
   const progressDelta = Math.max(0, nextResume - previousResume)
@@ -9491,7 +9492,20 @@ function saveVideoResumeTime(videoId, value) {
   })
   syncStreak(s)
   saveState(s)
-  renderAll(s)
+  if (shouldRender) renderAll(s)
+  return true
+}
+
+function prepareNextStudyVideoOpen(link) {
+  const videoId = link?.dataset?.videoId
+  const input = link?.closest('.next-study-continue')?.querySelector('.next-study-time-input')
+  if (!videoId || !input || !saveVideoResumeTime(videoId, input.value, { render: false })) return false
+
+  const video = loadState()?.videos?.[videoId]
+  if (!video) return false
+  link.href = getVideoUrl(video)
+  markVideoInProgressOnOpen(videoId)
+  return true
 }
 
 function pushUndoAction(s, action) {
@@ -11833,7 +11847,8 @@ function renderNextStudy(activeVideos = []) {
           target="_blank"
           rel="noopener"
           data-video-id="${safeVideoId}"
-          onclick="markVideoInProgressOnOpen(this.dataset.videoId)"
+          onmousedown="if (event.button === 0) event.preventDefault()"
+          onclick="return prepareNextStudyVideoOpen(this)"
           aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5L8 5.5Z"></path></svg>
         </a>
