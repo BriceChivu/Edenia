@@ -913,8 +913,10 @@ const I18N_EN = {
   'city.level.12': "Damn! A volcano appeared! I hope it won't erupt...",
   'goal.title': 'Weekly goal',
   'nextStudy.title': 'Continue watching',
+  'nextStudy.studyNext': 'Study next',
   'nextStudy.resume': 'Resume video',
-  'nextStudy.watch': 'Watch next',
+  'nextStudy.watch': 'Watch',
+  'nextStudy.notInterested': 'Not interested',
   'nextStudy.unwatch': 'Unwatch',
   'nextStudy.continueShort': 'Continue',
   'goal.watched': 'watched',
@@ -1507,8 +1509,10 @@ const I18N = {
     'city.level.12': '天啊！出現了一座火山！希望它不要爆發...',
     'goal.title': '每週目標',
     'nextStudy.title': '繼續觀看',
+    'nextStudy.studyNext': '接著學習',
     'nextStudy.resume': '繼續觀看',
-    'nextStudy.watch': '開始觀看',
+    'nextStudy.watch': '觀看',
+    'nextStudy.notInterested': '不感興趣',
     'nextStudy.unwatch': '標記為未觀看',
     'nextStudy.continueShort': '繼續',
     'goal.watched': '已看',
@@ -1947,8 +1951,10 @@ const I18N = {
     'city.level.12': '天啊！出现了一座火山！希望它不要爆发...',
     'goal.title': '每周目标',
     'nextStudy.title': '继续观看',
+    'nextStudy.studyNext': '接下来学习',
     'nextStudy.resume': '继续观看',
-    'nextStudy.watch': '开始观看',
+    'nextStudy.watch': '观看',
+    'nextStudy.notInterested': '不感兴趣',
     'nextStudy.unwatch': '标记为未观看',
     'nextStudy.continueShort': '继续',
     'goal.watched': '已看',
@@ -2370,8 +2376,10 @@ const I18N = {
     'city.level.12': '¡Caramba! ¡Apareció un volcán! Espero que no haga erupción...',
     'goal.title': 'Objetivo semanal',
     'nextStudy.title': 'Seguir viendo',
+    'nextStudy.studyNext': 'Estudiar a continuación',
     'nextStudy.resume': 'Continuar vídeo',
-    'nextStudy.watch': 'Ver siguiente',
+    'nextStudy.watch': 'Ver',
+    'nextStudy.notInterested': 'No me interesa',
     'nextStudy.unwatch': 'Marcar sin ver',
     'nextStudy.continueShort': 'Continuar',
     'goal.watched': 'vistos',
@@ -2795,8 +2803,10 @@ const I18N = {
     'city.level.12': 'Mince ! Un volcan est apparu ! Espérons qu’il n’entre pas en éruption...',
     'goal.title': 'Objectif hebdomadaire',
     'nextStudy.title': 'Continuer à regarder',
+    'nextStudy.studyNext': 'À étudier ensuite',
     'nextStudy.resume': 'Reprendre la vidéo',
-    'nextStudy.watch': 'Regarder ensuite',
+    'nextStudy.watch': 'Regarder',
+    'nextStudy.notInterested': 'Pas intéressé',
     'nextStudy.unwatch': 'Marquer non vue',
     'nextStudy.continueShort': 'Continuer',
     'goal.watched': 'vues',
@@ -9100,7 +9110,10 @@ function revealAddedVideoCard(videoId, state) {
   forcedSearchVideoId = String(videoId ?? '')
   renderAll(state)
   window.setTimeout(() => {
-    const found = scrollToVideoCard(forcedSearchVideoId)
+    const found = scrollToVideoCard(forcedSearchVideoId, '.video-card', {
+      className: 'added-video-target',
+      duration: 2800
+    })
     forcedSearchVideoId = null
     if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
   }, 0)
@@ -9207,7 +9220,7 @@ async function addVideoFromUrl(event) {
     closeManualVideoPopover()
     revealAddedVideoCard(videoId, s)
     showToast(t('toast.addedWatchedVideo', { title: formatToastTitle(s.videos[videoId].title) }), 'success')
-    if (channelWasAdded) refreshAddedChannel(metadata.channelId)
+    if (channelWasAdded) window.setTimeout(() => refreshAddedChannel(metadata.channelId), 3000)
   } catch (err) {
     console.warn(err)
     showToast(err.message || t('toast.addVideoFailed'), 'error')
@@ -10231,21 +10244,23 @@ function jumpToWatchedVideo(videoId) {
   }, 0)
 }
 
-function scrollToVideoCard(videoId, selector = '.video-card') {
+function scrollToVideoCard(videoId, selector = '.video-card', options = {}) {
   const targetId = String(videoId ?? '')
   const card = Array.from(document.querySelectorAll(selector))
     .find(el => el.dataset.videoId === targetId)
   if (!card) return false
-  flashVideoCard(card)
+  flashVideoCard(card, options)
   return true
 }
 
-function flashVideoCard(card) {
-  card.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  card.classList.remove('flash-target')
+function flashVideoCard(card, options = {}) {
+  const className = options.className || 'flash-target'
+  const duration = Math.max(0, Number(options.duration) || 1900)
+  card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+  card.classList.remove(className)
   void card.offsetWidth
-  card.classList.add('flash-target')
-  window.setTimeout(() => card.classList.remove('flash-target'), 1900)
+  card.classList.add(className)
+  window.setTimeout(() => card.classList.remove(className), duration)
 }
 
 function toggleVideoSearchPopover(event) {
@@ -11470,31 +11485,25 @@ function setStudyInsightsCollapsed(collapsed) {
 function renderNextStudy(activeVideos = []) {
   const container = document.getElementById('nextStudyCard')
   if (!container) return null
-  const shouldShow = selectedStatusFilter === 'all' || selectedStatusFilter === 'partial'
-  const nextVideo = shouldShow
-    ? activeVideos.find(video => getVideoStatus(video) === 'partial')
-    : null
+  const nextVideo = activeVideos.find(video => getVideoStatus(video) === 'partial')
+    || activeVideos.find(video => getVideoStatus(video) === 'watch-later')
   container.classList.toggle('hidden', !nextVideo)
   if (!nextVideo) {
+    container.classList.remove('continue-watching-card', 'study-next-card')
     container.innerHTML = ''
     return null
   }
 
   const status = getVideoStatus(nextVideo)
+  const isInProgress = status === 'partial'
   const safeVideoId = escHtml(nextVideo.id)
-  const cta = status === 'partial' ? t('nextStudy.resume') : t('nextStudy.watch')
+  const videoUrl = escHtml(getVideoUrl(nextVideo))
+  const cta = isInProgress ? t('nextStudy.resume') : t('nextStudy.watch')
   const resumeAt = formatResumeTimestamp(nextVideo.resumeAtSeconds) || '00:00:00'
-  container.innerHTML = `
-    <a class="next-study-mobile-link" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}"></a>
-    <a class="next-study-thumb-link" href="${escHtml(getVideoUrl(nextVideo))}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}">
-      <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
-    </a>
-    <span class="next-study-copy">
-      <span class="next-study-eyebrow">${escHtml(t('nextStudy.title'))}</span>
-      <span class="next-study-title" title="${escHtml(nextVideo.title)}">${escHtml(nextVideo.title)}</span>
-      <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(formatVideoStatus(status))}</span>
-    </span>
-    <span class="next-study-actions">
+  container.classList.toggle('continue-watching-card', isInProgress)
+  container.classList.toggle('study-next-card', !isInProgress)
+  const actions = isInProgress
+    ? `
       <button type="button"
         class="next-study-cta next-study-reset"
         data-video-id="${safeVideoId}"
@@ -11513,7 +11522,7 @@ function renderNextStudy(activeVideos = []) {
           onkeydown="if (event.key === 'Enter') this.blur()"
           aria-label="${escHtml(t('videos.card.timestampLabel'))}">
         <a class="next-study-play"
-          href="${escHtml(getVideoUrl(nextVideo))}"
+          href="${videoUrl}"
           target="_blank"
           rel="noopener"
           data-video-id="${safeVideoId}"
@@ -11522,6 +11531,31 @@ function renderNextStudy(activeVideos = []) {
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5L8 5.5Z"></path></svg>
         </a>
       </span>
+    `
+    : `
+      <a class="next-study-cta next-study-watch"
+        href="${videoUrl}"
+        target="_blank"
+        rel="noopener"
+        data-video-id="${safeVideoId}"
+        onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${escHtml(t('nextStudy.watch'))}</a>
+      <button type="button"
+        class="next-study-cta next-study-reset"
+        data-video-id="${safeVideoId}"
+        onclick="markVideo(this.dataset.videoId, 'unwatched')">${escHtml(t('nextStudy.notInterested'))}</button>
+    `
+  container.innerHTML = `
+    <a class="next-study-mobile-link" href="${videoUrl}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}"></a>
+    <a class="next-study-thumb-link" href="${videoUrl}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}">
+      <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
+    </a>
+    <span class="next-study-copy">
+      <span class="next-study-eyebrow">${escHtml(t(isInProgress ? 'nextStudy.title' : 'nextStudy.studyNext'))}</span>
+      <span class="next-study-title" title="${escHtml(nextVideo.title)}">${escHtml(nextVideo.title)}</span>
+      <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(formatVideoStatus(status))}</span>
+    </span>
+    <span class="next-study-actions">
+      ${actions}
     </span>
   `
   return nextVideo
@@ -12687,11 +12721,12 @@ function renderFeed(s) {
     ? s.videos[forcedSearchVideoId]
     : null
 
-  let activeVideos = getVisibleActiveVideos(allVideos, includeShorts, {
+  const visibleActiveVideos = getVisibleActiveVideos(allVideos, includeShorts, {
     limitPerChannel: false
   })
-    .filter(v => ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || getVideoStatus(v) === statusFilter))
     .filter(v => matchesChannelFilter(v, channelFilters))
+  let activeVideos = visibleActiveVideos
+    .filter(v => ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || getVideoStatus(v) === statusFilter))
 
   let watchedVideos = allVideos
     .filter(v => getVideoStatus(v) === 'watched')
@@ -12707,7 +12742,7 @@ function renderFeed(s) {
     }
   }
 
-  renderNextStudy(activeVideos)
+  renderNextStudy(visibleActiveVideos)
   const cardOptions = { currentDateKey: getCurrentAppDateKey(s) }
 
   if (!activeVideos.length) {

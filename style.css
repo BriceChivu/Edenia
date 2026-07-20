@@ -3034,6 +3034,12 @@ input.next-study-time-input:focus {
   background: transparent;
   color: var(--muted);
 }
+.next-study-watch {
+  align-items: center;
+  color: var(--text);
+  display: inline-flex;
+  text-decoration: none;
+}
 .desktop-english-copy {
   display: none;
 }
@@ -4596,6 +4602,30 @@ body[data-theme="dark"] .video-grid-remove:focus-visible {
   animation: watchedCardConfirm 700ms var(--ease-emphasized);
   opacity: 1;
 }
+.video-card.added-video-target {
+  animation: addedVideoSpotlightPulse 1.4s ease-in-out infinite;
+  border-color: var(--planet-lime);
+  box-shadow:
+    0 0 0 2px rgba(5,5,5,0.22),
+    0 0 0 8px rgba(201,239,104,0.24),
+    0 12px 34px rgba(5,5,5,0.28);
+  opacity: 1;
+  z-index: 21;
+}
+@keyframes addedVideoSpotlightPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2px rgba(5,5,5,0.22),
+      0 0 0 7px rgba(201,239,104,0.18),
+      0 12px 34px rgba(5,5,5,0.24);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(5,5,5,0.22),
+      0 0 0 10px rgba(201,239,104,0.34),
+      0 12px 34px rgba(5,5,5,0.32);
+  }
+}
 @keyframes watchedCardConfirm {
   0%, 100% {
     box-shadow: 0 4px 0 rgba(5,5,5,0.14);
@@ -5971,6 +6001,16 @@ summary:focus-visible,
   }
   .next-study-actions {
     display: none;
+  }
+  .study-next-card .next-study-mobile-link {
+    display: none;
+  }
+  .study-next-card .next-study-actions {
+    display: flex;
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    position: relative;
+    z-index: 2;
   }
   .card-title { font-size: 0.78rem; }
 }
