@@ -1,5 +1,7 @@
 (function initializeAnalytics() {
-  const ANALYTICS_STATE_KEY = 'edenia_posthog_state_v2';
+  const ANALYTICS_STATE_KEY = window.EDENIA_INTERNAL_TEST
+    ? 'edenia_posthog_state_internal_test_v2'
+    : 'edenia_posthog_state_v2';
   const ANALYTICS_SCHEMA_VERSION = 2;
 
   function analyticsAvailable() {
