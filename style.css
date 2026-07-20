@@ -1388,7 +1388,6 @@ body.onboarding-active .toast { z-index: 320; }
   padding: 22px;
   text-align: center;
 }
-.onboarding-selection-count { color: var(--muted); font-size: 0.76rem; font-weight: 800; }
 .onboarding-actions { align-items: center; display: flex; gap: 10px; justify-content: space-between; }
 .onboarding-actions-end { justify-content: flex-end; }
 .onboarding-actions .btn-primary,

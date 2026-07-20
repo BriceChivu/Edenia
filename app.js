@@ -6091,7 +6091,6 @@ function renderOnboardingChannelsStep(content) {
     : `<div class="onboarding-empty">${escHtml(t('onboarding.channels.none'))}</div>`
   content.innerHTML = `
     ${renderOnboardingHeading('onboarding.channels.title', 'onboarding.channels.subtitle')}
-    <span class="onboarding-selection-count">${escHtml(t('onboarding.channels.selected', { count: selectedIds.size }))}</span>
     <div class="onboarding-channel-list${recommendations.length >= 4 ? ' onboarding-channel-list-grid' : ''}">${channelMarkup}</div>
     <div class="onboarding-actions">
       <button type="button" class="btn-ghost" onclick="setPersonalizedOnboardingStep('level')" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
