@@ -4131,7 +4131,7 @@ function normalizeWeeklyGoalHours(value) {
 }
 
 function normalizeIncludeShorts(value) {
-  return value === true
+  return value !== false
 }
 
 function normalizeAnkiEnabled(value) {
@@ -4603,7 +4603,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
       weeklyGoalHours: normalizeWeeklyGoalHours(goalHours),
       theme: normalizeTheme(theme),
       locale: normalizeLocale(locale || getBrowserDefaultLocale()),
-      includeShorts: false,
+      includeShorts: true,
       shortsEnableRefetchAvailableAt: null,
       ankiEnabled: true,
       ankiDisabledAt: null,

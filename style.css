@@ -5251,7 +5251,9 @@ body[data-theme="dark"] .walkthrough-highlight.added-video-spotlight {
   z-index: 200;
   max-width: 90vw;
   text-align: center;
-  white-space: nowrap;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .toast.toast-warn  { border-color: var(--amber); color: var(--amber); }
