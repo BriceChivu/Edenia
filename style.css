@@ -1994,6 +1994,9 @@ body[data-theme="dark"] .sandbox-btn {
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
 }
@@ -2934,6 +2937,7 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   white-space: normal;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 .next-study-meta {
   color: var(--muted);
@@ -4807,6 +4811,7 @@ body[data-theme="dark"] .video-watch-reminder-later {
   font-size: 0.72rem;
   line-height: 1.15;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 .compact-card .card-watched-at {
   display: block;
@@ -4901,6 +4906,7 @@ body[data-theme="dark"] .dur-badge { color: #ffffff; }
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   color: var(--text);
@@ -5845,6 +5851,7 @@ summary:focus-visible,
     font-size: 0.78rem;
     line-height: 1.25;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
   .compact-card .card-watched-at {
     line-height: 1.15;
@@ -6004,6 +6011,7 @@ summary:focus-visible,
     white-space: normal;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
   .next-study-actions {
     display: none;
@@ -6042,7 +6050,6 @@ summary:focus-visible,
   summary,
   [tabindex] {
     -webkit-tap-highlight-color: transparent;
-    tap-highlight-color: transparent;
   }
   button:focus:not(:focus-visible),
   [role="button"]:focus:not(:focus-visible),
@@ -6440,6 +6447,7 @@ summary:focus-visible,
     text-shadow: 0 1px 2px rgba(0,0,0,0.7);
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
   .channel-shelf-card .card-meta {
     display: none;
