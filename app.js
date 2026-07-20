@@ -304,12 +304,12 @@ const BASE_CURATED_CHANNEL_CATALOG = [
     description: 'Practical pronunciation, vocabulary, and culture lessons.'
   },
   {
-    id: 'mandarin-stickynote',
+    id: 'mandarin-espresso-chinese',
     language: 'mandarin',
-    input: '@Stickynote.Chinese',
-    name: 'Jun - Stickynote Chinese',
-    levels: ['starting', 'beginner'],
-    style: 'Comprehensible input'
+    input: '@espressochinese',
+    name: 'Espresso Chinese - John Wang',
+    levels: ['starting'],
+    style: 'Clear explanations'
   },
   {
     id: 'mandarin-everyday-chinese',
@@ -328,12 +328,12 @@ const BASE_CURATED_CHANNEL_CATALOG = [
     style: 'Structured lessons'
   },
   {
-    id: 'mandarin-espresso-chinese',
+    id: 'mandarin-stickynote',
     language: 'mandarin',
-    input: '@espressochinese',
-    name: 'Espresso Chinese - John Wang',
-    levels: ['starting'],
-    style: 'Clear explanations'
+    input: '@Stickynote.Chinese',
+    name: 'Jun - Stickynote Chinese',
+    levels: ['starting', 'beginner'],
+    style: 'Comprehensible input'
   },
   {
     id: 'mandarin-harbin',
@@ -356,6 +356,30 @@ const BASE_CURATED_CHANNEL_CATALOG = [
     language: 'mandarin',
     input: '@Lazy-Chinese',
     name: 'Lazy Chinese - Comprehensible Input',
+    levels: ['beginner'],
+    style: 'Comprehensible input'
+  },
+  {
+    id: 'mandarin-chinese-with-ben',
+    language: 'mandarin',
+    input: '@chinesewithben',
+    name: 'Chinese with Ben',
+    levels: ['beginner'],
+    style: 'Clear explanations'
+  },
+  {
+    id: 'mandarin-richard-chinese',
+    language: 'mandarin',
+    input: '@RichardChineseLanguage',
+    name: '理查老师的中文直播课 - Richard Chinese',
+    levels: ['beginner'],
+    style: 'Structured lessons'
+  },
+  {
+    id: 'mandarin-chinese-at-dawn',
+    language: 'mandarin',
+    input: '@chinese-at-dawn',
+    name: 'Chinese at Dawn',
     levels: ['beginner'],
     style: 'Comprehensible input'
   },
@@ -389,6 +413,22 @@ const BASE_CURATED_CHANNEL_CATALOG = [
     language: 'mandarin',
     input: '@DANLIAOFreeToLearnChinese',
     name: 'Free To Learn Chinese',
+    levels: ['intermediate'],
+    style: 'Natural Mandarin'
+  },
+  {
+    id: 'mandarin-shenglan-podcast',
+    language: 'mandarin',
+    input: '@chinesepodcastwithshenglan',
+    name: 'Chinese Podcast With Shenglan',
+    levels: ['intermediate'],
+    style: 'Podcast'
+  },
+  {
+    id: 'mandarin-sophia-c',
+    language: 'mandarin',
+    input: '@sonargalc',
+    name: 'Sophia C.',
     levels: ['intermediate'],
     style: 'Natural Mandarin'
   },
@@ -666,6 +706,16 @@ const CURATED_CHANNEL_CATALOG = [
   })),
   ...EXPANDED_CURATED_CHANNEL_CATALOG
 ]
+const CURATED_NOT_SURE_CHANNEL_IDS = {
+  mandarin: [
+    'mandarin-grace',
+    'mandarin-stickynote',
+    'mandarin-lazy',
+    'mandarin-chinese-at-dawn',
+    'mandarin-chinese-with-ben',
+    'mandarin-corner'
+  ]
+}
 const I18N_EN = {
   'app.title.sandbox': 'Sandbox - Edenia',
   'intro.skip': 'Skip intro',
@@ -4217,6 +4267,13 @@ function getRecommendedChannelCatalog(profile, limit = 6) {
   const languages = Array.isArray(profile?.languages) ? profile.languages : []
   const level = getLearnerLevelOption(profile?.level)?.id || 'not-sure'
   const byLanguage = languages.map(languageId => {
+    const notSureChannelIds = CURATED_NOT_SURE_CHANNEL_IDS[languageId]
+    if (level === 'not-sure' && notSureChannelIds) {
+      return notSureChannelIds
+        .map(catalogId => getCuratedChannelEntry(catalogId))
+        .filter(Boolean)
+        .slice(0, normalizedLimit)
+    }
     const matches = CURATED_CHANNEL_CATALOG.filter(channel => {
       if (channel.language !== languageId) return false
       return level === 'not-sure' || channel.levels.includes(level)
