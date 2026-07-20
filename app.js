@@ -13610,6 +13610,7 @@ function finishChannelShelfDrag() {
 
 let activeVideoShelfPreview = null
 let videoShelfPreviewCleanupTimer = null
+let videoShelfPreviewAnchorTimer = null
 
 function usesTapVideoShelfPreview() {
   return window.matchMedia('(min-width: 641px) and (hover: none)').matches
@@ -13635,6 +13636,51 @@ function isVideoShelfCardFullyVisible(card) {
     && slotRect.right <= trackRect.right + edgeTolerance
 }
 
+function positionVideoShelfPreview(card) {
+  const slot = card?.closest?.('.channel-shelf-slot')
+  if (!slot) return false
+
+  const rect = slot.getBoundingClientRect()
+  const viewportMargin = 12
+  const maxPreviewSize = Math.max(
+    rect.width,
+    Math.min(
+      315,
+      window.innerWidth - (viewportMargin * 2),
+      window.innerHeight - (viewportMargin * 2)
+    )
+  )
+  const previewSize = Math.min(Math.max(rect.width * 1.25, 295), maxPreviewSize)
+  const previewHeight = previewSize * 0.9
+  const sourceLeft = rect.left - ((previewSize - rect.width) / 2)
+  const sourceTop = rect.top - ((previewHeight - rect.height) / 2)
+  const anchorToSource = card.classList.contains('watch-reminder-target')
+  const targetLeft = anchorToSource
+    ? sourceLeft
+    : clampNumber(
+      sourceLeft,
+      viewportMargin,
+      Math.max(viewportMargin, window.innerWidth - previewSize - viewportMargin)
+    )
+  const targetTop = anchorToSource
+    ? sourceTop
+    : clampNumber(
+      sourceTop,
+      viewportMargin,
+      Math.max(viewportMargin, window.innerHeight - previewHeight - viewportMargin)
+    )
+
+  card.style.setProperty('--shelf-preview-origin-left', `${rect.left}px`)
+  card.style.setProperty('--shelf-preview-origin-top', `${rect.top}px`)
+  card.style.setProperty('--shelf-preview-origin-width', `${rect.width}px`)
+  card.style.setProperty('--shelf-preview-origin-height', `${rect.height}px`)
+  card.style.setProperty('--shelf-preview-left', `${targetLeft}px`)
+  card.style.setProperty('--shelf-preview-top', `${targetTop}px`)
+  card.style.setProperty('--shelf-preview-size', `${previewSize}px`)
+  card.style.setProperty('--shelf-preview-height', `${previewHeight}px`)
+  return true
+}
+
 function openVideoShelfPreview(card, force = false) {
   if (
     !card
@@ -13649,40 +13695,9 @@ function openVideoShelfPreview(card, force = false) {
     closeVideoShelfPreview(activeVideoShelfPreview, true)
   }
 
-  const slot = card.closest('.channel-shelf-slot')
-  if (!slot) return
-  const rect = slot.getBoundingClientRect()
-  const viewportMargin = 12
-  const maxPreviewSize = Math.max(
-    rect.width,
-    Math.min(
-      315,
-      window.innerWidth - (viewportMargin * 2),
-      window.innerHeight - (viewportMargin * 2)
-    )
-  )
-  const previewSize = Math.min(Math.max(rect.width * 1.25, 295), maxPreviewSize)
-  const previewHeight = previewSize * 0.9
-  const targetLeft = clampNumber(
-    rect.left - ((previewSize - rect.width) / 2),
-    viewportMargin,
-    Math.max(viewportMargin, window.innerWidth - previewSize - viewportMargin)
-  )
-  const targetTop = clampNumber(
-    rect.top - ((previewHeight - rect.height) / 2),
-    viewportMargin,
-    Math.max(viewportMargin, window.innerHeight - previewHeight - viewportMargin)
-  )
-
   window.clearTimeout(videoShelfPreviewCleanupTimer)
-  card.style.setProperty('--shelf-preview-origin-left', `${rect.left}px`)
-  card.style.setProperty('--shelf-preview-origin-top', `${rect.top}px`)
-  card.style.setProperty('--shelf-preview-origin-width', `${rect.width}px`)
-  card.style.setProperty('--shelf-preview-origin-height', `${rect.height}px`)
-  card.style.setProperty('--shelf-preview-left', `${targetLeft}px`)
-  card.style.setProperty('--shelf-preview-top', `${targetTop}px`)
-  card.style.setProperty('--shelf-preview-size', `${previewSize}px`)
-  card.style.setProperty('--shelf-preview-height', `${previewHeight}px`)
+  window.clearTimeout(videoShelfPreviewAnchorTimer)
+  if (!positionVideoShelfPreview(card)) return
   card.classList.add('is-floating-preview')
   activeVideoShelfPreview = card
   card.getBoundingClientRect()
@@ -13694,6 +13709,11 @@ function openVideoShelfPreview(card, force = false) {
       if (!card.classList.contains('is-preview-armed')) return
       if (!force && !card.matches(':hover') && !card.matches(':focus-within')) return
       card.classList.add('is-previewing')
+      if (card.classList.contains('watch-reminder-target')) {
+        videoShelfPreviewAnchorTimer = window.setTimeout(() => {
+          if (card.classList.contains('is-previewing')) card.classList.add('is-source-anchored')
+        }, 220)
+      }
     })
   })
 }
@@ -13705,7 +13725,7 @@ function closeVideoShelfPreview(card, force = false) {
 
   const cleanup = () => {
     if (card.classList.contains('is-previewing')) return
-    card.classList.remove('is-preview-armed')
+    card.classList.remove('is-preview-armed', 'is-source-anchored')
     card.classList.remove('is-floating-preview')
     card.style.removeProperty('--shelf-preview-origin-left')
     card.style.removeProperty('--shelf-preview-origin-top')
@@ -13719,6 +13739,7 @@ function closeVideoShelfPreview(card, force = false) {
   }
   card.classList.remove('is-previewing')
   window.clearTimeout(videoShelfPreviewCleanupTimer)
+  window.clearTimeout(videoShelfPreviewAnchorTimer)
   if (force) {
     cleanup()
     return
@@ -13756,7 +13777,10 @@ function closeVideoShelfPreviewOnViewportChange() {
     activeVideoWatchReminderId
     && activeVideoShelfPreview?.dataset.videoId === activeVideoWatchReminderId
   )
-  if (isActiveReminderPreview) return
+  if (isActiveReminderPreview) {
+    positionVideoShelfPreview(activeVideoShelfPreview)
+    return
+  }
   closeVideoShelfPreview(activeVideoShelfPreview, true)
 }
 

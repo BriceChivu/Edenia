@@ -7249,6 +7249,9 @@ summary:focus-visible,
   .channel-shelf:has(.channel-shelf-card:is(:hover, :focus-within)) {
     z-index: 20;
   }
+  .channel-shelf:has(.channel-shelf-card.watch-reminder-target.is-floating-preview) {
+    z-index: 10002;
+  }
   .channel-shelf-track {
     margin: -18px -16px -20px;
     overflow-x: hidden;
@@ -7436,6 +7439,11 @@ summary:focus-visible,
       left 220ms var(--ease-emphasized),
       top 220ms var(--ease-emphasized),
       width 220ms var(--ease-emphasized);
+  }
+  .channel-shelf-card.watch-reminder-target.is-floating-preview.is-source-anchored {
+    transition:
+      border-color var(--motion-base) var(--ease-standard),
+      box-shadow var(--motion-base) var(--ease-standard);
   }
   .channel-shelf-card.is-floating-preview.is-previewing {
     border-color: var(--planet-black);
