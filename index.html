@@ -56,17 +56,26 @@
         </nav>
       </aside>
 
-      <div class="intro-top-actions">
-        <button class="intro-sound" id="introSoundBtn" type="button" onclick="toggleIntroSound()" aria-pressed="false">
-          <span class="intro-sound-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false">
-              <path class="intro-sound-speaker" d="M4 9.2h3.4L12 5.5v13l-4.6-3.7H4z"></path>
-              <path class="intro-sound-wave" d="M15.2 9.1c1.6 1.7 1.6 4.1 0 5.8M17.8 6.8c3 3 3 7.4 0 10.4"></path>
-              <path class="intro-sound-cross" d="M4.8 4.8 19.2 19.2"></path>
-            </svg>
-          </span>
-        </button>
-        <button class="intro-skip" type="button" onclick="finishIntroTrailer()" data-i18n="intro.skip">Skip intro</button>
+      <div class="intro-top-controls">
+        <div class="intro-top-actions">
+          <button class="intro-sound" id="introSoundBtn" type="button" onclick="toggleIntroSound()" aria-pressed="false">
+            <span class="intro-sound-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path class="intro-sound-speaker" d="M4 9.2h3.4L12 5.5v13l-4.6-3.7H4z"></path>
+                <path class="intro-sound-wave" d="M15.2 9.1c1.6 1.7 1.6 4.1 0 5.8M17.8 6.8c3 3 3 7.4 0 10.4"></path>
+                <path class="intro-sound-cross" d="M4.8 4.8 19.2 19.2"></path>
+              </svg>
+            </span>
+          </button>
+          <button class="intro-skip" type="button" onclick="finishIntroTrailer()" data-i18n="intro.skip">Skip intro</button>
+        </div>
+        <div class="intro-language-picker" id="introLocalePicker">
+          <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="introLocaleBtn" onclick="toggleIntroLocaleMenu(event)" aria-haspopup="true" aria-expanded="false">
+            <span class="settings-locale-label" id="introLocaleLabel">English</span>
+            <span class="settings-locale-caret" aria-hidden="true"></span>
+          </button>
+          <div class="settings-locale-menu intro-locale-menu hidden" id="introLocaleMenu" role="radiogroup" aria-label="Language" data-i18n-aria-label="settings.language.label"></div>
+        </div>
       </div>
     </div>
 
@@ -79,13 +88,6 @@
       </button>
 
       <article class="intro-scene intro-scene-opening" data-intro-scene="0">
-        <div class="intro-language-picker" id="introLocalePicker">
-          <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="introLocaleBtn" onclick="toggleIntroLocaleMenu(event)" aria-haspopup="true" aria-expanded="false">
-            <span class="settings-locale-label" id="introLocaleLabel">English</span>
-            <span class="settings-locale-caret" aria-hidden="true"></span>
-          </button>
-          <div class="settings-locale-menu intro-locale-menu hidden" id="introLocaleMenu" role="radiogroup" aria-label="Language" data-i18n-aria-label="settings.language.label"></div>
-        </div>
         <div class="intro-orbit intro-orbit-one" aria-hidden="true"></div>
         <div class="intro-orbit intro-orbit-two" aria-hidden="true"></div>
         <img class="intro-mark" src="Edenia_favicon_round.png" alt="" aria-hidden="true">

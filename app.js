@@ -218,6 +218,12 @@ const walkthroughState = {
   isTransitioning: false
 }
 const INTRO_TRAILER_SCENE_DURATIONS = [13000, 8600, 10800, 9200, 9600]
+const INTRO_TRAILER_REFERENCE = {
+  viewportWidth: 1710,
+  viewportHeight: 986,
+  stageWidth: 1180,
+  sceneWidth: 1174
+}
 const introTrailerState = {
   active: false,
   replayMode: false,
@@ -5376,6 +5382,17 @@ function maybeStartOnboarding(state) {
   }
 }
 
+function syncIntroTrailerStageScale() {
+  const stage = document.querySelector('.intro-stage')
+  if (!stage) return
+  const stageWidth = stage.clientWidth
+  if (!stageWidth) return
+
+  const scale = stageWidth / INTRO_TRAILER_REFERENCE.sceneWidth
+  stage.style.setProperty('--intro-stage-scale', scale.toFixed(6))
+  stage.style.setProperty('--intro-stage-enter-scale', (scale * 1.025).toFixed(6))
+}
+
 function startIntroTrailer({ replay = false } = {}) {
   if ((IS_SANDBOX && !replay) || introTrailerState.active) return
   const trailer = document.getElementById('introTrailer')
@@ -5390,6 +5407,7 @@ function startIntroTrailer({ replay = false } = {}) {
   document.body.classList.add('intro-active')
   document.getElementById('mainApp')?.setAttribute('inert', '')
   trailer.classList.remove('hidden')
+  syncIntroTrailerStageScale()
   const startButton = document.getElementById('introStartBtn')
   if (startButton) {
     const labelKey = replay ? 'intro.finale.return' : 'intro.finale.cta'
@@ -12832,6 +12850,9 @@ let activeChannelShelfPointerId = null
 let activeChannelShelfPointerSource = null
 let activeChannelShelfDropTarget = null
 let activeChannelShelfDropPosition = null
+let pendingTouchChannelShelfDrag = null
+let touchChannelShelfDragStartX = 0
+let touchChannelShelfDragStartY = 0
 
 function canReorderChannelShelves() {
   return window.matchMedia('(min-width: 641px) and (hover: hover) and (pointer: fine)').matches
@@ -12850,15 +12871,15 @@ function canUseTouchChannelShelfDrag(event) {
 function startTouchChannelShelfDrag(event, dragTarget) {
   const shelf = dragTarget?.closest?.('.channel-shelf')
   if (!event || !shelf || !canUseTouchChannelShelfDrag(event)) return
-  if (event.target?.closest?.('button, a, input, label, select, textarea')) return
+  if (event.target?.closest?.('button, input, label, select, textarea')) return
+  const targetLink = event.target?.closest?.('a')
+  if (targetLink && !targetLink.classList.contains('channel-shelf-avatar')) return
 
-  event.preventDefault()
-  closeVideoShelfPreview(activeVideoShelfPreview, true)
-  activeChannelShelfDrag = shelf
   activeChannelShelfPointerId = event.pointerId
   activeChannelShelfPointerSource = dragTarget
-  shelf.classList.add('is-dragging')
-  document.body.classList.add('channel-shelf-dragging')
+  pendingTouchChannelShelfDrag = shelf
+  touchChannelShelfDragStartX = event.clientX
+  touchChannelShelfDragStartY = event.clientY
   dragTarget.setPointerCapture?.(event.pointerId)
   window.addEventListener('pointermove', moveTouchChannelShelfDrag, { passive: false })
   window.addEventListener('pointerup', finishTouchChannelShelfDrag)
@@ -12866,8 +12887,27 @@ function startTouchChannelShelfDrag(event, dragTarget) {
 }
 
 function moveTouchChannelShelfDrag(event) {
-  if (event.pointerId !== activeChannelShelfPointerId || !activeChannelShelfDrag) return
+  if (event.pointerId !== activeChannelShelfPointerId) return
+
+  if (!activeChannelShelfDrag && pendingTouchChannelShelfDrag) {
+    const distance = Math.hypot(
+      event.clientX - touchChannelShelfDragStartX,
+      event.clientY - touchChannelShelfDragStartY
+    )
+    if (distance < 8) return
+
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
+    activeChannelShelfDrag = pendingTouchChannelShelfDrag
+    pendingTouchChannelShelfDrag = null
+    activeChannelShelfDrag.classList.add('is-dragging')
+    document.body.classList.add('channel-shelf-dragging')
+    createChannelShelfDragPreview(activeChannelShelfDrag)
+    suppressChannelShelfIdentityClick(activeChannelShelfPointerSource)
+  }
+  if (!activeChannelShelfDrag) return
+
   event.preventDefault()
+  positionTouchChannelShelfDragPreview(event)
 
   const edgeSize = 72
   if (event.clientY < edgeSize) {
@@ -12910,6 +12950,34 @@ function cancelTouchChannelShelfDrag(event) {
   if (event.pointerId === activeChannelShelfPointerId) finishChannelShelfDrag()
 }
 
+function positionTouchChannelShelfDragPreview(event) {
+  if (!activeChannelShelfDragPreview) return
+  const previewRect = activeChannelShelfDragPreview.getBoundingClientRect()
+  const viewportMargin = 12
+  const left = clampNumber(
+    event.clientX - 28,
+    viewportMargin,
+    Math.max(viewportMargin, window.innerWidth - previewRect.width - viewportMargin)
+  )
+  const top = clampNumber(
+    event.clientY - (previewRect.height / 2),
+    viewportMargin,
+    Math.max(viewportMargin, window.innerHeight - previewRect.height - viewportMargin)
+  )
+  activeChannelShelfDragPreview.style.left = `${left}px`
+  activeChannelShelfDragPreview.style.top = `${top}px`
+}
+
+function suppressChannelShelfIdentityClick(target) {
+  if (!target) return
+  const suppressClick = event => {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+  target.addEventListener('click', suppressClick, { capture: true, once: true })
+  window.setTimeout(() => target.removeEventListener('click', suppressClick, true), 500)
+}
+
 function createChannelShelfDragPreview(shelf) {
   activeChannelShelfDragPreview?.remove()
   const header = shelf.querySelector('.channel-shelf-header')?.cloneNode(true)
@@ -12921,7 +12989,8 @@ function createChannelShelfDragPreview(shelf) {
 
   const preview = document.createElement('div')
   preview.className = 'channel-shelf-drag-preview'
-  preview.style.width = `${Math.min(Math.max(shelf.getBoundingClientRect().width * 0.42, 280), 420)}px`
+  const viewportMaxWidth = Math.max(240, window.innerWidth - 24)
+  preview.style.width = `${Math.min(Math.max(shelf.getBoundingClientRect().width * 0.42, 280), 420, viewportMaxWidth)}px`
   preview.append(header)
   document.body.append(preview)
   activeChannelShelfDragPreview = preview
@@ -13029,6 +13098,9 @@ function finishChannelShelfDrag() {
   activeChannelShelfPointerSource = null
   activeChannelShelfDropTarget = null
   activeChannelShelfDropPosition = null
+  pendingTouchChannelShelfDrag = null
+  touchChannelShelfDragStartX = 0
+  touchChannelShelfDragStartY = 0
   activeChannelShelfDragPreview?.remove()
   activeChannelShelfDragPreview = null
   clearChannelShelfDropIndicators()
@@ -14071,6 +14143,7 @@ window.addEventListener('scroll', syncHeaderCompactState, { passive: true })
 window.addEventListener('scroll', closeVideoShelfPreviewOnViewportChange, { passive: true })
 window.addEventListener('resize', closeVideoShelfPreviewOnViewportChange, { passive: true })
 window.addEventListener('resize', syncMobileAddButtonWidth, { passive: true })
+window.addEventListener('resize', syncIntroTrailerStageScale, { passive: true })
 document.addEventListener('visibilitychange', refreshOpenChannelFilterTimestamps)
 document.addEventListener('visibilitychange', handleVideoWatchReminderVisibilityChange)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
