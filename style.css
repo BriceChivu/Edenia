@@ -4612,6 +4612,24 @@ body[data-theme="dark"] .video-grid-remove:focus-visible {
   opacity: 1;
   z-index: 21;
 }
+.channel-shelf.channel-refresh-arriving .channel-shelf-slot:not(:has(.added-video-target)) {
+  animation: channelRefreshVideoArrive 560ms var(--ease-emphasized) both;
+  animation-delay: var(--channel-refresh-delay, 0ms);
+}
+@keyframes channelRefreshVideoArrive {
+  0% {
+    opacity: 0;
+    transform: translateX(18px) scale(0.975);
+  }
+  65% {
+    opacity: 1;
+    transform: translateX(-2px) scale(1.006);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
 @keyframes addedVideoSpotlightPulse {
   0%, 100% {
     box-shadow:
@@ -7547,6 +7565,7 @@ summary:focus-visible,
   }
   .channel-shelf,
   .channel-shelf.just-dropped,
+  .channel-shelf.channel-refresh-arriving .channel-shelf-slot,
   .channel-shelf.drag-over-before::before,
   .channel-shelf.drag-over-after::after {
     animation: none;
