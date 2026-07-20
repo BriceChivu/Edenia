@@ -1260,6 +1260,7 @@ const I18N_EN = {
   'walkthrough.videos': 'This is the video area. New videos from your channels appear here, and watched videos move into the Watched section below.',
   'walkthrough.videosMobile': 'This is the video area. New videos from your channels appear here. When you mark one watched, Edenia moves it into a Watched section to keep your active feed clear.',
   'walkthrough.firstStudyChannels': 'You can add YouTube channels or individual videos here.',
+  'walkthrough.otherAddNow': 'Add a Youtube channel or video now!',
   'walkthrough.firstStudyFeed': 'This is your study feed. Choose a video, then mark it watched, in progress, or watch later. Your goal, history, and town update from what you study.',
   'walkthrough.startWatching': 'Start watching a video!',
   'walkthrough.videoFilters': 'These controls help you keep the list manageable. You can filter by status, filter by channel, add a video URL, and fix mistakes.',
@@ -1759,6 +1760,7 @@ const I18N = {
     'walkthrough.videos': '這裡是影片區。你加入的頻道會出現新影片，已看影片會移到下方的已看區。',
     'walkthrough.videosMobile': '這裡是影片區。你加入的頻道會在這裡顯示新影片。標記為已看後，Edenia 會把影片移到「已看」區，讓進行中的清單保持清楚。',
     'walkthrough.firstStudyChannels': '你可以在這裡新增 YouTube 頻道或單部影片。',
+    'walkthrough.otherAddNow': '立即新增 YouTube 頻道或影片！',
     'walkthrough.firstStudyFeed': '這是你的學習清單。選擇一部影片，再標記為已看、進行中或稍後觀看。你的目標、紀錄和小鎮都會隨著你的學習更新。',
     'walkthrough.startWatching': '開始觀看影片吧！',
     'walkthrough.videoFilters': '這些控制可以讓清單更好管理。你可以依狀態或頻道篩選，新增影片網址，也可以修正誤點。',
@@ -2184,6 +2186,7 @@ const I18N = {
     'walkthrough.videos': '这里是视频区。你加入的频道会出现新视频，已看视频会移到下方的已看区。',
     'walkthrough.videosMobile': '这里是视频区。你添加的频道会在这里显示新视频。标记为已看后，Edenia 会把视频移到“已看”区，让当前列表保持清晰。',
     'walkthrough.firstStudyChannels': '你可以在这里添加 YouTube 频道或单个视频。',
+    'walkthrough.otherAddNow': '立即添加 YouTube 频道或视频！',
     'walkthrough.firstStudyFeed': '这是你的学习列表。选择一个视频，再标记为已看、进行中或稍后观看。你的目标、记录和小镇都会随着你的学习更新。',
     'walkthrough.startWatching': '开始观看视频吧！',
     'walkthrough.videoFilters': '这些控制可以让列表更好管理。你可以按状态或频道筛选，添加视频网址，也可以修正误点。',
@@ -2611,6 +2614,7 @@ const I18N = {
     'walkthrough.videos': 'Esta es la zona de videos. Aquí aparecen videos nuevos de tus canales, y los videos vistos pasan a la sección Vistos.',
     'walkthrough.videosMobile': 'Esta es la zona de videos. Aquí aparecen videos nuevos de tus canales. Cuando marcas uno como visto, Edenia lo mueve a una sección Vistos para mantener clara tu lista activa.',
     'walkthrough.firstStudyChannels': 'Aquí puedes añadir canales de YouTube o videos individuales.',
+    'walkthrough.otherAddNow': '¡Añade ahora un canal o video de YouTube!',
     'walkthrough.firstStudyFeed': 'Esta es tu lista de estudio. Elige un video y márcalo como visto, en progreso o para ver después. Tu objetivo, historial y pueblo se actualizan con lo que estudias.',
     'walkthrough.startWatching': '¡Empieza a ver un video!',
     'walkthrough.videoFilters': 'Estos controles ayudan a mantener la lista clara. Puedes filtrar por estado, filtrar por canal, añadir una URL de video y corregir errores.',
@@ -3038,6 +3042,7 @@ const I18N = {
     'walkthrough.videos': 'Voici la zone des vidéos. Les nouvelles vidéos de vos chaînes apparaissent ici, et les vidéos vues passent dans la section Vues.',
     'walkthrough.videosMobile': 'Voici la zone des vidéos. Les nouvelles vidéos de vos chaînes apparaissent ici. Quand vous en marquez une comme vue, Edenia la déplace dans une section Vues pour garder la liste active claire.',
     'walkthrough.firstStudyChannels': 'Vous pouvez ajouter ici des chaînes YouTube ou des vidéos individuelles.',
+    'walkthrough.otherAddNow': 'Ajoutez maintenant une chaîne ou une vidéo YouTube !',
     'walkthrough.firstStudyFeed': 'Voici votre liste d’étude. Choisissez une vidéo, puis marquez-la comme vue, en cours ou à regarder plus tard. Votre objectif, votre historique et votre ville évoluent selon ce que vous étudiez.',
     'walkthrough.startWatching': 'Commencez à regarder une vidéo !',
     'walkthrough.videoFilters': 'Ces contrôles gardent la liste lisible. Vous pouvez filtrer par statut, par chaîne, ajouter une URL de vidéo et corriger les erreurs.',
@@ -3830,6 +3835,21 @@ const FIRST_STUDY_WALKTHROUGH_STEPS = [
     }
   }
 ]
+const OTHER_FIRST_STUDY_WALKTHROUGH_STEP = {
+  id: 'first-study-other-add-now',
+  target: '#manualVideoBtn',
+  textKey: 'walkthrough.otherAddNow',
+  placement: 'bottom',
+  hooks: {
+    beforeEnter: 'closeTransientUi'
+  }
+}
+
+function getFirstStudyWalkthroughSteps(state) {
+  if (state?.learnerProfile?.languages?.[0] !== 'other') return FIRST_STUDY_WALKTHROUGH_STEPS
+  return [...FIRST_STUDY_WALKTHROUGH_STEPS, OTHER_FIRST_STUDY_WALKTHROUGH_STEP]
+}
+
 const WALKTHROUGH_HOOKS = {
   closeTransientUi() {
     closeVideoShelfPreview(activeVideoShelfPreview, true)
@@ -5489,7 +5509,7 @@ function maybeStartOnboarding(state) {
     return
   }
   if (!state?.onboarding?.walkthroughCompleted) {
-    window.setTimeout(() => startWalkthrough(FIRST_STUDY_WALKTHROUGH_STEPS), 350)
+    window.setTimeout(() => startWalkthrough(getFirstStudyWalkthroughSteps(state)), 350)
   }
 }
 
