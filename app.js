@@ -11765,16 +11765,16 @@ function renderNextStudy(activeVideos = []) {
       </span>
     `
     : `
+      <button type="button"
+        class="next-study-cta next-study-reset"
+        data-video-id="${safeVideoId}"
+        onclick="markVideo(this.dataset.videoId, 'unwatched')">${escHtml(t('nextStudy.notInterested'))}</button>
       <a class="next-study-cta next-study-watch"
         href="${videoUrl}"
         target="_blank"
         rel="noopener"
         data-video-id="${safeVideoId}"
         onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${escHtml(t('nextStudy.watch'))}</a>
-      <button type="button"
-        class="next-study-cta next-study-reset"
-        data-video-id="${safeVideoId}"
-        onclick="markVideo(this.dataset.videoId, 'unwatched')">${escHtml(t('nextStudy.notInterested'))}</button>
     `
   container.innerHTML = `
     <a class="next-study-mobile-link" href="${videoUrl}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}"></a>
