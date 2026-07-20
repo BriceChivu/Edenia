@@ -5373,6 +5373,7 @@ summary:focus-visible,
   .intro-demo-insight > p { font-size: 0.68rem; }
   .intro-demo-goal { height: 116px; }
   .intro-demo-goal b { font-size: 1.35rem; }
+  .intro-demo-goal small { font-size: 0.68rem; }
   .intro-finale-mark {
     margin-bottom: 28px;
     width: 154px;
