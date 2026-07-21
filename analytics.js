@@ -66,6 +66,7 @@
       : null;
 
     return {
+      $internal_or_test_user: Boolean(window.EDENIA_INTERNAL_TEST),
       current_channel_ids: channels.map(channel => channel.id),
       current_channel_names: channels.map(channel => channel.name),
       current_channel_count: channels.length,
