@@ -45,7 +45,7 @@
   </script>
   <script src="config.local.js" defer></script>
   <script src="analytics.js?v=20260721-3" defer></script>
-  <script src="app.js?v=20260722-117" defer></script>
+  <script src="app.js?v=20260722-119" defer></script>
 </head>
 <body>
 
@@ -312,13 +312,14 @@ and momentum—at a glance</h2>
               <li data-i18n="settings.youtube.step3">Click Add to add the channel to your study feed.</li>
             </ol>
           </section>
-          <div class="settings-anki-howto-target" id="settingsAnkiHowToTarget">
-            <section class="settings-howto-section">
+          <section class="settings-howto-section settings-anki-section" id="settingsAnkiHowToTarget">
+            <div class="settings-anki-howto-target">
+              <div class="settings-anki-what-block">
               <h3 data-i18n="settings.anki.whatTitle">What is Anki?</h3>
               <p class="step-hint" data-i18n="settings.anki.whatIntro">Anki is a flashcard app that schedules reviews to help you remember words and ideas over time. Using Anki with Edenia is optional.</p>
-            </section>
-            <section class="settings-howto-section">
-              <h3 data-i18n="settings.anki.title">Connect to Anki</h3>
+              </div>
+              <h3 class="settings-anki-connect-heading" data-i18n="settings.anki.title">Connect to Anki</h3>
+            </div>
         <p class="step-hint" data-i18n="settings.anki.intro">Edenia can count your Anki reviews automatically. To let Edenia talk to Anki, install AnkiConnect and allow Edenia in its settings.</p>
         <ol class="settings-anki-steps">
           <li data-i18n="settings.anki.step1">Open Anki. In Tools, click Add-ons, then Get Add-ons, then paste this code: 2055492159.</li>
@@ -336,8 +337,7 @@ and momentum—at a glance</h2>
           <li data-i18n="settings.anki.step3">Restart Anki and keep Anki open while you use Edenia.</li>
         </ol>
 
-            </section>
-          </div>
+          </section>
           <section class="settings-howto-section">
             <h3 data-i18n="settings.scoring.title">How points work</h3>
         <p class="step-hint" data-i18n="settings.scoring.intro">Points reward video study time and Anki reviews. Edenia adds each source before rounding down the total points of the day.</p>

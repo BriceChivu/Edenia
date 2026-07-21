@@ -1587,10 +1587,15 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
 }
 .settings-anki-howto-target {
   display: grid;
+  gap: 7px;
 }
-.settings-howto-section + .settings-anki-howto-target,
-.settings-anki-howto-target + .settings-howto-section {
+.settings-anki-what-block {
+  display: grid;
+  gap: 7px;
+}
+.settings-anki-connect-heading {
   border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  margin-top: 5px !important;
   padding-top: 12px;
 }
 .settings-howto-section h3 {

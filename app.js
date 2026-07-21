@@ -53,7 +53,7 @@ const YOUTUBE_REFRESH_ERROR_BACKOFF_MS = 30 * 60_000
 const SHORTS_ENABLE_REFETCH_COOLDOWN_MS = YOUTUBE_REFRESH_INTERVAL_MS
 const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const SANDBOX_VIDEOS_PER_CHANNEL = 5
-const FETCH_PAGE_SIZE = 50
+const FETCH_PAGE_SIZE = IS_INTERNAL_TEST ? 8 : 50
 const MAX_FETCH_PAGES_PER_CHANNEL = 1
 const UNDO_ACTION_TYPES = ['video-status', 'video-resume-time', 'video-grid-remove', 'channel-remove', 'manual-video-add']
 const YOUTUBE_CHANNEL_ID_RE = /^UC[A-Za-z0-9_-]{20,}$/
@@ -3929,7 +3929,8 @@ const OTHER_FIRST_STUDY_WALKTHROUGH_STEP = {
 const NO_ANKI_FREQUENT_USER_WALKTHROUGH_STEP = {
   id: 'no-anki-frequent-user',
   target: '#settingsAnkiHowToTarget',
-  scrollTarget: '#settingsAnkiHowToTarget .settings-howto-section:first-child',
+  scrollTarget: '#settingsAnkiHowToTarget',
+  scrollBehavior: 'auto',
   textKey: 'noAnkiPrompt.message',
   skipLabelKey: 'noAnkiPrompt.notInterested',
   actionLabelKey: 'noAnkiPrompt.yes',
@@ -5715,15 +5716,17 @@ function maybeStartNoAnkiFrequentUserPrompt(state) {
       return
     }
     openSettings()
-    setSettingsHowToOpen(true)
-    startWalkthrough([NO_ANKI_FREQUENT_USER_WALKTHROUGH_STEP], {
-      reason: 'no-anki-frequent-user',
-      trackCompletion: false
-    })
-    if (!walkthroughState.active) {
-      ankiRefreshDeferredForPrompt = false
-      applyAnkiRefreshPreference(currentState)
-    }
+    window.setTimeout(() => {
+      setSettingsHowToOpen(true)
+      startWalkthrough([NO_ANKI_FREQUENT_USER_WALKTHROUGH_STEP], {
+        reason: 'no-anki-frequent-user',
+        trackCompletion: false
+      })
+      if (!walkthroughState.active) {
+        ankiRefreshDeferredForPrompt = false
+        applyAnkiRefreshPreference(currentState)
+      }
+    }, 0)
   }, 350)
   return true
 }
@@ -6727,7 +6730,7 @@ function renderWalkthroughStep() {
 
   const scrollTarget = step.scrollTarget ? document.querySelector(step.scrollTarget) : target
   scrollTarget.scrollIntoView({
-    behavior: 'smooth',
+    behavior: step.scrollBehavior || 'smooth',
     block: 'center',
     inline: 'center'
   })
@@ -14966,11 +14969,15 @@ function removeVideoFromGrid(event, videoId) {
 
 function showToast(msg, type = 'success') {
   const el = document.getElementById('toast')
+  if (IS_INTERNAL_TEST && el.classList.contains('show') && el.textContent === String(msg)) return
   el.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite')
   el.textContent = msg
   el.className   = `toast toast-${type} show`
   clearTimeout(el._t)
-  el._t = setTimeout(() => el.classList.remove('show'), 3500)
+  el._t = setTimeout(() => {
+    el.classList.remove('show')
+    if (IS_INTERNAL_TEST) el.textContent = ''
+  }, 3500)
 }
 
 // ════════════════════════════════════════════════════════════
