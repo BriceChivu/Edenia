@@ -73,6 +73,7 @@ const LOCALE_LABELS = {
 }
 const ANKI_AUTO_REFRESH_MS = 5 * 60_000
 const ANKI_DAY_START_HOUR = 4
+const NO_ANKI_FREQUENT_USER_DAY_THRESHOLD = 7
 const MIN_DAILY_STREAK_POINTS = 0.5
 const UNDO_STACK_LIMIT = 50
 const MIN_WEEKLY_GOAL_HOURS = 1
@@ -159,6 +160,7 @@ const cityImagePreloadQueue = []
 let cityImagePreloadQueueRunning = false
 let activeCityImagePreloadCenter = null
 let ankiStatsCache = null
+let ankiRefreshDeferredForPrompt = false
 let selectedStatusFilter = 'all'
 let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
@@ -234,7 +236,9 @@ const walkthroughState = {
   steps: [],
   elements: null,
   frame: null,
-  isTransitioning: false
+  isTransitioning: false,
+  highlightOnly: false,
+  trackCompletion: true
 }
 const INTRO_TRAILER_SCENE_DURATIONS = [13000, 8600, 10800, 9200, 9600]
 const INTRO_TRAILER_REFERENCE = {
@@ -841,6 +845,9 @@ const I18N_EN = {
   'settings.anki.title': 'Connect to Anki',
   'settings.anki.enabled': 'Enable Anki tracking',
   'settings.anki.toggleHint': 'When on, Edenia can read Anki review counts while Anki is open.',
+  'noAnkiPrompt.message': 'Edenia has not recorded any activity from your Anki so far. Do you want to connect to it?',
+  'noAnkiPrompt.notInterested': 'Not interested',
+  'noAnkiPrompt.yes': 'Yes',
   'settings.insights.enabled': 'Enable study insights',
   'settings.insights.toggleHint': 'Controls whether insights appear in Analytics. Insight tracking and history continue when hidden.',
   'settings.anki.intro': 'Edenia can count your Anki reviews automatically. To let Edenia talk to Anki, install AnkiConnect and allow Edenia in its settings.',
@@ -1461,6 +1468,9 @@ const I18N = {
     'settings.anki.title': '連接到 Anki',
     'settings.anki.enabled': '啟用 Anki 追蹤',
     'settings.anki.toggleHint': '開啟後，Edenia 可以在 Anki 開著時讀取複習數量。',
+    'noAnkiPrompt.message': '到目前為止，Edenia 尚未記錄到你的任何 Anki 活動。你想連接 Anki 嗎？',
+    'noAnkiPrompt.notInterested': '沒興趣',
+    'noAnkiPrompt.yes': '是',
     'settings.insights.enabled': '啟用學習洞察',
     'settings.insights.toggleHint': '控制是否在分析中顯示洞察。隱藏後仍會持續追蹤洞察並保留紀錄。',
     'settings.anki.intro': 'Edenia 可以自動計算你的 Anki 複習量。要讓 Edenia 和 Anki 連接，請安裝 AnkiConnect，並在設定中允許 Edenia。',
@@ -1914,6 +1924,9 @@ const I18N = {
     'settings.anki.title': '连接 Anki',
     'settings.anki.enabled': '启用 Anki 追踪',
     'settings.anki.toggleHint': '开启后，Edenia 可以在 Anki 打开时读取复习数量。',
+    'noAnkiPrompt.message': '到目前为止，Edenia 尚未记录到你的任何 Anki 活动。你想连接 Anki 吗？',
+    'noAnkiPrompt.notInterested': '不感兴趣',
+    'noAnkiPrompt.yes': '是',
     'settings.insights.enabled': '启用学习洞察',
     'settings.insights.toggleHint': '控制是否在分析中显示洞察。隐藏后仍会继续追踪洞察并保留记录。',
     'settings.anki.intro': 'Edenia 可以自动计算你的 Anki 复习量。要让 Edenia 和 Anki 连接，请安装 AnkiConnect，并在设置中允许 Edenia。',
@@ -2348,6 +2361,9 @@ const I18N = {
     'settings.anki.title': 'Conectar Anki',
     'settings.anki.enabled': 'Activar seguimiento de Anki',
     'settings.anki.toggleHint': 'Cuando está activo, Edenia puede leer tus repasos de Anki mientras Anki está abierto.',
+    'noAnkiPrompt.message': 'Edenia todavía no ha registrado ninguna actividad de tu Anki. ¿Quieres conectarlo?',
+    'noAnkiPrompt.notInterested': 'No me interesa',
+    'noAnkiPrompt.yes': 'Sí',
     'settings.insights.enabled': 'Activar observaciones de estudio',
     'settings.insights.toggleHint': 'Controla si las observaciones aparecen en Análisis. El seguimiento y el historial continúan cuando están ocultas.',
     'settings.anki.intro': 'Edenia puede contar tus repasos de Anki automáticamente. Para que Edenia pueda hablar con Anki, instala AnkiConnect y permite Edenia en sus ajustes.',
@@ -2784,6 +2800,9 @@ const I18N = {
     'settings.anki.title': 'Connecter Anki',
     'settings.anki.enabled': 'Activer le suivi Anki',
     'settings.anki.toggleHint': 'Quand il est activé, Edenia peut lire vos révisions Anki pendant qu’Anki est ouvert.',
+    'noAnkiPrompt.message': 'Edenia n’a encore enregistré aucune activité provenant de votre Anki. Voulez-vous le connecter ?',
+    'noAnkiPrompt.notInterested': 'Pas intéressé',
+    'noAnkiPrompt.yes': 'Oui',
     'settings.insights.enabled': 'Activer les observations d’étude',
     'settings.insights.toggleHint': 'Contrôle l’affichage des observations dans Analyses. Le suivi et l’historique continuent lorsqu’elles sont masquées.',
     'settings.anki.intro': 'Edenia peut compter automatiquement vos révisions Anki. Pour permettre à Edenia de communiquer avec Anki, installez AnkiConnect et autorisez Edenia dans ses réglages.',
@@ -3907,6 +3926,18 @@ const OTHER_FIRST_STUDY_WALKTHROUGH_STEP = {
     beforeEnter: 'closeTransientUi'
   }
 }
+const NO_ANKI_FREQUENT_USER_WALKTHROUGH_STEP = {
+  id: 'no-anki-frequent-user',
+  target: '#settingsAnkiHowToTarget',
+  scrollTarget: '#settingsAnkiHowToTarget .settings-howto-section:first-child',
+  textKey: 'noAnkiPrompt.message',
+  skipLabelKey: 'noAnkiPrompt.notInterested',
+  actionLabelKey: 'noAnkiPrompt.yes',
+  placement: 'left',
+  choice: true,
+  onSkip: declineNoAnkiFrequentUserPrompt,
+  onNext: acceptNoAnkiFrequentUserPrompt
+}
 
 function getFirstStudyWalkthroughSteps(state) {
   if (state?.learnerProfile?.languages?.[0] !== 'other') return FIRST_STUDY_WALKTHROUGH_STEPS
@@ -4427,6 +4458,7 @@ function loadState() {
       if (normalizeActivityLogState(state)) shouldSave = true
       if (normalizeLearnerProfileState(state)) shouldSave = true
       if (normalizeOnboardingState(state)) shouldSave = true
+      if (normalizeNoAnkiFrequentUserPromptState(state)) shouldSave = true
       if (normalizeChannelRefreshState(state)) shouldSave = true
       normalizeSandboxState(state)
       normalizeCityProgress(state)
@@ -4454,6 +4486,7 @@ function loadState() {
 function saveState(s, options = {}) {
   const { backup = true, backupReason = 'automatic backup', forceBackup = false } = options
   normalizeActivityLogState(s)
+  normalizeNoAnkiFrequentUserPromptState(s)
   normalizeVideoWatchProgressState(s)
   normalizeVideoWatchReminderState(s)
   normalizeStudyInsightConfig(s)
@@ -4635,6 +4668,11 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
       walkthroughCompleted: false,
       walkthroughCompletedAt: null,
       recommendationsAppliedAt: null
+    },
+    noAnkiFrequentUserPrompt: {
+      watchedVideoDateKeys: [],
+      response: null,
+      respondedAt: null
     },
     learnerProfile: {
       languages: [],
@@ -5016,6 +5054,91 @@ function normalizeOnboardingState(state) {
   const changed = JSON.stringify(existing) !== JSON.stringify(normalized)
   state.onboarding = normalized
   return changed
+}
+
+function getEdeniaProfileCreatedAt(state) {
+  if (isValidTimestamp(state?.onboarding?.setupCompletedAt)) return state.onboarding.setupCompletedAt
+  if (isValidTimestamp(state?.learnerProfile?.createdAt)) return state.learnerProfile.createdAt
+  return null
+}
+
+function isValidEdeniaDateKey(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value || ''))) return false
+  const date = dateKeyToLocalDate(value)
+  return Number.isFinite(date.getTime()) && toDateKey(date) === value
+}
+
+function normalizeNoAnkiFrequentUserPromptState(state) {
+  if (!state) return false
+  const existing = state.noAnkiFrequentUserPrompt
+  const source = existing && typeof existing === 'object' && !Array.isArray(existing) ? existing : {}
+  const profileCreatedAt = getEdeniaProfileCreatedAt(state)
+  const profileCreatedAtMs = profileCreatedAt ? new Date(profileCreatedAt).getTime() : null
+  const profileDateKey = profileCreatedAt ? toDateKey(new Date(profileCreatedAt)) : null
+  const watchedVideoDateKeys = new Set()
+
+  const addDateKey = dateKey => {
+    if (!isValidEdeniaDateKey(dateKey)) return
+    if (profileDateKey && dateKey < profileDateKey) return
+    watchedVideoDateKeys.add(dateKey)
+  }
+  const addWatchedTimestamp = timestamp => {
+    if (!isValidTimestamp(timestamp)) return
+    const watchedAtMs = new Date(timestamp).getTime()
+    if (profileCreatedAtMs !== null && watchedAtMs < profileCreatedAtMs) return
+    addDateKey(toDateKey(new Date(timestamp)))
+  }
+
+  ;(Array.isArray(source.watchedVideoDateKeys) ? source.watchedVideoDateKeys : []).forEach(addDateKey)
+  Object.values(state.videos || {}).forEach(video => addWatchedTimestamp(video?.watchedAt))
+  ;(Array.isArray(state.activityLog) ? state.activityLog : [])
+    .filter(entry => entry?.type === 'video-status' && entry.meta?.status === 'watched')
+    .forEach(entry => addWatchedTimestamp(entry.createdAt))
+
+  const response = ['yes', 'not-interested'].includes(source.response) ? source.response : null
+  const normalized = {
+    watchedVideoDateKeys: [...watchedVideoDateKeys].sort(),
+    response,
+    respondedAt: response && isValidTimestamp(source.respondedAt) ? source.respondedAt : null
+  }
+  const changed = JSON.stringify(source) !== JSON.stringify(normalized)
+  state.noAnkiFrequentUserPrompt = normalized
+  return changed
+}
+
+function recordNoAnkiFrequentUserWatchedDate(state, watchedAt) {
+  if (!state || !isValidTimestamp(watchedAt)) return
+  normalizeNoAnkiFrequentUserPromptState(state)
+  const profileCreatedAt = getEdeniaProfileCreatedAt(state)
+  if (!profileCreatedAt || new Date(watchedAt) < new Date(profileCreatedAt)) return
+  const dateKey = toDateKey(new Date(watchedAt))
+  if (!isValidEdeniaDateKey(dateKey)) return
+  state.noAnkiFrequentUserPrompt.watchedVideoDateKeys = [
+    ...new Set([...state.noAnkiFrequentUserPrompt.watchedVideoDateKeys, dateKey])
+  ].sort()
+}
+
+function hasRecordedAnkiDataSinceProfileCreation(state) {
+  const profileCreatedAt = getEdeniaProfileCreatedAt(state)
+  if (!profileCreatedAt) return false
+  const profileCreatedAtMs = new Date(profileCreatedAt).getTime()
+  const profileDateKey = toDateKey(new Date(profileCreatedAt))
+
+  return Object.entries(state?.anki || {}).some(([dateKey, day]) => {
+    if (!day || typeof day !== 'object') return false
+    if (isValidTimestamp(day.loggedAt)) return new Date(day.loggedAt).getTime() >= profileCreatedAtMs
+    return isValidEdeniaDateKey(dateKey) && dateKey >= profileDateKey
+  })
+}
+
+function shouldPromptFrequentUserAboutAnki(state) {
+  if (IS_SANDBOX || !state?.onboarding?.setupCompleted || !state?.onboarding?.walkthroughCompleted) return false
+  if (!getEdeniaProfileCreatedAt(state)) return false
+  if (!isAnkiEnabled(state)) return false
+  normalizeNoAnkiFrequentUserPromptState(state)
+  if (state.noAnkiFrequentUserPrompt.response) return false
+  if (state.noAnkiFrequentUserPrompt.watchedVideoDateKeys.length < NO_ANKI_FREQUENT_USER_DAY_THRESHOLD) return false
+  return !hasRecordedAnkiDataSinceProfileCreation(state)
 }
 
 function completeWalkthrough(state = loadState()) {
@@ -5508,12 +5631,13 @@ function init() {
   initCityImagePanZoom()
   initCityWaveformTouchNavigation()
   initIntroTrailerTouchNavigation()
+  const onboardingExperienceStarted = maybeStartOnboarding(state)
+  const noAnkiPromptScheduled = !onboardingExperienceStarted && maybeStartNoAnkiFrequentUserPrompt(state)
   if (!IS_SANDBOX) {
-    if (state.onboarding.setupCompleted) startLiveIntegrations(state)
+    if (state.onboarding.setupCompleted) startLiveIntegrations(state, { deferAnki: noAnkiPromptScheduled })
   } else {
     if (IS_SANDBOX) showToast(t('toast.sandboxMode'), 'warn')
   }
-  maybeStartOnboarding(state)
   showPendingOnboardingNotice()
   initializeVideoWatchReminders(state)
 }
@@ -5532,9 +5656,9 @@ function showPendingOnboardingNotice() {
   if (message) window.setTimeout(() => showToast(message, 'warn'), 500)
 }
 
-function startLiveIntegrations(state = loadState()) {
+function startLiveIntegrations(state = loadState(), { deferAnki = false } = {}) {
   if (IS_SANDBOX || !state?.onboarding?.setupCompleted) return
-  applyAnkiRefreshPreference(state)
+  if (!deferAnki) applyAnkiRefreshPreference(state)
   startYoutubeAutoRefresh()
 }
 
@@ -5562,20 +5686,46 @@ function syncHeaderCompactState() {
 function maybeStartOnboarding(state) {
   if (consumeSandboxWalkthroughAfterReset()) {
     window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS, { manual: true, reason: 'sandbox-reset' }), 350)
-    return
+    return true
   }
-  if (IS_SANDBOX) return
+  if (IS_SANDBOX) return false
   if (!state?.onboarding?.setupCompleted) {
     if (!state?.onboarding?.introSeenAt) {
       window.setTimeout(() => startIntroTrailer(), 220)
     } else {
       window.setTimeout(() => startPersonalizedOnboarding(state), 220)
     }
-    return
+    return true
   }
   if (!state?.onboarding?.walkthroughCompleted) {
     window.setTimeout(() => startWalkthrough(getFirstStudyWalkthroughSteps(state)), 350)
+    return true
   }
+  return false
+}
+
+function maybeStartNoAnkiFrequentUserPrompt(state) {
+  if (!shouldPromptFrequentUserAboutAnki(state)) return false
+  ankiRefreshDeferredForPrompt = true
+  window.setTimeout(() => {
+    const currentState = loadState()
+    if (!shouldPromptFrequentUserAboutAnki(currentState)) {
+      ankiRefreshDeferredForPrompt = false
+      applyAnkiRefreshPreference(currentState)
+      return
+    }
+    openSettings()
+    setSettingsHowToOpen(true)
+    startWalkthrough([NO_ANKI_FREQUENT_USER_WALKTHROUGH_STEP], {
+      reason: 'no-anki-frequent-user',
+      trackCompletion: false
+    })
+    if (!walkthroughState.active) {
+      ankiRefreshDeferredForPrompt = false
+      applyAnkiRefreshPreference(currentState)
+    }
+  }, 350)
+  return true
 }
 
 function syncIntroTrailerStageScale() {
@@ -6397,6 +6547,68 @@ function showTrailerAgain() {
   window.setTimeout(() => startIntroTrailer({ replay: true }), 120)
 }
 
+function saveNoAnkiFrequentUserPromptResponse(response) {
+  const state = loadState()
+  if (!state) return null
+  normalizeNoAnkiFrequentUserPromptState(state)
+  state.noAnkiFrequentUserPrompt.response = response
+  state.noAnkiFrequentUserPrompt.respondedAt = new Date().toISOString()
+  return state
+}
+
+function declineNoAnkiFrequentUserPrompt(event) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const state = saveNoAnkiFrequentUserPromptResponse('not-interested')
+  if (!state) {
+    endWalkthrough({ markCompleted: false })
+    return
+  }
+
+  const wasEnabled = isAnkiEnabled(state)
+  state.config.ankiEnabled = false
+  state.config.ankiDisabledAt = new Date().toISOString()
+  state.config.ankiPendingResumeBaseline = null
+  if (wasEnabled) {
+    appendActivityLog(state, {
+      actor: 'user',
+      type: 'anki-setting',
+      status: 'success',
+      title: t('log.ankiSetting.title'),
+      detail: t('log.ankiSetting.disabled')
+    })
+  }
+  syncStreak(state)
+  saveState(state)
+  ankiRefreshDeferredForPrompt = false
+  applyAnkiRefreshPreference(state)
+  const checkbox = document.getElementById('settingsAnkiEnabled')
+  if (checkbox) checkbox.checked = false
+  renderAll(state)
+  renderActivityLog(state)
+  endWalkthrough({ markCompleted: false })
+}
+
+function acceptNoAnkiFrequentUserPrompt(event) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const state = saveNoAnkiFrequentUserPromptResponse('yes')
+  if (!state) {
+    endWalkthrough({ markCompleted: false })
+    return
+  }
+  saveState(state)
+  ankiRefreshDeferredForPrompt = false
+  walkthroughState.highlightOnly = true
+  walkthroughState.elements?.card.classList.add('hidden')
+  const firstAnkiHeading = document.querySelector('#settingsAnkiHowToTarget h3')
+  if (firstAnkiHeading) {
+    firstAnkiHeading.setAttribute('tabindex', '-1')
+    firstAnkiHeading.focus({ preventScroll: true })
+  }
+  applyAnkiRefreshPreference(state)
+}
+
 function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {
   const availableSteps = steps.filter(step => getWalkthroughTarget(step))
   if (!availableSteps.length) return
@@ -6405,6 +6617,8 @@ function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {
   walkthroughState.active = true
   walkthroughState.steps = availableSteps
   walkthroughState.index = clampNumber(options.startIndex || 0, 0, availableSteps.length - 1)
+  walkthroughState.highlightOnly = false
+  walkthroughState.trackCompletion = options.trackCompletion !== false
   ensureWalkthroughElements()
   document.body.classList.add('walkthrough-active')
   if (isMobileLayout()) document.activeElement?.blur?.()
@@ -6459,11 +6673,29 @@ function ensureWalkthroughElements() {
     back: layer.querySelector('.walkthrough-back'),
     next: layer.querySelector('.walkthrough-next')
   }
-  elements.skip.addEventListener('click', () => endWalkthrough({ markCompleted: true }))
+  elements.skip.addEventListener('click', handleWalkthroughSkipButton)
   elements.back.addEventListener('click', () => moveWalkthrough(-1))
-  elements.next.addEventListener('click', () => moveWalkthrough(1))
+  elements.next.addEventListener('click', handleWalkthroughNextButton)
   walkthroughState.elements = elements
   return elements
+}
+
+function handleWalkthroughSkipButton(event) {
+  const step = walkthroughState.steps[walkthroughState.index]
+  if (typeof step?.onSkip === 'function') {
+    step.onSkip(event)
+    return
+  }
+  endWalkthrough({ markCompleted: walkthroughState.trackCompletion })
+}
+
+function handleWalkthroughNextButton(event) {
+  const step = walkthroughState.steps[walkthroughState.index]
+  if (typeof step?.onNext === 'function') {
+    step.onNext(event)
+    return
+  }
+  moveWalkthrough(1)
 }
 
 function renderWalkthroughStep() {
@@ -6477,18 +6709,21 @@ function renderWalkthroughStep() {
   }
 
   const elements = ensureWalkthroughElements()
+  elements.card.classList.remove('hidden')
   elements.progress.textContent = t('walkthrough.progress', { current: walkthroughState.index + 1, total: walkthroughState.steps.length })
   const textKey = isMobileLayout() && step.mobileTextKey ? step.mobileTextKey : step.textKey
   elements.text.textContent = textKey ? t(textKey) : step.text
   elements.back.disabled = walkthroughState.index === 0
   elements.next.disabled = step.advanceOn === 'target-click'
   elements.back.textContent = t('walkthrough.back')
-  elements.skip.textContent = t('walkthrough.skip')
+  elements.skip.textContent = t(step.skipLabelKey || 'walkthrough.skip')
   elements.next.textContent = step.actionLabelKey
     ? t(step.actionLabelKey)
     : (walkthroughState.index === walkthroughState.steps.length - 1 ? t('walkthrough.done') : t('walkthrough.next'))
   elements.card.classList.toggle('walkthrough-card-waiting', step.advanceOn === 'target-click')
   elements.card.classList.toggle('walkthrough-card-no-arrow', step.showArrow === false)
+  elements.card.classList.toggle('walkthrough-card-choice', step.choice === true)
+  if (step.choice === true) window.setTimeout(() => elements.skip.focus(), 0)
 
   const scrollTarget = step.scrollTarget ? document.querySelector(step.scrollTarget) : target
   scrollTarget.scrollIntoView({
@@ -6506,7 +6741,7 @@ function moveWalkthrough(delta) {
   const nextIndex = walkthroughState.index + delta
   if (nextIndex < 0) return
   if (nextIndex >= walkthroughState.steps.length) {
-    endWalkthrough({ markCompleted: true })
+    endWalkthrough({ markCompleted: walkthroughState.trackCompletion })
     return
   }
   showWalkthroughStep(nextIndex, { direction: delta })
@@ -6527,10 +6762,11 @@ function showWalkthroughStep(nextIndex, options = {}) {
 }
 
 function endWalkthrough(options = {}) {
-  const { markCompleted = true } = options
   if (!walkthroughState.active) return
+  const markCompleted = options.markCompleted ?? walkthroughState.trackCompletion
 
   const currentStep = walkthroughState.steps[walkthroughState.index]
+  const endedNoAnkiPrompt = currentStep?.id === NO_ANKI_FREQUENT_USER_WALKTHROUGH_STEP.id
   runWalkthroughHooks(currentStep, 'beforeExit', { completed: markCompleted })
   walkthroughState.active = false
   if (walkthroughState.frame) {
@@ -6538,18 +6774,29 @@ function endWalkthrough(options = {}) {
     walkthroughState.frame = null
   }
   walkthroughState.elements?.layer.classList.add('hidden')
+  walkthroughState.elements?.card.classList.remove('hidden', 'walkthrough-card-choice')
   document.body.classList.remove('walkthrough-active')
   syncHeaderCompactState()
   window.removeEventListener('resize', scheduleWalkthroughPosition)
   window.removeEventListener('scroll', scheduleWalkthroughPosition, true)
   document.removeEventListener('click', handleWalkthroughTargetClick)
   document.removeEventListener('keydown', handleWalkthroughKey)
+  walkthroughState.highlightOnly = false
+  walkthroughState.trackCompletion = true
   runWalkthroughHooks(currentStep, 'afterExit', { completed: markCompleted })
   if (markCompleted) completeWalkthrough()
+  if (endedNoAnkiPrompt && !loadState()?.noAnkiFrequentUserPrompt?.response) {
+    ankiRefreshDeferredForPrompt = false
+    applyAnkiRefreshPreference()
+  }
 }
 
 function handleWalkthroughTargetClick(event) {
   if (!walkthroughState.active) return
+  if (walkthroughState.highlightOnly) {
+    endWalkthrough({ markCompleted: false })
+    return
+  }
   const step = walkthroughState.steps[walkthroughState.index]
   const selector = getWalkthroughTargetSelector(step)
   const target = selector ? event.target.closest(selector) : null
@@ -6561,7 +6808,7 @@ function handleWalkthroughKey(event) {
   if (!walkthroughState.active) return
   if (event.key === 'Escape') {
     event.preventDefault()
-    endWalkthrough({ markCompleted: true })
+    endWalkthrough({ markCompleted: walkthroughState.trackCompletion })
   } else if (event.key === 'ArrowRight') {
     event.preventDefault()
     const step = walkthroughState.steps[walkthroughState.index]
@@ -6596,7 +6843,9 @@ function positionWalkthrough() {
   positionWalkthroughScrims(elements.scrims, highlightRect, viewportWidth, viewportHeight)
   elements.highlight.style.borderRadius = getWalkthroughSpotlightRadius(step, highlightRect)
   setFixedRect(elements.highlight, highlightRect)
-  positionWalkthroughCard(elements.card, highlightRect, step.placement || 'bottom', viewportWidth, viewportHeight)
+  if (!walkthroughState.highlightOnly) {
+    positionWalkthroughCard(elements.card, highlightRect, step.placement || 'bottom', viewportWidth, viewportHeight)
+  }
 }
 
 function getWalkthroughHighlightRect(rect, viewportWidth, viewportHeight) {
@@ -7015,6 +7264,7 @@ function toggleSettingsBackups() {
 function handleSettingsKeydown(event) {
   const panel = document.getElementById('settingsPanel')
   if (!panel || panel.classList.contains('hidden')) return
+  if (walkthroughState.active) return
   if (event.key === 'Escape') {
     event.preventDefault()
     closeSettings()
@@ -9187,7 +9437,10 @@ function markVideo(videoId, newStatus) {
     video.watchProgress = []
   }
   video.watchedAt = watchedAt
-  if (watchedAt) s.lastVideoMarkedWatchedAt = watchedAt
+  if (watchedAt) {
+    s.lastVideoMarkedWatchedAt = watchedAt
+    recordNoAnkiFrequentUserWatchedDate(s, watchedAt)
+  }
   video.resumeAtSeconds = newStatus === 'partial'
     ? normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
     : null
@@ -9898,7 +10151,7 @@ function formatAnkiConnectError(err) {
 }
 
 async function refreshAnkiStats({ silent = false } = {}) {
-  if (!isAnkiEnabled(loadState())) return
+  if (ankiRefreshDeferredForPrompt || !isAnkiEnabled(loadState())) return
   try {
     ankiStatsCache = await fetchAnkiStats()
     syncAnkiStatsToState(ankiStatsCache)
@@ -9924,7 +10177,7 @@ async function refreshAnkiStats({ silent = false } = {}) {
 function startAnkiAutoRefresh() {
   clearInterval(startAnkiAutoRefresh._timer)
   startAnkiAutoRefresh._timer = setInterval(() => {
-    if (!document.hidden && isAnkiEnabled(loadState())) refreshAnkiStats({ silent: true })
+    if (!ankiRefreshDeferredForPrompt && !document.hidden && isAnkiEnabled(loadState())) refreshAnkiStats({ silent: true })
   }, ANKI_AUTO_REFRESH_MS)
 }
 
@@ -9935,7 +10188,7 @@ function stopAnkiAutoRefresh() {
 }
 
 function applyAnkiRefreshPreference(state = loadState()) {
-  if (IS_SANDBOX || !isAnkiEnabled(state)) {
+  if (IS_SANDBOX || ankiRefreshDeferredForPrompt || !isAnkiEnabled(state)) {
     stopAnkiAutoRefresh()
     return
   }
@@ -9944,7 +10197,7 @@ function applyAnkiRefreshPreference(state = loadState()) {
 }
 
 function refreshAnkiStatsOnVisible() {
-  if (!IS_SANDBOX && !document.hidden && isAnkiEnabled(loadState())) refreshAnkiStats({ silent: true })
+  if (!IS_SANDBOX && !ankiRefreshDeferredForPrompt && !document.hidden && isAnkiEnabled(loadState())) refreshAnkiStats({ silent: true })
 }
 
 function syncAnkiStatsToState(stats) {

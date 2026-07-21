@@ -1585,6 +1585,14 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   padding-top: 12px;
 }
+.settings-anki-howto-target {
+  display: grid;
+}
+.settings-howto-section + .settings-anki-howto-target,
+.settings-anki-howto-target + .settings-howto-section {
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  padding-top: 12px;
+}
 .settings-howto-section h3 {
   color: var(--text);
   font-size: 0.84rem;
@@ -5156,6 +5164,10 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
   content: " · click highlighted area";
   font-weight: 700;
   letter-spacing: 0;
+}
+.walkthrough-card-choice .walkthrough-progress,
+.walkthrough-card-choice .walkthrough-back {
+  display: none;
 }
 .walkthrough-arrow {
   background: var(--surface);
