@@ -6978,13 +6978,6 @@ summary:focus-visible,
   .settings-insights-group {
     gap: 0;
   }
-  .settings-drawer.settings-howto-mode > :not(.settings-header):not(.settings-howto-group) {
-    display: none !important;
-  }
-  .settings-drawer.settings-howto-mode .settings-howto-group {
-    border-radius: 12px;
-    flex: 1 0 auto;
-  }
   .settings-howto-group + .settings-actions { margin-top: -6px; }
   .activity-log-list {
     max-height: none;
@@ -7551,6 +7544,12 @@ summary:focus-visible,
     overscroll-behavior-inline: contain;
     touch-action: pan-x pan-y;
     -webkit-overflow-scrolling: touch;
+  }
+}
+@media (max-width: 640px), (any-pointer: coarse) {
+  .settings-anki-group,
+  .settings-anki-section {
+    display: none !important;
   }
 }
 @media (min-width: 641px) and (hover: none) {

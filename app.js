@@ -4184,6 +4184,14 @@ function isAnkiEnabled(state) {
   return normalizeAnkiEnabled(state?.config?.ankiEnabled)
 }
 
+function isAnkiAvailableOnDevice() {
+  return !window.matchMedia?.('(max-width: 640px), (any-pointer: coarse)').matches
+}
+
+function isAnkiTrackingActive(state) {
+  return isAnkiAvailableOnDevice() && isAnkiEnabled(state)
+}
+
 function isStudyInsightsEnabled(state) {
   return state?.config?.studyInsights?.enabled !== false
 }
@@ -4613,7 +4621,7 @@ function getEdeniaAnalyticsSnapshot(state) {
       theme: normalizeTheme(state?.config?.theme),
       weeklyGoalHours: normalizeWeeklyGoalHours(state?.config?.weeklyGoalHours),
       includeShortVideos: normalizeIncludeShorts(state?.config?.includeShorts),
-      ankiEnabled: isAnkiEnabled(state),
+      ankiEnabled: isAnkiTrackingActive(state),
       studyInsightsEnabled: isStudyInsightsEnabled(state),
       historyView: normalizeHistoryView(state?.config?.historyView),
       channelShelfOrder: normalizeChannelShelfOrder(state?.config?.channelShelfOrder),
@@ -5145,7 +5153,7 @@ function hasRecordedAnkiDataSinceProfileCreation(state) {
 function shouldPromptFrequentUserAboutAnki(state) {
   if (IS_SANDBOX || !state?.onboarding?.setupCompleted || !state?.onboarding?.walkthroughCompleted) return false
   if (!getEdeniaProfileCreatedAt(state)) return false
-  if (!isAnkiEnabled(state)) return false
+  if (!isAnkiTrackingActive(state)) return false
   normalizeNoAnkiFrequentUserPromptState(state)
   if (state.noAnkiFrequentUserPrompt.response) return false
   if (state.noAnkiFrequentUserPrompt.watchedVideoDateKeys.length < NO_ANKI_FREQUENT_USER_DAY_THRESHOLD) return false
@@ -7243,9 +7251,6 @@ function setSettingsAccordionOpen(contentId, toggleSelector, groupSelector, isOp
 
 function setSettingsHowToOpen(isOpen) {
   setSettingsAccordionOpen('settingsHowToContent', '.settings-howto-toggle', '.settings-howto-group', isOpen)
-  const drawer = document.querySelector('#settingsPanel .settings-drawer')
-  drawer?.classList.toggle('settings-howto-mode', Boolean(isOpen && isMobileLayout()))
-  if (drawer && isMobileLayout()) drawer.scrollTop = 0
 }
 
 function toggleSettingsHowTo() {
@@ -7313,7 +7318,9 @@ async function saveSettingsOnTheFly() {
   const previousAnkiEnabled = isAnkiEnabled(s)
   const previousInsightsEnabled = isStudyInsightsEnabled(s)
   const goal   = normalizeWeeklyGoalHours(document.getElementById('settingsGoal').value)
-  const nextAnkiEnabled = Boolean(document.getElementById('settingsAnkiEnabled')?.checked)
+  const nextAnkiEnabled = isAnkiAvailableOnDevice()
+    ? Boolean(document.getElementById('settingsAnkiEnabled')?.checked)
+    : previousAnkiEnabled
   const nextInsightsEnabled = Boolean(document.getElementById('settingsInsightsEnabled')?.checked)
   const ankiPreferenceChanged = nextAnkiEnabled !== previousAnkiEnabled
   const insightsPreferenceChanged = nextInsightsEnabled !== previousInsightsEnabled
@@ -10164,7 +10171,7 @@ function formatAnkiConnectError(err) {
 }
 
 async function refreshAnkiStats({ silent = false } = {}) {
-  if (ankiRefreshDeferredForPrompt || !isAnkiEnabled(loadState())) return
+  if (ankiRefreshDeferredForPrompt || !isAnkiTrackingActive(loadState())) return
   try {
     ankiStatsCache = await fetchAnkiStats()
     syncAnkiStatsToState(ankiStatsCache)
@@ -10190,7 +10197,7 @@ async function refreshAnkiStats({ silent = false } = {}) {
 function startAnkiAutoRefresh() {
   clearInterval(startAnkiAutoRefresh._timer)
   startAnkiAutoRefresh._timer = setInterval(() => {
-    if (!ankiRefreshDeferredForPrompt && !document.hidden && isAnkiEnabled(loadState())) refreshAnkiStats({ silent: true })
+    if (!ankiRefreshDeferredForPrompt && !document.hidden && isAnkiTrackingActive(loadState())) refreshAnkiStats({ silent: true })
   }, ANKI_AUTO_REFRESH_MS)
 }
 
@@ -10201,7 +10208,7 @@ function stopAnkiAutoRefresh() {
 }
 
 function applyAnkiRefreshPreference(state = loadState()) {
-  if (IS_SANDBOX || ankiRefreshDeferredForPrompt || !isAnkiEnabled(state)) {
+  if (IS_SANDBOX || ankiRefreshDeferredForPrompt || !isAnkiTrackingActive(state)) {
     stopAnkiAutoRefresh()
     return
   }
@@ -10210,7 +10217,7 @@ function applyAnkiRefreshPreference(state = loadState()) {
 }
 
 function refreshAnkiStatsOnVisible() {
-  if (!IS_SANDBOX && !ankiRefreshDeferredForPrompt && !document.hidden && isAnkiEnabled(loadState())) refreshAnkiStats({ silent: true })
+  if (!IS_SANDBOX && !ankiRefreshDeferredForPrompt && !document.hidden && isAnkiTrackingActive(loadState())) refreshAnkiStats({ silent: true })
 }
 
 function syncAnkiStatsToState(stats) {
@@ -11067,7 +11074,7 @@ function renderStudyHistoryPanel(s) {
   renderHistoryPeriodPopover('month', 'historyMonthPeriodPopover', historyState)
 
   const history = getStudyHistory(historyState)
-  const showAnkiColumns = isAnkiEnabled(historyState)
+  const showAnkiColumns = isAnkiTrackingActive(historyState)
   const thirdStatLabelKey = showAnkiColumns ? 'history.ankiReviewed' : 'history.daysStudied'
   const fourthStatLabelKey = showAnkiColumns ? 'history.ankiCreated' : 'history.pointsScored'
   const thirdStatLabel = document.getElementById('historyThirdStatLabel')
@@ -11193,7 +11200,7 @@ function getHeatmapMonthLabels(gridStart, end, weekCount) {
 
 function renderHistoryHeatmap(s, container) {
   container.classList.remove('is-sparse')
-  const ankiEnabled = isAnkiEnabled(s)
+  const ankiEnabled = isAnkiTrackingActive(s)
   const end = IS_SANDBOX ? getSandboxHeatmapEndDate(s) : new Date()
   end.setHours(23, 59, 59, 999)
   const start = addDays(end, -364)
@@ -11607,7 +11614,7 @@ function getStudyInsightCandidates(state, referenceDate = getCurrentAppDate(stat
     })
   }
 
-  if (isAnkiEnabled(state) && ankiReviewDays.length >= 2 && reviewedCards >= 30) {
+  if (isAnkiTrackingActive(state) && ankiReviewDays.length >= 2 && reviewedCards >= 30) {
     candidates.push({
       id: 'anki-fallback',
       type: 'anki-fallback',
@@ -14992,14 +14999,12 @@ function removeVideoFromGrid(event, videoId) {
 
 function showToast(msg, type = 'success') {
   const el = document.getElementById('toast')
-  if (IS_INTERNAL_TEST && el.classList.contains('show') && el.textContent === String(msg)) return
   el.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite')
   el.textContent = msg
   el.className   = `toast toast-${type} show`
   clearTimeout(el._t)
   el._t = setTimeout(() => {
     el.classList.remove('show')
-    if (IS_INTERNAL_TEST) el.textContent = ''
   }, 3500)
 }
 
