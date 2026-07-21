@@ -4537,6 +4537,7 @@ function getEdeniaAnalyticsSnapshot(state) {
     .filter(([, video]) => getVideoStatus(video) === 'watched')
     .map(([videoId, video]) => ({
       id: String(video.id || videoId),
+      title: String(video.title || ''),
       channelId: video.channelId ? String(video.channelId) : null,
       watchedAt: isValidTimestamp(video.watchedAt) ? video.watchedAt : null,
       durationSeconds: Math.max(0, Math.round(Number(video.duration) || 0)),
@@ -9966,6 +9967,15 @@ function syncAnkiStatsToState(stats) {
       rawNewToday: stats.newToday,
       dueCards: stats.dueCards
     }
+  })
+  window.trackEdeniaEvent?.('anki_refresh_succeeded', {
+    refreshed_at: stats.fetchedAt || new Date().toISOString(),
+    anki_date: ankiDateKey,
+    reviewed_today: tracked.reviewed,
+    cards_created_today: tracked.created,
+    raw_reviewed_today: stats.reviewedToday,
+    raw_cards_created_today: stats.newToday,
+    due_card_count: stats.dueCards
   })
   syncStreak(s)
   saveState(s)

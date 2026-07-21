@@ -201,6 +201,7 @@
   function getWatchedVideoEventProperties(video, updateReason) {
     return {
       video_url: getYoutubeVideoUrl(video),
+      video_title: video.title || null,
       channel_id: video.channelId || null,
       watched_at: video.watchedAt || null,
       duration_seconds: video.durationSeconds || 0,
