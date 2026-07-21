@@ -1041,6 +1041,8 @@ const I18N_EN = {
   'history.videosWatched': 'videos watched',
   'history.ankiReviewed': 'Anki cards reviewed',
   'history.ankiCreated': 'new Anki cards',
+  'history.daysStudied': 'days studied',
+  'history.pointsScored': 'pts scored',
   'history.table.date': 'Date',
   'history.table.video': 'Video',
   'history.table.watched': 'Watched',
@@ -1645,6 +1647,8 @@ const I18N = {
     'history.videosWatched': '已看影片',
     'history.ankiReviewed': '已複習 Anki 卡',
     'history.ankiCreated': '新增 Anki 卡',
+    'history.daysStudied': '學習天數',
+    'history.pointsScored': '獲得分數',
     'history.table.date': '日期',
     'history.table.video': '影片',
     'history.table.watched': '已看',
@@ -2099,6 +2103,8 @@ const I18N = {
     'history.videosWatched': '已看视频',
     'history.ankiReviewed': '已复习 Anki 卡',
     'history.ankiCreated': '新增 Anki 卡',
+    'history.daysStudied': '学习天数',
+    'history.pointsScored': '获得分数',
     'history.table.date': '日期',
     'history.table.video': '视频',
     'history.table.watched': '已看',
@@ -2536,6 +2542,8 @@ const I18N = {
     'history.videosWatched': 'videos vistos',
     'history.ankiReviewed': 'tarjetas Anki repasadas',
     'history.ankiCreated': 'tarjetas Anki nuevas',
+    'history.daysStudied': 'días estudiados',
+    'history.pointsScored': 'pts obtenidos',
     'history.table.date': 'Fecha',
     'history.table.video': 'Video',
     'history.table.watched': 'Vistos',
@@ -2975,6 +2983,8 @@ const I18N = {
     'history.videosWatched': 'vidéos vues',
     'history.ankiReviewed': 'cartes Anki révisées',
     'history.ankiCreated': 'nouvelles cartes Anki',
+    'history.daysStudied': 'jours étudiés',
+    'history.pointsScored': 'pts gagnés',
     'history.table.date': 'Date',
     'history.table.video': 'Vidéo',
     'history.table.watched': 'Vues',
@@ -11057,12 +11067,25 @@ function renderStudyHistoryPanel(s) {
   renderHistoryPeriodPopover('month', 'historyMonthPeriodPopover', historyState)
 
   const history = getStudyHistory(historyState)
-  const showAnkiColumns = isAnkiEnabled(s) || history.rows.some(row => row.ankiReviewed > 0 || row.ankiCreated > 0)
+  const showAnkiColumns = isAnkiEnabled(historyState)
+  const thirdStatLabelKey = showAnkiColumns ? 'history.ankiReviewed' : 'history.daysStudied'
+  const fourthStatLabelKey = showAnkiColumns ? 'history.ankiCreated' : 'history.pointsScored'
+  const thirdStatLabel = document.getElementById('historyThirdStatLabel')
+  const fourthStatLabel = document.getElementById('historyFourthStatLabel')
   setText('historyStudyTime', formatHistoryTime(history.summary.secondsWatched))
   setText('historyVideosWatched', history.summary.videosWatched)
-  setText('historyAnkiReviewed', history.summary.ankiReviewed)
-  setText('historyAnkiCreated', history.summary.ankiCreated)
-  document.querySelectorAll('.history-anki-stat').forEach(el => el.classList.toggle('hidden', !showAnkiColumns))
+  setText('historyAnkiReviewed', showAnkiColumns ? history.summary.ankiReviewed : history.rows.length)
+  setText('historyAnkiCreated', showAnkiColumns
+    ? history.summary.ankiCreated
+    : history.rows.reduce((total, row) => total + getHistoryDayPoints(row), 0))
+  if (thirdStatLabel) {
+    thirdStatLabel.dataset.i18n = thirdStatLabelKey
+    thirdStatLabel.textContent = t(thirdStatLabelKey)
+  }
+  if (fourthStatLabel) {
+    fourthStatLabel.dataset.i18n = fourthStatLabelKey
+    fourthStatLabel.textContent = t(fourthStatLabelKey)
+  }
 
   const table = document.getElementById('historyTable')
   if (table) {
