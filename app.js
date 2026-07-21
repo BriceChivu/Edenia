@@ -7642,6 +7642,11 @@ async function addChannel(options = {}) {
     meta: { channelId: id }
   })
   saveState(s)
+  window.trackEdeniaEvent?.('channel_added_via_add_button', {
+    channel_id: id,
+    channel_name: name,
+    total_channel_count: s.config.channels.length
+  })
   renderFeed(s)
   renderActivityLog(s)
   if (idEl) idEl.value = ''
