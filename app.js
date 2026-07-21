@@ -6329,12 +6329,13 @@ async function finishPersonalizedOnboarding() {
       : (onboardingRefreshResult.ok ? 'success' : 'partial_or_failed')
   })
   queueOnboardingNotice(completionNotice)
-  window.location.assign(getNormalAppUrl())
+  window.location.assign(getPostOnboardingAppUrl())
 }
 
-function getNormalAppUrl() {
+function getPostOnboardingAppUrl() {
   const url = new URL(window.location.href)
   url.search = ''
+  if (IS_INTERNAL_TEST && !IS_SANDBOX) url.searchParams.set('internal_test', '1')
   return url.toString()
 }
 
