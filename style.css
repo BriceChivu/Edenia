@@ -6035,16 +6035,6 @@ summary:focus-visible,
   .next-study-actions {
     display: none;
   }
-  .study-next-card .next-study-mobile-link {
-    display: none;
-  }
-  .study-next-card .next-study-actions {
-    display: flex;
-    grid-column: 1 / -1;
-    justify-content: flex-end;
-    position: relative;
-    z-index: 2;
-  }
   .card-title { font-size: 0.78rem; }
 }
 @media (max-width: 420px) {
