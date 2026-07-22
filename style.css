@@ -5316,8 +5316,9 @@ body[data-theme="dark"] .walkthrough-highlight.added-video-spotlight {
   font-size: 0.92rem;
   font-weight: 800;
   gap: 10px;
-  min-height: 48px;
-  padding: 10px 20px;
+  height: var(--compact-control-height);
+  min-height: var(--compact-control-height);
+  padding: 0 20px;
   transition: background var(--motion-base) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
 }
 .feedback-launch-btn:hover {
@@ -5477,8 +5478,9 @@ body[data-theme="dark"] .walkthrough-highlight.added-video-spotlight {
   color: var(--text);
 }
 .feedback-category-option input:checked + .feedback-category-content {
-  background: var(--planet-black);
-  color: var(--planet-lime);
+  background: var(--soft-blue);
+  border-color: var(--accent);
+  color: var(--accent-dim);
 }
 .feedback-category-option input:focus-visible + .feedback-category-content {
   outline: 3px solid var(--focus-ring);
@@ -5525,28 +5527,6 @@ body[data-theme="dark"] .walkthrough-highlight.added-video-spotlight {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.feedback-note {
-  align-items: flex-start;
-  color: var(--muted);
-  display: flex;
-  font-size: 0.72rem;
-  gap: 8px;
-  line-height: 1.45;
-}
-.feedback-note-icon {
-  align-items: center;
-  border: 1.5px solid currentColor;
-  border-radius: 50%;
-  display: inline-flex;
-  flex: 0 0 auto;
-  font-family: Georgia, serif;
-  font-size: 0.68rem;
-  font-weight: 800;
-  height: 18px;
-  justify-content: center;
-  margin-top: 1px;
-  width: 18px;
 }
 .feedback-status {
   border: 1.5px solid var(--border);
@@ -5608,13 +5588,28 @@ body[data-theme="dark"] .walkthrough-highlight.added-video-spotlight {
   width: 1px;
 }
 
+@media (min-width: 641px) {
+  .app-footer {
+    justify-content: flex-end;
+  }
+  .feedback-launch-btn {
+    font-size: 0.84rem;
+    gap: 8px;
+    padding: 0 16px;
+  }
+  .feedback-launch-icon {
+    height: 19px;
+    width: 19px;
+  }
+}
+
 @media (max-width: 640px) {
   .app-footer {
     padding-bottom: max(28px, calc(env(safe-area-inset-bottom) + 18px));
   }
   .feedback-launch-btn {
-    min-height: 46px;
-    padding: 9px 18px;
+    min-height: var(--compact-control-height);
+    padding: 0 18px;
   }
   .feedback-modal {
     align-items: flex-end;
