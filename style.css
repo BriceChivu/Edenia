@@ -2329,6 +2329,7 @@ html[data-theme="dark"] .theme-icon-sun {
   text-align: center;
   transform: translateY(0);
   will-change: transform;
+  z-index: 1;
 }
 .level-up-button.show {
   animation: levelUpFloat 2.4s ease-in-out infinite;
@@ -6731,7 +6732,7 @@ summary:focus-visible,
     flex-wrap: nowrap;
     gap: 6px;
     min-width: 0;
-    overflow: hidden;
+    overflow: visible;
   }
   .city-stage #cityLabel {
     display: none;
