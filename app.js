@@ -240,6 +240,7 @@ const walkthroughState = {
   highlightOnly: false,
   trackCompletion: true
 }
+let levelUpGuidanceTimer = null
 const INTRO_TRAILER_SCENE_DURATIONS = [13000, 8600, 10800, 9200, 9600]
 const INTRO_TRAILER_REFERENCE = {
   viewportWidth: 1710,
@@ -920,6 +921,7 @@ const I18N_EN = {
   'city.timeline': 'City history timeline',
   'city.timeline.today': 'Today',
   'city.levelUp': 'Level up',
+  'walkthrough.levelUpReady': "Great job! You've accumulated enough points to level up!",
   'city.totalPts': 'total pts',
   'city.ptsByThen': 'pts by then',
   'city.readyNext': 'Ready for next level',
@@ -1532,6 +1534,7 @@ const I18N = {
     'sandbox.addDay': '新增一天',
     'sandbox.reset': '重置',
     'city.levelUp': '升級',
+    'walkthrough.levelUpReady': '太棒了！你已經累積足夠的點數，可以升級了！',
     'city.totalPts': '總分',
     'city.ptsByThen': '當時分數',
     'city.readyNext': '可以升到下一級',
@@ -1988,6 +1991,7 @@ const I18N = {
     'sandbox.addDay': '添加一天',
     'sandbox.reset': '重置',
     'city.levelUp': '升级',
+    'walkthrough.levelUpReady': '太棒了！你已经积累了足够的点数，可以升级了！',
     'city.totalPts': '总分',
     'city.ptsByThen': '当时分数',
     'city.readyNext': '可以升到下一级',
@@ -2427,6 +2431,7 @@ const I18N = {
     'sandbox.addDay': 'Añadir día',
     'sandbox.reset': 'Restablecer',
     'city.levelUp': 'Subir nivel',
+    'walkthrough.levelUpReady': '¡Buen trabajo! ¡Has acumulado suficientes puntos para subir de nivel!',
     'city.totalPts': 'pts totales',
     'city.ptsByThen': 'pts hasta entonces',
     'city.readyNext': 'Listo para el siguiente nivel',
@@ -2868,6 +2873,7 @@ const I18N = {
     'sandbox.addDay': 'Ajouter un jour',
     'sandbox.reset': 'Réinitialiser',
     'city.levelUp': 'Niveau suivant',
+    'walkthrough.levelUpReady': 'Bravo ! Vous avez accumulé assez de points pour passer au niveau suivant !',
     'city.totalPts': 'pts au total',
     'city.ptsByThen': 'pts jusque-là',
     'city.readyNext': 'Prêt pour le niveau suivant',
@@ -3936,6 +3942,22 @@ const OTHER_FIRST_STUDY_WALKTHROUGH_STEP = {
     beforeEnter: 'closeTransientUi'
   }
 }
+const LEVEL_UP_GUIDANCE_WALKTHROUGH_STEP = {
+  id: 'level-up-ready',
+  target: '#levelUpButton',
+  textKey: 'walkthrough.levelUpReady',
+  actionLabel: 'Ok!',
+  placement: 'bottom',
+  spotlightPadding: 6,
+  spotlightHeightTarget: '.city-footer',
+  spotlightVerticalPadding: 0,
+  spotlightRadius: 999,
+  confirmationOnly: true,
+  hooks: {
+    afterEnter: 'focusWalkthroughTarget',
+    targetClick: 'advanceAfterTargetClick'
+  }
+}
 const NO_ANKI_FREQUENT_USER_WALKTHROUGH_STEP = {
   id: 'no-anki-frequent-user',
   target: '#settingsAnkiHowToTarget',
@@ -3994,6 +4016,9 @@ const WALKTHROUGH_HOOKS = {
   },
   refreshSpotlight() {
     scheduleWalkthroughPosition()
+  },
+  focusWalkthroughTarget({ target }) {
+    target?.focus({ preventScroll: true })
   },
   advanceAfterTargetClick() {
     window.setTimeout(() => moveWalkthrough(1), 140)
@@ -4686,6 +4711,7 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
       setupCompletedAt: null,
       walkthroughCompleted: false,
       walkthroughCompletedAt: null,
+      levelUpGuidanceShownAt: null,
       recommendationsAppliedAt: null
     },
     noAnkiFrequentUserPrompt: {
@@ -5068,6 +5094,7 @@ function normalizeOnboardingState(state) {
     walkthroughCompletedAt: walkthroughCompleted
       ? (isValidTimestamp(existing.walkthroughCompletedAt) ? existing.walkthroughCompletedAt : (isValidTimestamp(existing.completedAt) ? existing.completedAt : null))
       : null,
+    levelUpGuidanceShownAt: isValidTimestamp(existing.levelUpGuidanceShownAt) ? existing.levelUpGuidanceShownAt : null,
     recommendationsAppliedAt: isValidTimestamp(existing.recommendationsAppliedAt) ? existing.recommendationsAppliedAt : null
   }
   const changed = JSON.stringify(existing) !== JSON.stringify(normalized)
@@ -6738,12 +6765,14 @@ function renderWalkthroughStep() {
   elements.next.disabled = step.advanceOn === 'target-click'
   elements.back.textContent = t('walkthrough.back')
   elements.skip.textContent = t(step.skipLabelKey || 'walkthrough.skip')
-  elements.next.textContent = step.actionLabelKey
+  elements.next.textContent = step.actionLabel || (step.actionLabelKey
     ? t(step.actionLabelKey)
     : (walkthroughState.index === walkthroughState.steps.length - 1 ? t('walkthrough.done') : t('walkthrough.next'))
+  )
   elements.card.classList.toggle('walkthrough-card-waiting', step.advanceOn === 'target-click')
   elements.card.classList.toggle('walkthrough-card-no-arrow', step.showArrow === false)
   elements.card.classList.toggle('walkthrough-card-choice', step.choice === true)
+  elements.card.classList.toggle('walkthrough-card-confirmation', step.confirmationOnly === true)
   if (step.choice === true) window.setTimeout(() => elements.skip.focus(), 0)
 
   const scrollTarget = step.scrollTarget ? document.querySelector(step.scrollTarget) : target
@@ -6872,10 +6901,13 @@ function positionWalkthrough() {
 function getWalkthroughHighlightRect(rect, viewportWidth, viewportHeight) {
   const step = walkthroughState.steps[walkthroughState.index]
   const padding = Number.isFinite(step?.spotlightPadding) ? step.spotlightPadding : 8
+  const heightTarget = step?.spotlightHeightTarget ? document.querySelector(step.spotlightHeightTarget) : null
+  const verticalRect = heightTarget?.getBoundingClientRect() || rect
+  const verticalPadding = Number.isFinite(step?.spotlightVerticalPadding) ? step.spotlightVerticalPadding : padding
   const left = clampNumber(rect.left - padding, 8, viewportWidth - 8)
-  const top = clampNumber(rect.top - padding, 8, viewportHeight - 8)
+  const top = clampNumber(verticalRect.top - verticalPadding, 8, viewportHeight - 8)
   const right = clampNumber(rect.right + padding, left + 1, viewportWidth - 8)
-  const bottom = clampNumber(rect.bottom + padding, top + 1, viewportHeight - 8)
+  const bottom = clampNumber(verticalRect.bottom + verticalPadding, top + 1, viewportHeight - 8)
   return {
     left,
     top,
@@ -12299,6 +12331,7 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
       : t('city.ptsToNext', { count: nextLevel.threshold - snapshot.score })
     : t('city.maxLevel')
   if (includeTimeline) renderLevelUpButton(snapshot)
+  if (includeTimeline && snapshot.isToday) maybeStartLevelUpGuidance(s)
 
   if (includeTimeline) renderCityTimeControls(snapshot)
   updateCityMilestoneImage(snapshot.visualScore, { preloadCenterIndex: getCurrentCityImageIndex(s) })
@@ -12378,6 +12411,37 @@ function renderLevelUpButton(snapshot) {
   button.classList.toggle('show', !!snapshot.hasPendingLevel)
   button.disabled = !snapshot.hasPendingLevel
   button.setAttribute('aria-hidden', String(!snapshot.hasPendingLevel))
+}
+
+function maybeStartLevelUpGuidance(s) {
+  if (
+    levelUpGuidanceTimer ||
+    s?.onboarding?.levelUpGuidanceShownAt ||
+    s?.cityProgress?.maxLevelIndex !== 0 ||
+    s?.cityProgress?.pendingLevelIndex !== 1
+  ) return
+
+  levelUpGuidanceTimer = window.setTimeout(() => {
+    levelUpGuidanceTimer = null
+    const currentState = loadState()
+    if (!currentState) return
+    normalizeOnboardingState(currentState)
+    normalizeCityProgress(currentState)
+    if (
+      currentState.onboarding.levelUpGuidanceShownAt ||
+      currentState.cityProgress.maxLevelIndex !== 0 ||
+      currentState.cityProgress.pendingLevelIndex !== 1
+    ) return
+    if (walkthroughState.active) {
+      maybeStartLevelUpGuidance(currentState)
+      return
+    }
+
+    startWalkthrough([LEVEL_UP_GUIDANCE_WALKTHROUGH_STEP], { trackCompletion: false })
+    if (!walkthroughState.active || walkthroughState.steps[0]?.id !== LEVEL_UP_GUIDANCE_WALKTHROUGH_STEP.id) return
+    currentState.onboarding.levelUpGuidanceShownAt = new Date().toISOString()
+    saveState(currentState)
+  }, 450)
 }
 
 function launchCityLevelUpConfetti() {

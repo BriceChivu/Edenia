@@ -5174,6 +5174,14 @@ body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947
 .walkthrough-card-choice .walkthrough-back {
   display: none;
 }
+.walkthrough-card-confirmation .walkthrough-progress,
+.walkthrough-card-confirmation .walkthrough-skip,
+.walkthrough-card-confirmation .walkthrough-back {
+  display: none;
+}
+.walkthrough-card-confirmation .walkthrough-actions {
+  justify-content: flex-end;
+}
 .walkthrough-arrow {
   background: var(--surface);
   border: 2px solid var(--planet-black);
