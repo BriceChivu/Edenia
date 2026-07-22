@@ -5927,60 +5927,6 @@ summary:focus-visible,
   .history-view-btn {
     flex: 1;
   }
-  .history-row-head {
-    display: none;
-  }
-  .history-row-head + .history-row {
-    border-top: 0;
-  }
-  .history-row {
-    align-items: stretch;
-    gap: 8px 10px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    min-height: 0;
-    padding: 12px;
-  }
-  .history-row > span {
-    align-content: start;
-    background: rgba(255,255,255,0.34);
-    border: 1px solid rgba(5,5,5,0.08);
-    border-radius: 8px;
-    display: grid;
-    font-size: 0.78rem;
-    gap: 4px;
-    line-height: 1.2;
-    min-width: 0;
-    padding: 8px;
-  }
-  body[data-theme="dark"] .history-row > span {
-    background: rgba(255,255,255,0.04);
-    border-color: rgba(255,255,255,0.08);
-  }
-  .history-row > span:first-child {
-    grid-column: 1 / -1;
-  }
-  .history-row > span::before {
-    color: var(--muted);
-    content: attr(data-label);
-    display: block;
-    font-size: 0.68rem;
-    font-weight: 800;
-    line-height: 1;
-    margin-bottom: 4px;
-    text-transform: uppercase;
-  }
-  .history-video-cell {
-    justify-content: flex-start;
-    width: 100%;
-  }
-  .history-points-cell {
-    justify-content: flex-start;
-    width: 100%;
-  }
-  .history-points-col {
-    padding-right: 0;
-    text-align: left;
-  }
   .history-points-popover {
     bottom: auto;
     left: 50%;
