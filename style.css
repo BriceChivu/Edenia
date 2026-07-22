@@ -1402,6 +1402,16 @@ body.onboarding-active .toast { z-index: 320; }
   transform: none;
 }
 .onboarding-private-note { color: var(--muted); font-size: 0.7rem; line-height: 1.4; text-align: center; }
+.onboarding-panel.is-recovery .onboarding-card { max-width: 620px; }
+.onboarding-recovery-actions { justify-content: flex-end; }
+.onboarding-recovery-status {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.4;
+  min-height: 1.1em;
+  text-align: center;
+}
 body[data-theme="dark"] .onboarding-choice[aria-pressed="true"],
 body[data-theme="dark"] .onboarding-channel[aria-pressed="true"] { background: var(--mint); }
 body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choice-detail { color: var(--text); }

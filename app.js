@@ -251,6 +251,7 @@ const INTRO_TRAILER_REFERENCE = {
 const introTrailerState = {
   active: false,
   replayMode: false,
+  state: null,
   sceneIndex: 0,
   sceneTimer: null,
   cityLevelTimers: [],
@@ -270,6 +271,12 @@ const personalizedOnboardingState = {
   selectedChannelCatalogIds: [],
   channelSelectionsInitialized: false,
   isApplyingChannels: false
+}
+const onboardingRecoveryState = {
+  active: false,
+  reason: 'setup',
+  resume: 'personalized',
+  state: null
 }
 const curatedChannelResolutionCache = new Map()
 const STATUS_FILTERS = [
@@ -787,6 +794,16 @@ const I18N_EN = {
   'onboarding.build': 'Start my journey',
   'onboarding.building': 'Starting your journey...',
   'onboarding.private': 'No account required · Your real progress stays in this browser',
+  'onboarding.recovery.storage.title': 'Edenia can’t save your progress',
+  'onboarding.recovery.storage.body': 'Edenia can’t save your progress in this browser. Please open this page in your device’s main browser and try again.',
+  'onboarding.recovery.setup.title': 'Setup couldn’t start',
+  'onboarding.recovery.setup.body': 'Edenia couldn’t start setup. Try again, or copy the link and open it in your device’s main browser.',
+  'onboarding.recovery.tryAgain': 'Try again',
+  'onboarding.recovery.copyLink': 'Copy link',
+  'onboarding.recovery.copied': 'Link copied.',
+  'onboarding.recovery.copyFailed': 'The link couldn’t be copied. Copy it from your browser’s address bar.',
+  'onboarding.recovery.storageStillUnavailable': 'Edenia still can’t save progress in this browser.',
+  'onboarding.recovery.setupStillUnavailable': 'Setup still couldn’t start. Copy the link and try it in your device’s main browser.',
   'onboarding.channelIssue': '{count} starter channel{plural} could not be added. You can add it manually later.',
   'onboarding.videoIssue': 'Your channels were added, but their recent videos could not load yet. Check YouTube access, then try again.',
   'onboarding.language.mandarin': 'Mandarin Chinese',
@@ -1413,6 +1430,16 @@ const I18N = {
     'onboarding.build': '開始我的旅程',
     'onboarding.building': '正在開始你的旅程…',
     'onboarding.private': '不需帳號 · 你的真實進度只會保存在這個瀏覽器中',
+    'onboarding.recovery.storage.title': 'Edenia 無法儲存你的進度',
+    'onboarding.recovery.storage.body': 'Edenia 無法在這個瀏覽器中儲存你的進度。請在裝置的主要瀏覽器中開啟此頁面，然後再試一次。',
+    'onboarding.recovery.setup.title': '無法開始設定',
+    'onboarding.recovery.setup.body': 'Edenia 無法開始設定。請再試一次，或複製連結並在裝置的主要瀏覽器中開啟。',
+    'onboarding.recovery.tryAgain': '再試一次',
+    'onboarding.recovery.copyLink': '複製連結',
+    'onboarding.recovery.copied': '已複製連結。',
+    'onboarding.recovery.copyFailed': '無法複製連結。請從瀏覽器的網址列複製。',
+    'onboarding.recovery.storageStillUnavailable': 'Edenia 仍無法在這個瀏覽器中儲存進度。',
+    'onboarding.recovery.setupStillUnavailable': '仍無法開始設定。請複製連結，並在裝置的主要瀏覽器中再試一次。',
     'onboarding.channelIssue': '有 {count} 個入門頻道無法加入。你之後可以手動新增。',
     'onboarding.videoIssue': '頻道已加入，但目前無法載入近期影片。請檢查 YouTube 存取權限後再試一次。',
     'onboarding.language.mandarin': '華語',
@@ -1872,6 +1899,16 @@ const I18N = {
     'onboarding.build': '开始我的旅程',
     'onboarding.building': '正在开始你的旅程…',
     'onboarding.private': '无需账号 · 你的真实进度只会保存在这个浏览器中',
+    'onboarding.recovery.storage.title': 'Edenia 无法保存你的进度',
+    'onboarding.recovery.storage.body': 'Edenia 无法在这个浏览器中保存你的进度。请在设备的主要浏览器中打开此页面，然后重试。',
+    'onboarding.recovery.setup.title': '无法开始设置',
+    'onboarding.recovery.setup.body': 'Edenia 无法开始设置。请重试，或复制链接并在设备的主要浏览器中打开。',
+    'onboarding.recovery.tryAgain': '重试',
+    'onboarding.recovery.copyLink': '复制链接',
+    'onboarding.recovery.copied': '链接已复制。',
+    'onboarding.recovery.copyFailed': '无法复制链接。请从浏览器的地址栏复制。',
+    'onboarding.recovery.storageStillUnavailable': 'Edenia 仍无法在这个浏览器中保存进度。',
+    'onboarding.recovery.setupStillUnavailable': '仍无法开始设置。请复制链接，并在设备的主要浏览器中重试。',
     'onboarding.channelIssue': '有 {count} 个入门频道无法添加。你之后可以手动添加。',
     'onboarding.videoIssue': '频道已添加，但目前无法加载近期视频。请检查 YouTube 访问权限后再试一次。',
     'onboarding.language.mandarin': '普通话',
@@ -2312,6 +2349,16 @@ const I18N = {
     'onboarding.build': 'Empezar mi viaje',
     'onboarding.building': 'Preparando tu viaje...',
     'onboarding.private': 'Sin cuenta · Tu progreso real permanece en este navegador',
+    'onboarding.recovery.storage.title': 'Edenia no puede guardar tu progreso',
+    'onboarding.recovery.storage.body': 'Edenia no puede guardar tu progreso en este navegador. Abre esta página en el navegador principal de tu dispositivo e inténtalo de nuevo.',
+    'onboarding.recovery.setup.title': 'No se pudo iniciar la configuración',
+    'onboarding.recovery.setup.body': 'Edenia no pudo iniciar la configuración. Inténtalo de nuevo o copia el enlace y ábrelo en el navegador principal de tu dispositivo.',
+    'onboarding.recovery.tryAgain': 'Intentar de nuevo',
+    'onboarding.recovery.copyLink': 'Copiar enlace',
+    'onboarding.recovery.copied': 'Enlace copiado.',
+    'onboarding.recovery.copyFailed': 'No se pudo copiar el enlace. Cópialo desde la barra de direcciones de tu navegador.',
+    'onboarding.recovery.storageStillUnavailable': 'Edenia todavía no puede guardar el progreso en este navegador.',
+    'onboarding.recovery.setupStillUnavailable': 'La configuración todavía no pudo iniciarse. Copia el enlace e inténtalo en el navegador principal de tu dispositivo.',
     'onboarding.channelIssue': 'No se pudieron añadir {count} canales iniciales. Puedes añadirlos manualmente después.',
     'onboarding.videoIssue': 'Los canales se añadieron, pero sus videos recientes aún no se pudieron cargar. Comprueba el acceso a YouTube e inténtalo de nuevo.',
     'onboarding.language.mandarin': 'Chino mandarín',
@@ -2754,6 +2801,16 @@ const I18N = {
     'onboarding.build': 'Commencer mon parcours',
     'onboarding.building': 'Préparation de votre parcours…',
     'onboarding.private': 'Aucun compte requis · Votre progression réelle reste dans ce navigateur',
+    'onboarding.recovery.storage.title': 'Edenia ne peut pas enregistrer votre progression',
+    'onboarding.recovery.storage.body': 'Edenia ne peut pas enregistrer votre progression dans ce navigateur. Ouvrez cette page dans le navigateur principal de votre appareil, puis réessayez.',
+    'onboarding.recovery.setup.title': 'La configuration n’a pas pu démarrer',
+    'onboarding.recovery.setup.body': 'Edenia n’a pas pu démarrer la configuration. Réessayez ou copiez le lien et ouvrez-le dans le navigateur principal de votre appareil.',
+    'onboarding.recovery.tryAgain': 'Réessayer',
+    'onboarding.recovery.copyLink': 'Copier le lien',
+    'onboarding.recovery.copied': 'Lien copié.',
+    'onboarding.recovery.copyFailed': 'Le lien n’a pas pu être copié. Copiez-le depuis la barre d’adresse de votre navigateur.',
+    'onboarding.recovery.storageStillUnavailable': 'Edenia ne peut toujours pas enregistrer la progression dans ce navigateur.',
+    'onboarding.recovery.setupStillUnavailable': 'La configuration ne peut toujours pas démarrer. Copiez le lien et réessayez dans le navigateur principal de votre appareil.',
     'onboarding.channelIssue': '{count} chaînes de départ n’ont pas pu être ajoutées. Vous pourrez les ajouter manuellement plus tard.',
     'onboarding.videoIssue': 'Les chaînes ont été ajoutées, mais leurs vidéos récentes n’ont pas encore pu être chargées. Vérifiez l’accès à YouTube, puis réessayez.',
     'onboarding.language.mandarin': 'Chinois mandarin',
@@ -4527,6 +4584,19 @@ function loadState() {
   return null
 }
 
+function canPersistLocalState() {
+  const probeKey = `${STORAGE_KEY}_storage_probe`
+  try {
+    localStorage.setItem(probeKey, '1')
+    const available = localStorage.getItem(probeKey) === '1'
+    localStorage.removeItem(probeKey)
+    return available
+  } catch {
+    try { localStorage.removeItem(probeKey) } catch {}
+    return false
+  }
+}
+
 function saveState(s, options = {}) {
   const { backup = true, backupReason = 'automatic backup', forceBackup = false } = options
   normalizeActivityLogState(s)
@@ -4535,14 +4605,20 @@ function saveState(s, options = {}) {
   normalizeVideoWatchReminderState(s)
   normalizeStudyInsightConfig(s)
   if (backup) createStateBackup(backupReason, { force: forceBackup })
+  let persisted = false
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
+    persisted = true
   } catch {
     pruneOldestStateBackup()
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch {}
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
+      persisted = true
+    } catch {}
   }
   saveConfigCookie(s.config)
-  syncPersistedStateToAnalytics(s)
+  if (persisted) syncPersistedStateToAnalytics(s)
+  return persisted
 }
 
 function roundAnalyticsNumber(value, decimals = 3) {
@@ -5735,11 +5811,20 @@ function maybeStartOnboarding(state) {
     return true
   }
   if (IS_SANDBOX) return false
+  if (!canPersistLocalState()) {
+    const resume = state?.onboarding?.introSeenAt ? 'personalized' : 'intro'
+    window.setTimeout(() => showOnboardingRecovery('storage', { state, resume }), 220)
+    return true
+  }
   if (!state?.onboarding?.setupCompleted) {
     if (!state?.onboarding?.introSeenAt) {
-      window.setTimeout(() => startIntroTrailer(), 220)
+      window.setTimeout(() => {
+        if (!startIntroTrailer({ state })) showOnboardingRecovery('setup', { state, resume: 'intro' })
+      }, 220)
     } else {
-      window.setTimeout(() => startPersonalizedOnboarding(state), 220)
+      window.setTimeout(() => {
+        if (!startPersonalizedOnboarding(state)) showOnboardingRecovery('setup', { state, resume: 'personalized' })
+      }, 220)
     }
     return true
   }
@@ -5787,16 +5872,17 @@ function syncIntroTrailerStageScale() {
   stage.style.setProperty('--intro-stage-enter-scale', (scale * 1.025).toFixed(6))
 }
 
-function startIntroTrailer({ replay = false } = {}) {
-  if ((IS_SANDBOX && !replay) || introTrailerState.active) return
+function startIntroTrailer({ replay = false, state = null } = {}) {
+  if ((IS_SANDBOX && !replay) || introTrailerState.active) return false
   const trailer = document.getElementById('introTrailer')
   if (!trailer) {
-    if (!replay) startPersonalizedOnboarding()
-    return
+    if (!replay) return startPersonalizedOnboarding(state || loadState())
+    return false
   }
 
   introTrailerState.active = true
   introTrailerState.replayMode = replay
+  introTrailerState.state = replay ? null : (state || loadState())
   stopIntroMusic()
   document.body.classList.add('intro-active')
   document.getElementById('mainApp')?.setAttribute('inert', '')
@@ -5811,6 +5897,7 @@ function startIntroTrailer({ replay = false } = {}) {
 
   setIntroTrailerScene(0)
   startIntroMusic().catch(() => {})
+  return true
 }
 
 function setIntroTrailerScene(sceneIndex, { autoAdvance = true } = {}) {
@@ -6149,9 +6236,7 @@ async function toggleIntroSound() {
   }
 }
 
-function finishIntroTrailer() {
-  if (!introTrailerState.active) return
-  const wasReplay = introTrailerState.replayMode
+function closeIntroTrailer({ restoreMain = false } = {}) {
   stopIntroMusic({ fadeDuration: 7.5 })
   window.clearTimeout(introTrailerState.sceneTimer)
   introTrailerState.cityLevelTimers.forEach(timer => window.clearTimeout(timer))
@@ -6162,39 +6247,197 @@ function finishIntroTrailer() {
   const trailer = document.getElementById('introTrailer')
   trailer?.classList.add('hidden')
   document.body.classList.remove('intro-active')
+  if (restoreMain) document.getElementById('mainApp')?.removeAttribute('inert')
+}
+
+function finishIntroTrailer() {
+  if (!introTrailerState.active) return
+  const wasReplay = introTrailerState.replayMode
 
   if (wasReplay) {
-    document.getElementById('mainApp')?.removeAttribute('inert')
+    closeIntroTrailer({ restoreMain: true })
     return
   }
 
-  const state = loadState()
-  if (state) {
-    normalizeOnboardingState(state)
-    state.onboarding.introSeenAt = state.onboarding.introSeenAt || new Date().toISOString()
-    saveState(state, { backup: false })
+  const state = loadState() || introTrailerState.state
+  if (!state) {
+    closeIntroTrailer()
+    showOnboardingRecovery('setup', { resume: 'personalized' })
+    return
   }
-  startPersonalizedOnboarding(state)
+
+  normalizeOnboardingState(state)
+  state.onboarding.introSeenAt = state.onboarding.introSeenAt || new Date().toISOString()
+  if (!saveState(state, { backup: false })) {
+    closeIntroTrailer()
+    showOnboardingRecovery('storage', { state, resume: 'personalized' })
+    return
+  }
+
+  if (!startPersonalizedOnboarding(state)) {
+    closeIntroTrailer()
+    showOnboardingRecovery('setup', { state, resume: 'personalized' })
+    return
+  }
+  closeIntroTrailer()
 }
 
 function startPersonalizedOnboarding(state = loadState()) {
-  if (!state || IS_SANDBOX) return
-  normalizeLearnerProfileState(state)
-  personalizedOnboardingState.active = true
-  personalizedOnboardingState.step = state.learnerProfile.languages[0]
-    ? (state.learnerProfile.languages[0] === 'other'
-        ? 'other'
-        : (state.learnerProfile.level ? 'channels' : 'level'))
-    : 'language'
-  personalizedOnboardingState.languageId = state.learnerProfile.languages[0] || null
-  personalizedOnboardingState.levelId = state.learnerProfile.level || null
-  personalizedOnboardingState.selectedChannelCatalogIds = state.learnerProfile.selectedChannelCatalogIds.slice(0, ONBOARDING_CHANNEL_SELECTION_LIMIT)
-  personalizedOnboardingState.channelSelectionsInitialized = state.learnerProfile.selectedChannelCatalogIds.length > 0
-  personalizedOnboardingState.isApplyingChannels = false
+  if (!state || IS_SANDBOX) return false
+  const panel = document.getElementById('onboardingPanel')
+  const content = document.getElementById('onboardingContent')
+  const progress = document.querySelector('#onboardingPanel .onboarding-progress')
+  if (!panel || !content || !progress) return false
+
+  try {
+    normalizeLearnerProfileState(state)
+    onboardingRecoveryState.active = false
+    onboardingRecoveryState.state = null
+    personalizedOnboardingState.active = true
+    personalizedOnboardingState.step = state.learnerProfile.languages[0]
+      ? (state.learnerProfile.languages[0] === 'other'
+          ? 'other'
+          : (state.learnerProfile.level ? 'channels' : 'level'))
+      : 'language'
+    personalizedOnboardingState.languageId = state.learnerProfile.languages[0] || null
+    personalizedOnboardingState.levelId = state.learnerProfile.level || null
+    personalizedOnboardingState.selectedChannelCatalogIds = state.learnerProfile.selectedChannelCatalogIds.slice(0, ONBOARDING_CHANNEL_SELECTION_LIMIT)
+    personalizedOnboardingState.channelSelectionsInitialized = state.learnerProfile.selectedChannelCatalogIds.length > 0
+    personalizedOnboardingState.isApplyingChannels = false
+    panel.classList.remove('is-recovery', 'hidden')
+    progress.classList.remove('hidden')
+    document.body.classList.add('onboarding-active')
+    document.getElementById('mainApp')?.setAttribute('inert', '')
+    renderPersonalizedOnboarding()
+    return true
+  } catch (error) {
+    console.error('Unable to start personalized onboarding.', error)
+    personalizedOnboardingState.active = false
+    panel.classList.add('hidden')
+    document.body.classList.remove('onboarding-active')
+    document.getElementById('mainApp')?.removeAttribute('inert')
+    return false
+  }
+}
+
+function showOnboardingRecovery(reason = 'setup', { state = null, resume = 'personalized' } = {}) {
+  const normalizedReason = reason === 'storage' ? 'storage' : 'setup'
+  const panel = document.getElementById('onboardingPanel')
+  const content = document.getElementById('onboardingContent')
+  const localePicker = document.getElementById('onboardingLocalePicker')
+  const progress = document.querySelector('#onboardingPanel .onboarding-progress')
+  if (!panel || !content) return false
+
+  personalizedOnboardingState.active = false
+  onboardingRecoveryState.active = true
+  onboardingRecoveryState.reason = normalizedReason
+  onboardingRecoveryState.resume = ['intro', 'complete'].includes(resume) ? resume : 'personalized'
+  onboardingRecoveryState.state = state
+  localePicker?.classList.add('hidden')
+  progress?.classList.add('hidden')
+  content.innerHTML = `
+    ${renderOnboardingHeading(`onboarding.recovery.${normalizedReason}.title`, `onboarding.recovery.${normalizedReason}.body`)}
+    <div class="onboarding-actions onboarding-recovery-actions">
+      <button type="button" class="btn-secondary" onclick="copyOnboardingRecoveryLink(this)">${escHtml(t('onboarding.recovery.copyLink'))}</button>
+      <button type="button" class="btn-primary" onclick="retryOnboardingRecovery(this)">${escHtml(t('onboarding.recovery.tryAgain'))}</button>
+    </div>
+    <p class="onboarding-recovery-status" id="onboardingRecoveryStatus" role="status" aria-live="polite"></p>
+  `
+  panel.classList.add('is-recovery')
+  panel.classList.remove('hidden')
   document.body.classList.add('onboarding-active')
   document.getElementById('mainApp')?.setAttribute('inert', '')
-  document.getElementById('onboardingPanel')?.classList.remove('hidden')
-  renderPersonalizedOnboarding()
+  window.trackEdeniaEvent?.('onboarding_recovery_shown', {
+    reason: normalizedReason,
+    resume_target: onboardingRecoveryState.resume,
+    navigator_language: navigator.language || null
+  })
+  return true
+}
+
+function closeOnboardingRecovery() {
+  const panel = document.getElementById('onboardingPanel')
+  const progress = document.querySelector('#onboardingPanel .onboarding-progress')
+  onboardingRecoveryState.active = false
+  panel?.classList.remove('is-recovery')
+  panel?.classList.add('hidden')
+  progress?.classList.remove('hidden')
+  document.body.classList.remove('onboarding-active')
+  document.getElementById('mainApp')?.removeAttribute('inert')
+}
+
+async function copyOnboardingRecoveryLink(button) {
+  const status = document.getElementById('onboardingRecoveryStatus')
+  let copied = false
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable')
+    await navigator.clipboard.writeText(window.location.href)
+    copied = true
+  } catch {
+    const input = document.createElement('textarea')
+    input.value = window.location.href
+    input.setAttribute('readonly', '')
+    input.style.position = 'fixed'
+    input.style.opacity = '0'
+    document.body.appendChild(input)
+    input.focus()
+    input.select()
+    input.setSelectionRange(0, input.value.length)
+    try { copied = document.execCommand('copy') } catch {}
+    input.remove()
+  }
+
+  if (status) status.textContent = t(copied ? 'onboarding.recovery.copied' : 'onboarding.recovery.copyFailed')
+  if (button && copied) {
+    const originalLabel = t('onboarding.recovery.copyLink')
+    button.textContent = t('onboarding.recovery.copied')
+    window.setTimeout(() => {
+      if (button.isConnected) button.textContent = originalLabel
+    }, 2200)
+  }
+  window.trackEdeniaEvent?.('onboarding_recovery_link_copy', { success: copied })
+}
+
+function retryOnboardingRecovery(button) {
+  if (!onboardingRecoveryState.active) return
+  const status = document.getElementById('onboardingRecoveryStatus')
+  if (button) button.disabled = true
+
+  if (!canPersistLocalState()) {
+    if (status) status.textContent = t('onboarding.recovery.storageStillUnavailable')
+    if (button) button.disabled = false
+    window.trackEdeniaEvent?.('onboarding_recovery_retry', { success: false, reason: 'storage' })
+    return
+  }
+
+  const state = onboardingRecoveryState.state || loadState() || defaultState(4, DEFAULT_CHANNELS)
+  normalizeOnboardingState(state)
+  if (!saveState(state, { backup: false })) {
+    if (status) status.textContent = t('onboarding.recovery.storageStillUnavailable')
+    if (button) button.disabled = false
+    window.trackEdeniaEvent?.('onboarding_recovery_retry', { success: false, reason: 'storage' })
+    return
+  }
+
+  const resume = onboardingRecoveryState.resume
+  const recoveryReason = onboardingRecoveryState.reason
+  closeOnboardingRecovery()
+  if (resume === 'complete') {
+    window.trackEdeniaEvent?.('onboarding_recovery_retry', { success: true, reason: recoveryReason })
+    window.location.assign(getPostOnboardingAppUrl())
+    return
+  }
+  const started = resume === 'intro'
+    ? startIntroTrailer({ state })
+    : startPersonalizedOnboarding(state)
+  if (!started) {
+    showOnboardingRecovery('setup', { state, resume })
+    const nextStatus = document.getElementById('onboardingRecoveryStatus')
+    if (nextStatus) nextStatus.textContent = t('onboarding.recovery.setupStillUnavailable')
+    window.trackEdeniaEvent?.('onboarding_recovery_retry', { success: false, reason: 'setup' })
+    return
+  }
+  window.trackEdeniaEvent?.('onboarding_recovery_retry', { success: true, reason: recoveryReason })
 }
 
 function renderPersonalizedOnboarding() {
@@ -6443,7 +6686,11 @@ async function finishPersonalizedOnboarding() {
     createdAt: state.learnerProfile.createdAt || now,
     updatedAt: now
   }
-  saveState(state, { backup: false })
+  if (!saveState(state, { backup: false })) {
+    personalizedOnboardingState.isApplyingChannels = false
+    showOnboardingRecovery('storage', { state, resume: 'personalized' })
+    return
+  }
 
   const resolution = await resolveStarterChannelSelections(state.learnerProfile.selectedChannelCatalogIds)
   if (resolution.failedCount && !resolution.channels.length) {
@@ -6479,7 +6726,11 @@ async function finishPersonalizedOnboarding() {
     }
     state.config.removedChannelIds = (state.config.removedChannelIds || []).filter(channelId => channelId !== channel.id)
   })
-  saveState(state, { backup: false })
+  if (!saveState(state, { backup: false })) {
+    personalizedOnboardingState.isApplyingChannels = false
+    showOnboardingRecovery('storage', { state, resume: 'personalized' })
+    return
+  }
 
   let onboardingRefreshResult = null
   if (resolution.channels.length) {
@@ -6516,7 +6767,11 @@ async function finishPersonalizedOnboarding() {
     title: t('log.onboarding.title'),
     detail: onboardingDetail
   })
-  saveState(state)
+  if (!saveState(state)) {
+    personalizedOnboardingState.isApplyingChannels = false
+    showOnboardingRecovery('storage', { state, resume: 'complete' })
+    return
+  }
   window.trackEdeniaEvent?.('onboarding_completed', {
     selected_channel_count: state.learnerProfile.selectedChannelCatalogIds.length,
     added_channel_count: addedChannelCount,
