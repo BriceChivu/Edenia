@@ -15,6 +15,10 @@ const URL_PARAMS = new URLSearchParams(window.location.search)
 const IS_SANDBOX = URL_PARAMS.get('sandbox') === '1'
 const IS_INTERNAL_TEST = URL_PARAMS.get('internal_test') === '1'
 const IS_LOCALHOST = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
+const TEMP_SHORTS_WHITELIST_VERSION = '2026-07-22-1'
+const TEMP_SHORTS_DISTINCT_IDS = new Set([
+  '019f7f94-34a7-7263-87fc-27029d04e6e7'
+])
 const SANDBOX_CHANNELS_VERSION = 2
 const SANDBOX_CHANNEL_DEFINITIONS = [
   { id: 'sandbox-focus', nameKey: 'sandbox.channel.focus', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Dermot_Mulroney_Photo_Op_Nightmare_Weekend_Chicago_2025.jpg/250px-Dermot_Mulroney_Photo_Op_Nightmare_Weekend_Chicago_2025.jpg' },
@@ -4258,6 +4262,13 @@ function normalizeIncludeShorts(value) {
   return value !== false
 }
 
+function isTemporaryShortsWhitelistedUser() {
+  if (!window.EDENIA_ANALYTICS_ENABLED) return false
+  const getDistinctId = window.posthog?.get_distinct_id
+  if (typeof getDistinctId !== 'function') return false
+  return TEMP_SHORTS_DISTINCT_IDS.has(getDistinctId.call(window.posthog))
+}
+
 function normalizeAnkiEnabled(value) {
   return value !== false
 }
@@ -4536,7 +4547,13 @@ function loadState() {
       if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
       if (state?.config) state.config.locale = normalizeLocale(state.config.locale || getBrowserDefaultLocale())
       if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
-      if (state?.config) state.config.includeShorts = normalizeIncludeShorts(state.config.includeShorts)
+      if (state?.config) {
+        const includeShorts = isTemporaryShortsWhitelistedUser()
+          ? true
+          : normalizeIncludeShorts(state.config.includeShorts)
+        if (state.config.includeShorts !== includeShorts) shouldSave = true
+        state.config.includeShorts = includeShorts
+      }
       if (normalizeAnkiTrackingConfig(state)) shouldSave = true
       if (normalizeStudyInsightConfig(state)) shouldSave = true
       if (state?.config) {
@@ -5731,6 +5748,17 @@ function init() {
     saveState(state)
   }
 
+  const shouldForceTemporaryShortsRefetch = Boolean(
+    isTemporaryShortsWhitelistedUser()
+    && state.onboarding?.setupCompleted
+    && state.config.channels.length
+    && state.config.temporaryShortsWhitelistVersion !== TEMP_SHORTS_WHITELIST_VERSION
+  )
+  if (shouldForceTemporaryShortsRefetch) {
+    state.config.includeShorts = true
+    state.config.temporaryShortsWhitelistVersion = TEMP_SHORTS_WHITELIST_VERSION
+  }
+
   applyLocale(state.config.locale)
   updateDocumentTitle(state)
   document.body.dataset.sandbox = IS_SANDBOX ? 'true' : 'false'
@@ -5756,7 +5784,12 @@ function init() {
   const onboardingExperienceStarted = maybeStartOnboarding(state)
   const noAnkiPromptScheduled = !onboardingExperienceStarted && maybeStartNoAnkiFrequentUserPrompt(state)
   if (!IS_SANDBOX) {
-    if (state.onboarding.setupCompleted) startLiveIntegrations(state, { deferAnki: noAnkiPromptScheduled })
+    if (state.onboarding.setupCompleted) {
+      startLiveIntegrations(state, {
+        deferAnki: noAnkiPromptScheduled,
+        forceShortsRefetch: shouldForceTemporaryShortsRefetch
+      })
+    }
   } else {
     if (IS_SANDBOX) showToast(t('toast.sandboxMode'), 'warn')
   }
@@ -5778,9 +5811,15 @@ function showPendingOnboardingNotice() {
   if (message) window.setTimeout(() => showToast(message, 'warn'), 500)
 }
 
-function startLiveIntegrations(state = loadState(), { deferAnki = false } = {}) {
+function startLiveIntegrations(state = loadState(), { deferAnki = false, forceShortsRefetch = false } = {}) {
   if (IS_SANDBOX || !state?.onboarding?.setupCompleted) return
   if (!deferAnki) applyAnkiRefreshPreference(state)
+  if (forceShortsRefetch) {
+    const request = refetchAllChannelsAfterShortsEnabled({ force: true })
+    if (request && typeof request.finally === 'function') request.finally(startYoutubeAutoRefresh)
+    else startYoutubeAutoRefresh()
+    return
+  }
   startYoutubeAutoRefresh()
 }
 
@@ -9106,12 +9145,12 @@ function formatSkippedShortsMessage(skippedShorts, loadedVideos = 0) {
   return t(key, { count: skippedShorts, plural: skippedShorts === 1 ? '' : 's' })
 }
 
-function refetchAllChannelsAfterShortsEnabled() {
+function refetchAllChannelsAfterShortsEnabled({ force = false } = {}) {
   if (IS_SANDBOX || !hasYoutubeApiKey() || shortsEnableRefetchPromise) return shortsEnableRefetchPromise
 
   const state = loadState()
   const refetchAvailableAt = new Date(state?.config?.shortsEnableRefetchAvailableAt).getTime()
-  if (Number.isFinite(refetchAvailableAt) && Date.now() < refetchAvailableAt) return null
+  if (!force && Number.isFinite(refetchAvailableAt) && Date.now() < refetchAvailableAt) return null
 
   const channelIds = (state?.config?.channels || []).map(channel => channel.id).filter(Boolean)
   if (!channelIds.length) return null
