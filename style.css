@@ -7910,7 +7910,8 @@ summary:focus-visible,
 }
 @media (max-width: 640px), (any-pointer: coarse) {
   .settings-anki-group,
-  .settings-anki-section {
+  .settings-anki-section,
+  .settings-scoring-section {
     display: none !important;
   }
 }
