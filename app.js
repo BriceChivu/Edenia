@@ -12,7 +12,8 @@ const DEFAULT_CHANNELS_VERSION = 2
 // ════════════════════════════════════════════════════════════
 
 const URL_PARAMS = new URLSearchParams(window.location.search)
-const IS_SANDBOX = URL_PARAMS.get('sandbox') === '1'
+const IS_SANDBOX = window.location.origin === 'http://localhost:8001'
+  && URL_PARAMS.get('sandbox') === '1'
 const IS_INTERNAL_TEST = URL_PARAMS.get('internal_test') === '1'
 const IS_LOCALHOST = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
 const TEMP_SHORTS_WHITELIST_VERSION = '2026-07-22-1'

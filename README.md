@@ -179,7 +179,7 @@ Normal and sandbox progress are isolated in browser storage.
 | Mode | URL | State key | Backup key | Config cookie |
 | --- | --- | --- | --- | --- |
 | Normal | `/` | `edenia_v1` | `edenia_v1_backups` | `edenia_config` |
-| Sandbox | `/?sandbox=1` | `edenia_v1_sandbox` | `edenia_v1_sandbox_backups` | `edenia_config_sandbox` |
+| Sandbox | `http://localhost:8001/?sandbox=1` | `edenia_v1_sandbox` | `edenia_v1_sandbox_backups` | `edenia_config_sandbox` |
 
 The primary state includes:
 
@@ -201,7 +201,7 @@ Clearing site data, deleting the browser profile, or losing the device also remo
 
 ## Sandbox Mode
 
-Open `/?sandbox=1` to use a separate demonstration and testing state.
+Open `http://localhost:8001/?sandbox=1` to use a separate demonstration and testing state. Sandbox mode is unavailable on the hosted site and other origins.
 
 - Starts from a blank baseline day at level 1 with 0 points when no sandbox save exists.
 - Shows a **Sandbox version** badge with **Add day** and **Reset** controls.
