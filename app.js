@@ -3212,6 +3212,108 @@ const I18N = {
   }
 }
 
+const FEEDBACK_I18N = {
+  en: {
+    'feedback.button': 'Feedback',
+    'feedback.title': 'Share feedback',
+    'feedback.close': 'Close feedback',
+    'feedback.categoryLabel': 'Feedback category',
+    'feedback.category.bug': 'Bug',
+    'feedback.category.idea': 'Idea',
+    'feedback.category.other': 'Other',
+    'feedback.messageLabel': 'Your feedback',
+    'feedback.messagePlaceholder': 'What happened, or what would help?',
+    'feedback.nameLabel': 'Name',
+    'feedback.emailLabel': 'Email',
+    'feedback.optional': 'Optional',
+    'feedback.note': 'Your feedback is linked to this session recording and basic app details so we can understand what happened.',
+    'feedback.send': 'Send feedback',
+    'feedback.success': 'Thank you! Your feedback is on its way.',
+    'feedback.unavailable': 'Feedback can only be sent from the live Edenia app.',
+    'feedback.messageRequired': 'Please write a message before sending.'
+  },
+  'zh-Hant': {
+    'feedback.button': '意見回饋',
+    'feedback.title': '分享意見',
+    'feedback.close': '關閉意見回饋',
+    'feedback.categoryLabel': '意見類別',
+    'feedback.category.bug': '錯誤',
+    'feedback.category.idea': '想法',
+    'feedback.category.other': '其他',
+    'feedback.messageLabel': '你的意見',
+    'feedback.messagePlaceholder': '發生了什麼事，或怎樣會更有幫助？',
+    'feedback.nameLabel': '姓名',
+    'feedback.emailLabel': '電子郵件',
+    'feedback.optional': '選填',
+    'feedback.note': '你的意見會連結到這次工作階段錄影和基本應用程式資訊，幫助我們了解發生了什麼事。',
+    'feedback.send': '送出意見',
+    'feedback.success': '謝謝！你的意見正在送出。',
+    'feedback.unavailable': '只能從正式版 Edenia 送出意見。',
+    'feedback.messageRequired': '請先填寫訊息再送出。'
+  },
+  'zh-Hans': {
+    'feedback.button': '意见反馈',
+    'feedback.title': '分享意见',
+    'feedback.close': '关闭意见反馈',
+    'feedback.categoryLabel': '意见类别',
+    'feedback.category.bug': '错误',
+    'feedback.category.idea': '想法',
+    'feedback.category.other': '其他',
+    'feedback.messageLabel': '你的意见',
+    'feedback.messagePlaceholder': '发生了什么，或者怎样会更有帮助？',
+    'feedback.nameLabel': '姓名',
+    'feedback.emailLabel': '电子邮件',
+    'feedback.optional': '选填',
+    'feedback.note': '你的意见会关联到本次会话录屏和基本应用信息，帮助我们了解发生了什么。',
+    'feedback.send': '发送意见',
+    'feedback.success': '谢谢！你的意见正在发送。',
+    'feedback.unavailable': '只能从正式版 Edenia 发送意见。',
+    'feedback.messageRequired': '请先填写消息再发送。'
+  },
+  es: {
+    'feedback.button': 'Comentarios',
+    'feedback.title': 'Comparte tus comentarios',
+    'feedback.close': 'Cerrar comentarios',
+    'feedback.categoryLabel': 'Categoría del comentario',
+    'feedback.category.bug': 'Error',
+    'feedback.category.idea': 'Idea',
+    'feedback.category.other': 'Otro',
+    'feedback.messageLabel': 'Tus comentarios',
+    'feedback.messagePlaceholder': '¿Qué ocurrió o qué sería útil?',
+    'feedback.nameLabel': 'Nombre',
+    'feedback.emailLabel': 'Correo electrónico',
+    'feedback.optional': 'Opcional',
+    'feedback.note': 'Tus comentarios se vinculan con la grabación de esta sesión y datos básicos de la aplicación para entender qué ocurrió.',
+    'feedback.send': 'Enviar comentarios',
+    'feedback.success': '¡Gracias! Tus comentarios están en camino.',
+    'feedback.unavailable': 'Los comentarios solo se pueden enviar desde la aplicación Edenia publicada.',
+    'feedback.messageRequired': 'Escribe un mensaje antes de enviarlo.'
+  },
+  fr: {
+    'feedback.button': 'Commentaires',
+    'feedback.title': 'Partagez vos commentaires',
+    'feedback.close': 'Fermer les commentaires',
+    'feedback.categoryLabel': 'Catégorie du commentaire',
+    'feedback.category.bug': 'Bug',
+    'feedback.category.idea': 'Idée',
+    'feedback.category.other': 'Autre',
+    'feedback.messageLabel': 'Vos commentaires',
+    'feedback.messagePlaceholder': 'Que s’est-il passé, ou qu’est-ce qui aiderait ?',
+    'feedback.nameLabel': 'Nom',
+    'feedback.emailLabel': 'Adresse e-mail',
+    'feedback.optional': 'Facultatif',
+    'feedback.note': 'Vos commentaires sont liés à l’enregistrement de cette session et aux informations de base de l’application afin de comprendre ce qui s’est passé.',
+    'feedback.send': 'Envoyer',
+    'feedback.success': 'Merci ! Vos commentaires sont en route.',
+    'feedback.unavailable': 'Les commentaires ne peuvent être envoyés que depuis l’application Edenia publiée.',
+    'feedback.messageRequired': 'Écrivez un message avant de l’envoyer.'
+  }
+}
+
+Object.entries(FEEDBACK_I18N).forEach(([locale, translations]) => {
+  Object.assign(I18N[locale], translations)
+})
+
 Object.assign(I18N['zh-Hant'], {
   'app.title.sandbox': '沙盒版 - Edenia',
   'videoReminder.tabTitle': '✓ 標記為已觀看 · Edenia',
@@ -15355,6 +15457,141 @@ function removeVideoFromGrid(event, videoId) {
 }
 
 // ════════════════════════════════════════════════════════════
+// FEEDBACK
+// ════════════════════════════════════════════════════════════
+
+function getFeedbackAssetVersion() {
+  const appScript = document.querySelector('script[src*="app.js"]')
+  if (!appScript) return null
+  try {
+    return new URL(appScript.src, window.location.href).searchParams.get('v')
+  } catch {
+    return null
+  }
+}
+
+function setFeedbackStatus(message = '', type = '') {
+  const status = document.getElementById('feedbackStatus')
+  if (!status) return
+  status.textContent = message
+  status.className = `feedback-status${message ? '' : ' hidden'}${type ? ` is-${type}` : ''}`
+}
+
+function openFeedbackModal() {
+  const modal = document.getElementById('feedbackModal')
+  if (!modal) return
+  window.clearTimeout(modal._closeTimer)
+  modal._previousFocus = document.activeElement
+  modal.classList.remove('hidden')
+  document.body.classList.add('feedback-modal-open')
+  setFeedbackStatus()
+  window.requestAnimationFrame(() => document.getElementById('feedbackMessage')?.focus())
+}
+
+function closeFeedbackModal() {
+  const modal = document.getElementById('feedbackModal')
+  if (!modal || modal.classList.contains('hidden')) return
+  modal.classList.add('hidden')
+  document.body.classList.remove('feedback-modal-open')
+  modal._previousFocus?.focus?.()
+  modal._previousFocus = null
+}
+
+function handleFeedbackModalKeydown(event) {
+  const modal = document.getElementById('feedbackModal')
+  if (!modal || modal.classList.contains('hidden')) return
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeFeedbackModal()
+    return
+  }
+  if (event.key !== 'Tab') return
+
+  const focusable = Array.from(modal.querySelectorAll('button, input, textarea, [tabindex]:not([tabindex="-1"])'))
+    .filter(element => !element.disabled && element.offsetParent !== null)
+  if (!focusable.length) return
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
+function submitFeedback(event) {
+  event.preventDefault()
+  const form = event.currentTarget
+  const modal = document.getElementById('feedbackModal')
+  const submitButton = document.getElementById('feedbackSubmitBtn')
+  const category = String(new FormData(form).get('feedbackCategory') || 'other')
+  const message = String(document.getElementById('feedbackMessage')?.value || '').trim()
+  const name = String(document.getElementById('feedbackName')?.value || '').trim()
+  const email = String(document.getElementById('feedbackEmail')?.value || '').trim()
+
+  if (!message) {
+    setFeedbackStatus(t('feedback.messageRequired'), 'error')
+    document.getElementById('feedbackMessage')?.focus()
+    return
+  }
+
+  const submittedAt = new Date().toISOString()
+  const feedbackId = typeof crypto?.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `feedback-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+  const sessionReplayUrl = window.getEdeniaSessionReplayUrl?.() || null
+  const properties = {
+    feedback_id: feedbackId,
+    feedback_category: category,
+    feedback_message: message,
+    feedback_name: name || null,
+    feedback_email: email || null,
+    has_feedback_name: Boolean(name),
+    has_feedback_email: Boolean(email),
+    feedback_source: 'main_page_footer',
+    submitted_at: submittedAt,
+    app_version: getFeedbackAssetVersion(),
+    locale: currentLocale,
+    theme: document.body.dataset.theme || DEFAULT_THEME,
+    page_url: window.location.href,
+    viewport_width: window.innerWidth,
+    viewport_height: window.innerHeight,
+    screen_width: window.screen?.width || null,
+    screen_height: window.screen?.height || null,
+    session_replay_url: sessionReplayUrl
+  }
+
+  const captured = window.trackEdeniaEvent?.('feedback_submitted', properties)
+  if (!captured) {
+    setFeedbackStatus(t('feedback.unavailable'), 'error')
+    return
+  }
+
+  const personProperties = {
+    has_submitted_feedback: true,
+    latest_feedback_category: category,
+    latest_feedback_at: submittedAt
+  }
+  if (name) personProperties.name = name
+  if (email) personProperties.email = email
+  window.setEdeniaPersonProperties?.(personProperties, {
+    first_feedback_at: submittedAt
+  })
+
+  submitButton.disabled = true
+  form.setAttribute('aria-busy', 'true')
+  setFeedbackStatus(t('feedback.success'), 'success')
+  modal._closeTimer = window.setTimeout(() => {
+    form.reset()
+    form.removeAttribute('aria-busy')
+    submitButton.disabled = false
+    closeFeedbackModal()
+  }, 1200)
+}
+
+// ════════════════════════════════════════════════════════════
 // TOAST
 // ════════════════════════════════════════════════════════════
 
@@ -15412,4 +15649,5 @@ document.addEventListener('keydown', closeVideoSearchPopoverOnEscape)
 document.addEventListener('keydown', closeLocaleMenuOnEscape)
 document.addEventListener('keydown', handleSettingsKeydown)
 document.addEventListener('keydown', handleIntroTrailerKeydown)
+document.addEventListener('keydown', handleFeedbackModalKeydown)
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)

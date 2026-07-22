@@ -11,7 +11,7 @@
   <link rel="preload" as="font" href="assets/fonts/space-grotesk-latin-ext.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin-ext.woff2" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=20260722-114">
+  <link rel="stylesheet" href="style.css?v=20260722-115">
   <script>
     !function(t,e){var o,n,p,r;e.__SV||(window.posthog&&window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
     const edeniaUrlParams = new URLSearchParams(window.location.search);
@@ -44,8 +44,8 @@
     }
   </script>
   <script src="config.local.js" defer></script>
-  <script src="analytics.js?v=20260721-3" defer></script>
-  <script src="app.js?v=20260722-124" defer></script>
+  <script src="analytics.js?v=20260722-4" defer></script>
+  <script src="app.js?v=20260722-125" defer></script>
 </head>
 <body>
 
@@ -667,7 +667,87 @@ and momentum—at a glance</h2>
       </div>
     </section>
 
+    <footer class="app-footer">
+      <button class="feedback-launch-btn" id="feedbackLaunchBtn" type="button" onclick="openFeedbackModal()" data-analytics-action="feedback" aria-haspopup="dialog" aria-controls="feedbackModal">
+        <svg class="feedback-launch-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 5.5h14v10H9l-4 3v-13Z"></path>
+        </svg>
+        <span data-i18n="feedback.button">Feedback</span>
+      </button>
+    </footer>
+
   </main><!-- /mainApp -->
+
+  <div class="feedback-modal hidden" id="feedbackModal">
+    <button class="feedback-backdrop" type="button" onclick="closeFeedbackModal()" aria-label="Close feedback" data-i18n-aria-label="feedback.close"></button>
+    <section class="feedback-sheet" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
+      <div class="feedback-sheet-handle" aria-hidden="true"></div>
+      <div class="feedback-header">
+        <div>
+          <span class="feedback-kicker">EDENIA</span>
+          <h2 id="feedbackTitle" data-i18n="feedback.title">Share feedback</h2>
+        </div>
+        <button class="feedback-close-btn" type="button" onclick="closeFeedbackModal()" data-analytics-action="feedback_close" aria-label="Close feedback" data-i18n-aria-label="feedback.close">×</button>
+      </div>
+
+      <form class="feedback-form" id="feedbackForm" onsubmit="submitFeedback(event)">
+        <fieldset class="feedback-category-fieldset">
+          <legend class="sr-only" data-i18n="feedback.categoryLabel">Feedback category</legend>
+          <div class="feedback-category-grid">
+            <label class="feedback-category-option">
+              <input type="radio" name="feedbackCategory" value="bug" checked>
+              <span class="feedback-category-content">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6M8 8 6 6M16 8l2-2M7 12H4M20 12h-3M8 16l-2 2M16 16l2 2M9 8h6v9a3 3 0 0 1-6 0V8Z"></path></svg>
+                <span data-i18n="feedback.category.bug">Bug</span>
+              </span>
+            </label>
+            <label class="feedback-category-option">
+              <input type="radio" name="feedbackCategory" value="idea">
+              <span class="feedback-category-content">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M9.5 21h5M8.2 14.5a6 6 0 1 1 7.6 0c-.8.6-1.3 1.5-1.3 2.5h-5c0-1-.5-1.9-1.3-2.5Z"></path></svg>
+                <span data-i18n="feedback.category.idea">Idea</span>
+              </span>
+            </label>
+            <label class="feedback-category-option">
+              <input type="radio" name="feedbackCategory" value="other">
+              <span class="feedback-category-content">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v11H9l-4 3V5Z"></path></svg>
+                <span data-i18n="feedback.category.other">Other</span>
+              </span>
+            </label>
+          </div>
+        </fieldset>
+
+        <label class="feedback-field feedback-message-field" for="feedbackMessage">
+          <span class="sr-only" data-i18n="feedback.messageLabel">Your feedback</span>
+          <textarea id="feedbackMessage" name="feedbackMessage" rows="7" maxlength="2000" required placeholder="What happened, or what would help?" data-i18n-placeholder="feedback.messagePlaceholder"></textarea>
+        </label>
+
+        <div class="feedback-contact-grid">
+          <label class="feedback-field" for="feedbackName">
+            <span data-i18n="feedback.nameLabel">Name</span>
+            <input id="feedbackName" name="feedbackName" type="text" maxlength="80" autocomplete="name" placeholder="Optional" data-i18n-placeholder="feedback.optional">
+          </label>
+          <label class="feedback-field" for="feedbackEmail">
+            <span data-i18n="feedback.emailLabel">Email</span>
+            <input id="feedbackEmail" name="feedbackEmail" type="email" maxlength="254" autocomplete="email" placeholder="Optional" data-i18n-placeholder="feedback.optional">
+          </label>
+        </div>
+
+        <p class="feedback-note">
+          <span class="feedback-note-icon" aria-hidden="true">i</span>
+          <span data-i18n="feedback.note">Your feedback is linked to this session recording and basic app details so we can understand what happened.</span>
+        </p>
+
+        <p class="feedback-status hidden" id="feedbackStatus" role="status" aria-live="polite"></p>
+
+        <button class="feedback-submit-btn" id="feedbackSubmitBtn" type="submit" data-analytics-action="feedback_submit">
+          <span data-i18n="feedback.send">Send feedback</span>
+          <span aria-hidden="true">→</span>
+        </button>
+      </form>
+    </section>
+  </div>
 
   <div class="video-watch-reminder-global hidden" id="videoWatchReminderGlobal"></div>
 

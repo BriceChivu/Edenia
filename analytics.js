@@ -13,8 +13,20 @@
   }
 
   function capture(eventName, properties) {
-    if (!analyticsAvailable()) return;
+    if (!analyticsAvailable()) return false;
     window.posthog.capture(eventName, properties);
+    return true;
+  }
+
+  function setPersonProperties(properties, propertiesOnce) {
+    if (!analyticsAvailable() || typeof window.posthog.setPersonProperties !== 'function') return false;
+    window.posthog.setPersonProperties(properties, propertiesOnce);
+    return true;
+  }
+
+  function getSessionReplayUrl() {
+    if (!analyticsAvailable() || typeof window.posthog.get_session_replay_url !== 'function') return null;
+    return window.posthog.get_session_replay_url() || null;
   }
 
   function loadAnalyticsState() {
@@ -335,6 +347,8 @@
   }
 
   window.trackEdeniaEvent = capture;
+  window.setEdeniaPersonProperties = setPersonProperties;
+  window.getEdeniaSessionReplayUrl = getSessionReplayUrl;
   window.syncEdeniaAnalyticsState = syncStateSnapshot;
 
   function normalizeClickEventName(action) {
