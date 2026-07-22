@@ -12577,7 +12577,11 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
   document.getElementById('cityScore').textContent = snapshot.score
   document.getElementById('cityLabel').textContent = getCityStage(snapshot.visualScore)
   const scoreContext = document.getElementById('cityScoreContext')
-  if (scoreContext) scoreContext.textContent = snapshot.isToday ? t('city.totalPts') : t('city.ptsByThen')
+  if (scoreContext) {
+    scoreContext.textContent = snapshot.isToday
+      ? t(isMobileLayout() ? 'points.short' : 'city.totalPts')
+      : t('city.ptsByThen')
+  }
   const nextLevel = CITY_LEVELS[snapshot.pendingLevelIndex || snapshot.visualLevelIndex + 1] || null
   const hasEarnedUnrevealedLevel = snapshot.earnedLevelIndex > snapshot.visualLevelIndex
   document.getElementById('cityNextLevel').textContent = nextLevel
