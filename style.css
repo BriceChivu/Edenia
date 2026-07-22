@@ -6255,6 +6255,18 @@ summary:focus-visible,
   .channel-shelf-avatar {
     touch-action: none;
   }
+  .channel-shelf-identity,
+  .channel-shelf-heading,
+  .channel-shelf-title-row {
+    width: 100%;
+  }
+  .channel-shelf-identity,
+  .channel-shelf-heading {
+    flex: 1 1 auto;
+  }
+  .channel-shelf-title-row strong {
+    flex: 1 1 auto;
+  }
   .channel-shelf {
     position: relative;
     transition:
