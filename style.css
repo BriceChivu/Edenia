@@ -6310,6 +6310,48 @@ summary:focus-visible,
   .channel-shelf-heading strong {
     font-size: 0.9rem;
   }
+  .channel-shelf-remove {
+    align-items: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: var(--muted);
+    cursor: pointer;
+    display: inline-flex;
+    flex: 0 0 24px;
+    font: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    height: 24px;
+    justify-content: center;
+    line-height: 1;
+    margin-left: 1px;
+    opacity: 0.68;
+    padding: 0;
+    pointer-events: auto;
+    position: relative;
+    transform: scale(1);
+  }
+  .channel-shelf-remove::before {
+    content: "";
+    inset: -10px;
+    position: absolute;
+  }
+  .channel-shelf-remove-icon {
+    fill: none;
+    height: 12px;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-width: 2;
+    width: 12px;
+  }
+  .channel-shelf-remove:hover,
+  .channel-shelf-remove:focus-visible {
+    background: var(--surface-hi);
+    border-color: var(--border);
+    color: var(--text);
+    opacity: 1;
+  }
   .channel-shelf-controls {
     display: none;
   }
