@@ -13848,8 +13848,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
         <header class="channel-shelf-header"
           aria-label="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}"
           title="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}">
-          <div class="channel-shelf-identity"
-            onpointerdown="startTouchChannelShelfDrag(event, this)">
+          <div class="channel-shelf-identity">
             ${renderChannelShelfAvatar(group)}
             <span class="channel-shelf-heading">
               <span class="channel-shelf-title-row">
@@ -13941,9 +13940,9 @@ function renderChannelShelfAvatar(group) {
     : ''
   const avatarContent = `<span aria-hidden="true">${escHtml(initials)}</span>${avatarImage}`
   if (!channelUrl) {
-    return `<span class="channel-shelf-avatar" aria-hidden="true">${avatarContent}</span>`
+    return `<span class="channel-shelf-avatar" aria-hidden="true" onpointerdown="startTouchChannelShelfDrag(event, this)">${avatarContent}</span>`
   }
-  return `<a class="channel-shelf-avatar" href="${escHtml(channelUrl)}" target="_blank" rel="noopener noreferrer" draggable="false" aria-label="${escHtml(`${title} — YouTube`)}">${avatarContent}</a>`
+  return `<a class="channel-shelf-avatar" href="${escHtml(channelUrl)}" target="_blank" rel="noopener noreferrer" draggable="false" aria-label="${escHtml(`${title} — YouTube`)}" onpointerdown="startTouchChannelShelfDrag(event, this)">${avatarContent}</a>`
 }
 
 function syncVideoChannelShelfControls(track) {

@@ -6306,7 +6306,7 @@ summary:focus-visible,
     user-select: none;
     -webkit-user-select: none;
   }
-  .channel-shelf-identity {
+  .channel-shelf-avatar {
     touch-action: none;
   }
   .channel-shelf {
@@ -7544,7 +7544,7 @@ summary:focus-visible,
   }
 }
 @media (min-width: 641px) and (any-pointer: coarse) {
-  .channel-shelf-identity {
+  .channel-shelf-avatar {
     touch-action: none;
   }
   .channel-shelf-track {
