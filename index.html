@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Edenia turns YouTube study time and Anki activity into study history, daily progress, and a growing city.">
   <title>Edenia</title>
+  <script>
+    const sandboxRequested = new URLSearchParams(window.location.search).has('sandbox');
+    const localSandboxOrigin = window.location.origin === 'http://localhost:8001';
+    if (sandboxRequested && !localSandboxOrigin) {
+      window.location.replace(new URL('./sandbox-unavailable', window.location.href));
+    }
+  </script>
   <link rel="icon" type="image/png" href="Edenia_favicon_round.png">
   <link rel="preload" as="image" href="images/city/level%201.webp" type="image/webp" fetchpriority="high">
   <link rel="preload" as="font" href="assets/fonts/space-grotesk-latin.woff2" type="font/woff2" crossorigin>
