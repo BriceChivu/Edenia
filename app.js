@@ -580,24 +580,6 @@ const BASE_CURATED_CHANNEL_CATALOG = [
     description: 'Authentic conversations with subtitles and learner-focused explanations.'
   },
   {
-    id: 'french-easy',
-    language: 'french',
-    input: '@EasyFrench',
-    name: 'Easy French',
-    levels: ['beginner', 'intermediate', 'advanced'],
-    style: 'Street interviews',
-    description: 'Real French conversations with supportive subtitles and context.'
-  },
-  {
-    id: 'french-input',
-    language: 'french',
-    input: '@FrenchComprehensibleInput',
-    name: 'French Comprehensible Input',
-    levels: ['starting', 'beginner', 'intermediate'],
-    style: 'Comprehensible input',
-    description: 'Stories and explanations delivered in accessible French.'
-  },
-  {
     id: 'german-easy',
     language: 'german',
     input: '@EasyGerman',
@@ -624,8 +606,6 @@ const CURATED_CHANNEL_LEVEL_OVERRIDES = {
   'korean-ttmik': ['starting'],
   'spanish-dreaming': ['starting'],
   'spanish-easy': ['beginner'],
-  'french-input': ['starting'],
-  'french-easy': ['beginner'],
   'german-lingoni': ['starting'],
   'german-easy': ['beginner']
 }
@@ -668,18 +648,30 @@ const EXPANDED_CURATED_CHANNEL_DATA = [
   ['spanish-quantum', 'spanish', '@QuantumFracture', 'QuantumFracture', 'advanced', 'Clear explanations'],
   ['spanish-dw', 'spanish', '@DWDocumental', 'DW Documental', 'advanced', 'News and commentary'],
 
-  ['french-alice', 'french', '@aliceayel', 'Alice Ayel', 'starting', 'Comprehensible input'],
+  ['french-pod101', 'french', '@frenchpod101', 'Learn French with FrenchPod101.com', 'starting', 'Structured lessons'],
+  ['french-poodle', 'french', '@french-with-poodle', 'French with Poodle', 'starting', 'Clear explanations'],
+  ['french-leo', 'french', '@LeoFrenchTeacher', 'Leo French Teacher', 'starting', 'Clear explanations'],
+  ['french-learn-with-fun', 'french', '@LearnFrench-9', 'Learn French With Fun', 'starting', 'Structured lessons'],
+  ['french-dylane', 'french', '@TheperfectfrenchwithDylane', 'The perfect French with Dylane', 'starting', 'Detailed lessons'],
+  ['french-lexie', 'french', '@LearnFrenchwithLexie', 'Learn French with Lexie', 'starting', 'Clear explanations'],
+  ['french-nlf', 'french', '@NLF-Academy', 'NLF Academy | Real French Classes', 'beginner', 'Structured lessons'],
   ['french-alexa', 'french', '@learnfrenchwithalexa', 'Learn French With Alexa', 'beginner', 'Structured lessons'],
-  ['french-pod101', 'french', '@FrenchPod101', 'FrenchPod101', 'beginner', 'Structured lessons'],
+  ['french-piece', 'french', '@pieceoffrench', 'Piece of French', 'beginner', 'Casual conversations'],
+  ['french-elisabeth', 'french', '@elisabeth_hellofrench', 'Learn French with Elisabeth - HelloFrench', 'beginner', 'Clear explanations'],
+  ['french-facile', 'french', '@FrenchFacile12', 'French Facile', 'beginner', 'Comprehensible input'],
+  ['french-adeline', 'french', '@AdelineTalks', 'Adeline Talks', 'beginner', 'Clear explanations'],
+  ['french-input', 'french', '@FrenchComprehensibleInput', 'French Comprehensible Input', 'intermediate', 'Comprehensible input'],
+  ['french-alice', 'french', '@aliceayel', 'alice ayel', 'intermediate', 'Comprehensible input'],
+  ['french-school-tv', 'french', '@FrenchSchoolTV', 'French School TV', 'intermediate', 'Structured lessons'],
+  ['french-easy', 'french', '@EasyFrench', 'Easy French', 'intermediate', 'Street interviews'],
   ['french-inner', 'french', '@innerFrench', 'innerFrench', 'intermediate', 'Podcast'],
-  ['french-piece', 'french', '@pieceoffrench', 'Piece of French', 'intermediate', 'Casual conversations'],
-  ['french-elisa', 'french', '@FrenchmorningswithElisa', 'French Mornings with Elisa', 'intermediate', 'Clear explanations'],
-  ['french-hello', 'french', '@HelloFrench', 'HelloFrench', 'intermediate', 'Clear explanations'],
-  ['french-hugo', 'french', '@konbini', 'Konbini', 'advanced', 'Conversations and interviews'],
+  ['french-elisa', 'french', '@FrenchmorningswithElisa', 'French mornings with Elisa', 'intermediate', 'Clear explanations'],
+  ['french-konbini', 'french', '@konbini', 'Konbini', 'advanced', 'Conversations and interviews'],
+  ['french-palmashow', 'french', '@Palmashow', 'Palmashow', 'advanced', 'Native entertainment'],
+  ['french-studio-bagel', 'french', '@StudioBagel', 'Studio Bagel', 'advanced', 'Native entertainment'],
+  ['french-tv5monde', 'french', '@TV5MONDEInfo', 'TV5MONDE Info', 'advanced', 'News and commentary'],
   ['french-arte', 'french', '@arte', 'ARTE', 'advanced', 'News and commentary'],
-  ['french-nota-bene', 'french', '@notabenemovies', 'Nota Bene', 'advanced', 'Clear explanations'],
-  ['french-lemonde', 'french', '@lemondefr', 'Le Monde', 'advanced', 'News and commentary'],
-  ['french-micode', 'french', '@Micode', 'Micode', 'advanced', 'Film and technology'],
+  ['french-planete-rap', 'french', '@PlaneteRap', 'Planète Rap', 'advanced', 'Conversations and interviews'],
 
   ['german-naturlich', 'german', '@naturlichgerman2021', 'Natürlich German', 'starting', 'Comprehensible input'],
   ['german-teacher', 'german', '@yourgermanteacher', 'YourGermanTeacher', 'beginner', 'Structured lessons'],
@@ -744,6 +736,14 @@ const CURATED_NOT_SURE_CHANNEL_IDS = {
     'english-high-level-listening',
     'english-easy',
     'english-fallon'
+  ],
+  french: [
+    'french-pod101',
+    'french-poodle',
+    'french-leo',
+    'french-nlf',
+    'french-alexa',
+    'french-input'
   ]
 }
 const I18N_EN = {
