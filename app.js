@@ -6370,8 +6370,8 @@ async function toggleIntroSound() {
   }
 }
 
-function closeIntroTrailer({ restoreMain = false } = {}) {
-  stopIntroMusic({ fadeDuration: 7.5 })
+function closeIntroTrailer({ restoreMain = false, keepMusicPlaying = false } = {}) {
+  if (!keepMusicPlaying) stopIntroMusic({ fadeDuration: 7.5 })
   window.clearTimeout(introTrailerState.sceneTimer)
   introTrailerState.cityLevelTimers.forEach(timer => window.clearTimeout(timer))
   introTrailerState.cityLevelTimers = []
@@ -6413,7 +6413,7 @@ function finishIntroTrailer() {
     showOnboardingRecovery('setup', { state, resume: 'personalized' })
     return
   }
-  closeIntroTrailer()
+  closeIntroTrailer({ keepMusicPlaying: true })
 }
 
 function startPersonalizedOnboarding(state = loadState()) {
@@ -6810,6 +6810,7 @@ async function resolveStarterChannelSelections(catalogIds) {
 
 async function finishPersonalizedOnboarding() {
   if (personalizedOnboardingState.isApplyingChannels) return
+  stopIntroMusic({ fadeDuration: 7.5 })
   personalizedOnboardingState.isApplyingChannels = true
   renderPersonalizedOnboarding()
 
