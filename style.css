@@ -6156,8 +6156,8 @@ summary:focus-visible,
     padding: 6px 9px;
   }
   .streak-text {
-    max-width: 42px;
-    white-space: normal;
+    max-width: none;
+    white-space: nowrap;
     line-height: 1.05;
   }
   #refreshBtn {
