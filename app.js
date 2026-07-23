@@ -47,6 +47,7 @@ const ONBOARDING_NOTICE_KEY = IS_INTERNAL_TEST
 const STATE_BACKUP_LIMIT = 8
 const ACTIVITY_LOG_LIMIT = 500
 const STATE_BACKUP_AUTO_INTERVAL_MS = 10 * 60_000
+const ACTIVITY_LOG_DEDUPE_WINDOW_MS = 30 * 60_000
 const CONFIG_COOKIE_KEY = IS_SANDBOX
   ? 'edenia_config_sandbox'
   : IS_INTERNAL_TEST
@@ -5212,6 +5213,20 @@ function appendActivityLog(state, entry = {}) {
   if (entry.meta && typeof entry.meta === 'object' && !Array.isArray(entry.meta)) {
     nextEntry.meta = entry.meta
   }
+
+  const previousMatch = state.activityLog.find(item =>
+    item.type === nextEntry.type &&
+    item.status === nextEntry.status &&
+    item.detail === nextEntry.detail
+  )
+  if (
+    previousMatch &&
+    isValidTimestamp(previousMatch.createdAt) &&
+    new Date(nextEntry.createdAt).getTime() - new Date(previousMatch.createdAt).getTime() < ACTIVITY_LOG_DEDUPE_WINDOW_MS
+  ) {
+    return null
+  }
+
   state.activityLog.unshift(nextEntry)
   if (state.activityLog.length > ACTIVITY_LOG_LIMIT) {
     state.activityLog.splice(ACTIVITY_LOG_LIMIT)
