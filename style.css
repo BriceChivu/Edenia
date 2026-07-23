@@ -3659,7 +3659,7 @@ body[data-theme="dark"] .next-study-cta:hover { background: var(--surface-hi); }
 .heatmap-day.streak-run,
 .heatmap-day.streak-run:hover,
 .heatmap-day.streak-run:focus-visible {
-  border-color: #8b1e2d;
+  border-color: rgba(58, 63, 66, 0.68);
 }
 .heatmap-day:hover,
 .heatmap-day:focus-visible {
