@@ -3573,11 +3573,13 @@ body[data-theme="dark"] .next-study-cta:hover { background: var(--surface-hi); }
 .history-heatmap {
   --heatmap-cell-size: 12px;
   --heatmap-gap: 3px;
+  align-self: flex-start;
   background: var(--surface);
   border: 2px solid var(--planet-black);
   border-radius: var(--radius);
   box-shadow: 0 3px 0 rgba(5,5,5,0.12);
   padding: 12px;
+  width: max-content;
 }
 .heatmap-body {
   align-items: flex-start;
@@ -3611,10 +3613,9 @@ body[data-theme="dark"] .next-study-cta:hover { background: var(--surface-hi); }
   height: var(--heatmap-cell-size);
 }
 .heatmap-scroll {
-  -webkit-overflow-scrolling: touch;
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow-x: auto;
+  flex: 0 0 auto;
+  min-width: max-content;
+  overflow: visible;
   padding-bottom: 2px;
 }
 .heatmap-months {
@@ -3655,6 +3656,11 @@ body[data-theme="dark"] .next-study-cta:hover { background: var(--surface-hi); }
 .heatmap-day.level-4 { background: #9bd34b; }
 .heatmap-day.level-5 { background: #70ae2f; }
 .heatmap-day.level-6 { background: #487d1c; }
+.heatmap-day.streak-run,
+.heatmap-day.streak-run:hover,
+.heatmap-day.streak-run:focus-visible {
+  border-color: #8b1e2d;
+}
 .heatmap-day:hover,
 .heatmap-day:focus-visible {
   border-color: var(--planet-black);
@@ -3711,6 +3717,12 @@ body[data-theme="dark"] .next-study-cta:hover { background: var(--surface-hi); }
   justify-content: space-between;
   margin-bottom: 7px;
 }
+.heatmap-tooltip-badges {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 5px;
+}
 .heatmap-tooltip-title {
   color: var(--accent);
   font-family: 'Bebas Neue', sans-serif;
@@ -3728,6 +3740,33 @@ body[data-theme="dark"] .next-study-cta:hover { background: var(--surface-hi); }
   font-weight: 900;
   line-height: 1;
   padding: 4px 7px;
+}
+.heatmap-tooltip-streak {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--planet-black);
+  border-radius: 999px;
+  color: var(--accent);
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 900;
+  gap: 4px;
+  line-height: 1;
+  padding: 4px 7px;
+}
+.heatmap-tooltip-streak.streak-high {
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(110deg, #ff6b6b, #ffd166, #8bd450, #45c4ff, #b181ff, #ff6bcb) border-box;
+  border-color: transparent;
+}
+.heatmap-tooltip-streak-icon {
+  font-size: 0.68rem;
+  line-height: 1;
+}
+.heatmap-tooltip-streak b {
+  font: inherit;
+  line-height: 1;
 }
 .heatmap-tooltip-row {
   align-items: center;
@@ -3760,6 +3799,16 @@ body[data-theme="dark"] .next-study-cta:hover { background: var(--surface-hi); }
 }
 body[data-theme="dark"] .heatmap-tooltip {
   background: var(--surface-hi);
+}
+body[data-theme="dark"] .heatmap-tooltip-streak {
+  background: var(--surface-hi);
+  border-color: #8f9ca4;
+}
+body[data-theme="dark"] .heatmap-tooltip-streak.streak-high {
+  background:
+    linear-gradient(var(--surface-hi), var(--surface-hi)) padding-box,
+    linear-gradient(110deg, #ff6b6b, #ffd166, #8bd450, #45c4ff, #b181ff, #ff6bcb) border-box;
+  border-color: transparent;
 }
 body[data-theme="dark"] .heatmap-tooltip-row b {
   background: #243a20;
@@ -6399,7 +6448,6 @@ summary:focus-visible,
   }
   .heatmap-scroll {
     padding-bottom: 8px;
-    scroll-padding-inline: 12px;
   }
   .heatmap-day {
     border-radius: 4px;

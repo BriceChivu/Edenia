@@ -80,6 +80,7 @@ const ANKI_AUTO_REFRESH_MS = 5 * 60_000
 const ANKI_DAY_START_HOUR = 4
 const NO_ANKI_FREQUENT_USER_DAY_THRESHOLD = 7
 const MIN_DAILY_STREAK_POINTS = 0.5
+const HEATMAP_STREAK_RUN_MIN_DAYS = 5
 const UNDO_STACK_LIMIT = 50
 const MIN_WEEKLY_GOAL_HOURS = 1
 const MAX_WEEKLY_GOAL_HOURS = 99
@@ -10470,6 +10471,31 @@ function getDaysBetweenDateKeys(prevKey, nextKey) {
   return Math.round((dateKeyToLocalDate(nextKey) - dateKeyToLocalDate(prevKey)) / 86_400_000)
 }
 
+function getHistoricalStreakDayCounts(s, end) {
+  const qualifyingDays = getStudyHistoryBetween(s, new Date(0), end).rows
+    .filter(row => getHistoryDayRawPoints(row) >= MIN_DAILY_STREAK_POINTS)
+    .map(row => row.dateKey)
+    .sort()
+  const streakDayCounts = new Map()
+  let run = []
+  const saveRun = () => {
+    if (run.length >= HEATMAP_STREAK_RUN_MIN_DAYS) {
+      run.forEach((dateKey, index) => streakDayCounts.set(dateKey, index + 1))
+    }
+  }
+
+  qualifyingDays.forEach(dateKey => {
+    const previous = run[run.length - 1]
+    if (previous && getDaysBetweenDateKeys(previous, dateKey) !== 1) {
+      saveRun()
+      run = []
+    }
+    run.push(dateKey)
+  })
+  saveRun()
+  return streakDayCounts
+}
+
 function syncStreak(s) {
   const today = getCurrentAppDateKey(s)
   const end = getCurrentAppDate(s)
@@ -11646,6 +11672,7 @@ function renderHistoryHeatmap(s, container) {
     const row = rowsByDate.get(dateKey) || createHistoryBucket(dateKey)
     days.push(row)
   }
+  const historicalStreakDayCounts = getHistoricalStreakDayCounts(s, end)
   const weekCount = Math.ceil(days.length / 7)
   const monthLabels = getHeatmapMonthLabels(gridStart, end, weekCount)
   container.classList.toggle('is-sparse', weekCount <= 8)
@@ -11662,8 +11689,10 @@ function renderHistoryHeatmap(s, container) {
         <div class="heatmap-grid" style="grid-template-columns: repeat(${weekCount}, var(--heatmap-cell-size))">
           ${days.map(row => {
             const showAnkiForRow = ankiEnabled || row.ankiReviewed > 0 || row.ankiCreated > 0
+            const streakDayCount = historicalStreakDayCounts.get(row.dateKey) || 0
+            const streakOutlineClass = streakDayCount ? ' streak-run' : ''
             return `
-            <button type="button" class="heatmap-day level-${getHistoryHeatLevel(row)}" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-anki-enabled="${showAnkiForRow ? 'true' : 'false'}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row, showAnkiForRow))}" onmouseenter="showHeatmapTooltip(event)" onmousemove="positionHeatmapTooltip(event.currentTarget)" onmouseleave="hideHeatmapTooltip()" onclick="toggleHeatmapTooltip(event)" onfocus="showHeatmapTooltip(event)" onblur="hideHeatmapTooltip()"></button>
+            <button type="button" class="heatmap-day level-${getHistoryHeatLevel(row)}${streakOutlineClass}" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-streak-days="${streakDayCount || ''}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-anki-enabled="${showAnkiForRow ? 'true' : 'false'}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row, showAnkiForRow))}" onmouseenter="showHeatmapTooltip(event)" onmousemove="positionHeatmapTooltip(event.currentTarget)" onmouseleave="hideHeatmapTooltip()" onclick="toggleHeatmapTooltip(event)" onfocus="showHeatmapTooltip(event)" onblur="hideHeatmapTooltip()"></button>
           `}).join('')}
         </div>
       </div>
@@ -11674,15 +11703,6 @@ function renderHistoryHeatmap(s, container) {
       <span>${escHtml(t('history.heatmap.more'))}</span>
     </div>
   `
-  scrollHeatmapToLatestOnTouch(container)
-}
-
-function scrollHeatmapToLatestOnTouch(container) {
-  const scroll = container?.querySelector?.('.heatmap-scroll')
-  if (!scroll || !window.matchMedia?.('(pointer: coarse)').matches) return
-  requestAnimationFrame(() => {
-    scroll.scrollLeft = scroll.scrollWidth
-  })
 }
 
 function toggleHeatmapTooltip(event) {
@@ -11705,6 +11725,15 @@ function showHeatmapTooltip(event) {
   const target = event.currentTarget
   const tooltip = document.getElementById('heatmapTooltip')
   if (!target || !tooltip) return
+  const streakDayCount = Math.max(0, Number(target.dataset.streakDays) || 0)
+  const streakBadge = streakDayCount
+    ? `
+      <span class="heatmap-tooltip-streak ${streakDayCount >= 5 ? 'streak-high' : 'streak-low'}" aria-label="${escHtml(`${streakDayCount} ${t('streak.day')}`)}">
+        <span class="heatmap-tooltip-streak-icon" aria-hidden="true">🔥</span>
+        <b>${streakDayCount}</b>
+      </span>
+    `
+    : ''
   const ankiRows = target.dataset.ankiEnabled === 'true'
     ? `
     <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">A</span><span>${escHtml(t('history.tooltip.ankiReviewed'))}</span><b>${escHtml(target.dataset.reviewed)}</b></div>
@@ -11714,7 +11743,10 @@ function showHeatmapTooltip(event) {
   tooltip.innerHTML = `
     <div class="heatmap-tooltip-head">
       <div class="heatmap-tooltip-title">${escHtml(target.dataset.date)}</div>
-      <div class="heatmap-tooltip-points">${escHtml(t('history.tooltip.points', { count: target.dataset.points }))}</div>
+      <div class="heatmap-tooltip-badges">
+        ${streakBadge}
+        <div class="heatmap-tooltip-points">${escHtml(t('history.tooltip.points', { count: target.dataset.points }))}</div>
+      </div>
     </div>
     <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">⏱</span><span>${escHtml(t('history.tooltip.videoTime'))}</span><b>${escHtml(target.dataset.time)}</b></div>
     <div class="heatmap-tooltip-row"><span class="heatmap-tooltip-icon">✓</span><span>${escHtml(t('history.tooltip.videosWatched'))}</span><b>${escHtml(target.dataset.videos)}</b></div>
