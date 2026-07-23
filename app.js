@@ -7584,7 +7584,21 @@ function refreshSandboxFeed() {
   })
 
   const refreshedAt = new Date().toISOString()
-  s.config.channels.forEach(channel => markChannelRefreshSuccess(s, channel.id, refreshedAt))
+  s.config.channels.forEach(channel => {
+    markChannelRefreshSuccess(s, channel.id, refreshedAt)
+    appendActivityLog(s, {
+      createdAt: refreshedAt,
+      actor: 'auto',
+      type: 'youtube-refresh',
+      status: 'success',
+      title: t('log.channelRefreshed.title'),
+      detail: t('log.channelRefreshed.loaded', {
+        name: channel.name || channel.id,
+        count: videos.filter(video => video.channelId === channel.id).length
+      }),
+      meta: { channelId: channel.id }
+    })
+  })
   saveState(s)
   renderAll(s)
   showToast(t('toast.dummyVideosLoaded', { count: videos.length }), 'success')
