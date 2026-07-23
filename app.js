@@ -6580,6 +6580,7 @@ function retryOnboardingRecovery(button) {
 function renderPersonalizedOnboarding() {
   if (!personalizedOnboardingState.active) return
   const content = document.getElementById('onboardingContent')
+  const panel = document.getElementById('onboardingPanel')
   const localePicker = document.getElementById('onboardingLocalePicker')
   const progressLabel = document.getElementById('onboardingProgressLabel')
   const progressFill = document.getElementById('onboardingProgressFill')
@@ -6591,6 +6592,7 @@ function renderPersonalizedOnboarding() {
   const stepIndex = Math.max(0, stepOrder.indexOf(personalizedOnboardingState.step))
   progressLabel.textContent = t('onboarding.progress', { current: stepIndex + 1, total: stepOrder.length })
   progressFill.style.width = `${((stepIndex + 1) / stepOrder.length) * 100}%`
+  panel?.classList.toggle('is-channel-step', personalizedOnboardingState.step === 'channels')
   localePicker?.classList.toggle('hidden', personalizedOnboardingState.step !== 'language')
 
   if (personalizedOnboardingState.step === 'language') {
