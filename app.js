@@ -615,24 +615,6 @@ const BASE_CURATED_CHANNEL_CATALOG = [
     style: 'Structured lessons',
     description: 'Levelled grammar, vocabulary, and listening lessons.'
   },
-  {
-    id: 'english-easy',
-    language: 'english',
-    input: '@EasyEnglishVideos',
-    name: 'Easy English',
-    levels: ['beginner', 'intermediate', 'advanced'],
-    style: 'Street interviews',
-    description: 'Everyday English from real speakers with learner-friendly subtitles.'
-  },
-  {
-    id: 'english-lucy',
-    language: 'english',
-    input: '@EnglishwithLucy',
-    name: 'English with Lucy',
-    levels: ['beginner', 'intermediate', 'advanced'],
-    style: 'Clear explanations',
-    description: 'Pronunciation, vocabulary, and natural British English lessons.'
-  }
 ]
 const CURATED_CHANNEL_LEVEL_OVERRIDES = {
   'japanese-comprehensible': ['starting'],
@@ -645,9 +627,7 @@ const CURATED_CHANNEL_LEVEL_OVERRIDES = {
   'french-input': ['starting'],
   'french-easy': ['beginner'],
   'german-lingoni': ['starting'],
-  'german-easy': ['beginner'],
-  'english-easy': ['starting'],
-  'english-lucy': ['beginner']
+  'german-easy': ['beginner']
 }
 const EXPANDED_CURATED_CHANNEL_DATA = [
   ['japanese-pod101', 'japanese', '@JapanesePod101', 'JapanesePod101', 'beginner', 'Structured lessons'],
@@ -714,18 +694,24 @@ const EXPANDED_CURATED_CHANNEL_DATA = [
   ['german-lesch', 'german', '@TerraXLeschundCo', 'Terra X Lesch & Co', 'advanced', 'Clear explanations'],
   ['german-dw', 'german', '@dwdeutsch', 'DW Deutsch', 'advanced', 'News and commentary'],
 
-  ['english-voa', 'english', '@voalearningenglish', 'VOA Learning English', 'starting', 'Comprehensible input'],
   ['english-bbc', 'english', '@bbclearningenglish', 'BBC Learning English', 'beginner', 'Structured lessons'],
-  ['english-vanessa', 'english', '@SpeakEnglishWithVanessa', 'Speak English With Vanessa', 'beginner', 'Clear explanations'],
-  ['english-rachel', 'english', '@rachelsenglish', "Rachel's English", 'intermediate', 'Detailed lessons'],
-  ['english-mmm', 'english', '@LearnEnglishWithTVSeries', 'Learn English With TV Series', 'intermediate', 'Comprehensible input'],
-  ['english-marina', 'english', '@linguamarina', 'linguamarina', 'intermediate', 'Clear explanations'],
-  ['english-class101', 'english', '@EnglishClass101', 'EnglishClass101', 'intermediate', 'Structured lessons'],
-  ['english-ted', 'english', '@TED', 'TED', 'advanced', 'Conversations and interviews'],
-  ['english-bigthink', 'english', '@bigthink', 'Big Think', 'advanced', 'Conversations and interviews'],
-  ['english-veritasium', 'english', '@veritasium', 'Veritasium', 'advanced', 'Clear explanations'],
-  ['english-johnny', 'english', '@johnnyharris', 'Johnny Harris', 'advanced', 'News and commentary'],
-  ['english-dw', 'english', '@DWDocumentary', 'DW Documentary', 'advanced', 'News and commentary']
+  ['english-maria', 'english', '@EnglishWithMariaFicano', 'English with Maria', 'beginner', 'Clear explanations'],
+  ['english-cozy-chat', 'english', '@englishcozychat', 'English Cozy Chat', 'beginner', 'Casual conversations'],
+  ['english-volka', 'english', '@VolkaEnglish', 'Volka English', 'beginner', 'Comprehensible input'],
+  ['english-slow-podcast', 'english', '@Slow_English_Podcast', 'Miss Honey 🍯', 'beginner', 'Podcast'],
+  ['english-lukes-podcast', 'english', '@LukesEnglishPodcast', "Luke's English Podcast", 'beginner', 'Podcast'],
+  ['english-high-level-listening', 'english', '@highlevellistening', 'High Level Listening Advanced English Podcast', 'intermediate', 'Podcast'],
+  ['english-easy', 'english', '@EasyEnglishVideos', 'Easy British English', 'intermediate', 'Street interviews'],
+  ['english-lucy', 'english', '@EnglishwithLucy', 'English with Lucy', 'intermediate', 'Clear explanations'],
+  ['english-vanessa', 'english', '@SpeakEnglishWithVanessa', 'Speak English With Vanessa', 'intermediate', 'Clear explanations'],
+  ['english-class101', 'english', '@EnglishClass101', 'Learn English with EnglishClass101.com', 'intermediate', 'Structured lessons'],
+  ['english-tv-series', 'english', '@LearnEnglishWithTVSeries', 'Learn English With TV Series', 'intermediate', 'Comprehensible input'],
+  ['english-fallon', 'english', '@fallontonight', 'The Tonight Show Starring Jimmy Fallon', 'advanced', 'Native entertainment'],
+  ['english-bbc-news', 'english', '@BBCNews', 'BBC News', 'advanced', 'News and commentary'],
+  ['english-bad-friends', 'english', '@BadFriends', 'Bad Friends', 'advanced', 'Casual conversations'],
+  ['english-comedy-central-stand-up', 'english', '@standup', 'Comedy Central Stand-Up', 'advanced', 'Native entertainment'],
+  ['english-comedy-central', 'english', '@ComedyCentral', 'Comedy Central', 'advanced', 'Native entertainment'],
+  ['english-bbc-earth', 'english', '@bbcearth', 'BBC Earth', 'advanced', 'Clear explanations']
 ]
 const EXPANDED_CURATED_CHANNEL_CATALOG = EXPANDED_CURATED_CHANNEL_DATA.map(([id, language, input, name, level, style]) => ({
   id,
@@ -750,6 +736,14 @@ const CURATED_NOT_SURE_CHANNEL_IDS = {
     'mandarin-chinese-at-dawn',
     'mandarin-chinese-with-ben',
     'mandarin-corner'
+  ],
+  english: [
+    'english-bbc',
+    'english-maria',
+    'english-cozy-chat',
+    'english-high-level-listening',
+    'english-easy',
+    'english-fallon'
   ]
 }
 const I18N_EN = {
@@ -4561,6 +4555,12 @@ function getLearnerLevelOption(levelId) {
   return LEARNER_LEVEL_OPTIONS.find(option => option.id === levelId) || null
 }
 
+function getLearnerLevelOptionsForLanguage(languageId) {
+  return languageId === 'english'
+    ? LEARNER_LEVEL_OPTIONS.filter(option => option.id !== 'starting')
+    : LEARNER_LEVEL_OPTIONS
+}
+
 function getCuratedChannelEntry(catalogId) {
   return CURATED_CHANNEL_CATALOG.find(channel => channel.id === catalogId) || null
 }
@@ -4600,8 +4600,9 @@ function normalizeLearnerProfileState(state) {
 function getRecommendedChannelCatalog(profile, limit = 6) {
   const normalizedLimit = Math.max(1, Math.floor(Number(limit) || 6))
   const languages = Array.isArray(profile?.languages) ? profile.languages : []
-  const level = getLearnerLevelOption(profile?.level)?.id || 'not-sure'
+  const selectedLevel = getLearnerLevelOption(profile?.level)?.id || 'not-sure'
   const byLanguage = languages.map(languageId => {
+    const level = languageId === 'english' && selectedLevel === 'starting' ? 'beginner' : selectedLevel
     const notSureChannelIds = CURATED_NOT_SURE_CHANNEL_IDS[languageId]
     if (level === 'not-sure' && notSureChannelIds) {
       return notSureChannelIds
@@ -6644,10 +6645,11 @@ function renderOnboardingOtherStep(content) {
 
 function renderOnboardingLevelStep(content) {
   const selectedLevelId = personalizedOnboardingState.levelId
+  const levelOptions = getLearnerLevelOptionsForLanguage(personalizedOnboardingState.languageId)
   content.innerHTML = `
     ${renderOnboardingHeading('onboarding.level.title')}
     <div class="onboarding-level-grid" role="radiogroup" aria-label="${escHtml(t('onboarding.level.title'))}">
-      ${LEARNER_LEVEL_OPTIONS.map(option => `
+      ${levelOptions.map(option => `
         <button type="button" class="onboarding-choice onboarding-level-choice" data-level-id="${escHtml(option.id)}" aria-pressed="${option.id === selectedLevelId}" onclick="selectOnboardingLevel(this.dataset.levelId)">
           <span class="onboarding-choice-label">${escHtml(t(`onboarding.level.${option.id}.label`))}</span>
           <span class="onboarding-choice-detail">${escHtml(t(`onboarding.level.${option.id}.detail`))}</span>
@@ -6701,7 +6703,9 @@ function renderOnboardingChannelsStep(content) {
 function selectOnboardingLanguage(languageId) {
   if (!getLearnerLanguageOption(languageId)) return
   personalizedOnboardingState.languageId = languageId
-  if (languageId === 'other') personalizedOnboardingState.levelId = null
+  if (languageId === 'other' || (languageId === 'english' && personalizedOnboardingState.levelId === 'starting')) {
+    personalizedOnboardingState.levelId = null
+  }
   personalizedOnboardingState.selectedChannelCatalogIds = []
   personalizedOnboardingState.channelSelectionsInitialized = false
   renderPersonalizedOnboarding()
