@@ -798,7 +798,6 @@ const I18N_EN = {
   'onboarding.back': 'Back',
   'onboarding.build': 'Start my journey',
   'onboarding.building': 'Starting your journey...',
-  'onboarding.private': 'No account required · Your real progress stays in this browser',
   'onboarding.recovery.storage.title': 'Edenia can’t save your progress',
   'onboarding.recovery.storage.body': 'Edenia can’t save your progress in this browser. Please open this page in your device’s main browser and try again.',
   'onboarding.recovery.setup.title': 'Setup couldn’t start',
@@ -1434,7 +1433,6 @@ const I18N = {
     'onboarding.back': '返回',
     'onboarding.build': '開始我的旅程',
     'onboarding.building': '正在開始你的旅程…',
-    'onboarding.private': '不需帳號 · 你的真實進度只會保存在這個瀏覽器中',
     'onboarding.recovery.storage.title': 'Edenia 無法儲存你的進度',
     'onboarding.recovery.storage.body': 'Edenia 無法在這個瀏覽器中儲存你的進度。請在裝置的主要瀏覽器中開啟此頁面，然後再試一次。',
     'onboarding.recovery.setup.title': '無法開始設定',
@@ -1903,7 +1901,6 @@ const I18N = {
     'onboarding.back': '返回',
     'onboarding.build': '开始我的旅程',
     'onboarding.building': '正在开始你的旅程…',
-    'onboarding.private': '无需账号 · 你的真实进度只会保存在这个浏览器中',
     'onboarding.recovery.storage.title': 'Edenia 无法保存你的进度',
     'onboarding.recovery.storage.body': 'Edenia 无法在这个浏览器中保存你的进度。请在设备的主要浏览器中打开此页面，然后重试。',
     'onboarding.recovery.setup.title': '无法开始设置',
@@ -2353,7 +2350,6 @@ const I18N = {
     'onboarding.back': 'Atrás',
     'onboarding.build': 'Empezar mi viaje',
     'onboarding.building': 'Preparando tu viaje...',
-    'onboarding.private': 'Sin cuenta · Tu progreso real permanece en este navegador',
     'onboarding.recovery.storage.title': 'Edenia no puede guardar tu progreso',
     'onboarding.recovery.storage.body': 'Edenia no puede guardar tu progreso en este navegador. Abre esta página en el navegador principal de tu dispositivo e inténtalo de nuevo.',
     'onboarding.recovery.setup.title': 'No se pudo iniciar la configuración',
@@ -2805,7 +2801,6 @@ const I18N = {
     'onboarding.back': 'Retour',
     'onboarding.build': 'Commencer mon parcours',
     'onboarding.building': 'Préparation de votre parcours…',
-    'onboarding.private': 'Aucun compte requis · Votre progression réelle reste dans ce navigateur',
     'onboarding.recovery.storage.title': 'Edenia ne peut pas enregistrer votre progression',
     'onboarding.recovery.storage.body': 'Edenia ne peut pas enregistrer votre progression dans ce navigateur. Ouvrez cette page dans le navigateur principal de votre appareil, puis réessayez.',
     'onboarding.recovery.setup.title': 'La configuration n’a pas pu démarrer',
@@ -6580,6 +6575,7 @@ function retryOnboardingRecovery(button) {
 function renderPersonalizedOnboarding() {
   if (!personalizedOnboardingState.active) return
   const content = document.getElementById('onboardingContent')
+  const panel = document.getElementById('onboardingPanel')
   const localePicker = document.getElementById('onboardingLocalePicker')
   const progressLabel = document.getElementById('onboardingProgressLabel')
   const progressFill = document.getElementById('onboardingProgressFill')
@@ -6591,6 +6587,7 @@ function renderPersonalizedOnboarding() {
   const stepIndex = Math.max(0, stepOrder.indexOf(personalizedOnboardingState.step))
   progressLabel.textContent = t('onboarding.progress', { current: stepIndex + 1, total: stepOrder.length })
   progressFill.style.width = `${((stepIndex + 1) / stepOrder.length) * 100}%`
+  panel?.classList.toggle('is-channel-step', personalizedOnboardingState.step === 'channels')
   localePicker?.classList.toggle('hidden', personalizedOnboardingState.step !== 'language')
 
   if (personalizedOnboardingState.step === 'language') {
@@ -6630,7 +6627,6 @@ function renderOnboardingLanguageStep(content) {
     <div class="onboarding-actions onboarding-actions-end">
       <button type="button" class="btn-primary" onclick="continuePersonalizedOnboardingFromLanguage()" ${selectedLanguageId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
     </div>
-    <p class="onboarding-private-note">${escHtml(t('onboarding.private'))}</p>
   `
   renderLocaleSelect()
 }
