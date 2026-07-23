@@ -103,13 +103,13 @@ html {
 }
 body {
   font-family: 'Space Grotesk', sans-serif;
-  background: linear-gradient(180deg, #dff8ff 0%, #eefbd0 54%, #d8f2f8 100%);
+  background: linear-gradient(180deg, #dff8ff 0%, #eefbd0 54%, #dff8ff 100%);
   color: var(--text);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
 body[data-theme="dark"] {
-  background: linear-gradient(180deg, #07171d 0%, #10242b 55%, #081116 100%);
+  background: linear-gradient(180deg, #07171d 0%, #10242b 55%, #07171d 100%);
 }
 .background-physics {
   height: 100vh;
