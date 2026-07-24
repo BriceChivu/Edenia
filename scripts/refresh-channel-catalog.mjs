@@ -112,6 +112,9 @@ function parseYoutubeInput(value) {
       return { channelId: parts[1] }
     }
     if (YOUTUBE_HANDLE_RE.test(parts[0] || '')) return { handle: parts[0].slice(1) }
+    if (parts[0] === 'user' && parts[1]) return { username: parts[1] }
+    if (parts[0] === 'c' && parts[1]) return { handle: parts[1] }
+    if (parts.length === 1 && parts[0]) return { handle: parts[0] }
   } catch {
     return null
   }
@@ -159,13 +162,15 @@ async function resolveChannelId(channel, previousByCatalogId, apiKey) {
 
   const parsed = parseYoutubeInput(channel.youtubeInput)
   if (parsed?.channelId) return { channelId: parsed.channelId, newlyResolved: true }
-  if (!parsed?.handle) {
+  if (!parsed?.handle && !parsed?.username) {
     throw new Error(`${channel.catalogId} has an unsupported youtubeInput: ${channel.youtubeInput}`)
   }
 
   const data = await fetchYoutube(apiKey, {
     part: 'snippet',
-    forHandle: parsed.handle,
+    ...(parsed.username
+      ? { forUsername: parsed.username }
+      : { forHandle: parsed.handle }),
     maxResults: '1'
   })
   return {

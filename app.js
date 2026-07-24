@@ -4695,6 +4695,7 @@ function getCuratedChannelAvatarPath(catalogId) {
 async function loadDynamicChannelCatalogs() {
   try {
     const catalogs = await Promise.all([
+      ['data/channel-catalog.json', 'curated'],
       ['data/channel-catalog.community.json', 'community'],
       ['data/channel-catalog.discovered.json', 'discovery']
     ].map(async ([url, catalogSource]) => {
@@ -10861,7 +10862,9 @@ async function addCuratedChannelSuggestion(catalogId) {
       },
       source: catalogSource === 'discovery'
         ? 'youtube_discovery_catalog'
-        : 'community_catalog',
+        : catalogSource === 'curated'
+          ? 'curated_catalog'
+          : 'community_catalog',
       catalogId: channel.id,
       catalogSource
     })
