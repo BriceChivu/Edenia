@@ -45,53 +45,96 @@ const GENERAL_EDUCATION_TERMS = [
 const LANGUAGE_DISCOVERY_CONFIG = [
   {
     id: 'french',
-    queries: ['learn French', 'French comprehensible input', 'French lessons for beginners'],
+    queryGroups: [
+      ['learn French', 'French comprehensible input', 'apprendre le français'],
+      ['French listening practice', 'French stories for learners', 'compréhension orale français'],
+      ['French grammar lessons', 'French vocabulary lessons', 'cours de français débutant'],
+      ['intermediate French podcast', 'French conversation practice', 'français niveau intermédiaire']
+    ],
     languageTerms: ['french', 'francais', 'français'],
     educationTerms: ['apprendre', 'cours', 'grammaire', 'lecon', 'leçon', 'vocabulaire']
   },
   {
     id: 'english',
-    queries: ['learn English', 'English comprehensible input', 'English lessons for beginners'],
+    queryGroups: [
+      ['learn English', 'English comprehensible input', 'English lessons for beginners'],
+      ['English listening practice', 'English stories for learners', 'English conversation lessons'],
+      ['English grammar lessons', 'English vocabulary lessons', 'spoken English teacher'],
+      ['intermediate English podcast', 'advanced English listening', 'ESL lessons']
+    ],
     languageTerms: ['english'],
     educationTerms: ['esl', 'ielts', 'toefl']
   },
   {
     id: 'german',
-    queries: ['learn German', 'German comprehensible input', 'German lessons for beginners'],
+    queryGroups: [
+      ['learn German', 'German comprehensible input', 'Deutsch lernen für Anfänger'],
+      ['German listening practice', 'German stories for learners', 'Deutsch Hörverstehen'],
+      ['German grammar lessons', 'German vocabulary lessons', 'Deutsch Grammatik'],
+      ['intermediate German podcast', 'German conversation practice', 'Deutsch lernen Mittelstufe']
+    ],
     languageTerms: ['german', 'deutsch'],
     educationTerms: ['deutsch lernen', 'deutschunterricht', 'grammatik', 'wortschatz']
   },
   {
     id: 'mandarin',
-    queries: ['learn Mandarin Chinese', 'Mandarin comprehensible input', 'Chinese lessons for beginners'],
+    queryGroups: [
+      ['learn Mandarin Chinese', 'Mandarin comprehensible input', '学中文 初学者'],
+      ['Mandarin listening practice', 'Chinese stories for learners', '中文听力'],
+      ['Chinese grammar lessons', 'Mandarin vocabulary lessons', '汉语课'],
+      ['intermediate Mandarin podcast', 'Mandarin conversation practice', '中文播客']
+    ],
     languageTerms: ['mandarin', 'chinese', '中文', '汉语', '漢語', '普通话', '普通話', '华语', '華語'],
-    educationTerms: ['学中文', '學中文', '中文学习', '中文學習', '汉语课', '漢語課']
+    educationTerms: ['学中文', '學中文', '中文学习', '中文學習', '中文听力', '中文聽力', '汉语课', '漢語課']
   },
   {
     id: 'russian',
-    queries: ['learn Russian', 'Russian comprehensible input', 'Russian lessons for beginners'],
+    queryGroups: [
+      ['learn Russian', 'Russian comprehensible input', 'русский язык для начинающих'],
+      ['Russian listening practice', 'Russian stories for learners', 'русский на слух'],
+      ['Russian grammar lessons', 'Russian vocabulary lessons', 'уроки русского языка'],
+      ['intermediate Russian podcast', 'Russian conversation practice', 'русский средний уровень']
+    ],
     languageTerms: ['russian', 'русский'],
     educationTerms: ['учить русский', 'русский язык', 'уроки русского']
   },
   {
     id: 'spanish',
-    queries: ['learn Spanish', 'Spanish comprehensible input', 'Spanish lessons for beginners'],
+    queryGroups: [
+      ['learn Spanish', 'Spanish comprehensible input', 'aprender español principiantes'],
+      ['Spanish listening practice', 'Spanish stories for learners', 'comprensión auditiva español'],
+      ['Spanish grammar lessons', 'Spanish vocabulary lessons', 'curso de español'],
+      ['intermediate Spanish podcast', 'Spanish conversation practice', 'español nivel intermedio']
+    ],
     languageTerms: ['spanish', 'espanol', 'español'],
     educationTerms: ['aprender español', 'curso', 'gramatica', 'gramática', 'lecciones', 'vocabulario']
   },
   {
     id: 'japanese',
-    queries: ['learn Japanese', 'Japanese comprehensible input', 'Japanese lessons for beginners'],
+    queryGroups: [
+      ['learn Japanese', 'Japanese comprehensible input', '日本語 初心者'],
+      ['Japanese listening practice', 'Japanese stories for learners', '日本語 リスニング'],
+      ['Japanese grammar lessons', 'Japanese vocabulary lessons', '日本語 文法'],
+      ['intermediate Japanese podcast', 'Japanese conversation practice', '日本語 中級']
+    ],
     languageTerms: ['japanese', 'nihongo', '日本語'],
-    educationTerms: ['日本語学習', '日本語レッスン', '日本語講座']
+    educationTerms: ['初心者', '中級', '文法', '日本語学習', '日本語レッスン', '日本語講座', 'リスニング']
   },
   {
     id: 'portuguese',
-    queries: ['learn Portuguese', 'Portuguese comprehensible input', 'Portuguese lessons for beginners'],
+    queryGroups: [
+      ['learn Portuguese', 'Portuguese comprehensible input', 'aprender português iniciantes'],
+      ['Portuguese listening practice', 'Portuguese stories for learners', 'compreensão oral português'],
+      ['Portuguese grammar lessons', 'Portuguese vocabulary lessons', 'aulas de português'],
+      ['intermediate Portuguese podcast', 'Portuguese conversation practice', 'português nível intermediário']
+    ],
     languageTerms: ['portuguese', 'portugues', 'português'],
     educationTerms: ['aprender português', 'aulas', 'curso', 'gramatica', 'gramática', 'vocabulario', 'vocabulário']
   }
 ]
+const QUERY_ROTATION_COUNT = Math.min(
+  ...LANGUAGE_DISCOVERY_CONFIG.map(language => language.queryGroups.length)
+)
 
 let searchRequestCount = 0
 let channelRequestCount = 0
@@ -181,41 +224,77 @@ async function fetchYoutube(resource, parameters) {
   return data
 }
 
-async function searchLanguageChannels() {
+function addSearchResults(discoveriesById, languageId, query, items, rankOffset = 0) {
+  ;(items || []).forEach((item, resultIndex) => {
+    const channelId = String(item?.id?.channelId || '')
+    if (!YOUTUBE_CHANNEL_ID_RE.test(channelId)) return
+    const discovery = discoveriesById.get(channelId) || {
+      channelId,
+      byLanguage: new Map()
+    }
+    const languageMatch = discovery.byLanguage.get(languageId) || {
+      bestRank: Number.POSITIVE_INFINITY,
+      queries: new Set()
+    }
+    languageMatch.bestRank = Math.min(languageMatch.bestRank, rankOffset + resultIndex)
+    languageMatch.queries.add(query)
+    discovery.byLanguage.set(languageId, languageMatch)
+    discoveriesById.set(channelId, discovery)
+  })
+}
+
+async function searchLanguageChannels(rotationIndex) {
   const discoveriesById = new Map()
+  const nextPages = []
 
   for (const language of LANGUAGE_DISCOVERY_CONFIG) {
-    for (let queryIndex = 0; queryIndex < language.queries.length; queryIndex += 1) {
-      const query = language.queries[queryIndex]
+    const queries = language.queryGroups[rotationIndex] || language.queryGroups[0]
+    for (let queryIndex = 0; queryIndex < queries.length; queryIndex += 1) {
+      const query = queries[queryIndex]
+      const order = queryIndex === queries.length - 1 ? 'date' : 'relevance'
       const data = await fetchYoutube('search', {
         part: 'snippet',
         type: 'channel',
         maxResults: SEARCH_RESULTS_PER_QUERY,
-        order: queryIndex === language.queries.length - 1 ? 'date' : 'relevance',
+        order,
         safeSearch: 'strict',
         q: query
       })
-
-      ;(data.items || []).forEach((item, resultIndex) => {
-        const channelId = String(item?.id?.channelId || '')
-        if (!YOUTUBE_CHANNEL_ID_RE.test(channelId)) return
-        const discovery = discoveriesById.get(channelId) || {
-          channelId,
-          byLanguage: new Map()
-        }
-        const languageMatch = discovery.byLanguage.get(language.id) || {
-          bestRank: Number.POSITIVE_INFINITY,
-          queries: new Set()
-        }
-        languageMatch.bestRank = Math.min(languageMatch.bestRank, resultIndex)
-        languageMatch.queries.add(query)
-        discovery.byLanguage.set(language.id, languageMatch)
-        discoveriesById.set(channelId, discovery)
-      })
+      addSearchResults(discoveriesById, language.id, query, data.items)
+      if (data.nextPageToken) {
+        nextPages.push({
+          languageId: language.id,
+          query,
+          order,
+          pageToken: data.nextPageToken
+        })
+      }
     }
   }
 
-  return discoveriesById
+  return { discoveriesById, nextPages }
+}
+
+async function searchAdditionalPages(discoveriesById, nextPages, languageIds) {
+  for (const nextPage of nextPages) {
+    if (!languageIds.has(nextPage.languageId)) continue
+    const data = await fetchYoutube('search', {
+      part: 'snippet',
+      type: 'channel',
+      maxResults: SEARCH_RESULTS_PER_QUERY,
+      order: nextPage.order,
+      safeSearch: 'strict',
+      q: nextPage.query,
+      pageToken: nextPage.pageToken
+    })
+    addSearchResults(
+      discoveriesById,
+      nextPage.languageId,
+      nextPage.query,
+      data.items,
+      SEARCH_RESULTS_PER_QUERY
+    )
+  }
 }
 
 async function fetchChannels(channelIds) {
@@ -354,6 +433,12 @@ function selectNewChannels(discoveriesById, youtubeById, known) {
   return selectedById
 }
 
+function countSelectedForLanguage(selectedById, languageId) {
+  return Array.from(selectedById.values())
+    .filter(selected => selected.languages.has(languageId))
+    .length
+}
+
 function metadataFromYoutube(youtubeChannel) {
   return {
     handle: String(youtubeChannel?.snippet?.customUrl || ''),
@@ -425,15 +510,20 @@ function buildNewChannel(selected, discoveredAt) {
   }
 }
 
-function withStableGeneratedAt(previous, channels) {
+function withStableGeneratedAt(previous, channels, rotationIndex) {
   const sortedChannels = channels.sort((left, right) => left.name.localeCompare(right.name, 'en'))
   const previousChannels = JSON.stringify(previous?.channels || [])
   const nextChannels = JSON.stringify(sortedChannels)
+  const nextRotationIndex = (rotationIndex + 1) % QUERY_ROTATION_COUNT
+  const rotationChanged = previous?.nextRotationIndex !== nextRotationIndex
   return {
     schemaVersion: 1,
-    generatedAt: previousChannels === nextChannels
+    generatedAt: previousChannels === nextChannels && !rotationChanged
       ? previous?.generatedAt || null
       : new Date().toISOString(),
+    lastRotationIndex: rotationIndex,
+    nextRotationIndex,
+    rotationCount: QUERY_ROTATION_COUNT,
     languages: LANGUAGE_DISCOVERY_CONFIG.map(language => language.id),
     channels: sortedChannels
   }
@@ -447,8 +537,12 @@ async function main() {
     readJson(DISCOVERED_PATH, { channels: [] })
   ])
   const existingChannels = Array.isArray(discovered?.channels) ? discovered.channels : []
+  const rotationIndex = Math.max(
+    0,
+    Number(discovered?.nextRotationIndex) || 0
+  ) % QUERY_ROTATION_COUNT
   const known = buildKnownCatalog(source, generated, community, discovered)
-  const discoveriesById = await searchLanguageChannels()
+  const { discoveriesById, nextPages } = await searchLanguageChannels(rotationIndex)
   const staleExistingIds = existingChannels
     .filter(isMetadataStale)
     .map(channel => channel.channelId)
@@ -458,7 +552,23 @@ async function main() {
     ...staleExistingIds
   ]))
   const youtubeById = await fetchChannels(channelIdsToFetch)
-  const selectedById = selectNewChannels(discoveriesById, youtubeById, known)
+  let selectedById = selectNewChannels(discoveriesById, youtubeById, known)
+  const languagesNeedingMore = new Set(
+    LANGUAGE_DISCOVERY_CONFIG
+      .filter(language => (
+        countSelectedForLanguage(selectedById, language.id) < MAX_ADDITIONS_PER_LANGUAGE
+      ))
+      .map(language => language.id)
+  )
+  if (languagesNeedingMore.size) {
+    const previouslyHydratedIds = new Set(youtubeById.keys())
+    await searchAdditionalPages(discoveriesById, nextPages, languagesNeedingMore)
+    const additionalChannelIds = Array.from(discoveriesById.keys())
+      .filter(channelId => !previouslyHydratedIds.has(channelId))
+    const additionalYoutubeChannels = await fetchChannels(additionalChannelIds)
+    additionalYoutubeChannels.forEach((channel, channelId) => youtubeById.set(channelId, channel))
+    selectedById = selectNewChannels(discoveriesById, youtubeById, known)
+  }
   const refreshedAt = new Date().toISOString()
   const refreshedExisting = refreshExistingChannels(
     existingChannels,
@@ -471,13 +581,14 @@ async function main() {
   const output = withStableGeneratedAt(discovered, [
     ...refreshedExisting,
     ...newChannels
-  ])
+  ], rotationIndex)
 
   await writeFile(DISCOVERED_TEMP_PATH, `${JSON.stringify(output, null, 2)}\n`, 'utf8')
   await rename(DISCOVERED_TEMP_PATH, DISCOVERED_PATH)
 
   console.log(
-    `Discovered ${newChannels.length} new channels with ${searchRequestCount} search requests `
+    `Discovery rotation ${rotationIndex + 1}/${QUERY_ROTATION_COUNT} added ${newChannels.length} channels `
+    + `with ${searchRequestCount} search requests `
     + `and ${channelRequestCount} channels.list requests`
   )
   LANGUAGE_DISCOVERY_CONFIG.forEach(language => {

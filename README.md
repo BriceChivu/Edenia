@@ -191,7 +191,11 @@ The workflow requires a separate `YOUTUBE_CATALOG_API_KEY` repository secret. Cr
 
 `.github/workflows/discover-language-channels.yml` proactively searches YouTube every Sunday for language-learning channels that are not already present in the curated, community, or previously discovered catalogs. It can also be run manually after the workflow is pushed to GitHub.
 
-Each run searches French, English, German, Mandarin Chinese, Russian, Spanish, Japanese, and Portuguese with three focused channel queries per language. The default run therefore makes 24 `search.list` calls. It then uses batched `channels.list` requests to verify metadata, statistics, public availability, and profile-picture URLs.
+Each run searches French, English, German, Mandarin Chinese, Russian, Spanish, Japanese, and Portuguese with three focused channel queries per language. The queries rotate through four weekly groups covering beginner material, listening and stories, grammar and vocabulary, and intermediate conversation or podcasts. Every group includes a query written in the target language, and its final query is ordered by channel creation date.
+
+The first page of each query uses 24 `search.list` calls. If a language still has fewer than six eligible additions after filtering and deduplication, the script requests the second page for that language's current queries. The absolute maximum is therefore 48 search calls per run. The next rotation index is stored in `data/channel-catalog.discovered.json`, so scheduled and manual runs continue the sequence rather than choosing queries randomly.
+
+The script then uses batched `channels.list` requests to verify metadata, statistics, public availability, and profile-picture URLs.
 
 Automatic additions are deliberately conservative:
 
