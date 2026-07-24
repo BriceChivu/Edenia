@@ -199,6 +199,7 @@ let videoWatchReminderTimer = null
 let videoWatchReminderRenderFrame = null
 let videoWatchReminderZoomTimer = null
 let videoWatchReminderPopupTimer = null
+let nextStudyFocusZoomTimer = null
 let currentLocale = DEFAULT_LOCALE
 let backgroundPhysics = null
 const selectedHistoryPeriod = { week: null, month: null }
@@ -11004,6 +11005,42 @@ function prepareNextStudyVideoOpen(link) {
   return true
 }
 
+function focusNextStudyVideoCard(event, videoId) {
+  event?.preventDefault()
+  event?.stopPropagation()
+
+  const targetVideoId = String(videoId ?? '')
+  const state = loadState()
+  if (!targetVideoId || !state?.videos?.[targetVideoId]) {
+    showToast(t('toast.videoGone'), 'warn')
+    return false
+  }
+
+  window.clearTimeout(nextStudyFocusZoomTimer)
+  closeVideoShelfPreview(activeVideoShelfPreview, true)
+  forcedSearchVideoId = targetVideoId
+  renderFeed(state)
+
+  window.requestAnimationFrame(() => {
+    const found = scrollToVideoCard(targetVideoId, '.video-card', {
+      className: 'watch-reminder-arriving',
+      duration: 1800
+    })
+    forcedSearchVideoId = null
+    if (!found) {
+      showToast(t('toast.couldNotShowVideo'), 'warn')
+      return
+    }
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    nextStudyFocusZoomTimer = window.setTimeout(() => {
+      const card = findVideoCard(targetVideoId)
+      if (card) openVideoShelfPreview(card, true)
+    }, reduceMotion ? 0 : 750)
+  })
+  return false
+}
+
 function pushUndoAction(s, action) {
   normalizeUndoState(s)
   if (!action.createdAt) action.createdAt = new Date().toISOString()
@@ -13369,6 +13406,7 @@ function renderNextStudy(activeVideos = []) {
   const safeVideoId = escHtml(nextVideo.id)
   const videoUrl = escHtml(getVideoUrl(nextVideo))
   const cta = isInProgress ? t('nextStudy.resume') : t('nextStudy.watch')
+  const panelLabel = `${t(isInProgress ? 'nextStudy.title' : 'nextStudy.studyNext')}: ${nextVideo.title}`
   const resumeAt = formatResumeTimestamp(nextVideo.resumeAtSeconds) || '00:00:00'
   container.classList.toggle('continue-watching-card', isInProgress)
   container.classList.toggle('study-next-card', !isInProgress)
@@ -13416,10 +13454,10 @@ function renderNextStudy(activeVideos = []) {
         onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${escHtml(t('nextStudy.watch'))}</a>
     `
   container.innerHTML = `
-    <a class="next-study-mobile-link" href="${videoUrl}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}"></a>
-    <a class="next-study-thumb-link" href="${videoUrl}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}">
+    <button type="button" class="next-study-mobile-link" data-video-id="${safeVideoId}" onclick="focusNextStudyVideoCard(event, this.dataset.videoId)" aria-label="${escHtml(panelLabel)}"></button>
+    <span class="next-study-thumb-link" aria-hidden="true">
       <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
-    </a>
+    </span>
     <span class="next-study-copy">
       <span class="next-study-eyebrow">${escHtml(t(isInProgress ? 'nextStudy.title' : 'nextStudy.studyNext'))}</span>
       <span class="next-study-title" title="${escHtml(nextVideo.title)}">${escHtml(nextVideo.title)}</span>
