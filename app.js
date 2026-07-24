@@ -15208,7 +15208,7 @@ function finishChannelShelfDrag() {
 }
 
 let activeVideoShelfPreview = null
-let videoShelfPreviewCleanupTimer = null
+const videoShelfPreviewCleanupTimers = new WeakMap()
 let videoShelfPreviewAnchorTimer = null
 
 function usesTapVideoShelfPreview() {
@@ -15277,7 +15277,48 @@ function positionVideoShelfPreview(card) {
   card.style.setProperty('--shelf-preview-top', `${targetTop}px`)
   card.style.setProperty('--shelf-preview-size', `${previewSize}px`)
   card.style.setProperty('--shelf-preview-height', `${previewHeight}px`)
+  card.style.setProperty('--shelf-preview-translate-x', `${rect.left - targetLeft}px`)
+  card.style.setProperty('--shelf-preview-translate-y', `${rect.top - targetTop}px`)
+  card.style.setProperty('--shelf-preview-scale-x', `${rect.width / previewSize}`)
+  card.style.setProperty('--shelf-preview-scale-y', `${rect.height / previewHeight}`)
   return true
+}
+
+function clearVideoShelfPreviewCleanup(card) {
+  const cleanupTimer = videoShelfPreviewCleanupTimers.get(card)
+  if (cleanupTimer) window.clearTimeout(cleanupTimer)
+  videoShelfPreviewCleanupTimers.delete(card)
+}
+
+function cleanupVideoShelfPreview(card) {
+  if (!card || card.classList.contains('is-previewing')) return
+  clearVideoShelfPreviewCleanup(card)
+  card.classList.remove('is-preview-armed', 'is-preview-closing', 'is-source-anchored')
+  card.classList.remove('is-floating-preview')
+  card.style.removeProperty('--shelf-preview-origin-left')
+  card.style.removeProperty('--shelf-preview-origin-top')
+  card.style.removeProperty('--shelf-preview-origin-width')
+  card.style.removeProperty('--shelf-preview-origin-height')
+  card.style.removeProperty('--shelf-preview-left')
+  card.style.removeProperty('--shelf-preview-top')
+  card.style.removeProperty('--shelf-preview-size')
+  card.style.removeProperty('--shelf-preview-height')
+  card.style.removeProperty('--shelf-preview-translate-x')
+  card.style.removeProperty('--shelf-preview-translate-y')
+  card.style.removeProperty('--shelf-preview-scale-x')
+  card.style.removeProperty('--shelf-preview-scale-y')
+  if (activeVideoShelfPreview === card) activeVideoShelfPreview = null
+}
+
+function reopenVideoShelfPreview(card) {
+  clearVideoShelfPreviewCleanup(card)
+  card.classList.remove('is-preview-closing')
+  activeVideoShelfPreview = card
+  requestAnimationFrame(() => {
+    if (activeVideoShelfPreview === card && card.classList.contains('is-floating-preview')) {
+      card.classList.add('is-previewing')
+    }
+  })
 }
 
 function openVideoShelfPreview(card, force = false) {
@@ -15285,16 +15326,19 @@ function openVideoShelfPreview(card, force = false) {
     !card
     || !canUseVideoShelfPreview()
     || (activeVideoWatchReminderId && !force)
-    || card.classList.contains('is-floating-preview')
     || (card.classList.contains('watch-reminder-target') && !force)
   ) return
   if (activeChannelShelfDrag) return
   if (!force && !isVideoShelfCardFullyVisible(card)) return
   if (activeVideoShelfPreview && activeVideoShelfPreview !== card) {
-    closeVideoShelfPreview(activeVideoShelfPreview, true)
+    closeVideoShelfPreview(activeVideoShelfPreview)
+  }
+  if (card.classList.contains('is-floating-preview')) {
+    if (card.classList.contains('is-preview-closing')) reopenVideoShelfPreview(card)
+    return
   }
 
-  window.clearTimeout(videoShelfPreviewCleanupTimer)
+  clearVideoShelfPreviewCleanup(card)
   window.clearTimeout(videoShelfPreviewAnchorTimer)
   if (!positionVideoShelfPreview(card)) return
   card.classList.add('is-floating-preview')
@@ -15322,28 +15366,30 @@ function closeVideoShelfPreview(card, force = false) {
   if (!force && activeVideoWatchReminderId && card.dataset.videoId === activeVideoWatchReminderId) return
   if (!force && (card.matches(':hover') || card.matches(':focus-within'))) return
 
-  const cleanup = () => {
-    if (card.classList.contains('is-previewing')) return
-    card.classList.remove('is-preview-armed', 'is-source-anchored')
-    card.classList.remove('is-floating-preview')
-    card.style.removeProperty('--shelf-preview-origin-left')
-    card.style.removeProperty('--shelf-preview-origin-top')
-    card.style.removeProperty('--shelf-preview-origin-width')
-    card.style.removeProperty('--shelf-preview-origin-height')
-    card.style.removeProperty('--shelf-preview-left')
-    card.style.removeProperty('--shelf-preview-top')
-    card.style.removeProperty('--shelf-preview-size')
-    card.style.removeProperty('--shelf-preview-height')
-    if (activeVideoShelfPreview === card) activeVideoShelfPreview = null
-  }
+  clearVideoShelfPreviewCleanup(card)
+  if (activeVideoShelfPreview === card) activeVideoShelfPreview = null
+  card.classList.add('is-preview-closing')
   card.classList.remove('is-previewing')
-  window.clearTimeout(videoShelfPreviewCleanupTimer)
   window.clearTimeout(videoShelfPreviewAnchorTimer)
-  if (force) {
-    cleanup()
+  if (force || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    cleanupVideoShelfPreview(card)
     return
   }
-  videoShelfPreviewCleanupTimer = window.setTimeout(cleanup, 220)
+
+  const finishClosingPreview = event => {
+    if (event.target !== card || event.propertyName !== 'transform') return
+    card.removeEventListener('transitionend', finishClosingPreview)
+    if (!card.classList.contains('is-preview-closing')) return
+    cleanupVideoShelfPreview(card)
+  }
+  card.addEventListener('transitionend', finishClosingPreview)
+  videoShelfPreviewCleanupTimers.set(
+    card,
+    window.setTimeout(() => {
+      card.removeEventListener('transitionend', finishClosingPreview)
+      cleanupVideoShelfPreview(card)
+    }, 240)
+  )
 }
 
 function closeVideoShelfPreviewAfterFocus(card) {

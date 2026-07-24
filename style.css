@@ -7976,14 +7976,25 @@ summary:focus-visible,
     padding: 2px 5px;
   }
   .channel-shelf-card.is-floating-preview {
-    height: var(--shelf-preview-origin-height);
+    height: var(--shelf-preview-height);
     inset: auto;
-    left: var(--shelf-preview-origin-left);
+    left: var(--shelf-preview-left);
     position: fixed;
-    top: var(--shelf-preview-origin-top);
-    transform: none;
+    top: var(--shelf-preview-top);
+    transform:
+      translate3d(
+        var(--shelf-preview-translate-x),
+        var(--shelf-preview-translate-y),
+        0
+      )
+      scale(
+        var(--shelf-preview-scale-x),
+        var(--shelf-preview-scale-y)
+      );
+    transform-origin: top left;
     transition: none;
-    width: var(--shelf-preview-origin-width);
+    width: var(--shelf-preview-size);
+    will-change: transform;
     z-index: 1000;
   }
   .channel-shelf-card.watch-reminder-target.is-floating-preview {
@@ -7993,10 +8004,15 @@ summary:focus-visible,
     transition:
       border-color var(--motion-base) var(--ease-standard),
       box-shadow var(--motion-base) var(--ease-standard),
-      height 220ms var(--ease-emphasized),
-      left 220ms var(--ease-emphasized),
-      top 220ms var(--ease-emphasized),
-      width 220ms var(--ease-emphasized);
+      transform 155ms var(--ease-emphasized);
+  }
+  .channel-shelf-card.is-floating-preview.is-preview-closing {
+    pointer-events: none;
+    transition:
+      border-color 120ms var(--ease-standard),
+      box-shadow 120ms var(--ease-standard),
+      transform 175ms var(--ease-standard);
+    z-index: 999;
   }
   .channel-shelf-card.watch-reminder-target.is-floating-preview.is-source-anchored {
     transition:
@@ -8006,10 +8022,7 @@ summary:focus-visible,
   .channel-shelf-card.is-floating-preview.is-previewing {
     border-color: var(--planet-black);
     box-shadow: 0 12px 24px rgba(5,5,5,0.28), 0 4px 0 rgba(5,5,5,0.24);
-    height: var(--shelf-preview-height);
-    left: var(--shelf-preview-left);
-    top: var(--shelf-preview-top);
-    width: var(--shelf-preview-size);
+    transform: translate3d(0, 0, 0) scale(1);
   }
   .channel-shelf-card.is-previewing .thumb-link {
     bottom: auto;
@@ -8026,6 +8039,16 @@ summary:focus-visible,
     padding: 10px 12px;
     pointer-events: auto;
     transform: translateY(0);
+  }
+  .channel-shelf-card.is-floating-preview.is-preview-armed .card-body {
+    transition:
+      opacity 105ms var(--ease-standard) 25ms,
+      transform 135ms var(--ease-emphasized) 15ms;
+  }
+  .channel-shelf-card.is-floating-preview.is-preview-closing .card-body {
+    transition:
+      opacity 80ms var(--ease-standard),
+      transform 100ms var(--ease-standard);
   }
   .channel-shelf-card.is-previewing .card-title {
     color: var(--text);
