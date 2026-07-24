@@ -6295,14 +6295,13 @@ function selectIntroCityLevel(level) {
 }
 
 function updateIntroSoundButton() {
-  const button = document.getElementById('introSoundBtn')
   const labelKey = introTrailerState.soundEnabled ? 'intro.sound.on' : 'intro.sound.off'
   const labelText = t(labelKey)
-  if (button) {
+  document.querySelectorAll('[data-intro-sound-toggle]').forEach(button => {
     button.setAttribute('aria-pressed', String(introTrailerState.soundEnabled))
     button.setAttribute('aria-label', labelText)
     button.title = labelText
-  }
+  })
 }
 
 function removeIntroMusicUnlockListeners() {

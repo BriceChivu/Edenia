@@ -1236,6 +1236,12 @@ body.onboarding-active .toast { z-index: 320; }
   transform: translate(50%, -50%);
 }
 .onboarding-content { display: grid; gap: 20px; }
+.onboarding-sound {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  top: max(18px, env(safe-area-inset-top));
+  z-index: 5;
+}
 .onboarding-language-picker {
   position: fixed;
   right: max(18px, env(safe-area-inset-right));
@@ -5920,6 +5926,10 @@ summary:focus-visible,
     top: max(60px, calc(env(safe-area-inset-top) + 52px));
     width: 112px;
   }
+  .onboarding-sound {
+    right: max(12px, env(safe-area-inset-right));
+    top: max(12px, env(safe-area-inset-top));
+  }
   .intro-locale-btn { padding: 8px 11px; }
   .intro-nav-btn {
     bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px));
@@ -7203,6 +7213,10 @@ summary:focus-visible,
   .onboarding-language-picker {
     top: max(12px, calc(env(safe-area-inset-top) + 8px));
     width: 132px;
+  }
+  .onboarding-sound {
+    right: max(12px, env(safe-area-inset-right));
+    top: max(64px, calc(env(safe-area-inset-top) + 60px));
   }
   .intro-locale-btn { min-height: 44px; }
   .intro-nav-btn {

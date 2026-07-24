@@ -78,7 +78,7 @@
 
       <div class="intro-top-controls">
         <div class="intro-top-actions">
-          <button class="intro-sound" id="introSoundBtn" type="button" onclick="toggleIntroSound()" aria-pressed="false">
+          <button class="intro-sound" id="introSoundBtn" data-intro-sound-toggle type="button" onclick="toggleIntroSound()" aria-pressed="false">
             <span class="intro-sound-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
                 <path class="intro-sound-speaker" d="M4 9.2h3.4L12 5.5v13l-4.6-3.7H4z"></path>
@@ -235,6 +235,15 @@ and momentum—at a glance</h2>
   <!-- FIRST-RUN ONBOARDING                                  -->
   <!-- ═══════════════════════════════════════════════════════ -->
   <section class="onboarding-panel hidden" id="onboardingPanel" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+    <button class="intro-sound onboarding-sound" id="onboardingSoundBtn" data-intro-sound-toggle type="button" onclick="toggleIntroSound()" aria-pressed="false">
+      <span class="intro-sound-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path class="intro-sound-speaker" d="M4 9.2h3.4L12 5.5v13l-4.6-3.7H4z"></path>
+          <path class="intro-sound-wave" d="M15.2 9.1c1.6 1.7 1.6 4.1 0 5.8M17.8 6.8c3 3 3 7.4 0 10.4"></path>
+          <path class="intro-sound-cross" d="M4.8 4.8 19.2 19.2"></path>
+        </svg>
+      </span>
+    </button>
     <div class="onboarding-card">
       <div class="onboarding-language-picker hidden" id="onboardingLocalePicker">
         <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="onboardingLocaleBtn" onclick="toggleOnboardingLocaleMenu(event)" aria-haspopup="true" aria-expanded="false">
