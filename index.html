@@ -648,8 +648,25 @@ and momentum—at a glance</h2>
                 <button class="mobile-popover-close" type="button" onclick="closeManualVideoPopover(true)" title="Close" aria-label="Close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">×</button>
               </div>
               <form class="manual-video-form" onsubmit="addYoutubeInput(event)">
-                <p class="manual-video-hint" data-i18n="videos.manual.hint">Here you can paste the URL of a YouTube video or a channel.</p>
-                <input type="text" id="manualVideoUrlInput" placeholder="YouTube video or channel URL" data-i18n-placeholder="videos.manual.placeholder" autocomplete="off">
+                <p class="manual-video-hint" data-i18n="videos.manual.hint">Search Edenia's channel catalog, or paste a YouTube video or channel URL.</p>
+                <div class="manual-video-input-wrap">
+                  <input type="text"
+                    id="manualVideoUrlInput"
+                    placeholder="Search channels or paste a YouTube URL"
+                    data-i18n-placeholder="videos.manual.searchPlaceholder"
+                    autocomplete="off"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-controls="manualChannelSuggestions"
+                    aria-expanded="false"
+                    oninput="renderManualChannelSuggestions()"
+                    onkeydown="handleManualChannelSuggestionKeydown(event)">
+                  <div class="manual-channel-suggestions hidden"
+                    id="manualChannelSuggestions"
+                    role="listbox"
+                    aria-label="Channel suggestions"
+                    data-i18n-aria-label="videos.manual.suggestions"></div>
+                </div>
                 <button type="submit" class="btn-secondary manual-video-submit" id="manualVideoAddBtn" data-i18n="videos.manual.add">Add</button>
               </form>
             </div>

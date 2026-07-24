@@ -722,6 +722,35 @@ const CURATED_CHANNEL_CATALOG = [
   })),
   ...EXPANDED_CURATED_CHANNEL_CATALOG
 ]
+const CURATED_CHANNEL_SEARCH_LANGUAGE_ALIASES = {
+  mandarin: ['mandarin', 'mandarin chinese', 'chinese', '中文', '汉语', '漢語'],
+  japanese: ['japanese', '日本語'],
+  korean: ['korean', '한국어'],
+  spanish: ['spanish', 'espanol', 'español'],
+  french: ['french', 'francais', 'français'],
+  german: ['german', 'deutsch'],
+  english: ['english'],
+  russian: ['russian', 'русский'],
+  portuguese: ['portuguese', 'portugues', 'português']
+}
+const CURATED_CHANNEL_SEARCH_IGNORED_WORDS = new Set([
+  'a',
+  'channel',
+  'channels',
+  'for',
+  'language',
+  'languages',
+  'learn',
+  'learning',
+  'lesson',
+  'lessons',
+  'the',
+  'to',
+  'video',
+  'videos',
+  'with',
+  'youtube'
+])
 const CURATED_NOT_SURE_CHANNEL_IDS = {
   mandarin: [
     'mandarin-grace',
@@ -1120,8 +1149,11 @@ const I18N_EN = {
   'videos.channels.count': '{count} channels',
   'videos.manual.button': 'Add',
   'videos.manual.dialog': 'Add YouTube video or channel',
-  'videos.manual.hint': 'Here you can paste the URL of a YouTube video or a channel.',
+  'videos.manual.hint': "Search Edenia's channel catalog, or paste a YouTube video or channel URL.",
   'videos.manual.placeholder': 'YouTube video or channel URL',
+  'videos.manual.searchPlaceholder': 'Search channels or paste a YouTube URL',
+  'videos.manual.suggestions': 'Channel suggestions',
+  'videos.manual.noMatches': 'No catalog matches. Paste a YouTube video or channel URL instead.',
   'videos.manual.add': 'Add',
   'videos.manual.adding': 'Adding...',
   'videos.undo': 'Undo',
@@ -1724,7 +1756,10 @@ const I18N = {
     'videos.channels.none': '沒有頻道',
     'videos.manual.button': '新增',
     'videos.manual.dialog': '新增 YouTube 影片或頻道',
-    'videos.manual.hint': '你可以在這裡貼上 YouTube 影片或頻道網址。',
+    'videos.manual.hint': '搜尋 Edenia 頻道目錄，或貼上 YouTube 影片或頻道網址。',
+    'videos.manual.searchPlaceholder': '搜尋頻道或貼上 YouTube 網址',
+    'videos.manual.suggestions': '頻道建議',
+    'videos.manual.noMatches': '目錄中沒有相符頻道。你也可以貼上 YouTube 影片或頻道網址。',
     'videos.manual.add': '新增',
     'videos.undo': '復原',
     'videos.redo': '重做',
@@ -2180,7 +2215,10 @@ const I18N = {
     'videos.channels.add': '添加频道',
     'videos.channels.none': '没有频道',
     'videos.manual.button': '添加',
-    'videos.manual.hint': '你可以在这里粘贴 YouTube 视频或频道网址。',
+    'videos.manual.hint': '搜索 Edenia 频道目录，或粘贴 YouTube 视频或频道网址。',
+    'videos.manual.searchPlaceholder': '搜索频道或粘贴 YouTube 网址',
+    'videos.manual.suggestions': '频道建议',
+    'videos.manual.noMatches': '目录中没有匹配频道。你也可以粘贴 YouTube 视频或频道网址。',
     'videos.manual.add': '添加',
     'videos.undo': '撤销',
     'videos.redo': '重做',
@@ -2631,7 +2669,10 @@ const I18N = {
     'videos.channels.add': 'Añadir canales',
     'videos.channels.none': 'Sin canales',
     'videos.manual.button': 'Añadir',
-    'videos.manual.hint': 'Aquí puedes pegar la URL de un video o canal de YouTube.',
+    'videos.manual.hint': 'Busca en el catálogo de Edenia o pega la URL de un video o canal de YouTube.',
+    'videos.manual.searchPlaceholder': 'Buscar canales o pegar una URL de YouTube',
+    'videos.manual.suggestions': 'Sugerencias de canales',
+    'videos.manual.noMatches': 'No hay coincidencias en el catálogo. También puedes pegar la URL de un video o canal de YouTube.',
     'videos.manual.add': 'Añadir',
     'videos.undo': 'Deshacer',
     'videos.redo': 'Rehacer',
@@ -3082,7 +3123,10 @@ const I18N = {
     'videos.channels.add': 'Ajouter des chaînes',
     'videos.channels.none': 'Aucune chaîne',
     'videos.manual.button': 'Ajouter',
-    'videos.manual.hint': 'Vous pouvez coller ici l’URL d’une vidéo ou d’une chaîne YouTube.',
+    'videos.manual.hint': 'Recherchez dans le catalogue Edenia ou collez l’URL d’une vidéo ou d’une chaîne YouTube.',
+    'videos.manual.searchPlaceholder': 'Rechercher une chaîne ou coller une URL YouTube',
+    'videos.manual.suggestions': 'Suggestions de chaînes',
+    'videos.manual.noMatches': 'Aucun résultat dans le catalogue. Vous pouvez aussi coller l’URL d’une vidéo ou d’une chaîne YouTube.',
     'videos.manual.add': 'Ajouter',
     'videos.undo': 'Annuler',
     'videos.redo': 'Rétablir',
@@ -10160,6 +10204,240 @@ async function addVideoFromUrl(event) {
   }
 }
 
+function normalizeCuratedChannelSearchText(value) {
+  return String(value || '')
+    .normalize('NFKD')
+    .replace(/\p{Mark}+/gu, '')
+    .toLocaleLowerCase()
+    .replace(/[^\p{Letter}\p{Number}]+/gu, ' ')
+    .trim()
+    .replace(/\s+/g, ' ')
+}
+
+function getCuratedChannelSearchTokens(value) {
+  const normalized = normalizeCuratedChannelSearchText(value)
+  const tokens = normalized.split(' ').filter(Boolean)
+  const meaningfulTokens = tokens.filter(token => !CURATED_CHANNEL_SEARCH_IGNORED_WORDS.has(token))
+  return meaningfulTokens.length ? meaningfulTokens : tokens
+}
+
+function tokenMatchesCuratedChannel(token, candidateTokens) {
+  return candidateTokens.some(candidateToken => (
+    candidateToken === token
+    || (token.length >= 2 && candidateToken.startsWith(token))
+    || (candidateToken.length >= 2 && token.startsWith(candidateToken))
+  ))
+}
+
+function getCuratedChannelSearchMatches(value, limit = 6) {
+  const normalizedQuery = normalizeCuratedChannelSearchText(value)
+  if (normalizedQuery.length < 2) return []
+
+  const queryTokens = getCuratedChannelSearchTokens(normalizedQuery)
+  if (!queryTokens.length) return []
+
+  return CURATED_CHANNEL_CATALOG
+    .map((channel, catalogIndex) => {
+      const normalizedName = normalizeCuratedChannelSearchText(channel.name)
+      const normalizedInput = normalizeCuratedChannelSearchText(channel.input)
+      const languageAliases = CURATED_CHANNEL_SEARCH_LANGUAGE_ALIASES[channel.language] || [channel.language]
+      const normalizedSearchText = normalizeCuratedChannelSearchText([
+        channel.name,
+        channel.input,
+        channel.language,
+        ...languageAliases,
+        channel.style,
+        channel.description
+      ].filter(Boolean).join(' '))
+      const candidateTokens = normalizedSearchText.split(' ').filter(Boolean)
+      const matchedTokens = queryTokens.filter(token => tokenMatchesCuratedChannel(token, candidateTokens))
+      const coverage = matchedTokens.length / queryTokens.length
+
+      if (!matchedTokens.length || (queryTokens.length > 1 && coverage < 0.5)) return null
+
+      const nameTokens = normalizedName.split(' ').filter(Boolean)
+      const matchedNameTokens = queryTokens.filter(token => tokenMatchesCuratedChannel(token, nameTokens)).length
+      let score = Math.round(coverage * 500) + (matchedNameTokens * 60)
+      if (normalizedName === normalizedQuery) score += 1000
+      else if (normalizedQuery.includes(normalizedName)) score += 800
+      else if (normalizedName.startsWith(normalizedQuery)) score += 650
+      else if (normalizedName.includes(normalizedQuery)) score += 500
+      if (normalizedInput === normalizedQuery) score += 900
+      else if (normalizedInput.startsWith(normalizedQuery)) score += 450
+
+      return { channel, score, catalogIndex }
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.score - a.score || a.catalogIndex - b.catalogIndex)
+    .slice(0, Math.max(1, Number(limit) || 6))
+    .map(result => result.channel)
+}
+
+function isCuratedChannelAlreadyAdded(channel, state = loadState()) {
+  const normalizedCatalogName = normalizeCuratedChannelSearchText(channel?.name)
+  if (!normalizedCatalogName) return false
+  return (state?.config?.channels || []).some(existing => (
+    normalizeCuratedChannelSearchText(existing?.name) === normalizedCatalogName
+  ))
+}
+
+function getCuratedChannelInitials(channel) {
+  return String(channel?.name || 'YT')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join('')
+    .toLocaleUpperCase() || 'YT'
+}
+
+function closeManualChannelSuggestions() {
+  const input = document.getElementById('manualVideoUrlInput')
+  const list = document.getElementById('manualChannelSuggestions')
+  if (list) {
+    list.classList.add('hidden')
+    list.innerHTML = ''
+  }
+  input?.setAttribute('aria-expanded', 'false')
+  input?.removeAttribute('aria-activedescendant')
+  renderManualChannelSuggestions.activeIndex = -1
+}
+
+function renderManualChannelSuggestions() {
+  const input = document.getElementById('manualVideoUrlInput')
+  const list = document.getElementById('manualChannelSuggestions')
+  if (!input || !list) return
+
+  const value = input.value.trim()
+  const isYoutubeResource = Boolean(
+    parseYoutubeVideoId(value)
+    || YOUTUBE_CHANNEL_ID_RE.test(value)
+    || /(?:youtube\.com|youtu\.be)/i.test(value)
+  )
+  if (value.length < 2 || isYoutubeResource) {
+    closeManualChannelSuggestions()
+    return
+  }
+
+  const matches = getCuratedChannelSearchMatches(value)
+  renderManualChannelSuggestions.activeIndex = -1
+  input.removeAttribute('aria-activedescendant')
+  input.setAttribute('aria-expanded', 'true')
+  list.classList.remove('hidden')
+
+  if (!matches.length) {
+    list.innerHTML = `<p class="manual-channel-suggestion-empty">${escHtml(t('videos.manual.noMatches'))}</p>`
+    return
+  }
+
+  const state = loadState()
+  list.innerHTML = matches.map(channel => {
+    const alreadyAdded = isCuratedChannelAlreadyAdded(channel, state)
+    const meta = [
+      channel.input,
+      alreadyAdded ? t('toast.channelDuplicate') : ''
+    ].filter(Boolean).join(' · ')
+    return `
+      <button type="button"
+        class="manual-channel-suggestion ${alreadyAdded ? 'is-added' : ''}"
+        id="manualChannelSuggestion-${escHtml(channel.id)}"
+        data-catalog-id="${escHtml(channel.id)}"
+        data-added="${alreadyAdded ? 'true' : 'false'}"
+        role="option"
+        aria-selected="false"
+        onclick="selectManualChannelSuggestion(event, this.dataset.catalogId)">
+        <span class="manual-channel-suggestion-avatar" aria-hidden="true">
+          <span>${escHtml(getCuratedChannelInitials(channel))}</span>
+          <img src="${escHtml(getCuratedChannelAvatarPath(channel.id))}" alt="" loading="lazy" onerror="this.hidden=true">
+        </span>
+        <span class="manual-channel-suggestion-copy">
+          <span class="manual-channel-suggestion-name">${escHtml(channel.name)}</span>
+          <span class="manual-channel-suggestion-meta">${escHtml(meta)}</span>
+        </span>
+      </button>
+    `
+  }).join('')
+}
+
+function setActiveManualChannelSuggestion(index) {
+  const input = document.getElementById('manualVideoUrlInput')
+  const options = Array.from(document.querySelectorAll(
+    '#manualChannelSuggestions .manual-channel-suggestion:not(.is-added)'
+  ))
+  if (!input || !options.length) return
+
+  const normalizedIndex = (index + options.length) % options.length
+  renderManualChannelSuggestions.activeIndex = normalizedIndex
+  options.forEach((option, optionIndex) => {
+    const isActive = optionIndex === normalizedIndex
+    option.classList.toggle('is-active', isActive)
+    option.setAttribute('aria-selected', String(isActive))
+  })
+  const activeOption = options[normalizedIndex]
+  input.setAttribute('aria-activedescendant', activeOption.id)
+  activeOption.scrollIntoView({ block: 'nearest' })
+}
+
+function handleManualChannelSuggestionKeydown(event) {
+  const list = document.getElementById('manualChannelSuggestions')
+  if (!list || list.classList.contains('hidden')) return
+
+  const options = Array.from(list.querySelectorAll('.manual-channel-suggestion:not(.is-added)'))
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    event.stopPropagation()
+    closeManualChannelSuggestions()
+    return
+  }
+  if (!options.length) return
+
+  const activeIndex = Number.isInteger(renderManualChannelSuggestions.activeIndex)
+    ? renderManualChannelSuggestions.activeIndex
+    : -1
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    setActiveManualChannelSuggestion(activeIndex + 1)
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    setActiveManualChannelSuggestion(activeIndex <= 0 ? options.length - 1 : activeIndex - 1)
+  } else if (event.key === 'Enter' && activeIndex >= 0) {
+    event.preventDefault()
+    selectManualChannelSuggestion(event, options[activeIndex].dataset.catalogId)
+  }
+}
+
+async function addCuratedChannelSuggestion(catalogId) {
+  const channel = getCuratedChannelEntry(catalogId)
+  const input = document.getElementById('manualVideoUrlInput')
+  const btn = document.getElementById('manualVideoAddBtn')
+  if (!channel || !input) return
+
+  if (isCuratedChannelAlreadyAdded(channel)) {
+    showToast(t('toast.channelDuplicate'), 'warn')
+    return
+  }
+
+  input.value = channel.input
+  closeManualChannelSuggestions()
+  await addChannel({
+    input,
+    button: btn,
+    idleButtonText: t('videos.manual.add'),
+    closePopover: true
+  })
+}
+
+function selectManualChannelSuggestion(event, catalogId) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const option = event?.currentTarget
+  if (option?.dataset?.added === 'true') {
+    showToast(t('toast.channelDuplicate'), 'warn')
+    return
+  }
+  addCuratedChannelSuggestion(catalogId)
+}
+
 async function addYoutubeInput(event) {
   event.preventDefault()
   const input = document.getElementById('manualVideoUrlInput')
@@ -10180,7 +10458,13 @@ async function addYoutubeInput(event) {
     return
   }
 
-  showToast(t('toast.validYoutubeUrl'), 'warn')
+  const catalogMatch = getCuratedChannelSearchMatches(rawUrl, 1)[0]
+  if (catalogMatch) {
+    await addCuratedChannelSuggestion(catalogMatch.id)
+    return
+  }
+
+  showToast(t('videos.manual.noMatches'), 'warn')
   input?.focus()
 }
 
@@ -15211,7 +15495,10 @@ function toggleManualVideoPopover(event) {
   btn.setAttribute('aria-expanded', String(isOpen))
   if (isOpen) {
     positionFilterMenuWithinViewport(menu)
-    setTimeout(() => input?.focus(), 0)
+    setTimeout(() => {
+      input?.focus()
+      renderManualChannelSuggestions()
+    }, 0)
   }
 }
 
@@ -15223,6 +15510,7 @@ function closeManualVideoPopover(restoreFocus = false) {
   menu.style.left = ''
   menu.style.right = ''
   btn.setAttribute('aria-expanded', 'false')
+  closeManualChannelSuggestions()
   if (restoreFocus && isMobileLayout()) window.setTimeout(() => btn.focus(), 0)
 }
 
