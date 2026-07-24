@@ -163,6 +163,30 @@ Recommended Google Cloud restrictions:
 
 Custom `/c/...` channel URLs are not resolved automatically. Use a channel ID, handle, supported channel URL, or legacy username URL instead.
 
+## Channel Catalog Maintenance
+
+`data/channel-catalog.source.json` is the human-maintained list of channels. Add or edit entries there; do not edit the generated `data/channel-catalog.json` file directly.
+
+Each source entry needs:
+
+- A unique lowercase `catalogId`.
+- A YouTube handle, channel URL, or channel ID in `youtubeInput`.
+- A fallback `name`.
+- At least one `language` and `level`.
+- Optional `style`, `description`, and `aliases` fields for local search.
+
+Refresh the generated catalog with:
+
+```bash
+node scripts/refresh-channel-catalog.mjs
+```
+
+The script uses `YOUTUBE_CATALOG_API_KEY` or `YOUTUBE_API_KEY` when set, otherwise it reads the key from `config.local.js`. New handles are resolved once, and later refreshes reuse their stable channel IDs and request current metadata in batches of up to 50.
+
+`.github/workflows/refresh-channel-catalog.yml` also refreshes the catalog when the source or refresh script changes, on manual dispatch, and twice per month. It commits only the generated catalog. Missing or deleted channels remain in the generated file with `available: false` so they can be corrected without losing the editorial entry.
+
+The workflow requires a separate `YOUTUBE_CATALOG_API_KEY` repository secret. Create that credential in the same Google Cloud project, restrict it to YouTube Data API v3, and keep it only in GitHub Actions. Do not apply Edenia's browser-referrer restriction to this automation key because GitHub's server-side runner does not send the deployed site's referrer. Both credentials still share the same project quota.
+
 ## Anki Setup
 
 1. Install [AnkiConnect](https://ankiweb.net/shared/info/2055492159).
@@ -249,7 +273,11 @@ Production analytics create a PostHog person profile for each browser installati
 | `app.js` | State, localization, onboarding, YouTube and Anki integrations, history, insights, scoring, and rendering |
 | `analytics.js` | PostHog person profiles, deduplicated state synchronization, historical aggregate backfill, and controlled button-action tracking |
 | `config.example.js` | Safe local runtime-config template |
+| `data/channel-catalog.source.json` | Human-maintained channel catalog and Edenia search metadata |
+| `data/channel-catalog.json` | Generated current YouTube channel metadata |
+| `scripts/refresh-channel-catalog.mjs` | Catalog validation, channel-ID resolution, and batched metadata refresh |
 | `assets/fonts/` | Self-hosted Space Grotesk and Bebas Neue font subsets |
 | `images/channel-avatars/` | Bundled curated-channel avatars |
 | `images/city/` | Optimized town progression images |
 | `.github/workflows/deploy-pages.yml` | Static GitHub Pages build and deployment workflow |
+| `.github/workflows/refresh-channel-catalog.yml` | Scheduled and source-triggered channel catalog refresh |
