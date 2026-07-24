@@ -15327,6 +15327,7 @@ function clearVideoShelfPreviewCleanup(card) {
 function cleanupVideoShelfPreview(card) {
   if (!card || card.classList.contains('is-previewing')) return
   clearVideoShelfPreviewCleanup(card)
+  card.classList.add('is-preview-resetting')
   card.classList.remove('is-preview-armed', 'is-preview-closing', 'is-source-anchored')
   card.classList.remove('is-floating-preview')
   card.style.removeProperty('--shelf-preview-origin-left')
@@ -15338,6 +15339,7 @@ function cleanupVideoShelfPreview(card) {
   card.style.removeProperty('--shelf-preview-size')
   card.style.removeProperty('--shelf-preview-height')
   if (activeVideoShelfPreview === card) activeVideoShelfPreview = null
+  requestAnimationFrame(() => card.classList.remove('is-preview-resetting'))
 }
 
 function reopenVideoShelfPreview(card) {

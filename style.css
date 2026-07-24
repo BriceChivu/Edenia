@@ -7807,8 +7807,11 @@ summary:focus-visible,
       transform: none;
     }
   }
-  .channel-shelf:has(.channel-shelf-card:is(:hover, :focus-within)) {
+  .channel-shelf:has(.channel-shelf-card:is(:hover, :focus-within, .is-floating-preview)) {
     z-index: 20;
+  }
+  .channel-shelf:has(.channel-shelf-card.is-previewing) {
+    z-index: 21;
   }
   .channel-shelf:has(.channel-shelf-card.watch-reminder-target.is-floating-preview) {
     z-index: 10002;
@@ -7837,7 +7840,7 @@ summary:focus-visible,
       border-color var(--motion-base) var(--ease-standard),
       box-shadow var(--motion-base) var(--ease-standard);
   }
-  .channel-shelf-card.status-partial:not(.is-previewing) {
+  .channel-shelf-card.status-partial:not(.is-previewing):not(.is-preview-closing) {
     border-color: #c68b17;
   }
   .channel-shelf-card.status-partial {
@@ -7845,7 +7848,7 @@ summary:focus-visible,
     --shelf-resume-border: #c68b17;
     --shelf-resume-text: #3c2800;
   }
-  .channel-shelf-card.status-watch-later:not(.is-previewing) {
+  .channel-shelf-card.status-watch-later:not(.is-previewing):not(.is-preview-closing) {
     border-color: #087fa6;
   }
   .channel-shelf-priority-badge {
@@ -7895,25 +7898,25 @@ summary:focus-visible,
     transition: opacity var(--motion-base) var(--ease-standard), transform var(--motion-base) var(--ease-emphasized);
     z-index: 2;
   }
-  .channel-shelf-card:not(.is-previewing) .card-title {
+  .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .card-title {
     color: #ffffff;
     font-size: 0.76rem;
     line-height: 1.2;
     text-shadow: 0 1px 2px rgba(0,0,0,0.7);
   }
-  .channel-shelf-card:not(.is-previewing) .card-meta,
-  .channel-shelf-card:not(.is-previewing) .pub-ago {
+  .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .card-meta,
+  .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .pub-ago {
     color: rgba(255,255,255,0.82);
   }
-  .channel-shelf-card:not(.is-previewing) .card-meta {
+  .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .card-meta {
     font-size: 0.68rem;
     margin-bottom: 0;
   }
-  .channel-shelf-card:not(.is-previewing) .resume-time-field {
+  .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .resume-time-field {
     display: none;
   }
   .channel-shelf-card .thumbnail-resume-time-field,
-  .channel-shelf-card:not(.is-previewing) .thumbnail-resume-time-field {
+  .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .thumbnail-resume-time-field {
     bottom: 6px;
     display: inline-flex;
     left: 8px;
@@ -7921,31 +7924,31 @@ summary:focus-visible,
     position: absolute;
     z-index: 4;
   }
-  .channel-shelf-card:not(.is-previewing) .card-status {
+  .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .card-status {
     backdrop-filter: blur(5px);
     font-size: 0.62rem;
     padding: 3px 6px;
   }
-  .channel-shelf-card:not(.is-previewing) .partial-status {
+  .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .partial-status {
     background: rgba(252,184,49,0.88);
     border-color: rgba(255,255,255,0.52);
     color: #3c2800;
   }
-  .channel-shelf-card:not(.is-previewing) .watch-later-status {
+  .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .watch-later-status {
     background: rgba(18,188,234,0.88);
     border-color: rgba(255,255,255,0.5);
     color: #052a36;
   }
-  body[data-theme="dark"] .channel-shelf-card:not(.is-previewing) .partial-status {
+  body[data-theme="dark"] .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .partial-status {
     color: #3c2800;
   }
-  body[data-theme="dark"] .channel-shelf-card:not(.is-previewing) .watch-later-status {
+  body[data-theme="dark"] .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .watch-later-status {
     color: #052a36;
   }
-  .channel-shelf-card:not(.is-previewing) .card-actions {
+  .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .card-actions {
     gap: 5px;
   }
-  .channel-shelf-card:not(.is-previewing) .action-btn {
+  .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .action-btn {
     background: rgba(255,255,255,0.94);
     border-color: rgba(255,255,255,0.86);
     color: #24414a;
@@ -7953,12 +7956,12 @@ summary:focus-visible,
     min-height: 27px;
     padding: 4px;
   }
-  .channel-shelf-card:not(.is-previewing) .action-btn:hover {
+  .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .action-btn:hover {
     background: #ffffff;
     border-color: var(--planet-lime);
     color: #10232a;
   }
-  body[data-theme="dark"] .channel-shelf-card:not(.is-previewing) .action-btn:hover {
+  body[data-theme="dark"] .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .action-btn:hover {
     background: #ffffff;
     border-color: var(--planet-lime);
     color: #10232a;
@@ -7970,7 +7973,7 @@ summary:focus-visible,
     transition: right var(--motion-base) var(--ease-standard);
     z-index: 2;
   }
-  .channel-shelf-card:not(.is-previewing) .dur-badge {
+  .channel-shelf-card:not(.is-previewing):not(.is-preview-closing) .dur-badge {
     background: rgba(5,5,5,0.68);
     color: rgba(255,255,255,0.9);
     font-size: 0.64rem;
@@ -8010,7 +8013,7 @@ summary:focus-visible,
       left 175ms var(--ease-standard),
       top 175ms var(--ease-standard),
       width 175ms var(--ease-standard);
-    z-index: 999;
+    z-index: 1000;
   }
   .channel-shelf-card.watch-reminder-target.is-floating-preview.is-source-anchored {
     transition:
@@ -8030,9 +8033,11 @@ summary:focus-visible,
     height: 55%;
   }
   .channel-shelf-card.is-floating-preview.is-preview-closing .thumb-link {
-    transition: height 105ms var(--ease-standard) 50ms;
+    bottom: auto;
+    height: 100%;
+    transition: height 120ms var(--ease-standard) 35ms;
   }
-  .channel-shelf-card.is-previewing .card-body {
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .card-body {
     background: var(--surface);
     color: var(--text);
     gap: 6px;
@@ -8049,62 +8054,63 @@ summary:focus-visible,
       opacity 105ms var(--ease-standard) 25ms,
       transform 135ms var(--ease-emphasized) 15ms;
   }
-  .channel-shelf-card.is-floating-preview.is-preview-closing .card-body {
-    transition:
-      opacity 80ms var(--ease-standard),
-      transform 100ms var(--ease-standard);
+  .channel-shelf-card.is-preview-resetting .card-body {
+    opacity: 0;
+    transition: none;
   }
-  .channel-shelf-card.is-previewing .card-title {
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .card-title {
     color: var(--text);
     font-size: 0.83rem;
     line-height: 1.4;
     text-shadow: none;
   }
-  .channel-shelf-card.is-previewing .card-meta,
-  .channel-shelf-card.is-previewing .pub-ago {
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .card-meta,
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .pub-ago {
     color: var(--muted);
   }
-  .channel-shelf-card.is-previewing .card-meta {
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .card-meta {
     font-size: inherit;
     justify-content: space-between;
     margin-bottom: auto;
   }
-  .channel-shelf-card.is-previewing .channel-name {
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .channel-name {
     display: block;
   }
-  .channel-shelf-card.is-previewing .resume-time-field {
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .resume-time-field {
     display: inline-flex;
   }
-  .channel-shelf-card.is-previewing .thumbnail-resume-time-field {
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .thumbnail-resume-time-field {
     background: rgba(255,255,255,0.78);
     bottom: calc(45% + 6px);
   }
-  body[data-theme="dark"] .channel-shelf-card.is-previewing .thumbnail-resume-time-field {
+  body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .thumbnail-resume-time-field {
     border-color: rgba(5,5,5,0.28);
     color: #24414a;
   }
-  body[data-theme="dark"] .channel-shelf-card.is-previewing .thumbnail-resume-time-field input {
+  body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .thumbnail-resume-time-field input {
     color: #10232a;
   }
-  .channel-shelf-card.is-previewing .card-status {
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .card-status {
     display: none;
   }
-  .channel-shelf-card.is-previewing .partial-btn.active {
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .partial-btn.active {
     background: var(--shelf-resume-bg);
     border-color: var(--shelf-resume-border);
     color: var(--shelf-resume-text);
   }
-  body[data-theme="dark"] .channel-shelf-card.is-previewing .partial-btn.active {
+  body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .partial-btn.active {
     background: var(--shelf-resume-bg);
     border-color: var(--shelf-resume-border);
     color: var(--shelf-resume-text);
   }
-  .channel-shelf-card.is-previewing .dur-badge {
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .dur-badge {
     bottom: 6px;
     right: 6px;
     top: auto;
   }
-  .channel-shelf-card.is-previewing .thumb {
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .thumb {
+    aspect-ratio: 16 / 9;
+    height: auto;
     transform: none;
   }
 }
