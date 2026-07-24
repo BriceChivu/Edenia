@@ -3824,6 +3824,11 @@ body[data-theme="dark"] .heatmap-day.level-3 { background: #557d2b; }
 body[data-theme="dark"] .heatmap-day.level-4 { background: #77a536; }
 body[data-theme="dark"] .heatmap-day.level-5 { background: #9dcc43; }
 body[data-theme="dark"] .heatmap-day.level-6 { background: #c9ef68; }
+body[data-theme="dark"] .heatmap-day.streak-run,
+body[data-theme="dark"] .heatmap-day.streak-run:hover,
+body[data-theme="dark"] .heatmap-day.streak-run:focus-visible {
+  border-color: rgba(210, 218, 222, 0.72);
+}
 body[data-theme="dark"] .heatmap-legend-cell { background: #17333b; border-color: rgba(130,210,239,0.16); }
 body[data-theme="dark"] .heatmap-legend-cell.level-1 { background: #29451f; }
 body[data-theme="dark"] .heatmap-legend-cell.level-2 { background: #3b5d24; }
