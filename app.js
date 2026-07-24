@@ -15339,6 +15339,7 @@ function cleanupVideoShelfPreview(card) {
   card.style.removeProperty('--shelf-preview-size')
   card.style.removeProperty('--shelf-preview-height')
   if (activeVideoShelfPreview === card) activeVideoShelfPreview = null
+  card.getBoundingClientRect()
   requestAnimationFrame(() => card.classList.remove('is-preview-resetting'))
 }
 
