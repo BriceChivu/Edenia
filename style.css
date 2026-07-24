@@ -7976,25 +7976,14 @@ summary:focus-visible,
     padding: 2px 5px;
   }
   .channel-shelf-card.is-floating-preview {
-    height: var(--shelf-preview-height);
+    height: var(--shelf-preview-origin-height);
     inset: auto;
-    left: var(--shelf-preview-left);
+    left: var(--shelf-preview-origin-left);
     position: fixed;
-    top: var(--shelf-preview-top);
-    transform:
-      translate3d(
-        var(--shelf-preview-translate-x),
-        var(--shelf-preview-translate-y),
-        0
-      )
-      scale(
-        var(--shelf-preview-scale-x),
-        var(--shelf-preview-scale-y)
-      );
-    transform-origin: top left;
+    top: var(--shelf-preview-origin-top);
+    transform: none;
     transition: none;
-    width: var(--shelf-preview-size);
-    will-change: transform;
+    width: var(--shelf-preview-origin-width);
     z-index: 1000;
   }
   .channel-shelf-card.watch-reminder-target.is-floating-preview {
@@ -8004,14 +7993,20 @@ summary:focus-visible,
     transition:
       border-color var(--motion-base) var(--ease-standard),
       box-shadow var(--motion-base) var(--ease-standard),
-      transform 155ms var(--ease-emphasized);
+      height 155ms var(--ease-emphasized),
+      left 155ms var(--ease-emphasized),
+      top 155ms var(--ease-emphasized),
+      width 155ms var(--ease-emphasized);
   }
   .channel-shelf-card.is-floating-preview.is-preview-closing {
     pointer-events: none;
     transition:
       border-color 120ms var(--ease-standard),
       box-shadow 120ms var(--ease-standard),
-      transform 175ms var(--ease-standard);
+      height 175ms var(--ease-standard),
+      left 175ms var(--ease-standard),
+      top 175ms var(--ease-standard),
+      width 175ms var(--ease-standard);
     z-index: 999;
   }
   .channel-shelf-card.watch-reminder-target.is-floating-preview.is-source-anchored {
@@ -8022,7 +8017,10 @@ summary:focus-visible,
   .channel-shelf-card.is-floating-preview.is-previewing {
     border-color: var(--planet-black);
     box-shadow: 0 12px 24px rgba(5,5,5,0.28), 0 4px 0 rgba(5,5,5,0.24);
-    transform: translate3d(0, 0, 0) scale(1);
+    height: var(--shelf-preview-height);
+    left: var(--shelf-preview-left);
+    top: var(--shelf-preview-top);
+    width: var(--shelf-preview-size);
   }
   .channel-shelf-card.is-previewing .thumb-link {
     bottom: auto;

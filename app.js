@@ -15277,10 +15277,6 @@ function positionVideoShelfPreview(card) {
   card.style.setProperty('--shelf-preview-top', `${targetTop}px`)
   card.style.setProperty('--shelf-preview-size', `${previewSize}px`)
   card.style.setProperty('--shelf-preview-height', `${previewHeight}px`)
-  card.style.setProperty('--shelf-preview-translate-x', `${rect.left - targetLeft}px`)
-  card.style.setProperty('--shelf-preview-translate-y', `${rect.top - targetTop}px`)
-  card.style.setProperty('--shelf-preview-scale-x', `${rect.width / previewSize}`)
-  card.style.setProperty('--shelf-preview-scale-y', `${rect.height / previewHeight}`)
   return true
 }
 
@@ -15303,10 +15299,6 @@ function cleanupVideoShelfPreview(card) {
   card.style.removeProperty('--shelf-preview-top')
   card.style.removeProperty('--shelf-preview-size')
   card.style.removeProperty('--shelf-preview-height')
-  card.style.removeProperty('--shelf-preview-translate-x')
-  card.style.removeProperty('--shelf-preview-translate-y')
-  card.style.removeProperty('--shelf-preview-scale-x')
-  card.style.removeProperty('--shelf-preview-scale-y')
   if (activeVideoShelfPreview === card) activeVideoShelfPreview = null
 }
 
@@ -15377,7 +15369,7 @@ function closeVideoShelfPreview(card, force = false) {
   }
 
   const finishClosingPreview = event => {
-    if (event.target !== card || event.propertyName !== 'transform') return
+    if (event.target !== card || event.propertyName !== 'width') return
     card.removeEventListener('transitionend', finishClosingPreview)
     if (!card.classList.contains('is-preview-closing')) return
     cleanupVideoShelfPreview(card)
