@@ -4002,7 +4002,7 @@ body[data-theme="dark"] .channel-filter-empty-highlight .channel-filter-btn::bef
 .mobile-popover-header { display: none; }
 .manual-video-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 7px;
 }
 .manual-video-hint {
@@ -4142,14 +4142,6 @@ body[data-theme="dark"] .channel-filter-empty-highlight .channel-filter-btn::bef
   letter-spacing: 0.05em;
   padding: 8px 9px 5px;
   text-transform: uppercase;
-}
-.manual-video-submit {
-  padding-left: 12px;
-  padding-right: 12px;
-}
-.manual-video-submit:disabled {
-  cursor: wait;
-  opacity: 0.62;
 }
 .channel-filter-menu {
   position: absolute;
@@ -6377,9 +6369,6 @@ summary:focus-visible,
     max-height: min(38dvh, 280px);
     position: static;
   }
-  .manual-video-submit {
-    width: 100%;
-  }
   .video-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .video-card:not(.compact-card) .card-actions {
     display: grid;
@@ -7215,7 +7204,6 @@ summary:focus-visible,
   .channel-filter-add input,
   .channel-filter-add-btn,
   .manual-video-form input,
-  .manual-video-submit,
   .channel-filter-select-all,
   .channel-filter-option {
     min-height: 44px;
