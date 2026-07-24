@@ -16,7 +16,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: channel-catalog-refresh
+  group: channel-catalog-maintenance
   cancel-in-progress: false
 
 jobs:

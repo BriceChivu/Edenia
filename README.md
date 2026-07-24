@@ -187,6 +187,29 @@ The script uses `YOUTUBE_CATALOG_API_KEY` or `YOUTUBE_API_KEY` when set, otherwi
 
 The workflow requires a separate `YOUTUBE_CATALOG_API_KEY` repository secret. Create that credential in the same Google Cloud project, restrict it to YouTube Data API v3, and keep it only in GitHub Actions. Do not apply Edenia's browser-referrer restriction to this automation key because GitHub's server-side runner does not send the deployed site's referrer. Both credentials still share the same project quota.
 
+### Community catalog growth
+
+Successful Add-button additions that did not come from the curated or community catalog are recorded as catalog candidates through the existing PostHog analytics pipeline. The browser never receives a GitHub write credential.
+
+`.github/workflows/import-community-channel-catalog.yml` runs daily and can also be dispatched manually. It:
+
+1. Reads the previous 180 days of `channel_added_via_add_button` events from PostHog.
+2. Excludes curated/community selections and internal, localhost, or sandbox additions.
+3. Counts distinct PostHog users without writing their identifiers to the repository.
+4. Verifies new or 30-day-stale candidates with YouTube in batches of up to 50 channels per one-unit `channels.list` request.
+5. Writes aggregate candidates to `data/channel-catalog.candidates.json`.
+6. Promotes a channel to `data/channel-catalog.community.json` after two distinct users add it.
+
+Once promoted, a channel remains in the community catalog and is loaded by the Add search on the deployed site. The stored catalog metadata includes the channel name, handle, languages associated with its additions, and YouTube profile-picture URL. The five-new-channels-per-device daily limit remains the first abuse guard; the two-user promotion rule is a second guard, but it is not equivalent to authenticated moderation.
+
+Configure these repository secrets:
+
+- `POSTHOG_PROJECT_ID`: the numeric PostHog project ID.
+- `POSTHOG_PERSONAL_API_KEY`: a server-side personal key with read access to query that project's events.
+- `YOUTUBE_CATALOG_API_KEY`: the existing server-side YouTube catalog key.
+
+If the PostHog project is not in the US region, also set the `POSTHOG_HOST` repository variable to the appropriate PostHog app host. Never put the PostHog personal key in `index.html`, `app.js`, `config.local.js`, or a Pages deployment.
+
 ## Anki Setup
 
 1. Install [AnkiConnect](https://ankiweb.net/shared/info/2055492159).

@@ -730,6 +730,7 @@ const CURATED_CHANNEL_CATALOG = [
   })),
   ...EXPANDED_CURATED_CHANNEL_CATALOG
 ]
+let COMMUNITY_CHANNEL_CATALOG = []
 const CURATED_CHANNEL_SEARCH_LANGUAGE_ALIASES = {
   mandarin: ['mandarin', 'mandarin chinese', 'chinese', '中文', '汉语', '漢語'],
   japanese: ['japanese', '日本語'],
@@ -4669,8 +4670,54 @@ function getCuratedChannelEntry(catalogId) {
   return CURATED_CHANNEL_CATALOG.find(channel => channel.id === catalogId) || null
 }
 
+function getSearchableChannelCatalog() {
+  const seen = new Set()
+  return [...CURATED_CHANNEL_CATALOG, ...COMMUNITY_CHANNEL_CATALOG].filter(channel => {
+    const key = channel.channelId || channel.id
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
+function getSearchableChannelEntry(catalogId) {
+  return getSearchableChannelCatalog().find(channel => channel.id === catalogId) || null
+}
+
 function getCuratedChannelAvatarPath(catalogId) {
   return `images/channel-avatars/${encodeURIComponent(catalogId)}.jpg`
+}
+
+async function loadCommunityChannelCatalog() {
+  try {
+    const response = await fetch('data/channel-catalog.community.json')
+    if (!response.ok) return
+    const data = await response.json()
+    COMMUNITY_CHANNEL_CATALOG = (Array.isArray(data?.channels) ? data.channels : [])
+      .filter(channel => channel?.available !== false && YOUTUBE_CHANNEL_ID_RE.test(String(channel?.channelId || '')))
+      .map(channel => ({
+        id: String(channel.catalogId || `community-${channel.channelId}`),
+        channelId: String(channel.channelId),
+        input: String(channel.handle || channel.channelId),
+        name: String(channel.name || channel.channelId),
+        thumbnailUrl: String(channel.thumbnailUrl || ''),
+        language: String(channel.languages?.[0] || ''),
+        languages: Array.isArray(channel.languages) ? channel.languages.map(String) : [],
+        levels: Array.isArray(channel.levels) ? channel.levels.map(String) : [],
+        style: String(channel.style || ''),
+        description: String(channel.description || ''),
+        aliases: Array.isArray(channel.aliases) ? channel.aliases.map(String) : [],
+        catalogSource: 'community'
+      }))
+
+    const input = document.getElementById('manualVideoUrlInput')
+    const popover = document.getElementById('manualVideoPopover')
+    if (input?.value.trim().length >= 2 && !popover?.classList.contains('hidden')) {
+      renderManualChannelSuggestions()
+    }
+  } catch {
+    // The bundled curated catalog remains available if the community file cannot load.
+  }
 }
 
 function normalizeLearnerProfileState(state) {
@@ -5986,6 +6033,7 @@ function init() {
   backgroundPhysics = initBackgroundPhysics()
   show('mainApp')
   renderAll(state)
+  loadCommunityChannelCatalog()
   syncHeaderCompactState()
   startChannelRefreshLabelTicker()
   repairStoredShortsDetection()
@@ -8484,10 +8532,21 @@ async function addChannel(options = {}) {
     meta: { channelId: id }
   })
   saveState(s)
+  const catalogSource = String(options.catalogSource || '')
+  const isCatalogCandidate = !['curated', 'community'].includes(catalogSource)
   window.trackEdeniaEvent?.('channel_added_via_add_button', {
     channel_id: id,
     channel_name: name,
+    channel_thumbnail_url: resolved.thumbnail || '',
     source: options.source || (options.resolvedChannel ? 'youtube_search' : 'direct_input'),
+    catalog_id: options.catalogId || null,
+    catalog_source: catalogSource || null,
+    catalog_candidate: isCatalogCandidate,
+    learning_languages: Array.isArray(s.learnerProfile?.languages)
+      ? s.learnerProfile.languages.map(String)
+      : [],
+    learner_level: s.learnerProfile?.level || null,
+    internal_or_test_user: Boolean(IS_SANDBOX || IS_INTERNAL_TEST || IS_LOCALHOST),
     total_channel_count: s.config.channels.length
   })
   renderFeed(s)
@@ -10319,18 +10378,25 @@ function getCuratedChannelSearchMatches(value, limit = 6) {
   const queryTokens = getCuratedChannelSearchTokens(normalizedQuery)
   if (!queryTokens.length) return []
 
-  return CURATED_CHANNEL_CATALOG
+  return getSearchableChannelCatalog()
     .map((channel, catalogIndex) => {
       const normalizedName = normalizeCuratedChannelSearchText(channel.name)
       const normalizedInput = normalizeCuratedChannelSearchText(channel.input)
-      const languageAliases = CURATED_CHANNEL_SEARCH_LANGUAGE_ALIASES[channel.language] || [channel.language]
+      const languages = Array.isArray(channel.languages)
+        ? channel.languages
+        : [channel.language].filter(Boolean)
+      const languageAliases = languages.flatMap(language => (
+        CURATED_CHANNEL_SEARCH_LANGUAGE_ALIASES[language] || [language]
+      ))
       const normalizedSearchText = normalizeCuratedChannelSearchText([
         channel.name,
         channel.input,
-        channel.language,
+        ...(Array.isArray(channel.aliases) ? channel.aliases : []),
+        ...languages,
         ...languageAliases,
         channel.style,
-        channel.description
+        channel.description,
+        channel.searchText
       ].filter(Boolean).join(' '))
       const candidateTokens = normalizedSearchText.split(' ').filter(Boolean)
       const matchedTokens = queryTokens.filter(token => tokenMatchesCuratedChannel(token, candidateTokens))
@@ -10357,6 +10423,9 @@ function getCuratedChannelSearchMatches(value, limit = 6) {
 }
 
 function isCuratedChannelAlreadyAdded(channel, state = loadState()) {
+  if (channel?.channelId) {
+    return (state?.config?.channels || []).some(existing => existing?.id === channel.channelId)
+  }
   const normalizedCatalogName = normalizeCuratedChannelSearchText(channel?.name)
   if (!normalizedCatalogName) return false
   return (state?.config?.channels || []).some(existing => (
@@ -10446,7 +10515,7 @@ function renderManualChannelSuggestions() {
         onclick="selectManualChannelSuggestion(event, this.dataset.catalogId)">
         <span class="manual-channel-suggestion-avatar" aria-hidden="true">
           <span>${escHtml(getCuratedChannelInitials(channel))}</span>
-          <img src="${escHtml(getCuratedChannelAvatarPath(channel.id))}" alt="" loading="lazy" onerror="this.hidden=true">
+          <img src="${escHtml(channel.thumbnailUrl || getCuratedChannelAvatarPath(channel.id))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.hidden=true">
         </span>
         <span class="manual-channel-suggestion-copy">
           <span class="manual-channel-suggestion-name">${escHtml(channel.name)}</span>
@@ -10746,7 +10815,7 @@ function handleManualChannelSuggestionKeydown(event) {
 }
 
 async function addCuratedChannelSuggestion(catalogId) {
-  const channel = getCuratedChannelEntry(catalogId)
+  const channel = getSearchableChannelEntry(catalogId)
   const input = document.getElementById('manualVideoUrlInput')
   const btn = document.getElementById('manualVideoAddBtn')
   if (!channel || !input) return
@@ -10758,11 +10827,31 @@ async function addCuratedChannelSuggestion(catalogId) {
 
   input.value = channel.input
   closeManualChannelSuggestions()
+  if (channel.channelId) {
+    await addChannel({
+      input,
+      button: btn,
+      idleButtonText: t('videos.manual.add'),
+      closePopover: true,
+      resolvedChannel: {
+        id: channel.channelId,
+        name: channel.name,
+        thumbnail: channel.thumbnailUrl
+      },
+      source: 'community_catalog',
+      catalogId: channel.id,
+      catalogSource: 'community'
+    })
+    return
+  }
   await addChannel({
     input,
     button: btn,
     idleButtonText: t('videos.manual.add'),
-    closePopover: true
+    closePopover: true,
+    source: 'curated_catalog',
+    catalogId: channel.id,
+    catalogSource: 'curated'
   })
 }
 
