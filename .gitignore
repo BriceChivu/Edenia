@@ -3,3 +3,4 @@ config.local.js
 .env.*
 .DS_Store
 **/.DS_Store
+supabase/.temp/
