@@ -187,14 +187,43 @@ The script uses `YOUTUBE_CATALOG_API_KEY` or `YOUTUBE_API_KEY` when set, otherwi
 
 The workflow requires a separate `YOUTUBE_CATALOG_API_KEY` repository secret. Create that credential in the same Google Cloud project, restrict it to YouTube Data API v3, and keep it only in GitHub Actions. Do not apply Edenia's browser-referrer restriction to this automation key because GitHub's server-side runner does not send the deployed site's referrer. Both credentials still share the same project quota.
 
+### Automated YouTube discovery
+
+`.github/workflows/discover-language-channels.yml` proactively searches YouTube every Sunday for language-learning channels that are not already present in the curated, community, or previously discovered catalogs. It can also be run manually after the workflow is pushed to GitHub.
+
+Each run searches French, English, German, Mandarin Chinese, Russian, Spanish, Japanese, and Portuguese with three focused channel queries per language. The default run therefore makes 24 `search.list` calls. It then uses batched `channels.list` requests to verify metadata, statistics, public availability, and profile-picture URLs.
+
+Automatic additions are deliberately conservative:
+
+- No more than six new channels per language and run.
+- At least 100 visible subscribers, unless subscriber counts are hidden.
+- At least 10 published videos.
+- The channel title, handle, or description must contain both the target language and language-learning signals.
+- Channel IDs, handles, and exact names are deduplicated against all existing catalogs.
+- Existing discovered-channel metadata is refreshed after 30 days.
+
+Accepted channels are written to `data/channel-catalog.discovered.json`, deployed with GitHub Pages, and loaded into the Add search alongside curated and community channels.
+
+The workflow only requires the existing `YOUTUBE_CATALOG_API_KEY` secret. These optional repository variables can tune its conservative defaults:
+
+- `DISCOVERY_MAX_PER_LANGUAGE`
+- `DISCOVERY_MIN_SUBSCRIBERS`
+- `DISCOVERY_MIN_VIDEOS`
+
+The same discovery can be run locally before pushing by setting `YOUTUBE_CATALOG_API_KEY` and running:
+
+```bash
+node scripts/discover-language-channels.mjs
+```
+
 ### Community catalog growth
 
-Successful Add-button additions that did not come from the curated or community catalog are recorded as catalog candidates through the existing PostHog analytics pipeline. The browser never receives a GitHub write credential.
+Successful Add-button additions that did not come from the curated, community, or discovered catalog are recorded as catalog candidates through the existing PostHog analytics pipeline. The browser never receives a GitHub write credential.
 
 `.github/workflows/import-community-channel-catalog.yml` runs daily and can also be dispatched manually. It:
 
 1. Reads the previous 180 days of `channel_added_via_add_button` events from PostHog.
-2. Excludes curated/community selections and internal, localhost, or sandbox additions.
+2. Excludes curated, community, and automatically discovered selections, plus internal, localhost, or sandbox additions.
 3. Counts distinct PostHog users without writing their identifiers to the repository.
 4. Verifies new or 30-day-stale candidates with YouTube in batches of up to 50 channels per one-unit `channels.list` request.
 5. Writes aggregate candidates to `data/channel-catalog.candidates.json`.

@@ -132,8 +132,8 @@ function aggregateCandidateEvents(events) {
       !YOUTUBE_CHANNEL_ID_RE.test(channelId)
       || parseBoolean(event.internal_or_test_user)
       || explicitlyRejected
-      || ['curated', 'community'].includes(catalogSource)
-      || source === 'community_catalog'
+      || ['curated', 'community', 'discovery'].includes(catalogSource)
+      || ['community_catalog', 'youtube_discovery_catalog'].includes(source)
     ) return
 
     const timestamp = normalizeTimestamp(event.timestamp)

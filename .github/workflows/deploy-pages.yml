@@ -36,7 +36,7 @@ jobs:
           cp -R assets _site/assets
           cp -R images _site/images
           mkdir -p _site/data
-          cp data/channel-catalog.community.json _site/data/
+          cp data/channel-catalog.community.json data/channel-catalog.discovered.json _site/data/
 
       - name: Minify deployed CSS
         run: npx --yes clean-css-cli@5.6.3 -o _site/style.css style.css

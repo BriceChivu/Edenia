@@ -4673,9 +4673,13 @@ function getCuratedChannelEntry(catalogId) {
 function getSearchableChannelCatalog() {
   const seen = new Set()
   return [...CURATED_CHANNEL_CATALOG, ...COMMUNITY_CHANNEL_CATALOG].filter(channel => {
-    const key = channel.channelId || channel.id
-    if (!key || seen.has(key)) return false
-    seen.add(key)
+    const keys = [
+      channel.channelId ? `id:${channel.channelId}` : '',
+      channel.input ? `input:${normalizeCuratedChannelSearchText(channel.input)}` : '',
+      channel.name ? `name:${normalizeCuratedChannelSearchText(channel.name)}` : ''
+    ].filter(Boolean)
+    if (!keys.length || keys.some(key => seen.has(key))) return false
+    keys.forEach(key => seen.add(key))
     return true
   })
 }
@@ -4688,15 +4692,30 @@ function getCuratedChannelAvatarPath(catalogId) {
   return `images/channel-avatars/${encodeURIComponent(catalogId)}.jpg`
 }
 
-async function loadCommunityChannelCatalog() {
+async function loadDynamicChannelCatalogs() {
   try {
-    const response = await fetch('data/channel-catalog.community.json')
-    if (!response.ok) return
-    const data = await response.json()
-    COMMUNITY_CHANNEL_CATALOG = (Array.isArray(data?.channels) ? data.channels : [])
+    const catalogs = await Promise.all([
+      ['data/channel-catalog.community.json', 'community'],
+      ['data/channel-catalog.discovered.json', 'discovery']
+    ].map(async ([url, catalogSource]) => {
+      try {
+        const response = await fetch(url)
+        if (!response.ok) return []
+        const data = await response.json()
+        return (Array.isArray(data?.channels) ? data.channels : []).map(channel => ({
+          ...channel,
+          catalogSource
+        }))
+      } catch {
+        return []
+      }
+    }))
+
+    COMMUNITY_CHANNEL_CATALOG = catalogs
+      .flat()
       .filter(channel => channel?.available !== false && YOUTUBE_CHANNEL_ID_RE.test(String(channel?.channelId || '')))
       .map(channel => ({
-        id: String(channel.catalogId || `community-${channel.channelId}`),
+        id: String(channel.catalogId || `${channel.catalogSource}-${channel.channelId}`),
         channelId: String(channel.channelId),
         input: String(channel.handle || channel.channelId),
         name: String(channel.name || channel.channelId),
@@ -4707,7 +4726,8 @@ async function loadCommunityChannelCatalog() {
         style: String(channel.style || ''),
         description: String(channel.description || ''),
         aliases: Array.isArray(channel.aliases) ? channel.aliases.map(String) : [],
-        catalogSource: 'community'
+        searchText: String(channel.searchText || ''),
+        catalogSource: channel.catalogSource
       }))
 
     const input = document.getElementById('manualVideoUrlInput')
@@ -4716,7 +4736,7 @@ async function loadCommunityChannelCatalog() {
       renderManualChannelSuggestions()
     }
   } catch {
-    // The bundled curated catalog remains available if the community file cannot load.
+    // The bundled curated catalog remains available if dynamic catalogs cannot load.
   }
 }
 
@@ -6033,7 +6053,7 @@ function init() {
   backgroundPhysics = initBackgroundPhysics()
   show('mainApp')
   renderAll(state)
-  loadCommunityChannelCatalog()
+  loadDynamicChannelCatalogs()
   syncHeaderCompactState()
   startChannelRefreshLabelTicker()
   repairStoredShortsDetection()
@@ -8533,7 +8553,7 @@ async function addChannel(options = {}) {
   })
   saveState(s)
   const catalogSource = String(options.catalogSource || '')
-  const isCatalogCandidate = !['curated', 'community'].includes(catalogSource)
+  const isCatalogCandidate = !['curated', 'community', 'discovery'].includes(catalogSource)
   window.trackEdeniaEvent?.('channel_added_via_add_button', {
     channel_id: id,
     channel_name: name,
@@ -10828,6 +10848,7 @@ async function addCuratedChannelSuggestion(catalogId) {
   input.value = channel.input
   closeManualChannelSuggestions()
   if (channel.channelId) {
+    const catalogSource = channel.catalogSource || 'community'
     await addChannel({
       input,
       button: btn,
@@ -10838,9 +10859,11 @@ async function addCuratedChannelSuggestion(catalogId) {
         name: channel.name,
         thumbnail: channel.thumbnailUrl
       },
-      source: 'community_catalog',
+      source: catalogSource === 'discovery'
+        ? 'youtube_discovery_catalog'
+        : 'community_catalog',
       catalogId: channel.id,
-      catalogSource: 'community'
+      catalogSource
     })
     return
   }

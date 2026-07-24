@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": null,
+  "languages": [
+    "french",
+    "english",
+    "german",
+    "mandarin",
+    "russian",
+    "spanish",
+    "japanese",
+    "portuguese"
+  ],
+  "channels": []
+}

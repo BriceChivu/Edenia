@@ -17,6 +17,7 @@ Big changes:
 - Build Android app
 - Next to Heatmap: dashboard, with detailed views, etc. (Plus or premium version)
 - have a small duck pop up next to Edenia title that says stuff like "You studied 4h 20m across 7 sessions this week. See what drove your strongest days with Edenia Plus." or "You started building this town 3 months ago. Upgrade to Plus to revisit every week and see how your consistency has changed.". It pops up only to say those things and then the user can close the dialogue box.
+- continue adding youtube channels to the catalog
 
 Sandbox:
 
