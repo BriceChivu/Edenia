@@ -8026,6 +8026,9 @@ summary:focus-visible,
     bottom: auto;
     height: 55%;
   }
+  .channel-shelf-card.is-floating-preview.is-preview-closing .thumb-link {
+    transition: height 105ms var(--ease-standard) 50ms;
+  }
   .channel-shelf-card.is-previewing .card-body {
     background: var(--surface);
     color: var(--text);
