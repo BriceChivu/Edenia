@@ -4113,6 +4113,36 @@ body[data-theme="dark"] .channel-filter-empty-highlight .channel-filter-btn::bef
   margin: 0;
   padding: 11px;
 }
+.manual-youtube-search-action {
+  border-top: 1px solid var(--border);
+  padding: 7px;
+}
+.manual-youtube-search-btn {
+  background: var(--surface-hi);
+  border: 1px solid var(--planet-black);
+  border-radius: 9px;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 800;
+  min-height: 36px;
+  overflow: hidden;
+  padding: 7px 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+.manual-youtube-search-btn:hover {
+  filter: brightness(0.98);
+}
+.manual-youtube-results-label {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 8px 9px 5px;
+  text-transform: uppercase;
+}
 .manual-video-submit {
   padding-left: 12px;
   padding-right: 12px;

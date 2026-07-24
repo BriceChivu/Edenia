@@ -39,6 +39,14 @@ const STORAGE_KEY = IS_SANDBOX
   : IS_INTERNAL_TEST
     ? 'edenia_v1_internal_test'
     : NORMAL_STORAGE_KEY
+const YOUTUBE_CHANNEL_SEARCH_CACHE_KEY = `${STORAGE_KEY}_youtube_channel_search_cache_v1`
+const YOUTUBE_CHANNEL_SEARCH_USAGE_KEY = `${STORAGE_KEY}_youtube_channel_search_usage_v1`
+const YOUTUBE_CHANNEL_ADD_USAGE_KEY = `${STORAGE_KEY}_youtube_channel_add_usage_v1`
+const YOUTUBE_CHANNEL_SEARCH_CACHE_TTL_MS = 24 * 60 * 60_000
+const YOUTUBE_CHANNEL_SEARCH_COOLDOWN_MS = 2500
+const YOUTUBE_CHANNEL_SEARCH_DAILY_LIMIT = 5
+const YOUTUBE_CHANNEL_SEARCH_RESULT_LIMIT = 6
+const YOUTUBE_CHANNEL_ADD_DAILY_LIMIT = 5
 const STATE_BACKUP_KEY = `${STORAGE_KEY}_backups`
 const SANDBOX_WALKTHROUGH_AFTER_RESET_KEY = `${STORAGE_KEY}_walkthrough_after_reset`
 const ONBOARDING_NOTICE_KEY = IS_INTERNAL_TEST
@@ -1154,6 +1162,14 @@ const I18N_EN = {
   'videos.manual.searchPlaceholder': 'Search channels or paste a YouTube URL',
   'videos.manual.suggestions': 'Channel suggestions',
   'videos.manual.noMatches': 'No catalog matches. Paste a YouTube video or channel URL instead.',
+  'videos.manual.searchYoutube': 'Search YouTube',
+  'videos.manual.searchYoutubeFor': 'Search YouTube for “{query}”',
+  'videos.manual.searchingYoutube': 'Searching YouTube...',
+  'videos.manual.youtubeResults': 'YouTube results',
+  'videos.manual.youtubeNoMatches': 'No matching YouTube channels were found.',
+  'videos.manual.youtubeSearchUnavailable': 'YouTube search is unavailable right now. Try again later.',
+  'videos.manual.youtubeSearchLimit': 'You have reached today’s YouTube search limit. Try again tomorrow.',
+  'videos.manual.youtubeSearchCooldown': 'Wait a moment before searching YouTube again.',
   'videos.manual.add': 'Add',
   'videos.manual.adding': 'Adding...',
   'videos.undo': 'Undo',
@@ -1267,6 +1283,7 @@ const I18N_EN = {
   'toast.channelResolveNotFound': 'Could not find that YouTube channel',
   'toast.channelCustomUrlUnsupported': 'That custom channel URL cannot be resolved reliably yet. Try the /channel/UC... URL or @handle.',
   'toast.channelDuplicate': 'Already added',
+  'toast.channelAddLimit': 'You can add up to {count} new channels per day. Try again tomorrow.',
   'toast.channelAdded': '{name} added',
   'toast.channelAddedNoKey': '{name} added. Add the shared YouTube API key to load videos.',
   'toast.channelAddedLoading': '{name} added · loading recent videos...',
@@ -1283,6 +1300,7 @@ const I18N_EN = {
   'toast.alreadyWatched': 'That video is already marked watched',
   'toast.watchCooldown': 'You can mark this video as watched in {time}',
   'toast.addedWatchedVideo': 'Added video: "{title}"',
+  'toast.addedVideoChannelLimit': 'Added video: "{title}". Its channel was not added because you reached today’s channel limit.',
   'toast.addVideoFailed': 'Could not add that video',
   'toast.timestampFormat': 'Use a timestamp like 1:23 (hour:minute)',
   'toast.nothingRedo': 'Nothing to redo',
@@ -1760,6 +1778,14 @@ const I18N = {
     'videos.manual.searchPlaceholder': '搜尋頻道或貼上 YouTube 網址',
     'videos.manual.suggestions': '頻道建議',
     'videos.manual.noMatches': '目錄中沒有相符頻道。你也可以貼上 YouTube 影片或頻道網址。',
+    'videos.manual.searchYoutube': '搜尋 YouTube',
+    'videos.manual.searchYoutubeFor': '在 YouTube 搜尋「{query}」',
+    'videos.manual.searchingYoutube': '正在搜尋 YouTube…',
+    'videos.manual.youtubeResults': 'YouTube 搜尋結果',
+    'videos.manual.youtubeNoMatches': 'YouTube 上找不到相符的頻道。',
+    'videos.manual.youtubeSearchUnavailable': '目前無法搜尋 YouTube，請稍後再試。',
+    'videos.manual.youtubeSearchLimit': '今天的 YouTube 搜尋次數已用完，請明天再試。',
+    'videos.manual.youtubeSearchCooldown': '請稍等一下再搜尋 YouTube。',
     'videos.manual.add': '新增',
     'videos.undo': '復原',
     'videos.redo': '重做',
@@ -2219,6 +2245,14 @@ const I18N = {
     'videos.manual.searchPlaceholder': '搜索频道或粘贴 YouTube 网址',
     'videos.manual.suggestions': '频道建议',
     'videos.manual.noMatches': '目录中没有匹配频道。你也可以粘贴 YouTube 视频或频道网址。',
+    'videos.manual.searchYoutube': '搜索 YouTube',
+    'videos.manual.searchYoutubeFor': '在 YouTube 搜索“{query}”',
+    'videos.manual.searchingYoutube': '正在搜索 YouTube…',
+    'videos.manual.youtubeResults': 'YouTube 搜索结果',
+    'videos.manual.youtubeNoMatches': 'YouTube 上没有找到匹配的频道。',
+    'videos.manual.youtubeSearchUnavailable': '目前无法搜索 YouTube，请稍后再试。',
+    'videos.manual.youtubeSearchLimit': '今天的 YouTube 搜索次数已用完，请明天再试。',
+    'videos.manual.youtubeSearchCooldown': '请稍等片刻再搜索 YouTube。',
     'videos.manual.add': '添加',
     'videos.undo': '撤销',
     'videos.redo': '重做',
@@ -2673,6 +2707,14 @@ const I18N = {
     'videos.manual.searchPlaceholder': 'Buscar canales o pegar una URL de YouTube',
     'videos.manual.suggestions': 'Sugerencias de canales',
     'videos.manual.noMatches': 'No hay coincidencias en el catálogo. También puedes pegar la URL de un video o canal de YouTube.',
+    'videos.manual.searchYoutube': 'Buscar en YouTube',
+    'videos.manual.searchYoutubeFor': 'Buscar “{query}” en YouTube',
+    'videos.manual.searchingYoutube': 'Buscando en YouTube...',
+    'videos.manual.youtubeResults': 'Resultados de YouTube',
+    'videos.manual.youtubeNoMatches': 'No se encontraron canales coincidentes en YouTube.',
+    'videos.manual.youtubeSearchUnavailable': 'La búsqueda de YouTube no está disponible ahora. Inténtalo más tarde.',
+    'videos.manual.youtubeSearchLimit': 'Has alcanzado el límite de búsquedas de YouTube de hoy. Inténtalo mañana.',
+    'videos.manual.youtubeSearchCooldown': 'Espera un momento antes de volver a buscar en YouTube.',
     'videos.manual.add': 'Añadir',
     'videos.undo': 'Deshacer',
     'videos.redo': 'Rehacer',
@@ -3127,6 +3169,14 @@ const I18N = {
     'videos.manual.searchPlaceholder': 'Rechercher une chaîne ou coller une URL YouTube',
     'videos.manual.suggestions': 'Suggestions de chaînes',
     'videos.manual.noMatches': 'Aucun résultat dans le catalogue. Vous pouvez aussi coller l’URL d’une vidéo ou d’une chaîne YouTube.',
+    'videos.manual.searchYoutube': 'Rechercher sur YouTube',
+    'videos.manual.searchYoutubeFor': 'Rechercher « {query} » sur YouTube',
+    'videos.manual.searchingYoutube': 'Recherche sur YouTube…',
+    'videos.manual.youtubeResults': 'Résultats YouTube',
+    'videos.manual.youtubeNoMatches': 'Aucune chaîne correspondante trouvée sur YouTube.',
+    'videos.manual.youtubeSearchUnavailable': 'La recherche YouTube est indisponible pour le moment. Réessayez plus tard.',
+    'videos.manual.youtubeSearchLimit': 'Vous avez atteint la limite de recherches YouTube pour aujourd’hui. Réessayez demain.',
+    'videos.manual.youtubeSearchCooldown': 'Patientez un instant avant de relancer une recherche YouTube.',
     'videos.manual.add': 'Ajouter',
     'videos.undo': 'Annuler',
     'videos.redo': 'Rétablir',
@@ -3427,6 +3477,7 @@ Object.assign(I18N['zh-Hant'], {
   'toast.backupUnavailable': '找不到這個備份',
   'toast.backupRestored': '備份已還原',
   'toast.channelDuplicate': '這個頻道已經加入',
+  'toast.channelAddLimit': '每天最多可以新增 {count} 個頻道，請明天再試。',
   'toast.channelAdded': '已加入 {name}',
   'toast.channelAddedNoKey': '已加入 {name}。設定 YouTube API 金鑰後即可載入影片。',
   'toast.channelAddedLoading': '已加入 {name}，正在載入影片…',
@@ -3443,6 +3494,7 @@ Object.assign(I18N['zh-Hant'], {
   'toast.alreadyWatched': '這部影片已標記為已觀看',
   'toast.watchCooldown': '再過 {time} 就能將這部影片標記為已觀看',
   'toast.addedWatchedVideo': '已加入並標記為已觀看：{title}',
+  'toast.addedVideoChannelLimit': '已加入影片：{title}。因為今天已達頻道上限，所以沒有新增其頻道。',
   'toast.addVideoFailed': '無法新增影片',
   'toast.timestampFormat': '請使用 HH:MM:SS 或 MM:SS 格式',
   'toast.videoGone': '找不到這部影片',
@@ -3611,6 +3663,7 @@ Object.assign(I18N['zh-Hans'], {
   'toast.backupUnavailable': '找不到这个备份',
   'toast.backupRestored': '备份已恢复',
   'toast.channelDuplicate': '这个频道已经添加',
+  'toast.channelAddLimit': '每天最多可以添加 {count} 个频道，请明天再试。',
   'toast.channelAdded': '已添加 {name}',
   'toast.channelAddedNoKey': '已添加 {name}。设置 YouTube API 密钥后即可加载视频。',
   'toast.channelAddedLoading': '已添加 {name}，正在加载视频…',
@@ -3627,6 +3680,7 @@ Object.assign(I18N['zh-Hans'], {
   'toast.alreadyWatched': '这个视频已标记为已观看',
   'toast.watchCooldown': '再过 {time} 就能将这个视频标记为已观看',
   'toast.addedWatchedVideo': '已添加并标记为已观看：{title}',
+  'toast.addedVideoChannelLimit': '已添加视频：{title}。因为今天已达到频道上限，所以没有添加其频道。',
   'toast.addVideoFailed': '无法添加视频',
   'toast.timestampFormat': '请使用 HH:MM:SS 或 MM:SS 格式',
   'toast.videoGone': '找不到这个视频',
@@ -3793,6 +3847,7 @@ Object.assign(I18N.es, {
   'toast.backupUnavailable': 'Esta copia ya no está disponible',
   'toast.backupRestored': 'Copia restaurada',
   'toast.channelDuplicate': 'Este canal ya está añadido',
+  'toast.channelAddLimit': 'Puedes añadir hasta {count} canales nuevos al día. Inténtalo mañana.',
   'toast.channelAdded': 'Se añadió {name}',
   'toast.channelAddedNoKey': 'Se añadió {name}. Configura la clave de la API de YouTube para cargar videos.',
   'toast.channelAddedLoading': 'Se añadió {name}; cargando videos…',
@@ -3809,6 +3864,7 @@ Object.assign(I18N.es, {
   'toast.alreadyWatched': 'Este video ya está marcado como visto',
   'toast.watchCooldown': 'Podrás marcar este video como visto en {time}',
   'toast.addedWatchedVideo': 'Añadido y marcado como visto: {title}',
+  'toast.addedVideoChannelLimit': 'Video añadido: {title}. Su canal no se añadió porque alcanzaste el límite de hoy.',
   'toast.addVideoFailed': 'No se pudo añadir el video',
   'toast.timestampFormat': 'Usa el formato HH:MM:SS o MM:SS',
   'toast.videoGone': 'Este video ya no está disponible',
@@ -3975,6 +4031,7 @@ Object.assign(I18N.fr, {
   'toast.backupUnavailable': 'Cette sauvegarde n’est plus disponible',
   'toast.backupRestored': 'Sauvegarde restaurée',
   'toast.channelDuplicate': 'Cette chaîne est déjà ajoutée',
+  'toast.channelAddLimit': 'Vous pouvez ajouter jusqu’à {count} nouvelles chaînes par jour. Réessayez demain.',
   'toast.channelAdded': '{name} ajoutée',
   'toast.channelAddedNoKey': '{name} ajoutée. Configurez la clé API YouTube pour charger les vidéos.',
   'toast.channelAddedLoading': '{name} ajoutée ; chargement des vidéos…',
@@ -3991,6 +4048,7 @@ Object.assign(I18N.fr, {
   'toast.alreadyWatched': 'Cette vidéo est déjà marquée comme vue',
   'toast.watchCooldown': 'Vous pourrez marquer cette vidéo comme vue dans {time}',
   'toast.addedWatchedVideo': 'Ajoutée et marquée comme vue : {title}',
+  'toast.addedVideoChannelLimit': 'Vidéo ajoutée : {title}. Sa chaîne n’a pas été ajoutée, car vous avez atteint la limite du jour.',
   'toast.addVideoFailed': 'Impossible d’ajouter la vidéo',
   'toast.timestampFormat': 'Utilisez le format HH:MM:SS ou MM:SS',
   'toast.videoGone': 'Cette vidéo n’est plus disponible',
@@ -8378,8 +8436,21 @@ async function addChannel(options = {}) {
   const raw    = idEl?.value?.trim() || ''
   let resolved
 
+  if (hasReachedYoutubeChannelAddLimit()) {
+    showToast(t('toast.channelAddLimit', { count: YOUTUBE_CHANNEL_ADD_DAILY_LIMIT }), 'warn')
+    idEl?.focus()
+    return
+  }
+
   try {
-    resolved = await resolveYoutubeChannelInput(raw)
+    const suppliedResolved = options.resolvedChannel
+    resolved = YOUTUBE_CHANNEL_ID_RE.test(String(suppliedResolved?.id || '').trim())
+      ? {
+          id: String(suppliedResolved.id).trim(),
+          name: String(suppliedResolved.name || suppliedResolved.id).trim(),
+          thumbnail: String(suppliedResolved.thumbnail || '').trim()
+        }
+      : await resolveYoutubeChannelInput(raw)
   } catch (err) {
     showToast(err.message || t('toast.channelInvalid'), 'warn')
     idEl?.focus()
@@ -8402,6 +8473,7 @@ async function addChannel(options = {}) {
     showToast(t('toast.channelDuplicate'), 'warn')
     return
   }
+  incrementYoutubeChannelAddUsage()
   addTrackedYoutubeChannelToState(s, { id, name, imageUrl: resolved.thumbnail || '' })
   appendActivityLog(s, {
     actor: 'user',
@@ -8415,6 +8487,7 @@ async function addChannel(options = {}) {
   window.trackEdeniaEvent?.('channel_added_via_add_button', {
     channel_id: id,
     channel_name: name,
+    source: options.source || (options.resolvedChannel ? 'youtube_search' : 'direct_input'),
     total_channel_count: s.config.channels.length
   })
   renderFeed(s)
@@ -10110,6 +10183,7 @@ async function addVideoFromUrl(event) {
     const s = loadState()
     const existing = s.videos[videoId]
     const existingChannel = s.config.channels.find(channel => channel.id === metadata.channelId) || null
+    const channelAddLimited = !existingChannel && hasReachedYoutubeChannelAddLimit()
     const before = {
       exists: Boolean(existing),
       video: existing ? cloneVideoForHistoryAction(existing) : null,
@@ -10120,11 +10194,15 @@ async function addVideoFromUrl(event) {
     const status = existing ? getVideoStatus(existing) : 'unwatched'
     const watchedAt = status === 'watched' ? existing?.watchedAt || null : null
     const duration = metadata.duration || existing?.duration || 0
-    const channelWasAdded = addTrackedYoutubeChannelToState(s, {
-      id: metadata.channelId,
-      name: metadata.channelTitle,
-      imageUrl: metadata.channelImageUrl
-    })
+    const channelWasAdded = channelAddLimited
+      ? false
+      : addTrackedYoutubeChannelToState(s, {
+          id: metadata.channelId,
+          name: metadata.channelTitle,
+          imageUrl: metadata.channelImageUrl
+        })
+    if (channelWasAdded) incrementYoutubeChannelAddUsage()
+    if (channelAddLimited) selectedChannelFilters?.add(metadata.channelId)
     s.videos[videoId] = {
       ...metadata,
       ...existing,
@@ -10186,7 +10264,12 @@ async function addVideoFromUrl(event) {
     if (usesTabletAddedVideoReveal()) input.blur()
     closeManualVideoPopover()
     revealAddedVideoCard(videoId, s)
-    showToast(t('toast.addedWatchedVideo', { title: formatToastTitle(s.videos[videoId].title) }), 'success')
+    showToast(
+      t(channelAddLimited ? 'toast.addedVideoChannelLimit' : 'toast.addedWatchedVideo', {
+        title: formatToastTitle(s.videos[videoId].title)
+      }),
+      channelAddLimited ? 'warn' : 'success'
+    )
     if (channelWasAdded) {
       refreshAddedChannel(metadata.channelId, {
         focusVideoId: videoId,
@@ -10291,11 +10374,22 @@ function getCuratedChannelInitials(channel) {
     .toLocaleUpperCase() || 'YT'
 }
 
+function renderManualYoutubeSearchAction(query) {
+  return `
+    <div class="manual-youtube-search-action">
+      <button type="button" class="manual-youtube-search-btn" onclick="searchYoutubeChannels(event)">
+        ${escHtml(t('videos.manual.searchYoutubeFor', { query }))}
+      </button>
+    </div>
+  `
+}
+
 function closeManualChannelSuggestions() {
   const input = document.getElementById('manualVideoUrlInput')
   const list = document.getElementById('manualChannelSuggestions')
   if (list) {
     list.classList.add('hidden')
+    list.removeAttribute('aria-busy')
     list.innerHTML = ''
   }
   input?.setAttribute('aria-expanded', 'false')
@@ -10324,14 +10418,18 @@ function renderManualChannelSuggestions() {
   input.removeAttribute('aria-activedescendant')
   input.setAttribute('aria-expanded', 'true')
   list.classList.remove('hidden')
+  list.removeAttribute('aria-busy')
 
   if (!matches.length) {
-    list.innerHTML = `<p class="manual-channel-suggestion-empty">${escHtml(t('videos.manual.noMatches'))}</p>`
+    list.innerHTML = `
+      <p class="manual-channel-suggestion-empty">${escHtml(t('videos.manual.noMatches'))}</p>
+      ${renderManualYoutubeSearchAction(value)}
+    `
     return
   }
 
   const state = loadState()
-  list.innerHTML = matches.map(channel => {
+  const localSuggestions = matches.map(channel => {
     const alreadyAdded = isCuratedChannelAlreadyAdded(channel, state)
     const meta = [
       channel.input,
@@ -10357,6 +10455,242 @@ function renderManualChannelSuggestions() {
       </button>
     `
   }).join('')
+  list.innerHTML = `${localSuggestions}${renderManualYoutubeSearchAction(value)}`
+}
+
+function getYoutubeChannelSearchDateKey(date = new Date()) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0')
+  ].join('-')
+}
+
+function readYoutubeChannelSearchCache() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY) || '{}')
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function getCachedYoutubeChannelSearch(query) {
+  const cache = readYoutubeChannelSearchCache()
+  const key = normalizeCuratedChannelSearchText(query)
+  const entry = cache[key]
+  if (!entry || Date.now() - Number(entry.savedAt || 0) > YOUTUBE_CHANNEL_SEARCH_CACHE_TTL_MS) {
+    return null
+  }
+  if (!Array.isArray(entry.results)) return null
+  return entry.results.filter(result => YOUTUBE_CHANNEL_ID_RE.test(String(result?.id || '')))
+}
+
+function cacheYoutubeChannelSearch(query, results) {
+  try {
+    const cache = readYoutubeChannelSearchCache()
+    const key = normalizeCuratedChannelSearchText(query)
+    cache[key] = {
+      savedAt: Date.now(),
+      results: results.map(result => ({
+        id: result.id,
+        name: result.name,
+        thumbnail: result.thumbnail || ''
+      }))
+    }
+    const trimmedCache = Object.fromEntries(
+      Object.entries(cache)
+        .sort(([, a], [, b]) => Number(b?.savedAt || 0) - Number(a?.savedAt || 0))
+        .slice(0, 20)
+    )
+    localStorage.setItem(YOUTUBE_CHANNEL_SEARCH_CACHE_KEY, JSON.stringify(trimmedCache))
+  } catch {
+    // Searching still works when browser storage is unavailable.
+  }
+}
+
+function getYoutubeChannelSearchUsage() {
+  const today = getYoutubeChannelSearchDateKey()
+  try {
+    const parsed = JSON.parse(localStorage.getItem(YOUTUBE_CHANNEL_SEARCH_USAGE_KEY) || '{}')
+    if (parsed?.date === today) {
+      return { date: today, count: Math.max(0, Number(parsed.count) || 0) }
+    }
+  } catch {
+    // Fall back to a fresh in-memory-equivalent daily count.
+  }
+  return { date: today, count: 0 }
+}
+
+function getYoutubeChannelAddUsage() {
+  const today = getYoutubeChannelSearchDateKey()
+  try {
+    const parsed = JSON.parse(localStorage.getItem(YOUTUBE_CHANNEL_ADD_USAGE_KEY) || '{}')
+    if (parsed?.date === today) {
+      return { date: today, count: Math.max(0, Number(parsed.count) || 0) }
+    }
+  } catch {
+    // Fall back to a fresh daily count when browser storage is unavailable.
+  }
+  return { date: today, count: 0 }
+}
+
+function hasReachedYoutubeChannelAddLimit() {
+  return !IS_SANDBOX && getYoutubeChannelAddUsage().count >= YOUTUBE_CHANNEL_ADD_DAILY_LIMIT
+}
+
+function incrementYoutubeChannelAddUsage() {
+  if (IS_SANDBOX) return getYoutubeChannelAddUsage()
+  const usage = getYoutubeChannelAddUsage()
+  usage.count += 1
+  try {
+    localStorage.setItem(YOUTUBE_CHANNEL_ADD_USAGE_KEY, JSON.stringify(usage))
+  } catch {
+    // Adding still works when browser storage is unavailable.
+  }
+  return usage
+}
+
+function incrementYoutubeChannelSearchUsage() {
+  const usage = getYoutubeChannelSearchUsage()
+  usage.count += 1
+  try {
+    localStorage.setItem(YOUTUBE_CHANNEL_SEARCH_USAGE_KEY, JSON.stringify(usage))
+  } catch {
+    // The API request can still proceed if browser storage is unavailable.
+  }
+  return usage
+}
+
+async function fetchYoutubeChannelSearchResults(query) {
+  const url = new URL('https://www.googleapis.com/youtube/v3/search')
+  url.searchParams.set('part', 'snippet')
+  url.searchParams.set('type', 'channel')
+  url.searchParams.set('maxResults', String(YOUTUBE_CHANNEL_SEARCH_RESULT_LIMIT))
+  url.searchParams.set('safeSearch', 'moderate')
+  url.searchParams.set('q', query)
+  url.searchParams.set('key', getYoutubeApiKey())
+  const data = await ytFetch(url.toString())
+  return (data.items || [])
+    .map(item => ({
+      id: String(item?.id?.channelId || ''),
+      name: String(item?.snippet?.channelTitle || item?.snippet?.title || item?.id?.channelId || ''),
+      thumbnail: getBestThumbnail(item?.snippet?.thumbnails)
+    }))
+    .filter(result => YOUTUBE_CHANNEL_ID_RE.test(result.id))
+}
+
+function renderYoutubeChannelSearchResults(query, results) {
+  const input = document.getElementById('manualVideoUrlInput')
+  const list = document.getElementById('manualChannelSuggestions')
+  if (!input || !list) return
+  if (normalizeCuratedChannelSearchText(input.value) !== normalizeCuratedChannelSearchText(query)) return
+
+  searchYoutubeChannels.results = results
+  renderManualChannelSuggestions.activeIndex = -1
+  input.removeAttribute('aria-activedescendant')
+  input.setAttribute('aria-expanded', 'true')
+  list.classList.remove('hidden')
+  list.removeAttribute('aria-busy')
+
+  if (!results.length) {
+    list.innerHTML = `<p class="manual-channel-suggestion-empty">${escHtml(t('videos.manual.youtubeNoMatches'))}</p>`
+    return
+  }
+
+  const state = loadState()
+  const resultRows = results.map(result => {
+    const alreadyAdded = (state?.config?.channels || []).some(channel => channel.id === result.id)
+    const meta = alreadyAdded ? t('toast.channelDuplicate') : result.id
+    return `
+      <button type="button"
+        class="manual-channel-suggestion ${alreadyAdded ? 'is-added' : ''}"
+        id="manualYoutubeSuggestion-${escHtml(result.id)}"
+        data-channel-id="${escHtml(result.id)}"
+        data-added="${alreadyAdded ? 'true' : 'false'}"
+        data-suggestion-source="youtube"
+        role="option"
+        aria-selected="false"
+        onclick="selectYoutubeChannelSearchResult(event, this.dataset.channelId)">
+        <span class="manual-channel-suggestion-avatar" aria-hidden="true">
+          <span>${escHtml(getCuratedChannelInitials(result))}</span>
+          ${result.thumbnail
+            ? `<img src="${escHtml(result.thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.hidden=true">`
+            : ''}
+        </span>
+        <span class="manual-channel-suggestion-copy">
+          <span class="manual-channel-suggestion-name">${escHtml(result.name)}</span>
+          <span class="manual-channel-suggestion-meta">${escHtml(meta)}</span>
+        </span>
+      </button>
+    `
+  }).join('')
+
+  list.innerHTML = `
+    <div class="manual-youtube-results-label">${escHtml(t('videos.manual.youtubeResults'))}</div>
+    ${resultRows}
+  `
+}
+
+function renderYoutubeChannelSearchMessage(messageKey, query = '') {
+  const input = document.getElementById('manualVideoUrlInput')
+  const list = document.getElementById('manualChannelSuggestions')
+  if (!input || !list) return
+  if (
+    query
+    && normalizeCuratedChannelSearchText(input.value) !== normalizeCuratedChannelSearchText(query)
+  ) return
+  input.setAttribute('aria-expanded', 'true')
+  list.classList.remove('hidden')
+  list.removeAttribute('aria-busy')
+  list.innerHTML = `<p class="manual-channel-suggestion-empty">${escHtml(t(messageKey))}</p>`
+}
+
+async function searchYoutubeChannels(event) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const input = document.getElementById('manualVideoUrlInput')
+  const list = document.getElementById('manualChannelSuggestions')
+  const query = input?.value?.trim() || ''
+  if (!input || !list || query.length < 2) return
+
+  const cachedResults = getCachedYoutubeChannelSearch(query)
+  if (cachedResults) {
+    renderYoutubeChannelSearchResults(query, cachedResults)
+    return
+  }
+  if (!hasYoutubeApiKey()) {
+    showToast(t('toast.apiKeyMissing'), 'warn')
+    return
+  }
+
+  const usage = getYoutubeChannelSearchUsage()
+  if (usage.count >= YOUTUBE_CHANNEL_SEARCH_DAILY_LIMIT) {
+    renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchLimit', query)
+    return
+  }
+
+  const now = Date.now()
+  const lastRequestAt = Number(searchYoutubeChannels.lastRequestAt || 0)
+  if (now - lastRequestAt < YOUTUBE_CHANNEL_SEARCH_COOLDOWN_MS) {
+    renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchCooldown', query)
+    return
+  }
+
+  searchYoutubeChannels.lastRequestAt = now
+  incrementYoutubeChannelSearchUsage()
+  list.classList.remove('hidden')
+  list.setAttribute('aria-busy', 'true')
+  list.innerHTML = `<p class="manual-channel-suggestion-empty">${escHtml(t('videos.manual.searchingYoutube'))}</p>`
+
+  try {
+    const results = await fetchYoutubeChannelSearchResults(query)
+    cacheYoutubeChannelSearch(query, results)
+    renderYoutubeChannelSearchResults(query, results)
+  } catch (error) {
+    console.warn(error)
+    renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchUnavailable', query)
+  }
 }
 
 function setActiveManualChannelSuggestion(index) {
@@ -10402,7 +10736,12 @@ function handleManualChannelSuggestionKeydown(event) {
     setActiveManualChannelSuggestion(activeIndex <= 0 ? options.length - 1 : activeIndex - 1)
   } else if (event.key === 'Enter' && activeIndex >= 0) {
     event.preventDefault()
-    selectManualChannelSuggestion(event, options[activeIndex].dataset.catalogId)
+    const activeOption = options[activeIndex]
+    if (activeOption.dataset.suggestionSource === 'youtube') {
+      selectYoutubeChannelSearchResult(event, activeOption.dataset.channelId)
+    } else {
+      selectManualChannelSuggestion(event, activeOption.dataset.catalogId)
+    }
   }
 }
 
@@ -10436,6 +10775,30 @@ function selectManualChannelSuggestion(event, catalogId) {
     return
   }
   addCuratedChannelSuggestion(catalogId)
+}
+
+async function selectYoutubeChannelSearchResult(event, channelId) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const result = (searchYoutubeChannels.results || []).find(channel => channel.id === channelId)
+  const input = document.getElementById('manualVideoUrlInput')
+  const btn = document.getElementById('manualVideoAddBtn')
+  if (!result || !input) return
+
+  if ((loadState()?.config?.channels || []).some(channel => channel.id === result.id)) {
+    showToast(t('toast.channelDuplicate'), 'warn')
+    return
+  }
+
+  closeManualChannelSuggestions()
+  await addChannel({
+    input,
+    button: btn,
+    idleButtonText: t('videos.manual.add'),
+    closePopover: true,
+    resolvedChannel: result,
+    source: 'youtube_search'
+  })
 }
 
 async function addYoutubeInput(event) {
