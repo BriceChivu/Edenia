@@ -15302,7 +15302,7 @@ function positionVideoShelfPreview(card, pointerEvent = null) {
     )
   )
   const previewSize = Math.min(Math.max(rect.width * 1.25, 295), maxPreviewSize)
-  const previewHeight = previewSize
+  const previewHeight = previewSize * 0.95
   const sourceLeft = rect.left - ((previewSize - rect.width) / 2)
   const sourceTop = rect.top - ((previewHeight - rect.height) / 2)
   const anchorToSource = card.classList.contains('watch-reminder-target')
