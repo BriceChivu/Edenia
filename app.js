@@ -11906,7 +11906,7 @@ function renderHistoryWatchedCell(row) {
       </button>
       <span class="history-video-popover" role="dialog" aria-label="${escHtml(t('history.watchedDialog'))}" onmouseenter="openHistoryVideoPopover(event)" onmouseleave="closeHistoryVideoPopoverSoon()">
         ${row.watchedVideos.map(video => `
-          <button type="button" class="history-video-popover-item" data-video-id="${escHtml(video.id)}" onclick="jumpToWatchedVideo(this.dataset.videoId)">
+          <button type="button" class="history-video-popover-item" data-video-id="${escHtml(video.id)}" onclick="jumpToWatchedVideo(event, this.dataset.videoId)">
             ${video.thumbnail
               ? `<img src="${escHtml(video.thumbnail)}" alt="" class="history-video-thumb" loading="lazy">`
               : '<span class="history-video-thumb history-video-thumb-empty"></span>'}
@@ -12157,7 +12157,8 @@ function closeHistoryPointsPopoversOnEscape(event) {
   closeHistoryPointsPopovers()
 }
 
-function jumpToWatchedVideo(videoId) {
+function jumpToWatchedVideo(event, videoId) {
+  event?.stopPropagation()
   const targetId = String(videoId ?? '')
   const state = loadState()
   if (!state?.videos?.[targetId]) {
@@ -12167,6 +12168,11 @@ function jumpToWatchedVideo(videoId) {
   }
 
   closeHistoryVideoPopovers()
+  if (!isMobileLayout()) {
+    focusNextStudyVideoCard(event, targetId)
+    return
+  }
+
   forcedSearchVideoId = targetId
   renderFeed(state)
   window.setTimeout(() => {
@@ -14802,7 +14808,8 @@ function renderFeed(s) {
     .sort((a, b) => new Date(b.watchedAt || 0) - new Date(a.watchedAt || 0))
 
   if (forcedSearchVideo) {
-    if (getVideoStatus(forcedSearchVideo) === 'watched') {
+    const shouldFocusInChannelShelf = activeNextStudyFocusVideoId === String(forcedSearchVideo.id)
+    if (getVideoStatus(forcedSearchVideo) === 'watched' && !shouldFocusInChannelShelf) {
       watchedVideos = includeForcedSearchVideo(watchedVideos, forcedSearchVideo)
     } else {
       activeVideos = includeForcedSearchVideo(activeVideos, forcedSearchVideo)
@@ -16052,8 +16059,14 @@ function closeVideoShelfPreviewOnOutsideClick(event) {
   if (!usesTapVideoShelfPreview() && !isNextStudyFocusPreview) return
   if (activeVideoShelfPreview.contains(event.target)) return
   if (isNextStudyFocusPreview) {
+    const focusedVideoId = activeNextStudyFocusVideoId
+    const state = loadState()
+    const shouldRestoreWatchedSection = getVideoStatus(state?.videos?.[focusedVideoId]) === 'watched'
     activeNextStudyFocusVideoId = null
     activeVideoShelfPreview.classList.remove('next-study-focus-target')
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
+    if (shouldRestoreWatchedSection && state) renderFeed(state)
+    return
   }
   closeVideoShelfPreview(activeVideoShelfPreview, true)
 }
