@@ -11008,6 +11008,7 @@ function prepareNextStudyVideoOpen(link) {
 }
 
 function focusNextStudyVideoCard(event, videoId) {
+  if (isMobileLayout()) return true
   event?.preventDefault()
   event?.stopPropagation()
 
@@ -13462,7 +13463,8 @@ function renderNextStudy(activeVideos = []) {
         onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${escHtml(t('nextStudy.watch'))}</a>
     `
   container.innerHTML = `
-    <button type="button" class="next-study-mobile-link" data-video-id="${safeVideoId}" onclick="focusNextStudyVideoCard(event, this.dataset.videoId)" aria-label="${escHtml(panelLabel)}"></button>
+    <button type="button" class="next-study-panel-focus" data-video-id="${safeVideoId}" onclick="focusNextStudyVideoCard(event, this.dataset.videoId)" aria-label="${escHtml(panelLabel)}"></button>
+    <a class="next-study-mobile-link" href="${videoUrl}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}"></a>
     <span class="next-study-thumb-link" aria-hidden="true">
       <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
     </span>
@@ -15520,6 +15522,15 @@ function closeVideoShelfPreviewOnOutsideClick(event) {
 }
 
 function closeVideoShelfPreviewOnViewportChange() {
+  if (isMobileLayout() && activeNextStudyFocusVideoId) {
+    window.clearTimeout(nextStudyFocusZoomTimer)
+    activeNextStudyFocusVideoId = null
+    document.querySelectorAll('.video-card.next-study-focus-target').forEach(card => {
+      card.classList.remove('next-study-focus-target')
+    })
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
+    return
+  }
   const isAnchoredPreview = Boolean(
     activeVideoShelfPreview
     && (

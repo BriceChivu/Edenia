@@ -2920,17 +2920,24 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
 .continue-watching-card {
   max-width: 100%;
 }
+.next-study-panel-focus,
 .next-study-mobile-link {
   appearance: none;
   background: transparent;
   border: 0;
   cursor: pointer;
-  display: block;
   inset: 0;
   padding: 0;
   position: absolute;
   z-index: 1;
 }
+.next-study-panel-focus {
+  display: block;
+}
+.next-study-mobile-link {
+  display: none;
+}
+.next-study-panel-focus:focus-visible,
 .next-study-mobile-link:focus-visible {
   border-radius: calc(var(--radius) - 2px);
   outline: 3px solid var(--focus);
@@ -4843,16 +4850,16 @@ body[data-theme="dark"] .video-grid-remove:focus-visible {
     box-shadow: 0 0 0 4px rgba(139,189,40,0.34), 0 6px 0 rgba(5,5,5,0.18);
   }
 }
-.video-card:is(.watch-reminder-target, .next-study-focus-target) {
+.video-card.watch-reminder-target {
   border-color: var(--green);
   box-shadow: 0 0 0 4px rgba(139,189,40,0.22), 0 6px 0 rgba(5,5,5,0.18);
   transform: none;
   z-index: 10001;
 }
-.video-card:is(.watch-reminder-target, .next-study-focus-target) .video-grid-remove {
+.video-card.watch-reminder-target .video-grid-remove {
   display: none;
 }
-.channel-shelf:has(.video-card:is(.watch-reminder-target, .next-study-focus-target)) {
+.channel-shelf:has(.video-card.watch-reminder-target) {
   position: relative;
   z-index: 10000;
 }
@@ -6512,6 +6519,9 @@ summary:focus-visible,
     cursor: pointer;
     grid-template-columns: 72px minmax(0, 1fr);
   }
+  .next-study-panel-focus {
+    display: none;
+  }
   .next-study-mobile-link {
     display: block;
   }
@@ -7635,6 +7645,19 @@ summary:focus-visible,
   }
 }
 @media (min-width: 641px) {
+  .video-card.next-study-focus-target {
+    border-color: var(--green);
+    box-shadow: 0 0 0 4px rgba(139,189,40,0.22), 0 6px 0 rgba(5,5,5,0.18);
+    transform: none;
+    z-index: 10001;
+  }
+  .video-card.next-study-focus-target .video-grid-remove {
+    display: none;
+  }
+  .channel-shelf:has(.video-card.next-study-focus-target) {
+    position: relative;
+    z-index: 10000;
+  }
   .channel-shelf {
     cursor: grab;
     position: relative;
