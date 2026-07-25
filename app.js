@@ -199,6 +199,9 @@ let videoWatchReminderZoomTimer = null
 let videoWatchReminderPopupTimer = null
 let nextStudyFocusZoomTimer = null
 let activeNextStudyFocusVideoId = null
+const VIDEO_SHELF_PLAYER_SAVE_INTERVAL_MS = 5000
+let youtubeIframeApiPromise = null
+let activeVideoShelfPlayer = null
 let currentLocale = DEFAULT_LOCALE
 let backgroundPhysics = null
 const selectedHistoryPeriod = { week: null, month: null }
@@ -1298,6 +1301,7 @@ const I18N_EN = {
   'videos.card.resume': 'Resume watching',
   'videos.card.continueAt': 'Continue at',
   'videos.card.timestampLabel': 'Continue watching timestamp',
+  'videos.card.openOnYoutube': 'Open on YouTube',
   'videos.card.inProgressRibbon': 'In progress',
   'videos.card.removeFromGrid': 'Remove from grid',
   'videoReminder.tabTitle': '✓ Mark as watched · Edenia',
@@ -1900,6 +1904,7 @@ const I18N = {
     'videos.card.clear': '清除',
     'videos.card.resume': '繼續觀看',
     'videos.card.continueAt': '繼續於',
+    'videos.card.openOnYoutube': '在 YouTube 開啟',
     'videos.card.removeFromGrid': '從清單移除',
     'activity.empty': '還沒有活動紀錄',
     'activity.showOlder': '顯示較舊紀錄',
@@ -2363,6 +2368,7 @@ const I18N = {
     'videos.card.unmark': '取消标记',
     'videos.card.resume': '继续观看',
     'videos.card.continueAt': '继续于',
+    'videos.card.openOnYoutube': '在 YouTube 打开',
     'videos.card.removeFromGrid': '从列表移除',
     'activity.empty': '还没有活动记录',
     'activity.showOlder': '显示较早记录',
@@ -2825,6 +2831,7 @@ const I18N = {
     'videos.card.unmark': 'Desmarcar',
     'videos.card.resume': 'Continuar viendo',
     'videos.card.continueAt': 'Continuar en',
+    'videos.card.openOnYoutube': 'Abrir en YouTube',
     'videos.card.removeFromGrid': 'Quitar de la lista',
     'activity.empty': 'Aún no hay actividad registrada',
     'activity.showOlder': 'Mostrar anteriores',
@@ -3287,6 +3294,7 @@ const I18N = {
     'videos.card.unmark': 'Retirer',
     'videos.card.resume': 'Continuer',
     'videos.card.continueAt': 'Reprendre à',
+    'videos.card.openOnYoutube': 'Ouvrir sur YouTube',
     'videos.card.removeFromGrid': 'Retirer de la liste',
     'activity.empty': 'Aucune activité enregistrée',
     'activity.showOlder': 'Afficher les plus anciennes',
@@ -4963,7 +4971,12 @@ function canPersistLocalState() {
 }
 
 function saveState(s, options = {}) {
-  const { backup = true, backupReason = 'automatic backup', forceBackup = false } = options
+  const {
+    backup = true,
+    backupReason = 'automatic backup',
+    forceBackup = false,
+    syncAnalytics = true
+  } = options
   normalizeActivityLogState(s)
   normalizeNoAnkiFrequentUserPromptState(s)
   normalizeVideoWatchProgressState(s)
@@ -4982,7 +4995,7 @@ function saveState(s, options = {}) {
     } catch {}
   }
   saveConfigCookie(s.config)
-  if (persisted) syncPersistedStateToAnalytics(s)
+  if (persisted && syncAnalytics) syncPersistedStateToAnalytics(s)
   return persisted
 }
 
@@ -8825,9 +8838,21 @@ function isShortVideoDetail(detail = {}) {
   return isShortDuration(detail.duration)
 }
 
+function normalizeVideoAspectRatio(value) {
+  const ratio = Number(value)
+  return Number.isFinite(ratio) && ratio >= 0.25 && ratio <= 4 ? ratio : null
+}
+
+function getVideoAspectRatioFromItem(item) {
+  const width = Number(item?.player?.embedWidth)
+  const height = Number(item?.player?.embedHeight)
+  return width > 0 && height > 0 ? normalizeVideoAspectRatio(width / height) : null
+}
+
 function getVideoDetailFromItem(item) {
   const detail = {
-    duration: parseDuration(item?.contentDetails?.duration)
+    duration: parseDuration(item?.contentDetails?.duration),
+    aspectRatio: getVideoAspectRatioFromItem(item)
   }
   detail.isShort = isShortVideoDetail(detail)
   return detail
@@ -9001,7 +9026,7 @@ function parseYoutubeVideoId(value) {
 }
 
 async function fetchVideoMetadata(videoId) {
-  const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(getYoutubeApiKey())}`
+  const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,player&maxWidth=1920&maxHeight=1080&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(getYoutubeApiKey())}`
   const data = await ytFetch(url)
   const item = data.items?.[0]
   if (!item) throw new Error(t('toast.videoNotFound'))
@@ -9021,6 +9046,7 @@ async function fetchVideoMetadata(videoId) {
     thumbnail: getBestThumbnail(item.snippet?.thumbnails) || `https://i.ytimg.com/vi/${encodeURIComponent(item.id)}/hqdefault.jpg`,
     publishedAt: item.snippet?.publishedAt || new Date().toISOString(),
     duration: parseDuration(item.contentDetails?.duration),
+    aspectRatio: getVideoAspectRatioFromItem(item),
     source: 'manual',
     manuallyAdded: true
   }
@@ -9162,6 +9188,8 @@ function applyFetchedVideoDetails(videos, detailsById = {}) {
       ? {
         ...video,
         duration: detail.duration,
+        aspectRatio: normalizeVideoAspectRatio(detail.aspectRatio)
+          ?? normalizeVideoAspectRatio(video.aspectRatio),
         isShort: Boolean(detail.isShort),
         shortsCheckedAt: detail.shortsCheckedAt,
         shortsDetectionVersion: detail.shortsDetectionVersion
@@ -9174,16 +9202,20 @@ function getRefreshCandidateDetails(s, videos) {
   const detailsById = {}
   videos.forEach(video => {
     const existing = s.videos[video.id]
-    if (Number.isFinite(Number(video.duration))) {
+    const videoAspectRatio = normalizeVideoAspectRatio(video.aspectRatio)
+    const existingAspectRatio = normalizeVideoAspectRatio(existing?.aspectRatio)
+    if (Number.isFinite(Number(video.duration)) && videoAspectRatio !== null) {
       detailsById[video.id] = {
         duration: Number(video.duration),
+        aspectRatio: videoAspectRatio,
         isShort: Boolean(video.isShort),
         shortsCheckedAt: video.shortsCheckedAt || null,
         shortsDetectionVersion: video.shortsDetectionVersion || null
       }
-    } else if (existing && typeof existing.duration === 'number') {
+    } else if (existing && typeof existing.duration === 'number' && existingAspectRatio !== null) {
       detailsById[video.id] = {
         duration: existing.duration,
+        aspectRatio: existingAspectRatio,
         isShort: Boolean(existing.isShort),
         shortsCheckedAt: existing.shortsCheckedAt || null,
         shortsDetectionVersion: existing.shortsDetectionVersion || null
@@ -9240,7 +9272,7 @@ async function fetchVideoDetails(videoIds, { detectShorts = false } = {}) {
   const result = {}
   for (let i = 0; i < videoIds.length; i += 50) {
     const batch = videoIds.slice(i, i + 50).join(',')
-    const url   = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${batch}&key=${encodeURIComponent(getYoutubeApiKey())}`
+    const url   = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,player&maxWidth=1920&maxHeight=1080&id=${batch}&key=${encodeURIComponent(getYoutubeApiKey())}`
     const data  = await ytFetch(url)
     data.items.forEach(item => { result[item.id] = getVideoDetailFromItem(item) })
   }
@@ -9431,6 +9463,9 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
     s.videos[v.id] = {
       ...v,
       duration,
+      aspectRatio: normalizeVideoAspectRatio(
+        detail.aspectRatio ?? v.aspectRatio ?? existing?.aspectRatio
+      ),
       status:     existing?.status    ?? 'unwatched',
       watchedAt:  existing?.watchedAt ?? null,
       resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, duration),
@@ -10218,10 +10253,12 @@ function markVideo(videoId, newStatus) {
   scheduleVideoWatchReminderTimer(s)
 }
 
-function markVideoInProgressOnOpen(videoId) {
+function markVideoInProgressOnOpen(videoId, options = {}) {
+  const shouldRender = options.render !== false
+  const shouldSetReminder = options.reminder !== false
   const s     = loadState()
   const video = s.videos[videoId]
-  if (!video) return
+  if (!video) return false
   const previousStatus = getVideoStatus(video)
   window.trackEdeniaEvent?.('video_opened', {
     previous_status: previousStatus,
@@ -10229,13 +10266,16 @@ function markVideoInProgressOnOpen(videoId) {
     is_short: Boolean(video.isShort),
     resumed: previousStatus === 'partial' && normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) !== null
   })
-  if (previousStatus === 'watched') return
+  if (previousStatus === 'watched') return false
   if (previousStatus === 'partial') {
-    if (setVideoWatchReminderInState(s, video)) {
+    const reminderChanged = shouldSetReminder
+      ? setVideoWatchReminderInState(s, video)
+      : clearVideoWatchReminderInState(s, videoId)
+    if (reminderChanged) {
       saveState(s, { backup: false })
       scheduleVideoWatchReminderTimer(s)
     }
-    return
+    return true
   }
 
   pushUndoAction(s, {
@@ -10258,7 +10298,11 @@ function markVideoInProgressOnOpen(videoId) {
   video.status = 'partial'
   video.watchedAt = null
   video.resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
-  setVideoWatchReminderInState(s, video)
+  if (shouldSetReminder) {
+    setVideoWatchReminderInState(s, video)
+  } else {
+    clearVideoWatchReminderInState(s, videoId)
+  }
   const action = s.undoStack[s.undoStack.length - 1]
   if (action?.videoId === videoId && action.after) {
     action.after.video = cloneVideoForHistoryAction(video)
@@ -10273,11 +10317,16 @@ function markVideoInProgressOnOpen(videoId) {
   })
 
   saveState(s)
-  setTimeout(() => {
-    const nextState = loadState()
-    renderAll(nextState)
-    scheduleVideoWatchReminderTimer(nextState)
-  }, 0)
+  if (shouldRender) {
+    setTimeout(() => {
+      const nextState = loadState()
+      renderAll(nextState)
+      scheduleVideoWatchReminderTimer(nextState)
+    }, 0)
+  } else {
+    scheduleVideoWatchReminderTimer(s)
+  }
+  return true
 }
 
 function revealAddedVideoCard(videoId, state) {
@@ -10993,6 +11042,12 @@ function saveVideoResumeTime(videoId, value, options = {}) {
   const parsed = parseResumeTimestamp(value, video.duration)
   if (Number.isNaN(parsed)) {
     showToast(t('toast.timestampFormat'), 'warn')
+    if (!shouldRender && activeVideoShelfPlayer?.videoId === String(videoId ?? '')) {
+      updateVideoShelfPlayerTimestamp(
+        activeVideoShelfPlayer,
+        getVideoShelfPlayerCurrentTime(activeVideoShelfPlayer)
+      )
+    }
     if (shouldRender) renderAll(s)
     return false
   }
@@ -11001,6 +11056,7 @@ function saveVideoResumeTime(videoId, value, options = {}) {
   const previousResume = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
   const nextResume = parsed || 0
   if (nextResume === previousResume) {
+    seekActiveVideoShelfPlayer(videoId, nextResume)
     if (shouldRender) renderAll(s)
     return true
   }
@@ -11026,6 +11082,7 @@ function saveVideoResumeTime(videoId, value, options = {}) {
   })
   syncStreak(s)
   saveState(s)
+  seekActiveVideoShelfPlayer(videoId, nextResume)
   if (shouldRender) renderAll(s)
   return true
 }
@@ -15290,6 +15347,435 @@ function finishChannelShelfDrag() {
   document.body.classList.remove('channel-shelf-dragging')
 }
 
+function canUseEmbeddedVideoShelfPlayer() {
+  const usesDesktopPointer = window.matchMedia?.(
+    '(min-width: 641px) and (hover: hover) and (pointer: fine)'
+  )?.matches
+  const isIpad = /iPad/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  const usesIpadLayout = isIpad && window.matchMedia?.('(min-width: 641px)')?.matches
+  return Boolean((usesDesktopPointer || usesIpadLayout) && canUseVideoShelfPreview())
+}
+
+function handleVideoThumbnailClick(event, link) {
+  const card = link?.closest?.('.channel-shelf-card')
+  const videoId = String(link?.dataset?.videoId || '')
+  if (!card || !videoId || !canUseEmbeddedVideoShelfPlayer()) {
+    markVideoInProgressOnOpen(videoId)
+    return true
+  }
+
+  if (!card.classList.contains('is-previewing')) {
+    if (usesTapVideoShelfPreview()) {
+      event?.preventDefault()
+      event?.stopPropagation()
+      openVideoShelfPreview(card, true)
+      return false
+    }
+    markVideoInProgressOnOpen(videoId)
+    return true
+  }
+
+  event?.preventDefault()
+  event?.stopPropagation()
+  openVideoShelfPlayer(card, videoId)
+  return false
+}
+
+function getVideoShelfEmbedUrl(videoId, startSeconds = 0) {
+  const params = new URLSearchParams({
+    autoplay: '1',
+    enablejsapi: '1',
+    playsinline: '1',
+    rel: '0',
+    start: String(Math.max(0, Math.floor(Number(startSeconds) || 0)))
+  })
+  if (/^https?:$/.test(window.location.protocol)) params.set('origin', window.location.origin)
+  return `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?${params.toString()}`
+}
+
+function loadYoutubeIframeApi() {
+  if (window.YT?.Player) return Promise.resolve(window.YT)
+  if (youtubeIframeApiPromise) return youtubeIframeApiPromise
+
+  youtubeIframeApiPromise = new Promise((resolve, reject) => {
+    const previousReady = window.onYouTubeIframeAPIReady
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof previousReady === 'function') previousReady()
+      if (window.YT?.Player) resolve(window.YT)
+    }
+
+    let script = document.querySelector('script[data-edenia-youtube-iframe-api]')
+    if (!script) {
+      script = document.createElement('script')
+      script.src = 'https://www.youtube.com/iframe_api'
+      script.async = true
+      script.dataset.edeniaYoutubeIframeApi = 'true'
+      document.head.append(script)
+    }
+    script.addEventListener('error', () => {
+      youtubeIframeApiPromise = null
+      reject(new Error('YouTube IFrame API failed to load'))
+    }, { once: true })
+  })
+
+  return youtubeIframeApiPromise
+}
+
+function getVideoPlayerFallbackAspectRatio(video) {
+  return normalizeVideoAspectRatio(video?.aspectRatio)
+    || (video?.isShort ? 9 / 16 : 16 / 9)
+}
+
+function renderVideoShelfPlayerOverlay(video, startSeconds) {
+  const videoId = String(video.id)
+  const formattedStart = formatResumeTimestamp(startSeconds) || '00:00:00'
+  const overlay = document.createElement('div')
+  overlay.className = 'video-player-overlay'
+  overlay.setAttribute('role', 'dialog')
+  overlay.setAttribute('aria-modal', 'true')
+  overlay.setAttribute('aria-label', video.title)
+  overlay.innerHTML = `
+    <div class="video-player-dialog">
+      <div class="video-player-frame">
+      <iframe
+        src="${escHtml(getVideoShelfEmbedUrl(videoId, startSeconds))}"
+        title="${escHtml(video.title)}"
+        allow="autoplay; encrypted-media; picture-in-picture"
+        allowfullscreen></iframe>
+      </div>
+      <div class="video-player-toolbar">
+        <label class="video-player-time">
+        <span>${escHtml(t('videos.card.continueAt'))}</span>
+        <input type="text"
+          value="${escHtml(formattedStart)}"
+          placeholder="00:01:23"
+          inputmode="text"
+          data-video-id="${escHtml(videoId)}"
+          onchange="saveVideoResumeTime(this.dataset.videoId, this.value, { render: false })"
+          onkeydown="if (event.key === 'Enter') this.blur()"
+          aria-label="${escHtml(t('videos.card.timestampLabel'))}">
+        </label>
+        <span class="video-player-actions">
+          <a class="video-player-youtube"
+            href="${escHtml(getVideoUrl(video))}"
+            target="_blank"
+            rel="noopener"
+            data-video-id="${escHtml(videoId)}"
+            onclick="return prepareVideoShelfYoutubeOpen(this)">${escHtml(t('videos.card.openOnYoutube'))}</a>
+          <button type="button"
+            class="video-player-close"
+            onclick="closeVideoShelfPlayer()"
+            aria-label="${escHtml(t('settings.close'))}"
+            title="${escHtml(t('settings.close'))}">×</button>
+        </span>
+      </div>
+    </div>
+  `
+  overlay.addEventListener('click', event => {
+    if (event.target === overlay) closeVideoShelfPlayer()
+  })
+  document.body.append(overlay)
+  document.body.classList.add('video-player-open')
+  return {
+    overlay,
+    frame: overlay.querySelector('.video-player-frame'),
+    iframe: overlay.querySelector('iframe')
+  }
+}
+
+function openVideoShelfPlayer(card, videoId) {
+  if (!card?.classList.contains('is-previewing') || !canUseEmbeddedVideoShelfPlayer()) return false
+  closeVideoShelfPreview(card, true)
+  if (activeVideoShelfPlayer?.videoId === videoId) return true
+  if (activeVideoShelfPlayer) stopActiveVideoShelfPlayer({ persist: true })
+
+  if (!markVideoInProgressOnOpen(videoId, { render: false, reminder: false })) return false
+  const video = loadState()?.videos?.[videoId]
+  if (!video || getVideoStatus(video) !== 'partial') return false
+
+  const startSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
+  const playerElements = renderVideoShelfPlayerOverlay(video, startSeconds)
+  if (!playerElements?.iframe) return false
+
+  const session = {
+    videoId,
+    overlay: playerElements.overlay,
+    frame: playerElements.frame,
+    iframe: playerElements.iframe,
+    aspectRatio: getVideoPlayerFallbackAspectRatio(video),
+    player: null,
+    syncTimer: null,
+    lastKnownSeconds: startSeconds,
+    lastPersistedSeconds: startSeconds,
+    lastPersistedAt: Date.now(),
+    progressEntryAt: null,
+    destroyed: false
+  }
+  activeVideoShelfPlayer = session
+  positionVideoShelfPlayerOverlay(session)
+  hydrateVideoShelfPlayerAspectRatio(session)
+
+  loadYoutubeIframeApi()
+    .then(YT => {
+      if (activeVideoShelfPlayer !== session || session.destroyed || !session.iframe.isConnected) return
+      session.player = new YT.Player(session.iframe, {
+        events: {
+          onReady: event => {
+            if (activeVideoShelfPlayer !== session) return
+            if (session.lastKnownSeconds > 0) event.target.seekTo(session.lastKnownSeconds, true)
+            event.target.playVideo()
+          },
+          onStateChange: event => handleVideoShelfPlayerStateChange(session, event.data),
+          onError: () => {
+            stopVideoShelfPlayerSyncTimer(session)
+            syncActiveVideoShelfPlayer({ persist: true })
+          }
+        }
+      })
+    })
+    .catch(() => {
+      // The iframe itself remains usable; only automatic timestamp sync is unavailable.
+    })
+
+  return true
+}
+
+function positionVideoShelfPlayerOverlay(session = activeVideoShelfPlayer) {
+  if (!session?.frame) return
+  const aspectRatio = normalizeVideoAspectRatio(session.aspectRatio) || 16 / 9
+  const viewportPadding = window.innerWidth <= 900 ? 12 : 24
+  const toolbarAllowance = window.innerWidth <= 900 ? 104 : 60
+  const maxWidth = Math.max(200, window.innerWidth - (viewportPadding * 2))
+  const maxHeight = Math.max(200, window.innerHeight - toolbarAllowance - (viewportPadding * 2))
+  const width = Math.min(maxWidth, maxHeight * aspectRatio)
+  session.frame.style.width = `${Math.max(200, Math.floor(width))}px`
+  session.frame.style.aspectRatio = String(aspectRatio)
+}
+
+async function fetchVideoAspectRatio(videoId) {
+  if (!hasYoutubeApiKey()) return null
+  const url = `https://www.googleapis.com/youtube/v3/videos?part=player&maxWidth=1920&maxHeight=1080&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(getYoutubeApiKey())}`
+  const data = await ytFetch(url)
+  return getVideoAspectRatioFromItem(data.items?.[0])
+}
+
+async function hydrateVideoShelfPlayerAspectRatio(session) {
+  if (!session || normalizeVideoAspectRatio(loadState()?.videos?.[session.videoId]?.aspectRatio) !== null) return
+  try {
+    const aspectRatio = await fetchVideoAspectRatio(session.videoId)
+    if (activeVideoShelfPlayer !== session || aspectRatio === null) return
+    session.aspectRatio = aspectRatio
+    positionVideoShelfPlayerOverlay(session)
+
+    const state = loadState()
+    const video = state?.videos?.[session.videoId]
+    if (!video) return
+    video.aspectRatio = aspectRatio
+    saveState(state, {
+      backup: false,
+      syncAnalytics: false
+    })
+  } catch {
+    // Keep the stored or conservative fallback ratio when metadata is unavailable.
+  }
+}
+
+function getVideoShelfPlayerCurrentTime(session = activeVideoShelfPlayer) {
+  if (!session) return null
+  try {
+    const seconds = Number(session.player?.getCurrentTime?.())
+    if (Number.isFinite(seconds) && seconds >= 0) return seconds
+  } catch {}
+  return Number.isFinite(session.lastKnownSeconds) ? session.lastKnownSeconds : null
+}
+
+function updateVideoShelfPlayerTimestamp(session, seconds) {
+  if (!session || !Number.isFinite(Number(seconds))) return
+  const normalized = Math.max(0, Math.floor(Number(seconds)))
+  session.lastKnownSeconds = normalized
+  const formatted = formatResumeTimestamp(normalized) || '00:00:00'
+  document.querySelectorAll('input[data-video-id]').forEach(input => {
+    if (input.dataset.videoId === session.videoId && document.activeElement !== input) {
+      input.value = formatted
+    }
+  })
+}
+
+function addVideoShelfSessionProgress(video, seconds, session, watchedAt) {
+  const normalizedSeconds = Math.max(0, Math.floor(Number(seconds) || 0))
+  if (!video || !session || !normalizedSeconds || !isValidTimestamp(watchedAt)) return false
+
+  const entries = normalizeVideoWatchProgress(video.watchProgress, video.duration)
+  const duration = Math.max(0, Math.floor(Number(video.duration || 0)))
+  const alreadyWatched = entries.reduce((total, entry) => total + entry.seconds, 0)
+  const secondsToAdd = duration > 0
+    ? Math.min(normalizedSeconds, Math.max(0, duration - alreadyWatched))
+    : normalizedSeconds
+  if (!secondsToAdd) return false
+
+  let sessionEntry = session.progressEntryAt
+    ? entries.find(entry => entry.watchedAt === session.progressEntryAt)
+    : null
+  if (!sessionEntry) {
+    session.progressEntryAt = watchedAt
+    sessionEntry = { watchedAt, seconds: 0 }
+    entries.push(sessionEntry)
+  }
+  sessionEntry.seconds += secondsToAdd
+  video.watchProgress = normalizeVideoWatchProgress(entries, video.duration)
+  return true
+}
+
+function syncActiveVideoShelfPlayer(options = {}) {
+  const persist = options.persist !== false
+  const shouldSyncAnalytics = options.syncAnalytics !== false
+  const session = activeVideoShelfPlayer
+  if (!session) return false
+
+  const currentSeconds = getVideoShelfPlayerCurrentTime(session)
+  if (!Number.isFinite(currentSeconds)) return false
+  updateVideoShelfPlayerTimestamp(session, currentSeconds)
+  if (!persist) return true
+
+  const state = loadState()
+  const video = state?.videos?.[session.videoId]
+  if (!video || getVideoStatus(video) !== 'partial') return false
+  const normalized = normalizeResumeAtSeconds(currentSeconds, video.duration)
+  const nextResume = normalized || 0
+  const previousResume = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
+  session.lastPersistedAt = Date.now()
+  session.lastPersistedSeconds = nextResume
+  if (nextResume === previousResume) return true
+
+  const watchedAt = getCurrentAppTimestamp(state)
+  const progressDelta = Math.max(0, nextResume - previousResume)
+  if (progressDelta > 0) addVideoShelfSessionProgress(video, progressDelta, session, watchedAt)
+  video.resumeAtSeconds = normalized
+  syncStreak(state)
+  saveState(state, {
+    backup: false,
+    syncAnalytics: shouldSyncAnalytics
+  })
+  return true
+}
+
+function startVideoShelfPlayerSyncTimer(session) {
+  if (!session || session.syncTimer) return
+  session.syncTimer = window.setInterval(() => {
+    if (activeVideoShelfPlayer !== session) {
+      stopVideoShelfPlayerSyncTimer(session)
+      return
+    }
+    syncActiveVideoShelfPlayer({ persist: false })
+    if (Date.now() - session.lastPersistedAt >= VIDEO_SHELF_PLAYER_SAVE_INTERVAL_MS) {
+      syncActiveVideoShelfPlayer({
+        persist: true,
+        syncAnalytics: false
+      })
+    }
+  }, 1000)
+}
+
+function stopVideoShelfPlayerSyncTimer(session) {
+  if (!session?.syncTimer) return
+  window.clearInterval(session.syncTimer)
+  session.syncTimer = null
+}
+
+function handleVideoShelfPlayerStateChange(session, state) {
+  if (activeVideoShelfPlayer !== session) return
+  if (state === 1) {
+    startVideoShelfPlayerSyncTimer(session)
+    syncActiveVideoShelfPlayer({ persist: false })
+    return
+  }
+  if (state === 0) {
+    stopVideoShelfPlayerSyncTimer(session)
+    window.setTimeout(() => completeVideoShelfPlayer(session), 0)
+    return
+  }
+  if (state === 2 || state === 5) {
+    stopVideoShelfPlayerSyncTimer(session)
+    syncActiveVideoShelfPlayer({ persist: true })
+  }
+}
+
+function completeVideoShelfPlayer(session) {
+  if (activeVideoShelfPlayer !== session) return
+  stopActiveVideoShelfPlayer({
+    persist: false,
+    clearPreviewReference: true
+  })
+  const state = loadState()
+  const video = state?.videos?.[session.videoId]
+  if (!video || getVideoStatus(video) === 'watched') {
+    if (state) renderAll(state)
+    return
+  }
+  markVideo(session.videoId, 'watched')
+}
+
+function seekActiveVideoShelfPlayer(videoId, seconds) {
+  const session = activeVideoShelfPlayer
+  if (!session || session.videoId !== String(videoId ?? '')) return false
+  const normalized = Math.max(0, Math.floor(Number(seconds) || 0))
+  session.lastKnownSeconds = normalized
+  session.lastPersistedSeconds = normalized
+  session.lastPersistedAt = Date.now()
+  updateVideoShelfPlayerTimestamp(session, normalized)
+  try {
+    session.player?.seekTo?.(normalized, true)
+  } catch {}
+  return true
+}
+
+function prepareVideoShelfYoutubeOpen(link) {
+  const session = activeVideoShelfPlayer
+  const videoId = String(link?.dataset?.videoId || '')
+  if (session?.videoId === videoId) {
+    try {
+      session.player?.pauseVideo?.()
+    } catch {}
+    syncActiveVideoShelfPlayer({ persist: true })
+  }
+  const video = loadState()?.videos?.[videoId]
+  if (!video) return false
+  link.href = getVideoUrl(video)
+  return true
+}
+
+function stopActiveVideoShelfPlayer(options = {}) {
+  const session = activeVideoShelfPlayer
+  if (!session) return null
+  if (options.persist !== false) syncActiveVideoShelfPlayer({ persist: true })
+
+  stopVideoShelfPlayerSyncTimer(session)
+  session.destroyed = true
+  activeVideoShelfPlayer = null
+  try {
+    session.player?.destroy?.()
+  } catch {}
+  session.overlay?.remove()
+  document.body.classList.remove('video-player-open')
+  return session
+}
+
+function closeVideoShelfPlayer() {
+  const stoppedPlayer = stopActiveVideoShelfPlayer({ persist: true })
+  if (!stoppedPlayer) return
+  const state = loadState()
+  if (state) renderAll(state)
+}
+
+function handleVideoShelfPlayerVisibilityChange() {
+  if (document.hidden) syncActiveVideoShelfPlayer({ persist: true })
+}
+
+function handleVideoShelfPlayerKeydown(event) {
+  if (event.key === 'Escape' && activeVideoShelfPlayer) closeVideoShelfPlayer()
+}
+
 let activeVideoShelfPreview = null
 const videoShelfPreviewCleanupTimers = new WeakMap()
 const videoShelfPreviewLeaveTimers = new WeakMap()
@@ -16362,7 +16848,7 @@ function renderCard(v, compact = false, options = {}) {
     ${uploadRibbon ? `<span class="video-upload-ribbon">${escHtml(uploadRibbon)}</span>` : ''}
     <span class="dur-badge">${formatDuration(v.duration)}</span>
   `
-  const thumbnailLink = `<a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${thumbnailContent}</a>`
+  const thumbnailLink = `<a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="return handleVideoThumbnailClick(event, this)">${thumbnailContent}</a>`
   const shelfResumeTimeField = options.shelf && isPartial
     ? `
       <label class="resume-time-field thumbnail-resume-time-field">
@@ -16644,10 +17130,12 @@ document.addEventListener('DOMContentLoaded', init)
 window.addEventListener('scroll', syncHeaderCompactState, { passive: true })
 window.addEventListener('scroll', closeVideoShelfPreviewOnViewportChange, { passive: true })
 window.addEventListener('resize', closeVideoShelfPreviewOnViewportChange, { passive: true })
+window.addEventListener('resize', () => positionVideoShelfPlayerOverlay(), { passive: true })
 window.addEventListener('resize', syncMobileAddButtonWidth, { passive: true })
 window.addEventListener('resize', syncIntroTrailerStageScale, { passive: true })
 document.addEventListener('visibilitychange', refreshOpenChannelFilterTimestamps)
 document.addEventListener('visibilitychange', handleVideoWatchReminderVisibilityChange)
+document.addEventListener('visibilitychange', handleVideoShelfPlayerVisibilityChange)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
 document.addEventListener('click', closeHistoryVideoPopoversOnOutsideClick)
 document.addEventListener('click', closeHistoryPointsPopoversOnOutsideClick)
@@ -16673,4 +17161,6 @@ document.addEventListener('keydown', closeLocaleMenuOnEscape)
 document.addEventListener('keydown', handleSettingsKeydown)
 document.addEventListener('keydown', handleIntroTrailerKeydown)
 document.addEventListener('keydown', handleFeedbackModalKeydown)
+document.addEventListener('keydown', handleVideoShelfPlayerKeydown)
+window.addEventListener('pagehide', () => syncActiveVideoShelfPlayer({ persist: true }))
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
