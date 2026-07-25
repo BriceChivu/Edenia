@@ -17,6 +17,7 @@ Big changes:
 - Next to Heatmap: dashboard, with detailed views, etc. (Plus or premium version)
 - have a small duck pop up next to Edenia title that says stuff like "You studied 4h 20m across 7 sessions this week. See what drove your strongest days with Edenia Plus." or "You started building this town 3 months ago. Upgrade to Plus to revisit every week and see how your consistency has changed.". It pops up only to say those things and then the user can close the dialogue box.
 - continue adding youtube channels to the catalog
+- DOPAMINE and motivation: Remove the weekly goal progress bar panel. Instead, have a progress bar at the bottom (sticky like the top panel) that correspond to the gap between the current level to the next level. Each time there is some Video time watched, make the bar progress with a nice animation. The score milestones and the point scoring should be scaled by 10. E.g., watching 1h gives 30 pts.
 
 Sandbox:
 

@@ -16,6 +16,7 @@ const IS_SANDBOX = window.location.origin === 'http://localhost:8001'
   && URL_PARAMS.get('sandbox') === '1'
 const IS_INTERNAL_TEST = URL_PARAMS.get('internal_test') === '1'
 const IS_LOCALHOST = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
+const IS_LOCAL_FEEDBACK_TEST = window.location.origin === 'http://localhost:8000'
 const TEMP_SHORTS_WHITELIST_VERSION = '2026-07-22-1'
 const TEMP_SHORTS_DISTINCT_IDS = new Set([
   '019f7f94-34a7-7263-87fc-27029d04e6e7'
@@ -3413,6 +3414,9 @@ const FEEDBACK_I18N = {
     'feedback.optional': 'Optional',
     'feedback.send': 'Send feedback',
     'feedback.success': 'Thank you! Your feedback is on its way.',
+    'feedback.discordPrompt': 'Check my discord to follow the discussion:',
+    'feedback.discordLink': 'discord',
+    'feedback.ok': 'Ok',
     'feedback.unavailable': 'Feedback can only be sent from the live Edenia app.',
     'feedback.messageRequired': 'Please write a message before sending.'
   },
@@ -3431,6 +3435,9 @@ const FEEDBACK_I18N = {
     'feedback.optional': '選填',
     'feedback.send': '送出意見',
     'feedback.success': '謝謝！你的意見正在送出。',
+    'feedback.discordPrompt': '到我的 Discord 追蹤討論：',
+    'feedback.discordLink': 'Discord',
+    'feedback.ok': '好',
     'feedback.unavailable': '只能從正式版 Edenia 送出意見。',
     'feedback.messageRequired': '請先填寫訊息再送出。'
   },
@@ -3449,6 +3456,9 @@ const FEEDBACK_I18N = {
     'feedback.optional': '选填',
     'feedback.send': '发送意见',
     'feedback.success': '谢谢！你的意见正在发送。',
+    'feedback.discordPrompt': '到我的 Discord 跟进讨论：',
+    'feedback.discordLink': 'Discord',
+    'feedback.ok': '好',
     'feedback.unavailable': '只能从正式版 Edenia 发送意见。',
     'feedback.messageRequired': '请先填写消息再发送。'
   },
@@ -3467,6 +3477,9 @@ const FEEDBACK_I18N = {
     'feedback.optional': 'Opcional',
     'feedback.send': 'Enviar comentarios',
     'feedback.success': '¡Gracias! Tus comentarios están en camino.',
+    'feedback.discordPrompt': 'Consulta mi Discord para seguir la conversación:',
+    'feedback.discordLink': 'Discord',
+    'feedback.ok': 'Ok',
     'feedback.unavailable': 'Los comentarios solo se pueden enviar desde la aplicación Edenia publicada.',
     'feedback.messageRequired': 'Escribe un mensaje antes de enviarlo.'
   },
@@ -3485,6 +3498,9 @@ const FEEDBACK_I18N = {
     'feedback.optional': 'Facultatif',
     'feedback.send': 'Envoyer',
     'feedback.success': 'Merci ! Vos commentaires sont en route.',
+    'feedback.discordPrompt': 'Consultez mon Discord pour suivre la discussion :',
+    'feedback.discordLink': 'Discord',
+    'feedback.ok': 'Ok',
     'feedback.unavailable': 'Les commentaires ne peuvent être envoyés que depuis l’application Edenia publiée.',
     'feedback.messageRequired': 'Écrivez un message avant de l’envoyer.'
   }
@@ -17035,6 +17051,22 @@ function handleFeedbackModalKeydown(event) {
   }
 }
 
+function showFeedbackConfirmation() {
+  const confirmation = document.getElementById('feedbackConfirmation')
+  if (!confirmation) return
+  confirmation.classList.remove('hidden')
+  confirmation.classList.add('show')
+  window.requestAnimationFrame(() => confirmation.querySelector('.feedback-confirmation-ok')?.focus())
+}
+
+function closeFeedbackConfirmation() {
+  const confirmation = document.getElementById('feedbackConfirmation')
+  if (!confirmation) return
+  confirmation.classList.remove('show')
+  confirmation.classList.add('hidden')
+  document.getElementById('feedbackLaunchBtn')?.focus()
+}
+
 function submitFeedback(event) {
   event.preventDefault()
   const form = event.currentTarget
@@ -17055,7 +17087,9 @@ function submitFeedback(event) {
   const feedbackId = typeof crypto?.randomUUID === 'function'
     ? crypto.randomUUID()
     : `feedback-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
-  const sessionReplayUrl = window.getEdeniaSessionReplayUrl?.() || null
+  const sessionReplayUrl = IS_LOCAL_FEEDBACK_TEST
+    ? null
+    : window.getEdeniaSessionReplayUrl?.() || null
   const properties = {
     feedback_id: feedbackId,
     feedback_category: category,
@@ -17077,32 +17111,32 @@ function submitFeedback(event) {
     session_replay_url: sessionReplayUrl
   }
 
-  const captured = window.trackEdeniaEvent?.('feedback_submitted', properties)
-  if (!captured) {
-    setFeedbackStatus(t('feedback.unavailable'), 'error')
-    return
-  }
+  if (!IS_LOCAL_FEEDBACK_TEST) {
+    const captured = window.trackEdeniaEvent?.('feedback_submitted', properties)
+    if (!captured) {
+      setFeedbackStatus(t('feedback.unavailable'), 'error')
+      return
+    }
 
-  const personProperties = {
-    has_submitted_feedback: true,
-    latest_feedback_category: category,
-    latest_feedback_at: submittedAt
+    const personProperties = {
+      has_submitted_feedback: true,
+      latest_feedback_category: category,
+      latest_feedback_at: submittedAt
+    }
+    if (name) personProperties.name = name
+    if (email) personProperties.email = email
+    window.setEdeniaPersonProperties?.(personProperties, {
+      first_feedback_at: submittedAt
+    })
   }
-  if (name) personProperties.name = name
-  if (email) personProperties.email = email
-  window.setEdeniaPersonProperties?.(personProperties, {
-    first_feedback_at: submittedAt
-  })
 
   submitButton.disabled = true
   form.setAttribute('aria-busy', 'true')
-  setFeedbackStatus(t('feedback.success'), 'success')
-  modal._closeTimer = window.setTimeout(() => {
-    form.reset()
-    form.removeAttribute('aria-busy')
-    submitButton.disabled = false
-    closeFeedbackModal()
-  }, 1200)
+  form.reset()
+  form.removeAttribute('aria-busy')
+  submitButton.disabled = false
+  closeFeedbackModal()
+  showFeedbackConfirmation()
 }
 
 // ════════════════════════════════════════════════════════════
