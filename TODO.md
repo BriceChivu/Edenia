@@ -8,7 +8,7 @@ Minor changes:
 - when a video card is zoomed in, allow for the mouse to select text like the title
 - in the search bar, remove "saved" in "Search saved videos by title or channel."
 - onboarding languages recommended channels: dreaming spanish, linguriosa
-
+- favorite filter (feedback)
 
 
 Big changes:

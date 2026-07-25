@@ -8305,6 +8305,10 @@ summary:focus-visible,
     background: rgba(255,255,255,0.78);
     bottom: calc(37.5% + 6px);
   }
+  .channel-shelf-card.is-preview-closing .thumbnail-resume-time-field {
+    bottom: 6px;
+    transition: bottom 175ms var(--ease-standard);
+  }
   body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .thumbnail-resume-time-field {
     border-color: rgba(5,5,5,0.28);
     color: #24414a;
@@ -8326,9 +8330,9 @@ summary:focus-visible,
     color: var(--shelf-resume-text);
   }
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .dur-badge {
-    bottom: 6px;
-    right: 6px;
-    top: auto;
+    bottom: auto;
+    right: 8px;
+    top: 8px;
     z-index: 4;
   }
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .thumb {

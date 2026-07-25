@@ -2,7 +2,7 @@ name: Discover language-learning channels
 
 on:
   schedule:
-    - cron: '29 4 * * 0'
+    - cron: '29 4 * * *'
   workflow_dispatch:
 
 permissions:
