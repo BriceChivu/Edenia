@@ -8301,6 +8301,26 @@ summary:focus-visible,
     transform: none;
   }
 }
+.channel-shelf-card .channel-shelf-priority-badge[type="button"] {
+  appearance: none;
+  cursor: pointer;
+  font-family: inherit;
+  pointer-events: auto;
+}
+.channel-shelf-card .partial-priority-badge[type="button"]:hover,
+.action-btn.partial-btn:hover,
+.channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.partial-btn.active:hover {
+  background: #e9f8ed;
+  border-color: var(--planet-black);
+  color: var(--text);
+}
+body[data-theme="dark"] .channel-shelf-card .partial-priority-badge[type="button"]:hover,
+body[data-theme="dark"] .action-btn.partial-btn:hover,
+body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.partial-btn.active:hover {
+  background: var(--surface-hi);
+  border-color: var(--planet-black);
+  color: var(--text);
+}
 @media (min-width: 641px) and (any-pointer: coarse) {
   .channel-shelf-avatar {
     touch-action: none;

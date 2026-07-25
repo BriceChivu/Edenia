@@ -16865,7 +16865,12 @@ function renderCard(v, compact = false, options = {}) {
     `
     : ''
   const shelfPriorityBadge = options.shelf && isPartial
-    ? `<div class="channel-shelf-priority-badge partial-priority-badge">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</div>`
+    ? `<button type="button"
+        class="channel-shelf-priority-badge partial-priority-badge"
+        data-video-id="${safeVideoId}"
+        onclick="event.preventDefault(); event.stopPropagation(); markVideo(this.dataset.videoId, 'unwatched')"
+        aria-label="${escHtml(t('videos.card.clear'))}"
+        title="${escHtml(t('videos.card.clear'))}">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</button>`
     : options.shelf && isWatchLater
     ? `<div class="channel-shelf-priority-badge watch-later-priority-badge">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>`
     : ''
