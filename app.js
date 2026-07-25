@@ -41,12 +41,10 @@ const STORAGE_KEY = IS_SANDBOX
     : NORMAL_STORAGE_KEY
 const YOUTUBE_CHANNEL_SEARCH_CACHE_KEY = `${STORAGE_KEY}_youtube_channel_search_cache_v1`
 const YOUTUBE_CHANNEL_SEARCH_USAGE_KEY = `${STORAGE_KEY}_youtube_channel_search_usage_v1`
-const YOUTUBE_CHANNEL_ADD_USAGE_KEY = `${STORAGE_KEY}_youtube_channel_add_usage_v1`
 const YOUTUBE_CHANNEL_SEARCH_CACHE_TTL_MS = 24 * 60 * 60_000
 const YOUTUBE_CHANNEL_SEARCH_COOLDOWN_MS = 2500
 const YOUTUBE_CHANNEL_SEARCH_DAILY_LIMIT = 5
 const YOUTUBE_CHANNEL_SEARCH_RESULT_LIMIT = 6
-const YOUTUBE_CHANNEL_ADD_DAILY_LIMIT = 5
 const STATE_BACKUP_KEY = `${STORAGE_KEY}_backups`
 const SANDBOX_WALKTHROUGH_AFTER_RESET_KEY = `${STORAGE_KEY}_walkthrough_after_reset`
 const ONBOARDING_NOTICE_KEY = IS_INTERNAL_TEST
@@ -1286,7 +1284,6 @@ const I18N_EN = {
   'toast.channelResolveNotFound': 'Could not find that YouTube channel',
   'toast.channelCustomUrlUnsupported': 'That custom channel URL cannot be resolved reliably yet. Try the /channel/UC... URL or @handle.',
   'toast.channelDuplicate': 'Already added',
-  'toast.channelAddLimit': 'You can add up to {count} new channels per day. Try again tomorrow.',
   'toast.channelAdded': '{name} added',
   'toast.channelAddedNoKey': '{name} added. Add the shared YouTube API key to load videos.',
   'toast.channelAddedLoading': '{name} added · loading recent videos...',
@@ -1303,7 +1300,6 @@ const I18N_EN = {
   'toast.alreadyWatched': 'That video is already marked watched',
   'toast.watchCooldown': 'You can mark this video as watched in {time}',
   'toast.addedWatchedVideo': 'Added video: "{title}"',
-  'toast.addedVideoChannelLimit': 'Added video: "{title}". Its channel was not added because you reached today’s channel limit.',
   'toast.addVideoFailed': 'Could not add that video',
   'toast.timestampFormat': 'Use a timestamp like 1:23 (hour:minute)',
   'toast.nothingRedo': 'Nothing to redo',
@@ -3480,7 +3476,6 @@ Object.assign(I18N['zh-Hant'], {
   'toast.backupUnavailable': '找不到這個備份',
   'toast.backupRestored': '備份已還原',
   'toast.channelDuplicate': '這個頻道已經加入',
-  'toast.channelAddLimit': '每天最多可以新增 {count} 個頻道，請明天再試。',
   'toast.channelAdded': '已加入 {name}',
   'toast.channelAddedNoKey': '已加入 {name}。設定 YouTube API 金鑰後即可載入影片。',
   'toast.channelAddedLoading': '已加入 {name}，正在載入影片…',
@@ -3497,7 +3492,6 @@ Object.assign(I18N['zh-Hant'], {
   'toast.alreadyWatched': '這部影片已標記為已觀看',
   'toast.watchCooldown': '再過 {time} 就能將這部影片標記為已觀看',
   'toast.addedWatchedVideo': '已加入並標記為已觀看：{title}',
-  'toast.addedVideoChannelLimit': '已加入影片：{title}。因為今天已達頻道上限，所以沒有新增其頻道。',
   'toast.addVideoFailed': '無法新增影片',
   'toast.timestampFormat': '請使用 HH:MM:SS 或 MM:SS 格式',
   'toast.videoGone': '找不到這部影片',
@@ -3666,7 +3660,6 @@ Object.assign(I18N['zh-Hans'], {
   'toast.backupUnavailable': '找不到这个备份',
   'toast.backupRestored': '备份已恢复',
   'toast.channelDuplicate': '这个频道已经添加',
-  'toast.channelAddLimit': '每天最多可以添加 {count} 个频道，请明天再试。',
   'toast.channelAdded': '已添加 {name}',
   'toast.channelAddedNoKey': '已添加 {name}。设置 YouTube API 密钥后即可加载视频。',
   'toast.channelAddedLoading': '已添加 {name}，正在加载视频…',
@@ -3683,7 +3676,6 @@ Object.assign(I18N['zh-Hans'], {
   'toast.alreadyWatched': '这个视频已标记为已观看',
   'toast.watchCooldown': '再过 {time} 就能将这个视频标记为已观看',
   'toast.addedWatchedVideo': '已添加并标记为已观看：{title}',
-  'toast.addedVideoChannelLimit': '已添加视频：{title}。因为今天已达到频道上限，所以没有添加其频道。',
   'toast.addVideoFailed': '无法添加视频',
   'toast.timestampFormat': '请使用 HH:MM:SS 或 MM:SS 格式',
   'toast.videoGone': '找不到这个视频',
@@ -3850,7 +3842,6 @@ Object.assign(I18N.es, {
   'toast.backupUnavailable': 'Esta copia ya no está disponible',
   'toast.backupRestored': 'Copia restaurada',
   'toast.channelDuplicate': 'Este canal ya está añadido',
-  'toast.channelAddLimit': 'Puedes añadir hasta {count} canales nuevos al día. Inténtalo mañana.',
   'toast.channelAdded': 'Se añadió {name}',
   'toast.channelAddedNoKey': 'Se añadió {name}. Configura la clave de la API de YouTube para cargar videos.',
   'toast.channelAddedLoading': 'Se añadió {name}; cargando videos…',
@@ -3867,7 +3858,6 @@ Object.assign(I18N.es, {
   'toast.alreadyWatched': 'Este video ya está marcado como visto',
   'toast.watchCooldown': 'Podrás marcar este video como visto en {time}',
   'toast.addedWatchedVideo': 'Añadido y marcado como visto: {title}',
-  'toast.addedVideoChannelLimit': 'Video añadido: {title}. Su canal no se añadió porque alcanzaste el límite de hoy.',
   'toast.addVideoFailed': 'No se pudo añadir el video',
   'toast.timestampFormat': 'Usa el formato HH:MM:SS o MM:SS',
   'toast.videoGone': 'Este video ya no está disponible',
@@ -4034,7 +4024,6 @@ Object.assign(I18N.fr, {
   'toast.backupUnavailable': 'Cette sauvegarde n’est plus disponible',
   'toast.backupRestored': 'Sauvegarde restaurée',
   'toast.channelDuplicate': 'Cette chaîne est déjà ajoutée',
-  'toast.channelAddLimit': 'Vous pouvez ajouter jusqu’à {count} nouvelles chaînes par jour. Réessayez demain.',
   'toast.channelAdded': '{name} ajoutée',
   'toast.channelAddedNoKey': '{name} ajoutée. Configurez la clé API YouTube pour charger les vidéos.',
   'toast.channelAddedLoading': '{name} ajoutée ; chargement des vidéos…',
@@ -4051,7 +4040,6 @@ Object.assign(I18N.fr, {
   'toast.alreadyWatched': 'Cette vidéo est déjà marquée comme vue',
   'toast.watchCooldown': 'Vous pourrez marquer cette vidéo comme vue dans {time}',
   'toast.addedWatchedVideo': 'Ajoutée et marquée comme vue : {title}',
-  'toast.addedVideoChannelLimit': 'Vidéo ajoutée : {title}. Sa chaîne n’a pas été ajoutée, car vous avez atteint la limite du jour.',
   'toast.addVideoFailed': 'Impossible d’ajouter la vidéo',
   'toast.timestampFormat': 'Utilisez le format HH:MM:SS ou MM:SS',
   'toast.videoGone': 'Cette vidéo n’est plus disponible',
@@ -8507,12 +8495,6 @@ async function addChannel(options = {}) {
   const raw    = idEl?.value?.trim() || ''
   let resolved
 
-  if (hasReachedYoutubeChannelAddLimit()) {
-    showToast(t('toast.channelAddLimit', { count: YOUTUBE_CHANNEL_ADD_DAILY_LIMIT }), 'warn')
-    idEl?.focus()
-    return
-  }
-
   try {
     const suppliedResolved = options.resolvedChannel
     resolved = YOUTUBE_CHANNEL_ID_RE.test(String(suppliedResolved?.id || '').trim())
@@ -8544,7 +8526,6 @@ async function addChannel(options = {}) {
     showToast(t('toast.channelDuplicate'), 'warn')
     return
   }
-  incrementYoutubeChannelAddUsage()
   addTrackedYoutubeChannelToState(s, { id, name, imageUrl: resolved.thumbnail || '' })
   appendActivityLog(s, {
     actor: 'user',
@@ -10265,7 +10246,6 @@ async function addVideoFromUrl(event) {
     const s = loadState()
     const existing = s.videos[videoId]
     const existingChannel = s.config.channels.find(channel => channel.id === metadata.channelId) || null
-    const channelAddLimited = !existingChannel && hasReachedYoutubeChannelAddLimit()
     const before = {
       exists: Boolean(existing),
       video: existing ? cloneVideoForHistoryAction(existing) : null,
@@ -10276,15 +10256,11 @@ async function addVideoFromUrl(event) {
     const status = existing ? getVideoStatus(existing) : 'unwatched'
     const watchedAt = status === 'watched' ? existing?.watchedAt || null : null
     const duration = metadata.duration || existing?.duration || 0
-    const channelWasAdded = channelAddLimited
-      ? false
-      : addTrackedYoutubeChannelToState(s, {
-          id: metadata.channelId,
-          name: metadata.channelTitle,
-          imageUrl: metadata.channelImageUrl
-        })
-    if (channelWasAdded) incrementYoutubeChannelAddUsage()
-    if (channelAddLimited) selectedChannelFilters?.add(metadata.channelId)
+    const channelWasAdded = addTrackedYoutubeChannelToState(s, {
+      id: metadata.channelId,
+      name: metadata.channelTitle,
+      imageUrl: metadata.channelImageUrl
+    })
     s.videos[videoId] = {
       ...metadata,
       ...existing,
@@ -10346,12 +10322,9 @@ async function addVideoFromUrl(event) {
     if (usesTabletAddedVideoReveal()) input.blur()
     closeManualVideoPopover()
     revealAddedVideoCard(videoId, s)
-    showToast(
-      t(channelAddLimited ? 'toast.addedVideoChannelLimit' : 'toast.addedWatchedVideo', {
-        title: formatToastTitle(s.videos[videoId].title)
-      }),
-      channelAddLimited ? 'warn' : 'success'
-    )
+    showToast(t('toast.addedWatchedVideo', {
+      title: formatToastTitle(s.videos[videoId].title)
+    }), 'success')
     if (channelWasAdded) {
       refreshAddedChannel(metadata.channelId, {
         focusVideoId: videoId,
@@ -10612,35 +10585,6 @@ function getYoutubeChannelSearchUsage() {
     // Fall back to a fresh in-memory-equivalent daily count.
   }
   return { date: today, count: 0 }
-}
-
-function getYoutubeChannelAddUsage() {
-  const today = getYoutubeChannelSearchDateKey()
-  try {
-    const parsed = JSON.parse(localStorage.getItem(YOUTUBE_CHANNEL_ADD_USAGE_KEY) || '{}')
-    if (parsed?.date === today) {
-      return { date: today, count: Math.max(0, Number(parsed.count) || 0) }
-    }
-  } catch {
-    // Fall back to a fresh daily count when browser storage is unavailable.
-  }
-  return { date: today, count: 0 }
-}
-
-function hasReachedYoutubeChannelAddLimit() {
-  return !IS_SANDBOX && getYoutubeChannelAddUsage().count >= YOUTUBE_CHANNEL_ADD_DAILY_LIMIT
-}
-
-function incrementYoutubeChannelAddUsage() {
-  if (IS_SANDBOX) return getYoutubeChannelAddUsage()
-  const usage = getYoutubeChannelAddUsage()
-  usage.count += 1
-  try {
-    localStorage.setItem(YOUTUBE_CHANNEL_ADD_USAGE_KEY, JSON.stringify(usage))
-  } catch {
-    // Adding still works when browser storage is unavailable.
-  }
-  return usage
 }
 
 function incrementYoutubeChannelSearchUsage() {

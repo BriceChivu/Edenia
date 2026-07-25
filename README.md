@@ -233,7 +233,7 @@ Successful Add-button additions that did not come from the curated, community, o
 5. Writes aggregate candidates to `data/channel-catalog.candidates.json`.
 6. Promotes a channel to `data/channel-catalog.community.json` after two distinct users add it.
 
-Once promoted, a channel remains in the community catalog and is loaded by the Add search on the deployed site. The stored catalog metadata includes the channel name, handle, languages associated with its additions, and YouTube profile-picture URL. The five-new-channels-per-device daily limit remains the first abuse guard; the two-user promotion rule is a second guard, but it is not equivalent to authenticated moderation.
+Once promoted, a channel remains in the community catalog and is loaded by the Add search on the deployed site. The stored catalog metadata includes the channel name, handle, languages associated with its additions, and YouTube profile-picture URL. The two-user promotion rule limits which additions reach the community catalog, but it is not equivalent to authenticated moderation.
 
 Configure these repository secrets:
 
