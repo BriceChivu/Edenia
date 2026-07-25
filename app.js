@@ -15927,6 +15927,8 @@ function cleanupVideoShelfPreview(card) {
   if (!card || card.classList.contains('is-previewing')) return
   clearVideoShelfPreviewCleanup(card)
   clearVideoShelfPreviewLeave(card)
+  const shelf = card.closest('.channel-shelf')
+  if (shelf) shelf.draggable = true
   card.classList.add('is-preview-resetting')
   card.classList.remove('is-preview-armed', 'is-preview-closing', 'is-source-anchored')
   card.classList.remove('is-floating-preview')
@@ -15978,6 +15980,8 @@ function openVideoShelfPreview(card, force = false, pointerEvent = null) {
   clearVideoShelfPreviewCleanup(card)
   window.clearTimeout(videoShelfPreviewAnchorTimer)
   if (!positionVideoShelfPreview(card, pointerEvent)) return
+  const shelf = card.closest('.channel-shelf')
+  if (shelf) shelf.draggable = false
   card.classList.add('is-floating-preview')
   activeVideoShelfPreview = card
   card.getBoundingClientRect()
