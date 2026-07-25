@@ -8004,6 +8004,9 @@ summary:focus-visible,
       top 155ms var(--ease-emphasized),
       width 155ms var(--ease-emphasized);
   }
+  .channel-shelf-card.is-floating-preview.is-preview-armed:not(.is-preview-closing):not(.watch-reminder-target) {
+    z-index: 1002;
+  }
   .channel-shelf-card.is-floating-preview.is-preview-closing {
     pointer-events: none;
     transition:
