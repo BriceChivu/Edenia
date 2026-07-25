@@ -8029,8 +8029,10 @@ summary:focus-visible,
     width: var(--shelf-preview-size);
   }
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .thumb-link {
+    aspect-ratio: 16 / 9;
     bottom: auto;
-    height: 55%;
+    height: auto;
+    z-index: 3;
   }
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .card-body {
     background: var(--surface);
@@ -8102,6 +8104,7 @@ summary:focus-visible,
     bottom: 6px;
     right: 6px;
     top: auto;
+    z-index: 4;
   }
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .thumb {
     aspect-ratio: 16 / 9;

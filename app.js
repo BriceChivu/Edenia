@@ -15247,6 +15247,7 @@ function finishChannelShelfDrag() {
 
 let activeVideoShelfPreview = null
 const videoShelfPreviewCleanupTimers = new WeakMap()
+const videoShelfPreviewLeaveTimers = new WeakMap()
 let videoShelfPreviewAnchorTimer = null
 
 function usesTapVideoShelfPreview() {
@@ -15273,7 +15274,20 @@ function isVideoShelfCardFullyVisible(card) {
     && slotRect.right <= trackRect.right + edgeTolerance
 }
 
-function positionVideoShelfPreview(card) {
+function keepPointerInsideVideoShelfPreview(position, size, viewportSize, pointerPosition) {
+  if (!Number.isFinite(pointerPosition)) return position
+
+  const pointerInset = 6
+  let adjustedPosition = position
+  if (pointerPosition < adjustedPosition + pointerInset) {
+    adjustedPosition = pointerPosition - pointerInset
+  } else if (pointerPosition > adjustedPosition + size - pointerInset) {
+    adjustedPosition = pointerPosition - size + pointerInset
+  }
+  return clampNumber(adjustedPosition, 0, Math.max(0, viewportSize - size))
+}
+
+function positionVideoShelfPreview(card, pointerEvent = null) {
   const slot = card?.closest?.('.channel-shelf-slot')
   if (!slot) return false
 
@@ -15288,24 +15302,38 @@ function positionVideoShelfPreview(card) {
     )
   )
   const previewSize = Math.min(Math.max(rect.width * 1.25, 295), maxPreviewSize)
-  const previewHeight = previewSize * 0.9
+  const previewHeight = previewSize * 0.95
   const sourceLeft = rect.left - ((previewSize - rect.width) / 2)
   const sourceTop = rect.top - ((previewHeight - rect.height) / 2)
   const anchorToSource = card.classList.contains('watch-reminder-target')
-  const targetLeft = anchorToSource
+  let targetLeft = anchorToSource
     ? sourceLeft
     : clampNumber(
       sourceLeft,
       viewportMargin,
       Math.max(viewportMargin, window.innerWidth - previewSize - viewportMargin)
     )
-  const targetTop = anchorToSource
+  let targetTop = anchorToSource
     ? sourceTop
     : clampNumber(
       sourceTop,
       viewportMargin,
       Math.max(viewportMargin, window.innerHeight - previewHeight - viewportMargin)
     )
+  if (!anchorToSource && pointerEvent) {
+    targetLeft = keepPointerInsideVideoShelfPreview(
+      targetLeft,
+      previewSize,
+      window.innerWidth,
+      pointerEvent.clientX
+    )
+    targetTop = keepPointerInsideVideoShelfPreview(
+      targetTop,
+      previewHeight,
+      window.innerHeight,
+      pointerEvent.clientY
+    )
+  }
 
   card.style.setProperty('--shelf-preview-origin-left', `${rect.left}px`)
   card.style.setProperty('--shelf-preview-origin-top', `${rect.top}px`)
@@ -15324,9 +15352,27 @@ function clearVideoShelfPreviewCleanup(card) {
   videoShelfPreviewCleanupTimers.delete(card)
 }
 
+function clearVideoShelfPreviewLeave(card) {
+  const leaveTimer = videoShelfPreviewLeaveTimers.get(card)
+  if (leaveTimer) window.clearTimeout(leaveTimer)
+  videoShelfPreviewLeaveTimers.delete(card)
+}
+
+function queueVideoShelfPreviewClose(card) {
+  clearVideoShelfPreviewLeave(card)
+  videoShelfPreviewLeaveTimers.set(
+    card,
+    window.setTimeout(() => {
+      videoShelfPreviewLeaveTimers.delete(card)
+      closeVideoShelfPreview(card)
+    }, 70)
+  )
+}
+
 function cleanupVideoShelfPreview(card) {
   if (!card || card.classList.contains('is-previewing')) return
   clearVideoShelfPreviewCleanup(card)
+  clearVideoShelfPreviewLeave(card)
   card.classList.add('is-preview-resetting')
   card.classList.remove('is-preview-armed', 'is-preview-closing', 'is-source-anchored')
   card.classList.remove('is-floating-preview')
@@ -15345,6 +15391,7 @@ function cleanupVideoShelfPreview(card) {
 
 function reopenVideoShelfPreview(card) {
   clearVideoShelfPreviewCleanup(card)
+  clearVideoShelfPreviewLeave(card)
   card.classList.remove('is-preview-closing')
   activeVideoShelfPreview = card
   requestAnimationFrame(() => {
@@ -15354,13 +15401,14 @@ function reopenVideoShelfPreview(card) {
   })
 }
 
-function openVideoShelfPreview(card, force = false) {
+function openVideoShelfPreview(card, force = false, pointerEvent = null) {
   if (
     !card
     || !canUseVideoShelfPreview()
     || (activeVideoWatchReminderId && !force)
     || (card.classList.contains('watch-reminder-target') && !force)
   ) return
+  clearVideoShelfPreviewLeave(card)
   if (activeChannelShelfDrag) return
   if (!force && !isVideoShelfCardFullyVisible(card)) return
   if (activeVideoShelfPreview && activeVideoShelfPreview !== card) {
@@ -15373,7 +15421,7 @@ function openVideoShelfPreview(card, force = false) {
 
   clearVideoShelfPreviewCleanup(card)
   window.clearTimeout(videoShelfPreviewAnchorTimer)
-  if (!positionVideoShelfPreview(card)) return
+  if (!positionVideoShelfPreview(card, pointerEvent)) return
   card.classList.add('is-floating-preview')
   activeVideoShelfPreview = card
   card.getBoundingClientRect()
@@ -15399,6 +15447,7 @@ function closeVideoShelfPreview(card, force = false) {
   if (!force && activeVideoWatchReminderId && card.dataset.videoId === activeVideoWatchReminderId) return
   if (!force && (card.matches(':hover') || card.matches(':focus-within'))) return
 
+  clearVideoShelfPreviewLeave(card)
   clearVideoShelfPreviewCleanup(card)
   if (activeVideoShelfPreview === card) activeVideoShelfPreview = null
   card.classList.add('is-preview-closing')
@@ -16266,7 +16315,7 @@ function renderCard(v, compact = false, options = {}) {
     ? `<div class="channel-shelf-priority-badge watch-later-priority-badge">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>`
     : ''
   const shelfPreviewHandlers = options.shelf
-    ? 'onclick="toggleVideoShelfPreviewOnTouch(event, this)" onmouseenter="openVideoShelfPreview(this)" onmouseleave="closeVideoShelfPreview(this)" onfocusin="openVideoShelfPreviewFromFocus(this)" onfocusout="closeVideoShelfPreviewAfterFocus(this)"'
+    ? 'onclick="toggleVideoShelfPreviewOnTouch(event, this)" onmouseenter="openVideoShelfPreview(this, false, event)" onmouseleave="queueVideoShelfPreviewClose(this)" onfocusin="openVideoShelfPreviewFromFocus(this)" onfocusout="closeVideoShelfPreviewAfterFocus(this)"'
     : ''
   return `
     <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
