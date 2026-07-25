@@ -8004,6 +8004,9 @@ summary:focus-visible,
       top 155ms var(--ease-emphasized),
       width 155ms var(--ease-emphasized);
   }
+  .channel-shelf-card.is-floating-preview.is-preview-armed:not(.is-preview-closing):not(.watch-reminder-target) {
+    z-index: 1002;
+  }
   .channel-shelf-card.is-floating-preview.is-preview-closing {
     pointer-events: none;
     transition:
@@ -8060,6 +8063,9 @@ summary:focus-visible,
     font-size: 0.83rem;
     line-height: 1.4;
     text-shadow: none;
+  }
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .card-copy {
+    margin-top: 15px;
   }
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .card-meta,
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .pub-ago {
