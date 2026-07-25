@@ -200,6 +200,7 @@ let videoWatchReminderRenderFrame = null
 let videoWatchReminderZoomTimer = null
 let videoWatchReminderPopupTimer = null
 let nextStudyFocusZoomTimer = null
+let activeNextStudyFocusVideoId = null
 let currentLocale = DEFAULT_LOCALE
 let backgroundPhysics = null
 const selectedHistoryPeriod = { week: null, month: null }
@@ -11017,7 +11018,12 @@ function focusNextStudyVideoCard(event, videoId) {
   }
 
   window.clearTimeout(nextStudyFocusZoomTimer)
+  activeNextStudyFocusVideoId = null
+  document.querySelectorAll('.video-card.next-study-focus-target').forEach(card => {
+    card.classList.remove('next-study-focus-target')
+  })
   closeVideoShelfPreview(activeVideoShelfPreview, true)
+  activeNextStudyFocusVideoId = targetVideoId
   forcedSearchVideoId = targetVideoId
   renderFeed(state)
 
@@ -11028,6 +11034,7 @@ function focusNextStudyVideoCard(event, videoId) {
     })
     forcedSearchVideoId = null
     if (!found) {
+      activeNextStudyFocusVideoId = null
       showToast(t('toast.couldNotShowVideo'), 'warn')
       return
     }
@@ -15302,10 +15309,10 @@ function positionVideoShelfPreview(card, pointerEvent = null) {
     )
   )
   const previewSize = Math.min(Math.max(rect.width * 1.25, 295), maxPreviewSize)
-  const previewHeight = previewSize * 0.95
+  const previewHeight = previewSize * 0.90
   const sourceLeft = rect.left - ((previewSize - rect.width) / 2)
   const sourceTop = rect.top - ((previewHeight - rect.height) / 2)
-  const anchorToSource = card.classList.contains('watch-reminder-target')
+  const anchorToSource = card.matches('.watch-reminder-target, .next-study-focus-target')
   let targetLeft = anchorToSource
     ? sourceLeft
     : clampNumber(
@@ -15406,7 +15413,9 @@ function openVideoShelfPreview(card, force = false, pointerEvent = null) {
     !card
     || !canUseVideoShelfPreview()
     || (activeVideoWatchReminderId && !force)
+    || (activeNextStudyFocusVideoId && !force)
     || (card.classList.contains('watch-reminder-target') && !force)
+    || (card.classList.contains('next-study-focus-target') && !force)
   ) return
   clearVideoShelfPreviewLeave(card)
   if (activeChannelShelfDrag) return
@@ -15433,7 +15442,7 @@ function openVideoShelfPreview(card, force = false, pointerEvent = null) {
       if (!card.classList.contains('is-preview-armed')) return
       if (!force && !card.matches(':hover') && !card.matches(':focus-within')) return
       card.classList.add('is-previewing')
-      if (card.classList.contains('watch-reminder-target')) {
+      if (card.matches('.watch-reminder-target, .next-study-focus-target')) {
         videoShelfPreviewAnchorTimer = window.setTimeout(() => {
           if (card.classList.contains('is-previewing')) card.classList.add('is-source-anchored')
         }, 220)
@@ -15445,6 +15454,7 @@ function openVideoShelfPreview(card, force = false, pointerEvent = null) {
 function closeVideoShelfPreview(card, force = false) {
   if (!card?.classList.contains('is-floating-preview')) return
   if (!force && activeVideoWatchReminderId && card.dataset.videoId === activeVideoWatchReminderId) return
+  if (!force && activeNextStudyFocusVideoId && card.dataset.videoId === activeNextStudyFocusVideoId) return
   if (!force && (card.matches(':hover') || card.matches(':focus-within'))) return
 
   clearVideoShelfPreviewLeave(card)
@@ -15494,17 +15504,29 @@ function toggleVideoShelfPreviewOnTouch(event, card) {
 }
 
 function closeVideoShelfPreviewOnOutsideClick(event) {
-  if (!usesTapVideoShelfPreview() || !activeVideoShelfPreview) return
+  if (!activeVideoShelfPreview) return
+  const isNextStudyFocusPreview = Boolean(
+    activeNextStudyFocusVideoId
+    && activeVideoShelfPreview.dataset.videoId === activeNextStudyFocusVideoId
+  )
+  if (!usesTapVideoShelfPreview() && !isNextStudyFocusPreview) return
   if (activeVideoShelfPreview.contains(event.target)) return
+  if (isNextStudyFocusPreview) {
+    activeNextStudyFocusVideoId = null
+    activeVideoShelfPreview.classList.remove('next-study-focus-target')
+  }
   closeVideoShelfPreview(activeVideoShelfPreview, true)
 }
 
 function closeVideoShelfPreviewOnViewportChange() {
-  const isActiveReminderPreview = Boolean(
-    activeVideoWatchReminderId
-    && activeVideoShelfPreview?.dataset.videoId === activeVideoWatchReminderId
+  const isAnchoredPreview = Boolean(
+    activeVideoShelfPreview
+    && (
+      activeVideoShelfPreview.dataset.videoId === activeVideoWatchReminderId
+      || activeVideoShelfPreview.dataset.videoId === activeNextStudyFocusVideoId
+    )
   )
-  if (isActiveReminderPreview) {
+  if (isAnchoredPreview) {
     positionVideoShelfPreview(activeVideoShelfPreview)
     return
   }
@@ -16317,8 +16339,11 @@ function renderCard(v, compact = false, options = {}) {
   const shelfPreviewHandlers = options.shelf
     ? 'onclick="toggleVideoShelfPreviewOnTouch(event, this)" onmouseenter="openVideoShelfPreview(this, false, event)" onmouseleave="queueVideoShelfPreviewClose(this)" onfocusin="openVideoShelfPreviewFromFocus(this)" onfocusout="closeVideoShelfPreviewAfterFocus(this)"'
     : ''
+  const nextStudyFocusClass = options.shelf && videoId === activeNextStudyFocusVideoId
+    ? 'next-study-focus-target'
+    : ''
   return `
-    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
+    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
       ${removeFromGridButton}
       ${thumbnailLink}
       ${shelfResumeTimeField}
