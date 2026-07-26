@@ -68,7 +68,7 @@ const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const SANDBOX_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = IS_INTERNAL_TEST ? 8 : 50
 const MAX_FETCH_PAGES_PER_CHANNEL = 1
-const UNDO_ACTION_TYPES = ['video-status', 'video-resume-time', 'video-grid-remove', 'channel-remove', 'manual-video-add']
+const UNDO_ACTION_TYPES = ['video-status', 'video-resume-time', 'video-favorite', 'video-grid-remove', 'channel-remove', 'manual-video-add']
 const YOUTUBE_CHANNEL_ID_RE = /^UC[A-Za-z0-9_-]{20,}$/
 const YOUTUBE_HANDLE_RE = /^@[\p{L}\p{N}\p{M}._-]{3,30}$/u
 const DEFAULT_THEME = 'light'
@@ -1430,6 +1430,10 @@ const I18N_EN = {
   'undo.undid': 'Undid',
   'undo.backToStatus': '{from} -> back to {to}',
   'undo.statusChange': '{from} -> {to}',
+  'undo.addFavorite': 'Add to favorites',
+  'undo.removeFavorite': 'Remove from favorites',
+  'undo.favoriteAdded': 'Added to favorites: {title}',
+  'undo.favoriteRemoved': 'Removed from favorites: {title}',
   'undo.continueAtBack': 'Continue at {from} -> back to {to}',
   'undo.continueAtChange': 'Continue at {from} -> {to}',
   'undo.continueAtSet': '{verb} change: "{title}" continues at {time}.',
@@ -1967,6 +1971,10 @@ const I18N = {
     'undo.undid': '已復原',
     'undo.backToStatus': '{from} -> 回到 {to}',
     'undo.statusChange': '{from} -> {to}',
+    'undo.addFavorite': '加入收藏',
+    'undo.removeFavorite': '從收藏移除',
+    'undo.favoriteAdded': '已加入收藏：{title}',
+    'undo.favoriteRemoved': '已從收藏移除：{title}',
     'undo.continueAtBack': '繼續於 {from} -> 回到 {to}',
     'undo.continueAtChange': '繼續於 {from} -> {to}',
     'undo.continueAtSet': '{verb}變更：「{title}」將從 {time} 繼續。',
@@ -2428,6 +2436,10 @@ const I18N = {
     'undo.undid': '已撤销',
     'undo.backToStatus': '{from} -> 回到 {to}',
     'undo.statusChange': '{from} -> {to}',
+    'undo.addFavorite': '加入收藏',
+    'undo.removeFavorite': '从收藏移除',
+    'undo.favoriteAdded': '已加入收藏：{title}',
+    'undo.favoriteRemoved': '已从收藏移除：{title}',
     'undo.continueAtBack': '继续于 {from} -> 回到 {to}',
     'undo.continueAtChange': '继续于 {from} -> {to}',
     'undo.continueAtSet': '{verb}变更：“{title}”将从 {time} 继续。',
@@ -2891,6 +2903,10 @@ const I18N = {
     'undo.undid': 'Deshecho',
     'undo.backToStatus': '{from} -> vuelve a {to}',
     'undo.statusChange': '{from} -> {to}',
+    'undo.addFavorite': 'Añadir a favoritos',
+    'undo.removeFavorite': 'Quitar de favoritos',
+    'undo.favoriteAdded': 'Añadido a favoritos: {title}',
+    'undo.favoriteRemoved': 'Quitado de favoritos: {title}',
     'undo.continueAtBack': 'Continuar en {from} -> vuelve a {to}',
     'undo.continueAtChange': 'Continuar en {from} -> {to}',
     'undo.continueAtSet': '{verb} cambio: "{title}" continúa en {time}.',
@@ -3354,6 +3370,10 @@ const I18N = {
     'undo.undid': 'Annulé',
     'undo.backToStatus': '{from} -> retour à {to}',
     'undo.statusChange': '{from} -> {to}',
+    'undo.addFavorite': 'Ajouter aux favoris',
+    'undo.removeFavorite': 'Retirer des favoris',
+    'undo.favoriteAdded': 'Ajoutée aux favoris : {title}',
+    'undo.favoriteRemoved': 'Retirée des favoris : {title}',
     'undo.continueAtBack': 'Reprendre à {from} -> retour à {to}',
     'undo.continueAtChange': 'Reprendre à {from} -> {to}',
     'undo.continueAtSet': '{verb} le changement : "{title}" reprend à {time}.',
@@ -10316,7 +10336,22 @@ function toggleVideoFavorite(videoId) {
   const s = loadState()
   const video = s?.videos?.[videoId]
   if (!video) return
+  const beforeVideo = cloneVideoForHistoryAction(video)
   video.favorite = !isFavoriteVideo(video)
+  pushUndoAction(s, {
+    type: 'video-favorite',
+    videoId,
+    before: {
+      video: beforeVideo,
+      status: beforeVideo.status,
+      favorite: isFavoriteVideo(beforeVideo)
+    },
+    after: {
+      video: cloneVideoForHistoryAction(video),
+      status: video.status,
+      favorite: isFavoriteVideo(video)
+    }
+  })
   saveState(s)
   renderAll(s)
 }
@@ -11552,6 +11587,14 @@ function formatHistoryActionToast(direction, video, snapshot, action = null) {
     return direction === 'redo'
       ? t('undo.videoRemoved', { title: formatToastTitle(video.title) })
       : t('undo.videoRestored', { title: formatToastTitle(video.title) })
+  }
+  if (action?.type === 'video-favorite') {
+    const isFavorite = snapshot?.video
+      ? isFavoriteVideo(snapshot.video)
+      : snapshot?.favorite === true
+    return t(isFavorite ? 'undo.favoriteAdded' : 'undo.favoriteRemoved', {
+      title: formatToastTitle(video.title)
+    })
   }
   const verb = direction === 'redo' ? t('undo.redid') : t('undo.undid')
   if (action?.type === 'video-resume-time') {
@@ -16449,6 +16492,20 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
   }
   if (action.type === 'video-grid-remove') {
     const actionText = direction === 'redo' ? t('undo.removeVideoAgain') : t('undo.restoreVideo')
+    return `
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
+        <span class="undo-tooltip-video">${escHtml(title)}</span>
+        <span class="undo-tooltip-action">${escHtml(actionText)}</span>
+        <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
+      </button>
+    `
+  }
+  if (action.type === 'video-favorite') {
+    const targetSnapshot = direction === 'redo' ? action.after : action.before
+    const isFavorite = targetSnapshot?.video
+      ? isFavoriteVideo(targetSnapshot.video)
+      : targetSnapshot?.favorite === true
+    const actionText = t(isFavorite ? 'undo.addFavorite' : 'undo.removeFavorite')
     return `
       <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
         <span class="undo-tooltip-video">${escHtml(title)}</span>

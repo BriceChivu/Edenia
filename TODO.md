@@ -18,6 +18,11 @@ Big changes:
 - have a small duck pop up next to Edenia title that says stuff like "You studied 4h 20m across 7 sessions this week. See what drove your strongest days with Edenia Plus." or "You started building this town 3 months ago. Upgrade to Plus to revisit every week and see how your consistency has changed.". It pops up only to say those things and then the user can close the dialogue box.
 - continue adding youtube channels to the catalog
 - DOPAMINE and motivation: Remove the weekly goal progress bar panel. Instead, have a progress bar at the bottom (sticky like the top panel) that correspond to the gap between the current level to the next level. Each time there is some Video time watched, make the bar progress with a nice animation. The score milestones and the point scoring should be scaled by 10. E.g., watching 1h gives 30 pts.
+- Here is a big change. Read carefully and fully grasp the idea.
+I want the user to be able to mark a video as watched only when:
+- the timestamp of the iframe reached the end OR
+- the user clicked the Open in youtube button and the time elapsed between the "continue at" timestamp and the end of the video has been reached
+In both cases, there should be a pop up on top of the iframe saying 
 
 Sandbox:
 
