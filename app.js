@@ -10335,7 +10335,7 @@ function formatVideoWatchCooldown(ms) {
 function toggleVideoFavorite(videoId) {
   const s = loadState()
   const video = s?.videos?.[videoId]
-  if (!video) return
+  if (!video) return null
   const beforeVideo = cloneVideoForHistoryAction(video)
   video.favorite = !isFavoriteVideo(video)
   pushUndoAction(s, {
@@ -10354,6 +10354,17 @@ function toggleVideoFavorite(videoId) {
   })
   saveState(s)
   renderAll(s)
+  return isFavoriteVideo(video)
+}
+
+function toggleVideoPlayerFavorite(videoId, button) {
+  const isFavorite = toggleVideoFavorite(videoId)
+  if (typeof isFavorite !== 'boolean' || !button) return
+  const label = t(isFavorite ? 'videos.card.removeFavorite' : 'videos.card.favorite')
+  button.classList.toggle('active', isFavorite)
+  button.setAttribute('aria-pressed', String(isFavorite))
+  button.setAttribute('aria-label', label)
+  button.title = label
 }
 
 function recordVideoRewatch(state, video, seconds = null) {
@@ -15747,6 +15758,13 @@ function renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch = false) {
         </label>
         `}
         <span class="video-player-actions">
+          <button type="button"
+            class="video-player-favorite ${isFavoriteVideo(video) ? 'active' : ''}"
+            data-video-id="${escHtml(videoId)}"
+            onclick="toggleVideoPlayerFavorite(this.dataset.videoId, this)"
+            aria-pressed="${String(isFavoriteVideo(video))}"
+            aria-label="${escHtml(t(isFavoriteVideo(video) ? 'videos.card.removeFavorite' : 'videos.card.favorite'))}"
+            title="${escHtml(t(isFavoriteVideo(video) ? 'videos.card.removeFavorite' : 'videos.card.favorite'))}">${renderVideoActionIcon('favorite')}</button>
           <a class="video-player-youtube"
             href="${escHtml(getVideoUrl(video))}"
             target="_blank"
