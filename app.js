@@ -16130,9 +16130,13 @@ function isVideoShelfCardFullyVisible(card) {
 
   const slotRect = slot.getBoundingClientRect()
   const trackRect = track.getBoundingClientRect()
+  const viewportWidth = document.documentElement.clientWidth
+  const viewportHeight = document.documentElement.clientHeight
   const edgeTolerance = 1
-  return slotRect.left >= trackRect.left - edgeTolerance
-    && slotRect.right <= trackRect.right + edgeTolerance
+  return slotRect.left >= Math.max(0, trackRect.left) - edgeTolerance
+    && slotRect.right <= Math.min(viewportWidth, trackRect.right) + edgeTolerance
+    && slotRect.top >= -edgeTolerance
+    && slotRect.bottom <= viewportHeight + edgeTolerance
 }
 
 function keepPointerInsideVideoShelfPreview(position, size, viewportSize, pointerPosition) {
