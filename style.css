@@ -8351,14 +8351,18 @@ summary:focus-visible,
   pointer-events: auto;
 }
 .channel-shelf-card .partial-priority-badge[type="button"]:hover,
+.channel-shelf-card .watch-later-priority-badge[type="button"]:hover,
 .action-btn.partial-btn:hover,
+.action-btn.watch-later-btn:hover,
 .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.partial-btn.active:hover {
   background: #e9f8ed;
   border-color: var(--planet-black);
   color: var(--text);
 }
 body[data-theme="dark"] .channel-shelf-card .partial-priority-badge[type="button"]:hover,
+body[data-theme="dark"] .channel-shelf-card .watch-later-priority-badge[type="button"]:hover,
 body[data-theme="dark"] .action-btn.partial-btn:hover,
+body[data-theme="dark"] .action-btn.watch-later-btn:hover,
 body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.partial-btn.active:hover {
   background: var(--surface-hi);
   border-color: var(--planet-black);

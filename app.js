@@ -16905,7 +16905,12 @@ function renderCard(v, compact = false, options = {}) {
         aria-label="${escHtml(t('videos.card.clear'))}"
         title="${escHtml(t('videos.card.clear'))}">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</button>`
     : options.shelf && isWatchLater
-    ? `<div class="channel-shelf-priority-badge watch-later-priority-badge">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>`
+    ? `<button type="button"
+        class="channel-shelf-priority-badge watch-later-priority-badge"
+        data-video-id="${safeVideoId}"
+        onclick="event.preventDefault(); event.stopPropagation(); markVideo(this.dataset.videoId, 'unwatched')"
+        aria-label="${escHtml(t('videos.card.removeWatchLater'))}"
+        title="${escHtml(t('videos.card.removeWatchLater'))}">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</button>`
     : ''
   const shelfPreviewHandlers = options.shelf
     ? 'onclick="toggleVideoShelfPreviewOnTouch(event, this)" onmouseenter="openVideoShelfPreview(this, false, event)" onmouseleave="queueVideoShelfPreviewClose(this)" onfocusin="openVideoShelfPreviewFromFocus(this)" onfocusout="closeVideoShelfPreviewAfterFocus(this)"'
