@@ -5,10 +5,8 @@ Minor changes:
 - Add an addictive sound when clicking on "Level up" and "mark as watched". Add a pleasant sound when scrolling in the waveform. 
 - add more supported languages
 - add more suggested languages to learn
-- when a video card is zoomed in, allow for the mouse to select text like the title
 - in the search bar, remove "saved" in "Search saved videos by title or channel."
 - onboarding languages recommended channels: dreaming spanish, linguriosa
-- favorite filter (feedback)
 
 
 Big changes:
