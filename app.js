@@ -302,7 +302,8 @@ const STATUS_FILTERS = [
   ['all', 'videos.status.all'],
   ['watch-later', 'videos.status.watchLater'],
   ['unwatched', 'videos.status.unwatched'],
-  ['partial', 'videos.status.partial']
+  ['partial', 'videos.status.partial'],
+  ['favorite', 'videos.status.favorite']
 ]
 const VIDEO_STATUSES = ['watch-later', 'unwatched', 'partial', 'watched']
 const HISTORY_RANGES = ['week', 'month']
@@ -1093,9 +1094,12 @@ const I18N_EN = {
   'goal.title': 'Weekly goal',
   'nextStudy.title': 'Continue watching',
   'nextStudy.studyNext': 'Study next',
+  'nextStudy.rewatch': 'Rewatch',
   'nextStudy.resume': 'Resume video',
   'nextStudy.watch': 'Watch',
+  'nextStudy.watchAgain': 'Watch again',
   'nextStudy.notInterested': 'Not interested',
+  'nextStudy.removeFavorite': 'Remove favorite',
   'nextStudy.unwatch': 'Unwatch',
   'nextStudy.continueShort': 'Continue',
   'goal.watched': 'watched',
@@ -1242,6 +1246,7 @@ const I18N_EN = {
   'videos.channel.dragLabel': 'Reorder {channel}',
   'videos.status.all': 'All',
   'videos.status.watchLater': 'Watch later',
+  'videos.status.favorite': 'Favorite',
   'videos.status.unwatched': 'Unwatched',
   'videos.status.partial': 'In progress',
   'videos.status.watched': 'Watched',
@@ -1287,6 +1292,7 @@ const I18N_EN = {
   'videos.filter.active': 'active',
   'videos.filter.inProgress': 'in-progress',
   'videos.filter.watchLater': 'watch later',
+  'videos.filter.favorite': 'favorite',
   'videos.search.empty': 'Search saved videos by title or channel.',
   'videos.search.noMatches': 'No matching videos found.',
   'videos.search.untitled': 'Untitled video',
@@ -1299,6 +1305,8 @@ const I18N_EN = {
   'videos.card.markProgress': 'Mark as in progress',
   'videos.card.removeWatchLater': 'Remove from watch later',
   'videos.card.watchLater': 'Watch later',
+  'videos.card.removeFavorite': 'Remove from favorites',
+  'videos.card.favorite': 'Favorite',
   'videos.card.resume': 'Resume watching',
   'videos.card.continueAt': 'Continue at',
   'videos.card.timestampLabel': 'Continue watching timestamp',
@@ -1309,7 +1317,9 @@ const I18N_EN = {
   'videoReminder.aria': 'Video watch reminder',
   'videoReminder.eyebrow': 'Quick check-in',
   'videoReminder.question': 'Finished watching the video? Mark it as watched!',
+  'videoReminder.rewatchQuestion': 'Finished rewatching the video? Record the rewatch!',
   'videoReminder.markWatched': 'Mark as watched',
+  'videoReminder.markRewatched': 'Record rewatch',
   'videoReminder.notYet': 'Not yet',
   'videos.refreshing': 'Refreshing...',
   'videos.refresh': 'Refresh',
@@ -1519,6 +1529,8 @@ const I18N_EN = {
   'log.unknownRefreshError': 'Unknown refresh error',
   'log.videoStatus.title': 'Video status changed',
   'log.videoStatus.detail': '“{title}” is now {status}.',
+  'log.videoRewatch.title': 'Favorite video rewatched',
+  'log.videoRewatch.detail': 'Recorded another watch of “{title}”.',
   'log.videoAdded.title': 'Video URL added',
   'log.videoAdded.detail': '“{title}” was added to the video grid.',
   'log.ankiRefreshFailed.title': 'Anki refresh failed',
@@ -3512,11 +3524,16 @@ Object.entries(FEEDBACK_I18N).forEach(([locale, translations]) => {
 
 Object.assign(I18N['zh-Hant'], {
   'app.title.sandbox': '沙盒版 - Edenia',
+  'nextStudy.rewatch': '再次觀看',
+  'nextStudy.watchAgain': '再看一次',
+  'nextStudy.removeFavorite': '移除收藏',
   'videoReminder.tabTitle': '✓ 標記為已觀看 · Edenia',
   'videoReminder.aria': '影片觀看提醒',
   'videoReminder.eyebrow': '快速確認',
   'videoReminder.question': '看完這部影片了嗎？將它標記為已觀看！',
+  'videoReminder.rewatchQuestion': '再次看完這部影片了嗎？記錄這次重看！',
   'videoReminder.markWatched': '標記為已觀看',
+  'videoReminder.markRewatched': '記錄重看',
   'videoReminder.notYet': '還沒有',
   'settings.remove': '移除',
   'header.settings': '設定',
@@ -3543,6 +3560,7 @@ Object.assign(I18N['zh-Hant'], {
   'history.weekdays.sat': '週六',
   'history.weekdays.sun': '週日',
   'videos.status.previous': '先前狀態',
+  'videos.status.favorite': '收藏',
   'videos.channels.one': '1 個頻道',
   'videos.channels.count': '{count} 個頻道',
   'videos.manual.placeholder': 'YouTube 影片或頻道網址',
@@ -3552,11 +3570,14 @@ Object.assign(I18N['zh-Hant'], {
   'videos.filter.active': '使用中',
   'videos.filter.inProgress': '進行中',
   'videos.filter.watchLater': '稍後觀看',
+  'videos.filter.favorite': '收藏',
   'videos.search.untitled': '未命名影片',
   'videos.search.youtube': 'YouTube',
   'videos.card.markProgress': '標記為進行中',
   'videos.card.removeWatchLater': '從稍後觀看移除',
   'videos.card.watchLater': '稍後觀看',
+  'videos.card.removeFavorite': '從收藏移除',
+  'videos.card.favorite': '收藏',
   'videos.card.timestampLabel': '繼續播放時間',
   'videos.card.inProgressRibbon': '進行中',
   'videos.refreshing': '刷新中…',
@@ -3667,6 +3688,8 @@ Object.assign(I18N['zh-Hant'], {
   'log.unknownRefreshError': '未知的刷新錯誤',
   'log.videoStatus.title': '影片狀態已變更',
   'log.videoStatus.detail': '「{title}」現在是{status}。',
+  'log.videoRewatch.title': '已重看收藏影片',
+  'log.videoRewatch.detail': '已記錄再次觀看「{title}」。',
   'log.videoAdded.title': '已加入影片網址',
   'log.videoAdded.detail': '「{title}」已加入影片清單。',
   'log.ankiRefreshFailed.title': 'Anki 刷新失敗',
@@ -3677,11 +3700,16 @@ Object.assign(I18N['zh-Hant'], {
 
 Object.assign(I18N['zh-Hans'], {
   'app.title.sandbox': '沙盒版 - Edenia',
+  'nextStudy.rewatch': '再次观看',
+  'nextStudy.watchAgain': '再看一次',
+  'nextStudy.removeFavorite': '移除收藏',
   'videoReminder.tabTitle': '✓ 标记为已观看 · Edenia',
   'videoReminder.aria': '视频观看提醒',
   'videoReminder.eyebrow': '快速确认',
   'videoReminder.question': '看完这个视频了吗？将它标记为已观看！',
+  'videoReminder.rewatchQuestion': '再次看完这个视频了吗？记录这次重看！',
   'videoReminder.markWatched': '标记为已观看',
+  'videoReminder.markRewatched': '记录重看',
   'videoReminder.notYet': '还没有',
   'settings.activity.filtersLabel': '活动记录筛选',
   'settings.remove': '移除',
@@ -3719,6 +3747,7 @@ Object.assign(I18N['zh-Hans'], {
   'history.tooltip.ankiReviewed': 'Anki 已复习',
   'history.tooltip.ankiCreated': 'Anki 新建卡片',
   'videos.status.previous': '之前状态',
+  'videos.status.favorite': '收藏',
   'videos.channels.one': '1 个频道',
   'videos.channels.count': '{count} 个频道',
   'videos.manual.dialog': '添加 YouTube 视频或频道',
@@ -3730,6 +3759,7 @@ Object.assign(I18N['zh-Hans'], {
   'videos.filter.active': '使用中',
   'videos.filter.inProgress': '进行中',
   'videos.filter.watchLater': '稍后观看',
+  'videos.filter.favorite': '收藏',
   'videos.search.noMatches': '没有匹配的视频',
   'videos.search.untitled': '未命名视频',
   'videos.search.youtube': 'YouTube',
@@ -3738,6 +3768,8 @@ Object.assign(I18N['zh-Hans'], {
   'videos.card.markProgress': '标记为进行中',
   'videos.card.removeWatchLater': '从稍后观看移除',
   'videos.card.watchLater': '稍后观看',
+  'videos.card.removeFavorite': '从收藏移除',
+  'videos.card.favorite': '收藏',
   'videos.card.timestampLabel': '继续播放时间',
   'videos.card.inProgressRibbon': '进行中',
   'videos.refreshing': '刷新中…',
@@ -3851,6 +3883,8 @@ Object.assign(I18N['zh-Hans'], {
   'log.unknownRefreshError': '未知的刷新错误',
   'log.videoStatus.title': '视频状态已更改',
   'log.videoStatus.detail': '“{title}”现在是{status}。',
+  'log.videoRewatch.title': '已重看收藏视频',
+  'log.videoRewatch.detail': '已记录再次观看“{title}”。',
   'log.videoAdded.title': '已添加视频网址',
   'log.videoAdded.detail': '“{title}”已添加到视频列表。',
   'log.ankiRefreshFailed.title': 'Anki 刷新失败',
@@ -3861,11 +3895,16 @@ Object.assign(I18N['zh-Hans'], {
 
 Object.assign(I18N.es, {
   'app.title.sandbox': 'Entorno de prueba - Edenia',
+  'nextStudy.rewatch': 'Volver a ver',
+  'nextStudy.watchAgain': 'Ver de nuevo',
+  'nextStudy.removeFavorite': 'Quitar favorito',
   'videoReminder.tabTitle': '✓ Marcar como visto · Edenia',
   'videoReminder.aria': 'Recordatorio de video',
   'videoReminder.eyebrow': 'Comprobación rápida',
   'videoReminder.question': '¿Terminaste de ver el video? ¡Márcalo como visto!',
+  'videoReminder.rewatchQuestion': '¿Terminaste de volver a ver el video? Registra la repetición.',
   'videoReminder.markWatched': 'Marcar como visto',
+  'videoReminder.markRewatched': 'Registrar repetición',
   'videoReminder.notYet': 'Todavía no',
   'settings.activity.filtersLabel': 'Filtros del registro de actividad',
   'settings.remove': 'Quitar',
@@ -3901,6 +3940,7 @@ Object.assign(I18N.es, {
   'history.tooltip.ankiReviewed': 'Anki repasadas',
   'history.tooltip.ankiCreated': 'Tarjetas Anki nuevas',
   'videos.status.previous': 'estado anterior',
+  'videos.status.favorite': 'Favorito',
   'videos.channels.one': '1 canal',
   'videos.channels.count': '{count} canales',
   'videos.manual.dialog': 'Añadir video o canal de YouTube',
@@ -3912,6 +3952,7 @@ Object.assign(I18N.es, {
   'videos.filter.active': 'Activos',
   'videos.filter.inProgress': 'En progreso',
   'videos.filter.watchLater': 'Ver después',
+  'videos.filter.favorite': 'favoritos',
   'videos.search.noMatches': 'No hay videos que coincidan',
   'videos.search.untitled': 'Video sin título',
   'videos.search.youtube': 'YouTube',
@@ -3920,6 +3961,8 @@ Object.assign(I18N.es, {
   'videos.card.markProgress': 'Marcar en progreso',
   'videos.card.removeWatchLater': 'Quitar de Ver después',
   'videos.card.watchLater': 'Ver después',
+  'videos.card.removeFavorite': 'Quitar de favoritos',
+  'videos.card.favorite': 'Favorito',
   'videos.card.timestampLabel': 'Hora para continuar',
   'videos.card.inProgressRibbon': 'En progreso',
   'videos.refreshing': 'Actualizando…',
@@ -4033,6 +4076,8 @@ Object.assign(I18N.es, {
   'log.unknownRefreshError': 'Error de actualización desconocido',
   'log.videoStatus.title': 'Estado del video cambiado',
   'log.videoStatus.detail': '«{title}» ahora está {status}.',
+  'log.videoRewatch.title': 'Video favorito vuelto a ver',
+  'log.videoRewatch.detail': 'Se registró otro visionado de «{title}».',
   'log.videoAdded.title': 'URL de video añadida',
   'log.videoAdded.detail': '«{title}» se añadió a la lista de videos.',
   'log.ankiRefreshFailed.title': 'Falló la actualización de Anki',
@@ -4043,11 +4088,16 @@ Object.assign(I18N.es, {
 
 Object.assign(I18N.fr, {
   'app.title.sandbox': 'Bac à sable - Edenia',
+  'nextStudy.rewatch': 'Revoir',
+  'nextStudy.watchAgain': 'Revoir',
+  'nextStudy.removeFavorite': 'Retirer des favoris',
   'videoReminder.tabTitle': '✓ Marquer comme vue · Edenia',
   'videoReminder.aria': 'Rappel de visionnage',
   'videoReminder.eyebrow': 'Vérification rapide',
   'videoReminder.question': 'Vous avez fini de regarder la vidéo ? Marquez-la comme vue !',
+  'videoReminder.rewatchQuestion': 'Vous avez fini de revoir la vidéo ? Enregistrez ce nouveau visionnage.',
   'videoReminder.markWatched': 'Marquer comme vue',
+  'videoReminder.markRewatched': 'Enregistrer le revisionnage',
   'videoReminder.notYet': 'Pas encore',
   'settings.activity.filtersLabel': 'Filtres du journal d’activité',
   'settings.remove': 'Retirer',
@@ -4083,6 +4133,7 @@ Object.assign(I18N.fr, {
   'history.tooltip.ankiReviewed': 'Cartes Anki révisées',
   'history.tooltip.ankiCreated': 'Nouvelles cartes Anki',
   'videos.status.previous': 'état précédent',
+  'videos.status.favorite': 'Favori',
   'videos.channels.one': '1 chaîne',
   'videos.channels.count': '{count} chaînes',
   'videos.manual.dialog': 'Ajouter une vidéo ou une chaîne YouTube',
@@ -4094,6 +4145,7 @@ Object.assign(I18N.fr, {
   'videos.filter.active': 'Actives',
   'videos.filter.inProgress': 'En cours',
   'videos.filter.watchLater': 'À regarder',
+  'videos.filter.favorite': 'favoris',
   'videos.search.noMatches': 'Aucune vidéo correspondante',
   'videos.search.untitled': 'Vidéo sans titre',
   'videos.search.youtube': 'YouTube',
@@ -4102,6 +4154,8 @@ Object.assign(I18N.fr, {
   'videos.card.markProgress': 'Marquer comme en cours',
   'videos.card.removeWatchLater': 'Retirer de À regarder',
   'videos.card.watchLater': 'À regarder',
+  'videos.card.removeFavorite': 'Retirer des favoris',
+  'videos.card.favorite': 'Favori',
   'videos.card.timestampLabel': 'Heure de reprise',
   'videos.card.inProgressRibbon': 'En cours',
   'videos.refreshing': 'Actualisation…',
@@ -4215,6 +4269,8 @@ Object.assign(I18N.fr, {
   'log.unknownRefreshError': 'Erreur d’actualisation inconnue',
   'log.videoStatus.title': 'État de la vidéo modifié',
   'log.videoStatus.detail': '« {title} » est maintenant {status}.',
+  'log.videoRewatch.title': 'Vidéo favorite revue',
+  'log.videoRewatch.detail': 'Un nouveau visionnage de « {title} » a été enregistré.',
   'log.videoAdded.title': 'URL de vidéo ajoutée',
   'log.videoAdded.detail': '« {title} » a été ajoutée à la liste des vidéos.',
   'log.ankiRefreshFailed.title': 'Échec de l’actualisation Anki',
@@ -5092,12 +5148,47 @@ function getEdeniaAnalyticsSnapshot(state) {
       isShort: Boolean(video.isShort)
     }))
     .sort((left, right) => left.id.localeCompare(right.id))
+  const studyInsights = (Array.isArray(state?.config?.studyInsights?.history)
+    ? state.config.studyInsights.history
+    : []
+  ).map(entry => {
+    const message = getStudyInsightViewModel(entry, state)
+    return {
+      key: entry.key,
+      insightId: entry.insightId,
+      type: entry.type,
+      variant: entry.variant || 0,
+      title: message?.title || '',
+      body: message?.body || '',
+      evidence: message?.evidence || '',
+      locale: normalizeLocale(state?.config?.locale),
+      windowId: entry.windowId || null,
+      weekdayIndex: Number.isInteger(entry.weekdayIndex) ? entry.weekdayIndex : null,
+      percent: entry.percent || 0,
+      comparisonPercent: entry.comparisonPercent || 0,
+      recentMinutes: entry.recentMinutes || 0,
+      previousMinutes: entry.previousMinutes || 0,
+      suggestedMinutes: entry.suggestedMinutes || 0,
+      activeDays: entry.activeDays || 0,
+      ankiDays: entry.ankiDays || 0,
+      reviewedCards: entry.reviewedCards || 0,
+      ankiCreated: entry.ankiCreated || 0,
+      totalSeconds: entry.totalSeconds || 0,
+      videoCount: entry.videoCount || 0,
+      topVideoTitle: entry.topVideoTitle || '',
+      topVideoSeconds: entry.topVideoSeconds || 0,
+      channelBreakdown: entry.channelBreakdown || [],
+      observationDays: entry.observationDays || 0,
+      recordedAt: entry.recordedAt
+    }
+  })
 
   return {
     schemaVersion: 2,
     capturedAt: new Date().toISOString(),
     channels,
     watchedVideos,
+    studyInsights,
     studyDays,
     streak: {
       currentDays: Math.max(0, Number(state?.streak?.current) || 0),
@@ -5419,7 +5510,13 @@ function normalizeVideoWatchReminderState(state) {
   const normalizedEntries = Object.entries(existing)
     .map(([videoId, reminder]) => {
       const video = state.videos?.[videoId]
-      if (!video || getVideoStatus(video) === 'watched' || !reminder || typeof reminder !== 'object') return null
+      const isRewatch = reminder?.rewatch === true
+      if (
+        !video
+        || !reminder
+        || typeof reminder !== 'object'
+        || (getVideoStatus(video) === 'watched' && (!isRewatch || !isFavoriteVideo(video)))
+      ) return null
 
       const startedAtMs = Date.parse(reminder.startedAt || '')
       const dueAtMs = Date.parse(reminder.dueAt || '')
@@ -5432,6 +5529,7 @@ function normalizeVideoWatchReminderState(state) {
         startedAt: new Date(startedAtMs).toISOString(),
         dueAt: new Date(dueAtMs).toISOString(),
         durationSeconds,
+        ...(isRewatch ? { rewatch: true } : {}),
         ...(promptedAtMs ? { promptedAt: new Date(promptedAtMs).toISOString() } : {})
       }]
     })
@@ -7875,7 +7973,8 @@ function refreshSandboxFeed() {
     s.videos[v.id] = {
       ...v,
       status: existing?.status ?? 'unwatched',
-      watchedAt: existing?.watchedAt ?? null
+      watchedAt: existing?.watchedAt ?? null,
+      favorite: Boolean(existing?.favorite)
     }
   })
 
@@ -9114,6 +9213,10 @@ function getVideoStatus(video) {
   return normalizeVideoStatus(video?.status)
 }
 
+function isFavoriteVideo(video) {
+  return video?.favorite === true
+}
+
 function normalizeVideoStatus(status) {
   return VIDEO_STATUSES.includes(status) ? status : 'unwatched'
 }
@@ -9152,7 +9255,7 @@ function getTotalVideoWatchProgressSeconds(video) {
     .reduce((total, entry) => total + (entry.seconds || 0), 0)
 }
 
-function addVideoWatchProgress(video, seconds, watchedAt = new Date().toISOString()) {
+function addVideoWatchProgress(video, seconds, watchedAt = new Date().toISOString(), options = {}) {
   if (!video) return false
   const normalizedSeconds = Math.max(0, Math.floor(Number(seconds || 0)))
   if (!normalizedSeconds || !isValidTimestamp(watchedAt)) return false
@@ -9160,7 +9263,9 @@ function addVideoWatchProgress(video, seconds, watchedAt = new Date().toISOStrin
   const entries = normalizeVideoWatchProgress(video.watchProgress, video.duration)
   const duration = Math.max(0, Math.floor(Number(video.duration || 0)))
   const alreadyWatched = entries.reduce((total, entry) => total + entry.seconds, 0)
-  const secondsToAdd = duration > 0
+  const secondsToAdd = options.allowRepeat === true
+    ? normalizedSeconds
+    : duration > 0
     ? Math.min(normalizedSeconds, Math.max(0, duration - alreadyWatched))
     : normalizedSeconds
 
@@ -9484,6 +9589,7 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
       ),
       status:     existing?.status    ?? 'unwatched',
       watchedAt:  existing?.watchedAt ?? null,
+      favorite: Boolean(existing?.favorite),
       resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, duration),
       watchProgress: normalizeVideoWatchProgress(existing?.watchProgress ?? v.watchProgress, duration),
       source: existing?.source || v.source || null,
@@ -9896,7 +10002,10 @@ function getVideoWatchReminderEntries(state, includePrompted = false) {
     }))
     .filter(entry => (
       entry.video
-      && getVideoStatus(entry.video) !== 'watched'
+      && (
+        getVideoStatus(entry.video) !== 'watched'
+        || (entry.reminder?.rewatch === true && isFavoriteVideo(entry.video))
+      )
       && Number.isFinite(entry.dueAtMs)
       && (includePrompted || !entry.reminder?.promptedAt)
     ))
@@ -9929,8 +10038,13 @@ function getVideoWatchReminderDurationSeconds(video) {
   return Math.max(1, duration - (resumeAtSeconds || 0))
 }
 
-function setVideoWatchReminderInState(state, video) {
-  if (!state || !video?.id || getVideoStatus(video) === 'watched') return false
+function setVideoWatchReminderInState(state, video, options = {}) {
+  const isRewatch = options.rewatch === true
+  if (
+    !state
+    || !video?.id
+    || (getVideoStatus(video) === 'watched' && (!isRewatch || !isFavoriteVideo(video)))
+  ) return false
   const durationSeconds = getVideoWatchReminderDurationSeconds(video)
   if (!durationSeconds) return false
   const startedAtMs = Date.now()
@@ -9940,7 +10054,8 @@ function setVideoWatchReminderInState(state, video) {
   state.videoWatchReminders[video.id] = {
     startedAt: new Date(startedAtMs).toISOString(),
     dueAt: new Date(startedAtMs + durationSeconds * 1000).toISOString(),
-    durationSeconds
+    durationSeconds,
+    ...(isRewatch ? { rewatch: true } : {})
   }
   if (activeVideoWatchReminderId === String(video.id)) {
     activeVideoWatchReminderId = null
@@ -9982,7 +10097,7 @@ function removeVideoWatchReminderUi() {
   }
 }
 
-function getVideoWatchReminderMarkup(videoId, global = false) {
+function getVideoWatchReminderMarkup(videoId, global = false, rewatch = false) {
   const safeVideoId = escHtml(String(videoId ?? ''))
   return `
     <div class="video-watch-reminder-popover${global ? ' is-global' : ''}" role="region" aria-live="polite" aria-label="${escHtml(t('videoReminder.aria'))}">
@@ -9990,11 +10105,11 @@ function getVideoWatchReminderMarkup(videoId, global = false) {
         <span class="video-watch-reminder-icon" aria-hidden="true">✓</span>
         <span>
           <strong>${escHtml(t('videoReminder.eyebrow'))}</strong>
-          <span>${escHtml(t('videoReminder.question'))}</span>
+          <span>${escHtml(t(rewatch ? 'videoReminder.rewatchQuestion' : 'videoReminder.question'))}</span>
         </span>
       </div>
       <div class="video-watch-reminder-actions">
-        <button type="button" class="video-watch-reminder-mark" data-video-id="${safeVideoId}" onclick="markVideoFromWatchReminder(event, this.dataset.videoId)">${escHtml(t('videoReminder.markWatched'))}</button>
+        <button type="button" class="video-watch-reminder-mark" data-video-id="${safeVideoId}" onclick="markVideoFromWatchReminder(event, this.dataset.videoId)">${escHtml(t(rewatch ? 'videoReminder.markRewatched' : 'videoReminder.markWatched'))}</button>
         <button type="button" class="video-watch-reminder-later" data-video-id="${safeVideoId}" onclick="dismissVideoWatchReminder(event, this.dataset.videoId)">${escHtml(t('videoReminder.notYet'))}</button>
       </div>
     </div>
@@ -10010,7 +10125,11 @@ function renderActiveVideoWatchReminder(state = null) {
 
   const reminder = currentState?.videoWatchReminders?.[videoId]
   const video = currentState?.videos?.[videoId]
-  if (!reminder || !video || getVideoStatus(video) === 'watched') {
+  if (
+    !reminder
+    || !video
+    || (getVideoStatus(video) === 'watched' && (reminder.rewatch !== true || !isFavoriteVideo(video)))
+  ) {
     activeVideoWatchReminderId = null
     shouldGuideActiveVideoWatchReminder = false
     forcedSearchVideoId = null
@@ -10044,13 +10163,13 @@ function renderActiveVideoWatchReminder(state = null) {
         const zoomedCard = Array.from(document.querySelectorAll('.video-card'))
           .find(candidate => candidate.dataset.videoId === targetVideoId)
         if (!zoomedCard || zoomedCard.querySelector('.video-watch-reminder-popover')) return
-        zoomedCard.insertAdjacentHTML('beforeend', getVideoWatchReminderMarkup(targetVideoId))
+        zoomedCard.insertAdjacentHTML('beforeend', getVideoWatchReminderMarkup(targetVideoId, false, reminder.rewatch === true))
       }, reduceMotion ? 80 : 260)
     }, shouldGuideActiveVideoWatchReminder && !reduceMotion ? 750 : 0)
   } else {
     const globalReminder = document.getElementById('videoWatchReminderGlobal')
     if (globalReminder) {
-      globalReminder.innerHTML = getVideoWatchReminderMarkup(videoId, true)
+      globalReminder.innerHTML = getVideoWatchReminderMarkup(videoId, true, reminder.rewatch === true)
       globalReminder.classList.remove('hidden')
     }
   }
@@ -10193,12 +10312,58 @@ function formatVideoWatchCooldown(ms) {
   })
 }
 
+function toggleVideoFavorite(videoId) {
+  const s = loadState()
+  const video = s?.videos?.[videoId]
+  if (!video) return
+  video.favorite = !isFavoriteVideo(video)
+  saveState(s)
+  renderAll(s)
+}
+
+function recordVideoRewatch(state, video, seconds = null) {
+  if (!state || !video || !isFavoriteVideo(video) || getVideoStatus(video) !== 'watched') return false
+  const rewatchSeconds = seconds === null
+    ? Math.max(0, Math.floor(Number(video.duration || 0)))
+    : Math.max(0, Math.floor(Number(seconds || 0)))
+  const watchedAt = getCurrentAppTimestamp(state)
+  if (rewatchSeconds > 0) {
+    addVideoWatchProgress(video, rewatchSeconds, watchedAt, { allowRepeat: true })
+  }
+  clearVideoWatchReminderInState(state, video.id)
+  state.lastVideoMarkedWatchedAt = watchedAt
+  recordNoAnkiFrequentUserWatchedDate(state, watchedAt)
+  syncStreak(state)
+  appendActivityLog(state, {
+    actor: 'user',
+    type: 'video-rewatch',
+    status: 'success',
+    title: t('log.videoRewatch.title'),
+    detail: t('log.videoRewatch.detail', { title: formatToastTitle(video.title) }),
+    meta: { videoId: video.id, seconds: rewatchSeconds }
+  })
+  return true
+}
+
 function markVideo(videoId, newStatus) {
   newStatus = normalizeVideoStatus(newStatus)
   const s     = loadState()
   const video = s.videos[videoId]
   if (!video) return
-  if (video.status === newStatus) return
+  const previousStatus = getVideoStatus(video)
+  const isDueRewatch = newStatus === 'watched'
+    && previousStatus === 'watched'
+    && isFavoriteVideo(video)
+    && s.videoWatchReminders?.[videoId]?.rewatch === true
+    && isVideoWatchReminderDue(s, videoId)
+  if (isDueRewatch) {
+    recordVideoRewatch(s, video)
+    saveState(s)
+    renderAll(s)
+    scheduleVideoWatchReminderTimer(s)
+    return
+  }
+  if (previousStatus === newStatus) return
   if (newStatus === 'watched') {
     const remainingMs = isVideoWatchReminderDue(s, videoId)
       ? 0
@@ -10208,7 +10373,6 @@ function markVideo(videoId, newStatus) {
       return
     }
   }
-  const previousStatus = getVideoStatus(video)
   if (newStatus !== 'partial') clearVideoWatchReminderInState(s, videoId)
 
   const undoAction = {
@@ -10282,7 +10446,15 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
     is_short: Boolean(video.isShort),
     resumed: previousStatus === 'partial' && normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) !== null
   })
-  if (previousStatus === 'watched') return false
+  if (previousStatus === 'watched') {
+    if (!isFavoriteVideo(video)) return false
+    const reminderChanged = shouldSetReminder
+      ? setVideoWatchReminderInState(s, video, { rewatch: true })
+      : clearVideoWatchReminderInState(s, videoId)
+    if (reminderChanged) saveState(s, { backup: false })
+    scheduleVideoWatchReminderTimer(s)
+    return true
+  }
   if (previousStatus === 'partial') {
     const reminderChanged = shouldSetReminder
       ? setVideoWatchReminderInState(s, video)
@@ -13101,6 +13273,9 @@ function recordStudyInsight(state, insight, referenceDate = getCurrentAppDate(st
   const existingIndex = state.config.studyInsights.history.findIndex(entry => entry.key === key)
   if (existingIndex >= 0) {
     if (insight.type !== 'weekly-summary') return key
+    const { recordedAt: existingRecordedAt, ...existingContent } = state.config.studyInsights.history[existingIndex]
+    const { recordedAt: nextRecordedAt, ...nextContent } = historyEntry
+    if (JSON.stringify(existingContent) === JSON.stringify(nextContent)) return key
     state.config.studyInsights.history[existingIndex] = historyEntry
   } else {
     state.config.studyInsights.history.unshift(historyEntry)
@@ -13512,27 +13687,39 @@ function setStudyInsightsCollapsed(collapsed) {
   })
 }
 
-function renderNextStudy(activeVideos = []) {
+function renderNextStudy(activeVideos = [], favoriteVideos = []) {
   const container = document.getElementById('nextStudyCard')
   if (!container) return null
   const nextVideo = activeVideos.find(video => getVideoStatus(video) === 'partial')
     || activeVideos.find(video => getVideoStatus(video) === 'watch-later')
+    || favoriteVideos.find(video => getVideoStatus(video) === 'watched')
   container.classList.toggle('hidden', !nextVideo)
   if (!nextVideo) {
-    container.classList.remove('continue-watching-card', 'study-next-card')
+    container.classList.remove('continue-watching-card', 'study-next-card', 'rewatch-card')
     container.innerHTML = ''
     return null
   }
 
   const status = getVideoStatus(nextVideo)
   const isInProgress = status === 'partial'
+  const isRewatch = status === 'watched' && isFavoriteVideo(nextVideo)
   const safeVideoId = escHtml(nextVideo.id)
   const videoUrl = escHtml(getVideoUrl(nextVideo))
-  const cta = isInProgress ? t('nextStudy.resume') : t('nextStudy.watch')
-  const panelLabel = `${t(isInProgress ? 'nextStudy.title' : 'nextStudy.studyNext')}: ${nextVideo.title}`
+  const panelTitleKey = isInProgress
+    ? 'nextStudy.title'
+    : isRewatch
+    ? 'nextStudy.rewatch'
+    : 'nextStudy.studyNext'
+  const cta = isInProgress
+    ? t('nextStudy.resume')
+    : isRewatch
+    ? t('nextStudy.watchAgain')
+    : t('nextStudy.watch')
+  const panelLabel = `${t(panelTitleKey)}: ${nextVideo.title}`
   const resumeAt = formatResumeTimestamp(nextVideo.resumeAtSeconds) || '00:00:00'
   container.classList.toggle('continue-watching-card', isInProgress)
-  container.classList.toggle('study-next-card', !isInProgress)
+  container.classList.toggle('study-next-card', !isInProgress && !isRewatch)
+  container.classList.toggle('rewatch-card', isRewatch)
   const actions = isInProgress
     ? `
       <button type="button"
@@ -13564,6 +13751,19 @@ function renderNextStudy(activeVideos = []) {
         </a>
       </span>
     `
+    : isRewatch
+    ? `
+      <button type="button"
+        class="next-study-cta next-study-reset"
+        data-video-id="${safeVideoId}"
+        onclick="toggleVideoFavorite(this.dataset.videoId)">${escHtml(t('nextStudy.removeFavorite'))}</button>
+      <a class="next-study-cta next-study-watch"
+        href="${videoUrl}"
+        target="_blank"
+        rel="noopener"
+        data-video-id="${safeVideoId}"
+        onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${escHtml(t('nextStudy.watchAgain'))}</a>
+    `
     : `
       <button type="button"
         class="next-study-cta next-study-reset"
@@ -13583,9 +13783,9 @@ function renderNextStudy(activeVideos = []) {
       <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
     </span>
     <span class="next-study-copy">
-      <span class="next-study-eyebrow">${escHtml(t(isInProgress ? 'nextStudy.title' : 'nextStudy.studyNext'))}</span>
+      <span class="next-study-eyebrow">${escHtml(t(panelTitleKey))}</span>
       <span class="next-study-title" title="${escHtml(nextVideo.title)}">${escHtml(nextVideo.title)}</span>
-      <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(formatVideoStatus(status))}</span>
+      <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(isRewatch ? t('videos.status.favorite') : formatVideoStatus(status))}</span>
     </span>
     <span class="next-study-actions">
       ${actions}
@@ -14797,11 +14997,25 @@ function renderFeed(s) {
     limitPerChannel: false
   })
     .filter(v => matchesActiveChannelFilter(v, channelFilters, removedChannelIds))
-  let activeVideos = visibleActiveVideos
-    .filter(v => ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter) && (statusFilter === 'all' || getVideoStatus(v) === statusFilter))
+  const favoriteVideos = allVideos
+    .filter(isFavoriteVideo)
+    .filter(v => !isHiddenFromVideoGrid(v))
+    .filter(v => !isHiddenShortVideo(v, includeShorts))
+    .filter(v => matchesWatchedChannelFilter(v, channelFilters, removedChannelIds))
+  const timelineVideos = [
+    ...visibleActiveVideos,
+    ...favoriteVideos.filter(v => getVideoStatus(v) === 'watched')
+  ].sort(compareActiveVideos)
+  let activeVideos = statusFilter === 'favorite'
+    ? favoriteVideos
+    : timelineVideos.filter(v => (
+      ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter)
+      && (statusFilter === 'all' || getVideoStatus(v) === statusFilter)
+    ))
 
-  let watchedVideos = allVideos
+  let watchedVideos = statusFilter === 'favorite' ? [] : allVideos
     .filter(v => getVideoStatus(v) === 'watched')
+    .filter(v => !isFavoriteVideo(v))
     .filter(v => !isHiddenFromVideoGrid(v))
     .filter(v => !isHiddenShortVideo(v, includeShorts))
     .filter(v => matchesWatchedChannelFilter(v, channelFilters, removedChannelIds))
@@ -14809,19 +15023,22 @@ function renderFeed(s) {
 
   if (forcedSearchVideo) {
     const shouldFocusInChannelShelf = activeNextStudyFocusVideoId === String(forcedSearchVideo.id)
-    if (getVideoStatus(forcedSearchVideo) === 'watched' && !shouldFocusInChannelShelf) {
+    const shouldStayInChannelTimeline = isFavoriteVideo(forcedSearchVideo)
+      && ['all', 'favorite'].includes(statusFilter)
+    if (getVideoStatus(forcedSearchVideo) === 'watched' && !shouldFocusInChannelShelf && !shouldStayInChannelTimeline) {
       watchedVideos = includeForcedSearchVideo(watchedVideos, forcedSearchVideo)
     } else {
       activeVideos = includeForcedSearchVideo(activeVideos, forcedSearchVideo)
     }
   }
 
-  renderNextStudy(visibleActiveVideos)
+  renderNextStudy(visibleActiveVideos, favoriteVideos)
   const cardOptions = {
     currentDateKey: getCurrentAppDateKey(s),
     focusedVideoId: pendingAddedChannelReveal?.videoId || forcedSearchVideoId,
     arrivingChannelId: pendingAddedChannelReveal?.channelId || '',
-    removedChannelIds
+    removedChannelIds,
+    chronologicalOnly: statusFilter === 'favorite'
   }
 
   if (!activeVideos.length) {
@@ -14830,6 +15047,8 @@ function renderFeed(s) {
       ? t('videos.filter.inProgress')
       : statusFilter === 'watch-later'
       ? t('videos.filter.watchLater')
+      : statusFilter === 'favorite'
+      ? t('videos.filter.favorite')
       : getStatusFilterLabel(statusFilter).toLowerCase()
     const msg = statusFilter === 'all' && watchedVideos.length
       ? t('videos.empty.activeBelow')
@@ -14850,7 +15069,7 @@ function renderFeed(s) {
   })
 
   watchedCount.textContent = watchedVideos.length
-  watchedSection.classList.toggle('hidden', !watchedVideos.length)
+  watchedSection.classList.toggle('hidden', statusFilter === 'favorite' || !watchedVideos.length)
   const watchedCollapsed = isWatchedSectionCollapsed === null
     ? watchedVideos.length > 6
     : isWatchedSectionCollapsed
@@ -14910,7 +15129,7 @@ function normalizeChannelShelfOrder(order) {
   ))
 }
 
-function groupActiveVideosByChannel(videos, channelOrder = [], configuredChannels = []) {
+function groupActiveVideosByChannel(videos, channelOrder = [], configuredChannels = [], chronologicalOnly = false) {
   const groups = new Map()
   const configuredChannelsById = new Map(
     configuredChannels
@@ -14937,7 +15156,7 @@ function groupActiveVideosByChannel(videos, channelOrder = [], configuredChannel
   return Array.from(groups.values())
     .map(group => ({
       ...group,
-      videos: group.videos.sort(compareChannelTimelineVideos)
+      videos: group.videos.sort(chronologicalOnly ? compareActiveVideos : compareChannelTimelineVideos)
     }))
     .sort((a, b) => {
       const aIndex = orderedChannelIndexes.get(a.key)
@@ -14955,7 +15174,8 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
   return groupActiveVideosByChannel(
     videos,
     channelOrder,
-    configuredChannels
+    configuredChannels,
+    cardOptions.chronologicalOnly
   ).map((group, index) => {
     const countLabel = group.videos.length === 1
       ? t('videos.channel.oneVideo')
@@ -15450,7 +15670,7 @@ function getVideoPlayerFallbackAspectRatio(video) {
     || (video?.isShort ? 9 / 16 : 16 / 9)
 }
 
-function renderVideoShelfPlayerOverlay(video, startSeconds) {
+function renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch = false) {
   const videoId = String(video.id)
   const formattedStart = formatResumeTimestamp(startSeconds) || '00:00:00'
   const overlay = document.createElement('div')
@@ -15468,6 +15688,9 @@ function renderVideoShelfPlayerOverlay(video, startSeconds) {
         allowfullscreen></iframe>
       </div>
       <div class="video-player-toolbar">
+        ${isRewatch ? `
+        <span class="video-player-time">${escHtml(t('nextStudy.rewatch'))}</span>
+        ` : `
         <label class="video-player-time">
         <span>${escHtml(t('videos.card.continueAt'))}</span>
         <input type="text"
@@ -15479,6 +15702,7 @@ function renderVideoShelfPlayerOverlay(video, startSeconds) {
           onkeydown="if (event.key === 'Enter') this.blur()"
           aria-label="${escHtml(t('videos.card.timestampLabel'))}">
         </label>
+        `}
         <span class="video-player-actions">
           <a class="video-player-youtube"
             href="${escHtml(getVideoUrl(video))}"
@@ -15515,10 +15739,11 @@ function openVideoShelfPlayer(card, videoId) {
 
   if (!markVideoInProgressOnOpen(videoId, { render: false, reminder: false })) return false
   const video = loadState()?.videos?.[videoId]
-  if (!video || getVideoStatus(video) !== 'partial') return false
+  const isRewatch = Boolean(video && getVideoStatus(video) === 'watched' && isFavoriteVideo(video))
+  if (!video || (getVideoStatus(video) !== 'partial' && !isRewatch)) return false
 
-  const startSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
-  const playerElements = renderVideoShelfPlayerOverlay(video, startSeconds)
+  const startSeconds = isRewatch ? 0 : normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
+  const playerElements = renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch)
   if (!playerElements?.iframe) return false
 
   const session = {
@@ -15533,6 +15758,8 @@ function openVideoShelfPlayer(card, videoId) {
     lastPersistedSeconds: startSeconds,
     lastPersistedAt: Date.now(),
     progressEntryAt: null,
+    progressSeconds: 0,
+    isRewatch,
     destroyed: false
   }
   activeVideoShelfPlayer = session
@@ -15632,7 +15859,9 @@ function addVideoShelfSessionProgress(video, seconds, session, watchedAt) {
   const entries = normalizeVideoWatchProgress(video.watchProgress, video.duration)
   const duration = Math.max(0, Math.floor(Number(video.duration || 0)))
   const alreadyWatched = entries.reduce((total, entry) => total + entry.seconds, 0)
-  const secondsToAdd = duration > 0
+  const secondsToAdd = session.isRewatch
+    ? normalizedSeconds
+    : duration > 0
     ? Math.min(normalizedSeconds, Math.max(0, duration - alreadyWatched))
     : normalizedSeconds
   if (!secondsToAdd) return false
@@ -15646,6 +15875,7 @@ function addVideoShelfSessionProgress(video, seconds, session, watchedAt) {
     entries.push(sessionEntry)
   }
   sessionEntry.seconds += secondsToAdd
+  session.progressSeconds = Math.max(0, Number(session.progressSeconds) || 0) + secondsToAdd
   video.watchProgress = normalizeVideoWatchProgress(entries, video.duration)
   return true
 }
@@ -15663,10 +15893,18 @@ function syncActiveVideoShelfPlayer(options = {}) {
 
   const state = loadState()
   const video = state?.videos?.[session.videoId]
-  if (!video || getVideoStatus(video) !== 'partial') return false
+  if (
+    !video
+    || (
+      getVideoStatus(video) !== 'partial'
+      && !(session.isRewatch && getVideoStatus(video) === 'watched' && isFavoriteVideo(video))
+    )
+  ) return false
   const normalized = normalizeResumeAtSeconds(currentSeconds, video.duration)
   const nextResume = normalized || 0
-  const previousResume = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
+  const previousResume = session.isRewatch
+    ? Math.max(0, Number(session.lastPersistedSeconds) || 0)
+    : normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
   session.lastPersistedAt = Date.now()
   session.lastPersistedSeconds = nextResume
   if (nextResume === previousResume) return true
@@ -15674,7 +15912,7 @@ function syncActiveVideoShelfPlayer(options = {}) {
   const watchedAt = getCurrentAppTimestamp(state)
   const progressDelta = Math.max(0, nextResume - previousResume)
   if (progressDelta > 0) addVideoShelfSessionProgress(video, progressDelta, session, watchedAt)
-  video.resumeAtSeconds = normalized
+  if (!session.isRewatch) video.resumeAtSeconds = normalized
   syncStreak(state)
   saveState(state, {
     backup: false,
@@ -15732,6 +15970,14 @@ function completeVideoShelfPlayer(session) {
   })
   const state = loadState()
   const video = state?.videos?.[session.videoId]
+  if (session.isRewatch && video && getVideoStatus(video) === 'watched' && isFavoriteVideo(video)) {
+    const duration = Math.max(0, Math.floor(Number(video.duration || 0)))
+    const missingSeconds = Math.max(0, duration - Math.max(0, Number(session.progressSeconds) || 0))
+    recordVideoRewatch(state, video, missingSeconds)
+    saveState(state)
+    renderAll(state)
+    return
+  }
   if (!video || getVideoStatus(video) === 'watched') {
     if (state) renderAll(state)
     return
@@ -16455,6 +16701,14 @@ function getStatusFilterCounts(allVideos = [], channelFilters = null, includeSho
   })
 
   counts.all = activeVideos.length
+  const visibleFavorites = allVideos.filter(video => (
+    isFavoriteVideo(video)
+    && !isHiddenFromVideoGrid(video)
+    && !isHiddenShortVideo(video, includeShorts)
+    && (!channelFilters || matchesWatchedChannelFilter(video, selectedChannels, removedChannelIds))
+  ))
+  counts.favorite = visibleFavorites.length
+  counts.all += visibleFavorites.filter(video => getVideoStatus(video) === 'watched').length
 
   return counts
 }
@@ -16834,8 +17088,10 @@ function isHiddenFromVideoGrid(video) {
 function renderVideoActionIcon(type) {
   const paths = {
     watched: '<path d="M5 12.5l4 4L19 6.5"></path>',
+    rewatch: '<path d="M4.5 8.5A8 8 0 1 1 4 14"></path><path d="M4.5 4.5v4h4"></path>',
     partial: '<rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect>',
-    'watch-later': '<path d="M6 4h12v16l-6-4-6 4V4Z"></path>'
+    'watch-later': '<path d="M6 4h12v16l-6-4-6 4V4Z"></path>',
+    favorite: '<path d="M12 20.2 4.2 12.8A5.1 5.1 0 0 1 11.4 5.6L12 6.2l.6-.6a5.1 5.1 0 0 1 7.2 7.2L12 20.2Z"></path>'
   }
   return `<svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">${paths[type] || ''}</svg>`
 }
@@ -16848,10 +17104,14 @@ function renderCard(v, compact = false, options = {}) {
   const isWatched = status === 'watched'
   const isPartial = status === 'partial'
   const isWatchLater = status === 'watch-later'
+  const isFavorite = isFavoriteVideo(v)
+  const isRewatchable = isWatched && isFavorite
   const watchedNextStatus = isWatched ? 'unwatched' : 'watched'
   const partialNextStatus = isPartial ? 'unwatched' : 'partial'
   const watchLaterNextStatus = isWatchLater ? 'unwatched' : 'watch-later'
-  const watchedText = compact
+  const watchedText = isRewatchable
+    ? t('nextStudy.rewatch')
+    : compact
     ? t('videos.card.unmark')
     : (isWatched ? t('videos.status.watched') : t('videos.card.markWatched'))
   const watchedTextLabel = !compact && !isWatched
@@ -16859,7 +17119,26 @@ function renderCard(v, compact = false, options = {}) {
     : escHtml(watchedText)
   const watchedLabel = compact
     ? `<span class="watched-btn-text">${watchedTextLabel}</span>`
-    : `${renderVideoActionIcon('watched')}<span class="watched-btn-text">${watchedTextLabel}</span>`
+    : `${renderVideoActionIcon(isRewatchable ? 'rewatch' : 'watched')}<span class="watched-btn-text">${watchedTextLabel}</span>`
+  const watchedAction = isRewatchable
+    ? `<a class="action-btn watched-btn rewatch-btn"
+        href="${videoUrl}"
+        target="_blank"
+        rel="noopener"
+        data-video-id="${safeVideoId}"
+        onclick="markVideoInProgressOnOpen(this.dataset.videoId)"
+        aria-label="${escHtml(t('nextStudy.watchAgain'))}"
+        title="${escHtml(t('nextStudy.watchAgain'))}">
+        ${watchedLabel}
+      </a>`
+    : `<button class="action-btn watched-btn ${isWatched ? 'active' : ''}"
+        data-video-id="${safeVideoId}"
+        data-status="${watchedNextStatus}"
+        onclick="markVideo(this.dataset.videoId, this.dataset.status)"
+        aria-label="${escHtml(isWatched ? t('videos.card.unmark') : t('videos.card.markWatchedTitle'))}"
+        title="${escHtml(isWatched ? t('videos.card.unmark') : t('videos.card.markWatchedTitle'))}">
+        ${watchedLabel}
+      </button>`
   const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
   const thumbnailUrl = compact
     ? String(v.thumbnail || '').replace(/\/hqdefault\.jpg(?=\?|$)/, '/mqdefault.jpg')
@@ -16911,6 +17190,13 @@ function renderCard(v, compact = false, options = {}) {
         onclick="event.preventDefault(); event.stopPropagation(); markVideo(this.dataset.videoId, 'unwatched')"
         aria-label="${escHtml(t('videos.card.removeWatchLater'))}"
         title="${escHtml(t('videos.card.removeWatchLater'))}">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</button>`
+    : options.shelf && isFavorite
+    ? `<button type="button"
+        class="channel-shelf-priority-badge favorite-priority-badge"
+        data-video-id="${safeVideoId}"
+        onclick="event.preventDefault(); event.stopPropagation(); toggleVideoFavorite(this.dataset.videoId)"
+        aria-label="${escHtml(t('videos.card.removeFavorite'))}"
+        title="${escHtml(t('videos.card.removeFavorite'))}">${renderVideoActionIcon('favorite')}</button>`
     : ''
   const shelfPreviewHandlers = options.shelf
     ? 'onclick="toggleVideoShelfPreviewOnTouch(event, this)" onmouseenter="openVideoShelfPreview(this, false, event)" onmouseleave="queueVideoShelfPreviewClose(this)" onfocusin="openVideoShelfPreviewFromFocus(this)" onfocusout="closeVideoShelfPreviewAfterFocus(this)"'
@@ -16919,7 +17205,7 @@ function renderCard(v, compact = false, options = {}) {
     ? 'next-study-focus-target'
     : ''
   return `
-    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
+    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
       ${removeFromGridButton}
       ${thumbnailLink}
       ${shelfResumeTimeField}
@@ -16949,14 +17235,7 @@ function renderCard(v, compact = false, options = {}) {
           <span class="pub-ago">${timeAgo(v.publishedAt)}</span>
         </div>
         <div class="card-actions">
-          <button class="action-btn watched-btn ${isWatched ? 'active' : ''}"
-            data-video-id="${safeVideoId}"
-            data-status="${watchedNextStatus}"
-            onclick="markVideo(this.dataset.videoId, this.dataset.status)"
-            aria-label="${escHtml(isWatched ? t('videos.card.unmark') : t('videos.card.markWatchedTitle'))}"
-            title="${escHtml(isWatched ? t('videos.card.unmark') : t('videos.card.markWatchedTitle'))}">
-            ${watchedLabel}
-          </button>
+          ${watchedAction}
           <button class="action-btn partial-btn ${isPartial ? 'active' : ''}"
             data-video-id="${safeVideoId}"
             data-status="${partialNextStatus}"
@@ -16969,6 +17248,12 @@ function renderCard(v, compact = false, options = {}) {
             onclick="markVideo(this.dataset.videoId, this.dataset.status)"
             aria-label="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}"
             title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">${renderVideoActionIcon('watch-later')}</button>
+          <button class="action-btn favorite-btn ${isFavorite ? 'active' : ''}"
+            data-video-id="${safeVideoId}"
+            onclick="toggleVideoFavorite(this.dataset.videoId)"
+            aria-pressed="${String(isFavorite)}"
+            aria-label="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}"
+            title="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}">${renderVideoActionIcon('favorite')}</button>
         </div>
       </div>
     </div>

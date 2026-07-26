@@ -5401,16 +5401,19 @@ body[data-theme="dark"] .watch-later-status { color: #9fe7fb; }
   flex: 1.2;
   gap: 4px;
   justify-content: center;
+  text-decoration: none;
 }
 .partial-btn,
-.watch-later-btn {
+.watch-later-btn,
+.favorite-btn {
   align-items: center;
   display: inline-flex;
   flex: 0.9;
   justify-content: center;
 }
 .partial-btn .action-icon,
-.watch-later-btn .action-icon {
+.watch-later-btn .action-icon,
+.favorite-btn .action-icon {
   margin-inline: auto;
 }
 .action-icon {
@@ -5428,10 +5431,13 @@ body[data-theme="dark"] .watch-later-status { color: #9fe7fb; }
 .action-btn.active        { background: #eefbd0; border-color: var(--green); color: #466915; }
 .action-btn.partial-btn.active { background: #dff8ff; border-color: var(--amber); color: #087fa6; }
 .action-btn.watch-later-btn.active { background: #dff8ff; border-color: var(--planet-cyan); color: #087fa6; }
+.action-btn.favorite-btn.active { background: #ffe4ec; border-color: #e85d86; color: #bd2452; }
+.action-btn.favorite-btn.active .action-icon { fill: currentColor; }
 body[data-theme="dark"] .action-btn:hover { background: var(--surface-hi); }
 body[data-theme="dark"] .action-btn.active { background: #243a20; color: #dff7a8; }
 body[data-theme="dark"] .action-btn.partial-btn.active { background: #173947; color: #b8f0ff; }
 body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947; color: #b8f0ff; }
+body[data-theme="dark"] .action-btn.favorite-btn.active { background: #4a2030; color: #ffb2ca; }
 
 /* ═══════════════════════════════════════════════════════════
    WALKTHROUGH
@@ -6580,7 +6586,7 @@ summary:focus-visible,
   .video-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .video-card:not(.compact-card) .card-actions {
     display: grid;
-    grid-template-columns: repeat(3, 44px);
+    grid-template-columns: repeat(4, 44px);
     justify-content: flex-end;
   }
   .video-card:not(.compact-card) .action-btn {
@@ -6602,7 +6608,8 @@ summary:focus-visible,
     display: none;
   }
   .video-card:not(.compact-card) .partial-btn,
-  .video-card:not(.compact-card) .watch-later-btn {
+  .video-card:not(.compact-card) .watch-later-btn,
+  .video-card:not(.compact-card) .favorite-btn {
     padding-left: 4px;
     padding-right: 4px;
     white-space: nowrap;
@@ -6745,7 +6752,7 @@ summary:focus-visible,
     grid-template-columns: 1fr;
   }
   .video-card:not(.compact-card) .card-actions {
-    grid-template-columns: minmax(0, 1fr) 44px 44px;
+    grid-template-columns: minmax(0, 1fr) 44px 44px 44px;
     justify-content: stretch;
   }
   .video-card:not(.compact-card) .watched-btn-text {
@@ -7137,6 +7144,10 @@ summary:focus-visible,
     border-color: #12bcea;
     box-shadow: 0 3px 0 rgba(8,127,166,0.34);
   }
+  .channel-shelf-card.is-favorite:not(.status-partial):not(.status-watch-later) {
+    border-color: #e85d86;
+    box-shadow: 0 3px 0 rgba(232,93,134,0.34);
+  }
   .channel-shelf-card .channel-shelf-priority-badge {
     align-items: center;
     border: 1px solid rgba(255,255,255,0.72);
@@ -7161,6 +7172,13 @@ summary:focus-visible,
   .channel-shelf-card .watch-later-priority-badge {
     background: #12bcea;
     color: #052a36;
+  }
+  .channel-shelf-card .favorite-priority-badge {
+    background: #ffe4ec;
+    color: #bd2452;
+  }
+  .channel-shelf-card .favorite-priority-badge .action-icon {
+    fill: currentColor;
   }
   .channel-shelf-card .thumb-link {
     aspect-ratio: auto;
@@ -7272,7 +7290,8 @@ summary:focus-visible,
     margin: 0;
   }
   .channel-shelf-card .partial-btn,
-  .channel-shelf-card .watch-later-btn {
+  .channel-shelf-card .watch-later-btn,
+  .channel-shelf-card .favorite-btn {
     flex: 0 0 44px;
   }
   .channel-shelf-card .dur-badge {
@@ -8064,6 +8083,9 @@ summary:focus-visible,
   .channel-shelf-card.status-watch-later:not(.is-previewing):not(.is-preview-closing) {
     border-color: #087fa6;
   }
+  .channel-shelf-card.is-favorite:not(.status-partial):not(.status-watch-later):not(.is-previewing):not(.is-preview-closing) {
+    border-color: #e85d86;
+  }
   .channel-shelf-priority-badge {
     align-items: center;
     backdrop-filter: blur(5px);
@@ -8090,6 +8112,13 @@ summary:focus-visible,
   .watch-later-priority-badge {
     background: rgba(18,188,234,0.92);
     color: #052a36;
+  }
+  .favorite-priority-badge {
+    background: rgba(255,228,236,0.94);
+    color: #bd2452;
+  }
+  .favorite-priority-badge .action-icon {
+    fill: currentColor;
   }
   .channel-shelf-card .thumb-link {
     aspect-ratio: auto;
@@ -8352,8 +8381,10 @@ summary:focus-visible,
 }
 .channel-shelf-card .partial-priority-badge[type="button"]:hover,
 .channel-shelf-card .watch-later-priority-badge[type="button"]:hover,
+.channel-shelf-card .favorite-priority-badge[type="button"]:hover,
 .action-btn.partial-btn:hover,
 .action-btn.watch-later-btn:hover,
+.action-btn.favorite-btn:hover,
 .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.partial-btn.active:hover {
   background: #e9f8ed;
   border-color: var(--planet-black);
@@ -8361,8 +8392,10 @@ summary:focus-visible,
 }
 body[data-theme="dark"] .channel-shelf-card .partial-priority-badge[type="button"]:hover,
 body[data-theme="dark"] .channel-shelf-card .watch-later-priority-badge[type="button"]:hover,
+body[data-theme="dark"] .channel-shelf-card .favorite-priority-badge[type="button"]:hover,
 body[data-theme="dark"] .action-btn.partial-btn:hover,
 body[data-theme="dark"] .action-btn.watch-later-btn:hover,
+body[data-theme="dark"] .action-btn.favorite-btn:hover,
 body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.partial-btn.active:hover {
   background: var(--surface-hi);
   border-color: var(--planet-black);

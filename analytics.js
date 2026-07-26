@@ -250,6 +250,56 @@
     analyticsState.watchedVideos = currentVideos;
   }
 
+  function getStudyInsightEventProperties(insight, updateReason) {
+    return {
+      insight_key: insight.key,
+      insight_id: insight.insightId,
+      insight_type: insight.type,
+      insight_variant: insight.variant || 0,
+      message_title: insight.title || '',
+      message_body: insight.body || '',
+      message_evidence: insight.evidence || '',
+      message_locale: insight.locale || 'en',
+      recorded_at: insight.recordedAt || null,
+      time_window: insight.windowId || null,
+      weekday_index: Number.isInteger(insight.weekdayIndex) ? insight.weekdayIndex : null,
+      percent: insight.percent || 0,
+      comparison_percent: insight.comparisonPercent || 0,
+      recent_minutes: insight.recentMinutes || 0,
+      previous_minutes: insight.previousMinutes || 0,
+      suggested_minutes: insight.suggestedMinutes || 0,
+      active_days: insight.activeDays || 0,
+      anki_days: insight.ankiDays || 0,
+      reviewed_cards: insight.reviewedCards || 0,
+      anki_cards_created: insight.ankiCreated || 0,
+      total_seconds: insight.totalSeconds || 0,
+      video_count: insight.videoCount || 0,
+      top_video_title: insight.topVideoTitle || '',
+      top_video_seconds: insight.topVideoSeconds || 0,
+      channel_breakdown: insight.channelBreakdown || [],
+      observation_days: insight.observationDays || 0,
+      update_reason: updateReason
+    };
+  }
+
+  function syncStudyInsights(snapshot, analyticsState, isInitialSync) {
+    const previousInsights = analyticsState.studyInsights || {};
+    const currentInsights = toObjectMap(snapshot.studyInsights, 'key');
+    const isInitialInsightsSync = isInitialSync
+      || !Object.prototype.hasOwnProperty.call(analyticsState, 'studyInsights');
+
+    Object.entries(currentInsights).forEach(([insightKey, insight]) => {
+      const previousInsight = previousInsights[insightKey];
+      if (!isInitialInsightsSync && previousInsight && valuesMatch(previousInsight, insight)) return;
+      capture('study_insight_message_recorded', getStudyInsightEventProperties(
+        insight,
+        isInitialInsightsSync ? 'initial_backfill' : (previousInsight ? 'message_updated' : 'new_message')
+      ));
+    });
+
+    analyticsState.studyInsights = currentInsights;
+  }
+
   function syncStreak(snapshot, analyticsState, isInitialSync) {
     const currentStreak = snapshot.streak || {};
     const previousStreak = analyticsState.streak || null;
@@ -328,6 +378,7 @@
     syncPersonProperties(snapshot, analyticsState);
     syncChannels(snapshot, analyticsState, isInitialSync);
     syncWatchedVideos(snapshot, analyticsState, isInitialSync);
+    syncStudyInsights(snapshot, analyticsState, isInitialSync);
     syncStudyDays(snapshot, analyticsState, isInitialSync);
     syncStreak(snapshot, analyticsState, isInitialSync);
     syncTown(snapshot, analyticsState, isInitialSync);
@@ -336,6 +387,7 @@
     if (isInitialSync) {
       capture('analytics_profile_initialized', {
         channel_count: snapshot.channels?.length || 0,
+        study_insight_message_count: snapshot.studyInsights?.length || 0,
         study_day_count: snapshot.studyDays?.length || 0,
         current_streak_days: snapshot.streak?.currentDays || 0,
         current_town_level: (snapshot.town?.visibleLevelIndex || 0) + 1
