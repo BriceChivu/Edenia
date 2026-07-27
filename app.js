@@ -1101,6 +1101,7 @@ const I18N_EN = {
   'nextStudy.removeFavorite': 'Remove favorite',
   'nextStudy.unwatch': 'Unwatch',
   'nextStudy.continueShort': 'Continue',
+  'nextStudy.continueAt': 'Continue at {timestamp}',
   'goal.watched': 'watched',
   'goal.inProgress': 'in progress',
   'goal.toGo': 'to go',
@@ -1750,6 +1751,7 @@ const I18N = {
     'nextStudy.notInterested': '不感興趣',
     'nextStudy.unwatch': '標記為未觀看',
     'nextStudy.continueShort': '繼續',
+    'nextStudy.continueAt': '從 {timestamp} 繼續',
     'goal.watched': '已看',
     'goal.inProgress': '進行中',
     'goal.toGo': '還差',
@@ -2232,6 +2234,7 @@ const I18N = {
     'nextStudy.notInterested': '不感兴趣',
     'nextStudy.unwatch': '标记为未观看',
     'nextStudy.continueShort': '继续',
+    'nextStudy.continueAt': '从 {timestamp} 继续',
     'goal.watched': '已看',
     'goal.inProgress': '进行中',
     'goal.toGo': '还差',
@@ -2697,6 +2700,7 @@ const I18N = {
     'nextStudy.notInterested': 'No me interesa',
     'nextStudy.unwatch': 'Marcar sin ver',
     'nextStudy.continueShort': 'Continuar',
+    'nextStudy.continueAt': 'Continuar desde {timestamp}',
     'goal.watched': 'vistos',
     'goal.inProgress': 'en progreso',
     'goal.toGo': 'restantes',
@@ -3164,6 +3168,7 @@ const I18N = {
     'nextStudy.notInterested': 'Pas intéressé',
     'nextStudy.unwatch': 'Marquer non vue',
     'nextStudy.continueShort': 'Continuer',
+    'nextStudy.continueAt': 'Continuer à {timestamp}',
     'goal.watched': 'vues',
     'goal.inProgress': 'en cours',
     'goal.toGo': 'restant',
@@ -11459,14 +11464,15 @@ async function addYoutubeInput(event) {
   input?.focus()
 }
 
-function prepareNextStudyVideoOpen(link) {
-  const videoId = link?.dataset?.videoId
-  if (!videoId) return false
-  const video = loadState()?.videos?.[videoId]
-  if (!video) return false
-  link.href = getVideoUrl(video)
-  markVideoInProgressOnOpen(videoId)
-  return true
+function openNextStudyVideoPlayer(event, videoId) {
+  event?.preventDefault()
+  event?.stopPropagation()
+
+  const targetVideoId = String(videoId ?? '')
+  if (!targetVideoId || !openVideoPlayer(targetVideoId)) {
+    showToast(t('toast.videoGone'), 'warn')
+  }
+  return false
 }
 
 function focusNextStudyVideoCard(event, videoId) {
@@ -13910,13 +13916,14 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
   const isRewatch = status === 'watched' && isFavoriteVideo(nextVideo)
   const safeVideoId = escHtml(nextVideo.id)
   const videoUrl = escHtml(getVideoUrl(nextVideo))
+  const resumeTimestamp = formatResumeTimestamp(nextVideo.resumeAtSeconds) || '00:00:00'
   const panelTitleKey = isInProgress
     ? 'nextStudy.title'
     : isRewatch
     ? 'nextStudy.rewatch'
     : 'nextStudy.studyNext'
   const cta = isInProgress
-    ? t('nextStudy.resume')
+    ? t('nextStudy.continueAt', { timestamp: resumeTimestamp })
     : isRewatch
     ? t('nextStudy.watchAgain')
     : t('nextStudy.watch')
@@ -13926,24 +13933,13 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
   container.classList.toggle('rewatch-card', isRewatch)
   const actions = isInProgress
     ? `
-      <button type="button"
-        class="next-study-cta next-study-reset"
+      <a class="next-study-cta next-study-continue"
+        href="${videoUrl}"
+        target="_blank"
+        rel="noopener"
         data-video-id="${safeVideoId}"
-        onclick="markVideo(this.dataset.videoId, 'unwatched')">${escHtml(t('nextStudy.unwatch'))}</button>
-      <span class="next-study-cta next-study-continue"
-        onclick="if (!event.target.closest('a')) this.querySelector('.next-study-play')?.click()">
-        <span class="next-study-continue-short">${escHtml(t('nextStudy.continueShort'))}</span>
-        <a class="next-study-play"
-          href="${videoUrl}"
-          target="_blank"
-          rel="noopener"
-          data-video-id="${safeVideoId}"
-          onmousedown="if (event.button === 0) event.preventDefault()"
-          onclick="return prepareNextStudyVideoOpen(this)"
-          aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5L8 5.5Z"></path></svg>
-        </a>
-      </span>
+        onclick="return openNextStudyVideoPlayer(event, this.dataset.videoId)"
+        aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}">${escHtml(cta)}</a>
     `
     : isRewatch
     ? `
@@ -13956,23 +13952,19 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
         target="_blank"
         rel="noopener"
         data-video-id="${safeVideoId}"
-        onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${escHtml(t('nextStudy.watchAgain'))}</a>
+        onclick="return openNextStudyVideoPlayer(event, this.dataset.videoId)">${escHtml(t('nextStudy.watchAgain'))}</a>
     `
     : `
-      <button type="button"
-        class="next-study-cta next-study-reset"
-        data-video-id="${safeVideoId}"
-        onclick="markVideo(this.dataset.videoId, 'unwatched')">${escHtml(t('nextStudy.notInterested'))}</button>
       <a class="next-study-cta next-study-watch"
         href="${videoUrl}"
         target="_blank"
         rel="noopener"
         data-video-id="${safeVideoId}"
-        onclick="markVideoInProgressOnOpen(this.dataset.videoId)">${escHtml(t('nextStudy.watch'))}</a>
+        onclick="return openNextStudyVideoPlayer(event, this.dataset.videoId)">${escHtml(t('nextStudy.watch'))}</a>
     `
   container.innerHTML = `
     <button type="button" class="next-study-panel-focus" data-video-id="${safeVideoId}" onclick="focusNextStudyVideoCard(event, this.dataset.videoId)" aria-label="${escHtml(panelLabel)}"></button>
-    <a class="next-study-mobile-link" href="${videoUrl}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="markVideoInProgressOnOpen(this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}"></a>
+    <a class="next-study-mobile-link" href="${videoUrl}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="return openNextStudyVideoPlayer(event, this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}"></a>
     <span class="next-study-thumb-link" aria-hidden="true">
       <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
     </span>
@@ -15920,6 +15912,12 @@ function renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch = false) {
 function openVideoShelfPlayer(card, videoId) {
   if (!card?.classList.contains('is-previewing') || !canUseEmbeddedVideoShelfPlayer()) return false
   closeVideoShelfPreview(card, true)
+  return openVideoPlayer(videoId)
+}
+
+function openVideoPlayer(videoId) {
+  videoId = String(videoId ?? '')
+  if (!videoId) return false
   if (activeVideoShelfPlayer?.videoId === videoId) return true
   if (activeVideoShelfPlayer) stopActiveVideoShelfPlayer({ persist: true })
 

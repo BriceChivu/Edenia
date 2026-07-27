@@ -3020,36 +3020,7 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   background: transparent;
   cursor: pointer;
   display: inline-flex;
-  gap: 5px;
-  padding: 4px 5px 4px 11px;
-}
-.next-study-continue-short {
-  display: inline;
-}
-.next-study-play {
-  align-items: center;
-  background: var(--accent);
-  border-radius: 50%;
-  color: var(--planet-white);
-  display: inline-flex;
-  height: 20px;
-  justify-content: center;
-  transition: filter var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
-  width: 20px;
-}
-.next-study-play:hover {
-  filter: brightness(0.92);
   text-decoration: none;
-  transform: scale(1.06);
-}
-.next-study-play:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-.next-study-play svg {
-  fill: currentColor;
-  height: 10px;
-  width: 10px;
 }
 .next-study-reset {
   background: transparent;
