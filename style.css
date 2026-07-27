@@ -8187,6 +8187,25 @@ summary:focus-visible,
     flex: 0 0 auto;
     margin-top: auto;
   }
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .watch-later-btn,
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .favorite-btn {
+    bottom: calc(100% + 10px);
+    border-radius: 50%;
+    box-shadow: 0 3px 9px rgba(5,5,5,0.3);
+    flex: none;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    position: absolute;
+    width: 44px;
+    z-index: 5;
+  }
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .watch-later-btn {
+    right: 62px;
+  }
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .favorite-btn {
+    right: 12px;
+  }
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .channel-name {
     display: block;
   }
