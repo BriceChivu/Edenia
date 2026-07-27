@@ -3024,40 +3024,7 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   padding: 4px 5px 4px 11px;
 }
 .next-study-continue-short {
-  display: none;
-}
-.next-study-resume-control {
-  align-items: center;
-  display: inline-flex;
-  gap: 5px;
-}
-@media (max-aspect-ratio: 536/986) {
-  .next-study-continue .next-study-resume-control {
-    display: none;
-  }
-  .next-study-continue-short {
-    display: inline;
-  }
-}
-.next-study-resume-control .resume-time-input {
-  appearance: none;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  color: inherit;
-  cursor: text;
-  flex: 0 0 70px;
-  font: inherit;
-  min-width: 0;
-  padding: 2px 0;
-  text-align: center;
-  width: 70px;
-}
-.next-study-resume-control .resume-time-input:focus {
-  border: 0;
-  box-shadow: none;
-  outline: 0;
+  display: inline;
 }
 .next-study-play {
   align-items: center;
@@ -3156,26 +3123,12 @@ body.video-player-open {
   gap: 7px;
   min-width: 0;
 }
-.video-player-time input {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  color: var(--text);
-  font: inherit;
-  padding: 7px 8px;
-  text-align: center;
-  width: 82px;
-}
-.video-player-time input:focus {
-  border-color: var(--green);
-  box-shadow: 0 0 0 2px rgba(139, 189, 40, 0.2);
-  outline: none;
-}
 .video-player-actions {
   align-items: center;
   display: inline-flex;
   flex-shrink: 0;
   gap: 8px;
+  margin-left: auto;
 }
 .video-player-favorite {
   align-items: center;
@@ -5390,77 +5343,6 @@ body[data-theme="dark"] .dur-badge { color: #ffffff; }
   font-size: 0.7rem;
   font-weight: 700;
   line-height: 1;
-}
-.resume-time-field {
-  align-items: center;
-  align-self: flex-start;
-  background: rgba(255,255,255,0.48);
-  border: 1px solid rgba(5,5,5,0.14);
-  border-radius: 999px;
-  color: var(--muted);
-  display: inline-flex;
-  gap: 5px;
-  margin-top: 6px;
-  max-width: 100%;
-  padding: 4px 7px;
-}
-.resume-time-field .resume-time-label,
-.resume-time-field .resume-time-value {
-  flex: 0 0 auto;
-  font-size: 0.7rem;
-  font-weight: 800;
-  line-height: 1;
-}
-.resume-time-field .resume-time-value {
-  color: var(--text);
-}
-.resume-time-field .resume-time-input {
-  background: transparent;
-  border: 0;
-  color: var(--text);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 800;
-  line-height: 1;
-  min-width: 4.5ch;
-  outline: 0;
-  padding: 0;
-  width: 7ch;
-}
-.resume-time-field .resume-time-input::placeholder {
-  color: var(--muted);
-  opacity: 0.72;
-}
-.resume-time-field:focus-within {
-  background: var(--surface-hi);
-  border-color: var(--planet-black);
-  box-shadow: 0 0 0 3px rgba(252,184,49,0.22);
-}
-body[data-theme="dark"] .resume-time-field {
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.16);
-}
-.resume-time-adjust {
-  appearance: none;
-  background: transparent;
-  border: 0;
-  color: var(--muted);
-  cursor: pointer;
-  font: inherit;
-  font-size: 0.66rem;
-  font-weight: 750;
-  line-height: 1;
-  padding: 1px 2px;
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-}
-.resume-time-adjust:hover,
-.resume-time-adjust:focus-visible {
-  color: var(--text);
-}
-.resume-time-control.is-editing .resume-time-input {
-  min-width: 7ch;
 }
 .card-status {
   align-items: center;

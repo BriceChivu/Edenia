@@ -1306,10 +1306,8 @@ const I18N_EN = {
   'videos.card.watchLater': 'Watch later',
   'videos.card.removeFavorite': 'Remove from favorites',
   'videos.card.favorite': 'Favorite',
-  'videos.card.resume': 'Resume watching',
+  'videos.card.resume': 'Resume',
   'videos.card.continueAt': 'Continue at',
-  'videos.card.resumeFrom': 'Resume from',
-  'videos.card.adjustTimestamp': 'Adjust timestamp',
   'videos.card.timestampLabel': 'Continue watching timestamp',
   'videos.card.openOnYoutube': 'Open on YouTube',
   'videos.card.inProgressRibbon': 'In progress',
@@ -1923,10 +1921,8 @@ const I18N = {
     'videos.card.markWatchedTitle': '標記為已看',
     'videos.card.unmark': '取消標記',
     'videos.card.clear': '清除',
-    'videos.card.resume': '繼續觀看',
+    'videos.card.resume': '繼續',
     'videos.card.continueAt': '繼續於',
-    'videos.card.resumeFrom': '從此處繼續',
-    'videos.card.adjustTimestamp': '調整時間',
     'videos.card.openOnYoutube': '在 YouTube 開啟',
     'videos.card.removeFromGrid': '從清單移除',
     'activity.empty': '還沒有活動紀錄',
@@ -2393,10 +2389,8 @@ const I18N = {
     'videos.card.markWatched': '标记已看',
     'videos.card.new': '新视频',
     'videos.card.unmark': '取消标记',
-    'videos.card.resume': '继续观看',
+    'videos.card.resume': '继续',
     'videos.card.continueAt': '继续于',
-    'videos.card.resumeFrom': '从此处继续',
-    'videos.card.adjustTimestamp': '调整时间',
     'videos.card.openOnYoutube': '在 YouTube 打开',
     'videos.card.removeFromGrid': '从列表移除',
     'activity.empty': '还没有活动记录',
@@ -2862,10 +2856,8 @@ const I18N = {
     'videos.card.markWatched': 'Marcar visto',
     'videos.card.new': 'Nuevo',
     'videos.card.unmark': 'Desmarcar',
-    'videos.card.resume': 'Continuar viendo',
+    'videos.card.resume': 'Reanudar',
     'videos.card.continueAt': 'Continuar en',
-    'videos.card.resumeFrom': 'Reanudar desde',
-    'videos.card.adjustTimestamp': 'Ajustar tiempo',
     'videos.card.openOnYoutube': 'Abrir en YouTube',
     'videos.card.removeFromGrid': 'Quitar de la lista',
     'activity.empty': 'Aún no hay actividad registrada',
@@ -3333,8 +3325,6 @@ const I18N = {
     'videos.card.unmark': 'Retirer',
     'videos.card.resume': 'Continuer',
     'videos.card.continueAt': 'Reprendre à',
-    'videos.card.resumeFrom': 'Reprendre à',
-    'videos.card.adjustTimestamp': 'Ajuster le temps',
     'videos.card.openOnYoutube': 'Ouvrir sur YouTube',
     'videos.card.removeFromGrid': 'Retirer de la liste',
     'activity.empty': 'Aucune activité enregistrée',
@@ -11469,150 +11459,6 @@ async function addYoutubeInput(event) {
   input?.focus()
 }
 
-function getVideoResumeControlMarkup(videoId, formattedTime, className = '') {
-  const safeVideoId = escHtml(String(videoId ?? ''))
-  const safeTime = escHtml(formattedTime || '00:00:00')
-  return `
-    <span class="resume-time-control ${className}"
-      data-resume-time-control
-      data-video-id="${safeVideoId}"
-      data-resume-value="${safeTime}">
-      <span class="resume-time-label">${escHtml(t('videos.card.resumeFrom'))}</span>
-      <strong class="resume-time-value">${safeTime}</strong>
-      <button type="button"
-        class="resume-time-adjust"
-        onclick="beginVideoResumeTimeAdjustment(event, this)">${escHtml(t('videos.card.adjustTimestamp'))}</button>
-      <input type="text"
-        class="resume-time-input"
-        value="${safeTime}"
-        placeholder="00:01:23"
-        inputmode="text"
-        data-video-id="${safeVideoId}"
-        onblur="commitVideoResumeTimeAdjustment(this)"
-        onkeydown="handleVideoResumeTimeAdjustmentKeydown(event, this)"
-        aria-label="${escHtml(t('videos.card.timestampLabel'))}"
-        hidden>
-    </span>
-  `
-}
-
-function setVideoResumeTimeAdjustmentOpen(control, open) {
-  if (!control) return
-  control.classList.toggle('is-editing', open)
-  const label = control.querySelector('.resume-time-label')
-  const value = control.querySelector('.resume-time-value')
-  const button = control.querySelector('.resume-time-adjust')
-  const input = control.querySelector('.resume-time-input')
-  if (label) label.hidden = open
-  if (value) value.hidden = open
-  if (button) button.hidden = open
-  if (input) input.hidden = !open
-}
-
-function beginVideoResumeTimeAdjustment(event, button) {
-  event?.preventDefault()
-  event?.stopPropagation()
-  const control = button?.closest?.('[data-resume-time-control]')
-  const input = control?.querySelector?.('.resume-time-input')
-  if (!control || !input) return false
-  input.value = control.dataset.resumeValue || '00:00:00'
-  setVideoResumeTimeAdjustmentOpen(control, true)
-  window.requestAnimationFrame(() => {
-    input.focus()
-    input.select()
-  })
-  return false
-}
-
-function updateRenderedVideoResumeTimes(videoId, formattedTime) {
-  document.querySelectorAll('[data-resume-time-control]').forEach(control => {
-    if (control.dataset.videoId !== String(videoId ?? '')) return
-    control.dataset.resumeValue = formattedTime
-    const value = control.querySelector('.resume-time-value')
-    const input = control.querySelector('.resume-time-input')
-    if (value) value.textContent = formattedTime
-    if (input) input.value = formattedTime
-  })
-}
-
-function commitVideoResumeTimeAdjustment(input) {
-  if (!input || input.dataset.cancelAdjustment === 'true') {
-    if (input) delete input.dataset.cancelAdjustment
-    return
-  }
-  const videoId = input.dataset.videoId
-  saveVideoResumeTime(videoId, input.value, { render: false })
-  const video = loadState()?.videos?.[videoId]
-  const formattedTime = formatResumeTimestamp(video?.resumeAtSeconds) || '00:00:00'
-  updateRenderedVideoResumeTimes(videoId, formattedTime)
-  setVideoResumeTimeAdjustmentOpen(input.closest('[data-resume-time-control]'), false)
-}
-
-function handleVideoResumeTimeAdjustmentKeydown(event, input) {
-  if (event.key === 'Enter') {
-    event.preventDefault()
-    input.blur()
-    return
-  }
-  if (event.key !== 'Escape') return
-  event.preventDefault()
-  input.dataset.cancelAdjustment = 'true'
-  const control = input.closest('[data-resume-time-control]')
-  input.value = control?.dataset.resumeValue || '00:00:00'
-  setVideoResumeTimeAdjustmentOpen(control, false)
-  input.blur()
-}
-
-function saveVideoResumeTime(videoId, value, options = {}) {
-  const shouldRender = options.render !== false
-  const s = loadState()
-  const video = s?.videos?.[videoId]
-  if (!video || getVideoStatus(video) !== 'partial') return false
-
-  const parsed = parseResumeTimestamp(value, video.duration)
-  if (Number.isNaN(parsed)) {
-    showToast(t('toast.timestampFormat'), 'warn')
-    if (!shouldRender && activeVideoShelfPlayer?.videoId === String(videoId ?? '')) {
-      updateVideoShelfPlayerTimestamp(
-        activeVideoShelfPlayer,
-        getVideoShelfPlayerCurrentTime(activeVideoShelfPlayer)
-      )
-    }
-    if (shouldRender) renderAll(s)
-    return false
-  }
-
-  const beforeVideo = cloneVideoForHistoryAction(video)
-  const previousResume = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
-  const nextResume = parsed || 0
-  if (nextResume === previousResume) {
-    seekActiveVideoShelfPlayer(videoId, nextResume)
-    if (shouldRender) renderAll(s)
-    return true
-  }
-  video.resumeAtSeconds = parsed
-  pushUndoAction(s, {
-    type: 'video-resume-time',
-    videoId,
-    before: {
-      video: beforeVideo,
-      status: beforeVideo.status,
-      watchedAt: beforeVideo.watchedAt || null,
-      resumeAtSeconds: normalizeResumeAtSeconds(beforeVideo.resumeAtSeconds, beforeVideo.duration)
-    },
-    after: {
-      video: cloneVideoForHistoryAction(video),
-      status: video.status,
-      watchedAt: video.watchedAt || null,
-      resumeAtSeconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
-    }
-  })
-  saveState(s)
-  seekActiveVideoShelfPlayer(videoId, nextResume)
-  if (shouldRender) renderAll(s)
-  return true
-}
-
 function prepareNextStudyVideoOpen(link) {
   const videoId = link?.dataset?.videoId
   if (!videoId) return false
@@ -14075,7 +13921,6 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
     ? t('nextStudy.watchAgain')
     : t('nextStudy.watch')
   const panelLabel = `${t(panelTitleKey)}: ${nextVideo.title}`
-  const resumeAt = formatResumeTimestamp(nextVideo.resumeAtSeconds) || '00:00:00'
   container.classList.toggle('continue-watching-card', isInProgress)
   container.classList.toggle('study-next-card', !isInProgress && !isRewatch)
   container.classList.toggle('rewatch-card', isRewatch)
@@ -14086,9 +13931,8 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
         data-video-id="${safeVideoId}"
         onclick="markVideo(this.dataset.videoId, 'unwatched')">${escHtml(t('nextStudy.unwatch'))}</button>
       <span class="next-study-cta next-study-continue"
-        onclick="if (!event.target.closest('input, button, a')) this.querySelector('.next-study-play')?.click()">
+        onclick="if (!event.target.closest('a')) this.querySelector('.next-study-play')?.click()">
         <span class="next-study-continue-short">${escHtml(t('nextStudy.continueShort'))}</span>
-        ${getVideoResumeControlMarkup(nextVideo.id, resumeAt, 'next-study-resume-control')}
         <a class="next-study-play"
           href="${videoUrl}"
           target="_blank"
@@ -16022,7 +15866,6 @@ function getVideoPlayerFallbackAspectRatio(video) {
 
 function renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch = false) {
   const videoId = String(video.id)
-  const formattedStart = formatResumeTimestamp(startSeconds) || '00:00:00'
   const overlay = document.createElement('div')
   overlay.className = 'video-player-overlay'
   overlay.setAttribute('role', 'dialog')
@@ -16038,11 +15881,7 @@ function renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch = false) {
         allowfullscreen></iframe>
       </div>
       <div class="video-player-toolbar">
-        ${isRewatch ? `
-        <span class="video-player-time">${escHtml(t('nextStudy.rewatch'))}</span>
-        ` : `
-        ${getVideoResumeControlMarkup(videoId, formattedStart, 'video-player-time')}
-        `}
+        ${isRewatch ? `<span class="video-player-time">${escHtml(t('nextStudy.rewatch'))}</span>` : ''}
         <span class="video-player-actions">
           <button type="button"
             class="video-player-favorite ${isFavoriteVideo(video) ? 'active' : ''}"
@@ -16193,17 +16032,7 @@ function getVideoShelfPlayerCurrentTime(session = activeVideoShelfPlayer) {
 
 function updateVideoShelfPlayerTimestamp(session, seconds) {
   if (!session || !Number.isFinite(Number(seconds))) return
-  const normalized = Math.max(0, Math.floor(Number(seconds)))
-  session.lastKnownSeconds = normalized
-  const formatted = formatResumeTimestamp(normalized) || '00:00:00'
-  document.querySelectorAll('[data-resume-time-control]').forEach(control => {
-    if (control.dataset.videoId !== session.videoId || control.classList.contains('is-editing')) return
-    control.dataset.resumeValue = formatted
-    const value = control.querySelector('.resume-time-value')
-    const input = control.querySelector('.resume-time-input')
-    if (value) value.textContent = formatted
-    if (input) input.value = formatted
-  })
+  session.lastKnownSeconds = Math.max(0, Math.floor(Number(seconds)))
 }
 
 function addVideoShelfSessionProgress(video, seconds, session, watchedAt) {
@@ -16230,6 +16059,75 @@ function addVideoShelfSessionProgress(video, seconds, session, watchedAt) {
   }
   sessionEntry.seconds += secondsToAdd
   session.progressSeconds = Math.max(0, Number(session.progressSeconds) || 0) + secondsToAdd
+  video.watchProgress = normalizeVideoWatchProgress(entries, video.duration)
+  return true
+}
+
+function setVideoShelfProgressToTimestamp(video, seconds, session, watchedAt) {
+  if (!video || !session || !isValidTimestamp(watchedAt)) return false
+  const duration = Math.max(0, Math.floor(Number(video.duration || 0)))
+  const targetSeconds = duration > 0
+    ? clampNumber(Math.floor(Number(seconds) || 0), 0, duration)
+    : Math.max(0, Math.floor(Number(seconds) || 0))
+  const entries = normalizeVideoWatchProgress(video.watchProgress, video.duration)
+  const currentSeconds = entries.reduce((total, entry) => total + entry.seconds, 0)
+  if (targetSeconds === currentSeconds) return false
+
+  if (targetSeconds > currentSeconds) {
+    let sessionEntry = session.progressEntryAt
+      ? entries.find(entry => entry.watchedAt === session.progressEntryAt)
+      : null
+    if (!sessionEntry) {
+      session.progressEntryAt = watchedAt
+      sessionEntry = { watchedAt, seconds: 0 }
+      entries.push(sessionEntry)
+    }
+    sessionEntry.seconds += targetSeconds - currentSeconds
+  } else {
+    let secondsToRemove = currentSeconds - targetSeconds
+    for (let index = entries.length - 1; index >= 0 && secondsToRemove > 0; index -= 1) {
+      const removedSeconds = Math.min(entries[index].seconds, secondsToRemove)
+      entries[index].seconds -= removedSeconds
+      secondsToRemove -= removedSeconds
+      if (entries[index].seconds <= 0) entries.splice(index, 1)
+    }
+  }
+
+  video.watchProgress = normalizeVideoWatchProgress(entries, video.duration)
+  if (
+    session.progressEntryAt
+    && !video.watchProgress.some(entry => entry.watchedAt === session.progressEntryAt)
+  ) {
+    session.progressEntryAt = null
+  }
+  return true
+}
+
+function setVideoShelfRewatchProgressToTimestamp(video, seconds, session, watchedAt) {
+  if (!video || !session || !isValidTimestamp(watchedAt)) return false
+  const duration = Math.max(0, Math.floor(Number(video.duration || 0)))
+  const targetSeconds = duration > 0
+    ? clampNumber(Math.floor(Number(seconds) || 0), 0, duration)
+    : Math.max(0, Math.floor(Number(seconds) || 0))
+  const entries = normalizeVideoWatchProgress(video.watchProgress, video.duration)
+  let sessionEntry = session.progressEntryAt
+    ? entries.find(entry => entry.watchedAt === session.progressEntryAt)
+    : null
+  const currentSeconds = sessionEntry?.seconds || 0
+  session.progressSeconds = targetSeconds
+  if (targetSeconds === currentSeconds) return false
+
+  if (!sessionEntry && targetSeconds > 0) {
+    session.progressEntryAt = watchedAt
+    sessionEntry = { watchedAt, seconds: targetSeconds }
+    entries.push(sessionEntry)
+  } else if (sessionEntry && targetSeconds > 0) {
+    sessionEntry.seconds = targetSeconds
+  } else if (sessionEntry) {
+    entries.splice(entries.indexOf(sessionEntry), 1)
+    session.progressEntryAt = null
+  }
+
   video.watchProgress = normalizeVideoWatchProgress(entries, video.duration)
   return true
 }
@@ -16261,12 +16159,13 @@ function syncActiveVideoShelfPlayer(options = {}) {
     : normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
   session.lastPersistedAt = Date.now()
   session.lastPersistedSeconds = nextResume
-  if (nextResume === previousResume) return true
 
   const watchedAt = getCurrentAppTimestamp(state)
-  const progressDelta = Math.max(0, nextResume - previousResume)
-  if (progressDelta > 0) addVideoShelfSessionProgress(video, progressDelta, session, watchedAt)
+  const progressChanged = session.isRewatch
+    ? setVideoShelfRewatchProgressToTimestamp(video, nextResume, session, watchedAt)
+    : setVideoShelfProgressToTimestamp(video, nextResume, session, watchedAt)
   if (!session.isRewatch) video.resumeAtSeconds = normalized
+  if (nextResume === previousResume && !progressChanged) return true
   syncStreak(state)
   saveState(state, {
     backup: false,
@@ -16434,20 +16333,6 @@ function completeVideoShelfPlayerRewatchConfirmation(session) {
   saveState(state)
   renderAll(state)
   scheduleVideoWatchReminderTimer(state)
-  return true
-}
-
-function seekActiveVideoShelfPlayer(videoId, seconds) {
-  const session = activeVideoShelfPlayer
-  if (!session || session.videoId !== String(videoId ?? '')) return false
-  const normalized = Math.max(0, Math.floor(Number(seconds) || 0))
-  session.lastKnownSeconds = normalized
-  session.lastPersistedSeconds = normalized
-  session.lastPersistedAt = Date.now()
-  updateVideoShelfPlayerTimestamp(session, normalized)
-  try {
-    session.player?.seekTo?.(normalized, true)
-  } catch {}
   return true
 }
 
@@ -17633,7 +17518,6 @@ function renderCard(v, compact = false, options = {}) {
   const thumbnailUrl = compact
     ? String(v.thumbnail || '').replace(/\/hqdefault\.jpg(?=\?|$)/, '/mqdefault.jpg')
     : v.thumbnail
-  const resumeAtValue = isPartial ? formatResumeTimestamp(v.resumeAtSeconds) : ''
   const uploadRibbon = compact || (options.shelf && isPartial)
     ? null
     : getVideoUploadRibbon(v, options.currentDateKey)
@@ -17651,9 +17535,6 @@ function renderCard(v, compact = false, options = {}) {
     <span class="dur-badge">${formatDuration(v.duration)}</span>
   `
   const thumbnailLink = `<a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="return handleVideoThumbnailClick(event, this)">${thumbnailContent}</a>`
-  const shelfResumeTimeField = options.shelf && isPartial
-    ? getVideoResumeControlMarkup(videoId, resumeAtValue, 'resume-time-field thumbnail-resume-time-field')
-    : ''
   const shelfPriorityBadge = options.shelf && isPartial
     ? `<button type="button"
         class="channel-shelf-priority-badge partial-priority-badge"
@@ -17686,7 +17567,6 @@ function renderCard(v, compact = false, options = {}) {
     <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} ${!isWatched && !canMarkWatched ? 'watched-locked' : ''} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
       ${removeFromGridButton}
       ${thumbnailLink}
-      ${shelfResumeTimeField}
       ${shelfPriorityBadge}
       <div class="card-body">
         ${isPartial ? `<div class="card-status partial-status">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</div>` : ''}
@@ -17694,9 +17574,6 @@ function renderCard(v, compact = false, options = {}) {
         <div class="card-copy">
           <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
           ${watchedAtLabel ? `<div class="card-watched-at">${escHtml(watchedAtLabel)}</div>` : ''}
-          ${isPartial && !options.shelf ? `
-            ${getVideoResumeControlMarkup(videoId, resumeAtValue, 'resume-time-field')}
-          ` : ''}
         </div>
         <div class="card-meta">
           <span class="channel-name">${escHtml(v.channelTitle || '')}</span>
