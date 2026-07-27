@@ -5101,19 +5101,15 @@ body[data-theme="dark"] .video-watch-reminder-favorite:focus-visible {
   font-size: 0.68rem;
   line-height: 1.2;
 }
-.compact-card .watched-btn.active,
-body[data-theme="dark"] .compact-card .watched-btn.active {
-  background: var(--planet-white);
-  border-color: var(--planet-black);
-  color: var(--text);
+.watched-grid .compact-card .action-btn.favorite-btn,
+.watched-grid .compact-card .action-btn.favorite-btn:hover,
+.watched-grid .compact-card .action-btn.favorite-btn.active,
+body[data-theme="dark"] .watched-grid .compact-card .action-btn.favorite-btn,
+body[data-theme="dark"] .watched-grid .compact-card .action-btn.favorite-btn:hover,
+body[data-theme="dark"] .watched-grid .compact-card .action-btn.favorite-btn.active {
+  background: transparent;
+  border-color: transparent;
 }
-.compact-card .watched-btn.active:hover {
-  background: #e9f8ed;
-}
-body[data-theme="dark"] .compact-card .watched-btn.active:hover {
-  background: var(--surface-hi);
-}
-
 /* Thumbnail */
 .thumb-link {
   border: 0;
@@ -5261,14 +5257,6 @@ body[data-theme="dark"] .watch-later-status { color: #9fe7fb; }
   cursor: pointer;
   transition: background var(--motion-base) var(--ease-standard), color var(--motion-base) var(--ease-standard), border-color var(--motion-base) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
   white-space: nowrap;
-}
-.watched-btn {
-  align-items: center;
-  display: inline-flex;
-  flex: 1.2;
-  gap: 4px;
-  justify-content: center;
-  text-decoration: none;
 }
 .partial-btn,
 .watch-later-btn,
@@ -6454,11 +6442,8 @@ summary:focus-visible,
   .video-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .video-card:not(.compact-card) .card-actions {
     display: grid;
-    grid-template-columns: repeat(4, 44px);
+    grid-template-columns: repeat(2, 44px);
     justify-content: flex-end;
-  }
-  .video-card.watched-locked:not(.compact-card) .card-actions {
-    grid-template-columns: repeat(3, 44px);
   }
   .video-card:not(.compact-card) .action-btn {
     align-items: center;
@@ -6469,14 +6454,6 @@ summary:focus-visible,
     overflow-wrap: anywhere;
     text-align: center;
     white-space: normal;
-  }
-  .video-card:not(.compact-card) .watched-btn {
-    padding-left: 4px;
-    padding-right: 4px;
-    white-space: nowrap;
-  }
-  .video-card:not(.compact-card) .watched-btn-text {
-    display: none;
   }
   .video-card:not(.compact-card) .partial-btn,
   .video-card:not(.compact-card) .watch-later-btn,
@@ -6623,11 +6600,8 @@ summary:focus-visible,
     grid-template-columns: 1fr;
   }
   .video-card:not(.compact-card) .card-actions {
-    grid-template-columns: minmax(0, 1fr) 44px 44px 44px;
-    justify-content: stretch;
-  }
-  .video-card:not(.compact-card) .watched-btn-text {
-    display: inline;
+    grid-template-columns: repeat(2, 44px);
+    justify-content: flex-end;
   }
 }
 @media (pointer: coarse) {
@@ -7157,16 +7131,6 @@ summary:focus-visible,
     padding: 0;
     pointer-events: auto;
     width: 44px;
-  }
-  .channel-shelf-card .watched-btn {
-    flex: 0 0 44px;
-  }
-  .channel-shelf-card .watched-btn .watched-btn-text {
-    display: none;
-  }
-  .channel-shelf-card .watched-btn .action-icon {
-    display: block;
-    margin: 0;
   }
   .channel-shelf-card .partial-btn,
   .channel-shelf-card .watch-later-btn,

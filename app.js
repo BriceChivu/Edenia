@@ -87,17 +87,17 @@ const LOCALE_LABELS = {
 const ANKI_AUTO_REFRESH_MS = 5 * 60_000
 const ANKI_DAY_START_HOUR = 4
 const NO_ANKI_FREQUENT_USER_DAY_THRESHOLD = 7
-const MIN_DAILY_STREAK_POINTS = 0.5
+const MIN_DAILY_STREAK_POINTS = 5
 const HEATMAP_STREAK_RUN_MIN_DAYS = 5
 const UNDO_STACK_LIMIT = 50
 const MIN_WEEKLY_GOAL_HOURS = 1
 const MAX_WEEKLY_GOAL_HOURS = 99
-const VIDEO_HOUR_POINTS = 3
+const VIDEO_HOUR_POINTS = 30
 const SHORT_VIDEO_MAX_DURATION_SECONDS = 180
 const SHORT_VIDEO_DETECTION_VERSION = 1
 const ANKI_REVIEW_CHUNK_SIZE = 60
-const ANKI_REVIEW_CHUNK_POINTS = 2
-const SCORING_RULES_VERSION = 6
+const ANKI_REVIEW_CHUNK_POINTS = 20
+const SCORING_RULES_VERSION = 7
 const STUDY_INSIGHT_LOOKBACK_DAYS = 42
 const STUDY_INSIGHT_MIN_ACTIVE_DAYS = 8
 const STUDY_INSIGHT_MIN_VIDEO_SECONDS = 2 * 60 * 60
@@ -124,17 +124,17 @@ const STUDY_INSIGHT_TYPES = [
 const STUDY_INSIGHT_VARIANT_COUNT = 2
 const CITY_LEVELS = [
   { threshold: 0, labelKey: 'city.level.1', label: '🏠 Lonely house' },
-  { threshold: 5, labelKey: 'city.level.2', label: '⛵ Your house got a fresh new look! Plus a boat!' },
-  { threshold: 12, labelKey: 'city.level.3', label: '🏝️ Oh look! A tiny island! Cute.' },
-  { threshold: 20, labelKey: 'city.level.4', label: 'Kids are gonna have fun now!' },
-  { threshold: 28, labelKey: 'city.level.5', label: "Let's add a pool to chill" },
-  { threshold: 35, labelKey: 'city.level.6', label: 'Oh! Some friends are coming to say hi...' },
-  { threshold: 42, labelKey: 'city.level.7', label: 'You expanded your small island!' },
-  { threshold: 50, labelKey: 'city.level.8', label: "That's a nice deckchair and some pretty flowers! 🌸" },
-  { threshold: 60, labelKey: 'city.level.9', label: 'You built a cute house in the backyard' },
-  { threshold: 70, labelKey: 'city.level.10', label: 'Oh wow! You got a neighbor! 🏠' },
-  { threshold: 80, labelKey: 'city.level.11', label: 'The little purple house has a cute garden!' },
-  { threshold: 90, labelKey: 'city.level.12', label: 'Damn! A volcano appeared! I hope it won\'t erupt...' }
+  { threshold: 50, labelKey: 'city.level.2', label: '⛵ Your house got a fresh new look! Plus a boat!' },
+  { threshold: 120, labelKey: 'city.level.3', label: '🏝️ Oh look! A tiny island! Cute.' },
+  { threshold: 200, labelKey: 'city.level.4', label: 'Kids are gonna have fun now!' },
+  { threshold: 280, labelKey: 'city.level.5', label: "Let's add a pool to chill" },
+  { threshold: 350, labelKey: 'city.level.6', label: 'Oh! Some friends are coming to say hi...' },
+  { threshold: 420, labelKey: 'city.level.7', label: 'You expanded your small island!' },
+  { threshold: 500, labelKey: 'city.level.8', label: "That's a nice deckchair and some pretty flowers! 🌸" },
+  { threshold: 600, labelKey: 'city.level.9', label: 'You built a cute house in the backyard' },
+  { threshold: 700, labelKey: 'city.level.10', label: 'Oh wow! You got a neighbor! 🏠' },
+  { threshold: 800, labelKey: 'city.level.11', label: 'The little purple house has a cute garden!' },
+  { threshold: 900, labelKey: 'city.level.12', label: 'Damn! A volcano appeared! I hope it won\'t erupt...' }
 ]
 const CITY_IMAGE_PATHS = [
   'images/photoshop/level%201.png',
@@ -1009,8 +1009,8 @@ const I18N_EN = {
   'settings.anki.step3': 'Restart Anki and keep Anki open while you use Edenia.',
   'settings.scoring.title': 'How points work',
   'settings.scoring.intro': 'Points reward video study time and Anki reviews. Edenia adds each source before rounding down the total points of the day.',
-  'settings.scoring.video': 'Watching 1 hour of video gives 3 pts.',
-  'settings.scoring.anki': '60 Anki reviews gives 2 pts.',
+  'settings.scoring.video': 'Watching 1 hour of video gives 30 pts.',
+  'settings.scoring.anki': '60 Anki reviews gives 20 pts.',
   'settings.workflow.title': 'Typical Edenia workflow',
   'settings.workflow.item1': "Watch videos from the channels you've added.",
   'settings.workflow.item2': 'Use Add to paste either a YouTube video or channel URL.',
@@ -1686,11 +1686,11 @@ const I18N = {
     'settings.anki.note': 'Edenia 只會讀取你的複習數量，用在學習紀錄中。它不會修改你的 Anki 卡片。',
     'settings.scoring.title': '分數怎麼算',
     'settings.scoring.intro': '分數來自影片學習時間和 Anki 複習。Edenia 會先把每一種來源的分數向下取整，再加到當天。',
-  'settings.scoring.video': '觀看 1 小時影片會得到 3 分。',
-  'settings.scoring.anki': '複習 60 張 Anki 卡會得到 2 分。',
+  'settings.scoring.video': '觀看 1 小時影片會得到 30 分。',
+  'settings.scoring.anki': '複習 60 張 Anki 卡會得到 20 分。',
   'settings.scoring.examples': '例子：',
-  'settings.scoring.exampleVideo': '觀看 30 分鐘影片會得到 1 分（1.5 向下取整為 1）。',
-  'settings.scoring.exampleAnki': '複習 30 張 Anki 卡會得到 1 分，但複習 29 張會得到 0 分（0.9 向下取整為 0）。',
+  'settings.scoring.exampleVideo': '觀看 30 分鐘影片會得到 15 分。',
+  'settings.scoring.exampleAnki': '複習 30 張 Anki 卡會得到 10 分，但複習 29 張會得到 9 分（9.7 向下取整為 9）。',
   'settings.workflow.title': '典型 Edenia 流程',
   'settings.workflow.item1': '觀看你已新增的頻道中的影片。',
   'settings.workflow.item2': '使用「新增」貼上 YouTube 影片或頻道網址。',
@@ -2181,11 +2181,11 @@ const I18N = {
     'settings.anki.note': 'Edenia 只会读取你的复习数量，用在学习记录中。它不会修改你的 Anki 卡片。',
     'settings.scoring.title': '分数怎么算',
     'settings.scoring.intro': '分数来自视频学习时间和 Anki 复习。Edenia 会先把每一种来源的分数向下取整，再加到当天。',
-  'settings.scoring.video': '观看 1 小时视频会得到 3 分。',
-  'settings.scoring.anki': '复习 60 张 Anki 卡会得到 2 分。',
+  'settings.scoring.video': '观看 1 小时视频会得到 30 分。',
+  'settings.scoring.anki': '复习 60 张 Anki 卡会得到 20 分。',
   'settings.scoring.examples': '例子：',
-  'settings.scoring.exampleVideo': '观看 30 分钟视频会得到 1 分（1.5 向下取整为 1）。',
-  'settings.scoring.exampleAnki': '复习 30 张 Anki 卡会得到 1 分，但复习 29 张会得到 0 分（0.9 向下取整为 0）。',
+  'settings.scoring.exampleVideo': '观看 30 分钟视频会得到 15 分。',
+  'settings.scoring.exampleAnki': '复习 30 张 Anki 卡会得到 10 分，但复习 29 张会得到 9 分（9.7 向下取整为 9）。',
   'settings.workflow.title': '典型 Edenia 流程',
   'settings.workflow.item1': '观看你已添加的频道中的视频。',
   'settings.workflow.item2': '使用“添加”粘贴 YouTube 视频或频道网址。',
@@ -2657,11 +2657,11 @@ const I18N = {
     'settings.anki.note': 'Edenia solo lee tu número de repasos para el historial de estudio. No cambia tus tarjetas de Anki.',
     'settings.scoring.title': 'Cómo funcionan los puntos',
     'settings.scoring.intro': 'Los puntos recompensan el tiempo de estudio con videos y los repasos de Anki. Edenia redondea cada fuente hacia abajo antes de sumar los puntos al día.',
-  'settings.scoring.video': 'Ver 1 hora de video da 3 pts.',
-  'settings.scoring.anki': '60 repasos de Anki dan 2 pts.',
+  'settings.scoring.video': 'Ver 1 hora de video da 30 pts.',
+  'settings.scoring.anki': '60 repasos de Anki dan 20 pts.',
   'settings.scoring.examples': 'Ejemplos:',
-  'settings.scoring.exampleVideo': 'Ver 30 min de video da 1 pts (1.5 redondeado hacia abajo a 1).',
-  'settings.scoring.exampleAnki': 'Hacer 30 repasos de Anki da 1 pts, pero hacer 29 repasos da 0 pts (0.9 redondeado hacia abajo a 0).',
+  'settings.scoring.exampleVideo': 'Ver 30 min de video da 15 pts.',
+  'settings.scoring.exampleAnki': 'Hacer 30 repasos de Anki da 10 pts, pero hacer 29 repasos da 9 pts (9.7 redondeado hacia abajo a 9).',
   'settings.workflow.title': 'Flujo típico de Edenia',
   'settings.workflow.item1': 'Mira videos de los canales que has añadido.',
   'settings.workflow.item2': 'Usa Añadir para pegar la URL de un video o canal de YouTube.',
@@ -3135,11 +3135,11 @@ const I18N = {
     'settings.anki.note': 'Edenia lit seulement votre nombre de révisions pour l’historique d’étude. Il ne modifie pas vos cartes Anki.',
     'settings.scoring.title': 'Fonctionnement des points',
     'settings.scoring.intro': 'Les points récompensent le temps d’étude en vidéo et les révisions Anki. Edenia arrondit chaque source vers le bas avant de l’ajouter à la journée.',
-  'settings.scoring.video': 'Regarder 1 heure de vidéo donne 3 pts.',
-  'settings.scoring.anki': '60 révisions Anki donnent 2 pts.',
+  'settings.scoring.video': 'Regarder 1 heure de vidéo donne 30 pts.',
+  'settings.scoring.anki': '60 révisions Anki donnent 20 pts.',
   'settings.scoring.examples': 'Exemples :',
-  'settings.scoring.exampleVideo': 'Regarder 30 min de vidéo donne 1 pts (1,5 arrondi vers le bas à 1).',
-  'settings.scoring.exampleAnki': 'Faire 30 révisions Anki donne 1 pts, mais faire 29 révisions donne 0 pts (0,9 arrondi vers le bas à 0).',
+  'settings.scoring.exampleVideo': 'Regarder 30 min de vidéo donne 15 pts.',
+  'settings.scoring.exampleAnki': 'Faire 30 révisions Anki donne 10 pts, mais faire 29 révisions donne 9 pts (9,7 arrondi vers le bas à 9).',
   'settings.workflow.title': 'Flux Edenia typique',
   'settings.workflow.item1': 'Regardez les vidéos des chaînes que vous avez ajoutées.',
   'settings.workflow.item2': 'Utilisez Ajouter pour coller l’URL d’une vidéo ou d’une chaîne YouTube.',
@@ -8053,10 +8053,10 @@ function getSandboxHeatmapEndDate(state) {
 }
 
 function getSandboxAddedDayScoreTarget(state, date) {
-  return randomInt(0, 5)
+  return randomInt(0, 50)
 }
 
-function addSandboxStudyDay(state, date, scoreTarget = 6) {
+function addSandboxStudyDay(state, date, scoreTarget = 60) {
   const dateKey = toDateKey(date)
   const daySeed = Math.abs(daysBetweenDateKeys('2024-01-01', dateKey))
   const channels = state.config.channels.length ? state.config.channels : DEFAULT_CHANNELS
@@ -12414,6 +12414,7 @@ function createHistoryBucket(dateKey) {
     videosWatched: 0,
     ankiReviewed: 0,
     ankiCreated: 0,
+    points: 0,
     watchedVideos: []
   }
 }
@@ -12556,6 +12557,7 @@ function getStudyHistoryBetween(s, start, end) {
     acc.videosWatched += row.videosWatched
     acc.ankiReviewed += row.ankiReviewed
     acc.ankiCreated += row.ankiCreated
+    acc.points += getHistoryDayPoints(row)
     acc.watchedVideos.push(...row.watchedVideos)
     return acc
   }, createHistoryBucket('summary'))
@@ -13161,7 +13163,7 @@ function renderStudyHistoryPanel(s) {
   setText('historyAnkiReviewed', showAnkiColumns ? history.summary.ankiReviewed : history.rows.length)
   setText('historyAnkiCreated', showAnkiColumns
     ? history.summary.ankiCreated
-    : history.rows.reduce((total, row) => total + getHistoryDayPoints(row), 0))
+    : history.summary.points)
   if (thirdStatLabel) {
     thirdStatLabel.dataset.i18n = thirdStatLabelKey
     thirdStatLabel.textContent = t(thirdStatLabelKey)
@@ -13212,11 +13214,11 @@ function renderStudyHistoryPanel(s) {
 function getHistoryHeatLevel(row) {
   const score = getHistoryDayRawPoints(row)
   if (score <= 0) return 0
-  if (score < 0.5) return 1
-  if (score < 1) return 2
-  if (score < 2) return 3
-  if (score < 4) return 4
-  if (score < 7) return 5
+  if (score < 5) return 1
+  if (score < 10) return 2
+  if (score < 20) return 3
+  if (score < 40) return 4
+  if (score < 70) return 5
   return 6
 }
 
@@ -15612,7 +15614,7 @@ function renderFeed(s) {
     watchedToggle.setAttribute('aria-label', t(watchedCollapsed ? 'videos.watched.show' : 'videos.watched.hide'))
   }
   watchedGrid.innerHTML = watchedVideos
-    .map(v => renderCard(v, true, { ...cardOptions, hideWatchedAction: true }))
+    .map(v => renderCard(v, true, cardOptions))
     .join('')
   queueActiveVideoWatchReminderRender(s)
 }
@@ -16836,10 +16838,10 @@ function refreshVideoActionUiWithoutFeedRerender(state, videoId) {
   if (!updatedCard) return
 
   Array.from(card.classList)
-    .filter(className => className === 'is-favorite' || className === 'watched-locked' || className.startsWith('status-'))
+    .filter(className => className === 'is-favorite' || className.startsWith('status-'))
     .forEach(className => card.classList.remove(className))
   Array.from(updatedCard.classList)
-    .filter(className => className === 'is-favorite' || className === 'watched-locked' || className.startsWith('status-'))
+    .filter(className => className === 'is-favorite' || className.startsWith('status-'))
     .forEach(className => card.classList.add(className))
 
   const currentPriorityBadge = card.querySelector('.channel-shelf-priority-badge')
@@ -17882,8 +17884,6 @@ function isHiddenFromVideoGrid(video) {
 
 function renderVideoActionIcon(type) {
   const paths = {
-    watched: '<path d="M5 12.5l4 4L19 6.5"></path>',
-    rewatch: '<path d="M4.5 8.5A8 8 0 1 1 4 14"></path><path d="M4.5 4.5v4h4"></path>',
     partial: '<rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect>',
     'watch-later': '<path d="M6 4h12v16l-6-4-6 4V4Z"></path>',
     favorite: '<path d="M12 20.2 4.2 12.8A5.1 5.1 0 0 1 11.4 5.6L12 6.2l.6-.6a5.1 5.1 0 0 1 7.2 7.2L12 20.2Z"></path>'
@@ -17900,37 +17900,9 @@ function renderCard(v, compact = false, options = {}) {
   const isWatchLater = isVideoWatchLater(v)
   const displayStatus = isPartial ? 'partial' : status
   const isFavorite = isFavoriteVideo(v)
-  const isRewatchable = isWatched && isFavorite
-  const canMarkWatched = hasWatchedConfirmationUnlock(v)
-  const watchedNextStatus = isWatched ? 'unwatched' : 'watched'
   const watchLaterNextStatus = isWatchLater
     ? (isPartial ? 'partial' : 'unwatched')
     : 'watch-later'
-  const watchedText = isRewatchable && !compact
-    ? t('nextStudy.rewatch')
-    : compact
-    ? t('videos.card.unmark')
-    : (isWatched ? t('videos.status.watched') : t('videos.card.markWatched'))
-  const watchedTextLabel = !compact && !isWatched
-    ? `<span class="desktop-english-copy">Watched</span><span class="responsive-default-copy">${escHtml(watchedText)}</span>`
-    : escHtml(watchedText)
-  const watchedLabel = compact
-    ? `<span class="watched-btn-text">${watchedTextLabel}</span>`
-    : `${renderVideoActionIcon(isRewatchable ? 'rewatch' : 'watched')}<span class="watched-btn-text">${watchedTextLabel}</span>`
-  const watchedAction = options.hideWatchedAction
-    ? ''
-    : isRewatchable && !compact
-    ? ''
-    : isWatched || canMarkWatched
-    ? `<button class="action-btn watched-btn ${isWatched ? 'active' : ''}"
-        data-video-id="${safeVideoId}"
-        data-status="${watchedNextStatus}"
-        onclick="markVideo(this.dataset.videoId, this.dataset.status)"
-        aria-label="${escHtml(isWatched ? t('videos.card.unmark') : t('videos.card.markWatchedTitle'))}"
-        title="${escHtml(isWatched ? t('videos.card.unmark') : t('videos.card.markWatchedTitle'))}">
-        ${watchedLabel}
-      </button>`
-    : ''
   const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
   const thumbnailUrl = compact
     ? String(v.thumbnail || '').replace(/\/hqdefault\.jpg(?=\?|$)/, '/mqdefault.jpg')
@@ -17981,7 +17953,7 @@ function renderCard(v, compact = false, options = {}) {
     ? 'next-study-focus-target'
     : ''
   return `
-    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} ${!isWatched && !canMarkWatched ? 'watched-locked' : ''} status-${displayStatus}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
+    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} status-${displayStatus}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
       ${removeFromGridButton}
       ${thumbnailLink}
       ${shelfPriorityBadge}
@@ -17998,7 +17970,6 @@ function renderCard(v, compact = false, options = {}) {
             <span class="pub-ago">${timeAgo(v.publishedAt)}</span>
           </div>
           <div class="card-actions">
-            ${watchedAction}
             <button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
               data-video-id="${safeVideoId}"
               data-status="${watchLaterNextStatus}"

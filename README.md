@@ -49,7 +49,7 @@ Undo and redo cover recent status, progress, manual-video, and channel-removal a
 - Tracks watched video time against a weekly goal from 1 to 99 hours.
 - Shows watched and in-progress counts, remaining time, and goal completion.
 - Converts the remaining goal into localized daily pace guidance when study videos are available.
-- Maintains current and longest study streaks; a day qualifies after earning at least 0.5 points.
+- Maintains current and longest study streaks; a day qualifies after earning at least 5 points.
 - Aggregates activity by selectable week or month.
 - Provides a detailed Summary view and a one-year Heatmap view with localized month and weekday labels.
 - Shows the videos watched and the point breakdown for each active day.
@@ -92,37 +92,37 @@ Study insights are calculated locally from up to 42 days of recorded video progr
 Town score is cumulative and does not reset each week. Edenia calculates points separately for each activity day, combines that day's video and Anki contributions, and then rounds the daily total down to a whole number:
 
 ```text
-daily points = floor((video seconds / 3600 × 3) + (Anki reviews / 60 × 2))
+daily points = floor((video seconds / 3600 × 30) + (Anki reviews / 60 × 20))
 ```
 
 | Activity | Points |
 | --- | ---: |
-| 1 hour of watched video time | 3 |
-| 60 Anki reviews | 2 |
+| 1 hour of watched video time | 30 |
+| 60 Anki reviews | 20 |
 
 There is no separate bonus for marking a video watched or for the number of videos completed. New Anki cards are recorded for context but do not award points.
 
 Examples:
 
-- 30 minutes of video produces `1.5` points, which becomes `1` point when it is the only activity that day.
-- 30 Anki reviews produce `1` point.
-- 30 minutes of video plus 30 Anki reviews produce `2.5` points together, which becomes `2` points for that day.
+- 30 minutes of video produces `15` points.
+- 30 Anki reviews produce `10` points.
+- 30 minutes of video plus 30 Anki reviews produce `25` points together.
 - Fractional points do not carry into another day.
 
 | Level | Required score |
 | ---: | ---: |
 | 1 | 0 |
-| 2 | 5 |
-| 3 | 12 |
-| 4 | 20 |
-| 5 | 28 |
-| 6 | 35 |
-| 7 | 42 |
-| 8 | 50 |
-| 9 | 60 |
-| 10 | 70 |
-| 11 | 80 |
-| 12 | 90 |
+| 2 | 50 |
+| 3 | 120 |
+| 4 | 200 |
+| 5 | 280 |
+| 6 | 350 |
+| 7 | 420 |
+| 8 | 500 |
+| 9 | 600 |
+| 10 | 700 |
+| 11 | 800 |
+| 12 | 900 |
 
 ## Run Locally
 
