@@ -93,7 +93,6 @@ const UNDO_STACK_LIMIT = 50
 const MIN_WEEKLY_GOAL_HOURS = 1
 const MAX_WEEKLY_GOAL_HOURS = 99
 const VIDEO_HOUR_POINTS = 3
-const VIDEO_WATCH_COOLDOWN_GRACE_SECONDS = 30
 const VIDEO_WATCH_REMINDER_MAX_AGE_MS = 24 * 60 * 60_000
 const VIDEO_WATCH_REMINDER_LIMIT = 12
 const SHORT_VIDEO_MAX_DURATION_SECONDS = 180
@@ -1316,11 +1315,14 @@ const I18N_EN = {
   'videoReminder.tabTitle': '✓ Mark as watched · Edenia',
   'videoReminder.aria': 'Video watch reminder',
   'videoReminder.eyebrow': 'Quick check-in',
-  'videoReminder.question': 'Finished watching the video? Mark it as watched!',
-  'videoReminder.rewatchQuestion': 'Finished rewatching the video? Record the rewatch!',
+  'videoReminder.question': 'Have you finished watching the video?',
+  'videoReminder.rewatchQuestion': 'Have you finished rewatching the video?',
+  'videoReminder.yes': 'Yes',
   'videoReminder.markWatched': 'Mark as watched',
   'videoReminder.markRewatched': 'Record rewatch',
   'videoReminder.notYet': 'Not yet',
+  'videoReminder.setFavorite': 'Set as favorite',
+  'videoReminder.favoriteHelp': 'so I can rewatch it later',
   'videos.refreshing': 'Refreshing...',
   'videos.refresh': 'Refresh',
   'activity.empty': 'No activity logged yet',
@@ -3550,11 +3552,14 @@ Object.assign(I18N['zh-Hant'], {
   'videoReminder.tabTitle': '✓ 標記為已觀看 · Edenia',
   'videoReminder.aria': '影片觀看提醒',
   'videoReminder.eyebrow': '快速確認',
-  'videoReminder.question': '看完這部影片了嗎？將它標記為已觀看！',
-  'videoReminder.rewatchQuestion': '再次看完這部影片了嗎？記錄這次重看！',
+  'videoReminder.question': '你看完這部影片了嗎？',
+  'videoReminder.rewatchQuestion': '你再次看完這部影片了嗎？',
+  'videoReminder.yes': '是',
   'videoReminder.markWatched': '標記為已觀看',
   'videoReminder.markRewatched': '記錄重看',
   'videoReminder.notYet': '還沒有',
+  'videoReminder.setFavorite': '設為收藏',
+  'videoReminder.favoriteHelp': '方便之後再看',
   'settings.remove': '移除',
   'header.settings': '設定',
   'city.imageAlt': '學習城鎮里程碑：孤單的小屋',
@@ -3726,11 +3731,14 @@ Object.assign(I18N['zh-Hans'], {
   'videoReminder.tabTitle': '✓ 标记为已观看 · Edenia',
   'videoReminder.aria': '视频观看提醒',
   'videoReminder.eyebrow': '快速确认',
-  'videoReminder.question': '看完这个视频了吗？将它标记为已观看！',
-  'videoReminder.rewatchQuestion': '再次看完这个视频了吗？记录这次重看！',
+  'videoReminder.question': '你看完这个视频了吗？',
+  'videoReminder.rewatchQuestion': '你再次看完这个视频了吗？',
+  'videoReminder.yes': '是',
   'videoReminder.markWatched': '标记为已观看',
   'videoReminder.markRewatched': '记录重看',
   'videoReminder.notYet': '还没有',
+  'videoReminder.setFavorite': '设为收藏',
+  'videoReminder.favoriteHelp': '方便之后再看',
   'settings.activity.filtersLabel': '活动记录筛选',
   'settings.remove': '移除',
   'header.search.dialog': '搜索已保存的视频',
@@ -3921,11 +3929,14 @@ Object.assign(I18N.es, {
   'videoReminder.tabTitle': '✓ Marcar como visto · Edenia',
   'videoReminder.aria': 'Recordatorio de video',
   'videoReminder.eyebrow': 'Comprobación rápida',
-  'videoReminder.question': '¿Terminaste de ver el video? ¡Márcalo como visto!',
-  'videoReminder.rewatchQuestion': '¿Terminaste de volver a ver el video? Registra la repetición.',
+  'videoReminder.question': '¿Has terminado de ver el video?',
+  'videoReminder.rewatchQuestion': '¿Has terminado de volver a ver el video?',
+  'videoReminder.yes': 'Sí',
   'videoReminder.markWatched': 'Marcar como visto',
   'videoReminder.markRewatched': 'Registrar repetición',
   'videoReminder.notYet': 'Todavía no',
+  'videoReminder.setFavorite': 'Guardar como favorito',
+  'videoReminder.favoriteHelp': 'para poder volver a verlo más tarde',
   'settings.activity.filtersLabel': 'Filtros del registro de actividad',
   'settings.remove': 'Quitar',
   'header.search.dialog': 'Buscar videos guardados',
@@ -4114,11 +4125,14 @@ Object.assign(I18N.fr, {
   'videoReminder.tabTitle': '✓ Marquer comme vue · Edenia',
   'videoReminder.aria': 'Rappel de visionnage',
   'videoReminder.eyebrow': 'Vérification rapide',
-  'videoReminder.question': 'Vous avez fini de regarder la vidéo ? Marquez-la comme vue !',
-  'videoReminder.rewatchQuestion': 'Vous avez fini de revoir la vidéo ? Enregistrez ce nouveau visionnage.',
+  'videoReminder.question': 'Avez-vous fini de regarder la vidéo ?',
+  'videoReminder.rewatchQuestion': 'Avez-vous fini de revoir la vidéo ?',
+  'videoReminder.yes': 'Oui',
   'videoReminder.markWatched': 'Marquer comme vue',
   'videoReminder.markRewatched': 'Enregistrer le revisionnage',
   'videoReminder.notYet': 'Pas encore',
+  'videoReminder.setFavorite': 'Ajouter aux favoris',
+  'videoReminder.favoriteHelp': 'pour pouvoir la revoir plus tard',
   'settings.activity.filtersLabel': 'Filtres du journal d’activité',
   'settings.remove': 'Retirer',
   'header.search.dialog': 'Rechercher dans les vidéos enregistrées',
@@ -5019,6 +5033,7 @@ function loadState() {
       }
       if (normalizeAnkiDateKeys(state)) shouldSave = true
       if (normalizeVideoWatchProgressState(state)) shouldSave = true
+      if (normalizeWatchedConfirmationState(state)) shouldSave = true
       if (normalizeVideoWatchReminderState(state)) shouldSave = true
       normalizeUndoState(state)
       if (normalizeActivityLogState(state)) shouldSave = true
@@ -5072,6 +5087,7 @@ function saveState(s, options = {}) {
   normalizeActivityLogState(s)
   normalizeNoAnkiFrequentUserPromptState(s)
   normalizeVideoWatchProgressState(s)
+  normalizeWatchedConfirmationState(s)
   normalizeVideoWatchReminderState(s)
   normalizeStudyInsightConfig(s)
   if (backup) createStateBackup(backupReason, { force: forceBackup })
@@ -5517,6 +5533,18 @@ function normalizeVideoWatchProgressState(state) {
       video.watchProgress = normalized
       changed = true
     }
+  })
+  return changed
+}
+
+function normalizeWatchedConfirmationState(state) {
+  if (!state?.videos || typeof state.videos !== 'object') return false
+  let changed = false
+  Object.values(state.videos).forEach(video => {
+    if (!video || !Object.prototype.hasOwnProperty.call(video, 'watchedConfirmationUnlockedAt')) return
+    if (isValidTimestamp(video.watchedConfirmationUnlockedAt)) return
+    delete video.watchedConfirmationUnlockedAt
+    changed = true
   })
   return changed
 }
@@ -7994,6 +8022,9 @@ function refreshSandboxFeed() {
       ...v,
       status: existing?.status ?? 'unwatched',
       watchedAt: existing?.watchedAt ?? null,
+      watchedConfirmationUnlockedAt: isValidTimestamp(existing?.watchedConfirmationUnlockedAt)
+        ? existing.watchedConfirmationUnlockedAt
+        : null,
       favorite: Boolean(existing?.favorite)
     }
   })
@@ -9237,6 +9268,16 @@ function isFavoriteVideo(video) {
   return video?.favorite === true
 }
 
+function hasWatchedConfirmationUnlock(video) {
+  return isValidTimestamp(video?.watchedConfirmationUnlockedAt)
+}
+
+function grantWatchedConfirmationUnlock(state, video) {
+  if (!state || !video || hasWatchedConfirmationUnlock(video)) return false
+  video.watchedConfirmationUnlockedAt = getCurrentAppTimestamp(state)
+  return true
+}
+
 function normalizeVideoStatus(status) {
   return VIDEO_STATUSES.includes(status) ? status : 'unwatched'
 }
@@ -9609,6 +9650,9 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
       ),
       status:     existing?.status    ?? 'unwatched',
       watchedAt:  existing?.watchedAt ?? null,
+      watchedConfirmationUnlockedAt: isValidTimestamp(existing?.watchedConfirmationUnlockedAt)
+        ? existing.watchedConfirmationUnlockedAt
+        : null,
       favorite: Boolean(existing?.favorite),
       resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, duration),
       watchProgress: normalizeVideoWatchProgress(existing?.watchProgress ?? v.watchProgress, duration),
@@ -10045,7 +10089,20 @@ function isVideoWatchReminderDue(state, videoId) {
 
 function updateDocumentTitle(state = null) {
   const currentState = state || loadState()
-  const hasDueReminder = document.hidden && getDueVideoWatchReminderEntries(currentState).length > 0
+  const hasDuePlayerReminder = Boolean(
+    activeVideoShelfPlayer
+    && (
+      activeVideoShelfPlayer.completionPromptPending
+      || (
+        Number.isFinite(activeVideoShelfPlayer.youtubeCompletionDueAtMs)
+        && activeVideoShelfPlayer.youtubeCompletionDueAtMs <= Date.now()
+      )
+    )
+  )
+  const hasDueReminder = document.hidden && (
+    getDueVideoWatchReminderEntries(currentState).length > 0
+    || hasDuePlayerReminder
+  )
   document.title = hasDueReminder ? t('videoReminder.tabTitle') : getBaseDocumentTitle()
 }
 
@@ -10106,7 +10163,7 @@ function removeVideoWatchReminderUi() {
     window.cancelAnimationFrame(videoWatchReminderRenderFrame)
     videoWatchReminderRenderFrame = null
   }
-  document.querySelectorAll('.video-watch-reminder-popover').forEach(popover => popover.remove())
+  document.querySelectorAll('.video-watch-reminder-popover:not(.is-player)').forEach(popover => popover.remove())
   document.querySelectorAll('.video-card.watch-reminder-target, .video-card.watch-reminder-arriving').forEach(card => {
     card.classList.remove('watch-reminder-target', 'watch-reminder-arriving')
   })
@@ -10117,23 +10174,82 @@ function removeVideoWatchReminderUi() {
   }
 }
 
-function getVideoWatchReminderMarkup(videoId, global = false, rewatch = false) {
+function getVideoWatchReminderMarkup(videoId, options = {}) {
+  const {
+    global = false,
+    rewatch = false,
+    player = false,
+    video = null
+  } = options
   const safeVideoId = escHtml(String(videoId ?? ''))
+  const promptId = `videoWatchPrompt-${safeVideoId}-${player ? 'player' : global ? 'global' : 'card'}`
+  const favoriteHidden = isFavoriteVideo(video) ? ' hidden' : ''
   return `
-    <div class="video-watch-reminder-popover${global ? ' is-global' : ''}" role="region" aria-live="polite" aria-label="${escHtml(t('videoReminder.aria'))}">
+    <div class="video-watch-reminder-popover${global ? ' is-global' : ''}${player ? ' is-player' : ''}"
+      data-video-id="${safeVideoId}"
+      data-player-prompt="${String(player)}"
+      role="dialog"
+      aria-live="polite"
+      aria-labelledby="${promptId}">
       <div class="video-watch-reminder-copy">
         <span class="video-watch-reminder-icon" aria-hidden="true">✓</span>
         <span>
           <strong>${escHtml(t('videoReminder.eyebrow'))}</strong>
-          <span>${escHtml(t(rewatch ? 'videoReminder.rewatchQuestion' : 'videoReminder.question'))}</span>
+          <span id="${promptId}">${escHtml(t(rewatch ? 'videoReminder.rewatchQuestion' : 'videoReminder.question'))}</span>
         </span>
       </div>
       <div class="video-watch-reminder-actions">
-        <button type="button" class="video-watch-reminder-mark" data-video-id="${safeVideoId}" onclick="markVideoFromWatchReminder(event, this.dataset.videoId)">${escHtml(t(rewatch ? 'videoReminder.markRewatched' : 'videoReminder.markWatched'))}</button>
-        <button type="button" class="video-watch-reminder-later" data-video-id="${safeVideoId}" onclick="dismissVideoWatchReminder(event, this.dataset.videoId)">${escHtml(t('videoReminder.notYet'))}</button>
+        <button type="button"
+          class="video-watch-reminder-mark"
+          data-video-id="${safeVideoId}"
+          onclick="confirmVideoWatchPrompt(event, this.dataset.videoId, ${String(rewatch)}, ${String(player)})">${escHtml(t('videoReminder.yes'))}</button>
+        <button type="button"
+          class="video-watch-reminder-later"
+          data-video-id="${safeVideoId}"
+          onclick="dismissVideoWatchPrompt(event, this.dataset.videoId, ${String(player)})">${escHtml(t('videoReminder.notYet'))}</button>
+        ${rewatch ? '' : `
+        <button type="button"
+          class="video-watch-reminder-favorite${favoriteHidden}"
+          data-video-id="${safeVideoId}"
+          onclick="favoriteVideoFromWatchPrompt(event, this.dataset.videoId)">
+          <span>${escHtml(t('videoReminder.setFavorite'))}</span>
+          <small>${escHtml(t('videoReminder.favoriteHelp'))}</small>
+        </button>
+        `}
       </div>
     </div>
   `
+}
+
+function finalizeRenderedVideoWatchPrompt(state, video, prompt, rewatch = false) {
+  if (!prompt || !video) return false
+  if (!rewatch && grantWatchedConfirmationUnlock(state, video)) {
+    saveState(state, {
+      backup: false,
+      syncAnalytics: false
+    })
+  }
+  window.requestAnimationFrame(() => {
+    prompt.querySelector('.video-watch-reminder-mark')?.focus()
+  })
+  return true
+}
+
+function renderGlobalVideoWatchReminderPrompt(state, videoId, video, rewatch = false) {
+  const globalReminder = document.getElementById('videoWatchReminderGlobal')
+  if (!globalReminder || !video) return false
+  globalReminder.innerHTML = getVideoWatchReminderMarkup(videoId, {
+    global: true,
+    rewatch,
+    video
+  })
+  globalReminder.classList.remove('hidden')
+  return finalizeRenderedVideoWatchPrompt(
+    state,
+    video,
+    globalReminder.querySelector('.video-watch-reminder-popover'),
+    rewatch
+  )
 }
 
 function renderActiveVideoWatchReminder(state = null) {
@@ -10182,16 +10298,35 @@ function renderActiveVideoWatchReminder(state = null) {
         if (activeVideoWatchReminderId !== targetVideoId) return
         const zoomedCard = Array.from(document.querySelectorAll('.video-card'))
           .find(candidate => candidate.dataset.videoId === targetVideoId)
-        if (!zoomedCard || zoomedCard.querySelector('.video-watch-reminder-popover')) return
-        zoomedCard.insertAdjacentHTML('beforeend', getVideoWatchReminderMarkup(targetVideoId, false, reminder.rewatch === true))
+        if (!zoomedCard) {
+          renderGlobalVideoWatchReminderPrompt(
+            currentState,
+            targetVideoId,
+            video,
+            reminder.rewatch === true
+          )
+          return
+        }
+        if (zoomedCard.querySelector('.video-watch-reminder-popover')) return
+        zoomedCard.insertAdjacentHTML('beforeend', getVideoWatchReminderMarkup(targetVideoId, {
+          rewatch: reminder.rewatch === true,
+          video
+        }))
+        finalizeRenderedVideoWatchPrompt(
+          currentState,
+          video,
+          zoomedCard.querySelector('.video-watch-reminder-popover'),
+          reminder.rewatch === true
+        )
       }, reduceMotion ? 80 : 260)
     }, shouldGuideActiveVideoWatchReminder && !reduceMotion ? 750 : 0)
   } else {
-    const globalReminder = document.getElementById('videoWatchReminderGlobal')
-    if (globalReminder) {
-      globalReminder.innerHTML = getVideoWatchReminderMarkup(videoId, true, reminder.rewatch === true)
-      globalReminder.classList.remove('hidden')
-    }
+    renderGlobalVideoWatchReminderPrompt(
+      currentState,
+      videoId,
+      video,
+      reminder.rewatch === true
+    )
   }
   shouldGuideActiveVideoWatchReminder = false
   forcedSearchVideoId = null
@@ -10288,48 +10423,64 @@ function dismissVideoWatchReminderOnOutsideClick(event) {
   const videoId = activeVideoWatchReminderId
   if (!videoId) return
   const target = event.target instanceof Element ? event.target : null
+  if (target?.closest('.video-watch-reminder-popover.is-player')) return
   const targetCard = target?.closest('.video-card')
   if (targetCard?.dataset.videoId === videoId) return
   if (target?.closest('#videoWatchReminderGlobal')) return
   completeVideoWatchReminderDismissal(videoId)
 }
 
-function markVideoFromWatchReminder(event, videoId) {
+function confirmVideoWatchPrompt(event, videoId, rewatch = false, playerPrompt = false) {
   event?.preventDefault()
   event?.stopPropagation()
-  markVideo(videoId, 'watched')
-}
+  const targetVideoId = String(videoId ?? '')
+  if (!targetVideoId) return false
 
-function getLastVideoMarkedWatchedAt(state) {
-  if (isValidTimestamp(state?.lastVideoMarkedWatchedAt)) {
-    return state.lastVideoMarkedWatchedAt
+  if (playerPrompt) {
+    const session = activeVideoShelfPlayer
+    if (
+      !session
+      || session.videoId !== targetVideoId
+      || session.completionPromptVisible !== true
+      || session.isRewatch !== (rewatch === true)
+    ) return false
+    if (rewatch) return completeVideoShelfPlayerRewatchConfirmation(session)
+    stopActiveVideoShelfPlayer({ persist: false })
+    return markVideo(targetVideoId, 'watched')
   }
 
-  return Object.values(state?.videos || {}).reduce((latest, video) => {
-    if (!isValidTimestamp(video?.watchedAt)) return latest
-    if (!latest || new Date(video.watchedAt) > new Date(latest)) return video.watchedAt
-    return latest
-  }, null)
+  if (activeVideoWatchReminderId !== targetVideoId) return false
+  if (!rewatch) return markVideo(targetVideoId, 'watched')
+
+  const state = loadState()
+  const video = state?.videos?.[targetVideoId]
+  const reminder = state?.videoWatchReminders?.[targetVideoId]
+  if (
+    !video
+    || reminder?.rewatch !== true
+    || getVideoStatus(video) !== 'watched'
+    || !isFavoriteVideo(video)
+  ) return false
+  if (!recordVideoRewatch(state, video)) return false
+  saveState(state)
+  renderAll(state)
+  removeVideoWatchReminderUi()
+  scheduleVideoWatchReminderTimer(state)
+  return true
 }
 
-function getVideoWatchCooldownRemainingMs(state, video) {
-  if (IS_SANDBOX || IS_LOCALHOST) return 0
-  const durationMs = Math.max(
-    0,
-    Math.floor(Number(video?.duration || 0)) - VIDEO_WATCH_COOLDOWN_GRACE_SECONDS
-  ) * 1000
-  const lastMarkedAt = getLastVideoMarkedWatchedAt(state)
-  if (!durationMs || !lastMarkedAt) return 0
-  return Math.max(0, durationMs - (Date.now() - new Date(lastMarkedAt).getTime()))
-}
-
-function formatVideoWatchCooldown(ms) {
-  const totalMinutes = Math.max(1, Math.ceil(ms / 60_000))
-  if (ms < 3_600_000) return t('time.minutes', { minutes: totalMinutes })
-  return t('time.hoursMinutes', {
-    hours: Math.floor(totalMinutes / 60),
-    minutes: totalMinutes % 60
-  })
+function dismissVideoWatchPrompt(event, videoId, playerPrompt = false) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const targetVideoId = String(videoId ?? '')
+  if (playerPrompt) {
+    const session = activeVideoShelfPlayer
+    if (!session || session.videoId !== targetVideoId) return false
+    dismissVideoShelfCompletionPrompt(session)
+    return true
+  }
+  completeVideoWatchReminderDismissal(targetVideoId)
+  return true
 }
 
 function toggleVideoFavorite(videoId) {
@@ -10357,14 +10508,66 @@ function toggleVideoFavorite(videoId) {
   return isFavoriteVideo(video)
 }
 
-function toggleVideoPlayerFavorite(videoId, button) {
-  const isFavorite = toggleVideoFavorite(videoId)
-  if (typeof isFavorite !== 'boolean' || !button) return
+function syncVideoWatchPromptFavoriteAction(videoId, isFavorite) {
+  document.querySelectorAll('.video-watch-reminder-favorite').forEach(button => {
+    if (button.dataset.videoId === String(videoId ?? '')) {
+      button.classList.toggle('hidden', isFavorite === true)
+    }
+  })
+}
+
+function updateVideoPlayerFavoriteButton(button, isFavorite) {
+  if (!button) return
   const label = t(isFavorite ? 'videos.card.removeFavorite' : 'videos.card.favorite')
   button.classList.toggle('active', isFavorite)
   button.setAttribute('aria-pressed', String(isFavorite))
   button.setAttribute('aria-label', label)
   button.title = label
+}
+
+function favoriteVideoFromWatchPrompt(event, videoId) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const state = loadState()
+  const video = state?.videos?.[videoId]
+  if (!video) return false
+  if (isFavoriteVideo(video)) {
+    syncVideoWatchPromptFavoriteAction(videoId, true)
+    return true
+  }
+
+  const beforeVideo = cloneVideoForHistoryAction(video)
+  video.favorite = true
+  pushUndoAction(state, {
+    type: 'video-favorite',
+    videoId,
+    before: {
+      video: beforeVideo,
+      status: beforeVideo.status,
+      favorite: false
+    },
+    after: {
+      video: cloneVideoForHistoryAction(video),
+      status: video.status,
+      favorite: true
+    }
+  })
+  saveState(state)
+  syncVideoWatchPromptFavoriteAction(videoId, true)
+  if (activeVideoShelfPlayer?.videoId === String(videoId ?? '')) {
+    updateVideoPlayerFavoriteButton(
+      activeVideoShelfPlayer.overlay?.querySelector('.video-player-favorite'),
+      true
+    )
+  }
+  return true
+}
+
+function toggleVideoPlayerFavorite(videoId, button) {
+  const isFavorite = toggleVideoFavorite(videoId)
+  if (typeof isFavorite !== 'boolean' || !button) return
+  updateVideoPlayerFavoriteButton(button, isFavorite)
+  syncVideoWatchPromptFavoriteAction(videoId, isFavorite)
 }
 
 function recordVideoRewatch(state, video, seconds = null) {
@@ -10395,29 +10598,12 @@ function markVideo(videoId, newStatus) {
   newStatus = normalizeVideoStatus(newStatus)
   const s     = loadState()
   const video = s.videos[videoId]
-  if (!video) return
+  if (!video) return false
   const previousStatus = getVideoStatus(video)
-  const isDueRewatch = newStatus === 'watched'
-    && previousStatus === 'watched'
-    && isFavoriteVideo(video)
-    && s.videoWatchReminders?.[videoId]?.rewatch === true
-    && isVideoWatchReminderDue(s, videoId)
-  if (isDueRewatch) {
-    recordVideoRewatch(s, video)
-    saveState(s)
-    renderAll(s)
-    scheduleVideoWatchReminderTimer(s)
-    return
-  }
-  if (previousStatus === newStatus) return
-  if (newStatus === 'watched') {
-    const remainingMs = isVideoWatchReminderDue(s, videoId)
-      ? 0
-      : getVideoWatchCooldownRemainingMs(s, video)
-    if (remainingMs > 0) {
-      showToast(t('toast.watchCooldown', { time: formatVideoWatchCooldown(remainingMs) }), 'warn')
-      return
-    }
+  if (previousStatus === newStatus) return false
+  if (newStatus === 'watched' && !hasWatchedConfirmationUnlock(video)) return false
+  if (previousStatus === 'watched' && newStatus !== 'watched') {
+    grantWatchedConfirmationUnlock(s, video)
   }
   if (newStatus !== 'partial') clearVideoWatchReminderInState(s, videoId)
 
@@ -10425,12 +10611,14 @@ function markVideo(videoId, newStatus) {
     type: 'video-status',
     videoId,
     before: {
+      exists: true,
       video: cloneVideoForHistoryAction(video),
       status: video.status,
       watchedAt: video.watchedAt || null,
       resumeAtSeconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
     },
     after: {
+      exists: true,
       status: newStatus
     }
   }
@@ -10477,6 +10665,7 @@ function markVideo(videoId, newStatus) {
   saveState(s)
   renderAll(s)
   scheduleVideoWatchReminderTimer(s)
+  return true
 }
 
 function markVideoInProgressOnOpen(videoId, options = {}) {
@@ -10649,6 +10838,9 @@ async function addVideoFromUrl(event) {
       duration,
       status,
       watchedAt,
+      watchedConfirmationUnlockedAt: isValidTimestamp(existing?.watchedConfirmationUnlockedAt)
+        ? existing.watchedConfirmationUnlockedAt
+        : null,
       resumeAtSeconds: status === 'partial'
         ? normalizeResumeAtSeconds(existing?.resumeAtSeconds, duration)
         : null,
@@ -11471,6 +11663,14 @@ function applyHistoryAction(direction, actionIndex) {
   closeHistoryActionPopovers()
   saveState(s)
   renderAll(s)
+  if (action.type === 'video-favorite' && activeVideoShelfPlayer?.videoId === String(action.videoId ?? '')) {
+    const isFavorite = isFavoriteVideo(s.videos?.[action.videoId])
+    updateVideoPlayerFavoriteButton(
+      activeVideoShelfPlayer.overlay?.querySelector('.video-player-favorite'),
+      isFavorite
+    )
+    syncVideoWatchPromptFavoriteAction(action.videoId, isFavorite)
+  }
   showToast(historyResult.toast)
 }
 
@@ -11559,6 +11759,7 @@ function applyManualVideoAddActionSnapshot(s, action, snapshot, direction = 'und
 function applyVideoStatusActionSnapshot(s, videoId, snapshot, action = null, direction = 'undo') {
   if (!snapshot) return null
   let video = s.videos?.[videoId]
+  const wasWatched = getVideoStatus(video) === 'watched'
   if (!video && snapshot.video) {
     s.videos[videoId] = cloneVideoForHistoryAction(snapshot.video)
     video = s.videos[videoId]
@@ -11572,11 +11773,17 @@ function applyVideoStatusActionSnapshot(s, videoId, snapshot, action = null, dir
   }
   if (snapshot.video) {
     s.videos[videoId] = cloneVideoForHistoryAction(snapshot.video)
+    if (wasWatched && getVideoStatus(s.videos[videoId]) !== 'watched') {
+      grantWatchedConfirmationUnlock(s, s.videos[videoId])
+    }
     return s.videos[videoId]
   }
   video.status = snapshot.status
   video.watchedAt = snapshot.watchedAt
   video.resumeAtSeconds = normalizeResumeAtSeconds(snapshot.resumeAtSeconds, video.duration)
+  if (wasWatched && getVideoStatus(video) !== 'watched') {
+    grantWatchedConfirmationUnlock(s, video)
+  }
   return video
 }
 
@@ -15821,6 +16028,10 @@ function openVideoShelfPlayer(card, videoId) {
     progressEntryAt: null,
     progressSeconds: 0,
     isRewatch,
+    completionPromptVisible: false,
+    completionPromptPending: false,
+    youtubeCompletionDueAtMs: null,
+    youtubeCompletionTimer: null,
     destroyed: false
   }
   activeVideoShelfPlayer = session
@@ -16005,15 +16216,113 @@ function stopVideoShelfPlayerSyncTimer(session) {
   session.syncTimer = null
 }
 
+function clearVideoShelfYoutubeCompletionCountdown(session, options = {}) {
+  if (!session) return
+  if (session.youtubeCompletionTimer) {
+    window.clearTimeout(session.youtubeCompletionTimer)
+    session.youtubeCompletionTimer = null
+  }
+  session.youtubeCompletionDueAtMs = null
+  if (options.updateTitle !== false) updateDocumentTitle()
+}
+
+function dismissVideoShelfCompletionPrompt(session = activeVideoShelfPlayer) {
+  if (!session) return
+  session.frame?.querySelector('.video-watch-reminder-popover.is-player')?.remove()
+  session.completionPromptVisible = false
+  session.completionPromptPending = false
+  updateDocumentTitle()
+}
+
+function showVideoShelfCompletionPrompt(session = activeVideoShelfPlayer) {
+  if (!session || activeVideoShelfPlayer !== session || session.destroyed) return false
+  if (document.hidden) {
+    session.completionPromptPending = true
+    updateDocumentTitle()
+    return false
+  }
+  if (session.completionPromptVisible) return true
+
+  const state = loadState()
+  const video = state?.videos?.[session.videoId]
+  const canPrompt = session.isRewatch
+    ? video && getVideoStatus(video) === 'watched' && isFavoriteVideo(video)
+    : video && getVideoStatus(video) !== 'watched'
+  if (!canPrompt || !session.frame) return false
+
+  clearVideoShelfYoutubeCompletionCountdown(session, { updateTitle: false })
+  session.frame.querySelector('.video-watch-reminder-popover.is-player')?.remove()
+  session.frame.insertAdjacentHTML('beforeend', getVideoWatchReminderMarkup(session.videoId, {
+    player: true,
+    rewatch: session.isRewatch,
+    video
+  }))
+  const prompt = session.frame.querySelector('.video-watch-reminder-popover.is-player')
+  if (!prompt) return false
+  session.completionPromptVisible = true
+  session.completionPromptPending = false
+  finalizeRenderedVideoWatchPrompt(state, video, prompt, session.isRewatch)
+  updateDocumentTitle(state)
+  return true
+}
+
+function handleVideoShelfYoutubeCompletionDeadline(session) {
+  if (
+    !session
+    || activeVideoShelfPlayer !== session
+    || session.destroyed
+    || !Number.isFinite(session.youtubeCompletionDueAtMs)
+  ) return
+  session.youtubeCompletionTimer = null
+  const remainingMs = session.youtubeCompletionDueAtMs - Date.now()
+  if (remainingMs > 0) {
+    session.youtubeCompletionTimer = window.setTimeout(
+      () => handleVideoShelfYoutubeCompletionDeadline(session),
+      Math.min(remainingMs, 2_147_000_000)
+    )
+    return
+  }
+  if (document.hidden) {
+    updateDocumentTitle()
+    return
+  }
+  showVideoShelfCompletionPrompt(session)
+}
+
+function scheduleVideoShelfYoutubeCompletionCountdown(session, video, startSeconds) {
+  clearVideoShelfYoutubeCompletionCountdown(session, { updateTitle: false })
+  const duration = Math.max(0, Math.floor(Number(video?.duration || 0)))
+  if (!duration) {
+    updateDocumentTitle()
+    return false
+  }
+  const normalizedStart = Math.min(
+    duration,
+    Math.max(0, Math.floor(Number(startSeconds) || 0))
+  )
+  const remainingSeconds = Math.max(1, duration - normalizedStart)
+  session.youtubeCompletionDueAtMs = Date.now() + (remainingSeconds * 1000)
+  session.youtubeCompletionTimer = window.setTimeout(
+    () => handleVideoShelfYoutubeCompletionDeadline(session),
+    Math.min(remainingSeconds * 1000, 2_147_000_000)
+  )
+  updateDocumentTitle()
+  return true
+}
+
 function handleVideoShelfPlayerStateChange(session, state) {
   if (activeVideoShelfPlayer !== session) return
   if (state === 1) {
+    session.completionPromptPending = false
+    clearVideoShelfYoutubeCompletionCountdown(session)
     startVideoShelfPlayerSyncTimer(session)
     syncActiveVideoShelfPlayer({ persist: false })
     return
   }
   if (state === 0) {
     stopVideoShelfPlayerSyncTimer(session)
+    clearVideoShelfYoutubeCompletionCountdown(session, { updateTitle: false })
+    syncActiveVideoShelfPlayer({ persist: true })
     window.setTimeout(() => completeVideoShelfPlayer(session), 0)
     return
   }
@@ -16025,25 +16334,25 @@ function handleVideoShelfPlayerStateChange(session, state) {
 
 function completeVideoShelfPlayer(session) {
   if (activeVideoShelfPlayer !== session) return
-  stopActiveVideoShelfPlayer({
-    persist: false,
-    clearPreviewReference: true
-  })
+  showVideoShelfCompletionPrompt(session)
+}
+
+function completeVideoShelfPlayerRewatchConfirmation(session) {
+  if (activeVideoShelfPlayer !== session || !session.isRewatch) return false
+  const completedSession = stopActiveVideoShelfPlayer({ persist: false })
   const state = loadState()
-  const video = state?.videos?.[session.videoId]
-  if (session.isRewatch && video && getVideoStatus(video) === 'watched' && isFavoriteVideo(video)) {
-    const duration = Math.max(0, Math.floor(Number(video.duration || 0)))
-    const missingSeconds = Math.max(0, duration - Math.max(0, Number(session.progressSeconds) || 0))
-    recordVideoRewatch(state, video, missingSeconds)
-    saveState(state)
-    renderAll(state)
-    return
-  }
-  if (!video || getVideoStatus(video) === 'watched') {
-    if (state) renderAll(state)
-    return
-  }
-  markVideo(session.videoId, 'watched')
+  const video = state?.videos?.[completedSession?.videoId]
+  if (!video || getVideoStatus(video) !== 'watched' || !isFavoriteVideo(video)) return false
+  const duration = Math.max(0, Math.floor(Number(video.duration || 0)))
+  const missingSeconds = Math.max(
+    0,
+    duration - Math.max(0, Number(completedSession.progressSeconds) || 0)
+  )
+  if (!recordVideoRewatch(state, video, missingSeconds)) return false
+  saveState(state)
+  renderAll(state)
+  scheduleVideoWatchReminderTimer(state)
+  return true
 }
 
 function seekActiveVideoShelfPlayer(videoId, seconds) {
@@ -16068,10 +16377,18 @@ function prepareVideoShelfYoutubeOpen(link) {
       session.player?.pauseVideo?.()
     } catch {}
     syncActiveVideoShelfPlayer({ persist: true })
+    dismissVideoShelfCompletionPrompt(session)
   }
   const video = loadState()?.videos?.[videoId]
   if (!video) return false
   link.href = getVideoUrl(video)
+  if (session?.videoId === videoId) {
+    scheduleVideoShelfYoutubeCompletionCountdown(
+      session,
+      video,
+      getVideoShelfPlayerCurrentTime(session)
+    )
+  }
   return true
 }
 
@@ -16081,6 +16398,7 @@ function stopActiveVideoShelfPlayer(options = {}) {
   if (options.persist !== false) syncActiveVideoShelfPlayer({ persist: true })
 
   stopVideoShelfPlayerSyncTimer(session)
+  clearVideoShelfYoutubeCompletionCountdown(session, { updateTitle: false })
   session.destroyed = true
   activeVideoShelfPlayer = null
   try {
@@ -16088,6 +16406,7 @@ function stopActiveVideoShelfPlayer(options = {}) {
   } catch {}
   session.overlay?.remove()
   document.body.classList.remove('video-player-open')
+  updateDocumentTitle()
   return session
 }
 
@@ -16099,7 +16418,24 @@ function closeVideoShelfPlayer() {
 }
 
 function handleVideoShelfPlayerVisibilityChange() {
-  if (document.hidden) syncActiveVideoShelfPlayer({ persist: true })
+  if (document.hidden) {
+    syncActiveVideoShelfPlayer({ persist: true })
+    return
+  }
+  const session = activeVideoShelfPlayer
+  if (
+    session
+    && (
+      session.completionPromptPending
+      || (
+        Number.isFinite(session.youtubeCompletionDueAtMs)
+        && session.youtubeCompletionDueAtMs <= Date.now()
+      )
+    )
+  ) {
+    showVideoShelfCompletionPrompt(session)
+  }
+  updateDocumentTitle()
 }
 
 function handleVideoShelfPlayerKeydown(event) {
@@ -17185,6 +17521,7 @@ function renderCard(v, compact = false, options = {}) {
   const isWatchLater = status === 'watch-later'
   const isFavorite = isFavoriteVideo(v)
   const isRewatchable = isWatched && isFavorite
+  const canMarkWatched = hasWatchedConfirmationUnlock(v)
   const watchedNextStatus = isWatched ? 'unwatched' : 'watched'
   const partialNextStatus = isPartial ? 'unwatched' : 'partial'
   const watchLaterNextStatus = isWatchLater ? 'unwatched' : 'watch-later'
@@ -17210,7 +17547,8 @@ function renderCard(v, compact = false, options = {}) {
         title="${escHtml(t('nextStudy.watchAgain'))}">
         ${watchedLabel}
       </a>`
-    : `<button class="action-btn watched-btn ${isWatched ? 'active' : ''}"
+    : isWatched || canMarkWatched
+    ? `<button class="action-btn watched-btn ${isWatched ? 'active' : ''}"
         data-video-id="${safeVideoId}"
         data-status="${watchedNextStatus}"
         onclick="markVideo(this.dataset.videoId, this.dataset.status)"
@@ -17218,6 +17556,7 @@ function renderCard(v, compact = false, options = {}) {
         title="${escHtml(isWatched ? t('videos.card.unmark') : t('videos.card.markWatchedTitle'))}">
         ${watchedLabel}
       </button>`
+    : ''
   const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
   const thumbnailUrl = compact
     ? String(v.thumbnail || '').replace(/\/hqdefault\.jpg(?=\?|$)/, '/mqdefault.jpg')
@@ -17284,7 +17623,7 @@ function renderCard(v, compact = false, options = {}) {
     ? 'next-study-focus-target'
     : ''
   return `
-    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
+    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} ${!isWatched && !canMarkWatched ? 'watched-locked' : ''} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
       ${removeFromGridButton}
       ${thumbnailLink}
       ${shelfResumeTimeField}
