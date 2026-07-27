@@ -268,6 +268,7 @@
       recent_minutes: insight.recentMinutes || 0,
       previous_minutes: insight.previousMinutes || 0,
       suggested_minutes: insight.suggestedMinutes || 0,
+      gap_days: insight.gapDays || 0,
       active_days: insight.activeDays || 0,
       anki_days: insight.ankiDays || 0,
       reviewed_cards: insight.reviewedCards || 0,

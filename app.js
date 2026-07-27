@@ -116,6 +116,8 @@ const STUDY_INSIGHT_TYPES = [
   'weekend-opportunity',
   'momentum-up',
   'momentum-reset',
+  'routine-reset',
+  'routine-return',
   'anki-fallback',
   'steady-process'
 ]
@@ -1159,6 +1161,16 @@ const I18N_EN = {
   'insights.title.momentum-reset.alt': 'Lower the cost of getting started',
   'insights.body.momentum-reset.alt': 'Your recent pace is quieter than before. Choose the easiest {minutes}-minute study action and rebuild from there.',
   'insights.evidence.momentum-reset': 'The latest 14 days included {recentMinutes} minutes, {comparisonPercent}% below the prior 14 days.',
+  'insights.title.routine-reset': 'Get back on track with one small step',
+  'insights.body.routine-reset': '{gapDays} days away do not erase your progress. Reconnect today with one easy {minutes}-minute session.',
+  'insights.title.routine-reset.alt': 'Your routine is ready for a fresh start',
+  'insights.body.routine-reset.alt': 'Skip the pressure to catch up. One focused {minutes}-minute session today is enough to start moving again.',
+  'insights.evidence.routine-reset': 'It has been {gapDays} days since your last recorded study activity.',
+  'insights.title.routine-return': 'Welcome back!',
+  'insights.body.routine-return': 'You came back after {gapDays} days away. Strengthen your study routine with one easy {minutes}-minute session you can repeat.',
+  'insights.title.routine-return.alt': 'You’re back—build from here',
+  'insights.body.routine-return.alt': 'Returning is a win. Keep your momentum gentle with a simple {minutes}-minute session that feels easy to repeat.',
+  'insights.evidence.routine-return': 'You returned after a {gapDays}-day break from recorded study activity.',
   'insights.title.long-sessions': 'Add a short-session safety net',
   'insights.body.long-sessions': 'Your typical session lasts about {minutes} minutes. On crowded days, a {suggestedMinutes}-minute fallback can protect continuity.',
   'insights.title.long-sessions.alt': 'Keep a lighter option ready',
@@ -1809,6 +1821,16 @@ const I18N = {
     'insights.title.momentum-reset.alt': '降低開始的門檻',
     'insights.body.momentum-reset.alt': '你最近的節奏比以前安靜。選擇最容易的 {minutes} 分鐘學習行動，再慢慢重建。',
     'insights.evidence.momentum-reset': '最近 14 天學習 {recentMinutes} 分鐘，比前 14 天少 {comparisonPercent}%。',
+    'insights.title.routine-reset': '從一小步重新步上軌道',
+    'insights.body.routine-reset': '停下 {gapDays} 天不會抹去你的進步。今天用一段輕鬆的 {minutes} 分鐘學習重新連結。',
+    'insights.title.routine-reset.alt': '你的學習節奏可以重新開始',
+    'insights.body.routine-reset.alt': '不必急著追回進度。今天專注學習 {minutes} 分鐘，就足以再次向前。',
+    'insights.evidence.routine-reset': '距離上次記錄的學習活動已有 {gapDays} 天。',
+    'insights.title.routine-return': '歡迎回來！',
+    'insights.body.routine-return': '離開 {gapDays} 天後，你又回來了。用一段容易重複的 {minutes} 分鐘學習，讓學習習慣更穩固。',
+    'insights.title.routine-return.alt': '你回來了，就從這裡繼續',
+    'insights.body.routine-return.alt': '願意回來就是一次勝利。用一段簡單、容易重複的 {minutes} 分鐘學習，溫和地延續動力。',
+    'insights.evidence.routine-return': '你在中斷記錄學習活動 {gapDays} 天後重新開始。',
     'insights.title.long-sessions': '加上短時間學習安全網',
     'insights.body.long-sessions': '你典型的學習約 {minutes} 分鐘。忙碌時，可用 {suggestedMinutes} 分鐘備案保持連續性。',
     'insights.title.long-sessions.alt': '準備一個輕量版本',
@@ -2292,6 +2314,16 @@ const I18N = {
     'insights.title.momentum-reset.alt': '降低开始的门槛',
     'insights.body.momentum-reset.alt': '你最近的节奏比以前安静。选择最容易的 {minutes} 分钟学习行动，再慢慢重建。',
     'insights.evidence.momentum-reset': '最近 14 天学习 {recentMinutes} 分钟，比前 14 天少 {comparisonPercent}%。',
+    'insights.title.routine-reset': '从一小步重新步上正轨',
+    'insights.body.routine-reset': '停下 {gapDays} 天不会抹去你的进步。今天用一段轻松的 {minutes} 分钟学习重新连接。',
+    'insights.title.routine-reset.alt': '你的学习节奏可以重新开始',
+    'insights.body.routine-reset.alt': '不必急着追回进度。今天专注学习 {minutes} 分钟，就足以再次向前。',
+    'insights.evidence.routine-reset': '距离上次记录的学习活动已有 {gapDays} 天。',
+    'insights.title.routine-return': '欢迎回来！',
+    'insights.body.routine-return': '离开 {gapDays} 天后，你又回来了。用一段容易重复的 {minutes} 分钟学习，让学习习惯更稳固。',
+    'insights.title.routine-return.alt': '你回来了，就从这里继续',
+    'insights.body.routine-return.alt': '愿意回来就是一次胜利。用一段简单、容易重复的 {minutes} 分钟学习，温和地延续动力。',
+    'insights.evidence.routine-return': '你在中断记录学习活动 {gapDays} 天后重新开始。',
     'insights.title.long-sessions': '加上短时间学习安全网',
     'insights.body.long-sessions': '你典型的学习约 {minutes} 分钟。忙碌时，可用 {suggestedMinutes} 分钟备案保持连续性。',
     'insights.title.long-sessions.alt': '准备一个轻量版本',
@@ -2758,6 +2790,16 @@ const I18N = {
     'insights.title.momentum-reset.alt': 'Reduce el esfuerzo de empezar',
     'insights.body.momentum-reset.alt': 'Tu ritmo reciente está más tranquilo. Elige la acción de {minutes} minutos más fácil y reconstruye desde ahí.',
     'insights.evidence.momentum-reset': 'Los últimos 14 días sumaron {recentMinutes} minutos, un {comparisonPercent}% menos que los 14 anteriores.',
+    'insights.title.routine-reset': 'Retoma el rumbo con un pequeño paso',
+    'insights.body.routine-reset': '{gapDays} días sin estudiar no borran tu progreso. Vuelve a conectar hoy con una sesión sencilla de {minutes} minutos.',
+    'insights.title.routine-reset.alt': 'Tu rutina está lista para empezar de nuevo',
+    'insights.body.routine-reset.alt': 'No necesitas recuperar todo de golpe. Una sesión enfocada de {minutes} minutos hoy basta para volver a avanzar.',
+    'insights.evidence.routine-reset': 'Han pasado {gapDays} días desde tu última actividad de estudio registrada.',
+    'insights.title.routine-return': '¡Qué bueno tenerte de vuelta!',
+    'insights.body.routine-return': 'Has vuelto después de {gapDays} días. Refuerza tu rutina con una sesión sencilla de {minutes} minutos que puedas repetir.',
+    'insights.title.routine-return.alt': 'Has vuelto: construye desde aquí',
+    'insights.body.routine-return.alt': 'Volver ya es una victoria. Mantén un impulso amable con una sesión sencilla de {minutes} minutos que sea fácil repetir.',
+    'insights.evidence.routine-return': 'Volviste después de una pausa de {gapDays} días sin actividad de estudio registrada.',
     'insights.title.long-sessions': 'Añade una red de seguridad corta',
     'insights.body.long-sessions': 'Tu sesión habitual dura unos {minutes} minutos. En días llenos, una alternativa de {suggestedMinutes} minutos puede mantener la continuidad.',
     'insights.title.long-sessions.alt': 'Ten preparada una versión más ligera',
@@ -3226,6 +3268,16 @@ const I18N = {
     'insights.title.momentum-reset.alt': 'Réduisez l’effort pour commencer',
     'insights.body.momentum-reset.alt': 'Votre rythme récent est plus calme. Choisissez l’action de {minutes} minutes la plus facile et reconstruisez à partir de là.',
     'insights.evidence.momentum-reset': 'Les 14 derniers jours totalisent {recentMinutes} minutes, soit {comparisonPercent} % de moins que les 14 jours précédents.',
+    'insights.title.routine-reset': 'Reprenez le rythme avec un petit pas',
+    'insights.body.routine-reset': '{gapDays} jours sans étudier n’effacent pas vos progrès. Reprenez contact aujourd’hui avec une session simple de {minutes} minutes.',
+    'insights.title.routine-reset.alt': 'Votre routine est prête à repartir',
+    'insights.body.routine-reset.alt': 'Inutile de tout rattraper. Une session concentrée de {minutes} minutes aujourd’hui suffit pour avancer à nouveau.',
+    'insights.evidence.routine-reset': '{gapDays} jours se sont écoulés depuis votre dernière activité d’étude enregistrée.',
+    'insights.title.routine-return': 'Bon retour !',
+    'insights.body.routine-return': 'Vous revenez après {gapDays} jours. Renforcez votre routine avec une session simple de {minutes} minutes, facile à répéter.',
+    'insights.title.routine-return.alt': 'Vous êtes de retour : repartez d’ici',
+    'insights.body.routine-return.alt': 'Revenir est déjà une victoire. Entretenez doucement votre élan avec une session simple de {minutes} minutes, facile à répéter.',
+    'insights.evidence.routine-return': 'Vous avez repris après {gapDays} jours sans activité d’étude enregistrée.',
     'insights.title.long-sessions': 'Ajoutez un filet de sécurité court',
     'insights.body.long-sessions': 'Votre session habituelle dure environ {minutes} minutes. Les jours chargés, une option de {suggestedMinutes} minutes peut préserver la continuité.',
     'insights.title.long-sessions.alt': 'Gardez une version plus légère',
@@ -4760,6 +4812,7 @@ function normalizeStudyInsightConfig(state) {
         recentMinutes: Math.max(0, Math.round(Number(entry.recentMinutes) || 0)),
         previousMinutes: Math.max(0, Math.round(Number(entry.previousMinutes) || 0)),
         suggestedMinutes: clampNumber(Math.round(Number(entry.suggestedMinutes) || 0), 1, 180),
+        gapDays: Math.max(0, Math.round(Number(entry.gapDays) || 0)),
         activeDays: Math.max(0, Math.round(Number(entry.activeDays) || 0)),
         ankiDays: Math.max(0, Math.round(Number(entry.ankiDays) || 0)),
         reviewedCards: Math.max(0, Math.round(Number(entry.reviewedCards) || 0)),
@@ -5209,6 +5262,7 @@ function getEdeniaAnalyticsSnapshot(state) {
       recentMinutes: entry.recentMinutes || 0,
       previousMinutes: entry.previousMinutes || 0,
       suggestedMinutes: entry.suggestedMinutes || 0,
+      gapDays: entry.gapDays || 0,
       activeDays: entry.activeDays || 0,
       ankiDays: entry.ankiDays || 0,
       reviewedCards: entry.reviewedCards || 0,
@@ -13484,6 +13538,41 @@ function getWeeklySummaryInsight(state, referenceDate = getCurrentAppDate(state)
   }
 }
 
+function getRoutineRestartInsight(state, referenceDate = getCurrentAppDate(state)) {
+  const referenceKey = toDateKey(referenceDate)
+  const activityDateKeys = getStudyActivityDateKeys(state)
+    .filter(dateKey => dateKey <= referenceKey)
+    .sort((a, b) => b.localeCompare(a))
+  if (!activityDateKeys.length) return null
+
+  const daysSinceLastActivity = getDaysBetweenDateKeys(activityDateKeys[0], referenceKey)
+  if (daysSinceLastActivity >= 3) {
+    return {
+      id: 'routine-reset',
+      type: 'routine-reset',
+      gapDays: daysSinceLastActivity,
+      suggestedMinutes: 15
+    }
+  }
+
+  for (let index = 0; index < activityDateKeys.length - 1; index += 1) {
+    const returnDateKey = activityDateKeys[index]
+    const daysSinceReturn = getDaysBetweenDateKeys(returnDateKey, referenceKey)
+    if (daysSinceReturn > 6) break
+    const gapDays = getDaysBetweenDateKeys(activityDateKeys[index + 1], returnDateKey) - 1
+    if (gapDays >= 3) {
+      return {
+        id: 'routine-return',
+        type: 'routine-return',
+        gapDays,
+        suggestedMinutes: 15
+      }
+    }
+  }
+
+  return null
+}
+
 function getStudyInsightCandidates(state, referenceDate = getCurrentAppDate(state)) {
   const events = getStudyInsightEvents(state, referenceDate)
   const activeDateKeys = new Set(events.map(event => event.dateKey))
@@ -13662,6 +13751,8 @@ function getStudyInsightCandidates(state, referenceDate = getCurrentAppDate(stat
 }
 
 function getStudyInsight(state, referenceDate = getCurrentAppDate(state)) {
+  const routineRestart = getRoutineRestartInsight(state, referenceDate)
+  if (routineRestart) return applyStudyInsightVariant(routineRestart, state, referenceDate)
   const weeklySummary = getWeeklySummaryInsight(state, referenceDate)
   if (weeklySummary) return weeklySummary
   const candidates = getStudyInsightCandidates(state, referenceDate)
@@ -13671,6 +13762,10 @@ function getStudyInsight(state, referenceDate = getCurrentAppDate(state)) {
   date.setHours(12, 0, 0, 0)
   const weekIndex = Math.floor(date.getTime() / (7 * 86_400_000))
   const candidate = candidates[weekIndex % candidates.length]
+  return applyStudyInsightVariant(candidate, state, referenceDate)
+}
+
+function applyStudyInsightVariant(candidate, state, referenceDate = getCurrentAppDate(state)) {
   const history = state?.config?.studyInsights?.history || []
   const currentKey = getStudyInsightHistoryKey(candidate, state, referenceDate)
   const currentEntry = history.find(entry => entry.key === currentKey)
@@ -13703,6 +13798,7 @@ function recordStudyInsight(state, insight, referenceDate = getCurrentAppDate(st
     recentMinutes: insight.recentMinutes || 0,
     previousMinutes: insight.previousMinutes || 0,
     suggestedMinutes: insight.suggestedMinutes || 0,
+    gapDays: insight.gapDays || 0,
     activeDays: insight.activeDays || 0,
     ankiDays: insight.ankiDays || 0,
     reviewedCards: insight.reviewedCards || 0,
@@ -13717,7 +13813,7 @@ function recordStudyInsight(state, insight, referenceDate = getCurrentAppDate(st
   }
   const existingIndex = state.config.studyInsights.history.findIndex(entry => entry.key === key)
   if (existingIndex >= 0) {
-    if (insight.type !== 'weekly-summary') return key
+    if (!['weekly-summary', 'routine-reset', 'routine-return'].includes(insight.type)) return key
     const { recordedAt: existingRecordedAt, ...existingContent } = state.config.studyInsights.history[existingIndex]
     const { recordedAt: nextRecordedAt, ...nextContent } = historyEntry
     if (JSON.stringify(existingContent) === JSON.stringify(nextContent)) return key
@@ -13932,6 +14028,7 @@ function getStudyInsightViewModel(insight, state) {
     comparisonPercent: insight.comparisonPercent,
     recentMinutes: insight.recentMinutes,
     previousMinutes: insight.previousMinutes,
+    gapDays: insight.gapDays,
     days: insight.activeDays,
     ankiDays: insight.ankiDays,
     reviewedCards: insight.reviewedCards,
@@ -14016,6 +14113,20 @@ function getStudyInsightViewModel(insight, state) {
       title: t(`insights.title.momentum-reset${suffix}`),
       body: t(`insights.body.momentum-reset${suffix}`, common),
       evidence: t('insights.evidence.momentum-reset', common)
+    }
+  }
+  if (insight.type === 'routine-reset') {
+    return {
+      title: t(`insights.title.routine-reset${suffix}`),
+      body: t(`insights.body.routine-reset${suffix}`, common),
+      evidence: t('insights.evidence.routine-reset', common)
+    }
+  }
+  if (insight.type === 'routine-return') {
+    return {
+      title: t(`insights.title.routine-return${suffix}`),
+      body: t(`insights.body.routine-return${suffix}`, common),
+      evidence: t('insights.evidence.routine-return', common)
     }
   }
   if (insight.type === 'anki-fallback') {

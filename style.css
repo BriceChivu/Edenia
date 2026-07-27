@@ -8150,6 +8150,7 @@ summary:focus-visible,
     padding: 4px 12px;
     pointer-events: auto;
     transform: translateY(0);
+    z-index: 4;
   }
   .channel-shelf-card.is-floating-preview.is-preview-armed .card-body {
     transition:
