@@ -988,7 +988,6 @@ const I18N_EN = {
   'settings.title': 'Settings',
   'settings.close': 'Close settings',
   'settings.language.label': 'Language',
-  'settings.weeklyGoal.label': 'Weekly goal (hours)',
   'settings.channels.label': 'Channels',
   'settings.channels.placeholder': 'Channel URL or @',
   'settings.channels.add': 'Add',
@@ -1668,7 +1667,6 @@ const I18N = {
     'settings.title': '設定',
     'settings.close': '關閉設定',
     'settings.language.label': '語言',
-    'settings.weeklyGoal.label': '每週目標（小時）',
     'settings.channels.label': '頻道',
     'settings.channels.placeholder': 'Channel URL or @',
     'settings.channels.add': '新增',
@@ -2165,7 +2163,6 @@ const I18N = {
     'settings.title': '设置',
     'settings.close': '关闭设置',
     'settings.language.label': '语言',
-    'settings.weeklyGoal.label': '每周目标（小时）',
     'settings.channels.label': '频道',
     'settings.channels.placeholder': 'Channel URL or @',
     'settings.channels.add': '添加',
@@ -2643,7 +2640,6 @@ const I18N = {
     'settings.title': 'Ajustes',
     'settings.close': 'Cerrar ajustes',
     'settings.language.label': 'Idioma',
-    'settings.weeklyGoal.label': 'Objetivo semanal (horas)',
     'settings.channels.label': 'Canales',
     'settings.channels.placeholder': 'Channel URL or @',
     'settings.channels.add': 'Añadir',
@@ -3123,7 +3119,6 @@ const I18N = {
     'settings.title': 'Réglages',
     'settings.close': 'Fermer les réglages',
     'settings.language.label': 'Langue',
-    'settings.weeklyGoal.label': 'Objectif hebdomadaire (heures)',
     'settings.channels.label': 'Chaînes',
     'settings.channels.placeholder': 'Channel URL or @',
     'settings.channels.add': 'Ajouter',
@@ -8421,7 +8416,6 @@ function openSettings() {
   const main = document.getElementById('mainApp')
   if (panel?.classList.contains('hidden')) openSettings.returnFocus = document.activeElement
   const s = loadState()
-  document.getElementById('settingsGoal').value   = s.config.weeklyGoalHours
   applyLocale(s.config.locale)
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(s.config.includeShorts)
   document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(s)
@@ -8526,11 +8520,9 @@ function handleSettingsKeydown(event) {
 async function saveSettingsOnTheFly() {
   const s      = loadState()
   normalizeStudyInsightConfig(s)
-  const previousGoal = normalizeWeeklyGoalHours(s.config.weeklyGoalHours)
   const previousIncludeShorts = normalizeIncludeShorts(s.config.includeShorts)
   const previousAnkiEnabled = isAnkiEnabled(s)
   const previousInsightsEnabled = isStudyInsightsEnabled(s)
-  const goal   = normalizeWeeklyGoalHours(document.getElementById('settingsGoal').value)
   const nextAnkiEnabled = isAnkiAvailableOnDevice()
     ? Boolean(document.getElementById('settingsAnkiEnabled')?.checked)
     : previousAnkiEnabled
@@ -8557,22 +8549,11 @@ async function saveSettingsOnTheFly() {
     }
   }
 
-  s.config.weeklyGoalHours = goal
   s.config.includeShorts = Boolean(document.getElementById('settingsIncludeShorts')?.checked)
   const shortsWereEnabled = !previousIncludeShorts && normalizeIncludeShorts(s.config.includeShorts)
   s.config.ankiEnabled = nextAnkiEnabled
   s.config.ankiDisabledAt = nextAnkiEnabled ? null : now
   s.config.studyInsights.enabled = nextInsightsEnabled
-  document.getElementById('settingsGoal').value = goal
-  if (goal !== previousGoal) {
-    appendActivityLog(s, {
-      actor: 'user',
-      type: 'weekly-goal',
-      status: 'success',
-      title: t('log.weeklyGoal.title'),
-      detail: t('log.weeklyGoal.detail', { from: previousGoal, to: goal })
-    })
-  }
   if (normalizeIncludeShorts(s.config.includeShorts) !== previousIncludeShorts) {
     appendActivityLog(s, {
       actor: 'user',
@@ -8718,7 +8699,6 @@ function importSyncFileFromInput(input) {
       renderChannelList(normalizedState.config.channels)
       renderBackupList()
       renderActivityLog(normalizedState)
-      document.getElementById('settingsGoal').value = normalizedState.config.weeklyGoalHours
       renderLocaleSelect()
       document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(normalizedState.config.includeShorts)
       document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(normalizedState)
@@ -9003,7 +8983,6 @@ function restoreStateBackup(id) {
   renderChannelList(state.config.channels)
   renderBackupList()
   renderActivityLog(state)
-  document.getElementById('settingsGoal').value = state.config.weeklyGoalHours
   renderLocaleSelect()
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(state.config.includeShorts)
   document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(state)
