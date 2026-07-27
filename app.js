@@ -5527,7 +5527,7 @@ function normalizeVideoWatchProgress(progress, duration = null) {
     .sort((a, b) => new Date(a.watchedAt) - new Date(b.watchedAt))
 }
 
-function normalizeVideoRewatchCoverage(ranges, duration = null) {
+function normalizeVideoWatchCoverage(ranges, duration = null) {
   const maxSeconds = Number.isFinite(Number(duration)) && Number(duration) > 0
     ? Number(duration)
     : null
@@ -5563,14 +5563,14 @@ function normalizeVideoRewatchCoverage(ranges, duration = null) {
   }, [])
 }
 
-function getVideoRewatchCoverageSeconds(ranges, duration = null) {
-  return normalizeVideoRewatchCoverage(ranges, duration)
+function getVideoWatchCoverageSeconds(ranges, duration = null) {
+  return normalizeVideoWatchCoverage(ranges, duration)
     .reduce((total, range) => total + (range.end - range.start), 0)
 }
 
-function addVideoRewatchCoverageRange(ranges, start, end, duration = null) {
-  return normalizeVideoRewatchCoverage([
-    ...normalizeVideoRewatchCoverage(ranges, duration),
+function addVideoWatchCoverageRange(ranges, start, end, duration = null) {
+  return normalizeVideoWatchCoverage([
+    ...normalizeVideoWatchCoverage(ranges, duration),
     { start, end }
   ], duration)
 }
@@ -5586,28 +5586,50 @@ function normalizeVideoWatchProgressState(state) {
       changed = true
     }
 
-    const hasStoredCoverage = Object.prototype.hasOwnProperty.call(video, 'rewatchCoverage')
+    const hasWatchCycleCoverage = Object.prototype.hasOwnProperty.call(video, 'watchCycleCoverage')
+    const hasLegacyRewatchCoverage = Object.prototype.hasOwnProperty.call(video, 'rewatchCoverage')
+    const hasStoredCoverage = hasWatchCycleCoverage || hasLegacyRewatchCoverage
     const legacyResumeSeconds = (
       !hasStoredCoverage
-      && getVideoStatus(video) === 'watched'
-      && isFavoriteVideo(video)
+      && hasVideoResumePriority(video)
     )
       ? normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
       : null
-    const normalizedCoverage = normalizeVideoRewatchCoverage(
+    const normalizedCoverage = normalizeVideoWatchCoverage(
       hasStoredCoverage
-        ? video.rewatchCoverage
+        ? hasWatchCycleCoverage
+          ? video.watchCycleCoverage
+          : video.rewatchCoverage
         : legacyResumeSeconds > 0
         ? [{ start: 0, end: legacyResumeSeconds }]
         : [],
       video.duration
     )
     if (
-      hasStoredCoverage
-      ? JSON.stringify(video.rewatchCoverage) !== JSON.stringify(normalizedCoverage)
+      hasWatchCycleCoverage
+      ? JSON.stringify(video.watchCycleCoverage) !== JSON.stringify(normalizedCoverage)
+      : hasLegacyRewatchCoverage
+      ? true
       : normalizedCoverage.length > 0
     ) {
-      video.rewatchCoverage = normalizedCoverage
+      video.watchCycleCoverage = normalizedCoverage
+      changed = true
+    }
+    if (hasLegacyRewatchCoverage) {
+      delete video.rewatchCoverage
+      changed = true
+    }
+    if (
+      (Object.prototype.hasOwnProperty.call(video, 'watchCycleCoverage') || normalizedCoverage.length > 0)
+      && video.watchProgressTracked !== true
+    ) {
+      video.watchProgressTracked = true
+      changed = true
+    } else if (
+      Object.prototype.hasOwnProperty.call(video, 'watchProgressTracked')
+      && video.watchProgressTracked !== true
+    ) {
+      delete video.watchProgressTracked
       changed = true
     }
   })
@@ -9377,6 +9399,7 @@ function getVideoUrl(video) {
 function getVideoWatchProgressEntries(video) {
   const entries = normalizeVideoWatchProgress(video?.watchProgress, video?.duration)
   if (entries.length) return entries
+  if (video?.watchProgressTracked === true) return []
 
   if (video?.watchedAt && getVideoStatus(video) === 'watched') {
     const seconds = Math.max(0, Math.floor(Number(video.duration || 0)))
@@ -9734,8 +9757,11 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
         ? existing.pausedAt
         : null,
       watchProgress: normalizeVideoWatchProgress(existing?.watchProgress ?? v.watchProgress, duration),
-      ...(Object.prototype.hasOwnProperty.call(existing || {}, 'rewatchCoverage')
-        ? { rewatchCoverage: normalizeVideoRewatchCoverage(existing.rewatchCoverage, duration) }
+      watchProgressTracked: existing?.watchProgressTracked === true,
+      ...(Object.prototype.hasOwnProperty.call(existing || {}, 'watchCycleCoverage')
+        ? { watchCycleCoverage: normalizeVideoWatchCoverage(existing.watchCycleCoverage, duration) }
+        : Object.prototype.hasOwnProperty.call(existing || {}, 'rewatchCoverage')
+        ? { watchCycleCoverage: normalizeVideoWatchCoverage(existing.rewatchCoverage, duration) }
         : {}),
       source: existing?.source || v.source || null,
       manuallyAdded: Boolean(existing?.manuallyAdded || v.manuallyAdded),
@@ -10521,8 +10547,14 @@ function confirmVideoWatchPrompt(event, videoId, rewatch = false, playerPrompt =
       || session.isRewatch !== (rewatch === true)
     ) return false
     if (rewatch) return completeVideoShelfPlayerRewatchConfirmation(session)
+    syncActiveVideoShelfPlayer({
+      persist: true,
+      captureStoppedPlayback: true
+    })
     stopActiveVideoShelfPlayer({ persist: false })
-    return markVideo(targetVideoId, 'watched')
+    return markVideo(targetVideoId, 'watched', {
+      creditOnlyRecordedProgress: true
+    })
   }
 
   if (activeVideoWatchReminderId !== targetVideoId) return false
@@ -10669,6 +10701,7 @@ function recordVideoRewatch(state, video, seconds = null, options = {}) {
   if (rewatchSeconds > 0 && options.creditProgress !== false) {
     addVideoWatchProgress(video, rewatchSeconds, watchedAt, { allowRepeat: true })
   }
+  delete video.watchCycleCoverage
   delete video.rewatchCoverage
   video.resumeAtSeconds = null
   video.pausedAt = null
@@ -10740,11 +10773,18 @@ function markVideo(videoId, requestedStatus, options = {}) {
   video.watchLater = resolvedWatchLater
   const watchedAt = newStatus === 'watched' ? getCurrentAppTimestamp(s) : null
   if (watchedAt) {
-    const missingSeconds = Math.max(0, Math.floor(Number(video.duration || 0)) - getTotalVideoWatchProgressSeconds(video))
-    if (missingSeconds > 0) addVideoWatchProgress(video, missingSeconds, watchedAt)
+    if (options.creditOnlyRecordedProgress === true || video.watchProgressTracked === true) {
+      video.watchProgressTracked = true
+    } else {
+      const missingSeconds = Math.max(0, Math.floor(Number(video.duration || 0)) - getTotalVideoWatchProgressSeconds(video))
+      if (missingSeconds > 0) addVideoWatchProgress(video, missingSeconds, watchedAt)
+    }
+    delete video.watchCycleCoverage
     delete video.rewatchCoverage
   } else if (requestedStatus === 'unwatched' || previousStatus === 'watched') {
     video.watchProgress = []
+    delete video.watchProgressTracked
+    delete video.watchCycleCoverage
     delete video.rewatchCoverage
   }
   video.watchedAt = watchedAt
@@ -11720,8 +11760,10 @@ function cloneVideoForHistoryAction(video) {
   return video ? {
     ...video,
     watchProgress: normalizeVideoWatchProgress(video.watchProgress, video.duration),
-    ...(Object.prototype.hasOwnProperty.call(video, 'rewatchCoverage')
-      ? { rewatchCoverage: normalizeVideoRewatchCoverage(video.rewatchCoverage, video.duration) }
+    ...(Object.prototype.hasOwnProperty.call(video, 'watchCycleCoverage')
+      ? { watchCycleCoverage: normalizeVideoWatchCoverage(video.watchCycleCoverage, video.duration) }
+      : Object.prototype.hasOwnProperty.call(video, 'rewatchCoverage')
+      ? { watchCycleCoverage: normalizeVideoWatchCoverage(video.rewatchCoverage, video.duration) }
       : {})
   } : null
 }
@@ -16117,8 +16159,8 @@ function openVideoPlayer(videoId) {
     lastPersistedSeconds: startSeconds,
     lastPersistedAt: Date.now(),
     progressEntryAt: null,
-    progressSeconds: getVideoRewatchCoverageSeconds(video.rewatchCoverage, video.duration),
-    rewatchCoverage: normalizeVideoRewatchCoverage(video.rewatchCoverage, video.duration),
+    progressSeconds: getVideoWatchCoverageSeconds(video.watchCycleCoverage, video.duration),
+    watchCycleCoverage: normalizeVideoWatchCoverage(video.watchCycleCoverage, video.duration),
     lastPlaybackSampleSeconds: startSeconds,
     lastPlaybackSampleAt: Date.now(),
     isRewatch,
@@ -16237,48 +16279,8 @@ function addVideoShelfSessionProgress(video, seconds, session, watchedAt) {
   return true
 }
 
-function setVideoShelfProgressToTimestamp(video, seconds, session, watchedAt) {
-  if (!video || !session || !isValidTimestamp(watchedAt)) return false
-  const duration = Math.max(0, Math.floor(Number(video.duration || 0)))
-  const targetSeconds = duration > 0
-    ? clampNumber(Math.floor(Number(seconds) || 0), 0, duration)
-    : Math.max(0, Math.floor(Number(seconds) || 0))
-  const entries = normalizeVideoWatchProgress(video.watchProgress, video.duration)
-  const currentSeconds = entries.reduce((total, entry) => total + entry.seconds, 0)
-  if (targetSeconds === currentSeconds) return false
-
-  if (targetSeconds > currentSeconds) {
-    let sessionEntry = session.progressEntryAt
-      ? entries.find(entry => entry.watchedAt === session.progressEntryAt)
-      : null
-    if (!sessionEntry) {
-      session.progressEntryAt = watchedAt
-      sessionEntry = { watchedAt, seconds: 0 }
-      entries.push(sessionEntry)
-    }
-    sessionEntry.seconds += targetSeconds - currentSeconds
-  } else {
-    let secondsToRemove = currentSeconds - targetSeconds
-    for (let index = entries.length - 1; index >= 0 && secondsToRemove > 0; index -= 1) {
-      const removedSeconds = Math.min(entries[index].seconds, secondsToRemove)
-      entries[index].seconds -= removedSeconds
-      secondsToRemove -= removedSeconds
-      if (entries[index].seconds <= 0) entries.splice(index, 1)
-    }
-  }
-
-  video.watchProgress = normalizeVideoWatchProgress(entries, video.duration)
-  if (
-    session.progressEntryAt
-    && !video.watchProgress.some(entry => entry.watchedAt === session.progressEntryAt)
-  ) {
-    session.progressEntryAt = null
-  }
-  return true
-}
-
-function trackVideoShelfRewatchCoverage(session, seconds, options = {}) {
-  if (!session?.isRewatch || !Number.isFinite(Number(seconds))) return false
+function trackVideoShelfWatchCoverage(session, seconds, options = {}) {
+  if (!session || !Number.isFinite(Number(seconds))) return false
   const sampledAt = Date.now()
   const currentSeconds = Math.max(0, Number(seconds))
   const previousSeconds = Number(session.lastPlaybackSampleSeconds)
@@ -16304,25 +16306,26 @@ function trackVideoShelfRewatchCoverage(session, seconds, options = {}) {
   )
   if (playedSeconds <= 0 || playedSeconds > maxContinuousSeconds) return false
 
-  const nextCoverage = addVideoRewatchCoverageRange(
-    session.rewatchCoverage,
+  const nextCoverage = addVideoWatchCoverageRange(
+    session.watchCycleCoverage,
     previousSeconds,
     currentSeconds
   )
-  if (JSON.stringify(nextCoverage) === JSON.stringify(session.rewatchCoverage)) return false
-  session.rewatchCoverage = nextCoverage
-  session.progressSeconds = getVideoRewatchCoverageSeconds(nextCoverage)
+  if (JSON.stringify(nextCoverage) === JSON.stringify(session.watchCycleCoverage)) return false
+  session.watchCycleCoverage = nextCoverage
+  session.progressSeconds = getVideoWatchCoverageSeconds(nextCoverage)
   return true
 }
 
-function persistVideoShelfRewatchCoverage(video, session, watchedAt) {
-  if (!video || !session?.isRewatch || !isValidTimestamp(watchedAt)) return false
-  const previousCoverage = normalizeVideoRewatchCoverage(video.rewatchCoverage, video.duration)
-  const nextCoverage = normalizeVideoRewatchCoverage(session.rewatchCoverage, video.duration)
-  const previousSeconds = Math.floor(getVideoRewatchCoverageSeconds(previousCoverage, video.duration))
-  const nextSeconds = Math.floor(getVideoRewatchCoverageSeconds(nextCoverage, video.duration))
+function persistVideoShelfWatchCoverage(video, session, watchedAt) {
+  if (!video || !session || !isValidTimestamp(watchedAt)) return false
+  const previousCoverage = normalizeVideoWatchCoverage(video.watchCycleCoverage, video.duration)
+  const nextCoverage = normalizeVideoWatchCoverage(session.watchCycleCoverage, video.duration)
+  const previousSeconds = Math.floor(getVideoWatchCoverageSeconds(previousCoverage, video.duration))
+  const nextSeconds = Math.floor(getVideoWatchCoverageSeconds(nextCoverage, video.duration))
   const coverageChanged = JSON.stringify(previousCoverage) !== JSON.stringify(nextCoverage)
-  video.rewatchCoverage = nextCoverage
+  video.watchCycleCoverage = nextCoverage
+  video.watchProgressTracked = true
 
   const newlyCoveredSeconds = Math.max(0, nextSeconds - previousSeconds)
   const progressChanged = newlyCoveredSeconds > 0
@@ -16340,11 +16343,9 @@ function syncActiveVideoShelfPlayer(options = {}) {
 
   const currentSeconds = getVideoShelfPlayerCurrentTime(session)
   if (!Number.isFinite(currentSeconds)) return false
-  if (session.isRewatch) {
-    trackVideoShelfRewatchCoverage(session, currentSeconds, {
-      captureStoppedPlayback: options.captureStoppedPlayback === true
-    })
-  }
+  trackVideoShelfWatchCoverage(session, currentSeconds, {
+    captureStoppedPlayback: options.captureStoppedPlayback === true
+  })
   updateVideoShelfPlayerTimestamp(session, currentSeconds)
   if (!persist) return true
 
@@ -16366,9 +16367,7 @@ function syncActiveVideoShelfPlayer(options = {}) {
   session.lastPersistedSeconds = nextResume
 
   const watchedAt = getCurrentAppTimestamp(state)
-  const progressChanged = session.isRewatch
-    ? persistVideoShelfRewatchCoverage(video, session, watchedAt)
-    : setVideoShelfProgressToTimestamp(video, nextResume, session, watchedAt)
+  const progressChanged = persistVideoShelfWatchCoverage(video, session, watchedAt)
   video.resumeAtSeconds = normalized
   if (session.isRewatch) video.pausedAt = watchedAt
   if (nextResume === previousResume && !progressChanged && !session.isRewatch) return true
@@ -16483,8 +16482,8 @@ function completeVideoShelfPlayerRewatchConfirmation(session) {
   const state = loadState()
   const video = state?.videos?.[completedSession?.videoId]
   if (!video || getVideoStatus(video) !== 'watched' || !isFavoriteVideo(video)) return false
-  const coveredSeconds = Math.floor(getVideoRewatchCoverageSeconds(
-    video.rewatchCoverage,
+  const coveredSeconds = Math.floor(getVideoWatchCoverageSeconds(
+    video.watchCycleCoverage,
     video.duration
   ))
   if (!recordVideoRewatch(state, video, coveredSeconds, { creditProgress: false })) return false
@@ -16813,6 +16812,45 @@ function cleanupVideoShelfPreview(card) {
   if (activeVideoShelfPreview === card) activeVideoShelfPreview = null
   card.getBoundingClientRect()
   requestAnimationFrame(() => card.classList.remove('is-preview-resetting'))
+}
+
+function dismissVideoShelfPreview(card) {
+  if (!card) return false
+  const hasPreviewState = activeVideoShelfPreview === card
+    || card.classList.contains('is-floating-preview')
+    || card.classList.contains('is-preview-armed')
+    || card.classList.contains('is-previewing')
+    || card.classList.contains('is-preview-closing')
+  if (!hasPreviewState) return false
+
+  const videoId = String(card.dataset.videoId || '')
+  if (activeVideoWatchReminderId === videoId) return false
+  if (activeNextStudyFocusVideoId === videoId) {
+    window.clearTimeout(nextStudyFocusZoomTimer)
+    activeNextStudyFocusVideoId = null
+    card.classList.remove('next-study-focus-target')
+  }
+
+  window.clearTimeout(videoShelfPreviewAnchorTimer)
+  card.classList.remove('is-previewing')
+  cleanupVideoShelfPreview(card)
+  return true
+}
+
+function closeVideoShelfPreviewsOnEscape(event) {
+  if (event.key !== 'Escape') return
+  const previewCards = new Set(document.querySelectorAll(
+    '.channel-shelf-card.is-floating-preview, .channel-shelf-card.is-preview-armed, .channel-shelf-card.is-previewing, .channel-shelf-card.is-preview-closing'
+  ))
+  if (activeVideoShelfPreview) previewCards.add(activeVideoShelfPreview)
+
+  let dismissed = false
+  previewCards.forEach(card => {
+    if (dismissVideoShelfPreview(card)) dismissed = true
+  })
+  if (!dismissed) return
+  event.preventDefault()
+  event.stopPropagation()
 }
 
 function reopenVideoShelfPreview(card) {
@@ -18106,6 +18144,7 @@ document.addEventListener('keydown', closeFilterMenusOnEscape)
 document.addEventListener('keydown', closeManualVideoPopoverOnEscape)
 document.addEventListener('keydown', closeVideoSearchPopoverOnEscape)
 document.addEventListener('keydown', closeLocaleMenuOnEscape)
+document.addEventListener('keydown', closeVideoShelfPreviewsOnEscape)
 document.addEventListener('keydown', handleSettingsKeydown)
 document.addEventListener('keydown', handleIntroTrailerKeydown)
 document.addEventListener('keydown', handleFeedbackModalKeydown)
