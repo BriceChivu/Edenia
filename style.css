@@ -8349,6 +8349,12 @@ body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closi
   border-color: var(--planet-black);
   color: var(--text);
 }
+body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.watch-later-btn,
+body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.favorite-btn {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
 @media (min-width: 641px) and (any-pointer: coarse) {
   .channel-shelf-avatar {
     touch-action: none;
