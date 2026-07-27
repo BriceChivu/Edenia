@@ -9272,6 +9272,16 @@ function hasVideoResumePriority(video) {
     )
 }
 
+function getVideoPausedTimestamp(video) {
+  const timestamp = Date.parse(video?.pausedAt || '')
+  return Number.isFinite(timestamp) ? timestamp : 0
+}
+
+function comparePausedVideos(a, b) {
+  return getVideoPausedTimestamp(b) - getVideoPausedTimestamp(a)
+    || compareActiveVideos(a, b)
+}
+
 function isVideoWatchLater(video) {
   return getVideoStatus(video) === 'watch-later' || video?.watchLater === true
 }
@@ -10640,6 +10650,11 @@ function markVideo(videoId, requestedStatus, options = {}) {
     video.watchProgress = []
   }
   video.watchedAt = watchedAt
+  video.pausedAt = newStatus === 'partial'
+    ? previousStatus === 'partial' && isValidTimestamp(video.pausedAt)
+      ? video.pausedAt
+      : getCurrentAppTimestamp(s)
+    : null
   if (watchedAt) {
     s.lastVideoMarkedWatchedAt = watchedAt
     recordNoAnkiFrequentUserWatchedDate(s, watchedAt)
@@ -10699,9 +10714,14 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
     return true
   }
   if (previousStatus === 'partial') {
-    const reminderChanged = clearVideoWatchReminderInState(s, videoId)
-    if (reminderChanged) {
-      saveState(s, { backup: false })
+    clearVideoWatchReminderInState(s, videoId)
+    video.pausedAt = getCurrentAppTimestamp(s)
+    saveState(s, { backup: false })
+    if (shouldRender) {
+      setTimeout(() => {
+        const nextState = loadState()
+        renderAll(nextState)
+      }, 0)
     }
     return true
   }
@@ -10726,6 +10746,7 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
   if (previousStatus === 'watch-later') video.watchLater = true
   video.status = 'partial'
   video.watchedAt = null
+  video.pausedAt = getCurrentAppTimestamp(s)
   video.resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
   clearVideoWatchReminderInState(s, videoId)
   const action = s.undoStack[s.undoStack.length - 1]
@@ -13908,7 +13929,9 @@ function setStudyInsightsCollapsed(collapsed) {
 function renderNextStudy(activeVideos = [], favoriteVideos = []) {
   const container = document.getElementById('nextStudyCard')
   if (!container) return null
-  const nextVideo = activeVideos.find(hasVideoResumePriority)
+  const nextVideo = activeVideos
+    .filter(hasVideoResumePriority)
+    .sort(comparePausedVideos)[0]
     || activeVideos.find(video => getVideoStatus(video) === 'watch-later')
     || favoriteVideos.find(video => getVideoStatus(video) === 'watched')
   container.classList.toggle('hidden', !nextVideo)
