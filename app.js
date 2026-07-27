@@ -15076,7 +15076,7 @@ function initCityImagePanZoom() {
 
   wrap.addEventListener('pointerdown', event => {
     if (event.target.closest('button, .city-time-waveform')) return
-    if (event.pointerType === 'touch' && isMobileLayout()) {
+    if (event.pointerType === 'touch') {
       cityImageView.touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
       if (cityImageView.touchPointers.size >= 2) {
         event.preventDefault()
@@ -15100,7 +15100,7 @@ function initCityImagePanZoom() {
   })
 
   wrap.addEventListener('pointermove', event => {
-    if (event.pointerType === 'touch' && isMobileLayout() && cityImageView.touchPointers.has(event.pointerId)) {
+    if (event.pointerType === 'touch' && cityImageView.touchPointers.has(event.pointerId)) {
       cityImageView.touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
       if (cityImageView.pinching && cityImageView.touchPointers.size >= 2) {
         event.preventDefault()
@@ -15117,7 +15117,7 @@ function initCityImagePanZoom() {
   })
 
   const endDrag = event => {
-    if (event.pointerType === 'touch' && isMobileLayout()) {
+    if (event.pointerType === 'touch') {
       const trackedTouch = cityImageView.touchPointers.has(event.pointerId)
       cityImageView.touchPointers.delete(event.pointerId)
       if (trackedTouch && cityImageView.pinching) {
