@@ -5048,6 +5048,16 @@ body[data-theme="dark"] .video-watch-reminder-favorite:focus-visible {
   position: relative;
   right: auto;
 }
+.video-watch-reminder-popover:is(.is-player, .is-global) {
+  align-items: center;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 10px 12px;
+}
+.video-watch-reminder-popover:is(.is-player, .is-global) .video-watch-reminder-copy,
+.video-watch-reminder-popover:is(.is-player, .is-global) .video-watch-reminder-actions {
+  white-space: nowrap;
+}
 .compact-card .thumb-link {
   aspect-ratio: 16 / 9;
   height: auto;
@@ -6848,6 +6858,12 @@ summary:focus-visible,
   .video-watch-reminder-global {
     bottom: 12px;
     width: calc(100vw - 24px);
+  }
+  .video-watch-reminder-popover:is(.is-player, .is-global) {
+    gap: 6px;
+  }
+  .video-watch-reminder-popover:is(.is-player, .is-global) .video-watch-reminder-copy {
+    gap: 5px;
   }
 
   .video-grid.channel-view {
