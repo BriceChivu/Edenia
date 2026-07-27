@@ -1086,7 +1086,9 @@ const I18N_EN = {
   'city.ptsByThen': 'pts by then',
   'city.readyNext': 'Ready for next level',
   'city.ptsToNext': '{count} pts to next level',
+  'city.effortToNext': '≈ {minutes} min video or {reviews} Anki reviews',
   'city.maxLevel': 'Max level',
+  'city.levelNumber': 'Level {count}',
   'city.level.1': '🏠 Lonely house',
   'city.level.2': '⛵ Your house got a fresh new look! Plus a boat!',
   'city.level.3': '🏝️ Oh look! A tiny island! Cute.',
@@ -1749,7 +1751,9 @@ const I18N = {
     'city.ptsByThen': '當時分數',
     'city.readyNext': '可以升到下一級',
     'city.ptsToNext': '還差 {count} 分到下一級',
+    'city.effortToNext': '約 {minutes} 分鐘影片或複習 {reviews} 張 Anki 卡',
     'city.maxLevel': '最高等級',
+    'city.levelNumber': '第 {count} 級',
     'city.level.1': '🏠 孤單的小屋',
     'city.level.2': '⛵ 你的小屋煥然一新！還多了一艘船！',
     'city.level.3': '🏝️ 看！一座小小島！好可愛。',
@@ -2242,7 +2246,9 @@ const I18N = {
     'city.ptsByThen': '当时分数',
     'city.readyNext': '可以升到下一级',
     'city.ptsToNext': '还差 {count} 分到下一级',
+    'city.effortToNext': '约 {minutes} 分钟视频或复习 {reviews} 张 Anki 卡',
     'city.maxLevel': '最高等级',
+    'city.levelNumber': '第 {count} 级',
     'city.level.1': '🏠 孤单的小屋',
     'city.level.2': '⛵ 你的小屋焕然一新！还多了一艘船！',
     'city.level.3': '🏝️ 看！一座小小岛！好可爱。',
@@ -2718,7 +2724,9 @@ const I18N = {
     'city.ptsByThen': 'pts hasta entonces',
     'city.readyNext': 'Listo para el siguiente nivel',
     'city.ptsToNext': '{count} pts para el siguiente nivel',
+    'city.effortToNext': '≈ {minutes} min de vídeo o {reviews} repasos de Anki',
     'city.maxLevel': 'Nivel máximo',
+    'city.levelNumber': 'Nivel {count}',
     'city.level.1': '🏠 Casa solitaria',
     'city.level.2': '⛵ ¡Tu casa recibió una mejora! ¡Y un barco!',
     'city.level.3': '🏝️ ¡Mira! ¡Una isla pequeña! Qué linda.',
@@ -3196,7 +3204,9 @@ const I18N = {
     'city.ptsByThen': 'pts jusque-là',
     'city.readyNext': 'Prêt pour le niveau suivant',
     'city.ptsToNext': '{count} pts avant le niveau suivant',
+    'city.effortToNext': '≈ {minutes} min de vidéo ou {reviews} révisions Anki',
     'city.maxLevel': 'Niveau maximum',
+    'city.levelNumber': 'Niveau {count}',
     'city.level.1': '🏠 Maison solitaire',
     'city.level.2': '⛵ Votre maison a fière allure ! Et il y a un bateau !',
     'city.level.3': '🏝️ Oh ! Une toute petite île ! Adorable.',
@@ -4385,15 +4395,6 @@ const WALKTHROUGH_STEPS = [
     placement: 'bottom'
   },
   {
-    id: 'weekly-goal',
-    target: '.goal-card',
-    textKey: 'walkthrough.weeklyGoal',
-    placement: 'bottom',
-    hooks: {
-      beforeEnter: 'closeTransientUi'
-    }
-  },
-  {
     id: 'study-history',
     target: '.study-history-section',
     textKey: 'walkthrough.studyHistory',
@@ -4462,7 +4463,7 @@ const LEVEL_UP_GUIDANCE_WALKTHROUGH_STEP = {
   actionLabel: 'Ok!',
   placement: 'bottom',
   spotlightPadding: 6,
-  spotlightHeightTarget: '.city-footer',
+  spotlightHeightTarget: '.goal-card',
   spotlightVerticalPadding: 0,
   spotlightRadius: 999,
   confirmationOnly: true,
@@ -13309,13 +13310,30 @@ function jumpToWatchedVideo(event, videoId) {
   event?.stopPropagation()
   const targetId = String(videoId ?? '')
   const state = loadState()
-  if (!state?.videos?.[targetId]) {
+  const video = state?.videos?.[targetId]
+  if (!video) {
     closeHistoryVideoPopovers()
     showToast(t('toast.videoGone'), 'warn')
     return
   }
 
   closeHistoryVideoPopovers()
+  if (getVideoStatus(video) === 'watched' && !isFavoriteVideo(video)) {
+    if (selectedStatusFilter === 'favorite') selectedStatusFilter = 'all'
+    isWatchedSectionCollapsed = false
+    forcedSearchVideoId = targetId
+    renderFeed(state)
+    window.requestAnimationFrame(() => {
+      const found = scrollToVideoCard(targetId, '#watchedGrid .video-card', {
+        className: 'history-video-arriving',
+        duration: 2200
+      })
+      forcedSearchVideoId = null
+      if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
+    })
+    return
+  }
+
   if (!isMobileLayout()) {
     focusNextStudyVideoCard(event, targetId)
     return
@@ -14461,16 +14479,18 @@ function renderHeader(s) {
 }
 
 function renderAnalytics(stats, s) {
-  document.getElementById('hoursWatched').textContent    = formatWeeklyWatchedTime(stats.secondsWatched)
-  document.getElementById('goalHours').textContent       = stats.goalHours
-  document.getElementById('videosWatched').textContent   = stats.videosWatched
-  document.getElementById('videosPartial').textContent   = stats.videosPartial
-  document.getElementById('videosRemaining').textContent = formatHoursMinutes(stats.remainingSeconds)
+  setText('hoursWatched', formatWeeklyWatchedTime(stats.secondsWatched))
+  setText('goalHours', stats.goalHours)
+  setText('videosWatched', stats.videosWatched)
+  setText('videosPartial', stats.videosPartial)
+  setText('videosRemaining', formatHoursMinutes(stats.remainingSeconds))
 
   const bar = document.getElementById('goalProgressBar')
-  bar.style.width = `${stats.goalProgress}%`
-  bar.classList.toggle('has-progress', stats.goalProgress > 0)
-  bar.classList.toggle('complete', stats.goalProgress >= 100)
+  if (bar) {
+    bar.style.width = `${stats.goalProgress}%`
+    bar.classList.toggle('has-progress', stats.goalProgress > 0)
+    bar.classList.toggle('complete', stats.goalProgress >= 100)
+  }
   renderGoalPaceGuidance(stats, s)
   renderStudyInsight(s)
 }
@@ -14949,11 +14969,48 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
   }
   const nextLevel = CITY_LEVELS[snapshot.pendingLevelIndex || snapshot.visualLevelIndex + 1] || null
   const hasEarnedUnrevealedLevel = snapshot.earnedLevelIndex > snapshot.visualLevelIndex
+  const currentLevel = CITY_LEVELS[snapshot.visualLevelIndex]
+  const progressStart = currentLevel?.threshold || 0
+  const progressEnd = nextLevel?.threshold ?? progressStart
+  const progressRange = Math.max(1, progressEnd - progressStart)
+  const progressRatio = nextLevel
+    ? clampNumber((snapshot.score - progressStart) / progressRange, 0, 1)
+    : 1
+  const progress = document.getElementById('cityLevelProgress')
+  const progressFill = document.getElementById('cityLevelProgressFill')
+  progress?.style.setProperty('--city-level-progress', `${(progressRatio * 100).toFixed(2)}%`)
+  progress?.style.setProperty('--city-level-filled-center', `${(progressRatio * 50).toFixed(2)}%`)
+  progress?.style.setProperty('--city-level-remaining-center', `${((progressRatio + 1) * 50).toFixed(2)}%`)
+  progressFill?.classList.toggle('has-progress', progressRatio > 0)
+  progressFill?.classList.toggle('complete', progressRatio >= 1)
+  if (progress) {
+    progress.setAttribute('aria-valuemin', String(progressStart))
+    progress.setAttribute('aria-valuemax', String(progressEnd))
+    progress.setAttribute('aria-valuenow', String(Math.min(snapshot.score, progressEnd)))
+  }
+  document.getElementById('cityCurrentLevel').textContent = t('city.levelNumber', {
+    count: snapshot.visualLevelIndex + 1
+  })
+  document.getElementById('cityFollowingLevel').textContent = nextLevel
+    ? t('city.levelNumber', { count: CITY_LEVELS.indexOf(nextLevel) + 1 })
+    : t('city.maxLevel')
+  document.getElementById('cityCurrentMilestonePoints').textContent =
+    `${progressStart} ${t('points.short')}`
+  document.getElementById('cityNextMilestonePoints').textContent = nextLevel
+    ? `${progressEnd} ${t('points.short')}`
+    : ''
+  const pointsToNextLevel = nextLevel ? Math.max(0, nextLevel.threshold - snapshot.score) : 0
   document.getElementById('cityNextLevel').textContent = nextLevel
     ? snapshot.hasPendingLevel || hasEarnedUnrevealedLevel
       ? t('city.readyNext')
-      : t('city.ptsToNext', { count: nextLevel.threshold - snapshot.score })
+      : t('city.ptsToNext', { count: pointsToNextLevel })
     : t('city.maxLevel')
+  document.getElementById('cityNextEffort').textContent = nextLevel && pointsToNextLevel > 0
+    ? t('city.effortToNext', {
+        minutes: Math.ceil((pointsToNextLevel * 60) / VIDEO_HOUR_POINTS),
+        reviews: Math.ceil((pointsToNextLevel * ANKI_REVIEW_CHUNK_SIZE) / ANKI_REVIEW_CHUNK_POINTS)
+      })
+    : ''
   if (includeTimeline) renderLevelUpButton(snapshot)
   if (includeTimeline && snapshot.isToday) maybeStartLevelUpGuidance(s)
 
@@ -15035,6 +15092,7 @@ function renderLevelUpButton(snapshot) {
   button.classList.toggle('show', !!snapshot.hasPendingLevel)
   button.disabled = !snapshot.hasPendingLevel
   button.setAttribute('aria-hidden', String(!snapshot.hasPendingLevel))
+  document.getElementById('cityLevelProgress')?.classList.toggle('is-level-ready', !!snapshot.hasPendingLevel)
 }
 
 function maybeStartLevelUpGuidance(s) {
@@ -18490,14 +18548,6 @@ function renderCard(v, compact = false, options = {}) {
   const uploadRibbon = compact || (options.shelf && isPartial)
     ? null
     : getVideoUploadRibbon(v, options.currentDateKey)
-  const removeFromGridButton = !compact && !isWatched
-    ? `<button type="button"
-        class="video-grid-remove"
-        data-video-id="${safeVideoId}"
-        onclick="removeVideoFromGrid(event, this.dataset.videoId)"
-        title="${escHtml(t('videos.card.removeFromGrid'))}"
-        aria-label="${escHtml(t('videos.card.removeFromGrid'))}">×</button>`
-    : ''
   const thumbnailContent = `
     <img src="${escHtml(thumbnailUrl)}" alt="" class="thumb" loading="lazy">
     ${uploadRibbon ? `<span class="video-upload-ribbon">${escHtml(uploadRibbon)}</span>` : ''}
@@ -18534,7 +18584,6 @@ function renderCard(v, compact = false, options = {}) {
     : ''
   return `
     <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} status-${displayStatus}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
-      ${removeFromGridButton}
       ${thumbnailLink}
       ${shelfPriorityBadge}
       <div class="card-body">
