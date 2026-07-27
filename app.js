@@ -996,6 +996,10 @@ const I18N_EN = {
   'settings.shorts.label': 'Show short videos',
   'settings.shorts.hint': 'When off, videos under 3 minutes are skipped during refresh and hidden from your active video list.',
   'settings.howto.title': 'How to',
+  'settings.videoActions.title': 'Organize your videos',
+  'settings.videoActions.favorite': 'Favorite is for videos you want to rewatch repeatedly. Favorites stay available after you watch them.',
+  'settings.videoActions.watchLater': 'Watch later keeps a video in your active list for another time. Using it on a set-aside video makes that video active again.',
+  'settings.videoActions.setAside': 'Set aside is for a video you started but do not want to finish. You keep the tracked study time and points, and it still counts in watched stats.',
   'settings.youtube.title': 'Add a YouTube channel',
   'settings.youtube.intro': 'Add a channel by copying its YouTube URL.',
   'settings.youtube.step1': "On YouTube, open the channel you want and copy its URL from your browser's address bar.",
@@ -1268,6 +1272,7 @@ const I18N_EN = {
   'videos.status.all': 'All',
   'videos.status.watchLater': 'Watch later',
   'videos.status.favorite': 'Favorite',
+  'videos.status.setAside': 'Set aside',
   'videos.status.unwatched': 'Unwatched',
   'videos.status.partial': 'In progress',
   'videos.status.watched': 'Watched',
@@ -1328,6 +1333,8 @@ const I18N_EN = {
   'videos.card.watchLater': 'Watch later',
   'videos.card.removeFavorite': 'Remove from favorites',
   'videos.card.favorite': 'Favorite',
+  'videos.card.setAside': 'Set aside',
+  'videos.card.setAsideAt': 'Set aside · {date}',
   'videos.card.resume': 'Resume',
   'videos.card.continueAt': 'Continue at',
   'videos.card.timestampLabel': 'Continue watching timestamp',
@@ -1674,6 +1681,10 @@ const I18N = {
     'settings.shorts.label': '顯示短影片',
     'settings.shorts.hint': '關閉時，刷新會跳過 3 分鐘以下的影片，並從主要影片清單隱藏。',
     'settings.howto.title': '使用說明',
+    'settings.videoActions.title': '整理你的影片',
+    'settings.videoActions.favorite': '「收藏」適合你想反覆重看的影片。看完後，影片仍會保留在收藏中。',
+    'settings.videoActions.watchLater': '「稍後觀看」會讓影片留在待看清單中。對已先放下的影片使用此功能，會讓影片重新回到待看狀態。',
+    'settings.videoActions.setAside': '「先放下」適合已開始觀看但不想看完的影片。已追蹤的學習時間和分數會保留，影片也仍會計入已看統計。',
     'settings.youtube.title': '新增 YouTube 頻道',
     'settings.youtube.intro': '複製 YouTube 頻道網址即可新增頻道。',
     'settings.youtube.step1': '在 YouTube 打開你想新增的頻道，從瀏覽器網址列複製其網址。',
@@ -1914,6 +1925,7 @@ const I18N = {
     'videos.channel.dragLabel': '重新排列 {channel}',
     'videos.status.all': '全部',
     'videos.status.watchLater': '稍後觀看',
+    'videos.status.setAside': '先放下',
     'videos.status.unwatched': '未觀看',
     'videos.status.partial': '進行中',
     'videos.status.watched': '已看',
@@ -2171,6 +2183,10 @@ const I18N = {
     'settings.shorts.label': '显示短视频',
     'settings.shorts.hint': '关闭时，刷新会跳过 3 分钟以下的视频，并从主要视频列表隐藏。',
     'settings.howto.title': '使用说明',
+    'settings.videoActions.title': '整理你的视频',
+    'settings.videoActions.favorite': '“收藏”适合你想反复重看的视频。看完后，视频仍会保留在收藏中。',
+    'settings.videoActions.watchLater': '“稍后观看”会让视频留在待看列表中。对已先放下的视频使用此功能，会让视频重新回到待看状态。',
+    'settings.videoActions.setAside': '“先放下”适合已开始观看但不想看完的视频。已追踪的学习时间和分数会保留，视频也仍会计入已看统计。',
     'settings.youtube.title': '添加 YouTube 频道',
     'settings.youtube.intro': '复制 YouTube 频道网址即可添加频道。',
     'settings.youtube.step1': '在 YouTube 打开你想添加的频道，从浏览器地址栏复制其网址。',
@@ -2400,6 +2416,7 @@ const I18N = {
     'videos.channel.dragLabel': '重新排列 {channel}',
     'videos.status.all': '全部',
     'videos.status.watchLater': '稍后观看',
+    'videos.status.setAside': '先放下',
     'videos.status.unwatched': '未观看',
     'videos.status.partial': '进行中',
     'videos.status.watched': '已看',
@@ -2649,6 +2666,10 @@ const I18N = {
     'settings.shorts.label': 'Mostrar videos cortos',
     'settings.shorts.hint': 'Si está desactivado, los videos de menos de 3 minutos se omiten al actualizar y se ocultan de la lista activa.',
     'settings.howto.title': 'Cómo usar',
+    'settings.videoActions.title': 'Organiza tus videos',
+    'settings.videoActions.favorite': 'Favorito es para los videos que quieres volver a ver repetidamente. Siguen disponibles en Favoritos después de verlos.',
+    'settings.videoActions.watchLater': 'Ver más tarde mantiene un video en tu lista activa para otro momento. Al usarlo en un video apartado, el video vuelve a estar activo.',
+    'settings.videoActions.setAside': 'Apartar es para un video que empezaste pero no quieres terminar. Conservas el tiempo de estudio y los puntos registrados, y sigue contando en las estadísticas de videos vistos.',
     'settings.youtube.title': 'Añadir un canal de YouTube',
     'settings.youtube.intro': 'Añade un canal copiando su URL de YouTube.',
     'settings.youtube.step1': 'En YouTube, abre el canal que quieras y copia su URL desde la barra de direcciones del navegador.',
@@ -2880,6 +2901,7 @@ const I18N = {
     'videos.channel.dragLabel': 'Reordenar {channel}',
     'videos.status.all': 'Todo',
     'videos.status.watchLater': 'Ver luego',
+    'videos.status.setAside': 'Apartado',
     'videos.status.unwatched': 'Sin ver',
     'videos.status.partial': 'En progreso',
     'videos.status.watched': 'Visto',
@@ -3129,6 +3151,10 @@ const I18N = {
     'settings.shorts.label': 'Afficher les vidéos courtes',
     'settings.shorts.hint': 'Quand c’est désactivé, les vidéos de moins de 3 minutes sont ignorées au rafraîchissement et cachées de la liste active.',
     'settings.howto.title': 'Mode d’emploi',
+    'settings.videoActions.title': 'Organiser vos vidéos',
+    'settings.videoActions.favorite': 'Favori sert aux vidéos que vous souhaitez revoir régulièrement. Elles restent dans vos favoris après leur visionnage.',
+    'settings.videoActions.watchLater': 'À regarder plus tard garde une vidéo dans votre liste active. Utilisé sur une vidéo mise de côté, ce choix la rend de nouveau active.',
+    'settings.videoActions.setAside': 'Mettre de côté sert aux vidéos commencées que vous ne souhaitez pas terminer. Le temps d’étude et les points suivis sont conservés, et la vidéo compte toujours dans les statistiques de visionnage.',
     'settings.youtube.title': 'Ajouter une chaîne YouTube',
     'settings.youtube.intro': 'Ajoutez une chaîne en copiant son URL YouTube.',
     'settings.youtube.step1': 'Sur YouTube, ouvrez la chaîne souhaitée et copiez son URL depuis la barre d’adresse du navigateur.',
@@ -3360,6 +3386,7 @@ const I18N = {
     'videos.channel.dragLabel': 'Réorganiser {channel}',
     'videos.status.all': 'Tout',
     'videos.status.watchLater': 'À voir',
+    'videos.status.setAside': 'Mis de côté',
     'videos.status.unwatched': 'Non vue',
     'videos.status.partial': 'En cours',
     'videos.status.watched': 'Vue',
@@ -3677,6 +3704,8 @@ Object.assign(I18N['zh-Hant'], {
   'videos.card.watchLater': '稍後觀看',
   'videos.card.removeFavorite': '從收藏移除',
   'videos.card.favorite': '收藏',
+  'videos.card.setAside': '先放下',
+  'videos.card.setAsideAt': '已先放下 · {date}',
   'videos.card.timestampLabel': '繼續播放時間',
   'videos.card.inProgressRibbon': '進行中',
   'videos.refreshing': '刷新中…',
@@ -3872,6 +3901,8 @@ Object.assign(I18N['zh-Hans'], {
   'videos.card.watchLater': '稍后观看',
   'videos.card.removeFavorite': '从收藏移除',
   'videos.card.favorite': '收藏',
+  'videos.card.setAside': '先放下',
+  'videos.card.setAsideAt': '已先放下 · {date}',
   'videos.card.timestampLabel': '继续播放时间',
   'videos.card.inProgressRibbon': '进行中',
   'videos.refreshing': '刷新中…',
@@ -4068,6 +4099,8 @@ Object.assign(I18N.es, {
   'videos.card.watchLater': 'Ver después',
   'videos.card.removeFavorite': 'Quitar de favoritos',
   'videos.card.favorite': 'Favorito',
+  'videos.card.setAside': 'Apartar',
+  'videos.card.setAsideAt': 'Apartado · {date}',
   'videos.card.timestampLabel': 'Hora para continuar',
   'videos.card.inProgressRibbon': 'En progreso',
   'videos.refreshing': 'Actualizando…',
@@ -4264,6 +4297,8 @@ Object.assign(I18N.fr, {
   'videos.card.watchLater': 'À regarder',
   'videos.card.removeFavorite': 'Retirer des favoris',
   'videos.card.favorite': 'Favori',
+  'videos.card.setAside': 'Mettre de côté',
+  'videos.card.setAsideAt': 'Mis de côté · {date}',
   'videos.card.timestampLabel': 'Heure de reprise',
   'videos.card.inProgressRibbon': 'En cours',
   'videos.refreshing': 'Actualisation…',
@@ -5099,6 +5134,7 @@ function loadState() {
       }
       if (normalizeAnkiDateKeys(state)) shouldSave = true
       if (normalizeVideoWatchProgressState(state)) shouldSave = true
+      if (normalizeVideoSetAsideState(state)) shouldSave = true
       if (normalizeWatchedConfirmationState(state)) shouldSave = true
       if (normalizeVideoWatchReminderState(state)) shouldSave = true
       normalizeUndoState(state)
@@ -5153,6 +5189,7 @@ function saveState(s, options = {}) {
   normalizeActivityLogState(s)
   normalizeNoAnkiFrequentUserPromptState(s)
   normalizeVideoWatchProgressState(s)
+  normalizeVideoSetAsideState(s)
   normalizeWatchedConfirmationState(s)
   normalizeVideoWatchReminderState(s)
   normalizeStudyInsightConfig(s)
@@ -5247,7 +5284,8 @@ function getEdeniaAnalyticsSnapshot(state) {
       watchedAt: isValidTimestamp(video.watchedAt) ? video.watchedAt : null,
       durationSeconds: Math.max(0, Math.round(Number(video.duration) || 0)),
       source: video.manuallyAdded ? 'manual' : 'channel',
-      isShort: Boolean(video.isShort)
+      isShort: Boolean(video.isShort),
+      setAside: isVideoSetAside(video)
     }))
     .sort((left, right) => left.id.localeCompare(right.id))
   const favoriteVideos = Object.entries(state?.videos || {})
@@ -5726,6 +5764,58 @@ function normalizeVideoWatchProgressState(state) {
       && video.watchProgressTracked !== true
     ) {
       delete video.watchProgressTracked
+      changed = true
+    }
+  })
+  return changed
+}
+
+function normalizeVideoSetAsideState(state) {
+  if (!state?.videos || typeof state.videos !== 'object') return false
+  let changed = false
+  Object.values(state.videos).forEach(video => {
+    if (!video || typeof video !== 'object') return
+    if (!isVideoSetAside(video)) {
+      for (const key of ['setAside', 'setAsideAt', 'setAsideResumeAtSeconds']) {
+        if (!Object.prototype.hasOwnProperty.call(video, key)) continue
+        delete video[key]
+        changed = true
+      }
+      return
+    }
+
+    const normalizedSetAsideAt = isValidTimestamp(video.setAsideAt)
+      ? video.setAsideAt
+      : isValidTimestamp(video.watchedAt)
+      ? video.watchedAt
+      : null
+    const normalizedResumeAt = normalizeResumeAtSeconds(video.setAsideResumeAtSeconds, video.duration)
+    if (video.setAsideAt !== normalizedSetAsideAt) {
+      video.setAsideAt = normalizedSetAsideAt
+      changed = true
+    }
+    if (video.setAsideResumeAtSeconds !== normalizedResumeAt) {
+      video.setAsideResumeAtSeconds = normalizedResumeAt
+      changed = true
+    }
+    if (video.favorite === true) {
+      video.favorite = false
+      changed = true
+    }
+    if (video.watchLater === true) {
+      video.watchLater = false
+      changed = true
+    }
+    if (video.resumeAtSeconds !== null && video.resumeAtSeconds !== undefined) {
+      video.resumeAtSeconds = null
+      changed = true
+    }
+    if (video.pausedAt !== null && video.pausedAt !== undefined) {
+      video.pausedAt = null
+      changed = true
+    }
+    if (video.watchProgressTracked !== true) {
+      video.watchProgressTracked = true
       changed = true
     }
   })
@@ -8284,7 +8374,10 @@ function refreshSandboxFeed() {
       watchedConfirmationUnlockedAt: isValidTimestamp(existing?.watchedConfirmationUnlockedAt)
         ? existing.watchedConfirmationUnlockedAt
         : null,
-      favorite: Boolean(existing?.favorite)
+      favorite: Boolean(existing?.favorite),
+      setAside: existing?.setAside === true,
+      setAsideAt: isValidTimestamp(existing?.setAsideAt) ? existing.setAsideAt : null,
+      setAsideResumeAtSeconds: normalizeResumeAtSeconds(existing?.setAsideResumeAtSeconds, v.duration)
     }
   })
 
@@ -9527,6 +9620,10 @@ function isFavoriteVideo(video) {
   return video?.favorite === true
 }
 
+function isVideoSetAside(video) {
+  return getVideoStatus(video) === 'watched' && video?.setAside === true
+}
+
 function hasWatchedConfirmationUnlock(video) {
   return isValidTimestamp(video?.watchedConfirmationUnlockedAt)
 }
@@ -9971,6 +10068,9 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
         ? existing.watchedConfirmationUnlockedAt
         : null,
       favorite: Boolean(existing?.favorite),
+      setAside: existing?.setAside === true,
+      setAsideAt: isValidTimestamp(existing?.setAsideAt) ? existing.setAsideAt : null,
+      setAsideResumeAtSeconds: normalizeResumeAtSeconds(existing?.setAsideResumeAtSeconds, duration),
       resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, duration),
       pausedAt: hasVideoResumePriority(existing) && isValidTimestamp(existing?.pausedAt)
         ? existing.pausedAt
@@ -11122,6 +11222,11 @@ function markVideo(videoId, requestedStatus, options = {}) {
     && isActiveVideoShelfPreview(videoId)
   const previousStatus = getVideoStatus(video)
   const previousWatchLater = isVideoWatchLater(video)
+  const previousSetAside = isVideoSetAside(video)
+  const previousSetAsideResumeAtSeconds = normalizeResumeAtSeconds(
+    video.setAsideResumeAtSeconds,
+    video.duration
+  )
   const previousResumePriority = hasVideoResumePriority(video)
   const nextWatchLater = typeof options.watchLater === 'boolean'
     ? options.watchLater
@@ -11129,6 +11234,7 @@ function markVideo(videoId, requestedStatus, options = {}) {
     ? true
     : previousWatchLater
   const resolvedWatchLater = requestedStatus === 'watched' ? false : nextWatchLater
+  const isReactivatingSetAside = previousSetAside && requestedStatus === 'watch-later'
   let newStatus = requestedStatus
   if (requestedStatus === 'watch-later' && previousStatus === 'partial') {
     newStatus = 'partial'
@@ -11139,7 +11245,7 @@ function markVideo(videoId, requestedStatus, options = {}) {
   if (previousStatus === newStatus && previousWatchLater === resolvedWatchLater && !isClearingResume) return false
   if (newStatus === 'watched' && !hasWatchedConfirmationUnlock(video)) return false
   if (isClearingResume) clearFocusedVideoPreview(videoId)
-  if (previousStatus === 'watched' && newStatus !== 'watched') {
+  if (previousStatus === 'watched' && newStatus !== 'watched' && !previousSetAside) {
     grantWatchedConfirmationUnlock(s, video)
   }
   if (newStatus !== 'partial') clearVideoWatchReminderInState(s, videoId)
@@ -11162,6 +11268,11 @@ function markVideo(videoId, requestedStatus, options = {}) {
 
   video.status    = newStatus
   video.watchLater = resolvedWatchLater
+  if (previousSetAside && newStatus !== 'watched') {
+    delete video.setAside
+    delete video.setAsideAt
+    delete video.setAsideResumeAtSeconds
+  }
   const watchedAt = newStatus === 'watched' ? getCurrentAppTimestamp(s) : null
   if (watchedAt) {
     if (options.creditOnlyRecordedProgress === true || video.watchProgressTracked === true) {
@@ -11172,7 +11283,10 @@ function markVideo(videoId, requestedStatus, options = {}) {
     }
     delete video.watchCycleCoverage
     delete video.rewatchCoverage
-  } else if (requestedStatus === 'unwatched' || previousStatus === 'watched') {
+  } else if (
+    (requestedStatus === 'unwatched' || previousStatus === 'watched')
+    && !isReactivatingSetAside
+  ) {
     video.watchProgress = []
     delete video.watchProgressTracked
     delete video.watchCycleCoverage
@@ -11188,13 +11302,15 @@ function markVideo(videoId, requestedStatus, options = {}) {
     s.lastVideoMarkedWatchedAt = watchedAt
     recordNoAnkiFrequentUserWatchedDate(s, watchedAt)
   }
-  video.resumeAtSeconds = requestedStatus !== 'unwatched'
-    && (
-      newStatus === 'partial'
-      || (newStatus === 'watch-later' && previousResumePriority)
-    )
-    ? normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
-    : null
+  video.resumeAtSeconds = isReactivatingSetAside
+    ? previousSetAsideResumeAtSeconds
+    : requestedStatus !== 'unwatched'
+      && (
+        newStatus === 'partial'
+        || (newStatus === 'watch-later' && previousResumePriority)
+      )
+      ? normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
+      : null
   undoAction.after.watchedAt = video.watchedAt
   undoAction.after.resumeAtSeconds = video.resumeAtSeconds
   undoAction.after.video = cloneVideoForHistoryAction(video)
@@ -11224,6 +11340,8 @@ function markVideo(videoId, requestedStatus, options = {}) {
     new_status: newStatus,
     previous_watch_later: previousWatchLater,
     watch_later: resolvedWatchLater,
+    previous_set_aside: previousSetAside,
+    set_aside: isVideoSetAside(video),
     favorite: isFavoriteVideo(video),
     resume_at_seconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration),
     surface: options.surface || 'video_card'
@@ -11233,6 +11351,91 @@ function markVideo(videoId, requestedStatus, options = {}) {
   } else {
     renderAll(s)
   }
+  scheduleVideoWatchReminderTimer(s)
+  return true
+}
+
+function setVideoAside(videoId, options = {}) {
+  const s = loadState()
+  const video = s?.videos?.[videoId]
+  if (!video || isVideoSetAside(video) || !hasVideoResumePriority(video)) return false
+
+  const previousStatus = getVideoStatus(video)
+  const previousWatchLater = isVideoWatchLater(video)
+  const previousFavorite = isFavoriteVideo(video)
+  const resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
+  const setAsideAt = getCurrentAppTimestamp(s)
+  const undoAction = {
+    type: 'video-status',
+    videoId,
+    before: {
+      exists: true,
+      video: cloneVideoForHistoryAction(video),
+      status: video.status,
+      watchedAt: video.watchedAt || null,
+      resumeAtSeconds
+    },
+    after: {
+      exists: true,
+      status: 'watched'
+    }
+  }
+
+  if (getTotalVideoWatchProgressSeconds(video) <= 0 && resumeAtSeconds > 0) {
+    addVideoWatchProgress(video, resumeAtSeconds, setAsideAt)
+  }
+  video.status = 'watched'
+  video.watchedAt = setAsideAt
+  video.setAside = true
+  video.setAsideAt = setAsideAt
+  video.setAsideResumeAtSeconds = resumeAtSeconds
+  video.watchProgressTracked = true
+  video.watchLater = false
+  video.favorite = false
+  video.resumeAtSeconds = null
+  video.pausedAt = null
+  clearVideoWatchReminderInState(s, videoId)
+  clearFocusedVideoPreview(videoId)
+
+  s.lastVideoMarkedWatchedAt = setAsideAt
+  recordNoAnkiFrequentUserWatchedDate(s, setAsideAt)
+  undoAction.after.watchedAt = setAsideAt
+  undoAction.after.resumeAtSeconds = null
+  undoAction.after.video = cloneVideoForHistoryAction(video)
+  pushUndoAction(s, undoAction)
+  syncStreak(s)
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'video-status',
+    status: 'success',
+    title: t('log.videoStatus.title'),
+    detail: t('log.videoStatus.detail', {
+      title: formatToastTitle(video.title),
+      status: t('videos.status.setAside')
+    }),
+    meta: { videoId, status: 'watched', setAside: true }
+  })
+  if (getVideoActionPointDelta(undoAction, 'redo') > 0) {
+    appendPointDeltaActivityLog(s, {
+      action: undoAction,
+      direction: 'redo',
+      reason: 'redo',
+      video
+    })
+  }
+
+  saveState(s)
+  if (previousFavorite) {
+    trackVideoFavoriteChanged(s, video, true, 'set_aside')
+  }
+  window.trackEdeniaEvent?.('video_set_aside', getVideoAnalyticsProperties(video, {
+    previous_status: previousStatus,
+    previous_watch_later: previousWatchLater,
+    previous_favorite: previousFavorite,
+    credited_seconds: getTotalVideoWatchProgressSeconds(video),
+    surface: options.surface || 'video_card'
+  }))
+  renderAll(s)
   scheduleVideoWatchReminderTimer(s)
   return true
 }
@@ -12370,6 +12573,8 @@ function applyHistoryAction(direction, actionIndex) {
       new_status: getVideoStatus(affectedVideo),
       previous_watch_later: Boolean(previousSnapshot?.video?.watchLater),
       watch_later: isVideoWatchLater(affectedVideo),
+      previous_set_aside: isVideoSetAside(previousSnapshot?.video),
+      set_aside: isVideoSetAside(affectedVideo),
       favorite: isFavoriteVideo(affectedVideo),
       resume_at_seconds: normalizeResumeAtSeconds(affectedVideo.resumeAtSeconds, affectedVideo.duration),
       surface: direction
@@ -12473,6 +12678,7 @@ function applyVideoStatusActionSnapshot(s, videoId, snapshot, action = null, dir
   if (!snapshot) return null
   let video = s.videos?.[videoId]
   const wasWatched = getVideoStatus(video) === 'watched'
+  const wasSetAside = isVideoSetAside(video)
   if (!video && snapshot.video) {
     s.videos[videoId] = cloneVideoForHistoryAction(snapshot.video)
     video = s.videos[videoId]
@@ -12486,7 +12692,7 @@ function applyVideoStatusActionSnapshot(s, videoId, snapshot, action = null, dir
   }
   if (snapshot.video) {
     s.videos[videoId] = cloneVideoForHistoryAction(snapshot.video)
-    if (wasWatched && getVideoStatus(s.videos[videoId]) !== 'watched') {
+    if (wasWatched && !wasSetAside && getVideoStatus(s.videos[videoId]) !== 'watched') {
       grantWatchedConfirmationUnlock(s, s.videos[videoId])
     }
     return s.videos[videoId]
@@ -12494,7 +12700,7 @@ function applyVideoStatusActionSnapshot(s, videoId, snapshot, action = null, dir
   video.status = snapshot.status
   video.watchedAt = snapshot.watchedAt
   video.resumeAtSeconds = normalizeResumeAtSeconds(snapshot.resumeAtSeconds, video.duration)
-  if (wasWatched && getVideoStatus(video) !== 'watched') {
+  if (wasWatched && !wasSetAside && getVideoStatus(video) !== 'watched') {
     grantWatchedConfirmationUnlock(s, video)
   }
   return video
@@ -12538,7 +12744,10 @@ function formatHistoryActionToast(direction, video, snapshot, action = null) {
   if (snapshot?.exists === false) {
     return t('undo.removed', { verb, title: formatToastTitle(video.title) })
   }
-  return t('undo.backTo', { verb, title: formatToastTitle(video.title), status: formatVideoStatus(snapshot.status) })
+  const statusLabel = isVideoSetAside(snapshot?.video)
+    ? t('videos.status.setAside')
+    : formatVideoStatus(snapshot.status)
+  return t('undo.backTo', { verb, title: formatToastTitle(video.title), status: statusLabel })
 }
 
 function formatChannelRemoveActionToast(direction, channel, snapshot) {
@@ -14816,6 +15025,10 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
   container.classList.toggle('rewatch-card', isRewatch)
   const actions = isInProgress
     ? `
+      <button type="button"
+        class="next-study-cta next-study-set-aside"
+        data-video-id="${safeVideoId}"
+        onclick="setVideoAside(this.dataset.videoId, { surface: 'continue_watching' })">${escHtml(t('videos.card.setAside'))}</button>
       <button type="button"
         class="next-study-cta next-study-continue"
         data-video-id="${safeVideoId}"
@@ -17903,12 +18116,17 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
       </button>
     `
   }
+  const formatSnapshotStatus = (snapshot, fallbackStatus = null) => (
+    isVideoSetAside(snapshot?.video)
+      ? t('videos.status.setAside')
+      : formatVideoStatus(snapshot?.status || fallbackStatus)
+  )
   const fromStatus = direction === 'redo'
-    ? formatVideoStatus(action.before?.status)
-    : formatVideoStatus(action.after?.status || video?.status)
+    ? formatSnapshotStatus(action.before)
+    : formatSnapshotStatus(action.after, video?.status)
   const toStatus = direction === 'redo'
-    ? formatVideoStatus(action.after?.status)
-    : formatVideoStatus(action.before?.status)
+    ? formatSnapshotStatus(action.after)
+    : formatSnapshotStatus(action.before)
   const actionText = direction === 'redo'
     ? t('undo.statusChange', { from: fromStatus, to: toStatus })
     : t('undo.backToStatus', { from: fromStatus, to: toStatus })
@@ -18524,6 +18742,7 @@ function renderVideoActionIcon(type) {
   const paths = {
     partial: '<rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect>',
     'watch-later': '<path d="M6 4h12v16l-6-4-6 4V4Z"></path>',
+    'set-aside': '<path d="M4 8h16v11H4V8Z"></path><path d="M3 5h18v3H3V5Z"></path><path d="M9 12h6"></path>',
     favorite: '<path d="M12 20.2 4.2 12.8A5.1 5.1 0 0 1 11.4 5.6L12 6.2l.6-.6a5.1 5.1 0 0 1 7.2 7.2L12 20.2Z"></path>'
   }
   return `<svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">${paths[type] || ''}</svg>`
@@ -18538,10 +18757,15 @@ function renderCard(v, compact = false, options = {}) {
   const isWatchLater = isVideoWatchLater(v)
   const displayStatus = isPartial ? 'partial' : status
   const isFavorite = isFavoriteVideo(v)
+  const isSetAside = isVideoSetAside(v)
   const watchLaterNextStatus = isWatchLater
     ? (isPartial ? 'partial' : 'unwatched')
     : 'watch-later'
-  const watchedAtLabel = compact && v.watchedAt ? formatWatchedAt(v.watchedAt) : ''
+  const watchedAtLabel = compact && v.watchedAt
+    ? isSetAside
+      ? t('videos.card.setAsideAt', { date: timeAgo(v.watchedAt) })
+      : formatWatchedAt(v.watchedAt)
+    : ''
   const thumbnailUrl = compact
     ? String(v.thumbnail || '').replace(/\/hqdefault\.jpg(?=\?|$)/, '/mqdefault.jpg')
     : v.thumbnail
@@ -18583,7 +18807,7 @@ function renderCard(v, compact = false, options = {}) {
     ? 'next-study-focus-target'
     : ''
   return `
-    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} status-${displayStatus}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
+    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} ${isSetAside ? 'is-set-aside' : ''} status-${displayStatus}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
       ${thumbnailLink}
       ${shelfPriorityBadge}
       <div class="card-body">
@@ -18606,12 +18830,17 @@ function renderCard(v, compact = false, options = {}) {
               onclick="markVideo(this.dataset.videoId, this.dataset.status, { watchLater: this.dataset.watchLater === 'true' })"
               aria-label="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}"
               title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">${renderVideoActionIcon('watch-later')}</button>
-            <button class="action-btn favorite-btn ${isFavorite ? 'active' : ''}"
+            ${isPartial ? `<button class="action-btn set-aside-btn"
+              data-video-id="${safeVideoId}"
+              onclick="setVideoAside(this.dataset.videoId, { surface: 'video_card' })"
+              aria-label="${escHtml(t('videos.card.setAside'))}"
+              title="${escHtml(t('videos.card.setAside'))}">${renderVideoActionIcon('set-aside')}</button>` : ''}
+            ${!isSetAside ? `<button class="action-btn favorite-btn ${isFavorite ? 'active' : ''}"
               data-video-id="${safeVideoId}"
               onclick="toggleVideoFavorite(this.dataset.videoId, { surface: 'video_card' })"
               aria-pressed="${String(isFavorite)}"
               aria-label="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}"
-              title="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}">${renderVideoActionIcon('favorite')}</button>
+              title="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}">${renderVideoActionIcon('favorite')}</button>` : ''}
           </div>
         </div>
       </div>

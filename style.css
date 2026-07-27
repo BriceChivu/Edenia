@@ -1622,6 +1622,7 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
 }
 .settings-anki-steps,
 .settings-scoring-list,
+.settings-video-actions-list,
 .settings-workflow-list {
   color: var(--text);
   display: grid;
@@ -1633,6 +1634,7 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
 }
 .settings-anki-steps li::marker,
 .settings-scoring-list li::marker,
+.settings-video-actions-list li::marker,
 .settings-workflow-list li::marker {
   color: var(--muted);
   font-weight: 700;
@@ -3150,6 +3152,10 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
   text-decoration: none;
 }
 .next-study-reset {
+  background: transparent;
+  color: var(--muted);
+}
+.next-study-set-aside {
   background: transparent;
   color: var(--muted);
 }
@@ -5164,6 +5170,9 @@ body[data-theme="dark"] .video-watch-reminder-favorite:focus-visible {
 .compact-card .watch-later-btn {
   display: none;
 }
+.compact-card.is-set-aside .watch-later-btn {
+  display: inline-flex;
+}
 .compact-card .card-body {
   align-items: center;
   flex-direction: row;
@@ -5355,6 +5364,7 @@ body[data-theme="dark"] .watch-later-status { color: #9fe7fb; }
 }
 .partial-btn,
 .watch-later-btn,
+.set-aside-btn,
 .favorite-btn {
   align-items: center;
   display: inline-flex;
@@ -5363,6 +5373,7 @@ body[data-theme="dark"] .watch-later-status { color: #9fe7fb; }
 }
 .partial-btn .action-icon,
 .watch-later-btn .action-icon,
+.set-aside-btn .action-icon,
 .favorite-btn .action-icon {
   margin-inline: auto;
 }
@@ -6546,6 +6557,7 @@ summary:focus-visible,
   }
   .video-card:not(.compact-card) .partial-btn,
   .video-card:not(.compact-card) .watch-later-btn,
+  .video-card:not(.compact-card) .set-aside-btn,
   .video-card:not(.compact-card) .favorite-btn {
     padding-left: 4px;
     padding-right: 4px;
@@ -8246,6 +8258,7 @@ summary:focus-visible,
     margin: 0;
   }
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .watch-later-btn,
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .set-aside-btn,
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .favorite-btn {
     background: transparent;
     border: 0;
@@ -8259,11 +8272,13 @@ summary:focus-visible,
     width: 24px;
   }
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .watch-later-btn .action-icon,
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .set-aside-btn .action-icon,
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .favorite-btn .action-icon {
     height: 18px;
     width: 18px;
   }
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.watch-later-btn:hover,
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.set-aside-btn:hover,
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.favorite-btn:hover {
     background: transparent;
     border-color: transparent;
@@ -8332,6 +8347,7 @@ summary:focus-visible,
 .channel-shelf-card .favorite-priority-badge[type="button"]:hover,
 .action-btn.partial-btn:hover,
 .action-btn.watch-later-btn:hover,
+.action-btn.set-aside-btn:hover,
 .action-btn.favorite-btn:hover,
 .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.partial-btn.active:hover {
   background: #e9f8ed;
@@ -8343,6 +8359,7 @@ body[data-theme="dark"] .channel-shelf-card .watch-later-priority-badge[type="bu
 body[data-theme="dark"] .channel-shelf-card .favorite-priority-badge[type="button"]:hover,
 body[data-theme="dark"] .action-btn.partial-btn:hover,
 body[data-theme="dark"] .action-btn.watch-later-btn:hover,
+body[data-theme="dark"] .action-btn.set-aside-btn:hover,
 body[data-theme="dark"] .action-btn.favorite-btn:hover,
 body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.partial-btn.active:hover {
   background: var(--surface-hi);
@@ -8350,6 +8367,7 @@ body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closi
   color: var(--text);
 }
 body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.watch-later-btn,
+body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.set-aside-btn,
 body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.favorite-btn {
   background: transparent;
   border-color: transparent;
