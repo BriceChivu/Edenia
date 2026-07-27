@@ -16941,6 +16941,7 @@ function renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch = false) {
   })
   document.body.append(overlay)
   document.body.classList.add('video-player-open')
+  overlay.focus({ preventScroll: true })
   return {
     overlay,
     frame: overlay.querySelector('.video-player-frame'),
@@ -17436,6 +17437,8 @@ function handleVideoShelfPlayerKeydown(event) {
     && !event.shiftKey
     && !session.completionPromptVisible
   ) {
+    event.preventDefault()
+    event.stopImmediatePropagation()
     try {
       if (typeof session.player?.seekTo !== 'function') return
       syncActiveVideoShelfPlayer({ persist: false })
@@ -17449,8 +17452,6 @@ function handleVideoShelfPlayerKeydown(event) {
           ? Math.min(duration, currentSeconds + offsetSeconds)
           : currentSeconds + offsetSeconds
       )
-      event.preventDefault()
-      event.stopPropagation()
       session.player.seekTo(targetSeconds, true)
       updateVideoShelfPlayerTimestamp(session, targetSeconds)
       session.lastPlaybackSampleSeconds = targetSeconds
@@ -19055,7 +19056,7 @@ document.addEventListener('keydown', closeVideoShelfPreviewsOnEscape)
 document.addEventListener('keydown', handleSettingsKeydown)
 document.addEventListener('keydown', handleIntroTrailerKeydown)
 document.addEventListener('keydown', handleFeedbackModalKeydown)
-document.addEventListener('keydown', handleVideoShelfPlayerKeydown)
+document.addEventListener('keydown', handleVideoShelfPlayerKeydown, true)
 window.addEventListener('blur', keepVideoShelfPlayerEscapeAvailable)
 window.addEventListener('pagehide', () => {
   const session = activeVideoShelfPlayer
