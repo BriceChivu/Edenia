@@ -17423,9 +17423,39 @@ function handleVideoShelfPlayerVisibilityChange() {
 
 function handleVideoShelfPlayerKeydown(event) {
   const session = activeVideoShelfPlayer
-  if (!session) return
+  if (!session || !session.overlay?.isConnected) return
   if (event.key === 'Escape') {
     closeVideoShelfPlayer()
+    return
+  }
+  if (
+    (event.key === 'ArrowLeft' || event.key === 'ArrowRight')
+    && !event.altKey
+    && !event.ctrlKey
+    && !event.metaKey
+    && !event.shiftKey
+    && !session.completionPromptVisible
+  ) {
+    try {
+      if (typeof session.player?.seekTo !== 'function') return
+      syncActiveVideoShelfPlayer({ persist: false })
+      const currentSeconds = getVideoShelfPlayerCurrentTime(session)
+      if (!Number.isFinite(currentSeconds)) return
+      const duration = Number(session.player?.getDuration?.())
+      const offsetSeconds = event.key === 'ArrowLeft' ? -2 : 2
+      const targetSeconds = Math.max(
+        0,
+        Number.isFinite(duration) && duration > 0
+          ? Math.min(duration, currentSeconds + offsetSeconds)
+          : currentSeconds + offsetSeconds
+      )
+      event.preventDefault()
+      event.stopPropagation()
+      session.player.seekTo(targetSeconds, true)
+      updateVideoShelfPlayerTimestamp(session, targetSeconds)
+      session.lastPlaybackSampleSeconds = targetSeconds
+      session.lastPlaybackSampleAt = Date.now()
+    } catch {}
     return
   }
   if (
