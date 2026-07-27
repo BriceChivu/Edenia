@@ -3026,16 +3026,20 @@ body[data-theme="dark"] .study-insight-history-item { background: rgba(5,5,5,0.1
 .next-study-continue-short {
   display: none;
 }
+.next-study-resume-control {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+}
 @media (max-aspect-ratio: 536/986) {
-  .next-study-continue-at,
-  .next-study-continue .next-study-time-input {
+  .next-study-continue .next-study-resume-control {
     display: none;
   }
   .next-study-continue-short {
     display: inline;
   }
 }
-input.next-study-time-input {
+.next-study-resume-control .resume-time-input {
   appearance: none;
   background: transparent;
   border: 0;
@@ -3050,7 +3054,7 @@ input.next-study-time-input {
   text-align: center;
   width: 70px;
 }
-input.next-study-time-input:focus {
+.next-study-resume-control .resume-time-input:focus {
   border: 0;
   box-shadow: none;
   outline: 0;
@@ -5400,13 +5404,17 @@ body[data-theme="dark"] .dur-badge { color: #ffffff; }
   max-width: 100%;
   padding: 4px 7px;
 }
-.resume-time-field span {
+.resume-time-field .resume-time-label,
+.resume-time-field .resume-time-value {
   flex: 0 0 auto;
   font-size: 0.7rem;
   font-weight: 800;
   line-height: 1;
 }
-.resume-time-field input {
+.resume-time-field .resume-time-value {
+  color: var(--text);
+}
+.resume-time-field .resume-time-input {
   background: transparent;
   border: 0;
   color: var(--text);
@@ -5419,7 +5427,7 @@ body[data-theme="dark"] .dur-badge { color: #ffffff; }
   padding: 0;
   width: 7ch;
 }
-.resume-time-field input::placeholder {
+.resume-time-field .resume-time-input::placeholder {
   color: var(--muted);
   opacity: 0.72;
 }
@@ -5431,6 +5439,28 @@ body[data-theme="dark"] .dur-badge { color: #ffffff; }
 body[data-theme="dark"] .resume-time-field {
   background: rgba(255,255,255,0.06);
   border-color: rgba(255,255,255,0.16);
+}
+.resume-time-adjust {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 750;
+  line-height: 1;
+  padding: 1px 2px;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+.resume-time-adjust:hover,
+.resume-time-adjust:focus-visible {
+  color: var(--text);
+}
+.resume-time-control.is-editing .resume-time-input {
+  min-width: 7ch;
 }
 .card-status {
   align-items: center;

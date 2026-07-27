@@ -1308,6 +1308,8 @@ const I18N_EN = {
   'videos.card.favorite': 'Favorite',
   'videos.card.resume': 'Resume watching',
   'videos.card.continueAt': 'Continue at',
+  'videos.card.resumeFrom': 'Resume from',
+  'videos.card.adjustTimestamp': 'Adjust timestamp',
   'videos.card.timestampLabel': 'Continue watching timestamp',
   'videos.card.openOnYoutube': 'Open on YouTube',
   'videos.card.inProgressRibbon': 'In progress',
@@ -1315,7 +1317,7 @@ const I18N_EN = {
   'videoReminder.tabTitle': '✓ Mark as watched · Edenia',
   'videoReminder.aria': 'Video watch reminder',
   'videoReminder.eyebrow': 'Quick check-in',
-  'videoReminder.question': 'Have you finished watching the video?',
+  'videoReminder.question': 'Mark the video as watched?',
   'videoReminder.rewatchQuestion': 'Have you finished rewatching the video?',
   'videoReminder.yes': 'Yes',
   'videoReminder.markWatched': 'Mark as watched',
@@ -1923,6 +1925,8 @@ const I18N = {
     'videos.card.clear': '清除',
     'videos.card.resume': '繼續觀看',
     'videos.card.continueAt': '繼續於',
+    'videos.card.resumeFrom': '從此處繼續',
+    'videos.card.adjustTimestamp': '調整時間',
     'videos.card.openOnYoutube': '在 YouTube 開啟',
     'videos.card.removeFromGrid': '從清單移除',
     'activity.empty': '還沒有活動紀錄',
@@ -2391,6 +2395,8 @@ const I18N = {
     'videos.card.unmark': '取消标记',
     'videos.card.resume': '继续观看',
     'videos.card.continueAt': '继续于',
+    'videos.card.resumeFrom': '从此处继续',
+    'videos.card.adjustTimestamp': '调整时间',
     'videos.card.openOnYoutube': '在 YouTube 打开',
     'videos.card.removeFromGrid': '从列表移除',
     'activity.empty': '还没有活动记录',
@@ -2858,6 +2864,8 @@ const I18N = {
     'videos.card.unmark': 'Desmarcar',
     'videos.card.resume': 'Continuar viendo',
     'videos.card.continueAt': 'Continuar en',
+    'videos.card.resumeFrom': 'Reanudar desde',
+    'videos.card.adjustTimestamp': 'Ajustar tiempo',
     'videos.card.openOnYoutube': 'Abrir en YouTube',
     'videos.card.removeFromGrid': 'Quitar de la lista',
     'activity.empty': 'Aún no hay actividad registrada',
@@ -3325,6 +3333,8 @@ const I18N = {
     'videos.card.unmark': 'Retirer',
     'videos.card.resume': 'Continuer',
     'videos.card.continueAt': 'Reprendre à',
+    'videos.card.resumeFrom': 'Reprendre à',
+    'videos.card.adjustTimestamp': 'Ajuster le temps',
     'videos.card.openOnYoutube': 'Ouvrir sur YouTube',
     'videos.card.removeFromGrid': 'Retirer de la liste',
     'activity.empty': 'Aucune activité enregistrée',
@@ -11459,6 +11469,100 @@ async function addYoutubeInput(event) {
   input?.focus()
 }
 
+function getVideoResumeControlMarkup(videoId, formattedTime, className = '') {
+  const safeVideoId = escHtml(String(videoId ?? ''))
+  const safeTime = escHtml(formattedTime || '00:00:00')
+  return `
+    <span class="resume-time-control ${className}"
+      data-resume-time-control
+      data-video-id="${safeVideoId}"
+      data-resume-value="${safeTime}">
+      <span class="resume-time-label">${escHtml(t('videos.card.resumeFrom'))}</span>
+      <strong class="resume-time-value">${safeTime}</strong>
+      <button type="button"
+        class="resume-time-adjust"
+        onclick="beginVideoResumeTimeAdjustment(event, this)">${escHtml(t('videos.card.adjustTimestamp'))}</button>
+      <input type="text"
+        class="resume-time-input"
+        value="${safeTime}"
+        placeholder="00:01:23"
+        inputmode="text"
+        data-video-id="${safeVideoId}"
+        onblur="commitVideoResumeTimeAdjustment(this)"
+        onkeydown="handleVideoResumeTimeAdjustmentKeydown(event, this)"
+        aria-label="${escHtml(t('videos.card.timestampLabel'))}"
+        hidden>
+    </span>
+  `
+}
+
+function setVideoResumeTimeAdjustmentOpen(control, open) {
+  if (!control) return
+  control.classList.toggle('is-editing', open)
+  const label = control.querySelector('.resume-time-label')
+  const value = control.querySelector('.resume-time-value')
+  const button = control.querySelector('.resume-time-adjust')
+  const input = control.querySelector('.resume-time-input')
+  if (label) label.hidden = open
+  if (value) value.hidden = open
+  if (button) button.hidden = open
+  if (input) input.hidden = !open
+}
+
+function beginVideoResumeTimeAdjustment(event, button) {
+  event?.preventDefault()
+  event?.stopPropagation()
+  const control = button?.closest?.('[data-resume-time-control]')
+  const input = control?.querySelector?.('.resume-time-input')
+  if (!control || !input) return false
+  input.value = control.dataset.resumeValue || '00:00:00'
+  setVideoResumeTimeAdjustmentOpen(control, true)
+  window.requestAnimationFrame(() => {
+    input.focus()
+    input.select()
+  })
+  return false
+}
+
+function updateRenderedVideoResumeTimes(videoId, formattedTime) {
+  document.querySelectorAll('[data-resume-time-control]').forEach(control => {
+    if (control.dataset.videoId !== String(videoId ?? '')) return
+    control.dataset.resumeValue = formattedTime
+    const value = control.querySelector('.resume-time-value')
+    const input = control.querySelector('.resume-time-input')
+    if (value) value.textContent = formattedTime
+    if (input) input.value = formattedTime
+  })
+}
+
+function commitVideoResumeTimeAdjustment(input) {
+  if (!input || input.dataset.cancelAdjustment === 'true') {
+    if (input) delete input.dataset.cancelAdjustment
+    return
+  }
+  const videoId = input.dataset.videoId
+  saveVideoResumeTime(videoId, input.value, { render: false })
+  const video = loadState()?.videos?.[videoId]
+  const formattedTime = formatResumeTimestamp(video?.resumeAtSeconds) || '00:00:00'
+  updateRenderedVideoResumeTimes(videoId, formattedTime)
+  setVideoResumeTimeAdjustmentOpen(input.closest('[data-resume-time-control]'), false)
+}
+
+function handleVideoResumeTimeAdjustmentKeydown(event, input) {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    input.blur()
+    return
+  }
+  if (event.key !== 'Escape') return
+  event.preventDefault()
+  input.dataset.cancelAdjustment = 'true'
+  const control = input.closest('[data-resume-time-control]')
+  input.value = control?.dataset.resumeValue || '00:00:00'
+  setVideoResumeTimeAdjustmentOpen(control, false)
+  input.blur()
+}
+
 function saveVideoResumeTime(videoId, value, options = {}) {
   const shouldRender = options.render !== false
   const s = loadState()
@@ -11486,9 +11590,6 @@ function saveVideoResumeTime(videoId, value, options = {}) {
     if (shouldRender) renderAll(s)
     return true
   }
-  const watchedAt = getCurrentAppTimestamp(s)
-  const progressDelta = Math.max(0, nextResume - previousResume)
-  if (progressDelta > 0) addVideoWatchProgress(video, progressDelta, watchedAt)
   video.resumeAtSeconds = parsed
   pushUndoAction(s, {
     type: 'video-resume-time',
@@ -11506,7 +11607,6 @@ function saveVideoResumeTime(videoId, value, options = {}) {
       resumeAtSeconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
     }
   })
-  syncStreak(s)
   saveState(s)
   seekActiveVideoShelfPlayer(videoId, nextResume)
   if (shouldRender) renderAll(s)
@@ -11515,9 +11615,7 @@ function saveVideoResumeTime(videoId, value, options = {}) {
 
 function prepareNextStudyVideoOpen(link) {
   const videoId = link?.dataset?.videoId
-  const input = link?.closest('.next-study-continue')?.querySelector('.next-study-time-input')
-  if (!videoId || !input || !saveVideoResumeTime(videoId, input.value, { render: false })) return false
-
+  if (!videoId) return false
   const video = loadState()?.videos?.[videoId]
   if (!video) return false
   link.href = getVideoUrl(video)
@@ -13988,18 +14086,9 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
         data-video-id="${safeVideoId}"
         onclick="markVideo(this.dataset.videoId, 'unwatched')">${escHtml(t('nextStudy.unwatch'))}</button>
       <span class="next-study-cta next-study-continue"
-        onclick="if (!event.target.closest('input, a')) this.querySelector('.next-study-play')?.click()">
-        <span class="next-study-continue-at">${escHtml(t('videos.card.continueAt'))}</span>
+        onclick="if (!event.target.closest('input, button, a')) this.querySelector('.next-study-play')?.click()">
         <span class="next-study-continue-short">${escHtml(t('nextStudy.continueShort'))}</span>
-        <input type="text"
-          class="next-study-time-input"
-          value="${escHtml(resumeAt)}"
-          placeholder="00:01:23"
-          inputmode="text"
-          data-video-id="${safeVideoId}"
-          onchange="saveVideoResumeTime(this.dataset.videoId, this.value)"
-          onkeydown="if (event.key === 'Enter') this.blur()"
-          aria-label="${escHtml(t('videos.card.timestampLabel'))}">
+        ${getVideoResumeControlMarkup(nextVideo.id, resumeAt, 'next-study-resume-control')}
         <a class="next-study-play"
           href="${videoUrl}"
           target="_blank"
@@ -15952,17 +16041,7 @@ function renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch = false) {
         ${isRewatch ? `
         <span class="video-player-time">${escHtml(t('nextStudy.rewatch'))}</span>
         ` : `
-        <label class="video-player-time">
-        <span>${escHtml(t('videos.card.continueAt'))}</span>
-        <input type="text"
-          value="${escHtml(formattedStart)}"
-          placeholder="00:01:23"
-          inputmode="text"
-          data-video-id="${escHtml(videoId)}"
-          onchange="saveVideoResumeTime(this.dataset.videoId, this.value, { render: false })"
-          onkeydown="if (event.key === 'Enter') this.blur()"
-          aria-label="${escHtml(t('videos.card.timestampLabel'))}">
-        </label>
+        ${getVideoResumeControlMarkup(videoId, formattedStart, 'video-player-time')}
         `}
         <span class="video-player-actions">
           <button type="button"
@@ -16117,10 +16196,13 @@ function updateVideoShelfPlayerTimestamp(session, seconds) {
   const normalized = Math.max(0, Math.floor(Number(seconds)))
   session.lastKnownSeconds = normalized
   const formatted = formatResumeTimestamp(normalized) || '00:00:00'
-  document.querySelectorAll('input[data-video-id]').forEach(input => {
-    if (input.dataset.videoId === session.videoId && document.activeElement !== input) {
-      input.value = formatted
-    }
+  document.querySelectorAll('[data-resume-time-control]').forEach(control => {
+    if (control.dataset.videoId !== session.videoId || control.classList.contains('is-editing')) return
+    control.dataset.resumeValue = formatted
+    const value = control.querySelector('.resume-time-value')
+    const input = control.querySelector('.resume-time-input')
+    if (value) value.textContent = formatted
+    if (input) input.value = formatted
   })
 }
 
@@ -17523,7 +17605,6 @@ function renderCard(v, compact = false, options = {}) {
   const isRewatchable = isWatched && isFavorite
   const canMarkWatched = hasWatchedConfirmationUnlock(v)
   const watchedNextStatus = isWatched ? 'unwatched' : 'watched'
-  const partialNextStatus = isPartial ? 'unwatched' : 'partial'
   const watchLaterNextStatus = isWatchLater ? 'unwatched' : 'watch-later'
   const watchedText = isRewatchable
     ? t('nextStudy.rewatch')
@@ -17537,16 +17618,7 @@ function renderCard(v, compact = false, options = {}) {
     ? `<span class="watched-btn-text">${watchedTextLabel}</span>`
     : `${renderVideoActionIcon(isRewatchable ? 'rewatch' : 'watched')}<span class="watched-btn-text">${watchedTextLabel}</span>`
   const watchedAction = isRewatchable
-    ? `<a class="action-btn watched-btn rewatch-btn"
-        href="${videoUrl}"
-        target="_blank"
-        rel="noopener"
-        data-video-id="${safeVideoId}"
-        onclick="markVideoInProgressOnOpen(this.dataset.videoId)"
-        aria-label="${escHtml(t('nextStudy.watchAgain'))}"
-        title="${escHtml(t('nextStudy.watchAgain'))}">
-        ${watchedLabel}
-      </a>`
+    ? ''
     : isWatched || canMarkWatched
     ? `<button class="action-btn watched-btn ${isWatched ? 'active' : ''}"
         data-video-id="${safeVideoId}"
@@ -17580,19 +17652,7 @@ function renderCard(v, compact = false, options = {}) {
   `
   const thumbnailLink = `<a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="return handleVideoThumbnailClick(event, this)">${thumbnailContent}</a>`
   const shelfResumeTimeField = options.shelf && isPartial
-    ? `
-      <label class="resume-time-field thumbnail-resume-time-field">
-        <span>${escHtml(t('videos.card.continueAt'))}</span>
-        <input type="text"
-          value="${escHtml(resumeAtValue)}"
-          placeholder="00:01:23"
-          inputmode="text"
-          data-video-id="${safeVideoId}"
-          onchange="saveVideoResumeTime(this.dataset.videoId, this.value)"
-          onkeydown="if (event.key === 'Enter') this.blur()"
-          aria-label="${escHtml(t('videos.card.timestampLabel'))}">
-      </label>
-    `
+    ? getVideoResumeControlMarkup(videoId, resumeAtValue, 'resume-time-field thumbnail-resume-time-field')
     : ''
   const shelfPriorityBadge = options.shelf && isPartial
     ? `<button type="button"
@@ -17635,17 +17695,7 @@ function renderCard(v, compact = false, options = {}) {
           <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
           ${watchedAtLabel ? `<div class="card-watched-at">${escHtml(watchedAtLabel)}</div>` : ''}
           ${isPartial && !options.shelf ? `
-            <label class="resume-time-field">
-              <span>${escHtml(t('videos.card.continueAt'))}</span>
-              <input type="text"
-                value="${escHtml(resumeAtValue)}"
-                placeholder="00:01:23"
-                inputmode="text"
-                data-video-id="${safeVideoId}"
-                onchange="saveVideoResumeTime(this.dataset.videoId, this.value)"
-                onkeydown="if (event.key === 'Enter') this.blur()"
-                aria-label="${escHtml(t('videos.card.timestampLabel'))}">
-            </label>
+            ${getVideoResumeControlMarkup(videoId, resumeAtValue, 'resume-time-field')}
           ` : ''}
         </div>
         <div class="card-meta">
@@ -17654,12 +17704,6 @@ function renderCard(v, compact = false, options = {}) {
         </div>
         <div class="card-actions">
           ${watchedAction}
-          <button class="action-btn partial-btn ${isPartial ? 'active' : ''}"
-            data-video-id="${safeVideoId}"
-            data-status="${partialNextStatus}"
-            onclick="markVideo(this.dataset.videoId, this.dataset.status)"
-            aria-label="${escHtml(isPartial ? t('videos.card.clear') : t('videos.card.markProgress'))}"
-            title="${escHtml(isPartial ? t('videos.card.clear') : t('videos.card.markProgress'))}">${renderVideoActionIcon('partial')}</button>
           <button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
             data-video-id="${safeVideoId}"
             data-status="${watchLaterNextStatus}"
