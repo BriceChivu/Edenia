@@ -65,6 +65,8 @@
   function getPersonProperties(snapshot) {
     const channels = Array.isArray(snapshot.channels) ? snapshot.channels : [];
     const watchedVideos = Array.isArray(snapshot.watchedVideos) ? snapshot.watchedVideos : [];
+    const favoriteVideos = Array.isArray(snapshot.favoriteVideos) ? snapshot.favoriteVideos : [];
+    const videoState = snapshot.videoState || {};
     const settings = snapshot.settings || {};
     const streak = snapshot.streak || {};
     const town = snapshot.town || {};
@@ -84,6 +86,14 @@
       current_channel_count: channels.length,
       current_watched_video_urls: watchedVideos.map(getYoutubeVideoUrl).filter(Boolean),
       current_watched_video_count: watchedVideos.length,
+      current_favorite_video_urls: favoriteVideos.map(getYoutubeVideoUrl).filter(Boolean),
+      current_favorite_video_count: favoriteVideos.length,
+      current_watch_later_video_count: videoState.watchLaterCount || 0,
+      current_partial_video_count: videoState.partialCount || 0,
+      current_resumable_video_count: videoState.resumableCount || 0,
+      total_rewatch_count: videoState.totalRewatchCount || 0,
+      last_video_opened_at: videoState.lastVideoOpenedAt || null,
+      last_successful_refresh_at: videoState.lastSuccessfulRefreshAt || null,
       current_streak_days: streak.currentDays || 0,
       longest_streak_days: streak.longestDays || 0,
       last_streak_activity_date: streak.lastActivityDate || null,
@@ -105,7 +115,8 @@
       channel_shelf_order: settings.channelShelfOrder || [],
       learning_languages: settings.learningLanguages || [],
       learner_level: settings.learnerLevel || null,
-      onboarding_completed: Boolean(settings.onboardingCompleted)
+      onboarding_completed: Boolean(settings.onboardingCompleted),
+      walkthrough_completed: Boolean(settings.walkthroughCompleted)
     };
   }
 
@@ -388,10 +399,17 @@
     if (isInitialSync) {
       capture('analytics_profile_initialized', {
         channel_count: snapshot.channels?.length || 0,
+        watched_video_count: snapshot.watchedVideos?.length || 0,
+        favorite_video_count: snapshot.favoriteVideos?.length || 0,
+        watch_later_video_count: snapshot.videoState?.watchLaterCount || 0,
+        partial_video_count: snapshot.videoState?.partialCount || 0,
+        resumable_video_count: snapshot.videoState?.resumableCount || 0,
+        total_rewatch_count: snapshot.videoState?.totalRewatchCount || 0,
         study_insight_message_count: snapshot.studyInsights?.length || 0,
         study_day_count: snapshot.studyDays?.length || 0,
         current_streak_days: snapshot.streak?.currentDays || 0,
-        current_town_level: (snapshot.town?.visibleLevelIndex || 0) + 1
+        current_town_level: (snapshot.town?.visibleLevelIndex || 0) + 1,
+        walkthrough_completed: Boolean(snapshot.settings?.walkthroughCompleted)
       });
     }
 

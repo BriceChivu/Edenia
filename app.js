@@ -257,7 +257,10 @@ const walkthroughState = {
   frame: null,
   isTransitioning: false,
   highlightOnly: false,
-  trackCompletion: true
+  trackCompletion: true,
+  startedAtMs: null,
+  source: 'automatic',
+  lastTrackedStepKey: null
 }
 let levelUpGuidanceTimer = null
 const INTRO_TRAILER_SCENE_DURATIONS = [13000, 8600, 10800, 9200, 9600]
@@ -289,13 +292,18 @@ const personalizedOnboardingState = {
   levelId: null,
   selectedChannelCatalogIds: [],
   channelSelectionsInitialized: false,
-  isApplyingChannels: false
+  isApplyingChannels: false,
+  lastTrackedStep: null
 }
 const onboardingRecoveryState = {
   active: false,
   reason: 'setup',
   resume: 'personalized',
   state: null
+}
+const searchAnalyticsState = {
+  lastSavedVideoOutcomeKey: null,
+  lastChannelCatalogOutcomeKey: null
 }
 const curatedChannelResolutionCache = new Map()
 const STATUS_FILTERS = [
@@ -5241,6 +5249,23 @@ function getEdeniaAnalyticsSnapshot(state) {
       isShort: Boolean(video.isShort)
     }))
     .sort((left, right) => left.id.localeCompare(right.id))
+  const favoriteVideos = Object.entries(state?.videos || {})
+    .filter(([, video]) => isFavoriteVideo(video))
+    .map(([videoId, video]) => ({
+      id: String(video.id || videoId)
+    }))
+    .sort((left, right) => left.id.localeCompare(right.id))
+  const videoEntries = Object.values(state?.videos || {})
+  const activityRewatchCount = (Array.isArray(state?.activityLog) ? state.activityLog : [])
+    .filter(entry => entry?.type === 'video-rewatch' && entry?.status === 'success')
+    .length
+  const successfulRefreshTimestamps = Object.values(state?.channelRefreshes || {})
+    .map(entry => entry?.lastFetchedAt)
+    .filter(isValidTimestamp)
+    .sort()
+  const lastSuccessfulRefreshAt = successfulRefreshTimestamps.length
+    ? successfulRefreshTimestamps[successfulRefreshTimestamps.length - 1]
+    : null
   const studyInsights = (Array.isArray(state?.config?.studyInsights?.history)
     ? state.config.studyInsights.history
     : []
@@ -5282,6 +5307,19 @@ function getEdeniaAnalyticsSnapshot(state) {
     capturedAt: new Date().toISOString(),
     channels,
     watchedVideos,
+    favoriteVideos,
+    videoState: {
+      watchLaterCount: videoEntries.filter(isVideoWatchLater).length,
+      partialCount: videoEntries.filter(video => getVideoStatus(video) === 'partial').length,
+      resumableCount: videoEntries.filter(hasVideoResumePriority).length,
+      totalRewatchCount: Math.max(
+        0,
+        Number(state?.totalRewatchCount) || 0,
+        activityRewatchCount
+      ),
+      lastVideoOpenedAt: isValidTimestamp(state?.lastVideoOpenedAt) ? state.lastVideoOpenedAt : null,
+      lastSuccessfulRefreshAt
+    },
     studyInsights,
     studyDays,
     streak: {
@@ -5309,7 +5347,8 @@ function getEdeniaAnalyticsSnapshot(state) {
         ? state.learnerProfile.languages.map(String)
         : [],
       learnerLevel: state?.learnerProfile?.level || null,
-      onboardingCompleted: Boolean(state?.onboarding?.setupCompleted)
+      onboardingCompleted: Boolean(state?.onboarding?.setupCompleted),
+      walkthroughCompleted: Boolean(state?.onboarding?.walkthroughCompleted)
     }
   }
 }
@@ -5357,6 +5396,8 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
     redoStack: [],
     activityLog: [],
     lastVideoMarkedWatchedAt: null,
+    lastVideoOpenedAt: null,
+    totalRewatchCount: 0,
     videoWatchReminders: {},
     channelRefreshes: {},
     onboarding: {
@@ -7002,6 +7043,7 @@ function startPersonalizedOnboarding(state = loadState()) {
     personalizedOnboardingState.selectedChannelCatalogIds = state.learnerProfile.selectedChannelCatalogIds.slice(0, ONBOARDING_CHANNEL_SELECTION_LIMIT)
     personalizedOnboardingState.channelSelectionsInitialized = state.learnerProfile.selectedChannelCatalogIds.length > 0
     personalizedOnboardingState.isApplyingChannels = false
+    personalizedOnboardingState.lastTrackedStep = null
     panel.classList.remove('is-recovery', 'hidden')
     progress.classList.remove('hidden')
     document.body.classList.add('onboarding-active')
@@ -7155,6 +7197,17 @@ function renderPersonalizedOnboarding() {
   progressFill.style.width = `${((stepIndex + 1) / stepOrder.length) * 100}%`
   panel?.classList.toggle('is-channel-step', personalizedOnboardingState.step === 'channels')
   localePicker?.classList.toggle('hidden', personalizedOnboardingState.step !== 'language')
+  if (personalizedOnboardingState.lastTrackedStep !== personalizedOnboardingState.step) {
+    window.trackEdeniaEvent?.('onboarding_step_viewed', {
+      step_name: personalizedOnboardingState.step,
+      step_number: stepIndex + 1,
+      total_steps: stepOrder.length,
+      learning_language: personalizedOnboardingState.languageId || null,
+      learner_level: personalizedOnboardingState.levelId || null,
+      selected_channel_count: personalizedOnboardingState.selectedChannelCatalogIds.length
+    })
+    personalizedOnboardingState.lastTrackedStep = personalizedOnboardingState.step
+  }
 
   if (personalizedOnboardingState.step === 'language') {
     renderOnboardingLanguageStep(content)
@@ -7294,7 +7347,25 @@ function setPersonalizedOnboardingStep(step) {
   if (step === 'other' && personalizedOnboardingState.languageId !== 'other') return
   if ((step === 'level' || step === 'channels') && personalizedOnboardingState.languageId === 'other') return
   if (step === 'channels' && !personalizedOnboardingState.levelId) return
+  const previousStep = personalizedOnboardingState.step
+  const stepOrder = personalizedOnboardingState.languageId === 'other'
+    ? ['language', 'other']
+    : ['language', 'level', 'channels']
+  const previousIndex = stepOrder.indexOf(previousStep)
+  const nextIndex = stepOrder.indexOf(step)
   personalizedOnboardingState.step = step
+  if (previousStep !== step) {
+    window.trackEdeniaEvent?.(
+      nextIndex >= previousIndex ? 'onboarding_step_advanced' : 'onboarding_step_backed',
+      {
+        previous_step: previousStep,
+        next_step: step,
+        learning_language: personalizedOnboardingState.languageId || null,
+        learner_level: personalizedOnboardingState.levelId || null,
+        selected_channel_count: personalizedOnboardingState.selectedChannelCatalogIds.length
+      }
+    )
+  }
   renderPersonalizedOnboarding()
 }
 
@@ -7476,6 +7547,8 @@ async function finishPersonalizedOnboarding() {
     return
   }
   window.trackEdeniaEvent?.('onboarding_completed', {
+    learning_languages: state.learnerProfile.languages,
+    learner_level: state.learnerProfile.level || null,
     selected_channel_count: state.learnerProfile.selectedChannelCatalogIds.length,
     added_channel_count: addedChannelCount,
     resolved_channel_count: resolution.channels.length,
@@ -7625,6 +7698,9 @@ function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {
   walkthroughState.index = clampNumber(options.startIndex || 0, 0, availableSteps.length - 1)
   walkthroughState.highlightOnly = false
   walkthroughState.trackCompletion = options.trackCompletion !== false
+  walkthroughState.startedAtMs = Date.now()
+  walkthroughState.source = options.reason || (options.manual ? 'manual' : 'automatic')
+  walkthroughState.lastTrackedStepKey = null
   ensureWalkthroughElements()
   document.body.classList.add('walkthrough-active')
   if (isMobileLayout()) document.activeElement?.blur?.()
@@ -7634,6 +7710,12 @@ function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {
   window.addEventListener('scroll', scheduleWalkthroughPosition, true)
   document.addEventListener('click', handleWalkthroughTargetClick)
   document.addEventListener('keydown', handleWalkthroughKey)
+  window.trackEdeniaEvent?.('walkthrough_started', {
+    source: walkthroughState.source,
+    first_step_id: availableSteps[walkthroughState.index]?.id || null,
+    total_steps: availableSteps.length,
+    track_completion: walkthroughState.trackCompletion
+  })
   showWalkthroughStep(walkthroughState.index)
 }
 
@@ -7692,7 +7774,10 @@ function handleWalkthroughSkipButton(event) {
     step.onSkip(event)
     return
   }
-  endWalkthrough({ markCompleted: walkthroughState.trackCompletion })
+  endWalkthrough({
+    markCompleted: walkthroughState.trackCompletion,
+    reason: 'skipped'
+  })
 }
 
 function handleWalkthroughNextButton(event) {
@@ -7731,6 +7816,17 @@ function renderWalkthroughStep() {
   elements.card.classList.toggle('walkthrough-card-no-arrow', step.showArrow === false)
   elements.card.classList.toggle('walkthrough-card-choice', step.choice === true)
   elements.card.classList.toggle('walkthrough-card-confirmation', step.confirmationOnly === true)
+  const stepKey = `${walkthroughState.index}:${step.id || step.textKey || 'step'}`
+  if (walkthroughState.lastTrackedStepKey !== stepKey) {
+    window.trackEdeniaEvent?.('walkthrough_step_viewed', {
+      source: walkthroughState.source,
+      step_id: step.id || null,
+      step_number: walkthroughState.index + 1,
+      total_steps: walkthroughState.steps.length,
+      advance_on: step.advanceOn || 'next'
+    })
+    walkthroughState.lastTrackedStepKey = stepKey
+  }
   if (step.choice === true) window.setTimeout(() => elements.skip.focus(), 0)
 
   const scrollTarget = step.scrollTarget ? document.querySelector(step.scrollTarget) : target
@@ -7749,10 +7845,26 @@ function moveWalkthrough(delta) {
   const nextIndex = walkthroughState.index + delta
   if (nextIndex < 0) return
   if (nextIndex >= walkthroughState.steps.length) {
-    endWalkthrough({ markCompleted: walkthroughState.trackCompletion })
+    endWalkthrough({
+      markCompleted: walkthroughState.trackCompletion,
+      reason: 'completed'
+    })
     return
   }
+  const previousStep = walkthroughState.steps[walkthroughState.index]
+  const nextStep = walkthroughState.steps[nextIndex]
   showWalkthroughStep(nextIndex, { direction: delta })
+  window.trackEdeniaEvent?.(
+    delta >= 0 ? 'walkthrough_step_advanced' : 'walkthrough_step_backed',
+    {
+      source: walkthroughState.source,
+      previous_step_id: previousStep?.id || null,
+      next_step_id: nextStep?.id || null,
+      previous_step_number: walkthroughState.index - delta + 1,
+      next_step_number: walkthroughState.index + 1,
+      total_steps: walkthroughState.steps.length
+    }
+  )
 }
 
 function showWalkthroughStep(nextIndex, options = {}) {
@@ -7772,6 +7884,18 @@ function showWalkthroughStep(nextIndex, options = {}) {
 function endWalkthrough(options = {}) {
   if (!walkthroughState.active) return
   const markCompleted = options.markCompleted ?? walkthroughState.trackCompletion
+  const endReason = options.reason || (markCompleted ? 'completed' : 'exited')
+  const analyticsProperties = {
+    source: walkthroughState.source,
+    reason: endReason,
+    last_step_id: walkthroughState.steps[walkthroughState.index]?.id || null,
+    last_step_number: walkthroughState.index + 1,
+    total_steps: walkthroughState.steps.length,
+    elapsed_ms: walkthroughState.startedAtMs
+      ? Math.max(0, Date.now() - walkthroughState.startedAtMs)
+      : null,
+    marked_completed: Boolean(markCompleted)
+  }
 
   const currentStep = walkthroughState.steps[walkthroughState.index]
   const endedNoAnkiPrompt = currentStep?.id === NO_ANKI_FREQUENT_USER_WALKTHROUGH_STEP.id
@@ -7791,8 +7915,17 @@ function endWalkthrough(options = {}) {
   document.removeEventListener('keydown', handleWalkthroughKey)
   walkthroughState.highlightOnly = false
   walkthroughState.trackCompletion = true
+  walkthroughState.startedAtMs = null
+  walkthroughState.lastTrackedStepKey = null
   runWalkthroughHooks(currentStep, 'afterExit', { completed: markCompleted })
   if (markCompleted) completeWalkthrough()
+  if (endReason === 'skipped') {
+    window.trackEdeniaEvent?.('walkthrough_skipped', analyticsProperties)
+  }
+  if (endReason === 'completed') {
+    window.trackEdeniaEvent?.('walkthrough_completed', analyticsProperties)
+  }
+  window.trackEdeniaEvent?.('walkthrough_ended', analyticsProperties)
   if (endedNoAnkiPrompt && !loadState()?.noAnkiFrequentUserPrompt?.response) {
     ankiRefreshDeferredForPrompt = false
     applyAnkiRefreshPreference()
@@ -7816,7 +7949,10 @@ function handleWalkthroughKey(event) {
   if (!walkthroughState.active) return
   if (event.key === 'Escape') {
     event.preventDefault()
-    endWalkthrough({ markCompleted: walkthroughState.trackCompletion })
+    endWalkthrough({
+      markCompleted: walkthroughState.trackCompletion,
+      reason: 'dismissed'
+    })
   } else if (event.key === 'ArrowRight') {
     event.preventDefault()
     const step = walkthroughState.steps[walkthroughState.index]
@@ -9450,6 +9586,34 @@ function getVideoUrl(video) {
   return resumeAtSeconds !== null ? `${url}&t=${resumeAtSeconds}s` : url
 }
 
+function getVideoAnalyticsProperties(video, properties = {}) {
+  const videoId = String(video?.id || '')
+  return {
+    video_url: videoId ? `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}` : null,
+    video_title: video?.title || null,
+    channel_id: video?.channelId || null,
+    channel_name: video?.channelTitle || null,
+    video_source: video?.manuallyAdded ? 'manual' : 'channel',
+    duration_seconds: Math.max(0, Math.round(Number(video?.duration) || 0)),
+    is_short: Boolean(video?.isShort),
+    ...properties
+  }
+}
+
+function getVideoFavoriteCount(state) {
+  return Object.values(state?.videos || {}).filter(isFavoriteVideo).length
+}
+
+function trackVideoFavoriteChanged(state, video, previousFavorite, surface) {
+  window.trackEdeniaEvent?.('video_favorite_changed', getVideoAnalyticsProperties(video, {
+    favorite: isFavoriteVideo(video),
+    previous_favorite: previousFavorite === true,
+    current_status: getVideoStatus(video),
+    surface: surface || 'video_card',
+    current_favorite_video_count: getVideoFavoriteCount(state)
+  }))
+}
+
 function getVideoWatchProgressEntries(video) {
   const entries = normalizeVideoWatchProgress(video?.watchProgress, video?.duration)
   if (entries.length) return entries
@@ -9963,7 +10127,27 @@ function refetchAllChannelsAfterShortsEnabled({ force = false } = {}) {
   return request
 }
 
+function trackRefreshCompleted(startedAtMs, properties = {}) {
+  window.trackEdeniaEvent?.('refresh_completed', {
+    trigger: properties.trigger || 'automatic',
+    result: properties.result || 'failure',
+    failure_reason: properties.failureReason || null,
+    requested_channel_count: Math.max(0, Number(properties.requestedChannelCount) || 0),
+    refreshed_channel_count: Math.max(0, Number(properties.refreshedChannelCount) || 0),
+    failed_channel_count: Math.max(0, Number(properties.failedChannelCount) || 0),
+    new_video_count: Math.max(0, Number(properties.newVideoCount) || 0),
+    skipped_short_count: Math.max(0, Number(properties.skippedShortCount) || 0),
+    elapsed_ms: Math.max(0, Date.now() - startedAtMs)
+  })
+}
+
 async function refreshFeed({ silent = false, channelIds = null, trigger = 'automatic' } = {}) {
+  const refreshStartedAtMs = Date.now()
+  window.trackEdeniaEvent?.('refresh_started', {
+    trigger,
+    requested_channel_count: Array.isArray(channelIds) ? channelIds.length : null,
+    silent: Boolean(silent)
+  })
   const btn = document.getElementById('refreshBtn')
   if (btn) {
     btn.textContent = `↻ ${t('videos.refreshing')}`
@@ -9980,10 +10164,21 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     const s = loadState()
     if (!hasYoutubeApiKey()) {
       showToast(t('toast.apiKeyMissing'), 'warn')
+      trackRefreshCompleted(refreshStartedAtMs, {
+        trigger,
+        result: 'failure',
+        failureReason: 'missing_api_key',
+        requestedChannelCount: Array.isArray(channelIds) ? channelIds.length : s.config.channels.length
+      })
       return { ok: false, reason: 'missing-key', errors: [] }
     }
     if (!s.config.channels.length) {
       showToast(t('toast.addChannelFirst'), 'warn')
+      trackRefreshCompleted(refreshStartedAtMs, {
+        trigger,
+        result: 'failure',
+        failureReason: 'no_channels'
+      })
       return { ok: false, reason: 'no-channels', errors: [] }
     }
     const requestedChannelIds = Array.isArray(channelIds) ? new Set(channelIds) : null
@@ -9992,6 +10187,12 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       : getDueYoutubeChannels(s)
     if (!channelsToRefresh.length) {
       if (!silent) showToast(t('toast.nextRefresh', { time: formatRefreshWait(getYoutubeRefreshRemainingMs(s)) }), 'warn')
+      trackRefreshCompleted(refreshStartedAtMs, {
+        trigger,
+        result: 'skipped',
+        failureReason: 'cooldown',
+        requestedChannelCount: requestedChannelIds?.size || s.config.channels.length
+      })
       return { ok: true, skipped: true, mergedCount: 0, successfulChannels: 0, errors: [] }
     }
 
@@ -10044,6 +10245,13 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     if (successfulChannels === 0) {
       saveState(s)
       showToast(t('toast.refreshFailedChannels', { count: errors.length, plural: errors.length > 1 ? 's' : '' }), 'error')
+      trackRefreshCompleted(refreshStartedAtMs, {
+        trigger,
+        result: 'failure',
+        failureReason: 'all_channels_failed',
+        requestedChannelCount: channelsToRefresh.length,
+        failedChannelCount: errors.length
+      })
       return { ok: false, mergedCount: 0, successfulChannels, errors }
     }
 
@@ -10071,13 +10279,14 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       ? t('toast.refreshLoadedWithErrors', { count: mergedCount, shorts: shortsMsg, errors: errors.length, plural: errors.length > 1 ? 's' : '' })
       : t('toast.refreshLoaded', { count: mergedCount, channels: successfulChannels, plural: successfulChannels === 1 ? '' : 's', shorts: shortsMsg })
     if (!silent || errors.length) showToast(msg, errors.length ? 'warn' : 'success')
-    window.trackEdeniaEvent?.('refresh_completed', {
+    trackRefreshCompleted(refreshStartedAtMs, {
       trigger,
       result: errors.length ? 'partial' : 'success',
-      refreshed_channel_count: successfulChannels,
-      failed_channel_count: errors.length,
-      new_video_count: mergedCount,
-      skipped_short_count: skippedShorts
+      requestedChannelCount: channelsToRefresh.length,
+      refreshedChannelCount: successfulChannels,
+      failedChannelCount: errors.length,
+      newVideoCount: mergedCount,
+      skippedShortCount: skippedShorts
     })
     return {
       ok: errors.length === 0,
@@ -10100,6 +10309,13 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       saveState(s)
     }
     showToast(t('toast.refreshFailed', { message: err.message }), 'error')
+    trackRefreshCompleted(refreshStartedAtMs, {
+      trigger,
+      result: 'failure',
+      failureReason: 'unexpected_error',
+      requestedChannelCount: Array.isArray(channelIds) ? channelIds.length : 0,
+      failedChannelCount: 1
+    })
     return { ok: false, error: err, errors: [{ message: err.message || t('log.unknownRefreshError') }] }
   } finally {
     if (btn) {
@@ -10112,13 +10328,36 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
 }
 
 async function refreshAddedChannel(channelId, options = {}) {
-  if (IS_SANDBOX || !hasYoutubeApiKey()) return
+  if (IS_SANDBOX) return
+  const refreshStartedAtMs = Date.now()
+  window.trackEdeniaEvent?.('refresh_started', {
+    trigger: 'channel_added',
+    requested_channel_count: 1,
+    silent: false
+  })
+  if (!hasYoutubeApiKey()) {
+    trackRefreshCompleted(refreshStartedAtMs, {
+      trigger: 'channel_added',
+      result: 'failure',
+      failureReason: 'missing_api_key',
+      requestedChannelCount: 1
+    })
+    return
+  }
   const revealNotBefore = Date.now() + Math.max(0, Number(options.revealDelayMs) || 0)
 
   try {
     const s = loadState()
     const channel = s.config.channels.find(ch => ch.id === channelId)
-    if (!channel) return
+    if (!channel) {
+      trackRefreshCompleted(refreshStartedAtMs, {
+        trigger: 'channel_added',
+        result: 'failure',
+        failureReason: 'channel_missing',
+        requestedChannelCount: 1
+      })
+      return
+    }
 
     try {
       await hydrateYoutubeChannelProfiles([channel])
@@ -10143,7 +10382,15 @@ async function refreshAddedChannel(channelId, options = {}) {
       await new Promise(resolve => window.setTimeout(resolve, revealDelayRemaining))
     }
     const currentState = loadState()
-    if (!currentState.config.channels.some(currentChannel => currentChannel.id === channel.id)) return
+    if (!currentState.config.channels.some(currentChannel => currentChannel.id === channel.id)) {
+      trackRefreshCompleted(refreshStartedAtMs, {
+        trigger: 'channel_added',
+        result: 'skipped',
+        failureReason: 'channel_removed',
+        requestedChannelCount: 1
+      })
+      return
+    }
 
     markChannelRefreshSuccess(s, channel.id)
     appendActivityLog(s, {
@@ -10182,13 +10429,13 @@ async function refreshAddedChannel(channelId, options = {}) {
     const channelName = channel.name || channelId
     const shortsMsg = formatSkippedShortsMessage(skippedShorts, mergedCount)
     showToast(t('toast.channelLoaded', { name: channelName, count: mergedCount, shorts: shortsMsg }), 'success')
-    window.trackEdeniaEvent?.('refresh_completed', {
+    trackRefreshCompleted(refreshStartedAtMs, {
       trigger: 'channel_added',
       result: 'success',
-      refreshed_channel_count: 1,
-      failed_channel_count: 0,
-      new_video_count: mergedCount,
-      skipped_short_count: skippedShorts
+      requestedChannelCount: 1,
+      refreshedChannelCount: 1,
+      newVideoCount: mergedCount,
+      skippedShortCount: skippedShorts
     })
   } catch (err) {
     console.error(err)
@@ -10206,6 +10453,13 @@ async function refreshAddedChannel(channelId, options = {}) {
       saveState(s)
     }
     showToast(t('toast.channelAddLoadFailed', { message: err.message }), 'warn')
+    trackRefreshCompleted(refreshStartedAtMs, {
+      trigger: 'channel_added',
+      result: 'failure',
+      failureReason: 'channel_refresh_failed',
+      requestedChannelCount: 1,
+      failedChannelCount: 1
+    })
   }
 }
 
@@ -10385,6 +10639,20 @@ function finalizeRenderedVideoWatchPrompt(state, video, prompt, rewatch = false)
       syncAnalytics: false
     })
   }
+  const surface = prompt.classList.contains('is-player')
+    ? 'embedded_player'
+    : prompt.classList.contains('is-global')
+      ? 'global_reminder'
+      : 'video_card'
+  window.trackEdeniaEvent?.('video_completion_prompt_shown', getVideoAnalyticsProperties(video, {
+    is_rewatch: rewatch === true,
+    surface,
+    current_status: getVideoStatus(video),
+    resume_at_seconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration),
+    completion_percent: video.duration > 0
+      ? Math.min(100, Math.round((getTotalVideoWatchProgressSeconds(video) / video.duration) * 100))
+      : null
+  }))
   window.requestAnimationFrame(() => {
     prompt.querySelector('.video-watch-reminder-mark')?.focus()
   })
@@ -10561,12 +10829,19 @@ function handleVideoWatchReminderVisibilityChange() {
 
 function completeVideoWatchReminderDismissal(videoId) {
   const state = loadState()
-  if (!state) return
+  if (!state) return false
+  const video = state.videos?.[videoId]
+  const isRewatch = state.videoWatchReminders?.[videoId]?.rewatch === true
   clearVideoWatchReminderInState(state, videoId)
   saveState(state, { backup: false })
+  window.trackEdeniaEvent?.('video_completion_prompt_dismissed', getVideoAnalyticsProperties(video, {
+    is_rewatch: isRewatch,
+    surface: 'watch_reminder'
+  }))
   renderFeed(state)
   removeVideoWatchReminderUi()
   scheduleVideoWatchReminderTimer(state)
+  return true
 }
 
 function dismissVideoWatchReminder(event, videoId) {
@@ -10600,19 +10875,52 @@ function confirmVideoWatchPrompt(event, videoId, rewatch = false, playerPrompt =
       || session.completionPromptVisible !== true
       || session.isRewatch !== (rewatch === true)
     ) return false
-    if (rewatch) return completeVideoShelfPlayerRewatchConfirmation(session)
+    if (rewatch) {
+      const video = loadState()?.videos?.[targetVideoId]
+      const completed = completeVideoShelfPlayerRewatchConfirmation(session)
+      if (completed) {
+        window.trackEdeniaEvent?.('video_completion_prompt_accepted', getVideoAnalyticsProperties(video, {
+          is_rewatch: true,
+          surface: 'embedded_player'
+        }))
+      }
+      return completed
+    }
     syncActiveVideoShelfPlayer({
       persist: true,
       captureStoppedPlayback: true
     })
     stopActiveVideoShelfPlayer({ persist: false })
-    return markVideo(targetVideoId, 'watched', {
-      creditOnlyRecordedProgress: true
+    const marked = markVideo(targetVideoId, 'watched', {
+      creditOnlyRecordedProgress: true,
+      surface: 'embedded_player_prompt'
     })
+    if (marked) {
+      window.trackEdeniaEvent?.(
+        'video_completion_prompt_accepted',
+        getVideoAnalyticsProperties(loadState()?.videos?.[targetVideoId], {
+          is_rewatch: false,
+          surface: 'embedded_player'
+        })
+      )
+    }
+    return marked
   }
 
   if (activeVideoWatchReminderId !== targetVideoId) return false
-  if (!rewatch) return markVideo(targetVideoId, 'watched')
+  if (!rewatch) {
+    const marked = markVideo(targetVideoId, 'watched', { surface: 'watch_reminder_prompt' })
+    if (marked) {
+      window.trackEdeniaEvent?.(
+        'video_completion_prompt_accepted',
+        getVideoAnalyticsProperties(loadState()?.videos?.[targetVideoId], {
+          is_rewatch: false,
+          surface: 'watch_reminder'
+        })
+      )
+    }
+    return marked
+  }
 
   const state = loadState()
   const video = state?.videos?.[targetVideoId]
@@ -10623,8 +10931,14 @@ function confirmVideoWatchPrompt(event, videoId, rewatch = false, playerPrompt =
     || getVideoStatus(video) !== 'watched'
     || !isFavoriteVideo(video)
   ) return false
-  if (!recordVideoRewatch(state, video)) return false
+  const rewatchSeconds = Math.max(0, Math.floor(Number(video.duration) || 0))
+  if (!recordVideoRewatch(state, video, rewatchSeconds)) return false
   saveState(state)
+  trackVideoRewatchCompleted(state, video, rewatchSeconds, 'watch_reminder')
+  window.trackEdeniaEvent?.('video_completion_prompt_accepted', getVideoAnalyticsProperties(video, {
+    is_rewatch: true,
+    surface: 'watch_reminder'
+  }))
   renderAll(state)
   removeVideoWatchReminderUi()
   scheduleVideoWatchReminderTimer(state)
@@ -10638,14 +10952,19 @@ function dismissVideoWatchPrompt(event, videoId, playerPrompt = false) {
   if (playerPrompt) {
     const session = activeVideoShelfPlayer
     if (!session || session.videoId !== targetVideoId) return false
+    const video = loadState()?.videos?.[targetVideoId]
+    const isRewatch = session.isRewatch === true
     dismissVideoShelfCompletionPrompt(session)
+    window.trackEdeniaEvent?.('video_completion_prompt_dismissed', getVideoAnalyticsProperties(video, {
+      is_rewatch: isRewatch,
+      surface: 'embedded_player'
+    }))
     return true
   }
-  completeVideoWatchReminderDismissal(targetVideoId)
-  return true
+  return completeVideoWatchReminderDismissal(targetVideoId)
 }
 
-function toggleVideoFavorite(videoId) {
+function toggleVideoFavorite(videoId, options = {}) {
   const s = loadState()
   const video = s?.videos?.[videoId]
   if (!video) return null
@@ -10671,6 +10990,7 @@ function toggleVideoFavorite(videoId) {
     }
   })
   saveState(s)
+  trackVideoFavoriteChanged(s, video, isFavoriteVideo(beforeVideo), options.surface)
   if (preservePreview) {
     refreshVideoActionUiWithoutFeedRerender(s, videoId)
   } else {
@@ -10729,6 +11049,7 @@ function favoriteVideoFromWatchPrompt(event, videoId) {
     }
   })
   saveState(state)
+  trackVideoFavoriteChanged(state, video, isFavoriteVideo(beforeVideo), 'completion_prompt')
   syncVideoWatchPromptFavoriteAction(videoId, isFavorite)
   if (activeVideoShelfPlayer?.videoId === String(videoId ?? '')) {
     updateVideoPlayerFavoriteButton(
@@ -10740,7 +11061,7 @@ function favoriteVideoFromWatchPrompt(event, videoId) {
 }
 
 function toggleVideoPlayerFavorite(videoId, button) {
-  const isFavorite = toggleVideoFavorite(videoId)
+  const isFavorite = toggleVideoFavorite(videoId, { surface: 'embedded_player' })
   if (typeof isFavorite !== 'boolean' || !button) return
   updateVideoPlayerFavoriteButton(button, isFavorite)
   syncVideoWatchPromptFavoriteAction(videoId, isFavorite)
@@ -10771,7 +11092,21 @@ function recordVideoRewatch(state, video, seconds = null, options = {}) {
     detail: t('log.videoRewatch.detail', { title: formatToastTitle(video.title) }),
     meta: { videoId: video.id, seconds: rewatchSeconds }
   })
+  state.totalRewatchCount = Math.max(
+    Number(state.totalRewatchCount) || 0,
+    (Array.isArray(state.activityLog) ? state.activityLog : [])
+      .filter(entry => entry?.type === 'video-rewatch' && entry?.status === 'success')
+      .length
+  )
   return true
+}
+
+function trackVideoRewatchCompleted(state, video, rewatchSeconds, surface) {
+  window.trackEdeniaEvent?.('video_rewatch_completed', getVideoAnalyticsProperties(video, {
+    rewatch_seconds: Math.max(0, Math.floor(Number(rewatchSeconds) || 0)),
+    surface: surface || 'watch_reminder',
+    total_rewatch_count: Math.max(0, Number(state?.totalRewatchCount) || 0)
+  }))
 }
 
 function markVideo(videoId, requestedStatus, options = {}) {
@@ -10883,6 +11218,15 @@ function markVideo(videoId, requestedStatus, options = {}) {
   }
 
   saveState(s)
+  window.trackEdeniaEvent?.('video_status_changed', getVideoAnalyticsProperties(video, {
+    previous_status: previousStatus,
+    new_status: newStatus,
+    previous_watch_later: previousWatchLater,
+    watch_later: resolvedWatchLater,
+    favorite: isFavoriteVideo(video),
+    resume_at_seconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration),
+    surface: options.surface || 'video_card'
+  }))
   if (preservePreview) {
     refreshVideoActionUiWithoutFeedRerender(s, videoId)
   } else {
@@ -10933,14 +11277,23 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
   const video = s.videos[videoId]
   if (!video) return false
   const previousStatus = getVideoStatus(video)
-  window.trackEdeniaEvent?.('video_opened', {
+  const openedAt = getCurrentAppTimestamp(s)
+  s.lastVideoOpenedAt = openedAt
+  window.trackEdeniaEvent?.('video_opened', getVideoAnalyticsProperties(video, {
     previous_status: previousStatus,
-    video_source: video.manuallyAdded ? 'manual' : 'channel',
-    is_short: Boolean(video.isShort),
-    resumed: hasVideoResumePriority(video) && normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) !== null
-  })
+    resumed: hasVideoResumePriority(video) && normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) !== null,
+    resume_at_seconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration),
+    favorite: isFavoriteVideo(video),
+    watch_later: isVideoWatchLater(video),
+    surface: options.surface || 'youtube_direct',
+    player_mode: options.playerMode || 'youtube',
+    opened_at: openedAt
+  }))
   if (previousStatus === 'watched') {
-    if (!isFavoriteVideo(video)) return false
+    if (!isFavoriteVideo(video)) {
+      saveState(s, { backup: false })
+      return false
+    }
     clearVideoWatchReminderInState(s, videoId)
     video.resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) ?? 0
     video.pausedAt = getCurrentAppTimestamp(s)
@@ -11305,10 +11658,12 @@ function renderManualChannelSuggestions() {
   )
   if (value.length < 2 || isYoutubeResource) {
     closeManualChannelSuggestions()
+    searchAnalyticsState.lastChannelCatalogOutcomeKey = null
     return
   }
 
   const matches = getCuratedChannelSearchMatches(value)
+  const outcomeKey = `${normalizeCuratedChannelSearchText(value)}:${matches.length}`
   renderManualChannelSuggestions.activeIndex = -1
   input.removeAttribute('aria-activedescendant')
   input.setAttribute('aria-expanded', 'true')
@@ -11320,6 +11675,16 @@ function renderManualChannelSuggestions() {
       <p class="manual-channel-suggestion-empty">${escHtml(t('videos.manual.noMatches'))}</p>
       ${renderManualYoutubeSearchAction(value)}
     `
+    if (searchAnalyticsState.lastChannelCatalogOutcomeKey !== outcomeKey) {
+      window.trackEdeniaEvent?.('search_no_results', {
+        search_source: 'channel_catalog',
+        search_query: value,
+        query_length: value.length,
+        query_token_count: value.split(/\s+/).filter(Boolean).length,
+        result_count: 0
+      })
+      searchAnalyticsState.lastChannelCatalogOutcomeKey = outcomeKey
+    }
     return
   }
 
@@ -11351,6 +11716,16 @@ function renderManualChannelSuggestions() {
     `
   }).join('')
   list.innerHTML = `${localSuggestions}${renderManualYoutubeSearchAction(value)}`
+  if (searchAnalyticsState.lastChannelCatalogOutcomeKey !== outcomeKey) {
+    window.trackEdeniaEvent?.('search_results_shown', {
+      search_source: 'channel_catalog',
+      search_query: value,
+      query_length: value.length,
+      query_token_count: value.split(/\s+/).filter(Boolean).length,
+      result_count: matches.length
+    })
+    searchAnalyticsState.lastChannelCatalogOutcomeKey = outcomeKey
+  }
 }
 
 function getYoutubeChannelSearchDateKey(date = new Date()) {
@@ -11446,7 +11821,7 @@ async function fetchYoutubeChannelSearchResults(query) {
     .filter(result => YOUTUBE_CHANNEL_ID_RE.test(result.id))
 }
 
-function renderYoutubeChannelSearchResults(query, results) {
+function renderYoutubeChannelSearchResults(query, results, options = {}) {
   const input = document.getElementById('manualVideoUrlInput')
   const list = document.getElementById('manualChannelSuggestions')
   if (!input || !list) return
@@ -11461,6 +11836,14 @@ function renderYoutubeChannelSearchResults(query, results) {
 
   if (!results.length) {
     list.innerHTML = `<p class="manual-channel-suggestion-empty">${escHtml(t('videos.manual.youtubeNoMatches'))}</p>`
+    window.trackEdeniaEvent?.('search_no_results', {
+      search_source: 'youtube_channels',
+      search_query: query,
+      query_length: query.length,
+      query_token_count: query.split(/\s+/).filter(Boolean).length,
+      result_count: 0,
+      cache_hit: options.cacheHit === true
+    })
     return
   }
 
@@ -11496,6 +11879,14 @@ function renderYoutubeChannelSearchResults(query, results) {
     <div class="manual-youtube-results-label">${escHtml(t('videos.manual.youtubeResults'))}</div>
     ${resultRows}
   `
+  window.trackEdeniaEvent?.('search_results_shown', {
+    search_source: 'youtube_channels',
+    search_query: query,
+    query_length: query.length,
+    query_token_count: query.split(/\s+/).filter(Boolean).length,
+    result_count: results.length,
+    cache_hit: options.cacheHit === true
+  })
 }
 
 function renderYoutubeChannelSearchMessage(messageKey, query = '') {
@@ -11519,20 +11910,38 @@ async function searchYoutubeChannels(event) {
   const list = document.getElementById('manualChannelSuggestions')
   const query = input?.value?.trim() || ''
   if (!input || !list || query.length < 2) return
+  window.trackEdeniaEvent?.('search_started', {
+    search_source: 'youtube_channels',
+    search_query: query,
+    query_length: query.length,
+    query_token_count: query.split(/\s+/).filter(Boolean).length
+  })
 
   const cachedResults = getCachedYoutubeChannelSearch(query)
   if (cachedResults) {
-    renderYoutubeChannelSearchResults(query, cachedResults)
+    renderYoutubeChannelSearchResults(query, cachedResults, { cacheHit: true })
     return
   }
   if (!hasYoutubeApiKey()) {
     showToast(t('toast.apiKeyMissing'), 'warn')
+    window.trackEdeniaEvent?.('search_failed', {
+      search_source: 'youtube_channels',
+      search_query: query,
+      query_length: query.length,
+      failure_reason: 'missing_api_key'
+    })
     return
   }
 
   const usage = getYoutubeChannelSearchUsage()
   if (usage.count >= YOUTUBE_CHANNEL_SEARCH_DAILY_LIMIT) {
     renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchLimit', query)
+    window.trackEdeniaEvent?.('search_failed', {
+      search_source: 'youtube_channels',
+      search_query: query,
+      query_length: query.length,
+      failure_reason: 'daily_limit'
+    })
     return
   }
 
@@ -11540,6 +11949,12 @@ async function searchYoutubeChannels(event) {
   const lastRequestAt = Number(searchYoutubeChannels.lastRequestAt || 0)
   if (now - lastRequestAt < YOUTUBE_CHANNEL_SEARCH_COOLDOWN_MS) {
     renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchCooldown', query)
+    window.trackEdeniaEvent?.('search_failed', {
+      search_source: 'youtube_channels',
+      search_query: query,
+      query_length: query.length,
+      failure_reason: 'cooldown'
+    })
     return
   }
 
@@ -11552,10 +11967,16 @@ async function searchYoutubeChannels(event) {
   try {
     const results = await fetchYoutubeChannelSearchResults(query)
     cacheYoutubeChannelSearch(query, results)
-    renderYoutubeChannelSearchResults(query, results)
+    renderYoutubeChannelSearchResults(query, results, { cacheHit: false })
   } catch (error) {
     console.warn(error)
     renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchUnavailable', query)
+    window.trackEdeniaEvent?.('search_failed', {
+      search_source: 'youtube_channels',
+      search_query: query,
+      query_length: query.length,
+      failure_reason: 'request_failed'
+    })
   }
 }
 
@@ -11661,6 +12082,16 @@ function selectManualChannelSuggestion(event, catalogId) {
   event?.preventDefault()
   event?.stopPropagation()
   const option = event?.currentTarget
+  const query = document.getElementById('manualVideoUrlInput')?.value?.trim() || ''
+  window.trackEdeniaEvent?.('search_result_selected', {
+    search_source: option?.dataset?.suggestionSource === 'discovery'
+      ? 'discovery_catalog'
+      : 'channel_catalog',
+    search_query: query,
+    query_length: query.length,
+    catalog_id: catalogId || null,
+    already_added: option?.dataset?.added === 'true'
+  })
   if (option?.dataset?.added === 'true') {
     showToast(t('toast.channelDuplicate'), 'warn')
     return
@@ -11676,7 +12107,17 @@ async function selectYoutubeChannelSearchResult(event, channelId) {
   const btn = document.getElementById('manualVideoAddBtn')
   if (!result || !input) return
 
-  if ((loadState()?.config?.channels || []).some(channel => channel.id === result.id)) {
+  const alreadyAdded = (loadState()?.config?.channels || []).some(channel => channel.id === result.id)
+  window.trackEdeniaEvent?.('search_result_selected', {
+    search_source: 'youtube_channels',
+    search_query: input.value.trim(),
+    query_length: input.value.trim().length,
+    channel_id: result.id,
+    channel_name: result.name || null,
+    result_position: (searchYoutubeChannels.results || []).findIndex(channel => channel.id === result.id) + 1,
+    already_added: alreadyAdded
+  })
+  if (alreadyAdded) {
     showToast(t('toast.channelDuplicate'), 'warn')
     return
   }
@@ -11854,6 +12295,7 @@ function applyHistoryAction(direction, actionIndex) {
 
   sourceStack.splice(index, 1)
   const targetSnapshot = direction === 'redo' ? action.after : action.before
+  const previousSnapshot = direction === 'redo' ? action.before : action.after
   let historyResult = null
 
   if (action.type === 'channel-remove') {
@@ -11904,6 +12346,34 @@ function applyHistoryAction(direction, actionIndex) {
 
   closeHistoryActionPopovers()
   saveState(s)
+  const affectedVideo = action.videoId ? s.videos?.[action.videoId] : null
+  window.trackEdeniaEvent?.(`${direction}_applied`, {
+    action_type: action.type,
+    video_url: affectedVideo
+      ? getVideoAnalyticsProperties(affectedVideo).video_url
+      : null,
+    channel_id: action.channelId || affectedVideo?.channelId || null,
+    affected_video_status: affectedVideo ? getVideoStatus(affectedVideo) : null
+  })
+  if (action.type === 'video-favorite' && affectedVideo) {
+    trackVideoFavoriteChanged(
+      s,
+      affectedVideo,
+      previousSnapshot?.favorite === true || isFavoriteVideo(previousSnapshot?.video),
+      direction
+    )
+  }
+  if (action.type === 'video-status' && affectedVideo) {
+    window.trackEdeniaEvent?.('video_status_changed', getVideoAnalyticsProperties(affectedVideo, {
+      previous_status: normalizeVideoStatus(previousSnapshot?.status),
+      new_status: getVideoStatus(affectedVideo),
+      previous_watch_later: Boolean(previousSnapshot?.video?.watchLater),
+      watch_later: isVideoWatchLater(affectedVideo),
+      favorite: isFavoriteVideo(affectedVideo),
+      resume_at_seconds: normalizeResumeAtSeconds(affectedVideo.resumeAtSeconds, affectedVideo.duration),
+      surface: direction
+    }))
+  }
   renderAll(s)
   if (action.type === 'video-favorite' && activeVideoShelfPlayer?.videoId === String(action.videoId ?? '')) {
     const isFavorite = isFavoriteVideo(s.videos?.[action.videoId])
@@ -12976,6 +13446,12 @@ function toggleVideoSearchPopover(event) {
   hideHeatmapTooltip()
   popover.classList.remove('hidden')
   button.setAttribute('aria-expanded', 'true')
+  searchAnalyticsState.lastSavedVideoOutcomeKey = null
+  window.trackEdeniaEvent?.('search_opened', {
+    search_source: 'saved_videos',
+    search_query: input.value.trim(),
+    current_video_count: Object.keys(loadState()?.videos || {}).length
+  })
   renderVideoSearchResults(input.value)
   window.setTimeout(() => input.focus(), 0)
 }
@@ -13016,15 +13492,28 @@ function renderVideoSearchResults(query = '') {
   const list = document.getElementById('videoSearchResults')
   if (!list) return
 
-  const normalizedQuery = normalizeVideoSearchText(query)
+  const rawQuery = String(query ?? '').trim()
+  const normalizedQuery = normalizeVideoSearchText(rawQuery)
   if (!normalizedQuery) {
     list.innerHTML = `<p class="video-search-empty">${escHtml(t('videos.search.empty'))}</p>`
+    searchAnalyticsState.lastSavedVideoOutcomeKey = null
     return
   }
 
   const results = getVideoSearchMatches(normalizedQuery, loadState())
+  const outcomeKey = `${normalizedQuery}:${results.length}`
   if (!results.length) {
     list.innerHTML = `<p class="video-search-empty">${escHtml(t('videos.search.noMatches'))}</p>`
+    if (searchAnalyticsState.lastSavedVideoOutcomeKey !== outcomeKey) {
+      window.trackEdeniaEvent?.('search_no_results', {
+        search_source: 'saved_videos',
+        search_query: rawQuery,
+        query_length: normalizedQuery.length,
+        query_token_count: normalizedQuery.split(' ').filter(Boolean).length,
+        result_count: 0
+      })
+      searchAnalyticsState.lastSavedVideoOutcomeKey = outcomeKey
+    }
     return
   }
 
@@ -13042,6 +13531,16 @@ function renderVideoSearchResults(query = '') {
       </span>
     </button>
   `).join('')
+  if (searchAnalyticsState.lastSavedVideoOutcomeKey !== outcomeKey) {
+    window.trackEdeniaEvent?.('search_results_shown', {
+      search_source: 'saved_videos',
+      search_query: rawQuery,
+      query_length: normalizedQuery.length,
+      query_token_count: normalizedQuery.split(' ').filter(Boolean).length,
+      result_count: results.length
+    })
+    searchAnalyticsState.lastSavedVideoOutcomeKey = outcomeKey
+  }
 }
 
 function normalizeVideoSearchText(value) {
@@ -13115,6 +13614,17 @@ function jumpToVideoFromSearch(videoId) {
     showToast(t('toast.videoGone'), 'warn')
     return
   }
+  const rawInputQuery = document.getElementById('videoSearchInput')?.value?.trim() || ''
+  const inputQuery = normalizeVideoSearchText(rawInputQuery)
+  const results = getVideoSearchMatches(inputQuery, state)
+  const video = state.videos[targetId]
+  window.trackEdeniaEvent?.('search_result_selected', getVideoAnalyticsProperties(video, {
+    search_source: 'saved_videos',
+    search_query: rawInputQuery,
+    query_length: inputQuery.length,
+    result_position: results.findIndex(result => result.id === targetId) + 1,
+    current_status: getVideoStatus(video)
+  }))
 
   closeVideoSearchPopover()
   forcedSearchVideoId = targetId
@@ -14297,7 +14807,7 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
       <button type="button"
         class="next-study-cta next-study-reset"
         data-video-id="${safeVideoId}"
-        onclick="toggleVideoFavorite(this.dataset.videoId)">${escHtml(t('nextStudy.removeFavorite'))}</button>
+        onclick="toggleVideoFavorite(this.dataset.videoId, { surface: 'next_study' })">${escHtml(t('nextStudy.removeFavorite'))}</button>
       <button type="button"
         class="next-study-cta next-study-watch"
         data-video-id="${safeVideoId}"
@@ -16252,9 +16762,19 @@ function openVideoPlayer(videoId) {
 
   const existingVideo = loadState()?.videos?.[videoId]
   const wasWatched = getVideoStatus(existingVideo) === 'watched'
-  if (!wasWatched && !markVideoInProgressOnOpen(videoId, { render: false, reminder: false })) return false
+  if (!wasWatched && !markVideoInProgressOnOpen(videoId, {
+    render: false,
+    reminder: false,
+    surface: 'channel_shelf',
+    playerMode: 'embedded'
+  })) return false
   if (wasWatched && isFavoriteVideo(existingVideo)) {
-    markVideoInProgressOnOpen(videoId, { render: false, reminder: false })
+    markVideoInProgressOnOpen(videoId, {
+      render: false,
+      reminder: false,
+      surface: 'channel_shelf',
+      playerMode: 'embedded'
+    })
   }
 
   const video = loadState()?.videos?.[videoId]
@@ -16281,6 +16801,11 @@ function openVideoPlayer(videoId) {
     watchCycleCoverage: normalizeVideoWatchCoverage(video.watchCycleCoverage, video.duration),
     lastPlaybackSampleSeconds: startSeconds,
     lastPlaybackSampleAt: Date.now(),
+    playedSecondsTotal: 0,
+    lastReportedPlayedSeconds: 0,
+    lastReportedSeconds: startSeconds,
+    lastReportedProgressSeconds: getVideoWatchCoverageSeconds(video.watchCycleCoverage, video.duration),
+    lastOutcomeReason: null,
     isRewatch,
     completionPromptVisible: false,
     completionPromptPending: false,
@@ -16304,6 +16829,7 @@ function openVideoPlayer(videoId) {
           onError: () => {
             stopVideoShelfPlayerSyncTimer(session)
             syncActiveVideoShelfPlayer({ persist: true })
+            trackVideoPlaybackSessionEnded(session, 'player_error')
           }
         }
       })
@@ -16423,6 +16949,7 @@ function trackVideoShelfWatchCoverage(session, seconds, options = {}) {
     + VIDEO_SHELF_PLAYER_SEEK_TOLERANCE_SECONDS
   )
   if (playedSeconds <= 0 || playedSeconds > maxContinuousSeconds) return false
+  session.playedSecondsTotal = Math.max(0, Number(session.playedSecondsTotal) || 0) + playedSeconds
 
   const nextCoverage = addVideoWatchCoverageRange(
     session.watchCycleCoverage,
@@ -16559,6 +17086,49 @@ function showVideoShelfCompletionPrompt(session = activeVideoShelfPlayer) {
   return true
 }
 
+function trackVideoPlaybackSessionEnded(session, exitReason) {
+  if (!session) return false
+  const state = loadState()
+  const video = state?.videos?.[session.videoId]
+  if (!video) return false
+  const endedAtSeconds = Math.max(
+    0,
+    Math.floor(Number(getVideoShelfPlayerCurrentTime(session)) || Number(session.lastKnownSeconds) || 0)
+  )
+  const currentProgressSeconds = Math.max(0, Math.floor(Number(session.progressSeconds) || 0))
+  const previousProgressSeconds = Math.max(0, Math.floor(Number(session.lastReportedProgressSeconds) || 0))
+  const playedSecondsTotal = Math.max(0, Number(session.playedSecondsTotal) || 0)
+  const previousPlayedSeconds = Math.max(0, Number(session.lastReportedPlayedSeconds) || 0)
+  const previousEndedAtSeconds = Math.max(0, Math.floor(Number(session.lastReportedSeconds) || 0))
+  if (
+    session.lastOutcomeReason
+    && endedAtSeconds === previousEndedAtSeconds
+    && currentProgressSeconds === previousProgressSeconds
+    && playedSecondsTotal === previousPlayedSeconds
+  ) return false
+
+  const durationSeconds = Math.max(0, Math.floor(Number(video.duration) || 0))
+  window.trackEdeniaEvent?.('video_playback_session_ended', getVideoAnalyticsProperties(video, {
+    surface: 'channel_shelf',
+    player_mode: 'embedded',
+    started_at_seconds: previousEndedAtSeconds,
+    ended_at_seconds: endedAtSeconds,
+    seconds_watched: Math.max(0, Math.round(playedSecondsTotal - previousPlayedSeconds)),
+    newly_covered_seconds: Math.max(0, currentProgressSeconds - previousProgressSeconds),
+    completion_percent: durationSeconds > 0
+      ? Math.min(100, Math.round((endedAtSeconds / durationSeconds) * 100))
+      : null,
+    exit_reason: exitReason,
+    is_rewatch: session.isRewatch === true,
+    resumed: previousEndedAtSeconds > 0
+  }))
+  session.lastReportedSeconds = endedAtSeconds
+  session.lastReportedProgressSeconds = currentProgressSeconds
+  session.lastReportedPlayedSeconds = playedSecondsTotal
+  session.lastOutcomeReason = exitReason
+  return true
+}
+
 function handleVideoShelfPlayerStateChange(session, state) {
   if (activeVideoShelfPlayer !== session) return
   if (state === 1) {
@@ -16573,6 +17143,7 @@ function handleVideoShelfPlayerStateChange(session, state) {
       persist: true,
       captureStoppedPlayback: true
     })
+    trackVideoPlaybackSessionEnded(session, 'ended')
     window.setTimeout(() => completeVideoShelfPlayer(session), 0)
     return
   }
@@ -16582,6 +17153,7 @@ function handleVideoShelfPlayerStateChange(session, state) {
       persist: true,
       captureStoppedPlayback: state === 2
     })
+    trackVideoPlaybackSessionEnded(session, state === 2 ? 'paused' : 'cued')
   }
 }
 
@@ -16606,6 +17178,7 @@ function completeVideoShelfPlayerRewatchConfirmation(session) {
   ))
   if (!recordVideoRewatch(state, video, coveredSeconds, { creditProgress: false })) return false
   saveState(state)
+  trackVideoRewatchCompleted(state, video, coveredSeconds, 'embedded_player')
   renderAll(state)
   scheduleVideoWatchReminderTimer(state)
   return true
@@ -16615,6 +17188,7 @@ function stopActiveVideoShelfPlayer(options = {}) {
   const session = activeVideoShelfPlayer
   if (!session) return null
   if (options.persist !== false) syncActiveVideoShelfPlayer({ persist: true })
+  trackVideoPlaybackSessionEnded(session, options.exitReason || 'closed')
 
   stopVideoShelfPlayerSyncTimer(session)
   session.destroyed = true
@@ -16629,7 +17203,7 @@ function stopActiveVideoShelfPlayer(options = {}) {
 }
 
 function closeVideoShelfPlayer() {
-  const stoppedPlayer = stopActiveVideoShelfPlayer({ persist: true })
+  const stoppedPlayer = stopActiveVideoShelfPlayer({ persist: true, exitReason: 'closed' })
   if (!stoppedPlayer) return
   const state = loadState()
   if (state) renderAll(state)
@@ -17739,6 +18313,12 @@ function toggleManualVideoPopover(event) {
   const isOpen = menu.classList.toggle('hidden') === false
   btn.setAttribute('aria-expanded', String(isOpen))
   if (isOpen) {
+    searchAnalyticsState.lastChannelCatalogOutcomeKey = null
+    window.trackEdeniaEvent?.('search_opened', {
+      search_source: 'channel_catalog',
+      search_query: input?.value?.trim() || '',
+      current_channel_count: loadState()?.config?.channels?.length || 0
+    })
     positionFilterMenuWithinViewport(menu)
     setTimeout(() => {
       input?.focus()
@@ -17942,7 +18522,7 @@ function renderCard(v, compact = false, options = {}) {
     ? `<button type="button"
         class="channel-shelf-priority-badge favorite-priority-badge"
         data-video-id="${safeVideoId}"
-        onclick="event.preventDefault(); event.stopPropagation(); toggleVideoFavorite(this.dataset.videoId)"
+        onclick="event.preventDefault(); event.stopPropagation(); toggleVideoFavorite(this.dataset.videoId, { surface: 'channel_shelf_badge' })"
         aria-label="${escHtml(t('videos.card.removeFavorite'))}"
         title="${escHtml(t('videos.card.removeFavorite'))}">${renderVideoActionIcon('favorite')}</button>`
     : ''
@@ -17979,7 +18559,7 @@ function renderCard(v, compact = false, options = {}) {
               title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">${renderVideoActionIcon('watch-later')}</button>
             <button class="action-btn favorite-btn ${isFavorite ? 'active' : ''}"
               data-video-id="${safeVideoId}"
-              onclick="toggleVideoFavorite(this.dataset.videoId)"
+              onclick="toggleVideoFavorite(this.dataset.videoId, { surface: 'video_card' })"
               aria-pressed="${String(isFavorite)}"
               aria-label="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}"
               title="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}">${renderVideoActionIcon('favorite')}</button>
@@ -18240,5 +18820,9 @@ document.addEventListener('keydown', handleIntroTrailerKeydown)
 document.addEventListener('keydown', handleFeedbackModalKeydown)
 document.addEventListener('keydown', handleVideoShelfPlayerKeydown)
 window.addEventListener('blur', keepVideoShelfPlayerEscapeAvailable)
-window.addEventListener('pagehide', () => syncActiveVideoShelfPlayer({ persist: true }))
+window.addEventListener('pagehide', () => {
+  const session = activeVideoShelfPlayer
+  syncActiveVideoShelfPlayer({ persist: true })
+  trackVideoPlaybackSessionEnded(session, 'page_hidden')
+})
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
