@@ -9288,6 +9288,7 @@ function normalizeVideoStatus(status) {
 }
 
 function normalizeResumeAtSeconds(value, duration = null) {
+  if (value === null || value === undefined || (typeof value === 'string' && !value.trim())) return null
   const seconds = Number(value)
   if (!Number.isFinite(seconds) || seconds < 0) return null
   const rounded = Math.floor(seconds)
@@ -9302,6 +9303,10 @@ function hasVideoResumePriority(video) {
       status === 'watch-later'
       && normalizeResumeAtSeconds(video?.resumeAtSeconds, video?.duration) !== null
     )
+}
+
+function isVideoWatchLater(video) {
+  return getVideoStatus(video) === 'watch-later' || video?.watchLater === true
 }
 
 function getVideoUrl(video) {
@@ -10608,14 +10613,29 @@ function recordVideoRewatch(state, video, seconds = null) {
   return true
 }
 
-function markVideo(videoId, newStatus) {
-  newStatus = normalizeVideoStatus(newStatus)
+function markVideo(videoId, requestedStatus, options = {}) {
+  requestedStatus = normalizeVideoStatus(requestedStatus)
   const s     = loadState()
   const video = s.videos[videoId]
   if (!video) return false
   const previousStatus = getVideoStatus(video)
-  if (previousStatus === newStatus) return false
+  const previousWatchLater = isVideoWatchLater(video)
+  const nextWatchLater = typeof options.watchLater === 'boolean'
+    ? options.watchLater
+    : requestedStatus === 'watch-later'
+    ? true
+    : previousWatchLater
+  const resolvedWatchLater = requestedStatus === 'watched' ? false : nextWatchLater
+  let newStatus = requestedStatus
+  if (requestedStatus === 'watch-later' && previousStatus === 'partial') {
+    newStatus = 'partial'
+  } else if (requestedStatus === 'unwatched' && hasVideoResumePriority(video) && resolvedWatchLater) {
+    newStatus = 'watch-later'
+  }
+  const isClearingResume = requestedStatus === 'unwatched' && hasVideoResumePriority(video)
+  if (previousStatus === newStatus && previousWatchLater === resolvedWatchLater && !isClearingResume) return false
   if (newStatus === 'watched' && !hasWatchedConfirmationUnlock(video)) return false
+  if (isClearingResume) clearFocusedVideoPreview(videoId)
   if (previousStatus === 'watched' && newStatus !== 'watched') {
     grantWatchedConfirmationUnlock(s, video)
   }
@@ -10638,11 +10658,12 @@ function markVideo(videoId, newStatus) {
   }
 
   video.status    = newStatus
+  video.watchLater = resolvedWatchLater
   const watchedAt = newStatus === 'watched' ? getCurrentAppTimestamp(s) : null
   if (watchedAt) {
     const missingSeconds = Math.max(0, Math.floor(Number(video.duration || 0)) - getTotalVideoWatchProgressSeconds(video))
     if (missingSeconds > 0) addVideoWatchProgress(video, missingSeconds, watchedAt)
-  } else if (newStatus === 'unwatched' || previousStatus === 'watched') {
+  } else if (requestedStatus === 'unwatched' || previousStatus === 'watched') {
     video.watchProgress = []
   }
   video.watchedAt = watchedAt
@@ -10650,7 +10671,7 @@ function markVideo(videoId, newStatus) {
     s.lastVideoMarkedWatchedAt = watchedAt
     recordNoAnkiFrequentUserWatchedDate(s, watchedAt)
   }
-  video.resumeAtSeconds = ['partial', 'watch-later'].includes(newStatus)
+  video.resumeAtSeconds = requestedStatus !== 'unwatched' && ['partial', 'watch-later'].includes(newStatus)
     ? normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
     : null
   undoAction.after.watchedAt = video.watchedAt
@@ -10693,7 +10714,7 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
     previous_status: previousStatus,
     video_source: video.manuallyAdded ? 'manual' : 'channel',
     is_short: Boolean(video.isShort),
-    resumed: previousStatus === 'partial' && normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) !== null
+    resumed: hasVideoResumePriority(video) && normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) !== null
   })
   if (previousStatus === 'watched') {
     if (!isFavoriteVideo(video)) return false
@@ -10732,6 +10753,7 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
     }
   })
 
+  if (previousStatus === 'watch-later') video.watchLater = true
   video.status = 'partial'
   video.watchedAt = null
   video.resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
@@ -11527,6 +11549,18 @@ function focusNextStudyVideoCard(event, videoId) {
   return false
 }
 
+function clearFocusedVideoPreview(videoId) {
+  const targetVideoId = String(videoId ?? '')
+  window.clearTimeout(nextStudyFocusZoomTimer)
+  if (activeNextStudyFocusVideoId === targetVideoId) activeNextStudyFocusVideoId = null
+  document.querySelectorAll('.video-card.next-study-focus-target').forEach(card => {
+    if (card.dataset.videoId === targetVideoId) card.classList.remove('next-study-focus-target')
+  })
+  if (activeVideoShelfPreview?.dataset.videoId === targetVideoId) {
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
+  }
+}
+
 function pushUndoAction(s, action) {
   normalizeUndoState(s)
   if (!action.createdAt) action.createdAt = new Date().toISOString()
@@ -12296,7 +12330,7 @@ function renderHistoryWatchedCell(row) {
         <span class="history-video-count-number">${row.videosWatched}</span>
         <span class="history-video-count-caret" aria-hidden="true"></span>
       </button>
-      <span class="history-video-popover" role="dialog" aria-label="${escHtml(t('history.watchedDialog'))}" onmouseenter="openHistoryVideoPopover(event)" onmouseleave="closeHistoryVideoPopoverSoon()">
+      <span class="history-video-popover" role="dialog" aria-label="${escHtml(t('history.watchedDialog'))}">
         ${row.watchedVideos.map(video => `
           <button type="button" class="history-video-popover-item" data-video-id="${escHtml(video.id)}" onclick="jumpToWatchedVideo(event, this.dataset.videoId)">
             ${video.thumbnail
@@ -12450,8 +12484,27 @@ function toggleHistoryVideoPopover(event) {
   event.stopPropagation()
   const cell = event.currentTarget.closest('.history-video-cell')
   if (!cell) return
+  if (window.matchMedia?.('(pointer: coarse)').matches) {
+    openHistoryVideoCell(cell, true)
+    return
+  }
   const shouldOpen = !cell.classList.contains('open')
-  clearTimeout(openHistoryVideoPopover._closeTimer)
+  openHistoryVideoCell(cell, shouldOpen)
+}
+
+function openHistoryVideoPopover(event) {
+  const cell = event.currentTarget.closest('.history-video-cell')
+  if (!cell) return
+  openHistoryVideoCell(cell, true)
+}
+
+function closeHistoryVideoPopoverSoon() {
+  clearTimeout(openHistoryVideoCell._closeTimer)
+  openHistoryVideoCell._closeTimer = window.setTimeout(() => closeHistoryVideoPopovers(), 80)
+}
+
+function openHistoryVideoCell(cell, shouldOpen = true) {
+  clearTimeout(openHistoryVideoCell._closeTimer)
   closeManualVideoPopover()
   closeHistoryPointsPopovers()
   closeHistoryPeriodPopovers()
@@ -12461,30 +12514,12 @@ function toggleHistoryVideoPopover(event) {
 }
 
 function closeHistoryVideoPopovers(exceptCell = null) {
-  clearTimeout(openHistoryVideoPopover._closeTimer)
+  clearTimeout(openHistoryVideoCell._closeTimer)
   document.querySelectorAll('.history-video-cell.open').forEach(cell => {
     if (cell === exceptCell) return
     cell.classList.remove('open')
     cell.querySelector('.history-video-count')?.setAttribute('aria-expanded', 'false')
   })
-}
-
-function openHistoryVideoPopover(event) {
-  if (isMobileLayout()) return
-  const cell = event.currentTarget.closest('.history-video-cell')
-  if (!cell) return
-  clearTimeout(openHistoryVideoPopover._closeTimer)
-  closeManualVideoPopover()
-  closeHistoryPointsPopovers()
-  closeHistoryPeriodPopovers()
-  closeHistoryVideoPopovers(cell)
-  cell.classList.add('open')
-  cell.querySelector('.history-video-count')?.setAttribute('aria-expanded', 'true')
-}
-
-function closeHistoryVideoPopoverSoon() {
-  clearTimeout(openHistoryVideoPopover._closeTimer)
-  openHistoryVideoPopover._closeTimer = window.setTimeout(() => closeHistoryVideoPopovers(), 80)
 }
 
 function closeHistoryVideoPopoversOnOutsideClick(event) {
@@ -15205,7 +15240,10 @@ function renderFeed(s) {
     ? favoriteVideos
     : timelineVideos.filter(v => (
       ['all', 'watch-later', 'unwatched', 'partial'].includes(statusFilter)
-      && (statusFilter === 'all' || getVideoStatus(v) === statusFilter)
+      && (
+        statusFilter === 'all'
+        || (statusFilter === 'watch-later' ? isVideoWatchLater(v) : getVideoStatus(v) === statusFilter)
+      )
     ))
 
   let watchedVideos = statusFilter === 'favorite' ? [] : allVideos
@@ -15303,7 +15341,7 @@ function compareActiveVideos(a, b) {
 function compareChannelTimelineVideos(a, b) {
   const getPriority = video => hasVideoResumePriority(video)
     ? 0
-    : getVideoStatus(video) === 'watch-later'
+    : isVideoWatchLater(video)
     ? 1
     : 2
   const priorityDifference = getPriority(a) - getPriority(b)
@@ -17088,6 +17126,7 @@ function getStatusFilterCounts(allVideos = [], channelFilters = null, includeSho
   activeVideos.forEach(video => {
     const status = getVideoStatus(video)
     if (status !== 'watched') counts[status] += 1
+    if (status !== 'watch-later' && isVideoWatchLater(video)) counts['watch-later'] += 1
   })
 
   counts.all = activeVideos.length
@@ -17493,7 +17532,7 @@ function renderCard(v, compact = false, options = {}) {
   const videoUrl = escHtml(getVideoUrl(v))
   const isWatched = status === 'watched'
   const isPartial = hasVideoResumePriority(v)
-  const isWatchLater = status === 'watch-later'
+  const isWatchLater = isVideoWatchLater(v)
   const displayStatus = isPartial ? 'partial' : status
   const isFavorite = isFavoriteVideo(v)
   const isRewatchable = isWatched && isFavorite
@@ -17557,7 +17596,7 @@ function renderCard(v, compact = false, options = {}) {
     ? `<button type="button"
         class="channel-shelf-priority-badge watch-later-priority-badge"
         data-video-id="${safeVideoId}"
-        onclick="event.preventDefault(); event.stopPropagation(); markVideo(this.dataset.videoId, 'unwatched')"
+        onclick="event.preventDefault(); event.stopPropagation(); markVideo(this.dataset.videoId, 'unwatched', { watchLater: false })"
         aria-label="${escHtml(t('videos.card.removeWatchLater'))}"
         title="${escHtml(t('videos.card.removeWatchLater'))}">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</button>`
     : options.shelf && isFavorite
@@ -17595,7 +17634,8 @@ function renderCard(v, compact = false, options = {}) {
           <button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
             data-video-id="${safeVideoId}"
             data-status="${watchLaterNextStatus}"
-            onclick="markVideo(this.dataset.videoId, this.dataset.status)"
+            data-watch-later="${String(!isWatchLater)}"
+            onclick="markVideo(this.dataset.videoId, this.dataset.status, { watchLater: this.dataset.watchLater === 'true' })"
             aria-label="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}"
             title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">${renderVideoActionIcon('watch-later')}</button>
           <button class="action-btn favorite-btn ${isFavorite ? 'active' : ''}"
