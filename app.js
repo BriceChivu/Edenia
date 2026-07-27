@@ -18873,6 +18873,11 @@ function renderCard(v, compact = false, options = {}) {
             <span class="pub-ago">${timeAgo(v.publishedAt)}</span>
           </div>
           <div class="card-actions">
+            ${isPartial ? `<button class="action-btn set-aside-btn"
+              data-video-id="${safeVideoId}"
+              onclick="requestVideoSetAside(this.dataset.videoId, { surface: 'video_card' })"
+              aria-label="${escHtml(t('videos.card.setAside'))}"
+              title="${escHtml(t('videos.card.setAside'))}">${renderVideoActionIcon('set-aside')}</button>` : ''}
             <button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
               data-video-id="${safeVideoId}"
               data-status="${watchLaterNextStatus}"
@@ -18880,11 +18885,6 @@ function renderCard(v, compact = false, options = {}) {
               onclick="markVideo(this.dataset.videoId, this.dataset.status, { watchLater: this.dataset.watchLater === 'true' })"
               aria-label="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}"
               title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">${renderVideoActionIcon('watch-later')}</button>
-            ${isPartial ? `<button class="action-btn set-aside-btn"
-              data-video-id="${safeVideoId}"
-              onclick="requestVideoSetAside(this.dataset.videoId, { surface: 'video_card' })"
-              aria-label="${escHtml(t('videos.card.setAside'))}"
-              title="${escHtml(t('videos.card.setAside'))}">${renderVideoActionIcon('set-aside')}</button>` : ''}
             ${!isSetAside ? `<button class="action-btn favorite-btn ${isFavorite ? 'active' : ''}"
               data-video-id="${safeVideoId}"
               onclick="toggleVideoFavorite(this.dataset.videoId, { surface: 'video_card' })"
