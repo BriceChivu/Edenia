@@ -9267,6 +9267,11 @@ function hasVideoResumePriority(video) {
   const status = getVideoStatus(video)
   return status === 'partial'
     || (
+      status === 'watched'
+      && isFavoriteVideo(video)
+      && normalizeResumeAtSeconds(video?.resumeAtSeconds, video?.duration) !== null
+    )
+    || (
       status === 'watch-later'
       && normalizeResumeAtSeconds(video?.resumeAtSeconds, video?.duration) !== null
     )
@@ -9289,7 +9294,7 @@ function isVideoWatchLater(video) {
 function getVideoUrl(video) {
   const videoId = String(video?.id ?? '')
   const url = `https://youtube.com/watch?v=${encodeURIComponent(videoId)}`
-  const resumeAtSeconds = ['partial', 'watch-later'].includes(getVideoStatus(video))
+  const resumeAtSeconds = hasVideoResumePriority(video)
     ? normalizeResumeAtSeconds(video?.resumeAtSeconds, video?.duration)
     : null
   return resumeAtSeconds !== null ? `${url}&t=${resumeAtSeconds}s` : url
@@ -9651,6 +9656,9 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
         : null,
       favorite: Boolean(existing?.favorite),
       resumeAtSeconds: normalizeResumeAtSeconds(existing?.resumeAtSeconds, duration),
+      pausedAt: hasVideoResumePriority(existing) && isValidTimestamp(existing?.pausedAt)
+        ? existing.pausedAt
+        : null,
       watchProgress: normalizeVideoWatchProgress(existing?.watchProgress ?? v.watchProgress, duration),
       source: existing?.source || v.source || null,
       manuallyAdded: Boolean(existing?.manuallyAdded || v.manuallyAdded),
@@ -10481,6 +10489,10 @@ function toggleVideoFavorite(videoId) {
   const preservePreview = isActiveVideoShelfPreview(videoId)
   const beforeVideo = cloneVideoForHistoryAction(video)
   video.favorite = !isFavoriteVideo(video)
+  if (!isFavoriteVideo(video) && getVideoStatus(video) === 'watched') {
+    video.resumeAtSeconds = null
+    video.pausedAt = null
+  }
   pushUndoAction(s, {
     type: 'video-favorite',
     videoId,
@@ -10535,6 +10547,10 @@ function favoriteVideoFromWatchPrompt(event, videoId) {
   const beforeVideo = cloneVideoForHistoryAction(video)
   video.favorite = !isFavoriteVideo(video)
   const isFavorite = isFavoriteVideo(video)
+  if (!isFavorite && getVideoStatus(video) === 'watched') {
+    video.resumeAtSeconds = null
+    video.pausedAt = null
+  }
   pushUndoAction(state, {
     type: 'video-favorite',
     videoId,
@@ -10576,6 +10592,8 @@ function recordVideoRewatch(state, video, seconds = null) {
   if (rewatchSeconds > 0) {
     addVideoWatchProgress(video, rewatchSeconds, watchedAt, { allowRepeat: true })
   }
+  video.resumeAtSeconds = null
+  video.pausedAt = null
   clearVideoWatchReminderInState(state, video.id)
   state.lastVideoMarkedWatchedAt = watchedAt
   recordNoAnkiFrequentUserWatchedDate(state, watchedAt)
@@ -10695,6 +10713,41 @@ function markVideo(videoId, requestedStatus, options = {}) {
   return true
 }
 
+function clearVideoPausedState(videoId) {
+  const s = loadState()
+  const video = s?.videos?.[videoId]
+  if (
+    !video
+    || getVideoStatus(video) !== 'watched'
+    || !isFavoriteVideo(video)
+    || normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) === null
+  ) {
+    return markVideo(videoId, 'unwatched')
+  }
+
+  const beforeVideo = cloneVideoForHistoryAction(video)
+  video.resumeAtSeconds = null
+  video.pausedAt = null
+  pushUndoAction(s, {
+    type: 'video-resume-time',
+    videoId,
+    before: {
+      video: beforeVideo,
+      status: beforeVideo.status,
+      resumeAtSeconds: normalizeResumeAtSeconds(beforeVideo.resumeAtSeconds, beforeVideo.duration)
+    },
+    after: {
+      video: cloneVideoForHistoryAction(video),
+      status: video.status,
+      resumeAtSeconds: null
+    }
+  })
+  clearFocusedVideoPreview(videoId)
+  saveState(s)
+  renderAll(s)
+  return true
+}
+
 function markVideoInProgressOnOpen(videoId, options = {}) {
   const shouldRender = options.render !== false
   const s     = loadState()
@@ -10709,8 +10762,16 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
   })
   if (previousStatus === 'watched') {
     if (!isFavoriteVideo(video)) return false
-    const reminderChanged = clearVideoWatchReminderInState(s, videoId)
-    if (reminderChanged) saveState(s, { backup: false })
+    clearVideoWatchReminderInState(s, videoId)
+    video.resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) ?? 0
+    video.pausedAt = getCurrentAppTimestamp(s)
+    saveState(s, { backup: false })
+    if (shouldRender) {
+      setTimeout(() => {
+        const nextState = loadState()
+        renderAll(nextState)
+      }, 0)
+    }
     return true
   }
   if (previousStatus === 'partial') {
@@ -10861,8 +10922,11 @@ async function addVideoFromUrl(event) {
       watchedConfirmationUnlockedAt: isValidTimestamp(existing?.watchedConfirmationUnlockedAt)
         ? existing.watchedConfirmationUnlockedAt
         : null,
-      resumeAtSeconds: ['partial', 'watch-later'].includes(status)
+      resumeAtSeconds: hasVideoResumePriority(existing)
         ? normalizeResumeAtSeconds(existing?.resumeAtSeconds, duration)
+        : null,
+      pausedAt: hasVideoResumePriority(existing) && isValidTimestamp(existing?.pausedAt)
+        ? existing.pausedAt
         : null,
       watchProgress,
       source: existing?.source || 'manual',
@@ -11513,21 +11577,38 @@ function focusNextStudyVideoCard(event, videoId) {
   renderFeed(state)
 
   window.requestAnimationFrame(() => {
-    const found = scrollToVideoCard(targetVideoId, '.video-card', {
+    const found = scrollToVideoCard(targetVideoId, '.channel-shelf-card', {
       className: 'watch-reminder-arriving',
       duration: 1800
     })
     forcedSearchVideoId = null
     if (!found) {
-      activeNextStudyFocusVideoId = null
+      clearFocusedVideoPreview(targetVideoId)
       showToast(t('toast.couldNotShowVideo'), 'warn')
       return
     }
 
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     nextStudyFocusZoomTimer = window.setTimeout(() => {
-      const card = findVideoCard(targetVideoId)
-      if (card) openVideoShelfPreview(card, true)
+      const card = findVideoCard(targetVideoId, '.channel-shelf-card')
+      const previewStarted = card && openVideoShelfPreview(card, true)
+      if (!previewStarted) {
+        clearFocusedVideoPreview(targetVideoId)
+        showToast(t('toast.couldNotShowVideo'), 'warn')
+        return
+      }
+
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          if (
+            activeNextStudyFocusVideoId === targetVideoId
+            && !isActiveVideoShelfPreview(targetVideoId)
+          ) {
+            clearFocusedVideoPreview(targetVideoId)
+            showToast(t('toast.couldNotShowVideo'), 'warn')
+          }
+        })
+      })
     }, reduceMotion ? 0 : 750)
   })
   return false
@@ -13929,7 +14010,7 @@ function setStudyInsightsCollapsed(collapsed) {
 function renderNextStudy(activeVideos = [], favoriteVideos = []) {
   const container = document.getElementById('nextStudyCard')
   if (!container) return null
-  const nextVideo = activeVideos
+  const nextVideo = [...activeVideos, ...favoriteVideos]
     .filter(hasVideoResumePriority)
     .sort(comparePausedVideos)[0]
     || activeVideos.find(video => getVideoStatus(video) === 'watch-later')
@@ -13945,7 +14026,6 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
   const isInProgress = hasVideoResumePriority(nextVideo)
   const isRewatch = status === 'watched' && isFavoriteVideo(nextVideo)
   const safeVideoId = escHtml(nextVideo.id)
-  const videoUrl = escHtml(getVideoUrl(nextVideo))
   const resumeTimestamp = formatResumeTimestamp(nextVideo.resumeAtSeconds) || '00:00:00'
   const panelTitleKey = isInProgress
     ? 'nextStudy.title'
@@ -13963,13 +14043,11 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
   container.classList.toggle('rewatch-card', isRewatch)
   const actions = isInProgress
     ? `
-      <a class="next-study-cta next-study-continue"
-        href="${videoUrl}"
-        target="_blank"
-        rel="noopener"
+      <button type="button"
+        class="next-study-cta next-study-continue"
         data-video-id="${safeVideoId}"
         onclick="return openNextStudyVideoPlayer(event, this.dataset.videoId)"
-        aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}">${escHtml(cta)}</a>
+        aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}">${escHtml(cta)}</button>
     `
     : isRewatch
     ? `
@@ -13977,24 +14055,20 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
         class="next-study-cta next-study-reset"
         data-video-id="${safeVideoId}"
         onclick="toggleVideoFavorite(this.dataset.videoId)">${escHtml(t('nextStudy.removeFavorite'))}</button>
-      <a class="next-study-cta next-study-watch"
-        href="${videoUrl}"
-        target="_blank"
-        rel="noopener"
+      <button type="button"
+        class="next-study-cta next-study-watch"
         data-video-id="${safeVideoId}"
-        onclick="return openNextStudyVideoPlayer(event, this.dataset.videoId)">${escHtml(t('nextStudy.watchAgain'))}</a>
+        onclick="return openNextStudyVideoPlayer(event, this.dataset.videoId)">${escHtml(t('nextStudy.watchAgain'))}</button>
     `
     : `
-      <a class="next-study-cta next-study-watch"
-        href="${videoUrl}"
-        target="_blank"
-        rel="noopener"
+      <button type="button"
+        class="next-study-cta next-study-watch"
         data-video-id="${safeVideoId}"
-        onclick="return openNextStudyVideoPlayer(event, this.dataset.videoId)">${escHtml(t('nextStudy.watch'))}</a>
+        onclick="return openNextStudyVideoPlayer(event, this.dataset.videoId)">${escHtml(t('nextStudy.watch'))}</button>
     `
   container.innerHTML = `
     <button type="button" class="next-study-panel-focus" data-video-id="${safeVideoId}" onclick="focusNextStudyVideoCard(event, this.dataset.videoId)" aria-label="${escHtml(panelLabel)}"></button>
-    <a class="next-study-mobile-link" href="${videoUrl}" target="_blank" rel="noopener" data-video-id="${safeVideoId}" onclick="return openNextStudyVideoPlayer(event, this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}"></a>
+    <button type="button" class="next-study-mobile-link" data-video-id="${safeVideoId}" onclick="return openNextStudyVideoPlayer(event, this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}"></button>
     <span class="next-study-thumb-link" aria-hidden="true">
       <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
     </span>
@@ -15515,7 +15589,13 @@ function renderChannelShelfAvatar(group) {
 function syncVideoChannelShelfControls(track) {
   if (!track) return
   if (activeVideoShelfPreview && track.contains(activeVideoShelfPreview)) {
-    closeVideoShelfPreview(activeVideoShelfPreview, true)
+    const isPinnedPreview = activeVideoShelfPreview.dataset.videoId === activeVideoWatchReminderId
+      || activeVideoShelfPreview.dataset.videoId === activeNextStudyFocusVideoId
+    if (isPinnedPreview) {
+      positionVideoShelfPreview(activeVideoShelfPreview)
+    } else {
+      closeVideoShelfPreview(activeVideoShelfPreview, true)
+    }
   }
   const shelf = track.closest('.channel-shelf')
   const atStart = track.scrollLeft <= 2
@@ -15810,38 +15890,31 @@ function finishChannelShelfDrag() {
   document.body.classList.remove('channel-shelf-dragging')
 }
 
-function canUseEmbeddedVideoShelfPlayer() {
-  const usesDesktopPointer = window.matchMedia?.(
-    '(min-width: 641px) and (hover: hover) and (pointer: fine)'
-  )?.matches
-  const isIpad = /iPad/.test(navigator.userAgent)
-    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  const usesIpadLayout = isIpad && window.matchMedia?.('(min-width: 641px)')?.matches
-  return Boolean((usesDesktopPointer || usesIpadLayout) && canUseVideoShelfPreview())
-}
-
 function handleVideoThumbnailClick(event, link) {
+  event?.preventDefault()
+  event?.stopPropagation()
+
   const card = link?.closest?.('.channel-shelf-card')
   const videoId = String(link?.dataset?.videoId || '')
-  if (!card || !videoId || !canUseEmbeddedVideoShelfPlayer()) {
-    markVideoInProgressOnOpen(videoId)
-    return true
+  if (!videoId) {
+    showToast(t('toast.videoGone'), 'warn')
+    return false
   }
 
-  if (!card.classList.contains('is-previewing')) {
+  if (card && canUseVideoShelfPreview() && !card.classList.contains('is-previewing')) {
     if (usesTapVideoShelfPreview()) {
-      event?.preventDefault()
-      event?.stopPropagation()
       openVideoShelfPreview(card, true)
       return false
     }
-    markVideoInProgressOnOpen(videoId)
-    return true
+    openVideoShelfPreview(card, false, event)
+    return false
   }
 
-  event?.preventDefault()
-  event?.stopPropagation()
-  openVideoShelfPlayer(card, videoId)
+  if (card?.classList.contains('is-previewing')) {
+    openVideoShelfPlayer(card, videoId)
+  } else if (!openVideoPlayer(videoId)) {
+    showToast(t('toast.videoGone'), 'warn')
+  }
   return false
 }
 
@@ -15922,7 +15995,7 @@ function renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch = false) {
 }
 
 function openVideoShelfPlayer(card, videoId) {
-  if (!card?.classList.contains('is-previewing') || !canUseEmbeddedVideoShelfPlayer()) return false
+  if (!card?.classList.contains('is-previewing')) return false
   closeVideoShelfPreview(card, true)
   return openVideoPlayer(videoId)
 }
@@ -15933,12 +16006,18 @@ function openVideoPlayer(videoId) {
   if (activeVideoShelfPlayer?.videoId === videoId) return true
   if (activeVideoShelfPlayer) stopActiveVideoShelfPlayer({ persist: true })
 
-  if (!markVideoInProgressOnOpen(videoId, { render: false, reminder: false })) return false
+  const existingVideo = loadState()?.videos?.[videoId]
+  const wasWatched = getVideoStatus(existingVideo) === 'watched'
+  if (!wasWatched && !markVideoInProgressOnOpen(videoId, { render: false, reminder: false })) return false
+  if (wasWatched && isFavoriteVideo(existingVideo)) {
+    markVideoInProgressOnOpen(videoId, { render: false, reminder: false })
+  }
+
   const video = loadState()?.videos?.[videoId]
   const isRewatch = Boolean(video && getVideoStatus(video) === 'watched' && isFavoriteVideo(video))
-  if (!video || (getVideoStatus(video) !== 'partial' && !isRewatch)) return false
+  if (!video || (getVideoStatus(video) !== 'partial' && !wasWatched)) return false
 
-  const startSeconds = isRewatch ? 0 : normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
+  const startSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
   const playerElements = renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch)
   if (!playerElements?.iframe) return false
 
@@ -16172,8 +16251,9 @@ function syncActiveVideoShelfPlayer(options = {}) {
   const progressChanged = session.isRewatch
     ? setVideoShelfRewatchProgressToTimestamp(video, nextResume, session, watchedAt)
     : setVideoShelfProgressToTimestamp(video, nextResume, session, watchedAt)
-  if (!session.isRewatch) video.resumeAtSeconds = normalized
-  if (nextResume === previousResume && !progressChanged) return true
+  video.resumeAtSeconds = normalized
+  if (session.isRewatch) video.pausedAt = watchedAt
+  if (nextResume === previousResume && !progressChanged && !session.isRewatch) return true
   syncStreak(state)
   saveState(state, {
     backup: false,
@@ -16628,21 +16708,21 @@ function openVideoShelfPreview(card, force = false, pointerEvent = null) {
     || (activeNextStudyFocusVideoId && !force)
     || (card.classList.contains('watch-reminder-target') && !force)
     || (card.classList.contains('next-study-focus-target') && !force)
-  ) return
+  ) return false
   clearVideoShelfPreviewLeave(card)
-  if (activeChannelShelfDrag) return
-  if (!force && !isVideoShelfCardFullyVisible(card)) return
+  if (activeChannelShelfDrag) return false
+  if (!force && !isVideoShelfCardFullyVisible(card)) return false
   if (activeVideoShelfPreview && activeVideoShelfPreview !== card) {
     closeVideoShelfPreview(activeVideoShelfPreview, true)
   }
   if (card.classList.contains('is-floating-preview')) {
     if (card.classList.contains('is-preview-closing')) reopenVideoShelfPreview(card)
-    return
+    return true
   }
 
   clearVideoShelfPreviewCleanup(card)
   window.clearTimeout(videoShelfPreviewAnchorTimer)
-  if (!positionVideoShelfPreview(card, pointerEvent)) return
+  if (!positionVideoShelfPreview(card, pointerEvent)) return false
   const shelf = card.closest('.channel-shelf')
   if (shelf) shelf.draggable = false
   card.classList.add('is-floating-preview')
@@ -16663,6 +16743,7 @@ function openVideoShelfPreview(card, force = false, pointerEvent = null) {
       }
     })
   })
+  return true
 }
 
 function closeVideoShelfPreview(card, force = false) {
@@ -17532,7 +17613,6 @@ function renderCard(v, compact = false, options = {}) {
   const status = getVideoStatus(v)
   const videoId = String(v.id ?? '')
   const safeVideoId = escHtml(videoId)
-  const videoUrl = escHtml(getVideoUrl(v))
   const isWatched = status === 'watched'
   const isPartial = hasVideoResumePriority(v)
   const isWatchLater = isVideoWatchLater(v)
@@ -17587,12 +17667,12 @@ function renderCard(v, compact = false, options = {}) {
     ${uploadRibbon ? `<span class="video-upload-ribbon">${escHtml(uploadRibbon)}</span>` : ''}
     <span class="dur-badge">${formatDuration(v.duration)}</span>
   `
-  const thumbnailLink = `<a href="${videoUrl}" target="_blank" rel="noopener" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="return handleVideoThumbnailClick(event, this)">${thumbnailContent}</a>`
+  const thumbnailLink = `<button type="button" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="return handleVideoThumbnailClick(event, this)">${thumbnailContent}</button>`
   const shelfPriorityBadge = options.shelf && isPartial
     ? `<button type="button"
         class="channel-shelf-priority-badge partial-priority-badge"
         data-video-id="${safeVideoId}"
-        onclick="event.preventDefault(); event.stopPropagation(); markVideo(this.dataset.videoId, 'unwatched')"
+        onclick="event.preventDefault(); event.stopPropagation(); clearVideoPausedState(this.dataset.videoId)"
         aria-label="${escHtml(t('videos.card.clear'))}"
         title="${escHtml(t('videos.card.clear'))}">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</button>`
     : options.shelf && isWatchLater

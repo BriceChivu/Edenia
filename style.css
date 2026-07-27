@@ -5106,11 +5106,18 @@ body[data-theme="dark"] .compact-card .watched-btn.active:hover {
 
 /* Thumbnail */
 .thumb-link {
+  border: 0;
+  color: inherit;
+  cursor: pointer;
   display: block;
+  font: inherit;
+  padding: 0;
   position: relative;
   aspect-ratio: 16/9;
   overflow: hidden;
   background: var(--planet-black);
+  text-align: left;
+  width: 100%;
 }
 .thumb {
   width: 100%;
