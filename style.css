@@ -1458,7 +1458,14 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
 .settings-group { display: flex; flex-direction: column; gap: 8px; }
 .settings-group label { font-weight: 600; font-size: 0.9rem; }
 .settings-group input { width: 100%; }
+.settings-locale-group {
+  align-items: center;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: auto minmax(0, 1fr);
+}
 .settings-locale-picker {
+  min-width: 0;
   position: relative;
 }
 .settings-locale-btn {
