@@ -16740,7 +16740,7 @@ function positionVideoShelfPreview(card, pointerEvent = null) {
     )
   )
   const previewSize = Math.min(Math.max(rect.width * 1.25, 295), maxPreviewSize)
-  const previewHeight = previewSize * 0.90
+  const previewHeight = previewSize * 0.815625
   const sourceLeft = rect.left - ((previewSize - rect.width) / 2)
   const sourceTop = rect.top - ((previewHeight - rect.height) / 2)
   const anchorToSource = card.matches('.watch-reminder-target, .next-study-focus-target')
@@ -17986,25 +17986,27 @@ function renderCard(v, compact = false, options = {}) {
           <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
           ${watchedAtLabel ? `<div class="card-watched-at">${escHtml(watchedAtLabel)}</div>` : ''}
         </div>
-        <div class="card-meta">
-          <span class="channel-name">${escHtml(v.channelTitle || '')}</span>
-          <span class="pub-ago">${timeAgo(v.publishedAt)}</span>
-        </div>
-        <div class="card-actions">
-          ${watchedAction}
-          <button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
-            data-video-id="${safeVideoId}"
-            data-status="${watchLaterNextStatus}"
-            data-watch-later="${String(!isWatchLater)}"
-            onclick="markVideo(this.dataset.videoId, this.dataset.status, { watchLater: this.dataset.watchLater === 'true' })"
-            aria-label="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}"
-            title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">${renderVideoActionIcon('watch-later')}</button>
-          <button class="action-btn favorite-btn ${isFavorite ? 'active' : ''}"
-            data-video-id="${safeVideoId}"
-            onclick="toggleVideoFavorite(this.dataset.videoId)"
-            aria-pressed="${String(isFavorite)}"
-            aria-label="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}"
-            title="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}">${renderVideoActionIcon('favorite')}</button>
+        <div class="card-footer">
+          <div class="card-meta">
+            <span class="channel-name">${escHtml(v.channelTitle || '')}</span>
+            <span class="pub-ago">${timeAgo(v.publishedAt)}</span>
+          </div>
+          <div class="card-actions">
+            ${watchedAction}
+            <button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
+              data-video-id="${safeVideoId}"
+              data-status="${watchLaterNextStatus}"
+              data-watch-later="${String(!isWatchLater)}"
+              onclick="markVideo(this.dataset.videoId, this.dataset.status, { watchLater: this.dataset.watchLater === 'true' })"
+              aria-label="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}"
+              title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">${renderVideoActionIcon('watch-later')}</button>
+            <button class="action-btn favorite-btn ${isFavorite ? 'active' : ''}"
+              data-video-id="${safeVideoId}"
+              onclick="toggleVideoFavorite(this.dataset.videoId)"
+              aria-pressed="${String(isFavorite)}"
+              aria-label="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}"
+              title="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}">${renderVideoActionIcon('favorite')}</button>
+          </div>
         </div>
       </div>
     </div>
