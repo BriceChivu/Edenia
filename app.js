@@ -10163,7 +10163,9 @@ function getVideoWatchReminderMarkup(videoId, options = {}) {
   } = options
   const safeVideoId = escHtml(String(videoId ?? ''))
   const promptId = `videoWatchPrompt-${safeVideoId}-${player ? 'player' : global ? 'global' : 'card'}`
-  const favoriteHidden = isFavoriteVideo(video) ? ' hidden' : ''
+  const isFavorite = isFavoriteVideo(video)
+  const favoriteActive = isFavorite ? ' active' : ''
+  const favoriteLabel = t(isFavorite ? 'videos.card.removeFavorite' : 'videoReminder.setFavorite')
   return `
     <div class="video-watch-reminder-popover${global ? ' is-global' : ''}${player ? ' is-player' : ''}"
       data-video-id="${safeVideoId}"
@@ -10173,12 +10175,20 @@ function getVideoWatchReminderMarkup(videoId, options = {}) {
       aria-labelledby="${promptId}">
       <div class="video-watch-reminder-copy">
         <span class="video-watch-reminder-icon" aria-hidden="true">✓</span>
-        <span>
-          <strong>${escHtml(t('videoReminder.eyebrow'))}</strong>
-          <span id="${promptId}">${escHtml(t(rewatch ? 'videoReminder.rewatchQuestion' : 'videoReminder.question'))}</span>
-        </span>
+        <span id="${promptId}">${escHtml(t(rewatch ? 'videoReminder.rewatchQuestion' : 'videoReminder.question'))}</span>
       </div>
       <div class="video-watch-reminder-actions">
+        ${rewatch ? '' : `
+        <button type="button"
+          class="video-watch-reminder-favorite${favoriteActive}"
+          data-video-id="${safeVideoId}"
+          aria-pressed="${String(isFavorite)}"
+          aria-label="${escHtml(favoriteLabel)}"
+          title="${escHtml(favoriteLabel)}"
+          onclick="favoriteVideoFromWatchPrompt(event, this.dataset.videoId)">
+          ${renderVideoActionIcon('favorite')}
+        </button>
+        `}
         <button type="button"
           class="video-watch-reminder-mark"
           data-video-id="${safeVideoId}"
@@ -10187,15 +10197,6 @@ function getVideoWatchReminderMarkup(videoId, options = {}) {
           class="video-watch-reminder-later"
           data-video-id="${safeVideoId}"
           onclick="dismissVideoWatchPrompt(event, this.dataset.videoId, ${String(player)})">${escHtml(t('videoReminder.notYet'))}</button>
-        ${rewatch ? '' : `
-        <button type="button"
-          class="video-watch-reminder-favorite${favoriteHidden}"
-          data-video-id="${safeVideoId}"
-          onclick="favoriteVideoFromWatchPrompt(event, this.dataset.videoId)">
-          <span>${escHtml(t('videoReminder.setFavorite'))}</span>
-          <small>${escHtml(t('videoReminder.favoriteHelp'))}</small>
-        </button>
-        `}
       </div>
     </div>
   `
@@ -10467,6 +10468,7 @@ function toggleVideoFavorite(videoId) {
   const s = loadState()
   const video = s?.videos?.[videoId]
   if (!video) return null
+  const preservePreview = isActiveVideoShelfPreview(videoId)
   const beforeVideo = cloneVideoForHistoryAction(video)
   video.favorite = !isFavoriteVideo(video)
   pushUndoAction(s, {
@@ -10484,14 +10486,22 @@ function toggleVideoFavorite(videoId) {
     }
   })
   saveState(s)
-  renderAll(s)
+  if (preservePreview) {
+    refreshVideoActionUiWithoutFeedRerender(s, videoId)
+  } else {
+    renderAll(s)
+  }
   return isFavoriteVideo(video)
 }
 
 function syncVideoWatchPromptFavoriteAction(videoId, isFavorite) {
   document.querySelectorAll('.video-watch-reminder-favorite').forEach(button => {
     if (button.dataset.videoId === String(videoId ?? '')) {
-      button.classList.toggle('hidden', isFavorite === true)
+      const label = t(isFavorite ? 'videos.card.removeFavorite' : 'videoReminder.setFavorite')
+      button.classList.toggle('active', isFavorite === true)
+      button.setAttribute('aria-pressed', String(isFavorite === true))
+      button.setAttribute('aria-label', label)
+      button.title = label
     }
   })
 }
@@ -10511,36 +10521,33 @@ function favoriteVideoFromWatchPrompt(event, videoId) {
   const state = loadState()
   const video = state?.videos?.[videoId]
   if (!video) return false
-  if (isFavoriteVideo(video)) {
-    syncVideoWatchPromptFavoriteAction(videoId, true)
-    return true
-  }
 
   const beforeVideo = cloneVideoForHistoryAction(video)
-  video.favorite = true
+  video.favorite = !isFavoriteVideo(video)
+  const isFavorite = isFavoriteVideo(video)
   pushUndoAction(state, {
     type: 'video-favorite',
     videoId,
     before: {
       video: beforeVideo,
       status: beforeVideo.status,
-      favorite: false
+      favorite: isFavoriteVideo(beforeVideo)
     },
     after: {
       video: cloneVideoForHistoryAction(video),
       status: video.status,
-      favorite: true
+      favorite: isFavorite
     }
   })
   saveState(state)
-  syncVideoWatchPromptFavoriteAction(videoId, true)
+  syncVideoWatchPromptFavoriteAction(videoId, isFavorite)
   if (activeVideoShelfPlayer?.videoId === String(videoId ?? '')) {
     updateVideoPlayerFavoriteButton(
       activeVideoShelfPlayer.overlay?.querySelector('.video-player-favorite'),
-      true
+      isFavorite
     )
   }
-  return true
+  return isFavorite
 }
 
 function toggleVideoPlayerFavorite(videoId, button) {
@@ -10579,6 +10586,11 @@ function markVideo(videoId, requestedStatus, options = {}) {
   const s     = loadState()
   const video = s.videos[videoId]
   if (!video) return false
+  const preservePreview = (
+    requestedStatus === 'watch-later'
+    || typeof options.watchLater === 'boolean'
+  )
+    && isActiveVideoShelfPreview(videoId)
   const previousStatus = getVideoStatus(video)
   const previousWatchLater = isVideoWatchLater(video)
   const nextWatchLater = typeof options.watchLater === 'boolean'
@@ -10659,7 +10671,11 @@ function markVideo(videoId, requestedStatus, options = {}) {
   }
 
   saveState(s)
-  renderAll(s)
+  if (preservePreview) {
+    refreshVideoActionUiWithoutFeedRerender(s, videoId)
+  } else {
+    renderAll(s)
+  }
   scheduleVideoWatchReminderTimer(s)
   return true
 }
@@ -16294,7 +16310,6 @@ function handleVideoShelfPlayerKeydown(event) {
   if (
     (event.key !== ' ' && event.code !== 'Space')
     || event.repeat
-    || document.activeElement !== session.overlay
     || session.completionPromptVisible
   ) return
 
@@ -16302,6 +16317,7 @@ function handleVideoShelfPlayerKeydown(event) {
     const playerState = session.player?.getPlayerState?.()
     if (!Number.isFinite(playerState)) return
     event.preventDefault()
+    event.stopPropagation()
     if (playerState === 1 || playerState === 3) {
       session.player.pauseVideo()
     } else {
@@ -16451,6 +16467,102 @@ function queueVideoShelfPreviewClose(card) {
   )
 }
 
+function isActiveVideoShelfPreview(videoId) {
+  const card = activeVideoShelfPreview
+  return Boolean(
+    card
+    && card.isConnected
+    && card.dataset.videoId === String(videoId ?? '')
+    && card.classList.contains('is-previewing')
+  )
+}
+
+function refreshVideoActionUiWithoutFeedRerender(state, videoId) {
+  const card = activeVideoShelfPreview
+  const video = state?.videos?.[videoId]
+  if (!card || !video || !isActiveVideoShelfPreview(videoId)) return
+
+  const template = document.createElement('template')
+  template.innerHTML = renderCard(video, false, {
+    shelf: true,
+    currentDateKey: getCurrentAppDateKey(state)
+  }).trim()
+  const updatedCard = template.content.firstElementChild
+  if (!updatedCard) return
+
+  Array.from(card.classList)
+    .filter(className => className === 'is-favorite' || className === 'watched-locked' || className.startsWith('status-'))
+    .forEach(className => card.classList.remove(className))
+  Array.from(updatedCard.classList)
+    .filter(className => className === 'is-favorite' || className === 'watched-locked' || className.startsWith('status-'))
+    .forEach(className => card.classList.add(className))
+
+  const currentPriorityBadge = card.querySelector('.channel-shelf-priority-badge')
+  const updatedPriorityBadge = updatedCard.querySelector('.channel-shelf-priority-badge')
+  if (currentPriorityBadge && updatedPriorityBadge) {
+    currentPriorityBadge.className = updatedPriorityBadge.className
+    currentPriorityBadge.innerHTML = updatedPriorityBadge.innerHTML
+    Array.from(currentPriorityBadge.attributes).forEach(attribute => {
+      if (!updatedPriorityBadge.hasAttribute(attribute.name)) {
+        currentPriorityBadge.removeAttribute(attribute.name)
+      }
+    })
+    Array.from(updatedPriorityBadge.attributes).forEach(attribute => {
+      currentPriorityBadge.setAttribute(attribute.name, attribute.value)
+    })
+  } else if (currentPriorityBadge) {
+    const shouldRestoreActionFocus = document.activeElement === currentPriorityBadge
+    currentPriorityBadge.remove()
+    if (shouldRestoreActionFocus) {
+      card.querySelector('.watch-later-btn, .favorite-btn')?.focus({ preventScroll: true })
+    }
+  } else if (updatedPriorityBadge) {
+    card.querySelector('.card-body')?.before(updatedPriorityBadge)
+  }
+
+  ;['.watch-later-btn', '.favorite-btn'].forEach(selector => {
+    const currentButton = card.querySelector(selector)
+    const updatedButton = updatedCard.querySelector(selector)
+    if (!currentButton || !updatedButton) return
+    currentButton.className = updatedButton.className
+    Array.from(currentButton.attributes).forEach(attribute => {
+      if (!updatedButton.hasAttribute(attribute.name)) currentButton.removeAttribute(attribute.name)
+    })
+    Array.from(updatedButton.attributes).forEach(attribute => {
+      currentButton.setAttribute(attribute.name, attribute.value)
+    })
+  })
+
+  const currentStatus = card.querySelector('.card-status')
+  const updatedStatus = updatedCard.querySelector('.card-status')
+  if (currentStatus && updatedStatus) {
+    currentStatus.className = updatedStatus.className
+    currentStatus.innerHTML = updatedStatus.innerHTML
+  } else if (currentStatus) {
+    currentStatus.remove()
+  } else if (updatedStatus) {
+    card.querySelector('.card-copy')?.before(updatedStatus)
+  }
+
+  const allVideos = Object.values(state.videos)
+    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
+  const channelFilters = getSelectedChannelFilters(state)
+  const removedChannelIds = new Set(state.config?.removedChannelIds || [])
+  const includeShorts = normalizeIncludeShorts(state.config.includeShorts)
+  const activeVideos = getVisibleActiveVideos(allVideos, includeShorts, {
+    limitPerChannel: false
+  }).filter(videoEntry => matchesActiveChannelFilter(videoEntry, channelFilters, removedChannelIds))
+  const favoriteVideos = allVideos
+    .filter(isFavoriteVideo)
+    .filter(videoEntry => !isHiddenFromVideoGrid(videoEntry))
+    .filter(videoEntry => !isHiddenShortVideo(videoEntry, includeShorts))
+    .filter(videoEntry => matchesWatchedChannelFilter(videoEntry, channelFilters, removedChannelIds))
+
+  renderStatusFilterOptions(allVideos, channelFilters, includeShorts, removedChannelIds)
+  renderNextStudy(activeVideos, favoriteVideos)
+  renderUndoButton(state)
+}
+
 function cleanupVideoShelfPreview(card) {
   if (!card || card.classList.contains('is-previewing')) return
   clearVideoShelfPreviewCleanup(card)
@@ -16498,7 +16610,7 @@ function openVideoShelfPreview(card, force = false, pointerEvent = null) {
   if (activeChannelShelfDrag) return
   if (!force && !isVideoShelfCardFullyVisible(card)) return
   if (activeVideoShelfPreview && activeVideoShelfPreview !== card) {
-    closeVideoShelfPreview(activeVideoShelfPreview)
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
   }
   if (card.classList.contains('is-floating-preview')) {
     if (card.classList.contains('is-preview-closing')) reopenVideoShelfPreview(card)

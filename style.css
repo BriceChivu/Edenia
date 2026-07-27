@@ -4881,31 +4881,16 @@ body[data-theme="dark"] .video-watch-reminder-popover {
   box-shadow: 0 10px 26px rgba(0,0,0,0.5);
 }
 .video-watch-reminder-copy {
-  align-items: flex-start;
+  align-items: center;
   display: flex;
   gap: 8px;
   min-width: 0;
 }
 .video-watch-reminder-copy > span:last-child {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-.video-watch-reminder-copy strong {
-  color: #547c18;
-  font-size: 0.68rem;
-  font-weight: 850;
-  letter-spacing: 0.07em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-body[data-theme="dark"] .video-watch-reminder-copy strong {
-  color: var(--planet-lime);
-}
-.video-watch-reminder-copy > span:last-child > span {
   font-size: 0.78rem;
   font-weight: 750;
   line-height: 1.3;
+  min-width: 0;
 }
 .video-watch-reminder-icon {
   align-items: center;
@@ -4923,8 +4908,9 @@ body[data-theme="dark"] .video-watch-reminder-copy strong {
 }
 .video-watch-reminder-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
+  justify-content: flex-end;
 }
 .video-watch-reminder-actions button {
   border: 1.5px solid var(--planet-black);
@@ -4943,7 +4929,7 @@ body[data-theme="dark"] .video-watch-reminder-copy strong {
 .video-watch-reminder-mark {
   background: var(--planet-lime);
   color: var(--planet-black);
-  flex: 1 1 auto;
+  flex: 0 0 auto;
 }
 .video-watch-reminder-mark:hover {
   background: var(--green);
@@ -4963,31 +4949,60 @@ body[data-theme="dark"] .video-watch-reminder-later {
 }
 .video-watch-reminder-favorite {
   align-items: center;
-  background: #ffe4ec;
-  color: #bd2452;
-  display: flex;
-  flex: 1 0 100%;
-  flex-direction: column;
+  background: var(--planet-white);
+  color: var(--planet-black);
+  display: inline-flex;
+  flex: 0 0 34px;
   justify-content: center;
-  line-height: 1.08;
+  overflow: hidden;
+  padding-inline: 7px;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+  white-space: nowrap;
+  width: 34px;
 }
-.video-watch-reminder-favorite:hover {
-  background: #ffd5e1;
+.video-watch-reminder-favorite .action-icon {
+  fill: none;
+  flex: 0 0 18px;
+  height: 18px;
+  opacity: 1;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  width: 18px;
+}
+.video-watch-reminder-favorite.active .action-icon {
+  fill: currentColor;
+}
+.video-watch-reminder-favorite.active {
+  background: #ffe4ec;
   border-color: #e85d86;
+  color: #bd2452;
 }
-.video-watch-reminder-favorite small {
-  display: block;
-  font-size: 0.61rem;
-  font-weight: 650;
-  margin-top: 2px;
+.video-watch-reminder-favorite:hover,
+.video-watch-reminder-favorite:focus-visible {
+  background: #e9f8ed;
+  border-color: var(--planet-black);
+  color: var(--text);
 }
 body[data-theme="dark"] .video-watch-reminder-favorite {
+  background: var(--surface-hi);
+  border-color: rgba(255,255,255,0.72);
+  color: var(--planet-black);
+}
+body[data-theme="dark"] .video-watch-reminder-favorite.active {
   background: #4a2030;
   border-color: #e85d86;
   color: #ffb2ca;
 }
-body[data-theme="dark"] .video-watch-reminder-favorite:hover {
-  background: #5a283b;
+body[data-theme="dark"] .video-watch-reminder-favorite:hover,
+body[data-theme="dark"] .video-watch-reminder-favorite:focus-visible {
+  background: var(--surface-hi);
+  border-color: var(--planet-black);
+  color: var(--text);
 }
 .video-player-frame:has(.video-watch-reminder-popover.is-player)::after {
   background: rgba(5,5,5,0.56);
@@ -5264,6 +5279,7 @@ body[data-theme="dark"] .watch-later-status { color: #9fe7fb; }
 .action-btn.partial-btn.active { background: #dff8ff; border-color: var(--amber); color: #087fa6; }
 .action-btn.watch-later-btn.active { background: #dff8ff; border-color: var(--planet-cyan); color: #087fa6; }
 .action-btn.favorite-btn.active { background: #ffe4ec; border-color: #e85d86; color: #bd2452; }
+.action-btn.watch-later-btn.active .action-icon,
 .action-btn.favorite-btn.active .action-icon { fill: currentColor; }
 body[data-theme="dark"] .action-btn:hover { background: var(--surface-hi); }
 body[data-theme="dark"] .action-btn.active { background: #243a20; color: #dff7a8; }
@@ -6801,10 +6817,7 @@ summary:focus-visible,
   .video-watch-reminder-copy {
     gap: 7px;
   }
-  .video-watch-reminder-copy strong {
-    font-size: 0.62rem;
-  }
-  .video-watch-reminder-copy > span:last-child > span {
+  .video-watch-reminder-copy > span:last-child {
     font-size: 0.72rem;
   }
   .video-watch-reminder-icon {
@@ -6817,8 +6830,10 @@ summary:focus-visible,
     min-height: 32px;
     padding: 5px 8px;
   }
-  .video-watch-reminder-favorite small {
-    font-size: 0.58rem;
+  .video-watch-reminder-favorite {
+    flex-basis: 32px;
+    padding-inline: 6px;
+    width: 32px;
   }
   .video-watch-reminder-global {
     bottom: 12px;
