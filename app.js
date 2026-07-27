@@ -9423,7 +9423,7 @@ function hasVideoResumePriority(video) {
     )
     || (
       status === 'watch-later'
-      && normalizeResumeAtSeconds(video?.resumeAtSeconds, video?.duration) !== null
+      && normalizeResumeAtSeconds(video?.resumeAtSeconds, video?.duration) > 0
     )
 }
 
@@ -10786,6 +10786,7 @@ function markVideo(videoId, requestedStatus, options = {}) {
     && isActiveVideoShelfPreview(videoId)
   const previousStatus = getVideoStatus(video)
   const previousWatchLater = isVideoWatchLater(video)
+  const previousResumePriority = hasVideoResumePriority(video)
   const nextWatchLater = typeof options.watchLater === 'boolean'
     ? options.watchLater
     : requestedStatus === 'watch-later'
@@ -10851,7 +10852,11 @@ function markVideo(videoId, requestedStatus, options = {}) {
     s.lastVideoMarkedWatchedAt = watchedAt
     recordNoAnkiFrequentUserWatchedDate(s, watchedAt)
   }
-  video.resumeAtSeconds = requestedStatus !== 'unwatched' && ['partial', 'watch-later'].includes(newStatus)
+  video.resumeAtSeconds = requestedStatus !== 'unwatched'
+    && (
+      newStatus === 'partial'
+      || (newStatus === 'watch-later' && previousResumePriority)
+    )
     ? normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
     : null
   undoAction.after.watchedAt = video.watchedAt
