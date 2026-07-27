@@ -9295,10 +9295,19 @@ function normalizeResumeAtSeconds(value, duration = null) {
   return rounded
 }
 
+function hasVideoResumePriority(video) {
+  const status = getVideoStatus(video)
+  return status === 'partial'
+    || (
+      status === 'watch-later'
+      && normalizeResumeAtSeconds(video?.resumeAtSeconds, video?.duration) !== null
+    )
+}
+
 function getVideoUrl(video) {
   const videoId = String(video?.id ?? '')
   const url = `https://youtube.com/watch?v=${encodeURIComponent(videoId)}`
-  const resumeAtSeconds = getVideoStatus(video) === 'partial'
+  const resumeAtSeconds = ['partial', 'watch-later'].includes(getVideoStatus(video))
     ? normalizeResumeAtSeconds(video?.resumeAtSeconds, video?.duration)
     : null
   return resumeAtSeconds !== null ? `${url}&t=${resumeAtSeconds}s` : url
@@ -10633,7 +10642,7 @@ function markVideo(videoId, newStatus) {
   if (watchedAt) {
     const missingSeconds = Math.max(0, Math.floor(Number(video.duration || 0)) - getTotalVideoWatchProgressSeconds(video))
     if (missingSeconds > 0) addVideoWatchProgress(video, missingSeconds, watchedAt)
-  } else if (newStatus === 'unwatched' || newStatus === 'watch-later' || previousStatus === 'watched') {
+  } else if (newStatus === 'unwatched' || previousStatus === 'watched') {
     video.watchProgress = []
   }
   video.watchedAt = watchedAt
@@ -10641,7 +10650,7 @@ function markVideo(videoId, newStatus) {
     s.lastVideoMarkedWatchedAt = watchedAt
     recordNoAnkiFrequentUserWatchedDate(s, watchedAt)
   }
-  video.resumeAtSeconds = newStatus === 'partial'
+  video.resumeAtSeconds = ['partial', 'watch-later'].includes(newStatus)
     ? normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
     : null
   undoAction.after.watchedAt = video.watchedAt
@@ -10846,7 +10855,7 @@ async function addVideoFromUrl(event) {
       watchedConfirmationUnlockedAt: isValidTimestamp(existing?.watchedConfirmationUnlockedAt)
         ? existing.watchedConfirmationUnlockedAt
         : null,
-      resumeAtSeconds: status === 'partial'
+      resumeAtSeconds: ['partial', 'watch-later'].includes(status)
         ? normalizeResumeAtSeconds(existing?.resumeAtSeconds, duration)
         : null,
       watchProgress,
@@ -13508,7 +13517,7 @@ function getWeeklyStats(s) {
   if (IS_SANDBOX) weekEnd.setHours(23, 59, 59, 999)
 
   const videos = Object.values(s.videos)
-  const partial = videos.filter(v => v.status === 'partial')
+  const partial = videos.filter(hasVideoResumePriority)
   const weekHistory = getStudyHistoryBetween(s, weekStart, weekEnd).summary
   const secondsWatched = weekHistory.secondsWatched
 
@@ -13901,7 +13910,7 @@ function setStudyInsightsCollapsed(collapsed) {
 function renderNextStudy(activeVideos = [], favoriteVideos = []) {
   const container = document.getElementById('nextStudyCard')
   if (!container) return null
-  const nextVideo = activeVideos.find(video => getVideoStatus(video) === 'partial')
+  const nextVideo = activeVideos.find(hasVideoResumePriority)
     || activeVideos.find(video => getVideoStatus(video) === 'watch-later')
     || favoriteVideos.find(video => getVideoStatus(video) === 'watched')
   container.classList.toggle('hidden', !nextVideo)
@@ -13912,7 +13921,7 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
   }
 
   const status = getVideoStatus(nextVideo)
-  const isInProgress = status === 'partial'
+  const isInProgress = hasVideoResumePriority(nextVideo)
   const isRewatch = status === 'watched' && isFavoriteVideo(nextVideo)
   const safeVideoId = escHtml(nextVideo.id)
   const videoUrl = escHtml(getVideoUrl(nextVideo))
@@ -15292,11 +15301,12 @@ function compareActiveVideos(a, b) {
 }
 
 function compareChannelTimelineVideos(a, b) {
-  const statusPriority = {
-    partial: 0,
-    'watch-later': 1
-  }
-  const priorityDifference = (statusPriority[getVideoStatus(a)] ?? 2) - (statusPriority[getVideoStatus(b)] ?? 2)
+  const getPriority = video => hasVideoResumePriority(video)
+    ? 0
+    : getVideoStatus(video) === 'watch-later'
+    ? 1
+    : 2
+  const priorityDifference = getPriority(a) - getPriority(b)
   return priorityDifference || compareActiveVideos(a, b)
 }
 
@@ -17482,13 +17492,16 @@ function renderCard(v, compact = false, options = {}) {
   const safeVideoId = escHtml(videoId)
   const videoUrl = escHtml(getVideoUrl(v))
   const isWatched = status === 'watched'
-  const isPartial = status === 'partial'
+  const isPartial = hasVideoResumePriority(v)
   const isWatchLater = status === 'watch-later'
+  const displayStatus = isPartial ? 'partial' : status
   const isFavorite = isFavoriteVideo(v)
   const isRewatchable = isWatched && isFavorite
   const canMarkWatched = hasWatchedConfirmationUnlock(v)
   const watchedNextStatus = isWatched ? 'unwatched' : 'watched'
-  const watchLaterNextStatus = isWatchLater ? 'unwatched' : 'watch-later'
+  const watchLaterNextStatus = isWatchLater
+    ? (isPartial ? 'partial' : 'unwatched')
+    : 'watch-later'
   const watchedText = isRewatchable
     ? t('nextStudy.rewatch')
     : compact
@@ -17562,13 +17575,13 @@ function renderCard(v, compact = false, options = {}) {
     ? 'next-study-focus-target'
     : ''
   return `
-    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} ${!isWatched && !canMarkWatched ? 'watched-locked' : ''} status-${status}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
+    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} ${!isWatched && !canMarkWatched ? 'watched-locked' : ''} status-${displayStatus}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
       ${removeFromGridButton}
       ${thumbnailLink}
       ${shelfPriorityBadge}
       <div class="card-body">
         ${isPartial ? `<div class="card-status partial-status">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</div>` : ''}
-        ${isWatchLater ? `<div class="card-status watch-later-status">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>` : ''}
+        ${isWatchLater && !isPartial ? `<div class="card-status watch-later-status">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>` : ''}
         <div class="card-copy">
           <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
           ${watchedAtLabel ? `<div class="card-watched-at">${escHtml(watchedAtLabel)}</div>` : ''}
