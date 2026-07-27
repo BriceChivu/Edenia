@@ -124,17 +124,17 @@ const STUDY_INSIGHT_TYPES = [
 const STUDY_INSIGHT_VARIANT_COUNT = 2
 const CITY_LEVELS = [
   { threshold: 0, labelKey: 'city.level.1', label: '🏠 Lonely house' },
-  { threshold: 50, labelKey: 'city.level.2', label: '⛵ Your house got a fresh new look! Plus a boat!' },
-  { threshold: 120, labelKey: 'city.level.3', label: '🏝️ Oh look! A tiny island! Cute.' },
-  { threshold: 200, labelKey: 'city.level.4', label: 'Kids are gonna have fun now!' },
-  { threshold: 280, labelKey: 'city.level.5', label: "Let's add a pool to chill" },
-  { threshold: 350, labelKey: 'city.level.6', label: 'Oh! Some friends are coming to say hi...' },
-  { threshold: 420, labelKey: 'city.level.7', label: 'You expanded your small island!' },
-  { threshold: 500, labelKey: 'city.level.8', label: "That's a nice deckchair and some pretty flowers! 🌸" },
-  { threshold: 600, labelKey: 'city.level.9', label: 'You built a cute house in the backyard' },
-  { threshold: 700, labelKey: 'city.level.10', label: 'Oh wow! You got a neighbor! 🏠' },
-  { threshold: 800, labelKey: 'city.level.11', label: 'The little purple house has a cute garden!' },
-  { threshold: 900, labelKey: 'city.level.12', label: 'Damn! A volcano appeared! I hope it won\'t erupt...' }
+  { threshold: 60, labelKey: 'city.level.2', label: '⛵ Your house got a fresh new look! Plus a boat!' },
+  { threshold: 140, labelKey: 'city.level.3', label: '🏝️ Oh look! A tiny island! Cute.' },
+  { threshold: 230, labelKey: 'city.level.4', label: 'Kids are gonna have fun now!' },
+  { threshold: 320, labelKey: 'city.level.5', label: "Let's add a pool to chill" },
+  { threshold: 400, labelKey: 'city.level.6', label: 'Oh! Some friends are coming to say hi...' },
+  { threshold: 480, labelKey: 'city.level.7', label: 'You expanded your small island!' },
+  { threshold: 570, labelKey: 'city.level.8', label: "That's a nice deckchair and some pretty flowers! 🌸" },
+  { threshold: 680, labelKey: 'city.level.9', label: 'You built a cute house in the backyard' },
+  { threshold: 800, labelKey: 'city.level.10', label: 'Oh wow! You got a neighbor! 🏠' },
+  { threshold: 920, labelKey: 'city.level.11', label: 'The little purple house has a cute garden!' },
+  { threshold: 1050, labelKey: 'city.level.12', label: 'Damn! A volcano appeared! I hope it won\'t erupt...' }
 ]
 const CITY_IMAGE_PATHS = [
   'images/photoshop/level%201.png',

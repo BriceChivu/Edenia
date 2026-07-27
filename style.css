@@ -2606,7 +2606,6 @@ body[data-theme="dark"] .city-next {
 ═══════════════════════════════════════════════════════════ */
 .analytics-section {
   padding: var(--gap) 20px;
-  border-bottom: 2px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: var(--gap);
@@ -3108,7 +3107,6 @@ body[data-theme="dark"] .next-study-cta:hover { background: var(--surface-hi); }
 ═══════════════════════════════════════════════════════════ */
 .study-history-section {
   padding: var(--gap) 20px;
-  border-bottom: 2px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -4737,7 +4735,6 @@ body[data-theme="dark"] .video-grid-remove:focus-visible {
 }
 
 .watched-section {
-  border-top: 2px dashed var(--border);
   padding-top: var(--gap);
   display: flex;
   flex-direction: column;
