@@ -5171,7 +5171,17 @@ body[data-theme="dark"] .video-watch-reminder-favorite:focus-visible {
   display: none;
 }
 .compact-card.is-set-aside .watch-later-btn {
+  background: transparent;
+  border-color: transparent;
   display: inline-flex;
+}
+.compact-card.is-set-aside .watch-later-btn:hover,
+.compact-card.is-set-aside .watch-later-btn:focus-visible,
+body[data-theme="dark"] .compact-card.is-set-aside .watch-later-btn,
+body[data-theme="dark"] .compact-card.is-set-aside .watch-later-btn:hover,
+body[data-theme="dark"] .compact-card.is-set-aside .watch-later-btn:focus-visible {
+  background: transparent;
+  border-color: transparent;
 }
 .compact-card .card-body {
   align-items: center;
