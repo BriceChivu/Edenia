@@ -15920,29 +15920,6 @@ function renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch = false) {
         allow="autoplay; encrypted-media; picture-in-picture"
         allowfullscreen></iframe>
       </div>
-      <div class="video-player-toolbar">
-        ${isRewatch ? `<span class="video-player-time">${escHtml(t('nextStudy.rewatch'))}</span>` : ''}
-        <span class="video-player-actions">
-          <button type="button"
-            class="video-player-favorite ${isFavoriteVideo(video) ? 'active' : ''}"
-            data-video-id="${escHtml(videoId)}"
-            onclick="toggleVideoPlayerFavorite(this.dataset.videoId, this)"
-            aria-pressed="${String(isFavoriteVideo(video))}"
-            aria-label="${escHtml(t(isFavoriteVideo(video) ? 'videos.card.removeFavorite' : 'videos.card.favorite'))}"
-            title="${escHtml(t(isFavoriteVideo(video) ? 'videos.card.removeFavorite' : 'videos.card.favorite'))}">${renderVideoActionIcon('favorite')}</button>
-          <a class="video-player-youtube"
-            href="${escHtml(getVideoUrl(video))}"
-            target="_blank"
-            rel="noopener"
-            data-video-id="${escHtml(videoId)}"
-            onclick="return prepareVideoShelfYoutubeOpen(this)">${escHtml(t('videos.card.openOnYoutube'))}</a>
-          <button type="button"
-            class="video-player-close"
-            onclick="closeVideoShelfPlayer()"
-            aria-label="${escHtml(t('settings.close'))}"
-            title="${escHtml(t('settings.close'))}">×</button>
-        </span>
-      </div>
     </div>
   `
   overlay.addEventListener('click', event => {
