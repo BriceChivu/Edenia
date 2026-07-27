@@ -17026,7 +17026,8 @@ function closeVideoShelfPreview(card, force = false) {
   if (!card?.classList.contains('is-floating-preview')) return
   if (!force && activeVideoWatchReminderId && card.dataset.videoId === activeVideoWatchReminderId) return
   if (!force && activeNextStudyFocusVideoId && card.dataset.videoId === activeNextStudyFocusVideoId) return
-  if (!force && (card.matches(':hover') || card.matches(':focus-within'))) return
+  const hasKeyboardFocus = Boolean(card.querySelector(':focus-visible'))
+  if (!force && (card.matches(':hover') || hasKeyboardFocus)) return
 
   clearVideoShelfPreviewLeave(card)
   clearVideoShelfPreviewCleanup(card)
