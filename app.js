@@ -93,8 +93,6 @@ const UNDO_STACK_LIMIT = 50
 const MIN_WEEKLY_GOAL_HOURS = 1
 const MAX_WEEKLY_GOAL_HOURS = 99
 const VIDEO_HOUR_POINTS = 3
-const VIDEO_WATCH_REMINDER_MAX_AGE_MS = 24 * 60 * 60_000
-const VIDEO_WATCH_REMINDER_LIMIT = 12
 const SHORT_VIDEO_MAX_DURATION_SECONDS = 180
 const SHORT_VIDEO_DETECTION_VERSION = 1
 const ANKI_REVIEW_CHUNK_SIZE = 60
@@ -5559,39 +5557,8 @@ function normalizeVideoWatchReminderState(state) {
   const existing = state.videoWatchReminders && typeof state.videoWatchReminders === 'object' && !Array.isArray(state.videoWatchReminders)
     ? state.videoWatchReminders
     : {}
-  const staleBefore = Date.now() - VIDEO_WATCH_REMINDER_MAX_AGE_MS
-  const normalizedEntries = Object.entries(existing)
-    .map(([videoId, reminder]) => {
-      const video = state.videos?.[videoId]
-      const isRewatch = reminder?.rewatch === true
-      if (
-        !video
-        || !reminder
-        || typeof reminder !== 'object'
-        || (getVideoStatus(video) === 'watched' && (!isRewatch || !isFavoriteVideo(video)))
-      ) return null
-
-      const startedAtMs = Date.parse(reminder.startedAt || '')
-      const dueAtMs = Date.parse(reminder.dueAt || '')
-      const promptedAtMs = reminder.promptedAt ? Date.parse(reminder.promptedAt) : null
-      const durationSeconds = Math.floor(Number(reminder.durationSeconds || 0))
-      if (!Number.isFinite(startedAtMs) || !Number.isFinite(dueAtMs) || dueAtMs < staleBefore || durationSeconds < 1) return null
-      if (reminder.promptedAt && !Number.isFinite(promptedAtMs)) return null
-
-      return [videoId, {
-        startedAt: new Date(startedAtMs).toISOString(),
-        dueAt: new Date(dueAtMs).toISOString(),
-        durationSeconds,
-        ...(isRewatch ? { rewatch: true } : {}),
-        ...(promptedAtMs ? { promptedAt: new Date(promptedAtMs).toISOString() } : {})
-      }]
-    })
-    .filter(Boolean)
-    .sort((a, b) => new Date(b[1].startedAt) - new Date(a[1].startedAt))
-    .slice(0, VIDEO_WATCH_REMINDER_LIMIT)
-  const normalized = Object.fromEntries(normalizedEntries)
-  const changed = JSON.stringify(existing) !== JSON.stringify(normalized)
-  state.videoWatchReminders = normalized
+  const changed = Object.keys(existing).length > 0
+  state.videoWatchReminders = {}
   return changed
 }
 
@@ -10110,13 +10077,7 @@ function updateDocumentTitle(state = null) {
   const currentState = state || loadState()
   const hasDuePlayerReminder = Boolean(
     activeVideoShelfPlayer
-    && (
-      activeVideoShelfPlayer.completionPromptPending
-      || (
-        Number.isFinite(activeVideoShelfPlayer.youtubeCompletionDueAtMs)
-        && activeVideoShelfPlayer.youtubeCompletionDueAtMs <= Date.now()
-      )
-    )
+    && activeVideoShelfPlayer.completionPromptPending
   )
   const hasDueReminder = document.hidden && (
     getDueVideoWatchReminderEntries(currentState).length > 0
@@ -10705,7 +10666,6 @@ function markVideo(videoId, requestedStatus, options = {}) {
 
 function markVideoInProgressOnOpen(videoId, options = {}) {
   const shouldRender = options.render !== false
-  const shouldSetReminder = options.reminder !== false
   const s     = loadState()
   const video = s.videos[videoId]
   if (!video) return false
@@ -10718,20 +10678,14 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
   })
   if (previousStatus === 'watched') {
     if (!isFavoriteVideo(video)) return false
-    const reminderChanged = shouldSetReminder
-      ? setVideoWatchReminderInState(s, video, { rewatch: true })
-      : clearVideoWatchReminderInState(s, videoId)
+    const reminderChanged = clearVideoWatchReminderInState(s, videoId)
     if (reminderChanged) saveState(s, { backup: false })
-    scheduleVideoWatchReminderTimer(s)
     return true
   }
   if (previousStatus === 'partial') {
-    const reminderChanged = shouldSetReminder
-      ? setVideoWatchReminderInState(s, video)
-      : clearVideoWatchReminderInState(s, videoId)
+    const reminderChanged = clearVideoWatchReminderInState(s, videoId)
     if (reminderChanged) {
       saveState(s, { backup: false })
-      scheduleVideoWatchReminderTimer(s)
     }
     return true
   }
@@ -10757,11 +10711,7 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
   video.status = 'partial'
   video.watchedAt = null
   video.resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
-  if (shouldSetReminder) {
-    setVideoWatchReminderInState(s, video)
-  } else {
-    clearVideoWatchReminderInState(s, videoId)
-  }
+  clearVideoWatchReminderInState(s, videoId)
   const action = s.undoStack[s.undoStack.length - 1]
   if (action?.videoId === videoId && action.after) {
     action.after.video = cloneVideoForHistoryAction(video)
@@ -10780,10 +10730,7 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
     setTimeout(() => {
       const nextState = loadState()
       renderAll(nextState)
-      scheduleVideoWatchReminderTimer(nextState)
     }, 0)
-  } else {
-    scheduleVideoWatchReminderTimer(s)
   }
   return true
 }
@@ -15911,6 +15858,7 @@ function renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch = false) {
   overlay.setAttribute('role', 'dialog')
   overlay.setAttribute('aria-modal', 'true')
   overlay.setAttribute('aria-label', video.title)
+  overlay.setAttribute('tabindex', '-1')
   overlay.innerHTML = `
     <div class="video-player-dialog">
       <div class="video-player-frame">
@@ -15971,8 +15919,6 @@ function openVideoPlayer(videoId) {
     isRewatch,
     completionPromptVisible: false,
     completionPromptPending: false,
-    youtubeCompletionDueAtMs: null,
-    youtubeCompletionTimer: null,
     destroyed: false
   }
   activeVideoShelfPlayer = session
@@ -16220,16 +16166,6 @@ function stopVideoShelfPlayerSyncTimer(session) {
   session.syncTimer = null
 }
 
-function clearVideoShelfYoutubeCompletionCountdown(session, options = {}) {
-  if (!session) return
-  if (session.youtubeCompletionTimer) {
-    window.clearTimeout(session.youtubeCompletionTimer)
-    session.youtubeCompletionTimer = null
-  }
-  session.youtubeCompletionDueAtMs = null
-  if (options.updateTitle !== false) updateDocumentTitle()
-}
-
 function dismissVideoShelfCompletionPrompt(session = activeVideoShelfPlayer) {
   if (!session) return
   session.frame?.querySelector('.video-watch-reminder-popover.is-player')?.remove()
@@ -16254,7 +16190,6 @@ function showVideoShelfCompletionPrompt(session = activeVideoShelfPlayer) {
     : video && getVideoStatus(video) !== 'watched'
   if (!canPrompt || !session.frame) return false
 
-  clearVideoShelfYoutubeCompletionCountdown(session, { updateTitle: false })
   session.frame.querySelector('.video-watch-reminder-popover.is-player')?.remove()
   session.frame.insertAdjacentHTML('beforeend', getVideoWatchReminderMarkup(session.videoId, {
     player: true,
@@ -16270,62 +16205,16 @@ function showVideoShelfCompletionPrompt(session = activeVideoShelfPlayer) {
   return true
 }
 
-function handleVideoShelfYoutubeCompletionDeadline(session) {
-  if (
-    !session
-    || activeVideoShelfPlayer !== session
-    || session.destroyed
-    || !Number.isFinite(session.youtubeCompletionDueAtMs)
-  ) return
-  session.youtubeCompletionTimer = null
-  const remainingMs = session.youtubeCompletionDueAtMs - Date.now()
-  if (remainingMs > 0) {
-    session.youtubeCompletionTimer = window.setTimeout(
-      () => handleVideoShelfYoutubeCompletionDeadline(session),
-      Math.min(remainingMs, 2_147_000_000)
-    )
-    return
-  }
-  if (document.hidden) {
-    updateDocumentTitle()
-    return
-  }
-  showVideoShelfCompletionPrompt(session)
-}
-
-function scheduleVideoShelfYoutubeCompletionCountdown(session, video, startSeconds) {
-  clearVideoShelfYoutubeCompletionCountdown(session, { updateTitle: false })
-  const duration = Math.max(0, Math.floor(Number(video?.duration || 0)))
-  if (!duration) {
-    updateDocumentTitle()
-    return false
-  }
-  const normalizedStart = Math.min(
-    duration,
-    Math.max(0, Math.floor(Number(startSeconds) || 0))
-  )
-  const remainingSeconds = Math.max(1, duration - normalizedStart)
-  session.youtubeCompletionDueAtMs = Date.now() + (remainingSeconds * 1000)
-  session.youtubeCompletionTimer = window.setTimeout(
-    () => handleVideoShelfYoutubeCompletionDeadline(session),
-    Math.min(remainingSeconds * 1000, 2_147_000_000)
-  )
-  updateDocumentTitle()
-  return true
-}
-
 function handleVideoShelfPlayerStateChange(session, state) {
   if (activeVideoShelfPlayer !== session) return
   if (state === 1) {
     session.completionPromptPending = false
-    clearVideoShelfYoutubeCompletionCountdown(session)
     startVideoShelfPlayerSyncTimer(session)
     syncActiveVideoShelfPlayer({ persist: false })
     return
   }
   if (state === 0) {
     stopVideoShelfPlayerSyncTimer(session)
-    clearVideoShelfYoutubeCompletionCountdown(session, { updateTitle: false })
     syncActiveVideoShelfPlayer({ persist: true })
     window.setTimeout(() => completeVideoShelfPlayer(session), 0)
     return
@@ -16359,36 +16248,12 @@ function completeVideoShelfPlayerRewatchConfirmation(session) {
   return true
 }
 
-function prepareVideoShelfYoutubeOpen(link) {
-  const session = activeVideoShelfPlayer
-  const videoId = String(link?.dataset?.videoId || '')
-  if (session?.videoId === videoId) {
-    try {
-      session.player?.pauseVideo?.()
-    } catch {}
-    syncActiveVideoShelfPlayer({ persist: true })
-    dismissVideoShelfCompletionPrompt(session)
-  }
-  const video = loadState()?.videos?.[videoId]
-  if (!video) return false
-  link.href = getVideoUrl(video)
-  if (session?.videoId === videoId) {
-    scheduleVideoShelfYoutubeCompletionCountdown(
-      session,
-      video,
-      getVideoShelfPlayerCurrentTime(session)
-    )
-  }
-  return true
-}
-
 function stopActiveVideoShelfPlayer(options = {}) {
   const session = activeVideoShelfPlayer
   if (!session) return null
   if (options.persist !== false) syncActiveVideoShelfPlayer({ persist: true })
 
   stopVideoShelfPlayerSyncTimer(session)
-  clearVideoShelfYoutubeCompletionCountdown(session, { updateTitle: false })
   session.destroyed = true
   activeVideoShelfPlayer = null
   try {
@@ -16413,23 +16278,49 @@ function handleVideoShelfPlayerVisibilityChange() {
     return
   }
   const session = activeVideoShelfPlayer
-  if (
-    session
-    && (
-      session.completionPromptPending
-      || (
-        Number.isFinite(session.youtubeCompletionDueAtMs)
-        && session.youtubeCompletionDueAtMs <= Date.now()
-      )
-    )
-  ) {
+  if (session?.completionPromptPending) {
     showVideoShelfCompletionPrompt(session)
   }
   updateDocumentTitle()
 }
 
 function handleVideoShelfPlayerKeydown(event) {
-  if (event.key === 'Escape' && activeVideoShelfPlayer) closeVideoShelfPlayer()
+  const session = activeVideoShelfPlayer
+  if (!session) return
+  if (event.key === 'Escape') {
+    closeVideoShelfPlayer()
+    return
+  }
+  if (
+    (event.key !== ' ' && event.code !== 'Space')
+    || event.repeat
+    || document.activeElement !== session.overlay
+    || session.completionPromptVisible
+  ) return
+
+  try {
+    const playerState = session.player?.getPlayerState?.()
+    if (!Number.isFinite(playerState)) return
+    event.preventDefault()
+    if (playerState === 1 || playerState === 3) {
+      session.player.pauseVideo()
+    } else {
+      session.player.playVideo()
+    }
+  } catch {}
+}
+
+function keepVideoShelfPlayerEscapeAvailable() {
+  const session = activeVideoShelfPlayer
+  if (!session || document.activeElement !== session.iframe) return
+  window.setTimeout(() => {
+    if (
+      activeVideoShelfPlayer !== session
+      || session.destroyed
+      || document.activeElement !== session.iframe
+    ) return
+    session.overlay?.focus({ preventScroll: true })
+  }, 0)
 }
 
 let activeVideoShelfPreview = null
@@ -17875,5 +17766,6 @@ document.addEventListener('keydown', handleSettingsKeydown)
 document.addEventListener('keydown', handleIntroTrailerKeydown)
 document.addEventListener('keydown', handleFeedbackModalKeydown)
 document.addEventListener('keydown', handleVideoShelfPlayerKeydown)
+window.addEventListener('blur', keepVideoShelfPlayerEscapeAvailable)
 window.addEventListener('pagehide', () => syncActiveVideoShelfPlayer({ persist: true }))
 if (!IS_SANDBOX) document.addEventListener('visibilitychange', refreshAnkiStatsOnVisible)
