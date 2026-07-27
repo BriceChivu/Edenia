@@ -1324,6 +1324,12 @@ const I18N_EN = {
   'videos.card.favorite': 'Favorite',
   'videos.card.setAside': 'Set aside',
   'videos.card.setAsideAt': 'Set aside · {date}',
+  'setAsidePrompt.title': 'Set this video aside?',
+  'setAsidePrompt.bodyBeforeWatched': "This is if you've started watching a video but do not want to finish it. You’ll still keep your points, and it will count in your study stats. You can find it again in the ",
+  'setAsidePrompt.watched': 'Watched',
+  'setAsidePrompt.bodyAfterWatched': ' section.',
+  'setAsidePrompt.cancel': 'Cancel',
+  'setAsidePrompt.confirm': 'Set aside',
   'videos.card.resume': 'Resume',
   'videos.card.continueAt': 'Continue at',
   'videos.card.timestampLabel': 'Continue watching timestamp',
@@ -3651,6 +3657,12 @@ Object.assign(I18N['zh-Hant'], {
   'videos.card.favorite': '收藏',
   'videos.card.setAside': '先放下',
   'videos.card.setAsideAt': '已先放下 · {date}',
+  'setAsidePrompt.title': '要先放下這部影片嗎？',
+  'setAsidePrompt.bodyBeforeWatched': '如果你已開始觀看但不想看完，可以使用「先放下」。你仍會保留分數，影片也會計入學習統計。你可以在「',
+  'setAsidePrompt.watched': '已觀看',
+  'setAsidePrompt.bodyAfterWatched': '」區段再次找到它。',
+  'setAsidePrompt.cancel': '取消',
+  'setAsidePrompt.confirm': '先放下',
   'videos.card.timestampLabel': '繼續播放時間',
   'videos.card.inProgressRibbon': '進行中',
   'videos.refreshing': '刷新中…',
@@ -3848,6 +3860,12 @@ Object.assign(I18N['zh-Hans'], {
   'videos.card.favorite': '收藏',
   'videos.card.setAside': '先放下',
   'videos.card.setAsideAt': '已先放下 · {date}',
+  'setAsidePrompt.title': '要先放下这个视频吗？',
+  'setAsidePrompt.bodyBeforeWatched': '如果你已开始观看但不想看完，可以使用“先放下”。你仍会保留分数，视频也会计入学习统计。你可以在“',
+  'setAsidePrompt.watched': '已观看',
+  'setAsidePrompt.bodyAfterWatched': '”部分再次找到它。',
+  'setAsidePrompt.cancel': '取消',
+  'setAsidePrompt.confirm': '先放下',
   'videos.card.timestampLabel': '继续播放时间',
   'videos.card.inProgressRibbon': '进行中',
   'videos.refreshing': '刷新中…',
@@ -4046,6 +4064,12 @@ Object.assign(I18N.es, {
   'videos.card.favorite': 'Favorito',
   'videos.card.setAside': 'Apartar',
   'videos.card.setAsideAt': 'Apartado · {date}',
+  'setAsidePrompt.title': '¿Apartar este video?',
+  'setAsidePrompt.bodyBeforeWatched': 'Esta opción es para cuando has empezado un video pero no quieres terminarlo. Conservarás tus puntos y contará en tus estadísticas de estudio. Podrás encontrarlo de nuevo en la sección ',
+  'setAsidePrompt.watched': 'Vistos',
+  'setAsidePrompt.bodyAfterWatched': '.',
+  'setAsidePrompt.cancel': 'Cancelar',
+  'setAsidePrompt.confirm': 'Apartar',
   'videos.card.timestampLabel': 'Hora para continuar',
   'videos.card.inProgressRibbon': 'En progreso',
   'videos.refreshing': 'Actualizando…',
@@ -4244,6 +4268,12 @@ Object.assign(I18N.fr, {
   'videos.card.favorite': 'Favori',
   'videos.card.setAside': 'Mettre de côté',
   'videos.card.setAsideAt': 'Mis de côté · {date}',
+  'setAsidePrompt.title': 'Mettre cette vidéo de côté ?',
+  'setAsidePrompt.bodyBeforeWatched': 'Cette option convient aux vidéos que vous avez commencées sans vouloir les terminer. Vous conserverez vos points et la vidéo comptera dans vos statistiques d’étude. Vous pourrez la retrouver dans la section ',
+  'setAsidePrompt.watched': 'Vues',
+  'setAsidePrompt.bodyAfterWatched': '.',
+  'setAsidePrompt.cancel': 'Annuler',
+  'setAsidePrompt.confirm': 'Mettre de côté',
   'videos.card.timestampLabel': 'Heure de reprise',
   'videos.card.inProgressRibbon': 'En cours',
   'videos.refreshing': 'Actualisation…',
@@ -11284,6 +11314,66 @@ function markVideo(videoId, requestedStatus, options = {}) {
   return true
 }
 
+function requestVideoSetAside(videoId, options = {}) {
+  const state = loadState()
+  const video = state?.videos?.[videoId]
+  if (!video || isVideoSetAside(video) || !hasVideoResumePriority(video)) return false
+  if (state.config?.setAsidePromptSeen === true) {
+    return setVideoAside(videoId, options)
+  }
+
+  const prompt = document.getElementById('setAsidePrompt')
+  if (!prompt) return setVideoAside(videoId, options)
+  const main = document.getElementById('mainApp')
+  requestVideoSetAside.pending = {
+    videoId,
+    options,
+    returnFocus: document.activeElement,
+    mainWasInert: Boolean(main?.inert)
+  }
+  if (main) main.inert = true
+  prompt.classList.remove('hidden')
+  prompt.setAttribute('aria-hidden', 'false')
+  requestAnimationFrame(() => {
+    prompt.querySelector('.btn-primary')?.focus()
+  })
+  return false
+}
+
+function closeVideoSetAsidePrompt(restoreFocus = true) {
+  const prompt = document.getElementById('setAsidePrompt')
+  const pending = requestVideoSetAside.pending
+  const main = document.getElementById('mainApp')
+  prompt?.classList.add('hidden')
+  prompt?.setAttribute('aria-hidden', 'true')
+  if (main && !pending?.mainWasInert) main.inert = false
+  requestVideoSetAside.pending = null
+  if (restoreFocus) pending?.returnFocus?.focus?.({ preventScroll: true })
+  return pending
+}
+
+function cancelVideoSetAsidePrompt() {
+  closeVideoSetAsidePrompt(true)
+}
+
+function confirmVideoSetAsidePrompt() {
+  const pending = requestVideoSetAside.pending
+  if (!pending?.videoId) return
+  const state = loadState()
+  if (state?.config) {
+    state.config.setAsidePromptSeen = true
+    saveState(state, { backup: false, syncAnalytics: false })
+  }
+  closeVideoSetAsidePrompt(false)
+  setVideoAside(pending.videoId, pending.options)
+}
+
+function handleVideoSetAsidePromptKeydown(event) {
+  if (event.key !== 'Escape') return
+  event.preventDefault()
+  cancelVideoSetAsidePrompt()
+}
+
 function setVideoAside(videoId, options = {}) {
   const s = loadState()
   const video = s?.videos?.[videoId]
@@ -14957,7 +15047,7 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
       <button type="button"
         class="next-study-cta next-study-set-aside"
         data-video-id="${safeVideoId}"
-        onclick="setVideoAside(this.dataset.videoId, { surface: 'continue_watching' })">${escHtml(t('videos.card.setAside'))}</button>
+        onclick="requestVideoSetAside(this.dataset.videoId, { surface: 'continue_watching' })">${escHtml(t('videos.card.setAside'))}</button>
       <button type="button"
         class="next-study-cta next-study-continue"
         data-video-id="${safeVideoId}"
@@ -18792,7 +18882,7 @@ function renderCard(v, compact = false, options = {}) {
               title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">${renderVideoActionIcon('watch-later')}</button>
             ${isPartial ? `<button class="action-btn set-aside-btn"
               data-video-id="${safeVideoId}"
-              onclick="setVideoAside(this.dataset.videoId, { surface: 'video_card' })"
+              onclick="requestVideoSetAside(this.dataset.videoId, { surface: 'video_card' })"
               aria-label="${escHtml(t('videos.card.setAside'))}"
               title="${escHtml(t('videos.card.setAside'))}">${renderVideoActionIcon('set-aside')}</button>` : ''}
             ${!isSetAside ? `<button class="action-btn favorite-btn ${isFavorite ? 'active' : ''}"

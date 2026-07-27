@@ -4966,6 +4966,55 @@ body[data-theme="dark"] .video-card.status-watch-later { background: var(--surfa
   pointer-events: auto;
   z-index: 10002;
 }
+.set-aside-prompt-overlay {
+  align-items: center;
+  background: rgba(5,5,5,0.58);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 10010;
+}
+.set-aside-prompt {
+  background: var(--surface);
+  border: 2px solid var(--planet-black);
+  border-radius: 16px;
+  box-shadow: 0 8px 0 rgba(5,5,5,0.24);
+  color: var(--text);
+  display: grid;
+  gap: 12px;
+  max-width: 480px;
+  padding: 20px;
+  width: 100%;
+}
+.set-aside-prompt h2 {
+  font-size: 1.05rem;
+  line-height: 1.25;
+  margin: 0;
+}
+.set-aside-prompt p {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0;
+}
+.set-aside-prompt strong {
+  color: var(--text);
+  font-weight: 850;
+}
+.set-aside-prompt-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.set-aside-prompt-actions button {
+  min-width: 96px;
+}
+body[data-theme="dark"] .set-aside-prompt {
+  border-color: rgba(255,255,255,0.82);
+  box-shadow: 0 8px 0 rgba(0,0,0,0.42);
+}
 @keyframes videoWatchReminderPopupIn {
   from {
     opacity: 0;
@@ -6912,6 +6961,18 @@ summary:focus-visible,
 @media (max-width: 640px) {
   #mainApp { --compact-control-height: 44px; }
 
+  .set-aside-prompt-overlay {
+    align-items: flex-end;
+    padding: 12px;
+  }
+  .set-aside-prompt {
+    border-radius: 16px;
+    padding: 16px;
+  }
+  .set-aside-prompt-actions button {
+    flex: 1;
+    min-width: 0;
+  }
   .video-watch-reminder-popover {
     bottom: 8px;
     gap: 7px;
