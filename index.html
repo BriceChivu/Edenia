@@ -682,7 +682,7 @@ and momentum—at a glance</h2>
     </section>
 
     <footer class="app-footer">
-      <button class="feedback-launch-btn" id="feedbackLaunchBtn" type="button" onclick="openFeedbackModal()" data-analytics-action="feedback" aria-haspopup="dialog" aria-controls="feedbackModal">
+      <button class="feedback-launch-btn" id="feedbackLaunchBtn" type="button" data-feedback-modal-action="open" data-analytics-action="feedback" aria-haspopup="dialog" aria-controls="feedbackModal">
         <svg class="feedback-launch-icon" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 5.5h14v10H9l-4 3v-13Z"></path>
         </svg>
@@ -693,7 +693,7 @@ and momentum—at a glance</h2>
   </main><!-- /mainApp -->
 
   <div class="feedback-modal hidden" id="feedbackModal">
-    <button class="feedback-backdrop" type="button" onclick="closeFeedbackModal()" data-analytics-action="feedback.close" aria-label="Close feedback" data-i18n-aria-label="feedback.close"></button>
+    <button class="feedback-backdrop" type="button" data-feedback-modal-action="close" data-analytics-action="feedback.close" aria-label="Close feedback" data-i18n-aria-label="feedback.close"></button>
     <section class="feedback-sheet" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
       <div class="feedback-sheet-handle" aria-hidden="true"></div>
       <div class="feedback-header">
@@ -701,7 +701,7 @@ and momentum—at a glance</h2>
           <span class="feedback-kicker">EDENIA</span>
           <h2 id="feedbackTitle" data-i18n="feedback.title">Share feedback</h2>
         </div>
-        <button class="feedback-close-btn" type="button" onclick="closeFeedbackModal()" data-analytics-action="feedback_close" aria-label="Close feedback" data-i18n-aria-label="feedback.close">×</button>
+        <button class="feedback-close-btn" type="button" data-feedback-modal-action="close" data-analytics-action="feedback_close" aria-label="Close feedback" data-i18n-aria-label="feedback.close">×</button>
       </div>
 
       <form class="feedback-form" id="feedbackForm" onsubmit="submitFeedback(event)">

@@ -401,6 +401,92 @@ test('feedback confirmation listener preserves dismissal, focus, keyboard, and o
   expect(removedBridgeAction).toBe(false)
 })
 
+test('feedback modal listeners preserve focus, Escape, keyboard, storage, and ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  const modal = page.locator('#feedbackModal')
+  const launcher = page.locator('[data-feedback-modal-action="open"]')
+  const backdrop = page.locator('.feedback-backdrop[data-feedback-modal-action="close"]')
+  const closeControl = page.locator('.feedback-close-btn[data-feedback-modal-action="close"]')
+  const message = page.locator('#feedbackMessage')
+  const storedBefore = await page.evaluate(() => localStorage.getItem('edenia_v1'))
+  await expect(modal).toHaveClass(/\bhidden\b/)
+
+  await page.evaluate(() => {
+    window.__feedbackOpenedAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-feedback-modal-action="open"]')) return
+      window.__feedbackOpenedAtDocumentBubble = {
+        hidden: document.getElementById('feedbackModal').classList.contains('hidden'),
+        bodyOpen: document.body.classList.contains('feedback-modal-open')
+      }
+    }, { once: true })
+  })
+  await launcher.click()
+  await expect.poll(() => page.evaluate(
+    () => window.__feedbackOpenedAtDocumentBubble
+  )).toEqual({
+    hidden: false,
+    bodyOpen: true
+  })
+  await expect(message).toBeFocused()
+
+  await page.evaluate(() => {
+    window.__feedbackClosedAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('.feedback-backdrop')) return
+      window.__feedbackClosedAtDocumentBubble = {
+        hidden: document.getElementById('feedbackModal').classList.contains('hidden'),
+        bodyOpen: document.body.classList.contains('feedback-modal-open'),
+        launcherFocused: document.activeElement ===
+          document.getElementById('feedbackLaunchBtn')
+      }
+    }, { once: true })
+  })
+  await backdrop.click({ position: { x: 4, y: 4 } })
+  await expect.poll(() => page.evaluate(
+    () => window.__feedbackClosedAtDocumentBubble
+  )).toEqual({
+    hidden: true,
+    bodyOpen: false,
+    launcherFocused: true
+  })
+
+  await launcher.focus()
+  await launcher.press('Enter')
+  await expect(modal).not.toHaveClass(/\bhidden\b/)
+  await closeControl.focus()
+  await closeControl.press('Space')
+  await expect(modal).toHaveClass(/\bhidden\b/)
+  await expect(launcher).toBeFocused()
+
+  await launcher.press('Space')
+  await expect(message).toBeFocused()
+  await message.press('Escape')
+  await expect(modal).toHaveClass(/\bhidden\b/)
+  await expect(launcher).toBeFocused()
+
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+  const removedBridgeActions = await page.evaluate(() => ({
+    openFeedbackModal: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'openFeedbackModal'
+    ),
+    closeFeedbackModal: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'closeFeedbackModal'
+    )
+  }))
+  expect(removedBridgeActions).toEqual({
+    openFeedbackModal: false,
+    closeFeedbackModal: false
+  })
+})
+
 test('Study Insight listeners preserve tabs, persistence, focus, and event ordering', async ({
   page
 }, testInfo) => {

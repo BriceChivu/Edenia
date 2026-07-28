@@ -183,6 +183,7 @@ import { bindStudyHistoryViewActions } from './features/study-history/view-actio
 import { bindSandboxActions } from './features/sandbox/actions.js'
 import { bindThemeActions } from './features/theme/actions.js'
 import { bindFeedbackConfirmationActions } from './features/feedback/confirmation-actions.js'
+import { bindFeedbackModalActions } from './features/feedback/modal-actions.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -13849,6 +13850,10 @@ bindSettingsResetConfirmActions(document, {
 bindFeedbackConfirmationActions(document, {
   close: closeFeedbackConfirmation
 })
+bindFeedbackModalActions(document, {
+  open: openFeedbackModal,
+  close: closeFeedbackModal
+})
 
 installLegacyActions(window, {
   addYoutubeInput,
@@ -13859,7 +13864,6 @@ installLegacyActions(window, {
   claimCityLevelUp,
   clearCityWaveformPreview,
   clearVideoPausedState,
-  closeFeedbackModal,
   closeHistoryActionPopovers,
   closeHistoryPointsPopoverSoon,
   closeHistoryVideoPopoverSoon,
@@ -13896,7 +13900,6 @@ installLegacyActions(window, {
   markVideo,
   moveChannelShelfDrag,
   navigateIntroTrailer,
-  openFeedbackModal,
   openHistoryPointsPopover,
   openHistoryVideoPopover,
   openNextStudyVideoPlayer,

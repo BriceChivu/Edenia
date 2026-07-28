@@ -1806,3 +1806,41 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore translation-derived backdrop
   analytics identity; feedback and application state remain unaffected.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-056 — Migrate feedback-modal actions
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Event ownership, compatibility bridge reduction, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move the feedback launcher, backdrop, and close-button clicks from
+  inline attributes into a bounded feedback module while leaving submission
+  behavior untouched.
+- **Conceptual change:** Added fixed open/close hooks and an idempotent
+  direct-listener binder for the three static controls, installed it from the
+  composition entry point, removed their inline handlers, and removed
+  `openFeedbackModal` and `closeFeedbackModal` from the temporary legacy bridge.
+  Internal submission and Escape consumers continue to call the same close
+  function directly.
+- **Preservation contract:** Zero-argument calls, modal and body classes, status
+  clearing, deferred focus into the message field, synchronous focus return to
+  the prior launcher, Escape and Tab handling, repeated open/close behavior, no
+  persistence mutation, mouse and native keyboard activation, target-before-
+  document ordering, all three exact analytics action properties and event
+  names, styling, and accessibility remain exact.
+- **Risks:** Forwarding events or delegating at document level could alter focus
+  and analytics ordering; merging the two close action properties would change
+  historical analytics; removing the internal close function would break
+  submission or Escape behavior.
+- **Verification:** `npm test` passed all 186 contract tests and the production
+  build. Playwright passed 29 protected flows with 55 expected project skips,
+  including launcher, backdrop, close button, Enter, Space, Escape, modal/body
+  classes, focus entry/return, storage, bridge, and document-order assertions;
+  all 18 visual baselines remained unchanged. Migration-ledger verification
+  passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore all three inline handlers and both
+  bridge entries while retaining MIG-055 metadata; feedback and application
+  state need no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

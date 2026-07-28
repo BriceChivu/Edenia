@@ -17,29 +17,33 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('feedback modal controls lock exact pre-migration analytics identities', () => {
+test('feedback modal controls retain identities without inline handlers', () => {
   const controls = [
     {
       className: 'feedback-launch-btn',
       action: 'feedback',
-      handler: 'openFeedbackModal()'
+      modalAction: 'open'
     },
     {
       className: 'feedback-backdrop',
       action: 'feedback.close',
-      handler: 'closeFeedbackModal()'
+      modalAction: 'close'
     },
     {
       className: 'feedback-close-btn',
       action: 'feedback_close',
-      handler: 'closeFeedbackModal()'
+      modalAction: 'close'
     }
   ]
 
   for (const expected of controls) {
     const tag = findButton(expected.className)
     assert.equal(getAttribute(tag, 'data-analytics-action'), expected.action)
-    assert.equal(getAttribute(tag, 'onclick'), expected.handler)
+    assert.equal(
+      getAttribute(tag, 'data-feedback-modal-action'),
+      expected.modalAction
+    )
+    assert.equal(getAttribute(tag, 'onclick'), null)
   }
 })
 
