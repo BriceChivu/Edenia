@@ -1970,3 +1970,30 @@ release mappings, and follow-up findings are recorded as new entries.
   bridge entries while retaining MIG-059 analytics metadata; no stored data
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-061 — Lock Settings replay analytics identities
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve the Settings walkthrough- and trailer-replay analytics
+  identities before moving their click ownership out of inline markup.
+- **Conceptual change:** Added explicit `settings.walkthroughAgain` and
+  `settings.trailerAgain` analytics actions and contracts for their exact
+  generic event names while retaining both inline handlers.
+- **Preservation contract:** Exact event names and localized button names,
+  Settings dismissal, desktop and phone return-focus differences, the 120 ms
+  launch delay, walkthrough manual mode, trailer replay mode, onboarding and
+  trailer state, persistence, styling, and accessibility remain unchanged.
+- **Risks:** Starting either replay from a new listener in this commit would
+  combine metadata with protected modal, timing, focus, and onboarding behavior.
+- **Verification:** `npm test` passed all 198 contract tests and the production
+  build. Playwright passed 32 protected flows with 70 expected project skips
+  across the six required viewport projects; all 18 representative screenshots
+  remained unchanged. Migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore translation-derived replay
+  analytics identities; application and onboarding state remain unaffected.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
