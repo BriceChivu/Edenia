@@ -745,3 +745,36 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the Anki state helpers inline; no
   stored preferences, counts, or baselines require migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-023 — Extract Study Insights state normalization
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Separate the persisted Study Insights history contract from insight
+  calculation, rendering, localization, and analytics delivery.
+- **Conceptual change:** Added `src/state/study-insights-state.js` for enablement,
+  the shared lookback/time-window/variant constants, and exact history
+  normalization. Insight generation and selection, presentation, persistence,
+  retained-message analytics, and settings interactions remain in `src/app.js`.
+- **Preservation contract:** The 42-day lookback, four time windows, two variants,
+  eleven accepted insight types, 12-entry limit, filtering, timestamp sorting,
+  normalized-key dedupe, legacy variant rotation, all numeric clipping and rounding,
+  string limits, five-channel positive-seconds breakdown, default-on enablement,
+  collapsed semantics, and serialized change detection remain exact.
+- **Risks:** Reordering dedupe and sort, validating before current coercion, changing
+  the legacy variant counter, or cleaning permissive numeric/string inputs would
+  change retained insight messages and their analytics identity.
+- **Verification:** `npm test` passed all 69 contracts, including constants,
+  enablement, defaults, coercion, numeric clipping, string/channel limits,
+  timestamp sorting, normalized-key dedupe, legacy variant rotation, history
+  limiting, and mutation failures. The serial Playwright suite passed 19 flows
+  with 5 expected project-scoped skips across all six required viewports; all 18
+  protected screenshots remained unchanged. Migration-ledger verification follows
+  the commit.
+- **Rollback:** Revert this commit to restore Study Insights constants and state
+  normalization inline; retained history requires no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
