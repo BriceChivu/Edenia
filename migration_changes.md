@@ -2137,3 +2137,35 @@ release mappings, and follow-up findings are recorded as new entries.
   bridge entry while retaining MIG-064 analytics metadata; no stored data
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-066 — Lock city level-up analytics identity
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve the city level-up control's localization-derived
+  analytics identity before moving click ownership out of its inline handler.
+- **Conceptual change:** Added the explicit `city.levelUp` analytics action and
+  a contract for its exact normalized generic event name while retaining the
+  existing `claimCityLevelUp()` inline handler.
+- **Preservation contract:** The `city_level_up_clicked` identity, localized
+  button name, initial disabled and hidden state, earned-level gating, staged
+  persistence, Activity Log entry, city rerender, confetti, toast, walkthrough
+  target, event ordering, styling, and accessibility remain unchanged. The
+  existing outcome-dependent suppression of the generic event after a final
+  earned-level claim is explicitly preserved.
+- **Risks:** Removing the handler before locking metadata would make analytics
+  depend on localized visible copy; moving event ownership in this metadata
+  commit could accidentally emit a click event after a final claim disables the
+  control.
+- **Verification:** All 209 contract tests and the production build passed. The
+  complete Playwright matrix passed 36 protected flows with 90 intentional
+  project skips across all six required viewports; all 18 representative
+  screenshots remained unchanged. Diff and migration-ledger verification
+  passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore localization-derived analytics
+  identity; no stored state or city progress migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
