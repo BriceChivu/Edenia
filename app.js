@@ -11052,7 +11052,7 @@ function toggleVideoFavorite(videoId, options = {}) {
   saveState(s)
   trackVideoFavoriteChanged(s, video, isFavoriteVideo(beforeVideo), options.surface)
   if (preservePreview) {
-    refreshVideoActionUiWithoutFeedRerender(s, videoId, options.pointerEvent)
+    refreshVideoActionUiWithoutFeedRerender(s, videoId)
   } else {
     renderAll(s)
   }
@@ -11306,7 +11306,7 @@ function markVideo(videoId, requestedStatus, options = {}) {
     surface: options.surface || 'video_card'
   }))
   if (preservePreview) {
-    refreshVideoActionUiWithoutFeedRerender(s, videoId, options.pointerEvent)
+    refreshVideoActionUiWithoutFeedRerender(s, videoId)
   } else {
     renderAll(s)
   }
@@ -17686,16 +17686,11 @@ function positionVideoShelfPreview(card, pointerEvent = null) {
   return true
 }
 
-function keepVideoShelfPreviewAnchoredAfterLayout(card, videoId, pointerEvent = null) {
-  const pointer = Number(pointerEvent?.detail) > 0
-    && Number.isFinite(pointerEvent?.clientX)
-    && Number.isFinite(pointerEvent?.clientY)
-    ? { clientX: pointerEvent.clientX, clientY: pointerEvent.clientY }
-    : null
+function keepVideoShelfPreviewAnchoredAfterLayout(card, videoId) {
   const reposition = () => {
     if (!isActiveVideoShelfPreview(videoId) || activeVideoShelfPreview !== card) return false
     clearVideoShelfPreviewLeave(card)
-    return positionVideoShelfPreview(card, pointer)
+    return positionVideoShelfPreview(card)
   }
 
   if (!reposition()) return
@@ -17738,7 +17733,7 @@ function isActiveVideoShelfPreview(videoId) {
   )
 }
 
-function refreshVideoActionUiWithoutFeedRerender(state, videoId, pointerEvent = null) {
+function refreshVideoActionUiWithoutFeedRerender(state, videoId) {
   const card = activeVideoShelfPreview
   const video = state?.videos?.[videoId]
   if (!card || !video || !isActiveVideoShelfPreview(videoId)) return
@@ -17822,7 +17817,7 @@ function refreshVideoActionUiWithoutFeedRerender(state, videoId, pointerEvent = 
   renderStatusFilterOptions(allVideos, channelFilters, includeShorts, removedChannelIds)
   renderNextStudy(activeVideos, favoriteVideos)
   renderUndoButton(state)
-  keepVideoShelfPreviewAnchoredAfterLayout(card, videoId, pointerEvent)
+  keepVideoShelfPreviewAnchoredAfterLayout(card, videoId)
 }
 
 function cleanupVideoShelfPreview(card) {
@@ -18859,7 +18854,7 @@ function renderCard(v, compact = false, options = {}) {
     ? `<button type="button"
         class="channel-shelf-priority-badge watch-later-priority-badge"
         data-video-id="${safeVideoId}"
-        onclick="event.preventDefault(); event.stopPropagation(); markVideo(this.dataset.videoId, 'unwatched', { watchLater: false, pointerEvent: event })"
+        onclick="event.preventDefault(); event.stopPropagation(); markVideo(this.dataset.videoId, 'unwatched', { watchLater: false })"
         aria-label="${escHtml(t('videos.card.removeWatchLater'))}"
         title="${escHtml(t('videos.card.removeWatchLater'))}">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</button>`
     : options.shelf && isFavorite
@@ -18902,7 +18897,7 @@ function renderCard(v, compact = false, options = {}) {
               data-video-id="${safeVideoId}"
               data-status="${watchLaterNextStatus}"
               data-watch-later="${String(!isWatchLater)}"
-              onclick="markVideo(this.dataset.videoId, this.dataset.status, { watchLater: this.dataset.watchLater === 'true', pointerEvent: event })"
+              onclick="markVideo(this.dataset.videoId, this.dataset.status, { watchLater: this.dataset.watchLater === 'true' })"
               aria-label="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}"
               title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">${renderVideoActionIcon('watch-later')}</button>
             ${!isSetAside ? `<button class="action-btn favorite-btn ${isFavorite ? 'active' : ''}"
