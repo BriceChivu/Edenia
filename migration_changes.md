@@ -678,3 +678,36 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore onboarding version and normalization
   inline; onboarding records require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-021 — Extract channel refresh state normalization
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Isolate persisted per-channel refresh cleanup before YouTube fetching
+  or refresh orchestration is modularized.
+- **Conceptual change:** Moved `normalizeChannelRefreshState` to
+  `src/state/channel-refresh-state.js`. Fetch scheduling, network calls, backoff,
+  activity logs, rendering, and analytics remain in `src/app.js`.
+- **Preservation contract:** Only configured truthy channel IDs remain; duplicates
+  collapse in first-seen order; valid per-channel timestamps take precedence;
+  legacy `lastFetched` fills missing fetch dates and is then removed; an existing
+  entry without a valid fetch date remains as an all-null record; error strings,
+  including empty strings, are retained; and serialized change detection remains
+  exact.
+- **Risks:** Dropping empty existing entries, retaining removed channels, converting
+  timestamps, or changing legacy fallback precedence would alter refresh backoff and
+  retry behavior for persisted users.
+- **Verification:** `npm test` passed all 58 contracts, including legacy migration,
+  active-channel filtering, duplicate collapse, timestamp precedence, null-entry
+  retention, stale-channel removal, unchanged reporting for invalid source maps,
+  and propagated malformed-channel errors. The serial Playwright suite passed
+  19 flows with 5 expected project-scoped skips across all six required viewports;
+  all 18 protected screenshots remained unchanged. Migration-ledger verification
+  follows the commit.
+- **Rollback:** Revert this commit to restore channel-refresh cleanup inline;
+  persisted refresh records require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
