@@ -2594,3 +2594,39 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore all three inline handlers and the
   shared bridge entry; no stored preference schema migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-079 — Migrate the static city waveform mouse lifecycle
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Static event ownership, compatibility bridge reduction, and tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move only the city timeline container's desktop mouse lifecycle
+  from inline global actions into a scoped listener module.
+- **Conceptual change:** Added a semantic ownership hook to the static waveform,
+  installed idempotent direct `mouseenter`, `mousemove`, and `mouseleave`
+  listeners, removed the three matching inline attributes, and removed
+  `handleCityWaveformMouseMove` and `clearCityWaveformPreview` from the
+  temporary legacy bridge while retaining both lexical functions.
+- **Preservation contract:** Exact mouse event types, event versus zero-argument
+  callback signatures, uncancelled propagation, desktop edge direction and
+  animation-frame scrolling, closest-bar preview, mouse-leave cancellation and
+  city restoration, non-scrollable behavior, the `≤640px` mouse no-op, phone
+  pointer hit-testing, touch navigation, storage, Activity Log, analytics,
+  focus, styling, accessibility, and generated waveform-bar handlers remain
+  unchanged. The existing outside-click path continues to call the lexical
+  clear operation.
+- **Risks:** Pointer-event substitution could change touch behavior;
+  document-level delegation could reorder outer handlers; forwarding an event
+  to the clear callback could alter its contract; removing the clear function
+  itself would break outside-click cleanup.
+- **Verification:** `npm test` passed 257 contract tests and the production
+  build. The focused desktop/phone waveform flow passed. The complete
+  six-viewport Playwright matrix passed with 47 tests and 133 intentional
+  skips; all 18 protected screenshots remained unchanged. Migration-ledger and
+  diff-integrity checks passed.
+- **Rollback:** Revert this commit to restore the three inline waveform
+  attributes and two bridge entries; no state or storage migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

@@ -2842,6 +2842,173 @@ test('city level-up listener preserves staged claims and outcome-dependent analy
   ))).toBe(1)
 })
 
+test('city waveform mouse listeners preserve edge scrolling, clearing, and phone inertness', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-standard'].includes(
+    testInfo.project.name
+  ))
+
+  await seedCompletedState(page)
+  const waveform = page.locator(
+    '#cityTimeWaveform[data-city-waveform-action="mouse-preview"]'
+  )
+  const bars = page.locator('#cityWaveBars')
+  const track = page.locator('#cityWaveTrack')
+  const storedBefore = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+
+  await expect(waveform).not.toHaveAttribute('onmouseenter')
+  await expect(waveform).not.toHaveAttribute('onmousemove')
+  await expect(waveform).not.toHaveAttribute('onmouseleave')
+
+  const singleDayDimensions = await bars.evaluate(element => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    scrollLeft: element.scrollLeft
+  }))
+  expect(singleDayDimensions.scrollWidth).toBeLessThanOrEqual(
+    singleDayDimensions.clientWidth
+  )
+  expect(singleDayDimensions.scrollLeft).toBe(0)
+
+  await waveform.evaluate(element => {
+    const rect = element.getBoundingClientRect()
+    const eventInit = {
+      bubbles: false,
+      cancelable: true,
+      clientX: rect.right - 1,
+      clientY: rect.top + rect.height / 2
+    }
+    element.dispatchEvent(new MouseEvent('mouseenter', eventInit))
+    element.dispatchEvent(new MouseEvent('mousemove', eventInit))
+  })
+  await page.waitForTimeout(80)
+  await expect.poll(() => bars.evaluate(element => element.scrollLeft)).toBe(0)
+  await waveform.dispatchEvent('mouseleave')
+
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.anki['2026-04-01'] = { reviewed: 1, created: 0 }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+  })
+  await page.reload()
+  await waitForApplication(page)
+
+  const scrollableDimensions = await bars.evaluate(element => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth
+  }))
+  expect(scrollableDimensions.scrollWidth).toBeGreaterThan(
+    scrollableDimensions.clientWidth
+  )
+  await expect(bars).toHaveClass(/\bis-scrollable\b/)
+
+  if (testInfo.project.name === 'phone-standard') {
+    await expect(track.locator('.city-wave-bar').first())
+      .toHaveCSS('pointer-events', 'none')
+    await bars.evaluate(element => {
+      element.scrollLeft = 0
+    })
+    await waveform.evaluate(element => {
+      const rect = element.getBoundingClientRect()
+      const eventInit = {
+        bubbles: false,
+        cancelable: true,
+        clientX: rect.right - 1,
+        clientY: rect.top + rect.height / 2
+      }
+      element.dispatchEvent(new MouseEvent('mouseenter', eventInit))
+      element.dispatchEvent(new MouseEvent('mousemove', eventInit))
+    })
+    await page.waitForTimeout(80)
+    await expect.poll(() => bars.evaluate(element => element.scrollLeft)).toBe(0)
+    await waveform.dispatchEvent('mouseleave')
+  } else {
+    await bars.evaluate(element => {
+      element.scrollLeft = 0
+    })
+    await waveform.evaluate(element => {
+      const rect = element.getBoundingClientRect()
+      const eventInit = {
+        bubbles: false,
+        cancelable: true,
+        clientX: rect.right - 1,
+        clientY: rect.top + rect.height / 2
+      }
+      element.dispatchEvent(new MouseEvent('mouseenter', eventInit))
+      element.dispatchEvent(new MouseEvent('mousemove', eventInit))
+    })
+    await expect.poll(() => bars.evaluate(element => element.scrollLeft))
+      .toBeGreaterThan(0)
+
+    const barBeforeLeave = await track.locator('.city-wave-bar').first()
+      .evaluate(element => {
+        window.__cityWaveBarBeforeLeave = element
+        return element.dataset.offset
+      })
+    await waveform.dispatchEvent('mouseleave')
+    await expect.poll(() => page.evaluate(
+      () => window.__cityWaveBarBeforeLeave?.isConnected
+    )).toBe(false)
+    await expect(track.locator('.city-wave-bar').first())
+      .toHaveAttribute('data-offset', barBeforeLeave)
+
+    const rightAligned = await bars.evaluate(element => element.scrollLeft)
+    expect(rightAligned).toBeGreaterThan(0)
+    await waveform.evaluate(element => {
+      const rect = element.getBoundingClientRect()
+      const eventInit = {
+        bubbles: false,
+        cancelable: true,
+        clientX: rect.left + 1,
+        clientY: rect.top + rect.height / 2
+      }
+      element.dispatchEvent(new MouseEvent('mouseenter', eventInit))
+      element.dispatchEvent(new MouseEvent('mousemove', eventInit))
+    })
+    await expect.poll(() => bars.evaluate(element => element.scrollLeft))
+      .toBeLessThan(rightAligned)
+
+    await waveform.dispatchEvent('mouseleave')
+    const settledScroll = await bars.evaluate(element => element.scrollLeft)
+    await page.waitForTimeout(80)
+    await expect.poll(() => bars.evaluate(element => element.scrollLeft))
+      .toBe(settledScroll)
+  }
+
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .not.toBe(storedBefore)
+  const storedAfterHistorySeed = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    return {
+      anki: state.anki,
+      activityLog: state.activityLog
+    }
+  })
+  expect(storedAfterHistorySeed).toEqual({
+    anki: {
+      '2026-04-01': { reviewed: 1, created: 0 }
+    },
+    activityLog: []
+  })
+  const removedBridgeActions = await page.evaluate(() => ({
+    handleCityWaveformMouseMove: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'handleCityWaveformMouseMove'
+    ),
+    clearCityWaveformPreview: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'clearCityWaveformPreview'
+    )
+  }))
+  expect(removedBridgeActions).toEqual({
+    handleCityWaveformMouseMove: false,
+    clearCityWaveformPreview: false
+  })
+})
+
 test('city zoom listeners preserve fixed steps, limits, reset, keyboard, and ordering', async ({
   page
 }, testInfo) => {

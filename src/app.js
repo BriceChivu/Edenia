@@ -165,6 +165,9 @@ import {
   normalizeCityProgress
 } from './features/city/model.js'
 import { bindCityLevelUpActions } from './features/city/level-up-actions.js'
+import {
+  bindCityWaveformMouseActions
+} from './features/city/waveform-mouse-actions.js'
 import { bindCityZoomActions } from './features/city/zoom-actions.js'
 import {
   FIRST_STUDY_WALKTHROUGH_STEPS,
@@ -13860,6 +13863,10 @@ bindCityZoomActions(document, {
   zoom: zoomCityImage,
   reset: resetCityImageView
 })
+bindCityWaveformMouseActions(document, {
+  move: handleCityWaveformMouseMove,
+  clear: clearCityWaveformPreview
+})
 bindSandboxActions(document, {
   addDay: addSandboxDay,
   reset: resetSandboxState
@@ -13919,7 +13926,6 @@ installLegacyActions(window, {
   cancelVideoSetAsidePrompt,
   changeIntroLocale,
   changeOnboardingLocale,
-  clearCityWaveformPreview,
   clearVideoPausedState,
   closeHistoryActionPopovers,
   closeHistoryPointsPopoverSoon,
@@ -13941,7 +13947,6 @@ installLegacyActions(window, {
   focusNextStudyVideoCard,
   handleChannelFilterOptionClick,
   handleChannelFilterSelectAllClick,
-  handleCityWaveformMouseMove,
   handleHistoryActionScrollHover,
   handleManualChannelSuggestionKeydown,
   handleVideoSearchInputKey,
