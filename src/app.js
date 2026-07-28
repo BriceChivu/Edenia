@@ -175,6 +175,7 @@ import {
   normalizeVideoSearchText
 } from './features/videos/search-model.js'
 import { bindStudyInsightActions } from './features/study-insights/actions.js'
+import { bindActivityLogFilterActions } from './features/settings/activity-log-filter-actions.js'
 import { bindSettingsAccordionActions } from './features/settings/accordion-actions.js'
 import { bindStudyHistoryViewActions } from './features/study-history/view-actions.js'
 
@@ -13819,6 +13820,9 @@ bindSettingsAccordionActions(document, {
   toggleActivityLog: toggleSettingsActivityLog,
   toggleBackups: toggleSettingsBackups
 })
+bindActivityLogFilterActions(document, {
+  setFilter: setActivityLogFilter
+})
 bindStudyHistoryViewActions(document, {
   setView: setHistoryView
 })
@@ -13902,7 +13906,6 @@ installLegacyActions(window, {
   selectOnboardingLanguage,
   selectOnboardingLevel,
   selectYoutubeChannelSearchResult,
-  setActivityLogFilter,
   setAllChannelFilters,
   setChannelFilter,
   setHistoryPeriodForRange,

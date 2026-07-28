@@ -17,7 +17,7 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('Activity Log filters lock pre-migration analytics identities', () => {
+test('Activity Log filters retain analytics identities without inline handlers', () => {
   const filters = ['all', 'user', 'auto', 'issues', 'points']
   for (const filter of filters) {
     const tag = findButton(filter)
@@ -25,10 +25,7 @@ test('Activity Log filters lock pre-migration analytics identities', () => {
       getAttribute(tag, 'data-analytics-action'),
       `settings.activity.${filter}`
     )
-    assert.equal(
-      getAttribute(tag, 'onclick'),
-      'setActivityLogFilter(this.dataset.activityLogFilter)'
-    )
+    assert.equal(getAttribute(tag, 'onclick'), null)
   }
 })
 

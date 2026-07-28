@@ -77,7 +77,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'selectOnboardingLanguage',
   'selectOnboardingLevel',
   'selectYoutubeChannelSearchResult',
-  'setActivityLogFilter',
   'setAllChannelFilters',
   'setChannelFilter',
   'setHistoryPeriodForRange',

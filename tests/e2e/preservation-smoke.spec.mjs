@@ -356,6 +356,140 @@ test('Settings accordion listeners preserve mouse, keyboard, reset, and ordering
   })
 })
 
+test('Activity Log filter listeners preserve live values, rendering, keyboard, and ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.activityLog = [
+      {
+        id: 'auto-warning',
+        createdAt: '2026-07-28T03:00:00.000Z',
+        actor: 'auto',
+        type: 'anki-refresh',
+        status: 'warn',
+        title: 'Protected automatic warning',
+        detail: ''
+      },
+      {
+        id: 'user-error',
+        createdAt: '2026-07-28T02:00:00.000Z',
+        actor: 'user',
+        type: 'general',
+        status: 'error',
+        title: 'Protected user issue',
+        detail: ''
+      },
+      {
+        id: 'auto-info',
+        createdAt: '2026-07-28T01:00:00.000Z',
+        actor: 'auto',
+        type: 'general',
+        status: 'info',
+        title: 'Protected automatic info',
+        detail: ''
+      },
+      {
+        id: 'user-success',
+        createdAt: '2026-07-28T00:00:00.000Z',
+        actor: 'user',
+        type: 'general',
+        status: 'success',
+        title: 'Protected user success',
+        detail: ''
+      },
+      {
+        id: 'point-delta',
+        createdAt: '2026-07-27T23:00:00.000Z',
+        actor: 'user',
+        type: 'point-delta',
+        status: 'success',
+        title: 'Protected point adjustment',
+        detail: '',
+        meta: { pointsDelta: 7 }
+      }
+    ]
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+  })
+  await page.reload()
+  await waitForApplication(page)
+  await page.locator('.gear-btn').click()
+  await page.locator('.activity-log-toggle').click()
+
+  const filters = page.locator('[data-activity-log-filter]')
+  const list = page.locator('#activityLogList')
+  const allFilter = page.locator('[data-activity-log-filter="all"]')
+  const userFilter = page.locator('[data-activity-log-filter="user"]')
+  const autoFilter = page.locator('[data-activity-log-filter="auto"]')
+  const issuesFilter = page.locator('[data-activity-log-filter="issues"]')
+  const pointsFilter = page.locator('[data-activity-log-filter="points"]')
+  await expect(filters).toHaveCount(5)
+  await expect(allFilter).toHaveAttribute('aria-selected', 'true')
+
+  await page.evaluate(() => {
+    window.__activityLogAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-activity-log-filter="user"]')) return
+      window.__activityLogAtDocumentBubble = {
+        filter: document.querySelector('.activity-log-filter.active')
+          ?.dataset.activityLogFilter,
+        titles: [...document.querySelectorAll('#activityLogList .activity-log-title')]
+          .map(element => element.textContent)
+      }
+    }, { once: true })
+  })
+  await userFilter.click()
+  await expect(userFilter).toHaveAttribute('aria-selected', 'true')
+  await expect(list).toContainText('Protected user issue')
+  await expect(list).toContainText('Protected user success')
+  await expect(list).not.toContainText('Protected automatic info')
+  await expect.poll(() => page.evaluate(
+    () => window.__activityLogAtDocumentBubble
+  )).toEqual({
+    filter: 'user',
+    titles: [
+      'Protected user issue',
+      'Protected user success',
+      'Protected point adjustment'
+    ]
+  })
+
+  await autoFilter.focus()
+  await autoFilter.press('Enter')
+  await expect(autoFilter).toHaveAttribute('aria-selected', 'true')
+  await expect(list).toContainText('Protected automatic warning')
+  await expect(list).not.toContainText('Protected user success')
+
+  await issuesFilter.focus()
+  await issuesFilter.press('Space')
+  await expect(issuesFilter).toHaveAttribute('aria-selected', 'true')
+  await expect(list).toContainText('Protected automatic warning')
+  await expect(list).toContainText('Protected user issue')
+  await expect(list).not.toContainText('Protected automatic info')
+
+  await pointsFilter.click()
+  await expect(pointsFilter).toHaveAttribute('aria-selected', 'true')
+  await expect(list).toContainText('Protected point adjustment')
+  await expect(list).toContainText('+7')
+
+  await page.evaluate(() => {
+    const control = document.querySelector('[data-activity-log-filter="user"]')
+    control.dataset.activityLogFilter = 'invalid-live-value'
+    control.click()
+  })
+  await expect(allFilter).toHaveAttribute('aria-selected', 'true')
+  await expect(list).toContainText('Protected automatic info')
+  await expect(list).toContainText('Protected user success')
+
+  const removedBridgeAction = await page.evaluate(() => (
+    Object.prototype.hasOwnProperty.call(window.EdeniaActions, 'setActivityLogFilter')
+  ))
+  expect(removedBridgeAction).toBe(false)
+})
+
 test('Study History view listeners preserve persistence, keyboard, and ordering', async ({
   page
 }, testInfo) => {

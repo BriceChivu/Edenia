@@ -270,8 +270,6 @@ release mappings, and follow-up findings are recorded as new entries.
   is changed.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
 
----
-
 ## MIG-008 — Extract pure escaping helpers
 
 - **Date:** 2026-07-28
@@ -1428,4 +1426,39 @@ release mappings, and follow-up findings are recorded as new entries.
   remained unchanged. Migration-ledger verification passed against `v1.0.0`.
 - **Rollback:** Revert this commit to restore translation-derived analytics
   identities; no Activity Log state or analytics migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-044 — Migrate Activity Log filter actions
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Event ownership, compatibility bridge reduction, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move the five static Activity Log filter clicks from inline
+  attributes to one bounded feature module without changing filtering behavior.
+- **Conceptual change:** Added an idempotent direct-listener binder for every
+  `data-activity-log-filter` control, installed it from the composition entry
+  point, removed the five inline handlers, and removed
+  `setActivityLogFilter` from the temporary legacy action bridge. The binder
+  reads each control's dataset at click time to preserve existing `this.dataset`
+  behavior.
+- **Preservation contract:** Filter membership and fallback, active and
+  `aria-selected` state, Activity Log rendering and grouping, point-derived
+  entries, mobile pagination reset, mouse and native keyboard activation,
+  document-bubble ordering, the five explicit analytics identities, localized
+  labels, markup, styling, and persistence remain exact.
+- **Risks:** Capturing filter values during installation would break live dataset
+  behavior; delegated document handling would run after generic analytics;
+  duplicate listeners would apply a filter more than once.
+- **Verification:** `npm test` passed all 156 contract tests and the production
+  build. Playwright passed 23 protected flows with 25 expected project skips,
+  including live dataset, mouse, Enter, Space, filter rendering, bridge, and
+  document-order assertions across the required viewport projects; all 18
+  visual baselines remained unchanged. Migration-ledger verification passed
+  against `v1.0.0`.
+- **Rollback:** Revert this commit to restore the five inline handlers and
+  `setActivityLogFilter` bridge entry while retaining MIG-043 analytics
+  metadata; no persisted Activity Log data requires migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
