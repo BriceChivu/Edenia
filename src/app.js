@@ -31,6 +31,19 @@ import {
   normalizeVideoWatchCoverage
 } from './domain/video-watch-coverage.js'
 import { normalizeVideoWatchProgress } from './domain/video-watch-progress.js'
+import {
+  getBestYoutubeThumbnail as getBestThumbnail,
+  getVideoAspectRatioFromItem,
+  getVideoDetailFromItem,
+  getYoutubeUploadsPlaylistId as uploadsId,
+  isShortDuration,
+  isYoutubeVideoId,
+  normalizeVideoAspectRatio,
+  parseYoutubeChannelInput,
+  parseYoutubeDuration as parseDuration,
+  parseYoutubeVideoId,
+  YOUTUBE_CHANNEL_ID_RE
+} from './integrations/youtube-parsing.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -98,8 +111,6 @@ const SANDBOX_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = IS_INTERNAL_TEST ? 8 : 50
 const MAX_FETCH_PAGES_PER_CHANNEL = 1
 const UNDO_ACTION_TYPES = ['video-status', 'video-resume-time', 'video-favorite', 'video-grid-remove', 'channel-remove', 'manual-video-add']
-const YOUTUBE_CHANNEL_ID_RE = /^UC[A-Za-z0-9_-]{20,}$/
-const YOUTUBE_HANDLE_RE = /^@[\p{L}\p{N}\p{M}._-]{3,30}$/u
 const DEFAULT_THEME = 'light'
 const THEMES = ['light', 'dark']
 const BACKGROUND_PHYSICS_RADIUS = 130
@@ -112,7 +123,6 @@ const UNDO_STACK_LIMIT = 50
 const MIN_WEEKLY_GOAL_HOURS = 1
 const MAX_WEEKLY_GOAL_HOURS = 99
 const VIDEO_HOUR_POINTS = 30
-const SHORT_VIDEO_MAX_DURATION_SECONDS = 180
 const SHORT_VIDEO_DETECTION_VERSION = 1
 const ANKI_REVIEW_CHUNK_SIZE = 60
 const ANKI_REVIEW_CHUNK_POINTS = 20
@@ -5707,44 +5717,6 @@ function resetApp() {
 // YOUTUBE API
 // ════════════════════════════════════════════════════════════
 
-// Every channel has a hidden uploads playlist: swap "UC" prefix for "UU"
-function uploadsId(channelId) { return 'UU' + channelId.slice(2) }
-
-function parseDuration(iso) {
-  if (!iso) return 0  // live streams / premieres have no duration field
-  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
-  return m ? (parseInt(m[1]||0)*3600 + parseInt(m[2]||0)*60 + parseInt(m[3]||0)) : 0
-}
-
-function isShortDuration(seconds) {
-  const duration = Number(seconds || 0)
-  return duration > 0 && duration < SHORT_VIDEO_MAX_DURATION_SECONDS
-}
-
-function isShortVideoDetail(detail = {}) {
-  return isShortDuration(detail.duration)
-}
-
-function normalizeVideoAspectRatio(value) {
-  const ratio = Number(value)
-  return Number.isFinite(ratio) && ratio >= 0.25 && ratio <= 4 ? ratio : null
-}
-
-function getVideoAspectRatioFromItem(item) {
-  const width = Number(item?.player?.embedWidth)
-  const height = Number(item?.player?.embedHeight)
-  return width > 0 && height > 0 ? normalizeVideoAspectRatio(width / height) : null
-}
-
-function getVideoDetailFromItem(item) {
-  const detail = {
-    duration: parseDuration(item?.contentDetails?.duration),
-    aspectRatio: getVideoAspectRatioFromItem(item)
-  }
-  detail.isShort = isShortVideoDetail(detail)
-  return detail
-}
-
 async function ytFetch(url) {
   const res = await fetch(url)
   if (!res.ok) {
@@ -5752,55 +5724,6 @@ async function ytFetch(url) {
     throw new Error(err?.error?.message || `HTTP ${res.status}`)
   }
   return res.json()
-}
-
-function normalizeYoutubeUrlHost(hostname = '') {
-  return String(hostname || '').toLowerCase().replace(/^www\./, '').replace(/^m\./, '')
-}
-
-function isYoutubeHost(host) {
-  return host === 'youtube.com' || host.endsWith('.youtube.com') || host === 'youtube-nocookie.com'
-}
-
-function decodePathPart(value = '') {
-  try {
-    return decodeURIComponent(value)
-  } catch {
-    return value
-  }
-}
-
-function parseYoutubeChannelInput(value) {
-  const raw = String(value || '').trim()
-  if (!raw) return null
-  if (YOUTUBE_CHANNEL_ID_RE.test(raw)) return { kind: 'id', channelId: raw }
-  if (YOUTUBE_HANDLE_RE.test(raw)) return { kind: 'handle', handle: raw }
-
-  const normalized = /^[a-z][a-z\d+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`
-  try {
-    const url = new URL(normalized)
-    const host = normalizeYoutubeUrlHost(url.hostname)
-    if (!isYoutubeHost(host)) return null
-
-    const parts = url.pathname.split('/').filter(Boolean).map(decodePathPart)
-    const [first, second] = parts
-    if (first === 'channel' && YOUTUBE_CHANNEL_ID_RE.test(second || '')) {
-      return { kind: 'id', channelId: second }
-    }
-    if (YOUTUBE_HANDLE_RE.test(first || '')) {
-      return { kind: 'handle', handle: first }
-    }
-    if (first === 'user' && second) {
-      return { kind: 'username', username: second }
-    }
-    if ((first === 'c' && second) || (first && !['watch', 'embed', 'shorts', 'live', 'playlist'].includes(first))) {
-      return { kind: 'custom-url' }
-    }
-  } catch {
-    return null
-  }
-
-  return null
 }
 
 async function fetchYoutubeChannelByFilter(filter, value) {
@@ -5849,14 +5772,6 @@ async function fetchChannelVideosPage(channel, pageToken = '') {
   }
 }
 
-function getBestThumbnail(thumbnails = {}) {
-  return thumbnails.maxres?.url
-    || thumbnails.high?.url
-    || thumbnails.medium?.url
-    || thumbnails.default?.url
-    || ''
-}
-
 async function hydrateYoutubeChannelProfiles(channels = []) {
   const missingChannels = Array.from(new Map(
     channels
@@ -5882,34 +5797,6 @@ async function hydrateYoutubeChannelProfiles(channels = []) {
   }
 
   return updatedCount
-}
-
-function parseYoutubeVideoId(value) {
-  const raw = String(value || '').trim()
-  if (/^[A-Za-z0-9_-]{11}$/.test(raw)) return raw
-
-  const normalized = /^[a-z][a-z\d+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`
-  try {
-    const url = new URL(normalized)
-    const host = url.hostname.replace(/^www\./, '').replace(/^m\./, '')
-    if (host === 'youtu.be') {
-      const id = url.pathname.split('/').filter(Boolean)[0]
-      if (/^[A-Za-z0-9_-]{11}$/.test(id || '')) return id
-    }
-    if (host === 'youtube.com' || host.endsWith('.youtube.com') || host === 'youtube-nocookie.com') {
-      const watchedId = url.searchParams.get('v')
-      if (/^[A-Za-z0-9_-]{11}$/.test(watchedId || '')) return watchedId
-      const parts = url.pathname.split('/').filter(Boolean)
-      if (['embed', 'shorts', 'live', 'v'].includes(parts[0]) && /^[A-Za-z0-9_-]{11}$/.test(parts[1] || '')) {
-        return parts[1]
-      }
-    }
-  } catch {
-    // Fall back to pattern matching below.
-  }
-
-  const match = raw.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/|v\/))([A-Za-z0-9_-]{11})/)
-  return match?.[1] || ''
 }
 
 async function fetchVideoMetadata(videoId) {
@@ -6465,10 +6352,6 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
     mergedCount: videosToMerge.length,
     skippedShorts: includeShorts ? 0 : videos.length - videosToMerge.length
   }
-}
-
-function isYoutubeVideoId(id) {
-  return /^[\w-]{11}$/.test(String(id || ''))
 }
 
 function hasKnownVideoDuration(video) {

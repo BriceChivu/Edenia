@@ -382,3 +382,39 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the four pure functions in the entry
   point. Existing stored progress and coverage data require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-012 — Extract pure YouTube parsing
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Separate deterministic YouTube identifiers, URLs, durations, aspect
+  ratios, upload-playlist derivation, and thumbnail selection from network and state
+  orchestration.
+- **Conceptual change:** Moved the browser app's channel-ID and Unicode-handle
+  rules plus its pure channel/video input, ISO-like duration, short-duration,
+  video-detail, aspect-ratio, uploads-playlist, thumbnail, and stored-video-ID
+  helpers into
+  `src/integrations/youtube-parsing.js`. Existing entry-point names are retained
+  through import aliases; no fetch function moved.
+- **Preservation contract:** The browser's deliberately permissive 20-or-more
+  channel-ID suffix remains distinct from stricter catalog scripts. Unicode handle
+  rules, supported hosts and path shapes, scheme inference, decode fallback, custom
+  channel classification, eleven-character video IDs, permissive raw fallback
+  matching, duration regex behavior, strict-below-180 Shorts boundary, ratio bounds,
+  duration-only Short classification, and thumbnail precedence remain exact.
+- **Risks:** Tightening validation or unifying catalog and browser regexes could
+  reject currently accepted channels, handles, or pasted videos. Host or path
+  changes could alter manual-add and search routing.
+- **Verification:** Twenty-nine of twenty-nine contracts passed, including
+  permissive channel IDs, Unicode handles, duration quirks, Shorts boundaries,
+  aspect-ratio coercion, thumbnail fallback, supported and rejected channel paths,
+  all video URL forms, false-positive fallback hosts, and legacy 12-character ID
+  truncation. A serial Playwright run passed 19 scenarios with 5 expected
+  locale-project skips, and all 18 protected visual baselines remained unchanged.
+- **Rollback:** Revert this commit to restore the parsing constants and functions in
+  the entry point. Network behavior and stored state require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
