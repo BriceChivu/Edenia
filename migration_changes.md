@@ -984,3 +984,33 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore backup storage functions inline;
   primary state and existing backup entries require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-030 — Extract onboarding option catalogs
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, product configuration, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move immutable onboarding product options out of the composition entry
+  without changing their content or consumers.
+- **Conceptual change:** Added `src/features/onboarding/options.js` for the eight
+  learner-language options, five level options, and fifteen channel-style
+  translation-key mappings. Onboarding state, recommendation logic, rendering,
+  selections, ordering, localization, persistence, and analytics are unchanged.
+- **Preservation contract:** Every ID, array/object order, label, short label, icon,
+  detail sentence, style name, translation key, capitalization, punctuation, and
+  Unicode character remains exact. Exported arrays and objects retain normal
+  mutable JavaScript semantics.
+- **Risks:** Reordering options, normalizing style names, or editing seemingly
+  redundant English copy would change selection order, recommendation inputs, or
+  localized lookup.
+- **Verification:** `npm test` passed all 108 contracts, including exact deep
+  equality for all language options, level options, and style translation-key
+  mappings. The serial Playwright suite passed 19 flows with 5 expected
+  project-scoped skips across all six required viewports; all 18 protected
+  screenshots remained unchanged. Migration-ledger verification follows the commit.
+- **Rollback:** Revert this commit to restore the three constants inline; learner
+  profiles and translations require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
