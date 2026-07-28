@@ -45,6 +45,15 @@ import {
   hasYoutubeApiKey
 } from './integrations/runtime-config.js'
 import {
+  getEdeniaSessionReplayUrl,
+  getPosthogDistinctId,
+  hasEdeniaAnalyticsStateSync,
+  isEdeniaAnalyticsEnabled,
+  setEdeniaPersonProperties,
+  syncEdeniaAnalyticsState,
+  trackEdeniaEvent
+} from './integrations/analytics-bridge.js'
+import {
   formatLocaleDate,
   formatLocaleDateTime,
   getBrowserDefaultLocale,
@@ -1194,10 +1203,8 @@ function normalizeIncludeShorts(value) {
 }
 
 function isTemporaryShortsWhitelistedUser() {
-  if (!window.EDENIA_ANALYTICS_ENABLED) return false
-  const getDistinctId = window.posthog?.get_distinct_id
-  if (typeof getDistinctId !== 'function') return false
-  return TEMP_SHORTS_DISTINCT_IDS.has(getDistinctId.call(window.posthog))
+  if (!isEdeniaAnalyticsEnabled()) return false
+  return TEMP_SHORTS_DISTINCT_IDS.has(getPosthogDistinctId())
 }
 
 function normalizeAnkiEnabled(value) {
@@ -1838,13 +1845,13 @@ function getEdeniaAnalyticsSnapshot(state) {
 function syncPersistedStateToAnalytics(state) {
   if (
     IS_SANDBOX
-    || !window.EDENIA_ANALYTICS_ENABLED
-    || typeof window.syncEdeniaAnalyticsState !== 'function'
+    || !isEdeniaAnalyticsEnabled()
+    || !hasEdeniaAnalyticsStateSync()
     || !state
   ) return
 
   try {
-    window.syncEdeniaAnalyticsState(getEdeniaAnalyticsSnapshot(state))
+    syncEdeniaAnalyticsState(getEdeniaAnalyticsSnapshot(state))
   } catch {}
 }
 
@@ -3503,7 +3510,7 @@ function showOnboardingRecovery(reason = 'setup', { state = null, resume = 'pers
   panel.classList.remove('hidden')
   document.body.classList.add('onboarding-active')
   document.getElementById('mainApp')?.setAttribute('inert', '')
-  window.trackEdeniaEvent?.('onboarding_recovery_shown', {
+  trackEdeniaEvent('onboarding_recovery_shown', {
     reason: normalizedReason,
     resume_target: onboardingRecoveryState.resume,
     navigator_language: navigator.language || null
@@ -3551,7 +3558,7 @@ async function copyOnboardingRecoveryLink(button) {
       if (button.isConnected) button.textContent = originalLabel
     }, 2200)
   }
-  window.trackEdeniaEvent?.('onboarding_recovery_link_copy', { success: copied })
+  trackEdeniaEvent('onboarding_recovery_link_copy', { success: copied })
 }
 
 function retryOnboardingRecovery(button) {
@@ -3562,7 +3569,7 @@ function retryOnboardingRecovery(button) {
   if (!canPersistLocalState()) {
     if (status) status.textContent = t('onboarding.recovery.storageStillUnavailable')
     if (button) button.disabled = false
-    window.trackEdeniaEvent?.('onboarding_recovery_retry', { success: false, reason: 'storage' })
+    trackEdeniaEvent('onboarding_recovery_retry', { success: false, reason: 'storage' })
     return
   }
 
@@ -3571,7 +3578,7 @@ function retryOnboardingRecovery(button) {
   if (!saveState(state, { backup: false })) {
     if (status) status.textContent = t('onboarding.recovery.storageStillUnavailable')
     if (button) button.disabled = false
-    window.trackEdeniaEvent?.('onboarding_recovery_retry', { success: false, reason: 'storage' })
+    trackEdeniaEvent('onboarding_recovery_retry', { success: false, reason: 'storage' })
     return
   }
 
@@ -3579,7 +3586,7 @@ function retryOnboardingRecovery(button) {
   const recoveryReason = onboardingRecoveryState.reason
   closeOnboardingRecovery()
   if (resume === 'complete') {
-    window.trackEdeniaEvent?.('onboarding_recovery_retry', { success: true, reason: recoveryReason })
+    trackEdeniaEvent('onboarding_recovery_retry', { success: true, reason: recoveryReason })
     window.location.assign(getPostOnboardingAppUrl())
     return
   }
@@ -3590,10 +3597,10 @@ function retryOnboardingRecovery(button) {
     showOnboardingRecovery('setup', { state, resume })
     const nextStatus = document.getElementById('onboardingRecoveryStatus')
     if (nextStatus) nextStatus.textContent = t('onboarding.recovery.setupStillUnavailable')
-    window.trackEdeniaEvent?.('onboarding_recovery_retry', { success: false, reason: 'setup' })
+    trackEdeniaEvent('onboarding_recovery_retry', { success: false, reason: 'setup' })
     return
   }
-  window.trackEdeniaEvent?.('onboarding_recovery_retry', { success: true, reason: recoveryReason })
+  trackEdeniaEvent('onboarding_recovery_retry', { success: true, reason: recoveryReason })
 }
 
 function renderPersonalizedOnboarding() {
@@ -3614,7 +3621,7 @@ function renderPersonalizedOnboarding() {
   panel?.classList.toggle('is-channel-step', personalizedOnboardingState.step === 'channels')
   localePicker?.classList.toggle('hidden', personalizedOnboardingState.step !== 'language')
   if (personalizedOnboardingState.lastTrackedStep !== personalizedOnboardingState.step) {
-    window.trackEdeniaEvent?.('onboarding_step_viewed', {
+    trackEdeniaEvent('onboarding_step_viewed', {
       step_name: personalizedOnboardingState.step,
       step_number: stepIndex + 1,
       total_steps: stepOrder.length,
@@ -3771,7 +3778,7 @@ function setPersonalizedOnboardingStep(step) {
   const nextIndex = stepOrder.indexOf(step)
   personalizedOnboardingState.step = step
   if (previousStep !== step) {
-    window.trackEdeniaEvent?.(
+    trackEdeniaEvent(
       nextIndex >= previousIndex ? 'onboarding_step_advanced' : 'onboarding_step_backed',
       {
         previous_step: previousStep,
@@ -3962,7 +3969,7 @@ async function finishPersonalizedOnboarding() {
     showOnboardingRecovery('storage', { state, resume: 'complete' })
     return
   }
-  window.trackEdeniaEvent?.('onboarding_completed', {
+  trackEdeniaEvent('onboarding_completed', {
     learning_languages: state.learnerProfile.languages,
     learner_level: state.learnerProfile.level || null,
     selected_channel_count: state.learnerProfile.selectedChannelCatalogIds.length,
@@ -4126,7 +4133,7 @@ function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {
   window.addEventListener('scroll', scheduleWalkthroughPosition, true)
   document.addEventListener('click', handleWalkthroughTargetClick)
   document.addEventListener('keydown', handleWalkthroughKey)
-  window.trackEdeniaEvent?.('walkthrough_started', {
+  trackEdeniaEvent('walkthrough_started', {
     source: walkthroughState.source,
     first_step_id: availableSteps[walkthroughState.index]?.id || null,
     total_steps: availableSteps.length,
@@ -4234,7 +4241,7 @@ function renderWalkthroughStep() {
   elements.card.classList.toggle('walkthrough-card-confirmation', step.confirmationOnly === true)
   const stepKey = `${walkthroughState.index}:${step.id || step.textKey || 'step'}`
   if (walkthroughState.lastTrackedStepKey !== stepKey) {
-    window.trackEdeniaEvent?.('walkthrough_step_viewed', {
+    trackEdeniaEvent('walkthrough_step_viewed', {
       source: walkthroughState.source,
       step_id: step.id || null,
       step_number: walkthroughState.index + 1,
@@ -4270,7 +4277,7 @@ function moveWalkthrough(delta) {
   const previousStep = walkthroughState.steps[walkthroughState.index]
   const nextStep = walkthroughState.steps[nextIndex]
   showWalkthroughStep(nextIndex, { direction: delta })
-  window.trackEdeniaEvent?.(
+  trackEdeniaEvent(
     delta >= 0 ? 'walkthrough_step_advanced' : 'walkthrough_step_backed',
     {
       source: walkthroughState.source,
@@ -4336,12 +4343,12 @@ function endWalkthrough(options = {}) {
   runWalkthroughHooks(currentStep, 'afterExit', { completed: markCompleted })
   if (markCompleted) completeWalkthrough()
   if (endReason === 'skipped') {
-    window.trackEdeniaEvent?.('walkthrough_skipped', analyticsProperties)
+    trackEdeniaEvent('walkthrough_skipped', analyticsProperties)
   }
   if (endReason === 'completed') {
-    window.trackEdeniaEvent?.('walkthrough_completed', analyticsProperties)
+    trackEdeniaEvent('walkthrough_completed', analyticsProperties)
   }
-  window.trackEdeniaEvent?.('walkthrough_ended', analyticsProperties)
+  trackEdeniaEvent('walkthrough_ended', analyticsProperties)
   if (endedNoAnkiPrompt && !loadState()?.noAnkiFrequentUserPrompt?.response) {
     ankiRefreshDeferredForPrompt = false
     applyAnkiRefreshPreference()
@@ -5470,7 +5477,7 @@ async function addChannel(options = {}) {
   saveState(s)
   const catalogSource = String(options.catalogSource || '')
   const isCatalogCandidate = !['curated', 'community', 'discovery'].includes(catalogSource)
-  window.trackEdeniaEvent?.('channel_added_via_add_button', {
+  trackEdeniaEvent('channel_added_via_add_button', {
     channel_id: id,
     channel_name: name,
     channel_thumbnail_url: resolved.thumbnail || '',
@@ -5904,7 +5911,7 @@ function getVideoFavoriteCount(state) {
 }
 
 function trackVideoFavoriteChanged(state, video, previousFavorite, surface) {
-  window.trackEdeniaEvent?.('video_favorite_changed', getVideoAnalyticsProperties(video, {
+  trackEdeniaEvent('video_favorite_changed', getVideoAnalyticsProperties(video, {
     favorite: isFavoriteVideo(video),
     previous_favorite: previousFavorite === true,
     current_status: getVideoStatus(video),
@@ -6426,7 +6433,7 @@ function refetchAllChannelsAfterShortsEnabled({ force = false } = {}) {
 }
 
 function trackRefreshCompleted(startedAtMs, properties = {}) {
-  window.trackEdeniaEvent?.('refresh_completed', {
+  trackEdeniaEvent('refresh_completed', {
     trigger: properties.trigger || 'automatic',
     result: properties.result || 'failure',
     failure_reason: properties.failureReason || null,
@@ -6441,7 +6448,7 @@ function trackRefreshCompleted(startedAtMs, properties = {}) {
 
 async function refreshFeed({ silent = false, channelIds = null, trigger = 'automatic' } = {}) {
   const refreshStartedAtMs = Date.now()
-  window.trackEdeniaEvent?.('refresh_started', {
+  trackEdeniaEvent('refresh_started', {
     trigger,
     requested_channel_count: Array.isArray(channelIds) ? channelIds.length : null,
     silent: Boolean(silent)
@@ -6628,7 +6635,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
 async function refreshAddedChannel(channelId, options = {}) {
   if (IS_SANDBOX) return
   const refreshStartedAtMs = Date.now()
-  window.trackEdeniaEvent?.('refresh_started', {
+  trackEdeniaEvent('refresh_started', {
     trigger: 'channel_added',
     requested_channel_count: 1,
     silent: false
@@ -6942,7 +6949,7 @@ function finalizeRenderedVideoWatchPrompt(state, video, prompt, rewatch = false)
     : prompt.classList.contains('is-global')
       ? 'global_reminder'
       : 'video_card'
-  window.trackEdeniaEvent?.('video_completion_prompt_shown', getVideoAnalyticsProperties(video, {
+  trackEdeniaEvent('video_completion_prompt_shown', getVideoAnalyticsProperties(video, {
     is_rewatch: rewatch === true,
     surface,
     current_status: getVideoStatus(video),
@@ -7132,7 +7139,7 @@ function completeVideoWatchReminderDismissal(videoId) {
   const isRewatch = state.videoWatchReminders?.[videoId]?.rewatch === true
   clearVideoWatchReminderInState(state, videoId)
   saveState(state, { backup: false })
-  window.trackEdeniaEvent?.('video_completion_prompt_dismissed', getVideoAnalyticsProperties(video, {
+  trackEdeniaEvent('video_completion_prompt_dismissed', getVideoAnalyticsProperties(video, {
     is_rewatch: isRewatch,
     surface: 'watch_reminder'
   }))
@@ -7177,7 +7184,7 @@ function confirmVideoWatchPrompt(event, videoId, rewatch = false, playerPrompt =
       const video = loadState()?.videos?.[targetVideoId]
       const completed = completeVideoShelfPlayerRewatchConfirmation(session)
       if (completed) {
-        window.trackEdeniaEvent?.('video_completion_prompt_accepted', getVideoAnalyticsProperties(video, {
+        trackEdeniaEvent('video_completion_prompt_accepted', getVideoAnalyticsProperties(video, {
           is_rewatch: true,
           surface: 'embedded_player'
         }))
@@ -7194,7 +7201,7 @@ function confirmVideoWatchPrompt(event, videoId, rewatch = false, playerPrompt =
       surface: 'embedded_player_prompt'
     })
     if (marked) {
-      window.trackEdeniaEvent?.(
+      trackEdeniaEvent(
         'video_completion_prompt_accepted',
         getVideoAnalyticsProperties(loadState()?.videos?.[targetVideoId], {
           is_rewatch: false,
@@ -7209,7 +7216,7 @@ function confirmVideoWatchPrompt(event, videoId, rewatch = false, playerPrompt =
   if (!rewatch) {
     const marked = markVideo(targetVideoId, 'watched', { surface: 'watch_reminder_prompt' })
     if (marked) {
-      window.trackEdeniaEvent?.(
+      trackEdeniaEvent(
         'video_completion_prompt_accepted',
         getVideoAnalyticsProperties(loadState()?.videos?.[targetVideoId], {
           is_rewatch: false,
@@ -7233,7 +7240,7 @@ function confirmVideoWatchPrompt(event, videoId, rewatch = false, playerPrompt =
   if (!recordVideoRewatch(state, video, rewatchSeconds)) return false
   saveState(state)
   trackVideoRewatchCompleted(state, video, rewatchSeconds, 'watch_reminder')
-  window.trackEdeniaEvent?.('video_completion_prompt_accepted', getVideoAnalyticsProperties(video, {
+  trackEdeniaEvent('video_completion_prompt_accepted', getVideoAnalyticsProperties(video, {
     is_rewatch: true,
     surface: 'watch_reminder'
   }))
@@ -7253,7 +7260,7 @@ function dismissVideoWatchPrompt(event, videoId, playerPrompt = false) {
     const video = loadState()?.videos?.[targetVideoId]
     const isRewatch = session.isRewatch === true
     dismissVideoShelfCompletionPrompt(session)
-    window.trackEdeniaEvent?.('video_completion_prompt_dismissed', getVideoAnalyticsProperties(video, {
+    trackEdeniaEvent('video_completion_prompt_dismissed', getVideoAnalyticsProperties(video, {
       is_rewatch: isRewatch,
       surface: 'embedded_player'
     }))
@@ -7405,7 +7412,7 @@ function recordVideoRewatch(state, video, seconds = null, options = {}) {
 }
 
 function trackVideoRewatchCompleted(state, video, rewatchSeconds, surface) {
-  window.trackEdeniaEvent?.('video_rewatch_completed', getVideoAnalyticsProperties(video, {
+  trackEdeniaEvent('video_rewatch_completed', getVideoAnalyticsProperties(video, {
     rewatch_seconds: Math.max(0, Math.floor(Number(rewatchSeconds) || 0)),
     surface: surface || 'watch_reminder',
     total_rewatch_count: Math.max(0, Number(state?.totalRewatchCount) || 0)
@@ -7547,7 +7554,7 @@ function markVideo(videoId, requestedStatus, options = {}) {
   }
 
   saveState(s)
-  window.trackEdeniaEvent?.('video_status_changed', getVideoAnalyticsProperties(video, {
+  trackEdeniaEvent('video_status_changed', getVideoAnalyticsProperties(video, {
     previous_status: previousStatus,
     new_status: newStatus,
     previous_watch_later: previousWatchLater,
@@ -7700,7 +7707,7 @@ function setVideoAside(videoId, options = {}) {
   if (previousFavorite) {
     trackVideoFavoriteChanged(s, video, true, 'set_aside')
   }
-  window.trackEdeniaEvent?.('video_set_aside', getVideoAnalyticsProperties(video, {
+  trackEdeniaEvent('video_set_aside', getVideoAnalyticsProperties(video, {
     previous_status: previousStatus,
     previous_watch_later: previousWatchLater,
     previous_favorite: previousFavorite,
@@ -7755,7 +7762,7 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
   const previousStatus = getVideoStatus(video)
   const openedAt = getCurrentAppTimestamp(s)
   s.lastVideoOpenedAt = openedAt
-  window.trackEdeniaEvent?.('video_opened', getVideoAnalyticsProperties(video, {
+  trackEdeniaEvent('video_opened', getVideoAnalyticsProperties(video, {
     previous_status: previousStatus,
     resumed: hasVideoResumePriority(video) && normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) !== null,
     resume_at_seconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration),
@@ -8152,7 +8159,7 @@ function renderManualChannelSuggestions() {
       ${renderManualYoutubeSearchAction(value)}
     `
     if (searchAnalyticsState.lastChannelCatalogOutcomeKey !== outcomeKey) {
-      window.trackEdeniaEvent?.('search_no_results', {
+      trackEdeniaEvent('search_no_results', {
         search_source: 'channel_catalog',
         search_query: value,
         query_length: value.length,
@@ -8193,7 +8200,7 @@ function renderManualChannelSuggestions() {
   }).join('')
   list.innerHTML = `${localSuggestions}${renderManualYoutubeSearchAction(value)}`
   if (searchAnalyticsState.lastChannelCatalogOutcomeKey !== outcomeKey) {
-    window.trackEdeniaEvent?.('search_results_shown', {
+    trackEdeniaEvent('search_results_shown', {
       search_source: 'channel_catalog',
       search_query: value,
       query_length: value.length,
@@ -8312,7 +8319,7 @@ function renderYoutubeChannelSearchResults(query, results, options = {}) {
 
   if (!results.length) {
     list.innerHTML = `<p class="manual-channel-suggestion-empty">${escHtml(t('videos.manual.youtubeNoMatches'))}</p>`
-    window.trackEdeniaEvent?.('search_no_results', {
+    trackEdeniaEvent('search_no_results', {
       search_source: 'youtube_channels',
       search_query: query,
       query_length: query.length,
@@ -8355,7 +8362,7 @@ function renderYoutubeChannelSearchResults(query, results, options = {}) {
     <div class="manual-youtube-results-label">${escHtml(t('videos.manual.youtubeResults'))}</div>
     ${resultRows}
   `
-  window.trackEdeniaEvent?.('search_results_shown', {
+  trackEdeniaEvent('search_results_shown', {
     search_source: 'youtube_channels',
     search_query: query,
     query_length: query.length,
@@ -8386,7 +8393,7 @@ async function searchYoutubeChannels(event) {
   const list = document.getElementById('manualChannelSuggestions')
   const query = input?.value?.trim() || ''
   if (!input || !list || query.length < 2) return
-  window.trackEdeniaEvent?.('search_started', {
+  trackEdeniaEvent('search_started', {
     search_source: 'youtube_channels',
     search_query: query,
     query_length: query.length,
@@ -8400,7 +8407,7 @@ async function searchYoutubeChannels(event) {
   }
   if (!hasYoutubeApiKey()) {
     showToast(t('toast.apiKeyMissing'), 'warn')
-    window.trackEdeniaEvent?.('search_failed', {
+    trackEdeniaEvent('search_failed', {
       search_source: 'youtube_channels',
       search_query: query,
       query_length: query.length,
@@ -8412,7 +8419,7 @@ async function searchYoutubeChannels(event) {
   const usage = getYoutubeChannelSearchUsage()
   if (usage.count >= YOUTUBE_CHANNEL_SEARCH_DAILY_LIMIT) {
     renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchLimit', query)
-    window.trackEdeniaEvent?.('search_failed', {
+    trackEdeniaEvent('search_failed', {
       search_source: 'youtube_channels',
       search_query: query,
       query_length: query.length,
@@ -8425,7 +8432,7 @@ async function searchYoutubeChannels(event) {
   const lastRequestAt = Number(searchYoutubeChannels.lastRequestAt || 0)
   if (now - lastRequestAt < YOUTUBE_CHANNEL_SEARCH_COOLDOWN_MS) {
     renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchCooldown', query)
-    window.trackEdeniaEvent?.('search_failed', {
+    trackEdeniaEvent('search_failed', {
       search_source: 'youtube_channels',
       search_query: query,
       query_length: query.length,
@@ -8447,7 +8454,7 @@ async function searchYoutubeChannels(event) {
   } catch (error) {
     console.warn(error)
     renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchUnavailable', query)
-    window.trackEdeniaEvent?.('search_failed', {
+    trackEdeniaEvent('search_failed', {
       search_source: 'youtube_channels',
       search_query: query,
       query_length: query.length,
@@ -8559,7 +8566,7 @@ function selectManualChannelSuggestion(event, catalogId) {
   event?.stopPropagation()
   const option = event?.currentTarget
   const query = document.getElementById('manualVideoUrlInput')?.value?.trim() || ''
-  window.trackEdeniaEvent?.('search_result_selected', {
+  trackEdeniaEvent('search_result_selected', {
     search_source: option?.dataset?.suggestionSource === 'discovery'
       ? 'discovery_catalog'
       : 'channel_catalog',
@@ -8584,7 +8591,7 @@ async function selectYoutubeChannelSearchResult(event, channelId) {
   if (!result || !input) return
 
   const alreadyAdded = (loadState()?.config?.channels || []).some(channel => channel.id === result.id)
-  window.trackEdeniaEvent?.('search_result_selected', {
+  trackEdeniaEvent('search_result_selected', {
     search_source: 'youtube_channels',
     search_query: input.value.trim(),
     query_length: input.value.trim().length,
@@ -8823,7 +8830,7 @@ function applyHistoryAction(direction, actionIndex) {
   closeHistoryActionPopovers()
   saveState(s)
   const affectedVideo = action.videoId ? s.videos?.[action.videoId] : null
-  window.trackEdeniaEvent?.(`${direction}_applied`, {
+  trackEdeniaEvent(`${direction}_applied`, {
     action_type: action.type,
     video_url: affectedVideo
       ? getVideoAnalyticsProperties(affectedVideo).video_url
@@ -8840,7 +8847,7 @@ function applyHistoryAction(direction, actionIndex) {
     )
   }
   if (action.type === 'video-status' && affectedVideo) {
-    window.trackEdeniaEvent?.('video_status_changed', getVideoAnalyticsProperties(affectedVideo, {
+    trackEdeniaEvent('video_status_changed', getVideoAnalyticsProperties(affectedVideo, {
       previous_status: normalizeVideoStatus(previousSnapshot?.status),
       new_status: getVideoStatus(affectedVideo),
       previous_watch_later: Boolean(previousSnapshot?.video?.watchLater),
@@ -9256,7 +9263,7 @@ function syncAnkiStatsToState(stats) {
       dueCards: stats.dueCards
     }
   })
-  window.trackEdeniaEvent?.('anki_refresh_succeeded', {
+  trackEdeniaEvent('anki_refresh_succeeded', {
     refreshed_at: stats.fetchedAt || new Date().toISOString(),
     anki_date: ankiDateKey,
     reviewed_today: tracked.reviewed,
@@ -9932,7 +9939,7 @@ function toggleVideoSearchPopover(event) {
   popover.classList.remove('hidden')
   button.setAttribute('aria-expanded', 'true')
   searchAnalyticsState.lastSavedVideoOutcomeKey = null
-  window.trackEdeniaEvent?.('search_opened', {
+  trackEdeniaEvent('search_opened', {
     search_source: 'saved_videos',
     search_query: input.value.trim(),
     current_video_count: Object.keys(loadState()?.videos || {}).length
@@ -9990,7 +9997,7 @@ function renderVideoSearchResults(query = '') {
   if (!results.length) {
     list.innerHTML = `<p class="video-search-empty">${escHtml(t('videos.search.noMatches'))}</p>`
     if (searchAnalyticsState.lastSavedVideoOutcomeKey !== outcomeKey) {
-      window.trackEdeniaEvent?.('search_no_results', {
+      trackEdeniaEvent('search_no_results', {
         search_source: 'saved_videos',
         search_query: rawQuery,
         query_length: normalizedQuery.length,
@@ -10017,7 +10024,7 @@ function renderVideoSearchResults(query = '') {
     </button>
   `).join('')
   if (searchAnalyticsState.lastSavedVideoOutcomeKey !== outcomeKey) {
-    window.trackEdeniaEvent?.('search_results_shown', {
+    trackEdeniaEvent('search_results_shown', {
       search_source: 'saved_videos',
       search_query: rawQuery,
       query_length: normalizedQuery.length,
@@ -10103,7 +10110,7 @@ function jumpToVideoFromSearch(videoId) {
   const inputQuery = normalizeVideoSearchText(rawInputQuery)
   const results = getVideoSearchMatches(inputQuery, state)
   const video = state.videos[targetId]
-  window.trackEdeniaEvent?.('search_result_selected', getVideoAnalyticsProperties(video, {
+  trackEdeniaEvent('search_result_selected', getVideoAnalyticsProperties(video, {
     search_source: 'saved_videos',
     search_query: rawInputQuery,
     query_length: inputQuery.length,
@@ -13628,7 +13635,7 @@ function trackVideoPlaybackSessionEnded(session, exitReason) {
   ) return false
 
   const durationSeconds = Math.max(0, Math.floor(Number(video.duration) || 0))
-  window.trackEdeniaEvent?.('video_playback_session_ended', getVideoAnalyticsProperties(video, {
+  trackEdeniaEvent('video_playback_session_ended', getVideoAnalyticsProperties(video, {
     surface: 'channel_shelf',
     player_mode: 'embedded',
     started_at_seconds: previousEndedAtSeconds,
@@ -14899,7 +14906,7 @@ function toggleManualVideoPopover(event) {
   btn.setAttribute('aria-expanded', String(isOpen))
   if (isOpen) {
     searchAnalyticsState.lastChannelCatalogOutcomeKey = null
-    window.trackEdeniaEvent?.('search_opened', {
+    trackEdeniaEvent('search_opened', {
       search_source: 'channel_catalog',
       search_query: input?.value?.trim() || '',
       current_channel_count: loadState()?.config?.channels?.length || 0
@@ -15293,7 +15300,7 @@ function submitFeedback(event) {
     : `feedback-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
   const sessionReplayUrl = IS_LOCAL_FEEDBACK_TEST
     ? null
-    : window.getEdeniaSessionReplayUrl?.() || null
+    : getEdeniaSessionReplayUrl() || null
   const properties = {
     feedback_id: feedbackId,
     feedback_category: category,
@@ -15316,7 +15323,7 @@ function submitFeedback(event) {
   }
 
   if (!IS_LOCAL_FEEDBACK_TEST) {
-    const captured = window.trackEdeniaEvent?.('feedback_submitted', properties)
+    const captured = trackEdeniaEvent('feedback_submitted', properties)
     if (!captured) {
       setFeedbackStatus(t('feedback.unavailable'), 'error')
       return
@@ -15329,7 +15336,7 @@ function submitFeedback(event) {
     }
     if (name) personProperties.name = name
     if (email) personProperties.email = email
-    window.setEdeniaPersonProperties?.(personProperties, {
+    setEdeniaPersonProperties(personProperties, {
       first_feedback_at: submittedAt
     })
   }

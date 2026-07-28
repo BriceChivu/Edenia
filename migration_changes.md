@@ -518,3 +518,37 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore inline environment constants, key
   derivation, and runtime-config accessors. No keys or stored data are migrated.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-016 — Route analytics globals through a late-bound bridge
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, compatibility, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Remove direct analytics-global coupling from product logic without
+  changing the separately loaded analytics entry, event payloads, or ordering.
+- **Conceptual change:** Added `src/integrations/analytics-bridge.js` with transparent
+  call-time access to enablement, state sync, event capture, person properties,
+  session replay, and the temporary PostHog distinct-ID lookup. Product call sites
+  now route through the bridge; root `analytics.js`, script order, snapshot
+  construction, caller-side guards, and caller-side error handling remain in place.
+- **Preservation contract:** All event names, argument counts, properties, return
+  values, receiver binding, exceptions, feedback success handling, replay `|| null`,
+  sandbox/internal separation, temporary Shorts whitelist, state-sync lazy snapshot,
+  and sync-only `try/catch` behavior remain exact. Globals are looked up on every
+  call and may still be installed or replaced after module evaluation.
+- **Risks:** Capturing globals eagerly, losing `window`/PostHog receivers, adding an
+  explicit `undefined` argument, normalizing falsey returns, or moving error handling
+  could silently alter analytics or product behavior.
+- **Verification:** `npm test` passed all 38 contract tests, including absent,
+  replaced, receiver-sensitive, return-value, argument-count, and error-propagation
+  cases. The app call-site audit found no remaining direct Edenia analytics or
+  PostHog access in `src/app.js`. The serial Playwright suite passed 19 flows with
+  5 expected project-scoped skips across all six required viewports; all 18
+  protected screenshots remained unchanged. Migration-ledger verification follows
+  the commit.
+- **Rollback:** Revert this commit to restore direct optional calls to analytics
+  globals. Analytics storage and application state require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
