@@ -1077,3 +1077,35 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the four static step constants inline;
   onboarding/walkthrough state requires no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-033 — Extract the city model
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, feature configuration, state normalization, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Give the city feature a small internal model boundary without
+  changing its visual rendering, progression, scoring, or image loading.
+- **Conceptual change:** Moved the exact city-level catalog, PNG and WebP source
+  lists, derived image-source mapping, level lookup helpers, score-threshold
+  lookup, and in-place progress normalizer from `src/app.js` to
+  `src/features/city/model.js`. The composition entry imports the same mutable
+  values and functions; all consumers and execution order remain unchanged.
+- **Preservation contract:** Level thresholds, translation keys, fallback labels,
+  image paths and ordering, WebP-first fallback pairs, shared level-object
+  identity, threshold/coercion behavior, invalid-index fallback,
+  default/clamped progress, pending-level clearing, scoring-version coercion,
+  mutation semantics, preload behavior, rendering, animation, analytics, and
+  persistence remain exact.
+- **Risks:** A reordered catalog could assign the wrong image or label; changed
+  coercion could unlock, hide, or repeat a level; freezing shared values could
+  change legacy behavior.
+- **Verification:** `npm test` passed all 120 contract tests and the production
+  build. Playwright passed 19 protected browser flows with five expected
+  project-specific skips; all 18 visual baselines remained unchanged. The
+  migration-ledger check is included in this commit gate.
+- **Rollback:** Revert this commit to restore the city constants and normalizer
+  inline; stored city progress requires no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
