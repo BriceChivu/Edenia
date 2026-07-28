@@ -1527,3 +1527,31 @@ release mappings, and follow-up findings are recorded as new entries.
   bridge entries while retaining MIG-045 analytics metadata; city image view
   state is ephemeral and needs no data migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-047 — Lock sandbox control analytics identities
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve generic analytics names for the two static sandbox
+  controls before moving their event ownership.
+- **Conceptual change:** Added explicit `data-analytics-action` values matching
+  the existing `sandbox.addDay` and `sandbox.reset` translation keys. Inline
+  handlers remain in place in this commit.
+- **Preservation contract:** The `sandbox_add_day_clicked` and
+  `sandbox_reset_clicked` event names and properties, sandbox-only visibility
+  and guards, localized labels, date advancement, randomized activity, reset
+  backup, storage isolation, rendering, toast, mouse and keyboard behavior,
+  markup, styling, and accessibility remain exact.
+- **Risks:** A renamed identity would fragment analytics; treating randomized
+  sandbox output as a fixed snapshot would create brittle verification.
+- **Verification:** `npm test` passed all 163 contract tests and the production
+  build. Playwright passed 24 protected flows with 30 expected project skips
+  across the six required viewport projects; all 18 representative screenshots
+  remained unchanged. Migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore translation-derived analytics
+  identities; sandbox and normal stored state remain compatible.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
