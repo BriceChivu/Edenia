@@ -1264,6 +1264,77 @@ test('Activity Log filter listeners preserve live values, rendering, keyboard, a
   expect(removedBridgeAction).toBe(false)
 })
 
+test('Activity Log pagination listener survives generated-button replacement', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'phone-standard')
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.activityLog = Array.from({ length: 45 }, (_, index) => ({
+      id: `protected-pagination-${index}`,
+      createdAt: new Date(Date.UTC(2026, 6, 28, 3, 59 - index)).toISOString(),
+      actor: 'user',
+      type: 'general',
+      status: 'success',
+      title: `Protected pagination entry ${index + 1}`,
+      detail: `Unique detail ${index + 1}`
+    }))
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+  })
+  await page.reload()
+  await waitForApplication(page)
+  await page.locator('.gear-btn[data-settings-shell-action="open"]').click()
+  await page.locator('.activity-log-toggle').click()
+
+  const list = page.locator('#activityLogList')
+  const items = list.locator('.activity-log-item')
+  const moreSelector = '[data-activity-log-action="show-older"]'
+  await expect(items).toHaveCount(20)
+  await expect(list.locator(moreSelector)).toHaveCount(1)
+  const storedBefore = await page.evaluate(() => localStorage.getItem('edenia_v1'))
+
+  await page.evaluate(() => {
+    window.__activityPaginationAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-activity-log-action="show-older"]')) return
+      window.__activityPaginationAtDocumentBubble = {
+        count: document.querySelectorAll('#activityLogList .activity-log-item').length,
+        hasMore: Boolean(
+          document.querySelector(
+            '#activityLogList [data-activity-log-action="show-older"]'
+          )
+        )
+      }
+    }, { once: true })
+  })
+  await list.locator(moreSelector).click()
+  await expect.poll(() => page.evaluate(
+    () => window.__activityPaginationAtDocumentBubble
+  )).toEqual({
+    count: 40,
+    hasMore: true
+  })
+
+  await page.locator('[data-activity-log-filter="user"]').click()
+  await expect(items).toHaveCount(20)
+  await list.locator(moreSelector).press('Enter')
+  await expect(items).toHaveCount(40)
+  await list.locator(moreSelector).press('Space')
+  await expect(items).toHaveCount(45)
+  await expect(list.locator(moreSelector)).toHaveCount(0)
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+  const removedBridgeAction = await page.evaluate(() => (
+    Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'showOlderActivityLogEntries'
+    )
+  ))
+  expect(removedBridgeAction).toBe(false)
+})
+
 test('city zoom listeners preserve fixed steps, limits, reset, keyboard, and ordering', async ({
   page
 }, testInfo) => {

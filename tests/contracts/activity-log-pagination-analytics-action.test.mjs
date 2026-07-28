@@ -14,17 +14,18 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('Activity Log pagination locks identity and retains its inline handler', () => {
+test('Activity Log pagination retains identity without an inline handler', () => {
   assert.equal(controls.length, 1)
   const [control] = controls
+  assert.equal(
+    getAttribute(control, 'data-activity-log-action'),
+    'show-older'
+  )
   assert.equal(
     getAttribute(control, 'data-analytics-action'),
     'showOlderActivityLogEntries'
   )
-  assert.equal(
-    getAttribute(control, 'onclick'),
-    'showOlderActivityLogEntries()'
-  )
+  assert.equal(getAttribute(control, 'onclick'), null)
 })
 
 test('Activity Log pagination retains its exact generic event name', () => {

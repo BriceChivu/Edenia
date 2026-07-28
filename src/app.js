@@ -178,6 +178,7 @@ import {
 import { bindWatchedSectionActions } from './features/videos/watched-section-actions.js'
 import { bindStudyInsightActions } from './features/study-insights/actions.js'
 import { bindActivityLogFilterActions } from './features/settings/activity-log-filter-actions.js'
+import { bindActivityLogPaginationActions } from './features/settings/activity-log-pagination-actions.js'
 import { bindSettingsAccordionActions } from './features/settings/accordion-actions.js'
 import { bindSettingsReplayActions } from './features/settings/replay-actions.js'
 import { bindSettingsResetConfirmActions } from './features/settings/reset-confirm-actions.js'
@@ -3966,7 +3967,7 @@ function getMobileActivityLogPage(entries, { groupAnki = false } = {}) {
 function appendMobileActivityLogMoreButton(list, totalCount) {
   if (!isMobileLayout() || totalCount <= mobileActivityLogVisibleCount) return
   list.insertAdjacentHTML('beforeend', `
-    <button class="btn-ghost activity-log-more" type="button" onclick="showOlderActivityLogEntries()" data-analytics-action="showOlderActivityLogEntries">${escHtml(t('activity.showOlder'))}</button>
+    <button class="btn-ghost activity-log-more" type="button" data-activity-log-action="show-older" data-analytics-action="showOlderActivityLogEntries">${escHtml(t('activity.showOlder'))}</button>
   `)
 }
 
@@ -13832,6 +13833,9 @@ bindSettingsAccordionActions(document, {
 bindActivityLogFilterActions(document, {
   setFilter: setActivityLogFilter
 })
+bindActivityLogPaginationActions(document, {
+  showOlder: showOlderActivityLogEntries
+})
 bindStudyHistoryViewActions(document, {
   setView: setHistoryView
 })
@@ -13945,7 +13949,6 @@ installLegacyActions(window, {
   setPersonalizedOnboardingStep,
   setStatusFilter,
   showHeatmapTooltip,
-  showOlderActivityLogEntries,
   startChannelShelfDrag,
   startTouchChannelShelfDrag,
   stopHistoryActionAutoScroll,

@@ -2103,3 +2103,37 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore handler-derived analytics
   identity; Activity Log and application state remain unaffected.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-065 — Migrate Activity Log pagination action
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Generated event ownership, compatibility bridge reduction, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move the phone Activity Log pagination click from regenerated
+  inline markup into a listener owned by the stable Activity Log list.
+- **Conceptual change:** Added a semantic show-older hook, installed one
+  idempotent delegated listener on `#activityLogList`, removed the generated
+  inline handler, and removed `showOlderActivityLogEntries` from the temporary
+  legacy bridge. The pagination function and renderer remain unchanged.
+- **Preservation contract:** Zero-argument invocation, stable-root
+  child-before-document ordering, phone-only visibility, 20-entry increments,
+  filter-driven reset, standard and points views, Anki grouping, regenerated
+  control activation by mouse, Enter and Space, exact analytics, transient
+  runtime state, styling, persistence, and accessibility remain unchanged.
+- **Risks:** Direct binding to each generated button would be lost after
+  rerender; delegation from document would run after analytics; retaining a
+  detached control after the callback could alter lifecycle assumptions.
+- **Verification:** All 207 contract tests and the production build passed. The
+  focused phone pagination flow passed, including generated-button replacement,
+  keyboard activation, filter reset, storage preservation, event ordering, and
+  bridge removal. The complete Playwright matrix passed 36 protected flows with
+  90 intentional project skips across all six required viewports; all 18
+  representative screenshots remained unchanged. Diff and migration-ledger
+  verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore the generated inline handler and
+  bridge entry while retaining MIG-064 analytics metadata; no stored data
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
