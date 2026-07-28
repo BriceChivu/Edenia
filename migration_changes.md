@@ -1174,3 +1174,34 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore search calculations inline; no
   user state or search history requires migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-036 — Lock Study Insight analytics identities
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Make the generic analytics identities of the first inline-handler
+  migration explicit before changing event ownership.
+- **Conceptual change:** Added `data-analytics-action` to the four static Study
+  Insight controls using the exact actions already selected by the analytics
+  resolver: `insights.tab.current`, `insights.tab.previous`,
+  `insights.collapse`, and `insights.reopen`. Inline handlers remain in place in
+  this commit.
+- **Preservation contract:** Generic event names remain
+  `insights_tab_current_clicked`, `insights_tab_previous_clicked`,
+  `insights_collapse_clicked`, and `insights_reopen_clicked`; action and button
+  properties, visible labels, control types, handler execution, persistence,
+  focus, markup, styling, localization, and accessibility remain unchanged.
+- **Risks:** Choosing an aria-label key instead of the current translated-child
+  precedence for Reopen would silently rename an analytics event.
+- **Verification:** `npm test` passed all 133 contract tests and the production
+  build. Playwright passed 19 protected browser flows with five expected
+  project-specific skips; all 18 visual baselines remained unchanged. The
+  migration-ledger check is included in this commit gate.
+- **Rollback:** Revert this commit to return analytics identity selection to the
+  existing resolver precedence; no stored state or analytics schema migration is
+  required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

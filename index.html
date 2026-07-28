@@ -530,8 +530,8 @@ and momentum—at a glance</h2>
               <img class="study-insight-icon" id="studyInsightIcon" src="Edenia_favicon_round.png" alt="" aria-hidden="true">
             </span>
             <div class="study-insight-tabs" role="tablist" aria-label="Study insight views" data-i18n-aria-label="insights.tabs.aria">
-              <button class="study-insight-tab active" id="studyInsightCurrentTab" type="button" role="tab" aria-selected="true" aria-controls="studyInsightCurrentPanel" onclick="setStudyInsightView('current')" data-i18n="insights.tab.current">Current</button>
-              <button class="study-insight-tab" id="studyInsightPreviousTab" type="button" role="tab" aria-selected="false" aria-controls="studyInsightHistoryPanel" onclick="setStudyInsightView('previous')">
+              <button class="study-insight-tab active" id="studyInsightCurrentTab" type="button" role="tab" aria-selected="true" aria-controls="studyInsightCurrentPanel" onclick="setStudyInsightView('current')" data-analytics-action="insights.tab.current" data-i18n="insights.tab.current">Current</button>
+              <button class="study-insight-tab" id="studyInsightPreviousTab" type="button" role="tab" aria-selected="false" aria-controls="studyInsightHistoryPanel" onclick="setStudyInsightView('previous')" data-analytics-action="insights.tab.previous">
                 <span data-i18n="insights.tab.previous">Previous</span>
                 <span class="study-insight-tab-count" id="studyInsightHistoryCount">0</span>
               </button>
@@ -544,9 +544,9 @@ and momentum—at a glance</h2>
           </div>
           <div class="study-insight-history-panel hidden" id="studyInsightHistoryPanel" role="tabpanel" aria-labelledby="studyInsightPreviousTab"></div>
         </div>
-        <button class="study-insight-collapse" type="button" onclick="setStudyInsightsCollapsed(true)" title="Collapse study insights" aria-label="Collapse study insights" data-i18n-title="insights.collapse" data-i18n-aria-label="insights.collapse">×</button>
+        <button class="study-insight-collapse" type="button" onclick="setStudyInsightsCollapsed(true)" data-analytics-action="insights.collapse" title="Collapse study insights" aria-label="Collapse study insights" data-i18n-title="insights.collapse" data-i18n-aria-label="insights.collapse">×</button>
       </aside>
-      <button class="study-insight-reopen hidden" id="studyInsightReopen" type="button" onclick="setStudyInsightsCollapsed(false)" aria-controls="studyInsightCard" aria-expanded="false" aria-label="Show study insights" data-i18n-aria-label="insights.reopen.aria">
+      <button class="study-insight-reopen hidden" id="studyInsightReopen" type="button" onclick="setStudyInsightsCollapsed(false)" data-analytics-action="insights.reopen" aria-controls="studyInsightCard" aria-expanded="false" aria-label="Show study insights" data-i18n-aria-label="insights.reopen.aria">
         <span aria-hidden="true">✦</span>
         <span data-i18n="insights.reopen">Insights</span>
       </button>
