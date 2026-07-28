@@ -129,3 +129,34 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to remove the harness and CI workflow. It changes
   no application state or production runtime behavior.
 - **Association:** `codex/migration-01-safety-harness`; PR and release pending.
+
+---
+
+## MIG-004 — Catalog the complete protected experience
+
+- **Date:** 2026-07-28
+- **Phase:** 2 — Complete current-experience inventory
+- **Type:** Documentation and preservation contract
+- **Status:** Implemented and source-audited; representative browser coverage verified
+- **Intent:** Prevent unnamed but currently working desktop, tablet, phone, input,
+  theme, locale, state, integration, accessibility, and failure behavior from being
+  treated as disposable during code cleanup.
+- **Conceptual change:** Added a reviewable preservation catalog whose rows cover the
+  application shell, first run, settings, data recovery, header, city, insights,
+  history, video feed, channels, playback, walkthroughs, prompts, feedback,
+  loading/error/empty states, accessibility, responsive axes, and cross-system risks.
+  Every row and every later-discovered behavior is **Keep** by default.
+- **Preservation contract:** Omission from the catalog is not permission to change
+  behavior. Architectural work may reproduce an experience with different internals
+  but may not intentionally change its observable result. A visual or behavioral
+  difference requires a later explicitly approved matrix entry.
+- **Risks:** The inventory is intentionally broad and primarily source-derived.
+  Some dormant DOM targets and README descriptions differ from the active UI; those
+  mismatches are recorded as preservation risks rather than silently cleaned up.
+- **Verification:** Audited `index.html`, `app.js`, `style.css`, and `README.md`.
+  Cross-checked representative first-run, completed dashboard, Settings, and sandbox
+  behavior against the phase-1 six-viewport browser and visual baselines. Remaining
+  rows retain explicit acceptance obligations.
+- **Rollback:** Revert this documentation commit. No application or browser state is
+  changed.
+- **Association:** `codex/migration-02-preservation-inventory`; PR and release pending.
