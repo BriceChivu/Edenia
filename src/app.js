@@ -164,6 +164,7 @@ import {
   getVideoSearchMatches,
   normalizeVideoSearchText
 } from './features/videos/search-model.js'
+import { bindStudyInsightActions } from './features/study-insights/actions.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -13927,6 +13928,11 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 // INIT
 // ════════════════════════════════════════════════════════════
 
+bindStudyInsightActions(document, {
+  setView: setStudyInsightView,
+  setCollapsed: setStudyInsightsCollapsed
+})
+
 installLegacyActions(window, {
   addSandboxDay,
   addYoutubeInput,
@@ -14013,8 +14019,6 @@ installLegacyActions(window, {
   setHistoryView,
   setPersonalizedOnboardingStep,
   setStatusFilter,
-  setStudyInsightView,
-  setStudyInsightsCollapsed,
   showHeatmapTooltip,
   showOlderActivityLogEntries,
   showResetConfirm,

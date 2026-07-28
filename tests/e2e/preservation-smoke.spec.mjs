@@ -176,3 +176,96 @@ test('all five locales initialize and persist through the rendered Settings flow
     await page.locator('#settingsCloseBtn').click()
   }
 })
+
+test('Study Insight listeners preserve tabs, persistence, focus, and event ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.videos['insight-history-video'] = {
+      id: 'insight-history-video',
+      title: 'Protected insight history',
+      channelId: 'insight-channel',
+      channelTitle: 'Insight channel',
+      duration: 900,
+      status: 'watched',
+      watchedAt: '2026-07-20T10:00:00.000Z',
+      watchProgress: [{
+        watchedAt: '2026-07-20T10:00:00.000Z',
+        seconds: 900
+      }],
+      watchProgressTracked: true
+    }
+    state.config.studyInsights = {
+      enabled: true,
+      collapsed: false,
+      history: [{
+        key: '2026-07-13:routine-reset',
+        insightId: 'routine-reset',
+        type: 'routine-reset',
+        variant: 0,
+        suggestedMinutes: 15,
+        gapDays: 4,
+        recordedAt: '2026-07-21T04:00:00.000Z'
+      }]
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+  })
+  await page.reload()
+  await waitForApplication(page)
+
+  const card = page.locator('#studyInsightCard')
+  const currentTab = page.locator('#studyInsightCurrentTab')
+  const previousTab = page.locator('#studyInsightPreviousTab')
+  const historyPanel = page.locator('#studyInsightHistoryPanel')
+  await expect(card).not.toHaveClass(/\bhidden\b/)
+  await expect(previousTab).toBeEnabled()
+
+  await previousTab.locator('span').first().click()
+  await expect(previousTab).toHaveAttribute('aria-selected', 'true')
+  await expect(historyPanel).not.toHaveClass(/\bhidden\b/)
+  await currentTab.click()
+  await expect(currentTab).toHaveAttribute('aria-selected', 'true')
+
+  await page.evaluate(() => {
+    window.__studyInsightCollapsedAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('.study-insight-collapse')) return
+      const state = JSON.parse(localStorage.getItem('edenia_v1'))
+      window.__studyInsightCollapsedAtDocumentBubble =
+        state.config.studyInsights.collapsed
+    }, { once: true })
+  })
+  await page.locator('.study-insight-collapse').click()
+  await expect(card).toHaveClass(/\bhidden\b/)
+  await expect(page.locator('#studyInsightReopen')).not.toHaveClass(/\bhidden\b/)
+  await expect(page.locator('#studyInsightReopen')).toBeFocused()
+  await expect.poll(() => page.evaluate(
+    () => window.__studyInsightCollapsedAtDocumentBubble
+  )).toBe(true)
+
+  await page.locator('#studyInsightReopen span[data-i18n="insights.reopen"]').click()
+  await expect(card).not.toHaveClass(/\bhidden\b/)
+  await expect(currentTab).toBeFocused()
+  await expect.poll(() => page.evaluate(() => (
+    JSON.parse(localStorage.getItem('edenia_v1')).config.studyInsights.collapsed
+  ))).toBe(false)
+
+  const removedBridgeActions = await page.evaluate(() => ({
+    setStudyInsightView: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'setStudyInsightView'
+    ),
+    setStudyInsightsCollapsed: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'setStudyInsightsCollapsed'
+    )
+  }))
+  expect(removedBridgeActions).toEqual({
+    setStudyInsightView: false,
+    setStudyInsightsCollapsed: false
+  })
+})

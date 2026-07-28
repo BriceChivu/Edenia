@@ -15,33 +15,29 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('Study Insight controls lock their pre-migration generic analytics identities', () => {
+test('Study Insight controls retain explicit analytics identities without inline handlers', () => {
   const controls = [
     {
       tag: findButton('id="studyInsightCurrentTab"'),
-      action: 'insights.tab.current',
-      handler: "setStudyInsightView('current')"
+      action: 'insights.tab.current'
     },
     {
       tag: findButton('id="studyInsightPreviousTab"'),
-      action: 'insights.tab.previous',
-      handler: "setStudyInsightView('previous')"
+      action: 'insights.tab.previous'
     },
     {
       tag: findButton('class="study-insight-collapse"'),
-      action: 'insights.collapse',
-      handler: 'setStudyInsightsCollapsed(true)'
+      action: 'insights.collapse'
     },
     {
       tag: findButton('id="studyInsightReopen"'),
-      action: 'insights.reopen',
-      handler: 'setStudyInsightsCollapsed(false)'
+      action: 'insights.reopen'
     }
   ]
 
   for (const control of controls) {
     assert.equal(getAttribute(control.tag, 'data-analytics-action'), control.action)
-    assert.equal(getAttribute(control.tag, 'onclick'), control.handler)
+    assert.equal(getAttribute(control.tag, 'onclick'), null)
   }
 })
 

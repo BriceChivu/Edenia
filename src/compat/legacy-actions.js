@@ -84,8 +84,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'setHistoryView',
   'setPersonalizedOnboardingStep',
   'setStatusFilter',
-  'setStudyInsightView',
-  'setStudyInsightsCollapsed',
   'showHeatmapTooltip',
   'showOlderActivityLogEntries',
   'showResetConfirm',

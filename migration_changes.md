@@ -1205,3 +1205,41 @@ release mappings, and follow-up findings are recorded as new entries.
   existing resolver precedence; no stored state or analytics schema migration is
   required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-037 — Migrate static Study Insight actions
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, event ownership, compatibility removal, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Begin removal of legacy inline handlers with the smallest static,
+  low-coupling control group.
+- **Conceptual change:** Removed the four Study Insight `onclick` attributes and
+  bound the same current/previous/collapse/reopen calls directly to their static
+  controls through `src/features/study-insights/actions.js`. Removed
+  `setStudyInsightView` and `setStudyInsightsCollapsed` from the temporary global
+  action manifest and bridge; the underlying feature functions remain in the
+  composition entry. The current classic bundle continues to expose top-level
+  declarations as a temporary compatibility side effect; IIFE/global cleanup is
+  deferred until automated proof shows no remaining inline consumers.
+- **Preservation contract:** Exact arguments and single-call behavior, child
+  clicks, state persistence, render order, requestAnimationFrame focus transfer,
+  target-before-document event ordering, generic analytics identities and
+  properties, tabs, disabled state, localization, accessibility, and visuals
+  remain unchanged.
+- **Risks:** Document-level delegation would run after the analytics listener was
+  registered and could invert action/analytics ordering; non-idempotent binding
+  could double mutations.
+- **Verification:** `npm test` passed all 136 contract tests and the production
+  build. The first protected browser run proved the action, state, focus, and
+  ordering flow, but its final assertion incorrectly expected classic-script
+  globals to disappear with bridge ownership; that assertion was corrected to
+  test the `EdeniaActions` namespace. The full rerun passed 20 browser flows with
+  ten expected project-specific skips; all 18 visual baselines remained
+  unchanged. The migration-ledger check is included in this commit gate.
+- **Rollback:** Revert this commit to restore the four inline attributes and
+  global aliases while retaining the explicit analytics identities from
+  MIG-036; stored insight state needs no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
