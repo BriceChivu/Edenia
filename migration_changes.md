@@ -1906,3 +1906,31 @@ release mappings, and follow-up findings are recorded as new entries.
   while retaining MIG-057 analytics metadata; no stored data migration is
   required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-059 — Lock Settings shell analytics identities
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve the tracked Settings opener and close-button identities
+  before moving the shell's click ownership out of inline markup.
+- **Conceptual change:** Added explicit `header.settings` and `settings.close`
+  analytics actions and contracted the overlay's intentional lack of generic
+  analytics. All three inline handlers remain in place.
+- **Preservation contract:** Exact generic event names, localized button names,
+  untracked pointer-only overlay behavior, panel visibility, main-application
+  inertness, locale refresh, drawer scroll handling, focus entry and return,
+  Escape and Tab behavior, styling, and accessibility remain exact.
+- **Risks:** Adding analytics or keyboard semantics to the overlay would create
+  new behavior; moving action ownership in this commit would combine metadata,
+  focus, and modal-state risk.
+- **Verification:** `npm test` passed all 193 contract tests and the production
+  build. Playwright passed 30 protected flows with 60 expected project skips
+  across the six required viewport projects; all 18 representative screenshots
+  remained unchanged. Migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore translation-derived button
+  analytics identities; Settings and application state remain unaffected.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
