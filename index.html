@@ -479,9 +479,9 @@ and momentum—at a glance</h2>
       <div class="city-image-wrap">
         <img id="cityMilestoneImage" class="city-milestone-image" src="images/city/level%200.webp" alt="Study city milestone: Lonely house" data-i18n-alt="city.imageAlt" draggable="false" fetchpriority="high" decoding="async">
         <div class="city-zoom-controls" aria-label="City zoom controls" data-i18n-aria-label="city.zoom.controls">
-          <button class="city-image-btn" type="button" onclick="zoomCityImage(-1)" title="Zoom out" aria-label="Zoom out" data-i18n-title="city.zoom.out" data-i18n-aria-label="city.zoom.out">−</button>
-          <button class="city-image-btn" type="button" onclick="resetCityImageView()" title="Reset view" aria-label="Reset view" data-i18n-title="city.zoom.reset" data-i18n-aria-label="city.zoom.reset">⌂</button>
-          <button class="city-image-btn" type="button" onclick="zoomCityImage(1)" title="Zoom in" aria-label="Zoom in" data-i18n-title="city.zoom.in" data-i18n-aria-label="city.zoom.in">+</button>
+          <button class="city-image-btn" type="button" onclick="zoomCityImage(-1)" data-analytics-action="city.zoom.out" title="Zoom out" aria-label="Zoom out" data-i18n-title="city.zoom.out" data-i18n-aria-label="city.zoom.out">−</button>
+          <button class="city-image-btn" type="button" onclick="resetCityImageView()" data-analytics-action="city.zoom.reset" title="Reset view" aria-label="Reset view" data-i18n-title="city.zoom.reset" data-i18n-aria-label="city.zoom.reset">⌂</button>
+          <button class="city-image-btn" type="button" onclick="zoomCityImage(1)" data-analytics-action="city.zoom.in" title="Zoom in" aria-label="Zoom in" data-i18n-title="city.zoom.in" data-i18n-aria-label="city.zoom.in">+</button>
         </div>
         <div class="city-time-waveform" id="cityTimeWaveform" aria-label="City history timeline" data-i18n-aria-label="city.timeline" onmouseenter="handleCityWaveformMouseMove(event)" onmousemove="handleCityWaveformMouseMove(event)" onmouseleave="clearCityWaveformPreview()">
           <div class="city-wave-bars" id="cityWaveBars">

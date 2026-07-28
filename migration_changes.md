@@ -270,6 +270,8 @@ release mappings, and follow-up findings are recorded as new entries.
   is changed.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
 
+---
+
 ## MIG-008 — Extract pure escaping helpers
 
 - **Date:** 2026-07-28
@@ -1461,4 +1463,33 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the five inline handlers and
   `setActivityLogFilter` bridge entry while retaining MIG-043 analytics
   metadata; no persisted Activity Log data requires migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-045 — Lock city zoom analytics identities
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve generic analytics names for the three static city zoom
+  controls before moving their event ownership.
+- **Conceptual change:** Added explicit `data-analytics-action` values matching
+  the existing localized aria-label keys for zoom out, reset, and zoom in.
+  Inline handlers remain in place in this commit.
+- **Preservation contract:** The `city_zoom_out_clicked`,
+  `city_zoom_reset_clicked`, and `city_zoom_in_clicked` event names and
+  properties, localized accessible names, literal handler arguments, transform
+  behavior, gesture state, mouse and keyboard behavior, markup, styling, and
+  accessibility remain exact.
+- **Risks:** A renamed identity would fragment analytics; passing a click event
+  during the following migration would invoke focal-point zoom and alter pan
+  behavior.
+- **Verification:** `npm test` passed all 158 contract tests and the production
+  build. Playwright passed 23 protected flows with 25 expected project skips
+  across the six required viewport projects; all 18 representative screenshots
+  remained unchanged. Migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore aria-label-derived analytics
+  identities; city view state and persisted application data are unaffected.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
