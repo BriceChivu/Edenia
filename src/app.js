@@ -28,6 +28,21 @@ import {
 } from './domain/video-watch-coverage.js'
 import { normalizeVideoWatchProgress } from './domain/video-watch-progress.js'
 import {
+  compareActiveVideos,
+  comparePausedVideos,
+  getVideoPausedTimestamp,
+  getVideoStatus,
+  getVideoUrl,
+  hasVideoResumePriority,
+  hasWatchedConfirmationUnlock,
+  isFavoriteVideo,
+  isVideoSetAside,
+  isVideoWatchLater,
+  normalizeResumeAtSeconds,
+  normalizeVideoStatus,
+  VIDEO_STATUSES
+} from './domain/video-state.js'
+import {
   getBestYoutubeThumbnail as getBestThumbnail,
   getVideoAspectRatioFromItem,
   getVideoDetailFromItem,
@@ -398,7 +413,6 @@ const STATUS_FILTERS = [
   ['partial', 'videos.status.partial'],
   ['favorite', 'videos.status.favorite']
 ]
-const VIDEO_STATUSES = ['watch-later', 'unwatched', 'partial', 'watched']
 const HISTORY_RANGES = ['week', 'month']
 const ACTIVITY_LOG_FILTERS = ['all', 'user', 'auto', 'issues', 'points']
 const VIDEO_SEARCH_RESULT_LIMIT = 8
@@ -4510,76 +4524,10 @@ async function hydrateStoredManualVideoChannelImages() {
   }
 }
 
-function getVideoStatus(video) {
-  return normalizeVideoStatus(video?.status)
-}
-
-function isFavoriteVideo(video) {
-  return video?.favorite === true
-}
-
-function isVideoSetAside(video) {
-  return getVideoStatus(video) === 'watched' && video?.setAside === true
-}
-
-function hasWatchedConfirmationUnlock(video) {
-  return isValidTimestamp(video?.watchedConfirmationUnlockedAt)
-}
-
 function grantWatchedConfirmationUnlock(state, video) {
   if (!state || !video || hasWatchedConfirmationUnlock(video)) return false
   video.watchedConfirmationUnlockedAt = getCurrentAppTimestamp(state)
   return true
-}
-
-function normalizeVideoStatus(status) {
-  return VIDEO_STATUSES.includes(status) ? status : 'unwatched'
-}
-
-function normalizeResumeAtSeconds(value, duration = null) {
-  if (value === null || value === undefined || (typeof value === 'string' && !value.trim())) return null
-  const seconds = Number(value)
-  if (!Number.isFinite(seconds) || seconds < 0) return null
-  const rounded = Math.floor(seconds)
-  if (Number.isFinite(duration) && duration > 0) return Math.min(rounded, Math.max(0, duration - 1))
-  return rounded
-}
-
-function hasVideoResumePriority(video) {
-  const status = getVideoStatus(video)
-  return status === 'partial'
-    || (
-      status === 'watched'
-      && isFavoriteVideo(video)
-      && normalizeResumeAtSeconds(video?.resumeAtSeconds, video?.duration) !== null
-    )
-    || (
-      status === 'watch-later'
-      && normalizeResumeAtSeconds(video?.resumeAtSeconds, video?.duration) > 0
-    )
-}
-
-function getVideoPausedTimestamp(video) {
-  const timestamp = Date.parse(video?.pausedAt || '')
-  return Number.isFinite(timestamp) ? timestamp : 0
-}
-
-function comparePausedVideos(a, b) {
-  return getVideoPausedTimestamp(b) - getVideoPausedTimestamp(a)
-    || compareActiveVideos(a, b)
-}
-
-function isVideoWatchLater(video) {
-  return getVideoStatus(video) === 'watch-later' || video?.watchLater === true
-}
-
-function getVideoUrl(video) {
-  const videoId = String(video?.id ?? '')
-  const url = `https://youtube.com/watch?v=${encodeURIComponent(videoId)}`
-  const resumeAtSeconds = hasVideoResumePriority(video)
-    ? normalizeResumeAtSeconds(video?.resumeAtSeconds, video?.duration)
-    : null
-  return resumeAtSeconds !== null ? `${url}&t=${resumeAtSeconds}s` : url
 }
 
 function getVideoAnalyticsProperties(video, properties = {}) {
@@ -11341,15 +11289,6 @@ function toggleWatchedSection() {
 
 function getVideoDisplayChannelKey(video) {
   return video?.channelId || video?.channelTitle || `video:${video?.id || 'unknown'}`
-}
-
-function getVideoPublishedTimestamp(video) {
-  const timestamp = Date.parse(video?.publishedAt || '')
-  return Number.isFinite(timestamp) ? timestamp : 0
-}
-
-function compareActiveVideos(a, b) {
-  return getVideoPublishedTimestamp(b) - getVideoPublishedTimestamp(a)
 }
 
 function compareChannelTimelineVideos(a, b) {

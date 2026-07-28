@@ -1109,3 +1109,33 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the city constants and normalizer
   inline; stored city progress requires no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-034 — Extract video-state primitives
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, domain interface, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Establish a dependency-light video domain boundary before any
+  rendering, mutation, persistence, analytics, or player lifecycle is moved.
+- **Conceptual change:** Moved the exact video-status catalog and pure helpers
+  for status, favorite/set-aside/watch-later flags, watched-confirmation
+  availability, resume-second coercion, resume priority, paused/published
+  timestamps, active/paused ordering, and direct YouTube URLs from `src/app.js`
+  to `src/domain/video-state.js`. Existing call sites now import the same names.
+- **Preservation contract:** Status fallbacks and ordering, strict booleans,
+  legacy `watchLater` support, timestamp permissiveness, numeric coercion,
+  duration clamping, partial/favorite/watch-later resume rules, URL encoding,
+  date sorting and tie-breaking, rendering, state mutation, Undo/Redo,
+  persistence, scoring, analytics, and video lifecycle remain exact.
+- **Risks:** Small coercion or priority changes can reorder Continue Watching,
+  alter deep links, expose set-aside videos, or change persisted cleanup.
+- **Verification:** `npm test` passed all 126 contract tests and the production
+  build. Playwright passed 19 protected browser flows with five expected
+  project-specific skips; all 18 visual baselines remained unchanged. The
+  migration-ledger check is included in this commit gate.
+- **Rollback:** Revert this commit to restore the primitives inline; stored
+  videos and progress require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
