@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "id": {
+        "channelId": "UC0000000000000000000000"
+      },
+      "snippet": {
+        "channelTitle": "Fixture Language Channel",
+        "thumbnails": {
+          "high": {
+            "url": "https://i.ytimg.com/fixture-channel.jpg"
+          }
+        },
+        "title": "Fixture Language Channel"
+      }
+    }
+  ]
+}

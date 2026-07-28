@@ -90,3 +90,42 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the previous direct-copy deployment
   commands. No browser data migration is involved.
 - **Association:** `codex/migration-01-safety-harness`; PR and release pending.
+
+---
+
+## MIG-003 — Add migration contract and visual regression gates
+
+- **Date:** 2026-07-28
+- **Phase:** 1 — Stable baseline and safety harness
+- **Type:** Tests, CI, and governance
+- **Status:** Implemented and locally verified; hosted CI verification pending
+- **Intent:** Detect behavioral, deployment, visual, storage-isolation, global-handler,
+  and accidental-network regressions before any application source is reorganized.
+- **Conceptual change:** Added a migration-ledger commit policy, a GitHub pull-request
+  verification workflow, deterministic normal and sandbox static servers, a
+  deny-by-default external-network fixture, stable YouTube/Anki/image fixtures,
+  build-output contract tests, browser smoke flows, six viewport projects, and
+  checked visual baselines for the first-run trailer, completed dashboard, and open
+  Settings state.
+- **Preservation contract:** Tests observe the current `v1.0.0` experience; they do
+  not redefine it. Automated runs use an empty API key, cannot contact PostHog,
+  cannot consume YouTube quota, preserve the exact localhost sandbox origin, and
+  retain the classic global-handler contract. Snapshot changes require a dedicated,
+  approved migration entry.
+- **Risks:** Pixel rendering can vary across operating systems, so snapshots use the
+  same pinned Chromium with a one-percent pixel tolerance while retaining stable
+  self-hosted fonts. The local normal-mode test used port 4173 because the user's
+  existing process owns port 8000; hosted CI uses the canonical port 8000 and
+  exercises local feedback submission there. General layout screenshots hide
+  transient toasts and the decorative physics canvas to avoid timer/randomness
+  flakes; those behaviors require targeted assertions.
+- **Verification:** Build-output contracts passed 3 of 3 tests. Playwright passed 18
+  of 18 scenarios across 1710×986, 1440×900, 1024×1366, 1366×1024, 390×844, and
+  360×800 profiles. Representative desktop, tablet, and phone baselines were
+  visually inspected. Fresh first run, classic handler availability, completed
+  state, Settings, feedback modal, sandbox isolation, empty runtime configuration,
+  console errors, and denied external traffic are covered. The ledger checker
+  passed against `v1.0.0`.
+- **Rollback:** Revert this commit to remove the harness and CI workflow. It changes
+  no application state or production runtime behavior.
+- **Association:** `codex/migration-01-safety-harness`; PR and release pending.

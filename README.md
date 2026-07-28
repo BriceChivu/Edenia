@@ -163,6 +163,31 @@ is reserved for the GitHub Pages workflow.
 
 `config.local.js` is ignored by Git. `config.example.js` is only the local-development template and is not used by the GitHub Pages workflow.
 
+## Migration Safety Checks
+
+The migration harness keeps application traffic deterministic and blocks unexpected
+external requests. YouTube and Anki responses are served from test fixtures, and
+automated tests fail if they attempt to contact PostHog.
+
+```bash
+npm test
+npm run test:e2e
+```
+
+The browser suite uses ports 8000 and 8001 by default. If port 8000 is already in
+use locally, select an isolated normal-mode port while retaining the required
+sandbox origin:
+
+```bash
+EDENIA_TEST_NORMAL_PORT=4173 npm run test:e2e
+```
+
+Visual baselines may be regenerated only for an explicitly approved change:
+
+```bash
+npm run test:e2e:update
+```
+
 ## YouTube API Configuration
 
 The app reads the key from `window.EDENIA_CONFIG.youtubeApiKey`. The key is not stored in Edenia state, local backups, cookies, activity logs, or exported sync files.

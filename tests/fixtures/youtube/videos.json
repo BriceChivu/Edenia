@@ -1,0 +1,25 @@
+{
+  "items": [
+    {
+      "contentDetails": {
+        "duration": "PT12M34S"
+      },
+      "id": "fixture0001",
+      "player": {
+        "embedHeight": "720",
+        "embedWidth": "1280"
+      },
+      "snippet": {
+        "channelId": "UC0000000000000000000000",
+        "channelTitle": "Fixture Language Channel",
+        "publishedAt": "2026-07-20T04:00:00.000Z",
+        "thumbnails": {
+          "high": {
+            "url": "https://i.ytimg.com/fixture-video.jpg"
+          }
+        },
+        "title": "Fixture Study Video"
+      }
+    }
+  ]
+}

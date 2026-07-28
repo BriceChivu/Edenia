@@ -9,9 +9,16 @@
   },
   "scripts": {
     "build": "node scripts/build-site.mjs",
-    "build:production": "npm run build && node scripts/write-runtime-config.mjs --require-key"
+    "build:production": "npm run build && node scripts/write-runtime-config.mjs --require-key",
+    "check:migration": "node scripts/check-migration-ledger.mjs",
+    "test": "npm run build && npm run test:contracts",
+    "test:contracts": "node --test tests/contracts/*.test.mjs",
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:update": "npm run build && playwright test --update-snapshots",
+    "test:ci": "npm run build && npm run test:contracts && playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.0",
     "esbuild": "0.28.1",
     "terser": "5.49.0"
   }
