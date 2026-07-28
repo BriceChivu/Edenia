@@ -877,3 +877,37 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore learner-profile normalization inline;
   learner choices require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-027 — Extract default state construction
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, interface, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Make Edenia's initial persisted schema and history-view fallback
+  explicit before storage orchestration is moved.
+- **Conceptual change:** Added `src/state/default-state.js` with pure history-view
+  helpers and a default-state factory composed from the existing default channels,
+  schema versions, sandbox flag, default-channel predicate, and browser-locale
+  provider. All creation call sites continue to invoke `defaultState` with the same
+  arguments.
+- **Preservation contract:** The complete state shape and field defaults, normal
+  `summary` versus sandbox `heatmap`, goal/theme/locale normalization, explicit
+  channel-list precedence, shallow per-channel copies, retained nested references,
+  duplicate-preserving removed-default filtering, independent mutable containers,
+  and browser-locale lookup only for falsey explicit locale values remain exact.
+- **Risks:** Deep cloning channels, sharing default containers, sorting or deduping
+  removed IDs, eagerly reading browser locale, or changing the sandbox history
+  fallback would alter new, restored, or reset profiles.
+- **Verification:** `npm test` passed all 88 contracts, including both history
+  defaults, the complete normal schema, explicit normalization, sandbox mode,
+  shallow channel copying, duplicate-preserving filtering, lazy browser-locale
+  lookup, and mutable-container independence. The serial Playwright suite passed
+  19 flows with 5 expected project-scoped skips across all six required viewports;
+  all 18 protected screenshots remained unchanged. Migration-ledger verification
+  follows the commit.
+- **Rollback:** Revert this commit to restore history-view helpers and default-state
+  construction inline; persisted state requires no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

@@ -116,6 +116,10 @@ import {
 import {
   createLearnerProfileNormalizer
 } from './state/learner-profile-state.js'
+import {
+  createDefaultStateFactory,
+  normalizeHistoryView
+} from './state/default-state.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -159,6 +163,14 @@ const {
 } = deriveStorageKeys({
   isSandbox: IS_SANDBOX,
   isInternalTest: IS_INTERNAL_TEST
+})
+const defaultState = createDefaultStateFactory({
+  defaultChannels: DEFAULT_CHANNELS,
+  defaultChannelsVersion: DEFAULT_CHANNELS_VERSION,
+  onboardingVersion: ONBOARDING_VERSION,
+  isSandbox: IS_SANDBOX,
+  isDefaultChannelId,
+  getBrowserDefaultLocale
 })
 const YOUTUBE_CHANNEL_SEARCH_CACHE_TTL_MS = 24 * 60 * 60_000
 const YOUTUBE_CHANNEL_SEARCH_COOLDOWN_MS = 2500
@@ -1215,14 +1227,6 @@ function isAnkiTrackingActive(state) {
   return isAnkiAvailableOnDevice() && isAnkiEnabled(state)
 }
 
-function getDefaultHistoryView() {
-  return IS_SANDBOX ? 'heatmap' : 'summary'
-}
-
-function normalizeHistoryView(view) {
-  return view === 'heatmap' || view === 'summary' ? view : getDefaultHistoryView()
-}
-
 function applyTheme(theme) {
   const normalizedTheme = normalizeTheme(theme)
   document.documentElement.dataset.theme = normalizedTheme
@@ -1380,7 +1384,7 @@ function loadState() {
       if (normalizeAnkiTrackingConfig(state)) shouldSave = true
       if (normalizeStudyInsightConfig(state)) shouldSave = true
       if (state?.config) {
-        const historyView = normalizeHistoryView(state.config.historyView)
+        const historyView = normalizeHistoryView(state.config.historyView, IS_SANDBOX)
         if (state.config.historyView !== historyView) shouldSave = true
         state.config.historyView = historyView
       }
@@ -1640,7 +1644,7 @@ function getEdeniaAnalyticsSnapshot(state) {
       includeShortVideos: normalizeIncludeShorts(state?.config?.includeShorts),
       ankiEnabled: isAnkiTrackingActive(state),
       studyInsightsEnabled: isStudyInsightsEnabled(state),
-      historyView: normalizeHistoryView(state?.config?.historyView),
+      historyView: normalizeHistoryView(state?.config?.historyView, IS_SANDBOX),
       channelShelfOrder: normalizeChannelShelfOrder(state?.config?.channelShelfOrder),
       learningLanguages: Array.isArray(state?.learnerProfile?.languages)
         ? state.learnerProfile.languages.map(String)
@@ -1663,66 +1667,6 @@ function syncPersistedStateToAnalytics(state) {
   try {
     syncEdeniaAnalyticsState(getEdeniaAnalyticsSnapshot(state))
   } catch {}
-}
-
-function defaultState(goalHours, channels, theme, removedDefaultChannelIds = null, locale = null) {
-  const restoredRemovedDefaultIds = Array.isArray(removedDefaultChannelIds)
-    ? removedDefaultChannelIds.filter(isDefaultChannelId)
-    : null
-  return {
-    config: {
-      weeklyGoalHours: normalizeWeeklyGoalHours(goalHours),
-      theme: normalizeTheme(theme),
-      locale: normalizeLocale(locale || getBrowserDefaultLocale()),
-      includeShorts: true,
-      shortsEnableRefetchAvailableAt: null,
-      ankiEnabled: true,
-      ankiDisabledAt: null,
-      ankiResumeBaselines: {},
-      ankiPendingResumeBaseline: null,
-      historyView: getDefaultHistoryView(),
-      studyInsights: { enabled: true, collapsed: false, history: [] },
-      channels: Array.isArray(channels) ? channels.map(c => ({ ...c })) : DEFAULT_CHANNELS.map(c => ({ ...c })),
-      channelShelfOrder: [],
-      removedDefaultChannelIds: restoredRemovedDefaultIds || [],
-      removedChannelIds: []
-    },
-    videos:  {},   // { [videoId]: VideoRecord }
-    streak:  { current: 0, longest: 0, lastActivityDate: null },
-    anki:    {},   // { 'YYYY-MM-DD': { reviewed, created } }
-    cityProgress: { maxLevelIndex: 0, pendingLevelIndex: null },
-    undoStack: [],
-    redoStack: [],
-    activityLog: [],
-    lastVideoMarkedWatchedAt: null,
-    lastVideoOpenedAt: null,
-    totalRewatchCount: 0,
-    videoWatchReminders: {},
-    channelRefreshes: {},
-    onboarding: {
-      version: ONBOARDING_VERSION,
-      introSeenAt: null,
-      setupCompleted: false,
-      setupCompletedAt: null,
-      walkthroughCompleted: false,
-      walkthroughCompletedAt: null,
-      levelUpGuidanceShownAt: null,
-      recommendationsAppliedAt: null
-    },
-    noAnkiFrequentUserPrompt: {
-      watchedVideoDateKeys: [],
-      response: null,
-      respondedAt: null
-    },
-    learnerProfile: {
-      languages: [],
-      level: null,
-      selectedChannelCatalogIds: [],
-      createdAt: null,
-      updatedAt: null
-    },
-    defaultChannelsVersion: DEFAULT_CHANNELS_VERSION
-  }
 }
 
 function getStateBackupEntries() {
@@ -2429,7 +2373,7 @@ function init() {
   const sandboxVersionLabel = document.getElementById('sandboxVersionLabel')
   if (sandboxTools) sandboxTools.classList.toggle('hidden', !IS_SANDBOX)
   if (sandboxVersionLabel) sandboxVersionLabel.classList.toggle('hidden', !IS_SANDBOX)
-  selectedHistoryView = normalizeHistoryView(state.config.historyView)
+  selectedHistoryView = normalizeHistoryView(state.config.historyView, IS_SANDBOX)
   setDefaultCityDayOffset(state)
   syncStreak(state)
   saveState(state)
