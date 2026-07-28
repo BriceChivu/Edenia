@@ -552,3 +552,35 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore direct optional calls to analytics
   globals. Analytics storage and application state require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-017 — Extract state configuration normalizers
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Establish the first state-domain module with deterministic,
+  behavior-preserving configuration normalization.
+- **Conceptual change:** Moved the default theme and the pure theme, weekly-goal,
+  Shorts, Anki-enabled, and Anki-count normalizers from `src/app.js` to
+  `src/state/config-normalization.js`. Existing consumers import the same
+  operations; persistence orchestration and state mutation remain in the entry
+  point.
+- **Preservation contract:** Strict theme membership, `parseInt(..., 10)` goal
+  semantics, the `4`-hour fallback, `1…99` clamping, default-on booleans that only
+  literal `false` disables, Anki numeric coercion and flooring, propagated coercion
+  errors, and the existing `Infinity` result remain exact. Storage schema, cleanup
+  order, backups, analytics sync, and every call-site decision are unchanged.
+- **Risks:** Conventional boolean coercion, finite-number cleanup, or changing goal
+  parsing would alter stored preference interpretation even though those alternatives
+  may appear cleaner.
+- **Verification:** `npm test` passed all 42 contracts, including focused coercion,
+  strict-membership, fallback, clamping, default-on, and infinity cases. The serial
+  Playwright suite passed 19 flows with 5 expected project-scoped skips across all
+  six required viewports; all 18 protected screenshots remained unchanged.
+  Migration-ledger verification follows the commit.
+- **Rollback:** Revert this commit to restore the constants and five pure functions
+  inline in `src/app.js`; stored data requires no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

@@ -65,6 +65,14 @@ import {
   SUPPORTED_LOCALES,
   t
 } from './i18n/runtime.js'
+import {
+  DEFAULT_THEME,
+  normalizeAnkiCount,
+  normalizeAnkiEnabled,
+  normalizeIncludeShorts,
+  normalizeTheme,
+  normalizeWeeklyGoalHours
+} from './state/config-normalization.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -126,8 +134,6 @@ const SANDBOX_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = IS_INTERNAL_TEST ? 8 : 50
 const MAX_FETCH_PAGES_PER_CHANNEL = 1
 const UNDO_ACTION_TYPES = ['video-status', 'video-resume-time', 'video-favorite', 'video-grid-remove', 'channel-remove', 'manual-video-add']
-const DEFAULT_THEME = 'light'
-const THEMES = ['light', 'dark']
 const BACKGROUND_PHYSICS_RADIUS = 130
 const BACKGROUND_PHYSICS_MAX_PARTICLES = 2600
 const ANKI_AUTO_REFRESH_MS = 5 * 60_000
@@ -135,8 +141,6 @@ const NO_ANKI_FREQUENT_USER_DAY_THRESHOLD = 7
 const MIN_DAILY_STREAK_POINTS = 5
 const HEATMAP_STREAK_RUN_MIN_DAYS = 5
 const UNDO_STACK_LIMIT = 50
-const MIN_WEEKLY_GOAL_HOURS = 1
-const MAX_WEEKLY_GOAL_HOURS = 99
 const VIDEO_HOUR_POINTS = 30
 const SHORT_VIDEO_DETECTION_VERSION = 1
 const ANKI_REVIEW_CHUNK_SIZE = 60
@@ -1188,27 +1192,9 @@ function saveConfigCookie(config) {
   } catch {}
 }
 
-function normalizeTheme(theme) {
-  return THEMES.includes(theme) ? theme : DEFAULT_THEME
-}
-
-function normalizeWeeklyGoalHours(value) {
-  const parsed = parseInt(value, 10)
-  if (!Number.isFinite(parsed)) return 4
-  return clampNumber(parsed, MIN_WEEKLY_GOAL_HOURS, MAX_WEEKLY_GOAL_HOURS)
-}
-
-function normalizeIncludeShorts(value) {
-  return value !== false
-}
-
 function isTemporaryShortsWhitelistedUser() {
   if (!isEdeniaAnalyticsEnabled()) return false
   return TEMP_SHORTS_DISTINCT_IDS.has(getPosthogDistinctId())
-}
-
-function normalizeAnkiEnabled(value) {
-  return value !== false
 }
 
 function isAnkiEnabled(state) {
@@ -1225,11 +1211,6 @@ function isAnkiTrackingActive(state) {
 
 function isStudyInsightsEnabled(state) {
   return state?.config?.studyInsights?.enabled !== false
-}
-
-function normalizeAnkiCount(value) {
-  const count = Math.floor(Number(value) || 0)
-  return Math.max(0, count)
 }
 
 function getTrackedAnkiCounts(s, dateKey) {
