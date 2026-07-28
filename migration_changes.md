@@ -51,3 +51,42 @@ release mappings, and follow-up findings are recorded as new entries.
   After publication, preserve the tag and revert migration merge commits through
   reviewed pull requests rather than rewriting history.
 - **Association:** `codex/migration-01-safety-harness`; PR and GitHub Release pending.
+
+---
+
+## MIG-002 — Add a reproducible static-site build
+
+- **Date:** 2026-07-28
+- **Phase:** 1 — Stable baseline and safety harness
+- **Type:** Tooling, deployment, and documentation
+- **Status:** Implemented and locally build-verified; pinned CI verification pending
+- **Intent:** Replace ad hoc deployment commands with one pinned, reproducible build
+  used locally, in CI, and by GitHub Pages.
+- **Conceptual change:** Added an npm project, pinned esbuild alongside the existing
+  JavaScript minifier, pinned the supported Node 24 LTS runtime, created a
+  static-site build that emits `_site`, generates commit-derived asset cache
+  versions, produces an empty local/test runtime config, requires the existing
+  YouTube secret for production builds, and updated all Node-based workflows and
+  local-build documentation to use the supported runtime.
+- **Preservation contract:** The browser continues to load the same relative
+  `index.html`, `config.local.js`, `analytics.js`, `app.js`, and `style.css`
+  contracts. Classic-script globals and load order remain intact, the existing
+  Terser JavaScript transformation remains in use, production runtime configuration
+  keeps the same `window.EDENIA_CONFIG.youtubeApiKey` shape, and no application
+  behavior or appearance is intentionally changed.
+- **Risks:** CSS minification moves from clean-css to esbuild because the existing
+  clean-css CLI dependency introduced four high-severity dependency vulnerabilities.
+  Visual regression coverage must prove equivalent rendering. Incorrect copy rules
+  could omit a deployment asset. Cache-version replacement must match each entry
+  asset exactly once. Node 20 from the original plan reached end of life on
+  2026-03-24, so the implementation deliberately uses supported Node 24 LTS.
+- **Verification:** Installed the exact lockfile dependencies with zero known audit
+  vulnerabilities; built `_site`; confirmed the three entry assets receive the
+  commit-derived version; confirmed runtime config syntax and an empty test key;
+  confirmed tracked catalogs and `analytics.js` are copied unchanged; confirmed
+  representative inline-handler globals survive minification; and confirmed ignored
+  `.DS_Store` files are excluded. The local host is Node 24.10.0; CI confirmation on
+  the pinned Node 24.18.0 and browser/visual coverage follow in MIG-003.
+- **Rollback:** Revert this commit to restore the previous direct-copy deployment
+  commands. No browser data migration is involved.
+- **Association:** `codex/migration-01-safety-harness`; PR and release pending.

@@ -124,10 +124,24 @@ Examples:
 | 11 | 920 |
 | 12 | 1050 |
 
-## Run Locally
+## Build and Run Locally
 
-1. Copy `config.example.js` to `config.local.js`.
-2. Add a YouTube Data API v3 key to `config.local.js`:
+Edenia uses the Node.js version pinned in `.nvmrc`.
+
+1. Install the pinned dependencies:
+
+   ```bash
+   npm ci
+   ```
+
+2. Build the static site:
+
+   ```bash
+   npm run build
+   ```
+
+3. To use live YouTube discovery locally, copy `config.example.js` to
+   `_site/config.local.js` and add a YouTube Data API v3 key:
 
    ```js
    window.EDENIA_CONFIG = {
@@ -135,15 +149,17 @@ Examples:
    }
    ```
 
-3. Serve the repository root:
+4. Serve the generated `_site` directory:
 
    ```bash
-   python3 -m http.server 8000
+   python3 -m http.server 8000 --directory _site
    ```
 
-4. Open [http://localhost:8000/](http://localhost:8000/).
+5. Open [http://localhost:8000/](http://localhost:8000/).
 
-There is no dependency installation or local build step. Opening `index.html` directly may display the interface, but serving the folder provides the expected runtime origin and file-loading behavior.
+The non-production build writes an empty runtime API key so automated checks do
+not use YouTube quota. `npm run build:production` requires `YOUTUBE_API_KEY` and
+is reserved for the GitHub Pages workflow.
 
 `config.local.js` is ignored by Git. `config.example.js` is only the local-development template and is not used by the GitHub Pages workflow.
 
@@ -295,8 +311,8 @@ The workflow in `.github/workflows/deploy-pages.yml` deploys on pushes to `maste
 
 During deployment it:
 
-1. Copies `index.html`, `app.js`, `analytics.js`, `style.css`, the favicon, fonts, and images into `_site`.
-2. Minifies the deployed CSS and main JavaScript.
+1. Installs the pinned Node.js dependencies.
+2. Builds the static site into `_site` with versioned asset references.
 3. Generates `_site/config.local.js` from the `YOUTUBE_API_KEY` repository secret.
 4. Uploads and deploys the static Pages artifact.
 
