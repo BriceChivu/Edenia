@@ -2374,3 +2374,33 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the inline submit handler and
   bridge entry; no stored application state migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-073 — Lock Settings locale-trigger analytics identity
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract test
+- **Status:** Complete locally; paired listener migration pending
+- **Intent:** Preserve the Settings locale trigger's existing handler-derived
+  analytics identity before its inline event owner is replaced.
+- **Conceptual change:** Added explicit inert `data-analytics-action` metadata
+  with the exact existing `settingsLocaleBtn` identity and a contract that locks
+  the resulting `settings_locale_btn_clicked` event name. The inline handler
+  remains installed in this commit.
+- **Preservation contract:** The trigger's visible locale label, native button
+  activation, propagation stopping, menu state, focus, outside-click and Escape
+  behavior, language selection, localization, persistence, Activity Log, toast,
+  and absence of generic click capture while propagation is stopped remain
+  unchanged.
+- **Risks:** A renamed action would silently change the latent event contract if
+  propagation behavior changes later; altering the inline handler in this
+  metadata commit would combine compatibility and ownership changes.
+- **Verification:** The production build and contract suite passed. Migration
+  ledger and diff-integrity checks passed against `v1.0.0`. Because the metadata
+  is inert and the original inline behavior remains, its browser and visual gate
+  is intentionally coupled to MIG-074.
+- **Rollback:** Revert this commit to restore implicit ID-derived identity; no
+  application state or stored data is affected.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
