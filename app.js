@@ -9210,7 +9210,7 @@ function applyChannelRemoval(s, channelId) {
   }
   Object.values(s.videos || {}).forEach(video => {
     if (!isChannelRemovalVideo(video, channelId)) return
-    if (getVideoStatus(video) === 'watched' || isSavedActiveVideo(video)) {
+    if (shouldPreserveRemovedChannelVideo(video)) {
       video.hiddenFromGrid = false
       video.hiddenFromGridAt = null
       return
@@ -9253,6 +9253,18 @@ function isChannelRemovalVideo(video, channelId) {
     video &&
     (video.channelId || video.channelTitle) === channelId
   )
+}
+
+function shouldPreserveRemovedChannelVideo(video) {
+  return getVideoStatus(video) === 'watched'
+    || isSavedActiveVideo(video)
+    || isFavoriteVideo(video)
+}
+
+function isVideoFromRemovedChannel(s, video) {
+  const removedChannelIds = new Set(s.config?.removedChannelIds || [])
+  return removedChannelIds.has(video?.channelId)
+    || removedChannelIds.has(video?.channelTitle)
 }
 
 function renderChannelList(channels) {
@@ -11270,6 +11282,15 @@ function markVideo(videoId, requestedStatus, options = {}) {
       )
       ? normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
       : null
+  if (
+    previousWatchLater
+    && !resolvedWatchLater
+    && isVideoFromRemovedChannel(s, video)
+    && !shouldPreserveRemovedChannelVideo(video)
+  ) {
+    video.hiddenFromGrid = true
+    video.hiddenFromGridAt = getCurrentAppTimestamp(s)
+  }
   undoAction.after.watchedAt = video.watchedAt
   undoAction.after.resumeAtSeconds = video.resumeAtSeconds
   undoAction.after.video = cloneVideoForHistoryAction(video)
@@ -12641,8 +12662,13 @@ function applyChannelRemoveActionSnapshot(s, action, snapshot, direction = 'undo
   if (!snapshot.channel) {
     Object.values(s.videos || {}).forEach(video => {
       if (!isChannelRemovalVideo(video, channelId)) return
-      video.hiddenFromGrid = true
-      video.hiddenFromGridAt = getCurrentAppTimestamp(s)
+      if (shouldPreserveRemovedChannelVideo(video)) {
+        video.hiddenFromGrid = false
+        video.hiddenFromGridAt = null
+      } else {
+        video.hiddenFromGrid = true
+        video.hiddenFromGridAt = getCurrentAppTimestamp(s)
+      }
     })
   }
 
@@ -17687,16 +17713,26 @@ function positionVideoShelfPreview(card, pointerEvent = null) {
 }
 
 function keepVideoShelfPreviewAnchoredAfterLayout(card, videoId) {
+  const finishReanchoring = () => card?.classList.remove('is-layout-reanchoring')
   const reposition = () => {
     if (!isActiveVideoShelfPreview(videoId) || activeVideoShelfPreview !== card) return false
     clearVideoShelfPreviewLeave(card)
     return positionVideoShelfPreview(card)
   }
 
-  if (!reposition()) return
+  if (!reposition()) {
+    finishReanchoring()
+    return
+  }
   requestAnimationFrame(() => {
-    if (!reposition()) return
-    requestAnimationFrame(reposition)
+    if (!reposition()) {
+      finishReanchoring()
+      return
+    }
+    requestAnimationFrame(() => {
+      reposition()
+      requestAnimationFrame(finishReanchoring)
+    })
   })
 }
 
@@ -17815,6 +17851,7 @@ function refreshVideoActionUiWithoutFeedRerender(state, videoId) {
     .filter(videoEntry => matchesWatchedChannelFilter(videoEntry, channelFilters, removedChannelIds))
 
   renderStatusFilterOptions(allVideos, channelFilters, includeShorts, removedChannelIds)
+  card.classList.add('is-layout-reanchoring')
   renderNextStudy(activeVideos, favoriteVideos)
   renderUndoButton(state)
   keepVideoShelfPreviewAnchoredAfterLayout(card, videoId)
@@ -17827,7 +17864,7 @@ function cleanupVideoShelfPreview(card) {
   const shelf = card.closest('.channel-shelf')
   if (shelf) shelf.draggable = true
   card.classList.add('is-preview-resetting')
-  card.classList.remove('is-preview-armed', 'is-preview-closing', 'is-source-anchored')
+  card.classList.remove('is-preview-armed', 'is-preview-closing', 'is-source-anchored', 'is-layout-reanchoring')
   card.classList.remove('is-floating-preview')
   card.style.removeProperty('--shelf-preview-origin-left')
   card.style.removeProperty('--shelf-preview-origin-top')
@@ -18021,6 +18058,10 @@ function closeVideoShelfPreviewOnViewportChange() {
       card.classList.remove('next-study-focus-target')
     })
     closeVideoShelfPreview(activeVideoShelfPreview, true)
+    return
+  }
+  if (activeVideoShelfPreview?.classList.contains('is-layout-reanchoring')) {
+    positionVideoShelfPreview(activeVideoShelfPreview)
     return
   }
   const isAnchoredPreview = Boolean(
