@@ -1340,3 +1340,30 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore selectors and comparators to their
   previous files; video or shelf state requires no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-041 — Lock Study History view analytics identities
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve generic click identities for the two static Study History
+  view tabs before transferring their event ownership.
+- **Conceptual change:** Added explicit `data-analytics-action="history.summary"`
+  and `data-analytics-action="history.heatmap"` to the existing Summary and
+  Heatmap tabs. Inline handlers remain in place in this commit.
+- **Preservation contract:** Events remain `history_summary_clicked` and
+  `history_heatmap_clicked`; action/button properties, locale labels, literal
+  view arguments, persistence, tab roles, selected state, keyboard behavior,
+  rendering, styling, and accessibility remain exact.
+- **Risks:** A renamed action would fragment existing analytics even if the tabs
+  continued to work visually.
+- **Verification:** `npm test` passed all 147 contract tests and the production
+  build. Playwright passed 21 protected browser flows with 15 expected
+  project-specific skips; all 18 visual baselines remained unchanged. The
+  migration-ledger check is included in this commit gate.
+- **Rollback:** Revert this commit to restore resolver-derived action names; no
+  persisted history-view or analytics migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
