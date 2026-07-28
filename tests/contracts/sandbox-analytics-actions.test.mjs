@@ -17,22 +17,23 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('sandbox controls lock pre-migration analytics identities', () => {
+test('sandbox controls retain analytics identities without inline handlers', () => {
   const controls = [
     {
       key: 'sandbox.addDay',
-      handler: 'addSandboxDay()'
+      action: 'add-day'
     },
     {
       key: 'sandbox.reset',
-      handler: 'resetSandboxState()'
+      action: 'reset'
     }
   ]
 
   for (const expected of controls) {
     const tag = findButton(expected.key)
     assert.equal(getAttribute(tag, 'data-analytics-action'), expected.key)
-    assert.equal(getAttribute(tag, 'onclick'), expected.handler)
+    assert.equal(getAttribute(tag, 'data-sandbox-action'), expected.action)
+    assert.equal(getAttribute(tag, 'onclick'), null)
   }
 })
 

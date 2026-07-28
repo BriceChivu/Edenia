@@ -1555,3 +1555,38 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore translation-derived analytics
   identities; sandbox and normal stored state remain compatible.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-048 — Migrate sandbox control actions
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Event ownership, compatibility bridge reduction, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move the two sandbox header clicks from inline attributes into a
+  bounded sandbox feature module without moving or changing sandbox logic.
+- **Conceptual change:** Added fixed semantic action hooks and an idempotent
+  direct-listener binder for Add day and Reset; installed it in every runtime
+  environment while retaining the actions' own sandbox guards; removed both
+  inline handlers; and removed `addSandboxDay` and `resetSandboxState` from the
+  temporary legacy action bridge.
+- **Preservation contract:** Exact sandbox gating and storage domain, one-day
+  advancement, intentionally randomized activity generation, streak and city
+  updates, forced pre-reset backup reason and contents, reset defaults and
+  activity entry, rendering, localized toasts, zero-argument invocation, mouse
+  and native keyboard activation, document-bubble ordering, analytics
+  identities, labels, styling, and accessibility remain exact.
+- **Risks:** Binding only in sandbox would change programmatic behavior in other
+  environments; fixed-output assertions would conflict with intentional
+  randomness; an incorrect reset path could affect normal storage.
+- **Verification:** `npm test` passed all 166 contract tests and the production
+  build. Playwright passed 25 protected flows with 35 expected project skips,
+  including three sequential day advances, click, Enter, Space, sandbox/normal
+  storage isolation, forced reset backup, reset activity, bridge, and
+  document-order assertions; all 18 visual baselines remained unchanged.
+  Migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore both inline handlers and bridge
+  entries while retaining MIG-047 analytics metadata; existing normal, sandbox,
+  and backup records remain compatible.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

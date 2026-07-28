@@ -179,6 +179,7 @@ import { bindStudyInsightActions } from './features/study-insights/actions.js'
 import { bindActivityLogFilterActions } from './features/settings/activity-log-filter-actions.js'
 import { bindSettingsAccordionActions } from './features/settings/accordion-actions.js'
 import { bindStudyHistoryViewActions } from './features/study-history/view-actions.js'
+import { bindSandboxActions } from './features/sandbox/actions.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -13831,9 +13832,12 @@ bindCityZoomActions(document, {
   zoom: zoomCityImage,
   reset: resetCityImageView
 })
+bindSandboxActions(document, {
+  addDay: addSandboxDay,
+  reset: resetSandboxState
+})
 
 installLegacyActions(window, {
-  addSandboxDay,
   addYoutubeInput,
   applyHistoryAction,
   cancelVideoSetAsidePrompt,
@@ -13897,7 +13901,6 @@ installLegacyActions(window, {
   renderVideoSearchResults,
   requestVideoSetAside,
   resetApp,
-  resetSandboxState,
   restoreStateBackup,
   retryOnboardingRecovery,
   saveLocaleFromSettings,

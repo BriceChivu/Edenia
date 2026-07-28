@@ -155,6 +155,108 @@ test('sandbox remains isolated on its exact origin', async ({ page }) => {
   expect(storageKeys.sandbox).not.toBeNull()
 })
 
+test('sandbox action listeners preserve day advancement, reset backups, keyboard, and ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await page.goto('http://localhost:8001/?sandbox=1')
+  await waitForApplication(page)
+  const addDay = page.locator('[data-sandbox-action="add-day"]')
+  const reset = page.locator('[data-sandbox-action="reset"]')
+  const readSandboxDate = () => page.evaluate(() => (
+    JSON.parse(localStorage.getItem('edenia_v1_sandbox')).sandboxLastDate
+  ))
+  const getDayDelta = (previous, next) => {
+    const ordinal = key => {
+      const [year, month, day] = key.split('-').map(Number)
+      return Date.UTC(year, month - 1, day) / 86_400_000
+    }
+    return ordinal(next) - ordinal(previous)
+  }
+
+  const initialDate = await readSandboxDate()
+  await page.evaluate(() => {
+    window.__sandboxAddDayAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-sandbox-action="add-day"]')) return
+      const state = JSON.parse(localStorage.getItem('edenia_v1_sandbox'))
+      window.__sandboxAddDayAtDocumentBubble = {
+        lastDate: state.sandboxLastDate,
+        normalState: localStorage.getItem('edenia_v1')
+      }
+    }, { once: true })
+  })
+  await addDay.click()
+  const clickedDate = await readSandboxDate()
+  expect(getDayDelta(initialDate, clickedDate)).toBe(1)
+  await expect.poll(() => page.evaluate(
+    () => window.__sandboxAddDayAtDocumentBubble
+  )).toEqual({
+    lastDate: clickedDate,
+    normalState: null
+  })
+
+  await addDay.focus()
+  await addDay.press('Enter')
+  const enterDate = await readSandboxDate()
+  expect(getDayDelta(clickedDate, enterDate)).toBe(1)
+
+  await addDay.focus()
+  await addDay.press('Space')
+  const spaceDate = await readSandboxDate()
+  expect(getDayDelta(enterDate, spaceDate)).toBe(1)
+
+  await page.evaluate(() => {
+    window.__sandboxResetAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-sandbox-action="reset"]')) return
+      const state = JSON.parse(localStorage.getItem('edenia_v1_sandbox'))
+      const backups = JSON.parse(
+        localStorage.getItem('edenia_v1_sandbox_backups') || '[]'
+      )
+      window.__sandboxResetAtDocumentBubble = {
+        startDate: state.sandboxStartDate,
+        lastDate: state.sandboxLastDate,
+        hasResetEntry: state.activityLog.some(entry => entry.type === 'reset'),
+        hasResetBackup: backups.some(
+          entry => entry.reason === 'before sandbox reset' && entry.sandbox === true
+        ),
+        normalState: localStorage.getItem('edenia_v1')
+      }
+    }, { once: true })
+  })
+  await reset.focus()
+  await reset.press('Enter')
+  await expect.poll(() => page.evaluate(
+    () => window.__sandboxResetAtDocumentBubble?.hasResetBackup
+  )).toBe(true)
+  const resetObservation = await page.evaluate(
+    () => window.__sandboxResetAtDocumentBubble
+  )
+  expect(resetObservation.lastDate).toBe(resetObservation.startDate)
+  expect(resetObservation).toMatchObject({
+    hasResetEntry: true,
+    hasResetBackup: true,
+    normalState: null
+  })
+
+  const removedBridgeActions = await page.evaluate(() => ({
+    addSandboxDay: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'addSandboxDay'
+    ),
+    resetSandboxState: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'resetSandboxState'
+    )
+  }))
+  expect(removedBridgeActions).toEqual({
+    addSandboxDay: false,
+    resetSandboxState: false
+  })
+})
+
 test('all five locales initialize and persist through the rendered Settings flow', async ({
   page
 }, testInfo) => {

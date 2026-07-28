@@ -1,5 +1,4 @@
 export const LEGACY_ACTION_NAMES = Object.freeze([
-  'addSandboxDay',
   'addYoutubeInput',
   'applyHistoryAction',
   'cancelVideoSetAsidePrompt',
@@ -63,7 +62,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'renderVideoSearchResults',
   'requestVideoSetAside',
   'resetApp',
-  'resetSandboxState',
   'restoreStateBackup',
   'retryOnboardingRecovery',
   'saveLocaleFromSettings',
