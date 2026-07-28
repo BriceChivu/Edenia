@@ -711,3 +711,37 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore channel-refresh cleanup inline;
   persisted refresh records require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-022 — Extract Anki state bookkeeping
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Separate persisted Anki preference and baseline bookkeeping from
+  device capability, AnkiConnect, scoring, and presentation.
+- **Conceptual change:** Added `src/state/anki-state.js` for enabled-state lookup,
+  tracked-count normalization, config cleanup, resume and pending baselines, and
+  04:00-boundary key repair. Network refresh, device checks, settings UI, activity
+  logs, analytics, and scoring remain in `src/app.js`.
+- **Preservation contract:** Anki remains default-on unless exactly `false`; tracked
+  counts retain current coercion; normalizing a non-boolean enabled value still
+  mutates without necessarily reporting a change; disable timestamps are created
+  or cleared in the same order; baseline objects and pending records retain the
+  same permissive shapes; matching pending baselines clear; and AnkiConnect date
+  re-keying keeps max counts, newer timestamps, and existing source precedence.
+- **Risks:** “Fixing” change reporting, normalizing explicit timestamps, tightening
+  baseline validation, or changing merge precedence could affect automatic cleanup,
+  resumed tracking, and daily scoring.
+- **Verification:** `npm test` passed all 64 contracts, including default-on
+  enablement, count coercion, mutation/change-reporting order, disable timestamps,
+  resume and pending baselines, 04:00 re-keying, merge maxima, timestamp/source
+  precedence, and malformed-state handling. The serial Playwright suite passed
+  19 flows with 5 expected project-scoped skips across all six required viewports;
+  all 18 protected screenshots remained unchanged. Migration-ledger verification
+  follows the commit.
+- **Rollback:** Revert this commit to restore the Anki state helpers inline; no
+  stored preferences, counts, or baselines require migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

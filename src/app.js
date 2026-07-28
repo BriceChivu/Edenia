@@ -68,7 +68,6 @@ import {
 import {
   DEFAULT_THEME,
   normalizeAnkiCount,
-  normalizeAnkiEnabled,
   normalizeIncludeShorts,
   normalizeTheme,
   normalizeWeeklyGoalHours
@@ -89,6 +88,14 @@ import {
 import {
   normalizeChannelRefreshState
 } from './state/channel-refresh-state.js'
+import {
+  getTrackedAnkiCounts,
+  isAnkiEnabled,
+  normalizeAnkiDateKeys,
+  normalizeAnkiTrackingConfig,
+  setAnkiResumeBaselineFromStats,
+  setPendingAnkiResumeBaseline
+} from './state/anki-state.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -1199,10 +1206,6 @@ function isTemporaryShortsWhitelistedUser() {
   return TEMP_SHORTS_DISTINCT_IDS.has(getPosthogDistinctId())
 }
 
-function isAnkiEnabled(state) {
-  return normalizeAnkiEnabled(state?.config?.ankiEnabled)
-}
-
 function isAnkiAvailableOnDevice() {
   return !window.matchMedia?.('(max-width: 640px), (any-pointer: coarse)').matches
 }
@@ -1213,48 +1216,6 @@ function isAnkiTrackingActive(state) {
 
 function isStudyInsightsEnabled(state) {
   return state?.config?.studyInsights?.enabled !== false
-}
-
-function getTrackedAnkiCounts(s, dateKey) {
-  const day = s?.anki?.[dateKey] || {}
-  return {
-    reviewed: normalizeAnkiCount(day.reviewed),
-    created: normalizeAnkiCount(day.created)
-  }
-}
-
-function normalizeAnkiTrackingConfig(state) {
-  if (!state?.config) return false
-  let changed = false
-  state.config.ankiEnabled = normalizeAnkiEnabled(state.config.ankiEnabled)
-
-  if (state.config.ankiDisabledAt && !isValidTimestamp(state.config.ankiDisabledAt)) {
-    state.config.ankiDisabledAt = null
-    changed = true
-  }
-
-  if (!state.config.ankiEnabled && !state.config.ankiDisabledAt) {
-    state.config.ankiDisabledAt = new Date().toISOString()
-    changed = true
-  }
-
-  if (state.config.ankiEnabled && state.config.ankiDisabledAt) {
-    state.config.ankiDisabledAt = null
-    changed = true
-  }
-
-  if (!state.config.ankiResumeBaselines || typeof state.config.ankiResumeBaselines !== 'object' || Array.isArray(state.config.ankiResumeBaselines)) {
-    state.config.ankiResumeBaselines = {}
-    changed = true
-  }
-
-  const pending = state.config.ankiPendingResumeBaseline
-  if (pending && (typeof pending !== 'object' || Array.isArray(pending) || !pending.dateKey)) {
-    state.config.ankiPendingResumeBaseline = null
-    changed = true
-  }
-
-  return changed
 }
 
 function normalizeStudyInsightConfig(state) {
@@ -1328,36 +1289,6 @@ function normalizeStudyInsightConfig(state) {
   const changed = JSON.stringify(existing) !== JSON.stringify(normalized)
   state.config.studyInsights = normalized
   return changed
-}
-
-function setAnkiResumeBaselineFromStats(s, stats, createdAt = new Date().toISOString()) {
-  if (!s?.config || !stats) return null
-  const dateKey = stats.ankiDateKey || getAnkiDateKey(new Date(stats.fetchedAt || Date.now()))
-  const tracked = getTrackedAnkiCounts(s, dateKey)
-  if (!s.config.ankiResumeBaselines || typeof s.config.ankiResumeBaselines !== 'object' || Array.isArray(s.config.ankiResumeBaselines)) {
-    s.config.ankiResumeBaselines = {}
-  }
-  s.config.ankiResumeBaselines[dateKey] = {
-    rawReviewed: normalizeAnkiCount(stats.reviewedToday),
-    rawCreated: normalizeAnkiCount(stats.newToday),
-    trackedReviewed: tracked.reviewed,
-    trackedCreated: tracked.created,
-    createdAt
-  }
-  if (s.config.ankiPendingResumeBaseline?.dateKey === dateKey) s.config.ankiPendingResumeBaseline = null
-  return s.config.ankiResumeBaselines[dateKey]
-}
-
-function setPendingAnkiResumeBaseline(s, dateKey = getCurrentAnkiDateKey(), createdAt = new Date().toISOString()) {
-  if (!s?.config) return null
-  const tracked = getTrackedAnkiCounts(s, dateKey)
-  s.config.ankiPendingResumeBaseline = {
-    dateKey,
-    trackedReviewed: tracked.reviewed,
-    trackedCreated: tracked.created,
-    createdAt
-  }
-  return s.config.ankiPendingResumeBaseline
 }
 
 function getDefaultHistoryView() {
@@ -2412,32 +2343,6 @@ function normalizeRemovedChannels(state) {
     : []
   state.config.removedChannelIds = [...new Set(removedIds)]
     .filter(id => !configuredIds.has(id))
-}
-
-function normalizeAnkiDateKeys(state) {
-  if (!state?.anki || typeof state.anki !== 'object' || Array.isArray(state.anki)) return false
-  let changed = false
-
-  for (const [dateKey, day] of Object.entries({ ...state.anki })) {
-    if (day?.source !== 'ankiconnect' || !day.loggedAt) continue
-    const loggedAt = new Date(day.loggedAt)
-    if (Number.isNaN(loggedAt.getTime())) continue
-
-    const ankiDateKey = getAnkiDateKey(loggedAt)
-    if (ankiDateKey === dateKey) continue
-
-    const existing = state.anki[ankiDateKey]
-    state.anki[ankiDateKey] = {
-      reviewed: Math.max(existing?.reviewed || 0, day.reviewed || 0),
-      created: Math.max(existing?.created || 0, day.created || 0),
-      loggedAt: existing?.loggedAt && new Date(existing.loggedAt) > loggedAt ? existing.loggedAt : day.loggedAt,
-      source: existing?.source || day.source
-    }
-    delete state.anki[dateKey]
-    changed = true
-  }
-
-  return changed
 }
 
 // ════════════════════════════════════════════════════════════
