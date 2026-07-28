@@ -631,6 +631,216 @@ test('all five locales initialize and persist through the rendered Settings flow
   }
 })
 
+test('Settings locale listeners preserve menu, localization, persistence, and ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  const settings = page.locator('#settingsPanel')
+  const opener = page.locator('.gear-btn')
+  const trigger = page.locator('#settingsLocaleBtn')
+  const menu = page.locator('#settingsLocaleMenu')
+  const toast = page.locator('#toast')
+
+  await opener.click()
+  await page.evaluate(() => {
+    window.__settingsLocaleAnalytics = []
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__settingsLocaleAnalytics.push({ eventName, properties })
+      },
+      setPersonProperties() {},
+      get_distinct_id() {
+        return 'preservation-settings-locale'
+      }
+    }
+    window.__settingsLocaleAtTarget = null
+    document.getElementById('settingsLocaleBtn').addEventListener(
+      'click',
+      event => {
+        const button = event.currentTarget
+        const localeMenu = document.getElementById('settingsLocaleMenu')
+        window.__settingsLocaleAtTarget = {
+          defaultPrevented: event.defaultPrevented,
+          hidden: localeMenu.classList.contains('hidden'),
+          expanded: button.getAttribute('aria-expanded'),
+          activeId: document.activeElement?.id || null,
+          left: localeMenu.style.left
+        }
+      },
+      { once: true }
+    )
+  })
+
+  await trigger.click()
+  await expect.poll(() => page.evaluate(
+    () => window.__settingsLocaleAtTarget
+  )).toEqual({
+    defaultPrevented: false,
+    hidden: false,
+    expanded: 'true',
+    activeId: 'settingsLocaleBtn',
+    left: expect.any(String)
+  })
+  await expect(menu).not.toHaveClass(/\bhidden\b/)
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  await expect(trigger).toBeFocused()
+  expect(await page.evaluate(() => window.__settingsLocaleAnalytics)).toEqual([])
+  await expect(menu.locator('input[name="settingsLocale"]')).toHaveCount(5)
+  await expect(menu.locator(
+    'input[name="settingsLocale"][value="en"]'
+  )).toBeChecked()
+
+  const sameLocaleStorage = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  await menu.locator(
+    'input[name="settingsLocale"][value="en"]'
+  ).dispatchEvent('change')
+  await expect(menu).not.toHaveClass(/\bhidden\b/)
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(sameLocaleStorage)
+  await expect(toast).not.toHaveClass(/\bshow\b/)
+
+  const positionedLeft = await menu.evaluate(element => element.style.left)
+  await trigger.click()
+  await expect(menu).toHaveClass(/\bhidden\b/)
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  expect(await menu.evaluate(element => element.style.left)).toBe(positionedLeft)
+
+  await trigger.focus()
+  await trigger.press('Enter')
+  await expect(menu).not.toHaveClass(/\bhidden\b/)
+  await page.locator('#settingsTitle').click()
+  await expect(menu).toHaveClass(/\bhidden\b/)
+  expect(await menu.evaluate(element => element.style.left)).toBe('')
+  await expect(settings).not.toHaveClass(/\bhidden\b/)
+
+  await trigger.press('Space')
+  await expect(menu).not.toHaveClass(/\bhidden\b/)
+  await page.keyboard.press('Escape')
+  await expect(menu).toHaveClass(/\bhidden\b/)
+  await expect(settings).toHaveClass(/\bhidden\b/)
+  await expect(opener).toBeFocused()
+
+  await page.evaluate(() => {
+    window.EDENIA_ANALYTICS_ENABLED = false
+  })
+  await opener.click()
+  await trigger.click()
+  await page.evaluate(() => {
+    window.__settingsLocaleChangeAtDocumentBubble = null
+    document.addEventListener('change', event => {
+      if (!event.target.matches('input[name="settingsLocale"]')) return
+      const stored = JSON.parse(localStorage.getItem('edenia_v1'))
+      const cookie = document.cookie
+        .split('; ')
+        .find(part => part.startsWith('edenia_config='))
+      const cookieConfig = cookie
+        ? JSON.parse(decodeURIComponent(cookie.slice(cookie.indexOf('=') + 1)))
+        : null
+      window.__settingsLocaleChangeAtDocumentBubble = {
+        eventValue: event.target.value,
+        storedLocale: stored.config.locale,
+        cookieLocale: cookieConfig?.locale || null,
+        htmlLang: document.documentElement.lang,
+        settingsTitle: document.getElementById('settingsTitle').textContent,
+        localeLabel: document.getElementById('settingsLocaleLabel').textContent,
+        menuHidden: document.getElementById('settingsLocaleMenu')
+          .classList.contains('hidden'),
+        expanded: document.getElementById('settingsLocaleBtn')
+          .getAttribute('aria-expanded'),
+        settingsHidden: document.getElementById('settingsPanel')
+          .classList.contains('hidden'),
+        mainInert: document.getElementById('mainApp').inert,
+        themeLabel: document.getElementById('themeToggle')
+          .getAttribute('aria-label'),
+        toast: document.getElementById('toast').textContent,
+        toastShown: document.getElementById('toast').classList.contains('show'),
+        activity: stored.activityLog[0]
+      }
+    }, { once: true })
+  })
+  const frenchOption = menu.locator(
+    'input[name="settingsLocale"][value="fr"]'
+  )
+  await frenchOption.focus()
+  await frenchOption.press('Space')
+  await expect.poll(() => page.evaluate(
+    () => window.__settingsLocaleChangeAtDocumentBubble
+  )).toMatchObject({
+    eventValue: 'fr',
+    storedLocale: 'fr',
+    cookieLocale: 'fr',
+    htmlLang: 'fr',
+    settingsTitle: 'Réglages',
+    localeLabel: 'Français',
+    menuHidden: true,
+    expanded: 'false',
+    settingsHidden: false,
+    mainInert: true,
+    themeLabel: 'Passer en mode sombre',
+    toast: 'Langue changée en Français',
+    toastShown: true,
+    activity: {
+      actor: 'user',
+      type: 'locale',
+      status: 'success',
+      title: 'Langue modifiée',
+      detail: 'Langue réglée sur Français.'
+    }
+  })
+  await expect(page.locator('html')).toHaveAttribute('lang', 'fr')
+  await expect(settings).not.toHaveClass(/\bhidden\b/)
+
+  await trigger.click()
+  const traditionalChineseOption = menu.locator(
+    'input[name="settingsLocale"][value="zh-Hant"]'
+  )
+  await traditionalChineseOption.focus()
+  await traditionalChineseOption.press('Space')
+  await expect(page.locator('html')).toHaveAttribute('lang', 'zh-Hant')
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+
+  const bridgeState = await page.evaluate(() => ({
+    toggleLocaleMenu: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'toggleLocaleMenu'
+    ),
+    saveLocaleFromSettings: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'saveLocaleFromSettings'
+    ),
+    toggleIntroLocaleMenu: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'toggleIntroLocaleMenu'
+    ),
+    changeIntroLocale: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'changeIntroLocale'
+    ),
+    toggleOnboardingLocaleMenu: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'toggleOnboardingLocaleMenu'
+    ),
+    changeOnboardingLocale: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'changeOnboardingLocale'
+    )
+  }))
+  expect(bridgeState).toEqual({
+    toggleLocaleMenu: false,
+    saveLocaleFromSettings: false,
+    toggleIntroLocaleMenu: true,
+    changeIntroLocale: true,
+    toggleOnboardingLocaleMenu: true,
+    changeOnboardingLocale: true
+  })
+})
+
 test('theme listener preserves persistence, labels, keyboard, activity, and ordering', async ({
   page
 }, testInfo) => {

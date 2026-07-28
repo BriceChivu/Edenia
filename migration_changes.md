@@ -2404,3 +2404,45 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore implicit ID-derived identity; no
   application state or stored data is affected.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-074 — Migrate Settings locale-picker actions
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Static and generated event ownership, compatibility bridge reduction,
+  and tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move the Settings-only locale trigger and generated radio changes
+  from inline global dispatch into scoped listeners while preserving all locale
+  business behavior.
+- **Conceptual change:** Added semantic trigger and selection hooks, installed a
+  direct trigger listener plus a delegated `change` listener on the stable
+  Settings locale menu, removed the two Settings inline handlers, and removed
+  only `toggleLocaleMenu` and `saveLocaleFromSettings` from the temporary legacy
+  bridge. Intro and onboarding locale flows remain untouched.
+- **Preservation contract:** Exact native event and radio-value forwarding,
+  stopped click propagation, latent analytics identity, locale order and labels,
+  same-locale no-op, menu positioning and close quirks, outside-click and Escape
+  behavior, subtree replacement, focus behavior, translations, document
+  language and title, theme label, Activity Log, toast, persistence, config
+  cookie, analytics synchronization, environment isolation, rendering, styling,
+  and accessibility remain unchanged.
+- **Risks:** Document-level click delegation would receive no stopped trigger
+  event; direct listeners on generated radios would be lost during translation;
+  reading a radio after selection would observe a detached node; separating
+  Escape handling could unintentionally keep Settings open.
+- **Verification:** `npm test` passed the production build and all 238 contract
+  tests. The focused desktop locale flow passed stopped propagation,
+  same-locale no-op, native keyboard activation, menu positioning and cleanup,
+  current Escape behavior, translated state/cookie/UI/log/toast ordering, menu
+  rebuild survival, and selective bridge removal. The complete Playwright matrix
+  passed 41 protected flows with 115 intentional project skips across all six
+  target viewports; all 18 golden screenshots remained unchanged. This also
+  closes MIG-073's paired browser gate. Migration-ledger and diff-integrity
+  checks passed.
+- **Rollback:** Revert this commit to restore the Settings inline handlers and
+  bridge entries while retaining MIG-073 analytics metadata; stored locale state
+  requires no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

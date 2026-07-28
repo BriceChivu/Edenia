@@ -184,6 +184,7 @@ import { bindStudyInsightActions } from './features/study-insights/actions.js'
 import { bindActivityLogFilterActions } from './features/settings/activity-log-filter-actions.js'
 import { bindActivityLogPaginationActions } from './features/settings/activity-log-pagination-actions.js'
 import { bindSettingsAccordionActions } from './features/settings/accordion-actions.js'
+import { bindSettingsLocaleActions } from './features/settings/locale-actions.js'
 import { bindSettingsReplayActions } from './features/settings/replay-actions.js'
 import { bindSettingsResetConfirmActions } from './features/settings/reset-confirm-actions.js'
 import { bindSettingsShellActions } from './features/settings/shell-actions.js'
@@ -595,7 +596,7 @@ function renderLocaleSelect() {
   label.textContent = getLocaleLabel(currentLocale)
   menu.innerHTML = SUPPORTED_LOCALES.map(locale => `
     <label class="settings-locale-option">
-      <input type="radio" name="settingsLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} onchange="saveLocaleFromSettings(this.value)">
+      <input type="radio" name="settingsLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} data-settings-locale-action="select">
       <span>${escHtml(getLocaleLabel(locale))}</span>
     </label>
   `).join('')
@@ -13874,6 +13875,10 @@ bindFeedbackModalActions(document, {
 bindFeedbackSubmissionActions(document, {
   submit: submitFeedback
 })
+bindSettingsLocaleActions(document, {
+  toggle: toggleLocaleMenu,
+  select: saveLocaleFromSettings
+})
 bindWatchedSectionActions(document, {
   toggle: toggleWatchedSection
 })
@@ -13953,7 +13958,6 @@ installLegacyActions(window, {
   resetApp,
   restoreStateBackup,
   retryOnboardingRecovery,
-  saveLocaleFromSettings,
   saveSettingsOnTheFly,
   scrollVideoChannelShelf,
   searchYoutubeChannels,
@@ -13979,7 +13983,6 @@ installLegacyActions(window, {
   toggleHistoryVideoPopover,
   toggleIntroLocaleMenu,
   toggleIntroSound,
-  toggleLocaleMenu,
   toggleManualVideoPopover,
   toggleOnboardingChannel,
   toggleOnboardingLocaleMenu,
