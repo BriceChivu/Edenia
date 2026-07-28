@@ -113,6 +113,9 @@ import {
   normalizeNoAnkiFrequentUserPromptState,
   recordNoAnkiFrequentUserWatchedDate
 } from './state/anki-prompt-state.js'
+import {
+  createLearnerProfileNormalizer
+} from './state/learner-profile-state.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -895,6 +898,11 @@ const CURATED_CHANNEL_CATALOG = [
   })),
   ...EXPANDED_CURATED_CHANNEL_CATALOG
 ]
+const normalizeLearnerProfileState = createLearnerProfileNormalizer({
+  languageOptions: LEARNER_LANGUAGE_OPTIONS,
+  levelOptions: LEARNER_LEVEL_OPTIONS,
+  channelCatalog: CURATED_CHANNEL_CATALOG
+})
 let COMMUNITY_CHANNEL_CATALOG = []
 const CURATED_CHANNEL_SEARCH_LANGUAGE_ALIASES = {
   mandarin: ['mandarin', 'mandarin chinese', 'chinese', '中文', '汉语', '漢語'],
@@ -1316,34 +1324,6 @@ async function loadDynamicChannelCatalogs() {
   } catch {
     // The bundled curated catalog remains available if dynamic catalogs cannot load.
   }
-}
-
-function normalizeLearnerProfileState(state) {
-  if (!state) return false
-  const existing = state.learnerProfile && typeof state.learnerProfile === 'object' && !Array.isArray(state.learnerProfile)
-    ? state.learnerProfile
-    : {}
-  const validLanguageIds = new Set(LEARNER_LANGUAGE_OPTIONS.map(option => option.id))
-  const validLevelIds = new Set(LEARNER_LEVEL_OPTIONS.map(option => option.id))
-  const validCatalogIds = new Set(CURATED_CHANNEL_CATALOG.map(channel => channel.id))
-  const languages = Array.from(new Set(
-    (Array.isArray(existing.languages) ? existing.languages : [])
-      .filter(languageId => validLanguageIds.has(languageId))
-  ))
-  const selectedChannelCatalogIds = Array.from(new Set(
-    (Array.isArray(existing.selectedChannelCatalogIds) ? existing.selectedChannelCatalogIds : [])
-      .filter(catalogId => validCatalogIds.has(catalogId))
-  ))
-  const normalized = {
-    languages,
-    level: validLevelIds.has(existing.level) ? existing.level : null,
-    selectedChannelCatalogIds,
-    createdAt: isValidTimestamp(existing.createdAt) ? existing.createdAt : null,
-    updatedAt: isValidTimestamp(existing.updatedAt) ? existing.updatedAt : null
-  }
-  const changed = JSON.stringify(existing) !== JSON.stringify(normalized)
-  state.learnerProfile = normalized
-  return changed
 }
 
 function getRecommendedChannelCatalog(profile, limit = 6) {

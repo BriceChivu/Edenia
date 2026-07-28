@@ -845,3 +845,35 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore frequent-user prompt state helpers
   inline; prompt responses and watched-date evidence require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-026 — Establish learner-profile schema interface
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, interface, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Separate learner-profile state cleanup while leaving product-owned
+  language, level, and curated-channel catalogs unchanged.
+- **Conceptual change:** Added `src/state/learner-profile-state.js` with a normalizer
+  factory that receives the existing three catalogs. `src/app.js` composes that
+  interface once and retains all onboarding choices, recommendation logic, catalog
+  data, rendering, persistence, and analytics.
+- **Preservation contract:** Allowed IDs are rebuilt from the live catalog arrays
+  on every normalization; language and selected-channel IDs retain first-seen order
+  while duplicates and unknown IDs are removed; level uses strict membership;
+  timestamps retain valid original values; invalid profile shapes become the same
+  empty schema; and serialized change detection remains exact.
+- **Risks:** Capturing ID sets eagerly, sorting selections, accepting community
+  catalog IDs, or normalizing timestamps would alter onboarding restoration and
+  channel ordering.
+- **Verification:** `npm test` passed all 84 contracts, including filtering,
+  first-seen dedupe order, strict level membership, timestamp retention, empty
+  defaults, live catalog re-reading, malformed-catalog errors, and mutation
+  failures. The serial Playwright suite passed 19 flows with 5 expected
+  project-scoped skips across all six required viewports; all 18 protected
+  screenshots remained unchanged. Migration-ledger verification follows the commit.
+- **Rollback:** Revert this commit to restore learner-profile normalization inline;
+  learner choices require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
