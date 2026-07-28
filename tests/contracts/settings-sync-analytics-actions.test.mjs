@@ -16,7 +16,7 @@ const controls = Object.fromEntries(
   ])
 )
 
-test('Settings sync controls lock identities before listener migration', () => {
+test('Settings sync controls retain identities without inline handlers', () => {
   assert.equal(controls['settings.sync.export'].length, 1)
   assert.equal(controls['settings.sync.import'].length, 1)
   const [exportControl] = controls['settings.sync.export']
@@ -26,7 +26,11 @@ test('Settings sync controls lock identities before listener migration', () => {
     getAttribute(exportControl, 'data-analytics-action'),
     'settings.sync.export'
   )
-  assert.equal(getAttribute(exportControl, 'onclick'), 'exportSyncFile()')
+  assert.equal(
+    getAttribute(exportControl, 'data-settings-sync-action'),
+    'export'
+  )
+  assert.equal(getAttribute(exportControl, 'onclick'), null)
   assert.equal(getAttribute(exportControl, 'type'), 'button')
 
   assert.equal(
@@ -34,10 +38,30 @@ test('Settings sync controls lock identities before listener migration', () => {
     'settings.sync.import'
   )
   assert.equal(
-    getAttribute(importControl, 'onclick'),
-    "document.getElementById('syncFileInput').click()"
+    getAttribute(importControl, 'data-settings-sync-action'),
+    'choose-file'
   )
+  assert.equal(getAttribute(importControl, 'onclick'), null)
   assert.equal(getAttribute(importControl, 'type'), 'button')
+})
+
+test('Settings sync file input retains its native constraints', () => {
+  const inputTags = [...source.matchAll(/<input\b[^>]*>/g)]
+    .map(match => match[0])
+  const inputs = inputTags.filter(tag => (
+    tag.includes('id="syncFileInput"')
+  ))
+  assert.equal(inputs.length, 1)
+  const [input] = inputs
+  assert.equal(getAttribute(input, 'class'), 'hidden')
+  assert.equal(getAttribute(input, 'type'), 'file')
+  assert.equal(getAttribute(input, 'accept'), 'application/json,.json')
+  assert.equal(
+    getAttribute(input, 'data-settings-sync-action'),
+    'import-file'
+  )
+  assert.equal(getAttribute(input, 'onchange'), null)
+  assert.equal(getAttribute(input, 'multiple'), null)
 })
 
 test('Settings sync controls retain exact generic event names', () => {

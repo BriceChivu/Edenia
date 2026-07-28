@@ -2477,3 +2477,49 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore translation-derived analytics
   identity; no application state or stored data is affected.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-076 — Migrate Settings sync actions
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Static event ownership, native file activation, compatibility bridge
+  reduction, and tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move Settings sync export, file selection, and import changes from
+  inline global dispatch into scoped direct listeners without moving sync
+  business logic.
+- **Conceptual change:** Added semantic hooks to both sync buttons and the
+  existing hidden file input, installed idempotent direct listeners, removed all
+  three inline handlers, and removed only `exportSyncFile` and
+  `importSyncFileFromInput` from the temporary legacy bridge. The picker click
+  remains synchronous inside the visible import-button activation.
+- **Preservation contract:** Native Enter/Space and trusted picker activation,
+  exact zero-argument export and input-element import calls, generic click
+  identities and ordering, file acceptance and single-file behavior, export
+  envelope, timestamp, sandbox marker, filename and cleared reminders, import
+  validation, legacy raw-file compatibility, sandbox targeting, FileReader
+  timing and clearing, rollback backups, state normalization, storage and cookie
+  ordering, locale/theme/UI application, Activity Log language timing, analytics
+  synchronization, Settings continuity, toasts, failure quirks, focus, styling,
+  and accessibility remain unchanged.
+- **Risks:** Deferred or document-delegated picker activation could lose browser
+  user activation; forwarding the change event instead of the input would break
+  file access; changing callback order could move generic analytics ahead of
+  sync work.
+- **Verification:** `npm test` passed the production build and all 246 contract
+  tests. The focused desktop sync flow passed keyboard export, exact download
+  envelope and filename, cleared-reminder export compatibility, storage
+  invariance, synchronous nested picker activation, generic analytics ordering,
+  successful import with rollback backup and old-locale log/new-locale toast
+  timing, UI/cookie application, input clearing and reuse, invalid-JSON
+  non-mutation, and selective bridge removal. The complete Playwright matrix
+  passed 42 protected flows with 120 intentional project skips across all six
+  target viewports; all 18 golden screenshots remained unchanged. This also
+  closes MIG-075's paired browser gate. Migration-ledger and diff-integrity
+  checks passed.
+- **Rollback:** Revert this commit to restore the three inline handlers and two
+  bridge entries while retaining MIG-075 analytics metadata; stored state and
+  sync-file formats require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

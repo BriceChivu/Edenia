@@ -188,6 +188,7 @@ import { bindSettingsLocaleActions } from './features/settings/locale-actions.js
 import { bindSettingsReplayActions } from './features/settings/replay-actions.js'
 import { bindSettingsResetConfirmActions } from './features/settings/reset-confirm-actions.js'
 import { bindSettingsShellActions } from './features/settings/shell-actions.js'
+import { bindSettingsSyncActions } from './features/settings/sync-actions.js'
 import {
   bindStudyHistoryPeriodOptionActions
 } from './features/study-history/period-option-actions.js'
@@ -13879,6 +13880,10 @@ bindSettingsLocaleActions(document, {
   toggle: toggleLocaleMenu,
   select: saveLocaleFromSettings
 })
+bindSettingsSyncActions(document, {
+  exportFile: exportSyncFile,
+  importFile: importSyncFileFromInput
+})
 bindWatchedSectionActions(document, {
   toggle: toggleWatchedSection
 })
@@ -13921,7 +13926,6 @@ installLegacyActions(window, {
   copyOnboardingRecoveryLink,
   dismissVideoWatchPrompt,
   dropChannelShelf,
-  exportSyncFile,
   favoriteVideoFromWatchPrompt,
   finishChannelShelfDrag,
   finishIntroTrailer,
@@ -13936,7 +13940,6 @@ installLegacyActions(window, {
   handleVideoSetAsidePromptKeydown,
   handleVideoThumbnailClick,
   hideHeatmapTooltip,
-  importSyncFileFromInput,
   jumpToWatchedVideo,
   leaveChannelShelfDrag,
   markVideo,

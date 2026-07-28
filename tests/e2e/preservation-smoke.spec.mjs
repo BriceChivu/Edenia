@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { expect, test } from '../support/network-fixture.mjs'
 import { LEGACY_ACTION_NAMES } from '../../src/compat/legacy-actions.js'
 
@@ -838,6 +839,298 @@ test('Settings locale listeners preserve menu, localization, persistence, and or
     changeIntroLocale: true,
     toggleOnboardingLocaleMenu: true,
     changeOnboardingLocale: true
+  })
+})
+
+test('Settings sync listeners preserve download, picker, import, and failure ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  const settings = page.locator('#settingsPanel')
+  const exportControl = page.locator(
+    '[data-settings-sync-action="export"]'
+  )
+  const importControl = page.locator(
+    '[data-settings-sync-action="choose-file"]'
+  )
+  const input = page.locator(
+    '#syncFileInput[data-settings-sync-action="import-file"]'
+  )
+  const toast = page.locator('#toast')
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('edenia_v1'))
+    stored.videoWatchReminders = {
+      'protected-reminder': {
+        openedAt: '2026-07-27T04:00:00.000Z'
+      }
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(stored))
+    localStorage.removeItem('edenia_v1_backups')
+  })
+  await page.reload()
+  await waitForApplication(page)
+  await page.locator('.gear-btn').click()
+  const primaryBeforeExport = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  const backupsBeforeExport = await page.evaluate(
+    () => localStorage.getItem('edenia_v1_backups')
+  )
+
+  await page.evaluate(() => {
+    window.__settingsSyncOrder = []
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__settingsSyncOrder.push({
+          type: 'analytics',
+          eventName,
+          properties
+        })
+      },
+      setPersonProperties() {},
+      get_distinct_id() {
+        return 'preservation-settings-sync'
+      }
+    }
+    const exportObserver = event => {
+      if (!event.target.matches('[data-settings-sync-action="export"]')) return
+      document.removeEventListener('click', exportObserver)
+      window.__settingsSyncOrder.push({
+        type: 'export-document',
+        toast: document.getElementById('toast').textContent,
+        toastShown: document.getElementById('toast').classList.contains('show'),
+        settingsHidden: document.getElementById('settingsPanel')
+          .classList.contains('hidden')
+      })
+    }
+    document.addEventListener('click', exportObserver)
+  })
+
+  const downloadPromise = page.waitForEvent('download')
+  await exportControl.focus()
+  await exportControl.press('Enter')
+  const download = await downloadPromise
+  expect(download.suggestedFilename()).toBe('edenia-sync-2026-07-28.json')
+  const downloadPath = await download.path()
+  const downloadText = await readFile(downloadPath, 'utf8')
+  const exported = JSON.parse(downloadText)
+  expect(downloadText.startsWith('{\n  "app": "edenia"')).toBe(true)
+  expect(exported).toMatchObject({
+    app: 'edenia',
+    syncVersion: 1,
+    exportedAt: fixedNow.toISOString(),
+    sandbox: false
+  })
+  expect(exported.state.videoWatchReminders).toEqual({})
+  expect({
+    ...exported.state,
+    videoWatchReminders: JSON.parse(primaryBeforeExport).videoWatchReminders
+  }).toEqual(JSON.parse(primaryBeforeExport))
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(primaryBeforeExport)
+  expect(await page.evaluate(
+    () => localStorage.getItem('edenia_v1_backups')
+  )).toBe(backupsBeforeExport)
+  expect(await page.evaluate(() => window.__settingsSyncOrder)).toEqual([
+    {
+      type: 'analytics',
+      eventName: 'settings_sync_export_clicked',
+      properties: {
+        action: 'settings.sync.export',
+        button_name: 'Export sync file',
+        control_type: 'button'
+      }
+    },
+    {
+      type: 'export-document',
+      toast: 'Sync file exported',
+      toastShown: true,
+      settingsHidden: false
+    }
+  ])
+
+  await page.evaluate(() => {
+    localStorage.removeItem('edenia_v1_backups')
+  })
+  await page.evaluate(() => {
+    window.__settingsSyncOrder = []
+    const syncInput = document.getElementById('syncFileInput')
+    syncInput.addEventListener('click', () => {
+      window.__settingsSyncOrder.push({ type: 'input-click' })
+    }, { once: true })
+    const importObserver = event => {
+      if (!event.target.matches(
+        '[data-settings-sync-action="choose-file"]'
+      )) return
+      document.removeEventListener('click', importObserver)
+      window.__settingsSyncOrder.push({ type: 'import-document' })
+    }
+    document.addEventListener('click', importObserver)
+  })
+  const fileChooserPromise = page.waitForEvent('filechooser')
+  await importControl.focus()
+  await importControl.press('Enter')
+  const fileChooser = await fileChooserPromise
+  expect(await page.evaluate(() => window.__settingsSyncOrder)).toEqual([
+    { type: 'input-click' },
+    {
+      type: 'analytics',
+      eventName: 'settings_sync_import_clicked',
+      properties: {
+        action: 'settings.sync.import',
+        button_name: 'Import sync file',
+        control_type: 'button'
+      }
+    },
+    { type: 'import-document' }
+  ])
+
+  const importedState = JSON.parse(primaryBeforeExport)
+  importedState.config.locale = 'fr'
+  importedState.config.theme = 'dark'
+  importedState.config.ankiEnabled = false
+  importedState.config.ankiDisabledAt = '2026-07-26T04:00:00.000Z'
+  importedState.config.includeShorts = true
+  importedState.config.studyInsights.enabled = true
+  importedState.activityLog = []
+  importedState.videoWatchReminders = {
+    'must-be-cleared': {
+      openedAt: '2026-07-28T03:00:00.000Z'
+    }
+  }
+  await page.evaluate(() => {
+    window.EDENIA_ANALYTICS_ENABLED = false
+  })
+  await fileChooser.setFiles({
+    name: 'protected-sync.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({
+      app: 'edenia',
+      syncVersion: 1,
+      exportedAt: fixedNow.toISOString(),
+      sandbox: false,
+      state: importedState
+    }))
+  })
+
+  await expect(toast).toHaveText('Fichier de synchronisation importé')
+  await expect(page.locator('html')).toHaveAttribute('lang', 'fr')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(settings).not.toHaveClass(/\bhidden\b/)
+  await expect(page.locator('#settingsTitle')).toHaveText('Réglages')
+  await expect(page.locator('#settingsIncludeShorts')).toBeChecked()
+  await expect(page.locator('#settingsAnkiEnabled')).not.toBeChecked()
+  await expect(page.locator('#settingsInsightsEnabled')).toBeChecked()
+  expect(await input.evaluate(element => ({
+    files: element.files?.length || 0,
+    value: element.value
+  }))).toEqual({
+    files: 0,
+    value: ''
+  })
+
+  const importResult = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    const backups = JSON.parse(
+      localStorage.getItem('edenia_v1_backups') || '[]'
+    )
+    const cookie = document.cookie
+      .split('; ')
+      .find(part => part.startsWith('edenia_config='))
+    return {
+      state,
+      backups,
+      cookieConfig: cookie
+        ? JSON.parse(decodeURIComponent(cookie.slice(cookie.indexOf('=') + 1)))
+        : null,
+      bridge: {
+        exportSyncFile: Object.prototype.hasOwnProperty.call(
+          window.EdeniaActions,
+          'exportSyncFile'
+        ),
+        importSyncFileFromInput: Object.prototype.hasOwnProperty.call(
+          window.EdeniaActions,
+          'importSyncFileFromInput'
+        )
+      }
+    }
+  })
+  expect(importResult.state.config).toMatchObject({
+    locale: 'fr',
+    theme: 'dark',
+    ankiEnabled: false,
+    includeShorts: true
+  })
+  expect(importResult.state.videoWatchReminders).toEqual({})
+  expect(importResult.state.activityLog.slice(0, 2)).toMatchObject([
+    {
+      actor: 'user',
+      type: 'import',
+      status: 'success',
+      title: 'Sync file imported',
+      detail: 'protected-sync.json'
+    },
+    {
+      actor: 'auto',
+      type: 'backup',
+      status: 'info',
+      title: 'Rollback backup created',
+      detail: 'Saved a local backup before importing a sync file.'
+    }
+  ])
+  expect(importResult.backups).toHaveLength(1)
+  expect(importResult.backups[0]).toMatchObject({
+    reason: 'before sync import',
+    sandbox: false,
+    state: {
+      config: {
+        locale: 'en',
+        theme: 'light'
+      }
+    }
+  })
+  expect(importResult.cookieConfig).toMatchObject({
+    locale: 'fr',
+    theme: 'dark',
+    ankiEnabled: false,
+    includeShorts: true
+  })
+  expect(importResult.bridge).toEqual({
+    exportSyncFile: false,
+    importSyncFileFromInput: false
+  })
+
+  const primaryBeforeInvalidFile = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  const backupsBeforeInvalidFile = await page.evaluate(
+    () => localStorage.getItem('edenia_v1_backups')
+  )
+  const invalidChooserPromise = page.waitForEvent('filechooser')
+  await importControl.click()
+  const invalidChooser = await invalidChooserPromise
+  await invalidChooser.setFiles({
+    name: 'invalid-sync.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{not valid json')
+  })
+  await expect(toast).toHaveText(
+    'Impossible de lire le fichier de synchronisation'
+  )
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(primaryBeforeInvalidFile)
+  expect(await page.evaluate(
+    () => localStorage.getItem('edenia_v1_backups')
+  )).toBe(backupsBeforeInvalidFile)
+  expect(await input.evaluate(element => ({
+    files: element.files?.length || 0,
+    value: element.value
+  }))).toEqual({
+    files: 0,
+    value: ''
   })
 })
 
