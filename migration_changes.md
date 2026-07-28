@@ -1493,3 +1493,37 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore aria-label-derived analytics
   identities; city view state and persisted application data are unaffected.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-046 — Migrate city zoom actions
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Event ownership, compatibility bridge reduction, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move the three static city zoom clicks from inline attributes into
+  a bounded city feature module without changing zoom or reset behavior.
+- **Conceptual change:** Added fixed semantic action hooks and an idempotent
+  direct-listener binder for zoom out, reset, and zoom in; installed it from the
+  composition entry point; removed the inline handlers; and removed
+  `zoomCityImage` and `resetCityImageView` from the temporary legacy action
+  bridge.
+- **Preservation contract:** Zoom direction and exact `0.25` step, `1`–`2`
+  clamping, omission of the click event and focal-point math, pan clamping,
+  transform order, reset of touch/pinch/drag state, mouse and native keyboard
+  activation, document-bubble ordering, explicit analytics identities,
+  localized accessible names, styling, and application state remain exact.
+- **Risks:** Forwarding the event would alter pan position; a delegated listener
+  would invert transform and document-analytics ordering; an incomplete reset
+  would leave hidden gesture state active.
+- **Verification:** `npm test` passed all 161 contract tests and the production
+  build. Playwright passed 24 protected flows with 30 expected project skips,
+  including fixed call arity, click, Enter, Space, clamp, reset, bridge, and
+  document-order assertions across the required viewport projects; all 18
+  visual baselines remained unchanged. Migration-ledger verification passed
+  against `v1.0.0`.
+- **Rollback:** Revert this commit to restore the three inline handlers and both
+  bridge entries while retaining MIG-045 analytics metadata; city image view
+  state is ephemeral and needs no data migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

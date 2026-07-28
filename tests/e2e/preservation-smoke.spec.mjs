@@ -490,6 +490,79 @@ test('Activity Log filter listeners preserve live values, rendering, keyboard, a
   expect(removedBridgeAction).toBe(false)
 })
 
+test('city zoom listeners preserve fixed steps, limits, reset, keyboard, and ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  const wrap = page.locator('.city-image-wrap')
+  const image = page.locator('#cityMilestoneImage')
+  const zoomOut = page.locator('[data-city-zoom-action="out"]')
+  const reset = page.locator('[data-city-zoom-action="reset"]')
+  const zoomIn = page.locator('[data-city-zoom-action="in"]')
+
+  await expect(image).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)')
+  await zoomOut.click()
+  await expect(image).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)')
+
+  await page.evaluate(() => {
+    window.__cityZoomAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-city-zoom-action="in"]')) return
+      window.__cityZoomAtDocumentBubble = {
+        transform: document.getElementById('cityMilestoneImage').style.transform,
+        zoomed: document.querySelector('.city-image-wrap').classList.contains('is-zoomed')
+      }
+    }, { once: true })
+  })
+  await zoomIn.click()
+  await expect(wrap).toHaveClass(/\bis-zoomed\b/)
+  await expect.poll(() => page.evaluate(
+    () => window.__cityZoomAtDocumentBubble
+  )).toEqual({
+    transform: 'translate(0px, 0px) scale(1.25)',
+    zoomed: true
+  })
+
+  await zoomIn.focus()
+  await zoomIn.press('Enter')
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toBe('translate(0px, 0px) scale(1.5)')
+
+  await zoomOut.focus()
+  await zoomOut.press('Space')
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toBe('translate(0px, 0px) scale(1.25)')
+
+  for (let index = 0; index < 8; index += 1) {
+    await zoomIn.click()
+  }
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toBe('translate(0px, 0px) scale(2)')
+
+  await reset.focus()
+  await reset.press('Enter')
+  await expect(wrap).not.toHaveClass(/\bis-zoomed\b/)
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toBe('translate(0px, 0px) scale(1)')
+
+  const removedBridgeActions = await page.evaluate(() => ({
+    zoomCityImage: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'zoomCityImage'
+    ),
+    resetCityImageView: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'resetCityImageView'
+    )
+  }))
+  expect(removedBridgeActions).toEqual({
+    zoomCityImage: false,
+    resetCityImageView: false
+  })
+})
+
 test('Study History view listeners preserve persistence, keyboard, and ordering', async ({
   page
 }, testInfo) => {

@@ -164,6 +164,7 @@ import {
   getCityScoreForLevelIndex,
   normalizeCityProgress
 } from './features/city/model.js'
+import { bindCityZoomActions } from './features/city/zoom-actions.js'
 import {
   FIRST_STUDY_WALKTHROUGH_STEPS,
   LEVEL_UP_GUIDANCE_WALKTHROUGH_STEP,
@@ -13826,6 +13827,10 @@ bindActivityLogFilterActions(document, {
 bindStudyHistoryViewActions(document, {
   setView: setHistoryView
 })
+bindCityZoomActions(document, {
+  zoom: zoomCityImage,
+  reset: resetCityImageView
+})
 
 installLegacyActions(window, {
   addSandboxDay,
@@ -13892,7 +13897,6 @@ installLegacyActions(window, {
   renderVideoSearchResults,
   requestVideoSetAside,
   resetApp,
-  resetCityImageView,
   resetSandboxState,
   restoreStateBackup,
   retryOnboardingRecovery,
@@ -13937,8 +13941,7 @@ installLegacyActions(window, {
   toggleVideoFavorite,
   toggleVideoSearchPopover,
   toggleVideoShelfPreviewOnTouch,
-  toggleWatchedSection,
-  zoomCityImage
+  toggleWatchedSection
 })
 
 document.addEventListener('DOMContentLoaded', init)

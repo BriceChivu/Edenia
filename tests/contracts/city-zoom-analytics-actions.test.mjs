@@ -17,26 +17,27 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('city zoom controls lock pre-migration analytics identities', () => {
+test('city zoom controls retain analytics identities without inline handlers', () => {
   const controls = [
     {
       key: 'city.zoom.out',
-      handler: 'zoomCityImage(-1)'
+      action: 'out'
     },
     {
       key: 'city.zoom.reset',
-      handler: 'resetCityImageView()'
+      action: 'reset'
     },
     {
       key: 'city.zoom.in',
-      handler: 'zoomCityImage(1)'
+      action: 'in'
     }
   ]
 
   for (const expected of controls) {
     const tag = findButton(expected.key)
     assert.equal(getAttribute(tag, 'data-analytics-action'), expected.key)
-    assert.equal(getAttribute(tag, 'onclick'), expected.handler)
+    assert.equal(getAttribute(tag, 'data-city-zoom-action'), expected.action)
+    assert.equal(getAttribute(tag, 'onclick'), null)
   }
 })
 

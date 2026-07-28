@@ -63,7 +63,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'renderVideoSearchResults',
   'requestVideoSetAside',
   'resetApp',
-  'resetCityImageView',
   'resetSandboxState',
   'restoreStateBackup',
   'retryOnboardingRecovery',
@@ -108,8 +107,7 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'toggleVideoFavorite',
   'toggleVideoSearchPopover',
   'toggleVideoShelfPreviewOnTouch',
-  'toggleWatchedSection',
-  'zoomCityImage'
+  'toggleWatchedSection'
 ])
 
 export function installLegacyActions(target, actions) {
