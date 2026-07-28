@@ -452,3 +452,35 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the locale state and functions in the
   entry point. Locale storage and dictionary modules require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-014 — Lock translation runtime edge behavior
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Tests and documentation
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve unusual but existing locale and interpolation edges that a
+  future cleanup could otherwise change unintentionally.
+- **Conceptual change:** Added direct contracts for trimmed and null locale inputs,
+  the current `zh-Hant-TW` fallback, repeated placeholders, inherited parameter
+  properties, and the runtime's nullish localized-value fallback to English;
+  documented that production locale mutation belongs to the entry point's
+  DOM-synchronizing `applyLocale` composition boundary. The earlier sandbox-key
+  assertion covers English values materialized into localized dictionaries, while
+  the new nullish-value case exercises the runtime fallback branch itself.
+- **Preservation contract:** `zh-Hant-TW` continues to fall back to English unless a
+  separately approved behavior change expands normalization. Only own properties
+  substitute placeholders, repeated placeholders all substitute, and direct runtime
+  mutation does not become a feature-level API.
+- **Risks:** Treating broader Chinese tags as equivalent or using property lookup
+  without `hasOwnProperty` would change current locale and interpolation behavior.
+- **Verification:** Thirty-two of thirty-two translation, build, handler, style, and
+  domain contracts passed, including each newly locked edge. A serial Playwright run
+  passed 19 scenarios with 5 expected project skips and retained all 18 protected
+  visual baselines. Production logic is unchanged; only a boundary comment and test
+  coverage were added.
+- **Rollback:** Revert this test-and-documentation commit. Production output and
+  browser data are unchanged.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

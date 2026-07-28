@@ -183,8 +183,11 @@ test('locale normalization and browser defaults preserve current mappings', () =
     ['zh-HK', 'zh-Hant'],
     ['zh-MO', 'zh-Hant'],
     ['zh-Hant', 'zh-Hant'],
+    ['zh-Hant-TW', 'en'],
     ['unknown', 'en'],
-    ['', 'en']
+    ['', 'en'],
+    ['  fr-CA  ', 'fr'],
+    [null, 'en']
   ])
 
   for (const [input, expected] of cases) {
@@ -207,6 +210,14 @@ test('translation runtime preserves selection, fallback, labels, and interpolati
   assert.equal(getLocaleLabel('unknown'), 'English')
   assert.equal(t('settings.title'), I18N.fr['settings.title'])
   assert.equal(t('sandbox.channel.language'), I18N.en['sandbox.channel.language'])
+  const fallbackKey = 'settings.title'
+  const localizedValue = I18N.fr[fallbackKey]
+  try {
+    I18N.fr[fallbackKey] = undefined
+    assert.equal(t(fallbackKey), I18N.en[fallbackKey])
+  } finally {
+    I18N.fr[fallbackKey] = localizedValue
+  }
   assert.equal(t('missing.translation.key'), 'missing.translation.key')
   assert.equal(
     t('time.weekLabel', { week: 0, start: false, end: undefined }),
@@ -217,6 +228,14 @@ test('translation runtime preserves selection, fallback, labels, and interpolati
   )
   assert.equal(t('time.weekLabel', { week: 1 }), I18N.fr['time.weekLabel']
     .replace('{week}', '1'))
+  assert.equal(
+    t('repeat {value}/{value}', { value: 'kept' }),
+    'repeat kept/kept'
+  )
+  assert.equal(
+    t('inherited {value}', Object.create({ value: 'ignored' })),
+    'inherited {value}'
+  )
   assert.deepEqual(getMissingI18nKeys(), [])
   setCurrentLocale(DEFAULT_LOCALE)
 })

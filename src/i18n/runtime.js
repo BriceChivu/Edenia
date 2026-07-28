@@ -64,6 +64,10 @@ export function t(key, params = {}) {
   })
 }
 
+/**
+ * Composition boundary: the app entry point owns DOM synchronization via
+ * applyLocale and is the only production caller that should mutate this value.
+ */
 export function setCurrentLocale(locale) {
   currentLocale = normalizeLocale(locale)
   return currentLocale
