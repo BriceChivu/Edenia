@@ -182,6 +182,7 @@ import { bindSettingsResetConfirmActions } from './features/settings/reset-confi
 import { bindStudyHistoryViewActions } from './features/study-history/view-actions.js'
 import { bindSandboxActions } from './features/sandbox/actions.js'
 import { bindThemeActions } from './features/theme/actions.js'
+import { bindFeedbackConfirmationActions } from './features/feedback/confirmation-actions.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -13845,6 +13846,9 @@ bindSettingsResetConfirmActions(document, {
   show: showResetConfirm,
   hide: hideResetConfirm
 })
+bindFeedbackConfirmationActions(document, {
+  close: closeFeedbackConfirmation
+})
 
 installLegacyActions(window, {
   addYoutubeInput,
@@ -13855,7 +13859,6 @@ installLegacyActions(window, {
   claimCityLevelUp,
   clearCityWaveformPreview,
   clearVideoPausedState,
-  closeFeedbackConfirmation,
   closeFeedbackModal,
   closeHistoryActionPopovers,
   closeHistoryPointsPopoverSoon,

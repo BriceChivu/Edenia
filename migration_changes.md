@@ -1744,3 +1744,35 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore translation-derived analytics
   identity; feedback state and application data are unaffected.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-054 — Migrate the feedback-confirmation action
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Event ownership, compatibility bridge reduction, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move the feedback-confirmation OK click from an inline attribute
+  into a bounded feedback feature module without changing dismissal behavior.
+- **Conceptual change:** Added a semantic close hook and an idempotent direct
+  listener, installed it from the composition entry point, removed the inline
+  handler, and removed `closeFeedbackConfirmation` from the temporary legacy
+  bridge.
+- **Preservation contract:** Zero-argument invocation, exact removal of `show`
+  and addition of `hidden`, synchronous focus return to the feedback launcher,
+  no persistence mutation, mouse and native keyboard activation,
+  document-bubble ordering, explicit analytics identity, localized label,
+  styling, and dialog accessibility remain exact.
+- **Risks:** Moving focus after document analytics would alter observable
+  ordering; hiding without removing `show` would leave conflicting classes;
+  duplicate binding would invoke dismissal twice.
+- **Verification:** `npm test` passed all 181 contract tests and the production
+  build. Playwright passed 28 protected flows with 50 expected project skips,
+  including click, Enter, Space, class-state, focus-return, storage, bridge, and
+  document-order assertions; all 18 visual baselines remained unchanged.
+  Migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore the inline handler and bridge entry
+  while retaining MIG-053 analytics metadata; no stored data migration is
+  required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

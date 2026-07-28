@@ -337,6 +337,70 @@ test('theme listener preserves persistence, labels, keyboard, activity, and orde
   expect(removedBridgeAction).toBe(false)
 })
 
+test('feedback confirmation listener preserves dismissal, focus, keyboard, and ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  const confirmation = page.locator('#feedbackConfirmation')
+  const closeControl = page.locator('[data-feedback-confirmation-action="close"]')
+  const launcher = page.locator('#feedbackLaunchBtn')
+  const storedBefore = await page.evaluate(() => localStorage.getItem('edenia_v1'))
+  const showConfirmation = () => page.evaluate(() => {
+    const element = document.getElementById('feedbackConfirmation')
+    element.classList.remove('hidden')
+    element.classList.add('show')
+    element.querySelector('[data-feedback-confirmation-action="close"]').focus()
+  })
+
+  await showConfirmation()
+  await expect(confirmation).not.toHaveClass(/\bhidden\b/)
+  await expect(closeControl).toBeFocused()
+  await page.evaluate(() => {
+    window.__feedbackConfirmationAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-feedback-confirmation-action="close"]')) return
+      const element = document.getElementById('feedbackConfirmation')
+      window.__feedbackConfirmationAtDocumentBubble = {
+        hidden: element.classList.contains('hidden'),
+        shown: element.classList.contains('show'),
+        launcherFocused: document.activeElement ===
+          document.getElementById('feedbackLaunchBtn')
+      }
+    }, { once: true })
+  })
+  await closeControl.click()
+  await expect.poll(() => page.evaluate(
+    () => window.__feedbackConfirmationAtDocumentBubble
+  )).toEqual({
+    hidden: true,
+    shown: false,
+    launcherFocused: true
+  })
+  await expect(launcher).toBeFocused()
+
+  await showConfirmation()
+  await closeControl.press('Enter')
+  await expect(confirmation).toHaveClass(/\bhidden\b/)
+  await expect(launcher).toBeFocused()
+
+  await showConfirmation()
+  await closeControl.press('Space')
+  await expect(confirmation).toHaveClass(/\bhidden\b/)
+  await expect(launcher).toBeFocused()
+
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+  const removedBridgeAction = await page.evaluate(() => (
+    Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'closeFeedbackConfirmation'
+    )
+  ))
+  expect(removedBridgeAction).toBe(false)
+})
+
 test('Study Insight listeners preserve tabs, persistence, focus, and event ordering', async ({
   page
 }, testInfo) => {

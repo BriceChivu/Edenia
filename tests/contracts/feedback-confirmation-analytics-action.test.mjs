@@ -10,11 +10,15 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('feedback confirmation control locks its pre-migration analytics identity', () => {
+test('feedback confirmation retains analytics identity without an inline handler', () => {
   assert.equal(controls.length, 1)
   const [control] = controls
+  assert.equal(
+    getAttribute(control, 'data-feedback-confirmation-action'),
+    'close'
+  )
   assert.equal(getAttribute(control, 'data-analytics-action'), 'feedback.ok')
-  assert.equal(getAttribute(control, 'onclick'), 'closeFeedbackConfirmation()')
+  assert.equal(getAttribute(control, 'onclick'), null)
 })
 
 test('feedback confirmation control retains its exact generic event name', () => {

@@ -7,7 +7,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'claimCityLevelUp',
   'clearCityWaveformPreview',
   'clearVideoPausedState',
-  'closeFeedbackConfirmation',
   'closeFeedbackModal',
   'closeHistoryActionPopovers',
   'closeHistoryPointsPopoverSoon',
