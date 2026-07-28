@@ -309,6 +309,139 @@ test('analytics bridge preserves classic global ownership during walkthrough', a
   await expect(page.locator('#mainApp')).toHaveJSProperty('inert', false)
 })
 
+test('Settings replay listeners preserve walkthrough and trailer handoffs', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  const panel = page.locator('#settingsPanel')
+  const opener = page.locator('.gear-btn[data-settings-shell-action="open"]')
+  const walkthroughControl = page.locator(
+    '[data-settings-replay-action="walkthrough"]'
+  )
+  const storedBeforeWalkthrough = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  await opener.click()
+  await page.evaluate(() => {
+    window.__walkthroughReplayAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-settings-replay-action="walkthrough"]')) return
+      window.__walkthroughReplayAtDocumentBubble = {
+        hidden: document.getElementById('settingsPanel').classList.contains('hidden'),
+        inert: document.getElementById('mainApp').inert,
+        active: document.body.classList.contains('walkthrough-active')
+      }
+    }, { once: true })
+  })
+  await walkthroughControl.press('Enter')
+  await expect.poll(() => page.evaluate(
+    () => window.__walkthroughReplayAtDocumentBubble
+  )).toEqual({
+    hidden: true,
+    inert: false,
+    active: false
+  })
+  await expect(page.locator('body')).toHaveClass(/\bwalkthrough-active\b/)
+  await expect(page.locator('.walkthrough-layer')).not.toHaveClass(/\bhidden\b/)
+  await expect(page.locator('#mainApp')).toHaveJSProperty('inert', false)
+  await expect(opener).toBeFocused()
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBeforeWalkthrough)
+
+  await page.reload()
+  await waitForApplication(page)
+  const storedBeforeTrailer = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  await opener.click()
+  const trailerControl = page.locator(
+    '[data-settings-replay-action="trailer"]'
+  )
+  await page.evaluate(() => {
+    window.__trailerReplayAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-settings-replay-action="trailer"]')) return
+      window.__trailerReplayAtDocumentBubble = {
+        hidden: document.getElementById('settingsPanel').classList.contains('hidden'),
+        inert: document.getElementById('mainApp').inert,
+        active: document.body.classList.contains('intro-active')
+      }
+    }, { once: true })
+  })
+  await trailerControl.press('Space')
+  await expect.poll(() => page.evaluate(
+    () => window.__trailerReplayAtDocumentBubble
+  )).toEqual({
+    hidden: true,
+    inert: false,
+    active: false
+  })
+  await expect(page.locator('#introTrailer')).not.toHaveClass(/\bhidden\b/)
+  await expect(page.locator('body')).toHaveClass(/\bintro-active\b/)
+  await expect(page.locator('#mainApp')).toHaveJSProperty('inert', true)
+  await expect(page.locator('#introTrailer')).toHaveAttribute('data-scene', '0')
+  await expect(page.locator('#introStartBtn')).toHaveAttribute(
+    'data-i18n',
+    'intro.finale.return'
+  )
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBeforeTrailer)
+  expect(await page.evaluate(() => ({
+    showWalkthroughAgain: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'showWalkthroughAgain'
+    ),
+    showTrailerAgain: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'showTrailerAgain'
+    )
+  }))).toEqual({
+    showWalkthroughAgain: false,
+    showTrailerAgain: false
+  })
+})
+
+test('walkthrough replay preserves phone focus suppression', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'phone-standard')
+
+  await seedCompletedState(page)
+  const opener = page.locator('.gear-btn[data-settings-shell-action="open"]')
+  const storedBefore = await page.evaluate(() => localStorage.getItem('edenia_v1'))
+  await opener.click()
+  await page.evaluate(() => {
+    window.__settingsReplayGearFocuses = 0
+    document.addEventListener('focusin', event => {
+      if (event.target.matches?.('.gear-btn')) {
+        window.__settingsReplayGearFocuses += 1
+      }
+    })
+  })
+  await page.locator('[data-settings-replay-action="walkthrough"]').click()
+  await expect(page.locator('#settingsPanel')).toHaveClass(/\bhidden\b/)
+  await expect(page.locator('body')).toHaveClass(/\bwalkthrough-active\b/)
+  await expect(page.locator('.walkthrough-layer')).not.toHaveClass(/\bhidden\b/)
+  expect(await page.evaluate(() => window.__settingsReplayGearFocuses)).toBe(0)
+  await expect(opener).not.toBeFocused()
+
+  await page.keyboard.press('Escape')
+  await expect(page.locator('body')).not.toHaveClass(/\bwalkthrough-active\b/)
+  await opener.click()
+  await page.evaluate(() => {
+    window.__settingsReplayGearFocuses = 0
+  })
+  await page.locator('[data-settings-replay-action="trailer"]').click()
+  await expect(page.locator('#introTrailer')).not.toHaveClass(/\bhidden\b/)
+  await expect(page.locator('body')).toHaveClass(/\bintro-active\b/)
+  expect(await page.evaluate(() => window.__settingsReplayGearFocuses))
+    .toBeGreaterThan(0)
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+})
+
 test('sandbox remains isolated on its exact origin', async ({ page }) => {
   await page.goto('http://localhost:8001/?sandbox=1')
   await waitForApplication(page)

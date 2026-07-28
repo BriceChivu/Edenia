@@ -179,6 +179,7 @@ import { bindWatchedSectionActions } from './features/videos/watched-section-act
 import { bindStudyInsightActions } from './features/study-insights/actions.js'
 import { bindActivityLogFilterActions } from './features/settings/activity-log-filter-actions.js'
 import { bindSettingsAccordionActions } from './features/settings/accordion-actions.js'
+import { bindSettingsReplayActions } from './features/settings/replay-actions.js'
 import { bindSettingsResetConfirmActions } from './features/settings/reset-confirm-actions.js'
 import { bindSettingsShellActions } from './features/settings/shell-actions.js'
 import { bindStudyHistoryViewActions } from './features/study-history/view-actions.js'
@@ -13863,6 +13864,10 @@ bindSettingsShellActions(document, {
   open: openSettings,
   close: closeSettings
 })
+bindSettingsReplayActions(document, {
+  walkthrough: showWalkthroughAgain,
+  trailer: showTrailerAgain
+})
 
 installLegacyActions(window, {
   addYoutubeInput,
@@ -13941,8 +13946,6 @@ installLegacyActions(window, {
   setStatusFilter,
   showHeatmapTooltip,
   showOlderActivityLogEntries,
-  showTrailerAgain,
-  showWalkthroughAgain,
   startChannelShelfDrag,
   startTouchChannelShelfDrag,
   stopHistoryActionAutoScroll,

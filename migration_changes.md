@@ -2037,3 +2037,40 @@ release mappings, and follow-up findings are recorded as new entries.
   no stored data migration is involved, but analytics-calling flows would again
   risk stack overflow until a corrected bridge is redeployed.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-063 — Migrate Settings replay actions
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Event ownership, compatibility bridge reduction, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move the walkthrough- and trailer-replay clicks into a bounded
+  Settings module without changing either protected flow.
+- **Conceptual change:** Added fixed replay hooks and an idempotent direct
+  listener binder for both static buttons, installed it from the composition
+  entry point, removed the inline handlers, and removed
+  `showWalkthroughAgain` and `showTrailerAgain` from the temporary legacy
+  bridge. Both original replay functions and their internal call ordering remain.
+- **Preservation contract:** Zero-argument calls, synchronous Settings close,
+  the 120 ms launch delay, manual walkthrough mode, trailer replay mode and
+  return CTA, main-application inertness, desktop focus restoration,
+  phone-only return-focus suppression, state and locale continuity, native
+  keyboard activation, target-before-document ordering, exact analytics,
+  styling, persistence, and accessibility remain unchanged.
+- **Risks:** Forwarding the event or duplicating replay logic in the binder
+  could alter timing and state; retaining Settings return focus on phone would
+  disrupt walkthrough focus; changing replay mode would restart onboarding.
+- **Verification:** `npm test` passed all 202 contract tests and the production
+  build. The analytics-ownership, desktop replay, and phone focus flows passed
+  together with 3 protected passes and 15 expected project skips. The full
+  Playwright matrix then passed 35 protected flows with 85 expected project
+  skips, including Enter, Space, 120 ms handoff ordering, manual walkthrough,
+  trailer replay, inertness, responsive focus, storage, bridge, and
+  document-order assertions; all 18 visual baselines remained unchanged.
+  Migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore both inline handlers and bridge
+  entries while retaining MIG-061 analytics metadata; no stored data migration
+  is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

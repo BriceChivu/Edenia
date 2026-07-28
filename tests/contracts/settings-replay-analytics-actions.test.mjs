@@ -9,7 +9,7 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('Settings replay controls lock identities and retain inline handlers', () => {
+test('Settings replay controls retain identities without inline handlers', () => {
   const controls = buttonTags.filter(tag => (
     tag.match(/\sclass="([^"]*)"/)?.[1]
       .split(/\s+/)
@@ -18,15 +18,18 @@ test('Settings replay controls lock identities and retain inline handlers', () =
   assert.equal(controls.length, 2)
   assert.deepEqual(controls.map(control => ({
     action: getAttribute(control, 'data-analytics-action'),
+    replayAction: getAttribute(control, 'data-settings-replay-action'),
     handler: getAttribute(control, 'onclick')
   })), [
     {
       action: 'settings.walkthroughAgain',
-      handler: 'showWalkthroughAgain()'
+      replayAction: 'walkthrough',
+      handler: null
     },
     {
       action: 'settings.trailerAgain',
-      handler: 'showTrailerAgain()'
+      replayAction: 'trailer',
+      handler: null
     }
   ])
 })
