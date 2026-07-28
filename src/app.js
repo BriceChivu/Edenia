@@ -28,9 +28,6 @@ import {
 } from './domain/video-watch-coverage.js'
 import { normalizeVideoWatchProgress } from './domain/video-watch-progress.js'
 import {
-  compareActiveVideos,
-  comparePausedVideos,
-  getVideoPublishedTimestamp,
   getVideoStatus,
   hasVideoResumePriority,
   hasWatchedConfirmationUnlock,
@@ -40,6 +37,19 @@ import {
   normalizeResumeAtSeconds,
   normalizeVideoStatus
 } from './domain/video-state.js'
+import {
+  ACTIVE_VIDEOS_PER_CHANNEL,
+  compareActiveVideos,
+  comparePausedVideos,
+  getVisibleActiveVideos,
+  groupActiveVideosByChannel,
+  isHiddenFromVideoGrid,
+  isHiddenShortVideo,
+  isSavedActiveVideo,
+  matchesActiveChannelFilter,
+  matchesWatchedChannelFilter,
+  normalizeChannelShelfOrder
+} from './features/videos/feed-selectors.js'
 import {
   getBestYoutubeThumbnail as getBestThumbnail,
   getVideoAspectRatioFromItem,
@@ -256,7 +266,6 @@ const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const YOUTUBE_REFRESH_INTERVAL_MS = 5 * 60 * 60_000
 const YOUTUBE_REFRESH_ERROR_BACKOFF_MS = 30 * 60_000
 const SHORTS_ENABLE_REFETCH_COOLDOWN_MS = YOUTUBE_REFRESH_INTERVAL_MS
-const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const SANDBOX_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = IS_INTERNAL_TEST ? 8 : 50
 const MAX_FETCH_PAGES_PER_CHANNEL = 1
@@ -11227,74 +11236,10 @@ function toggleWatchedSection() {
   watchedToggle.setAttribute('aria-label', t(isWatchedSectionCollapsed ? 'videos.watched.show' : 'videos.watched.hide'))
 }
 
-function getVideoDisplayChannelKey(video) {
-  return video?.channelId || video?.channelTitle || `video:${video?.id || 'unknown'}`
-}
-
-function compareChannelTimelineVideos(a, b) {
-  const getPriority = video => hasVideoResumePriority(video)
-    ? 0
-    : isVideoWatchLater(video)
-    ? 1
-    : 2
-  const priorityDifference = getPriority(a) - getPriority(b)
-  return priorityDifference || compareActiveVideos(a, b)
-}
-
 function getVideoUploadRibbon(video, currentDateKey = getCurrentAppDateKey()) {
   const publishedAt = new Date(video?.publishedAt || '')
   if (Number.isNaN(publishedAt.getTime())) return null
   return toDateKey(publishedAt) === currentDateKey ? t('videos.card.new') : null
-}
-
-function normalizeChannelShelfOrder(order) {
-  if (!Array.isArray(order)) return []
-  return Array.from(new Set(
-    order
-      .map(key => String(key || '').trim())
-      .filter(Boolean)
-  ))
-}
-
-function groupActiveVideosByChannel(videos, channelOrder = [], configuredChannels = [], chronologicalOnly = false) {
-  const groups = new Map()
-  const configuredChannelsById = new Map(
-    configuredChannels
-      .filter(channel => channel?.id)
-      .map(channel => [channel.id, channel])
-  )
-  videos.forEach(video => {
-    const key = getVideoDisplayChannelKey(video)
-    const configuredChannel = configuredChannelsById.get(key)
-    const group = groups.get(key) || {
-      key,
-      title: video.channelTitle || t('videos.search.youtube'),
-      imageUrl: video.channelImageUrl || configuredChannel?.imageUrl || '',
-      catalogId: configuredChannel?.catalogId || '',
-      videos: []
-    }
-    if (!group.imageUrl && video.channelImageUrl) group.imageUrl = video.channelImageUrl
-    group.videos.push(video)
-    groups.set(key, group)
-  })
-  const orderedChannelIndexes = new Map(
-    normalizeChannelShelfOrder(channelOrder).map((key, index) => [key, index])
-  )
-  return Array.from(groups.values())
-    .map(group => ({
-      ...group,
-      videos: group.videos.sort(chronologicalOnly ? compareActiveVideos : compareChannelTimelineVideos)
-    }))
-    .sort((a, b) => {
-      const aIndex = orderedChannelIndexes.get(a.key)
-      const bIndex = orderedChannelIndexes.get(b.key)
-      if (aIndex !== undefined && bIndex !== undefined) return aIndex - bIndex
-      if (aIndex !== undefined) return -1
-      if (bIndex !== undefined) return 1
-      const latestB = Math.max(...b.videos.map(getVideoPublishedTimestamp))
-      const latestA = Math.max(...a.videos.map(getVideoPublishedTimestamp))
-      return latestB - latestA
-    })
 }
 
 function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], configuredChannels = []) {
@@ -11302,7 +11247,8 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
     videos,
     channelOrder,
     configuredChannels,
-    cardOptions.chronologicalOnly
+    cardOptions.chronologicalOnly,
+    t('videos.search.youtube')
   ).map((group, index) => {
     const countLabel = group.videos.length === 1
       ? t('videos.channel.oneVideo')
@@ -13539,72 +13485,6 @@ function closeManualVideoPopoverOnEscape(event) {
   if (event.key !== 'Escape') return
   if (document.getElementById('manualVideoPopover')?.classList.contains('hidden')) return
   closeManualVideoPopover(true)
-}
-
-function matchesChannelFilter(video, selectedChannelIds) {
-  return selectedChannelIds.has(video.channelId) || selectedChannelIds.has(video.channelTitle)
-}
-
-function isSavedActiveVideo(video) {
-  return ['partial', 'watch-later'].includes(getVideoStatus(video))
-}
-
-function matchesActiveChannelFilter(video, selectedChannelIds, removedChannelIds) {
-  return matchesChannelFilter(video, selectedChannelIds)
-    || (
-      isSavedActiveVideo(video)
-      && (
-        removedChannelIds.has(video.channelId)
-        || removedChannelIds.has(video.channelTitle)
-      )
-    )
-}
-
-function matchesWatchedChannelFilter(video, selectedChannelIds, removedChannelIds) {
-  return matchesChannelFilter(video, selectedChannelIds)
-    || removedChannelIds.has(video.channelId)
-    || removedChannelIds.has(video.channelTitle)
-}
-
-function isHiddenShortVideo(video, includeShorts) {
-  return !includeShorts && isShortDuration(video?.duration)
-}
-
-function getVisibleActiveVideos(videos, includeShorts = true, options = {}) {
-  const limitPerChannel = options.limitPerChannel !== false
-  const byChannel = new Map()
-
-  const visibleVideos = videos
-    .filter(v => getVideoStatus(v) !== 'watched')
-    .filter(v => !isHiddenFromVideoGrid(v))
-    .filter(v => !isHiddenShortVideo(v, includeShorts))
-    .sort(compareActiveVideos)
-
-  if (!limitPerChannel) return visibleVideos
-
-  visibleVideos.forEach(v => {
-    const key = getActiveVideoGroupKey(v)
-    const channelVideos = byChannel.get(key) || []
-    if (channelVideos.length < ACTIVE_VIDEOS_PER_CHANNEL) {
-      channelVideos.push(v)
-      byChannel.set(key, channelVideos)
-    }
-  })
-
-  return Array.from(byChannel.values())
-    .flat()
-    .sort(compareActiveVideos)
-}
-
-function getActiveVideoGroupKey(video) {
-  if (video?.manuallyAdded && video?.source === 'manual') {
-    return `manual:${video.id || video.title || 'unknown'}`
-  }
-  return video?.channelId || video?.channelTitle || 'unknown'
-}
-
-function isHiddenFromVideoGrid(video) {
-  return Boolean(video?.hiddenFromGrid)
 }
 
 function renderVideoActionIcon(type) {

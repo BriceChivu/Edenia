@@ -1304,3 +1304,39 @@ release mappings, and follow-up findings are recorded as new entries.
   action-bridge entries while retaining MIG-038 analytics metadata; stored
   settings require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-040 — Extract feed selectors and ordering
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, feature model, interface refinement, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Isolate deterministic feed visibility, grouping, and ordering
+  without moving rendering, mutable UI state, or lifecycle behavior.
+- **Conceptual change:** Added `src/features/videos/feed-selectors.js` for active
+  visibility, five-per-channel limiting, Shorts/hidden checks, selected/removed
+  channel matching, display and limiting keys, shelf-order normalization,
+  channel grouping metadata, resume/watch-later timeline priority, and
+  paused/published date comparators. Moved the comparator helpers from the
+  broader video-state module into this owning feature. The composition entry
+  injects the localized YouTube fallback title and retains all markup and side
+  effects.
+- **Preservation contract:** The limit remains five; manual-source videos retain
+  independent limit keys; input arrays and video identities remain intact;
+  invalid/pre-epoch dates, stable ties, resume/watch-later ordering, configured
+  and video image precedence, duplicate config behavior, configured shelf order,
+  removed-channel overrides, strict 180-second Shorts boundary, render order,
+  content ordering, drag state, analytics, persistence, and player lifecycle
+  remain exact.
+- **Risks:** Display and limiting keys intentionally differ; merging them could
+  hide manual videos. Small priority, fallback, or image-precedence changes
+  would alter channel ordering and visible cards.
+- **Verification:** `npm test` passed all 145 contract tests and the production
+  build. Playwright passed 21 protected browser flows with 15 expected
+  project-specific skips; all 18 visual baselines remained unchanged. The
+  migration-ledger check is included in this commit gate.
+- **Rollback:** Revert this commit to restore selectors and comparators to their
+  previous files; video or shelf state requires no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

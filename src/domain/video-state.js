@@ -45,25 +45,6 @@ export function hasVideoResumePriority(video) {
     )
 }
 
-export function getVideoPausedTimestamp(video) {
-  const timestamp = Date.parse(video?.pausedAt || '')
-  return Number.isFinite(timestamp) ? timestamp : 0
-}
-
-export function getVideoPublishedTimestamp(video) {
-  const timestamp = Date.parse(video?.publishedAt || '')
-  return Number.isFinite(timestamp) ? timestamp : 0
-}
-
-export function compareActiveVideos(a, b) {
-  return getVideoPublishedTimestamp(b) - getVideoPublishedTimestamp(a)
-}
-
-export function comparePausedVideos(a, b) {
-  return getVideoPausedTimestamp(b) - getVideoPausedTimestamp(a)
-    || compareActiveVideos(a, b)
-}
-
 export function isVideoWatchLater(video) {
   return getVideoStatus(video) === 'watch-later' || video?.watchLater === true
 }

@@ -1,10 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  compareActiveVideos,
-  comparePausedVideos,
-  getVideoPausedTimestamp,
-  getVideoPublishedTimestamp,
   getVideoStatus,
   getVideoUrl,
   hasVideoResumePriority,
@@ -93,27 +89,6 @@ test('video URLs preserve identifier encoding and eligible resume query strings'
     getVideoUrl({ id: 'later', status: 'watch-later', resumeAtSeconds: 0 }),
     'https://youtube.com/watch?v=later'
   )
-})
-
-test('timestamp helpers and comparators preserve invalid fallbacks and tie ordering', () => {
-  const older = {
-    pausedAt: '2026-07-27T00:00:00.000Z',
-    publishedAt: '2026-07-28T00:00:00.000Z'
-  }
-  const newer = {
-    pausedAt: '2026-07-28T00:00:00.000Z',
-    publishedAt: '2026-07-27T00:00:00.000Z'
-  }
-  assert.equal(getVideoPausedTimestamp(), 0)
-  assert.equal(getVideoPublishedTimestamp({ publishedAt: 'invalid' }), 0)
-  assert.equal(comparePausedVideos(older, newer) > 0, true)
-  assert.equal(compareActiveVideos(older, newer) < 0, true)
-
-  const tiedPauseOlderPublication = {
-    pausedAt: '2026-07-28T00:00:00.000Z',
-    publishedAt: '2026-07-26T00:00:00.000Z'
-  }
-  assert.equal(comparePausedVideos(tiedPauseOlderPublication, newer) > 0, true)
 })
 
 test('watched confirmation unlocks preserve permissive timestamp validation', () => {
