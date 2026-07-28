@@ -1139,3 +1139,38 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the primitives inline; stored
   videos and progress require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-035 — Extract the saved-video search model
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, feature model, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Separate deterministic saved-video search calculations while
+  leaving the search UI and all side effects unchanged.
+- **Conceptual change:** Moved search-text normalization, phrase/token matching,
+  title/channel/status scoring, watched/published tie-breaking, and the eight
+  result cap from `src/app.js` to `src/features/videos/search-model.js`.
+  Rendering, popover state, focus/keyboard behavior, selection, navigation,
+  localization, and analytics remain in the composition entry.
+- **Carried-forward correction:** The preceding video-state extraction omitted
+  the `getVideoPublishedTimestamp` composition import while leaving a feed-order
+  consumer in place. This commit adds that exact import and removes three unused
+  composition imports; the extracted implementations are unchanged.
+- **Preservation contract:** String coercion, lowercasing and whitespace rules,
+  title/channel matching, status weights, score precedence, invalid timestamp
+  fallback, newest-first ties, source object identity, result limit and order,
+  empty/no-result UI, analytics event names/properties, and inline selection
+  behavior remain exact.
+- **Risks:** Ranking or normalization drift could change visible results and
+  analytics result positions even when the popover looks structurally correct.
+- **Verification:** `npm test` passed all 131 contract tests and the production
+  build, including the carried-forward import correction. Playwright passed 19
+  protected browser flows with five expected project-specific skips; all 18
+  visual baselines remained unchanged. The migration-ledger check is included
+  in this commit gate.
+- **Rollback:** Revert this commit to restore search calculations inline; no
+  user state or search history requires migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
