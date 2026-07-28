@@ -646,3 +646,35 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore action-history constants and
   normalization inline; existing Undo/Redo stacks require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-020 — Extract onboarding state normalization
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Separate the persisted onboarding schema cleanup from its rendering,
+  navigation, and completion side effects.
+- **Conceptual change:** Moved onboarding schema version `2` and
+  `normalizeOnboardingState` to `src/state/onboarding-state.js`. Trailer, setup,
+  walkthrough, recovery, locale, persistence, and analytics logic remain in
+  `src/app.js`.
+- **Preservation contract:** Legacy `completed` still promotes both setup and
+  walkthrough completion; explicit valid timestamps retain precedence; legacy
+  `completedAt` remains the fallback; `introSeenAt` falls back to setup completion;
+  orphan timestamps are removed when incomplete; any integer version is retained;
+  and change detection still uses the normalized serialized shape.
+- **Risks:** Treating old completion flags differently, tightening accepted version
+  values, or preserving orphan dates would alter first-run and walkthrough routing
+  for existing users.
+- **Verification:** `npm test` passed all 54 contracts, including legacy completion,
+  timestamp precedence and fallback, orphan-date removal, version retention,
+  serialized change detection, and propagated mutation errors. The serial Playwright
+  suite passed 19 flows with 5 expected project-scoped skips across all six required
+  viewports; all 18 protected screenshots remained unchanged. Migration-ledger
+  verification follows the commit.
+- **Rollback:** Revert this commit to restore onboarding version and normalization
+  inline; onboarding records require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

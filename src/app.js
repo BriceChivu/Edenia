@@ -82,6 +82,10 @@ import {
   UNDO_ACTION_TYPES,
   UNDO_STACK_LIMIT
 } from './state/action-history.js'
+import {
+  normalizeOnboardingState,
+  ONBOARDING_VERSION
+} from './state/onboarding-state.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -371,7 +375,6 @@ const VIDEO_STATUSES = ['watch-later', 'unwatched', 'partial', 'watched']
 const HISTORY_RANGES = ['week', 'month']
 const ACTIVITY_LOG_FILTERS = ['all', 'user', 'auto', 'issues', 'points']
 const VIDEO_SEARCH_RESULT_LIMIT = 8
-const ONBOARDING_VERSION = 2
 const LEARNER_LANGUAGE_OPTIONS = [
   { id: 'mandarin', label: 'Mandarin Chinese', shortLabel: 'Mandarin', icon: '中' },
   { id: 'japanese', label: 'Japanese', shortLabel: 'Japanese', icon: '日' },
@@ -2266,34 +2269,6 @@ function normalizeChannelRefreshState(state) {
   if ('lastFetched' in state) changed = true
   state.channelRefreshes = normalized
   delete state.lastFetched
-  return changed
-}
-
-function normalizeOnboardingState(state) {
-  if (!state) return false
-  const existing = state.onboarding && typeof state.onboarding === 'object' && !Array.isArray(state.onboarding)
-    ? state.onboarding
-    : {}
-  const legacyCompleted = existing.completed === true
-  const setupCompleted = existing.setupCompleted === true || legacyCompleted
-  const walkthroughCompleted = existing.walkthroughCompleted === true || legacyCompleted
-  const setupCompletedAt = setupCompleted
-    ? (isValidTimestamp(existing.setupCompletedAt) ? existing.setupCompletedAt : (isValidTimestamp(existing.completedAt) ? existing.completedAt : null))
-    : null
-  const normalized = {
-    version: Number.isInteger(existing.version) ? existing.version : ONBOARDING_VERSION,
-    introSeenAt: isValidTimestamp(existing.introSeenAt) ? existing.introSeenAt : setupCompletedAt,
-    setupCompleted,
-    setupCompletedAt,
-    walkthroughCompleted,
-    walkthroughCompletedAt: walkthroughCompleted
-      ? (isValidTimestamp(existing.walkthroughCompletedAt) ? existing.walkthroughCompletedAt : (isValidTimestamp(existing.completedAt) ? existing.completedAt : null))
-      : null,
-    levelUpGuidanceShownAt: isValidTimestamp(existing.levelUpGuidanceShownAt) ? existing.levelUpGuidanceShownAt : null,
-    recommendationsAppliedAt: isValidTimestamp(existing.recommendationsAppliedAt) ? existing.recommendationsAppliedAt : null
-  }
-  const changed = JSON.stringify(existing) !== JSON.stringify(normalized)
-  state.onboarding = normalized
   return changed
 }
 
