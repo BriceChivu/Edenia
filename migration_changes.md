@@ -1243,3 +1243,31 @@ release mappings, and follow-up findings are recorded as new entries.
   global aliases while retaining the explicit analytics identities from
   MIG-036; stored insight state needs no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-038 — Lock Settings accordion analytics identities
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve the generic analytics names of the next static
+  inline-handler group before transferring event ownership.
+- **Conceptual change:** Added explicit `data-analytics-action` values to the How
+  to, Activity log, and Recent local backups accordion buttons using the exact
+  translation keys already selected through their child labels. Inline handlers
+  remain in place in this commit.
+- **Preservation contract:** Events remain `settings_howto_title_clicked`,
+  `settings_activity_title_clicked`, and `settings_backups_title_clicked`;
+  action/button properties, visible localized labels, click and keyboard
+  activation, accordion state, markup, styling, and accessibility remain exact.
+- **Risks:** Replacing child-label precedence with a different key would silently
+  split analytics history by event name.
+- **Verification:** `npm test` passed all 138 contract tests and the production
+  build. Playwright passed 20 protected browser flows with ten expected
+  project-specific skips; all 18 visual baselines remained unchanged. The
+  migration-ledger check is included in this commit gate.
+- **Rollback:** Revert this commit to restore resolver-derived identities; no
+  stored state or analytics schema migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
