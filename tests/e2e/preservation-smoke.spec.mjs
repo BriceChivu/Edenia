@@ -294,6 +294,21 @@ test('Settings shell listeners preserve the phone drawer and scroll reset', asyn
     .toBe(storedBefore)
 })
 
+test('analytics bridge preserves classic global ownership during walkthrough', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  await page.locator('.gear-btn[data-settings-shell-action="open"]').click()
+  await page.locator(
+    '[data-analytics-action="settings.walkthroughAgain"]'
+  ).click()
+  await expect(page.locator('body')).toHaveClass(/\bwalkthrough-active\b/)
+  await expect(page.locator('.walkthrough-layer')).not.toHaveClass(/\bhidden\b/)
+  await expect(page.locator('#mainApp')).toHaveJSProperty('inert', false)
+})
+
 test('sandbox remains isolated on its exact origin', async ({ page }) => {
   await page.goto('http://localhost:8001/?sandbox=1')
   await waitForApplication(page)

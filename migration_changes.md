@@ -1997,3 +1997,43 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore translation-derived replay
   analytics identities; application and onboarding state remain unaffected.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-062 — Prevent analytics bridge global recursion
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility bug fix, integration boundary, contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Restore the late-bound analytics interface after a protected
+  walkthrough flow exposed classic-script global-name collisions introduced by
+  MIG-016.
+- **Conceptual change:** Kept the integration module's public export names but
+  gave its local wrapper declarations distinct non-global names. Added a bundle
+  contract that rejects declarations using the four globals owned by
+  `analytics.js`, plus a browser flow that starts the existing inline manual
+  walkthrough and exercises analytics calls.
+- **Conceptual before/after:** Previously, the classic app bundle declared
+  wrappers named `trackEdeniaEvent`, `setEdeniaPersonProperties`,
+  `getEdeniaSessionReplayUrl`, and `syncEdeniaAnalyticsState`; those declarations
+  could replace the real window functions and recurse. The bundle now only
+  reads those window functions through distinctly named local wrappers.
+- **Preservation contract:** Analytics remains optional and dynamically
+  replaceable; receivers, arguments, return values, event names and properties,
+  state-sync ordering, error propagation, internal-test separation, script
+  order, deployed filenames, walkthrough behavior, and zero real CI traffic
+  remain exact.
+- **Risks:** Capturing an analytics function only once would break late loading
+  or replacement; renaming public imports would create unrelated churn; changing
+  script format could break remaining legacy handlers.
+- **Verification:** `npm test` passed all 199 contract tests and the production
+  build, including the classic-bundle collision contract. The focused
+  walkthrough runtime flow that previously overflowed passed without console or
+  page errors. The full Playwright matrix then passed 33 protected flows with
+  75 expected project skips; all 18 visual baselines remained unchanged.
+  Migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore the colliding wrapper declarations;
+  no stored data migration is involved, but analytics-calling flows would again
+  risk stack overflow until a corrected bridge is redeployed.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

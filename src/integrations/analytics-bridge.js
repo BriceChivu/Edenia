@@ -6,19 +6,19 @@ export function hasEdeniaAnalyticsStateSync() {
   return typeof window.syncEdeniaAnalyticsState === 'function'
 }
 
-export function trackEdeniaEvent(...args) {
+function forwardEdeniaEvent(...args) {
   return window.trackEdeniaEvent?.(...args)
 }
 
-export function setEdeniaPersonProperties(...args) {
+function forwardEdeniaPersonProperties(...args) {
   return window.setEdeniaPersonProperties?.(...args)
 }
 
-export function getEdeniaSessionReplayUrl() {
+function readEdeniaSessionReplayUrl() {
   return window.getEdeniaSessionReplayUrl?.()
 }
 
-export function syncEdeniaAnalyticsState(...args) {
+function forwardEdeniaAnalyticsState(...args) {
   return window.syncEdeniaAnalyticsState?.(...args)
 }
 
@@ -27,4 +27,11 @@ export function getPosthogDistinctId() {
   return typeof getDistinctId === 'function'
     ? getDistinctId.call(window.posthog)
     : undefined
+}
+
+export {
+  readEdeniaSessionReplayUrl as getEdeniaSessionReplayUrl,
+  forwardEdeniaPersonProperties as setEdeniaPersonProperties,
+  forwardEdeniaAnalyticsState as syncEdeniaAnalyticsState,
+  forwardEdeniaEvent as trackEdeniaEvent
 }
