@@ -1014,3 +1014,37 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the three constants inline; learner
   profiles and translations require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-031 — Extract curated channel catalog
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, product data, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move the large immutable curated-channel dataset and its search
+  metadata out of the composition entry without changing any product content.
+- **Conceptual change:** Mechanically moved the base catalog, level overrides,
+  expanded catalog tuples and derivation, final curated catalog, language aliases,
+  ignored search words, and not-sure starter IDs to
+  `src/features/channels/curated-catalog.js`. Dynamic community/discovery catalogs,
+  loading, search, recommendations, selection, ordering, and rendering remain in
+  `src/app.js`.
+- **Preservation contract:** All 213 unique channel entries retain exact membership,
+  order, IDs, language, input, name, level override, style, and optional fields.
+  Alias keys/values, Set insertion order for all 16 ignored words, starter-language
+  keys, and starter channel ordering remain byte-for-byte derived from the prior
+  source block. The exported arrays, objects, and Set remain mutable.
+- **Risks:** Reordering tuples, applying overrides at a different stage, deduping
+  catalog entries, or sorting metadata would alter recommendations, onboarding
+  order, search ranking, and persisted catalog IDs.
+- **Verification:** `npm test` passed all 110 contracts, including the exact
+  213-entry count, unique IDs, locked full-catalog hash, first and last records,
+  alias hash, 16-word Set order/hash, and starter-ID hash. The serial Playwright
+  suite passed 19 flows with 5 expected project-scoped skips across all six
+  required viewports; all 18 protected screenshots remained unchanged.
+  Migration-ledger verification follows the commit.
+- **Rollback:** Revert this commit to restore the mechanically moved data block
+  inline; channels and learner profiles require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
