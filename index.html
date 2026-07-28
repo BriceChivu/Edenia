@@ -389,8 +389,8 @@ and momentum—at a glance</h2>
         <button class="btn-secondary walkthrough-replay-btn" type="button" data-settings-replay-action="walkthrough" data-analytics-action="settings.walkthroughAgain" data-i18n="settings.walkthroughAgain">Show walkthrough again</button>
         <button class="btn-secondary walkthrough-replay-btn" type="button" data-settings-replay-action="trailer" data-analytics-action="settings.trailerAgain" data-i18n="settings.trailerAgain">Show trailer again</button>
         <div class="sync-actions">
-          <button class="btn-secondary" type="button" onclick="exportSyncFile()" data-i18n="settings.sync.export">Export sync file</button>
-          <button class="btn-secondary" type="button" onclick="document.getElementById('syncFileInput').click()" data-i18n="settings.sync.import">Import sync file</button>
+        <button class="btn-secondary" type="button" onclick="exportSyncFile()" data-analytics-action="settings.sync.export" data-i18n="settings.sync.export">Export sync file</button>
+        <button class="btn-secondary" type="button" onclick="document.getElementById('syncFileInput').click()" data-analytics-action="settings.sync.import" data-i18n="settings.sync.import">Import sync file</button>
           <input class="hidden" type="file" id="syncFileInput" accept="application/json,.json" onchange="importSyncFileFromInput(this)">
         </div>
         <p class="settings-note" data-i18n="settings.sync.note">Progress is saved in this browser. Use sync files to copy the same progress to another device or browser.</p>

@@ -2446,3 +2446,34 @@ release mappings, and follow-up findings are recorded as new entries.
   bridge entries while retaining MIG-073 analytics metadata; stored locale state
   requires no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-075 — Lock Settings sync analytics identities
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract tests
+- **Status:** Complete locally; paired listener migration pending
+- **Intent:** Preserve the Settings sync export and import buttons' existing
+  translation-derived analytics identities before replacing their inline event
+  ownership.
+- **Conceptual change:** Added explicit inert analytics metadata with the exact
+  existing `settings.sync.export` and `settings.sync.import` action values and
+  contracts for their normalized generic event names. Both inline behaviors
+  remain installed in this commit.
+- **Preservation contract:** Native button and file-picker activation, labels,
+  generic click names and ordering, download payload and filename, import
+  validation, FileReader timing, backups, storage domains, Activity Log,
+  localization, analytics synchronization, Settings continuity, toasts, error
+  paths, focus, styling, and accessibility remain unchanged.
+- **Risks:** Renamed actions would silently split analytics history; changing
+  picker or file-input ownership in this metadata commit would combine
+  compatibility and behavior changes.
+- **Verification:** The production build and contract suite passed. Migration
+  ledger and diff-integrity checks passed against `v1.0.0`. Because this
+  metadata is inert and retains all inline behavior, its browser and visual
+  gate is intentionally coupled to MIG-076.
+- **Rollback:** Revert this commit to restore translation-derived analytics
+  identity; no application state or stored data is affected.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
