@@ -184,6 +184,9 @@ import { bindSettingsAccordionActions } from './features/settings/accordion-acti
 import { bindSettingsReplayActions } from './features/settings/replay-actions.js'
 import { bindSettingsResetConfirmActions } from './features/settings/reset-confirm-actions.js'
 import { bindSettingsShellActions } from './features/settings/shell-actions.js'
+import {
+  bindStudyHistoryPeriodOptionActions
+} from './features/study-history/period-option-actions.js'
 import { bindStudyHistoryViewActions } from './features/study-history/view-actions.js'
 import { bindSandboxActions } from './features/sandbox/actions.js'
 import { bindThemeActions } from './features/theme/actions.js'
@@ -9934,7 +9937,7 @@ function renderHistoryPeriodPopover(range, popoverId, state) {
   if (!popover) return
   popover.innerHTML = options.length
     ? options.map(option => `
-        <button type="button" class="history-period-option ${selectedHistoryPeriod[range] === option.key ? 'active' : ''}" data-analytics-action="setHistoryPeriodForRange" onclick="setHistoryPeriodForRange('${range}', '${escHtml(option.key)}')" aria-pressed="${selectedHistoryPeriod[range] === option.key}">
+        <button type="button" class="history-period-option ${selectedHistoryPeriod[range] === option.key ? 'active' : ''}" data-history-period-action="select" data-history-range="${range}" data-history-period-key="${escHtml(option.key)}" data-analytics-action="setHistoryPeriodForRange" aria-pressed="${selectedHistoryPeriod[range] === option.key}">
           ${escHtml(option.label)}
         </button>
       `).join('')
@@ -13876,6 +13879,9 @@ bindSettingsReplayActions(document, {
 bindCityLevelUpActions(document, {
   claim: claimCityLevelUp
 })
+bindStudyHistoryPeriodOptionActions(document, {
+  selectPeriod: setHistoryPeriodForRange
+})
 
 installLegacyActions(window, {
   addYoutubeInput,
@@ -13948,7 +13954,6 @@ installLegacyActions(window, {
   selectYoutubeChannelSearchResult,
   setAllChannelFilters,
   setChannelFilter,
-  setHistoryPeriodForRange,
   setPersonalizedOnboardingStep,
   setStatusFilter,
   showHeatmapTooltip,

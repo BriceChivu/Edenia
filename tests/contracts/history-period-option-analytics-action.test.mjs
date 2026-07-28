@@ -14,17 +14,23 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('history-period option locks its identity before listener migration', () => {
+test('history-period option retains its identity without an inline handler', () => {
   assert.equal(controls.length, 1)
   const [control] = controls
   assert.equal(
     getAttribute(control, 'data-analytics-action'),
     'setHistoryPeriodForRange'
   )
-  assert.match(
-    getAttribute(control, 'onclick'),
-    /^setHistoryPeriodForRange\('\$\{range\}', '\$\{escHtml\(option\.key\)\}'\)$/
+  assert.equal(
+    getAttribute(control, 'data-history-period-action'),
+    'select'
   )
+  assert.equal(getAttribute(control, 'data-history-range'), '${range}')
+  assert.equal(
+    getAttribute(control, 'data-history-period-key'),
+    '${escHtml(option.key)}'
+  )
+  assert.equal(getAttribute(control, 'onclick'), null)
   assert.equal(getAttribute(control, 'type'), 'button')
 })
 

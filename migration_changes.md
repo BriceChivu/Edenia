@@ -2236,3 +2236,38 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore handler-derived analytics
   identity; Study History runtime selection and stored state remain unaffected.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-069 — Migrate history-period option action
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Generated event ownership, compatibility bridge reduction, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move generated week and month period selection from inline global
+  dispatch into listeners owned by the two stable Study History popovers.
+- **Conceptual change:** Added semantic selection, range, and period-key
+  metadata; installed idempotent delegated listeners on the week and month
+  popover roots; removed the generated inline handler; and removed only
+  `setHistoryPeriodForRange` from the temporary legacy bridge. Static range
+  toggles and `toggleHistoryPeriodPopover` remain bridged.
+- **Preservation contract:** Live range and key forwarding, runtime-only
+  selection, invalid-range fallback, option ordering and labels, active and
+  `aria-pressed` state, popover closure, action-before-document ordering, full
+  history rerender, mouse and keyboard activation, exact analytics, styling,
+  persistence, and accessibility remain unchanged.
+- **Risks:** The callback rebuilds both option lists synchronously, so reading
+  metadata after invocation would reference a detached control; document
+  delegation could reverse action and analytics ordering.
+- **Verification:** All 218 contract tests and the production build passed. The
+  focused desktop flow passed generated week and month selection, mouse and
+  keyboard activation, action-before-document rerendering, popover state,
+  runtime-only persistence, and selective bridge removal. The complete
+  Playwright matrix passed 38 protected flows with 100 intentional project skips
+  across all six required viewports; all 18 representative screenshots remained
+  unchanged. Diff and migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore the generated inline handler and
+  bridge entry while retaining MIG-068 analytics metadata; no stored data
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

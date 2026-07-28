@@ -1657,6 +1657,153 @@ test('city zoom listeners preserve fixed steps, limits, reset, keyboard, and ord
   })
 })
 
+test('Study History period listeners preserve generated options and runtime-only selection', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.anki = {
+      '2026-07-28': { reviewed: 3, created: 0 },
+      '2026-07-20': { reviewed: 6, created: 0 },
+      '2026-06-15': { reviewed: 9, created: 0 }
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+  })
+  await page.reload()
+  await waitForApplication(page)
+
+  const storedBefore = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  const weekCell = page.locator(
+    '[data-history-period-range="week"]'
+  )
+  const weekToggle = weekCell.locator('.history-range-btn')
+  await weekToggle.click()
+  await expect(weekCell).toHaveClass(/\bopen\b/)
+  await expect(weekToggle).toHaveAttribute('aria-expanded', 'true')
+  const olderWeek = page.locator(
+    '#historyWeekPeriodPopover '
+      + '[data-history-period-action="select"]'
+      + '[data-history-range="week"]'
+      + '[data-history-period-key="2026-07-20"]'
+  )
+  await expect(olderWeek).toHaveCount(1)
+  await page.evaluate(() => {
+    window.__historyPeriodAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.('[data-history-period-action="select"]')) {
+        return
+      }
+      const activeRange = document.querySelector('.history-range-btn.active')
+      const activeOption = document.querySelector(
+        '#historyWeekPeriodPopover .history-period-option.active'
+      )
+      window.__historyPeriodAtDocumentBubble = {
+        activeRange: activeRange?.dataset.historyRange,
+        activePeriod: activeOption?.dataset.historyPeriodKey,
+        weekOpen: document.querySelector(
+          '[data-history-period-range="week"]'
+        ).classList.contains('open'),
+        weekExpanded: document.querySelector(
+          '[data-history-period-range="week"] .history-range-btn'
+        ).getAttribute('aria-expanded'),
+        points: document.getElementById('historyAnkiCreated').textContent,
+        rowCount: document.querySelectorAll(
+          '#historyTable .history-row:not(.history-row-head)'
+        ).length
+      }
+    }, { once: true })
+  })
+  await olderWeek.click()
+  await expect.poll(() => page.evaluate(
+    () => window.__historyPeriodAtDocumentBubble
+  )).toEqual({
+    activeRange: 'week',
+    activePeriod: '2026-07-20',
+    weekOpen: false,
+    weekExpanded: 'false',
+    points: '2',
+    rowCount: 1
+  })
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+
+  const monthCell = page.locator(
+    '[data-history-period-range="month"]'
+  )
+  const monthToggle = monthCell.locator('.history-range-btn')
+  await monthToggle.focus()
+  await monthToggle.press('Enter')
+  await expect(monthCell).toHaveClass(/\bopen\b/)
+  await expect(monthToggle).toHaveAttribute('aria-expanded', 'true')
+  const olderMonth = page.locator(
+    '#historyMonthPeriodPopover '
+      + '[data-history-period-action="select"]'
+      + '[data-history-range="month"]'
+      + '[data-history-period-key="2026-06"]'
+  )
+  await expect(olderMonth).toHaveCount(1)
+  await page.evaluate(() => {
+    window.__historyPeriodAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.('[data-history-period-action="select"]')) {
+        return
+      }
+      const activeRange = document.querySelector('.history-range-btn.active')
+      const activeOption = document.querySelector(
+        '#historyMonthPeriodPopover .history-period-option.active'
+      )
+      window.__historyPeriodAtDocumentBubble = {
+        activeRange: activeRange?.dataset.historyRange,
+        activePeriod: activeOption?.dataset.historyPeriodKey,
+        monthOpen: document.querySelector(
+          '[data-history-period-range="month"]'
+        ).classList.contains('open'),
+        monthExpanded: document.querySelector(
+          '[data-history-period-range="month"] .history-range-btn'
+        ).getAttribute('aria-expanded'),
+        points: document.getElementById('historyAnkiCreated').textContent,
+        rowCount: document.querySelectorAll(
+          '#historyTable .history-row:not(.history-row-head)'
+        ).length
+      }
+    }, { once: true })
+  })
+  await olderMonth.focus()
+  await olderMonth.press('Space')
+  await expect.poll(() => page.evaluate(
+    () => window.__historyPeriodAtDocumentBubble
+  )).toEqual({
+    activeRange: 'month',
+    activePeriod: '2026-06',
+    monthOpen: false,
+    monthExpanded: 'false',
+    points: '3',
+    rowCount: 1
+  })
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+
+  const bridgeActions = await page.evaluate(() => ({
+    selected: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'setHistoryPeriodForRange'
+    ),
+    toggled: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'toggleHistoryPeriodPopover'
+    )
+  }))
+  expect(bridgeActions).toEqual({
+    selected: false,
+    toggled: true
+  })
+})
+
 test('Study History view listeners preserve persistence, keyboard, and ordering', async ({
   page
 }, testInfo) => {
