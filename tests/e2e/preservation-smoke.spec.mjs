@@ -516,6 +516,78 @@ test('Settings accordion listeners preserve mouse, keyboard, reset, and ordering
   })
 })
 
+test('Settings reset-confirm listeners preserve visibility, keyboard, storage, and ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  await page.locator('.gear-btn').click()
+  const confirmation = page.locator('#resetConfirm')
+  const showControl = page.locator('[data-settings-reset-confirm-action="show"]')
+  const hideControl = page.locator('[data-settings-reset-confirm-action="hide"]')
+  const storedBefore = await page.evaluate(() => localStorage.getItem('edenia_v1'))
+  await expect(confirmation).toHaveClass(/\bhidden\b/)
+
+  await page.evaluate(() => {
+    window.__resetConfirmShownAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-settings-reset-confirm-action="show"]')) return
+      window.__resetConfirmShownAtDocumentBubble =
+        !document.getElementById('resetConfirm').classList.contains('hidden')
+    }, { once: true })
+  })
+  await showControl.click()
+  await expect(confirmation).not.toHaveClass(/\bhidden\b/)
+  await expect.poll(() => page.evaluate(
+    () => window.__resetConfirmShownAtDocumentBubble
+  )).toBe(true)
+
+  await page.evaluate(() => {
+    window.__resetConfirmHiddenAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-settings-reset-confirm-action="hide"]')) return
+      window.__resetConfirmHiddenAtDocumentBubble =
+        document.getElementById('resetConfirm').classList.contains('hidden')
+    }, { once: true })
+  })
+  await hideControl.click()
+  await expect(confirmation).toHaveClass(/\bhidden\b/)
+  await expect.poll(() => page.evaluate(
+    () => window.__resetConfirmHiddenAtDocumentBubble
+  )).toBe(true)
+
+  await showControl.focus()
+  await showControl.press('Enter')
+  await expect(confirmation).not.toHaveClass(/\bhidden\b/)
+  await hideControl.focus()
+  await hideControl.press('Space')
+  await expect(confirmation).toHaveClass(/\bhidden\b/)
+
+  await showControl.click()
+  await page.locator('#settingsCloseBtn').click()
+  await page.locator('.gear-btn').click()
+  await expect(confirmation).not.toHaveClass(/\bhidden\b/)
+  await hideControl.click()
+
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+  const removedBridgeActions = await page.evaluate(() => ({
+    showResetConfirm: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'showResetConfirm'
+    ),
+    hideResetConfirm: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'hideResetConfirm'
+    )
+  }))
+  expect(removedBridgeActions).toEqual({
+    showResetConfirm: false,
+    hideResetConfirm: false
+  })
+})
+
 test('Activity Log filter listeners preserve live values, rendering, keyboard, and ordering', async ({
   page
 }, testInfo) => {

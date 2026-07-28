@@ -17,22 +17,26 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('Settings reset-confirm controls lock pre-migration analytics identities', () => {
+test('Settings reset-confirm controls retain analytics identities without inline handlers', () => {
   const controls = [
     {
       key: 'settings.reset.open',
-      handler: 'showResetConfirm()'
+      action: 'show'
     },
     {
       key: 'settings.reset.cancel',
-      handler: 'hideResetConfirm()'
+      action: 'hide'
     }
   ]
 
   for (const expected of controls) {
     const tag = findButton(expected.key)
     assert.equal(getAttribute(tag, 'data-analytics-action'), expected.key)
-    assert.equal(getAttribute(tag, 'onclick'), expected.handler)
+    assert.equal(
+      getAttribute(tag, 'data-settings-reset-confirm-action'),
+      expected.action
+    )
+    assert.equal(getAttribute(tag, 'onclick'), null)
   }
 
   assert.equal(

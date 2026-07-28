@@ -394,11 +394,11 @@ and momentum—at a glance</h2>
           <input class="hidden" type="file" id="syncFileInput" accept="application/json,.json" onchange="importSyncFileFromInput(this)">
         </div>
         <p class="settings-note" data-i18n="settings.sync.note">Progress is saved in this browser. Use sync files to copy the same progress to another device or browser.</p>
-        <button class="btn-ghost btn-danger settings-reset-btn" onclick="showResetConfirm()" data-analytics-action="settings.reset.open" data-i18n="settings.reset.open">Reset everything</button>
+        <button class="btn-ghost btn-danger settings-reset-btn" data-settings-reset-confirm-action="show" data-analytics-action="settings.reset.open" data-i18n="settings.reset.open">Reset everything</button>
         <div id="resetConfirm" class="reset-confirm hidden">
           <p data-i18n="settings.reset.warning">This will clear this app's local watch history, streak, saved settings, and cached Anki stats. A rollback backup will be kept here. Your Anki collection will not be changed.</p>
           <div class="reset-confirm-actions">
-            <button class="btn-ghost" onclick="hideResetConfirm()" data-analytics-action="settings.reset.cancel" data-i18n="settings.reset.cancel">Cancel</button>
+            <button class="btn-ghost" data-settings-reset-confirm-action="hide" data-analytics-action="settings.reset.cancel" data-i18n="settings.reset.cancel">Cancel</button>
             <button class="btn-ghost btn-danger" onclick="resetApp()" data-i18n="settings.reset.delete">Delete data</button>
           </div>
         </div>

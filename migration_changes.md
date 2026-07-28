@@ -1681,3 +1681,39 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore translation-derived analytics
   identities; no application data is affected.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-052 — Migrate Settings reset-confirm actions
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Event ownership, compatibility bridge reduction, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move only the Settings reset-confirm reveal and cancel clicks from
+  inline attributes into a bounded Settings feature module.
+- **Conceptual change:** Added fixed semantic show/hide hooks and an idempotent
+  direct-listener binder, installed it from the composition entry point, removed
+  the two inline handlers, and removed `showResetConfirm` and
+  `hideResetConfirm` from the temporary legacy bridge. The destructive Delete
+  data action remains untouched.
+- **Preservation contract:** Separate idempotent show and hide behavior, exact
+  `hidden` class state, zero-argument invocation, no focus reassignment,
+  confirmation visibility across Settings close/reopen, no storage mutation,
+  mouse and native keyboard activation, document-bubble ordering, explicit
+  analytics identities, localized labels, styling, and accessibility remain
+  exact.
+- **Risks:** Replacing show/hide with a toggle would break repeated calls;
+  document delegation would invert UI and analytics ordering; including
+  `resetApp` would broaden this migration into destructive behavior.
+- **Verification:** `npm test` passed all 176 contract tests and the production
+  build. The focused reset-confirm Playwright flow passed after removing an
+  incorrect test-only focus assumption, then the full matrix passed 27 protected
+  flows with 45 expected project skips, including click, Enter, Space,
+  class-state, reopen, storage, bridge, and document-order assertions; all 18
+  visual baselines remained unchanged. Migration-ledger verification passed
+  against `v1.0.0`.
+- **Rollback:** Revert this commit to restore both inline handlers and bridge
+  entries while retaining MIG-051 analytics metadata; no persisted data
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

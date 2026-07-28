@@ -178,6 +178,7 @@ import {
 import { bindStudyInsightActions } from './features/study-insights/actions.js'
 import { bindActivityLogFilterActions } from './features/settings/activity-log-filter-actions.js'
 import { bindSettingsAccordionActions } from './features/settings/accordion-actions.js'
+import { bindSettingsResetConfirmActions } from './features/settings/reset-confirm-actions.js'
 import { bindStudyHistoryViewActions } from './features/study-history/view-actions.js'
 import { bindSandboxActions } from './features/sandbox/actions.js'
 import { bindThemeActions } from './features/theme/actions.js'
@@ -13840,6 +13841,10 @@ bindSandboxActions(document, {
 bindThemeActions(document, {
   toggle: toggleTheme
 })
+bindSettingsResetConfirmActions(document, {
+  show: showResetConfirm,
+  hide: hideResetConfirm
+})
 
 installLegacyActions(window, {
   addYoutubeInput,
@@ -13881,7 +13886,6 @@ installLegacyActions(window, {
   handleVideoSetAsidePromptKeydown,
   handleVideoThumbnailClick,
   hideHeatmapTooltip,
-  hideResetConfirm,
   importSyncFileFromInput,
   jumpToVideoFromSearch,
   jumpToWatchedVideo,
@@ -13924,7 +13928,6 @@ installLegacyActions(window, {
   setStatusFilter,
   showHeatmapTooltip,
   showOlderActivityLogEntries,
-  showResetConfirm,
   showTrailerAgain,
   showWalkthroughAgain,
   startChannelShelfDrag,
