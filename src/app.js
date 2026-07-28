@@ -165,6 +165,7 @@ import {
   normalizeVideoSearchText
 } from './features/videos/search-model.js'
 import { bindStudyInsightActions } from './features/study-insights/actions.js'
+import { bindSettingsAccordionActions } from './features/settings/accordion-actions.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -13932,6 +13933,11 @@ bindStudyInsightActions(document, {
   setView: setStudyInsightView,
   setCollapsed: setStudyInsightsCollapsed
 })
+bindSettingsAccordionActions(document, {
+  toggleHowTo: toggleSettingsHowTo,
+  toggleActivityLog: toggleSettingsActivityLog,
+  toggleBackups: toggleSettingsBackups
+})
 
 installLegacyActions(window, {
   addSandboxDay,
@@ -14040,9 +14046,6 @@ installLegacyActions(window, {
   toggleManualVideoPopover,
   toggleOnboardingChannel,
   toggleOnboardingLocaleMenu,
-  toggleSettingsActivityLog,
-  toggleSettingsBackups,
-  toggleSettingsHowTo,
   toggleStatusFilterMenu,
   toggleTheme,
   toggleVideoFavorite,

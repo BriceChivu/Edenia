@@ -269,3 +269,89 @@ test('Study Insight listeners preserve tabs, persistence, focus, and event order
     setStudyInsightsCollapsed: false
   })
 })
+
+test('Settings accordion listeners preserve mouse, keyboard, reset, and ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  await page.locator('.gear-btn').click()
+  const controls = [
+    {
+      toggle: page.locator('.settings-howto-toggle'),
+      content: page.locator('#settingsHowToContent'),
+      group: page.locator('.settings-howto-group')
+    },
+    {
+      toggle: page.locator('.activity-log-toggle'),
+      content: page.locator('#activityLogContent'),
+      group: page.locator('.activity-log-panel')
+    },
+    {
+      toggle: page.locator('.backup-toggle'),
+      content: page.locator('#backupContent'),
+      group: page.locator('.backup-panel')
+    }
+  ]
+
+  for (const control of controls) {
+    await expect(control.content).toBeHidden()
+    await expect(control.toggle).toHaveAttribute('aria-expanded', 'false')
+    await expect(control.group).not.toHaveClass(/\bopen\b/)
+  }
+
+  await page.evaluate(() => {
+    window.__settingsHowToOpenAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('.settings-howto-toggle')) return
+      window.__settingsHowToOpenAtDocumentBubble =
+        !document.getElementById('settingsHowToContent').hidden
+    }, { once: true })
+  })
+  await controls[0].toggle.locator('[data-i18n="settings.howto.title"]').click()
+  await expect(controls[0].content).toBeVisible()
+  await expect(controls[0].toggle).toHaveAttribute('aria-expanded', 'true')
+  await expect(controls[0].group).toHaveClass(/\bopen\b/)
+  await expect.poll(() => page.evaluate(
+    () => window.__settingsHowToOpenAtDocumentBubble
+  )).toBe(true)
+
+  await controls[1].toggle.focus()
+  await controls[1].toggle.press('Enter')
+  await expect(controls[1].content).toBeVisible()
+  await expect(controls[1].toggle).toHaveAttribute('aria-expanded', 'true')
+
+  await controls[2].toggle.focus()
+  await controls[2].toggle.press('Space')
+  await expect(controls[2].content).toBeVisible()
+  await expect(controls[2].toggle).toHaveAttribute('aria-expanded', 'true')
+
+  await page.locator('#settingsCloseBtn').click()
+  await page.locator('.gear-btn').click()
+  for (const control of controls) {
+    await expect(control.content).toBeHidden()
+    await expect(control.toggle).toHaveAttribute('aria-expanded', 'false')
+    await expect(control.group).not.toHaveClass(/\bopen\b/)
+  }
+
+  const removedBridgeActions = await page.evaluate(() => ({
+    toggleSettingsHowTo: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'toggleSettingsHowTo'
+    ),
+    toggleSettingsActivityLog: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'toggleSettingsActivityLog'
+    ),
+    toggleSettingsBackups: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'toggleSettingsBackups'
+    )
+  }))
+  expect(removedBridgeActions).toEqual({
+    toggleSettingsHowTo: false,
+    toggleSettingsActivityLog: false,
+    toggleSettingsBackups: false
+  })
+})

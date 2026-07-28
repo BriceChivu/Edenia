@@ -17,29 +17,26 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('Settings accordion controls lock pre-migration analytics identities', () => {
+test('Settings accordion controls retain analytics identities without inline handlers', () => {
   const controls = [
     {
       className: 'settings-howto-toggle',
-      action: 'settings.howto.title',
-      handler: 'toggleSettingsHowTo()'
+      action: 'settings.howto.title'
     },
     {
       className: 'activity-log-toggle',
-      action: 'settings.activity.title',
-      handler: 'toggleSettingsActivityLog()'
+      action: 'settings.activity.title'
     },
     {
       className: 'backup-toggle',
-      action: 'settings.backups.title',
-      handler: 'toggleSettingsBackups()'
+      action: 'settings.backups.title'
     }
   ]
 
   for (const expected of controls) {
     const tag = findButton(expected.className)
     assert.equal(getAttribute(tag, 'data-analytics-action'), expected.action)
-    assert.equal(getAttribute(tag, 'onclick'), expected.handler)
+    assert.equal(getAttribute(tag, 'onclick'), null)
   }
 })
 

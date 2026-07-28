@@ -1271,3 +1271,36 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore resolver-derived identities; no
   stored state or analytics schema migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-039 — Migrate static Settings accordion actions
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, event ownership, compatibility removal, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Continue inline-handler removal with the three static, native
+  Settings accordion buttons.
+- **Conceptual change:** Removed the How to, Activity log, and Recent local
+  backups `onclick` attributes and installed idempotent direct click listeners
+  through `src/features/settings/accordion-actions.js`. Removed their toggle
+  functions from the temporary `EdeniaActions` manifest/map; the existing
+  accordion state functions remain in `src/app.js`. Classic-script top-level
+  globals remain temporarily compatible until final global cleanup.
+- **Preservation contract:** One toggle per mouse, child, Enter, or Space
+  activation; content `hidden`, button `aria-expanded`, group `.open`, Settings
+  reopen reset, target-before-document ordering, analytics identities and
+  properties, localization, focusability, markup, styling, and accessibility
+  remain exact.
+- **Risks:** Duplicate listeners could invert a toggle back to its starting
+  state; changing native button handling could double keyboard activation.
+- **Verification:** `npm test` passed all 141 contract tests and the production
+  build. Playwright passed 21 protected browser flows with 15 expected
+  project-specific skips, including mouse, child, Enter, Space, reset, bridge,
+  and document-order assertions; all 18 visual baselines remained unchanged.
+  The migration-ledger check is included in this commit gate.
+- **Rollback:** Revert this commit to restore the three inline attributes and
+  action-bridge entries while retaining MIG-038 analytics metadata; stored
+  settings require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
