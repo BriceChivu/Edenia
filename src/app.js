@@ -25,6 +25,12 @@ import {
 } from './core/date-keys.js'
 import { escHtml, escapeSvgText } from './core/escaping.js'
 import { clampNumber } from './core/numbers.js'
+import {
+  addVideoWatchCoverageRange,
+  getVideoWatchCoverageSeconds,
+  normalizeVideoWatchCoverage
+} from './domain/video-watch-coverage.js'
+import { normalizeVideoWatchProgress } from './domain/video-watch-progress.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -2108,74 +2114,6 @@ function normalizeUndoState(state) {
     .filter(action => UNDO_ACTION_TYPES.includes(action?.type))
     .slice(-UNDO_STACK_LIMIT)
   delete state.lastUndo
-}
-
-function normalizeVideoWatchProgress(progress, duration = null) {
-  const entries = Array.isArray(progress) ? progress : []
-  const maxSeconds = Number.isFinite(Number(duration)) && Number(duration) > 0
-    ? Math.floor(Number(duration))
-    : null
-
-  return entries
-    .filter(entry => entry && typeof entry === 'object')
-    .map(entry => {
-      const watchedAt = isValidTimestamp(entry.watchedAt) ? entry.watchedAt : null
-      const rawSeconds = Math.floor(Number(entry.seconds || 0))
-      const seconds = maxSeconds === null
-        ? Math.max(0, rawSeconds)
-        : clampNumber(rawSeconds, 0, maxSeconds)
-      return watchedAt && seconds > 0 ? { watchedAt, seconds } : null
-    })
-    .filter(Boolean)
-    .sort((a, b) => new Date(a.watchedAt) - new Date(b.watchedAt))
-}
-
-function normalizeVideoWatchCoverage(ranges, duration = null) {
-  const maxSeconds = Number.isFinite(Number(duration)) && Number(duration) > 0
-    ? Number(duration)
-    : null
-  const normalized = (Array.isArray(ranges) ? ranges : [])
-    .filter(range => range && typeof range === 'object')
-    .map(range => {
-      const rawStart = Number(range.start)
-      const rawEnd = Number(range.end)
-      if (!Number.isFinite(rawStart) || !Number.isFinite(rawEnd)) return null
-      const start = maxSeconds === null
-        ? Math.max(0, rawStart)
-        : clampNumber(rawStart, 0, maxSeconds)
-      const end = maxSeconds === null
-        ? Math.max(0, rawEnd)
-        : clampNumber(rawEnd, 0, maxSeconds)
-      if (end <= start) return null
-      return {
-        start: Math.round(start * 1000) / 1000,
-        end: Math.round(end * 1000) / 1000
-      }
-    })
-    .filter(Boolean)
-    .sort((left, right) => left.start - right.start || left.end - right.end)
-
-  return normalized.reduce((merged, range) => {
-    const previous = merged[merged.length - 1]
-    if (!previous || range.start > previous.end + 0.001) {
-      merged.push({ ...range })
-      return merged
-    }
-    previous.end = Math.max(previous.end, range.end)
-    return merged
-  }, [])
-}
-
-function getVideoWatchCoverageSeconds(ranges, duration = null) {
-  return normalizeVideoWatchCoverage(ranges, duration)
-    .reduce((total, range) => total + (range.end - range.start), 0)
-}
-
-function addVideoWatchCoverageRange(ranges, start, end, duration = null) {
-  return normalizeVideoWatchCoverage([
-    ...normalizeVideoWatchCoverage(ranges, duration),
-    { start, end }
-  ], duration)
 }
 
 function normalizeVideoWatchProgressState(state) {

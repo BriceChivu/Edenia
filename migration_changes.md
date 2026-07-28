@@ -351,3 +351,34 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the helper declaration in the entry
   point. No browser state is changed.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-011 — Extract pure video watch coverage
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Isolate the pure watch-progress and unique-range calculations that
+  underpin playback persistence and scoring before moving the player lifecycle.
+- **Conceptual change:** Moved timestamped progress-entry normalization into
+  `src/domain/video-watch-progress.js`, and moved watched-range normalization,
+  unique watched-seconds totals, and range addition together into
+  `src/domain/video-watch-coverage.js`. Both modules import only their required
+  timestamp-validation or numeric-clamping primitives from core.
+- **Preservation contract:** Timestamp filtering, seconds flooring, duration
+  clipping, three-decimal range rounding, sort order, overlap/touch/0.001-second
+  merge tolerance, invalid-range removal, input immutability, and unique-seconds
+  totals remain exact. No scoring threshold or player lifecycle behavior changes.
+- **Risks:** A range merge or duration-boundary change could over-credit or
+  under-credit watched time, alter rewatch scoring, or corrupt resume persistence.
+- **Verification:** Twenty-five of twenty-five contracts passed, including invalid
+  progress entries, timestamp ordering, duration clipping, three-decimal rounding,
+  nested and touching ranges, the 0.001-second tolerance, unique totals, numeric
+  duration coercion, frozen inputs, and the legacy validation/rounding order. A
+  serial Playwright run passed 19 scenarios with 5 expected locale-project skips,
+  and all 18 protected visual baselines remained unchanged.
+- **Rollback:** Revert this commit to restore the four pure functions in the entry
+  point. Existing stored progress and coverage data require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
