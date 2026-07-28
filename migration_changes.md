@@ -1401,3 +1401,31 @@ release mappings, and follow-up findings are recorded as new entries.
   bridge entry while retaining MIG-041 metadata; persisted `historyView` values
   remain compatible.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-043 — Lock Activity Log filter analytics identities
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve generic analytics names for the five static Activity Log
+  filters before moving their event ownership.
+- **Conceptual change:** Added explicit `data-analytics-action` values matching
+  the existing `settings.activity.*` translation keys for All, User, Auto,
+  Issues, and Points. Inline handlers remain in place in this commit.
+- **Preservation contract:** The five `settings_activity_*_clicked` event names,
+  action/button properties, localized labels, live dataset argument, filter
+  selection, rendering, mobile pagination, keyboard behavior, markup, styling,
+  and accessibility remain exact.
+- **Risks:** A renamed key would fragment analytics; capturing a value here would
+  not yet alter behavior but could conceal the live-dataset requirement of the
+  following migration.
+- **Verification:** `npm test` passed all 152 contract tests and the production
+  build. Playwright passed 22 protected flows with 20 expected project skips
+  across the six required viewport projects; all 18 representative screenshots
+  remained unchanged. Migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore translation-derived analytics
+  identities; no Activity Log state or analytics migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
