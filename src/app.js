@@ -175,6 +175,7 @@ import {
   getVideoSearchMatches,
   normalizeVideoSearchText
 } from './features/videos/search-model.js'
+import { bindWatchedSectionActions } from './features/videos/watched-section-actions.js'
 import { bindStudyInsightActions } from './features/study-insights/actions.js'
 import { bindActivityLogFilterActions } from './features/settings/activity-log-filter-actions.js'
 import { bindSettingsAccordionActions } from './features/settings/accordion-actions.js'
@@ -13854,6 +13855,9 @@ bindFeedbackModalActions(document, {
   open: openFeedbackModal,
   close: closeFeedbackModal
 })
+bindWatchedSectionActions(document, {
+  toggle: toggleWatchedSection
+})
 
 installLegacyActions(window, {
   addYoutubeInput,
@@ -13955,8 +13959,7 @@ installLegacyActions(window, {
   toggleStatusFilterMenu,
   toggleVideoFavorite,
   toggleVideoSearchPopover,
-  toggleVideoShelfPreviewOnTouch,
-  toggleWatchedSection
+  toggleVideoShelfPreviewOnTouch
 })
 
 document.addEventListener('DOMContentLoaded', init)

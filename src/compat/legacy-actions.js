@@ -98,8 +98,7 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'toggleStatusFilterMenu',
   'toggleVideoFavorite',
   'toggleVideoSearchPopover',
-  'toggleVideoShelfPreviewOnTouch',
-  'toggleWatchedSection'
+  'toggleVideoShelfPreviewOnTouch'
 ])
 
 export function installLegacyActions(target, actions) {

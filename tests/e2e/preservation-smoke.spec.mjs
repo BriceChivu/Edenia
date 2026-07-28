@@ -487,6 +487,96 @@ test('feedback modal listeners preserve focus, Escape, keyboard, storage, and or
   })
 })
 
+test('watched-section listener preserves transient disclosure, labels, keyboard, and ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.videos['protected-watched-video'] = {
+      id: 'protected-watched-video',
+      title: 'Protected watched video',
+      channelId: 'protected-channel',
+      channelTitle: 'Protected channel',
+      duration: 600,
+      publishedAt: '2026-07-18T04:00:00.000Z',
+      watchedAt: '2026-07-20T04:00:00.000Z',
+      status: 'watched',
+      thumbnail: 'https://i.ytimg.com/vi/protected-watched-video/hqdefault.jpg'
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+  })
+  await page.reload()
+  await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
+
+  const section = page.locator('#watchedSection')
+  const control = page.locator(
+    '#watchedSectionToggle[data-watched-section-action="toggle"]'
+  )
+  await expect(section).not.toHaveClass(/\bhidden\b/)
+  await expect(section).not.toHaveClass(/\bcollapsed\b/)
+  await expect(control).toHaveAttribute('aria-expanded', 'true')
+  await expect(control).toHaveAttribute('aria-label', 'Hide watched videos')
+  await expect(control).toHaveAttribute(
+    'data-analytics-action',
+    'videos.watched.hide'
+  )
+  const storedBefore = await page.evaluate(() => localStorage.getItem('edenia_v1'))
+
+  await page.evaluate(() => {
+    window.__watchedSectionAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-watched-section-action="toggle"]')) return
+      const section = document.getElementById('watchedSection')
+      const control = document.getElementById('watchedSectionToggle')
+      window.__watchedSectionAtDocumentBubble = {
+        collapsed: section.classList.contains('collapsed'),
+        expanded: control.getAttribute('aria-expanded'),
+        label: control.getAttribute('aria-label')
+      }
+    }, { once: true })
+  })
+  await control.click()
+  await expect.poll(() => page.evaluate(
+    () => window.__watchedSectionAtDocumentBubble
+  )).toEqual({
+    collapsed: true,
+    expanded: 'false',
+    label: 'Show watched videos'
+  })
+
+  await control.click()
+  await expect(section).not.toHaveClass(/\bcollapsed\b/)
+  await control.focus()
+  await control.press('Enter')
+  await expect(section).toHaveClass(/\bcollapsed\b/)
+  await expect(control).toHaveAttribute('aria-expanded', 'false')
+  await expect(control).toHaveAttribute('aria-label', 'Show watched videos')
+  await control.press('Space')
+  await expect(section).not.toHaveClass(/\bcollapsed\b/)
+  await expect(control).toHaveAttribute('aria-expanded', 'true')
+  await expect(control).toHaveAttribute('aria-label', 'Hide watched videos')
+
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+  const removedBridgeAction = await page.evaluate(() => (
+    Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'toggleWatchedSection'
+    )
+  ))
+  expect(removedBridgeAction).toBe(false)
+
+  await control.click()
+  await expect(section).toHaveClass(/\bcollapsed\b/)
+  await page.reload()
+  await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
+  await expect(section).not.toHaveClass(/\bcollapsed\b/)
+  await expect(control).toHaveAttribute('aria-expanded', 'true')
+})
+
 test('Study Insight listeners preserve tabs, persistence, focus, and event ordering', async ({
   page
 }, testInfo) => {

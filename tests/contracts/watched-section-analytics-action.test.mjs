@@ -10,9 +10,13 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('watched-section disclosure locks its legacy analytics identity', () => {
+test('watched-section disclosure retains its identity without an inline handler', () => {
   assert.equal(controls.length, 1)
   const [control] = controls
+  assert.equal(
+    getAttribute(control, 'data-watched-section-action'),
+    'toggle'
+  )
   assert.equal(
     getAttribute(control, 'data-analytics-action'),
     'videos.watched.hide'
@@ -21,7 +25,7 @@ test('watched-section disclosure locks its legacy analytics identity', () => {
     getAttribute(control, 'data-i18n-aria-label'),
     'videos.watched.hide'
   )
-  assert.equal(getAttribute(control, 'onclick'), 'toggleWatchedSection()')
+  assert.equal(getAttribute(control, 'onclick'), null)
 })
 
 test('watched-section disclosure retains its exact generic event name', () => {
