@@ -1652,3 +1652,32 @@ release mappings, and follow-up findings are recorded as new entries.
   while retaining MIG-049 analytics metadata; persisted theme values remain
   compatible.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-051 — Lock Settings reset-confirm analytics identities
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve generic analytics names for revealing and cancelling the
+  Settings reset confirmation before moving their event ownership.
+- **Conceptual change:** Added explicit `data-analytics-action` values matching
+  `settings.reset.open` and `settings.reset.cancel`. Both inline handlers remain
+  in place, and the destructive `resetApp()` control is explicitly unchanged.
+- **Preservation contract:** The two `settings_reset_*_clicked` event names and
+  properties, localized labels, exact hidden-class transitions, repeat-call
+  idempotency, current focus behavior, Settings reopen behavior, mouse and
+  keyboard activation, markup, styling, and accessibility remain exact. No data
+  deletion or persistence behavior is in scope.
+- **Risks:** Accidentally including Delete data would broaden this into a
+  destructive migration; adding focus restoration would change current
+  behavior.
+- **Verification:** `npm test` passed all 173 contract tests and the production
+  build. Playwright passed 26 protected flows with 40 expected project skips
+  across the six required viewport projects; all 18 representative screenshots
+  remained unchanged. Migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore translation-derived analytics
+  identities; no application data is affected.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
