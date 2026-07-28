@@ -1,0 +1,179 @@
+
+/* ═══════════════════════════════════════════════════════════
+   WALKTHROUGH
+═══════════════════════════════════════════════════════════ */
+.walkthrough-layer {
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  z-index: 260;
+}
+.walkthrough-scrim {
+  background: transparent;
+  pointer-events: auto;
+  position: fixed;
+}
+.walkthrough-highlight {
+  border: 2px solid var(--planet-lime);
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 2px rgba(5,5,5,0.22),
+    0 0 0 8px rgba(201,239,104,0.18),
+    0 12px 34px rgba(5,5,5,0.28),
+    0 0 0 9999px rgba(5, 5, 5, 0.58);
+  pointer-events: none;
+  position: fixed;
+  transition: left 0.18s ease, top 0.18s ease, width 0.18s ease, height 0.18s ease;
+}
+.walkthrough-highlight::after {
+  animation: walkthroughSpotlightPulse 1.8s ease-in-out infinite;
+  border: 2px solid rgba(201,239,104,0.38);
+  border-radius: inherit;
+  content: "";
+  inset: -6px;
+  pointer-events: none;
+  position: absolute;
+}
+.walkthrough-card {
+  --walkthrough-arrow-left: 50%;
+  --walkthrough-arrow-top: 50%;
+  background: var(--surface);
+  border: 2px solid var(--planet-black);
+  border-radius: 12px;
+  box-shadow: 0 5px 0 rgba(5,5,5,0.18);
+  color: var(--text);
+  max-width: calc(100vw - 28px);
+  padding: 12px;
+  pointer-events: auto;
+  position: fixed;
+  width: min(340px, calc(100vw - 28px));
+}
+.walkthrough-progress {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin-bottom: 5px;
+}
+.walkthrough-text {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.38;
+}
+.walkthrough-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+.walkthrough-step-controls {
+  display: inline-flex;
+  gap: 7px;
+}
+.walkthrough-card .btn-ghost,
+.walkthrough-card .btn-secondary {
+  font-size: 0.8rem;
+  padding: 7px 12px;
+}
+.walkthrough-back:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+.walkthrough-next:disabled {
+  background: var(--surface-hi);
+  border-color: var(--border);
+  box-shadow: none;
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.86;
+}
+.walkthrough-card-waiting .walkthrough-progress::after {
+  color: var(--muted);
+  content: " · click highlighted area";
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.walkthrough-card-choice .walkthrough-progress,
+.walkthrough-card-choice .walkthrough-back {
+  display: none;
+}
+.walkthrough-card-confirmation .walkthrough-progress,
+.walkthrough-card-confirmation .walkthrough-skip,
+.walkthrough-card-confirmation .walkthrough-back {
+  display: none;
+}
+.walkthrough-card-confirmation .walkthrough-actions {
+  justify-content: flex-end;
+}
+.walkthrough-arrow {
+  background: var(--surface);
+  border: 2px solid var(--planet-black);
+  height: 14px;
+  pointer-events: none;
+  position: absolute;
+  transform: rotate(45deg);
+  width: 14px;
+}
+.walkthrough-card[data-placement="bottom"] .walkthrough-arrow {
+  border-bottom: 0;
+  border-right: 0;
+  left: var(--walkthrough-arrow-left);
+  margin-left: -7px;
+  top: -8px;
+}
+.walkthrough-card[data-placement="top"] .walkthrough-arrow {
+  border-left: 0;
+  border-top: 0;
+  bottom: -8px;
+  left: var(--walkthrough-arrow-left);
+  margin-left: -7px;
+}
+.walkthrough-card[data-placement="left"] .walkthrough-arrow {
+  border-bottom: 0;
+  border-left: 0;
+  margin-top: -7px;
+  right: -8px;
+  top: var(--walkthrough-arrow-top);
+}
+.walkthrough-card[data-placement="right"] .walkthrough-arrow {
+  border-right: 0;
+  border-top: 0;
+  left: -8px;
+  margin-top: -7px;
+  top: var(--walkthrough-arrow-top);
+}
+.walkthrough-card-no-arrow .walkthrough-arrow {
+  display: none;
+}
+@keyframes walkthroughSpotlightPulse {
+  0%, 100% {
+    opacity: 0.42;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.018);
+  }
+}
+body[data-theme="dark"] .walkthrough-highlight {
+  box-shadow:
+    0 0 0 2px rgba(130,210,239,0.22),
+    0 0 0 8px rgba(201,239,104,0.14),
+    0 12px 34px rgba(0,0,0,0.36),
+    0 0 0 9999px rgba(5, 5, 5, 0.68);
+}
+.walkthrough-highlight.added-video-spotlight {
+  box-shadow:
+    0 0 0 2px rgba(5,5,5,0.22),
+    0 0 0 8px rgba(201,239,104,0.18),
+    0 12px 34px rgba(5,5,5,0.28);
+  z-index: 259;
+}
+body[data-theme="dark"] .walkthrough-highlight.added-video-spotlight {
+  box-shadow:
+    0 0 0 2px rgba(130,210,239,0.22),
+    0 0 0 8px rgba(201,239,104,0.14),
+    0 12px 34px rgba(0,0,0,0.36);
+}

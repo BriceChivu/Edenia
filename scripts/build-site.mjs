@@ -10,6 +10,7 @@ import { basename, dirname, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build, transform } from 'esbuild'
 import { minify } from 'terser'
+import { readOrderedStyleSource } from './read-style-source.mjs'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(scriptDir, '..')
@@ -88,8 +89,10 @@ const appSource = appBuild.outputFiles[0].text
 if (/^\s*(?:import|export)\b/m.test(appSource)) {
   throw new Error('Bundled app output is not compatible with the classic script entry')
 }
-const styleSource = await readFile(resolve(projectRoot, 'style.css'), 'utf8')
-const minifiedStyle = await transform(styleSource, {
+const { source: styleSource } = await readOrderedStyleSource(
+  resolve(projectRoot, 'src', 'styles', 'index.css')
+)
+const minifiedStyle = await transform(styleSource.toString('utf8'), {
   legalComments: 'none',
   loader: 'css',
   minify: true,

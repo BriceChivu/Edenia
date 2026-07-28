@@ -199,3 +199,39 @@ release mappings, and follow-up findings are recorded as new entries.
   application source. No persisted state or runtime configuration migration is
   involved.
 - **Association:** `codex/migration-03-i18n-extraction`; PR and release pending.
+
+---
+
+## MIG-006 — Decompose the stylesheet without cascade changes
+
+- **Date:** 2026-07-28
+- **Phase:** 4 — Stylesheet decomposition
+- **Type:** Structure, compatibility, tests, and documentation
+- **Status:** Implemented and locally verified
+- **Intent:** Make existing feature styles independently maintainable while preserving
+  the exact source order, cascade, asset resolution, breakpoints, and rendered result.
+- **Conceptual change:** Split the former root stylesheet at its existing contiguous
+  section boundaries into 13 numbered files under `src/styles`; added an explicit
+  ordered index and split manifest; moved the complete responsive section unchanged
+  into the final `99-responsive-legacy.css` compatibility file; and taught the build
+  to concatenate the indexed files before applying the existing CSS transformation.
+  The deployed entry remains the root-level `style.css`.
+- **Preservation contract:** The concatenated source must remain byte-for-byte equal
+  to the protected 223,282-byte stylesheet with SHA-256
+  `c295c890a841150c3914976c007498d7f2a8a4d0cfb5d62fcd6d7ca36302e5b7`.
+  Selector names, declaration values, specificity, cascade order, asset URLs,
+  breakpoints, responsive placement, and every desktop, tablet, and phone pixel are
+  unchanged. No deduplication, cascade layer, rename, or cleanup is included.
+- **Risks:** Native CSS imports or bundler URL resolution could reinterpret relative
+  font and city-image URLs from `src/styles`; the build therefore validates and
+  concatenates raw section bytes before minification. A missing, duplicated,
+  reordered, or orphaned section could change the cascade.
+- **Verification:** Nine of nine build, localization, and stylesheet contracts
+  passed. The ordered sections reproduce the protected source hash and the deployed
+  minified stylesheet remains byte-identical with SHA-256
+  `1fc374493a8d8180e95b011bb43bd223a568b6cd2b16143b4854ff928e4e1743`.
+  Playwright passed 19 scenarios with 5 expected locale-project skips, and all 18
+  existing visual baselines remained unchanged across the six viewport profiles.
+- **Rollback:** Revert this commit to restore the single root source stylesheet and
+  previous build input. The deployed filename and browser data are unaffected.
+- **Association:** `codex/migration-04-css-decomposition`; PR and release pending.
