@@ -1618,3 +1618,37 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore ID-derived analytics identity;
   persisted theme values and Activity Log data remain compatible.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-050 — Migrate the theme-toggle action
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Event ownership, compatibility bridge reduction, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move the static theme-toggle click from an inline attribute into a
+  bounded theme feature module without moving or changing theme logic.
+- **Conceptual change:** Added a semantic theme action hook and an idempotent
+  direct-listener binder, installed it from the composition entry point, removed
+  the inline handler, and removed `toggleTheme` from the temporary legacy action
+  bridge.
+- **Preservation contract:** Zero-argument invocation, light/dark transition,
+  storage and reload persistence, document and body attributes, background
+  update, localized post-toggle title and aria-label, Activity Log entry,
+  document-bubble ordering and resulting analytics `button_name`, explicit
+  event identity, mouse and native keyboard activation, icons, styling, and
+  accessibility remain exact.
+- **Risks:** Document-level delegation would observe analytics before the label
+  update; forwarding the browser event or binding twice would alter the action
+  boundary; a missing bridge removal would retain obsolete compatibility.
+- **Verification:** `npm test` passed all 171 contract tests and the production
+  build. Playwright passed 26 protected flows with 40 expected project skips,
+  including click, Enter, Space, persistence, reload, localized post-action
+  labels, Activity Log, bridge, and document-order assertions; all 18 visual
+  baselines remained unchanged. Migration-ledger verification passed against
+  `v1.0.0`.
+- **Rollback:** Revert this commit to restore the inline handler and bridge entry
+  while retaining MIG-049 analytics metadata; persisted theme values remain
+  compatible.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

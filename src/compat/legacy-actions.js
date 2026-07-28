@@ -101,7 +101,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'toggleOnboardingChannel',
   'toggleOnboardingLocaleMenu',
   'toggleStatusFilterMenu',
-  'toggleTheme',
   'toggleVideoFavorite',
   'toggleVideoSearchPopover',
   'toggleVideoShelfPreviewOnTouch',

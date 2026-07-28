@@ -10,11 +10,12 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('theme toggle locks its pre-migration analytics identity', () => {
+test('theme toggle retains its analytics identity without an inline handler', () => {
   assert.equal(themeButtons.length, 1)
   const [button] = themeButtons
+  assert.equal(getAttribute(button, 'data-theme-action'), 'toggle')
   assert.equal(getAttribute(button, 'data-analytics-action'), 'themeToggle')
-  assert.equal(getAttribute(button, 'onclick'), 'toggleTheme()')
+  assert.equal(getAttribute(button, 'onclick'), null)
 })
 
 test('theme toggle retains its exact generic click event name', () => {

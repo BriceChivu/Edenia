@@ -279,6 +279,64 @@ test('all five locales initialize and persist through the rendered Settings flow
   }
 })
 
+test('theme listener preserves persistence, labels, keyboard, activity, and ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  const toggle = page.locator('[data-theme-action="toggle"]')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await expect(page.locator('body')).toHaveAttribute('data-theme', 'light')
+  await expect(toggle).toHaveAttribute('aria-label', 'Switch to dark mode')
+
+  await page.evaluate(() => {
+    window.__themeAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-theme-action="toggle"]')) return
+      const state = JSON.parse(localStorage.getItem('edenia_v1'))
+      window.__themeAtDocumentBubble = {
+        stored: state.config.theme,
+        documentTheme: document.documentElement.dataset.theme,
+        bodyTheme: document.body.dataset.theme,
+        label: document.getElementById('themeToggle').getAttribute('aria-label'),
+        hasActivity: state.activityLog.some(entry => entry.type === 'theme')
+      }
+    }, { once: true })
+  })
+  await toggle.click()
+  await expect.poll(() => page.evaluate(
+    () => window.__themeAtDocumentBubble
+  )).toEqual({
+    stored: 'dark',
+    documentTheme: 'dark',
+    bodyTheme: 'dark',
+    label: 'Switch to light mode',
+    hasActivity: true
+  })
+
+  await page.reload()
+  await waitForApplication(page)
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await expect(toggle).toHaveAttribute('aria-label', 'Switch to light mode')
+
+  await toggle.focus()
+  await toggle.press('Space')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await expect.poll(() => page.evaluate(() => (
+    JSON.parse(localStorage.getItem('edenia_v1')).config.theme
+  ))).toBe('light')
+
+  await toggle.focus()
+  await toggle.press('Enter')
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+
+  const removedBridgeAction = await page.evaluate(() => (
+    Object.prototype.hasOwnProperty.call(window.EdeniaActions, 'toggleTheme')
+  ))
+  expect(removedBridgeAction).toBe(false)
+})
+
 test('Study Insight listeners preserve tabs, persistence, focus, and event ordering', async ({
   page
 }, testInfo) => {

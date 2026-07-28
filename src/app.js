@@ -180,6 +180,7 @@ import { bindActivityLogFilterActions } from './features/settings/activity-log-f
 import { bindSettingsAccordionActions } from './features/settings/accordion-actions.js'
 import { bindStudyHistoryViewActions } from './features/study-history/view-actions.js'
 import { bindSandboxActions } from './features/sandbox/actions.js'
+import { bindThemeActions } from './features/theme/actions.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -13836,6 +13837,9 @@ bindSandboxActions(document, {
   addDay: addSandboxDay,
   reset: resetSandboxState
 })
+bindThemeActions(document, {
+  toggle: toggleTheme
+})
 
 installLegacyActions(window, {
   addYoutubeInput,
@@ -13940,7 +13944,6 @@ installLegacyActions(window, {
   toggleOnboardingChannel,
   toggleOnboardingLocaleMenu,
   toggleStatusFilterMenu,
-  toggleTheme,
   toggleVideoFavorite,
   toggleVideoSearchPopover,
   toggleVideoShelfPreviewOnTouch,
