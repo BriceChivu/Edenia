@@ -180,6 +180,7 @@ import { bindStudyInsightActions } from './features/study-insights/actions.js'
 import { bindActivityLogFilterActions } from './features/settings/activity-log-filter-actions.js'
 import { bindSettingsAccordionActions } from './features/settings/accordion-actions.js'
 import { bindSettingsResetConfirmActions } from './features/settings/reset-confirm-actions.js'
+import { bindSettingsShellActions } from './features/settings/shell-actions.js'
 import { bindStudyHistoryViewActions } from './features/study-history/view-actions.js'
 import { bindSandboxActions } from './features/sandbox/actions.js'
 import { bindThemeActions } from './features/theme/actions.js'
@@ -13858,6 +13859,10 @@ bindFeedbackModalActions(document, {
 bindWatchedSectionActions(document, {
   toggle: toggleWatchedSection
 })
+bindSettingsShellActions(document, {
+  open: openSettings,
+  close: closeSettings
+})
 
 installLegacyActions(window, {
   addYoutubeInput,
@@ -13872,7 +13877,6 @@ installLegacyActions(window, {
   closeHistoryPointsPopoverSoon,
   closeHistoryVideoPopoverSoon,
   closeManualVideoPopover,
-  closeSettings,
   closeStatusFilterMenu,
   closeVideoSearchPopover,
   closeVideoShelfPreviewAfterFocus,
@@ -13907,7 +13911,6 @@ installLegacyActions(window, {
   openHistoryPointsPopover,
   openHistoryVideoPopover,
   openNextStudyVideoPlayer,
-  openSettings,
   openVideoShelfPreview,
   openVideoShelfPreviewFromFocus,
   positionHeatmapTooltip,

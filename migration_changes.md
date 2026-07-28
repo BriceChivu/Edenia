@@ -1934,3 +1934,39 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore translation-derived button
   analytics identities; Settings and application state remain unaffected.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-060 — Migrate Settings shell actions
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Event ownership, compatibility bridge reduction, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move the Settings opener, backdrop dismissal, and close-button
+  dismissal into a bounded Settings module without altering the shell.
+- **Conceptual change:** Added fixed open/close hooks and an idempotent direct
+  listener binder for the three static controls, installed it from the
+  composition entry point, removed their inline handlers, and removed
+  `openSettings` and `closeSettings` from the temporary legacy bridge. Internal
+  walkthrough, prompt, replay, and keyboard consumers retain the same functions.
+- **Preservation contract:** Zero-argument calls, locale refresh and content
+  rerender on open, phone-only drawer scroll reset, original return-focus
+  function property, main-application inertness, visibility classes, deferred
+  focus entry and return, Escape and Tab behavior, untracked pointer-only
+  overlay, desktop scroll retention, body and page scrolling, exact analytics,
+  styling, persistence, and accessibility remain unchanged.
+- **Risks:** Moving return-focus ownership would break phone walkthrough replay;
+  document-level delegation would reverse action and analytics ordering; adding
+  body locking or overlay semantics would be an intentional UI change.
+- **Verification:** `npm test` passed all 196 contract tests and the production
+  build. The focused desktop and phone Settings shell flows passed first. The
+  full Playwright matrix then passed 32 protected flows with 70 expected
+  project skips, including mouse, Enter, Space, overlay, Escape, inertness,
+  focus, desktop-scroll, phone-reset, storage, bridge, and document-order
+  assertions; all 18 visual baselines remained unchanged. Migration-ledger
+  verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore the three inline handlers and both
+  bridge entries while retaining MIG-059 analytics metadata; no stored data
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

@@ -140,6 +140,160 @@ test('completed local state preserves settings and feedback interactions', async
   }
 })
 
+test('Settings shell listeners preserve desktop inertness, focus, scrolling, Escape, and ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  const panel = page.locator('#settingsPanel')
+  const drawer = page.locator('.settings-drawer')
+  const opener = page.locator('.gear-btn[data-settings-shell-action="open"]')
+  const overlay = page.locator('.settings-overlay[data-settings-shell-action="close"]')
+  const closeControl = page.locator(
+    '#settingsCloseBtn[data-settings-shell-action="close"]'
+  )
+  const storedBefore = await page.evaluate(() => localStorage.getItem('edenia_v1'))
+  const bodyBefore = await page.evaluate(() => ({
+    className: document.body.className,
+    style: document.body.getAttribute('style'),
+    overflow: getComputedStyle(document.body).overflow,
+    scrollY: window.scrollY
+  }))
+
+  await page.evaluate(() => {
+    window.__settingsOpenedAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-settings-shell-action="open"]')) return
+      window.__settingsOpenedAtDocumentBubble = {
+        hidden: document.getElementById('settingsPanel').classList.contains('hidden'),
+        inert: document.getElementById('mainApp').inert
+      }
+    }, { once: true })
+  })
+  await opener.click()
+  await expect.poll(() => page.evaluate(
+    () => window.__settingsOpenedAtDocumentBubble
+  )).toEqual({
+    hidden: false,
+    inert: true
+  })
+  await expect(closeControl).toBeFocused()
+
+  await drawer.evaluate(element => {
+    element.scrollTop = 80
+  })
+  const desktopDrawerScroll = await drawer.evaluate(element => element.scrollTop)
+  await page.evaluate(() => {
+    window.__settingsClosedAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('#settingsCloseBtn')) return
+      window.__settingsClosedAtDocumentBubble = {
+        hidden: document.getElementById('settingsPanel').classList.contains('hidden'),
+        inert: document.getElementById('mainApp').inert
+      }
+    }, { once: true })
+  })
+  await closeControl.click()
+  await expect.poll(() => page.evaluate(
+    () => window.__settingsClosedAtDocumentBubble
+  )).toEqual({
+    hidden: true,
+    inert: false
+  })
+  await expect(opener).toBeFocused()
+
+  await opener.press('Enter')
+  await expect(panel).not.toHaveClass(/\bhidden\b/)
+  expect(await drawer.evaluate(element => element.scrollTop))
+    .toBe(desktopDrawerScroll)
+  await closeControl.press('Space')
+  await expect(panel).toHaveClass(/\bhidden\b/)
+  await expect(opener).toBeFocused()
+
+  await opener.click()
+  await overlay.click({ position: { x: 4, y: 4 } })
+  await expect(panel).toHaveClass(/\bhidden\b/)
+  await expect(opener).toBeFocused()
+
+  await opener.click()
+  await page.evaluate(() => {
+    window.__settingsEscapeDefaultPrevented = null
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        window.__settingsEscapeDefaultPrevented = event.defaultPrevented
+      }
+    }, { once: true })
+  })
+  await page.keyboard.press('Escape')
+  await expect(panel).toHaveClass(/\bhidden\b/)
+  await expect(opener).toBeFocused()
+  await expect.poll(() => page.evaluate(
+    () => window.__settingsEscapeDefaultPrevented
+  )).toBe(true)
+
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+  expect(await page.evaluate(() => ({
+    className: document.body.className,
+    style: document.body.getAttribute('style'),
+    overflow: getComputedStyle(document.body).overflow,
+    scrollY: window.scrollY
+  }))).toEqual(bodyBefore)
+  expect(await page.evaluate(() => ({
+    openSettings: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'openSettings'
+    ),
+    closeSettings: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'closeSettings'
+    )
+  }))).toEqual({
+    openSettings: false,
+    closeSettings: false
+  })
+})
+
+test('Settings shell listeners preserve the phone drawer and scroll reset', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'phone-standard')
+
+  await seedCompletedState(page)
+  const panel = page.locator('#settingsPanel')
+  const drawer = page.locator('.settings-drawer')
+  const opener = page.locator('.gear-btn[data-settings-shell-action="open"]')
+  const overlay = page.locator('.settings-overlay[data-settings-shell-action="close"]')
+  const closeControl = page.locator(
+    '#settingsCloseBtn[data-settings-shell-action="close"]'
+  )
+  const storedBefore = await page.evaluate(() => localStorage.getItem('edenia_v1'))
+  await expect(overlay).toBeHidden()
+
+  await opener.click()
+  await expect(panel).not.toHaveClass(/\bhidden\b/)
+  await expect(page.locator('#mainApp')).toHaveJSProperty('inert', true)
+  await expect(closeControl).toBeFocused()
+  await drawer.evaluate(element => {
+    element.scrollTop = 80
+  })
+  expect(await drawer.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+  await closeControl.click()
+  await expect(panel).toHaveClass(/\bhidden\b/)
+  await expect(opener).toBeFocused()
+
+  await opener.press('Space')
+  await expect(panel).not.toHaveClass(/\bhidden\b/)
+  expect(await drawer.evaluate(element => element.scrollTop)).toBe(0)
+  await page.keyboard.press('Escape')
+  await expect(panel).toHaveClass(/\bhidden\b/)
+  await expect(page.locator('#mainApp')).toHaveJSProperty('inert', false)
+  await expect(opener).toBeFocused()
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+})
+
 test('sandbox remains isolated on its exact origin', async ({ page }) => {
   await page.goto('http://localhost:8001/?sandbox=1')
   await waitForApplication(page)

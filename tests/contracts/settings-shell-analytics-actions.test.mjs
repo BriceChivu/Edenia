@@ -16,21 +16,24 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('Settings shell controls lock tracked identities and retain inline handlers', () => {
+test('Settings shell controls retain identities without inline handlers', () => {
   const opener = findTag(buttonTags, 'class="btn-icon gear-btn"')
   assert.equal(getAttribute(opener, 'data-analytics-action'), 'header.settings')
-  assert.equal(getAttribute(opener, 'onclick'), 'openSettings()')
+  assert.equal(getAttribute(opener, 'data-settings-shell-action'), 'open')
+  assert.equal(getAttribute(opener, 'onclick'), null)
 
   const closeButton = findTag(buttonTags, 'id="settingsCloseBtn"')
   assert.equal(
     getAttribute(closeButton, 'data-analytics-action'),
     'settings.close'
   )
-  assert.equal(getAttribute(closeButton, 'onclick'), 'closeSettings()')
+  assert.equal(getAttribute(closeButton, 'data-settings-shell-action'), 'close')
+  assert.equal(getAttribute(closeButton, 'onclick'), null)
 
   const overlay = findTag(divTags, 'class="settings-overlay"')
   assert.equal(getAttribute(overlay, 'data-analytics-action'), null)
-  assert.equal(getAttribute(overlay, 'onclick'), 'closeSettings()')
+  assert.equal(getAttribute(overlay, 'data-settings-shell-action'), 'close')
+  assert.equal(getAttribute(overlay, 'onclick'), null)
 })
 
 test('Settings shell tracked controls retain exact generic event names', () => {

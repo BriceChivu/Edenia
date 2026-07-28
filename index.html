@@ -266,11 +266,11 @@ and momentum—at a glance</h2>
   <!-- SETTINGS PANEL                                        -->
   <!-- ═══════════════════════════════════════════════════════ -->
   <div id="settingsPanel" class="settings-panel hidden">
-    <div class="settings-overlay" onclick="closeSettings()"></div>
+    <div class="settings-overlay" data-settings-shell-action="close"></div>
     <div class="settings-drawer" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
       <div class="settings-header">
         <span class="settings-title" id="settingsTitle" data-i18n="settings.title">Settings</span>
-        <button class="btn-icon" id="settingsCloseBtn" onclick="closeSettings()" data-analytics-action="settings.close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">✕</button>
+        <button class="btn-icon" id="settingsCloseBtn" data-settings-shell-action="close" data-analytics-action="settings.close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">✕</button>
       </div>
 
       <div class="settings-group settings-locale-group">
@@ -468,7 +468,7 @@ and momentum—at a glance</h2>
             <path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/>
           </svg>
         </button>
-        <button class="btn-icon gear-btn" onclick="openSettings()" data-analytics-action="header.settings" title="Settings" data-i18n-title="header.settings" data-i18n-aria-label="header.settings">
+        <button class="btn-icon gear-btn" data-settings-shell-action="open" data-analytics-action="header.settings" title="Settings" data-i18n-title="header.settings" data-i18n-aria-label="header.settings">
           <span class="gear-btn-icon" aria-hidden="true">☰</span>
         </button>
       </div>
