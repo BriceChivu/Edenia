@@ -235,3 +235,37 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the single root source stylesheet and
   previous build input. The deployed filename and browser data are unaffected.
 - **Association:** `codex/migration-04-css-decomposition`; PR and release pending.
+
+---
+
+## MIG-007 — Establish explicit legacy action globals
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility, structure, tests, and documentation
+- **Status:** Implemented and locally verified
+- **Intent:** Make the current inline-handler compatibility surface explicit before
+  moving any application function into a module.
+- **Conceptual change:** Added a temporary compatibility module with a fixed manifest
+  of all 118 application functions called by static or generated inline event
+  attributes. The entry point now installs a frozen `window.EdeniaActions` map
+  synchronously before initialization and retains each existing `window.<action>`
+  alias. No handler attribute or listener was changed.
+- **Preservation contract:** Every inline handler keeps its exact source, invocation
+  timing, arguments, return value, propagation behavior, focus behavior, and existing
+  analytics action-name fallback. The classic global aliases remain available while
+  functions move between source modules.
+- **Risks:** An omitted dynamic handler could fail only after a later render; a
+  conflicting browser global could be overwritten; or bundling could disconnect an
+  alias from its implementation. The installer rejects omissions, unexpected names,
+  invalid functions, and conflicting globals instead of silently continuing.
+- **Verification:** Twelve of twelve build, localization, stylesheet, handler
+  discovery, and bridge contracts passed. The audit found 175 inline attributes
+  containing 171 application-action calls and exactly 118 unique functions; the
+  manifest matches that set and every runtime alias matches its frozen namespace
+  entry. Playwright passed 19 scenarios with 5 expected locale-project skips, and
+  all 18 protected visual baselines remained unchanged across six viewport profiles.
+- **Rollback:** Revert this commit to return to the previous incidental classic
+  global exposure. No markup, persisted state, runtime configuration, or browser data
+  is changed.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

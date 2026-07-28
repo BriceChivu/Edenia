@@ -1,4 +1,5 @@
 import { expect, test } from '../support/network-fixture.mjs'
+import { LEGACY_ACTION_NAMES } from '../../src/compat/legacy-actions.js'
 
 const fixedNow = new Date('2026-07-28T04:00:00.000Z')
 
@@ -94,6 +95,19 @@ test('fresh install boots the protected first-run experience and classic handler
   })
 
   expect(missingHandlers).toEqual([])
+  const legacyActionBridge = await page.evaluate(actionNames => ({
+    frozen: Object.isFrozen(window.EdeniaActions),
+    missing: actionNames.filter(
+      name => typeof window.EdeniaActions?.[name] !== 'function'
+        || window[name] !== window.EdeniaActions[name]
+    ),
+    names: Object.keys(window.EdeniaActions || {}).sort()
+  }), LEGACY_ACTION_NAMES)
+  expect(legacyActionBridge).toEqual({
+    frozen: true,
+    missing: [],
+    names: LEGACY_ACTION_NAMES
+  })
   await expect.poll(() => page.evaluate(() => window.EDENIA_ANALYTICS_ENABLED)).toBe(false)
   await expect.poll(() => page.evaluate(() => window.EDENIA_CONFIG?.youtubeApiKey)).toBe('')
 })

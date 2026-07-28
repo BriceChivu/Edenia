@@ -368,6 +368,7 @@ Production analytics create a PostHog person profile for each browser installati
 | `index.html` | App structure, first-run trailer, runtime script loading, and production analytics initialization |
 | `src/styles/` | Ordered feature styles plus the final temporary `99-responsive-legacy.css` compatibility layer |
 | `src/app.js` | Application entry containing state, onboarding, integrations, history, insights, scoring, and rendering |
+| `src/compat/legacy-actions.js` | Temporary audited global-action bridge for legacy inline handlers during modularization |
 | `src/i18n/` | Complete English, Traditional Chinese, Simplified Chinese, Spanish, and French dictionaries plus the locale registry |
 | `analytics.js` | PostHog person profiles, deduplicated state synchronization, historical aggregate backfill, and controlled button-action tracking |
 | `config.example.js` | Safe local runtime-config template |
