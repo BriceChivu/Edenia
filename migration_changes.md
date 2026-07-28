@@ -949,3 +949,38 @@ release mappings, and follow-up findings are recorded as new entries.
   storage-probe implementations; storage keys and persisted data require no
   migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-029 — Extract state-backup storage
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, persistence, recovery, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Separate backup retention and quota behavior from Edenia's definition
+  of a backup-safe state.
+- **Conceptual change:** Added `src/state/backups.js` and composed it with the
+  existing storage keys, sandbox snapshot, minimum state-shape predicate, and
+  `prepareStateForBackup` callback. Backup-safe import/export shaping, restore UI,
+  reset/import callers, and the primary state store remain otherwise unchanged.
+- **Preservation contract:** At most eight valid backups are returned newest-first;
+  quota failures remove one oldest candidate per retry and remove the backup key
+  when none fit; pruning removes exactly the oldest retained entry; source state
+  is read from the primary key and prepared before comparison; automatic backups
+  throttle for strictly less than ten minutes unless forced; identical latest
+  states are skipped; IDs, timestamps, reason, sandbox flag, and re-preparation on
+  recovery remain exact.
+- **Risks:** Changing preparation timing, throttle inequality, JSON comparison,
+  retention order, or quota degradation could silently weaken rollback and restore
+  behavior.
+- **Verification:** `npm test` passed all 105 contracts, including filtering,
+  newest-first limiting, quota degradation, empty-key removal, oldest pruning,
+  source parsing and preparation, metadata, sandbox flag, strict throttle,
+  force override, state dedupe, named backups, and recovery re-preparation. The
+  serial Playwright suite passed 19 flows with 5 expected project-scoped skips
+  across all six required viewports; all 18 protected screenshots remained
+  unchanged. Migration-ledger verification follows the commit.
+- **Rollback:** Revert this commit to restore backup storage functions inline;
+  primary state and existing backup entries require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

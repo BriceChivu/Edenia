@@ -121,6 +121,7 @@ import {
   normalizeHistoryView
 } from './state/default-state.js'
 import { createStateStore } from './state/store.js'
+import { createStateBackupStore } from './state/backups.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -174,6 +175,19 @@ const defaultState = createDefaultStateFactory({
   getBrowserDefaultLocale
 })
 const {
+  createStateBackup,
+  getLatestBackupState,
+  getStateBackupEntries,
+  pruneOldestStateBackup
+} = createStateBackupStore({
+  storage: localStorage,
+  storageKey: STORAGE_KEY,
+  stateBackupKey: STATE_BACKUP_KEY,
+  isSandbox: IS_SANDBOX,
+  isValidStateShape,
+  prepareStateForBackup
+})
+const {
   canPersistLocalState,
   loadState,
   saveState
@@ -194,8 +208,6 @@ const YOUTUBE_CHANNEL_SEARCH_CACHE_TTL_MS = 24 * 60 * 60_000
 const YOUTUBE_CHANNEL_SEARCH_COOLDOWN_MS = 2500
 const YOUTUBE_CHANNEL_SEARCH_DAILY_LIMIT = 5
 const YOUTUBE_CHANNEL_SEARCH_RESULT_LIMIT = 6
-const STATE_BACKUP_LIMIT = 8
-const STATE_BACKUP_AUTO_INTERVAL_MS = 10 * 60_000
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const YOUTUBE_REFRESH_INTERVAL_MS = 5 * 60 * 60_000
 const YOUTUBE_REFRESH_ERROR_BACKOFF_MS = 30 * 60_000
@@ -1641,40 +1653,6 @@ function syncPersistedStateToAnalytics(state) {
   } catch {}
 }
 
-function getStateBackupEntries() {
-  try {
-    const raw = localStorage.getItem(STATE_BACKUP_KEY)
-    const entries = raw ? JSON.parse(raw) : []
-    if (!Array.isArray(entries)) return []
-    return entries
-      .filter(entry => entry?.id && entry?.createdAt && isValidStateShape(entry.state))
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, STATE_BACKUP_LIMIT)
-  } catch {
-    return []
-  }
-}
-
-function writeStateBackupEntries(entries) {
-  let nextEntries = entries.slice(0, STATE_BACKUP_LIMIT)
-  while (nextEntries.length) {
-    try {
-      localStorage.setItem(STATE_BACKUP_KEY, JSON.stringify(nextEntries))
-      return
-    } catch {
-      nextEntries = nextEntries.slice(0, -1)
-    }
-  }
-  try { localStorage.removeItem(STATE_BACKUP_KEY) } catch {}
-}
-
-function pruneOldestStateBackup() {
-  const entries = getStateBackupEntries()
-  if (!entries.length) return false
-  writeStateBackupEntries(entries.slice(0, -1))
-  return true
-}
-
 function prepareStateForBackup(state) {
   const backupState = getImportedSyncState({
     app: 'edenia',
@@ -1683,48 +1661,6 @@ function prepareStateForBackup(state) {
   if (!backupState) return null
   if (backupState.config) delete backupState.config.apiKey
   return backupState
-}
-
-function getStoredStateForBackup() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    return prepareStateForBackup(JSON.parse(raw))
-  } catch {
-    return null
-  }
-}
-
-function createStateBackup(reason = 'automatic backup', options = {}) {
-  const { force = false } = options
-  const state = getStoredStateForBackup()
-  if (!state) return null
-
-  const entries = getStateBackupEntries()
-  const latest = entries[0]
-  const now = new Date()
-  const isAutomatic = reason === 'automatic backup'
-  const latestAgeMs = latest ? now - new Date(latest.createdAt) : Number.POSITIVE_INFINITY
-  if (!force && isAutomatic && latest && latestAgeMs < STATE_BACKUP_AUTO_INTERVAL_MS) return null
-
-  try {
-    if (latest && JSON.stringify(latest.state) === JSON.stringify(state)) return null
-  } catch {}
-
-  const entry = {
-    id: `${now.getTime().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-    createdAt: now.toISOString(),
-    reason,
-    sandbox: IS_SANDBOX,
-    state
-  }
-  writeStateBackupEntries([entry, ...entries])
-  return entry
-}
-
-function getLatestBackupState() {
-  const entry = getStateBackupEntries()[0]
-  return entry ? prepareStateForBackup(entry.state) : null
 }
 
 function getSandboxChannels() {
