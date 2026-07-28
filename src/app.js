@@ -9934,7 +9934,7 @@ function renderHistoryPeriodPopover(range, popoverId, state) {
   if (!popover) return
   popover.innerHTML = options.length
     ? options.map(option => `
-        <button type="button" class="history-period-option ${selectedHistoryPeriod[range] === option.key ? 'active' : ''}" onclick="setHistoryPeriodForRange('${range}', '${escHtml(option.key)}')" aria-pressed="${selectedHistoryPeriod[range] === option.key}">
+        <button type="button" class="history-period-option ${selectedHistoryPeriod[range] === option.key ? 'active' : ''}" data-analytics-action="setHistoryPeriodForRange" onclick="setHistoryPeriodForRange('${range}', '${escHtml(option.key)}')" aria-pressed="${selectedHistoryPeriod[range] === option.key}">
           ${escHtml(option.label)}
         </button>
       `).join('')

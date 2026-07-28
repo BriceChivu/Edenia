@@ -2206,3 +2206,33 @@ release mappings, and follow-up findings are recorded as new entries.
   entry while retaining MIG-066 analytics metadata; no stored data migration is
   required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-068 — Lock history-period option analytics identity
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve the generated Study History period option's
+  handler-derived analytics identity before moving selection ownership.
+- **Conceptual change:** Added an explicit `setHistoryPeriodForRange` analytics
+  action and a contract for the exact normalized generic event name while
+  retaining the generated inline handler.
+- **Preservation contract:** The
+  `set_history_period_for_range_clicked` event, localized period label, option
+  ordering, active state, `aria-pressed`, runtime-only selection, popover
+  closure, history rerender, native keyboard activation, storage, styling, and
+  accessibility remain unchanged.
+- **Risks:** Removing the handler before locking metadata would make analytics
+  depend on localized week or month labels; changing selection ownership in
+  this commit would combine metadata with generated-DOM lifecycle risk.
+- **Verification:** All 214 contract tests and the production build passed. The
+  complete Playwright matrix passed 37 protected flows with 95 intentional
+  project skips across all six required viewports; all 18 representative
+  screenshots remained unchanged. Diff and migration-ledger verification
+  passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore handler-derived analytics
+  identity; Study History runtime selection and stored state remain unaffected.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
