@@ -11050,6 +11050,11 @@ function toggleVideoFavorite(videoId, options = {}) {
     video.resumeAtSeconds = null
     video.pausedAt = null
   }
+  const shouldRefreshRemovedChannel = (
+    isFavoriteVideo(beforeVideo)
+    && !isFavoriteVideo(video)
+    && isVideoFromRemovedChannel(s, video)
+  )
   pushUndoAction(s, {
     type: 'video-favorite',
     videoId,
@@ -11066,7 +11071,7 @@ function toggleVideoFavorite(videoId, options = {}) {
   })
   saveState(s)
   trackVideoFavoriteChanged(s, video, isFavoriteVideo(beforeVideo), options.surface)
-  if (preservePreview) {
+  if (preservePreview && !shouldRefreshRemovedChannel) {
     refreshVideoActionUiWithoutFeedRerender(s, videoId)
   } else {
     renderAll(s)
@@ -16445,7 +16450,7 @@ function renderFeed(s) {
     watchedToggle.setAttribute('aria-label', t(watchedCollapsed ? 'videos.watched.show' : 'videos.watched.hide'))
   }
   watchedGrid.innerHTML = watchedVideos
-    .map(v => renderCard(v, true, cardOptions))
+    .map(v => renderCard(v, true, { ...cardOptions, hideSetAsideAction: true }))
     .join('')
   queueActiveVideoWatchReminderRender(s)
 }
@@ -18934,7 +18939,7 @@ function renderCard(v, compact = false, options = {}) {
             <span class="pub-ago">${timeAgo(v.publishedAt)}</span>
           </div>
           <div class="card-actions">
-            ${isPartial ? `<button class="action-btn set-aside-btn"
+            ${isPartial && !options.hideSetAsideAction ? `<button class="action-btn set-aside-btn"
               data-video-id="${safeVideoId}"
               onclick="requestVideoSetAside(this.dataset.videoId, { surface: 'video_card' })"
               aria-label="${escHtml(t('videos.card.setAside'))}"
