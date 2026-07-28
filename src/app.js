@@ -10,6 +10,7 @@ import {
   I18N
 } from './i18n/index.js'
 import { installLegacyActions } from './compat/legacy-actions.js'
+import { escHtml, escapeSvgText } from './core/escaping.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -2086,13 +2087,6 @@ function makeSandboxThumbnail(label, index) {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
 }
 
-function escapeSvgText(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-}
-
 function normalizeUndoState(state) {
   if (!state) return
   if (!Array.isArray(state.undoStack)) state.undoStack = []
@@ -2782,12 +2776,6 @@ function getWeekLabel(state = null) {
   const wk    = Math.ceil(((start - jan4) / 86_400_000 + jan4.getDay() + 1) / 7)
   const fmt   = d => formatLocaleDate(d, { month: 'short', day: 'numeric' })
   return t('time.weekLabel', { week: wk, start: fmt(start), end: fmt(end) })
-}
-
-function escHtml(str) {
-  return String(str ?? '')
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
 }
 
 // ════════════════════════════════════════════════════════════

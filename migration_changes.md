@@ -269,3 +269,30 @@ release mappings, and follow-up findings are recorded as new entries.
   global exposure. No markup, persisted state, runtime configuration, or browser data
   is changed.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-008 — Extract pure escaping helpers
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Begin reducing the application entry point with dependency-free pure
+  helpers whose current behavior can be locked by direct table tests.
+- **Conceptual change:** Moved the existing HTML and SVG-text escaping functions into
+  `src/core/escaping.js` and imported them into the composition entry point. Call
+  sites and generated markup remain unchanged.
+- **Preservation contract:** Nullish conversion, number conversion, character sets,
+  quote handling, replacement order, and intentional double-escaping remain exact.
+  HTML escaping still excludes apostrophes; SVG text escaping still excludes both
+  quote types.
+- **Risks:** Changing replacement order or broadening the escaped character set could
+  alter generated labels, attributes, SVG thumbnails, or snapshots.
+- **Verification:** Fourteen of fourteen contracts passed, including direct nullish,
+  numeric, quote, ampersand, angle-bracket, and double-escaping cases. Playwright
+  passed 19 scenarios with 5 expected locale-project skips, and all 18 protected
+  visual baselines remained unchanged across six viewport profiles.
+- **Rollback:** Revert this commit to restore the two function declarations in the
+  entry point. No persisted state or browser data is changed.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
