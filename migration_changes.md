@@ -327,3 +327,27 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the constants and function declarations
   in the entry point. No stored date keys or state schema are migrated.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-010 — Extract the numeric clamp helper
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Give lower-level domain modules a dependency-free numeric boundary
+  helper instead of importing from the monolithic composition entry.
+- **Conceptual change:** Moved the existing three-argument numeric clamp into
+  `src/core/numbers.js` and imported it at the unchanged call sites.
+- **Preservation contract:** JavaScript number coercion, inclusive bounds, inverted
+  bound behavior, infinity handling, and `NaN` propagation remain exact.
+- **Risks:** Adding validation or changing coercion would affect settings, progress,
+  city positioning, drag bounds, player positioning, and watch-coverage clipping.
+- **Verification:** Nineteen of nineteen contracts passed, including normal, lower,
+  upper, string-coercion, infinity, inverted-bound, and `NaN` cases. A serial
+  Playwright run passed 19 scenarios with 5 expected locale-project skips, and all
+  18 protected visual baselines remained unchanged across six viewport profiles.
+- **Rollback:** Revert this commit to restore the helper declaration in the entry
+  point. No browser state is changed.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

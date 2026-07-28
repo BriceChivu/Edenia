@@ -24,6 +24,7 @@ import {
   toDateKey
 } from './core/date-keys.js'
 import { escHtml, escapeSvgText } from './core/escaping.js'
+import { clampNumber } from './core/numbers.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -12560,10 +12561,6 @@ function applyCityImageTransform() {
   if (!image) return
   document.querySelector('.city-image-wrap')?.classList.toggle('is-zoomed', cityImageView.scale > 1)
   image.style.transform = `translate(${cityImageView.x}px, ${cityImageView.y}px) scale(${cityImageView.scale})`
-}
-
-function clampNumber(value, min, max) {
-  return Math.max(min, Math.min(max, value))
 }
 
 function getCityImageSource(index) {

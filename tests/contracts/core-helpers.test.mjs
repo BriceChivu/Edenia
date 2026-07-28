@@ -14,6 +14,7 @@ import {
   toDateKey
 } from '../../src/core/date-keys.js'
 import { escHtml, escapeSvgText } from '../../src/core/escaping.js'
+import { clampNumber } from '../../src/core/numbers.js'
 
 test('HTML escaping preserves the exact legacy character contract', () => {
   assert.equal(escHtml(null), '')
@@ -86,4 +87,14 @@ test('time setters clone inputs and timestamp validation remains permissive', ()
   assert.equal(isValidTimestamp(''), false)
   assert.equal(isValidTimestamp(null), false)
   assert.equal(isValidTimestamp(0), false)
+})
+
+test('numeric clamping preserves coercion and boundary behavior', () => {
+  assert.equal(clampNumber(5, 0, 10), 5)
+  assert.equal(clampNumber(-1, 0, 10), 0)
+  assert.equal(clampNumber(11, 0, 10), 10)
+  assert.equal(clampNumber('7', 0, 10), 7)
+  assert.equal(clampNumber(Infinity, 0, 10), 10)
+  assert.equal(clampNumber(5, 10, 0), 10)
+  assert.equal(Number.isNaN(clampNumber('invalid', 0, 10)), true)
 })
