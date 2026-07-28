@@ -81,7 +81,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'setAllChannelFilters',
   'setChannelFilter',
   'setHistoryPeriodForRange',
-  'setHistoryView',
   'setPersonalizedOnboardingStep',
   'setStatusFilter',
   'showHeatmapTooltip',

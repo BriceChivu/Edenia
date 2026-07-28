@@ -1367,3 +1367,37 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore resolver-derived action names; no
   persisted history-view or analytics migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-042 — Migrate static Study History view actions
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, event ownership, compatibility removal, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Transfer the two static Study History tabs from inline handlers to
+  feature-owned direct listeners.
+- **Conceptual change:** Removed both `setHistoryView(...)` inline attributes and
+  bound fixed `summary`/`heatmap` calls through
+  `src/features/study-history/view-actions.js`. Removed `setHistoryView` from the
+  temporary `EdeniaActions` manifest/map; its state/render function remains in
+  `src/app.js`, and classic-script top-level compatibility remains until final
+  global cleanup.
+- **Preservation contract:** Literal arguments, one action per native click or
+  keyboard activation, synchronous persistence before document analytics,
+  reload selection, active/aria states, summary/heatmap visibility, generic
+  analytics identities/properties, rendering, localization, and accessibility
+  remain exact.
+- **Risks:** Reading mutable datasets instead of binding fixed values could make
+  future markup changes alter behavior; delegation could invert persistence and
+  analytics ordering.
+- **Verification:** `npm test` passed all 150 contract tests and the production
+  build. Playwright passed 22 protected browser flows with 20 expected
+  project-specific skips, including click, Enter, Space, persistence, reload,
+  bridge, and document-order assertions; all 18 visual baselines remained
+  unchanged. The migration-ledger check is included in this commit gate.
+- **Rollback:** Revert this commit to restore both inline attributes and the
+  bridge entry while retaining MIG-041 metadata; persisted `historyView` values
+  remain compatible.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

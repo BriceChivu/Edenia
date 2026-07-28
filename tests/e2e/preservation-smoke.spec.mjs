@@ -355,3 +355,60 @@ test('Settings accordion listeners preserve mouse, keyboard, reset, and ordering
     toggleSettingsBackups: false
   })
 })
+
+test('Study History view listeners preserve persistence, keyboard, and ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  const summaryTab = page.locator('[data-history-view="summary"]')
+  const heatmapTab = page.locator('[data-history-view="heatmap"]')
+  const summaryView = page.locator('#historySummaryView')
+  const heatmapView = page.locator('#historyHeatmapView')
+  await expect(summaryTab).toHaveClass(/\bactive\b/)
+  await expect(summaryTab).toHaveAttribute('aria-selected', 'true')
+  await expect(summaryView).not.toHaveClass(/\bhidden\b/)
+  await expect(heatmapView).toHaveClass(/\bhidden\b/)
+
+  await page.evaluate(() => {
+    window.__historyViewAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest('[data-history-view="heatmap"]')) return
+      const state = JSON.parse(localStorage.getItem('edenia_v1'))
+      window.__historyViewAtDocumentBubble = state.config.historyView
+    }, { once: true })
+  })
+  await heatmapTab.click()
+  await expect(heatmapTab).toHaveClass(/\bactive\b/)
+  await expect(heatmapTab).toHaveAttribute('aria-selected', 'true')
+  await expect(summaryView).toHaveClass(/\bhidden\b/)
+  await expect(heatmapView).not.toHaveClass(/\bhidden\b/)
+  await expect.poll(() => page.evaluate(
+    () => window.__historyViewAtDocumentBubble
+  )).toBe('heatmap')
+
+  await page.reload()
+  await waitForApplication(page)
+  await expect(heatmapTab).toHaveClass(/\bactive\b/)
+  await expect(heatmapTab).toHaveAttribute('aria-selected', 'true')
+
+  await summaryTab.focus()
+  await summaryTab.press('Enter')
+  await expect(summaryTab).toHaveClass(/\bactive\b/)
+  await expect(summaryTab).toHaveAttribute('aria-selected', 'true')
+  await expect(summaryView).not.toHaveClass(/\bhidden\b/)
+  await expect(heatmapView).toHaveClass(/\bhidden\b/)
+  await expect.poll(() => page.evaluate(() => (
+    JSON.parse(localStorage.getItem('edenia_v1')).config.historyView
+  ))).toBe('summary')
+
+  await heatmapTab.focus()
+  await heatmapTab.press('Space')
+  await expect(heatmapTab).toHaveAttribute('aria-selected', 'true')
+
+  const removedBridgeAction = await page.evaluate(() => (
+    Object.prototype.hasOwnProperty.call(window.EdeniaActions, 'setHistoryView')
+  ))
+  expect(removedBridgeAction).toBe(false)
+})

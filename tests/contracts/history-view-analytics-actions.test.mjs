@@ -17,24 +17,22 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('Study History view controls lock pre-migration analytics identities', () => {
+test('Study History view controls retain analytics identities without inline handlers', () => {
   const controls = [
     {
       view: 'summary',
-      action: 'history.summary',
-      handler: "setHistoryView('summary')"
+      action: 'history.summary'
     },
     {
       view: 'heatmap',
-      action: 'history.heatmap',
-      handler: "setHistoryView('heatmap')"
+      action: 'history.heatmap'
     }
   ]
 
   for (const expected of controls) {
     const tag = findButton(expected.view)
     assert.equal(getAttribute(tag, 'data-analytics-action'), expected.action)
-    assert.equal(getAttribute(tag, 'onclick'), expected.handler)
+    assert.equal(getAttribute(tag, 'onclick'), null)
   }
 })
 
