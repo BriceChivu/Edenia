@@ -1717,3 +1717,30 @@ release mappings, and follow-up findings are recorded as new entries.
   entries while retaining MIG-051 analytics metadata; no persisted data
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-053 — Lock feedback-confirmation analytics identity
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve the generic analytics name for the feedback-confirmation
+  OK control before moving its event ownership.
+- **Conceptual change:** Added explicit `data-analytics-action="feedback.ok"`,
+  matching the existing translation-key resolution. The inline close handler
+  remains in place in this commit.
+- **Preservation contract:** The `feedback_ok_clicked` event name and
+  properties, localized label, confirmation classes, focus return to the
+  feedback launcher, mouse and keyboard behavior, markup, styling, and
+  accessibility remain exact.
+- **Risks:** A changed identity would fragment analytics; changing focus timing
+  would make the confirmation flow less accessible.
+- **Verification:** `npm test` passed all 178 contract tests and the production
+  build. Playwright passed 27 protected flows with 45 expected project skips
+  across the six required viewport projects; all 18 representative screenshots
+  remained unchanged. Migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore translation-derived analytics
+  identity; feedback state and application data are unaffected.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
