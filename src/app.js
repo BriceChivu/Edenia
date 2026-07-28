@@ -10357,6 +10357,8 @@ function renderCityTimeControls(snapshot) {
     return `
       <button class="city-wave-bar ${points > 0 ? 'has-activity' : ''} ${hasLevelChange ? 'has-level-change' : ''} ${index === selectedIndex ? 'selected' : ''}"
         type="button"
+        data-city-wave-action="select"
+        data-analytics-action="selectCityWaveBar"
         data-index="${index}"
         data-offset="${day.offset}"
         data-label="${escHtml(label)}"

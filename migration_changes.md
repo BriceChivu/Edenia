@@ -2523,3 +2523,36 @@ release mappings, and follow-up findings are recorded as new entries.
   bridge entries while retaining MIG-075 analytics metadata; stored state and
   sync-file formats require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-077 — Lock city-waveform selection analytics identity
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Generated-control semantics, analytics compatibility metadata, and
+  contract tests
+- **Status:** Complete locally; paired listener migrations pending
+- **Intent:** Preserve generated city waveform bars' existing handler-derived
+  selection identity before replacing their inline event ownership.
+- **Conceptual change:** Added an explicit selection hook and inert
+  `selectCityWaveBar` analytics metadata to generated bars, plus contracts for
+  their current data, ARIA, four inline-handler, and normalized generic-event
+  identities. All current handlers remain installed in this commit.
+- **Preservation contract:** Timeline range and ordering, bar geometry and
+  classes, localized ARIA labels, selected and activity markers, hover/focus
+  preview, click/keyboard selection, detached-target analytics ordering,
+  tooltip and boosts, scroll centering, touch drag and click suppression,
+  runtime-only city offset, storage, styling, and accessibility remain
+  unchanged.
+- **Risks:** A renamed action would split generic analytics history; changing
+  event ownership in the metadata commit would combine compatibility and
+  lifecycle changes; document delegation could later reverse detached-target
+  ordering.
+- **Verification:** The production build and contract suite passed. Migration
+  ledger and diff-integrity checks passed against `v1.0.0`. Because this
+  metadata is inert and all inline handlers remain, its browser and visual gate
+  is intentionally coupled to the following city-waveform listener commits.
+- **Rollback:** Revert this commit to restore handler-derived selection
+  identity; city runtime and persisted state remain unaffected.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
