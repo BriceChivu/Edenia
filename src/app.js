@@ -10,6 +10,19 @@ import {
   I18N
 } from './i18n/index.js'
 import { installLegacyActions } from './compat/legacy-actions.js'
+import {
+  addDays,
+  dateKeyToLocalDate,
+  daysBetweenDateKeys,
+  getAnkiDateKey,
+  getCurrentAnkiDateKey,
+  getDaysBetweenDateKeys,
+  getPreviousDateKey,
+  getWeekStart,
+  isValidTimestamp,
+  setLocalTime,
+  toDateKey
+} from './core/date-keys.js'
 import { escHtml, escapeSvgText } from './core/escaping.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
@@ -85,7 +98,6 @@ const THEMES = ['light', 'dark']
 const BACKGROUND_PHYSICS_RADIUS = 130
 const BACKGROUND_PHYSICS_MAX_PARTICLES = 2600
 const ANKI_AUTO_REFRESH_MS = 5 * 60_000
-const ANKI_DAY_START_HOUR = 4
 const NO_ANKI_FREQUENT_USER_DAY_THRESHOLD = 7
 const MIN_DAILY_STREAK_POINTS = 5
 const HEATMAP_STREAK_RUN_MIN_DAYS = 5
@@ -2059,12 +2071,6 @@ function createEmptySandboxState() {
   return state
 }
 
-function setLocalTime(date, hour, minute) {
-  const next = new Date(date)
-  next.setHours(hour, minute, 0, 0)
-  return next
-}
-
 function makeSandboxThumbnail(label, index) {
   const colors = [
     ['#12bcea', '#c9ef68'],
@@ -2377,10 +2383,6 @@ function appendActivityLog(state, entry = {}) {
   return nextEntry
 }
 
-function isValidTimestamp(value) {
-  return Boolean(value && Number.isFinite(new Date(value).getTime()))
-}
-
 function normalizeChannelRefreshState(state) {
   if (!state) return false
   let changed = false
@@ -2656,23 +2658,6 @@ function normalizeAnkiDateKeys(state) {
 // DATE & TIME HELPERS
 // ════════════════════════════════════════════════════════════
 
-function getWeekStart(from = new Date()) {
-  const d = new Date(from)
-  const day = d.getDay()                // 0=Sun
-  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day))
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-function toDateKey(d = new Date()) {
-  // Use local date components — avoids UTC offset bug (e.g. Taiwan UTC+8:
-  // before 8am local, toISOString() would return yesterday's UTC date)
-  const y  = d.getFullYear()
-  const mo = String(d.getMonth() + 1).padStart(2, '0')
-  const dy = String(d.getDate()).padStart(2, '0')
-  return `${y}-${mo}-${dy}`
-}
-
 function getCurrentAppDate(state = null) {
   if (!IS_SANDBOX) return new Date()
   const sandboxState = state || loadState()
@@ -2690,16 +2675,6 @@ function getCurrentAppTimestamp(state = null) {
   const date = getCurrentAppDate(state)
   date.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds())
   return date.toISOString()
-}
-
-function getAnkiDateKey(from = new Date()) {
-  const date = new Date(from)
-  if (date.getHours() < ANKI_DAY_START_HOUR) date.setDate(date.getDate() - 1)
-  return toDateKey(date)
-}
-
-function getCurrentAnkiDateKey() {
-  return getAnkiDateKey(new Date())
 }
 
 function timeAgo(iso) {
@@ -9293,20 +9268,6 @@ function formatChannelRemoveActionToast(direction, channel, snapshot) {
     : t('undo.channelRemoved', { name: channelName })
 }
 
-function dateKeyToLocalDate(dateKey) {
-  return new Date(`${dateKey}T00:00:00`)
-}
-
-function getPreviousDateKey(dateKey) {
-  const date = dateKeyToLocalDate(dateKey)
-  date.setDate(date.getDate() - 1)
-  return toDateKey(date)
-}
-
-function getDaysBetweenDateKeys(prevKey, nextKey) {
-  return Math.round((dateKeyToLocalDate(nextKey) - dateKeyToLocalDate(prevKey)) / 86_400_000)
-}
-
 function getHistoricalStreakDayCounts(s, end) {
   const qualifyingDays = getStudyHistoryBetween(s, new Date(0), end).rows
     .filter(row => getHistoryDayRawPoints(row) >= MIN_DAILY_STREAK_POINTS)
@@ -9615,12 +9576,6 @@ function getHistoryRange(range = selectedHistoryRange, from = new Date(), state 
     end.setHours(23, 59, 59, 999)
   }
   return { start, end }
-}
-
-function addDays(date, days) {
-  const next = new Date(date)
-  next.setDate(next.getDate() + days)
-  return next
 }
 
 function createHistoryBucket(dateKey) {
@@ -11991,12 +11946,6 @@ function getLastStudyActionDateKey(s) {
   })
 
   return dates.sort().pop() || null
-}
-
-function daysBetweenDateKeys(fromKey, toKey) {
-  const from = new Date(`${fromKey}T00:00:00`)
-  const to = new Date(`${toKey}T00:00:00`)
-  return Math.round((to - from) / 86_400_000)
 }
 
 function getCityScoreThroughDate(s, date) {

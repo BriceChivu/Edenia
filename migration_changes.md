@@ -296,3 +296,34 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the two function declarations in the
   entry point. No persisted state or browser data is changed.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-009 — Extract pure local date-key helpers
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Centralize dependency-free calendar arithmetic before state and feature
+  modules begin depending on a stable date-key interface.
+- **Conceptual change:** Moved local-time cloning, timestamp validation, Monday week
+  starts, local date-key formatting, the 04:00 Anki-day boundary, date-key
+  conversion, previous-day lookup, signed date differences, and immutable day
+  addition into `src/core/date-keys.js`. Both historically distinct day-difference
+  functions remain available rather than being consolidated.
+- **Preservation contract:** Edenia continues to use local calendar components rather
+  than UTC date slicing. Monday/Sunday behavior, the Anki 03:59/04:00 boundary,
+  month/year/leap-day rollovers, permissive timestamp validation, clone semantics,
+  rounding, function defaults, and all call sites remain unchanged.
+- **Risks:** Time-zone conversion or deduplicating the similar difference helpers
+  could shift study days, streaks, history ranges, sandbox dates, Anki attribution,
+  or city progression.
+- **Verification:** Eighteen of eighteen contracts passed, including Monday/Sunday,
+  year and leap-day rollover, signed differences, cloning, timestamp validation, and
+  the Anki 03:59/04:00 boundary. Across a complete run plus a serial rerun of three
+  host-resource interruptions, all 19 Playwright scenarios passed with 5 expected
+  locale-project skips and all 18 protected visual baselines unchanged.
+- **Rollback:** Revert this commit to restore the constants and function declarations
+  in the entry point. No stored date keys or state schema are migrated.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
