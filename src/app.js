@@ -3,12 +3,6 @@
    All logic: state, YouTube API, streak, Anki, city, rendering
 ═══════════════════════════════════════════════════════════ */
 
-import {
-  DEFAULT_LOCALE,
-  SUPPORTED_LOCALES,
-  LOCALE_LABELS,
-  I18N
-} from './i18n/index.js'
 import { installLegacyActions } from './compat/legacy-actions.js'
 import {
   addDays,
@@ -44,6 +38,18 @@ import {
   parseYoutubeVideoId,
   YOUTUBE_CHANNEL_ID_RE
 } from './integrations/youtube-parsing.js'
+import {
+  formatLocaleDate,
+  formatLocaleDateTime,
+  getBrowserDefaultLocale,
+  getCurrentLocale,
+  getLocaleLabel,
+  getMissingI18nKeys,
+  normalizeLocale,
+  setCurrentLocale,
+  SUPPORTED_LOCALES,
+  t
+} from './i18n/runtime.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -232,7 +238,6 @@ const VIDEO_SHELF_PLAYER_SAVE_INTERVAL_MS = 5000
 const VIDEO_SHELF_PLAYER_SEEK_TOLERANCE_SECONDS = 1.5
 let youtubeIframeApiPromise = null
 let activeVideoShelfPlayer = null
-let currentLocale = DEFAULT_LOCALE
 let backgroundPhysics = null
 const selectedHistoryPeriod = { week: null, month: null }
 let selectedCityDayOffset = 0
@@ -1098,40 +1103,9 @@ function hasYoutubeApiKey() {
   return Boolean(getYoutubeApiKey())
 }
 
-function normalizeLocale(locale) {
-  const value = String(locale || '').trim()
-  if (SUPPORTED_LOCALES.includes(value)) return value
-  const lower = value.toLowerCase()
-  if (lower === 'zh-tw' || lower === 'zh-hk' || lower === 'zh-mo' || lower === 'zh-hant') return 'zh-Hant'
-  if (lower === 'zh' || lower === 'zh-cn' || lower === 'zh-sg' || lower === 'zh-hans') return 'zh-Hans'
-  if (lower.startsWith('es')) return 'es'
-  if (lower.startsWith('fr')) return 'fr'
-  if (lower.startsWith('en')) return 'en'
-  return DEFAULT_LOCALE
-}
-
-function getBrowserDefaultLocale() {
-  const primaryLocale = navigator.language
-    || (Array.isArray(navigator.languages) ? navigator.languages.find(Boolean) : '')
-  return normalizeLocale(primaryLocale || DEFAULT_LOCALE)
-}
-
-function getLocaleLabel(locale = currentLocale) {
-  const normalized = normalizeLocale(locale)
-  return LOCALE_LABELS[normalized] || LOCALE_LABELS[DEFAULT_LOCALE]
-}
-
-function t(key, params = {}) {
-  const dictionary = I18N[currentLocale] || I18N[DEFAULT_LOCALE]
-  const template = dictionary?.[key] ?? I18N[DEFAULT_LOCALE]?.[key] ?? key
-  return String(template).replace(/\{(\w+)\}/g, (_, name) => {
-    return Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : `{${name}}`
-  })
-}
-
-function applyLocale(locale = currentLocale) {
-  currentLocale = normalizeLocale(locale)
-  document.documentElement.lang = currentLocale
+function applyLocale(locale = getCurrentLocale()) {
+  const nextLocale = setCurrentLocale(locale)
+  document.documentElement.lang = nextLocale
   applyTranslations()
 }
 
@@ -1155,6 +1129,7 @@ function applyTranslations(root = document) {
 }
 
 function renderLocaleSelect() {
+  const currentLocale = getCurrentLocale()
   const introButton = document.getElementById('introLocaleBtn')
   const introLabel = document.getElementById('introLocaleLabel')
   const introMenu = document.getElementById('introLocaleMenu')
@@ -1193,27 +1168,9 @@ function renderLocaleSelect() {
 }
 
 function reportMissingI18nKeys() {
-  const sourceKeys = Object.keys(I18N[DEFAULT_LOCALE] || {})
-  const missing = SUPPORTED_LOCALES.flatMap(locale => {
-    const dictionary = I18N[locale] || {}
-    return sourceKeys
-      .filter(key => !Object.prototype.hasOwnProperty.call(dictionary, key))
-      .map(key => `${locale}:${key}`)
-  })
+  const missing = getMissingI18nKeys()
   if (missing.length) console.warn('Missing Edenia translations:', missing)
   return missing
-}
-
-function formatLocaleDate(value, options = {}) {
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleDateString(currentLocale, options)
-}
-
-function formatLocaleDateTime(value, options = {}) {
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString(currentLocale, options)
 }
 
 function sanitizeConfigForStorage(config = {}) {
@@ -9593,7 +9550,7 @@ function renderHistoryWatchedCell(row) {
 
 function formatHistoryPointNumber(points) {
   const value = Number(points || 0)
-  return new Intl.NumberFormat(currentLocale, {
+  return new Intl.NumberFormat(getCurrentLocale(), {
     maximumFractionDigits: Number.isInteger(value) ? 0 : 1
   }).format(value)
 }
@@ -9620,7 +9577,7 @@ function formatSignedHistoryPointLabel(points) {
 function formatSignedActivityLogPointLabel(points) {
   const value = Number(points || 0)
   const sign = value > 0 ? '+' : ''
-  const count = new Intl.NumberFormat(currentLocale, {
+  const count = new Intl.NumberFormat(getCurrentLocale(), {
     maximumFractionDigits: Number.isInteger(value) ? 0 : 2
   }).format(value)
   return t('points.many', { count: `${sign}${count}` })
@@ -15360,7 +15317,7 @@ function submitFeedback(event) {
     feedback_source: 'main_page_footer',
     submitted_at: submittedAt,
     app_version: getFeedbackAssetVersion(),
-    locale: currentLocale,
+    locale: getCurrentLocale(),
     theme: document.body.dataset.theme || DEFAULT_THEME,
     page_url: window.location.href,
     viewport_width: window.innerWidth,

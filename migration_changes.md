@@ -418,3 +418,37 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the parsing constants and functions in
   the entry point. Network behavior and stored state require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-013 — Establish the translation runtime interface
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, compatibility, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Put mutable locale selection, fallback translation, interpolation, and
+  locale-aware date formatting behind one interface while leaving UI ownership in
+  the entry point.
+- **Conceptual change:** Added `src/i18n/runtime.js` to own the current locale and
+  expose normalization, browser-default selection, labels, translation,
+  interpolation, missing-key discovery, and date/date-time formatting. DOM
+  translation application and the three locale menus remain in the entry point and
+  read the runtime through explicit getters and setters.
+- **Preservation contract:** Locale ordering and labels, Chinese region/script
+  mappings, language-prefix handling, English fallback, raw-key fallback,
+  word-placeholder substitution, missing-placeholder retention, `textContent` and
+  attribute rendering, document `lang`, browser-default precedence, Intl formatting,
+  and exact translation dictionaries remain unchanged.
+- **Risks:** A stale copied locale value could desynchronize rendered text, number
+  formatting, feedback metadata, or saved configuration. Moving DOM rendering into
+  the runtime could introduce circular feature dependencies, so it remains outside.
+- **Verification:** Thirty-two of thirty-two contracts passed, including exact
+  dictionary hashes, fallback and placeholder rules, locale normalization,
+  navigator precedence, mutable runtime selection, labels, interpolation, invalid
+  dates, and Intl-equivalent formatting. A serial Playwright run passed 19 scenarios
+  with 5 expected project skips, exercised all five locales through rendered
+  Settings, and retained all 18 protected visual baselines.
+- **Rollback:** Revert this commit to restore the locale state and functions in the
+  entry point. Locale storage and dictionary modules require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

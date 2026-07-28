@@ -12,6 +12,17 @@ import { ES_LOCALIZED } from '../../src/i18n/es.js'
 import { FR_LOCALIZED } from '../../src/i18n/fr.js'
 import { ZH_HANS_LOCALIZED } from '../../src/i18n/zh-Hans.js'
 import { ZH_HANT_LOCALIZED } from '../../src/i18n/zh-Hant.js'
+import {
+  formatLocaleDate,
+  formatLocaleDateTime,
+  getBrowserDefaultLocale,
+  getCurrentLocale,
+  getLocaleLabel,
+  getMissingI18nKeys,
+  normalizeLocale,
+  setCurrentLocale,
+  t
+} from '../../src/i18n/runtime.js'
 
 const EXPECTED_DICTIONARY_HASHES = {
   en: '4a3f5e2bcafdd1c9cda123c889054f668777db5eb668af9f9bbdac48b8a1c5db',
@@ -157,4 +168,80 @@ test('every static translation attribute resolves against English', async () => 
       )
     }
   }
+})
+
+test('locale normalization and browser defaults preserve current mappings', () => {
+  const cases = new Map([
+    ['en-US', 'en'],
+    ['fr-CA', 'fr'],
+    ['es-419', 'es'],
+    ['zh', 'zh-Hans'],
+    ['zh-CN', 'zh-Hans'],
+    ['zh-SG', 'zh-Hans'],
+    ['zh-Hans', 'zh-Hans'],
+    ['zh-TW', 'zh-Hant'],
+    ['zh-HK', 'zh-Hant'],
+    ['zh-MO', 'zh-Hant'],
+    ['zh-Hant', 'zh-Hant'],
+    ['unknown', 'en'],
+    ['', 'en']
+  ])
+
+  for (const [input, expected] of cases) {
+    assert.equal(normalizeLocale(input), expected)
+  }
+  assert.equal(getBrowserDefaultLocale({
+    language: 'fr-CA',
+    languages: ['es-ES']
+  }), 'fr')
+  assert.equal(getBrowserDefaultLocale({
+    language: '',
+    languages: ['', 'zh-TW']
+  }), 'zh-Hant')
+})
+
+test('translation runtime preserves selection, fallback, labels, and interpolation', () => {
+  setCurrentLocale('fr')
+  assert.equal(getCurrentLocale(), 'fr')
+  assert.equal(getLocaleLabel(), 'Français')
+  assert.equal(getLocaleLabel('unknown'), 'English')
+  assert.equal(t('settings.title'), I18N.fr['settings.title'])
+  assert.equal(t('sandbox.channel.language'), I18N.en['sandbox.channel.language'])
+  assert.equal(t('missing.translation.key'), 'missing.translation.key')
+  assert.equal(
+    t('time.weekLabel', { week: 0, start: false, end: undefined }),
+    I18N.fr['time.weekLabel']
+      .replace('{week}', '0')
+      .replace('{start}', 'false')
+      .replace('{end}', 'undefined')
+  )
+  assert.equal(t('time.weekLabel', { week: 1 }), I18N.fr['time.weekLabel']
+    .replace('{week}', '1'))
+  assert.deepEqual(getMissingI18nKeys(), [])
+  setCurrentLocale(DEFAULT_LOCALE)
+})
+
+test('locale date formatting preserves invalid and Intl behavior', () => {
+  const date = new Date(2026, 6, 28, 13, 45)
+  const dateOptions = { year: 'numeric', month: 'short', day: 'numeric' }
+  const dateTimeOptions = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  }
+
+  setCurrentLocale('zh-Hant')
+  assert.equal(
+    formatLocaleDate(date, dateOptions),
+    date.toLocaleDateString('zh-Hant', dateOptions)
+  )
+  assert.equal(
+    formatLocaleDateTime(date, dateTimeOptions),
+    date.toLocaleString('zh-Hant', dateTimeOptions)
+  )
+  assert.equal(formatLocaleDate('invalid'), '')
+  assert.equal(formatLocaleDateTime('invalid'), '')
+  setCurrentLocale(DEFAULT_LOCALE)
 })
