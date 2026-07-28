@@ -2074,3 +2074,32 @@ release mappings, and follow-up findings are recorded as new entries.
   entries while retaining MIG-061 analytics metadata; no stored data migration
   is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-064 — Lock Activity Log pagination analytics identity
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve the generated phone Activity Log pagination control's
+  handler-derived analytics identity before moving click ownership.
+- **Conceptual change:** Added an explicit
+  `showOlderActivityLogEntries` analytics action and a contract for the exact
+  normalized generic event name while retaining the generated inline handler.
+- **Preservation contract:** The
+  `show_older_activity_log_entries_clicked` event, localized button name,
+  phone-only visibility, 20-entry page size, Anki grouping, current filter,
+  rerendering, native keyboard activation, persistence, styling, and
+  accessibility remain exact.
+- **Risks:** Allowing identity to fall back to localized visible copy after
+  handler removal would fragment analytics; changing pagination in this commit
+  would combine metadata with generated-DOM lifecycle risk.
+- **Verification:** `npm test` passed all 204 contract tests and the production
+  build. Playwright passed 35 protected flows with 85 expected project skips
+  across the six required viewport projects; all 18 representative screenshots
+  remained unchanged. Migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore handler-derived analytics
+  identity; Activity Log and application state remain unaffected.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

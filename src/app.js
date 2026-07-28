@@ -3966,7 +3966,7 @@ function getMobileActivityLogPage(entries, { groupAnki = false } = {}) {
 function appendMobileActivityLogMoreButton(list, totalCount) {
   if (!isMobileLayout() || totalCount <= mobileActivityLogVisibleCount) return
   list.insertAdjacentHTML('beforeend', `
-    <button class="btn-ghost activity-log-more" type="button" onclick="showOlderActivityLogEntries()">${escHtml(t('activity.showOlder'))}</button>
+    <button class="btn-ghost activity-log-more" type="button" onclick="showOlderActivityLogEntries()" data-analytics-action="showOlderActivityLogEntries">${escHtml(t('activity.showOlder'))}</button>
   `)
 }
 
