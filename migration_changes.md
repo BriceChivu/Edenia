@@ -911,3 +911,41 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore history-view helpers and default-state
   construction inline; persisted state requires no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-028 — Establish explicit state-store interface
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, interface, persistence, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Isolate local-storage read, write, retry, recovery, and probe flow while
+  retaining all Edenia-specific schema policy in explicit callbacks.
+- **Conceptual change:** Added `src/state/store.js` and composed it with the existing
+  storage key, loaded-state cleanup sequence, pre-save normalization sequence,
+  backup functions, config cookie, analytics sync, recovery, and default-state
+  factory. `src/app.js` now exposes those policy callbacks rather than performing
+  storage I/O directly.
+- **Preservation contract:** Load parsing and normalization remain in one recovery
+  boundary; automatic cleanup still creates a forced pre-cleanup backup; backup
+  recovery precedes cookie fallback; pre-save normalizers run before backup;
+  writes retry exactly once after pruning one backup; config cookies are attempted
+  after both successful and failed writes; analytics sync occurs only after a
+  successful write when enabled by the caller; save normalization and backup
+  failures still propagate; and the exact storage probe key is always removed when
+  possible.
+- **Risks:** Moving error boundaries, retrying more often, syncing before persistence,
+  or changing backup/cookie order could corrupt recovery expectations or analytics
+  state without an obvious visual regression.
+- **Verification:** `npm test` passed all 97 contracts, including no-op and
+  cleanup loads, forced backup ordering, parse/normalization recovery, cookie/null
+  fallback, default and suppressed save options, single-prune retry, failed-write
+  cookie behavior, propagated pre-save failures, and probe cleanup. The serial
+  Playwright suite passed 19 flows with 5 expected project-scoped skips across all
+  six required viewports; all 18 protected screenshots remained unchanged.
+  Migration-ledger verification follows the commit.
+- **Rollback:** Revert this commit to restore direct `loadState`, `saveState`, and
+  storage-probe implementations; storage keys and persisted data require no
+  migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

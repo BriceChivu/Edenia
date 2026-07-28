@@ -120,6 +120,7 @@ import {
   createDefaultStateFactory,
   normalizeHistoryView
 } from './state/default-state.js'
+import { createStateStore } from './state/store.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -171,6 +172,23 @@ const defaultState = createDefaultStateFactory({
   isSandbox: IS_SANDBOX,
   isDefaultChannelId,
   getBrowserDefaultLocale
+})
+const {
+  canPersistLocalState,
+  loadState,
+  saveState
+} = createStateStore({
+  storage: localStorage,
+  storageKey: STORAGE_KEY,
+  normalizeLoadedState,
+  normalizeStateBeforeSave,
+  createStateBackup,
+  pruneOldestStateBackup,
+  saveConfigCookie,
+  syncPersistedStateToAnalytics,
+  getLatestBackupState,
+  loadConfigCookie,
+  createDefaultStateFromConfig
 })
 const YOUTUBE_CHANNEL_SEARCH_CACHE_TTL_MS = 24 * 60 * 60_000
 const YOUTUBE_CHANNEL_SEARCH_COOLDOWN_MS = 2500
@@ -1364,114 +1382,68 @@ function getRecommendedChannelCatalog(profile, limit = 6) {
   return recommendations
 }
 
-function loadState() {
-  let storageError = false
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const state = JSON.parse(raw)
-      let shouldSave = false
-      if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
-      if (state?.config) state.config.locale = normalizeLocale(state.config.locale || getBrowserDefaultLocale())
-      if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
-      if (state?.config) {
-        const includeShorts = isTemporaryShortsWhitelistedUser()
-          ? true
-          : normalizeIncludeShorts(state.config.includeShorts)
-        if (state.config.includeShorts !== includeShorts) shouldSave = true
-        state.config.includeShorts = includeShorts
-      }
-      if (normalizeAnkiTrackingConfig(state)) shouldSave = true
-      if (normalizeStudyInsightConfig(state)) shouldSave = true
-      if (state?.config) {
-        const historyView = normalizeHistoryView(state.config.historyView, IS_SANDBOX)
-        if (state.config.historyView !== historyView) shouldSave = true
-        state.config.historyView = historyView
-      }
-      if (state?.config && !Array.isArray(state.config.channels)) state.config.channels = []
-      if (state?.config) delete state.config.apiKey
-      normalizeRemovedDefaultChannels(state)
-      normalizeRemovedChannels(state)
-      if (state?.config && (state.defaultChannelsVersion || 1) < DEFAULT_CHANNELS_VERSION) {
-        state.defaultChannelsVersion = DEFAULT_CHANNELS_VERSION
-        shouldSave = true
-      }
-      if (normalizeAnkiDateKeys(state)) shouldSave = true
-      if (normalizeVideoWatchProgressState(state)) shouldSave = true
-      if (normalizeVideoSetAsideState(state)) shouldSave = true
-      if (normalizeWatchedConfirmationState(state)) shouldSave = true
-      if (normalizeVideoWatchReminderState(state)) shouldSave = true
-      normalizeUndoState(state)
-      if (normalizeActivityLogState(state)) shouldSave = true
-      if (normalizeLearnerProfileState(state)) shouldSave = true
-      if (normalizeOnboardingState(state)) shouldSave = true
-      if (normalizeNoAnkiFrequentUserPromptState(state)) shouldSave = true
-      if (normalizeChannelRefreshState(state)) shouldSave = true
-      normalizeSandboxState(state)
-      normalizeCityProgress(state)
-      delete state.nightVisuals
-      if (shouldSave) saveState(state, { backupReason: 'before automatic cleanup', forceBackup: true })
-      return state
-    }
-  } catch {
-    storageError = true
+function normalizeLoadedState(state) {
+  let shouldSave = false
+  if (state?.config) state.config.theme = normalizeTheme(state.config.theme)
+  if (state?.config) state.config.locale = normalizeLocale(state.config.locale || getBrowserDefaultLocale())
+  if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
+  if (state?.config) {
+    const includeShorts = isTemporaryShortsWhitelistedUser()
+      ? true
+      : normalizeIncludeShorts(state.config.includeShorts)
+    if (state.config.includeShorts !== includeShorts) shouldSave = true
+    state.config.includeShorts = includeShorts
   }
-
-  if (storageError) {
-    const recoveredState = getLatestBackupState()
-    if (recoveredState) return recoveredState
+  if (normalizeAnkiTrackingConfig(state)) shouldSave = true
+  if (normalizeStudyInsightConfig(state)) shouldSave = true
+  if (state?.config) {
+    const historyView = normalizeHistoryView(state.config.historyView, IS_SANDBOX)
+    if (state.config.historyView !== historyView) shouldSave = true
+    state.config.historyView = historyView
   }
-
-  const fallback = loadConfigCookie()
-  if (fallback) {
-    return defaultState(fallback.weeklyGoalHours || 4, fallback.channels, fallback.theme, fallback.removedDefaultChannelIds, fallback.locale)
+  if (state?.config && !Array.isArray(state.config.channels)) state.config.channels = []
+  if (state?.config) delete state.config.apiKey
+  normalizeRemovedDefaultChannels(state)
+  normalizeRemovedChannels(state)
+  if (state?.config && (state.defaultChannelsVersion || 1) < DEFAULT_CHANNELS_VERSION) {
+    state.defaultChannelsVersion = DEFAULT_CHANNELS_VERSION
+    shouldSave = true
   }
-
-  return null
+  if (normalizeAnkiDateKeys(state)) shouldSave = true
+  if (normalizeVideoWatchProgressState(state)) shouldSave = true
+  if (normalizeVideoSetAsideState(state)) shouldSave = true
+  if (normalizeWatchedConfirmationState(state)) shouldSave = true
+  if (normalizeVideoWatchReminderState(state)) shouldSave = true
+  normalizeUndoState(state)
+  if (normalizeActivityLogState(state)) shouldSave = true
+  if (normalizeLearnerProfileState(state)) shouldSave = true
+  if (normalizeOnboardingState(state)) shouldSave = true
+  if (normalizeNoAnkiFrequentUserPromptState(state)) shouldSave = true
+  if (normalizeChannelRefreshState(state)) shouldSave = true
+  normalizeSandboxState(state)
+  normalizeCityProgress(state)
+  delete state.nightVisuals
+  return shouldSave
 }
 
-function canPersistLocalState() {
-  const probeKey = `${STORAGE_KEY}_storage_probe`
-  try {
-    localStorage.setItem(probeKey, '1')
-    const available = localStorage.getItem(probeKey) === '1'
-    localStorage.removeItem(probeKey)
-    return available
-  } catch {
-    try { localStorage.removeItem(probeKey) } catch {}
-    return false
-  }
+function normalizeStateBeforeSave(state) {
+  normalizeActivityLogState(state)
+  normalizeNoAnkiFrequentUserPromptState(state)
+  normalizeVideoWatchProgressState(state)
+  normalizeVideoSetAsideState(state)
+  normalizeWatchedConfirmationState(state)
+  normalizeVideoWatchReminderState(state)
+  normalizeStudyInsightConfig(state)
 }
 
-function saveState(s, options = {}) {
-  const {
-    backup = true,
-    backupReason = 'automatic backup',
-    forceBackup = false,
-    syncAnalytics = true
-  } = options
-  normalizeActivityLogState(s)
-  normalizeNoAnkiFrequentUserPromptState(s)
-  normalizeVideoWatchProgressState(s)
-  normalizeVideoSetAsideState(s)
-  normalizeWatchedConfirmationState(s)
-  normalizeVideoWatchReminderState(s)
-  normalizeStudyInsightConfig(s)
-  if (backup) createStateBackup(backupReason, { force: forceBackup })
-  let persisted = false
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
-    persisted = true
-  } catch {
-    pruneOldestStateBackup()
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
-      persisted = true
-    } catch {}
-  }
-  saveConfigCookie(s.config)
-  if (persisted && syncAnalytics) syncPersistedStateToAnalytics(s)
-  return persisted
+function createDefaultStateFromConfig(fallback) {
+  return defaultState(
+    fallback.weeklyGoalHours || 4,
+    fallback.channels,
+    fallback.theme,
+    fallback.removedDefaultChannelIds,
+    fallback.locale
+  )
 }
 
 function roundAnalyticsNumber(value, decimals = 3) {
