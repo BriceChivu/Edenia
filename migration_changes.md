@@ -1048,3 +1048,32 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the mechanically moved data block
   inline; channels and learner profiles require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-032 — Extract static walkthrough steps
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, feature configuration, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move data-only walkthrough definitions out of the composition entry
+  while keeping callback-bearing and runtime behavior local.
+- **Conceptual change:** Added `src/features/walkthrough/steps.js` for the main
+  walkthrough, first-study walkthrough, Other-language extra step, and level-up
+  confirmation step. The frequent-user Anki step remains in `src/app.js` because
+  it carries direct callbacks. Hook implementations, step filtering, geometry,
+  rendering, focus, scroll, navigation, persistence, and analytics are unchanged.
+- **Preservation contract:** Step and object order, IDs, selectors, mobile target
+  and copy key, text keys, placements, scroll target, spotlight padding/radius/
+  height fields, action label, confirmation flag, and hook-name strings remain
+  exact. Exports retain normal mutable array/object behavior.
+- **Risks:** Reordering steps, changing selectors, or “cleaning up” geometry and
+  hook names would alter walkthrough availability, focus, or responsive placement.
+- **Verification:** `npm test` passed all 113 contract tests and the production
+  build. Playwright passed 19 protected browser flows with five expected
+  project-specific skips; all 18 visual baselines remained unchanged. The
+  migration-ledger check is included in this commit gate.
+- **Rollback:** Revert this commit to restore the four static step constants inline;
+  onboarding/walkthrough state requires no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
