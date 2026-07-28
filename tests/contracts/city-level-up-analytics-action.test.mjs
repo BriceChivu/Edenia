@@ -10,12 +10,13 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('city level-up control locks its identity before listener migration', () => {
+test('city level-up control retains its identity without an inline handler', () => {
   assert.equal(controls.length, 1)
   const [control] = controls
   assert.equal(getAttribute(control, 'data-analytics-action'), 'city.levelUp')
+  assert.equal(getAttribute(control, 'data-city-level-action'), 'claim')
   assert.equal(getAttribute(control, 'data-i18n'), 'city.levelUp')
-  assert.equal(getAttribute(control, 'onclick'), 'claimCityLevelUp()')
+  assert.equal(getAttribute(control, 'onclick'), null)
   assert.equal(getAttribute(control, 'type'), 'button')
   assert.equal(getAttribute(control, 'aria-hidden'), 'true')
   assert.match(control, /\sdisabled(?:\s|>)/)

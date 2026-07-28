@@ -164,6 +164,7 @@ import {
   getCityScoreForLevelIndex,
   normalizeCityProgress
 } from './features/city/model.js'
+import { bindCityLevelUpActions } from './features/city/level-up-actions.js'
 import { bindCityZoomActions } from './features/city/zoom-actions.js'
 import {
   FIRST_STUDY_WALKTHROUGH_STEPS,
@@ -13872,6 +13873,9 @@ bindSettingsReplayActions(document, {
   walkthrough: showWalkthroughAgain,
   trailer: showTrailerAgain
 })
+bindCityLevelUpActions(document, {
+  claim: claimCityLevelUp
+})
 
 installLegacyActions(window, {
   addYoutubeInput,
@@ -13879,7 +13883,6 @@ installLegacyActions(window, {
   cancelVideoSetAsidePrompt,
   changeIntroLocale,
   changeOnboardingLocale,
-  claimCityLevelUp,
   clearCityWaveformPreview,
   clearVideoPausedState,
   closeHistoryActionPopovers,

@@ -4,7 +4,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'cancelVideoSetAsidePrompt',
   'changeIntroLocale',
   'changeOnboardingLocale',
-  'claimCityLevelUp',
   'clearCityWaveformPreview',
   'clearVideoPausedState',
   'closeHistoryActionPopovers',

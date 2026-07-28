@@ -59,6 +59,56 @@ async function seedCompletedState(page, locale = 'en') {
   await waitForApplication(page)
 }
 
+async function seedCityClaimState(page, reviewedCards) {
+  await page.goto('/')
+  await waitForApplication(page)
+  await page.evaluate(reviewed => {
+    const state = window.defaultState(4, [], 'light', [], 'en')
+    const completedAt = '2026-07-20T04:00:00.000Z'
+    state.config.ankiEnabled = false
+    state.config.ankiDisabledAt = completedAt
+    state.onboarding.introSeenAt = completedAt
+    state.onboarding.setupCompleted = true
+    state.onboarding.setupCompletedAt = completedAt
+    state.onboarding.walkthroughCompleted = true
+    state.onboarding.walkthroughCompletedAt = completedAt
+    state.onboarding.levelUpGuidanceShownAt = completedAt
+    state.anki['2026-07-28'] = {
+      reviewed,
+      created: 0
+    }
+    state.cityProgress = {
+      maxLevelIndex: 0,
+      pendingLevelIndex: 1,
+      scoringVersion: 7
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    localStorage.removeItem('edenia_v1_backups')
+    localStorage.removeItem('edenia_posthog_state_v2')
+  }, reviewedCards)
+  await page.reload()
+  await waitForApplication(page)
+  await page.addStyleTag({
+    content: '#levelUpButton.show { animation: none !important; }'
+  })
+}
+
+async function installCityAnalyticsProbe(page) {
+  await page.evaluate(() => {
+    window.__cityAnalyticsEvents = []
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__cityAnalyticsEvents.push({ eventName, properties })
+      },
+      get_distinct_id() {
+        return 'preservation-city-claim'
+      },
+      setPersonProperties() {}
+    }
+  })
+}
+
 test('fresh install boots the protected first-run experience and classic handlers', async ({ page }) => {
   await page.goto('/')
   await waitForApplication(page)
@@ -1333,6 +1383,205 @@ test('Activity Log pagination listener survives generated-button replacement', a
     )
   ))
   expect(removedBridgeAction).toBe(false)
+})
+
+test('city level-up listener preserves staged claims and outcome-dependent analytics', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCityClaimState(page, 180)
+  const control = page.locator(
+    '#levelUpButton[data-city-level-action="claim"]'
+  )
+  await expect(control).toBeEnabled()
+  await expect(control).toHaveClass(/\bshow\b/)
+  await installCityAnalyticsProbe(page)
+  await page.evaluate(() => {
+    window.__cityClaimAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.('[data-city-level-action="claim"]')) return
+      const state = JSON.parse(localStorage.getItem('edenia_v1'))
+      const button = document.getElementById('levelUpButton')
+      window.__cityClaimAtDocumentBubble = {
+        cityProgress: state.cityProgress,
+        levelClaim: state.activityLog.find(entry => entry.type === 'level-claim'),
+        button: {
+          disabled: button.disabled,
+          ariaHidden: button.getAttribute('aria-hidden'),
+          shown: button.classList.contains('show')
+        },
+        progressReady: document.getElementById('cityLevelProgress')
+          .classList.contains('is-level-ready'),
+        confettiCount: document.querySelectorAll(
+          '.city-level-up-confetti'
+        ).length,
+        toastShown: document.getElementById('toast').classList.contains('show'),
+        eventNames: window.__cityAnalyticsEvents.map(entry => entry.eventName)
+      }
+    }, { once: true })
+  })
+  await control.click()
+
+  await expect.poll(() => page.evaluate(
+    () => window.__cityClaimAtDocumentBubble
+  )).not.toBeNull()
+  await expect.poll(() => page.evaluate(
+    () => window.__cityClaimAtDocumentBubble
+  )).toMatchObject({
+    cityProgress: {
+      maxLevelIndex: 1,
+      pendingLevelIndex: null,
+      scoringVersion: 7
+    },
+    levelClaim: {
+      actor: 'user',
+      type: 'level-claim',
+      status: 'success',
+      meta: { levelIndex: 1 }
+    },
+    button: {
+      disabled: true,
+      ariaHidden: 'true',
+      shown: false
+    },
+    progressReady: false,
+    confettiCount: 1,
+    toastShown: true
+  })
+  const finalClaimEvents = await page.evaluate(
+    () => window.__cityClaimAtDocumentBubble.eventNames
+  )
+  expect(finalClaimEvents.filter(name => name === 'town_level_updated'))
+    .toHaveLength(1)
+  expect(finalClaimEvents).not.toContain('city_level_up_clicked')
+  const finalClaimBackup = await page.evaluate(() => {
+    const backups = JSON.parse(
+      localStorage.getItem('edenia_v1_backups') || '[]'
+    )
+    return {
+      count: backups.length,
+      reason: backups[0]?.reason,
+      cityProgress: backups[0]?.state?.cityProgress
+    }
+  })
+  expect(finalClaimBackup).toEqual({
+    count: 1,
+    reason: 'automatic backup',
+    cityProgress: {
+      maxLevelIndex: 0,
+      pendingLevelIndex: 1,
+      scoringVersion: 7
+    }
+  })
+  const removedBridgeAction = await page.evaluate(() => (
+    Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'claimCityLevelUp'
+    )
+  ))
+  expect(removedBridgeAction).toBe(false)
+
+  await page.reload()
+  await waitForApplication(page)
+  await expect(control).toBeDisabled()
+  await expect.poll(() => page.evaluate(() => (
+    JSON.parse(localStorage.getItem('edenia_v1')).cityProgress
+  ))).toEqual({
+    maxLevelIndex: 1,
+    pendingLevelIndex: null,
+    scoringVersion: 7
+  })
+
+  await seedCityClaimState(page, 420)
+  await expect(control).toBeEnabled()
+  await installCityAnalyticsProbe(page)
+  await page.evaluate(() => {
+    window.__cityClaimAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.('[data-city-level-action="claim"]')) return
+      const state = JSON.parse(localStorage.getItem('edenia_v1'))
+      const button = document.getElementById('levelUpButton')
+      window.__cityClaimAtDocumentBubble = {
+        cityProgress: state.cityProgress,
+        claimLevels: state.activityLog
+          .filter(entry => entry.type === 'level-claim')
+          .map(entry => entry.meta?.levelIndex),
+        disabled: button.disabled,
+        ariaHidden: button.getAttribute('aria-hidden'),
+        shown: button.classList.contains('show'),
+        eventNames: window.__cityAnalyticsEvents.map(entry => entry.eventName)
+      }
+    }, { once: true })
+  })
+  await control.press('Enter')
+  await expect.poll(() => page.evaluate(
+    () => window.__cityClaimAtDocumentBubble
+  )).toMatchObject({
+    cityProgress: {
+      maxLevelIndex: 1,
+      pendingLevelIndex: 2,
+      scoringVersion: 7
+    },
+    claimLevels: [1],
+    disabled: false,
+    ariaHidden: 'false',
+    shown: true
+  })
+  const intermediateEvents = await page.evaluate(
+    () => window.__cityClaimAtDocumentBubble.eventNames
+  )
+  expect(intermediateEvents.filter(name => name === 'town_level_updated'))
+    .toHaveLength(2)
+  expect(intermediateEvents.filter(name => name === 'city_level_up_clicked'))
+    .toHaveLength(1)
+
+  await page.evaluate(() => {
+    window.__cityAnalyticsEvents.length = 0
+    window.__cityClaimAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.('[data-city-level-action="claim"]')) return
+      const state = JSON.parse(localStorage.getItem('edenia_v1'))
+      const button = document.getElementById('levelUpButton')
+      window.__cityClaimAtDocumentBubble = {
+        cityProgress: state.cityProgress,
+        claimLevels: state.activityLog
+          .filter(entry => entry.type === 'level-claim')
+          .map(entry => entry.meta?.levelIndex),
+        disabled: button.disabled,
+        ariaHidden: button.getAttribute('aria-hidden'),
+        shown: button.classList.contains('show'),
+        confettiCount: document.querySelectorAll(
+          '.city-level-up-confetti'
+        ).length,
+        eventNames: window.__cityAnalyticsEvents.map(entry => entry.eventName)
+      }
+    }, { once: true })
+  })
+  await control.press('Space')
+  await expect.poll(() => page.evaluate(
+    () => window.__cityClaimAtDocumentBubble
+  )).toMatchObject({
+    cityProgress: {
+      maxLevelIndex: 2,
+      pendingLevelIndex: null,
+      scoringVersion: 7
+    },
+    claimLevels: [2, 1],
+    disabled: true,
+    ariaHidden: 'true',
+    shown: false,
+    confettiCount: 1
+  })
+  const secondClaimEvents = await page.evaluate(
+    () => window.__cityClaimAtDocumentBubble.eventNames
+  )
+  expect(secondClaimEvents.filter(name => name === 'town_level_updated'))
+    .toHaveLength(1)
+  expect(secondClaimEvents).not.toContain('city_level_up_clicked')
+  await expect.poll(() => page.evaluate(() => (
+    JSON.parse(localStorage.getItem('edenia_v1_backups') || '[]').length
+  ))).toBe(1)
 })
 
 test('city zoom listeners preserve fixed steps, limits, reset, keyboard, and ordering', async ({

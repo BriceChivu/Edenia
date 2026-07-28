@@ -2169,3 +2169,40 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore localization-derived analytics
   identity; no stored state or city progress migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-067 — Migrate city level-up action
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Static event ownership, compatibility bridge reduction, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move the city level-up click from global inline dispatch into a
+  feature-owned listener without moving or rewriting the claim operation.
+- **Conceptual change:** Added a semantic claim hook and one idempotent direct
+  listener on `#levelUpButton`, removed the inline handler, and removed
+  `claimCityLevelUp` from the temporary legacy bridge. The state-changing
+  function remains lexical in the composition entry point.
+- **Preservation contract:** Zero-argument target-before-document invocation,
+  earned-level calculations, state normalization, automatic backup, save and
+  analytics order, Activity Log shape, full rerender, successive pending
+  levels, confetti replacement, toast, native mouse and keyboard activation,
+  walkthrough observation, styles, copy, and accessibility remain unchanged.
+  A final earned-level claim still disables the control before generic
+  analytics and therefore emits no `city_level_up_clicked` event; an
+  intermediate claim still leaves the control enabled and emits that event.
+- **Risks:** Document delegation would observe the click before the claim and
+  incorrectly track final claims; forwarding the event or changing save order
+  could alter walkthrough, persistence, or analytics behavior.
+- **Verification:** All 212 contract tests and the production build passed. The
+  focused desktop flow passed final and successive claims, mouse and keyboard
+  activation, persistence, automatic-backup shape, Activity Log shape, rerender
+  timing, bridge removal, and outcome-dependent generic analytics. The complete
+  Playwright matrix passed 37 protected flows with 95 intentional project skips
+  across all six required viewports; all 18 representative screenshots remained
+  unchanged. Diff and migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore the inline handler and bridge
+  entry while retaining MIG-066 analytics metadata; no stored data migration is
+  required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
