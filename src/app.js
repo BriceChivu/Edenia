@@ -19,6 +19,8 @@ import {
 } from './core/date-keys.js'
 import { escHtml, escapeSvgText } from './core/escaping.js'
 import { clampNumber } from './core/numbers.js'
+import { deriveRuntimeEnvironment } from './core/runtime-environment.js'
+import { deriveStorageKeys } from './core/storage-keys.js'
 import {
   addVideoWatchCoverageRange,
   getVideoWatchCoverageSeconds,
@@ -38,6 +40,10 @@ import {
   parseYoutubeVideoId,
   YOUTUBE_CHANNEL_ID_RE
 } from './integrations/youtube-parsing.js'
+import {
+  getYoutubeApiKey,
+  hasYoutubeApiKey
+} from './integrations/runtime-config.js'
 import {
   formatLocaleDate,
   formatLocaleDateTime,
@@ -59,12 +65,12 @@ const DEFAULT_CHANNELS_VERSION = 2
 // STATE
 // ════════════════════════════════════════════════════════════
 
-const URL_PARAMS = new URLSearchParams(window.location.search)
-const IS_SANDBOX = window.location.origin === 'http://localhost:8001'
-  && URL_PARAMS.get('sandbox') === '1'
-const IS_INTERNAL_TEST = URL_PARAMS.get('internal_test') === '1'
-const IS_LOCALHOST = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname)
-const IS_LOCAL_FEEDBACK_TEST = window.location.origin === 'http://localhost:8000'
+const {
+  isSandbox: IS_SANDBOX,
+  isInternalTest: IS_INTERNAL_TEST,
+  isLocalhost: IS_LOCALHOST,
+  isLocalFeedbackTest: IS_LOCAL_FEEDBACK_TEST
+} = deriveRuntimeEnvironment(window.location)
 const TEMP_SHORTS_WHITELIST_VERSION = '2026-07-22-1'
 const TEMP_SHORTS_DISTINCT_IDS = new Set([
   '019f7f94-34a7-7263-87fc-27029d04e6e7'
@@ -82,32 +88,26 @@ const SANDBOX_CHANNEL_DEFINITIONS = [
   { id: 'sandbox-travel', nameKey: 'sandbox.channel.travel', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Ideogram_human_chromosome_3.svg/250px-Ideogram_human_chromosome_3.svg.png' },
   { id: 'sandbox-culture', nameKey: 'sandbox.channel.culture', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/SNYDER_MILL%2C_EXETER_TWP.%2C_BERKS_COUNTY.jpg/250px-SNYDER_MILL%2C_EXETER_TWP.%2C_BERKS_COUNTY.jpg' }
 ]
-const NORMAL_STORAGE_KEY = 'edenia_v1'
-const STORAGE_KEY = IS_SANDBOX
-  ? 'edenia_v1_sandbox'
-  : IS_INTERNAL_TEST
-    ? 'edenia_v1_internal_test'
-    : NORMAL_STORAGE_KEY
-const YOUTUBE_CHANNEL_SEARCH_CACHE_KEY = `${STORAGE_KEY}_youtube_channel_search_cache_v1`
-const YOUTUBE_CHANNEL_SEARCH_USAGE_KEY = `${STORAGE_KEY}_youtube_channel_search_usage_v1`
+const {
+  storageKey: STORAGE_KEY,
+  youtubeChannelSearchCacheKey: YOUTUBE_CHANNEL_SEARCH_CACHE_KEY,
+  youtubeChannelSearchUsageKey: YOUTUBE_CHANNEL_SEARCH_USAGE_KEY,
+  stateBackupKey: STATE_BACKUP_KEY,
+  sandboxWalkthroughAfterResetKey: SANDBOX_WALKTHROUGH_AFTER_RESET_KEY,
+  onboardingNoticeKey: ONBOARDING_NOTICE_KEY,
+  configCookieKey: CONFIG_COOKIE_KEY
+} = deriveStorageKeys({
+  isSandbox: IS_SANDBOX,
+  isInternalTest: IS_INTERNAL_TEST
+})
 const YOUTUBE_CHANNEL_SEARCH_CACHE_TTL_MS = 24 * 60 * 60_000
 const YOUTUBE_CHANNEL_SEARCH_COOLDOWN_MS = 2500
 const YOUTUBE_CHANNEL_SEARCH_DAILY_LIMIT = 5
 const YOUTUBE_CHANNEL_SEARCH_RESULT_LIMIT = 6
-const STATE_BACKUP_KEY = `${STORAGE_KEY}_backups`
-const SANDBOX_WALKTHROUGH_AFTER_RESET_KEY = `${STORAGE_KEY}_walkthrough_after_reset`
-const ONBOARDING_NOTICE_KEY = IS_INTERNAL_TEST
-  ? 'edenia_onboarding_notice_internal_test'
-  : 'edenia_onboarding_notice'
 const STATE_BACKUP_LIMIT = 8
 const ACTIVITY_LOG_LIMIT = 500
 const STATE_BACKUP_AUTO_INTERVAL_MS = 10 * 60_000
 const ACTIVITY_LOG_DEDUPE_WINDOW_MS = 30 * 60_000
-const CONFIG_COOKIE_KEY = IS_SANDBOX
-  ? 'edenia_config_sandbox'
-  : IS_INTERNAL_TEST
-    ? 'edenia_config_internal_test'
-    : 'edenia_config'
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const YOUTUBE_REFRESH_INTERVAL_MS = 5 * 60 * 60_000
 const YOUTUBE_REFRESH_ERROR_BACKOFF_MS = 30 * 60_000
@@ -1089,18 +1089,6 @@ function loadConfigCookie() {
     const raw = getCookie(CONFIG_COOKIE_KEY)
     return raw ? JSON.parse(raw) : null
   } catch { return null }
-}
-
-function publicConfig() {
-  return window.EDENIA_CONFIG || {}
-}
-
-function getYoutubeApiKey() {
-  return String(publicConfig().youtubeApiKey || '').trim()
-}
-
-function hasYoutubeApiKey() {
-  return Boolean(getYoutubeApiKey())
 }
 
 function applyLocale(locale = getCurrentLocale()) {

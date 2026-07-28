@@ -484,3 +484,37 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this test-and-documentation commit. Production output and
   browser data are unchanged.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-015 — Extract runtime environment and storage isolation
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure, compatibility, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Make deployment-mode, storage-domain, and runtime-config contracts
+  explicit and independently testable before state persistence moves.
+- **Conceptual change:** Added pure factories for the one-time location snapshot and
+  storage/cookie/session key derivation, called once by the entry point during module
+  evaluation. Added a separate late-bound runtime-config interface that reads
+  `window.EDENIA_CONFIG` and its YouTube key on every call. Cookie, storage, backup,
+  import/export, and state logic remain in the entry point.
+- **Preservation contract:** Sandbox still requires exact origin
+  `http://localhost:8001` plus the first `sandbox=1` value. Internal-test, localhost,
+  and local-feedback detection, sandbox-over-internal storage precedence, all
+  primary and suffixed keys, the combined sandbox/internal notice key, config
+  cookie domains, runtime config load order, string coercion, trimming, falsey
+  handling, and late reassignment behavior remain exact.
+- **Risks:** Broader localhost detection could enter sandbox accidentally; changed
+  precedence could mix normal, internal, or sandbox data; eager config capture could
+  miss `config.local.js` or a later replacement.
+- **Verification:** Thirty-five of thirty-five contracts passed, including exact
+  origins, hosts, query values and precedence, all four storage-mode combinations,
+  every derived suffix, late config replacement, coercion, and propagated getter
+  errors. A serial Playwright run passed 19 scenarios with 5 expected project skips,
+  covered normal and exact-origin sandbox storage, and retained all 18 protected
+  visual baselines.
+- **Rollback:** Revert this commit to restore inline environment constants, key
+  derivation, and runtime-config accessors. No keys or stored data are migrated.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
