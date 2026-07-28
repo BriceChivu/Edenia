@@ -8,7 +8,7 @@ import {
 } from 'node:fs/promises'
 import { basename, dirname, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { transform } from 'esbuild'
+import { build, transform } from 'esbuild'
 import { minify } from 'terser'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
@@ -69,9 +69,26 @@ html = versionAssetReference(html, 'analytics.js', assetVersion)
 html = versionAssetReference(html, 'app.js', assetVersion)
 await writeFile(resolve(outputDir, 'index.html'), html)
 
-const appSource = await readFile(resolve(projectRoot, 'app.js'), 'utf8')
+const appBuild = await build({
+  bundle: true,
+  charset: 'utf8',
+  entryPoints: [resolve(projectRoot, 'src', 'app.js')],
+  format: 'esm',
+  legalComments: 'none',
+  logLevel: 'silent',
+  platform: 'browser',
+  target: 'es2022',
+  treeShaking: false,
+  write: false
+})
+if (appBuild.outputFiles.length !== 1) {
+  throw new Error(`Expected one bundled app output, found ${appBuild.outputFiles.length}`)
+}
+const appSource = appBuild.outputFiles[0].text
+if (/^\s*(?:import|export)\b/m.test(appSource)) {
+  throw new Error('Bundled app output is not compatible with the classic script entry')
+}
 const styleSource = await readFile(resolve(projectRoot, 'style.css'), 'utf8')
-await transform(appSource, { loader: 'js', target: 'es2022' })
 const minifiedStyle = await transform(styleSource, {
   legalComments: 'none',
   loader: 'css',

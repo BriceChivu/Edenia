@@ -160,3 +160,42 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this documentation commit. No application or browser state is
   changed.
 - **Association:** `codex/migration-02-preservation-inventory`; PR and release pending.
+
+---
+
+## MIG-005 — Extract the five locale dictionaries
+
+- **Date:** 2026-07-28
+- **Phase:** 3 — Translation extraction
+- **Type:** Structure, compatibility, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Make localization independently maintainable without changing any
+  translation, fallback, placeholder, initialization, or rendered behavior.
+- **Conceptual change:** Moved the application source entry to `src/app.js`; extracted
+  complete English, Traditional Chinese, Simplified Chinese, Spanish, and French
+  dictionary modules plus a locale registry; removed the scattered inline dictionary
+  and late `Object.assign` blocks; taught the build to bundle the modular source into
+  the unchanged classic `app.js` deployment entry; and added translation contracts.
+  The transitional bundle disables tree-shaking and fails if import/export syntax
+  remains, preserving globals needed by current inline handlers.
+- **Preservation contract:** English retains 694 final keys and each non-English
+  locale retains 698. All dictionary value hashes and key-order hashes remain exact.
+  The four legacy non-English-only keys, seven intentional English fallback keys, six
+  documented optional `{plural}` omissions, locale labels/order, browser/stored
+  locale initialization, raw-key fallback, `textContent` rendering, and all static
+  translation attributes remain unchanged. No copy was edited.
+- **Risks:** Bundling modular source could hide or tree-shake classic global handlers;
+  the build forbids module syntax in its output, disables tree-shaking, and the
+  browser suite enumerates static handler availability. Future translation changes
+  must update dictionary contracts deliberately rather than replacing baseline
+  hashes casually.
+- **Verification:** The mechanical extraction failed closed unless all audited source
+  markers, counts, key sets, fallbacks, placeholders, key-order hashes, and dictionary
+  hashes matched. Seven of seven build/i18n contracts passed. Playwright passed 19
+  scenarios with 5 expected project skips, including all five locales through a
+  persisted rendered Settings flow; all 18 existing visual baselines remained
+  unchanged across six viewport profiles.
+- **Rollback:** Revert this commit to restore the inline dictionaries and root
+  application source. No persisted state or runtime configuration migration is
+  involved.
+- **Association:** `codex/migration-03-i18n-extraction`; PR and release pending.

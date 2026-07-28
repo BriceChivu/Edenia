@@ -39,11 +39,11 @@ async function stabilizeVisuals(page) {
   })
 }
 
-async function seedCompletedState(page) {
+async function seedCompletedState(page, locale = 'en') {
   await page.goto('/')
   await waitForApplication(page)
-  await page.evaluate(() => {
-    const state = window.defaultState(4, [], 'light', [], 'en')
+  await page.evaluate(selectedLocale => {
+    const state = window.defaultState(4, [], 'light', [], selectedLocale)
     const completedAt = '2026-07-20T04:00:00.000Z'
     state.config.ankiEnabled = false
     state.config.ankiDisabledAt = completedAt
@@ -53,7 +53,7 @@ async function seedCompletedState(page) {
     state.onboarding.walkthroughCompleted = true
     state.onboarding.walkthroughCompletedAt = completedAt
     localStorage.setItem('edenia_v1', JSON.stringify(state))
-  })
+  }, locale)
   await page.reload()
   await waitForApplication(page)
 }
@@ -139,4 +139,26 @@ test('sandbox remains isolated on its exact origin', async ({ page }) => {
   }))
   expect(storageKeys.normal).toBeNull()
   expect(storageKeys.sandbox).not.toBeNull()
+})
+
+test('all five locales initialize and persist through the rendered Settings flow', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  const expectedSettingsTitles = {
+    en: 'Settings',
+    'zh-Hant': '設定',
+    'zh-Hans': '设置',
+    es: 'Ajustes',
+    fr: 'Réglages'
+  }
+
+  for (const [locale, expectedTitle] of Object.entries(expectedSettingsTitles)) {
+    await seedCompletedState(page, locale)
+    await expect(page.locator('html')).toHaveAttribute('lang', locale)
+    await page.locator('.gear-btn').click()
+    await expect(page.locator('#settingsTitle')).toHaveText(expectedTitle)
+    await page.locator('#settingsCloseBtn').click()
+  }
 })

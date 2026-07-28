@@ -367,7 +367,8 @@ Production analytics create a PostHog person profile for each browser installati
 | --- | --- |
 | `index.html` | App structure, first-run trailer, runtime script loading, and production analytics initialization |
 | `style.css` | Responsive layout, themes, motion, accessibility, and component styling |
-| `app.js` | State, localization, onboarding, YouTube and Anki integrations, history, insights, scoring, and rendering |
+| `src/app.js` | Application entry containing state, onboarding, integrations, history, insights, scoring, and rendering |
+| `src/i18n/` | Complete English, Traditional Chinese, Simplified Chinese, Spanish, and French dictionaries plus the locale registry |
 | `analytics.js` | PostHog person profiles, deduplicated state synchronization, historical aggregate backfill, and controlled button-action tracking |
 | `config.example.js` | Safe local runtime-config template |
 | `data/channel-catalog.source.json` | Human-maintained channel catalog and Edenia search metadata |
