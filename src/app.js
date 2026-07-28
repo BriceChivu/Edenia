@@ -8676,7 +8676,7 @@ function renderVideoSearchResults(query = '') {
   }
 
   list.innerHTML = results.map(video => `
-    <button type="button" class="video-search-result" data-video-id="${escHtml(video.id)}" onclick="jumpToVideoFromSearch(this.dataset.videoId)">
+    <button type="button" class="video-search-result" data-video-id="${escHtml(video.id)}" data-analytics-action="jumpToVideoFromSearch" onclick="jumpToVideoFromSearch(this.dataset.videoId)">
       ${video.thumbnail
         ? `<img src="${escHtml(video.thumbnail)}" alt="" class="video-search-thumb" loading="lazy">`
         : '<span class="video-search-thumb video-search-thumb-empty"></span>'}

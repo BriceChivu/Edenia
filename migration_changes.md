@@ -2271,3 +2271,35 @@ release mappings, and follow-up findings are recorded as new entries.
   bridge entry while retaining MIG-068 analytics metadata; no stored data
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-070 — Lock saved-video search-result analytics identity
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Contract-verified; paired browser gate pending
+- **Intent:** Preserve the generated saved-video search result's
+  handler-derived analytics identity before moving result selection ownership.
+- **Conceptual change:** Added an explicit `jumpToVideoFromSearch` analytics
+  action and a contract for the exact normalized generic event name while
+  retaining the generated inline handler.
+- **Preservation contract:** The `jump_to_video_from_search_clicked` event,
+  visible result label, result ordering, video identifier, search selection
+  analytics, popover closure, forced feed rendering, deferred scroll and
+  highlight, input Enter activation, storage, styling, and accessibility remain
+  unchanged.
+- **Risks:** Removing the handler before locking metadata would make analytics
+  depend on localized visible result copy; combining listener ownership with
+  this commit would obscure generated-root and deferred-scroll regressions.
+- **Verification:** All 220 contract tests, the production build, diff checks,
+  and migration-ledger verification passed against `v1.0.0`. Because this is
+  inert compatibility metadata with the original inline behavior retained, its
+  browser and visual gate is intentionally coupled to MIG-071; that commit must
+  pass the focused result-selection flow and complete visual matrix before
+  either commit is mergeable.
+- **Rollback:** Revert this commit to restore handler-derived analytics
+  identity; search runtime state and persisted application data remain
+  unaffected.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
