@@ -176,6 +176,9 @@ import {
   getVideoSearchMatches,
   normalizeVideoSearchText
 } from './features/videos/search-model.js'
+import {
+  bindVideoSearchResultActions
+} from './features/videos/search-result-actions.js'
 import { bindWatchedSectionActions } from './features/videos/watched-section-actions.js'
 import { bindStudyInsightActions } from './features/study-insights/actions.js'
 import { bindActivityLogFilterActions } from './features/settings/activity-log-filter-actions.js'
@@ -8676,7 +8679,7 @@ function renderVideoSearchResults(query = '') {
   }
 
   list.innerHTML = results.map(video => `
-    <button type="button" class="video-search-result" data-video-id="${escHtml(video.id)}" data-analytics-action="jumpToVideoFromSearch" onclick="jumpToVideoFromSearch(this.dataset.videoId)">
+    <button type="button" class="video-search-result" data-video-search-action="select-result" data-video-id="${escHtml(video.id)}" data-analytics-action="jumpToVideoFromSearch">
       ${video.thumbnail
         ? `<img src="${escHtml(video.thumbnail)}" alt="" class="video-search-thumb" loading="lazy">`
         : '<span class="video-search-thumb video-search-thumb-empty"></span>'}
@@ -13882,6 +13885,9 @@ bindCityLevelUpActions(document, {
 bindStudyHistoryPeriodOptionActions(document, {
   selectPeriod: setHistoryPeriodForRange
 })
+bindVideoSearchResultActions(document, {
+  selectResult: jumpToVideoFromSearch
+})
 
 installLegacyActions(window, {
   addYoutubeInput,
@@ -13920,7 +13926,6 @@ installLegacyActions(window, {
   handleVideoThumbnailClick,
   hideHeatmapTooltip,
   importSyncFileFromInput,
-  jumpToVideoFromSearch,
   jumpToWatchedVideo,
   leaveChannelShelfDrag,
   markVideo,

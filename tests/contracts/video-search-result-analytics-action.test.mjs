@@ -14,18 +14,19 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('saved-video search result locks its identity before listener migration', () => {
+test('saved-video search result retains its identity without an inline handler', () => {
   assert.equal(controls.length, 1)
   const [control] = controls
   assert.equal(
     getAttribute(control, 'data-analytics-action'),
     'jumpToVideoFromSearch'
   )
-  assert.equal(getAttribute(control, 'data-video-id'), '${escHtml(video.id)}')
   assert.equal(
-    getAttribute(control, 'onclick'),
-    'jumpToVideoFromSearch(this.dataset.videoId)'
+    getAttribute(control, 'data-video-search-action'),
+    'select-result'
   )
+  assert.equal(getAttribute(control, 'data-video-id'), '${escHtml(video.id)}')
+  assert.equal(getAttribute(control, 'onclick'), null)
   assert.equal(getAttribute(control, 'type'), 'button')
 })
 

@@ -929,6 +929,189 @@ test('watched-section listener preserves transient disclosure, labels, keyboard,
   await expect(control).toHaveAttribute('aria-expanded', 'true')
 })
 
+test('saved-video search-result listener preserves selection, analytics, and Enter activation', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.config.channels = [{
+      id: 'protected-search-channel',
+      name: 'Protected search channel'
+    }]
+    state.videos = {
+      'protected-search-alpha': {
+        id: 'protected-search-alpha',
+        title: 'Protected Alpha Lesson',
+        channelId: 'protected-search-channel',
+        channelTitle: 'Protected search channel',
+        duration: 720,
+        publishedAt: '2026-07-27T04:00:00.000Z',
+        status: 'unwatched',
+        thumbnail: 'https://i.ytimg.com/vi/protected-search-alpha/hqdefault.jpg'
+      },
+      'protected-search-beta': {
+        id: 'protected-search-beta',
+        title: 'Protected Beta Lesson',
+        channelId: 'protected-search-channel',
+        channelTitle: 'Protected search channel',
+        duration: 660,
+        publishedAt: '2026-07-26T04:00:00.000Z',
+        status: 'unwatched',
+        thumbnail: 'https://i.ytimg.com/vi/protected-search-beta/hqdefault.jpg'
+      }
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    localStorage.removeItem('edenia_posthog_state_v2')
+  })
+  await page.reload()
+  await waitForApplication(page)
+  const storedBefore = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+
+  await page.evaluate(() => {
+    window.__videoSearchAnalyticsEvents = []
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__videoSearchAnalyticsEvents.push({ eventName, properties })
+      },
+      get_distinct_id() {
+        return 'preservation-video-search'
+      },
+      setPersonProperties() {}
+    }
+  })
+
+  const searchButton = page.locator('#videoSearchBtn')
+  const searchPopover = page.locator('#videoSearchPopover')
+  const searchInput = page.locator('#videoSearchInput')
+  await searchButton.click()
+  await expect(searchPopover).not.toHaveClass(/\bhidden\b/)
+  await searchInput.fill('protected')
+  const results = page.locator(
+    '#videoSearchResults [data-video-search-action="select-result"]'
+  )
+  await expect(results).toHaveCount(2)
+  await expect(results.first()).toHaveAttribute(
+    'data-video-id',
+    'protected-search-alpha'
+  )
+
+  await page.evaluate(() => {
+    window.__videoSearchAnalyticsEvents.length = 0
+    window.__videoSearchAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.('[data-video-search-action="select-result"]')) {
+        return
+      }
+      const card = document.querySelector(
+        '.video-card[data-video-id="protected-search-alpha"]'
+      )
+      window.__videoSearchAtDocumentBubble = {
+        popoverHidden: document.getElementById('videoSearchPopover')
+          .classList.contains('hidden'),
+        expanded: document.getElementById('videoSearchBtn')
+          .getAttribute('aria-expanded'),
+        cardRendered: Boolean(card),
+        focusSlot: card?.closest('.channel-shelf-slot')
+          ?.classList.contains('channel-refresh-focus') || false,
+        flashed: card?.classList.contains('flash-target') || false,
+        eventNames: window.__videoSearchAnalyticsEvents
+          .map(entry => entry.eventName)
+      }
+    }, { once: true })
+  })
+  await results.first().locator('.video-search-title').click()
+  await expect.poll(() => page.evaluate(
+    () => window.__videoSearchAtDocumentBubble
+  )).toEqual({
+    popoverHidden: true,
+    expanded: 'false',
+    cardRendered: true,
+    focusSlot: true,
+    flashed: false,
+    eventNames: [
+      'search_result_selected',
+      'jump_to_video_from_search_clicked'
+    ]
+  })
+  const selectedCard = page.locator(
+    '.video-card[data-video-id="protected-search-alpha"]'
+  )
+  await expect(selectedCard).toHaveClass(/\bflash-target\b/)
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+
+  await searchButton.click()
+  await expect(searchPopover).not.toHaveClass(/\bhidden\b/)
+  await expect(results).toHaveCount(2)
+  const firstResultId = await results.first().getAttribute('data-video-id')
+  await page.evaluate(() => {
+    window.__videoSearchAnalyticsEvents.length = 0
+    window.__videoSearchEnterAtDocumentBubble = null
+    document.addEventListener('keydown', event => {
+      if (event.target.id !== 'videoSearchInput' || event.key !== 'Enter') return
+      window.__videoSearchEnterAtDocumentBubble = {
+        defaultPrevented: event.defaultPrevented,
+        popoverHidden: document.getElementById('videoSearchPopover')
+          .classList.contains('hidden'),
+        eventNames: window.__videoSearchAnalyticsEvents
+          .map(entry => entry.eventName)
+      }
+    }, { once: true })
+  })
+  await searchInput.press('Enter')
+  await expect.poll(() => page.evaluate(
+    () => window.__videoSearchEnterAtDocumentBubble
+  )).toEqual({
+    defaultPrevented: true,
+    popoverHidden: true,
+    eventNames: [
+      'search_result_selected',
+      'jump_to_video_from_search_clicked'
+    ]
+  })
+  await expect(page.locator(
+    `.video-card[data-video-id="${firstResultId}"]`
+  )).toHaveClass(/\bflash-target\b/)
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+
+  const bridgeActions = await page.evaluate(() => ({
+    selected: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'jumpToVideoFromSearch'
+    ),
+    inputKey: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'handleVideoSearchInputKey'
+    ),
+    render: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'renderVideoSearchResults'
+    ),
+    close: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'closeVideoSearchPopover'
+    ),
+    toggle: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'toggleVideoSearchPopover'
+    )
+  }))
+  expect(bridgeActions).toEqual({
+    selected: false,
+    inputKey: true,
+    render: true,
+    close: true,
+    toggle: true
+  })
+})
+
 test('Study Insight listeners preserve tabs, persistence, focus, and event ordering', async ({
   page
 }, testInfo) => {

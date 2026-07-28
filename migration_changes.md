@@ -2303,3 +2303,41 @@ release mappings, and follow-up findings are recorded as new entries.
   identity; search runtime state and persisted application data remain
   unaffected.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-071 — Migrate saved-video search-result action
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Generated event ownership, compatibility bridge reduction, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Move generated saved-video result selection from inline global
+  dispatch into a listener owned by the stable search-results root.
+- **Conceptual change:** Added a semantic result-selection hook, installed one
+  idempotent delegated listener on `#videoSearchResults`, removed the generated
+  inline handler, and removed only `jumpToVideoFromSearch` from the temporary
+  legacy bridge. The search renderer, keyboard handler, selection operation,
+  feed renderer, and scroll helper remain in place.
+- **Preservation contract:** Live video-ID forwarding, nested-target clicks,
+  direct mouse and keyboard activation, input Enter's synthetic click,
+  `search_result_selected` before generic click analytics, synchronous popover
+  closure and forced feed rendering, zero-delay scroll and `flash-target`,
+  filters, result ordering, missing-video warnings, storage, styling, focus, and
+  accessibility remain unchanged.
+- **Risks:** Reading the result after selection can observe detached markup;
+  document delegation could reverse selection and generic analytics ordering;
+  replacing the input Enter pathway could double-activate a result.
+- **Verification:** All 224 contract tests and the production build passed. The
+  focused desktop flow passed nested result selection, live ID forwarding,
+  `search_result_selected` before generic analytics, synchronous forced feed
+  rendering, deferred highlighting, input Enter activation, storage
+  preservation, and selective bridge removal. The complete Playwright matrix
+  passed 39 protected flows with 105 intentional project skips across all six
+  required viewports; all 18 representative screenshots remained unchanged.
+  This also closes MIG-070's paired browser gate. Diff and migration-ledger
+  verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore the generated inline handler and
+  bridge entry while retaining MIG-070 analytics metadata; no stored data
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
