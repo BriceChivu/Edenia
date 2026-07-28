@@ -1844,3 +1844,32 @@ release mappings, and follow-up findings are recorded as new entries.
   bridge entries while retaining MIG-055 metadata; feedback and application
   state need no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-057 — Lock watched-section analytics identity
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve the watched-section disclosure's current analytics
+  identity before moving its click ownership out of inline markup.
+- **Conceptual change:** Added an explicit `videos.watched.hide` analytics
+  action and a contract for the current generic event name while retaining the
+  existing inline handler.
+- **Preservation contract:** The intentionally fixed
+  `videos_watched_hide_clicked` event and `videos.watched.hide` action remain
+  exact whether the current accessible label says Show or Hide. Collapsed
+  state, count-based initial state, localized accessible labels, mouse and
+  keyboard activation, styling, rendering, and persistence remain unchanged.
+- **Risks:** Deriving analytics from the runtime Show label would split one
+  historical event into two identities; changing the disclosure action in this
+  commit would combine metadata and behavior risk.
+- **Verification:** `npm test` passed all 188 contract tests and the production
+  build. Playwright passed 29 protected flows with 55 expected project skips
+  across the six required viewport projects; all 18 representative screenshots
+  remained unchanged. Migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore translation-attribute-derived
+  analytics identity; watched-video and application state remain unaffected.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
