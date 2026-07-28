@@ -778,3 +778,35 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore Study Insights constants and state
   normalization inline; retained history requires no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-024 — Extract activity-log state operations
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Separate activity-log normalization and append semantics from Settings
+  rendering, pagination, storage, and feature-specific log producers.
+- **Conceptual change:** Added `src/state/activity-log.js` for ID generation, entry
+  normalization, newest-first limiting, and duplicate suppression. All callers,
+  Settings UI, grouping, pagination, import/export, and persistence remain in
+  `src/app.js`.
+- **Preservation contract:** IDs keep their base-36 time/random format; logs retain
+  the newest 500 records; invalid fields use the same translated/default values;
+  metadata object references are retained; sorting remains timestamp-descending;
+  dedupe still compares only type, status, and detail within strictly less than
+  30 minutes; and a future matching record continues to suppress an older append.
+- **Risks:** Expanding dedupe identity, using absolute time differences, deep-cloning
+  metadata, or altering fallback localization would change visible history and
+  feature logging behavior.
+- **Verification:** `npm test` passed all 74 contracts, including ID shape,
+  translated/default fields, metadata identity, timestamp ordering, 500-entry
+  limiting, strict 30-minute boundary, dedupe identity, future-record behavior,
+  and mutation failures. The serial Playwright suite passed 19 flows with 5
+  expected project-scoped skips across all six required viewports; all 18 protected
+  screenshots remained unchanged. Migration-ledger verification follows the commit.
+- **Rollback:** Revert this commit to restore activity-log constants and operations
+  inline; existing log entries require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

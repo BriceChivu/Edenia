@@ -103,6 +103,10 @@ import {
   STUDY_INSIGHT_TIME_WINDOWS,
   STUDY_INSIGHT_VARIANT_COUNT
 } from './state/study-insights-state.js'
+import {
+  appendActivityLog,
+  normalizeActivityLogState
+} from './state/activity-log.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -152,9 +156,7 @@ const YOUTUBE_CHANNEL_SEARCH_COOLDOWN_MS = 2500
 const YOUTUBE_CHANNEL_SEARCH_DAILY_LIMIT = 5
 const YOUTUBE_CHANNEL_SEARCH_RESULT_LIMIT = 6
 const STATE_BACKUP_LIMIT = 8
-const ACTIVITY_LOG_LIMIT = 500
 const STATE_BACKUP_AUTO_INTERVAL_MS = 10 * 60_000
-const ACTIVITY_LOG_DEDUPE_WINDOW_MS = 30 * 60_000
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const YOUTUBE_REFRESH_INTERVAL_MS = 5 * 60 * 60_000
 const YOUTUBE_REFRESH_ERROR_BACKOFF_MS = 30 * 60_000
@@ -2002,77 +2004,6 @@ function normalizeVideoWatchReminderState(state) {
   const changed = Object.keys(existing).length > 0
   state.videoWatchReminders = {}
   return changed
-}
-
-function normalizeActivityLogState(state) {
-  if (!state) return false
-  const existing = Array.isArray(state.activityLog) ? state.activityLog : []
-  const normalized = existing
-    .filter(entry => entry && typeof entry === 'object')
-    .map(entry => {
-      const createdAt = isValidTimestamp(entry.createdAt) ? entry.createdAt : new Date().toISOString()
-      const normalizedEntry = {
-        id: typeof entry.id === 'string' && entry.id ? entry.id : makeActivityLogId(),
-        createdAt,
-        actor: entry.actor === 'auto' ? 'auto' : 'user',
-        type: typeof entry.type === 'string' && entry.type ? entry.type : 'general',
-        status: ['success', 'warn', 'error', 'info'].includes(entry.status) ? entry.status : 'info',
-        title: typeof entry.title === 'string' && entry.title ? entry.title : t('settings.activity.title'),
-        detail: typeof entry.detail === 'string' ? entry.detail : ''
-      }
-      if (entry.meta && typeof entry.meta === 'object' && !Array.isArray(entry.meta)) {
-        normalizedEntry.meta = entry.meta
-      }
-      return normalizedEntry
-    })
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, ACTIVITY_LOG_LIMIT)
-
-  const changed = !Array.isArray(state.activityLog) || JSON.stringify(state.activityLog) !== JSON.stringify(normalized)
-  state.activityLog = normalized
-  return changed
-}
-
-function makeActivityLogId() {
-  const now = Date.now().toString(36)
-  const random = Math.random().toString(36).slice(2, 8)
-  return `${now}-${random}`
-}
-
-function appendActivityLog(state, entry = {}) {
-  if (!state) return null
-  normalizeActivityLogState(state)
-  const nextEntry = {
-    id: makeActivityLogId(),
-    createdAt: isValidTimestamp(entry.createdAt) ? entry.createdAt : new Date().toISOString(),
-    actor: entry.actor === 'auto' ? 'auto' : 'user',
-    type: typeof entry.type === 'string' && entry.type ? entry.type : 'general',
-    status: ['success', 'warn', 'error', 'info'].includes(entry.status) ? entry.status : 'info',
-    title: typeof entry.title === 'string' && entry.title ? entry.title : t('settings.activity.title'),
-    detail: typeof entry.detail === 'string' ? entry.detail : ''
-  }
-  if (entry.meta && typeof entry.meta === 'object' && !Array.isArray(entry.meta)) {
-    nextEntry.meta = entry.meta
-  }
-
-  const previousMatch = state.activityLog.find(item =>
-    item.type === nextEntry.type &&
-    item.status === nextEntry.status &&
-    item.detail === nextEntry.detail
-  )
-  if (
-    previousMatch &&
-    isValidTimestamp(previousMatch.createdAt) &&
-    new Date(nextEntry.createdAt).getTime() - new Date(previousMatch.createdAt).getTime() < ACTIVITY_LOG_DEDUPE_WINDOW_MS
-  ) {
-    return null
-  }
-
-  state.activityLog.unshift(nextEntry)
-  if (state.activityLog.length > ACTIVITY_LOG_LIMIT) {
-    state.activityLog.splice(ACTIVITY_LOG_LIMIT)
-  }
-  return nextEntry
 }
 
 function getEdeniaProfileCreatedAt(state) {
