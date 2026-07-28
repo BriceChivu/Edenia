@@ -185,6 +185,9 @@ import { bindActivityLogFilterActions } from './features/settings/activity-log-f
 import { bindActivityLogPaginationActions } from './features/settings/activity-log-pagination-actions.js'
 import { bindSettingsAccordionActions } from './features/settings/accordion-actions.js'
 import { bindSettingsLocaleActions } from './features/settings/locale-actions.js'
+import {
+  bindSettingsPreferenceActions
+} from './features/settings/preference-actions.js'
 import { bindSettingsReplayActions } from './features/settings/replay-actions.js'
 import { bindSettingsResetConfirmActions } from './features/settings/reset-confirm-actions.js'
 import { bindSettingsShellActions } from './features/settings/shell-actions.js'
@@ -13886,6 +13889,9 @@ bindSettingsSyncActions(document, {
   exportFile: exportSyncFile,
   importFile: importSyncFileFromInput
 })
+bindSettingsPreferenceActions(document, {
+  save: saveSettingsOnTheFly
+})
 bindWatchedSectionActions(document, {
   toggle: toggleWatchedSection
 })
@@ -13963,7 +13969,6 @@ installLegacyActions(window, {
   resetApp,
   restoreStateBackup,
   retryOnboardingRecovery,
-  saveSettingsOnTheFly,
   scrollVideoChannelShelf,
   searchYoutubeChannels,
   selectCityWaveBar,

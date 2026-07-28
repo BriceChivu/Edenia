@@ -286,7 +286,7 @@ and momentum—at a glance</h2>
 
       <div class="settings-group settings-shorts-group">
         <label class="settings-check">
-          <input type="checkbox" id="settingsIncludeShorts" onchange="saveSettingsOnTheFly()">
+          <input type="checkbox" id="settingsIncludeShorts" data-settings-preference-action="save">
           <span data-i18n="settings.shorts.label">Show short videos</span>
         </label>
         <p class="step-hint" data-i18n="settings.shorts.hint">When off, videos under 3 minutes are skipped during refresh and hidden from your active video list.</p>
@@ -294,7 +294,7 @@ and momentum—at a glance</h2>
 
       <div class="settings-group settings-anki-group">
         <label class="settings-check">
-          <input type="checkbox" id="settingsAnkiEnabled" onchange="saveSettingsOnTheFly()">
+          <input type="checkbox" id="settingsAnkiEnabled" data-settings-preference-action="save">
           <span data-i18n="settings.anki.enabled">Enable Anki tracking</span>
         </label>
         <p class="step-hint" data-i18n="settings.anki.toggleHint">When on, Edenia can read Anki review counts while Anki is open.</p>
@@ -302,7 +302,7 @@ and momentum—at a glance</h2>
 
       <div class="settings-group settings-insights-group">
         <label class="settings-check">
-          <input type="checkbox" id="settingsInsightsEnabled" onchange="saveSettingsOnTheFly()">
+          <input type="checkbox" id="settingsInsightsEnabled" data-settings-preference-action="save">
           <span data-i18n="settings.insights.enabled">Enable study insights</span>
         </label>
         <p class="step-hint" data-i18n="settings.insights.toggleHint">Controls whether insights appear in Analytics. Insight tracking and history continue when hidden.</p>

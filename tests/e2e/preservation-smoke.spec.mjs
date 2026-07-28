@@ -1134,6 +1134,306 @@ test('Settings sync listeners preserve download, picker, import, and failure ord
   })
 })
 
+test('Settings preference listeners preserve synchronous saves and Anki timing', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('edenia_v1'))
+    stored.config.includeShorts = true
+    stored.config.ankiEnabled = false
+    stored.config.ankiDisabledAt = '2026-07-20T04:00:00.000Z'
+    stored.config.studyInsights.enabled = true
+    stored.videos.shortvideo1 = {
+      id: 'shortvideo1',
+      title: 'Protected short video',
+      channelId: 'protected-channel',
+      channelTitle: 'Protected channel',
+      thumbnail: 'https://i.ytimg.com/vi/shortvideo1/hqdefault.jpg',
+      publishedAt: '2026-07-27T04:00:00.000Z',
+      duration: 120,
+      isShort: true,
+      status: 'unwatched'
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(stored))
+    localStorage.removeItem('edenia_v1_backups')
+  })
+  await page.reload()
+  await waitForApplication(page)
+
+  const shortCard = page.locator(
+    '#videoGrid .video-card[data-video-id="shortvideo1"]'
+  )
+  const shorts = page.locator('#settingsIncludeShorts')
+  const anki = page.locator('#settingsAnkiEnabled')
+  const insights = page.locator('#settingsInsightsEnabled')
+  await expect(shortCard).toHaveCount(1)
+  await page.locator('.gear-btn').click()
+
+  await page.evaluate(() => {
+    window.__shortsPreferenceAtDocumentBubble = null
+    document.addEventListener('change', event => {
+      if (event.target.id !== 'settingsIncludeShorts') return
+      const stored = JSON.parse(localStorage.getItem('edenia_v1'))
+      window.__shortsPreferenceAtDocumentBubble = {
+        checked: event.target.checked,
+        stored: stored.config.includeShorts,
+        activity: stored.activityLog[0],
+        cardVisible: Boolean(document.querySelector(
+          '#videoGrid .video-card[data-video-id="shortvideo1"]'
+        ))
+      }
+    }, { once: true })
+  })
+  await page.locator('.settings-shorts-group label').click()
+  await expect.poll(() => page.evaluate(
+    () => window.__shortsPreferenceAtDocumentBubble
+  )).toMatchObject({
+    checked: false,
+    stored: false,
+    activity: {
+      actor: 'user',
+      type: 'short-videos',
+      status: 'success',
+      title: 'Short video setting changed',
+      detail: 'Short videos are hidden.'
+    },
+    cardVisible: false
+  })
+  await expect(shortCard).toHaveCount(0)
+  expect(await page.evaluate(() => (
+    JSON.parse(localStorage.getItem('edenia_v1')).videos.shortvideo1.isShort
+  ))).toBe(true)
+  const cookieAfterShorts = await page.evaluate(() => {
+    const cookie = document.cookie
+      .split('; ')
+      .find(part => part.startsWith('edenia_config='))
+    return cookie
+      ? JSON.parse(decodeURIComponent(cookie.slice(cookie.indexOf('=') + 1)))
+      : null
+  })
+  expect(cookieAfterShorts.includeShorts).toBe(false)
+
+  await page.evaluate(() => {
+    window.__insightsPreferenceAtDocumentBubble = null
+    document.addEventListener('change', event => {
+      if (event.target.id !== 'settingsInsightsEnabled') return
+      const stored = JSON.parse(localStorage.getItem('edenia_v1'))
+      window.__insightsPreferenceAtDocumentBubble = {
+        checked: event.target.checked,
+        stored: stored.config.studyInsights.enabled,
+        activity: stored.activityLog[0],
+        cardHidden: document.getElementById('studyInsightCard')
+          .classList.contains('hidden'),
+        reopenHidden: document.getElementById('studyInsightReopen')
+          .classList.contains('hidden')
+      }
+    }, { once: true })
+  })
+  await insights.focus()
+  await insights.press('Space')
+  await expect.poll(() => page.evaluate(
+    () => window.__insightsPreferenceAtDocumentBubble
+  )).toMatchObject({
+    checked: false,
+    stored: false,
+    activity: {
+      actor: 'user',
+      type: 'study-insights-setting',
+      status: 'success',
+      title: 'Study insights setting changed',
+      detail: 'Study insights are hidden.'
+    },
+    cardHidden: true,
+    reopenHidden: true
+  })
+
+  await shorts.focus()
+  await shorts.press('Space')
+  await expect(shortCard).toHaveCount(1)
+  await expect(shorts).toBeChecked()
+
+  let ankiRequestCount = 0
+  let releaseFirstAnkiResponse
+  let markFirstAnkiRequestStarted
+  const firstAnkiRequestStarted = new Promise(resolve => {
+    markFirstAnkiRequestStarted = resolve
+  })
+  const firstAnkiResponseGate = new Promise(resolve => {
+    releaseFirstAnkiResponse = resolve
+  })
+  await page.route('http://127.0.0.1:8765/**', async route => {
+    ankiRequestCount += 1
+    if (ankiRequestCount === 1) {
+      markFirstAnkiRequestStarted()
+      await firstAnkiResponseGate
+    }
+    await route.fulfill({
+      body: JSON.stringify({
+        error: null,
+        result: [
+          { error: null, result: 0 },
+          { error: null, result: [] },
+          { error: null, result: [] }
+        ]
+      }),
+      contentType: 'application/json',
+      status: 200
+    })
+  })
+  await page.evaluate(() => {
+    window.__ankiPreferenceAtDocumentBubble = null
+    document.addEventListener('change', event => {
+      if (event.target.id !== 'settingsAnkiEnabled') return
+      const stored = JSON.parse(localStorage.getItem('edenia_v1'))
+      window.__ankiPreferenceAtDocumentBubble = {
+        checked: event.target.checked,
+        storedAnki: stored.config.ankiEnabled,
+        storedShorts: stored.config.includeShorts,
+        storedInsights: stored.config.studyInsights.enabled,
+        hasAnkiActivity: stored.activityLog.some(
+          entry => entry.type === 'anki-setting'
+        )
+      }
+    }, { once: true })
+  })
+  await anki.focus()
+  await anki.press('Space')
+  await firstAnkiRequestStarted
+  await expect.poll(() => page.evaluate(
+    () => window.__ankiPreferenceAtDocumentBubble
+  )).toEqual({
+    checked: true,
+    storedAnki: false,
+    storedShorts: true,
+    storedInsights: false,
+    hasAnkiActivity: false
+  })
+
+  await page.evaluate(() => {
+    document.getElementById('settingsIncludeShorts').checked = false
+    document.getElementById('settingsInsightsEnabled').checked = true
+  })
+  releaseFirstAnkiResponse()
+  await expect.poll(() => page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('edenia_v1'))
+    return {
+      anki: stored.config.ankiEnabled,
+      shorts: stored.config.includeShorts,
+      insights: stored.config.studyInsights.enabled,
+      disabledAt: stored.config.ankiDisabledAt,
+      baseline: stored.config.ankiResumeBaselines?.['2026-07-28'] || null,
+      activityTypes: stored.activityLog.map(entry => entry.type)
+    }
+  })).toMatchObject({
+    anki: true,
+    shorts: false,
+    insights: false,
+    disabledAt: null,
+    baseline: {
+      rawReviewed: 0,
+      rawCreated: 0,
+      trackedReviewed: 0,
+      trackedCreated: 0,
+      createdAt: fixedNow.toISOString()
+    },
+    activityTypes: expect.arrayContaining([
+      'anki-setting',
+      'short-videos'
+    ])
+  })
+  await expect.poll(() => ankiRequestCount).toBeGreaterThanOrEqual(2)
+  await expect(anki).toBeChecked()
+  await expect(shorts).not.toBeChecked()
+  await expect(insights).toBeChecked()
+  expect(await page.evaluate(() => (
+    Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'saveSettingsOnTheFly'
+    )
+  ))).toBe(false)
+})
+
+test('Settings preferences preserve raw Anki state on coarse-pointer devices', async ({
+  page
+}, testInfo) => {
+  test.skip(!['tablet-portrait', 'phone-standard'].includes(
+    testInfo.project.name
+  ))
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('edenia_v1'))
+    stored.config.ankiEnabled = true
+    stored.config.ankiDisabledAt = null
+    stored.config.includeShorts = true
+    stored.config.studyInsights.enabled = true
+    stored.anki['2026-07-27'] = {
+      reviewed: 60,
+      created: 2,
+      loggedAt: '2026-07-27T12:00:00.000Z',
+      source: 'ankiconnect',
+      rawReviewed: 60,
+      rawCreated: 2
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(stored))
+  })
+  await page.reload()
+  await waitForApplication(page)
+
+  let ankiRequests = 0
+  page.on('request', request => {
+    if (request.url().startsWith('http://127.0.0.1:8765/')) {
+      ankiRequests += 1
+    }
+  })
+  await page.locator('.gear-btn').click()
+  await expect(page.locator('.settings-anki-group')).toBeHidden()
+  await page.locator('.settings-howto-toggle').click()
+  await expect(page.locator('.settings-anki-section')).toBeHidden()
+  await expect(page.locator('.settings-scoring-section')).toBeHidden()
+  await expect(page.locator('.settings-shorts-group')).toBeVisible()
+  await expect(page.locator('.settings-insights-group')).toBeVisible()
+  await expect(page.locator('#settingsAnkiEnabled')).toBeChecked()
+
+  await page.locator('#settingsIncludeShorts').focus()
+  await page.locator('#settingsIncludeShorts').press('Space')
+  await page.locator('#settingsInsightsEnabled').focus()
+  await page.locator('#settingsInsightsEnabled').press('Space')
+  await expect.poll(() => page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('edenia_v1'))
+    return {
+      ankiEnabled: stored.config.ankiEnabled,
+      ankiDisabledAt: stored.config.ankiDisabledAt,
+      includeShorts: stored.config.includeShorts,
+      insightsEnabled: stored.config.studyInsights.enabled,
+      ankiDay: stored.anki['2026-07-27']
+    }
+  })).toEqual({
+    ankiEnabled: true,
+    ankiDisabledAt: null,
+    includeShorts: false,
+    insightsEnabled: false,
+    ankiDay: {
+      reviewed: 60,
+      created: 2,
+      loggedAt: '2026-07-27T12:00:00.000Z',
+      source: 'ankiconnect',
+      rawReviewed: 60,
+      rawCreated: 2
+    }
+  })
+  expect(ankiRequests).toBe(0)
+  expect(await page.evaluate(() => (
+    Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'saveSettingsOnTheFly'
+    )
+  ))).toBe(false)
+})
+
 test('theme listener preserves persistence, labels, keyboard, activity, and ordering', async ({
   page
 }, testInfo) => {

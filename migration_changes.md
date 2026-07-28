@@ -2556,3 +2556,41 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore handler-derived selection
   identity; city runtime and persisted state remain unaffected.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-078 — Migrate coupled Settings preference actions
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Static event ownership, compatibility bridge reduction, and tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move the Shorts, Anki, and Study Insights checkbox changes from
+  one shared inline global action into direct scoped listeners without splitting
+  or rewriting their coupled save operation.
+- **Conceptual change:** Added one semantic ownership hook to each of the three
+  static checkboxes, installed idempotent direct `change` listeners that invoke
+  the existing async save operation with zero arguments, removed all three
+  inline handlers together, and removed `saveSettingsOnTheFly` from the
+  temporary legacy bridge.
+- **Preservation contract:** Native checkbox and label activation, uncancelled
+  bubbling changes, cross-control reads and writes, pre-await versus post-await
+  timing, Anki capability gating and integration requests, Shorts filtering and
+  unawaited repair/refetch work, Study Insight visibility and retained history,
+  Activity Log, streak, backups, primary storage, config cookie, state-derived
+  analytics, rendering order, environment isolation, coarse-pointer and phone
+  behavior, focus, styling, and accessibility remain unchanged. No generic
+  checkbox click events are added.
+- **Risks:** Passing or awaiting the event in the binder could alter propagation;
+  splitting the callbacks could change shared backup and render ordering;
+  awaiting or serializing saves could remove the existing Anki timing
+  asymmetry; deriving Anki from a hidden coarse-pointer control could overwrite
+  the stored desktop preference.
+- **Verification:** `npm test` passed 253 contract tests and the production
+  build. Focused desktop timing and tablet/phone coarse-pointer flows passed.
+  The complete six-viewport Playwright matrix passed with 45 tests and 129
+  intentional skips; all 18 protected screenshots remained unchanged.
+  Migration-ledger and diff-integrity checks passed.
+- **Rollback:** Revert this commit to restore all three inline handlers and the
+  shared bridge entry; no stored preference schema migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

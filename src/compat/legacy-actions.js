@@ -54,7 +54,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'resetApp',
   'restoreStateBackup',
   'retryOnboardingRecovery',
-  'saveSettingsOnTheFly',
   'scrollVideoChannelShelf',
   'searchYoutubeChannels',
   'selectCityWaveBar',
