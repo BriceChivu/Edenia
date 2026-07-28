@@ -1590,3 +1590,31 @@ release mappings, and follow-up findings are recorded as new entries.
   entries while retaining MIG-047 analytics metadata; existing normal, sandbox,
   and backup records remain compatible.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-049 — Lock theme-toggle analytics identity
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve the generic analytics name for the static theme toggle
+  before moving its event ownership.
+- **Conceptual change:** Added explicit `data-analytics-action="themeToggle"`,
+  matching the control ID that currently wins analytics resolution. The inline
+  handler remains in place in this commit.
+- **Preservation contract:** The `theme_toggle_clicked` event name, action and
+  control properties, post-toggle localized `button_name`, stored theme,
+  document/body attributes, background update, Activity Log entry, mouse and
+  keyboard behavior, markup, icons, styling, and accessibility remain exact.
+- **Risks:** Using a localized title as the action would fragment event names;
+  evaluating analytics before the theme change would preserve the event name but
+  alter its `button_name` property.
+- **Verification:** `npm test` passed all 168 contract tests and the production
+  build. Playwright passed 25 protected flows with 35 expected project skips
+  across the six required viewport projects; all 18 representative screenshots
+  remained unchanged. Migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore ID-derived analytics identity;
+  persisted theme values and Activity Log data remain compatible.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
