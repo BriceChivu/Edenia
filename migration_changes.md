@@ -810,3 +810,38 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore activity-log constants and operations
   inline; existing log entries require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-025 — Extract frequent-user Anki prompt state
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Separate the persisted watched-day evidence for the frequent-user
+  Anki prompt from prompt presentation and device eligibility.
+- **Conceptual change:** Added `src/state/anki-prompt-state.js` for profile-date
+  selection, strict local date-key validation, watched-date reconstruction and
+  recording, response cleanup, and detection of post-signup Anki data. Prompt
+  thresholds, sandbox/device eligibility, UI, walkthrough hooks, persistence, and
+  analytics remain in `src/app.js`.
+- **Preservation contract:** Onboarding completion remains the preferred profile
+  timestamp; learner creation remains the fallback; stored, video, and watched
+  activity dates merge only on or after signup; keys stay unique and sorted;
+  only `yes` and `not-interested` are retained; response timestamps remain coupled
+  to a valid response; repeated watched days dedupe; and Anki evidence continues
+  to prefer valid `loggedAt` before falling back to the date key.
+- **Risks:** Changing timestamp precedence, timezone-local key construction,
+  accepting looser date strings, or requiring positive Anki counts would alter who
+  sees the prompt and when.
+- **Verification:** `npm test` passed all 80 contracts, including profile-date
+  precedence, strict real-date validation, multi-source watched-date rebuilding,
+  signup filtering, response/timestamp coupling, record dedupe and sorting, and
+  logged-time versus date-key Anki evidence. The serial Playwright suite passed
+  19 flows with 5 expected project-scoped skips across all six required viewports;
+  all 18 protected screenshots remained unchanged. Migration-ledger verification
+  follows the commit.
+- **Rollback:** Revert this commit to restore frequent-user prompt state helpers
+  inline; prompt responses and watched-date evidence require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
