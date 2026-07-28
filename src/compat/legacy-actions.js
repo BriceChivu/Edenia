@@ -74,7 +74,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'startChannelShelfDrag',
   'startTouchChannelShelfDrag',
   'stopHistoryActionAutoScroll',
-  'submitFeedback',
   'syncVideoChannelShelfControls',
   'toggleHeatmapTooltip',
   'toggleHistoryActionPopover',

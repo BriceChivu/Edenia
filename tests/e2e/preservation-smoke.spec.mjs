@@ -839,6 +839,278 @@ test('feedback modal listeners preserve focus, Escape, keyboard, storage, and or
   })
 })
 
+test('feedback submission listener preserves validation, analytics, reset, focus, and storage', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  const modal = page.locator('#feedbackModal')
+  const launcher = page.locator('#feedbackLaunchBtn')
+  const form = page.locator('#feedbackForm')
+  const message = page.locator('#feedbackMessage')
+  const name = page.locator('#feedbackName')
+  const email = page.locator('#feedbackEmail')
+  const status = page.locator('#feedbackStatus')
+  const submit = page.locator('#feedbackSubmitBtn')
+  const confirmation = page.locator('#feedbackConfirmation')
+  const confirmationControl = page.locator('.feedback-confirmation-ok')
+  const storedBefore = await page.evaluate(() => localStorage.getItem('edenia_v1'))
+
+  await launcher.click()
+  await expect(message).toBeFocused()
+
+  await page.evaluate(() => {
+    window.__feedbackNativeSubmitCount = 0
+    window.__feedbackNativeSubmitObserver = event => {
+      if (event.target.id === 'feedbackForm') {
+        window.__feedbackNativeSubmitCount += 1
+      }
+    }
+    document.addEventListener('submit', window.__feedbackNativeSubmitObserver)
+  })
+  await submit.click()
+  expect(await page.evaluate(() => window.__feedbackNativeSubmitCount)).toBe(0)
+  await expect(message).toBeFocused()
+  await expect(modal).not.toHaveClass(/\bhidden\b/)
+  expect(await message.evaluate(element => ({
+    valid: element.validity.valid,
+    valueMissing: element.validity.valueMissing
+  }))).toEqual({
+    valid: false,
+    valueMissing: true
+  })
+  await page.evaluate(() => {
+    document.removeEventListener(
+      'submit',
+      window.__feedbackNativeSubmitObserver
+    )
+  })
+
+  await message.fill('   ')
+  await page.evaluate(() => {
+    window.__feedbackWhitespaceSubmit = null
+    document.addEventListener('submit', event => {
+      if (event.target.id !== 'feedbackForm') return
+      window.__feedbackWhitespaceSubmit = {
+        defaultPrevented: event.defaultPrevented,
+        status: document.getElementById('feedbackStatus').textContent,
+        statusClass: document.getElementById('feedbackStatus').className,
+        activeId: document.activeElement?.id || null,
+        modalHidden: document.getElementById('feedbackModal')
+          .classList.contains('hidden'),
+        message: document.getElementById('feedbackMessage').value
+      }
+    }, { once: true })
+  })
+  await submit.click()
+  await expect.poll(() => page.evaluate(
+    () => window.__feedbackWhitespaceSubmit
+  )).toEqual({
+    defaultPrevented: true,
+    status: 'Please write a message before sending.',
+    statusClass: 'feedback-status is-error',
+    activeId: 'feedbackMessage',
+    modalHidden: false,
+    message: '   '
+  })
+  await expect(status).toHaveText('Please write a message before sending.')
+  await expect(message).toBeFocused()
+
+  await message.fill('Feedback capture should remain unavailable locally.')
+  await page.evaluate(() => {
+    window.__feedbackUnavailableSubmit = null
+    document.addEventListener('submit', event => {
+      if (event.target.id !== 'feedbackForm') return
+      window.__feedbackUnavailableSubmit = {
+        defaultPrevented: event.defaultPrevented,
+        status: document.getElementById('feedbackStatus').textContent,
+        activeId: document.activeElement?.id || null,
+        modalHidden: document.getElementById('feedbackModal')
+          .classList.contains('hidden'),
+        confirmationHidden: document.getElementById('feedbackConfirmation')
+          .classList.contains('hidden'),
+        message: document.getElementById('feedbackMessage').value,
+        busy: document.getElementById('feedbackForm').getAttribute('aria-busy'),
+        disabled: document.getElementById('feedbackSubmitBtn').disabled
+      }
+    }, { once: true })
+  })
+  await submit.click()
+  await expect.poll(() => page.evaluate(
+    () => window.__feedbackUnavailableSubmit
+  )).toEqual({
+    defaultPrevented: true,
+    status: 'Feedback can only be sent from the live Edenia app.',
+    activeId: 'feedbackSubmitBtn',
+    modalHidden: false,
+    confirmationHidden: true,
+    message: 'Feedback capture should remain unavailable locally.',
+    busy: null,
+    disabled: false
+  })
+
+  await page.locator('input[name="feedbackCategory"][value="idea"]').check()
+  await message.fill('  Preserve the feedback lifecycle.  ')
+  await name.fill('  Protected Learner  ')
+  await email.fill('learner@example.com')
+  await page.evaluate(() => {
+    window.__feedbackAnalyticsCalls = []
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__feedbackAnalyticsCalls.push({
+          type: 'capture',
+          eventName,
+          properties
+        })
+      },
+      get_session_replay_url() {
+        window.__feedbackAnalyticsCalls.push({ type: 'replay' })
+        return 'https://us.posthog.com/project/1/replay/protected'
+      },
+      setPersonProperties(properties, propertiesOnce) {
+        window.__feedbackAnalyticsCalls.push({
+          type: 'person',
+          properties,
+          propertiesOnce
+        })
+      },
+      get_distinct_id() {
+        return 'preservation-feedback'
+      }
+    }
+    window.__feedbackSuccessfulSubmit = null
+    document.addEventListener('submit', event => {
+      if (event.target.id !== 'feedbackForm') return
+      const selectedCategory = new FormData(
+        document.getElementById('feedbackForm')
+      ).get('feedbackCategory')
+      window.__feedbackSuccessfulSubmit = {
+        defaultPrevented: event.defaultPrevented,
+        modalHidden: document.getElementById('feedbackModal')
+          .classList.contains('hidden'),
+        bodyOpen: document.body.classList.contains('feedback-modal-open'),
+        launcherFocused: document.activeElement ===
+          document.getElementById('feedbackLaunchBtn'),
+        confirmationHidden: document.getElementById('feedbackConfirmation')
+          .classList.contains('hidden'),
+        confirmationShown: document.getElementById('feedbackConfirmation')
+          .classList.contains('show'),
+        busy: document.getElementById('feedbackForm').getAttribute('aria-busy'),
+        disabled: document.getElementById('feedbackSubmitBtn').disabled,
+        category: selectedCategory,
+        message: document.getElementById('feedbackMessage').value,
+        name: document.getElementById('feedbackName').value,
+        email: document.getElementById('feedbackEmail').value,
+        analyticsCalls: window.__feedbackAnalyticsCalls
+      }
+    }, { once: true })
+  })
+
+  await submit.focus()
+  await submit.press('Enter')
+  await expect.poll(() => page.evaluate(
+    () => window.__feedbackSuccessfulSubmit
+  )).not.toBeNull()
+  await expect(modal).toHaveClass(/\bhidden\b/)
+  await expect(confirmation).not.toHaveClass(/\bhidden\b/)
+  await expect(confirmationControl).toBeFocused()
+  expect(await form.getAttribute('aria-busy')).toBeNull()
+  await expect(submit).toBeEnabled()
+  await expect(page.locator(
+    'input[name="feedbackCategory"][value="bug"]'
+  )).toBeChecked()
+  await expect(message).toHaveValue('')
+  await expect(name).toHaveValue('')
+  await expect(email).toHaveValue('')
+
+  const result = await page.evaluate(() => ({
+    successfulSubmit: window.__feedbackSuccessfulSubmit,
+    analyticsCalls: window.__feedbackAnalyticsCalls,
+    storage: localStorage.getItem('edenia_v1'),
+    bridgePresent: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'submitFeedback'
+    )
+  }))
+  expect(result.successfulSubmit).toMatchObject({
+    defaultPrevented: true,
+    modalHidden: true,
+    bodyOpen: false,
+    launcherFocused: true,
+    confirmationHidden: false,
+    confirmationShown: true,
+    busy: null,
+    disabled: false,
+    category: 'bug',
+    message: '',
+    name: '',
+    email: ''
+  })
+  expect(result.analyticsCalls.map(call => (
+    call.eventName || call.type
+  ))).toEqual([
+    'feedback_submit_clicked',
+    'replay',
+    'feedback_submitted',
+    'person'
+  ])
+  expect(result.analyticsCalls[0]).toMatchObject({
+    type: 'capture',
+    eventName: 'feedback_submit_clicked',
+    properties: {
+      action: 'feedback_submit',
+      button_name: 'Send feedback →',
+      control_type: 'button'
+    }
+  })
+  expect(result.analyticsCalls[1]).toEqual({ type: 'replay' })
+  expect(result.analyticsCalls[2]).toMatchObject({
+    type: 'capture',
+    eventName: 'feedback_submitted',
+    properties: {
+      feedback_category: 'idea',
+      feedback_message: 'Preserve the feedback lifecycle.',
+      feedback_name: 'Protected Learner',
+      feedback_email: 'learner@example.com',
+      has_feedback_name: true,
+      has_feedback_email: true,
+      feedback_source: 'main_page_footer',
+      submitted_at: fixedNow.toISOString(),
+      locale: 'en',
+      theme: 'light',
+      page_url: page.url(),
+      viewport_width: 1440,
+      viewport_height: 900,
+      session_replay_url: 'https://us.posthog.com/project/1/replay/protected'
+    }
+  })
+  expect(result.analyticsCalls[2].properties.feedback_id).toMatch(/\S+/)
+  expect(result.analyticsCalls[2].properties.app_version).toMatch(/\S+/)
+  expect(result.analyticsCalls[2].properties.screen_width).toEqual(
+    expect.any(Number)
+  )
+  expect(result.analyticsCalls[2].properties.screen_height).toEqual(
+    expect.any(Number)
+  )
+  expect(result.analyticsCalls[3]).toEqual({
+    type: 'person',
+    properties: {
+      has_submitted_feedback: true,
+      latest_feedback_category: 'idea',
+      latest_feedback_at: fixedNow.toISOString(),
+      name: 'Protected Learner',
+      email: 'learner@example.com'
+    },
+    propertiesOnce: {
+      first_feedback_at: fixedNow.toISOString()
+    }
+  })
+  expect(result.storage).toBe(storedBefore)
+  expect(result.bridgePresent).toBe(false)
+})
+
 test('watched-section listener preserves transient disclosure, labels, keyboard, and ordering', async ({
   page
 }, testInfo) => {

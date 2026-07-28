@@ -195,6 +195,9 @@ import { bindSandboxActions } from './features/sandbox/actions.js'
 import { bindThemeActions } from './features/theme/actions.js'
 import { bindFeedbackConfirmationActions } from './features/feedback/confirmation-actions.js'
 import { bindFeedbackModalActions } from './features/feedback/modal-actions.js'
+import {
+  bindFeedbackSubmissionActions
+} from './features/feedback/submission-actions.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -13868,6 +13871,9 @@ bindFeedbackModalActions(document, {
   open: openFeedbackModal,
   close: closeFeedbackModal
 })
+bindFeedbackSubmissionActions(document, {
+  submit: submitFeedback
+})
 bindWatchedSectionActions(document, {
   toggle: toggleWatchedSection
 })
@@ -13965,7 +13971,6 @@ installLegacyActions(window, {
   startChannelShelfDrag,
   startTouchChannelShelfDrag,
   stopHistoryActionAutoScroll,
-  submitFeedback,
   syncVideoChannelShelfControls,
   toggleHeatmapTooltip,
   toggleHistoryActionPopover,

@@ -2341,3 +2341,36 @@ release mappings, and follow-up findings are recorded as new entries.
   bridge entry while retaining MIG-070 analytics metadata; no stored data
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-072 — Migrate feedback submission action
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Form event ownership, compatibility bridge reduction, and tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move feedback form submission from inline global dispatch into a
+  feature-owned listener without moving or rewriting the submission operation.
+- **Conceptual change:** Added a semantic submit hook, installed one idempotent
+  direct `submit` listener on `#feedbackForm`, removed the inline handler, and
+  removed `submitFeedback` from the temporary legacy bridge. The original event
+  is passed synchronously to the lexical submission function.
+- **Preservation contract:** Native required and email validation, implicit and
+  submit-button activation, original-event identity and `currentTarget`, trimmed
+  fields, category defaulting, feedback ID and timestamp generation, local-only
+  bypass, replay URL and analytics order, unavailable and required-message
+  errors, form reset, busy and disabled state cleanup, modal and confirmation
+  focus, exact analytics properties, storage, styling, and accessibility remain
+  unchanged.
+- **Risks:** Passing the form or a synthetic event would break `FormData` and
+  `currentTarget`; binder-owned cancellation would change native validation;
+  deferring the callback could invalidate event context and reorder analytics.
+- **Verification:** `npm test` passed the production build and all 230 contract
+  tests. The focused desktop feedback-submission flow passed. The complete
+  Playwright matrix passed 40 protected flows with 110 intentional project
+  skips across all six target viewports; all 18 golden screenshots remained
+  unchanged. Migration-ledger and diff-integrity checks passed.
+- **Rollback:** Revert this commit to restore the inline submit handler and
+  bridge entry; no stored application state migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
