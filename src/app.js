@@ -73,6 +73,10 @@ import {
   normalizeTheme,
   normalizeWeeklyGoalHours
 } from './state/config-normalization.js'
+import {
+  isValidStateShape,
+  sanitizeConfigForStorage
+} from './state/persistence-contract.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -1174,17 +1178,6 @@ function reportMissingI18nKeys() {
   return missing
 }
 
-function sanitizeConfigForStorage(config = {}) {
-  const {
-    apiKey,
-    ankiDisabledAt,
-    ankiResumeBaselines,
-    ankiPendingResumeBaseline,
-    ...safeConfig
-  } = config
-  return safeConfig
-}
-
 function saveConfigCookie(config) {
   try {
     const value = encodeURIComponent(JSON.stringify(sanitizeConfigForStorage(config)))
@@ -1894,21 +1887,6 @@ function defaultState(goalHours, channels, theme, removedDefaultChannelIds = nul
     },
     defaultChannelsVersion: DEFAULT_CHANNELS_VERSION
   }
-}
-
-function isValidStateShape(state) {
-  return Boolean(
-    state &&
-    typeof state === 'object' &&
-    state.config &&
-    typeof state.config === 'object' &&
-    state.videos &&
-    typeof state.videos === 'object' &&
-    !Array.isArray(state.videos) &&
-    state.anki &&
-    typeof state.anki === 'object' &&
-    !Array.isArray(state.anki)
-  )
 }
 
 function getStateBackupEntries() {

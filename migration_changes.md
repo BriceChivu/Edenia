@@ -584,3 +584,35 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the constants and five pure functions
   inline in `src/app.js`; stored data requires no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-018 — Extract persistence boundary contracts
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Isolate two pure persistence-boundary rules before any storage or
+  backup orchestration moves.
+- **Conceptual change:** Moved config-cookie field filtering and the minimum
+  import/backup state-shape predicate to `src/state/persistence-contract.js`.
+  Cookie access, local-storage access, backup ordering, import/export merging,
+  recovery, retry, and analytics synchronization remain in `src/app.js`.
+- **Preservation contract:** Cookie sanitization removes exactly `apiKey`,
+  `ankiDisabledAt`, `ankiResumeBaselines`, and `ankiPendingResumeBaseline`, keeps
+  all other fields and shallow references, and preserves default-argument and
+  exception behavior. State validation still requires object-like config plus
+  non-array object-like `videos` and `anki`, without adding schema checks.
+- **Risks:** Deep cloning cookie config, rejecting config arrays, validating more
+  fields, or swallowing property-access errors would change compatibility with
+  previously accepted state.
+- **Verification:** `npm test` passed all 45 contracts, including exact field
+  filtering, shallow-reference retention, permissive shape acceptance, and
+  propagated property-access errors. The serial Playwright suite passed 19 flows
+  with 5 expected project-scoped skips across all six required viewports; all 18
+  protected screenshots remained unchanged. Migration-ledger verification follows
+  the commit.
+- **Rollback:** Revert this commit to restore both pure predicates inline; cookies,
+  backups, and stored state require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
