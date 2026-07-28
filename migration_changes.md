@@ -1776,3 +1776,33 @@ release mappings, and follow-up findings are recorded as new entries.
   while retaining MIG-053 analytics metadata; no stored data migration is
   required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-055 — Lock feedback-modal analytics identities
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata, analytics contract, and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Preserve analytics identities for the feedback launcher, backdrop,
+  and close button before moving their event ownership.
+- **Conceptual change:** Added explicit `feedback.close` metadata to the
+  backdrop and contracted the existing explicit `feedback` launcher and
+  `feedback_close` close-button values. Inline handlers remain in place.
+- **Preservation contract:** The `feedback_clicked` launcher event and both
+  `feedback_close_clicked` events, their intentionally distinct action
+  properties, localized button names, modal/body classes, status reset, focus
+  entry and return, Escape and Tab behavior, mouse and keyboard activation,
+  markup, styling, and accessibility remain exact. Form submission is out of
+  scope.
+- **Risks:** Normalizing both close actions to one property would change
+  analytics history; changing listener timing could alter focus or document
+  analytics ordering.
+- **Verification:** `npm test` passed all 183 contract tests and the production
+  build. Playwright passed 28 protected flows with 50 expected project skips
+  across the six required viewport projects; all 18 representative screenshots
+  remained unchanged. Migration-ledger verification passed against `v1.0.0`.
+- **Rollback:** Revert this commit to restore translation-derived backdrop
+  analytics identity; feedback and application state remain unaffected.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
