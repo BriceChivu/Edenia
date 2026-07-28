@@ -9198,6 +9198,8 @@ function removeChannel(id) {
 
 function applyChannelRemoval(s, channelId) {
   const refreshes = getChannelRefreshes(s)
+  const removedChannel = (s.config.channels || []).find(channel => channel.id === channelId)
+  const channelImageUrl = removedChannel?.imageUrl || ''
   s.config.channels = (s.config.channels || []).filter(c => c.id !== channelId)
   delete refreshes[channelId]
   if (!Array.isArray(s.config.removedChannelIds)) s.config.removedChannelIds = []
@@ -9210,6 +9212,7 @@ function applyChannelRemoval(s, channelId) {
   }
   Object.values(s.videos || {}).forEach(video => {
     if (!isChannelRemovalVideo(video, channelId)) return
+    if (!video.channelImageUrl && channelImageUrl) video.channelImageUrl = channelImageUrl
     if (shouldPreserveRemovedChannelVideo(video)) {
       video.hiddenFromGrid = false
       video.hiddenFromGridAt = null
@@ -11282,12 +11285,13 @@ function markVideo(videoId, requestedStatus, options = {}) {
       )
       ? normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
       : null
-  if (
+  const shouldHideRemovedChannelVideo = (
     previousWatchLater
     && !resolvedWatchLater
     && isVideoFromRemovedChannel(s, video)
     && !shouldPreserveRemovedChannelVideo(video)
-  ) {
+  )
+  if (shouldHideRemovedChannelVideo) {
     video.hiddenFromGrid = true
     video.hiddenFromGridAt = getCurrentAppTimestamp(s)
   }
@@ -11326,7 +11330,7 @@ function markVideo(videoId, requestedStatus, options = {}) {
     resume_at_seconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration),
     surface: options.surface || 'video_card'
   }))
-  if (preservePreview) {
+  if (preservePreview && !shouldHideRemovedChannelVideo) {
     refreshVideoActionUiWithoutFeedRerender(s, videoId)
   } else {
     renderAll(s)
@@ -12662,6 +12666,7 @@ function applyChannelRemoveActionSnapshot(s, action, snapshot, direction = 'undo
   if (!snapshot.channel) {
     Object.values(s.videos || {}).forEach(video => {
       if (!isChannelRemovalVideo(video, channelId)) return
+      if (!video.channelImageUrl && channel.imageUrl) video.channelImageUrl = channel.imageUrl
       if (shouldPreserveRemovedChannelVideo(video)) {
         video.hiddenFromGrid = false
         video.hiddenFromGridAt = null
