@@ -616,3 +616,33 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore both pure predicates inline; cookies,
   backups, and stored state require no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-019 — Extract Undo and Redo state normalization
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Structure and tests
+- **Status:** Implemented and locally verified
+- **Intent:** Make the persisted action-history boundary independently testable
+  before history controls or state-store orchestration move.
+- **Conceptual change:** Moved the six supported action types, the 50-entry limit,
+  and `normalizeUndoState` to `src/state/action-history.js`. Action creation,
+  application, UI rendering, persistence, and analytics stay in `src/app.js`.
+- **Preservation contract:** Invalid stacks are reset, legacy `lastUndo` is promoted
+  only when it is a `video-status` action and Undo is empty, unsupported entries
+  are filtered before the newest 50 are retained, Redo follows the same limit,
+  retained action objects keep their identity, `lastUndo` is always removed, and
+  mutation errors still propagate.
+- **Risks:** Changing the allowlist, promotion condition, filter-before-slice order,
+  or stack direction would alter which actions remain undoable after loading.
+- **Verification:** `npm test` passed all 49 contracts, including allowlist order,
+  legacy promotion, invalid-stack repair, filter-before-slice behavior, retained
+  object identity, and propagated mutation errors. The serial Playwright suite
+  passed 19 flows with 5 expected project-scoped skips across all six required
+  viewports; all 18 protected screenshots remained unchanged. Migration-ledger
+  verification follows the commit.
+- **Rollback:** Revert this commit to restore action-history constants and
+  normalization inline; existing Undo/Redo stacks require no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

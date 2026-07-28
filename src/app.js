@@ -77,6 +77,11 @@ import {
   isValidStateShape,
   sanitizeConfigForStorage
 } from './state/persistence-contract.js'
+import {
+  normalizeUndoState,
+  UNDO_ACTION_TYPES,
+  UNDO_STACK_LIMIT
+} from './state/action-history.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -137,14 +142,12 @@ const ACTIVE_VIDEOS_PER_CHANNEL = 5
 const SANDBOX_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = IS_INTERNAL_TEST ? 8 : 50
 const MAX_FETCH_PAGES_PER_CHANNEL = 1
-const UNDO_ACTION_TYPES = ['video-status', 'video-resume-time', 'video-favorite', 'video-grid-remove', 'channel-remove', 'manual-video-add']
 const BACKGROUND_PHYSICS_RADIUS = 130
 const BACKGROUND_PHYSICS_MAX_PARTICLES = 2600
 const ANKI_AUTO_REFRESH_MS = 5 * 60_000
 const NO_ANKI_FREQUENT_USER_DAY_THRESHOLD = 7
 const MIN_DAILY_STREAK_POINTS = 5
 const HEATMAP_STREAK_RUN_MIN_DAYS = 5
-const UNDO_STACK_LIMIT = 50
 const VIDEO_HOUR_POINTS = 30
 const SHORT_VIDEO_DETECTION_VERSION = 1
 const ANKI_REVIEW_CHUNK_SIZE = 60
@@ -2019,22 +2022,6 @@ function makeSandboxThumbnail(label, index) {
     </svg>
   `
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
-}
-
-function normalizeUndoState(state) {
-  if (!state) return
-  if (!Array.isArray(state.undoStack)) state.undoStack = []
-  if (!Array.isArray(state.redoStack)) state.redoStack = []
-  if (state.lastUndo?.type === 'video-status' && !state.undoStack.length) {
-    state.undoStack.push(state.lastUndo)
-  }
-  state.undoStack = state.undoStack
-    .filter(action => UNDO_ACTION_TYPES.includes(action?.type))
-    .slice(-UNDO_STACK_LIMIT)
-  state.redoStack = state.redoStack
-    .filter(action => UNDO_ACTION_TYPES.includes(action?.type))
-    .slice(-UNDO_STACK_LIMIT)
-  delete state.lastUndo
 }
 
 function normalizeVideoWatchProgressState(state) {
