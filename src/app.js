@@ -11486,6 +11486,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
             <button type="button"
               class="channel-shelf-scroll channel-shelf-scroll-prev"
               data-shelf-direction="-1"
+              data-analytics-action="scrollVideoChannelShelf"
               onclick="scrollVideoChannelShelf(this, -1)"
               aria-controls="${trackId}"
               aria-label="${escHtml(t('videos.channel.previousLabel', { channel: group.title }))}">
@@ -11494,6 +11495,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
             <button type="button"
               class="channel-shelf-scroll channel-shelf-scroll-next"
               data-shelf-direction="1"
+              data-analytics-action="scrollVideoChannelShelf"
               onclick="scrollVideoChannelShelf(this, 1)"
               aria-controls="${trackId}"
               aria-label="${escHtml(t('videos.channel.nextLabel', { channel: group.title }))}">
@@ -11504,6 +11506,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
         <div class="channel-shelf-track"
           id="${trackId}"
           tabindex="0"
+          data-analytics-action="syncVideoChannelShelfControls"
           aria-label="${escHtml(t('videos.channel.shelfLabel', { channel: group.title }))}"
           onscroll="syncVideoChannelShelfControls(this)">
           ${group.videos.map((video, videoIndex) => `

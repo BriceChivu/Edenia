@@ -4501,3 +4501,42 @@ release mappings, and follow-up findings are recorded as new entries.
   their shared bridge alias; no channel state, storage, Undo, analytics, or
   visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-125 — Lock channel-shelf scrolling analytics identities
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Make both shelf-scroll button identities and the track's scroll
+  callback identity explicit before migrating their generated handlers.
+- **Conceptual change:** Added `scrollVideoChannelShelf` analytics metadata to
+  Previous and Next controls and inert `syncVideoChannelShelfControls` metadata
+  to each generated track. Both inline handlers, exact arguments, callbacks,
+  initial synchronization, and global bridge aliases remain unchanged.
+- **Preservation contract:** Preserve shelf/group/control order, exact `-1`/`1`
+  directions, live button lookup, slot-width/gap pitch, four-card movement,
+  clamping/fallback page movement, reduced-motion auto versus smooth behavior,
+  focusable track and localized ARIA, two-pixel boundary tolerance, button
+  disabling, pinned-preview reposition versus ordinary preview close, initial
+  animation-frame sync, scrolling callbacks, localization, and every responsive
+  shelf layout. Preserve generic button events and inert track metadata.
+- **Risks:** Replacing live control lookup with stale track data could scroll
+  the wrong shelf; string/coerced directions could alter movement; changing
+  scroll callback order could affect previews or button states; missing
+  replacement binding would break newly rendered shelves.
+- **Verification:** `npm test` passed: the production build completed and all
+  576 contract tests passed, including exact generated controls/track and
+  directions, inline arguments and stable identities, pitch/index/clamp
+  calculations, reduced-motion behavior, boundary disabling, pinned-versus-
+  ordinary preview handling, initial animation-frame synchronization,
+  replacement context, and both retained bridge aliases. Browser, local-server,
+  visual-regression, migration-ledger, diff-integrity, and static-review checks
+  were not run in accordance with the repository `AGENTS.md` instruction for
+  this task.
+- **Rollback:** Revert this commit to restore handler-derived identities; no
+  scrolling, preview, reduced-motion, analytics implementation, or visual
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
