@@ -3868,7 +3868,7 @@ function renderBackupList() {
         <span class="backup-time">${escHtml(formatBackupTimestamp(entry.createdAt))}</span>
         <span class="backup-reason">${escHtml(formatBackupReason(entry.reason))}</span>
       </div>
-      <button class="btn-ghost backup-restore-btn" type="button" data-backup-id="${escHtml(entry.id)}" onclick="restoreStateBackup(this.dataset.backupId)">${escHtml(t('backups.restore'))}</button>
+      <button class="btn-ghost backup-restore-btn" type="button" data-settings-backup-action="restore" data-analytics-action="restoreStateBackup" data-backup-id="${escHtml(entry.id)}" onclick="restoreStateBackup(this.dataset.backupId)">${escHtml(t('backups.restore'))}</button>
     </div>
   `).join('')
 }

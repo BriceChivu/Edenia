@@ -2667,3 +2667,32 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore generated inline handlers and the
   two bridge entries; no stored state migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-081 — Lock backup Restore action metadata
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Compatibility metadata and contract tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Preserve the generated backup Restore button's current analytics
+  identity before moving its inline handler into module-owned listeners.
+- **Conceptual change:** Added an inert Settings backup ownership hook and an
+  explicit `restoreStateBackup` analytics action to the generated Restore
+  button while retaining its existing inline handler and global bridge.
+- **Preservation contract:** Restore availability and ordering, live backup ID,
+  visible localized label, native button activation, focus, detached-target
+  generic analytics, `restore_state_backup_clicked` name and properties,
+  storage, rollback backup, Activity Log, locale/theme restoration, rendering,
+  Settings layout, accessibility, and responsive behavior remain unchanged.
+- **Risks:** A renamed analytics action would split historical reporting;
+  replacing the live backup ID with rendered-list position would target the
+  wrong entry; removing the inline handler before listener ownership exists
+  would make Restore inert.
+- **Verification:** `npm test` passed 262 contract tests and the production
+  build. Migration-ledger and diff-integrity checks passed. Browser and visual
+  verification is paired with the subsequent listener migration.
+- **Rollback:** Revert this commit to remove only the inert ownership and
+  analytics metadata; restore behavior and stored data require no rollback.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
