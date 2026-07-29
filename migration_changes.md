@@ -2891,3 +2891,42 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the generated inline handler and
   bridge entry; no state or storage migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-087 — Migrate Study History points popover shells
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Generated event ownership, compatibility bridge reduction, and tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move generated Study History points-cell popover lifecycles from
+  inline global handlers into direct component listeners without changing
+  scoring, content, or responsive behavior.
+- **Conceptual change:** Added a scoped ownership hook to each generated points
+  cell, installed direct `mouseenter`, `mouseleave`, `focusin`, `focusout`, and
+  `click` listeners after every History table rebuild, removed the five inline
+  attributes, and removed the three points-shell actions from the temporary
+  legacy bridge while retaining their lexical functions.
+- **Preservation contract:** Exact original events and `currentTarget`,
+  zero-argument delayed closing, the 80 ms timer, fine-pointer toggling,
+  coarse-pointer open-only clicks, hover/focus behavior, propagation stopping,
+  uncancelled native activation, current manual-video/video/period/points close
+  order, outside-click and Escape dismissal without focus restoration, daily
+  total and item calculations, rounding, localized copy, ARIA expansion,
+  styling, storage, Activity Log, analytics silence, all responsive layouts,
+  and every points/scoring rule remain unchanged.
+- **Risks:** Delegation would break non-bubbling mouse behavior and change
+  `currentTarget`; passing an event to the close callback could change its
+  contract; missing a table rebuild would leave replacement cells inert;
+  pointer-event substitution could alter touch behavior; coupling extraction
+  with scoring would expand risk; adding analytics metadata would create events
+  the propagation-stopped inline path did not emit.
+- **Verification:** `npm test` passed 285 contract tests and the production
+  build. The focused fine-pointer desktop and coarse-pointer phone points flow
+  passed. The complete six-viewport Playwright matrix passed with 59 tests and
+  163 intentional skips; all 18 protected screenshots remained unchanged.
+  Migration-ledger and diff-integrity checks passed.
+- **Rollback:** Revert this commit to restore the five inline handlers and three
+  bridge entries; no state, score, or storage migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

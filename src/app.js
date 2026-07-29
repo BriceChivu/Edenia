@@ -207,6 +207,9 @@ import {
 import {
   bindStudyHistoryPeriodToggleActions
 } from './features/study-history/period-toggle-actions.js'
+import {
+  bindStudyHistoryPointsPopoverActions
+} from './features/study-history/points-popover-actions.js'
 import { bindStudyHistoryViewActions } from './features/study-history/view-actions.js'
 import {
   bindStudyHistoryWatchedPopoverActions
@@ -8351,7 +8354,7 @@ function renderHistoryPointsCell(row) {
   const breakdown = getHistoryPointBreakdown(row)
   const points = getHistoryDayPoints(row)
   return `
-    <span class="history-points-cell" onmouseenter="openHistoryPointsPopover(event)" onmouseleave="closeHistoryPointsPopoverSoon()" onfocusin="openHistoryPointsPopover(event)" onfocusout="closeHistoryPointsPopoverSoon()" onclick="toggleHistoryPointsPopover(event)">
+    <span class="history-points-cell" data-history-points-popover-action="toggle">
       <button type="button" class="history-points-trigger" aria-expanded="false" aria-label="${escHtml(t('history.showPoints', { date: formatHeatmapTitle(row) }))}">
         ${points}
       </button>
@@ -8836,6 +8839,11 @@ function renderStudyHistoryPanel(s) {
       open: openHistoryVideoPopover,
       closeSoon: closeHistoryVideoPopoverSoon,
       toggle: toggleHistoryVideoPopover
+    })
+    bindStudyHistoryPointsPopoverActions(table, {
+      open: openHistoryPointsPopover,
+      closeSoon: closeHistoryPointsPopoverSoon,
+      toggle: toggleHistoryPointsPopover
     })
     bindStudyHistoryWatchedVideoActions(table, {
       jump: jumpToWatchedVideo
@@ -13958,7 +13966,6 @@ installLegacyActions(window, {
   changeOnboardingLocale,
   clearVideoPausedState,
   closeHistoryActionPopovers,
-  closeHistoryPointsPopoverSoon,
   closeManualVideoPopover,
   closeStatusFilterMenu,
   closeVideoSearchPopover,
@@ -13986,7 +13993,6 @@ installLegacyActions(window, {
   markVideo,
   moveChannelShelfDrag,
   navigateIntroTrailer,
-  openHistoryPointsPopover,
   openNextStudyVideoPlayer,
   openVideoShelfPreview,
   openVideoShelfPreviewFromFocus,
@@ -14016,7 +14022,6 @@ installLegacyActions(window, {
   syncVideoChannelShelfControls,
   toggleHeatmapTooltip,
   toggleHistoryActionPopover,
-  toggleHistoryPointsPopover,
   toggleIntroLocaleMenu,
   toggleIntroSound,
   toggleManualVideoPopover,

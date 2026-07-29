@@ -4215,6 +4215,118 @@ test('Study History watched-video listeners preserve navigation branches', async
   expect(removedBridgeAction).toBe(false)
 })
 
+test('Study History points popover listeners preserve fine and coarse interactions', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-standard'].includes(
+    testInfo.project.name
+  ))
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.anki['2026-07-28'] = {
+      reviewed: 5,
+      created: 1
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    localStorage.removeItem('edenia_posthog_state_v2')
+  })
+  await page.reload()
+  await waitForApplication(page)
+
+  const cell = page.locator(
+    '[data-history-points-popover-action="toggle"]'
+  ).first()
+  const trigger = cell.locator('.history-points-trigger')
+  const storedBefore = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  await page.evaluate(() => {
+    window.__historyPointsAnalyticsEvents = []
+    window.__historyPointsAtDocumentBubble = null
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__historyPointsAnalyticsEvents.push({
+          eventName,
+          properties
+        })
+      },
+      get_distinct_id() {
+        return 'preservation-history-points-popover'
+      },
+      setPersonProperties() {}
+    }
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.(
+        '[data-history-points-popover-action="toggle"]'
+      )) return
+      window.__historyPointsAtDocumentBubble = true
+    }, { once: true })
+  })
+
+  if (testInfo.project.name === 'desktop-standard') {
+    await cell.hover()
+    await expect(cell).toHaveClass(/\bopen\b/)
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await page.mouse.move(0, 0)
+    await expect(cell).not.toHaveClass(/\bopen\b/)
+
+    await trigger.focus()
+    await expect(cell).toHaveClass(/\bopen\b/)
+    await trigger.blur()
+    await expect(cell).not.toHaveClass(/\bopen\b/)
+
+    await trigger.focus()
+    await expect(cell).toHaveClass(/\bopen\b/)
+    await trigger.press('Enter')
+    await expect(cell).not.toHaveClass(/\bopen\b/)
+    await trigger.press('Space')
+    await expect(cell).toHaveClass(/\bopen\b/)
+    await page.keyboard.press('Escape')
+    await expect(cell).not.toHaveClass(/\bopen\b/)
+  } else {
+    await trigger.press('Space')
+    await expect(cell).toHaveClass(/\bopen\b/)
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await trigger.press('Enter')
+    await expect(cell).toHaveClass(/\bopen\b/)
+    await page.locator('.section-title').first().click()
+    await expect(cell).not.toHaveClass(/\bopen\b/)
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  }
+
+  await expect.poll(() => page.evaluate(
+    () => window.__historyPointsAtDocumentBubble
+  )).toBe(null)
+  expect(await page.evaluate(
+    () => window.__historyPointsAnalyticsEvents
+  )).toEqual([])
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+  const removedBridgeActions = await page.evaluate(() => ({
+    closeSoon: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'closeHistoryPointsPopoverSoon'
+    ),
+    open: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'openHistoryPointsPopover'
+    ),
+    toggle: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'toggleHistoryPointsPopover'
+    )
+  }))
+  expect(removedBridgeActions).toEqual({
+    closeSoon: false,
+    open: false,
+    toggle: false
+  })
+})
+
 test('Study History view listeners preserve persistence, keyboard, and ordering', async ({
   page
 }, testInfo) => {
