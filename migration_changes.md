@@ -4048,3 +4048,43 @@ release mappings, and follow-up findings are recorded as new entries.
   handlers and bridge aliases; no locale, state, storage, analytics, focus, or
   visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-114 — Lock onboarding recovery analytics identities
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Make the generated onboarding-recovery Copy link and Try again
+  identities explicit before replacing their inline handlers.
+- **Conceptual change:** Added analytics metadata matching the existing
+  handler-derived `copyOnboardingRecoveryLink` and `retryOnboardingRecovery`
+  identities. Both inline handlers, live-button arguments, callbacks,
+  replacement rendering, and global bridge aliases remain unchanged.
+- **Preservation contract:** Preserve exact recovery headings, copy, button
+  classes/order, status live region, reason/resume state, shown/copy/retry
+  analytics, clipboard API and textarea fallback, delayed Copy label
+  restoration, Retry disabled-state lifecycle, persistence checks, recovery
+  rerenders, resume routing, inert/hidden state, localization, and responsive
+  presentation. Preserve uncancelled bubbling and the existing branch-dependent
+  generic Retry event suppression when its clicked button remains disabled
+  before the document collector.
+- **Risks:** Omitting the live button would break delayed Copy-label restoration
+  and Retry state; changing disabled timing would add or remove generic events;
+  moving async clipboard work could change the label observed by analytics;
+  combining recovery rendering with ownership migration would expand risk.
+- **Verification:** `npm test` passed: the production build completed and all
+  474 contract tests passed, including exact generated markup and live-button
+  arguments, stable normalized identities, replacement context, clipboard
+  async and synchronous fallback timing, delayed connected-button label reset,
+  Retry active/storage/save/resume branches, disabled-before-document analytics
+  suppression, and both retained bridge aliases. Browser, local-server,
+  visual-regression, migration-ledger, diff-integrity, and static-review checks
+  were not run in accordance with the repository `AGENTS.md` instruction for
+  this task.
+- **Rollback:** Revert this commit to restore handler-derived identities; no
+  recovery, clipboard, persistence, analytics implementation, or visual
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

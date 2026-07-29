@@ -2317,8 +2317,8 @@ function showOnboardingRecovery(reason = 'setup', { state = null, resume = 'pers
   content.innerHTML = `
     ${renderOnboardingHeading(`onboarding.recovery.${normalizedReason}.title`, `onboarding.recovery.${normalizedReason}.body`)}
     <div class="onboarding-actions onboarding-recovery-actions">
-      <button type="button" class="btn-secondary" onclick="copyOnboardingRecoveryLink(this)">${escHtml(t('onboarding.recovery.copyLink'))}</button>
-      <button type="button" class="btn-primary" onclick="retryOnboardingRecovery(this)">${escHtml(t('onboarding.recovery.tryAgain'))}</button>
+      <button type="button" class="btn-secondary" data-analytics-action="copyOnboardingRecoveryLink" onclick="copyOnboardingRecoveryLink(this)">${escHtml(t('onboarding.recovery.copyLink'))}</button>
+      <button type="button" class="btn-primary" data-analytics-action="retryOnboardingRecovery" onclick="retryOnboardingRecovery(this)">${escHtml(t('onboarding.recovery.tryAgain'))}</button>
     </div>
     <p class="onboarding-recovery-status" id="onboardingRecoveryStatus" role="status" aria-live="polite"></p>
   `
