@@ -5113,3 +5113,42 @@ release mappings, and follow-up findings are recorded as new entries.
   responsive, or visual rollback is required.
 - **Association:** `codex/migration-05-javascript-modularization`;
   [PR #1](https://github.com/BriceChivu/Edenia/pull/1); release pending.
+
+---
+
+## MIG-141 — Approve Linux visual baselines
+
+- **Date:** 2026-07-30
+- **Phase:** 8 — Final cleanup
+- **Type:** Explicitly approved snapshot-only baseline update
+- **Status:** Complete locally; PR verification pending
+- **Intent:** Make GitHub Actions' Linux rendering the deterministic visual
+  reference for the five comparisons explicitly reviewed and approved by the
+  user.
+- **Conceptual change:** Replaced exactly five expected PNGs with the approved
+  Linux `actual.png` artifacts from Actions run `30471298598`: Settings open at
+  desktop-wide, tablet portrait, and tablet landscape; completed dashboard at
+  phone standard and phone small. No snapshot generation was run locally.
+- **Preservation contract:** Preserve all application source, runtime behavior,
+  build inputs, tests, CSS, responsive rules, state, analytics, localization,
+  accessibility, and public deployment. Preserve desktop-standard and every
+  other existing screenshot unchanged. This updates platform rendering
+  evidence only and does not approve an intentional UI change or move any
+  responsive matrix row out of **Keep**.
+- **Risks:** Updating a baseline without stable evidence could normalize a
+  regression. The user explicitly approved these Linux results after the
+  functional suite was isolated, and the first-attempt and retry PNGs were
+  byte-identical for all five cases before replacement.
+- **Verification:** SHA-256 comparison confirmed that each selected Linux
+  screenshot exactly matched its retry. No local browser, local-server,
+  screenshot generation, visual-regression execution, build/contract,
+  diff-integrity, or static-review check is run in accordance with the
+  repository `AGENTS.md` instruction. PR CI will rerun governance, build, all
+  contracts, all browser flows, and the updated visual comparisons.
+- **Rollback:** Revert this commit to restore the five prior platform
+  baselines. No application, state, storage, analytics, localization,
+  responsive, or runtime rollback is required.
+- **Association:** `codex/migration-05-javascript-modularization`;
+  [PR #1](https://github.com/BriceChivu/Edenia/pull/1);
+  [Actions run 30471298598](https://github.com/BriceChivu/Edenia/actions/runs/30471298598);
+  release pending.
