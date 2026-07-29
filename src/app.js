@@ -188,6 +188,9 @@ import {
 import {
   bindVideoSearchShellActions
 } from './features/videos/search-shell-actions.js'
+import {
+  bindStatusFilterActions
+} from './features/videos/status-filter-actions.js'
 import { bindUndoRedoActions } from './features/videos/undo-redo-actions.js'
 import { bindWatchedSectionActions } from './features/videos/watched-section-actions.js'
 import { bindStudyInsightActions } from './features/study-insights/actions.js'
@@ -13223,15 +13226,20 @@ function renderStatusFilterOptions(allVideos = [], channelFilters = null, includ
   menu.innerHTML = `
     <div class="mobile-popover-header">
       <strong>${escHtml(getStatusFilterLabel(selectedStatusFilter))}</strong>
-      <button class="mobile-popover-close" type="button" onclick="closeStatusFilterMenu(true)" data-analytics-action="closeStatusFilterMenu" title="${escHtml(t('settings.close'))}" aria-label="${escHtml(t('settings.close'))}">×</button>
+      <button class="mobile-popover-close" type="button" data-status-filter-action="close" data-analytics-action="closeStatusFilterMenu" title="${escHtml(t('settings.close'))}" aria-label="${escHtml(t('settings.close'))}">×</button>
     </div>
   ` + STATUS_FILTERS.map(([value, label]) => `
     <label class="channel-filter-option status-filter-option">
-      <input type="radio" name="statusFilter" data-status="${value}" ${selectedStatusFilter === value ? 'checked' : ''} onchange="setStatusFilter(this.dataset.status)">
+      <input type="radio" name="statusFilter" data-status-filter-action="select-option" data-status="${value}" ${selectedStatusFilter === value ? 'checked' : ''}>
       <span class="status-filter-label">${escHtml(t(label))}</span>
       <span class="status-filter-count">${counts[value] ?? 0}</span>
     </label>
   `).join('')
+  bindStatusFilterActions(menu, {
+    select: setStatusFilter,
+    toggle: toggleStatusFilterMenu,
+    close: closeStatusFilterMenu
+  })
   if (!menu.classList.contains('hidden')) positionFilterMenuWithinViewport(menu)
 }
 
@@ -13985,6 +13993,11 @@ bindVideoSearchShellActions(document, {
   renderResults: renderVideoSearchResults,
   handleInputKey: handleVideoSearchInputKey
 })
+bindStatusFilterActions(document, {
+  select: setStatusFilter,
+  toggle: toggleStatusFilterMenu,
+  close: closeStatusFilterMenu
+})
 bindUndoRedoActions(document, {
   toggle: toggleHistoryActionPopover,
   apply: applyHistoryAction,
@@ -14000,7 +14013,6 @@ installLegacyActions(window, {
   changeOnboardingLocale,
   clearVideoPausedState,
   closeManualVideoPopover,
-  closeStatusFilterMenu,
   closeVideoShelfPreviewAfterFocus,
   confirmVideoSetAsidePrompt,
   confirmVideoWatchPrompt,
@@ -14041,7 +14053,6 @@ installLegacyActions(window, {
   setAllChannelFilters,
   setChannelFilter,
   setPersonalizedOnboardingStep,
-  setStatusFilter,
   startChannelShelfDrag,
   startTouchChannelShelfDrag,
   syncVideoChannelShelfControls,
@@ -14050,7 +14061,6 @@ installLegacyActions(window, {
   toggleManualVideoPopover,
   toggleOnboardingChannel,
   toggleOnboardingLocaleMenu,
-  toggleStatusFilterMenu,
   toggleVideoFavorite,
   toggleVideoShelfPreviewOnTouch
 })

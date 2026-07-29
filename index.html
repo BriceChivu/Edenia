@@ -611,14 +611,14 @@ and momentum—at a glance</h2>
       <div class="feed-controls feed-toolbar">
         <div class="feed-filter-controls">
           <div class="status-tabs" id="statusTabs" role="tablist" aria-label="Video status" data-i18n-aria-label="videos.status.label">
-            <button type="button" class="status-tab active" data-status-tab="all" onclick="setStatusFilter('all')" data-analytics-action="videos.status.all" role="tab" aria-selected="true"><span data-i18n="videos.status.all">All</span><span class="status-tab-count">0</span></button>
-            <button type="button" class="status-tab" data-status-tab="unwatched" onclick="setStatusFilter('unwatched')" data-analytics-action="videos.status.unwatched" role="tab" aria-selected="false"><span data-i18n="videos.status.unwatched">Unwatched</span><span class="status-tab-count">0</span></button>
-            <button type="button" class="status-tab" data-status-tab="partial" onclick="setStatusFilter('partial')" data-analytics-action="videos.status.partial" role="tab" aria-selected="false"><span data-i18n="videos.status.partial">In progress</span><span class="status-tab-count">0</span></button>
-            <button type="button" class="status-tab" data-status-tab="watch-later" onclick="setStatusFilter('watch-later')" data-analytics-action="videos.status.watchLater" role="tab" aria-selected="false"><span data-i18n="videos.status.watchLater">Watch later</span><span class="status-tab-count">0</span></button>
-            <button type="button" class="status-tab" data-status-tab="favorite" onclick="setStatusFilter('favorite')" data-analytics-action="videos.status.favorite" role="tab" aria-selected="false"><span data-i18n="videos.status.favorite">Favorite</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab active" data-status-filter-action="select-tab" data-status-tab="all" data-analytics-action="videos.status.all" role="tab" aria-selected="true"><span data-i18n="videos.status.all">All</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab" data-status-filter-action="select-tab" data-status-tab="unwatched" data-analytics-action="videos.status.unwatched" role="tab" aria-selected="false"><span data-i18n="videos.status.unwatched">Unwatched</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab" data-status-filter-action="select-tab" data-status-tab="partial" data-analytics-action="videos.status.partial" role="tab" aria-selected="false"><span data-i18n="videos.status.partial">In progress</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab" data-status-filter-action="select-tab" data-status-tab="watch-later" data-analytics-action="videos.status.watchLater" role="tab" aria-selected="false"><span data-i18n="videos.status.watchLater">Watch later</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab" data-status-filter-action="select-tab" data-status-tab="favorite" data-analytics-action="videos.status.favorite" role="tab" aria-selected="false"><span data-i18n="videos.status.favorite">Favorite</span><span class="status-tab-count">0</span></button>
           </div>
           <div class="status-filter" id="statusFilter">
-            <button type="button" class="btn-secondary channel-filter-btn status-filter-btn" id="statusFilterBtn" onclick="toggleStatusFilterMenu()" data-analytics-action="statusFilterBtn" aria-haspopup="true" aria-expanded="false">All videos</button>
+            <button type="button" class="btn-secondary channel-filter-btn status-filter-btn" id="statusFilterBtn" data-status-filter-action="toggle" data-analytics-action="statusFilterBtn" aria-haspopup="true" aria-expanded="false">All videos</button>
             <div class="channel-filter-menu status-filter-menu hidden" id="statusFilterMenu"></div>
           </div>
         </div>

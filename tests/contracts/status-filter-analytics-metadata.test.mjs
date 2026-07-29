@@ -44,33 +44,28 @@ function normalizeClickEventName(action) {
     .slice(0, 80)}_clicked`
 }
 
-test('static status tabs retain translated analytics identities and inline handlers', () => {
+test('static status tabs retain translated analytics identities without inline handlers', () => {
   const buttonElements = getButtonElements(indexSource)
   const expectedTabs = [
     {
       status: 'all',
-      action: 'videos.status.all',
-      handler: "setStatusFilter('all')"
+      action: 'videos.status.all'
     },
     {
       status: 'unwatched',
-      action: 'videos.status.unwatched',
-      handler: "setStatusFilter('unwatched')"
+      action: 'videos.status.unwatched'
     },
     {
       status: 'partial',
-      action: 'videos.status.partial',
-      handler: "setStatusFilter('partial')"
+      action: 'videos.status.partial'
     },
     {
       status: 'watch-later',
-      action: 'videos.status.watchLater',
-      handler: "setStatusFilter('watch-later')"
+      action: 'videos.status.watchLater'
     },
     {
       status: 'favorite',
-      action: 'videos.status.favorite',
-      handler: "setStatusFilter('favorite')"
+      action: 'videos.status.favorite'
     }
   ]
 
@@ -85,7 +80,7 @@ test('static status tabs retain translated analytics identities and inline handl
       getAttribute(tag, 'data-analytics-action'),
       expected.action
     )
-    assert.equal(getAttribute(tag, 'onclick'), expected.handler)
+    assert.equal(getAttribute(tag, 'onclick'), null)
     assert.match(
       element,
       new RegExp(`<span data-i18n="${expected.action}">`)
@@ -121,7 +116,7 @@ test('status controls retain exact generic click event names', () => {
   )
   const toggle = getOpeningTag(toggleElement)
   assert.equal(getAttribute(toggle, 'data-analytics-action'), 'statusFilterBtn')
-  assert.equal(getAttribute(toggle, 'onclick'), 'toggleStatusFilterMenu()')
+  assert.equal(getAttribute(toggle, 'onclick'), null)
   assert.equal(
     normalizeClickEventName(getAttribute(toggle, 'data-analytics-action')),
     'status_filter_btn_clicked'
@@ -129,7 +124,7 @@ test('status controls retain exact generic click event names', () => {
 
   const closeElement = findSingleButton(
     appButtons,
-    tag => getAttribute(tag, 'onclick') === 'closeStatusFilterMenu(true)',
+    tag => getAttribute(tag, 'data-status-filter-action') === 'close',
     'generated status-filter close control'
   )
   const close = getOpeningTag(closeElement)
@@ -137,14 +132,14 @@ test('status controls retain exact generic click event names', () => {
     getAttribute(close, 'data-analytics-action'),
     'closeStatusFilterMenu'
   )
-  assert.equal(getAttribute(close, 'onclick'), 'closeStatusFilterMenu(true)')
+  assert.equal(getAttribute(close, 'onclick'), null)
   assert.equal(
     normalizeClickEventName(getAttribute(close, 'data-analytics-action')),
     'close_status_filter_menu_clicked'
   )
 })
 
-test('generated status radios retain inline behavior without analytics metadata', () => {
+test('generated status radios retain behavior hooks without analytics metadata', () => {
   const statusRadios = getInputTags(appSource).filter(tag => (
     getAttribute(tag, 'name') === 'statusFilter'
   ))
@@ -153,9 +148,6 @@ test('generated status radios retain inline behavior without analytics metadata'
   const [radio] = statusRadios
   assert.equal(getAttribute(radio, 'type'), 'radio')
   assert.equal(getAttribute(radio, 'data-status'), '${value}')
-  assert.equal(
-    getAttribute(radio, 'onchange'),
-    'setStatusFilter(this.dataset.status)'
-  )
+  assert.equal(getAttribute(radio, 'onchange'), null)
   assert.equal(getAttribute(radio, 'data-analytics-action'), null)
 })

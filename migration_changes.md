@@ -3185,3 +3185,47 @@ release mappings, and follow-up findings are recorded as new entries.
   element-ID, and handler-name identity derivation; no event, state, storage,
   or visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-094 — Migrate status-filter event ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move the five visible status tabs and the dormant status-filter
+  dropdown controls from inline handlers to one scoped feature adapter while
+  retaining the existing filter implementation and rendered outcomes.
+- **Conceptual change:** Added a status-filter action module with explicit
+  `select-tab`, `toggle`, `select-option`, and `close` ownership hooks. Static
+  tabs and the dormant toggle are bound once at composition; generated radio
+  and close controls are rebound after each menu render. Removed the matching
+  inline handlers and the now-unneeded `closeStatusFilterMenu`,
+  `setStatusFilter`, and `toggleStatusFilterMenu` global bridge aliases. The
+  existing functions remain in the composition module and retain all state,
+  filtering, rendering, dismissal, positioning, and focus behavior.
+- **Preservation contract:** Preserve status values, validation fallback,
+  counts, tab order, dropdown option order, click/change event types, native
+  keyboard activation, focus behavior, ARIA state, synchronous rendering,
+  overlapping Watch later and status rules, Favorite/Watched-section behavior,
+  transient non-persisted selection, reload default, document-level dismissal,
+  analytics names and bubble ordering, and every responsive visibility rule.
+  The dropdown/radio surface remains hidden at all viewports and no arrow-key
+  tab behavior is introduced.
+- **Risks:** A stale generated binding could make radio or close controls inert;
+  forwarding or cancelling events could alter analytics order or native
+  keyboard behavior; removing a bridge alias before its last inline consumer
+  could break a control; selector or CSS changes could expose the dormant
+  dropdown; changing filter helpers would alter saved-video membership.
+- **Verification:** `npm test` passed: the production build completed and all
+  324 contract tests passed, including exact callback arguments, live dataset
+  reads, idempotency, regenerated-control binding, markup and analytics
+  preservation, composition wiring, and legacy-bridge removal. Browser,
+  local-server, visual-regression, migration-ledger, diff-integrity, and
+  static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the three legacy bridge aliases
+  and inline handlers; no state, storage, analytics, or data migration is
+  required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
