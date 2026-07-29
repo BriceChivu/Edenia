@@ -2930,3 +2930,44 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the five inline handlers and three
   bridge entries; no state, score, or storage migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-088 — Migrate Study History heatmap tooltip actions
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Generated event ownership, compatibility bridge reduction, and tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move generated Study History heatmap-day tooltip interactions
+  from inline global handlers into direct component listeners without changing
+  data, positioning, or responsive behavior.
+- **Conceptual change:** Added a scoped ownership hook to every generated heatmap
+  day, installed direct `mouseenter`, `mousemove`, `mouseleave`, `click`,
+  `focus`, and `blur` listeners after every heatmap rebuild, removed the six
+  inline attributes, and removed the four tooltip actions from the temporary
+  legacy bridge while retaining their lexical functions.
+- **Preservation contract:** Exact native events and day `currentTarget`,
+  uncancelled wrapper behavior, live date/points/streak/time/video/Anki
+  datasets, localized tooltip content, fine-pointer click toggling,
+  coarse-pointer open-only clicks, hover and focus behavior, click propagation
+  stopping only after target/tooltip validation, outside-click dismissal, the
+  intentional absence of Escape dismissal, fixed positioning for fine/wider
+  layouts, absolute positioning for coarse input or width `≤768px`, existing
+  `≤640px` CSS, viewport clamping, ARIA labels, styling, storage, Activity Log,
+  analytics silence, scoring, and all responsive layouts remain unchanged.
+- **Risks:** Delegation would break non-bubbling mouse/focus behavior and change
+  `currentTarget`; pointer events could alter touch behavior; replacing the live
+  day node stored in `tooltip._target` could break fine-pointer toggling;
+  consolidating the `≤768px` JavaScript and `≤640px` CSS boundaries would be an
+  intentional responsive change; missing a heatmap rebuild would leave
+  replacement days inert; adding analytics metadata would create events the
+  stopped inline path did not emit.
+- **Verification:** `npm test` passed 290 contract tests and the production
+  build. The focused fine-pointer desktop and coarse-pointer phone heatmap flow
+  passed. The complete six-viewport Playwright matrix passed with 61 tests and
+  167 intentional skips; all 18 protected screenshots remained unchanged.
+  Migration-ledger and diff-integrity checks passed.
+- **Rollback:** Revert this commit to restore the six inline handlers and four
+  bridge entries; no state, score, or storage migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

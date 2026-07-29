@@ -210,6 +210,9 @@ import {
 import {
   bindStudyHistoryPointsPopoverActions
 } from './features/study-history/points-popover-actions.js'
+import {
+  bindStudyHistoryHeatmapTooltipActions
+} from './features/study-history/heatmap-tooltip-actions.js'
 import { bindStudyHistoryViewActions } from './features/study-history/view-actions.js'
 import {
   bindStudyHistoryWatchedPopoverActions
@@ -8974,7 +8977,7 @@ function renderHistoryHeatmap(s, container) {
             const streakDayCount = historicalStreakDayCounts.get(row.dateKey) || 0
             const streakOutlineClass = streakDayCount ? ' streak-run' : ''
             return `
-            <button type="button" class="heatmap-day level-${getHistoryHeatLevel(row)}${streakOutlineClass}" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-streak-days="${streakDayCount || ''}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-anki-enabled="${showAnkiForRow ? 'true' : 'false'}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row, showAnkiForRow))}" onmouseenter="showHeatmapTooltip(event)" onmousemove="positionHeatmapTooltip(event.currentTarget)" onmouseleave="hideHeatmapTooltip()" onclick="toggleHeatmapTooltip(event)" onfocus="showHeatmapTooltip(event)" onblur="hideHeatmapTooltip()"></button>
+            <button type="button" class="heatmap-day level-${getHistoryHeatLevel(row)}${streakOutlineClass}" data-history-heatmap-action="tooltip" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-streak-days="${streakDayCount || ''}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-anki-enabled="${showAnkiForRow ? 'true' : 'false'}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row, showAnkiForRow))}"></button>
           `}).join('')}
         </div>
       </div>
@@ -8985,6 +8988,12 @@ function renderHistoryHeatmap(s, container) {
       <span>${escHtml(t('history.heatmap.more'))}</span>
     </div>
   `
+  bindStudyHistoryHeatmapTooltipActions(container, {
+    show: showHeatmapTooltip,
+    position: positionHeatmapTooltip,
+    hide: hideHeatmapTooltip,
+    toggle: toggleHeatmapTooltip
+  })
 }
 
 function toggleHeatmapTooltip(event) {
@@ -13988,7 +13997,6 @@ installLegacyActions(window, {
   handleVideoSearchInputKey,
   handleVideoSetAsidePromptKeydown,
   handleVideoThumbnailClick,
-  hideHeatmapTooltip,
   leaveChannelShelfDrag,
   markVideo,
   moveChannelShelfDrag,
@@ -13996,7 +14004,6 @@ installLegacyActions(window, {
   openNextStudyVideoPlayer,
   openVideoShelfPreview,
   openVideoShelfPreviewFromFocus,
-  positionHeatmapTooltip,
   queueVideoShelfPreviewClose,
   removeChannel,
   removeChannelFromFilter,
@@ -14015,12 +14022,10 @@ installLegacyActions(window, {
   setChannelFilter,
   setPersonalizedOnboardingStep,
   setStatusFilter,
-  showHeatmapTooltip,
   startChannelShelfDrag,
   startTouchChannelShelfDrag,
   stopHistoryActionAutoScroll,
   syncVideoChannelShelfControls,
-  toggleHeatmapTooltip,
   toggleHistoryActionPopover,
   toggleIntroLocaleMenu,
   toggleIntroSound,

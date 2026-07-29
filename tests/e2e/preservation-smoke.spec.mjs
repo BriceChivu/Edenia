@@ -4226,7 +4226,7 @@ test('Study History points popover listeners preserve fine and coarse interactio
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem('edenia_v1'))
     state.anki['2026-07-28'] = {
-      reviewed: 5,
+      reviewed: 6,
       created: 1
     }
     localStorage.setItem('edenia_v1', JSON.stringify(state))
@@ -4323,6 +4323,131 @@ test('Study History points popover listeners preserve fine and coarse interactio
   expect(removedBridgeActions).toEqual({
     closeSoon: false,
     open: false,
+    toggle: false
+  })
+})
+
+test('Study History heatmap listeners preserve tooltip input and positioning branches', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-standard'].includes(
+    testInfo.project.name
+  ))
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.anki['2026-07-28'] = {
+      reviewed: 6,
+      created: 1
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    localStorage.removeItem('edenia_posthog_state_v2')
+  })
+  await page.reload()
+  await waitForApplication(page)
+  const summaryTab = page.locator('[data-history-view="summary"]')
+  const heatmapTab = page.locator('[data-history-view="heatmap"]')
+  await heatmapTab.click()
+  await summaryTab.click()
+  await heatmapTab.click()
+
+  const day = page.locator(
+    '[data-history-heatmap-action="tooltip"][data-points="2"]'
+  )
+  const tooltip = page.locator('#heatmapTooltip')
+  const storedBefore = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  await expect(day).toHaveCount(1)
+  await page.evaluate(() => {
+    window.__historyHeatmapAnalyticsEvents = []
+    window.__historyHeatmapAtDocumentBubble = null
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__historyHeatmapAnalyticsEvents.push({
+          eventName,
+          properties
+        })
+      },
+      get_distinct_id() {
+        return 'preservation-history-heatmap'
+      },
+      setPersonProperties() {}
+    }
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.(
+        '[data-history-heatmap-action="tooltip"]'
+      )) return
+      window.__historyHeatmapAtDocumentBubble = true
+    }, { once: true })
+  })
+
+  if (testInfo.project.name === 'desktop-standard') {
+    await day.hover()
+    await expect(tooltip).toHaveClass(/\bshow\b/)
+    await expect(tooltip).toContainText('2 pts')
+    await expect(tooltip).toHaveCSS('position', 'fixed')
+    await page.mouse.move(0, 0)
+    await expect(tooltip).not.toHaveClass(/\bshow\b/)
+
+    await day.focus()
+    await expect(tooltip).toHaveClass(/\bshow\b/)
+    await day.blur()
+    await expect(tooltip).not.toHaveClass(/\bshow\b/)
+
+    await day.focus()
+    await expect(tooltip).toHaveClass(/\bshow\b/)
+    await day.press('Enter')
+    await expect(tooltip).not.toHaveClass(/\bshow\b/)
+    await day.press('Space')
+    await expect(tooltip).toHaveClass(/\bshow\b/)
+    await page.keyboard.press('Escape')
+    await expect(tooltip).toHaveClass(/\bshow\b/)
+    await page.locator('.section-title').first().click()
+    await expect(tooltip).not.toHaveClass(/\bshow\b/)
+  } else {
+    await day.press('Space')
+    await expect(tooltip).toHaveClass(/\bshow\b/)
+    await expect(tooltip).toContainText('2 pts')
+    await expect(tooltip).toHaveCSS('position', 'absolute')
+    await day.press('Enter')
+    await expect(tooltip).toHaveClass(/\bshow\b/)
+    await page.locator('.section-title').first().click()
+    await expect(tooltip).not.toHaveClass(/\bshow\b/)
+  }
+
+  await expect.poll(() => page.evaluate(
+    () => window.__historyHeatmapAtDocumentBubble
+  )).toBe(null)
+  expect(await page.evaluate(
+    () => window.__historyHeatmapAnalyticsEvents
+  )).toEqual([])
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+  const removedBridgeActions = await page.evaluate(() => ({
+    hide: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'hideHeatmapTooltip'
+    ),
+    position: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'positionHeatmapTooltip'
+    ),
+    show: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'showHeatmapTooltip'
+    ),
+    toggle: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'toggleHeatmapTooltip'
+    )
+  }))
+  expect(removedBridgeActions).toEqual({
+    hide: false,
+    position: false,
+    show: false,
     toggle: false
   })
 })
