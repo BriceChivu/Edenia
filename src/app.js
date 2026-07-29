@@ -38,6 +38,9 @@ import {
   normalizeVideoStatus
 } from './domain/video-state.js'
 import {
+  bindImageFallbackActions
+} from './features/images/fallback-actions.js'
+import {
   ACTIVE_VIDEOS_PER_CHANNEL,
   compareActiveVideos,
   comparePausedVideos,
@@ -7012,7 +7015,7 @@ function renderManualChannelSuggestions() {
         aria-selected="false">
         <span class="manual-channel-suggestion-avatar" aria-hidden="true">
           <span>${escHtml(getCuratedChannelInitials(channel))}</span>
-          <img src="${escHtml(channel.thumbnailUrl || getCuratedChannelAvatarPath(channel.id))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.hidden=true">
+          <img src="${escHtml(channel.thumbnailUrl || getCuratedChannelAvatarPath(channel.id))}" alt="" loading="lazy" referrerpolicy="no-referrer" data-image-fallback-action="hide">
         </span>
         <span class="manual-channel-suggestion-copy">
           <span class="manual-channel-suggestion-name">${escHtml(channel.name)}</span>
@@ -7172,7 +7175,7 @@ function renderYoutubeChannelSearchResults(query, results, options = {}) {
         <span class="manual-channel-suggestion-avatar" aria-hidden="true">
           <span>${escHtml(getCuratedChannelInitials(result))}</span>
           ${result.thumbnail
-            ? `<img src="${escHtml(result.thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.hidden=true">`
+            ? `<img src="${escHtml(result.thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer" data-image-fallback-action="hide">`
             : ''}
         </span>
         <span class="manual-channel-suggestion-copy">
@@ -11592,7 +11595,7 @@ function renderChannelShelfAvatar(group) {
     || (group?.catalogId ? getCuratedChannelAvatarPath(group.catalogId) : '')
     || (curatedChannel ? getCuratedChannelAvatarPath(curatedChannel.id) : '')
   const avatarImage = avatarUrl
-    ? `<img src="${escHtml(avatarUrl)}" alt="" loading="lazy" draggable="false" referrerpolicy="no-referrer" onerror="this.hidden=true">`
+    ? `<img src="${escHtml(avatarUrl)}" alt="" loading="lazy" draggable="false" referrerpolicy="no-referrer" data-image-fallback-action="hide">`
     : ''
   const channelId = String(group?.key || '').trim()
   const channelUrl = YOUTUBE_CHANNEL_ID_RE.test(channelId)
@@ -14232,6 +14235,7 @@ bindUndoRedoActions(document, {
 installLegacyActions(window, {
 })
 
+bindImageFallbackActions(document)
 document.addEventListener('DOMContentLoaded', init)
 window.addEventListener('scroll', syncHeaderCompactState, { passive: true })
 window.addEventListener('scroll', closeVideoShelfPreviewOnViewportChange, { passive: true })

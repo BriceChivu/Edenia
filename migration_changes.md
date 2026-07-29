@@ -4811,3 +4811,39 @@ release mappings, and follow-up findings are recorded as new entries.
   bridge aliases; no playback, watch state, storage, analytics, or visual
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-133 — Migrate generated image-error ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral capture-phase error-listener extraction
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Remove the final three inline event attributes without creating a
+  cached-image timing gap.
+- **Conceptual change:** Added one idempotent document-level capture listener
+  for opted-in image failures; replaced three `onerror` attributes with stable
+  fallback metadata; installed the listener before application initialization.
+  One compact test file covers capture, opt-in behavior, integration, complete
+  inline-handler removal, and boundary validation.
+- **Preservation contract:** Preserve the exact failure outcome (`hidden =
+  true`) for curated suggestions, YouTube search results, and channel-shelf
+  avatars; keep successful images, lazy loading, referrer policy, drag behavior,
+  fallbacks, markup order, layout, and localization unchanged. Capture-phase
+  ownership is installed before dynamic insertion so an immediately failing
+  cached request cannot outrun per-element rebinding.
+- **Risks:** A bubbling listener would miss non-bubbling image errors; binding
+  after rendering could expose a race; matching ordinary images would hide
+  unrelated assets.
+- **Verification:** The consolidated `npm test` rerun passed: the production
+  build completed and all 613 contract tests passed. The first run kept 612
+  contracts green and exposed only an overbroad new source assertion that also
+  matched JavaScript identifiers beginning with `on`; the assertion now
+  targets quoted HTML event attributes. Browser, local-server,
+  visual-regression, migration-ledger, diff-integrity, and static-review checks
+  were not run in accordance with the repository `AGENTS.md` instruction for
+  this task.
+- **Rollback:** Revert this commit to restore the three inline error handlers;
+  no image, state, storage, analytics, or visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
