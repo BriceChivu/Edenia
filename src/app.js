@@ -11461,6 +11461,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
                 ${isRemovedChannel ? '' : `<button type="button"
                   class="channel-shelf-remove"
                   data-channel-id="${escHtml(group.key)}"
+                  data-analytics-action="removeChannelFromFilter"
                   onclick="removeChannelFromFilter(event, this.dataset.channelId)"
                   title="${escHtml(t('settings.remove'))}"
                   aria-label="${escHtml(t('settings.remove'))}">
@@ -13438,10 +13439,11 @@ function renderChannelFilterOptions(s) {
   ])
   const allChannelsControl = entries.length
     ? `
-      <div class="channel-filter-select-all" onclick="handleChannelFilterSelectAllClick(event)">
+      <div class="channel-filter-select-all" data-analytics-action="handleChannelFilterSelectAllClick" onclick="handleChannelFilterSelectAllClick(event)">
         <input type="checkbox"
           id="channelFilterSelectAll"
           ${selectedCount === entries.length ? 'checked' : ''}
+          data-analytics-action="setAllChannelFilters"
           onchange="setAllChannelFilters(this.checked)"
           aria-label="${escHtml(t('videos.channels.all'))}">
         <span>${escHtml(t('videos.channels.all'))}</span>
@@ -13454,11 +13456,11 @@ function renderChannelFilterOptions(s) {
       const refreshTitle = formatChannelLastRefreshTitle(s, id)
       const canRemove = removableChannelIds.has(id)
       return `
-      <div class="channel-filter-option" data-channel-id="${escHtml(id)}" onclick="handleChannelFilterOptionClick(event, this.dataset.channelId)">
-        <input type="checkbox" data-channel-id="${escHtml(id)}" ${selected.has(id) ? 'checked' : ''} onchange="setChannelFilter(this.dataset.channelId, this.checked)">
+      <div class="channel-filter-option" data-channel-id="${escHtml(id)}" data-analytics-action="handleChannelFilterOptionClick" onclick="handleChannelFilterOptionClick(event, this.dataset.channelId)">
+        <input type="checkbox" data-channel-id="${escHtml(id)}" data-analytics-action="setChannelFilter" ${selected.has(id) ? 'checked' : ''} onchange="setChannelFilter(this.dataset.channelId, this.checked)">
         <span class="channel-filter-label">${escHtml(name)}</span>
         <span class="channel-filter-refresh" title="${escHtml(refreshTitle)}">${escHtml(refreshLabel)}</span>
-        ${canRemove ? `<button type="button" class="channel-filter-remove" data-channel-id="${escHtml(id)}" onclick="removeChannelFromFilter(event, this.dataset.channelId)" title="${escHtml(t('settings.remove'))}" aria-label="${escHtml(t('settings.remove'))}">×</button>` : ''}
+        ${canRemove ? `<button type="button" class="channel-filter-remove" data-channel-id="${escHtml(id)}" data-analytics-action="removeChannelFromFilter" onclick="removeChannelFromFilter(event, this.dataset.channelId)" title="${escHtml(t('settings.remove'))}" aria-label="${escHtml(t('settings.remove'))}">×</button>` : ''}
       </div>
     `
     }).join('')

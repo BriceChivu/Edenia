@@ -4373,3 +4373,45 @@ release mappings, and follow-up findings are recorded as new entries.
   their final bridge alias; no onboarding, channel, storage, analytics, or
   visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-122 — Lock channel-filter and shared removal analytics identities
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Make the generated channel-filter row, checkbox, Select all, and
+  shared filter/shelf removal identities explicit before migrating their nested
+  event ownership.
+- **Conceptual change:** Added handler-matching analytics metadata to the Select
+  all row and checkbox, each channel option row and checkbox, filter removal
+  buttons, and shelf-header removal buttons. All five handler families, inline
+  arguments, callbacks, replacement rendering, and global bridge aliases remain
+  unchanged.
+- **Preservation contract:** Preserve alphabetical filter entries, known/new/
+  removed channel reconciliation, selected and indeterminate state, labels and
+  refresh timestamps, 30-second/visibility regeneration, row-versus-input
+  double-toggle guards, Alt-click select-only cancellation, checkbox change
+  behavior, removal-button propagation suppression, shared channel removal and
+  Undo/activity/save/render behavior, shelf ordering/presentation, localization,
+  accessibility, and responsive filter/shelf layouts. Preserve inert metadata
+  on div/input controls and suppressed generic removal clicks.
+- **Risks:** Normalizing nested events could double-toggle filters; missing the
+  timestamp replacement path would leave controls inert later; removing the
+  shared removal alias after only one surface migrates would break the other;
+  changing propagation could invent generic events or trigger shelf/row clicks.
+- **Verification:** `npm test` passed: the production build completed and all
+  542 contract tests passed, including all five generated control families,
+  exact inline event/value arguments, explicit identities, input/row/remove
+  nesting guards, Alt-click cancellation, select-all indeterminate state,
+  timestamp-triggered replacement, both removal surfaces, suppressed generic
+  removal events, and all five retained bridge aliases. Browser, local-server,
+  visual-regression, migration-ledger, diff-integrity, and static-review checks
+  were not run in accordance with the repository `AGENTS.md` instruction for
+  this task.
+- **Rollback:** Revert this commit to restore handler-derived identities; no
+  filter selection, channel removal, storage, analytics implementation, or
+  visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
