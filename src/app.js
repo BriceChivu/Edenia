@@ -149,6 +149,9 @@ import {
   bindIntroFinishActions
 } from './features/onboarding/intro-finish-actions.js'
 import {
+  bindIntroNavigationActions
+} from './features/onboarding/intro-navigation-actions.js'
+import {
   bindIntroSoundActions
 } from './features/onboarding/intro-sound-actions.js'
 import {
@@ -14074,6 +14077,9 @@ bindManualVideoShellActions(document, {
 bindIntroFinishActions(document, {
   finish: finishIntroTrailer
 })
+bindIntroNavigationActions(document, {
+  navigate: navigateIntroTrailer
+})
 bindIntroSoundActions(document, {
   toggle: toggleIntroSound
 })
@@ -14113,7 +14119,6 @@ installLegacyActions(window, {
   leaveChannelShelfDrag,
   markVideo,
   moveChannelShelfDrag,
-  navigateIntroTrailer,
   openVideoShelfPreview,
   openVideoShelfPreviewFromFocus,
   queueVideoShelfPreviewClose,

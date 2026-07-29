@@ -3881,3 +3881,44 @@ release mappings, and follow-up findings are recorded as new entries.
   their single shared bridge alias; no state, storage, analytics, copy, or
   visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-110 — Migrate intro scene navigation ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral static event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace the Previous and Next inline handlers with direct
+  component listeners while preserving scene timing, disabled boundaries, and
+  keyboard/touch navigation.
+- **Conceptual change:** Added an intro navigation adapter that recognizes only
+  the exact `-1` and `1` component directions and invokes the existing
+  `navigateIntroTrailer` callback with the matching number. Previous and Next
+  now use direct target listeners with no event argument or cancellation.
+  Removed the matching global bridge alias while keeping the local function for
+  swipe and Arrow-key consumers.
+- **Preservation contract:** Preserve scene order, timer clearing/restart,
+  auto-advance, city animation, disabled states, titles, ARIA labels, copy,
+  touch thresholds, keyboard guards, and responsive controls. Preserve ordinary
+  bubbling and the exact boundary behavior where scene `1→0` disables Previous
+  and `3→4` disables Next before the document analytics listener, so those two
+  clicks still produce no generic event.
+- **Risks:** Document delegation would run after analytics and invent the two
+  boundary events; string arguments could change numeric navigation behavior;
+  accepting unsupported directions could expose unintended jumps; removing the
+  local function would break keyboard or swipe navigation.
+- **Verification:** `npm test` passed: the production build completed and all
+  429 contract tests passed, including strict direction recognition, exact
+  numeric forwarding, uncancelled target-owned clicks, idempotent replacement
+  binding, preserved keyboard/swipe lexical calls, composition and bridge
+  cleanup, exact markup/translation metadata, disabled-boundary analytics
+  ordering, and retention of the five remaining intro-shell aliases. Browser,
+  local-server, visual-regression, migration-ledger, diff-integrity, and
+  static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the two inline navigation handlers
+  and their single bridge alias; no scene, timer, state, analytics, or visual
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

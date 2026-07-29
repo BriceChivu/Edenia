@@ -220,7 +220,7 @@ test('Escape retains its lexical finish call after closing an open locale menu',
   )
 })
 
-test('finish ownership leaves the other six intro aliases and handlers intact', () => {
+test('finish ownership leaves the other five intro aliases and handlers intact', () => {
   assert.equal(LEGACY_ACTION_NAMES.includes('finishIntroTrailer'), false)
 
   const installMap = appSource.match(
@@ -239,7 +239,6 @@ test('finish ownership leaves the other six intro aliases and handlers intact', 
   const retainedAliases = [
     'changeIntroLocale',
     'changeOnboardingLocale',
-    'navigateIntroTrailer',
     'selectIntroCityLevel',
     'toggleIntroLocaleMenu',
     'toggleOnboardingLocaleMenu'
@@ -257,12 +256,6 @@ test('finish ownership leaves the other six intro aliases and handlers intact', 
     )
   }
 
-  assert.equal(
-    [...indexSource.matchAll(
-      /onclick="navigateIntroTrailer\((?:-1|1)\)"/g
-    )].length,
-    2
-  )
   assert.equal(
     [...indexSource.matchAll(
       /onclick="selectIntroCityLevel\((?:1|4|8|12)\)"/g
