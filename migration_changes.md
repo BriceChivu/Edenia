@@ -3539,3 +3539,50 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore handler-derived identities; no
   event, state, storage, analytics, or visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-102 — Migrate completion-prompt event ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace the generated completion prompt's Favorite, Yes, and Not
+  yet inline handlers with direct scoped listeners across every existing
+  card/global/player insertion path.
+- **Conceptual change:** Added a completion-prompt action adapter with explicit
+  `favorite`, `confirm`, and `dismiss` hooks. It forwards the exact click event
+  and live video ID, converts only exact `"true"` dataset values for rewatch and
+  player flags, and ignores callback return values like the prior inline
+  handlers. Each generated global, card, and embedded-player prompt binds
+  immediately after insertion. Removed the three inline handlers and matching
+  `favoriteVideoFromWatchPrompt`, `confirmVideoWatchPrompt`, and
+  `dismissVideoWatchPrompt` bridge aliases.
+- **Preservation contract:** Preserve handler-owned prevent-default and
+  propagation stop, so the three generic click events remain suppressed.
+  Preserve Favorite omission for rewatch, every prompt class/ID/ARIA/label,
+  strict card/global/player selection, shown-event and next-frame Yes focus,
+  Favorite mutation/Undo/save/analytics/UI synchronization, first-watch and
+  rewatch acceptance paths, player teardown/order, reminder dismissal and
+  no-backup save, document-title/timer behavior, focus-node removal, reduced
+  motion, and all responsive presentation. No prompt state, playback, scoring,
+  persistence, or analytics implementation moves out of `app.js`.
+- **Risks:** Missing an insertion-site bind would make one surface inert;
+  permissive boolean coercion could route a card prompt through player logic;
+  delegation or omitted event forwarding would invent generic telemetry and
+  alter outside-click behavior; moving focus/finalization around binding could
+  change prompt lifecycle.
+- **Verification:** The first `npm test` run identified one stale MIG-100
+  retained-neighbor assertion for `confirmVideoWatchPrompt`; that expectation
+  was removed because MIG-102 now owns the control. The final `npm test` passed:
+  the production build completed and all 377 contract tests passed, including
+  exact event/live-ID forwarding, strict boolean conversion, idempotent
+  replacement binding, prompt markup/ARIA/content, rewatch omission, all three
+  insertion-site bindings, continued generic-event suppression, and the three
+  bridge removals. Browser, local-server, visual-regression, migration-ledger,
+  diff-integrity, and static-review checks were not run in accordance with the
+  repository `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the three inline handlers and
+  bridge aliases; no state, storage, analytics, or data migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

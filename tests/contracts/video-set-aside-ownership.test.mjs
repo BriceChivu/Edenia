@@ -25,7 +25,6 @@ const retainedNeighborActionNames = [
   'addYoutubeInput',
   'changeIntroLocale',
   'closeVideoShelfPreviewAfterFocus',
-  'confirmVideoWatchPrompt',
   'handleChannelFilterSelectAllClick',
   'handleVideoThumbnailClick',
   'removeChannelFromFilter',

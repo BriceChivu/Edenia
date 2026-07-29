@@ -195,6 +195,9 @@ import {
   bindVideoSetAsideActions
 } from './features/videos/set-aside-actions.js'
 import {
+  bindVideoWatchPromptActions
+} from './features/videos/watch-prompt-actions.js'
+import {
   bindStatusFilterActions
 } from './features/videos/status-filter-actions.js'
 import { bindUndoRedoActions } from './features/videos/undo-redo-actions.js'
@@ -5638,25 +5641,28 @@ function getVideoWatchReminderMarkup(videoId, options = {}) {
         ${rewatch ? '' : `
         <button type="button"
           class="video-watch-reminder-favorite${favoriteActive}"
+          data-video-watch-prompt-action="favorite"
           data-video-id="${safeVideoId}"
           data-analytics-action="favoriteVideoFromWatchPrompt"
           aria-pressed="${String(isFavorite)}"
           aria-label="${escHtml(favoriteLabel)}"
-          title="${escHtml(favoriteLabel)}"
-          onclick="favoriteVideoFromWatchPrompt(event, this.dataset.videoId)">
+          title="${escHtml(favoriteLabel)}">
           ${renderVideoActionIcon('favorite')}
         </button>
         `}
         <button type="button"
           class="video-watch-reminder-mark"
+          data-video-watch-prompt-action="confirm"
           data-video-id="${safeVideoId}"
-          data-analytics-action="confirmVideoWatchPrompt"
-          onclick="confirmVideoWatchPrompt(event, this.dataset.videoId, ${String(rewatch)}, ${String(player)})">${escHtml(t('videoReminder.yes'))}</button>
+          data-rewatch="${String(rewatch)}"
+          data-player-prompt="${String(player)}"
+          data-analytics-action="confirmVideoWatchPrompt">${escHtml(t('videoReminder.yes'))}</button>
         <button type="button"
           class="video-watch-reminder-later"
+          data-video-watch-prompt-action="dismiss"
           data-video-id="${safeVideoId}"
-          data-analytics-action="dismissVideoWatchPrompt"
-          onclick="dismissVideoWatchPrompt(event, this.dataset.videoId, ${String(player)})">${escHtml(t('videoReminder.notYet'))}</button>
+          data-player-prompt="${String(player)}"
+          data-analytics-action="dismissVideoWatchPrompt">${escHtml(t('videoReminder.notYet'))}</button>
       </div>
     </div>
   `
@@ -5697,6 +5703,11 @@ function renderGlobalVideoWatchReminderPrompt(state, videoId, video, rewatch = f
     global: true,
     rewatch,
     video
+  })
+  bindVideoWatchPromptActions(globalReminder, {
+    favorite: favoriteVideoFromWatchPrompt,
+    confirm: confirmVideoWatchPrompt,
+    dismiss: dismissVideoWatchPrompt
   })
   globalReminder.classList.remove('hidden')
   return finalizeRenderedVideoWatchPrompt(
@@ -5767,6 +5778,11 @@ function renderActiveVideoWatchReminder(state = null) {
           rewatch: reminder.rewatch === true,
           video
         }))
+        bindVideoWatchPromptActions(zoomedCard, {
+          favorite: favoriteVideoFromWatchPrompt,
+          confirm: confirmVideoWatchPrompt,
+          dismiss: dismissVideoWatchPrompt
+        })
         finalizeRenderedVideoWatchPrompt(
           currentState,
           video,
@@ -12216,6 +12232,11 @@ function showVideoShelfCompletionPrompt(session = activeVideoShelfPlayer) {
   }))
   const prompt = session.frame.querySelector('.video-watch-reminder-popover.is-player')
   if (!prompt) return false
+  bindVideoWatchPromptActions(prompt, {
+    favorite: favoriteVideoFromWatchPrompt,
+    confirm: confirmVideoWatchPrompt,
+    dismiss: dismissVideoWatchPrompt
+  })
   session.completionPromptVisible = true
   session.completionPromptPending = false
   finalizeRenderedVideoWatchPrompt(state, video, prompt, session.isRewatch)
@@ -14055,12 +14076,9 @@ installLegacyActions(window, {
   changeOnboardingLocale,
   clearVideoPausedState,
   closeVideoShelfPreviewAfterFocus,
-  confirmVideoWatchPrompt,
   continuePersonalizedOnboardingFromLanguage,
   copyOnboardingRecoveryLink,
-  dismissVideoWatchPrompt,
   dropChannelShelf,
-  favoriteVideoFromWatchPrompt,
   finishChannelShelfDrag,
   finishIntroTrailer,
   finishPersonalizedOnboarding,

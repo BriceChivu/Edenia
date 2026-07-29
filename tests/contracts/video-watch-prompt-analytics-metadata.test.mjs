@@ -58,10 +58,12 @@ test('generated watch-prompt controls retain exact markup and analytics identiti
     {
       className: 'video-watch-reminder-favorite',
       exactClass: 'video-watch-reminder-favorite${favoriteActive}',
+      action: 'favorite',
       analyticsAction: 'favoriteVideoFromWatchPrompt',
       eventName: 'favorite_video_from_watch_prompt_clicked',
-      onclick: 'favoriteVideoFromWatchPrompt(event, this.dataset.videoId)',
       content: "${renderVideoActionIcon('favorite')}",
+      rewatch: null,
+      playerPrompt: null,
       ariaPressed: '${String(isFavorite)}',
       ariaLabel: '${escHtml(favoriteLabel)}',
       title: '${escHtml(favoriteLabel)}'
@@ -69,10 +71,12 @@ test('generated watch-prompt controls retain exact markup and analytics identiti
     {
       className: 'video-watch-reminder-mark',
       exactClass: 'video-watch-reminder-mark',
+      action: 'confirm',
       analyticsAction: 'confirmVideoWatchPrompt',
       eventName: 'confirm_video_watch_prompt_clicked',
-      onclick: 'confirmVideoWatchPrompt(event, this.dataset.videoId, ${String(rewatch)}, ${String(player)})',
       content: "${escHtml(t('videoReminder.yes'))}",
+      rewatch: '${String(rewatch)}',
+      playerPrompt: '${String(player)}',
       ariaPressed: null,
       ariaLabel: null,
       title: null
@@ -80,10 +84,12 @@ test('generated watch-prompt controls retain exact markup and analytics identiti
     {
       className: 'video-watch-reminder-later',
       exactClass: 'video-watch-reminder-later',
+      action: 'dismiss',
       analyticsAction: 'dismissVideoWatchPrompt',
       eventName: 'dismiss_video_watch_prompt_clicked',
-      onclick: 'dismissVideoWatchPrompt(event, this.dataset.videoId, ${String(player)})',
       content: "${escHtml(t('videoReminder.notYet'))}",
+      rewatch: null,
+      playerPrompt: '${String(player)}',
       ariaPressed: null,
       ariaLabel: null,
       title: null
@@ -96,8 +102,17 @@ test('generated watch-prompt controls retain exact markup and analytics identiti
 
     assert.equal(getAttribute(tag, 'type'), 'button')
     assert.equal(getAttribute(tag, 'class'), expected.exactClass)
+    assert.equal(
+      getAttribute(tag, 'data-video-watch-prompt-action'),
+      expected.action
+    )
     assert.equal(getAttribute(tag, 'data-video-id'), '${safeVideoId}')
-    assert.equal(getAttribute(tag, 'onclick'), expected.onclick)
+    assert.equal(getAttribute(tag, 'data-rewatch'), expected.rewatch)
+    assert.equal(
+      getAttribute(tag, 'data-player-prompt'),
+      expected.playerPrompt
+    )
+    assert.equal(getAttribute(tag, 'onclick'), null)
     assert.equal(
       getAttribute(tag, 'data-analytics-action'),
       expected.analyticsAction
