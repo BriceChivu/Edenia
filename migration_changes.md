@@ -3267,3 +3267,48 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore handler-derived generic identity;
   no event, state, storage, or visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-096 — Migrate Settings channel-removal ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace the dormant generated Settings channel-removal button's
+  inline handler with a scoped listener while leaving its state-changing
+  implementation and current reachability exactly as they are.
+- **Conceptual change:** Added a Settings channel-removal action adapter that
+  reads each live `data-channel-id` and calls the existing removal function with
+  no event argument. `renderChannelList` binds each newly generated control
+  immediately after a nonempty list replacement. Removed the inline handler
+  and the now-unused `removeChannel` global alias from both compatibility
+  bridge lists.
+- **Preservation contract:** The absent `#channelList` container remains absent,
+  so this UI stays dormant. Preserve the generated button's omitted `type` and
+  `aria-label`, localized title, visible multiplication sign, native
+  mouse/Enter/Space click, uncancelled bubbling, live identifier lookup,
+  document-bubble analytics order and names, and the existing stale connected
+  row/focus behavior after removal. Preserve channel snapshots, configuration,
+  refresh cleanup, removed-channel records, saved-video retention, hidden-video
+  rules, Undo/Redo, activity log, persistence, state-diff analytics, and
+  rendering without modification. `removeChannelFromFilter` remains bridged
+  for its separate live consumers.
+- **Risks:** Binding before generated replacement would leave the control inert;
+  delegating through a broader root could change dormant reachability or event
+  ordering; passing the click event would change the callback contract;
+  rerendering the channel list after removal would alter its current stale-row
+  and focus behavior; removing the similarly named feed action would break
+  channel shelves and filters.
+- **Verification:** `npm test` passed: the production build completed and all
+  331 contract tests passed, including live identifier reads, uncancelled
+  zero-event callbacks, idempotency, replacement binding, exact dormant markup
+  and analytics metadata, render-time wiring, and compatibility-alias removal.
+  Browser, local-server, visual-regression, migration-ledger, diff-integrity,
+  and static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the inline handler and
+  `removeChannel` compatibility alias; no state, storage, analytics, or data
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

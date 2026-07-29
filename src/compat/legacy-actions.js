@@ -30,7 +30,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'openVideoShelfPreview',
   'openVideoShelfPreviewFromFocus',
   'queueVideoShelfPreviewClose',
-  'removeChannel',
   'removeChannelFromFilter',
   'renderManualChannelSuggestions',
   'requestVideoSetAside',

@@ -200,6 +200,9 @@ import {
   bindSettingsBackupRestoreActions
 } from './features/settings/backup-restore-actions.js'
 import { bindSettingsAccordionActions } from './features/settings/accordion-actions.js'
+import {
+  bindSettingsChannelRemoveActions
+} from './features/settings/channel-remove-actions.js'
 import { bindSettingsLocaleActions } from './features/settings/locale-actions.js'
 import {
   bindSettingsPreferenceActions
@@ -4414,9 +4417,12 @@ function renderChannelList(channels) {
         <div class="channel-item-name">${escHtml(c.name)}</div>
         <div class="channel-item-id">${escHtml(c.id)}</div>
       </div>
-      <button class="channel-remove" data-channel-id="${escHtml(c.id)}" onclick="removeChannel(this.dataset.channelId)" data-analytics-action="removeChannel" title="${escHtml(t('settings.remove'))}">✕</button>
+      <button class="channel-remove" data-settings-channel-action="remove" data-channel-id="${escHtml(c.id)}" data-analytics-action="removeChannel" title="${escHtml(t('settings.remove'))}">✕</button>
     </div>
   `).join('')
+  bindSettingsChannelRemoveActions(el, {
+    remove: removeChannel
+  })
 }
 
 function showResetConfirm() {
@@ -14038,7 +14044,6 @@ installLegacyActions(window, {
   openVideoShelfPreview,
   openVideoShelfPreviewFromFocus,
   queueVideoShelfPreviewClose,
-  removeChannel,
   removeChannelFromFilter,
   renderManualChannelSuggestions,
   requestVideoSetAside,

@@ -28,7 +28,7 @@ function normalizeClickEventName(action) {
     .slice(0, 80)}_clicked`
 }
 
-test('Settings channel removal retains its analytics identity before migration', () => {
+test('Settings channel removal retains its analytics identity after migration', () => {
   const controls = getOpeningTags(appSource, 'button').filter(tag => (
     getAttribute(tag, 'class') === 'channel-remove'
   ))
@@ -36,9 +36,10 @@ test('Settings channel removal retains its analytics identity before migration',
 
   const [control] = controls
   assert.equal(getAttribute(control, 'data-channel-id'), '${escHtml(c.id)}')
+  assert.equal(getAttribute(control, 'onclick'), null)
   assert.equal(
-    getAttribute(control, 'onclick'),
-    'removeChannel(this.dataset.channelId)'
+    getAttribute(control, 'data-settings-channel-action'),
+    'remove'
   )
   assert.equal(
     getAttribute(control, 'data-analytics-action'),
