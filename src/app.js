@@ -187,6 +187,9 @@ import {
   bindChannelRemoveActions
 } from './features/channels/remove-actions.js'
 import {
+  bindChannelShelfScrollActions
+} from './features/channels/shelf-scroll-actions.js'
+import {
   CITY_IMAGE_SOURCES,
   CITY_LEVELS,
   getCityLevel,
@@ -11391,6 +11394,10 @@ function renderFeed(s) {
       s.config?.channels
     )
   }
+  bindChannelShelfScrollActions(grid, {
+    scroll: scrollVideoChannelShelf,
+    sync: syncVideoChannelShelfControls
+  })
   bindChannelRemoveActions(grid, {
     remove: removeChannelFromFilter
   })
@@ -11486,8 +11493,8 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
             <button type="button"
               class="channel-shelf-scroll channel-shelf-scroll-prev"
               data-shelf-direction="-1"
+              data-channel-shelf-scroll-action="scroll"
               data-analytics-action="scrollVideoChannelShelf"
-              onclick="scrollVideoChannelShelf(this, -1)"
               aria-controls="${trackId}"
               aria-label="${escHtml(t('videos.channel.previousLabel', { channel: group.title }))}">
               <span aria-hidden="true">‹</span>
@@ -11495,8 +11502,8 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
             <button type="button"
               class="channel-shelf-scroll channel-shelf-scroll-next"
               data-shelf-direction="1"
+              data-channel-shelf-scroll-action="scroll"
               data-analytics-action="scrollVideoChannelShelf"
-              onclick="scrollVideoChannelShelf(this, 1)"
               aria-controls="${trackId}"
               aria-label="${escHtml(t('videos.channel.nextLabel', { channel: group.title }))}">
               <span aria-hidden="true">›</span>
@@ -11506,9 +11513,9 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
         <div class="channel-shelf-track"
           id="${trackId}"
           tabindex="0"
+          data-channel-shelf-scroll-action="sync"
           data-analytics-action="syncVideoChannelShelfControls"
-          aria-label="${escHtml(t('videos.channel.shelfLabel', { channel: group.title }))}"
-          onscroll="syncVideoChannelShelfControls(this)">
+          aria-label="${escHtml(t('videos.channel.shelfLabel', { channel: group.title }))}">
           ${group.videos.map((video, videoIndex) => `
             <div class="channel-shelf-slot ${video.id === cardOptions.focusedVideoId ? 'channel-refresh-focus' : ''}" style="--channel-refresh-delay: ${Math.min(videoIndex, 8) * 45}ms">
               ${renderCard(video, false, {
@@ -14180,13 +14187,11 @@ installLegacyActions(window, {
   openVideoShelfPreview,
   openVideoShelfPreviewFromFocus,
   queueVideoShelfPreviewClose,
-  scrollVideoChannelShelf,
   searchYoutubeChannels,
   selectManualChannelSuggestion,
   selectYoutubeChannelSearchResult,
   startChannelShelfDrag,
   startTouchChannelShelfDrag,
-  syncVideoChannelShelfControls,
   toggleVideoFavorite,
   toggleVideoShelfPreviewOnTouch
 })

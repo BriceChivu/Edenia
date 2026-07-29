@@ -60,12 +60,6 @@ function getFunctionSource(name, nextName) {
   return appSource.slice(declaration.index, end)
 }
 
-function getInlineHandlerName(expression) {
-  return expression?.match(
-    /^\s*([a-zA-Z_$][\w$]*)\s*\(/
-  )?.[1] ?? null
-}
-
 function normalizeClickEventName(action) {
   return `${String(action || '')
     .trim()
@@ -118,7 +112,7 @@ test('generated shelf controls retain exact direction, ARIA, metadata, and order
         'channel-shelf-scroll channel-shelf-scroll-prev',
       content: '<span aria-hidden="true">‹</span>',
       direction: '-1',
-      handler: 'scrollVideoChannelShelf(this, -1)'
+      ownershipAction: 'scroll'
     },
     {
       analyticsAction: 'scrollVideoChannelShelf',
@@ -128,7 +122,7 @@ test('generated shelf controls retain exact direction, ARIA, metadata, and order
         'channel-shelf-scroll channel-shelf-scroll-next',
       content: '<span aria-hidden="true">›</span>',
       direction: '1',
-      handler: 'scrollVideoChannelShelf(this, 1)'
+      ownershipAction: 'scroll'
     }
   ]
 
@@ -145,7 +139,11 @@ test('generated shelf controls retain exact direction, ARIA, metadata, and order
       getAttribute(control.tag, 'data-analytics-action'),
       expected.analyticsAction
     )
-    assert.equal(getAttribute(control.tag, 'onclick'), expected.handler)
+    assert.equal(
+      getAttribute(control.tag, 'data-channel-shelf-scroll-action'),
+      expected.ownershipAction
+    )
+    assert.equal(getAttribute(control.tag, 'onclick'), null)
     assert.equal(
       getAttribute(control.tag, 'aria-controls'),
       '${trackId}'
@@ -155,7 +153,6 @@ test('generated shelf controls retain exact direction, ARIA, metadata, and order
       expected.ariaLabel
     )
     assert.equal(control.content.trim(), expected.content)
-    assert.equal(expected.handler.startsWith('return '), false)
   })
 
   assert.equal(getAttribute(shelfTrack, 'class'), 'channel-shelf-track')
@@ -166,12 +163,16 @@ test('generated shelf controls retain exact direction, ARIA, metadata, and order
     'syncVideoChannelShelfControls'
   )
   assert.equal(
+    getAttribute(shelfTrack, 'data-channel-shelf-scroll-action'),
+    'sync'
+  )
+  assert.equal(
     getAttribute(shelfTrack, 'aria-label'),
     "${escHtml(t('videos.channel.shelfLabel', { channel: group.title }))}"
   )
   assert.equal(
     getAttribute(shelfTrack, 'onscroll'),
-    'syncVideoChannelShelfControls(this)'
+    null
   )
 
   assertSourceOrder(
@@ -187,7 +188,7 @@ test('generated shelf controls retain exact direction, ARIA, metadata, and order
   )
 })
 
-test('explicit metadata preserves fallback identities and generic collection', () => {
+test('explicit metadata preserves pre-migration fallback identities and generic collection', () => {
   const expectedEvents = {
     scrollVideoChannelShelf: 'scroll_video_channel_shelf_clicked',
     syncVideoChannelShelfControls:
@@ -198,23 +199,17 @@ test('explicit metadata preserves fallback identities and generic collection', (
   }
 
   for (const control of scrollButtons) {
-    const handlerName = getInlineHandlerName(
-      getAttribute(control.tag, 'onclick')
-    )
-    assert.equal(handlerName, 'scrollVideoChannelShelf')
     assert.equal(
       getAttribute(control.tag, 'data-analytics-action'),
-      handlerName
+      'scrollVideoChannelShelf'
     )
+    assert.equal(getAttribute(control.tag, 'onclick'), null)
   }
-  const scrollHandlerName = getInlineHandlerName(
-    getAttribute(shelfTrack, 'onscroll')
-  )
-  assert.equal(scrollHandlerName, 'syncVideoChannelShelfControls')
   assert.equal(
     getAttribute(shelfTrack, 'data-analytics-action'),
-    scrollHandlerName
+    'syncVideoChannelShelfControls'
   )
+  assert.equal(getAttribute(shelfTrack, 'onscroll'), null)
 
   assert.match(
     analyticsSource,
@@ -305,13 +300,14 @@ test('active-grid replacement retains generated controls and deferred initial sy
   )
   assert.match(
     shelfRenderSource,
-    /data-shelf-direction="-1"[\s\S]*?data-shelf-direction="1"[\s\S]*?id="\$\{trackId\}"[\s\S]*?onscroll="syncVideoChannelShelfControls\(this\)"/
+    /data-shelf-direction="-1"[\s\S]*?data-channel-shelf-scroll-action="scroll"[\s\S]*?data-shelf-direction="1"[\s\S]*?data-channel-shelf-scroll-action="scroll"[\s\S]*?id="\$\{trackId\}"[\s\S]*?data-channel-shelf-scroll-action="sync"/
   )
 
   assertSourceOrder(
     feedSource,
     [
       'grid.innerHTML = renderChannelVideoGroups(',
+      'bindChannelShelfScrollActions(grid, {',
       'bindChannelRemoveActions(grid, {',
       'bindVideoSetAsideActions(grid, {',
       'requestAnimationFrame(() => {',
@@ -321,7 +317,7 @@ test('active-grid replacement retains generated controls and deferred initial sy
   )
 })
 
-test('scroll and sync handlers remain shared through the legacy bridge', () => {
+test('scroll and sync handlers leave inline and legacy ownership', () => {
   const installMap = appSource.match(
     /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
   )?.[1]
@@ -331,8 +327,8 @@ test('scroll and sync handlers remain shared through the legacy bridge', () => {
     'scrollVideoChannelShelf',
     'syncVideoChannelShelfControls'
   ]) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(actionName), true)
-    assert.match(
+    assert.equal(LEGACY_ACTION_NAMES.includes(actionName), false)
+    assert.doesNotMatch(
       installMap,
       new RegExp(`(?:^|[\\s,])${actionName}(?:[\\s,]|$)`)
     )
@@ -342,12 +338,12 @@ test('scroll and sync handlers remain shared through the legacy bridge', () => {
     [...shelfRenderSource.matchAll(
       /onclick="scrollVideoChannelShelf\(this, (?:-1|1)\)"/g
     )].length,
-    2
+    0
   )
   assert.equal(
     [...shelfRenderSource.matchAll(
       /onscroll="syncVideoChannelShelfControls\(this\)"/g
     )].length,
-    1
+    0
   )
 })

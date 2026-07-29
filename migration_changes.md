@@ -4540,3 +4540,42 @@ release mappings, and follow-up findings are recorded as new entries.
   scrolling, preview, reduced-motion, analytics implementation, or visual
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-126 — Migrate channel-shelf scrolling ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral generated event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace generated shelf button and track inline handlers while
+  preserving live shelf lookup, scroll behavior, preview synchronization, and
+  initial control state.
+- **Conceptual change:** Added a shelf-scroll action adapter with exact `scroll`
+  and `sync` hooks. Buttons forward themselves plus strict numeric `-1`/`1`
+  direction; track scroll listeners forward the live track only. The active
+  grid binds immediately after replacement and before later feature binders.
+  Removed both global bridge aliases while retaining the local initial
+  animation-frame synchronization callback.
+- **Preservation contract:** Preserve every calculation and clamp, four-card
+  movement, reduced-motion behavior, uncancelled generic button events,
+  focusable tracks, localized ARIA, scroll-driven boundary disabling, pinned
+  preview reposition, ordinary preview close, initial frame timing, grid/empty
+  replacement, channel removal and Set aside binding order, and responsive
+  shelf presentation.
+- **Risks:** Coercing unsupported directions could change movement; stale button
+  or track references could affect the wrong shelf; event delegation could
+  reorder preview synchronization; removing the local sync function would break
+  initial button state.
+- **Verification:** `npm test` passed all 590 contract tests and the production
+  build. The first run exposed one stale sequential ownership assertion that
+  expected channel-removal binding immediately after grid replacement; the
+  contract now records the preserved shelf-scroll, channel-removal, then Set
+  aside binding order. Browser, local-server, visual-regression,
+  migration-ledger, diff-integrity, and static-review checks were not run in
+  accordance with the repository `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore both button inline handlers, track
+  scroll attributes, and bridge aliases; no scroll position, preview, analytics,
+  or visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

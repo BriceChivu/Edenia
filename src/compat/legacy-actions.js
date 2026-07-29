@@ -11,13 +11,11 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'openVideoShelfPreview',
   'openVideoShelfPreviewFromFocus',
   'queueVideoShelfPreviewClose',
-  'scrollVideoChannelShelf',
   'searchYoutubeChannels',
   'selectManualChannelSuggestion',
   'selectYoutubeChannelSearchResult',
   'startChannelShelfDrag',
   'startTouchChannelShelfDrag',
-  'syncVideoChannelShelfControls',
   'toggleVideoFavorite',
   'toggleVideoShelfPreviewOnTouch'
 ])

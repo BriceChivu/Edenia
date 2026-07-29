@@ -351,7 +351,7 @@ test('filter replacement binds channel removal before filter controls', () => {
   )
 })
 
-test('active grid replacement binds channel removal before later features', () => {
+test('active grid binds channel removal after scrolling and before later features', () => {
   const feedSource = getFunctionSource('renderFeed', 'toggleWatchedSection')
   const groupReplacementIndex = feedSource.indexOf(
     'grid.innerHTML = renderChannelVideoGroups('
@@ -359,15 +359,19 @@ test('active grid replacement binds channel removal before later features', () =
   const removeBindingIndex = feedSource.indexOf(
     'bindChannelRemoveActions(grid, {'
   )
+  const scrollBindingIndex = feedSource.indexOf(
+    'bindChannelShelfScrollActions(grid, {'
+  )
   const setAsideBindingIndex = feedSource.indexOf(
     'bindVideoSetAsideActions(grid, {'
   )
   assert.notEqual(groupReplacementIndex, -1)
-  assert.ok(removeBindingIndex > groupReplacementIndex)
+  assert.ok(scrollBindingIndex > groupReplacementIndex)
+  assert.ok(removeBindingIndex > scrollBindingIndex)
   assert.ok(setAsideBindingIndex > removeBindingIndex)
   assert.match(
-    feedSource.slice(groupReplacementIndex, removeBindingIndex),
-    /grid\.innerHTML = renderChannelVideoGroups\([\s\S]*?\)\s*\}\s*$/
+    feedSource.slice(scrollBindingIndex, removeBindingIndex),
+    /bindChannelShelfScrollActions\(grid,\s*\{\s*scroll:\s*scrollVideoChannelShelf,\s*sync:\s*syncVideoChannelShelfControls\s*\}\)\s*$/
   )
   assert.match(
     feedSource.slice(removeBindingIndex, setAsideBindingIndex),
