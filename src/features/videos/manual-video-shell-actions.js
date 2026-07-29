@@ -12,9 +12,12 @@ export function bindManualVideoShellActions(root, actions) {
     || typeof actions.renderSuggestions !== 'function'
     || typeof actions.handleInputKey !== 'function'
     || typeof actions.submit !== 'function'
+    || typeof actions.searchYoutube !== 'function'
+    || typeof actions.selectCurated !== 'function'
+    || typeof actions.selectYoutube !== 'function'
   ) {
     throw new TypeError(
-      'Manual video shell actions require toggle, close, renderSuggestions, handleInputKey, and submit callbacks'
+      'Manual video shell actions require toggle, close, renderSuggestions, handleInputKey, submit, searchYoutube, selectCurated, and selectYoutube callbacks'
     )
   }
 
@@ -41,6 +44,18 @@ export function bindManualVideoShellActions(root, actions) {
     } else if (actionName === 'submit') {
       control.addEventListener('submit', event => {
         actions.submit(event)
+      })
+    } else if (actionName === 'search-youtube') {
+      control.addEventListener('click', event => {
+        actions.searchYoutube(event)
+      })
+    } else if (actionName === 'select-curated') {
+      control.addEventListener('click', event => {
+        actions.selectCurated(event, control.dataset.catalogId)
+      })
+    } else if (actionName === 'select-youtube') {
+      control.addEventListener('click', event => {
+        actions.selectYoutube(event, control.dataset.channelId)
       })
     } else {
       return

@@ -20,9 +20,7 @@ const migratedActionNames = [
   'closeManualVideoPopover',
   'renderManualChannelSuggestions',
   'handleManualChannelSuggestionKeydown',
-  'addYoutubeInput'
-]
-const retainedInlineActionNames = [
+  'addYoutubeInput',
   'searchYoutubeChannels',
   'selectManualChannelSuggestion',
   'selectYoutubeChannelSearchResult'
@@ -56,7 +54,7 @@ function findSingle(items, predicate, description) {
 
 function getManualVideoBinding(source) {
   const match = source.match(
-    /bindManualVideoShellActions\(document,\s*\{([\s\S]*?)\}\)/
+    /function bindManualVideoActions\(root = document\) \{\s*return bindManualVideoShellActions\(root,\s*\{([\s\S]*?)\}\)\s*\}/
   )
   assert.ok(match, 'Expected the manual-video shell binding')
   return Object.fromEntries(
@@ -173,7 +171,7 @@ test('manual-video query retains exact semantics with module ownership', () => {
   assert.equal(getAttribute(input, 'data-analytics-action'), null)
 })
 
-test('manual-video form is module-owned while generated result handlers remain legacy-owned', () => {
+test('manual-video form and generated result controls are module-owned', () => {
   const form = findSingle(
     getOpeningTags(indexSource, 'form'),
     tag => getAttribute(tag, 'class') === 'manual-video-form',
@@ -183,31 +181,34 @@ test('manual-video form is module-owned while generated result handlers remain l
   assert.equal(getAttribute(form, 'data-analytics-action'), 'addYoutubeInput')
   assert.equal(getAttribute(form, 'onsubmit'), null)
 
-  const expectedInlineHandlers = [
-    'onclick="searchYoutubeChannels(event)"',
-    'onclick="selectManualChannelSuggestion(event, this.dataset.catalogId)"',
-    'onclick="selectYoutubeChannelSearchResult(event, this.dataset.channelId)"'
+  const expectedControls = [
+    {
+      action: 'search-youtube',
+      analyticsAction: 'searchYoutubeChannels'
+    },
+    {
+      action: 'select-curated',
+      analyticsAction: 'selectManualChannelSuggestion'
+    },
+    {
+      action: 'select-youtube',
+      analyticsAction: 'selectYoutubeChannelSearchResult'
+    }
   ]
-  expectedInlineHandlers.forEach(handler => {
-    assert.match(appSource, new RegExp(handler.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
-  })
-
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap, 'Expected the legacy action install map')
-
-  retainedInlineActionNames.forEach(actionName => {
+  expectedControls.forEach(expected => {
+    const control = findSingle(
+      getElements(appSource, 'button'),
+      element => (
+        getAttribute(element.tag, 'data-manual-video-action')
+          === expected.action
+      ),
+      `${expected.action} control`
+    )
     assert.equal(
-      LEGACY_ACTION_NAMES.includes(actionName),
-      true,
-      `${actionName} must remain in the legacy manifest`
+      getAttribute(control.tag, 'data-analytics-action'),
+      expected.analyticsAction
     )
-    assert.match(
-      installMap,
-      new RegExp(`\\b${actionName}\\s*,`),
-      `${actionName} must remain in the legacy install map`
-    )
+    assert.equal(getAttribute(control.tag, 'onclick'), null)
   })
 })
 
@@ -221,17 +222,24 @@ test('app composition imports and binds manual-video shell actions before the br
     close: 'closeManualVideoPopover',
     renderSuggestions: 'renderManualChannelSuggestions',
     handleInputKey: 'handleManualChannelSuggestionKeydown',
-    submit: 'addYoutubeInput'
+    submit: 'addYoutubeInput',
+    searchYoutube: 'searchYoutubeChannels',
+    selectCurated: 'selectManualChannelSuggestion',
+    selectYoutube: 'selectYoutubeChannelSearchResult'
   })
 
   const bindingIndex = appSource.indexOf(
-    'bindManualVideoShellActions(document,'
+    'bindManualVideoActions(document)'
   )
   const bridgeIndex = appSource.indexOf('installLegacyActions(window,')
   assert.notEqual(bindingIndex, -1)
   assert.ok(
     bridgeIndex > bindingIndex,
     'Manual-video shell actions must bind before legacy actions install'
+  )
+  assert.equal(
+    [...appSource.matchAll(/bindManualVideoActions\(list\)/g)].length,
+    3
   )
 })
 

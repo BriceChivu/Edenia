@@ -4657,3 +4657,39 @@ release mappings, and follow-up findings are recorded as new entries.
   bridge alias; no state, storage, analytics, API, or visual migration is
   required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-129 — Migrate generated manual-search ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral generated event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Remove the final three manual channel-entry inline handlers as one
+  cohesive dynamic-content batch.
+- **Conceptual change:** Extended the existing manual-video adapter with direct
+  YouTube-search, curated-result, and YouTube-result click actions; added stable
+  ownership metadata to generated controls; rebound the adapter immediately
+  after each action-producing suggestion-list replacement; removed the three
+  inline attributes and global bridge aliases. Existing contracts were updated
+  rather than adding another test file.
+- **Preservation contract:** Preserve the original live click event and button
+  `currentTarget`, synchronous default prevention and propagation stopping,
+  ignored async returns, live dataset IDs, keyboard selection’s existing
+  lexical callbacks, search/result analytics ordering and properties,
+  duplicate guards, function-owned result/cooldown state, query-staleness
+  guard, list ordering, focus, ARIA, localization, caching, quota, and API
+  behavior. Empty, loading, and error replacements remain action-free.
+- **Risks:** Delegation would change `currentTarget`; late rebinding could leave
+  generated buttons inert; wrapping the search callback could lose its function
+  properties; changing keyboard routing could alter existing analytics data.
+- **Verification:** The single consolidated `npm test` run passed: the
+  production build completed and all 600 existing contract tests passed.
+  Browser, local-server, visual-regression, migration-ledger, diff-integrity,
+  and static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the three inline handlers and
+  bridge aliases; no catalog, search, state, storage, analytics, API, or visual
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

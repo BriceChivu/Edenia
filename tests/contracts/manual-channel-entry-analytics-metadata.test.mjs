@@ -69,12 +69,6 @@ function getFunctionSource(name, nextName) {
   return appSource.slice(declaration.index, end)
 }
 
-function getInlineHandlerName(expression) {
-  return expression?.match(
-    /^\s*([a-zA-Z_$][\w$]*)\s*\(/
-  )?.[1] ?? null
-}
-
 function normalizeClickEventName(action) {
   return `${String(action || '')
     .trim()
@@ -216,9 +210,10 @@ test('generated manual-entry controls retain exact metadata and inline arguments
     'searchYoutubeChannels'
   )
   assert.equal(
-    getAttribute(searchControl.tag, 'onclick'),
-    'searchYoutubeChannels(event)'
+    getAttribute(searchControl.tag, 'data-manual-video-action'),
+    'search-youtube'
   )
+  assert.equal(getAttribute(searchControl.tag, 'onclick'), null)
   assert.ok(
     searchControl.content.includes(
       "${escHtml(t('videos.manual.searchYoutubeFor', { query }))}"
@@ -255,12 +250,13 @@ test('generated manual-entry controls retain exact metadata and inline arguments
     getAttribute(localControl.tag, 'data-analytics-action'),
     'selectManualChannelSuggestion'
   )
+  assert.equal(
+    getAttribute(localControl.tag, 'data-manual-video-action'),
+    'select-curated'
+  )
   assert.equal(getAttribute(localControl.tag, 'role'), 'option')
   assert.equal(getAttribute(localControl.tag, 'aria-selected'), 'false')
-  assert.equal(
-    getAttribute(localControl.tag, 'onclick'),
-    'selectManualChannelSuggestion(event, this.dataset.catalogId)'
-  )
+  assert.equal(getAttribute(localControl.tag, 'onclick'), null)
   assertSourceOrder(
     localControl.content,
     [
@@ -303,12 +299,13 @@ test('generated manual-entry controls retain exact metadata and inline arguments
     getAttribute(youtubeControl.tag, 'data-analytics-action'),
     'selectYoutubeChannelSearchResult'
   )
+  assert.equal(
+    getAttribute(youtubeControl.tag, 'data-manual-video-action'),
+    'select-youtube'
+  )
   assert.equal(getAttribute(youtubeControl.tag, 'role'), 'option')
   assert.equal(getAttribute(youtubeControl.tag, 'aria-selected'), 'false')
-  assert.equal(
-    getAttribute(youtubeControl.tag, 'onclick'),
-    'selectYoutubeChannelSearchResult(event, this.dataset.channelId)'
-  )
+  assert.equal(getAttribute(youtubeControl.tag, 'onclick'), null)
   assertSourceOrder(
     youtubeControl.content,
     [
@@ -338,27 +335,44 @@ test('explicit actions preserve fallback identities without changing collection'
   }
 
   const generatedControls = [
-    findSingle(
-      getElements(manualSearchActionSource, 'button'),
-      element => hasClass(element.tag, 'manual-youtube-search-btn'),
-      'YouTube channel search control'
-    ),
-    findSingle(
-      getElements(localSuggestionsSource, 'button'),
-      element => hasClass(element.tag, 'manual-channel-suggestion'),
-      'curated channel suggestion control'
-    ),
-    findSingle(
-      getElements(youtubeResultsSource, 'button'),
-      element => hasClass(element.tag, 'manual-channel-suggestion'),
-      'YouTube channel result control'
-    )
+    {
+      control: findSingle(
+        getElements(manualSearchActionSource, 'button'),
+        element => hasClass(element.tag, 'manual-youtube-search-btn'),
+        'YouTube channel search control'
+      ),
+      action: 'search-youtube',
+      analyticsAction: 'searchYoutubeChannels'
+    },
+    {
+      control: findSingle(
+        getElements(localSuggestionsSource, 'button'),
+        element => hasClass(element.tag, 'manual-channel-suggestion'),
+        'curated channel suggestion control'
+      ),
+      action: 'select-curated',
+      analyticsAction: 'selectManualChannelSuggestion'
+    },
+    {
+      control: findSingle(
+        getElements(youtubeResultsSource, 'button'),
+        element => hasClass(element.tag, 'manual-channel-suggestion'),
+        'YouTube channel result control'
+      ),
+      action: 'select-youtube',
+      analyticsAction: 'selectYoutubeChannelSearchResult'
+    }
   ]
-  for (const control of generatedControls) {
+  for (const expected of generatedControls) {
     assert.equal(
-      getAttribute(control.tag, 'data-analytics-action'),
-      getInlineHandlerName(getAttribute(control.tag, 'onclick'))
+      getAttribute(expected.control.tag, 'data-manual-video-action'),
+      expected.action
     )
+    assert.equal(
+      getAttribute(expected.control.tag, 'data-analytics-action'),
+      expected.analyticsAction
+    )
+    assert.equal(getAttribute(expected.control.tag, 'onclick'), null)
   }
 
   const form = findSingle(
@@ -560,7 +574,7 @@ test('generated replacement paths retain all three metadata-bearing controls', (
   )
   assert.match(
     localSuggestionsSource,
-    /const localSuggestions = matches\.map\(channel => \{[\s\S]*?data-analytics-action="selectManualChannelSuggestion"[\s\S]*?\}\)\.join\(''\)/
+    /const localSuggestions = matches\.map\(channel => \{[\s\S]*?data-manual-video-action="select-curated"[\s\S]*?data-analytics-action="selectManualChannelSuggestion"[\s\S]*?\}\)\.join\(''\)/
   )
   assert.match(
     localSuggestionsSource,
@@ -568,7 +582,7 @@ test('generated replacement paths retain all three metadata-bearing controls', (
   )
   assert.match(
     youtubeResultsSource,
-    /const resultRows = results\.map\(result => \{[\s\S]*?data-analytics-action="selectYoutubeChannelSearchResult"[\s\S]*?\}\)\.join\(''\)/
+    /const resultRows = results\.map\(result => \{[\s\S]*?data-manual-video-action="select-youtube"[\s\S]*?data-analytics-action="selectYoutubeChannelSearchResult"[\s\S]*?\}\)\.join\(''\)/
   )
   assert.match(
     youtubeResultsSource,
@@ -613,7 +627,7 @@ test('YouTube search retains shared result and cooldown function state', () => {
   )
 })
 
-test('only generated manual-entry handlers remain available through the bridge', () => {
+test('manual-entry handlers no longer require the legacy bridge', () => {
   const expectedActions = [
     'searchYoutubeChannels',
     'selectManualChannelSuggestion',
@@ -624,12 +638,9 @@ test('only generated manual-entry handlers remain available through the bridge',
   )?.[1]
   assert.ok(installMap)
 
-  assert.equal(LEGACY_ACTION_NAMES.includes('addYoutubeInput'), false)
-  assert.doesNotMatch(installMap, /\baddYoutubeInput\s*,/)
-
-  for (const actionName of expectedActions) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(actionName), true)
-    assert.match(
+  for (const actionName of ['addYoutubeInput', ...expectedActions]) {
+    assert.equal(LEGACY_ACTION_NAMES.includes(actionName), false)
+    assert.doesNotMatch(
       installMap,
       new RegExp(`(?:^|[\\s,])${actionName}(?:[\\s,]|$)`)
     )

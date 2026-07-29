@@ -6904,10 +6904,23 @@ function getCuratedChannelInitials(channel) {
     .toLocaleUpperCase() || 'YT'
 }
 
+function bindManualVideoActions(root = document) {
+  return bindManualVideoShellActions(root, {
+    toggle: toggleManualVideoPopover,
+    close: closeManualVideoPopover,
+    renderSuggestions: renderManualChannelSuggestions,
+    handleInputKey: handleManualChannelSuggestionKeydown,
+    submit: addYoutubeInput,
+    searchYoutube: searchYoutubeChannels,
+    selectCurated: selectManualChannelSuggestion,
+    selectYoutube: selectYoutubeChannelSearchResult
+  })
+}
+
 function renderManualYoutubeSearchAction(query) {
   return `
     <div class="manual-youtube-search-action">
-      <button type="button" class="manual-youtube-search-btn" data-analytics-action="searchYoutubeChannels" onclick="searchYoutubeChannels(event)">
+      <button type="button" class="manual-youtube-search-btn" data-manual-video-action="search-youtube" data-analytics-action="searchYoutubeChannels">
         ${escHtml(t('videos.manual.searchYoutubeFor', { query }))}
       </button>
     </div>
@@ -6957,6 +6970,7 @@ function renderManualChannelSuggestions() {
       <p class="manual-channel-suggestion-empty">${escHtml(t('videos.manual.noMatches'))}</p>
       ${renderManualYoutubeSearchAction(value)}
     `
+    bindManualVideoActions(list)
     if (searchAnalyticsState.lastChannelCatalogOutcomeKey !== outcomeKey) {
       trackEdeniaEvent('search_no_results', {
         search_source: 'channel_catalog',
@@ -6983,10 +6997,10 @@ function renderManualChannelSuggestions() {
         id="manualChannelSuggestion-${escHtml(channel.id)}"
         data-catalog-id="${escHtml(channel.id)}"
         data-added="${alreadyAdded ? 'true' : 'false'}"
+        data-manual-video-action="select-curated"
         data-analytics-action="selectManualChannelSuggestion"
         role="option"
-        aria-selected="false"
-        onclick="selectManualChannelSuggestion(event, this.dataset.catalogId)">
+        aria-selected="false">
         <span class="manual-channel-suggestion-avatar" aria-hidden="true">
           <span>${escHtml(getCuratedChannelInitials(channel))}</span>
           <img src="${escHtml(channel.thumbnailUrl || getCuratedChannelAvatarPath(channel.id))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.hidden=true">
@@ -6999,6 +7013,7 @@ function renderManualChannelSuggestions() {
     `
   }).join('')
   list.innerHTML = `${localSuggestions}${renderManualYoutubeSearchAction(value)}`
+  bindManualVideoActions(list)
   if (searchAnalyticsState.lastChannelCatalogOutcomeKey !== outcomeKey) {
     trackEdeniaEvent('search_results_shown', {
       search_source: 'channel_catalog',
@@ -7141,10 +7156,10 @@ function renderYoutubeChannelSearchResults(query, results, options = {}) {
         data-channel-id="${escHtml(result.id)}"
         data-added="${alreadyAdded ? 'true' : 'false'}"
         data-suggestion-source="youtube"
+        data-manual-video-action="select-youtube"
         data-analytics-action="selectYoutubeChannelSearchResult"
         role="option"
-        aria-selected="false"
-        onclick="selectYoutubeChannelSearchResult(event, this.dataset.channelId)">
+        aria-selected="false">
         <span class="manual-channel-suggestion-avatar" aria-hidden="true">
           <span>${escHtml(getCuratedChannelInitials(result))}</span>
           ${result.thumbnail
@@ -7163,6 +7178,7 @@ function renderYoutubeChannelSearchResults(query, results, options = {}) {
     <div class="manual-youtube-results-label">${escHtml(t('videos.manual.youtubeResults'))}</div>
     ${resultRows}
   `
+  bindManualVideoActions(list)
   trackEdeniaEvent('search_results_shown', {
     search_source: 'youtube_channels',
     search_query: query,
@@ -14135,13 +14151,7 @@ bindVideoSearchShellActions(document, {
   renderResults: renderVideoSearchResults,
   handleInputKey: handleVideoSearchInputKey
 })
-bindManualVideoShellActions(document, {
-  toggle: toggleManualVideoPopover,
-  close: closeManualVideoPopover,
-  renderSuggestions: renderManualChannelSuggestions,
-  handleInputKey: handleManualChannelSuggestionKeydown,
-  submit: addYoutubeInput
-})
+bindManualVideoActions(document)
 bindIntroCityLevelActions(document, {
   selectLevel: selectIntroCityLevel
 })
@@ -14189,9 +14199,6 @@ installLegacyActions(window, {
   openVideoShelfPreview,
   openVideoShelfPreviewFromFocus,
   queueVideoShelfPreviewClose,
-  searchYoutubeChannels,
-  selectManualChannelSuggestion,
-  selectYoutubeChannelSearchResult,
   startChannelShelfDrag,
   startTouchChannelShelfDrag,
   toggleVideoFavorite,
