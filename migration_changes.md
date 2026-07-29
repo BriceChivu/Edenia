@@ -272,6 +272,55 @@ release mappings, and follow-up findings are recorded as new entries.
 
 ---
 
+## MIG-104 — Migrate Next Study open and focus event ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace the generated Next Study open and focus inline handlers
+  with direct, component-scoped listeners while keeping their existing
+  callbacks and exact event behavior.
+- **Conceptual change:** Added a Next Study action adapter with separate `open`
+  and `focus` hooks. Every Continue, Watch, Watch again, phone-overlay open, and
+  desktop/tablet focus control now carries an explicit module hook and binds
+  immediately after the populated recommendation markup is inserted. The
+  adapter forwards the exact click event and live video ID, ignores callback
+  return values like a native event listener, and supports replacement renders.
+  Removed only `openNextStudyVideoPlayer` and `focusNextStudyVideoCard` from the
+  temporary global action bridge; both implementation functions remain local
+  composition callbacks.
+- **Preservation contract:** Preserve all recommendation selection precedence,
+  variants, labels, classes, ARIA, thumbnails, state, and responsive visibility.
+  Open still cancels before validation, returns false internally, launches the
+  existing embedded-player path, retains `channel_shelf` analytics properties,
+  and suppresses its generic click event. Focus still performs its `≤640px`
+  early return without cancellation, and above that width keeps forced-feed
+  rendering, scroll/highlight, reduced-motion timing, and preview behavior.
+  Preserve the latent phone focus identity, the existing Set aside adapter and
+  surface, and the still-inline Remove favorite handler and shared Favorite
+  bridge for neighboring video cards.
+- **Risks:** Missing a post-render bind would leave newly generated controls
+  inert; delegation or failure to forward the native event could alter
+  propagation and analytics; interpreting callback return values could change
+  navigation semantics; removing the shared Favorite bridge would break
+  unrelated card and shelf consumers.
+- **Verification:** `npm test` passed: the production build completed and all
+  390 contract tests passed, including exact event/live-ID forwarding,
+  callback-return neutrality, idempotent replacement binding, all five
+  generated ownership hooks, post-render composition order, continued open
+  suppression and width-gated focus behavior, the two bridge removals, and the
+  retained Set aside and Remove favorite ownership boundaries. Browser,
+  local-server, visual-regression, migration-ledger, diff-integrity, and
+  static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the five inline handlers and the
+  two matching bridge aliases; no state, storage, analytics, or data migration
+  is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
 ## MIG-008 — Extract pure escaping helpers
 
 - **Date:** 2026-07-28

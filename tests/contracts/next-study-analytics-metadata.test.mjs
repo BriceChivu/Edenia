@@ -63,6 +63,7 @@ test('Next Study variants retain every generated control and exact branch markup
     {
       className: 'next-study-set-aside',
       analyticsAction: 'requestVideoSetAside',
+      nextStudyAction: null,
       inlineHandler: null,
       content: "${escHtml(t('videos.card.setAside'))}",
       ariaLabel: null
@@ -70,13 +71,15 @@ test('Next Study variants retain every generated control and exact branch markup
     {
       className: 'next-study-continue',
       analyticsAction: 'openNextStudyVideoPlayer',
-      inlineHandler: 'return openNextStudyVideoPlayer(event, this.dataset.videoId)',
+      nextStudyAction: 'open',
+      inlineHandler: null,
       content: '${escHtml(cta)}',
       ariaLabel: '${escHtml(cta)}: ${escHtml(nextVideo.title)}'
     },
     {
       className: 'next-study-reset',
       analyticsAction: 'toggleVideoFavorite',
+      nextStudyAction: null,
       inlineHandler: "toggleVideoFavorite(this.dataset.videoId, { surface: 'next_study' })",
       content: "${escHtml(t('nextStudy.removeFavorite'))}",
       ariaLabel: null
@@ -84,28 +87,32 @@ test('Next Study variants retain every generated control and exact branch markup
     {
       className: 'next-study-watch',
       analyticsAction: 'openNextStudyVideoPlayer',
-      inlineHandler: 'return openNextStudyVideoPlayer(event, this.dataset.videoId)',
+      nextStudyAction: 'open',
+      inlineHandler: null,
       content: "${escHtml(t('nextStudy.watchAgain'))}",
       ariaLabel: null
     },
     {
       className: 'next-study-watch',
       analyticsAction: 'openNextStudyVideoPlayer',
-      inlineHandler: 'return openNextStudyVideoPlayer(event, this.dataset.videoId)',
+      nextStudyAction: 'open',
+      inlineHandler: null,
       content: "${escHtml(t('nextStudy.watch'))}",
       ariaLabel: null
     },
     {
       className: 'next-study-panel-focus',
       analyticsAction: 'focusNextStudyVideoCard',
-      inlineHandler: 'focusNextStudyVideoCard(event, this.dataset.videoId)',
+      nextStudyAction: 'focus',
+      inlineHandler: null,
       content: '',
       ariaLabel: '${escHtml(panelLabel)}'
     },
     {
       className: 'next-study-mobile-link',
       analyticsAction: 'openNextStudyVideoPlayer',
-      inlineHandler: 'return openNextStudyVideoPlayer(event, this.dataset.videoId)',
+      nextStudyAction: 'open',
+      inlineHandler: null,
       content: '',
       ariaLabel: '${escHtml(cta)}: ${escHtml(nextVideo.title)}'
     }
@@ -124,6 +131,10 @@ test('Next Study variants retain every generated control and exact branch markup
     assert.equal(getAttribute(tag, 'type'), 'button')
     assert.equal(getAttribute(tag, 'data-video-id'), '${safeVideoId}')
     assert.equal(getAttribute(tag, 'onclick'), expected.inlineHandler)
+    assert.equal(
+      getAttribute(tag, 'data-next-study-action'),
+      expected.nextStudyAction
+    )
     assert.equal(
       getAttribute(tag, 'data-analytics-action'),
       expected.analyticsAction
@@ -165,10 +176,8 @@ test('Next Study open controls retain explicit identity but suppress generic cli
 
   for (const element of openControls) {
     const tag = getOpeningTag(element)
-    assert.equal(
-      getAttribute(tag, 'onclick'),
-      'return openNextStudyVideoPlayer(event, this.dataset.videoId)'
-    )
+    assert.equal(getAttribute(tag, 'data-next-study-action'), 'open')
+    assert.equal(getAttribute(tag, 'onclick'), null)
     assert.equal(
       normalizeClickEventName(getAttribute(tag, 'data-analytics-action')),
       'open_next_study_video_player_clicked'
@@ -207,10 +216,8 @@ test('Next Study panel focus retains its exact latent generic identity', () => {
 
   assert.equal(getAttribute(tag, 'type'), 'button')
   assert.equal(getAttribute(tag, 'data-video-id'), '${safeVideoId}')
-  assert.equal(
-    getAttribute(tag, 'onclick'),
-    'focusNextStudyVideoCard(event, this.dataset.videoId)'
-  )
+  assert.equal(getAttribute(tag, 'data-next-study-action'), 'focus')
+  assert.equal(getAttribute(tag, 'onclick'), null)
   assert.equal(
     getAttribute(tag, 'data-analytics-action'),
     'focusNextStudyVideoCard'

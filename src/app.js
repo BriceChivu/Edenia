@@ -192,6 +192,9 @@ import {
   bindManualVideoShellActions
 } from './features/videos/manual-video-shell-actions.js'
 import {
+  bindNextStudyActions
+} from './features/videos/next-study-actions.js'
+import {
   bindVideoSetAsideActions
 } from './features/videos/set-aside-actions.js'
 import {
@@ -9981,8 +9984,8 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
       <button type="button"
         class="next-study-cta next-study-continue"
         data-video-id="${safeVideoId}"
+        data-next-study-action="open"
         data-analytics-action="openNextStudyVideoPlayer"
-        onclick="return openNextStudyVideoPlayer(event, this.dataset.videoId)"
         aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}">${escHtml(cta)}</button>
     `
     : isRewatch
@@ -9995,19 +9998,19 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
       <button type="button"
         class="next-study-cta next-study-watch"
         data-video-id="${safeVideoId}"
-        data-analytics-action="openNextStudyVideoPlayer"
-        onclick="return openNextStudyVideoPlayer(event, this.dataset.videoId)">${escHtml(t('nextStudy.watchAgain'))}</button>
+        data-next-study-action="open"
+        data-analytics-action="openNextStudyVideoPlayer">${escHtml(t('nextStudy.watchAgain'))}</button>
     `
     : `
       <button type="button"
         class="next-study-cta next-study-watch"
         data-video-id="${safeVideoId}"
-        data-analytics-action="openNextStudyVideoPlayer"
-        onclick="return openNextStudyVideoPlayer(event, this.dataset.videoId)">${escHtml(t('nextStudy.watch'))}</button>
+        data-next-study-action="open"
+        data-analytics-action="openNextStudyVideoPlayer">${escHtml(t('nextStudy.watch'))}</button>
     `
   container.innerHTML = `
-    <button type="button" class="next-study-panel-focus" data-video-id="${safeVideoId}" data-analytics-action="focusNextStudyVideoCard" onclick="focusNextStudyVideoCard(event, this.dataset.videoId)" aria-label="${escHtml(panelLabel)}"></button>
-    <button type="button" class="next-study-mobile-link" data-video-id="${safeVideoId}" data-analytics-action="openNextStudyVideoPlayer" onclick="return openNextStudyVideoPlayer(event, this.dataset.videoId)" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}"></button>
+    <button type="button" class="next-study-panel-focus" data-video-id="${safeVideoId}" data-next-study-action="focus" data-analytics-action="focusNextStudyVideoCard" aria-label="${escHtml(panelLabel)}"></button>
+    <button type="button" class="next-study-mobile-link" data-video-id="${safeVideoId}" data-next-study-action="open" data-analytics-action="openNextStudyVideoPlayer" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}"></button>
     <span class="next-study-thumb-link" aria-hidden="true">
       <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
     </span>
@@ -10020,6 +10023,10 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
       ${actions}
     </span>
   `
+  bindNextStudyActions(container, {
+    open: openNextStudyVideoPlayer,
+    focus: focusNextStudyVideoCard
+  })
   bindVideoSetAsideActions(container, {
     request: requestVideoSetAside,
     cancel: cancelVideoSetAsidePrompt,
@@ -14086,7 +14093,6 @@ installLegacyActions(window, {
   finishChannelShelfDrag,
   finishIntroTrailer,
   finishPersonalizedOnboarding,
-  focusNextStudyVideoCard,
   handleChannelFilterOptionClick,
   handleChannelFilterSelectAllClick,
   handleVideoThumbnailClick,
@@ -14094,7 +14100,6 @@ installLegacyActions(window, {
   markVideo,
   moveChannelShelfDrag,
   navigateIntroTrailer,
-  openNextStudyVideoPlayer,
   openVideoShelfPreview,
   openVideoShelfPreviewFromFocus,
   queueVideoShelfPreviewClose,
