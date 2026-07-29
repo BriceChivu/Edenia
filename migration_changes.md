@@ -4088,3 +4088,46 @@ release mappings, and follow-up findings are recorded as new entries.
   recovery, clipboard, persistence, analytics implementation, or visual
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-115 — Migrate onboarding recovery event ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral generated event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace both generated recovery inline handlers with direct,
+  replacement-safe listeners while preserving their exact live-node and
+  analytics timing.
+- **Conceptual change:** Added an onboarding recovery action adapter with exact
+  `copy-link` and `retry` hooks. Each listener immediately passes its captured
+  live control—without the event—to the existing callback and ignores the
+  callback result or Promise. `showOnboardingRecovery` now binds immediately
+  after every content replacement. Removed both matching global bridge aliases.
+- **Preservation contract:** Preserve all recovery rendering, state, copy,
+  status, clipboard API/fallback, temporary textarea focus, concurrent Copy
+  attempts, delayed connected-button label restoration, Retry active and
+  persistence guards, disabled/re-enabled timing, save normalization, resume
+  routing, recovery regeneration, explicit analytics, localization,
+  accessibility, and responsive presentation. Preserve uncancelled bubbling,
+  Copy label timing, and branch-dependent generic Retry suppression on the
+  original disabled event target.
+- **Risks:** Document delegation or deferred invocation would change analytics
+  order; requerying controls would mutate a replacement node; forwarding the
+  event would change the callback contract; awaiting Copy in the adapter could
+  delay event propagation; missed replacement binding would make recovery
+  controls inert.
+- **Verification:** `npm test` passed: the production build completed and all
+  485 contract tests passed, including synchronous exact-control forwarding,
+  return/Promise neutrality, uncancelled bubbling, idempotent replacement
+  binding, generated markup and live-region retention, clipboard and
+  disconnected-node timing, every Retry disabled-state analytics branch, both
+  bridge removals, and the updated retained-neighbor boundary. Browser,
+  local-server, visual-regression, migration-ledger, diff-integrity, and
+  static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore both generated inline handlers and
+  bridge aliases; no recovery state, clipboard, storage, analytics, or visual
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

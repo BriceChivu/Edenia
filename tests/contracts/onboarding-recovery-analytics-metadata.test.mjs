@@ -68,14 +68,14 @@ test('generated recovery controls retain exact markup and explicit identities', 
       className: 'btn-secondary',
       content: "${escHtml(t('onboarding.recovery.copyLink'))}",
       eventName: 'copy_onboarding_recovery_link_clicked',
-      handler: 'copyOnboardingRecoveryLink(this)'
+      recoveryAction: 'copy-link'
     },
     {
       analyticsAction: 'retryOnboardingRecovery',
       className: 'btn-primary',
       content: "${escHtml(t('onboarding.recovery.tryAgain'))}",
       eventName: 'retry_onboarding_recovery_clicked',
-      handler: 'retryOnboardingRecovery(this)'
+      recoveryAction: 'retry'
     }
   ]
   const controls = getElements(recoverySource, 'button')
@@ -86,8 +86,11 @@ test('generated recovery controls retain exact markup and explicit identities', 
     assert.equal(getAttribute(control.tag, 'type'), 'button')
     assert.equal(getAttribute(control.tag, 'class'), expected.className)
     assert.equal(getAttribute(control.tag, 'id'), null)
-    assert.equal(getAttribute(control.tag, 'onclick'), expected.handler)
-    assert.equal(expected.handler.startsWith('return '), false)
+    assert.equal(getAttribute(control.tag, 'onclick'), null)
+    assert.equal(
+      getAttribute(control.tag, 'data-onboarding-recovery-action'),
+      expected.recoveryAction
+    )
     assert.equal(
       getAttribute(control.tag, 'data-analytics-action'),
       expected.analyticsAction
@@ -99,14 +102,6 @@ test('generated recovery controls retain exact markup and explicit identities', 
     assert.equal(getAttribute(control.tag, 'data-i18n'), null)
     assert.equal(control.content.trim(), expected.content)
 
-    const fallbackHandler = expected.handler.match(
-      /^([a-zA-Z_$][\w$]*)\(/
-    )?.[1]
-    assert.equal(
-      fallbackHandler,
-      expected.analyticsAction,
-      'Explicit identity must match the pre-migration handler fallback'
-    )
   })
 })
 
@@ -300,8 +295,8 @@ test('Retry generic analytics fire only when the live button is enabled at bubbl
   )
 })
 
-test('both recovery callbacks retain temporary global bridge ownership', () => {
-  const expectedAliases = [
+test('both recovery callbacks no longer require global bridge ownership', () => {
+  const migratedAliases = [
     'copyOnboardingRecoveryLink',
     'retryOnboardingRecovery'
   ]
@@ -310,9 +305,9 @@ test('both recovery callbacks retain temporary global bridge ownership', () => {
   )?.[1]
   assert.ok(installMap)
 
-  for (const alias of expectedAliases) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(alias), true)
-    assert.match(
+  for (const alias of migratedAliases) {
+    assert.equal(LEGACY_ACTION_NAMES.includes(alias), false)
+    assert.doesNotMatch(
       installMap,
       new RegExp(`(?:^|[\\s,])${alias}(?:[\\s,]|$)`)
     )

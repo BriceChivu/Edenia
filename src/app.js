@@ -164,6 +164,9 @@ import {
   bindIntroSoundActions
 } from './features/onboarding/intro-sound-actions.js'
 import {
+  bindOnboardingRecoveryActions
+} from './features/onboarding/onboarding-recovery-actions.js'
+import {
   LEARNER_LANGUAGE_OPTIONS,
   LEARNER_LEVEL_OPTIONS,
   ONBOARDING_CHANNEL_STYLE_KEYS
@@ -2317,11 +2320,15 @@ function showOnboardingRecovery(reason = 'setup', { state = null, resume = 'pers
   content.innerHTML = `
     ${renderOnboardingHeading(`onboarding.recovery.${normalizedReason}.title`, `onboarding.recovery.${normalizedReason}.body`)}
     <div class="onboarding-actions onboarding-recovery-actions">
-      <button type="button" class="btn-secondary" data-analytics-action="copyOnboardingRecoveryLink" onclick="copyOnboardingRecoveryLink(this)">${escHtml(t('onboarding.recovery.copyLink'))}</button>
-      <button type="button" class="btn-primary" data-analytics-action="retryOnboardingRecovery" onclick="retryOnboardingRecovery(this)">${escHtml(t('onboarding.recovery.tryAgain'))}</button>
+      <button type="button" class="btn-secondary" data-onboarding-recovery-action="copy-link" data-analytics-action="copyOnboardingRecoveryLink">${escHtml(t('onboarding.recovery.copyLink'))}</button>
+      <button type="button" class="btn-primary" data-onboarding-recovery-action="retry" data-analytics-action="retryOnboardingRecovery">${escHtml(t('onboarding.recovery.tryAgain'))}</button>
     </div>
     <p class="onboarding-recovery-status" id="onboardingRecoveryStatus" role="status" aria-live="polite"></p>
   `
+  bindOnboardingRecoveryActions(content, {
+    copyLink: copyOnboardingRecoveryLink,
+    retry: retryOnboardingRecovery
+  })
   panel.classList.add('is-recovery')
   panel.classList.remove('hidden')
   document.body.classList.add('onboarding-active')
@@ -14131,7 +14138,6 @@ installLegacyActions(window, {
   clearVideoPausedState,
   closeVideoShelfPreviewAfterFocus,
   continuePersonalizedOnboardingFromLanguage,
-  copyOnboardingRecoveryLink,
   dropChannelShelf,
   finishChannelShelfDrag,
   finishPersonalizedOnboarding,
@@ -14145,7 +14151,6 @@ installLegacyActions(window, {
   openVideoShelfPreviewFromFocus,
   queueVideoShelfPreviewClose,
   removeChannelFromFilter,
-  retryOnboardingRecovery,
   scrollVideoChannelShelf,
   searchYoutubeChannels,
   selectManualChannelSuggestion,

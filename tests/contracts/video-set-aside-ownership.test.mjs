@@ -26,8 +26,7 @@ const retainedNeighborActionNames = [
   'closeVideoShelfPreviewAfterFocus',
   'handleChannelFilterSelectAllClick',
   'handleVideoThumbnailClick',
-  'removeChannelFromFilter',
-  'retryOnboardingRecovery'
+  'removeChannelFromFilter'
 ]
 
 function getElements(source, tagName) {
