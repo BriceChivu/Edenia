@@ -231,6 +231,9 @@ import {
   bindVideoSetAsideActions
 } from './features/videos/set-aside-actions.js'
 import {
+  bindVideoStateActions
+} from './features/videos/video-state-actions.js'
+import {
   bindVideoWatchPromptActions
 } from './features/videos/watch-prompt-actions.js'
 import {
@@ -11425,6 +11428,7 @@ function renderFeed(s) {
     confirm: confirmVideoSetAsidePrompt,
     handlePromptKeydown: handleVideoSetAsidePromptKeydown
   })
+  bindRenderedVideoStateActions(grid)
   requestAnimationFrame(() => {
     document.querySelectorAll('.channel-shelf-track').forEach(syncVideoChannelShelfControls)
   })
@@ -11442,6 +11446,7 @@ function renderFeed(s) {
   watchedGrid.innerHTML = watchedVideos
     .map(v => renderCard(v, true, { ...cardOptions, hideSetAsideAction: true }))
     .join('')
+  bindRenderedVideoStateActions(watchedGrid)
   queueActiveVideoWatchReminderRender(s)
 }
 
@@ -12772,6 +12777,7 @@ function refreshVideoActionUiWithoutFeedRerender(state, videoId) {
   } else if (updatedStatus) {
     card.querySelector('.card-copy')?.before(updatedStatus)
   }
+  bindRenderedVideoStateActions(card)
 
   const allVideos = Object.values(state.videos)
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
@@ -13749,6 +13755,14 @@ function renderVideoActionIcon(type) {
   return `<svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">${paths[type] || ''}</svg>`
 }
 
+function bindRenderedVideoStateActions(root) {
+  return bindVideoStateActions(root, {
+    clearPaused: clearVideoPausedState,
+    mark: markVideo,
+    toggleFavorite: toggleVideoFavorite
+  })
+}
+
 function renderCard(v, compact = false, options = {}) {
   const status = getVideoStatus(v)
   const videoId = String(v.id ?? '')
@@ -13783,21 +13797,24 @@ function renderCard(v, compact = false, options = {}) {
     ? `<button type="button"
         class="channel-shelf-priority-badge partial-priority-badge"
         data-video-id="${safeVideoId}"
-        onclick="event.preventDefault(); event.stopPropagation(); clearVideoPausedState(this.dataset.videoId)"
+        data-video-state-action="clear-paused"
+        data-analytics-action="clearVideoPausedState"
         aria-label="${escHtml(t('videos.card.clear'))}"
         title="${escHtml(t('videos.card.clear'))}">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</button>`
     : options.shelf && isWatchLater
     ? `<button type="button"
         class="channel-shelf-priority-badge watch-later-priority-badge"
         data-video-id="${safeVideoId}"
-        onclick="event.preventDefault(); event.stopPropagation(); markVideo(this.dataset.videoId, 'unwatched', { watchLater: false })"
+        data-video-state-action="remove-watch-later"
+        data-analytics-action="markVideo"
         aria-label="${escHtml(t('videos.card.removeWatchLater'))}"
         title="${escHtml(t('videos.card.removeWatchLater'))}">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</button>`
     : options.shelf && isFavorite
     ? `<button type="button"
         class="channel-shelf-priority-badge favorite-priority-badge"
         data-video-id="${safeVideoId}"
-        onclick="event.preventDefault(); event.stopPropagation(); toggleVideoFavorite(this.dataset.videoId, { surface: 'channel_shelf_badge' })"
+        data-video-state-action="remove-favorite"
+        data-analytics-action="toggleVideoFavorite"
         aria-label="${escHtml(t('videos.card.removeFavorite'))}"
         title="${escHtml(t('videos.card.removeFavorite'))}">${renderVideoActionIcon('favorite')}</button>`
     : ''
@@ -13835,12 +13852,14 @@ function renderCard(v, compact = false, options = {}) {
               data-video-id="${safeVideoId}"
               data-status="${watchLaterNextStatus}"
               data-watch-later="${String(!isWatchLater)}"
-              onclick="markVideo(this.dataset.videoId, this.dataset.status, { watchLater: this.dataset.watchLater === 'true' })"
+              data-video-state-action="toggle-watch-later"
+              data-analytics-action="markVideo"
               aria-label="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}"
               title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">${renderVideoActionIcon('watch-later')}</button>
             ${!isSetAside ? `<button class="action-btn favorite-btn ${isFavorite ? 'active' : ''}"
               data-video-id="${safeVideoId}"
-              onclick="toggleVideoFavorite(this.dataset.videoId, { surface: 'video_card' })"
+              data-video-state-action="toggle-favorite"
+              data-analytics-action="toggleVideoFavorite"
               aria-pressed="${String(isFavorite)}"
               aria-label="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}"
               title="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}">${renderVideoActionIcon('favorite')}</button>` : ''}
@@ -14188,20 +14207,17 @@ bindUndoRedoActions(document, {
 })
 
 installLegacyActions(window, {
-  clearVideoPausedState,
   closeVideoShelfPreviewAfterFocus,
   dropChannelShelf,
   finishChannelShelfDrag,
   handleVideoThumbnailClick,
   leaveChannelShelfDrag,
-  markVideo,
   moveChannelShelfDrag,
   openVideoShelfPreview,
   openVideoShelfPreviewFromFocus,
   queueVideoShelfPreviewClose,
   startChannelShelfDrag,
   startTouchChannelShelfDrag,
-  toggleVideoFavorite,
   toggleVideoShelfPreviewOnTouch
 })
 

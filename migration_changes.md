@@ -4693,3 +4693,43 @@ release mappings, and follow-up findings are recorded as new entries.
   bridge aliases; no catalog, search, state, storage, analytics, API, or visual
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-130 — Migrate rendered video-state ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral generated event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Remove the remaining card and shelf-badge dependencies on the
+  shared video-state globals as one cohesive render-lifecycle batch.
+- **Conceptual change:** Added one compact video-state adapter for Clear paused,
+  Watch later, and Favorite controls; replaced five inline patterns with stable
+  action and analytics metadata; bound active and Watched grids after render
+  and rebound preview cards after targeted action-UI patching; removed the
+  `clearVideoPausedState`, `markVideo`, and `toggleVideoFavorite` bridge aliases.
+  One compact boundary test file covers the adapter and render integration.
+- **Preservation contract:** Preserve priority-badge cancellation, footer-action
+  bubbling and generic analytics identities, exact status/options/surface
+  arguments, Undo/Redo and persistence, scoring and activity behavior,
+  Favorite independence, removed-channel refreshes, active-preview anchoring,
+  Next Study and embedded-player lexical consumers, control focus, ARIA,
+  localization, ordering, and all responsive presentation. Existing controls
+  read live action metadata so targeted preview updates can safely change a
+  badge’s action without replacing its listener.
+- **Risks:** Cancelling footer clicks would remove existing generic telemetry;
+  failing to cancel priority badges could open previews; capturing stale action
+  metadata would apply the wrong state transition after preview UI patching;
+  missing either grid binding would leave cards inert.
+- **Verification:** The consolidated `npm test` rerun passed: the production
+  build completed and all 604 contract tests passed. The first run kept all 600
+  pre-existing contracts green and exposed only a closing-token typo in the
+  new compact test file, which was corrected before the passing rerun. Browser,
+  local-server, visual-regression, migration-ledger, diff-integrity, and
+  static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the five inline patterns and
+  three bridge aliases; no video state, storage, scoring, analytics, or visual
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

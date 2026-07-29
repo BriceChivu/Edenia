@@ -22,7 +22,8 @@ const renderSource = appSource.slice(renderStart, renderEnd)
 
 const migratedActionNames = [
   'openNextStudyVideoPlayer',
-  'focusNextStudyVideoCard'
+  'focusNextStudyVideoCard',
+  'toggleVideoFavorite'
 ]
 
 function getElements(source, tagName) {
@@ -259,33 +260,8 @@ test('open and focus leave the bridge while shared Favorite ownership remains', 
     )
   }
 
-  assert.equal(
-    LEGACY_ACTION_NAMES.includes('toggleVideoFavorite'),
-    true,
-    'toggleVideoFavorite must remain in the legacy manifest'
-  )
-  assert.match(
-    installMap,
-    /\btoggleVideoFavorite\s*,/,
-    'toggleVideoFavorite must remain in the legacy install map'
-  )
-
   const favoriteInlineHandlers = inlineHandlers.filter(handler => (
     /\btoggleVideoFavorite\s*\(/.test(handler)
   ))
-  assert.deepEqual(
-    favoriteInlineHandlers,
-    [
-      "event.preventDefault(); event.stopPropagation(); toggleVideoFavorite(this.dataset.videoId, { surface: 'channel_shelf_badge' })",
-      "toggleVideoFavorite(this.dataset.videoId, { surface: 'video_card' })"
-    ],
-    'Only the channel-shelf badge and video-card Favorite consumers stay inline'
-  )
-  assert.equal(
-    favoriteInlineHandlers.some(handler => (
-      handler.includes("surface: 'next_study'")
-    )),
-    false,
-    'Next Study Remove favorite must no longer depend on the global bridge'
-  )
+  assert.deepEqual(favoriteInlineHandlers, [])
 })

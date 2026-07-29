@@ -1,18 +1,15 @@
 export const LEGACY_ACTION_NAMES = Object.freeze([
-  'clearVideoPausedState',
   'closeVideoShelfPreviewAfterFocus',
   'dropChannelShelf',
   'finishChannelShelfDrag',
   'handleVideoThumbnailClick',
   'leaveChannelShelfDrag',
-  'markVideo',
   'moveChannelShelfDrag',
   'openVideoShelfPreview',
   'openVideoShelfPreviewFromFocus',
   'queueVideoShelfPreviewClose',
   'startChannelShelfDrag',
   'startTouchChannelShelfDrag',
-  'toggleVideoFavorite',
   'toggleVideoShelfPreviewOnTouch'
 ])
 
