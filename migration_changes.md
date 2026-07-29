@@ -3586,3 +3586,45 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the three inline handlers and
   bridge aliases; no state, storage, analytics, or data migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-103 — Lock Next Study analytics identities
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Make every remaining Next Study open, focus, and Remove favorite
+  identity explicit before replacing its inline handler.
+- **Conceptual change:** Added `openNextStudyVideoPlayer` analytics metadata to
+  Continue, Watch, Watch again, and the phone open overlay;
+  `focusNextStudyVideoCard` metadata to the desktop/tablet focus overlay; and
+  `toggleVideoFavorite` metadata to the rewatch Remove favorite control. All
+  handlers remain inline in this preparatory commit.
+- **Preservation contract:** Open actions keep forwarding the exact event,
+  preventing default, stopping propagation, returning false, and producing no
+  generic click analytics while preserving embedded-player state and existing
+  `video_opened` properties. The focus overlay keeps its `≤640px` early return
+  and latent `focus_next_study_video_card_clicked` identity, plus its
+  desktop/tablet cancellation, forced-feed rerender, scroll/highlight, reduced-
+  motion timing, and preview behavior. Remove favorite keeps its zero-event
+  `next_study` surface, Undo/save/rerender behavior, explicit
+  `video_favorite_changed` before bubbling
+  `toggle_video_favorite_clicked`, and global bridge because other video-card
+  consumers still use it. Preserve selection precedence, variants, markup,
+  focus, responsive overlays, localization, and all Set aside ownership.
+- **Risks:** Dropping event forwarding would invent generic open telemetry;
+  cancelling focus before its width guard would alter dormant phone behavior;
+  removing the shared Favorite bridge would break other cards; changing
+  selection or render order would alter the displayed recommendation.
+- **Verification:** `npm test` passed: the production build completed and all
+  382 contract tests passed, including exact identity/variant coverage for the
+  seven generated Next Study controls, preserved inline event arguments and
+  return values, suppression/order context, and the still-shared Favorite
+  bridge. Browser, local-server, visual-regression, migration-ledger,
+  diff-integrity, and static-review checks were not run in accordance with the
+  repository `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore handler-derived identities; no
+  event, state, storage, analytics, or visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
