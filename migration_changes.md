@@ -4579,3 +4579,47 @@ release mappings, and follow-up findings are recorded as new entries.
   scroll attributes, and bridge aliases; no scroll position, preview, analytics,
   or visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-127 — Lock manual channel-entry analytics identities
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Make all four remaining manual channel/video-entry handler
+  identities explicit before replacing their inline ownership.
+- **Conceptual change:** Added `addYoutubeInput` analytics metadata to the static
+  submit form and exact handler-name metadata to the generated YouTube search,
+  curated suggestion, and YouTube result buttons. All submit and click handlers
+  remain inline and all four global bridge aliases remain installed in this
+  preparatory commit.
+- **Preservation contract:** Preserve native form submission and Enter-key
+  routing without adding a submit button; exact video, channel, catalog, and
+  invalid-input branches; search query normalization, cache, quota, cooldown,
+  function-owned `results` and `lastRequestAt` state, loading/error messages,
+  analytics event names and properties, and API behavior. Search and result
+  clicks continue preventing default and stopping propagation before work, so
+  their generic click identities remain latent. Keyboard result selection keeps
+  calling the same lexical callbacks with the live keyboard event and dataset
+  identifiers. Preserve suggestion ordering, duplicate handling, localization,
+  focus, listbox/combobox semantics, popover closure, and every generated
+  visual detail.
+- **Risks:** A changed action string could rename future generic telemetry;
+  metadata on the form could become active if the generic collector expands
+  beyond buttons and links; changing the search callback object would lose
+  cooldown or result state; altering suppression or keyboard routing could
+  duplicate selection or close the popover.
+- **Verification:** `npm test` passed: the production build completed and all
+  600 contract tests passed, including exact static/generated markup, handler
+  arguments, form routing, propagation suppression, keyboard selection,
+  replacement paths, generic analytics boundaries, function-owned YouTube
+  result/cooldown state, and all four retained bridge aliases. Browser,
+  local-server, visual-regression, migration-ledger, diff-integrity, and
+  static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore handler-derived button identities
+  and remove the inert form identity; no search, catalog, state, storage,
+  analytics, API, or visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

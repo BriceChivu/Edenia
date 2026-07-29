@@ -6907,7 +6907,7 @@ function getCuratedChannelInitials(channel) {
 function renderManualYoutubeSearchAction(query) {
   return `
     <div class="manual-youtube-search-action">
-      <button type="button" class="manual-youtube-search-btn" onclick="searchYoutubeChannels(event)">
+      <button type="button" class="manual-youtube-search-btn" data-analytics-action="searchYoutubeChannels" onclick="searchYoutubeChannels(event)">
         ${escHtml(t('videos.manual.searchYoutubeFor', { query }))}
       </button>
     </div>
@@ -6983,6 +6983,7 @@ function renderManualChannelSuggestions() {
         id="manualChannelSuggestion-${escHtml(channel.id)}"
         data-catalog-id="${escHtml(channel.id)}"
         data-added="${alreadyAdded ? 'true' : 'false'}"
+        data-analytics-action="selectManualChannelSuggestion"
         role="option"
         aria-selected="false"
         onclick="selectManualChannelSuggestion(event, this.dataset.catalogId)">
@@ -7140,6 +7141,7 @@ function renderYoutubeChannelSearchResults(query, results, options = {}) {
         data-channel-id="${escHtml(result.id)}"
         data-added="${alreadyAdded ? 'true' : 'false'}"
         data-suggestion-source="youtube"
+        data-analytics-action="selectYoutubeChannelSearchResult"
         role="option"
         aria-selected="false"
         onclick="selectYoutubeChannelSearchResult(event, this.dataset.channelId)">
