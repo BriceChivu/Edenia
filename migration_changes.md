@@ -5001,3 +5001,40 @@ release mappings, and follow-up findings are recorded as new entries.
   prior test contract. No state, storage, analytics, localization, responsive,
   or visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-138 — Correct the migration governance audit boundary
+
+- **Date:** 2026-07-30
+- **Phase:** 8 — Final cleanup
+- **Type:** CI governance correction
+- **Status:** Complete locally; PR verification pending
+- **Intent:** Keep migration-ledger enforcement strict without misclassifying
+  ordinary commits that predate the `v1.0.0` migration baseline.
+- **Conceptual change:** The governance checker now locates `MIG-001` in the
+  current history. When the configured PR base predates that boundary, it
+  audits `MIG-001` and every later commit; when the base already contains
+  `MIG-001`, it continues auditing every commit after the configured base.
+  This corrects PR #1, where GitHub `master` is 82 ordinary commits behind the
+  tagged local baseline, without renaming or rewriting historical commits.
+- **Preservation contract:** Continue requiring every non-automation commit in
+  the migration range to use `MIG-###`, update `migration_changes.md`, and add
+  its matching ledger heading. Preserve the existing automation exceptions,
+  ancestor validation, CI trigger, application source, build, tests, runtime,
+  state, analytics, localization, accessibility, and responsive output.
+- **Risks:** Choosing an audit boundary too late could omit a migration commit.
+  The checker anchors only to the first `MIG-001` ancestor and skips only
+  commits before it; once a PR base contains that boundary, normal base-to-HEAD
+  enforcement resumes automatically.
+- **Verification:** The targeted
+  `npm run check:migration -- --base origin/master` command passed for all 137
+  existing migration commits from the detected `MIG-001` boundary. PR CI will
+  apply the same check to this `MIG-138` commit after it is pushed. No build,
+  contract, browser, local-server, visual-regression, diff-integrity, or
+  static-review check is repeated for this CI-only correction.
+- **Rollback:** Revert this commit to restore base-to-HEAD-only auditing. No
+  application, state, storage, analytics, localization, responsive, or visual
+  rollback is required.
+- **Association:** `codex/migration-05-javascript-modularization`;
+  [PR #1](https://github.com/BriceChivu/Edenia/pull/1); release pending.

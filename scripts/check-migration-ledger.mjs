@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 
 const LEDGER_PATH = 'migration_changes.md'
+const MIGRATION_START_SUBJECT = '^MIG-001:'
 const AUTOMATION_COMMITS = new Map([
   ['Refresh channel catalog metadata', new Set(['data/channel-catalog.json'])],
   ['Discover language-learning channels', new Set(['data/channel-catalog.discovered.json'])],
@@ -33,6 +34,46 @@ function resolveBaseRevision() {
   } catch {
     throw new Error('A base revision is required when HEAD has no parent')
   }
+}
+
+function isAncestor(ancestor, descendant) {
+  try {
+    git(['merge-base', '--is-ancestor', ancestor, descendant])
+    return true
+  } catch {
+    return false
+  }
+}
+
+function resolveAuditBaseRevision(baseRevision) {
+  const migrationStartOutput = git([
+    'log',
+    '--reverse',
+    '--format=%H',
+    `--grep=${MIGRATION_START_SUBJECT}`,
+    'HEAD'
+  ])
+  const migrationStart = migrationStartOutput
+    ? migrationStartOutput.split('\n').find(Boolean)
+    : ''
+
+  if (!migrationStart || isAncestor(migrationStart, baseRevision)) {
+    return {
+      auditBaseRevision: baseRevision,
+      migrationStart
+    }
+  }
+
+  if (isAncestor(baseRevision, migrationStart)) {
+    return {
+      auditBaseRevision: `${migrationStart}^`,
+      migrationStart
+    }
+  }
+
+  throw new Error(
+    `Migration start ${migrationStart} and base ${baseRevision} do not share an auditable path`
+  )
 }
 
 function changedFiles(commit) {
@@ -69,11 +110,15 @@ try {
   throw new Error(`${baseRevision} is not an ancestor of HEAD`)
 }
 
+const {
+  auditBaseRevision,
+  migrationStart
+} = resolveAuditBaseRevision(baseRevision)
 const revisionOutput = git([
   'rev-list',
   '--reverse',
   '--no-merges',
-  `${baseRevision}..HEAD`
+  `${auditBaseRevision}..HEAD`
 ])
 const commits = revisionOutput ? revisionOutput.split('\n').filter(Boolean) : []
 const violations = []
@@ -107,5 +152,10 @@ if (violations.length) {
   violations.forEach(violation => console.error(`- ${violation}`))
   process.exitCode = 1
 } else {
-  console.log(`Migration governance check passed for ${commits.length} commit(s).`)
+  const rangeDescription = auditBaseRevision === baseRevision
+    ? 'configured base'
+    : `MIG-001 boundary ${migrationStart.slice(0, 12)}`
+  console.log(
+    `Migration governance check passed for ${commits.length} commit(s) from ${rangeDescription}.`
+  )
 }
