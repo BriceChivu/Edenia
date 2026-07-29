@@ -622,7 +622,7 @@ function renderLocaleSelect() {
     introLabel.textContent = getLocaleLabel(currentLocale)
     introMenu.innerHTML = SUPPORTED_LOCALES.map(locale => `
       <label class="settings-locale-option">
-        <input type="radio" name="introLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} onchange="changeIntroLocale(this.value)">
+        <input type="radio" name="introLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} data-analytics-action="changeIntroLocale" onchange="changeIntroLocale(this.value)">
         <span>${escHtml(getLocaleLabel(locale))}</span>
       </label>
     `).join('')
@@ -634,7 +634,7 @@ function renderLocaleSelect() {
     onboardingLabel.textContent = getLocaleLabel(currentLocale)
     onboardingMenu.innerHTML = SUPPORTED_LOCALES.map(locale => `
       <label class="settings-locale-option">
-        <input type="radio" name="onboardingLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} onchange="changeOnboardingLocale(this.value)">
+        <input type="radio" name="onboardingLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} data-analytics-action="changeOnboardingLocale" onchange="changeOnboardingLocale(this.value)">
         <span>${escHtml(getLocaleLabel(locale))}</span>
       </label>
     `).join('')
@@ -1844,6 +1844,7 @@ function startIntroTrailer({ replay = false, state = null } = {}) {
   if (startButton) {
     const labelKey = replay ? 'intro.finale.return' : 'intro.finale.cta'
     startButton.dataset.i18n = labelKey
+    startButton.dataset.analyticsAction = labelKey
     startButton.textContent = t(labelKey)
   }
 

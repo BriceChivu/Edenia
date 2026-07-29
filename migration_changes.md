@@ -3751,3 +3751,50 @@ release mappings, and follow-up findings are recorded as new entries.
   favorite inline handler; no state, storage, analytics, or data migration is
   required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-107 — Lock intro and onboarding shell analytics identities
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Make every current intro-trailer and shared onboarding-shell
+  control identity explicit before migrating any of their inline handlers.
+- **Conceptual change:** Added explicit analytics metadata to both sound
+  controls, Skip, Previous, Next, all four city-level controls, the dynamic
+  Start/Return control, both locale-menu toggles, and both generated locale
+  radio sets. The Start control now updates its analytics metadata together
+  with its existing `data-i18n` key when replay mode changes. All handlers,
+  callbacks, global bridge aliases, and render ownership remain unchanged.
+- **Preservation contract:** Preserve exact markup, copy, localization, scenes,
+  music, onboarding state, replay behavior, responsive presentation, focus, and
+  accessibility. Preserve current generic identities, including the distinct
+  intro/onboarding sound and locale-button IDs, dynamic
+  `intro_finale_cta_clicked` versus `intro_finale_return_clicked`, common city
+  identity, and Back/Continue translation-key identities. Preserve bubbling
+  for sound, finish, city, and ordinary navigation clicks; propagation
+  suppression for locale-menu toggles; the navigation boundary case where a
+  clicked control can become disabled before document analytics; and the
+  absence of generic button-click collection for generated radio inputs.
+- **Risks:** Fixing the dynamic Start identity would merge first-run and replay
+  telemetry; using handler names instead of current ID/translation fallbacks
+  would rename events; adding cancellation would suppress existing analytics;
+  changing render or sound code during this metadata-only step could regress
+  the protected trailer or onboarding experience.
+- **Verification:** The first `npm test` run exposed one stale contract
+  expectation that generated locale radios had no explicit metadata; the
+  contract was aligned with this preparatory change while continuing to assert
+  that the button/link-only generic collector ignores inputs. The final
+  `npm test` passed: the production build completed and all 399 contract tests
+  passed, including every static and generated identity, dynamic Start/Return
+  synchronization, exact inline arguments, locale ARIA/render behavior,
+  bubbling versus suppression, navigation boundary disabling, and all eight
+  retained bridge aliases. Browser, local-server, visual-regression,
+  migration-ledger, diff-integrity, and static-review checks were not run in
+  accordance with the repository `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore handler/ID/translation-derived
+  identities; no event listener, state, storage, copy, or visual migration is
+  required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

@@ -78,7 +78,7 @@
 
       <div class="intro-top-controls">
         <div class="intro-top-actions">
-          <button class="intro-sound" id="introSoundBtn" data-intro-sound-toggle type="button" onclick="toggleIntroSound()" aria-pressed="false">
+          <button class="intro-sound" id="introSoundBtn" data-intro-sound-toggle data-analytics-action="introSoundBtn" type="button" onclick="toggleIntroSound()" aria-pressed="false">
             <span class="intro-sound-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
                 <path class="intro-sound-speaker" d="M4 9.2h3.4L12 5.5v13l-4.6-3.7H4z"></path>
@@ -87,10 +87,10 @@
               </svg>
             </span>
           </button>
-          <button class="intro-skip" type="button" onclick="finishIntroTrailer()" data-i18n="intro.skip">Skip intro</button>
+          <button class="intro-skip" type="button" onclick="finishIntroTrailer()" data-i18n="intro.skip" data-analytics-action="intro.skip">Skip intro</button>
         </div>
         <div class="intro-language-picker" id="introLocalePicker">
-          <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="introLocaleBtn" onclick="toggleIntroLocaleMenu(event)" aria-haspopup="true" aria-expanded="false">
+          <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="introLocaleBtn" onclick="toggleIntroLocaleMenu(event)" data-analytics-action="introLocaleBtn" aria-haspopup="true" aria-expanded="false">
             <span class="settings-locale-label" id="introLocaleLabel">English</span>
             <span class="settings-locale-caret" aria-hidden="true"></span>
           </button>
@@ -100,10 +100,10 @@
     </div>
 
     <div class="intro-stage" aria-live="polite">
-      <button class="intro-nav-btn intro-nav-previous" id="introPreviousBtn" type="button" onclick="navigateIntroTrailer(-1)" data-i18n-title="onboarding.back" data-i18n-aria-label="onboarding.back">
+      <button class="intro-nav-btn intro-nav-previous" id="introPreviousBtn" type="button" onclick="navigateIntroTrailer(-1)" data-analytics-action="onboarding.back" data-i18n-title="onboarding.back" data-i18n-aria-label="onboarding.back">
         <span aria-hidden="true">←</span>
       </button>
-      <button class="intro-nav-btn intro-nav-next" id="introNextBtn" type="button" onclick="navigateIntroTrailer(1)" data-i18n-title="onboarding.continue" data-i18n-aria-label="onboarding.continue">
+      <button class="intro-nav-btn intro-nav-next" id="introNextBtn" type="button" onclick="navigateIntroTrailer(1)" data-analytics-action="onboarding.continue" data-i18n-title="onboarding.continue" data-i18n-aria-label="onboarding.continue">
         <span aria-hidden="true">→</span>
       </button>
 
@@ -165,10 +165,10 @@
           <p class="intro-kicker" data-i18n="intro.city.kicker">Progress becomes a place</p>
           <h2 data-i18n="intro.city.title">Study. Earn points. Watch your town evolve.</h2>
           <div class="intro-city-growth">
-            <button type="button" data-intro-city-level="1" onclick="selectIntroCityLevel(1)">1</button><i></i>
-            <button type="button" data-intro-city-level="4" onclick="selectIntroCityLevel(4)">4</button><i></i>
-            <button type="button" data-intro-city-level="8" onclick="selectIntroCityLevel(8)">8</button><i></i>
-            <button type="button" data-intro-city-level="12" onclick="selectIntroCityLevel(12)">12</button>
+            <button type="button" data-intro-city-level="1" data-analytics-action="selectIntroCityLevel" onclick="selectIntroCityLevel(1)">1</button><i></i>
+            <button type="button" data-intro-city-level="4" data-analytics-action="selectIntroCityLevel" onclick="selectIntroCityLevel(4)">4</button><i></i>
+            <button type="button" data-intro-city-level="8" data-analytics-action="selectIntroCityLevel" onclick="selectIntroCityLevel(8)">8</button><i></i>
+            <button type="button" data-intro-city-level="12" data-analytics-action="selectIntroCityLevel" onclick="selectIntroCityLevel(12)">12</button>
           </div>
         </div>
         <div class="intro-city-viewport" aria-hidden="true">
@@ -222,7 +222,7 @@ and momentum—at a glance</h2>
         <p class="intro-kicker" data-i18n="intro.finale.kicker">A little progress. A whole world.</p>
         <h2 data-i18n="intro.finale.title">What will you build?</h2>
         <p data-i18n="intro.finale.body">Create your study feed and begin your Edenia.</p>
-        <button class="btn-primary intro-start" id="introStartBtn" type="button" onclick="finishIntroTrailer()" data-i18n="intro.finale.cta">Start my journey</button>
+        <button class="btn-primary intro-start" id="introStartBtn" type="button" onclick="finishIntroTrailer()" data-i18n="intro.finale.cta" data-analytics-action="intro.finale.cta">Start my journey</button>
       </article>
     </div>
 
@@ -235,7 +235,7 @@ and momentum—at a glance</h2>
   <!-- FIRST-RUN ONBOARDING                                  -->
   <!-- ═══════════════════════════════════════════════════════ -->
   <section class="onboarding-panel hidden" id="onboardingPanel" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
-    <button class="intro-sound onboarding-sound" id="onboardingSoundBtn" data-intro-sound-toggle type="button" onclick="toggleIntroSound()" aria-pressed="false">
+    <button class="intro-sound onboarding-sound" id="onboardingSoundBtn" data-intro-sound-toggle data-analytics-action="onboardingSoundBtn" type="button" onclick="toggleIntroSound()" aria-pressed="false">
       <span class="intro-sound-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" focusable="false">
           <path class="intro-sound-speaker" d="M4 9.2h3.4L12 5.5v13l-4.6-3.7H4z"></path>
@@ -246,7 +246,7 @@ and momentum—at a glance</h2>
     </button>
     <div class="onboarding-card">
       <div class="onboarding-language-picker hidden" id="onboardingLocalePicker">
-        <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="onboardingLocaleBtn" onclick="toggleOnboardingLocaleMenu(event)" aria-haspopup="true" aria-expanded="false">
+        <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="onboardingLocaleBtn" onclick="toggleOnboardingLocaleMenu(event)" data-analytics-action="onboardingLocaleBtn" aria-haspopup="true" aria-expanded="false">
           <span class="settings-locale-label" id="onboardingLocaleLabel">English</span>
           <span class="settings-locale-caret" aria-hidden="true"></span>
         </button>
