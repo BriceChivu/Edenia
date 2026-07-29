@@ -184,6 +184,9 @@ import {
   bindChannelFilterActions
 } from './features/channels/filter-actions.js'
 import {
+  bindChannelRemoveActions
+} from './features/channels/remove-actions.js'
+import {
   CITY_IMAGE_SOURCES,
   CITY_LEVELS,
   getCityLevel,
@@ -11388,6 +11391,9 @@ function renderFeed(s) {
       s.config?.channels
     )
   }
+  bindChannelRemoveActions(grid, {
+    remove: removeChannelFromFilter
+  })
   bindVideoSetAsideActions(grid, {
     request: requestVideoSetAside,
     cancel: cancelVideoSetAsidePrompt,
@@ -11464,8 +11470,8 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
                 ${isRemovedChannel ? '' : `<button type="button"
                   class="channel-shelf-remove"
                   data-channel-id="${escHtml(group.key)}"
+                  data-channel-remove-action="remove"
                   data-analytics-action="removeChannelFromFilter"
-                  onclick="removeChannelFromFilter(event, this.dataset.channelId)"
                   title="${escHtml(t('settings.remove'))}"
                   aria-label="${escHtml(t('settings.remove'))}">
                   <svg class="channel-shelf-remove-icon" viewBox="0 0 16 16" aria-hidden="true">
@@ -13463,7 +13469,7 @@ function renderChannelFilterOptions(s) {
         <input type="checkbox" data-channel-id="${escHtml(id)}" data-channel-filter-action="select" data-analytics-action="setChannelFilter" ${selected.has(id) ? 'checked' : ''}>
         <span class="channel-filter-label">${escHtml(name)}</span>
         <span class="channel-filter-refresh" title="${escHtml(refreshTitle)}">${escHtml(refreshLabel)}</span>
-        ${canRemove ? `<button type="button" class="channel-filter-remove" data-channel-id="${escHtml(id)}" data-analytics-action="removeChannelFromFilter" onclick="removeChannelFromFilter(event, this.dataset.channelId)" title="${escHtml(t('settings.remove'))}" aria-label="${escHtml(t('settings.remove'))}">×</button>` : ''}
+        ${canRemove ? `<button type="button" class="channel-filter-remove" data-channel-id="${escHtml(id)}" data-channel-remove-action="remove" data-analytics-action="removeChannelFromFilter" title="${escHtml(t('settings.remove'))}" aria-label="${escHtml(t('settings.remove'))}">×</button>` : ''}
       </div>
     `
     }).join('')
@@ -13473,6 +13479,9 @@ function renderChannelFilterOptions(s) {
     ${allChannelsControl}
     ${options}
   `
+  bindChannelRemoveActions(optionsWrap, {
+    remove: removeChannelFromFilter
+  })
   bindChannelFilterActions(optionsWrap, {
     setChannel: setChannelFilter,
     setAll: setAllChannelFilters,
@@ -14168,7 +14177,6 @@ installLegacyActions(window, {
   openVideoShelfPreview,
   openVideoShelfPreviewFromFocus,
   queueVideoShelfPreviewClose,
-  removeChannelFromFilter,
   scrollVideoChannelShelf,
   searchYoutubeChannels,
   selectManualChannelSuggestion,

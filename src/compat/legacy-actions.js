@@ -11,7 +11,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'openVideoShelfPreview',
   'openVideoShelfPreviewFromFocus',
   'queueVideoShelfPreviewClose',
-  'removeChannelFromFilter',
   'scrollVideoChannelShelf',
   'searchYoutubeChannels',
   'selectManualChannelSuggestion',

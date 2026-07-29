@@ -44,12 +44,6 @@ function getFunctionSource(name, nextName) {
   return appSource.slice(declaration.index, end)
 }
 
-function getInlineHandlerName(expression) {
-  return expression?.match(
-    /^\s*([a-zA-Z_$][\w$]*)\s*\(/
-  )?.[1] ?? null
-}
-
 function normalizeClickEventName(action) {
   return `${String(action || '')
     .trim()
@@ -108,7 +102,7 @@ const shelfRemoveButton = getTagByClass(
 assert.ok(selectAllInput, 'Expected select-all checkbox')
 assert.ok(optionInput, 'Expected channel-option checkbox')
 
-test('generated filter controls retain variants, order, metadata, and exact inline arguments', () => {
+test('generated filter controls retain variants, order, metadata, and ownership hooks', () => {
   assert.match(
     filterRenderSource,
     /const allChannelsControl = entries\.length\s*\? `/
@@ -126,6 +120,7 @@ test('generated filter controls retain variants, order, metadata, and exact inli
     {
       action: 'handleChannelFilterSelectAllClick',
       channelFilterAction: 'select-all-row',
+      channelRemoveAction: null,
       eventAttribute: 'onclick',
       eventValue: null,
       tag: selectAllRow
@@ -133,6 +128,7 @@ test('generated filter controls retain variants, order, metadata, and exact inli
     {
       action: 'setAllChannelFilters',
       channelFilterAction: 'select-all',
+      channelRemoveAction: null,
       eventAttribute: 'onchange',
       eventValue: null,
       tag: selectAllInput
@@ -140,6 +136,7 @@ test('generated filter controls retain variants, order, metadata, and exact inli
     {
       action: 'handleChannelFilterOptionClick',
       channelFilterAction: 'option-row',
+      channelRemoveAction: null,
       eventAttribute: 'onclick',
       eventValue: null,
       tag: optionRow
@@ -147,6 +144,7 @@ test('generated filter controls retain variants, order, metadata, and exact inli
     {
       action: 'setChannelFilter',
       channelFilterAction: 'select',
+      channelRemoveAction: null,
       eventAttribute: 'onchange',
       eventValue: null,
       tag: optionInput
@@ -154,9 +152,9 @@ test('generated filter controls retain variants, order, metadata, and exact inli
     {
       action: 'removeChannelFromFilter',
       channelFilterAction: null,
+      channelRemoveAction: 'remove',
       eventAttribute: 'onclick',
-      eventValue:
-        'removeChannelFromFilter(event, this.dataset.channelId)',
+      eventValue: null,
       tag: filterRemoveButton
     }
   ]
@@ -171,16 +169,13 @@ test('generated filter controls retain variants, order, metadata, and exact inli
       control.channelFilterAction
     )
     assert.equal(
+      getAttribute(control.tag, 'data-channel-remove-action'),
+      control.channelRemoveAction
+    )
+    assert.equal(
       getAttribute(control.tag, control.eventAttribute),
       control.eventValue
     )
-    if (control.eventValue !== null) {
-      assert.equal(
-        getInlineHandlerName(control.eventValue),
-        control.action
-      )
-      assert.equal(control.eventValue.startsWith('return '), false)
-    }
   }
 
   assert.equal(
@@ -259,17 +254,18 @@ test('generated filter controls retain variants, order, metadata, and exact inli
   )
 })
 
-test('filter and shelf removal surfaces share exact metadata and inline ownership', () => {
+test('filter and shelf removal surfaces share exact metadata and module ownership', () => {
   for (const button of [filterRemoveButton, shelfRemoveButton]) {
     assert.equal(getAttribute(button, 'type'), 'button')
+    assert.equal(
+      getAttribute(button, 'data-channel-remove-action'),
+      'remove'
+    )
     assert.equal(
       getAttribute(button, 'data-analytics-action'),
       'removeChannelFromFilter'
     )
-    assert.equal(
-      getAttribute(button, 'onclick'),
-      'removeChannelFromFilter(event, this.dataset.channelId)'
-    )
+    assert.equal(getAttribute(button, 'onclick'), null)
   }
 
   assert.equal(
@@ -299,10 +295,10 @@ test('filter and shelf removal surfaces share exact metadata and inline ownershi
 
   const removalConsumers = [
     ...filterRenderSource.matchAll(
-      /onclick="removeChannelFromFilter\(event, this\.dataset\.channelId\)"/g
+      /data-channel-remove-action="remove"/g
     ),
     ...shelfRenderSource.matchAll(
-      /onclick="removeChannelFromFilter\(event, this\.dataset\.channelId\)"/g
+      /data-channel-remove-action="remove"/g
     )
   ]
   assert.equal(removalConsumers.length, 2)
@@ -421,10 +417,11 @@ test('filter replacement and refresh timestamps retain synchronous timing', () =
   )
 })
 
-test('four migrated handlers leave the bridge while shared removal remains', () => {
+test('all five migrated handler families leave the legacy bridge', () => {
   const migratedActions = [
     'handleChannelFilterOptionClick',
     'handleChannelFilterSelectAllClick',
+    'removeChannelFromFilter',
     'setAllChannelFilters',
     'setChannelFilter'
   ]
@@ -440,13 +437,4 @@ test('four migrated handlers leave the bridge while shared removal remains', () 
       new RegExp(`(?:^|[\\s,])${action}(?:[\\s,]|$)`)
     )
   }
-
-  assert.equal(
-    LEGACY_ACTION_NAMES.includes('removeChannelFromFilter'),
-    true
-  )
-  assert.match(
-    installMap,
-    /(?:^|[\s,])removeChannelFromFilter(?:[\s,]|$)/
-  )
 })

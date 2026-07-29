@@ -17,6 +17,7 @@ const controlSelector = '[data-channel-filter-action]'
 const migratedActionNames = [
   'handleChannelFilterOptionClick',
   'handleChannelFilterSelectAllClick',
+  'removeChannelFromFilter',
   'setAllChannelFilters',
   'setChannelFilter'
 ]
@@ -314,10 +315,14 @@ test('generated filter markup transfers exactly four controls to module ownershi
   }
 })
 
-test('render replacement binds immediately before indeterminate state is restored', () => {
+test('render replacement binds removal then filter controls before indeterminate state', () => {
   assert.match(
     appSource,
     /import\s*\{\s*bindChannelFilterActions\s*\}\s*from '\.\/features\/channels\/filter-actions\.js'/
+  )
+  assert.match(
+    appSource,
+    /import\s*\{\s*bindChannelRemoveActions\s*\}\s*from '\.\/features\/channels\/remove-actions\.js'/
   )
 
   const renderSource = getFunctionSource(
@@ -334,7 +339,10 @@ test('render replacement binds immediately before indeterminate state is restore
   const replacementIndex = renderSource.indexOf(
     'optionsWrap.innerHTML = `'
   )
-  const bindingIndex = renderSource.indexOf(
+  const removeBindingIndex = renderSource.indexOf(
+    'bindChannelRemoveActions(optionsWrap, {'
+  )
+  const filterBindingIndex = renderSource.indexOf(
     'bindChannelFilterActions(optionsWrap, {'
   )
   const selectAllLookupIndex = renderSource.indexOf(
@@ -344,12 +352,17 @@ test('render replacement binds immediately before indeterminate state is restore
     'selectAllInput.indeterminate = selectedCount > 0 && selectedCount < entries.length'
   )
   assert.notEqual(replacementIndex, -1)
-  assert.ok(bindingIndex > replacementIndex)
-  assert.ok(selectAllLookupIndex > bindingIndex)
+  assert.ok(removeBindingIndex > replacementIndex)
+  assert.ok(filterBindingIndex > removeBindingIndex)
+  assert.ok(selectAllLookupIndex > filterBindingIndex)
   assert.ok(indeterminateIndex > selectAllLookupIndex)
   assert.match(
-    renderSource.slice(replacementIndex, bindingIndex),
+    renderSource.slice(replacementIndex, removeBindingIndex),
     /optionsWrap\.innerHTML = `[\s\S]*?`\s*$/
+  )
+  assert.match(
+    renderSource.slice(removeBindingIndex, filterBindingIndex),
+    /bindChannelRemoveActions\(optionsWrap,\s*\{\s*remove:\s*removeChannelFromFilter\s*\}\)\s*$/
   )
 })
 
@@ -397,7 +410,7 @@ test('nested guards and Alt-click cancellation remain in app-owned handlers', ()
   )
 })
 
-test('only inline removal remains shared through the legacy bridge', () => {
+test('removal controls transfer to module ownership with no legacy alias', () => {
   const renderSource = getFunctionSource(
     'renderChannelFilterOptions',
     'refreshOpenChannelFilterTimestamps'
@@ -406,8 +419,6 @@ test('only inline removal remains shared through the legacy bridge', () => {
     'renderChannelVideoGroups',
     'renderChannelShelfAvatar'
   )
-  const removeHandler =
-    'removeChannelFromFilter(event, this.dataset.channelId)'
   const filterRemove = findSingle(
     getOpeningTags(renderSource, 'button'),
     tag => getAttribute(tag, 'class') === 'channel-filter-remove',
@@ -419,7 +430,11 @@ test('only inline removal remains shared through the legacy bridge', () => {
     'shelf removal control'
   )
   for (const control of [filterRemove, shelfRemove]) {
-    assert.equal(getAttribute(control, 'onclick'), removeHandler)
+    assert.equal(getAttribute(control, 'onclick'), null)
+    assert.equal(
+      getAttribute(control, 'data-channel-remove-action'),
+      'remove'
+    )
     assert.equal(
       getAttribute(control, 'data-analytics-action'),
       'removeChannelFromFilter'
@@ -441,12 +456,4 @@ test('only inline removal remains shared through the legacy bridge', () => {
       new RegExp(`(?:^|[\\s,])${actionName}(?:[\\s,]|$)`)
     )
   }
-  assert.equal(
-    LEGACY_ACTION_NAMES.includes('removeChannelFromFilter'),
-    true
-  )
-  assert.match(
-    installMap,
-    /(?:^|[\s,])removeChannelFromFilter(?:[\s,]|$)/
-  )
 })

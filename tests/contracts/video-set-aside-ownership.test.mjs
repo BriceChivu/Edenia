@@ -24,8 +24,7 @@ const migratedActionNames = [
 const retainedNeighborActionNames = [
   'addYoutubeInput',
   'closeVideoShelfPreviewAfterFocus',
-  'handleVideoThumbnailClick',
-  'removeChannelFromFilter'
+  'handleVideoThumbnailClick'
 ]
 
 function getElements(source, tagName) {

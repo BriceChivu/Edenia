@@ -4459,3 +4459,45 @@ release mappings, and follow-up findings are recorded as new entries.
   handler families and bridge aliases; no selection persistence, removal,
   analytics, or visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-124 — Migrate shared channel-removal ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral cross-surface event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace the shared filter and shelf removal inline handlers only
+  after both generated insertion paths can bind the same component adapter.
+- **Conceptual change:** Added a channel-removal action adapter with an exact
+  `remove` hook. Each direct listener forwards the native click event and live
+  channel ID to `removeChannelFromFilter`. Filter controls bind after options
+  replacement; shelf controls bind after active-grid replacement. Removed the
+  final shared removal bridge alias.
+- **Preservation contract:** Preserve immediate callback-owned prevent-default
+  and propagation stop, so filter-option rows, shelf containers, and generic
+  click analytics do not receive removal clicks. Preserve removable membership,
+  channel/inferred lookup, snapshots, removal state, Undo, activity log, save,
+  full rerender, filters, shelves, empty/removed states, icons/labels/ARIA,
+  ordering, localization, and responsive presentation.
+- **Risks:** Binding only one surface would leave the other inert; delegation
+  could allow row/shelf handlers or analytics to run first; stale IDs could
+  remove the wrong channel; binding before replacement would attach to discarded
+  nodes.
+- **Verification:** The first `npm test` run found selector quote-style
+  disagreement across three ownership harness cases, two binder-order
+  expectations, and one older retained-neighbor assertion for
+  `removeChannelFromFilter`. The selector was standardized, removal now binds
+  first after filter replacement, and the stale expectation was removed without
+  changing callback behavior. The final `npm test` passed: the production build
+  completed and all 570 contract tests passed, including exact event/live-ID
+  forwarding, callback-owned cancellation, both replacement bind sites,
+  filter-row and shelf/generic suppression, removal transaction ordering, and
+  final bridge cleanup. Browser, local-server, visual-regression,
+  migration-ledger, diff-integrity, and static-review checks were not run in
+  accordance with the repository `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore both inline removal surfaces and
+  their shared bridge alias; no channel state, storage, Undo, analytics, or
+  visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
