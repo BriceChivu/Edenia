@@ -19,6 +19,18 @@ import {
 } from './core/date-keys.js'
 import { escHtml, escapeSvgText } from './core/escaping.js'
 import { clampNumber } from './core/numbers.js'
+import {
+  hasCoarsePrimaryPointer,
+  prefersReducedMotion,
+  supportsAnkiIntegrationInput,
+  supportsChannelShelfMouseDrag,
+  supportsVideoShelfPreviewInput,
+  usesCompactPortraitComposition,
+  usesDocumentHeatmapPositioning,
+  usesPhoneComposition,
+  usesTabletCoarseInput,
+  usesTapVideoShelfPreviewInput
+} from './core/responsive-capabilities.js'
 import { deriveRuntimeEnvironment } from './core/runtime-environment.js'
 import { deriveStorageKeys } from './core/storage-keys.js'
 import {
@@ -724,7 +736,7 @@ function isTemporaryShortsWhitelistedUser() {
 }
 
 function isAnkiAvailableOnDevice() {
-  return !window.matchMedia?.('(max-width: 640px), (any-pointer: coarse)').matches
+  return supportsAnkiIntegrationInput()
 }
 
 function isAnkiTrackingActive(state) {
@@ -1509,7 +1521,6 @@ function initBackgroundPhysics() {
   const staticContext = staticCanvas.getContext('2d', { alpha: true })
   if (!staticContext) return null
 
-  const coarsePointer = window.matchMedia('(pointer: coarse)')
   const particles = []
   const activeParticles = new Set()
   const pointer = {
@@ -1573,7 +1584,8 @@ function initBackgroundPhysics() {
     width = Math.max(1, window.innerWidth)
     height = Math.max(1, window.innerHeight)
     pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5)
-    const isLowPower = coarsePointer.matches || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4)
+    const isLowPower = hasCoarsePrimaryPointer()
+      || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4)
     const particleLimit = isLowPower ? 1200 : BACKGROUND_PHYSICS_MAX_PARTICLES
     spacing = Math.max(18, Math.min(34, Math.sqrt((width * height) / particleLimit)))
     columns = Math.ceil(width / spacing) + 1
@@ -1792,7 +1804,7 @@ function startLiveIntegrations(state = loadState(), { deferAnki = false, forceSh
 function syncHeaderCompactState() {
   const header = document.querySelector('.app-header')
   if (!header) return
-  if (!isMobileLayout()) {
+  if (!usesPhoneComposition()) {
     header.classList.remove('is-compact')
     return
   }
@@ -2862,19 +2874,15 @@ function consumeSandboxWalkthroughAfterReset() {
   }
 }
 
-function isMobileLayout() {
-  return Boolean(window.matchMedia?.('(max-width: 640px)').matches)
-}
-
 function syncMobileAddButtonWidth() {
   const addControl = document.getElementById('manualVideo')
   const undoRedoControl = document.querySelector('.feed-action-controls .undo-wrap')
-  const shouldShrinkAddControl = Boolean(window.matchMedia?.('(max-aspect-ratio: 590/736)').matches)
+  const shouldShrinkAddControl = usesCompactPortraitComposition()
   if (!addControl) return
 
   addControl.style.removeProperty('flex')
   addControl.style.removeProperty('width')
-  if (!undoRedoControl || (!isMobileLayout() && !shouldShrinkAddControl)) return
+  if (!undoRedoControl || (!usesPhoneComposition() && !shouldShrinkAddControl)) return
 
   const undoRedoWidth = undoRedoControl.getBoundingClientRect().width
   if (undoRedoWidth <= 0) return
@@ -2885,7 +2893,7 @@ function syncMobileAddButtonWidth() {
 
 function getWalkthroughTargetSelector(step) {
   if (!step) return ''
-  return isMobileLayout() && step.mobileTarget ? step.mobileTarget : step.target
+  return usesPhoneComposition() && step.mobileTarget ? step.mobileTarget : step.target
 }
 
 function getWalkthroughTarget(step) {
@@ -2894,7 +2902,7 @@ function getWalkthroughTarget(step) {
 }
 
 function showWalkthroughAgain() {
-  if (isMobileLayout()) openSettings.returnFocus = null
+  if (usesPhoneComposition()) openSettings.returnFocus = null
   closeSettings()
   window.setTimeout(() => startWalkthrough(WALKTHROUGH_STEPS, { manual: true }), 120)
 }
@@ -2981,7 +2989,7 @@ function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {
   walkthroughState.lastTrackedStepKey = null
   ensureWalkthroughElements()
   document.body.classList.add('walkthrough-active')
-  if (isMobileLayout()) document.activeElement?.blur?.()
+  if (usesPhoneComposition()) document.activeElement?.blur?.()
   syncHeaderCompactState()
   walkthroughState.elements.layer.classList.remove('hidden')
   window.addEventListener('resize', scheduleWalkthroughPosition)
@@ -3080,7 +3088,7 @@ function renderWalkthroughStep() {
   const elements = ensureWalkthroughElements()
   elements.card.classList.remove('hidden')
   elements.progress.textContent = t('walkthrough.progress', { current: walkthroughState.index + 1, total: walkthroughState.steps.length })
-  const textKey = isMobileLayout() && step.mobileTextKey ? step.mobileTextKey : step.textKey
+  const textKey = usesPhoneComposition() && step.mobileTextKey ? step.mobileTextKey : step.textKey
   elements.text.textContent = textKey ? t(textKey) : step.text
   elements.back.disabled = walkthroughState.index === 0
   elements.next.disabled = step.advanceOn === 'target-click'
@@ -3647,7 +3655,7 @@ function openSettings() {
   closeLocaleMenu()
   show('settingsPanel')
   const drawer = panel?.querySelector('.settings-drawer')
-  if (drawer && isMobileLayout()) drawer.scrollTop = 0
+  if (drawer && usesPhoneComposition()) drawer.scrollTop = 0
   if (main) main.inert = true
   window.setTimeout(() => document.getElementById('settingsCloseBtn')?.focus(), 0)
 }
@@ -4063,7 +4071,7 @@ function formatActivityLogLabel(entry) {
 }
 
 function groupMobileActivityLogEntries(entries) {
-  if (!isMobileLayout()) return entries
+  if (!usesPhoneComposition()) return entries
 
   return entries.reduce((grouped, entry) => {
     const previous = grouped[grouped.length - 1]
@@ -4087,7 +4095,7 @@ function groupMobileActivityLogEntries(entries) {
 
 function getMobileActivityLogPage(entries, { groupAnki = false } = {}) {
   const prepared = groupAnki ? groupMobileActivityLogEntries(entries) : entries
-  if (!isMobileLayout()) return { entries: prepared, totalCount: prepared.length }
+  if (!usesPhoneComposition()) return { entries: prepared, totalCount: prepared.length }
   return {
     entries: prepared.slice(0, mobileActivityLogVisibleCount),
     totalCount: prepared.length
@@ -4095,7 +4103,7 @@ function getMobileActivityLogPage(entries, { groupAnki = false } = {}) {
 }
 
 function appendMobileActivityLogMoreButton(list, totalCount) {
-  if (!isMobileLayout() || totalCount <= mobileActivityLogVisibleCount) return
+  if (!usesPhoneComposition() || totalCount <= mobileActivityLogVisibleCount) return
   list.insertAdjacentHTML('beforeend', `
     <button class="btn-ghost activity-log-more" type="button" data-activity-log-action="show-older" data-analytics-action="showOlderActivityLogEntries">${escHtml(t('activity.showOlder'))}</button>
   `)
@@ -4358,7 +4366,7 @@ async function addChannel(options = {}) {
     btn.textContent = idleButtonText
   }
   if (options.closePopover) closeManualVideoPopover()
-  if (addedFromFilter && isMobileLayout()) closeChannelFilterMenu()
+  if (addedFromFilter && usesPhoneComposition()) closeChannelFilterMenu()
   if (IS_SANDBOX) {
     showToast(t('toast.channelAdded', { name }))
     return
@@ -5813,7 +5821,7 @@ function renderActiveVideoWatchReminder(state = null) {
   if (card) {
     closeVideoShelfPreview(activeVideoShelfPreview, true)
     card.classList.add('watch-reminder-target')
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reduceMotion = prefersReducedMotion()
     if (shouldGuideActiveVideoWatchReminder) {
       card.classList.add('watch-reminder-arriving')
       card.scrollIntoView({
@@ -6687,7 +6695,7 @@ function revealAddedVideoCard(videoId, state) {
 }
 
 function usesTabletAddedVideoReveal() {
-  return Boolean(window.matchMedia?.('(min-width: 641px) and (any-pointer: coarse)').matches)
+  return usesTabletCoarseInput()
 }
 
 async function addVideoFromUrl(event) {
@@ -7487,7 +7495,7 @@ function openNextStudyVideoPlayer(event, videoId) {
 }
 
 function focusNextStudyVideoCard(event, videoId) {
-  if (isMobileLayout()) return true
+  if (usesPhoneComposition()) return true
   event?.preventDefault()
   event?.stopPropagation()
 
@@ -7520,7 +7528,7 @@ function focusNextStudyVideoCard(event, videoId) {
       return
     }
 
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const reduceMotion = prefersReducedMotion()
     nextStudyFocusZoomTimer = window.setTimeout(() => {
       const card = findVideoCard(targetVideoId, '.channel-shelf-card')
       const previewStarted = card && openVideoShelfPreview(card, true)
@@ -8509,7 +8517,7 @@ function toggleHistoryVideoPopover(event) {
   event.stopPropagation()
   const cell = event.currentTarget.closest('.history-video-cell')
   if (!cell) return
-  if (window.matchMedia?.('(pointer: coarse)').matches) {
+  if (hasCoarsePrimaryPointer()) {
     openHistoryVideoCell(cell, true)
     return
   }
@@ -8561,7 +8569,7 @@ function toggleHistoryPointsPopover(event) {
   event.stopPropagation()
   const cell = event.currentTarget.closest('.history-points-cell')
   if (!cell) return
-  if (window.matchMedia?.('(pointer: coarse)').matches) {
+  if (hasCoarsePrimaryPointer()) {
     openHistoryPointsCell(cell, true)
     return
   }
@@ -8637,7 +8645,7 @@ function jumpToWatchedVideo(event, videoId) {
     return
   }
 
-  if (!isMobileLayout()) {
+  if (!usesPhoneComposition()) {
     focusNextStudyVideoCard(event, targetId)
     return
   }
@@ -8782,7 +8790,7 @@ function closeVideoSearchPopover(restoreFocus = false) {
   const button = document.getElementById('videoSearchBtn')
   if (popover) popover.classList.add('hidden')
   if (button) button.setAttribute('aria-expanded', 'false')
-  if (restoreFocus && button && isMobileLayout()) window.setTimeout(() => button.focus(), 0)
+  if (restoreFocus && button && usesPhoneComposition()) window.setTimeout(() => button.focus(), 0)
 }
 
 function closeVideoSearchPopoverOnOutsideClick(event) {
@@ -9126,7 +9134,7 @@ function toggleHeatmapTooltip(event) {
   const tooltip = document.getElementById('heatmapTooltip')
   if (!target || !tooltip) return
   event.stopPropagation()
-  if (window.matchMedia?.('(pointer: coarse)').matches) {
+  if (hasCoarsePrimaryPointer()) {
     showHeatmapTooltip(event)
     return
   }
@@ -9179,7 +9187,7 @@ function positionHeatmapTooltip(target) {
   const rect = target.getBoundingClientRect()
   const gap = 10
   const margin = 8
-  const isCoarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches || window.innerWidth <= 768
+  const isCoarsePointer = usesDocumentHeatmapPositioning(window.innerWidth)
   const baseLeft = rect.left + (isCoarsePointer ? window.scrollX : 0)
   const baseTop = rect.top + (isCoarsePointer ? window.scrollY : 0)
   const viewportLeft = Math.min(
@@ -10147,7 +10155,7 @@ function renderHistoryPeriodPopover(range, popoverId, state) {
 function toggleHistoryPeriodPopover(event, range) {
   event.stopPropagation()
   const state = loadState()
-  if (isMobileLayout() && getHistoryPeriodOptions(state || { videos: {}, anki: {} }, range).length === 0) return
+  if (usesPhoneComposition() && getHistoryPeriodOptions(state || { videos: {}, anki: {} }, range).length === 0) return
   selectedHistoryRange = HISTORY_RANGES.includes(range) ? range : 'week'
   const cell = event.currentTarget.closest('.history-period-cell')
   if (!cell) return
@@ -10229,7 +10237,7 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
   const scoreContext = document.getElementById('cityScoreContext')
   if (scoreContext) {
     scoreContext.textContent = snapshot.isToday
-      ? t(isMobileLayout() ? 'points.short' : 'city.totalPts')
+      ? t(usesPhoneComposition() ? 'points.short' : 'city.totalPts')
       : t('city.ptsByThen')
   }
   const nextLevel = CITY_LEVELS[snapshot.pendingLevelIndex || snapshot.visualLevelIndex + 1] || null
@@ -10604,7 +10612,7 @@ function initCityWaveformTouchNavigation() {
   bars.dataset.touchNavigationReady = 'true'
 
   bars.addEventListener('pointerdown', event => {
-    if (!isMobileLayout() || event.pointerType !== 'touch' || cityWaveformScroll.touchPointerId !== null) return
+    if (!usesPhoneComposition() || event.pointerType !== 'touch' || cityWaveformScroll.touchPointerId !== null) return
     cityWaveformScroll.touchPointerId = event.pointerId
     cityWaveformScroll.touchStartX = event.clientX
     cityWaveformScroll.touchStartY = event.clientY
@@ -10739,7 +10747,7 @@ function selectCityWaveBar(bar) {
 }
 
 function handleCityWaveformMouseMove(event) {
-  if (isMobileLayout()) return
+  if (usesPhoneComposition()) return
   const waveform = document.getElementById('cityTimeWaveform')
   const bars = document.getElementById('cityWaveBars')
   cityWaveformScroll.pointerX = event.clientX
@@ -11642,7 +11650,7 @@ function scrollVideoChannelShelf(button, direction) {
   const targetLeft = cardPitch > 0
     ? Math.min(targetCardIndex * cardPitch, maxScrollLeft)
     : clampNumber(track.scrollLeft + ((direction < 0 ? -1 : 1) * track.clientWidth), 0, maxScrollLeft)
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const reduceMotion = prefersReducedMotion()
   track.scrollTo({
     left: targetLeft,
     behavior: reduceMotion ? 'auto' : 'smooth'
@@ -11660,7 +11668,7 @@ let touchChannelShelfDragStartX = 0
 let touchChannelShelfDragStartY = 0
 
 function canReorderChannelShelves() {
-  return window.matchMedia('(min-width: 641px) and (hover: hover) and (pointer: fine)').matches
+  return supportsChannelShelfMouseDrag()
 }
 
 function clearChannelShelfDropIndicators() {
@@ -12570,15 +12578,12 @@ const videoShelfPreviewLeaveTimers = new WeakMap()
 let videoShelfPreviewAnchorTimer = null
 
 function usesTapVideoShelfPreview() {
-  return window.matchMedia('(min-width: 641px) and (hover: none)').matches
+  return usesTapVideoShelfPreviewInput()
 }
 
 function canUseVideoShelfPreview() {
   return !document.body.classList.contains('walkthrough-active')
-    && (
-      window.matchMedia('(min-width: 641px) and (hover: hover) and (pointer: fine)').matches
-      || usesTapVideoShelfPreview()
-    )
+    && supportsVideoShelfPreviewInput()
 }
 
 function isVideoShelfCardFullyVisible(card) {
@@ -12947,7 +12952,7 @@ function closeVideoShelfPreview(card, force = false) {
   card.classList.add('is-preview-closing')
   card.classList.remove('is-previewing')
   window.clearTimeout(videoShelfPreviewAnchorTimer)
-  if (force || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (force || prefersReducedMotion()) {
     cleanupVideoShelfPreview(card)
     return
   }
@@ -13009,7 +13014,7 @@ function closeVideoShelfPreviewOnOutsideClick(event) {
 }
 
 function closeVideoShelfPreviewOnViewportChange() {
-  if (isMobileLayout() && activeNextStudyFocusVideoId) {
+  if (usesPhoneComposition() && activeNextStudyFocusVideoId) {
     window.clearTimeout(nextStudyFocusZoomTimer)
     activeNextStudyFocusVideoId = null
     document.querySelectorAll('.video-card.next-study-focus-target').forEach(card => {
@@ -13225,7 +13230,7 @@ function formatHistoryActionTimestamp(action) {
 }
 
 function handleHistoryActionScrollHover(event) {
-  if (!isMobileLayout()) {
+  if (!usesPhoneComposition()) {
     stopHistoryActionAutoScroll()
     return
   }
@@ -13305,7 +13310,7 @@ function toggleHistoryActionPopover(event, direction) {
   btn.setAttribute('aria-expanded', String(shouldOpen))
   if (shouldOpen) {
     positionFilterMenuWithinViewport(popover)
-    if (isMobileLayout()) window.setTimeout(() => popover.querySelector('.undo-tooltip-action-btn')?.focus(), 0)
+    if (usesPhoneComposition()) window.setTimeout(() => popover.querySelector('.undo-tooltip-action-btn')?.focus(), 0)
   }
 }
 
@@ -13325,7 +13330,7 @@ function closeHistoryActionPopovers(exceptWrap = null, restoreFocus = false) {
     }
     if (!focusButton) focusButton = btn
   })
-  if (restoreFocus && isMobileLayout()) window.setTimeout(() => focusButton?.focus(), 0)
+  if (restoreFocus && usesPhoneComposition()) window.setTimeout(() => focusButton?.focus(), 0)
 }
 
 function closeHistoryActionPopoversOnOutsideClick(event) {
@@ -13469,7 +13474,7 @@ function closeStatusFilterMenu(restoreFocus = false) {
   menu.style.left = ''
   menu.style.right = ''
   btn.setAttribute('aria-expanded', 'false')
-  if (restoreFocus && isMobileLayout()) window.setTimeout(() => btn.focus(), 0)
+  if (restoreFocus && usesPhoneComposition()) window.setTimeout(() => btn.focus(), 0)
 }
 
 function renderChannelFilterOptions(s) {
@@ -13661,7 +13666,7 @@ function closeChannelFilterMenu(restoreFocus = false) {
   menu.style.left = ''
   menu.style.right = ''
   btn.setAttribute('aria-expanded', 'false')
-  if (restoreFocus && isMobileLayout()) window.setTimeout(() => btn.focus(), 0)
+  if (restoreFocus && usesPhoneComposition()) window.setTimeout(() => btn.focus(), 0)
 }
 
 function toggleManualVideoPopover(event) {
@@ -13700,13 +13705,13 @@ function closeManualVideoPopover(restoreFocus = false) {
   menu.style.right = ''
   btn.setAttribute('aria-expanded', 'false')
   closeManualChannelSuggestions()
-  if (restoreFocus && isMobileLayout()) window.setTimeout(() => btn.focus(), 0)
+  if (restoreFocus && usesPhoneComposition()) window.setTimeout(() => btn.focus(), 0)
 }
 
 function positionFilterMenuWithinViewport(menu) {
   if (!menu || menu.classList.contains('hidden')) return
 
-  if (isMobileLayout()) {
+  if (usesPhoneComposition()) {
     menu.style.left = ''
     menu.style.right = ''
     return

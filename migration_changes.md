@@ -4847,3 +4847,41 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the three inline error handlers;
   no image, state, storage, analytics, or visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-134 — Introduce named responsive capabilities
+
+- **Date:** 2026-07-29
+- **Phase:** 6 — Responsive architecture migration
+- **Type:** Behavior-neutral responsive decision interface
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace device-labelled and scattered media checks with explicit
+  layout, input, interaction, and motion capabilities while retaining every
+  current threshold.
+- **Conceptual change:** Added one responsive-capability module containing the
+  existing phone, aspect-ratio, coarse-pointer, tablet, hover/fine-pointer,
+  no-hover, and reduced-motion queries. Application decisions now call named
+  capabilities for phone composition, Anki input suitability, compact
+  portrait controls, tablet reveal timing, heatmap positioning, channel drag,
+  video preview interaction, coarse-pointer behavior, and motion. Raw
+  `matchMedia` calls and the ambiguous `isMobileLayout` helper were removed from
+  `app.js`; geometry-based viewport measurements remain local to positioning
+  calculations.
+- **Preservation contract:** Preserve every exact media query and `640/641`,
+  `768`, and aspect-ratio boundary; all header, walkthrough, settings, activity
+  log, filter, Next Study, history, city, popover, Anki, drag, preview,
+  background, tooltip, and reduced-motion outcomes; event timing, feature
+  availability, state, storage, localization, analytics, and visuals. Naming a
+  capability does not authorize changing its existing behavior.
+- **Risks:** A query typo or inverted result could affect many surfaces;
+  detaching `matchMedia` incorrectly could fail in some browsers; replacing
+  geometry checks would conflate layout decisions with positioning.
+- **Verification:** The single consolidated `npm test` run passed: the
+  production build completed and all 617 contract tests passed. Browser,
+  local-server, visual-regression, migration-ledger, diff-integrity, and
+  static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the local media checks; no state,
+  storage, analytics, responsive, or visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

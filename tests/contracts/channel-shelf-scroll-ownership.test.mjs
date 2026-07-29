@@ -360,7 +360,7 @@ test('local scroll functions and deferred lexical sync remain unchanged', () => 
       "const shelf = button?.closest?.('.channel-shelf')",
       "const track = shelf?.querySelector('.channel-shelf-track')",
       'const targetCardIndex = Math.max(0, currentCardIndex + (direction < 0 ? -4 : 4))',
-      "const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches",
+      'const reduceMotion = prefersReducedMotion()',
       'track.scrollTo({',
       "behavior: reduceMotion ? 'auto' : 'smooth'"
     ],

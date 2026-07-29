@@ -256,7 +256,7 @@ test('scrolling retains live control lookup, four-card movement, and reduced mot
       'const targetLeft = cardPitch > 0',
       '? Math.min(targetCardIndex * cardPitch, maxScrollLeft)',
       ': clampNumber(track.scrollLeft + ((direction < 0 ? -1 : 1) * track.clientWidth), 0, maxScrollLeft)',
-      "const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches",
+      'const reduceMotion = prefersReducedMotion()',
       'track.scrollTo({',
       'left: targetLeft,',
       "behavior: reduceMotion ? 'auto' : 'smooth'"
