@@ -3917,6 +3917,134 @@ test('Study History empty period triggers preserve the desktop and phone boundar
     .toBe(storedBefore)
 })
 
+test('Study History watched popover listeners preserve fine and coarse interactions', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-standard'].includes(
+    testInfo.project.name
+  ))
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.videos['history-popover-video'] = {
+      id: 'history-popover-video',
+      title: 'Protected History popover video',
+      channelId: 'history-popover-channel',
+      channelTitle: 'Protected History popover channel',
+      duration: 600,
+      publishedAt: '2026-07-27T04:00:00.000Z',
+      watchedAt: '2026-07-28T05:00:00.000Z',
+      status: 'watched',
+      thumbnail: '',
+      watchProgress: [{
+        watchedAt: '2026-07-28T05:00:00.000Z',
+        seconds: 300
+      }],
+      watchProgressTracked: true
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    localStorage.removeItem('edenia_posthog_state_v2')
+  })
+  await page.reload()
+  await waitForApplication(page)
+
+  const cell = page.locator(
+    '[data-history-watched-popover-action="toggle"]'
+  ).first()
+  const trigger = cell.locator('.history-video-count')
+  const storedBefore = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  await page.evaluate(() => {
+    window.__historyWatchedAnalyticsEvents = []
+    window.__historyWatchedAtDocumentBubble = null
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__historyWatchedAnalyticsEvents.push({
+          eventName,
+          properties
+        })
+      },
+      get_distinct_id() {
+        return 'preservation-history-watched-popover'
+      },
+      setPersonProperties() {}
+    }
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.(
+        '[data-history-watched-popover-action="toggle"]'
+      )) return
+      window.__historyWatchedAtDocumentBubble = true
+    }, { once: true })
+  })
+
+  if (testInfo.project.name === 'desktop-standard') {
+    await cell.hover()
+    await expect(cell).toHaveClass(/\bopen\b/)
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await page.mouse.move(0, 0)
+    await expect(cell).not.toHaveClass(/\bopen\b/)
+
+    await trigger.focus()
+    await expect(cell).toHaveClass(/\bopen\b/)
+    await trigger.blur()
+    await expect(cell).not.toHaveClass(/\bopen\b/)
+
+    await trigger.focus()
+    await expect(cell).toHaveClass(/\bopen\b/)
+    await trigger.press('Enter')
+    await expect(cell).not.toHaveClass(/\bopen\b/)
+    await trigger.press('Space')
+    await expect(cell).toHaveClass(/\bopen\b/)
+    await trigger.click()
+    await expect(cell).not.toHaveClass(/\bopen\b/)
+    await trigger.click()
+    await expect(cell).toHaveClass(/\bopen\b/)
+    await page.keyboard.press('Escape')
+    await expect(cell).not.toHaveClass(/\bopen\b/)
+  } else {
+    await trigger.press('Space')
+    await expect(cell).toHaveClass(/\bopen\b/)
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await trigger.press('Enter')
+    await expect(cell).toHaveClass(/\bopen\b/)
+    await page.locator('.section-title').first().click()
+    await expect(cell).not.toHaveClass(/\bopen\b/)
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  }
+
+  await expect.poll(() => page.evaluate(
+    () => window.__historyWatchedAtDocumentBubble
+  )).toBe(null)
+  expect(await page.evaluate(
+    () => window.__historyWatchedAnalyticsEvents
+  )).toEqual([])
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+  const removedBridgeActions = await page.evaluate(() => ({
+    closeSoon: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'closeHistoryVideoPopoverSoon'
+    ),
+    open: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'openHistoryVideoPopover'
+    ),
+    toggle: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'toggleHistoryVideoPopover'
+    )
+  }))
+  expect(removedBridgeActions).toEqual({
+    closeSoon: false,
+    open: false,
+    toggle: false
+  })
+})
+
 test('Study History view listeners preserve persistence, keyboard, and ordering', async ({
   page
 }, testInfo) => {

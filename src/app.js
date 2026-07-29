@@ -208,6 +208,9 @@ import {
   bindStudyHistoryPeriodToggleActions
 } from './features/study-history/period-toggle-actions.js'
 import { bindStudyHistoryViewActions } from './features/study-history/view-actions.js'
+import {
+  bindStudyHistoryWatchedPopoverActions
+} from './features/study-history/watched-popover-actions.js'
 import { bindSandboxActions } from './features/sandbox/actions.js'
 import { bindThemeActions } from './features/theme/actions.js'
 import { bindFeedbackConfirmationActions } from './features/feedback/confirmation-actions.js'
@@ -8213,7 +8216,7 @@ function renderHistoryWatchedCell(row) {
     `
   }
   return `
-    <span class="history-video-cell" onmouseenter="openHistoryVideoPopover(event)" onmouseleave="closeHistoryVideoPopoverSoon()" onfocusin="openHistoryVideoPopover(event)" onfocusout="closeHistoryVideoPopoverSoon()" onclick="toggleHistoryVideoPopover(event)">
+    <span class="history-video-cell" data-history-watched-popover-action="toggle">
       <button type="button" class="history-video-count" aria-expanded="false" aria-label="${escHtml(t('history.showWatched', { count: row.videosWatched, date: formatHeatmapTitle(row) }))}">
         <span class="history-video-count-number">${row.videosWatched}</span>
         <span class="history-video-count-caret" aria-hidden="true"></span>
@@ -8826,6 +8829,11 @@ function renderStudyHistoryPanel(s) {
         `).join('')}
       `
       : `<div class="history-empty">${escHtml(t('history.emptyRange'))}</div>`
+    bindStudyHistoryWatchedPopoverActions(table, {
+      open: openHistoryVideoPopover,
+      closeSoon: closeHistoryVideoPopoverSoon,
+      toggle: toggleHistoryVideoPopover
+    })
   }
 
   const summaryView = document.getElementById('historySummaryView')
@@ -13945,7 +13953,6 @@ installLegacyActions(window, {
   clearVideoPausedState,
   closeHistoryActionPopovers,
   closeHistoryPointsPopoverSoon,
-  closeHistoryVideoPopoverSoon,
   closeManualVideoPopover,
   closeStatusFilterMenu,
   closeVideoSearchPopover,
@@ -13975,7 +13982,6 @@ installLegacyActions(window, {
   moveChannelShelfDrag,
   navigateIntroTrailer,
   openHistoryPointsPopover,
-  openHistoryVideoPopover,
   openNextStudyVideoPlayer,
   openVideoShelfPreview,
   openVideoShelfPreviewFromFocus,
@@ -14006,7 +14012,6 @@ installLegacyActions(window, {
   toggleHeatmapTooltip,
   toggleHistoryActionPopover,
   toggleHistoryPointsPopover,
-  toggleHistoryVideoPopover,
   toggleIntroLocaleMenu,
   toggleIntroSound,
   toggleManualVideoPopover,

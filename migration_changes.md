@@ -2811,3 +2811,43 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the two inline handlers and bridge
   entry; no persisted state or schema rollback is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-085 — Migrate Study History watched popover shells
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Generated event ownership, compatibility bridge reduction, and tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move only the generated non-empty Study History watched-cell
+  popover lifecycle from inline global handlers into direct component
+  listeners, leaving nested watched-video navigation for a separate migration.
+- **Conceptual change:** Added one scoped ownership hook to each interactive
+  watched cell, installed direct `mouseenter`, `mouseleave`, `focusin`,
+  `focusout`, and `click` listeners after every History table rebuild, removed
+  the five inline attributes, and removed the three shell actions from the
+  temporary legacy bridge while retaining their lexical functions.
+- **Preservation contract:** Empty watched cells remain inert. Interactive
+  cells retain the exact original event and `currentTarget` for opening and
+  toggling, zero-argument delayed closing, the 80 ms timer, fine-pointer
+  toggling, coarse-pointer open-only clicks, hover and focus behavior,
+  propagation stopping, uncancelled native activation, current mutual-popover
+  close order, outside-click and Escape dismissal without focus restoration,
+  ARIA expansion, translations, styling, storage, Activity Log, analytics
+  silence, all responsive layouts, and the still-inline nested video-item
+  behavior.
+- **Risks:** Delegation would break non-bubbling mouse behavior and change
+  `currentTarget`; passing an event to the close callback could change its
+  contract; missing a table rebuild would leave replacement cells inert;
+  binding empty cells would introduce new UI; pointer-event substitution could
+  alter touch behavior; adding analytics metadata would create events that the
+  propagation-stopped inline path did not emit.
+- **Verification:** `npm test` passed 275 contract tests and the production
+  build. The focused fine-pointer desktop and coarse-pointer phone flow passed.
+  The complete six-viewport Playwright matrix passed with 55 tests and 155
+  intentional skips; all 18 protected screenshots remained unchanged.
+  Migration-ledger and diff-integrity checks passed.
+- **Rollback:** Revert this commit to restore the five inline shell handlers and
+  three bridge entries; no state or storage migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
