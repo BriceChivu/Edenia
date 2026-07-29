@@ -3447,3 +3447,54 @@ release mappings, and follow-up findings are recorded as new entries.
   generic identities; no event, state, storage, or visual migration is
   required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-100 — Migrate Set aside prompt event ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace the Set aside request, Cancel, Confirm, and prompt-keydown
+  inline handlers with direct scoped listeners while leaving the complete
+  prompt and video-state workflow in the existing composition module.
+- **Conceptual change:** Added a Set aside action adapter with explicit
+  `request`, `cancel`, `confirm`, and `prompt` hooks. Static prompt controls bind
+  once; Continue Watching requests bind after each Next Study replacement; and
+  video-card requests bind after each active-grid replacement. The adapter
+  reads live video/surface datasets, calls request with the same options object,
+  calls Cancel/Confirm with zero arguments, and forwards the exact keydown
+  event. Removed the four inline handlers and matching
+  `requestVideoSetAside`, `cancelVideoSetAsidePrompt`,
+  `confirmVideoSetAsidePrompt`, and
+  `handleVideoSetAsidePromptKeydown` bridge aliases.
+- **Preservation contract:** Preserve request qualification and remembered
+  bypass, exact surface values, event propagation and document-bubble analytics
+  order, prompt inertness, pending active-element/prior-inert capture,
+  next-frame Confirm focus, Cancel/Escape focus restoration, Confirm's
+  no-focus close, Escape prevention without propagation stop, and the absence
+  of backdrop dismissal, tab trapping, or body-scroll locking. Preserve the
+  distinct prompt-seen and action saves, their backup/analytics-sync order,
+  video state/progress/scoring/activity/reminder behavior, Favorite event
+  ordering, Undo/Redo asymmetries, storage schema, rendering, accessibility,
+  localization, desktop/tablet dialog, phone bottom sheet, and the hidden
+  Continue actions at the current narrow-phone breakpoint. Watched cards remain
+  excluded because they intentionally render without Set aside actions.
+- **Risks:** Missing either generated rebind would make one request surface
+  inert; delegation would alter target/document ordering; passing click events
+  would change callback signatures; consolidating saves or close paths would
+  change state, analytics, backup, or focus behavior; binding watched cards
+  would introduce a new action.
+- **Verification:** `npm test` passed: the production build completed and all
+  360 contract tests passed, including live video/surface reads, exact callback
+  and key-event forwarding, uncancelled wrappers, idempotent replacement
+  binding, static dialog/ARIA/localization, both generated request surfaces,
+  all three composition binding points, watched-grid exclusion, and the four
+  bridge removals. Browser, local-server, visual-regression, migration-ledger,
+  diff-integrity, and static-review checks were not run in accordance with the
+  repository `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the four inline handlers and
+  compatibility aliases; no state, storage, analytics, or data migration is
+  required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

@@ -759,15 +759,15 @@ and momentum—at a glance</h2>
 
   <div class="video-watch-reminder-global hidden" id="videoWatchReminderGlobal"></div>
 
-  <div class="set-aside-prompt-overlay hidden" id="setAsidePrompt" aria-hidden="true" onkeydown="handleVideoSetAsidePromptKeydown(event)">
+  <div class="set-aside-prompt-overlay hidden" id="setAsidePrompt" data-video-set-aside-action="prompt" aria-hidden="true">
     <section class="set-aside-prompt" role="dialog" aria-modal="true" aria-labelledby="setAsidePromptTitle" aria-describedby="setAsidePromptMessage">
       <h2 id="setAsidePromptTitle" data-i18n="setAsidePrompt.title">Set this video aside?</h2>
       <p id="setAsidePromptMessage">
         <span data-i18n="setAsidePrompt.bodyBeforeWatched">This is if you've started watching a video but do not want to finish it. You’ll still keep your points, and it will count in your study stats. You can find it again in the </span><strong data-i18n="setAsidePrompt.watched">Watched</strong><span data-i18n="setAsidePrompt.bodyAfterWatched"> section.</span>
       </p>
       <div class="set-aside-prompt-actions">
-        <button class="btn-ghost" type="button" onclick="cancelVideoSetAsidePrompt()" data-analytics-action="setAsidePrompt.cancel" data-i18n="setAsidePrompt.cancel">Cancel</button>
-        <button class="btn-primary" type="button" onclick="confirmVideoSetAsidePrompt()" data-analytics-action="setAsidePrompt.confirm" data-i18n="setAsidePrompt.confirm">Set aside</button>
+        <button class="btn-ghost" type="button" data-video-set-aside-action="cancel" data-analytics-action="setAsidePrompt.cancel" data-i18n="setAsidePrompt.cancel">Cancel</button>
+        <button class="btn-primary" type="button" data-video-set-aside-action="confirm" data-analytics-action="setAsidePrompt.confirm" data-i18n="setAsidePrompt.confirm">Set aside</button>
       </div>
     </section>
   </div>

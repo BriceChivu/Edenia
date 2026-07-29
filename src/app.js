@@ -192,6 +192,9 @@ import {
   bindManualVideoShellActions
 } from './features/videos/manual-video-shell-actions.js'
 import {
+  bindVideoSetAsideActions
+} from './features/videos/set-aside-actions.js'
+import {
   bindStatusFilterActions
 } from './features/videos/status-filter-actions.js'
 import { bindUndoRedoActions } from './features/videos/undo-redo-actions.js'
@@ -9953,8 +9956,9 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
       <button type="button"
         class="next-study-cta next-study-set-aside"
         data-video-id="${safeVideoId}"
-        data-analytics-action="requestVideoSetAside"
-        onclick="requestVideoSetAside(this.dataset.videoId, { surface: 'continue_watching' })">${escHtml(t('videos.card.setAside'))}</button>
+        data-video-set-aside-action="request"
+        data-video-set-aside-surface="continue_watching"
+        data-analytics-action="requestVideoSetAside">${escHtml(t('videos.card.setAside'))}</button>
       <button type="button"
         class="next-study-cta next-study-continue"
         data-video-id="${safeVideoId}"
@@ -9993,6 +9997,12 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
       ${actions}
     </span>
   `
+  bindVideoSetAsideActions(container, {
+    request: requestVideoSetAside,
+    cancel: cancelVideoSetAsidePrompt,
+    confirm: confirmVideoSetAsidePrompt,
+    handlePromptKeydown: handleVideoSetAsidePromptKeydown
+  })
   return nextVideo
 }
 
@@ -11298,6 +11308,12 @@ function renderFeed(s) {
       s.config?.channels
     )
   }
+  bindVideoSetAsideActions(grid, {
+    request: requestVideoSetAside,
+    cancel: cancelVideoSetAsidePrompt,
+    confirm: confirmVideoSetAsidePrompt,
+    handlePromptKeydown: handleVideoSetAsidePromptKeydown
+  })
   requestAnimationFrame(() => {
     document.querySelectorAll('.channel-shelf-track').forEach(syncVideoChannelShelfControls)
   })
@@ -13680,8 +13696,9 @@ function renderCard(v, compact = false, options = {}) {
           <div class="card-actions">
             ${isPartial && !options.hideSetAsideAction ? `<button class="action-btn set-aside-btn"
               data-video-id="${safeVideoId}"
+              data-video-set-aside-action="request"
+              data-video-set-aside-surface="video_card"
               data-analytics-action="requestVideoSetAside"
-              onclick="requestVideoSetAside(this.dataset.videoId, { surface: 'video_card' })"
               aria-label="${escHtml(t('videos.card.setAside'))}"
               title="${escHtml(t('videos.card.setAside'))}">${renderVideoActionIcon('set-aside')}</button>` : ''}
             <button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
@@ -14010,6 +14027,12 @@ bindManualVideoShellActions(document, {
   renderSuggestions: renderManualChannelSuggestions,
   handleInputKey: handleManualChannelSuggestionKeydown
 })
+bindVideoSetAsideActions(document, {
+  request: requestVideoSetAside,
+  cancel: cancelVideoSetAsidePrompt,
+  confirm: confirmVideoSetAsidePrompt,
+  handlePromptKeydown: handleVideoSetAsidePromptKeydown
+})
 bindStatusFilterActions(document, {
   select: setStatusFilter,
   toggle: toggleStatusFilterMenu,
@@ -14025,12 +14048,10 @@ bindUndoRedoActions(document, {
 
 installLegacyActions(window, {
   addYoutubeInput,
-  cancelVideoSetAsidePrompt,
   changeIntroLocale,
   changeOnboardingLocale,
   clearVideoPausedState,
   closeVideoShelfPreviewAfterFocus,
-  confirmVideoSetAsidePrompt,
   confirmVideoWatchPrompt,
   continuePersonalizedOnboardingFromLanguage,
   copyOnboardingRecoveryLink,
@@ -14043,7 +14064,6 @@ installLegacyActions(window, {
   focusNextStudyVideoCard,
   handleChannelFilterOptionClick,
   handleChannelFilterSelectAllClick,
-  handleVideoSetAsidePromptKeydown,
   handleVideoThumbnailClick,
   leaveChannelShelfDrag,
   markVideo,
@@ -14054,7 +14074,6 @@ installLegacyActions(window, {
   openVideoShelfPreviewFromFocus,
   queueVideoShelfPreviewClose,
   removeChannelFromFilter,
-  requestVideoSetAside,
   retryOnboardingRecovery,
   scrollVideoChannelShelf,
   searchYoutubeChannels,

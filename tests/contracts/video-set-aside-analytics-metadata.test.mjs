@@ -74,9 +74,14 @@ test('generated Set aside request controls retain their exact analytics identiti
     assert.equal(getAttribute(tag, 'type'), expected.type)
     assert.equal(getAttribute(tag, 'data-video-id'), '${safeVideoId}')
     assert.equal(
-      getAttribute(tag, 'onclick'),
-      `requestVideoSetAside(this.dataset.videoId, { surface: '${expected.surface}' })`
+      getAttribute(tag, 'data-video-set-aside-action'),
+      'request'
     )
+    assert.equal(
+      getAttribute(tag, 'data-video-set-aside-surface'),
+      expected.surface
+    )
+    assert.equal(getAttribute(tag, 'onclick'), null)
     assert.equal(
       getAttribute(tag, 'data-analytics-action'),
       'requestVideoSetAside'
@@ -106,17 +111,17 @@ test('video-card Set aside request keeps its localized accessible labels', () =>
   assert.equal(getAttribute(tag, 'title'), localizedLabel)
 })
 
-test('static Set aside prompt actions retain exact handlers and analytics identities', () => {
+test('static Set aside prompt actions retain exact ownership and analytics identities', () => {
   const expectedControls = [
     {
       className: 'btn-ghost',
-      handler: 'cancelVideoSetAsidePrompt()',
+      action: 'cancel',
       i18n: 'setAsidePrompt.cancel',
       eventName: 'set_aside_prompt_cancel_clicked'
     },
     {
       className: 'btn-primary',
-      handler: 'confirmVideoSetAsidePrompt()',
+      action: 'confirm',
       i18n: 'setAsidePrompt.confirm',
       eventName: 'set_aside_prompt_confirm_clicked'
     }
@@ -125,14 +130,20 @@ test('static Set aside prompt actions retain exact handlers and analytics identi
   for (const expected of expectedControls) {
     const element = findSingleButton(
       indexSource,
-      tag => getAttribute(tag, 'onclick') === expected.handler,
+      tag => (
+        getAttribute(tag, 'data-video-set-aside-action') === expected.action
+      ),
       `${expected.i18n} control`
     )
     const tag = getOpeningTag(element)
 
     assert.ok(hasClass(tag, expected.className))
     assert.equal(getAttribute(tag, 'type'), 'button')
-    assert.equal(getAttribute(tag, 'onclick'), expected.handler)
+    assert.equal(getAttribute(tag, 'onclick'), null)
+    assert.equal(
+      getAttribute(tag, 'data-video-set-aside-action'),
+      expected.action
+    )
     assert.equal(getAttribute(tag, 'data-i18n'), expected.i18n)
     assert.equal(getAttribute(tag, 'data-analytics-action'), expected.i18n)
     assert.equal(
@@ -152,8 +163,9 @@ test('Set aside prompt overlay retains keydown ownership without click analytics
   assert.ok(hasClass(overlay, 'hidden'))
   assert.equal(getAttribute(overlay, 'aria-hidden'), 'true')
   assert.equal(
-    getAttribute(overlay, 'onkeydown'),
-    'handleVideoSetAsidePromptKeydown(event)'
+    getAttribute(overlay, 'data-video-set-aside-action'),
+    'prompt'
   )
+  assert.equal(getAttribute(overlay, 'onkeydown'), null)
   assert.equal(getAttribute(overlay, 'data-analytics-action'), null)
 })
