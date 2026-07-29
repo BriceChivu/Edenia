@@ -123,7 +123,8 @@ const expectedVariants = {
       dataName: 'data-level-id',
       dataValue: '${escHtml(option.id)}',
       disabled: null,
-      handler: 'selectOnboardingLevel(this.dataset.levelId)',
+      handler: null,
+      ownershipAction: 'select-level',
       pressed: '${option.id === selectedLevelId}'
     },
     {
@@ -443,9 +444,8 @@ test('finish retains persistence, recovery, completion analytics, and redirect',
   )
 })
 
-test('the four remaining callbacks retain temporary bridge aliases', () => {
+test('the three remaining callbacks retain temporary bridge aliases', () => {
   const expectedAliases = [
-    'selectOnboardingLevel',
     'setPersonalizedOnboardingStep',
     'toggleOnboardingChannel',
     'finishPersonalizedOnboarding'

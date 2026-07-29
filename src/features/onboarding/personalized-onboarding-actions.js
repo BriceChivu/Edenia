@@ -11,9 +11,10 @@ export function bindPersonalizedOnboardingActions(root, actions) {
     !actions
     || typeof actions.selectLanguage !== 'function'
     || typeof actions.continueFromLanguage !== 'function'
+    || typeof actions.selectLevel !== 'function'
   ) {
     throw new TypeError(
-      'Personalized onboarding actions require selectLanguage and continueFromLanguage callbacks'
+      'Personalized onboarding actions require selectLanguage, continueFromLanguage, and selectLevel callbacks'
     )
   }
 
@@ -29,6 +30,10 @@ export function bindPersonalizedOnboardingActions(root, actions) {
     } else if (actionName === 'continue-language') {
       control.addEventListener('click', () => {
         actions.continueFromLanguage()
+      })
+    } else if (actionName === 'select-level') {
+      control.addEventListener('click', () => {
+        actions.selectLevel(control.dataset.levelId)
       })
     } else {
       return

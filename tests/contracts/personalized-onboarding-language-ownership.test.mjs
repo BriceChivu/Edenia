@@ -142,6 +142,9 @@ test('direct listeners forward the live language ID and zero Continue arguments'
       },
       continueFromLanguage(...args) {
         calls.push(['continue', args])
+      },
+      selectLevel() {
+        assert.fail('Language controls must not select a level')
       }
     }),
     2
@@ -201,14 +204,15 @@ test('central renderer binds replacement content after every step branch', () =>
   }
   assert.match(
     renderSource,
-    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage\s*\}\)/
+    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel\s*\}\)/
   )
 })
 
 test('newly replaced language controls receive fresh direct listeners', () => {
   const actions = {
     selectLanguage() {},
-    continueFromLanguage() {}
+    continueFromLanguage() {},
+    selectLevel() {}
   }
   const oldControl = createDirectControl('select-language', 'en')
   const replacementControl = createDirectControl('select-language', 'fr')
@@ -294,13 +298,12 @@ test('generic analytics run after synchronous replacement unless Continue is dis
   )
 })
 
-test('only language and Language Continue aliases are removed', () => {
+test('language ownership retains only the three later action aliases', () => {
   const migratedAliases = [
     'selectOnboardingLanguage',
     'continuePersonalizedOnboardingFromLanguage'
   ]
   const retainedAliases = [
-    'selectOnboardingLevel',
     'setPersonalizedOnboardingStep',
     'toggleOnboardingChannel',
     'finishPersonalizedOnboarding'
@@ -325,10 +328,6 @@ test('only language and Language Continue aliases are removed', () => {
     )
   }
 
-  assert.match(
-    appSource,
-    /\bonclick="selectOnboardingLevel\(this\.dataset\.levelId\)"/
-  )
   assert.match(
     appSource,
     /\bonclick="setPersonalizedOnboardingStep\('[^']+'\)"/

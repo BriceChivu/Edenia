@@ -2470,7 +2470,8 @@ function renderPersonalizedOnboarding() {
   }
   bindPersonalizedOnboardingActions(content, {
     selectLanguage: selectOnboardingLanguage,
-    continueFromLanguage: continuePersonalizedOnboardingFromLanguage
+    continueFromLanguage: continuePersonalizedOnboardingFromLanguage,
+    selectLevel: selectOnboardingLevel
   })
 }
 
@@ -2521,7 +2522,7 @@ function renderOnboardingLevelStep(content) {
     ${renderOnboardingHeading('onboarding.level.title')}
     <div class="onboarding-level-grid" role="radiogroup" aria-label="${escHtml(t('onboarding.level.title'))}">
       ${levelOptions.map(option => `
-        <button type="button" class="onboarding-choice onboarding-level-choice" data-level-id="${escHtml(option.id)}" data-analytics-action="selectOnboardingLevel" aria-pressed="${option.id === selectedLevelId}" onclick="selectOnboardingLevel(this.dataset.levelId)">
+        <button type="button" class="onboarding-choice onboarding-level-choice" data-level-id="${escHtml(option.id)}" data-personalized-onboarding-action="select-level" data-analytics-action="selectOnboardingLevel" aria-pressed="${option.id === selectedLevelId}">
           <span class="onboarding-choice-label">${escHtml(t(`onboarding.level.${option.id}.label`))}</span>
           <span class="onboarding-choice-detail">${escHtml(t(`onboarding.level.${option.id}.detail`))}</span>
         </button>
@@ -14160,7 +14161,6 @@ installLegacyActions(window, {
   scrollVideoChannelShelf,
   searchYoutubeChannels,
   selectManualChannelSuggestion,
-  selectOnboardingLevel,
   selectYoutubeChannelSearchResult,
   setAllChannelFilters,
   setChannelFilter,

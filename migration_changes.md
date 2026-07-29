@@ -4215,3 +4215,42 @@ release mappings, and follow-up findings are recorded as new entries.
   Continue inline handlers plus their two bridge aliases; no onboarding state,
   analytics, storage, or visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-118 — Migrate personalized onboarding level ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral generated event-listener extraction with staged compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Extend component ownership only to generated level choices while
+  leaving navigation, channel selection, and Build handlers unchanged.
+- **Conceptual change:** Extended the personalized-onboarding adapter with an
+  exact `select-level` hook and required `selectLevel` callback. Each choice
+  forwards its live level ID only. The central post-render binding now supplies
+  `selectOnboardingLevel`, and its global bridge alias was removed.
+- **Preservation contract:** Preserve the five normal level options, English
+  omission of Starting, option order and localized detail, radiogroup and
+  pressed ARIA, valid-ID guard, selected level state, channel-selection reset,
+  recommendation reinitialization, same-step rerender, progress/step analytics,
+  uncancelled generic click ordering, and all onboarding visuals and
+  responsiveness.
+- **Risks:** Stale or coerced IDs could select an invalid level; changing option
+  derivation could reintroduce English Starting; missed replacement binding
+  would make new choices inert; removing later aliases would break untouched
+  controls.
+- **Verification:** The first `npm test` run exposed one test-regex typo around
+  the existing template `map(...).join('')`; only that contract expression was
+  corrected. The final `npm test` passed: the production build completed and all
+  513 contract tests passed, including live level-ID routing, exact five-versus-
+  four English option order, uncancelled replacement binding, validation and
+  reset behavior, generic ordering, level bridge removal, and retention of only
+  step/channel/finish inline families. Browser, local-server,
+  visual-regression, migration-ledger, diff-integrity, and static-review checks
+  were not run in accordance with the repository `AGENTS.md` instruction for
+  this task.
+- **Rollback:** Revert this commit to restore level-choice inline handlers and
+  their bridge alias; no onboarding state, recommendation, analytics, or visual
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

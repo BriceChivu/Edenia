@@ -30,12 +30,15 @@ function createHarness(initialControls = []) {
   }
 }
 
-test('personalized onboarding binding forwards a live language and zero-argument Continue', () => {
+test('personalized onboarding binding forwards live language and level values plus zero-argument Continue', () => {
   const language = createControl('select-language', {
     languageId: 'mandarin'
   })
   const continueLanguage = createControl('continue-language')
-  const { root } = createHarness([language, continueLanguage])
+  const level = createControl('select-level', {
+    levelId: 'beginner'
+  })
+  const { root } = createHarness([language, continueLanguage, level])
   const calls = []
 
   assert.equal(bindPersonalizedOnboardingActions(root, {
@@ -46,15 +49,24 @@ test('personalized onboarding binding forwards a live language and zero-argument
     continueFromLanguage(...args) {
       calls.push(['continueFromLanguage', args])
       return Promise.resolve('ignored')
+    },
+    selectLevel(...args) {
+      calls.push(['selectLevel', args])
+      return false
     }
-  }), 2)
+  }), 3)
 
   language.dataset.languageId = 'zh-Hant'
+  level.dataset.levelId = 'advanced'
   const languageEvent = new Event('click', {
     bubbles: true,
     cancelable: true
   })
   const continueEvent = new Event('click', {
+    bubbles: true,
+    cancelable: true
+  })
+  const levelEvent = new Event('click', {
     bubbles: true,
     cancelable: true
   })
@@ -68,7 +80,13 @@ test('personalized onboarding binding forwards a live language and zero-argument
     ['selectLanguage', ['zh-Hant']],
     ['continueFromLanguage', []]
   ])
-  ;[languageEvent, continueEvent].forEach(event => {
+  assert.equal(level.dispatchEvent(levelEvent), true)
+  assert.deepEqual(calls, [
+    ['selectLanguage', ['zh-Hant']],
+    ['continueFromLanguage', []],
+    ['selectLevel', ['advanced']]
+  ])
+  ;[languageEvent, continueEvent, levelEvent].forEach(event => {
     assert.equal(event.defaultPrevented, false)
     assert.equal(event.cancelBubble, false)
   })
@@ -86,6 +104,9 @@ test('personalized onboarding binding is idempotent and binds replacement contro
     },
     continueFromLanguage() {
       calls.push(['continueFromLanguage'])
+    },
+    selectLevel(levelId) {
+      calls.push(['selectLevel', levelId])
     }
   }
 
@@ -93,7 +114,9 @@ test('personalized onboarding binding is idempotent and binds replacement contro
   assert.equal(bindPersonalizedOnboardingActions(harness.root, actions), 0)
   original.dispatchEvent(new Event('click'))
 
-  const replacement = createControl('continue-language')
+  const replacement = createControl('select-level', {
+    levelId: 'intermediate'
+  })
   harness.replaceControls([original, replacement])
   assert.equal(bindPersonalizedOnboardingActions(harness.root, actions), 1)
   assert.equal(bindPersonalizedOnboardingActions(harness.root, actions), 0)
@@ -101,13 +124,13 @@ test('personalized onboarding binding is idempotent and binds replacement contro
 
   assert.deepEqual(calls, [
     ['selectLanguage', 'japanese'],
-    ['continueFromLanguage']
+    ['selectLevel', 'intermediate']
   ])
 })
 
 test('personalized onboarding binding ignores unknown actions until supported', () => {
-  const unknown = createControl('select-level', {
-    languageId: 'french'
+  const unknown = createControl('toggle-channel', {
+    levelId: 'not-sure'
   })
   const harness = createHarness([unknown])
   const calls = []
@@ -117,6 +140,9 @@ test('personalized onboarding binding ignores unknown actions until supported', 
     },
     continueFromLanguage() {
       calls.push(['continueFromLanguage'])
+    },
+    selectLevel(levelId) {
+      calls.push(['selectLevel', levelId])
     }
   }
 
@@ -124,11 +150,11 @@ test('personalized onboarding binding ignores unknown actions until supported', 
   unknown.dispatchEvent(new Event('click'))
   assert.deepEqual(calls, [])
 
-  unknown.dataset.personalizedOnboardingAction = 'select-language'
+  unknown.dataset.personalizedOnboardingAction = 'select-level'
   assert.equal(bindPersonalizedOnboardingActions(harness.root, actions), 1)
   assert.equal(bindPersonalizedOnboardingActions(harness.root, actions), 0)
   unknown.dispatchEvent(new Event('click'))
-  assert.deepEqual(calls, [['selectLanguage', 'french']])
+  assert.deepEqual(calls, [['selectLevel', 'not-sure']])
 })
 
 test('personalized onboarding binding tolerates missing controls', () => {
@@ -136,7 +162,8 @@ test('personalized onboarding binding tolerates missing controls', () => {
 
   assert.equal(bindPersonalizedOnboardingActions(root, {
     selectLanguage() {},
-    continueFromLanguage() {}
+    continueFromLanguage() {},
+    selectLevel() {}
   }), 0)
 })
 
@@ -144,7 +171,8 @@ test('personalized onboarding binding fails closed on invalid boundaries', () =>
   const { root } = createHarness()
   const validActions = {
     selectLanguage() {},
-    continueFromLanguage() {}
+    continueFromLanguage() {},
+    selectLevel() {}
   }
 
   assert.throws(
@@ -160,12 +188,13 @@ test('personalized onboarding binding fails closed on invalid boundaries', () =>
     null,
     {},
     { ...validActions, selectLanguage: null },
-    { ...validActions, continueFromLanguage: null }
+    { ...validActions, continueFromLanguage: null },
+    { ...validActions, selectLevel: null }
   ]
   invalidActionMaps.forEach(actions => {
     assert.throws(
       () => bindPersonalizedOnboardingActions(root, actions),
-      /selectLanguage and continueFromLanguage callbacks/
+      /selectLanguage, continueFromLanguage, and selectLevel callbacks/
     )
   })
 })
