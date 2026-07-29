@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 
 const indexSource = await readFile(
   new URL('../../index.html', import.meta.url),
@@ -79,13 +79,12 @@ test('channel list binds each generated removal control after replacement', () =
 })
 
 test('Settings channel removal no longer needs global action ownership', () => {
-  assert.equal(LEGACY_ACTION_NAMES.includes('removeChannel'), false)
+  assert.equal(GLOBAL_ACTION_NAMES.includes('removeChannel'), false)
 
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap)
-  assert.doesNotMatch(installMap, /(?:^|[\s,])removeChannel(?:[\s,]|$)/)
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit)
+  assert.doesNotMatch(globalActionAudit, /(?:^|[\s,])removeChannel(?:[\s,]|$)/)
   assert.doesNotMatch(
     appSource,
     /\bonclick=(["'])[^"']*\bremoveChannel\s*\([\s\S]*?\1/

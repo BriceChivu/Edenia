@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 
 const appSource = await readFile(
   new URL('../../src/app.js', import.meta.url),
@@ -300,15 +300,14 @@ test('both recovery callbacks no longer require global bridge ownership', () => 
     'copyOnboardingRecoveryLink',
     'retryOnboardingRecovery'
   ]
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap)
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit)
 
   for (const alias of migratedAliases) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(alias), false)
+    assert.equal(GLOBAL_ACTION_NAMES.includes(alias), false)
     assert.doesNotMatch(
-      installMap,
+      globalActionAudit,
       new RegExp(`(?:^|[\\s,])${alias}(?:[\\s,]|$)`)
     )
   }

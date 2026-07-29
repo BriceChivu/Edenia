@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 import {
   bindVideoShelfPreviewActions
 } from '../../src/features/videos/shelf-preview-actions.js'
@@ -145,6 +145,6 @@ test('rendered shelf and Watched cards bind without preview globals', () => {
     'openVideoShelfPreviewFromFocus',
     'closeVideoShelfPreviewAfterFocus'
   ]) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(name), false)
+    assert.equal(GLOBAL_ACTION_NAMES.includes(name), false)
   }
 })

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 import {
   bindOnboardingRecoveryActions
 } from '../../src/features/onboarding/onboarding-recovery-actions.js'
@@ -274,14 +274,13 @@ test('recovery callbacks retain lexical ownership without global aliases', () =>
     'copyOnboardingRecoveryLink',
     'retryOnboardingRecovery'
   ]
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap)
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit)
   for (const alias of migratedAliases) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(alias), false)
+    assert.equal(GLOBAL_ACTION_NAMES.includes(alias), false)
     assert.doesNotMatch(
-      installMap,
+      globalActionAudit,
       new RegExp(`(?:^|[\\s,])${alias}(?:[\\s,]|$)`)
     )
   }

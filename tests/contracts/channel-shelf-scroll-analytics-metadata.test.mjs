@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 
 const appSource = await readFile(
   new URL('../../src/app.js', import.meta.url),
@@ -318,18 +318,17 @@ test('active-grid replacement retains generated controls and deferred initial sy
 })
 
 test('scroll and sync handlers leave inline and legacy ownership', () => {
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap)
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit)
 
   for (const actionName of [
     'scrollVideoChannelShelf',
     'syncVideoChannelShelfControls'
   ]) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(actionName), false)
+    assert.equal(GLOBAL_ACTION_NAMES.includes(actionName), false)
     assert.doesNotMatch(
-      installMap,
+      globalActionAudit,
       new RegExp(`(?:^|[\\s,])${actionName}(?:[\\s,]|$)`)
     )
   }

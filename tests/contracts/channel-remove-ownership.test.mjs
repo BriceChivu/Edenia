@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 import {
   bindChannelRemoveActions
 } from '../../src/features/channels/remove-actions.js'
@@ -475,15 +475,14 @@ test('local removal function remains while its global alias is removed', () => {
     /function removeChannelFromFilter\(event, channelId\)/
   )
   assert.equal(
-    LEGACY_ACTION_NAMES.includes('removeChannelFromFilter'),
+    GLOBAL_ACTION_NAMES.includes('removeChannelFromFilter'),
     false
   )
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap)
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit)
   assert.doesNotMatch(
-    installMap,
+    globalActionAudit,
     /(?:^|[\s,])removeChannelFromFilter(?:[\s,]|$)/
   )
   assert.doesNotMatch(

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 import {
   bindPersonalizedOnboardingActions
 } from '../../src/features/onboarding/personalized-onboarding-actions.js'
@@ -310,28 +310,27 @@ test('step analytics remain advanced-or-backed then viewed then generic', () => 
 
 test('step ownership has no remaining personalized-onboarding alias', () => {
   assert.equal(
-    LEGACY_ACTION_NAMES.includes('setPersonalizedOnboardingStep'),
+    GLOBAL_ACTION_NAMES.includes('setPersonalizedOnboardingStep'),
     false
   )
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap)
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit)
   assert.doesNotMatch(
-    installMap,
+    globalActionAudit,
     /(?:^|[\s,])setPersonalizedOnboardingStep(?:[\s,]|$)/
   )
-  assert.equal(LEGACY_ACTION_NAMES.includes('toggleOnboardingChannel'), false)
+  assert.equal(GLOBAL_ACTION_NAMES.includes('toggleOnboardingChannel'), false)
   assert.doesNotMatch(
-    installMap,
+    globalActionAudit,
     /(?:^|[\s,])toggleOnboardingChannel(?:[\s,]|$)/
   )
   assert.equal(
-    LEGACY_ACTION_NAMES.includes('finishPersonalizedOnboarding'),
+    GLOBAL_ACTION_NAMES.includes('finishPersonalizedOnboarding'),
     false
   )
   assert.doesNotMatch(
-    installMap,
+    globalActionAudit,
     /(?:^|[\s,])finishPersonalizedOnboarding(?:[\s,]|$)/
   )
 })

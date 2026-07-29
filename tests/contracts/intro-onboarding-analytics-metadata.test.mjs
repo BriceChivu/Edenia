@@ -529,12 +529,6 @@ test('locale radio changes have no generic click event while trigger clicks are 
 })
 
 test('locale-selection controls no longer require temporary global aliases', () => {
-  const installStart = appSource.indexOf('installLegacyActions(window, {')
-  assert.notEqual(installStart, -1, 'Expected legacy action installation')
-  const installSource = appSource.slice(
-    installStart,
-    appSource.indexOf('\n})', installStart) + 3
-  )
   const migratedAliases = [
     'changeIntroLocale',
     'changeOnboardingLocale'
@@ -542,9 +536,9 @@ test('locale-selection controls no longer require temporary global aliases', () 
 
   for (const alias of migratedAliases) {
     assert.doesNotMatch(
-      installSource,
-      new RegExp(`\\n  ${alias},?(?:\\n|$)`),
-      `Expected no ${alias} compatibility alias`
+      appSource,
+      new RegExp(`\\b(?:window|globalThis)\\.${alias}\\b`),
+      `Expected no ${alias} global alias`
     )
   }
 })

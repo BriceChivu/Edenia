@@ -3,8 +3,8 @@ import { readdir, readFile } from 'node:fs/promises'
 import { extname } from 'node:path'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 
 const indexSource = await readFile(
   new URL('../../index.html', import.meta.url),
@@ -241,11 +241,11 @@ test('app composition imports and binds static Set aside actions before the brid
   const bindingIndex = appSource.indexOf(
     'bindVideoSetAsideActions(document,'
   )
-  const bridgeIndex = appSource.indexOf('installLegacyActions(window,')
+  const initializationIndex = appSource.indexOf("document.addEventListener('DOMContentLoaded', init)")
   assert.notEqual(bindingIndex, -1)
   assert.ok(
-    bridgeIndex > bindingIndex,
-    'Static Set aside actions must bind before legacy actions install'
+    initializationIndex > bindingIndex,
+    'Static Set aside actions must bind before application initialization'
   )
 })
 
@@ -323,10 +323,9 @@ test('only Set aside event owners leave inline and legacy ownership', async () =
     }
   }
 
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap, 'Expected the legacy action install map')
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit, 'Expected the empty global-action audit')
 
   for (const actionName of migratedActionNames) {
     const actionPattern = new RegExp(`\\b${actionName}\\b`)
@@ -336,12 +335,12 @@ test('only Set aside event owners leave inline and legacy ownership', async () =
       `${actionName} must not remain in an inline attribute`
     )
     assert.equal(
-      LEGACY_ACTION_NAMES.includes(actionName),
+      GLOBAL_ACTION_NAMES.includes(actionName),
       false,
       `${actionName} must not remain in the legacy manifest`
     )
     assert.doesNotMatch(
-      installMap,
+      globalActionAudit,
       actionPattern,
       `${actionName} must not remain in the legacy install map`
     )

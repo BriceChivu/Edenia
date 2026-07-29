@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test } from '../support/network-fixture.mjs'
-import { LEGACY_ACTION_NAMES } from '../../src/compat/legacy-actions.js'
+import { GLOBAL_ACTION_NAMES } from '../../src/core/global-action-contract.js'
 
 const fixedNow = new Date('2026-07-28T04:00:00.000Z')
 
@@ -153,11 +153,11 @@ test('fresh install boots the protected first-run experience and classic handler
         || window[name] !== window.EdeniaActions[name]
     ),
     names: Object.keys(window.EdeniaActions || {}).sort()
-  }), LEGACY_ACTION_NAMES)
+  }), GLOBAL_ACTION_NAMES)
   expect(legacyActionBridge).toEqual({
     frozen: true,
     missing: [],
-    names: LEGACY_ACTION_NAMES
+    names: GLOBAL_ACTION_NAMES
   })
   await expect.poll(() => page.evaluate(() => window.EDENIA_ANALYTICS_ENABLED)).toBe(false)
   await expect.poll(() => page.evaluate(() => window.EDENIA_CONFIG?.youtubeApiKey)).toBe('')

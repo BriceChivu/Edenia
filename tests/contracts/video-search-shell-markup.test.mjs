@@ -3,8 +3,8 @@ import { readdir, readFile } from 'node:fs/promises'
 import { extname } from 'node:path'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 
 const indexSource = await readFile(
   new URL('../../index.html', import.meta.url),
@@ -154,7 +154,7 @@ test('saved-video search query and generated results retain exact ownership', ()
   assert.equal(getAttribute(resultTag, 'onclick'), null)
 })
 
-test('saved-video search shell actions leave inline attributes and the legacy bridge', async () => {
+test('saved-video search shell actions leave inline attributes and the global-action bridge', async () => {
   const removedActions = [
     'toggleVideoSearchPopover',
     'closeVideoSearchPopover',
@@ -176,10 +176,9 @@ test('saved-video search shell actions leave inline attributes and the legacy br
     }
   }
 
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap, 'Expected the legacy action install map')
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit, 'Expected the empty global-action audit')
 
   for (const actionName of removedActions) {
     const callPattern = new RegExp(`\\b${actionName}\\s*\\(`)
@@ -190,12 +189,12 @@ test('saved-video search shell actions leave inline attributes and the legacy br
       `${actionName} must not remain in an inline attribute`
     )
     assert.equal(
-      LEGACY_ACTION_NAMES.includes(actionName),
+      GLOBAL_ACTION_NAMES.includes(actionName),
       false,
       `${actionName} must not remain in the legacy manifest`
     )
     assert.doesNotMatch(
-      installMap,
+      globalActionAudit,
       mapPattern,
       `${actionName} must not remain in the legacy install map`
     )

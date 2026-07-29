@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 import {
   bindPersonalizedOnboardingActions
 } from '../../src/features/onboarding/personalized-onboarding-actions.js'
@@ -335,21 +335,20 @@ test('central binder includes channel ownership with no remaining bridge', () =>
     /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel,\s*setStep:\s*setPersonalizedOnboardingStep,\s*toggleChannel:\s*toggleOnboardingChannel,\s*finish:\s*finishPersonalizedOnboarding\s*\}\)/
   )
 
-  assert.equal(LEGACY_ACTION_NAMES.includes('toggleOnboardingChannel'), false)
+  assert.equal(GLOBAL_ACTION_NAMES.includes('toggleOnboardingChannel'), false)
   assert.equal(
-    LEGACY_ACTION_NAMES.includes('finishPersonalizedOnboarding'),
+    GLOBAL_ACTION_NAMES.includes('finishPersonalizedOnboarding'),
     false
   )
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap)
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit)
   assert.doesNotMatch(
-    installMap,
+    globalActionAudit,
     /(?:^|[\s,])toggleOnboardingChannel(?:[\s,]|$)/
   )
   assert.doesNotMatch(
-    installMap,
+    globalActionAudit,
     /(?:^|[\s,])finishPersonalizedOnboarding(?:[\s,]|$)/
   )
 })

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 import {
   bindIntroFinishActions
 } from '../../src/features/onboarding/intro-finish-actions.js'
@@ -190,10 +190,10 @@ test('app composes finish ownership before installing remaining legacy actions',
   )
 
   const bindingIndex = appSource.indexOf('bindIntroFinishActions(document, {')
-  const installIndex = appSource.indexOf('installLegacyActions(window, {')
+  const initializationIndex = appSource.indexOf("document.addEventListener('DOMContentLoaded', init)")
   assert.notEqual(bindingIndex, -1)
-  assert.notEqual(installIndex, -1)
-  assert.ok(bindingIndex < installIndex)
+  assert.notEqual(initializationIndex, -1)
+  assert.ok(bindingIndex < initializationIndex)
 
   assert.match(appSource, /function finishIntroTrailer\(\) \{/)
   assert.doesNotMatch(
@@ -221,14 +221,13 @@ test('Escape retains its lexical finish call after closing an open locale menu',
 })
 
 test('finish ownership has no remaining locale-change neighbor aliases', () => {
-  assert.equal(LEGACY_ACTION_NAMES.includes('finishIntroTrailer'), false)
+  assert.equal(GLOBAL_ACTION_NAMES.includes('finishIntroTrailer'), false)
 
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap)
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit)
   assert.doesNotMatch(
-    installMap,
+    globalActionAudit,
     /(?:^|[\s,])finishIntroTrailer(?:[\s,]|$)/
   )
   assert.doesNotMatch(
@@ -242,12 +241,12 @@ test('finish ownership has no remaining locale-change neighbor aliases', () => {
   ]
   for (const alias of migratedNeighborAliases) {
     assert.equal(
-      LEGACY_ACTION_NAMES.includes(alias),
+      GLOBAL_ACTION_NAMES.includes(alias),
       false,
       `Expected removed ${alias} manifest entry`
     )
     assert.doesNotMatch(
-      installMap,
+      globalActionAudit,
       new RegExp(`(?:^|[\\s,])${alias}(?:[\\s,]|$)`),
       `Expected removed ${alias} install entry`
     )

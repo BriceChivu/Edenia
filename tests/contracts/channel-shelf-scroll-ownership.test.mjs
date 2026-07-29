@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 import {
   bindChannelShelfScrollActions
 } from '../../src/features/channels/shelf-scroll-actions.js'
@@ -402,19 +402,18 @@ test('scroll and sync retain local ownership without global aliases', () => {
       appSource,
       new RegExp(`function ${actionName}\\(`)
     )
-    assert.equal(LEGACY_ACTION_NAMES.includes(actionName), false)
+    assert.equal(GLOBAL_ACTION_NAMES.includes(actionName), false)
   }
 
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap)
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit)
   assert.doesNotMatch(
-    installMap,
+    globalActionAudit,
     /(?:^|[\s,])scrollVideoChannelShelf(?:[\s,]|$)/
   )
   assert.doesNotMatch(
-    installMap,
+    globalActionAudit,
     /(?:^|[\s,])syncVideoChannelShelfControls(?:[\s,]|$)/
   )
   assert.doesNotMatch(

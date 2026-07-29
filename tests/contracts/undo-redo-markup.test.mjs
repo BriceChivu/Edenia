@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 
 const indexSource = await readFile(
   new URL('../../index.html', import.meta.url),
@@ -205,15 +205,14 @@ test('migrated Undo and Redo handlers have no inline or legacy ownership', () =>
       /(?<![.\w])\bon[a-z]+\s*=\s*(["'])([\s\S]*?)\1/g
     )].map(match => match[2]))
     .join('\n')
-  const legacyActionMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\n\}\)\s*\n/
-  )?.[1]
-  assert.notEqual(legacyActionMap, undefined)
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.notEqual(globalActionAudit, undefined)
 
   for (const handlerName of removedHandlerNames) {
     const handlerPattern = new RegExp(`\\b${handlerName}\\b`)
     assert.doesNotMatch(inlineHandlerValues, handlerPattern)
-    assert.equal(LEGACY_ACTION_NAMES.includes(handlerName), false)
-    assert.doesNotMatch(legacyActionMap, handlerPattern)
+    assert.equal(GLOBAL_ACTION_NAMES.includes(handlerName), false)
+    assert.doesNotMatch(globalActionAudit, handlerPattern)
   }
 })

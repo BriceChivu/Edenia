@@ -3,9 +3,8 @@ import { readdir, readFile } from 'node:fs/promises'
 import { extname } from 'node:path'
 import test from 'node:test'
 import {
-  installLegacyActions,
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 
 const INLINE_HANDLER_CANDIDATE_PATTERN = /(?<![.\w])\bon[a-z]+\s*=/g
 const INLINE_HANDLER_PATTERN =
@@ -51,7 +50,11 @@ function findInlineActionNames(source) {
   return [...actionNames]
 }
 
-test('legacy action manifest exactly covers static and generated inline handlers', async () => {
+test('all static and generated handlers have module ownership', async () => {
+  const appSource = await readFile(
+    new URL('../../src/app.js', import.meta.url),
+    'utf8'
+  )
   const sourceFiles = [
     new URL('../../index.html', import.meta.url),
     ...await getJavaScriptFiles(new URL('../../src/', import.meta.url))
@@ -63,56 +66,11 @@ test('legacy action manifest exactly covers static and generated inline handlers
     findInlineActionNames(source).forEach(name => discoveredNames.add(name))
   }
 
-  assert.deepEqual([...discoveredNames].sort(), LEGACY_ACTION_NAMES)
+  assert.deepEqual([...discoveredNames].sort(), GLOBAL_ACTION_NAMES)
+  assert.doesNotMatch(appSource, /\binstallLegacyActions\b|\bEdeniaActions\b/)
 })
 
-test('legacy action installer publishes one frozen namespace and matching aliases', () => {
-  const actions = Object.fromEntries(
-    LEGACY_ACTION_NAMES.map(actionName => [actionName, () => actionName])
-  )
-  const target = {}
-  const installed = installLegacyActions(target, actions)
-
-  assert.equal(Object.isFrozen(installed), true)
-  assert.equal(target.EdeniaActions, installed)
-  for (const actionName of LEGACY_ACTION_NAMES) {
-    assert.equal(target[actionName], installed[actionName])
-  }
-  assert.throws(
-    () => installLegacyActions(target, actions),
-    /existing EdeniaActions namespace/
-  )
-})
-
-test('legacy action installer fails closed on missing, invalid, or conflicting actions', () => {
-  const actions = Object.fromEntries(
-    LEGACY_ACTION_NAMES.map(actionName => [actionName, () => actionName])
-  )
-  const [firstAction] = LEGACY_ACTION_NAMES
-
-  assert.throws(
-    () => installLegacyActions({}, {
-      ...actions,
-      unexpectedLegacyAction() {}
-    }),
-    /differs from its manifest/
-  )
-  if (!firstAction) return
-
-  const missingActionMap = { ...actions }
-  delete missingActionMap[firstAction]
-  assert.throws(
-    () => installLegacyActions({}, missingActionMap),
-    /differs from its manifest/
-  )
-
-  assert.throws(
-    () => installLegacyActions({}, { ...actions, [firstAction]: null }),
-    new RegExp(`${firstAction} must be a function`)
-  )
-
-  assert.throws(
-    () => installLegacyActions({ [firstAction]: () => 'conflict' }, actions),
-    new RegExp(`existing global action ${firstAction}`)
-  )
+test('global action contract is frozen and empty', () => {
+  assert.equal(Object.isFrozen(GLOBAL_ACTION_NAMES), true)
+  assert.deepEqual(GLOBAL_ACTION_NAMES, [])
 })

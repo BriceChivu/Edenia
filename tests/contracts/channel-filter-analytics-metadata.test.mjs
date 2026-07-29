@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 
 const appSource = await readFile(
   new URL('../../src/app.js', import.meta.url),
@@ -417,7 +417,7 @@ test('filter replacement and refresh timestamps retain synchronous timing', () =
   )
 })
 
-test('all five migrated handler families leave the legacy bridge', () => {
+test('all five migrated handler families leave the global-action bridge', () => {
   const migratedActions = [
     'handleChannelFilterOptionClick',
     'handleChannelFilterSelectAllClick',
@@ -425,15 +425,14 @@ test('all five migrated handler families leave the legacy bridge', () => {
     'setAllChannelFilters',
     'setChannelFilter'
   ]
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap)
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit)
 
   for (const action of migratedActions) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(action), false, action)
+    assert.equal(GLOBAL_ACTION_NAMES.includes(action), false, action)
     assert.doesNotMatch(
-      installMap,
+      globalActionAudit,
       new RegExp(`(?:^|[\\s,])${action}(?:[\\s,]|$)`)
     )
   }

@@ -366,10 +366,14 @@ Production analytics create a PostHog person profile for each browser installati
 | Path | Purpose |
 | --- | --- |
 | `index.html` | App structure, first-run trailer, runtime script loading, and production analytics initialization |
-| `src/styles/` | Ordered feature styles plus the final temporary `99-responsive-legacy.css` compatibility layer |
-| `src/app.js` | Application entry containing state, onboarding, integrations, history, insights, scoring, and rendering |
-| `src/compat/legacy-actions.js` | Temporary audited global-action bridge for legacy inline handlers during modularization |
+| `src/app.js` | Composition entry plus tightly coupled rendering and lifecycle orchestration |
+| `src/core/` | Shared pure helpers and runtime, storage, responsive, and global-action contracts |
+| `src/domain/` | Rendering-independent video state and watch-progress rules |
+| `src/state/` | State normalization, persistence, backups, history, onboarding, Anki, and insights |
+| `src/features/` | Feature models and module-owned DOM action adapters |
+| `src/integrations/` | Runtime configuration, analytics bridge, and YouTube parsing |
 | `src/i18n/` | Complete English, Traditional Chinese, Simplified Chinese, Spanish, and French dictionaries plus the locale registry |
+| `src/styles/` | Ordered foundation, feature, page-flow, input-capability, phone, and wide responsive styles |
 | `analytics.js` | PostHog person profiles, deduplicated state synchronization, historical aggregate backfill, and controlled button-action tracking |
 | `config.example.js` | Safe local runtime-config template |
 | `data/channel-catalog.source.json` | Human-maintained channel catalog and Edenia search metadata |
@@ -378,5 +382,14 @@ Production analytics create a PostHog person profile for each browser installati
 | `assets/fonts/` | Self-hosted Space Grotesk and Bebas Neue font subsets |
 | `images/channel-avatars/` | Bundled curated-channel avatars |
 | `images/city/` | Optimized town progression images |
+
+Architecture, migration, and release references:
+
+- [Architecture](docs/architecture.md)
+- [Current experience preservation inventory](docs/current-experience-inventory.md)
+- [Responsive review matrix](docs/responsive-review-matrix.md)
+- [Deployment and release runbook](docs/deployment-and-releases.md)
+- [Migration change ledger](migration_changes.md)
+- [Contributing guide](CONTRIBUTING.md)
 | `.github/workflows/deploy-pages.yml` | Static GitHub Pages build and deployment workflow |
 | `.github/workflows/refresh-channel-catalog.yml` | Scheduled and source-triggered channel catalog refresh |

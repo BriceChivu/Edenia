@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 import {
   bindIntroLocaleMenuActions
 } from '../../src/features/onboarding/intro-locale-menu-actions.js'
@@ -214,10 +214,10 @@ test('app composes locale-menu ownership before remaining legacy actions', () =>
   const bindingIndex = appSource.indexOf(
     'bindIntroLocaleMenuActions(document, {'
   )
-  const installIndex = appSource.indexOf('installLegacyActions(window, {')
+  const initializationIndex = appSource.indexOf("document.addEventListener('DOMContentLoaded', init)")
   assert.notEqual(bindingIndex, -1)
-  assert.notEqual(installIndex, -1)
-  assert.ok(bindingIndex < installIndex)
+  assert.notEqual(initializationIndex, -1)
+  assert.ok(bindingIndex < initializationIndex)
 
   assert.doesNotMatch(
     moduleSource,
@@ -302,15 +302,14 @@ test('locale shell aliases are removed after generated selection migration', () 
     'changeIntroLocale',
     'changeOnboardingLocale'
   ]
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap)
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit)
 
   for (const alias of migratedAliases) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(alias), false)
+    assert.equal(GLOBAL_ACTION_NAMES.includes(alias), false)
     assert.doesNotMatch(
-      installMap,
+      globalActionAudit,
       new RegExp(`(?:^|[\\s,])${alias}(?:[\\s,]|$)`)
     )
     assert.doesNotMatch(

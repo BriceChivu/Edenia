@@ -3,8 +3,8 @@ import { readdir, readFile } from 'node:fs/promises'
 import { extname } from 'node:path'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 
 const indexSource = await readFile(
   new URL('../../index.html', import.meta.url),
@@ -231,11 +231,11 @@ test('app composition imports and binds manual-video shell actions before the br
   const bindingIndex = appSource.indexOf(
     'bindManualVideoActions(document)'
   )
-  const bridgeIndex = appSource.indexOf('installLegacyActions(window,')
+  const initializationIndex = appSource.indexOf("document.addEventListener('DOMContentLoaded', init)")
   assert.notEqual(bindingIndex, -1)
   assert.ok(
-    bridgeIndex > bindingIndex,
-    'Manual-video shell actions must bind before legacy actions install'
+    initializationIndex > bindingIndex,
+    'Manual-video shell actions must bind before application initialization'
   )
   assert.equal(
     [...appSource.matchAll(/bindManualVideoActions\(list\)/g)].length,
@@ -259,10 +259,9 @@ test('only migrated manual-video shell handlers leave inline and legacy ownershi
     }
   }
 
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap, 'Expected the legacy action install map')
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit, 'Expected the empty global-action audit')
 
   migratedActionNames.forEach(actionName => {
     const callPattern = new RegExp(`\\b${actionName}\\s*\\(`)
@@ -273,12 +272,12 @@ test('only migrated manual-video shell handlers leave inline and legacy ownershi
       `${actionName} must not remain in an inline attribute`
     )
     assert.equal(
-      LEGACY_ACTION_NAMES.includes(actionName),
+      GLOBAL_ACTION_NAMES.includes(actionName),
       false,
       `${actionName} must not remain in the legacy manifest`
     )
     assert.doesNotMatch(
-      installMap,
+      globalActionAudit,
       mapPattern,
       `${actionName} must not remain in the legacy install map`
     )

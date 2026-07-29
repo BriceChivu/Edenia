@@ -3,7 +3,6 @@
    All logic: state, YouTube API, streak, Anki, city, rendering
 ═══════════════════════════════════════════════════════════ */
 
-import { installLegacyActions } from './compat/legacy-actions.js'
 import {
   addDays,
   dateKeyToLocalDate,
@@ -14235,9 +14234,6 @@ bindUndoRedoActions(document, {
   close: closeHistoryActionPopovers,
   scroll: handleHistoryActionScrollHover,
   stopScroll: stopHistoryActionAutoScroll
-})
-
-installLegacyActions(window, {
 })
 
 bindImageFallbackActions(document)

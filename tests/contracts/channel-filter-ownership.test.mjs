@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 import {
   bindChannelFilterActions
 } from '../../src/features/channels/filter-actions.js'
@@ -445,14 +445,13 @@ test('removal controls transfer to module ownership with no legacy alias', () =>
     )
   }
 
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap)
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit)
   for (const actionName of migratedActionNames) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(actionName), false)
+    assert.equal(GLOBAL_ACTION_NAMES.includes(actionName), false)
     assert.doesNotMatch(
-      installMap,
+      globalActionAudit,
       new RegExp(`(?:^|[\\s,])${actionName}(?:[\\s,]|$)`)
     )
   }

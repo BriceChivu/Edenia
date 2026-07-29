@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 import {
   bindChannelOrderActions
 } from '../../src/features/channels/order-actions.js'
@@ -137,6 +137,6 @@ test('generated shelves and both avatar branches bind without legacy globals', (
     'dropChannelShelf',
     'startTouchChannelShelfDrag'
   ]) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(name), false)
+    assert.equal(GLOBAL_ACTION_NAMES.includes(name), false)
   }
 })

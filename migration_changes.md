@@ -4959,3 +4959,45 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to remove the review matrix; no application
   source, build output, state, storage, analytics, or visuals are affected.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-137 — Complete migration cleanup and handoff
+
+- **Date:** 2026-07-29
+- **Phase:** 8 — Final cleanup
+- **Type:** Compatibility removal, contract consolidation, and contributor/release documentation
+- **Status:** Complete locally; remote PR, production acceptance, and release pending
+- **Intent:** Remove the temporary global action bridge after its final consumer
+  migrated and leave maintainers with accurate architecture, contribution,
+  deployment, release, and rollback guidance.
+- **Conceptual change:** Removed the compatibility installer, its application
+  import/call, and the empty `window.EdeniaActions` namespace; replaced the
+  compatibility manifest with an intentionally empty frozen global-action
+  contract; updated ownership and preservation tests to use that final
+  contract; and added architecture, contributing, deployment/release, and
+  rollback documentation. Updated the README project map and linked all
+  migration handoff documents. No responsive compatibility file or global
+  action alias remains.
+- **Preservation contract:** Preserve all application rendering, event
+  forwarding and cancellation, initialization order, state and storage,
+  analytics identities, localization, runtime configuration, accessibility,
+  deployed filenames, responsive queries, selectors, cascade, and
+  phone/tablet/desktop outcomes. The removed namespace was a temporary
+  migration-only adapter with an empty manifest and no remaining application
+  consumer; removal restores the no-global-action architecture without changing
+  product behavior.
+- **Risks:** A missed inline handler or hidden dependency on the temporary
+  namespace could break an interaction; stale documentation could encourage an
+  unsafe release or responsive change. The final contract recursively audits
+  static and generated source for inline handlers and rejects any global action
+  name, while the runbooks keep intentional UI work behind explicit approval.
+- **Verification:** One consolidated final `npm test` run passed: the build
+  completed and all 616 contract tests passed. No additional test run was spent
+  on documentation-only edits. Browser, local-server, visual-regression,
+  migration-ledger, diff-integrity, and static-review checks were not run in
+  accordance with the repository `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the empty migration namespace and
+  prior test contract. No state, storage, analytics, localization, responsive,
+  or visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

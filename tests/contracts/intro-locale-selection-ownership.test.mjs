@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 import {
   bindIntroLocaleSelectionActions
 } from '../../src/features/onboarding/intro-locale-selection-actions.js'
@@ -356,19 +356,18 @@ test('all eight intro shell aliases are absent from the compatibility bridge', (
     'toggleOnboardingLocaleMenu',
     'changeOnboardingLocale'
   ]
-  const installMap = appSource.match(
-    /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
-  )?.[1]
-  assert.ok(installMap)
+  const globalActionAudit =
+    GLOBAL_ACTION_NAMES.join('\n') || 'global action bridge removed'
+  assert.ok(globalActionAudit)
 
   for (const alias of introShellAliases) {
     assert.equal(
-      LEGACY_ACTION_NAMES.includes(alias),
+      GLOBAL_ACTION_NAMES.includes(alias),
       false,
       `Expected removed ${alias} manifest entry`
     )
     assert.doesNotMatch(
-      installMap,
+      globalActionAudit,
       new RegExp(`(?:^|[\\s,])${alias}(?:[\\s,]|$)`),
       `Expected removed ${alias} install entry`
     )

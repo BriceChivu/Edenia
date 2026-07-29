@@ -5,8 +5,8 @@ import {
   bindVideoStateActions
 } from '../../src/features/videos/video-state-actions.js'
 import {
-  LEGACY_ACTION_NAMES
-} from '../../src/compat/legacy-actions.js'
+  GLOBAL_ACTION_NAMES
+} from '../../src/core/global-action-contract.js'
 
 const appSource = await readFile(
   new URL('../../src/app.js', import.meta.url),
@@ -76,7 +76,7 @@ test('rendered video-state controls bind after every replacement without globals
     'markVideo',
     'toggleVideoFavorite'
   ]) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(actionName), false)
+    assert.equal(GLOBAL_ACTION_NAMES.includes(actionName), false)
   }
 })
 
