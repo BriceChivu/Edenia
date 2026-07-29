@@ -4923,3 +4923,39 @@ release mappings, and follow-up findings are recorded as new entries.
   `99-responsive-legacy.css` file; no selector, responsive, state, storage,
   analytics, or visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-136 — Establish the responsive approval matrix
+
+- **Date:** 2026-07-29
+- **Phase:** 7 — Intentional responsive improvements
+- **Type:** Governance and review documentation
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Make the boundary between protected responsive behavior and
+  possible future phone/tablet alignment explicit without redesigning any
+  working surface.
+- **Conceptual change:** Added a responsive review matrix that groups the
+  detailed preservation inventory into fourteen scannable responsive surfaces,
+  keeps every current outcome protected, identifies four discussion-only
+  candidates, records that no visual change is approved, and defers browser and
+  screenshot review. The matrix also names the new CSS and JavaScript
+  responsive owners.
+- **Preservation contract:** Every row of the complete current-experience
+  inventory remains **Keep**. Candidate rows do not authorize source,
+  snapshot, layout, interaction, content-order, state, analytics,
+  localization, accessibility, or behavior changes. Nothing may become an
+  **Approved change** without explicit user approval and a separate ledger
+  entry.
+- **Risks:** A broad candidate could be mistaken for permission to redesign;
+  grouping could be mistaken for replacing detailed inventory coverage. The
+  document explicitly makes candidates non-executable and keeps the detailed
+  inventory authoritative.
+- **Verification:** Documentation links and ownership paths were recorded in
+  the same commit. No test run was spent on this documentation-only change.
+  Browser, local-server, visual-regression, migration-ledger, diff-integrity,
+  and static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to remove the review matrix; no application
+  source, build output, state, storage, analytics, or visuals are affected.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
