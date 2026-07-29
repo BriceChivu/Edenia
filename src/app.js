@@ -13223,7 +13223,7 @@ function renderStatusFilterOptions(allVideos = [], channelFilters = null, includ
   menu.innerHTML = `
     <div class="mobile-popover-header">
       <strong>${escHtml(getStatusFilterLabel(selectedStatusFilter))}</strong>
-      <button class="mobile-popover-close" type="button" onclick="closeStatusFilterMenu(true)" title="${escHtml(t('settings.close'))}" aria-label="${escHtml(t('settings.close'))}">×</button>
+      <button class="mobile-popover-close" type="button" onclick="closeStatusFilterMenu(true)" data-analytics-action="closeStatusFilterMenu" title="${escHtml(t('settings.close'))}" aria-label="${escHtml(t('settings.close'))}">×</button>
     </div>
   ` + STATUS_FILTERS.map(([value, label]) => `
     <label class="channel-filter-option status-filter-option">

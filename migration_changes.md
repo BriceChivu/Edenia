@@ -3146,3 +3146,42 @@ release mappings, and follow-up findings are recorded as new entries.
   global bridge aliases; no state, storage, analytics, or responsive migration
   is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-093 — Lock status-filter analytics identities
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Make every current status-filter button identity explicit before
+  replacing inline handlers, including the generated but currently dormant
+  dropdown close control.
+- **Conceptual change:** Added explicit analytics-action metadata matching the
+  translated-child identities of the five reachable tabs, the dormant
+  dropdown toggle's element-ID identity, and the generated close control's
+  inline-handler identity. Existing handlers remain inline in this
+  preparatory commit. Generated radio inputs intentionally receive no analytics
+  metadata because the generic collector does not track inputs.
+- **Preservation contract:** Tab clicks retain
+  `videos_status_all_clicked`, `videos_status_unwatched_clicked`,
+  `videos_status_partial_clicked`, `videos_status_watch_later_clicked`, and
+  `videos_status_favorite_clicked`. The dormant toggle and close controls retain
+  `status_filter_btn_clicked` and `close_status_filter_menu_clicked`. No
+  explicit product event is added. Selection, counts, filtering, focus, ARIA,
+  transient state, storage silence, and every current layout remain unchanged;
+  in particular, the dropdown/radio surface stays hidden at all viewports.
+- **Risks:** Misreading translated-child precedence would rename reachable tab
+  events; adding metadata to inputs could imply nonexistent analytics
+  coverage; styling or display changes could accidentally expose the dormant
+  dropdown; removing handlers here would combine analytics and event-ownership
+  risks.
+- **Verification:** `npm test` passed: the production build completed and all
+  315 contract tests passed. Browser, local-server, visual-regression,
+  migration-ledger, diff-integrity, and static-review checks were not run in
+  accordance with the repository `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore implicit translated-child,
+  element-ID, and handler-name identity derivation; no event, state, storage,
+  or visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
