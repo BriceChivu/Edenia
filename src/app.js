@@ -189,6 +189,9 @@ import {
   bindVideoSearchShellActions
 } from './features/videos/search-shell-actions.js'
 import {
+  bindManualVideoShellActions
+} from './features/videos/manual-video-shell-actions.js'
+import {
   bindStatusFilterActions
 } from './features/videos/status-filter-actions.js'
 import { bindUndoRedoActions } from './features/videos/undo-redo-actions.js'
@@ -13999,6 +14002,12 @@ bindVideoSearchShellActions(document, {
   renderResults: renderVideoSearchResults,
   handleInputKey: handleVideoSearchInputKey
 })
+bindManualVideoShellActions(document, {
+  toggle: toggleManualVideoPopover,
+  close: closeManualVideoPopover,
+  renderSuggestions: renderManualChannelSuggestions,
+  handleInputKey: handleManualChannelSuggestionKeydown
+})
 bindStatusFilterActions(document, {
   select: setStatusFilter,
   toggle: toggleStatusFilterMenu,
@@ -14018,7 +14027,6 @@ installLegacyActions(window, {
   changeIntroLocale,
   changeOnboardingLocale,
   clearVideoPausedState,
-  closeManualVideoPopover,
   closeVideoShelfPreviewAfterFocus,
   confirmVideoSetAsidePrompt,
   confirmVideoWatchPrompt,
@@ -14033,7 +14041,6 @@ installLegacyActions(window, {
   focusNextStudyVideoCard,
   handleChannelFilterOptionClick,
   handleChannelFilterSelectAllClick,
-  handleManualChannelSuggestionKeydown,
   handleVideoSetAsidePromptKeydown,
   handleVideoThumbnailClick,
   leaveChannelShelfDrag,
@@ -14045,7 +14052,6 @@ installLegacyActions(window, {
   openVideoShelfPreviewFromFocus,
   queueVideoShelfPreviewClose,
   removeChannelFromFilter,
-  renderManualChannelSuggestions,
   requestVideoSetAside,
   retryOnboardingRecovery,
   scrollVideoChannelShelf,
@@ -14063,7 +14069,6 @@ installLegacyActions(window, {
   syncVideoChannelShelfControls,
   toggleIntroLocaleMenu,
   toggleIntroSound,
-  toggleManualVideoPopover,
   toggleOnboardingChannel,
   toggleOnboardingLocaleMenu,
   toggleVideoFavorite,

@@ -49,10 +49,8 @@ test('manual-video opener retains its stopped analytics identity and shell', () 
     getAttribute(control, 'class'),
     'btn-secondary manual-video-btn'
   )
-  assert.equal(
-    getAttribute(control, 'onclick'),
-    'toggleManualVideoPopover(event)'
-  )
+  assert.equal(getAttribute(control, 'onclick'), null)
+  assert.equal(getAttribute(control, 'data-manual-video-action'), 'toggle')
   assert.equal(getAttribute(control, 'aria-haspopup'), 'true')
   assert.equal(getAttribute(control, 'aria-expanded'), 'false')
   assert.equal(getAttribute(control, 'data-i18n'), 'videos.manual.button')
@@ -74,8 +72,8 @@ test('manual-video close retains its generic click identity and shell', () => {
   const element = findSingle(
     getButtonElements(indexSource),
     button => (
-      getAttribute(getOpeningTag(button, 'button'), 'onclick')
-        === 'closeManualVideoPopover(true)'
+      getAttribute(getOpeningTag(button, 'button'), 'data-manual-video-action')
+        === 'close'
     ),
     'manual-video close control'
   )
@@ -94,6 +92,7 @@ test('manual-video close retains its generic click identity and shell', () => {
     getAttribute(control, 'data-analytics-action'),
     'settings.close'
   )
+  assert.equal(getAttribute(control, 'onclick'), null)
   assert.equal(
     normalizeClickEventName(getAttribute(control, 'data-analytics-action')),
     'settings_close_clicked'
@@ -104,7 +103,7 @@ test('manual-video close retains its generic click identity and shell', () => {
   )
 })
 
-test('manual-video query retains exact inline ownership without analytics metadata', () => {
+test('manual-video query retains exact module ownership without analytics metadata', () => {
   const input = findSingle(
     [...indexSource.matchAll(/<input\b[^>]*>/g)].map(match => match[0]),
     tag => getAttribute(tag, 'id') === 'manualVideoUrlInput',
@@ -128,13 +127,8 @@ test('manual-video query retains exact inline ownership without analytics metada
     'manualChannelSuggestions'
   )
   assert.equal(getAttribute(input, 'aria-expanded'), 'false')
-  assert.equal(
-    getAttribute(input, 'oninput'),
-    'renderManualChannelSuggestions()'
-  )
-  assert.equal(
-    getAttribute(input, 'onkeydown'),
-    'handleManualChannelSuggestionKeydown(event)'
-  )
+  assert.equal(getAttribute(input, 'data-manual-video-action'), 'query')
+  assert.equal(getAttribute(input, 'oninput'), null)
+  assert.equal(getAttribute(input, 'onkeydown'), null)
   assert.equal(getAttribute(input, 'data-analytics-action'), null)
 })

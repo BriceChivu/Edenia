@@ -624,26 +624,25 @@ and momentum—at a glance</h2>
         </div>
         <div class="feed-action-controls">
           <div class="manual-video" id="manualVideo">
-            <button type="button" class="btn-secondary manual-video-btn" id="manualVideoBtn" onclick="toggleManualVideoPopover(event)" data-analytics-action="videos.manual.button" aria-haspopup="true" aria-expanded="false" data-i18n="videos.manual.button">Add</button>
+            <button type="button" class="btn-secondary manual-video-btn" id="manualVideoBtn" data-manual-video-action="toggle" data-analytics-action="videos.manual.button" aria-haspopup="true" aria-expanded="false" data-i18n="videos.manual.button">Add</button>
             <div class="manual-video-popover hidden" id="manualVideoPopover" role="dialog" aria-label="Add YouTube video or channel" data-i18n-aria-label="videos.manual.dialog">
               <div class="mobile-popover-header">
                 <strong data-i18n="videos.manual.button">Add</strong>
-                <button class="mobile-popover-close" type="button" onclick="closeManualVideoPopover(true)" data-analytics-action="settings.close" title="Close" aria-label="Close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">×</button>
+                <button class="mobile-popover-close" type="button" data-manual-video-action="close" data-analytics-action="settings.close" title="Close" aria-label="Close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">×</button>
               </div>
               <form class="manual-video-form" onsubmit="addYoutubeInput(event)">
                 <p class="manual-video-hint" data-i18n="videos.manual.hint">Search Edenia's channel catalog, or paste a YouTube video or channel URL.</p>
                 <div class="manual-video-input-wrap">
                   <input type="text"
                     id="manualVideoUrlInput"
+                    data-manual-video-action="query"
                     placeholder="Search channels or paste a YouTube URL"
                     data-i18n-placeholder="videos.manual.searchPlaceholder"
                     autocomplete="off"
                     role="combobox"
                     aria-autocomplete="list"
                     aria-controls="manualChannelSuggestions"
-                    aria-expanded="false"
-                    oninput="renderManualChannelSuggestions()"
-                    onkeydown="handleManualChannelSuggestionKeydown(event)">
+                    aria-expanded="false">
                   <div class="manual-channel-suggestions hidden"
                     id="manualChannelSuggestions"
                     role="listbox"

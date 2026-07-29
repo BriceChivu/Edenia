@@ -3353,3 +3353,52 @@ release mappings, and follow-up findings are recorded as new entries.
   translated-title identity derivation; no event, state, storage, or visual
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-098 — Migrate manual-video shell event ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace the four static manual-video popover shell handlers with
+  direct module-owned listeners while leaving submission, result selection,
+  YouTube integration, and all product behavior in the existing composition
+  module.
+- **Conceptual change:** Added a manual-video shell adapter with explicit
+  `toggle`, `close`, and `query` hooks. It forwards the opener's exact click
+  event, calls full close with literal `true`, calls suggestion rendering with
+  zero arguments on input, and forwards the exact keydown event. The static
+  controls bind once before compatibility installation. Removed their four
+  inline attributes and the now-unused `toggleManualVideoPopover`,
+  `closeManualVideoPopover`, `renderManualChannelSuggestions`, and
+  `handleManualChannelSuggestionKeydown` global aliases.
+- **Preservation contract:** Preserve the opener's propagation stop, uncancelled
+  default, toggle-only close path, popover-dismissal order, explicit
+  `search_opened` event and payload, asynchronous focus-before-render order,
+  positioning, and ARIA state. Preserve full-close cleanup and phone-only focus
+  restoration; query-time result analytics deduplication; two-stage Escape;
+  Arrow wrapping; active-result Enter behavior; native Enter form submission;
+  exact event cancellation owned by the existing key handler; all IDs,
+  missing-control tolerances, localization, responsive geometry, tall-tablet
+  aspect-ratio behavior, and storage silence. The `addYoutubeInput` form handler
+  and generated catalog/YouTube search handlers remain inline and bridged.
+- **Risks:** Document delegation would run too late to suppress the opener's
+  generic click; forwarding the input event or value would change live-DOM
+  reads; combining toggle and full-close paths would alter cleanup and focus;
+  replacing the query control or changing its ID would break lexical consumers;
+  broad bridge removal could make form submission or generated results inert.
+- **Verification:** `npm test` passed: the production build completed and all
+  345 contract tests passed, including exact argument/event forwarding,
+  uncancelled wrapper behavior, direct-listener `currentTarget`, idempotency,
+  replacement/unknown controls, static shell markup, composition order, the
+  four bridge removals, retained form/generated-handler ownership, and the
+  intentionally absent submit-button ID. Browser, local-server,
+  visual-regression, migration-ledger, diff-integrity, and static-review checks
+  were not run in accordance with the repository `AGENTS.md` instruction for
+  this task.
+- **Rollback:** Revert this commit to restore the four inline handlers and
+  compatibility aliases; no state, storage, analytics, or data migration is
+  required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
