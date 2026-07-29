@@ -3798,3 +3798,44 @@ release mappings, and follow-up findings are recorded as new entries.
   identities; no event listener, state, storage, copy, or visual migration is
   required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-108 — Migrate intro and onboarding sound ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral static event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace both shared sound-button inline handlers with one explicit
+  feature adapter while preserving the trailer-to-onboarding audio lifecycle.
+- **Conceptual change:** Added an intro sound action adapter that binds direct
+  click listeners to the existing `[data-intro-sound-toggle]` controls and
+  invokes the existing async `toggleIntroSound` callback with zero arguments.
+  Both static sound buttons now use module ownership, and the matching
+  `toggleIntroSound` global bridge alias was removed. The sound implementation
+  and shared update selector remain in `app.js`.
+- **Preservation contract:** Preserve the same shared audio instance,
+  enabled/disabled state, autoplay-unlock listeners, volume/fade behavior,
+  trailer-to-onboarding continuation, error handling, and synchronized ARIA,
+  title, and localized labels on both controls. Preserve uncancelled bubbling,
+  the separate `intro_sound_btn_clicked` and
+  `onboarding_sound_btn_clicked` identities, and document analytics reading the
+  already-updated label after the target listener runs. Preserve every class,
+  ID, icon, responsive rule, and all other intro/onboarding handlers.
+- **Risks:** Binding on document delegation would let analytics observe the old
+  label; passing or cancelling the event would alter current semantics;
+  migrating only one control would split shared ownership; awaiting or replacing
+  the callback could alter autoplay timing and rejection handling.
+- **Verification:** `npm test` passed: the production build completed and all
+  408 contract tests passed, including both exact static controls, zero-argument
+  async-return-neutral invocation, uncancelled bubbling, post-toggle label
+  context, idempotent replacement binding, composition order, removal of only
+  the shared sound bridge alias, and retention of the other seven intro shell
+  aliases and handlers. Browser, local-server, visual-regression,
+  migration-ledger, diff-integrity, and static-review checks were not run in
+  accordance with the repository `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore both inline sound handlers and the
+  single shared bridge alias; no audio, state, storage, analytics, or visual
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

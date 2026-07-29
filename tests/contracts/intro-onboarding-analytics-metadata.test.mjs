@@ -101,7 +101,7 @@ const staticControls = [
     tag: () => findButtonById('introSoundBtn'),
     className: 'intro-sound',
     id: 'introSoundBtn',
-    handler: 'toggleIntroSound()',
+    handler: null,
     analyticsAction: 'introSoundBtn',
     eventName: 'intro_sound_btn_clicked',
     dataI18n: null,
@@ -165,7 +165,7 @@ const staticControls = [
     tag: () => findButtonById('onboardingSoundBtn'),
     className: 'intro-sound onboarding-sound',
     id: 'onboardingSoundBtn',
-    handler: 'toggleIntroSound()',
+    handler: null,
     analyticsAction: 'onboardingSoundBtn',
     eventName: 'onboarding_sound_btn_clicked',
     dataI18n: null,
@@ -202,7 +202,7 @@ const staticControls = [
   }
 ]
 
-test('static intro and onboarding controls retain exact metadata and inline calls', () => {
+test('static intro and onboarding controls retain exact metadata and ownership hooks', () => {
   for (const expected of staticControls) {
     const tag = expected.tag()
 
@@ -250,11 +250,13 @@ test('static intro and onboarding controls retain exact metadata and inline call
       expected.ariaExpanded ?? null,
       expected.label
     )
-    assert.equal(
-      expected.handler.startsWith('return '),
-      false,
-      `${expected.label} must retain non-returning inline ownership`
-    )
+    if (expected.handler !== null) {
+      assert.equal(
+        expected.handler.startsWith('return '),
+        false,
+        `${expected.label} must retain non-returning inline ownership`
+      )
+    }
   }
 })
 
@@ -504,7 +506,7 @@ test('locale radio changes have no generic click event while trigger clicks are 
   assert.doesNotMatch(onboardingChangeSource, /\.stopPropagation\(/)
 })
 
-test('all metadata-locked controls retain their temporary global aliases', () => {
+test('remaining metadata-locked controls retain their temporary global aliases', () => {
   const installStart = appSource.indexOf('installLegacyActions(window, {')
   assert.notEqual(installStart, -1, 'Expected legacy action installation')
   const installSource = appSource.slice(
@@ -518,7 +520,6 @@ test('all metadata-locked controls retain their temporary global aliases', () =>
     'navigateIntroTrailer',
     'selectIntroCityLevel',
     'toggleIntroLocaleMenu',
-    'toggleIntroSound',
     'toggleOnboardingLocaleMenu'
   ]
 

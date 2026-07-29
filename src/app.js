@@ -146,6 +146,9 @@ import {
 import { createStateStore } from './state/store.js'
 import { createStateBackupStore } from './state/backups.js'
 import {
+  bindIntroSoundActions
+} from './features/onboarding/intro-sound-actions.js'
+import {
   LEARNER_LANGUAGE_OPTIONS,
   LEARNER_LEVEL_OPTIONS,
   ONBOARDING_CHANNEL_STYLE_KEYS
@@ -14065,6 +14068,9 @@ bindManualVideoShellActions(document, {
   renderSuggestions: renderManualChannelSuggestions,
   handleInputKey: handleManualChannelSuggestionKeydown
 })
+bindIntroSoundActions(document, {
+  toggle: toggleIntroSound
+})
 bindVideoSetAsideActions(document, {
   request: requestVideoSetAside,
   cancel: cancelVideoSetAsidePrompt,
@@ -14122,7 +14128,6 @@ installLegacyActions(window, {
   startTouchChannelShelfDrag,
   syncVideoChannelShelfControls,
   toggleIntroLocaleMenu,
-  toggleIntroSound,
   toggleOnboardingChannel,
   toggleOnboardingLocaleMenu,
   toggleVideoFavorite,
