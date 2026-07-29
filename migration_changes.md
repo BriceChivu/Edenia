@@ -2771,3 +2771,43 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the inline Delete data handler and
   bridge entry; backups and state created by any completed reset remain valid.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-084 — Migrate Study History period toggle actions
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Static event ownership, compatibility bridge reduction, and tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move the static Study History week and month range triggers from
+  inline global handlers into scoped direct listeners without changing their
+  responsive or popover behavior.
+- **Conceptual change:** Added explicit toggle ownership hooks to the two
+  existing range buttons, installed idempotent direct click listeners that pass
+  the original event and exact literal range into the existing toggle
+  operation, removed both inline handlers, and removed
+  `toggleHistoryPeriodPopover` from the temporary legacy bridge while retaining
+  the lexical function.
+- **Preservation contract:** Original click event and `currentTarget`,
+  propagation stopping, uncancelled native activation, selected range and
+  runtime-only period state, render timing, current popover-closing order,
+  week/month option content, focus, ARIA expansion, keyboard activation,
+  styling, translations, storage, Activity Log, analytics silence, and all
+  responsive layouts remain unchanged. In particular, an empty range continues
+  to open its empty popover on wider layouts while the existing `≤640px` path
+  returns before opening or changing the active range.
+- **Risks:** Dropping the original event would break closest-cell lookup and
+  propagation; delegation could alter target ordering; deriving the range from
+  mutable markup could change the inline handler's fixed arguments; moving the
+  mobile empty-state guard could alter selected-range state; adding analytics
+  metadata would create events that the propagation-stopped inline path did not
+  previously emit.
+- **Verification:** `npm test` passed 270 contract tests and the production
+  build. The focused desktop/phone period-toggle flows passed. The complete
+  six-viewport Playwright matrix passed with 53 tests and 151 intentional skips;
+  all 18 protected screenshots remained unchanged. Migration-ledger and
+  diff-integrity checks passed.
+- **Rollback:** Revert this commit to restore the two inline handlers and bridge
+  entry; no persisted state or schema rollback is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

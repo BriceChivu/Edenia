@@ -3858,8 +3858,63 @@ test('Study History period listeners preserve generated options and runtime-only
   }))
   expect(bridgeActions).toEqual({
     selected: false,
-    toggled: true
+    toggled: false
   })
+})
+
+test('Study History empty period triggers preserve the desktop and phone boundary', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-standard'].includes(
+    testInfo.project.name
+  ))
+
+  await seedCompletedState(page)
+  const storedBefore = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  const monthCell = page.locator(
+    '[data-history-period-range="month"]'
+  )
+  const monthToggle = monthCell.locator(
+    '[data-history-period-action="toggle"][data-history-range="month"]'
+  )
+  const weekToggle = page.locator(
+    '[data-history-period-action="toggle"][data-history-range="week"]'
+  )
+  await page.evaluate(() => {
+    window.__historyEmptyPeriodAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.(
+        '[data-history-period-action="toggle"]'
+      )) return
+      window.__historyEmptyPeriodAtDocumentBubble = true
+    }, { once: true })
+  })
+  await monthToggle.focus()
+  await monthToggle.press(
+    testInfo.project.name === 'phone-standard' ? 'Space' : 'Enter'
+  )
+
+  await expect.poll(() => page.evaluate(
+    () => window.__historyEmptyPeriodAtDocumentBubble
+  )).toBe(null)
+  if (testInfo.project.name === 'phone-standard') {
+    await expect(monthCell).not.toHaveClass(/\bopen\b/)
+    await expect(monthToggle).toHaveAttribute('aria-expanded', 'false')
+    await expect(weekToggle).toHaveClass(/\bactive\b/)
+    await expect(monthToggle).not.toHaveClass(/\bactive\b/)
+  } else {
+    await expect(monthCell).toHaveClass(/\bopen\b/)
+    await expect(monthToggle).toHaveAttribute('aria-expanded', 'true')
+    await expect(weekToggle).not.toHaveClass(/\bactive\b/)
+    await expect(monthToggle).toHaveClass(/\bactive\b/)
+    await expect(
+      page.locator('#historyMonthPeriodPopover .history-period-empty')
+    ).toHaveCount(1)
+  }
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
 })
 
 test('Study History view listeners preserve persistence, keyboard, and ordering', async ({

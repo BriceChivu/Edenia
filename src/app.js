@@ -204,6 +204,9 @@ import { bindSettingsSyncActions } from './features/settings/sync-actions.js'
 import {
   bindStudyHistoryPeriodOptionActions
 } from './features/study-history/period-option-actions.js'
+import {
+  bindStudyHistoryPeriodToggleActions
+} from './features/study-history/period-toggle-actions.js'
 import { bindStudyHistoryViewActions } from './features/study-history/view-actions.js'
 import { bindSandboxActions } from './features/sandbox/actions.js'
 import { bindThemeActions } from './features/theme/actions.js'
@@ -13923,6 +13926,9 @@ bindSettingsReplayActions(document, {
 bindCityLevelUpActions(document, {
   claim: claimCityLevelUp
 })
+bindStudyHistoryPeriodToggleActions(document, {
+  toggle: toggleHistoryPeriodPopover
+})
 bindStudyHistoryPeriodOptionActions(document, {
   selectPeriod: setHistoryPeriodForRange
 })
@@ -13999,7 +14005,6 @@ installLegacyActions(window, {
   syncVideoChannelShelfControls,
   toggleHeatmapTooltip,
   toggleHistoryActionPopover,
-  toggleHistoryPeriodPopover,
   toggleHistoryPointsPopover,
   toggleHistoryVideoPopover,
   toggleIntroLocaleMenu,

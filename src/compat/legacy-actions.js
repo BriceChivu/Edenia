@@ -67,7 +67,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'syncVideoChannelShelfControls',
   'toggleHeatmapTooltip',
   'toggleHistoryActionPopover',
-  'toggleHistoryPeriodPopover',
   'toggleHistoryPointsPopover',
   'toggleHistoryVideoPopover',
   'toggleIntroLocaleMenu',
