@@ -181,6 +181,9 @@ import {
   CURATED_NOT_SURE_CHANNEL_IDS
 } from './features/channels/curated-catalog.js'
 import {
+  bindChannelFilterActions
+} from './features/channels/filter-actions.js'
+import {
   CITY_IMAGE_SOURCES,
   CITY_LEVELS,
   getCityLevel,
@@ -13439,12 +13442,12 @@ function renderChannelFilterOptions(s) {
   ])
   const allChannelsControl = entries.length
     ? `
-      <div class="channel-filter-select-all" data-analytics-action="handleChannelFilterSelectAllClick" onclick="handleChannelFilterSelectAllClick(event)">
+      <div class="channel-filter-select-all" data-channel-filter-action="select-all-row" data-analytics-action="handleChannelFilterSelectAllClick">
         <input type="checkbox"
           id="channelFilterSelectAll"
           ${selectedCount === entries.length ? 'checked' : ''}
+          data-channel-filter-action="select-all"
           data-analytics-action="setAllChannelFilters"
-          onchange="setAllChannelFilters(this.checked)"
           aria-label="${escHtml(t('videos.channels.all'))}">
         <span>${escHtml(t('videos.channels.all'))}</span>
       </div>
@@ -13456,8 +13459,8 @@ function renderChannelFilterOptions(s) {
       const refreshTitle = formatChannelLastRefreshTitle(s, id)
       const canRemove = removableChannelIds.has(id)
       return `
-      <div class="channel-filter-option" data-channel-id="${escHtml(id)}" data-analytics-action="handleChannelFilterOptionClick" onclick="handleChannelFilterOptionClick(event, this.dataset.channelId)">
-        <input type="checkbox" data-channel-id="${escHtml(id)}" data-analytics-action="setChannelFilter" ${selected.has(id) ? 'checked' : ''} onchange="setChannelFilter(this.dataset.channelId, this.checked)">
+      <div class="channel-filter-option" data-channel-id="${escHtml(id)}" data-channel-filter-action="option-row" data-analytics-action="handleChannelFilterOptionClick">
+        <input type="checkbox" data-channel-id="${escHtml(id)}" data-channel-filter-action="select" data-analytics-action="setChannelFilter" ${selected.has(id) ? 'checked' : ''}>
         <span class="channel-filter-label">${escHtml(name)}</span>
         <span class="channel-filter-refresh" title="${escHtml(refreshTitle)}">${escHtml(refreshLabel)}</span>
         ${canRemove ? `<button type="button" class="channel-filter-remove" data-channel-id="${escHtml(id)}" data-analytics-action="removeChannelFromFilter" onclick="removeChannelFromFilter(event, this.dataset.channelId)" title="${escHtml(t('settings.remove'))}" aria-label="${escHtml(t('settings.remove'))}">×</button>` : ''}
@@ -13470,6 +13473,12 @@ function renderChannelFilterOptions(s) {
     ${allChannelsControl}
     ${options}
   `
+  bindChannelFilterActions(optionsWrap, {
+    setChannel: setChannelFilter,
+    setAll: setAllChannelFilters,
+    handleSelectAllClick: handleChannelFilterSelectAllClick,
+    handleOptionClick: handleChannelFilterOptionClick
+  })
   const selectAllInput = document.getElementById('channelFilterSelectAll')
   if (selectAllInput) {
     selectAllInput.indeterminate = selectedCount > 0 && selectedCount < entries.length
@@ -14152,8 +14161,6 @@ installLegacyActions(window, {
   closeVideoShelfPreviewAfterFocus,
   dropChannelShelf,
   finishChannelShelfDrag,
-  handleChannelFilterOptionClick,
-  handleChannelFilterSelectAllClick,
   handleVideoThumbnailClick,
   leaveChannelShelfDrag,
   markVideo,
@@ -14166,8 +14173,6 @@ installLegacyActions(window, {
   searchYoutubeChannels,
   selectManualChannelSuggestion,
   selectYoutubeChannelSearchResult,
-  setAllChannelFilters,
-  setChannelFilter,
   startChannelShelfDrag,
   startTouchChannelShelfDrag,
   syncVideoChannelShelfControls,

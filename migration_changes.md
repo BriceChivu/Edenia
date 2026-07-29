@@ -4415,3 +4415,47 @@ release mappings, and follow-up findings are recorded as new entries.
   filter selection, channel removal, storage, analytics implementation, or
   visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-123 — Migrate channel-filter selection ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral generated event-listener extraction with shared removal retention
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace the Select all and per-channel row/checkbox inline
+  handlers while keeping shared channel removal inline on both surfaces.
+- **Conceptual change:** Added a channel-filter action adapter with exact
+  `select-all-row`, `select-all`, `option-row`, and `select` hooks. Row listeners
+  forward the native event (and live channel ID for options); checkbox change
+  listeners forward only live checked state and channel ID. The filter renderer
+  binds immediately after every options replacement. Removed the four matching
+  bridge aliases; `removeChannelFromFilter` remains bridged.
+- **Preservation contract:** Preserve entry ordering and reconciliation,
+  selected/checked/indeterminate state, nested input guards, manual checkbox
+  toggling from row clicks, Alt-click select-only prevention/propagation stop,
+  filter-set initialization, feed rerender, labels/timestamps, periodic and
+  visibility replacement, localization, accessibility, and responsive menu
+  behavior. Preserve inert div/input analytics metadata and all filter/shelf
+  removal handlers.
+- **Risks:** Delegation or event omission could double-toggle nested inputs;
+  stale checked or channel values could select the wrong set; missed periodic
+  rebinding would break open filters after refresh; removing the shared removal
+  alias now would break both untouched removal surfaces.
+- **Verification:** The first `npm test` run found the adapter using the
+  provisional `option` name instead of the committed `select` hook, two
+  resulting ownership-fixture failures, and one older retained-neighbor
+  assertion for `handleChannelFilterSelectAllClick`. Those test/adapter
+  boundaries were aligned without changing callback behavior. The final
+  `npm test` passed: the production build completed and all 555 contract tests
+  passed, including exact row events and live checkbox/channel values, nested
+  and Alt-click guards, idempotent replacement/timestamp binding, indeterminate
+  timing, four bridge removals, and shared removal retention. Browser,
+  local-server, visual-regression, migration-ledger, diff-integrity, and
+  static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the four filter selection inline
+  handler families and bridge aliases; no selection persistence, removal,
+  analytics, or visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

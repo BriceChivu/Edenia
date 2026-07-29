@@ -125,32 +125,35 @@ test('generated filter controls retain variants, order, metadata, and exact inli
   const controls = [
     {
       action: 'handleChannelFilterSelectAllClick',
+      channelFilterAction: 'select-all-row',
       eventAttribute: 'onclick',
-      eventValue: 'handleChannelFilterSelectAllClick(event)',
+      eventValue: null,
       tag: selectAllRow
     },
     {
       action: 'setAllChannelFilters',
+      channelFilterAction: 'select-all',
       eventAttribute: 'onchange',
-      eventValue: 'setAllChannelFilters(this.checked)',
+      eventValue: null,
       tag: selectAllInput
     },
     {
       action: 'handleChannelFilterOptionClick',
+      channelFilterAction: 'option-row',
       eventAttribute: 'onclick',
-      eventValue:
-        'handleChannelFilterOptionClick(event, this.dataset.channelId)',
+      eventValue: null,
       tag: optionRow
     },
     {
       action: 'setChannelFilter',
+      channelFilterAction: 'select',
       eventAttribute: 'onchange',
-      eventValue:
-        'setChannelFilter(this.dataset.channelId, this.checked)',
+      eventValue: null,
       tag: optionInput
     },
     {
       action: 'removeChannelFromFilter',
+      channelFilterAction: null,
       eventAttribute: 'onclick',
       eventValue:
         'removeChannelFromFilter(event, this.dataset.channelId)',
@@ -164,14 +167,20 @@ test('generated filter controls retain variants, order, metadata, and exact inli
       control.action
     )
     assert.equal(
+      getAttribute(control.tag, 'data-channel-filter-action'),
+      control.channelFilterAction
+    )
+    assert.equal(
       getAttribute(control.tag, control.eventAttribute),
       control.eventValue
     )
-    assert.equal(
-      getInlineHandlerName(control.eventValue),
-      control.action
-    )
-    assert.equal(control.eventValue.startsWith('return '), false)
+    if (control.eventValue !== null) {
+      assert.equal(
+        getInlineHandlerName(control.eventValue),
+        control.action
+      )
+      assert.equal(control.eventValue.startsWith('return '), false)
+    }
   }
 
   assert.equal(
@@ -299,7 +308,7 @@ test('filter and shelf removal surfaces share exact metadata and inline ownershi
   assert.equal(removalConsumers.length, 2)
 })
 
-test('explicit actions preserve current handler-derived analytics identities', () => {
+test('explicit actions preserve pre-migration handler-derived analytics identities', () => {
   const expectedEvents = {
     setChannelFilter: 'set_channel_filter_clicked',
     setAllChannelFilters: 'set_all_channel_filters_clicked',
@@ -412,11 +421,10 @@ test('filter replacement and refresh timestamps retain synchronous timing', () =
   )
 })
 
-test('all five handler families remain shared through the legacy bridge', () => {
-  const expectedActions = [
+test('four migrated handlers leave the bridge while shared removal remains', () => {
+  const migratedActions = [
     'handleChannelFilterOptionClick',
     'handleChannelFilterSelectAllClick',
-    'removeChannelFromFilter',
     'setAllChannelFilters',
     'setChannelFilter'
   ]
@@ -425,11 +433,20 @@ test('all five handler families remain shared through the legacy bridge', () => 
   )?.[1]
   assert.ok(installMap)
 
-  for (const action of expectedActions) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(action), true, action)
-    assert.match(
+  for (const action of migratedActions) {
+    assert.equal(LEGACY_ACTION_NAMES.includes(action), false, action)
+    assert.doesNotMatch(
       installMap,
       new RegExp(`(?:^|[\\s,])${action}(?:[\\s,]|$)`)
     )
   }
+
+  assert.equal(
+    LEGACY_ACTION_NAMES.includes('removeChannelFromFilter'),
+    true
+  )
+  assert.match(
+    installMap,
+    /(?:^|[\s,])removeChannelFromFilter(?:[\s,]|$)/
+  )
 })
