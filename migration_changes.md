@@ -4733,3 +4733,41 @@ release mappings, and follow-up findings are recorded as new entries.
   three bridge aliases; no video state, storage, scoring, analytics, or visual
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-131 — Migrate channel-ordering ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral drag and pointer event-listener extraction
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move desktop drag/drop and touch/pointer channel ordering out of
+  six inline/global handlers without changing the ordering model.
+- **Conceptual change:** Added one channel-order adapter that directly binds all
+  five native shelf drag events and the avatar pointer-down event; marked each
+  generated shelf and both avatar branches with stable ownership metadata;
+  bound them after active-grid replacement; removed all six inline attributes
+  and bridge aliases. One compact test file covers event forwarding, binding,
+  replacement safety, markup, and compatibility removal.
+- **Preservation contract:** Preserve fine-pointer desktop eligibility, touch
+  thresholds and pointer capture, interactive-descendant guards, link behavior,
+  preview cloning/positioning, edge scrolling, drop indicators and midpoint
+  placement, hidden-channel order merging, persistence, cleanup, click
+  suppression, animation timing, exact native events and live controls, channel
+  ordering, and all responsive presentation. No analytics metadata was added to
+  the avatar link because doing so would rename its existing generic click
+  identity; drag and pointer events are not collected by that click listener.
+- **Risks:** Passing the wrong shelf/handle would break target lookup; omitting
+  one native event would leave stale drag state; changing cancellation or
+  pointer cleanup could interfere with links, cards, scrolling, or future
+  drags.
+- **Verification:** The single consolidated `npm test` run passed: the
+  production build completed and all 607 contract tests passed. Browser,
+  local-server, visual-regression, migration-ledger, diff-integrity, and
+  static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the six inline handlers and
+  bridge aliases; the persisted channel order remains compatible and requires
+  no migration.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

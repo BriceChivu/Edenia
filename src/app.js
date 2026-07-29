@@ -187,6 +187,9 @@ import {
   bindChannelRemoveActions
 } from './features/channels/remove-actions.js'
 import {
+  bindChannelOrderActions
+} from './features/channels/order-actions.js'
+import {
   bindChannelShelfScrollActions
 } from './features/channels/shelf-scroll-actions.js'
 import {
@@ -11429,6 +11432,14 @@ function renderFeed(s) {
     handlePromptKeydown: handleVideoSetAsidePromptKeydown
   })
   bindRenderedVideoStateActions(grid)
+  bindChannelOrderActions(grid, {
+    start: startChannelShelfDrag,
+    finish: finishChannelShelfDrag,
+    move: moveChannelShelfDrag,
+    leave: leaveChannelShelfDrag,
+    drop: dropChannelShelf,
+    startTouch: startTouchChannelShelfDrag
+  })
   requestAnimationFrame(() => {
     document.querySelectorAll('.channel-shelf-track').forEach(syncVideoChannelShelfControls)
   })
@@ -11483,12 +11494,8 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
     return `
       <section class="channel-video-group channel-shelf ${isArrivingChannel ? 'channel-refresh-arriving' : ''}"
         data-channel-key="${escHtml(group.key)}"
-        draggable="true"
-        ondragstart="startChannelShelfDrag(event, this)"
-        ondragend="finishChannelShelfDrag()"
-        ondragover="moveChannelShelfDrag(event, this)"
-        ondragleave="leaveChannelShelfDrag(event, this)"
-        ondrop="dropChannelShelf(event, this)">
+        data-channel-order-action="shelf"
+        draggable="true">
         <header class="channel-shelf-header"
           aria-label="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}"
           title="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}">
@@ -11588,9 +11595,9 @@ function renderChannelShelfAvatar(group) {
     : ''
   const avatarContent = `<span aria-hidden="true">${escHtml(initials)}</span>${avatarImage}`
   if (!channelUrl) {
-    return `<span class="channel-shelf-avatar" aria-hidden="true" onpointerdown="startTouchChannelShelfDrag(event, this)">${avatarContent}</span>`
+    return `<span class="channel-shelf-avatar" data-channel-order-action="touch-handle" aria-hidden="true">${avatarContent}</span>`
   }
-  return `<a class="channel-shelf-avatar" href="${escHtml(channelUrl)}" target="_blank" rel="noopener noreferrer" draggable="false" aria-label="${escHtml(`${title} — YouTube`)}" onpointerdown="startTouchChannelShelfDrag(event, this)">${avatarContent}</a>`
+  return `<a class="channel-shelf-avatar" data-channel-order-action="touch-handle" href="${escHtml(channelUrl)}" target="_blank" rel="noopener noreferrer" draggable="false" aria-label="${escHtml(`${title} — YouTube`)}">${avatarContent}</a>`
 }
 
 function syncVideoChannelShelfControls(track) {
@@ -14208,16 +14215,10 @@ bindUndoRedoActions(document, {
 
 installLegacyActions(window, {
   closeVideoShelfPreviewAfterFocus,
-  dropChannelShelf,
-  finishChannelShelfDrag,
   handleVideoThumbnailClick,
-  leaveChannelShelfDrag,
-  moveChannelShelfDrag,
   openVideoShelfPreview,
   openVideoShelfPreviewFromFocus,
   queueVideoShelfPreviewClose,
-  startChannelShelfDrag,
-  startTouchChannelShelfDrag,
   toggleVideoShelfPreviewOnTouch
 })
 
