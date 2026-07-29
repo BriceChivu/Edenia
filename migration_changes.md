@@ -3229,3 +3229,41 @@ release mappings, and follow-up findings are recorded as new entries.
   and inline handlers; no state, storage, analytics, or data migration is
   required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-095 — Lock Settings channel-removal analytics identity
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Make the generated Settings channel-removal button's current
+  generic analytics identity explicit before replacing its inline handler.
+- **Conceptual change:** Added `removeChannel` analytics-action metadata to the
+  generated channel-removal control and a contract that locks the existing
+  inline callback, live channel identifier, localized title, and normalized
+  `remove_channel_clicked` event name. Event ownership remains inline in this
+  preparatory commit.
+- **Preservation contract:** Preserve the exact `removeChannel(channelId)`
+  invocation, native button click and keyboard activation, document-bubble
+  analytics timing, localized visible label, `channel_removed` state-diff
+  analytics, channel state mutation, saved-video preservation, Undo/Redo,
+  activity logging, persistence, rendering, and focus behavior. No styling,
+  responsive, copy, state-schema, or feature behavior changes are permitted.
+  The generated list remains dormant because `#channelList` is absent; this
+  migration must not add or expose that container.
+- **Risks:** Removing the handler before identity metadata exists would make the
+  generic event depend on localized title text; confusing this control with
+  feed-level channel removal could alter propagation or removal semantics;
+  touching the state function could affect videos retained from removed
+  channels.
+- **Verification:** `npm test` passed: the production build completed and all
+  325 contract tests passed, including exact generated markup, handler,
+  localized-title source, analytics metadata, and normalized event identity.
+  Browser, local-server, visual-regression, migration-ledger, diff-integrity,
+  and static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore handler-derived generic identity;
+  no event, state, storage, or visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
