@@ -2851,3 +2851,43 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the five inline shell handlers and
   three bridge entries; no state or storage migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-086 — Migrate Study History watched-video actions
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Generated event ownership, compatibility bridge reduction, and tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move the nested generated watched-video navigation items from
+  their inline global handler into direct component listeners without changing
+  any destination or responsive behavior.
+- **Conceptual change:** Added a scoped jump ownership hook to each generated
+  watched-video item, installed direct listeners after every History table
+  rebuild that pass the original click event and live video ID into the
+  existing navigation operation, removed the inline handler, and removed
+  `jumpToWatchedVideo` from the temporary legacy bridge while retaining the
+  lexical function.
+- **Preservation contract:** Native button activation, original event and
+  `currentTarget`, immediate propagation stopping, analytics silence, live
+  video-ID lookup, stale-item warning and closure, watched non-favorite filter
+  reset, Watched-section expansion, rerender and 2200 ms arrival highlight,
+  desktop shelf focus and delayed preview, `≤640px` rerender and zero-delay card
+  scroll/flash, current toasts, storage, Activity Log, focus, styling,
+  accessibility, translations, and all responsive layouts remain unchanged.
+- **Risks:** Delegation could allow the shell click to run after the nested item;
+  capturing a rendered index instead of the live ID could navigate to the wrong
+  video; omitting the original event would break desktop default prevention and
+  propagation; missing a table rebuild would leave replacement items inert;
+  unifying desktop and phone navigation would alter established behavior;
+  adding analytics metadata would create events the stopped inline path did not
+  emit.
+- **Verification:** `npm test` passed 280 contract tests and the production
+  build. The focused desktop watched/filter/highlight branch and phone active
+  scroll/flash branch passed. The complete six-viewport Playwright matrix passed
+  with 57 tests and 159 intentional skips; all 18 protected screenshots
+  remained unchanged. Migration-ledger and diff-integrity checks passed.
+- **Rollback:** Revert this commit to restore the generated inline handler and
+  bridge entry; no state or storage migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

@@ -4045,6 +4045,176 @@ test('Study History watched popover listeners preserve fine and coarse interacti
   })
 })
 
+test('Study History watched-video listeners preserve navigation branches', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-standard'].includes(
+    testInfo.project.name
+  ))
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.config.channels = [{
+      id: 'history-navigation-channel',
+      name: 'Protected History navigation channel'
+    }]
+    state.videos['history-navigation-active'] = {
+      id: 'history-navigation-active',
+      title: 'Protected active History video',
+      channelId: 'history-navigation-channel',
+      channelTitle: 'Protected History navigation channel',
+      duration: 720,
+      publishedAt: '2026-07-27T04:00:00.000Z',
+      watchedAt: null,
+      pausedAt: '2026-07-28T06:00:00.000Z',
+      resumeAtSeconds: 180,
+      status: 'partial',
+      thumbnail: '',
+      watchProgress: [{
+        watchedAt: '2026-07-28T06:00:00.000Z',
+        seconds: 180
+      }],
+      watchProgressTracked: true
+    }
+    state.videos['history-navigation-watched'] = {
+      id: 'history-navigation-watched',
+      title: 'Protected watched History video',
+      channelId: 'history-navigation-channel',
+      channelTitle: 'Protected History navigation channel',
+      duration: 600,
+      publishedAt: '2026-07-26T04:00:00.000Z',
+      watchedAt: '2026-07-28T05:00:00.000Z',
+      status: 'watched',
+      thumbnail: '',
+      watchProgress: [{
+        watchedAt: '2026-07-28T05:00:00.000Z',
+        seconds: 300
+      }],
+      watchProgressTracked: true
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    localStorage.removeItem('edenia_posthog_state_v2')
+  })
+  await page.reload()
+  await waitForApplication(page)
+
+  const cell = page.locator(
+    '[data-history-watched-popover-action="toggle"]'
+  ).first()
+  const watchedItem = cell.locator(
+    '[data-history-watched-video-action="jump"]'
+      + '[data-video-id="history-navigation-watched"]'
+  )
+  const activeItem = cell.locator(
+    '[data-history-watched-video-action="jump"]'
+      + '[data-video-id="history-navigation-active"]'
+  )
+  const storedBefore = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  await expect(watchedItem).toHaveCount(1)
+  await expect(activeItem).toHaveCount(1)
+  await page.evaluate(() => {
+    window.__historyWatchedVideoAnalyticsEvents = []
+    window.__historyWatchedVideoAtDocumentBubble = null
+    window.__historyWatchedVideoTargetEvents = {}
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__historyWatchedVideoAnalyticsEvents.push({
+          eventName,
+          properties
+        })
+      },
+      get_distinct_id() {
+        return 'preservation-history-watched-video'
+      },
+      setPersonProperties() {}
+    }
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.(
+        '[data-history-watched-video-action="jump"]'
+      )) return
+      window.__historyWatchedVideoAtDocumentBubble = true
+    })
+    document.addEventListener('click', event => {
+      const control = event.target.closest?.(
+        '[data-history-watched-video-action="jump"]'
+      )
+      if (!control) return
+      queueMicrotask(() => {
+        window.__historyWatchedVideoTargetEvents[
+          control.dataset.videoId
+        ] = {
+          defaultPrevented: event.defaultPrevented
+        }
+      })
+    }, true)
+  })
+
+  if (testInfo.project.name === 'desktop-standard') {
+    await page.locator('[data-status-tab="favorite"]').click()
+    await expect(
+      page.locator('[data-status-tab="favorite"]')
+    ).toHaveClass(/\bactive\b/)
+    await page.evaluate(() => {
+      window.__historyWatchedVideoAnalyticsEvents.length = 0
+    })
+    await cell.hover()
+    await watchedItem.focus()
+    await watchedItem.press('Enter')
+    await expect(cell).not.toHaveClass(/\bopen\b/)
+    await expect(page.locator('[data-status-tab="all"]')).toHaveClass(
+      /\bactive\b/
+    )
+    await expect(
+      page.locator(
+        '#watchedGrid '
+          + '.video-card[data-video-id="history-navigation-watched"]'
+      )
+    ).toHaveClass(/\bhistory-video-arriving\b/)
+    await expect.poll(() => page.evaluate(() => (
+      window.__historyWatchedVideoTargetEvents[
+        'history-navigation-watched'
+      ]?.defaultPrevented
+    ))).toBe(false)
+  }
+
+  if (testInfo.project.name === 'phone-standard') {
+    await cell.locator('.history-video-count').press('Space')
+    await activeItem.focus()
+    await activeItem.press('Space')
+    await expect(cell).not.toHaveClass(/\bopen\b/)
+    await expect(
+      page.locator(
+        '.video-card[data-video-id="history-navigation-active"]'
+      ).first()
+    ).toHaveClass(/\bflash-target\b/)
+    await expect.poll(() => page.evaluate(() => (
+      window.__historyWatchedVideoTargetEvents[
+        'history-navigation-active'
+      ]?.defaultPrevented
+    ))).toBe(false)
+  }
+
+  await expect.poll(() => page.evaluate(
+    () => window.__historyWatchedVideoAtDocumentBubble
+  )).toBe(null)
+  expect(await page.evaluate(
+    () => window.__historyWatchedVideoAnalyticsEvents
+  )).toEqual([])
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+  const removedBridgeAction = await page.evaluate(() => (
+    Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'jumpToWatchedVideo'
+    )
+  ))
+  expect(removedBridgeAction).toBe(false)
+})
+
 test('Study History view listeners preserve persistence, keyboard, and ordering', async ({
   page
 }, testInfo) => {

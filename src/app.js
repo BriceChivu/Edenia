@@ -211,6 +211,9 @@ import { bindStudyHistoryViewActions } from './features/study-history/view-actio
 import {
   bindStudyHistoryWatchedPopoverActions
 } from './features/study-history/watched-popover-actions.js'
+import {
+  bindStudyHistoryWatchedVideoActions
+} from './features/study-history/watched-video-actions.js'
 import { bindSandboxActions } from './features/sandbox/actions.js'
 import { bindThemeActions } from './features/theme/actions.js'
 import { bindFeedbackConfirmationActions } from './features/feedback/confirmation-actions.js'
@@ -8223,7 +8226,7 @@ function renderHistoryWatchedCell(row) {
       </button>
       <span class="history-video-popover" role="dialog" aria-label="${escHtml(t('history.watchedDialog'))}">
         ${row.watchedVideos.map(video => `
-          <button type="button" class="history-video-popover-item" data-video-id="${escHtml(video.id)}" onclick="jumpToWatchedVideo(event, this.dataset.videoId)">
+          <button type="button" class="history-video-popover-item" data-history-watched-video-action="jump" data-video-id="${escHtml(video.id)}">
             ${video.thumbnail
               ? `<img src="${escHtml(video.thumbnail)}" alt="" class="history-video-thumb" loading="lazy">`
               : '<span class="history-video-thumb history-video-thumb-empty"></span>'}
@@ -8833,6 +8836,9 @@ function renderStudyHistoryPanel(s) {
       open: openHistoryVideoPopover,
       closeSoon: closeHistoryVideoPopoverSoon,
       toggle: toggleHistoryVideoPopover
+    })
+    bindStudyHistoryWatchedVideoActions(table, {
+      jump: jumpToWatchedVideo
     })
   }
 
@@ -13976,7 +13982,6 @@ installLegacyActions(window, {
   handleVideoSetAsidePromptKeydown,
   handleVideoThumbnailClick,
   hideHeatmapTooltip,
-  jumpToWatchedVideo,
   leaveChannelShelfDrag,
   markVideo,
   moveChannelShelfDrag,

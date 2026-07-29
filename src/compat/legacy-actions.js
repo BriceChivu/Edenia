@@ -30,7 +30,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'handleVideoSetAsidePromptKeydown',
   'handleVideoThumbnailClick',
   'hideHeatmapTooltip',
-  'jumpToWatchedVideo',
   'leaveChannelShelfDrag',
   'markVideo',
   'moveChannelShelfDrag',
