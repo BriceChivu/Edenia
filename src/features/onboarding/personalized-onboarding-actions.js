@@ -14,9 +14,10 @@ export function bindPersonalizedOnboardingActions(root, actions) {
     || typeof actions.selectLevel !== 'function'
     || typeof actions.setStep !== 'function'
     || typeof actions.toggleChannel !== 'function'
+    || typeof actions.finish !== 'function'
   ) {
     throw new TypeError(
-      'Personalized onboarding actions require selectLanguage, continueFromLanguage, selectLevel, setStep, and toggleChannel callbacks'
+      'Personalized onboarding actions require selectLanguage, continueFromLanguage, selectLevel, setStep, toggleChannel, and finish callbacks'
     )
   }
 
@@ -44,6 +45,10 @@ export function bindPersonalizedOnboardingActions(root, actions) {
     } else if (actionName === 'toggle-channel') {
       control.addEventListener('click', () => {
         actions.toggleChannel(control.dataset.catalogId)
+      })
+    } else if (actionName === 'finish') {
+      control.addEventListener('click', () => {
+        actions.finish()
       })
     } else {
       return

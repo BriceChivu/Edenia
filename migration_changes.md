@@ -4333,3 +4333,43 @@ release mappings, and follow-up findings are recorded as new entries.
   their bridge alias; no onboarding selection, ordering, analytics, or visual
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-121 — Migrate personalized onboarding finish ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral generated event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Complete personalized-onboarding ownership by migrating the two
+  Build controls only after every lower-risk family is protected.
+- **Conceptual change:** Extended the personalized-onboarding adapter with an
+  exact `finish` hook and required `finish` callback. Other and Channel Build
+  controls invoke the existing async `finishPersonalizedOnboarding` immediately
+  with zero arguments; the adapter ignores its Promise and does not mutate the
+  clicked control. Removed the final personalized-onboarding bridge alias.
+- **Preservation contract:** Preserve the applying guard, 7.5-second music fade,
+  synchronous Applying rerender, original enabled event target, disabled
+  replacement controls and Building copy, learner-profile saves without backup,
+  channel resolution/order/deduplication/restoration, partial/total failure
+  handling, silent onboarding refresh, completion notice, final state/activity
+  save, recovery resume targets, completion analytics, sanitized navigation,
+  uncancelled generic Build click with its original label, localization,
+  accessibility, and responsive presentation.
+- **Risks:** Awaiting or deferring the callback would change event order;
+  disabling the original node would suppress generic analytics; adding error
+  handling would alter existing failure behavior; moving workflow logic into
+  the adapter could affect persistence, network, recovery, or navigation.
+- **Verification:** `npm test` passed: the production build completed and all
+  536 contract tests passed, including zero-argument immediate Promise-neutral
+  invocation, original enabled-node generic labeling, disabled Building
+  replacement, full save/resolve/deduplicate/refresh/recovery/completion/
+  navigation sequencing, final bridge removal, and module ownership for all six
+  personalized-onboarding families. Browser, local-server, visual-regression,
+  migration-ledger, diff-integrity, and static-review checks were not run in
+  accordance with the repository `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore both Build inline handlers and
+  their final bridge alias; no onboarding, channel, storage, analytics, or
+  visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

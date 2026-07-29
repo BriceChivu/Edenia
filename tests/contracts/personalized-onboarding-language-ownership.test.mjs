@@ -151,6 +151,9 @@ test('direct listeners forward the live language ID and zero Continue arguments'
       },
       toggleChannel() {
         assert.fail('Language controls must not toggle a channel')
+      },
+      finish() {
+        assert.fail('Language controls must not finish onboarding')
       }
     }),
     2
@@ -210,7 +213,7 @@ test('central renderer binds replacement content after every step branch', () =>
   }
   assert.match(
     renderSource,
-    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel,\s*setStep:\s*setPersonalizedOnboardingStep,\s*toggleChannel:\s*toggleOnboardingChannel\s*\}\)/
+    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel,\s*setStep:\s*setPersonalizedOnboardingStep,\s*toggleChannel:\s*toggleOnboardingChannel,\s*finish:\s*finishPersonalizedOnboarding\s*\}\)/
   )
 })
 
@@ -220,7 +223,8 @@ test('newly replaced language controls receive fresh direct listeners', () => {
     continueFromLanguage() {},
     selectLevel() {},
     setStep() {},
-    toggleChannel() {}
+    toggleChannel() {},
+    finish() {}
   }
   const oldControl = createDirectControl('select-language', 'en')
   const replacementControl = createDirectControl('select-language', 'fr')
@@ -306,15 +310,13 @@ test('generic analytics run after synchronous replacement unless Continue is dis
   )
 })
 
-test('language ownership now retains only the finish alias', () => {
+test('language ownership has no remaining personalized-onboarding alias', () => {
   const migratedAliases = [
     'selectOnboardingLanguage',
     'continuePersonalizedOnboardingFromLanguage',
     'selectOnboardingLevel',
     'setPersonalizedOnboardingStep',
-    'toggleOnboardingChannel'
-  ]
-  const retainedAliases = [
+    'toggleOnboardingChannel',
     'finishPersonalizedOnboarding'
   ]
   const installMap = appSource.match(
@@ -329,16 +331,4 @@ test('language ownership now retains only the finish alias', () => {
       new RegExp(`(?:^|[\\s,])${alias}(?:[\\s,]|$)`)
     )
   }
-  for (const alias of retainedAliases) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(alias), true)
-    assert.match(
-      installMap,
-      new RegExp(`(?:^|[\\s,])${alias}(?:[\\s,]|$)`)
-    )
-  }
-
-  assert.match(
-    appSource,
-    /\bonclick="finishPersonalizedOnboarding\(\)"/
-  )
 })

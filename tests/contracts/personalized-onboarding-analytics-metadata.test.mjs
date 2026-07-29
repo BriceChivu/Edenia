@@ -110,7 +110,8 @@ const expectedVariants = {
       className: 'btn-primary',
       content: ["${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}"],
       disabledExpression: "${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}",
-      handler: 'finishPersonalizedOnboarding()',
+      handler: null,
+      ownershipAction: 'finish',
       pressed: null
     }
   ],
@@ -182,7 +183,8 @@ const expectedVariants = {
       className: 'btn-primary',
       content: ["${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}"],
       disabledExpression: "${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}",
-      handler: 'finishPersonalizedOnboarding()',
+      handler: null,
+      ownershipAction: 'finish',
       pressed: null
     }
   ]
@@ -461,19 +463,17 @@ test('finish retains persistence, recovery, completion analytics, and redirect',
   )
 })
 
-test('only finish callback retains a temporary bridge alias', () => {
-  const expectedAliases = [
-    'finishPersonalizedOnboarding'
-  ]
+test('personalized onboarding callbacks no longer require bridge aliases', () => {
   const installMap = appSource.match(
     /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
   )?.[1]
   assert.ok(installMap)
-  for (const alias of expectedAliases) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(alias), true)
-    assert.match(
-      installMap,
-      new RegExp(`(?:^|[\\s,])${alias}(?:[\\s,]|$)`)
-    )
-  }
+  assert.equal(
+    LEGACY_ACTION_NAMES.includes('finishPersonalizedOnboarding'),
+    false
+  )
+  assert.doesNotMatch(
+    installMap,
+    /(?:^|[\s,])finishPersonalizedOnboarding(?:[\s,]|$)/
+  )
 })

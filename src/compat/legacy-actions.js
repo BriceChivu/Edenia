@@ -4,7 +4,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'closeVideoShelfPreviewAfterFocus',
   'dropChannelShelf',
   'finishChannelShelfDrag',
-  'finishPersonalizedOnboarding',
   'handleChannelFilterOptionClick',
   'handleChannelFilterSelectAllClick',
   'handleVideoThumbnailClick',

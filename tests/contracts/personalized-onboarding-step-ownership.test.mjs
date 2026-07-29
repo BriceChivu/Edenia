@@ -182,6 +182,9 @@ test('step ownership forwards only the live target step', () => {
       },
       toggleChannel() {
         assert.fail('Step controls must not toggle a channel')
+      },
+      finish() {
+        assert.fail('Step controls must not finish onboarding')
       }
     }),
     1
@@ -229,7 +232,7 @@ test('central replacement binding includes setStep after every branch', () => {
   }
   assert.match(
     source,
-    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel,\s*setStep:\s*setPersonalizedOnboardingStep,\s*toggleChannel:\s*toggleOnboardingChannel\s*\}\)/
+    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel,\s*setStep:\s*setPersonalizedOnboardingStep,\s*toggleChannel:\s*toggleOnboardingChannel,\s*finish:\s*finishPersonalizedOnboarding\s*\}\)/
   )
 })
 
@@ -305,7 +308,7 @@ test('step analytics remain advanced-or-backed then viewed then generic', () => 
   )
 })
 
-test('only finish alias remains after channel ownership', () => {
+test('step ownership has no remaining personalized-onboarding alias', () => {
   assert.equal(
     LEGACY_ACTION_NAMES.includes('setPersonalizedOnboardingStep'),
     false
@@ -325,14 +328,10 @@ test('only finish alias remains after channel ownership', () => {
   )
   assert.equal(
     LEGACY_ACTION_NAMES.includes('finishPersonalizedOnboarding'),
-    true
+    false
   )
-  assert.match(
+  assert.doesNotMatch(
     installMap,
     /(?:^|[\s,])finishPersonalizedOnboarding(?:[\s,]|$)/
-  )
-  assert.match(
-    appSource,
-    /\bonclick="finishPersonalizedOnboarding\(\)"/
   )
 })

@@ -167,6 +167,9 @@ test('direct level ownership forwards only the live level ID', () => {
       },
       toggleChannel() {
         assert.fail('Level choices must not toggle a channel')
+      },
+      finish() {
+        assert.fail('Level choices must not finish onboarding')
       }
     }),
     1
@@ -210,7 +213,7 @@ test('central replacement binding includes the level callback', () => {
   assert.ok(bindIndex > levelRenderIndex)
   assert.match(
     renderSource,
-    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel,\s*setStep:\s*setPersonalizedOnboardingStep,\s*toggleChannel:\s*toggleOnboardingChannel\s*\}\)/
+    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel,\s*setStep:\s*setPersonalizedOnboardingStep,\s*toggleChannel:\s*toggleOnboardingChannel,\s*finish:\s*finishPersonalizedOnboarding\s*\}\)/
   )
 })
 
@@ -257,7 +260,7 @@ test('level generic analytics follow synchronous target replacement', () => {
   )
 })
 
-test('level ownership now retains only the finish alias', () => {
+test('level ownership has no remaining personalized-onboarding alias', () => {
   const installMap = appSource.match(
     /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
   )?.[1]
@@ -265,7 +268,8 @@ test('level ownership now retains only the finish alias', () => {
   for (const alias of [
     'selectOnboardingLevel',
     'setPersonalizedOnboardingStep',
-    'toggleOnboardingChannel'
+    'toggleOnboardingChannel',
+    'finishPersonalizedOnboarding'
   ]) {
     assert.equal(LEGACY_ACTION_NAMES.includes(alias), false)
     assert.doesNotMatch(
@@ -274,18 +278,4 @@ test('level ownership now retains only the finish alias', () => {
     )
   }
 
-  const retainedAliases = [
-    'finishPersonalizedOnboarding'
-  ]
-  for (const alias of retainedAliases) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(alias), true)
-    assert.match(
-      installMap,
-      new RegExp(`(?:^|[\\s,])${alias}(?:[\\s,]|$)`)
-    )
-  }
-  assert.match(
-    appSource,
-    /\bonclick="finishPersonalizedOnboarding\(\)"/
-  )
 })

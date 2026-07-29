@@ -179,6 +179,9 @@ test('channel ownership forwards only the live catalog ID', () => {
       },
       toggleChannel(...args) {
         calls.push(args)
+      },
+      finish() {
+        assert.fail('Channel choices must not finish onboarding')
       }
     }),
     1
@@ -318,7 +321,7 @@ test('applying-state no-op still reaches generic analytics for enabled cards', (
   )
 })
 
-test('central binder includes channel ownership and only finish remains bridged', () => {
+test('central binder includes channel ownership with no remaining bridge', () => {
   const renderStart = appSource.indexOf(
     'function renderPersonalizedOnboarding() {'
   )
@@ -329,13 +332,13 @@ test('central binder includes channel ownership and only finish remains bridged'
   const centralSource = appSource.slice(renderStart, renderEnd)
   assert.match(
     centralSource,
-    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel,\s*setStep:\s*setPersonalizedOnboardingStep,\s*toggleChannel:\s*toggleOnboardingChannel\s*\}\)/
+    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel,\s*setStep:\s*setPersonalizedOnboardingStep,\s*toggleChannel:\s*toggleOnboardingChannel,\s*finish:\s*finishPersonalizedOnboarding\s*\}\)/
   )
 
   assert.equal(LEGACY_ACTION_NAMES.includes('toggleOnboardingChannel'), false)
   assert.equal(
     LEGACY_ACTION_NAMES.includes('finishPersonalizedOnboarding'),
-    true
+    false
   )
   const installMap = appSource.match(
     /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
@@ -345,12 +348,8 @@ test('central binder includes channel ownership and only finish remains bridged'
     installMap,
     /(?:^|[\s,])toggleOnboardingChannel(?:[\s,]|$)/
   )
-  assert.match(
+  assert.doesNotMatch(
     installMap,
     /(?:^|[\s,])finishPersonalizedOnboarding(?:[\s,]|$)/
-  )
-  assert.match(
-    appSource,
-    /\bonclick="finishPersonalizedOnboarding\(\)"/
   )
 })
