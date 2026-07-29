@@ -3312,3 +3312,44 @@ release mappings, and follow-up findings are recorded as new entries.
   `removeChannel` compatibility alias; no state, storage, analytics, or data
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-097 — Lock manual-video shell analytics identities
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Make the static manual-video popover opener and mobile close
+  control identities explicit before their inline event ownership is replaced.
+- **Conceptual change:** Added `videos.manual.button` analytics-action metadata
+  to `#manualVideoBtn` and `settings.close` metadata to the popover close
+  control. The opener, close control, URL/query input, form, suggestions, and
+  every inline handler remain otherwise unchanged in this preparatory commit.
+- **Preservation contract:** Preserve the opener's real event forwarding,
+  propagation stop without default cancellation, toggle-only close path,
+  focus/render ordering, ARIA synchronization, and explicit
+  `search_opened` payload; its stopped click still must not reach the generic
+  collector. Preserve the close control's zero-event `true` argument,
+  uncancelled bubble, `settings_close_clicked` identity, conditional phone
+  focus restoration, and cleanup behavior. Preserve zero-argument suggestion
+  rendering on input, exact key-event forwarding, conditional key ownership,
+  native form submission, URL input ID, missing submit-button ID, responsive
+  geometry, localization, storage silence, and all generated search handlers.
+- **Risks:** Treating the opener as a normal bubbling click would invent a
+  generic event; changing input forwarding would alter how live DOM values are
+  read; confusing full close with toggle close would clear state or restore
+  focus unexpectedly; broad manual-video changes could affect YouTube search
+  and channel addition.
+- **Verification:** `npm test` passed: the production build completed and all
+  334 contract tests passed, including exact opener/close markup, retained
+  inline callback contracts, normalized generic identities, URL input
+  semantics, ARIA/localization attributes, and input analytics silence.
+  Browser, local-server, visual-regression, migration-ledger, diff-integrity,
+  and static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore implicit direct-translation and
+  translated-title identity derivation; no event, state, storage, or visual
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
