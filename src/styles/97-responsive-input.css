@@ -1,0 +1,192 @@
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  a,
+  input,
+  select,
+  textarea,
+  summary,
+  [tabindex] {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:focus:not(:focus-visible),
+  [role="button"]:focus:not(:focus-visible),
+  a:focus:not(:focus-visible),
+  summary:focus:not(:focus-visible),
+  [tabindex]:focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+@media (max-width: 640px) {
+  .history-heatmap {
+    --heatmap-cell-size: 16px;
+    --heatmap-gap: 4px;
+    padding: 14px;
+  }
+  .heatmap-tooltip {
+    max-width: calc(100vw - 24px);
+    position: absolute;
+    width: min(250px, calc(100vw - 24px));
+  }
+  .heatmap-scroll {
+    padding-bottom: 8px;
+  }
+  .heatmap-day {
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost,
+  .sandbox-btn,
+  .action-btn {
+    min-height: 44px;
+  }
+  .btn-icon,
+  .theme-btn,
+  .gear-btn,
+  .search-btn,
+  .city-image-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .sandbox-btn {
+    padding: 9px 12px;
+  }
+  .feed-controls {
+    gap: 10px;
+  }
+  .channel-filter-option {
+    min-height: 44px;
+    padding: 9px 10px;
+  }
+  .channel-filter-option input {
+    height: 22px;
+    width: 22px;
+  }
+  .card-actions {
+    gap: 8px;
+  }
+  .action-btn {
+    min-width: 44px;
+    padding: 9px 8px;
+  }
+  .compact-card .action-btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 6px 10px;
+  }
+  .compact-card .card-actions {
+    align-self: stretch;
+  }
+  .compact-card .card-actions .action-btn {
+    align-items: center;
+    display: inline-flex;
+    justify-content: center;
+    line-height: 1.12;
+    max-width: 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    text-align: center;
+    white-space: normal;
+  }
+  .city-zoom-controls {
+    gap: 7px;
+    opacity: 0.9;
+  }
+  .city-image-btn {
+    font-size: 1.12rem;
+    width: 44px;
+  }
+  .city-time-waveform {
+    height: 54px;
+    width: clamp(132px, 34%, 220px);
+  }
+  .city-wave-bars {
+    height: 44px;
+    padding: 0 12px;
+  }
+  .city-wave-track {
+    gap: 4px;
+  }
+  .city-wave-bar {
+    flex-basis: 8px;
+    height: 44px;
+  }
+  .city-wave-bar::before {
+    width: 8px;
+  }
+  .city-wave-bar.selected::before {
+    height: 40px;
+  }
+  .level-up-button {
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+  .undo-tooltip {
+    width: min(300px, calc(100vw - 24px));
+  }
+  .video-card:hover {
+    box-shadow: 0 4px 0 rgba(5,5,5,0.14);
+    transform: none;
+  }
+  .video-card:hover .thumb {
+    transform: none;
+  }
+}
+@media (max-width: 480px) {
+  .city-zoom-controls {
+    gap: 0;
+    opacity: 0.82;
+  }
+  .city-image-btn {
+    background: transparent;
+    font-size: 0.92rem;
+    isolation: isolate;
+    min-height: 44px;
+    min-width: 44px;
+    position: relative;
+    width: 44px;
+  }
+  .city-image-btn::before {
+    background: rgba(255, 255, 255, 0.64);
+    border-radius: 50%;
+    content: "";
+    height: 32px;
+    left: 50%;
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 32px;
+    z-index: -1;
+  }
+  .city-image-btn:hover {
+    background: transparent;
+  }
+  .city-image-btn:hover::before,
+  .city-image-btn:focus-visible::before {
+    background: rgba(255, 255, 255, 0.9);
+  }
+  .city-time-waveform {
+    height: 34px;
+    width: clamp(82px, 22%, 132px);
+  }
+  .city-wave-bars {
+    height: 30px;
+    padding: 0 8px;
+  }
+  .city-wave-track {
+    gap: 3px;
+  }
+  .city-wave-bar {
+    flex-basis: 6px;
+    height: 30px;
+  }
+  .city-wave-bar::before {
+    width: 6px;
+  }
+  .city-wave-bar.selected::before {
+    height: 28px;
+  }
+}
+

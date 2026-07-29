@@ -4885,3 +4885,41 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the local media checks; no state,
   storage, analytics, responsive, or visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-135 — Decompose the responsive compatibility cascade
+
+- **Date:** 2026-07-29
+- **Phase:** 6 — Responsive architecture migration
+- **Type:** Byte-preserving stylesheet ownership decomposition
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Remove the 2,451-line `responsive-legacy` catch-all while
+  preserving the protected desktop, tablet, and phone cascade exactly.
+- **Conceptual change:** Split the former final responsive file at existing
+  top-level cascade boundaries into four ordered layers: page/full-screen flows,
+  coarse-input and touch targets, phone component composition, and
+  tablet/desktop plus capability/motion rules. Updated the style index,
+  protected source contract, and split manifest with exact byte ranges, line
+  ranges, and hashes. Concatenating the four files reproduces the former file
+  byte-for-byte.
+- **Preservation contract:** Preserve every selector, declaration, comment,
+  breakpoint, media capability, specificity, source byte, newline, import
+  position, and cascade order. Therefore all desktop, tablet, phone, locale,
+  pointer, hover, touch, and reduced-motion output remains structurally
+  unchanged. No container query was introduced without visual proof; current
+  component outcomes remain **Keep**, and any later container conversion is a
+  separately reviewable candidate rather than an unverified rewrite.
+- **Risks:** Changing even one split boundary or import order could alter the
+  cascade or protected build hash; renaming a layer without updating the source
+  contract could break deterministic builds.
+- **Verification:** The single consolidated `npm test` run passed: the
+  production build completed and all 617 contract tests passed, including
+  byte-identical protected source and built stylesheet hashes. Browser,
+  local-server, visual-regression, migration-ledger, diff-integrity, and
+  static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the single
+  `99-responsive-legacy.css` file; no selector, responsive, state, storage,
+  analytics, or visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

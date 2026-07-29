@@ -17,7 +17,10 @@ const EXPECTED_STYLE_FILES = [
   '90-toast.css',
   '91-feedback.css',
   '95-global-adjustments.css',
-  '99-responsive-legacy.css'
+  '96-responsive-page-flows.css',
+  '97-responsive-input.css',
+  '98-responsive-phone.css',
+  '99-responsive-wide.css'
 ]
 
 const EXPECTED_SOURCE_BYTES = 223282

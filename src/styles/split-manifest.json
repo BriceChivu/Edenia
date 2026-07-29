@@ -114,13 +114,40 @@
       "sha256": "954f0df667ab66e995cbdf0a6cac8462f5d6b49e0f0262f371c44e8122eb752a"
     },
     {
-      "file": "99-responsive-legacy.css",
+      "file": "96-responsive-page-flows.css",
       "startByte": 158626,
-      "endByteExclusive": 223282,
-      "bytes": 64656,
+      "endByteExclusive": 176666,
+      "bytes": 18040,
       "startLine": 6076,
+      "endLine": 6773,
+      "sha256": "200cf29c1b1cd7687a2b72963cb420858fef0feb56de10dd1da3cb4fd6593a8b"
+    },
+    {
+      "file": "97-responsive-input.css",
+      "startByte": 176666,
+      "endByteExclusive": 180225,
+      "bytes": 3559,
+      "startLine": 6774,
+      "endLine": 6965,
+      "sha256": "667d9f7260de67dfff73a93905404644959d8730e428734ac86240cc07bea1a3"
+    },
+    {
+      "file": "98-responsive-phone.css",
+      "startByte": 180225,
+      "endByteExclusive": 202190,
+      "bytes": 21965,
+      "startLine": 6966,
+      "endLine": 7856,
+      "sha256": "9ed935165450ac62092f45e80e009b01d07ba7f581ac7ed20e35bbc2fbf2fa6c"
+    },
+    {
+      "file": "99-responsive-wide.css",
+      "startByte": 202190,
+      "endByteExclusive": 223282,
+      "bytes": 21092,
+      "startLine": 7857,
       "endLine": 8526,
-      "sha256": "d1e30541ca83eae6c17f04cc7572267cd4fddee722fc3c0999f97b0a51f1a750"
+      "sha256": "9f4c2ae48678693011a0b8b60cd4e96484832eaef79a85e523dcdc4ac8514bad"
     }
   ]
 }

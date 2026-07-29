@@ -10,4 +10,7 @@
 @import "./90-toast.css";
 @import "./91-feedback.css";
 @import "./95-global-adjustments.css";
-@import "./99-responsive-legacy.css";
+@import "./96-responsive-page-flows.css";
+@import "./97-responsive-input.css";
+@import "./98-responsive-phone.css";
+@import "./99-responsive-wide.css";
