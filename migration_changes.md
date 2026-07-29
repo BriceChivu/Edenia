@@ -3677,3 +3677,34 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore handler-derived identities; no
   event, state, storage, analytics, or visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-105 — Record MIG-104 ledger placement correction
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Migration-governance correction
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Preserve an explicit, append-only record that the MIG-104 entry
+  was inserted at an earlier matching ledger anchor rather than at the physical
+  end of this file.
+- **Conceptual change:** No application, test, build, deployment, interface, or
+  visual behavior changed. The committed MIG-104 entry remains unedited at its
+  original location, and this appended correction establishes its chronological
+  position immediately after MIG-103.
+- **Preservation contract:** Preserve all MIG-104 content and implementation
+  history exactly; do not silently move, rewrite, or delete the prior entry.
+- **Risks:** Readers or automated consumers that infer chronology solely from
+  physical heading order may encounter MIG-104 earlier in the file. The
+  identifier, date, commit history, and this correction provide the intended
+  sequence without rewriting the append-only record.
+- **Verification:** Confirmed that this commit changes only the migration
+  ledger; no build or runtime verification is applicable. Browser,
+  local-server, visual-regression, migration-ledger, diff-integrity, and
+  static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Do not remove this correction independently; reverting it would
+  obscure the recorded placement error while leaving the original entry in its
+  committed location.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
