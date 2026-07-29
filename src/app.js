@@ -5639,6 +5639,7 @@ function getVideoWatchReminderMarkup(videoId, options = {}) {
         <button type="button"
           class="video-watch-reminder-favorite${favoriteActive}"
           data-video-id="${safeVideoId}"
+          data-analytics-action="favoriteVideoFromWatchPrompt"
           aria-pressed="${String(isFavorite)}"
           aria-label="${escHtml(favoriteLabel)}"
           title="${escHtml(favoriteLabel)}"
@@ -5649,10 +5650,12 @@ function getVideoWatchReminderMarkup(videoId, options = {}) {
         <button type="button"
           class="video-watch-reminder-mark"
           data-video-id="${safeVideoId}"
+          data-analytics-action="confirmVideoWatchPrompt"
           onclick="confirmVideoWatchPrompt(event, this.dataset.videoId, ${String(rewatch)}, ${String(player)})">${escHtml(t('videoReminder.yes'))}</button>
         <button type="button"
           class="video-watch-reminder-later"
           data-video-id="${safeVideoId}"
+          data-analytics-action="dismissVideoWatchPrompt"
           onclick="dismissVideoWatchPrompt(event, this.dataset.videoId, ${String(player)})">${escHtml(t('videoReminder.notYet'))}</button>
       </div>
     </div>

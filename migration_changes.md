@@ -3498,3 +3498,44 @@ release mappings, and follow-up findings are recorded as new entries.
   compatibility aliases; no state, storage, analytics, or data migration is
   required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-101 — Lock completion-prompt analytics identities
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Make the generated video completion prompt's Favorite, Yes, and
+  Not yet control identities explicit before replacing their inline handlers.
+- **Conceptual change:** Added analytics-action metadata matching the current
+  handler-derived identities `favoriteVideoFromWatchPrompt`,
+  `confirmVideoWatchPrompt`, and `dismissVideoWatchPrompt`. All three handlers
+  and all card/global/player generation paths remain inline in this preparatory
+  commit.
+- **Preservation contract:** The normalized generic identities remain
+  `favorite_video_from_watch_prompt_clicked`,
+  `confirm_video_watch_prompt_clicked`, and
+  `dismiss_video_watch_prompt_clicked`, but these events remain suppressed
+  because each target handler prevents default and stops propagation before the
+  document collector. Preserve original-event forwarding, exact video/rewatch/
+  player arguments, Favorite omission for rewatch, prompt classes and
+  accessible state, first-watch unlock save, shown/accepted/dismissed/Favorite
+  analytics ordering, player session ordering, reminders, persistence,
+  Undo/Redo, focus behavior, reduced motion, and desktop/tablet/phone
+  presentation.
+- **Risks:** A migration that no longer forwards the event would invent three
+  generic telemetry events; boolean coercion could confuse player and rewatch
+  paths; binding only one render surface would leave other prompts inert;
+  moving state logic could alter completion scoring or player teardown.
+- **Verification:** `npm test` passed: the production build completed and all
+  363 contract tests passed, including exact generated classes, IDs, ARIA,
+  labels/icons, inline callback arguments, normalized identities, rewatch-only
+  Favorite omission, and handler-owned prevent/stop behavior before the generic
+  document collector. Browser, local-server, visual-regression,
+  migration-ledger, diff-integrity, and static-review checks were not run in
+  accordance with the repository `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore handler-derived identities; no
+  event, state, storage, analytics, or visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
