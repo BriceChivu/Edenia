@@ -145,6 +145,9 @@ test('direct listeners forward the live language ID and zero Continue arguments'
       },
       selectLevel() {
         assert.fail('Language controls must not select a level')
+      },
+      setStep() {
+        assert.fail('Language controls must not navigate a step directly')
       }
     }),
     2
@@ -204,7 +207,7 @@ test('central renderer binds replacement content after every step branch', () =>
   }
   assert.match(
     renderSource,
-    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel\s*\}\)/
+    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel,\s*setStep:\s*setPersonalizedOnboardingStep\s*\}\)/
   )
 })
 
@@ -212,7 +215,8 @@ test('newly replaced language controls receive fresh direct listeners', () => {
   const actions = {
     selectLanguage() {},
     continueFromLanguage() {},
-    selectLevel() {}
+    selectLevel() {},
+    setStep() {}
   }
   const oldControl = createDirectControl('select-language', 'en')
   const replacementControl = createDirectControl('select-language', 'fr')
@@ -298,13 +302,14 @@ test('generic analytics run after synchronous replacement unless Continue is dis
   )
 })
 
-test('language ownership retains only the three later action aliases', () => {
+test('language ownership now retains only channel and finish aliases', () => {
   const migratedAliases = [
     'selectOnboardingLanguage',
-    'continuePersonalizedOnboardingFromLanguage'
+    'continuePersonalizedOnboardingFromLanguage',
+    'selectOnboardingLevel',
+    'setPersonalizedOnboardingStep'
   ]
   const retainedAliases = [
-    'setPersonalizedOnboardingStep',
     'toggleOnboardingChannel',
     'finishPersonalizedOnboarding'
   ]
@@ -328,10 +333,6 @@ test('language ownership retains only the three later action aliases', () => {
     )
   }
 
-  assert.match(
-    appSource,
-    /\bonclick="setPersonalizedOnboardingStep\('[^']+'\)"/
-  )
   assert.match(
     appSource,
     /\bonclick="toggleOnboardingChannel\(this\.dataset\.catalogId\)"/

@@ -21,7 +21,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'selectYoutubeChannelSearchResult',
   'setAllChannelFilters',
   'setChannelFilter',
-  'setPersonalizedOnboardingStep',
   'startChannelShelfDrag',
   'startTouchChannelShelfDrag',
   'syncVideoChannelShelfControls',

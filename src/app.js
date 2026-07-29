@@ -2471,7 +2471,8 @@ function renderPersonalizedOnboarding() {
   bindPersonalizedOnboardingActions(content, {
     selectLanguage: selectOnboardingLanguage,
     continueFromLanguage: continuePersonalizedOnboardingFromLanguage,
-    selectLevel: selectOnboardingLevel
+    selectLevel: selectOnboardingLevel,
+    setStep: setPersonalizedOnboardingStep
   })
 }
 
@@ -2509,7 +2510,7 @@ function renderOnboardingOtherStep(content) {
     ${renderOnboardingHeading('onboarding.other.title', 'onboarding.other.subtitle')}
     <div class="onboarding-empty">${escHtml(t('onboarding.other.note'))}</div>
     <div class="onboarding-actions">
-      <button type="button" class="btn-ghost" data-analytics-action="setPersonalizedOnboardingStep" onclick="setPersonalizedOnboardingStep('language')" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
+      <button type="button" class="btn-ghost" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="language" data-analytics-action="setPersonalizedOnboardingStep" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
       <button type="button" class="btn-primary" data-analytics-action="finishPersonalizedOnboarding" onclick="finishPersonalizedOnboarding()" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}</button>
     </div>
   `
@@ -2529,8 +2530,8 @@ function renderOnboardingLevelStep(content) {
       `).join('')}
     </div>
     <div class="onboarding-actions">
-      <button type="button" class="btn-ghost" data-analytics-action="setPersonalizedOnboardingStep" onclick="setPersonalizedOnboardingStep('language')">${escHtml(t('onboarding.back'))}</button>
-      <button type="button" class="btn-primary" data-analytics-action="setPersonalizedOnboardingStep" onclick="setPersonalizedOnboardingStep('channels')" ${selectedLevelId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
+      <button type="button" class="btn-ghost" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="language" data-analytics-action="setPersonalizedOnboardingStep">${escHtml(t('onboarding.back'))}</button>
+      <button type="button" class="btn-primary" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="channels" data-analytics-action="setPersonalizedOnboardingStep" ${selectedLevelId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
     </div>
   `
 }
@@ -2566,7 +2567,7 @@ function renderOnboardingChannelsStep(content) {
     ${renderOnboardingHeading('onboarding.channels.title', 'onboarding.channels.subtitle')}
     <div class="onboarding-channel-list${recommendations.length >= 4 ? ' onboarding-channel-list-grid' : ''}">${channelMarkup}</div>
     <div class="onboarding-actions">
-      <button type="button" class="btn-ghost" data-analytics-action="setPersonalizedOnboardingStep" onclick="setPersonalizedOnboardingStep('level')" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
+      <button type="button" class="btn-ghost" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="level" data-analytics-action="setPersonalizedOnboardingStep" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
       <button type="button" class="btn-primary" data-analytics-action="finishPersonalizedOnboarding" onclick="finishPersonalizedOnboarding()" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}</button>
     </div>
   `
@@ -14164,7 +14165,6 @@ installLegacyActions(window, {
   selectYoutubeChannelSearchResult,
   setAllChannelFilters,
   setChannelFilter,
-  setPersonalizedOnboardingStep,
   startChannelShelfDrag,
   startTouchChannelShelfDrag,
   syncVideoChannelShelfControls,

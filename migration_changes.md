@@ -4254,3 +4254,43 @@ release mappings, and follow-up findings are recorded as new entries.
   their bridge alias; no onboarding state, recommendation, analytics, or visual
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-119 — Migrate personalized onboarding step ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral generated event-listener extraction with staged compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move every Back/Continue consumer of the shared step callback
+  together, avoiding split global and module ownership.
+- **Conceptual change:** Extended the personalized-onboarding adapter with an
+  exact `set-step` hook and required `setStep` callback. Other Back, Level Back,
+  Level Continue, and Channel Back now expose their live target step in
+  component metadata and forward that string only. Removed the matching global
+  bridge alias; Language Continue retains its local lexical call.
+- **Preservation contract:** Preserve Back-before-primary action order, exact
+  `language`, `channels`, and `level` targets, disabled gates, dependency and
+  Other-branch validation, current-step no-op analytics behavior, progress,
+  locale-picker and channel-panel classes, and exact directional event ordering:
+  advanced/backed, then newly viewed step, then generic click from the original
+  enabled node. Preserve all copy, ARIA, focus replacement, and responsive
+  presentation.
+- **Risks:** Moving only some consumers would leave shared ownership split;
+  stale or normalized step strings could alter guards; document delegation
+  would reverse analytics order; removing the local function would break
+  Language Continue.
+- **Verification:** `npm test` passed: the production build completed and all
+  520 contract tests passed, including all four exact destinations, live
+  value-only forwarding, action order and disabled gates, dependency/current-
+  step validation, Language Continue's lexical route, replacement binding,
+  advanced/backed → viewed → generic ordering, step bridge removal, and
+  retention of only channel and Finish inline families. Browser, local-server,
+  visual-regression, migration-ledger, diff-integrity, and static-review checks
+  were not run in accordance with the repository `AGENTS.md` instruction for
+  this task.
+- **Rollback:** Revert this commit to restore all four inline step handlers and
+  their bridge alias; no onboarding state, analytics, storage, or visual
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

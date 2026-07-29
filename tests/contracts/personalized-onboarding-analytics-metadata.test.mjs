@@ -100,7 +100,9 @@ const expectedVariants = {
       className: 'btn-ghost',
       content: ["${escHtml(t('onboarding.back'))}"],
       disabledExpression: "${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}",
-      handler: "setPersonalizedOnboardingStep('language')",
+      handler: null,
+      onboardingStep: 'language',
+      ownershipAction: 'set-step',
       pressed: null
     },
     {
@@ -132,7 +134,9 @@ const expectedVariants = {
       className: 'btn-ghost',
       content: ["${escHtml(t('onboarding.back'))}"],
       disabled: null,
-      handler: "setPersonalizedOnboardingStep('language')",
+      handler: null,
+      onboardingStep: 'language',
+      ownershipAction: 'set-step',
       pressed: null
     },
     {
@@ -140,7 +144,9 @@ const expectedVariants = {
       className: 'btn-primary',
       content: ["${escHtml(t('onboarding.continue'))}"],
       disabledExpression: "${selectedLevelId ? '' : 'disabled'}",
-      handler: "setPersonalizedOnboardingStep('channels')",
+      handler: null,
+      onboardingStep: 'channels',
+      ownershipAction: 'set-step',
       pressed: null
     }
   ],
@@ -165,7 +171,9 @@ const expectedVariants = {
       className: 'btn-ghost',
       content: ["${escHtml(t('onboarding.back'))}"],
       disabledExpression: "${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}",
-      handler: "setPersonalizedOnboardingStep('level')",
+      handler: null,
+      onboardingStep: 'level',
+      ownershipAction: 'set-step',
       pressed: null
     },
     {
@@ -206,6 +214,14 @@ test('all personalized-onboarding variants retain exact order and ownership argu
           'data-personalized-onboarding-action'
         ),
         expected.ownershipAction ?? null,
+        step
+      )
+      assert.equal(
+        getAttribute(
+          control.tag,
+          'data-personalized-onboarding-step'
+        ),
+        expected.onboardingStep ?? null,
         step
       )
       assert.equal(
@@ -444,9 +460,8 @@ test('finish retains persistence, recovery, completion analytics, and redirect',
   )
 })
 
-test('the three remaining callbacks retain temporary bridge aliases', () => {
+test('only channel and finish callbacks retain temporary bridge aliases', () => {
   const expectedAliases = [
-    'setPersonalizedOnboardingStep',
     'toggleOnboardingChannel',
     'finishPersonalizedOnboarding'
   ]
