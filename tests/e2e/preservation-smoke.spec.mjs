@@ -830,10 +830,10 @@ test('Settings locale listeners preserve menu, localization, persistence, and or
   expect(bridgeState).toEqual({
     toggleLocaleMenu: false,
     saveLocaleFromSettings: false,
-    toggleIntroLocaleMenu: true,
-    changeIntroLocale: true,
-    toggleOnboardingLocaleMenu: true,
-    changeOnboardingLocale: true
+    toggleIntroLocaleMenu: false,
+    changeIntroLocale: false,
+    toggleOnboardingLocaleMenu: false,
+    changeOnboardingLocale: false
   })
 })
 

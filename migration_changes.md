@@ -5078,3 +5078,38 @@ release mappings, and follow-up findings are recorded as new entries.
   localization, responsive, or visual rollback is required.
 - **Association:** `codex/migration-05-javascript-modularization`;
   [PR #1](https://github.com/BriceChivu/Edenia/pull/1); release pending.
+
+---
+
+## MIG-140 — Complete locale alias removal expectations
+
+- **Date:** 2026-07-30
+- **Phase:** 8 — Final cleanup
+- **Type:** CI browser-test expectation correction
+- **Status:** Complete locally; PR verification pending
+- **Intent:** Finish the approved browser-harness alignment by making the
+  Settings locale flow expect all migrated locale aliases to be absent.
+- **Conceptual change:** Changed four stale locale bridge expectations from
+  present to absent for intro locale menu, intro locale change, onboarding
+  locale menu, and onboarding locale change actions. The browser assertions
+  already read the safely absent global-action surface introduced by
+  `MIG-139`; their expected values now match the completed module ownership.
+- **Preservation contract:** Preserve application source and behavior, locale
+  selection and persistence, exact five-locale copy, analytics, storage,
+  accessibility, responsive output, CI ports, and every screenshot baseline.
+  All six locale-related global aliases remain required to be absent.
+- **Risks:** An incorrect expected value could conceal a missing action owner.
+  The same test continues exercising the real Settings, intro, and onboarding
+  locale controls and separately verifies their localized document state and
+  persistence before checking that no global aliases were published.
+- **Verification:** The preceding PR run passed governance, build, all 616
+  contracts, and 60 browser tests. It reported no remaining namespace
+  TypeErrors and isolated this single stale locale expectation plus five
+  unchanged visual comparisons. No local browser, local-server,
+  visual-regression, build/contract, diff-integrity, or static-review check is
+  run for this test-only correction; PR CI will rerun the full suite.
+- **Rollback:** Revert this commit to restore the four obsolete `true`
+  expectations. No application, state, storage, analytics, localization,
+  responsive, or visual rollback is required.
+- **Association:** `codex/migration-05-javascript-modularization`;
+  [PR #1](https://github.com/BriceChivu/Edenia/pull/1); release pending.
