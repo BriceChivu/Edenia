@@ -3060,3 +3060,35 @@ release mappings, and follow-up findings are recorded as new entries.
   five global bridge aliases; no state, storage, analytics, or responsive
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-091 — Lock saved-video search analytics identities
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Make the saved-video search opener and close-control identities
+  explicit before their inline handlers are replaced by scoped listeners.
+- **Conceptual change:** Added analytics-action metadata matching both
+  controls' existing localization-metadata fallbacks. All search handlers
+  remain inline in this preparatory commit.
+- **Preservation contract:** The opener still stops click propagation and
+  therefore emits no generic click event. The close control still emits
+  `settings_close_clicked` with the same action and visible-label properties.
+  `search_opened`, result/no-result, selected-result, raw query,
+  focus, keyboard, dismissal, saved state, rendering, and responsive behavior
+  remain unchanged.
+- **Risks:** Assuming ID or handler precedence over localization metadata would
+  rename the current identities; allowing the opener click to bubble would
+  create a new generic event; removing handlers in this preparatory commit
+  would combine analytics and event-ownership risks.
+- **Verification:** `npm test` passed 303 contract tests and the production
+  build. The analytics-precedence audit corrected the initial metadata draft
+  before commit. The complete six-viewport Playwright matrix then passed with
+  63 tests and 171 intentional skips; all 18 protected screenshots remained
+  unchanged. Migration-ledger and diff-integrity checks passed.
+- **Rollback:** Revert this commit to restore implicit ID/handler identity
+  derivation; no analytics, state, storage, or visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

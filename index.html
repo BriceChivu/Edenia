@@ -444,7 +444,7 @@ and momentum—at a glance</h2>
           <button class="sandbox-btn" type="button" data-sandbox-action="reset" data-analytics-action="sandbox.reset" data-i18n="sandbox.reset">Reset</button>
         </div>
         <div class="video-search" id="videoSearch">
-          <button class="btn-icon search-btn" id="videoSearchBtn" type="button" onclick="toggleVideoSearchPopover(event)" title="Search videos" aria-label="Search videos" data-i18n-title="header.search.title" data-i18n-aria-label="header.search.title" aria-haspopup="true" aria-expanded="false">
+          <button class="btn-icon search-btn" id="videoSearchBtn" type="button" onclick="toggleVideoSearchPopover(event)" data-analytics-action="header.search.title" title="Search videos" aria-label="Search videos" data-i18n-title="header.search.title" data-i18n-aria-label="header.search.title" aria-haspopup="true" aria-expanded="false">
             <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="11" cy="11" r="6"></circle>
               <path d="M16 16l4 4"></path>
@@ -453,7 +453,7 @@ and momentum—at a glance</h2>
           <div class="video-search-popover hidden" id="videoSearchPopover" role="dialog" aria-label="Search saved videos" data-i18n-aria-label="header.search.dialog">
             <div class="mobile-popover-header">
               <strong data-i18n="header.search.title">Search videos</strong>
-              <button class="mobile-popover-close" type="button" onclick="closeVideoSearchPopover(true)" title="Close" aria-label="Close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">×</button>
+              <button class="mobile-popover-close" type="button" onclick="closeVideoSearchPopover(true)" data-analytics-action="settings.close" title="Close" aria-label="Close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">×</button>
             </div>
             <input type="search" class="video-search-input" id="videoSearchInput" placeholder="Search videos..." data-i18n-placeholder="header.search.placeholder" autocomplete="off" oninput="renderVideoSearchResults(this.value)" onkeydown="handleVideoSearchInputKey(event)">
             <div class="video-search-results" id="videoSearchResults"></div>
