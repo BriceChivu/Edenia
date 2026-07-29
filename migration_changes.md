@@ -2696,3 +2696,40 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to remove only the inert ownership and
   analytics metadata; restore behavior and stored data require no rollback.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-082 — Migrate generated backup Restore actions
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Generated event ownership, compatibility bridge reduction, and tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move generated backup Restore buttons from the inline global
+  action into direct per-render listeners without changing restoration.
+- **Conceptual change:** Added an idempotent binder that reads each Restore
+  control's live backup ID at click time, binds every populated backup-list
+  rebuild, removed the inline handler, and removed `restoreStateBackup` from the
+  temporary legacy bridge while retaining the lexical restoration function.
+- **Preservation contract:** Validated/sorted backup lookup, missing-ID failure,
+  rollback creation and ordering, state preparation and reminder/API-key
+  cleanup, streak synchronization, pre-restore-locale Activity Log copy,
+  persistence without another automatic backup, locale/theme/UI restoration,
+  preference and Anki refresh synchronization, Settings continuity, native
+  keyboard activation, focus loss after rerender, detached-target analytics,
+  exact label/event properties, storage domains, accessibility, and all
+  responsive layouts remain unchanged.
+- **Risks:** Delegation or a captured list index could select the wrong entry;
+  missing a render path would leave replacement controls inert; moving generic
+  analytics ahead of restore would change its localized label and state order;
+  awaiting or splitting the existing function could change persistence and
+  integration sequencing.
+- **Verification:** `npm test` passed 265 contract tests and the production
+  build. The focused backup Restore flow passed. One unrelated feedback-modal
+  keyboard assertion in the first matrix run passed immediately in isolation
+  without changes; the complete clean rerun then passed with 50 tests and 142
+  intentional skips across all six viewports. All 18 protected screenshots
+  remained unchanged. Migration-ledger and diff-integrity checks passed.
+- **Rollback:** Revert this commit to restore the generated inline handler and
+  bridge entry; no stored state migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

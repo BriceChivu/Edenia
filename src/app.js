@@ -189,6 +189,9 @@ import { bindWatchedSectionActions } from './features/videos/watched-section-act
 import { bindStudyInsightActions } from './features/study-insights/actions.js'
 import { bindActivityLogFilterActions } from './features/settings/activity-log-filter-actions.js'
 import { bindActivityLogPaginationActions } from './features/settings/activity-log-pagination-actions.js'
+import {
+  bindSettingsBackupRestoreActions
+} from './features/settings/backup-restore-actions.js'
 import { bindSettingsAccordionActions } from './features/settings/accordion-actions.js'
 import { bindSettingsLocaleActions } from './features/settings/locale-actions.js'
 import {
@@ -3868,9 +3871,12 @@ function renderBackupList() {
         <span class="backup-time">${escHtml(formatBackupTimestamp(entry.createdAt))}</span>
         <span class="backup-reason">${escHtml(formatBackupReason(entry.reason))}</span>
       </div>
-      <button class="btn-ghost backup-restore-btn" type="button" data-settings-backup-action="restore" data-analytics-action="restoreStateBackup" data-backup-id="${escHtml(entry.id)}" onclick="restoreStateBackup(this.dataset.backupId)">${escHtml(t('backups.restore'))}</button>
+      <button class="btn-ghost backup-restore-btn" type="button" data-settings-backup-action="restore" data-analytics-action="restoreStateBackup" data-backup-id="${escHtml(entry.id)}">${escHtml(t('backups.restore'))}</button>
     </div>
   `).join('')
+  bindSettingsBackupRestoreActions(el, {
+    restore: restoreStateBackup
+  })
 }
 
 function formatActivityLogTimestamp(value) {
@@ -13974,7 +13980,6 @@ installLegacyActions(window, {
   renderVideoSearchResults,
   requestVideoSetAside,
   resetApp,
-  restoreStateBackup,
   retryOnboardingRecovery,
   scrollVideoChannelShelf,
   searchYoutubeChannels,

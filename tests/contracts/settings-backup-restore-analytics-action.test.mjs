@@ -11,7 +11,7 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('backup Restore locks its identity before listener migration', () => {
+test('backup Restore retains its identity without an inline handler', () => {
   assert.equal(controls.length, 1)
   const [control] = controls
   assert.equal(getAttribute(control, 'type'), 'button')
@@ -24,10 +24,7 @@ test('backup Restore locks its identity before listener migration', () => {
     'data-analytics-action'
   ), 'restoreStateBackup')
   assert.equal(getAttribute(control, 'data-backup-id'), '${escHtml(entry.id)}')
-  assert.equal(
-    getAttribute(control, 'onclick'),
-    'restoreStateBackup(this.dataset.backupId)'
-  )
+  assert.equal(getAttribute(control, 'onclick'), null)
 })
 
 test('backup Restore retains its exact generic click event name', () => {

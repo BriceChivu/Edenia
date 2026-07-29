@@ -1134,6 +1134,225 @@ test('Settings sync listeners preserve download, picker, import, and failure ord
   })
 })
 
+test('backup Restore listeners preserve live IDs, rollback order, localization, and analytics', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const current = JSON.parse(localStorage.getItem('edenia_v1'))
+    const restored = structuredClone(current)
+    restored.config.locale = 'fr'
+    restored.config.theme = 'dark'
+    restored.config.weeklyGoalHours = 7
+    restored.config.includeShorts = false
+    restored.config.studyInsights.enabled = false
+    restored.config.apiKey = 'legacy-key-that-must-not-return'
+    restored.videoWatchReminders = {
+      legacy: { watchedAt: '2026-07-21T04:00:00.000Z' }
+    }
+    restored.activityLog = [{
+      id: 'restore-marker',
+      createdAt: '2026-07-20T04:00:00.000Z',
+      actor: 'user',
+      type: 'marker',
+      status: 'info',
+      title: 'Restore marker',
+      detail: 'Protected backup payload'
+    }]
+    localStorage.setItem('edenia_v1_backups', JSON.stringify([{
+      id: 'restore-target',
+      createdAt: '2026-07-27T04:00:00.000Z',
+      reason: 'before sync import',
+      sandbox: false,
+      state: restored
+    }]))
+    localStorage.removeItem('edenia_posthog_state_v2')
+  })
+  await page.reload()
+  await waitForApplication(page)
+  await page.evaluate(() => {
+    window.__backupRestoreAnalytics = []
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__backupRestoreAnalytics.push({ eventName, properties })
+      },
+      get_distinct_id() {
+        return 'preservation-backup-restore'
+      },
+      setPersonProperties() {}
+    }
+  })
+
+  await page.locator('.gear-btn').click()
+  await page.locator('.backup-toggle').click()
+  const list = page.locator('#backupList')
+  const restoreSelector =
+    '[data-settings-backup-action="restore"][data-backup-id="restore-target"]'
+  const initialRestore = list.locator(restoreSelector)
+  await expect(initialRestore).toHaveText('Restore')
+  await expect(initialRestore).not.toHaveAttribute('onclick')
+
+  const primaryBeforeMissing = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  const backupsBeforeMissing = await page.evaluate(
+    () => localStorage.getItem('edenia_v1_backups')
+  )
+  await initialRestore.evaluate(control => {
+    control.dataset.backupId = 'missing-live-id'
+    control.click()
+  })
+  await expect(page.locator('#toast')).toHaveText(
+    'That backup is not available anymore'
+  )
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(primaryBeforeMissing)
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1_backups')))
+    .toBe(backupsBeforeMissing)
+  await expect(list.locator(restoreSelector)).toHaveCount(1)
+  await expect.poll(() => page.evaluate(() => (
+    window.__backupRestoreAnalytics
+      .filter(entry => entry.eventName === 'restore_state_backup_clicked')
+      .length
+  ))).toBe(1)
+
+  await page.evaluate(() => {
+    const entries = JSON.parse(
+      localStorage.getItem('edenia_v1_backups') || '[]'
+    )
+    localStorage.setItem('edenia_v1_backups', JSON.stringify(
+      entries.filter(entry => entry.id === 'restore-target')
+    ))
+  })
+  const restoreControl = list.locator(restoreSelector)
+  const restoreLabel = await restoreControl.textContent()
+  await page.evaluate(() => {
+    window.__backupRestoreAnalytics.length = 0
+    window.__backupRestoreAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.matches?.(
+        '[data-settings-backup-action="restore"]'
+      )) return
+      const state = JSON.parse(localStorage.getItem('edenia_v1'))
+      const backups = JSON.parse(
+        localStorage.getItem('edenia_v1_backups') || '[]'
+      )
+      const cookie = document.cookie
+        .split('; ')
+        .find(part => part.startsWith('edenia_config='))
+      const cookieConfig = cookie
+        ? JSON.parse(decodeURIComponent(cookie.slice(cookie.indexOf('=') + 1)))
+        : null
+      const clickEvent = window.__backupRestoreAnalytics.find(
+        entry => entry.eventName === 'restore_state_backup_clicked'
+      )
+      window.__backupRestoreAtDocumentBubble = {
+        targetConnected: event.target.isConnected,
+        locale: state.config.locale,
+        theme: state.config.theme,
+        weeklyGoalHours: state.config.weeklyGoalHours,
+        includeShorts: state.config.includeShorts,
+        insightsEnabled: state.config.studyInsights?.enabled,
+        apiKeyPresent: Object.prototype.hasOwnProperty.call(
+          state.config,
+          'apiKey'
+        ),
+        reminders: state.videoWatchReminders,
+        activity: state.activityLog.slice(0, 3).map(entry => ({
+          actor: entry.actor,
+          type: entry.type,
+          title: entry.title,
+          detail: entry.detail
+        })),
+        rollback: {
+          reason: backups[0]?.reason,
+          locale: backups[0]?.state?.config?.locale,
+          theme: backups[0]?.state?.config?.theme
+        },
+        targetStillStored: backups.some(
+          entry => entry.id === 'restore-target'
+        ),
+        htmlLang: document.documentElement.lang,
+        htmlTheme: document.documentElement.dataset.theme,
+        cookieLocale: cookieConfig?.locale || null,
+        settingsHidden: document.getElementById('settingsPanel')
+          .classList.contains('hidden'),
+        backupContentHidden: document.getElementById('backupContent').hidden,
+        newRestoreLabel: document.querySelector(
+          '[data-settings-backup-action="restore"]'
+        )?.textContent,
+        toast: document.getElementById('toast').textContent,
+        clickedEventCount: window.__backupRestoreAnalytics.filter(
+          entry => entry.eventName === 'restore_state_backup_clicked'
+        ).length,
+        buttonName: clickEvent?.properties?.button_name
+      }
+    }, { once: true })
+  })
+  await restoreControl.focus()
+  await restoreControl.press('Enter')
+
+  await expect.poll(() => page.evaluate(
+    () => window.__backupRestoreAtDocumentBubble
+  )).toMatchObject({
+    targetConnected: false,
+    locale: 'fr',
+    theme: 'dark',
+    weeklyGoalHours: 7,
+    includeShorts: false,
+    insightsEnabled: false,
+    apiKeyPresent: false,
+    reminders: {},
+    activity: [
+      {
+        actor: 'user',
+        type: 'backup-restore',
+        title: 'Backup restored'
+      },
+      {
+        actor: 'auto',
+        type: 'backup',
+        title: 'Rollback backup created',
+        detail: 'Saved a local backup before restoring another backup.'
+      },
+      {
+        actor: 'user',
+        type: 'marker',
+        title: 'Restore marker',
+        detail: 'Protected backup payload'
+      }
+    ],
+    rollback: {
+      reason: 'before backup restore',
+      locale: 'en',
+      theme: 'light'
+    },
+    targetStillStored: true,
+    htmlLang: 'fr',
+    htmlTheme: 'dark',
+    cookieLocale: 'fr',
+    settingsHidden: false,
+    backupContentHidden: false,
+    newRestoreLabel: 'Restaurer',
+    toast: 'Sauvegarde restaurée',
+    clickedEventCount: 1,
+    buttonName: restoreLabel
+  })
+  await expect(page.locator('#settingsIncludeShorts')).not.toBeChecked()
+  await expect(page.locator('#settingsInsightsEnabled')).not.toBeChecked()
+  await expect(restoreControl).not.toBeFocused()
+  const removedBridgeAction = await page.evaluate(() => (
+    Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'restoreStateBackup'
+    )
+  ))
+  expect(removedBridgeAction).toBe(false)
+})
+
 test('Settings preference listeners preserve synchronous saves and Anki timing', async ({
   page
 }, testInfo) => {
