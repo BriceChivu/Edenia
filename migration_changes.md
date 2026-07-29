@@ -4294,3 +4294,42 @@ release mappings, and follow-up findings are recorded as new entries.
   their bridge alias; no onboarding state, analytics, storage, or visual
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-120 — Migrate personalized onboarding channel ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral generated event-listener extraction with staged compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Extend component ownership only to generated channel choices,
+  leaving the persistence/network-heavy Build workflow isolated.
+- **Conceptual change:** Extended the personalized-onboarding adapter with an
+  exact `toggle-channel` hook and required `toggleChannel` callback. Each choice
+  forwards its live catalog ID only. The central binding now supplies
+  `toggleOnboardingChannel`, and that global bridge alias was removed.
+- **Preservation contract:** Preserve recommended-channel membership and order,
+  zero-to-six rendering, four-item grid threshold, avatars/fallbacks/style copy,
+  pressed/check accessibility, initial first-five selection, exact five-channel
+  limit and warning without rerender, zero-selection allowance, removal and
+  re-add insertion order, applying-state no-op on still-enabled channel
+  controls, same-step replacement, uncancelled generic analytics, localization,
+  and responsive channel layout.
+- **Risks:** Stale IDs could toggle the wrong catalog entry; changing Set order
+  would alter persisted channel ordering; accidental disabled state would
+  suppress applying-time generic clicks; rerendering on the sixth-choice guard
+  would change focus and UI behavior.
+- **Verification:** `npm test` passed: the production build completed and all
+  528 contract tests passed, including live catalog-ID routing, zero-to-six
+  recommendation order and layout variants, avatar/ARIA markup, first-five
+  initialization, exact limit guard without rerender, remove/re-add ordering,
+  applying-state no-op with generic analytics, channel bridge removal, and
+  retention of Build as the only inline family. Browser, local-server,
+  visual-regression, migration-ledger, diff-integrity, and static-review checks
+  were not run in accordance with the repository `AGENTS.md` instruction for
+  this task.
+- **Rollback:** Revert this commit to restore channel-choice inline handlers and
+  their bridge alias; no onboarding selection, ordering, analytics, or visual
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

@@ -179,6 +179,9 @@ test('step ownership forwards only the live target step', () => {
       },
       setStep(...args) {
         calls.push(args)
+      },
+      toggleChannel() {
+        assert.fail('Step controls must not toggle a channel')
       }
     }),
     1
@@ -226,7 +229,7 @@ test('central replacement binding includes setStep after every branch', () => {
   }
   assert.match(
     source,
-    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel,\s*setStep:\s*setPersonalizedOnboardingStep\s*\}\)/
+    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel,\s*setStep:\s*setPersonalizedOnboardingStep,\s*toggleChannel:\s*toggleOnboardingChannel\s*\}\)/
   )
 })
 
@@ -302,7 +305,7 @@ test('step analytics remain advanced-or-backed then viewed then generic', () => 
   )
 })
 
-test('only channel and finish aliases remain after step ownership', () => {
+test('only finish alias remains after channel ownership', () => {
   assert.equal(
     LEGACY_ACTION_NAMES.includes('setPersonalizedOnboardingStep'),
     false
@@ -315,19 +318,18 @@ test('only channel and finish aliases remain after step ownership', () => {
     installMap,
     /(?:^|[\s,])setPersonalizedOnboardingStep(?:[\s,]|$)/
   )
-  for (const alias of [
-    'toggleOnboardingChannel',
-    'finishPersonalizedOnboarding'
-  ]) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(alias), true)
-    assert.match(
-      installMap,
-      new RegExp(`(?:^|[\\s,])${alias}(?:[\\s,]|$)`)
-    )
-  }
+  assert.equal(LEGACY_ACTION_NAMES.includes('toggleOnboardingChannel'), false)
+  assert.doesNotMatch(
+    installMap,
+    /(?:^|[\s,])toggleOnboardingChannel(?:[\s,]|$)/
+  )
+  assert.equal(
+    LEGACY_ACTION_NAMES.includes('finishPersonalizedOnboarding'),
+    true
+  )
   assert.match(
-    appSource,
-    /\bonclick="toggleOnboardingChannel\(this\.dataset\.catalogId\)"/
+    installMap,
+    /(?:^|[\s,])finishPersonalizedOnboarding(?:[\s,]|$)/
   )
   assert.match(
     appSource,

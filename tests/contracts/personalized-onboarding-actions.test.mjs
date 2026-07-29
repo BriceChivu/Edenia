@@ -30,7 +30,7 @@ function createHarness(initialControls = []) {
   }
 }
 
-test('personalized onboarding binding forwards live language, level, and step values plus zero-argument Continue', () => {
+test('personalized onboarding binding forwards live language, level, step, and channel values plus zero-argument Continue', () => {
   const language = createControl('select-language', {
     languageId: 'mandarin'
   })
@@ -41,11 +41,15 @@ test('personalized onboarding binding forwards live language, level, and step va
   const step = createControl('set-step', {
     personalizedOnboardingStep: 'level'
   })
+  const channel = createControl('toggle-channel', {
+    catalogId: 'channel-before'
+  })
   const { root } = createHarness([
     language,
     continueLanguage,
     level,
-    step
+    step,
+    channel
   ])
   const calls = []
 
@@ -65,12 +69,17 @@ test('personalized onboarding binding forwards live language, level, and step va
     setStep(...args) {
       calls.push(['setStep', args])
       return false
+    },
+    toggleChannel(...args) {
+      calls.push(['toggleChannel', args])
+      return false
     }
-  }), 4)
+  }), 5)
 
   language.dataset.languageId = 'zh-Hant'
   level.dataset.levelId = 'advanced'
   step.dataset.personalizedOnboardingStep = 'channels'
+  channel.dataset.catalogId = 'channel-live'
   const languageEvent = new Event('click', {
     bubbles: true,
     cancelable: true
@@ -84,6 +93,10 @@ test('personalized onboarding binding forwards live language, level, and step va
     cancelable: true
   })
   const stepEvent = new Event('click', {
+    bubbles: true,
+    cancelable: true
+  })
+  const channelEvent = new Event('click', {
     bubbles: true,
     cancelable: true
   })
@@ -110,7 +123,21 @@ test('personalized onboarding binding forwards live language, level, and step va
     ['selectLevel', ['advanced']],
     ['setStep', ['channels']]
   ])
-  ;[languageEvent, continueEvent, levelEvent, stepEvent].forEach(event => {
+  assert.equal(channel.dispatchEvent(channelEvent), true)
+  assert.deepEqual(calls, [
+    ['selectLanguage', ['zh-Hant']],
+    ['continueFromLanguage', []],
+    ['selectLevel', ['advanced']],
+    ['setStep', ['channels']],
+    ['toggleChannel', ['channel-live']]
+  ])
+  ;[
+    languageEvent,
+    continueEvent,
+    levelEvent,
+    stepEvent,
+    channelEvent
+  ].forEach(event => {
     assert.equal(event.defaultPrevented, false)
     assert.equal(event.cancelBubble, false)
   })
@@ -134,6 +161,9 @@ test('personalized onboarding binding is idempotent and binds replacement contro
     },
     setStep(stepName) {
       calls.push(['setStep', stepName])
+    },
+    toggleChannel(catalogId) {
+      calls.push(['toggleChannel', catalogId])
     }
   }
 
@@ -141,8 +171,8 @@ test('personalized onboarding binding is idempotent and binds replacement contro
   assert.equal(bindPersonalizedOnboardingActions(harness.root, actions), 0)
   original.dispatchEvent(new Event('click'))
 
-  const replacement = createControl('set-step', {
-    personalizedOnboardingStep: 'language'
+  const replacement = createControl('toggle-channel', {
+    catalogId: 'replacement-channel'
   })
   harness.replaceControls([original, replacement])
   assert.equal(bindPersonalizedOnboardingActions(harness.root, actions), 1)
@@ -151,13 +181,13 @@ test('personalized onboarding binding is idempotent and binds replacement contro
 
   assert.deepEqual(calls, [
     ['selectLanguage', 'japanese'],
-    ['setStep', 'language']
+    ['toggleChannel', 'replacement-channel']
   ])
 })
 
 test('personalized onboarding binding ignores unknown actions until supported', () => {
-  const unknown = createControl('toggle-channel', {
-    personalizedOnboardingStep: 'level'
+  const unknown = createControl('finish', {
+    catalogId: 'promoted-channel'
   })
   const harness = createHarness([unknown])
   const calls = []
@@ -173,6 +203,9 @@ test('personalized onboarding binding ignores unknown actions until supported', 
     },
     setStep(stepName) {
       calls.push(['setStep', stepName])
+    },
+    toggleChannel(catalogId) {
+      calls.push(['toggleChannel', catalogId])
     }
   }
 
@@ -180,11 +213,11 @@ test('personalized onboarding binding ignores unknown actions until supported', 
   unknown.dispatchEvent(new Event('click'))
   assert.deepEqual(calls, [])
 
-  unknown.dataset.personalizedOnboardingAction = 'set-step'
+  unknown.dataset.personalizedOnboardingAction = 'toggle-channel'
   assert.equal(bindPersonalizedOnboardingActions(harness.root, actions), 1)
   assert.equal(bindPersonalizedOnboardingActions(harness.root, actions), 0)
   unknown.dispatchEvent(new Event('click'))
-  assert.deepEqual(calls, [['setStep', 'level']])
+  assert.deepEqual(calls, [['toggleChannel', 'promoted-channel']])
 })
 
 test('personalized onboarding binding tolerates missing controls', () => {
@@ -194,7 +227,8 @@ test('personalized onboarding binding tolerates missing controls', () => {
     selectLanguage() {},
     continueFromLanguage() {},
     selectLevel() {},
-    setStep() {}
+    setStep() {},
+    toggleChannel() {}
   }), 0)
 })
 
@@ -204,7 +238,8 @@ test('personalized onboarding binding fails closed on invalid boundaries', () =>
     selectLanguage() {},
     continueFromLanguage() {},
     selectLevel() {},
-    setStep() {}
+    setStep() {},
+    toggleChannel() {}
   }
 
   assert.throws(
@@ -222,12 +257,13 @@ test('personalized onboarding binding fails closed on invalid boundaries', () =>
     { ...validActions, selectLanguage: null },
     { ...validActions, continueFromLanguage: null },
     { ...validActions, selectLevel: null },
-    { ...validActions, setStep: null }
+    { ...validActions, setStep: null },
+    { ...validActions, toggleChannel: null }
   ]
   invalidActionMaps.forEach(actions => {
     assert.throws(
       () => bindPersonalizedOnboardingActions(root, actions),
-      /selectLanguage, continueFromLanguage, selectLevel, and setStep callbacks/
+      /selectLanguage, continueFromLanguage, selectLevel, setStep, and toggleChannel callbacks/
     )
   })
 })

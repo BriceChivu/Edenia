@@ -24,7 +24,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'startChannelShelfDrag',
   'startTouchChannelShelfDrag',
   'syncVideoChannelShelfControls',
-  'toggleOnboardingChannel',
   'toggleVideoFavorite',
   'toggleVideoShelfPreviewOnTouch'
 ])

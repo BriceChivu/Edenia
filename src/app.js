@@ -2472,7 +2472,8 @@ function renderPersonalizedOnboarding() {
     selectLanguage: selectOnboardingLanguage,
     continueFromLanguage: continuePersonalizedOnboardingFromLanguage,
     selectLevel: selectOnboardingLevel,
-    setStep: setPersonalizedOnboardingStep
+    setStep: setPersonalizedOnboardingStep,
+    toggleChannel: toggleOnboardingChannel
   })
 }
 
@@ -2552,7 +2553,7 @@ function renderOnboardingChannelsStep(content) {
           ? `<img src="${escHtml(avatarUrl)}" alt="" loading="eager">`
           : escHtml(avatarFallback)
         return `
-          <button type="button" class="onboarding-channel" data-catalog-id="${escHtml(channel.id)}" data-analytics-action="toggleOnboardingChannel" aria-pressed="${selected}" onclick="toggleOnboardingChannel(this.dataset.catalogId)">
+          <button type="button" class="onboarding-channel" data-catalog-id="${escHtml(channel.id)}" data-personalized-onboarding-action="toggle-channel" data-analytics-action="toggleOnboardingChannel" aria-pressed="${selected}">
             <span class="onboarding-channel-avatar" aria-hidden="true">${avatar}</span>
             <span class="onboarding-channel-copy">
               <span class="onboarding-channel-name">${escHtml(channel.name)}</span>
@@ -14168,7 +14169,6 @@ installLegacyActions(window, {
   startChannelShelfDrag,
   startTouchChannelShelfDrag,
   syncVideoChannelShelfControls,
-  toggleOnboardingChannel,
   toggleVideoFavorite,
   toggleVideoShelfPreviewOnTouch
 })

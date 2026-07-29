@@ -163,7 +163,8 @@ const expectedVariants = {
       dataName: 'data-catalog-id',
       dataValue: '${escHtml(channel.id)}',
       disabled: null,
-      handler: 'toggleOnboardingChannel(this.dataset.catalogId)',
+      handler: null,
+      ownershipAction: 'toggle-channel',
       pressed: '${selected}'
     },
     {
@@ -460,9 +461,8 @@ test('finish retains persistence, recovery, completion analytics, and redirect',
   )
 })
 
-test('only channel and finish callbacks retain temporary bridge aliases', () => {
+test('only finish callback retains a temporary bridge alias', () => {
   const expectedAliases = [
-    'toggleOnboardingChannel',
     'finishPersonalizedOnboarding'
   ]
   const installMap = appSource.match(

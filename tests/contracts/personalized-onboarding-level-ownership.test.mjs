@@ -164,6 +164,9 @@ test('direct level ownership forwards only the live level ID', () => {
       },
       setStep() {
         assert.fail('Level choices must not navigate a step directly')
+      },
+      toggleChannel() {
+        assert.fail('Level choices must not toggle a channel')
       }
     }),
     1
@@ -207,7 +210,7 @@ test('central replacement binding includes the level callback', () => {
   assert.ok(bindIndex > levelRenderIndex)
   assert.match(
     renderSource,
-    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel,\s*setStep:\s*setPersonalizedOnboardingStep\s*\}\)/
+    /bindPersonalizedOnboardingActions\(content,\s*\{\s*selectLanguage:\s*selectOnboardingLanguage,\s*continueFromLanguage:\s*continuePersonalizedOnboardingFromLanguage,\s*selectLevel:\s*selectOnboardingLevel,\s*setStep:\s*setPersonalizedOnboardingStep,\s*toggleChannel:\s*toggleOnboardingChannel\s*\}\)/
   )
 })
 
@@ -254,14 +257,15 @@ test('level generic analytics follow synchronous target replacement', () => {
   )
 })
 
-test('level ownership now retains only channel and finish aliases', () => {
+test('level ownership now retains only the finish alias', () => {
   const installMap = appSource.match(
     /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
   )?.[1]
   assert.ok(installMap)
   for (const alias of [
     'selectOnboardingLevel',
-    'setPersonalizedOnboardingStep'
+    'setPersonalizedOnboardingStep',
+    'toggleOnboardingChannel'
   ]) {
     assert.equal(LEGACY_ACTION_NAMES.includes(alias), false)
     assert.doesNotMatch(
@@ -271,7 +275,6 @@ test('level ownership now retains only channel and finish aliases', () => {
   }
 
   const retainedAliases = [
-    'toggleOnboardingChannel',
     'finishPersonalizedOnboarding'
   ]
   for (const alias of retainedAliases) {
@@ -281,10 +284,6 @@ test('level ownership now retains only channel and finish aliases', () => {
       new RegExp(`(?:^|[\\s,])${alias}(?:[\\s,]|$)`)
     )
   }
-  assert.match(
-    appSource,
-    /\bonclick="toggleOnboardingChannel\(this\.dataset\.catalogId\)"/
-  )
   assert.match(
     appSource,
     /\bonclick="finishPersonalizedOnboarding\(\)"/
