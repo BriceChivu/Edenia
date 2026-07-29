@@ -2657,6 +2657,230 @@ test('Settings reset-confirm listeners preserve visibility, keyboard, storage, a
   })
 })
 
+test('Delete data listener preserves backups, reload, isolation, and sandbox handoff', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  const primaryBeforeReset = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.config.weeklyGoalHours = 9
+    state.activityLog.unshift({
+      id: 'pre-reset-marker',
+      createdAt: '2026-07-27T04:00:00.000Z',
+      actor: 'user',
+      type: 'marker',
+      status: 'info',
+      title: 'Pre-reset marker',
+      detail: 'Protected state before reset'
+    })
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    localStorage.removeItem('edenia_v1_backups')
+    localStorage.setItem(
+      'edenia_v1_youtube_channel_search_cache_v1',
+      'retained-cache'
+    )
+    localStorage.setItem('edenia_custom_retained', 'retained-custom')
+    sessionStorage.setItem('__resetAnalyticsEvents', '[]')
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        const events = JSON.parse(
+          sessionStorage.getItem('__resetAnalyticsEvents') || '[]'
+        )
+        events.push({ eventName, properties })
+        sessionStorage.setItem(
+          '__resetAnalyticsEvents',
+          JSON.stringify(events)
+        )
+      },
+      get_distinct_id() {
+        return 'preservation-reset'
+      },
+      setPersonProperties() {}
+    }
+    return localStorage.getItem('edenia_v1')
+  })
+
+  await page.locator('.gear-btn').click()
+  await page.locator('[data-settings-reset-confirm-action="show"]').click()
+  const confirm = page.locator(
+    '[data-settings-reset-confirm-action="confirm"]'
+  )
+  await expect(confirm).toHaveText('Delete data')
+  await expect(confirm).toHaveAttribute(
+    'data-analytics-action',
+    'settings.reset.delete'
+  )
+  await expect(confirm).not.toHaveAttribute('onclick')
+  await confirm.focus()
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'load' }),
+    confirm.press('Enter')
+  ])
+  await waitForApplication(page)
+
+  const normalReset = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    const backups = JSON.parse(
+      localStorage.getItem('edenia_v1_backups') || '[]'
+    )
+    const resetBackup = backups.find(
+      entry => entry.reason === 'before reset'
+    )
+    const cookie = document.cookie
+      .split('; ')
+      .find(part => part.startsWith('edenia_config='))
+    const cookieConfig = cookie
+      ? JSON.parse(decodeURIComponent(cookie.slice(cookie.indexOf('=') + 1)))
+      : null
+    const analytics = JSON.parse(
+      sessionStorage.getItem('__resetAnalyticsEvents') || '[]'
+    )
+    return {
+      state,
+      resetBackup,
+      cookieConfig,
+      cache: localStorage.getItem(
+        'edenia_v1_youtube_channel_search_cache_v1'
+      ),
+      custom: localStorage.getItem('edenia_custom_retained'),
+      resetEvents: analytics.filter(
+        entry => entry.eventName === 'settings_reset_delete_clicked'
+      ),
+      bridgePresent: Object.prototype.hasOwnProperty.call(
+        window.EdeniaActions,
+        'resetApp'
+      )
+    }
+  })
+  expect(normalReset.state.config.weeklyGoalHours).toBe(4)
+  expect(normalReset.state.onboarding).toMatchObject({
+    setupCompleted: false,
+    walkthroughCompleted: false
+  })
+  expect(normalReset.state.activityLog[0]).toMatchObject({
+    actor: 'user',
+    type: 'reset',
+    status: 'warn',
+    title: 'Reset everything',
+    detail: 'Started fresh after keeping a rollback backup.'
+  })
+  expect(normalReset.resetBackup).toMatchObject({
+    reason: 'before reset',
+    sandbox: false,
+    state: {
+      config: {
+        weeklyGoalHours: 9
+      },
+      onboarding: {
+        setupCompleted: true
+      }
+    }
+  })
+  expect(normalReset.resetBackup.state.activityLog[0]).toMatchObject({
+    id: 'pre-reset-marker',
+    title: 'Pre-reset marker'
+  })
+  expect(normalReset.cookieConfig).toMatchObject({
+    weeklyGoalHours: 4,
+    theme: 'light'
+  })
+  expect(normalReset.cache).toBe('retained-cache')
+  expect(normalReset.custom).toBe('retained-custom')
+  expect(normalReset.resetEvents).toHaveLength(1)
+  expect(normalReset.resetEvents[0]).toMatchObject({
+    properties: {
+      action: 'settings.reset.delete',
+      button_name: 'Delete data',
+      control_type: 'button'
+    }
+  })
+  expect(normalReset.bridgePresent).toBe(false)
+  await expect(page.locator('#introTrailer')).not.toHaveClass(/\bhidden\b/)
+
+  await page.goto('http://localhost:8001/?sandbox=1')
+  await waitForApplication(page)
+  const sandboxBeforeReset = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1_sandbox'))
+    state.config.weeklyGoalHours = 9
+    state.activityLog.unshift({
+      id: 'sandbox-pre-reset-marker',
+      createdAt: '2026-07-27T04:00:00.000Z',
+      actor: 'user',
+      type: 'marker',
+      status: 'info',
+      title: 'Sandbox pre-reset marker',
+      detail: 'Protected sandbox state'
+    })
+    localStorage.setItem('edenia_v1_sandbox', JSON.stringify(state))
+    localStorage.removeItem('edenia_v1_sandbox_backups')
+    localStorage.setItem('edenia_v1', 'sandbox-origin-normal-sentinel')
+    return localStorage.getItem('edenia_v1_sandbox')
+  })
+  expect(sandboxBeforeReset).not.toBeNull()
+
+  await page.locator('.gear-btn').click()
+  await page.locator('[data-settings-reset-confirm-action="show"]').click()
+  const sandboxConfirm = page.locator(
+    '[data-settings-reset-confirm-action="confirm"]'
+  )
+  await sandboxConfirm.focus()
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'load' }),
+    sandboxConfirm.press('Space')
+  ])
+  await waitForApplication(page)
+  await expect(page.locator('body')).toHaveClass(/\bwalkthrough-active\b/)
+
+  const sandboxReset = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1_sandbox'))
+    const backups = JSON.parse(
+      localStorage.getItem('edenia_v1_sandbox_backups') || '[]'
+    )
+    return {
+      state,
+      resetBackup: backups.find(entry => entry.reason === 'before reset'),
+      normalState: localStorage.getItem('edenia_v1'),
+      queuedWalkthrough: sessionStorage.getItem(
+        'edenia_v1_sandbox_walkthrough_after_reset'
+      ),
+      url: location.href,
+      bridgePresent: Object.prototype.hasOwnProperty.call(
+        window.EdeniaActions,
+        'resetApp'
+      )
+    }
+  })
+  expect(sandboxReset.state.config.weeklyGoalHours).toBe(4)
+  expect(sandboxReset.state.sandboxStartDate)
+    .toBe(sandboxReset.state.sandboxLastDate)
+  expect(sandboxReset.state.config.channels).toHaveLength(10)
+  expect(sandboxReset.state.activityLog[0]).toMatchObject({
+    actor: 'user',
+    type: 'reset',
+    status: 'warn'
+  })
+  expect(sandboxReset.resetBackup).toMatchObject({
+    reason: 'before reset',
+    sandbox: true,
+    state: {
+      config: {
+        weeklyGoalHours: 9
+      }
+    }
+  })
+  expect(sandboxReset.resetBackup.state.activityLog[0]).toMatchObject({
+    id: 'sandbox-pre-reset-marker',
+    title: 'Sandbox pre-reset marker'
+  })
+  expect(sandboxReset.normalState).toBe('sandbox-origin-normal-sentinel')
+  expect(sandboxReset.queuedWalkthrough).toBeNull()
+  expect(sandboxReset.url).toContain('localhost:8001/?sandbox=1')
+  expect(sandboxReset.bridgePresent).toBe(false)
+})
+
 test('Activity Log filter listeners preserve live values, rendering, keyboard, and ordering', async ({
   page
 }, testInfo) => {

@@ -399,7 +399,7 @@ and momentum—at a glance</h2>
           <p data-i18n="settings.reset.warning">This will clear this app's local watch history, streak, saved settings, and cached Anki stats. A rollback backup will be kept here. Your Anki collection will not be changed.</p>
           <div class="reset-confirm-actions">
             <button class="btn-ghost" data-settings-reset-confirm-action="hide" data-analytics-action="settings.reset.cancel" data-i18n="settings.reset.cancel">Cancel</button>
-            <button class="btn-ghost btn-danger" onclick="resetApp()" data-i18n="settings.reset.delete">Delete data</button>
+            <button class="btn-ghost btn-danger" data-settings-reset-confirm-action="confirm" data-analytics-action="settings.reset.delete" data-i18n="settings.reset.delete">Delete data</button>
           </div>
         </div>
       </div>

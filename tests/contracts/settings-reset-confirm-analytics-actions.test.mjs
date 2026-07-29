@@ -26,6 +26,10 @@ test('Settings reset-confirm controls retain analytics identities without inline
     {
       key: 'settings.reset.cancel',
       action: 'hide'
+    },
+    {
+      key: 'settings.reset.delete',
+      action: 'confirm'
     }
   ]
 
@@ -39,10 +43,6 @@ test('Settings reset-confirm controls retain analytics identities without inline
     assert.equal(getAttribute(tag, 'onclick'), null)
   }
 
-  assert.equal(
-    getAttribute(findButton('settings.reset.delete'), 'onclick'),
-    'resetApp()'
-  )
 })
 
 test('Settings reset-confirm controls retain exact generic click event names', () => {
@@ -55,9 +55,17 @@ test('Settings reset-confirm controls retain exact generic click event names', (
     .slice(0, 80)
 
   assert.deepEqual(
-    ['settings.reset.open', 'settings.reset.cancel'].map(
+    [
+      'settings.reset.open',
+      'settings.reset.cancel',
+      'settings.reset.delete'
+    ].map(
       action => `${normalize(action)}_clicked`
     ),
-    ['settings_reset_open_clicked', 'settings_reset_cancel_clicked']
+    [
+      'settings_reset_open_clicked',
+      'settings_reset_cancel_clicked',
+      'settings_reset_delete_clicked'
+    ]
   )
 })

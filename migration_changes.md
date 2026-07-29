@@ -2733,3 +2733,41 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the generated inline handler and
   bridge entry; no stored state migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-083 — Migrate the Settings Delete data action
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Static event ownership, compatibility bridge reduction, and tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move the existing destructive Settings confirmation action from
+  its inline global handler into the scoped reset-confirm module.
+- **Conceptual change:** Extended the reset-confirm binder with one direct,
+  zero-argument confirm listener, added explicit ownership and the existing
+  `settings.reset.delete` analytics identity to Delete data, removed its inline
+  handler, and removed `resetApp` from the temporary legacy bridge while
+  retaining the lexical reset function.
+- **Preservation contract:** The forced pre-reset backup attempt and identical
+  backup deduplication, environment-specific default state, localized reset
+  Activity Log entry, save without another automatic backup, config cookie,
+  immediate reload, retained backup/cache/analytics storage, normal first-run
+  trailer/onboarding restart, sandbox URL/storage isolation, sandbox baseline
+  channels/date, one-time post-reset walkthrough handoff, native Enter/Space
+  activation, generic analytics, Settings confirmation persistence before the
+  action, styling, focus, accessibility, and responsive layouts remain
+  unchanged. No extra browser confirmation or storage clearing is added.
+- **Risks:** Awaiting persistence or moving reload could change failure
+  behavior; clearing broad storage could destroy recovery data; using normal
+  keys in sandbox could cross environments; changing the action identity would
+  split analytics; hiding the confirmation before reset would change observable
+  focus and event order.
+- **Verification:** `npm test` passed 265 contract tests and the production
+  build. The focused normal/sandbox reset flow passed. The complete
+  six-viewport Playwright matrix passed with 51 tests and 147 intentional
+  skips; all 18 protected screenshots remained unchanged. Migration-ledger and
+  diff-integrity checks passed.
+- **Rollback:** Revert this commit to restore the inline Delete data handler and
+  bridge entry; backups and state created by any completed reset remain valid.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

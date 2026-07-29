@@ -13885,7 +13885,8 @@ bindThemeActions(document, {
 })
 bindSettingsResetConfirmActions(document, {
   show: showResetConfirm,
-  hide: hideResetConfirm
+  hide: hideResetConfirm,
+  confirm: resetApp
 })
 bindFeedbackConfirmationActions(document, {
   close: closeFeedbackConfirmation
@@ -13979,7 +13980,6 @@ installLegacyActions(window, {
   renderManualChannelSuggestions,
   renderVideoSearchResults,
   requestVideoSetAside,
-  resetApp,
   retryOnboardingRecovery,
   scrollVideoChannelShelf,
   searchYoutubeChannels,

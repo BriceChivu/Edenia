@@ -8,13 +8,15 @@ export function bindSettingsResetConfirmActions(root, actions) {
     !actions
     || typeof actions.show !== 'function'
     || typeof actions.hide !== 'function'
+    || typeof actions.confirm !== 'function'
   ) {
-    throw new TypeError('Settings reset-confirm actions require show and hide callbacks')
+    throw new TypeError('Settings reset-confirm actions require show, hide, and confirm callbacks')
   }
 
   const bindings = [
     ['[data-settings-reset-confirm-action="show"]', () => actions.show()],
-    ['[data-settings-reset-confirm-action="hide"]', () => actions.hide()]
+    ['[data-settings-reset-confirm-action="hide"]', () => actions.hide()],
+    ['[data-settings-reset-confirm-action="confirm"]', () => actions.confirm()]
   ]
 
   let installedCount = 0
