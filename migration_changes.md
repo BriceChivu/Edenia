@@ -4771,3 +4771,43 @@ release mappings, and follow-up findings are recorded as new entries.
   bridge aliases; the persisted channel order remains compatible and requires
   no migration.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-132 — Migrate shelf preview and player ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral pointer, mouse, focus, and click listener extraction
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Remove the final six global action dependencies from video
+  thumbnail, shelf preview, and player-opening interactions.
+- **Conceptual change:** Added one shelf-preview adapter for thumbnail clicks
+  plus card click, mouse-enter/leave, and focus-in/out events; replaced the
+  thumbnail and shelf-card inline handlers with stable ownership metadata;
+  bound both active and Watched grids after replacement; removed the final six
+  bridge aliases, leaving the compatibility manifest empty. One compact test
+  file covers the adapter, markup, render bindings, and compatibility state.
+- **Preservation contract:** Preserve thumbnail cancellation and false-return
+  behavior, latent thumbnail analytics identity, direct phone/player opening,
+  tap-versus-hover capability gates, interactive-descendant guards, exact
+  pointer event forwarding for preview placement, focus timing, leave and
+  cleanup timers, reduced motion, preview pinning/anchoring, player lifecycle,
+  keyboard behavior, Watched cards, all visual states, and responsive
+  presentation. Card metadata intentionally does not alter generic click
+  analytics because the collector targets only buttons and links.
+- **Risks:** Letting thumbnail clicks bubble could trigger card or document
+  actions; omitting a focus/mouse listener could strand preview state; passing
+  a synthetic or wrong event could misplace previews; failing to bind Watched
+  cards would break direct video opening there.
+- **Verification:** The consolidated `npm test` rerun passed: the production
+  build completed and all 610 contract tests passed. The first run kept 609
+  contracts green and exposed only the legacy installer test’s former
+  assumption that the manifest contained at least one action; it now also
+  covers empty-manifest divergence. Browser, local-server, visual-regression,
+  migration-ledger, diff-integrity, and static-review checks were not run in
+  accordance with the repository `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the six inline handlers and final
+  bridge aliases; no playback, watch state, storage, analytics, or visual
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

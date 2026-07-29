@@ -21,11 +21,6 @@ const migratedActionNames = [
   'confirmVideoSetAsidePrompt',
   'handleVideoSetAsidePromptKeydown'
 ]
-const retainedNeighborActionNames = [
-  'closeVideoShelfPreviewAfterFocus',
-  'handleVideoThumbnailClick'
-]
-
 function getElements(source, tagName) {
   return [...source.matchAll(
     new RegExp(`(<${tagName}\\b[^>]*>)([\\s\\S]*?)<\\/${tagName}>`, 'g')
@@ -352,16 +347,4 @@ test('only Set aside event owners leave inline and legacy ownership', async () =
     )
   }
 
-  for (const actionName of retainedNeighborActionNames) {
-    assert.equal(
-      LEGACY_ACTION_NAMES.includes(actionName),
-      true,
-      `${actionName} must remain in the legacy manifest`
-    )
-    assert.match(
-      installMap,
-      new RegExp(`\\b${actionName}\\s*,`),
-      `${actionName} must remain in the legacy install map`
-    )
-  }
 })

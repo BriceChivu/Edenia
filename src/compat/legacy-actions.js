@@ -1,10 +1,4 @@
 export const LEGACY_ACTION_NAMES = Object.freeze([
-  'closeVideoShelfPreviewAfterFocus',
-  'handleVideoThumbnailClick',
-  'openVideoShelfPreview',
-  'openVideoShelfPreviewFromFocus',
-  'queueVideoShelfPreviewClose',
-  'toggleVideoShelfPreviewOnTouch'
 ])
 
 export function installLegacyActions(target, actions) {

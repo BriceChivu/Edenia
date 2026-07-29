@@ -234,6 +234,9 @@ import {
   bindVideoSetAsideActions
 } from './features/videos/set-aside-actions.js'
 import {
+  bindVideoShelfPreviewActions
+} from './features/videos/shelf-preview-actions.js'
+import {
   bindVideoStateActions
 } from './features/videos/video-state-actions.js'
 import {
@@ -11440,6 +11443,7 @@ function renderFeed(s) {
     drop: dropChannelShelf,
     startTouch: startTouchChannelShelfDrag
   })
+  bindRenderedVideoShelfPreviewActions(grid)
   requestAnimationFrame(() => {
     document.querySelectorAll('.channel-shelf-track').forEach(syncVideoChannelShelfControls)
   })
@@ -11458,6 +11462,7 @@ function renderFeed(s) {
     .map(v => renderCard(v, true, { ...cardOptions, hideSetAsideAction: true }))
     .join('')
   bindRenderedVideoStateActions(watchedGrid)
+  bindRenderedVideoShelfPreviewActions(watchedGrid)
   queueActiveVideoWatchReminderRender(s)
 }
 
@@ -13770,6 +13775,17 @@ function bindRenderedVideoStateActions(root) {
   })
 }
 
+function bindRenderedVideoShelfPreviewActions(root) {
+  return bindVideoShelfPreviewActions(root, {
+    thumbnail: handleVideoThumbnailClick,
+    toggleTouch: toggleVideoShelfPreviewOnTouch,
+    open: openVideoShelfPreview,
+    queueClose: queueVideoShelfPreviewClose,
+    openFromFocus: openVideoShelfPreviewFromFocus,
+    closeAfterFocus: closeVideoShelfPreviewAfterFocus
+  })
+}
+
 function renderCard(v, compact = false, options = {}) {
   const status = getVideoStatus(v)
   const videoId = String(v.id ?? '')
@@ -13799,7 +13815,7 @@ function renderCard(v, compact = false, options = {}) {
     ${uploadRibbon ? `<span class="video-upload-ribbon">${escHtml(uploadRibbon)}</span>` : ''}
     <span class="dur-badge">${formatDuration(v.duration)}</span>
   `
-  const thumbnailLink = `<button type="button" class="thumb-link" data-video-id="${safeVideoId}" aria-label="${escHtml(v.title)}" onclick="return handleVideoThumbnailClick(event, this)">${thumbnailContent}</button>`
+  const thumbnailLink = `<button type="button" class="thumb-link" data-video-id="${safeVideoId}" data-video-preview-action="thumbnail" data-analytics-action="handleVideoThumbnailClick" aria-label="${escHtml(v.title)}">${thumbnailContent}</button>`
   const shelfPriorityBadge = options.shelf && isPartial
     ? `<button type="button"
         class="channel-shelf-priority-badge partial-priority-badge"
@@ -13825,14 +13841,14 @@ function renderCard(v, compact = false, options = {}) {
         aria-label="${escHtml(t('videos.card.removeFavorite'))}"
         title="${escHtml(t('videos.card.removeFavorite'))}">${renderVideoActionIcon('favorite')}</button>`
     : ''
-  const shelfPreviewHandlers = options.shelf
-    ? 'onclick="toggleVideoShelfPreviewOnTouch(event, this)" onmouseenter="openVideoShelfPreview(this, false, event)" onmouseleave="queueVideoShelfPreviewClose(this)" onfocusin="openVideoShelfPreviewFromFocus(this)" onfocusout="closeVideoShelfPreviewAfterFocus(this)"'
+  const shelfPreviewAction = options.shelf
+    ? 'data-video-preview-action="card"'
     : ''
   const nextStudyFocusClass = options.shelf && videoId === activeNextStudyFocusVideoId
     ? 'next-study-focus-target'
     : ''
   return `
-    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} ${isSetAside ? 'is-set-aside' : ''} status-${displayStatus}" data-video-id="${safeVideoId}" ${shelfPreviewHandlers}>
+    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} ${isSetAside ? 'is-set-aside' : ''} status-${displayStatus}" data-video-id="${safeVideoId}" ${shelfPreviewAction}>
       ${thumbnailLink}
       ${shelfPriorityBadge}
       <div class="card-body">
@@ -14214,12 +14230,6 @@ bindUndoRedoActions(document, {
 })
 
 installLegacyActions(window, {
-  closeVideoShelfPreviewAfterFocus,
-  handleVideoThumbnailClick,
-  openVideoShelfPreview,
-  openVideoShelfPreviewFromFocus,
-  queueVideoShelfPreviewClose,
-  toggleVideoShelfPreviewOnTouch
 })
 
 document.addEventListener('DOMContentLoaded', init)

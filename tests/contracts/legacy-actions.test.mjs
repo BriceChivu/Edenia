@@ -90,6 +90,15 @@ test('legacy action installer fails closed on missing, invalid, or conflicting a
   )
   const [firstAction] = LEGACY_ACTION_NAMES
 
+  assert.throws(
+    () => installLegacyActions({}, {
+      ...actions,
+      unexpectedLegacyAction() {}
+    }),
+    /differs from its manifest/
+  )
+  if (!firstAction) return
+
   const missingActionMap = { ...actions }
   delete missingActionMap[firstAction]
   assert.throws(
