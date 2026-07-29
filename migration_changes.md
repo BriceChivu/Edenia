@@ -3922,3 +3922,42 @@ release mappings, and follow-up findings are recorded as new entries.
   and their single bridge alias; no scene, timer, state, analytics, or visual
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-111 — Migrate intro city-level control ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral static event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace the four city-level inline handlers with direct listeners
+  while keeping all scene animation, timing, and manual-selection behavior in
+  the existing implementation.
+- **Conceptual change:** Added an intro city-level action adapter that accepts
+  only the existing `1`, `4`, `8`, and `12` dataset values and forwards the
+  matching number to `selectIntroCityLevel`. The four static controls now use
+  their existing `data-intro-city-level` attribute as the module hook, and the
+  matching global bridge alias was removed.
+- **Preservation contract:** Preserve scene-two gating, allowed level set,
+  timer clearing and rescheduling, selected/reached classes, frame changes,
+  level label, localized ARIA labels, automatic progression through remaining
+  levels, and transition to scene three. Preserve zero-event numeric calls,
+  uncancelled bubbling, the shared `select_intro_city_level_clicked` identity,
+  exact control markup, and all responsive city/trailer presentation.
+- **Risks:** Permissive parsing could accept unsupported levels; forwarding a
+  string instead of the prior number could alter callback assumptions;
+  cancellation would suppress generic analytics; moving timer or render logic
+  into the adapter could change the protected animation.
+- **Verification:** `npm test` passed: the production build completed and all
+  441 contract tests passed, including exact supported numeric forwarding,
+  strict unknown-value handling, uncancelled target clicks, idempotent
+  replacement binding, all four static controls, timer/class/frame/ARIA
+  lifecycle retention, common generic identity, bridge removal, and the four
+  remaining locale-shell aliases. Browser, local-server, visual-regression,
+  migration-ledger, diff-integrity, and static-review checks were not run in
+  accordance with the repository `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the four inline level handlers and
+  their bridge alias; no timer, state, analytics, accessibility, or visual
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

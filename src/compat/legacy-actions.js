@@ -22,7 +22,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'retryOnboardingRecovery',
   'scrollVideoChannelShelf',
   'searchYoutubeChannels',
-  'selectIntroCityLevel',
   'selectManualChannelSuggestion',
   'selectOnboardingLanguage',
   'selectOnboardingLevel',

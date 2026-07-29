@@ -207,7 +207,7 @@ test('app composes sound ownership before installing remaining legacy actions', 
   )
 })
 
-test('sound ownership leaves the five not-yet-migrated intro aliases intact', () => {
+test('sound ownership leaves the four locale aliases intact', () => {
   assert.equal(LEGACY_ACTION_NAMES.includes('toggleIntroSound'), false)
 
   const installMap = appSource.match(
@@ -226,7 +226,6 @@ test('sound ownership leaves the five not-yet-migrated intro aliases intact', ()
   const retainedAliases = [
     'changeIntroLocale',
     'changeOnboardingLocale',
-    'selectIntroCityLevel',
     'toggleIntroLocaleMenu',
     'toggleOnboardingLocaleMenu'
   ]
@@ -243,12 +242,6 @@ test('sound ownership leaves the five not-yet-migrated intro aliases intact', ()
     )
   }
 
-  assert.equal(
-    [...indexSource.matchAll(
-      /onclick="selectIntroCityLevel\((?:1|4|8|12)\)"/g
-    )].length,
-    4
-  )
   assert.match(indexSource, /onclick="toggleIntroLocaleMenu\(event\)"/)
   assert.match(indexSource, /onclick="toggleOnboardingLocaleMenu\(event\)"/)
   assert.match(

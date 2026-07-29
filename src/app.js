@@ -146,6 +146,9 @@ import {
 import { createStateStore } from './state/store.js'
 import { createStateBackupStore } from './state/backups.js'
 import {
+  bindIntroCityLevelActions
+} from './features/onboarding/intro-city-level-actions.js'
+import {
   bindIntroFinishActions
 } from './features/onboarding/intro-finish-actions.js'
 import {
@@ -14074,6 +14077,9 @@ bindManualVideoShellActions(document, {
   renderSuggestions: renderManualChannelSuggestions,
   handleInputKey: handleManualChannelSuggestionKeydown
 })
+bindIntroCityLevelActions(document, {
+  selectLevel: selectIntroCityLevel
+})
 bindIntroFinishActions(document, {
   finish: finishIntroTrailer
 })
@@ -14126,7 +14132,6 @@ installLegacyActions(window, {
   retryOnboardingRecovery,
   scrollVideoChannelShelf,
   searchYoutubeChannels,
-  selectIntroCityLevel,
   selectManualChannelSuggestion,
   selectOnboardingLanguage,
   selectOnboardingLevel,

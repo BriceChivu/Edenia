@@ -287,7 +287,7 @@ test('all four city-level controls retain numeric calls and one analytics identi
   for (const tag of buttons) {
     const level = getAttribute(tag, 'data-intro-city-level')
     assert.equal(getAttribute(tag, 'type'), 'button')
-    assert.equal(getAttribute(tag, 'onclick'), `selectIntroCityLevel(${level})`)
+    assert.equal(getAttribute(tag, 'onclick'), null)
     assert.equal(
       getAttribute(tag, 'data-analytics-action'),
       'selectIntroCityLevel'
@@ -422,8 +422,7 @@ test('locale menus retain trigger, radiogroup, and generated radio semantics', (
 
 test('current propagation determines which generic click identities are emitted', () => {
   const bubblingHandlers = [
-    'toggleIntroSound',
-    'selectIntroCityLevel'
+    'toggleIntroSound'
   ]
   for (const handlerName of bubblingHandlers) {
     const source = getFunctionSource(handlerName)
@@ -528,7 +527,6 @@ test('remaining metadata-locked controls retain their temporary global aliases',
   const expectedAliases = [
     'changeIntroLocale',
     'changeOnboardingLocale',
-    'selectIntroCityLevel',
     'toggleIntroLocaleMenu',
     'toggleOnboardingLocaleMenu'
   ]
