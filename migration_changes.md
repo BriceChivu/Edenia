@@ -5152,3 +5152,47 @@ release mappings, and follow-up findings are recorded as new entries.
   [PR #1](https://github.com/BriceChivu/Edenia/pull/1);
   [Actions run 30471298598](https://github.com/BriceChivu/Edenia/actions/runs/30471298598);
   release pending.
+
+---
+
+## MIG-142 — Approve phone Settings Linux baselines
+
+- **Date:** 2026-07-30
+- **Phase:** 8 — Final cleanup
+- **Type:** Explicitly approved snapshot-only baseline update
+- **Status:** Complete locally; PR verification pending
+- **Intent:** Complete the reviewed Linux visual-baseline alignment for the two
+  phone Settings comparisons that became reachable only after the preceding
+  screenshot failures were accepted.
+- **Conceptual change:** Replaced exactly two expected PNGs with the
+  user-approved first-attempt `settings-open-actual.png` artifacts from Actions
+  run `30499704602`: Settings open at phone standard and phone small. No
+  application source, CSS, test logic, or snapshot-generation configuration
+  changed, and no snapshot generation was run locally.
+- **Preservation contract:** Preserve all application source, runtime behavior,
+  build inputs, tests, CSS, responsive rules, state, analytics, localization,
+  accessibility, and public deployment. Preserve every other screenshot
+  unchanged. This records platform rendering evidence only; it does not
+  approve an intentional UI change or move either responsive matrix row out of
+  **Keep**.
+- **Risks:** A platform baseline could normalize an unstable rendering result.
+  The user explicitly approved both phone Settings baselines after Actions
+  isolated them as the only failures. The phone-standard first attempt and
+  retry were byte-identical. The phone-small pair had identical dimensions and
+  file sizes and differed by only 2 pixels out of 288,000; the first attempt is
+  the recorded reference.
+- **Verification:** Actions run `30499704602` passed migration governance,
+  build, all 616 contracts, and 64 browser tests before reporting only these
+  two visual failures. Artifact SHA-256 comparison confirmed the
+  phone-standard retry was identical, and a pixel comparison measured the
+  phone-small retry variance described above. No local browser, local-server,
+  screenshot generation, visual-regression execution, build/contract,
+  diff-integrity, or static-review check is run in accordance with the
+  repository `AGENTS.md` instruction. PR CI will rerun the complete workflow.
+- **Rollback:** Revert this commit to restore the two prior phone Settings
+  platform baselines. No application, state, storage, analytics, localization,
+  responsive, or runtime rollback is required.
+- **Association:** `codex/migration-05-javascript-modularization`;
+  [PR #1](https://github.com/BriceChivu/Edenia/pull/1);
+  [Actions run 30499704602](https://github.com/BriceChivu/Edenia/actions/runs/30499704602);
+  release pending.
