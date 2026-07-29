@@ -2971,3 +2971,37 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the six inline handlers and four
   bridge entries; no state, score, or storage migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-089 — Lock Undo and Redo analytics identities
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Make every current Undo/Redo click identity explicit before moving
+  event ownership out of inline handlers, so the later structural change cannot
+  silently rename or add analytics events.
+- **Conceptual change:** Added explicit analytics-action metadata to the static
+  Undo and Redo toggles and to generated queue close/action controls. The
+  existing inline handlers remain in place in this intermediate commit.
+- **Preservation contract:** The stopped Undo and Redo toggle clicks remain
+  absent from the document-level generic collector; the generated close and
+  action controls retain `close_history_action_popovers_clicked` and
+  `apply_history_action_clicked`; explicit `undo_applied` and `redo_applied`
+  events, properties, ordering, success/failure behavior, native activation,
+  labels, ARIA, styling, queue ordering, state, storage, and every responsive
+  behavior remain unchanged.
+- **Risks:** A misspelled identity would rename an existing generic event;
+  removing inline handlers in this preparatory change would combine analytics
+  and event-ownership risks; allowing toggle clicks to bubble would create new
+  events even though their explicit identities match their current element IDs.
+- **Verification:** `npm test` passed 292 contract tests and the production
+  build. The complete six-viewport Playwright matrix passed with 61 tests and
+  167 intentional skips; all 18 protected screenshots remained unchanged.
+  Migration-ledger and diff-integrity checks passed.
+- **Rollback:** Revert this commit to return analytics identity derivation to
+  element IDs and inline handler names; no event, state, or storage migration is
+  required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

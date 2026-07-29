@@ -12922,7 +12922,7 @@ function renderHistoryActionTooltip(actions, s, emptyTitle, queueTitle, directio
   return `
     <div class="mobile-popover-header">
       <strong>${escHtml(queueTitle)}</strong>
-      <button class="mobile-popover-close" type="button" onclick="closeHistoryActionPopovers(null, true)" title="${escHtml(t('settings.close'))}" aria-label="${escHtml(t('settings.close'))}">×</button>
+      <button class="mobile-popover-close" type="button" onclick="closeHistoryActionPopovers(null, true)" data-analytics-action="closeHistoryActionPopovers" title="${escHtml(t('settings.close'))}" aria-label="${escHtml(t('settings.close'))}">×</button>
     </div>
     <div class="undo-tooltip-title">${escHtml(queueTitle)}</div>
     <div class="undo-tooltip-scroll" onmousemove="handleHistoryActionScrollHover(event)" onmouseleave="stopHistoryActionAutoScroll()">
@@ -12937,7 +12937,7 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
     const channelName = action.channelName || action.before?.channel?.name || action.channelId || t('videos.channels.one')
     const actionText = direction === 'redo' ? t('undo.removeChannelAgain') : t('undo.restoreChannel')
     return `
-      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})" data-analytics-action="applyHistoryAction">
         <span class="undo-tooltip-video">${escHtml(channelName)}</span>
         <span class="undo-tooltip-action">${escHtml(actionText)}</span>
         <span class="undo-tooltip-time">${escHtml(formatHistoryActionTimestamp(action))}</span>
@@ -12957,7 +12957,7 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
         ? t('undo.removeAddedVideoAndChannel')
         : t('undo.removeAddedVideo')
     return `
-      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})" data-analytics-action="applyHistoryAction">
         <span class="undo-tooltip-video">${escHtml(title)}</span>
         <span class="undo-tooltip-action">${escHtml(actionText)}</span>
         <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
@@ -12967,7 +12967,7 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
   if (action.type === 'video-grid-remove') {
     const actionText = direction === 'redo' ? t('undo.removeVideoAgain') : t('undo.restoreVideo')
     return `
-      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})" data-analytics-action="applyHistoryAction">
         <span class="undo-tooltip-video">${escHtml(title)}</span>
         <span class="undo-tooltip-action">${escHtml(actionText)}</span>
         <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
@@ -12981,7 +12981,7 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
       : targetSnapshot?.favorite === true
     const actionText = t(isFavorite ? 'undo.addFavorite' : 'undo.removeFavorite')
     return `
-      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})" data-analytics-action="applyHistoryAction">
         <span class="undo-tooltip-video">${escHtml(title)}</span>
         <span class="undo-tooltip-action">${escHtml(actionText)}</span>
         <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
@@ -12999,7 +12999,7 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
       ? t('undo.continueAtChange', { from: fromTime, to: toTime })
       : t('undo.continueAtBack', { from: fromTime, to: toTime })
     return `
-      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})" data-analytics-action="applyHistoryAction">
         <span class="undo-tooltip-video">${escHtml(title)}</span>
         <span class="undo-tooltip-action">${escHtml(actionText)}</span>
         <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
@@ -13021,7 +13021,7 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
     ? t('undo.statusChange', { from: fromStatus, to: toStatus })
     : t('undo.backToStatus', { from: fromStatus, to: toStatus })
   return `
-    <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})">
+    <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})" data-analytics-action="applyHistoryAction">
       <span class="undo-tooltip-video">${escHtml(title)}</span>
       <span class="undo-tooltip-action">${escHtml(actionText)}</span>
       <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
