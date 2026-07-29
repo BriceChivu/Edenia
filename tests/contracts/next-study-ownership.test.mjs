@@ -117,7 +117,7 @@ test('generated Next Study open and focus controls retain exact module hooks', (
   assert.equal(getAttribute(focusControl.tag, 'onclick'), null)
 })
 
-test('neighboring Next Study controls retain their existing ownership', () => {
+test('Set aside stays isolated while Remove favorite joins Next Study ownership', () => {
   const controls = getElements(renderSource, 'button')
   const setAsideControl = findSingle(
     controls,
@@ -149,7 +149,11 @@ test('neighboring Next Study controls retain their existing ownership', () => {
   )
   assert.equal(
     getAttribute(favoriteControl.tag, 'data-next-study-action'),
-    null
+    'toggle-favorite'
+  )
+  assert.equal(
+    getAttribute(favoriteControl.tag, 'data-next-study-surface'),
+    'next_study'
   )
   assert.equal(
     getAttribute(favoriteControl.tag, 'data-video-id'),
@@ -159,10 +163,7 @@ test('neighboring Next Study controls retain their existing ownership', () => {
     getAttribute(favoriteControl.tag, 'data-analytics-action'),
     'toggleVideoFavorite'
   )
-  assert.equal(
-    getAttribute(favoriteControl.tag, 'onclick'),
-    "toggleVideoFavorite(this.dataset.videoId, { surface: 'next_study' })"
-  )
+  assert.equal(getAttribute(favoriteControl.tag, 'onclick'), null)
 })
 
 test('app composition imports and immediately binds generated Next Study actions', () => {
@@ -173,7 +174,8 @@ test('app composition imports and immediately binds generated Next Study actions
 
   const expectedActions = {
     open: 'openNextStudyVideoPlayer',
-    focus: 'focusNextStudyVideoCard'
+    focus: 'focusNextStudyVideoCard',
+    toggleFavorite: 'toggleVideoFavorite'
   }
   assert.deepEqual(
     getNextStudyBindings(renderSource),
@@ -185,7 +187,7 @@ test('app composition imports and immediately binds generated Next Study actions
 
   assert.match(
     renderSource,
-    /container\.innerHTML = `[\s\S]*?`\s*bindNextStudyActions\(container,\s*\{\s*open: openNextStudyVideoPlayer,\s*focus: focusNextStudyVideoCard\s*\}\)\s*bindVideoSetAsideActions\(container,/
+    /container\.innerHTML = `[\s\S]*?`\s*bindNextStudyActions\(container,\s*\{\s*open: openNextStudyVideoPlayer,\s*focus: focusNextStudyVideoCard,\s*toggleFavorite: toggleVideoFavorite\s*\}\)\s*bindVideoSetAsideActions\(container,/
   )
 
   const emptyClearIndex = renderSource.indexOf("container.innerHTML = ''")
@@ -207,7 +209,7 @@ test('app composition imports and immediately binds generated Next Study actions
   assert.ok(returnIndex > bindingIndex)
 })
 
-test('migrated callbacks remain lexical while only their bridge aliases leave', async () => {
+test('open and focus leave the bridge while shared Favorite ownership remains', async () => {
   assert.match(
     appSource,
     /function openNextStudyVideoPlayer\(event, videoId\) \{/
@@ -266,5 +268,24 @@ test('migrated callbacks remain lexical while only their bridge aliases leave', 
     installMap,
     /\btoggleVideoFavorite\s*,/,
     'toggleVideoFavorite must remain in the legacy install map'
+  )
+
+  const favoriteInlineHandlers = inlineHandlers.filter(handler => (
+    /\btoggleVideoFavorite\s*\(/.test(handler)
+  ))
+  assert.deepEqual(
+    favoriteInlineHandlers,
+    [
+      "event.preventDefault(); event.stopPropagation(); toggleVideoFavorite(this.dataset.videoId, { surface: 'channel_shelf_badge' })",
+      "toggleVideoFavorite(this.dataset.videoId, { surface: 'video_card' })"
+    ],
+    'Only the channel-shelf badge and video-card Favorite consumers stay inline'
+  )
+  assert.equal(
+    favoriteInlineHandlers.some(handler => (
+      handler.includes("surface: 'next_study'")
+    )),
+    false,
+    'Next Study Remove favorite must no longer depend on the global bridge'
   )
 })

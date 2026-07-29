@@ -9,9 +9,10 @@ export function bindNextStudyActions(root, actions) {
     !actions
     || typeof actions.open !== 'function'
     || typeof actions.focus !== 'function'
+    || typeof actions.toggleFavorite !== 'function'
   ) {
     throw new TypeError(
-      'Next Study actions require open and focus callbacks'
+      'Next Study actions require open, focus, and toggleFavorite callbacks'
     )
   }
   if (!root) return 0
@@ -28,6 +29,12 @@ export function bindNextStudyActions(root, actions) {
     } else if (actionName === 'focus') {
       control.addEventListener('click', event => {
         actions.focus(event, control.dataset.videoId)
+      })
+    } else if (actionName === 'toggle-favorite') {
+      control.addEventListener('click', () => {
+        actions.toggleFavorite(control.dataset.videoId, {
+          surface: control.dataset.nextStudySurface
+        })
       })
     } else {
       return

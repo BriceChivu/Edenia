@@ -9993,8 +9993,9 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
       <button type="button"
         class="next-study-cta next-study-reset"
         data-video-id="${safeVideoId}"
-        data-analytics-action="toggleVideoFavorite"
-        onclick="toggleVideoFavorite(this.dataset.videoId, { surface: 'next_study' })">${escHtml(t('nextStudy.removeFavorite'))}</button>
+        data-next-study-action="toggle-favorite"
+        data-next-study-surface="next_study"
+        data-analytics-action="toggleVideoFavorite">${escHtml(t('nextStudy.removeFavorite'))}</button>
       <button type="button"
         class="next-study-cta next-study-watch"
         data-video-id="${safeVideoId}"
@@ -10025,7 +10026,8 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
   `
   bindNextStudyActions(container, {
     open: openNextStudyVideoPlayer,
-    focus: focusNextStudyVideoCard
+    focus: focusNextStudyVideoCard,
+    toggleFavorite: toggleVideoFavorite
   })
   bindVideoSetAsideActions(container, {
     request: requestVideoSetAside,

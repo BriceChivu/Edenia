@@ -79,8 +79,8 @@ test('Next Study variants retain every generated control and exact branch markup
     {
       className: 'next-study-reset',
       analyticsAction: 'toggleVideoFavorite',
-      nextStudyAction: null,
-      inlineHandler: "toggleVideoFavorite(this.dataset.videoId, { surface: 'next_study' })",
+      nextStudyAction: 'toggle-favorite',
+      inlineHandler: null,
       content: "${escHtml(t('nextStudy.removeFavorite'))}",
       ariaLabel: null
     },
@@ -237,10 +237,18 @@ test('Next Study Remove favorite retains identity, surface, and event ordering c
   const tag = getOpeningTag(element)
 
   assert.equal(
-    getAttribute(tag, 'onclick'),
-    "toggleVideoFavorite(this.dataset.videoId, { surface: 'next_study' })"
+    getAttribute(tag, 'data-next-study-action'),
+    'toggle-favorite'
   )
-  assert.equal(getAttribute(tag, 'data-analytics-action'), 'toggleVideoFavorite')
+  assert.equal(
+    getAttribute(tag, 'data-next-study-surface'),
+    'next_study'
+  )
+  assert.equal(getAttribute(tag, 'onclick'), null)
+  assert.equal(
+    getAttribute(tag, 'data-analytics-action'),
+    'toggleVideoFavorite'
+  )
   assert.equal(
     normalizeClickEventName(getAttribute(tag, 'data-analytics-action')),
     'toggle_video_favorite_clicked'

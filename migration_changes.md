@@ -3708,3 +3708,46 @@ release mappings, and follow-up findings are recorded as new entries.
   obscure the recorded placement error while leaving the original entry in its
   committed location.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-106 — Migrate Next Study Favorite event ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral event-listener extraction with shared compatibility retention
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace the Next Study rewatch card's Remove favorite inline
+  handler with its component-scoped listener without disturbing the shared
+  Favorite implementation or other inline consumers.
+- **Conceptual change:** Extended the Next Study action adapter with a
+  `toggle-favorite` hook and required `toggleFavorite` callback. The rewatch
+  control now stores its exact `next_study` surface in component metadata; its
+  direct listener reads the live video ID and surface, calls
+  `toggleVideoFavorite` with the same two arguments as before, and does not
+  receive or cancel the event. The global `toggleVideoFavorite` bridge remains
+  installed for the channel-shelf badge and ordinary video-card handlers.
+- **Preservation contract:** Preserve Favorite independence from watched
+  status, Undo/save/state synchronization, exact `next_study` surface, explicit
+  `video_favorite_changed` emission before rerender, and the subsequent
+  bubble-phase `toggle_video_favorite_clicked` event. Preserve every Next Study
+  recommendation branch, open/focus/Set aside ownership, copy, classes, ARIA,
+  selection precedence, responsive presentation, and all remaining card and
+  shelf Favorite controls.
+- **Risks:** Passing the event or cancelling propagation would suppress existing
+  generic analytics; capturing stale dataset values would target the wrong
+  recommendation after replacement; removing the shared bridge would break two
+  unrelated inline surfaces; changing the Favorite callback itself could alter
+  Undo or watched-card rerender behavior.
+- **Verification:** `npm test` passed: the production build completed and all
+  390 contract tests passed, including exact live video/surface forwarding
+  without an event argument, uncancelled bubbling, replacement-safe idempotence,
+  the generated hook and composition callback, explicit-before-generic
+  analytics ordering, and retained global bridge coverage for the two remaining
+  inline consumers. Browser, local-server, visual-regression, migration-ledger,
+  diff-integrity, and static-review checks were not run in accordance with the
+  repository `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore only the Next Study Remove
+  favorite inline handler; no state, storage, analytics, or data migration is
+  required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

@@ -6,11 +6,12 @@ import {
 
 const controlSelector = '[data-next-study-action]'
 
-function createControl(actionName, videoId) {
+function createControl(actionName, videoId, dataset = {}) {
   const control = new EventTarget()
   control.dataset = {
     nextStudyAction: actionName,
-    videoId
+    videoId,
+    ...dataset
   }
   return control
 }
@@ -39,20 +40,31 @@ function createActions(calls) {
     focus(...args) {
       calls.push(['focus', args])
       return false
+    },
+    toggleFavorite(...args) {
+      calls.push(['toggleFavorite', args])
+      return false
     }
   }
 }
 
-test('Next Study binding forwards exact click events and live video IDs', () => {
+test('Next Study binding preserves exact events and live datasets', () => {
   const open = createControl('open', 'open-before')
   const focus = createControl('focus', 'focus-before')
-  const { root } = createHarness([open, focus])
+  const toggleFavorite = createControl(
+    'toggle-favorite',
+    'favorite-before',
+    { nextStudySurface: 'surface-before' }
+  )
+  const { root } = createHarness([open, focus, toggleFavorite])
   const calls = []
 
-  assert.equal(bindNextStudyActions(root, createActions(calls)), 2)
+  assert.equal(bindNextStudyActions(root, createActions(calls)), 3)
 
   open.dataset.videoId = 'open-live'
   focus.dataset.videoId = 'focus-live'
+  toggleFavorite.dataset.videoId = 'favorite-live'
+  toggleFavorite.dataset.nextStudySurface = 'next_study'
   const openEvent = new Event('click', {
     bubbles: true,
     cancelable: true
@@ -61,14 +73,24 @@ test('Next Study binding forwards exact click events and live video IDs', () => 
     bubbles: true,
     cancelable: true
   })
+  const toggleFavoriteEvent = new Event('click', {
+    bubbles: true,
+    cancelable: true
+  })
 
   assert.equal(open.dispatchEvent(openEvent), true)
   assert.equal(focus.dispatchEvent(focusEvent), true)
+  assert.equal(toggleFavorite.dispatchEvent(toggleFavoriteEvent), true)
   assert.deepEqual(calls, [
     ['open', [openEvent, 'open-live']],
-    ['focus', [focusEvent, 'focus-live']]
+    ['focus', [focusEvent, 'focus-live']],
+    ['toggleFavorite', [
+      'favorite-live',
+      { surface: 'next_study' }
+    ]]
   ])
-  ;[openEvent, focusEvent].forEach(event => {
+  ;[openEvent, focusEvent, toggleFavoriteEvent].forEach(event => {
+    assert.equal(event.bubbles, true)
     assert.equal(event.defaultPrevented, false)
     assert.equal(event.cancelBubble, false)
   })
@@ -84,17 +106,22 @@ test('Next Study binding is idempotent and binds replacement controls', () => {
   assert.equal(bindNextStudyActions(harness.root, actions), 0)
   originalOpen.dispatchEvent(new Event('click'))
 
-  const replacementFocus = createControl('focus', 'replacement-focus')
-  harness.replaceControls([originalOpen, replacementFocus])
+  const replacementFavorite = createControl(
+    'toggle-favorite',
+    'replacement-favorite',
+    { nextStudySurface: 'next_study' }
+  )
+  harness.replaceControls([originalOpen, replacementFavorite])
 
   assert.equal(bindNextStudyActions(harness.root, actions), 1)
   assert.equal(bindNextStudyActions(harness.root, actions), 0)
-  replacementFocus.dispatchEvent(new Event('click'))
+  replacementFavorite.dispatchEvent(new Event('click'))
 
   assert.deepEqual(calls.map(([name, args]) => [name, args[1]]), [
     ['open', 'original-open'],
-    ['focus', 'replacement-focus']
+    ['toggleFavorite', { surface: 'next_study' }]
   ])
+  assert.equal(calls[1][1][0], 'replacement-favorite')
 })
 
 test('Next Study binding tolerates absent roots and controls', () => {
@@ -126,16 +153,17 @@ test('Next Study binding fails closed on invalid boundaries', () => {
     null,
     {},
     { ...validActions, open: null },
-    { ...validActions, focus: null }
+    { ...validActions, focus: null },
+    { ...validActions, toggleFavorite: null }
   ]
   invalidActionMaps.forEach(actions => {
     assert.throws(
       () => bindNextStudyActions(root, actions),
-      /open and focus callbacks/
+      /open, focus, and toggleFavorite callbacks/
     )
   })
   assert.throws(
     () => bindNextStudyActions(null, null),
-    /open and focus callbacks/
+    /open, focus, and toggleFavorite callbacks/
   )
 })
