@@ -270,7 +270,7 @@ test('city-level ARIA state remains synchronized after selection', () => {
   )
 })
 
-test('city ownership leaves the four locale aliases and handlers intact', () => {
+test('city ownership leaves the two locale-change aliases and handlers intact', () => {
   assert.equal(LEGACY_ACTION_NAMES.includes('selectIntroCityLevel'), false)
 
   const installMap = appSource.match(
@@ -288,9 +288,7 @@ test('city ownership leaves the four locale aliases and handlers intact', () => 
 
   const retainedAliases = [
     'changeIntroLocale',
-    'changeOnboardingLocale',
-    'toggleIntroLocaleMenu',
-    'toggleOnboardingLocaleMenu'
+    'changeOnboardingLocale'
   ]
   for (const alias of retainedAliases) {
     assert.equal(
@@ -305,8 +303,6 @@ test('city ownership leaves the four locale aliases and handlers intact', () => 
     )
   }
 
-  assert.match(indexSource, /onclick="toggleIntroLocaleMenu\(event\)"/)
-  assert.match(indexSource, /onclick="toggleOnboardingLocaleMenu\(event\)"/)
   assert.match(
     appSource,
     /name="introLocale"[^>]*onchange="changeIntroLocale\(this\.value\)"/

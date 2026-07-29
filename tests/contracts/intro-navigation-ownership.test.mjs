@@ -263,7 +263,7 @@ test('keyboard and swipe navigation retain their lexical calls', () => {
   )
 })
 
-test('navigation ownership leaves the four locale aliases and handlers intact', () => {
+test('navigation ownership leaves the two locale-change aliases and handlers intact', () => {
   assert.equal(LEGACY_ACTION_NAMES.includes('navigateIntroTrailer'), false)
 
   const installMap = appSource.match(
@@ -281,9 +281,7 @@ test('navigation ownership leaves the four locale aliases and handlers intact', 
 
   const retainedAliases = [
     'changeIntroLocale',
-    'changeOnboardingLocale',
-    'toggleIntroLocaleMenu',
-    'toggleOnboardingLocaleMenu'
+    'changeOnboardingLocale'
   ]
   for (const alias of retainedAliases) {
     assert.equal(
@@ -298,8 +296,6 @@ test('navigation ownership leaves the four locale aliases and handlers intact', 
     )
   }
 
-  assert.match(indexSource, /onclick="toggleIntroLocaleMenu\(event\)"/)
-  assert.match(indexSource, /onclick="toggleOnboardingLocaleMenu\(event\)"/)
   assert.match(
     appSource,
     /name="introLocale"[^>]*onchange="changeIntroLocale\(this\.value\)"/

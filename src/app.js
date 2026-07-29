@@ -152,6 +152,9 @@ import {
   bindIntroFinishActions
 } from './features/onboarding/intro-finish-actions.js'
 import {
+  bindIntroLocaleMenuActions
+} from './features/onboarding/intro-locale-menu-actions.js'
+import {
   bindIntroNavigationActions
 } from './features/onboarding/intro-navigation-actions.js'
 import {
@@ -14083,6 +14086,10 @@ bindIntroCityLevelActions(document, {
 bindIntroFinishActions(document, {
   finish: finishIntroTrailer
 })
+bindIntroLocaleMenuActions(document, {
+  toggleIntro: toggleIntroLocaleMenu,
+  toggleOnboarding: toggleOnboardingLocaleMenu
+})
 bindIntroNavigationActions(document, {
   navigate: navigateIntroTrailer
 })
@@ -14142,9 +14149,7 @@ installLegacyActions(window, {
   startChannelShelfDrag,
   startTouchChannelShelfDrag,
   syncVideoChannelShelfControls,
-  toggleIntroLocaleMenu,
   toggleOnboardingChannel,
-  toggleOnboardingLocaleMenu,
   toggleVideoFavorite,
   toggleVideoShelfPreviewOnTouch
 })

@@ -90,7 +90,7 @@
           <button class="intro-skip" type="button" data-intro-finish-action="finish" data-i18n="intro.skip" data-analytics-action="intro.skip">Skip intro</button>
         </div>
         <div class="intro-language-picker" id="introLocalePicker">
-          <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="introLocaleBtn" onclick="toggleIntroLocaleMenu(event)" data-analytics-action="introLocaleBtn" aria-haspopup="true" aria-expanded="false">
+          <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="introLocaleBtn" data-intro-locale-menu-action="toggle-intro" data-analytics-action="introLocaleBtn" aria-haspopup="true" aria-expanded="false">
             <span class="settings-locale-label" id="introLocaleLabel">English</span>
             <span class="settings-locale-caret" aria-hidden="true"></span>
           </button>
@@ -246,7 +246,7 @@ and momentum—at a glance</h2>
     </button>
     <div class="onboarding-card">
       <div class="onboarding-language-picker hidden" id="onboardingLocalePicker">
-        <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="onboardingLocaleBtn" onclick="toggleOnboardingLocaleMenu(event)" data-analytics-action="onboardingLocaleBtn" aria-haspopup="true" aria-expanded="false">
+        <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="onboardingLocaleBtn" data-intro-locale-menu-action="toggle-onboarding" data-analytics-action="onboardingLocaleBtn" aria-haspopup="true" aria-expanded="false">
           <span class="settings-locale-label" id="onboardingLocaleLabel">English</span>
           <span class="settings-locale-caret" aria-hidden="true"></span>
         </button>

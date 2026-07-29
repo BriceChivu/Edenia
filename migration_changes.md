@@ -3961,3 +3961,44 @@ release mappings, and follow-up findings are recorded as new entries.
   their bridge alias; no timer, state, analytics, accessibility, or visual
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-112 — Migrate intro and onboarding locale-menu ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral static event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace the two locale-menu toggle inline handlers with direct
+  listeners while preserving their propagation boundary, ARIA state, and
+  outside-click behavior.
+- **Conceptual change:** Added a locale-menu action adapter with separate
+  `toggle-intro` and `toggle-onboarding` hooks. Each direct listener forwards
+  the exact native click event to its existing callback, which continues to
+  stop propagation before toggling the menu and `aria-expanded`. Removed both
+  matching global bridge aliases; generated locale radio handlers remain
+  unchanged for a separate migration.
+- **Preservation contract:** Preserve each trigger's ID-derived latent analytics
+  identity, classes, labels, caret, ARIA, menu roles, localization, hidden
+  state, and outside-click close logic. Preserve exact event forwarding,
+  immediate `stopPropagation()` without `preventDefault()`, and therefore the
+  absence of generic click events for both toggles. Preserve all locale
+  selection, rerender, state, focus-loss, and responsive behavior.
+- **Risks:** Document delegation would let analytics and outside-click handlers
+  run before the callback; failing to forward the event would throw or leak the
+  click; combining the two callbacks could target the wrong menu; migrating
+  radios in the same commit would expand replacement-render risk.
+- **Verification:** `npm test` passed: the production build completed and all
+  453 contract tests passed, including exact per-menu hook routing, native event
+  forwarding, callback-owned propagation stop without default prevention,
+  idempotent replacement binding, exact trigger/menu ARIA and markup,
+  outside-click behavior, latent analytics suppression, both bridge removals,
+  and retained generated-radio aliases. Browser, local-server,
+  visual-regression, migration-ledger, diff-integrity, and static-review checks
+  were not run in accordance with the repository `AGENTS.md` instruction for
+  this task.
+- **Rollback:** Revert this commit to restore both inline toggle handlers and
+  their bridge aliases; no locale, state, storage, analytics, focus, or visual
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

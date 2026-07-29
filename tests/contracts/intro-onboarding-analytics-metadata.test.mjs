@@ -181,7 +181,8 @@ const staticControls = [
     tag: () => findButtonById('introLocaleBtn'),
     className: 'btn-secondary settings-locale-btn intro-locale-btn',
     id: 'introLocaleBtn',
-    handler: 'toggleIntroLocaleMenu(event)',
+    handler: null,
+    localeMenuAction: 'toggle-intro',
     analyticsAction: 'introLocaleBtn',
     eventName: 'intro_locale_btn_clicked',
     dataI18n: null,
@@ -195,7 +196,8 @@ const staticControls = [
     tag: () => findButtonById('onboardingLocaleBtn'),
     className: 'btn-secondary settings-locale-btn intro-locale-btn',
     id: 'onboardingLocaleBtn',
-    handler: 'toggleOnboardingLocaleMenu(event)',
+    handler: null,
+    localeMenuAction: 'toggle-onboarding',
     analyticsAction: 'onboardingLocaleBtn',
     eventName: 'onboarding_locale_btn_clicked',
     dataI18n: null,
@@ -227,6 +229,11 @@ test('static intro and onboarding controls retain exact metadata and ownership h
     assert.equal(
       getAttribute(tag, 'data-intro-navigation-direction'),
       expected.navigationDirection ?? null,
+      expected.label
+    )
+    assert.equal(
+      getAttribute(tag, 'data-intro-locale-menu-action'),
+      expected.localeMenuAction ?? null,
       expected.label
     )
     assert.equal(
@@ -526,9 +533,7 @@ test('remaining metadata-locked controls retain their temporary global aliases',
   )
   const expectedAliases = [
     'changeIntroLocale',
-    'changeOnboardingLocale',
-    'toggleIntroLocaleMenu',
-    'toggleOnboardingLocaleMenu'
+    'changeOnboardingLocale'
   ]
 
   for (const alias of expectedAliases) {
