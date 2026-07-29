@@ -3402,3 +3402,48 @@ release mappings, and follow-up findings are recorded as new entries.
   compatibility aliases; no state, storage, analytics, or data migration is
   required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-099 — Lock Set aside prompt analytics identities
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Make both generated Set aside request controls and the prompt's
+  Cancel/Confirm identities explicit before replacing their inline handlers.
+- **Conceptual change:** Added `requestVideoSetAside` analytics-action metadata
+  to the Continue Watching and video-card request controls, plus
+  `setAsidePrompt.cancel` and `setAsidePrompt.confirm` metadata to the static
+  prompt actions. All request, prompt, and keyboard handlers remain inline in
+  this preparatory commit.
+- **Preservation contract:** Preserve exact request surfaces
+  `continue_watching` and `video_card`, live video IDs, qualification guards,
+  remembered-prompt bypass, inert-state capture/restoration, next-frame Confirm
+  focus, Cancel/Escape focus restoration with `preventScroll`, Confirm's
+  no-focus close, and Escape's prevent-default-without-stop behavior. Preserve
+  the distinct prompt-seen save with disabled backup/analytics sync followed by
+  the normal action save; video state transitions, Favorite and Watch later
+  clearing, progress, scoring, activity, Undo/Redo asymmetries, reminders,
+  rendering, `video_favorite_changed`/`video_set_aside` ordering, and generic
+  `request_video_set_aside_clicked`,
+  `set_aside_prompt_cancel_clicked`, and
+  `set_aside_prompt_confirm_clicked` events. Preserve desktop/tablet dialog and
+  current phone bottom-sheet/action visibility without CSS changes.
+- **Risks:** Losing the request surface would corrupt analytics context;
+  combining saves would change backup and analytics timing; changing Escape
+  propagation would affect outer listeners; a broad card migration could
+  interfere with player, Favorite, Watch later, or touch preview behavior.
+- **Verification:** `npm test` passed: the production build completed and all
+  349 contract tests passed, including both generated request surfaces and
+  live IDs, prompt action types/classes/localization, retained inline
+  callbacks, exact normalized analytics names, accessible video-card labels,
+  and the overlay's analytics-silent keydown ownership. Browser, local-server,
+  visual-regression, migration-ledger, diff-integrity, and static-review checks
+  were not run in accordance with the repository `AGENTS.md` instruction for
+  this task.
+- **Rollback:** Revert this commit to restore handler- and translation-derived
+  generic identities; no event, state, storage, or visual migration is
+  required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

@@ -9953,6 +9953,7 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
       <button type="button"
         class="next-study-cta next-study-set-aside"
         data-video-id="${safeVideoId}"
+        data-analytics-action="requestVideoSetAside"
         onclick="requestVideoSetAside(this.dataset.videoId, { surface: 'continue_watching' })">${escHtml(t('videos.card.setAside'))}</button>
       <button type="button"
         class="next-study-cta next-study-continue"
@@ -13679,6 +13680,7 @@ function renderCard(v, compact = false, options = {}) {
           <div class="card-actions">
             ${isPartial && !options.hideSetAsideAction ? `<button class="action-btn set-aside-btn"
               data-video-id="${safeVideoId}"
+              data-analytics-action="requestVideoSetAside"
               onclick="requestVideoSetAside(this.dataset.videoId, { surface: 'video_card' })"
               aria-label="${escHtml(t('videos.card.setAside'))}"
               title="${escHtml(t('videos.card.setAside'))}">${renderVideoActionIcon('set-aside')}</button>` : ''}
