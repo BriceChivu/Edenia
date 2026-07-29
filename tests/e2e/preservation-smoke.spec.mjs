@@ -146,17 +146,12 @@ test('fresh install boots the protected first-run experience and classic handler
   })
 
   expect(missingHandlers).toEqual([])
-  const legacyActionBridge = await page.evaluate(actionNames => ({
-    frozen: Object.isFrozen(window.EdeniaActions),
-    missing: actionNames.filter(
-      name => typeof window.EdeniaActions?.[name] !== 'function'
-        || window[name] !== window.EdeniaActions[name]
-    ),
+  const globalActionSurface = await page.evaluate(() => ({
+    present: Object.prototype.hasOwnProperty.call(window, 'EdeniaActions'),
     names: Object.keys(window.EdeniaActions || {}).sort()
-  }), GLOBAL_ACTION_NAMES)
-  expect(legacyActionBridge).toEqual({
-    frozen: true,
-    missing: [],
+  }))
+  expect(globalActionSurface).toEqual({
+    present: false,
     names: GLOBAL_ACTION_NAMES
   })
   await expect.poll(() => page.evaluate(() => window.EDENIA_ANALYTICS_ENABLED)).toBe(false)
@@ -293,11 +288,11 @@ test('Settings shell listeners preserve desktop inertness, focus, scrolling, Esc
   }))).toEqual(bodyBefore)
   expect(await page.evaluate(() => ({
     openSettings: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'openSettings'
     ),
     closeSettings: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'closeSettings'
     )
   }))).toEqual({
@@ -441,11 +436,11 @@ test('Settings replay listeners preserve walkthrough and trailer handoffs', asyn
     .toBe(storedBeforeTrailer)
   expect(await page.evaluate(() => ({
     showWalkthroughAgain: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'showWalkthroughAgain'
     ),
     showTrailerAgain: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'showTrailerAgain'
     )
   }))).toEqual({
@@ -596,11 +591,11 @@ test('sandbox action listeners preserve day advancement, reset backups, keyboard
 
   const removedBridgeActions = await page.evaluate(() => ({
     addSandboxDay: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'addSandboxDay'
     ),
     resetSandboxState: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'resetSandboxState'
     )
   }))
@@ -808,27 +803,27 @@ test('Settings locale listeners preserve menu, localization, persistence, and or
 
   const bridgeState = await page.evaluate(() => ({
     toggleLocaleMenu: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'toggleLocaleMenu'
     ),
     saveLocaleFromSettings: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'saveLocaleFromSettings'
     ),
     toggleIntroLocaleMenu: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'toggleIntroLocaleMenu'
     ),
     changeIntroLocale: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'changeIntroLocale'
     ),
     toggleOnboardingLocaleMenu: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'toggleOnboardingLocaleMenu'
     ),
     changeOnboardingLocale: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'changeOnboardingLocale'
     )
   }))
@@ -1048,11 +1043,11 @@ test('Settings sync listeners preserve download, picker, import, and failure ord
         : null,
       bridge: {
         exportSyncFile: Object.prototype.hasOwnProperty.call(
-          window.EdeniaActions,
+          window.EdeniaActions || {},
           'exportSyncFile'
         ),
         importSyncFileFromInput: Object.prototype.hasOwnProperty.call(
-          window.EdeniaActions,
+          window.EdeniaActions || {},
           'importSyncFileFromInput'
         )
       }
@@ -1346,7 +1341,7 @@ test('backup Restore listeners preserve live IDs, rollback order, localization, 
   await expect(restoreControl).not.toBeFocused()
   const removedBridgeAction = await page.evaluate(() => (
     Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'restoreStateBackup'
     )
   ))
@@ -1569,7 +1564,7 @@ test('Settings preference listeners preserve synchronous saves and Anki timing',
   await expect(insights).toBeChecked()
   expect(await page.evaluate(() => (
     Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'saveSettingsOnTheFly'
     )
   ))).toBe(false)
@@ -1647,7 +1642,7 @@ test('Settings preferences preserve raw Anki state on coarse-pointer devices', a
   expect(ankiRequests).toBe(0)
   expect(await page.evaluate(() => (
     Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'saveSettingsOnTheFly'
     )
   ))).toBe(false)
@@ -1706,7 +1701,7 @@ test('theme listener preserves persistence, labels, keyboard, activity, and orde
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
 
   const removedBridgeAction = await page.evaluate(() => (
-    Object.prototype.hasOwnProperty.call(window.EdeniaActions, 'toggleTheme')
+    Object.prototype.hasOwnProperty.call(window.EdeniaActions || {}, 'toggleTheme')
   ))
   expect(removedBridgeAction).toBe(false)
 })
@@ -1768,7 +1763,7 @@ test('feedback confirmation listener preserves dismissal, focus, keyboard, and o
     .toBe(storedBefore)
   const removedBridgeAction = await page.evaluate(() => (
     Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'closeFeedbackConfirmation'
     )
   ))
@@ -1847,11 +1842,11 @@ test('feedback modal listeners preserve focus, Escape, keyboard, storage, and or
     .toBe(storedBefore)
   const removedBridgeActions = await page.evaluate(() => ({
     openFeedbackModal: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'openFeedbackModal'
     ),
     closeFeedbackModal: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'closeFeedbackModal'
     )
   }))
@@ -2052,7 +2047,7 @@ test('feedback submission listener preserves validation, analytics, reset, focus
     analyticsCalls: window.__feedbackAnalyticsCalls,
     storage: localStorage.getItem('edenia_v1'),
     bridgePresent: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'submitFeedback'
     )
   }))
@@ -2209,7 +2204,7 @@ test('watched-section listener preserves transient disclosure, labels, keyboard,
     .toBe(storedBefore)
   const removedBridgeAction = await page.evaluate(() => (
     Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'toggleWatchedSection'
     )
   ))
@@ -2377,23 +2372,23 @@ test('saved-video search-result listener preserves selection, analytics, and Ent
 
   const bridgeActions = await page.evaluate(() => ({
     selected: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'jumpToVideoFromSearch'
     ),
     inputKey: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'handleVideoSearchInputKey'
     ),
     render: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'renderVideoSearchResults'
     ),
     close: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'closeVideoSearchPopover'
     ),
     toggle: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'toggleVideoSearchPopover'
     )
   }))
@@ -2687,19 +2682,19 @@ test('saved-video search shell listeners preserve analytics, focus, and responsi
     .toBe(storedBefore)
   const removedBridgeActions = await page.evaluate(() => ({
     close: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'closeVideoSearchPopover'
     ),
     inputKey: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'handleVideoSearchInputKey'
     ),
     render: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'renderVideoSearchResults'
     ),
     toggle: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'toggleVideoSearchPopover'
     )
   }))
@@ -2790,11 +2785,11 @@ test('Study Insight listeners preserve tabs, persistence, focus, and event order
 
   const removedBridgeActions = await page.evaluate(() => ({
     setStudyInsightView: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'setStudyInsightView'
     ),
     setStudyInsightsCollapsed: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'setStudyInsightsCollapsed'
     )
   }))
@@ -2871,15 +2866,15 @@ test('Settings accordion listeners preserve mouse, keyboard, reset, and ordering
 
   const removedBridgeActions = await page.evaluate(() => ({
     toggleSettingsHowTo: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'toggleSettingsHowTo'
     ),
     toggleSettingsActivityLog: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'toggleSettingsActivityLog'
     ),
     toggleSettingsBackups: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'toggleSettingsBackups'
     )
   }))
@@ -2948,11 +2943,11 @@ test('Settings reset-confirm listeners preserve visibility, keyboard, storage, a
     .toBe(storedBefore)
   const removedBridgeActions = await page.evaluate(() => ({
     showResetConfirm: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'showResetConfirm'
     ),
     hideResetConfirm: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'hideResetConfirm'
     )
   }))
@@ -3055,7 +3050,7 @@ test('Delete data listener preserves backups, reload, isolation, and sandbox han
         entry => entry.eventName === 'settings_reset_delete_clicked'
       ),
       bridgePresent: Object.prototype.hasOwnProperty.call(
-        window.EdeniaActions,
+        window.EdeniaActions || {},
         'resetApp'
       )
     }
@@ -3153,7 +3148,7 @@ test('Delete data listener preserves backups, reload, isolation, and sandbox han
       ),
       url: location.href,
       bridgePresent: Object.prototype.hasOwnProperty.call(
-        window.EdeniaActions,
+        window.EdeniaActions || {},
         'resetApp'
       )
     }
@@ -3315,7 +3310,7 @@ test('Activity Log filter listeners preserve live values, rendering, keyboard, a
   await expect(list).toContainText('Protected user success')
 
   const removedBridgeAction = await page.evaluate(() => (
-    Object.prototype.hasOwnProperty.call(window.EdeniaActions, 'setActivityLogFilter')
+    Object.prototype.hasOwnProperty.call(window.EdeniaActions || {}, 'setActivityLogFilter')
   ))
   expect(removedBridgeAction).toBe(false)
 })
@@ -3384,7 +3379,7 @@ test('Activity Log pagination listener survives generated-button replacement', a
     .toBe(storedBefore)
   const removedBridgeAction = await page.evaluate(() => (
     Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'showOlderActivityLogEntries'
     )
   ))
@@ -3482,7 +3477,7 @@ test('city level-up listener preserves staged claims and outcome-dependent analy
   })
   const removedBridgeAction = await page.evaluate(() => (
     Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'claimCityLevelUp'
     )
   ))
@@ -3743,11 +3738,11 @@ test('city waveform mouse listeners preserve edge scrolling, clearing, and phone
   })
   const removedBridgeActions = await page.evaluate(() => ({
     handleCityWaveformMouseMove: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'handleCityWaveformMouseMove'
     ),
     clearCityWaveformPreview: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'clearCityWaveformPreview'
     )
   }))
@@ -3933,11 +3928,11 @@ test('city waveform bar listeners preserve preview, selection, analytics, and re
   )).toEqual(activityBefore)
   const removedBridgeActions = await page.evaluate(() => ({
     selectCityWaveBar: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'selectCityWaveBar'
     ),
     previewCityWaveBar: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'previewCityWaveBar'
     )
   }))
@@ -4006,11 +4001,11 @@ test('city zoom listeners preserve fixed steps, limits, reset, keyboard, and ord
 
   const removedBridgeActions = await page.evaluate(() => ({
     zoomCityImage: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'zoomCityImage'
     ),
     resetCityImageView: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'resetCityImageView'
     )
   }))
@@ -4153,11 +4148,11 @@ test('Study History period listeners preserve generated options and runtime-only
 
   const bridgeActions = await page.evaluate(() => ({
     selected: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'setHistoryPeriodForRange'
     ),
     toggled: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'toggleHistoryPeriodPopover'
     )
   }))
@@ -4331,15 +4326,15 @@ test('Study History watched popover listeners preserve fine and coarse interacti
     .toBe(storedBefore)
   const removedBridgeActions = await page.evaluate(() => ({
     closeSoon: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'closeHistoryVideoPopoverSoon'
     ),
     open: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'openHistoryVideoPopover'
     ),
     toggle: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'toggleHistoryVideoPopover'
     )
   }))
@@ -4513,7 +4508,7 @@ test('Study History watched-video listeners preserve navigation branches', async
     .toBe(storedBefore)
   const removedBridgeAction = await page.evaluate(() => (
     Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'jumpToWatchedVideo'
     )
   ))
@@ -4613,15 +4608,15 @@ test('Study History points popover listeners preserve fine and coarse interactio
     .toBe(storedBefore)
   const removedBridgeActions = await page.evaluate(() => ({
     closeSoon: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'closeHistoryPointsPopoverSoon'
     ),
     open: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'openHistoryPointsPopover'
     ),
     toggle: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'toggleHistoryPointsPopover'
     )
   }))
@@ -4733,19 +4728,19 @@ test('Study History heatmap listeners preserve tooltip input and positioning bra
     .toBe(storedBefore)
   const removedBridgeActions = await page.evaluate(() => ({
     hide: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'hideHeatmapTooltip'
     ),
     position: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'positionHeatmapTooltip'
     ),
     show: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'showHeatmapTooltip'
     ),
     toggle: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions,
+      window.EdeniaActions || {},
       'toggleHeatmapTooltip'
     )
   }))
@@ -4809,7 +4804,7 @@ test('Study History view listeners preserve persistence, keyboard, and ordering'
   await expect(heatmapTab).toHaveAttribute('aria-selected', 'true')
 
   const removedBridgeAction = await page.evaluate(() => (
-    Object.prototype.hasOwnProperty.call(window.EdeniaActions, 'setHistoryView')
+    Object.prototype.hasOwnProperty.call(window.EdeniaActions || {}, 'setHistoryView')
   ))
   expect(removedBridgeAction).toBe(false)
 })
@@ -5155,7 +5150,7 @@ test('Undo and Redo listeners preserve stacks, analytics, focus, and responsive 
     ]
     return Object.fromEntries(names.map(name => [
       name,
-      Object.prototype.hasOwnProperty.call(window.EdeniaActions, name)
+      Object.prototype.hasOwnProperty.call(window.EdeniaActions || {}, name)
     ]))
   })
   expect(removedBridgeActions).toEqual({

@@ -5038,3 +5038,43 @@ release mappings, and follow-up findings are recorded as new entries.
   rollback is required.
 - **Association:** `codex/migration-05-javascript-modularization`;
   [PR #1](https://github.com/BriceChivu/Edenia/pull/1); release pending.
+
+---
+
+## MIG-139 — Align the browser harness with final migration contracts
+
+- **Date:** 2026-07-30
+- **Phase:** 8 — Final cleanup
+- **Type:** CI browser-test harness correction
+- **Status:** Complete locally; PR verification pending
+- **Intent:** Let browser acceptance exercise the final no-global-action
+  architecture and the intended non-special local feedback path instead of
+  failing on obsolete harness assumptions.
+- **Conceptual change:** Updated Playwright ownership assertions to treat the
+  intentionally absent `window.EdeniaActions` namespace as an empty action
+  surface while retaining explicit proof that the namespace is not published.
+  Configured pull-request CI to run the normal application on port `4173`,
+  leaving port `8001` reserved for sandbox testing; this avoids port `8000`'s
+  deliberate local-feedback success simulation when testing the unavailable
+  feedback branch.
+- **Preservation contract:** Preserve all application source, runtime behavior,
+  event ownership, storage, analytics, localization, accessibility,
+  responsive output, screenshot baselines, public ports, and GitHub Pages
+  deployment. Per-action assertions continue requiring every former global
+  alias to be absent, and the frozen empty source contract continues rejecting
+  new global action names.
+- **Risks:** A permissive test fallback could hide an accidentally restored
+  namespace, or changing the CI port could alter sandbox coverage. The
+  top-level browser assertion explicitly requires `EdeniaActions` to be absent,
+  every alias remains expected `false`, and sandbox stays fixed at its existing
+  `8001` origin.
+- **Verification:** No local browser, local-server, visual-regression,
+  build/contract, diff-integrity, or static-review check is run in accordance
+  with the repository `AGENTS.md` instruction. PR CI will run governance,
+  build, all contracts, browser flows, and unchanged visual baselines after
+  this commit is pushed.
+- **Rollback:** Revert this commit to restore the obsolete bridge assumption
+  and port `8000` normal-mode CI. No application, state, storage, analytics,
+  localization, responsive, or visual rollback is required.
+- **Association:** `codex/migration-05-javascript-modularization`;
+  [PR #1](https://github.com/BriceChivu/Edenia/pull/1); release pending.

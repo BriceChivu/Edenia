@@ -44,6 +44,8 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Build and test
+        env:
+          EDENIA_TEST_NORMAL_PORT: 4173
         run: npm run test:ci
 
       - name: Upload Playwright diagnostics
