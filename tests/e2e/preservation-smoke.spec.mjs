@@ -2399,10 +2399,315 @@ test('saved-video search-result listener preserves selection, analytics, and Ent
   }))
   expect(bridgeActions).toEqual({
     selected: false,
-    inputKey: true,
-    render: true,
-    close: true,
-    toggle: true
+    inputKey: false,
+    render: false,
+    close: false,
+    toggle: false
+  })
+})
+
+test('saved-video search shell listeners preserve analytics, focus, and responsive geometry', async ({
+  page
+}, testInfo) => {
+  const isDesktop = testInfo.project.name === 'desktop-standard'
+  const isTablet = testInfo.project.name === 'tablet-portrait'
+  const isPhone = testInfo.project.name === 'phone-standard'
+  test.skip(!isDesktop && !isTablet && !isPhone)
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.config.channels = [{
+      id: 'protected-search-shell-channel',
+      name: 'Protected search shell channel'
+    }]
+    state.videos = {
+      'protected-search-shell-alpha': {
+        id: 'protected-search-shell-alpha',
+        title: 'Protected Search Shell Alpha',
+        channelId: 'protected-search-shell-channel',
+        channelTitle: 'Protected search shell channel',
+        duration: 720,
+        publishedAt: '2026-07-27T04:00:00.000Z',
+        status: 'unwatched',
+        thumbnail: 'https://i.ytimg.com/vi/protected-search-shell-alpha/hqdefault.jpg'
+      },
+      'protected-search-shell-beta': {
+        id: 'protected-search-shell-beta',
+        title: 'Protected Search Shell Beta',
+        channelId: 'protected-search-shell-channel',
+        channelTitle: 'Protected search shell channel',
+        duration: 660,
+        publishedAt: '2026-07-26T04:00:00.000Z',
+        status: 'partial',
+        thumbnail: 'https://i.ytimg.com/vi/protected-search-shell-beta/hqdefault.jpg'
+      }
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    localStorage.removeItem('edenia_posthog_state_v2')
+  })
+  await page.reload()
+  await waitForApplication(page)
+  const storedBefore = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  await page.evaluate(() => {
+    document.getElementById('videoSearchInput').value = 'Protected'
+    window.__videoSearchShellAnalyticsEvents = []
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__videoSearchShellAnalyticsEvents.push({
+          eventName,
+          properties
+        })
+      },
+      get_distinct_id() {
+        return 'preservation-video-search-shell'
+      },
+      setPersonProperties() {}
+    }
+  })
+
+  const opener = page.locator(
+    '#videoSearchBtn[data-video-search-action="toggle"]'
+  )
+  const popover = page.locator('#videoSearchPopover')
+  const input = page.locator(
+    '#videoSearchInput[data-video-search-action="query"]'
+  )
+  const results = page.locator(
+    '#videoSearchResults [data-video-search-action="select-result"]'
+  )
+  const mobileHeader = popover.locator('.mobile-popover-header')
+  const closeButton = popover.locator(
+    '[data-video-search-action="close"]'
+  )
+
+  await opener.click()
+  await expect(popover).not.toHaveClass(/\bhidden\b/)
+  await expect(opener).toHaveAttribute('aria-expanded', 'true')
+  await expect(input).toBeFocused()
+  await expect(results).toHaveCount(2)
+
+  const openingEvents = await page.evaluate(
+    () => window.__videoSearchShellAnalyticsEvents
+  )
+  expect(openingEvents.map(entry => entry.eventName)).toEqual([
+    'search_opened',
+    'search_results_shown'
+  ])
+  expect(openingEvents[0]).toMatchObject({
+    eventName: 'search_opened',
+    properties: {
+      current_video_count: 2,
+      search_query: 'Protected',
+      search_source: 'saved_videos'
+    }
+  })
+  expect(openingEvents[1]).toMatchObject({
+    eventName: 'search_results_shown',
+    properties: {
+      query_length: 9,
+      query_token_count: 1,
+      result_count: 2,
+      search_query: 'Protected',
+      search_source: 'saved_videos'
+    }
+  })
+  expect(openingEvents.map(entry => entry.eventName))
+    .not.toContain('header_search_title_clicked')
+
+  if (isPhone) {
+    await expect(popover).toHaveCSS('position', 'fixed')
+    await expect(mobileHeader).toBeVisible()
+    await expect(closeButton).toBeVisible()
+    await expect(input).toHaveCSS('font-size', '16px')
+    const openerBox = await opener.boundingBox()
+    const inputBox = await input.boundingBox()
+    expect(openerBox?.width).toBeGreaterThanOrEqual(44)
+    expect(openerBox?.height).toBeGreaterThanOrEqual(44)
+    expect(inputBox?.height).toBeGreaterThanOrEqual(44)
+  } else {
+    await expect(popover).toHaveCSS('position', 'absolute')
+    await expect(mobileHeader).toBeHidden()
+  }
+
+  await page.evaluate(() => {
+    window.__videoSearchShellAnalyticsEvents.length = 0
+  })
+  await opener.focus()
+  await opener.press('Space')
+  await expect(popover).toHaveClass(/\bhidden\b/)
+  await expect(opener).toHaveAttribute('aria-expanded', 'false')
+  expect(await page.evaluate(
+    () => window.__videoSearchShellAnalyticsEvents
+  )).toEqual([])
+
+  await opener.press('Enter')
+  await expect(popover).not.toHaveClass(/\bhidden\b/)
+  await expect(input).toBeFocused()
+  await expect(results).toHaveCount(2)
+  await page.evaluate(() => {
+    window.__videoSearchShellAnalyticsEvents.length = 0
+  })
+  await input.fill('  PROTECTED  ')
+  await expect(results).toHaveCount(2)
+  expect(await page.evaluate(
+    () => window.__videoSearchShellAnalyticsEvents
+  )).toEqual([])
+
+  await input.fill('')
+  await input.fill('missing')
+  await input.fill(' MISSING ')
+  await expect(page.locator('#videoSearchResults')).toContainText(
+    'No matching videos found.'
+  )
+  const noResultEvents = await page.evaluate(() => (
+    window.__videoSearchShellAnalyticsEvents.filter(
+      entry => entry.eventName === 'search_no_results'
+    )
+  ))
+  expect(noResultEvents).toHaveLength(1)
+  expect(noResultEvents[0]).toMatchObject({
+    eventName: 'search_no_results',
+    properties: {
+      query_length: 7,
+      query_token_count: 1,
+      result_count: 0,
+      search_query: 'missing',
+      search_source: 'saved_videos'
+    }
+  })
+
+  await page.evaluate(() => {
+    window.__videoSearchNoResultEnter = null
+    document.addEventListener('keydown', event => {
+      if (event.target.id !== 'videoSearchInput' || event.key !== 'Enter') {
+        return
+      }
+      window.__videoSearchNoResultEnter = {
+        defaultPrevented: event.defaultPrevented,
+        hidden: document.getElementById('videoSearchPopover')
+          .classList.contains('hidden')
+      }
+    }, { once: true })
+  })
+  await input.press('Enter')
+  await expect.poll(() => page.evaluate(
+    () => window.__videoSearchNoResultEnter
+  )).toEqual({
+    defaultPrevented: false,
+    hidden: false
+  })
+
+  await page.evaluate(() => {
+    window.__videoSearchInputEscape = null
+    document.addEventListener('keydown', event => {
+      if (event.target.id !== 'videoSearchInput' || event.key !== 'Escape') {
+        return
+      }
+      window.__videoSearchInputEscape = {
+        defaultPrevented: event.defaultPrevented,
+        hidden: document.getElementById('videoSearchPopover')
+          .classList.contains('hidden')
+      }
+    }, { once: true })
+  })
+  await input.press('Escape')
+  await expect.poll(() => page.evaluate(
+    () => window.__videoSearchInputEscape
+  )).toEqual({
+    defaultPrevented: true,
+    hidden: true
+  })
+  await expect(input).toHaveValue(' MISSING ')
+  if (isPhone) await expect(opener).toBeFocused()
+  else await expect(opener).not.toBeFocused()
+
+  if (isPhone) {
+    await page.evaluate(() => {
+      window.__videoSearchShellAnalyticsEvents.length = 0
+    })
+    await opener.press('Enter')
+    await expect(input).toBeFocused()
+    await page.evaluate(() => {
+      window.__videoSearchShellAnalyticsEvents.length = 0
+    })
+    await closeButton.focus()
+    await closeButton.press('Enter')
+    await expect(popover).toHaveClass(/\bhidden\b/)
+    await expect(opener).toBeFocused()
+    expect(await page.evaluate(() => (
+      window.__videoSearchShellAnalyticsEvents
+    ))).toEqual([
+      expect.objectContaining({
+        eventName: 'settings_close_clicked',
+        properties: expect.objectContaining({
+          action: 'settings.close',
+          button_name: 'Close settings',
+          control_type: 'button'
+        })
+      })
+    ])
+  }
+
+  await opener.focus()
+  await opener.press('Enter')
+  await expect(input).toBeFocused()
+  await opener.focus()
+  await page.evaluate(() => {
+    window.__videoSearchDocumentEscape = null
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return
+      window.__videoSearchDocumentEscape = {
+        defaultPrevented: event.defaultPrevented,
+        hidden: document.getElementById('videoSearchPopover')
+          .classList.contains('hidden')
+      }
+    }, { once: true })
+  })
+  await opener.press('Escape')
+  await expect.poll(() => page.evaluate(
+    () => window.__videoSearchDocumentEscape
+  )).toEqual({
+    defaultPrevented: false,
+    hidden: true
+  })
+
+  await opener.press('Enter')
+  await expect(input).toBeFocused()
+  await page.locator(
+    '.feed-section .section-title[data-i18n="videos.title"]'
+  ).click()
+  await expect(popover).toHaveClass(/\bhidden\b/)
+  await expect(opener).toHaveAttribute('aria-expanded', 'false')
+
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+  const removedBridgeActions = await page.evaluate(() => ({
+    close: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'closeVideoSearchPopover'
+    ),
+    inputKey: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'handleVideoSearchInputKey'
+    ),
+    render: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'renderVideoSearchResults'
+    ),
+    toggle: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'toggleVideoSearchPopover'
+    )
+  }))
+  expect(removedBridgeActions).toEqual({
+    close: false,
+    inputKey: false,
+    render: false,
+    toggle: false
   })
 })
 

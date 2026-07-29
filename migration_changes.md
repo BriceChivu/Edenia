@@ -3092,3 +3092,57 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore implicit ID/handler identity
   derivation; no analytics, state, storage, or visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-092 — Migrate saved-video search shell actions
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Static event ownership, compatibility bridge reduction, and tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move the saved-video search opener, mobile close control, query
+  input, and query keyboard lifecycle from inline global handlers to one scoped
+  event boundary without changing search behavior.
+- **Conceptual change:** Added explicit toggle, close, and query ownership hooks
+  to the three static controls. A direct-listener module now forwards the
+  original opener and keydown events, the query input's live value, and the
+  close control's literal focus-restoration request. Removed the click, input,
+  and keydown attributes plus the four now-unused names from the temporary
+  global bridge. The existing delegated generated-result module remains
+  unchanged, and all rendering, selection, focus, analytics, and navigation
+  implementations remain lexical functions in the composition entry point.
+- **Preservation contract:** Opener propagation stopping without default
+  cancellation; exact close order across filters, Add, History popovers,
+  Undo/Redo, the search shell, and heatmap; synchronous retained-query
+  rendering; zero-delay input focus; toggle-close behavior; outside-click and
+  document-Escape dismissal; input Escape prevention and bubbling; first-result
+  Enter activation; no-result Enter behavior; raw trimmed query collection;
+  normalized result/no-result deduplication; stale and hidden-result failure
+  paths; transient forced-result rendering; result analytics and document
+  bubble ordering; explicit `header.search.title` and `settings.close`
+  identities; storage and Activity Log silence; exact ARIA, copy, styling, and
+  all current responsive behavior remain unchanged.
+- **Responsive contract:** Desktop and wider coarse-pointer tablet geometry
+  remains absolute and right-aligned with no focus restoration. At the existing
+  `≤640px` boundary only, the popover remains a fixed safe-area-aware sheet,
+  the mobile header remains visible, the query remains 16 px/44 px high, and
+  close or Escape restores focus asynchronously. No breakpoint or capability
+  logic changes in this phase.
+- **Risks:** A delegated input listener would change `currentTarget`; binding
+  the replaced result nodes in the shell module could conflict with their
+  existing delegated owner; moving event cancellation into the wrapper could
+  alter key and click bubbling; changing close order or timer placement could
+  alter focus; deriving analytics from the removed handlers could rename the
+  localization-owned identities; combining this extraction with search,
+  responsive, or focus redesign would expand regression risk.
+- **Verification:** `npm test` passed 312 contract tests and the production
+  build. The focused desktop, coarse-tablet, and phone search flows passed after
+  correcting test-only expectations for the existing localized close label and
+  the feed's two section headings. The complete six-viewport Playwright matrix
+  passed with 66 tests and 174 intentional skips; all 18 protected screenshots
+  remained unchanged. Migration-ledger and diff-integrity checks passed.
+- **Rollback:** Revert this commit to restore the four inline handlers and four
+  global bridge aliases; no state, storage, analytics, or responsive migration
+  is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

@@ -185,6 +185,9 @@ import {
 import {
   bindVideoSearchResultActions
 } from './features/videos/search-result-actions.js'
+import {
+  bindVideoSearchShellActions
+} from './features/videos/search-shell-actions.js'
 import { bindUndoRedoActions } from './features/videos/undo-redo-actions.js'
 import { bindWatchedSectionActions } from './features/videos/watched-section-actions.js'
 import { bindStudyInsightActions } from './features/study-insights/actions.js'
@@ -13976,6 +13979,12 @@ bindStudyHistoryPeriodOptionActions(document, {
 bindVideoSearchResultActions(document, {
   selectResult: jumpToVideoFromSearch
 })
+bindVideoSearchShellActions(document, {
+  toggle: toggleVideoSearchPopover,
+  close: closeVideoSearchPopover,
+  renderResults: renderVideoSearchResults,
+  handleInputKey: handleVideoSearchInputKey
+})
 bindUndoRedoActions(document, {
   toggle: toggleHistoryActionPopover,
   apply: applyHistoryAction,
@@ -13992,7 +14001,6 @@ installLegacyActions(window, {
   clearVideoPausedState,
   closeManualVideoPopover,
   closeStatusFilterMenu,
-  closeVideoSearchPopover,
   closeVideoShelfPreviewAfterFocus,
   confirmVideoSetAsidePrompt,
   confirmVideoWatchPrompt,
@@ -14008,7 +14016,6 @@ installLegacyActions(window, {
   handleChannelFilterOptionClick,
   handleChannelFilterSelectAllClick,
   handleManualChannelSuggestionKeydown,
-  handleVideoSearchInputKey,
   handleVideoSetAsidePromptKeydown,
   handleVideoThumbnailClick,
   leaveChannelShelfDrag,
@@ -14022,7 +14029,6 @@ installLegacyActions(window, {
   removeChannel,
   removeChannelFromFilter,
   renderManualChannelSuggestions,
-  renderVideoSearchResults,
   requestVideoSetAside,
   retryOnboardingRecovery,
   scrollVideoChannelShelf,
@@ -14046,7 +14052,6 @@ installLegacyActions(window, {
   toggleOnboardingLocaleMenu,
   toggleStatusFilterMenu,
   toggleVideoFavorite,
-  toggleVideoSearchPopover,
   toggleVideoShelfPreviewOnTouch
 })
 

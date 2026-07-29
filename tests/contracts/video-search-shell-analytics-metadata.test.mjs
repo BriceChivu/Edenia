@@ -31,7 +31,7 @@ function normalizeClickEventName(action) {
     .slice(0, 80)
 }
 
-test('saved-video search opener locks its stopped analytics identity', () => {
+test('saved-video search opener retains its stopped analytics identity', () => {
   const control = findSingleButton(
     tag => getAttribute(tag, 'id') === 'videoSearchBtn',
     '#videoSearchBtn'
@@ -41,19 +41,15 @@ test('saved-video search opener locks its stopped analytics identity', () => {
     'header.search.title'
   )
   assert.equal(
-    getAttribute(control, 'onclick'),
-    'toggleVideoSearchPopover(event)'
-  )
-  assert.equal(
     normalizeClickEventName(getAttribute(control, 'data-analytics-action')),
     'header_search_title'
   )
 })
 
-test('saved-video search close control locks its generic click identity', () => {
+test('saved-video search close control retains its generic click identity', () => {
   const control = findSingleButton(
     tag => (
-      getAttribute(tag, 'onclick') === 'closeVideoSearchPopover(true)'
+      getAttribute(tag, 'data-video-search-action') === 'close'
     ),
     'saved-video search close control'
   )

@@ -6,7 +6,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'clearVideoPausedState',
   'closeManualVideoPopover',
   'closeStatusFilterMenu',
-  'closeVideoSearchPopover',
   'closeVideoShelfPreviewAfterFocus',
   'confirmVideoSetAsidePrompt',
   'confirmVideoWatchPrompt',
@@ -22,7 +21,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'handleChannelFilterOptionClick',
   'handleChannelFilterSelectAllClick',
   'handleManualChannelSuggestionKeydown',
-  'handleVideoSearchInputKey',
   'handleVideoSetAsidePromptKeydown',
   'handleVideoThumbnailClick',
   'leaveChannelShelfDrag',
@@ -36,7 +34,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'removeChannel',
   'removeChannelFromFilter',
   'renderManualChannelSuggestions',
-  'renderVideoSearchResults',
   'requestVideoSetAside',
   'retryOnboardingRecovery',
   'scrollVideoChannelShelf',
@@ -60,7 +57,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'toggleOnboardingLocaleMenu',
   'toggleStatusFilterMenu',
   'toggleVideoFavorite',
-  'toggleVideoSearchPopover',
   'toggleVideoShelfPreviewOnTouch'
 ])
 
