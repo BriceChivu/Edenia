@@ -11,7 +11,7 @@ function getAttribute(tag, name) {
   return tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1] ?? null
 }
 
-test('city waveform bar locks its identity before listener migration', () => {
+test('city waveform bar retains its identity without inline handlers', () => {
   assert.equal(controls.length, 1)
   const [control] = controls
   assert.equal(getAttribute(control, 'type'), 'button')
@@ -23,16 +23,10 @@ test('city waveform bar locks its identity before listener migration', () => {
   assert.equal(getAttribute(control, 'data-index'), '${index}')
   assert.equal(getAttribute(control, 'data-offset'), '${day.offset}')
   assert.equal(getAttribute(control, 'aria-label'), '${escHtml(ariaLabel)}')
-  assert.equal(getAttribute(control, 'onclick'), 'selectCityWaveBar(this)')
-  assert.equal(
-    getAttribute(control, 'onmouseenter'),
-    'previewCityWaveBar(this)'
-  )
-  assert.equal(
-    getAttribute(control, 'onmousemove'),
-    'previewCityWaveBar(this)'
-  )
-  assert.equal(getAttribute(control, 'onfocus'), 'previewCityWaveBar(this)')
+  assert.equal(getAttribute(control, 'onclick'), null)
+  assert.equal(getAttribute(control, 'onmouseenter'), null)
+  assert.equal(getAttribute(control, 'onmousemove'), null)
+  assert.equal(getAttribute(control, 'onfocus'), null)
 })
 
 test('city waveform selection retains its exact generic event name', () => {

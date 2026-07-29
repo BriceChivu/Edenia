@@ -2630,3 +2630,40 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Rollback:** Revert this commit to restore the three inline waveform
   attributes and two bridge entries; no state or storage migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-080 — Migrate generated city waveform bar actions
+
+- **Date:** 2026-07-28
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Generated event ownership, compatibility bridge reduction, and tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move the generated city timeline bars from inline global actions
+  into direct listeners while preserving their target-level event order.
+- **Conceptual change:** Added a per-render binder for every generated waveform
+  bar, attached direct `click`, `mouseenter`, `mousemove`, and `focus`
+  listeners after each track rebuild, removed the four inline attributes, and
+  removed `selectCityWaveBar` and `previewCityWaveBar` from the temporary legacy
+  bridge while retaining both lexical functions for touch and scroll paths.
+- **Preservation contract:** Live bar identity and datasets, mouse/focus preview,
+  neighboring height boosts, tooltip positioning, runtime-only selection,
+  native Enter/Space activation, focus loss after replacement, detached-target
+  generic analytics, selection-before-analytics ordering, the existing second
+  outside-click rerender, repeated rebinding, exact event names/properties,
+  storage and Activity Log immutability, phone pointer hit-testing, custom touch
+  drag/click suppression, desktop edge scrolling, styling, accessibility, and
+  responsive behavior remain unchanged.
+- **Risks:** Delegation would change non-bubbling mouse/focus behavior and
+  detached-target ordering; failing to bind after every `innerHTML` replacement
+  would leave later bars inert; moving analytics ahead of selection would
+  change cleanup and event state; pointer or keyboard substitutions could
+  duplicate touch or native button activation.
+- **Verification:** `npm test` passed 260 contract tests and the production
+  build. The focused desktop/phone waveform-bar flow passed. The complete
+  six-viewport Playwright matrix passed with 49 tests and 137 intentional
+  skips; all 18 protected screenshots remained unchanged. Migration-ledger and
+  diff-integrity checks passed.
+- **Rollback:** Revert this commit to restore generated inline handlers and the
+  two bridge entries; no stored state migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

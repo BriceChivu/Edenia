@@ -3009,6 +3009,196 @@ test('city waveform mouse listeners preserve edge scrolling, clearing, and phone
   })
 })
 
+test('city waveform bar listeners preserve preview, selection, analytics, and replacement ordering', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-standard'].includes(
+    testInfo.project.name
+  ))
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.anki = {
+      '2026-04-01': { reviewed: 60, created: 0 },
+      '2026-07-28': { reviewed: 60, created: 0 }
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    localStorage.removeItem('edenia_posthog_state_v2')
+  })
+  await page.reload()
+  await waitForApplication(page)
+  await installCityAnalyticsProbe(page)
+
+  const waveform = page.locator('#cityTimeWaveform')
+  const track = page.locator('#cityWaveTrack')
+  const bars = track.locator('[data-city-wave-action="select"]')
+  const storedBefore = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  const activityBefore = await page.evaluate(
+    () => JSON.parse(localStorage.getItem('edenia_v1')).activityLog
+  )
+
+  await expect(bars.first()).not.toHaveAttribute('onclick')
+  await expect(bars.first()).not.toHaveAttribute('onmouseenter')
+  await expect(bars.first()).not.toHaveAttribute('onmousemove')
+  await expect(bars.first()).not.toHaveAttribute('onfocus')
+  await expect(bars.first()).toHaveAttribute(
+    'data-analytics-action',
+    'selectCityWaveBar'
+  )
+
+  const todayScore = Number(await page.locator('#cityScore').textContent())
+  const firstBar = bars.first()
+  const firstLabel = await firstBar.getAttribute('data-label')
+  await firstBar.dispatchEvent('mouseenter')
+  const previewScore = Number(await page.locator('#cityScore').textContent())
+  expect(previewScore).toBeLessThan(todayScore)
+  await expect(firstBar).toHaveCSS('--hover-boost', '16px')
+  await expect(page.locator('#cityWaveTooltip')).toHaveText(firstLabel)
+  await firstBar.dispatchEvent('mousemove')
+  await firstBar.focus()
+  expect(await page.evaluate(() => window.__cityAnalyticsEvents)).toEqual([])
+
+  const firstNodeStillConnected = await firstBar.evaluate(element => {
+    window.__cityWavePreviewBar = element
+    return element.isConnected
+  })
+  expect(firstNodeStillConnected).toBe(true)
+  await waveform.dispatchEvent('mouseleave')
+  await expect.poll(() => page.evaluate(
+    () => window.__cityWavePreviewBar?.isConnected
+  )).toBe(false)
+  await expect(page.locator('#cityScore')).toHaveText(String(todayScore))
+
+  if (testInfo.project.name === 'desktop-standard') {
+    const selectionLabel = await track.locator(
+      '[data-city-wave-action="select"][data-offset="-1"]'
+    ).getAttribute('aria-label')
+    await page.evaluate(() => {
+      window.__cityWaveMutationCount = 0
+      window.__cityWaveSelectionAtDocument = null
+      const trackElement = document.getElementById('cityWaveTrack')
+      const observer = new MutationObserver(records => {
+        window.__cityWaveMutationCount += records.filter(
+          record => record.type === 'childList'
+        ).length
+      })
+      observer.observe(trackElement, { childList: true })
+      window.__cityWaveMutationObserver = observer
+      document.addEventListener('click', event => {
+        if (!event.target.matches?.('[data-city-wave-action="select"]')) return
+        window.__cityWaveSelectionAtDocument = {
+          targetConnected: event.target.isConnected,
+          selectedOffset: document.querySelector(
+            '#cityWaveTrack .city-wave-bar.selected'
+          )?.dataset.offset,
+          touchPreview: document.getElementById('cityTimeWaveform')
+            .classList.contains('has-touch-preview'),
+          eventNames: window.__cityAnalyticsEvents.map(
+            entry => entry.eventName
+          ),
+          buttonName: window.__cityAnalyticsEvents[0]
+            ?.properties?.button_name
+        }
+      }, { once: true })
+    })
+    await page.evaluate(() => {
+      document.querySelector(
+        '[data-city-wave-action="select"][data-offset="-1"]'
+      ).click()
+    })
+
+    await expect.poll(() => page.evaluate(
+      () => window.__cityWaveSelectionAtDocument
+    )).toEqual({
+      targetConnected: false,
+      selectedOffset: '-1',
+      touchPreview: false,
+      eventNames: ['select_city_wave_bar_clicked'],
+      buttonName: selectionLabel
+    })
+    await expect.poll(() => page.evaluate(
+      () => window.__cityWaveMutationCount
+    )).toBe(2)
+    await page.evaluate(() => {
+      window.__cityWaveMutationObserver.disconnect()
+    })
+
+    await page.evaluate(() => {
+      window.__cityAnalyticsEvents.length = 0
+    })
+    const enterBar = track.locator(
+      '[data-city-wave-action="select"][data-offset="-2"]'
+    )
+    await enterBar.focus()
+    expect(await page.evaluate(() => window.__cityAnalyticsEvents)).toEqual([])
+    await enterBar.press('Enter')
+    await expect.poll(() => page.evaluate(
+      () => window.__cityAnalyticsEvents.map(entry => entry.eventName)
+    )).toEqual(['select_city_wave_bar_clicked'])
+    await expect(track.locator(
+      '[data-city-wave-action="select"][data-offset="-2"]'
+    )).not.toBeFocused()
+
+    const spaceBar = track.locator(
+      '[data-city-wave-action="select"][data-offset="-3"]'
+    )
+    await spaceBar.focus()
+    await spaceBar.press('Space')
+    await expect.poll(() => page.evaluate(
+      () => window.__cityAnalyticsEvents.map(entry => entry.eventName)
+    )).toEqual([
+      'select_city_wave_bar_clicked',
+      'select_city_wave_bar_clicked'
+    ])
+  } else {
+    const phoneBar = track.locator(
+      '[data-city-wave-action="select"][data-offset="-1"]'
+    )
+    await expect(phoneBar).toHaveCSS('pointer-events', 'none')
+    await phoneBar.focus()
+    expect(await page.evaluate(() => window.__cityAnalyticsEvents)).toEqual([])
+    await phoneBar.press('Enter')
+    await expect.poll(() => page.evaluate(
+      () => window.__cityAnalyticsEvents.map(entry => entry.eventName)
+    )).toEqual(['select_city_wave_bar_clicked'])
+
+    const replacementBar = track.locator(
+      '[data-city-wave-action="select"][data-offset="-2"]'
+    )
+    await replacementBar.focus()
+    await replacementBar.press('Space')
+    await expect.poll(() => page.evaluate(
+      () => window.__cityAnalyticsEvents.map(entry => entry.eventName)
+    )).toEqual([
+      'select_city_wave_bar_clicked',
+      'select_city_wave_bar_clicked'
+    ])
+  }
+
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+  expect(await page.evaluate(
+    () => JSON.parse(localStorage.getItem('edenia_v1')).activityLog
+  )).toEqual(activityBefore)
+  const removedBridgeActions = await page.evaluate(() => ({
+    selectCityWaveBar: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'selectCityWaveBar'
+    ),
+    previewCityWaveBar: Object.prototype.hasOwnProperty.call(
+      window.EdeniaActions,
+      'previewCityWaveBar'
+    )
+  }))
+  expect(removedBridgeActions).toEqual({
+    selectCityWaveBar: false,
+    previewCityWaveBar: false
+  })
+})
+
 test('city zoom listeners preserve fixed steps, limits, reset, keyboard, and ordering', async ({
   page
 }, testInfo) => {

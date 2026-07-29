@@ -166,6 +166,9 @@ import {
 } from './features/city/model.js'
 import { bindCityLevelUpActions } from './features/city/level-up-actions.js'
 import {
+  bindCityWaveformBarActions
+} from './features/city/waveform-bar-actions.js'
+import {
   bindCityWaveformMouseActions
 } from './features/city/waveform-mouse-actions.js'
 import { bindCityZoomActions } from './features/city/zoom-actions.js'
@@ -10369,14 +10372,14 @@ function renderCityTimeControls(snapshot) {
         data-offset="${day.offset}"
         data-label="${escHtml(label)}"
         style="--bar-height:${height}px; --hover-boost:0px"
-        aria-label="${escHtml(ariaLabel)}"
-        onclick="selectCityWaveBar(this)"
-        onmouseenter="previewCityWaveBar(this)"
-        onmousemove="previewCityWaveBar(this)"
-        onfocus="previewCityWaveBar(this)"></button>
+        aria-label="${escHtml(ariaLabel)}"></button>
     `
   }).join('')
 
+  bindCityWaveformBarActions(track, {
+    select: selectCityWaveBar,
+    preview: previewCityWaveBar
+  })
   updateCityWaveformScrollState()
   const selectedBar = track.querySelector('.city-wave-bar.selected')
   if (selectedBar) {
@@ -13964,7 +13967,6 @@ installLegacyActions(window, {
   openVideoShelfPreview,
   openVideoShelfPreviewFromFocus,
   positionHeatmapTooltip,
-  previewCityWaveBar,
   queueVideoShelfPreviewClose,
   removeChannel,
   removeChannelFromFilter,
@@ -13976,7 +13978,6 @@ installLegacyActions(window, {
   retryOnboardingRecovery,
   scrollVideoChannelShelf,
   searchYoutubeChannels,
-  selectCityWaveBar,
   selectIntroCityLevel,
   selectManualChannelSuggestion,
   selectOnboardingLanguage,
