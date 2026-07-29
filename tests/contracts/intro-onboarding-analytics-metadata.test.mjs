@@ -113,7 +113,8 @@ const staticControls = [
     tag: () => findButtonByClass('intro-skip'),
     className: 'intro-skip',
     id: null,
-    handler: 'finishIntroTrailer()',
+    handler: null,
+    introFinishAction: 'finish',
     analyticsAction: 'intro.skip',
     eventName: 'intro_skip_clicked',
     dataI18n: 'intro.skip',
@@ -153,7 +154,8 @@ const staticControls = [
     tag: () => findButtonById('introStartBtn'),
     className: 'btn-primary intro-start',
     id: 'introStartBtn',
-    handler: 'finishIntroTrailer()',
+    handler: null,
+    introFinishAction: 'finish',
     analyticsAction: 'intro.finale.cta',
     eventName: 'intro_finale_cta_clicked',
     dataI18n: 'intro.finale.cta',
@@ -213,6 +215,11 @@ test('static intro and onboarding controls retain exact metadata and ownership h
     assert.equal(
       getAttribute(tag, 'data-analytics-action'),
       expected.analyticsAction,
+      expected.label
+    )
+    assert.equal(
+      getAttribute(tag, 'data-intro-finish-action'),
+      expected.introFinishAction ?? null,
       expected.label
     )
     assert.equal(
@@ -409,7 +416,6 @@ test('locale menus retain trigger, radiogroup, and generated radio semantics', (
 test('current propagation determines which generic click identities are emitted', () => {
   const bubblingHandlers = [
     'toggleIntroSound',
-    'finishIntroTrailer',
     'navigateIntroTrailer',
     'selectIntroCityLevel'
   ]
@@ -516,7 +522,6 @@ test('remaining metadata-locked controls retain their temporary global aliases',
   const expectedAliases = [
     'changeIntroLocale',
     'changeOnboardingLocale',
-    'finishIntroTrailer',
     'navigateIntroTrailer',
     'selectIntroCityLevel',
     'toggleIntroLocaleMenu',

@@ -8,7 +8,6 @@ export const LEGACY_ACTION_NAMES = Object.freeze([
   'copyOnboardingRecoveryLink',
   'dropChannelShelf',
   'finishChannelShelfDrag',
-  'finishIntroTrailer',
   'finishPersonalizedOnboarding',
   'handleChannelFilterOptionClick',
   'handleChannelFilterSelectAllClick',

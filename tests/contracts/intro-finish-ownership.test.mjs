@@ -5,8 +5,8 @@ import {
   LEGACY_ACTION_NAMES
 } from '../../src/compat/legacy-actions.js'
 import {
-  bindIntroSoundActions
-} from '../../src/features/onboarding/intro-sound-actions.js'
+  bindIntroFinishActions
+} from '../../src/features/onboarding/intro-finish-actions.js'
 
 const indexSource = await readFile(
   new URL('../../index.html', import.meta.url),
@@ -22,7 +22,7 @@ const analyticsSource = await readFile(
 )
 const moduleSource = await readFile(
   new URL(
-    '../../src/features/onboarding/intro-sound-actions.js',
+    '../../src/features/onboarding/intro-finish-actions.js',
     import.meta.url
   ),
   'utf8'
@@ -34,10 +34,6 @@ function getAttribute(tag, name) {
   )?.[2] ?? null
 }
 
-function hasAttribute(tag, name) {
-  return new RegExp(`\\s${name}(?:\\s|=|>)`).test(tag)
-}
-
 function getElements(source, tagName) {
   return [...source.matchAll(
     new RegExp(`(<${tagName}\\b[^>]*>)([\\s\\S]*?)<\\/${tagName}>`, 'g')
@@ -47,11 +43,9 @@ function getElements(source, tagName) {
   }))
 }
 
-function findSoundControl(id) {
-  const controls = getElements(indexSource, 'button').filter(element => (
-    getAttribute(element.tag, 'id') === id
-  ))
-  assert.equal(controls.length, 1, `Expected one #${id}`)
+function findFinishControl(predicate, description) {
+  const controls = getElements(indexSource, 'button').filter(predicate)
+  assert.equal(controls.length, 1, `Expected one ${description}`)
   return controls[0]
 }
 
@@ -77,32 +71,47 @@ function createDirectControl() {
   }
 }
 
-test('both sound controls retain exact markup under direct module ownership', () => {
+test('Skip and Start retain exact markup under direct finish ownership', () => {
   const expectedControls = [
     {
-      className: 'intro-sound',
-      eventName: 'intro_sound_btn_clicked',
-      id: 'introSoundBtn'
+      analyticsAction: 'intro.skip',
+      className: 'intro-skip',
+      content: 'Skip intro',
+      eventName: 'intro_skip_clicked',
+      id: null,
+      translationKey: 'intro.skip'
     },
     {
-      className: 'intro-sound onboarding-sound',
-      eventName: 'onboarding_sound_btn_clicked',
-      id: 'onboardingSoundBtn'
+      analyticsAction: 'intro.finale.cta',
+      className: 'btn-primary intro-start',
+      content: 'Start my journey',
+      eventName: 'intro_finale_cta_clicked',
+      id: 'introStartBtn',
+      translationKey: 'intro.finale.cta'
     }
   ]
 
   for (const expected of expectedControls) {
-    const control = findSoundControl(expected.id)
+    const control = findFinishControl(
+      element => (
+        getAttribute(element.tag, 'class') === expected.className
+      ),
+      expected.className
+    )
     assert.equal(getAttribute(control.tag, 'class'), expected.className)
     assert.equal(getAttribute(control.tag, 'id'), expected.id)
     assert.equal(getAttribute(control.tag, 'type'), 'button')
     assert.equal(
-      hasAttribute(control.tag, 'data-intro-sound-toggle'),
-      true
+      getAttribute(control.tag, 'data-intro-finish-action'),
+      'finish'
+    )
+    assert.equal(
+      getAttribute(control.tag, 'data-i18n'),
+      expected.translationKey
     )
     assert.equal(
       getAttribute(control.tag, 'data-analytics-action'),
-      expected.id
+      expected.analyticsAction
     )
     assert.equal(
       normalizeClickEventName(
@@ -111,25 +120,11 @@ test('both sound controls retain exact markup under direct module ownership', ()
       expected.eventName
     )
     assert.equal(getAttribute(control.tag, 'onclick'), null)
-    assert.equal(getAttribute(control.tag, 'aria-pressed'), 'false')
-    assert.equal(getAttribute(control.tag, 'aria-label'), null)
-    assert.equal(getAttribute(control.tag, 'title'), null)
-
-    assert.match(
-      control.content,
-      /<span class="intro-sound-icon" aria-hidden="true">/
-    )
-    assert.match(
-      control.content,
-      /<svg viewBox="0 0 24 24" focusable="false">/
-    )
-    assert.match(control.content, /class="intro-sound-speaker"/)
-    assert.match(control.content, /class="intro-sound-wave"/)
-    assert.match(control.content, /class="intro-sound-cross"/)
+    assert.equal(control.content.trim(), expected.content)
   }
 })
 
-test('sound actions bind each target directly, once, with zero arguments', () => {
+test('finish actions bind each target directly, once, with zero arguments', () => {
   const controls = [createDirectControl(), createDirectControl()]
   const queriedSelectors = []
   const calls = []
@@ -141,25 +136,25 @@ test('sound actions bind each target directly, once, with zero arguments', () =>
   }
 
   assert.equal(
-    bindIntroSoundActions(root, {
-      toggle(...args) {
+    bindIntroFinishActions(root, {
+      finish(...args) {
         calls.push(args)
-        return 'ignored-toggle-result'
+        return 'ignored-finish-result'
       }
     }),
     2
   )
   assert.equal(
-    bindIntroSoundActions(root, {
-      toggle() {
+    bindIntroFinishActions(root, {
+      finish() {
         assert.fail('A repeated binding must not replace the first callback')
       }
     }),
     0
   )
   assert.deepEqual(queriedSelectors, [
-    '[data-intro-sound-toggle]',
-    '[data-intro-sound-toggle]'
+    '[data-intro-finish-action]',
+    '[data-intro-finish-action]'
   ])
 
   let preventDefaultCalls = 0
@@ -184,31 +179,49 @@ test('sound actions bind each target directly, once, with zero arguments', () =>
   assert.equal(stopPropagationCalls, 0)
 })
 
-test('app composes sound ownership before installing remaining legacy actions', () => {
+test('app composes finish ownership before installing remaining legacy actions', () => {
   assert.match(
     appSource,
-    /import\s*\{\s*bindIntroSoundActions\s*\}\s*from '\.\/features\/onboarding\/intro-sound-actions\.js'/
+    /import\s*\{\s*bindIntroFinishActions\s*\}\s*from '\.\/features\/onboarding\/intro-finish-actions\.js'/
   )
   assert.match(
     appSource,
-    /bindIntroSoundActions\(document,\s*\{\s*toggle:\s*toggleIntroSound\s*\}\)/
+    /bindIntroFinishActions\(document,\s*\{\s*finish:\s*finishIntroTrailer\s*\}\)/
   )
 
-  const bindingIndex = appSource.indexOf('bindIntroSoundActions(document, {')
+  const bindingIndex = appSource.indexOf('bindIntroFinishActions(document, {')
   const installIndex = appSource.indexOf('installLegacyActions(window, {')
   assert.notEqual(bindingIndex, -1)
   assert.notEqual(installIndex, -1)
   assert.ok(bindingIndex < installIndex)
 
-  assert.match(appSource, /async function toggleIntroSound\(\) \{/)
+  assert.match(appSource, /function finishIntroTrailer\(\) \{/)
   assert.doesNotMatch(
     moduleSource,
     /\.preventDefault\(|\.stopPropagation\(/
   )
 })
 
-test('sound ownership leaves the six not-yet-migrated intro aliases intact', () => {
-  assert.equal(LEGACY_ACTION_NAMES.includes('toggleIntroSound'), false)
+test('Escape retains its lexical finish call after closing an open locale menu', () => {
+  const handlerStart = appSource.indexOf(
+    'function handleIntroTrailerKeydown(event) {'
+  )
+  const handlerEnd = appSource.indexOf(
+    '\nfunction toggleIntroLocaleMenu(',
+    handlerStart
+  )
+  assert.notEqual(handlerStart, -1)
+  assert.notEqual(handlerEnd, -1)
+  const handlerSource = appSource.slice(handlerStart, handlerEnd)
+
+  assert.match(
+    handlerSource,
+    /else if \(event\.key === 'Escape'\) \{\s*event\.preventDefault\(\)\s*const localeMenu = document\.getElementById\('introLocaleMenu'\)\s*if \(localeMenu && !localeMenu\.classList\.contains\('hidden'\)\) \{\s*closeIntroLocaleMenu\(\)\s*return\s*\}\s*finishIntroTrailer\(\)/
+  )
+})
+
+test('finish ownership leaves the other six intro aliases and handlers intact', () => {
+  assert.equal(LEGACY_ACTION_NAMES.includes('finishIntroTrailer'), false)
 
   const installMap = appSource.match(
     /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
@@ -216,11 +229,11 @@ test('sound ownership leaves the six not-yet-migrated intro aliases intact', () 
   assert.ok(installMap)
   assert.doesNotMatch(
     installMap,
-    /(?:^|[\s,])toggleIntroSound(?:[\s,]|$)/
+    /(?:^|[\s,])finishIntroTrailer(?:[\s,]|$)/
   )
   assert.doesNotMatch(
     indexSource,
-    /\bonclick=(["'])[^"']*\btoggleIntroSound\s*\([\s\S]*?\1/
+    /\bonclick=(["'])[^"']*\bfinishIntroTrailer\s*\([\s\S]*?\1/
   )
 
   const retainedAliases = [
@@ -268,30 +281,41 @@ test('sound ownership leaves the six not-yet-migrated intro aliases intact', () 
   )
 })
 
-test('generic sound analytics keep identity while reading the post-toggle label', () => {
-  assert.match(
-    appSource,
-    /document\.querySelectorAll\('\[data-intro-sound-toggle\]'\)\.forEach\(button => \{[\s\S]*?button\.setAttribute\('aria-pressed', String\(introTrailerState\.soundEnabled\)\)[\s\S]*?button\.setAttribute\('aria-label', labelText\)[\s\S]*?button\.title = labelText[\s\S]*?\}\)/
+test('CTA and Return generic identities remain dynamic after finish callback', () => {
+  const trailerStart = appSource.indexOf('function startIntroTrailer(')
+  const trailerEnd = appSource.indexOf(
+    '\nfunction setIntroTrailerScene(',
+    trailerStart
   )
+  assert.notEqual(trailerStart, -1)
+  assert.notEqual(trailerEnd, -1)
+  const trailerSource = appSource.slice(trailerStart, trailerEnd)
+
   assert.match(
-    analyticsSource,
-    /const visibleLabel = String\(\s*control\.dataset\.analyticsLabel\s*\|\| control\.getAttribute\('aria-label'\)\s*\|\| control\.getAttribute\('title'\)/
+    trailerSource,
+    /const labelKey = replay \? 'intro\.finale\.return' : 'intro\.finale\.cta'/
   )
+  assert.match(trailerSource, /startButton\.dataset\.i18n = labelKey/)
+  assert.match(
+    trailerSource,
+    /startButton\.dataset\.analyticsAction = labelKey/
+  )
+  assert.match(trailerSource, /startButton\.textContent = t\(labelKey\)/)
   assert.match(
     analyticsSource,
     /const action = control\.dataset\.analyticsAction\s*\|\| control\.dataset\.i18n/
   )
   assert.match(
     analyticsSource,
-    /document\.addEventListener\('click', event => \{[\s\S]*?capture\(`\$\{eventName\}_clicked`, \{[\s\S]*?button_name: visibleLabel \|\| action/
+    /document\.addEventListener\('click', event => \{[\s\S]*?capture\(`\$\{eventName\}_clicked`, \{/
   )
 
   assert.equal(
-    normalizeClickEventName('introSoundBtn'),
-    'intro_sound_btn_clicked'
+    normalizeClickEventName('intro.finale.cta'),
+    'intro_finale_cta_clicked'
   )
   assert.equal(
-    normalizeClickEventName('onboardingSoundBtn'),
-    'onboarding_sound_btn_clicked'
+    normalizeClickEventName('intro.finale.return'),
+    'intro_finale_return_clicked'
   )
 })

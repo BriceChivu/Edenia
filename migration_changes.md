@@ -3839,3 +3839,45 @@ release mappings, and follow-up findings are recorded as new entries.
   single shared bridge alias; no audio, state, storage, analytics, or visual
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-109 — Migrate intro finish control ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral static event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace the shared Skip and Start/Return inline handlers with one
+  explicit intro-finish adapter while retaining the existing first-run, replay,
+  recovery, and Escape behavior.
+- **Conceptual change:** Added an intro finish action adapter with direct
+  listeners for both `[data-intro-finish-action="finish"]` controls. Each
+  invokes the existing `finishIntroTrailer` callback with zero arguments and
+  ignores its return value. Removed the matching global bridge alias while
+  retaining the local function for the Escape-key path.
+- **Preservation contract:** Preserve Skip copy and identity, dynamic
+  Start-versus-Return localization and analytics identity, first-run state
+  normalization and persistence, replay restoration, onboarding transition,
+  recovery fallbacks, music continuation/fade, inert/hidden state, and Escape
+  behavior. Preserve uncancelled bubbling after the target-owned callback,
+  every ID/class/ARIA attribute, and all responsive trailer/onboarding visuals.
+- **Risks:** Migrating only one control would leave shared ownership split;
+  cancelling the event would suppress current generic analytics; moving the
+  callback or its Escape consumer could alter recovery or replay behavior;
+  fixing the dynamic identity would merge intentionally distinct events.
+- **Verification:** The first `npm test` run identified the previous sound
+  migration's retained-neighbor list still classifying `finishIntroTrailer` as
+  bridge-owned; that stale sequential expectation was removed while the new
+  finish-specific contracts retained its local function and Escape call. The
+  final `npm test` passed: the production build completed and all 418 contract
+  tests passed, including both exact controls, zero-argument return-neutral
+  invocation, uncancelled bubbling, dynamic CTA/Return metadata, first-run and
+  replay callback structure, composition order, bridge removal, and the six
+  remaining intro-shell aliases. Browser, local-server, visual-regression,
+  migration-ledger, diff-integrity, and static-review checks were not run in
+  accordance with the repository `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the two inline finish handlers and
+  their single shared bridge alias; no state, storage, analytics, copy, or
+  visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

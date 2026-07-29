@@ -146,6 +146,9 @@ import {
 import { createStateStore } from './state/store.js'
 import { createStateBackupStore } from './state/backups.js'
 import {
+  bindIntroFinishActions
+} from './features/onboarding/intro-finish-actions.js'
+import {
   bindIntroSoundActions
 } from './features/onboarding/intro-sound-actions.js'
 import {
@@ -14068,6 +14071,9 @@ bindManualVideoShellActions(document, {
   renderSuggestions: renderManualChannelSuggestions,
   handleInputKey: handleManualChannelSuggestionKeydown
 })
+bindIntroFinishActions(document, {
+  finish: finishIntroTrailer
+})
 bindIntroSoundActions(document, {
   toggle: toggleIntroSound
 })
@@ -14100,7 +14106,6 @@ installLegacyActions(window, {
   copyOnboardingRecoveryLink,
   dropChannelShelf,
   finishChannelShelfDrag,
-  finishIntroTrailer,
   finishPersonalizedOnboarding,
   handleChannelFilterOptionClick,
   handleChannelFilterSelectAllClick,
