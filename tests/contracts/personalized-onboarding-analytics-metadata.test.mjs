@@ -80,7 +80,8 @@ const expectedVariants = {
       dataName: 'data-language-id',
       dataValue: '${escHtml(option.id)}',
       disabled: null,
-      handler: 'selectOnboardingLanguage(this.dataset.languageId)',
+      handler: null,
+      ownershipAction: 'select-language',
       pressed: '${option.id === selectedLanguageId}'
     },
     {
@@ -88,7 +89,8 @@ const expectedVariants = {
       className: 'btn-primary',
       content: ["${escHtml(t('onboarding.continue'))}"],
       disabledExpression: "${selectedLanguageId ? '' : 'disabled'}",
-      handler: 'continuePersonalizedOnboardingFromLanguage()',
+      handler: null,
+      ownershipAction: 'continue-language',
       pressed: null
     }
   ],
@@ -176,7 +178,7 @@ const expectedVariants = {
   ]
 }
 
-test('all personalized-onboarding variants retain exact order and inline arguments', () => {
+test('all personalized-onboarding variants retain exact order and ownership arguments', () => {
   for (const [step, expectedControls] of Object.entries(expectedVariants)) {
     const controls = getElements(renderSources[step], 'button')
     assert.equal(controls.length, expectedControls.length, step)
@@ -194,7 +196,17 @@ test('all personalized-onboarding variants retain exact order and inline argumen
         expected.handler,
         step
       )
-      assert.equal(expected.handler.startsWith('return '), false, step)
+      if (expected.handler !== null) {
+        assert.equal(expected.handler.startsWith('return '), false, step)
+      }
+      assert.equal(
+        getAttribute(
+          control.tag,
+          'data-personalized-onboarding-action'
+        ),
+        expected.ownershipAction ?? null,
+        step
+      )
       assert.equal(
         getAttribute(control.tag, 'data-analytics-action'),
         expected.action,
@@ -230,7 +242,7 @@ test('all personalized-onboarding variants retain exact order and inline argumen
   }
 })
 
-test('explicit metadata preserves every current handler fallback identity', () => {
+test('explicit metadata preserves identities across inline and module ownership', () => {
   const expectedEvents = {
     selectOnboardingLanguage: 'select_onboarding_language_clicked',
     continuePersonalizedOnboardingFromLanguage:
@@ -248,10 +260,14 @@ test('explicit metadata preserves every current handler fallback identity', () =
     expectedControls.forEach((expected, index) => {
       const control = controls[index]
       const inlineHandler = getAttribute(control.tag, 'onclick')
-      const fallbackName = inlineHandler.match(
-        /^([a-zA-Z_$][\w$]*)\(/
-      )?.[1]
-      assert.equal(fallbackName, expected.action, step)
+      if (inlineHandler !== null) {
+        const fallbackName = inlineHandler.match(
+          /^([a-zA-Z_$][\w$]*)\(/
+        )?.[1]
+        assert.equal(fallbackName, expected.action, step)
+      } else {
+        assert.ok(expected.ownershipAction, step)
+      }
       assert.equal(
         normalizeClickEventName(expected.action),
         expectedEvents[expected.action],
@@ -427,10 +443,8 @@ test('finish retains persistence, recovery, completion analytics, and redirect',
   )
 })
 
-test('all six callbacks retain temporary bridge aliases', () => {
+test('the four remaining callbacks retain temporary bridge aliases', () => {
   const expectedAliases = [
-    'selectOnboardingLanguage',
-    'continuePersonalizedOnboardingFromLanguage',
     'selectOnboardingLevel',
     'setPersonalizedOnboardingStep',
     'toggleOnboardingChannel',

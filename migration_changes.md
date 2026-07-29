@@ -4174,3 +4174,44 @@ release mappings, and follow-up findings are recorded as new entries.
   onboarding state, channel, storage, analytics implementation, or visual
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-117 — Migrate personalized onboarding language ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral generated event-listener extraction with staged compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move only language selection and Language Continue to
+  replacement-safe component ownership before touching later onboarding steps.
+- **Conceptual change:** Added the initial personalized-onboarding action
+  adapter with exact `select-language` and `continue-language` hooks. Language
+  choices forward their live language ID only; Continue invokes its callback
+  with zero arguments. The central renderer binds after whichever step replaces
+  the onboarding content. Removed only the two matching global bridge aliases;
+  level, step-navigation, channel, and Build handlers remain inline.
+- **Preservation contract:** Preserve all eight language choices and order,
+  icons/labels, radiogroup ARIA, selected state, disabled Continue gate,
+  validation, Other/English level-clearing rules, channel-selection reset,
+  locale menu regeneration, Other-versus-Level branching, progress and
+  step-viewed/advanced analytics, synchronous replacement, localization,
+  responsive presentation, and generic click capture from the original enabled
+  target after state events.
+- **Risks:** Binding only once would break after selection; stale language IDs
+  could select the wrong option; merging Continue into step controls could
+  change its live-state branch; removing later aliases early would break
+  untouched steps.
+- **Verification:** `npm test` passed: the production build completed and all
+  506 contract tests passed, including live language-ID and zero-argument
+  Continue routing, uncancelled synchronous listeners, idempotent replacement
+  binding from the central renderer, exact language order/markup/state
+  transitions, Other/Level branching and analytics ordering, removal of only
+  two aliases, and retention of the four later inline families. Browser,
+  local-server, visual-regression, migration-ledger, diff-integrity, and
+  static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore language-choice and Language
+  Continue inline handlers plus their two bridge aliases; no onboarding state,
+  analytics, storage, or visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

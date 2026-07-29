@@ -167,6 +167,9 @@ import {
   bindOnboardingRecoveryActions
 } from './features/onboarding/onboarding-recovery-actions.js'
 import {
+  bindPersonalizedOnboardingActions
+} from './features/onboarding/personalized-onboarding-actions.js'
+import {
   LEARNER_LANGUAGE_OPTIONS,
   LEARNER_LEVEL_OPTIONS,
   ONBOARDING_CHANNEL_STYLE_KEYS
@@ -2465,6 +2468,10 @@ function renderPersonalizedOnboarding() {
   } else {
     renderOnboardingOtherStep(content)
   }
+  bindPersonalizedOnboardingActions(content, {
+    selectLanguage: selectOnboardingLanguage,
+    continueFromLanguage: continuePersonalizedOnboardingFromLanguage
+  })
 }
 
 function renderOnboardingHeading(titleKey, subtitleKey = '') {
@@ -2483,14 +2490,14 @@ function renderOnboardingLanguageStep(content) {
     ${renderOnboardingHeading('onboarding.language.title', 'onboarding.language.subtitle')}
     <div class="onboarding-choice-grid onboarding-language-grid" role="radiogroup" aria-label="${escHtml(t('onboarding.language.title'))}">
       ${LEARNER_LANGUAGE_OPTIONS.map(option => `
-        <button type="button" class="onboarding-choice" data-language-id="${escHtml(option.id)}" data-analytics-action="selectOnboardingLanguage" aria-pressed="${option.id === selectedLanguageId}" onclick="selectOnboardingLanguage(this.dataset.languageId)">
+        <button type="button" class="onboarding-choice" data-language-id="${escHtml(option.id)}" data-personalized-onboarding-action="select-language" data-analytics-action="selectOnboardingLanguage" aria-pressed="${option.id === selectedLanguageId}">
           <span class="onboarding-choice-icon" aria-hidden="true">${escHtml(option.icon)}</span>
           <span class="onboarding-choice-label">${escHtml(t(`onboarding.language.${option.id}`))}</span>
         </button>
       `).join('')}
     </div>
     <div class="onboarding-actions onboarding-actions-end">
-      <button type="button" class="btn-primary" data-analytics-action="continuePersonalizedOnboardingFromLanguage" onclick="continuePersonalizedOnboardingFromLanguage()" ${selectedLanguageId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
+      <button type="button" class="btn-primary" data-personalized-onboarding-action="continue-language" data-analytics-action="continuePersonalizedOnboardingFromLanguage" ${selectedLanguageId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
     </div>
   `
   renderLocaleSelect()
@@ -14137,7 +14144,6 @@ installLegacyActions(window, {
   addYoutubeInput,
   clearVideoPausedState,
   closeVideoShelfPreviewAfterFocus,
-  continuePersonalizedOnboardingFromLanguage,
   dropChannelShelf,
   finishChannelShelfDrag,
   finishPersonalizedOnboarding,
@@ -14154,7 +14160,6 @@ installLegacyActions(window, {
   scrollVideoChannelShelf,
   searchYoutubeChannels,
   selectManualChannelSuggestion,
-  selectOnboardingLanguage,
   selectOnboardingLevel,
   selectYoutubeChannelSearchResult,
   setAllChannelFilters,
