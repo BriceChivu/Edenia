@@ -2483,14 +2483,14 @@ function renderOnboardingLanguageStep(content) {
     ${renderOnboardingHeading('onboarding.language.title', 'onboarding.language.subtitle')}
     <div class="onboarding-choice-grid onboarding-language-grid" role="radiogroup" aria-label="${escHtml(t('onboarding.language.title'))}">
       ${LEARNER_LANGUAGE_OPTIONS.map(option => `
-        <button type="button" class="onboarding-choice" data-language-id="${escHtml(option.id)}" aria-pressed="${option.id === selectedLanguageId}" onclick="selectOnboardingLanguage(this.dataset.languageId)">
+        <button type="button" class="onboarding-choice" data-language-id="${escHtml(option.id)}" data-analytics-action="selectOnboardingLanguage" aria-pressed="${option.id === selectedLanguageId}" onclick="selectOnboardingLanguage(this.dataset.languageId)">
           <span class="onboarding-choice-icon" aria-hidden="true">${escHtml(option.icon)}</span>
           <span class="onboarding-choice-label">${escHtml(t(`onboarding.language.${option.id}`))}</span>
         </button>
       `).join('')}
     </div>
     <div class="onboarding-actions onboarding-actions-end">
-      <button type="button" class="btn-primary" onclick="continuePersonalizedOnboardingFromLanguage()" ${selectedLanguageId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
+      <button type="button" class="btn-primary" data-analytics-action="continuePersonalizedOnboardingFromLanguage" onclick="continuePersonalizedOnboardingFromLanguage()" ${selectedLanguageId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
     </div>
   `
   renderLocaleSelect()
@@ -2501,8 +2501,8 @@ function renderOnboardingOtherStep(content) {
     ${renderOnboardingHeading('onboarding.other.title', 'onboarding.other.subtitle')}
     <div class="onboarding-empty">${escHtml(t('onboarding.other.note'))}</div>
     <div class="onboarding-actions">
-      <button type="button" class="btn-ghost" onclick="setPersonalizedOnboardingStep('language')" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
-      <button type="button" class="btn-primary" onclick="finishPersonalizedOnboarding()" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}</button>
+      <button type="button" class="btn-ghost" data-analytics-action="setPersonalizedOnboardingStep" onclick="setPersonalizedOnboardingStep('language')" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
+      <button type="button" class="btn-primary" data-analytics-action="finishPersonalizedOnboarding" onclick="finishPersonalizedOnboarding()" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}</button>
     </div>
   `
 }
@@ -2514,15 +2514,15 @@ function renderOnboardingLevelStep(content) {
     ${renderOnboardingHeading('onboarding.level.title')}
     <div class="onboarding-level-grid" role="radiogroup" aria-label="${escHtml(t('onboarding.level.title'))}">
       ${levelOptions.map(option => `
-        <button type="button" class="onboarding-choice onboarding-level-choice" data-level-id="${escHtml(option.id)}" aria-pressed="${option.id === selectedLevelId}" onclick="selectOnboardingLevel(this.dataset.levelId)">
+        <button type="button" class="onboarding-choice onboarding-level-choice" data-level-id="${escHtml(option.id)}" data-analytics-action="selectOnboardingLevel" aria-pressed="${option.id === selectedLevelId}" onclick="selectOnboardingLevel(this.dataset.levelId)">
           <span class="onboarding-choice-label">${escHtml(t(`onboarding.level.${option.id}.label`))}</span>
           <span class="onboarding-choice-detail">${escHtml(t(`onboarding.level.${option.id}.detail`))}</span>
         </button>
       `).join('')}
     </div>
     <div class="onboarding-actions">
-      <button type="button" class="btn-ghost" onclick="setPersonalizedOnboardingStep('language')">${escHtml(t('onboarding.back'))}</button>
-      <button type="button" class="btn-primary" onclick="setPersonalizedOnboardingStep('channels')" ${selectedLevelId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
+      <button type="button" class="btn-ghost" data-analytics-action="setPersonalizedOnboardingStep" onclick="setPersonalizedOnboardingStep('language')">${escHtml(t('onboarding.back'))}</button>
+      <button type="button" class="btn-primary" data-analytics-action="setPersonalizedOnboardingStep" onclick="setPersonalizedOnboardingStep('channels')" ${selectedLevelId ? '' : 'disabled'}>${escHtml(t('onboarding.continue'))}</button>
     </div>
   `
 }
@@ -2543,7 +2543,7 @@ function renderOnboardingChannelsStep(content) {
           ? `<img src="${escHtml(avatarUrl)}" alt="" loading="eager">`
           : escHtml(avatarFallback)
         return `
-          <button type="button" class="onboarding-channel" data-catalog-id="${escHtml(channel.id)}" aria-pressed="${selected}" onclick="toggleOnboardingChannel(this.dataset.catalogId)">
+          <button type="button" class="onboarding-channel" data-catalog-id="${escHtml(channel.id)}" data-analytics-action="toggleOnboardingChannel" aria-pressed="${selected}" onclick="toggleOnboardingChannel(this.dataset.catalogId)">
             <span class="onboarding-channel-avatar" aria-hidden="true">${avatar}</span>
             <span class="onboarding-channel-copy">
               <span class="onboarding-channel-name">${escHtml(channel.name)}</span>
@@ -2558,8 +2558,8 @@ function renderOnboardingChannelsStep(content) {
     ${renderOnboardingHeading('onboarding.channels.title', 'onboarding.channels.subtitle')}
     <div class="onboarding-channel-list${recommendations.length >= 4 ? ' onboarding-channel-list-grid' : ''}">${channelMarkup}</div>
     <div class="onboarding-actions">
-      <button type="button" class="btn-ghost" onclick="setPersonalizedOnboardingStep('level')" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
-      <button type="button" class="btn-primary" onclick="finishPersonalizedOnboarding()" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}</button>
+      <button type="button" class="btn-ghost" data-analytics-action="setPersonalizedOnboardingStep" onclick="setPersonalizedOnboardingStep('level')" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
+      <button type="button" class="btn-primary" data-analytics-action="finishPersonalizedOnboarding" onclick="finishPersonalizedOnboarding()" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}</button>
     </div>
   `
 }

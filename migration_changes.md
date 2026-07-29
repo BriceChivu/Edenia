@@ -4131,3 +4131,46 @@ release mappings, and follow-up findings are recorded as new entries.
   bridge aliases; no recovery state, clipboard, storage, analytics, or visual
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-116 — Lock personalized onboarding analytics identities
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Analytics compatibility metadata and contract tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Make every generated personalized-onboarding action identity
+  explicit before migrating its inline handler across replacement-rendered
+  steps.
+- **Conceptual change:** Added handler-matching analytics metadata to language
+  choices, Language Continue, level choices, all Back/Continue step controls,
+  channel choices, and both Build actions. All six handler families, exact
+  arguments, render functions, callbacks, async workflow, and global bridge
+  aliases remain unchanged.
+- **Preservation contract:** Preserve the language/Other branch, step order and
+  progress, locale-picker visibility, step-viewed/advanced/backed analytics,
+  language and level validation, selection reset rules, recommended-channel
+  initialization and order, five-channel limit/toast, applying/disabled states,
+  Build labels, music fade, persistence and recovery gates, YouTube resolution,
+  channel addition/refresh, activity log, completion analytics/navigation,
+  localization, accessibility, and responsive onboarding presentation.
+  Preserve uncancelled bubbling, disabled-control exclusion, and generic click
+  capture from the original enabled node after synchronous step rerenders.
+- **Risks:** A broad ownership change could miss one step replacement; changing
+  disabled timing would rename the observed event set; stale datasets could
+  select the wrong language/level/channel; moving async Build logic could alter
+  persistence, network, recovery, or analytics ordering.
+- **Verification:** `npm test` passed: the production build completed and all
+  494 contract tests passed, including every generated step/control variant and
+  order, exact inline arguments and normalized identities, disabled and
+  original-node bubbling behavior, step/state/selection transitions,
+  directional and viewed analytics ordering, channel-limit guards, async
+  completion/recovery workflow, and all six retained bridge aliases. Browser,
+  local-server, visual-regression, migration-ledger, diff-integrity, and
+  static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore handler-derived identities; no
+  onboarding state, channel, storage, analytics implementation, or visual
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
