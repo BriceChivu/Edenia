@@ -54,12 +54,22 @@ test('Settings locale options retain radio semantics without inline ownership', 
   assert.equal(getAttribute(option, 'onchange'), null)
   assert.match(option, /\$\{locale === currentLocale \? 'checked' : ''\}/)
 
-  assert.match(
-    appSource,
-    /name="introLocale"[^>]*onchange="changeIntroLocale\(this\.value\)"/
+  const introOption = inputTags.find(tag => (
+    getAttribute(tag, 'name') === 'introLocale'
+  ))
+  const onboardingOption = inputTags.find(tag => (
+    getAttribute(tag, 'name') === 'onboardingLocale'
+  ))
+  assert.ok(introOption)
+  assert.ok(onboardingOption)
+  assert.equal(
+    getAttribute(introOption, 'data-intro-locale-action'),
+    'change-intro'
   )
-  assert.match(
-    appSource,
-    /name="onboardingLocale"[^>]*onchange="changeOnboardingLocale\(this\.value\)"/
+  assert.equal(
+    getAttribute(onboardingOption, 'data-intro-locale-action'),
+    'change-onboarding'
   )
+  assert.equal(getAttribute(introOption, 'onchange'), null)
+  assert.equal(getAttribute(onboardingOption, 'onchange'), null)
 })

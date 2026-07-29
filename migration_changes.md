@@ -4002,3 +4002,49 @@ release mappings, and follow-up findings are recorded as new entries.
   their bridge aliases; no locale, state, storage, analytics, focus, or visual
   migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-113 — Migrate generated intro locale-selection ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral generated event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Replace both generated locale-radio inline handlers with
+  replacement-safe module listeners while preserving every current locale,
+  rerender, and focus effect.
+- **Conceptual change:** Added an intro locale-selection adapter with exact
+  `change-intro` and `change-onboarding` hooks. Each generated radio forwards
+  only its live string value to the corresponding existing callback on
+  `change`, without receiving or cancelling the event. `renderLocaleSelect`
+  binds each menu immediately after every `innerHTML` replacement. Removed the
+  two remaining intro-shell bridge aliases.
+- **Preservation contract:** Preserve all five locale options, order, labels,
+  checked state, normalization, storage/save behavior, translation application,
+  document title and intro-specific sound/city refresh, onboarding rerender,
+  menu close behavior, and the existing synchronous replacement of the focused
+  radio. Preserve repeated rebuilding through init, locale changes, Settings,
+  sync import, and backup restore. Preserve inert analytics metadata on inputs
+  and the generic collector's button/link-only scope, so no new generic locale
+  selection events are introduced.
+- **Risks:** One-time binding would break after the next locale or Settings
+  render; stale values could select the wrong locale; forwarding the event or
+  adding focus restoration would change behavior; merging the asymmetric intro
+  and onboarding callbacks could alter ARIA or onboarding state.
+- **Verification:** The first `npm test` run found one new contract regex that
+  omitted the template-literal closing parenthesis plus two older cross-feature
+  contracts still expecting inline/bridge-owned intro locale radios. Those
+  assertions were updated only for the now-migrated ownership boundary. The
+  final `npm test` passed: the production build completed and all 466 contract
+  tests passed, including live value-only routing, replacement-time binding for
+  both menus, every direct rebuild path, synchronous focus-node replacement,
+  callback asymmetry, generic-click exclusion, removal of all eight intro-shell
+  aliases, and unchanged Settings locale ownership. Browser, local-server,
+  visual-regression, migration-ledger, diff-integrity, and static-review checks
+  were not run in accordance with the repository `AGENTS.md` instruction for
+  this task.
+- **Rollback:** Revert this commit to restore both generated inline `change`
+  handlers and bridge aliases; no locale, state, storage, analytics, focus, or
+  visual migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.

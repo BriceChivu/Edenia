@@ -263,7 +263,7 @@ test('keyboard and swipe navigation retain their lexical calls', () => {
   )
 })
 
-test('navigation ownership leaves the two locale-change aliases and handlers intact', () => {
+test('navigation ownership has no remaining locale-change neighbor aliases', () => {
   assert.equal(LEGACY_ACTION_NAMES.includes('navigateIntroTrailer'), false)
 
   const installMap = appSource.match(
@@ -279,28 +279,28 @@ test('navigation ownership leaves the two locale-change aliases and handlers int
     /\bonclick=(["'])[^"']*\bnavigateIntroTrailer\s*\([\s\S]*?\1/
   )
 
-  const retainedAliases = [
+  const migratedNeighborAliases = [
     'changeIntroLocale',
     'changeOnboardingLocale'
   ]
-  for (const alias of retainedAliases) {
+  for (const alias of migratedNeighborAliases) {
     assert.equal(
       LEGACY_ACTION_NAMES.includes(alias),
-      true,
-      `Expected retained ${alias} manifest entry`
+      false,
+      `Expected removed ${alias} manifest entry`
     )
-    assert.match(
+    assert.doesNotMatch(
       installMap,
       new RegExp(`(?:^|[\\s,])${alias}(?:[\\s,]|$)`),
-      `Expected retained ${alias} install entry`
+      `Expected removed ${alias} install entry`
     )
   }
 
-  assert.match(
+  assert.doesNotMatch(
     appSource,
     /name="introLocale"[^>]*onchange="changeIntroLocale\(this\.value\)"/
   )
-  assert.match(
+  assert.doesNotMatch(
     appSource,
     /name="onboardingLocale"[^>]*onchange="changeOnboardingLocale\(this\.value\)"/
   )

@@ -295,12 +295,10 @@ test('outside-click closing remains scoped to each locale picker', () => {
   )
 })
 
-test('toggle aliases are removed while generated locale-change aliases remain', () => {
+test('locale shell aliases are removed after generated selection migration', () => {
   const migratedAliases = [
     'toggleIntroLocaleMenu',
-    'toggleOnboardingLocaleMenu'
-  ]
-  const retainedAliases = [
+    'toggleOnboardingLocaleMenu',
     'changeIntroLocale',
     'changeOnboardingLocale'
   ]
@@ -323,18 +321,11 @@ test('toggle aliases are removed while generated locale-change aliases remain', 
     )
   }
 
-  for (const alias of retainedAliases) {
-    assert.equal(LEGACY_ACTION_NAMES.includes(alias), true)
-    assert.match(
-      installMap,
-      new RegExp(`(?:^|[\\s,])${alias}(?:[\\s,]|$)`)
-    )
-  }
-  assert.match(
+  assert.doesNotMatch(
     appSource,
     /name="introLocale"[^>]*onchange="changeIntroLocale\(this\.value\)"/
   )
-  assert.match(
+  assert.doesNotMatch(
     appSource,
     /name="onboardingLocale"[^>]*onchange="changeOnboardingLocale\(this\.value\)"/
   )

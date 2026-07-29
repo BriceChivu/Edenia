@@ -366,14 +366,14 @@ test('locale menus retain trigger, radiogroup, and generated radio semantics', (
       menuId: 'introLocaleMenu',
       assignment: 'introMenu.innerHTML',
       radioName: 'introLocale',
-      handler: 'changeIntroLocale(this.value)',
+      localeAction: 'change-intro',
       analyticsAction: 'changeIntroLocale'
     },
     {
       menuId: 'onboardingLocaleMenu',
       assignment: 'onboardingMenu.innerHTML',
       radioName: 'onboardingLocale',
-      handler: 'changeOnboardingLocale(this.value)',
+      localeAction: 'change-onboarding',
       analyticsAction: 'changeOnboardingLocale'
     }
   ]
@@ -411,8 +411,12 @@ test('locale menus retain trigger, radiogroup, and generated radio semantics', (
     assert.ok(input, `Expected generated ${expected.radioName} radio`)
     assert.equal(getAttribute(input, 'type'), 'radio')
     assert.equal(getAttribute(input, 'value'), '${escHtml(locale)}')
-    assert.equal(getAttribute(input, 'onchange'), expected.handler)
+    assert.equal(getAttribute(input, 'onchange'), null)
     assert.equal(getAttribute(input, 'onclick'), null)
+    assert.equal(
+      getAttribute(input, 'data-intro-locale-action'),
+      expected.localeAction
+    )
     assert.equal(
       getAttribute(input, 'data-analytics-action'),
       expected.analyticsAction
@@ -524,23 +528,23 @@ test('locale radio changes have no generic click event while trigger clicks are 
   assert.doesNotMatch(onboardingChangeSource, /\.stopPropagation\(/)
 })
 
-test('remaining metadata-locked controls retain their temporary global aliases', () => {
+test('locale-selection controls no longer require temporary global aliases', () => {
   const installStart = appSource.indexOf('installLegacyActions(window, {')
   assert.notEqual(installStart, -1, 'Expected legacy action installation')
   const installSource = appSource.slice(
     installStart,
     appSource.indexOf('\n})', installStart) + 3
   )
-  const expectedAliases = [
+  const migratedAliases = [
     'changeIntroLocale',
     'changeOnboardingLocale'
   ]
 
-  for (const alias of expectedAliases) {
-    assert.match(
+  for (const alias of migratedAliases) {
+    assert.doesNotMatch(
       installSource,
       new RegExp(`\\n  ${alias},?(?:\\n|$)`),
-      `Expected ${alias} compatibility alias`
+      `Expected no ${alias} compatibility alias`
     )
   }
 })

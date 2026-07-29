@@ -155,6 +155,9 @@ import {
   bindIntroLocaleMenuActions
 } from './features/onboarding/intro-locale-menu-actions.js'
 import {
+  bindIntroLocaleSelectionActions
+} from './features/onboarding/intro-locale-selection-actions.js'
+import {
   bindIntroNavigationActions
 } from './features/onboarding/intro-navigation-actions.js'
 import {
@@ -637,10 +640,14 @@ function renderLocaleSelect() {
     introLabel.textContent = getLocaleLabel(currentLocale)
     introMenu.innerHTML = SUPPORTED_LOCALES.map(locale => `
       <label class="settings-locale-option">
-        <input type="radio" name="introLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} data-analytics-action="changeIntroLocale" onchange="changeIntroLocale(this.value)">
+        <input type="radio" name="introLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} data-intro-locale-action="change-intro" data-analytics-action="changeIntroLocale">
         <span>${escHtml(getLocaleLabel(locale))}</span>
       </label>
     `).join('')
+    bindIntroLocaleSelectionActions(introMenu, {
+      changeIntro: changeIntroLocale,
+      changeOnboarding: changeOnboardingLocale
+    })
   }
   const onboardingButton = document.getElementById('onboardingLocaleBtn')
   const onboardingLabel = document.getElementById('onboardingLocaleLabel')
@@ -649,10 +656,14 @@ function renderLocaleSelect() {
     onboardingLabel.textContent = getLocaleLabel(currentLocale)
     onboardingMenu.innerHTML = SUPPORTED_LOCALES.map(locale => `
       <label class="settings-locale-option">
-        <input type="radio" name="onboardingLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} data-analytics-action="changeOnboardingLocale" onchange="changeOnboardingLocale(this.value)">
+        <input type="radio" name="onboardingLocale" value="${escHtml(locale)}" ${locale === currentLocale ? 'checked' : ''} data-intro-locale-action="change-onboarding" data-analytics-action="changeOnboardingLocale">
         <span>${escHtml(getLocaleLabel(locale))}</span>
       </label>
     `).join('')
+    bindIntroLocaleSelectionActions(onboardingMenu, {
+      changeIntro: changeIntroLocale,
+      changeOnboarding: changeOnboardingLocale
+    })
   }
   const btn = document.getElementById('settingsLocaleBtn')
   const label = document.getElementById('settingsLocaleLabel')
@@ -14117,8 +14128,6 @@ bindUndoRedoActions(document, {
 
 installLegacyActions(window, {
   addYoutubeInput,
-  changeIntroLocale,
-  changeOnboardingLocale,
   clearVideoPausedState,
   closeVideoShelfPreviewAfterFocus,
   continuePersonalizedOnboardingFromLanguage,

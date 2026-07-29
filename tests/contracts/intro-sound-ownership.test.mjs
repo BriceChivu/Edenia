@@ -207,7 +207,7 @@ test('app composes sound ownership before installing remaining legacy actions', 
   )
 })
 
-test('sound ownership leaves the two locale-change aliases intact', () => {
+test('sound ownership has no remaining locale-change neighbor aliases', () => {
   assert.equal(LEGACY_ACTION_NAMES.includes('toggleIntroSound'), false)
 
   const installMap = appSource.match(
@@ -223,28 +223,28 @@ test('sound ownership leaves the two locale-change aliases intact', () => {
     /\bonclick=(["'])[^"']*\btoggleIntroSound\s*\([\s\S]*?\1/
   )
 
-  const retainedAliases = [
+  const migratedNeighborAliases = [
     'changeIntroLocale',
     'changeOnboardingLocale'
   ]
-  for (const alias of retainedAliases) {
+  for (const alias of migratedNeighborAliases) {
     assert.equal(
       LEGACY_ACTION_NAMES.includes(alias),
-      true,
-      `Expected retained ${alias} manifest entry`
+      false,
+      `Expected removed ${alias} manifest entry`
     )
-    assert.match(
+    assert.doesNotMatch(
       installMap,
       new RegExp(`(?:^|[\\s,])${alias}(?:[\\s,]|$)`),
-      `Expected retained ${alias} install entry`
+      `Expected removed ${alias} install entry`
     )
   }
 
-  assert.match(
+  assert.doesNotMatch(
     appSource,
     /name="introLocale"[^>]*onchange="changeIntroLocale\(this\.value\)"/
   )
-  assert.match(
+  assert.doesNotMatch(
     appSource,
     /name="onboardingLocale"[^>]*onchange="changeOnboardingLocale\(this\.value\)"/
   )

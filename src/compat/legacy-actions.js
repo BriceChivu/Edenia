@@ -1,7 +1,5 @@
 export const LEGACY_ACTION_NAMES = Object.freeze([
   'addYoutubeInput',
-  'changeIntroLocale',
-  'changeOnboardingLocale',
   'clearVideoPausedState',
   'closeVideoShelfPreviewAfterFocus',
   'continuePersonalizedOnboardingFromLanguage',
