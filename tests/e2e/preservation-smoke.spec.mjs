@@ -4508,3 +4508,377 @@ test('Study History view listeners preserve persistence, keyboard, and ordering'
   ))
   expect(removedBridgeAction).toBe(false)
 })
+
+test('Undo and Redo listeners preserve stacks, analytics, focus, and responsive behavior', async ({
+  page
+}, testInfo) => {
+  const isDesktop = testInfo.project.name === 'desktop-standard'
+  const isPhone = testInfo.project.name === 'phone-standard'
+  test.skip(!isDesktop && !isPhone)
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    const channel = {
+      id: 'protected-undo-channel',
+      name: 'Protected Undo channel'
+    }
+    const beforeVideo = {
+      id: 'protected-undo-video',
+      title: 'Protected favorite lesson',
+      channelId: channel.id,
+      channelTitle: channel.name,
+      duration: 720,
+      publishedAt: '2026-07-27T04:00:00.000Z',
+      status: 'unwatched',
+      favorite: false,
+      thumbnail: 'https://i.ytimg.com/vi/protected-undo-video/hqdefault.jpg'
+    }
+    const afterVideo = {
+      ...beforeVideo,
+      favorite: true
+    }
+    const createAction = (marker, createdAt) => ({
+      type: 'video-favorite',
+      marker,
+      videoId: beforeVideo.id,
+      before: {
+        favorite: false,
+        video: { ...beforeVideo }
+      },
+      after: {
+        favorite: true,
+        video: { ...afterVideo }
+      },
+      createdAt
+    })
+
+    state.config.channels = [channel]
+    state.videos = {
+      [afterVideo.id]: afterVideo
+    }
+    state.undoStack = Array.from({ length: 14 }, (_, index) => (
+      createAction(
+        `older-${index}`,
+        `2026-07-27T${String(index).padStart(2, '0')}:00:00.000Z`
+      )
+    ))
+    state.undoStack.push(
+      createAction('protected-newest', '2026-07-28T03:59:00.000Z')
+    )
+    state.redoStack = []
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    localStorage.removeItem('edenia_v1_backups')
+    localStorage.removeItem('edenia_posthog_state_v2')
+  })
+  await page.reload()
+  await waitForApplication(page)
+  await page.evaluate(() => {
+    window.__undoRedoAnalyticsEvents = []
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__undoRedoAnalyticsEvents.push({ eventName, properties })
+      },
+      get_distinct_id() {
+        return 'preservation-undo-redo'
+      },
+      setPersonProperties() {}
+    }
+  })
+
+  const undoButton = page.locator(
+    '#undoBtn[data-undo-redo-action="toggle"][data-undo-redo-direction="undo"]'
+  )
+  const redoButton = page.locator(
+    '#redoBtn[data-undo-redo-action="toggle"][data-undo-redo-direction="redo"]'
+  )
+  const undoTooltip = page.locator('#undoTooltip')
+  const redoTooltip = page.locator('#redoTooltip')
+  const undoActions = undoTooltip.locator(
+    '[data-undo-redo-action="apply"]'
+  )
+  const redoActions = redoTooltip.locator(
+    '[data-undo-redo-action="apply"]'
+  )
+
+  await expect(undoButton).toBeEnabled()
+  await expect(redoButton).toBeDisabled()
+  if (isPhone) {
+    await undoButton.focus()
+    await undoButton.press('Enter')
+  } else {
+    await undoButton.click()
+  }
+  await expect(undoTooltip).not.toHaveClass(/\bhidden\b/)
+  await expect(undoButton).toHaveAttribute('aria-expanded', 'true')
+  await expect(undoActions).toHaveCount(15)
+  await expect(undoActions.first()).toHaveAttribute(
+    'data-undo-redo-index',
+    '14'
+  )
+  expect(await page.evaluate(
+    () => window.__undoRedoAnalyticsEvents
+  )).toEqual([])
+  if (isPhone) {
+    await expect(undoActions.first()).toBeFocused()
+    expect(await undoTooltip.evaluate(element => ({
+      left: element.style.left,
+      right: element.style.right
+    }))).toEqual({
+      left: '',
+      right: ''
+    })
+  } else {
+    expect(await undoTooltip.evaluate(element => ({
+      left: element.style.left,
+      right: element.style.right
+    }))).toEqual({
+      left: expect.stringMatching(/^-?\d+px$/),
+      right: 'auto'
+    })
+    await undoActions.first().focus()
+  }
+
+  await page.evaluate(() => {
+    window.__undoRedoAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.('[data-undo-redo-action="apply"]')) return
+      const state = JSON.parse(localStorage.getItem('edenia_v1'))
+      window.__undoRedoAtDocumentBubble = {
+        favorite: state.videos['protected-undo-video']?.favorite,
+        undoMarkers: state.undoStack.map(action => action.marker),
+        redoMarkers: state.redoStack.map(action => action.marker),
+        activity: state.activityLog.find(entry => entry.type === 'undo'),
+        eventNames: window.__undoRedoAnalyticsEvents.map(
+          entry => entry.eventName
+        )
+      }
+    }, { once: true })
+  })
+  await undoActions.first().press('Enter')
+  await expect.poll(() => page.evaluate(
+    () => window.__undoRedoAtDocumentBubble
+  )).not.toBeNull()
+  const undoResult = await page.evaluate(
+    () => window.__undoRedoAtDocumentBubble
+  )
+  expect(undoResult).toMatchObject({
+    favorite: false,
+    redoMarkers: ['protected-newest'],
+    activity: {
+      actor: 'user',
+      type: 'undo',
+      status: 'success',
+      title: 'Undo action',
+      meta: { videoId: 'protected-undo-video' }
+    }
+  })
+  expect(undoResult.undoMarkers).toHaveLength(14)
+  expect(undoResult.undoMarkers).not.toContain('protected-newest')
+  expect(undoResult.eventNames.filter(eventName => [
+    'undo_applied',
+    'video_favorite_changed',
+    'apply_history_action_clicked'
+  ].includes(eventName))).toEqual([
+    'undo_applied',
+    'video_favorite_changed',
+    'apply_history_action_clicked'
+  ])
+  await expect(page.locator('#toast')).toHaveClass(/\bshow\b/)
+  await expect(page.locator('#toast')).toContainText(
+    'Removed from favorites: Protected favorite lesson'
+  )
+  await expect(undoButton).toBeEnabled()
+  await expect(redoButton).toBeEnabled()
+
+  await page.evaluate(() => {
+    window.__undoRedoAnalyticsEvents.length = 0
+  })
+  await redoButton.focus()
+  await redoButton.press('Enter')
+  await expect(redoTooltip).not.toHaveClass(/\bhidden\b/)
+  await expect(redoButton).toHaveAttribute('aria-expanded', 'true')
+  await expect(redoActions).toHaveCount(1)
+  await expect(redoActions.first()).toHaveAttribute(
+    'data-undo-redo-index',
+    '0'
+  )
+  expect(await page.evaluate(
+    () => window.__undoRedoAnalyticsEvents
+  )).toEqual([])
+  if (isPhone) await expect(redoActions.first()).toBeFocused()
+  else await redoActions.first().focus()
+
+  await page.evaluate(() => {
+    window.__undoRedoAtDocumentBubble = null
+    document.addEventListener('click', event => {
+      if (!event.target.closest?.('[data-undo-redo-action="apply"]')) return
+      const state = JSON.parse(localStorage.getItem('edenia_v1'))
+      window.__undoRedoAtDocumentBubble = {
+        favorite: state.videos['protected-undo-video']?.favorite,
+        undoMarkers: state.undoStack.map(action => action.marker),
+        redoMarkers: state.redoStack.map(action => action.marker),
+        activity: state.activityLog.find(entry => entry.type === 'redo'),
+        eventNames: window.__undoRedoAnalyticsEvents.map(
+          entry => entry.eventName
+        )
+      }
+    }, { once: true })
+  })
+  await redoActions.first().press('Space')
+  await expect.poll(() => page.evaluate(
+    () => window.__undoRedoAtDocumentBubble
+  )).not.toBeNull()
+  const redoResult = await page.evaluate(
+    () => window.__undoRedoAtDocumentBubble
+  )
+  expect(redoResult).toMatchObject({
+    favorite: true,
+    redoMarkers: [],
+    activity: {
+      actor: 'user',
+      type: 'redo',
+      status: 'success',
+      title: 'Redo action',
+      meta: { videoId: 'protected-undo-video' }
+    }
+  })
+  expect(redoResult.undoMarkers).toHaveLength(15)
+  expect(redoResult.undoMarkers.at(-1)).toBe('protected-newest')
+  expect(redoResult.eventNames.filter(eventName => [
+    'redo_applied',
+    'video_favorite_changed',
+    'apply_history_action_clicked'
+  ].includes(eventName))).toEqual([
+    'redo_applied',
+    'video_favorite_changed',
+    'apply_history_action_clicked'
+  ])
+  await expect(page.locator('#toast')).toContainText(
+    'Added to favorites: Protected favorite lesson'
+  )
+
+  await page.evaluate(() => {
+    window.__undoRedoAnalyticsEvents.length = 0
+  })
+  await undoButton.focus()
+  await undoButton.press('Enter')
+  await expect(undoTooltip).not.toHaveClass(/\bhidden\b/)
+  const undoScroller = undoTooltip.locator(
+    '[data-undo-redo-action="scroll"]'
+  )
+  await expect(undoScroller).toBeVisible()
+
+  if (isPhone) {
+    await expect(undoActions.first()).toBeFocused()
+    const scrollLifecycle = await undoScroller.evaluate(async scroller => {
+      scroller.scrollTop = 0
+      const rect = scroller.getBoundingClientRect()
+      scroller.dispatchEvent(new MouseEvent('mousemove', {
+        bubbles: true,
+        clientY: rect.bottom - 1
+      }))
+      await new Promise(resolve => window.setTimeout(resolve, 100))
+      const moved = scroller.scrollTop
+      scroller.dispatchEvent(new MouseEvent('mouseleave'))
+      await new Promise(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve))
+      })
+      return {
+        afterLeave: scroller.scrollTop,
+        clientHeight: scroller.clientHeight,
+        moved,
+        scrollHeight: scroller.scrollHeight
+      }
+    })
+    expect(scrollLifecycle.scrollHeight).toBeGreaterThan(
+      scrollLifecycle.clientHeight
+    )
+    expect(scrollLifecycle.moved).toBeGreaterThan(0)
+    expect(scrollLifecycle.afterLeave).toBe(scrollLifecycle.moved)
+
+    const closeButton = undoTooltip.locator(
+      '[data-undo-redo-action="close"]'
+    )
+    await closeButton.focus()
+    await closeButton.press('Enter')
+    await expect(undoTooltip).toHaveClass(/\bhidden\b/)
+    await expect(undoButton).toHaveAttribute('aria-expanded', 'false')
+    await expect(undoButton).toBeFocused()
+    expect(await page.evaluate(() => (
+      window.__undoRedoAnalyticsEvents.map(entry => entry.eventName)
+    ))).toContain('close_history_action_popovers_clicked')
+
+    await page.evaluate(() => {
+      window.__undoRedoAnalyticsEvents.length = 0
+    })
+    await undoButton.press('Enter')
+    await expect(undoActions.first()).toBeFocused()
+    await undoActions.first().press('Escape')
+    await expect(undoTooltip).toHaveClass(/\bhidden\b/)
+    await expect(undoButton).toBeFocused()
+    expect(await page.evaluate(
+      () => window.__undoRedoAnalyticsEvents
+    )).toEqual([])
+  } else {
+    const desktopScroll = await undoScroller.evaluate(async scroller => {
+      scroller.scrollTop = 0
+      const rect = scroller.getBoundingClientRect()
+      scroller.dispatchEvent(new MouseEvent('mousemove', {
+        bubbles: true,
+        clientY: rect.bottom - 1
+      }))
+      await new Promise(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve))
+      })
+      scroller.dispatchEvent(new MouseEvent('mouseleave'))
+      return scroller.scrollTop
+    })
+    expect(desktopScroll).toBe(0)
+    await undoButton.press('Escape')
+    await expect(undoTooltip).toHaveClass(/\bhidden\b/)
+  }
+
+  const removedBridgeActions = await page.evaluate(() => {
+    const names = [
+      'applyHistoryAction',
+      'closeHistoryActionPopovers',
+      'handleHistoryActionScrollHover',
+      'stopHistoryActionAutoScroll',
+      'toggleHistoryActionPopover'
+    ]
+    return Object.fromEntries(names.map(name => [
+      name,
+      Object.prototype.hasOwnProperty.call(window.EdeniaActions, name)
+    ]))
+  })
+  expect(removedBridgeActions).toEqual({
+    applyHistoryAction: false,
+    closeHistoryActionPopovers: false,
+    handleHistoryActionScrollHover: false,
+    stopHistoryActionAutoScroll: false,
+    toggleHistoryActionPopover: false
+  })
+
+  await page.reload()
+  await waitForApplication(page)
+  await expect.poll(() => page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    return {
+      favorite: state.videos['protected-undo-video']?.favorite,
+      redoCount: state.redoStack.length,
+      undoCount: state.undoStack.length,
+      undoMarker: state.undoStack.at(-1)?.marker,
+      activityTypes: state.activityLog
+        .filter(entry => entry.type === 'undo' || entry.type === 'redo')
+        .map(entry => entry.type)
+    }
+  })).toEqual({
+    favorite: true,
+    redoCount: 0,
+    undoCount: 15,
+    undoMarker: 'protected-newest',
+    activityTypes: ['redo', 'undo']
+  })
+})

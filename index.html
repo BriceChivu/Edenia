@@ -655,11 +655,11 @@ and momentum—at a glance</h2>
           </div>
           <div class="undo-wrap">
             <span class="undo-action-wrap">
-              <button type="button" class="btn-secondary undo-btn" id="undoBtn" onclick="toggleHistoryActionPopover(event, 'undo')" data-analytics-action="undoBtn" aria-haspopup="true" aria-expanded="false" aria-describedby="undoTooltip" data-i18n="videos.undo" disabled>Undo</button>
+              <button type="button" class="btn-secondary undo-btn" id="undoBtn" data-undo-redo-action="toggle" data-undo-redo-direction="undo" data-analytics-action="undoBtn" aria-haspopup="true" aria-expanded="false" aria-describedby="undoTooltip" data-i18n="videos.undo" disabled>Undo</button>
               <div class="undo-tooltip hidden" id="undoTooltip" role="dialog" aria-label="Undo queue" data-i18n-aria-label="videos.undo.queue" data-i18n="videos.undo.empty">Nothing to undo</div>
             </span>
             <span class="undo-action-wrap">
-              <button type="button" class="btn-secondary undo-btn redo-btn" id="redoBtn" onclick="toggleHistoryActionPopover(event, 'redo')" data-analytics-action="redoBtn" aria-haspopup="true" aria-expanded="false" aria-describedby="redoTooltip" data-i18n="videos.redo" disabled>Redo</button>
+              <button type="button" class="btn-secondary undo-btn redo-btn" id="redoBtn" data-undo-redo-action="toggle" data-undo-redo-direction="redo" data-analytics-action="redoBtn" aria-haspopup="true" aria-expanded="false" aria-describedby="redoTooltip" data-i18n="videos.redo" disabled>Redo</button>
               <div class="undo-tooltip hidden" id="redoTooltip" role="dialog" aria-label="Redo queue" data-i18n-aria-label="videos.redo.queue" data-i18n="videos.redo.empty">Nothing to redo</div>
             </span>
           </div>

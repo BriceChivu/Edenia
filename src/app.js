@@ -185,6 +185,7 @@ import {
 import {
   bindVideoSearchResultActions
 } from './features/videos/search-result-actions.js'
+import { bindUndoRedoActions } from './features/videos/undo-redo-actions.js'
 import { bindWatchedSectionActions } from './features/videos/watched-section-actions.js'
 import { bindStudyInsightActions } from './features/study-insights/actions.js'
 import { bindActivityLogFilterActions } from './features/settings/activity-log-filter-actions.js'
@@ -12908,7 +12909,16 @@ function renderHistoryActionButton({ buttonId, tooltipId, actions, state, label,
     tooltip?.classList.add('hidden')
   }
   btn.setAttribute('aria-expanded', String(Boolean(canUse && wrap?.classList.contains('open'))))
-  if (tooltip) tooltip.innerHTML = renderHistoryActionTooltip(actions, state, emptyTitle, queueTitle, direction)
+  if (tooltip) {
+    tooltip.innerHTML = renderHistoryActionTooltip(actions, state, emptyTitle, queueTitle, direction)
+    bindUndoRedoActions(tooltip, {
+      toggle: toggleHistoryActionPopover,
+      apply: applyHistoryAction,
+      close: closeHistoryActionPopovers,
+      scroll: handleHistoryActionScrollHover,
+      stopScroll: stopHistoryActionAutoScroll
+    })
+  }
 }
 
 function renderHistoryActionTooltip(actions, s, emptyTitle, queueTitle, direction) {
@@ -12922,10 +12932,10 @@ function renderHistoryActionTooltip(actions, s, emptyTitle, queueTitle, directio
   return `
     <div class="mobile-popover-header">
       <strong>${escHtml(queueTitle)}</strong>
-      <button class="mobile-popover-close" type="button" onclick="closeHistoryActionPopovers(null, true)" data-analytics-action="closeHistoryActionPopovers" title="${escHtml(t('settings.close'))}" aria-label="${escHtml(t('settings.close'))}">×</button>
+      <button class="mobile-popover-close" type="button" data-undo-redo-action="close" data-analytics-action="closeHistoryActionPopovers" title="${escHtml(t('settings.close'))}" aria-label="${escHtml(t('settings.close'))}">×</button>
     </div>
     <div class="undo-tooltip-title">${escHtml(queueTitle)}</div>
-    <div class="undo-tooltip-scroll" onmousemove="handleHistoryActionScrollHover(event)" onmouseleave="stopHistoryActionAutoScroll()">
+    <div class="undo-tooltip-scroll" data-undo-redo-action="scroll">
       ${indexedActions.map(entry => renderHistoryActionTooltipItem(entry, s, direction)).join('')}
     </div>
   `
@@ -12937,7 +12947,7 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
     const channelName = action.channelName || action.before?.channel?.name || action.channelId || t('videos.channels.one')
     const actionText = direction === 'redo' ? t('undo.removeChannelAgain') : t('undo.restoreChannel')
     return `
-      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})" data-analytics-action="applyHistoryAction">
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" data-undo-redo-action="apply" data-undo-redo-direction="${direction}" data-undo-redo-index="${index}" data-analytics-action="applyHistoryAction">
         <span class="undo-tooltip-video">${escHtml(channelName)}</span>
         <span class="undo-tooltip-action">${escHtml(actionText)}</span>
         <span class="undo-tooltip-time">${escHtml(formatHistoryActionTimestamp(action))}</span>
@@ -12957,7 +12967,7 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
         ? t('undo.removeAddedVideoAndChannel')
         : t('undo.removeAddedVideo')
     return `
-      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})" data-analytics-action="applyHistoryAction">
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" data-undo-redo-action="apply" data-undo-redo-direction="${direction}" data-undo-redo-index="${index}" data-analytics-action="applyHistoryAction">
         <span class="undo-tooltip-video">${escHtml(title)}</span>
         <span class="undo-tooltip-action">${escHtml(actionText)}</span>
         <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
@@ -12967,7 +12977,7 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
   if (action.type === 'video-grid-remove') {
     const actionText = direction === 'redo' ? t('undo.removeVideoAgain') : t('undo.restoreVideo')
     return `
-      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})" data-analytics-action="applyHistoryAction">
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" data-undo-redo-action="apply" data-undo-redo-direction="${direction}" data-undo-redo-index="${index}" data-analytics-action="applyHistoryAction">
         <span class="undo-tooltip-video">${escHtml(title)}</span>
         <span class="undo-tooltip-action">${escHtml(actionText)}</span>
         <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
@@ -12981,7 +12991,7 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
       : targetSnapshot?.favorite === true
     const actionText = t(isFavorite ? 'undo.addFavorite' : 'undo.removeFavorite')
     return `
-      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})" data-analytics-action="applyHistoryAction">
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" data-undo-redo-action="apply" data-undo-redo-direction="${direction}" data-undo-redo-index="${index}" data-analytics-action="applyHistoryAction">
         <span class="undo-tooltip-video">${escHtml(title)}</span>
         <span class="undo-tooltip-action">${escHtml(actionText)}</span>
         <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
@@ -12999,7 +13009,7 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
       ? t('undo.continueAtChange', { from: fromTime, to: toTime })
       : t('undo.continueAtBack', { from: fromTime, to: toTime })
     return `
-      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})" data-analytics-action="applyHistoryAction">
+      <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" data-undo-redo-action="apply" data-undo-redo-direction="${direction}" data-undo-redo-index="${index}" data-analytics-action="applyHistoryAction">
         <span class="undo-tooltip-video">${escHtml(title)}</span>
         <span class="undo-tooltip-action">${escHtml(actionText)}</span>
         <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
@@ -13021,7 +13031,7 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
     ? t('undo.statusChange', { from: fromStatus, to: toStatus })
     : t('undo.backToStatus', { from: fromStatus, to: toStatus })
   return `
-    <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" onclick="applyHistoryAction('${direction}', ${index})" data-analytics-action="applyHistoryAction">
+    <button type="button" class="undo-tooltip-item undo-tooltip-action-btn" data-undo-redo-action="apply" data-undo-redo-direction="${direction}" data-undo-redo-index="${index}" data-analytics-action="applyHistoryAction">
       <span class="undo-tooltip-video">${escHtml(title)}</span>
       <span class="undo-tooltip-action">${escHtml(actionText)}</span>
       <span class="undo-tooltip-time">${escHtml(timestamp)}</span>
@@ -13966,15 +13976,20 @@ bindStudyHistoryPeriodOptionActions(document, {
 bindVideoSearchResultActions(document, {
   selectResult: jumpToVideoFromSearch
 })
+bindUndoRedoActions(document, {
+  toggle: toggleHistoryActionPopover,
+  apply: applyHistoryAction,
+  close: closeHistoryActionPopovers,
+  scroll: handleHistoryActionScrollHover,
+  stopScroll: stopHistoryActionAutoScroll
+})
 
 installLegacyActions(window, {
   addYoutubeInput,
-  applyHistoryAction,
   cancelVideoSetAsidePrompt,
   changeIntroLocale,
   changeOnboardingLocale,
   clearVideoPausedState,
-  closeHistoryActionPopovers,
   closeManualVideoPopover,
   closeStatusFilterMenu,
   closeVideoSearchPopover,
@@ -13992,7 +14007,6 @@ installLegacyActions(window, {
   focusNextStudyVideoCard,
   handleChannelFilterOptionClick,
   handleChannelFilterSelectAllClick,
-  handleHistoryActionScrollHover,
   handleManualChannelSuggestionKeydown,
   handleVideoSearchInputKey,
   handleVideoSetAsidePromptKeydown,
@@ -14024,9 +14038,7 @@ installLegacyActions(window, {
   setStatusFilter,
   startChannelShelfDrag,
   startTouchChannelShelfDrag,
-  stopHistoryActionAutoScroll,
   syncVideoChannelShelfControls,
-  toggleHistoryActionPopover,
   toggleIntroLocaleMenu,
   toggleIntroSound,
   toggleManualVideoPopover,

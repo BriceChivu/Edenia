@@ -25,18 +25,16 @@ function findSingleButton(tags, predicate, description) {
   return matches[0]
 }
 
-test('static Undo and Redo controls lock analytics identities before listener migration', () => {
+test('static Undo and Redo controls retain locked analytics identities', () => {
   const buttonTags = getButtonTags(indexSource)
   const expectedControls = [
     {
       id: 'undoBtn',
-      analyticsAction: 'undoBtn',
-      inlineHandler: "toggleHistoryActionPopover(event, 'undo')"
+      analyticsAction: 'undoBtn'
     },
     {
       id: 'redoBtn',
-      analyticsAction: 'redoBtn',
-      inlineHandler: "toggleHistoryActionPopover(event, 'redo')"
+      analyticsAction: 'redoBtn'
     }
   ]
 
@@ -50,28 +48,22 @@ test('static Undo and Redo controls lock analytics identities before listener mi
       getAttribute(tag, 'data-analytics-action'),
       expected.analyticsAction
     )
-    assert.equal(getAttribute(tag, 'onclick'), expected.inlineHandler)
   }
 })
 
-test('generated history-action controls lock analytics identities before listener migration', () => {
+test('generated history-action controls retain locked analytics identities', () => {
   const buttonTags = getButtonTags(appSource)
   const closeControl = findSingleButton(
     buttonTags,
     button => (
       getAttribute(button, 'class') === 'mobile-popover-close'
-      && getAttribute(button, 'onclick')
-        === 'closeHistoryActionPopovers(null, true)'
+      && getAttribute(button, 'data-undo-redo-action') === 'close'
     ),
     'generated history-action close control'
   )
   assert.equal(
     getAttribute(closeControl, 'data-analytics-action'),
     'closeHistoryActionPopovers'
-  )
-  assert.equal(
-    getAttribute(closeControl, 'onclick'),
-    'closeHistoryActionPopovers(null, true)'
   )
 
   const actionControls = buttonTags.filter(button => (
@@ -83,10 +75,6 @@ test('generated history-action controls lock analytics identities before listene
     assert.equal(
       getAttribute(control, 'data-analytics-action'),
       'applyHistoryAction'
-    )
-    assert.equal(
-      getAttribute(control, 'onclick'),
-      "applyHistoryAction('${direction}', ${index})"
     )
   }
 })

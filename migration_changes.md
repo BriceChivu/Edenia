@@ -3005,3 +3005,58 @@ release mappings, and follow-up findings are recorded as new entries.
   element IDs and inline handler names; no event, state, or storage migration is
   required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-090 — Migrate Undo and Redo event ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Static and generated event ownership, compatibility bridge
+  reduction, and tests
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move Undo/Redo controls from inline global handlers to a scoped
+  feature listener boundary without moving or changing their business logic.
+- **Conceptual change:** Added explicit action, direction, and original stack
+  index hooks to the two static toggles and each generated queue control. A
+  direct-listener module now forwards the exact native events and arguments,
+  binds static controls at composition, and rebinds replacement tooltip
+  children after every render. Removed the static click, generated click,
+  mousemove, and mouseleave attributes and the five now-unused names from the
+  temporary global action bridge. Rendering and all action implementations
+  remain lexical functions in the composition entry point.
+- **Preservation contract:** Visual newest-first queue ordering continues to
+  carry each action's original stack index. All six persisted action schemas,
+  Redo clearing on new work, newest-50 stack limits, unsupported and unusable
+  snapshot behavior, full video/channel/manual-add snapshots, watched
+  confirmation, resume, coverage, Set Aside, Watch Later, Favorite, and removed
+  channel semantics remain unchanged. Normal, internal-test, sandbox, backup,
+  export/import, cookie, and analytics-state storage contracts remain
+  unchanged. Successful Undo/Redo still performs the same stack transfer,
+  streak and point recalculation, Activity Log append, persistence, rerender,
+  toast, and explicit analytics in the same order; failures still emit no
+  applied event. Static toggles still stop propagation and emit no generic
+  click; generated close/action controls retain their locked generic event
+  names. Native button mouse, Enter, and Space behavior, ARIA state, localized
+  labels, timestamps, titles, disabled states, desktop positioning, outside
+  click and Escape dismissal, phone first-action focus and focus restoration,
+  exact `≤640px` boundary, 44 px auto-scroll edge, speed cap of 8, styling, and
+  all responsive layouts remain unchanged.
+- **Risks:** Delegation would change `currentTarget` and non-bubbling
+  `mouseleave`; string indices would change selection semantics; binding only
+  once would leave rebuilt tooltip controls inert; reversing stored indices
+  with display order would target the wrong action; stopping generated clicks
+  would remove current generic analytics; allowing static toggles to bubble
+  would add analytics; combining this listener extraction with stack or
+  responsive cleanup would make regressions difficult to isolate.
+- **Verification:** `npm test` passed 301 contract tests and the production
+  build. The focused desktop/phone round-trip passed after narrowing one
+  test-only bridge assertion to the actual `window.EdeniaActions` namespace
+  contract; all preceding interaction assertions had passed on that initial
+  run. The complete six-viewport Playwright matrix passed with 63 tests and 171
+  intentional skips; all 18 protected screenshots remained unchanged.
+  Migration-ledger and diff-integrity checks passed.
+- **Rollback:** Revert this commit to restore inline event ownership and the
+  five global bridge aliases; no state, storage, analytics, or responsive
+  migration is required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
