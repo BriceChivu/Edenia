@@ -11,9 +11,10 @@ export function bindManualVideoShellActions(root, actions) {
     || typeof actions.close !== 'function'
     || typeof actions.renderSuggestions !== 'function'
     || typeof actions.handleInputKey !== 'function'
+    || typeof actions.submit !== 'function'
   ) {
     throw new TypeError(
-      'Manual video shell actions require toggle, close, renderSuggestions, and handleInputKey callbacks'
+      'Manual video shell actions require toggle, close, renderSuggestions, handleInputKey, and submit callbacks'
     )
   }
 
@@ -36,6 +37,10 @@ export function bindManualVideoShellActions(root, actions) {
       })
       control.addEventListener('keydown', event => {
         actions.handleInputKey(event)
+      })
+    } else if (actionName === 'submit') {
+      control.addEventListener('submit', event => {
+        actions.submit(event)
       })
     } else {
       return

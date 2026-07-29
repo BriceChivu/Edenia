@@ -19,10 +19,10 @@ const migratedActionNames = [
   'toggleManualVideoPopover',
   'closeManualVideoPopover',
   'renderManualChannelSuggestions',
-  'handleManualChannelSuggestionKeydown'
+  'handleManualChannelSuggestionKeydown',
+  'addYoutubeInput'
 ]
 const retainedInlineActionNames = [
-  'addYoutubeInput',
   'searchYoutubeChannels',
   'selectManualChannelSuggestion',
   'selectYoutubeChannelSearchResult'
@@ -173,13 +173,15 @@ test('manual-video query retains exact semantics with module ownership', () => {
   assert.equal(getAttribute(input, 'data-analytics-action'), null)
 })
 
-test('manual-video form and generated result handlers remain legacy-owned', () => {
+test('manual-video form is module-owned while generated result handlers remain legacy-owned', () => {
   const form = findSingle(
     getOpeningTags(indexSource, 'form'),
     tag => getAttribute(tag, 'class') === 'manual-video-form',
     'manual-video form'
   )
-  assert.equal(getAttribute(form, 'onsubmit'), 'addYoutubeInput(event)')
+  assert.equal(getAttribute(form, 'data-manual-video-action'), 'submit')
+  assert.equal(getAttribute(form, 'data-analytics-action'), 'addYoutubeInput')
+  assert.equal(getAttribute(form, 'onsubmit'), null)
 
   const expectedInlineHandlers = [
     'onclick="searchYoutubeChannels(event)"',
@@ -218,7 +220,8 @@ test('app composition imports and binds manual-video shell actions before the br
     toggle: 'toggleManualVideoPopover',
     close: 'closeManualVideoPopover',
     renderSuggestions: 'renderManualChannelSuggestions',
-    handleInputKey: 'handleManualChannelSuggestionKeydown'
+    handleInputKey: 'handleManualChannelSuggestionKeydown',
+    submit: 'addYoutubeInput'
   })
 
   const bindingIndex = appSource.indexOf(

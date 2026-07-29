@@ -22,7 +22,6 @@ const migratedActionNames = [
   'handleVideoSetAsidePromptKeydown'
 ]
 const retainedNeighborActionNames = [
-  'addYoutubeInput',
   'closeVideoShelfPreviewAfterFocus',
   'handleVideoThumbnailClick'
 ]

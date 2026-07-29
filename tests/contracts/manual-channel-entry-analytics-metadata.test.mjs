@@ -149,7 +149,11 @@ test('static manual-entry shell retains exact metadata boundaries', () => {
   )
   assert.equal(
     getAttribute(form, 'onsubmit'),
-    'addYoutubeInput(event)'
+    null
+  )
+  assert.equal(
+    getAttribute(form, 'data-manual-video-action'),
+    'submit'
   )
   assert.equal(
     getAttribute(form, 'data-analytics-action'),
@@ -364,8 +368,10 @@ test('explicit actions preserve fallback identities without changing collection'
   )
   assert.equal(
     getAttribute(form, 'data-analytics-action'),
-    getInlineHandlerName(getAttribute(form, 'onsubmit'))
+    'addYoutubeInput'
   )
+  assert.equal(getAttribute(form, 'data-manual-video-action'), 'submit')
+  assert.equal(getAttribute(form, 'onsubmit'), null)
 
   assert.match(
     analyticsSource,
@@ -607,9 +613,8 @@ test('YouTube search retains shared result and cooldown function state', () => {
   )
 })
 
-test('manual-entry inline handlers remain available through the bridge', () => {
+test('only generated manual-entry handlers remain available through the bridge', () => {
   const expectedActions = [
-    'addYoutubeInput',
     'searchYoutubeChannels',
     'selectManualChannelSuggestion',
     'selectYoutubeChannelSearchResult'
@@ -618,6 +623,9 @@ test('manual-entry inline handlers remain available through the bridge', () => {
     /installLegacyActions\(window,\s*\{([\s\S]*?)\}\)/
   )?.[1]
   assert.ok(installMap)
+
+  assert.equal(LEGACY_ACTION_NAMES.includes('addYoutubeInput'), false)
+  assert.doesNotMatch(installMap, /\baddYoutubeInput\s*,/)
 
   for (const actionName of expectedActions) {
     assert.equal(LEGACY_ACTION_NAMES.includes(actionName), true)

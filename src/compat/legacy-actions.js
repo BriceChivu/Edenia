@@ -1,5 +1,4 @@
 export const LEGACY_ACTION_NAMES = Object.freeze([
-  'addYoutubeInput',
   'clearVideoPausedState',
   'closeVideoShelfPreviewAfterFocus',
   'dropChannelShelf',

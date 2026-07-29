@@ -14139,7 +14139,8 @@ bindManualVideoShellActions(document, {
   toggle: toggleManualVideoPopover,
   close: closeManualVideoPopover,
   renderSuggestions: renderManualChannelSuggestions,
-  handleInputKey: handleManualChannelSuggestionKeydown
+  handleInputKey: handleManualChannelSuggestionKeydown,
+  submit: addYoutubeInput
 })
 bindIntroCityLevelActions(document, {
   selectLevel: selectIntroCityLevel
@@ -14177,7 +14178,6 @@ bindUndoRedoActions(document, {
 })
 
 installLegacyActions(window, {
-  addYoutubeInput,
   clearVideoPausedState,
   closeVideoShelfPreviewAfterFocus,
   dropChannelShelf,

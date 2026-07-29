@@ -4623,3 +4623,37 @@ release mappings, and follow-up findings are recorded as new entries.
   and remove the inert form identity; no search, catalog, state, storage,
   analytics, API, or visual migration is required.
 - **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
+
+---
+
+## MIG-128 — Migrate manual-entry submit ownership
+
+- **Date:** 2026-07-29
+- **Phase:** 5 — JavaScript modularization
+- **Type:** Behavior-neutral static event-listener extraction and compatibility cleanup
+- **Status:** Complete locally; remote PR and release pending
+- **Intent:** Move the static manual channel/video form submission out of its
+  inline handler without combining it with dynamically replaced search results.
+- **Conceptual change:** Extended the existing manual-video shell adapter with
+  one `submit` action, marked the form with that ownership action, passed the
+  original `addYoutubeInput` callback at composition, removed the inline
+  `onsubmit`, and removed only its global bridge alias. Existing contracts were
+  updated instead of adding a separate large test file.
+- **Preservation contract:** Preserve the original native submit event,
+  synchronous default prevention, ignored async return, Enter-key submission,
+  exact video/channel/catalog/invalid-input routing, absent submit button and
+  nullable `manualVideoAddBtn`, explicit inert analytics identity, focus,
+  localization, popover behavior, state, storage, and API behavior. The three
+  dynamic search/result handlers remain inline and bridged for the next batch.
+- **Risks:** Listening for `click` instead of `submit`, deferring the callback,
+  synthesizing an event, or adding a button would change native form behavior;
+  removing the other three aliases early would break generated controls.
+- **Verification:** The single consolidated `npm test` run passed: the
+  production build completed and all 600 existing contract tests passed.
+  Browser, local-server, visual-regression, migration-ledger, diff-integrity,
+  and static-review checks were not run in accordance with the repository
+  `AGENTS.md` instruction for this task.
+- **Rollback:** Revert this commit to restore the form inline handler and its
+  bridge alias; no state, storage, analytics, API, or visual migration is
+  required.
+- **Association:** `codex/migration-05-javascript-modularization`; PR and release pending.
