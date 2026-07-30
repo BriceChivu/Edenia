@@ -381,7 +381,6 @@
   .feed-controls .btn-secondary,
   .activity-log-filter,
   .backup-restore-btn,
-  .settings-locale-option,
   .settings-check,
   .settings-accordion-toggle,
   .settings-drawer .btn-primary,
@@ -760,14 +759,6 @@
     padding-left: 14px;
     padding-right: 14px;
   }
-  .settings-drawer .settings-locale-menu {
-    box-shadow: none;
-    margin-top: 7px;
-    position: static;
-    width: 100%;
-  }
-  .settings-locale-option { padding: 8px 10px; }
-  .settings-locale-option input,
   .settings-check input {
     height: 22px;
     width: 22px;

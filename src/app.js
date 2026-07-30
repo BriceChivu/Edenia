@@ -13412,7 +13412,7 @@ function toggleLocaleMenu(event) {
   closeHistoryActionPopovers()
   const isOpen = menu.classList.toggle('hidden') === false
   btn.setAttribute('aria-expanded', String(isOpen))
-  if (isOpen) positionFilterMenuWithinViewport(menu)
+  if (isOpen) positionFilterMenuWithinViewport(menu, true)
 }
 
 function closeLocaleMenu() {
@@ -13764,10 +13764,10 @@ function closeManualVideoPopover(restoreFocus = false) {
   if (restoreFocus && usesPhoneComposition()) window.setTimeout(() => btn.focus(), 0)
 }
 
-function positionFilterMenuWithinViewport(menu) {
+function positionFilterMenuWithinViewport(menu, positionOnPhone = false) {
   if (!menu || menu.classList.contains('hidden')) return
 
-  if (usesPhoneComposition()) {
+  if (usesPhoneComposition() && !positionOnPhone) {
     menu.style.left = ''
     menu.style.right = ''
     return
