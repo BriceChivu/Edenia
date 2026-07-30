@@ -26,6 +26,10 @@ async function waitForApplication(page) {
 }
 
 async function stabilizeVisuals(page) {
+  await page.locator('#toast').evaluate(toast => {
+    toast.classList.remove('show')
+    toast.textContent = ''
+  })
   await page.addStyleTag({
     content: `
       .background-physics {
@@ -172,7 +176,7 @@ test('completed local state preserves settings and feedback interactions', async
   await page.locator('.gear-btn').click()
   await expect(page.locator('#settingsPanel')).not.toHaveClass(/\bhidden\b/)
   await expect(page.locator('#settingsLocaleLabel')).toHaveText('English')
-  await expect(page).toHaveScreenshot('settings-open.png', {
+  await expect(page.locator('.settings-drawer')).toHaveScreenshot('settings-open.png', {
     animations: 'disabled'
   })
   await page.locator('#settingsCloseBtn').click()
