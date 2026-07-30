@@ -4,7 +4,7 @@ export const EN_CORE = {
   'intro.sound.off': 'Sound off',
   'intro.sound.on': 'Sound on',
   'intro.opening.kicker': 'Your language-learning world',
-  'intro.opening.title': 'Make every lesson count.',
+  'intro.opening.title': 'Watch your progress grow.',
   'intro.purpose.kicker': 'Study your way',
   'intro.purpose.title': 'Turn YouTube and Anki into visible progress.',
   'intro.purpose.body': 'Watch the channels you love, review your cards, and let Edenia connect the pieces.',

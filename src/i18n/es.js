@@ -5,7 +5,7 @@ export const ES_LOCALIZED = {
     'intro.sound.off': 'Sonido desactivado',
     'intro.sound.on': 'Sonido activado',
     'intro.opening.kicker': 'Tu mundo de aprendizaje',
-    'intro.opening.title': 'Haz que cada lección cuente.',
+    'intro.opening.title': 'Mira cómo crece tu progreso.',
     'intro.purpose.kicker': 'Estudia a tu manera',
     'intro.purpose.title': 'Convierte YouTube y Anki en progreso visible.',
     'intro.purpose.body': 'Mira los canales que te gustan, repasa tus tarjetas y deja que Edenia conecte cada esfuerzo.',

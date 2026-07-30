@@ -5,7 +5,7 @@ export const ZH_HANS_LOCALIZED = {
     'intro.sound.off': '声音关闭',
     'intro.sound.on': '声音开启',
     'intro.opening.kicker': '你的语言学习世界',
-    'intro.opening.title': '让每一堂课都有意义。',
+    'intro.opening.title': '见证你的进步成长。',
     'intro.purpose.kicker': '用你的方式学习',
     'intro.purpose.title': '把 YouTube 和 Anki 变成\n看得见的进步。',
     'intro.purpose.body': '观看你喜爱的频道、复习卡片，让 Edenia 把每一份努力连接起来。',

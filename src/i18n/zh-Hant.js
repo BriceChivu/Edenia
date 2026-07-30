@@ -5,7 +5,7 @@ export const ZH_HANT_LOCALIZED = {
     'intro.sound.off': '聲音關閉',
     'intro.sound.on': '聲音開啟',
     'intro.opening.kicker': '你的語言學習世界',
-    'intro.opening.title': '讓每一堂課都有意義。',
+    'intro.opening.title': '見證你的進步成長。',
     'intro.purpose.kicker': '用你的方式學習',
     'intro.purpose.title': '把 YouTube 和 Anki 變成\n看得見的進步。',
     'intro.purpose.body': '觀看你喜愛的頻道、複習卡片，讓 Edenia 把每一份努力連在一起。',
