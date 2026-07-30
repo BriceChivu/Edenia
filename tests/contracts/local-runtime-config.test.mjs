@@ -1,0 +1,63 @@
+import assert from 'node:assert/strict'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import test from 'node:test'
+import {
+  readLocalYoutubeApiKey,
+  writeLocalRuntimeConfig
+} from '../../scripts/local-runtime-config.mjs'
+
+async function withTemporaryDirectory(run) {
+  const directory = await mkdtemp(join(tmpdir(), 'edenia-local-config-'))
+  try {
+    await run(directory)
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+}
+
+test('local runtime config reports the one-time setup when config.local.js is missing', async () => {
+  await withTemporaryDirectory(async directory => {
+    await assert.rejects(
+      readLocalYoutubeApiKey(join(directory, 'config.local.js')),
+      /cp config\.example\.js config\.local\.js/
+    )
+  })
+})
+
+test('local runtime config rejects the tracked placeholder key', async () => {
+  await withTemporaryDirectory(async directory => {
+    const configPath = join(directory, 'config.local.js')
+    await writeFile(
+      configPath,
+      "window.EDENIA_CONFIG = { youtubeApiKey: 'PASTE_YOUR_RESTRICTED_YOUTUBE_API_KEY_HERE' }\n"
+    )
+
+    await assert.rejects(readLocalYoutubeApiKey(configPath), error => {
+      assert.match(error.message, /no usable YouTube API key/)
+      assert.doesNotMatch(error.message, /PASTE_YOUR_RESTRICTED/)
+      return true
+    })
+  })
+})
+
+test('local runtime config normalizes a valid ignored key into the generated site config', async () => {
+  await withTemporaryDirectory(async directory => {
+    const configPath = join(directory, 'config.local.js')
+    const outputPath = join(directory, 'generated-config.local.js')
+    await writeFile(
+      configPath,
+      "window.EDENIA_CONFIG = { youtubeApiKey: '  fake-development-key  ' }\n"
+    )
+
+    const youtubeApiKey = await readLocalYoutubeApiKey(configPath)
+    await writeLocalRuntimeConfig(outputPath, youtubeApiKey)
+
+    assert.equal(youtubeApiKey, 'fake-development-key')
+    assert.equal(
+      await readFile(outputPath, 'utf8'),
+      'window.EDENIA_CONFIG = {\n  "youtubeApiKey": "fake-development-key"\n}\n'
+    )
+  })
+})

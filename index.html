@@ -18,7 +18,7 @@
   <link rel="preload" as="font" href="assets/fonts/space-grotesk-latin-ext.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin.woff2" type="font/woff2" crossorigin>
   <link rel="preload" as="font" href="assets/fonts/bebas-neue-latin-ext.woff2" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=20260722-115">
+  <link rel="stylesheet" href="style.css?v=20260727-144">
   <script>
     !function(t,e){var o,n,p,r;e.__SV||(window.posthog&&window.posthog.__loaded)||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagResult isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSessionProperty createPersonProfile opt_in_capturing opt_out_capturing has_opted_in_capturing has_opted_out_capturing clear_opt_in_out_capturing debug".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
     const edeniaUrlParams = new URLSearchParams(window.location.search);
@@ -51,8 +51,8 @@
     }
   </script>
   <script src="config.local.js" defer></script>
-  <script src="analytics.js?v=20260722-4" defer></script>
-  <script src="app.js?v=20260723-126" defer></script>
+  <script src="analytics.js?v=20260727-6" defer></script>
+  <script src="app.js?v=20260727-159" defer></script>
 </head>
 <body>
 
@@ -78,7 +78,7 @@
 
       <div class="intro-top-controls">
         <div class="intro-top-actions">
-          <button class="intro-sound" id="introSoundBtn" data-intro-sound-toggle type="button" onclick="toggleIntroSound()" aria-pressed="false">
+          <button class="intro-sound" id="introSoundBtn" data-intro-sound-toggle data-analytics-action="introSoundBtn" type="button" aria-pressed="false">
             <span class="intro-sound-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" focusable="false">
                 <path class="intro-sound-speaker" d="M4 9.2h3.4L12 5.5v13l-4.6-3.7H4z"></path>
@@ -87,10 +87,10 @@
               </svg>
             </span>
           </button>
-          <button class="intro-skip" type="button" onclick="finishIntroTrailer()" data-i18n="intro.skip">Skip intro</button>
+          <button class="intro-skip" type="button" data-intro-finish-action="finish" data-i18n="intro.skip" data-analytics-action="intro.skip">Skip intro</button>
         </div>
         <div class="intro-language-picker" id="introLocalePicker">
-          <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="introLocaleBtn" onclick="toggleIntroLocaleMenu(event)" aria-haspopup="true" aria-expanded="false">
+          <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="introLocaleBtn" data-intro-locale-menu-action="toggle-intro" data-analytics-action="introLocaleBtn" aria-haspopup="true" aria-expanded="false">
             <span class="settings-locale-label" id="introLocaleLabel">English</span>
             <span class="settings-locale-caret" aria-hidden="true"></span>
           </button>
@@ -100,10 +100,10 @@
     </div>
 
     <div class="intro-stage" aria-live="polite">
-      <button class="intro-nav-btn intro-nav-previous" id="introPreviousBtn" type="button" onclick="navigateIntroTrailer(-1)" data-i18n-title="onboarding.back" data-i18n-aria-label="onboarding.back">
+      <button class="intro-nav-btn intro-nav-previous" id="introPreviousBtn" type="button" data-intro-navigation-direction="-1" data-analytics-action="onboarding.back" data-i18n-title="onboarding.back" data-i18n-aria-label="onboarding.back">
         <span aria-hidden="true">←</span>
       </button>
-      <button class="intro-nav-btn intro-nav-next" id="introNextBtn" type="button" onclick="navigateIntroTrailer(1)" data-i18n-title="onboarding.continue" data-i18n-aria-label="onboarding.continue">
+      <button class="intro-nav-btn intro-nav-next" id="introNextBtn" type="button" data-intro-navigation-direction="1" data-analytics-action="onboarding.continue" data-i18n-title="onboarding.continue" data-i18n-aria-label="onboarding.continue">
         <span aria-hidden="true">→</span>
       </button>
 
@@ -165,10 +165,10 @@
           <p class="intro-kicker" data-i18n="intro.city.kicker">Progress becomes a place</p>
           <h2 data-i18n="intro.city.title">Study. Earn points. Watch your town evolve.</h2>
           <div class="intro-city-growth">
-            <button type="button" data-intro-city-level="1" onclick="selectIntroCityLevel(1)">1</button><i></i>
-            <button type="button" data-intro-city-level="4" onclick="selectIntroCityLevel(4)">4</button><i></i>
-            <button type="button" data-intro-city-level="8" onclick="selectIntroCityLevel(8)">8</button><i></i>
-            <button type="button" data-intro-city-level="12" onclick="selectIntroCityLevel(12)">12</button>
+            <button type="button" data-intro-city-level="1" data-analytics-action="selectIntroCityLevel">1</button><i></i>
+            <button type="button" data-intro-city-level="4" data-analytics-action="selectIntroCityLevel">4</button><i></i>
+            <button type="button" data-intro-city-level="8" data-analytics-action="selectIntroCityLevel">8</button><i></i>
+            <button type="button" data-intro-city-level="12" data-analytics-action="selectIntroCityLevel">12</button>
           </div>
         </div>
         <div class="intro-city-viewport" aria-hidden="true">
@@ -222,7 +222,7 @@ and momentum—at a glance</h2>
         <p class="intro-kicker" data-i18n="intro.finale.kicker">A little progress. A whole world.</p>
         <h2 data-i18n="intro.finale.title">What will you build?</h2>
         <p data-i18n="intro.finale.body">Create your study feed and begin your Edenia.</p>
-        <button class="btn-primary intro-start" id="introStartBtn" type="button" onclick="finishIntroTrailer()" data-i18n="intro.finale.cta">Start my journey</button>
+        <button class="btn-primary intro-start" id="introStartBtn" type="button" data-intro-finish-action="finish" data-i18n="intro.finale.cta" data-analytics-action="intro.finale.cta">Start my journey</button>
       </article>
     </div>
 
@@ -235,7 +235,7 @@ and momentum—at a glance</h2>
   <!-- FIRST-RUN ONBOARDING                                  -->
   <!-- ═══════════════════════════════════════════════════════ -->
   <section class="onboarding-panel hidden" id="onboardingPanel" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
-    <button class="intro-sound onboarding-sound" id="onboardingSoundBtn" data-intro-sound-toggle type="button" onclick="toggleIntroSound()" aria-pressed="false">
+    <button class="intro-sound onboarding-sound" id="onboardingSoundBtn" data-intro-sound-toggle data-analytics-action="onboardingSoundBtn" type="button" aria-pressed="false">
       <span class="intro-sound-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24" focusable="false">
           <path class="intro-sound-speaker" d="M4 9.2h3.4L12 5.5v13l-4.6-3.7H4z"></path>
@@ -246,7 +246,7 @@ and momentum—at a glance</h2>
     </button>
     <div class="onboarding-card">
       <div class="onboarding-language-picker hidden" id="onboardingLocalePicker">
-        <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="onboardingLocaleBtn" onclick="toggleOnboardingLocaleMenu(event)" aria-haspopup="true" aria-expanded="false">
+        <button type="button" class="btn-secondary settings-locale-btn intro-locale-btn" id="onboardingLocaleBtn" data-intro-locale-menu-action="toggle-onboarding" data-analytics-action="onboardingLocaleBtn" aria-haspopup="true" aria-expanded="false">
           <span class="settings-locale-label" id="onboardingLocaleLabel">English</span>
           <span class="settings-locale-caret" aria-hidden="true"></span>
         </button>
@@ -266,17 +266,17 @@ and momentum—at a glance</h2>
   <!-- SETTINGS PANEL                                        -->
   <!-- ═══════════════════════════════════════════════════════ -->
   <div id="settingsPanel" class="settings-panel hidden">
-    <div class="settings-overlay" onclick="closeSettings()"></div>
+    <div class="settings-overlay" data-settings-shell-action="close"></div>
     <div class="settings-drawer" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
       <div class="settings-header">
         <span class="settings-title" id="settingsTitle" data-i18n="settings.title">Settings</span>
-        <button class="btn-icon" id="settingsCloseBtn" onclick="closeSettings()" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">✕</button>
+        <button class="btn-icon" id="settingsCloseBtn" data-settings-shell-action="close" data-analytics-action="settings.close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">✕</button>
       </div>
 
       <div class="settings-group settings-locale-group">
         <label for="settingsLocaleBtn" data-i18n="settings.language.label">Language</label>
         <div class="settings-locale-picker" id="settingsLocalePicker">
-          <button type="button" class="btn-secondary settings-locale-btn" id="settingsLocaleBtn" onclick="toggleLocaleMenu(event)" aria-haspopup="true" aria-expanded="false">
+          <button type="button" class="btn-secondary settings-locale-btn" id="settingsLocaleBtn" data-settings-locale-action="toggle" data-analytics-action="settingsLocaleBtn" aria-haspopup="true" aria-expanded="false">
             <span class="settings-locale-label" id="settingsLocaleLabel"></span>
             <span class="settings-locale-caret" aria-hidden="true"></span>
           </button>
@@ -284,14 +284,9 @@ and momentum—at a glance</h2>
         </div>
       </div>
 
-      <div class="settings-group settings-goal-group">
-        <label data-i18n="settings.weeklyGoal.label">Weekly goal (hours)</label>
-        <input type="number" id="settingsGoal" min="1" max="99" onchange="saveSettingsOnTheFly()" oninput="saveSettingsOnTheFly()">
-      </div>
-
       <div class="settings-group settings-shorts-group">
         <label class="settings-check">
-          <input type="checkbox" id="settingsIncludeShorts" onchange="saveSettingsOnTheFly()">
+          <input type="checkbox" id="settingsIncludeShorts" data-settings-preference-action="save">
           <span data-i18n="settings.shorts.label">Show short videos</span>
         </label>
         <p class="step-hint" data-i18n="settings.shorts.hint">When off, videos under 3 minutes are skipped during refresh and hidden from your active video list.</p>
@@ -299,7 +294,7 @@ and momentum—at a glance</h2>
 
       <div class="settings-group settings-anki-group">
         <label class="settings-check">
-          <input type="checkbox" id="settingsAnkiEnabled" onchange="saveSettingsOnTheFly()">
+          <input type="checkbox" id="settingsAnkiEnabled" data-settings-preference-action="save">
           <span data-i18n="settings.anki.enabled">Enable Anki tracking</span>
         </label>
         <p class="step-hint" data-i18n="settings.anki.toggleHint">When on, Edenia can read Anki review counts while Anki is open.</p>
@@ -307,25 +302,25 @@ and momentum—at a glance</h2>
 
       <div class="settings-group settings-insights-group">
         <label class="settings-check">
-          <input type="checkbox" id="settingsInsightsEnabled" onchange="saveSettingsOnTheFly()">
+          <input type="checkbox" id="settingsInsightsEnabled" data-settings-preference-action="save">
           <span data-i18n="settings.insights.enabled">Enable study insights</span>
         </label>
         <p class="step-hint" data-i18n="settings.insights.toggleHint">Controls whether insights appear in Analytics. Insight tracking and history continue when hidden.</p>
       </div>
 
       <div class="settings-group settings-accordion settings-howto-group">
-        <button type="button" class="settings-accordion-toggle settings-howto-toggle" onclick="toggleSettingsHowTo()" aria-expanded="false" aria-controls="settingsHowToContent">
+        <button type="button" class="settings-accordion-toggle settings-howto-toggle" data-analytics-action="settings.howto.title" aria-expanded="false" aria-controls="settingsHowToContent">
           <span data-i18n="settings.howto.title">How to</span>
           <span class="settings-accordion-caret settings-howto-caret" aria-hidden="true"></span>
         </button>
         <div class="settings-accordion-content settings-howto-content" id="settingsHowToContent" hidden>
           <section class="settings-howto-section">
-            <h3 data-i18n="settings.youtube.title">Add a YouTube channel</h3>
-            <p class="step-hint" data-i18n="settings.youtube.intro">Add a channel by copying its YouTube URL.</p>
-            <ol class="settings-workflow-list">
-              <li data-i18n="settings.youtube.step1">On YouTube, open the channel you want and copy its URL from your browser's address bar.</li>
-              <li><span data-i18n="settings.youtube.step2Prefix">In Edenia, click </span><strong data-i18n="settings.channels.add">Add</strong><span data-i18n="settings.youtube.step2Suffix"> above your video list and paste the URL.</span></li>
-            </ol>
+            <h3 data-i18n="settings.videoActions.title">Organize your videos</h3>
+            <ul class="settings-video-actions-list">
+              <li data-i18n="settings.videoActions.favorite">Favorite is for videos you want to rewatch repeatedly. Favorites stay available after you watch them.</li>
+              <li data-i18n="settings.videoActions.watchLater">Watch later keeps a video in your active list for another time. Using it on a set-aside video makes that video active again.</li>
+              <li data-i18n="settings.videoActions.setAside">Set aside is for a video you started but do not want to finish. You keep the tracked study time and points, and it still counts in watched stats.</li>
+            </ul>
           </section>
           <section class="settings-howto-section settings-anki-section" id="settingsAnkiHowToTarget">
             <div class="settings-anki-howto-target">
@@ -355,43 +350,34 @@ and momentum—at a glance</h2>
           </section>
           <section class="settings-howto-section settings-scoring-section">
             <h3 data-i18n="settings.scoring.title">How points work</h3>
-        <p class="step-hint" data-i18n="settings.scoring.intro">Points reward video study time and Anki reviews. Edenia adds each source before rounding down the total points of the day.</p>
+        <p class="step-hint" data-i18n="settings.scoring.intro">Points reward video study time and Anki reviews.</p>
         <ul class="settings-scoring-list">
-          <li data-i18n="settings.scoring.video">Watching 1 hour of video gives 3 pts.</li>
-          <li data-i18n="settings.scoring.anki">60 Anki reviews gives 2 pts.</li>
+          <li data-i18n="settings.scoring.video">Watching 1 hour of video gives 30 pts.</li>
+          <li data-i18n="settings.scoring.anki">60 Anki reviews gives 20 pts.</li>
         </ul>
-          </section>
-          <section class="settings-howto-section">
-            <h3 data-i18n="settings.workflow.title">Typical Edenia workflow</h3>
-            <ul class="settings-workflow-list">
-              <li data-i18n="settings.workflow.item1">Watch videos from the channels you've added.</li>
-              <li data-i18n="settings.workflow.item2">Use Add to paste either a YouTube video or channel URL.</li>
-              <li data-i18n="settings.workflow.item3">Check your studies with the study history summary and heatmap.</li>
-              <li data-i18n="settings.workflow.item4">Watch your town grow.</li>
-            </ul>
           </section>
         </div>
       </div>
 
       <div class="settings-actions">
         <div class="settings-accordion activity-log-panel">
-          <button type="button" class="settings-accordion-toggle activity-log-toggle" onclick="toggleSettingsActivityLog()" aria-expanded="false" aria-controls="activityLogContent">
+          <button type="button" class="settings-accordion-toggle activity-log-toggle" data-analytics-action="settings.activity.title" aria-expanded="false" aria-controls="activityLogContent">
             <span data-i18n="settings.activity.title">Activity log</span>
             <span class="settings-accordion-caret" aria-hidden="true"></span>
           </button>
           <div class="settings-accordion-content activity-log-content" id="activityLogContent" hidden>
             <div class="activity-log-filters" role="tablist" aria-label="Activity log filters" data-i18n-aria-label="settings.activity.filtersLabel">
-              <button class="activity-log-filter active" type="button" data-activity-log-filter="all" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.all">All</button>
-              <button class="activity-log-filter" type="button" data-activity-log-filter="user" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.user">User</button>
-              <button class="activity-log-filter" type="button" data-activity-log-filter="auto" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.auto">Auto</button>
-              <button class="activity-log-filter" type="button" data-activity-log-filter="issues" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.issues">Issues</button>
-              <button class="activity-log-filter" type="button" data-activity-log-filter="points" onclick="setActivityLogFilter(this.dataset.activityLogFilter)" data-i18n="settings.activity.points">Points</button>
+              <button class="activity-log-filter active" type="button" data-activity-log-filter="all" data-analytics-action="settings.activity.all" data-i18n="settings.activity.all">All</button>
+              <button class="activity-log-filter" type="button" data-activity-log-filter="user" data-analytics-action="settings.activity.user" data-i18n="settings.activity.user">User</button>
+              <button class="activity-log-filter" type="button" data-activity-log-filter="auto" data-analytics-action="settings.activity.auto" data-i18n="settings.activity.auto">Auto</button>
+              <button class="activity-log-filter" type="button" data-activity-log-filter="issues" data-analytics-action="settings.activity.issues" data-i18n="settings.activity.issues">Issues</button>
+              <button class="activity-log-filter" type="button" data-activity-log-filter="points" data-analytics-action="settings.activity.points" data-i18n="settings.activity.points">Points</button>
             </div>
             <div id="activityLogList" class="activity-log-list"></div>
           </div>
         </div>
         <div class="settings-accordion backup-panel">
-          <button type="button" class="settings-accordion-toggle backup-toggle" onclick="toggleSettingsBackups()" aria-expanded="false" aria-controls="backupContent">
+          <button type="button" class="settings-accordion-toggle backup-toggle" data-analytics-action="settings.backups.title" aria-expanded="false" aria-controls="backupContent">
             <span data-i18n="settings.backups.title">Recent local backups</span>
             <span class="settings-accordion-caret" aria-hidden="true"></span>
           </button>
@@ -400,20 +386,20 @@ and momentum—at a glance</h2>
             <p class="settings-note" data-i18n="settings.backups.note">Local backups can recover from a bad import, reset, or app save. Export a sync file for protection outside this browser.</p>
           </div>
         </div>
-        <button class="btn-secondary walkthrough-replay-btn" type="button" onclick="showWalkthroughAgain()" data-i18n="settings.walkthroughAgain">Show walkthrough again</button>
-        <button class="btn-secondary walkthrough-replay-btn" type="button" onclick="showTrailerAgain()" data-i18n="settings.trailerAgain">Show trailer again</button>
+        <button class="btn-secondary walkthrough-replay-btn" type="button" data-settings-replay-action="walkthrough" data-analytics-action="settings.walkthroughAgain" data-i18n="settings.walkthroughAgain">Show walkthrough again</button>
+        <button class="btn-secondary walkthrough-replay-btn" type="button" data-settings-replay-action="trailer" data-analytics-action="settings.trailerAgain" data-i18n="settings.trailerAgain">Show trailer again</button>
         <div class="sync-actions">
-          <button class="btn-secondary" type="button" onclick="exportSyncFile()" data-i18n="settings.sync.export">Export sync file</button>
-          <button class="btn-secondary" type="button" onclick="document.getElementById('syncFileInput').click()" data-i18n="settings.sync.import">Import sync file</button>
-          <input class="hidden" type="file" id="syncFileInput" accept="application/json,.json" onchange="importSyncFileFromInput(this)">
+        <button class="btn-secondary" type="button" data-settings-sync-action="export" data-analytics-action="settings.sync.export" data-i18n="settings.sync.export">Export sync file</button>
+        <button class="btn-secondary" type="button" data-settings-sync-action="choose-file" data-analytics-action="settings.sync.import" data-i18n="settings.sync.import">Import sync file</button>
+          <input class="hidden" type="file" id="syncFileInput" accept="application/json,.json" data-settings-sync-action="import-file">
         </div>
         <p class="settings-note" data-i18n="settings.sync.note">Progress is saved in this browser. Use sync files to copy the same progress to another device or browser.</p>
-        <button class="btn-ghost btn-danger settings-reset-btn" onclick="showResetConfirm()" data-i18n="settings.reset.open">Reset everything</button>
+        <button class="btn-ghost btn-danger settings-reset-btn" data-settings-reset-confirm-action="show" data-analytics-action="settings.reset.open" data-i18n="settings.reset.open">Reset everything</button>
         <div id="resetConfirm" class="reset-confirm hidden">
           <p data-i18n="settings.reset.warning">This will clear this app's local watch history, streak, saved settings, and cached Anki stats. A rollback backup will be kept here. Your Anki collection will not be changed.</p>
           <div class="reset-confirm-actions">
-            <button class="btn-ghost" onclick="hideResetConfirm()" data-i18n="settings.reset.cancel">Cancel</button>
-            <button class="btn-ghost btn-danger" onclick="resetApp()" data-i18n="settings.reset.delete">Delete data</button>
+            <button class="btn-ghost" data-settings-reset-confirm-action="hide" data-analytics-action="settings.reset.cancel" data-i18n="settings.reset.cancel">Cancel</button>
+            <button class="btn-ghost btn-danger" data-settings-reset-confirm-action="confirm" data-analytics-action="settings.reset.delete" data-i18n="settings.reset.delete">Delete data</button>
           </div>
         </div>
       </div>
@@ -454,11 +440,11 @@ and momentum—at a glance</h2>
           <span class="streak-text" data-i18n="streak.day">day streak</span>
         </div>
         <div class="sandbox-tools hidden" id="sandboxTools">
-          <button class="sandbox-btn" type="button" onclick="addSandboxDay()" data-i18n="sandbox.addDay">Add day</button>
-          <button class="sandbox-btn" type="button" onclick="resetSandboxState()" data-i18n="sandbox.reset">Reset</button>
+          <button class="sandbox-btn" type="button" data-sandbox-action="add-day" data-analytics-action="sandbox.addDay" data-i18n="sandbox.addDay">Add day</button>
+          <button class="sandbox-btn" type="button" data-sandbox-action="reset" data-analytics-action="sandbox.reset" data-i18n="sandbox.reset">Reset</button>
         </div>
         <div class="video-search" id="videoSearch">
-          <button class="btn-icon search-btn" id="videoSearchBtn" type="button" onclick="toggleVideoSearchPopover(event)" title="Search videos" aria-label="Search videos" data-i18n-title="header.search.title" data-i18n-aria-label="header.search.title" aria-haspopup="true" aria-expanded="false">
+          <button class="btn-icon search-btn" id="videoSearchBtn" type="button" data-video-search-action="toggle" data-analytics-action="header.search.title" title="Search videos" aria-label="Search videos" data-i18n-title="header.search.title" data-i18n-aria-label="header.search.title" aria-haspopup="true" aria-expanded="false">
             <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="11" cy="11" r="6"></circle>
               <path d="M16 16l4 4"></path>
@@ -467,13 +453,13 @@ and momentum—at a glance</h2>
           <div class="video-search-popover hidden" id="videoSearchPopover" role="dialog" aria-label="Search saved videos" data-i18n-aria-label="header.search.dialog">
             <div class="mobile-popover-header">
               <strong data-i18n="header.search.title">Search videos</strong>
-              <button class="mobile-popover-close" type="button" onclick="closeVideoSearchPopover(true)" title="Close" aria-label="Close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">×</button>
+              <button class="mobile-popover-close" type="button" data-video-search-action="close" data-analytics-action="settings.close" title="Close" aria-label="Close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">×</button>
             </div>
-            <input type="search" class="video-search-input" id="videoSearchInput" placeholder="Search videos..." data-i18n-placeholder="header.search.placeholder" autocomplete="off" oninput="renderVideoSearchResults(this.value)" onkeydown="handleVideoSearchInputKey(event)">
+            <input type="search" class="video-search-input" id="videoSearchInput" data-video-search-action="query" placeholder="Search videos..." data-i18n-placeholder="header.search.placeholder" autocomplete="off">
             <div class="video-search-results" id="videoSearchResults"></div>
           </div>
         </div>
-        <button class="btn-icon theme-btn" id="themeToggle" onclick="toggleTheme()" title="Switch to dark mode" aria-label="Switch to dark mode">
+        <button class="btn-icon theme-btn" id="themeToggle" data-theme-action="toggle" data-analytics-action="themeToggle" title="Switch to dark mode" aria-label="Switch to dark mode">
           <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M21 13A8.5 8.5 0 1 1 11 3.1A7 7 0 0 0 21 13Z"/>
           </svg>
@@ -482,7 +468,7 @@ and momentum—at a glance</h2>
             <path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/>
           </svg>
         </button>
-        <button class="btn-icon gear-btn" onclick="openSettings()" title="Settings" data-i18n-title="header.settings" data-i18n-aria-label="header.settings">
+        <button class="btn-icon gear-btn" data-settings-shell-action="open" data-analytics-action="header.settings" title="Settings" data-i18n-title="header.settings" data-i18n-aria-label="header.settings">
           <span class="gear-btn-icon" aria-hidden="true">☰</span>
         </button>
       </div>
@@ -493,11 +479,11 @@ and momentum—at a glance</h2>
       <div class="city-image-wrap">
         <img id="cityMilestoneImage" class="city-milestone-image" src="images/city/level%200.webp" alt="Study city milestone: Lonely house" data-i18n-alt="city.imageAlt" draggable="false" fetchpriority="high" decoding="async">
         <div class="city-zoom-controls" aria-label="City zoom controls" data-i18n-aria-label="city.zoom.controls">
-          <button class="city-image-btn" type="button" onclick="zoomCityImage(-1)" title="Zoom out" aria-label="Zoom out" data-i18n-title="city.zoom.out" data-i18n-aria-label="city.zoom.out">−</button>
-          <button class="city-image-btn" type="button" onclick="resetCityImageView()" title="Reset view" aria-label="Reset view" data-i18n-title="city.zoom.reset" data-i18n-aria-label="city.zoom.reset">⌂</button>
-          <button class="city-image-btn" type="button" onclick="zoomCityImage(1)" title="Zoom in" aria-label="Zoom in" data-i18n-title="city.zoom.in" data-i18n-aria-label="city.zoom.in">+</button>
+          <button class="city-image-btn" type="button" data-city-zoom-action="out" data-analytics-action="city.zoom.out" title="Zoom out" aria-label="Zoom out" data-i18n-title="city.zoom.out" data-i18n-aria-label="city.zoom.out">−</button>
+          <button class="city-image-btn" type="button" data-city-zoom-action="reset" data-analytics-action="city.zoom.reset" title="Reset view" aria-label="Reset view" data-i18n-title="city.zoom.reset" data-i18n-aria-label="city.zoom.reset">⌂</button>
+          <button class="city-image-btn" type="button" data-city-zoom-action="in" data-analytics-action="city.zoom.in" title="Zoom in" aria-label="Zoom in" data-i18n-title="city.zoom.in" data-i18n-aria-label="city.zoom.in">+</button>
         </div>
-        <div class="city-time-waveform" id="cityTimeWaveform" aria-label="City history timeline" data-i18n-aria-label="city.timeline" onmouseenter="handleCityWaveformMouseMove(event)" onmousemove="handleCityWaveformMouseMove(event)" onmouseleave="clearCityWaveformPreview()">
+        <div class="city-time-waveform" id="cityTimeWaveform" aria-label="City history timeline" data-i18n-aria-label="city.timeline" data-city-waveform-action="mouse-preview">
           <div class="city-wave-bars" id="cityWaveBars">
             <div class="city-wave-track" id="cityWaveTrack"></div>
           </div>
@@ -505,39 +491,35 @@ and momentum—at a glance</h2>
         </div>
       </div>
 
-      <div class="city-footer">
-        <span class="city-stage">
-          <span id="cityLabel">🏠 Lonely house</span>
-          <span class="city-next" id="cityNextLevel"></span>
-          <button class="level-up-button" id="levelUpButton" type="button" onclick="claimCityLevelUp()" aria-hidden="true" disabled data-i18n="city.levelUp">Level up</button>
-        </span>
-        <span class="city-pts"><span id="cityScore">0</span> <span id="cityScoreContext" data-i18n="city.totalPts">total pts</span></span>
-      </div>
     </section>
 
     <!-- ANALYTICS ────────────────────────────────────────── -->
     <section class="analytics-section">
       <div class="goal-card">
-        <div class="goal-header">
-          <span data-i18n="goal.title">Weekly goal</span>
-          <span class="goal-nums">
-            <span id="hoursWatched">0m</span>
-            <span class="goal-slash">/</span>
-            <span id="goalHours">4</span><span id="goalHoursUnit" data-i18n="time.hourShort">h</span>
-          </span>
-        </div>
-        <div class="progress-track">
-          <div class="progress-fill" id="goalProgressBar" style="width:0%"></div>
-        </div>
-        <div class="goal-sub">
-          <span><b id="videosWatched">0</b> <span data-i18n="goal.watched">watched</span></span>
-          <span class="dot">·</span>
-          <span><b id="videosPartial">0</b> <span data-i18n="goal.inProgress">in progress</span></span>
-          <span class="dot">·</span>
-          <span>~<b id="videosRemaining">?</b> <span data-i18n="goal.toGo">to go</span></span>
-        </div>
-        <div class="goal-pace hidden" id="goalPaceGuidance" role="status">
-          <span id="goalPaceText"></span>
+        <div class="city-level-progress" id="cityLevelProgress" role="progressbar" aria-valuemin="0" aria-valuemax="60" aria-valuenow="0">
+          <div class="city-level-progress-labels">
+            <span class="city-level-label city-level-label-current" id="cityCurrentLevel">Level 1</span>
+            <span class="city-level-label city-level-label-next" id="cityFollowingLevel">Level 2</span>
+          </div>
+          <div class="city-level-progress-track">
+            <div class="progress-track city-level-progress-rail">
+              <div class="progress-fill city-level-progress-fill" id="cityLevelProgressFill"></div>
+            </div>
+            <span class="city-level-remaining-hover" aria-hidden="true"></span>
+            <span class="city-pts" id="cityScoreMarker"><span id="cityScore">0</span> <span id="cityScoreContext" data-i18n="city.totalPts">total pts</span></span>
+            <span class="city-level-progress-actions">
+              <span class="city-next">
+                <span id="cityNextLevel"></span>
+                <small class="city-next-effort" id="cityNextEffort"></small>
+              </span>
+              <button class="level-up-button" id="levelUpButton" type="button" data-city-level-action="claim" aria-hidden="true" disabled data-i18n="city.levelUp" data-analytics-action="city.levelUp">Level up</button>
+            </span>
+            <span class="city-level-milestone-points">
+              <span id="cityCurrentMilestonePoints">0 pts</span>
+              <span id="cityNextMilestonePoints">60 pts</span>
+            </span>
+          </div>
+          <span class="city-stage" id="cityLabel">🏠 Lonely house</span>
         </div>
       </div>
       <aside class="study-insight-card hidden" id="studyInsightCard" aria-live="polite" aria-label="Study insight" data-i18n-aria-label="insights.eyebrow">
@@ -548,8 +530,8 @@ and momentum—at a glance</h2>
               <img class="study-insight-icon" id="studyInsightIcon" src="Edenia_favicon_round.png" alt="" aria-hidden="true">
             </span>
             <div class="study-insight-tabs" role="tablist" aria-label="Study insight views" data-i18n-aria-label="insights.tabs.aria">
-              <button class="study-insight-tab active" id="studyInsightCurrentTab" type="button" role="tab" aria-selected="true" aria-controls="studyInsightCurrentPanel" onclick="setStudyInsightView('current')" data-i18n="insights.tab.current">Current</button>
-              <button class="study-insight-tab" id="studyInsightPreviousTab" type="button" role="tab" aria-selected="false" aria-controls="studyInsightHistoryPanel" onclick="setStudyInsightView('previous')">
+              <button class="study-insight-tab active" id="studyInsightCurrentTab" type="button" role="tab" aria-selected="true" aria-controls="studyInsightCurrentPanel" data-analytics-action="insights.tab.current" data-i18n="insights.tab.current">Current</button>
+              <button class="study-insight-tab" id="studyInsightPreviousTab" type="button" role="tab" aria-selected="false" aria-controls="studyInsightHistoryPanel" data-analytics-action="insights.tab.previous">
                 <span data-i18n="insights.tab.previous">Previous</span>
                 <span class="study-insight-tab-count" id="studyInsightHistoryCount">0</span>
               </button>
@@ -562,9 +544,9 @@ and momentum—at a glance</h2>
           </div>
           <div class="study-insight-history-panel hidden" id="studyInsightHistoryPanel" role="tabpanel" aria-labelledby="studyInsightPreviousTab"></div>
         </div>
-        <button class="study-insight-collapse" type="button" onclick="setStudyInsightsCollapsed(true)" title="Collapse study insights" aria-label="Collapse study insights" data-i18n-title="insights.collapse" data-i18n-aria-label="insights.collapse">×</button>
+        <button class="study-insight-collapse" type="button" data-analytics-action="insights.collapse" title="Collapse study insights" aria-label="Collapse study insights" data-i18n-title="insights.collapse" data-i18n-aria-label="insights.collapse">×</button>
       </aside>
-      <button class="study-insight-reopen hidden" id="studyInsightReopen" type="button" onclick="setStudyInsightsCollapsed(false)" aria-controls="studyInsightCard" aria-expanded="false" aria-label="Show study insights" data-i18n-aria-label="insights.reopen.aria">
+      <button class="study-insight-reopen hidden" id="studyInsightReopen" type="button" data-analytics-action="insights.reopen" aria-controls="studyInsightCard" aria-expanded="false" aria-label="Show study insights" data-i18n-aria-label="insights.reopen.aria">
         <span aria-hidden="true">✦</span>
         <span data-i18n="insights.reopen">Insights</span>
       </button>
@@ -576,21 +558,21 @@ and momentum—at a glance</h2>
         <h2 class="section-title" data-i18n="history.title">Study History</h2>
       </div>
       <div class="history-view-tabs" role="tablist" aria-label="Study history view" data-i18n-aria-label="history.viewLabel">
-        <button type="button" class="history-view-btn active" data-history-view="summary" onclick="setHistoryView('summary')" role="tab" aria-selected="true" data-i18n="history.summary">Summary</button>
-        <button type="button" class="history-view-btn" data-history-view="heatmap" onclick="setHistoryView('heatmap')" role="tab" aria-selected="false" data-i18n="history.heatmap">Heatmap</button>
+        <button type="button" class="history-view-btn active" data-history-view="summary" data-analytics-action="history.summary" role="tab" aria-selected="true" data-i18n="history.summary">Summary</button>
+        <button type="button" class="history-view-btn" data-history-view="heatmap" data-analytics-action="history.heatmap" role="tab" aria-selected="false" data-i18n="history.heatmap">Heatmap</button>
       </div>
       <div id="historySummaryView">
         <div class="history-period-panel" id="historyRangeToolbar">
           <div class="history-toolbar" role="group" aria-label="Study history range" data-i18n-aria-label="history.rangeLabel">
             <span class="history-period-cell" data-history-period-range="week">
-            <button type="button" class="history-range-btn active" data-history-range="week" onclick="toggleHistoryPeriodPopover(event, 'week')" aria-expanded="false" aria-label="Select week" data-i18n-aria-label="history.selectWeek">
+            <button type="button" class="history-range-btn active" data-history-period-action="toggle" data-history-range="week" aria-expanded="false" aria-label="Select week" data-i18n-aria-label="history.selectWeek">
               <span data-i18n="history.week">Week</span>
               <span class="history-range-caret" aria-hidden="true"></span>
             </button>
             <span class="history-period-popover" id="historyWeekPeriodPopover" role="dialog" aria-label="Available weeks" data-i18n-aria-label="history.availableWeeks"></span>
             </span>
             <span class="history-period-cell" data-history-period-range="month">
-            <button type="button" class="history-range-btn" data-history-range="month" onclick="toggleHistoryPeriodPopover(event, 'month')" aria-expanded="false" aria-label="Select month" data-i18n-aria-label="history.selectMonth">
+            <button type="button" class="history-range-btn" data-history-period-action="toggle" data-history-range="month" aria-expanded="false" aria-label="Select month" data-i18n-aria-label="history.selectMonth">
               <span data-i18n="history.month">Month</span>
               <span class="history-range-caret" aria-hidden="true"></span>
             </button>
@@ -629,38 +611,54 @@ and momentum—at a glance</h2>
       <div class="feed-controls feed-toolbar">
         <div class="feed-filter-controls">
           <div class="status-tabs" id="statusTabs" role="tablist" aria-label="Video status" data-i18n-aria-label="videos.status.label">
-            <button type="button" class="status-tab active" data-status-tab="all" onclick="setStatusFilter('all')" role="tab" aria-selected="true"><span data-i18n="videos.status.all">All</span><span class="status-tab-count">0</span></button>
-            <button type="button" class="status-tab" data-status-tab="unwatched" onclick="setStatusFilter('unwatched')" role="tab" aria-selected="false"><span data-i18n="videos.status.unwatched">Unwatched</span><span class="status-tab-count">0</span></button>
-            <button type="button" class="status-tab" data-status-tab="partial" onclick="setStatusFilter('partial')" role="tab" aria-selected="false"><span data-i18n="videos.status.partial">In progress</span><span class="status-tab-count">0</span></button>
-            <button type="button" class="status-tab" data-status-tab="watch-later" onclick="setStatusFilter('watch-later')" role="tab" aria-selected="false"><span data-i18n="videos.status.watchLater">Watch later</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab active" data-status-filter-action="select-tab" data-status-tab="all" data-analytics-action="videos.status.all" role="tab" aria-selected="true"><span data-i18n="videos.status.all">All</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab" data-status-filter-action="select-tab" data-status-tab="unwatched" data-analytics-action="videos.status.unwatched" role="tab" aria-selected="false"><span data-i18n="videos.status.unwatched">Unwatched</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab" data-status-filter-action="select-tab" data-status-tab="partial" data-analytics-action="videos.status.partial" role="tab" aria-selected="false"><span data-i18n="videos.status.partial">In progress</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab" data-status-filter-action="select-tab" data-status-tab="watch-later" data-analytics-action="videos.status.watchLater" role="tab" aria-selected="false"><span data-i18n="videos.status.watchLater">Watch later</span><span class="status-tab-count">0</span></button>
+            <button type="button" class="status-tab" data-status-filter-action="select-tab" data-status-tab="favorite" data-analytics-action="videos.status.favorite" role="tab" aria-selected="false"><span data-i18n="videos.status.favorite">Favorite</span><span class="status-tab-count">0</span></button>
           </div>
           <div class="status-filter" id="statusFilter">
-            <button type="button" class="btn-secondary channel-filter-btn status-filter-btn" id="statusFilterBtn" onclick="toggleStatusFilterMenu()" aria-haspopup="true" aria-expanded="false">All videos</button>
+            <button type="button" class="btn-secondary channel-filter-btn status-filter-btn" id="statusFilterBtn" data-status-filter-action="toggle" data-analytics-action="statusFilterBtn" aria-haspopup="true" aria-expanded="false">All videos</button>
             <div class="channel-filter-menu status-filter-menu hidden" id="statusFilterMenu"></div>
           </div>
         </div>
         <div class="feed-action-controls">
           <div class="manual-video" id="manualVideo">
-            <button type="button" class="btn-secondary manual-video-btn" id="manualVideoBtn" onclick="toggleManualVideoPopover(event)" aria-haspopup="true" aria-expanded="false" data-i18n="videos.manual.button">Add</button>
+            <button type="button" class="btn-secondary manual-video-btn" id="manualVideoBtn" data-manual-video-action="toggle" data-analytics-action="videos.manual.button" aria-haspopup="true" aria-expanded="false" data-i18n="videos.manual.button">Add</button>
             <div class="manual-video-popover hidden" id="manualVideoPopover" role="dialog" aria-label="Add YouTube video or channel" data-i18n-aria-label="videos.manual.dialog">
               <div class="mobile-popover-header">
                 <strong data-i18n="videos.manual.button">Add</strong>
-                <button class="mobile-popover-close" type="button" onclick="closeManualVideoPopover(true)" title="Close" aria-label="Close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">×</button>
+                <button class="mobile-popover-close" type="button" data-manual-video-action="close" data-analytics-action="settings.close" title="Close" aria-label="Close" data-i18n-title="settings.close" data-i18n-aria-label="settings.close">×</button>
               </div>
-              <form class="manual-video-form" onsubmit="addYoutubeInput(event)">
-                <p class="manual-video-hint" data-i18n="videos.manual.hint">Here you can paste the URL of a YouTube video or a channel.</p>
-                <input type="text" id="manualVideoUrlInput" placeholder="YouTube video or channel URL" data-i18n-placeholder="videos.manual.placeholder" autocomplete="off">
-                <button type="submit" class="btn-secondary manual-video-submit" id="manualVideoAddBtn" data-i18n="videos.manual.add">Add</button>
+              <form class="manual-video-form" data-manual-video-action="submit" data-analytics-action="addYoutubeInput">
+                <p class="manual-video-hint" data-i18n="videos.manual.hint">Search Edenia's channel catalog, or paste a YouTube video or channel URL.</p>
+                <div class="manual-video-input-wrap">
+                  <input type="text"
+                    id="manualVideoUrlInput"
+                    data-manual-video-action="query"
+                    placeholder="Search channels or paste a YouTube URL"
+                    data-i18n-placeholder="videos.manual.searchPlaceholder"
+                    autocomplete="off"
+                    role="combobox"
+                    aria-autocomplete="list"
+                    aria-controls="manualChannelSuggestions"
+                    aria-expanded="false">
+                  <div class="manual-channel-suggestions hidden"
+                    id="manualChannelSuggestions"
+                    role="listbox"
+                    aria-label="Channel suggestions"
+                    data-i18n-aria-label="videos.manual.suggestions"></div>
+                </div>
               </form>
             </div>
           </div>
           <div class="undo-wrap">
             <span class="undo-action-wrap">
-              <button type="button" class="btn-secondary undo-btn" id="undoBtn" onclick="toggleHistoryActionPopover(event, 'undo')" aria-haspopup="true" aria-expanded="false" aria-describedby="undoTooltip" data-i18n="videos.undo" disabled>Undo</button>
+              <button type="button" class="btn-secondary undo-btn" id="undoBtn" data-undo-redo-action="toggle" data-undo-redo-direction="undo" data-analytics-action="undoBtn" aria-haspopup="true" aria-expanded="false" aria-describedby="undoTooltip" data-i18n="videos.undo" disabled>Undo</button>
               <div class="undo-tooltip hidden" id="undoTooltip" role="dialog" aria-label="Undo queue" data-i18n-aria-label="videos.undo.queue" data-i18n="videos.undo.empty">Nothing to undo</div>
             </span>
             <span class="undo-action-wrap">
-              <button type="button" class="btn-secondary undo-btn redo-btn" id="redoBtn" onclick="toggleHistoryActionPopover(event, 'redo')" aria-haspopup="true" aria-expanded="false" aria-describedby="redoTooltip" data-i18n="videos.redo" disabled>Redo</button>
+              <button type="button" class="btn-secondary undo-btn redo-btn" id="redoBtn" data-undo-redo-action="toggle" data-undo-redo-direction="redo" data-analytics-action="redoBtn" aria-haspopup="true" aria-expanded="false" aria-describedby="redoTooltip" data-i18n="videos.redo" disabled>Redo</button>
               <div class="undo-tooltip hidden" id="redoTooltip" role="dialog" aria-label="Redo queue" data-i18n-aria-label="videos.redo.queue" data-i18n="videos.redo.empty">Nothing to redo</div>
             </span>
           </div>
@@ -673,7 +671,7 @@ and momentum—at a glance</h2>
       <div class="watched-section" id="watchedSection">
         <div class="section-header">
           <h2 class="section-title" data-i18n="videos.watchedSection">Watched</h2>
-          <button type="button" class="watched-section-toggle" id="watchedSectionToggle" onclick="toggleWatchedSection()" aria-expanded="true" aria-controls="watchedGrid" aria-label="Hide watched videos" data-i18n-aria-label="videos.watched.hide">
+          <button type="button" class="watched-section-toggle" id="watchedSectionToggle" data-watched-section-action="toggle" data-analytics-action="videos.watched.hide" aria-expanded="true" aria-controls="watchedGrid" aria-label="Hide watched videos" data-i18n-aria-label="videos.watched.hide">
             <span class="watched-count" id="watchedCount">0</span>
             <span class="watched-section-caret" aria-hidden="true"></span>
           </button>
@@ -683,7 +681,7 @@ and momentum—at a glance</h2>
     </section>
 
     <footer class="app-footer">
-      <button class="feedback-launch-btn" id="feedbackLaunchBtn" type="button" onclick="openFeedbackModal()" data-analytics-action="feedback" aria-haspopup="dialog" aria-controls="feedbackModal">
+      <button class="feedback-launch-btn" id="feedbackLaunchBtn" type="button" data-feedback-modal-action="open" data-analytics-action="feedback" aria-haspopup="dialog" aria-controls="feedbackModal">
         <svg class="feedback-launch-icon" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 5.5h14v10H9l-4 3v-13Z"></path>
         </svg>
@@ -694,7 +692,7 @@ and momentum—at a glance</h2>
   </main><!-- /mainApp -->
 
   <div class="feedback-modal hidden" id="feedbackModal">
-    <button class="feedback-backdrop" type="button" onclick="closeFeedbackModal()" aria-label="Close feedback" data-i18n-aria-label="feedback.close"></button>
+    <button class="feedback-backdrop" type="button" data-feedback-modal-action="close" data-analytics-action="feedback.close" aria-label="Close feedback" data-i18n-aria-label="feedback.close"></button>
     <section class="feedback-sheet" role="dialog" aria-modal="true" aria-labelledby="feedbackTitle">
       <div class="feedback-sheet-handle" aria-hidden="true"></div>
       <div class="feedback-header">
@@ -702,10 +700,10 @@ and momentum—at a glance</h2>
           <span class="feedback-kicker">EDENIA</span>
           <h2 id="feedbackTitle" data-i18n="feedback.title">Share feedback</h2>
         </div>
-        <button class="feedback-close-btn" type="button" onclick="closeFeedbackModal()" data-analytics-action="feedback_close" aria-label="Close feedback" data-i18n-aria-label="feedback.close">×</button>
+        <button class="feedback-close-btn" type="button" data-feedback-modal-action="close" data-analytics-action="feedback_close" aria-label="Close feedback" data-i18n-aria-label="feedback.close">×</button>
       </div>
 
-      <form class="feedback-form" id="feedbackForm" onsubmit="submitFeedback(event)">
+      <form class="feedback-form" id="feedbackForm" data-feedback-submission-action="submit">
         <fieldset class="feedback-category-fieldset">
           <legend class="sr-only" data-i18n="feedback.categoryLabel">Feedback category</legend>
           <div class="feedback-category-grid">
@@ -761,8 +759,31 @@ and momentum—at a glance</h2>
 
   <div class="video-watch-reminder-global hidden" id="videoWatchReminderGlobal"></div>
 
+  <div class="set-aside-prompt-overlay hidden" id="setAsidePrompt" data-video-set-aside-action="prompt" aria-hidden="true">
+    <section class="set-aside-prompt" role="dialog" aria-modal="true" aria-labelledby="setAsidePromptTitle" aria-describedby="setAsidePromptMessage">
+      <h2 id="setAsidePromptTitle" data-i18n="setAsidePrompt.title">Set this video aside?</h2>
+      <p id="setAsidePromptMessage">
+        <span data-i18n="setAsidePrompt.bodyBeforeWatched">This is if you've started watching a video but do not want to finish it. You’ll still keep your points, and it will count in your study stats. You can find it again in the </span><strong data-i18n="setAsidePrompt.watched">Watched</strong><span data-i18n="setAsidePrompt.bodyAfterWatched"> section.</span>
+      </p>
+      <div class="set-aside-prompt-actions">
+        <button class="btn-ghost" type="button" data-video-set-aside-action="cancel" data-analytics-action="setAsidePrompt.cancel" data-i18n="setAsidePrompt.cancel">Cancel</button>
+        <button class="btn-primary" type="button" data-video-set-aside-action="confirm" data-analytics-action="setAsidePrompt.confirm" data-i18n="setAsidePrompt.confirm">Set aside</button>
+      </div>
+    </section>
+  </div>
+
   <!-- Toast -->
   <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div class="toast feedback-confirmation hidden" id="feedbackConfirmation" role="dialog" aria-labelledby="feedbackConfirmationMessage">
+    <p id="feedbackConfirmationMessage">
+      <span data-i18n="feedback.success">Thank you! Your feedback is on its way.</span>
+      <span>
+        <span data-i18n="feedback.discordPrompt">Check my discord to follow the discussion:</span>
+        <a href="https://discord.gg/tmJ79XUgE" target="_blank" rel="noopener noreferrer" data-i18n="feedback.discordLink">discord</a>
+      </span>
+    </p>
+    <button class="btn-primary feedback-confirmation-ok" type="button" data-feedback-confirmation-action="close" data-analytics-action="feedback.ok" data-i18n="feedback.ok">Ok</button>
+  </div>
   <div class="heatmap-tooltip" id="heatmapTooltip"></div>
 
 </body>

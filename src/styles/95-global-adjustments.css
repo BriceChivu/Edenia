@@ -1,0 +1,24 @@
+
+/* ── Keyboard focus ───────────────────────────────────────── */
+a:focus-visible,
+summary:focus-visible,
+[tabindex]:not(button):not([role="button"]):focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+@media (max-height: 720px) and (min-width: 641px) {
+  .intro-stage { max-height: 84vh; }
+  .intro-scene { padding-block: 34px; }
+  .intro-mark { margin-bottom: 10px; width: clamp(62px, 9vw, 102px); }
+  .intro-finale-mark { margin-bottom: 10px; width: clamp(68px, 10vw, 112px); }
+  .intro-copy h2,
+  .intro-city-copy h2 { font-size: clamp(1.95rem, 4.2vw, 3.8rem); }
+  .intro-scene-finale h2 { font-size: clamp(2.7rem, 6.5vw, 5.5rem); }
+  html:lang(zh-Hant) .intro-copy h2,
+  html:lang(zh-Hans) .intro-copy h2,
+  html:lang(zh-Hant) .intro-city-copy h2,
+  html:lang(zh-Hans) .intro-city-copy h2,
+  html:lang(zh-Hant) .intro-scene-finale h2,
+  html:lang(zh-Hans) .intro-scene-finale h2 { font-size: clamp(1.65rem, 3.4vw, 3rem); }
+}

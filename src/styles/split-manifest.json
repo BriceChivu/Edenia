@@ -1,0 +1,153 @@
+{
+  "source": "style.css",
+  "sourceBytes": 223282,
+  "sourceSha256": "c295c890a841150c3914976c007498d7f2a8a4d0cfb5d62fcd6d7ca36302e5b7",
+  "newline": "LF",
+  "finalNewline": true,
+  "orderedSections": [
+    {
+      "file": "00-foundations.css",
+      "startByte": 0,
+      "endByteExclusive": 8357,
+      "bytes": 8357,
+      "startLine": 1,
+      "endLine": 245,
+      "sha256": "251ce026f836c4ed35b1b35431eb510bffae7a92f68825c322564aa21d0fd506"
+    },
+    {
+      "file": "10-intro.css",
+      "startByte": 8357,
+      "endByteExclusive": 39964,
+      "bytes": 31607,
+      "startLine": 246,
+      "endLine": 1149,
+      "sha256": "625eb5138c449d3a9eda056e42830295b415f1704931266cf7aea5c6f29bcf32"
+    },
+    {
+      "file": "20-settings-onboarding.css",
+      "startByte": 39964,
+      "endByteExclusive": 58101,
+      "bytes": 18137,
+      "startLine": 1150,
+      "endLine": 1883,
+      "sha256": "e2fd0e6209212016c6bc1a21fc54354dd91779652ea19c19f2cd221681e2d9eb"
+    },
+    {
+      "file": "30-header.css",
+      "startByte": 58101,
+      "endByteExclusive": 65506,
+      "bytes": 7405,
+      "startLine": 1884,
+      "endLine": 2215,
+      "sha256": "5c9f2e07ed7b60b1d1b8c44d353ab194e4f7cda8cc34edd03097a2b8e1240dd4"
+    },
+    {
+      "file": "40-city.css",
+      "startByte": 65506,
+      "endByteExclusive": 78020,
+      "bytes": 12514,
+      "startLine": 2216,
+      "endLine": 2739,
+      "sha256": "f011d641ab3081c3b339fd0e1e98db82c1245319f8dfff47ca57090c3fc0a32e"
+    },
+    {
+      "file": "50-analytics.css",
+      "startByte": 78020,
+      "endByteExclusive": 89871,
+      "bytes": 11851,
+      "startLine": 2740,
+      "endLine": 3244,
+      "sha256": "a5faa443835991654a5a78529ffd9e53bf71fa3989c09f8ebf9d667bf2786f43"
+    },
+    {
+      "file": "60-study-history.css",
+      "startByte": 89871,
+      "endByteExclusive": 107874,
+      "bytes": 18003,
+      "startLine": 3245,
+      "endLine": 3975,
+      "sha256": "50a72aef6077dc8f54fcfcb67d7cb1504b4687d7b4d20e9417fedccf5387ae28"
+    },
+    {
+      "file": "70-video-feed.css",
+      "startByte": 107874,
+      "endByteExclusive": 142683,
+      "bytes": 34809,
+      "startLine": 3976,
+      "endLine": 5468,
+      "sha256": "d310a438380a012c16249a2b3a3329662c97ecaaaf033d78eb9552ca0024bb8f"
+    },
+    {
+      "file": "80-walkthrough.css",
+      "startByte": 142683,
+      "endByteExclusive": 147291,
+      "bytes": 4608,
+      "startLine": 5469,
+      "endLine": 5647,
+      "sha256": "d3c159722cd2da9f9b4ff3bd6a6974a7965948fc04714c1843f0bcd365fd38e4"
+    },
+    {
+      "file": "90-toast.css",
+      "startByte": 147291,
+      "endByteExclusive": 149006,
+      "bytes": 1715,
+      "startLine": 5648,
+      "endLine": 5703,
+      "sha256": "a6ad5d11e1543eb4b0ed0d3c6d7d7dafb8ced6598d0f5a907a840c89eba7ea2c"
+    },
+    {
+      "file": "91-feedback.css",
+      "startByte": 149006,
+      "endByteExclusive": 157579,
+      "bytes": 8573,
+      "startLine": 5704,
+      "endLine": 6051,
+      "sha256": "edfd72321d17eba7ee1a6fc53c8ae884823cfaa8e5aeb1a8bc861d188ecb6c3d"
+    },
+    {
+      "file": "95-global-adjustments.css",
+      "startByte": 157579,
+      "endByteExclusive": 158626,
+      "bytes": 1047,
+      "startLine": 6052,
+      "endLine": 6075,
+      "sha256": "954f0df667ab66e995cbdf0a6cac8462f5d6b49e0f0262f371c44e8122eb752a"
+    },
+    {
+      "file": "96-responsive-page-flows.css",
+      "startByte": 158626,
+      "endByteExclusive": 176666,
+      "bytes": 18040,
+      "startLine": 6076,
+      "endLine": 6773,
+      "sha256": "200cf29c1b1cd7687a2b72963cb420858fef0feb56de10dd1da3cb4fd6593a8b"
+    },
+    {
+      "file": "97-responsive-input.css",
+      "startByte": 176666,
+      "endByteExclusive": 180225,
+      "bytes": 3559,
+      "startLine": 6774,
+      "endLine": 6965,
+      "sha256": "667d9f7260de67dfff73a93905404644959d8730e428734ac86240cc07bea1a3"
+    },
+    {
+      "file": "98-responsive-phone.css",
+      "startByte": 180225,
+      "endByteExclusive": 202190,
+      "bytes": 21965,
+      "startLine": 6966,
+      "endLine": 7856,
+      "sha256": "9ed935165450ac62092f45e80e009b01d07ba7f581ac7ed20e35bbc2fbf2fa6c"
+    },
+    {
+      "file": "99-responsive-wide.css",
+      "startByte": 202190,
+      "endByteExclusive": 223282,
+      "bytes": 21092,
+      "startLine": 7857,
+      "endLine": 8526,
+      "sha256": "9f4c2ae48678693011a0b8b60cd4e96484832eaef79a85e523dcdc4ac8514bad"
+    }
+  ]
+}

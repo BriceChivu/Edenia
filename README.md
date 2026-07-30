@@ -49,7 +49,7 @@ Undo and redo cover recent status, progress, manual-video, and channel-removal a
 - Tracks watched video time against a weekly goal from 1 to 99 hours.
 - Shows watched and in-progress counts, remaining time, and goal completion.
 - Converts the remaining goal into localized daily pace guidance when study videos are available.
-- Maintains current and longest study streaks; a day qualifies after earning at least 0.5 points.
+- Maintains current and longest study streaks; a day qualifies after earning at least 5 points.
 - Aggregates activity by selectable week or month.
 - Provides a detailed Summary view and a one-year Heatmap view with localized month and weekday labels.
 - Shows the videos watched and the point breakdown for each active day.
@@ -92,42 +92,55 @@ Study insights are calculated locally from up to 42 days of recorded video progr
 Town score is cumulative and does not reset each week. Edenia calculates points separately for each activity day, combines that day's video and Anki contributions, and then rounds the daily total down to a whole number:
 
 ```text
-daily points = floor((video seconds / 3600 × 3) + (Anki reviews / 60 × 2))
+daily points = floor((video seconds / 3600 × 30) + (Anki reviews / 60 × 20))
 ```
 
 | Activity | Points |
 | --- | ---: |
-| 1 hour of watched video time | 3 |
-| 60 Anki reviews | 2 |
+| 1 hour of watched video time | 30 |
+| 60 Anki reviews | 20 |
 
 There is no separate bonus for marking a video watched or for the number of videos completed. New Anki cards are recorded for context but do not award points.
 
 Examples:
 
-- 30 minutes of video produces `1.5` points, which becomes `1` point when it is the only activity that day.
-- 30 Anki reviews produce `1` point.
-- 30 minutes of video plus 30 Anki reviews produce `2.5` points together, which becomes `2` points for that day.
+- 30 minutes of video produces `15` points.
+- 30 Anki reviews produce `10` points.
+- 30 minutes of video plus 30 Anki reviews produce `25` points together.
 - Fractional points do not carry into another day.
 
 | Level | Required score |
 | ---: | ---: |
 | 1 | 0 |
-| 2 | 5 |
-| 3 | 12 |
-| 4 | 20 |
-| 5 | 28 |
-| 6 | 35 |
-| 7 | 42 |
-| 8 | 50 |
-| 9 | 60 |
-| 10 | 70 |
-| 11 | 80 |
-| 12 | 90 |
+| 2 | 60 |
+| 3 | 140 |
+| 4 | 230 |
+| 5 | 320 |
+| 6 | 400 |
+| 7 | 480 |
+| 8 | 570 |
+| 9 | 680 |
+| 10 | 800 |
+| 11 | 920 |
+| 12 | 1050 |
 
-## Run Locally
+## Build and Run Locally
 
-1. Copy `config.example.js` to `config.local.js`.
-2. Add a YouTube Data API v3 key to `config.local.js`:
+Edenia uses the Node.js version pinned in `.nvmrc`.
+
+1. Install the pinned dependencies:
+
+   ```bash
+   npm ci
+   ```
+
+2. Create the ignored local runtime configuration once:
+
+   ```bash
+   cp config.example.js config.local.js
+   ```
+
+   Add a separate, restricted development YouTube Data API v3 key:
 
    ```js
    window.EDENIA_CONFIG = {
@@ -135,17 +148,53 @@ Examples:
    }
    ```
 
-3. Serve the repository root:
+3. Build and start the local site:
 
    ```bash
-   python3 -m http.server 8000
+   npm run dev
    ```
 
 4. Open [http://localhost:8000/](http://localhost:8000/).
 
-There is no dependency installation or local build step. Opening `index.html` directly may display the interface, but serving the folder provides the expected runtime origin and file-loading behavior.
+`npm run dev` validates the ignored root `config.local.js`, builds `_site`,
+writes a normalized `_site/config.local.js` without printing the key, and
+serves the result on the loopback interface. Re-run the command after changing
+source files; it intentionally performs one build instead of running a watcher.
 
-`config.local.js` is ignored by Git. `config.example.js` is only the local-development template and is not used by the GitHub Pages workflow.
+The non-production build writes an empty runtime API key so automated checks do
+not use YouTube quota. `npm run build:production` requires `YOUTUBE_API_KEY` and
+is reserved for the GitHub Pages workflow.
+
+`config.local.js` and `_site` are ignored by Git. `config.example.js` is only
+the local-development template and is not used by the GitHub Pages workflow.
+The local development key is still delivered to the browser, so restrict it to
+the YouTube Data API, allow the `http://localhost:8000/*` referrer, and use a
+small development quota.
+
+## Migration Safety Checks
+
+The migration harness keeps application traffic deterministic and blocks unexpected
+external requests. YouTube and Anki responses are served from test fixtures, and
+automated tests fail if they attempt to contact PostHog.
+
+```bash
+npm test
+npm run test:e2e
+```
+
+The browser suite uses ports 8000 and 8001 by default. If port 8000 is already in
+use locally, select an isolated normal-mode port while retaining the required
+sandbox origin:
+
+```bash
+EDENIA_TEST_NORMAL_PORT=4173 npm run test:e2e
+```
+
+Visual baselines may be regenerated only for an explicitly approved change:
+
+```bash
+npm run test:e2e:update
+```
 
 ## YouTube API Configuration
 
@@ -162,6 +211,86 @@ Recommended Google Cloud restrictions:
 5. Keep a second restricted key ready for rotation.
 
 Custom `/c/...` channel URLs are not resolved automatically. Use a channel ID, handle, supported channel URL, or legacy username URL instead.
+
+## Channel Catalog Maintenance
+
+`data/channel-catalog.source.json` is the human-maintained list of channels. Add or edit entries there; do not edit the generated `data/channel-catalog.json` file directly.
+
+Each source entry needs:
+
+- A unique lowercase `catalogId`.
+- A YouTube handle, channel URL, or channel ID in `youtubeInput`.
+- A fallback `name`.
+- At least one `language` and `level`.
+- Optional `style`, `description`, and `aliases` fields for local search.
+
+Refresh the generated catalog with:
+
+```bash
+node scripts/refresh-channel-catalog.mjs
+```
+
+The script uses `YOUTUBE_CATALOG_API_KEY` or `YOUTUBE_API_KEY` when set, otherwise it reads the key from `config.local.js`. New handles are resolved once, and later refreshes reuse their stable channel IDs and request current metadata in batches of up to 50.
+
+`.github/workflows/refresh-channel-catalog.yml` also refreshes the catalog when the source or refresh script changes, on manual dispatch, and twice per month. It commits only the generated catalog. Missing or deleted channels remain in the generated file with `available: false` so they can be corrected without losing the editorial entry.
+
+The workflow requires a separate `YOUTUBE_CATALOG_API_KEY` repository secret. Create that credential in the same Google Cloud project, restrict it to YouTube Data API v3, and keep it only in GitHub Actions. Do not apply Edenia's browser-referrer restriction to this automation key because GitHub's server-side runner does not send the deployed site's referrer. Both credentials still share the same project quota.
+
+### Automated YouTube discovery
+
+`.github/workflows/discover-language-channels.yml` proactively searches YouTube every Sunday for language-learning channels that are not already present in the curated, community, or previously discovered catalogs. It can also be run manually after the workflow is pushed to GitHub.
+
+Each run searches French, English, German, Mandarin Chinese, Russian, Spanish, Japanese, and Portuguese with three focused channel queries per language. The queries rotate through four weekly groups covering beginner material, listening and stories, grammar and vocabulary, and intermediate conversation or podcasts. Every group includes a query written in the target language, and its final query is ordered by channel creation date.
+
+The first page of each query uses 24 `search.list` calls. If a language still has fewer than six eligible additions after filtering and deduplication, the script requests the second page for that language's current queries. The absolute maximum is therefore 48 search calls per run. The next rotation index is stored in `data/channel-catalog.discovered.json`, so scheduled and manual runs continue the sequence rather than choosing queries randomly.
+
+The script then uses batched `channels.list` requests to verify metadata, statistics, public availability, and profile-picture URLs.
+
+Automatic additions are deliberately conservative:
+
+- No more than six new channels per language and run.
+- At least 100 visible subscribers, unless subscriber counts are hidden.
+- At least 10 published videos.
+- The channel title, handle, or description must contain both the target language and language-learning signals.
+- Channel IDs, handles, and exact names are deduplicated against all existing catalogs.
+- Existing discovered-channel metadata is refreshed after 30 days.
+
+Accepted channels are written to `data/channel-catalog.discovered.json`, deployed with GitHub Pages, and loaded into the Add search alongside curated and community channels.
+
+The workflow only requires the existing `YOUTUBE_CATALOG_API_KEY` secret. These optional repository variables can tune its conservative defaults:
+
+- `DISCOVERY_MAX_PER_LANGUAGE`
+- `DISCOVERY_MIN_SUBSCRIBERS`
+- `DISCOVERY_MIN_VIDEOS`
+
+The same discovery can be run locally before pushing by setting `YOUTUBE_CATALOG_API_KEY` and running:
+
+```bash
+node scripts/discover-language-channels.mjs
+```
+
+### Community catalog growth
+
+Successful Add-button additions that did not come from the curated, community, or discovered catalog are recorded as catalog candidates through the existing PostHog analytics pipeline. The browser never receives a GitHub write credential.
+
+`.github/workflows/import-community-channel-catalog.yml` runs daily and can also be dispatched manually. It:
+
+1. Reads the previous 180 days of `channel_added_via_add_button` events from PostHog.
+2. Excludes curated, community, and automatically discovered selections, plus internal, localhost, or sandbox additions.
+3. Counts distinct PostHog users without writing their identifiers to the repository.
+4. Verifies new or 30-day-stale candidates with YouTube in batches of up to 50 channels per one-unit `channels.list` request.
+5. Writes aggregate candidates to `data/channel-catalog.candidates.json`.
+6. Promotes a channel to `data/channel-catalog.community.json` after two distinct users add it.
+
+Once promoted, a channel remains in the community catalog and is loaded by the Add search on the deployed site. The stored catalog metadata includes the channel name, handle, languages associated with its additions, and YouTube profile-picture URL. The two-user promotion rule limits which additions reach the community catalog, but it is not equivalent to authenticated moderation.
+
+Configure these repository secrets:
+
+- `POSTHOG_PROJECT_ID`: the numeric PostHog project ID.
+- `POSTHOG_PERSONAL_API_KEY`: a server-side personal key with read access to query that project's events.
+- `YOUTUBE_CATALOG_API_KEY`: the existing server-side YouTube catalog key.
+
+If the PostHog project is not in the US region, also set the `POSTHOG_HOST` repository variable to the appropriate PostHog app host. Never put the PostHog personal key in `index.html`, `app.js`, `config.local.js`, or a Pages deployment.
 
 ## Anki Setup
 
@@ -215,8 +344,8 @@ The workflow in `.github/workflows/deploy-pages.yml` deploys on pushes to `maste
 
 During deployment it:
 
-1. Copies `index.html`, `app.js`, `analytics.js`, `style.css`, the favicon, fonts, and images into `_site`.
-2. Minifies the deployed CSS and main JavaScript.
+1. Installs the pinned Node.js dependencies.
+2. Builds the static site into `_site` with versioned asset references.
 3. Generates `_site/config.local.js` from the `YOUTUBE_API_KEY` repository secret.
 4. Uploads and deploys the static Pages artifact.
 
@@ -245,11 +374,30 @@ Production analytics create a PostHog person profile for each browser installati
 | Path | Purpose |
 | --- | --- |
 | `index.html` | App structure, first-run trailer, runtime script loading, and production analytics initialization |
-| `style.css` | Responsive layout, themes, motion, accessibility, and component styling |
-| `app.js` | State, localization, onboarding, YouTube and Anki integrations, history, insights, scoring, and rendering |
+| `src/app.js` | Composition entry plus tightly coupled rendering and lifecycle orchestration |
+| `src/core/` | Shared pure helpers and runtime, storage, responsive, and global-action contracts |
+| `src/domain/` | Rendering-independent video state and watch-progress rules |
+| `src/state/` | State normalization, persistence, backups, history, onboarding, Anki, and insights |
+| `src/features/` | Feature models and module-owned DOM action adapters |
+| `src/integrations/` | Runtime configuration, analytics bridge, and YouTube parsing |
+| `src/i18n/` | Complete English, Traditional Chinese, Simplified Chinese, Spanish, and French dictionaries plus the locale registry |
+| `src/styles/` | Ordered foundation, feature, page-flow, input-capability, phone, and wide responsive styles |
 | `analytics.js` | PostHog person profiles, deduplicated state synchronization, historical aggregate backfill, and controlled button-action tracking |
 | `config.example.js` | Safe local runtime-config template |
+| `data/channel-catalog.source.json` | Human-maintained channel catalog and Edenia search metadata |
+| `data/channel-catalog.json` | Generated current YouTube channel metadata |
+| `scripts/refresh-channel-catalog.mjs` | Catalog validation, channel-ID resolution, and batched metadata refresh |
 | `assets/fonts/` | Self-hosted Space Grotesk and Bebas Neue font subsets |
 | `images/channel-avatars/` | Bundled curated-channel avatars |
 | `images/city/` | Optimized town progression images |
+
+Architecture, migration, and release references:
+
+- [Architecture](docs/architecture.md)
+- [Current experience preservation inventory](docs/current-experience-inventory.md)
+- [Responsive review matrix](docs/responsive-review-matrix.md)
+- [Deployment and release runbook](docs/deployment-and-releases.md)
+- [Migration change ledger](migration_changes.md)
+- [Contributing guide](CONTRIBUTING.md)
 | `.github/workflows/deploy-pages.yml` | Static GitHub Pages build and deployment workflow |
+| `.github/workflows/refresh-channel-catalog.yml` | Scheduled and source-triggered channel catalog refresh |
