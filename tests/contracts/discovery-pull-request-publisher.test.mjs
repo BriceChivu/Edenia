@@ -1,10 +1,21 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  createSystemCommandRunner,
   publishDiscoveryPullRequest
 } from '../../scripts/publish-discovery-pull-request.mjs'
 
 const CATALOG_PATH = 'data/channel-catalog.discovered.json'
+
+test('system command runner preserves Git porcelain status prefixes', () => {
+  const run = createSystemCommandRunner()
+  const output = run(
+    process.execPath,
+    ['-e', `process.stdout.write(" M ${CATALOG_PATH}\\n")`],
+    { capture: true }
+  )
+  assert.equal(output, ` M ${CATALOG_PATH}`)
+})
 
 test('discovery publisher exits cleanly when the catalog is unchanged', () => {
   const commands = []

@@ -21,7 +21,7 @@ export function createSystemCommandRunner(cwd = process.cwd()) {
     if (result.status !== 0) {
       throw new Error(`${command} failed with exit code ${result.status}.`)
     }
-    return capture ? String(result.stdout || '').trim() : ''
+    return capture ? String(result.stdout || '').trimEnd() : ''
   }
 }
 
