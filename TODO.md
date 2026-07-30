@@ -29,6 +29,10 @@ Mobile:
 - there is a subtle visual bug: there is a light blue line in the study history at the top edge of the rectangle of the study summary table
 
 
+Gamification and design:
+- https://www.youtube.com/watch?v=LXX_qOA5D8E
+- https://www.youtube.com/watch?v=Du2lkZ_cux8
+
 For later:
 - Go through the entire code and flag any potential bugs or incoherence. Do not fix anything, just tell me.
 - Go through the entire README.md and update it to reflect the current status of the codebase.
