@@ -33,15 +33,10 @@ jobs:
           YOUTUBE_CATALOG_API_KEY: ${{ secrets.YOUTUBE_CATALOG_API_KEY }}
         run: node scripts/import-community-channel-candidates.mjs
 
-      - name: Commit catalog changes
+      - name: Publish community catalog review branch
         run: |
-          if git diff --quiet -- data/channel-catalog.candidates.json data/channel-catalog.community.json; then
-            echo "Community catalog is already current."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/channel-catalog.candidates.json data/channel-catalog.community.json
-          git commit -m "Update community channel catalog"
-          git push
+          node scripts/publish-maintenance-branch.mjs \
+            --branch "automation/import-community-channel-catalog-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --commit-message "Update community channel catalog" \
+            --path data/channel-catalog.candidates.json \
+            --path data/channel-catalog.community.json

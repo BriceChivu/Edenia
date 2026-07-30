@@ -43,15 +43,9 @@ jobs:
 
           node scripts/refresh-channel-catalog.mjs
 
-      - name: Commit refreshed catalog
+      - name: Publish catalog review branch
         run: |
-          if git diff --quiet -- data/channel-catalog.json; then
-            echo "Channel catalog is already current."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/channel-catalog.json
-          git commit -m "Refresh channel catalog metadata"
-          git push
+          node scripts/publish-maintenance-branch.mjs \
+            --branch "automation/refresh-channel-catalog-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --commit-message "Refresh channel catalog metadata" \
+            --path data/channel-catalog.json

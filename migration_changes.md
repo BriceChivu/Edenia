@@ -5296,3 +5296,58 @@ release mappings, and follow-up findings are recorded as new entries.
 - **Association:** `codex/migration-05-javascript-modularization`;
   [PR #1](https://github.com/BriceChivu/Edenia/pull/1); `v1.0.1` release
   pending.
+
+---
+
+## MIG-145 — Route catalog automation through review branches
+
+- **Date:** 2026-07-30
+- **Phase:** 8 — Final cleanup
+- **Type:** Protected-branch workflow compatibility and least-privilege
+  automation
+- **Status:** Implemented locally; pull-request verification pending
+- **Intent:** Restore the three generated channel-catalog maintenance workflows
+  after `master` protection correctly rejected their former direct pushes,
+  without weakening the new pull-request and required-check boundary.
+- **Conceptual change:** Replaced each workflow's direct commit-and-push step
+  with one shared maintenance-branch publisher. A changed catalog is committed
+  only from an explicit file allowlist and pushed to a fresh branch named from
+  the workflow run and attempt. The job prints a GitHub compare link; an
+  authenticated maintainer or Codex session creates the pull request, and the
+  normal protected-branch `verify` gate handles it. The workflows retain only
+  `contents: write`: they cannot create or approve pull requests and never
+  auto-merge. The repository-wide setting that would allow Actions workflows
+  to create and approve pull requests remains disabled. Contributor guidance
+  now documents this review handoff for refresh, discovery, and community
+  imports.
+- **Preservation contract:** Preserve the generated catalog formats, source
+  inputs, workflow schedules and manual triggers, YouTube and PostHog secret
+  boundaries, catalog refresh/discovery/import algorithms, deployed
+  application, entry filenames, visuals, behavior, state, storage, analytics,
+  localization, accessibility, and responsive results. Preserve `master`
+  protection and its required `verify` check.
+- **Risks:** A loose pathspec could commit unrelated or secret files; a reused
+  branch could overwrite an in-review result; and broader Actions permission
+  could bypass the intended human handoff. The publisher rejects absolute,
+  wildcard, traversal, and non-explicit paths, checks the complete staged file
+  list against the allowlist, creates a unique branch per run attempt, performs
+  a normal non-force push, and has no GitHub CLI or pull-request token path.
+  Unreviewed automation branches may remain until a maintainer opens and merges
+  or deletes them.
+- **Verification:** Ran only
+  `node --test tests/contracts/maintenance-branch-publisher.test.mjs`: 3 tests
+  passed, covering unsafe-path rejection and the no-change exit, allowlisted
+  commit plus new-branch push and compare URL, and refusal to commit or push
+  when an unrelated file is staged. No browser, local-server, visual,
+  full-suite, build, diff-integrity, static-pass, or static-review check was run
+  in accordance with `AGENTS.md`. Pull-request CI and a post-merge maintenance
+  dispatch remain pending.
+- **Rollback:** Revert this commit through a pull request and pause the three
+  maintenance schedules while choosing a replacement compatible with protected
+  `master`; restoring their former direct-push steps alone will remain blocked
+  by branch protection. Delete any unmerged `automation/*` review branches
+  separately after confirming they contain no catalog update that should be
+  retained. No application, deployment, state, storage, analytics,
+  localization, responsive, or visual rollback is required.
+- **Association:** `codex/migration-08-protected-automation`; pull request and
+  `v1.0.1` release pending.

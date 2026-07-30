@@ -232,13 +232,13 @@ node scripts/refresh-channel-catalog.mjs
 
 The script uses `YOUTUBE_CATALOG_API_KEY` or `YOUTUBE_API_KEY` when set, otherwise it reads the key from `config.local.js`. New handles are resolved once, and later refreshes reuse their stable channel IDs and request current metadata in batches of up to 50.
 
-`.github/workflows/refresh-channel-catalog.yml` also refreshes the catalog when the source or refresh script changes, on manual dispatch, and twice per month. It commits only the generated catalog. Missing or deleted channels remain in the generated file with `available: false` so they can be corrected without losing the editorial entry.
+`.github/workflows/refresh-channel-catalog.yml` also refreshes the catalog when the source or refresh script changes, on manual dispatch, and twice per month. When the generated file changes, the workflow commits only that file to a new `automation/refresh-channel-catalog-<run>-<attempt>` review branch and prints a GitHub compare link. An authenticated maintainer opens the pull request from that link; the workflow never pushes directly to `master`, creates or approves a pull request, or merges it. Missing or deleted channels remain in the generated file with `available: false` so they can be corrected without losing the editorial entry.
 
 The workflow requires a separate `YOUTUBE_CATALOG_API_KEY` repository secret. Create that credential in the same Google Cloud project, restrict it to YouTube Data API v3, and keep it only in GitHub Actions. Do not apply Edenia's browser-referrer restriction to this automation key because GitHub's server-side runner does not send the deployed site's referrer. Both credentials still share the same project quota.
 
 ### Automated YouTube discovery
 
-`.github/workflows/discover-language-channels.yml` proactively searches YouTube every Sunday for language-learning channels that are not already present in the curated, community, or previously discovered catalogs. It can also be run manually after the workflow is pushed to GitHub.
+`.github/workflows/discover-language-channels.yml` proactively searches YouTube every Sunday for language-learning channels that are not already present in the curated, community, or previously discovered catalogs. It can also be run manually after the workflow is pushed to GitHub. A changed discovery catalog is published to a unique `automation/discover-language-channels-<run>-<attempt>` review branch with the same maintainer-created pull-request boundary.
 
 Each run searches French, English, German, Mandarin Chinese, Russian, Spanish, Japanese, and Portuguese with three focused channel queries per language. The queries rotate through four weekly groups covering beginner material, listening and stories, grammar and vocabulary, and intermediate conversation or podcasts. Every group includes a query written in the target language, and its final query is ordered by channel creation date.
 
@@ -281,6 +281,11 @@ Successful Add-button additions that did not come from the curated, community, o
 4. Verifies new or 30-day-stale candidates with YouTube in batches of up to 50 channels per one-unit `channels.list` request.
 5. Writes aggregate candidates to `data/channel-catalog.candidates.json`.
 6. Promotes a channel to `data/channel-catalog.community.json` after two distinct users add it.
+
+When either generated community file changes, the workflow commits only those
+allowlisted files to a unique
+`automation/import-community-channel-catalog-<run>-<attempt>` review branch and
+prints the compare link for a maintainer-created pull request.
 
 Once promoted, a channel remains in the community catalog and is loaded by the Add search on the deployed site. The stored catalog metadata includes the channel name, handle, languages associated with its additions, and YouTube profile-picture URL. The two-user promotion rule limits which additions reach the community catalog, but it is not equivalent to authenticated moderation.
 
