@@ -455,7 +455,7 @@ export const ES_LOCALIZED = {
     'walkthrough.studyHistoryNoAnki': 'El historial de estudio muestra lo que pasó con el tiempo.',
     'walkthrough.historyViews': 'Usa Resumen para ver números claros, y Mapa para ver tus días activos de un vistazo. Edenia recuerda la vista que prefieres.',
     'walkthrough.videos': 'Esta es la zona de videos. Aquí aparecen videos nuevos de tus canales.',
-    'walkthrough.firstStudyChannels': 'Aquí puedes añadir canales de YouTube o videos individuales.',
+    'walkthrough.firstStudyChannels': 'Añade canales de YouTube aquí.',
     'walkthrough.otherAddNow': '¡Añade ahora un canal o video de YouTube!',
     'walkthrough.firstStudyFeed': 'Esta es tu lista de estudio. Tu objetivo, historial y pueblo se actualizan con lo que estudias.',
     'walkthrough.startWatching': '¡Empieza a ver un video!',

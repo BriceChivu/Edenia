@@ -455,7 +455,7 @@ export const FR_LOCALIZED = {
     'walkthrough.studyHistoryNoAnki': 'L’historique d’étude montre ce qui s’est passé au fil du temps.',
     'walkthrough.historyViews': 'Utilisez Résumé pour des chiffres clairs, et Carte pour voir vos jours actifs en un coup d’œil. Edenia mémorise votre vue préférée.',
     'walkthrough.videos': 'Voici la zone des vidéos. Les nouvelles vidéos de vos chaînes apparaissent ici.',
-    'walkthrough.firstStudyChannels': 'Vous pouvez ajouter ici des chaînes YouTube ou des vidéos individuelles.',
+    'walkthrough.firstStudyChannels': 'Ajoutez des chaînes YouTube ici.',
     'walkthrough.otherAddNow': 'Ajoutez maintenant une chaîne ou une vidéo YouTube !',
     'walkthrough.firstStudyFeed': 'Voici votre liste d’étude. Votre objectif, votre historique et votre ville évoluent selon ce que vous étudiez.',
     'walkthrough.startWatching': 'Commencez à regarder une vidéo !',

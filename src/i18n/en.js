@@ -603,7 +603,7 @@ export const EN_CORE = {
   'walkthrough.studyHistoryNoAnki': 'Study History shows what happened over time.',
   'walkthrough.historyViews': 'Use Summary when you want clear numbers, and Heatmap when you want to see active days at a glance. Edenia remembers which view you prefer.',
   'walkthrough.videos': 'This is the video area. New videos from your channels appear here.',
-  'walkthrough.firstStudyChannels': 'You can add YouTube channels or individual videos here.',
+  'walkthrough.firstStudyChannels': 'Add YouTube channels here.',
   'walkthrough.otherAddNow': 'Add a Youtube channel or video now!',
   'walkthrough.firstStudyFeed': 'This is your study feed. Your goal, history, and town update from what you study.',
   'walkthrough.startWatching': 'Start watching a video!',

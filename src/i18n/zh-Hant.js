@@ -472,7 +472,7 @@ export const ZH_HANT_LOCALIZED = {
     'walkthrough.studyHistoryNoAnki': '學習紀錄會顯示你一段時間內做了什麼。',
     'walkthrough.historyViews': '摘要適合看清楚的數字，熱力圖適合快速看哪些天有學習。Edenia 會記住你偏好的視圖。',
     'walkthrough.videos': '這裡是影片區。你加入的頻道會在這裡顯示新影片。',
-    'walkthrough.firstStudyChannels': '你可以在這裡新增 YouTube 頻道或單部影片。',
+    'walkthrough.firstStudyChannels': '在這裡新增 YouTube 頻道。',
     'walkthrough.otherAddNow': '立即新增 YouTube 頻道或影片！',
     'walkthrough.firstStudyFeed': '這是你的學習清單。你的目標、紀錄和小鎮都會隨著你的學習更新。',
     'walkthrough.startWatching': '開始觀看影片吧！',
