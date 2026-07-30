@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-27T15:11:32.492Z",
-  "lastRotationIndex": 2,
-  "nextRotationIndex": 3,
+  "generatedAt": "2026-07-30T09:07:45.108Z",
+  "lastRotationIndex": 3,
+  "nextRotationIndex": 0,
   "rotationCount": 4,
   "languages": [
     "french",
@@ -350,6 +350,34 @@
       "discoveredAt": "2026-07-27T15:11:12.608Z",
       "refreshedAt": "2026-07-27T15:11:12.608Z",
       "searchText": "acquire mandarin acquiremandarin mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCKcZoWbqWzXSYzxQL9utJ1g",
+      "channelId": "UCKcZoWbqWzXSYzxQL9utJ1g",
+      "youtubeInput": "@adeptenglish",
+      "handle": "@adeptenglish",
+      "name": "Adept English",
+      "thumbnailUrl": "https://yt3.ggpht.com/vyOmdesekO9WvTfb9sBLLpkydu9zUjadr2x3K-wYbAaFemaH25JYg_fDMXWsf1ViwThqAqRs=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🎧 Welcome to Adept English 🌍: Your Language Adventure Awaits! 🚀 Are you ready to conquer the English language? 🏆 Step into the fascinating world of Adept English, where we make learning English not just easy but incredibly fun and engaging! 🎉 Here, you'll discover hundreds of videos covering everything from voc...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2016-04-22T09:24:30Z",
+      "subscriberCount": "58800",
+      "videoCount": "55",
+      "viewCount": "63462",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 260,
+      "discoveredByQueries": [
+        "advanced English listening"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "adept english adeptenglish english youtube discovery"
     },
     {
       "catalogId": "discovered-UCDesUollcijI5Trt57sUAHQ",
@@ -1561,6 +1589,34 @@
       "searchText": "chinese mandarin with nicole mandarinwithnicole mandarin youtube discovery"
     },
     {
+      "catalogId": "discovered-UC4c-CPXHJvZCm4rZm_wcabg",
+      "channelId": "UC4c-CPXHJvZCm4rZm_wcabg",
+      "youtubeInput": "@chinesepodcastzone",
+      "handle": "@chinesepodcastzone",
+      "name": "Chinese Podcast Zone",
+      "thumbnailUrl": "https://yt3.ggpht.com/F16u4w3rp0cQrKoYspfLtKd1sFsjIag10zmkJ1ttg69rzbFHzaZ9eshYwvNf0-NTO_f22eRs7g=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🎧 Welcome to Chinese Podcast Zone! We’re a team of passionate Chinese language educators dedicated to helping you master Mandarin. In every episode, we speak slowly and clearly, making it easy for you to listen, follow along, and practice speaking with us. We share engaging conversations, practical phrases, everyda...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-08-06T12:49:22.557785Z",
+      "subscriberCount": "14800",
+      "videoCount": "71",
+      "viewCount": "635618",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 198,
+      "discoveredByQueries": [
+        "intermediate Mandarin podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "chinese podcast zone chinesepodcastzone mandarin youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCGANPFXEiKWDx9WAQlGYekQ",
       "channelId": "UCGANPFXEiKWDx9WAQlGYekQ",
       "youtubeInput": "@markweichinese",
@@ -2065,6 +2121,34 @@
       "searchText": "construyendo espanol construyendoespanol6100 spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UCOMWxPPZ7eic6WoCBpUu49w",
+      "channelId": "UCOMWxPPZ7eic6WoCBpUu49w",
+      "youtubeInput": "@conversationalchinese",
+      "handle": "@conversationalchinese",
+      "name": "Conversational Chinese ",
+      "thumbnailUrl": "https://yt3.ggpht.com/5ig2uVgGEalsSG_0nN91t_sMj4KicPzUGTdLyCaHBcITp1x3_hzWbjF-5IDsq0MuFbR1jzsimg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "My name is Sophia. I have been teaching Mandarin Chinese for more than 10 years. In this channel, I am sharing my knowledge and ideas. Hopefully, this channel will help you a lot on your journey of learning this language.",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-03-15T03:10:18.858141Z",
+      "subscriberCount": "63900",
+      "videoCount": "268",
+      "viewCount": "3926385",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 207,
+      "discoveredByQueries": [
+        "Mandarin conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "conversational chinese conversationalchinese mandarin youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCSHhm94gQifhWmO5LhQk2XQ",
       "channelId": "UCSHhm94gQifhWmO5LhQk2XQ",
       "youtubeInput": "@crownacademyenglish",
@@ -2091,6 +2175,34 @@
       "discoveredAt": "2026-07-24T14:16:02.265Z",
       "refreshedAt": "2026-07-24T14:16:02.265Z",
       "searchText": "crown academy of english crownacademyenglish english youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCyDDXkiUTmK0x0W00JlGuNg",
+      "channelId": "UCyDDXkiUTmK0x0W00JlGuNg",
+      "youtubeInput": "@culips",
+      "handle": "@culips",
+      "name": "Culips English Podcast",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_lZSwf7-e-MLyaQeCBeR0mko5Lq3W6970fY_MGZuOxbGQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "We teach English through high-quality audio lessons about fascinating topics. Each lesson features clear and easy to understand conversations between native speakers. Learning English with us is an amazing way to grow your listening, vocabulary, comprehension, pronunciation, and speaking. It’s also great for learnin...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2012-02-05T04:45:17Z",
+      "subscriberCount": "99900",
+      "videoCount": "638",
+      "viewCount": "2320902",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 228,
+      "discoveredByQueries": [
+        "intermediate English podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "culips english podcast culips english youtube discovery"
     },
     {
       "catalogId": "discovered-UCxnFeW5d83KG0ZR9EqyEAjA",
@@ -2290,6 +2402,34 @@
       "searchText": "daily german lesson dailygermanlesson german youtube discovery"
     },
     {
+      "catalogId": "discovered-UCMXqoZ-FplvETa2nKrPPR3A",
+      "channelId": "UCMXqoZ-FplvETa2nKrPPR3A",
+      "youtubeInput": "@germandailytalks",
+      "handle": "@germandailytalks",
+      "name": "Daily German Talks",
+      "thumbnailUrl": "https://yt3.ggpht.com/W9u9p4Yo9plgrcXPceHz4_xU_t4FvKWDzgom9Oy9i-lOYzciJGQcy4rk4Mj_Vt4QKsk4MJqBQQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Daily German Talks – Deutsch lernen leicht & natürlich Willkommen bei Daily German Talks – deinem entspannten Ort, um Deutsch für den echten Alltag zu lernen! 🎙️ In unseren täglichen Talks helfen wir dir dabei: 👂 Dein Hörverstehen zu verbessern – durch deutliche Gespräche über reale und interessante Themen. 🗣️ Ei...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-06-02T10:09:38.966028Z",
+      "subscriberCount": "7020",
+      "videoCount": "179",
+      "viewCount": "631862",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 158,
+      "discoveredByQueries": [
+        "German conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "daily german talks germandailytalks german youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCtO49EUg7nyInQENjg_vjsg",
       "channelId": "UCtO49EUg7nyInQENjg_vjsg",
       "youtubeInput": "@dailymandarinpodcast",
@@ -2344,6 +2484,34 @@
       "discoveredAt": "2026-07-25T15:03:19.156Z",
       "refreshedAt": "2026-07-25T15:03:19.156Z",
       "searchText": "daily russian alinadailyrussian russian youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCJw78LoNz581CW2OogKSYkQ",
+      "channelId": "UCJw78LoNz581CW2OogKSYkQ",
+      "youtubeInput": "@dailyspanishconversations",
+      "handle": "@dailyspanishconversations",
+      "name": "Daily Spanish Conversations",
+      "thumbnailUrl": "https://yt3.ggpht.com/cVniOrHZ4pu_pm7ArKPuSkfz1XTVdCmRW7yE6gJSVsct5AlWp-1RSwr6ecpGTDhccd4BrQmQCg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "You can learn Spanish with us! Learn Spanish with iLearn Spanish - The Fastest, Easiest and Most Fun Way to Learn Spanish. :) With our videos, you can improve and practice your Spanish. The videos will help you with: speak Spanish, listen to Spanish, read Spanish, write Spanish, picture description, etc. The level r...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2019-03-07T12:51:06Z",
+      "subscriberCount": "10600",
+      "videoCount": "109",
+      "viewCount": "459321",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 174,
+      "discoveredByQueries": [
+        "Spanish conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "daily spanish conversations dailyspanishconversations spanish youtube discovery"
     },
     {
       "catalogId": "discovered-UCohtfmls0ofIUg54ib1C1Xg",
@@ -2852,6 +3020,62 @@
       "searchText": "easy french stories easyfrenchstories french youtube discovery"
     },
     {
+      "catalogId": "discovered-UCOtfpX8dyzJPzyxscKj_rHQ",
+      "channelId": "UCOtfpX8dyzJPzyxscKj_rHQ",
+      "youtubeInput": "@easy.german.conversations",
+      "handle": "@easy.german.conversations",
+      "name": "Easy German Conversations",
+      "thumbnailUrl": "https://yt3.ggpht.com/XYrZkyjVt1ows5OvRTyjIFZNFa_OqYI4226j21zoXh2cbUr-h9Se-kuhjoPrsfmP3cZlN2ORrQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn German with Easy German Conversations! This channel helps you learn German through conversations based on real-life situations and natural dialogues. The content focuses on spoken German, everyday expressions, and practical communication used in daily life. You will find German conversation dialogues for begin...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-10-12T12:16:36.751883Z",
+      "subscriberCount": "1300",
+      "videoCount": "69",
+      "viewCount": "66939",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 184,
+      "discoveredByQueries": [
+        "German conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "easy german conversations easy german conversations german youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCL-aX0WBKiSfXV0KgqiQJsA",
+      "channelId": "UCL-aX0WBKiSfXV0KgqiQJsA",
+      "youtubeInput": "@easygermantalks-e1z",
+      "handle": "@easygermantalks-e1z",
+      "name": "Easy German Talks",
+      "thumbnailUrl": "https://yt3.ggpht.com/oi4K4SleAPSglf32s2MMuofLMFKCSvQ1L3Mzc8q0x6OuZXhmlT69etpDOx02h2pIvGIun3txTmc=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn German through short and simple dialogues – ideal for beginners and language lovers. On Easy German Talks, you’ll find everyday conversations with clear pronunciation, simple vocabulary, and subtitles. Learn German in a fun and friendly way! Perfect for beginners at A1–A2 level and anyone who wants to learn ca...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-05-17T17:41:23.796138Z",
+      "subscriberCount": "554",
+      "videoCount": "25",
+      "viewCount": "37375",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 178,
+      "discoveredByQueries": [
+        "German conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "easy german talks easygermantalks e1z german youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC16-9M0osgdFbLKXvCwpXaw",
       "channelId": "UC16-9M0osgdFbLKXvCwpXaw",
       "youtubeInput": "@easyjapanese",
@@ -3022,6 +3246,34 @@
       "searchText": "easy russian with yula russianyula russian youtube discovery"
     },
     {
+      "catalogId": "discovered-UCvqBmDu7Y3e1zFsAx3JVCig",
+      "channelId": "UCvqBmDu7Y3e1zFsAx3JVCig",
+      "youtubeInput": "@easyspanishpodcast3",
+      "handle": "@easyspanishpodcast3",
+      "name": "Easy Spanish Podcast",
+      "thumbnailUrl": "https://yt3.ggpht.com/ikjz55cK620NufBaPgTACLTds2HN3LgruY6KpHLQ4sCGuR8UFFYq5Zw5qMyWxaiW7kLTwlZI=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Spanish Podcast, your go-to resource for learning Spanish at every stage of your journey. We create clear and engaging audio lessons specifically designed for beginner (A1, A2) and intermediate (B1, B2) learners. Subscribe to improve your listening skills, expand your vocabulary, and master real-world Spa...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-08-12T15:04:21.869447Z",
+      "subscriberCount": "21200",
+      "videoCount": "115",
+      "viewCount": "556698",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 210,
+      "discoveredByQueries": [
+        "intermediate Spanish podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "easy spanish podcast easyspanishpodcast3 spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCEPuH9w7p1r3mj-0N8Kwjyw",
       "channelId": "UCEPuH9w7p1r3mj-0N8Kwjyw",
       "youtubeInput": "@easyspanishstories2024",
@@ -3048,6 +3300,34 @@
       "discoveredAt": "2026-07-24T14:15:42.400Z",
       "refreshedAt": "2026-07-24T14:15:42.400Z",
       "searchText": "easy spanish stories easyspanishstories2024 spanish youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCyBUOa2xScSragVUi7TP_pQ",
+      "channelId": "UCyBUOa2xScSragVUi7TP_pQ",
+      "youtubeInput": "@easyspokenrussian",
+      "handle": "@easyspokenrussian",
+      "name": "Easy Spoken Russian",
+      "thumbnailUrl": "https://yt3.ggpht.com/03ysrlpOEjP-xi1FRrMY7o8hMSUHcDQFYOJw0Y346G9Gs9EK0cYVcjF8K-RNvpojd_6Ha_OzDE4=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome! I'm Diana, a native Russian speaker. This channel is for learners of Russian who want to improve their listening skills. Here, I speak slowly and clearly about everyday topics with on-screen subtitles in Russian. No grammar lessons, just real, natural language for levels A2–B1. Subscribe and practice your R...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-07-23T05:52:45.815866Z",
+      "subscriberCount": "303",
+      "videoCount": "28",
+      "viewCount": "7169",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 177,
+      "discoveredByQueries": [
+        "intermediate Russian podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "easy spoken russian easyspokenrussian russian youtube discovery"
     },
     {
       "catalogId": "discovered-UCCoLYcsDxFjnFPYF057l-7w",
@@ -3443,6 +3723,34 @@
       "searchText": "english on the move englishonthemove t7c english youtube discovery"
     },
     {
+      "catalogId": "discovered-UC8KgeBnS9ovsLthTfVG-Wew",
+      "channelId": "UC8KgeBnS9ovsLthTfVG-Wew",
+      "youtubeInput": "@englishpodcasteasy-m4h1",
+      "handle": "@englishpodcasteasy-m4h1",
+      "name": "English Podcast: Easy English Talks",
+      "thumbnailUrl": "https://yt3.ggpht.com/eOTJTwNMjXc53Doo1avc-qW3Lk4TMFcw8udPwd2HJYtkOpxKaSpxGFVy1s1ryQuvceWf1foBc0Y=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to English Podcast: Easy English Talks 🎙️ – the perfect place to learn English through real conversations. We create easy English podcasts and daily English conversation lessons to help you: ✅ Improve your speaking fluency ✅ Practice listening skills ✅ Learn daily vocabulary & phrases ✅ Gain confidence in r...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-05-27T18:13:10.795132Z",
+      "subscriberCount": "87100",
+      "videoCount": "418",
+      "viewCount": "3054438",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 237,
+      "discoveredByQueries": [
+        "intermediate English podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "english podcast easy english talks englishpodcasteasy m4h1 english youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCgdF4GdqtKIHgc3GvSUwH7Q",
       "channelId": "UCgdF4GdqtKIHgc3GvSUwH7Q",
       "youtubeInput": "@englishprofessionally",
@@ -3526,6 +3834,34 @@
       "discoveredAt": "2026-07-25T15:03:19.156Z",
       "refreshedAt": "2026-07-25T15:03:19.156Z",
       "searchText": "english tales lessons englishtaleslessons365 english youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCKRp9QaI8QAzKUWp8nU0uhQ",
+      "channelId": "UCKRp9QaI8QAzKUWp8nU0uhQ",
+      "youtubeInput": "@englishpodcastunleashed",
+      "handle": "@englishpodcastunleashed",
+      "name": "English Unleashed: The Podcast",
+      "thumbnailUrl": "https://yt3.ggpht.com/xF_WSkQwqLJeSypVz22uKgJWWtSNouSSg9aAt3Jwu-wP3scClBxL_783VQ3mt3XyGt6HD97krqo=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to English Unleashed: The Podcast. We are a group of language educators and researchers with more than 20 years of experience teaching English in Europe, the UK, Middle East and Austraila. In every episode, we (Tom and Sarah) speak slowly and clearly, so you can listen, understand, and speak along with us. W...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-06-06T11:44:26.633251Z",
+      "subscriberCount": "1400000",
+      "videoCount": "221",
+      "viewCount": "35484631",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 228,
+      "discoveredByQueries": [
+        "intermediate English podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "english unleashed the podcast englishpodcastunleashed english youtube discovery"
     },
     {
       "catalogId": "discovered-UCKSuUHboNHmqhMIet51QQug",
@@ -3893,6 +4229,90 @@
       "searchText": "everyday english academy everydayenglishacademyyt english youtube discovery"
     },
     {
+      "catalogId": "discovered-UC9tcJDcEcivXT9CxlxDxo7g",
+      "channelId": "UC9tcJDcEcivXT9CxlxDxo7g",
+      "youtubeInput": "@everydayjapaneseacademy",
+      "handle": "@everydayjapaneseacademy",
+      "name": "Everyday Japanese Academy",
+      "thumbnailUrl": "https://yt3.ggpht.com/qNPanuF36c67EqB7jGZRCWXX4KYNHpDOKH4PZfrcqmsWVzzAUBYsT1-1SG7MedRRKGBPybMB=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome toEveryday Japanese Academy — learn natural, practical Japanese that you can use in real daily life. Here you’ll find: • Real conversations for daily situations • Useful vocabulary with context • Polite & casual speech patterns explained • Listening & speaking practice (N5–N3) Our goal is simple: Help you sp...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-05-18T17:07:31.734726Z",
+      "subscriberCount": "32800",
+      "videoCount": "49",
+      "viewCount": "1159215",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 211,
+      "discoveredByQueries": [
+        "Japanese conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "everyday japanese academy everydayjapaneseacademy japanese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCzgUp9szHCynCC2bugYPkLw",
+      "channelId": "UCzgUp9szHCynCC2bugYPkLw",
+      "youtubeInput": "@everydayjapanesepodcastforyou",
+      "handle": "@everydayjapanesepodcastforyou",
+      "name": "Everyday Japanese Podcast",
+      "thumbnailUrl": "https://yt3.ggpht.com/ayHl12WWHag-jlzKe2XPlrA6ChCnDPF-mXgN7aZLh_YaOtjbR_qqe4-PMEO1r1lGHYQ26_jHqv8=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Everyday Japanese Podcast – your cozy Japanese listening and learning companion. In each episode, we will talk slowly and clearly about real-life topics: daily routines, work, relationships, food, hobbies, seasons in Japan and more. It feels like a friendly radio show, but everything is designed for Japan...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-12-13T11:04:28.706637Z",
+      "subscriberCount": "555",
+      "videoCount": "157",
+      "viewCount": "11707",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 190,
+      "discoveredByQueries": [
+        "intermediate Japanese podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "everyday japanese podcast everydayjapanesepodcastforyou japanese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCmCuxEGbmope3_dd8qWUuDA",
+      "channelId": "UCmCuxEGbmope3_dd8qWUuDA",
+      "youtubeInput": "@fiilanguages",
+      "handle": "@fiilanguages",
+      "name": "Fii Languages",
+      "thumbnailUrl": "https://yt3.ggpht.com/VdmF8yACyR4GldjefrG1TVtZmM9bLf3nCXlU6EmSQUgTZitI4w-lFx46o5jhWOmwA6Nh4JrytQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Ready to explore two exciting languages from opposite sides of the world? In this video, you'll learn essential phrases and vocabulary in Portuguese and Japanese—perfect for beginners! Whether you're traveling, studying, or just curious, this fun and simple guide will help you get started with both languages. 🗣️ Wh...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-07-14T21:58:10.273915Z",
+      "subscriberCount": "3540",
+      "videoCount": "39",
+      "viewCount": "126067",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 276,
+      "discoveredByQueries": [
+        "intermediate Portuguese podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "fii languages fiilanguages portuguese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC53CxnIC8fX1s3c0kuiexmg",
       "channelId": "UC53CxnIC8fX1s3c0kuiexmg",
       "youtubeInput": "@fluentenglishpodcast3",
@@ -4230,6 +4650,34 @@
       "searchText": "french classes online voila frenchclassesonlinevoila french youtube discovery"
     },
     {
+      "catalogId": "discovered-UCzsn4ceclzd1zTJToF6RYLA",
+      "channelId": "UCzsn4ceclzd1zTJToF6RYLA",
+      "youtubeInput": "@frenchdaily9",
+      "handle": "@frenchdaily9",
+      "name": "French Daily",
+      "thumbnailUrl": "https://yt3.ggpht.com/pB24E3H5YcF04mB0A3eU_h3c-NJP2GUYdHNMMMKC0hgmFvRSZ0MXp1JfPatyqANYyUrLx7jNwQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to French Daily! ✨ Learn French through easy and natural conversations designed for beginners and intermediate learners 🇫🇷 On this channel, you’ll improve your French step by step with listening podcasts, real-life dialogues, useful vocabulary, and everyday expressions. Our lessons are simple, practical, a...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-11-24T13:02:42.938741Z",
+      "subscriberCount": "717",
+      "videoCount": "219",
+      "viewCount": "72837",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 199,
+      "discoveredByQueries": [
+        "intermediate French podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "french daily frenchdaily9 french youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC5JsIc6DfQeNEIqvw-vGqiQ",
       "channelId": "UC5JsIc6DfQeNEIqvw-vGqiQ",
       "youtubeInput": "@frenchforbeginners",
@@ -4426,6 +4874,34 @@
       "searchText": "french mastery stories frenchmasterystories french youtube discovery"
     },
     {
+      "catalogId": "discovered-UCHwIGzvUE1Su13ePtYl6yAg",
+      "channelId": "UCHwIGzvUE1Su13ePtYl6yAg",
+      "youtubeInput": "@learn_french_podcast",
+      "handle": "@learn_french_podcast",
+      "name": "French Podcast",
+      "thumbnailUrl": "https://yt3.ggpht.com/BCtlZgNWA35WhyvX6IpMXlVlpR5BtdQ6mTjcK0DWwxj34JiTzvju_u_RkxyI7nHOG6kPgBXm59M=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to French Podcast, dedicated to learning French naturally and effectively 🇫🇷✨ Here you will find: 🎧 Slow & clear French podcasts for better understanding 🧠 Content adapted for all levels (A1, A2, B1, B2) 💬 Natural vocabulary, useful expressions & real-life dialogues This channel is perfect if you want t...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-01-19T04:14:42.858757Z",
+      "subscriberCount": "12900",
+      "videoCount": "20",
+      "viewCount": "330088",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 251,
+      "discoveredByQueries": [
+        "French conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "french podcast learn french podcast french youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC_dI4zAJ2iMG0yqeSZrmzvA",
       "channelId": "UC_dI4zAJ2iMG0yqeSZrmzvA",
       "youtubeInput": "@sharoncs5",
@@ -4452,6 +4928,34 @@
       "discoveredAt": "2026-07-25T15:02:59.342Z",
       "refreshedAt": "2026-07-25T15:02:59.342Z",
       "searchText": "french podcast with sharon sharoncs5 french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCypS8g1NBb_JS7U04Gvej3g",
+      "channelId": "UCypS8g1NBb_JS7U04Gvej3g",
+      "youtubeInput": "@frenchshadowing",
+      "handle": "@frenchshadowing",
+      "name": "French Shadowing",
+      "thumbnailUrl": "https://yt3.ggpht.com/1bIBZHK43BnIToNtCUivhyR7Q1sKVQh1UJcDqNAxXy7V-uoDmptSUPucm5ZYRjzVYAXOKgkSRw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "French Shadowing – Learn to Speak French French Shadowing is a channel dedicated to active French speaking, French speaking practice, and building fluency through the shadowing method. This channel helps you improve your French pronunciation, speaking confidence, and natural speech flow. You listen, speak along, and...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-01-16T06:28:25.834868Z",
+      "subscriberCount": "12400",
+      "videoCount": "31",
+      "viewCount": "287337",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 185,
+      "discoveredByQueries": [
+        "French conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "french shadowing frenchshadowing french youtube discovery"
     },
     {
       "catalogId": "discovered-UCpxCDOk33H-EXveGdvFmYQg",
@@ -4680,6 +5184,34 @@
       "searchText": "french with emma frenchwithemma33 french youtube discovery"
     },
     {
+      "catalogId": "discovered-UCCrpRNqGCqyo6OzJNzF2agw",
+      "channelId": "UCCrpRNqGCqyo6OzJNzF2agw",
+      "youtubeInput": "@frenchwithjerry",
+      "handle": "@frenchwithjerry",
+      "name": "French With Jerry",
+      "thumbnailUrl": "https://yt3.ggpht.com/snDcdKU2m64NtviMm-rrSwjRpL2x-FKubaljzUDWjvb6v83U-wg5rg1mXXhxVQ4tp0uN1muN=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to French With Jerry 🇫🇷✨ Learn French in a fun, easy, and practical way! This channel is perfect for beginners (A1-A2) who want to improve speaking, listening, vocabulary, pronunciation, and everyday conversations. 🎯 On this channel, you will find: • Easy French dialogues • Daily conversation practice • F...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-03-09T11:47:00.375486Z",
+      "subscriberCount": "3490",
+      "videoCount": "54",
+      "viewCount": "8139",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 239,
+      "discoveredByQueries": [
+        "French conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "french with jerry frenchwithjerry french youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCNa4Soa4HsJRbviDLFaevvg",
       "channelId": "UCNa4Soa4HsJRbviDLFaevvg",
       "youtubeInput": "@frenchwithlucie",
@@ -4734,6 +5266,35 @@
       "discoveredAt": "2026-07-24T14:00:08.218Z",
       "refreshedAt": "2026-07-24T14:00:08.218Z",
       "searchText": "french with mr innes frenchwithmrinnes french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCEVZS4HV6_w5G4PUpV0DIdg",
+      "channelId": "UCEVZS4HV6_w5G4PUpV0DIdg",
+      "youtubeInput": "@frenchwithpanache",
+      "handle": "@frenchwithpanache",
+      "name": "French With Panache",
+      "thumbnailUrl": "https://yt3.ggpht.com/hAa0185trNBGrRxdtpZxVjuFSGnYTx0F-jRRPEtM3RGODgmenmUWD6qvICikvxFl3ncbpoC8Xwg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Just happy to help you speak French A new podcast episode every Friday 🇫🇷 We’re Violaine & Nathan, two journalists & French teachers. More content on https://www.patreon.com/cw/FrenchWithPanache ✉️ contact@frenchwithpanache.com",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-07-29T17:30:20.290859Z",
+      "subscriberCount": "116000",
+      "videoCount": "145",
+      "viewCount": "3972972",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 189,
+      "discoveredByQueries": [
+        "French conversation practice",
+        "intermediate French podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "french with panache frenchwithpanache french youtube discovery"
     },
     {
       "catalogId": "discovered-UCzvqMjhrBTVJ0S37WH4LKyw",
@@ -4903,6 +5464,34 @@
       "discoveredAt": "2026-07-25T15:02:59.342Z",
       "refreshedAt": "2026-07-25T15:02:59.342Z",
       "searchText": "german everyday germaneveryday1 german youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCOnhXfys_MhmgbnakNWn81A",
+      "channelId": "UCOnhXfys_MhmgbnakNWn81A",
+      "youtubeInput": "@germanflow1",
+      "handle": "@germanflow1",
+      "name": "German Flow",
+      "thumbnailUrl": "https://yt3.ggpht.com/KSwxZmHyZyINMv3faunFmq1ud9IaoaNJ9un86XUcJrd1ryg4socSRUiXKQEHvCGczBkPsblZnA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to German Flow — Learn German Through Podcasts 🇩🇪🎙️ Learn German naturally through engaging podcasts, inspiring stories, history, famous personalities, science, culture, and real-life topics. Our episodes help you improve your listening, vocabulary, pronunciation, and speaking skills by learning German in...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-12-20T20:07:11.489622Z",
+      "subscriberCount": "111",
+      "videoCount": "14",
+      "viewCount": "71",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 242,
+      "discoveredByQueries": [
+        "intermediate German podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "german flow germanflow1 german youtube discovery"
     },
     {
       "catalogId": "discovered-UCMjmfbg2u17e5Xz3IBicANw",
@@ -5749,6 +6338,34 @@
       "searchText": "japahacks japahacks k japanese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCxOlPQvSWn_MmIL7XoKwBLg",
+      "channelId": "UCxOlPQvSWn_MmIL7XoKwBLg",
+      "youtubeInput": "@japanesedailypodcast",
+      "handle": "@japanesedailypodcast",
+      "name": "Japanese Daily Podcast",
+      "thumbnailUrl": "https://yt3.ggpht.com/5gI_-RnBxtc_s3kl5GQCXRWNoldlwhs1gOm1HAlPl6BLStLTNq6d-dL9li8joxkBQNcFZnrLHA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Japanese Daily Podcast! Your daily dose of Japanese listening practice for beginner and intermediate learners. Join us to improve your listening skills, learn new vocabulary, and get used to natural Japanese. Subscribe and make learning Japanese a part of your daily routine!",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-09-20T04:59:35.95539Z",
+      "subscriberCount": "64700",
+      "videoCount": "80",
+      "viewCount": "1790105",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 191,
+      "discoveredByQueries": [
+        "intermediate Japanese podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "japanese daily podcast japanesedailypodcast japanese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCOiefzmQNln3gbed3oQQXKA",
       "channelId": "UCOiefzmQNln3gbed3oQQXKA",
       "youtubeInput": "@japaneseeveryday",
@@ -6030,6 +6647,34 @@
       "discoveredAt": "2026-07-27T15:11:32.473Z",
       "refreshedAt": "2026-07-27T15:11:32.473Z",
       "searchText": "japanese smiles japanesesmiles japanese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCLp9rnRAcrFSzsoXsjXYJYA",
+      "channelId": "UCLp9rnRAcrFSzsoXsjXYJYA",
+      "youtubeInput": "@jsi55",
+      "handle": "@jsi55",
+      "name": "Japanese super immersion",
+      "thumbnailUrl": "https://yt3.ggpht.com/V4NFNU1RJk_rf7HS1TGhDhSQ5X8VUM77qgFeePT5ZEtKzo-UmTbEsO6jUYVri3lIugI44B42rw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to \"Japanese Super Immersion\"! We're here to sprinkle Japanese magic into your life while having fun. Dreamt of becoming a Japanese language ninja? Grab your virtual katana and let's master grammar effortlessly. But it's not all serious. Picture yourself lounging, sipping a metaphorical coconut drink while d...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-12-25T08:30:56.741605Z",
+      "subscriberCount": "109000",
+      "videoCount": "919",
+      "viewCount": "4391652",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 193,
+      "discoveredByQueries": [
+        "Japanese conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "japanese super immersion jsi55 japanese youtube discovery"
     },
     {
       "catalogId": "discovered-UCfRz13BGudJboscZ5v9Wteg",
@@ -6624,6 +7269,34 @@
       "discoveredAt": "2026-07-25T15:03:28.802Z",
       "refreshedAt": "2026-07-25T15:03:28.802Z",
       "searchText": "learn chinese with maggie learnchinesewithmaggie mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCtncu9Jg74Iqxea_FSuSVRg",
+      "channelId": "UCtncu9Jg74Iqxea_FSuSVRg",
+      "youtubeInput": "@learnchinesewithpipo",
+      "handle": "@learnchinesewithpipo",
+      "name": "Learn Chinese with Pipo",
+      "thumbnailUrl": "https://yt3.ggpht.com/SzGdU8Zzgb2huIINKMKOI0AxlTNWzA0PWBplNiNAMmHgOBdJdAQGeQpePgLCOqESn0-EGldsTnA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Learn Chinese with Pipo! This channel is designed for absolute beginners who want to learn Mandarin Chinese from zero. Whether you're preparing for HSK 1–4, traveling to China, or just love Chinese culture, you're in the right place. ✅ What you’ll learn: - Everyday Chinese vocabulary - Basic Mandarin gram...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-07-07T07:20:41.026774Z",
+      "subscriberCount": "31700",
+      "videoCount": "104",
+      "viewCount": "1111647",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 236,
+      "discoveredByQueries": [
+        "Mandarin conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "learn chinese with pipo learnchinesewithpipo mandarin youtube discovery"
     },
     {
       "catalogId": "discovered-UCPS5lOyQ2HfaYgapBV22H0A",
@@ -8764,6 +9437,34 @@
       "searchText": "learn japanese with tanaka san japanese tanakasan japanese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCtQbiBiFpLgTo1rOLatxnNw",
+      "channelId": "UCtQbiBiFpLgTo1rOLatxnNw",
+      "youtubeInput": "@yotam-yy1sv",
+      "handle": "@yotam-yy1sv",
+      "name": "Learn Japanese with Yoko",
+      "thumbnailUrl": "https://yt3.ggpht.com/yVIoNSh3siwNYZD_vE6MDDbey-2zf3y4BdI3NIReGhZSc_aRun2OmAjZGUCKfb4b7jc1A8qNYA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "こんにちは☺️日本語教師のようこです。『イラストでわかる日本語表現 初級』『イラストでわかる日本語表現 中級』などの本も書いています。 リラックスしながら、日本語を学んでいきましょう！ 日本語教師歴は20年以上になります。 現在はオンラインレッスンを中心に授業を行っています。 このYouTube chでは、初級日本語を中心に発信していきます。 どうぞよろしくお願いいたします！ Hello! I'm Yoko, a native Japanese teacher. Let's relax and learn Japanese! I have been teaching Japanese for more than 20 year...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-10-10T01:09:30.76461Z",
+      "subscriberCount": "2180",
+      "videoCount": "88",
+      "viewCount": "65705",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 285,
+      "discoveredByQueries": [
+        "日本語 中級"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "learn japanese with yoko yotam yy1sv japanese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCLRb4lA5cqf5ZaO2qTnunog",
       "channelId": "UCLRb4lA5cqf5ZaO2qTnunog",
       "youtubeInput": "@senseiyuya",
@@ -9693,6 +10394,34 @@
       "searchText": "learn spanish for free with language learning easyspanishlanguagelearning spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UCZH9G8ZuFe_dQ8Ohd8xIe1A",
+      "channelId": "UCZH9G8ZuFe_dQ8Ohd8xIe1A",
+      "youtubeInput": "@learnspanishwithdavid",
+      "handle": "@learnspanishwithdavid",
+      "name": "Learn Spanish With David",
+      "thumbnailUrl": "https://yt3.ggpht.com/Hhm30G-cGQHQUwkCQEjUawhw_PTW2nwq9RPSXatq2xNz8lGblikzK0uFz7t1kGBkNBeAHSXU4A=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🇪🇸 Learn Spanish the Easy Way! Welcome to your one-stop channel for mastering Spanish for beginners — perfect for travelers, shoppers, and anyone who wants to speak Spanish with confidence. 🎓 Here you’ll find quick Spanish lessons, common phrases, and real-world conversations taught clearly in English. Each video...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-02-03T21:09:03.597175Z",
+      "subscriberCount": "8600",
+      "videoCount": "159",
+      "viewCount": "351650",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 189,
+      "discoveredByQueries": [
+        "Spanish conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "learn spanish with david learnspanishwithdavid spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCCKSqF07QAJc071hYLvVlxg",
       "channelId": "UCCKSqF07QAJc071hYLvVlxg",
       "youtubeInput": "@learnspanish_with_eyakhas",
@@ -10255,6 +10984,34 @@
       "searchText": "lingotalks ru lingotalksru russian youtube discovery"
     },
     {
+      "catalogId": "discovered-UCNeOGOyyEutvl0U-9XG9fNg",
+      "channelId": "UCNeOGOyyEutvl0U-9XG9fNg",
+      "youtubeInput": "@lingotonepodcast",
+      "handle": "@lingotonepodcast",
+      "name": "Lingotone Podcast 🎧",
+      "thumbnailUrl": "https://yt3.ggpht.com/POn2cIy9K6bkZZCOc2GBSNbwPJ74uF2DG7wsGWFVior4HeUXVsc89bkKu4ZEt7YzIc6I4ep-1g=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🎧 Welcome to Lingotone Podcast Learn Mandarin naturally through real conversations, podcasts, and everyday stories. At Lingotone Podcast, we believe language learning starts with listening. Our content helps you improve your Chinese through authentic audio, practical vocabulary, useful expressions, and clear explan...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-06-18T08:17:46.582242Z",
+      "subscriberCount": "4640",
+      "videoCount": "40",
+      "viewCount": "153736",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 253,
+      "discoveredByQueries": [
+        "intermediate Mandarin podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "lingotone podcast lingotonepodcast mandarin youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCb5FiIrUYMkg1MSXDeMlkzw",
       "channelId": "UCb5FiIrUYMkg1MSXDeMlkzw",
       "youtubeInput": "@listenspeakacademy6",
@@ -10509,6 +11266,34 @@
       "searchText": "lyke german podcast lykegermanpodyt german youtube discovery"
     },
     {
+      "catalogId": "discovered-UCyJCOGd42rnxPOGKTZZODzQ",
+      "channelId": "UCyJCOGd42rnxPOGKTZZODzQ",
+      "youtubeInput": "@mandarinchat",
+      "handle": "@mandarinchat",
+      "name": "Mandarin Chat",
+      "thumbnailUrl": "https://yt3.ggpht.com/Qa0PvRVGAfr4phMuQkw6EF-G1aOy1BtFQW3vgxgOyhoBsX85pMeK8F6ANELTP7Qnv5G2toUuoA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🎯 Mandarin Chat is your daily practice space for real-life Mandarin Chinese conversation. We focus on: Practical Mandarin for daily life Chinese conversation practice Listening comprehension training Speaking naturally with confidence Beginner to intermediate (HSK 1–4) Learn how native speakers actually talk — not...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2022-12-10T07:25:17.37364Z",
+      "subscriberCount": "5140",
+      "videoCount": "255",
+      "viewCount": "377246",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 210,
+      "discoveredByQueries": [
+        "Mandarin conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "mandarin chat mandarinchat mandarin youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCcvTOgUiplI80SPR73ogCEQ",
       "channelId": "UCcvTOgUiplI80SPR73ogCEQ",
       "youtubeInput": "@mandarinclick",
@@ -10591,6 +11376,34 @@
       "discoveredAt": "2026-07-24T14:00:08.218Z",
       "refreshedAt": "2026-07-24T14:00:08.218Z",
       "searchText": "mandarin slowly mandarinslowly mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCm7J99th8tywqeIDWsWPhww",
+      "channelId": "UCm7J99th8tywqeIDWsWPhww",
+      "youtubeInput": "@mandarin_story_ac01",
+      "handle": "@mandarin_story_ac01",
+      "name": "Mandarin Story",
+      "thumbnailUrl": "https://yt3.ggpht.com/75SCySk7V7GGjEr7_mSULmiD9gZHeDmV99CIlGLR8OSU3lSwI1SxJTRvDrOydKw6lXnYsdfR8g=s800-c-k-c0x00ffffff-no-rj",
+      "description": "📚 Hear the Story, Learn the Language: Your Chinese Adventure Starts Now! Are you tired of tedious memorization and boring methods for learning Chinese? Welcome to \"Mandarin Story\"! Our Learning Story Vault We have carefully designed several story series to immerse you fully in the world of Chinese: 🏡 Daily Life St...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-10-06T06:11:17.412066Z",
+      "subscriberCount": "3180",
+      "videoCount": "87",
+      "viewCount": "57768",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 251,
+      "discoveredByQueries": [
+        "intermediate Mandarin podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "mandarin story mandarin story ac01 mandarin youtube discovery"
     },
     {
       "catalogId": "discovered-UCoPgi1r2EMkY7SsemPPi4yg",
@@ -10731,6 +11544,34 @@
       "discoveredAt": "2026-07-25T15:02:59.342Z",
       "refreshedAt": "2026-07-25T15:02:59.342Z",
       "searchText": "master new esl masternewesl english youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCI4OLKKjfpLn1oS9xuVVK6A",
+      "channelId": "UCI4OLKKjfpLn1oS9xuVVK6A",
+      "youtubeInput": "@maxandmiapodcast",
+      "handle": "@maxandmiapodcast",
+      "name": "Max & Mia Podcast",
+      "thumbnailUrl": "https://yt3.ggpht.com/tR44IsEkLBNVdTQf6OzKqA_OaJvgjn931IBZG0mgTmvSDXOiFiqBa6ygNITS7RjVumd-Fnf3=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Max & Mia – Your Fun Way to Learn English! We make learning English fast, simple, and enjoyable through short, engaging podcast episodes. Whether you're a beginner or just want to improve your skills, We will guide you with real conversations, useful phrases, and practical tips. No boring lessons—just fun...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-03-19T23:11:57.087867Z",
+      "subscriberCount": "265000",
+      "videoCount": "277",
+      "viewCount": "9800099",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 218,
+      "discoveredByQueries": [
+        "intermediate English podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "max mia podcast maxandmiapodcast english youtube discovery"
     },
     {
       "catalogId": "discovered-UCmM7x54RHSBcPtn2UXKSiBA",
@@ -11688,6 +12529,34 @@
       "searchText": "portuguese lab portugueselab portuguese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCKg61TeXbj8_gQyWE29lj2w",
+      "channelId": "UCKg61TeXbj8_gQyWE29lj2w",
+      "youtubeInput": "@portuguese.practice",
+      "handle": "@portuguese.practice",
+      "name": "Portuguese Practice",
+      "thumbnailUrl": "https://yt3.ggpht.com/NwpHlm_sEQGjx7HsaxiWg7huUulLCwcBnulrd1u4zWO6_MIgn9N3Bp4NmxUFYCtpGk7xj1vlWg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "To learn, improve, practice Portuguese through conversation, graphics and photo.",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-10-30T16:36:19.874822Z",
+      "subscriberCount": "1820",
+      "videoCount": "531",
+      "viewCount": "77663",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 192,
+      "discoveredByQueries": [
+        "Portuguese conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "portuguese practice portuguese practice portuguese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCfBNSBXUYNxcmRHP25Pz2-g",
       "channelId": "UCfBNSBXUYNxcmRHP25Pz2-g",
       "youtubeInput": "@portuguese.stories",
@@ -11714,6 +12583,34 @@
       "discoveredAt": "2026-07-24T14:15:51.076Z",
       "refreshedAt": "2026-07-24T14:15:51.076Z",
       "searchText": "portuguese stories portuguese stories portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCgw4Z0H9PbGUOTM1vR35enA",
+      "channelId": "UCgw4Z0H9PbGUOTM1vR35enA",
+      "youtubeInput": "@portuguesesubtitles21",
+      "handle": "@portuguesesubtitles21",
+      "name": "Portuguese Subtitles",
+      "thumbnailUrl": "https://yt3.ggpht.com/K5u5O_qc-7YtpuozrqWzDmhB8Rl4L8PL3yFDlU_qBQROSiN2IiXAClB0jCtlO528cpceMOxp=s800-c-k-c0x00ffffff-no-rj",
+      "description": "If you want to practice and improve your Portuguese listening and reading skills, our channel helps you do that. The sole purpose of this channel is to help students improve their Portuguese by reading and listening to famous SPEECHES with great Portuguese subtitles. Portuguese teachers, students and learners who ar...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2022-05-21T00:05:17.160752Z",
+      "subscriberCount": "120",
+      "videoCount": "17",
+      "viewCount": "7019",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 191,
+      "discoveredByQueries": [
+        "Portuguese conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "portuguese subtitles portuguesesubtitles21 portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UCx7y-fwFz3NdSUmawTgqlbA",
@@ -11828,6 +12725,34 @@
       "discoveredAt": "2026-07-25T15:02:59.342Z",
       "refreshedAt": "2026-07-25T15:02:59.342Z",
       "searchText": "portuguese with cat portuguesewithcat portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCW7nCnfFlF9uRX8c4odxkbQ",
+      "channelId": "UCW7nCnfFlF9uRX8c4odxkbQ",
+      "youtubeInput": "@portuguesewitheli",
+      "handle": "@portuguesewitheli",
+      "name": "Portuguese with Eli",
+      "thumbnailUrl": "https://yt3.ggpht.com/ycQ4ktAroSTq0vWn4AriHxBmOSFTiXY7jId3ZnbGk7ScOFdNT7sBnq2a6QM9nILqkxExPezs3Q=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Portuguese is an amazing language, and Brazil is a country of mystery. Both have always fascinated me. Now I share with you this fascination I have for both Portuguese and Brazilian history.",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2010-01-26T02:58:44Z",
+      "subscriberCount": "3580",
+      "videoCount": "1203",
+      "viewCount": "173978",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 185,
+      "discoveredByQueries": [
+        "intermediate Portuguese podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "portuguese with eli portuguesewitheli portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UC0u3u2W1SdQC-unsK7A0UWQ",
@@ -12170,6 +13095,63 @@
       "searchText": "punjabi german mentor punjabigermanmentor german youtube discovery"
     },
     {
+      "catalogId": "discovered-UCK7vjKGoE96qjeAE2EdtUrA",
+      "channelId": "UCK7vjKGoE96qjeAE2EdtUrA",
+      "youtubeInput": "@rforrussian",
+      "handle": "@rforrussian",
+      "name": "R for Russian",
+      "thumbnailUrl": "https://yt3.ggpht.com/u8eHk7S09Tej8N3Amnlxs5QrPTYPzp6f1zGuuOLyLaVPhub5Hp_-F2jRiGwgCou3tPgqoKRzGA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Languages is my passion. I love to teach Russian. When i was small i was harassing my sister and brother to be my students. I also learn Portuguese at the moment, my mom in law came to visit us from Brazil. She does not speak English and i don't speak Portuguese, so she is teaching me and i record it and post it to...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2015-03-02T14:59:03Z",
+      "subscriberCount": "31900",
+      "videoCount": "105",
+      "viewCount": "1234949",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 159,
+      "discoveredByQueries": [
+        "Russian conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "r for russian rforrussian russian youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCEFz0RrhVLZk3wyKVoCfT5Q",
+      "channelId": "UCEFz0RrhVLZk3wyKVoCfT5Q",
+      "youtubeInput": "@sveta_randomrussian",
+      "handle": "@sveta_randomrussian",
+      "name": "Random Russian",
+      "thumbnailUrl": "https://yt3.ggpht.com/WfnKdlKBDp8FfDDlJZhgD80y93IPFg7DRNu7_46CiV0Zc05A2ixS5GXbD68ZiIpU55dlognB=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Hello everyone, my name is Sveta, and if you are wondering: “Random Russian, why?” Well, that’s simple: because I don't believe that language learning can (nor should!) be structured in any way. On my channel, I will not try to TEACH you Russian in a conventional way. Instead, I will help you naturally ACQUIRE the l...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-11-08T14:52:59.614467Z",
+      "subscriberCount": "5520",
+      "videoCount": "313",
+      "viewCount": "331073",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 176,
+      "discoveredByQueries": [
+        "Russian conversation practice",
+        "intermediate Russian podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "random russian sveta randomrussian russian youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCQyM1_2OX60sIZplB6uWi_Q",
       "channelId": "UCQyM1_2OX60sIZplB6uWi_Q",
       "youtubeInput": "@realbrazilianportuguese",
@@ -12225,6 +13207,34 @@
       "discoveredAt": "2026-07-27T15:11:04.329Z",
       "refreshedAt": "2026-07-27T15:11:04.329Z",
       "searchText": "real chinese podcast realchinesepodcast mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCci5vozsm2-46a-WxIwjd5A",
+      "channelId": "UCci5vozsm2-46a-WxIwjd5A",
+      "youtubeInput": "@realfastspanish",
+      "handle": "@realfastspanish",
+      "name": "Real Fast Spanish",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_k2djFygB9JgGlwbQz_MM-CvzEQzAIaqtIAwQpdwLaDt7o=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn Spanish with Real Fast Spanish - the most effective way to improve your conversational skills! You'll learn how to improve your Spanish conversations, how to focus on the most important words and phrases of the Spanish language, and how to improve your language learning process around memory and mindset. If yo...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2013-12-26T01:18:12Z",
+      "subscriberCount": "168000",
+      "videoCount": "170",
+      "viewCount": "8442491",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 168,
+      "discoveredByQueries": [
+        "Spanish conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "real fast spanish realfastspanish spanish youtube discovery"
     },
     {
       "catalogId": "discovered-UCIDgLbOcQX2aWZgX4QzgpeQ",
@@ -12758,6 +13768,34 @@
       "discoveredAt": "2026-07-25T15:03:10.072Z",
       "refreshedAt": "2026-07-25T15:03:10.072Z",
       "searchText": "russian mom mamaruseng russian youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCF0ZeqSkybD1aFtFxjA8z9w",
+      "channelId": "UCF0ZeqSkybD1aFtFxjA8z9w",
+      "youtubeInput": "@russianprogress",
+      "handle": "@russianprogress",
+      "name": "Russian Progress - videos w/ subs to learn Russian",
+      "thumbnailUrl": "https://yt3.ggpht.com/gOx9xZrTsU43wE78Qtf-aQMtFvkgX-cpbs2dfejwKOmv1vcyuoxpCv__RMlgxbGs998BBYe9EA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "My name is Artem, I'm from Novosibirsk, Russia, and I hope my videos help you learn and improve your Russian 🤍💙❤️",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2018-06-12T15:30:46Z",
+      "subscriberCount": "60800",
+      "videoCount": "287",
+      "viewCount": "3996119",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 141,
+      "discoveredByQueries": [
+        "intermediate Russian podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "russian progress videos w subs to learn russian russianprogress russian youtube discovery"
     },
     {
       "catalogId": "discovered-UCIe3gLYHqF7Te2MT0Oh9g_A",
@@ -14055,6 +15093,34 @@
       "searchText": "spanish playground spanishplayground spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UCctmwHqRwrEor-bFnmggEyA",
+      "channelId": "UCctmwHqRwrEor-bFnmggEyA",
+      "youtubeInput": "@spanishpodcast4u",
+      "handle": "@spanishpodcast4u",
+      "name": "Spanish Podcast ",
+      "thumbnailUrl": "https://yt3.ggpht.com/Jyijo3sCstM6bntvmgepgJ7ho_8txjBuMs2eLKQEboY8gJD7ONJJvhIvSVfUyhVRA-HKtgi0=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Spanish Podcast – your go-to YouTube channel for learning Spanish naturally through immersive, real-life conversations, storytelling, and beginner-friendly listening practice. Whether you're a complete beginner, an intermediate learner, or someone looking to improve your Spanish listening comprehension, t...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-07-13T08:31:02.15407Z",
+      "subscriberCount": "579",
+      "videoCount": "11",
+      "viewCount": "53190",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 209,
+      "discoveredByQueries": [
+        "intermediate Spanish podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "spanish podcast spanishpodcast4u spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC70ERXubqodx7aZBH8izHuA",
       "channelId": "UC70ERXubqodx7aZBH8izHuA",
       "youtubeInput": "@spanishstoriesforlearners-ray",
@@ -14168,6 +15234,34 @@
       "searchText": "spanish with alma spanishwithalma spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UCko3ws3o56v33qgjaK0lifQ",
+      "channelId": "UCko3ws3o56v33qgjaK0lifQ",
+      "youtubeInput": "@spanishwithantonios",
+      "handle": "@spanishwithantonios",
+      "name": "Spanish With Antonios",
+      "thumbnailUrl": "https://yt3.ggpht.com/Jgqhk5oN4HGbPOAkrrr0RX0zdiBncNB54FTyh52Nk2rTYzEeK4JePzaimysrBEl9aOyPB0T1=s800-c-k-c0x00ffffff-no-rj",
+      "description": "¡Hola a todos! I'm Profe Antonio, your language companion on this exciting journey through the wonders of the Spanish language. Subscribe for a weekly dose of grammar insights, vocabulary wonders, conversation practice, and street adventures. Whether you're a beginner or looking to polish your skills, this channel i...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2013-06-19T23:41:04Z",
+      "subscriberCount": "26100",
+      "videoCount": "22",
+      "viewCount": "4474700",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 170,
+      "discoveredByQueries": [
+        "Spanish conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "spanish with antonios spanishwithantonios spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC8XX4xq9IDeomgItpp5e4zQ",
       "channelId": "UC8XX4xq9IDeomgItpp5e4zQ",
       "youtubeInput": "@spanishwithhispanichorizons",
@@ -14278,6 +15372,34 @@
       "discoveredAt": "2026-07-25T15:03:28.802Z",
       "refreshedAt": "2026-07-25T15:03:28.802Z",
       "searchText": "sparkle english sparkleenglish english youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCSfW_CtKUw6kWl3oB4a6gXw",
+      "channelId": "UCSfW_CtKUw6kWl3oB4a6gXw",
+      "youtubeInput": "@speakbrazilschool",
+      "handle": "@speakbrazilschool",
+      "name": "Speak Brazil",
+      "thumbnailUrl": "https://yt3.ggpht.com/dCPFK1zLyg435XAs5sWa0-5CbLUQCllHTgTcuy6qUaqAUXuPsXyILkKTtrRcKKmfcJUMfCxHkSw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Oi! Tudo bem? I'm Bárbara. Your Brazilian Portuguese teacher! Welcome to my channel! Here on the channel, you'll find suggestions and complete lessons on culture, grammar, vocabulary, accents, expressions used by native speakers, pronunciation, listening practice and much more! Subscribe and activate the bell so you...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-04-28T12:15:32.785142Z",
+      "subscriberCount": "1080",
+      "videoCount": "61",
+      "viewCount": "38683",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 327,
+      "discoveredByQueries": [
+        "Portuguese conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "speak brazil speakbrazilschool portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UCnjE0pgXXH2tbCox2tO_7kA",
@@ -14953,6 +16075,34 @@
       "searchText": "talk taiwanese mandarin with abby talktaiwanesemandarin mandarin youtube discovery"
     },
     {
+      "catalogId": "discovered-UCMmMCS59RzP4hI3ZKn0x9mQ",
+      "channelId": "UCMmMCS59RzP4hI3ZKn0x9mQ",
+      "youtubeInput": "@talkgermanwithme",
+      "handle": "@talkgermanwithme",
+      "name": "TalkGermanWithMe",
+      "thumbnailUrl": "https://yt3.ggpht.com/KA5FqbuD1uwetszsbjYxLUWdscGABmgZUnQyr7W75iOYg0ZJ0_LIJtnmqZ0uq3whr9N2-YuYnw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "TalkGermanWithMe – Learn German Through Dialogues Learn German naturally with german dialogues and conversations! Improve your listening, speaking, and vocabulary with real-life conversations for beginners and intermediate learners. 🎯 Perfect for: • Beginners (A1–A2) – simple german conversation for beginners, germ...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-09-25T12:05:19.402881Z",
+      "subscriberCount": "240",
+      "videoCount": "10",
+      "viewCount": "4317",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 156,
+      "discoveredByQueries": [
+        "intermediate German podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "talkgermanwithme talkgermanwithme german youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCEix7X6OpSRjTidrjr8bmjw",
       "channelId": "UCEix7X6OpSRjTidrjr8bmjw",
       "youtubeInput": "@talkie-japanese",
@@ -15151,6 +16301,34 @@
       "searchText": "tell me in spanish tellmeinspanisheng spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UCHA3-2eXx_GuFnbMegtekJg",
+      "channelId": "UCHA3-2eXx_GuFnbMegtekJg",
+      "youtubeInput": "@thecozyfrench",
+      "handle": "@thecozyfrench",
+      "name": "The Cozy French ",
+      "thumbnailUrl": "https://yt3.ggpht.com/e3r-W6FW96Z5MHgPAIFq4oj9pxO-0Dceubc82JrgMaWB9zWsoSpV2EL3APkljbVMOqzyFzb8Ug=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🎙️ Welcome to The Cozy French — the podcast where learning French feels like chatting with friends over coffee. Join Léa & Mathieu every week as they help you learn French through natural, fun conversations — no boring grammar lectures, just real French for real life. 🎯 Perfect for: • Complete beginners (A1–A2) •...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-06-10T06:55:40.18524Z",
+      "subscriberCount": "405",
+      "videoCount": "29",
+      "viewCount": "7852",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 199,
+      "discoveredByQueries": [
+        "intermediate French podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "the cozy french thecozyfrench french youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCQfdSQx8whVONf_X4Qic_ag",
       "channelId": "UCQfdSQx8whVONf_X4Qic_ag",
       "youtubeInput": "@theeasyspanishlesson",
@@ -15292,6 +16470,62 @@
       "searchText": "the portuguese cafe theportuguesecafe portuguese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCul5IJL-BmPtBWdJUlFYU5w",
+      "channelId": "UCul5IJL-BmPtBWdJUlFYU5w",
+      "youtubeInput": "@therussianflow",
+      "handle": "@therussianflow",
+      "name": "The Russian Flow: Learn Russian with Lёsha",
+      "thumbnailUrl": "https://yt3.ggpht.com/UoEs0ld1KPRb7PIK6UBmlXR0OGfY-AEYYhliCy9irGnv7GGuuj7ACkeWYAfjicI-Ed7t1BfXoA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "The Russian Flow is a podcast for Intermediate (B1-B2) Russian learners. Improve your listening skills with real conversational Russian, slang, and cultural contexts. Привет! Я Лёша, автор инди-подкаста «The Russian Flow» 🤘 Я обожаю свой родной язык и хочу помочь тебе влюбиться в него так же сильно. Я давно учу ино...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-03-15T14:36:20.813218Z",
+      "subscriberCount": "198",
+      "videoCount": "38",
+      "viewCount": "13238",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 168,
+      "discoveredByQueries": [
+        "intermediate Russian podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "the russian flow learn russian with lеsha therussianflow russian youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCjFKzvAjSIZHTUq-p1tmhdQ",
+      "channelId": "UCjFKzvAjSIZHTUq-p1tmhdQ",
+      "youtubeInput": "@therussiantwistpodcast",
+      "handle": "@therussiantwistpodcast",
+      "name": "The Russian Twist Podcast",
+      "thumbnailUrl": "https://yt3.ggpht.com/-zGf2KmThgnydZBYO2ydwirCT9wFyncAVmPpTBiRwT5A2Dm8mRIbmWN9Oh17aDt9RfYS7crb=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Подкаст для тех, кто изучает русский язык через контент. Даша из Санкт-Петербурга и Том из Лондона обсуждают важные темы, делятся полезной лексикой и приглашают гостей из разных стран мира. Транскрипции на русском с ударениями и переводом на английский язык вы найдёте на нашем Patreon. Это подкаст для продвинутого у...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-06-04T09:55:03.863075Z",
+      "subscriberCount": "942",
+      "videoCount": "27",
+      "viewCount": "23930",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 173,
+      "discoveredByQueries": [
+        "intermediate Russian podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "the russian twist podcast therussiantwistpodcast russian youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC-ucfhmfP-PgApSwKTDKZSw",
       "channelId": "UC-ucfhmfP-PgApSwKTDKZSw",
       "youtubeInput": "@portuguesewithadelina",
@@ -15318,6 +16552,34 @@
       "discoveredAt": "2026-07-25T15:03:10.072Z",
       "refreshedAt": "2026-07-25T15:03:10.072Z",
       "searchText": "the sounds of portuguese portuguesewithadelina portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCV6ldjzDrxEx8-3StmI17lg",
+      "channelId": "UCV6ldjzDrxEx8-3StmI17lg",
+      "youtubeInput": "@theportugueseteacher",
+      "handle": "@theportugueseteacher",
+      "name": "ThePortugueseTeacher",
+      "thumbnailUrl": "https://yt3.ggpht.com/XmhIy0aCdGO0Hrv__LBdg3OOh9TAp1qA8c10DVHg5xLxnvog4N6LBPqNwjdGFmuNacJlR8iOxQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "I've been teaching Portuguese for over seven years and have developed a very successful method to learn Portuguese which enable you to TRANSFER YOUR KNOWLEDGE from Portuguese to English (no more memorising phrases you will never use!). So whatever stage of learning you are at, I will ensure you have the knowledge to...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2011-12-27T23:59:19Z",
+      "subscriberCount": "604",
+      "videoCount": "85",
+      "viewCount": "141172",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 236,
+      "discoveredByQueries": [
+        "Portuguese conversation practice"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "theportugueseteacher theportugueseteacher portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UCSeLePtOn5gRVpkE0yxOHsg",
@@ -15347,6 +16609,34 @@
       "discoveredAt": "2026-07-25T15:02:59.342Z",
       "refreshedAt": "2026-07-25T15:02:59.342Z",
       "searchText": "thinking in chinese 中文思维 thinkinginchinese mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCnWxuf5Rt9OcSt4AiviCe1A",
+      "channelId": "UCnWxuf5Rt9OcSt4AiviCe1A",
+      "youtubeInput": "@thinkinginenglishpodcast",
+      "handle": "@thinkinginenglishpodcast",
+      "name": "Thinking in English Podcast",
+      "thumbnailUrl": "https://yt3.ggpht.com/SOzRgErqxQiG128HvA7X6G3g55E9i3suEGlvLy9SKLJb6ELPzFkwUlOp2EWfiEJTGxbkRCu_RA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Thinking in English is a podcast for intermediate and advanced English learners who want to do more than just study grammar and vocabulary. I believe that thinking is one of the most important steps on the road to fluency. That’s why each episode explores fascinating topics, from politics, economics, and history to...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2022-01-29T12:27:57.408806Z",
+      "subscriberCount": "84700",
+      "videoCount": "948",
+      "viewCount": "1758554",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 214,
+      "discoveredByQueries": [
+        "intermediate English podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "thinking in english podcast thinkinginenglishpodcast english youtube discovery"
     },
     {
       "catalogId": "discovered-UCsl1lX__xQ2IGf8c9r6xH8A",
@@ -15432,6 +16722,34 @@
       "discoveredAt": "2026-07-24T14:15:42.400Z",
       "refreshedAt": "2026-07-24T14:15:42.400Z",
       "searchText": "tokyo slow japanese tokyoslowjapanese japanese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCSDpH8i1Cr3Tg56KuhIqyJQ",
+      "channelId": "UCSDpH8i1Cr3Tg56KuhIqyJQ",
+      "youtubeInput": "@tomoの日本語podcast",
+      "handle": "@tomoの日本語podcast",
+      "name": "Tomoの日本語Podcast",
+      "thumbnailUrl": "https://yt3.ggpht.com/5h1XVDKXeo4wIW6o2datc1mal5GXcJsLpq1KAplaAqv-dAdN9LWQ5rmf_bOB3V_Zb1fqUIoXVA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Tomo's Slow Japanese Podcast! 🌸 Learn natural Japanese through slow and easy-to-understand podcast episodes. This channel is designed for Japanese learners who want to improve their listening skills, vocabulary, and overall understanding of real Japanese. In each episode, I speak slowly and clearly about...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-06-21T12:40:24.779212Z",
+      "subscriberCount": "108",
+      "videoCount": "10",
+      "viewCount": "3208",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 210,
+      "discoveredByQueries": [
+        "intermediate Japanese podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "tomoの日本語podcast tomoの日本語podcast japanese youtube discovery"
     },
     {
       "catalogId": "discovered-UCSG1f-H-444lSV3ItfaHCtA",
@@ -15713,6 +17031,34 @@
       "discoveredAt": "2026-07-24T14:15:42.400Z",
       "refreshedAt": "2026-07-24T14:15:42.400Z",
       "searchText": "vocabfrancais apprendre le francais facilement vocabfrancais french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC-0fw2LBBglR1qdIDxHUWtw",
+      "channelId": "UC-0fw2LBBglR1qdIDxHUWtw",
+      "youtubeInput": "@wespeakgerman",
+      "handle": "@wespeakgerman",
+      "name": "We Speak German",
+      "thumbnailUrl": "https://yt3.ggpht.com/1YeDW8NCTZH8Ow05LL1TO9LSBX9JKw1UT-PdLYhJ_SI6zyZHQy2y-hJXeSNAk1irH6u50fngWQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "We Speak German – Learn German easily every day. Welcome to We Speak German, a channel dedicated to helping you speak German confidently and naturally. We share short daily lessons, real-life conversations, pronunciation tips, and simple explanations for beginners and intermediate learners. Whether you're starting f...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-06-18T16:49:04.435507Z",
+      "subscriberCount": "1670",
+      "videoCount": "62",
+      "viewCount": "57530",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 275,
+      "discoveredByQueries": [
+        "intermediate German podcast"
+      ],
+      "discoveredAt": "2026-07-30T09:07:44.896Z",
+      "refreshedAt": "2026-07-30T09:07:44.896Z",
+      "searchText": "we speak german wespeakgerman german youtube discovery"
     },
     {
       "catalogId": "discovered-UC0kejkXg2LG-pFqAeWD_zLQ",
