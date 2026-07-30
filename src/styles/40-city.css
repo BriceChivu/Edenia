@@ -377,7 +377,7 @@
   --city-level-progress: 0%;
   --city-level-remaining-center: 50%;
   min-width: 0;
-  padding-bottom: 18px;
+  padding-bottom: calc(0.72rem + 8px);
   width: 100%;
 }
 .city-level-progress-labels {
@@ -400,7 +400,7 @@
 .city-level-progress-track {
   position: relative;
 }
-.city-level-progress-rail {
+.city-level-progress .city-level-progress-rail {
   margin-bottom: 0;
 }
 .city-level-progress-fill {
