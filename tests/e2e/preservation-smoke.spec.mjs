@@ -187,6 +187,34 @@ test('completed local state preserves settings and feedback interactions', async
   }
 })
 
+test('phone Settings header blur fades before the language controls', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'phone-standard')
+
+  await seedCompletedState(page)
+  await page.locator('.gear-btn[data-settings-shell-action="open"]').click()
+
+  const blurGeometry = await page.locator('.settings-header').evaluate(header => {
+    const pseudo = getComputedStyle(header, '::before')
+    const headerRect = header.getBoundingClientRect()
+    const localeRect = document.querySelector('.settings-locale-group')
+      .getBoundingClientRect()
+    const pseudoBottom = headerRect.bottom - Number.parseFloat(pseudo.bottom)
+    return {
+      backdropFilter: pseudo.backdropFilter,
+      clearance: localeRect.top - pseudoBottom,
+      maskImage: pseudo.maskImage,
+      pointerEvents: pseudo.pointerEvents
+    }
+  })
+
+  expect(blurGeometry.backdropFilter).toContain('blur(3px)')
+  expect(blurGeometry.maskImage).toContain('linear-gradient')
+  expect(blurGeometry.clearance).toBeGreaterThan(0)
+  expect(blurGeometry.pointerEvents).toBe('none')
+})
+
 test('Settings shell listeners preserve desktop inertness, focus, scrolling, Escape, and ordering', async ({
   page
 }, testInfo) => {
