@@ -343,6 +343,12 @@
     min-height: 52px;
     padding-block: clamp(5px, 1.2dvh, 11px);
   }
+  .onboarding-panel:not(.is-recovery).is-channel-step .onboarding-channel-name {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .onboarding-actions {
     align-items: stretch;
     flex-direction: column-reverse;
