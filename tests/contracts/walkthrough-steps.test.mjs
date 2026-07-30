@@ -4,6 +4,7 @@ import {
   FIRST_STUDY_WALKTHROUGH_STEPS,
   LEVEL_UP_GUIDANCE_WALKTHROUGH_STEP,
   OTHER_FIRST_STUDY_WALKTHROUGH_STEP,
+  resolveWalkthroughTextKey,
   WALKTHROUGH_STEPS
 } from '../../src/features/walkthrough/steps.js'
 
@@ -19,19 +20,49 @@ test('main walkthrough preserves exact step order, targets, copy keys, and hooks
       id: 'study-history',
       target: '.study-history-section',
       textKey: 'walkthrough.studyHistory',
+      noAnkiTextKey: 'walkthrough.studyHistoryNoAnki',
       placement: 'top',
       hooks: { beforeEnter: 'closeTransientUi' }
     },
     {
       id: 'videos',
       target: '.feed-section',
-      mobileTarget: '.feed-section > .section-header',
       textKey: 'walkthrough.videos',
-      mobileTextKey: 'walkthrough.videosMobile',
       placement: 'top',
+      scrollTarget: '.feed-section > .section-header',
       hooks: { beforeEnter: 'closeTransientUi' }
     }
   ])
+})
+
+test('walkthrough copy follows Anki activity before responsive fallbacks', () => {
+  const step = {
+    textKey: 'walkthrough.default',
+    mobileTextKey: 'walkthrough.mobile',
+    noAnkiTextKey: 'walkthrough.noAnki'
+  }
+
+  assert.equal(
+    resolveWalkthroughTextKey(step, {
+      ankiActive: false,
+      phoneComposition: true
+    }),
+    'walkthrough.noAnki'
+  )
+  assert.equal(
+    resolveWalkthroughTextKey(step, {
+      ankiActive: true,
+      phoneComposition: true
+    }),
+    'walkthrough.mobile'
+  )
+  assert.equal(
+    resolveWalkthroughTextKey(step, {
+      ankiActive: true,
+      phoneComposition: false
+    }),
+    'walkthrough.default'
+  )
 })
 
 test('first-study walkthrough preserves exact steps and Other-language addition', () => {

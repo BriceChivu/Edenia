@@ -229,6 +229,7 @@ import {
   FIRST_STUDY_WALKTHROUGH_STEPS,
   LEVEL_UP_GUIDANCE_WALKTHROUGH_STEP,
   OTHER_FIRST_STUDY_WALKTHROUGH_STEP,
+  resolveWalkthroughTextKey,
   WALKTHROUGH_STEPS
 } from './features/walkthrough/steps.js'
 import {
@@ -3094,7 +3095,10 @@ function renderWalkthroughStep() {
   const elements = ensureWalkthroughElements()
   elements.card.classList.remove('hidden')
   elements.progress.textContent = t('walkthrough.progress', { current: walkthroughState.index + 1, total: walkthroughState.steps.length })
-  const textKey = usesPhoneComposition() && step.mobileTextKey ? step.mobileTextKey : step.textKey
+  const textKey = resolveWalkthroughTextKey(step, {
+    ankiActive: isAnkiTrackingActive(loadState()),
+    phoneComposition: usesPhoneComposition()
+  })
   elements.text.textContent = textKey ? t(textKey) : step.text
   elements.back.disabled = walkthroughState.index === 0
   elements.next.disabled = step.advanceOn === 'target-click'

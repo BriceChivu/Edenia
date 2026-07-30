@@ -9,6 +9,7 @@ export const WALKTHROUGH_STEPS = [
     id: 'study-history',
     target: '.study-history-section',
     textKey: 'walkthrough.studyHistory',
+    noAnkiTextKey: 'walkthrough.studyHistoryNoAnki',
     placement: 'top',
     hooks: {
       beforeEnter: 'closeTransientUi'
@@ -17,15 +18,23 @@ export const WALKTHROUGH_STEPS = [
   {
     id: 'videos',
     target: '.feed-section',
-    mobileTarget: '.feed-section > .section-header',
     textKey: 'walkthrough.videos',
-    mobileTextKey: 'walkthrough.videosMobile',
     placement: 'top',
+    scrollTarget: '.feed-section > .section-header',
     hooks: {
       beforeEnter: 'closeTransientUi'
     }
   }
 ]
+
+export function resolveWalkthroughTextKey(
+  step,
+  { ankiActive = true, phoneComposition = false } = {}
+) {
+  if (!ankiActive && step?.noAnkiTextKey) return step.noAnkiTextKey
+  if (phoneComposition && step?.mobileTextKey) return step.mobileTextKey
+  return step?.textKey || ''
+}
 
 export const FIRST_STUDY_WALKTHROUGH_STEPS = [
   {
