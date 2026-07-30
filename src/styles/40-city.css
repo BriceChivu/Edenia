@@ -421,8 +421,8 @@
   align-items: flex-start;
   background: var(--surface);
   border: 2px solid var(--planet-black);
-  border-radius: 8px;
-  box-shadow: 0 4px 0 rgba(5,5,5,0.16);
+  border-radius: var(--callout-radius);
+  box-shadow: var(--callout-shadow);
   color: var(--text);
   display: inline-flex;
   flex-direction: column;
@@ -437,10 +437,6 @@
   font-size: 0.68rem;
   font-weight: 600;
   margin-top: 4px;
-}
-body[data-theme="dark"] .city-next {
-  background: var(--surface-hi);
-  color: var(--text);
 }
 .city-level-progress-actions {
   align-items: center;
@@ -459,16 +455,13 @@ body[data-theme="dark"] .city-next {
   border-left: 2px solid var(--planet-black);
   border-top: 2px solid var(--planet-black);
   content: "";
-  height: 8px;
+  height: var(--callout-arrow-size);
   left: 50%;
   position: absolute;
-  top: -4px;
+  top: -8px;
   transform: translateX(-50%) rotate(45deg);
-  width: 8px;
+  width: var(--callout-arrow-size);
   z-index: -1;
-}
-body[data-theme="dark"] .city-level-progress-actions::before {
-  background: var(--surface-hi);
 }
 .city-level-remaining-hover:hover ~ .city-level-progress-actions,
 .city-level-progress.is-level-ready .city-level-progress-actions {
@@ -484,8 +477,8 @@ body[data-theme="dark"] .city-level-progress-actions::before {
 .city-pts {
   background: var(--surface);
   border: 2px solid var(--planet-black);
-  border-radius: 8px;
-  box-shadow: 0 4px 0 rgba(5,5,5,0.16);
+  border-radius: var(--callout-radius);
+  box-shadow: var(--callout-shadow);
   color: var(--text);
   font-size: 0.72rem;
   font-weight: 700;
@@ -509,20 +502,13 @@ body[data-theme="dark"] .city-level-progress-actions::before {
   border-bottom: 2px solid var(--planet-black);
   border-right: 2px solid var(--planet-black);
   content: "";
-  height: 8px;
+  height: var(--callout-arrow-size);
   left: 50%;
   position: absolute;
-  bottom: -4px;
+  bottom: -8px;
   transform: translateX(-50%) rotate(45deg);
-  width: 8px;
+  width: var(--callout-arrow-size);
   z-index: -1;
-}
-body[data-theme="dark"] .city-pts {
-  background: var(--surface-hi);
-  color: var(--text);
-}
-body[data-theme="dark"] .city-pts::before {
-  background: var(--surface-hi);
 }
 .city-level-milestone-points {
   color: var(--muted);
