@@ -32,11 +32,14 @@ for (const fileName of fileNames) {
     }
 
     const catalogId = String(channel.catalogId || '').trim()
-    if (!catalogId) return
-    if (catalogIds.has(catalogId)) {
+    if (!catalogId) {
+      throw new Error(`${fileName} channel ${index + 1} must contain a catalogId`)
+    }
+    const normalizedCatalogId = catalogId.toLocaleLowerCase('en')
+    if (catalogIds.has(normalizedCatalogId)) {
       throw new Error(`${fileName} contains duplicate catalogId ${catalogId}`)
     }
-    catalogIds.add(catalogId)
+    catalogIds.add(normalizedCatalogId)
   })
 
   console.log(`Validated ${fileName} (${catalog.channels.length} channels)`)

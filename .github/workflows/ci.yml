@@ -34,6 +34,7 @@ jobs:
           run_contracts=false
           run_browser=false
           run_catalogs=false
+          run_discovery_catalog=false
 
           if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
             run_contracts=true
@@ -47,6 +48,10 @@ jobs:
             for file in "${changed_files[@]}"; do
               case "$file" in
                 *.md|docs/*|.github/*)
+                  ;;
+                data/channel-catalog.discovered.json)
+                  run_catalogs=true
+                  run_discovery_catalog=true
                   ;;
                 data/channel-catalog*.json|images/channel-avatars/*)
                   run_catalogs=true
@@ -68,6 +73,7 @@ jobs:
           echo "contracts=$run_contracts" >> "$GITHUB_OUTPUT"
           echo "browser=$run_browser" >> "$GITHUB_OUTPUT"
           echo "catalogs=$run_catalogs" >> "$GITHUB_OUTPUT"
+          echo "discovery_catalog=$run_discovery_catalog" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js
         if: steps.scope.outputs.contracts == 'true' || steps.scope.outputs.catalogs == 'true'
@@ -83,6 +89,15 @@ jobs:
       - name: Validate channel catalogs
         if: steps.scope.outputs.catalogs == 'true'
         run: npm run test:catalogs
+
+      - name: Validate unattended discovery delta
+        if: steps.scope.outputs.discovery_catalog == 'true'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          DISCOVERY_MAX_TOTAL_ADDITIONS: ${{ vars.DISCOVERY_MAX_TOTAL_ADDITIONS }}
+          DISCOVERY_MIN_SUBSCRIBERS: ${{ vars.DISCOVERY_MIN_SUBSCRIBERS }}
+          DISCOVERY_MIN_VIDEOS: ${{ vars.DISCOVERY_MIN_VIDEOS }}
+        run: npm run test:catalogs:discovery -- --base-ref "$BASE_SHA"
 
       - name: Build and run contract tests
         if: steps.scope.outputs.contracts == 'true'
