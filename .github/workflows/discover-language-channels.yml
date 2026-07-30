@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: channel-catalog-maintenance
@@ -17,8 +17,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Create catalog automation token
+        id: catalog-app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CATALOG_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.CATALOG_AUTOMATION_PRIVATE_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.catalog-app.outputs.token }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -29,13 +39,21 @@ jobs:
         env:
           YOUTUBE_CATALOG_API_KEY: ${{ secrets.YOUTUBE_CATALOG_API_KEY }}
           DISCOVERY_MAX_PER_LANGUAGE: ${{ vars.DISCOVERY_MAX_PER_LANGUAGE }}
+          DISCOVERY_MAX_TOTAL_ADDITIONS: ${{ vars.DISCOVERY_MAX_TOTAL_ADDITIONS }}
           DISCOVERY_MIN_SUBSCRIBERS: ${{ vars.DISCOVERY_MIN_SUBSCRIBERS }}
           DISCOVERY_MIN_VIDEOS: ${{ vars.DISCOVERY_MIN_VIDEOS }}
         run: node scripts/discover-language-channels.mjs
 
-      - name: Publish discovery review branch
+      - name: Validate unattended catalog update
+        env:
+          DISCOVERY_MAX_TOTAL_ADDITIONS: ${{ vars.DISCOVERY_MAX_TOTAL_ADDITIONS }}
+          DISCOVERY_MIN_SUBSCRIBERS: ${{ vars.DISCOVERY_MIN_SUBSCRIBERS }}
+          DISCOVERY_MIN_VIDEOS: ${{ vars.DISCOVERY_MIN_VIDEOS }}
         run: |
-          node scripts/publish-maintenance-branch.mjs \
-            --branch "automation/discover-language-channels-${{ github.run_id }}-${{ github.run_attempt }}" \
-            --commit-message "Discover language-learning channels" \
-            --path data/channel-catalog.discovered.json
+          npm run test:catalogs
+          npm run test:catalogs:discovery -- --base-ref HEAD
+
+      - name: Publish checked auto-merge pull request
+        env:
+          GH_TOKEN: ${{ steps.catalog-app.outputs.token }}
+        run: node scripts/publish-discovery-pull-request.mjs

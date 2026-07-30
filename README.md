@@ -250,7 +250,16 @@ The workflow requires a separate `YOUTUBE_CATALOG_API_KEY` repository secret. Cr
 
 ### Automated YouTube discovery
 
-`.github/workflows/discover-language-channels.yml` proactively searches YouTube every day for language-learning channels that are not already present in the curated, community, or previously discovered catalogs. It can also be run manually after the workflow is pushed to GitHub. A changed discovery catalog is published to a unique `automation/discover-language-channels-<run>-<attempt>` review branch with the same maintainer-created pull-request boundary.
+`.github/workflows/discover-language-channels.yml` proactively searches YouTube every day for language-learning channels that are not already present in the curated, community, or previously discovered catalogs. It can also be run manually after the workflow is pushed to GitHub.
+
+When the generated discovery catalog changes, the workflow validates the change
+and publishes it to the stable
+`automation/discover-language-channels` branch. It opens or updates one bot pull
+request. A separate trusted workflow squash-merges the exact revision only after
+`CI / verify` succeeds. Normal runs therefore need no maintainer review.
+Unexpected paths, removals, identity changes, duplicates, invalid metadata,
+ineligible additions, rotation errors, or excessive growth fail closed and leave
+the deployed catalog unchanged.
 
 Each run searches French, English, German, Mandarin Chinese, Russian, Spanish, Japanese, and Portuguese with three focused channel queries per language. The queries rotate through four weekly groups covering beginner material, listening and stories, grammar and vocabulary, and intermediate conversation or podcasts. Every group includes a query written in the target language, and its final query is ordered by channel creation date.
 
@@ -261,19 +270,44 @@ The script then uses batched `channels.list` requests to verify metadata, statis
 Automatic additions are deliberately conservative:
 
 - No more than six new channels per language and run.
+- No more than 48 new channels across the entire run by default.
 - At least 100 visible subscribers, unless subscriber counts are hidden.
 - At least 10 published videos.
 - The channel title, handle, or description must contain both the target language and language-learning signals.
-- Channel IDs, handles, and exact names are deduplicated against all existing catalogs.
+- New channel IDs, handles, and exact names are deduplicated against all existing catalogs.
+- Existing discovered channels cannot be removed or have their discovery identity and classification rewritten by automation.
 - Existing discovered-channel metadata is refreshed after 30 days.
 
 Accepted channels are written to `data/channel-catalog.discovered.json`, deployed with GitHub Pages, and loaded into the Add search alongside curated and community channels.
 
-The workflow only requires the existing `YOUTUBE_CATALOG_API_KEY` secret. These optional repository variables can tune its conservative defaults:
+The YouTube discovery step uses the existing `YOUTUBE_CATALOG_API_KEY` secret.
+These optional repository variables can tune its conservative defaults:
 
 - `DISCOVERY_MAX_PER_LANGUAGE`
+- `DISCOVERY_MAX_TOTAL_ADDITIONS`
 - `DISCOVERY_MIN_SUBSCRIBERS`
 - `DISCOVERY_MIN_VIDEOS`
+
+The unattended pull-request publisher also requires a dedicated GitHub App.
+Using an App keeps the credential short-lived and ensures the bot-created pull
+request triggers the normal CI workflow.
+
+1. Create a GitHub App owned by the repository owner and install it only on
+   Edenia.
+2. Give it repository **Contents: Read and write** and **Pull requests: Read and
+   write** permissions. Keep all unrelated permissions disabled.
+3. Store its App ID as the `CATALOG_AUTOMATION_APP_ID` repository secret and its
+   private key as `CATALOG_AUTOMATION_PRIVATE_KEY`.
+4. Keep squash merging enabled in the repository pull-request settings.
+5. Protect `master` with **Require a pull request before merging** and require
+   the `CI / verify` status check. The catalog bot must not bypass this check.
+   A required human approval would intentionally prevent unattended merging, so
+   do not require one for this automation path.
+
+If any prerequisite is missing, publishing or auto-merge fails and GitHub marks
+the scheduled workflow or pull request for attention. The workflow never falls
+back to pushing directly to `master`. A merged catalog update can be rolled back
+by reverting its squash commit.
 
 The same discovery can be run locally before pushing by setting `YOUTUBE_CATALOG_API_KEY` and running:
 
@@ -417,6 +451,7 @@ Submitting the feedback form sends its category, message, optional name and emai
 | `.github/workflows/deploy-pages.yml` | Static GitHub Pages build and deployment workflow |
 | `.github/workflows/refresh-channel-catalog.yml` | Scheduled and source-triggered curated catalog refresh |
 | `.github/workflows/discover-language-channels.yml` | Daily automated channel discovery |
+| `.github/workflows/merge-checked-discovery-catalog.yml` | CI-success-only merge for the automated discovery PR |
 | `.github/workflows/import-community-channel-catalog.yml` | Daily PostHog candidate import and community promotion |
 
 Architecture, preservation, and release references:
