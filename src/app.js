@@ -2481,6 +2481,7 @@ function renderPersonalizedOnboarding() {
   progressLabel.textContent = t('onboarding.progress', { current: stepIndex + 1, total: stepOrder.length })
   progressFill.style.width = `${((stepIndex + 1) / stepOrder.length) * 100}%`
   panel?.classList.toggle('is-channel-step', personalizedOnboardingState.step === 'channels')
+  panel?.classList.toggle('is-level-step', personalizedOnboardingState.step === 'level')
   localePicker?.classList.toggle('hidden', personalizedOnboardingState.step !== 'language')
   if (personalizedOnboardingState.lastTrackedStep !== personalizedOnboardingState.step) {
     trackEdeniaEvent('onboarding_step_viewed', {
