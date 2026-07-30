@@ -3,13 +3,11 @@
 ## Branch and pull-request flow
 
 1. Branch from current `master` with one focused, short-lived branch.
-2. Commit atomic changes. Migration commits use `MIG-###` and update
-   `migration_changes.md` in the same commit.
+2. Commit atomic changes with clear imperative subjects.
 3. Push the branch and open a pull request.
-4. Require the migration governance, build, contract, browser-flow, and visual
-   checks before merge.
-5. Merge without squashing when the individual migration commits are useful
-   rollback boundaries.
+4. Require the path-selected `verify` check before merge.
+5. Merge without squashing when individual commits are useful rollback
+   boundaries.
 
 Repository settings should prohibit direct and force pushes to `master` and
 require pull requests plus the CI check. These are GitHub settings and must be
@@ -54,8 +52,8 @@ absence of internal-test/sandbox leakage before creating a release.
 - Create a release only from the exact merged commit that passed production
   smoke verification.
 - Never move or reuse a tag.
-- The release notes should list included `MIG-###` entries, verification, known
-  deferrals, and rollback commit.
+- Release notes should list user-visible changes, verification, known deferrals,
+  and the rollback commit.
 
 Do not tag or publish a release while visual acceptance, deployment smoke
 verification, required checks, or repository access is unresolved.
@@ -67,16 +65,16 @@ verification, required checks, or repository access is unresolved.
 3. Run required checks and merge the revert.
 4. Let GitHub Pages redeploy the reverted source.
 5. Verify production recovery.
-6. Append a correction or rollback entry to `migration_changes.md`.
+6. Document the correction or rollback in the revert pull request and release
+   notes.
 
 Persisted state and runtime interfaces should remain backward compatible across
 architecture-only migration reversions. If a later approved change includes a
-state migration, its ledger entry must provide a dedicated recovery procedure.
+state migration, its pull request must provide a dedicated recovery procedure.
 
-## Current migration handoff
+## Historical refactor record
 
-The local migration can be reviewed through `migration_changes.md`,
-`docs/current-experience-inventory.md`, and
-`docs/responsive-review-matrix.md`. Remote branch publication, pull-request
-checks, GitHub settings, production deployment, smoke verification, tagging,
-and release publication are separate external acceptance steps.
+The completed refactor can be reviewed through the archived
+`migration_changes.md`, `docs/current-experience-inventory.md`, and
+`docs/responsive-review-matrix.md`. New work uses ordinary commits and pull
+requests; it does not append migration ledger entries.

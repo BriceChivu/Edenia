@@ -173,9 +173,9 @@ The local development key is still delivered to the browser, so restrict it to
 the YouTube Data API, allow the `http://localhost:8000/*` referrer, and use a
 small development quota.
 
-## Migration Safety Checks
+## Testing and CI
 
-The migration harness keeps application traffic deterministic and blocks unexpected
+The test harness keeps application traffic deterministic and blocks unexpected
 external requests. YouTube and Anki responses are served from test fixtures, and
 automated tests fail if they attempt to contact PostHog.
 
@@ -197,6 +197,16 @@ Visual baselines may be regenerated only for an explicitly approved change:
 ```bash
 npm run test:e2e:update
 ```
+
+Pull-request CI selects the least expensive relevant scope:
+
+- Documentation and workflow-only changes do not run application tests.
+- Generated channel-catalog changes run the fast catalog validator.
+- Contract-only changes run the build and contract suite.
+- Runtime, styling, build, or browser-test changes also run Playwright.
+
+The historical refactor ledger is archived and no longer imposes commit naming or
+per-change documentation requirements.
 
 ## YouTube API Configuration
 
@@ -403,17 +413,17 @@ Submitting the feedback form sends its category, message, optional name and emai
 | `assets/fonts/` | Self-hosted Space Grotesk and Bebas Neue font subsets |
 | `images/channel-avatars/` | Bundled curated-channel avatars |
 | `images/city/` | Optimized town progression images |
-| `.github/workflows/ci.yml` | Migration governance, build, contract, browser-flow, and visual checks |
+| `.github/workflows/ci.yml` | Path-selected catalog, build, contract, browser-flow, and visual checks |
 | `.github/workflows/deploy-pages.yml` | Static GitHub Pages build and deployment workflow |
 | `.github/workflows/refresh-channel-catalog.yml` | Scheduled and source-triggered curated catalog refresh |
 | `.github/workflows/discover-language-channels.yml` | Daily automated channel discovery |
 | `.github/workflows/import-community-channel-catalog.yml` | Daily PostHog candidate import and community promotion |
 
-Architecture, migration, and release references:
+Architecture, preservation, and release references:
 
 - [Architecture](docs/architecture.md)
 - [Current experience preservation inventory](docs/current-experience-inventory.md)
 - [Responsive review matrix](docs/responsive-review-matrix.md)
 - [Deployment and release runbook](docs/deployment-and-releases.md)
-- [Migration change ledger](migration_changes.md)
+- [Archived refactor ledger](migration_changes.md)
 - [Contributing guide](CONTRIBUTING.md)

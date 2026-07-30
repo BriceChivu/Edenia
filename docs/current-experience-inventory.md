@@ -242,8 +242,8 @@
 
 17. **Deployment/cache compatibility:** Existing deployed filenames, script order, `window.EDENIA_CONFIG`, PostHog initialization order, query-string asset versions, fonts, images, catalog data, and static Pages runtime must remain compatible.
 
-18. **Unverified baseline:** This inventory is source-only. Any implementation phase must record that status in `migration_changes.md` and cannot claim visual/runtime equivalence until the approved acceptance process has been completed.
+18. **Unverified baseline:** This inventory is source-only. A change cannot claim visual/runtime equivalence until the approved acceptance process has been completed and documented in its pull request.
 
 ## Catch-all preservation rule
 
-Any currently working or intentionally hidden behavior discovered during migration that is not listed above is automatically added to this catalog as `Keep` before related code is changed. The implementer must record that discovery and its protection contract in `migration_changes.md`; they must not silently “clean it up.”
+Any currently working or intentionally hidden behavior discovered later that is not listed above is automatically added to this catalog as `Keep` before related code is changed. The implementer must document that discovery and its protection contract in the pull request; they must not silently “clean it up.”

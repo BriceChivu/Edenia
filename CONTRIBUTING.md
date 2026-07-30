@@ -9,11 +9,8 @@ policy. Existing desktop, tablet, and phone behavior is protected by default.
 2. Create a short-lived branch named `codex/<focused-purpose>` or
    `feature/<focused-purpose>`.
 3. Keep each commit atomic and use an imperative subject.
-4. For migration work, use `MIG-###: Imperative summary` and append the matching
-   entry to `migration_changes.md` in the same commit.
-5. Open a pull request; do not push directly to `master`.
-6. Preserve commits through a merge commit when their migration boundaries are
-   meaningful.
+4. Open a pull request; do not push directly to `master`.
+5. Preserve useful rollback boundaries when choosing a merge strategy.
 
 Do not force-push shared branches, rewrite `master`, reuse a release tag, or mix
 unrelated cleanup into a behavior change.
@@ -23,8 +20,7 @@ unrelated cleanup into a behavior change.
 - Treat every row in `docs/current-experience-inventory.md` as **Keep**.
 - Consult `docs/responsive-review-matrix.md` before changing responsive output.
 - A Candidate is not permission to implement it. Intentional visual differences
-  require explicit approval, a dedicated migration entry, and isolated snapshot
-  updates.
+  require explicit approval, clear PR documentation, and isolated snapshot updates.
 - Preserve runtime configuration, storage keys and schemas, analytics identity,
   locale behavior, accessibility, event ordering, and normal/internal-test/
   sandbox isolation unless a separately approved change says otherwise.
@@ -42,21 +38,22 @@ artifacts, or manually versioned asset query strings.
 
 ## Verification
 
-Use the least expensive check that proves the change locally, then let CI run
-the full protected suite:
+Use the least expensive check that proves the change locally:
 
 ```bash
 npm test
 ```
 
-CI additionally checks the migration ledger and runs the browser suite. Never
-regenerate visual baselines for a refactor or architecture-only change. For an
-approved visual change, isolate snapshot updates in their own commit and retain
-unchanged desktop goldens unless desktop was explicitly approved.
+CI selects checks by changed path. Documentation and workflow-only pull requests
+skip application tests, generated catalog changes run `npm run test:catalogs`,
+contract-only changes run `npm test`, and runtime or visual changes also run the
+browser suite. Never regenerate visual baselines for architecture-only changes.
+For an approved visual change, isolate snapshot updates in their own commit and
+retain unchanged desktop goldens unless desktop was explicitly approved.
 
 ## Review and rollback
 
 A pull request is blocked by an unexplained visual/behavioral difference,
-storage incompatibility, analytics rename, localization regression, missing
-ledger entry, or failed check. Roll back a merged change with a revert pull
+storage incompatibility, analytics rename, localization regression, or failed
+relevant check. Roll back a merged change with a revert pull
 request and redeploy; do not rewrite history.
