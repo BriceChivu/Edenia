@@ -214,6 +214,9 @@ import {
   getCityScoreForLevelIndex,
   normalizeCityProgress
 } from './features/city/model.js'
+import {
+  getCityImageCoverGeometry
+} from './features/city/viewport-geometry.js'
 import { bindCityLevelUpActions } from './features/city/level-up-actions.js'
 import {
   bindCityWaveformBarActions
@@ -453,6 +456,7 @@ const CITY_IMAGE_MIN_ZOOM = 1
 const CITY_IMAGE_MAX_ZOOM = 2
 const CITY_IMAGE_ZOOM_STEP = 0.25
 const CITY_IMAGE_WHEEL_ZOOM_STEP = 0.06
+const CITY_IMAGE_PAN_EPSILON = 0.5
 const cityImageView = {
   scale: 1,
   x: 0,
@@ -10902,6 +10906,10 @@ function initCityImagePanZoom() {
   wrap.dataset.panZoomReady = 'true'
   image.draggable = false
   image.addEventListener('dragstart', event => event.preventDefault())
+  image.addEventListener('load', () => {
+    const geometry = clampCityImagePan()
+    applyCityImageTransform(geometry)
+  })
   applyCityImageTransform()
 
   wrap.addEventListener('wheel', event => {
@@ -10919,13 +10927,13 @@ function initCityImagePanZoom() {
       if (cityImageView.touchPointers.size >= 2) {
         event.preventDefault()
         beginCityImagePinch(wrap)
-      } else if (cityImageView.scale > 1) {
+      } else if (canPanCityImage()) {
         event.preventDefault()
         beginCityImageTouchDrag(wrap, event.pointerId, event.clientX, event.clientY)
       }
       return
     }
-    if (event.pointerType === 'touch' && cityImageView.scale <= 1) return
+    if (!canPanCityImage()) return
     event.preventDefault()
     cityImageView.dragging = true
     cityImageView.pointerId = event.pointerId
@@ -10950,8 +10958,8 @@ function initCityImagePanZoom() {
     if (event.pointerType === 'touch') event.preventDefault()
     cityImageView.x = cityImageView.originX + event.clientX - cityImageView.startX
     cityImageView.y = cityImageView.originY + event.clientY - cityImageView.startY
-    clampCityImagePan()
-    applyCityImageTransform()
+    const geometry = clampCityImagePan()
+    applyCityImageTransform(geometry)
   })
 
   const endDrag = event => {
@@ -10965,7 +10973,7 @@ function initCityImagePanZoom() {
           return
         }
         const remaining = cityImageView.touchPointers.entries().next().value
-        if (remaining && cityImageView.scale > 1) {
+        if (remaining && canPanCityImage()) {
           const [pointerId, point] = remaining
           beginCityImageTouchDrag(wrap, pointerId, point.x, point.y)
         } else {
@@ -10984,8 +10992,8 @@ function initCityImagePanZoom() {
   wrap.addEventListener('pointerup', endDrag)
   wrap.addEventListener('pointercancel', endDrag)
   window.addEventListener('resize', () => {
-    clampCityImagePan()
-    applyCityImageTransform()
+    const geometry = clampCityImagePan()
+    applyCityImageTransform(geometry)
   })
 }
 
@@ -11035,8 +11043,8 @@ function updateCityImagePinch(wrap) {
   cityImageView.scale = nextScale
   cityImageView.x = center.x - (cityImageView.pinchStartCenterX - cityImageView.pinchStartX) * scaleRatio
   cityImageView.y = center.y - (cityImageView.pinchStartCenterY - cityImageView.pinchStartY) * scaleRatio
-  clampCityImagePan()
-  applyCityImageTransform()
+  const geometry = clampCityImagePan()
+  applyCityImageTransform(geometry)
 }
 
 function getCityImageTouchDistance(points) {
@@ -11095,8 +11103,8 @@ function zoomCityImageBy(delta, event = null) {
   }
 
   cityImageView.scale = nextScale
-  clampCityImagePan()
-  applyCityImageTransform()
+  const geometry = clampCityImagePan()
+  applyCityImageTransform(geometry)
 }
 
 function resetCityImageView() {
@@ -11110,25 +11118,59 @@ function resetCityImageView() {
   applyCityImageTransform()
 }
 
-function clampCityImagePan() {
+function getCityImagePanGeometry(scale = cityImageView.scale) {
   const wrap = document.querySelector('.city-image-wrap')
-  if (!wrap || cityImageView.scale <= 1) {
-    cityImageView.x = 0
-    cityImageView.y = 0
-    return
-  }
+  const image = document.getElementById('cityMilestoneImage')
+  if (!wrap || !image) return null
 
   const rect = wrap.getBoundingClientRect()
-  const maxX = rect.width * (cityImageView.scale - 1) / 2
-  const maxY = rect.height * (cityImageView.scale - 1) / 2
-  cityImageView.x = clampNumber(cityImageView.x, -maxX, maxX)
-  cityImageView.y = clampNumber(cityImageView.y, -maxY, maxY)
+  return getCityImageCoverGeometry({
+    viewportWidth: rect.width,
+    viewportHeight: rect.height,
+    imageWidth: image.naturalWidth,
+    imageHeight: image.naturalHeight,
+    scale
+  })
 }
 
-function applyCityImageTransform() {
+function canPanCityImage() {
+  const geometry = getCityImagePanGeometry()
+  return isCityImagePanGeometryPannable(geometry)
+}
+
+function isCityImagePanGeometryPannable(geometry) {
+  return Boolean(
+    geometry
+    && (
+      geometry.maxX > CITY_IMAGE_PAN_EPSILON
+      || geometry.maxY > CITY_IMAGE_PAN_EPSILON
+    )
+  )
+}
+
+function clampCityImagePan() {
+  const geometry = getCityImagePanGeometry()
+  if (!geometry) {
+    cityImageView.x = 0
+    cityImageView.y = 0
+    return null
+  }
+
+  cityImageView.x = clampNumber(cityImageView.x, -geometry.maxX, geometry.maxX)
+  cityImageView.y = clampNumber(cityImageView.y, -geometry.maxY, geometry.maxY)
+  return geometry
+}
+
+function applyCityImageTransform(geometry = getCityImagePanGeometry()) {
   const image = document.getElementById('cityMilestoneImage')
   if (!image) return
-  document.querySelector('.city-image-wrap')?.classList.toggle('is-zoomed', cityImageView.scale > 1)
+  const wrap = document.querySelector('.city-image-wrap')
+  if (geometry) {
+    image.style.width = `${geometry.baseWidth}px`
+    image.style.height = `${geometry.baseHeight}px`
+  }
+  wrap?.classList.toggle('is-pannable', isCityImagePanGeometryPannable(geometry))
+  wrap?.classList.toggle('is-zoomed', cityImageView.scale > 1)
   image.style.transform = `translate(${cityImageView.x}px, ${cityImageView.y}px) scale(${cityImageView.scale})`
 }
 

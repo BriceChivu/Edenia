@@ -21,9 +21,17 @@
 .city-image-wrap.is-zoomed {
   touch-action: none;
 }
+.city-image-canvas {
+  align-items: center;
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: absolute;
+}
 .city-milestone-image {
   cursor: grab;
   display: block;
+  flex: none;
   height: 100%;
   object-fit: cover;
   opacity: 1;
