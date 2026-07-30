@@ -5249,3 +5249,50 @@ release mappings, and follow-up findings are recorded as new entries.
   production rollback is required.
 - **Association:** `codex/migration-05-javascript-modularization`;
   [PR #1](https://github.com/BriceChivu/Edenia/pull/1); release pending.
+
+---
+
+## MIG-144 — Enforce master migration governance
+
+- **Date:** 2026-07-30
+- **Phase:** 8 — Final cleanup
+- **Type:** Remote repository governance and release preparation
+- **Status:** Complete remotely; PR verification pending
+- **Intent:** Enforce the approved pull-request and CI boundary on `master`
+  before merging the migration, while keeping the repository workable for its
+  current solo maintainer.
+- **Conceptual change:** Changed GitHub `master` from unprotected to protected.
+  All changes, including administrator changes, must now arrive through a pull
+  request; zero approving reviews are required so the repository owner is not
+  blocked from merging their own reviewed work. The branch must be current and
+  the `verify` check must pass from the GitHub Actions app (`app_id: 15368`).
+  Review conversations must be resolved, force-pushes and branch deletion are
+  disabled, and linear history is not required so the approved merge-commit
+  policy remains available.
+- **Preservation contract:** Preserve repository visibility, ownership,
+  collaborators, Actions workflows, release permissions, application source,
+  runtime behavior, visuals, state, analytics, localization, accessibility,
+  and deployment. Preserve merge commits so atomic `MIG-###` commits remain
+  individual rollback boundaries. Do not require an external reviewer that the
+  solo-maintainer repository does not have.
+- **Risks:** An incorrect status context, app source, review count, or history
+  rule could prevent legitimate merges or permit unverified direct changes.
+  The required context and GitHub Actions app were resolved from the successful
+  `MIG-143` check run immediately before protection. The applied response
+  confirmed strict `verify`, administrator enforcement, zero approvals,
+  conversation resolution, merge-commit compatibility, and disabled force
+  pushes/deletions.
+- **Verification:** GitHub's branch-protection API first returned `404 Branch
+  not protected`, and the subsequent update/read response confirmed every
+  setting listed above. No browser, local-server, visual-regression, build,
+  contract, diff-integrity, or static-review check was run for this
+  repository-setting change in accordance with `AGENTS.md`. PR CI will verify
+  this ledger-only commit before merge.
+- **Rollback:** An administrator can update or remove the `master` protection
+  rule through GitHub repository settings or the branch-protection API. Do not
+  rewrite Git history or force-push as part of rollback. No application,
+  deployment, state, storage, analytics, localization, responsive, or visual
+  rollback is required.
+- **Association:** `codex/migration-05-javascript-modularization`;
+  [PR #1](https://github.com/BriceChivu/Edenia/pull/1); `v1.0.1` release
+  pending.
