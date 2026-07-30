@@ -276,3 +276,25 @@ test('generic sound analytics keep identity while reading the post-toggle label'
     'onboarding_sound_btn_clicked'
   )
 })
+
+test('music stop exposes a bounded fade completion promise', () => {
+  const start = appSource.indexOf('function stopIntroMusic(')
+  const end = appSource.indexOf('\nasync function toggleIntroSound(', start)
+  const source = appSource.slice(start, end)
+
+  assert.match(source, /if \(!audio\) return Promise\.resolve\(\)/)
+  assert.match(source, /if \(!shouldFade\) \{[\s\S]*?return Promise\.resolve\(\)/)
+  assert.match(source, /return new Promise\(resolve => \{/)
+  assert.match(
+    source,
+    /fadeDeadlineTimer = window\.setTimeout\(finishFade, duration \+ 250\)/
+  )
+  assert.match(
+    source,
+    /audio\.volume = startingVolume \* \(0\.5 \+ \(0\.5 \* Math\.cos\(Math\.PI \* progress\)\)\)/
+  )
+  assert.match(
+    source,
+    /audio\.volume = 0\s*audio\.pause\(\)\s*audio\.currentTime = 0\s*resolve\(\)/
+  )
+})

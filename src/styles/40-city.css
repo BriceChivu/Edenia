@@ -377,7 +377,7 @@
   --city-level-progress: 0%;
   --city-level-remaining-center: 50%;
   min-width: 0;
-  padding-bottom: 18px;
+  padding-bottom: calc(0.72rem + 8px);
   width: 100%;
 }
 .city-level-progress-labels {
@@ -400,7 +400,7 @@
 .city-level-progress-track {
   position: relative;
 }
-.city-level-progress-rail {
+.city-level-progress .city-level-progress-rail {
   margin-bottom: 0;
 }
 .city-level-progress-fill {
@@ -421,8 +421,8 @@
   align-items: flex-start;
   background: var(--surface);
   border: 2px solid var(--planet-black);
-  border-radius: 8px;
-  box-shadow: 0 4px 0 rgba(5,5,5,0.16);
+  border-radius: var(--callout-radius);
+  box-shadow: var(--callout-shadow);
   color: var(--text);
   display: inline-flex;
   flex-direction: column;
@@ -430,17 +430,29 @@
   font-weight: 700;
   line-height: 1.35;
   padding: 9px 10px;
+  position: relative;
   white-space: nowrap;
+}
+.city-next::before {
+  background: var(--surface);
+  border: 2px solid var(--planet-black);
+  border-bottom: 0;
+  border-right: 0;
+  content: "";
+  height: var(--callout-arrow-size);
+  left: 50%;
+  margin-left: -7px;
+  pointer-events: none;
+  position: absolute;
+  top: -8px;
+  transform: rotate(45deg);
+  width: var(--callout-arrow-size);
 }
 .city-next-effort {
   color: var(--muted);
   font-size: 0.68rem;
   font-weight: 600;
   margin-top: 4px;
-}
-body[data-theme="dark"] .city-next {
-  background: var(--surface-hi);
-  color: var(--text);
 }
 .city-level-progress-actions {
   align-items: center;
@@ -454,22 +466,6 @@ body[data-theme="dark"] .city-next {
   transition: opacity var(--motion-fast) var(--ease-standard);
   z-index: 5;
 }
-.city-level-progress-actions::before {
-  background: var(--surface);
-  border-left: 2px solid var(--planet-black);
-  border-top: 2px solid var(--planet-black);
-  content: "";
-  height: 8px;
-  left: 50%;
-  position: absolute;
-  top: -4px;
-  transform: translateX(-50%) rotate(45deg);
-  width: 8px;
-  z-index: -1;
-}
-body[data-theme="dark"] .city-level-progress-actions::before {
-  background: var(--surface-hi);
-}
 .city-level-remaining-hover:hover ~ .city-level-progress-actions,
 .city-level-progress.is-level-ready .city-level-progress-actions {
   opacity: 1;
@@ -480,12 +476,22 @@ body[data-theme="dark"] .city-level-progress-actions::before {
 }
 .city-level-progress.is-level-ready .city-level-progress-actions::before {
   background: var(--surface);
+  border-left: 2px solid var(--planet-black);
+  border-top: 2px solid var(--planet-black);
+  content: "";
+  height: var(--callout-arrow-size);
+  left: 50%;
+  position: absolute;
+  top: -8px;
+  transform: translateX(-50%) rotate(45deg);
+  width: var(--callout-arrow-size);
+  z-index: -1;
 }
 .city-pts {
   background: var(--surface);
   border: 2px solid var(--planet-black);
-  border-radius: 8px;
-  box-shadow: 0 4px 0 rgba(5,5,5,0.16);
+  border-radius: var(--callout-radius);
+  box-shadow: var(--callout-shadow);
   color: var(--text);
   font-size: 0.72rem;
   font-weight: 700;
@@ -506,23 +512,18 @@ body[data-theme="dark"] .city-level-progress-actions::before {
 }
 .city-pts::before {
   background: var(--surface);
-  border-bottom: 2px solid var(--planet-black);
-  border-right: 2px solid var(--planet-black);
+  border: 2px solid var(--planet-black);
+  border-left: 0;
+  border-top: 0;
+  bottom: -8px;
   content: "";
-  height: 8px;
+  height: var(--callout-arrow-size);
   left: 50%;
+  margin-left: -7px;
+  pointer-events: none;
   position: absolute;
-  bottom: -4px;
-  transform: translateX(-50%) rotate(45deg);
-  width: 8px;
-  z-index: -1;
-}
-body[data-theme="dark"] .city-pts {
-  background: var(--surface-hi);
-  color: var(--text);
-}
-body[data-theme="dark"] .city-pts::before {
-  background: var(--surface-hi);
+  transform: rotate(45deg);
+  width: var(--callout-arrow-size);
 }
 .city-level-milestone-points {
   color: var(--muted);

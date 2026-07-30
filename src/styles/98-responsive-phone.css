@@ -1,7 +1,17 @@
 /* Final width-based mobile pass. Keep this after coarse-pointer rules so
    phone layouts remain consistent even when a browser reports a fine pointer. */
 @media (max-width: 640px) {
-  #mainApp { --compact-control-height: 44px; }
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  #mainApp {
+    --compact-control-height: 44px;
+    max-width: 100%;
+    overflow-x: clip;
+  }
 
   .set-aside-prompt-overlay {
     align-items: flex-end;
@@ -324,10 +334,12 @@
   body[data-theme="dark"] .channel-shelf-card .watch-later-status {
     color: #052a36;
   }
-  .channel-shelf-card .card-actions {
+  .video-card:not(.compact-card).channel-shelf-card .card-actions {
     display: flex;
     flex: 0 0 auto;
+    flex-wrap: nowrap;
     gap: 5px;
+    grid-template-columns: none;
     margin-top: 0;
     pointer-events: none;
   }
@@ -338,18 +350,27 @@
     border-radius: 50%;
     color: #24414a;
     display: inline-flex;
-    flex: 0 0 44px;
+    flex: 0 0 40px;
     font-size: 0.7rem;
-    height: 44px;
+    height: 40px;
     justify-content: center;
+    min-height: 40px;
+    min-width: 40px;
     padding: 0;
     pointer-events: auto;
-    width: 44px;
+    position: relative;
+    width: 40px;
+  }
+  .channel-shelf-card .action-btn::after {
+    content: "";
+    inset: -2px;
+    position: absolute;
   }
   .channel-shelf-card .partial-btn,
   .channel-shelf-card .watch-later-btn,
+  .channel-shelf-card .set-aside-btn,
   .channel-shelf-card .favorite-btn {
-    flex: 0 0 44px;
+    flex: 0 0 40px;
   }
   .channel-shelf-card .dur-badge {
     display: none;
@@ -585,12 +606,13 @@
     width: 132px;
   }
   .onboarding-language-picker {
+    right: max(64px, calc(env(safe-area-inset-right) + 64px));
     top: max(12px, calc(env(safe-area-inset-top) + 8px));
     width: 132px;
   }
   .onboarding-sound {
     right: max(12px, env(safe-area-inset-right));
-    top: max(64px, calc(env(safe-area-inset-top) + 60px));
+    top: max(12px, calc(env(safe-area-inset-top) + 8px));
   }
   .intro-locale-btn { min-height: 44px; }
   .intro-nav-btn {

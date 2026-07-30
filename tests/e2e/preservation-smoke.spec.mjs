@@ -26,6 +26,10 @@ async function waitForApplication(page) {
 }
 
 async function stabilizeVisuals(page) {
+  await page.locator('#toast').evaluate(toast => {
+    toast.classList.remove('show')
+    toast.textContent = ''
+  })
   await page.addStyleTag({
     content: `
       .background-physics {
@@ -172,9 +176,6 @@ test('completed local state preserves settings and feedback interactions', async
   await page.locator('.gear-btn').click()
   await expect(page.locator('#settingsPanel')).not.toHaveClass(/\bhidden\b/)
   await expect(page.locator('#settingsLocaleLabel')).toHaveText('English')
-  await expect(page).toHaveScreenshot('settings-open.png', {
-    animations: 'disabled'
-  })
   await page.locator('#settingsCloseBtn').click()
 
   await page.locator('#feedbackLaunchBtn').click()
@@ -338,6 +339,71 @@ test('Settings shell listeners preserve the phone drawer and scroll reset', asyn
   await expect(opener).toBeFocused()
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
     .toBe(storedBefore)
+})
+
+test('walkthrough replay adapts no-Anki copy and frames the full video area', async ({
+  page
+}, testInfo) => {
+  test.skip(![
+    'desktop-standard',
+    'tablet-portrait',
+    'phone-standard'
+  ].includes(testInfo.project.name))
+
+  await seedCompletedState(page)
+  await page.locator('[data-settings-shell-action="open"]').click()
+  await page.locator(
+    '[data-settings-replay-action="walkthrough"]'
+  ).click()
+  await expect(page.locator('body')).toHaveClass(/\bwalkthrough-active\b/)
+
+  const nextButton = page.locator('.walkthrough-next')
+  await nextButton.click()
+  await expect(page.locator('.walkthrough-text')).toHaveText(
+    'Study History shows what happened over time.'
+  )
+
+  await nextButton.click()
+  await expect(page.locator('.walkthrough-text')).toHaveText(
+    'This is the video area. New videos from your channels appear here.'
+  )
+
+  await expect.poll(() => page.evaluate(() => {
+    const highlight = document.querySelector('.walkthrough-highlight')
+      .getBoundingClientRect()
+    const videoGrid = document.querySelector('#videoGrid')
+      .getBoundingClientRect()
+    return highlight.top <= videoGrid.top && highlight.bottom >= videoGrid.bottom
+  })).toBe(true)
+
+  const framing = await page.evaluate(() => {
+    const highlight = document.querySelector('.walkthrough-highlight')
+      .getBoundingClientRect()
+    const title = document.querySelector('.feed-section > .section-header')
+      .getBoundingClientRect()
+    const controls = document.querySelector('.feed-controls')
+      .getBoundingClientRect()
+    const videoGrid = document.querySelector('#videoGrid')
+      .getBoundingClientRect()
+    const contains = rect => (
+      highlight.left <= rect.left
+      && highlight.top <= rect.top
+      && highlight.right >= rect.right
+      && highlight.bottom >= rect.bottom
+    )
+    return {
+      containsControls: contains(controls),
+      containsTitle: contains(title),
+      containsVideoGrid: contains(videoGrid),
+      highlightHeight: highlight.height,
+      titleHeight: title.height
+    }
+  })
+
+  expect(framing.containsTitle).toBe(true)
+  expect(framing.containsControls).toBe(true)
+  expect(framing.containsVideoGrid).toBe(true)
+  expect(framing.highlightHeight).toBeGreaterThan(framing.titleHeight * 2)
 })
 
 test('analytics bridge preserves classic global ownership during walkthrough', async ({

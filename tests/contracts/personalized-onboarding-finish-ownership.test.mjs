@@ -249,7 +249,6 @@ test('finish preserves save, resolve, refresh, completion, and redirect order', 
 
   const orderedMarkers = [
     'if (personalizedOnboardingState.isApplyingChannels) return',
-    'stopIntroMusic({ fadeDuration: 7.5 })',
     'personalizedOnboardingState.isApplyingChannels = true',
     'renderPersonalizedOnboarding()',
     'let state = loadState() || defaultState(4, DEFAULT_CHANNELS)',
@@ -266,6 +265,7 @@ test('finish preserves save, resolve, refresh, completion, and redirect order', 
     'if (!saveState(state)) {',
     "trackEdeniaEvent('onboarding_completed', {",
     'queueOnboardingNotice(completionNotice)',
+    'await stopIntroMusic({ fadeDuration: 7.5 })',
     'window.location.assign(getPostOnboardingAppUrl())'
   ]
   let previousIndex = -1

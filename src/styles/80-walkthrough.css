@@ -39,8 +39,8 @@
   --walkthrough-arrow-top: 50%;
   background: var(--surface);
   border: 2px solid var(--planet-black);
-  border-radius: 12px;
-  box-shadow: 0 5px 0 rgba(5,5,5,0.18);
+  border-radius: var(--callout-radius);
+  box-shadow: var(--callout-shadow);
   color: var(--text);
   max-width: calc(100vw - 28px);
   padding: 12px;
@@ -110,11 +110,11 @@
 .walkthrough-arrow {
   background: var(--surface);
   border: 2px solid var(--planet-black);
-  height: 14px;
+  height: var(--callout-arrow-size);
   pointer-events: none;
   position: absolute;
   transform: rotate(45deg);
-  width: 14px;
+  width: var(--callout-arrow-size);
 }
 .walkthrough-card[data-placement="bottom"] .walkthrough-arrow {
   border-bottom: 0;
