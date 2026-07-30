@@ -33,15 +33,9 @@ jobs:
           DISCOVERY_MIN_VIDEOS: ${{ vars.DISCOVERY_MIN_VIDEOS }}
         run: node scripts/discover-language-channels.mjs
 
-      - name: Commit discovered channels
+      - name: Publish discovery review branch
         run: |
-          if git diff --quiet -- data/channel-catalog.discovered.json; then
-            echo "No new or refreshed language channels."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/channel-catalog.discovered.json
-          git commit -m "Discover language-learning channels"
-          git push
+          node scripts/publish-maintenance-branch.mjs \
+            --branch "automation/discover-language-channels-${{ github.run_id }}-${{ github.run_attempt }}" \
+            --commit-message "Discover language-learning channels" \
+            --path data/channel-catalog.discovered.json
