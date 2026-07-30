@@ -334,10 +334,12 @@
   body[data-theme="dark"] .channel-shelf-card .watch-later-status {
     color: #052a36;
   }
-  .channel-shelf-card .card-actions {
+  .video-card:not(.compact-card).channel-shelf-card .card-actions {
     display: flex;
     flex: 0 0 auto;
+    flex-wrap: nowrap;
     gap: 5px;
+    grid-template-columns: none;
     margin-top: 0;
     pointer-events: none;
   }
@@ -348,18 +350,27 @@
     border-radius: 50%;
     color: #24414a;
     display: inline-flex;
-    flex: 0 0 44px;
+    flex: 0 0 40px;
     font-size: 0.7rem;
-    height: 44px;
+    height: 40px;
     justify-content: center;
+    min-height: 40px;
+    min-width: 40px;
     padding: 0;
     pointer-events: auto;
-    width: 44px;
+    position: relative;
+    width: 40px;
+  }
+  .channel-shelf-card .action-btn::after {
+    content: "";
+    inset: -2px;
+    position: absolute;
   }
   .channel-shelf-card .partial-btn,
   .channel-shelf-card .watch-later-btn,
+  .channel-shelf-card .set-aside-btn,
   .channel-shelf-card .favorite-btn {
-    flex: 0 0 44px;
+    flex: 0 0 40px;
   }
   .channel-shelf-card .dur-badge {
     display: none;
