@@ -382,16 +382,32 @@
   .settings-drawer {
     border-left: 0;
     height: 100dvh;
-    padding: max(18px, env(safe-area-inset-top)) 16px max(22px, env(safe-area-inset-bottom));
+    padding: 0 16px max(22px, env(safe-area-inset-bottom));
     width: 100vw;
   }
   .settings-header {
+    isolation: isolate;
+    margin: 0;
+    padding: max(18px, env(safe-area-inset-top)) 0 8px;
     position: sticky;
     top: 0;
     z-index: 2;
-    background: var(--surface);
-    margin: -2px 0 0;
-    padding: 2px 0 8px;
+  }
+  .settings-header::before {
+    -webkit-backdrop-filter: blur(3px) saturate(1.03);
+    backdrop-filter: blur(3px) saturate(1.03);
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--surface) 98%, transparent) 0%,
+      color-mix(in srgb, var(--surface) 94%, transparent) 62%,
+      color-mix(in srgb, var(--surface) 58%, transparent) 82%,
+      transparent 100%
+    );
+    content: "";
+    inset: 0 -20px -22px;
+    pointer-events: none;
+    position: absolute;
+    z-index: -1;
   }
   .settings-group input,
   .settings-group select {
