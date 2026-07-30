@@ -10719,7 +10719,7 @@ function scheduleCityWaveformTouchPreview(bars, { commit = false, pointerX = nul
     if (!bar || !Number.isFinite(offset)) return
 
     if (commit) {
-      selectCityWaveBar(bar)
+      selectCityWaveBar(bar, { preserveScrollLeft: bars.scrollLeft })
       return
     }
     if (offset === cityWaveformScroll.touchPreviewOffset) return
@@ -10771,12 +10771,17 @@ function previewCityWaveBar(bar, options = {}) {
   }
 }
 
-function selectCityWaveBar(bar) {
+function selectCityWaveBar(bar, { preserveScrollLeft = null } = {}) {
   const offset = parseInt(bar?.dataset?.offset, 10)
   if (!Number.isFinite(offset)) return
   setCityDayOffset(offset)
 
   const waveform = document.getElementById('cityTimeWaveform')
+  const scrollViewport = document.getElementById('cityWaveBars')
+  if (scrollViewport && Number.isFinite(preserveScrollLeft)) {
+    const maxScroll = Math.max(0, scrollViewport.scrollWidth - scrollViewport.clientWidth)
+    scrollViewport.scrollLeft = clampNumber(preserveScrollLeft, 0, maxScroll)
+  }
   const selected = waveform?.querySelector(`.city-wave-bar[data-offset="${offset}"]`)
   if (!waveform || !selected) return
 

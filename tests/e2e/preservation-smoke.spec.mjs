@@ -3818,6 +3818,66 @@ test('city waveform mouse listeners preserve edge scrolling, clearing, and phone
   })
 })
 
+test('city waveform touch dragging remains at both scroll endpoints after release', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'phone-standard')
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.anki['2026-04-01'] = { reviewed: 1, created: 0 }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+  })
+  await page.reload()
+  await waitForApplication(page)
+
+  const bars = page.locator('#cityWaveBars')
+  await expect(bars).toHaveClass(/\bis-scrollable\b/)
+
+  const dragToEndpoint = async direction => {
+    await bars.evaluate((element, dragDirection) => {
+      const rect = element.getBoundingClientRect()
+      const pointerId = dragDirection === 'right' ? 401 : 402
+      const startX = rect.left + rect.width / 2
+      const endX = dragDirection === 'right'
+        ? startX - element.scrollWidth
+        : startX + element.scrollWidth
+      const eventInit = {
+        bubbles: true,
+        cancelable: true,
+        clientY: rect.top + rect.height / 2,
+        pointerId,
+        pointerType: 'touch'
+      }
+      element.dispatchEvent(new PointerEvent('pointerdown', {
+        ...eventInit,
+        clientX: startX
+      }))
+      element.dispatchEvent(new PointerEvent('pointermove', {
+        ...eventInit,
+        clientX: endX
+      }))
+      element.dispatchEvent(new PointerEvent('pointerup', {
+        ...eventInit,
+        clientX: endX
+      }))
+    }, direction)
+  }
+
+  await dragToEndpoint('right')
+  expect(await bars.evaluate(element => (
+    element.scrollWidth - element.clientWidth
+  ))).toBeGreaterThan(0)
+  await expect.poll(() => bars.evaluate(element => (
+    Math.abs(element.scrollLeft - (element.scrollWidth - element.clientWidth))
+  ))).toBeLessThanOrEqual(1)
+
+  await dragToEndpoint('left')
+  await expect.poll(() => bars.evaluate(element => element.scrollLeft))
+    .toBeLessThanOrEqual(1)
+})
+
 test('city waveform bar listeners preserve preview, selection, analytics, and replacement ordering', async ({
   page
 }, testInfo) => {
