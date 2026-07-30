@@ -488,6 +488,7 @@ const cityWaveformScroll = {
   touchStartX: 0,
   touchStartY: 0,
   touchStartScrollLeft: 0,
+  touchAxis: null,
   touchDragging: false,
   touchPreviewOffset: null,
   touchPreviewFrame: null,
@@ -10645,11 +10646,12 @@ function initCityWaveformTouchNavigation() {
   bars.dataset.touchNavigationReady = 'true'
 
   bars.addEventListener('pointerdown', event => {
-    if (!usesPhoneComposition() || event.pointerType !== 'touch' || cityWaveformScroll.touchPointerId !== null) return
+    if (event.pointerType !== 'touch' || cityWaveformScroll.touchPointerId !== null) return
     cityWaveformScroll.touchPointerId = event.pointerId
     cityWaveformScroll.touchStartX = event.clientX
     cityWaveformScroll.touchStartY = event.clientY
     cityWaveformScroll.touchStartScrollLeft = bars.scrollLeft
+    cityWaveformScroll.touchAxis = null
     cityWaveformScroll.touchDragging = false
     cityWaveformScroll.touchPreviewOffset = null
   })
@@ -10659,9 +10661,15 @@ function initCityWaveformTouchNavigation() {
     const deltaX = event.clientX - cityWaveformScroll.touchStartX
     const deltaY = event.clientY - cityWaveformScroll.touchStartY
 
-    if (!cityWaveformScroll.touchDragging) {
+    if (!cityWaveformScroll.touchAxis) {
       if (Math.abs(deltaX) < 6 && Math.abs(deltaY) < 6) return
-      if (Math.abs(deltaY) >= Math.abs(deltaX)) return
+      cityWaveformScroll.touchAxis = Math.abs(deltaY) >= Math.abs(deltaX)
+        ? 'vertical'
+        : 'horizontal'
+    }
+    if (cityWaveformScroll.touchAxis === 'vertical') return
+
+    if (!cityWaveformScroll.touchDragging) {
       cityWaveformScroll.touchDragging = true
       bars.classList.add('is-touch-dragging')
       try { bars.setPointerCapture(event.pointerId) } catch {}
@@ -10682,6 +10690,7 @@ function initCityWaveformTouchNavigation() {
     }
     bars.classList.remove('is-touch-dragging')
     cityWaveformScroll.touchPointerId = null
+    cityWaveformScroll.touchAxis = null
     cityWaveformScroll.touchDragging = false
     try { bars.releasePointerCapture(event.pointerId) } catch {}
   }
