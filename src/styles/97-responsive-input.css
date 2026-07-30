@@ -95,7 +95,6 @@
     opacity: 0.9;
   }
   .city-image-btn {
-    font-size: 1.12rem;
     width: 44px;
   }
   .city-time-waveform {
@@ -141,7 +140,6 @@
   }
   .city-image-btn {
     background: transparent;
-    font-size: 0.92rem;
     isolation: isolate;
     min-height: 44px;
     min-width: 44px;
@@ -189,4 +187,3 @@
     height: 28px;
   }
 }
-

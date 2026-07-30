@@ -175,7 +175,7 @@
   box-shadow: none;
   display: flex;
   gap: 3px;
-  opacity: 0.68;
+  opacity: 0.38;
   padding: 0;
   position: absolute;
   right: 10px;
@@ -186,7 +186,7 @@
   bottom: 10px;
   left: 10px;
 }
-.city-zoom-controls:hover,
+.city-image-wrap:hover .city-zoom-controls,
 .city-zoom-controls:focus-within {
   opacity: 1;
 }
@@ -197,14 +197,20 @@
   color: #142028;
   cursor: pointer;
   display: inline-flex;
-  font-family: inherit;
-  font-weight: 700;
   justify-content: center;
   min-height: 26px;
   border-radius: 50%;
-  font-size: 1rem;
-  line-height: 1;
   width: 26px;
+}
+.city-image-icon {
+  display: block;
+  fill: none;
+  height: 14px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  width: 14px;
 }
 .city-image-btn:hover {
   background: rgba(255, 255, 255, 0.9);

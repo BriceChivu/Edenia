@@ -3953,7 +3953,12 @@ test('city zoom listeners preserve fixed steps, limits, reset, keyboard, and ord
   const zoomOut = page.locator('[data-city-zoom-action="out"]')
   const reset = page.locator('[data-city-zoom-action="reset"]')
   const zoomIn = page.locator('[data-city-zoom-action="in"]')
+  const zoomControls = page.locator('.city-zoom-controls')
 
+  await page.mouse.move(0, 0)
+  await expect(zoomControls).toHaveCSS('opacity', '0.38')
+  await wrap.hover()
+  await expect(zoomControls).toHaveCSS('opacity', '1')
   await expect(image).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)')
   await zoomOut.click()
   await expect(image).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)')

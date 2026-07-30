@@ -481,9 +481,21 @@ and momentum—at a glance</h2>
       <div class="city-image-wrap">
         <img id="cityMilestoneImage" class="city-milestone-image" src="images/city/level%200.webp" alt="Study city milestone: Lonely house" data-i18n-alt="city.imageAlt" draggable="false" fetchpriority="high" decoding="async">
         <div class="city-zoom-controls" aria-label="City zoom controls" data-i18n-aria-label="city.zoom.controls">
-          <button class="city-image-btn" type="button" data-city-zoom-action="out" data-analytics-action="city.zoom.out" title="Zoom out" aria-label="Zoom out" data-i18n-title="city.zoom.out" data-i18n-aria-label="city.zoom.out">−</button>
-          <button class="city-image-btn" type="button" data-city-zoom-action="reset" data-analytics-action="city.zoom.reset" title="Reset view" aria-label="Reset view" data-i18n-title="city.zoom.reset" data-i18n-aria-label="city.zoom.reset">⌂</button>
-          <button class="city-image-btn" type="button" data-city-zoom-action="in" data-analytics-action="city.zoom.in" title="Zoom in" aria-label="Zoom in" data-i18n-title="city.zoom.in" data-i18n-aria-label="city.zoom.in">+</button>
+          <button class="city-image-btn" type="button" data-city-zoom-action="out" data-analytics-action="city.zoom.out" title="Zoom out" aria-label="Zoom out" data-i18n-title="city.zoom.out" data-i18n-aria-label="city.zoom.out">
+            <svg class="city-image-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14"></path>
+            </svg>
+          </button>
+          <button class="city-image-btn" type="button" data-city-zoom-action="reset" data-analytics-action="city.zoom.reset" title="Reset view" aria-label="Reset view" data-i18n-title="city.zoom.reset" data-i18n-aria-label="city.zoom.reset">
+            <svg class="city-image-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m4 10 8-6 8 6v9a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1Z"></path>
+            </svg>
+          </button>
+          <button class="city-image-btn" type="button" data-city-zoom-action="in" data-analytics-action="city.zoom.in" title="Zoom in" aria-label="Zoom in" data-i18n-title="city.zoom.in" data-i18n-aria-label="city.zoom.in">
+            <svg class="city-image-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14M12 5v14"></path>
+            </svg>
+          </button>
         </div>
         <div class="city-time-waveform" id="cityTimeWaveform" aria-label="City history timeline" data-i18n-aria-label="city.timeline" data-city-waveform-action="mouse-preview">
           <div class="city-wave-bars" id="cityWaveBars">
