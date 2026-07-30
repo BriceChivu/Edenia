@@ -2213,22 +2213,45 @@ async function startIntroMusic() {
 function stopIntroMusic({ fadeDuration = 0.28 } = {}) {
   removeIntroMusicUnlockListeners()
   const audio = introTrailerState.audio
-  if (audio) {
-    const duration = Math.max(fadeDuration * 1000, 10)
-    const startedAt = performance.now()
-    const startingVolume = audio.volume
-    const fadeTimer = window.setInterval(() => {
-      const progress = Math.min((performance.now() - startedAt) / duration, 1)
-      audio.volume = startingVolume * (0.5 + (0.5 * Math.cos(Math.PI * progress)))
-      if (progress < 1) return
-      window.clearInterval(fadeTimer)
-      audio.pause()
-      audio.currentTime = 0
-    }, 50)
-  }
+  const shouldFade = Boolean(
+    audio &&
+    introTrailerState.soundEnabled &&
+    !audio.paused &&
+    audio.volume > 0
+  )
   introTrailerState.audio = null
   introTrailerState.soundEnabled = false
   updateIntroSoundButton()
+  if (!audio) return Promise.resolve()
+  if (!shouldFade) {
+    audio.pause()
+    audio.currentTime = 0
+    return Promise.resolve()
+  }
+
+  const duration = Math.max(fadeDuration * 1000, 10)
+  const startedAt = performance.now()
+  const startingVolume = audio.volume
+  return new Promise(resolve => {
+    let fadeTimer = null
+    let fadeDeadlineTimer = null
+    const finishFade = () => {
+      if (fadeTimer === null) return
+      window.clearInterval(fadeTimer)
+      window.clearTimeout(fadeDeadlineTimer)
+      fadeTimer = null
+      audio.volume = 0
+      audio.pause()
+      audio.currentTime = 0
+      resolve()
+    }
+    fadeTimer = window.setInterval(() => {
+      const progress = Math.min((performance.now() - startedAt) / duration, 1)
+      audio.volume = startingVolume * (0.5 + (0.5 * Math.cos(Math.PI * progress)))
+      if (progress >= 1) finishFade()
+    }, 50)
+    fadeDeadlineTimer = window.setTimeout(finishFade, duration + 250)
+  })
 }
 
 async function toggleIntroSound() {
@@ -2742,7 +2765,6 @@ async function resolveStarterChannelSelections(catalogIds) {
 
 async function finishPersonalizedOnboarding() {
   if (personalizedOnboardingState.isApplyingChannels) return
-  stopIntroMusic({ fadeDuration: 7.5 })
   personalizedOnboardingState.isApplyingChannels = true
   renderPersonalizedOnboarding()
 
@@ -2855,6 +2877,7 @@ async function finishPersonalizedOnboarding() {
       : (onboardingRefreshResult.ok ? 'success' : 'partial_or_failed')
   })
   queueOnboardingNotice(completionNotice)
+  await stopIntroMusic({ fadeDuration: 7.5 })
   window.location.assign(getPostOnboardingAppUrl())
 }
 

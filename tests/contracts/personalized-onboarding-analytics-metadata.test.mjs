@@ -459,7 +459,7 @@ test('finish retains persistence, recovery, completion analytics, and redirect',
   )
   assert.match(
     source,
-    /queueOnboardingNotice\(completionNotice\)\s*window\.location\.assign\(getPostOnboardingAppUrl\(\)\)/
+    /queueOnboardingNotice\(completionNotice\)\s*await stopIntroMusic\(\{ fadeDuration: 7\.5 \}\)\s*window\.location\.assign\(getPostOnboardingAppUrl\(\)\)/
   )
 })
 
