@@ -80,13 +80,13 @@ export default defineConfig({
   })),
   webServer: [
     {
-      command: `node tests/support/serve-static.mjs --host localhost --port ${normalPort} --root _site`,
+      command: `node scripts/serve-static.mjs --host localhost --port ${normalPort} --root _site`,
       reuseExistingServer: false,
       timeout: 15_000,
       url: `http://localhost:${normalPort}/`
     },
     {
-      command: `node tests/support/serve-static.mjs --host localhost --port ${sandboxPort} --root _site`,
+      command: `node scripts/serve-static.mjs --host localhost --port ${sandboxPort} --root _site`,
       reuseExistingServer: false,
       timeout: 15_000,
       url: `http://localhost:${sandboxPort}/`

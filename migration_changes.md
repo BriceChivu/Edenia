@@ -5196,3 +5196,56 @@ release mappings, and follow-up findings are recorded as new entries.
   [PR #1](https://github.com/BriceChivu/Edenia/pull/1);
   [Actions run 30499704602](https://github.com/BriceChivu/Edenia/actions/runs/30499704602);
   release pending.
+
+---
+
+## MIG-143 — Add a safe one-command local development workflow
+
+- **Date:** 2026-07-30
+- **Phase:** 8 — Final cleanup
+- **Type:** Developer tooling, configuration boundary, test, and documentation
+- **Status:** Complete locally; PR verification pending
+- **Intent:** Make realistic localhost and iPhone Simulator testing a
+  one-command workflow without weakening the credential-free CI build or the
+  production secret-injection boundary.
+- **Conceptual change:** Added `npm run dev` as an explicit local-only path. It
+  validates the ignored root `config.local.js` before building, rejects empty
+  and tracked placeholder keys with one-time setup guidance, runs the existing
+  deterministic build, writes a normalized `_site/config.local.js` without
+  logging the key, and serves `_site` at `http://localhost:8000/`. Promoted the
+  existing hardened Node static server from test support to shared tooling and
+  updated Playwright to use the same path. Replaced the repeated manual
+  build/copy/server README procedure with one-time configuration followed by
+  `npm run dev`.
+- **Preservation contract:** Preserve application source, browser behavior,
+  visuals, responsive output, storage, analytics, localization, accessibility,
+  public filenames, GitHub Pages deployment, and production configuration.
+  Preserve `npm run build` as a keyless deterministic build, preserve all test
+  commands' mocked/no-quota boundary, and preserve `npm run build:production`
+  as the only production runtime-config writer. The development server remains
+  loopback-only by default and performs one build per invocation rather than
+  introducing watch or LAN behavior.
+- **Risks:** Local tooling could leak a key, accidentally contaminate CI
+  output, expose a key-bearing site to the LAN, or drift from the browser-test
+  server. The local source and generated directory remain ignored; the helper
+  logs neither config source nor key; standard builds still overwrite runtime
+  config with an empty value; the shared server binds to `localhost`; and local
+  development plus Playwright use one server implementation. The key is still
+  browser-delivered by design and therefore must use API, referrer, and quota
+  restrictions.
+- **Verification:** Ran only
+  `node --test tests/contracts/local-runtime-config.test.mjs`: 3 tests passed,
+  covering missing-file setup guidance, placeholder rejection, and normalized
+  output from a fake development key in temporary directories. The real
+  ignored local key was not read by the test. No browser, local-server,
+  visual-regression, full-suite, diff-integrity, or static-review check was run
+  in accordance with the repository `AGENTS.md` instruction. PR CI will rerun
+  migration governance, build/contracts, browser flows, and visual acceptance.
+- **Rollback:** Revert this commit to remove the local config helper, dev
+  launcher, focused contracts, package command, README instructions, and
+  shared-server path change. The preceding manual `_site` build/config/server
+  workflow and prior Playwright server location will be restored; no
+  application, state, storage, analytics, localization, responsive, visual, or
+  production rollback is required.
+- **Association:** `codex/migration-05-javascript-modularization`;
+  [PR #1](https://github.com/BriceChivu/Edenia/pull/1); release pending.

@@ -134,14 +134,13 @@ Edenia uses the Node.js version pinned in `.nvmrc`.
    npm ci
    ```
 
-2. Build the static site:
+2. Create the ignored local runtime configuration once:
 
    ```bash
-   npm run build
+   cp config.example.js config.local.js
    ```
 
-3. To use live YouTube discovery locally, copy `config.example.js` to
-   `_site/config.local.js` and add a YouTube Data API v3 key:
+   Add a separate, restricted development YouTube Data API v3 key:
 
    ```js
    window.EDENIA_CONFIG = {
@@ -149,19 +148,28 @@ Edenia uses the Node.js version pinned in `.nvmrc`.
    }
    ```
 
-4. Serve the generated `_site` directory:
+3. Build and start the local site:
 
    ```bash
-   python3 -m http.server 8000 --directory _site
+   npm run dev
    ```
 
-5. Open [http://localhost:8000/](http://localhost:8000/).
+4. Open [http://localhost:8000/](http://localhost:8000/).
+
+`npm run dev` validates the ignored root `config.local.js`, builds `_site`,
+writes a normalized `_site/config.local.js` without printing the key, and
+serves the result on the loopback interface. Re-run the command after changing
+source files; it intentionally performs one build instead of running a watcher.
 
 The non-production build writes an empty runtime API key so automated checks do
 not use YouTube quota. `npm run build:production` requires `YOUTUBE_API_KEY` and
 is reserved for the GitHub Pages workflow.
 
-`config.local.js` is ignored by Git. `config.example.js` is only the local-development template and is not used by the GitHub Pages workflow.
+`config.local.js` and `_site` are ignored by Git. `config.example.js` is only
+the local-development template and is not used by the GitHub Pages workflow.
+The local development key is still delivered to the browser, so restrict it to
+the YouTube Data API, allow the `http://localhost:8000/*` referrer, and use a
+small development quota.
 
 ## Migration Safety Checks
 
