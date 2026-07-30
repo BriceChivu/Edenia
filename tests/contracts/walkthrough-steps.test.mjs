@@ -71,8 +71,12 @@ test('first-study walkthrough preserves exact steps and Other-language addition'
     ['first-study-channels', 'first-study-feed', 'first-study-video']
   )
   assert.equal(
+    FIRST_STUDY_WALKTHROUGH_STEPS[1].target,
+    WALKTHROUGH_STEPS[2].target
+  )
+  assert.equal(
     FIRST_STUDY_WALKTHROUGH_STEPS[1].scrollTarget,
-    '.feed-controls'
+    WALKTHROUGH_STEPS[2].scrollTarget
   )
   assert.equal(
     FIRST_STUDY_WALKTHROUGH_STEPS[2].target,

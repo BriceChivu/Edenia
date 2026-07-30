@@ -48,10 +48,10 @@ export const FIRST_STUDY_WALKTHROUGH_STEPS = [
   },
   {
     id: 'first-study-feed',
-    target: '#videoGrid',
+    target: '.feed-section',
     textKey: 'walkthrough.firstStudyFeed',
     placement: 'top',
-    scrollTarget: '.feed-controls',
+    scrollTarget: '.feed-section > .section-header',
     hooks: {
       beforeEnter: 'closeTransientUi'
     }
