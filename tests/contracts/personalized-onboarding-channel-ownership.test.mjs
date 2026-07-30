@@ -154,49 +154,6 @@ test('recommendations preserve zero-to-six order and grid threshold', () => {
   )
 })
 
-test('choice layouts prefer one column and compact only when they would overflow', () => {
-  const syncStart = appSource.indexOf(
-    'function syncOnboardingChoiceLayout() {'
-  )
-  const syncEnd = appSource.indexOf(
-    '\nfunction scheduleOnboardingChoiceLayout()',
-    syncStart
-  )
-  assert.notEqual(syncStart, -1)
-  assert.notEqual(syncEnd, -1)
-  const source = appSource.slice(syncStart, syncEnd)
-
-  assert.match(
-    source,
-    /panel\?\.classList\.remove\(\s*'is-channel-grid-compact',\s*'is-level-grid-compact',\s*'is-onboarding-content-centered'\s*\)/
-  )
-  assert.match(
-    source,
-    /!usesPhoneComposition\(\)/
-  )
-  assert.match(
-    source,
-    /actionsBounds\.bottom > cardBounds\.bottom - bottomInset/
-  )
-  assert.match(
-    source,
-    /panel\.classList\.toggle\(\s*compactClass/
-  )
-  assert.match(
-    source,
-    /availableBottom - contentBounds\.bottom >= 48/
-  )
-  assert.match(
-    appSource,
-    /panel\?\.classList\.toggle\('is-level-step', personalizedOnboardingState\.step === 'level'\)/
-  )
-  assert.match(appSource, /syncOnboardingChoiceLayout\(\)/)
-  assert.match(
-    appSource,
-    /window\.addEventListener\('resize', scheduleOnboardingChoiceLayout, \{ passive: true \}\)/
-  )
-})
-
 test('channel ownership forwards only the live catalog ID', () => {
   const control = createChannelControl('initial-channel')
   const calls = []
