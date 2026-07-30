@@ -457,7 +457,7 @@ export const FR_LOCALIZED = {
     'walkthrough.videos': 'Voici la zone des vidéos. Les nouvelles vidéos de vos chaînes apparaissent ici.',
     'walkthrough.firstStudyChannels': 'Vous pouvez ajouter ici des chaînes YouTube ou des vidéos individuelles.',
     'walkthrough.otherAddNow': 'Ajoutez maintenant une chaîne ou une vidéo YouTube !',
-    'walkthrough.firstStudyFeed': 'Voici votre liste d’étude. Choisissez une vidéo, puis marquez-la comme vue, en cours ou à regarder plus tard. Votre objectif, votre historique et votre ville évoluent selon ce que vous étudiez.',
+    'walkthrough.firstStudyFeed': 'Voici votre liste d’étude. Votre objectif, votre historique et votre ville évoluent selon ce que vous étudiez.',
     'walkthrough.startWatching': 'Commencez à regarder une vidéo !',
     'walkthrough.videoFilters': 'Ces contrôles gardent la liste lisible. Vous pouvez filtrer par statut, par chaîne, ajouter une URL de vidéo et corriger les erreurs.',
     'walkthrough.manualWatchedUrl': 'Utilisez Ajouter pour coller l’URL d’une vidéo ou d’une chaîne YouTube. Edenia reconnaîtra le type de lien.',

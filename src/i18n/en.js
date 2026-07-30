@@ -605,7 +605,7 @@ export const EN_CORE = {
   'walkthrough.videos': 'This is the video area. New videos from your channels appear here.',
   'walkthrough.firstStudyChannels': 'You can add YouTube channels or individual videos here.',
   'walkthrough.otherAddNow': 'Add a Youtube channel or video now!',
-  'walkthrough.firstStudyFeed': 'This is your study feed. Choose a video, then mark it watched, in progress, or watch later. Your goal, history, and town update from what you study.',
+  'walkthrough.firstStudyFeed': 'This is your study feed. Your goal, history, and town update from what you study.',
   'walkthrough.startWatching': 'Start watching a video!',
   'walkthrough.videoFilters': 'These controls help you keep the list manageable. You can filter by status, filter by channel, add a video URL, and fix mistakes.',
   'walkthrough.manualWatchedUrl': 'Use Add to paste a YouTube video or channel URL. Edenia will recognize which one you entered.',

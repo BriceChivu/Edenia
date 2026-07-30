@@ -455,7 +455,7 @@ export const ZH_HANS_LOCALIZED = {
     'walkthrough.videos': '这里是视频区。你添加的频道会在这里显示新视频。',
     'walkthrough.firstStudyChannels': '你可以在这里添加 YouTube 频道或单个视频。',
     'walkthrough.otherAddNow': '立即添加 YouTube 频道或视频！',
-    'walkthrough.firstStudyFeed': '这是你的学习列表。选择一个视频，再标记为已看、进行中或稍后观看。你的目标、记录和小镇都会随着你的学习更新。',
+    'walkthrough.firstStudyFeed': '这是你的学习列表。你的目标、记录和小镇都会随着你的学习更新。',
     'walkthrough.startWatching': '开始观看视频吧！',
     'walkthrough.videoFilters': '这些控制可以让列表更好管理。你可以按状态或频道筛选，添加视频网址，也可以修正误点。',
     'walkthrough.manualWatchedUrl': '使用“添加”粘贴 YouTube 视频或频道网址，Edenia 会自动识别内容。',

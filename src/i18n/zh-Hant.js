@@ -474,7 +474,7 @@ export const ZH_HANT_LOCALIZED = {
     'walkthrough.videos': '這裡是影片區。你加入的頻道會在這裡顯示新影片。',
     'walkthrough.firstStudyChannels': '你可以在這裡新增 YouTube 頻道或單部影片。',
     'walkthrough.otherAddNow': '立即新增 YouTube 頻道或影片！',
-    'walkthrough.firstStudyFeed': '這是你的學習清單。選擇一部影片，再標記為已看、進行中或稍後觀看。你的目標、紀錄和小鎮都會隨著你的學習更新。',
+    'walkthrough.firstStudyFeed': '這是你的學習清單。你的目標、紀錄和小鎮都會隨著你的學習更新。',
     'walkthrough.startWatching': '開始觀看影片吧！',
     'walkthrough.videoFilters': '這些控制可以讓清單更好管理。你可以依狀態或頻道篩選，新增影片網址，也可以修正誤點。',
     'walkthrough.manualWatchedUrl': '使用「新增」貼上 YouTube 影片或頻道網址，Edenia 會自動辨識內容。',
