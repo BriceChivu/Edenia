@@ -1,7 +1,17 @@
 /* Final width-based mobile pass. Keep this after coarse-pointer rules so
    phone layouts remain consistent even when a browser reports a fine pointer. */
 @media (max-width: 640px) {
-  #mainApp { --compact-control-height: 44px; }
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  #mainApp {
+    --compact-control-height: 44px;
+    max-width: 100%;
+    overflow-x: clip;
+  }
 
   .set-aside-prompt-overlay {
     align-items: flex-end;
