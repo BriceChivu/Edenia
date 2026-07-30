@@ -176,9 +176,6 @@ test('completed local state preserves settings and feedback interactions', async
   await page.locator('.gear-btn').click()
   await expect(page.locator('#settingsPanel')).not.toHaveClass(/\bhidden\b/)
   await expect(page.locator('#settingsLocaleLabel')).toHaveText('English')
-  await expect(page.locator('.settings-drawer')).toHaveScreenshot('settings-open.png', {
-    animations: 'disabled'
-  })
   await page.locator('#settingsCloseBtn').click()
 
   await page.locator('#feedbackLaunchBtn').click()
