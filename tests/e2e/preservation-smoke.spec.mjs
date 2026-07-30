@@ -4094,7 +4094,7 @@ test('city image pans across its cover crop at minimum zoom without exposing bac
   })
 })
 
-test('phone city image keeps page scrolling while panning its horizontal cover crop', async ({
+test('phone city image defaults to 75% zoom and pans without exposing background', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'phone-standard')
@@ -4102,8 +4102,12 @@ test('phone city image keeps page scrolling while panning its horizontal cover c
   await seedCompletedState(page)
   const wrap = page.locator('.city-image-wrap')
   const image = page.locator('#cityMilestoneImage')
+  const reset = page.locator('[data-city-zoom-action="reset"]')
   await wrap.scrollIntoViewIfNeeded()
-  await expect(wrap).toHaveCSS('touch-action', 'pan-y')
+  await expect(wrap).toHaveCSS('touch-action', 'none')
+  await expect(wrap).toHaveClass(/\bis-zoomed\b/)
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toBe('translate(0px, -40px) scale(1.75)')
 
   await expect.poll(() => page.evaluate(() => {
     const wrapElement = document.querySelector('.city-image-wrap')
@@ -4111,10 +4115,11 @@ test('phone city image keeps page scrolling while panning its horizontal cover c
     const wrapRect = wrapElement.getBoundingClientRect()
     const renderedWidth = Number.parseFloat(imageElement.style.width)
     const renderedHeight = Number.parseFloat(imageElement.style.height)
+    const scale = new DOMMatrix(imageElement.style.transform).a
     return {
       ready: imageElement.naturalWidth > 0 && Number.isFinite(renderedWidth),
-      maxX: Math.max(0, (renderedWidth - wrapRect.width) / 2),
-      maxY: Math.max(0, (renderedHeight - wrapRect.height) / 2)
+      maxX: Math.max(0, (renderedWidth * scale - wrapRect.width) / 2),
+      maxY: Math.max(0, (renderedHeight * scale - wrapRect.height) / 2)
     }
   })).toMatchObject({
     ready: true
@@ -4125,15 +4130,16 @@ test('phone city image keeps page scrolling while panning its horizontal cover c
     const wrapRect = wrapElement.getBoundingClientRect()
     const renderedWidth = Number.parseFloat(imageElement.style.width)
     const renderedHeight = Number.parseFloat(imageElement.style.height)
+    const scale = new DOMMatrix(imageElement.style.transform).a
     return {
-      maxX: Math.max(0, (renderedWidth - wrapRect.width) / 2),
-      maxY: Math.max(0, (renderedHeight - wrapRect.height) / 2),
+      maxX: Math.max(0, (renderedWidth * scale - wrapRect.width) / 2),
+      maxY: Math.max(0, (renderedHeight * scale - wrapRect.height) / 2),
       centerX: wrapRect.left + wrapRect.width / 2,
       centerY: wrapRect.top + wrapRect.height / 2
     }
   })
   expect(geometry.maxX).toBeGreaterThan(1)
-  expect(geometry.maxY).toBeLessThan(0.01)
+  expect(geometry.maxY).toBeGreaterThan(1)
 
   await image.dispatchEvent('pointerdown', {
     bubbles: true,
@@ -4179,14 +4185,18 @@ test('phone city image keeps page scrolling while panning its horizontal cover c
     }
   })
   expect(pannedGeometry.x).toBeCloseTo(-geometry.maxX, 1)
-  expect(Math.abs(pannedGeometry.y)).toBeLessThan(0.01)
+  expect(pannedGeometry.y).toBeCloseTo(-40, 1)
   expect(pannedGeometry).toMatchObject({
     coversTop: true,
     coversRight: true,
     coversBottom: true,
     coversLeft: true,
-    zoomed: false
+    zoomed: true
   })
+
+  await reset.dispatchEvent('click')
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toBe('translate(0px, -40px) scale(1.75)')
 })
 
 test('Study History period listeners preserve generated options and runtime-only selection', async ({

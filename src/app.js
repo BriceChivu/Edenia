@@ -454,6 +454,8 @@ const selectedHistoryPeriod = { week: null, month: null }
 let selectedCityDayOffset = 0
 const CITY_IMAGE_MIN_ZOOM = 1
 const CITY_IMAGE_MAX_ZOOM = 2
+const CITY_IMAGE_MOBILE_DEFAULT_ZOOM = 1.75
+const CITY_IMAGE_MOBILE_DEFAULT_Y = -40
 const CITY_IMAGE_ZOOM_STEP = 0.25
 const CITY_IMAGE_WHEEL_ZOOM_STEP = 0.06
 const CITY_IMAGE_PAN_EPSILON = 0.5
@@ -10905,6 +10907,8 @@ function initCityImagePanZoom() {
   if (!wrap || !image || wrap.dataset.panZoomReady === 'true') return
 
   wrap.dataset.panZoomReady = 'true'
+  cityImageView.scale = getDefaultCityImageZoom()
+  cityImageView.y = getDefaultCityImageY()
   image.draggable = false
   image.addEventListener('dragstart', event => event.preventDefault())
   image.addEventListener('load', () => {
@@ -11113,10 +11117,20 @@ function resetCityImageView() {
   cityImageView.pinching = false
   cityImageView.dragging = false
   cityImageView.pointerId = null
-  cityImageView.scale = 1
+  cityImageView.scale = getDefaultCityImageZoom()
   cityImageView.x = 0
-  cityImageView.y = 0
+  cityImageView.y = getDefaultCityImageY()
   applyCityImageTransform()
+}
+
+function getDefaultCityImageZoom() {
+  return usesPhoneComposition()
+    ? CITY_IMAGE_MOBILE_DEFAULT_ZOOM
+    : CITY_IMAGE_MIN_ZOOM
+}
+
+function getDefaultCityImageY() {
+  return usesPhoneComposition() ? CITY_IMAGE_MOBILE_DEFAULT_Y : 0
 }
 
 function getCityImagePanGeometry(scale = cityImageView.scale) {
