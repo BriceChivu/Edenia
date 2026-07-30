@@ -4,7 +4,7 @@ This matrix is the approval boundary for intentional responsive changes. The
 complete source-defined experience in
 [`current-experience-inventory.md`](current-experience-inventory.md) remains the
 authoritative preservation catalog; every inventory row is **Keep** unless an
-individual row is explicitly approved here in a later migration entry.
+individual row is explicitly approved here and documented in its pull request.
 
 ## Status meanings
 

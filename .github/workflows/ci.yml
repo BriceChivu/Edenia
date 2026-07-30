@@ -1,10 +1,7 @@
-name: Migration safety checks
+name: CI
 
 on:
   pull_request:
-    branches:
-      - master
-  push:
     branches:
       - master
   workflow_dispatch:
@@ -13,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: migration-checks-${{ github.ref }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -26,30 +23,87 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Determine test scope
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          run_contracts=false
+          run_browser=false
+          run_catalogs=false
+
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            run_contracts=true
+            run_browser=true
+            run_catalogs=true
+          else
+            mapfile -t changed_files < <(git diff --name-only "$BASE_SHA" HEAD)
+            printf 'Changed files:\n'
+            printf '  %s\n' "${changed_files[@]}"
+
+            for file in "${changed_files[@]}"; do
+              case "$file" in
+                *.md|docs/*|.github/*)
+                  ;;
+                data/channel-catalog*.json|images/channel-avatars/*)
+                  run_catalogs=true
+                  ;;
+                scripts/validate-channel-catalog-json.mjs)
+                  run_catalogs=true
+                  ;;
+                tests/contracts/*)
+                  run_contracts=true
+                  ;;
+                *)
+                  run_contracts=true
+                  run_browser=true
+                  ;;
+              esac
+            done
+          fi
+
+          echo "contracts=$run_contracts" >> "$GITHUB_OUTPUT"
+          echo "browser=$run_browser" >> "$GITHUB_OUTPUT"
+          echo "catalogs=$run_catalogs" >> "$GITHUB_OUTPUT"
+
       - name: Set up Node.js
+        if: steps.scope.outputs.contracts == 'true' || steps.scope.outputs.catalogs == 'true'
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
+        if: steps.scope.outputs.contracts == 'true'
         run: npm ci
 
-      - name: Check migration governance
-        env:
-          MIGRATION_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: npm run check:migration -- --base "$MIGRATION_BASE_SHA"
+      - name: Validate channel catalogs
+        if: steps.scope.outputs.catalogs == 'true'
+        run: npm run test:catalogs
+
+      - name: Build and run contract tests
+        if: steps.scope.outputs.contracts == 'true'
+        run: npm test
 
       - name: Install Chromium
+        if: steps.scope.outputs.browser == 'true'
         run: npx playwright install --with-deps chromium
 
-      - name: Build and test
+      - name: Run browser tests
+        if: steps.scope.outputs.browser == 'true'
         env:
           EDENIA_TEST_NORMAL_PORT: 4173
-        run: npm run test:ci
+        run: npx playwright test
+
+      - name: Report skipped suites
+        if: steps.scope.outputs.contracts != 'true' && steps.scope.outputs.catalogs != 'true'
+        run: echo "Documentation or workflow-only change; no automated test suite required."
 
       - name: Upload Playwright diagnostics
-        if: failure()
+        if: failure() && steps.scope.outputs.browser == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: playwright-diagnostics

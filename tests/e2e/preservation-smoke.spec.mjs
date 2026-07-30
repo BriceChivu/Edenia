@@ -3953,7 +3953,12 @@ test('city zoom listeners preserve fixed steps, limits, reset, keyboard, and ord
   const zoomOut = page.locator('[data-city-zoom-action="out"]')
   const reset = page.locator('[data-city-zoom-action="reset"]')
   const zoomIn = page.locator('[data-city-zoom-action="in"]')
+  const zoomControls = page.locator('.city-zoom-controls')
 
+  await page.mouse.move(0, 0)
+  await expect(zoomControls).toHaveCSS('opacity', '0.38')
+  await wrap.hover()
+  await expect(zoomControls).toHaveCSS('opacity', '1')
   await expect(image).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)')
   await zoomOut.click()
   await expect(image).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 0, 0)')
@@ -4013,6 +4018,185 @@ test('city zoom listeners preserve fixed steps, limits, reset, keyboard, and ord
     zoomCityImage: false,
     resetCityImageView: false
   })
+})
+
+test('city image pans across its cover crop at minimum zoom without exposing background', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  const wrap = page.locator('.city-image-wrap')
+  const image = page.locator('#cityMilestoneImage')
+  await wrap.scrollIntoViewIfNeeded()
+
+  await expect.poll(() => image.evaluate(element => (
+    element.naturalWidth > 0
+    && Number.isFinite(Number.parseFloat(element.style.width))
+    && Number.isFinite(Number.parseFloat(element.style.height))
+  ))).toBe(true)
+
+  const initialGeometry = await page.evaluate(() => {
+    const wrapElement = document.querySelector('.city-image-wrap')
+    const imageElement = document.getElementById('cityMilestoneImage')
+    const wrapRect = wrapElement.getBoundingClientRect()
+    return {
+      maxX: Math.max(
+        0,
+        (Number.parseFloat(imageElement.style.width) - wrapRect.width) / 2
+      ),
+      maxY: Math.max(
+        0,
+        (Number.parseFloat(imageElement.style.height) - wrapRect.height) / 2
+      ),
+      transform: imageElement.style.transform,
+      pannable: wrapElement.classList.contains('is-pannable'),
+      zoomed: wrapElement.classList.contains('is-zoomed')
+    }
+  })
+  expect(initialGeometry.maxX).toBeLessThan(0.01)
+  expect(initialGeometry.maxY).toBeGreaterThan(1)
+  expect(initialGeometry.transform).toBe('translate(0px, 0px) scale(1)')
+  expect(initialGeometry.pannable).toBe(true)
+  expect(initialGeometry.zoomed).toBe(false)
+
+  const wrapBox = await wrap.boundingBox()
+  const startX = wrapBox.x + wrapBox.width / 2
+  const startY = wrapBox.y + wrapBox.height / 2
+  await page.mouse.move(startX, startY)
+  await page.mouse.down()
+  await page.mouse.move(startX, startY - wrapBox.height / 3, { steps: 4 })
+  await page.mouse.up()
+
+  const pannedGeometry = await page.evaluate(() => {
+    const wrapRect = document.querySelector('.city-image-wrap').getBoundingClientRect()
+    const imageElement = document.getElementById('cityMilestoneImage')
+    const imageRect = imageElement.getBoundingClientRect()
+    const matrix = new DOMMatrix(imageElement.style.transform)
+    return {
+      x: matrix.m41,
+      y: matrix.m42,
+      coversTop: imageRect.top <= wrapRect.top + 0.5,
+      coversRight: imageRect.right >= wrapRect.right - 0.5,
+      coversBottom: imageRect.bottom >= wrapRect.bottom - 0.5,
+      coversLeft: imageRect.left <= wrapRect.left + 0.5,
+      zoomed: document.querySelector('.city-image-wrap').classList.contains('is-zoomed')
+    }
+  })
+  expect(Math.abs(pannedGeometry.x)).toBeLessThan(0.01)
+  expect(pannedGeometry.y).toBeCloseTo(-initialGeometry.maxY, 1)
+  expect(pannedGeometry).toMatchObject({
+    coversTop: true,
+    coversRight: true,
+    coversBottom: true,
+    coversLeft: true,
+    zoomed: false
+  })
+})
+
+test('phone city image defaults to 75% zoom and pans without exposing background', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'phone-standard')
+
+  await seedCompletedState(page)
+  const wrap = page.locator('.city-image-wrap')
+  const image = page.locator('#cityMilestoneImage')
+  const reset = page.locator('[data-city-zoom-action="reset"]')
+  await wrap.scrollIntoViewIfNeeded()
+  await expect(wrap).toHaveCSS('touch-action', 'none')
+  await expect(wrap).toHaveClass(/\bis-zoomed\b/)
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toBe('translate(0px, -40px) scale(1.75)')
+
+  await expect.poll(() => page.evaluate(() => {
+    const wrapElement = document.querySelector('.city-image-wrap')
+    const imageElement = document.getElementById('cityMilestoneImage')
+    const wrapRect = wrapElement.getBoundingClientRect()
+    const renderedWidth = Number.parseFloat(imageElement.style.width)
+    const renderedHeight = Number.parseFloat(imageElement.style.height)
+    const scale = new DOMMatrix(imageElement.style.transform).a
+    return {
+      ready: imageElement.naturalWidth > 0 && Number.isFinite(renderedWidth),
+      maxX: Math.max(0, (renderedWidth * scale - wrapRect.width) / 2),
+      maxY: Math.max(0, (renderedHeight * scale - wrapRect.height) / 2)
+    }
+  })).toMatchObject({
+    ready: true
+  })
+  const geometry = await page.evaluate(() => {
+    const wrapElement = document.querySelector('.city-image-wrap')
+    const imageElement = document.getElementById('cityMilestoneImage')
+    const wrapRect = wrapElement.getBoundingClientRect()
+    const renderedWidth = Number.parseFloat(imageElement.style.width)
+    const renderedHeight = Number.parseFloat(imageElement.style.height)
+    const scale = new DOMMatrix(imageElement.style.transform).a
+    return {
+      maxX: Math.max(0, (renderedWidth * scale - wrapRect.width) / 2),
+      maxY: Math.max(0, (renderedHeight * scale - wrapRect.height) / 2),
+      centerX: wrapRect.left + wrapRect.width / 2,
+      centerY: wrapRect.top + wrapRect.height / 2
+    }
+  })
+  expect(geometry.maxX).toBeGreaterThan(1)
+  expect(geometry.maxY).toBeGreaterThan(1)
+
+  await image.dispatchEvent('pointerdown', {
+    bubbles: true,
+    cancelable: true,
+    clientX: geometry.centerX,
+    clientY: geometry.centerY,
+    isPrimary: true,
+    pointerId: 41,
+    pointerType: 'touch'
+  })
+  await image.dispatchEvent('pointermove', {
+    bubbles: true,
+    cancelable: true,
+    clientX: geometry.centerX - geometry.maxX * 2,
+    clientY: geometry.centerY,
+    isPrimary: true,
+    pointerId: 41,
+    pointerType: 'touch'
+  })
+  await image.dispatchEvent('pointerup', {
+    bubbles: true,
+    cancelable: true,
+    clientX: geometry.centerX - geometry.maxX * 2,
+    clientY: geometry.centerY,
+    isPrimary: true,
+    pointerId: 41,
+    pointerType: 'touch'
+  })
+
+  const pannedGeometry = await page.evaluate(() => {
+    const wrapRect = document.querySelector('.city-image-wrap').getBoundingClientRect()
+    const imageElement = document.getElementById('cityMilestoneImage')
+    const imageRect = imageElement.getBoundingClientRect()
+    const matrix = new DOMMatrix(imageElement.style.transform)
+    return {
+      x: matrix.m41,
+      y: matrix.m42,
+      coversTop: imageRect.top <= wrapRect.top + 0.5,
+      coversRight: imageRect.right >= wrapRect.right - 0.5,
+      coversBottom: imageRect.bottom >= wrapRect.bottom - 0.5,
+      coversLeft: imageRect.left <= wrapRect.left + 0.5,
+      zoomed: document.querySelector('.city-image-wrap').classList.contains('is-zoomed')
+    }
+  })
+  expect(pannedGeometry.x).toBeCloseTo(-geometry.maxX, 1)
+  expect(pannedGeometry.y).toBeCloseTo(-40, 1)
+  expect(pannedGeometry).toMatchObject({
+    coversTop: true,
+    coversRight: true,
+    coversBottom: true,
+    coversLeft: true,
+    zoomed: true
+  })
+
+  await reset.dispatchEvent('click')
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toBe('translate(0px, -40px) scale(1.75)')
 })
 
 test('Study History period listeners preserve generated options and runtime-only selection', async ({

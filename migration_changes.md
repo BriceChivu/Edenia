@@ -1,8 +1,12 @@
 # Edenia Migration Changes
 
+> **Archived:** The architecture and responsive refactor is complete. This file is
+> retained as a historical record and no longer governs commit names or requires
+> new entries. Current work uses ordinary pull requests and path-selected CI.
+
 This append-only ledger records every conceptual change made during the conservative
-architecture and responsive migration. Each migration commit must add an entry whose
-`MIG-###` identifier matches the commit subject.
+architecture and responsive migration. During that migration, each commit added an
+entry whose `MIG-###` identifier matched the commit subject.
 
 Existing entries must not be silently rewritten or removed. Corrections, reversals,
 release mappings, and follow-up findings are recorded as new entries.

@@ -2,7 +2,7 @@
 
 Edenia turns YouTube study time and optional Anki activity into visible language-learning progress. It combines a focused video queue, weekly goals, study history, local pattern insights, streaks, and a town that evolves as study points accumulate.
 
-The app is browser-first and has no application backend. Its interface and progress state run from static HTML, CSS, and JavaScript, with YouTube Data API access supplied through a runtime configuration file. Personal study data remains in the browser unless the user explicitly exports a sync file.
+The app is browser-first and has no application backend. Its interface and progress state run from static HTML, CSS, and JavaScript, with YouTube Data API access supplied through a runtime configuration file. The primary study state remains in the browser unless the user explicitly exports a sync file; the official production deployment sends the analytics, session-recording, search, and optional feedback data described under [Privacy and Analytics](#privacy-and-analytics).
 
 ## Current Features
 
@@ -10,7 +10,7 @@ The app is browser-first and has no application backend. Its interface and progr
 
 - Opens with a localized animated introduction to Edenia's study loop, town progression, history, and insights.
 - Includes trailer navigation, a language picker, optional procedural music, and a skip action.
-- Asks for one primary learning language: Mandarin Chinese, Japanese, Korean, Spanish, French, German, or English.
+- Asks for one primary learning language: Mandarin Chinese, Japanese, Korean, Spanish, French, German, English, or another language.
 - Asks for an approximate level: just starting, beginner, intermediate, advanced, or not sure.
 - Suggests up to six level-matched channels from a curated catalog.
 - Uses repository-bundled channel avatars so recommendation cards do not need separate profile-image API requests.
@@ -31,7 +31,9 @@ The app is browser-first and has no application backend. Its interface and progr
 - Lets users add, select all, remove, and manage channels from the channel filter.
 - Lets users remove a video from the active grid without deleting its study history.
 - Hides videos of three minutes or less by default; the preference can be changed in Settings.
-- Shows a contextual **Continue studying** card for the next active video, including a clickable thumbnail.
+- Shows a contextual card for the latest paused video, the next watch-later video, or a favorite that is ready to rewatch.
+- Keeps Favorites independent from watched status so watched favorites remain available for later replays.
+- Lets users set an in-progress video aside while preserving its recorded study time, points, and watched-history entry.
 
 Supported video states are:
 
@@ -40,9 +42,9 @@ Supported video states are:
 - `In progress`
 - `Watched`
 
-Opening an unwatched or watch-later video marks it in progress. In-progress videos can retain a continue-watching timestamp and watched-progress segments. Watch-later remains a reminder state and does not count toward goals, streaks, or points.
+Opening an unwatched or watch-later video marks it in progress. In-progress videos can retain a continue-watching timestamp and watched-progress segments. Adding a fresh video to Watch later does not itself add study time, streak credit, or points. Rewatching a favorite can record another completed watch and award credit for the newly recorded playback.
 
-Undo and redo cover recent status, progress, manual-video, and channel-removal actions together with their related history and score changes.
+Undo and redo cover recent status, progress, Favorite, Set aside, manual-video, and channel-removal actions together with their related history and score changes.
 
 ### Goals, history, and insights
 
@@ -171,9 +173,9 @@ The local development key is still delivered to the browser, so restrict it to
 the YouTube Data API, allow the `http://localhost:8000/*` referrer, and use a
 small development quota.
 
-## Migration Safety Checks
+## Testing and CI
 
-The migration harness keeps application traffic deterministic and blocks unexpected
+The test harness keeps application traffic deterministic and blocks unexpected
 external requests. YouTube and Anki responses are served from test fixtures, and
 automated tests fail if they attempt to contact PostHog.
 
@@ -195,6 +197,16 @@ Visual baselines may be regenerated only for an explicitly approved change:
 ```bash
 npm run test:e2e:update
 ```
+
+Pull-request CI selects the least expensive relevant scope:
+
+- Documentation and workflow-only changes do not run application tests.
+- Generated channel-catalog changes run the fast catalog validator.
+- Contract-only changes run the build and contract suite.
+- Runtime, styling, build, or browser-test changes also run Playwright.
+
+The historical refactor ledger is archived and no longer imposes commit naming or
+per-change documentation requirements.
 
 ## YouTube API Configuration
 
@@ -238,7 +250,7 @@ The workflow requires a separate `YOUTUBE_CATALOG_API_KEY` repository secret. Cr
 
 ### Automated YouTube discovery
 
-`.github/workflows/discover-language-channels.yml` proactively searches YouTube every Sunday for language-learning channels that are not already present in the curated, community, or previously discovered catalogs. It can also be run manually after the workflow is pushed to GitHub. A changed discovery catalog is published to a unique `automation/discover-language-channels-<run>-<attempt>` review branch with the same maintainer-created pull-request boundary.
+`.github/workflows/discover-language-channels.yml` proactively searches YouTube every day for language-learning channels that are not already present in the curated, community, or previously discovered catalogs. It can also be run manually after the workflow is pushed to GitHub. A changed discovery catalog is published to a unique `automation/discover-language-channels-<run>-<attempt>` review branch with the same maintainer-created pull-request boundary.
 
 Each run searches French, English, German, Mandarin Chinese, Russian, Spanish, Japanese, and Portuguese with three focused channel queries per language. The queries rotate through four weekly groups covering beginner material, listening and stories, grammar and vocabulary, and intermediate conversation or podcasts. Every group includes a query written in the target language, and its final query is ordered by channel creation date.
 
@@ -308,11 +320,12 @@ Edenia communicates only with the local AnkiConnect endpoint at `http://127.0.0.
 
 ## Data Storage and Portability
 
-Normal and sandbox progress are isolated in browser storage.
+Normal, internal-test, and sandbox progress are isolated in browser storage.
 
 | Mode | URL | State key | Backup key | Config cookie |
 | --- | --- | --- | --- | --- |
 | Normal | `/` | `edenia_v1` | `edenia_v1_backups` | `edenia_config` |
+| Internal test | `/?internal_test=1` | `edenia_v1_internal_test` | `edenia_v1_internal_test_backups` | `edenia_config_internal_test` |
 | Sandbox | `http://localhost:8001/?sandbox=1` | `edenia_v1_sandbox` | `edenia_v1_sandbox_backups` | `edenia_config_sandbox` |
 
 The primary state includes:
@@ -364,7 +377,7 @@ The secret stays out of Git history, but the generated key remains visible in th
 
 ## Privacy and Analytics
 
-Study state remains local: Edenia has no application server and does not upload the complete video library, Anki logs, activity logs, backups, or sync files. The limited analytics fields described below are sent directly to PostHog on the official production deployment.
+Edenia has no application server and does not upload the complete video library, Anki logs, activity logs, backups, or sync files as serialized application state. The official production deployment does send analytics events, person properties, session recordings, search terms, and optional feedback directly to PostHog.
 
 The app makes these external connections:
 
@@ -372,7 +385,9 @@ The app makes these external connections:
 - Local AnkiConnect when Anki tracking is enabled and Anki is available.
 - PostHog only on the official `https://bricechivu.github.io/Edenia/` deployment.
 
-Production analytics create a PostHog person profile for each browser installation, with autocapture and session recording disabled. Edenia records controlled button actions, channel additions and removals with channel IDs and names, aggregate daily study progress, streak changes, current and earned town levels, current settings, onboarding completion, YouTube refresh results, successful Anki refreshes with their timestamps and summary counts, video opens, and watched-state changes. Each person profile includes the current watched-video IDs and count; watched and unwatched events include the video ID, title, channel ID, watched timestamp, duration, source, and short-video status. Existing local study days, configured channels, and watched videos are synchronized once, then only changed values generate additional state events. YouTube API keys, sync-file contents, and raw browser state are not sent. PostHog is not initialized on localhost, alternate domains, sandbox mode, or other paths.
+Production analytics create a PostHog person profile for each browser installation. Autocapture is disabled, but session recording is enabled and input text is not masked. Edenia records controlled button actions, raw trimmed search queries, channel additions and removals with channel IDs and names, aggregate daily study progress, streak changes, current and earned town levels, current settings, onboarding completion, YouTube refresh results, successful Anki refreshes with their timestamps and summary counts, video opens, playback-session summaries, Favorite and Set aside changes, and watched-state changes. Each person profile includes the current watched-video IDs and count; watched and unwatched events include the video ID, title, channel ID, watched timestamp, duration, source, and short-video status. Existing local study days, configured channels, and watched videos are synchronized once, then only changed values generate additional state events.
+
+Submitting the feedback form sends its category, message, optional name and email, page and display context, and the current session-replay URL to PostHog. Custom analytics events do not include YouTube API keys, sync-file contents, or the full serialized browser state. Because recordings can capture visible UI and unmasked input text, users should not enter sensitive information in Edenia search or feedback fields. PostHog is not initialized on localhost, alternate domains, sandbox mode, or other paths.
 
 ## Project Structure
 
@@ -391,18 +406,24 @@ Production analytics create a PostHog person profile for each browser installati
 | `config.example.js` | Safe local runtime-config template |
 | `data/channel-catalog.source.json` | Human-maintained channel catalog and Edenia search metadata |
 | `data/channel-catalog.json` | Generated current YouTube channel metadata |
-| `scripts/refresh-channel-catalog.mjs` | Catalog validation, channel-ID resolution, and batched metadata refresh |
+| `data/channel-catalog.community.json` | Generated catalog of channels promoted from verified community additions |
+| `data/channel-catalog.discovered.json` | Generated catalog and rotation state for automated YouTube discovery |
+| `scripts/` | Static-site build, local development, test governance, and catalog-maintenance tooling |
+| `tests/` | Contract, fixture-backed browser-flow, and visual-preservation checks |
 | `assets/fonts/` | Self-hosted Space Grotesk and Bebas Neue font subsets |
 | `images/channel-avatars/` | Bundled curated-channel avatars |
 | `images/city/` | Optimized town progression images |
+| `.github/workflows/ci.yml` | Path-selected catalog, build, contract, browser-flow, and visual checks |
+| `.github/workflows/deploy-pages.yml` | Static GitHub Pages build and deployment workflow |
+| `.github/workflows/refresh-channel-catalog.yml` | Scheduled and source-triggered curated catalog refresh |
+| `.github/workflows/discover-language-channels.yml` | Daily automated channel discovery |
+| `.github/workflows/import-community-channel-catalog.yml` | Daily PostHog candidate import and community promotion |
 
-Architecture, migration, and release references:
+Architecture, preservation, and release references:
 
 - [Architecture](docs/architecture.md)
 - [Current experience preservation inventory](docs/current-experience-inventory.md)
 - [Responsive review matrix](docs/responsive-review-matrix.md)
 - [Deployment and release runbook](docs/deployment-and-releases.md)
-- [Migration change ledger](migration_changes.md)
+- [Archived refactor ledger](migration_changes.md)
 - [Contributing guide](CONTRIBUTING.md)
-| `.github/workflows/deploy-pages.yml` | Static GitHub Pages build and deployment workflow |
-| `.github/workflows/refresh-channel-catalog.yml` | Scheduled and source-triggered channel catalog refresh |

@@ -214,6 +214,9 @@ import {
   getCityScoreForLevelIndex,
   normalizeCityProgress
 } from './features/city/model.js'
+import {
+  getCityImageCoverGeometry
+} from './features/city/viewport-geometry.js'
 import { bindCityLevelUpActions } from './features/city/level-up-actions.js'
 import {
   bindCityWaveformBarActions
@@ -451,8 +454,11 @@ const selectedHistoryPeriod = { week: null, month: null }
 let selectedCityDayOffset = 0
 const CITY_IMAGE_MIN_ZOOM = 1
 const CITY_IMAGE_MAX_ZOOM = 2
+const CITY_IMAGE_MOBILE_DEFAULT_ZOOM = 1.75
+const CITY_IMAGE_MOBILE_DEFAULT_Y = -40
 const CITY_IMAGE_ZOOM_STEP = 0.25
 const CITY_IMAGE_WHEEL_ZOOM_STEP = 0.06
+const CITY_IMAGE_PAN_EPSILON = 0.5
 const cityImageView = {
   scale: 1,
   x: 0,
@@ -2477,6 +2483,7 @@ function renderPersonalizedOnboarding() {
   progressLabel.textContent = t('onboarding.progress', { current: stepIndex + 1, total: stepOrder.length })
   progressFill.style.width = `${((stepIndex + 1) / stepOrder.length) * 100}%`
   panel?.classList.toggle('is-channel-step', personalizedOnboardingState.step === 'channels')
+  panel?.classList.toggle('is-level-step', personalizedOnboardingState.step === 'level')
   localePicker?.classList.toggle('hidden', personalizedOnboardingState.step !== 'language')
   if (personalizedOnboardingState.lastTrackedStep !== personalizedOnboardingState.step) {
     trackEdeniaEvent('onboarding_step_viewed', {
@@ -10900,8 +10907,14 @@ function initCityImagePanZoom() {
   if (!wrap || !image || wrap.dataset.panZoomReady === 'true') return
 
   wrap.dataset.panZoomReady = 'true'
+  cityImageView.scale = getDefaultCityImageZoom()
+  cityImageView.y = getDefaultCityImageY()
   image.draggable = false
   image.addEventListener('dragstart', event => event.preventDefault())
+  image.addEventListener('load', () => {
+    const geometry = clampCityImagePan()
+    applyCityImageTransform(geometry)
+  })
   applyCityImageTransform()
 
   wrap.addEventListener('wheel', event => {
@@ -10919,13 +10932,13 @@ function initCityImagePanZoom() {
       if (cityImageView.touchPointers.size >= 2) {
         event.preventDefault()
         beginCityImagePinch(wrap)
-      } else if (cityImageView.scale > 1) {
+      } else if (canPanCityImage()) {
         event.preventDefault()
         beginCityImageTouchDrag(wrap, event.pointerId, event.clientX, event.clientY)
       }
       return
     }
-    if (event.pointerType === 'touch' && cityImageView.scale <= 1) return
+    if (!canPanCityImage()) return
     event.preventDefault()
     cityImageView.dragging = true
     cityImageView.pointerId = event.pointerId
@@ -10950,8 +10963,8 @@ function initCityImagePanZoom() {
     if (event.pointerType === 'touch') event.preventDefault()
     cityImageView.x = cityImageView.originX + event.clientX - cityImageView.startX
     cityImageView.y = cityImageView.originY + event.clientY - cityImageView.startY
-    clampCityImagePan()
-    applyCityImageTransform()
+    const geometry = clampCityImagePan()
+    applyCityImageTransform(geometry)
   })
 
   const endDrag = event => {
@@ -10965,7 +10978,7 @@ function initCityImagePanZoom() {
           return
         }
         const remaining = cityImageView.touchPointers.entries().next().value
-        if (remaining && cityImageView.scale > 1) {
+        if (remaining && canPanCityImage()) {
           const [pointerId, point] = remaining
           beginCityImageTouchDrag(wrap, pointerId, point.x, point.y)
         } else {
@@ -10984,8 +10997,8 @@ function initCityImagePanZoom() {
   wrap.addEventListener('pointerup', endDrag)
   wrap.addEventListener('pointercancel', endDrag)
   window.addEventListener('resize', () => {
-    clampCityImagePan()
-    applyCityImageTransform()
+    const geometry = clampCityImagePan()
+    applyCityImageTransform(geometry)
   })
 }
 
@@ -11035,8 +11048,8 @@ function updateCityImagePinch(wrap) {
   cityImageView.scale = nextScale
   cityImageView.x = center.x - (cityImageView.pinchStartCenterX - cityImageView.pinchStartX) * scaleRatio
   cityImageView.y = center.y - (cityImageView.pinchStartCenterY - cityImageView.pinchStartY) * scaleRatio
-  clampCityImagePan()
-  applyCityImageTransform()
+  const geometry = clampCityImagePan()
+  applyCityImageTransform(geometry)
 }
 
 function getCityImageTouchDistance(points) {
@@ -11095,8 +11108,8 @@ function zoomCityImageBy(delta, event = null) {
   }
 
   cityImageView.scale = nextScale
-  clampCityImagePan()
-  applyCityImageTransform()
+  const geometry = clampCityImagePan()
+  applyCityImageTransform(geometry)
 }
 
 function resetCityImageView() {
@@ -11104,31 +11117,75 @@ function resetCityImageView() {
   cityImageView.pinching = false
   cityImageView.dragging = false
   cityImageView.pointerId = null
-  cityImageView.scale = 1
+  cityImageView.scale = getDefaultCityImageZoom()
   cityImageView.x = 0
-  cityImageView.y = 0
+  cityImageView.y = getDefaultCityImageY()
   applyCityImageTransform()
 }
 
-function clampCityImagePan() {
-  const wrap = document.querySelector('.city-image-wrap')
-  if (!wrap || cityImageView.scale <= 1) {
-    cityImageView.x = 0
-    cityImageView.y = 0
-    return
-  }
-
-  const rect = wrap.getBoundingClientRect()
-  const maxX = rect.width * (cityImageView.scale - 1) / 2
-  const maxY = rect.height * (cityImageView.scale - 1) / 2
-  cityImageView.x = clampNumber(cityImageView.x, -maxX, maxX)
-  cityImageView.y = clampNumber(cityImageView.y, -maxY, maxY)
+function getDefaultCityImageZoom() {
+  return usesPhoneComposition()
+    ? CITY_IMAGE_MOBILE_DEFAULT_ZOOM
+    : CITY_IMAGE_MIN_ZOOM
 }
 
-function applyCityImageTransform() {
+function getDefaultCityImageY() {
+  return usesPhoneComposition() ? CITY_IMAGE_MOBILE_DEFAULT_Y : 0
+}
+
+function getCityImagePanGeometry(scale = cityImageView.scale) {
+  const wrap = document.querySelector('.city-image-wrap')
+  const image = document.getElementById('cityMilestoneImage')
+  if (!wrap || !image) return null
+
+  const rect = wrap.getBoundingClientRect()
+  return getCityImageCoverGeometry({
+    viewportWidth: rect.width,
+    viewportHeight: rect.height,
+    imageWidth: image.naturalWidth,
+    imageHeight: image.naturalHeight,
+    scale
+  })
+}
+
+function canPanCityImage() {
+  const geometry = getCityImagePanGeometry()
+  return isCityImagePanGeometryPannable(geometry)
+}
+
+function isCityImagePanGeometryPannable(geometry) {
+  return Boolean(
+    geometry
+    && (
+      geometry.maxX > CITY_IMAGE_PAN_EPSILON
+      || geometry.maxY > CITY_IMAGE_PAN_EPSILON
+    )
+  )
+}
+
+function clampCityImagePan() {
+  const geometry = getCityImagePanGeometry()
+  if (!geometry) {
+    cityImageView.x = 0
+    cityImageView.y = 0
+    return null
+  }
+
+  cityImageView.x = clampNumber(cityImageView.x, -geometry.maxX, geometry.maxX)
+  cityImageView.y = clampNumber(cityImageView.y, -geometry.maxY, geometry.maxY)
+  return geometry
+}
+
+function applyCityImageTransform(geometry = getCityImagePanGeometry()) {
   const image = document.getElementById('cityMilestoneImage')
   if (!image) return
-  document.querySelector('.city-image-wrap')?.classList.toggle('is-zoomed', cityImageView.scale > 1)
+  const wrap = document.querySelector('.city-image-wrap')
+  if (geometry) {
+    image.style.width = `${geometry.baseWidth}px`
+    image.style.height = `${geometry.baseHeight}px`
+  }
+  wrap?.classList.toggle('is-pannable', isCityImagePanGeometryPannable(geometry))
+  wrap?.classList.toggle('is-zoomed', cityImageView.scale > 1)
   image.style.transform = `translate(${cityImageView.x}px, ${cityImageView.y}px) scale(${cityImageView.scale})`
 }
 
@@ -13355,7 +13412,7 @@ function toggleLocaleMenu(event) {
   closeHistoryActionPopovers()
   const isOpen = menu.classList.toggle('hidden') === false
   btn.setAttribute('aria-expanded', String(isOpen))
-  if (isOpen) positionFilterMenuWithinViewport(menu)
+  if (isOpen) positionFilterMenuWithinViewport(menu, true)
 }
 
 function closeLocaleMenu() {
@@ -13707,10 +13764,10 @@ function closeManualVideoPopover(restoreFocus = false) {
   if (restoreFocus && usesPhoneComposition()) window.setTimeout(() => btn.focus(), 0)
 }
 
-function positionFilterMenuWithinViewport(menu) {
+function positionFilterMenuWithinViewport(menu, positionOnPhone = false) {
   if (!menu || menu.classList.contains('hidden')) return
 
-  if (usesPhoneComposition()) {
+  if (usesPhoneComposition() && !positionOnPhone) {
     menu.style.left = ''
     menu.style.right = ''
     return
