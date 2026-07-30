@@ -586,12 +586,13 @@
     width: 132px;
   }
   .onboarding-language-picker {
+    right: max(64px, calc(env(safe-area-inset-right) + 52px));
     top: max(12px, calc(env(safe-area-inset-top) + 8px));
     width: 132px;
   }
   .onboarding-sound {
     right: max(12px, env(safe-area-inset-right));
-    top: max(64px, calc(env(safe-area-inset-top) + 60px));
+    top: max(12px, calc(env(safe-area-inset-top) + 8px));
   }
   .intro-locale-btn { min-height: 44px; }
   .intro-nav-btn {

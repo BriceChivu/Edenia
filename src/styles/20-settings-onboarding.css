@@ -35,6 +35,7 @@ body.onboarding-active .toast { z-index: 320; }
   padding: clamp(20px, 4vw, 36px);
   width: min(760px, calc(100vw - 36px));
 }
+.onboarding-header { display: contents; }
 .onboarding-brand {
   color: var(--accent);
   font-family: 'Bebas Neue', sans-serif;

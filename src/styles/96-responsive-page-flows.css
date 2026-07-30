@@ -261,50 +261,145 @@
   .intro-timeline { bottom: max(18px, calc(env(safe-area-inset-bottom) + 10px)); }
   .onboarding-panel {
     align-items: stretch;
+    overflow: hidden;
     padding: 0;
   }
   .onboarding-card {
-    align-content: center;
+    align-content: start;
     border: 0;
     border-radius: 0;
     box-shadow: none;
-    min-height: 100dvh;
-    padding: max(22px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+    gap: 10px;
+    grid-auto-rows: max-content;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
     width: 100vw;
   }
-  .onboarding-choice-grid,
-  .onboarding-level-grid {
-    grid-template-columns: 1fr;
+  .onboarding-panel.is-onboarding-content-centered .onboarding-card {
+    align-content: stretch;
+    grid-template-rows: max-content minmax(0, 1fr);
+  }
+  .onboarding-panel.is-onboarding-content-centered .onboarding-header {
+    display: grid;
+    gap: 10px;
+    grid-auto-rows: max-content;
+  }
+  .onboarding-panel.is-onboarding-content-centered .onboarding-content {
+    align-self: center;
+    width: 100%;
+  }
+  .onboarding-choice-grid {
+    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-height: 0;
   }
   .onboarding-language-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(4, minmax(52px, auto));
+  }
+  .onboarding-level-grid {
+    gap: 8px;
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(5, minmax(72px, auto));
+    min-height: 0;
+  }
+  .onboarding-panel.is-level-grid-compact .onboarding-level-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(72px, auto));
   }
   .onboarding-eyebrow {
     display: none;
+  }
+  .onboarding-brand {
+    align-items: center;
+    display: flex;
+    min-height: 44px;
   }
   .onboarding-panel.is-channel-step .onboarding-promise {
     display: none;
   }
   .onboarding-choice {
-    min-height: 58px;
+    gap: 8px;
+    height: 100%;
+    min-height: 52px;
+    padding: 8px;
   }
   .onboarding-level-choice {
-    min-height: 78px;
+    min-height: 72px;
+  }
+  .onboarding-content {
+    align-content: start;
+    gap: 10px;
+    grid-template-rows: auto auto auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .onboarding-panel.is-recovery .onboarding-content {
+    align-content: center;
+    grid-template-rows: auto auto auto;
   }
   .onboarding-channel-list {
+    gap: 8px;
+    grid-auto-rows: minmax(52px, auto);
     max-height: none;
+    min-height: 0;
+    overflow: hidden;
+    padding: 2px;
   }
   .onboarding-channel-list-grid {
     grid-template-columns: 1fr;
+    grid-template-rows: repeat(6, minmax(52px, auto));
+  }
+  .onboarding-panel.is-channel-grid-compact .onboarding-channel-list-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(52px, auto));
+  }
+  .onboarding-channel {
+    gap: 7px;
+    grid-template-columns: 34px minmax(0, 1fr) 20px;
+    height: 100%;
+    min-height: 52px;
+    padding: 7px;
+  }
+  .onboarding-channel-avatar {
+    border-radius: 8px;
+    height: 34px;
+    width: 34px;
+  }
+  .onboarding-channel-copy {
+    gap: 2px;
+  }
+  .onboarding-channel-name,
+  .onboarding-channel-meta {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .onboarding-channel-name {
+    font-size: 0.78rem;
+  }
+  .onboarding-channel-meta {
+    font-size: 0.64rem;
+  }
+  .onboarding-channel-check {
+    font-size: 0.7rem;
+    height: 20px;
+    width: 20px;
   }
   .onboarding-actions {
     align-items: stretch;
-    flex-direction: column-reverse;
+    flex-direction: row;
+    padding-bottom: 4px;
   }
   .onboarding-actions .btn-primary,
   .onboarding-actions .btn-secondary,
   .onboarding-actions .btn-ghost {
-    width: 100%;
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
   }
   .toast {
     --toast-bottom: max(18px, calc(env(safe-area-inset-bottom) + 14px));
@@ -469,6 +564,97 @@
   }
   body[data-sandbox="true"] .app-header.is-compact .streak-pill {
     display: none;
+  }
+}
+@media (max-width: 640px) and (max-height: 620px) {
+  .onboarding-card,
+  .onboarding-content {
+    gap: 8px;
+  }
+  .onboarding-promise {
+    display: none;
+  }
+  .onboarding-heading {
+    gap: 4px;
+  }
+  .onboarding-choice-grid,
+  .onboarding-level-grid,
+  .onboarding-channel-list {
+    gap: 6px;
+  }
+  .onboarding-choice {
+    min-height: 44px;
+    padding-block: 6px;
+  }
+  .onboarding-level-choice {
+    min-height: 64px;
+  }
+  .onboarding-level-grid {
+    grid-template-rows: repeat(5, minmax(64px, auto));
+  }
+  .onboarding-panel.is-level-grid-compact .onboarding-level-grid {
+    grid-template-rows: repeat(3, minmax(64px, auto));
+  }
+}
+@media (max-width: 640px) and (max-height: 520px) {
+  .onboarding-subtitle,
+  .onboarding-level-choice .onboarding-choice-detail {
+    display: none;
+  }
+  .onboarding-level-choice {
+    justify-content: center;
+    min-height: 44px;
+  }
+  .onboarding-level-grid {
+    grid-template-rows: repeat(5, minmax(44px, auto));
+  }
+  .onboarding-panel.is-level-grid-compact .onboarding-level-grid {
+    grid-template-rows: repeat(3, minmax(44px, auto));
+  }
+}
+@media (max-width: 640px) and (max-height: 480px) and (orientation: landscape) {
+  .onboarding-language-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(44px, auto));
+  }
+  .onboarding-level-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(5, minmax(44px, auto));
+  }
+  .onboarding-panel.is-level-grid-compact .onboarding-level-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(44px, auto));
+  }
+  .onboarding-level-choice {
+    justify-content: center;
+    min-height: 44px;
+  }
+  .onboarding-level-choice .onboarding-choice-detail {
+    display: none;
+  }
+  .onboarding-panel:is(.is-channel-step, .is-level-step) .onboarding-brand {
+    display: none;
+  }
+  .onboarding-panel:is(.is-channel-step, .is-level-step) .onboarding-card,
+  .onboarding-panel:is(.is-channel-step, .is-level-step) .onboarding-content {
+    gap: 6px;
+  }
+  .onboarding-panel:is(.is-channel-step, .is-level-step) .onboarding-progress {
+    padding-right: 50px;
+  }
+  .onboarding-panel.is-channel-step .onboarding-channel {
+    gap: 6px;
+    grid-template-columns: 30px minmax(0, 1fr) 20px;
+    min-height: 44px;
+    padding: 5px;
+  }
+  .onboarding-panel.is-channel-step .onboarding-channel-avatar {
+    height: 30px;
+    width: 30px;
+  }
+  .onboarding-panel.is-channel-grid-compact .onboarding-channel-list-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(3, minmax(44px, auto));
   }
 }
 @media (max-width: 480px) {

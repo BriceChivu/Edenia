@@ -2465,6 +2465,59 @@ function retryOnboardingRecovery(button) {
   trackEdeniaEvent('onboarding_recovery_retry', { success: true, reason: recoveryReason })
 }
 
+let onboardingChoiceLayoutFrame = 0
+
+function syncOnboardingChoiceLayout() {
+  const panel = document.getElementById('onboardingPanel')
+  panel?.classList.remove(
+    'is-channel-grid-compact',
+    'is-level-grid-compact',
+    'is-onboarding-content-centered'
+  )
+  if (
+    !panel
+    || !usesPhoneComposition()
+  ) return
+
+  const compactClass = panel.classList.contains('is-channel-step')
+    ? 'is-channel-grid-compact'
+    : panel.classList.contains('is-level-step')
+      ? 'is-level-grid-compact'
+      : ''
+  const card = panel.querySelector('.onboarding-card')
+  const content = panel.querySelector('.onboarding-content')
+  const actions = panel.querySelector('.onboarding-actions')
+  if (!card || !content || !actions) return
+
+  const cardBounds = card.getBoundingClientRect()
+  const actionsBounds = actions.getBoundingClientRect()
+  const bottomInset = Math.max(0, parseFloat(getComputedStyle(card).paddingBottom) || 0)
+  if (compactClass) {
+    panel.classList.toggle(
+      compactClass,
+      actionsBounds.bottom > cardBounds.bottom - bottomInset
+    )
+  }
+
+  const centeredCardBounds = card.getBoundingClientRect()
+  const contentBounds = content.getBoundingClientRect()
+  const availableBottom = centeredCardBounds.bottom - bottomInset
+  panel.classList.toggle(
+    'is-onboarding-content-centered',
+    availableBottom - contentBounds.bottom >= 48
+  )
+}
+
+function scheduleOnboardingChoiceLayout() {
+  if (onboardingChoiceLayoutFrame) cancelAnimationFrame(onboardingChoiceLayoutFrame)
+  onboardingChoiceLayoutFrame = requestAnimationFrame(() => {
+    onboardingChoiceLayoutFrame = 0
+    syncOnboardingChoiceLayout()
+  })
+}
+
+window.addEventListener('resize', scheduleOnboardingChoiceLayout, { passive: true })
+
 function renderPersonalizedOnboarding() {
   if (!personalizedOnboardingState.active) return
   const content = document.getElementById('onboardingContent')
@@ -2481,6 +2534,7 @@ function renderPersonalizedOnboarding() {
   progressLabel.textContent = t('onboarding.progress', { current: stepIndex + 1, total: stepOrder.length })
   progressFill.style.width = `${((stepIndex + 1) / stepOrder.length) * 100}%`
   panel?.classList.toggle('is-channel-step', personalizedOnboardingState.step === 'channels')
+  panel?.classList.toggle('is-level-step', personalizedOnboardingState.step === 'level')
   localePicker?.classList.toggle('hidden', personalizedOnboardingState.step !== 'language')
   if (personalizedOnboardingState.lastTrackedStep !== personalizedOnboardingState.step) {
     trackEdeniaEvent('onboarding_step_viewed', {
@@ -2504,6 +2558,7 @@ function renderPersonalizedOnboarding() {
   } else {
     renderOnboardingOtherStep(content)
   }
+  syncOnboardingChoiceLayout()
   bindPersonalizedOnboardingActions(content, {
     selectLanguage: selectOnboardingLanguage,
     continueFromLanguage: continuePersonalizedOnboardingFromLanguage,
