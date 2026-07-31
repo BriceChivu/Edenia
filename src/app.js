@@ -52,6 +52,9 @@ import {
   bindImageFallbackActions
 } from './features/images/fallback-actions.js'
 import {
+  selectOnboardingChoiceLayout
+} from './features/onboarding/choice-layout.js'
+import {
   ACTIVE_VIDEOS_PER_CHANNEL,
   compareActiveVideos,
   comparePausedVideos,
@@ -535,6 +538,7 @@ const introTrailerState = {
   touchAxis: null
 }
 const ONBOARDING_CHANNEL_SELECTION_LIMIT = 5
+const ONBOARDING_LAYOUT_OVERFLOW_TOLERANCE_PX = 1
 const personalizedOnboardingState = {
   active: false,
   step: 'language',
@@ -545,6 +549,7 @@ const personalizedOnboardingState = {
   isApplyingChannels: false,
   lastTrackedStep: null
 }
+let onboardingChoiceLayoutFrame = 0
 const onboardingRecoveryState = {
   active: false,
   reason: 'setup',
@@ -2539,6 +2544,62 @@ function renderPersonalizedOnboarding() {
     setStep: setPersonalizedOnboardingStep,
     toggleChannel: toggleOnboardingChannel,
     finish: finishPersonalizedOnboarding
+  })
+  syncOnboardingChoiceLayout()
+}
+
+function isOnboardingChoiceLayoutContained(panel) {
+  const elements = [
+    panel.querySelector('.onboarding-card'),
+    panel.querySelector('.onboarding-content'),
+    panel.querySelector('.onboarding-level-grid, .onboarding-channel-list'),
+    panel.querySelector('.onboarding-actions'),
+    ...panel.querySelectorAll('.onboarding-level-choice, .onboarding-channel')
+  ].filter(Boolean)
+
+  return elements.every(element => (
+    element.scrollHeight
+      <= element.clientHeight + ONBOARDING_LAYOUT_OVERFLOW_TOLERANCE_PX
+    && element.scrollWidth
+      <= element.clientWidth + ONBOARDING_LAYOUT_OVERFLOW_TOLERANCE_PX
+  ))
+}
+
+function clearOnboardingChoiceLayout(panel) {
+  if (!panel) return
+  delete panel.dataset.onboardingChoiceLayout
+}
+
+function syncOnboardingChoiceLayout() {
+  const panel = document.getElementById('onboardingPanel')
+  const supportsFittedChoices = (
+    personalizedOnboardingState.active
+    && ['level', 'channels'].includes(personalizedOnboardingState.step)
+    && usesPhoneComposition()
+  )
+  if (!panel || !supportsFittedChoices) {
+    clearOnboardingChoiceLayout(panel)
+    return null
+  }
+
+  panel.classList.add('is-choice-layout-measuring')
+  const selectedLayout = selectOnboardingChoiceLayout({
+    applyLayout(layout) {
+      panel.dataset.onboardingChoiceLayout = layout
+    },
+    isContained() {
+      return isOnboardingChoiceLayoutContained(panel)
+    }
+  })
+  panel.classList.remove('is-choice-layout-measuring')
+  return selectedLayout
+}
+
+function scheduleOnboardingChoiceLayoutSync() {
+  if (onboardingChoiceLayoutFrame) return
+  onboardingChoiceLayoutFrame = window.requestAnimationFrame(() => {
+    onboardingChoiceLayoutFrame = 0
+    syncOnboardingChoiceLayout()
   })
 }
 
@@ -14342,6 +14403,9 @@ window.addEventListener('resize', closeVideoShelfPreviewOnViewportChange, { pass
 window.addEventListener('resize', () => positionVideoShelfPlayerOverlay(), { passive: true })
 window.addEventListener('resize', syncMobileAddButtonWidth, { passive: true })
 window.addEventListener('resize', syncIntroTrailerStageScale, { passive: true })
+window.addEventListener('resize', scheduleOnboardingChoiceLayoutSync, { passive: true })
+window.visualViewport?.addEventListener('resize', scheduleOnboardingChoiceLayoutSync, { passive: true })
+document.fonts?.ready.then(scheduleOnboardingChoiceLayoutSync).catch(() => {})
 document.addEventListener('visibilitychange', refreshOpenChannelFilterTimestamps)
 document.addEventListener('visibilitychange', handleVideoWatchReminderVisibilityChange)
 document.addEventListener('visibilitychange', handleVideoShelfPlayerVisibilityChange)
