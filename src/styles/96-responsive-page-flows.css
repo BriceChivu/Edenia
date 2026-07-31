@@ -291,7 +291,9 @@
     grid-template-rows: auto auto minmax(0, 1fr);
   }
   .onboarding-panel:not(.is-recovery):is(.is-level-step, .is-channel-step) .onboarding-content {
-    grid-template-rows: max-content minmax(0, 1fr) max-content;
+    align-content: center;
+    align-content: safe center;
+    grid-template-rows: max-content max-content max-content;
     min-height: 0;
   }
   .onboarding-choice-grid,
@@ -421,6 +423,7 @@
   }
   .onboarding-panel:not(.is-recovery)[data-onboarding-choice-layout="double-inline-scroll"]
   .onboarding-content {
+    align-content: start;
     grid-template-rows: auto;
     overflow: visible;
   }
