@@ -390,7 +390,7 @@ test('step navigation retains guards, directional analytics, and rerendering', (
   assert.match(source, /renderPersonalizedOnboarding\(\)/)
 })
 
-test('channel toggling retains guards, limit feedback, and replacement', () => {
+test('channel toggling retains guards, limit feedback, and live visual state', () => {
   const source = getFunctionSource(
     'toggleOnboardingChannel',
     'resolveCuratedChannelEntry'
@@ -405,8 +405,9 @@ test('channel toggling retains guards, limit feedback, and replacement', () => {
   )
   assert.match(
     source,
-    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\.\.\.selectedIds\]\s*renderPersonalizedOnboarding\(\)/
+    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\.\.\.selectedIds\]\s*const control = \[\.\.\.document\.querySelectorAll\('\.onboarding-channel'\)\][\s\S]*?control\?\.setAttribute\('aria-pressed', String\(selectedIds\.has\(catalogId\)\)\)\s*syncOnboardingChoiceLayout\(\)/
   )
+  assert.doesNotMatch(source, /renderPersonalizedOnboarding\(\)/)
 })
 
 test('finish retains synchronous busy replacement before asynchronous work', () => {

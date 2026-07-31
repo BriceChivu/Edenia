@@ -2772,7 +2772,10 @@ function toggleOnboardingChannel(catalogId) {
     selectedIds.add(catalogId)
   }
   personalizedOnboardingState.selectedChannelCatalogIds = [...selectedIds]
-  renderPersonalizedOnboarding()
+  const control = [...document.querySelectorAll('.onboarding-channel')]
+    .find(channel => channel.dataset.catalogId === catalogId)
+  control?.setAttribute('aria-pressed', String(selectedIds.has(catalogId)))
+  syncOnboardingChoiceLayout()
 }
 
 function resolveCuratedChannelEntry(entry) {
