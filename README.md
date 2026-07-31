@@ -295,9 +295,9 @@ The workflow fixes `DISCOVERY_MAX_SEARCH_REQUESTS` at seven. The script rejects 
 higher value so a repository-variable change cannot silently weaken the daily
 search ceiling.
 
-The unattended pull-request publisher also requires a dedicated GitHub App.
-Using an App keeps the credential short-lived and ensures the bot-created pull
-request triggers the normal CI workflow.
+The unattended discovery and community-catalog pull-request publishers require
+a dedicated GitHub App. Using an App keeps the credential short-lived and
+ensures the bot-created pull requests trigger the normal CI workflow.
 
 1. Create a GitHub App owned by the repository owner and install it only on
    Edenia.
@@ -324,29 +324,62 @@ node scripts/discover-language-channels.mjs
 
 ### Community catalog growth
 
-Successful Add-button additions that did not come from the curated, community, or discovered catalog are recorded as catalog candidates through the existing PostHog analytics pipeline. The browser never receives a GitHub write credential.
+Successful Add-button additions that did not come from the curated, community,
+or discovered catalog are recorded through the existing PostHog analytics
+pipeline. The browser never receives a GitHub write credential.
 
 `.github/workflows/import-community-channel-catalog.yml` runs daily and can also be dispatched manually. It:
 
 1. Reads the previous 180 days of `channel_added_via_add_button` events from PostHog.
-2. Excludes curated, community, and automatically discovered selections, plus internal, localhost, or sandbox additions.
-3. Counts distinct PostHog users without writing their identifiers to the repository.
-4. Verifies new or 30-day-stale candidates with YouTube in batches of up to 50 channels per one-unit `channels.list` request.
-5. Writes aggregate candidates to `data/channel-catalog.candidates.json`.
-6. Promotes a channel to `data/channel-catalog.community.json` after two distinct users add it.
+2. Requires positive `catalog_candidate` provenance from an eligible
+   `direct_input` or `youtube_search` event. Legacy events with missing
+   provenance fail closed.
+3. Excludes curated and automatically discovered channels by exact YouTube
+   channel ID or normalized handle, plus internal, localhost, and sandbox
+   additions.
+4. Counts distinct PostHog users without writing their identifiers to the
+   repository or pull-request report.
+5. Verifies new or 30-day-stale candidates with YouTube in batches of up to 50
+   channels per one-unit `channels.list` request.
+6. Writes the rolling aggregate candidate snapshot to
+   `data/channel-catalog.candidates.json`.
+7. Promotes a public channel to `data/channel-catalog.community.json` only after
+   two distinct users add it and it has a supported learning language and
+   complete required metadata.
 
-When either generated community file changes, the workflow commits only those
-allowlisted files to a unique
-`automation/import-community-channel-catalog-<run>-<attempt>` review branch and
-prints the compare link for a maintainer-created pull request.
+When either generated community file changes, the workflow validates the exact
+delta, updates the stable
+`automation/import-community-channel-catalog` branch, and creates or refreshes
+one pull request. Its generated body lists every eligible candidate, newly and
+previously promoted channels, blocked promotions, and aggregate exclusions with
+their reasons.
 
-Once promoted, a channel remains in the community catalog and is loaded by the Add search on the deployed site. The stored catalog metadata includes the channel name, handle, languages associated with its additions, and YouTube profile-picture URL. The two-user promotion rule limits which additions reach the community catalog, but it is not equivalent to authenticated moderation.
+The community pull request is squash-merged automatically only after
+`CI / verify` passes for the exact head and base revisions. The merge helper
+refuses unrelated files, stale CI results, promoted-channel removals, stable
+identity rewrites, cross-catalog duplicates, private identifiers, and more than
+10 new promotions per run by default. If `master` moves after CI starts, the
+next scheduled run regenerates and retests the update instead of merging stale
+catalog data.
+
+Once promoted, a channel remains in the community catalog and is loaded by the
+Add search on the deployed site. Candidate expiry is allowed because the
+candidate file is a rolling 180-day snapshot, but routine automation never
+removes a promoted channel. The two-user promotion rule limits which additions
+reach the community catalog, but it is not equivalent to authenticated
+moderation.
 
 Configure these repository secrets:
 
 - `POSTHOG_PROJECT_ID`: the numeric PostHog project ID.
 - `POSTHOG_PERSONAL_API_KEY`: a server-side personal key with read access to query that project's events.
 - `YOUTUBE_CATALOG_API_KEY`: the existing server-side YouTube catalog key.
+
+The optional `COMMUNITY_CATALOG_MAX_PROMOTIONS` repository variable can lower
+the default per-run promotion ceiling of 10. Values above the code-enforced
+ceiling fail closed and require a reviewed code change. The same
+least-privilege catalog GitHub App and required `CI / verify` branch protection
+used by discovery are required for community auto-merge.
 
 If the PostHog project is not in the US region, also set the `POSTHOG_HOST` repository variable to the appropriate PostHog app host. Never put the PostHog personal key in `index.html`, `app.js`, `config.local.js`, or a Pages deployment.
 
@@ -459,7 +492,8 @@ Submitting the feedback form sends its category, message, optional name and emai
 | `.github/workflows/refresh-channel-catalog.yml` | Scheduled and source-triggered curated catalog refresh |
 | `.github/workflows/discover-language-channels.yml` | Daily automated channel discovery |
 | `.github/workflows/merge-checked-discovery-catalog.yml` | CI-success-only merge for the automated discovery PR |
-| `.github/workflows/import-community-channel-catalog.yml` | Daily PostHog candidate import and community promotion |
+| `.github/workflows/import-community-channel-catalog.yml` | Daily checked PostHog candidate import and community PR publication |
+| `.github/workflows/merge-checked-community-catalog.yml` | CI-success-only merge for the automated community PR |
 
 Architecture, preservation, and release references:
 

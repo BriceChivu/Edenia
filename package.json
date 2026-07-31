@@ -13,6 +13,7 @@
     "dev": "node scripts/dev.mjs",
     "test": "npm run build && npm run test:contracts",
     "test:catalogs": "node scripts/validate-channel-catalog-json.mjs",
+    "test:catalogs:community": "node scripts/validate-community-channel-catalog.mjs",
     "test:catalogs:discovery": "node scripts/validate-discovered-channel-catalog.mjs",
     "test:contracts": "node --test tests/contracts/*.test.mjs",
     "test:e2e": "npm run build && playwright test",

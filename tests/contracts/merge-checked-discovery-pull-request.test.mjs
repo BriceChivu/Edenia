@@ -6,11 +6,13 @@ import {
 
 const REPOSITORY = 'BriceChivu/Edenia'
 const HEAD_SHA = '1234567890abcdef1234567890abcdef12345678'
+const BASE_SHA = 'abcdef1234567890abcdef1234567890abcdef12'
 
 function mergeSpec(overrides = {}) {
   return {
     repository: REPOSITORY,
     pullRequestNumber: '123',
+    checkedBaseSha: BASE_SHA,
     checkedHeadSha: HEAD_SHA,
     conclusion: 'success',
     ...overrides
@@ -21,7 +23,7 @@ function pullRequest(overrides = {}) {
   return {
     state: 'open',
     draft: false,
-    base: { ref: 'master' },
+    base: { ref: 'master', sha: BASE_SHA },
     head: {
       ref: 'automation/discover-language-channels',
       sha: HEAD_SHA,
@@ -37,8 +39,15 @@ test('checked discovery merger merges only the exact CI-tested catalog revision'
     log: () => {},
     run(command, args) {
       commands.push([command, args])
-      if (command === 'gh' && args[0] === 'api' && !args.includes('--paginate')) {
+      if (
+        command === 'gh'
+        && args[0] === 'api'
+        && args[1] === `repos/${REPOSITORY}/pulls/123`
+      ) {
         return JSON.stringify(pullRequest())
+      }
+      if (command === 'gh' && args[0] === 'api' && args[1].includes('/git/ref/heads/')) {
+        return BASE_SHA
       }
       if (command === 'gh' && args[0] === 'api' && args.includes('--paginate')) {
         return 'data/channel-catalog.discovered.json'
@@ -50,7 +59,9 @@ test('checked discovery merger merges only the exact CI-tested catalog revision'
   assert.deepEqual(result, {
     merged: true,
     pullRequestNumber: 123,
-    headSha: HEAD_SHA
+    headSha: HEAD_SHA,
+    baseSha: BASE_SHA,
+    kind: 'discovery'
   })
   assert.ok(commands.some(([command, args]) => (
     command === 'gh'
@@ -79,19 +90,22 @@ test('checked discovery merger rejects stale CI and unrelated pull requests', ()
         }))
       }
     }),
-    /outside the discovery automation boundary/
+    /outside the discovery catalog automation boundary/
   )
   assert.throws(
     () => mergeCheckedDiscoveryPullRequest(mergeSpec(), {
       log: () => {},
-      run() {
-        return JSON.stringify(pullRequest({
-          head: {
-            ref: 'automation/discover-language-channels',
-            sha: 'abcdef1234567890abcdef1234567890abcdef12',
-            repo: { full_name: REPOSITORY }
-          }
-        }))
+      run(command, args) {
+        if (command === 'gh' && args[1] === `repos/${REPOSITORY}/pulls/123`) {
+          return JSON.stringify(pullRequest({
+            head: {
+              ref: 'automation/discover-language-channels',
+              sha: 'fedcba1234567890fedcba1234567890fedcba12',
+              repo: { full_name: REPOSITORY }
+            }
+          }))
+        }
+        return BASE_SHA
       }
     }),
     /changed after CI/
@@ -103,12 +117,37 @@ test('checked discovery merger rejects any additional changed path', () => {
     () => mergeCheckedDiscoveryPullRequest(mergeSpec(), {
       log: () => {},
       run(command, args) {
-        if (command === 'gh' && args[0] === 'api' && !args.includes('--paginate')) {
+        if (
+          command === 'gh'
+          && args[0] === 'api'
+          && args[1] === `repos/${REPOSITORY}/pulls/123`
+        ) {
           return JSON.stringify(pullRequest())
+        }
+        if (command === 'gh' && args[0] === 'api' && args[1].includes('/git/ref/heads/')) {
+          return BASE_SHA
         }
         return 'data/channel-catalog.discovered.json\napp.js'
       }
     }),
     /out-of-scope files/
+  )
+})
+
+test('checked discovery merger rejects a stale tested base revision', () => {
+  assert.throws(
+    () => mergeCheckedDiscoveryPullRequest(mergeSpec(), {
+      log: () => {},
+      run(command, args) {
+        if (command === 'gh' && args[1] === `repos/${REPOSITORY}/pulls/123`) {
+          return JSON.stringify(pullRequest())
+        }
+        if (command === 'gh' && args[1].includes('/git/ref/heads/')) {
+          return 'fedcba1234567890fedcba1234567890fedcba12'
+        }
+        return ''
+      }
+    }),
+    /master moved after CI/
   )
 })

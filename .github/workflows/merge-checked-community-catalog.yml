@@ -1,4 +1,4 @@
-name: Merge checked discovery catalog
+name: Merge checked community catalog
 
 on:
   workflow_run:
@@ -7,13 +7,13 @@ on:
     types:
       - completed
     branches:
-      - automation/discover-language-channels
+      - automation/import-community-channel-catalog
 
 permissions:
   contents: read
 
 concurrency:
-  group: merge-checked-discovery-catalog
+  group: merge-checked-community-catalog
   cancel-in-progress: false
 
 jobs:
@@ -40,8 +40,8 @@ jobs:
       - name: Merge the exact catalog revision that passed CI
         env:
           GH_TOKEN: ${{ steps.catalog-app.outputs.token }}
-          DISCOVERY_CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
-          DISCOVERY_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
-          DISCOVERY_PR_BASE_SHA: ${{ github.event.workflow_run.pull_requests[0].base.sha }}
-          DISCOVERY_PR_HEAD_SHA: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
-        run: node scripts/merge-checked-discovery-pull-request.mjs
+          COMMUNITY_CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          COMMUNITY_PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          COMMUNITY_PR_BASE_SHA: ${{ github.event.workflow_run.pull_requests[0].base.sha }}
+          COMMUNITY_PR_HEAD_SHA: ${{ github.event.workflow_run.pull_requests[0].head.sha }}
+        run: node scripts/merge-checked-community-pull-request.mjs

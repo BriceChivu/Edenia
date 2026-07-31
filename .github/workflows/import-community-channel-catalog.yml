@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: channel-catalog-maintenance
@@ -17,8 +17,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Create catalog automation token
+        id: catalog-app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.CATALOG_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.CATALOG_AUTOMATION_PRIVATE_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.catalog-app.outputs.token }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -31,12 +41,34 @@ jobs:
           POSTHOG_PROJECT_ID: ${{ secrets.POSTHOG_PROJECT_ID }}
           POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
           YOUTUBE_CATALOG_API_KEY: ${{ secrets.YOUTUBE_CATALOG_API_KEY }}
+          COMMUNITY_CATALOG_MAX_PROMOTIONS: ${{ vars.COMMUNITY_CATALOG_MAX_PROMOTIONS }}
+          COMMUNITY_CATALOG_REPORT_PATH: ${{ runner.temp }}/community-catalog-report.json
         run: node scripts/import-community-channel-candidates.mjs
 
-      - name: Publish community catalog review branch
+      - name: Detect a publishable catalog change
+        id: catalog-change
+        shell: bash
         run: |
-          node scripts/publish-maintenance-branch.mjs \
-            --branch "automation/import-community-channel-catalog-${{ github.run_id }}-${{ github.run_attempt }}" \
-            --commit-message "Update community channel catalog" \
-            --path data/channel-catalog.candidates.json \
-            --path data/channel-catalog.community.json
+          if git diff --quiet -- \
+            data/channel-catalog.candidates.json \
+            data/channel-catalog.community.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "The community catalog result is already present on master."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate unattended community update
+        if: steps.catalog-change.outputs.changed == 'true'
+        env:
+          COMMUNITY_CATALOG_MAX_PROMOTIONS: ${{ vars.COMMUNITY_CATALOG_MAX_PROMOTIONS }}
+        run: |
+          npm run test:catalogs
+          npm run test:catalogs:community -- --base-ref HEAD
+
+      - name: Publish checked auto-merge pull request
+        if: steps.catalog-change.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.catalog-app.outputs.token }}
+          COMMUNITY_CATALOG_REPORT_PATH: ${{ runner.temp }}/community-catalog-report.json
+        run: node scripts/publish-community-pull-request.mjs
