@@ -236,11 +236,6 @@ body.onboarding-active .toast { z-index: 320; }
   border-color: var(--planet-black);
   color: var(--planet-black);
 }
-.onboarding-channel-check-icon {
-  display: block;
-  height: 14px;
-  width: 14px;
-}
 .onboarding-panel:is(
   :not([data-onboarding-choice-layout]),
   [data-onboarding-choice-layout^="double"]

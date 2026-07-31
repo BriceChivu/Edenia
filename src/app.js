@@ -2695,11 +2695,7 @@ function renderOnboardingChannelsStep(content) {
               <span class="onboarding-channel-name">${escHtml(channel.name)}</span>
               <span class="onboarding-channel-meta">${escHtml(t(ONBOARDING_CHANNEL_STYLE_KEYS[channel.style] || channel.style))}</span>
             </span>
-            <span class="onboarding-channel-check" aria-hidden="true">
-              <svg class="onboarding-channel-check-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false">
-                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5"></path>
-              </svg>
-            </span>
+            <span class="onboarding-channel-check" aria-hidden="true">✓</span>
           </button>
         `
       }).join('')
