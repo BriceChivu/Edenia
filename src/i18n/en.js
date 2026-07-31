@@ -72,7 +72,7 @@ export const EN_CORE = {
   'onboarding.level.beginner.label': 'Beginner',
   'onboarding.level.beginner.detail': 'I know basic words and sentences.',
   'onboarding.level.intermediate.label': 'Intermediate',
-  'onboarding.level.intermediate.detail': 'I can follow learner content and some native material.',
+  'onboarding.level.intermediate.detail': 'I can follow lessons and some native content.',
   'onboarding.level.advanced.label': 'Advanced',
   'onboarding.level.advanced.detail': 'I mostly learn through native content.',
   'onboarding.level.not-sure.label': 'Not sure',
