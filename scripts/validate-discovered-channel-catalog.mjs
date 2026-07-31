@@ -10,9 +10,11 @@ const OTHER_CATALOG_PATHS = [
   'data/channel-catalog.community.json'
 ]
 const YOUTUBE_CHANNEL_ID_RE = /^UC[A-Za-z0-9_-]{22}$/
-const DEFAULT_MAX_ADDITIONS = 48
+const DEFAULT_MAX_ADDITIONS = 12
 const DEFAULT_MIN_SUBSCRIBERS = 100
 const DEFAULT_MIN_VIDEOS = 10
+const MAX_ADDITIONS_PER_LANGUAGE = 6
+const MAX_SEARCH_REQUESTS_PER_DAY = 7
 const STABLE_DISCOVERY_FIELDS = [
   'catalogId',
   'channelId',
@@ -82,8 +84,8 @@ export function validateDiscoveredCatalogShape(catalog) {
   if (!catalog || typeof catalog !== 'object' || Array.isArray(catalog)) {
     throw new Error('Discovered catalog must contain a JSON object.')
   }
-  if (catalog.schemaVersion !== 1) {
-    throw new Error('Discovered catalog must use schemaVersion 1.')
+  if (![1, 2].includes(catalog.schemaVersion)) {
+    throw new Error('Discovered catalog must use schemaVersion 1 or 2.')
   }
   assertIsoTimestamp(catalog.generatedAt, 'generatedAt')
   const rotationCount = requiredInteger(catalog.rotationCount, NaN, 'rotationCount', 1)
@@ -101,6 +103,68 @@ export function validateDiscoveredCatalogShape(catalog) {
     throw new Error('Discovery rotation indexes must be smaller than rotationCount.')
   }
   assertUniqueStrings(catalog.languages, 'languages')
+  if (catalog.schemaVersion >= 2) {
+    const languageBatchSize = requiredInteger(
+      catalog.languageBatchSize,
+      NaN,
+      'languageBatchSize',
+      1
+    )
+    const languageBatchCount = requiredInteger(
+      catalog.languageBatchCount,
+      NaN,
+      'languageBatchCount',
+      1
+    )
+    const expectedBatchCount = Math.ceil(catalog.languages.length / languageBatchSize)
+    if (languageBatchCount !== expectedBatchCount) {
+      throw new Error(`languageBatchCount must equal ${expectedBatchCount}.`)
+    }
+    const lastLanguageBatchIndex = requiredInteger(
+      catalog.lastLanguageBatchIndex,
+      NaN,
+      'lastLanguageBatchIndex'
+    )
+    const nextLanguageBatchIndex = requiredInteger(
+      catalog.nextLanguageBatchIndex,
+      NaN,
+      'nextLanguageBatchIndex'
+    )
+    if (
+      lastLanguageBatchIndex >= languageBatchCount
+      || nextLanguageBatchIndex >= languageBatchCount
+    ) {
+      throw new Error('Language batch indexes must be smaller than languageBatchCount.')
+    }
+    const quotaDate = requiredText(
+      catalog.lastDiscoveryQuotaDate,
+      'lastDiscoveryQuotaDate'
+    )
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(quotaDate)) {
+      throw new Error('lastDiscoveryQuotaDate must use YYYY-MM-DD format.')
+    }
+    const searchRequestCount = requiredInteger(
+      catalog.lastSearchRequestCount,
+      NaN,
+      'lastSearchRequestCount',
+      1
+    )
+    if (searchRequestCount > MAX_SEARCH_REQUESTS_PER_DAY) {
+      throw new Error(
+        `lastSearchRequestCount may not exceed ${MAX_SEARCH_REQUESTS_PER_DAY}.`
+      )
+    }
+    assertUniqueStrings(catalog.lastDiscoveryLanguages, 'lastDiscoveryLanguages')
+    if (catalog.lastDiscoveryLanguages.length > languageBatchSize) {
+      throw new Error('lastDiscoveryLanguages may not exceed languageBatchSize.')
+    }
+    const configuredLanguages = new Set(catalog.languages)
+    catalog.lastDiscoveryLanguages.forEach(language => {
+      if (!configuredLanguages.has(language)) {
+        throw new Error(`lastDiscoveryLanguages contains unsupported language ${language}.`)
+      }
+    })
+  }
   if (!Array.isArray(catalog.channels)) throw new Error('channels must be an array.')
 
   const allowedLanguages = new Set(catalog.languages)
@@ -215,6 +279,12 @@ export function validateDiscoveredCatalogDelta({
   )
   const videoMinimum = requiredInteger(minVideos, DEFAULT_MIN_VIDEOS, 'minVideos', 1)
 
+  if (baseCatalog.schemaVersion === 1 && currentCatalog.schemaVersion !== 2) {
+    throw new Error('Automated discovery must migrate schemaVersion 1 to schemaVersion 2.')
+  }
+  if (baseCatalog.schemaVersion === 2 && currentCatalog.schemaVersion !== 2) {
+    throw new Error('Automated discovery may not downgrade schemaVersion 2.')
+  }
   if (currentCatalog.rotationCount !== baseCatalog.rotationCount) {
     throw new Error('Automated discovery may not change rotationCount.')
   }
@@ -224,9 +294,57 @@ export function validateDiscoveredCatalogDelta({
   if (currentCatalog.lastRotationIndex !== baseCatalog.nextRotationIndex) {
     throw new Error('lastRotationIndex must continue from the previous nextRotationIndex.')
   }
-  const expectedNext = (baseCatalog.nextRotationIndex + 1) % baseCatalog.rotationCount
-  if (currentCatalog.nextRotationIndex !== expectedNext) {
-    throw new Error(`nextRotationIndex must advance to ${expectedNext}.`)
+
+  if (baseCatalog.schemaVersion === 2) {
+    if (
+      currentCatalog.languageBatchCount !== baseCatalog.languageBatchCount
+      || currentCatalog.languageBatchSize !== baseCatalog.languageBatchSize
+    ) {
+      throw new Error('Automated discovery may not change language batch configuration.')
+    }
+    if (
+      currentCatalog.lastLanguageBatchIndex
+      !== baseCatalog.nextLanguageBatchIndex
+    ) {
+      throw new Error(
+        'lastLanguageBatchIndex must continue from the previous nextLanguageBatchIndex.'
+      )
+    }
+    if (
+      currentCatalog.lastDiscoveryQuotaDate
+      <= baseCatalog.lastDiscoveryQuotaDate
+    ) {
+      throw new Error('Automated discovery must advance to a later YouTube quota day.')
+    }
+  } else if (currentCatalog.lastLanguageBatchIndex !== 0) {
+    throw new Error('The first language-batched discovery must start at batch 0.')
+  }
+
+  const expectedNextLanguageBatch = (
+    currentCatalog.lastLanguageBatchIndex + 1
+  ) % currentCatalog.languageBatchCount
+  if (currentCatalog.nextLanguageBatchIndex !== expectedNextLanguageBatch) {
+    throw new Error(
+      `nextLanguageBatchIndex must advance to ${expectedNextLanguageBatch}.`
+    )
+  }
+  const expectedNextRotation = expectedNextLanguageBatch === 0
+    ? (baseCatalog.nextRotationIndex + 1) % baseCatalog.rotationCount
+    : baseCatalog.nextRotationIndex
+  if (currentCatalog.nextRotationIndex !== expectedNextRotation) {
+    throw new Error(`nextRotationIndex must advance to ${expectedNextRotation}.`)
+  }
+  const expectedActiveLanguages = currentCatalog.languages.slice(
+    currentCatalog.lastLanguageBatchIndex * currentCatalog.languageBatchSize,
+    (currentCatalog.lastLanguageBatchIndex + 1) * currentCatalog.languageBatchSize
+  )
+  if (
+    JSON.stringify(currentCatalog.lastDiscoveryLanguages)
+    !== JSON.stringify(expectedActiveLanguages)
+  ) {
+    throw new Error(
+      `lastDiscoveryLanguages must match language batch ${currentCatalog.lastLanguageBatchIndex}.`
+    )
   }
 
   const baseById = new Map(baseCatalog.channels.map(channel => [channel.channelId, channel]))
@@ -252,11 +370,31 @@ export function validateDiscoveredCatalogDelta({
   })
 
   const additions = currentCatalog.channels.filter(channel => !baseById.has(channel.channelId))
-  if (additions.length > maximum) {
+  const activeLanguageSet = new Set(currentCatalog.lastDiscoveryLanguages)
+  const batchMaximum = Math.min(
+    maximum,
+    currentCatalog.lastDiscoveryLanguages.length * MAX_ADDITIONS_PER_LANGUAGE
+  )
+  if (additions.length > batchMaximum) {
     throw new Error(
-      `Discovery added ${additions.length} channels, exceeding the limit of ${maximum}.`
+      `Discovery added ${additions.length} channels, exceeding the limit of ${batchMaximum}.`
     )
   }
+  additions.forEach(channel => {
+    if (channel.languages.some(language => !activeLanguageSet.has(language))) {
+      throw new Error(
+        `New discovered channel ${channel.channelId} is outside the active language batch.`
+      )
+    }
+  })
+  currentCatalog.lastDiscoveryLanguages.forEach(language => {
+    const count = additions.filter(channel => channel.languages.includes(language)).length
+    if (count > MAX_ADDITIONS_PER_LANGUAGE) {
+      throw new Error(
+        `Discovery added ${count} ${language} channels, exceeding the per-language limit of ${MAX_ADDITIONS_PER_LANGUAGE}.`
+      )
+    }
+  })
 
   const known = collectKnownIdentities(otherCatalogs)
   additions.forEach(channel => {
