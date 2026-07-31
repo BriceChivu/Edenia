@@ -7,10 +7,10 @@ import {
 
 export { createSystemCommandRunner }
 
-export function mergeCheckedDiscoveryPullRequest(spec, options = {}) {
+export function mergeCheckedCommunityPullRequest(spec, options = {}) {
   return mergeCheckedCatalogPullRequest({
     ...spec,
-    kind: 'discovery'
+    kind: 'community'
   }, options)
 }
 
@@ -22,17 +22,17 @@ function isMainModule() {
 if (isMainModule()) {
   try {
     if (process.env.GITHUB_ACTIONS !== 'true') {
-      throw new Error('Discovery pull requests may only be merged from GitHub Actions.')
+      throw new Error('Community catalog pull requests may only be merged from GitHub Actions.')
     }
     if (!String(process.env.GH_TOKEN || '').trim()) {
-      throw new Error('GH_TOKEN is required to merge the discovery pull request.')
+      throw new Error('GH_TOKEN is required to merge the community catalog pull request.')
     }
-    mergeCheckedDiscoveryPullRequest({
+    mergeCheckedCommunityPullRequest({
       repository: process.env.GITHUB_REPOSITORY,
-      pullRequestNumber: process.env.DISCOVERY_PR_NUMBER,
-      checkedBaseSha: process.env.DISCOVERY_PR_BASE_SHA,
-      checkedHeadSha: process.env.DISCOVERY_PR_HEAD_SHA,
-      conclusion: process.env.DISCOVERY_CI_CONCLUSION
+      pullRequestNumber: process.env.COMMUNITY_PR_NUMBER,
+      checkedBaseSha: process.env.COMMUNITY_PR_BASE_SHA,
+      checkedHeadSha: process.env.COMMUNITY_PR_HEAD_SHA,
+      conclusion: process.env.COMMUNITY_CI_CONCLUSION
     })
   } catch (error) {
     console.error(error.message)
