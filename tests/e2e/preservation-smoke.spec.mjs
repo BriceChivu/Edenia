@@ -3923,7 +3923,15 @@ test('city waveform touch dragging remains at both scroll endpoints after releas
   await waitForApplication(page)
 
   const bars = page.locator('#cityWaveBars')
+  const track = page.locator('#cityWaveTrack')
   await expect(bars).toHaveClass(/\bis-scrollable\b/)
+  const endpointOffsets = await track.evaluate(element => {
+    const dayBars = element.querySelectorAll('.city-wave-bar')
+    return {
+      first: dayBars[0]?.dataset.offset,
+      last: dayBars[dayBars.length - 1]?.dataset.offset
+    }
+  })
 
   const dragToEndpoint = async direction => {
     await bars.evaluate((element, dragDirection) => {
@@ -3962,10 +3970,34 @@ test('city waveform touch dragging remains at both scroll endpoints after releas
   await expect.poll(() => bars.evaluate(element => (
     Math.abs(element.scrollLeft - (element.scrollWidth - element.clientWidth))
   ))).toBeLessThanOrEqual(1)
+  await expect(track.locator('.city-wave-bar.selected'))
+    .toHaveAttribute('data-offset', endpointOffsets.last)
+  await expect.poll(() => bars.evaluate(element => {
+    const selected = element.querySelector('.city-wave-bar.selected')
+    const barsRect = element.getBoundingClientRect()
+    const selectedRect = selected?.getBoundingClientRect()
+    if (!selectedRect) return Number.POSITIVE_INFINITY
+    return Math.abs(
+      (selectedRect.left + selectedRect.width / 2)
+      - (barsRect.left + barsRect.width / 2)
+    )
+  })).toBeLessThanOrEqual(1)
 
   await dragToEndpoint('left')
   await expect.poll(() => bars.evaluate(element => element.scrollLeft))
     .toBeLessThanOrEqual(1)
+  await expect(track.locator('.city-wave-bar.selected'))
+    .toHaveAttribute('data-offset', endpointOffsets.first)
+  await expect.poll(() => bars.evaluate(element => {
+    const selected = element.querySelector('.city-wave-bar.selected')
+    const barsRect = element.getBoundingClientRect()
+    const selectedRect = selected?.getBoundingClientRect()
+    if (!selectedRect) return Number.POSITIVE_INFINITY
+    return Math.abs(
+      (selectedRect.left + selectedRect.width / 2)
+      - (barsRect.left + barsRect.width / 2)
+    )
+  })).toBeLessThanOrEqual(1)
 })
 
 test('city waveform bar listeners preserve preview, selection, analytics, and replacement ordering', async ({

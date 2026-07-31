@@ -10742,8 +10742,37 @@ function getCityWaveformLevelChangeDates(s, days) {
 
 function updateCityWaveformScrollState() {
   const bars = document.getElementById('cityWaveBars')
-  if (!bars) return
-  bars.classList.toggle('is-scrollable', bars.scrollWidth > bars.clientWidth + 1)
+  const track = document.getElementById('cityWaveTrack')
+  if (!bars || !track) return
+
+  track.style.setProperty('--city-wave-edge-space', '0px')
+  bars.classList.remove('is-scrollable')
+  bars.classList.remove('has-centered-touch-ends')
+  const isScrollable = bars.scrollWidth > bars.clientWidth + 1
+  bars.classList.toggle('is-scrollable', isScrollable)
+  if (!isScrollable || !usesPhoneComposition()) return
+
+  const firstBar = track.querySelector('.city-wave-bar')
+  if (!firstBar) return
+  const styles = getComputedStyle(bars)
+  const trackStyles = getComputedStyle(track)
+  const horizontalPadding =
+    Number.parseFloat(styles.paddingLeft)
+    + Number.parseFloat(styles.paddingRight)
+  const itemGap = Number.parseFloat(trackStyles.columnGap) || 0
+  const edgeSpace = Math.max(
+    0,
+    ((bars.clientWidth - horizontalPadding - firstBar.getBoundingClientRect().width) / 2)
+    - itemGap
+  )
+  track.style.setProperty('--city-wave-edge-space', `${edgeSpace}px`)
+  bars.classList.add('has-centered-touch-ends')
+}
+
+function refreshCityWaveformScrollGeometry() {
+  updateCityWaveformScrollState()
+  const selectedBar = document.querySelector('#cityWaveTrack .city-wave-bar.selected')
+  if (selectedBar) centerCityWaveBar(selectedBar)
 }
 
 function initCityWaveformTouchNavigation() {
@@ -14449,6 +14478,7 @@ window.addEventListener('resize', () => positionVideoShelfPlayerOverlay(), { pas
 window.addEventListener('resize', syncMobileAddButtonWidth, { passive: true })
 window.addEventListener('resize', syncIntroTrailerStageScale, { passive: true })
 window.addEventListener('resize', scheduleOnboardingChoiceLayoutSync, { passive: true })
+window.addEventListener('resize', refreshCityWaveformScrollGeometry, { passive: true })
 window.visualViewport?.addEventListener('resize', scheduleOnboardingChoiceLayoutSync, { passive: true })
 document.fonts?.ready.then(scheduleOnboardingChoiceLayoutSync).catch(() => {})
 document.addEventListener('visibilitychange', refreshOpenChannelFilterTimestamps)
