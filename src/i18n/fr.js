@@ -73,7 +73,7 @@ export const FR_LOCALIZED = {
     'onboarding.level.beginner.label': 'Débutant',
     'onboarding.level.beginner.detail': 'Je connais des mots et des phrases simples.',
     'onboarding.level.intermediate.label': 'Intermédiaire',
-    'onboarding.level.intermediate.detail': 'Je peux suivre du contenu pour apprenants et quelques ressources natives.',
+    'onboarding.level.intermediate.detail': 'Je comprends du contenu natif.',
     'onboarding.level.advanced.label': 'Avancé',
     'onboarding.level.advanced.detail': 'J’apprends surtout avec du contenu natif.',
     'onboarding.level.not-sure.label': 'Je ne sais pas',

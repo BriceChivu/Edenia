@@ -25,11 +25,11 @@ import {
 } from '../../src/i18n/runtime.js'
 
 const EXPECTED_DICTIONARY_HASHES = {
-  en: '1b45ee8a92577cbc78f908632d46e984dffaa8c02b589ffa2a390fba2f939b1e',
-  'zh-Hant': 'e07a0c62106af631c98eb3a70107672724679497e3f87e252b31261de5c5559c',
-  'zh-Hans': 'fdba7d63a56b32f296df2387e734de62b00588cc773f8b44f0759b36fff7382e',
-  es: 'f0a4bda6057132f8f85c5d1557b0db4d14a87e69d9fd23d27203b5ff351fa812',
-  fr: '4023b8b2d3982ee4da4ad57f5b13721fef319ea321b972f6b999d49332a17a7e'
+  en: '1341731e9a189dccfb3ae2cd30056b2ecd2fbb2a5da8b5d4a3edf692711f9249',
+  'zh-Hant': '9f1c5a4b42d200a5a2bf8eaed4776fa112b7fd5a34b8189c92dbef4e64b10b57',
+  'zh-Hans': '624328ef96ab8bc3b6a20990edaf4a1a39e6150c64876fe8694c390b0a506650',
+  es: '53e75dcaa26da515589831f97a729a5aac2accfc32849242bc9fc2d83bef0eb0',
+  fr: 'db3d84cca5db26a686bd04b801e15f304a5db08ce4371aa1415e6eed1e7f4511'
 }
 
 const EXPECTED_KEY_ORDER_HASHES = {

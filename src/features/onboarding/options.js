@@ -12,7 +12,7 @@ export const LEARNER_LANGUAGE_OPTIONS = [
 export const LEARNER_LEVEL_OPTIONS = [
   { id: 'starting', label: 'Just starting', detail: 'I understand very little so far.' },
   { id: 'beginner', label: 'Beginner', detail: 'I know basic words and sentences.' },
-  { id: 'intermediate', label: 'Intermediate', detail: 'I can follow learner content and some native material.' },
+  { id: 'intermediate', label: 'Intermediate', detail: 'I can follow some native content.' },
   { id: 'advanced', label: 'Advanced', detail: 'I mostly learn through native content.' },
   { id: 'not-sure', label: 'Not sure', detail: 'Give me a balanced starter mix.' }
 ]

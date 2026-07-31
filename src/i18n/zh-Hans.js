@@ -73,7 +73,7 @@ export const ZH_HANS_LOCALIZED = {
     'onboarding.level.beginner.label': '初级',
     'onboarding.level.beginner.detail': '我知道基本单词和句子。',
     'onboarding.level.intermediate.label': '中级',
-    'onboarding.level.intermediate.detail': '我能理解学习者内容和一些母语素材。',
+    'onboarding.level.intermediate.detail': '我能理解一些母语内容。',
     'onboarding.level.advanced.label': '高级',
     'onboarding.level.advanced.detail': '我主要通过母语内容学习。',
     'onboarding.level.not-sure.label': '不确定',
