@@ -261,16 +261,19 @@ Unexpected paths, removals, identity changes, duplicates, invalid metadata,
 ineligible additions, rotation errors, or excessive growth fail closed and leave
 the deployed catalog unchanged.
 
-Each run searches French, English, German, Mandarin Chinese, Russian, Spanish, Japanese, and Portuguese with three focused channel queries per language. The queries rotate through four weekly groups covering beginner material, listening and stories, grammar and vocabulary, and intermediate conversation or podcasts. Every group includes a query written in the target language, and its final query is ordered by channel creation date.
+Each run searches one two-language batch with three focused channel queries per language. The four daily batches cover French and English, German and Mandarin Chinese, Russian and Spanish, then Japanese and Portuguese. After all eight languages have run, their queries advance to the next of four groups covering beginner material, listening and stories, grammar and vocabulary, and intermediate conversation or podcasts. Every group includes a query written in the target language, and its final query is ordered by channel creation date.
 
-The first page of each query uses 24 `search.list` calls. If a language still has fewer than six eligible additions after filtering and deduplication, the script requests the second page for that language's current queries. The absolute maximum is therefore 48 search calls per run. The next rotation index is stored in `data/channel-catalog.discovered.json`, so scheduled and manual runs continue the sequence rather than choosing queries randomly.
+The first page of each query uses six `search.list` calls. If either active language still has fewer than six eligible additions after filtering and deduplication, the script can request only one additional results page. A hard request budget stops the run before an eighth search, so automated discovery uses at most seven YouTube searches per Pacific Time quota day. Search pages request the API maximum of 50 results to get the most candidate coverage from each call.
+
+Before searching, the workflow claims the current Pacific Time quota day in the GitHub Actions cache. A second scheduled or manual attempt on that day exits without contacting YouTube. A completed result is cached separately, so validation or publication retries reuse the generated catalog rather than repeating the API search. The quota day, search count, active languages, language-batch cursor, and query cursor are also stored in `data/channel-catalog.discovered.json`.
 
 The script then uses batched `channels.list` requests to verify metadata, statistics, public availability, and profile-picture URLs.
 
 Automatic additions are deliberately conservative:
 
 - No more than six new channels per language and run.
-- No more than 48 new channels across the entire run by default.
+- No more than 12 new channels across the two active languages by default.
+- No more than seven `search.list` requests per Pacific Time quota day.
 - At least 100 visible subscribers, unless subscriber counts are hidden.
 - At least 10 published videos.
 - The channel title, handle, or description must contain both the target language and language-learning signals.
@@ -287,6 +290,10 @@ These optional repository variables can tune its conservative defaults:
 - `DISCOVERY_MAX_TOTAL_ADDITIONS`
 - `DISCOVERY_MIN_SUBSCRIBERS`
 - `DISCOVERY_MIN_VIDEOS`
+
+The workflow fixes `DISCOVERY_MAX_SEARCH_REQUESTS` at seven. The script rejects a
+higher value so a repository-variable change cannot silently weaken the daily
+search ceiling.
 
 The unattended pull-request publisher also requires a dedicated GitHub App.
 Using an App keeps the credential short-lived and ensures the bot-created pull
