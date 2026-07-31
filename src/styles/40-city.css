@@ -262,6 +262,7 @@
   display: none;
 }
 .city-wave-track {
+  --city-wave-edge-space: 0px;
   align-items: center;
   display: flex;
   gap: 2px;
@@ -269,6 +270,11 @@
   min-height: 100%;
   min-width: 100%;
   width: max-content;
+}
+.city-wave-bars.has-centered-touch-ends .city-wave-track::before,
+.city-wave-bars.has-centered-touch-ends .city-wave-track::after {
+  content: "";
+  flex: 0 0 var(--city-wave-edge-space);
 }
 .city-wave-bars.is-scrollable .city-wave-track {
   justify-content: flex-start;
