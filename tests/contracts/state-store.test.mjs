@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createStateStore } from '../../src/state/store.js'
+import {
+  createStateStore,
+  isStorageQuotaError
+} from '../../src/state/store.js'
+
+function quotaError(name = 'QuotaExceededError', code = 22) {
+  const error = new Error('storage full')
+  error.name = name
+  error.code = code
+  return error
+}
 
 function createHarness(options = {}) {
   const events = []
@@ -9,6 +19,7 @@ function createHarness(options = {}) {
     values.set('edenia_v1', options.raw)
   }
   let primaryWriteAttempts = 0
+  const pruneResults = [...(options.pruneResults || [])]
   const storage = {
     getItem(key) {
       events.push(['get', key])
@@ -19,6 +30,10 @@ function createHarness(options = {}) {
       events.push(['set', key, value])
       if (key === 'edenia_v1') {
         primaryWriteAttempts += 1
+        const primaryWriteError = options.primaryWriteErrors?.[
+          primaryWriteAttempts - 1
+        ]
+        if (primaryWriteError) throw primaryWriteError
         if (primaryWriteAttempts <= (options.failPrimaryWrites || 0)) {
           throw new Error('set failed')
         }
@@ -50,9 +65,9 @@ function createHarness(options = {}) {
       events.push(['backup', reason, backupOptions])
       if (options.throwDuringBackup) throw new Error('backup failed')
     },
-    pruneOldestStateBackup() {
-      events.push(['prune'])
-      return true
+    pruneOldestStateBackup(pruneOptions) {
+      events.push(['prune', pruneOptions])
+      return pruneResults.length ? pruneResults.shift() : true
     },
     saveConfigCookie(config) {
       events.push(['cookie', config])
@@ -218,6 +233,91 @@ test('failed writes prune once, retry once, and always save the config cookie', 
       'cookie'
     ]
   )
+})
+
+test('import saving prunes older backups until a quota retry succeeds', () => {
+  const state = { config: { locale: 'en' }, value: 1 }
+  const firstQuotaError = quotaError()
+  const secondQuotaError = quotaError()
+  const harness = createHarness({
+    primaryWriteErrors: [firstQuotaError, secondQuotaError],
+    pruneResults: [true, true]
+  })
+  assert.deepEqual(harness.store.saveImportedState(state, {
+    preserveBackupId: 'rollback'
+  }), {
+    persisted: true,
+    error: null
+  })
+  assert.deepEqual(
+    harness.events.map(event => event[0]),
+    [
+      'normalize-before-save',
+      'set',
+      'prune',
+      'set',
+      'prune',
+      'set',
+      'cookie',
+      'analytics'
+    ]
+  )
+  assert.deepEqual(harness.events.filter(event => event[0] === 'prune'), [
+    ['prune', { preserveId: 'rollback' }],
+    ['prune', { preserveId: 'rollback' }]
+  ])
+})
+
+test('import saving preserves state when only the rollback backup remains', () => {
+  const state = { config: { locale: 'en' }, value: 1 }
+  const finalQuotaError = quotaError()
+  const harness = createHarness({
+    raw: JSON.stringify({ config: {}, value: 'existing' }),
+    primaryWriteErrors: [quotaError(), finalQuotaError],
+    pruneResults: [true, false]
+  })
+  assert.deepEqual(harness.store.saveImportedState(state, {
+    preserveBackupId: 'rollback'
+  }), {
+    persisted: false,
+    error: finalQuotaError
+  })
+  assert.equal(
+    harness.values.get('edenia_v1'),
+    JSON.stringify({ config: {}, value: 'existing' })
+  )
+  assert.deepEqual(
+    harness.events.map(event => event[0]),
+    ['normalize-before-save', 'set', 'prune', 'set', 'prune']
+  )
+})
+
+test('import saving does not prune backups for non-quota failures', () => {
+  const state = { config: { locale: 'en' }, value: 1 }
+  const securityError = new Error('storage unavailable')
+  securityError.name = 'SecurityError'
+  const harness = createHarness({
+    primaryWriteErrors: [securityError]
+  })
+  assert.deepEqual(harness.store.saveImportedState(state), {
+    persisted: false,
+    error: securityError
+  })
+  assert.deepEqual(
+    harness.events.map(event => event[0]),
+    ['normalize-before-save', 'set']
+  )
+})
+
+test('quota detection recognizes browser storage error variants', () => {
+  assert.equal(isStorageQuotaError(quotaError()), true)
+  assert.equal(
+    isStorageQuotaError(quotaError('NS_ERROR_DOM_QUOTA_REACHED', 1014)),
+    true
+  )
+  assert.equal(isStorageQuotaError({ code: 22 }), true)
+  assert.equal(isStorageQuotaError(new Error('storage full')), false)
+  assert.equal(isStorageQuotaError(null), false)
 })
 
 test('pre-save normalization and backup failures still propagate', () => {

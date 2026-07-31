@@ -25,24 +25,46 @@ export function createStateBackupStore({
     }
   }
 
-  function writeStateBackupEntries(entries) {
+  function writeStateBackupEntries(entries, { removeOnFailure = true } = {}) {
     let nextEntries = entries.slice(0, STATE_BACKUP_LIMIT)
     while (nextEntries.length) {
       try {
         storage.setItem(stateBackupKey, JSON.stringify(nextEntries))
-        return
+        return nextEntries
       } catch {
         nextEntries = nextEntries.slice(0, -1)
       }
     }
-    try { storage.removeItem(stateBackupKey) } catch {}
+    if (removeOnFailure) {
+      try { storage.removeItem(stateBackupKey) } catch {}
+    }
+    return []
   }
 
-  function pruneOldestStateBackup() {
+  function pruneOldestStateBackup({ preserveId = null } = {}) {
     const entries = getStateBackupEntries()
     if (!entries.length) return false
-    writeStateBackupEntries(entries.slice(0, -1))
-    return true
+    const pruneIndex = entries.findLastIndex(entry => entry.id !== preserveId)
+    if (pruneIndex < 0) return false
+    const nextEntries = entries.filter((_, index) => index !== pruneIndex)
+    if (!nextEntries.length) {
+      try {
+        storage.removeItem(stateBackupKey)
+        return true
+      } catch {
+        return false
+      }
+    }
+    const writtenEntries = writeStateBackupEntries(nextEntries, {
+      removeOnFailure: false
+    })
+    return Boolean(
+      writtenEntries.length
+      && (
+        !preserveId
+        || writtenEntries.some(entry => entry.id === preserveId)
+      )
+    )
   }
 
   function getStoredStateForBackup() {
@@ -56,7 +78,7 @@ export function createStateBackupStore({
   }
 
   function createStateBackup(reason = 'automatic backup', options = {}) {
-    const { force = false } = options
+    const { force = false, returnExisting = false } = options
     const state = getStoredStateForBackup()
     if (!state) return null
 
@@ -77,7 +99,9 @@ export function createStateBackupStore({
     }
 
     try {
-      if (latest && JSON.stringify(latest.state) === JSON.stringify(state)) return null
+      if (latest && JSON.stringify(latest.state) === JSON.stringify(state)) {
+        return returnExisting ? latest : null
+      }
     } catch {}
 
     const entry = {
@@ -87,8 +111,12 @@ export function createStateBackupStore({
       sandbox: isSandbox,
       state
     }
-    writeStateBackupEntries([entry, ...entries])
-    return entry
+    const writtenEntries = writeStateBackupEntries([entry, ...entries], {
+      removeOnFailure: false
+    })
+    return writtenEntries.some(writtenEntry => writtenEntry.id === entry.id)
+      ? entry
+      : null
   }
 
   function getLatestBackupState() {
