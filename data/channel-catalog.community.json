@@ -1,6 +1,30 @@
 {
   "schemaVersion": 1,
-  "generatedAt": null,
   "minimumDistinctUsers": 2,
-  "channels": []
+  "channels": [
+    {
+      "catalogId": "community-UC6vaHDbhkdOtq_HQ60bNGNA",
+      "channelId": "UC6vaHDbhkdOtq_HQ60bNGNA",
+      "handle": "@zhangkaichinese",
+      "name": "Zhangkai Chinese",
+      "thumbnailUrl": "https://yt3.ggpht.com/z1rbw7qsSxNVzqVHOOjN_PoF9rK8R1I5n6l8SE38V1BG9jhLJ-P80imtafSJSOX93SbZaJn7fg=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-11-27T04:39:46.044142Z",
+      "metadataRefreshedAt": "2026-07-31T05:52:48.386Z",
+      "addCount": 2,
+      "distinctUserCount": 2,
+      "firstSeenAt": "2026-07-21T03:30:35.829Z",
+      "lastSeenAt": "2026-07-29T13:01:44.760Z",
+      "sources": [],
+      "searchText": "zhangkai chinese zhangkaichinese",
+      "promotedAt": "2026-07-31T05:52:48.411Z"
+    }
+  ],
+  "generatedAt": "2026-07-31T05:52:48.411Z"
 }
