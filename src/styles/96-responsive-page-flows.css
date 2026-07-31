@@ -282,7 +282,7 @@
     min-height: 0;
     overflow: hidden;
   }
-  .onboarding-panel:not(.is-recovery).is-level-step .onboarding-card {
+  .onboarding-panel:not(.is-recovery):is(.is-language-step, .is-level-step) .onboarding-card {
     align-content: center;
     align-content: safe center;
     grid-template-rows: max-content max-content max-content max-content;
@@ -292,7 +292,7 @@
     align-content: safe center;
     grid-template-rows: max-content max-content max-content;
   }
-  .onboarding-panel:not(.is-recovery):is(.is-level-step, .is-channel-step) .onboarding-content {
+  .onboarding-panel:not(.is-recovery):is(.is-language-step, .is-level-step, .is-channel-step) .onboarding-content {
     align-content: center;
     align-content: safe center;
     grid-template-rows: max-content max-content max-content;
@@ -369,20 +369,20 @@
   .onboarding-actions .btn-ghost {
     width: 100%;
   }
-  .onboarding-panel:not(.is-recovery):is(.is-level-step, .is-channel-step)
+  .onboarding-panel:not(.is-recovery):is(.is-language-step, .is-level-step, .is-channel-step)
   .onboarding-actions {
     min-width: 0;
   }
-  .onboarding-panel:not(.is-recovery):is(.is-level-step, .is-channel-step)
+  .onboarding-panel:not(.is-recovery):is(.is-language-step, .is-level-step, .is-channel-step)
   .onboarding-actions .btn-primary {
     min-width: 0;
   }
-  .onboarding-panel:not(.is-recovery):is(.is-level-step, .is-channel-step)
+  .onboarding-panel:not(.is-recovery):is(.is-language-step, .is-level-step, .is-channel-step)
   .onboarding-actions .btn-ghost {
     min-width: 0;
   }
   .onboarding-panel:not(.is-recovery)[data-onboarding-choice-layout^="double"]
-  :is(.onboarding-level-grid, .onboarding-channel-list-grid) {
+  :is(.onboarding-language-grid, .onboarding-level-grid, .onboarding-channel-list-grid) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .onboarding-panel:not(.is-recovery)[data-onboarding-choice-layout^="double"]
@@ -432,7 +432,7 @@
     overflow: visible;
   }
   .onboarding-panel:not(.is-recovery)[data-onboarding-choice-layout="double-inline-scroll"]
-  :is(.onboarding-level-grid, .onboarding-channel-list) {
+  :is(.onboarding-language-grid, .onboarding-level-grid, .onboarding-channel-list) {
     overflow: visible;
   }
   .onboarding-panel:not(.is-recovery)[data-onboarding-choice-layout="double-inline-scroll"]
@@ -441,7 +441,7 @@
     max-height: none;
   }
   .onboarding-panel.is-choice-layout-measuring
-  :is(.onboarding-level-grid, .onboarding-channel-list, .onboarding-actions) {
+  :is(.onboarding-language-grid, .onboarding-level-grid, .onboarding-channel-list, .onboarding-actions) {
     transition: none !important;
   }
   .toast {
