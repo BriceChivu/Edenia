@@ -110,7 +110,7 @@ test('channel choices retain exact hook, avatar, and ARIA markup', () => {
   )
   assert.match(
     channel.content,
-    /<span class="onboarding-channel-check" aria-hidden="true">✓<\/span>/
+    /<span class="onboarding-channel-check" aria-hidden="true">\s*<svg class="onboarding-channel-check-icon" xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1\.5" aria-hidden="true" focusable="false">\s*<path stroke-linecap="round" stroke-linejoin="round" d="m4\.5 12\.75 6 6 9-13\.5"><\/path>\s*<\/svg>\s*<\/span>/
   )
 })
 
