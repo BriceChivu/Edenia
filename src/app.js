@@ -2685,6 +2685,7 @@ function renderOnboardingChannelsStep(content) {
               <span class="onboarding-channel-name">${escHtml(channel.name)}</span>
               <span class="onboarding-channel-meta">${escHtml(t(ONBOARDING_CHANNEL_STYLE_KEYS[channel.style] || channel.style))}</span>
             </span>
+            <span class="onboarding-channel-check" aria-hidden="true">✓</span>
           </button>
         `
       }).join('')
@@ -2771,10 +2772,7 @@ function toggleOnboardingChannel(catalogId) {
     selectedIds.add(catalogId)
   }
   personalizedOnboardingState.selectedChannelCatalogIds = [...selectedIds]
-  const control = [...document.querySelectorAll('.onboarding-channel')]
-    .find(channel => channel.dataset.catalogId === catalogId)
-  control?.setAttribute('aria-pressed', String(selectedIds.has(catalogId)))
-  syncOnboardingChoiceLayout()
+  renderPersonalizedOnboarding()
 }
 
 function resolveCuratedChannelEntry(entry) {

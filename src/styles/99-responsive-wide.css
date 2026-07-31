@@ -657,9 +657,7 @@ body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closi
   }
   .channel-shelf-card,
   .channel-shelf-card .card-body,
-  .channel-shelf-card .thumb,
-  .onboarding-channel,
-  .onboarding-channel-avatar {
+  .channel-shelf-card .thumb {
     transition: none;
   }
   .video-card.watch-reminder-arriving {

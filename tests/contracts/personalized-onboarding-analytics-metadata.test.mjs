@@ -158,7 +158,8 @@ const expectedVariants = {
       content: [
         '<span class="onboarding-channel-avatar" aria-hidden="true">${avatar}</span>',
         '<span class="onboarding-channel-name">${escHtml(channel.name)}</span>',
-        '<span class="onboarding-channel-meta">${escHtml(t(ONBOARDING_CHANNEL_STYLE_KEYS[channel.style] || channel.style))}</span>'
+        '<span class="onboarding-channel-meta">${escHtml(t(ONBOARDING_CHANNEL_STYLE_KEYS[channel.style] || channel.style))}</span>',
+        '<span class="onboarding-channel-check" aria-hidden="true">✓</span>'
       ],
       dataName: 'data-catalog-id',
       dataValue: '${escHtml(channel.id)}',
@@ -389,7 +390,7 @@ test('step navigation retains guards, directional analytics, and rerendering', (
   assert.match(source, /renderPersonalizedOnboarding\(\)/)
 })
 
-test('channel toggling retains guards, limit feedback, and live visual state', () => {
+test('channel toggling retains guards, limit feedback, and replacement', () => {
   const source = getFunctionSource(
     'toggleOnboardingChannel',
     'resolveCuratedChannelEntry'
@@ -404,9 +405,8 @@ test('channel toggling retains guards, limit feedback, and live visual state', (
   )
   assert.match(
     source,
-    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\.\.\.selectedIds\]\s*const control = \[\.\.\.document\.querySelectorAll\('\.onboarding-channel'\)\][\s\S]*?control\?\.setAttribute\('aria-pressed', String\(selectedIds\.has\(catalogId\)\)\)\s*syncOnboardingChoiceLayout\(\)/
+    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\.\.\.selectedIds\]\s*renderPersonalizedOnboarding\(\)/
   )
-  assert.doesNotMatch(source, /renderPersonalizedOnboarding\(\)/)
 })
 
 test('finish retains synchronous busy replacement before asynchronous work', () => {
