@@ -1207,13 +1207,75 @@ test('Settings sync listeners preserve download, picker, import, and failure ord
     buffer: Buffer.from('{not valid json')
   })
   await expect(toast).toHaveText(
-    'Impossible de lire le fichier de synchronisation'
+    'Ce fichier de synchronisation contient du JSON non valide'
   )
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
     .toBe(primaryBeforeInvalidFile)
   expect(await page.evaluate(
     () => localStorage.getItem('edenia_v1_backups')
   )).toBe(backupsBeforeInvalidFile)
+  expect(await input.evaluate(element => ({
+    files: element.files?.length || 0,
+    value: element.value
+  }))).toEqual({
+    files: 0,
+    value: ''
+  })
+
+  const primaryBeforeQuotaFailure = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+  await page.evaluate(() => {
+    window.__originalStorageSetItem = Storage.prototype.setItem
+    Storage.prototype.setItem = function setItemWithImportQuota(key, value) {
+      if (key === 'edenia_v1') {
+        throw new DOMException(
+          'Setting the value of edenia_v1 exceeded the quota.',
+          'QuotaExceededError'
+        )
+      }
+      return window.__originalStorageSetItem.call(this, key, value)
+    }
+  })
+  const quotaChooserPromise = page.waitForEvent('filechooser')
+  await importControl.click()
+  const quotaChooser = await quotaChooserPromise
+  await quotaChooser.setFiles({
+    name: 'quota-sync.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({
+      app: 'edenia',
+      syncVersion: 1,
+      exportedAt: fixedNow.toISOString(),
+      sandbox: false,
+      state: importedState
+    }))
+  })
+  await expect(toast).toHaveText(
+    'L’espace de stockage du navigateur est insuffisant pour importer ce fichier en toute sécurité. Votre progression actuelle n’a pas été modifiée.'
+  )
+  const quotaFailureResult = await page.evaluate(() => {
+    Storage.prototype.setItem = window.__originalStorageSetItem
+    delete window.__originalStorageSetItem
+    return {
+      primary: localStorage.getItem('edenia_v1'),
+      backups: JSON.parse(
+        localStorage.getItem('edenia_v1_backups') || '[]'
+      )
+    }
+  })
+  expect(quotaFailureResult.primary).toBe(primaryBeforeQuotaFailure)
+  expect(quotaFailureResult.backups).toHaveLength(1)
+  expect(quotaFailureResult.backups[0]).toMatchObject({
+    reason: 'before sync import',
+    sandbox: false,
+    state: {
+      config: {
+        locale: 'fr',
+        theme: 'dark'
+      }
+    }
+  })
   expect(await input.evaluate(element => ({
     files: element.files?.length || 0,
     value: element.value

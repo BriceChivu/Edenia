@@ -160,7 +160,10 @@ import {
   createDefaultStateFactory,
   normalizeHistoryView
 } from './state/default-state.js'
-import { createStateStore } from './state/store.js'
+import {
+  createStateStore,
+  isStorageQuotaError
+} from './state/store.js'
 import { createStateBackupStore } from './state/backups.js'
 import {
   bindIntroCityLevelActions
@@ -380,6 +383,7 @@ const {
 const {
   canPersistLocalState,
   loadState,
+  saveImportedState,
   saveState
 } = createStateStore({
   storage: localStorage,
@@ -3986,8 +3990,16 @@ function importSyncFileFromInput(input) {
 
   const reader = new FileReader()
   reader.onload = () => {
+    let payload
     try {
-      const payload = JSON.parse(String(reader.result || ''))
+      payload = JSON.parse(String(reader.result || ''))
+    } catch {
+      showToast(t('toast.invalidSyncJson'), 'error')
+      input.value = ''
+      return
+    }
+
+    try {
       const importedState = getImportedSyncState(payload)
       if (!importedState) {
         showToast(t('toast.invalidSync'), 'error')
@@ -3998,15 +4010,22 @@ function importSyncFileFromInput(input) {
         return
       }
 
-      const rollbackBackup = createStateBackup('before sync import', { force: true })
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(importedState))
-      const normalizedState = loadState()
-      if (!normalizedState) {
-        showToast(t('toast.importFailed'), 'error')
+      const hadStoredState = Boolean(localStorage.getItem(STORAGE_KEY))
+      const existingBackupIds = new Set(
+        getStateBackupEntries().map(backup => backup.id)
+      )
+      const rollbackBackup = createStateBackup('before sync import', {
+        force: true,
+        returnExisting: true
+      })
+      if (hadStoredState && !rollbackBackup) {
+        showToast(t('toast.importStorageFull'), 'error')
         return
       }
-      if (rollbackBackup) {
-        appendActivityLog(normalizedState, {
+
+      normalizeLoadedState(importedState)
+      if (rollbackBackup && !existingBackupIds.has(rollbackBackup.id)) {
+        appendActivityLog(importedState, {
           actor: 'auto',
           type: 'backup',
           status: 'info',
@@ -4014,32 +4033,45 @@ function importSyncFileFromInput(input) {
           detail: t('log.rollback.beforeImport')
         })
       }
-      appendActivityLog(normalizedState, {
+      appendActivityLog(importedState, {
         actor: 'user',
         type: 'import',
         status: 'success',
         title: t('log.syncImported.title'),
         detail: file.name || t('log.syncImported.detail')
       })
-      syncStreak(normalizedState)
-      saveState(normalizedState, { backup: false })
-      applyLocale(normalizedState.config.locale)
-      updateDocumentTitle(normalizedState)
-      applyTheme(normalizedState.config.theme)
-      setDefaultCityDayOffset(normalizedState)
-      renderAll(normalizedState)
-      if (!normalizeIncludeShorts(normalizedState.config.includeShorts)) repairStoredShortsDetection()
-      renderChannelList(normalizedState.config.channels)
+      syncStreak(importedState)
+      const saveResult = saveImportedState(importedState, {
+        preserveBackupId: rollbackBackup?.id || null
+      })
+      if (!saveResult.persisted) {
+        if (isStorageQuotaError(saveResult.error)) {
+          showToast(t('toast.importStorageFull'), 'error')
+        } else {
+          console.error('Edenia sync import failed', saveResult.error)
+          showToast(t('toast.importFailed'), 'error')
+        }
+        return
+      }
+
+      applyLocale(importedState.config.locale)
+      updateDocumentTitle(importedState)
+      applyTheme(importedState.config.theme)
+      setDefaultCityDayOffset(importedState)
+      renderAll(importedState)
+      if (!normalizeIncludeShorts(importedState.config.includeShorts)) repairStoredShortsDetection()
+      renderChannelList(importedState.config.channels)
       renderBackupList()
-      renderActivityLog(normalizedState)
+      renderActivityLog(importedState)
       renderLocaleSelect()
-      document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(normalizedState.config.includeShorts)
-      document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(normalizedState)
-      document.getElementById('settingsInsightsEnabled').checked = isStudyInsightsEnabled(normalizedState)
-      applyAnkiRefreshPreference(normalizedState)
+      document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(importedState.config.includeShorts)
+      document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(importedState)
+      document.getElementById('settingsInsightsEnabled').checked = isStudyInsightsEnabled(importedState)
+      applyAnkiRefreshPreference(importedState)
       showToast(t('toast.syncImported'))
-    } catch {
-      showToast(t('toast.readSyncFailed'), 'error')
+    } catch (error) {
+      console.error('Edenia sync import failed', error)
+      showToast(t('toast.importFailed'), 'error')
     } finally {
       input.value = ''
     }

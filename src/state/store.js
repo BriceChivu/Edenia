@@ -11,6 +11,33 @@ export function createStateStore({
   loadConfigCookie,
   createDefaultStateFromConfig
 }) {
+  function saveImportedState(state, { preserveBackupId = null } = {}) {
+    normalizeStateBeforeSave(state)
+    const serializedState = JSON.stringify(state)
+    let persistenceError = null
+
+    while (true) {
+      try {
+        storage.setItem(storageKey, serializedState)
+        persistenceError = null
+        break
+      } catch (error) {
+        persistenceError = error
+        if (
+          !isStorageQuotaError(error)
+          || !pruneOldestStateBackup({ preserveId: preserveBackupId })
+        ) break
+      }
+    }
+
+    const persisted = persistenceError === null
+    if (persisted) {
+      saveConfigCookie(state.config)
+      syncPersistedStateToAnalytics(state)
+    }
+    return { persisted, error: persistenceError }
+  }
+
   function saveState(state, options = {}) {
     const {
       backup = true,
@@ -81,6 +108,19 @@ export function createStateStore({
   return {
     canPersistLocalState,
     loadState,
+    saveImportedState,
     saveState
   }
+}
+
+export function isStorageQuotaError(error) {
+  return Boolean(
+    error
+    && (
+      error.name === 'QuotaExceededError'
+      || error.name === 'NS_ERROR_DOM_QUOTA_REACHED'
+      || error.code === 22
+      || error.code === 1014
+    )
+  )
 }

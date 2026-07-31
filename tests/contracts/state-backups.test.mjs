@@ -147,7 +147,63 @@ test('pruning removes exactly the oldest retained backup', () => {
     JSON.parse(harness.values.get('edenia_v1_backups')).map(entry => entry.id),
     ['new']
   )
+  assert.equal(harness.store.pruneOldestStateBackup(), true)
+  assert.equal(harness.values.has('edenia_v1_backups'), false)
   assert.equal(createHarness().store.pruneOldestStateBackup(), false)
+})
+
+test('pruning preserves a protected rollback backup', () => {
+  const entries = [
+    {
+      id: 'protected',
+      createdAt: '2026-07-28T00:00:00.000Z',
+      state: validState('protected')
+    },
+    {
+      id: 'older',
+      createdAt: '2026-07-27T00:00:00.000Z',
+      state: validState('older')
+    }
+  ]
+  const harness = createHarness({
+    backupValue: JSON.stringify(entries)
+  })
+  assert.equal(harness.store.pruneOldestStateBackup({
+    preserveId: 'protected'
+  }), true)
+  assert.deepEqual(
+    JSON.parse(harness.values.get('edenia_v1_backups')).map(entry => entry.id),
+    ['protected']
+  )
+  assert.equal(harness.store.pruneOldestStateBackup({
+    preserveId: 'protected'
+  }), false)
+})
+
+test('failed protected pruning leaves the existing backup list untouched', () => {
+  const entries = [
+    {
+      id: 'protected',
+      createdAt: '2026-07-28T00:00:00.000Z',
+      state: validState('protected')
+    },
+    {
+      id: 'older',
+      createdAt: '2026-07-27T00:00:00.000Z',
+      state: validState('older')
+    }
+  ]
+  const harness = createHarness({
+    backupValue: JSON.stringify(entries),
+    failBackupWrites: 1
+  })
+  assert.equal(harness.store.pruneOldestStateBackup({
+    preserveId: 'protected'
+  }), false)
+  assert.deepEqual(
+    JSON.parse(harness.values.get('edenia_v1_backups')),
+    entries
+  )
 })
 
 test('stored backup preparation preserves parse and callback failure behavior', () => {
@@ -196,6 +252,39 @@ test('backup creation preserves metadata, order, and sandbox flag', () => {
   )
 })
 
+test('backup creation reports failure when even the rollback entry cannot fit', () => {
+  const harness = createHarness({
+    storedState: validState('stored'),
+    failBackupWrites: 1
+  })
+  assert.equal(
+    harness.store.createStateBackup('before sync import', { force: true }),
+    null
+  )
+  assert.equal(harness.values.has('edenia_v1_backups'), false)
+})
+
+test('failed backup creation preserves existing backups', () => {
+  const existingBackup = {
+    id: 'existing',
+    createdAt: '2026-07-27T00:00:00.000Z',
+    state: validState('existing')
+  }
+  const harness = createHarness({
+    storedState: validState('current'),
+    backupValue: JSON.stringify([existingBackup]),
+    failBackupWrites: 2
+  })
+  assert.equal(
+    harness.store.createStateBackup('before sync import', { force: true }),
+    null
+  )
+  assert.deepEqual(
+    JSON.parse(harness.values.get('edenia_v1_backups')),
+    [existingBackup]
+  )
+})
+
 test('automatic backups preserve throttle, force override, and state dedupe', () => {
   const state = validState('stored')
   const prepared = { ...state, prepared: true }
@@ -229,6 +318,13 @@ test('automatic backups preserve throttle, force override, and state dedupe', ()
     }])
   })
   assert.equal(duplicate.store.createStateBackup(), null)
+  assert.equal(
+    duplicate.store.createStateBackup('before sync import', {
+      force: true,
+      returnExisting: true
+    })?.id,
+    'recent'
+  )
 
   const named = createHarness({
     storedState: state,
