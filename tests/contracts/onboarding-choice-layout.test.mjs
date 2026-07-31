@@ -53,11 +53,39 @@ test('choice layout enables scrolling only after every fixed state fails', () =>
   ])
 })
 
+test('choice layout accepts a restricted step-specific state policy', () => {
+  const applied = []
+  const selected = selectOnboardingChoiceLayout({
+    applyLayout(layout) {
+      applied.push(layout)
+    },
+    candidateLayouts: ['double-inline'],
+    fallbackLayout: 'double-inline-scroll',
+    isContained() {
+      return false
+    }
+  })
+
+  assert.equal(selected, 'double-inline-scroll')
+  assert.deepEqual(applied, [
+    'double-inline',
+    'double-inline-scroll'
+  ])
+})
+
 test('choice layout rejects incomplete measurement contracts', () => {
   assert.throws(
     () => selectOnboardingChoiceLayout({
       applyLayout() {}
     }),
     /requires applyLayout and isContained callbacks/
+  )
+  assert.throws(
+    () => selectOnboardingChoiceLayout({
+      applyLayout() {},
+      candidateLayouts: [],
+      isContained() {}
+    }),
+    /requires candidate layouts and a fallback layout/
   )
 })
