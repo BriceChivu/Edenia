@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
   ONBOARDING_CHOICE_LAYOUT_STATES,
   ONBOARDING_CHOICE_SCROLL_LAYOUT,
   selectOnboardingChoiceLayout
 } from '../../src/features/onboarding/choice-layout.js'
+
+const appSource = await readFile(
+  new URL('../../src/app.js', import.meta.url),
+  'utf8'
+)
 
 test('choice layouts preserve the required least-compact-first order', () => {
   assert.deepEqual(ONBOARDING_CHOICE_LAYOUT_STATES, [
@@ -71,6 +77,33 @@ test('choice layout accepts a restricted step-specific state policy', () => {
     'double-inline',
     'double-inline-scroll'
   ])
+})
+
+test('language onboarding measures only a double-column fixed state', () => {
+  assert.match(
+    appSource,
+    /const ONBOARDING_LANGUAGE_CHOICE_LAYOUT_STATES = Object\.freeze\(\[\s*'double-inline'\s*\]\)/
+  )
+  assert.match(
+    appSource,
+    /panel\?\.classList\.toggle\('is-language-step', personalizedOnboardingState\.step === 'language'\)/
+  )
+  assert.match(
+    appSource,
+    /\['language', 'level', 'channels'\]\.includes\(personalizedOnboardingState\.step\)/
+  )
+  assert.match(
+    appSource,
+    /candidateLayouts: personalizedOnboardingState\.step === 'language'\s*\? ONBOARDING_LANGUAGE_CHOICE_LAYOUT_STATES\s*: undefined/
+  )
+  assert.match(
+    appSource,
+    /panel\.querySelector\('\.onboarding-language-grid, \.onboarding-level-grid, \.onboarding-channel-list'\)/
+  )
+  assert.match(
+    appSource,
+    /\.onboarding-language-grid \.onboarding-choice, \.onboarding-level-choice, \.onboarding-channel/
+  )
 })
 
 test('choice layout rejects incomplete measurement contracts', () => {

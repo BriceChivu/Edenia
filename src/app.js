@@ -539,6 +539,9 @@ const introTrailerState = {
 }
 const ONBOARDING_CHANNEL_SELECTION_LIMIT = 5
 const ONBOARDING_LAYOUT_OVERFLOW_TOLERANCE_PX = 1
+const ONBOARDING_LANGUAGE_CHOICE_LAYOUT_STATES = Object.freeze([
+  'double-inline'
+])
 const personalizedOnboardingState = {
   active: false,
   step: 'language',
@@ -2512,9 +2515,11 @@ function renderPersonalizedOnboarding() {
   const stepIndex = Math.max(0, stepOrder.indexOf(personalizedOnboardingState.step))
   progressLabel.textContent = t('onboarding.progress', { current: stepIndex + 1, total: stepOrder.length })
   progressFill.style.width = `${((stepIndex + 1) / stepOrder.length) * 100}%`
+  panel?.classList.toggle('is-language-step', personalizedOnboardingState.step === 'language')
   panel?.classList.toggle('is-channel-step', personalizedOnboardingState.step === 'channels')
   panel?.classList.toggle('is-level-step', personalizedOnboardingState.step === 'level')
   localePicker?.classList.toggle('hidden', personalizedOnboardingState.step !== 'language')
+  clearOnboardingChoiceLayout(panel)
   if (personalizedOnboardingState.lastTrackedStep !== personalizedOnboardingState.step) {
     trackEdeniaEvent('onboarding_step_viewed', {
       step_name: personalizedOnboardingState.step,
@@ -2552,9 +2557,11 @@ function isOnboardingChoiceLayoutContained(panel) {
   const elements = [
     panel.querySelector('.onboarding-card'),
     panel.querySelector('.onboarding-content'),
-    panel.querySelector('.onboarding-level-grid, .onboarding-channel-list'),
+    panel.querySelector('.onboarding-language-grid, .onboarding-level-grid, .onboarding-channel-list'),
     panel.querySelector('.onboarding-actions'),
-    ...panel.querySelectorAll('.onboarding-level-choice, .onboarding-channel')
+    ...panel.querySelectorAll(
+      '.onboarding-language-grid .onboarding-choice, .onboarding-level-choice, .onboarding-channel'
+    )
   ].filter(Boolean)
 
   return elements.every(element => (
@@ -2574,7 +2581,7 @@ function syncOnboardingChoiceLayout() {
   const panel = document.getElementById('onboardingPanel')
   const supportsFittedChoices = (
     personalizedOnboardingState.active
-    && ['level', 'channels'].includes(personalizedOnboardingState.step)
+    && ['language', 'level', 'channels'].includes(personalizedOnboardingState.step)
     && usesPhoneComposition()
   )
   if (!panel || !supportsFittedChoices) {
@@ -2587,6 +2594,9 @@ function syncOnboardingChoiceLayout() {
     applyLayout(layout) {
       panel.dataset.onboardingChoiceLayout = layout
     },
+    candidateLayouts: personalizedOnboardingState.step === 'language'
+      ? ONBOARDING_LANGUAGE_CHOICE_LAYOUT_STATES
+      : undefined,
     isContained() {
       return isOnboardingChoiceLayoutContained(panel)
     }
