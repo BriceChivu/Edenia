@@ -119,7 +119,7 @@ test('study-insight entries retain legacy coercion, clipping, and truncation', (
   }])
 })
 
-test('history sorting, normalized-key dedupe, legacy variants, and limit remain exact', () => {
+test('history sorting, normalized-key dedupe, legacy variants, and unlimited retention remain exact', () => {
   const entries = Array.from({ length: 14 }, (_, index) => insight({
     key: `key-${index}`,
     insightId: index >= 11 ? 'shared' : `id-${index}`,
@@ -149,9 +149,12 @@ test('history sorting, normalized-key dedupe, legacy variants, and limit remain 
   }
   normalizeStudyInsightConfig(state)
   const history = state.config.studyInsights.history
-  assert.equal(history.length, 12)
+  assert.equal(history.length, 15)
   assert.equal(history[0].key, 'x'.repeat(140))
   assert.equal(history.filter(entry => entry.key === 'x'.repeat(140)).length, 1)
+  assert.ok(entries.slice(0, 14).every(entry => (
+    history.some(historyEntry => historyEntry.key === entry.key)
+  )))
   assert.deepEqual(
     history.filter(entry => entry.insightId === 'shared').map(entry => entry.variant),
     [0, 1, 0]
