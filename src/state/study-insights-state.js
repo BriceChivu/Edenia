@@ -10,7 +10,6 @@ export const STUDY_INSIGHT_TIME_WINDOWS = [
 ]
 export const STUDY_INSIGHT_VARIANT_COUNT = 2
 
-const STUDY_INSIGHT_HISTORY_LIMIT = 12
 const STUDY_INSIGHT_TYPES = [
   'weekly-summary',
   'preferred-window',
@@ -91,7 +90,6 @@ export function normalizeStudyInsightConfig(state) {
       legacyVariantCounts.set(entry.insightId, count + 1)
       return { ...entry, variant: count % STUDY_INSIGHT_VARIANT_COUNT }
     })
-    .slice(0, STUDY_INSIGHT_HISTORY_LIMIT)
   const normalized = {
     enabled: existing.enabled !== false,
     collapsed: existing.collapsed === true,

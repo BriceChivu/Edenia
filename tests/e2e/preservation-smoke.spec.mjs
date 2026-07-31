@@ -396,15 +396,27 @@ test('walkthrough replay adapts no-Anki copy and frames the full video area', as
     'This is the video area. New videos from your channels appear here.'
   )
 
-  await expect.poll(() => page.evaluate(() => {
-    const highlight = document.querySelector('.walkthrough-highlight')
-      .getBoundingClientRect()
-    const videoGrid = document.querySelector('#videoGrid')
-      .getBoundingClientRect()
-    return highlight.top <= videoGrid.top && highlight.bottom >= videoGrid.bottom
-  })).toBe(true)
+  await expect.poll(() => page.evaluate(async () => {
+    await new Promise(resolve => {
+      let previousScrollY = window.scrollY
+      let stableFrames = 0
+      let frameCount = 0
+      const checkScrollPosition = () => {
+        const currentScrollY = window.scrollY
+        stableFrames = Math.abs(currentScrollY - previousScrollY) < 0.5
+          ? stableFrames + 1
+          : 0
+        previousScrollY = currentScrollY
+        frameCount += 1
+        if (stableFrames >= 4 || frameCount >= 120) {
+          requestAnimationFrame(() => requestAnimationFrame(resolve))
+          return
+        }
+        requestAnimationFrame(checkScrollPosition)
+      }
+      requestAnimationFrame(checkScrollPosition)
+    })
 
-  const framing = await page.evaluate(() => {
     const highlight = document.querySelector('.walkthrough-highlight')
       .getBoundingClientRect()
     const title = document.querySelector('.feed-section > .section-header')
@@ -423,15 +435,14 @@ test('walkthrough replay adapts no-Anki copy and frames the full video area', as
       containsControls: contains(controls),
       containsTitle: contains(title),
       containsVideoGrid: contains(videoGrid),
-      highlightHeight: highlight.height,
-      titleHeight: title.height
+      highlightIsSubstantial: highlight.height > title.height * 2
     }
+  })).toEqual({
+    containsControls: true,
+    containsTitle: true,
+    containsVideoGrid: true,
+    highlightIsSubstantial: true
   })
-
-  expect(framing.containsTitle).toBe(true)
-  expect(framing.containsControls).toBe(true)
-  expect(framing.containsVideoGrid).toBe(true)
-  expect(framing.highlightHeight).toBeGreaterThan(framing.titleHeight * 2)
 })
 
 test('analytics bridge preserves classic global ownership during walkthrough', async ({
