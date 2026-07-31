@@ -73,7 +73,7 @@ export const ZH_HANT_LOCALIZED = {
     'onboarding.level.beginner.label': '初級',
     'onboarding.level.beginner.detail': '我知道基本單字和句子。',
     'onboarding.level.intermediate.label': '中級',
-    'onboarding.level.intermediate.detail': '我能理解教材和一些母語內容。',
+    'onboarding.level.intermediate.detail': '我能理解一些母語內容。',
     'onboarding.level.advanced.label': '進階',
     'onboarding.level.advanced.detail': '我主要透過母語內容學習。',
     'onboarding.level.not-sure.label': '不確定',

@@ -73,7 +73,7 @@ export const ES_LOCALIZED = {
     'onboarding.level.beginner.label': 'Principiante',
     'onboarding.level.beginner.detail': 'Conozco palabras y frases básicas.',
     'onboarding.level.intermediate.label': 'Intermedio',
-    'onboarding.level.intermediate.detail': 'Sigo lecciones y algo de contenido nativo.',
+    'onboarding.level.intermediate.detail': 'Entiendo algo de contenido nativo.',
     'onboarding.level.advanced.label': 'Avanzado',
     'onboarding.level.advanced.detail': 'Aprendo principalmente con contenido nativo.',
     'onboarding.level.not-sure.label': 'No estoy seguro',
