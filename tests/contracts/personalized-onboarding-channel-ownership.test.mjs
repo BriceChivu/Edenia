@@ -66,7 +66,7 @@ assert.notEqual(renderStart, -1)
 assert.notEqual(renderEnd, -1)
 const renderSource = appSource.slice(renderStart, renderEnd)
 
-test('channel choices retain exact hook, avatar, and ARIA markup', () => {
+test('channel choices retain exact hook, background image, and ARIA markup', () => {
   const controls = getElements(renderSource, 'button')
   assert.equal(controls.length, 3)
   const channel = controls[0]
@@ -108,10 +108,7 @@ test('channel choices retain exact hook, avatar, and ARIA markup', () => {
     channel.content,
     /<span class="onboarding-channel-meta">\$\{escHtml\(t\(ONBOARDING_CHANNEL_STYLE_KEYS\[channel\.style\] \|\| channel\.style\)\)\}<\/span>/
   )
-  assert.match(
-    channel.content,
-    /<span class="onboarding-channel-check" aria-hidden="true">✓<\/span>/
-  )
+  assert.doesNotMatch(channel.content, /onboarding-channel-check/)
 })
 
 test('recommendations preserve zero-to-six order and grid threshold', () => {
@@ -234,7 +231,7 @@ test('first visit selects the first five recommendations in order', () => {
   )
 })
 
-test('limit feedback returns without rerendering', () => {
+test('selection updates the live control while limit feedback returns early', () => {
   const start = appSource.indexOf(
     'function toggleOnboardingChannel(catalogId) {'
   )
@@ -253,15 +250,22 @@ test('limit feedback returns without rerendering', () => {
     limitIndex
   )
   const limitReturnIndex = source.indexOf('return', toastIndex)
-  const renderIndex = source.indexOf('renderPersonalizedOnboarding()')
+  const selectionSyncIndex = source.indexOf(
+    "control?.setAttribute('aria-pressed', String(selectedIds.has(catalogId)))"
+  )
   assert.notEqual(limitIndex, -1)
   assert.ok(toastIndex > limitIndex)
   assert.ok(limitReturnIndex > toastIndex)
-  assert.ok(renderIndex > limitReturnIndex)
+  assert.ok(selectionSyncIndex > limitReturnIndex)
   assert.match(
     source,
     /showToast\(t\('onboarding\.channels\.limit', \{ count: ONBOARDING_CHANNEL_SELECTION_LIMIT \}\), 'warn'\)/
   )
+  assert.match(
+    source,
+    /const control = \[\.\.\.document\.querySelectorAll\('\.onboarding-channel'\)\]\s*\.find\(channel => channel\.dataset\.catalogId === catalogId\)\s*control\?\.setAttribute\('aria-pressed', String\(selectedIds\.has\(catalogId\)\)\)\s*syncOnboardingChoiceLayout\(\)/
+  )
+  assert.doesNotMatch(source, /renderPersonalizedOnboarding\(\)/)
 })
 
 test('removing and re-adding a channel moves it to the end', () => {
