@@ -236,6 +236,7 @@ body.onboarding-active .toast { z-index: 320; }
   border-color: var(--planet-black);
   color: var(--planet-black);
 }
+@media (max-width: 640px) {
 .onboarding-panel:is(
   :not([data-onboarding-choice-layout]),
   [data-onboarding-choice-layout^="double"]
@@ -342,6 +343,7 @@ body.onboarding-active .toast { z-index: 320; }
   [data-onboarding-choice-layout^="double"]
 ) .onboarding-channel-list-grid .onboarding-channel-check {
   display: none;
+}
 }
 .onboarding-empty {
   border: 2px dashed var(--border);
