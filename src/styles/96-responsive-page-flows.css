@@ -324,6 +324,7 @@
     min-height: 0;
     overflow: hidden;
     padding-bottom: 5px;
+    padding-top: 2px;
   }
   .onboarding-panel:not(.is-recovery).is-level-step .onboarding-level-choice {
     aspect-ratio: 5 / 1;
