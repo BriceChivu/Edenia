@@ -1,11 +1,22 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  validateDiscoveredCatalogDelta
+  validateDiscoveredCatalogDelta,
+  validateDiscoveredCatalogShape
 } from '../../scripts/validate-discovered-channel-catalog.mjs'
 
 const CHANNEL_ONE = 'UC1234567890123456789012'
 const CHANNEL_TWO = 'UCabcdefghijklmnopqrstuv'
+const LANGUAGES = [
+  'french',
+  'english',
+  'german',
+  'mandarin',
+  'russian',
+  'spanish',
+  'japanese',
+  'portuguese'
+]
 
 function discoveredChannel(overrides = {}) {
   const channelId = overrides.channelId || CHANNEL_ONE
@@ -38,12 +49,32 @@ function discoveredChannel(overrides = {}) {
 
 function catalog(channels, overrides = {}) {
   return {
+    schemaVersion: 2,
+    generatedAt: '2026-07-29T00:00:00Z',
+    lastRotationIndex: 0,
+    nextRotationIndex: 1,
+    rotationCount: 4,
+    lastLanguageBatchIndex: 3,
+    nextLanguageBatchIndex: 0,
+    languageBatchCount: 4,
+    languageBatchSize: 2,
+    lastDiscoveryQuotaDate: '2026-07-29',
+    lastDiscoveryLanguages: ['japanese', 'portuguese'],
+    lastSearchRequestCount: 7,
+    languages: LANGUAGES,
+    channels,
+    ...overrides
+  }
+}
+
+function legacyCatalog(channels, overrides = {}) {
+  return {
     schemaVersion: 1,
     generatedAt: '2026-07-29T00:00:00Z',
     lastRotationIndex: 0,
     nextRotationIndex: 1,
     rotationCount: 4,
-    languages: ['english'],
+    languages: LANGUAGES,
     channels,
     ...overrides
   }
@@ -63,7 +94,12 @@ function validDelta(overrides = {}) {
     currentCatalog: catalog([existing, added], {
       generatedAt: '2026-07-30T00:00:00Z',
       lastRotationIndex: 1,
-      nextRotationIndex: 2
+      nextRotationIndex: 1,
+      lastLanguageBatchIndex: 0,
+      nextLanguageBatchIndex: 1,
+      lastDiscoveryQuotaDate: '2026-07-30',
+      lastDiscoveryLanguages: ['french', 'english'],
+      lastSearchRequestCount: 7
     }),
     otherCatalogs: [{ channels: [] }],
     ...overrides
@@ -83,11 +119,10 @@ test('discovery delta rejects removals and stable-field rewrites', () => {
   assert.throws(
     () => validateDiscoveredCatalogDelta({
       ...input,
-      currentCatalog: catalog([], {
-        generatedAt: '2026-07-30T00:00:00Z',
-        lastRotationIndex: 1,
-        nextRotationIndex: 2
-      })
+      currentCatalog: {
+        ...input.currentCatalog,
+        channels: []
+      }
     }),
     /may not remove channels/
   )
@@ -101,7 +136,7 @@ test('discovery delta rejects removals and stable-field rewrites', () => {
       ...input,
       currentCatalog: {
         ...input.currentCatalog,
-        languages: ['english', 'french'],
+        languages: [...LANGUAGES].reverse(),
         channels: [changedExisting, input.currentCatalog.channels[1]]
       }
     }),
@@ -152,9 +187,61 @@ test('discovery delta rejects ineligible additions and invalid rotation', () => 
       ...input,
       currentCatalog: {
         ...input.currentCatalog,
-        nextRotationIndex: 3
+        nextRotationIndex: 2
       }
     }),
-    /must advance to 2/
+    /must advance to 1/
+  )
+})
+
+test('discovery delta accepts the one-time migration to language batches', () => {
+  const input = validDelta()
+  assert.deepEqual(validateDiscoveredCatalogDelta({
+    ...input,
+    baseCatalog: legacyCatalog([input.baseCatalog.channels[0]])
+  }), {
+    additions: 1,
+    existing: 1,
+    total: 2
+  })
+})
+
+test('discovery delta rejects same-day retries and out-of-batch additions', () => {
+  const input = validDelta()
+  assert.throws(
+    () => validateDiscoveredCatalogDelta({
+      ...input,
+      currentCatalog: {
+        ...input.currentCatalog,
+        lastDiscoveryQuotaDate: input.baseCatalog.lastDiscoveryQuotaDate
+      }
+    }),
+    /later YouTube quota day/
+  )
+
+  assert.throws(
+    () => validateDiscoveredCatalogDelta({
+      ...input,
+      currentCatalog: {
+        ...input.currentCatalog,
+        channels: [
+          input.currentCatalog.channels[0],
+          {
+            ...input.currentCatalog.channels[1],
+            languages: ['german']
+          }
+        ]
+      }
+    }),
+    /outside the active language batch/
+  )
+})
+
+test('discovered catalog rejects more than seven search requests', () => {
+  assert.throws(
+    () => validateDiscoveredCatalogShape(catalog([discoveredChannel()], {
+      lastSearchRequestCount: 8
+    })),
+    /may not exceed 7/
   )
 })

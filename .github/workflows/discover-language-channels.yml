@@ -35,16 +35,98 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Resolve YouTube quota day
+        id: quota-day
+        shell: bash
+        run: echo "value=$(TZ=America/Los_Angeles date +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore completed discovery for this quota day
+        id: result-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/youtube-discovery-result
+          key: youtube-discovery-result-v1-${{ steps.quota-day.outputs.value }}
+
+      - name: Restore discovery-attempt claim for this quota day
+        if: steps.result-cache.outputs.cache-hit != 'true'
+        id: claim-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/youtube-discovery-claim
+          key: youtube-discovery-claim-v1-${{ steps.quota-day.outputs.value }}
+
+      - name: Decide whether YouTube search may run
+        id: discovery-state
+        shell: bash
+        run: |
+          if [[ "${{ steps.result-cache.outputs.cache-hit }}" == "true" ]]; then
+            cp \
+              "$RUNNER_TEMP/youtube-discovery-result/channel-catalog.discovered.json" \
+              data/channel-catalog.discovered.json
+            echo "should_search=false" >> "$GITHUB_OUTPUT"
+            echo "blocked=false" >> "$GITHUB_OUTPUT"
+            echo "Reusing the completed discovery result for quota day ${{ steps.quota-day.outputs.value }}."
+          elif [[ "${{ steps.claim-cache.outputs.cache-hit }}" == "true" ]]; then
+            echo "should_search=false" >> "$GITHUB_OUTPUT"
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+            echo "A discovery attempt already claimed quota day ${{ steps.quota-day.outputs.value }}; no YouTube API requests will be made."
+          else
+            mkdir -p "$RUNNER_TEMP/youtube-discovery-claim"
+            echo "${{ steps.quota-day.outputs.value }}" \
+              > "$RUNNER_TEMP/youtube-discovery-claim/quota-day"
+            echo "should_search=true" >> "$GITHUB_OUTPUT"
+            echo "blocked=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Claim this quota day before searching
+        if: steps.discovery-state.outputs.should_search == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/youtube-discovery-claim
+          key: youtube-discovery-claim-v1-${{ steps.quota-day.outputs.value }}
+
       - name: Search for language-learning channels
+        if: steps.discovery-state.outputs.should_search == 'true'
         env:
           YOUTUBE_CATALOG_API_KEY: ${{ secrets.YOUTUBE_CATALOG_API_KEY }}
+          DISCOVERY_QUOTA_DATE: ${{ steps.quota-day.outputs.value }}
+          DISCOVERY_MAX_SEARCH_REQUESTS: 7
           DISCOVERY_MAX_PER_LANGUAGE: ${{ vars.DISCOVERY_MAX_PER_LANGUAGE }}
           DISCOVERY_MAX_TOTAL_ADDITIONS: ${{ vars.DISCOVERY_MAX_TOTAL_ADDITIONS }}
           DISCOVERY_MIN_SUBSCRIBERS: ${{ vars.DISCOVERY_MIN_SUBSCRIBERS }}
           DISCOVERY_MIN_VIDEOS: ${{ vars.DISCOVERY_MIN_VIDEOS }}
         run: node scripts/discover-language-channels.mjs
 
+      - name: Prepare completed discovery cache
+        if: steps.discovery-state.outputs.should_search == 'true'
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/youtube-discovery-result"
+          cp \
+            data/channel-catalog.discovered.json \
+            "$RUNNER_TEMP/youtube-discovery-result/channel-catalog.discovered.json"
+
+      - name: Preserve completed discovery for same-day retries
+        if: steps.discovery-state.outputs.should_search == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/youtube-discovery-result
+          key: youtube-discovery-result-v1-${{ steps.quota-day.outputs.value }}
+
+      - name: Detect a publishable catalog change
+        if: steps.discovery-state.outputs.blocked != 'true'
+        id: catalog-change
+        shell: bash
+        run: |
+          if git diff --quiet -- data/channel-catalog.discovered.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "The discovery result is already present on the checked-out branch."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Validate unattended catalog update
+        if: steps.catalog-change.outputs.changed == 'true'
         env:
           DISCOVERY_MAX_TOTAL_ADDITIONS: ${{ vars.DISCOVERY_MAX_TOTAL_ADDITIONS }}
           DISCOVERY_MIN_SUBSCRIBERS: ${{ vars.DISCOVERY_MIN_SUBSCRIBERS }}
@@ -54,6 +136,7 @@ jobs:
           npm run test:catalogs:discovery -- --base-ref HEAD
 
       - name: Publish checked auto-merge pull request
+        if: steps.catalog-change.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ steps.catalog-app.outputs.token }}
         run: node scripts/publish-discovery-pull-request.mjs
