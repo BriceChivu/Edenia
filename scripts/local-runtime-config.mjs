@@ -18,7 +18,15 @@ export function normalizeLocalYoutubeApiKey(value) {
   return key
 }
 
-export async function readLocalYoutubeApiKey(configPath) {
+export function normalizeLocalRuntimeConfig(value) {
+  return {
+    youtubeApiKey: normalizeLocalYoutubeApiKey(value?.youtubeApiKey),
+    freePlusEnabled: value?.freePlusEnabled === true,
+    plusCheckoutEnabled: value?.plusCheckoutEnabled === true
+  }
+}
+
+export async function readLocalRuntimeConfig(configPath) {
   let source
   try {
     source = await readFile(configPath, 'utf8')
@@ -39,23 +47,33 @@ export async function readLocalYoutubeApiKey(configPath) {
     throw new Error(`Local config.local.js has invalid JavaScript. ${localConfigSetupMessage()}`)
   }
 
-  const youtubeApiKey = normalizeLocalYoutubeApiKey(
-    sandbox.window?.EDENIA_CONFIG?.youtubeApiKey
+  const runtimeConfig = normalizeLocalRuntimeConfig(
+    sandbox.window?.EDENIA_CONFIG
   )
-  if (!youtubeApiKey) {
+  if (!runtimeConfig.youtubeApiKey) {
     throw new Error(`Local config.local.js has no usable YouTube API key. ${localConfigSetupMessage()}`)
   }
-  return youtubeApiKey
+  return runtimeConfig
 }
 
-export async function writeLocalRuntimeConfig(outputPath, youtubeApiKey) {
-  const normalizedKey = normalizeLocalYoutubeApiKey(youtubeApiKey)
-  if (!normalizedKey) {
+export async function readLocalYoutubeApiKey(configPath) {
+  return (await readLocalRuntimeConfig(configPath)).youtubeApiKey
+}
+
+export async function writeLocalRuntimeConfig(outputPath, value) {
+  const runtimeConfig = normalizeLocalRuntimeConfig(
+    typeof value === 'object' && value !== null
+      ? value
+      : { youtubeApiKey: value }
+  )
+  if (!runtimeConfig.youtubeApiKey) {
     throw new Error('Refusing to write a local runtime config without a usable YouTube API key.')
   }
 
-  const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
-    youtubeApiKey: normalizedKey
-  }, null, 2)}\n`
-  await writeFile(outputPath, runtimeConfig)
+  const source = `window.EDENIA_CONFIG = ${JSON.stringify(
+    runtimeConfig,
+    null,
+    2
+  )}\n`
+  await writeFile(outputPath, source)
 }

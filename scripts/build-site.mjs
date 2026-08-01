@@ -120,7 +120,11 @@ await copyPath('data/channel-catalog.discovered.json')
 
 await writeFile(
   resolve(outputDir, 'config.local.js'),
-  'window.EDENIA_CONFIG = {\n  "youtubeApiKey": ""\n}\n'
+  'window.EDENIA_CONFIG = {\n'
+    + '  "youtubeApiKey": "",\n'
+    + '  "freePlusEnabled": false,\n'
+    + '  "plusCheckoutEnabled": false\n'
+    + '}\n'
 )
 
 console.log(`Built Edenia ${assetVersion} in ${outputDir}`)

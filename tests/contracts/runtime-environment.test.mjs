@@ -5,6 +5,8 @@ import {
 } from '../../src/core/runtime-environment.js'
 import { deriveStorageKeys } from '../../src/core/storage-keys.js'
 import {
+  getFreePlusEnabled,
+  getPlusCheckoutEnabled,
   getYoutubeApiKey,
   hasYoutubeApiKey,
   publicConfig
@@ -108,10 +110,25 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.deepEqual(publicConfig(target), {})
   assert.equal(getYoutubeApiKey(target), '')
   assert.equal(hasYoutubeApiKey(target), false)
+  assert.equal(getFreePlusEnabled(target), false)
+  assert.equal(getPlusCheckoutEnabled(target), false)
 
-  target.EDENIA_CONFIG = { youtubeApiKey: '  key-one  ' }
+  target.EDENIA_CONFIG = {
+    youtubeApiKey: '  key-one  ',
+    freePlusEnabled: true,
+    plusCheckoutEnabled: true
+  }
   assert.equal(getYoutubeApiKey(target), 'key-one')
   assert.equal(hasYoutubeApiKey(target), true)
+  assert.equal(getFreePlusEnabled(target), true)
+  assert.equal(getPlusCheckoutEnabled(target), true)
+
+  target.EDENIA_CONFIG = {
+    freePlusEnabled: 'true',
+    plusCheckoutEnabled: 1
+  }
+  assert.equal(getFreePlusEnabled(target), false)
+  assert.equal(getPlusCheckoutEnabled(target), false)
 
   target.EDENIA_CONFIG = { youtubeApiKey: 42 }
   assert.equal(getYoutubeApiKey(target), '42')

@@ -1,3 +1,5 @@
 window.EDENIA_CONFIG = {
-  youtubeApiKey: 'PASTE_YOUR_RESTRICTED_YOUTUBE_API_KEY_HERE'
+  youtubeApiKey: 'PASTE_YOUR_RESTRICTED_YOUTUBE_API_KEY_HERE',
+  freePlusEnabled: false,
+  plusCheckoutEnabled: false
 }
