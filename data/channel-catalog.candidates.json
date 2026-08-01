@@ -1,6 +1,109 @@
 {
   "schemaVersion": 1,
-  "generatedAt": null,
   "lookbackDays": 180,
-  "channels": []
+  "channels": [
+    {
+      "catalogId": "community-UCfZMbVwy_GS2cols8X4vu_w",
+      "channelId": "UCfZMbVwy_GS2cols8X4vu_w",
+      "handle": "@jiayouchinese2023",
+      "name": "jiayouchinese",
+      "thumbnailUrl": "https://yt3.ggpht.com/o8CeCES3Bvh6vdVxdEHNUw6hqboHB8Wb8Jrr0cguXDn_j5wizDyk0Pu9hlAeipv780WH6YkN=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [
+        "beginner"
+      ],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2017-01-28T03:44:08Z",
+      "metadataRefreshedAt": "2026-08-01T05:42:44.924Z",
+      "addCount": 2,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-07-31T22:14:50.814Z",
+      "lastSeenAt": "2026-07-31T22:16:15.334Z",
+      "sources": [
+        "youtube_search"
+      ],
+      "reviewReasons": [],
+      "searchText": "jiayouchinese jiayouchinese2023 beginner"
+    },
+    {
+      "catalogId": "community-UCiWXd0nmBjlKROwzMyPV-Nw",
+      "channelId": "UCiWXd0nmBjlKROwzMyPV-Nw",
+      "handle": "@shasha77",
+      "name": "志祺七七",
+      "thumbnailUrl": "https://yt3.ggpht.com/BYhYe7AvsjYvm_vdNGLhQdwfFiwsbiUULWhBRIamyIzycoGvV9aIdEa4jOcUFrhrdnJOmuGmlQ=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2018-05-28T18:04:47Z",
+      "metadataRefreshedAt": "2026-08-01T05:42:44.924Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-07-30T12:27:56.492Z",
+      "lastSeenAt": "2026-07-30T12:27:56.492Z",
+      "sources": [
+        "youtube_search"
+      ],
+      "reviewReasons": [],
+      "searchText": "志祺七七 shasha77"
+    },
+    {
+      "catalogId": "community-UCrgPmQeGDGj6aWFoxeIrznw",
+      "channelId": "UCrgPmQeGDGj6aWFoxeIrznw",
+      "handle": "@laobiubiubiu",
+      "name": "老Biu",
+      "thumbnailUrl": "https://yt3.ggpht.com/fIg002YnBvdMbgnVnhDbTDKCjXn3mEnLDNeXGFvgmyKzDiA9VfldZSerKEgBBnO6uU0b0o4FZg=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2016-10-25T02:47:41Z",
+      "metadataRefreshedAt": "2026-08-01T05:42:44.924Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-07-31T05:48:53.461Z",
+      "lastSeenAt": "2026-07-31T05:48:53.461Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "老biu laobiubiubiu"
+    },
+    {
+      "catalogId": "community-UCP5Kd0smdWe9H_bDH-73c6Q",
+      "channelId": "UCP5Kd0smdWe9H_bDH-73c6Q",
+      "handle": "@hetongxue",
+      "name": "老师好我叫何同学",
+      "thumbnailUrl": "https://yt3.ggpht.com/gghxgdbOVOqiYMi6qPtsg5IKNX5mPMj-pPRO_sdvSPODz8jaL6b4G_hpIMw7PtF-GMjJqyIG=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-05-01T16:59:14.088126Z",
+      "metadataRefreshedAt": "2026-08-01T05:42:44.924Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-07-31T05:50:28.485Z",
+      "lastSeenAt": "2026-07-31T05:50:28.485Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "老师好我叫何同学 hetongxue"
+    }
+  ],
+  "generatedAt": "2026-08-01T05:42:44.924Z"
 }
