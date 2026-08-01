@@ -12122,9 +12122,9 @@ function dropChannelShelf(event, shelf) {
   const position = getChannelShelfDropPosition(event, shelf)
   placeChannelShelf(movedShelf, shelf, position)
   saveChannelShelfOrder(grid)
-  finishChannelShelfDrag()
   movedShelf.classList.add('just-dropped')
   window.setTimeout(() => movedShelf.classList.remove('just-dropped'), 520)
+  finishChannelShelfDrag()
 }
 
 function finishChannelShelfDrag() {
