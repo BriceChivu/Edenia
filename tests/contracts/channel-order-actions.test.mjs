@@ -12,6 +12,14 @@ const appSource = await readFile(
   new URL('../../src/app.js', import.meta.url),
   'utf8'
 )
+const videoFeedStyle = await readFile(
+  new URL('../../src/styles/70-video-feed.css', import.meta.url),
+  'utf8'
+)
+const responsivePhoneStyle = await readFile(
+  new URL('../../src/styles/98-responsive-phone.css', import.meta.url),
+  'utf8'
+)
 const responsiveWideStyle = await readFile(
   new URL('../../src/styles/99-responsive-wide.css', import.meta.url),
   'utf8'
@@ -23,6 +31,17 @@ function sourceBetween(source, startMarker, endMarker) {
   assert.notEqual(start, -1, `Missing source marker: ${startMarker}`)
   assert.notEqual(end, -1, `Missing source marker: ${endMarker}`)
   return source.slice(start, end)
+}
+
+function cssRule(source, selector) {
+  const startMarker = `${selector} {`
+  const start = source.indexOf(startMarker)
+  assert.notEqual(start, -1, `Missing CSS selector: ${selector}`)
+  const bodyStart = source.indexOf('{', start)
+  const end = source.indexOf('}', bodyStart)
+  assert.notEqual(bodyStart, -1, `Missing CSS body: ${selector}`)
+  assert.notEqual(end, -1, `Unclosed CSS selector: ${selector}`)
+  return source.slice(start, end + 1)
 }
 
 function createControl(action) {
@@ -153,7 +172,7 @@ test('generated shelves and both avatar branches bind without legacy globals', (
   }
 })
 
-test('drop settling restores pointer interactions without moving fixed previews', () => {
+test('channel drag feedback never moves a fixed-preview containing block', () => {
   const touchDropSource = sourceBetween(
     appSource,
     'function finishTouchChannelShelfDrag',
@@ -173,18 +192,39 @@ test('drop settling restores pointer interactions without moving fixed previews'
     assert.ok(settleIndex < cleanupIndex)
   }
 
-  const settleRule = sourceBetween(
-    responsiveWideStyle,
-    '.channel-shelf.just-dropped {',
-    '.channel-shelf.drag-over-before::before'
-  )
-  assert.match(settleRule, /transition:\s*none;/)
+  for (const [name, source] of [
+    ['phone', responsivePhoneStyle],
+    ['wide', responsiveWideStyle]
+  ]) {
+    const shelfRule = cssRule(source, '.channel-shelf')
+    const draggingRule = cssRule(source, '.channel-shelf.is-dragging')
+    const settleRule = cssRule(source, '.channel-shelf.just-dropped')
 
-  const settleAnimation = sourceBetween(
-    responsiveWideStyle,
-    '@keyframes channelShelfDropSettle',
-    '.channel-shelf:has(.channel-shelf-card.is-previewing)'
-  )
-  assert.match(settleAnimation, /box-shadow:/)
-  assert.doesNotMatch(settleAnimation, /\b(?:filter|transform)\s*:/)
+    assert.match(shelfRule, /transition:\s*opacity\b/, name)
+    assert.doesNotMatch(shelfRule, /\b(?:filter|transform)\b/, name)
+    assert.match(draggingRule, /opacity:\s*0\.3;/, name)
+    assert.doesNotMatch(draggingRule, /\b(?:filter|transform)\b/, name)
+    assert.match(settleRule, /transition:\s*none;/, name)
+    assert.doesNotMatch(
+      source,
+      /\.channel-shelf\.drag-over-(?:before|after)(?!::)[^{}]*\{[^{}]*\b(?:filter|transform)\b/,
+      name
+    )
+  }
+
+  for (const settleAnimation of [
+    sourceBetween(
+      videoFeedStyle,
+      '@keyframes channelShelfDropSettle',
+      '.channel-shelf-controls'
+    ),
+    sourceBetween(
+      responsiveWideStyle,
+      '@keyframes channelShelfDropSettle',
+      '.channel-shelf:has(.channel-shelf-card.is-previewing)'
+    )
+  ]) {
+    assert.match(settleAnimation, /box-shadow:/)
+    assert.doesNotMatch(settleAnimation, /\b(?:filter|transform)\s*:/)
+  }
 })

@@ -12,10 +12,7 @@
   .channel-shelf {
     cursor: grab;
     position: relative;
-    transition:
-      filter var(--motion-base) var(--ease-standard),
-      opacity var(--motion-base) var(--ease-standard),
-      transform var(--motion-slow) var(--ease-emphasized);
+    transition: opacity var(--motion-base) var(--ease-standard);
     z-index: 1;
   }
   .channel-shelf-header,
@@ -84,15 +81,7 @@
     opacity: 1;
   }
   .channel-shelf.is-dragging {
-    filter: saturate(0.65);
     opacity: 0.3;
-    transform: scale(0.985);
-  }
-  .channel-shelf.drag-over-before {
-    transform: translateY(8px);
-  }
-  .channel-shelf.drag-over-after {
-    transform: translateY(-8px);
   }
   .channel-shelf.just-dropped {
     animation: channelShelfDropSettle 480ms var(--ease-emphasized);
