@@ -1,6 +1,7 @@
 import {
   PLUS_ENTITLEMENT_STATES
 } from '../domain/plus-access-policy.js'
+import { getPlusEntitlementState } from '../domain/plus-entitlement.js'
 
 export const PLUS_ENTITLEMENT_CACHE_TTL_MS = 15 * 60 * 1000
 
@@ -15,18 +16,27 @@ function normalizeCachedSnapshot(value, userId, now) {
   if (!CACHEABLE_ENTITLEMENT_STATES.has(value.entitlementState)) return null
   if (!Number.isFinite(value.expiresAt) || value.expiresAt <= now) return null
 
+  const subscriptionStatus = typeof value.subscriptionStatus === 'string'
+    ? value.subscriptionStatus
+    : null
+  const pastDueSince = typeof value.pastDueSince === 'string'
+    ? value.pastDueSince
+    : null
+  const entitlementState = subscriptionStatus === 'past_due'
+    ? getPlusEntitlementState({
+        status: subscriptionStatus,
+        past_due_since: pastDueSince
+      }, now)
+    : value.entitlementState
+
   return Object.freeze({
-    entitlementState: value.entitlementState,
-    subscriptionStatus: typeof value.subscriptionStatus === 'string'
-      ? value.subscriptionStatus
-      : null,
+    entitlementState,
+    subscriptionStatus,
     plan: typeof value.plan === 'string' ? value.plan : null,
     currentPeriodEnd: typeof value.currentPeriodEnd === 'string'
       ? value.currentPeriodEnd
       : null,
-    pastDueSince: typeof value.pastDueSince === 'string'
-      ? value.pastDueSince
-      : null,
+    pastDueSince,
     updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : null,
     checkedAt: value.checkedAt,
     expiresAt: value.expiresAt
