@@ -26,7 +26,9 @@ export function getSubscriptionUpdate(
   return {
     status: subscription.status,
     current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
-    past_due_since: subscription.status === 'active' ? null : pastDueSince,
+    past_due_since: subscription.status === 'past_due'
+      ? pastDueSince || updatedAt
+      : null,
     updated_at: updatedAt,
   }
 }

@@ -7,12 +7,20 @@ export const PLUS_SUBSCRIPTION_STATUSES = Object.freeze({
   PAST_DUE: 'past_due'
 })
 
-export function getPlusEntitlementState(subscription) {
+export const PLUS_PAYMENT_GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000
+
+export function getPlusEntitlementState(subscription, now = Date.now()) {
   if (subscription?.status === PLUS_SUBSCRIPTION_STATUSES.ACTIVE) {
     return PLUS_ENTITLEMENT_STATES.PLUS
   }
   if (subscription?.status === PLUS_SUBSCRIPTION_STATUSES.PAST_DUE) {
-    return PLUS_ENTITLEMENT_STATES.PAYMENT_PROBLEM
+    const pastDueSince = Date.parse(subscription.past_due_since || '')
+    if (
+      Number.isFinite(pastDueSince)
+      && now - pastDueSince < PLUS_PAYMENT_GRACE_PERIOD_MS
+    ) {
+      return PLUS_ENTITLEMENT_STATES.PAYMENT_PROBLEM
+    }
   }
   return PLUS_ENTITLEMENT_STATES.FREE
 }

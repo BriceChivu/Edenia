@@ -1,6 +1,18 @@
 // supabase/functions/link-checkout-session/index.ts
 import Stripe from 'https://esm.sh/stripe@14.25.0?target=deno'
 import { createClient } from '@supabase/supabase-js'
+import {
+  isStripeEventModeAllowed,
+  readStripeRuntimeConfig,
+} from '../_shared/billing-config.ts'
+import {
+  assertOnlyKeys,
+  BillingRequestError,
+  getClientAddress,
+  isCheckoutSessionId,
+  readJsonObject,
+} from '../_shared/billing-request.ts'
+import { consumeBillingRateLimit } from '../_shared/billing-rate-limit.ts'
 import { corsHeaders, getCorsPreflightResponse } from '../_shared/cors.ts'
 import {
   evaluateCheckoutConfirmation,
@@ -11,7 +23,10 @@ import {
   isPaidEdeniaPlusCheckoutSession,
 } from '../_shared/checkout-payment.ts'
 
-const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
+const readEnvironment = (name: string) => Deno.env.get(name)
+const billingConfig = readStripeRuntimeConfig(readEnvironment)
+
+const stripe = new Stripe(billingConfig.secretKey, {
   apiVersion: '2024-06-20',
   httpClient: Stripe.createFetchHttpClient(),
 })
@@ -27,6 +42,14 @@ const REDEMPTION_CLAIM_TIMEOUT_MS = 5 * 60_000
 const REDEMPTION_MAX_SESSION_AGE_MS = 24 * 60 * 60_000
 const WEBHOOK_CONFIRMATION_TIMEOUT_MS = 8_000
 const WEBHOOK_CONFIRMATION_POLL_MS = 500
+const LINK_IP_RATE_LIMIT = Object.freeze({
+  windowSeconds: 10 * 60,
+  maximumRequests: 30,
+})
+const LINK_SESSION_RATE_LIMIT = Object.freeze({
+  windowSeconds: 10 * 60,
+  maximumRequests: 10,
+})
 
 class CheckoutRedemptionError extends Error {
   status: number
@@ -206,15 +229,45 @@ Deno.serve(async (req) => {
   let redemptionClaim: RedemptionClaim | null = null
 
   try {
-    const { session_id } = await req.json()
-    if (!session_id) {
-      return new Response(JSON.stringify({ error: 'Missing session_id' }), {
-        status: 400, headers: corsHeaders,
+    const body = await readJsonObject(req)
+    assertOnlyKeys(body, ['session_id'])
+    const session_id = body.session_id
+    if (!isCheckoutSessionId(session_id)) {
+      throw new BillingRequestError(
+        'A valid Checkout Session ID is required',
+        400,
+        'invalid_checkout_session_id',
+      )
+    }
+
+    const ipRateLimit = await consumeBillingRateLimit(supabase, {
+      scope: 'link-checkout-ip',
+      subject: getClientAddress(req.headers),
+      ...LINK_IP_RATE_LIMIT,
+    })
+    if (!ipRateLimit.allowed) {
+      return new Response(JSON.stringify({
+        error: 'Too many account-linking requests. Please try again shortly.',
+        code: 'rate_limited',
+      }), {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'Retry-After': String(ipRateLimit.retryAfterSeconds),
+        },
       })
     }
 
     // Confirm this is a real, paid Edenia Plus subscription — never trust the client's word alone
     const session = await stripe.checkout.sessions.retrieve(session_id)
+    if (!isStripeEventModeAllowed(billingConfig.mode, session.livemode)) {
+      throw new CheckoutRedemptionError(
+        'Checkout Session belongs to the wrong billing environment',
+        400,
+        'checkout_session_environment_mismatch',
+      )
+    }
     if (!isPaidEdeniaPlusCheckoutSession(session)) {
       return new Response(JSON.stringify({
         error: 'Checkout payment is not complete',
@@ -222,6 +275,25 @@ Deno.serve(async (req) => {
       }), {
         status: 402,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    const sessionRateLimit = await consumeBillingRateLimit(supabase, {
+      scope: 'link-checkout-session',
+      subject: session_id,
+      ...LINK_SESSION_RATE_LIMIT,
+    })
+    if (!sessionRateLimit.allowed) {
+      return new Response(JSON.stringify({
+        error: 'Too many account-linking requests. Please try again shortly.',
+        code: 'rate_limited',
+      }), {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'Retry-After': String(sessionRateLimit.retryAfterSeconds),
+        },
       })
     }
 
@@ -291,12 +363,23 @@ Deno.serve(async (req) => {
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   } catch (err) {
     if (redemptionClaim) await releaseCheckoutSessionClaim(redemptionClaim)
-    console.error('link-checkout-session error:', err.message, err.stack)
-    const status = err instanceof CheckoutRedemptionError ? err.status : 500
-    const code = err instanceof CheckoutRedemptionError ? err.code : 'checkout_session_link_failed'
-    return new Response(JSON.stringify({ error: err.message, code }), {
+    const message = err instanceof Error ? err.message : String(err)
+    const stack = err instanceof Error ? err.stack : undefined
+    console.error('link-checkout-session error:', message, stack)
+    const knownError = err instanceof CheckoutRedemptionError
+      || err instanceof BillingRequestError
+    const status = knownError ? err.status : 500
+    const code = knownError ? err.code : 'checkout_session_link_failed'
+    return new Response(JSON.stringify({
+      error: knownError ? message : 'Unable to link Checkout Session',
+      code,
+    }), {
       status,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+        ...(status === 405 ? { Allow: 'POST' } : {}),
+      },
     })
   }
 })

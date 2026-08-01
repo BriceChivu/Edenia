@@ -72,6 +72,54 @@ Before enabling Plus restoration in production:
 The account section remains hidden when either public Supabase value is absent.
 Authentication and entitlement failures must not modify the main Edenia state.
 
+## Stripe billing backend rollout
+
+The billing functions remain server-only and the purchase UI remains gated by
+the Plus checkout feature flag. Validate this backend in a separate Supabase
+test project and Stripe sandbox before configuring the live project.
+
+Configure these Edge Function secrets independently in each deployment:
+
+- `STRIPE_MODE`: exactly `test` or `live`.
+- `STRIPE_SECRET_KEY`: a Stripe secret key whose `sk_test_` or
+  `sk_live_` prefix matches `STRIPE_MODE`.
+- `STRIPE_WEBHOOK_SECRET`: the signing secret for that environment's endpoint.
+- `STRIPE_MONTHLY_PRICE_ID` and `STRIPE_ANNUAL_PRICE_ID`: Price IDs from the
+  same Stripe environment.
+- `STRIPE_FOUNDING_COUPON_ID`: the environment's founding offer coupon ID.
+- `APP_URL`: the exact site root; live mode requires HTTPS.
+
+Do not share Stripe customers, prices, webhook secrets, or Supabase projects
+between sandbox and production. Do not put any of these server values in the
+GitHub Pages runtime configuration.
+
+Deploy in this order:
+
+1. Configure and verify the test-project secrets with `STRIPE_MODE=test`.
+2. Apply the additive Supabase migration before deploying the functions. It
+   preserves all existing subscription and watched-progress records.
+3. Deploy `stripe-webhook`, `create-checkout-session`, and the compatibility
+   `link-checkout-session` function from the same commit.
+4. Subscribe the Stripe webhook endpoint to
+   `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+   `checkout.session.expired`, `checkout.session.async_payment_failed`,
+   `customer.subscription.updated`, `customer.subscription.deleted`,
+   `customer.subscription.paused`, `customer.subscription.resumed`,
+   `invoice.paid`, and `invoice.payment_failed`.
+5. In Stripe test mode, verify an authenticated monthly and annual checkout,
+   renewal, scheduled cancellation through period end, immediate deletion,
+   reactivation, payment failure, recovery inside the seven-day grace period,
+   and expiry after that grace period. Re-send one event ID and deliver events
+   out of order to confirm idempotent reconciliation.
+6. Keep `plusCheckoutEnabled` and Free limits disabled until the sandbox
+   evidence is reviewed. Repeat the configuration and smoke test against the
+   separate live project only immediately before the approved launch.
+
+If function deployment must be rolled back, redeploy the previous function
+commit and leave this additive migration in place. Removing its tables while a
+new function is still live would break webhook processing; unused additive
+tables and policies are the safer rollback state.
+
 ## Version and release policy
 
 - Use a patch version for behavior-neutral architecture phases.
