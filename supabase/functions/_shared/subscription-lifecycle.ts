@@ -1,6 +1,7 @@
 export type SubscriptionLifecycleSnapshot = {
   id: string
   status: string
+  cancel_at_period_end?: boolean | null
   current_period_end?: number | null
   items?: {
     data?: Array<{
@@ -25,6 +26,7 @@ export function getSubscriptionUpdate(
   const periodEnd = getSubscriptionPeriodEnd(subscription)
   return {
     status: subscription.status,
+    cancel_at_period_end: subscription.cancel_at_period_end === true,
     current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
     past_due_since: subscription.status === 'past_due'
       ? pastDueSince || updatedAt
@@ -39,6 +41,7 @@ function getPersistedLifecycleFingerprint(
   return JSON.stringify([
     subscription.id,
     subscription.status,
+    subscription.cancel_at_period_end === true,
     getSubscriptionPeriodEnd(subscription),
   ])
 }

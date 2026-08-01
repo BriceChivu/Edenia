@@ -96,22 +96,32 @@ GitHub Pages runtime configuration.
 Deploy in this order:
 
 1. Configure and verify the test-project secrets with `STRIPE_MODE=test`.
-2. Apply the additive Supabase migration before deploying the functions. It
-   preserves all existing subscription and watched-progress records.
-3. Deploy `stripe-webhook`, `create-checkout-session`, and the compatibility
-   `link-checkout-session` function from the same commit.
-4. Subscribe the Stripe webhook endpoint to
+2. Enable Stripe's test-mode Customer Portal and configure the subscription,
+   cancellation, payment-method, and invoice actions that Edenia should expose.
+   The Edge Function uses that environment's default portal configuration.
+3. Apply the additive Supabase migrations before deploying the functions. They
+   preserve all existing subscription and watched-progress records.
+4. Deploy `stripe-webhook`, `create-checkout-session`, `get-plus-offer`,
+   `create-billing-portal`, and the compatibility `link-checkout-session`
+   function from the same commit. `get-plus-offer` is the only public billing
+   read endpoint; it returns normalized recurring price data and never returns
+   a Stripe identifier or secret. Checkout and portal creation require an
+   authenticated Supabase user.
+5. Subscribe the Stripe webhook endpoint to
    `checkout.session.completed`, `checkout.session.async_payment_succeeded`,
    `checkout.session.expired`, `checkout.session.async_payment_failed`,
    `customer.subscription.updated`, `customer.subscription.deleted`,
    `customer.subscription.paused`, `customer.subscription.resumed`,
    `invoice.paid`, and `invoice.payment_failed`.
-5. In Stripe test mode, verify an authenticated monthly and annual checkout,
+6. In Stripe test mode, verify that the Plus page displays the configured
+   monthly and annual prices, then test an authenticated checkout for each plan,
    renewal, scheduled cancellation through period end, immediate deletion,
    reactivation, payment failure, recovery inside the seven-day grace period,
-   and expiry after that grace period. Re-send one event ID and deliver events
-   out of order to confirm idempotent reconciliation.
-6. Keep `plusCheckoutEnabled` and Free limits disabled until the sandbox
+   expiry after that grace period, and an authenticated Customer Portal return.
+   Re-send one event ID and deliver events out of order to confirm idempotent
+   reconciliation. Confirm the page shows activation as pending until the
+   webhook-backed subscription row becomes active.
+7. Keep `plusCheckoutEnabled` and Free limits disabled until the sandbox
    evidence is reviewed. Repeat the configuration and smoke test against the
    separate live project only immediately before the approved launch.
 

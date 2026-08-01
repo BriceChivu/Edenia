@@ -36,6 +36,7 @@ function normalizeCachedSnapshot(value, userId, now) {
     currentPeriodEnd: typeof value.currentPeriodEnd === 'string'
       ? value.currentPeriodEnd
       : null,
+    cancelAtPeriodEnd: value.cancelAtPeriodEnd === true,
     pastDueSince,
     updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : null,
     checkedAt: value.checkedAt,
@@ -81,6 +82,7 @@ export function createPlusEntitlementCache({
       subscriptionStatus: snapshot.subscriptionStatus || null,
       plan: snapshot.plan || null,
       currentPeriodEnd: snapshot.currentPeriodEnd || null,
+      cancelAtPeriodEnd: snapshot.cancelAtPeriodEnd === true,
       pastDueSince: snapshot.pastDueSince || null,
       updatedAt: snapshot.updatedAt || null,
       checkedAt,

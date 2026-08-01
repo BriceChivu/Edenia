@@ -35,7 +35,7 @@ export async function readPlusEntitlement(client, userId) {
 
   const { data, error } = await client
     .from('subscriptions')
-    .select('status, plan, current_period_end, past_due_since, updated_at')
+    .select('status, plan, current_period_end, cancel_at_period_end, past_due_since, updated_at')
     .eq('user_id', userId)
     .maybeSingle()
 
@@ -46,6 +46,7 @@ export async function readPlusEntitlement(client, userId) {
     subscriptionStatus: data?.status || null,
     plan: data?.plan || null,
     currentPeriodEnd: data?.current_period_end || null,
+    cancelAtPeriodEnd: data?.cancel_at_period_end === true,
     pastDueSince: data?.past_due_since || null,
     updatedAt: data?.updated_at || null
   })

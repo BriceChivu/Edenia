@@ -8,6 +8,8 @@ const selectors = {
   form: '[data-plus-account-action="restore-form"]',
   email: '#plusAccountEmail',
   refresh: '[data-plus-account-action="refresh"]',
+  billing: '[data-plus-account-action="billing"]',
+  explore: '[data-plus-account-action="explore"]',
   signOut: '[data-plus-account-action="sign-out"]'
 }
 
@@ -42,10 +44,16 @@ test('Plus account controls forward restore, refresh, and sign-out intent', () =
     refresh() {
       calls.push(['refresh'])
     },
+    manageBilling() {
+      calls.push(['billing'])
+    },
+    explore() {
+      calls.push(['explore'])
+    },
     signOut() {
       calls.push(['sign-out'])
     }
-  }), 3)
+  }), 5)
 
   let prevented = false
   controls.get(selectors.form).dispatch('submit', {
@@ -54,11 +62,15 @@ test('Plus account controls forward restore, refresh, and sign-out intent', () =
     }
   })
   controls.get(selectors.refresh).dispatch('click')
+  controls.get(selectors.billing).dispatch('click')
+  controls.get(selectors.explore).dispatch('click')
   controls.get(selectors.signOut).dispatch('click')
   assert.equal(prevented, true)
   assert.deepEqual(calls, [
     ['restore', 'learner@example.com'],
     ['refresh'],
+    ['billing'],
+    ['explore'],
     ['sign-out']
   ])
 })
@@ -68,9 +80,11 @@ test('Plus account binding is idempotent and fails closed at its boundary', () =
   const actions = {
     restore() {},
     refresh() {},
+    manageBilling() {},
+    explore() {},
     signOut() {}
   }
-  assert.equal(bindSettingsPlusAccountActions(root, actions), 3)
+  assert.equal(bindSettingsPlusAccountActions(root, actions), 5)
   assert.equal(bindSettingsPlusAccountActions(root, actions), 0)
   assert.equal(
     bindSettingsPlusAccountActions(createHarness([]).root, actions),
@@ -82,6 +96,6 @@ test('Plus account binding is idempotent and fails closed at its boundary', () =
   )
   assert.throws(
     () => bindSettingsPlusAccountActions(root, { restore() {} }),
-    /restore, refresh, and signOut callbacks/
+    /restore, refresh, manageBilling, explore, and signOut callbacks/
   )
 })

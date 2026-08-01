@@ -70,6 +70,12 @@ html = versionAssetReference(html, 'analytics.js', assetVersion)
 html = versionAssetReference(html, 'app.js', assetVersion)
 await writeFile(resolve(outputDir, 'index.html'), html)
 
+let plusHtml = await readFile(resolve(projectRoot, 'plus', 'index.html'), 'utf8')
+plusHtml = versionAssetReference(plusHtml, 'style.css', assetVersion)
+plusHtml = versionAssetReference(plusHtml, 'plus.js', assetVersion)
+await mkdir(resolve(outputDir, 'plus'), { recursive: true })
+await writeFile(resolve(outputDir, 'plus', 'index.html'), plusHtml)
+
 const appBuild = await build({
   bundle: true,
   charset: 'utf8',
@@ -89,6 +95,25 @@ const appSource = appBuild.outputFiles[0].text
 if (/^\s*(?:import|export)\b/m.test(appSource)) {
   throw new Error('Bundled app output is not compatible with the classic script entry')
 }
+const plusBuild = await build({
+  bundle: true,
+  charset: 'utf8',
+  entryPoints: [resolve(projectRoot, 'src', 'plus-page.js')],
+  format: 'esm',
+  legalComments: 'none',
+  logLevel: 'silent',
+  platform: 'browser',
+  target: 'es2022',
+  treeShaking: false,
+  write: false
+})
+if (plusBuild.outputFiles.length !== 1) {
+  throw new Error(`Expected one bundled Plus output, found ${plusBuild.outputFiles.length}`)
+}
+const plusSource = plusBuild.outputFiles[0].text
+if (/^\s*(?:import|export)\b/m.test(plusSource)) {
+  throw new Error('Bundled Plus output is not compatible with the classic script entry')
+}
 const { source: styleSource } = await readOrderedStyleSource(
   resolve(projectRoot, 'src', 'styles', 'index.css')
 )
@@ -103,10 +128,18 @@ const minifiedApp = await minify(appSource, {
   compress: true,
   mangle: true
 })
+const minifiedPlus = await minify(plusSource, {
+  compress: true,
+  mangle: true
+})
 if (!minifiedApp.code) {
   throw new Error('Terser did not produce app.js output')
 }
+if (!minifiedPlus.code) {
+  throw new Error('Terser did not produce plus.js output')
+}
 await writeFile(resolve(outputDir, 'app.js'), minifiedApp.code)
+await writeFile(resolve(outputDir, 'plus', 'plus.js'), minifiedPlus.code)
 await writeFile(resolve(outputDir, 'style.css'), minifiedStyle.code)
 
 await copyPath('analytics.js')

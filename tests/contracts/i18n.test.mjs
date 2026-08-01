@@ -25,27 +25,27 @@ import {
 } from '../../src/i18n/runtime.js'
 
 const EXPECTED_DICTIONARY_HASHES = {
-  en: 'eaeb772c41cc52ec32d66a7ff9a8de8ffbb1f84aa1e0bb56b562826a26b88784',
-  'zh-Hant': 'f0e6c0e6366b9c2522596ea63e268ec24a15de6a327c34d2adf584c4a5c3504c',
-  'zh-Hans': '28fa363e3602cb26c59ecc51d19745e0ec523ab0fb88259a6bb122c6b7c70ef9',
-  es: '7ff2372f72dc5de806f4b75c75712f166b4698ffd0a271acb6692b51569ad36a',
-  fr: '359e8a37e0c114a9ae0aeede9c0942491e3c2ae671f756efd3e01be8b363c606'
+  en: 'c26e349bebd832cca3f1ad4ca2c813ffa6ca973fc63aa491a26b7721bf845cf1',
+  'zh-Hant': 'caea37a3f25cbe33dab8d3d054b8d48c82c6686fc2a50e60408be3a355e53bab',
+  'zh-Hans': '70cb6d0eb43731f8aec11b41632d32f0973df78f76215f48819d44d69b82bf42',
+  es: '571213ae6b5a76a32da5d6bc07828a1a40914af979e9d5029274d1e01153dd6c',
+  fr: '617959d75b59612f480f2bae0d2c96a89f5aa5d8d6dd3f97c5581774c98dc24c'
 }
 
 const EXPECTED_KEY_ORDER_HASHES = {
-  en: '260b4d62b8587dbc5fc55c817913f9e71fbec8c842a3a9536c32c4ec130eee9f',
-  'zh-Hant': '60d3816226681b6673bea9b2cf1c6cc3af431bf48afa13f6538d8f18a3b01761',
-  'zh-Hans': '60d3816226681b6673bea9b2cf1c6cc3af431bf48afa13f6538d8f18a3b01761',
-  es: '60d3816226681b6673bea9b2cf1c6cc3af431bf48afa13f6538d8f18a3b01761',
-  fr: '60d3816226681b6673bea9b2cf1c6cc3af431bf48afa13f6538d8f18a3b01761'
+  en: '2d47e8a752a8165ac5dc2e840a98e1fd501ae318d306d81f018142449b56e510',
+  'zh-Hant': 'a6196e1b769aa203f8701f5346283b1327b80052dd3746fe410016f808b1d9b8',
+  'zh-Hans': 'a6196e1b769aa203f8701f5346283b1327b80052dd3746fe410016f808b1d9b8',
+  es: 'a6196e1b769aa203f8701f5346283b1327b80052dd3746fe410016f808b1d9b8',
+  fr: 'a6196e1b769aa203f8701f5346283b1327b80052dd3746fe410016f808b1d9b8'
 }
 
 const EXPECTED_COUNTS = {
-  en: 722,
-  'zh-Hant': 726,
-  'zh-Hans': 726,
-  es: 726,
-  fr: 726
+  en: 780,
+  'zh-Hant': 784,
+  'zh-Hans': 784,
+  es: 784,
+  fr: 784
 }
 
 const LEGACY_NON_ENGLISH_EXTRA_KEYS = [
@@ -149,7 +149,10 @@ test('translation placeholders remain compatible with documented plural exceptio
 })
 
 test('every static translation attribute resolves against English', async () => {
-  const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8')
+  const htmlSources = await Promise.all([
+    readFile(new URL('../../index.html', import.meta.url), 'utf8'),
+    readFile(new URL('../../plus/index.html', import.meta.url), 'utf8')
+  ])
   const attributeNames = [
     'data-i18n',
     'data-i18n-alt',
@@ -158,14 +161,16 @@ test('every static translation attribute resolves against English', async () => 
     'data-i18n-title'
   ]
 
-  for (const attributeName of attributeNames) {
-    const pattern = new RegExp(`${attributeName}="([^"]+)"`, 'g')
-    for (const match of html.matchAll(pattern)) {
-      assert.equal(
-        Object.hasOwn(I18N.en, match[1]),
-        true,
-        `${attributeName}="${match[1]}" must resolve`
-      )
+  for (const html of htmlSources) {
+    for (const attributeName of attributeNames) {
+      const pattern = new RegExp(`${attributeName}="([^"]+)"`, 'g')
+      for (const match of html.matchAll(pattern)) {
+        assert.equal(
+          Object.hasOwn(I18N.en, match[1]),
+          true,
+          `${attributeName}="${match[1]}" must resolve`
+        )
+      }
     }
   }
 })

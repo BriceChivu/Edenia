@@ -24,6 +24,10 @@ import {
   PLUS_ENTITLEMENT_STATES
 } from './domain/plus-access-policy.js'
 import {
+  normalizePlusFeatureId,
+  normalizePlusPlanId
+} from './domain/plus-offer.js'
+import {
   hasCoarsePrimaryPointer,
   prefersReducedMotion,
   supportsAnkiIntegrationInput,
@@ -100,6 +104,11 @@ import {
   PLUS_ACCOUNT_FEEDBACK,
   PLUS_ACCOUNT_SESSION_STATES
 } from './integrations/plus-auth-controller.js'
+import {
+  createPlusBillingController,
+  PLUS_BILLING_FEEDBACK,
+  PLUS_BILLING_OFFER_STATES
+} from './integrations/plus-billing-controller.js'
 import {
   getEdeniaSessionReplayUrl,
   getPosthogDistinctId,
@@ -337,6 +346,10 @@ import { bindFeedbackModalActions } from './features/feedback/modal-actions.js'
 import {
   bindFeedbackSubmissionActions
 } from './features/feedback/submission-actions.js'
+import { bindPlusUpgradeActions } from './features/plus/upgrade-actions.js'
+import {
+  renderPlusUpgradeExperience
+} from './features/plus/upgrade-presenter.js'
 
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
@@ -473,6 +486,9 @@ let selectedActivityLogFilter = 'all'
 let mobileActivityLogVisibleCount = 20
 let plusAccountController = null
 let plusAccountViewState = null
+let plusBillingController = null
+let plusBillingViewState = null
+let plusModalFeatureId = null
 let forcedSearchVideoId = null
 let pendingAddedChannelReveal = null
 let shortsEnableRefetchPromise = null
@@ -724,6 +740,7 @@ function applyTranslations(root = document) {
   })
   renderLocaleSelect()
   renderPlusAccountSettings()
+  renderPlusUpgradeModal()
 }
 
 function renderLocaleSelect() {
@@ -1794,6 +1811,7 @@ function init() {
 
   applyLocale(state.config.locale)
   initializePlusAccount()
+  initializeRequestedPlusModal()
   updateDocumentTitle(state)
   document.body.dataset.sandbox = IS_SANDBOX ? 'true' : 'false'
   const sandboxTools = document.getElementById('sandboxTools')
@@ -3791,6 +3809,7 @@ function updatePlusEntitlementState(entitlementState) {
     ...PLUS_ACCESS_CONFIG,
     entitlementState
   })
+  renderPlusUpgradeModal()
   return plusAccessPolicy
 }
 
@@ -3866,9 +3885,25 @@ const PLUS_ACCOUNT_FEEDBACK_VIEWS = Object.freeze({
     key: 'settings.plusAccount.feedback.linkSent',
     tone: 'success'
   },
+  [PLUS_ACCOUNT_FEEDBACK.UPGRADE_LINK_SENT]: {
+    key: 'plus.feedback.upgradeLinkSent',
+    tone: 'success'
+  },
   [PLUS_ACCOUNT_FEEDBACK.SIGN_OUT_ERROR]: {
     key: 'settings.plusAccount.feedback.signOutError',
     tone: 'error'
+  }
+})
+
+const PLUS_SETTINGS_BILLING_FEEDBACK_VIEWS = Object.freeze({
+  [PLUS_BILLING_FEEDBACK.BILLING_ACCOUNT_NOT_FOUND]: {
+    key: 'plus.feedback.billingMissing', tone: 'error'
+  },
+  [PLUS_BILLING_FEEDBACK.PORTAL_ERROR]: {
+    key: 'plus.feedback.portalError', tone: 'error'
+  },
+  [PLUS_BILLING_FEEDBACK.RATE_LIMITED]: {
+    key: 'plus.feedback.rateLimited', tone: 'warning'
   }
 })
 
@@ -3894,12 +3929,46 @@ function renderPlusAccountSettings(state = plusAccountViewState) {
   const email = document.getElementById('plusAccountUserEmail')
   if (email) email.textContent = state.email || ''
 
+  const subscription = document.getElementById('plusAccountSubscription')
+  const hasSubscription = Boolean(state.subscriptionStatus)
+  subscription?.classList.toggle('hidden', !signedIn || !hasSubscription)
+  const plan = document.getElementById('plusAccountPlan')
+  if (plan) {
+    const planKey = String(state.plan || '').includes('annual')
+      ? 'plus.plan.annual.title'
+      : 'plus.plan.monthly.title'
+    plan.textContent = hasSubscription
+      ? t('settings.plusAccount.plan', { plan: t(planKey) })
+      : ''
+  }
+  const period = document.getElementById('plusAccountPeriod')
+  if (period) {
+    const date = state.currentPeriodEnd
+      ? formatLocaleDate(state.currentPeriodEnd, {
+          year: 'numeric', month: 'short', day: 'numeric'
+        })
+      : ''
+    period.textContent = date
+      ? t(
+          state.cancelAtPeriodEnd
+            ? 'settings.plusAccount.ends'
+            : 'settings.plusAccount.renews',
+          { date }
+        )
+      : ''
+  }
+  document.getElementById('plusAccountPaymentHelp')?.classList.toggle(
+    'hidden',
+    state.entitlementState !== PLUS_ENTITLEMENT_STATES.PAYMENT_PROBLEM
+  )
+
   const isBusy = Boolean(state.busyAction)
   group.setAttribute('aria-busy', String(isBusy))
   const emailInput = document.getElementById('plusAccountEmail')
   const restoreButton = document.getElementById('plusAccountRestoreBtn')
   const refreshButton = document.getElementById('plusAccountRefreshBtn')
   const signOutButton = document.getElementById('plusAccountSignOutBtn')
+  const billingButton = document.getElementById('plusAccountBillingBtn')
   if (emailInput) emailInput.disabled = isBusy
   if (restoreButton) {
     restoreButton.disabled = isBusy
@@ -3925,10 +3994,21 @@ function renderPlusAccountSettings(state = plusAccountViewState) {
         : 'settings.plusAccount.signOut'
     )
   }
+  if (billingButton) {
+    billingButton.classList.toggle('hidden', !signedIn || !hasSubscription)
+    billingButton.disabled = isBusy || Boolean(plusBillingViewState?.busyAction)
+    billingButton.textContent = t(
+      plusBillingViewState?.busyAction === 'create-billing-portal'
+        ? 'plus.account.managing'
+        : 'settings.plusAccount.manageBilling'
+    )
+  }
 
   const feedback = document.getElementById('plusAccountFeedback')
   if (!feedback) return
-  const feedbackView = PLUS_ACCOUNT_FEEDBACK_VIEWS[state.feedback]
+  const feedbackView = PLUS_SETTINGS_BILLING_FEEDBACK_VIEWS[
+    plusBillingViewState?.feedback
+  ] || PLUS_ACCOUNT_FEEDBACK_VIEWS[state.feedback]
     || (state.usingCachedEntitlement
       ? {
           key: 'settings.plusAccount.status.cached',
@@ -3940,6 +4020,50 @@ function renderPlusAccountSettings(state = plusAccountViewState) {
     ? t(feedbackView.key, { email: state.feedbackEmail })
     : ''
   feedback.dataset.plusAccountTone = feedbackView?.tone || 'success'
+}
+
+function renderPlusUpgradeModal() {
+  const modal = document.getElementById('plusUpgradeModal')
+  if (!modal) return
+  renderPlusUpgradeExperience(modal, {
+    accountState: plusAccountViewState,
+    billingState: plusBillingViewState,
+    checkoutEnabled: plusAccessPolicy.checkoutEnabled,
+    featureId: plusModalFeatureId,
+    locale: getCurrentLocale(),
+    t
+  })
+}
+
+function openPlusUpgradeModal(featureId = null) {
+  const modal = document.getElementById('plusUpgradeModal')
+  const dialog = modal?.querySelector('[role="dialog"]')
+  if (!modal || !dialog) return false
+  modal._previousFocus = document.activeElement
+  plusModalFeatureId = normalizePlusFeatureId(featureId)
+  renderPlusUpgradeModal()
+  if (
+    plusBillingController
+    && plusBillingViewState?.offerState === PLUS_BILLING_OFFER_STATES.IDLE
+  ) {
+    void plusBillingController.loadOffer()
+  }
+  modal.classList.remove('hidden')
+  document.body.classList.add('plus-modal-open')
+  window.requestAnimationFrame(() => {
+    dialog.querySelector('[data-plus-action="close"]')?.focus()
+  })
+  return true
+}
+
+function closePlusUpgradeModal() {
+  const modal = document.getElementById('plusUpgradeModal')
+  if (!modal || modal.classList.contains('hidden')) return false
+  modal.classList.add('hidden')
+  document.body.classList.remove('plus-modal-open')
+  modal._previousFocus?.focus?.()
+  modal._previousFocus = null
+  return true
 }
 
 function initializePlusAccount() {
@@ -3955,6 +4079,17 @@ function initializePlusAccount() {
       storage: localStorage,
       storageKey: PLUS_ENTITLEMENT_CACHE_KEY
     })
+    plusBillingController = createPlusBillingController({
+      client,
+      checkoutEnabled: plusAccessPolicy.checkoutEnabled,
+      location: { assign: url => window.location.assign(url) },
+      onStateChange(state) {
+        plusBillingViewState = state
+        renderPlusAccountSettings()
+        renderPlusUpgradeModal()
+      }
+    })
+    plusBillingViewState = plusBillingController.getState()
     plusAccountController = createPlusAuthController({
       client,
       entitlementCache,
@@ -3963,11 +4098,14 @@ function initializePlusAccount() {
       onStateChange(state) {
         plusAccountViewState = state
         renderPlusAccountSettings(state)
+        renderPlusUpgradeModal()
       },
       onEntitlementChange: updatePlusEntitlementState
     })
     plusAccountViewState = plusAccountController.getState()
     renderPlusAccountSettings()
+    renderPlusUpgradeModal()
+    if (plusAccessPolicy.checkoutEnabled) void plusBillingController.loadOffer()
     void plusAccountController.initialize()
   } catch {
     plusAccountViewState = {
@@ -3982,6 +4120,7 @@ function initializePlusAccount() {
     }
     updatePlusEntitlementState(PLUS_ENTITLEMENT_STATES.UNAVAILABLE)
     renderPlusAccountSettings()
+    renderPlusUpgradeModal()
   }
 }
 
@@ -3995,6 +4134,36 @@ function refreshPlusAccount() {
 
 function signOutPlusAccount() {
   return plusAccountController?.signOut()
+}
+
+function startPlusUpgradeSignIn(email) {
+  return plusAccountController?.startUpgradeSignIn(
+    email,
+    plusBillingViewState?.selectedPlan
+  )
+}
+
+function selectPlusPlan(plan) {
+  const selectedPlan = normalizePlusPlanId(plan)
+  if (plusBillingController) return plusBillingController.selectPlan(selectedPlan)
+  plusBillingViewState = { ...plusBillingViewState, selectedPlan }
+  renderPlusUpgradeModal()
+  return plusBillingViewState
+}
+
+function startPlusCheckout() {
+  return plusBillingController?.startCheckout()
+}
+
+function managePlusBilling() {
+  return plusBillingController?.openBillingPortal()
+}
+
+function initializeRequestedPlusModal() {
+  const params = new URLSearchParams(window.location.search)
+  if (params.get('plus') !== '1') return
+  selectPlusPlan(params.get('plan'))
+  window.setTimeout(() => openPlusUpgradeModal(params.get('feature')), 0)
 }
 
 function openSettings() {
@@ -14657,6 +14826,18 @@ bindSettingsPreferenceActions(document, {
 bindSettingsPlusAccountActions(document, {
   restore: restorePlusAccount,
   refresh: refreshPlusAccount,
+  manageBilling: managePlusBilling,
+  explore: () => openPlusUpgradeModal(),
+  signOut: signOutPlusAccount
+})
+bindPlusUpgradeActions(document.getElementById('plusUpgradeModal'), {
+  close: closePlusUpgradeModal,
+  selectPlan: selectPlusPlan,
+  startCheckout: startPlusCheckout,
+  startUpgradeSignIn: startPlusUpgradeSignIn,
+  restore: restorePlusAccount,
+  refresh: refreshPlusAccount,
+  openBillingPortal: managePlusBilling,
   signOut: signOutPlusAccount
 })
 bindWatchedSectionActions(document, {

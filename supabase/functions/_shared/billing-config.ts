@@ -8,11 +8,18 @@ export type StripeRuntimeConfig = {
   secretKey: string
 }
 
-export type StripeCheckoutConfig = StripeRuntimeConfig & {
-  appUrl: string
+export type StripeOfferConfig = StripeRuntimeConfig & {
   monthlyPriceId: string
   annualPriceId: string
+}
+
+export type StripeCheckoutConfig = StripeOfferConfig & {
+  appUrl: string
   foundingCouponId: string
+}
+
+export type StripePortalConfig = StripeRuntimeConfig & {
+  appUrl: string
 }
 
 export type StripeWebhookConfig = StripeRuntimeConfig & {
@@ -92,10 +99,23 @@ function requireAppUrl(readEnvironment: ReadEnvironment, mode: StripeMode) {
 export function readStripeCheckoutConfig(
   readEnvironment: ReadEnvironment,
 ): StripeCheckoutConfig {
+  const offer = readStripeOfferConfig(readEnvironment)
+  return {
+    ...offer,
+    appUrl: requireAppUrl(readEnvironment, offer.mode),
+    foundingCouponId: requireStripeIdentifier(
+      readEnvironment,
+      'STRIPE_FOUNDING_COUPON_ID',
+    ),
+  }
+}
+
+export function readStripeOfferConfig(
+  readEnvironment: ReadEnvironment,
+): StripeOfferConfig {
   const runtime = readStripeRuntimeConfig(readEnvironment)
   return {
     ...runtime,
-    appUrl: requireAppUrl(readEnvironment, runtime.mode),
     monthlyPriceId: requireStripeResource(
       readEnvironment,
       'STRIPE_MONTHLY_PRICE_ID',
@@ -106,10 +126,16 @@ export function readStripeCheckoutConfig(
       'STRIPE_ANNUAL_PRICE_ID',
       'price_',
     ),
-    foundingCouponId: requireStripeIdentifier(
-      readEnvironment,
-      'STRIPE_FOUNDING_COUPON_ID',
-    ),
+  }
+}
+
+export function readStripePortalConfig(
+  readEnvironment: ReadEnvironment,
+): StripePortalConfig {
+  const runtime = readStripeRuntimeConfig(readEnvironment)
+  return {
+    ...runtime,
+    appUrl: requireAppUrl(readEnvironment, runtime.mode),
   }
 }
 
@@ -128,7 +154,7 @@ export function readStripeWebhookConfig(
 }
 
 export function getStripePriceId(
-  config: StripeCheckoutConfig,
+  config: StripeOfferConfig,
   plan: BillingPlan,
 ) {
   return plan === 'monthly' ? config.monthlyPriceId : config.annualPriceId
