@@ -3,6 +3,8 @@ import { expect, test } from '../support/network-fixture.mjs'
 import { GLOBAL_ACTION_NAMES } from '../../src/core/global-action-contract.js'
 
 const fixedNow = new Date('2026-07-28T04:00:00.000Z')
+const PHONE_PROJECT_NAMES = new Set(['phone-standard', 'phone-small'])
+const LAYOUT_TOLERANCE_PX = 1
 
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(fixedNow)
@@ -43,6 +45,116 @@ async function stabilizeVisuals(page) {
       }
     `
   })
+}
+
+async function expectCompletedPhoneDashboardLayout(page) {
+  const layout = await page.evaluate(() => {
+    function readRect(selector) {
+      const element = document.querySelector(selector)
+      if (!element) throw new Error(`Missing layout target: ${selector}`)
+      const rect = element.getBoundingClientRect()
+      return {
+        selector,
+        bottom: rect.bottom,
+        height: rect.height,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        width: rect.width
+      }
+    }
+
+    return {
+      viewportWidth: document.documentElement.clientWidth,
+      documentWidth: Math.max(
+        document.documentElement.scrollWidth,
+        document.body.scrollWidth
+      ),
+      sections: [
+        '.app-header',
+        '.city-section',
+        '.analytics-section',
+        '.study-history-section',
+        '.feed-section',
+        '.app-footer'
+      ].map(readRect),
+      history: {
+        tabs: readRect('.history-view-tabs'),
+        stats: [...document.querySelectorAll(
+          '.study-history-grid .history-stat'
+        )].map((_, index) => readRect(
+          `.study-history-grid .history-stat:nth-child(${index + 1})`
+        )),
+        table: readRect('#historyTable')
+      },
+      feed: {
+        header: readRect('.feed-section > .section-header'),
+        toolbar: readRect('.feed-toolbar'),
+        addButton: readRect('#manualVideoBtn'),
+        undoGroup: readRect('.undo-wrap'),
+        grid: readRect('#videoGrid')
+      },
+      feedbackButton: readRect('#feedbackLaunchBtn')
+    }
+  })
+
+  expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth)
+
+  for (const rect of layout.sections) {
+    expect(rect.width, `${rect.selector} has width`).toBeGreaterThan(0)
+    expect(rect.height, `${rect.selector} has height`).toBeGreaterThan(0)
+    expect(rect.left, `${rect.selector} stays inside the left edge`)
+      .toBeGreaterThanOrEqual(-LAYOUT_TOLERANCE_PX)
+    expect(rect.right, `${rect.selector} stays inside the right edge`)
+      .toBeLessThanOrEqual(layout.viewportWidth + LAYOUT_TOLERANCE_PX)
+  }
+
+  for (let index = 1; index < layout.sections.length; index += 1) {
+    const previous = layout.sections[index - 1]
+    const current = layout.sections[index]
+    expect(
+      previous.bottom,
+      `${previous.selector} does not overlap ${current.selector}`
+    ).toBeLessThanOrEqual(current.top + LAYOUT_TOLERANCE_PX)
+  }
+
+  const [firstStat, secondStat, thirdStat, fourthStat] = layout.history.stats
+  expect(layout.history.stats).toHaveLength(4)
+  expect(Math.abs(firstStat.top - secondStat.top)).toBeLessThanOrEqual(
+    LAYOUT_TOLERANCE_PX
+  )
+  expect(Math.abs(thirdStat.top - fourthStat.top)).toBeLessThanOrEqual(
+    LAYOUT_TOLERANCE_PX
+  )
+  expect(firstStat.right).toBeLessThanOrEqual(
+    secondStat.left + LAYOUT_TOLERANCE_PX
+  )
+  expect(thirdStat.right).toBeLessThanOrEqual(
+    fourthStat.left + LAYOUT_TOLERANCE_PX
+  )
+  expect(firstStat.bottom).toBeLessThanOrEqual(
+    thirdStat.top + LAYOUT_TOLERANCE_PX
+  )
+  expect(layout.history.tabs.bottom).toBeLessThanOrEqual(
+    firstStat.top + LAYOUT_TOLERANCE_PX
+  )
+  expect(thirdStat.bottom).toBeLessThanOrEqual(
+    layout.history.table.top + LAYOUT_TOLERANCE_PX
+  )
+
+  expect(layout.feed.header.bottom).toBeLessThanOrEqual(
+    layout.feed.toolbar.top + LAYOUT_TOLERANCE_PX
+  )
+  expect(layout.feed.toolbar.bottom).toBeLessThanOrEqual(
+    layout.feed.grid.top + LAYOUT_TOLERANCE_PX
+  )
+  expect(layout.feed.addButton.right).toBeLessThanOrEqual(
+    layout.feed.undoGroup.left + LAYOUT_TOLERANCE_PX
+  )
+  expect(layout.feed.addButton.height).toBeGreaterThanOrEqual(44)
+  expect(layout.feed.undoGroup.height).toBeGreaterThanOrEqual(44)
+  expect(layout.feedbackButton.left).toBeGreaterThanOrEqual(0)
+  expect(layout.feedbackButton.right).toBeLessThanOrEqual(layout.viewportWidth)
 }
 
 async function seedCompletedState(page, locale = 'en') {
@@ -162,16 +274,24 @@ test('fresh install boots the protected first-run experience and classic handler
   await expect.poll(() => page.evaluate(() => window.EDENIA_CONFIG?.youtubeApiKey)).toBe('')
 })
 
-test('completed local state preserves settings and feedback interactions', async ({ page }) => {
+test('completed local state preserves settings and feedback interactions', async ({
+  page
+}, testInfo) => {
   await seedCompletedState(page)
 
   await expect(page.locator('#introTrailer')).toHaveClass(/\bhidden\b/)
   await expect(page.locator('#onboardingPanel')).toHaveClass(/\bhidden\b/)
   await stabilizeVisuals(page)
-  await expect(page).toHaveScreenshot('completed-dashboard.png', {
-    animations: 'disabled',
-    fullPage: true
-  })
+  // Phone text wrapping and city cover positioning can vary by a few pixels.
+  // Protect the responsive contracts directly instead of snapshotting the page.
+  if (PHONE_PROJECT_NAMES.has(testInfo.project.name)) {
+    await expectCompletedPhoneDashboardLayout(page)
+  } else {
+    await expect(page).toHaveScreenshot('completed-dashboard.png', {
+      animations: 'disabled',
+      fullPage: true
+    })
+  }
 
   await page.locator('.gear-btn').click()
   await expect(page.locator('#settingsPanel')).not.toHaveClass(/\bhidden\b/)
