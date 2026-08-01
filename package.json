@@ -25,5 +25,8 @@
     "@playwright/test": "1.62.0",
     "esbuild": "0.28.1",
     "terser": "5.49.0"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.110.7"
   }
 }

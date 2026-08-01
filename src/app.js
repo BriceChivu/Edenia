@@ -20,7 +20,8 @@ import { escHtml, escapeSvgText } from './core/escaping.js'
 import { clampNumber } from './core/numbers.js'
 import {
   createPlusAccessPolicy,
-  derivePlusAccessSimulation
+  derivePlusAccessSimulation,
+  PLUS_ENTITLEMENT_STATES
 } from './domain/plus-access-policy.js'
 import {
   hasCoarsePrimaryPointer,
@@ -87,9 +88,18 @@ import {
 import {
   getFreePlusEnabled,
   getPlusCheckoutEnabled,
+  getSupabasePublishableKey,
+  getSupabaseUrl,
   getYoutubeApiKey,
+  hasSupabaseRuntimeConfig,
   hasYoutubeApiKey
 } from './integrations/runtime-config.js'
+import { createEdeniaSupabaseClient } from './integrations/supabase-client.js'
+import {
+  createPlusAuthController,
+  PLUS_ACCOUNT_FEEDBACK,
+  PLUS_ACCOUNT_SESSION_STATES
+} from './integrations/plus-auth-controller.js'
 import {
   getEdeniaSessionReplayUrl,
   getPosthogDistinctId,
@@ -171,6 +181,9 @@ import {
   isStorageQuotaError
 } from './state/store.js'
 import { createStateBackupStore } from './state/backups.js'
+import {
+  createPlusEntitlementCache
+} from './state/plus-entitlement-cache.js'
 import {
   bindIntroCityLevelActions
 } from './features/onboarding/intro-city-level-actions.js'
@@ -291,6 +304,9 @@ import { bindSettingsLocaleActions } from './features/settings/locale-actions.js
 import {
   bindSettingsPreferenceActions
 } from './features/settings/preference-actions.js'
+import {
+  bindSettingsPlusAccountActions
+} from './features/settings/plus-account-actions.js'
 import { bindSettingsReplayActions } from './features/settings/replay-actions.js'
 import { bindSettingsResetConfirmActions } from './features/settings/reset-confirm-actions.js'
 import { bindSettingsShellActions } from './features/settings/shell-actions.js'
@@ -337,7 +353,7 @@ const {
   isLocalhost: IS_LOCALHOST,
   isLocalFeedbackTest: IS_LOCAL_FEEDBACK_TEST
 } = RUNTIME_ENVIRONMENT
-const PLUS_ACCESS_POLICY = createPlusAccessPolicy({
+const PLUS_ACCESS_CONFIG = Object.freeze({
   freePlusEnabled: getFreePlusEnabled(),
   plusCheckoutEnabled: getPlusCheckoutEnabled(),
   simulatedTier: derivePlusAccessSimulation(
@@ -345,6 +361,7 @@ const PLUS_ACCESS_POLICY = createPlusAccessPolicy({
     RUNTIME_ENVIRONMENT
   )
 })
+let plusAccessPolicy = createPlusAccessPolicy(PLUS_ACCESS_CONFIG)
 const TEMP_SHORTS_WHITELIST_VERSION = '2026-07-22-1'
 const TEMP_SHORTS_DISTINCT_IDS = new Set([
   '019f7f94-34a7-7263-87fc-27029d04e6e7'
@@ -367,6 +384,8 @@ const {
   youtubeChannelSearchCacheKey: YOUTUBE_CHANNEL_SEARCH_CACHE_KEY,
   youtubeChannelSearchUsageKey: YOUTUBE_CHANNEL_SEARCH_USAGE_KEY,
   stateBackupKey: STATE_BACKUP_KEY,
+  plusAuthStorageKey: PLUS_AUTH_STORAGE_KEY,
+  plusEntitlementCacheKey: PLUS_ENTITLEMENT_CACHE_KEY,
   sandboxWalkthroughAfterResetKey: SANDBOX_WALKTHROUGH_AFTER_RESET_KEY,
   onboardingNoticeKey: ONBOARDING_NOTICE_KEY,
   configCookieKey: CONFIG_COOKIE_KEY
@@ -452,6 +471,8 @@ let selectedHistoryView = 'summary'
 let selectedStudyInsightView = 'current'
 let selectedActivityLogFilter = 'all'
 let mobileActivityLogVisibleCount = 20
+let plusAccountController = null
+let plusAccountViewState = null
 let forcedSearchVideoId = null
 let pendingAddedChannelReveal = null
 let shortsEnableRefetchPromise = null
@@ -702,6 +723,7 @@ function applyTranslations(root = document) {
     el.setAttribute('alt', t(el.dataset.i18nAlt))
   })
   renderLocaleSelect()
+  renderPlusAccountSettings()
 }
 
 function renderLocaleSelect() {
@@ -1771,6 +1793,7 @@ function init() {
   }
 
   applyLocale(state.config.locale)
+  initializePlusAccount()
   updateDocumentTitle(state)
   document.body.dataset.sandbox = IS_SANDBOX ? 'true' : 'false'
   const sandboxTools = document.getElementById('sandboxTools')
@@ -3763,6 +3786,217 @@ function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
+function updatePlusEntitlementState(entitlementState) {
+  plusAccessPolicy = createPlusAccessPolicy({
+    ...PLUS_ACCESS_CONFIG,
+    entitlementState
+  })
+  return plusAccessPolicy
+}
+
+function getPlusAccountStatusView(state) {
+  if (
+    state.sessionState === PLUS_ACCOUNT_SESSION_STATES.LOADING
+    || state.entitlementState === PLUS_ENTITLEMENT_STATES.LOADING
+  ) {
+    return {
+      key: 'settings.plusAccount.status.loading',
+      tone: 'neutral'
+    }
+  }
+  if (state.sessionState === PLUS_ACCOUNT_SESSION_STATES.SIGNED_OUT) {
+    return {
+      key: 'settings.plusAccount.status.signedOut',
+      tone: 'neutral'
+    }
+  }
+  if (
+    state.sessionState === PLUS_ACCOUNT_SESSION_STATES.UNAVAILABLE
+    || state.entitlementState === PLUS_ENTITLEMENT_STATES.UNAVAILABLE
+  ) {
+    return {
+      key: 'settings.plusAccount.status.unavailable',
+      tone: 'warning'
+    }
+  }
+  if (state.entitlementState === PLUS_ENTITLEMENT_STATES.PLUS) {
+    return {
+      key: 'settings.plusAccount.status.plus',
+      tone: 'plus'
+    }
+  }
+  if (state.entitlementState === PLUS_ENTITLEMENT_STATES.PAYMENT_PROBLEM) {
+    return {
+      key: 'settings.plusAccount.status.paymentProblem',
+      tone: 'warning'
+    }
+  }
+  return {
+    key: 'settings.plusAccount.status.free',
+    tone: 'neutral'
+  }
+}
+
+const PLUS_ACCOUNT_FEEDBACK_VIEWS = Object.freeze({
+  [PLUS_ACCOUNT_FEEDBACK.CHECKOUT_ERROR]: {
+    key: 'settings.plusAccount.feedback.checkoutError',
+    tone: 'error'
+  },
+  [PLUS_ACCOUNT_FEEDBACK.CHECKOUT_PENDING]: {
+    key: 'settings.plusAccount.feedback.checkoutPending',
+    tone: 'warning'
+  },
+  [PLUS_ACCOUNT_FEEDBACK.CHECKOUT_RESTORED]: {
+    key: 'settings.plusAccount.feedback.checkoutRestored',
+    tone: 'success'
+  },
+  [PLUS_ACCOUNT_FEEDBACK.INVALID_EMAIL]: {
+    key: 'settings.plusAccount.feedback.invalidEmail',
+    tone: 'error'
+  },
+  [PLUS_ACCOUNT_FEEDBACK.REFRESH_ERROR]: {
+    key: 'settings.plusAccount.feedback.refreshError',
+    tone: 'error'
+  },
+  [PLUS_ACCOUNT_FEEDBACK.SIGN_IN_ERROR]: {
+    key: 'settings.plusAccount.feedback.signInError',
+    tone: 'error'
+  },
+  [PLUS_ACCOUNT_FEEDBACK.SIGN_IN_LINK_SENT]: {
+    key: 'settings.plusAccount.feedback.linkSent',
+    tone: 'success'
+  },
+  [PLUS_ACCOUNT_FEEDBACK.SIGN_OUT_ERROR]: {
+    key: 'settings.plusAccount.feedback.signOutError',
+    tone: 'error'
+  }
+})
+
+function renderPlusAccountSettings(state = plusAccountViewState) {
+  const group = document.getElementById('plusAccountSettings')
+  if (!group || !state) return
+  group.classList.remove('hidden')
+
+  const statusView = getPlusAccountStatusView(state)
+  const status = document.getElementById('plusAccountStatus')
+  const badge = document.getElementById('plusAccountBadge')
+  if (status) status.textContent = t(statusView.key)
+  if (badge) {
+    badge.textContent = t(statusView.key)
+    badge.dataset.plusAccountTone = statusView.tone
+  }
+
+  const signedIn = Boolean(state.userId)
+  const form = group.querySelector('[data-plus-account-action="restore-form"]')
+  const signedInPanel = document.getElementById('plusAccountSignedIn')
+  form?.classList.toggle('hidden', signedIn)
+  signedInPanel?.classList.toggle('hidden', !signedIn)
+  const email = document.getElementById('plusAccountUserEmail')
+  if (email) email.textContent = state.email || ''
+
+  const isBusy = Boolean(state.busyAction)
+  group.setAttribute('aria-busy', String(isBusy))
+  const emailInput = document.getElementById('plusAccountEmail')
+  const restoreButton = document.getElementById('plusAccountRestoreBtn')
+  const refreshButton = document.getElementById('plusAccountRefreshBtn')
+  const signOutButton = document.getElementById('plusAccountSignOutBtn')
+  if (emailInput) emailInput.disabled = isBusy
+  if (restoreButton) {
+    restoreButton.disabled = isBusy
+    restoreButton.textContent = t(
+      state.busyAction === 'restore'
+        ? 'settings.plusAccount.restoring'
+        : 'settings.plusAccount.restore'
+    )
+  }
+  if (refreshButton) {
+    refreshButton.disabled = isBusy
+    refreshButton.textContent = t(
+      state.busyAction === 'refresh'
+        ? 'settings.plusAccount.refreshing'
+        : 'settings.plusAccount.refresh'
+    )
+  }
+  if (signOutButton) {
+    signOutButton.disabled = isBusy
+    signOutButton.textContent = t(
+      state.busyAction === 'sign-out'
+        ? 'settings.plusAccount.signingOut'
+        : 'settings.plusAccount.signOut'
+    )
+  }
+
+  const feedback = document.getElementById('plusAccountFeedback')
+  if (!feedback) return
+  const feedbackView = PLUS_ACCOUNT_FEEDBACK_VIEWS[state.feedback]
+    || (state.usingCachedEntitlement
+      ? {
+          key: 'settings.plusAccount.status.cached',
+          tone: 'warning'
+        }
+      : null)
+  feedback.classList.toggle('hidden', !feedbackView)
+  feedback.textContent = feedbackView
+    ? t(feedbackView.key, { email: state.feedbackEmail })
+    : ''
+  feedback.dataset.plusAccountTone = feedbackView?.tone || 'success'
+}
+
+function initializePlusAccount() {
+  if (IS_SANDBOX || !hasSupabaseRuntimeConfig()) return
+
+  try {
+    const client = createEdeniaSupabaseClient({
+      url: getSupabaseUrl(),
+      publishableKey: getSupabasePublishableKey(),
+      storageKey: PLUS_AUTH_STORAGE_KEY
+    })
+    const entitlementCache = createPlusEntitlementCache({
+      storage: localStorage,
+      storageKey: PLUS_ENTITLEMENT_CACHE_KEY
+    })
+    plusAccountController = createPlusAuthController({
+      client,
+      entitlementCache,
+      location: window.location,
+      history: window.history,
+      onStateChange(state) {
+        plusAccountViewState = state
+        renderPlusAccountSettings(state)
+      },
+      onEntitlementChange: updatePlusEntitlementState
+    })
+    plusAccountViewState = plusAccountController.getState()
+    renderPlusAccountSettings()
+    void plusAccountController.initialize()
+  } catch {
+    plusAccountViewState = {
+      sessionState: PLUS_ACCOUNT_SESSION_STATES.UNAVAILABLE,
+      entitlementState: PLUS_ENTITLEMENT_STATES.UNAVAILABLE,
+      userId: null,
+      email: '',
+      usingCachedEntitlement: false,
+      busyAction: null,
+      feedback: PLUS_ACCOUNT_FEEDBACK.REFRESH_ERROR,
+      feedbackEmail: ''
+    }
+    updatePlusEntitlementState(PLUS_ENTITLEMENT_STATES.UNAVAILABLE)
+    renderPlusAccountSettings()
+  }
+}
+
+function restorePlusAccount(email) {
+  return plusAccountController?.restore(email)
+}
+
+function refreshPlusAccount() {
+  return plusAccountController?.refresh()
+}
+
+function signOutPlusAccount() {
+  return plusAccountController?.signOut()
+}
+
 function openSettings() {
   const panel = document.getElementById('settingsPanel')
   const main = document.getElementById('mainApp')
@@ -3780,6 +4014,7 @@ function openSettings() {
   setSettingsActivityLogOpen(false)
   setSettingsBackupsOpen(false)
   closeLocaleMenu()
+  renderPlusAccountSettings()
   show('settingsPanel')
   const drawer = panel?.querySelector('.settings-drawer')
   if (drawer && usesPhoneComposition()) drawer.scrollTop = 0
@@ -14419,6 +14654,11 @@ bindSettingsSyncActions(document, {
 bindSettingsPreferenceActions(document, {
   save: saveSettingsOnTheFly
 })
+bindSettingsPlusAccountActions(document, {
+  restore: restorePlusAccount,
+  refresh: refreshPlusAccount,
+  signOut: signOutPlusAccount
+})
 bindWatchedSectionActions(document, {
   toggle: toggleWatchedSection
 })
@@ -14527,7 +14767,8 @@ document.addEventListener('keydown', handleIntroTrailerKeydown)
 document.addEventListener('keydown', handleFeedbackModalKeydown)
 document.addEventListener('keydown', handleVideoShelfPlayerKeydown, true)
 window.addEventListener('blur', keepVideoShelfPlayerEscapeAvailable)
-window.addEventListener('pagehide', () => {
+window.addEventListener('pagehide', event => {
+  if (!event.persisted) plusAccountController?.destroy()
   const session = activeVideoShelfPlayer
   syncActiveVideoShelfPlayer({ persist: true })
   trackVideoPlaybackSessionEnded(session, 'page_hidden')

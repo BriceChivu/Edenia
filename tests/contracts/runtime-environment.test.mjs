@@ -102,6 +102,14 @@ test('storage keys preserve normal, internal, sandbox, and combined isolation', 
     )
     assert.equal(keys.stateBackupKey, `${expected.storageKey}_backups`)
     assert.equal(
+      keys.plusAuthStorageKey,
+      `${expected.storageKey}_plus_auth_v1`
+    )
+    assert.equal(
+      keys.plusEntitlementCacheKey,
+      `${expected.storageKey}_plus_entitlement_cache_v1`
+    )
+    assert.equal(
       keys.sandboxWalkthroughAfterResetKey,
       `${expected.storageKey}_walkthrough_after_reset`
     )

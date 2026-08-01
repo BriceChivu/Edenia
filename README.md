@@ -2,7 +2,7 @@
 
 Edenia turns YouTube study time and optional Anki activity into visible language-learning progress. It combines a focused video queue, weekly goals, study history, local pattern insights, streaks, and a town that evolves as study points accumulate.
 
-The app is browser-first and has no application backend. Its interface and progress state run from static HTML, CSS, and JavaScript, with YouTube Data API access supplied through a runtime configuration file. The primary study state remains in the browser unless the user explicitly exports a sync file; the official production deployment sends the analytics, session-recording, search, and optional feedback data described under [Privacy and Analytics](#privacy-and-analytics).
+The app is browser-first: its interface and primary study state run from static HTML, CSS, and JavaScript, with YouTube Data API access supplied through a runtime configuration file. Supabase backs optional Edenia Plus authentication and subscription recognition only; signing in or out does not move or replace browser-local study progress. The primary study state remains in the browser unless the user explicitly exports a sync file; the official production deployment sends the analytics, session-recording, search, and optional feedback data described under [Privacy and Analytics](#privacy-and-analytics).
 
 ## Current Features
 

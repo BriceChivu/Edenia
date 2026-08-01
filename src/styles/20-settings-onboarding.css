@@ -418,6 +418,80 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
 .settings-group { display: flex; flex-direction: column; gap: 8px; }
 .settings-group label { font-weight: 600; font-size: 0.9rem; }
 .settings-group input { width: 100%; }
+.settings-plus-account {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--surface);
+}
+.settings-plus-account-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.settings-plus-account-header h2 {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.3;
+}
+.settings-plus-account-badge {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.settings-plus-account-badge[data-plus-account-tone="plus"] {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  color: var(--accent);
+}
+.settings-plus-account-badge[data-plus-account-tone="warning"] {
+  border-color: color-mix(in srgb, var(--amber) 55%, var(--border));
+  color: var(--amber);
+}
+.settings-plus-account-status,
+.settings-plus-account-signed-in p,
+.settings-plus-account-feedback {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+.settings-plus-account-form {
+  display: grid;
+  gap: 8px;
+}
+.settings-plus-account-form input {
+  min-height: 42px;
+}
+.settings-plus-account-signed-in {
+  display: grid;
+  gap: 10px;
+}
+.settings-plus-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.settings-plus-account-actions > button {
+  flex: 1 1 130px;
+}
+.settings-plus-account-feedback {
+  padding: 9px 10px;
+  border-radius: calc(var(--radius) - 4px);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+.settings-plus-account-feedback[data-plus-account-tone="error"] {
+  color: var(--error);
+  background: color-mix(in srgb, var(--error) 9%, transparent);
+}
+.settings-plus-account-feedback[data-plus-account-tone="warning"] {
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 9%, transparent);
+}
 .settings-locale-group {
   align-items: center;
   display: grid;
