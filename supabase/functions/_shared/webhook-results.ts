@@ -3,10 +3,15 @@ export type DependencyError = {
   message: string
 }
 
-export type DependencyResult<T> = {
-  data: T
-  error: DependencyError | null
-}
+export type DependencyResult<T> =
+  | { data: T; error: null }
+  | { data: unknown; error: DependencyError }
+
+type SuccessfulDependencyData<TResult> = TResult extends {
+  data: infer TData
+  error: null
+} ? TData
+  : never
 
 export class WebhookDependencyError extends Error {
   code?: string
@@ -20,10 +25,12 @@ export class WebhookDependencyError extends Error {
   }
 }
 
-export function requireDependencySuccess<T>(
-  result: DependencyResult<T>,
+export function requireDependencySuccess<
+  TResult extends { data: unknown; error: DependencyError | null },
+>(
+  result: TResult,
   operation: string,
-) {
+): SuccessfulDependencyData<TResult> {
   if (result.error) {
     throw new WebhookDependencyError(
       operation,
@@ -31,7 +38,7 @@ export function requireDependencySuccess<T>(
       result.error.code,
     )
   }
-  return result.data
+  return result.data as SuccessfulDependencyData<TResult>
 }
 
 export function requireAffectedRows<T>(

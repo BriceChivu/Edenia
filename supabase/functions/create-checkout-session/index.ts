@@ -42,6 +42,26 @@ const CHECKOUT_RATE_LIMIT = Object.freeze({
   maximumRequests: 5,
 })
 
+function readFoundingCheckoutReservation(value: unknown) {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    !('reservation_id' in value) ||
+    typeof value.reservation_id !== 'string' ||
+    !value.reservation_id ||
+    !('reservation_expires_at' in value) ||
+    typeof value.reservation_expires_at !== 'string' ||
+    Number.isNaN(Date.parse(value.reservation_expires_at))
+  ) {
+    throw new Error('Founding Checkout reservation is incomplete')
+  }
+
+  return {
+    id: value.reservation_id,
+    expiresAt: value.reservation_expires_at,
+  }
+}
+
 function jsonResponse(
   body: Record<string, unknown>,
   status = 200,
@@ -270,11 +290,9 @@ Deno.serve(async request => {
         throw reservationError
       }
 
-      foundingReservationId = reservation.reservation_id
-      foundingReservationExpiresAt = reservation.reservation_expires_at
-      if (!foundingReservationId || !foundingReservationExpiresAt) {
-        throw new Error('Founding Checkout reservation is incomplete')
-      }
+      const validatedReservation = readFoundingCheckoutReservation(reservation)
+      foundingReservationId = validatedReservation.id
+      foundingReservationExpiresAt = validatedReservation.expiresAt
     }
 
     const checkoutMetadata: Record<string, string> = {
