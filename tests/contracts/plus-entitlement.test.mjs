@@ -5,6 +5,7 @@ import {
 } from '../../src/domain/plus-access-policy.js'
 import {
   getPlusEntitlementState,
+  PLUS_PAYMENT_GRACE_PERIOD_MS,
   readPlusEntitlement
 } from '../../src/domain/plus-entitlement.js'
 
@@ -33,22 +34,37 @@ function createQueryResult(result) {
   return { calls, client }
 }
 
-test('subscription statuses map to the centralized entitlement contract', () => {
+test('subscription statuses and failed-payment grace map to the entitlement contract', () => {
+  const now = Date.parse('2026-08-01T00:00:00.000Z')
   assert.equal(
-    getPlusEntitlementState({ status: 'active' }),
+    getPlusEntitlementState({ status: 'active' }, now),
     PLUS_ENTITLEMENT_STATES.PLUS
   )
   assert.equal(
-    getPlusEntitlementState({ status: 'past_due' }),
+    getPlusEntitlementState({
+      status: 'past_due',
+      past_due_since: new Date(now - PLUS_PAYMENT_GRACE_PERIOD_MS + 1).toISOString()
+    }, now),
     PLUS_ENTITLEMENT_STATES.PAYMENT_PROBLEM
+  )
+  assert.equal(
+    getPlusEntitlementState({
+      status: 'past_due',
+      past_due_since: new Date(now - PLUS_PAYMENT_GRACE_PERIOD_MS).toISOString()
+    }, now),
+    PLUS_ENTITLEMENT_STATES.FREE
+  )
+  assert.equal(
+    getPlusEntitlementState({ status: 'past_due', past_due_since: null }, now),
+    PLUS_ENTITLEMENT_STATES.FREE
   )
   for (const status of ['canceled', 'unpaid', 'incomplete', 'paused', 'trialing']) {
     assert.equal(
-      getPlusEntitlementState({ status }),
+      getPlusEntitlementState({ status }, now),
       PLUS_ENTITLEMENT_STATES.FREE
     )
   }
-  assert.equal(getPlusEntitlementState(null), PLUS_ENTITLEMENT_STATES.FREE)
+  assert.equal(getPlusEntitlementState(null, now), PLUS_ENTITLEMENT_STATES.FREE)
 })
 
 test('entitlement lookup reads only the authenticated user subscription fields', async () => {

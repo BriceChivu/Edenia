@@ -29,6 +29,50 @@ test('builds the database dates from the current Stripe subscription', () => {
   )
 })
 
+test('starts failed-payment grace once, preserves it, and clears it on recovery', () => {
+  const failedAt = '2026-07-24T00:00:00.000Z'
+  const retriedAt = '2026-07-25T00:00:00.000Z'
+  const pastDue = { ...original, status: 'past_due' }
+
+  assert.equal(
+    getSubscriptionUpdate(pastDue, undefined, failedAt).past_due_since,
+    failedAt,
+  )
+  assert.equal(
+    getSubscriptionUpdate(pastDue, failedAt, retriedAt).past_due_since,
+    failedAt,
+  )
+  assert.equal(
+    getSubscriptionUpdate(original, failedAt, retriedAt).past_due_since,
+    null,
+  )
+  assert.equal(
+    getSubscriptionUpdate({ ...original, status: 'canceled' }, failedAt, retriedAt)
+      .past_due_since,
+    null,
+  )
+})
+
+test('persists cancellation, pause, and reactivation from current Stripe state', () => {
+  const updatedAt = '2026-07-25T00:00:00.000Z'
+  for (const status of ['canceled', 'unpaid', 'paused']) {
+    assert.deepEqual(
+      getSubscriptionUpdate({ ...original, status }, '2026-07-24T00:00:00.000Z', updatedAt),
+      {
+        status,
+        current_period_end: '2027-01-15T08:00:00.000Z',
+        past_due_since: null,
+        updated_at: updatedAt,
+      },
+    )
+  }
+
+  assert.equal(
+    getSubscriptionUpdate(original, '2026-07-24T00:00:00.000Z', updatedAt).status,
+    'active',
+  )
+})
+
 test('writes once when Stripe remains unchanged', async () => {
   const writes: number[] = []
 

@@ -26,9 +26,21 @@ const APPLIED_MIGRATION_HASHES = Object.freeze({
 
 test('applied Supabase migrations preserve their exact identities and bytes', async () => {
   const migrationFiles = (await readdir(migrationsRoot)).sort()
-  assert.deepEqual(migrationFiles, Object.keys(APPLIED_MIGRATION_HASHES).sort())
-
+  for (const migrationFile of Object.keys(APPLIED_MIGRATION_HASHES)) {
+    assert.ok(
+      migrationFiles.includes(migrationFile),
+      `${migrationFile} must remain in additive migration history`
+    )
+  }
   for (const migrationFile of migrationFiles) {
+    assert.match(
+      migrationFile,
+      /^\d{14}_[a-z0-9_]+\.sql$/,
+      `${migrationFile} must use a Supabase migration identity`
+    )
+  }
+
+  for (const migrationFile of Object.keys(APPLIED_MIGRATION_HASHES)) {
     const source = await readFile(new URL(migrationFile, migrationsRoot))
     const hash = createHash('sha256').update(source).digest('hex')
     assert.equal(
@@ -37,6 +49,65 @@ test('applied Supabase migrations preserve their exact identities and bytes', as
       `${migrationFile} must remain byte-identical to the applied migration`
     )
   }
+})
+
+test('billing hardening stays authenticated, environment-owned, and additive', async () => {
+  const config = await readFile(
+    new URL('supabase/config.toml', projectRoot),
+    'utf8'
+  )
+  assert.match(
+    config,
+    /\[functions\.create-checkout-session\][\s\S]*?verify_jwt = true/
+  )
+  assert.match(
+    config,
+    /\[functions\.stripe-webhook\][\s\S]*?verify_jwt = false/
+  )
+  assert.match(
+    config,
+    /\[functions\.link-checkout-session\][\s\S]*?verify_jwt = false/
+  )
+
+  const checkoutSource = await readFile(
+    new URL('create-checkout-session/index.ts', functionsRoot),
+    'utf8'
+  )
+  assert.match(checkoutSource, /supabase\.auth\.getUser\(token\)/)
+  assert.match(checkoutSource, /assertOnlyKeys\(body, \['plan'\]\)/)
+  assert.match(checkoutSource, /supabase_user_id: user\.id/)
+  assert.doesNotMatch(checkoutSource, /price_[A-Za-z0-9]{10,}/)
+  assert.doesNotMatch(checkoutSource, /founding-member-first-year/)
+
+  const webhookSource = await readFile(
+    new URL('stripe-webhook/index.ts', functionsRoot),
+    'utf8'
+  )
+  assert.match(webhookSource, /claim_stripe_webhook_event/)
+  assert.match(webhookSource, /complete_stripe_webhook_event/)
+  assert.match(webhookSource, /release_stripe_webhook_event/)
+  assert.match(webhookSource, /readStripeWebhookConfig/)
+
+  const migrationFiles = (await readdir(migrationsRoot)).filter(file =>
+    file.endsWith('_harden_stripe_billing_lifecycle.sql')
+  )
+  assert.equal(migrationFiles.length, 1)
+  const migration = await readFile(
+    new URL(migrationFiles[0], migrationsRoot),
+    'utf8'
+  )
+  assert.match(migration, /create table public\.stripe_webhook_events/)
+  assert.match(migration, /create table public\.billing_rate_limit_buckets/)
+  assert.match(migration, /security definer\nset search_path = ''/)
+  assert.match(
+    migration,
+    /set past_due_since = coalesce\(past_due_since, updated_at, now\(\)\)/
+  )
+  assert.match(migration, /subscriptions\.past_due_since > now\(\) - interval '7 days'/)
+  assert.match(
+    migration,
+    /revoke all on table public\.stripe_webhook_events from public, anon, authenticated/
+  )
 })
 
 test('Supabase source contains exactly the three deployed Edge Functions', async () => {

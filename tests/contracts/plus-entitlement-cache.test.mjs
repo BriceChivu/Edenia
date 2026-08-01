@@ -7,6 +7,9 @@ import {
   createPlusEntitlementCache,
   PLUS_ENTITLEMENT_CACHE_TTL_MS
 } from '../../src/state/plus-entitlement-cache.js'
+import {
+  PLUS_PAYMENT_GRACE_PERIOD_MS
+} from '../../src/domain/plus-entitlement.js'
 
 function createStorage(initial = {}) {
   const values = new Map(Object.entries(initial))
@@ -75,4 +78,26 @@ test('entitlement cache fails closed for transient and malformed states', () => 
   storage.setItem('entitlement', '{not-json')
   assert.equal(cache.read('user-1'), null)
   assert.equal(storage.value('entitlement'), undefined)
+})
+
+test('cached payment-problem access cannot extend past seven-day grace', () => {
+  const now = Date.parse('2026-08-01T00:00:00.000Z')
+  const storage = createStorage()
+  const cache = createPlusEntitlementCache({
+    storage,
+    storageKey: 'entitlement',
+    now: () => now
+  })
+  cache.write('user-1', {
+    entitlementState: PLUS_ENTITLEMENT_STATES.PAYMENT_PROBLEM,
+    subscriptionStatus: 'past_due',
+    pastDueSince: new Date(
+      now - PLUS_PAYMENT_GRACE_PERIOD_MS
+    ).toISOString()
+  })
+
+  assert.equal(
+    cache.read('user-1').entitlementState,
+    PLUS_ENTITLEMENT_STATES.FREE
+  )
 })
