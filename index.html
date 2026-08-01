@@ -284,6 +284,28 @@ and momentum—at a glance</h2>
         </div>
       </div>
 
+      <section class="settings-group settings-plus-account hidden" id="plusAccountSettings" aria-labelledby="plusAccountTitle">
+        <div class="settings-plus-account-header">
+          <h2 id="plusAccountTitle" data-i18n="settings.plusAccount.title">Edenia Plus account</h2>
+          <span class="settings-plus-account-badge" id="plusAccountBadge" data-plus-account-tone="neutral"></span>
+        </div>
+        <p class="settings-plus-account-status sr-only" id="plusAccountStatus" role="status" aria-live="polite"></p>
+        <form class="settings-plus-account-form" data-plus-account-action="restore-form" novalidate>
+          <label for="plusAccountEmail" data-i18n="settings.plusAccount.emailLabel">Email address</label>
+          <input id="plusAccountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-i18n-placeholder="settings.plusAccount.emailPlaceholder" placeholder="you@example.com">
+          <button class="btn-secondary" id="plusAccountRestoreBtn" type="submit" data-i18n="settings.plusAccount.restore">Restore Plus</button>
+        </form>
+        <div class="settings-plus-account-signed-in hidden" id="plusAccountSignedIn">
+          <p><span data-i18n="settings.plusAccount.signedInAs">Signed in as</span> <strong id="plusAccountUserEmail"></strong></p>
+          <div class="settings-plus-account-actions">
+            <button class="btn-secondary" id="plusAccountRefreshBtn" type="button" data-plus-account-action="refresh" data-i18n="settings.plusAccount.refresh">Refresh status</button>
+            <button class="btn-ghost" id="plusAccountSignOutBtn" type="button" data-plus-account-action="sign-out" data-i18n="settings.plusAccount.signOut">Sign out</button>
+          </div>
+        </div>
+        <p class="settings-plus-account-feedback hidden" id="plusAccountFeedback" role="status" aria-live="polite"></p>
+        <p class="settings-note" data-i18n="settings.plusAccount.localProgressNote">Signing in or out does not change progress saved in this browser.</p>
+      </section>
+
       <div class="settings-group settings-shorts-group">
         <label class="settings-check">
           <input type="checkbox" id="settingsIncludeShorts" data-settings-preference-action="save">

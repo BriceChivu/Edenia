@@ -44,6 +44,34 @@ After deployment, the acceptance owner should smoke-check the production URL,
 critical first-run and returning-user flows, runtime configuration, and the
 absence of internal-test/sandbox leakage before creating a release.
 
+## Edenia Plus authentication
+
+GitHub Pages receives only the public Supabase browser configuration through
+repository variables:
+
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
+
+Never put a Supabase secret or service-role key in repository variables used by
+the Pages build. Server credentials remain Edge Function secrets.
+
+Before enabling Plus restoration in production:
+
+1. Configure the production site URL and redirect URL in Supabase Auth for
+   `https://bricechivu.github.io/Edenia/`.
+2. Add `http://localhost:8000/` as a redirect URL only when local passwordless
+   testing is needed.
+3. Configure a production SMTP provider. Supabase's default email sender is not
+   suitable for sending passwordless links to arbitrary customers.
+4. Confirm the `subscriptions` row-level security policy still permits an
+   authenticated user to select only their own subscription.
+5. Test with an existing subscriber in a clean browser: request a link with the
+   checkout email, open it in that browser, confirm Plus is recognized, sign
+   out, and confirm the browser-local study state is unchanged.
+
+The account section remains hidden when either public Supabase value is absent.
+Authentication and entitlement failures must not modify the main Edenia state.
+
 ## Version and release policy
 
 - Use a patch version for behavior-neutral architecture phases.
