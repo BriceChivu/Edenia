@@ -12,6 +12,18 @@ const appSource = await readFile(
   new URL('../../src/app.js', import.meta.url),
   'utf8'
 )
+const responsiveWideStyle = await readFile(
+  new URL('../../src/styles/99-responsive-wide.css', import.meta.url),
+  'utf8'
+)
+
+function sourceBetween(source, startMarker, endMarker) {
+  const start = source.indexOf(startMarker)
+  const end = source.indexOf(endMarker, start)
+  assert.notEqual(start, -1, `Missing source marker: ${startMarker}`)
+  assert.notEqual(end, -1, `Missing source marker: ${endMarker}`)
+  return source.slice(start, end)
+}
 
 function createControl(action) {
   const listeners = new Map()
@@ -139,4 +151,40 @@ test('generated shelves and both avatar branches bind without legacy globals', (
   ]) {
     assert.equal(GLOBAL_ACTION_NAMES.includes(name), false)
   }
+})
+
+test('drop settling restores pointer interactions without moving fixed previews', () => {
+  const touchDropSource = sourceBetween(
+    appSource,
+    'function finishTouchChannelShelfDrag',
+    'function cancelTouchChannelShelfDrag'
+  )
+  const desktopDropSource = sourceBetween(
+    appSource,
+    'function dropChannelShelf',
+    'function finishChannelShelfDrag'
+  )
+
+  for (const dropSource of [touchDropSource, desktopDropSource]) {
+    const settleIndex = dropSource.indexOf("classList.add('just-dropped')")
+    const cleanupIndex = dropSource.indexOf('finishChannelShelfDrag()')
+    assert.notEqual(settleIndex, -1)
+    assert.notEqual(cleanupIndex, -1)
+    assert.ok(settleIndex < cleanupIndex)
+  }
+
+  const settleRule = sourceBetween(
+    responsiveWideStyle,
+    '.channel-shelf.just-dropped {',
+    '.channel-shelf.drag-over-before::before'
+  )
+  assert.match(settleRule, /transition:\s*none;/)
+
+  const settleAnimation = sourceBetween(
+    responsiveWideStyle,
+    '@keyframes channelShelfDropSettle',
+    '.channel-shelf:has(.channel-shelf-card.is-previewing)'
+  )
+  assert.match(settleAnimation, /box-shadow:/)
+  assert.doesNotMatch(settleAnimation, /\b(?:filter|transform)\s*:/)
 })
