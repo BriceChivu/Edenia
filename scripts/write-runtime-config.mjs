@@ -1,6 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parseRuntimeConfigFlag } from './runtime-config-flags.mjs'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(scriptDir, '..')
@@ -13,7 +14,15 @@ if (requireKey && !youtubeApiKey) {
 }
 
 const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
-  youtubeApiKey
+  youtubeApiKey,
+  freePlusEnabled: parseRuntimeConfigFlag(
+    process.env.EDENIA_FREE_PLUS_ENABLED,
+    'EDENIA_FREE_PLUS_ENABLED'
+  ),
+  plusCheckoutEnabled: parseRuntimeConfigFlag(
+    process.env.EDENIA_PLUS_CHECKOUT_ENABLED,
+    'EDENIA_PLUS_CHECKOUT_ENABLED'
+  )
 }, null, 2)}\n`
 
 await writeFile(outputPath, runtimeConfig)

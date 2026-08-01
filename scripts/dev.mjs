@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  readLocalYoutubeApiKey,
+  readLocalRuntimeConfig,
   writeLocalRuntimeConfig
 } from './local-runtime-config.mjs'
 
@@ -35,10 +35,10 @@ function run(command, args, options = {}) {
 }
 
 async function main() {
-  const youtubeApiKey = await readLocalYoutubeApiKey(localConfigPath)
+  const runtimeConfig = await readLocalRuntimeConfig(localConfigPath)
 
   await run(process.execPath, [buildScriptPath])
-  await writeLocalRuntimeConfig(outputConfigPath, youtubeApiKey)
+  await writeLocalRuntimeConfig(outputConfigPath, runtimeConfig)
 
   console.log('Prepared local YouTube configuration (key hidden).')
   console.log(`Edenia is available at http://localhost:${port}/`)

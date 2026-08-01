@@ -19,6 +19,10 @@ import {
 import { escHtml, escapeSvgText } from './core/escaping.js'
 import { clampNumber } from './core/numbers.js'
 import {
+  createPlusAccessPolicy,
+  derivePlusAccessSimulation
+} from './domain/plus-access-policy.js'
+import {
   hasCoarsePrimaryPointer,
   prefersReducedMotion,
   supportsAnkiIntegrationInput,
@@ -81,6 +85,8 @@ import {
   YOUTUBE_CHANNEL_ID_RE
 } from './integrations/youtube-parsing.js'
 import {
+  getFreePlusEnabled,
+  getPlusCheckoutEnabled,
   getYoutubeApiKey,
   hasYoutubeApiKey
 } from './integrations/runtime-config.js'
@@ -324,12 +330,21 @@ const DEFAULT_CHANNELS_VERSION = 2
 // STATE
 // ════════════════════════════════════════════════════════════
 
+const RUNTIME_ENVIRONMENT = deriveRuntimeEnvironment(window.location)
 const {
   isSandbox: IS_SANDBOX,
   isInternalTest: IS_INTERNAL_TEST,
   isLocalhost: IS_LOCALHOST,
   isLocalFeedbackTest: IS_LOCAL_FEEDBACK_TEST
-} = deriveRuntimeEnvironment(window.location)
+} = RUNTIME_ENVIRONMENT
+const PLUS_ACCESS_POLICY = createPlusAccessPolicy({
+  freePlusEnabled: getFreePlusEnabled(),
+  plusCheckoutEnabled: getPlusCheckoutEnabled(),
+  simulatedTier: derivePlusAccessSimulation(
+    window.location,
+    RUNTIME_ENVIRONMENT
+  )
+})
 const TEMP_SHORTS_WHITELIST_VERSION = '2026-07-22-1'
 const TEMP_SHORTS_DISTINCT_IDS = new Set([
   '019f7f94-34a7-7263-87fc-27029d04e6e7'

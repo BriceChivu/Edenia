@@ -3,6 +3,7 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import test from 'node:test'
 
 const siteRoot = new URL('../../_site/', import.meta.url)
+const projectRoot = new URL('../../', import.meta.url)
 
 async function isFile(relativePath) {
   return (await stat(new URL(relativePath, siteRoot))).isFile()
@@ -57,9 +58,26 @@ test('built index preserves the classic deferred script order and one cache vers
   assert.ok(html.indexOf('window.EDENIA_ANALYTICS_ENABLED') < configPosition)
 })
 
-test('test build contains an empty non-placeholder runtime key', async () => {
+test('test build contains an empty runtime key and disabled release flags', async () => {
   const source = await readFile(new URL('config.local.js', siteRoot), 'utf8')
   assert.match(source, /^window\.EDENIA_CONFIG = /)
   assert.match(source, /"youtubeApiKey": ""/)
+  assert.match(source, /"freePlusEnabled": false/)
+  assert.match(source, /"plusCheckoutEnabled": false/)
   assert.doesNotMatch(source, /PASTE_|AIza/i)
+})
+
+test('Pages deployment forwards both dormant release controls', async () => {
+  const workflow = await readFile(
+    new URL('.github/workflows/deploy-pages.yml', projectRoot),
+    'utf8'
+  )
+  assert.match(
+    workflow,
+    /EDENIA_FREE_PLUS_ENABLED: \$\{\{ vars\.EDENIA_FREE_PLUS_ENABLED \}\}/
+  )
+  assert.match(
+    workflow,
+    /EDENIA_PLUS_CHECKOUT_ENABLED: \$\{\{ vars\.EDENIA_PLUS_CHECKOUT_ENABLED \}\}/
+  )
 })

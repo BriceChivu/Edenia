@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 import {
+  readLocalRuntimeConfig,
   readLocalYoutubeApiKey,
   writeLocalRuntimeConfig
 } from '../../scripts/local-runtime-config.mjs'
@@ -57,7 +58,39 @@ test('local runtime config normalizes a valid ignored key into the generated sit
     assert.equal(youtubeApiKey, 'fake-development-key')
     assert.equal(
       await readFile(outputPath, 'utf8'),
-      'window.EDENIA_CONFIG = {\n  "youtubeApiKey": "fake-development-key"\n}\n'
+      'window.EDENIA_CONFIG = {\n'
+        + '  "youtubeApiKey": "fake-development-key",\n'
+        + '  "freePlusEnabled": false,\n'
+        + '  "plusCheckoutEnabled": false\n'
+        + '}\n'
+    )
+  })
+})
+
+test('local runtime config preserves explicit dormant release flags', async () => {
+  await withTemporaryDirectory(async directory => {
+    const configPath = join(directory, 'config.local.js')
+    const outputPath = join(directory, 'generated-config.local.js')
+    await writeFile(
+      configPath,
+      'window.EDENIA_CONFIG = {\n'
+        + "  youtubeApiKey: 'fake-development-key',\n"
+        + '  freePlusEnabled: true,\n'
+        + '  plusCheckoutEnabled: true\n'
+        + '}\n'
+    )
+
+    const runtimeConfig = await readLocalRuntimeConfig(configPath)
+    await writeLocalRuntimeConfig(outputPath, runtimeConfig)
+
+    assert.deepEqual(runtimeConfig, {
+      youtubeApiKey: 'fake-development-key',
+      freePlusEnabled: true,
+      plusCheckoutEnabled: true
+    })
+    assert.match(
+      await readFile(outputPath, 'utf8'),
+      /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true/
     )
   })
 })

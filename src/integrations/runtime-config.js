@@ -9,3 +9,11 @@ export function getYoutubeApiKey(target = window) {
 export function hasYoutubeApiKey(target = window) {
   return Boolean(getYoutubeApiKey(target))
 }
+
+export function getFreePlusEnabled(target = window) {
+  return publicConfig(target).freePlusEnabled === true
+}
+
+export function getPlusCheckoutEnabled(target = window) {
+  return publicConfig(target).plusCheckoutEnabled === true
+}
