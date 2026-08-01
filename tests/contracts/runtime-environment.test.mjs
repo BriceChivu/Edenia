@@ -7,7 +7,10 @@ import { deriveStorageKeys } from '../../src/core/storage-keys.js'
 import {
   getFreePlusEnabled,
   getPlusCheckoutEnabled,
+  getSupabasePublishableKey,
+  getSupabaseUrl,
   getYoutubeApiKey,
+  hasSupabaseRuntimeConfig,
   hasYoutubeApiKey,
   publicConfig
 } from '../../src/integrations/runtime-config.js'
@@ -112,16 +115,24 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(hasYoutubeApiKey(target), false)
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
+  assert.equal(getSupabaseUrl(target), '')
+  assert.equal(getSupabasePublishableKey(target), '')
+  assert.equal(hasSupabaseRuntimeConfig(target), false)
 
   target.EDENIA_CONFIG = {
     youtubeApiKey: '  key-one  ',
     freePlusEnabled: true,
-    plusCheckoutEnabled: true
+    plusCheckoutEnabled: true,
+    supabaseUrl: '  https://project.supabase.co  ',
+    supabasePublishableKey: '  sb_publishable_test  '
   }
   assert.equal(getYoutubeApiKey(target), 'key-one')
   assert.equal(hasYoutubeApiKey(target), true)
   assert.equal(getFreePlusEnabled(target), true)
   assert.equal(getPlusCheckoutEnabled(target), true)
+  assert.equal(getSupabaseUrl(target), 'https://project.supabase.co')
+  assert.equal(getSupabasePublishableKey(target), 'sb_publishable_test')
+  assert.equal(hasSupabaseRuntimeConfig(target), true)
 
   target.EDENIA_CONFIG = {
     freePlusEnabled: 'true',
@@ -129,6 +140,9 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   }
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
+
+  target.EDENIA_CONFIG = { supabaseUrl: 'https://project.supabase.co' }
+  assert.equal(hasSupabaseRuntimeConfig(target), false)
 
   target.EDENIA_CONFIG = { youtubeApiKey: 42 }
   assert.equal(getYoutubeApiKey(target), '42')

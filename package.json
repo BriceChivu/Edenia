@@ -11,14 +11,15 @@
     "build": "node scripts/build-site.mjs",
     "build:production": "npm run build && node scripts/write-runtime-config.mjs --require-key",
     "dev": "node scripts/dev.mjs",
-    "test": "npm run build && npm run test:contracts",
+    "test": "npm run build && npm run test:contracts && npm run test:supabase",
     "test:catalogs": "node scripts/validate-channel-catalog-json.mjs",
     "test:catalogs:community": "node scripts/validate-community-channel-catalog.mjs",
     "test:catalogs:discovery": "node scripts/validate-discovered-channel-catalog.mjs",
     "test:contracts": "node --test tests/contracts/*.test.mjs",
+    "test:supabase": "node --test supabase/functions/_shared/*.test.ts",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:update": "npm run build && playwright test --update-snapshots",
-    "test:ci": "npm run build && npm run test:contracts && playwright test"
+    "test:ci": "npm run build && npm run test:contracts && npm run test:supabase && playwright test"
   },
   "devDependencies": {
     "@playwright/test": "1.62.0",
