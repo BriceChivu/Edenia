@@ -34,6 +34,7 @@ jobs:
           run_contracts=false
           run_browser=false
           run_catalogs=false
+          run_supabase=false
           run_discovery_catalog=false
           run_community_catalog=false
 
@@ -41,6 +42,7 @@ jobs:
             run_contracts=true
             run_browser=true
             run_catalogs=true
+            run_supabase=true
           else
             mapfile -t changed_files < <(git diff --name-only "$BASE_SHA" HEAD)
             printf 'Changed files:\n'
@@ -50,6 +52,7 @@ jobs:
               case "$file" in
                 .github/workflows/ci.yml|.github/workflows/import-community-channel-catalog.yml|.github/workflows/merge-checked-community-catalog.yml|.github/workflows/merge-checked-discovery-catalog.yml)
                   run_contracts=true
+                  run_supabase=true
                   ;;
                 *.md|docs/*|.github/*)
                   ;;
@@ -71,6 +74,9 @@ jobs:
                 tests/contracts/*)
                   run_contracts=true
                   ;;
+                supabase/*)
+                  run_supabase=true
+                  ;;
                 *)
                   run_contracts=true
                   run_browser=true
@@ -82,11 +88,12 @@ jobs:
           echo "contracts=$run_contracts" >> "$GITHUB_OUTPUT"
           echo "browser=$run_browser" >> "$GITHUB_OUTPUT"
           echo "catalogs=$run_catalogs" >> "$GITHUB_OUTPUT"
+          echo "supabase=$run_supabase" >> "$GITHUB_OUTPUT"
           echo "discovery_catalog=$run_discovery_catalog" >> "$GITHUB_OUTPUT"
           echo "community_catalog=$run_community_catalog" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js
-        if: steps.scope.outputs.contracts == 'true' || steps.scope.outputs.catalogs == 'true'
+        if: steps.scope.outputs.contracts == 'true' || steps.scope.outputs.catalogs == 'true' || steps.scope.outputs.supabase == 'true'
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
@@ -118,7 +125,11 @@ jobs:
 
       - name: Build and run contract tests
         if: steps.scope.outputs.contracts == 'true'
-        run: npm test
+        run: npm run build && npm run test:contracts
+
+      - name: Run Supabase backend tests
+        if: steps.scope.outputs.supabase == 'true'
+        run: npm run test:supabase
 
       - name: Install Chromium
         if: steps.scope.outputs.browser == 'true'
@@ -131,7 +142,7 @@ jobs:
         run: npx playwright test
 
       - name: Report skipped suites
-        if: steps.scope.outputs.contracts != 'true' && steps.scope.outputs.catalogs != 'true'
+        if: steps.scope.outputs.contracts != 'true' && steps.scope.outputs.catalogs != 'true' && steps.scope.outputs.supabase != 'true'
         run: echo "Documentation or workflow-only change; no automated test suite required."
 
       - name: Upload Playwright diagnostics

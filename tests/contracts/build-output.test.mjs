@@ -58,16 +58,18 @@ test('built index preserves the classic deferred script order and one cache vers
   assert.ok(html.indexOf('window.EDENIA_ANALYTICS_ENABLED') < configPosition)
 })
 
-test('test build contains an empty runtime key and disabled release flags', async () => {
+test('test build contains empty public keys and disabled release flags', async () => {
   const source = await readFile(new URL('config.local.js', siteRoot), 'utf8')
   assert.match(source, /^window\.EDENIA_CONFIG = /)
   assert.match(source, /"youtubeApiKey": ""/)
   assert.match(source, /"freePlusEnabled": false/)
   assert.match(source, /"plusCheckoutEnabled": false/)
+  assert.match(source, /"supabaseUrl": ""/)
+  assert.match(source, /"supabasePublishableKey": ""/)
   assert.doesNotMatch(source, /PASTE_|AIza/i)
 })
 
-test('Pages deployment forwards both dormant release controls', async () => {
+test('Pages deployment forwards dormant controls and public Supabase config', async () => {
   const workflow = await readFile(
     new URL('.github/workflows/deploy-pages.yml', projectRoot),
     'utf8'
@@ -80,4 +82,9 @@ test('Pages deployment forwards both dormant release controls', async () => {
     workflow,
     /EDENIA_PLUS_CHECKOUT_ENABLED: \$\{\{ vars\.EDENIA_PLUS_CHECKOUT_ENABLED \}\}/
   )
+  assert.match(
+    workflow,
+    /SUPABASE_PUBLISHABLE_KEY: \$\{\{ vars\.SUPABASE_PUBLISHABLE_KEY \}\}/
+  )
+  assert.match(workflow, /SUPABASE_URL: \$\{\{ vars\.SUPABASE_URL \}\}/)
 })

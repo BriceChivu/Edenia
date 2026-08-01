@@ -61,7 +61,9 @@ test('local runtime config normalizes a valid ignored key into the generated sit
       'window.EDENIA_CONFIG = {\n'
         + '  "youtubeApiKey": "fake-development-key",\n'
         + '  "freePlusEnabled": false,\n'
-        + '  "plusCheckoutEnabled": false\n'
+        + '  "plusCheckoutEnabled": false,\n'
+        + '  "supabaseUrl": "",\n'
+        + '  "supabasePublishableKey": ""\n'
         + '}\n'
     )
   })
@@ -76,7 +78,9 @@ test('local runtime config preserves explicit dormant release flags', async () =
       'window.EDENIA_CONFIG = {\n'
         + "  youtubeApiKey: 'fake-development-key',\n"
         + '  freePlusEnabled: true,\n'
-        + '  plusCheckoutEnabled: true\n'
+        + '  plusCheckoutEnabled: true,\n'
+        + "  supabaseUrl: ' https://project.supabase.co ',\n"
+        + "  supabasePublishableKey: ' sb_publishable_test '\n"
         + '}\n'
     )
 
@@ -86,11 +90,35 @@ test('local runtime config preserves explicit dormant release flags', async () =
     assert.deepEqual(runtimeConfig, {
       youtubeApiKey: 'fake-development-key',
       freePlusEnabled: true,
-      plusCheckoutEnabled: true
+      plusCheckoutEnabled: true,
+      supabaseUrl: 'https://project.supabase.co',
+      supabasePublishableKey: 'sb_publishable_test'
     })
     assert.match(
       await readFile(outputPath, 'utf8'),
       /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true/
     )
+  })
+})
+
+test('local runtime config removes tracked Supabase placeholders', async () => {
+  await withTemporaryDirectory(async directory => {
+    const configPath = join(directory, 'config.local.js')
+    await writeFile(
+      configPath,
+      'window.EDENIA_CONFIG = {\n'
+        + "  youtubeApiKey: 'fake-development-key',\n"
+        + "  supabaseUrl: 'PASTE_YOUR_SUPABASE_PROJECT_URL_HERE',\n"
+        + "  supabasePublishableKey: 'PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE'\n"
+        + '}\n'
+    )
+
+    assert.deepEqual(await readLocalRuntimeConfig(configPath), {
+      youtubeApiKey: 'fake-development-key',
+      freePlusEnabled: false,
+      plusCheckoutEnabled: false,
+      supabaseUrl: '',
+      supabasePublishableKey: ''
+    })
   })
 })

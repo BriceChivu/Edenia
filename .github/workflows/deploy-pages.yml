@@ -42,6 +42,8 @@ jobs:
         env:
           EDENIA_FREE_PLUS_ENABLED: ${{ vars.EDENIA_FREE_PLUS_ENABLED }}
           EDENIA_PLUS_CHECKOUT_ENABLED: ${{ vars.EDENIA_PLUS_CHECKOUT_ENABLED }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: npm run build:production
 

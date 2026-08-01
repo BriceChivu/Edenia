@@ -1,9 +1,15 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import vm from 'node:vm'
 
-const PLACEHOLDER_KEYS = new Set([
+const YOUTUBE_PLACEHOLDER_KEYS = new Set([
   'PASTE_YOUR_RESTRICTED_YOUTUBE_API_KEY_HERE',
   'YOUR_RESTRICTED_KEY'
+])
+const SUPABASE_PUBLISHABLE_KEY_PLACEHOLDERS = new Set([
+  'PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE'
+])
+const PLACEHOLDER_URLS = new Set([
+  'PASTE_YOUR_SUPABASE_PROJECT_URL_HERE'
 ])
 
 export const LOCAL_CONFIG_SETUP_COMMAND = 'cp config.example.js config.local.js'
@@ -14,15 +20,31 @@ function localConfigSetupMessage() {
 
 export function normalizeLocalYoutubeApiKey(value) {
   const key = String(value || '').trim()
-  if (!key || PLACEHOLDER_KEYS.has(key.toUpperCase())) return ''
+  if (!key || YOUTUBE_PLACEHOLDER_KEYS.has(key.toUpperCase())) return ''
   return key
+}
+
+function normalizeOptionalRuntimeValue(value, placeholders) {
+  const normalizedValue = String(value || '').trim()
+  if (!normalizedValue || placeholders.has(normalizedValue.toUpperCase())) {
+    return ''
+  }
+  return normalizedValue
 }
 
 export function normalizeLocalRuntimeConfig(value) {
   return {
     youtubeApiKey: normalizeLocalYoutubeApiKey(value?.youtubeApiKey),
     freePlusEnabled: value?.freePlusEnabled === true,
-    plusCheckoutEnabled: value?.plusCheckoutEnabled === true
+    plusCheckoutEnabled: value?.plusCheckoutEnabled === true,
+    supabaseUrl: normalizeOptionalRuntimeValue(
+      value?.supabaseUrl,
+      PLACEHOLDER_URLS
+    ),
+    supabasePublishableKey: normalizeOptionalRuntimeValue(
+      value?.supabasePublishableKey,
+      SUPABASE_PUBLISHABLE_KEY_PLACEHOLDERS
+    )
   }
 }
 

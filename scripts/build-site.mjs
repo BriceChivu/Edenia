@@ -123,7 +123,9 @@ await writeFile(
   'window.EDENIA_CONFIG = {\n'
     + '  "youtubeApiKey": "",\n'
     + '  "freePlusEnabled": false,\n'
-    + '  "plusCheckoutEnabled": false\n'
+    + '  "plusCheckoutEnabled": false,\n'
+    + '  "supabaseUrl": "",\n'
+    + '  "supabasePublishableKey": ""\n'
     + '}\n'
 )
 

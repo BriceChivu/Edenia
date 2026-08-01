@@ -8,6 +8,8 @@ const projectRoot = resolve(scriptDir, '..')
 const outputPath = resolve(projectRoot, '_site', 'config.local.js')
 const requireKey = process.argv.includes('--require-key')
 const youtubeApiKey = process.env.YOUTUBE_API_KEY || ''
+const supabaseUrl = process.env.SUPABASE_URL || ''
+const supabasePublishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || ''
 
 if (requireKey && !youtubeApiKey) {
   throw new Error('YOUTUBE_API_KEY is required for the production runtime config')
@@ -22,7 +24,9 @@ const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
   plusCheckoutEnabled: parseRuntimeConfigFlag(
     process.env.EDENIA_PLUS_CHECKOUT_ENABLED,
     'EDENIA_PLUS_CHECKOUT_ENABLED'
-  )
+  ),
+  supabaseUrl,
+  supabasePublishableKey
 }, null, 2)}\n`
 
 await writeFile(outputPath, runtimeConfig)

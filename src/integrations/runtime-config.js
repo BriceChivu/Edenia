@@ -17,3 +17,17 @@ export function getFreePlusEnabled(target = window) {
 export function getPlusCheckoutEnabled(target = window) {
   return publicConfig(target).plusCheckoutEnabled === true
 }
+
+export function getSupabaseUrl(target = window) {
+  return String(publicConfig(target).supabaseUrl || '').trim()
+}
+
+export function getSupabasePublishableKey(target = window) {
+  return String(publicConfig(target).supabasePublishableKey || '').trim()
+}
+
+export function hasSupabaseRuntimeConfig(target = window) {
+  return Boolean(
+    getSupabaseUrl(target) && getSupabasePublishableKey(target)
+  )
+}
