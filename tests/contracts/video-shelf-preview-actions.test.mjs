@@ -13,12 +13,23 @@ const appSource = await readFile(
   'utf8'
 )
 
-function createControl(action) {
+function createControl(action, options = {}) {
   const listeners = new Map()
+  let shelfSettlingAfterDrop = options.shelfSettlingAfterDrop === true
   return {
     dataset: { videoPreviewAction: action },
     addEventListener(type, listener) {
       listeners.set(type, listener)
+    },
+    closest(selector) {
+      if (selector !== '.channel-shelf') return null
+      return {
+        classList: {
+          contains(className) {
+            return className === 'just-dropped' && shelfSettlingAfterDrop
+          }
+        }
+      }
     },
     dispatch(type) {
       const event = { type }
@@ -27,6 +38,9 @@ function createControl(action) {
     },
     listenerTypes() {
       return [...listeners.keys()]
+    },
+    setShelfSettlingAfterDrop(value) {
+      shelfSettlingAfterDrop = value === true
     }
   }
 }
@@ -114,6 +128,28 @@ test('shelf-preview binding is idempotent, replaceable, and fail-closed', () => 
       /thumbnail, toggleTouch, open, queueClose, openFromFocus, and closeAfterFocus callbacks/
     )
   }
+})
+
+test('post-drop settling suppresses only the automatic hover preview', () => {
+  const card = createControl('card', { shelfSettlingAfterDrop: true })
+  const calls = []
+  assert.equal(
+    bindVideoShelfPreviewActions(createRoot([card]), createActions(calls)),
+    1
+  )
+
+  card.dispatch('mouseenter')
+  card.dispatch('focusin')
+  assert.deepEqual(calls, [
+    ['openFromFocus', [card]]
+  ])
+
+  card.setShelfSettlingAfterDrop(false)
+  const settledMouseEnter = card.dispatch('mouseenter')
+  assert.deepEqual(calls, [
+    ['openFromFocus', [card]],
+    ['open', [card, false, settledMouseEnter]]
+  ])
 })
 
 test('rendered shelf and Watched cards bind without preview globals', () => {
