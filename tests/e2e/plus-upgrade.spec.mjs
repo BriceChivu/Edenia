@@ -1,5 +1,73 @@
 import { expect, test } from '../support/network-fixture.mjs'
 
+async function seedCompletedHistoryState(
+  page,
+  { ankiEnabled = true, includeRecent = true } = {}
+) {
+  await page.goto('/')
+  await page.evaluate(({ enabled, shouldIncludeRecent }) => {
+    const state = window.defaultState(4, [], 'light', [], 'en')
+    const completedAt = new Date().toISOString()
+    state.config.ankiEnabled = enabled
+    state.config.ankiDisabledAt = enabled ? null : completedAt
+    state.onboarding.introSeenAt = completedAt
+    state.onboarding.setupCompleted = true
+    state.onboarding.setupCompletedAt = completedAt
+    state.onboarding.walkthroughCompleted = true
+    state.onboarding.walkthroughCompletedAt = completedAt
+
+    const localDate = daysFromToday => {
+      const date = new Date()
+      date.setHours(12, 0, 0, 0)
+      date.setDate(date.getDate() + daysFromToday)
+      return date
+    }
+    const dateKey = date => [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0')
+    ].join('-')
+    const oldDate = localDate(-56)
+    const recentDate = localDate(-7)
+    const makeVideo = (id, title, date, seconds) => ({
+      id,
+      title,
+      channelId: 'history-channel',
+      channelTitle: 'History channel',
+      duration: 900,
+      publishedAt: date.toISOString(),
+      status: 'watched',
+      watchedAt: date.toISOString(),
+      watchProgress: [{ watchedAt: date.toISOString(), seconds }],
+      watchProgressTracked: true,
+      thumbnail: ''
+    })
+    state.videos = {
+      'old-history-video': makeVideo(
+        'old-history-video',
+        'Old exact history value',
+        oldDate,
+        300
+      )
+    }
+    if (shouldIncludeRecent) {
+      state.videos['recent-history-video'] = makeVideo(
+        'recent-history-video',
+        'Recent exact history value',
+        recentDate,
+        180
+      )
+    }
+    if (enabled) {
+      state.anki[dateKey(oldDate)] = { reviewed: 37, created: 4 }
+      if (shouldIncludeRecent) {
+        state.anki[dateKey(recentDate)] = { reviewed: 11, created: 2 }
+      }
+    }
+    localStorage.setItem('edenia_v1_internal_test', JSON.stringify(state))
+  }, { enabled: ankiEnabled, shouldIncludeRecent: includeRecent })
+}
+
 test('Plus page presents the approved offer and keeps purchasing disabled', async ({ page }) => {
   await page.goto('/plus/')
 
@@ -45,6 +113,147 @@ test('contextual Plus modal traps focus and closes with Escape', async ({ page }
 
   await page.keyboard.press('Escape')
   await expect(modal).toBeHidden()
+})
+
+test('Free history keeps older periods visible but redacts summary and heatmap values', async ({
+  page
+}, testInfo) => {
+  test.skip(![
+    'desktop-standard',
+    'tablet-portrait',
+    'phone-standard'
+  ].includes(testInfo.project.name))
+  const activate = locator => testInfo.project.name === 'desktop-standard'
+    ? locator.click()
+    : locator.tap()
+
+  await seedCompletedHistoryState(page, { ankiEnabled: true })
+  await page.goto('/?internal_test=1&plus_access=free')
+  await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
+
+  await activate(page.locator(
+    '[data-history-period-action="toggle"][data-history-range="week"]'
+  ))
+  const lockedPeriod = page.locator(
+    '#historyWeekPeriodPopover '
+      + '[data-history-period-action="select"]'
+      + '[data-history-access-state="locked"]'
+  ).last()
+  await expect(lockedPeriod).toBeVisible()
+  await expect(lockedPeriod).toContainText('Plus')
+  const storedBefore = await page.evaluate(
+    () => localStorage.getItem('edenia_v1_internal_test')
+  )
+  await lockedPeriod.focus()
+  await lockedPeriod.press('Enter')
+
+  const modal = page.locator('#plusUpgradeModal')
+  await expect(modal).toBeVisible()
+  await expect(modal.getByRole('heading', {
+    name: 'Your earlier study history is still here.'
+  })).toBeVisible()
+  expect(await page.evaluate(
+    () => localStorage.getItem('edenia_v1_internal_test')
+  )).toBe(storedBefore)
+  await activate(modal.locator('.plus-modal-close'))
+
+  await activate(page.locator('[data-history-view="heatmap"]'))
+  const lockedDay = page.locator(
+    '#historyHeatmapView [data-history-access-state="locked"]'
+  ).first()
+  await expect(lockedDay).toBeVisible()
+  const exposed = await lockedDay.evaluate(element => ({
+    className: element.className,
+    created: element.getAttribute('data-created'),
+    date: element.getAttribute('data-date'),
+    points: element.getAttribute('data-points'),
+    reviewed: element.getAttribute('data-reviewed'),
+    streak: element.getAttribute('data-streak-days'),
+    time: element.getAttribute('data-time'),
+    videos: element.getAttribute('data-videos')
+  }))
+  expect(exposed).toEqual({
+    className: 'heatmap-day is-history-restricted',
+    created: null,
+    date: null,
+    points: null,
+    reviewed: null,
+    streak: null,
+    time: null,
+    videos: null
+  })
+  await lockedDay.focus()
+  await lockedDay.press('Enter')
+  await expect(modal).toBeVisible()
+})
+
+test('Free summary replaces an old selected period with non-sensitive placeholders', async ({
+  page
+}, testInfo) => {
+  test.skip(![
+    'desktop-standard',
+    'tablet-portrait',
+    'phone-standard'
+  ].includes(testInfo.project.name))
+  await seedCompletedHistoryState(page, {
+    ankiEnabled: true,
+    includeRecent: false
+  })
+  await page.goto('/?internal_test=1&plus_access=free')
+
+  const summary = page.locator('#historySummaryView')
+  await expect(summary).toHaveAttribute('data-history-access-state', 'locked')
+  await expect(page.locator('.history-stat-val')).toHaveText([
+    '••',
+    '••',
+    '••',
+    '••'
+  ])
+  await expect(page.locator('#historyTable')).not.toContainText(
+    'Old exact history value'
+  )
+  const width = await page.evaluate(() => ({
+    document: document.documentElement.scrollWidth,
+    viewport: document.documentElement.clientWidth
+  }))
+  expect(width.document).toBeLessThanOrEqual(width.viewport)
+  const upgrade = page.locator(
+    '#historyTable [data-history-access-action="request"]'
+  )
+  await expect(upgrade).toHaveText('See Edenia Plus')
+  await upgrade.focus()
+  await upgrade.press('Enter')
+  await expect(page.locator('#plusUpgradeModal')).toBeVisible()
+})
+
+test('Plus reveals old no-Anki summary and heatmap values', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await seedCompletedHistoryState(page, { ankiEnabled: false })
+  await page.goto('/?internal_test=1&plus_access=plus')
+  await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
+
+  await page.locator(
+    '[data-history-period-action="toggle"][data-history-range="week"]'
+  ).click()
+  const oldestPeriod = page.locator(
+    '#historyWeekPeriodPopover [data-history-period-action="select"]'
+  ).last()
+  await expect(oldestPeriod).not.toHaveClass(/\bis-history-restricted\b/)
+  await oldestPeriod.click()
+  await expect(page.locator('#historyStudyTime')).toHaveText('5 min')
+  await expect(page.locator('#historyThirdStatLabel')).toHaveText('days studied')
+  await expect(page.locator('#historyTable .history-row:not(.history-row-head)'))
+    .toHaveCount(1)
+
+  await page.locator('[data-history-view="heatmap"]').click()
+  await expect(page.locator(
+    '#historyHeatmapView [data-history-access-state]'
+  )).toHaveCount(0)
+  await expect(page.locator(
+    '#historyHeatmapView [data-history-heatmap-action="tooltip"][data-time="5 min"]'
+  )).toHaveCount(1)
 })
 
 test('Free transition keeps the first five shelves and preserves saved video state', async ({
