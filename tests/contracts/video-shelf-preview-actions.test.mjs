@@ -12,6 +12,18 @@ const appSource = await readFile(
   new URL('../../src/app.js', import.meta.url),
   'utf8'
 )
+const responsiveWideStyle = await readFile(
+  new URL('../../src/styles/99-responsive-wide.css', import.meta.url),
+  'utf8'
+)
+
+function sourceBetween(source, startMarker, endMarker) {
+  const start = source.indexOf(startMarker)
+  const end = source.indexOf(endMarker, start)
+  assert.notEqual(start, -1, `Missing source marker: ${startMarker}`)
+  assert.notEqual(end, -1, `Missing source marker: ${endMarker}`)
+  return source.slice(start, end)
+}
 
 function createControl(action) {
   const listeners = new Map()
@@ -147,4 +159,22 @@ test('rendered shelf and Watched cards bind without preview globals', () => {
   ]) {
     assert.equal(GLOBAL_ACTION_NAMES.includes(name), false)
   }
+})
+
+test('expanded preview action buttons do not animate a square background', () => {
+  const previewActionRule = sourceBetween(
+    responsiveWideStyle,
+    '.channel-shelf-card:is(.is-previewing, .is-preview-closing) .watch-later-btn,',
+    '.channel-shelf-card:is(.is-previewing, .is-preview-closing) .watch-later-btn .action-icon,'
+  )
+
+  assert.match(previewActionRule, /background:\s*transparent;/)
+  assert.match(previewActionRule, /border:\s*0;/)
+  assert.match(previewActionRule, /border-radius:\s*0;/)
+  assert.match(previewActionRule, /box-shadow:\s*none;/)
+  assert.match(
+    previewActionRule,
+    /transition:\s*color var\(--motion-base\) var\(--ease-standard\);/
+  )
+  assert.doesNotMatch(previewActionRule, /transition:[^;]*(?:background|border)/)
 })
