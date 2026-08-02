@@ -961,20 +961,10 @@ body[data-theme="dark"] .video-card.status-watch-later { background: var(--surfa
     box-shadow: 0 0 0 4px rgba(139,189,40,0.34), 0 6px 0 rgba(5,5,5,0.18);
   }
 }
-.video-card.watch-reminder-target {
-  border-color: var(--green);
-  box-shadow: 0 0 0 4px rgba(139,189,40,0.22), 0 6px 0 rgba(5,5,5,0.18);
-  transform: none;
-  z-index: 10001;
+.video-card.next-study-focus-arriving {
+  animation: nextStudyFocusArrival 900ms var(--ease-emphasized);
 }
-.channel-shelf:has(.video-card.watch-reminder-target) {
-  position: relative;
-  z-index: 10000;
-}
-.video-card.watch-reminder-arriving {
-  animation: videoWatchReminderArrival 900ms var(--ease-emphasized);
-}
-@keyframes videoWatchReminderArrival {
+@keyframes nextStudyFocusArrival {
   0%, 100% {
     box-shadow: 0 0 0 4px rgba(139,189,40,0.22), 0 6px 0 rgba(5,5,5,0.18);
   }
@@ -1215,30 +1205,14 @@ body[data-theme="dark"] .video-watch-reminder-favorite:focus-visible {
     transform: translate(-50%, -50%) scale(1);
   }
 }
-.video-watch-reminder-global {
-  bottom: 22px;
-  left: 50%;
-  max-width: calc(100vw - 28px);
-  position: fixed;
-  transform: translateX(-50%);
-  width: 430px;
-  z-index: 10002;
-}
-.video-watch-reminder-popover.is-global {
-  bottom: auto;
-  left: auto;
-  padding: 12px;
-  position: relative;
-  right: auto;
-}
-.video-watch-reminder-popover:is(.is-player, .is-global) {
+.video-watch-reminder-popover.is-player {
   align-items: center;
   gap: 8px;
   grid-template-columns: minmax(0, 1fr) auto;
   padding: 10px 12px;
 }
-.video-watch-reminder-popover:is(.is-player, .is-global) .video-watch-reminder-copy,
-.video-watch-reminder-popover:is(.is-player, .is-global) .video-watch-reminder-actions {
+.video-watch-reminder-popover.is-player .video-watch-reminder-copy,
+.video-watch-reminder-popover.is-player .video-watch-reminder-actions {
   white-space: nowrap;
 }
 .compact-card .thumb-link {

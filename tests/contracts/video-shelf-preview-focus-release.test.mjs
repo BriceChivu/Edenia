@@ -42,7 +42,7 @@ test('another shelf card releases Next Study focus before its preview opens', ()
   assert.ok(activePreviewIndex > releaseIndex)
   assert.doesNotMatch(openSource, /activeNextStudyFocusVideoId && !force/)
   assert.doesNotMatch(openSource, /card\.classList\.contains\('next-study-focus-target'\) && !force/)
-  assert.match(openSource, /activeVideoWatchReminderId && !force/)
+  assert.doesNotMatch(openSource, /VideoWatchReminder|watch-reminder-target/)
 })
 
 test('opening the focused video player completes the Next Study focus lifecycle', () => {

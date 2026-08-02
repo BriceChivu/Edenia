@@ -82,7 +82,6 @@ test('default state preserves the complete normal-mode schema and defaults', () 
     lastVideoMarkedWatchedAt: null,
     lastVideoOpenedAt: null,
     totalRewatchCount: 0,
-    videoWatchReminders: {},
     channelRefreshes: {},
     onboarding: {
       version: 2,

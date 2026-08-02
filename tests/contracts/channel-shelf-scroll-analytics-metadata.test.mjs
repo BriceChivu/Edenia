@@ -271,8 +271,7 @@ test('scroll sync retains preview handling before edge-button state', () => {
     [
       'if (!track) return',
       'if (activeVideoShelfPreview && track.contains(activeVideoShelfPreview))',
-      'const isPinnedPreview = activeVideoShelfPreview.dataset.videoId === activeVideoWatchReminderId',
-      '|| activeVideoShelfPreview.dataset.videoId === activeNextStudyFocusVideoId',
+      'const isPinnedPreview = activeVideoShelfPreview.dataset.videoId === activeNextStudyFocusVideoId',
       'if (isPinnedPreview)',
       'positionVideoShelfPreview(activeVideoShelfPreview)',
       'else',

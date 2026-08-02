@@ -524,12 +524,6 @@ const addedVideoSpotlightState = {
   frame: null,
   timer: null
 }
-let activeVideoWatchReminderId = null
-let shouldGuideActiveVideoWatchReminder = false
-let videoWatchReminderTimer = null
-let videoWatchReminderRenderFrame = null
-let videoWatchReminderZoomTimer = null
-let videoWatchReminderPopupTimer = null
 let nextStudyFocusZoomTimer = null
 let activeNextStudyFocusVideoId = null
 const VIDEO_SHELF_PLAYER_SAVE_INTERVAL_MS = 5000
@@ -1012,7 +1006,7 @@ function normalizeLoadedState(state) {
   if (normalizeVideoWatchProgressState(state)) shouldSave = true
   if (normalizeVideoSetAsideState(state)) shouldSave = true
   if (normalizeWatchedConfirmationState(state)) shouldSave = true
-  if (normalizeVideoWatchReminderState(state)) shouldSave = true
+  if (removeLegacyVideoWatchReminderState(state)) shouldSave = true
   normalizeUndoState(state)
   if (normalizeActivityLogState(state)) shouldSave = true
   if (normalizeLearnerProfileState(state)) shouldSave = true
@@ -1031,7 +1025,7 @@ function normalizeStateBeforeSave(state) {
   normalizeVideoWatchProgressState(state)
   normalizeVideoSetAsideState(state)
   normalizeWatchedConfirmationState(state)
-  normalizeVideoWatchReminderState(state)
+  removeLegacyVideoWatchReminderState(state)
   normalizeStudyInsightConfig(state)
   normalizeTrackedChannelPolicyState(state)
 }
@@ -1436,14 +1430,10 @@ function normalizeWatchedConfirmationState(state) {
   return changed
 }
 
-function normalizeVideoWatchReminderState(state) {
-  if (!state) return false
-  const existing = state.videoWatchReminders && typeof state.videoWatchReminders === 'object' && !Array.isArray(state.videoWatchReminders)
-    ? state.videoWatchReminders
-    : {}
-  const changed = Object.keys(existing).length > 0
-  state.videoWatchReminders = {}
-  return changed
+function removeLegacyVideoWatchReminderState(state) {
+  if (!state || !Object.prototype.hasOwnProperty.call(state, 'videoWatchReminders')) return false
+  delete state.videoWatchReminders
+  return true
 }
 
 function shouldPromptFrequentUserAboutAnki(state) {
@@ -1895,7 +1885,7 @@ function init() {
   }
   showPendingOnboardingNotice()
   showTrackedChannelDowngradeNotice(initialChannelTransition)
-  initializeVideoWatchReminders(state)
+  updateDocumentTitle(state)
 }
 
 function queueOnboardingNotice(message) {
@@ -4572,10 +4562,7 @@ function exportSyncFile() {
     syncVersion: 1,
     exportedAt: new Date().toISOString(),
     sandbox: IS_SANDBOX,
-    state: {
-      ...state,
-      videoWatchReminders: {}
-    }
+    state
   }
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -4979,15 +4966,16 @@ function getImportedSyncState(payload) {
     state.config.locale
   )
 
-  return {
+  const importedState = {
     ...baseState,
     ...state,
-    videoWatchReminders: {},
     config: {
       ...baseState.config,
       ...state.config
     }
   }
+  removeLegacyVideoWatchReminderState(importedState)
+  return importedState
 }
 
 function toggleTheme() {
@@ -6400,134 +6388,27 @@ function getBaseDocumentTitle() {
   return IS_SANDBOX ? t('app.title.sandbox') : 'Edenia'
 }
 
-function getVideoWatchReminderEntries(state, includePrompted = false) {
-  return Object.entries(state?.videoWatchReminders || {})
-    .map(([videoId, reminder]) => ({
-      videoId,
-      reminder,
-      video: state?.videos?.[videoId],
-      dueAtMs: Date.parse(reminder?.dueAt || '')
-    }))
-    .filter(entry => (
-      entry.video
-      && (
-        getVideoStatus(entry.video) !== 'watched'
-        || (entry.reminder?.rewatch === true && isFavoriteVideo(entry.video))
-      )
-      && Number.isFinite(entry.dueAtMs)
-      && (includePrompted || !entry.reminder?.promptedAt)
-    ))
-    .sort((a, b) => a.dueAtMs - b.dueAtMs)
-}
-
-function getDueVideoWatchReminderEntries(state, includePrompted = false) {
-  const now = Date.now()
-  return getVideoWatchReminderEntries(state, includePrompted)
-    .filter(entry => entry.dueAtMs <= now)
-}
-
-function isVideoWatchReminderDue(state, videoId) {
-  const dueAtMs = Date.parse(state?.videoWatchReminders?.[String(videoId ?? '')]?.dueAt || '')
-  return Number.isFinite(dueAtMs) && dueAtMs <= Date.now()
-}
-
-function updateDocumentTitle(state = null) {
-  const currentState = state || loadState()
-  const hasDuePlayerReminder = Boolean(
+function updateDocumentTitle() {
+  const hasDuePlayerReminder = document.hidden && Boolean(
     activeVideoShelfPlayer
     && activeVideoShelfPlayer.completionPromptPending
   )
-  const hasDueReminder = document.hidden && (
-    getDueVideoWatchReminderEntries(currentState).length > 0
-    || hasDuePlayerReminder
-  )
-  document.title = hasDueReminder ? t('videoReminder.tabTitle') : getBaseDocumentTitle()
-}
-
-function getVideoWatchReminderDurationSeconds(video) {
-  const duration = Math.max(0, Math.floor(Number(video?.duration || 0)))
-  if (!duration) return 0
-  const resumeAtSeconds = getVideoStatus(video) === 'partial'
-    ? normalizeResumeAtSeconds(video?.resumeAtSeconds, duration)
-    : null
-  return Math.max(1, duration - (resumeAtSeconds || 0))
-}
-
-function setVideoWatchReminderInState(state, video, options = {}) {
-  const isRewatch = options.rewatch === true
-  if (
-    !state
-    || !video?.id
-    || (getVideoStatus(video) === 'watched' && (!isRewatch || !isFavoriteVideo(video)))
-  ) return false
-  const durationSeconds = getVideoWatchReminderDurationSeconds(video)
-  if (!durationSeconds) return false
-  const startedAtMs = Date.now()
-  if (!state.videoWatchReminders || typeof state.videoWatchReminders !== 'object' || Array.isArray(state.videoWatchReminders)) {
-    state.videoWatchReminders = {}
-  }
-  state.videoWatchReminders[video.id] = {
-    startedAt: new Date(startedAtMs).toISOString(),
-    dueAt: new Date(startedAtMs + durationSeconds * 1000).toISOString(),
-    durationSeconds,
-    ...(isRewatch ? { rewatch: true } : {})
-  }
-  if (activeVideoWatchReminderId === String(video.id)) {
-    activeVideoWatchReminderId = null
-    shouldGuideActiveVideoWatchReminder = false
-    removeVideoWatchReminderUi()
-  }
-  return true
-}
-
-function clearVideoWatchReminderInState(state, videoId) {
-  const targetId = String(videoId ?? '')
-  if (!targetId || !state?.videoWatchReminders?.[targetId]) return false
-  delete state.videoWatchReminders[targetId]
-  if (activeVideoWatchReminderId === targetId) {
-    activeVideoWatchReminderId = null
-    shouldGuideActiveVideoWatchReminder = false
-  }
-  return true
-}
-
-function removeVideoWatchReminderUi() {
-  window.clearTimeout(videoWatchReminderZoomTimer)
-  videoWatchReminderZoomTimer = null
-  window.clearTimeout(videoWatchReminderPopupTimer)
-  videoWatchReminderPopupTimer = null
-  closeVideoShelfPreview(activeVideoShelfPreview, true)
-  if (videoWatchReminderRenderFrame !== null) {
-    window.cancelAnimationFrame(videoWatchReminderRenderFrame)
-    videoWatchReminderRenderFrame = null
-  }
-  document.querySelectorAll('.video-watch-reminder-popover:not(.is-player)').forEach(popover => popover.remove())
-  document.querySelectorAll('.video-card.watch-reminder-target, .video-card.watch-reminder-arriving').forEach(card => {
-    card.classList.remove('watch-reminder-target', 'watch-reminder-arriving')
-  })
-  const globalReminder = document.getElementById('videoWatchReminderGlobal')
-  if (globalReminder) {
-    globalReminder.classList.add('hidden')
-    globalReminder.innerHTML = ''
-  }
+  document.title = hasDuePlayerReminder ? t('videoReminder.tabTitle') : getBaseDocumentTitle()
 }
 
 function getVideoWatchReminderMarkup(videoId, options = {}) {
   const {
-    global = false,
     rewatch = false,
-    player = false,
     video = null
   } = options
   const safeVideoId = escHtml(String(videoId ?? ''))
-  const promptId = `videoWatchPrompt-${safeVideoId}-${player ? 'player' : global ? 'global' : 'card'}`
+  const promptId = `videoWatchPrompt-${safeVideoId}-player`
   const isFavorite = isFavoriteVideo(video)
   const favoriteActive = isFavorite ? ' active' : ''
   const favoriteLabel = t(isFavorite ? 'videos.card.removeFavorite' : 'videoReminder.setFavorite')
   return `
-    <div class="video-watch-reminder-popover${global ? ' is-global' : ''}${player ? ' is-player' : ''}"
+    <div class="video-watch-reminder-popover is-player"
       data-video-id="${safeVideoId}"
-      data-player-prompt="${String(player)}"
       role="dialog"
       aria-live="polite"
       aria-labelledby="${promptId}">
@@ -6553,13 +6434,11 @@ function getVideoWatchReminderMarkup(videoId, options = {}) {
           data-video-watch-prompt-action="confirm"
           data-video-id="${safeVideoId}"
           data-rewatch="${String(rewatch)}"
-          data-player-prompt="${String(player)}"
           data-analytics-action="confirmVideoWatchPrompt">${escHtml(t('videoReminder.yes'))}</button>
         <button type="button"
           class="video-watch-reminder-later"
           data-video-watch-prompt-action="dismiss"
           data-video-id="${safeVideoId}"
-          data-player-prompt="${String(player)}"
           data-analytics-action="dismissVideoWatchPrompt">${escHtml(t('videoReminder.notYet'))}</button>
       </div>
     </div>
@@ -6574,14 +6453,9 @@ function finalizeRenderedVideoWatchPrompt(state, video, prompt, rewatch = false)
       syncAnalytics: false
     })
   }
-  const surface = prompt.classList.contains('is-player')
-    ? 'embedded_player'
-    : prompt.classList.contains('is-global')
-      ? 'global_reminder'
-      : 'video_card'
   trackEdeniaEvent('video_completion_prompt_shown', getVideoAnalyticsProperties(video, {
     is_rewatch: rewatch === true,
-    surface,
+    surface: 'embedded_player',
     current_status: getVideoStatus(video),
     resume_at_seconds: normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration),
     completion_percent: video.duration > 0
@@ -6594,319 +6468,65 @@ function finalizeRenderedVideoWatchPrompt(state, video, prompt, rewatch = false)
   return true
 }
 
-function renderGlobalVideoWatchReminderPrompt(state, videoId, video, rewatch = false) {
-  const globalReminder = document.getElementById('videoWatchReminderGlobal')
-  if (!globalReminder || !video) return false
-  globalReminder.innerHTML = getVideoWatchReminderMarkup(videoId, {
-    global: true,
-    rewatch,
-    video
-  })
-  bindVideoWatchPromptActions(globalReminder, {
-    favorite: favoriteVideoFromWatchPrompt,
-    confirm: confirmVideoWatchPrompt,
-    dismiss: dismissVideoWatchPrompt
-  })
-  globalReminder.classList.remove('hidden')
-  return finalizeRenderedVideoWatchPrompt(
-    state,
-    video,
-    globalReminder.querySelector('.video-watch-reminder-popover'),
-    rewatch
-  )
-}
-
-function renderActiveVideoWatchReminder(state = null) {
-  videoWatchReminderRenderFrame = null
-  const currentState = state || loadState()
-  const videoId = activeVideoWatchReminderId
-  removeVideoWatchReminderUi()
-  if (!videoId) return
-
-  const reminder = currentState?.videoWatchReminders?.[videoId]
-  const video = currentState?.videos?.[videoId]
-  if (
-    !reminder
-    || !video
-    || (getVideoStatus(video) === 'watched' && (reminder.rewatch !== true || !isFavoriteVideo(video)))
-  ) {
-    activeVideoWatchReminderId = null
-    shouldGuideActiveVideoWatchReminder = false
-    forcedSearchVideoId = null
-    scheduleVideoWatchReminderTimer(currentState)
-    return
-  }
-
-  const card = Array.from(document.querySelectorAll('.video-card'))
-    .find(candidate => candidate.dataset.videoId === videoId)
-  if (card) {
-    closeVideoShelfPreview(activeVideoShelfPreview, true)
-    card.classList.add('watch-reminder-target')
-    const reduceMotion = prefersReducedMotion()
-    if (shouldGuideActiveVideoWatchReminder) {
-      card.classList.add('watch-reminder-arriving')
-      card.scrollIntoView({
-        behavior: reduceMotion ? 'auto' : 'smooth',
-        block: 'center',
-        inline: 'center'
-      })
-      window.setTimeout(() => card.classList.remove('watch-reminder-arriving'), 1800)
-    }
-    const targetVideoId = videoId
-    videoWatchReminderZoomTimer = window.setTimeout(() => {
-      if (activeVideoWatchReminderId !== targetVideoId) return
-      const targetCard = Array.from(document.querySelectorAll('.video-card'))
-        .find(candidate => candidate.dataset.videoId === targetVideoId)
-      openVideoShelfPreview(targetCard, true)
-      videoWatchReminderPopupTimer = window.setTimeout(() => {
-        if (activeVideoWatchReminderId !== targetVideoId) return
-        const zoomedCard = Array.from(document.querySelectorAll('.video-card'))
-          .find(candidate => candidate.dataset.videoId === targetVideoId)
-        if (!zoomedCard) {
-          renderGlobalVideoWatchReminderPrompt(
-            currentState,
-            targetVideoId,
-            video,
-            reminder.rewatch === true
-          )
-          return
-        }
-        if (zoomedCard.querySelector('.video-watch-reminder-popover')) return
-        zoomedCard.insertAdjacentHTML('beforeend', getVideoWatchReminderMarkup(targetVideoId, {
-          rewatch: reminder.rewatch === true,
-          video
-        }))
-        bindVideoWatchPromptActions(zoomedCard, {
-          favorite: favoriteVideoFromWatchPrompt,
-          confirm: confirmVideoWatchPrompt,
-          dismiss: dismissVideoWatchPrompt
-        })
-        finalizeRenderedVideoWatchPrompt(
-          currentState,
-          video,
-          zoomedCard.querySelector('.video-watch-reminder-popover'),
-          reminder.rewatch === true
-        )
-      }, reduceMotion ? 80 : 260)
-    }, shouldGuideActiveVideoWatchReminder && !reduceMotion ? 750 : 0)
-  } else {
-    renderGlobalVideoWatchReminderPrompt(
-      currentState,
-      videoId,
-      video,
-      reminder.rewatch === true
-    )
-  }
-  shouldGuideActiveVideoWatchReminder = false
-  forcedSearchVideoId = null
-}
-
-function queueActiveVideoWatchReminderRender(state = null) {
-  if (!activeVideoWatchReminderId) {
-    removeVideoWatchReminderUi()
-    return
-  }
-  if (videoWatchReminderRenderFrame !== null) window.cancelAnimationFrame(videoWatchReminderRenderFrame)
-  videoWatchReminderRenderFrame = window.requestAnimationFrame(() => renderActiveVideoWatchReminder(state))
-}
-
-function showNextDueVideoWatchReminder(state = null) {
-  const currentState = state || loadState()
-  if (!currentState || activeVideoWatchReminderId) {
-    queueActiveVideoWatchReminderRender(currentState)
-    return
-  }
-  const entry = getDueVideoWatchReminderEntries(currentState)[0]
-  if (!entry) {
-    scheduleVideoWatchReminderTimer(currentState)
-    return
-  }
-
-  entry.reminder.promptedAt = new Date().toISOString()
-  closeVideoShelfPreview(activeVideoShelfPreview, true)
-  activeVideoWatchReminderId = entry.videoId
-  shouldGuideActiveVideoWatchReminder = true
-  forcedSearchVideoId = entry.videoId
-  saveState(currentState, { backup: false })
-  renderFeed(currentState)
-  updateDocumentTitle(currentState)
-}
-
-function handleVideoWatchReminderTimer() {
-  videoWatchReminderTimer = null
-  const state = loadState()
-  if (!state) return
-  if (document.hidden) {
-    updateDocumentTitle(state)
-    return
-  }
-  showNextDueVideoWatchReminder(state)
-}
-
-function scheduleVideoWatchReminderTimer(state = null) {
-  window.clearTimeout(videoWatchReminderTimer)
-  videoWatchReminderTimer = null
-  const currentState = state || loadState()
-  updateDocumentTitle(currentState)
-  if (!currentState || activeVideoWatchReminderId) return
-
-  const nextReminder = getVideoWatchReminderEntries(currentState)[0]
-  if (!nextReminder) return
-  const delay = Math.max(0, nextReminder.dueAtMs - Date.now())
-  if (!delay && document.hidden) return
-  videoWatchReminderTimer = window.setTimeout(
-    handleVideoWatchReminderTimer,
-    Math.min(delay, 2_147_000_000)
-  )
-}
-
-function initializeVideoWatchReminders(state) {
-  normalizeVideoWatchReminderState(state)
-  scheduleVideoWatchReminderTimer(state)
-}
-
-function handleVideoWatchReminderVisibilityChange() {
-  const state = loadState()
-  if (!state) return
-  scheduleVideoWatchReminderTimer(state)
-  if (!document.hidden && activeVideoWatchReminderId) queueActiveVideoWatchReminderRender(state)
-}
-
-function completeVideoWatchReminderDismissal(videoId) {
-  const state = loadState()
-  if (!state) return false
-  const video = state.videos?.[videoId]
-  const isRewatch = state.videoWatchReminders?.[videoId]?.rewatch === true
-  clearVideoWatchReminderInState(state, videoId)
-  saveState(state, { backup: false })
-  trackEdeniaEvent('video_completion_prompt_dismissed', getVideoAnalyticsProperties(video, {
-    is_rewatch: isRewatch,
-    surface: 'watch_reminder'
-  }))
-  renderFeed(state)
-  removeVideoWatchReminderUi()
-  scheduleVideoWatchReminderTimer(state)
-  return true
-}
-
-function dismissVideoWatchReminder(event, videoId) {
-  event?.preventDefault()
-  event?.stopPropagation()
-  completeVideoWatchReminderDismissal(videoId)
-}
-
-function dismissVideoWatchReminderOnOutsideClick(event) {
-  const videoId = activeVideoWatchReminderId
-  if (!videoId) return
-  const target = event.target instanceof Element ? event.target : null
-  if (target?.closest('.video-watch-reminder-popover.is-player')) return
-  const targetCard = target?.closest('.video-card')
-  if (targetCard?.dataset.videoId === videoId) return
-  if (target?.closest('#videoWatchReminderGlobal')) return
-  completeVideoWatchReminderDismissal(videoId)
-}
-
-function confirmVideoWatchPrompt(event, videoId, rewatch = false, playerPrompt = false) {
+function confirmVideoWatchPrompt(event, videoId, rewatch = false) {
   event?.preventDefault()
   event?.stopPropagation()
   const targetVideoId = String(videoId ?? '')
   if (!targetVideoId) return false
 
-  if (playerPrompt) {
-    const session = activeVideoShelfPlayer
-    if (
-      !session
-      || session.videoId !== targetVideoId
-      || session.completionPromptVisible !== true
-      || session.isRewatch !== (rewatch === true)
-    ) return false
-    if (rewatch) {
-      const video = loadState()?.videos?.[targetVideoId]
-      const completed = completeVideoShelfPlayerRewatchConfirmation(session)
-      if (completed) {
-        trackEdeniaEvent('video_completion_prompt_accepted', getVideoAnalyticsProperties(video, {
-          is_rewatch: true,
-          surface: 'embedded_player'
-        }))
-      }
-      return completed
-    }
-    syncActiveVideoShelfPlayer({
-      persist: true,
-      captureStoppedPlayback: true
-    })
-    stopActiveVideoShelfPlayer({ persist: false })
-    const marked = markVideo(targetVideoId, 'watched', {
-      creditOnlyRecordedProgress: true,
-      surface: 'embedded_player_prompt'
-    })
-    if (marked) {
-      trackEdeniaEvent(
-        'video_completion_prompt_accepted',
-        getVideoAnalyticsProperties(loadState()?.videos?.[targetVideoId], {
-          is_rewatch: false,
-          surface: 'embedded_player'
-        })
-      )
-    }
-    return marked
-  }
-
-  if (activeVideoWatchReminderId !== targetVideoId) return false
-  if (!rewatch) {
-    const marked = markVideo(targetVideoId, 'watched', { surface: 'watch_reminder_prompt' })
-    if (marked) {
-      trackEdeniaEvent(
-        'video_completion_prompt_accepted',
-        getVideoAnalyticsProperties(loadState()?.videos?.[targetVideoId], {
-          is_rewatch: false,
-          surface: 'watch_reminder'
-        })
-      )
-    }
-    return marked
-  }
-
-  const state = loadState()
-  const video = state?.videos?.[targetVideoId]
-  const reminder = state?.videoWatchReminders?.[targetVideoId]
+  const session = activeVideoShelfPlayer
   if (
-    !video
-    || reminder?.rewatch !== true
-    || getVideoStatus(video) !== 'watched'
-    || !isFavoriteVideo(video)
+    !session
+    || session.videoId !== targetVideoId
+    || session.completionPromptVisible !== true
+    || session.isRewatch !== (rewatch === true)
   ) return false
-  const rewatchSeconds = Math.max(0, Math.floor(Number(video.duration) || 0))
-  if (!recordVideoRewatch(state, video, rewatchSeconds)) return false
-  saveState(state)
-  trackVideoRewatchCompleted(state, video, rewatchSeconds, 'watch_reminder')
-  trackEdeniaEvent('video_completion_prompt_accepted', getVideoAnalyticsProperties(video, {
-    is_rewatch: true,
-    surface: 'watch_reminder'
-  }))
-  renderAll(state)
-  removeVideoWatchReminderUi()
-  scheduleVideoWatchReminderTimer(state)
-  return true
+  if (rewatch) {
+    const video = loadState()?.videos?.[targetVideoId]
+    const completed = completeVideoShelfPlayerRewatchConfirmation(session)
+    if (completed) {
+      trackEdeniaEvent('video_completion_prompt_accepted', getVideoAnalyticsProperties(video, {
+        is_rewatch: true,
+        surface: 'embedded_player'
+      }))
+    }
+    return completed
+  }
+  syncActiveVideoShelfPlayer({
+    persist: true,
+    captureStoppedPlayback: true
+  })
+  stopActiveVideoShelfPlayer({ persist: false })
+  const marked = markVideo(targetVideoId, 'watched', {
+    creditOnlyRecordedProgress: true,
+    surface: 'embedded_player_prompt'
+  })
+  if (marked) {
+    trackEdeniaEvent(
+      'video_completion_prompt_accepted',
+      getVideoAnalyticsProperties(loadState()?.videos?.[targetVideoId], {
+        is_rewatch: false,
+        surface: 'embedded_player'
+      })
+    )
+  }
+  return marked
 }
 
-function dismissVideoWatchPrompt(event, videoId, playerPrompt = false) {
+function dismissVideoWatchPrompt(event, videoId) {
   event?.preventDefault()
   event?.stopPropagation()
   const targetVideoId = String(videoId ?? '')
-  if (playerPrompt) {
-    const session = activeVideoShelfPlayer
-    if (!session || session.videoId !== targetVideoId) return false
-    const video = loadState()?.videos?.[targetVideoId]
-    const isRewatch = session.isRewatch === true
-    dismissVideoShelfCompletionPrompt(session)
-    trackEdeniaEvent('video_completion_prompt_dismissed', getVideoAnalyticsProperties(video, {
-      is_rewatch: isRewatch,
-      surface: 'embedded_player'
-    }))
-    return true
-  }
-  return completeVideoWatchReminderDismissal(targetVideoId)
+  const session = activeVideoShelfPlayer
+  if (!session || session.videoId !== targetVideoId) return false
+  const video = loadState()?.videos?.[targetVideoId]
+  const isRewatch = session.isRewatch === true
+  dismissVideoShelfCompletionPrompt(session)
+  trackEdeniaEvent('video_completion_prompt_dismissed', getVideoAnalyticsProperties(video, {
+    is_rewatch: isRewatch,
+    surface: 'embedded_player'
+  }))
+  return true
 }
 
 function toggleVideoFavorite(videoId, options = {}) {
@@ -7030,7 +6650,6 @@ function recordVideoRewatch(state, video, seconds = null, options = {}) {
   delete video.rewatchCoverage
   video.resumeAtSeconds = null
   video.pausedAt = null
-  clearVideoWatchReminderInState(state, video.id)
   state.lastVideoMarkedWatchedAt = watchedAt
   recordNoAnkiFrequentUserWatchedDate(state, watchedAt)
   syncStreak(state)
@@ -7097,7 +6716,6 @@ function markVideo(videoId, requestedStatus, options = {}) {
   if (previousStatus === 'watched' && newStatus !== 'watched' && !previousSetAside) {
     grantWatchedConfirmationUnlock(s, video)
   }
-  if (newStatus !== 'partial') clearVideoWatchReminderInState(s, videoId)
 
   const undoAction = {
     type: 'video-status',
@@ -7210,7 +6828,6 @@ function markVideo(videoId, requestedStatus, options = {}) {
   } else {
     renderAll(s)
   }
-  scheduleVideoWatchReminderTimer(s)
   return true
 }
 
@@ -7313,7 +6930,6 @@ function setVideoAside(videoId, options = {}) {
   video.favorite = false
   video.resumeAtSeconds = null
   video.pausedAt = null
-  clearVideoWatchReminderInState(s, videoId)
   clearFocusedVideoPreview(videoId)
 
   s.lastVideoMarkedWatchedAt = setAsideAt
@@ -7355,7 +6971,6 @@ function setVideoAside(videoId, options = {}) {
     surface: options.surface || 'video_card'
   }))
   renderAll(s)
-  scheduleVideoWatchReminderTimer(s)
   return true
 }
 
@@ -7417,7 +7032,6 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
       saveState(s, { backup: false })
       return false
     }
-    clearVideoWatchReminderInState(s, videoId)
     video.resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) ?? 0
     video.pausedAt = getCurrentAppTimestamp(s)
     saveState(s, { backup: false })
@@ -7430,7 +7044,6 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
     return true
   }
   if (previousStatus === 'partial') {
-    clearVideoWatchReminderInState(s, videoId)
     video.pausedAt = getCurrentAppTimestamp(s)
     saveState(s, { backup: false })
     if (shouldRender) {
@@ -7464,7 +7077,6 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
   video.watchedAt = null
   video.pausedAt = getCurrentAppTimestamp(s)
   video.resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
-  clearVideoWatchReminderInState(s, videoId)
   const action = s.undoStack[s.undoStack.length - 1]
   if (action?.videoId === videoId && action.after) {
     action.after.video = cloneVideoForHistoryAction(video)
@@ -8393,7 +8005,7 @@ function focusNextStudyVideoCard(event, videoId) {
 
   window.requestAnimationFrame(() => {
     const found = scrollToVideoCard(targetVideoId, '.channel-shelf-card', {
-      className: 'watch-reminder-arriving',
+      className: 'next-study-focus-arriving',
       duration: 1800
     })
     forcedSearchVideoId = null
@@ -12736,7 +12348,6 @@ function renderFeed(s) {
     .join('')
   bindRenderedVideoStateActions(watchedGrid)
   bindRenderedVideoShelfPreviewActions(watchedGrid)
-  queueActiveVideoWatchReminderRender(s)
 }
 
 function toggleWatchedSection() {
@@ -12881,8 +12492,7 @@ function renderChannelShelfAvatar(group) {
 function syncVideoChannelShelfControls(track) {
   if (!track) return
   if (activeVideoShelfPreview && track.contains(activeVideoShelfPreview)) {
-    const isPinnedPreview = activeVideoShelfPreview.dataset.videoId === activeVideoWatchReminderId
-      || activeVideoShelfPreview.dataset.videoId === activeNextStudyFocusVideoId
+    const isPinnedPreview = activeVideoShelfPreview.dataset.videoId === activeNextStudyFocusVideoId
     if (isPinnedPreview) {
       positionVideoShelfPreview(activeVideoShelfPreview)
     } else {
@@ -13616,7 +13226,6 @@ function showVideoShelfCompletionPrompt(session = activeVideoShelfPlayer) {
 
   session.frame.querySelector('.video-watch-reminder-popover.is-player')?.remove()
   session.frame.insertAdjacentHTML('beforeend', getVideoWatchReminderMarkup(session.videoId, {
-    player: true,
     rewatch: session.isRewatch,
     video
   }))
@@ -13728,7 +13337,6 @@ function completeVideoShelfPlayerRewatchConfirmation(session) {
   saveState(state)
   trackVideoRewatchCompleted(state, video, coveredSeconds, 'embedded_player')
   renderAll(state)
-  scheduleVideoWatchReminderTimer(state)
   return true
 }
 
@@ -13899,7 +13507,7 @@ function positionVideoShelfPreview(card, pointerEvent = null) {
   const previewHeight = previewSize * 0.815625
   const sourceLeft = rect.left - ((previewSize - rect.width) / 2)
   const sourceTop = rect.top - ((previewHeight - rect.height) / 2)
-  const anchorToSource = card.matches('.watch-reminder-target, .next-study-focus-target')
+  const anchorToSource = card.matches('.next-study-focus-target')
   let targetLeft = anchorToSource
     ? sourceLeft
     : clampNumber(
@@ -14118,7 +13726,6 @@ function dismissVideoShelfPreview(card) {
   if (!hasPreviewState) return false
 
   const videoId = String(card.dataset.videoId || '')
-  if (activeVideoWatchReminderId === videoId) return false
   if (activeNextStudyFocusVideoId === videoId) {
     window.clearTimeout(nextStudyFocusZoomTimer)
     activeNextStudyFocusVideoId = null
@@ -14163,8 +13770,6 @@ function openVideoShelfPreview(card, force = false, pointerEvent = null) {
   if (
     !card
     || !canUseVideoShelfPreview()
-    || (activeVideoWatchReminderId && !force)
-    || (card.classList.contains('watch-reminder-target') && !force)
   ) return false
   clearVideoShelfPreviewLeave(card)
   if (activeChannelShelfDrag) return false
@@ -14194,7 +13799,7 @@ function openVideoShelfPreview(card, force = false, pointerEvent = null) {
       if (!card.classList.contains('is-preview-armed')) return
       if (!force && !card.matches(':hover') && !card.matches(':focus-within')) return
       card.classList.add('is-previewing')
-      if (card.matches('.watch-reminder-target, .next-study-focus-target')) {
+      if (card.matches('.next-study-focus-target')) {
         videoShelfPreviewAnchorTimer = window.setTimeout(() => {
           if (card.classList.contains('is-previewing')) card.classList.add('is-source-anchored')
         }, 220)
@@ -14206,7 +13811,6 @@ function openVideoShelfPreview(card, force = false, pointerEvent = null) {
 
 function closeVideoShelfPreview(card, force = false) {
   if (!card?.classList.contains('is-floating-preview')) return
-  if (!force && activeVideoWatchReminderId && card.dataset.videoId === activeVideoWatchReminderId) return
   if (!force && activeNextStudyFocusVideoId && card.dataset.videoId === activeNextStudyFocusVideoId) return
   const hasKeyboardFocus = Boolean(card.querySelector(':focus-visible'))
   if (!force && (card.matches(':hover') || hasKeyboardFocus)) return
@@ -14295,8 +13899,7 @@ function closeVideoShelfPreviewOnViewportChange() {
   const isAnchoredPreview = Boolean(
     activeVideoShelfPreview
     && (
-      activeVideoShelfPreview.dataset.videoId === activeVideoWatchReminderId
-      || activeVideoShelfPreview.dataset.videoId === activeNextStudyFocusVideoId
+      activeVideoShelfPreview.dataset.videoId === activeNextStudyFocusVideoId
     )
   )
   if (isAnchoredPreview) {
@@ -15550,7 +15153,6 @@ window.addEventListener('resize', refreshCityWaveformScrollGeometry, { passive: 
 window.visualViewport?.addEventListener('resize', scheduleOnboardingChoiceLayoutSync, { passive: true })
 document.fonts?.ready.then(scheduleOnboardingChoiceLayoutSync).catch(() => {})
 document.addEventListener('visibilitychange', refreshOpenChannelFilterTimestamps)
-document.addEventListener('visibilitychange', handleVideoWatchReminderVisibilityChange)
 document.addEventListener('visibilitychange', handleVideoShelfPlayerVisibilityChange)
 document.addEventListener('click', closeChannelFilterMenuOnOutsideClick)
 document.addEventListener('click', closeHistoryVideoPopoversOnOutsideClick)
@@ -15565,7 +15167,6 @@ document.addEventListener('click', closeIntroLocaleMenuOnOutsideClick)
 document.addEventListener('click', closeOnboardingLocaleMenuOnOutsideClick)
 document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
 document.addEventListener('click', clearCityWaveformPreviewOnOutsideClick)
-document.addEventListener('click', dismissVideoWatchReminderOnOutsideClick)
 document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryPointsPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryPeriodPopoversOnEscape)

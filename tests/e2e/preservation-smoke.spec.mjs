@@ -1144,11 +1144,11 @@ test('Settings sync listeners preserve download, picker, import, and failure ord
     exportedAt: fixedNow.toISOString(),
     sandbox: false
   })
-  expect(exported.state.videoWatchReminders).toEqual({})
-  expect({
-    ...exported.state,
-    videoWatchReminders: JSON.parse(primaryBeforeExport).videoWatchReminders
-  }).toEqual(JSON.parse(primaryBeforeExport))
+  expect(Object.prototype.hasOwnProperty.call(
+    exported.state,
+    'videoWatchReminders'
+  )).toBe(false)
+  expect(exported.state).toEqual(JSON.parse(primaryBeforeExport))
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
     .toBe(primaryBeforeExport)
   expect(await page.evaluate(
@@ -1284,7 +1284,10 @@ test('Settings sync listeners preserve download, picker, import, and failure ord
     ankiEnabled: false,
     includeShorts: true
   })
-  expect(importResult.state.videoWatchReminders).toEqual({})
+  expect(Object.prototype.hasOwnProperty.call(
+    importResult.state,
+    'videoWatchReminders'
+  )).toBe(false)
   expect(importResult.state.activityLog.slice(0, 2)).toMatchObject([
     {
       actor: 'user',
@@ -1542,7 +1545,10 @@ test('backup Restore listeners preserve live IDs, rollback order, localization, 
           state.config,
           'apiKey'
         ),
-        reminders: state.videoWatchReminders,
+        remindersPresent: Object.prototype.hasOwnProperty.call(
+          state,
+          'videoWatchReminders'
+        ),
         activity: state.activityLog.slice(0, 3).map(entry => ({
           actor: entry.actor,
           type: entry.type,
@@ -1587,7 +1593,7 @@ test('backup Restore listeners preserve live IDs, rollback order, localization, 
     includeShorts: false,
     insightsEnabled: false,
     apiKeyPresent: false,
-    reminders: {},
+    remindersPresent: false,
     activity: [
       {
         actor: 'user',

@@ -30,17 +30,12 @@ export function bindVideoWatchPromptActions(root, actions) {
         actions.confirm(
           event,
           control.dataset.videoId,
-          control.dataset.rewatch === 'true',
-          control.dataset.playerPrompt === 'true'
+          control.dataset.rewatch === 'true'
         )
       })
     } else if (actionName === 'dismiss') {
       control.addEventListener('click', event => {
-        actions.dismiss(
-          event,
-          control.dataset.videoId,
-          control.dataset.playerPrompt === 'true'
-        )
+        actions.dismiss(event, control.dataset.videoId)
       })
     } else {
       return
