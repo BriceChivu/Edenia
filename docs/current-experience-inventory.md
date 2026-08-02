@@ -78,7 +78,7 @@
 | SET-012 | Sync import | File parsing, structural validation, normal/sandbox rejection, rollback backup, state normalization, rerender, integration resync, field reset, and localized failure/success states. | High | Keep |
 | SET-013 | Reset | Explicit confirmation, Cancel/Delete actions, rollback backup, state isolation, and unchanged Anki collection contract. | High | Keep |
 | SET-014 | Replay actions | Show walkthrough again and Show trailer again retain their current settings placement and return behavior. | Medium | Keep |
-| SET-015 | Creator footer | Creator branding and external YouTube/Twitch/Kick links remain at the bottom of Settings. | Low | Keep |
+| SET-015 | Creator footer | Creator branding and external YouTube, Twitch, and Ko-fi support links remain at the bottom of Settings. | Low | Keep |
 
 ## Header, town, progress, and insights
 
