@@ -50,7 +50,7 @@ test('study-insight config defaults and serialized change detection remain exact
   assert.equal(normalizeStudyInsightConfig({}), false)
 })
 
-test('study-insight entries retain legacy coercion, clipping, and truncation', () => {
+test('study-insight entries retain legacy coercion and clipping', () => {
   const state = {
     config: {
       studyInsights: {
@@ -113,10 +113,50 @@ test('study-insight entries retain legacy coercion, clipping, and truncation', (
   assert.equal(entry.topVideoTitle.length, 180)
   assert.equal(entry.topVideoSeconds, 10)
   assert.equal(entry.observationDays, 42)
+  assert.equal(entry.firstRecordedAt, '2026-07-28T01:02:03.000Z')
   assert.deepEqual(entry.channelBreakdown, [{
     name: 'n'.repeat(100),
     seconds: 9
   }])
+})
+
+test('study-insight normalization preserves valid first-recorded order', () => {
+  const state = {
+    config: {
+      studyInsights: {
+        history: [
+          insight({
+            key: 'updated-insight',
+            firstRecordedAt: '2026-06-01T01:02:03.000Z',
+            recordedAt: '2026-07-28T01:02:03.000Z'
+          }),
+          insight({
+            key: 'future-first-recorded',
+            firstRecordedAt: '2026-08-01T01:02:03.000Z'
+          }),
+          insight({
+            key: 'invalid-first-recorded',
+            firstRecordedAt: 'invalid'
+          })
+        ]
+      }
+    }
+  }
+
+  normalizeStudyInsightConfig(state)
+
+  assert.equal(
+    state.config.studyInsights.history.find(
+      entry => entry.key === 'updated-insight'
+    ).firstRecordedAt,
+    '2026-06-01T01:02:03.000Z'
+  )
+  for (const key of ['future-first-recorded', 'invalid-first-recorded']) {
+    const entry = state.config.studyInsights.history.find(
+      candidate => candidate.key === key
+    )
+    assert.equal(entry.firstRecordedAt, entry.recordedAt)
+  }
 })
 
 test('history sorting, normalized-key dedupe, legacy variants, and unlimited retention remain exact', () => {

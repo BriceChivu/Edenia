@@ -44,6 +44,11 @@ export function normalizeStudyInsightConfig(state) {
         ? entry.windowId
         : null
       if (!entry.key || !type || !isValidTimestamp(entry.recordedAt)) return null
+      const recordedAt = new Date(entry.recordedAt).toISOString()
+      const firstRecordedAt = isValidTimestamp(entry.firstRecordedAt)
+        && new Date(entry.firstRecordedAt) <= new Date(recordedAt)
+        ? new Date(entry.firstRecordedAt).toISOString()
+        : recordedAt
       return {
         key: String(entry.key).slice(0, 140),
         insightId: String(entry.insightId || '').slice(0, 80),
@@ -78,7 +83,8 @@ export function normalizeStudyInsightConfig(state) {
           .filter(channel => channel.seconds > 0)
           .slice(0, 5),
         observationDays: clampNumber(Math.round(Number(entry.observationDays) || 0), 0, STUDY_INSIGHT_LOOKBACK_DAYS),
-        recordedAt: new Date(entry.recordedAt).toISOString()
+        firstRecordedAt,
+        recordedAt
       }
     })
     .filter(Boolean)

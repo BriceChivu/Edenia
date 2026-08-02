@@ -68,6 +68,59 @@ async function seedCompletedHistoryState(
   }, { enabled: ankiEnabled, shouldIncludeRecent: includeRecent })
 }
 
+async function seedCompletedInsightState(page) {
+  await page.goto('/')
+  await page.evaluate(() => {
+    const state = window.defaultState(4, [], 'light', [], 'en')
+    const completedAt = new Date().toISOString()
+    state.onboarding.introSeenAt = completedAt
+    state.onboarding.setupCompleted = true
+    state.onboarding.setupCompletedAt = completedAt
+    state.onboarding.walkthroughCompleted = true
+    state.onboarding.walkthroughCompletedAt = completedAt
+
+    const localDate = daysFromToday => {
+      const date = new Date()
+      date.setHours(12, 0, 0, 0)
+      date.setDate(date.getDate() + daysFromToday)
+      return date
+    }
+    const inactiveAt = localDate(-10).toISOString()
+    state.videos = {
+      'insight-inactive-video': {
+        id: 'insight-inactive-video',
+        title: 'Saved study activity',
+        channelId: 'insight-channel',
+        channelTitle: 'Insight channel',
+        duration: 900,
+        publishedAt: inactiveAt,
+        status: 'watched',
+        watchedAt: inactiveAt,
+        watchProgress: [{ watchedAt: inactiveAt, seconds: 300 }],
+        watchProgressTracked: true,
+        thumbnail: ''
+      }
+    }
+    state.config.studyInsights.history = Array.from(
+      { length: 7 },
+      (_, index) => {
+        const recordedAt = localDate(-100 + index).toISOString()
+        return {
+          key: `seed-insight-${index}`,
+          insightId: `seed-insight-${index}`,
+          type: 'steady-process',
+          variant: 0,
+          activeDays: index + 1,
+          ankiDays: index,
+          firstRecordedAt: recordedAt,
+          recordedAt
+        }
+      }
+    ).reverse()
+    localStorage.setItem('edenia_v1_internal_test', JSON.stringify(state))
+  })
+}
+
 test('Plus page presents the approved offer and keeps purchasing disabled', async ({ page }) => {
   await page.goto('/plus/')
 
@@ -113,6 +166,115 @@ test('contextual Plus modal traps focus and closes with Escape', async ({ page }
 
   await page.keyboard.press('Escape')
   await expect(modal).toBeHidden()
+})
+
+test('Free stores every Study Insight but reveals only the first five lifetime entries', async ({
+  page
+}, testInfo) => {
+  test.skip(![
+    'desktop-standard',
+    'tablet-portrait',
+    'phone-standard'
+  ].includes(testInfo.project.name))
+  const activate = locator => testInfo.project.name === 'desktop-standard'
+    ? locator.click()
+    : locator.tap()
+
+  await seedCompletedInsightState(page)
+  await page.goto('/?internal_test=1&plus_access=free')
+  await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
+
+  await expect.poll(() => page.evaluate(() => (
+    JSON.parse(localStorage.getItem('edenia_v1_internal_test'))
+      .config.studyInsights.history.length
+  ))).toBe(8)
+  await expect(page.locator('#studyInsightCurrentPanel')).toHaveClass(
+    /\bis-insight-restricted\b/
+  )
+  await expect(page.locator('#studyInsightCard')).not.toHaveAttribute(
+    'data-insight-id'
+  )
+  await expect(page.locator('#studyInsightTitle')).toHaveText('')
+  await expect(page.locator('#studyInsightBody')).toHaveText('')
+  await expect(page.locator('#studyInsightEvidence')).toHaveText('')
+
+  const currentLock = page.locator(
+    '#studyInsightCurrentLock [data-insight-access-action="request"]'
+  )
+  await expect(currentLock).toContainText(
+    'This new Study Insight is saved for Plus.'
+  )
+  await currentLock.focus()
+  await currentLock.press('Enter')
+  const modal = page.locator('#plusUpgradeModal')
+  await expect(modal.getByRole('heading', {
+    name: 'Every Study Insight stays available.'
+  })).toBeVisible()
+  await activate(modal.locator('.plus-modal-close'))
+
+  await activate(page.locator('#studyInsightPreviousTab'))
+  await expect(page.locator('#studyInsightHistoryCount')).toHaveText('7')
+  await expect(page.locator(
+    '#studyInsightHistoryPanel .study-insight-history-item'
+  )).toHaveCount(5)
+  const archiveLock = page.locator(
+    '#studyInsightHistoryPanel [data-insight-access-action="request"]'
+  )
+  await expect(archiveLock).toContainText(
+    '2 more saved insights with Edenia Plus'
+  )
+
+  const restrictedRecordedAt = await page.evaluate(() => {
+    const history = JSON.parse(localStorage.getItem('edenia_v1_internal_test'))
+      .config.studyInsights.history
+    return ['seed-insight-5', 'seed-insight-6'].map(key => (
+      history.find(entry => entry.key === key).recordedAt
+    ))
+  })
+  const insightMarkup = await page.locator('#studyInsightCard').innerHTML()
+  for (const recordedAt of restrictedRecordedAt) {
+    expect(insightMarkup).not.toContain(recordedAt)
+  }
+
+  await archiveLock.focus()
+  await archiveLock.press('Enter')
+  await expect(modal).toBeVisible()
+  const width = await page.evaluate(() => ({
+    document: document.documentElement.scrollWidth,
+    viewport: document.documentElement.clientWidth
+  }))
+  expect(width.document).toBeLessThanOrEqual(width.viewport)
+})
+
+test('Plus reveals the current Study Insight and complete saved archive', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedInsightState(page)
+  await page.goto('/?internal_test=1&plus_access=plus')
+  await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
+
+  await expect(page.locator('#studyInsightCard')).toHaveAttribute(
+    'data-insight-id',
+    'routine-reset'
+  )
+  await expect(page.locator('#studyInsightTitle')).toHaveText(
+    'Get back on track with one small step'
+  )
+  await expect(page.locator('#studyInsightCurrentPanel')).not.toHaveClass(
+    /\bis-insight-restricted\b/
+  )
+  await expect(page.locator('#studyInsightCurrentLock')).toBeHidden()
+
+  await page.locator('#studyInsightPreviousTab').click()
+  await expect(page.locator('#studyInsightHistoryCount')).toHaveText('7')
+  await expect(page.locator(
+    '#studyInsightHistoryPanel .study-insight-history-item'
+  )).toHaveCount(7)
+  await expect(page.locator(
+    '#studyInsightHistoryPanel .study-insight-history-lock'
+  )).toHaveCount(0)
 })
 
 test('Free history keeps older periods visible but redacts summary and heatmap values', async ({
