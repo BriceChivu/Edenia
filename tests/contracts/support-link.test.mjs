@@ -75,6 +75,14 @@ test('creator support hearts inherit the shared rounded-link height', () => {
     introStyleSource,
     /\.intro-social-support-icon\s*{[^}]*height:\s*1em;[^}]*width:\s*1em;/s
   )
+  assert.match(
+    introStyleSource,
+    /\.intro-social-support:hover\s*{\s*background:\s*#c026d3;\s*border-color:\s*#c026d3;\s*color:\s*#fff;\s*}/
+  )
+  assert.match(
+    introStyleSource,
+    /body\[data-theme="dark"\] \.intro-social-link\.intro-social-support:hover\s*{\s*color:\s*#fff;\s*}/
+  )
 })
 
 test('support and feedback share a surface while their icons stay distinct', () => {
