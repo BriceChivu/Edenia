@@ -15,6 +15,13 @@ test('config-cookie sanitization removes only the four legacy private fields', (
     weeklyGoalHours: 4,
     includeShorts: false,
     channels,
+    trackedChannelPolicy: {
+      version: 1,
+      freeAllowance: 7,
+      grandfatheredAt: '2026-08-02T00:00:00.000Z',
+      lastConfirmedTier: 'free',
+      downgradePending: false
+    },
     customFutureField: null
   }
 
@@ -23,6 +30,7 @@ test('config-cookie sanitization removes only the four legacy private fields', (
     weeklyGoalHours: 4,
     includeShorts: false,
     channels,
+    trackedChannelPolicy: source.trackedChannelPolicy,
     customFutureField: null
   })
   assert.notEqual(sanitized, source)

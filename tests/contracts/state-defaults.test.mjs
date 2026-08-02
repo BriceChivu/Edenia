@@ -61,6 +61,13 @@ test('default state preserves the complete normal-mode schema and defaults', () 
         { id: 'default-one', nested: { retained: true } },
         { id: 'default-two' }
       ],
+      trackedChannelPolicy: {
+        version: 1,
+        freeAllowance: 5,
+        grandfatheredAt: null,
+        lastConfirmedTier: null,
+        downgradePending: false
+      },
       channelShelfOrder: [],
       removedDefaultChannelIds: [],
       removedChannelIds: []

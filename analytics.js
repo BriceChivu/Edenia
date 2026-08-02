@@ -64,6 +64,7 @@
 
   function getPersonProperties(snapshot) {
     const channels = Array.isArray(snapshot.channels) ? snapshot.channels : [];
+    const channelPolicy = snapshot.channelPolicy || {};
     const watchedVideos = Array.isArray(snapshot.watchedVideos) ? snapshot.watchedVideos : [];
     const favoriteVideos = Array.isArray(snapshot.favoriteVideos) ? snapshot.favoriteVideos : [];
     const videoState = snapshot.videoState || {};
@@ -84,6 +85,11 @@
       current_channel_ids: channels.map(channel => channel.id),
       current_channel_names: channels.map(channel => channel.name),
       current_channel_count: channels.length,
+      current_manual_video_only_channel_count: channelPolicy.manualVideoOnlyChannelCount || 0,
+      free_tracked_channel_allowance: channelPolicy.freeTrackedChannelAllowance || 5,
+      tracked_channel_allowance_grandfathered: Boolean(channelPolicy.grandfathered),
+      tracked_channel_policy_tier: channelPolicy.lastConfirmedTier || null,
+      tracked_channel_downgrade_pending: Boolean(channelPolicy.downgradePending),
       current_watched_video_urls: watchedVideos.map(getYoutubeVideoUrl).filter(Boolean),
       current_watched_video_count: watchedVideos.length,
       current_favorite_video_urls: favoriteVideos.map(getYoutubeVideoUrl).filter(Boolean),
@@ -399,6 +405,8 @@
     if (isInitialSync) {
       capture('analytics_profile_initialized', {
         channel_count: snapshot.channels?.length || 0,
+        manual_video_only_channel_count: snapshot.channelPolicy?.manualVideoOnlyChannelCount || 0,
+        free_tracked_channel_allowance: snapshot.channelPolicy?.freeTrackedChannelAllowance || 5,
         watched_video_count: snapshot.watchedVideos?.length || 0,
         favorite_video_count: snapshot.favoriteVideos?.length || 0,
         watch_later_video_count: snapshot.videoState?.watchLaterCount || 0,

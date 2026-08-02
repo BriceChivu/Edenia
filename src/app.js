@@ -154,6 +154,15 @@ import {
   normalizeChannelRefreshState
 } from './state/channel-refresh-state.js'
 import {
+  getFreeTrackedChannelAllowance,
+  getManualVideoOnlyChannels,
+  getTrackedChannelIds,
+  normalizeTrackedChannelPolicyState,
+  shouldPreserveVideoAfterTrackedChannelRemoval,
+  shouldTrackManualVideoChannel,
+  transitionTrackedChannelPolicyState
+} from './state/tracked-channel-policy-state.js'
+import {
   getTrackedAnkiCounts,
   isAnkiEnabled,
   normalizeAnkiDateKeys,
@@ -973,6 +982,7 @@ function normalizeLoadedState(state) {
     state.config.historyView = historyView
   }
   if (state?.config && !Array.isArray(state.config.channels)) state.config.channels = []
+  if (normalizeTrackedChannelPolicyState(state)) shouldSave = true
   if (state?.config) delete state.config.apiKey
   normalizeRemovedDefaultChannels(state)
   normalizeRemovedChannels(state)
@@ -1005,16 +1015,22 @@ function normalizeStateBeforeSave(state) {
   normalizeWatchedConfirmationState(state)
   normalizeVideoWatchReminderState(state)
   normalizeStudyInsightConfig(state)
+  normalizeTrackedChannelPolicyState(state)
 }
 
 function createDefaultStateFromConfig(fallback) {
-  return defaultState(
+  const state = defaultState(
     fallback.weeklyGoalHours || 4,
     fallback.channels,
     fallback.theme,
     fallback.removedDefaultChannelIds,
     fallback.locale
   )
+  if (fallback.trackedChannelPolicy) {
+    state.config.trackedChannelPolicy = fallback.trackedChannelPolicy
+    normalizeTrackedChannelPolicyState(state)
+  }
+  return state
 }
 
 function roundAnalyticsNumber(value, decimals = 3) {
@@ -1082,6 +1098,7 @@ function getEdeniaAnalyticsSnapshot(state) {
       ...getAnalyticsChannelAddedAt(state, channel)
     }))
     .sort((left, right) => left.id.localeCompare(right.id))
+  const manualVideoOnlyChannels = getManualVideoOnlyChannels(state)
   const watchedVideos = Object.entries(state?.videos || {})
     .filter(([, video]) => getVideoStatus(video) === 'watched')
     .map(([videoId, video]) => ({
@@ -1152,6 +1169,14 @@ function getEdeniaAnalyticsSnapshot(state) {
     schemaVersion: 2,
     capturedAt: new Date().toISOString(),
     channels,
+    channelPolicy: {
+      trackedChannelCount: channels.length,
+      manualVideoOnlyChannelCount: manualVideoOnlyChannels.length,
+      freeTrackedChannelAllowance: getFreeTrackedChannelAllowance(state),
+      grandfathered: Boolean(state?.config?.trackedChannelPolicy?.grandfatheredAt),
+      lastConfirmedTier: state?.config?.trackedChannelPolicy?.lastConfirmedTier || null,
+      downgradePending: state?.config?.trackedChannelPolicy?.downgradePending === true
+    },
     watchedVideos,
     favoriteVideos,
     videoState: {
@@ -1797,6 +1822,7 @@ function init() {
     state = IS_SANDBOX ? createEmptySandboxState() : defaultState(4, DEFAULT_CHANNELS)
     saveState(state)
   }
+  reconcileTrackedChannelPolicyState(state, plusAccessPolicy)
 
   const shouldForceTemporaryShortsRefetch = Boolean(
     isTemporaryShortsWhitelistedUser()
@@ -3809,8 +3835,56 @@ function updatePlusEntitlementState(entitlementState) {
     ...PLUS_ACCESS_CONFIG,
     entitlementState
   })
+  const state = loadState()
+  const channelTransition = reconcileTrackedChannelPolicyState(
+    state,
+    plusAccessPolicy
+  )
+  if (state && channelTransition.changed) {
+    saveState(state, {
+      backupReason: channelTransition.channelIdsToRemove.length
+        ? 'before Edenia Plus channel downgrade'
+        : 'before tracked-channel entitlement update',
+      forceBackup: channelTransition.channelIdsToRemove.length > 0
+    })
+    renderAll(state)
+    scheduleYoutubeAutoRefresh(state)
+  }
   renderPlusUpgradeModal()
   return plusAccessPolicy
+}
+
+function reconcileTrackedChannelPolicyState(state, accessPolicy) {
+  if (!state?.config) {
+    return {
+      changed: false,
+      channelIdsToRemove: [],
+      confirmedTier: null,
+      downgraded: false
+    }
+  }
+
+  const transition = transitionTrackedChannelPolicyState(state, accessPolicy)
+  transition.channelIdsToRemove.forEach(channelId => {
+    applyChannelRemoval(state, channelId, { preserveManualVideos: true })
+  })
+  if (transition.channelIdsToRemove.length) {
+    normalizeChannelRefreshState(state)
+  }
+
+  const changed = transition.changed || transition.channelIdsToRemove.length > 0
+  if (changed) {
+    trackEdeniaEvent('tracked_channel_policy_transitioned', {
+      confirmed_tier: transition.confirmedTier,
+      downgraded: transition.downgraded,
+      removed_channel_count: transition.channelIdsToRemove.length,
+      tracked_channel_count: getTrackedChannelIds(state).length,
+      free_channel_allowance: getFreeTrackedChannelAllowance(state),
+      free_limits_enforced: accessPolicy?.enforcesFreeLimits === true
+    })
+  }
+
+  return { ...transition, changed }
 }
 
 function getPlusAccountStatusView(state) {
@@ -4978,7 +5052,7 @@ function removeChannel(id) {
   renderActivityLog(s)
 }
 
-function applyChannelRemoval(s, channelId) {
+function applyChannelRemoval(s, channelId, { preserveManualVideos = false } = {}) {
   const refreshes = getChannelRefreshes(s)
   const removedChannel = (s.config.channels || []).find(channel => channel.id === channelId)
   const channelImageUrl = removedChannel?.imageUrl || ''
@@ -4995,7 +5069,7 @@ function applyChannelRemoval(s, channelId) {
   Object.values(s.videos || {}).forEach(video => {
     if (!isChannelRemovalVideo(video, channelId)) return
     if (!video.channelImageUrl && channelImageUrl) video.channelImageUrl = channelImageUrl
-    if (shouldPreserveRemovedChannelVideo(video)) {
+    if (shouldPreserveVideoAfterTrackedChannelRemoval(video, { preserveManualVideos })) {
       video.hiddenFromGrid = false
       video.hiddenFromGridAt = null
       return
@@ -5038,12 +5112,6 @@ function isChannelRemovalVideo(video, channelId) {
     video &&
     (video.channelId || video.channelTitle) === channelId
   )
-}
-
-function shouldPreserveRemovedChannelVideo(video) {
-  return getVideoStatus(video) === 'watched'
-    || isSavedActiveVideo(video)
-    || isFavoriteVideo(video)
 }
 
 function isVideoFromRemovedChannel(s, video) {
@@ -6902,7 +6970,7 @@ function markVideo(videoId, requestedStatus, options = {}) {
     previousWatchLater
     && !resolvedWatchLater
     && isVideoFromRemovedChannel(s, video)
-    && !shouldPreserveRemovedChannelVideo(video)
+    && !shouldPreserveVideoAfterTrackedChannelRemoval(video)
   )
   if (shouldHideRemovedChannelVideo) {
     video.hiddenFromGrid = true
@@ -7294,11 +7362,18 @@ async function addVideoFromUrl(event) {
     const status = existing ? getVideoStatus(existing) : 'unwatched'
     const watchedAt = status === 'watched' ? existing?.watchedAt || null : null
     const duration = metadata.duration || existing?.duration || 0
-    const channelWasAdded = addTrackedYoutubeChannelToState(s, {
-      id: metadata.channelId,
-      name: metadata.channelTitle,
-      imageUrl: metadata.channelImageUrl
-    })
+    const channelWasAdded = shouldTrackManualVideoChannel(plusAccessPolicy)
+      ? addTrackedYoutubeChannelToState(s, {
+          id: metadata.channelId,
+          name: metadata.channelTitle,
+          imageUrl: metadata.channelImageUrl
+        })
+      : false
+    const channelTrackingMode = channelWasAdded
+      ? 'new-tracked-channel'
+      : existingChannel
+        ? 'existing-tracked-channel'
+        : 'manual-video-only'
     s.videos[videoId] = {
       ...metadata,
       ...existing,
@@ -7334,6 +7409,7 @@ async function addVideoFromUrl(event) {
       channelId: metadata.channelId,
       channelName: metadata.channelTitle || metadata.channelId,
       channelWasAdded,
+      channelTrackingMode,
       before,
       after: {
         exists: true,
@@ -7362,6 +7438,14 @@ async function addVideoFromUrl(event) {
       })
     }
     saveState(s)
+    trackEdeniaEvent('manual_video_added', {
+      video_url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`,
+      channel_id: metadata.channelId || null,
+      channel_tracking_mode: channelTrackingMode,
+      tracked_channel_count: getTrackedChannelIds(s).length,
+      free_channel_allowance: getFreeTrackedChannelAllowance(s),
+      free_limits_enforced: plusAccessPolicy.enforcesFreeLimits === true
+    })
     input.value = ''
     if (usesTabletAddedVideoReveal()) input.blur()
     closeManualVideoPopover()
@@ -8298,7 +8382,7 @@ function applyChannelRemoveActionSnapshot(s, action, snapshot, direction = 'undo
     Object.values(s.videos || {}).forEach(video => {
       if (!isChannelRemovalVideo(video, channelId)) return
       if (!video.channelImageUrl && channel.imageUrl) video.channelImageUrl = channel.imageUrl
-      if (shouldPreserveRemovedChannelVideo(video)) {
+      if (shouldPreserveVideoAfterTrackedChannelRemoval(video)) {
         video.hiddenFromGrid = false
         video.hiddenFromGridAt = null
       } else {
@@ -8323,17 +8407,29 @@ function applyManualVideoAddActionSnapshot(s, action, snapshot, direction = 'und
   const channelId = action.channelId
   const actionVideo = snapshot.video || action.after?.video || action.before?.video
   if (!videoId || !actionVideo) return null
+  let channelChanged = false
 
   if (direction === 'undo') {
-    if (action.channelWasAdded && channelId) applyChannelRemoval(s, channelId)
+    if (
+      action.channelWasAdded
+      && channelId
+      && s.config.channels.some(channel => channel.id === channelId)
+    ) {
+      applyChannelRemoval(s, channelId)
+      channelChanged = true
+    }
     if (snapshot.exists && snapshot.video) {
       s.videos[videoId] = cloneVideoForHistoryAction(snapshot.video)
     } else {
       delete s.videos[videoId]
     }
   } else {
-    if (action.channelWasAdded && snapshot.channel) {
-      addTrackedYoutubeChannelToState(s, snapshot.channel)
+    if (
+      action.channelWasAdded
+      && snapshot.channel
+      && shouldTrackManualVideoChannel(plusAccessPolicy)
+    ) {
+      channelChanged = addTrackedYoutubeChannelToState(s, snapshot.channel)
     }
     s.videos[videoId] = cloneVideoForHistoryAction(snapshot.video)
   }
@@ -8341,10 +8437,10 @@ function applyManualVideoAddActionSnapshot(s, action, snapshot, direction = 'und
   const title = formatToastTitle(actionVideo.title)
   const channelName = action.channelName || snapshot.channel?.name || channelId
   const detail = direction === 'redo'
-    ? action.channelWasAdded
+    ? channelChanged
       ? t('undo.addedVideoAndChannelRestored', { title, channel: channelName })
       : t('undo.addedVideoRestored', { title })
-    : action.channelWasAdded
+    : channelChanged
       ? t('undo.addedVideoAndChannelRemoved', { title, channel: channelName })
       : t('undo.addedVideoRemoved', { title })
 
@@ -13788,11 +13884,16 @@ function renderHistoryActionTooltipItem(entry, s, direction) {
   const title = video?.title || action.before?.video?.title || action.after?.video?.title || t('videos.search.untitled')
   const timestamp = formatHistoryActionTimestamp(action)
   if (action.type === 'manual-video-add') {
+    const channelWillChange = action.channelWasAdded && (
+      direction === 'redo'
+        ? shouldTrackManualVideoChannel(plusAccessPolicy)
+        : (s.config?.channels || []).some(channel => channel.id === action.channelId)
+    )
     const actionText = direction === 'redo'
-      ? action.channelWasAdded
+      ? channelWillChange
         ? t('undo.restoreAddedVideoAndChannel')
         : t('undo.restoreAddedVideo')
-      : action.channelWasAdded
+      : channelWillChange
         ? t('undo.removeAddedVideoAndChannel')
         : t('undo.removeAddedVideo')
     return `
@@ -14214,13 +14315,20 @@ function startChannelRefreshLabelTicker() {
 function getChannelFilterEntries(s) {
   const channels = new Map()
   const removedChannelIds = new Set(s.config?.removedChannelIds || [])
+  const manualVideoOnlyChannelIds = new Set(
+    getManualVideoOnlyChannels(s).map(channel => channel.id)
+  )
   s.config.channels.forEach(channel => {
     channels.set(channel.id, channel.name || channel.id)
   })
   Object.values(s.videos).forEach(video => {
     const key = video.channelId || video.channelTitle
     if (isHiddenManualVideoChannelEntry(video)) return
-    if (key && removedChannelIds.has(key)) return
+    if (
+      key
+      && removedChannelIds.has(key)
+      && !manualVideoOnlyChannelIds.has(key)
+    ) return
     if (key) channels.set(key, video.channelTitle || channels.get(key) || key)
   })
   return Array.from(channels.entries()).sort((a, b) => a[1].localeCompare(b[1]))
