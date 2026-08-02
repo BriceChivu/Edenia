@@ -102,7 +102,22 @@ body.intro-active { overflow: hidden; }
 .intro-social-link:focus-visible { outline: 3px solid rgba(18,188,234,0.55); outline-offset: 2px; }
 .intro-social-youtube:hover { background: #f03; border-color: #f03; color: #fff; }
 .intro-social-twitch:hover { background: #9146ff; border-color: #9146ff; color: #fff; }
-.intro-social-kick:hover { background: #53fc18; border-color: #53fc18; color: #07120a; }
+.intro-social-link.intro-social-support {
+  align-items: center;
+  color: var(--error);
+  display: inline-flex;
+  justify-content: center;
+}
+.intro-social-support:hover { background: #c026d3; border-color: #c026d3; color: #fff; }
+.intro-social-support-icon {
+  fill: none;
+  height: 1em;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.25;
+  width: 1em;
+}
 .intro-top-actions {
   align-items: center;
   display: flex;
@@ -212,9 +227,10 @@ body[data-theme="dark"] .intro-social-link {
   border-color: rgba(255,255,255,0.2);
   color: var(--text);
 }
+body[data-theme="dark"] .intro-social-link.intro-social-support { color: var(--error); }
+body[data-theme="dark"] .intro-social-link.intro-social-support:hover { color: #fff; }
 body[data-theme="dark"] .intro-social-youtube:hover,
 body[data-theme="dark"] .intro-social-twitch:hover { color: #fff; }
-body[data-theme="dark"] .intro-social-kick:hover { color: #07120a; }
 body[data-theme="dark"] .intro-sound[aria-pressed="true"] {
   background: #bfe85f;
   border-color: #e7ffae;
