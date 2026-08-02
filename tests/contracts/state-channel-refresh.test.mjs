@@ -79,15 +79,15 @@ test('missing or invalid refresh maps normalize to an empty object', () => {
   }
 })
 
-test('channel refresh normalization preserves null and malformed-channel errors', () => {
+test('channel refresh normalization handles null and malformed channel collections', () => {
   assert.equal(normalizeChannelRefreshState(null), false)
   assert.equal(normalizeChannelRefreshState(undefined), false)
-  assert.throws(
-    () => normalizeChannelRefreshState({
-      config: { channels: 'not-an-array' }
-    }),
-    TypeError
-  )
+  const malformedChannels = {
+    config: { channels: 'not-an-array' },
+    channelRefreshes: { stale: { lastFetchedAt: fetchedAt } }
+  }
+  assert.equal(normalizeChannelRefreshState(malformedChannels), true)
+  assert.deepEqual(malformedChannels.channelRefreshes, {})
   assert.throws(
     () => normalizeChannelRefreshState(Object.freeze({})),
     TypeError

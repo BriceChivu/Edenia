@@ -3,6 +3,9 @@ import {
   normalizeTheme,
   normalizeWeeklyGoalHours
 } from './config-normalization.js'
+import {
+  createDefaultTrackedChannelPolicy
+} from './tracked-channel-policy-state.js'
 
 export function getDefaultHistoryView(isSandbox) {
   return isSandbox ? 'heatmap' : 'summary'
@@ -32,6 +35,9 @@ export function createDefaultStateFactory({
     const restoredRemovedDefaultIds = Array.isArray(removedDefaultChannelIds)
       ? removedDefaultChannelIds.filter(isDefaultChannelId)
       : null
+    const initialChannels = Array.isArray(channels)
+      ? channels.map(channel => ({ ...channel }))
+      : defaultChannels.map(channel => ({ ...channel }))
     return {
       config: {
         weeklyGoalHours: normalizeWeeklyGoalHours(goalHours),
@@ -45,9 +51,8 @@ export function createDefaultStateFactory({
         ankiPendingResumeBaseline: null,
         historyView: getDefaultHistoryView(isSandbox),
         studyInsights: { enabled: true, collapsed: false, history: [] },
-        channels: Array.isArray(channels)
-          ? channels.map(channel => ({ ...channel }))
-          : defaultChannels.map(channel => ({ ...channel })),
+        channels: initialChannels,
+        trackedChannelPolicy: createDefaultTrackedChannelPolicy(initialChannels),
         channelShelfOrder: [],
         removedDefaultChannelIds: restoredRemovedDefaultIds || [],
         removedChannelIds: []

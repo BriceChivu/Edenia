@@ -1,4 +1,5 @@
 import { isValidTimestamp } from '../core/date-keys.js'
+import { getTrackedChannelIds } from './tracked-channel-policy-state.js'
 
 export function normalizeChannelRefreshState(state) {
   if (!state) return false
@@ -7,7 +8,7 @@ export function normalizeChannelRefreshState(state) {
     ? state.channelRefreshes
     : {}
   const legacyLastFetched = isValidTimestamp(state.lastFetched) ? state.lastFetched : null
-  const channelIds = new Set((state.config?.channels || []).map(channel => channel.id).filter(Boolean))
+  const channelIds = new Set(getTrackedChannelIds(state))
   const normalized = {}
 
   channelIds.forEach(channelId => {

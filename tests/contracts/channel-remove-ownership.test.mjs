@@ -465,8 +465,9 @@ test('removal retains snapshots, Undo, activity, save, and render ordering', () 
   )
   assert.match(
     applySource,
-    /if \(shouldPreserveRemovedChannelVideo\(video\)\) \{\s*video\.hiddenFromGrid = false\s*video\.hiddenFromGridAt = null\s*return\s*\}\s*video\.hiddenFromGrid = true\s*video\.hiddenFromGridAt = getCurrentAppTimestamp\(s\)/
+    /if \(shouldPreserveVideoAfterTrackedChannelRemoval\(video, \{ preserveManualVideos \}\)\) \{\s*video\.hiddenFromGrid = false\s*video\.hiddenFromGridAt = null\s*return\s*\}\s*video\.hiddenFromGrid = true\s*video\.hiddenFromGridAt = getCurrentAppTimestamp\(s\)/
   )
+  assert.doesNotMatch(appSource, /shouldPreserveRemovedChannelVideo/)
 })
 
 test('local removal function remains while its global alias is removed', () => {
