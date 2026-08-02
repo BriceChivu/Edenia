@@ -8,10 +8,12 @@ export function bindSettingsPlusAccountActions(root, actions) {
     !actions
     || typeof actions.restore !== 'function'
     || typeof actions.refresh !== 'function'
+    || typeof actions.manageBilling !== 'function'
+    || typeof actions.explore !== 'function'
     || typeof actions.signOut !== 'function'
   ) {
     throw new TypeError(
-      'Settings Plus account actions require restore, refresh, and signOut callbacks'
+      'Settings Plus account actions require restore, refresh, manageBilling, explore, and signOut callbacks'
     )
   }
 
@@ -42,6 +44,24 @@ export function bindSettingsPlusAccountActions(root, actions) {
   if (signOutControl && !boundControls.has(signOutControl)) {
     signOutControl.addEventListener('click', () => actions.signOut())
     boundControls.add(signOutControl)
+    installedCount += 1
+  }
+
+  const billingControl = root.querySelector(
+    '[data-plus-account-action="billing"]'
+  )
+  if (billingControl && !boundControls.has(billingControl)) {
+    billingControl.addEventListener('click', () => actions.manageBilling())
+    boundControls.add(billingControl)
+    installedCount += 1
+  }
+
+  const exploreControl = root.querySelector(
+    '[data-plus-account-action="explore"]'
+  )
+  if (exploreControl && !boundControls.has(exploreControl)) {
+    exploreControl.addEventListener('click', () => actions.explore())
+    boundControls.add(exploreControl)
     installedCount += 1
   }
 

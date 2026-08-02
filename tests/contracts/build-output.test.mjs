@@ -16,6 +16,8 @@ test('build emits the stable public entrypoint contract', async () => {
     'analytics.js',
     'style.css',
     'config.local.js',
+    'plus/index.html',
+    'plus/plus.js',
     'Edenia_favicon_round.png',
     'assets/audio/intro-trailer-rainy-10pm.mp4',
     'assets/fonts/space-grotesk-latin.woff2',
@@ -35,6 +37,17 @@ test('build emits the stable public entrypoint contract', async () => {
     'channel-catalog.discovered.json',
     'channel-catalog.json'
   ])
+})
+
+test('build emits a versioned dedicated Plus page', async () => {
+  const html = await readFile(new URL('plus/index.html', siteRoot), 'utf8')
+  const styleMatch = html.match(/style\.css\?v=([^"'&\s>]+)/)
+  const plusMatch = html.match(/plus\.js\?v=([^"'&\s>]+)/)
+  assert.ok(styleMatch)
+  assert.ok(plusMatch)
+  assert.equal(styleMatch[1], plusMatch[1])
+  assert.match(html, /\.\.\/config\.local\.js/)
+  assert.match(html, /data-plus-upgrade-root/)
 })
 
 test('built index preserves the classic deferred script order and one cache version', async () => {

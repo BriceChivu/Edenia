@@ -41,7 +41,8 @@ test('entitlement cache grants only a short, user-specific outage grace', () => 
     entitlementState: PLUS_ENTITLEMENT_STATES.PLUS,
     subscriptionStatus: 'active',
     plan: 'founding_monthly',
-    currentPeriodEnd: '2026-09-01T00:00:00.000Z'
+    currentPeriodEnd: '2026-09-01T00:00:00.000Z',
+    cancelAtPeriodEnd: true
   }
 
   assert.equal(cache.write('user-1', snapshot), true)

@@ -297,12 +297,19 @@ and momentum—at a glance</h2>
         </form>
         <div class="settings-plus-account-signed-in hidden" id="plusAccountSignedIn">
           <p><span data-i18n="settings.plusAccount.signedInAs">Signed in as</span> <strong id="plusAccountUserEmail"></strong></p>
+          <div class="settings-plus-subscription hidden" id="plusAccountSubscription">
+            <p id="plusAccountPlan"></p>
+            <p id="plusAccountPeriod"></p>
+            <p class="hidden" id="plusAccountPaymentHelp" data-i18n="settings.plusAccount.paymentHelp">Update your payment method to keep Plus active.</p>
+          </div>
           <div class="settings-plus-account-actions">
             <button class="btn-secondary" id="plusAccountRefreshBtn" type="button" data-plus-account-action="refresh" data-i18n="settings.plusAccount.refresh">Refresh status</button>
+            <button class="btn-secondary hidden" id="plusAccountBillingBtn" type="button" data-plus-account-action="billing" data-i18n="settings.plusAccount.manageBilling">Manage billing</button>
             <button class="btn-ghost" id="plusAccountSignOutBtn" type="button" data-plus-account-action="sign-out" data-i18n="settings.plusAccount.signOut">Sign out</button>
           </div>
         </div>
         <p class="settings-plus-account-feedback hidden" id="plusAccountFeedback" role="status" aria-live="polite"></p>
+        <button class="btn-secondary settings-plus-explore" type="button" data-plus-account-action="explore" data-i18n="settings.plusAccount.explore">Explore Edenia Plus</button>
         <p class="settings-note" data-i18n="settings.plusAccount.localProgressNote">Signing in or out does not change progress saved in this browser.</p>
       </section>
 
@@ -728,6 +735,44 @@ and momentum—at a glance</h2>
     </footer>
 
   </main><!-- /mainApp -->
+
+  <div class="plus-modal hidden" id="plusUpgradeModal" data-plus-upgrade-root>
+    <button class="plus-modal-backdrop" type="button" data-plus-action="close" aria-label="Close Edenia Plus" data-i18n-aria-label="plus.action.close"></button>
+    <section class="plus-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="plusModalTitle">
+      <div class="plus-modal-header">
+        <p class="plus-kicker" data-i18n="plus.kicker">EDENIA PLUS</p>
+        <button class="btn-icon plus-modal-close" type="button" data-plus-action="close" aria-label="Close Edenia Plus" data-i18n-aria-label="plus.action.close">×</button>
+      </div>
+      <div class="plus-modal-scroll">
+        <h2 id="plusModalTitle" data-plus-context-title>Keep the whole learning journey in view.</h2>
+        <p class="plus-lede" data-plus-context-body>Unlock the complete history, every Study Insight, and as many tracked channels as you need.</p>
+        <ul class="plus-benefits plus-benefits-compact" data-plus-benefits></ul>
+        <div class="plus-plans" data-plus-plans></div>
+        <p class="plus-account-summary" data-plus-account-summary role="status" aria-live="polite"></p>
+        <form class="plus-auth-form" data-plus-action="upgrade-sign-in" novalidate>
+          <h3 data-i18n="plus.auth.title">Sign in to continue</h3>
+          <p data-i18n="plus.auth.body">We’ll email you a secure sign-in link. Your progress in this browser stays unchanged.</p>
+          <label>
+            <span data-i18n="settings.plusAccount.emailLabel">Email address</span>
+            <input data-plus-email type="email" autocomplete="email" inputmode="email" maxlength="254" required placeholder="you@example.com" data-i18n-placeholder="settings.plusAccount.emailPlaceholder">
+          </label>
+          <button class="btn-primary btn-full" type="submit" data-plus-sign-in-submit data-i18n="plus.auth.continue">Email me a sign-in link</button>
+          <button class="btn-ghost btn-full" type="button" data-plus-action="restore" data-i18n="plus.auth.restore">Already subscribed? Restore Plus</button>
+        </form>
+        <div class="plus-signed-in hidden" data-plus-signed-in>
+          <p data-plus-signed-in-label></p>
+          <div class="plus-account-actions">
+            <button class="btn-secondary" type="button" data-plus-action="refresh" data-i18n="plus.account.refresh">Refresh status</button>
+            <button class="btn-secondary hidden" type="button" data-plus-action="billing-portal" data-plus-manage-billing data-i18n="plus.account.manage">Manage billing</button>
+            <button class="btn-ghost" type="button" data-plus-action="sign-out" data-i18n="settings.plusAccount.signOut">Sign out</button>
+          </div>
+        </div>
+        <p class="plus-feedback hidden" data-plus-feedback role="status" aria-live="polite"></p>
+        <button class="btn-primary btn-full" type="button" data-plus-action="checkout" data-plus-checkout data-i18n="plus.action.checkout">Continue to secure checkout</button>
+        <a class="plus-full-page-link" href="plus/" data-i18n="plus.action.openPage">View the full Plus page</a>
+      </div>
+    </section>
+  </div>
 
   <div class="feedback-modal hidden" id="feedbackModal">
     <button class="feedback-backdrop" type="button" data-feedback-modal-action="close" data-analytics-action="feedback.close" aria-label="Close feedback" data-i18n-aria-label="feedback.close"></button>

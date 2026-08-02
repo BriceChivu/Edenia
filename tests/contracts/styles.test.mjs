@@ -16,6 +16,7 @@ const EXPECTED_STYLE_FILES = [
   '80-walkthrough.css',
   '90-toast.css',
   '91-feedback.css',
+  '92-plus.css',
   '95-global-adjustments.css',
   '96-responsive-page-flows.css',
   '97-responsive-input.css',
@@ -23,11 +24,11 @@ const EXPECTED_STYLE_FILES = [
   '99-responsive-wide.css'
 ]
 
-const EXPECTED_SOURCE_BYTES = 234633
+const EXPECTED_SOURCE_BYTES = 242185
 const EXPECTED_SOURCE_SHA256 =
-  '560a2d5a86877d64c77a3c8de9016f4170f1036504cf3f6ac6693e5cb66ce320'
+  '860337d1775b621ac23d5b7da94c8addd928bc4804e7d26c32e0fd706b436379'
 const EXPECTED_BUILT_SHA256 =
-  '1e99991fa326c352ca7dd4f868154bd66e60a684b0e70dc56ee75c1a5974975e'
+  'db462ab2303f8cd2a4250f06d86c902058ea809ad9ce0606272a6d3e1c77c549'
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex')

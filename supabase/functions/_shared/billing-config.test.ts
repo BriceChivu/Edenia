@@ -5,6 +5,7 @@ import {
   getStripePriceId,
   isStripeEventModeAllowed,
   readStripeCheckoutConfig,
+  readStripePortalConfig,
   readStripeWebhookConfig,
 } from './billing-config.ts'
 
@@ -30,6 +31,14 @@ test('reads environment-owned Checkout resources and normalizes the app URL', ()
   assert.equal(getStripePriceId(config, 'monthly'), 'price_monthly')
   assert.equal(getStripePriceId(config, 'annual'), 'price_annual')
   assert.equal(getStripePriceId(config, 'founding'), 'price_annual')
+})
+
+test('portal configuration needs only the Stripe runtime and app URL', () => {
+  assert.deepEqual(readStripePortalConfig(environment()), {
+    mode: 'test',
+    secretKey: 'sk_test_example',
+    appUrl: 'http://localhost:8000',
+  })
 })
 
 test('rejects a Stripe key or event from the other billing environment', () => {

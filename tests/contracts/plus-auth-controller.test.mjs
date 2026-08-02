@@ -214,6 +214,35 @@ test('passwordless restoration validates email and preserves safe redirect param
   )
 })
 
+test('upgrade sign-in may create an account and preserves the selected plan', async () => {
+  const clientHarness = createClient()
+  const harness = createControllerHarness({
+    clientHarness,
+    href: 'https://bricechivu.github.io/Edenia/plus/?internal_test=1'
+  })
+  await harness.controller.initialize()
+
+  assert.equal(
+    await harness.controller.startUpgradeSignIn(' learner@example.com ', 'monthly'),
+    true
+  )
+  assert.equal(
+    harness.controller.getState().feedback,
+    PLUS_ACCOUNT_FEEDBACK.UPGRADE_LINK_SENT
+  )
+  assert.deepEqual(
+    clientHarness.calls.find(call => call[0] === 'signInWithOtp'),
+    ['signInWithOtp', {
+      email: 'learner@example.com',
+      options: {
+        emailRedirectTo:
+          'https://bricechivu.github.io/Edenia/plus/?internal_test=1&plus=1&plan=monthly',
+        shouldCreateUser: true
+      }
+    }]
+  )
+})
+
 test('temporary entitlement failures use only an unexpired matching cache', async () => {
   const clientHarness = createClient({
     session: { user: { id: 'user-1', email: 'learner@example.com' } }

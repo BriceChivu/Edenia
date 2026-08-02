@@ -68,6 +68,14 @@ test('billing hardening stays authenticated, environment-owned, and additive', a
     config,
     /\[functions\.link-checkout-session\][\s\S]*?verify_jwt = false/
   )
+  assert.match(
+    config,
+    /\[functions\.create-billing-portal\][\s\S]*?verify_jwt = true/
+  )
+  assert.match(
+    config,
+    /\[functions\.get-plus-offer\][\s\S]*?verify_jwt = false/
+  )
 
   const checkoutSource = await readFile(
     new URL('create-checkout-session/index.ts', functionsRoot),
@@ -78,6 +86,24 @@ test('billing hardening stays authenticated, environment-owned, and additive', a
   assert.match(checkoutSource, /supabase_user_id: user\.id/)
   assert.doesNotMatch(checkoutSource, /price_[A-Za-z0-9]{10,}/)
   assert.doesNotMatch(checkoutSource, /founding-member-first-year/)
+  assert.match(checkoutSource, /\/plus\/\?upgrade_success=1/)
+  assert.match(checkoutSource, /\/plus\/\?checkout_cancelled=1/)
+
+  const portalSource = await readFile(
+    new URL('create-billing-portal/index.ts', functionsRoot),
+    'utf8'
+  )
+  assert.match(portalSource, /supabase\.auth\.getUser\(token\)/)
+  assert.match(portalSource, /stripe\.billingPortal\.sessions\.create/)
+  assert.match(portalSource, /\.eq\('user_id', user\.id\)/)
+
+  const offerSource = await readFile(
+    new URL('get-plus-offer/index.ts', functionsRoot),
+    'utf8'
+  )
+  assert.match(offerSource, /stripe\.prices\.retrieve/)
+  assert.match(offerSource, /normalizePublicPlusPlan/)
+  assert.doesNotMatch(offerSource, /sk_(?:test|live)_/)
 
   const webhookSource = await readFile(
     new URL('stripe-webhook/index.ts', functionsRoot),
@@ -108,16 +134,31 @@ test('billing hardening stays authenticated, environment-owned, and additive', a
     migration,
     /revoke all on table public\.stripe_webhook_events from public, anon, authenticated/
   )
+
+  const cancellationMigrations = (await readdir(migrationsRoot)).filter(file =>
+    file.endsWith('_add_subscription_cancellation_state.sql')
+  )
+  assert.equal(cancellationMigrations.length, 1)
+  const cancellationMigration = await readFile(
+    new URL(cancellationMigrations[0], migrationsRoot),
+    'utf8'
+  )
+  assert.match(
+    cancellationMigration,
+    /add column cancel_at_period_end boolean not null default false/
+  )
 })
 
-test('Supabase source contains exactly the three deployed Edge Functions', async () => {
+test('Supabase source contains the five staged billing Edge Functions', async () => {
   const entries = await readdir(functionsRoot, { withFileTypes: true })
   const functionNames = entries
     .filter(entry => entry.isDirectory() && entry.name !== '_shared')
     .map(entry => entry.name)
     .sort()
   assert.deepEqual(functionNames, [
+    'create-billing-portal',
     'create-checkout-session',
+    'get-plus-offer',
     'link-checkout-session',
     'stripe-webhook'
   ])

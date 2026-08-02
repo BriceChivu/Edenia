@@ -9,6 +9,7 @@ import {
 const original = {
   id: 'sub_1',
   status: 'active',
+  cancel_at_period_end: false,
   current_period_end: 1_800_000_000,
 }
 
@@ -22,6 +23,7 @@ test('builds the database dates from the current Stripe subscription', () => {
     getSubscriptionUpdate(original, undefined, '2026-07-24T00:00:00.000Z'),
     {
       status: 'active',
+      cancel_at_period_end: false,
       current_period_end: '2027-01-15T08:00:00.000Z',
       past_due_since: null,
       updated_at: '2026-07-24T00:00:00.000Z',
@@ -60,6 +62,7 @@ test('persists cancellation, pause, and reactivation from current Stripe state',
       getSubscriptionUpdate({ ...original, status }, '2026-07-24T00:00:00.000Z', updatedAt),
       {
         status,
+        cancel_at_period_end: false,
         current_period_end: '2027-01-15T08:00:00.000Z',
         past_due_since: null,
         updated_at: updatedAt,
@@ -84,6 +87,24 @@ test('writes once when Stripe remains unchanged', async () => {
   )
 
   assert.deepEqual(writes, [original.current_period_end])
+})
+
+test('persists and reconciles scheduled cancellation changes', async () => {
+  assert.equal(
+    getSubscriptionUpdate({ ...original, cancel_at_period_end: true })
+      .cancel_at_period_end,
+    true,
+  )
+  const writes: boolean[] = []
+  const canceling = { ...original, cancel_at_period_end: true }
+  const snapshots = [original, canceling, canceling]
+  await reconcileCurrentSubscription(
+    async () => snapshots.shift()!,
+    async subscription => {
+      writes.push(subscription.cancel_at_period_end)
+    },
+  )
+  assert.deepEqual(writes, [false, true])
 })
 
 test('rewrites a stale snapshot when Stripe changes during the first write', async () => {

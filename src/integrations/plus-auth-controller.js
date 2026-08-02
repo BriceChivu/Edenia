@@ -2,6 +2,7 @@ import {
   PLUS_ENTITLEMENT_STATES
 } from '../domain/plus-access-policy.js'
 import { readPlusEntitlement } from '../domain/plus-entitlement.js'
+import { normalizePlusPlanId } from '../domain/plus-offer.js'
 
 export const PLUS_ACCOUNT_SESSION_STATES = Object.freeze({
   LOADING: 'loading',
@@ -18,6 +19,7 @@ export const PLUS_ACCOUNT_FEEDBACK = Object.freeze({
   REFRESH_ERROR: 'refresh-error',
   SIGN_IN_ERROR: 'sign-in-error',
   SIGN_IN_LINK_SENT: 'sign-in-link-sent',
+  UPGRADE_LINK_SENT: 'upgrade-link-sent',
   SIGN_OUT_ERROR: 'sign-out-error'
 })
 
@@ -58,6 +60,13 @@ function getPasswordlessRedirectUrl(locationLike) {
   url.searchParams.delete('upgrade_success')
   url.searchParams.delete('session_id')
   url.hash = ''
+  return url.toString()
+}
+
+function getUpgradeRedirectUrl(locationLike, plan) {
+  const url = new URL(getPasswordlessRedirectUrl(locationLike))
+  url.searchParams.set('plus', '1')
+  url.searchParams.set('plan', normalizePlusPlanId(plan))
   return url.toString()
 }
 
@@ -119,6 +128,7 @@ export function createPlusAuthController({
     subscriptionStatus: null,
     plan: null,
     currentPeriodEnd: null,
+    cancelAtPeriodEnd: false,
     pastDueSince: null,
     updatedAt: null,
     usingCachedEntitlement: false,
@@ -159,6 +169,7 @@ export function createPlusAuthController({
         subscriptionStatus: null,
         plan: null,
         currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
         pastDueSince: null,
         updatedAt: null,
         usingCachedEntitlement: false,
@@ -183,6 +194,7 @@ export function createPlusAuthController({
       subscriptionStatus: isSameUser ? currentState.subscriptionStatus : null,
       plan: isSameUser ? currentState.plan : null,
       currentPeriodEnd: isSameUser ? currentState.currentPeriodEnd : null,
+      cancelAtPeriodEnd: isSameUser ? currentState.cancelAtPeriodEnd : false,
       pastDueSince: isSameUser ? currentState.pastDueSince : null,
       updatedAt: isSameUser ? currentState.updatedAt : null,
       usingCachedEntitlement: false,
@@ -231,6 +243,7 @@ export function createPlusAuthController({
           subscriptionStatus: null,
           plan: null,
           currentPeriodEnd: null,
+          cancelAtPeriodEnd: false,
           pastDueSince: null,
           updatedAt: null,
           usingCachedEntitlement: false,
@@ -340,6 +353,7 @@ export function createPlusAuthController({
         subscriptionStatus: null,
         plan: null,
         currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
         pastDueSince: null,
         updatedAt: null,
         usingCachedEntitlement: false,
@@ -398,6 +412,44 @@ export function createPlusAuthController({
     return true
   }
 
+  async function startUpgradeSignIn(emailValue, planValue) {
+    const email = normalizeEmail(emailValue)
+    if (!email) {
+      publish({
+        busyAction: null,
+        feedback: PLUS_ACCOUNT_FEEDBACK.INVALID_EMAIL,
+        feedbackEmail: ''
+      })
+      return false
+    }
+
+    publish({ busyAction: 'upgrade-sign-in', feedback: null, feedbackEmail: '' })
+    let signInResult
+    try {
+      signInResult = await client.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: getUpgradeRedirectUrl(locationLike, planValue),
+          shouldCreateUser: true
+        }
+      })
+    } catch {}
+    if (!signInResult || signInResult.error) {
+      publish({
+        busyAction: null,
+        feedback: PLUS_ACCOUNT_FEEDBACK.SIGN_IN_ERROR,
+        feedbackEmail: ''
+      })
+      return false
+    }
+    publish({
+      busyAction: null,
+      feedback: PLUS_ACCOUNT_FEEDBACK.UPGRADE_LINK_SENT,
+      feedbackEmail: email
+    })
+    return true
+  }
+
   async function refresh() {
     publish({ busyAction: 'refresh', feedback: null, feedbackEmail: '' })
     try {
@@ -410,6 +462,7 @@ export function createPlusAuthController({
         subscriptionStatus: null,
         plan: null,
         currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
         pastDueSince: null,
         updatedAt: null,
         usingCachedEntitlement: false,
@@ -450,6 +503,7 @@ export function createPlusAuthController({
     initialize,
     refresh,
     restore,
+    startUpgradeSignIn,
     signOut
   })
 }

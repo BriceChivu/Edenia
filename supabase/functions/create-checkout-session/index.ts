@@ -318,8 +318,8 @@ Deno.serve(async request => {
         ? Math.floor(Date.parse(foundingReservationExpiresAt) / 1000)
         : undefined,
       success_url:
-        `${billingConfig.appUrl}/?upgrade_success=1&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${billingConfig.appUrl}/pricing`,
+        `${billingConfig.appUrl}/plus/?upgrade_success=1&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${billingConfig.appUrl}/plus/?checkout_cancelled=1`,
       metadata: checkoutMetadata,
       subscription_data: {
         metadata: { product: 'edenia_plus', ...checkoutMetadata },

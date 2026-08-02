@@ -19,6 +19,10 @@ test('Settings contains a dormant passwordless Plus account surface', () => {
   )
   assert.match(html, /data-plus-account-action="refresh"/)
   assert.match(html, /data-plus-account-action="sign-out"/)
+  assert.match(html, /data-plus-account-action="billing"/)
+  assert.match(html, /data-plus-account-action="explore"/)
+  assert.match(html, /id="plusAccountPlan"/)
+  assert.match(html, /id="plusAccountPeriod"/)
   assert.match(
     html,
     /data-i18n="settings\.plusAccount\.localProgressNote"/

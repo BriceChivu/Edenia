@@ -73,6 +73,7 @@ test('entitlement lookup reads only the authenticated user subscription fields',
       status: 'active',
       plan: 'founding_monthly',
       current_period_end: '2026-09-01T00:00:00.000Z',
+      cancel_at_period_end: true,
       past_due_since: null,
       updated_at: '2026-08-01T00:00:00.000Z'
     },
@@ -84,12 +85,13 @@ test('entitlement lookup reads only the authenticated user subscription fields',
     subscriptionStatus: 'active',
     plan: 'founding_monthly',
     currentPeriodEnd: '2026-09-01T00:00:00.000Z',
+    cancelAtPeriodEnd: true,
     pastDueSince: null,
     updatedAt: '2026-08-01T00:00:00.000Z'
   })
   assert.deepEqual(calls, [
     ['from', 'subscriptions'],
-    ['select', 'status, plan, current_period_end, past_due_since, updated_at'],
+    ['select', 'status, plan, current_period_end, cancel_at_period_end, past_due_since, updated_at'],
     ['eq', 'user_id', 'user-1'],
     ['maybeSingle']
   ])
