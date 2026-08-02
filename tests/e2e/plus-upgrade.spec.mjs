@@ -141,4 +141,143 @@ test('Free transition keeps the first five shelves and preserves saved video sta
   await expect(page.locator('.video-card[data-video-id="manual-c"]')).toBeVisible()
   await expect(page.locator('.video-card[data-video-id="later-f"]')).toBeVisible()
   await expect(page.locator('.video-card[data-video-id="feed-c"]')).toHaveCount(0)
+  await expect(page.locator('#toast')).toContainText('Removed: Channel c and Channel f')
+})
+
+test('Free channel allowance gates direct, catalog, and restore flows but keeps single videos available', async ({
+  page
+}, testInfo) => {
+  test.skip(![
+    'desktop-standard',
+    'tablet-portrait',
+    'phone-standard'
+  ].includes(testInfo.project.name))
+  const activate = locator => testInfo.project.name === 'desktop-standard'
+    ? locator.click()
+    : locator.tap()
+
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: `window.EDENIA_CONFIG = {
+      youtubeApiKey: 'fixture-key',
+      freePlusEnabled: false,
+      plusCheckoutEnabled: false,
+      supabaseUrl: '',
+      supabasePublishableKey: ''
+    }`,
+    contentType: 'application/javascript',
+    status: 200
+  }))
+  await page.goto('/')
+  await page.evaluate(() => {
+    const trackedIds = [
+      'UC00000000000000000001',
+      'UC00000000000000000002',
+      'UC00000000000000000003',
+      'UC00000000000000000004',
+      'UC00000000000000000005'
+    ]
+    const state = window.defaultState(
+      4,
+      trackedIds.map((id, index) => ({ id, name: `Tracked ${index + 1}` })),
+      'light',
+      [],
+      'en'
+    )
+    const completedAt = '2026-08-01T04:00:00.000Z'
+    state.onboarding.introSeenAt = completedAt
+    state.onboarding.setupCompleted = true
+    state.onboarding.setupCompletedAt = completedAt
+    state.onboarding.walkthroughCompleted = true
+    state.onboarding.walkthroughCompletedAt = completedAt
+    state.undoStack = [{
+      type: 'channel-remove',
+      channelId: 'UC00000000000000000006',
+      channelName: 'Removed sixth channel',
+      createdAt: completedAt,
+      before: {
+        channel: {
+          id: 'UC00000000000000000006',
+          name: 'Removed sixth channel'
+        },
+        refresh: null,
+        removedChannelIds: [],
+        removedDefaultChannelIds: [],
+        videos: {}
+      },
+      after: {
+        channel: null,
+        refresh: null,
+        removedChannelIds: ['UC00000000000000000006'],
+        removedDefaultChannelIds: [],
+        videos: {}
+      }
+    }]
+    localStorage.setItem('edenia_v1_internal_test', JSON.stringify(state))
+  })
+
+  await page.goto('/?internal_test=1&plus_access=free')
+  await expect(page.locator('#manualVideoChannelAccess')).toContainText(
+    'All 5 Free tracked-channel slots are in use'
+  )
+
+  await activate(page.locator('#manualVideoBtn'))
+  const input = page.locator('#manualVideoUrlInput')
+  await input.fill('UC00000000000000000006')
+  await input.press('Enter')
+
+  const modal = page.locator('#plusUpgradeModal')
+  await expect(modal).toBeVisible()
+  await expect(modal.getByRole('heading', {
+    name: 'Grow your study feed without a channel limit.'
+  })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (
+    JSON.parse(localStorage.getItem('edenia_v1_internal_test')).config.channels.length
+  ))).toBe(5)
+  await activate(modal.locator('.plus-modal-close'))
+
+  await activate(page.locator('#manualVideoBtn'))
+  await input.fill('BBC Earth')
+  const catalogResult = page.locator(
+    '#manualChannelSuggestions .manual-channel-suggestion.is-plus-restricted'
+  ).first()
+  await expect(catalogResult).toContainText('Edenia Plus required')
+  await activate(catalogResult)
+  await expect(modal).toBeVisible()
+  await activate(modal.locator('.plus-modal-close'))
+
+  await activate(page.locator('#undoBtn'))
+  await activate(page.locator(
+    '#undoTooltip [data-undo-redo-action="apply"]'
+  ))
+  await expect(modal).toBeVisible()
+  await expect.poll(() => page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test'))
+    return {
+      channelCount: state.config.channels.length,
+      undoCount: state.undoStack.length
+    }
+  })).toEqual({ channelCount: 5, undoCount: 1 })
+  await activate(modal.locator('.plus-modal-close'))
+
+  if (await page.locator('#manualVideoPopover').evaluate(element => (
+    element.classList.contains('hidden')
+  ))) {
+    await activate(page.locator('#manualVideoBtn'))
+  }
+  await input.fill('https://www.youtube.com/watch?v=fixture0001')
+  await input.press('Enter')
+  await expect.poll(() => page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test'))
+    return {
+      channelCount: state.config.channels.length,
+      hasVideo: Boolean(state.videos.fixture0001),
+      tracksVideoChannel: state.config.channels.some(
+        channel => channel.id === 'UC0000000000000000000000'
+      )
+    }
+  })).toEqual({
+    channelCount: 5,
+    hasVideo: true,
+    tracksVideoChannel: false
+  })
 })

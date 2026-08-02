@@ -9,11 +9,13 @@ import {
   createDefaultTrackedChannelPolicy,
   getFreeTrackedChannelAllowance,
   getManualVideoOnlyChannels,
+  getTrackedChannelAddDecision,
   getTrackedChannelIds,
   getTrackedChannelsInShelfOrder,
   normalizeTrackedChannelPolicyState,
   shouldPreserveVideoAfterTrackedChannelRemoval,
   shouldTrackManualVideoChannel,
+  TRACKED_CHANNEL_ADD_DECISIONS,
   TRACKED_CHANNEL_POLICY_VERSION,
   transitionTrackedChannelPolicyState
 } from '../../src/state/tracked-channel-policy-state.js'
@@ -303,6 +305,56 @@ test('Free allowance decisions are count-based rather than tied to channel IDs',
   assert.equal(
     canTrackAdditionalChannel(state, policy(PLUS_ENTITLEMENT_STATES.FREE), 'new'),
     true
+  )
+})
+
+test('channel add decisions distinguish limits from entitlement loading and errors', () => {
+  const state = createState(['a', 'b', 'c', 'd', 'e'])
+  const restrictedFree = policy(PLUS_ENTITLEMENT_STATES.FREE, {
+    freePlusEnabled: true
+  })
+
+  assert.equal(
+    getTrackedChannelAddDecision(state, restrictedFree, 'a'),
+    TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED
+  )
+  assert.equal(
+    getTrackedChannelAddDecision(state, restrictedFree, 'new'),
+    TRACKED_CHANNEL_ADD_DECISIONS.LIMIT_REACHED
+  )
+  assert.equal(
+    getTrackedChannelAddDecision(
+      state,
+      policy(PLUS_ENTITLEMENT_STATES.LOADING, { freePlusEnabled: true }),
+      'new'
+    ),
+    TRACKED_CHANNEL_ADD_DECISIONS.ENTITLEMENT_LOADING
+  )
+  assert.equal(
+    getTrackedChannelAddDecision(
+      state,
+      policy(PLUS_ENTITLEMENT_STATES.UNAVAILABLE, { freePlusEnabled: true }),
+      'new'
+    ),
+    TRACKED_CHANNEL_ADD_DECISIONS.ENTITLEMENT_UNAVAILABLE
+  )
+  assert.equal(
+    getTrackedChannelAddDecision(
+      state,
+      policy(PLUS_ENTITLEMENT_STATES.PLUS, { freePlusEnabled: true }),
+      'new'
+    ),
+    TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED
+  )
+
+  state.config.channels.pop()
+  assert.equal(
+    getTrackedChannelAddDecision(
+      state,
+      policy(PLUS_ENTITLEMENT_STATES.LOADING, { freePlusEnabled: true }),
+      'new'
+    ),
+    TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED
   )
 })
 

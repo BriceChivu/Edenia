@@ -16,6 +16,13 @@ import {
 
 export const TRACKED_CHANNEL_POLICY_VERSION = 1
 
+export const TRACKED_CHANNEL_ADD_DECISIONS = Object.freeze({
+  ALLOWED: 'allowed',
+  ENTITLEMENT_LOADING: 'entitlement-loading',
+  ENTITLEMENT_UNAVAILABLE: 'entitlement-unavailable',
+  LIMIT_REACHED: 'limit-reached'
+})
+
 const CONFIRMED_TIERS = new Set(Object.values(PLUS_ACCESS_TIERS))
 
 function getConfiguredChannels(state) {
@@ -190,6 +197,29 @@ export function canTrackAdditionalChannel(state, accessPolicy, channelId = null)
   }
   if (accessPolicy?.enforcesFreeLimits !== true) return true
   return trackedChannelIds.length < getFreeTrackedChannelAllowance(state)
+}
+
+export function getTrackedChannelAddDecision(
+  state,
+  accessPolicy,
+  channelId = null
+) {
+  if (canTrackAdditionalChannel(state, accessPolicy, channelId)) {
+    return TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED
+  }
+  if (
+    accessPolicy?.effectiveEntitlementState
+    === PLUS_ENTITLEMENT_STATES.LOADING
+  ) {
+    return TRACKED_CHANNEL_ADD_DECISIONS.ENTITLEMENT_LOADING
+  }
+  if (
+    accessPolicy?.effectiveEntitlementState
+    === PLUS_ENTITLEMENT_STATES.UNAVAILABLE
+  ) {
+    return TRACKED_CHANNEL_ADD_DECISIONS.ENTITLEMENT_UNAVAILABLE
+  }
+  return TRACKED_CHANNEL_ADD_DECISIONS.LIMIT_REACHED
 }
 
 export function transitionTrackedChannelPolicyState(

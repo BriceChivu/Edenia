@@ -21,6 +21,7 @@ import { clampNumber } from './core/numbers.js'
 import {
   createPlusAccessPolicy,
   derivePlusAccessSimulation,
+  PLUS_FEATURE_IDS,
   PLUS_ENTITLEMENT_STATES
 } from './domain/plus-access-policy.js'
 import {
@@ -156,10 +157,12 @@ import {
 import {
   getFreeTrackedChannelAllowance,
   getManualVideoOnlyChannels,
+  getTrackedChannelAddDecision,
   getTrackedChannelIds,
   normalizeTrackedChannelPolicyState,
   shouldPreserveVideoAfterTrackedChannelRemoval,
   shouldTrackManualVideoChannel,
+  TRACKED_CHANNEL_ADD_DECISIONS,
   transitionTrackedChannelPolicyState
 } from './state/tracked-channel-policy-state.js'
 import {
@@ -1822,7 +1825,10 @@ function init() {
     state = IS_SANDBOX ? createEmptySandboxState() : defaultState(4, DEFAULT_CHANNELS)
     saveState(state)
   }
-  reconcileTrackedChannelPolicyState(state, plusAccessPolicy)
+  const initialChannelTransition = reconcileTrackedChannelPolicyState(
+    state,
+    plusAccessPolicy
+  )
 
   const shouldForceTemporaryShortsRefetch = Boolean(
     isTemporaryShortsWhitelistedUser()
@@ -1873,6 +1879,7 @@ function init() {
     if (IS_SANDBOX) showToast(t('toast.sandboxMode'), 'warn')
   }
   showPendingOnboardingNotice()
+  showTrackedChannelDowngradeNotice(initialChannelTransition)
   initializeVideoWatchReminders(state)
 }
 
@@ -2442,7 +2449,10 @@ function startPersonalizedOnboarding(state = loadState()) {
       : 'language'
     personalizedOnboardingState.languageId = state.learnerProfile.languages[0] || null
     personalizedOnboardingState.levelId = state.learnerProfile.level || null
-    personalizedOnboardingState.selectedChannelCatalogIds = state.learnerProfile.selectedChannelCatalogIds.slice(0, ONBOARDING_CHANNEL_SELECTION_LIMIT)
+    personalizedOnboardingState.selectedChannelCatalogIds = state.learnerProfile.selectedChannelCatalogIds.slice(
+      0,
+      getOnboardingChannelSelectionLimit(state)
+    )
     personalizedOnboardingState.channelSelectionsInitialized = state.learnerProfile.selectedChannelCatalogIds.length > 0
     personalizedOnboardingState.isApplyingChannels = false
     personalizedOnboardingState.lastTrackedStep = null
@@ -2852,8 +2862,19 @@ function prepareOnboardingChannelSelections() {
   personalizedOnboardingState.selectedChannelCatalogIds = getRecommendedChannelCatalog({
     languages: [personalizedOnboardingState.languageId],
     level: personalizedOnboardingState.levelId
-  }).slice(0, ONBOARDING_CHANNEL_SELECTION_LIMIT).map(channel => channel.id)
+  }).slice(0, getOnboardingChannelSelectionLimit()).map(channel => channel.id)
   personalizedOnboardingState.channelSelectionsInitialized = true
+}
+
+function getOnboardingChannelSelectionLimit(state = loadState()) {
+  if (!state || plusAccessPolicy.enforcesFreeLimits !== true) {
+    return ONBOARDING_CHANNEL_SELECTION_LIMIT
+  }
+  const remainingAllowance = Math.max(
+    0,
+    getFreeTrackedChannelAllowance(state) - getTrackedChannelIds(state).length
+  )
+  return Math.min(ONBOARDING_CHANNEL_SELECTION_LIMIT, remainingAllowance)
 }
 
 function toggleOnboardingChannel(catalogId) {
@@ -2861,8 +2882,19 @@ function toggleOnboardingChannel(catalogId) {
   const selectedIds = new Set(personalizedOnboardingState.selectedChannelCatalogIds)
   if (selectedIds.has(catalogId)) selectedIds.delete(catalogId)
   else {
-    if (selectedIds.size >= ONBOARDING_CHANNEL_SELECTION_LIMIT) {
-      showToast(t('onboarding.channels.limit', { count: ONBOARDING_CHANNEL_SELECTION_LIMIT }), 'warn')
+    const state = loadState()
+    const selectionLimit = getOnboardingChannelSelectionLimit(state)
+    if (selectedIds.size >= selectionLimit) {
+      if (selectionLimit < ONBOARDING_CHANNEL_SELECTION_LIMIT) {
+        const decision = getTrackedChannelAddDecision(state, plusAccessPolicy)
+        showTrackedChannelAddRestriction(
+          decision === TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED
+            ? TRACKED_CHANNEL_ADD_DECISIONS.LIMIT_REACHED
+            : decision
+        )
+      } else {
+        showToast(t('onboarding.channels.limit', { count: ONBOARDING_CHANNEL_SELECTION_LIMIT }), 'warn')
+      }
       return
     }
     selectedIds.add(catalogId)
@@ -2924,6 +2956,32 @@ async function resolveStarterChannelSelections(catalogIds) {
   }
 }
 
+function getStarterChannelAddDecision(state, channels) {
+  const simulatedState = {
+    ...state,
+    config: {
+      ...state.config,
+      channels: (state.config.channels || []).map(channel => ({ ...channel })),
+      trackedChannelPolicy: state.config.trackedChannelPolicy
+        ? { ...state.config.trackedChannelPolicy }
+        : undefined
+    }
+  }
+
+  for (const channel of channels) {
+    const decision = getTrackedChannelAddDecision(
+      simulatedState,
+      plusAccessPolicy,
+      channel.id
+    )
+    if (decision !== TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED) return decision
+    if (!getTrackedChannelIds(simulatedState).includes(channel.id)) {
+      simulatedState.config.channels.push({ ...channel })
+    }
+  }
+  return TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED
+}
+
 async function finishPersonalizedOnboarding() {
   if (personalizedOnboardingState.isApplyingChannels) return
   personalizedOnboardingState.isApplyingChannels = true
@@ -2970,6 +3028,16 @@ async function finishPersonalizedOnboarding() {
   }
 
   state = loadState() || state
+  const starterChannelDecision = getStarterChannelAddDecision(
+    state,
+    resolution.channels
+  )
+  if (starterChannelDecision !== TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED) {
+    personalizedOnboardingState.isApplyingChannels = false
+    renderPersonalizedOnboarding()
+    showTrackedChannelAddRestriction(starterChannelDecision)
+    return
+  }
   const existingIds = new Set((state.config.channels || []).map(channel => channel.id))
   let addedChannelCount = 0
   resolution.channels.forEach(channel => {
@@ -3850,6 +3918,8 @@ function updatePlusEntitlementState(entitlementState) {
     renderAll(state)
     scheduleYoutubeAutoRefresh(state)
   }
+  renderTrackedChannelAccess(state)
+  showTrackedChannelDowngradeNotice(channelTransition)
   renderPlusUpgradeModal()
   return plusAccessPolicy
 }
@@ -3859,12 +3929,20 @@ function reconcileTrackedChannelPolicyState(state, accessPolicy) {
     return {
       changed: false,
       channelIdsToRemove: [],
+      removedChannels: [],
       confirmedTier: null,
       downgraded: false
     }
   }
 
   const transition = transitionTrackedChannelPolicyState(state, accessPolicy)
+  const removedChannels = transition.channelIdsToRemove.map(channelId => {
+    const channel = (state.config.channels || []).find(entry => entry.id === channelId)
+    return {
+      id: channelId,
+      name: channel?.name || channelId
+    }
+  })
   transition.channelIdsToRemove.forEach(channelId => {
     applyChannelRemoval(state, channelId, { preserveManualVideos: true })
   })
@@ -3884,7 +3962,22 @@ function reconcileTrackedChannelPolicyState(state, accessPolicy) {
     })
   }
 
-  return { ...transition, changed }
+  return { ...transition, changed, removedChannels }
+}
+
+function showTrackedChannelDowngradeNotice(transition) {
+  const names = (transition?.removedChannels || [])
+    .map(channel => String(channel?.name || channel?.id || '').trim())
+    .filter(Boolean)
+  if (!names.length) return
+  let channels = names.join(', ')
+  try {
+    channels = new Intl.ListFormat(getCurrentLocale(), {
+      style: 'long',
+      type: 'conjunction'
+    }).format(names)
+  } catch {}
+  showToast(t('plus.channels.downgradeNotice', { channels }), 'warn')
 }
 
 function getPlusAccountStatusView(state) {
@@ -3985,6 +4078,7 @@ function renderPlusAccountSettings(state = plusAccountViewState) {
   const group = document.getElementById('plusAccountSettings')
   if (!group || !state) return
   group.classList.remove('hidden')
+  renderTrackedChannelAccess()
 
   const statusView = getPlusAccountStatusView(state)
   const status = document.getElementById('plusAccountStatus')
@@ -4923,6 +5017,72 @@ function addTrackedYoutubeChannelToState(state, channel) {
   return !existing
 }
 
+function getTrackedChannelAccessView(state) {
+  const count = getTrackedChannelIds(state).length
+  const allowance = getFreeTrackedChannelAllowance(state)
+  const decision = getTrackedChannelAddDecision(
+    state,
+    plusAccessPolicy
+  )
+
+  if (
+    plusAccessPolicy.effectiveEntitlementState
+    === PLUS_ENTITLEMENT_STATES.LOADING
+  ) {
+    return { key: 'plus.channels.access.loading', params: { count, allowance } }
+  }
+  if (
+    plusAccessPolicy.effectiveEntitlementState
+    === PLUS_ENTITLEMENT_STATES.UNAVAILABLE
+  ) {
+    return { key: 'plus.channels.access.unavailable', params: { count, allowance } }
+  }
+  if (decision === TRACKED_CHANNEL_ADD_DECISIONS.LIMIT_REACHED) {
+    return { key: 'plus.channels.access.limit', params: { count, allowance } }
+  }
+  if (plusAccessPolicy.enforcesFreeLimits) {
+    return { key: 'plus.channels.access.free', params: { count, allowance } }
+  }
+  return { key: 'plus.channels.access.plus', params: { count, allowance } }
+}
+
+function renderTrackedChannelAccess(state = loadState()) {
+  if (!state) return
+  const feedStatus = document.getElementById('manualVideoChannelAccess')
+  const settingsStatus = document.getElementById('plusAccountChannelAccess')
+  const isVisible = plusAccessPolicy.freePlusEnabled === true
+    || Boolean(plusAccessPolicy.simulatedTier)
+  feedStatus?.classList.toggle('hidden', !isVisible)
+  settingsStatus?.classList.toggle('hidden', !isVisible)
+  if (!isVisible) return
+  const view = getTrackedChannelAccessView(state)
+  const text = t(view.key, view.params)
+  if (feedStatus) feedStatus.textContent = text
+  if (settingsStatus) settingsStatus.textContent = text
+}
+
+function showTrackedChannelAddRestriction(decision) {
+  if (decision === TRACKED_CHANNEL_ADD_DECISIONS.LIMIT_REACHED) {
+    openPlusUpgradeModal(PLUS_FEATURE_IDS.UNLIMITED_TRACKED_CHANNELS)
+    return
+  }
+  const key = decision === TRACKED_CHANNEL_ADD_DECISIONS.ENTITLEMENT_LOADING
+    ? 'plus.channels.feedback.loading'
+    : 'plus.channels.feedback.unavailable'
+  showToast(t(key), 'warn')
+}
+
+function requestTrackedChannelAddition(state, channelId = null) {
+  const decision = getTrackedChannelAddDecision(
+    state,
+    plusAccessPolicy,
+    channelId
+  )
+  if (decision === TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED) return true
+  showTrackedChannelAddRestriction(decision)
+  return false
+}
+
 async function addChannel(options = {}) {
   const idEl = options.input
     || document.getElementById('channelFilterAddInput')
@@ -4931,6 +5091,15 @@ async function addChannel(options = {}) {
   const idleButtonText = options.idleButtonText || t('settings.channels.add')
   const addedFromFilter = !options.input && Boolean(document.getElementById('channelFilterAddInput'))
   const raw    = idEl?.value?.trim() || ''
+  const preliminaryChannelId = String(
+    options.resolvedChannel?.id
+    || parseYoutubeChannelInput(raw)?.channelId
+    || ''
+  ).trim()
+  if (
+    preliminaryChannelId
+    && !requestTrackedChannelAddition(loadState(), preliminaryChannelId)
+  ) return
   let resolved
 
   try {
@@ -4962,6 +5131,13 @@ async function addChannel(options = {}) {
       btn.textContent = idleButtonText
     }
     showToast(t('toast.channelDuplicate'), 'warn')
+    return
+  }
+  if (!requestTrackedChannelAddition(s, id)) {
+    if (btn) {
+      btn.disabled = false
+      btn.textContent = idleButtonText
+    }
     return
   }
   addTrackedYoutubeChannelToState(s, { id, name, imageUrl: resolved.thumbnail || '' })
@@ -7603,6 +7779,21 @@ function closeManualChannelSuggestions() {
   renderManualChannelSuggestions.activeIndex = -1
 }
 
+function getTrackedChannelSuggestionAccess(state, channelId, alreadyAdded) {
+  if (alreadyAdded) return { decision: TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED, key: '' }
+  const decision = getTrackedChannelAddDecision(
+    state,
+    plusAccessPolicy,
+    channelId
+  )
+  const key = {
+    [TRACKED_CHANNEL_ADD_DECISIONS.LIMIT_REACHED]: 'plus.channels.result.requiresPlus',
+    [TRACKED_CHANNEL_ADD_DECISIONS.ENTITLEMENT_LOADING]: 'plus.channels.result.loading',
+    [TRACKED_CHANNEL_ADD_DECISIONS.ENTITLEMENT_UNAVAILABLE]: 'plus.channels.result.unavailable'
+  }[decision] || ''
+  return { decision, key }
+}
+
 function renderManualChannelSuggestions() {
   const input = document.getElementById('manualVideoUrlInput')
   const list = document.getElementById('manualChannelSuggestions')
@@ -7650,16 +7841,25 @@ function renderManualChannelSuggestions() {
   const state = loadState()
   const localSuggestions = matches.map(channel => {
     const alreadyAdded = isCuratedChannelAlreadyAdded(channel, state)
+    const parsedChannel = parseYoutubeChannelInput(channel.input)
+    const access = getTrackedChannelSuggestionAccess(
+      state,
+      channel.channelId || parsedChannel?.channelId,
+      alreadyAdded
+    )
+    const isRestricted = access.decision !== TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED
     const meta = [
       channel.input,
-      alreadyAdded ? t('toast.channelDuplicate') : ''
+      alreadyAdded ? t('toast.channelDuplicate') : '',
+      access.key ? t(access.key) : ''
     ].filter(Boolean).join(' · ')
     return `
       <button type="button"
-        class="manual-channel-suggestion ${alreadyAdded ? 'is-added' : ''}"
+        class="manual-channel-suggestion ${alreadyAdded ? 'is-added' : ''} ${isRestricted ? 'is-plus-restricted' : ''}"
         id="manualChannelSuggestion-${escHtml(channel.id)}"
         data-catalog-id="${escHtml(channel.id)}"
         data-added="${alreadyAdded ? 'true' : 'false'}"
+        data-channel-access="${escHtml(access.decision)}"
         data-manual-video-action="select-curated"
         data-analytics-action="selectManualChannelSuggestion"
         role="option"
@@ -7811,13 +8011,22 @@ function renderYoutubeChannelSearchResults(query, results, options = {}) {
   const state = loadState()
   const resultRows = results.map(result => {
     const alreadyAdded = (state?.config?.channels || []).some(channel => channel.id === result.id)
-    const meta = alreadyAdded ? t('toast.channelDuplicate') : result.id
+    const access = getTrackedChannelSuggestionAccess(
+      state,
+      result.id,
+      alreadyAdded
+    )
+    const isRestricted = access.decision !== TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED
+    const meta = alreadyAdded
+      ? t('toast.channelDuplicate')
+      : [result.id, access.key ? t(access.key) : ''].filter(Boolean).join(' · ')
     return `
       <button type="button"
-        class="manual-channel-suggestion ${alreadyAdded ? 'is-added' : ''}"
+        class="manual-channel-suggestion ${alreadyAdded ? 'is-added' : ''} ${isRestricted ? 'is-plus-restricted' : ''}"
         id="manualYoutubeSuggestion-${escHtml(result.id)}"
         data-channel-id="${escHtml(result.id)}"
         data-added="${alreadyAdded ? 'true' : 'false'}"
+        data-channel-access="${escHtml(access.decision)}"
         data-suggestion-source="youtube"
         data-manual-video-action="select-youtube"
         data-analytics-action="selectYoutubeChannelSearchResult"
@@ -8005,6 +8214,11 @@ async function addCuratedChannelSuggestion(catalogId) {
     showToast(t('toast.channelDuplicate'), 'warn')
     return
   }
+  const parsedChannel = parseYoutubeChannelInput(channel.input)
+  if (!requestTrackedChannelAddition(
+    loadState(),
+    channel.channelId || parsedChannel?.channelId
+  )) return
 
   input.value = channel.input
   closeManualChannelSuggestions()
@@ -8256,9 +8470,17 @@ function applyHistoryAction(direction, actionIndex) {
     return
   }
 
-  sourceStack.splice(index, 1)
   const targetSnapshot = direction === 'redo' ? action.after : action.before
   const previousSnapshot = direction === 'redo' ? action.before : action.after
+  const restoresTrackedChannel = action.type === 'channel-remove'
+    && Boolean(targetSnapshot?.channel)
+    && !getTrackedChannelIds(s).includes(action.channelId)
+  if (
+    restoresTrackedChannel
+    && !requestTrackedChannelAddition(s, action.channelId)
+  ) return
+
+  sourceStack.splice(index, 1)
   let historyResult = null
 
   if (action.type === 'channel-remove') {
@@ -12082,6 +12304,7 @@ function updateCityMilestoneImage(score, options = {}) {
 
 function renderFeed(s) {
   renderChannelFilterOptions(s)
+  renderTrackedChannelAccess(s)
 
   const statusFilter = selectedStatusFilter
   const grid   = document.getElementById('videoGrid')

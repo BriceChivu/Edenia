@@ -228,7 +228,7 @@ test('generated manual-entry controls retain exact metadata and inline arguments
   assert.equal(getAttribute(localControl.tag, 'type'), 'button')
   assert.equal(
     getAttribute(localControl.tag, 'class'),
-    "manual-channel-suggestion ${alreadyAdded ? 'is-added' : ''}"
+    "manual-channel-suggestion ${alreadyAdded ? 'is-added' : ''} ${isRestricted ? 'is-plus-restricted' : ''}"
   )
   assert.equal(
     getAttribute(localControl.tag, 'id'),
@@ -277,7 +277,7 @@ test('generated manual-entry controls retain exact metadata and inline arguments
   assert.equal(getAttribute(youtubeControl.tag, 'type'), 'button')
   assert.equal(
     getAttribute(youtubeControl.tag, 'class'),
-    "manual-channel-suggestion ${alreadyAdded ? 'is-added' : ''}"
+    "manual-channel-suggestion ${alreadyAdded ? 'is-added' : ''} ${isRestricted ? 'is-plus-restricted' : ''}"
   )
   assert.equal(
     getAttribute(youtubeControl.tag, 'id'),
