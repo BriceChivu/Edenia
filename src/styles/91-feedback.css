@@ -28,15 +28,11 @@
   padding: 0 20px;
   transition: background var(--motion-base) var(--ease-standard), box-shadow var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
 }
-.feedback-launch-btn:hover {
+.feedback-launch-btn:hover,
+.support-link:hover {
   background: var(--mint);
 }
-.support-link {
-  background: var(--planet-sky);
-  color: var(--planet-black);
-}
 .support-link:hover {
-  background: var(--planet-lime);
   text-decoration: none;
 }
 .feedback-launch-btn:active,
@@ -57,7 +53,7 @@
   stroke: var(--accent-dim);
 }
 .support-link-icon {
-  stroke: currentColor;
+  stroke: var(--error);
 }
 .feedback-modal {
   align-items: center;

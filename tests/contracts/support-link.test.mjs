@@ -3,6 +3,10 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 const source = await readFile(new URL('../../index.html', import.meta.url), 'utf8')
+const styleSource = await readFile(
+  new URL('../../src/styles/91-feedback.css', import.meta.url),
+  'utf8'
+)
 const footer = source.match(/<footer class="app-footer">([\s\S]*?)<\/footer>/)?.[1] ?? ''
 const supportLink = footer.match(/<a\b[^>]*class="support-link"[^>]*>/)?.[0] ?? ''
 
@@ -25,4 +29,17 @@ test('Ko-fi support link is the safe left-hand footer action', () => {
 
 test('Ko-fi overlay JavaScript is not loaded', () => {
   assert.doesNotMatch(source, /overlay-widget\.js|kofiWidgetOverlay/)
+})
+
+test('support and feedback share a surface while their icons stay distinct', () => {
+  assert.match(
+    styleSource,
+    /\.feedback-launch-btn,\s*\.support-link\s*{[^}]*background: var\(--surface\);/s
+  )
+  assert.match(
+    styleSource,
+    /\.feedback-launch-btn:hover,\s*\.support-link:hover\s*{[^}]*background: var\(--mint\);/s
+  )
+  assert.match(styleSource, /\.feedback-launch-icon\s*{\s*stroke: var\(--accent-dim\);\s*}/)
+  assert.match(styleSource, /\.support-link-icon\s*{\s*stroke: var\(--error\);\s*}/)
 })
