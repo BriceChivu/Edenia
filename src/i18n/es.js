@@ -597,6 +597,7 @@ export const ES_LOCALIZED = {
     'walkthrough.resetSafety': 'Restablecer todo empieza de cero, pero Edenia guarda primero una copia de recuperación. Úsalo con cuidado y exporta un archivo para protegerte fuera del navegador.',
 
   // Feedback translations were historically merged after the initial locale block.
+    'support.button': 'Apóyame',
     'feedback.button': 'Comentarios',
     'feedback.title': 'Comparte tus comentarios',
     'feedback.close': 'Cerrar comentarios',
