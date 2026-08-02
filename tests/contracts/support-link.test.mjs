@@ -62,6 +62,21 @@ test('trailer and Settings expose icon-only Ko-fi support links instead of Kick'
   assert.doesNotMatch(introStyleSource, /intro-social-kick/)
 })
 
+test('creator support hearts inherit the shared rounded-link height', () => {
+  const supportRule = introStyleSource.match(
+    /\.intro-social-link\.intro-social-support\s*{([^}]*)}/s
+  )?.[1] ?? ''
+
+  assert.match(supportRule, /align-items:\s*center;/)
+  assert.match(supportRule, /display:\s*inline-flex;/)
+  assert.match(supportRule, /justify-content:\s*center;/)
+  assert.doesNotMatch(supportRule, /\b(?:border|box-shadow|height|padding|width):/)
+  assert.match(
+    introStyleSource,
+    /\.intro-social-support-icon\s*{[^}]*height:\s*1em;[^}]*width:\s*1em;/s
+  )
+})
+
 test('support and feedback share a surface while their icons stay distinct', () => {
   assert.match(
     styleSource,

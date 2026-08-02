@@ -104,23 +104,19 @@ body.intro-active { overflow: hidden; }
 .intro-social-twitch:hover { background: #9146ff; border-color: #9146ff; color: #fff; }
 .intro-social-link.intro-social-support {
   align-items: center;
-  border: 0;
-  box-shadow: none;
   color: var(--error);
   display: inline-flex;
-  height: 24px;
   justify-content: center;
-  padding: 2px;
-  width: 24px;
 }
+.intro-social-support:hover { background: var(--error); border-color: var(--error); color: #fff; }
 .intro-social-support-icon {
   fill: none;
-  height: 18px;
+  height: 1em;
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2.25;
-  width: 18px;
+  width: 1em;
 }
 .intro-top-actions {
   align-items: center;
