@@ -25,6 +25,10 @@ import {
   PLUS_ENTITLEMENT_STATES
 } from './domain/plus-access-policy.js'
 import {
+  getStudyHistoryAccessDecision,
+  STUDY_HISTORY_ACCESS_STATES
+} from './domain/study-history-access.js'
+import {
   normalizePlusFeatureId,
   normalizePlusPlanId
 } from './domain/plus-offer.js'
@@ -344,6 +348,9 @@ import {
 import {
   bindStudyHistoryHeatmapTooltipActions
 } from './features/study-history/heatmap-tooltip-actions.js'
+import {
+  bindStudyHistoryLockedAccessActions
+} from './features/study-history/locked-access-actions.js'
 import { bindStudyHistoryViewActions } from './features/study-history/view-actions.js'
 import {
   bindStudyHistoryWatchedPopoverActions
@@ -3917,6 +3924,8 @@ function updatePlusEntitlementState(entitlementState) {
     })
     renderAll(state)
     scheduleYoutubeAutoRefresh(state)
+  } else if (state) {
+    renderStudyHistoryPanel(state)
   }
   renderTrackedChannelAccess(state)
   showTrackedChannelDowngradeNotice(channelTransition)
@@ -9086,6 +9095,36 @@ function getStudyHistory(s, range = selectedHistoryRange, periodKey = selectedHi
   return getStudyHistoryBetween(s, start, end)
 }
 
+function getHistoryPeriodAccessDecision(state, periodStart) {
+  return getStudyHistoryAccessDecision({
+    accessPolicy: plusAccessPolicy,
+    currentDate: getCurrentAppDate(state),
+    periodStart
+  })
+}
+
+function getSelectedHistoryPeriodOption(
+  state,
+  range = selectedHistoryRange,
+  periodKey = selectedHistoryPeriod[range]
+) {
+  const options = getHistoryPeriodOptions(state, range)
+  return options.find(option => option.key === periodKey) || options[0] || null
+}
+
+function requestStudyHistoryAccess(accessState) {
+  hideHeatmapTooltip()
+  if (accessState === STUDY_HISTORY_ACCESS_STATES.LOADING) {
+    showToast(t('plus.history.feedback.loading'), 'warn')
+    return false
+  }
+  if (accessState === STUDY_HISTORY_ACCESS_STATES.UNAVAILABLE) {
+    showToast(t('plus.history.feedback.unavailable'), 'warn')
+    return false
+  }
+  return openPlusUpgradeModal(PLUS_FEATURE_IDS.COMPLETE_STUDY_HISTORY)
+}
+
 function getStudyActivityDateKeys(s) {
   const dateKeys = new Set()
   for (const video of Object.values(s?.videos || {})) {
@@ -9789,6 +9828,49 @@ function formatHistoryDate(dateKey, state = null) {
   return formatLocaleDate(date, { month: 'short', day: 'numeric' })
 }
 
+function getRestrictedStudyHistoryView(accessState) {
+  if (accessState === STUDY_HISTORY_ACCESS_STATES.LOADING) {
+    return {
+      bodyKey: 'plus.history.loading.body',
+      titleKey: 'plus.history.loading.title'
+    }
+  }
+  if (accessState === STUDY_HISTORY_ACCESS_STATES.UNAVAILABLE) {
+    return {
+      bodyKey: 'plus.history.unavailable.body',
+      titleKey: 'plus.history.unavailable.title'
+    }
+  }
+  return {
+    actionKey: 'plus.history.action',
+    bodyKey: 'plus.history.locked.body',
+    titleKey: 'plus.history.locked.title'
+  }
+}
+
+function renderRestrictedStudyHistory(accessState) {
+  const view = getRestrictedStudyHistoryView(accessState)
+  return `
+    <div class="history-lock-shell">
+      <div class="history-lock-preview" aria-hidden="true">
+        ${Array.from({ length: 3 }, () => `
+          <span></span><span></span><span></span><span></span>
+        `).join('')}
+      </div>
+      <div class="history-lock-card" role="status">
+        <span class="history-lock-icon" aria-hidden="true">✦</span>
+        <strong>${escHtml(t(view.titleKey))}</strong>
+        <span>${escHtml(t(view.bodyKey))}</span>
+        ${view.actionKey ? `
+          <button type="button" class="history-lock-action" data-history-access-action="request" data-history-access-state="${accessState}">
+            ${escHtml(t(view.actionKey))}
+          </button>
+        ` : ''}
+      </div>
+    </div>
+  `
+}
+
 function renderStudyHistoryPanel(s) {
   const historyState = s || { videos: {}, anki: {} }
   const hasHistoryActivity = getStudyActivityDateKeys(historyState).length > 0
@@ -9805,18 +9887,30 @@ function renderStudyHistoryPanel(s) {
   renderHistoryPeriodPopover('week', 'historyWeekPeriodPopover', historyState)
   renderHistoryPeriodPopover('month', 'historyMonthPeriodPopover', historyState)
 
-  const history = getStudyHistory(historyState)
+  const selectedOption = getSelectedHistoryPeriodOption(historyState)
+  const historyAccess = selectedOption
+    ? getHistoryPeriodAccessDecision(historyState, selectedOption.start)
+    : { state: STUDY_HISTORY_ACCESS_STATES.AVAILABLE }
+  const isHistoryRestricted = historyAccess.state
+    !== STUDY_HISTORY_ACCESS_STATES.AVAILABLE
+  const history = isHistoryRestricted ? null : getStudyHistory(historyState)
   const showAnkiColumns = isAnkiTrackingActive(historyState)
   const thirdStatLabelKey = showAnkiColumns ? 'history.ankiReviewed' : 'history.daysStudied'
   const fourthStatLabelKey = showAnkiColumns ? 'history.ankiCreated' : 'history.pointsScored'
   const thirdStatLabel = document.getElementById('historyThirdStatLabel')
   const fourthStatLabel = document.getElementById('historyFourthStatLabel')
-  setText('historyStudyTime', formatHistoryTime(history.summary.secondsWatched))
-  setText('historyVideosWatched', history.summary.videosWatched)
-  setText('historyAnkiReviewed', showAnkiColumns ? history.summary.ankiReviewed : history.rows.length)
-  setText('historyAnkiCreated', showAnkiColumns
-    ? history.summary.ankiCreated
-    : history.summary.points)
+  setText('historyStudyTime', isHistoryRestricted
+    ? '••'
+    : formatHistoryTime(history.summary.secondsWatched))
+  setText('historyVideosWatched', isHistoryRestricted
+    ? '••'
+    : history.summary.videosWatched)
+  setText('historyAnkiReviewed', isHistoryRestricted
+    ? '••'
+    : showAnkiColumns ? history.summary.ankiReviewed : history.rows.length)
+  setText('historyAnkiCreated', isHistoryRestricted
+    ? '••'
+    : showAnkiColumns ? history.summary.ankiCreated : history.summary.points)
   if (thirdStatLabel) {
     thirdStatLabel.dataset.i18n = thirdStatLabelKey
     thirdStatLabel.textContent = t(thirdStatLabelKey)
@@ -9828,7 +9922,13 @@ function renderStudyHistoryPanel(s) {
 
   const table = document.getElementById('historyTable')
   if (table) {
-    table.innerHTML = history.rows.length
+    table.classList.toggle('is-history-restricted', isHistoryRestricted)
+    table.setAttribute('aria-busy', String(
+      historyAccess.state === STUDY_HISTORY_ACCESS_STATES.LOADING
+    ))
+    table.innerHTML = isHistoryRestricted
+      ? renderRestrictedStudyHistory(historyAccess.state)
+      : history.rows.length
       ? `
         <div class="history-row history-row-head ${showAnkiColumns ? '' : 'history-row-no-anki'}">
           <span>${escHtml(t('history.table.date'))}</span>
@@ -9870,10 +9970,21 @@ function renderStudyHistoryPanel(s) {
     rangeToolbar.classList.toggle('hidden', selectedHistoryView === 'heatmap')
     rangeToolbar.classList.toggle('mobile-history-empty', !hasHistoryActivity)
   }
-  if (summaryView) summaryView.classList.toggle('hidden', selectedHistoryView !== 'summary')
+  if (summaryView) {
+    summaryView.classList.toggle('hidden', selectedHistoryView !== 'summary')
+    summaryView.dataset.historyAccessState = historyAccess.state
+  }
   if (heatmapView) {
     heatmapView.classList.toggle('hidden', selectedHistoryView !== 'heatmap')
-    if (selectedHistoryView === 'heatmap') renderHistoryHeatmap(s || { videos: {}, anki: {} }, heatmapView)
+    if (!plusAccessPolicy.featureAccess[PLUS_FEATURE_IDS.COMPLETE_STUDY_HISTORY]) {
+      clearHeatmapTooltip()
+    }
+    if (selectedHistoryView === 'heatmap') {
+      renderHistoryHeatmap(s || { videos: {}, anki: {} }, heatmapView)
+    } else if (!plusAccessPolicy.featureAccess[PLUS_FEATURE_IDS.COMPLETE_STUDY_HISTORY]) {
+      heatmapView.classList.remove('is-sparse')
+      heatmapView.replaceChildren()
+    }
   }
 }
 
@@ -9943,10 +10054,21 @@ function getHeatmapMonthLabels(gridStart, end, weekCount) {
   })
 }
 
+function renderRestrictedHistoryHeatmapDay(accessState) {
+  const ariaKey = accessState === STUDY_HISTORY_ACCESS_STATES.LOADING
+    ? 'plus.history.heatmap.loadingAria'
+    : accessState === STUDY_HISTORY_ACCESS_STATES.UNAVAILABLE
+      ? 'plus.history.heatmap.unavailableAria'
+      : 'plus.history.heatmap.lockedAria'
+  return `
+    <button type="button" class="heatmap-day is-history-restricted" data-history-access-action="request" data-history-access-state="${accessState}" aria-label="${escHtml(t(ariaKey))}"></button>
+  `
+}
+
 function renderHistoryHeatmap(s, container) {
   container.classList.remove('is-sparse')
   const ankiEnabled = isAnkiTrackingActive(s)
-  const end = IS_SANDBOX ? getSandboxHeatmapEndDate(s) : new Date()
+  const end = IS_SANDBOX ? getSandboxHeatmapEndDate(s) : getCurrentAppDate(s)
   end.setHours(23, 59, 59, 999)
   const start = addDays(end, -364)
   start.setHours(0, 0, 0, 0)
@@ -9983,6 +10105,10 @@ function renderHistoryHeatmap(s, container) {
         </div>
         <div class="heatmap-grid" style="grid-template-columns: repeat(${weekCount}, var(--heatmap-cell-size))">
           ${days.map(row => {
+            const access = getHistoryPeriodAccessDecision(s, row.dateKey)
+            if (access.state !== STUDY_HISTORY_ACCESS_STATES.AVAILABLE) {
+              return renderRestrictedHistoryHeatmapDay(access.state)
+            }
             const showAnkiForRow = ankiEnabled || row.ankiReviewed > 0 || row.ankiCreated > 0
             const streakDayCount = historicalStreakDayCounts.get(row.dateKey) || 0
             const streakOutlineClass = streakDayCount ? ' streak-run' : ''
@@ -10088,6 +10214,13 @@ function hideHeatmapTooltip() {
   if (!tooltip) return
   tooltip._target = null
   tooltip.classList.remove('show')
+}
+
+function clearHeatmapTooltip() {
+  const tooltip = document.getElementById('heatmapTooltip')
+  if (!tooltip) return
+  hideHeatmapTooltip()
+  tooltip.replaceChildren()
 }
 
 function hideHeatmapTooltipOnOutsideClick(event) {
@@ -11016,16 +11149,37 @@ function setHistoryRange(range) {
   renderStudyHistoryPanel(loadState())
 }
 
+function getHistoryPeriodAccessLabel(accessState) {
+  if (accessState === STUDY_HISTORY_ACCESS_STATES.LOADING) {
+    return t('plus.history.period.loading')
+  }
+  if (accessState === STUDY_HISTORY_ACCESS_STATES.UNAVAILABLE) {
+    return t('plus.history.period.unavailable')
+  }
+  return t('plus.history.period.locked')
+}
+
+function renderHistoryPeriodOption(range, option, state) {
+  const access = getHistoryPeriodAccessDecision(state, option.start)
+  const isRestricted = access.state !== STUDY_HISTORY_ACCESS_STATES.AVAILABLE
+  const accessLabel = isRestricted
+    ? getHistoryPeriodAccessLabel(access.state)
+    : ''
+  const isActive = selectedHistoryPeriod[range] === option.key
+  return `
+    <button type="button" class="history-period-option ${isActive ? 'active' : ''}${isRestricted ? ' is-history-restricted' : ''}" data-history-period-action="select" data-history-range="${range}" data-history-period-key="${escHtml(option.key)}" data-history-access-state="${access.state}" data-analytics-action="setHistoryPeriodForRange" aria-label="${escHtml(isRestricted ? `${option.label}. ${accessLabel}` : option.label)}" aria-pressed="${isActive}">
+      <span>${escHtml(option.label)}</span>
+      ${isRestricted ? `<span class="history-period-access-badge" aria-hidden="true">${escHtml(accessLabel)}</span>` : ''}
+    </button>
+  `
+}
+
 function renderHistoryPeriodPopover(range, popoverId, state) {
   const options = range === selectedHistoryRange ? syncHistoryPeriodSelection(state) : getHistoryPeriodOptions(state, range)
   const popover = document.getElementById(popoverId)
   if (!popover) return
   popover.innerHTML = options.length
-    ? options.map(option => `
-        <button type="button" class="history-period-option ${selectedHistoryPeriod[range] === option.key ? 'active' : ''}" data-history-period-action="select" data-history-range="${range}" data-history-period-key="${escHtml(option.key)}" data-analytics-action="setHistoryPeriodForRange" aria-pressed="${selectedHistoryPeriod[range] === option.key}">
-          ${escHtml(option.label)}
-        </button>
-      `).join('')
+    ? options.map(option => renderHistoryPeriodOption(range, option, state)).join('')
     : `<span class="history-period-empty">${escHtml(t('history.noActivityYet'))}</span>`
 }
 
@@ -11065,10 +11219,23 @@ function closeHistoryPeriodPopoversOnEscape(event) {
 }
 
 function setHistoryPeriodForRange(range, periodKey) {
-  selectedHistoryRange = HISTORY_RANGES.includes(range) ? range : 'week'
+  const nextRange = HISTORY_RANGES.includes(range) ? range : 'week'
+  const state = loadState()
+  const option = getHistoryPeriodOptions(state, nextRange)
+    .find(candidate => candidate.key === periodKey)
+  if (option) {
+    const access = getHistoryPeriodAccessDecision(state, option.start)
+    if (access.state !== STUDY_HISTORY_ACCESS_STATES.AVAILABLE) {
+      closeHistoryPeriodPopovers()
+      requestStudyHistoryAccess(access.state)
+      return false
+    }
+  }
+  selectedHistoryRange = nextRange
   selectedHistoryPeriod[selectedHistoryRange] = periodKey || null
   closeHistoryPeriodPopovers()
-  renderStudyHistoryPanel(loadState())
+  renderStudyHistoryPanel(state)
+  return true
 }
 
 function setHistoryView(view) {
@@ -15190,6 +15357,9 @@ bindStudyHistoryPeriodToggleActions(document, {
 })
 bindStudyHistoryPeriodOptionActions(document, {
   selectPeriod: setHistoryPeriodForRange
+})
+bindStudyHistoryLockedAccessActions(document, {
+  requestAccess: requestStudyHistoryAccess
 })
 bindVideoSearchResultActions(document, {
   selectResult: jumpToVideoFromSearch

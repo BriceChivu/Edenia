@@ -7,7 +7,7 @@ const source = await readFile(
   'utf8'
 )
 const day = source.match(
-  /<button type="button" class="heatmap-day[^>]*>/
+  /<button type="button" class="heatmap-day[^>]*data-history-heatmap-action="tooltip"[^>]*>/
 )?.[0] || ''
 
 function getAttribute(tag, name) {
