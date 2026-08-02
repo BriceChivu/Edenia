@@ -29,6 +29,11 @@ import {
   STUDY_HISTORY_ACCESS_STATES
 } from './domain/study-history-access.js'
 import {
+  getStudyInsightAccessDecision,
+  getStudyInsightArchiveAccess,
+  STUDY_INSIGHT_ACCESS_STATES
+} from './domain/study-insight-access.js'
+import {
   normalizePlusFeatureId,
   normalizePlusPlanId
 } from './domain/plus-offer.js'
@@ -316,6 +321,9 @@ import {
 import { bindUndoRedoActions } from './features/videos/undo-redo-actions.js'
 import { bindWatchedSectionActions } from './features/videos/watched-section-actions.js'
 import { bindStudyInsightActions } from './features/study-insights/actions.js'
+import {
+  bindStudyInsightLockedAccessActions
+} from './features/study-insights/locked-access-actions.js'
 import { bindActivityLogFilterActions } from './features/settings/activity-log-filter-actions.js'
 import { bindActivityLogPaginationActions } from './features/settings/activity-log-pagination-actions.js'
 import {
@@ -3926,6 +3934,7 @@ function updatePlusEntitlementState(entitlementState) {
     scheduleYoutubeAutoRefresh(state)
   } else if (state) {
     renderStudyHistoryPanel(state)
+    renderStudyInsight(state)
   }
   renderTrackedChannelAccess(state)
   showTrackedChannelDowngradeNotice(channelTransition)
@@ -10598,6 +10607,7 @@ function recordStudyInsight(state, insight, referenceDate = getCurrentAppDate(st
   normalizeStudyInsightConfig(state)
   const key = getStudyInsightHistoryKey(insight, state, referenceDate)
   if (!key) return ''
+  const recordedAt = getCurrentAppTimestamp(state)
   const historyEntry = {
     key,
     insightId: insight.id,
@@ -10621,11 +10631,15 @@ function recordStudyInsight(state, insight, referenceDate = getCurrentAppDate(st
     topVideoSeconds: insight.topVideoSeconds || 0,
     channelBreakdown: insight.channelBreakdown || [],
     observationDays: insight.observationDays || 0,
-    recordedAt: getCurrentAppTimestamp(state)
+    firstRecordedAt: recordedAt,
+    recordedAt
   }
   const existingIndex = state.config.studyInsights.history.findIndex(entry => entry.key === key)
   if (existingIndex >= 0) {
     if (!['weekly-summary', 'routine-reset', 'routine-return'].includes(insight.type)) return key
+    historyEntry.firstRecordedAt = state.config.studyInsights.history[existingIndex].firstRecordedAt
+      || state.config.studyInsights.history[existingIndex].recordedAt
+      || historyEntry.firstRecordedAt
     const { recordedAt: existingRecordedAt, ...existingContent } = state.config.studyInsights.history[existingIndex]
     const { recordedAt: nextRecordedAt, ...nextContent } = historyEntry
     if (JSON.stringify(existingContent) === JSON.stringify(nextContent)) return key
@@ -10961,6 +10975,73 @@ function renderPreviousStudyInsightItem(entry, state) {
   `
 }
 
+function requestStudyInsightAccess(accessState) {
+  if (accessState === STUDY_INSIGHT_ACCESS_STATES.LOADING) {
+    showToast(t('plus.insights.feedback.loading'), 'warn')
+    return false
+  }
+  if (accessState === STUDY_INSIGHT_ACCESS_STATES.UNAVAILABLE) {
+    showToast(t('plus.insights.feedback.unavailable'), 'warn')
+    return false
+  }
+  return openPlusUpgradeModal(PLUS_FEATURE_IDS.ALL_STUDY_INSIGHTS)
+}
+
+function getRestrictedStudyInsightView(accessState) {
+  if (accessState === STUDY_INSIGHT_ACCESS_STATES.LOADING) {
+    return {
+      bodyKey: 'plus.insights.current.loading.body',
+      titleKey: 'plus.insights.current.loading.title'
+    }
+  }
+  if (accessState === STUDY_INSIGHT_ACCESS_STATES.UNAVAILABLE) {
+    return {
+      bodyKey: 'plus.insights.current.unavailable.body',
+      titleKey: 'plus.insights.current.unavailable.title'
+    }
+  }
+  return {
+    actionKey: 'plus.insights.action',
+    bodyKey: 'plus.insights.current.locked.body',
+    titleKey: 'plus.insights.current.locked.title'
+  }
+}
+
+function renderRestrictedCurrentStudyInsight(accessState) {
+  const view = getRestrictedStudyInsightView(accessState)
+  const content = `
+    <span class="study-insight-lock-icon" aria-hidden="true">✦</span>
+    <strong>${escHtml(t(view.titleKey))}</strong>
+    <span>${escHtml(t(view.bodyKey))}</span>
+    ${view.actionKey ? `<span class="study-insight-lock-cta">${escHtml(t(view.actionKey))}</span>` : ''}
+  `
+  return view.actionKey
+    ? `<button type="button" class="study-insight-current-lock-card" data-insight-access-action="request" data-insight-access-state="${accessState}">${content}</button>`
+    : `<div class="study-insight-current-lock-card" role="status">${content}</div>`
+}
+
+function renderRestrictedStudyInsightArchive(count, accessState) {
+  const key = accessState === STUDY_INSIGHT_ACCESS_STATES.LOADING
+    ? 'plus.insights.archive.loading'
+    : accessState === STUDY_INSIGHT_ACCESS_STATES.UNAVAILABLE
+      ? 'plus.insights.archive.unavailable'
+      : count === 1
+        ? 'plus.insights.archive.locked.one'
+        : 'plus.insights.archive.locked.many'
+  const content = `
+    <span class="study-insight-history-lock-preview" aria-hidden="true">
+      <span></span><span></span><span></span>
+    </span>
+    <span class="study-insight-history-lock-copy">
+      <span class="study-insight-lock-icon" aria-hidden="true">✦</span>
+      <strong>${escHtml(t(key, { count }))}</strong>
+    </span>
+  `
+  return accessState === STUDY_INSIGHT_ACCESS_STATES.LOCKED
+    ? `<button type="button" class="study-insight-history-lock" data-insight-access-action="request" data-insight-access-state="${accessState}">${content}</button>`
+    : `<div class="study-insight-history-lock" role="status">${content}</div>`
+}
+
 function setStudyInsightView(view) {
   selectedStudyInsightView = view === 'previous' ? 'previous' : 'current'
   const state = loadState()
@@ -10977,6 +11058,7 @@ function renderStudyInsight(state) {
   const currentTab = document.getElementById('studyInsightCurrentTab')
   const previousTab = document.getElementById('studyInsightPreviousTab')
   const currentPanel = document.getElementById('studyInsightCurrentPanel')
+  const currentLock = document.getElementById('studyInsightCurrentLock')
   const historyPanel = document.getElementById('studyInsightHistoryPanel')
   const historyCount = document.getElementById('studyInsightHistoryCount')
   if (!container || !icon || !title || !body || !evidence) return
@@ -10989,8 +11071,27 @@ function renderStudyInsight(state) {
   const currentKey = insight && viewModel
     ? (collapsed && enabled ? getStudyInsightHistoryKey(insight, state) : recordStudyInsight(state, insight))
     : ''
-  const previousInsights = getPreviousStudyInsights(state, currentKey)
-  if (selectedStudyInsightView === 'previous' && !previousInsights.length) selectedStudyInsightView = 'current'
+  const archiveAccess = getStudyInsightArchiveAccess({
+    accessPolicy: plusAccessPolicy,
+    history: state.config.studyInsights.history
+  })
+  const currentAccess = currentKey
+    ? getStudyInsightAccessDecision({
+        accessPolicy: plusAccessPolicy,
+        history: state.config.studyInsights.history,
+        insightKey: currentKey
+      })
+    : STUDY_INSIGHT_ACCESS_STATES.AVAILABLE
+  const currentIsRestricted = currentAccess
+    !== STUDY_INSIGHT_ACCESS_STATES.AVAILABLE
+  const previousInsights = archiveAccess.accessibleEntries.filter(
+    entry => entry.key !== currentKey
+  )
+  const restrictedPreviousCount = archiveAccess.restrictedEntries.filter(
+    entry => entry.key !== currentKey
+  ).length
+  const allPreviousInsights = getPreviousStudyInsights(state, currentKey)
+  if (selectedStudyInsightView === 'previous' && !allPreviousInsights.length) selectedStudyInsightView = 'current'
   const showingHistory = selectedStudyInsightView === 'previous'
   container.classList.toggle('hidden', !viewModel || collapsed || !enabled)
   reopenButton?.classList.toggle('hidden', !viewModel || !collapsed || !enabled)
@@ -11001,14 +11102,25 @@ function renderStudyInsight(state) {
     title.textContent = ''
     body.textContent = ''
     evidence.textContent = ''
+    currentPanel?.classList.remove('is-insight-restricted')
+    currentLock?.classList.add('hidden')
+    if (currentLock) currentLock.replaceChildren()
     return
   }
 
-  container.dataset.insightId = insight.id
+  if (currentIsRestricted) container.removeAttribute('data-insight-id')
+  else container.dataset.insightId = insight.id
   container.classList.toggle('showing-history', showingHistory)
-  title.textContent = viewModel.title
-  body.textContent = viewModel.body
-  evidence.textContent = viewModel.evidence
+  title.textContent = currentIsRestricted ? '' : viewModel.title
+  body.textContent = currentIsRestricted ? '' : viewModel.body
+  evidence.textContent = currentIsRestricted ? '' : viewModel.evidence
+  currentPanel?.classList.toggle('is-insight-restricted', currentIsRestricted)
+  currentLock?.classList.toggle('hidden', !currentIsRestricted)
+  if (currentLock) {
+    currentLock.innerHTML = currentIsRestricted
+      ? renderRestrictedCurrentStudyInsight(currentAccess)
+      : ''
+  }
 
   currentTab?.classList.toggle('active', !showingHistory)
   currentTab?.setAttribute('aria-selected', String(!showingHistory))
@@ -11016,14 +11128,19 @@ function renderStudyInsight(state) {
   previousTab?.classList.toggle('active', showingHistory)
   previousTab?.setAttribute('aria-selected', String(showingHistory))
   previousTab?.setAttribute('tabindex', showingHistory ? '0' : '-1')
-  previousTab?.toggleAttribute('disabled', !previousInsights.length)
-  previousTab?.setAttribute('aria-label', t('insights.previous.aria', { count: previousInsights.length }))
+  previousTab?.toggleAttribute('disabled', !allPreviousInsights.length)
+  previousTab?.setAttribute('aria-label', t('insights.previous.aria', { count: allPreviousInsights.length }))
   currentPanel?.classList.toggle('hidden', showingHistory)
   historyPanel?.classList.toggle('hidden', !showingHistory)
-  if (historyCount) historyCount.textContent = String(previousInsights.length)
+  if (historyCount) historyCount.textContent = String(allPreviousInsights.length)
   if (historyPanel) {
-    historyPanel.innerHTML = previousInsights.length
-      ? previousInsights.map(entry => renderPreviousStudyInsightItem(entry, state)).join('')
+    historyPanel.innerHTML = allPreviousInsights.length
+      ? `${restrictedPreviousCount
+          ? renderRestrictedStudyInsightArchive(
+              restrictedPreviousCount,
+              archiveAccess.restrictedState
+            )
+          : ''}${previousInsights.map(entry => renderPreviousStudyInsightItem(entry, state)).join('')}`
       : `<span class="study-insight-history-empty">${escHtml(t('insights.previous.empty'))}</span>`
   }
 }
@@ -15265,6 +15382,9 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 bindStudyInsightActions(document, {
   setView: setStudyInsightView,
   setCollapsed: setStudyInsightsCollapsed
+})
+bindStudyInsightLockedAccessActions(document, {
+  requestAccess: requestStudyInsightAccess
 })
 bindSettingsAccordionActions(document, {
   toggleHowTo: toggleSettingsHowTo,
