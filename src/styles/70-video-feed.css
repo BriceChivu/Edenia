@@ -220,6 +220,10 @@ body[data-theme="dark"] .channel-filter-empty-highlight .channel-filter-btn::bef
   cursor: default;
   opacity: 0.6;
 }
+.manual-channel-suggestion.is-plus-restricted .manual-channel-suggestion-meta {
+  color: var(--accent);
+  font-weight: 750;
+}
 .manual-channel-suggestion-avatar {
   align-items: center;
   background: var(--border);

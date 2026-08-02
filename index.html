@@ -308,6 +308,7 @@ and momentum—at a glance</h2>
             <button class="btn-ghost" id="plusAccountSignOutBtn" type="button" data-plus-account-action="sign-out" data-i18n="settings.plusAccount.signOut">Sign out</button>
           </div>
         </div>
+        <p class="settings-note hidden" id="plusAccountChannelAccess" role="status" aria-live="polite"></p>
         <p class="settings-plus-account-feedback hidden" id="plusAccountFeedback" role="status" aria-live="polite"></p>
         <button class="btn-secondary settings-plus-explore" type="button" data-plus-account-action="explore" data-i18n="settings.plusAccount.explore">Explore Edenia Plus</button>
         <p class="settings-note" data-i18n="settings.plusAccount.localProgressNote">Signing in or out does not change progress saved in this browser.</p>
@@ -677,6 +678,7 @@ and momentum—at a glance</h2>
               </div>
               <form class="manual-video-form" data-manual-video-action="submit" data-analytics-action="addYoutubeInput">
                 <p class="manual-video-hint" data-i18n="videos.manual.hint">Search Edenia's channel catalog, or paste a YouTube video or channel URL.</p>
+                <p class="manual-video-hint hidden" id="manualVideoChannelAccess" role="status" aria-live="polite"></p>
                 <div class="manual-video-input-wrap">
                   <input type="text"
                     id="manualVideoUrlInput"

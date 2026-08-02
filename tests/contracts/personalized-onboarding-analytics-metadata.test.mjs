@@ -401,7 +401,7 @@ test('channel toggling retains guards, limit feedback, and live visual state', (
   )
   assert.match(
     source,
-    /if \(selectedIds\.size >= ONBOARDING_CHANNEL_SELECTION_LIMIT\) \{\s*showToast\(t\('onboarding\.channels\.limit', \{ count: ONBOARDING_CHANNEL_SELECTION_LIMIT \}\), 'warn'\)\s*return\s*\}/
+    /const selectionLimit = getOnboardingChannelSelectionLimit\(state\)[\s\S]*?if \(selectedIds\.size >= selectionLimit\) \{[\s\S]*?showTrackedChannelAddRestriction\([\s\S]*?showToast\(t\('onboarding\.channels\.limit', \{ count: ONBOARDING_CHANNEL_SELECTION_LIMIT \}\), 'warn'\)[\s\S]*?return\s*\}/
   )
   assert.match(
     source,

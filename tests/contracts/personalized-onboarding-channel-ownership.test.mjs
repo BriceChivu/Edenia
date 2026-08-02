@@ -204,7 +204,7 @@ test('channel ownership forwards only the live catalog ID', () => {
   assert.equal(stopPropagationCalls, 0)
 })
 
-test('first visit selects the first five recommendations in order', () => {
+test('first visit selects recommendations in order within the current allowance', () => {
   const start = appSource.indexOf(
     'function prepareOnboardingChannelSelections() {'
   )
@@ -222,7 +222,7 @@ test('first visit selects the first five recommendations in order', () => {
   )
   assert.match(
     source,
-    /personalizedOnboardingState\.selectedChannelCatalogIds = getRecommendedChannelCatalog\(\{[\s\S]*?\}\)\.slice\(0, ONBOARDING_CHANNEL_SELECTION_LIMIT\)\.map\(channel => channel\.id\)/
+    /personalizedOnboardingState\.selectedChannelCatalogIds = getRecommendedChannelCatalog\(\{[\s\S]*?\}\)\.slice\(0, getOnboardingChannelSelectionLimit\(\)\)\.map\(channel => channel\.id\)/
   )
   assert.match(
     appSource,
@@ -246,7 +246,7 @@ test('selection updates the live control while limit feedback returns early', ()
   assert.notEqual(end, -1)
   const source = appSource.slice(start, end)
   const limitIndex = source.indexOf(
-    'if (selectedIds.size >= ONBOARDING_CHANNEL_SELECTION_LIMIT)'
+    'if (selectedIds.size >= selectionLimit)'
   )
   const toastIndex = source.indexOf(
     "showToast(t('onboarding.channels.limit'",
