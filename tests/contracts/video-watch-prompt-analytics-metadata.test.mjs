@@ -76,7 +76,7 @@ test('generated watch-prompt controls retain exact markup and analytics identiti
       eventName: 'confirm_video_watch_prompt_clicked',
       content: "${escHtml(t('videoReminder.yes'))}",
       rewatch: '${String(rewatch)}',
-      playerPrompt: '${String(player)}',
+      playerPrompt: null,
       ariaPressed: null,
       ariaLabel: null,
       title: null
@@ -89,7 +89,7 @@ test('generated watch-prompt controls retain exact markup and analytics identiti
       eventName: 'dismiss_video_watch_prompt_clicked',
       content: "${escHtml(t('videoReminder.notYet'))}",
       rewatch: null,
-      playerPrompt: '${String(player)}',
+      playerPrompt: null,
       ariaPressed: null,
       ariaLabel: null,
       title: null
@@ -151,8 +151,8 @@ test('rewatch prompts continue to omit the Favorite action only', () => {
 test('watch-prompt handlers suppress bubbling before performing action work', () => {
   const expectedHandlerStarts = [
     /function favoriteVideoFromWatchPrompt\(event, videoId\) \{\s*event\?\.preventDefault\(\)\s*event\?\.stopPropagation\(\)\s*const state = loadState\(\)/,
-    /function confirmVideoWatchPrompt\(event, videoId, rewatch = false, playerPrompt = false\) \{\s*event\?\.preventDefault\(\)\s*event\?\.stopPropagation\(\)\s*const targetVideoId = String\(videoId \?\? ''\)/,
-    /function dismissVideoWatchPrompt\(event, videoId, playerPrompt = false\) \{\s*event\?\.preventDefault\(\)\s*event\?\.stopPropagation\(\)\s*const targetVideoId = String\(videoId \?\? ''\)/
+    /function confirmVideoWatchPrompt\(event, videoId, rewatch = false\) \{\s*event\?\.preventDefault\(\)\s*event\?\.stopPropagation\(\)\s*const targetVideoId = String\(videoId \?\? ''\)/,
+    /function dismissVideoWatchPrompt\(event, videoId\) \{\s*event\?\.preventDefault\(\)\s*event\?\.stopPropagation\(\)\s*const targetVideoId = String\(videoId \?\? ''\)/
   ]
 
   for (const pattern of expectedHandlerStarts) {

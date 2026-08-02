@@ -174,7 +174,7 @@
   .channel-shelf:has(.channel-shelf-card.is-previewing) {
     z-index: 21;
   }
-  .channel-shelf:has(.channel-shelf-card:is(.watch-reminder-target, .next-study-focus-target).is-floating-preview) {
+  .channel-shelf:has(.channel-shelf-card.next-study-focus-target.is-floating-preview) {
     z-index: 10002;
   }
   .channel-shelf-track {
@@ -363,7 +363,7 @@
     width: var(--shelf-preview-origin-width);
     z-index: 1000;
   }
-  .channel-shelf-card:is(.watch-reminder-target, .next-study-focus-target).is-floating-preview {
+  .channel-shelf-card.next-study-focus-target.is-floating-preview {
     z-index: 10001;
   }
   .channel-shelf-card.is-floating-preview.is-preview-armed {
@@ -375,7 +375,7 @@
       top 155ms var(--ease-emphasized),
       width 155ms var(--ease-emphasized);
   }
-  .channel-shelf-card.is-floating-preview.is-preview-armed:not(.is-preview-closing):not(.watch-reminder-target) {
+  .channel-shelf-card.is-floating-preview.is-preview-armed:not(.is-preview-closing):not(.next-study-focus-target) {
     z-index: 1002;
   }
   .channel-shelf-card.is-floating-preview.is-preview-closing {
@@ -389,7 +389,7 @@
       width 175ms var(--ease-standard);
     z-index: 1000;
   }
-  .channel-shelf-card:is(.watch-reminder-target, .next-study-focus-target).is-floating-preview.is-source-anchored {
+  .channel-shelf-card.next-study-focus-target.is-floating-preview.is-source-anchored {
     transition:
       border-color var(--motion-base) var(--ease-standard),
       box-shadow var(--motion-base) var(--ease-standard);
@@ -649,7 +649,7 @@ body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closi
   .onboarding-channel-avatar {
     transition: none;
   }
-  .video-card.watch-reminder-arriving {
+  .video-card.next-study-focus-arriving {
     animation: none;
   }
   .video-watch-reminder-popover {

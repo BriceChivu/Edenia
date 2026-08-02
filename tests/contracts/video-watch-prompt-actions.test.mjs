@@ -53,13 +53,9 @@ test('watch-prompt binding forwards exact events and live dataset arguments', ()
   })
   const confirm = createControl('confirm', {
     videoId: 'confirm-before',
-    rewatch: 'false',
-    playerPrompt: 'false'
+    rewatch: 'false'
   })
-  const dismiss = createControl('dismiss', {
-    videoId: 'dismiss-before',
-    playerPrompt: 'TRUE'
-  })
+  const dismiss = createControl('dismiss', { videoId: 'dismiss-before' })
   const { root } = createHarness([favorite, confirm, dismiss])
   const calls = []
 
@@ -68,7 +64,6 @@ test('watch-prompt binding forwards exact events and live dataset arguments', ()
   favorite.dataset.videoId = 'favorite-live'
   confirm.dataset.videoId = 'confirm-live'
   confirm.dataset.rewatch = 'true'
-  confirm.dataset.playerPrompt = 'true'
   dismiss.dataset.videoId = 'dismiss-live'
 
   const favoriteEvent = new Event('click', {
@@ -90,8 +85,8 @@ test('watch-prompt binding forwards exact events and live dataset arguments', ()
 
   assert.deepEqual(calls, [
     ['favorite', [favoriteEvent, 'favorite-live']],
-    ['confirm', [confirmEvent, 'confirm-live', true, true]],
-    ['dismiss', [dismissEvent, 'dismiss-live', false]]
+    ['confirm', [confirmEvent, 'confirm-live', true]],
+    ['dismiss', [dismissEvent, 'dismiss-live']]
   ])
   ;[favoriteEvent, confirmEvent, dismissEvent].forEach(event => {
     assert.equal(event.defaultPrevented, false)
@@ -102,13 +97,9 @@ test('watch-prompt binding forwards exact events and live dataset arguments', ()
 test('watch-prompt binding uses strict true-string boolean conversion', () => {
   const confirm = createControl('confirm', {
     videoId: 'confirm',
-    rewatch: 'TRUE',
-    playerPrompt: '1'
+    rewatch: 'TRUE'
   })
-  const dismiss = createControl('dismiss', {
-    videoId: 'dismiss',
-    playerPrompt: 'true'
-  })
+  const dismiss = createControl('dismiss', { videoId: 'dismiss' })
   const { root } = createHarness([confirm, dismiss])
   const calls = []
 
@@ -120,8 +111,8 @@ test('watch-prompt binding uses strict true-string boolean conversion', () => {
   dismiss.dispatchEvent(dismissEvent)
 
   assert.deepEqual(calls, [
-    ['confirm', [confirmEvent, 'confirm', false, false]],
-    ['dismiss', [dismissEvent, 'dismiss', true]]
+    ['confirm', [confirmEvent, 'confirm', false]],
+    ['dismiss', [dismissEvent, 'dismiss']]
   ])
 })
 
@@ -129,8 +120,7 @@ test('watch-prompt binding is idempotent and binds replacement controls', () => 
   const favorite = createControl('favorite', { videoId: 'favorite' })
   const originalConfirm = createControl('confirm', {
     videoId: 'original-confirm',
-    rewatch: 'false',
-    playerPrompt: 'false'
+    rewatch: 'false'
   })
   const harness = createHarness([favorite, originalConfirm])
   const calls = []
@@ -146,13 +136,9 @@ test('watch-prompt binding is idempotent and binds replacement controls', () => 
 
   const replacementConfirm = createControl('confirm', {
     videoId: 'replacement-confirm',
-    rewatch: 'true',
-    playerPrompt: 'false'
+    rewatch: 'true'
   })
-  const replacementDismiss = createControl('dismiss', {
-    videoId: 'replacement-dismiss',
-    playerPrompt: 'true'
-  })
+  const replacementDismiss = createControl('dismiss', { videoId: 'replacement-dismiss' })
   harness.replaceControls([favorite, replacementConfirm, replacementDismiss])
 
   assert.equal(bindVideoWatchPromptActions(harness.root, actions), 2)
@@ -165,9 +151,9 @@ test('watch-prompt binding is idempotent and binds replacement controls', () => 
 
   assert.deepEqual(calls, [
     ['favorite', [favoriteEvent, 'favorite']],
-    ['confirm', [originalConfirmEvent, 'original-confirm', false, false]],
-    ['confirm', [replacementConfirmEvent, 'replacement-confirm', true, false]],
-    ['dismiss', [replacementDismissEvent, 'replacement-dismiss', true]]
+    ['confirm', [originalConfirmEvent, 'original-confirm', false]],
+    ['confirm', [replacementConfirmEvent, 'replacement-confirm', true]],
+    ['dismiss', [replacementDismissEvent, 'replacement-dismiss']]
   ])
 })
 

@@ -67,7 +67,6 @@ export function createDefaultStateFactory({
       lastVideoMarkedWatchedAt: null,
       lastVideoOpenedAt: null,
       totalRewatchCount: 0,
-      videoWatchReminders: {},
       channelRefreshes: {},
       onboarding: {
         version: onboardingVersion,

@@ -53,14 +53,10 @@
     padding-inline: 6px;
     width: 32px;
   }
-  .video-watch-reminder-global {
-    bottom: 12px;
-    width: calc(100vw - 24px);
-  }
-  .video-watch-reminder-popover:is(.is-player, .is-global) {
+  .video-watch-reminder-popover.is-player {
     gap: 6px;
   }
-  .video-watch-reminder-popover:is(.is-player, .is-global) .video-watch-reminder-copy {
+  .video-watch-reminder-popover.is-player .video-watch-reminder-copy {
     gap: 5px;
   }
 
