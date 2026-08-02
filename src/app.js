@@ -8441,6 +8441,14 @@ function clearFocusedVideoPreview(videoId) {
   }
 }
 
+function releaseNextStudyFocusForShelfPreview(card, force = false) {
+  const focusedVideoId = String(activeNextStudyFocusVideoId ?? '')
+  const requestedVideoId = String(card?.dataset?.videoId ?? '')
+  if (force || !focusedVideoId || !requestedVideoId || requestedVideoId === focusedVideoId) return false
+  clearFocusedVideoPreview(focusedVideoId)
+  return true
+}
+
 function pushUndoAction(s, action) {
   normalizeUndoState(s)
   if (!action.createdAt) action.createdAt = new Date().toISOString()
@@ -13281,7 +13289,11 @@ function renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch = false) {
 
 function openVideoShelfPlayer(card, videoId) {
   if (!card?.classList.contains('is-previewing')) return false
-  closeVideoShelfPreview(card, true)
+  if (activeNextStudyFocusVideoId === String(videoId ?? '')) {
+    clearFocusedVideoPreview(videoId)
+  } else {
+    closeVideoShelfPreview(card, true)
+  }
   return openVideoPlayer(videoId)
 }
 
@@ -14152,13 +14164,12 @@ function openVideoShelfPreview(card, force = false, pointerEvent = null) {
     !card
     || !canUseVideoShelfPreview()
     || (activeVideoWatchReminderId && !force)
-    || (activeNextStudyFocusVideoId && !force)
     || (card.classList.contains('watch-reminder-target') && !force)
-    || (card.classList.contains('next-study-focus-target') && !force)
   ) return false
   clearVideoShelfPreviewLeave(card)
   if (activeChannelShelfDrag) return false
   if (!force && !isVideoShelfCardFullyVisible(card)) return false
+  releaseNextStudyFocusForShelfPreview(card, force)
   if (activeVideoShelfPreview && activeVideoShelfPreview !== card) {
     closeVideoShelfPreview(activeVideoShelfPreview, true)
   }
