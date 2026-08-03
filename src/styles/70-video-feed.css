@@ -1413,7 +1413,7 @@ body[data-theme="dark"] .watch-later-status { color: #9fe7fb; }
   box-shadow: 0 10px 30px rgba(5,5,5,0.28);
   color: var(--text);
   min-width: 260px;
-  padding: 8px;
+  padding: 0;
   position: fixed;
   z-index: 11000;
 }
@@ -1440,9 +1440,11 @@ body[data-theme="dark"] .watch-later-status { color: #9fe7fb; }
   width: 44px;
 }
 .video-actions-list {
+  border-radius: 12px;
   display: grid;
-  gap: 9px;
+  gap: 0;
   grid-auto-rows: 1fr;
+  overflow: hidden;
   position: relative;
 }
 .video-actions-list.has-divider::before {
@@ -1455,11 +1457,12 @@ body[data-theme="dark"] .watch-later-status { color: #9fe7fb; }
   right: 0;
   top: 50%;
   transform: translateY(-50%);
+  z-index: 1;
 }
 .video-actions-item {
   background: transparent;
   border: 0;
-  border-radius: 9px;
+  border-radius: 0;
   color: var(--text);
   cursor: pointer;
   font: inherit;

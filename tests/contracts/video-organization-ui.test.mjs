@@ -53,8 +53,14 @@ test('desktop action menus measure their anchor and close on viewport movement',
 test('menu options share one geometry while the list owns the divider', () => {
   assert.match(appSource, /list\.classList\.toggle\('has-divider', items\.length > 1\)/)
   assert.doesNotMatch(appSource, /class="video-actions-item \$\{item\.separated/)
-  assert.match(feedStyles, /\.video-actions-list[\s\S]*?grid-auto-rows: 1fr/)
-  assert.match(feedStyles, /\.video-actions-list\.has-divider::before/)
+  assert.match(feedStyles, /\.video-actions-popover \{[^}]*padding: 0/)
+  assert.match(phoneStyles, /\.video-actions-popover \{[^}]*padding: 0/)
+  assert.match(
+    feedStyles,
+    /\.video-actions-list \{[^}]*border-radius: 12px[^}]*gap: 0[^}]*grid-auto-rows: 1fr[^}]*overflow: hidden/
+  )
+  assert.match(feedStyles, /\.video-actions-list\.has-divider::before \{[^}]*z-index: 1/)
+  assert.match(feedStyles, /\.video-actions-item \{[^}]*border-radius: 0/)
   assert.doesNotMatch(feedStyles, /\.video-actions-item\.is-separated/)
 })
 

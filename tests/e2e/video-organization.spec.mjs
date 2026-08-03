@@ -179,6 +179,9 @@ test('More menu aligns to its card and keeps option geometry uniform', async ({ 
   await expect(popover).toBeVisible()
   await expect(trigger).toHaveAttribute('aria-expanded', 'true')
   await expect(items).toHaveCount(2)
+  await expect(items.first()).toHaveText(
+    isPhone ? 'Retirer d’En cours' : 'Remove from in progress'
+  )
   await expect(popover.locator('.video-actions-divider')).toHaveCount(0)
   await expect(popover.locator('.video-actions-list')).toHaveClass(/\bhas-divider\b/)
   const alignment = await page.evaluate(() => {
@@ -186,6 +189,9 @@ test('More menu aligns to its card and keeps option geometry uniform', async ({ 
       '#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]'
     ).getBoundingClientRect()
     const popoverRect = document.getElementById('videoActionsPopover').getBoundingClientRect()
+    const popoverStyle = getComputedStyle(document.getElementById('videoActionsPopover'))
+    const popoverInnerLeft = popoverRect.left + parseFloat(popoverStyle.borderLeftWidth)
+    const popoverInnerRight = popoverRect.right - parseFloat(popoverStyle.borderRightWidth)
     const menuItems = Array.from(document.querySelectorAll(
       '#videoActionsPopover [role="menuitem"]'
     ))
@@ -204,9 +210,18 @@ test('More menu aligns to its card and keeps option geometry uniform', async ({ 
         overflowY: item.scrollHeight - item.clientHeight
       }
     })
+    const horizontalGaps = menuItems.map(item => {
+      const rect = item.getBoundingClientRect()
+      return {
+        left: Math.abs(rect.left - popoverInnerLeft),
+        right: Math.abs(popoverInnerRight - rect.right)
+      }
+    })
     return {
       cardLeftDifference: Math.abs(cardRect.left - popoverRect.left),
       cardRightDifference: Math.abs(cardRect.right - popoverRect.right),
+      horizontalGaps,
+      popoverPadding: popoverStyle.padding,
       viewportRight: popoverRect.right <= window.innerWidth - 11,
       viewportLeft: popoverRect.left >= 11,
       itemMetrics
@@ -218,6 +233,11 @@ test('More menu aligns to its card and keeps option geometry uniform', async ({ 
   }
   expect(alignment.viewportLeft).toBe(true)
   expect(alignment.viewportRight).toBe(true)
+  expect(alignment.popoverPadding).toBe('0px')
+  for (const gap of alignment.horizontalGaps) {
+    expect(gap.left).toBeLessThanOrEqual(0.1)
+    expect(gap.right).toBeLessThanOrEqual(0.1)
+  }
   expect(alignment.itemMetrics[0]).toEqual(alignment.itemMetrics[1])
   expect(alignment.itemMetrics[0].overflowX).toBeLessThanOrEqual(0)
   expect(alignment.itemMetrics[0].overflowY).toBeLessThanOrEqual(0)
