@@ -8077,6 +8077,18 @@ function clearFocusedVideoPreview(videoId) {
   }
 }
 
+function shouldIgnoreVideoShelfHoverForPendingFocus(card, force = false, pointerEvent = null) {
+  const focusedVideoId = String(activeNextStudyFocusVideoId ?? '')
+  const requestedVideoId = String(card?.dataset?.videoId ?? '')
+  // A smooth shelf scroll can move another card beneath the pointer before the requested preview opens.
+  return !force
+    && pointerEvent?.type === 'mouseenter'
+    && Boolean(focusedVideoId)
+    && Boolean(requestedVideoId)
+    && requestedVideoId !== focusedVideoId
+    && !isActiveVideoShelfPreview(focusedVideoId)
+}
+
 function releaseNextStudyFocusForShelfPreview(card, force = false) {
   const focusedVideoId = String(activeNextStudyFocusVideoId ?? '')
   const requestedVideoId = String(card?.dataset?.videoId ?? '')
@@ -13798,6 +13810,7 @@ function openVideoShelfPreview(card, force = false, pointerEvent = null) {
   clearVideoShelfPreviewLeave(card)
   if (activeChannelShelfDrag) return false
   if (!force && !isVideoShelfCardFullyVisible(card)) return false
+  if (shouldIgnoreVideoShelfHoverForPendingFocus(card, force, pointerEvent)) return false
   releaseNextStudyFocusForShelfPreview(card, force)
   if (activeVideoShelfPreview && activeVideoShelfPreview !== card) {
     closeVideoShelfPreview(activeVideoShelfPreview, true)
