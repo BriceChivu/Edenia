@@ -15023,11 +15023,11 @@ function renderCard(v, compact = false, options = {}) {
   `
   const thumbnailLink = `<button type="button" class="thumb-link" data-video-id="${safeVideoId}" data-video-preview-action="thumbnail" data-analytics-action="handleVideoThumbnailClick" aria-label="${escHtml(v.title)}">${thumbnailContent}</button>`
   const shelfPriorityBadge = options.shelf && isPartial
-    ? `<span class="channel-shelf-priority-badge partial-priority-badge">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</span>`
+    ? `<span class="channel-shelf-priority-badge partial-priority-badge">${renderVideoActionIcon('partial')}${escHtml(t('videos.status.partial'))}</span>`
     : options.shelf && isWatchLater
     ? `<span class="channel-shelf-priority-badge watch-later-priority-badge">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</span>`
     : options.shelf && isFavorite
-    ? `<span class="channel-shelf-priority-badge favorite-priority-badge">${renderVideoActionIcon('favorite')}</span>`
+    ? `<span class="channel-shelf-priority-badge favorite-priority-badge">${renderVideoActionIcon('favorite')}${escHtml(t('videos.card.favorite'))}</span>`
     : ''
   const shelfPreviewAction = options.shelf
     ? 'data-video-preview-action="card"'
@@ -15040,7 +15040,7 @@ function renderCard(v, compact = false, options = {}) {
       ${thumbnailLink}
       ${shelfPriorityBadge}
       <div class="card-body">
-        ${isPartial ? `<div class="card-status partial-status">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</div>` : ''}
+        ${isPartial ? `<div class="card-status partial-status">${renderVideoActionIcon('partial')}${escHtml(t('videos.status.partial'))}</div>` : ''}
         ${isWatchLater && !isPartial ? `<div class="card-status watch-later-status">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>` : ''}
         <div class="card-copy">
           <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
