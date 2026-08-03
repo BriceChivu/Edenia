@@ -14748,7 +14748,7 @@ function renderCard(v, compact = false, options = {}) {
         data-video-state-action="clear-paused"
         data-analytics-action="clearVideoPausedState"
         aria-label="${escHtml(t('videos.card.clear'))}"
-        title="${escHtml(t('videos.card.clear'))}">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</button>`
+        title="${escHtml(t('videos.card.clear'))}">${renderVideoActionIcon('partial')}${escHtml(t('videos.status.partial'))}</button>`
     : options.shelf && isWatchLater
     ? `<button type="button"
         class="channel-shelf-priority-badge watch-later-priority-badge"
@@ -14764,7 +14764,7 @@ function renderCard(v, compact = false, options = {}) {
         data-video-state-action="remove-favorite"
         data-analytics-action="toggleVideoFavorite"
         aria-label="${escHtml(t('videos.card.removeFavorite'))}"
-        title="${escHtml(t('videos.card.removeFavorite'))}">${renderVideoActionIcon('favorite')}</button>`
+        title="${escHtml(t('videos.card.removeFavorite'))}">${renderVideoActionIcon('favorite')}${escHtml(t('videos.card.favorite'))}</button>`
     : ''
   const shelfPreviewAction = options.shelf
     ? 'data-video-preview-action="card"'
@@ -14777,7 +14777,7 @@ function renderCard(v, compact = false, options = {}) {
       ${thumbnailLink}
       ${shelfPriorityBadge}
       <div class="card-body">
-        ${isPartial ? `<div class="card-status partial-status">${renderVideoActionIcon('partial')}${escHtml(t('videos.card.resume'))}</div>` : ''}
+        ${isPartial ? `<div class="card-status partial-status">${renderVideoActionIcon('partial')}${escHtml(t('videos.status.partial'))}</div>` : ''}
         ${isWatchLater && !isPartial ? `<div class="card-status watch-later-status">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>` : ''}
         <div class="card-copy">
           <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
