@@ -6,6 +6,28 @@ export const ONBOARDING_CHOICE_LAYOUT_STATES = Object.freeze([
 ])
 
 export const ONBOARDING_CHOICE_SCROLL_LAYOUT = 'double-inline-scroll'
+const VISUAL_VIEWPORT_SCALE_TOLERANCE = 0.01
+
+export function shouldSyncOnboardingChoiceLayoutForViewportResize({
+  previousSize,
+  nextSize,
+  visualScale = 1
+}) {
+  // Pinch zoom changes the visual viewport without changing page layout.
+  if (
+    Number.isFinite(visualScale)
+    && Math.abs(visualScale - 1) > VISUAL_VIEWPORT_SCALE_TOLERANCE
+  ) {
+    return false
+  }
+
+  if (!previousSize || !nextSize) return true
+
+  return (
+    previousSize.width !== nextSize.width
+    || previousSize.height !== nextSize.height
+  )
+}
 
 export function selectOnboardingChoiceLayout({
   applyLayout,
