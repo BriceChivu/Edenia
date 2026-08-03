@@ -6,6 +6,7 @@ import {
   hasVideoResumePriority,
   hasWatchedConfirmationUnlock,
   isFavoriteVideo,
+  isVideoRemovedFromFeed,
   isVideoSetAside,
   isVideoWatchLater,
   normalizeResumeAtSeconds,
@@ -26,6 +27,9 @@ test('video status primitives preserve exact statuses and strict flags', () => {
   assert.equal(isVideoSetAside({ status: 'watched', setAside: true }), true)
   assert.equal(isVideoSetAside({ status: 'partial', setAside: true }), false)
   assert.equal(isVideoSetAside({ status: 'watched', setAside: 1 }), false)
+  assert.equal(isVideoRemovedFromFeed({ removedFromFeedAt: '2026-08-03T00:00:00.000Z' }), true)
+  assert.equal(isVideoRemovedFromFeed({ removedFromFeedAt: 'invalid' }), false)
+  assert.equal(isVideoRemovedFromFeed({ removedFromFeedAt: true }), false)
   assert.equal(isVideoWatchLater({ status: 'watch-later' }), true)
   assert.equal(isVideoWatchLater({ status: 'watched', watchLater: true }), true)
   assert.equal(isVideoWatchLater({ status: 'watched', watchLater: 1 }), false)

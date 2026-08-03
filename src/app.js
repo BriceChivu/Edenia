@@ -62,6 +62,7 @@ import {
   hasVideoResumePriority,
   hasWatchedConfirmationUnlock,
   isFavoriteVideo,
+  isVideoRemovedFromFeed,
   isVideoSetAside,
   isVideoWatchLater,
   normalizeResumeAtSeconds,
@@ -1004,7 +1005,7 @@ function normalizeLoadedState(state) {
   }
   if (normalizeAnkiDateKeys(state)) shouldSave = true
   if (normalizeVideoWatchProgressState(state)) shouldSave = true
-  if (normalizeVideoSetAsideState(state)) shouldSave = true
+  if (normalizeVideoOrganizationState(state)) shouldSave = true
   if (normalizeWatchedConfirmationState(state)) shouldSave = true
   if (removeLegacyVideoWatchReminderState(state)) shouldSave = true
   normalizeUndoState(state)
@@ -1023,7 +1024,7 @@ function normalizeStateBeforeSave(state) {
   normalizeActivityLogState(state)
   normalizeNoAnkiFrequentUserPromptState(state)
   normalizeVideoWatchProgressState(state)
-  normalizeVideoSetAsideState(state)
+  normalizeVideoOrganizationState(state)
   normalizeWatchedConfirmationState(state)
   removeLegacyVideoWatchReminderState(state)
   normalizeStudyInsightConfig(state)
@@ -1366,55 +1367,91 @@ function normalizeVideoWatchProgressState(state) {
   return changed
 }
 
-function normalizeVideoSetAsideState(state) {
+function normalizeVideoOrganizationState(state) {
   if (!state?.videos || typeof state.videos !== 'object') return false
   let changed = false
-  Object.values(state.videos).forEach(video => {
+  const removedChannelIds = new Set(state.config?.removedChannelIds || [])
+  const normalizeVideo = (video, { migrateIndividualHidden = false } = {}) => {
     if (!video || typeof video !== 'object') return
-    if (!isVideoSetAside(video)) {
-      for (const key of ['setAside', 'setAsideAt', 'setAsideResumeAtSeconds']) {
-        if (!Object.prototype.hasOwnProperty.call(video, key)) continue
-        delete video[key]
+    const wasSetAside = isVideoSetAside(video)
+    const wasIndividuallyHidden = migrateIndividualHidden
+      && video.hiddenFromGrid === true
+      && !removedChannelIds.has(video.channelId)
+      && !removedChannelIds.has(video.channelTitle)
+    if (wasSetAside || wasIndividuallyHidden) {
+      const removedAt = isVideoRemovedFromFeed(video)
+        ? video.removedFromFeedAt
+        : isValidTimestamp(video.setAsideAt)
+        ? video.setAsideAt
+        : isValidTimestamp(video.hiddenFromGridAt)
+        ? video.hiddenFromGridAt
+        : isValidTimestamp(video.watchedAt)
+        ? video.watchedAt
+        : new Date().toISOString()
+      if (video.removedFromFeedAt !== removedAt) {
+        video.removedFromFeedAt = removedAt
         changed = true
       }
-      return
-    }
-
-    const normalizedSetAsideAt = isValidTimestamp(video.setAsideAt)
-      ? video.setAsideAt
-      : isValidTimestamp(video.watchedAt)
-      ? video.watchedAt
-      : null
-    const normalizedResumeAt = normalizeResumeAtSeconds(video.setAsideResumeAtSeconds, video.duration)
-    if (video.setAsideAt !== normalizedSetAsideAt) {
-      video.setAsideAt = normalizedSetAsideAt
+      if (wasSetAside) {
+        const resumeAtSeconds = normalizeResumeAtSeconds(
+          video.setAsideResumeAtSeconds,
+          video.duration
+        )
+        const nextStatus = resumeAtSeconds === null ? 'unwatched' : 'partial'
+        if (video.status !== nextStatus) {
+          video.status = nextStatus
+          changed = true
+        }
+        if (video.watchedAt !== null) {
+          video.watchedAt = null
+          changed = true
+        }
+        if (video.resumeAtSeconds !== resumeAtSeconds) {
+          video.resumeAtSeconds = resumeAtSeconds
+          changed = true
+        }
+        const pausedAt = resumeAtSeconds === null ? null : removedAt
+        if (video.pausedAt !== pausedAt) {
+          video.pausedAt = pausedAt
+          changed = true
+        }
+        if (video.watchProgressTracked !== true) {
+          video.watchProgressTracked = true
+          changed = true
+        }
+      }
+      if (wasIndividuallyHidden) {
+        video.hiddenFromGrid = false
+        video.hiddenFromGridAt = null
+        changed = true
+      }
+    } else if (
+      Object.prototype.hasOwnProperty.call(video, 'removedFromFeedAt')
+      && !isVideoRemovedFromFeed(video)
+    ) {
+      delete video.removedFromFeedAt
       changed = true
     }
-    if (video.setAsideResumeAtSeconds !== normalizedResumeAt) {
-      video.setAsideResumeAtSeconds = normalizedResumeAt
+    for (const key of ['setAside', 'setAsideAt', 'setAsideResumeAtSeconds']) {
+      if (!Object.prototype.hasOwnProperty.call(video, key)) continue
+      delete video[key]
       changed = true
     }
-    if (video.favorite === true) {
-      video.favorite = false
-      changed = true
-    }
-    if (video.watchLater === true) {
-      video.watchLater = false
-      changed = true
-    }
-    if (video.resumeAtSeconds !== null && video.resumeAtSeconds !== undefined) {
-      video.resumeAtSeconds = null
-      changed = true
-    }
-    if (video.pausedAt !== null && video.pausedAt !== undefined) {
-      video.pausedAt = null
-      changed = true
-    }
-    if (video.watchProgressTracked !== true) {
-      video.watchProgressTracked = true
-      changed = true
-    }
-  })
+  }
+  Object.values(state.videos).forEach(video => normalizeVideo(video, {
+    migrateIndividualHidden: true
+  }))
+  for (const stack of [state.undoStack, state.redoStack]) {
+    if (!Array.isArray(stack)) continue
+    stack.forEach(action => {
+      normalizeVideo(action?.before?.video)
+      normalizeVideo(action?.after?.video)
+    })
+  }
+  if (state.config && Object.prototype.hasOwnProperty.call(state.config, 'setAsidePromptSeen')) {
+    delete state.config.setAsidePromptSeen
+    changed = true
+  }
   return changed
 }
 

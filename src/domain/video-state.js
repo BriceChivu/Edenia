@@ -18,6 +18,11 @@ export function isVideoSetAside(video) {
   return getVideoStatus(video) === 'watched' && video?.setAside === true
 }
 
+export function isVideoRemovedFromFeed(video) {
+  return typeof video?.removedFromFeedAt === 'string'
+    && isValidTimestamp(video.removedFromFeedAt)
+}
+
 export function hasWatchedConfirmationUnlock(video) {
   return isValidTimestamp(video?.watchedConfirmationUnlockedAt)
 }
