@@ -43,7 +43,10 @@ test('iframe ended state remains the sole completion trigger', () => {
   const end = appSource.indexOf('\nfunction completeVideoShelfPlayer(', start)
   const source = appSource.slice(start, end)
   assert.match(source, /if \(state === 0\)[\s\S]*?trackVideoPlaybackSessionEnded\(session, 'ended'\)[\s\S]*?completeVideoShelfPlayer\(session\)/)
-  assert.match(appSource, /function completeVideoShelfPlayer\(session\) \{\s*if \(activeVideoShelfPlayer !== session\) return\s*showVideoShelfCompletionPrompt\(session\)/)
+  assert.match(
+    appSource,
+    /function completeVideoShelfPlayer\(session\) \{\s*if \(\s*activeVideoShelfPlayer !== session\s*\|\| !isStudyVideoShelfPlayerSession\(session\)\s*\) return false\s*showVideoShelfCompletionPrompt\(session\)/
+  )
 })
 
 test('completion-prompt handlers own and validate player actions', () => {

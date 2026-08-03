@@ -913,7 +913,7 @@ body[data-theme="dark"] .video-card.status-watch-later { background: var(--surfa
   opacity: 1;
 }
 .removed-thumb {
-  cursor: default;
+  cursor: pointer;
 }
 .removed-video-restore {
   align-items: center;

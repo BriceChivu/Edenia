@@ -531,6 +531,8 @@ let nextStudyFocusZoomTimer = null
 let activeNextStudyFocusVideoId = null
 const VIDEO_SHELF_PLAYER_SAVE_INTERVAL_MS = 5000
 const VIDEO_SHELF_PLAYER_SEEK_TOLERANCE_SECONDS = 1.5
+const VIDEO_SHELF_PLAYER_MODE_STUDY = 'study'
+const VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW = 'removed-preview'
 let youtubeIframeApiPromise = null
 let activeVideoShelfPlayer = null
 let backgroundPhysics = null
@@ -12516,6 +12518,7 @@ function renderFeed(s) {
       : 'videos.removed.hide'))
   }
   removedGrid.innerHTML = removedVideos.map(renderRemovedVideoCard).join('')
+  bindRenderedVideoShelfPreviewActions(removedGrid)
 }
 
 function toggleWatchedSection() {
@@ -12983,6 +12986,15 @@ function handleVideoThumbnailClick(event, link) {
     return false
   }
 
+  if (link?.dataset?.videoPreviewAction === 'removed-thumbnail') {
+    if (!openVideoPlayer(videoId, {
+      mode: VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW
+    })) {
+      showToast(t('toast.videoGone'), 'warn')
+    }
+    return false
+  }
+
   if (card && canUseVideoShelfPreview() && !card.classList.contains('is-previewing')) {
     if (usesTapVideoShelfPreview()) {
       openVideoShelfPreview(card, true)
@@ -13087,21 +13099,33 @@ function openVideoShelfPlayer(card, videoId) {
   return openVideoPlayer(videoId)
 }
 
-function openVideoPlayer(videoId) {
+function isStudyVideoShelfPlayerSession(session) {
+  return session?.mode !== VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW
+}
+
+function openVideoPlayer(videoId, options = {}) {
   videoId = String(videoId ?? '')
   if (!videoId) return false
-  if (activeVideoShelfPlayer?.videoId === videoId) return true
+  const mode = options.mode === VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW
+    ? VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW
+    : VIDEO_SHELF_PLAYER_MODE_STUDY
+  if (
+    activeVideoShelfPlayer?.videoId === videoId
+    && activeVideoShelfPlayer.mode === mode
+  ) return true
   if (activeVideoShelfPlayer) stopActiveVideoShelfPlayer({ persist: true })
 
   const existingVideo = loadState()?.videos?.[videoId]
+  const isRemovedPreview = mode === VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW
+  if (isRemovedPreview && (!existingVideo || !isVideoRemovedFromFeed(existingVideo))) return false
   const wasWatched = getVideoStatus(existingVideo) === 'watched'
-  if (!wasWatched && !markVideoInProgressOnOpen(videoId, {
+  if (!isRemovedPreview && !wasWatched && !markVideoInProgressOnOpen(videoId, {
     render: false,
     reminder: false,
     surface: 'channel_shelf',
     playerMode: 'embedded'
   })) return false
-  if (wasWatched && isFavoriteVideo(existingVideo)) {
+  if (!isRemovedPreview && wasWatched && isFavoriteVideo(existingVideo)) {
     markVideoInProgressOnOpen(videoId, {
       render: false,
       reminder: false,
@@ -13111,8 +13135,16 @@ function openVideoPlayer(videoId) {
   }
 
   const video = loadState()?.videos?.[videoId]
-  const isRewatch = Boolean(video && getVideoStatus(video) === 'watched' && isFavoriteVideo(video))
-  if (!video || (getVideoStatus(video) !== 'partial' && !wasWatched)) return false
+  const isRewatch = Boolean(
+    !isRemovedPreview
+    && video
+    && getVideoStatus(video) === 'watched'
+    && isFavoriteVideo(video)
+  )
+  if (
+    !video
+    || (!isRemovedPreview && getVideoStatus(video) !== 'partial' && !wasWatched)
+  ) return false
 
   const startSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
   const playerElements = renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch)
@@ -13120,6 +13152,8 @@ function openVideoPlayer(videoId) {
 
   const session = {
     videoId,
+    mode,
+    analyticsSurface: isRemovedPreview ? 'removed_section' : 'channel_shelf',
     overlay: playerElements.overlay,
     frame: playerElements.frame,
     iframe: playerElements.iframe,
@@ -13130,14 +13164,20 @@ function openVideoPlayer(videoId) {
     lastPersistedSeconds: startSeconds,
     lastPersistedAt: Date.now(),
     progressEntryAt: null,
-    progressSeconds: getVideoWatchCoverageSeconds(video.watchCycleCoverage, video.duration),
-    watchCycleCoverage: normalizeVideoWatchCoverage(video.watchCycleCoverage, video.duration),
+    progressSeconds: isRemovedPreview
+      ? 0
+      : getVideoWatchCoverageSeconds(video.watchCycleCoverage, video.duration),
+    watchCycleCoverage: isRemovedPreview
+      ? []
+      : normalizeVideoWatchCoverage(video.watchCycleCoverage, video.duration),
     lastPlaybackSampleSeconds: startSeconds,
     lastPlaybackSampleAt: Date.now(),
     playedSecondsTotal: 0,
     lastReportedPlayedSeconds: 0,
     lastReportedSeconds: startSeconds,
-    lastReportedProgressSeconds: getVideoWatchCoverageSeconds(video.watchCycleCoverage, video.duration),
+    lastReportedProgressSeconds: isRemovedPreview
+      ? 0
+      : getVideoWatchCoverageSeconds(video.watchCycleCoverage, video.duration),
     lastOutcomeReason: null,
     isRewatch,
     completionPromptVisible: false,
@@ -13145,6 +13185,14 @@ function openVideoPlayer(videoId) {
     destroyed: false
   }
   activeVideoShelfPlayer = session
+  if (isRemovedPreview) {
+    trackEdeniaEvent('removed_video_preview_opened', getVideoAnalyticsProperties(video, {
+      surface: session.analyticsSurface,
+      player_mode: 'embedded',
+      study_credit_eligible: false,
+      resume_at_seconds: startSeconds
+    }))
+  }
   positionVideoShelfPlayerOverlay(session)
   hydrateVideoShelfPlayerAspectRatio(session)
 
@@ -13203,7 +13251,7 @@ async function hydrateVideoShelfPlayerAspectRatio(session) {
 
     const state = loadState()
     const video = state?.videos?.[session.videoId]
-    if (!video) return
+    if (!video || !isStudyVideoShelfPlayerSession(session)) return
     video.aspectRatio = aspectRatio
     saveState(state, {
       backup: false,
@@ -13283,6 +13331,7 @@ function trackVideoShelfWatchCoverage(session, seconds, options = {}) {
   )
   if (playedSeconds <= 0 || playedSeconds > maxContinuousSeconds) return false
   session.playedSecondsTotal = Math.max(0, Number(session.playedSecondsTotal) || 0) + playedSeconds
+  if (!isStudyVideoShelfPlayerSession(session)) return true
 
   const nextCoverage = addVideoWatchCoverageRange(
     session.watchCycleCoverage,
@@ -13325,6 +13374,7 @@ function syncActiveVideoShelfPlayer(options = {}) {
     captureStoppedPlayback: options.captureStoppedPlayback === true
   })
   updateVideoShelfPlayerTimestamp(session, currentSeconds)
+  if (!isStudyVideoShelfPlayerSession(session)) return true
   if (!persist) return true
 
   const state = loadState()
@@ -13389,7 +13439,12 @@ function dismissVideoShelfCompletionPrompt(session = activeVideoShelfPlayer) {
 }
 
 function showVideoShelfCompletionPrompt(session = activeVideoShelfPlayer) {
-  if (!session || activeVideoShelfPlayer !== session || session.destroyed) return false
+  if (
+    !session
+    || activeVideoShelfPlayer !== session
+    || session.destroyed
+    || !isStudyVideoShelfPlayerSession(session)
+  ) return false
   if (document.hidden) {
     session.completionPromptPending = true
     updateDocumentTitle()
@@ -13446,8 +13501,9 @@ function trackVideoPlaybackSessionEnded(session, exitReason) {
 
   const durationSeconds = Math.max(0, Math.floor(Number(video.duration) || 0))
   trackEdeniaEvent('video_playback_session_ended', getVideoAnalyticsProperties(video, {
-    surface: 'channel_shelf',
+    surface: session.analyticsSurface || 'channel_shelf',
     player_mode: 'embedded',
+    study_credit_eligible: isStudyVideoShelfPlayerSession(session),
     started_at_seconds: previousEndedAtSeconds,
     ended_at_seconds: endedAtSeconds,
     seconds_watched: Math.max(0, Math.round(playedSecondsTotal - previousPlayedSeconds)),
@@ -13495,8 +13551,12 @@ function handleVideoShelfPlayerStateChange(session, state) {
 }
 
 function completeVideoShelfPlayer(session) {
-  if (activeVideoShelfPlayer !== session) return
+  if (
+    activeVideoShelfPlayer !== session
+    || !isStudyVideoShelfPlayerSession(session)
+  ) return false
   showVideoShelfCompletionPrompt(session)
+  return true
 }
 
 function completeVideoShelfPlayerRewatchConfirmation(session) {
@@ -13541,6 +13601,7 @@ function stopActiveVideoShelfPlayer(options = {}) {
 function closeVideoShelfPlayer() {
   const stoppedPlayer = stopActiveVideoShelfPlayer({ persist: true, exitReason: 'closed' })
   if (!stoppedPlayer) return
+  if (!isStudyVideoShelfPlayerSession(stoppedPlayer)) return
   const state = loadState()
   if (state) renderAll(state)
 }
@@ -14969,10 +15030,14 @@ function renderRemovedVideoCard(video) {
   )
   return `
     <div class="video-card compact-card removed-card" data-video-id="${safeVideoId}">
-      <div class="thumb-link removed-thumb" aria-hidden="true">
+      <button type="button" class="thumb-link removed-thumb"
+        data-video-id="${safeVideoId}"
+        data-video-preview-action="removed-thumbnail"
+        data-analytics-action="previewRemovedVideo"
+        aria-label="${escHtml(video.title)}">
         <img src="${escHtml(thumbnailUrl)}" alt="" class="thumb" loading="lazy">
         <span class="dur-badge">${formatDuration(video.duration)}</span>
-      </div>
+      </button>
       <div class="card-body">
         <div class="card-copy">
           <div class="card-title" title="${escHtml(video.title)}">${escHtml(video.title)}</div>
