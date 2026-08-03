@@ -236,10 +236,12 @@
   }
   .partial-priority-badge {
     background: var(--shelf-resume-bg);
+    border-color: transparent;
     color: var(--shelf-resume-text);
   }
   .watch-later-priority-badge {
     background: rgba(18,188,234,0.92);
+    border-color: transparent;
     color: #052a36;
   }
   .favorite-priority-badge {
