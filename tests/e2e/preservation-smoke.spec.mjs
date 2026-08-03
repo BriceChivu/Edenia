@@ -5084,6 +5084,106 @@ test('Study History watched-video listeners preserve navigation branches', async
   expect(removedBridgeAction).toBe(false)
 })
 
+test('desktop Study History partial navigation survives stationary-pointer hover changes', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    const channelId = 'history-pointer-navigation-channel'
+    const channelTitle = 'Protected pointer navigation channel'
+    state.config.channels = [{
+      id: channelId,
+      name: channelTitle
+    }]
+    state.config.channelShelfOrder = [channelId]
+    state.videos['history-pointer-navigation-target'] = {
+      id: 'history-pointer-navigation-target',
+      title: 'Protected pointer navigation target',
+      channelId,
+      channelTitle,
+      duration: 720,
+      publishedAt: '2026-07-27T04:00:00.000Z',
+      watchedAt: null,
+      pausedAt: '2026-07-28T07:00:00.000Z',
+      resumeAtSeconds: 180,
+      status: 'partial',
+      thumbnail: '',
+      watchProgress: [{
+        watchedAt: '2026-07-28T02:00:00.000Z',
+        seconds: 180
+      }],
+      watchProgressTracked: true
+    }
+    for (let index = 1; index <= 4; index += 1) {
+      const videoId = `history-pointer-navigation-sibling-${index}`
+      const watchedHour = String(7 - index).padStart(2, '0')
+      state.videos[videoId] = {
+        id: videoId,
+        title: `Protected pointer navigation sibling ${index}`,
+        channelId,
+        channelTitle,
+        duration: 600,
+        publishedAt: `2026-07-${27 - index}T04:00:00.000Z`,
+        watchedAt: null,
+        pausedAt: `2026-07-28T${watchedHour}:00:00.000Z`,
+        resumeAtSeconds: 120,
+        status: 'partial',
+        thumbnail: '',
+        watchProgress: [{
+          watchedAt: `2026-07-28T${watchedHour}:00:00.000Z`,
+          seconds: 120
+        }],
+        watchProgressTracked: true
+      }
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+  })
+  await page.reload()
+  await waitForApplication(page)
+
+  const cell = page.locator(
+    '[data-history-watched-popover-action="toggle"]'
+  ).first()
+  await cell.hover()
+  const targetItem = cell.locator(
+    '[data-history-watched-video-action="jump"]'
+      + '[data-video-id="history-pointer-navigation-target"]'
+  )
+  await expect(targetItem).toHaveCount(1)
+  const targetItemBox = await targetItem.boundingBox()
+  expect(targetItemBox).not.toBe(null)
+  await targetItem.click()
+
+  const pointerPosition = {
+    x: targetItemBox.x + (targetItemBox.width / 2),
+    y: targetItemBox.y + (targetItemBox.height / 2)
+  }
+  await expect.poll(() => page.evaluate(({ x, y }) => (
+    document.elementFromPoint(x, y)
+      ?.closest?.('.channel-shelf-card')
+      ?.dataset.videoId || ''
+  ), pointerPosition)).toMatch(/^history-pointer-navigation-sibling-/)
+  await page.mouse.move(pointerPosition.x + 1, pointerPosition.y)
+
+  const targetCard = page.locator(
+    '.channel-shelf-card'
+      + '[data-video-id="history-pointer-navigation-target"]'
+  )
+  await expect(targetCard).toHaveClass(/\bis-previewing\b/)
+  await expect(page.locator('.channel-shelf-card.is-previewing')).toHaveCount(1)
+
+  const siblingCard = page.locator(
+    '.channel-shelf-card'
+      + '[data-video-id="history-pointer-navigation-sibling-3"]'
+  )
+  await siblingCard.hover()
+  await expect(siblingCard).toHaveClass(/\bis-previewing\b/)
+  await expect(targetCard).not.toHaveClass(/\bis-previewing\b/)
+})
+
 test('Study History points popover listeners preserve fine and coarse interactions', async ({
   page
 }, testInfo) => {
