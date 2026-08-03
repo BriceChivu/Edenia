@@ -120,21 +120,24 @@
 }
 .level-up-button {
   align-items: center;
-  background: transparent;
-  border: 2px solid transparent;
+  background: var(--surface);
+  border: 2px solid var(--planet-black);
   border-radius: 999px;
-  box-shadow: none;
-  color: #466915;
+  box-shadow: 0 3px 0 rgba(5,5,5,0.18);
+  color: var(--text);
   cursor: pointer;
   display: none;
-  font-size: 0.72rem;
+  flex: 0 0 auto;
+  font-size: 0.9rem;
   font-weight: 800;
   line-height: 1;
+  min-height: var(--compact-control-height);
   overflow: hidden;
-  padding: 3px 9px;
+  padding: 7px 16px;
   position: relative;
   text-align: center;
   transform: translateY(0);
+  white-space: nowrap;
   will-change: transform;
   z-index: 1;
 }
@@ -165,9 +168,9 @@
   animation-play-state: paused;
 }
 @keyframes levelUpFloat {
-  0%, 100% { transform: translateY(0); }
+  0%, 100% { transform: scale(1); }
   50% {
-    transform: translateY(-5px);
+    transform: scale(1.04);
   }
 }
 @keyframes levelUpShine {
@@ -477,21 +480,16 @@
   opacity: 1;
   pointer-events: auto;
 }
+.city-level-progress.is-level-ready .city-level-progress-actions {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
 .city-level-progress.is-level-ready .city-next {
   display: none;
 }
-.city-level-progress.is-level-ready .city-level-progress-actions::before {
-  background: var(--surface);
-  border-left: 2px solid var(--planet-black);
-  border-top: 2px solid var(--planet-black);
-  content: "";
-  height: var(--callout-arrow-size);
-  left: 50%;
-  position: absolute;
-  top: -8px;
-  transform: translateX(-50%) rotate(45deg);
-  width: var(--callout-arrow-size);
-  z-index: -1;
+.city-level-progress.is-level-ready .city-level-progress-rail {
+  height: calc(var(--compact-control-height) + 4px);
 }
 .city-pts {
   background: var(--surface);

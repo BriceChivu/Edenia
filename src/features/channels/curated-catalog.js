@@ -186,33 +186,6 @@ const BASE_CURATED_CHANNEL_CATALOG = [
     style: 'Native entertainment'
   },
   {
-    id: 'japanese-comprehensible',
-    language: 'japanese',
-    input: '@nihongo-no-jikan',
-    name: 'Comprehensible Japanese',
-    levels: ['starting', 'beginner', 'intermediate'],
-    style: 'Comprehensible input',
-    description: 'Illustrated Japanese stories designed to be understood in context.'
-  },
-  {
-    id: 'japanese-ammo',
-    language: 'japanese',
-    input: '@JapaneseAmmowithMisa',
-    name: 'Japanese Ammo with Misa',
-    levels: ['beginner', 'intermediate', 'advanced'],
-    style: 'Detailed lessons',
-    description: 'Grammar, nuance, and natural Japanese explained in depth.'
-  },
-  {
-    id: 'japanese-zero',
-    language: 'japanese',
-    input: '@JapaneseFromZero',
-    name: 'Japanese From Zero!',
-    levels: ['starting', 'beginner'],
-    style: 'Structured lessons',
-    description: 'Friendly, step-by-step Japanese lessons for new learners.'
-  },
-  {
     id: 'korean-comprehensible',
     language: 'korean',
     input: '@ComprehensibleInputKorean',
@@ -268,9 +241,6 @@ const BASE_CURATED_CHANNEL_CATALOG = [
   },
 ]
 const CURATED_CHANNEL_LEVEL_OVERRIDES = {
-  'japanese-comprehensible': ['starting'],
-  'japanese-zero': ['starting'],
-  'japanese-ammo': ['beginner'],
   'korean-comprehensible': ['starting'],
   'korean-ttmik': ['starting'],
   'spanish-dreaming': ['starting'],
@@ -279,17 +249,30 @@ const CURATED_CHANNEL_LEVEL_OVERRIDES = {
   'german-easy': ['beginner']
 }
 const EXPANDED_CURATED_CHANNEL_DATA = [
-  ['japanese-pod101', 'japanese', '@JapanesePod101', 'JapanesePod101', 'beginner', 'Structured lessons'],
-  ['japanese-miku', 'japanese', '@mikurealjapanese', 'Miku Real Japanese', 'beginner', 'Clear explanations'],
-  ['japanese-onomappu', 'japanese', '@Onomappu', 'Onomappu', 'intermediate', 'Casual conversations'],
-  ['japanese-sambon', 'japanese', '@SambonJuku', 'Sambon Juku', 'intermediate', 'Detailed lessons'],
-  ['japanese-yuyu', 'japanese', '@YUYUNihongo', 'YUYUの日本語Podcast', 'intermediate', 'Podcast'],
-  ['japanese-shun', 'japanese', '@JapanesewithShun', 'Japanese with Shun', 'intermediate', 'Podcast'],
-  ['japanese-quizknock', 'japanese', '@QuizKnock', 'QuizKnock', 'advanced', 'Native entertainment'],
-  ['japanese-kevin', 'japanese', '@kevinsenglishroom', "Kevin's English Room", 'advanced', 'Native entertainment'],
-  ['japanese-pdr', 'japanese', '@PDRsan', 'PDRさん', 'advanced', 'Native entertainment'],
-  ['japanese-nakata', 'japanese', '@NKTofficial', '中田敦彦のYouTube大学', 'advanced', 'Clear explanations'],
-  ['japanese-bilingirl', 'japanese', '@Fischers', "Fischer's", 'advanced', 'Native entertainment'],
+  ['japanese-pod101', 'japanese', '@JapanesePod101', 'Learn Japanese with JapanesePod101.com', 'starting', 'Structured lessons'],
+  ['japanese-kanako-journey', 'japanese', '@KanakosJapaneseJourney', 'Kanako’s Japanese Journey! | かなこ', 'starting', 'Clear explanations'],
+  ['japanese-mochi-real', 'japanese', '@mochirealjapanese3430', 'Mochi Real Japanese', 'starting', 'Comprehensible input'],
+  ['japanese-learn-japanese-channel', 'japanese', '@LearnJapaneseChannel', 'Learn Japanese Channel', 'starting', 'Structured lessons'],
+  ['japanese-yuta', 'japanese', '@ThatJapaneseManYuta', 'That Japanese Man Yuta', 'starting', 'Clear explanations'],
+  ['japanese-sushi-room', 'japanese', '@sushiroomjapaneselesson689', 'SUSHI ROOM（Japanese Lesson）', 'starting', 'Structured lessons'],
+  ['japanese-beginners-channel', 'japanese', '@JapaneseBeginnersChannel', 'Learn Japanese for beginners 【 あいう 】', 'beginner', 'Structured lessons'],
+  ['japanese-japarrot', 'japanese', '@Japarrot_LetsLearnJP', "Japarrot!- Let's Learn Japanese", 'beginner', 'Comprehensible input'],
+  ['japanese-shun', 'japanese', '@JapanesewithShun', 'Japanese with Shun', 'beginner', 'Podcast'],
+  ['japanese-bonbon', 'japanese', '@bonbonsJapaneseLesson', "BonBon's Japanese Lesson", 'beginner', 'Clear explanations'],
+  ['japanese-chibi', 'japanese', '@ChibiJapanese-z7r', 'Chibi Japanese', 'beginner', 'Comprehensible input'],
+  ['japanese-ayano', 'japanese', '@am_japanese_vocab_beginners', '彩乃老師 / 日語入門單字與片語', 'beginner', 'Structured lessons'],
+  ['japanese-taka-dojo', 'japanese', '@takanihongodojo', 'Taka Nihongo Dojo', 'intermediate', 'Clear explanations'],
+  ['japanese-super-immersion', 'japanese', '@JSI55', 'Japanese super immersion', 'intermediate', 'Comprehensible input'],
+  ['japanese-tanaka', 'japanese', '@japanese_tanakasan', 'Learn Japanese with Tanaka san', 'intermediate', 'Comprehensible input'],
+  ['japanese-joy', 'japanese', '@JoyofJapanese', 'Ren – Joy of Japanese', 'intermediate', 'Comprehensible input'],
+  ['japanese-speak-naturally', 'japanese', '@SpeakJapaneseNaturally', 'Speak Japanese Naturally', 'intermediate', 'Clear explanations'],
+  ['japanese-chienowa', 'japanese', '@chienowajapanese1101', 'Chienowa Japanese', 'intermediate', 'Comprehensible input'],
+  ['japanese-kevin', 'japanese', '@KevinsEnglishRoom', "Kevin's English Room / 掛山ケビ志郎", 'advanced', 'Native entertainment'],
+  ['japanese-jiro', 'japanese', '@JiroJapanese', 'Jiro, just Japanese', 'advanced', 'Native entertainment'],
+  ['japanese-atashinchi', 'japanese', '@Atashinchi', '【アニメ】あたしンち公式チャンネル', 'advanced', 'Native entertainment'],
+  ['japanese-kohei', 'japanese', '@japanesewithKohei', 'ジャパラボ JapaneseLab Kohei', 'advanced', 'Casual conversations'],
+  ['japanese-tbs-news-dig', 'japanese', '@tbsnewsdig', 'TBS NEWS DIG Powered by JNN', 'advanced', 'News and commentary'],
+  ['japanese-tokai-on-air', 'japanese', '@TokaiOnAir', '東海オンエア', 'advanced', 'Native entertainment'],
 
   ['korean-gobilly', 'korean', '@GoBillyKorean', 'Learn Korean with GO! Billy Korean', 'beginner', 'Structured lessons'],
   ['korean-unnie', 'korean', '@KoreanUnnie', 'Korean Unnie', 'beginner', 'Clear explanations'],
