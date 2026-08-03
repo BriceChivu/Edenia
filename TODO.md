@@ -6,7 +6,10 @@ Minor changes:
 - add more supported languages
 - add more suggested languages to learn
 - onboarding languages recommended channels: dreaming spanish, linguriosa
+- japanese: taka nihongo dojo (intermediate), Kevin's English Room (advanced), Dajiro (advanced), Speak Japanese Naturally (intermediate), @JSI55 (beginner-intermediate)
 - do not have more than 2 motivational insights in a row. Give more real analytics and data backed insights.
+- Koko: Resume button confusing, set aside button confusing naming (archive?), shorts and videos mixed together is not nice (or to cleanly separate them?) 
+- Brice: i think users just need to be able to "hide" or "remove" a video card. Whether they've started watching it or not shouldn't matter to them. So instead of the "Set aside" button, we could have an "eye" that basically removed the video from the feed. If the video was starting previously, the card goes to the watched section. If not, it gets removed. In the watched section, the favorite heart should be replace by the eye so that a video card can be put back to the feed.
 
 BUGS:
 - on mobiles (and maybe tablets? Can't tell, I don't own one), scrolling the waveform of the town is not the correct intended behavior. I believe it was good before the migration. 
