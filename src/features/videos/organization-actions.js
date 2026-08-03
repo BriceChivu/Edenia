@@ -7,6 +7,7 @@ export function bindVideoOrganizationActions(root, actions) {
   }
   const required = [
     'openMenu',
+    'closeMenu',
     'removeFromContinueWatching',
     'removeFromFeed',
     'restoreToFeed',
@@ -25,6 +26,7 @@ export function bindVideoOrganizationActions(root, actions) {
     const videoId = control.dataset.videoId
     const actionName = control.dataset.videoOrganizationAction
     if (actionName === 'menu') actions.openMenu(event, videoId, control)
+    else if (actionName === 'close') actions.closeMenu(true)
     else if (actionName === 'remove-continue') actions.removeFromContinueWatching(videoId)
     else if (actionName === 'remove-feed') actions.removeFromFeed(videoId)
     else if (actionName === 'restore-feed') actions.restoreToFeed(videoId)

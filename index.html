@@ -869,6 +869,14 @@ and momentum—at a glance</h2>
     </section>
   </div>
 
+  <div class="video-actions-popover hidden" id="videoActionsPopover" role="dialog" aria-modal="false" aria-labelledby="videoActionsTitle" aria-hidden="true">
+    <div class="video-actions-header">
+      <strong id="videoActionsTitle" data-i18n="videos.actions.title">Video actions</strong>
+      <button type="button" class="video-actions-close" data-video-organization-action="close" data-analytics-action="closeVideoActions" aria-label="Close video actions" data-i18n-aria-label="videos.actions.close">×</button>
+    </div>
+    <div class="video-actions-list" id="videoActionsList" role="menu"></div>
+  </div>
+
   <!-- Toast -->
   <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
   <div class="toast feedback-confirmation hidden" id="feedbackConfirmation" role="dialog" aria-labelledby="feedbackConfirmationMessage">

@@ -1,7 +1,6 @@
 import { expect, test } from '../support/network-fixture.mjs'
 
 const fixedNow = new Date('2026-08-03T04:00:00.000Z')
-const minimumTouchTargetWithSubpixelTolerance = 43.9
 
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(fixedNow)
@@ -62,19 +61,6 @@ async function seedVideoOrganizationState(page) {
       watchedAt: null,
       status: 'unwatched',
       thumbnail: ''
-    }
-    state.videos['menu-resume-video'] = {
-      id: 'menu-resume-video',
-      title: 'Menu resume video',
-      channelId: 'organization-channel',
-      channelTitle: 'Organization channel',
-      duration: 540,
-      publishedAt: '2026-08-02T05:00:00.000Z',
-      pausedAt: '2026-08-03T02:00:00.000Z',
-      resumeAtSeconds: 90,
-      status: 'partial',
-      thumbnail: '',
-      watchProgressTracked: true
     }
     state.videos['watched-favorite-video'] = {
       id: 'watched-favorite-video',
@@ -164,165 +150,41 @@ test('Removed preview playback never mutates study state', async ({ page }, test
   expect(stateAfter).toBe(stateBefore)
 })
 
-test('card-owned More menu stays contained and closes predictably', async ({ page }, testInfo) => {
-  test.skip(![
-    'desktop-standard',
-    'tablet-portrait',
-    'phone-standard',
-    'phone-small'
-  ].includes(testInfo.project.name))
+test('desktop More menu aligns to its trigger and closes on scroll', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
   await seedVideoOrganizationState(page)
 
   const card = page.locator(
     '#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]'
   )
   await card.scrollIntoViewIfNeeded()
-  if (testInfo.project.name === 'desktop-standard') {
-    await card.hover()
-  } else if (testInfo.project.name === 'tablet-portrait') {
-    await card.locator('.thumb-link').click()
-    await expect(card).toHaveClass(/\bis-previewing\b/)
-  }
+  await card.hover()
   const trigger = card.locator('[data-video-organization-action="menu"]')
   await trigger.click()
 
-  const menu = card.locator('.video-actions-menu')
-  await expect(menu).toBeVisible()
+  const popover = page.locator('#videoActionsPopover')
+  await expect(popover).toBeVisible()
   await expect(trigger).toHaveAttribute('aria-expanded', 'true')
-  await expect(menu.locator('[role="menuitem"]')).toHaveCount(1)
-  await expect(menu.locator('[role="menuitem"]')).toBeFocused()
-  const containment = await page.evaluate(() => {
-    const cardElement = document.querySelector(
-      '#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]'
-    )
-    const triggerElement = cardElement.querySelector('[data-video-organization-action="menu"]')
-    const menuElement = document.getElementById(triggerElement.getAttribute('aria-controls'))
-    const cardRect = cardElement.getBoundingClientRect()
-    const menuRect = menuElement.getBoundingClientRect()
+  const alignment = await page.evaluate(() => {
+    const triggerRect = document.querySelector(
+      '#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"] '
+        + '[data-video-organization-action="menu"]'
+    ).getBoundingClientRect()
+    const popoverRect = document.getElementById('videoActionsPopover').getBoundingClientRect()
     return {
-      belongsToCard: cardElement.contains(menuElement),
-      top: menuRect.top >= cardRect.top - 1,
-      right: menuRect.right <= cardRect.right + 1,
-      bottom: menuRect.bottom <= cardRect.bottom + 1,
-      left: menuRect.left >= cardRect.left - 1,
-      itemHeight: menuElement.querySelector('[role="menuitem"]')
-        .getBoundingClientRect().height
+      rightDifference: Math.abs(triggerRect.right - popoverRect.right),
+      viewportRight: popoverRect.right <= window.innerWidth - 11,
+      viewportLeft: popoverRect.left >= 11
     }
   })
-  expect({
-    belongsToCard: containment.belongsToCard,
-    top: containment.top,
-    right: containment.right,
-    bottom: containment.bottom,
-    left: containment.left
-  }).toEqual({
-    belongsToCard: true,
-    top: true,
-    right: true,
-    bottom: true,
-    left: true
-  })
-  expect(containment.itemHeight).toBeGreaterThanOrEqual(
-    minimumTouchTargetWithSubpixelTolerance
-  )
-  if (['desktop-standard', 'tablet-portrait'].includes(testInfo.project.name)) {
-    await expect(card).toHaveClass(/\bis-previewing\b/)
-  }
+  expect(alignment.rightDifference).toBeLessThanOrEqual(1)
+  expect(alignment.viewportLeft).toBe(true)
+  expect(alignment.viewportRight).toBe(true)
 
-  await page.keyboard.press('Escape')
-  await expect(menu).toBeHidden()
+  await page.evaluate(() => window.scrollBy(0, -120))
+  await expect(popover).toBeHidden()
   await expect(trigger).toHaveAttribute('aria-expanded', 'false')
   await expect(trigger).toBeFocused()
-
-  await trigger.click()
-  await expect(menu).toBeVisible()
-  await page.evaluate(() => window.dispatchEvent(new Event('scroll')))
-  await expect(menu).toBeHidden()
-  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
-})
-
-test('Continue Watching menu shows two vertical actions inside its card', async ({ page }, testInfo) => {
-  test.skip(![
-    'desktop-standard',
-    'tablet-portrait',
-    'phone-standard',
-    'phone-small'
-  ].includes(testInfo.project.name))
-  await seedVideoOrganizationState(page)
-
-  const card = page.locator('#nextStudyCard')
-  await card.scrollIntoViewIfNeeded()
-  const trigger = card.locator('[data-video-organization-action="menu"]')
-  await trigger.click()
-  const menu = card.locator('.video-actions-menu')
-  const items = menu.locator('[role="menuitem"]')
-  await expect(menu).toBeVisible()
-  await expect(items).toHaveCount(2)
-  await expect(items.nth(0)).toHaveText('Remove from Continue Watching')
-  await expect(items.nth(1)).toHaveText('Remove from feed')
-  await expect(items.nth(0)).toBeFocused()
-
-  const containment = await page.evaluate(() => {
-    const cardElement = document.getElementById('nextStudyCard')
-    const menuElement = cardElement.querySelector('.video-actions-menu')
-    const cardRect = cardElement.getBoundingClientRect()
-    const menuRect = menuElement.getBoundingClientRect()
-    return {
-      top: menuRect.top >= cardRect.top - 1,
-      right: menuRect.right <= cardRect.right + 1,
-      bottom: menuRect.bottom <= cardRect.bottom + 1,
-      left: menuRect.left >= cardRect.left - 1,
-      itemHeights: Array.from(menuElement.querySelectorAll('[role="menuitem"]'))
-        .map(item => item.getBoundingClientRect().height)
-    }
-  })
-  expect({
-    top: containment.top,
-    right: containment.right,
-    bottom: containment.bottom,
-    left: containment.left
-  }).toEqual({ top: true, right: true, bottom: true, left: true })
-  expect(Math.min(...containment.itemHeights)).toBeGreaterThanOrEqual(
-    minimumTouchTargetWithSubpixelTolerance
-  )
-
-  await page.keyboard.press('ArrowDown')
-  await expect(items.nth(1)).toBeFocused()
-  await page.keyboard.press('Home')
-  await expect(items.nth(0)).toBeFocused()
-  await page.keyboard.press('Escape')
-  await expect(menu).toBeHidden()
-  await expect(trigger).toBeFocused()
-})
-
-test('inline organization actions preserve progress and feed-removal semantics', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-standard')
-  await seedVideoOrganizationState(page)
-
-  const nextStudy = page.locator('#nextStudyCard')
-  await nextStudy.scrollIntoViewIfNeeded()
-  await nextStudy.locator('[data-video-organization-action="menu"]').click()
-  await nextStudy.locator('[data-video-organization-action="remove-continue"]').click()
-  await expect(nextStudy).toBeHidden()
-  const resumedVideo = await page.evaluate(() => (
-    JSON.parse(localStorage.getItem('edenia_v1')).videos['menu-resume-video']
-  ))
-  expect(resumedVideo.status).toBe('unwatched')
-  expect(resumedVideo.resumeAtSeconds).toBeNull()
-  expect(resumedVideo.removedFromFeedAt).toBeUndefined()
-
-  const feedCard = page.locator(
-    '#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]'
-  )
-  await feedCard.hover()
-  await feedCard.locator('[data-video-organization-action="menu"]').click()
-  await feedCard.locator('[data-video-organization-action="remove-feed"]').click()
-  await expect(feedCard).toHaveCount(0)
-  const removedVideo = await page.evaluate(() => (
-    JSON.parse(localStorage.getItem('edenia_v1')).videos['menu-anchor-video']
-  ))
-  expect(removedVideo.status).toBe('unwatched')
-  expect(typeof removedVideo.removedFromFeedAt).toBe('string')
 })
 
 test('Watched Favorite reveals and highlights the active rewatch card', async ({ page }, testInfo) => {

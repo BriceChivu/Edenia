@@ -450,7 +450,6 @@ body[data-theme="dark"] .study-insight-history-lock { background: rgba(5,5,5,0.1
   overflow: hidden;
   padding: 9px;
   position: relative;
-  transition: min-height 190ms var(--ease-emphasized);
 }
 .continue-watching-card {
   max-width: 100%;
@@ -534,46 +533,6 @@ body[data-theme="dark"] .study-insight-history-lock { background: rgba(5,5,5,0.1
   gap: 6px;
   position: relative;
   z-index: 2;
-}
-.next-study-actions .video-actions-disclosure {
-  flex: 0 0 auto;
-  position: static;
-}
-.next-study-card .video-actions-menu {
-  bottom: 6px;
-  left: auto;
-  padding-right: 48px;
-  right: 6px;
-  top: 6px;
-  width: min(260px, calc(100% - 12px));
-}
-.next-study-card .video-actions-list {
-  grid-auto-rows: minmax(44px, 1fr);
-  height: 100%;
-  overflow: hidden;
-  padding: 5px;
-}
-.next-study-card .video-actions-item {
-  min-height: 44px;
-  padding-block: 5px;
-}
-.next-study-card.is-video-actions-open {
-  min-height: 120px;
-}
-.next-study-card.is-video-actions-open .next-study-actions {
-  position: static;
-}
-.next-study-card.is-video-actions-open .next-study-continue {
-  display: none;
-}
-.next-study-card.is-video-actions-open .next-study-more {
-  position: relative;
-  z-index: 11;
-}
-@media (prefers-reduced-motion: reduce) {
-  .next-study-card {
-    transition: none;
-  }
 }
 .next-study-cta {
   background: var(--planet-white);

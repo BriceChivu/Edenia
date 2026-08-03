@@ -120,19 +120,28 @@ test('generated Next Study open and focus controls retain exact module hooks', (
 
 test('More actions stays isolated while Remove favorite joins Next Study ownership', () => {
   const controls = getElements(renderSource, 'button')
-  assert.match(
-    renderSource,
-    /renderVideoOrganizationDisclosure\(nextVideo, \{\s*surface: 'continue_watching',\s*triggerClass: 'next-study-cta next-study-more'\s*\}\)/
+  const moreControl = findSingle(
+    controls,
+    element => hasClass(element.tag, 'next-study-more'),
+    'Next Study More actions control'
   )
-
-  const disclosureStart = appSource.indexOf('function renderVideoOrganizationDisclosure(')
-  const disclosureEnd = appSource.indexOf('\nfunction getVideoOrganizationMenuForTrigger(', disclosureStart)
-  const disclosureSource = appSource.slice(disclosureStart, disclosureEnd)
-  assert.match(disclosureSource, /data-video-organization-action="menu"/)
-  assert.match(disclosureSource, /data-video-organization-surface="\$\{escHtml\(surface\)\}"/)
-  assert.match(disclosureSource, /data-analytics-action="openVideoActions"/)
-  assert.doesNotMatch(disclosureSource, /data-next-study-action=/)
-  assert.doesNotMatch(disclosureSource, /onclick=/)
+  assert.equal(
+    getAttribute(moreControl.tag, 'data-video-organization-action'),
+    'menu'
+  )
+  assert.equal(
+    getAttribute(moreControl.tag, 'data-video-organization-surface'),
+    'continue_watching'
+  )
+  assert.equal(
+    getAttribute(moreControl.tag, 'data-analytics-action'),
+    'openVideoActions'
+  )
+  assert.equal(
+    getAttribute(moreControl.tag, 'data-next-study-action'),
+    null
+  )
+  assert.equal(getAttribute(moreControl.tag, 'onclick'), null)
 
   const favoriteControl = findSingle(
     controls,

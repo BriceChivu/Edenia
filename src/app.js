@@ -6954,161 +6954,95 @@ function getVideoOrganizationMenuItems(video) {
   return items
 }
 
-function getVideoOrganizationMenuId(videoId, surface) {
-  return `video-actions-${encodeURIComponent(surface)}-${encodeURIComponent(String(videoId ?? ''))}`
-}
-
-function renderVideoOrganizationDisclosure(video, options = {}) {
-  const surface = options.surface || 'video_card'
-  const triggerClass = options.triggerClass || 'action-btn more-btn'
-  const safeVideoId = escHtml(video.id)
-  const menuId = getVideoOrganizationMenuId(video.id, surface)
-  const items = getVideoOrganizationMenuItems(video)
-  return `
-    <span class="video-actions-disclosure" data-video-actions-disclosure>
-      <button type="button"
-        class="${triggerClass}"
-        data-video-id="${safeVideoId}"
-        data-video-organization-action="menu"
-        data-video-organization-surface="${escHtml(surface)}"
-        data-analytics-action="openVideoActions"
-        aria-haspopup="menu"
-        aria-controls="${escHtml(menuId)}"
-        aria-expanded="false"
-        aria-label="${escHtml(t('videos.actions.more'))}"
-        title="${escHtml(t('videos.actions.more'))}">${renderVideoActionIcon('more')}</button>
-      <span class="video-actions-menu"
-        id="${escHtml(menuId)}"
-        role="menu"
-        aria-label="${escHtml(t('videos.actions.title'))}"
-        aria-hidden="true"
-        inert>
-        <span class="video-actions-list">
-          ${items.map((item, index) => `
-            <button type="button"
-              class="video-actions-item ${item.separated ? 'is-separated' : ''}"
-              role="menuitem"
-              tabindex="${index === 0 ? '0' : '-1'}"
-              data-video-id="${safeVideoId}"
-              data-video-organization-action="${item.action}"
-              data-analytics-action="${item.action}">${escHtml(item.label)}</button>
-          `).join('')}
-        </span>
-      </span>
-    </span>
-  `
-}
-
-function getVideoOrganizationMenuForTrigger(trigger) {
-  const menuId = trigger?.getAttribute?.('aria-controls')
-  if (!menuId) return null
-  const menu = document.getElementById(menuId)
-  return menu?.closest?.('[data-video-actions-disclosure]') === trigger.closest?.('[data-video-actions-disclosure]')
-    ? menu
-    : null
-}
-
-function setVideoOrganizationMenuTabStop(menu, targetIndex = 0) {
-  const items = Array.from(menu?.querySelectorAll?.('[role="menuitem"]') || [])
-  if (!items.length) return null
-  const resolvedIndex = ((targetIndex % items.length) + items.length) % items.length
-  items.forEach((item, index) => item.setAttribute('tabindex', index === resolvedIndex ? '0' : '-1'))
-  return items[resolvedIndex]
+function positionVideoOrganizationMenu(popover, trigger) {
+  if (!popover || !trigger || usesPhoneComposition()) return false
+  const triggerRect = trigger.getBoundingClientRect()
+  const popoverRect = popover.getBoundingClientRect()
+  const visualViewport = window.visualViewport
+  const viewportLeft = Math.max(0, Number(visualViewport?.offsetLeft) || 0)
+  const viewportTop = Math.max(0, Number(visualViewport?.offsetTop) || 0)
+  const viewportWidth = Math.max(0, Number(visualViewport?.width) || window.innerWidth)
+  const viewportHeight = Math.max(0, Number(visualViewport?.height) || window.innerHeight)
+  const viewportRight = viewportLeft + viewportWidth
+  const viewportBottom = viewportTop + viewportHeight
+  const margin = 12
+  const gap = 8
+  const minLeft = viewportLeft + margin
+  const maxLeft = viewportRight - popoverRect.width - margin
+  const left = clampNumber(triggerRect.right - popoverRect.width, minLeft, maxLeft)
+  const belowTop = triggerRect.bottom + gap
+  const aboveTop = triggerRect.top - popoverRect.height - gap
+  const maxTop = viewportBottom - popoverRect.height - margin
+  const top = belowTop <= maxTop
+    ? belowTop
+    : aboveTop >= viewportTop + margin
+      ? aboveTop
+      : clampNumber(belowTop, viewportTop + margin, maxTop)
+  popover.style.left = `${Math.round(left)}px`
+  popover.style.top = `${Math.round(top)}px`
+  return true
 }
 
 function openVideoOrganizationMenu(event, videoId, trigger) {
   const state = loadState()
   const video = state?.videos?.[videoId]
-  const disclosure = trigger?.closest?.('[data-video-actions-disclosure]')
-  const menu = getVideoOrganizationMenuForTrigger(trigger)
-  if (!video || !disclosure || !menu) return false
-  if (activeVideoOrganizationTrigger === trigger) {
-    return closeVideoOrganizationMenu(true)
-  }
+  const popover = document.getElementById('videoActionsPopover')
+  const list = document.getElementById('videoActionsList')
+  if (!video || !popover || !list) return false
   closeVideoOrganizationMenu(false)
   closeHistoryActionPopovers()
-  const shelfCard = trigger.closest('.channel-shelf-card')
-  if (activeVideoShelfPreview && activeVideoShelfPreview !== shelfCard) {
-    closeVideoShelfPreview(activeVideoShelfPreview, true)
-  }
+  closeVideoShelfPreviewOnViewportChange()
   activeVideoOrganizationTrigger = trigger
-  disclosure.classList.add('is-open')
-  disclosure.closest('.video-card, .next-study-card')?.classList.add('is-video-actions-open')
-  trigger.setAttribute('aria-expanded', 'true')
-  trigger.setAttribute('aria-label', t('videos.actions.close'))
-  trigger.setAttribute('title', t('videos.actions.close'))
-  trigger.dataset.analyticsAction = 'closeVideoActions'
-  menu.removeAttribute('inert')
-  menu.setAttribute('aria-hidden', 'false')
-  const firstItem = setVideoOrganizationMenuTabStop(menu)
-  window.requestAnimationFrame(() => firstItem?.focus({ preventScroll: true }))
+  trigger?.setAttribute('aria-expanded', 'true')
+  list.innerHTML = getVideoOrganizationMenuItems(video).map(item => `
+    <button type="button"
+      class="video-actions-item ${item.separated ? 'is-separated' : ''}"
+      role="menuitem"
+      data-video-id="${escHtml(videoId)}"
+      data-video-organization-action="${item.action}"
+      data-analytics-action="${item.action}">${escHtml(item.label)}</button>
+  `).join('')
+  popover.classList.remove('hidden')
+  popover.setAttribute('aria-hidden', 'false')
+  if (!usesPhoneComposition() && trigger) {
+    positionVideoOrganizationMenu(popover, trigger)
+  } else {
+    popover.style.removeProperty('left')
+    popover.style.removeProperty('top')
+  }
+  window.requestAnimationFrame(() => list.querySelector('button')?.focus({ preventScroll: true }))
   return true
 }
 
 function closeVideoOrganizationMenu(restoreFocus = false) {
+  const popover = document.getElementById('videoActionsPopover')
   const trigger = activeVideoOrganizationTrigger
-  const disclosure = trigger?.closest?.('[data-video-actions-disclosure]')
-  const menu = getVideoOrganizationMenuForTrigger(trigger)
-  if (!trigger || !disclosure || !menu) {
-    activeVideoOrganizationTrigger = null
-    return false
-  }
-  const focusedMenuItem = menu.contains(document.activeElement) ? document.activeElement : null
-  disclosure.classList.remove('is-open')
-  disclosure.closest('.video-card, .next-study-card')?.classList.remove('is-video-actions-open')
-  menu.setAttribute('aria-hidden', 'true')
-  menu.setAttribute('inert', '')
-  setVideoOrganizationMenuTabStop(menu)
-  trigger.setAttribute('aria-expanded', 'false')
-  trigger.setAttribute('aria-label', t('videos.actions.more'))
-  trigger.setAttribute('title', t('videos.actions.more'))
-  trigger.dataset.analyticsAction = 'openVideoActions'
+  if (!popover || popover.classList.contains('hidden')) return false
+  popover.classList.add('hidden')
+  popover.setAttribute('aria-hidden', 'true')
+  popover.style.removeProperty('left')
+  popover.style.removeProperty('top')
+  trigger?.setAttribute('aria-expanded', 'false')
   activeVideoOrganizationTrigger = null
-  if (restoreFocus && trigger.isConnected) trigger.focus({ preventScroll: true })
-  else focusedMenuItem?.blur?.()
+  if (restoreFocus) trigger?.focus?.({ preventScroll: true })
   return true
 }
 
 function closeVideoOrganizationMenuOnOutsideClick(event) {
-  const disclosure = activeVideoOrganizationTrigger?.closest?.('[data-video-actions-disclosure]')
-  if (!disclosure || disclosure.contains(event.target)) return
+  if (event.target.closest('#videoActionsPopover, [data-video-organization-action="menu"]')) return
   closeVideoOrganizationMenu(false)
 }
 
-function closeVideoOrganizationMenuOnOutsideFocus(event) {
-  const disclosure = activeVideoOrganizationTrigger?.closest?.('[data-video-actions-disclosure]')
-  if (!disclosure || disclosure.contains(event.target)) return
-  closeVideoOrganizationMenu(false)
-}
-
-function handleVideoOrganizationMenuKeydown(event) {
-  const trigger = activeVideoOrganizationTrigger
-  const menu = getVideoOrganizationMenuForTrigger(trigger)
-  if (!trigger || !menu) return
-  if (event.key === 'Escape') {
-    event.preventDefault()
-    closeVideoOrganizationMenu(true)
-    return
-  }
-  if (!menu.contains(event.target)) return
-  const items = Array.from(menu.querySelectorAll('[role="menuitem"]'))
-  const currentIndex = items.indexOf(event.target.closest('[role="menuitem"]'))
-  let nextIndex = null
-  if (event.key === 'ArrowDown') nextIndex = currentIndex + 1
-  else if (event.key === 'ArrowUp') nextIndex = currentIndex - 1
-  else if (event.key === 'Home') nextIndex = 0
-  else if (event.key === 'End') nextIndex = items.length - 1
-  if (nextIndex === null) return
+function closeVideoOrganizationMenuOnEscape(event) {
+  if (event.key !== 'Escape') return
+  if (document.getElementById('videoActionsPopover')?.classList.contains('hidden')) return
   event.preventDefault()
-  setVideoOrganizationMenuTabStop(menu, nextIndex)?.focus({ preventScroll: true })
+  closeVideoOrganizationMenu(true)
 }
 
 function closeVideoOrganizationMenuOnViewportChange(event) {
-  if (
-    event?.type === 'scroll'
-    && activeVideoOrganizationTrigger?.closest?.('.next-study-card')
-  ) return false
-  return closeVideoOrganizationMenu(false)
+  if (event?.type === 'scroll' && usesPhoneComposition()) return false
+  return closeVideoOrganizationMenu(true)
 }
 
 function saveVideoOrganizationChange(state, video, beforeVideo, operation) {
@@ -11068,10 +11002,16 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
   container.classList.toggle('has-video-actions', isInProgress)
   const actions = isInProgress
     ? `
-      ${renderVideoOrganizationDisclosure(nextVideo, {
-        surface: 'continue_watching',
-        triggerClass: 'next-study-cta next-study-more'
-      })}
+      <button type="button"
+        class="next-study-cta next-study-more"
+        data-video-id="${safeVideoId}"
+        data-video-organization-action="menu"
+        data-video-organization-surface="continue_watching"
+        data-analytics-action="openVideoActions"
+        aria-haspopup="menu"
+        aria-expanded="false"
+        aria-label="${escHtml(t('videos.actions.more'))}"
+        title="${escHtml(t('videos.actions.more'))}">${renderVideoActionIcon('more')}</button>
       <button type="button"
         class="next-study-cta next-study-continue"
         data-video-id="${safeVideoId}"
@@ -14086,8 +14026,6 @@ function closeVideoShelfPreviewsOnEscape(event) {
     '.channel-shelf-card.is-floating-preview, .channel-shelf-card.is-preview-armed, .channel-shelf-card.is-previewing, .channel-shelf-card.is-preview-closing'
   ))
   if (activeVideoShelfPreview) previewCards.add(activeVideoShelfPreview)
-  const activeMenuCard = activeVideoOrganizationTrigger?.closest?.('.channel-shelf-card')
-  if (activeMenuCard && previewCards.has(activeMenuCard)) return
 
   let dismissed = false
   previewCards.forEach(card => {
@@ -14115,10 +14053,6 @@ function openVideoShelfPreview(card, force = false, pointerEvent = null) {
     !card
     || !canUseVideoShelfPreview()
   ) return false
-  const activeMenuCard = activeVideoOrganizationTrigger?.closest?.('.channel-shelf-card')
-  if (activeVideoOrganizationTrigger && activeMenuCard !== card) {
-    closeVideoOrganizationMenu(false)
-  }
   clearVideoShelfPreviewLeave(card)
   if (activeChannelShelfDrag) return false
   if (!force && !isVideoShelfCardFullyVisible(card)) return false
@@ -15115,7 +15049,15 @@ function renderCard(v, compact = false, options = {}) {
               aria-pressed="${String(isFavorite)}"
               aria-label="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}"
               title="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}">${renderVideoActionIcon('favorite')}</button>
-            ${options.hideOrganizationActions ? '' : renderVideoOrganizationDisclosure(v)}
+            ${options.hideOrganizationActions ? '' : `<button class="action-btn more-btn"
+              data-video-id="${safeVideoId}"
+              data-video-organization-action="menu"
+              data-video-organization-surface="video_card"
+              data-analytics-action="openVideoActions"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-label="${escHtml(t('videos.actions.more'))}"
+              title="${escHtml(t('videos.actions.more'))}">${renderVideoActionIcon('more')}</button>`}
           </div>
         </div>
       </div>
@@ -15438,6 +15380,7 @@ bindWatchedSectionActions(document, {
 })
 bindVideoOrganizationActions(document, {
   openMenu: openVideoOrganizationMenu,
+  closeMenu: closeVideoOrganizationMenu,
   removeFromContinueWatching: removeVideoFromContinueWatching,
   removeFromFeed: removeVideoFromFeed,
   restoreToFeed: restoreVideoToFeed,
@@ -15545,7 +15488,6 @@ document.addEventListener('click', closeVideoSearchPopoverOnOutsideClick)
 document.addEventListener('click', closeLocaleMenuOnOutsideClick)
 document.addEventListener('click', closeVideoShelfPreviewOnOutsideClick)
 document.addEventListener('click', closeVideoOrganizationMenuOnOutsideClick)
-document.addEventListener('focusin', closeVideoOrganizationMenuOnOutsideFocus)
 document.addEventListener('click', closeIntroLocaleMenuOnOutsideClick)
 document.addEventListener('click', closeOnboardingLocaleMenuOnOutsideClick)
 document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
@@ -15559,7 +15501,7 @@ document.addEventListener('keydown', closeManualVideoPopoverOnEscape)
 document.addEventListener('keydown', closeVideoSearchPopoverOnEscape)
 document.addEventListener('keydown', closeLocaleMenuOnEscape)
 document.addEventListener('keydown', closeVideoShelfPreviewsOnEscape)
-document.addEventListener('keydown', handleVideoOrganizationMenuKeydown)
+document.addEventListener('keydown', closeVideoOrganizationMenuOnEscape)
 document.addEventListener('keydown', handleSettingsKeydown)
 document.addEventListener('keydown', handleIntroTrailerKeydown)
 document.addEventListener('keydown', handleFeedbackModalKeydown)

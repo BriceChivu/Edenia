@@ -466,10 +466,6 @@
     flex: 0 0 auto;
     margin: 0;
   }
-  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .video-actions-disclosure {
-    flex: none;
-    width: 24px;
-  }
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .watch-later-btn,
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .more-btn,
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .favorite-btn {
