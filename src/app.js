@@ -1122,8 +1122,7 @@ function getEdeniaAnalyticsSnapshot(state) {
       watchedAt: isValidTimestamp(video.watchedAt) ? video.watchedAt : null,
       durationSeconds: Math.max(0, Math.round(Number(video.duration) || 0)),
       source: video.manuallyAdded ? 'manual' : 'channel',
-      isShort: Boolean(video.isShort),
-      setAside: isVideoSetAside(video)
+      isShort: Boolean(video.isShort)
     }))
     .sort((left, right) => left.id.localeCompare(right.id))
   const favoriteVideos = Object.entries(state?.videos || {})
@@ -1180,7 +1179,7 @@ function getEdeniaAnalyticsSnapshot(state) {
   })
 
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     capturedAt: new Date().toISOString(),
     channels,
     channelPolicy: {
@@ -1197,6 +1196,7 @@ function getEdeniaAnalyticsSnapshot(state) {
       watchLaterCount: videoEntries.filter(isVideoWatchLater).length,
       partialCount: videoEntries.filter(video => getVideoStatus(video) === 'partial').length,
       resumableCount: videoEntries.filter(hasVideoResumePriority).length,
+      removedFromFeedCount: videoEntries.filter(isVideoRemovedFromFeed).length,
       totalRewatchCount: Math.max(
         0,
         Number(state?.totalRewatchCount) || 0,
