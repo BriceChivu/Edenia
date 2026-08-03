@@ -176,11 +176,11 @@ async function seedCompletedState(page, locale = 'en') {
   await waitForApplication(page)
 }
 
-async function seedCityClaimState(page, reviewedCards) {
+async function seedCityClaimState(page, reviewedCards, locale = 'en') {
   await page.goto('/')
   await waitForApplication(page)
-  await page.evaluate(reviewed => {
-    const state = window.defaultState(4, [], 'light', [], 'en')
+  await page.evaluate(({ reviewed, selectedLocale }) => {
+    const state = window.defaultState(4, [], 'light', [], selectedLocale)
     const completedAt = '2026-07-20T04:00:00.000Z'
     state.config.ankiEnabled = false
     state.config.ankiDisabledAt = completedAt
@@ -202,7 +202,7 @@ async function seedCityClaimState(page, reviewedCards) {
     localStorage.setItem('edenia_v1', JSON.stringify(state))
     localStorage.removeItem('edenia_v1_backups')
     localStorage.removeItem('edenia_posthog_state_v2')
-  }, reviewedCards)
+  }, { reviewed: reviewedCards, selectedLocale: locale })
   await page.reload()
   await waitForApplication(page)
   await page.addStyleTag({
@@ -3876,6 +3876,46 @@ test('city level-up listener preserves staged claims and outcome-dependent analy
   await expect.poll(() => page.evaluate(() => (
     JSON.parse(localStorage.getItem('edenia_v1_backups') || '[]').length
   ))).toBe(1)
+})
+
+test('city level-up control stays centered, prominent, and on one line', async ({
+  page
+}) => {
+  await seedCityClaimState(page, 180, 'fr')
+
+  const layout = await page.evaluate(() => {
+    const button = document.getElementById('levelUpButton')
+    const rail = document.querySelector('.city-level-progress-rail')
+    const buttonRect = button.getBoundingClientRect()
+    const railRect = rail.getBoundingClientRect()
+    const buttonStyle = getComputedStyle(button)
+    const textRange = document.createRange()
+    textRange.selectNodeContents(button)
+    const textRect = textRange.getBoundingClientRect()
+
+    return {
+      buttonCenterX: buttonRect.left + (buttonRect.width / 2),
+      buttonCenterY: buttonRect.top + (buttonRect.height / 2),
+      buttonHeight: buttonRect.height,
+      buttonText: button.textContent.trim(),
+      fontSize: Number.parseFloat(buttonStyle.fontSize),
+      railCenterX: railRect.left + (railRect.width / 2),
+      railCenterY: railRect.top + (railRect.height / 2),
+      railHeight: railRect.height,
+      textFits: textRect.left >= buttonRect.left && textRect.right <= buttonRect.right,
+      textLineCount: textRange.getClientRects().length,
+      whiteSpace: buttonStyle.whiteSpace
+    }
+  })
+
+  expect(layout.buttonText).toBe('Niveau suivant')
+  expect(layout.whiteSpace).toBe('nowrap')
+  expect(layout.textFits).toBe(true)
+  expect(layout.textLineCount).toBe(1)
+  expect(layout.fontSize).toBeGreaterThanOrEqual(14)
+  expect(layout.railHeight).toBeGreaterThanOrEqual(layout.buttonHeight)
+  expect(Math.abs(layout.buttonCenterX - layout.railCenterX)).toBeLessThanOrEqual(1)
+  expect(Math.abs(layout.buttonCenterY - layout.railCenterY)).toBeLessThanOrEqual(1)
 })
 
 test('city waveform mouse listeners preserve edge scrolling, clearing, and phone inertness', async ({
