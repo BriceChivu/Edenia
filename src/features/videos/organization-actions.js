@@ -11,7 +11,6 @@ export function bindVideoOrganizationActions(root, actions) {
     'removeFromContinueWatching',
     'removeFromFeed',
     'restoreToFeed',
-    'returnToFeed',
     'toggleRemovedSection'
   ]
   if (!actions || required.some(name => typeof actions[name] !== 'function')) {
@@ -31,7 +30,6 @@ export function bindVideoOrganizationActions(root, actions) {
     else if (actionName === 'remove-continue') actions.removeFromContinueWatching(videoId)
     else if (actionName === 'remove-feed') actions.removeFromFeed(videoId)
     else if (actionName === 'restore-feed') actions.restoreToFeed(videoId)
-    else if (actionName === 'return-feed') actions.returnToFeed(videoId)
     else if (actionName === 'toggle-removed') actions.toggleRemovedSection()
   })
   boundRoots.add(root)

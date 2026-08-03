@@ -62,6 +62,23 @@ async function seedVideoOrganizationState(page) {
       status: 'unwatched',
       thumbnail: ''
     }
+    state.videos['watched-favorite-video'] = {
+      id: 'watched-favorite-video',
+      title: 'Watched favorite destination',
+      channelId: 'organization-channel',
+      channelTitle: 'Organization channel',
+      duration: 720,
+      publishedAt: '2026-07-31T04:00:00.000Z',
+      watchedAt: '2026-08-02T06:00:00.000Z',
+      status: 'watched',
+      favorite: false,
+      thumbnail: '',
+      watchProgress: [{
+        watchedAt: '2026-08-02T06:00:00.000Z',
+        seconds: 720
+      }],
+      watchProgressTracked: true
+    }
     localStorage.setItem('edenia_v1', JSON.stringify(state))
   })
   await page.reload()
@@ -168,4 +185,33 @@ test('desktop More menu aligns to its trigger and closes on scroll', async ({ pa
   await expect(popover).toBeHidden()
   await expect(trigger).toHaveAttribute('aria-expanded', 'false')
   await expect(trigger).toBeFocused()
+})
+
+test('Watched Favorite reveals and highlights the active rewatch card', async ({ page }, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
+  await seedVideoOrganizationState(page)
+
+  const watchedCard = page.locator(
+    '#watchedGrid .video-card[data-video-id="watched-favorite-video"]'
+  )
+  await expect(watchedCard).toHaveCount(1)
+  await expect(watchedCard.locator('[data-video-organization-action="menu"]')).toHaveCount(0)
+  await expect(watchedCard.locator('.favorite-btn')).toHaveCount(1)
+  await watchedCard.locator('.favorite-btn').click()
+
+  await expect(watchedCard).toHaveCount(0)
+  const activeCard = page.locator(
+    '#videoGrid .channel-shelf-card[data-video-id="watched-favorite-video"]'
+  )
+  await expect(activeCard).toHaveCount(1)
+  await expect(activeCard).toHaveClass(/\bnext-study-focus-arriving\b/)
+  await expect(activeCard.locator('.favorite-btn')).toBeFocused()
+  await expect(activeCard.locator('[data-video-organization-action="menu"]')).toHaveCount(1)
+
+  const persistedVideo = await page.evaluate(() => (
+    JSON.parse(localStorage.getItem('edenia_v1')).videos['watched-favorite-video']
+  ))
+  expect(persistedVideo.status).toBe('watched')
+  expect(persistedVideo.watchedAt).toBe('2026-08-02T06:00:00.000Z')
+  expect(persistedVideo.favorite).toBe(true)
 })

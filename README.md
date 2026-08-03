@@ -29,7 +29,7 @@ The app is browser-first: its interface and primary study state run from static 
 - Searches saved videos from the header.
 - Filters the active queue by status and by any combination of channels.
 - Lets users add, select all, remove, and manage channels from the channel filter.
-- Gives every video a More actions menu for removing it from Continue Watching, removing it from the feed, or returning a watched video as unwatched.
+- Gives active videos a More actions menu for removing them from Continue Watching or from the feed.
 - Keeps feed removal recoverable in a collapsed Removed section below Watched without deleting recorded study time, points, Favorite, or Watch later state.
 - Hides videos of three minutes or less by default; the preference can be changed in Settings.
 - Shows a contextual card for the latest paused video, the next watch-later video, or a favorite that is ready to rewatch.
@@ -44,7 +44,7 @@ Supported video states are:
 
 Opening an unwatched or watch-later video marks it in progress. In-progress videos can retain a continue-watching timestamp and watched-progress segments. Adding a fresh video to Watch later does not itself add study time, streak credit, or points. Rewatching a favorite can record another completed watch and award credit for the newly recorded playback.
 
-`Removed` is a feed-placement flag rather than a study status. Restoring a removed video returns its exact saved status and controls. Removing a video from Continue Watching clears only its resume cursor and current watch-cycle coverage; recorded study activity remains intact. Returning a watched video to the feed makes it unwatched while preserving its historical study activity and points.
+`Removed` is a feed-placement flag rather than a study status. Its thumbnails open in a read-only player that does not record progress or points, and restoring a removed video returns its exact saved status and controls. Removing a video from Continue Watching clears only its resume cursor and current watch-cycle coverage; recorded study activity remains intact. Favoriting a watched video keeps it watched while revealing its rewatch card in the active feed.
 
 Undo and redo cover recent status, progress, Favorite, video-placement, manual-video, and channel-removal actions together with their related history and score changes.
 

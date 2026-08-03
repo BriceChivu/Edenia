@@ -562,7 +562,6 @@ export const ZH_HANT_LOCALIZED = {
     'toast.videoRemovedFromContinue': '已從「繼續觀看」移除',
     'toast.videoRemovedFromFeed': '已從你的動態移除',
     'toast.videoRestoredToFeed': '已放回你的動態',
-    'toast.videoReturnedToFeed': '已作為未觀看影片放回動態',
     'undo.removed': '{verb}變更：「{title}」已移除。',
     'undo.backTo': '{verb}變更：「{title}」已回到{status}。',
     'undo.redid': '已重做',

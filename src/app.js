@@ -6593,6 +6593,41 @@ function dismissVideoWatchPrompt(event, videoId) {
   return true
 }
 
+function revealFavoritedWatchedVideo(videoId, state) {
+  const targetVideoId = String(videoId ?? '')
+  if (!targetVideoId || !state?.videos?.[targetVideoId]) return false
+  selectedStatusFilter = 'all'
+
+  if (!usesPhoneComposition()) {
+    focusNextStudyVideoCard(null, targetVideoId)
+    renderUndoButton(state)
+    window.requestAnimationFrame(() => {
+      findVideoCard(targetVideoId, '#videoGrid .channel-shelf-card')
+        ?.querySelector('.favorite-btn')
+        ?.focus({ preventScroll: true })
+    })
+    return true
+  }
+
+  forcedSearchVideoId = targetVideoId
+  renderFeed(state)
+  renderUndoButton(state)
+  window.requestAnimationFrame(() => {
+    const card = findVideoCard(targetVideoId, '#videoGrid .channel-shelf-card')
+    const found = card && scrollToVideoCard(targetVideoId, '#videoGrid .channel-shelf-card', {
+      className: 'next-study-focus-arriving',
+      duration: 1800
+    })
+    forcedSearchVideoId = null
+    if (!found) {
+      showToast(t('toast.couldNotShowVideo'), 'warn')
+      return
+    }
+    card.querySelector('.favorite-btn')?.focus({ preventScroll: true })
+  })
+  return true
+}
+
 function toggleVideoFavorite(videoId, options = {}) {
   const s = loadState()
   const video = s?.videos?.[videoId]
@@ -6608,6 +6643,12 @@ function toggleVideoFavorite(videoId, options = {}) {
     isFavoriteVideo(beforeVideo)
     && !isFavoriteVideo(video)
     && isVideoFromRemovedChannel(s, video)
+  )
+  const shouldRevealWatchedFavorite = (
+    options.surface === 'watched_card'
+    && getVideoStatus(video) === 'watched'
+    && !isFavoriteVideo(beforeVideo)
+    && isFavoriteVideo(video)
   )
   pushUndoAction(s, {
     type: 'video-favorite',
@@ -6625,7 +6666,9 @@ function toggleVideoFavorite(videoId, options = {}) {
   })
   saveState(s)
   trackVideoFavoriteChanged(s, video, isFavoriteVideo(beforeVideo), options.surface)
-  if (preservePreview && !shouldRefreshRemovedChannel) {
+  if (shouldRevealWatchedFavorite) {
+    revealFavoritedWatchedVideo(videoId, s)
+  } else if (preservePreview && !shouldRefreshRemovedChannel) {
     refreshVideoActionUiWithoutFeedRerender(s, videoId)
   } else {
     renderAll(s)
@@ -6895,10 +6938,7 @@ function markVideo(videoId, requestedStatus, options = {}) {
   return true
 }
 
-function getVideoOrganizationMenuItems(video, surface = '') {
-  if (surface === 'watched_card' && getVideoStatus(video) === 'watched') {
-    return [{ action: 'return-feed', label: t('videos.actions.returnToFeed') }]
-  }
+function getVideoOrganizationMenuItems(video) {
   const items = []
   if (hasVideoResumePriority(video)) {
     items.push({
@@ -6954,10 +6994,7 @@ function openVideoOrganizationMenu(event, videoId, trigger) {
   closeVideoShelfPreviewOnViewportChange()
   activeVideoOrganizationTrigger = trigger
   trigger?.setAttribute('aria-expanded', 'true')
-  list.innerHTML = getVideoOrganizationMenuItems(
-    video,
-    trigger?.dataset.videoOrganizationSurface
-  ).map(item => `
+  list.innerHTML = getVideoOrganizationMenuItems(video).map(item => `
     <button type="button"
       class="video-actions-item ${item.separated ? 'is-separated' : ''}"
       role="menuitem"
@@ -7019,8 +7056,7 @@ function saveVideoOrganizationChange(state, video, beforeVideo, operation) {
   const eventNames = {
     'remove-continue': 'video_removed_from_continue_watching',
     'remove-feed': 'video_removed_from_feed',
-    'restore-feed': 'video_restored_to_feed',
-    'return-feed': 'video_returned_to_feed'
+    'restore-feed': 'video_restored_to_feed'
   }
   appendActivityLog(state, {
     actor: 'user',
@@ -7101,36 +7137,6 @@ function restoreVideoToFeed(videoId) {
     forcedSearchVideoId = null
   })
   showVideoOrganizationUndoToast(t('toast.videoRestoredToFeed'), action)
-  return true
-}
-
-function returnWatchedVideoToFeed(videoId) {
-  closeVideoOrganizationMenu(false)
-  const state = loadState()
-  const video = state?.videos?.[videoId]
-  if (!video || getVideoStatus(video) !== 'watched') return false
-  const beforeVideo = cloneVideoForHistoryAction(video)
-  grantWatchedConfirmationUnlock(state, video)
-  video.status = 'unwatched'
-  video.watchedAt = null
-  video.watchLater = false
-  video.resumeAtSeconds = null
-  video.pausedAt = null
-  delete video.watchCycleCoverage
-  delete video.rewatchCoverage
-  if (getTotalVideoWatchProgressSeconds(video) > 0) video.watchProgressTracked = true
-  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'return-feed')
-  selectedStatusFilter = 'all'
-  forcedSearchVideoId = videoId
-  renderAll(state)
-  window.requestAnimationFrame(() => {
-    scrollToVideoCard(videoId, '.video-card', {
-      className: 'flash-target',
-      duration: 1400
-    })
-    forcedSearchVideoId = null
-  })
-  showVideoOrganizationUndoToast(t('toast.videoReturnedToFeed'), action)
   return true
 }
 
@@ -12446,6 +12452,7 @@ function renderFeed(s) {
 
   let watchedVideos = statusFilter === 'favorite' ? [] : allVideos
     .filter(v => getVideoStatus(v) === 'watched')
+    .filter(v => !isFavoriteVideo(v))
     .filter(v => !isHiddenFromVideoGrid(v))
     .filter(v => !isHiddenShortVideo(v, includeShorts))
     .filter(v => matchesWatchedChannelFilter(v, channelFilters, removedChannelIds))
@@ -12533,7 +12540,11 @@ function renderFeed(s) {
     watchedToggle.setAttribute('aria-label', t(watchedCollapsed ? 'videos.watched.show' : 'videos.watched.hide'))
   }
   watchedGrid.innerHTML = watchedVideos
-    .map(v => renderCard(v, true, { ...cardOptions, hideSetAsideAction: true }))
+    .map(v => renderCard(v, true, {
+      ...cardOptions,
+      hideOrganizationActions: true,
+      stateActionSurface: 'watched_card'
+    }))
     .join('')
   bindRenderedVideoStateActions(watchedGrid)
   bindRenderedVideoShelfPreviewActions(watchedGrid)
@@ -14973,6 +14984,7 @@ function renderCard(v, compact = false, options = {}) {
   const isWatchLater = isVideoWatchLater(v)
   const displayStatus = isPartial ? 'partial' : status
   const isFavorite = isFavoriteVideo(v)
+  const stateActionSurface = options.stateActionSurface || 'video_card'
   const watchLaterNextStatus = isWatchLater
     ? (isPartial ? 'partial' : 'unwatched')
     : 'watch-later'
@@ -15032,19 +15044,20 @@ function renderCard(v, compact = false, options = {}) {
             <button class="action-btn favorite-btn ${isFavorite ? 'active' : ''}"
               data-video-id="${safeVideoId}"
               data-video-state-action="toggle-favorite"
+              data-video-state-surface="${escHtml(stateActionSurface)}"
               data-analytics-action="toggleVideoFavorite"
               aria-pressed="${String(isFavorite)}"
               aria-label="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}"
               title="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}">${renderVideoActionIcon('favorite')}</button>
-            <button class="action-btn more-btn"
+            ${options.hideOrganizationActions ? '' : `<button class="action-btn more-btn"
               data-video-id="${safeVideoId}"
               data-video-organization-action="menu"
-              data-video-organization-surface="${isWatched ? 'watched_card' : 'video_card'}"
+              data-video-organization-surface="video_card"
               data-analytics-action="openVideoActions"
               aria-haspopup="menu"
               aria-expanded="false"
               aria-label="${escHtml(t('videos.actions.more'))}"
-              title="${escHtml(t('videos.actions.more'))}">${renderVideoActionIcon('more')}</button>
+              title="${escHtml(t('videos.actions.more'))}">${renderVideoActionIcon('more')}</button>`}
           </div>
         </div>
       </div>
@@ -15371,7 +15384,6 @@ bindVideoOrganizationActions(document, {
   removeFromContinueWatching: removeVideoFromContinueWatching,
   removeFromFeed: removeVideoFromFeed,
   restoreToFeed: restoreVideoToFeed,
-  returnToFeed: returnWatchedVideoToFeed,
   toggleRemovedSection
 })
 bindSettingsShellActions(document, {

@@ -26,8 +26,7 @@ test('live analytics emit organization events without Set aside metadata', () =>
   for (const eventName of [
     'video_removed_from_continue_watching',
     'video_removed_from_feed',
-    'video_restored_to_feed',
-    'video_returned_to_feed'
+    'video_restored_to_feed'
   ]) {
     assert.match(appSource, new RegExp(`'${eventName}'`))
   }

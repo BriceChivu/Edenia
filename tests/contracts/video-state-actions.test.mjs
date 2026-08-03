@@ -98,7 +98,9 @@ test('video state controls preserve arguments and cancellation boundaries', () =
       status: 'watch-later',
       watchLater: 'true'
     }),
-    createControl('toggle-favorite')
+    createControl('toggle-favorite', {
+      videoStateSurface: 'watched_card'
+    })
   ]
   const calls = []
   assert.equal(
@@ -109,7 +111,7 @@ test('video state controls preserve arguments and cancellation boundaries', () =
   const results = controls.map(control => control.click())
   assert.deepEqual(calls, [
     ['mark', ['video-1', 'watch-later', { watchLater: true }]],
-    ['toggleFavorite', ['video-1', { surface: 'video_card' }]]
+    ['toggleFavorite', ['video-1', { surface: 'watched_card' }]]
   ])
   results.forEach(result => {
     assert.equal(result.defaultPrevented, false)

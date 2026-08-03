@@ -10,7 +10,13 @@ const phoneStyles = fs.readFileSync(new URL('../../src/styles/98-responsive-phon
 test('video cards expose More actions while shelf badges remain informational', () => {
   assert.match(appSource, /data-video-organization-action="menu"/)
   assert.match(appSource, /data-video-organization-surface="continue_watching"/)
-  assert.match(appSource, /data-video-organization-surface="\$\{isWatched \? 'watched_card' : 'video_card'\}"/)
+  assert.match(appSource, /data-video-organization-surface="video_card"/)
+  assert.match(appSource, /options\.hideOrganizationActions \? '' : `<button class="action-btn more-btn"/)
+  assert.match(
+    appSource,
+    /watchedGrid\.innerHTML =[\s\S]*?hideOrganizationActions: true[\s\S]*?stateActionSurface: 'watched_card'/
+  )
+  assert.doesNotMatch(appSource, /data-video-organization-surface="watched_card"/)
   assert.doesNotMatch(appSource, /data-video-set-aside-action/)
   assert.doesNotMatch(appSource, /channel-shelf-priority-badge[^>]*data-video-state-action/)
 })

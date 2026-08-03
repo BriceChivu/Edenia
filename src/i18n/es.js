@@ -545,7 +545,6 @@ export const ES_LOCALIZED = {
     'toast.videoRemovedFromContinue': 'Quitado de Continuar viendo',
     'toast.videoRemovedFromFeed': 'Quitado de tu feed',
     'toast.videoRestoredToFeed': 'Devuelto a tu feed',
-    'toast.videoReturnedToFeed': 'Devuelto al feed como no visto',
     'undo.removed': '{verb} cambio: "{title}" se eliminó.',
     'undo.backTo': '{verb} cambio: "{title}" vuelve a {status}.',
     'undo.redid': 'Rehecho',

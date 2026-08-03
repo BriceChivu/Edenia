@@ -32,7 +32,6 @@ function createActions(calls) {
     removeFromContinueWatching: (...args) => calls.push(['removeFromContinueWatching', ...args]),
     removeFromFeed: (...args) => calls.push(['removeFromFeed', ...args]),
     restoreToFeed: (...args) => calls.push(['restoreToFeed', ...args]),
-    returnToFeed: (...args) => calls.push(['returnToFeed', ...args]),
     toggleRemovedSection: (...args) => calls.push(['toggleRemovedSection', ...args])
   }
 }
@@ -50,7 +49,6 @@ test('video organization actions delegate every supported control once', () => {
     ['remove-continue', 'removeFromContinueWatching'],
     ['remove-feed', 'removeFromFeed'],
     ['restore-feed', 'restoreToFeed'],
-    ['return-feed', 'returnToFeed'],
     ['toggle-removed', 'toggleRemovedSection']
   ]
   cases.forEach(([actionName, callbackName]) => {

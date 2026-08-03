@@ -543,7 +543,6 @@ export const ZH_HANS_LOCALIZED = {
     'toast.videoRemovedFromContinue': '已从“继续观看”移除',
     'toast.videoRemovedFromFeed': '已从你的动态移除',
     'toast.videoRestoredToFeed': '已放回你的动态',
-    'toast.videoReturnedToFeed': '已作为未观看视频放回动态',
     'undo.removed': '{verb}变更：“{title}”已移除。',
     'undo.backTo': '{verb}变更：“{title}”已回到{status}。',
     'undo.redid': '已重做',

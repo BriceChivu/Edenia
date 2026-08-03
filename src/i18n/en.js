@@ -678,7 +678,6 @@ export const EN_CORE = {
   'toast.videoRemovedFromContinue': 'Removed from Continue Watching',
   'toast.videoRemovedFromFeed': 'Removed from your feed',
   'toast.videoRestoredToFeed': 'Returned to your feed',
-  'toast.videoReturnedToFeed': 'Moved back to your feed as unwatched',
   'toast.levelUp': 'Level up! {label}',
   'toast.localeChanged': 'Language changed to {language}',
   'toast.skippedShorts': ', skipped {count} short video{plural}',
