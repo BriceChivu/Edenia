@@ -25,6 +25,24 @@ test('Removed recovery and the shared action surface have one static owner', () 
   assert.match(phoneStyles, /@media \(max-width: 640px\)[\s\S]*\.video-actions-popover[\s\S]*bottom:/)
 })
 
+test('desktop action menus measure their anchor and close on viewport movement', () => {
+  assert.match(
+    appSource,
+    /function positionVideoOrganizationMenu\([\s\S]*?trigger\.getBoundingClientRect\(\)[\s\S]*?popover\.getBoundingClientRect\(\)/
+  )
+  assert.match(appSource, /triggerRect\.right - popoverRect\.width/)
+  assert.match(appSource, /aboveTop >= viewportTop \+ margin/)
+  assert.match(
+    appSource,
+    /window\.addEventListener\('scroll', closeVideoOrganizationMenuOnViewportChange, \{\s*capture: true,\s*passive: true\s*\}\)/
+  )
+  assert.match(
+    appSource,
+    /function closeVideoOrganizationMenuOnViewportChange\(event\)[\s\S]*?event\?\.type === 'scroll' && usesPhoneComposition\(\)[\s\S]*?closeVideoOrganizationMenu\(true\)/
+  )
+  assert.match(appSource, /focus\(\{ preventScroll: true \}\)/)
+})
+
 test('organization changes preserve exact snapshots for Undo', () => {
   assert.match(appSource, /type: 'video-organization'/)
   assert.match(appSource, /before: \{ video: beforeVideo \}/)

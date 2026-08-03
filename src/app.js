@@ -6914,6 +6914,35 @@ function getVideoOrganizationMenuItems(video, surface = '') {
   return items
 }
 
+function positionVideoOrganizationMenu(popover, trigger) {
+  if (!popover || !trigger || usesPhoneComposition()) return false
+  const triggerRect = trigger.getBoundingClientRect()
+  const popoverRect = popover.getBoundingClientRect()
+  const visualViewport = window.visualViewport
+  const viewportLeft = Math.max(0, Number(visualViewport?.offsetLeft) || 0)
+  const viewportTop = Math.max(0, Number(visualViewport?.offsetTop) || 0)
+  const viewportWidth = Math.max(0, Number(visualViewport?.width) || window.innerWidth)
+  const viewportHeight = Math.max(0, Number(visualViewport?.height) || window.innerHeight)
+  const viewportRight = viewportLeft + viewportWidth
+  const viewportBottom = viewportTop + viewportHeight
+  const margin = 12
+  const gap = 8
+  const minLeft = viewportLeft + margin
+  const maxLeft = viewportRight - popoverRect.width - margin
+  const left = clampNumber(triggerRect.right - popoverRect.width, minLeft, maxLeft)
+  const belowTop = triggerRect.bottom + gap
+  const aboveTop = triggerRect.top - popoverRect.height - gap
+  const maxTop = viewportBottom - popoverRect.height - margin
+  const top = belowTop <= maxTop
+    ? belowTop
+    : aboveTop >= viewportTop + margin
+      ? aboveTop
+      : clampNumber(belowTop, viewportTop + margin, maxTop)
+  popover.style.left = `${Math.round(left)}px`
+  popover.style.top = `${Math.round(top)}px`
+  return true
+}
+
 function openVideoOrganizationMenu(event, videoId, trigger) {
   const state = loadState()
   const video = state?.videos?.[videoId]
@@ -6939,16 +6968,12 @@ function openVideoOrganizationMenu(event, videoId, trigger) {
   popover.classList.remove('hidden')
   popover.setAttribute('aria-hidden', 'false')
   if (!usesPhoneComposition() && trigger) {
-    const rect = trigger.getBoundingClientRect()
-    const width = 260
-    const left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.right - width))
-    popover.style.left = `${left}px`
-    popover.style.top = `${Math.min(window.innerHeight - popover.offsetHeight - 12, rect.bottom + 8)}px`
+    positionVideoOrganizationMenu(popover, trigger)
   } else {
     popover.style.removeProperty('left')
     popover.style.removeProperty('top')
   }
-  window.requestAnimationFrame(() => list.querySelector('button')?.focus())
+  window.requestAnimationFrame(() => list.querySelector('button')?.focus({ preventScroll: true }))
   return true
 }
 
@@ -6976,6 +7001,11 @@ function closeVideoOrganizationMenuOnEscape(event) {
   if (document.getElementById('videoActionsPopover')?.classList.contains('hidden')) return
   event.preventDefault()
   closeVideoOrganizationMenu(true)
+}
+
+function closeVideoOrganizationMenuOnViewportChange(event) {
+  if (event?.type === 'scroll' && usesPhoneComposition()) return false
+  return closeVideoOrganizationMenu(true)
 }
 
 function saveVideoOrganizationChange(state, video, beforeVideo, operation) {
@@ -15407,7 +15437,12 @@ bindImageFallbackActions(document)
 document.addEventListener('DOMContentLoaded', init)
 window.addEventListener('scroll', syncHeaderCompactState, { passive: true })
 window.addEventListener('scroll', closeVideoShelfPreviewOnViewportChange, { passive: true })
+window.addEventListener('scroll', closeVideoOrganizationMenuOnViewportChange, {
+  capture: true,
+  passive: true
+})
 window.addEventListener('resize', closeVideoShelfPreviewOnViewportChange, { passive: true })
+window.addEventListener('resize', closeVideoOrganizationMenuOnViewportChange, { passive: true })
 window.addEventListener('resize', () => positionVideoShelfPlayerOverlay(), { passive: true })
 window.addEventListener('resize', syncMobileAddButtonWidth, { passive: true })
 window.addEventListener('resize', syncIntroTrailerStageScale, { passive: true })
@@ -15416,6 +15451,16 @@ window.addEventListener('resize', refreshCityWaveformScrollGeometry, { passive: 
 window.visualViewport?.addEventListener(
   'resize',
   scheduleOnboardingChoiceLayoutSyncForViewportResize,
+  { passive: true }
+)
+window.visualViewport?.addEventListener(
+  'resize',
+  closeVideoOrganizationMenuOnViewportChange,
+  { passive: true }
+)
+window.visualViewport?.addEventListener(
+  'scroll',
+  closeVideoOrganizationMenuOnViewportChange,
   { passive: true }
 )
 document.fonts?.ready.then(scheduleOnboardingChoiceLayoutSync).catch(() => {})

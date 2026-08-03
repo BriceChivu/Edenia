@@ -51,6 +51,17 @@ async function seedVideoOrganizationState(page) {
       }],
       watchProgressTracked: true
     }
+    state.videos['menu-anchor-video'] = {
+      id: 'menu-anchor-video',
+      title: 'Menu anchor video',
+      channelId: 'organization-channel',
+      channelTitle: 'Organization channel',
+      duration: 480,
+      publishedAt: '2026-08-02T04:00:00.000Z',
+      watchedAt: null,
+      status: 'unwatched',
+      thumbnail: ''
+    }
     localStorage.setItem('edenia_v1', JSON.stringify(state))
   })
   await page.reload()
@@ -120,4 +131,41 @@ test('Removed preview playback never mutates study state', async ({ page }, test
   )).toHaveCount(1)
   const stateAfter = await page.evaluate(() => localStorage.getItem('edenia_v1'))
   expect(stateAfter).toBe(stateBefore)
+})
+
+test('desktop More menu aligns to its trigger and closes on scroll', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await seedVideoOrganizationState(page)
+
+  const card = page.locator(
+    '#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]'
+  )
+  await card.scrollIntoViewIfNeeded()
+  await card.hover()
+  const trigger = card.locator('[data-video-organization-action="menu"]')
+  await trigger.click()
+
+  const popover = page.locator('#videoActionsPopover')
+  await expect(popover).toBeVisible()
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  const alignment = await page.evaluate(() => {
+    const triggerRect = document.querySelector(
+      '#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"] '
+        + '[data-video-organization-action="menu"]'
+    ).getBoundingClientRect()
+    const popoverRect = document.getElementById('videoActionsPopover').getBoundingClientRect()
+    return {
+      rightDifference: Math.abs(triggerRect.right - popoverRect.right),
+      viewportRight: popoverRect.right <= window.innerWidth - 11,
+      viewportLeft: popoverRect.left >= 11
+    }
+  })
+  expect(alignment.rightDifference).toBeLessThanOrEqual(1)
+  expect(alignment.viewportLeft).toBe(true)
+  expect(alignment.viewportRight).toBe(true)
+
+  await page.evaluate(() => window.scrollBy(0, -120))
+  await expect(popover).toBeHidden()
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+  await expect(trigger).toBeFocused()
 })
