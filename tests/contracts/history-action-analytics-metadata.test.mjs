@@ -70,7 +70,7 @@ test('generated history-action controls retain locked analytics identities', () 
     getAttribute(button, 'class')
       === 'undo-tooltip-item undo-tooltip-action-btn'
   ))
-  assert.equal(actionControls.length, 6)
+  assert.equal(actionControls.length, 7)
   for (const control of actionControls) {
     assert.equal(
       getAttribute(control, 'data-analytics-action'),

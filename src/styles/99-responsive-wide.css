@@ -467,7 +467,7 @@
     margin: 0;
   }
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .watch-later-btn,
-  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .set-aside-btn,
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .more-btn,
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .favorite-btn {
     background: transparent;
     border: 0;
@@ -482,13 +482,13 @@
     width: 24px;
   }
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .watch-later-btn .action-icon,
-  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .set-aside-btn .action-icon,
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .more-btn .action-icon,
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .favorite-btn .action-icon {
     height: 18px;
     width: 18px;
   }
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.watch-later-btn:hover,
-  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.set-aside-btn:hover,
+  .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.more-btn:hover,
   .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.favorite-btn:hover {
     background: transparent;
     border-color: transparent;
@@ -546,30 +546,18 @@
     transform: none;
   }
 }
-.channel-shelf-card .channel-shelf-priority-badge[type="button"] {
-  appearance: none;
-  cursor: pointer;
-  font-family: inherit;
-  pointer-events: auto;
-}
-.channel-shelf-card .partial-priority-badge[type="button"]:hover,
-.channel-shelf-card .watch-later-priority-badge[type="button"]:hover,
-.channel-shelf-card .favorite-priority-badge[type="button"]:hover,
 .action-btn.partial-btn:hover,
 .action-btn.watch-later-btn:hover,
-.action-btn.set-aside-btn:hover,
+.action-btn.more-btn:hover,
 .action-btn.favorite-btn:hover,
 .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.partial-btn.active:hover {
   background: #e9f8ed;
   border-color: var(--planet-black);
   color: var(--text);
 }
-body[data-theme="dark"] .channel-shelf-card .partial-priority-badge[type="button"]:hover,
-body[data-theme="dark"] .channel-shelf-card .watch-later-priority-badge[type="button"]:hover,
-body[data-theme="dark"] .channel-shelf-card .favorite-priority-badge[type="button"]:hover,
 body[data-theme="dark"] .action-btn.partial-btn:hover,
 body[data-theme="dark"] .action-btn.watch-later-btn:hover,
-body[data-theme="dark"] .action-btn.set-aside-btn:hover,
+body[data-theme="dark"] .action-btn.more-btn:hover,
 body[data-theme="dark"] .action-btn.favorite-btn:hover,
 body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.partial-btn.active:hover {
   background: var(--surface-hi);
@@ -577,7 +565,7 @@ body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closi
   color: var(--text);
 }
 body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.watch-later-btn,
-body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.set-aside-btn,
+body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.more-btn,
 body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closing) .action-btn.favorite-btn {
   background: transparent;
   border-color: transparent;

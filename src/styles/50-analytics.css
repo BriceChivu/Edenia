@@ -560,9 +560,14 @@ body[data-theme="dark"] .study-insight-history-lock { background: rgba(5,5,5,0.1
   background: transparent;
   color: var(--muted);
 }
-.next-study-set-aside {
+.next-study-more {
+  align-items: center;
   background: transparent;
   color: var(--muted);
+  display: inline-flex;
+  justify-content: center;
+  min-width: 44px;
+  padding-inline: 10px;
 }
 .next-study-watch {
   align-items: center;

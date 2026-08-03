@@ -315,13 +315,13 @@ test('active-grid replacement binds shelf scrolling before later features', () =
   const removeBindingIndex = feedSource.indexOf(
     'bindChannelRemoveActions(grid, {'
   )
-  const setAsideBindingIndex = feedSource.indexOf(
-    'bindVideoSetAsideActions(grid, {'
+  const videoStateBindingIndex = feedSource.indexOf(
+    'bindRenderedVideoStateActions(grid)'
   )
   assert.notEqual(groupReplacementIndex, -1)
   assert.ok(scrollBindingIndex > groupReplacementIndex)
   assert.ok(removeBindingIndex > scrollBindingIndex)
-  assert.ok(setAsideBindingIndex > removeBindingIndex)
+  assert.ok(videoStateBindingIndex > removeBindingIndex)
   assert.match(
     feedSource.slice(groupReplacementIndex, scrollBindingIndex),
     /grid\.innerHTML = renderChannelVideoGroups\([\s\S]*?\)\s*\}\s*$/
