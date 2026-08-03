@@ -16,14 +16,14 @@ function hash(value) {
 }
 
 test('curated channel catalog preserves exact membership, order, and fields', () => {
-  assert.equal(CURATED_CHANNEL_CATALOG.length, 213)
+  assert.equal(CURATED_CHANNEL_CATALOG.length, 223)
   assert.equal(
     new Set(CURATED_CHANNEL_CATALOG.map(channel => channel.id)).size,
-    213
+    223
   )
   assert.equal(
     hash(CURATED_CHANNEL_CATALOG),
-    'a0aa36a7211224c6a342bb7a3f2a6496bfc591751a8309fc25ff2597449ee88e'
+    'a6d71cca0b18c755c28d74a89e0520977703a269ca6779b31d02bd65e3ab6d9c'
   )
   assert.deepEqual(CURATED_CHANNEL_CATALOG[0], {
     id: 'mandarin-grace',
