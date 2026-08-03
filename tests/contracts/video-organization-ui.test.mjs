@@ -34,9 +34,10 @@ test('Removed recovery and the shared action surface have one static owner', () 
 test('desktop action menus measure their anchor and close on viewport movement', () => {
   assert.match(
     appSource,
-    /function positionVideoOrganizationMenu\([\s\S]*?trigger\.getBoundingClientRect\(\)[\s\S]*?popover\.getBoundingClientRect\(\)/
+    /function positionVideoOrganizationMenu\([\s\S]*?trigger\.closest\('\.channel-shelf-card'\)[\s\S]*?card\.getBoundingClientRect\(\)[\s\S]*?popover\.getBoundingClientRect\(\)/
   )
-  assert.match(appSource, /triggerRect\.right - popoverRect\.width/)
+  assert.match(appSource, /popover\.style\.width = `\$\{Math\.min\(anchorRect\.width, maxWidth\)\}px`/)
+  assert.match(appSource, /card\s*\? anchorRect\.left\s*:\s*triggerRect\.right - popoverRect\.width/)
   assert.match(appSource, /aboveTop >= viewportTop \+ margin/)
   assert.match(
     appSource,
@@ -47,6 +48,14 @@ test('desktop action menus measure their anchor and close on viewport movement',
     /function closeVideoOrganizationMenuOnViewportChange\(event\)[\s\S]*?event\?\.type === 'scroll' && usesPhoneComposition\(\)[\s\S]*?closeVideoOrganizationMenu\(true\)/
   )
   assert.match(appSource, /focus\(\{ preventScroll: true \}\)/)
+})
+
+test('menu options share one geometry while the list owns the divider', () => {
+  assert.match(appSource, /list\.classList\.toggle\('has-divider', items\.length > 1\)/)
+  assert.doesNotMatch(appSource, /class="video-actions-item \$\{item\.separated/)
+  assert.match(feedStyles, /\.video-actions-list[\s\S]*?grid-auto-rows: 1fr/)
+  assert.match(feedStyles, /\.video-actions-list\.has-divider::before/)
+  assert.doesNotMatch(feedStyles, /\.video-actions-item\.is-separated/)
 })
 
 test('organization changes preserve exact snapshots for Undo', () => {

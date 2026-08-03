@@ -6948,16 +6948,15 @@ function getVideoOrganizationMenuItems(video) {
   }
   items.push({
     action: 'remove-feed',
-    label: t('videos.actions.removeFromFeed'),
-    separated: items.length > 0
+    label: t('videos.actions.removeFromFeed')
   })
   return items
 }
 
 function positionVideoOrganizationMenu(popover, trigger) {
   if (!popover || !trigger || usesPhoneComposition()) return false
+  const card = trigger.closest('.channel-shelf-card')
   const triggerRect = trigger.getBoundingClientRect()
-  const popoverRect = popover.getBoundingClientRect()
   const visualViewport = window.visualViewport
   const viewportLeft = Math.max(0, Number(visualViewport?.offsetLeft) || 0)
   const viewportTop = Math.max(0, Number(visualViewport?.offsetTop) || 0)
@@ -6968,17 +6967,31 @@ function positionVideoOrganizationMenu(popover, trigger) {
   const margin = 12
   const gap = 8
   const minLeft = viewportLeft + margin
+  const maxWidth = Math.max(0, viewportWidth - (margin * 2))
+  let anchorRect = triggerRect
+  if (card) {
+    anchorRect = card.getBoundingClientRect()
+    popover.classList.add('is-card-aligned')
+    popover.style.width = `${Math.min(anchorRect.width, maxWidth)}px`
+  } else {
+    popover.classList.remove('is-card-aligned')
+    popover.style.removeProperty('width')
+  }
+  const popoverRect = popover.getBoundingClientRect()
   const maxLeft = viewportRight - popoverRect.width - margin
-  const left = clampNumber(triggerRect.right - popoverRect.width, minLeft, maxLeft)
-  const belowTop = triggerRect.bottom + gap
-  const aboveTop = triggerRect.top - popoverRect.height - gap
+  const preferredLeft = card
+    ? anchorRect.left
+    : triggerRect.right - popoverRect.width
+  const left = clampNumber(preferredLeft, minLeft, maxLeft)
+  const belowTop = anchorRect.bottom + gap
+  const aboveTop = anchorRect.top - popoverRect.height - gap
   const maxTop = viewportBottom - popoverRect.height - margin
   const top = belowTop <= maxTop
     ? belowTop
     : aboveTop >= viewportTop + margin
       ? aboveTop
       : clampNumber(belowTop, viewportTop + margin, maxTop)
-  popover.style.left = `${Math.round(left)}px`
+  popover.style.left = `${left}px`
   popover.style.top = `${Math.round(top)}px`
   return true
 }
@@ -6994,9 +7007,11 @@ function openVideoOrganizationMenu(event, videoId, trigger) {
   closeVideoShelfPreviewOnViewportChange()
   activeVideoOrganizationTrigger = trigger
   trigger?.setAttribute('aria-expanded', 'true')
-  list.innerHTML = getVideoOrganizationMenuItems(video).map(item => `
+  const items = getVideoOrganizationMenuItems(video)
+  list.classList.toggle('has-divider', items.length > 1)
+  list.innerHTML = items.map(item => `
     <button type="button"
-      class="video-actions-item ${item.separated ? 'is-separated' : ''}"
+      class="video-actions-item"
       role="menuitem"
       data-video-id="${escHtml(videoId)}"
       data-video-organization-action="${item.action}"
@@ -7007,6 +7022,8 @@ function openVideoOrganizationMenu(event, videoId, trigger) {
   if (!usesPhoneComposition() && trigger) {
     positionVideoOrganizationMenu(popover, trigger)
   } else {
+    popover.classList.remove('is-card-aligned')
+    popover.style.removeProperty('width')
     popover.style.removeProperty('left')
     popover.style.removeProperty('top')
   }
@@ -7020,6 +7037,8 @@ function closeVideoOrganizationMenu(restoreFocus = false) {
   if (!popover || popover.classList.contains('hidden')) return false
   popover.classList.add('hidden')
   popover.setAttribute('aria-hidden', 'true')
+  popover.classList.remove('is-card-aligned')
+  popover.style.removeProperty('width')
   popover.style.removeProperty('left')
   popover.style.removeProperty('top')
   trigger?.setAttribute('aria-expanded', 'false')

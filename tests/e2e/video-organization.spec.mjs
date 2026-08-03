@@ -16,11 +16,11 @@ async function waitForApplication(page) {
   })
 }
 
-async function seedVideoOrganizationState(page) {
+async function seedVideoOrganizationState(page, { locale = 'en' } = {}) {
   await page.goto('/')
   await waitForApplication(page)
-  await page.evaluate(() => {
-    const state = window.defaultState(4, [], 'light', [], 'en')
+  await page.evaluate(({ locale: seededLocale }) => {
+    const state = window.defaultState(4, [], 'light', [], seededLocale)
     const completedAt = '2026-07-20T04:00:00.000Z'
     state.config.ankiEnabled = false
     state.config.ankiDisabledAt = completedAt
@@ -58,8 +58,10 @@ async function seedVideoOrganizationState(page) {
       channelTitle: 'Organization channel',
       duration: 480,
       publishedAt: '2026-08-02T04:00:00.000Z',
-      watchedAt: null,
-      status: 'unwatched',
+      pausedAt: '2026-08-03T02:00:00.000Z',
+      resumeAtSeconds: 60,
+      status: 'partial',
+      watchProgressTracked: true,
       thumbnail: ''
     }
     state.videos['watched-favorite-video'] = {
@@ -80,7 +82,7 @@ async function seedVideoOrganizationState(page) {
       watchProgressTracked: true
     }
     localStorage.setItem('edenia_v1', JSON.stringify(state))
-  })
+  }, { locale })
   await page.reload()
   await waitForApplication(page)
 }
@@ -150,41 +152,88 @@ test('Removed preview playback never mutates study state', async ({ page }, test
   expect(stateAfter).toBe(stateBefore)
 })
 
-test('desktop More menu aligns to its trigger and closes on scroll', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-standard')
-  await seedVideoOrganizationState(page)
+test('More menu aligns to its card and keeps option geometry uniform', async ({ page }, testInfo) => {
+  test.skip(![
+    'desktop-standard',
+    'tablet-portrait',
+    'phone-small'
+  ].includes(testInfo.project.name))
+  const isPhone = testInfo.project.name === 'phone-small'
+  await seedVideoOrganizationState(page, { locale: isPhone ? 'fr' : 'en' })
 
   const card = page.locator(
     '#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]'
   )
   await card.scrollIntoViewIfNeeded()
-  await card.hover()
+  if (testInfo.project.name === 'desktop-standard') {
+    await card.hover()
+  } else if (testInfo.project.name === 'tablet-portrait') {
+    await card.locator('.thumb-link').click()
+    await expect(card).toHaveClass(/\bis-previewing\b/)
+  }
   const trigger = card.locator('[data-video-organization-action="menu"]')
   await trigger.click()
 
   const popover = page.locator('#videoActionsPopover')
+  const items = popover.locator('[role="menuitem"]')
   await expect(popover).toBeVisible()
   await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  await expect(items).toHaveCount(2)
+  await expect(popover.locator('.video-actions-divider')).toHaveCount(0)
+  await expect(popover.locator('.video-actions-list')).toHaveClass(/\bhas-divider\b/)
   const alignment = await page.evaluate(() => {
-    const triggerRect = document.querySelector(
-      '#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"] '
-        + '[data-video-organization-action="menu"]'
+    const cardRect = document.querySelector(
+      '#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]'
     ).getBoundingClientRect()
     const popoverRect = document.getElementById('videoActionsPopover').getBoundingClientRect()
+    const menuItems = Array.from(document.querySelectorAll(
+      '#videoActionsPopover [role="menuitem"]'
+    ))
+    const itemMetrics = menuItems.map(item => {
+      const rect = item.getBoundingClientRect()
+      const style = getComputedStyle(item)
+      return {
+        height: rect.height,
+        width: rect.width,
+        borderRadius: style.borderRadius,
+        borderTopWidth: style.borderTopWidth,
+        marginTop: style.marginTop,
+        paddingTop: style.paddingTop,
+        paddingBottom: style.paddingBottom,
+        overflowX: item.scrollWidth - item.clientWidth,
+        overflowY: item.scrollHeight - item.clientHeight
+      }
+    })
     return {
-      rightDifference: Math.abs(triggerRect.right - popoverRect.right),
+      cardLeftDifference: Math.abs(cardRect.left - popoverRect.left),
+      cardRightDifference: Math.abs(cardRect.right - popoverRect.right),
       viewportRight: popoverRect.right <= window.innerWidth - 11,
-      viewportLeft: popoverRect.left >= 11
+      viewportLeft: popoverRect.left >= 11,
+      itemMetrics
     }
   })
-  expect(alignment.rightDifference).toBeLessThanOrEqual(1)
+  if (!isPhone) {
+    expect(alignment.cardLeftDifference).toBeLessThanOrEqual(0.1)
+    expect(alignment.cardRightDifference).toBeLessThanOrEqual(0.1)
+  }
   expect(alignment.viewportLeft).toBe(true)
   expect(alignment.viewportRight).toBe(true)
+  expect(alignment.itemMetrics[0]).toEqual(alignment.itemMetrics[1])
+  expect(alignment.itemMetrics[0].overflowX).toBeLessThanOrEqual(0)
+  expect(alignment.itemMetrics[0].overflowY).toBeLessThanOrEqual(0)
 
-  await page.evaluate(() => window.scrollBy(0, -120))
-  await expect(popover).toBeHidden()
-  await expect(trigger).toHaveAttribute('aria-expanded', 'false')
-  await expect(trigger).toBeFocused()
+  if (testInfo.project.name === 'desktop-standard') {
+    await items.nth(0).hover()
+    const firstHover = await items.nth(0).evaluate(item => getComputedStyle(item).backgroundColor)
+    await items.nth(1).hover()
+    const secondHover = await items.nth(1).evaluate(item => getComputedStyle(item).backgroundColor)
+    expect(firstHover).toBe(secondHover)
+
+    await page.evaluate(() => window.scrollBy(0, -120))
+    await expect(popover).toBeHidden()
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    await expect(trigger).toBeFocused()
+  }
 })
 
 test('Watched Favorite reveals and highlights the active rewatch card', async ({ page }, testInfo) => {
