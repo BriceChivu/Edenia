@@ -28,7 +28,6 @@ function createRoot() {
 function createActions(calls) {
   return {
     openMenu: (...args) => calls.push(['openMenu', ...args]),
-    closeMenu: (...args) => calls.push(['closeMenu', ...args]),
     removeFromContinueWatching: (...args) => calls.push(['removeFromContinueWatching', ...args]),
     removeFromFeed: (...args) => calls.push(['removeFromFeed', ...args]),
     restoreToFeed: (...args) => calls.push(['restoreToFeed', ...args]),
@@ -45,7 +44,6 @@ test('video organization actions delegate every supported control once', () => {
 
   const cases = [
     ['menu', 'openMenu'],
-    ['close', 'closeMenu'],
     ['remove-continue', 'removeFromContinueWatching'],
     ['remove-feed', 'removeFromFeed'],
     ['restore-feed', 'restoreToFeed'],

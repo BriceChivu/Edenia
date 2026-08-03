@@ -16,6 +16,14 @@ const renderEnd = appSource.indexOf('\nfunction renderAnkiStatus(', renderStart)
 assert.notEqual(renderStart, -1)
 assert.notEqual(renderEnd, -1)
 const renderSource = appSource.slice(renderStart, renderEnd)
+const disclosureStart = appSource.indexOf('function renderVideoOrganizationDisclosure(')
+const disclosureEnd = appSource.indexOf(
+  '\nfunction getVideoOrganizationMenuForTrigger(',
+  disclosureStart
+)
+assert.notEqual(disclosureStart, -1)
+assert.notEqual(disclosureEnd, -1)
+const disclosureSource = appSource.slice(disclosureStart, disclosureEnd)
 
 function getButtonElements(source) {
   return [...source.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)]
@@ -54,20 +62,12 @@ function normalizeClickEventName(action) {
 }
 
 test('Next Study variants retain every generated control and exact branch markup', () => {
-  assert.equal(getButtonElements(renderSource).length, 7)
+  assert.equal(getButtonElements(renderSource).length, 6)
   assert.match(renderSource, /const actions = isInProgress\s*\? `/)
   assert.match(renderSource, /`\s*: isRewatch\s*\? `/)
   assert.match(renderSource, /`\s*: `/)
 
   const expectedControls = [
-    {
-      className: 'next-study-more',
-      analyticsAction: 'openVideoActions',
-      nextStudyAction: null,
-      inlineHandler: null,
-      content: "${renderVideoActionIcon('more')}",
-      ariaLabel: "${escHtml(t('videos.actions.more'))}"
-    },
     {
       className: 'next-study-continue',
       analyticsAction: 'openNextStudyVideoPlayer',
@@ -144,20 +144,15 @@ test('Next Study variants retain every generated control and exact branch markup
 })
 
 test('Next Study More actions keeps organization ownership and surface', () => {
-  const element = findSingleButton(
-    tag => hasClass(tag, 'next-study-more'),
-    'Next Study More actions control'
+  assert.match(
+    renderSource,
+    /renderVideoOrganizationDisclosure\(nextVideo, \{\s*surface: 'continue_watching',\s*triggerClass: 'next-study-cta next-study-more'\s*\}\)/
   )
-  const tag = getOpeningTag(element)
-
-  assert.ok(hasClass(tag, 'next-study-cta'))
-  assert.equal(getAttribute(tag, 'data-video-organization-action'), 'menu')
-  assert.equal(
-    getAttribute(tag, 'data-video-organization-surface'),
-    'continue_watching'
-  )
-  assert.equal(getAttribute(tag, 'data-analytics-action'), 'openVideoActions')
-  assert.equal(getAttribute(tag, 'onclick'), null)
+  assert.match(disclosureSource, /class="\$\{triggerClass\}"/)
+  assert.match(disclosureSource, /data-video-organization-action="menu"/)
+  assert.match(disclosureSource, /data-video-organization-surface="\$\{escHtml\(surface\)\}"/)
+  assert.match(disclosureSource, /data-analytics-action="openVideoActions"/)
+  assert.doesNotMatch(disclosureSource, /onclick=/)
 
   const replacementIndex = renderSource.indexOf('container.innerHTML =')
   const bindingIndex = appSource.indexOf('bindVideoOrganizationActions(document,')
