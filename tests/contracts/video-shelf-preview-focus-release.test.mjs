@@ -12,7 +12,15 @@ function getFunctionSource(name, nextName) {
   return appSource.slice(start, end)
 }
 
-test('another shelf card releases Next Study focus before its preview opens', () => {
+test('pending Next Study focus ignores competing shelf hover previews', () => {
+  const ignoreSource = getFunctionSource(
+    'shouldIgnoreVideoShelfHoverForPendingFocus',
+    'releaseNextStudyFocusForShelfPreview'
+  )
+  assert.match(ignoreSource, /pointerEvent\?\.type === 'mouseenter'/)
+  assert.match(ignoreSource, /requestedVideoId !== focusedVideoId/)
+  assert.match(ignoreSource, /!isActiveVideoShelfPreview\(focusedVideoId\)/)
+
   const releaseSource = getFunctionSource(
     'releaseNextStudyFocusForShelfPreview',
     'pushUndoAction'
@@ -30,6 +38,9 @@ test('another shelf card releases Next Study focus before its preview opens', ()
   const eligibilityIndex = openSource.indexOf(
     'if (!force && !isVideoShelfCardFullyVisible(card)) return false'
   )
+  const ignoreIndex = openSource.indexOf(
+    'if (shouldIgnoreVideoShelfHoverForPendingFocus(card, force, pointerEvent)) return false'
+  )
   const releaseIndex = openSource.indexOf(
     'releaseNextStudyFocusForShelfPreview(card, force)'
   )
@@ -38,7 +49,9 @@ test('another shelf card releases Next Study focus before its preview opens', ()
   )
 
   assert.ok(eligibilityIndex >= 0)
+  assert.ok(ignoreIndex > eligibilityIndex)
   assert.ok(releaseIndex > eligibilityIndex)
+  assert.ok(releaseIndex > ignoreIndex)
   assert.ok(activePreviewIndex > releaseIndex)
   assert.doesNotMatch(openSource, /activeNextStudyFocusVideoId && !force/)
   assert.doesNotMatch(openSource, /card\.classList\.contains\('next-study-focus-target'\) && !force/)

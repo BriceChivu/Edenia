@@ -72,7 +72,8 @@ import {
   bindImageFallbackActions
 } from './features/images/fallback-actions.js'
 import {
-  selectOnboardingChoiceLayout
+  selectOnboardingChoiceLayout,
+  shouldSyncOnboardingChoiceLayoutForViewportResize
 } from './features/onboarding/choice-layout.js'
 import {
   ACTIVE_VIDEOS_PER_CHANNEL,
@@ -632,6 +633,7 @@ const personalizedOnboardingState = {
   lastTrackedStep: null
 }
 let onboardingChoiceLayoutFrame = 0
+let onboardingChoiceLayoutViewportSize = null
 const onboardingRecoveryState = {
   active: false,
   reason: 'setup',
@@ -2716,8 +2718,17 @@ function clearOnboardingChoiceLayout(panel) {
   delete panel.dataset.onboardingChoiceLayout
 }
 
+function getOnboardingLayoutViewportSize() {
+  const root = document.documentElement
+  return {
+    width: root?.clientWidth ?? window.innerWidth,
+    height: root?.clientHeight ?? window.innerHeight
+  }
+}
+
 function syncOnboardingChoiceLayout() {
   const panel = document.getElementById('onboardingPanel')
+  onboardingChoiceLayoutViewportSize = getOnboardingLayoutViewportSize()
   const supportsFittedChoices = (
     personalizedOnboardingState.active
     && ['language', 'level', 'channels'].includes(personalizedOnboardingState.step)
@@ -2750,6 +2761,19 @@ function scheduleOnboardingChoiceLayoutSync() {
     onboardingChoiceLayoutFrame = 0
     syncOnboardingChoiceLayout()
   })
+}
+
+function scheduleOnboardingChoiceLayoutSyncForViewportResize() {
+  const nextSize = getOnboardingLayoutViewportSize()
+  const shouldSync = shouldSyncOnboardingChoiceLayoutForViewportResize({
+    previousSize: onboardingChoiceLayoutViewportSize,
+    nextSize,
+    visualScale: window.visualViewport?.scale ?? 1
+  })
+  if (!shouldSync) return
+
+  onboardingChoiceLayoutViewportSize = nextSize
+  scheduleOnboardingChoiceLayoutSync()
 }
 
 function renderOnboardingHeading(titleKey, subtitleKey = '') {
@@ -8120,6 +8144,18 @@ function clearFocusedVideoPreview(videoId) {
   if (activeVideoShelfPreview?.dataset.videoId === targetVideoId) {
     closeVideoShelfPreview(activeVideoShelfPreview, true)
   }
+}
+
+function shouldIgnoreVideoShelfHoverForPendingFocus(card, force = false, pointerEvent = null) {
+  const focusedVideoId = String(activeNextStudyFocusVideoId ?? '')
+  const requestedVideoId = String(card?.dataset?.videoId ?? '')
+  // A smooth shelf scroll can move another card beneath the pointer before the requested preview opens.
+  return !force
+    && pointerEvent?.type === 'mouseenter'
+    && Boolean(focusedVideoId)
+    && Boolean(requestedVideoId)
+    && requestedVideoId !== focusedVideoId
+    && !isActiveVideoShelfPreview(focusedVideoId)
 }
 
 function releaseNextStudyFocusForShelfPreview(card, force = false) {
@@ -13918,6 +13954,7 @@ function openVideoShelfPreview(card, force = false, pointerEvent = null) {
   clearVideoShelfPreviewLeave(card)
   if (activeChannelShelfDrag) return false
   if (!force && !isVideoShelfCardFullyVisible(card)) return false
+  if (shouldIgnoreVideoShelfHoverForPendingFocus(card, force, pointerEvent)) return false
   releaseNextStudyFocusForShelfPreview(card, force)
   if (activeVideoShelfPreview && activeVideoShelfPreview !== card) {
     closeVideoShelfPreview(activeVideoShelfPreview, true)
@@ -15309,9 +15346,13 @@ window.addEventListener('resize', closeVideoShelfPreviewOnViewportChange, { pass
 window.addEventListener('resize', () => positionVideoShelfPlayerOverlay(), { passive: true })
 window.addEventListener('resize', syncMobileAddButtonWidth, { passive: true })
 window.addEventListener('resize', syncIntroTrailerStageScale, { passive: true })
-window.addEventListener('resize', scheduleOnboardingChoiceLayoutSync, { passive: true })
+window.addEventListener('resize', scheduleOnboardingChoiceLayoutSyncForViewportResize, { passive: true })
 window.addEventListener('resize', refreshCityWaveformScrollGeometry, { passive: true })
-window.visualViewport?.addEventListener('resize', scheduleOnboardingChoiceLayoutSync, { passive: true })
+window.visualViewport?.addEventListener(
+  'resize',
+  scheduleOnboardingChoiceLayoutSyncForViewportResize,
+  { passive: true }
+)
 document.fonts?.ready.then(scheduleOnboardingChoiceLayoutSync).catch(() => {})
 document.addEventListener('visibilitychange', refreshOpenChannelFilterTimestamps)
 document.addEventListener('visibilitychange', handleVideoShelfPlayerVisibilityChange)

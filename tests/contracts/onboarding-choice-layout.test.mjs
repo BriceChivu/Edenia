@@ -4,7 +4,8 @@ import test from 'node:test'
 import {
   ONBOARDING_CHOICE_LAYOUT_STATES,
   ONBOARDING_CHOICE_SCROLL_LAYOUT,
-  selectOnboardingChoiceLayout
+  selectOnboardingChoiceLayout,
+  shouldSyncOnboardingChoiceLayoutForViewportResize
 } from '../../src/features/onboarding/choice-layout.js'
 
 const appSource = await readFile(
@@ -79,6 +80,32 @@ test('choice layout accepts a restricted step-specific state policy', () => {
   ])
 })
 
+test('pinch zoom does not trigger a choice layout recalculation', () => {
+  assert.equal(shouldSyncOnboardingChoiceLayoutForViewportResize({
+    previousSize: { width: 390, height: 844 },
+    nextSize: { width: 390, height: 844 },
+    visualScale: 0.75
+  }), false)
+  assert.equal(shouldSyncOnboardingChoiceLayoutForViewportResize({
+    previousSize: { width: 390, height: 844 },
+    nextSize: { width: 392, height: 846 },
+    visualScale: 1.5
+  }), false)
+})
+
+test('genuine layout viewport changes still trigger recalculation', () => {
+  assert.equal(shouldSyncOnboardingChoiceLayoutForViewportResize({
+    previousSize: { width: 390, height: 844 },
+    nextSize: { width: 844, height: 390 },
+    visualScale: 1
+  }), true)
+  assert.equal(shouldSyncOnboardingChoiceLayoutForViewportResize({
+    previousSize: { width: 390, height: 844 },
+    nextSize: { width: 390, height: 844 },
+    visualScale: 1
+  }), false)
+})
+
 test('language onboarding measures only a double-column fixed state', () => {
   assert.match(
     appSource,
@@ -103,6 +130,10 @@ test('language onboarding measures only a double-column fixed state', () => {
   assert.match(
     appSource,
     /\.onboarding-language-grid \.onboarding-choice, \.onboarding-level-choice, \.onboarding-channel/
+  )
+  assert.match(
+    appSource,
+    /window\.visualViewport\?\.addEventListener\(\s*'resize',\s*scheduleOnboardingChoiceLayoutSyncForViewportResize/
   )
 })
 
