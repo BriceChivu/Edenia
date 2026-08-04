@@ -594,6 +594,15 @@
     aspect-ratio: auto;
     height: 100%;
   }
+  body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card.is-preview-closing .thumb-link {
+    height: 100%;
+  }
+  body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card.is-preview-closing .card-body {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(8px);
+    transition: none;
+  }
 }
 .channel-shelf-card .channel-shelf-priority-badge[type="button"] {
   appearance: none;

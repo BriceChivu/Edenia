@@ -474,6 +474,40 @@ test('vertical cards resize without changing the channel shelf footprint', async
     2
   )
   expect(expandedLayout.thumbnailTransitionDuration).toBe('0s')
+  if (testInfo.project.name === 'desktop-standard') {
+    await page.mouse.move(0, 0)
+    await shortsCard.evaluate(card => window.closeVideoShelfPreview(card))
+    await expect(shortsCard).toHaveClass(/\bis-preview-closing\b/)
+    const closingLayout = await shortsCard.evaluate(card => {
+      const cardStyle = getComputedStyle(card)
+      const cardRect = card.getBoundingClientRect()
+      const bodyStyle = getComputedStyle(card.querySelector('.card-body'))
+      const thumbnailRect = card.querySelector('.thumb-link').getBoundingClientRect()
+      const thumbnailStyle = getComputedStyle(card.querySelector('.thumb'))
+      return {
+        bodyOpacity: Number.parseFloat(bodyStyle.opacity),
+        bodyPointerEvents: bodyStyle.pointerEvents,
+        borderBlock: Number.parseFloat(cardStyle.borderTopWidth)
+          + Number.parseFloat(cardStyle.borderBottomWidth),
+        cardHeight: cardRect.height,
+        thumbnailHeight: thumbnailRect.height,
+        thumbnailScale: new DOMMatrix(thumbnailStyle.transform).a,
+        thumbnailTransitionDuration: thumbnailStyle.transitionDuration
+      }
+    })
+    expect(closingLayout.thumbnailHeight + closingLayout.borderBlock)
+      .toBeCloseTo(closingLayout.cardHeight, 0)
+    expect(closingLayout.bodyOpacity).toBe(0)
+    expect(closingLayout.bodyPointerEvents).toBe('none')
+    expect(closingLayout.thumbnailScale).toBeCloseTo(
+      collapsedLayout.thumbnailScale,
+      2
+    )
+    expect(closingLayout.thumbnailTransitionDuration).toBe('0s')
+    await expect(shortsCard).not.toHaveClass(/\bis-floating-preview\b/)
+  } else {
+    await closePreview(shortsCard)
+  }
   await expect(track).toHaveJSProperty('scrollLeft', 0)
   await expect(channelB).toBeVisible()
 })
