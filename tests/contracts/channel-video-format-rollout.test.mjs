@@ -15,6 +15,17 @@ const phoneStyleSource = await readFile(
   new URL('../../src/styles/98-responsive-phone.css', import.meta.url),
   'utf8'
 )
+const formatIconAssets = Object.fromEntries(await Promise.all(
+  [
+    'youtube-black.svg',
+    'youtube-white.svg',
+    'youtube-shorts-black-logo.svg',
+    'youtube-shorts-white-logo.svg'
+  ].map(async filename => [
+    filename,
+    await readFile(new URL(`../../images/brands/${filename}`, import.meta.url), 'utf8')
+  ])
+))
 
 test('channel video format rollout has one internal-test release boundary', () => {
   assert.match(
@@ -61,25 +72,43 @@ test('format controls render accessible icons without visible labels or counts',
   assert.notEqual(controlsEnd, -1)
   const controlsSource = appSource.slice(controlsStart, controlsEnd)
 
-  assert.match(controlsSource, /class="channel-shelf-format-icon"/)
+  assert.match(
+    controlsSource,
+    /class="channel-shelf-format-icon channel-shelf-format-icon-\$\{normalizedFormat\}"/
+  )
   assert.match(controlsSource, /aria-hidden="true"/)
   assert.match(controlsSource, /aria-label="\$\{escHtml\(label\)\}"/)
   assert.match(controlsSource, /title="\$\{escHtml\(label\)\}"/)
+  assert.doesNotMatch(controlsSource, /<svg|<path/)
   assert.doesNotMatch(controlsSource, /channel-shelf-format-count|counts\[id\]/)
 })
 
-test('format controls align with desktop arrows and use subdued theme colors', () => {
+test('format controls use the supplied sanitized light and dark assets', () => {
+  Object.values(formatIconAssets).forEach(source => {
+    assert.match(source, /^<svg[^>]+viewBox="[^"]+">/)
+    assert.doesNotMatch(source, /<style|<!--|<title/)
+  })
+  assert.match(formatIconAssets['youtube-black.svg'], /fill="#212121"/)
+  assert.match(formatIconAssets['youtube-shorts-black-logo.svg'], /fill="#212121"/)
+  assert.match(formatIconAssets['youtube-white.svg'], /fill="#fff"/)
+  assert.match(formatIconAssets['youtube-shorts-white-logo.svg'], /fill="#fff"/)
+  Object.keys(formatIconAssets).forEach(filename => {
+    assert.match(videoFeedStyleSource, new RegExp(`url\\("images/brands/${filename}"\\)`))
+  })
+})
+
+test('format controls align with desktop arrows and share the status filter design', () => {
   assert.match(
     videoFeedStyleSource,
-    /\.channel-shelf-format-switcher \{[\s\S]*?background: var\(--surface\);[\s\S]*?height: 30px;[\s\S]*?padding: 0 2px;/
+    /\.status-tabs,\s*\.channel-shelf-format-switcher \{[\s\S]*?background: var\(--surface-hi\);[\s\S]*?border: 1\.5px solid var\(--border\);[\s\S]*?border-radius: 999px;/
   )
   assert.match(
     videoFeedStyleSource,
-    /\.channel-shelf-format-option\[aria-pressed="true"\] \{\s*background: var\(--soft-blue\);\s*box-shadow: inset 0 0 0 1px var\(--border\);\s*color: var\(--accent-dim\);\s*\}/
+    /\.status-tab\.active,\s*\.channel-shelf-format-option\[aria-pressed="true"\] \{\s*background: var\(--surface\);\s*box-shadow: 0 2px 0 rgba\(5,5,5,0\.1\);\s*color: var\(--text\);\s*\}/
   )
-  assert.doesNotMatch(
+  assert.match(
     videoFeedStyleSource,
-    /\.channel-shelf-format-option\[aria-pressed="true"\] \{[^}]*var\(--planet-(?:black|white)\)/
+    /\.channel-shelf-format-switcher \{[\s\S]*?height: 30px;[\s\S]*?padding: 0 2px;/
   )
   assert.match(
     phoneStyleSource,

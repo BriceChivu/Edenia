@@ -30,16 +30,20 @@
   flex: 0 0 auto;
   margin-left: auto;
 }
-.status-tabs {
+.status-tabs,
+.channel-shelf-format-switcher {
   align-items: center;
   background: var(--surface-hi);
   border: 1.5px solid var(--border);
   border-radius: 999px;
   display: inline-flex;
   gap: 2px;
+}
+.status-tabs {
   padding: 2px;
 }
-.status-tab {
+.status-tab,
+.channel-shelf-format-option {
   align-items: center;
   background: transparent;
   border: 0;
@@ -48,6 +52,8 @@
   cursor: pointer;
   display: inline-flex;
   font: inherit;
+}
+.status-tab {
   font-size: 0.72rem;
   font-weight: 750;
   gap: 5px;
@@ -56,15 +62,18 @@
   padding: 6px 9px;
   white-space: nowrap;
 }
-.status-tab:hover {
+.status-tab:hover,
+.channel-shelf-format-option:hover:not([aria-pressed="true"]) {
   color: var(--text);
 }
-.status-tab.active {
+.status-tab.active,
+.channel-shelf-format-option[aria-pressed="true"] {
   background: var(--surface);
   box-shadow: 0 2px 0 rgba(5,5,5,0.1);
   color: var(--text);
 }
-.status-tab:focus-visible {
+.status-tab:focus-visible,
+.channel-shelf-format-option:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
@@ -775,27 +784,13 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
   overflow: hidden;
 }
 .channel-shelf-format-switcher {
-  align-items: center;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: 999px;
-  display: inline-flex;
   flex: 0 0 auto;
-  gap: 2px;
   height: 30px;
   margin-left: auto;
   margin-right: 3px;
   padding: 0 2px;
 }
 .channel-shelf-format-option {
-  align-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 999px;
-  color: var(--muted);
-  cursor: pointer;
-  display: inline-flex;
-  font: inherit;
   height: 100%;
   justify-content: center;
   min-height: 0;
@@ -805,23 +800,34 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
     color var(--motion-fast) var(--ease-standard),
     box-shadow var(--motion-fast) var(--ease-standard);
 }
-.channel-shelf-format-option[aria-pressed="true"] {
-  background: var(--soft-blue);
-  box-shadow: inset 0 0 0 1px var(--border);
-  color: var(--accent-dim);
-}
-.channel-shelf-format-option:hover:not([aria-pressed="true"]) {
-  background: var(--surface-hi);
-  color: var(--text);
-}
-.channel-shelf-format-option:focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 2px;
-}
 .channel-shelf-format-icon {
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
   display: block;
+  flex: 0 0 auto;
   height: 18px;
-  width: 18px;
+  opacity: 0.58;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+  width: 20px;
+}
+.channel-shelf-format-icon-videos {
+  background-image: url("images/brands/youtube-black.svg");
+}
+.channel-shelf-format-icon-shorts {
+  background-image: url("images/brands/youtube-shorts-black-logo.svg");
+}
+body[data-theme="dark"] .channel-shelf-format-icon-videos {
+  background-image: url("images/brands/youtube-white.svg");
+}
+body[data-theme="dark"] .channel-shelf-format-icon-shorts {
+  background-image: url("images/brands/youtube-shorts-white-logo.svg");
+}
+.channel-shelf-format-option[aria-pressed="true"] .channel-shelf-format-icon {
+  opacity: 1;
+}
+.channel-shelf-format-option:hover:not([aria-pressed="true"]) .channel-shelf-format-icon {
+  opacity: 0.82;
 }
 .channel-shelf-slot[data-channel-video-format][hidden],
 .channel-shelf-format-empty[hidden] {
