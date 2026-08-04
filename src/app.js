@@ -777,6 +777,22 @@ function applyVideoOrganizationVisibility() {
   })
 }
 
+function getEffectiveIncludeShorts(state) {
+  return CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED
+    || normalizeIncludeShorts(state?.config?.includeShorts)
+}
+
+function applyChannelVideoFormatExperimentUi() {
+  document.body.classList.toggle(
+    'channel-video-format-toggle-enabled',
+    CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED
+  )
+  document.querySelector('.settings-shorts-group')?.classList.toggle(
+    'hidden',
+    CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED
+  )
+}
+
 function applyTranslations(root = document) {
   root.querySelectorAll('[data-i18n]').forEach(el => {
     el.textContent = t(el.dataset.i18n)
@@ -1262,7 +1278,7 @@ function getEdeniaAnalyticsSnapshot(state) {
       locale: normalizeLocale(state?.config?.locale),
       theme: normalizeTheme(state?.config?.theme),
       weeklyGoalHours: normalizeWeeklyGoalHours(state?.config?.weeklyGoalHours),
-      includeShortVideos: normalizeIncludeShorts(state?.config?.includeShorts),
+      includeShortVideos: getEffectiveIncludeShorts(state),
       ankiEnabled: isAnkiTrackingActive(state),
       studyInsightsEnabled: isStudyInsightsEnabled(state),
       historyView: normalizeHistoryView(state?.config?.historyView, IS_SANDBOX),
@@ -1903,6 +1919,7 @@ function initBackgroundPhysics() {
 function init() {
   reportMissingI18nKeys()
   applyVideoOrganizationVisibility()
+  applyChannelVideoFormatExperimentUi()
   let state = loadState()
   if (!state) {
     state = IS_SANDBOX ? createEmptySandboxState() : defaultState(4, DEFAULT_CHANNELS)
@@ -4627,7 +4644,7 @@ async function saveSettingsOnTheFly() {
   renderAll(s)
   renderActivityLog(s)
   if (shortsWereEnabled) refetchAllChannelsAfterShortsEnabled()
-  else if (!normalizeIncludeShorts(s.config.includeShorts)) repairStoredShortsDetection()
+  else if (!getEffectiveIncludeShorts(s)) repairStoredShortsDetection()
 }
 
 function saveLocaleFromSettings(locale = null) {
@@ -4759,7 +4776,7 @@ function importSyncFileFromInput(input) {
       applyTheme(importedState.config.theme)
       setDefaultCityDayOffset(importedState)
       renderAll(importedState)
-      if (!normalizeIncludeShorts(importedState.config.includeShorts)) repairStoredShortsDetection()
+      if (!getEffectiveIncludeShorts(importedState)) repairStoredShortsDetection()
       renderChannelList(importedState.config.channels)
       renderBackupList()
       renderActivityLog(importedState)
@@ -5047,7 +5064,7 @@ function restoreStateBackup(id) {
   applyTheme(state.config.theme)
   setDefaultCityDayOffset(state)
   renderAll(state)
-  if (!normalizeIncludeShorts(state.config.includeShorts)) repairStoredShortsDetection()
+  if (!getEffectiveIncludeShorts(state)) repairStoredShortsDetection()
   renderChannelList(state.config.channels)
   renderBackupList()
   renderActivityLog(state)
@@ -6059,7 +6076,7 @@ async function repairStoredShortsDetection() {
   if (repairStoredShortsDetection._running) return
 
   const initialState = loadState()
-  if (!initialState || normalizeIncludeShorts(initialState.config?.includeShorts)) return
+  if (!initialState || getEffectiveIncludeShorts(initialState)) return
   const candidates = getStoredShortsDetectionCandidates(initialState)
   if (!candidates.length) return
 
@@ -6067,7 +6084,7 @@ async function repairStoredShortsDetection() {
   try {
     const detailsById = await fetchVideoDetails(candidates.map(video => video.id), { detectShorts: true })
     const s = loadState()
-    if (!s || normalizeIncludeShorts(s.config?.includeShorts)) return
+    if (!s || getEffectiveIncludeShorts(s)) return
 
     let changed = false
     let checkedCount = 0
@@ -6233,7 +6250,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     const errors = []
     let successfulChannels = 0
     let filteredShortsDuringFetch = 0
-    const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
+    const includeShorts = getEffectiveIncludeShorts(s)
 
     try {
       await hydrateYoutubeChannelProfiles(channelsToRefresh)
@@ -6398,7 +6415,7 @@ async function refreshAddedChannel(channelId, options = {}) {
       console.warn('Channel profile picture:', err.message)
     }
 
-    const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
+    const includeShorts = getEffectiveIncludeShorts(s)
     const fetchResult = await fetchChannelVideos(channel, s.videos, { includeShorts })
     const videos = dedupeVideos(fetchResult.videos)
     const first = videos[0]
@@ -10848,7 +10865,7 @@ function getGoalPaceGuidance(stats, state) {
   if (stats.goalProgress >= 100 || stats.remainingSeconds <= 0) {
     return { state: 'complete', text: t('goal.pace.complete') }
   }
-  const includeShorts = normalizeIncludeShorts(state.config.includeShorts)
+  const includeShorts = getEffectiveIncludeShorts(state)
   const hasStudyVideo = getVisibleActiveVideos(
     Object.values(state.videos || {}),
     includeShorts,
@@ -12705,7 +12722,7 @@ function renderFeed(s) {
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
   const channelFilters = getSelectedChannelFilters(s)
   const removedChannelIds = new Set(s.config?.removedChannelIds || [])
-  const includeShorts = normalizeIncludeShorts(s.config.includeShorts)
+  const includeShorts = getEffectiveIncludeShorts(s)
   renderStatusFilterOptions(allVideos, channelFilters, includeShorts, removedChannelIds)
 
   const forcedSearchCandidate = forcedSearchVideoId && s.videos?.[forcedSearchVideoId]
@@ -14425,7 +14442,7 @@ function refreshVideoActionUiWithoutFeedRerender(state, videoId) {
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
   const channelFilters = getSelectedChannelFilters(state)
   const removedChannelIds = new Set(state.config?.removedChannelIds || [])
-  const includeShorts = normalizeIncludeShorts(state.config.includeShorts)
+  const includeShorts = getEffectiveIncludeShorts(state)
   const activeVideos = getVisibleActiveVideos(allVideos, includeShorts, {
     limitPerChannel: false,
     videoOrganizationEnabled: VIDEO_ORGANIZATION_ENABLED
