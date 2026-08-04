@@ -11,6 +11,10 @@ const videoFeedStyleSource = await readFile(
   new URL('../../src/styles/70-video-feed.css', import.meta.url),
   'utf8'
 )
+const analyticsStyleSource = await readFile(
+  new URL('../../src/styles/50-analytics.css', import.meta.url),
+  'utf8'
+)
 const phoneStyleSource = await readFile(
   new URL('../../src/styles/98-responsive-phone.css', import.meta.url),
   'utf8'
@@ -43,6 +47,33 @@ test('channel video format rollout has one internal-test release boundary', () =
   assert.match(
     appSource,
     /if \(cardOptions\.channelVideoFormatEnabled\) \{\s*bindChannelVideoFormatActions\(grid, \{\s*select: selectChannelVideoFormat/
+  )
+})
+
+test('internal rollout includes every duration without migrating the saved preference', () => {
+  assert.match(
+    appSource,
+    /function getEffectiveIncludeShorts\(state\) \{\s*return CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED\s*\|\| normalizeIncludeShorts\(state\?\.config\?\.includeShorts\)\s*\}/
+  )
+  assert.match(
+    appSource,
+    /function applyChannelVideoFormatExperimentUi\(\) \{[\s\S]*?'channel-video-format-toggle-enabled',[\s\S]*?CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED[\s\S]*?document\.querySelector\('\.settings-shorts-group'\)\?\.classList\.toggle\(\s*'hidden',\s*CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED/
+  )
+  assert.match(
+    appSource,
+    /function init\(\) \{\s*reportMissingI18nKeys\(\)\s*applyVideoOrganizationVisibility\(\)\s*applyChannelVideoFormatExperimentUi\(\)/
+  )
+  assert.equal(
+    appSource.match(/const includeShorts = getEffectiveIncludeShorts\((?:s|state)\)/g)?.length,
+    5
+  )
+  assert.match(
+    appSource,
+    /includeShortVideos: getEffectiveIncludeShorts\(state\)/
+  )
+  assert.match(
+    appSource,
+    /state\.config\.includeShorts = includeShorts/
   )
 })
 
@@ -97,14 +128,30 @@ test('format controls use the supplied sanitized light and dark assets', () => {
   })
 })
 
-test('format controls align with desktop arrows and share the status filter design', () => {
+test('experiment controls align with arrows and share the Insights tab design', () => {
   assert.match(
     videoFeedStyleSource,
     /\.status-tabs,\s*\.channel-shelf-format-switcher \{[\s\S]*?background: var\(--surface-hi\);[\s\S]*?border: 1\.5px solid var\(--border\);[\s\S]*?border-radius: 999px;/
   )
   assert.match(
     videoFeedStyleSource,
-    /\.status-tab\.active,\s*\.channel-shelf-format-option\[aria-pressed="true"\] \{\s*background: var\(--surface\);\s*box-shadow: 0 2px 0 rgba\(5,5,5,0\.1\);\s*color: var\(--text\);\s*\}/
+    /body\.channel-video-format-toggle-enabled \.status-tabs,\s*body\.channel-video-format-toggle-enabled \.channel-shelf-format-switcher \{\s*background: transparent;\s*border: 0;\s*border-radius: 0;\s*padding: 0;\s*\}/
+  )
+  assert.match(
+    videoFeedStyleSource,
+    /body\.channel-video-format-toggle-enabled \.status-tab\.active,\s*body\.channel-video-format-toggle-enabled \.channel-shelf-format-option\[aria-pressed="true"\] \{\s*box-shadow: 0 1px 3px rgba\(5,5,5,0\.12\);\s*\}/
+  )
+  assert.match(
+    videoFeedStyleSource,
+    /body\.channel-video-format-toggle-enabled \.status-tab:not\(\.active\):not\(:disabled\):hover,\s*body\.channel-video-format-toggle-enabled \.channel-shelf-format-option:hover:not\(\[aria-pressed="true"\]\) \{\s*background: rgba\(5,5,5,0\.08\);\s*\}/
+  )
+  assert.match(
+    analyticsStyleSource,
+    /\.study-insight-tab\.active \{\s*background: var\(--surface\);\s*box-shadow: 0 1px 3px rgba\(5,5,5,0\.12\);\s*color: var\(--text\);\s*\}/
+  )
+  assert.match(
+    analyticsStyleSource,
+    /\.study-insight-tab:not\(\.active\):not\(:disabled\):hover \{\s*background: rgba\(5,5,5,0\.08\);\s*color: var\(--text\);\s*\}/
   )
   assert.match(
     videoFeedStyleSource,
