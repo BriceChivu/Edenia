@@ -3951,15 +3951,23 @@ test('city level-up listener preserves staged claims and outcome-dependent analy
   ))).toBe(1)
 })
 
-test('city level-up control stays centered, prominent, and on one line', async ({
+test('city level-up control floats above an unchanged centered progress rail', async ({
   page
 }) => {
+  await seedCompletedState(page, 'fr')
+  const baselineRailHeight = await page.locator(
+    '.city-level-progress-rail'
+  ).evaluate(rail => rail.getBoundingClientRect().height)
+
   await seedCityClaimState(page, 180, 'fr')
 
   const layout = await page.evaluate(() => {
     const button = document.getElementById('levelUpButton')
+    const goalCard = document.querySelector('.goal-card')
+    const progress = document.getElementById('cityLevelProgress')
     const rail = document.querySelector('.city-level-progress-rail')
     const buttonRect = button.getBoundingClientRect()
+    const goalCardRect = goalCard.getBoundingClientRect()
     const railRect = rail.getBoundingClientRect()
     const buttonStyle = getComputedStyle(button)
     const textRange = document.createRange()
@@ -3969,9 +3977,23 @@ test('city level-up control stays centered, prominent, and on one line', async (
     return {
       buttonCenterX: buttonRect.left + (buttonRect.width / 2),
       buttonCenterY: buttonRect.top + (buttonRect.height / 2),
-      buttonHeight: buttonRect.height,
+      buttonBounds: {
+        bottom: buttonRect.bottom,
+        left: buttonRect.left,
+        right: buttonRect.right,
+        top: buttonRect.top
+      },
       buttonText: button.textContent.trim(),
+      configuredLift: Number.parseFloat(
+        getComputedStyle(progress).getPropertyValue('--city-level-action-lift')
+      ),
       fontSize: Number.parseFloat(buttonStyle.fontSize),
+      goalCardBounds: {
+        bottom: goalCardRect.bottom,
+        left: goalCardRect.left,
+        right: goalCardRect.right,
+        top: goalCardRect.top
+      },
       railCenterX: railRect.left + (railRect.width / 2),
       railCenterY: railRect.top + (railRect.height / 2),
       railHeight: railRect.height,
@@ -3986,9 +4008,24 @@ test('city level-up control stays centered, prominent, and on one line', async (
   expect(layout.textFits).toBe(true)
   expect(layout.textLineCount).toBe(1)
   expect(layout.fontSize).toBeGreaterThanOrEqual(14)
-  expect(layout.railHeight).toBeGreaterThanOrEqual(layout.buttonHeight)
+  expect(layout.railHeight).toBe(baselineRailHeight)
+  expect(layout.configuredLift).toBe(8)
+  expect(layout.buttonBounds.left).toBeGreaterThanOrEqual(
+    layout.goalCardBounds.left
+  )
+  expect(layout.buttonBounds.right).toBeLessThanOrEqual(
+    layout.goalCardBounds.right
+  )
+  expect(layout.buttonBounds.top).toBeGreaterThanOrEqual(
+    layout.goalCardBounds.top
+  )
+  expect(layout.buttonBounds.bottom).toBeLessThanOrEqual(
+    layout.goalCardBounds.bottom
+  )
   expect(Math.abs(layout.buttonCenterX - layout.railCenterX)).toBeLessThanOrEqual(1)
-  expect(Math.abs(layout.buttonCenterY - layout.railCenterY)).toBeLessThanOrEqual(1)
+  expect(Math.abs(
+    (layout.railCenterY - layout.buttonCenterY) - layout.configuredLift
+  )).toBeLessThanOrEqual(1)
 })
 
 test('city waveform mouse listeners preserve edge scrolling, clearing, and phone inertness', async ({

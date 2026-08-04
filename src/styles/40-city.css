@@ -382,6 +382,7 @@
   opacity: 1;
 }
 .city-level-progress {
+  --city-level-action-lift: 8px;
   --city-level-filled-center: 0%;
   --city-level-progress: 0%;
   --city-level-remaining-center: 50%;
@@ -483,13 +484,10 @@
 .city-level-progress.is-level-ready .city-level-progress-actions {
   left: 50%;
   top: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, calc(-50% - var(--city-level-action-lift)));
 }
 .city-level-progress.is-level-ready .city-next {
   display: none;
-}
-.city-level-progress.is-level-ready .city-level-progress-rail {
-  height: calc(var(--compact-control-height) + 4px);
 }
 .city-pts {
   background: var(--surface);
