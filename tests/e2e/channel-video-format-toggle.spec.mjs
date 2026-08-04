@@ -392,7 +392,7 @@ test('vertical cards resize without changing the channel shelf footprint', async
   expect(collapsedLayout.nextShelfTop).toBeCloseTo(initialLayout.nextShelfTop, 4)
   expect(collapsedLayout.gap).toBe(initialLayout.gap)
   expect(collapsedLayout.thumbnailObjectFit).toBe('cover')
-  expect(collapsedLayout.thumbnailScale).toBeCloseTo(1.04, 2)
+  expect(collapsedLayout.thumbnailScale).toBeCloseTo(1.4, 2)
   expect(collapsedLayout.thumbnailTransitionDuration).toBe('0s')
 
   await shortsCard.scrollIntoViewIfNeeded()
