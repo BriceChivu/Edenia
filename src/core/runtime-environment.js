@@ -10,3 +10,10 @@ export function deriveRuntimeEnvironment(locationLike) {
     isLocalFeedbackTest: locationLike.origin === 'http://localhost:8000'
   }
 }
+
+export function deriveVideoOrganizationEnabled(
+  runtimeEnvironment,
+  releaseEnabled = false
+) {
+  return runtimeEnvironment?.isInternalTest === true || releaseEnabled === true
+}

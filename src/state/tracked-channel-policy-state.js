@@ -121,13 +121,16 @@ export function getTrackedChannelsInShelfOrder(state) {
     .map(entry => entry.channel)
 }
 
-export function getManualVideoOnlyChannels(state) {
+export function getManualVideoOnlyChannels(
+  state,
+  { videoOrganizationEnabled = true } = {}
+) {
   const trackedChannelIds = new Set(getTrackedChannelIds(state))
   const manualChannels = new Map()
 
   Object.values(state?.videos || {}).forEach(video => {
     if (video?.manuallyAdded !== true) return
-    if (isHiddenFromVideoGrid(video)) return
+    if (isHiddenFromVideoGrid(video, videoOrganizationEnabled)) return
     const id = String(video.channelId || video.channelTitle || '').trim()
     if (!id || trackedChannelIds.has(id)) return
     const existing = manualChannels.get(id)

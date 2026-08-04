@@ -24,7 +24,7 @@ export function bindVideoShelfPreviewActions(root, actions) {
     if (boundControls.has(control)) return
     const actionName = control.dataset.videoPreviewAction
 
-    if (actionName === 'thumbnail') {
+    if (actionName === 'thumbnail' || actionName === 'removed-thumbnail') {
       control.addEventListener('click', event => {
         actions.thumbnail(event, control)
       })

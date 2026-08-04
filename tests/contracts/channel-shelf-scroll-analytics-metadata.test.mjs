@@ -308,7 +308,7 @@ test('active-grid replacement retains generated controls and deferred initial sy
       'grid.innerHTML = renderChannelVideoGroups(',
       'bindChannelShelfScrollActions(grid, {',
       'bindChannelRemoveActions(grid, {',
-      'bindVideoSetAsideActions(grid, {',
+      'bindRenderedVideoStateActions(grid)',
       'requestAnimationFrame(() => {',
       "document.querySelectorAll('.channel-shelf-track').forEach(syncVideoChannelShelfControls)"
     ],

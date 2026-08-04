@@ -27,6 +27,26 @@
   white-space: normal;
 }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.has-action {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  pointer-events: auto;
+  text-align: left;
+}
+.toast-action {
+  background: transparent;
+  border: 0;
+  color: var(--accent-strong);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  padding: 4px 2px;
+}
+.toast-action:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
 .toast.toast-warn  { border-color: var(--amber); color: var(--amber); }
 .toast.toast-error { border-color: var(--error); color: var(--error); }
 .feedback-confirmation {

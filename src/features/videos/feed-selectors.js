@@ -1,6 +1,7 @@
 import {
   getVideoStatus,
   hasVideoResumePriority,
+  isVideoRemovedFromFeed,
   isVideoWatchLater
 } from '../../domain/video-state.js'
 import { isShortDuration } from '../../integrations/youtube-parsing.js'
@@ -127,11 +128,12 @@ export function isHiddenShortVideo(video, includeShorts) {
 
 export function getVisibleActiveVideos(videos, includeShorts = true, options = {}) {
   const limitPerChannel = options.limitPerChannel !== false
+  const videoOrganizationEnabled = options.videoOrganizationEnabled !== false
   const byChannel = new Map()
 
   const visibleVideos = videos
     .filter(video => getVideoStatus(video) !== 'watched')
-    .filter(video => !isHiddenFromVideoGrid(video))
+    .filter(video => !isHiddenFromVideoGrid(video, videoOrganizationEnabled))
     .filter(video => !isHiddenShortVideo(video, includeShorts))
     .sort(compareActiveVideos)
 
@@ -158,6 +160,17 @@ export function getActiveVideoGroupKey(video) {
   return video?.channelId || video?.channelTitle || 'unknown'
 }
 
-export function isHiddenFromVideoGrid(video) {
+export function isHiddenFromVideoGrid(video, videoOrganizationEnabled = true) {
   return Boolean(video?.hiddenFromGrid)
+    || (videoOrganizationEnabled === true && isVideoRemovedFromFeed(video))
+}
+
+export function getRemovedFromFeedVideos(videos, includeShorts = true) {
+  return videos
+    .filter(video => isVideoRemovedFromFeed(video))
+    .filter(video => !video?.hiddenFromGrid)
+    .filter(video => !isHiddenShortVideo(video, includeShorts))
+    .sort((left, right) => (
+      Date.parse(right.removedFromFeedAt) - Date.parse(left.removedFromFeedAt)
+    ))
 }

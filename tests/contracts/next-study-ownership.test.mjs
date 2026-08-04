@@ -118,30 +118,30 @@ test('generated Next Study open and focus controls retain exact module hooks', (
   assert.equal(getAttribute(focusControl.tag, 'onclick'), null)
 })
 
-test('Set aside stays isolated while Remove favorite joins Next Study ownership', () => {
+test('More actions stays isolated while Remove favorite joins Next Study ownership', () => {
   const controls = getElements(renderSource, 'button')
-  const setAsideControl = findSingle(
+  const moreControl = findSingle(
     controls,
-    element => hasClass(element.tag, 'next-study-set-aside'),
-    'Next Study Set aside control'
+    element => hasClass(element.tag, 'next-study-more'),
+    'Next Study More actions control'
   )
   assert.equal(
-    getAttribute(setAsideControl.tag, 'data-video-set-aside-action'),
-    'request'
+    getAttribute(moreControl.tag, 'data-video-organization-action'),
+    'menu'
   )
   assert.equal(
-    getAttribute(setAsideControl.tag, 'data-video-set-aside-surface'),
+    getAttribute(moreControl.tag, 'data-video-organization-surface'),
     'continue_watching'
   )
   assert.equal(
-    getAttribute(setAsideControl.tag, 'data-analytics-action'),
-    'requestVideoSetAside'
+    getAttribute(moreControl.tag, 'data-analytics-action'),
+    'openVideoActions'
   )
   assert.equal(
-    getAttribute(setAsideControl.tag, 'data-next-study-action'),
+    getAttribute(moreControl.tag, 'data-next-study-action'),
     null
   )
-  assert.equal(getAttribute(setAsideControl.tag, 'onclick'), null)
+  assert.equal(getAttribute(moreControl.tag, 'onclick'), null)
 
   const favoriteControl = findSingle(
     controls,
@@ -188,7 +188,7 @@ test('app composition imports and immediately binds generated Next Study actions
 
   assert.match(
     renderSource,
-    /container\.innerHTML = `[\s\S]*?`\s*bindNextStudyActions\(container,\s*\{\s*open: openNextStudyVideoPlayer,\s*focus: focusNextStudyVideoCard,\s*toggleFavorite: toggleVideoFavorite\s*\}\)\s*bindVideoSetAsideActions\(container,/
+    /container\.innerHTML = `[\s\S]*?`\s*bindNextStudyActions\(container,\s*\{\s*open: openNextStudyVideoPlayer,\s*focus: focusNextStudyVideoCard,\s*toggleFavorite: toggleVideoFavorite\s*\}\)[\s\S]*?if \(!VIDEO_ORGANIZATION_ENABLED\) \{[\s\S]*?bindVideoSetAsideActions\(container,[\s\S]*?\}\s*return nextVideo/
   )
 
   const emptyClearIndex = renderSource.indexOf("container.innerHTML = ''")

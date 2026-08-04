@@ -61,7 +61,7 @@ test('rendered video-state controls bind after every replacement without globals
   )
   assert.match(
     appSource,
-    /bindVideoSetAsideActions\(grid,[\s\S]*?\}\)\s*bindRenderedVideoStateActions\(grid\)/
+    /bindVideoSetAsideActions\(grid,[\s\S]*?\}\)\s*\}\s*bindRenderedVideoStateActions\(grid\)/
   )
   assert.match(
     appSource,
@@ -106,7 +106,9 @@ test('video state controls preserve arguments and cancellation boundaries', () =
       status: 'watch-later',
       watchLater: 'true'
     }),
-    createControl('toggle-favorite')
+    createControl('toggle-favorite', {
+      videoStateSurface: 'watched_card'
+    })
   ]
   const calls = []
   assert.equal(
@@ -122,7 +124,7 @@ test('video state controls preserve arguments and cancellation boundaries', () =
       surface: 'channel_shelf_badge'
     }]],
     ['mark', ['video-1', 'watch-later', { watchLater: true }]],
-    ['toggleFavorite', ['video-1', { surface: 'video_card' }]]
+    ['toggleFavorite', ['video-1', { surface: 'watched_card' }]]
   ])
   results.forEach((result, index) => {
     assert.equal(result.defaultPrevented, index < 3)

@@ -29,11 +29,11 @@ The app is browser-first: its interface and primary study state run from static 
 - Searches saved videos from the header.
 - Filters the active queue by status and by any combination of channels.
 - Lets users add, select all, remove, and manage channels from the channel filter.
-- Lets users remove a video from the active grid without deleting its study history.
+- Lets public users set aside an in-progress video they do not plan to finish while preserving the study time already recorded.
+- Includes an internal-test preview of a More actions menu for removing videos from Continue Watching or from the feed, with recovery from a collapsed Removed section below Watched.
 - Hides videos of three minutes or less by default; the preference can be changed in Settings.
 - Shows a contextual card for the latest paused video, the next watch-later video, or a favorite that is ready to rewatch.
 - Keeps Favorites independent from watched status so watched favorites remain available for later replays.
-- Lets users set an in-progress video aside while preserving its recorded study time, points, and watched-history entry.
 
 Supported video states are:
 
@@ -44,7 +44,9 @@ Supported video states are:
 
 Opening an unwatched or watch-later video marks it in progress. In-progress videos can retain a continue-watching timestamp and watched-progress segments. Adding a fresh video to Watch later does not itself add study time, streak credit, or points. Rewatching a favorite can record another completed watch and award credit for the newly recorded playback.
 
-Undo and redo cover recent status, progress, Favorite, Set aside, manual-video, and channel-removal actions together with their related history and score changes.
+The video-organization preview is available at `/?internal_test=1` and uses the isolated internal-test storage described below. Public visitors keep the existing Set aside behavior unless the production release flag is explicitly enabled. In the preview, `Removed` is a feed-placement flag rather than a study status. Its thumbnails open in a read-only player that does not record progress or points, and restoring a removed video returns its exact saved status and controls. Removing a video from Continue Watching clears only its resume cursor and current watch-cycle coverage; recorded study activity remains intact. Favoriting a watched video keeps it watched while revealing its rewatch card in the active feed.
+
+Undo and redo cover recent status, progress, Favorite, manual-video, and channel-removal actions together with their related history and score changes. Video-placement actions join that history while the internal preview or public release flag is enabled.
 
 ### Goals, history, and insights
 
@@ -157,6 +159,12 @@ Edenia uses the Node.js version pinned in `.nvmrc`.
    ```
 
 4. Open [http://localhost:8000/](http://localhost:8000/).
+
+To test the staged video-organization experience without changing the normal
+browser profile, open
+[http://localhost:8000/?internal_test=1](http://localhost:8000/?internal_test=1).
+Leave `videoOrganizationEnabled: false` in local runtime configuration when
+checking that ordinary visitors still receive the Set aside experience.
 
 `npm run dev` validates the ignored root `config.local.js`, builds `_site`,
 writes a normalized `_site/config.local.js` without printing the key, and
@@ -459,7 +467,7 @@ The app makes these external connections:
 - Local AnkiConnect when Anki tracking is enabled and Anki is available.
 - PostHog only on the official `https://bricechivu.github.io/Edenia/` deployment.
 
-Production analytics create a PostHog person profile for each browser installation. Autocapture is disabled, but session recording is enabled and input text is not masked. Edenia records controlled button actions, raw trimmed search queries, channel additions and removals with channel IDs and names, aggregate daily study progress, streak changes, current and earned town levels, current settings, onboarding completion, YouTube refresh results, successful Anki refreshes with their timestamps and summary counts, video opens, playback-session summaries, Favorite and Set aside changes, and watched-state changes. Each person profile includes the current watched-video IDs and count; watched and unwatched events include the video ID, title, channel ID, watched timestamp, duration, source, and short-video status. Existing local study days, configured channels, and watched videos are synchronized once, then only changed values generate additional state events.
+Production analytics create a PostHog person profile for each browser installation. Autocapture is disabled, but session recording is enabled and input text is not masked. Edenia records controlled button actions, raw trimmed search queries, channel additions and removals with channel IDs and names, aggregate daily study progress, streak changes, current and earned town levels, current settings, onboarding completion, YouTube refresh results, successful Anki refreshes with their timestamps and summary counts, video opens, playback-session summaries, Favorite and video-placement changes, and watched-state changes. Each person profile includes the current watched-video IDs and count plus the current removed-video count; watched and unwatched events include the video ID, title, channel ID, watched timestamp, duration, source, and short-video status. Existing local study days, configured channels, and watched videos are synchronized once, then only changed values generate additional state events.
 
 Submitting the feedback form sends its category, message, optional name and email, page and display context, and the current session-replay URL to PostHog. Custom analytics events do not include YouTube API keys, sync-file contents, or the full serialized browser state. Because recordings can capture visible UI and unmasked input text, users should not enter sensitive information in Edenia search or feedback fields. PostHog is not initialized on localhost, alternate domains, sandbox mode, or other paths.
 

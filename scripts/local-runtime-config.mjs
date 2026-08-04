@@ -37,6 +37,7 @@ export function normalizeLocalRuntimeConfig(value) {
     youtubeApiKey: normalizeLocalYoutubeApiKey(value?.youtubeApiKey),
     freePlusEnabled: value?.freePlusEnabled === true,
     plusCheckoutEnabled: value?.plusCheckoutEnabled === true,
+    videoOrganizationEnabled: value?.videoOrganizationEnabled === true,
     supabaseUrl: normalizeOptionalRuntimeValue(
       value?.supabaseUrl,
       PLACEHOLDER_URLS

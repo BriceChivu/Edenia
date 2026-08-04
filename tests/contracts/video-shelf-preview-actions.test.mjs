@@ -67,17 +67,19 @@ function createActions(calls) {
 
 test('shelf-preview adapter preserves exact native events and controls', () => {
   const thumbnail = createControl('thumbnail')
+  const removedThumbnail = createControl('removed-thumbnail')
   const card = createControl('card')
   const calls = []
   assert.equal(
     bindVideoShelfPreviewActions(
-      createRoot([thumbnail, card]),
+      createRoot([thumbnail, removedThumbnail, card]),
       createActions(calls)
     ),
-    2
+    3
   )
 
   const click = thumbnail.dispatch('click')
+  const removedClick = removedThumbnail.dispatch('click')
   const touchClick = card.dispatch('click')
   const mouseEnter = card.dispatch('mouseenter')
   card.dispatch('mouseleave')
@@ -85,6 +87,7 @@ test('shelf-preview adapter preserves exact native events and controls', () => {
   card.dispatch('focusout')
   assert.deepEqual(calls, [
     ['thumbnail', [click, thumbnail]],
+    ['thumbnail', [removedClick, removedThumbnail]],
     ['toggleTouch', [touchClick, card]],
     ['open', [card, false, mouseEnter]],
     ['queueClose', [card]],
@@ -148,6 +151,10 @@ test('rendered shelf and Watched cards bind without preview globals', () => {
   assert.match(
     appSource,
     /bindRenderedVideoStateActions\(watchedGrid\)\s*bindRenderedVideoShelfPreviewActions\(watchedGrid\)/
+  )
+  assert.match(
+    appSource,
+    /removedGrid\.innerHTML =[\s\S]*?bindRenderedVideoShelfPreviewActions\(removedGrid\)/
   )
   for (const name of [
     'handleVideoThumbnailClick',

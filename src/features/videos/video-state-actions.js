@@ -52,7 +52,9 @@ export function bindVideoStateActions(root, actions) {
           watchLater: control.dataset.watchLater === 'true'
         })
       } else if (actionName === 'toggle-favorite') {
-        actions.toggleFavorite(videoId, { surface: 'video_card' })
+        actions.toggleFavorite(videoId, {
+          surface: control.dataset.videoStateSurface || 'video_card'
+        })
       }
     })
 
