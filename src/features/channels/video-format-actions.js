@@ -14,6 +14,18 @@ export function normalizeChannelVideoFormat(value) {
     : CHANNEL_VIDEO_FORMATS.VIDEOS
 }
 
+export function getAvailableChannelVideoFormat(value, counts = {}) {
+  const selectedFormat = normalizeChannelVideoFormat(value)
+  const alternateFormat = selectedFormat === CHANNEL_VIDEO_FORMATS.VIDEOS
+    ? CHANNEL_VIDEO_FORMATS.SHORTS
+    : CHANNEL_VIDEO_FORMATS.VIDEOS
+  const selectedCount = Math.max(0, Number(counts?.[selectedFormat]) || 0)
+  const alternateCount = Math.max(0, Number(counts?.[alternateFormat]) || 0)
+  return selectedCount === 0 && alternateCount > 0
+    ? alternateFormat
+    : selectedFormat
+}
+
 export function getChannelVideoFormat(video) {
   const aspectRatio = normalizeVideoAspectRatio(video?.aspectRatio)
   return aspectRatio !== null && aspectRatio < 1

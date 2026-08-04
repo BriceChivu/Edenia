@@ -224,6 +224,52 @@ test('internal format selection is orientation-based, independent, and ephemeral
   expect(storedAfter).toBe(storedBefore)
 })
 
+test('status filters show the available format without overwriting channel preferences', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await seedFormatState(page)
+  await page.evaluate(storageKey => {
+    const state = JSON.parse(localStorage.getItem(storageKey))
+    state.videos['a-horizontal-short-duration'].status = 'unwatched'
+    state.videos['a-vertical-long-duration'].status = 'partial'
+    state.videos['b-horizontal'].status = 'partial'
+    state.videos['b-vertical'].status = 'unwatched'
+    localStorage.setItem(storageKey, JSON.stringify(state))
+  }, internalStorageKey)
+  await page.reload()
+  await waitForApplication(page)
+
+  const channelA = page.locator('.channel-shelf[data-channel-key="channel-a"]')
+  const channelB = page.locator('.channel-shelf[data-channel-key="channel-b"]')
+  await channelB.locator(
+    '[data-channel-video-format="shorts"][data-channel-video-format-action="select"]'
+  ).click()
+  await expect(channelB).toHaveAttribute('data-channel-selected-video-format', 'shorts')
+
+  await page.locator('[data-status-tab="partial"]').click()
+  await expect(channelA).toHaveAttribute('data-channel-selected-video-format', 'shorts')
+  await expect(channelA.locator(
+    '[data-channel-video-format="shorts"][data-channel-video-format-action="select"]'
+  )).toHaveAttribute('aria-pressed', 'true')
+  await expect(channelA.locator(
+    '.video-card[data-video-id="a-vertical-long-duration"]'
+  )).toBeVisible()
+  await expect(channelA.locator('[data-channel-video-format-count-label]')).toHaveText('1 video')
+
+  await expect(channelB).toHaveAttribute('data-channel-selected-video-format', 'videos')
+  await expect(channelB.locator(
+    '[data-channel-video-format="videos"][data-channel-video-format-action="select"]'
+  )).toHaveAttribute('aria-pressed', 'true')
+  await expect(channelB.locator(
+    '.video-card[data-video-id="b-horizontal"]'
+  )).toBeVisible()
+  await expect(channelB.locator('[data-channel-video-format-count-label]')).toHaveText('1 video')
+  await expect(page.locator('.channel-shelf-format-empty:not([hidden])')).toHaveCount(0)
+
+  await page.locator('[data-status-tab="all"]').click()
+  await expect(channelA).toHaveAttribute('data-channel-selected-video-format', 'videos')
+  await expect(channelB).toHaveAttribute('data-channel-selected-video-format', 'shorts')
+})
+
 test('shelf arrows scroll when the selected format hides the first source slot', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   await seedFormatState(page, { overflow: true })
