@@ -536,18 +536,24 @@
     --channel-shelf-row-height: clamp(122.625px, 13.5vw, 141.75px);
   }
   body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] {
+    --shorts-thumbnail-crop-scale: 1.4;
     aspect-ratio: auto;
     flex-basis: 105px;
     height: var(--channel-shelf-row-height);
+  }
+  body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card .thumb {
+    object-fit: cover;
+    transform: scale(var(--shorts-thumbnail-crop-scale));
+    transition: none;
   }
   body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card:is(.is-previewing, .is-preview-closing) .thumb-link {
     aspect-ratio: auto;
     height: 74.5098%;
   }
   body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card:is(.is-previewing, .is-preview-closing) .card-body {
-    gap: 2px;
+    gap: 0;
     height: 25.4902%;
-    justify-content: space-between;
+    justify-content: space-evenly;
     padding: 4px 8px;
   }
   body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card:is(.is-previewing, .is-preview-closing) .card-title {
@@ -587,8 +593,6 @@
   body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card:is(.is-previewing, .is-preview-closing) .thumb {
     aspect-ratio: auto;
     height: 100%;
-    object-fit: cover;
-    transform: scale(1.04);
   }
 }
 .channel-shelf-card .channel-shelf-priority-badge[type="button"] {
