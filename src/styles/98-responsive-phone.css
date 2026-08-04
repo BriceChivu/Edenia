@@ -117,12 +117,15 @@
     flex-basis: 100%;
   }
   .channel-shelf-format-switcher {
+    height: auto;
     margin-left: 45px;
     margin-right: 0;
+    padding: 2px;
     width: calc(100% - 45px);
   }
   .channel-shelf-format-option {
     flex: 1 1 50%;
+    height: auto;
     min-height: 40px;
   }
   .channel-shelf {

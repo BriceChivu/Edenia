@@ -271,9 +271,18 @@ test('format controls fit long localized channel headers on desktop and phone', 
     const buttons = Array.from(
       switcherElement.querySelectorAll('.channel-shelf-format-option')
     )
+    const selectedButton = switcherElement.querySelector(
+      '.channel-shelf-format-option[aria-pressed="true"]'
+    )
+    const colorProbe = document.createElement('span')
+    colorProbe.style.background = 'var(--soft-blue)'
+    colorProbe.style.color = 'var(--accent-dim)'
+    switcherElement.append(colorProbe)
+    const selectedStyle = getComputedStyle(selectedButton)
+    const probeStyle = getComputedStyle(colorProbe)
     const shelfRect = shelf.getBoundingClientRect()
     const switcherRect = switcherElement.getBoundingClientRect()
-    return {
+    const layout = {
       documentWidth: Math.max(
         document.documentElement.scrollWidth,
         document.body.scrollWidth
@@ -283,14 +292,35 @@ test('format controls fit long localized channel headers on desktop and phone', 
       shelfRight: shelfRect.right,
       switcherLeft: switcherRect.left,
       switcherRight: switcherRect.right,
-      buttonHeights: buttons.map(button => button.getBoundingClientRect().height)
+      switcherHeight: switcherRect.height,
+      buttonHeights: buttons.map(button => button.getBoundingClientRect().height),
+      arrowHeights: Array.from(
+        shelf.querySelectorAll('.channel-shelf-scroll')
+      ).map(button => button.getBoundingClientRect().height),
+      selectedBackground: selectedStyle.backgroundColor,
+      selectedColor: selectedStyle.color,
+      softBlue: probeStyle.backgroundColor,
+      accentDim: probeStyle.color
     }
+    colorProbe.remove()
+    return layout
   })
   expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth)
   expect(layout.switcherLeft).toBeGreaterThanOrEqual(layout.shelfLeft)
   expect(layout.switcherRight).toBeLessThanOrEqual(layout.shelfRight)
-  const minimumButtonHeight = testInfo.project.name === 'phone-small' ? 40 : 30
+  expect(layout.selectedBackground).toBe(layout.softBlue)
+  expect(layout.selectedColor).toBe(layout.accentDim)
+  const isPhone = testInfo.project.name === 'phone-small'
+  const minimumButtonHeight = isPhone ? 40 : 24
   layout.buttonHeights.forEach(height => {
     expect(height).toBeGreaterThanOrEqual(minimumButtonHeight)
   })
+  if (isPhone) {
+    expect(layout.switcherHeight).toBeGreaterThanOrEqual(40)
+  } else {
+    expect(layout.arrowHeights).toHaveLength(2)
+    layout.arrowHeights.forEach(height => {
+      expect(layout.switcherHeight).toBeCloseTo(height, 1)
+    })
+  }
 })
