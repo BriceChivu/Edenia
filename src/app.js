@@ -7838,6 +7838,7 @@ function renderManualChannelSuggestions() {
   const value = input.value.trim()
   const isYoutubeResource = Boolean(
     parseYoutubeVideoId(value)
+    || parseYoutubeChannelInput(value)
     || YOUTUBE_CHANNEL_ID_RE.test(value)
     || /(?:youtube\.com|youtu\.be)/i.test(value)
   )
@@ -8210,6 +8211,12 @@ function setActiveManualChannelSuggestion(index) {
 function handleManualChannelSuggestionKeydown(event) {
   const list = document.getElementById('manualChannelSuggestions')
   if (!list || list.classList.contains('hidden')) return
+
+  const inputValue = String(event.currentTarget?.value || '').trim()
+  if (
+    event.key === 'Enter'
+    && (parseYoutubeVideoId(inputValue) || parseYoutubeChannelInput(inputValue))
+  ) return
 
   const options = Array.from(list.querySelectorAll('.manual-channel-suggestion:not(.is-added)'))
   if (event.key === 'Escape') {
