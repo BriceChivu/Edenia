@@ -109,6 +109,22 @@
   .channel-shelf-title-row strong {
     flex: 1 1 auto;
   }
+  .channel-shelf-header.has-video-format-toggle {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .channel-shelf-header.has-video-format-toggle .channel-shelf-identity {
+    flex-basis: 100%;
+  }
+  .channel-shelf-format-switcher {
+    margin-left: 45px;
+    margin-right: 0;
+    width: calc(100% - 45px);
+  }
+  .channel-shelf-format-option {
+    flex: 1 1 50%;
+    min-height: 40px;
+  }
   .channel-shelf {
     position: relative;
     transition: opacity var(--motion-base) var(--ease-standard);

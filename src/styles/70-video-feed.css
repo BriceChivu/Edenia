@@ -770,6 +770,81 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
   display: flex;
   gap: 5px;
 }
+.channel-shelf-header.has-video-format-toggle .channel-shelf-identity {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+.channel-shelf-format-switcher {
+  align-items: center;
+  background: var(--surface-hi);
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  margin-left: auto;
+  margin-right: 3px;
+  padding: 2px;
+}
+.channel-shelf-format-option {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  gap: 5px;
+  justify-content: center;
+  min-height: 30px;
+  padding: 4px 9px;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+.channel-shelf-format-option[aria-pressed="true"] {
+  background: var(--planet-black);
+  box-shadow: 0 1px 0 rgba(5,5,5,0.18);
+  color: var(--planet-white);
+}
+.channel-shelf-format-option:hover:not([aria-pressed="true"]) {
+  color: var(--text);
+}
+.channel-shelf-format-option:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+.channel-shelf-format-count {
+  align-items: center;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 0.65rem;
+  justify-content: center;
+  min-height: 18px;
+  min-width: 18px;
+  padding-inline: 4px;
+}
+.channel-shelf-slot[data-channel-video-format][hidden],
+.channel-shelf-format-empty[hidden] {
+  display: none;
+}
+.channel-shelf-format-empty {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex: 1 0 100%;
+  font-size: 0.82rem;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 124px;
+  padding: 18px;
+  text-align: center;
+}
 .channel-shelf-scroll {
   align-items: center;
   background: var(--planet-white);

@@ -17,3 +17,7 @@ export function deriveVideoOrganizationEnabled(
 ) {
   return runtimeEnvironment?.isInternalTest === true || releaseEnabled === true
 }
+
+export function deriveChannelVideoFormatToggleEnabled(runtimeEnvironment) {
+  return runtimeEnvironment?.isInternalTest === true
+}

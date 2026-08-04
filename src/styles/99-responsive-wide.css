@@ -32,6 +32,11 @@
   .channel-shelf-scroll {
     cursor: pointer;
   }
+  .channel-shelf-header.has-video-format-toggle .channel-shelf-heading strong {
+    flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .channel-shelf-remove {
     display: inline-flex;
     opacity: 0;
