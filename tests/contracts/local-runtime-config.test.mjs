@@ -62,6 +62,7 @@ test('local runtime config normalizes a valid ignored key into the generated sit
         + '  "youtubeApiKey": "fake-development-key",\n'
         + '  "freePlusEnabled": false,\n'
         + '  "plusCheckoutEnabled": false,\n'
+        + '  "videoOrganizationEnabled": false,\n'
         + '  "supabaseUrl": "",\n'
         + '  "supabasePublishableKey": ""\n'
         + '}\n'
@@ -79,6 +80,7 @@ test('local runtime config preserves explicit dormant release flags', async () =
         + "  youtubeApiKey: 'fake-development-key',\n"
         + '  freePlusEnabled: true,\n'
         + '  plusCheckoutEnabled: true,\n'
+        + '  videoOrganizationEnabled: true,\n'
         + "  supabaseUrl: ' https://project.supabase.co ',\n"
         + "  supabasePublishableKey: ' sb_publishable_test '\n"
         + '}\n'
@@ -91,12 +93,13 @@ test('local runtime config preserves explicit dormant release flags', async () =
       youtubeApiKey: 'fake-development-key',
       freePlusEnabled: true,
       plusCheckoutEnabled: true,
+      videoOrganizationEnabled: true,
       supabaseUrl: 'https://project.supabase.co',
       supabasePublishableKey: 'sb_publishable_test'
     })
     assert.match(
       await readFile(outputPath, 'utf8'),
-      /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true/
+      /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true,\n  "videoOrganizationEnabled": true/
     )
   })
 })
@@ -117,6 +120,7 @@ test('local runtime config removes tracked Supabase placeholders', async () => {
       youtubeApiKey: 'fake-development-key',
       freePlusEnabled: false,
       plusCheckoutEnabled: false,
+      videoOrganizationEnabled: false,
       supabaseUrl: '',
       supabasePublishableKey: ''
     })
