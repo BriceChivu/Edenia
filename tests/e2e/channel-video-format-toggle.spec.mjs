@@ -20,7 +20,12 @@ async function waitForApplication(page) {
 
 async function seedFormatState(
   page,
-  { includeShorts = true, internalTest = true, locale = 'en' } = {}
+  {
+    includeShorts = true,
+    internalTest = true,
+    locale = 'en',
+    overflow = false
+  } = {}
 ) {
   const storageKey = internalTest ? internalStorageKey : normalStorageKey
   await page.goto(internalTest ? '/?internal_test=1' : '/')
@@ -28,6 +33,7 @@ async function seedFormatState(
   await page.evaluate(({
     includeShorts: seededIncludeShorts,
     locale: seededLocale,
+    overflow: seededOverflow,
     storageKey: seededStorageKey
   }) => {
     const state = window.defaultState(4, [], 'light', [], seededLocale)
@@ -84,7 +90,9 @@ async function seedFormatState(
         channelTitle: 'Channel B',
         duration: 420,
         aspectRatio: 9 / 16,
-        publishedAt: '2026-08-04T00:00:00.000Z'
+        publishedAt: seededOverflow
+          ? '2026-08-04T01:30:00.000Z'
+          : '2026-08-04T00:00:00.000Z'
       },
       {
         id: 'c-horizontal-only',
@@ -96,6 +104,30 @@ async function seedFormatState(
         publishedAt: '2026-08-03T23:00:00.000Z'
       }
     ]
+    if (seededOverflow) {
+      for (let index = 0; index < 6; index += 1) {
+        videos.push(
+          {
+            id: `a-vertical-overflow-${index}`,
+            title: `Channel A vertical overflow ${index}`,
+            channelId: 'channel-a',
+            channelTitle: state.config.channels[0].name,
+            duration: 600 + index,
+            aspectRatio: 9 / 16,
+            publishedAt: new Date(Date.UTC(2026, 7, 4, 1, 50 - index)).toISOString()
+          },
+          {
+            id: `b-horizontal-overflow-${index}`,
+            title: `Channel B horizontal overflow ${index}`,
+            channelId: 'channel-b',
+            channelTitle: 'Channel B',
+            duration: 600 + index,
+            aspectRatio: 16 / 9,
+            publishedAt: new Date(Date.UTC(2026, 7, 4, 0, 50 - index)).toISOString()
+          }
+        )
+      }
+    }
     videos.forEach(video => {
       state.videos[video.id] = {
         ...video,
@@ -106,10 +138,23 @@ async function seedFormatState(
       }
     })
     localStorage.setItem(seededStorageKey, JSON.stringify(state))
-  }, { includeShorts, locale, storageKey })
+  }, { includeShorts, locale, overflow, storageKey })
   await page.reload()
   await waitForApplication(page)
   return storageKey
+}
+
+async function expectRightArrowScrollsFromHiddenFirstSlot(shelf) {
+  const track = shelf.locator('.channel-shelf-track')
+  const nextButton = shelf.locator('[data-shelf-direction="1"]')
+  expect(await shelf.evaluate(element => (
+    element.querySelector('.channel-shelf-slot')?.hidden === true
+  ))).toBe(true)
+  await expect(nextButton).toBeEnabled()
+  await expect(track).toHaveJSProperty('scrollLeft', 0)
+  await nextButton.click()
+  await expect.poll(() => track.evaluate(element => element.scrollLeft))
+    .toBeGreaterThan(0)
 }
 
 test('internal format selection is orientation-based, independent, and ephemeral', async ({ page }, testInfo) => {
@@ -167,6 +212,21 @@ test('internal format selection is orientation-based, independent, and ephemeral
     internalStorageKey
   )
   expect(storedAfter).toBe(storedBefore)
+})
+
+test('shelf arrows scroll when the selected format hides the first source slot', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await seedFormatState(page, { overflow: true })
+
+  const channelA = page.locator('.channel-shelf[data-channel-key="channel-a"]')
+  await channelA.locator(
+    '[data-channel-video-format="shorts"][data-channel-video-format-action="select"]'
+  ).click()
+  await expectRightArrowScrollsFromHiddenFirstSlot(channelA)
+
+  const channelB = page.locator('.channel-shelf[data-channel-key="channel-b"]')
+  await expect(channelB).toHaveAttribute('data-channel-selected-video-format', 'videos')
+  await expectRightArrowScrollsFromHiddenFirstSlot(channelB)
 })
 
 test('public mode and the global Shorts-off preference keep the legacy shelf path', async ({ page }, testInfo) => {
