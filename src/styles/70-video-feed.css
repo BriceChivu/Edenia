@@ -795,9 +795,6 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
   cursor: pointer;
   display: inline-flex;
   font: inherit;
-  font-size: 0.72rem;
-  font-weight: 800;
-  gap: 5px;
   justify-content: center;
   min-height: 30px;
   padding: 4px 9px;
@@ -818,16 +815,10 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
-.channel-shelf-format-count {
-  align-items: center;
-  background: color-mix(in srgb, currentColor 12%, transparent);
-  border-radius: 999px;
-  display: inline-flex;
-  font-size: 0.65rem;
-  justify-content: center;
-  min-height: 18px;
-  min-width: 18px;
-  padding-inline: 4px;
+.channel-shelf-format-icon {
+  display: block;
+  height: 18px;
+  width: 18px;
 }
 .channel-shelf-slot[data-channel-video-format][hidden],
 .channel-shelf-format-empty[hidden] {
