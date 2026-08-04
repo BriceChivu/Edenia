@@ -33,23 +33,8 @@
     cursor: pointer;
   }
   .channel-shelf-remove {
-    align-items: center;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    color: var(--muted);
-    cursor: pointer;
     display: inline-flex;
-    flex: 0 0 24px;
-    font: inherit;
-    font-size: 1rem;
-    font-weight: 700;
-    height: 24px;
-    justify-content: center;
-    line-height: 1;
-    margin-left: 1px;
     opacity: 0;
-    padding: 0;
     pointer-events: none;
     transform: scale(0.86);
     transition:
@@ -58,14 +43,6 @@
       color var(--motion-fast) var(--ease-standard),
       opacity var(--motion-fast) var(--ease-standard),
       transform var(--motion-fast) var(--ease-standard);
-  }
-  .channel-shelf-remove-icon {
-    fill: none;
-    height: 12px;
-    stroke: currentColor;
-    stroke-linecap: round;
-    stroke-width: 2;
-    width: 12px;
   }
   .channel-shelf:hover .channel-shelf-remove,
   .channel-shelf:focus-within .channel-shelf-remove {
