@@ -239,17 +239,37 @@ test('shelf arrows scroll when the selected format hides the first source slot',
   await expectRightArrowScrollsFromHiddenFirstSlot(channelB)
 })
 
-test('public mode and the global Shorts-off preference keep the legacy shelf path', async ({ page }, testInfo) => {
+test('public mode preserves the preference while the internal rollout includes every duration', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
-  await seedFormatState(page, { internalTest: false })
+  await seedFormatState(page, { includeShorts: false, internalTest: false })
   await expect(page.locator('.channel-shelf-format-switcher')).toHaveCount(0)
-  await expect(page.locator('#videoGrid .video-card[data-video-id]')).toHaveCount(5)
+  await expect(page.locator('#videoGrid .video-card[data-video-id]')).toHaveCount(4)
+  await expect(page.locator(
+    '#videoGrid .video-card[data-video-id="a-horizontal-short-duration"]'
+  )).toHaveCount(0)
+  const publicStatusTabsDesign = await page.locator('.status-tabs').evaluate(element => {
+    const style = getComputedStyle(element)
+    return {
+      background: style.backgroundColor,
+      borderWidth: style.borderTopWidth
+    }
+  })
+  expect(publicStatusTabsDesign.borderWidth).not.toBe('0px')
+  expect(publicStatusTabsDesign.background).not.toBe('rgba(0, 0, 0, 0)')
+  await page.locator('.gear-btn').click()
+  await expect(page.locator('.settings-shorts-group')).toBeVisible()
 
   await seedFormatState(page, { includeShorts: false, internalTest: true })
-  await expect(page.locator('.channel-shelf-format-switcher')).toHaveCount(0)
+  await expect(page.locator('body')).toHaveClass(/\bchannel-video-format-toggle-enabled\b/)
+  await expect(page.locator('.channel-shelf-format-switcher')).toHaveCount(3)
   await expect(page.locator(
-    '#videoGrid .video-card[data-video-id="a-vertical-long-duration"]'
+    '#videoGrid .video-card[data-video-id="a-horizontal-short-duration"]'
   )).toBeVisible()
+  expect(await page.evaluate(key => (
+    JSON.parse(localStorage.getItem(key)).config.includeShorts
+  ), internalStorageKey)).toBe(false)
+  await page.locator('.gear-btn').click()
+  await expect(page.locator('.settings-shorts-group')).toHaveClass(/\bhidden\b/)
 })
 
 test('format controls fit long localized channel headers on desktop and phone', async ({ page }, testInfo) => {
@@ -276,10 +296,14 @@ test('format controls fit long localized channel headers on desktop and phone', 
     )
     const statusTabs = document.querySelector('.status-tabs')
     const activeStatusTab = statusTabs.querySelector('.status-tab.active')
+    const insightTabs = document.querySelector('.study-insight-tabs')
+    const activeInsightTab = insightTabs.querySelector('.study-insight-tab.active')
     const switcherStyle = getComputedStyle(switcherElement)
     const selectedStyle = getComputedStyle(selectedButton)
     const statusTabsStyle = getComputedStyle(statusTabs)
     const activeStatusTabStyle = getComputedStyle(activeStatusTab)
+    const insightTabsStyle = getComputedStyle(insightTabs)
+    const activeInsightTabStyle = getComputedStyle(activeInsightTab)
     const shelfRect = shelf.getBoundingClientRect()
     const switcherRect = switcherElement.getBoundingClientRect()
     return {
@@ -299,25 +323,39 @@ test('format controls fit long localized channel headers on desktop and phone', 
       ).map(button => button.getBoundingClientRect().height),
       switcherDesign: {
         background: switcherStyle.backgroundColor,
-        borderColor: switcherStyle.borderColor,
+        borderWidth: switcherStyle.borderTopWidth,
         borderRadius: switcherStyle.borderRadius,
-        gap: switcherStyle.gap
+        padding: switcherStyle.padding
       },
       statusTabsDesign: {
         background: statusTabsStyle.backgroundColor,
-        borderColor: statusTabsStyle.borderColor,
+        borderWidth: statusTabsStyle.borderTopWidth,
         borderRadius: statusTabsStyle.borderRadius,
-        gap: statusTabsStyle.gap
+        padding: statusTabsStyle.padding
+      },
+      insightTabsDesign: {
+        background: insightTabsStyle.backgroundColor,
+        borderWidth: insightTabsStyle.borderTopWidth,
+        borderRadius: insightTabsStyle.borderRadius,
+        padding: insightTabsStyle.padding
       },
       selectedDesign: {
         background: selectedStyle.backgroundColor,
         boxShadow: selectedStyle.boxShadow,
-        color: selectedStyle.color
+        color: selectedStyle.color,
+        borderRadius: selectedStyle.borderRadius
       },
       activeStatusTabDesign: {
         background: activeStatusTabStyle.backgroundColor,
         boxShadow: activeStatusTabStyle.boxShadow,
-        color: activeStatusTabStyle.color
+        color: activeStatusTabStyle.color,
+        borderRadius: activeStatusTabStyle.borderRadius
+      },
+      activeInsightTabDesign: {
+        background: activeInsightTabStyle.backgroundColor,
+        boxShadow: activeInsightTabStyle.boxShadow,
+        color: activeInsightTabStyle.color,
+        borderRadius: activeInsightTabStyle.borderRadius
       },
       iconImages: Object.fromEntries(buttons.map(button => [
         button.dataset.channelVideoFormat,
@@ -328,8 +366,10 @@ test('format controls fit long localized channel headers on desktop and phone', 
   expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth)
   expect(layout.switcherLeft).toBeGreaterThanOrEqual(layout.shelfLeft)
   expect(layout.switcherRight).toBeLessThanOrEqual(layout.shelfRight)
-  expect(layout.switcherDesign).toEqual(layout.statusTabsDesign)
-  expect(layout.selectedDesign).toEqual(layout.activeStatusTabDesign)
+  expect(layout.switcherDesign).toEqual(layout.insightTabsDesign)
+  expect(layout.statusTabsDesign).toEqual(layout.insightTabsDesign)
+  expect(layout.selectedDesign).toEqual(layout.activeInsightTabDesign)
+  expect(layout.activeStatusTabDesign).toEqual(layout.activeInsightTabDesign)
   expect(layout.iconImages.videos).toContain('images/brands/youtube-black.svg')
   expect(layout.iconImages.shorts).toContain(
     'images/brands/youtube-shorts-black-logo.svg'
