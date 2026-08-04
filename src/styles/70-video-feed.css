@@ -1007,6 +1007,55 @@ body[data-theme="dark"] .video-card.status-watch-later { background: var(--surfa
     box-shadow: 0 0 0 9px rgba(201,239,104,0.42), 0 10px 22px rgba(5,5,5,0.22);
   }
 }
+.set-aside-prompt-overlay {
+  align-items: center;
+  background: rgba(5,5,5,0.58);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 18px;
+  position: fixed;
+  z-index: 10010;
+}
+.set-aside-prompt {
+  background: var(--surface);
+  border: 2px solid var(--planet-black);
+  border-radius: 16px;
+  box-shadow: 0 8px 0 rgba(5,5,5,0.24);
+  color: var(--text);
+  display: grid;
+  gap: 12px;
+  max-width: 480px;
+  padding: 20px;
+  width: 100%;
+}
+.set-aside-prompt h2 {
+  font-size: 1.05rem;
+  line-height: 1.25;
+  margin: 0;
+}
+.set-aside-prompt p {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin: 0;
+}
+.set-aside-prompt strong {
+  color: var(--text);
+  font-weight: 850;
+}
+.set-aside-prompt-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.set-aside-prompt-actions button {
+  min-width: 96px;
+}
+body[data-theme="dark"] .set-aside-prompt {
+  border-color: rgba(255,255,255,0.82);
+  box-shadow: 0 8px 0 rgba(0,0,0,0.42);
+}
 .video-watch-reminder-popover {
   animation: videoWatchReminderPopupIn 180ms var(--ease-emphasized) both;
   background: rgba(255,255,255,0.98);
@@ -1211,6 +1260,19 @@ body[data-theme="dark"] .video-watch-reminder-favorite:focus-visible {
 .compact-card .partial-btn,
 .compact-card .watch-later-btn {
   display: none;
+}
+.compact-card.is-set-aside .watch-later-btn {
+  background: transparent;
+  border-color: transparent;
+  display: inline-flex;
+}
+.compact-card.is-set-aside .watch-later-btn:hover,
+.compact-card.is-set-aside .watch-later-btn:focus-visible,
+body[data-theme="dark"] .compact-card.is-set-aside .watch-later-btn,
+body[data-theme="dark"] .compact-card.is-set-aside .watch-later-btn:hover,
+body[data-theme="dark"] .compact-card.is-set-aside .watch-later-btn:focus-visible {
+  background: transparent;
+  border-color: transparent;
 }
 .compact-card .card-body {
   align-items: center;
@@ -1480,6 +1542,7 @@ body[data-theme="dark"] .watch-later-status { color: #9fe7fb; }
 }
 .partial-btn,
 .watch-later-btn,
+.set-aside-btn,
 .more-btn,
 .favorite-btn {
   align-items: center;
@@ -1489,6 +1552,7 @@ body[data-theme="dark"] .watch-later-status { color: #9fe7fb; }
 }
 .partial-btn .action-icon,
 .watch-later-btn .action-icon,
+.set-aside-btn .action-icon,
 .more-btn .action-icon,
 .favorite-btn .action-icon {
   margin-inline: auto;

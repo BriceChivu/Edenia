@@ -183,6 +183,9 @@ test('active visibility preserves hidden, Shorts, caps, manual isolation, and in
   assert.equal(isHiddenFromVideoGrid({
     removedFromFeedAt: '2026-08-03T00:00:00.000Z'
   }), true)
+  assert.equal(isHiddenFromVideoGrid({
+    removedFromFeedAt: '2026-08-03T00:00:00.000Z'
+  }, false), false)
   assert.equal(getActiveVideoGroupKey({
     manuallyAdded: true,
     source: 'manual',

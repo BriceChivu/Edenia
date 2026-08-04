@@ -49,7 +49,10 @@ import {
   usesTabletCoarseInput,
   usesTapVideoShelfPreviewInput
 } from './core/responsive-capabilities.js'
-import { deriveRuntimeEnvironment } from './core/runtime-environment.js'
+import {
+  deriveRuntimeEnvironment,
+  deriveVideoOrganizationEnabled
+} from './core/runtime-environment.js'
 import { deriveStorageKeys } from './core/storage-keys.js'
 import {
   addVideoWatchCoverageRange,
@@ -105,6 +108,7 @@ import {
 import {
   getFreePlusEnabled,
   getPlusCheckoutEnabled,
+  getVideoOrganizationEnabled,
   getSupabasePublishableKey,
   getSupabaseUrl,
   getYoutubeApiKey,
@@ -307,6 +311,7 @@ import {
   bindNextStudyActions
 } from './features/videos/next-study-actions.js'
 import { bindVideoOrganizationActions } from './features/videos/organization-actions.js'
+import { bindVideoSetAsideActions } from './features/videos/set-aside-actions.js'
 import {
   bindVideoShelfPreviewActions
 } from './features/videos/shelf-preview-actions.js'
@@ -394,6 +399,10 @@ const {
   isLocalhost: IS_LOCALHOST,
   isLocalFeedbackTest: IS_LOCAL_FEEDBACK_TEST
 } = RUNTIME_ENVIRONMENT
+const VIDEO_ORGANIZATION_ENABLED = deriveVideoOrganizationEnabled(
+  RUNTIME_ENVIRONMENT,
+  getVideoOrganizationEnabled()
+)
 const PLUS_ACCESS_CONFIG = Object.freeze({
   freePlusEnabled: getFreePlusEnabled(),
   plusCheckoutEnabled: getPlusCheckoutEnabled(),
@@ -749,6 +758,15 @@ function applyLocale(locale = getCurrentLocale()) {
   applyTranslations()
 }
 
+function applyVideoOrganizationVisibility() {
+  document.querySelectorAll('[data-video-organization-legacy]').forEach(element => {
+    element.toggleAttribute('hidden', VIDEO_ORGANIZATION_ENABLED)
+  })
+  document.querySelectorAll('[data-video-organization-preview]').forEach(element => {
+    element.toggleAttribute('hidden', !VIDEO_ORGANIZATION_ENABLED)
+  })
+}
+
 function applyTranslations(root = document) {
   root.querySelectorAll('[data-i18n]').forEach(el => {
     el.textContent = t(el.dataset.i18n)
@@ -1010,7 +1028,10 @@ function normalizeLoadedState(state) {
   }
   if (normalizeAnkiDateKeys(state)) shouldSave = true
   if (normalizeVideoWatchProgressState(state)) shouldSave = true
-  if (normalizeVideoOrganizationState(state)) shouldSave = true
+  if (
+    VIDEO_ORGANIZATION_ENABLED
+    && normalizeVideoOrganizationState(state)
+  ) shouldSave = true
   if (normalizeWatchedConfirmationState(state)) shouldSave = true
   if (removeLegacyVideoWatchReminderState(state)) shouldSave = true
   normalizeUndoState(state)
@@ -1029,7 +1050,7 @@ function normalizeStateBeforeSave(state) {
   normalizeActivityLogState(state)
   normalizeNoAnkiFrequentUserPromptState(state)
   normalizeVideoWatchProgressState(state)
-  normalizeVideoOrganizationState(state)
+  if (VIDEO_ORGANIZATION_ENABLED) normalizeVideoOrganizationState(state)
   normalizeWatchedConfirmationState(state)
   removeLegacyVideoWatchReminderState(state)
   normalizeStudyInsightConfig(state)
@@ -1116,7 +1137,9 @@ function getEdeniaAnalyticsSnapshot(state) {
       ...getAnalyticsChannelAddedAt(state, channel)
     }))
     .sort((left, right) => left.id.localeCompare(right.id))
-  const manualVideoOnlyChannels = getManualVideoOnlyChannels(state)
+  const manualVideoOnlyChannels = getManualVideoOnlyChannels(state, {
+    videoOrganizationEnabled: VIDEO_ORGANIZATION_ENABLED
+  })
   const watchedVideos = Object.entries(state?.videos || {})
     .filter(([, video]) => getVideoStatus(video) === 'watched')
     .map(([videoId, video]) => ({
@@ -1183,7 +1206,7 @@ function getEdeniaAnalyticsSnapshot(state) {
   })
 
   return {
-    schemaVersion: 3,
+    schemaVersion: VIDEO_ORGANIZATION_ENABLED ? 3 : 2,
     capturedAt: new Date().toISOString(),
     channels,
     channelPolicy: {
@@ -1200,7 +1223,9 @@ function getEdeniaAnalyticsSnapshot(state) {
       watchLaterCount: videoEntries.filter(isVideoWatchLater).length,
       partialCount: videoEntries.filter(video => getVideoStatus(video) === 'partial').length,
       resumableCount: videoEntries.filter(hasVideoResumePriority).length,
-      removedFromFeedCount: videoEntries.filter(isVideoRemovedFromFeed).length,
+      ...(VIDEO_ORGANIZATION_ENABLED
+        ? { removedFromFeedCount: videoEntries.filter(isVideoRemovedFromFeed).length }
+        : {}),
       totalRewatchCount: Math.max(
         0,
         Number(state?.totalRewatchCount) || 0,
@@ -1867,6 +1892,7 @@ function initBackgroundPhysics() {
 
 function init() {
   reportMissingI18nKeys()
+  applyVideoOrganizationVisibility()
   let state = loadState()
   if (!state) {
     state = IS_SANDBOX ? createEmptySandboxState() : defaultState(4, DEFAULT_CHANNELS)
@@ -3901,6 +3927,14 @@ function refreshSandboxFeed() {
         ? existing.watchedConfirmationUnlockedAt
         : null,
       favorite: Boolean(existing?.favorite),
+      setAside: existing?.setAside === true,
+      setAsideAt: isValidTimestamp(existing?.setAsideAt)
+        ? existing.setAsideAt
+        : null,
+      setAsideResumeAtSeconds: normalizeResumeAtSeconds(
+        existing?.setAsideResumeAtSeconds,
+        v.duration
+      ),
       removedFromFeedAt: isVideoRemovedFromFeed(existing)
         ? existing.removedFromFeedAt
         : null
@@ -5952,6 +5986,14 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
         ? existing.watchedConfirmationUnlockedAt
         : null,
       favorite: Boolean(existing?.favorite),
+      setAside: existing?.setAside === true,
+      setAsideAt: isValidTimestamp(existing?.setAsideAt)
+        ? existing.setAsideAt
+        : null,
+      setAsideResumeAtSeconds: normalizeResumeAtSeconds(
+        existing?.setAsideResumeAtSeconds,
+        duration
+      ),
       removedFromFeedAt: isVideoRemovedFromFeed(existing)
         ? existing.removedFromFeedAt
         : null,
@@ -6645,7 +6687,8 @@ function toggleVideoFavorite(videoId, options = {}) {
     && isVideoFromRemovedChannel(s, video)
   )
   const shouldRevealWatchedFavorite = (
-    options.surface === 'watched_card'
+    VIDEO_ORGANIZATION_ENABLED
+    && options.surface === 'watched_card'
     && getVideoStatus(video) === 'watched'
     && !isFavoriteVideo(beforeVideo)
     && isFavoriteVideo(video)
@@ -6938,6 +6981,187 @@ function markVideo(videoId, requestedStatus, options = {}) {
   return true
 }
 
+function requestVideoSetAside(videoId, options = {}) {
+  if (VIDEO_ORGANIZATION_ENABLED) return false
+  const state = loadState()
+  const video = state?.videos?.[videoId]
+  if (!video || isVideoSetAside(video) || !hasVideoResumePriority(video)) return false
+  if (state.config?.setAsidePromptSeen === true) {
+    return setVideoAside(videoId, options)
+  }
+
+  const prompt = document.getElementById('setAsidePrompt')
+  if (!prompt) return setVideoAside(videoId, options)
+  const main = document.getElementById('mainApp')
+  requestVideoSetAside.pending = {
+    videoId,
+    options,
+    returnFocus: document.activeElement,
+    mainWasInert: Boolean(main?.inert)
+  }
+  if (main) main.inert = true
+  prompt.classList.remove('hidden')
+  prompt.setAttribute('aria-hidden', 'false')
+  requestAnimationFrame(() => {
+    prompt.querySelector('.btn-primary')?.focus()
+  })
+  return false
+}
+
+function closeVideoSetAsidePrompt(restoreFocus = true) {
+  const prompt = document.getElementById('setAsidePrompt')
+  const pending = requestVideoSetAside.pending
+  const main = document.getElementById('mainApp')
+  prompt?.classList.add('hidden')
+  prompt?.setAttribute('aria-hidden', 'true')
+  if (main && !pending?.mainWasInert) main.inert = false
+  requestVideoSetAside.pending = null
+  if (restoreFocus) pending?.returnFocus?.focus?.({ preventScroll: true })
+  return pending
+}
+
+function cancelVideoSetAsidePrompt() {
+  closeVideoSetAsidePrompt(true)
+}
+
+function confirmVideoSetAsidePrompt() {
+  if (VIDEO_ORGANIZATION_ENABLED) return false
+  const pending = requestVideoSetAside.pending
+  if (!pending?.videoId) return false
+  const state = loadState()
+  if (state?.config) {
+    state.config.setAsidePromptSeen = true
+    saveState(state, { backup: false, syncAnalytics: false })
+  }
+  closeVideoSetAsidePrompt(false)
+  return setVideoAside(pending.videoId, pending.options)
+}
+
+function handleVideoSetAsidePromptKeydown(event) {
+  if (event.key !== 'Escape') return
+  event.preventDefault()
+  cancelVideoSetAsidePrompt()
+}
+
+function setVideoAside(videoId, options = {}) {
+  if (VIDEO_ORGANIZATION_ENABLED) return false
+  const s = loadState()
+  const video = s?.videos?.[videoId]
+  if (!video || isVideoSetAside(video) || !hasVideoResumePriority(video)) return false
+
+  const previousStatus = getVideoStatus(video)
+  const previousWatchLater = isVideoWatchLater(video)
+  const previousFavorite = isFavoriteVideo(video)
+  const resumeAtSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration)
+  const setAsideAt = getCurrentAppTimestamp(s)
+  const undoAction = {
+    type: 'video-status',
+    videoId,
+    before: {
+      exists: true,
+      video: cloneVideoForHistoryAction(video),
+      status: video.status,
+      watchedAt: video.watchedAt || null,
+      resumeAtSeconds
+    },
+    after: {
+      exists: true,
+      status: 'watched'
+    }
+  }
+
+  if (getTotalVideoWatchProgressSeconds(video) <= 0 && resumeAtSeconds > 0) {
+    addVideoWatchProgress(video, resumeAtSeconds, setAsideAt)
+  }
+  video.status = 'watched'
+  video.watchedAt = setAsideAt
+  video.setAside = true
+  video.setAsideAt = setAsideAt
+  video.setAsideResumeAtSeconds = resumeAtSeconds
+  video.watchProgressTracked = true
+  video.watchLater = false
+  video.favorite = false
+  video.resumeAtSeconds = null
+  video.pausedAt = null
+  clearFocusedVideoPreview(videoId)
+
+  s.lastVideoMarkedWatchedAt = setAsideAt
+  recordNoAnkiFrequentUserWatchedDate(s, setAsideAt)
+  undoAction.after.watchedAt = setAsideAt
+  undoAction.after.resumeAtSeconds = null
+  undoAction.after.video = cloneVideoForHistoryAction(video)
+  pushUndoAction(s, undoAction)
+  syncStreak(s)
+  appendActivityLog(s, {
+    actor: 'user',
+    type: 'video-status',
+    status: 'success',
+    title: t('log.videoStatus.title'),
+    detail: t('log.videoStatus.detail', {
+      title: formatToastTitle(video.title),
+      status: t('videos.status.setAside')
+    }),
+    meta: { videoId, status: 'watched', setAside: true }
+  })
+  if (getVideoActionPointDelta(undoAction, 'redo') > 0) {
+    appendPointDeltaActivityLog(s, {
+      action: undoAction,
+      direction: 'redo',
+      reason: 'redo',
+      video
+    })
+  }
+
+  saveState(s)
+  if (previousFavorite) {
+    trackVideoFavoriteChanged(s, video, true, 'set_aside')
+  }
+  trackEdeniaEvent('video_set_aside', getVideoAnalyticsProperties(video, {
+    previous_status: previousStatus,
+    previous_watch_later: previousWatchLater,
+    previous_favorite: previousFavorite,
+    credited_seconds: getTotalVideoWatchProgressSeconds(video),
+    surface: options.surface || 'video_card'
+  }))
+  renderAll(s)
+  return true
+}
+
+function clearVideoPausedState(videoId) {
+  const s = loadState()
+  const video = s?.videos?.[videoId]
+  if (
+    !video
+    || getVideoStatus(video) !== 'watched'
+    || !isFavoriteVideo(video)
+    || normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) === null
+  ) {
+    return markVideo(videoId, 'unwatched')
+  }
+
+  const beforeVideo = cloneVideoForHistoryAction(video)
+  video.resumeAtSeconds = null
+  video.pausedAt = null
+  pushUndoAction(s, {
+    type: 'video-resume-time',
+    videoId,
+    before: {
+      video: beforeVideo,
+      status: beforeVideo.status,
+      resumeAtSeconds: normalizeResumeAtSeconds(beforeVideo.resumeAtSeconds, beforeVideo.duration)
+    },
+    after: {
+      video: cloneVideoForHistoryAction(video),
+      status: video.status,
+      resumeAtSeconds: null
+    }
+  })
+  clearFocusedVideoPreview(videoId)
+  saveState(s)
+  renderAll(s)
+  return true
+}
+
 function getVideoOrganizationMenuItems(video) {
   const items = []
   if (hasVideoResumePriority(video)) {
@@ -6997,6 +7221,7 @@ function positionVideoOrganizationMenu(popover, trigger) {
 }
 
 function openVideoOrganizationMenu(event, videoId, trigger) {
+  if (!VIDEO_ORGANIZATION_ENABLED) return false
   const state = loadState()
   const video = state?.videos?.[videoId]
   const popover = document.getElementById('videoActionsPopover')
@@ -7103,6 +7328,7 @@ function showVideoOrganizationUndoToast(message, action) {
 }
 
 function removeVideoFromContinueWatching(videoId) {
+  if (!VIDEO_ORGANIZATION_ENABLED) return false
   closeVideoOrganizationMenu(false)
   const state = loadState()
   const video = state?.videos?.[videoId]
@@ -7123,6 +7349,7 @@ function removeVideoFromContinueWatching(videoId) {
 }
 
 function removeVideoFromFeed(videoId) {
+  if (!VIDEO_ORGANIZATION_ENABLED) return false
   closeVideoOrganizationMenu(false)
   const state = loadState()
   const video = state?.videos?.[videoId]
@@ -7137,6 +7364,7 @@ function removeVideoFromFeed(videoId) {
 }
 
 function restoreVideoToFeed(videoId) {
+  if (!VIDEO_ORGANIZATION_ENABLED) return false
   closeVideoOrganizationMenu(false)
   const state = loadState()
   const video = state?.videos?.[videoId]
@@ -8283,6 +8511,10 @@ function applyHistoryAction(direction, actionIndex) {
   const index = Number(actionIndex)
   const action = sourceStack[index]
 
+  if (!VIDEO_ORGANIZATION_ENABLED && action?.type === 'video-organization') {
+    showToast(direction === 'redo' ? t('toast.nothingRedo') : t('toast.nothingUndo'), 'warn')
+    return false
+  }
   if (!UNDO_ACTION_TYPES.includes(action?.type)) {
     showToast(direction === 'redo' ? t('toast.nothingRedo') : t('toast.nothingUndo'), 'warn')
     return
@@ -9359,7 +9591,7 @@ function jumpToWatchedVideo(event, videoId) {
   }
 
   closeHistoryVideoPopovers()
-  if (isVideoRemovedFromFeed(video)) {
+  if (VIDEO_ORGANIZATION_ENABLED && isVideoRemovedFromFeed(video)) {
     selectedStatusFilter = 'all'
     isRemovedSectionCollapsed = false
     forcedSearchVideoId = targetId
@@ -9600,7 +9832,7 @@ function renderVideoSearchResults(query = '') {
         <span class="video-search-title">${escHtml(video.title || t('videos.search.untitled'))}</span>
         <span class="video-search-meta">
           <span>${escHtml(video.channelTitle || t('videos.search.youtube'))}</span>
-          <span class="video-search-status">${escHtml(isVideoRemovedFromFeed(video)
+          <span class="video-search-status">${escHtml(VIDEO_ORGANIZATION_ENABLED && isVideoRemovedFromFeed(video)
             ? t('videos.removedSection')
             : formatVideoStatus(getVideoStatus(video)))}</span>
         </span>
@@ -9640,7 +9872,7 @@ function jumpToVideoFromSearch(videoId) {
   }))
 
   closeVideoSearchPopover()
-  if (isVideoRemovedFromFeed(video)) {
+  if (VIDEO_ORGANIZATION_ENABLED && isVideoRemovedFromFeed(video)) {
     selectedStatusFilter = 'all'
     isRemovedSectionCollapsed = false
   }
@@ -10607,7 +10839,11 @@ function getGoalPaceGuidance(stats, state) {
     return { state: 'complete', text: t('goal.pace.complete') }
   }
   const includeShorts = normalizeIncludeShorts(state.config.includeShorts)
-  const hasStudyVideo = getVisibleActiveVideos(Object.values(state.videos || {}), includeShorts).length > 0
+  const hasStudyVideo = getVisibleActiveVideos(
+    Object.values(state.videos || {}),
+    includeShorts,
+    { videoOrganizationEnabled: VIDEO_ORGANIZATION_ENABLED }
+  ).length > 0
   if (!hasStudyVideo) return null
 
   const currentDate = getCurrentAppDate(state)
@@ -11018,8 +11254,11 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
   container.classList.toggle('continue-watching-card', isInProgress)
   container.classList.toggle('study-next-card', !isInProgress && !isRewatch)
   container.classList.toggle('rewatch-card', isRewatch)
-  container.classList.toggle('has-video-actions', isInProgress)
-  const actions = isInProgress
+  container.classList.toggle(
+    'has-video-actions',
+    VIDEO_ORGANIZATION_ENABLED && isInProgress
+  )
+  const inProgressSecondaryAction = VIDEO_ORGANIZATION_ENABLED
     ? `
       <button type="button"
         class="next-study-cta next-study-more"
@@ -11031,6 +11270,18 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
         aria-expanded="false"
         aria-label="${escHtml(t('videos.actions.more'))}"
         title="${escHtml(t('videos.actions.more'))}">${renderVideoActionIcon('more')}</button>
+    `
+    : `
+      <button type="button"
+        class="next-study-cta next-study-set-aside"
+        data-video-id="${safeVideoId}"
+        data-video-set-aside-action="request"
+        data-video-set-aside-surface="continue_watching"
+        data-analytics-action="requestVideoSetAside">${escHtml(t('videos.card.setAside'))}</button>
+    `
+  const actions = isInProgress
+    ? `
+      ${inProgressSecondaryAction}
       <button type="button"
         class="next-study-cta next-study-continue"
         data-video-id="${safeVideoId}"
@@ -11079,6 +11330,14 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
     focus: focusNextStudyVideoCard,
     toggleFavorite: toggleVideoFavorite
   })
+  if (!VIDEO_ORGANIZATION_ENABLED) {
+    bindVideoSetAsideActions(container, {
+      request: requestVideoSetAside,
+      cancel: cancelVideoSetAsidePrompt,
+      confirm: confirmVideoSetAsidePrompt,
+      handlePromptKeydown: handleVideoSetAsidePromptKeydown
+    })
+  }
   return nextVideo
 }
 
@@ -12447,12 +12706,13 @@ function renderFeed(s) {
     : null
 
   const visibleActiveVideos = getVisibleActiveVideos(allVideos, includeShorts, {
-    limitPerChannel: false
+    limitPerChannel: false,
+    videoOrganizationEnabled: VIDEO_ORGANIZATION_ENABLED
   })
     .filter(v => matchesActiveChannelFilter(v, channelFilters, removedChannelIds))
   const favoriteVideos = allVideos
     .filter(isFavoriteVideo)
-    .filter(v => !isHiddenFromVideoGrid(v))
+    .filter(v => !isHiddenFromVideoGrid(v, VIDEO_ORGANIZATION_ENABLED))
     .filter(v => !isHiddenShortVideo(v, includeShorts))
     .filter(v => matchesWatchedChannelFilter(v, channelFilters, removedChannelIds))
   const timelineVideos = [
@@ -12471,18 +12731,19 @@ function renderFeed(s) {
 
   let watchedVideos = statusFilter === 'favorite' ? [] : allVideos
     .filter(v => getVideoStatus(v) === 'watched')
-    .filter(v => !isFavoriteVideo(v))
-    .filter(v => !isHiddenFromVideoGrid(v))
+    .filter(v => !VIDEO_ORGANIZATION_ENABLED || !isFavoriteVideo(v))
+    .filter(v => !isHiddenFromVideoGrid(v, VIDEO_ORGANIZATION_ENABLED))
     .filter(v => !isHiddenShortVideo(v, includeShorts))
     .filter(v => matchesWatchedChannelFilter(v, channelFilters, removedChannelIds))
     .sort((a, b) => new Date(b.watchedAt || 0) - new Date(a.watchedAt || 0))
-  let removedVideos = statusFilter === 'all'
+  let removedVideos = VIDEO_ORGANIZATION_ENABLED && statusFilter === 'all'
     ? getRemovedFromFeedVideos(allVideos, includeShorts)
       .filter(v => matchesWatchedChannelFilter(v, channelFilters, removedChannelIds))
     : []
 
   if (forcedSearchVideo) {
-    const isRemoved = isVideoRemovedFromFeed(forcedSearchVideo)
+    const isRemoved = VIDEO_ORGANIZATION_ENABLED
+      && isVideoRemovedFromFeed(forcedSearchVideo)
     const shouldFocusInChannelShelf = activeNextStudyFocusVideoId === String(forcedSearchVideo.id)
     const shouldStayInChannelTimeline = isFavoriteVideo(forcedSearchVideo)
       && ['all', 'favorite'].includes(statusFilter)
@@ -12534,6 +12795,14 @@ function renderFeed(s) {
   bindChannelRemoveActions(grid, {
     remove: removeChannelFromFilter
   })
+  if (!VIDEO_ORGANIZATION_ENABLED) {
+    bindVideoSetAsideActions(grid, {
+      request: requestVideoSetAside,
+      cancel: cancelVideoSetAsidePrompt,
+      confirm: confirmVideoSetAsidePrompt,
+      handlePromptKeydown: handleVideoSetAsidePromptKeydown
+    })
+  }
   bindRenderedVideoStateActions(grid)
   bindChannelOrderActions(grid, {
     start: startChannelShelfDrag,
@@ -12561,15 +12830,23 @@ function renderFeed(s) {
   watchedGrid.innerHTML = watchedVideos
     .map(v => renderCard(v, true, {
       ...cardOptions,
+      hideSetAsideAction: true,
       hideOrganizationActions: true,
-      stateActionSurface: 'watched_card'
+      stateActionSurface: VIDEO_ORGANIZATION_ENABLED
+        ? 'watched_card'
+        : 'video_card'
     }))
     .join('')
   bindRenderedVideoStateActions(watchedGrid)
   bindRenderedVideoShelfPreviewActions(watchedGrid)
 
   removedCount.textContent = removedVideos.length
-  removedSection.classList.toggle('hidden', !removedVideos.length || statusFilter !== 'all')
+  removedSection.classList.toggle(
+    'hidden',
+    !VIDEO_ORGANIZATION_ENABLED
+      || !removedVideos.length
+      || statusFilter !== 'all'
+  )
   removedSection.classList.toggle('collapsed', isRemovedSectionCollapsed)
   if (removedToggle) {
     removedToggle.setAttribute('aria-expanded', String(!isRemovedSectionCollapsed))
@@ -12577,8 +12854,12 @@ function renderFeed(s) {
       ? 'videos.removed.show'
       : 'videos.removed.hide'))
   }
-  removedGrid.innerHTML = removedVideos.map(renderRemovedVideoCard).join('')
-  bindRenderedVideoShelfPreviewActions(removedGrid)
+  removedGrid.innerHTML = VIDEO_ORGANIZATION_ENABLED
+    ? removedVideos.map(renderRemovedVideoCard).join('')
+    : ''
+  if (VIDEO_ORGANIZATION_ENABLED) {
+    bindRenderedVideoShelfPreviewActions(removedGrid)
+  }
 }
 
 function toggleWatchedSection() {
@@ -12592,6 +12873,7 @@ function toggleWatchedSection() {
 }
 
 function toggleRemovedSection() {
+  if (!VIDEO_ORGANIZATION_ENABLED) return false
   const removedSection = document.getElementById('removedSection')
   const removedToggle = document.getElementById('removedSectionToggle')
   if (!removedSection || !removedToggle) return
@@ -13177,7 +13459,14 @@ function openVideoPlayer(videoId, options = {}) {
 
   const existingVideo = loadState()?.videos?.[videoId]
   const isRemovedPreview = mode === VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW
-  if (isRemovedPreview && (!existingVideo || !isVideoRemovedFromFeed(existingVideo))) return false
+  if (
+    isRemovedPreview
+    && (
+      !VIDEO_ORGANIZATION_ENABLED
+      || !existingVideo
+      || !isVideoRemovedFromFeed(existingVideo)
+    )
+  ) return false
   const wasWatched = getVideoStatus(existingVideo) === 'watched'
   if (!isRemovedPreview && !wasWatched && !markVideoInProgressOnOpen(videoId, {
     render: false,
@@ -13980,11 +14269,12 @@ function refreshVideoActionUiWithoutFeedRerender(state, videoId) {
   const removedChannelIds = new Set(state.config?.removedChannelIds || [])
   const includeShorts = normalizeIncludeShorts(state.config.includeShorts)
   const activeVideos = getVisibleActiveVideos(allVideos, includeShorts, {
-    limitPerChannel: false
+    limitPerChannel: false,
+    videoOrganizationEnabled: VIDEO_ORGANIZATION_ENABLED
   }).filter(videoEntry => matchesActiveChannelFilter(videoEntry, channelFilters, removedChannelIds))
   const favoriteVideos = allVideos
     .filter(isFavoriteVideo)
-    .filter(videoEntry => !isHiddenFromVideoGrid(videoEntry))
+    .filter(videoEntry => !isHiddenFromVideoGrid(videoEntry, VIDEO_ORGANIZATION_ENABLED))
     .filter(videoEntry => !isHiddenShortVideo(videoEntry, includeShorts))
     .filter(videoEntry => matchesWatchedChannelFilter(videoEntry, channelFilters, removedChannelIds))
 
@@ -14246,7 +14536,9 @@ function renderHistoryActionButton({ buttonId, tooltipId, actions, state, label,
   const btn = document.getElementById(buttonId)
   const tooltip = document.getElementById(tooltipId)
   if (!btn) return
-  const count = actions.length
+  const count = actions.filter(action => (
+    VIDEO_ORGANIZATION_ENABLED || action?.type !== 'video-organization'
+  )).length
   const canUse = count > 0
   const wrap = btn.closest('.undo-action-wrap')
   btn.disabled = !canUse
@@ -14271,7 +14563,12 @@ function renderHistoryActionButton({ buttonId, tooltipId, actions, state, label,
 
 function renderHistoryActionTooltip(actions, s, emptyTitle, queueTitle, direction) {
   const indexedActions = Array.isArray(actions)
-    ? actions.map((action, index) => ({ action, index })).reverse()
+    ? actions
+      .map((action, index) => ({ action, index }))
+      .filter(entry => (
+        VIDEO_ORGANIZATION_ENABLED || entry.action?.type !== 'video-organization'
+      ))
+      .reverse()
     : []
   if (!indexedActions.length) {
     return `<div class="undo-tooltip-title">${escHtml(emptyTitle)}</div>`
@@ -14613,7 +14910,8 @@ function getStatusFilterCounts(allVideos = [], channelFilters = null, includeSho
   const matchesSelection = video => !channelFilters
     || matchesActiveChannelFilter(video, selectedChannels, removedChannelIds)
   const activeVideos = getVisibleActiveVideos(allVideos, includeShorts, {
-    limitPerChannel: false
+    limitPerChannel: false,
+    videoOrganizationEnabled: VIDEO_ORGANIZATION_ENABLED
   }).filter(matchesSelection)
   const counts = Object.fromEntries(STATUS_FILTERS.map(([value]) => [value, 0]))
 
@@ -14626,7 +14924,7 @@ function getStatusFilterCounts(allVideos = [], channelFilters = null, includeSho
   counts.all = activeVideos.length
   const visibleFavorites = allVideos.filter(video => (
     isFavoriteVideo(video)
-    && !isHiddenFromVideoGrid(video)
+    && !isHiddenFromVideoGrid(video, VIDEO_ORGANIZATION_ENABLED)
     && !isHiddenShortVideo(video, includeShorts)
     && (!channelFilters || matchesWatchedChannelFilter(video, selectedChannels, removedChannelIds))
   ))
@@ -14757,7 +15055,9 @@ function getChannelFilterEntries(s) {
   const channels = new Map()
   const removedChannelIds = new Set(s.config?.removedChannelIds || [])
   const manualVideoOnlyChannelIds = new Set(
-    getManualVideoOnlyChannels(s).map(channel => channel.id)
+    getManualVideoOnlyChannels(s, {
+      videoOrganizationEnabled: VIDEO_ORGANIZATION_ENABLED
+    }).map(channel => channel.id)
   )
   s.config.channels.forEach(channel => {
     channels.set(channel.id, channel.name || channel.id)
@@ -14776,7 +15076,11 @@ function getChannelFilterEntries(s) {
 }
 
 function isHiddenManualVideoChannelEntry(video) {
-  return Boolean(video?.manuallyAdded && video?.source === 'manual' && isHiddenFromVideoGrid(video))
+  return Boolean(
+    video?.manuallyAdded
+    && video?.source === 'manual'
+    && isHiddenFromVideoGrid(video, VIDEO_ORGANIZATION_ENABLED)
+  )
 }
 
 function getSelectedChannelFilters(s) {
@@ -14969,6 +15273,7 @@ function renderVideoActionIcon(type) {
   const paths = {
     partial: '<rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect>',
     'watch-later': '<path d="M6 4h12v16l-6-4-6 4V4Z"></path>',
+    'set-aside': '<path d="M4 8h16v11H4V8Z"></path><path d="M3 5h18v3H3V5Z"></path><path d="M9 12h6"></path>',
     favorite: '<path d="M12 20.2 4.2 12.8A5.1 5.1 0 0 1 11.4 5.6L12 6.2l.6-.6a5.1 5.1 0 0 1 7.2 7.2L12 20.2Z"></path>',
     more: '<circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle>',
     restore: '<path d="M4 8v5h5"></path><path d="M5.5 12A7 7 0 1 1 7 17"></path>'
@@ -14978,6 +15283,7 @@ function renderVideoActionIcon(type) {
 
 function bindRenderedVideoStateActions(root) {
   return bindVideoStateActions(root, {
+    clearPaused: clearVideoPausedState,
     mark: markVideo,
     toggleFavorite: toggleVideoFavorite
   })
@@ -15003,12 +15309,17 @@ function renderCard(v, compact = false, options = {}) {
   const isWatchLater = isVideoWatchLater(v)
   const displayStatus = isPartial ? 'partial' : status
   const isFavorite = isFavoriteVideo(v)
-  const stateActionSurface = options.stateActionSurface || 'video_card'
+  const isSetAside = !VIDEO_ORGANIZATION_ENABLED && isVideoSetAside(v)
+  const stateActionSurface = VIDEO_ORGANIZATION_ENABLED
+    ? options.stateActionSurface || 'video_card'
+    : 'video_card'
   const watchLaterNextStatus = isWatchLater
     ? (isPartial ? 'partial' : 'unwatched')
     : 'watch-later'
   const watchedAtLabel = compact && v.watchedAt
-    ? formatWatchedAt(v.watchedAt)
+    ? isSetAside
+      ? t('videos.card.setAsideAt', { date: timeAgo(v.watchedAt) })
+      : formatWatchedAt(v.watchedAt)
     : ''
   const thumbnailUrl = compact
     ? String(v.thumbnail || '').replace(/\/hqdefault\.jpg(?=\?|$)/, '/mqdefault.jpg')
@@ -15022,13 +15333,41 @@ function renderCard(v, compact = false, options = {}) {
     <span class="dur-badge">${formatDuration(v.duration)}</span>
   `
   const thumbnailLink = `<button type="button" class="thumb-link" data-video-id="${safeVideoId}" data-video-preview-action="thumbnail" data-analytics-action="handleVideoThumbnailClick" aria-label="${escHtml(v.title)}">${thumbnailContent}</button>`
-  const shelfPriorityBadge = options.shelf && isPartial
+  const organizationShelfPriorityBadge = options.shelf && isPartial
     ? `<span class="channel-shelf-priority-badge partial-priority-badge">${renderVideoActionIcon('partial')}${escHtml(t('videos.status.partial'))}</span>`
     : options.shelf && isWatchLater
     ? `<span class="channel-shelf-priority-badge watch-later-priority-badge">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</span>`
     : options.shelf && isFavorite
     ? `<span class="channel-shelf-priority-badge favorite-priority-badge">${renderVideoActionIcon('favorite')}${escHtml(t('videos.card.favorite'))}</span>`
     : ''
+  const legacyShelfPriorityBadge = options.shelf && isPartial
+    ? `<button type="button"
+        class="channel-shelf-priority-badge partial-priority-badge"
+        data-video-id="${safeVideoId}"
+        data-video-state-action="clear-paused"
+        data-analytics-action="clearVideoPausedState"
+        aria-label="${escHtml(t('videos.card.clear'))}"
+        title="${escHtml(t('videos.card.clear'))}">${renderVideoActionIcon('partial')}${escHtml(t('videos.status.partial'))}</button>`
+    : options.shelf && isWatchLater
+    ? `<button type="button"
+        class="channel-shelf-priority-badge watch-later-priority-badge"
+        data-video-id="${safeVideoId}"
+        data-video-state-action="remove-watch-later"
+        data-analytics-action="markVideo"
+        aria-label="${escHtml(t('videos.card.removeWatchLater'))}"
+        title="${escHtml(t('videos.card.removeWatchLater'))}">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</button>`
+    : options.shelf && isFavorite
+    ? `<button type="button"
+        class="channel-shelf-priority-badge favorite-priority-badge"
+        data-video-id="${safeVideoId}"
+        data-video-state-action="remove-favorite"
+        data-analytics-action="toggleVideoFavorite"
+        aria-label="${escHtml(t('videos.card.removeFavorite'))}"
+        title="${escHtml(t('videos.card.removeFavorite'))}">${renderVideoActionIcon('favorite')}${escHtml(t('videos.card.favorite'))}</button>`
+    : ''
+  const shelfPriorityBadge = VIDEO_ORGANIZATION_ENABLED
+    ? organizationShelfPriorityBadge
+    : legacyShelfPriorityBadge
   const shelfPreviewAction = options.shelf
     ? 'data-video-preview-action="card"'
     : ''
@@ -15036,7 +15375,7 @@ function renderCard(v, compact = false, options = {}) {
     ? 'next-study-focus-target'
     : ''
   return `
-    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} status-${displayStatus}" data-video-id="${safeVideoId}" ${shelfPreviewAction}>
+    <div class="video-card ${compact ? 'compact-card' : ''} ${options.shelf ? 'channel-shelf-card' : ''} ${nextStudyFocusClass} ${isFavorite ? 'is-favorite' : ''} ${isSetAside ? 'is-set-aside' : ''} status-${displayStatus}" data-video-id="${safeVideoId}" ${shelfPreviewAction}>
       ${thumbnailLink}
       ${shelfPriorityBadge}
       <div class="card-body">
@@ -15052,7 +15391,14 @@ function renderCard(v, compact = false, options = {}) {
             <span class="pub-ago">${timeAgo(v.publishedAt)}</span>
           </div>
           <div class="card-actions">
-            ${!isWatched ? `<button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
+            ${!VIDEO_ORGANIZATION_ENABLED && isPartial && !options.hideSetAsideAction ? `<button class="action-btn set-aside-btn"
+              data-video-id="${safeVideoId}"
+              data-video-set-aside-action="request"
+              data-video-set-aside-surface="video_card"
+              data-analytics-action="requestVideoSetAside"
+              aria-label="${escHtml(t('videos.card.setAside'))}"
+              title="${escHtml(t('videos.card.setAside'))}">${renderVideoActionIcon('set-aside')}</button>` : ''}
+            ${(!VIDEO_ORGANIZATION_ENABLED || !isWatched) ? `<button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"
               data-video-id="${safeVideoId}"
               data-status="${watchLaterNextStatus}"
               data-watch-later="${String(!isWatchLater)}"
@@ -15060,15 +15406,15 @@ function renderCard(v, compact = false, options = {}) {
               data-analytics-action="markVideo"
               aria-label="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}"
               title="${escHtml(isWatchLater ? t('videos.card.removeWatchLater') : t('videos.card.watchLater'))}">${renderVideoActionIcon('watch-later')}</button>` : ''}
-            <button class="action-btn favorite-btn ${isFavorite ? 'active' : ''}"
+            ${VIDEO_ORGANIZATION_ENABLED || !isSetAside ? `<button class="action-btn favorite-btn ${isFavorite ? 'active' : ''}"
               data-video-id="${safeVideoId}"
               data-video-state-action="toggle-favorite"
               data-video-state-surface="${escHtml(stateActionSurface)}"
               data-analytics-action="toggleVideoFavorite"
               aria-pressed="${String(isFavorite)}"
               aria-label="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}"
-              title="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}">${renderVideoActionIcon('favorite')}</button>
-            ${options.hideOrganizationActions ? '' : `<button class="action-btn more-btn"
+              title="${escHtml(isFavorite ? t('videos.card.removeFavorite') : t('videos.card.favorite'))}">${renderVideoActionIcon('favorite')}</button>` : ''}
+            ${!VIDEO_ORGANIZATION_ENABLED || options.hideOrganizationActions ? '' : `<button class="action-btn more-btn"
               data-video-id="${safeVideoId}"
               data-video-organization-action="menu"
               data-video-organization-surface="video_card"
@@ -15397,14 +15743,23 @@ bindPlusUpgradeActions(document.getElementById('plusUpgradeModal'), {
 bindWatchedSectionActions(document, {
   toggle: toggleWatchedSection
 })
-bindVideoOrganizationActions(document, {
-  openMenu: openVideoOrganizationMenu,
-  closeMenu: closeVideoOrganizationMenu,
-  removeFromContinueWatching: removeVideoFromContinueWatching,
-  removeFromFeed: removeVideoFromFeed,
-  restoreToFeed: restoreVideoToFeed,
-  toggleRemovedSection
-})
+if (VIDEO_ORGANIZATION_ENABLED) {
+  bindVideoOrganizationActions(document, {
+    openMenu: openVideoOrganizationMenu,
+    closeMenu: closeVideoOrganizationMenu,
+    removeFromContinueWatching: removeVideoFromContinueWatching,
+    removeFromFeed: removeVideoFromFeed,
+    restoreToFeed: restoreVideoToFeed,
+    toggleRemovedSection
+  })
+} else {
+  bindVideoSetAsideActions(document, {
+    request: requestVideoSetAside,
+    cancel: cancelVideoSetAsidePrompt,
+    confirm: confirmVideoSetAsidePrompt,
+    handlePromptKeydown: handleVideoSetAsidePromptKeydown
+  })
+}
 bindSettingsShellActions(document, {
   open: openSettings,
   close: closeSettings
@@ -15468,12 +15823,16 @@ bindImageFallbackActions(document)
 document.addEventListener('DOMContentLoaded', init)
 window.addEventListener('scroll', syncHeaderCompactState, { passive: true })
 window.addEventListener('scroll', closeVideoShelfPreviewOnViewportChange, { passive: true })
-window.addEventListener('scroll', closeVideoOrganizationMenuOnViewportChange, {
-  capture: true,
-  passive: true
-})
+if (VIDEO_ORGANIZATION_ENABLED) {
+  window.addEventListener('scroll', closeVideoOrganizationMenuOnViewportChange, {
+    capture: true,
+    passive: true
+  })
+}
 window.addEventListener('resize', closeVideoShelfPreviewOnViewportChange, { passive: true })
-window.addEventListener('resize', closeVideoOrganizationMenuOnViewportChange, { passive: true })
+if (VIDEO_ORGANIZATION_ENABLED) {
+  window.addEventListener('resize', closeVideoOrganizationMenuOnViewportChange, { passive: true })
+}
 window.addEventListener('resize', () => positionVideoShelfPlayerOverlay(), { passive: true })
 window.addEventListener('resize', syncMobileAddButtonWidth, { passive: true })
 window.addEventListener('resize', syncIntroTrailerStageScale, { passive: true })
@@ -15484,16 +15843,18 @@ window.visualViewport?.addEventListener(
   scheduleOnboardingChoiceLayoutSyncForViewportResize,
   { passive: true }
 )
-window.visualViewport?.addEventListener(
-  'resize',
-  closeVideoOrganizationMenuOnViewportChange,
-  { passive: true }
-)
-window.visualViewport?.addEventListener(
-  'scroll',
-  closeVideoOrganizationMenuOnViewportChange,
-  { passive: true }
-)
+if (VIDEO_ORGANIZATION_ENABLED) {
+  window.visualViewport?.addEventListener(
+    'resize',
+    closeVideoOrganizationMenuOnViewportChange,
+    { passive: true }
+  )
+  window.visualViewport?.addEventListener(
+    'scroll',
+    closeVideoOrganizationMenuOnViewportChange,
+    { passive: true }
+  )
+}
 document.fonts?.ready.then(scheduleOnboardingChoiceLayoutSync).catch(() => {})
 document.addEventListener('visibilitychange', refreshOpenChannelFilterTimestamps)
 document.addEventListener('visibilitychange', handleVideoShelfPlayerVisibilityChange)
@@ -15506,7 +15867,9 @@ document.addEventListener('click', closeManualVideoPopoverOnOutsideClick)
 document.addEventListener('click', closeVideoSearchPopoverOnOutsideClick)
 document.addEventListener('click', closeLocaleMenuOnOutsideClick)
 document.addEventListener('click', closeVideoShelfPreviewOnOutsideClick)
-document.addEventListener('click', closeVideoOrganizationMenuOnOutsideClick)
+if (VIDEO_ORGANIZATION_ENABLED) {
+  document.addEventListener('click', closeVideoOrganizationMenuOnOutsideClick)
+}
 document.addEventListener('click', closeIntroLocaleMenuOnOutsideClick)
 document.addEventListener('click', closeOnboardingLocaleMenuOnOutsideClick)
 document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
@@ -15520,7 +15883,9 @@ document.addEventListener('keydown', closeManualVideoPopoverOnEscape)
 document.addEventListener('keydown', closeVideoSearchPopoverOnEscape)
 document.addEventListener('keydown', closeLocaleMenuOnEscape)
 document.addEventListener('keydown', closeVideoShelfPreviewsOnEscape)
-document.addEventListener('keydown', closeVideoOrganizationMenuOnEscape)
+if (VIDEO_ORGANIZATION_ENABLED) {
+  document.addEventListener('keydown', closeVideoOrganizationMenuOnEscape)
+}
 document.addEventListener('keydown', handleSettingsKeydown)
 document.addEventListener('keydown', handleIntroTrailerKeydown)
 document.addEventListener('keydown', handleFeedbackModalKeydown)

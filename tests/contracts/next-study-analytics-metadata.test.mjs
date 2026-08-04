@@ -54,7 +54,7 @@ function normalizeClickEventName(action) {
 }
 
 test('Next Study variants retain every generated control and exact branch markup', () => {
-  assert.equal(getButtonElements(renderSource).length, 7)
+  assert.equal(getButtonElements(renderSource).length, 8)
   assert.match(renderSource, /const actions = isInProgress\s*\? `/)
   assert.match(renderSource, /`\s*: isRewatch\s*\? `/)
   assert.match(renderSource, /`\s*: `/)
@@ -67,6 +67,14 @@ test('Next Study variants retain every generated control and exact branch markup
       inlineHandler: null,
       content: "${renderVideoActionIcon('more')}",
       ariaLabel: "${escHtml(t('videos.actions.more'))}"
+    },
+    {
+      className: 'next-study-set-aside',
+      analyticsAction: 'requestVideoSetAside',
+      nextStudyAction: null,
+      inlineHandler: null,
+      content: "${escHtml(t('videos.card.setAside'))}",
+      ariaLabel: null
     },
     {
       className: 'next-study-continue',

@@ -5,16 +5,19 @@ import test from 'node:test'
 const appSource = fs.readFileSync(new URL('../../src/app.js', import.meta.url), 'utf8')
 const analyticsSource = fs.readFileSync(new URL('../../analytics.js', import.meta.url), 'utf8')
 
-test('video organization analytics use the current snapshot schema', () => {
-  assert.match(appSource, /schemaVersion: 3/)
-  assert.match(analyticsSource, /const ANALYTICS_SCHEMA_VERSION = 3;/)
+test('video organization analytics use schema 3 only while the staged feature is enabled', () => {
+  assert.match(appSource, /schemaVersion: VIDEO_ORGANIZATION_ENABLED \? 3 : 2/)
+  assert.match(
+    analyticsSource,
+    /const ANALYTICS_SCHEMA_VERSION = VIDEO_ORGANIZATION_ENABLED \? 3 : 2;/
+  )
   assert.match(
     appSource,
-    /removedFromFeedCount: videoEntries\.filter\(isVideoRemovedFromFeed\)\.length/
+    /VIDEO_ORGANIZATION_ENABLED[\s\S]*?removedFromFeedCount: videoEntries\.filter\(isVideoRemovedFromFeed\)\.length/
   )
   assert.match(
     analyticsSource,
-    /current_removed_video_count: videoState\.removedFromFeedCount \|\| 0/
+    /VIDEO_ORGANIZATION_ENABLED[\s\S]*?current_removed_video_count: videoState\.removedFromFeedCount \|\| 0/
   )
   assert.match(
     analyticsSource,

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  deriveRuntimeEnvironment
+  deriveRuntimeEnvironment,
+  deriveVideoOrganizationEnabled
 } from '../../src/core/runtime-environment.js'
 import { deriveStorageKeys } from '../../src/core/storage-keys.js'
 import {
@@ -115,6 +116,14 @@ test('storage keys preserve normal, internal, sandbox, and combined isolation', 
       `${expected.storageKey}_walkthrough_after_reset`
     )
   }
+})
+
+test('video organization enables only for internal tests or an explicit release', () => {
+  assert.equal(deriveVideoOrganizationEnabled({ isInternalTest: false }), false)
+  assert.equal(deriveVideoOrganizationEnabled({ isInternalTest: true }), true)
+  assert.equal(deriveVideoOrganizationEnabled({ isInternalTest: false }, true), true)
+  assert.equal(deriveVideoOrganizationEnabled({ isInternalTest: false }, 'true'), false)
+  assert.equal(deriveVideoOrganizationEnabled(null, true), true)
 })
 
 test('runtime config remains late-bound and preserves coercion and errors', () => {
