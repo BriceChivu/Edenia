@@ -16,11 +16,11 @@ const wideStyles = await readFile(
 )
 
 function getRenderCardSource() {
-  const match = appSource.match(
-    /function renderCard\([\s\S]*?\n}\n\nfunction removeVideoFromGrid/
-  )
-  assert.ok(match, 'renderCard source remains discoverable')
-  return match[0]
+  const start = appSource.indexOf('function renderCard(')
+  const end = appSource.indexOf('\nfunction renderRemovedVideoCard(', start)
+  assert.notEqual(start, -1, 'renderCard source remains discoverable')
+  assert.notEqual(end, -1, 'renderCard boundary remains discoverable')
+  return appSource.slice(start, end)
 }
 
 function getRuleDeclarations(source, selector) {
@@ -30,17 +30,21 @@ function getRuleDeclarations(source, selector) {
   return match[1]
 }
 
-test('video-card priority badges use localized status and favorite labels', () => {
+test('video-card priority badges keep localized labels without owning actions', () => {
   const renderCardSource = getRenderCardSource()
 
   assert.doesNotMatch(renderCardSource, /t\('videos\.card\.resume'\)/)
   assert.match(
     renderCardSource,
-    /partial-priority-badge[\s\S]*?renderVideoActionIcon\('partial'\)[\s\S]*?t\('videos\.status\.partial'\)/
+    /class="channel-shelf-priority-badge partial-priority-badge">\$\{renderVideoActionIcon\('partial'\)\}\$\{escHtml\(t\('videos\.status\.partial'\)\)\}<\/span>/
   )
   assert.match(
     renderCardSource,
-    /favorite-priority-badge[\s\S]*?renderVideoActionIcon\('favorite'\)[\s\S]*?t\('videos\.card\.favorite'\)/
+    /class="channel-shelf-priority-badge favorite-priority-badge">\$\{renderVideoActionIcon\('favorite'\)\}\$\{escHtml\(t\('videos\.card\.favorite'\)\)\}<\/span>/
+  )
+  assert.doesNotMatch(
+    renderCardSource,
+    /channel-shelf-priority-badge[^>]*data-video-state-action/
   )
   assert.match(
     renderCardSource,

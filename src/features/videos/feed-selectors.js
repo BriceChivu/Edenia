@@ -1,6 +1,7 @@
 import {
   getVideoStatus,
   hasVideoResumePriority,
+  isVideoRemovedFromFeed,
   isVideoWatchLater
 } from '../../domain/video-state.js'
 import { isShortDuration } from '../../integrations/youtube-parsing.js'
@@ -159,5 +160,15 @@ export function getActiveVideoGroupKey(video) {
 }
 
 export function isHiddenFromVideoGrid(video) {
-  return Boolean(video?.hiddenFromGrid)
+  return Boolean(video?.hiddenFromGrid) || isVideoRemovedFromFeed(video)
+}
+
+export function getRemovedFromFeedVideos(videos, includeShorts = true) {
+  return videos
+    .filter(video => isVideoRemovedFromFeed(video))
+    .filter(video => !video?.hiddenFromGrid)
+    .filter(video => !isHiddenShortVideo(video, includeShorts))
+    .sort((left, right) => (
+      Date.parse(right.removedFromFeedAt) - Date.parse(left.removedFromFeedAt)
+    ))
 }

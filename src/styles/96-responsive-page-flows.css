@@ -718,7 +718,7 @@
   }
   .video-card:not(.compact-card) .partial-btn,
   .video-card:not(.compact-card) .watch-later-btn,
-  .video-card:not(.compact-card) .set-aside-btn,
+  .video-card:not(.compact-card) .more-btn,
   .video-card:not(.compact-card) .favorite-btn {
     padding-left: 4px;
     padding-right: 4px;
@@ -826,6 +826,9 @@
     cursor: pointer;
     grid-template-columns: 72px minmax(0, 1fr);
   }
+  .next-study-card.has-video-actions {
+    grid-template-columns: 72px minmax(0, 1fr) 44px;
+  }
   .next-study-panel-focus {
     display: none;
   }
@@ -853,6 +856,19 @@
     line-clamp: 2;
   }
   .next-study-actions {
+    display: none;
+  }
+  .next-study-card.has-video-actions .next-study-actions {
+    align-self: stretch;
+    display: flex;
+  }
+  .next-study-card.has-video-actions .next-study-more {
+    height: 44px;
+    margin: auto 0;
+    min-width: 44px;
+    padding: 0;
+  }
+  .next-study-card.has-video-actions .next-study-continue {
     display: none;
   }
   .card-title { font-size: 0.78rem; }

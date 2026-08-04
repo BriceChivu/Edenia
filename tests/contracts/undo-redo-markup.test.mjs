@@ -157,7 +157,7 @@ test('all generated history-action buttons retain live identity and content', ()
   const controls = getElements(appSource, 'button').filter(element => (
     getAttribute(element.tag, 'data-undo-redo-action') === 'apply'
   ))
-  assert.equal(controls.length, 6)
+  assert.equal(controls.length, 7)
 
   controls.forEach((control, index) => {
     assert.equal(getAttribute(control.tag, 'type'), 'button')

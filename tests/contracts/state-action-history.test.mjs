@@ -13,6 +13,7 @@ test('action-history constants preserve the exact public state contract', () => 
     'video-resume-time',
     'video-favorite',
     'video-grid-remove',
+    'video-organization',
     'channel-remove',
     'manual-video-add'
   ])

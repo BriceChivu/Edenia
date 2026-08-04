@@ -13,17 +13,29 @@
     overflow-x: clip;
   }
 
-  .set-aside-prompt-overlay {
-    align-items: flex-end;
-    padding: 12px;
-  }
-  .set-aside-prompt {
-    border-radius: 16px;
-    padding: 16px;
-  }
-  .set-aside-prompt-actions button {
-    flex: 1;
+  .video-actions-popover {
+    border-radius: 18px 18px 14px 14px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 12px;
+    max-height: min(70dvh, 520px);
     min-width: 0;
+    overflow-y: auto;
+    padding: 0;
+    right: 12px;
+    top: auto;
+    width: auto;
+  }
+  .video-actions-header {
+    display: flex;
+  }
+  .video-actions-item {
+    min-height: 48px;
+  }
+  .removed-video-restore {
+    min-height: 44px;
+  }
+  .removed-video-restore span {
+    display: none;
   }
   .video-watch-reminder-popover {
     bottom: 8px;
@@ -356,7 +368,7 @@
   }
   .channel-shelf-card .partial-btn,
   .channel-shelf-card .watch-later-btn,
-  .channel-shelf-card .set-aside-btn,
+  .channel-shelf-card .more-btn,
   .channel-shelf-card .favorite-btn {
     flex: 0 0 40px;
   }

@@ -3,6 +3,7 @@ export const UNDO_ACTION_TYPES = [
   'video-resume-time',
   'video-favorite',
   'video-grid-remove',
+  'video-organization',
   'channel-remove',
   'manual-video-add'
 ]

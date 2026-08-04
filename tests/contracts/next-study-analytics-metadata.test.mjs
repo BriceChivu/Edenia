@@ -61,12 +61,12 @@ test('Next Study variants retain every generated control and exact branch markup
 
   const expectedControls = [
     {
-      className: 'next-study-set-aside',
-      analyticsAction: 'requestVideoSetAside',
+      className: 'next-study-more',
+      analyticsAction: 'openVideoActions',
       nextStudyAction: null,
       inlineHandler: null,
-      content: "${escHtml(t('videos.card.setAside'))}",
-      ariaLabel: null
+      content: "${renderVideoActionIcon('more')}",
+      ariaLabel: "${escHtml(t('videos.actions.more'))}"
     },
     {
       className: 'next-study-continue',
@@ -143,28 +143,28 @@ test('Next Study variants retain every generated control and exact branch markup
   }
 })
 
-test('Next Study Set aside keeps its existing module ownership and surface', () => {
+test('Next Study More actions keeps organization ownership and surface', () => {
   const element = findSingleButton(
-    tag => hasClass(tag, 'next-study-set-aside'),
-    'Next Study Set aside control'
+    tag => hasClass(tag, 'next-study-more'),
+    'Next Study More actions control'
   )
   const tag = getOpeningTag(element)
 
   assert.ok(hasClass(tag, 'next-study-cta'))
-  assert.equal(getAttribute(tag, 'data-video-set-aside-action'), 'request')
+  assert.equal(getAttribute(tag, 'data-video-organization-action'), 'menu')
   assert.equal(
-    getAttribute(tag, 'data-video-set-aside-surface'),
+    getAttribute(tag, 'data-video-organization-surface'),
     'continue_watching'
   )
-  assert.equal(getAttribute(tag, 'data-analytics-action'), 'requestVideoSetAside')
+  assert.equal(getAttribute(tag, 'data-analytics-action'), 'openVideoActions')
   assert.equal(getAttribute(tag, 'onclick'), null)
 
   const replacementIndex = renderSource.indexOf('container.innerHTML =')
-  const bindingIndex = renderSource.indexOf('bindVideoSetAsideActions(container,')
+  const bindingIndex = appSource.indexOf('bindVideoOrganizationActions(document,')
   const returnIndex = renderSource.lastIndexOf('return nextVideo')
   assert.ok(replacementIndex >= 0)
-  assert.ok(bindingIndex > replacementIndex)
-  assert.ok(returnIndex > bindingIndex)
+  assert.ok(bindingIndex >= 0)
+  assert.ok(returnIndex > replacementIndex)
 })
 
 test('Next Study open controls retain explicit identity but suppress generic clicks', () => {

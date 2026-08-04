@@ -362,19 +362,19 @@ test('active grid binds channel removal after scrolling and before later feature
   const scrollBindingIndex = feedSource.indexOf(
     'bindChannelShelfScrollActions(grid, {'
   )
-  const setAsideBindingIndex = feedSource.indexOf(
-    'bindVideoSetAsideActions(grid, {'
+  const videoStateBindingIndex = feedSource.indexOf(
+    'bindRenderedVideoStateActions(grid)'
   )
   assert.notEqual(groupReplacementIndex, -1)
   assert.ok(scrollBindingIndex > groupReplacementIndex)
   assert.ok(removeBindingIndex > scrollBindingIndex)
-  assert.ok(setAsideBindingIndex > removeBindingIndex)
+  assert.ok(videoStateBindingIndex > removeBindingIndex)
   assert.match(
     feedSource.slice(scrollBindingIndex, removeBindingIndex),
     /bindChannelShelfScrollActions\(grid,\s*\{\s*scroll:\s*scrollVideoChannelShelf,\s*sync:\s*syncVideoChannelShelfControls\s*\}\)\s*$/
   )
   assert.match(
-    feedSource.slice(removeBindingIndex, setAsideBindingIndex),
+    feedSource.slice(removeBindingIndex, videoStateBindingIndex),
     /bindChannelRemoveActions\(grid,\s*\{\s*remove:\s*removeChannelFromFilter\s*\}\)\s*$/
   )
 })
