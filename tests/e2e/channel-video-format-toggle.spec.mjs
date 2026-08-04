@@ -342,6 +342,15 @@ test('vertical cards resize without changing the channel shelf footprint', async
   const horizontalPreviewHeight = await horizontalCard.evaluate(card => (
     card.getBoundingClientRect().height
   ))
+  const horizontalPreviewSpacing = await horizontalCard.evaluate(card => {
+    const bodyStyle = getComputedStyle(card.querySelector('.card-body'))
+    const footerStyle = getComputedStyle(card.querySelector('.card-footer'))
+    return {
+      bodyGap: bodyStyle.gap,
+      bodyJustifyContent: bodyStyle.justifyContent,
+      footerJustifyContent: footerStyle.justifyContent
+    }
+  })
   await closePreview(horizontalCard)
 
   await channelA.locator(
@@ -359,6 +368,7 @@ test('vertical cards resize without changing the channel shelf footprint', async
     const nextShelf = document.querySelector('.channel-shelf[data-channel-key="channel-b"]')
     const shelfTrack = shelf.querySelector('.channel-shelf-track')
     const trackStyle = getComputedStyle(shelfTrack)
+    const thumbnailStyle = getComputedStyle(card.querySelector('.thumb'))
     const slotRect = slot.getBoundingClientRect()
     const cardRect = card.getBoundingClientRect()
     return {
@@ -368,6 +378,9 @@ test('vertical cards resize without changing the channel shelf footprint', async
       nextShelfTop: nextShelf.getBoundingClientRect().top + window.scrollY,
       slotHeight: slotRect.height,
       slotWidth: slotRect.width,
+      thumbnailObjectFit: thumbnailStyle.objectFit,
+      thumbnailScale: new DOMMatrix(thumbnailStyle.transform).a,
+      thumbnailTransitionDuration: thumbnailStyle.transitionDuration,
       trackHeight: shelfTrack.getBoundingClientRect().height
     }
   })
@@ -378,6 +391,9 @@ test('vertical cards resize without changing the channel shelf footprint', async
   expect(collapsedLayout.trackHeight).toBeCloseTo(initialLayout.trackHeight, 4)
   expect(collapsedLayout.nextShelfTop).toBeCloseTo(initialLayout.nextShelfTop, 4)
   expect(collapsedLayout.gap).toBe(initialLayout.gap)
+  expect(collapsedLayout.thumbnailObjectFit).toBe('cover')
+  expect(collapsedLayout.thumbnailScale).toBeCloseTo(1.04, 2)
+  expect(collapsedLayout.thumbnailTransitionDuration).toBe('0s')
 
   await shortsCard.scrollIntoViewIfNeeded()
   await openPreview(shortsCard)
@@ -389,9 +405,12 @@ test('vertical cards resize without changing the channel shelf footprint', async
     const cardRect = card.getBoundingClientRect()
     const thumbnailRect = card.querySelector('.thumb-link').getBoundingClientRect()
     const bodyRect = card.querySelector('.card-body').getBoundingClientRect()
+    const bodyStyle = getComputedStyle(card.querySelector('.card-body'))
     const titleRect = card.querySelector('.card-title').getBoundingClientRect()
     const dateRect = card.querySelector('.pub-ago').getBoundingClientRect()
     const channelNameStyle = getComputedStyle(card.querySelector('.channel-name'))
+    const footerStyle = getComputedStyle(card.querySelector('.card-footer'))
+    const thumbnailStyle = getComputedStyle(card.querySelector('.thumb'))
     const actionRects = Array.from(card.querySelectorAll('.card-actions .action-btn'))
       .map(button => button.getBoundingClientRect())
     return {
@@ -401,7 +420,9 @@ test('vertical cards resize without changing the channel shelf footprint', async
         right: rect.right,
         top: rect.top
       })),
+      bodyGap: bodyStyle.gap,
       bodyHeight: bodyRect.height,
+      bodyJustifyContent: bodyStyle.justifyContent,
       borderBlock: Number.parseFloat(cardStyle.borderTopWidth)
         + Number.parseFloat(cardStyle.borderBottomWidth),
       card: {
@@ -414,8 +435,11 @@ test('vertical cards resize without changing the channel shelf footprint', async
       },
       channelNameDisplay: channelNameStyle.display,
       dateHeight: dateRect.height,
+      footerJustifyContent: footerStyle.justifyContent,
       thumbnailHeight: thumbnailRect.height,
-      thumbnailTransform: getComputedStyle(card.querySelector('.thumb')).transform,
+      thumbnailObjectFit: thumbnailStyle.objectFit,
+      thumbnailScale: new DOMMatrix(thumbnailStyle.transform).a,
+      thumbnailTransitionDuration: thumbnailStyle.transitionDuration,
       titleHeight: titleRect.height
     }
   })
@@ -428,6 +452,13 @@ test('vertical cards resize without changing the channel shelf footprint', async
   )
     .toBeCloseTo(expandedLayout.card.height, 0)
   expect(expandedLayout.channelNameDisplay).toBe('none')
+  expect(expandedLayout.bodyGap).toBe(horizontalPreviewSpacing.bodyGap)
+  expect(expandedLayout.bodyJustifyContent).toBe(
+    horizontalPreviewSpacing.bodyJustifyContent
+  )
+  expect(expandedLayout.footerJustifyContent).toBe(
+    horizontalPreviewSpacing.footerJustifyContent
+  )
   expect(expandedLayout.titleHeight).toBeGreaterThan(0)
   expect(expandedLayout.dateHeight).toBeGreaterThan(0)
   expect(expandedLayout.actionRects).toHaveLength(3)
@@ -437,7 +468,12 @@ test('vertical cards resize without changing the channel shelf footprint', async
     expect(rect.top).toBeGreaterThanOrEqual(expandedLayout.card.top)
     expect(rect.bottom).toBeLessThanOrEqual(expandedLayout.card.bottom)
   })
-  expect(expandedLayout.thumbnailTransform).not.toBe('none')
+  expect(expandedLayout.thumbnailObjectFit).toBe('cover')
+  expect(expandedLayout.thumbnailScale).toBeCloseTo(
+    collapsedLayout.thumbnailScale,
+    2
+  )
+  expect(expandedLayout.thumbnailTransitionDuration).toBe('0s')
   await expect(track).toHaveJSProperty('scrollLeft', 0)
   await expect(channelB).toBeVisible()
 })
