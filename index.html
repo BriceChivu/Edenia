@@ -353,8 +353,10 @@ and momentum—at a glance</h2>
             <h3 data-i18n="settings.videoActions.title">Organize your videos</h3>
             <ul class="settings-video-actions-list">
               <li data-i18n="settings.videoActions.favorite">Favorite is for videos you want to rewatch repeatedly. Favorites stay available after you watch them.</li>
-              <li data-i18n="settings.videoActions.watchLater">Watch later keeps a video in your active list for another time.</li>
-              <li data-i18n="settings.videoActions.more">More actions lets you remove a video from Continue Watching or from your feed without erasing recorded study activity. Removed videos can be returned to the feed below Watched.</li>
+              <li data-video-organization-legacy data-i18n="settings.videoActions.watchLaterLegacy">Watch later keeps a video in your active list for another time. Using it on a set-aside video makes that video active again.</li>
+              <li data-video-organization-legacy data-i18n="settings.videoActions.setAside">Set aside is for a video you started but do not want to finish. You keep the tracked study time and points, and it still counts in watched stats.</li>
+              <li data-video-organization-preview hidden data-i18n="settings.videoActions.watchLater">Watch later keeps a video in your active list for another time.</li>
+              <li data-video-organization-preview hidden data-i18n="settings.videoActions.more">More actions lets you remove a video from Continue Watching or from your feed without erasing recorded study activity. Removed videos can be returned to the feed below Watched.</li>
             </ul>
           </section>
           <section class="settings-howto-section settings-anki-section" id="settingsAnkiHowToTarget">
@@ -866,6 +868,19 @@ and momentum—at a glance</h2>
           <span aria-hidden="true">→</span>
         </button>
       </form>
+    </section>
+  </div>
+
+  <div class="set-aside-prompt-overlay hidden" id="setAsidePrompt" data-video-set-aside-action="prompt" aria-hidden="true">
+    <section class="set-aside-prompt" role="dialog" aria-modal="true" aria-labelledby="setAsidePromptTitle" aria-describedby="setAsidePromptMessage">
+      <h2 id="setAsidePromptTitle" data-i18n="setAsidePrompt.title">Set this video aside?</h2>
+      <p id="setAsidePromptMessage">
+        <span data-i18n="setAsidePrompt.bodyBeforeWatched">This is if you've started watching a video but do not want to finish it. You’ll still keep your points, and it will count in your study stats. You can find it again in the </span><strong data-i18n="setAsidePrompt.watched">Watched</strong><span data-i18n="setAsidePrompt.bodyAfterWatched"> section.</span>
+      </p>
+      <div class="set-aside-prompt-actions">
+        <button class="btn-ghost" type="button" data-video-set-aside-action="cancel" data-analytics-action="setAsidePrompt.cancel" data-i18n="setAsidePrompt.cancel">Cancel</button>
+        <button class="btn-primary" type="button" data-video-set-aside-action="confirm" data-analytics-action="setAsidePrompt.confirm" data-i18n="setAsidePrompt.confirm">Set aside</button>
+      </div>
     </section>
   </div>
 

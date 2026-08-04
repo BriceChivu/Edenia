@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  deriveRuntimeEnvironment
+  deriveRuntimeEnvironment,
+  deriveVideoOrganizationEnabled
 } from '../../src/core/runtime-environment.js'
 import { deriveStorageKeys } from '../../src/core/storage-keys.js'
 import {
   getFreePlusEnabled,
   getPlusCheckoutEnabled,
+  getVideoOrganizationEnabled,
   getSupabasePublishableKey,
   getSupabaseUrl,
   getYoutubeApiKey,
@@ -116,6 +118,14 @@ test('storage keys preserve normal, internal, sandbox, and combined isolation', 
   }
 })
 
+test('video organization enables only for internal tests or an explicit release', () => {
+  assert.equal(deriveVideoOrganizationEnabled({ isInternalTest: false }), false)
+  assert.equal(deriveVideoOrganizationEnabled({ isInternalTest: true }), true)
+  assert.equal(deriveVideoOrganizationEnabled({ isInternalTest: false }, true), true)
+  assert.equal(deriveVideoOrganizationEnabled({ isInternalTest: false }, 'true'), false)
+  assert.equal(deriveVideoOrganizationEnabled(null, true), true)
+})
+
 test('runtime config remains late-bound and preserves coercion and errors', () => {
   const target = {}
   assert.deepEqual(publicConfig(target), {})
@@ -123,6 +133,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(hasYoutubeApiKey(target), false)
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
+  assert.equal(getVideoOrganizationEnabled(target), false)
   assert.equal(getSupabaseUrl(target), '')
   assert.equal(getSupabasePublishableKey(target), '')
   assert.equal(hasSupabaseRuntimeConfig(target), false)
@@ -131,6 +142,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     youtubeApiKey: '  key-one  ',
     freePlusEnabled: true,
     plusCheckoutEnabled: true,
+    videoOrganizationEnabled: true,
     supabaseUrl: '  https://project.supabase.co  ',
     supabasePublishableKey: '  sb_publishable_test  '
   }
@@ -138,16 +150,19 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(hasYoutubeApiKey(target), true)
   assert.equal(getFreePlusEnabled(target), true)
   assert.equal(getPlusCheckoutEnabled(target), true)
+  assert.equal(getVideoOrganizationEnabled(target), true)
   assert.equal(getSupabaseUrl(target), 'https://project.supabase.co')
   assert.equal(getSupabasePublishableKey(target), 'sb_publishable_test')
   assert.equal(hasSupabaseRuntimeConfig(target), true)
 
   target.EDENIA_CONFIG = {
     freePlusEnabled: 'true',
-    plusCheckoutEnabled: 1
+    plusCheckoutEnabled: 1,
+    videoOrganizationEnabled: 'true'
   }
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
+  assert.equal(getVideoOrganizationEnabled(target), false)
 
   target.EDENIA_CONFIG = { supabaseUrl: 'https://project.supabase.co' }
   assert.equal(hasSupabaseRuntimeConfig(target), false)

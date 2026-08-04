@@ -77,6 +77,7 @@ test('test build contains empty public keys and disabled release flags', async (
   assert.match(source, /"youtubeApiKey": ""/)
   assert.match(source, /"freePlusEnabled": false/)
   assert.match(source, /"plusCheckoutEnabled": false/)
+  assert.match(source, /"videoOrganizationEnabled": false/)
   assert.match(source, /"supabaseUrl": ""/)
   assert.match(source, /"supabasePublishableKey": ""/)
   assert.doesNotMatch(source, /PASTE_|AIza/i)
@@ -94,6 +95,10 @@ test('Pages deployment forwards dormant controls and public Supabase config', as
   assert.match(
     workflow,
     /EDENIA_PLUS_CHECKOUT_ENABLED: \$\{\{ vars\.EDENIA_PLUS_CHECKOUT_ENABLED \}\}/
+  )
+  assert.match(
+    workflow,
+    /EDENIA_VIDEO_ORGANIZATION_ENABLED: \$\{\{ vars\.EDENIA_VIDEO_ORGANIZATION_ENABLED \}\}/
   )
   assert.match(
     workflow,

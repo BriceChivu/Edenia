@@ -157,6 +157,7 @@ await writeFile(
     + '  "youtubeApiKey": "",\n'
     + '  "freePlusEnabled": false,\n'
     + '  "plusCheckoutEnabled": false,\n'
+    + '  "videoOrganizationEnabled": false,\n'
     + '  "supabaseUrl": "",\n'
     + '  "supabasePublishableKey": ""\n'
     + '}\n'

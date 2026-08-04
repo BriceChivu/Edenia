@@ -1,6 +1,8 @@
 import { expect, test } from '../support/network-fixture.mjs'
 
 const fixedNow = new Date('2026-08-03T04:00:00.000Z')
+const normalStorageKey = 'edenia_v1'
+const internalStorageKey = 'edenia_v1_internal_test'
 
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(fixedNow)
@@ -16,10 +18,14 @@ async function waitForApplication(page) {
   })
 }
 
-async function seedVideoOrganizationState(page, { locale = 'en' } = {}) {
-  await page.goto('/')
+async function seedVideoOrganizationState(
+  page,
+  { locale = 'en', internalTest = true } = {}
+) {
+  const storageKey = internalTest ? internalStorageKey : normalStorageKey
+  await page.goto(internalTest ? '/?internal_test=1' : '/')
   await waitForApplication(page)
-  await page.evaluate(({ locale: seededLocale }) => {
+  await page.evaluate(({ locale: seededLocale, storageKey: seededStorageKey }) => {
     const state = window.defaultState(4, [], 'light', [], seededLocale)
     const completedAt = '2026-07-20T04:00:00.000Z'
     state.config.ankiEnabled = false
@@ -81,10 +87,11 @@ async function seedVideoOrganizationState(page, { locale = 'en' } = {}) {
       }],
       watchProgressTracked: true
     }
-    localStorage.setItem('edenia_v1', JSON.stringify(state))
-  }, { locale })
+    localStorage.setItem(seededStorageKey, JSON.stringify(state))
+  }, { locale, storageKey })
   await page.reload()
   await waitForApplication(page)
+  return storageKey
 }
 
 async function installFakeYoutubePlayer(page) {
@@ -124,7 +131,10 @@ test('Removed preview playback never mutates study state', async ({ page }, test
     '#removedGrid [data-video-preview-action="removed-thumbnail"]'
   )
   await expect(previewButton).toHaveCount(1)
-  const stateBefore = await page.evaluate(() => localStorage.getItem('edenia_v1'))
+  const stateBefore = await page.evaluate(
+    key => localStorage.getItem(key),
+    internalStorageKey
+  )
 
   await previewButton.click()
   await expect(page.locator('.video-player-overlay')).toBeVisible()
@@ -148,7 +158,10 @@ test('Removed preview playback never mutates study state', async ({ page }, test
   await expect(page.locator(
     '#removedGrid .removed-card[data-video-id="removed-preview-video"]'
   )).toHaveCount(1)
-  const stateAfter = await page.evaluate(() => localStorage.getItem('edenia_v1'))
+  const stateAfter = await page.evaluate(
+    key => localStorage.getItem(key),
+    internalStorageKey
+  )
   expect(stateAfter).toBe(stateBefore)
 })
 
@@ -277,10 +290,71 @@ test('Watched Favorite reveals and highlights the active rewatch card', async ({
   await expect(activeCard.locator('.favorite-btn')).toBeFocused()
   await expect(activeCard.locator('[data-video-organization-action="menu"]')).toHaveCount(1)
 
-  const persistedVideo = await page.evaluate(() => (
-    JSON.parse(localStorage.getItem('edenia_v1')).videos['watched-favorite-video']
-  ))
+  const persistedVideo = await page.evaluate(key => (
+    JSON.parse(localStorage.getItem(key)).videos['watched-favorite-video']
+  ), internalStorageKey)
   expect(persistedVideo.status).toBe('watched')
   expect(persistedVideo.watchedAt).toBe('2026-08-02T06:00:00.000Z')
   expect(persistedVideo.favorite).toBe(true)
+})
+
+test('normal visitors keep the legacy Set aside flow', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await seedVideoOrganizationState(page, { internalTest: false })
+
+  const card = page.locator(
+    '#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]'
+  )
+  await expect(card).toHaveCount(1)
+  await expect(card.locator('[data-video-organization-action="menu"]')).toHaveCount(0)
+  await expect(card.locator('[data-video-set-aside-action="request"]')).toHaveCount(1)
+  await expect(page.locator('#removedSection')).toBeHidden()
+
+  await card.locator('[data-video-set-aside-action="request"]').focus()
+  await page.keyboard.press('Enter')
+  await expect(page.locator('#setAsidePrompt')).toBeVisible()
+  await page.locator('#setAsidePrompt [data-video-set-aside-action="confirm"]').click()
+
+  const persisted = await page.evaluate(({ normalKey, internalKey }) => ({
+    internal: localStorage.getItem(internalKey),
+    video: JSON.parse(localStorage.getItem(normalKey)).videos['menu-anchor-video']
+  }), {
+    normalKey: normalStorageKey,
+    internalKey: internalStorageKey
+  })
+  expect(persisted.video.status).toBe('watched')
+  expect(persisted.video.setAside).toBe(true)
+  expect(persisted.video.removedFromFeedAt).toBeUndefined()
+  expect(persisted.internal).toBeNull()
+})
+
+test('internal organization actions stay in isolated test storage', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await page.goto('/')
+  await waitForApplication(page)
+  await page.evaluate(key => {
+    localStorage.setItem(key, JSON.stringify({ sentinel: 'normal-state' }))
+  }, normalStorageKey)
+  await seedVideoOrganizationState(page)
+
+  const card = page.locator(
+    '#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]'
+  )
+  await card.scrollIntoViewIfNeeded()
+  await card.hover()
+  await card.locator('[data-video-organization-action="menu"]').click()
+  await expect(page.locator('#videoActionsPopover')).toBeVisible()
+  await page.locator(
+    '#videoActionsPopover [data-video-organization-action="remove-feed"]'
+  ).click()
+
+  const persisted = await page.evaluate(({ normalKey, internalKey }) => ({
+    internal: JSON.parse(localStorage.getItem(internalKey)),
+    normal: JSON.parse(localStorage.getItem(normalKey))
+  }), {
+    normalKey: normalStorageKey,
+    internalKey: internalStorageKey
+  })
+  expect(persisted.internal.videos['menu-anchor-video'].removedFromFeedAt).toBeTruthy()
+  expect(persisted.normal).toEqual({ sentinel: 'normal-state' })
 })

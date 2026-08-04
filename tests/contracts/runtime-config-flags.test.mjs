@@ -22,4 +22,8 @@ test('runtime release flags reject ambiguous deployment values', () => {
     () => parseRuntimeConfigFlag('yes', 'EDENIA_PLUS_CHECKOUT_ENABLED'),
     /EDENIA_PLUS_CHECKOUT_ENABLED must be true or false/
   )
+  assert.throws(
+    () => parseRuntimeConfigFlag('1', 'EDENIA_VIDEO_ORGANIZATION_ENABLED'),
+    /EDENIA_VIDEO_ORGANIZATION_ENABLED must be true or false/
+  )
 })

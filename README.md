@@ -29,8 +29,8 @@ The app is browser-first: its interface and primary study state run from static 
 - Searches saved videos from the header.
 - Filters the active queue by status and by any combination of channels.
 - Lets users add, select all, remove, and manage channels from the channel filter.
-- Gives active videos a More actions menu for removing them from Continue Watching or from the feed.
-- Keeps feed removal recoverable in a collapsed Removed section below Watched without deleting recorded study time, points, Favorite, or Watch later state.
+- Lets public users set aside an in-progress video they do not plan to finish while preserving the study time already recorded.
+- Includes an internal-test preview of a More actions menu for removing videos from Continue Watching or from the feed, with recovery from a collapsed Removed section below Watched.
 - Hides videos of three minutes or less by default; the preference can be changed in Settings.
 - Shows a contextual card for the latest paused video, the next watch-later video, or a favorite that is ready to rewatch.
 - Keeps Favorites independent from watched status so watched favorites remain available for later replays.
@@ -44,9 +44,9 @@ Supported video states are:
 
 Opening an unwatched or watch-later video marks it in progress. In-progress videos can retain a continue-watching timestamp and watched-progress segments. Adding a fresh video to Watch later does not itself add study time, streak credit, or points. Rewatching a favorite can record another completed watch and award credit for the newly recorded playback.
 
-`Removed` is a feed-placement flag rather than a study status. Its thumbnails open in a read-only player that does not record progress or points, and restoring a removed video returns its exact saved status and controls. Removing a video from Continue Watching clears only its resume cursor and current watch-cycle coverage; recorded study activity remains intact. Favoriting a watched video keeps it watched while revealing its rewatch card in the active feed.
+The video-organization preview is available at `/?internal_test=1` and uses the isolated internal-test storage described below. Public visitors keep the existing Set aside behavior unless the production release flag is explicitly enabled. In the preview, `Removed` is a feed-placement flag rather than a study status. Its thumbnails open in a read-only player that does not record progress or points, and restoring a removed video returns its exact saved status and controls. Removing a video from Continue Watching clears only its resume cursor and current watch-cycle coverage; recorded study activity remains intact. Favoriting a watched video keeps it watched while revealing its rewatch card in the active feed.
 
-Undo and redo cover recent status, progress, Favorite, video-placement, manual-video, and channel-removal actions together with their related history and score changes.
+Undo and redo cover recent status, progress, Favorite, manual-video, and channel-removal actions together with their related history and score changes. Video-placement actions join that history while the internal preview or public release flag is enabled.
 
 ### Goals, history, and insights
 
@@ -159,6 +159,12 @@ Edenia uses the Node.js version pinned in `.nvmrc`.
    ```
 
 4. Open [http://localhost:8000/](http://localhost:8000/).
+
+To test the staged video-organization experience without changing the normal
+browser profile, open
+[http://localhost:8000/?internal_test=1](http://localhost:8000/?internal_test=1).
+Leave `videoOrganizationEnabled: false` in local runtime configuration when
+checking that ordinary visitors still receive the Set aside experience.
 
 `npm run dev` validates the ignored root `config.local.js`, builds `_site`,
 writes a normalized `_site/config.local.js` without printing the key, and

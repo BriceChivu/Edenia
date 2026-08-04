@@ -18,6 +18,10 @@ export function getPlusCheckoutEnabled(target = window) {
   return publicConfig(target).plusCheckoutEnabled === true
 }
 
+export function getVideoOrganizationEnabled(target = window) {
+  return publicConfig(target).videoOrganizationEnabled === true
+}
+
 export function getSupabaseUrl(target = window) {
   return String(publicConfig(target).supabaseUrl || '').trim()
 }
