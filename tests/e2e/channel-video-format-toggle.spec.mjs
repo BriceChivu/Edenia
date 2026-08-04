@@ -274,15 +274,15 @@ test('format controls fit long localized channel headers on desktop and phone', 
     const selectedButton = switcherElement.querySelector(
       '.channel-shelf-format-option[aria-pressed="true"]'
     )
-    const colorProbe = document.createElement('span')
-    colorProbe.style.background = 'var(--soft-blue)'
-    colorProbe.style.color = 'var(--accent-dim)'
-    switcherElement.append(colorProbe)
+    const statusTabs = document.querySelector('.status-tabs')
+    const activeStatusTab = statusTabs.querySelector('.status-tab.active')
+    const switcherStyle = getComputedStyle(switcherElement)
     const selectedStyle = getComputedStyle(selectedButton)
-    const probeStyle = getComputedStyle(colorProbe)
+    const statusTabsStyle = getComputedStyle(statusTabs)
+    const activeStatusTabStyle = getComputedStyle(activeStatusTab)
     const shelfRect = shelf.getBoundingClientRect()
     const switcherRect = switcherElement.getBoundingClientRect()
-    const layout = {
+    return {
       documentWidth: Math.max(
         document.documentElement.scrollWidth,
         document.body.scrollWidth
@@ -297,19 +297,43 @@ test('format controls fit long localized channel headers on desktop and phone', 
       arrowHeights: Array.from(
         shelf.querySelectorAll('.channel-shelf-scroll')
       ).map(button => button.getBoundingClientRect().height),
-      selectedBackground: selectedStyle.backgroundColor,
-      selectedColor: selectedStyle.color,
-      softBlue: probeStyle.backgroundColor,
-      accentDim: probeStyle.color
+      switcherDesign: {
+        background: switcherStyle.backgroundColor,
+        borderColor: switcherStyle.borderColor,
+        borderRadius: switcherStyle.borderRadius,
+        gap: switcherStyle.gap
+      },
+      statusTabsDesign: {
+        background: statusTabsStyle.backgroundColor,
+        borderColor: statusTabsStyle.borderColor,
+        borderRadius: statusTabsStyle.borderRadius,
+        gap: statusTabsStyle.gap
+      },
+      selectedDesign: {
+        background: selectedStyle.backgroundColor,
+        boxShadow: selectedStyle.boxShadow,
+        color: selectedStyle.color
+      },
+      activeStatusTabDesign: {
+        background: activeStatusTabStyle.backgroundColor,
+        boxShadow: activeStatusTabStyle.boxShadow,
+        color: activeStatusTabStyle.color
+      },
+      iconImages: Object.fromEntries(buttons.map(button => [
+        button.dataset.channelVideoFormat,
+        getComputedStyle(button.querySelector('.channel-shelf-format-icon')).backgroundImage
+      ]))
     }
-    colorProbe.remove()
-    return layout
   })
   expect(layout.documentWidth).toBeLessThanOrEqual(layout.viewportWidth)
   expect(layout.switcherLeft).toBeGreaterThanOrEqual(layout.shelfLeft)
   expect(layout.switcherRight).toBeLessThanOrEqual(layout.shelfRight)
-  expect(layout.selectedBackground).toBe(layout.softBlue)
-  expect(layout.selectedColor).toBe(layout.accentDim)
+  expect(layout.switcherDesign).toEqual(layout.statusTabsDesign)
+  expect(layout.selectedDesign).toEqual(layout.activeStatusTabDesign)
+  expect(layout.iconImages.videos).toContain('images/brands/youtube-black.svg')
+  expect(layout.iconImages.shorts).toContain(
+    'images/brands/youtube-shorts-black-logo.svg'
+  )
   const isPhone = testInfo.project.name === 'phone-small'
   const minimumButtonHeight = isPhone ? 40 : 24
   layout.buttonHeights.forEach(height => {
