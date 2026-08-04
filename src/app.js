@@ -13189,10 +13189,10 @@ function scrollVideoChannelShelf(button, direction) {
   const shelf = button?.closest?.('.channel-shelf')
   const track = shelf?.querySelector('.channel-shelf-track')
   if (!track) return
-  const firstSlot = track.querySelector('.channel-shelf-slot')
-  const slotWidth = firstSlot?.getBoundingClientRect().width || 0
+  const firstVisibleSlot = track.querySelector('.channel-shelf-slot:not([hidden])')
+  const slotWidth = firstVisibleSlot?.getBoundingClientRect().width || 0
   const gap = Number.parseFloat(getComputedStyle(track).columnGap || getComputedStyle(track).gap) || 0
-  const cardPitch = slotWidth + gap
+  const cardPitch = slotWidth > 0 ? slotWidth + gap : 0
   const currentCardIndex = cardPitch > 0 ? Math.round(track.scrollLeft / cardPitch) : 0
   const targetCardIndex = Math.max(0, currentCardIndex + (direction < 0 ? -4 : 4))
   const maxScrollLeft = Math.max(0, track.scrollWidth - track.clientWidth)
