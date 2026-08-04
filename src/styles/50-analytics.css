@@ -61,6 +61,9 @@ body[data-theme="dark"] .progress-track { background: #07171d; }
   transform: translate(50%, -50%);
 }
 .progress-fill.complete { background: var(--green); }
+.city-level-progress-fill.complete {
+  background: linear-gradient(90deg, var(--planet-cyan), var(--planet-lime));
+}
 
 .goal-sub {
   font-size: 0.78rem;
