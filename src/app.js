@@ -272,6 +272,7 @@ import {
 import {
   bindChannelVideoFormatActions,
   CHANNEL_VIDEO_FORMATS,
+  getAvailableChannelVideoFormat,
   getChannelVideoFormat,
   normalizeChannelVideoFormat
 } from './features/channels/video-format-actions.js'
@@ -13040,7 +13041,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
     t('videos.search.youtube')
   ).map((group, index) => {
     const formatEnabled = cardOptions.channelVideoFormatEnabled === true
-    const selectedFormat = getSelectedChannelVideoFormat(group.key)
+    const preferredFormat = getSelectedChannelVideoFormat(group.key)
     const formatCounts = {
       [CHANNEL_VIDEO_FORMATS.VIDEOS]: 0,
       [CHANNEL_VIDEO_FORMATS.SHORTS]: 0
@@ -13050,6 +13051,9 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
         formatCounts[getChannelVideoFormat(video)] += 1
       })
     }
+    const selectedFormat = formatEnabled
+      ? getAvailableChannelVideoFormat(preferredFormat, formatCounts)
+      : preferredFormat
     const visibleCount = formatEnabled
       ? formatCounts[selectedFormat]
       : group.videos.length

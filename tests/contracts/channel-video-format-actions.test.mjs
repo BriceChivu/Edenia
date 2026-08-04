@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   bindChannelVideoFormatActions,
   CHANNEL_VIDEO_FORMATS,
+  getAvailableChannelVideoFormat,
   getChannelVideoFormat,
   normalizeChannelVideoFormat
 } from '../../src/features/channels/video-format-actions.js'
@@ -47,6 +48,35 @@ test('video format derives vertical layout without changing duration semantics',
   assert.equal(normalizeChannelVideoFormat('shorts'), 'shorts')
   assert.equal(normalizeChannelVideoFormat('videos'), 'videos')
   assert.equal(normalizeChannelVideoFormat('unexpected'), 'videos')
+})
+
+test('format selection falls back only when the other format has videos', () => {
+  assert.equal(getAvailableChannelVideoFormat('videos', {
+    videos: 0,
+    shorts: 2
+  }), 'shorts')
+  assert.equal(getAvailableChannelVideoFormat('shorts', {
+    videos: 3,
+    shorts: 0
+  }), 'videos')
+  assert.equal(getAvailableChannelVideoFormat('videos', {
+    videos: 1,
+    shorts: 4
+  }), 'videos')
+  assert.equal(getAvailableChannelVideoFormat('shorts', {
+    videos: 4,
+    shorts: 1
+  }), 'shorts')
+  assert.equal(getAvailableChannelVideoFormat('shorts', {
+    videos: 0,
+    shorts: 0
+  }), 'shorts')
+  assert.equal(getAvailableChannelVideoFormat('shorts'), 'shorts')
+  assert.equal(getAvailableChannelVideoFormat('videos', null), 'videos')
+  assert.equal(getAvailableChannelVideoFormat('unexpected', {
+    videos: 0,
+    shorts: 1
+  }), 'shorts')
 })
 
 test('format action binding forwards channel and format without consuming clicks', () => {
