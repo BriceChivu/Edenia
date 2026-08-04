@@ -105,7 +105,7 @@ async function seedFormatState(
       }
     ]
     if (seededOverflow) {
-      for (let index = 0; index < 6; index += 1) {
+      for (let index = 0; index < 12; index += 1) {
         videos.push(
           {
             id: `a-vertical-overflow-${index}`,
@@ -285,6 +285,163 @@ test('shelf arrows scroll when the selected format hides the first source slot',
   await expectRightArrowScrollsFromHiddenFirstSlot(channelB)
 })
 
+test('vertical cards resize without changing the channel shelf footprint', async ({ page }, testInfo) => {
+  test.skip(!['desktop-standard', 'tablet-portrait'].includes(testInfo.project.name))
+  await seedFormatState(page, { overflow: true })
+
+  const openPreview = async card => {
+    if (testInfo.project.name === 'desktop-standard') {
+      await card.hover()
+    } else {
+      await card.evaluate(element => element.click())
+    }
+    await expect(card).toHaveClass(/\bis-previewing\b/)
+  }
+  const closePreview = async card => {
+    if (testInfo.project.name === 'desktop-standard') {
+      await page.mouse.move(0, 0)
+    } else {
+      await page.evaluate(() => document.body.click())
+    }
+    await expect(card).not.toHaveClass(/\bis-floating-preview\b/)
+  }
+
+  const channelA = page.locator('.channel-shelf[data-channel-key="channel-a"]')
+  const channelB = page.locator('.channel-shelf[data-channel-key="channel-b"]')
+  const track = channelA.locator('.channel-shelf-track')
+  const horizontalSlot = channelA.locator(
+    '.channel-shelf-slot[data-channel-video-format="videos"]:not([hidden])'
+  ).first()
+  const initialLayout = await page.evaluate(() => {
+    const shelf = document.querySelector('.channel-shelf[data-channel-key="channel-a"]')
+    const nextShelf = document.querySelector('.channel-shelf[data-channel-key="channel-b"]')
+    const shelfTrack = shelf.querySelector('.channel-shelf-track')
+    const slot = shelf.querySelector(
+      '.channel-shelf-slot[data-channel-video-format="videos"]:not([hidden])'
+    )
+    const trackStyle = getComputedStyle(shelfTrack)
+    return {
+      gap: Number.parseFloat(trackStyle.columnGap || trackStyle.gap),
+      cardHeight: slot.querySelector('.channel-shelf-card').getBoundingClientRect().height,
+      nextShelfTop: nextShelf.getBoundingClientRect().top + window.scrollY,
+      slotHeight: slot.getBoundingClientRect().height,
+      slotWidth: slot.getBoundingClientRect().width,
+      trackHeight: shelfTrack.getBoundingClientRect().height
+    }
+  })
+  await expect(horizontalSlot).toBeVisible()
+  const horizontalCard = horizontalSlot.locator('.channel-shelf-card')
+  await horizontalCard.scrollIntoViewIfNeeded()
+  await openPreview(horizontalCard)
+  await expect.poll(() => horizontalCard.evaluate(card => (
+    card.getBoundingClientRect().width
+  ))).toBeCloseTo(
+    Math.min(Math.max(initialLayout.slotWidth * 1.25, 295), 315),
+    2
+  )
+  const horizontalPreviewHeight = await horizontalCard.evaluate(card => (
+    card.getBoundingClientRect().height
+  ))
+  await closePreview(horizontalCard)
+
+  await channelA.locator(
+    '[data-channel-video-format="shorts"][data-channel-video-format-action="select"]'
+  ).click()
+  const shortsSlot = channelA.locator(
+    '.channel-shelf-slot[data-channel-video-format="shorts"]:not([hidden])'
+  ).first()
+  const shortsCard = shortsSlot.locator('.channel-shelf-card')
+  await expect(shortsCard).toBeVisible()
+
+  const collapsedLayout = await shortsSlot.evaluate(slot => {
+    const card = slot.querySelector('.channel-shelf-card')
+    const shelf = slot.closest('.channel-shelf')
+    const nextShelf = document.querySelector('.channel-shelf[data-channel-key="channel-b"]')
+    const shelfTrack = shelf.querySelector('.channel-shelf-track')
+    const trackStyle = getComputedStyle(shelfTrack)
+    const slotRect = slot.getBoundingClientRect()
+    const cardRect = card.getBoundingClientRect()
+    return {
+      cardHeight: cardRect.height,
+      cardWidth: cardRect.width,
+      gap: Number.parseFloat(trackStyle.columnGap || trackStyle.gap),
+      nextShelfTop: nextShelf.getBoundingClientRect().top + window.scrollY,
+      slotHeight: slotRect.height,
+      slotWidth: slotRect.width,
+      trackHeight: shelfTrack.getBoundingClientRect().height
+    }
+  })
+  expect(collapsedLayout.cardWidth).toBeCloseTo(105, 0)
+  expect(collapsedLayout.cardHeight).toBeCloseTo(initialLayout.cardHeight, 4)
+  expect(collapsedLayout.slotWidth).toBeCloseTo(105, 0)
+  expect(collapsedLayout.slotHeight).toBeCloseTo(initialLayout.slotHeight, 4)
+  expect(collapsedLayout.trackHeight).toBeCloseTo(initialLayout.trackHeight, 4)
+  expect(collapsedLayout.nextShelfTop).toBeCloseTo(initialLayout.nextShelfTop, 4)
+  expect(collapsedLayout.gap).toBe(initialLayout.gap)
+
+  await shortsCard.scrollIntoViewIfNeeded()
+  await openPreview(shortsCard)
+  await expect.poll(() => shortsCard.evaluate(card => (
+    card.getBoundingClientRect().width
+  ))).toBeCloseTo(150, 2)
+  const expandedLayout = await shortsCard.evaluate(card => {
+    const cardStyle = getComputedStyle(card)
+    const cardRect = card.getBoundingClientRect()
+    const thumbnailRect = card.querySelector('.thumb-link').getBoundingClientRect()
+    const bodyRect = card.querySelector('.card-body').getBoundingClientRect()
+    const titleRect = card.querySelector('.card-title').getBoundingClientRect()
+    const dateRect = card.querySelector('.pub-ago').getBoundingClientRect()
+    const channelNameStyle = getComputedStyle(card.querySelector('.channel-name'))
+    const actionRects = Array.from(card.querySelectorAll('.card-actions .action-btn'))
+      .map(button => button.getBoundingClientRect())
+    return {
+      actionRects: actionRects.map(rect => ({
+        bottom: rect.bottom,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top
+      })),
+      bodyHeight: bodyRect.height,
+      borderBlock: Number.parseFloat(cardStyle.borderTopWidth)
+        + Number.parseFloat(cardStyle.borderBottomWidth),
+      card: {
+        bottom: cardRect.bottom,
+        height: cardRect.height,
+        left: cardRect.left,
+        right: cardRect.right,
+        top: cardRect.top,
+        width: cardRect.width
+      },
+      channelNameDisplay: channelNameStyle.display,
+      dateHeight: dateRect.height,
+      thumbnailHeight: thumbnailRect.height,
+      thumbnailTransform: getComputedStyle(card.querySelector('.thumb')).transform,
+      titleHeight: titleRect.height
+    }
+  })
+  expect(expandedLayout.card.width).toBeCloseTo(150, 0)
+  expect(expandedLayout.card.height).toBeCloseTo(horizontalPreviewHeight, 4)
+  expect(
+    expandedLayout.thumbnailHeight
+      + expandedLayout.bodyHeight
+      + expandedLayout.borderBlock
+  )
+    .toBeCloseTo(expandedLayout.card.height, 0)
+  expect(expandedLayout.channelNameDisplay).toBe('none')
+  expect(expandedLayout.titleHeight).toBeGreaterThan(0)
+  expect(expandedLayout.dateHeight).toBeGreaterThan(0)
+  expect(expandedLayout.actionRects).toHaveLength(3)
+  expandedLayout.actionRects.forEach(rect => {
+    expect(rect.left).toBeGreaterThanOrEqual(expandedLayout.card.left)
+    expect(rect.right).toBeLessThanOrEqual(expandedLayout.card.right)
+    expect(rect.top).toBeGreaterThanOrEqual(expandedLayout.card.top)
+    expect(rect.bottom).toBeLessThanOrEqual(expandedLayout.card.bottom)
+  })
+  expect(expandedLayout.thumbnailTransform).not.toBe('none')
+  await expect(track).toHaveJSProperty('scrollLeft', 0)
+  await expect(channelB).toBeVisible()
+})
+
 test('public mode preserves the preference while the internal rollout includes every duration', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   await seedFormatState(page, { includeShorts: false, internalTest: false })
@@ -304,6 +461,18 @@ test('public mode preserves the preference while the internal rollout includes e
   expect(publicStatusTabsDesign.background).not.toBe('rgba(0, 0, 0, 0)')
   await page.locator('.gear-btn').click()
   await expect(page.locator('.settings-shorts-group')).toBeVisible()
+
+  await seedFormatState(page, { includeShorts: true, internalTest: false })
+  const publicVerticalSlot = page.locator(
+    '.channel-shelf-slot:has(.video-card[data-video-id="a-vertical-long-duration"])'
+  )
+  await expect(publicVerticalSlot).toBeVisible()
+  const publicVerticalSize = await publicVerticalSlot.evaluate(slot => {
+    const rect = slot.getBoundingClientRect()
+    return { height: rect.height, width: rect.width }
+  })
+  expect(publicVerticalSize.width).toBeGreaterThan(200)
+  expect(publicVerticalSize.width / publicVerticalSize.height).toBeCloseTo(16 / 9, 2)
 
   await seedFormatState(page, { includeShorts: false, internalTest: true })
   await expect(page.locator('body')).toHaveClass(/\bchannel-video-format-toggle-enabled\b/)

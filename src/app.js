@@ -14265,22 +14265,51 @@ function keepPointerInsideVideoShelfPreview(position, size, viewportSize, pointe
   return clampNumber(adjustedPosition, 0, Math.max(0, viewportSize - size))
 }
 
-function positionVideoShelfPreview(card, pointerEvent = null) {
-  const slot = card?.closest?.('.channel-shelf-slot')
-  if (!slot) return false
+const HORIZONTAL_VIDEO_SHELF_ASPECT_RATIO = 16 / 9
+const VIDEO_SHELF_PREVIEW_HEIGHT_RATIO = 0.815625
+const SHORTS_VIDEO_SHELF_PREVIEW_WIDTH = 150
 
-  const rect = slot.getBoundingClientRect()
-  const viewportMargin = 12
+function getHorizontalVideoShelfPreviewDimensions(sourceWidth, viewportMargin) {
   const maxPreviewSize = Math.max(
-    rect.width,
+    sourceWidth,
     Math.min(
       315,
       window.innerWidth - (viewportMargin * 2),
       window.innerHeight - (viewportMargin * 2)
     )
   )
-  const previewSize = Math.min(Math.max(rect.width * 1.25, 295), maxPreviewSize)
-  const previewHeight = previewSize * 0.815625
+  const width = Math.min(Math.max(sourceWidth * 1.25, 295), maxPreviewSize)
+  return {
+    height: width * VIDEO_SHELF_PREVIEW_HEIGHT_RATIO,
+    width
+  }
+}
+
+function positionVideoShelfPreview(card, pointerEvent = null) {
+  const slot = card?.closest?.('.channel-shelf-slot')
+  if (!slot) return false
+
+  const isShortsPreview = CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED
+    && slot.dataset.channelVideoFormat === CHANNEL_VIDEO_FORMATS.SHORTS
+  const slotRect = slot.getBoundingClientRect()
+  const rect = isShortsPreview
+    ? card.getBoundingClientRect()
+    : slotRect
+  const viewportMargin = 12
+  const horizontalSourceWidth = isShortsPreview
+    ? slotRect.height * HORIZONTAL_VIDEO_SHELF_ASPECT_RATIO
+    : slotRect.width
+  const horizontalPreview = getHorizontalVideoShelfPreviewDimensions(
+    horizontalSourceWidth,
+    viewportMargin
+  )
+  const previewSize = isShortsPreview
+    ? Math.min(
+      SHORTS_VIDEO_SHELF_PREVIEW_WIDTH,
+      Math.max(0, window.innerWidth - (viewportMargin * 2))
+    )
+    : horizontalPreview.width
+  const previewHeight = horizontalPreview.height
   const sourceLeft = rect.left - ((previewSize - rect.width) / 2)
   const sourceTop = rect.top - ((previewHeight - rect.height) / 2)
   const anchorToSource = card.matches('.next-study-focus-target')
