@@ -3963,6 +3963,7 @@ test('city level-up control floats above an unchanged centered progress rail', a
 
   const layout = await page.evaluate(() => {
     const button = document.getElementById('levelUpButton')
+    const fill = document.getElementById('cityLevelProgressFill')
     const goalCard = document.querySelector('.goal-card')
     const progress = document.getElementById('cityLevelProgress')
     const rail = document.querySelector('.city-level-progress-rail')
@@ -3987,6 +3988,8 @@ test('city level-up control floats above an unchanged centered progress rail', a
       configuredLift: Number.parseFloat(
         getComputedStyle(progress).getPropertyValue('--city-level-action-lift')
       ),
+      fillBackgroundImage: getComputedStyle(fill).backgroundImage,
+      fillComplete: fill.classList.contains('complete'),
       fontSize: Number.parseFloat(buttonStyle.fontSize),
       goalCardBounds: {
         bottom: goalCardRect.bottom,
@@ -4010,6 +4013,8 @@ test('city level-up control floats above an unchanged centered progress rail', a
   expect(layout.fontSize).toBeGreaterThanOrEqual(14)
   expect(layout.railHeight).toBe(baselineRailHeight)
   expect(layout.configuredLift).toBe(8)
+  expect(layout.fillComplete).toBe(true)
+  expect(layout.fillBackgroundImage).toContain('linear-gradient')
   expect(layout.buttonBounds.left).toBeGreaterThanOrEqual(
     layout.goalCardBounds.left
   )

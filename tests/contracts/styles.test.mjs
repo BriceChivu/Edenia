@@ -24,11 +24,11 @@ const EXPECTED_STYLE_FILES = [
   '99-responsive-wide.css'
 ]
 
-const EXPECTED_SOURCE_BYTES = 256746
+const EXPECTED_SOURCE_BYTES = 256863
 const EXPECTED_SOURCE_SHA256 =
-  'ffb52e177988a1931b9f415a8325b4e7718c981952895d01afcc4683bc4895b5'
+  '105a5aa99f75c25a7f49e90b34461b475d9f80da14ab2fcd90ceb4d1948d7668'
 const EXPECTED_BUILT_SHA256 =
-  '3b20f944765944dd18d87ad0270ca59e264cf640e562b2d4d33b167c864f7b4e'
+  'ff270693d1320143f9a3ae4c1ea1a5a4a00894d1b8d868c27f524cfaf5df0ac5'
 
 function sha256(value) {
   return createHash('sha256').update(value).digest('hex')
