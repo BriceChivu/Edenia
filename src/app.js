@@ -50,6 +50,7 @@ import {
   usesTapVideoShelfPreviewInput
 } from './core/responsive-capabilities.js'
 import {
+  deriveChannelVideoFormatToggleEnabled,
   deriveRuntimeEnvironment,
   deriveVideoOrganizationEnabled
 } from './core/runtime-environment.js'
@@ -269,6 +270,12 @@ import {
   bindChannelShelfScrollActions
 } from './features/channels/shelf-scroll-actions.js'
 import {
+  bindChannelVideoFormatActions,
+  CHANNEL_VIDEO_FORMATS,
+  getChannelVideoFormat,
+  normalizeChannelVideoFormat
+} from './features/channels/video-format-actions.js'
+import {
   CITY_IMAGE_SOURCES,
   CITY_LEVELS,
   getCityLevel,
@@ -403,6 +410,8 @@ const VIDEO_ORGANIZATION_ENABLED = deriveVideoOrganizationEnabled(
   RUNTIME_ENVIRONMENT,
   getVideoOrganizationEnabled()
 )
+const CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED =
+  deriveChannelVideoFormatToggleEnabled(RUNTIME_ENVIRONMENT)
 const PLUS_ACCESS_CONFIG = Object.freeze({
   freePlusEnabled: getFreePlusEnabled(),
   plusCheckoutEnabled: getPlusCheckoutEnabled(),
@@ -515,6 +524,7 @@ let ankiRefreshDeferredForPrompt = false
 let selectedStatusFilter = 'all'
 let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
+const selectedChannelVideoFormats = new Map()
 let isWatchedSectionCollapsed = null
 let isRemovedSectionCollapsed = true
 let activeVideoOrganizationTrigger = null
@@ -12762,7 +12772,9 @@ function renderFeed(s) {
     focusedVideoId: pendingAddedChannelReveal?.videoId || forcedSearchVideoId,
     arrivingChannelId: pendingAddedChannelReveal?.channelId || '',
     removedChannelIds,
-    chronologicalOnly: statusFilter === 'favorite'
+    chronologicalOnly: statusFilter === 'favorite',
+    channelVideoFormatEnabled:
+      CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED && includeShorts
   }
 
   if (!activeVideos.length) {
@@ -12813,6 +12825,11 @@ function renderFeed(s) {
     startTouch: startTouchChannelShelfDrag
   })
   bindRenderedVideoShelfPreviewActions(grid)
+  if (cardOptions.channelVideoFormatEnabled) {
+    bindChannelVideoFormatActions(grid, {
+      select: selectChannelVideoFormat
+    })
+  }
   requestAnimationFrame(() => {
     document.querySelectorAll('.channel-shelf-track').forEach(syncVideoChannelShelfControls)
   })
@@ -12891,6 +12908,106 @@ function getVideoUploadRibbon(video, currentDateKey = getCurrentAppDateKey()) {
   return toDateKey(publishedAt) === currentDateKey ? t('videos.card.new') : null
 }
 
+function getSelectedChannelVideoFormat(channelKey) {
+  return normalizeChannelVideoFormat(selectedChannelVideoFormats.get(channelKey))
+}
+
+function getChannelVideoFormatCountLabel(count) {
+  return count === 1
+    ? t('videos.channel.oneVideo')
+    : t('videos.channel.videoCount', { count })
+}
+
+function renderChannelVideoFormatControls(group, trackId, selectedFormat, counts) {
+  const formats = [
+    {
+      id: CHANNEL_VIDEO_FORMATS.VIDEOS,
+      label: t('videos.channel.format.videos')
+    },
+    {
+      id: CHANNEL_VIDEO_FORMATS.SHORTS,
+      label: t('videos.channel.format.shorts')
+    }
+  ]
+  return `
+    <div class="channel-shelf-format-switcher"
+      role="group"
+      aria-label="${escHtml(t('videos.channel.format.label', { channel: group.title }))}">
+      ${formats.map(({ id, label }) => `
+        <button type="button"
+          class="channel-shelf-format-option"
+          data-channel-video-format-action="select"
+          data-channel-key="${escHtml(group.key)}"
+          data-channel-video-format="${id}"
+          aria-controls="${trackId}"
+          aria-pressed="${selectedFormat === id}">
+          <span>${escHtml(label)}</span>
+          <span class="channel-shelf-format-count" aria-hidden="true">${counts[id]}</span>
+        </button>
+      `).join('')}
+    </div>
+  `
+}
+
+function applyChannelVideoFormatSelection(shelf, channelKey, format) {
+  const selectedFormat = normalizeChannelVideoFormat(format)
+  if (!shelf || shelf.dataset.channelKey !== channelKey) return false
+
+  const activePreviewSlot = activeVideoShelfPreview?.closest?.(
+    '.channel-shelf-slot[data-channel-video-format]'
+  )
+  if (
+    activePreviewSlot
+    && shelf.contains(activePreviewSlot)
+    && activePreviewSlot.dataset.channelVideoFormat !== selectedFormat
+  ) {
+    closeVideoShelfPreview(activeVideoShelfPreview, true)
+  }
+
+  let visibleCount = 0
+  shelf.querySelectorAll(
+    '.channel-shelf-slot[data-channel-video-format]'
+  ).forEach(slot => {
+    const isVisible = slot.dataset.channelVideoFormat === selectedFormat
+    slot.hidden = !isVisible
+    if (isVisible) visibleCount += 1
+  })
+  shelf.querySelectorAll('[data-channel-video-format-empty]').forEach(empty => {
+    empty.hidden = empty.dataset.channelVideoFormatEmpty !== selectedFormat
+      || visibleCount > 0
+  })
+  shelf.querySelectorAll('[data-channel-video-format-action="select"]').forEach(button => {
+    button.setAttribute(
+      'aria-pressed',
+      String(button.dataset.channelVideoFormat === selectedFormat)
+    )
+  })
+
+  shelf.dataset.channelSelectedVideoFormat = selectedFormat
+  const countLabel = shelf.querySelector('[data-channel-video-format-count-label]')
+  if (countLabel) countLabel.textContent = getChannelVideoFormatCountLabel(visibleCount)
+  const track = shelf.querySelector('.channel-shelf-track')
+  if (track) {
+    track.scrollLeft = 0
+    syncVideoChannelShelfControls(track)
+  }
+  return true
+}
+
+function selectChannelVideoFormat(control, channelKey, format) {
+  if (!CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED) return false
+  const shelf = control?.closest?.('.channel-shelf')
+  const selectedFormat = normalizeChannelVideoFormat(format)
+  if (
+    !shelf
+    || shelf.dataset.channelKey !== channelKey
+    || shelf.dataset.channelSelectedVideoFormat === selectedFormat
+  ) return false
+
+  selectedChannelVideoFormats.set(channelKey, selectedFormat)
+  return applyChannelVideoFormatSelection(shelf, channelKey, selectedFormat)
+}
+
 function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], configuredChannels = []) {
   return groupActiveVideosByChannel(
     videos,
@@ -12899,18 +13016,31 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
     cardOptions.chronologicalOnly,
     t('videos.search.youtube')
   ).map((group, index) => {
-    const countLabel = group.videos.length === 1
-      ? t('videos.channel.oneVideo')
-      : t('videos.channel.videoCount', { count: group.videos.length })
+    const formatEnabled = cardOptions.channelVideoFormatEnabled === true
+    const selectedFormat = getSelectedChannelVideoFormat(group.key)
+    const formatCounts = {
+      [CHANNEL_VIDEO_FORMATS.VIDEOS]: 0,
+      [CHANNEL_VIDEO_FORMATS.SHORTS]: 0
+    }
+    if (formatEnabled) {
+      group.videos.forEach(video => {
+        formatCounts[getChannelVideoFormat(video)] += 1
+      })
+    }
+    const visibleCount = formatEnabled
+      ? formatCounts[selectedFormat]
+      : group.videos.length
+    const countLabel = getChannelVideoFormatCountLabel(visibleCount)
     const trackId = `channelShelfTrack${index}`
     const isArrivingChannel = group.key === cardOptions.arrivingChannelId
     const isRemovedChannel = cardOptions.removedChannelIds?.has(group.key)
     return `
       <section class="channel-video-group channel-shelf ${isArrivingChannel ? 'channel-refresh-arriving' : ''}"
         data-channel-key="${escHtml(group.key)}"
+        ${formatEnabled ? `data-channel-selected-video-format="${selectedFormat}"` : ''}
         data-channel-order-action="shelf"
         draggable="true">
-        <header class="channel-shelf-header"
+        <header class="channel-shelf-header${formatEnabled ? ' has-video-format-toggle' : ''}"
           aria-label="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}"
           title="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}">
           <div class="channel-shelf-identity">
@@ -12930,9 +13060,14 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
                   </svg>
                 </button>`}
               </span>
-              <span>${escHtml(countLabel)}</span>
+              ${formatEnabled
+                ? `<span data-channel-video-format-count-label>${escHtml(countLabel)}</span>`
+                : `<span>${escHtml(countLabel)}</span>`}
             </span>
           </div>
+          ${formatEnabled
+            ? renderChannelVideoFormatControls(group, trackId, selectedFormat, formatCounts)
+            : ''}
           <div class="channel-shelf-controls">
             <button type="button"
               class="channel-shelf-scroll channel-shelf-scroll-prev"
@@ -12960,14 +13095,31 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
           data-channel-shelf-scroll-action="sync"
           data-analytics-action="syncVideoChannelShelfControls"
           aria-label="${escHtml(t('videos.channel.shelfLabel', { channel: group.title }))}">
-          ${group.videos.map((video, videoIndex) => `
-            <div class="channel-shelf-slot ${video.id === cardOptions.focusedVideoId ? 'channel-refresh-focus' : ''}" style="--channel-refresh-delay: ${Math.min(videoIndex, 8) * 45}ms">
+          ${formatEnabled ? `
+            <div class="channel-shelf-format-empty"
+              data-channel-video-format-empty="${CHANNEL_VIDEO_FORMATS.VIDEOS}"
+              ${selectedFormat !== CHANNEL_VIDEO_FORMATS.VIDEOS || formatCounts[CHANNEL_VIDEO_FORMATS.VIDEOS] > 0 ? 'hidden' : ''}>
+              ${escHtml(t('videos.channel.format.emptyVideos'))}
+            </div>
+            <div class="channel-shelf-format-empty"
+              data-channel-video-format-empty="${CHANNEL_VIDEO_FORMATS.SHORTS}"
+              ${selectedFormat !== CHANNEL_VIDEO_FORMATS.SHORTS || formatCounts[CHANNEL_VIDEO_FORMATS.SHORTS] > 0 ? 'hidden' : ''}>
+              ${escHtml(t('videos.channel.format.emptyShorts'))}
+            </div>
+          ` : ''}
+          ${group.videos.map((video, videoIndex) => {
+            const videoFormat = formatEnabled ? getChannelVideoFormat(video) : null
+            return `
+            <div class="channel-shelf-slot ${video.id === cardOptions.focusedVideoId ? 'channel-refresh-focus' : ''}"
+              ${formatEnabled ? `data-channel-video-format="${videoFormat}"` : ''}
+              ${formatEnabled && videoFormat !== selectedFormat ? 'hidden' : ''}
+              style="--channel-refresh-delay: ${Math.min(videoIndex, 8) * 45}ms">
               ${renderCard(video, false, {
                 ...cardOptions,
                 shelf: true
               })}
             </div>
-          `).join('')}
+          `}).join('')}
         </div>
       </section>
     `

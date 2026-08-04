@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  deriveChannelVideoFormatToggleEnabled,
   deriveRuntimeEnvironment,
   deriveVideoOrganizationEnabled
 } from '../../src/core/runtime-environment.js'
@@ -124,6 +125,18 @@ test('video organization enables only for internal tests or an explicit release'
   assert.equal(deriveVideoOrganizationEnabled({ isInternalTest: false }, true), true)
   assert.equal(deriveVideoOrganizationEnabled({ isInternalTest: false }, 'true'), false)
   assert.equal(deriveVideoOrganizationEnabled(null, true), true)
+})
+
+test('channel video format toggle enables only for internal tests', () => {
+  assert.equal(
+    deriveChannelVideoFormatToggleEnabled({ isInternalTest: false }),
+    false
+  )
+  assert.equal(
+    deriveChannelVideoFormatToggleEnabled({ isInternalTest: true }),
+    true
+  )
+  assert.equal(deriveChannelVideoFormatToggleEnabled(null), false)
 })
 
 test('runtime config remains late-bound and preserves coercion and errors', () => {
