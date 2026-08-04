@@ -165,6 +165,19 @@ test('internal format selection is orientation-based, independent, and ephemeral
   const channelB = page.locator('.channel-shelf[data-channel-key="channel-b"]')
   const channelC = page.locator('.channel-shelf[data-channel-key="channel-c"]')
   await expect(page.locator('.channel-shelf-format-switcher')).toHaveCount(3)
+  const channelAVideos = channelA.locator(
+    '[data-channel-video-format="videos"][data-channel-video-format-action="select"]'
+  )
+  const channelAShorts = channelA.locator(
+    '[data-channel-video-format="shorts"][data-channel-video-format-action="select"]'
+  )
+  await expect(channelAVideos).toHaveAttribute('aria-label', 'Videos')
+  await expect(channelAShorts).toHaveAttribute('aria-label', 'Shorts')
+  await expect(channelAVideos.locator('.channel-shelf-format-icon')).toHaveCount(1)
+  await expect(channelAShorts.locator('.channel-shelf-format-icon')).toHaveCount(1)
+  await expect(channelAVideos).toHaveText('')
+  await expect(channelAShorts).toHaveText('')
+  await expect(channelA.locator('.channel-shelf-format-count')).toHaveCount(0)
   await expect(channelA).toHaveAttribute('data-channel-selected-video-format', 'videos')
   await expect(channelA.locator(
     '.video-card[data-video-id="a-horizontal-short-duration"]'
@@ -176,9 +189,6 @@ test('internal format selection is orientation-based, independent, and ephemeral
   const storedBefore = await page.evaluate(
     key => localStorage.getItem(key),
     internalStorageKey
-  )
-  const channelAShorts = channelA.locator(
-    '[data-channel-video-format="shorts"][data-channel-video-format-action="select"]'
   )
   await channelAShorts.focus()
   await channelAShorts.press('Space')

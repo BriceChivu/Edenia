@@ -12918,7 +12918,21 @@ function getChannelVideoFormatCountLabel(count) {
     : t('videos.channel.videoCount', { count })
 }
 
-function renderChannelVideoFormatControls(group, trackId, selectedFormat, counts) {
+function renderChannelVideoFormatIcon(format) {
+  const path = format === CHANNEL_VIDEO_FORMATS.SHORTS
+    ? 'M9.22 2.13a4.7 4.7 0 0 0-1.73 6.42l1.18 2.02-2.02 1.17a4.7 4.7 0 1 0 4.7 8.14l5.43-3.14a4.7 4.7 0 0 0-1.45-8.63l2.02-1.17a4.7 4.7 0 0 0-4.7-8.14L9.22 2.13Zm1.08 6.25v7.24L16.5 12l-6.2-3.62Z'
+    : 'M21.58 6.19a2.76 2.76 0 0 0-1.94-1.95C17.92 3.78 12 3.78 12 3.78s-5.92 0-7.64.46A2.76 2.76 0 0 0 2.42 6.2C1.96 7.91 1.96 12 1.96 12s0 4.09.46 5.81a2.76 2.76 0 0 0 1.94 1.95c1.72.46 7.64.46 7.64.46s5.92 0 7.64-.46a2.76 2.76 0 0 0 1.94-1.95c.46-1.72.46-5.81.46-5.81s0-4.09-.46-5.81ZM9.96 15.52V8.48L16.08 12l-6.12 3.52Z'
+  return `
+    <svg class="channel-shelf-format-icon"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false">
+      <path fill="currentColor" fill-rule="evenodd" clip-rule="evenodd" d="${path}"></path>
+    </svg>
+  `
+}
+
+function renderChannelVideoFormatControls(group, trackId, selectedFormat) {
   const formats = [
     {
       id: CHANNEL_VIDEO_FORMATS.VIDEOS,
@@ -12940,9 +12954,10 @@ function renderChannelVideoFormatControls(group, trackId, selectedFormat, counts
           data-channel-key="${escHtml(group.key)}"
           data-channel-video-format="${id}"
           aria-controls="${trackId}"
-          aria-pressed="${selectedFormat === id}">
-          <span>${escHtml(label)}</span>
-          <span class="channel-shelf-format-count" aria-hidden="true">${counts[id]}</span>
+          aria-label="${escHtml(label)}"
+          aria-pressed="${selectedFormat === id}"
+          title="${escHtml(label)}">
+          ${renderChannelVideoFormatIcon(id)}
         </button>
       `).join('')}
     </div>
@@ -13066,7 +13081,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
             </span>
           </div>
           ${formatEnabled
-            ? renderChannelVideoFormatControls(group, trackId, selectedFormat, formatCounts)
+            ? renderChannelVideoFormatControls(group, trackId, selectedFormat)
             : ''}
           <div class="channel-shelf-controls">
             <button type="button"

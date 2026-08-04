@@ -46,6 +46,20 @@ test('shelf rendering groups before applying independent format visibility', () 
   )
 })
 
+test('format controls render accessible icons without visible labels or counts', () => {
+  const controlsStart = appSource.indexOf('function renderChannelVideoFormatIcon')
+  const controlsEnd = appSource.indexOf('function applyChannelVideoFormatSelection', controlsStart)
+  assert.notEqual(controlsStart, -1)
+  assert.notEqual(controlsEnd, -1)
+  const controlsSource = appSource.slice(controlsStart, controlsEnd)
+
+  assert.match(controlsSource, /class="channel-shelf-format-icon"/)
+  assert.match(controlsSource, /aria-hidden="true"/)
+  assert.match(controlsSource, /aria-label="\$\{escHtml\(label\)\}"/)
+  assert.match(controlsSource, /title="\$\{escHtml\(label\)\}"/)
+  assert.doesNotMatch(controlsSource, /channel-shelf-format-count|counts\[id\]/)
+})
+
 test('format changes stay shelf-local and do not persist application state', () => {
   const applyStart = appSource.indexOf('function applyChannelVideoFormatSelection')
   const selectEnd = appSource.indexOf('function renderChannelVideoGroups', applyStart)
