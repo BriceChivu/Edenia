@@ -7,6 +7,14 @@ const runtimeSource = await readFile(
   new URL('../../src/core/runtime-environment.js', import.meta.url),
   'utf8'
 )
+const videoFeedStyleSource = await readFile(
+  new URL('../../src/styles/70-video-feed.css', import.meta.url),
+  'utf8'
+)
+const phoneStyleSource = await readFile(
+  new URL('../../src/styles/98-responsive-phone.css', import.meta.url),
+  'utf8'
+)
 
 test('channel video format rollout has one internal-test release boundary', () => {
   assert.match(
@@ -58,6 +66,25 @@ test('format controls render accessible icons without visible labels or counts',
   assert.match(controlsSource, /aria-label="\$\{escHtml\(label\)\}"/)
   assert.match(controlsSource, /title="\$\{escHtml\(label\)\}"/)
   assert.doesNotMatch(controlsSource, /channel-shelf-format-count|counts\[id\]/)
+})
+
+test('format controls align with desktop arrows and use subdued theme colors', () => {
+  assert.match(
+    videoFeedStyleSource,
+    /\.channel-shelf-format-switcher \{[\s\S]*?background: var\(--surface\);[\s\S]*?height: 30px;[\s\S]*?padding: 0 2px;/
+  )
+  assert.match(
+    videoFeedStyleSource,
+    /\.channel-shelf-format-option\[aria-pressed="true"\] \{\s*background: var\(--soft-blue\);\s*box-shadow: inset 0 0 0 1px var\(--border\);\s*color: var\(--accent-dim\);\s*\}/
+  )
+  assert.doesNotMatch(
+    videoFeedStyleSource,
+    /\.channel-shelf-format-option\[aria-pressed="true"\] \{[^}]*var\(--planet-(?:black|white)\)/
+  )
+  assert.match(
+    phoneStyleSource,
+    /\.channel-shelf-format-switcher \{\s*height: auto;[\s\S]*?padding: 2px;[\s\S]*?\.channel-shelf-format-option \{[\s\S]*?height: auto;\s*min-height: 40px;/
+  )
 })
 
 test('format changes stay shelf-local and do not persist application state', () => {
