@@ -307,6 +307,79 @@ test('completed local state preserves settings and feedback interactions', async
   }
 })
 
+test('channel remove icon stays centered on the title line across responsive layouts', async ({
+  page
+}, testInfo) => {
+  test.skip(![
+    'desktop-standard',
+    'tablet-portrait',
+    'phone-standard'
+  ].includes(testInfo.project.name))
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.config.channels = [{
+      id: 'protected-alignment-channel',
+      name: '人生五分熟 Life Medium Rare Extended Language Learning Channel'
+    }]
+    state.videos = {
+      'protected-alignment-video': {
+        id: 'protected-alignment-video',
+        title: 'Protected channel alignment lesson',
+        channelId: 'protected-alignment-channel',
+        channelTitle: '人生五分熟 Life Medium Rare Extended Language Learning Channel',
+        duration: 720,
+        publishedAt: '2026-07-27T04:00:00.000Z',
+        status: 'unwatched',
+        thumbnail: 'https://i.ytimg.com/vi/protected-alignment-video/hqdefault.jpg'
+      }
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+  })
+  await page.reload()
+  await waitForApplication(page)
+
+  const alignment = await page.locator('.channel-shelf-title-row').evaluate(row => {
+    const title = row.querySelector('strong')
+    const button = row.querySelector('.channel-shelf-remove')
+    const icon = button.querySelector('.channel-shelf-remove-icon')
+    const titleRect = title.getBoundingClientRect()
+    const buttonRect = button.getBoundingClientRect()
+    const rowRect = row.getBoundingClientRect()
+    const titleStyle = getComputedStyle(title)
+    const buttonStyle = getComputedStyle(button)
+    const iconStyle = getComputedStyle(icon)
+    const center = rect => rect.top + rect.height / 2
+
+    return {
+      buttonCenterDelta: Math.abs(center(titleRect) - center(buttonRect)),
+      buttonDisplay: buttonStyle.display,
+      buttonHeight: buttonStyle.height,
+      buttonWidth: buttonStyle.width,
+      iconDisplay: iconStyle.display,
+      iconHeight: iconStyle.height,
+      iconWidth: iconStyle.width,
+      rowCenterDelta: Math.abs(center(rowRect) - center(buttonRect)),
+      titleLineHeight: titleStyle.lineHeight,
+      titleWhiteSpace: titleStyle.whiteSpace
+    }
+  })
+
+  expect(alignment.buttonCenterDelta).toBeLessThanOrEqual(LAYOUT_TOLERANCE_PX)
+  expect(alignment.rowCenterDelta).toBeLessThanOrEqual(LAYOUT_TOLERANCE_PX)
+  expect(alignment).toMatchObject({
+    buttonDisplay: 'flex',
+    buttonHeight: '24px',
+    buttonWidth: '24px',
+    iconDisplay: 'block',
+    iconHeight: '12px',
+    iconWidth: '12px',
+    titleWhiteSpace: 'nowrap'
+  })
+  expect(alignment.titleLineHeight).not.toBe('normal')
+})
+
 test('phone Settings header blur fades before the language controls', async ({
   page
 }, testInfo) => {
