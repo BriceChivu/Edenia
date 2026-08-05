@@ -536,6 +536,7 @@
     --channel-shelf-row-height: clamp(122.625px, 13.5vw, 141.75px);
   }
   body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] {
+    --shorts-preview-info-height: 25.4902%;
     --shorts-thumbnail-crop-scale: 1.4;
     aspect-ratio: auto;
     flex-basis: 105px;
@@ -546,13 +547,23 @@
     transform: scale(var(--shorts-thumbnail-crop-scale));
     transition: none;
   }
-  body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card:is(.is-previewing, .is-preview-closing) .thumb-link {
-    aspect-ratio: 31 / 40;
+  body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card.is-floating-preview.is-preview-armed .thumb-link {
+    aspect-ratio: auto;
+    bottom: 0;
     height: auto;
+    top: 0;
+    transition: bottom 155ms var(--ease-emphasized);
+  }
+  body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card.is-floating-preview.is-preview-armed.is-previewing .thumb-link {
+    bottom: var(--shorts-preview-info-height);
+  }
+  body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card.is-floating-preview.is-preview-armed.is-preview-closing .thumb-link {
+    bottom: 0;
+    transition-timing-function: var(--ease-standard);
   }
   body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card:is(.is-previewing, .is-preview-closing) .card-body {
     gap: 0;
-    height: 25.4902%;
+    height: var(--shorts-preview-info-height);
     justify-content: space-evenly;
     padding: 4px 8px;
   }
@@ -588,7 +599,7 @@
     width: 16px;
   }
   body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card:is(.is-previewing, .is-preview-closing) .thumbnail-resume-time-field {
-    bottom: calc(25.4902% + 6px);
+    bottom: calc(var(--shorts-preview-info-height) + 6px);
   }
   body.channel-video-format-toggle-enabled .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card:is(.is-previewing, .is-preview-closing) .thumb {
     aspect-ratio: auto;
