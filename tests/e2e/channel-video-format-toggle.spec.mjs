@@ -397,9 +397,18 @@ test('vertical cards resize without changing the channel shelf footprint', async
 
   await shortsCard.scrollIntoViewIfNeeded()
   await openPreview(shortsCard)
-  await expect.poll(() => shortsCard.evaluate(card => (
-    card.getBoundingClientRect().width
-  ))).toBeCloseTo(150, 2)
+  const openingThumbnailAspectRatio = await shortsCard.evaluate(card => {
+    const thumbnailRect = card.querySelector('.thumb-link').getBoundingClientRect()
+    return thumbnailRect.width / thumbnailRect.height
+  })
+  expect(openingThumbnailAspectRatio).toBeCloseTo(31 / 40, 2)
+  await expect.poll(() => shortsCard.evaluate(card => {
+    const width = card.getBoundingClientRect().width
+    const targetWidth = Number.parseFloat(
+      getComputedStyle(card).getPropertyValue('--shelf-preview-size')
+    )
+    return Math.abs(width - targetWidth) < 0.1
+  })).toBe(true)
   const expandedLayout = await shortsCard.evaluate(card => {
     const cardStyle = getComputedStyle(card)
     const cardRect = card.getBoundingClientRect()
@@ -436,6 +445,7 @@ test('vertical cards resize without changing the channel shelf footprint', async
       channelNameDisplay: channelNameStyle.display,
       dateHeight: dateRect.height,
       footerJustifyContent: footerStyle.justifyContent,
+      thumbnailAspectRatio: thumbnailRect.width / thumbnailRect.height,
       thumbnailHeight: thumbnailRect.height,
       thumbnailObjectFit: thumbnailStyle.objectFit,
       thumbnailScale: new DOMMatrix(thumbnailStyle.transform).a,
@@ -443,7 +453,8 @@ test('vertical cards resize without changing the channel shelf footprint', async
       titleHeight: titleRect.height
     }
   })
-  expect(expandedLayout.card.width).toBeCloseTo(150, 0)
+  expect(expandedLayout.card.width).toBeGreaterThanOrEqual(145)
+  expect(expandedLayout.card.width).toBeLessThanOrEqual(150)
   expect(expandedLayout.card.height).toBeCloseTo(horizontalPreviewHeight, 4)
   expect(
     expandedLayout.thumbnailHeight
@@ -469,6 +480,7 @@ test('vertical cards resize without changing the channel shelf footprint', async
     expect(rect.bottom).toBeLessThanOrEqual(expandedLayout.card.bottom)
   })
   expect(expandedLayout.thumbnailObjectFit).toBe('cover')
+  expect(expandedLayout.thumbnailAspectRatio).toBeCloseTo(31 / 40, 2)
   expect(expandedLayout.thumbnailScale).toBeCloseTo(
     collapsedLayout.thumbnailScale,
     2
@@ -478,32 +490,41 @@ test('vertical cards resize without changing the channel shelf footprint', async
     await page.mouse.move(0, 0)
     await shortsCard.evaluate(card => window.closeVideoShelfPreview(card))
     await expect(shortsCard).toHaveClass(/\bis-preview-closing\b/)
+    await page.waitForTimeout(80)
     const closingLayout = await shortsCard.evaluate(card => {
-      const cardStyle = getComputedStyle(card)
       const cardRect = card.getBoundingClientRect()
       const bodyStyle = getComputedStyle(card.querySelector('.card-body'))
       const thumbnailRect = card.querySelector('.thumb-link').getBoundingClientRect()
+      const bodyRect = card.querySelector('.card-body').getBoundingClientRect()
+      const titleRect = card.querySelector('.card-title').getBoundingClientRect()
+      const thumbnailLinkStyle = getComputedStyle(card.querySelector('.thumb-link'))
       const thumbnailStyle = getComputedStyle(card.querySelector('.thumb'))
       return {
         bodyOpacity: Number.parseFloat(bodyStyle.opacity),
         bodyPointerEvents: bodyStyle.pointerEvents,
-        borderBlock: Number.parseFloat(cardStyle.borderTopWidth)
-          + Number.parseFloat(cardStyle.borderBottomWidth),
         cardHeight: cardRect.height,
+        panelIsBehindThumbnail: Number.parseFloat(thumbnailLinkStyle.zIndex)
+          > Number.parseFloat(bodyStyle.zIndex),
+        panelOverlapsThumbnail: thumbnailRect.bottom > bodyRect.top,
+        thumbnailAspectRatio: thumbnailRect.width / thumbnailRect.height,
         thumbnailHeight: thumbnailRect.height,
         thumbnailScale: new DOMMatrix(thumbnailStyle.transform).a,
-        thumbnailTransitionDuration: thumbnailStyle.transitionDuration
+        thumbnailTransitionDuration: thumbnailStyle.transitionDuration,
+        titleHeight: titleRect.height
       }
     })
-    expect(closingLayout.thumbnailHeight + closingLayout.borderBlock)
-      .toBeCloseTo(closingLayout.cardHeight, 0)
-    expect(closingLayout.bodyOpacity).toBe(0)
-    expect(closingLayout.bodyPointerEvents).toBe('none')
+    expect(closingLayout.thumbnailHeight).toBeLessThan(closingLayout.cardHeight)
+    expect(closingLayout.bodyOpacity).toBe(1)
+    expect(closingLayout.bodyPointerEvents).toBe('auto')
+    expect(closingLayout.panelIsBehindThumbnail).toBe(true)
+    expect(closingLayout.panelOverlapsThumbnail).toBe(true)
+    expect(closingLayout.thumbnailAspectRatio).toBeCloseTo(31 / 40, 2)
     expect(closingLayout.thumbnailScale).toBeCloseTo(
       collapsedLayout.thumbnailScale,
       2
     )
     expect(closingLayout.thumbnailTransitionDuration).toBe('0s')
+    expect(closingLayout.titleHeight).toBeGreaterThan(0)
     await expect(shortsCard).not.toHaveClass(/\bis-floating-preview\b/)
   } else {
     await closePreview(shortsCard)

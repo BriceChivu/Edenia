@@ -14267,7 +14267,9 @@ function keepPointerInsideVideoShelfPreview(position, size, viewportSize, pointe
 
 const HORIZONTAL_VIDEO_SHELF_ASPECT_RATIO = 16 / 9
 const VIDEO_SHELF_PREVIEW_HEIGHT_RATIO = 0.815625
-const SHORTS_VIDEO_SHELF_PREVIEW_WIDTH = 150
+const SHORTS_VIDEO_SHELF_PREVIEW_MAX_WIDTH = 150
+const SHORTS_VIDEO_SHELF_THUMBNAIL_ASPECT_RATIO = 31 / 40
+const SHORTS_VIDEO_SHELF_BODY_HEIGHT_RATIO = 0.254902
 
 function getHorizontalVideoShelfPreviewDimensions(sourceWidth, viewportMargin) {
   const maxPreviewSize = Math.max(
@@ -14283,6 +14285,20 @@ function getHorizontalVideoShelfPreviewDimensions(sourceWidth, viewportMargin) {
     height: width * VIDEO_SHELF_PREVIEW_HEIGHT_RATIO,
     width
   }
+}
+
+function getShortsVideoShelfPreviewWidth(card, previewHeight) {
+  const cardStyle = getComputedStyle(card)
+  const inlineBorder = (Number.parseFloat(cardStyle.borderLeftWidth) || 0)
+    + (Number.parseFloat(cardStyle.borderRightWidth) || 0)
+  const blockBorder = (Number.parseFloat(cardStyle.borderTopWidth) || 0)
+    + (Number.parseFloat(cardStyle.borderBottomWidth) || 0)
+  const contentHeight = Math.max(0, previewHeight - blockBorder)
+  const thumbnailHeight = contentHeight * (1 - SHORTS_VIDEO_SHELF_BODY_HEIGHT_RATIO)
+  return Math.min(
+    SHORTS_VIDEO_SHELF_PREVIEW_MAX_WIDTH,
+    inlineBorder + (thumbnailHeight * SHORTS_VIDEO_SHELF_THUMBNAIL_ASPECT_RATIO)
+  )
 }
 
 function positionVideoShelfPreview(card, pointerEvent = null) {
@@ -14305,7 +14321,7 @@ function positionVideoShelfPreview(card, pointerEvent = null) {
   )
   const previewSize = isShortsPreview
     ? Math.min(
-      SHORTS_VIDEO_SHELF_PREVIEW_WIDTH,
+      getShortsVideoShelfPreviewWidth(card, horizontalPreview.height),
       Math.max(0, window.innerWidth - (viewportMargin * 2))
     )
     : horizontalPreview.width
