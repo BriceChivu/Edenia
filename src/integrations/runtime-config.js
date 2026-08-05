@@ -22,6 +22,10 @@ export function getVideoOrganizationEnabled(target = window) {
   return publicConfig(target).videoOrganizationEnabled === true
 }
 
+export function getChannelVideoFormatToggleEnabled(target = window) {
+  return publicConfig(target).channelVideoFormatToggleEnabled === true
+}
+
 export function getSupabaseUrl(target = window) {
   return String(publicConfig(target).supabaseUrl || '').trim()
 }

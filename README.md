@@ -165,6 +165,9 @@ browser profile, open
 [http://localhost:8000/?internal_test=1](http://localhost:8000/?internal_test=1).
 Leave `videoOrganizationEnabled: false` in local runtime configuration when
 checking that ordinary visitors still receive the Set aside experience.
+Leave `channelVideoFormatToggleEnabled: false` when checking that ordinary
+visitors still receive the saved global Shorts preference instead of the
+per-channel Videos/Shorts controls.
 
 `npm run dev` validates the ignored root `config.local.js`, builds `_site`,
 writes a normalized `_site/config.local.js` without printing the key, and

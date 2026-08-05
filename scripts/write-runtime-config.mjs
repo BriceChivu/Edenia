@@ -29,6 +29,10 @@ const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
     process.env.EDENIA_VIDEO_ORGANIZATION_ENABLED,
     'EDENIA_VIDEO_ORGANIZATION_ENABLED'
   ),
+  channelVideoFormatToggleEnabled: parseRuntimeConfigFlag(
+    process.env.EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED,
+    'EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED'
+  ),
   supabaseUrl,
   supabasePublishableKey
 }, null, 2)}\n`

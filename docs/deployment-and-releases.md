@@ -78,6 +78,40 @@ rollback does not destroy user state and a later re-enable remains possible.
 Use a revert pull request as well when the problem is in shared code rather than
 only in the new behavior.
 
+## Staged channel video-format rollout
+
+The per-channel Videos/Shorts controls have an independent release boundary:
+
+- `/?internal_test=1` always enables the controls in isolated internal-test
+  state.
+- Ordinary visitors keep the saved global Shorts preference while the
+  repository variable `EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED` is absent or
+  exactly `false`.
+- Setting that variable to exactly `true` enables the per-channel controls for
+  ordinary visitors on the next Pages deployment. The rollout includes both
+  video orientations without overwriting the saved global preference.
+
+Use this release sequence after the video-organization rollout has passed its
+own production observation window:
+
+1. Merge with `EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED=false` (or leave it
+   absent).
+2. On the ordinary production URL, confirm there are no per-channel format
+   controls and the Settings Shorts preference still governs visible videos.
+3. On `/?internal_test=1`, exercise channels containing only Videos, only
+   Shorts, and both. Verify filtering, shelf scrolling, card actions, previews,
+   long localized channel names, and phone, tablet, and desktop layouts.
+4. If acceptance succeeds, set the repository variable to `true` and manually
+   dispatch the Pages workflow.
+5. Smoke-check a returning user and a clean browser on phone, tablet, and
+   desktop before creating the release.
+
+For feature-only rollback, set the variable back to `false`, manually dispatch
+Pages, and verify the ordinary URL. The saved global Shorts preference is not
+migrated by the rollout, so the previous public behavior resumes without
+deleting browser state. Use a revert pull request as well if shared code is at
+fault.
+
 ## Edenia Plus authentication
 
 GitHub Pages receives only the public Supabase browser configuration through
@@ -165,6 +199,10 @@ new function is still live would break webhook processing; unused additive
 tables and policies are the safer rollback state.
 
 ## Version and release policy
+
+The planned `v1.1.0` release includes video organization and the per-channel
+Videos/Shorts controls. Edenia Plus remains deferred to a separate release and
+must keep its public flags disabled during this rollout.
 
 - Use a patch version for behavior-neutral architecture phases.
 - Use the next minor version for the first explicitly approved intentional UI
