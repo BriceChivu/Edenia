@@ -11,9 +11,12 @@ function getAttribute(tag, name) {
 
 const expectedControls = {
   settingsIncludeShorts: 'settings.shorts.label',
-  settingsAnkiEnabled: 'settings.anki.enabled',
-  settingsInsightsEnabled: 'settings.insights.enabled'
+  settingsAnkiEnabled: 'settings.anki.enabled'
 }
+
+test('Study Insights are not exposed as an optional preference', () => {
+  assert.doesNotMatch(source, /settingsInsightsEnabled|settings-insights-group/)
+})
 
 test('Settings preference controls retain exact checkbox and label contracts', () => {
   Object.entries(expectedControls).forEach(([id, translationKey]) => {

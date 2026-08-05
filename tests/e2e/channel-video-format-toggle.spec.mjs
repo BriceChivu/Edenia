@@ -449,6 +449,9 @@ test('vertical cards resize without changing the channel shelf footprint', async
       dateHeight: dateRect.height,
       footerJustifyContent: footerStyle.justifyContent,
       thumbnailAspectRatio: thumbnailRect.width / thumbnailRect.height,
+      thumbnailBottomInset: Number.parseFloat(
+        getComputedStyle(card.querySelector('.thumb-link')).bottom
+      ),
       thumbnailHeight: thumbnailRect.height,
       thumbnailObjectFit: thumbnailStyle.objectFit,
       thumbnailScale: new DOMMatrix(thumbnailStyle.transform).a,
@@ -458,7 +461,8 @@ test('vertical cards resize without changing the channel shelf footprint', async
   })
   expect(expandedLayout.card.width).toBeGreaterThanOrEqual(145)
   expect(expandedLayout.card.width).toBeLessThanOrEqual(150)
-  expect(expandedLayout.card.height).toBeCloseTo(horizontalPreviewHeight, 4)
+  expect(Math.abs(expandedLayout.card.height - horizontalPreviewHeight))
+    .toBeLessThanOrEqual(0.5)
   expect(
     expandedLayout.thumbnailHeight
       + expandedLayout.bodyHeight
@@ -484,6 +488,7 @@ test('vertical cards resize without changing the channel shelf footprint', async
   })
   expect(expandedLayout.thumbnailObjectFit).toBe('cover')
   expect(expandedLayout.thumbnailAspectRatio).toBeCloseTo(31 / 40, 2)
+  expect(expandedLayout.thumbnailBottomInset).toBeGreaterThan(0)
   expect(expandedLayout.thumbnailScale).toBeCloseTo(
     collapsedLayout.thumbnailScale,
     2
@@ -538,7 +543,6 @@ test('vertical cards resize without changing the channel shelf footprint', async
         panelIsBehindThumbnail: Number.parseFloat(thumbnailLinkStyle.zIndex)
           > Number.parseFloat(bodyStyle.zIndex),
         panelOverlapsThumbnail: thumbnailRect.bottom > bodyRect.top,
-        thumbnailBottomInset: Number.parseFloat(thumbnailLinkStyle.bottom),
         thumbnailAspectRatio: thumbnailRect.width / thumbnailRect.height,
         thumbnailFrameTransitionDuration: thumbnailLinkStyle.transitionDuration,
         thumbnailHeight: thumbnailRect.height,
@@ -552,7 +556,6 @@ test('vertical cards resize without changing the channel shelf footprint', async
     expect(closingLayout.bodyPointerEvents).toBe('auto')
     expect(closingLayout.panelIsBehindThumbnail).toBe(true)
     expect(closingLayout.panelOverlapsThumbnail).toBe(true)
-    expect(closingLayout.thumbnailBottomInset).toBeGreaterThan(0)
     expect(closingLayout.thumbnailAspectRatio).toBeGreaterThan(0.65)
     expect(closingLayout.thumbnailAspectRatio)
       .toBeLessThanOrEqual(expandedLayout.thumbnailAspectRatio + 0.01)

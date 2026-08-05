@@ -836,13 +836,11 @@
     width: 22px;
   }
   .settings-shorts-group .step-hint,
-  .settings-anki-group .step-hint,
-  .settings-insights-group .step-hint {
+  .settings-anki-group .step-hint {
     margin: 0;
   }
   .settings-shorts-group,
-  .settings-anki-group,
-  .settings-insights-group {
+  .settings-anki-group {
     gap: 0;
   }
   .settings-howto-group + .settings-actions { margin-top: -6px; }
@@ -889,6 +887,9 @@
     background: var(--planet-lime);
     border-color: var(--planet-black);
     color: #243a20;
+  }
+  body[data-theme="dark"] .walkthrough-card .walkthrough-next:not(:disabled):hover {
+    background: var(--planet-lime);
   }
   .walkthrough-back:disabled { opacity: 0.34; }
 

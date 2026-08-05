@@ -31,7 +31,7 @@ test('study-insight public constants and enablement remain exact', () => {
   assert.equal(isStudyInsightsEnabled({ config: {} }), true)
   assert.equal(isStudyInsightsEnabled({
     config: { studyInsights: { enabled: false } }
-  }), false)
+  }), true)
   assert.equal(isStudyInsightsEnabled({
     config: { studyInsights: { enabled: 0 } }
   }), true)
@@ -91,7 +91,7 @@ test('study-insight entries retain legacy coercion and clipping', () => {
   }
   normalizeStudyInsightConfig(state)
   const [entry] = state.config.studyInsights.history
-  assert.equal(state.config.studyInsights.enabled, false)
+  assert.equal(state.config.studyInsights.enabled, true)
   assert.equal(state.config.studyInsights.collapsed, true)
   assert.equal(entry.key.length, 140)
   assert.equal(entry.insightId.length, 80)

@@ -298,6 +298,64 @@ test('Watched Favorite reveals and highlights the active rewatch card', async ({
   expect(persistedVideo.favorite).toBe(true)
 })
 
+test('phone Favorite keeps the same video and shelf position', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'phone-standard')
+  await seedVideoOrganizationState(page, { internalTest: false })
+  await page.evaluate(storageKey => {
+    const state = JSON.parse(localStorage.getItem(storageKey))
+    for (let index = 0; index < 10; index += 1) {
+      const id = `public-shelf-video-${index}`
+      state.videos[id] = {
+        id,
+        title: `Public shelf video ${index}`,
+        channelId: 'organization-channel',
+        channelTitle: 'Organization channel',
+        duration: 300,
+        publishedAt: new Date(Date.UTC(2026, 6, 30, index)).toISOString(),
+        status: 'unwatched',
+        thumbnail: ''
+      }
+    }
+    localStorage.setItem(storageKey, JSON.stringify(state))
+  }, normalStorageKey)
+  await page.reload()
+  await waitForApplication(page)
+
+  const videoId = 'public-shelf-video-4'
+  const track = page.locator('.channel-shelf-track').first()
+  const card = page.locator(
+    `#videoGrid .channel-shelf-card[data-video-id="${videoId}"]`
+  )
+  await track.evaluate((element, targetVideoId) => {
+    const target = element.querySelector(
+      `.channel-shelf-card[data-video-id="${targetVideoId}"]`
+    )
+    element.style.scrollBehavior = 'auto'
+    element.scrollLeft = target?.parentElement?.offsetLeft || 0
+  }, videoId)
+  await expect.poll(() => card.evaluate(element => (
+    Math.round(element.getBoundingClientRect().left)
+  ))).toBe(14)
+  const positionBefore = await card.evaluate(element => ({
+    left: element.getBoundingClientRect().left,
+    scrollLeft: element.closest('.channel-shelf-track').scrollLeft
+  }))
+
+  await card.locator('.favorite-btn').click()
+  const updatedCard = page.locator(
+    `#videoGrid .channel-shelf-card[data-video-id="${videoId}"]`
+  )
+  await expect(updatedCard.locator('.favorite-btn')).toBeFocused()
+  await expect(updatedCard.locator('.favorite-btn')).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  )
+  await expect.poll(() => updatedCard.evaluate(element => ({
+    left: element.getBoundingClientRect().left,
+    scrollLeft: element.closest('.channel-shelf-track').scrollLeft
+  }))).toEqual(positionBefore)
+})
+
 test('normal visitors keep the legacy Set aside flow', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   await seedVideoOrganizationState(page, { internalTest: false })

@@ -6,8 +6,7 @@ import {
 
 const selectors = [
   '#settingsIncludeShorts[data-settings-preference-action="save"]',
-  '#settingsAnkiEnabled[data-settings-preference-action="save"]',
-  '#settingsInsightsEnabled[data-settings-preference-action="save"]'
+  '#settingsAnkiEnabled[data-settings-preference-action="save"]'
 ]
 
 function createControl() {
@@ -54,14 +53,13 @@ test('Settings preference bindings call one shared save with zero arguments', ()
     save(...args) {
       calls.push(args)
     }
-  }), 3)
+  }), 2)
 
   const eventStates = selectors.map(selector => (
     controls.get(selector).change()
   ))
-  assert.deepEqual(calls, [[], [], []])
+  assert.deepEqual(calls, [[], []])
   assert.deepEqual(eventStates, [
-    { defaultPrevented: false, propagationStopped: false },
     { defaultPrevented: false, propagationStopped: false },
     { defaultPrevented: false, propagationStopped: false }
   ])
