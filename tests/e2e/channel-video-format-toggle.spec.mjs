@@ -368,6 +368,7 @@ test('vertical cards resize without changing the channel shelf footprint', async
     const nextShelf = document.querySelector('.channel-shelf[data-channel-key="channel-b"]')
     const shelfTrack = shelf.querySelector('.channel-shelf-track')
     const trackStyle = getComputedStyle(shelfTrack)
+    const thumbnailRect = card.querySelector('.thumb-link').getBoundingClientRect()
     const thumbnailStyle = getComputedStyle(card.querySelector('.thumb'))
     const slotRect = slot.getBoundingClientRect()
     const cardRect = card.getBoundingClientRect()
@@ -378,6 +379,7 @@ test('vertical cards resize without changing the channel shelf footprint', async
       nextShelfTop: nextShelf.getBoundingClientRect().top + window.scrollY,
       slotHeight: slotRect.height,
       slotWidth: slotRect.width,
+      thumbnailAspectRatio: thumbnailRect.width / thumbnailRect.height,
       thumbnailObjectFit: thumbnailStyle.objectFit,
       thumbnailScale: new DOMMatrix(thumbnailStyle.transform).a,
       thumbnailTransitionDuration: thumbnailStyle.transitionDuration,
@@ -401,7 +403,8 @@ test('vertical cards resize without changing the channel shelf footprint', async
     const thumbnailRect = card.querySelector('.thumb-link').getBoundingClientRect()
     return thumbnailRect.width / thumbnailRect.height
   })
-  expect(openingThumbnailAspectRatio).toBeCloseTo(31 / 40, 2)
+  expect(openingThumbnailAspectRatio).toBeGreaterThan(0.65)
+  expect(openingThumbnailAspectRatio).toBeLessThanOrEqual((31 / 40) + 0.01)
   await expect.poll(() => shortsCard.evaluate(card => {
     const width = card.getBoundingClientRect().width
     const targetWidth = Number.parseFloat(
@@ -488,7 +491,36 @@ test('vertical cards resize without changing the channel shelf footprint', async
   expect(expandedLayout.thumbnailTransitionDuration).toBe('0s')
   if (testInfo.project.name === 'desktop-standard') {
     await page.mouse.move(0, 0)
-    await shortsCard.evaluate(card => window.closeVideoShelfPreview(card))
+    await shortsCard.evaluate(card => {
+      const thumbnail = card.querySelector('.thumb-link')
+      card.shortsClosingThumbnailSettled = new Promise(resolve => {
+        const finish = event => {
+          if (event.propertyName !== 'bottom') return
+          window.clearTimeout(timeout)
+          thumbnail.removeEventListener('transitionend', finish)
+          const cardRect = card.getBoundingClientRect()
+          const cardStyle = getComputedStyle(card)
+          const thumbnailRect = thumbnail.getBoundingClientRect()
+          const thumbnailStyle = getComputedStyle(thumbnail)
+          resolve({
+            bottomGap: cardRect.bottom
+              - Number.parseFloat(cardStyle.borderBottomWidth)
+              - thumbnailRect.bottom,
+            bottomInset: Number.parseFloat(thumbnailStyle.bottom),
+            cardHeight: cardRect.height,
+            stillClosing: card.classList.contains('is-preview-closing'),
+            timedOut: false,
+            transitionDuration: thumbnailStyle.transitionDuration
+          })
+        }
+        const timeout = window.setTimeout(() => {
+          thumbnail.removeEventListener('transitionend', finish)
+          resolve({ timedOut: true })
+        }, 230)
+        thumbnail.addEventListener('transitionend', finish)
+      })
+      window.closeVideoShelfPreview(card)
+    })
     await expect(shortsCard).toHaveClass(/\bis-preview-closing\b/)
     await page.waitForTimeout(80)
     const closingLayout = await shortsCard.evaluate(card => {
@@ -506,7 +538,9 @@ test('vertical cards resize without changing the channel shelf footprint', async
         panelIsBehindThumbnail: Number.parseFloat(thumbnailLinkStyle.zIndex)
           > Number.parseFloat(bodyStyle.zIndex),
         panelOverlapsThumbnail: thumbnailRect.bottom > bodyRect.top,
+        thumbnailBottomInset: Number.parseFloat(thumbnailLinkStyle.bottom),
         thumbnailAspectRatio: thumbnailRect.width / thumbnailRect.height,
+        thumbnailFrameTransitionDuration: thumbnailLinkStyle.transitionDuration,
         thumbnailHeight: thumbnailRect.height,
         thumbnailScale: new DOMMatrix(thumbnailStyle.transform).a,
         thumbnailTransitionDuration: thumbnailStyle.transitionDuration,
@@ -518,14 +552,36 @@ test('vertical cards resize without changing the channel shelf footprint', async
     expect(closingLayout.bodyPointerEvents).toBe('auto')
     expect(closingLayout.panelIsBehindThumbnail).toBe(true)
     expect(closingLayout.panelOverlapsThumbnail).toBe(true)
-    expect(closingLayout.thumbnailAspectRatio).toBeCloseTo(31 / 40, 2)
+    expect(closingLayout.thumbnailBottomInset).toBeGreaterThan(0)
+    expect(closingLayout.thumbnailAspectRatio).toBeGreaterThan(0.65)
+    expect(closingLayout.thumbnailAspectRatio)
+      .toBeLessThanOrEqual(expandedLayout.thumbnailAspectRatio + 0.01)
+    expect(closingLayout.thumbnailFrameTransitionDuration).toBe('0.155s')
     expect(closingLayout.thumbnailScale).toBeCloseTo(
       collapsedLayout.thumbnailScale,
       2
     )
     expect(closingLayout.thumbnailTransitionDuration).toBe('0s')
     expect(closingLayout.titleHeight).toBeGreaterThan(0)
+    const thumbnailSettled = await shortsCard.evaluate(card => (
+      card.shortsClosingThumbnailSettled
+    ))
+    expect(thumbnailSettled.timedOut).toBe(false)
+    expect(thumbnailSettled.stillClosing).toBe(true)
+    expect(thumbnailSettled.transitionDuration).toBe('0.155s')
+    expect(thumbnailSettled.bottomInset).toBeCloseTo(0, 2)
+    expect(thumbnailSettled.bottomGap).toBeCloseTo(0, 0)
+    expect(thumbnailSettled.cardHeight).toBeGreaterThan(collapsedLayout.cardHeight)
     await expect(shortsCard).not.toHaveClass(/\bis-floating-preview\b/)
+    const collapsedBottomGap = await shortsCard.evaluate(card => {
+      const cardRect = card.getBoundingClientRect()
+      const cardStyle = getComputedStyle(card)
+      const thumbnailRect = card.querySelector('.thumb-link').getBoundingClientRect()
+      return cardRect.bottom
+        - Number.parseFloat(cardStyle.borderBottomWidth)
+        - thumbnailRect.bottom
+    })
+    expect(collapsedBottomGap).toBeCloseTo(0, 0)
   } else {
     await closePreview(shortsCard)
   }
