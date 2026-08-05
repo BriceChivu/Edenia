@@ -589,8 +589,89 @@ test('vertical cards resize without changing the channel shelf footprint', async
   await expect(channelB).toBeVisible()
 })
 
+test('mobile Shorts cards stay vertical with fixed cropping and visible actions', async ({ page }, testInfo) => {
+  test.skip(!['phone-standard', 'phone-small'].includes(testInfo.project.name))
+  await seedFormatState(page)
+
+  const channelA = page.locator('.channel-shelf[data-channel-key="channel-a"]')
+  const horizontalSlot = channelA.locator(
+    '.channel-shelf-slot[data-channel-video-format="videos"]:not([hidden])'
+  ).first()
+  const horizontalLayout = await horizontalSlot.evaluate(slot => {
+    const card = slot.querySelector('.channel-shelf-card')
+    const cardRect = card.getBoundingClientRect()
+    return {
+      ratio: cardRect.width / cardRect.height,
+      titleDisplay: getComputedStyle(card.querySelector('.card-copy')).display
+    }
+  })
+
+  await channelA.locator(
+    '[data-channel-video-format="shorts"][data-channel-video-format-action="select"]'
+  ).click()
+  const shortsSlot = channelA.locator(
+    '.channel-shelf-slot[data-channel-video-format="shorts"]:not([hidden])'
+  ).first()
+  await expect(shortsSlot).toBeVisible()
+
+  const layout = await shortsSlot.evaluate(slot => {
+    const card = slot.querySelector('.channel-shelf-card')
+    const thumbnailLink = card.querySelector('.thumb-link')
+    const thumbnail = card.querySelector('.thumb')
+    const actions = Array.from(card.querySelectorAll('.card-actions .action-btn'))
+    const slotRect = slot.getBoundingClientRect()
+    const cardRect = card.getBoundingClientRect()
+    const thumbnailRect = thumbnailLink.getBoundingClientRect()
+    const thumbnailStyle = getComputedStyle(thumbnail)
+    return {
+      actionCount: actions.length,
+      actionsFit: actions.every(action => {
+        const rect = action.getBoundingClientRect()
+        return rect.left >= cardRect.left && rect.right <= cardRect.right
+      }),
+      actionsVisible: actions.every(action => {
+        const style = getComputedStyle(action)
+        const rect = action.getBoundingClientRect()
+        return style.display !== 'none' && style.visibility !== 'hidden'
+          && rect.width > 0 && rect.height > 0
+      }),
+      cardRatio: cardRect.width / cardRect.height,
+      cardWidth: cardRect.width,
+      slotRatio: slotRect.width / slotRect.height,
+      thumbnailFillsCard: Math.abs(
+        thumbnailRect.left - (cardRect.left + card.clientLeft)
+      ) <= 1
+        && Math.abs(thumbnailRect.top - (cardRect.top + card.clientTop)) <= 1
+        && Math.abs(
+          thumbnailRect.right - (cardRect.right - card.clientLeft)
+        ) <= 1
+        && Math.abs(
+          thumbnailRect.bottom - (cardRect.bottom - card.clientTop)
+        ) <= 1,
+      thumbnailObjectFit: thumbnailStyle.objectFit,
+      thumbnailScale: new DOMMatrix(thumbnailStyle.transform).a,
+      thumbnailTransitionDuration: thumbnailStyle.transitionDuration,
+      titleDisplay: getComputedStyle(card.querySelector('.card-copy')).display
+    }
+  })
+
+  expect(horizontalLayout.ratio).toBeCloseTo(16 / 9, 2)
+  expect(horizontalLayout.titleDisplay).not.toBe('none')
+  expect(layout.cardWidth).toBeGreaterThanOrEqual(154)
+  expect(layout.cardRatio).toBeCloseTo(3 / 4, 2)
+  expect(layout.slotRatio).toBeCloseTo(3 / 4, 2)
+  expect(layout.titleDisplay).toBe('none')
+  expect(layout.actionCount).toBe(3)
+  expect(layout.actionsVisible).toBe(true)
+  expect(layout.actionsFit).toBe(true)
+  expect(layout.thumbnailFillsCard).toBe(true)
+  expect(layout.thumbnailObjectFit).toBe('cover')
+  expect(layout.thumbnailScale).toBeCloseTo(1.4, 2)
+  expect(layout.thumbnailTransitionDuration).toBe('0s')
+})
+
 test('public mode preserves the preference while the internal rollout includes every duration', async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-standard')
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   await seedFormatState(page, { includeShorts: false, internalTest: false })
   await expect(page.locator('.channel-shelf-format-switcher')).toHaveCount(0)
   await expect(page.locator('#videoGrid .video-card[data-video-id]')).toHaveCount(4)
@@ -635,7 +716,9 @@ test('public mode preserves the preference while the internal rollout includes e
 })
 
 test('format controls fit long localized channel headers on desktop and phone', async ({ page }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(!['desktop-standard', 'phone-standard', 'phone-small'].includes(
+    testInfo.project.name
+  ))
   await seedFormatState(page, { locale: 'fr' })
 
   const channelA = page.locator('.channel-shelf[data-channel-key="channel-a"]')
@@ -668,6 +751,10 @@ test('format controls fit long localized channel headers on desktop and phone', 
     const activeInsightTabStyle = getComputedStyle(activeInsightTab)
     const shelfRect = shelf.getBoundingClientRect()
     const switcherRect = switcherElement.getBoundingClientRect()
+    const titleRowRect = shelf.querySelector('.channel-shelf-title-row')
+      .getBoundingClientRect()
+    const addButtonRect = document.getElementById('manualVideoBtn')
+      .getBoundingClientRect()
     return {
       documentWidth: Math.max(
         document.documentElement.scrollWidth,
@@ -679,7 +766,11 @@ test('format controls fit long localized channel headers on desktop and phone', 
       switcherLeft: switcherRect.left,
       switcherRight: switcherRect.right,
       switcherHeight: switcherRect.height,
+      switcherCenterY: switcherRect.top + switcherRect.height / 2,
+      titleRowCenterY: titleRowRect.top + titleRowRect.height / 2,
       buttonHeights: buttons.map(button => button.getBoundingClientRect().height),
+      buttonWidths: buttons.map(button => button.getBoundingClientRect().width),
+      addButtonWidth: addButtonRect.width,
       arrowHeights: Array.from(
         shelf.querySelectorAll('.channel-shelf-scroll')
       ).map(button => button.getBoundingClientRect().height),
@@ -736,13 +827,17 @@ test('format controls fit long localized channel headers on desktop and phone', 
   expect(layout.iconImages.shorts).toContain(
     'images/brands/youtube-shorts-black-logo.svg'
   )
-  const isPhone = testInfo.project.name === 'phone-small'
+  const isPhone = testInfo.project.name.startsWith('phone-')
   const minimumButtonHeight = isPhone ? 40 : 24
   layout.buttonHeights.forEach(height => {
     expect(height).toBeGreaterThanOrEqual(minimumButtonHeight)
   })
   if (isPhone) {
     expect(layout.switcherHeight).toBeGreaterThanOrEqual(40)
+    expect(layout.switcherCenterY).toBeCloseTo(layout.titleRowCenterY, 0)
+    layout.buttonWidths.forEach(width => {
+      expect(width).toBeCloseTo(layout.addButtonWidth, 1)
+    })
   } else {
     expect(layout.arrowHeights).toHaveLength(2)
     layout.arrowHeights.forEach(height => {
