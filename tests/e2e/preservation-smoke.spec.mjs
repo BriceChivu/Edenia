@@ -572,6 +572,15 @@ test('walkthrough replay adapts no-Anki copy and frames the full video area', as
   ].includes(testInfo.project.name))
 
   await seedCompletedState(page)
+  if (testInfo.project.name === 'phone-standard') {
+    await page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem('edenia_v1'))
+      state.config.theme = 'dark'
+      localStorage.setItem('edenia_v1', JSON.stringify(state))
+    })
+    await page.reload()
+    await waitForApplication(page)
+  }
   await page.locator('[data-settings-shell-action="open"]').click()
   await page.locator(
     '[data-settings-replay-action="walkthrough"]'
@@ -579,15 +588,45 @@ test('walkthrough replay adapts no-Anki copy and frames the full video area', as
   await expect(page.locator('body')).toHaveClass(/\bwalkthrough-active\b/)
 
   const nextButton = page.locator('.walkthrough-next')
+  const firstStepNextColors = testInfo.project.name === 'phone-standard'
+    ? await nextButton.evaluate(element => {
+        const style = getComputedStyle(element)
+        return {
+          backgroundColor: style.backgroundColor,
+          borderColor: style.borderColor,
+          color: style.color
+        }
+      })
+    : null
   await nextButton.click()
   await expect(page.locator('.walkthrough-text')).toHaveText(
     'Study History shows what happened over time.'
   )
+  if (firstStepNextColors) {
+    await expect.poll(() => nextButton.evaluate(element => {
+      const style = getComputedStyle(element)
+      return {
+        backgroundColor: style.backgroundColor,
+        borderColor: style.borderColor,
+        color: style.color
+      }
+    })).toEqual(firstStepNextColors)
+  }
 
   await nextButton.click()
   await expect(page.locator('.walkthrough-text')).toHaveText(
     'This is the video area. New videos from your channels appear here.'
   )
+  if (firstStepNextColors) {
+    await expect.poll(() => nextButton.evaluate(element => {
+      const style = getComputedStyle(element)
+      return {
+        backgroundColor: style.backgroundColor,
+        borderColor: style.borderColor,
+        color: style.color
+      }
+    })).toEqual(firstStepNextColors)
+  }
 
   await expect.poll(() => page.evaluate(async () => {
     await new Promise(resolve => {
