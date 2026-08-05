@@ -4484,7 +4484,6 @@ function openSettings() {
   applyLocale(s.config.locale)
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(s.config.includeShorts)
   document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(s)
-  document.getElementById('settingsInsightsEnabled').checked = isStudyInsightsEnabled(s)
   renderChannelList(s.config.channels)
   renderBackupList()
   mobileActivityLogVisibleCount = 20
@@ -4588,13 +4587,10 @@ async function saveSettingsOnTheFly() {
   normalizeStudyInsightConfig(s)
   const previousIncludeShorts = normalizeIncludeShorts(s.config.includeShorts)
   const previousAnkiEnabled = isAnkiEnabled(s)
-  const previousInsightsEnabled = isStudyInsightsEnabled(s)
   const nextAnkiEnabled = isAnkiAvailableOnDevice()
     ? Boolean(document.getElementById('settingsAnkiEnabled')?.checked)
     : previousAnkiEnabled
-  const nextInsightsEnabled = Boolean(document.getElementById('settingsInsightsEnabled')?.checked)
   const ankiPreferenceChanged = nextAnkiEnabled !== previousAnkiEnabled
-  const insightsPreferenceChanged = nextInsightsEnabled !== previousInsightsEnabled
   const now = new Date().toISOString()
 
   if (ankiPreferenceChanged && previousAnkiEnabled && !nextAnkiEnabled && !IS_SANDBOX) {
@@ -4619,7 +4615,6 @@ async function saveSettingsOnTheFly() {
   const shortsWereEnabled = !previousIncludeShorts && normalizeIncludeShorts(s.config.includeShorts)
   s.config.ankiEnabled = nextAnkiEnabled
   s.config.ankiDisabledAt = nextAnkiEnabled ? null : now
-  s.config.studyInsights.enabled = nextInsightsEnabled
   if (normalizeIncludeShorts(s.config.includeShorts) !== previousIncludeShorts) {
     appendActivityLog(s, {
       actor: 'user',
@@ -4638,15 +4633,6 @@ async function saveSettingsOnTheFly() {
       detail: t(isAnkiEnabled(s) ? 'log.ankiSetting.enabled' : 'log.ankiSetting.disabled')
     })
     syncStreak(s)
-  }
-  if (insightsPreferenceChanged) {
-    appendActivityLog(s, {
-      actor: 'user',
-      type: 'study-insights-setting',
-      status: 'success',
-      title: t('log.insightsSetting.title'),
-      detail: t(nextInsightsEnabled ? 'log.insightsSetting.shown' : 'log.insightsSetting.hidden')
-    })
   }
   saveState(s)
   if (ankiPreferenceChanged) applyAnkiRefreshPreference(s)
@@ -4792,7 +4778,6 @@ function importSyncFileFromInput(input) {
       renderLocaleSelect()
       document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(importedState.config.includeShorts)
       document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(importedState)
-      document.getElementById('settingsInsightsEnabled').checked = isStudyInsightsEnabled(importedState)
       applyAnkiRefreshPreference(importedState)
       showToast(t('toast.syncImported'))
     } catch (error) {
@@ -5080,7 +5065,6 @@ function restoreStateBackup(id) {
   renderLocaleSelect()
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(state.config.includeShorts)
   document.getElementById('settingsAnkiEnabled').checked = isAnkiEnabled(state)
-  document.getElementById('settingsInsightsEnabled').checked = isStudyInsightsEnabled(state)
   applyAnkiRefreshPreference(state)
   showToast(t('toast.backupRestored'), 'success')
 }

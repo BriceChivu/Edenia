@@ -1326,7 +1326,7 @@ test('Settings sync listeners preserve download, picker, import, and failure ord
   importedState.config.ankiEnabled = false
   importedState.config.ankiDisabledAt = '2026-07-26T04:00:00.000Z'
   importedState.config.includeShorts = true
-  importedState.config.studyInsights.enabled = true
+  importedState.config.studyInsights.enabled = false
   importedState.activityLog = []
   importedState.videoWatchReminders = {
     'must-be-cleared': {
@@ -1355,7 +1355,7 @@ test('Settings sync listeners preserve download, picker, import, and failure ord
   await expect(page.locator('#settingsTitle')).toHaveText('Réglages')
   await expect(page.locator('#settingsIncludeShorts')).toBeChecked()
   await expect(page.locator('#settingsAnkiEnabled')).not.toBeChecked()
-  await expect(page.locator('#settingsInsightsEnabled')).toBeChecked()
+  await expect(page.locator('#settingsInsightsEnabled')).toHaveCount(0)
   expect(await input.evaluate(element => ({
     files: element.files?.length || 0,
     value: element.value
@@ -1394,7 +1394,8 @@ test('Settings sync listeners preserve download, picker, import, and failure ord
     locale: 'fr',
     theme: 'dark',
     ankiEnabled: false,
-    includeShorts: true
+    includeShorts: true,
+    studyInsights: { enabled: true }
   })
   expect(Object.prototype.hasOwnProperty.call(
     importResult.state,
@@ -1703,7 +1704,7 @@ test('backup Restore listeners preserve live IDs, rollback order, localization, 
     theme: 'dark',
     weeklyGoalHours: 7,
     includeShorts: false,
-    insightsEnabled: false,
+    insightsEnabled: true,
     apiKeyPresent: false,
     remindersPresent: false,
     activity: [
@@ -1742,7 +1743,7 @@ test('backup Restore listeners preserve live IDs, rollback order, localization, 
     buttonName: restoreLabel
   })
   await expect(page.locator('#settingsIncludeShorts')).not.toBeChecked()
-  await expect(page.locator('#settingsInsightsEnabled')).not.toBeChecked()
+  await expect(page.locator('#settingsInsightsEnabled')).toHaveCount(0)
   await expect(restoreControl).not.toBeFocused()
   const removedBridgeAction = await page.evaluate(() => (
     Object.prototype.hasOwnProperty.call(
@@ -1764,7 +1765,7 @@ test('Settings preference listeners preserve synchronous saves and Anki timing',
     stored.config.includeShorts = true
     stored.config.ankiEnabled = false
     stored.config.ankiDisabledAt = '2026-07-20T04:00:00.000Z'
-    stored.config.studyInsights.enabled = true
+    stored.config.studyInsights.enabled = false
     stored.videos.shortvideo1 = {
       id: 'shortvideo1',
       title: 'Protected short video',
@@ -1787,9 +1788,9 @@ test('Settings preference listeners preserve synchronous saves and Anki timing',
   )
   const shorts = page.locator('#settingsIncludeShorts')
   const anki = page.locator('#settingsAnkiEnabled')
-  const insights = page.locator('#settingsInsightsEnabled')
   await expect(shortCard).toHaveCount(1)
   await page.locator('.gear-btn').click()
+  await expect(page.locator('#settingsInsightsEnabled')).toHaveCount(0)
 
   await page.evaluate(() => {
     window.__shortsPreferenceAtDocumentBubble = null
@@ -1834,40 +1835,6 @@ test('Settings preference listeners preserve synchronous saves and Anki timing',
       : null
   })
   expect(cookieAfterShorts.includeShorts).toBe(false)
-
-  await page.evaluate(() => {
-    window.__insightsPreferenceAtDocumentBubble = null
-    document.addEventListener('change', event => {
-      if (event.target.id !== 'settingsInsightsEnabled') return
-      const stored = JSON.parse(localStorage.getItem('edenia_v1'))
-      window.__insightsPreferenceAtDocumentBubble = {
-        checked: event.target.checked,
-        stored: stored.config.studyInsights.enabled,
-        activity: stored.activityLog[0],
-        cardHidden: document.getElementById('studyInsightCard')
-          .classList.contains('hidden'),
-        reopenHidden: document.getElementById('studyInsightReopen')
-          .classList.contains('hidden')
-      }
-    }, { once: true })
-  })
-  await insights.focus()
-  await insights.press('Space')
-  await expect.poll(() => page.evaluate(
-    () => window.__insightsPreferenceAtDocumentBubble
-  )).toMatchObject({
-    checked: false,
-    stored: false,
-    activity: {
-      actor: 'user',
-      type: 'study-insights-setting',
-      status: 'success',
-      title: 'Study insights setting changed',
-      detail: 'Study insights are hidden.'
-    },
-    cardHidden: true,
-    reopenHidden: true
-  })
 
   await shorts.focus()
   await shorts.press('Space')
@@ -1927,13 +1894,12 @@ test('Settings preference listeners preserve synchronous saves and Anki timing',
     checked: true,
     storedAnki: false,
     storedShorts: true,
-    storedInsights: false,
+    storedInsights: true,
     hasAnkiActivity: false
   })
 
   await page.evaluate(() => {
     document.getElementById('settingsIncludeShorts').checked = false
-    document.getElementById('settingsInsightsEnabled').checked = true
   })
   releaseFirstAnkiResponse()
   await expect.poll(() => page.evaluate(() => {
@@ -1949,7 +1915,7 @@ test('Settings preference listeners preserve synchronous saves and Anki timing',
   })).toMatchObject({
     anki: true,
     shorts: false,
-    insights: false,
+    insights: true,
     disabledAt: null,
     baseline: {
       rawReviewed: 0,
@@ -1966,7 +1932,6 @@ test('Settings preference listeners preserve synchronous saves and Anki timing',
   await expect.poll(() => ankiRequestCount).toBeGreaterThanOrEqual(2)
   await expect(anki).toBeChecked()
   await expect(shorts).not.toBeChecked()
-  await expect(insights).toBeChecked()
   expect(await page.evaluate(() => (
     Object.prototype.hasOwnProperty.call(
       window.EdeniaActions || {},
@@ -1988,7 +1953,7 @@ test('Settings preferences preserve raw Anki state on coarse-pointer devices', a
     stored.config.ankiEnabled = true
     stored.config.ankiDisabledAt = null
     stored.config.includeShorts = true
-    stored.config.studyInsights.enabled = true
+    stored.config.studyInsights.enabled = false
     stored.anki['2026-07-27'] = {
       reviewed: 60,
       created: 2,
@@ -2014,13 +1979,11 @@ test('Settings preferences preserve raw Anki state on coarse-pointer devices', a
   await expect(page.locator('.settings-anki-section')).toBeHidden()
   await expect(page.locator('.settings-scoring-section')).toBeHidden()
   await expect(page.locator('.settings-shorts-group')).toBeVisible()
-  await expect(page.locator('.settings-insights-group')).toBeVisible()
+  await expect(page.locator('.settings-insights-group')).toHaveCount(0)
   await expect(page.locator('#settingsAnkiEnabled')).toBeChecked()
 
   await page.locator('#settingsIncludeShorts').focus()
   await page.locator('#settingsIncludeShorts').press('Space')
-  await page.locator('#settingsInsightsEnabled').focus()
-  await page.locator('#settingsInsightsEnabled').press('Space')
   await expect.poll(() => page.evaluate(() => {
     const stored = JSON.parse(localStorage.getItem('edenia_v1'))
     return {
@@ -2034,7 +1997,7 @@ test('Settings preferences preserve raw Anki state on coarse-pointer devices', a
     ankiEnabled: true,
     ankiDisabledAt: null,
     includeShorts: false,
-    insightsEnabled: false,
+    insightsEnabled: true,
     ankiDay: {
       reviewed: 60,
       created: 2,

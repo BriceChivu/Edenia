@@ -24,8 +24,8 @@ const STUDY_INSIGHT_TYPES = [
   'steady-process'
 ]
 
-export function isStudyInsightsEnabled(state) {
-  return state?.config?.studyInsights?.enabled !== false
+export function isStudyInsightsEnabled() {
+  return true
 }
 
 export function normalizeStudyInsightConfig(state) {
@@ -97,7 +97,7 @@ export function normalizeStudyInsightConfig(state) {
       return { ...entry, variant: count % STUDY_INSIGHT_VARIANT_COUNT }
     })
   const normalized = {
-    enabled: existing.enabled !== false,
+    enabled: true,
     collapsed: existing.collapsed === true,
     history
   }
