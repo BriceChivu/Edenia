@@ -31,14 +31,14 @@ const formatIconAssets = Object.fromEntries(await Promise.all(
   ])
 ))
 
-test('channel video format rollout has one internal-test release boundary', () => {
+test('channel video format rollout has one internal-test or explicit release boundary', () => {
   assert.match(
     runtimeSource,
-    /function deriveChannelVideoFormatToggleEnabled\(runtimeEnvironment\)[\s\S]*?runtimeEnvironment\?\.isInternalTest === true/
+    /function deriveChannelVideoFormatToggleEnabled\([\s\S]*?releaseEnabled = false[\s\S]*?runtimeEnvironment\?\.isInternalTest === true \|\| releaseEnabled === true/
   )
   assert.match(
     appSource,
-    /const CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED =\s*deriveChannelVideoFormatToggleEnabled\(RUNTIME_ENVIRONMENT\)/
+    /const CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED =\s*deriveChannelVideoFormatToggleEnabled\(\s*RUNTIME_ENVIRONMENT,\s*getChannelVideoFormatToggleEnabled\(\)\s*\)/
   )
   assert.match(
     appSource,

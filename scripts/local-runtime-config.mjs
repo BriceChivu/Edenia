@@ -38,6 +38,8 @@ export function normalizeLocalRuntimeConfig(value) {
     freePlusEnabled: value?.freePlusEnabled === true,
     plusCheckoutEnabled: value?.plusCheckoutEnabled === true,
     videoOrganizationEnabled: value?.videoOrganizationEnabled === true,
+    channelVideoFormatToggleEnabled:
+      value?.channelVideoFormatToggleEnabled === true,
     supabaseUrl: normalizeOptionalRuntimeValue(
       value?.supabaseUrl,
       PLACEHOLDER_URLS

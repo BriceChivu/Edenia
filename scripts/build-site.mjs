@@ -158,6 +158,7 @@ await writeFile(
     + '  "freePlusEnabled": false,\n'
     + '  "plusCheckoutEnabled": false,\n'
     + '  "videoOrganizationEnabled": false,\n'
+    + '  "channelVideoFormatToggleEnabled": false,\n'
     + '  "supabaseUrl": "",\n'
     + '  "supabasePublishableKey": ""\n'
     + '}\n'

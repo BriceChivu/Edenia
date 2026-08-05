@@ -24,10 +24,26 @@ async function seedFormatState(
     includeShorts = true,
     internalTest = true,
     locale = 'en',
-    overflow = false
+    overflow = false,
+    releaseEnabled = false
   } = {}
 ) {
   const storageKey = internalTest ? internalStorageKey : normalStorageKey
+  if (releaseEnabled) {
+    await page.route('**/config.local.js', route => route.fulfill({
+      body: `window.EDENIA_CONFIG = {
+        youtubeApiKey: '',
+        freePlusEnabled: false,
+        plusCheckoutEnabled: false,
+        videoOrganizationEnabled: false,
+        channelVideoFormatToggleEnabled: true,
+        supabaseUrl: '',
+        supabasePublishableKey: ''
+      }`,
+      contentType: 'application/javascript',
+      status: 200
+    }))
+  }
   await page.goto(internalTest ? '/?internal_test=1' : '/')
   await waitForApplication(page)
   await page.evaluate(({
@@ -673,7 +689,7 @@ test('mobile Shorts cards stay vertical with fixed cropping and visible actions'
   expect(layout.thumbnailTransitionDuration).toBe('0s')
 })
 
-test('public mode preserves the preference while the internal rollout includes every duration', async ({ page }, testInfo) => {
+test('switch-off public mode preserves the preference while internal preview includes every duration', async ({ page }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   await seedFormatState(page, { includeShorts: false, internalTest: false })
   await expect(page.locator('.channel-shelf-format-switcher')).toHaveCount(0)
@@ -714,6 +730,29 @@ test('public mode preserves the preference while the internal rollout includes e
   expect(await page.evaluate(key => (
     JSON.parse(localStorage.getItem(key)).config.includeShorts
   ), internalStorageKey)).toBe(false)
+  await page.locator('.gear-btn').click()
+  await expect(page.locator('.settings-shorts-group')).toHaveClass(/\bhidden\b/)
+})
+
+test('explicit release flag enables format controls in normal mode without migrating preferences', async ({ page }, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  await seedFormatState(page, {
+    includeShorts: false,
+    internalTest: false,
+    releaseEnabled: true
+  })
+
+  await expect(page.locator('body')).toHaveClass(
+    /\bchannel-video-format-toggle-enabled\b/
+  )
+  await expect(page.locator('.channel-shelf-format-switcher')).toHaveCount(3)
+  await expect(page.locator(
+    '#videoGrid .video-card[data-video-id="a-horizontal-short-duration"]'
+  )).toBeVisible()
+  expect(await page.evaluate(key => (
+    JSON.parse(localStorage.getItem(key)).config.includeShorts
+  ), normalStorageKey)).toBe(false)
+
   await page.locator('.gear-btn').click()
   await expect(page.locator('.settings-shorts-group')).toHaveClass(/\bhidden\b/)
 })

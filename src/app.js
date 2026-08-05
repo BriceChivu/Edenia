@@ -107,6 +107,7 @@ import {
   YOUTUBE_CHANNEL_ID_RE
 } from './integrations/youtube-parsing.js'
 import {
+  getChannelVideoFormatToggleEnabled,
   getFreePlusEnabled,
   getPlusCheckoutEnabled,
   getVideoOrganizationEnabled,
@@ -412,7 +413,10 @@ const VIDEO_ORGANIZATION_ENABLED = deriveVideoOrganizationEnabled(
   getVideoOrganizationEnabled()
 )
 const CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED =
-  deriveChannelVideoFormatToggleEnabled(RUNTIME_ENVIRONMENT)
+  deriveChannelVideoFormatToggleEnabled(
+    RUNTIME_ENVIRONMENT,
+    getChannelVideoFormatToggleEnabled()
+  )
 const PLUS_ACCESS_CONFIG = Object.freeze({
   freePlusEnabled: getFreePlusEnabled(),
   plusCheckoutEnabled: getPlusCheckoutEnabled(),

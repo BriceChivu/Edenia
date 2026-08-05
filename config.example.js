@@ -3,6 +3,7 @@ window.EDENIA_CONFIG = {
   freePlusEnabled: false,
   plusCheckoutEnabled: false,
   videoOrganizationEnabled: false,
+  channelVideoFormatToggleEnabled: false,
   supabaseUrl: 'PASTE_YOUR_SUPABASE_PROJECT_URL_HERE',
   supabasePublishableKey: 'PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE'
 }
