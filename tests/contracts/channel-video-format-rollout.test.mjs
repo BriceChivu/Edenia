@@ -159,7 +159,26 @@ test('experiment controls align with arrows and share the Insights tab design', 
   )
   assert.match(
     phoneStyleSource,
-    /\.channel-shelf-format-switcher \{\s*height: auto;[\s\S]*?padding: 2px;[\s\S]*?\.channel-shelf-format-option \{[\s\S]*?height: auto;\s*min-height: 40px;/
+    /body\.channel-video-format-toggle-enabled \.channel-shelf-header\.has-video-format-toggle \{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: 36px minmax\(0, 1fr\) auto;[\s\S]*?body\.channel-video-format-toggle-enabled \.channel-shelf-format-switcher \{[\s\S]*?grid-column: 3;[\s\S]*?height: 40px;[\s\S]*?body\.channel-video-format-toggle-enabled \.channel-shelf-format-option \{[\s\S]*?width: var\(--mobile-channel-format-option-width, 56px\);/
+  )
+})
+
+test('mobile Shorts cards use gated portrait geometry and the measured Add width', () => {
+  assert.match(
+    appSource,
+    /if \(CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED && usesPhoneComposition\(\)\) \{\s*mainApp\?\.style\.setProperty\(\s*'--mobile-channel-format-option-width'/
+  )
+  assert.match(
+    phoneStyleSource,
+    /body\.channel-video-format-toggle-enabled \.channel-shelf-slot\[data-channel-video-format="shorts"\] \{\s*--shorts-thumbnail-crop-scale: 1\.4;\s*aspect-ratio: 3 \/ 4;\s*flex-basis: 156px;/
+  )
+  assert.match(
+    phoneStyleSource,
+    /body\.channel-video-format-toggle-enabled \.channel-shelf-slot\[data-channel-video-format="shorts"\] > \.channel-shelf-card \.thumb \{\s*object-fit: cover;\s*transform: scale\(var\(--shorts-thumbnail-crop-scale\)\);\s*transition: none;/
+  )
+  assert.match(
+    phoneStyleSource,
+    /body\.channel-video-format-toggle-enabled \.channel-shelf-slot\[data-channel-video-format="shorts"\] > \.channel-shelf-card \.card-copy \{\s*display: none;/
   )
 })
 

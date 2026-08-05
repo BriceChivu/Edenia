@@ -3259,7 +3259,9 @@ function consumeSandboxWalkthroughAfterReset() {
 function syncMobileAddButtonWidth() {
   const addControl = document.getElementById('manualVideo')
   const undoRedoControl = document.querySelector('.feed-action-controls .undo-wrap')
+  const mainApp = document.getElementById('mainApp')
   const shouldShrinkAddControl = usesCompactPortraitComposition()
+  mainApp?.style.removeProperty('--mobile-channel-format-option-width')
   if (!addControl) return
 
   addControl.style.removeProperty('flex')
@@ -3271,6 +3273,12 @@ function syncMobileAddButtonWidth() {
   const addControlWidth = shouldShrinkAddControl ? undoRedoWidth / 2 : undoRedoWidth
   addControl.style.flex = `0 0 ${addControlWidth}px`
   addControl.style.width = `${addControlWidth}px`
+  if (CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED && usesPhoneComposition()) {
+    mainApp?.style.setProperty(
+      '--mobile-channel-format-option-width',
+      `${addControlWidth}px`
+    )
+  }
 }
 
 function getWalkthroughTargetSelector(step) {
