@@ -6706,10 +6706,44 @@ function revealFavoritedWatchedVideo(videoId, state) {
   return true
 }
 
+function captureMobileVideoShelfPosition(videoId, surface) {
+  if (!usesPhoneComposition() || surface !== 'video_card') return null
+  const card = findVideoCard(videoId, '#videoGrid .channel-shelf-card')
+  const shelf = card?.closest('.channel-shelf')
+  const track = card?.closest('.channel-shelf-track')
+  if (!shelf || !track) return null
+  return {
+    channelKey: shelf.dataset.channelKey || '',
+    scrollLeft: track.scrollLeft
+  }
+}
+
+function restoreMobileVideoShelfPosition(videoId, position) {
+  if (!position) return
+  window.requestAnimationFrame(() => {
+    const card = findVideoCard(videoId, '#videoGrid .channel-shelf-card')
+    const shelf = card?.closest('.channel-shelf')
+    const track = card?.closest('.channel-shelf-track')
+    if (
+      !card
+      || !shelf
+      || !track
+      || (shelf.dataset.channelKey || '') !== position.channelKey
+    ) return
+    track.scrollLeft = position.scrollLeft
+    syncVideoChannelShelfControls(track)
+    card.querySelector('.favorite-btn')?.focus({ preventScroll: true })
+  })
+}
+
 function toggleVideoFavorite(videoId, options = {}) {
   const s = loadState()
   const video = s?.videos?.[videoId]
   if (!video) return null
+  const mobileShelfPosition = captureMobileVideoShelfPosition(
+    videoId,
+    options.surface
+  )
   const preservePreview = isActiveVideoShelfPreview(videoId)
   const beforeVideo = cloneVideoForHistoryAction(video)
   video.favorite = !isFavoriteVideo(video)
@@ -6751,6 +6785,7 @@ function toggleVideoFavorite(videoId, options = {}) {
     refreshVideoActionUiWithoutFeedRerender(s, videoId)
   } else {
     renderAll(s)
+    restoreMobileVideoShelfPosition(videoId, mobileShelfPosition)
   }
   return isFavoriteVideo(video)
 }
