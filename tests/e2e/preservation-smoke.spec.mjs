@@ -528,6 +528,7 @@ test('Settings shell listeners preserve the phone drawer and scroll reset', asyn
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'phone-standard')
 
+  await page.setViewportSize({ width: 390, height: 640 })
   await seedCompletedState(page)
   const panel = page.locator('#settingsPanel')
   const drawer = page.locator('.settings-drawer')
