@@ -42,10 +42,10 @@
       "privacyStatus": "public",
       "publishedAt": "2014-04-06T12:43:08Z",
       "metadataRefreshedAt": "2026-08-03T05:59:35.721Z",
-      "addCount": 1,
-      "distinctUserCount": 1,
+      "addCount": 2,
+      "distinctUserCount": 2,
       "firstSeenAt": "2026-08-02T17:58:06.863Z",
-      "lastSeenAt": "2026-08-02T17:58:06.863Z",
+      "lastSeenAt": "2026-08-04T12:10:49.648Z",
       "sources": [
         "direct_input"
       ],
@@ -198,10 +198,10 @@
       "privacyStatus": "public",
       "publishedAt": "2014-03-27T01:58:47Z",
       "metadataRefreshedAt": "2026-08-03T05:59:35.721Z",
-      "addCount": 1,
-      "distinctUserCount": 1,
+      "addCount": 2,
+      "distinctUserCount": 2,
       "firstSeenAt": "2026-08-02T17:55:33.610Z",
-      "lastSeenAt": "2026-08-02T17:55:33.610Z",
+      "lastSeenAt": "2026-08-04T12:15:24.672Z",
       "sources": [
         "direct_input"
       ],
@@ -232,6 +232,31 @@
       ],
       "reviewReasons": [],
       "searchText": "rainbolt two rainbolttwo"
+    },
+    {
+      "catalogId": "community-UCWF-HdgTyLgwngkZnzUveNQ",
+      "channelId": "UCWF-HdgTyLgwngkZnzUveNQ",
+      "handle": "@rainbolt2",
+      "name": "Rainbolt2",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_kzlRAMTE4m9-26vmjOJNyk2c0EsDKASe3-HTZEJcI=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2006-08-09T04:50:09Z",
+      "metadataRefreshedAt": "2026-08-05T05:33:21.127Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-08-04T12:10:59.194Z",
+      "lastSeenAt": "2026-08-04T12:10:59.194Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "rainbolt2 rainbolt2"
     },
     {
       "catalogId": "community-UCiWXd0nmBjlKROwzMyPV-Nw",
@@ -309,5 +334,5 @@
       "searchText": "老师好我叫何同学 hetongxue"
     }
   ],
-  "generatedAt": "2026-08-03T05:59:35.721Z"
+  "generatedAt": "2026-08-05T05:33:21.127Z"
 }
