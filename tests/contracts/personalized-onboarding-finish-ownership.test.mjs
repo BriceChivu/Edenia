@@ -188,7 +188,7 @@ test('central renderer binds finish after every replacement branch', () => {
   )
 })
 
-test('enabled original button reaches generic analytics with its Build label', () => {
+test('enabled original button reaches generic analytics before immediate completion', () => {
   const start = appSource.indexOf(
     'async function finishPersonalizedOnboarding() {'
   )
@@ -204,10 +204,9 @@ test('enabled original button reaches generic analytics with its Build label', (
     'renderPersonalizedOnboarding()',
     busyIndex
   )
-  const firstAwaitIndex = source.indexOf('await ', replacementIndex)
   assert.notEqual(busyIndex, -1)
   assert.ok(replacementIndex > busyIndex)
-  assert.ok(firstAwaitIndex > replacementIndex)
+  assert.doesNotMatch(source, /\bawait\b/)
   assert.doesNotMatch(source, /\bbutton\.disabled/)
 
   assert.match(
@@ -237,7 +236,7 @@ test('busy replacement is disabled and displays Building before async work', () 
   )
 })
 
-test('finish preserves save, resolve, refresh, completion, and redirect order', () => {
+test('finish queues starter work, persists completion, and redirects without awaiting it', () => {
   const start = appSource.indexOf(
     'async function finishPersonalizedOnboarding() {'
   )
@@ -251,21 +250,15 @@ test('finish preserves save, resolve, refresh, completion, and redirect order', 
     'if (personalizedOnboardingState.isApplyingChannels) return',
     'personalizedOnboardingState.isApplyingChannels = true',
     'renderPersonalizedOnboarding()',
-    'let state = loadState() || defaultState(4, DEFAULT_CHANNELS)',
+    'const state = loadState() || defaultState(4, DEFAULT_CHANNELS)',
     'state.learnerProfile = {',
-    'if (!saveState(state, { backup: false })) {',
-    'await resolveStarterChannelSelections(',
-    'if (resolution.failedCount && !resolution.channels.length) {',
-    'state = loadState() || state',
-    'resolution.channels.forEach(channel => {',
-    'if (!saveState(state, { backup: false })) {',
-    'await refreshFeed({',
     'state.onboarding.version = ONBOARDING_VERSION',
+    'state.onboarding.setupCompleted = true',
+    'state.onboarding.starterFeed = createPendingStarterFeed(',
     "appendActivityLog(state, {",
     'if (!saveState(state)) {',
     "trackEdeniaEvent('onboarding_completed', {",
-    'queueOnboardingNotice(completionNotice)',
-    'await stopIntroMusic({ fadeDuration: 7.5 })',
+    'stopIntroMusic({ fadeDuration: 7.5 })',
     'window.location.assign(getPostOnboardingAppUrl())'
   ]
   let previousIndex = -1
@@ -274,9 +267,10 @@ test('finish preserves save, resolve, refresh, completion, and redirect order', 
     assert.ok(index > previousIndex, `Expected ordered marker: ${marker}`)
     previousIndex = index
   }
+  assert.doesNotMatch(source, /resolveStarterChannelSelections|refreshFeed\(|\bawait\b/)
 })
 
-test('finish preserves each recovery and partial-failure branch', () => {
+test('finish preserves storage recovery and queued analytics metadata', () => {
   const start = appSource.indexOf(
     'async function finishPersonalizedOnboarding() {'
   )
@@ -288,27 +282,13 @@ test('finish preserves each recovery and partial-failure branch', () => {
 
   assert.equal(
     [...source.matchAll(
-      /showOnboardingRecovery\('storage', \{ state, resume: 'personalized' \}\)/g
-    )].length,
-    2
-  )
-  assert.equal(
-    [...source.matchAll(
       /showOnboardingRecovery\('storage', \{ state, resume: 'complete' \}\)/g
     )].length,
     1
   )
   assert.match(
     source,
-    /if \(resolution\.failedCount && !resolution\.channels\.length\) \{\s*personalizedOnboardingState\.isApplyingChannels = false\s*renderPersonalizedOnboarding\(\)[\s\S]*?showToast\(firstFailure \? `\$\{issue\} \$\{firstFailure\}` : issue, 'warn'\)\s*return/
-  )
-  assert.match(
-    source,
-    /if \(!onboardingRefreshResult\?\.ok\) \{[\s\S]*?completionNotice = completionNotice \? `\$\{completionNotice\} \$\{videoIssue\}` : videoIssue/
-  )
-  assert.match(
-    source,
-    /trackEdeniaEvent\('onboarding_completed', \{\s*learning_languages: state\.learnerProfile\.languages,\s*learner_level: state\.learnerProfile\.level \|\| null,\s*selected_channel_count: state\.learnerProfile\.selectedChannelCatalogIds\.length,\s*added_channel_count: addedChannelCount,\s*resolved_channel_count: resolution\.channels\.length,\s*failed_channel_count: resolution\.failedCount,/
+    /trackEdeniaEvent\('onboarding_completed', \{\s*learning_languages: state\.learnerProfile\.languages,\s*learner_level: state\.learnerProfile\.level \|\| null,\s*selected_channel_count: state\.learnerProfile\.selectedChannelCatalogIds\.length,\s*added_channel_count: 0,\s*resolved_channel_count: 0,\s*failed_channel_count: 0,\s*refresh_result: selectedChannelCatalogIds\.length \? 'queued' : 'not_requested'/
   )
 })
 

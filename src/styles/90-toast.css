@@ -49,6 +49,7 @@
 }
 .toast.toast-warn  { border-color: var(--amber); color: var(--amber); }
 .toast.toast-error { border-color: var(--error); color: var(--error); }
+body.walkthrough-active .toast { z-index: 280; }
 .feedback-confirmation {
   align-items: center;
   border-radius: 18px;

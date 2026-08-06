@@ -410,7 +410,7 @@ test('channel toggling retains guards, limit feedback, and live visual state', (
   assert.doesNotMatch(source, /renderPersonalizedOnboarding\(\)/)
 })
 
-test('finish retains synchronous busy replacement before asynchronous work', () => {
+test('finish retains synchronous busy replacement and performs no awaited work', () => {
   const source = getFunctionSource(
     'finishPersonalizedOnboarding',
     'getPostOnboardingAppUrl'
@@ -426,13 +426,9 @@ test('finish retains synchronous busy replacement before asynchronous work', () 
     'renderPersonalizedOnboarding()',
     busyIndex
   )
-  const awaitIndex = source.indexOf(
-    'await resolveStarterChannelSelections',
-    renderIndex
-  )
   assert.notEqual(busyIndex, -1)
   assert.ok(renderIndex > busyIndex)
-  assert.ok(awaitIndex > renderIndex)
+  assert.doesNotMatch(source, /\bawait\b/)
   assert.doesNotMatch(source, /\.preventDefault\(|\.stopPropagation\(/)
   assert.doesNotMatch(source, /\bbutton\.disabled/)
 })
@@ -444,11 +440,7 @@ test('finish retains persistence, recovery, completion analytics, and redirect',
   )
   assert.match(
     source,
-    /state\.learnerProfile = \{\s*languages: \[personalizedOnboardingState\.languageId\]\.filter\(Boolean\),\s*level: personalizedOnboardingState\.levelId,\s*selectedChannelCatalogIds: personalizedOnboardingState\.selectedChannelCatalogIds\.slice\(0, ONBOARDING_CHANNEL_SELECTION_LIMIT\)/
-  )
-  assert.match(
-    source,
-    /showOnboardingRecovery\('storage', \{ state, resume: 'personalized' \}\)/
+    /const selectedChannelCatalogIds = personalizedOnboardingState\.selectedChannelCatalogIds\s*\.slice\(0, ONBOARDING_CHANNEL_SELECTION_LIMIT\)[\s\S]*?state\.learnerProfile = \{\s*languages: \[personalizedOnboardingState\.languageId\]\.filter\(Boolean\),\s*level: personalizedOnboardingState\.levelId,\s*selectedChannelCatalogIds,/
   )
   assert.match(
     source,
@@ -456,11 +448,11 @@ test('finish retains persistence, recovery, completion analytics, and redirect',
   )
   assert.match(
     source,
-    /trackEdeniaEvent\('onboarding_completed', \{\s*learning_languages: state\.learnerProfile\.languages,\s*learner_level: state\.learnerProfile\.level \|\| null,\s*selected_channel_count: state\.learnerProfile\.selectedChannelCatalogIds\.length,\s*added_channel_count: addedChannelCount,\s*resolved_channel_count: resolution\.channels\.length,\s*failed_channel_count: resolution\.failedCount,/
+    /trackEdeniaEvent\('onboarding_completed', \{\s*learning_languages: state\.learnerProfile\.languages,\s*learner_level: state\.learnerProfile\.level \|\| null,\s*selected_channel_count: state\.learnerProfile\.selectedChannelCatalogIds\.length,\s*added_channel_count: 0,\s*resolved_channel_count: 0,\s*failed_channel_count: 0,\s*refresh_result: selectedChannelCatalogIds\.length \? 'queued' : 'not_requested'/
   )
   assert.match(
     source,
-    /queueOnboardingNotice\(completionNotice\)\s*await stopIntroMusic\(\{ fadeDuration: 7\.5 \}\)\s*window\.location\.assign\(getPostOnboardingAppUrl\(\)\)/
+    /stopIntroMusic\(\{ fadeDuration: 7\.5 \}\)\s*window\.location\.assign\(getPostOnboardingAppUrl\(\)\)/
   )
 })
 

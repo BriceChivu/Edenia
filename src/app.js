@@ -166,8 +166,10 @@ import {
   UNDO_STACK_LIMIT
 } from './state/action-history.js'
 import {
+  createPendingStarterFeed,
   normalizeOnboardingState,
-  ONBOARDING_VERSION
+  ONBOARDING_VERSION,
+  STARTER_FEED_CHANNEL_LIMIT
 } from './state/onboarding-state.js'
 import {
   normalizeChannelRefreshState
@@ -451,7 +453,6 @@ const {
   plusAuthStorageKey: PLUS_AUTH_STORAGE_KEY,
   plusEntitlementCacheKey: PLUS_ENTITLEMENT_CACHE_KEY,
   sandboxWalkthroughAfterResetKey: SANDBOX_WALKTHROUGH_AFTER_RESET_KEY,
-  onboardingNoticeKey: ONBOARDING_NOTICE_KEY,
   configCookieKey: CONFIG_COOKIE_KEY
 } = deriveStorageKeys({
   isSandbox: IS_SANDBOX,
@@ -500,6 +501,7 @@ const YOUTUBE_CHANNEL_SEARCH_CACHE_TTL_MS = 24 * 60 * 60_000
 const YOUTUBE_CHANNEL_SEARCH_COOLDOWN_MS = 2500
 const YOUTUBE_CHANNEL_SEARCH_DAILY_LIMIT = 5
 const YOUTUBE_CHANNEL_SEARCH_RESULT_LIMIT = 6
+const YOUTUBE_REQUEST_TIMEOUT_MS = 20_000
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const YOUTUBE_REFRESH_INTERVAL_MS = 5 * 60 * 60_000
 const YOUTUBE_REFRESH_ERROR_BACKOFF_MS = 30 * 60_000
@@ -546,6 +548,7 @@ let plusModalFeatureId = null
 let forcedSearchVideoId = null
 let pendingAddedChannelReveal = null
 let shortsEnableRefetchPromise = null
+let starterFeedPreparationPromise = null
 const addedVideoSpotlightState = {
   element: null,
   frame: null,
@@ -643,7 +646,7 @@ const introTrailerState = {
   touchStartY: 0,
   touchAxis: null
 }
-const ONBOARDING_CHANNEL_SELECTION_LIMIT = 5
+const ONBOARDING_CHANNEL_SELECTION_LIMIT = STARTER_FEED_CHANNEL_LIMIT
 const ONBOARDING_LAYOUT_OVERFLOW_TOLERANCE_PX = 1
 const ONBOARDING_LANGUAGE_CHOICE_LAYOUT_STATES = Object.freeze([
   'double-inline'
@@ -1973,45 +1976,37 @@ function init() {
   initIntroTrailerTouchNavigation()
   const onboardingExperienceStarted = maybeStartOnboarding(state)
   const noAnkiPromptScheduled = !onboardingExperienceStarted && maybeStartNoAnkiFrequentUserPrompt(state)
+  const starterFeedRequest = startPendingStarterFeedPreparation(state, {
+    deferAnki: noAnkiPromptScheduled
+  })
   if (!IS_SANDBOX) {
     if (state.onboarding.setupCompleted) {
       startLiveIntegrations(state, {
-        deferAnki: noAnkiPromptScheduled,
+        deferAnki: noAnkiPromptScheduled || Boolean(starterFeedRequest),
+        deferYoutube: Boolean(starterFeedRequest),
         forceShortsRefetch: shouldForceTemporaryShortsRefetch
       })
     }
   } else {
     if (IS_SANDBOX) showToast(t('toast.sandboxMode'), 'warn')
   }
-  showPendingOnboardingNotice()
   showTrackedChannelDowngradeNotice(initialChannelTransition)
   updateDocumentTitle(state)
 }
 
-function queueOnboardingNotice(message) {
-  if (!message) return
-  try { sessionStorage.setItem(ONBOARDING_NOTICE_KEY, message) } catch {}
-}
-
-function showPendingOnboardingNotice() {
-  let message = ''
-  try {
-    message = sessionStorage.getItem(ONBOARDING_NOTICE_KEY) || ''
-    sessionStorage.removeItem(ONBOARDING_NOTICE_KEY)
-  } catch {}
-  if (message) window.setTimeout(() => showToast(message, 'warn'), 500)
-}
-
-function startLiveIntegrations(state = loadState(), { deferAnki = false, forceShortsRefetch = false } = {}) {
+function startLiveIntegrations(
+  state = loadState(),
+  { deferAnki = false, deferYoutube = false, forceShortsRefetch = false } = {}
+) {
   if (IS_SANDBOX || !state?.onboarding?.setupCompleted) return
   if (!deferAnki) applyAnkiRefreshPreference(state)
-  if (forceShortsRefetch) {
+  if (forceShortsRefetch && !deferYoutube) {
     const request = refetchAllChannelsAfterShortsEnabled({ force: true })
     if (request && typeof request.finally === 'function') request.finally(startYoutubeAutoRefresh)
     else startYoutubeAutoRefresh()
     return
   }
-  startYoutubeAutoRefresh()
+  if (!deferYoutube) startYoutubeAutoRefresh()
 }
 
 function syncHeaderCompactState() {
@@ -3044,45 +3039,6 @@ function resolveCuratedChannelEntry(entry) {
   return request
 }
 
-async function resolveStarterChannelSelections(catalogIds) {
-  const entries = catalogIds.map(getCuratedChannelEntry).filter(Boolean)
-  if (!entries.length) return { channels: [], failures: [], failedCount: 0, attempted: false }
-  if (!hasYoutubeApiKey()) {
-    const message = t('toast.channelResolveNeedsKey')
-    const failures = entries.map(entry => ({ catalogId: entry.id, name: entry.name, message }))
-    return { channels: [], failures, failedCount: failures.length, attempted: false }
-  }
-  const results = await Promise.allSettled(entries.map(resolveCuratedChannelEntry))
-  const channels = []
-  const failures = []
-  const seenIds = new Set()
-  results.forEach((result, index) => {
-    const entry = entries[index]
-    if (result.status !== 'fulfilled' || !result.value?.id) {
-      failures.push({
-        catalogId: entry.id,
-        name: entry.name,
-        message: result.status === 'rejected' ? String(result.reason?.message || result.reason) : t('toast.channelResolveNotFound')
-      })
-      return
-    }
-    if (seenIds.has(result.value.id)) return
-    seenIds.add(result.value.id)
-    channels.push({
-      id: result.value.id,
-      name: result.value.name || result.value.id,
-      imageUrl: getCuratedChannelAvatarPath(entry.id),
-      catalogId: entry.id
-    })
-  })
-  return {
-    channels,
-    failures,
-    failedCount: failures.length,
-    attempted: true
-  }
-}
-
 function getStarterChannelAddDecision(state, channels) {
   const simulatedState = {
     ...state,
@@ -3109,102 +3065,265 @@ function getStarterChannelAddDecision(state, channels) {
   return TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED
 }
 
+function getActiveStarterFeed(state, queuedAt = null) {
+  const task = state?.onboarding?.starterFeed
+  if (!task || !['pending', 'running'].includes(task.status)) return null
+  if (queuedAt && task.queuedAt !== queuedAt) return null
+  return task
+}
+
+function showStarterFeedProgress(task) {
+  showToast(t('onboarding.starterFeed.progress', {
+    current: task.processedCatalogIds.length,
+    total: task.catalogIds.length
+  }), 'success', { durationMs: 0 })
+}
+
+function addResolvedStarterChannel(state, channel) {
+  const existingChannel = (state.config.channels || []).find(candidate => candidate.id === channel.id)
+  if (!existingChannel) state.config.channels.push(channel)
+  state.config.removedChannelIds = (state.config.removedChannelIds || [])
+    .filter(channelId => channelId !== channel.id)
+  return !existingChannel
+}
+
+async function prepareStarterFeedChannel(catalogId, queuedAt) {
+  const entry = getCuratedChannelEntry(catalogId)
+  if (!entry) throw new Error(t('toast.channelResolveNotFound'))
+  if (!hasYoutubeApiKey()) throw new Error(t('toast.channelResolveNeedsKey'))
+
+  const resolved = await resolveCuratedChannelEntry(entry)
+  const channel = {
+    id: resolved.id,
+    name: resolved.name || resolved.id,
+    imageUrl: getCuratedChannelAvatarPath(entry.id),
+    catalogId: entry.id
+  }
+  const snapshot = loadState()
+  if (!getActiveStarterFeed(snapshot, queuedAt)) return { cancelled: true }
+  const addDecision = getStarterChannelAddDecision(snapshot, [channel])
+  if (addDecision !== TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED) {
+    throw new Error(t('onboarding.starterFeed.channelLimit'))
+  }
+
+  const alreadyRefreshed = snapshot.config.channels.some(candidate => candidate.id === channel.id)
+    && !isChannelRefreshDue(snapshot, channel.id)
+  if (alreadyRefreshed) return { addedChannelCount: 0, mergedCount: 0, skippedShorts: 0 }
+
+  const includeShorts = getEffectiveIncludeShorts(snapshot)
+  let fetchResult = null
+  let videos = []
+  let detailsById = {}
+  let fetchError = null
+  try {
+    fetchResult = await fetchChannelVideos(channel, snapshot.videos, { includeShorts })
+    videos = dedupeVideos(fetchResult.videos)
+    detailsById = await getFetchedVideoDetails(snapshot, videos, includeShorts)
+  } catch (error) {
+    fetchError = error
+  }
+
+  const latestState = loadState()
+  if (!getActiveStarterFeed(latestState, queuedAt)) return { cancelled: true }
+  const latestDecision = getStarterChannelAddDecision(latestState, [channel])
+  if (latestDecision !== TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED) {
+    throw new Error(t('onboarding.starterFeed.channelLimit'))
+  }
+  const addedChannelCount = addResolvedStarterChannel(latestState, channel) ? 1 : 0
+
+  if (fetchError) {
+    markChannelRefreshError(latestState, channel.id, fetchError)
+    appendActivityLog(latestState, {
+      actor: 'auto',
+      type: 'youtube-refresh',
+      status: 'error',
+      title: t('log.channelRefreshFailed.title'),
+      detail: `${channel.name}: ${fetchError.message || t('log.unknownError')}`,
+      meta: { channelId: channel.id }
+    })
+    if (!saveState(latestState)) throw new Error(t('onboarding.starterFeed.storageError'))
+    renderAll(latestState)
+    throw fetchError
+  }
+
+  const mergeResult = mergeFetchedVideos(latestState, videos, detailsById, includeShorts)
+  const skippedShorts = (fetchResult?.filteredShorts || 0) + mergeResult.skippedShorts
+  const first = videos[0]
+  const storedChannel = latestState.config.channels.find(candidate => candidate.id === channel.id)
+  if (first?.channelTitle && storedChannel && first.channelTitle !== storedChannel.name) {
+    storedChannel.name = first.channelTitle
+  }
+  markChannelRefreshSuccess(latestState, channel.id)
+  appendActivityLog(latestState, {
+    actor: 'auto',
+    type: 'youtube-refresh',
+    status: 'success',
+    title: t('log.channelRefreshed.title'),
+    detail: t('log.channelRefreshed.fetched', { name: storedChannel?.name || channel.name, count: videos.length }),
+    meta: { channelId: channel.id, fetchedCount: videos.length }
+  })
+  if (!saveState(latestState)) throw new Error(t('onboarding.starterFeed.storageError'))
+  renderAll(latestState)
+  return {
+    addedChannelCount,
+    mergedCount: mergeResult.mergedCount,
+    skippedShorts
+  }
+}
+
+async function runPendingStarterFeedPreparation(initialState) {
+  const initialTask = getActiveStarterFeed(initialState)
+  if (!initialTask) return null
+  const queuedAt = initialTask.queuedAt
+  const refreshStartedAtMs = Date.now()
+  const runningState = loadState()
+  const runningTask = getActiveStarterFeed(runningState, queuedAt)
+  if (!runningTask) return null
+  runningTask.status = 'running'
+  runningTask.startedAt ||= new Date().toISOString()
+  if (!saveState(runningState, { backup: false })) {
+    showToast(t('onboarding.starterFeed.storageError'), 'error')
+    return null
+  }
+
+  trackEdeniaEvent('refresh_started', {
+    trigger: 'onboarding',
+    requested_channel_count: runningTask.catalogIds.length,
+    silent: true
+  })
+  showStarterFeedProgress(runningTask)
+
+  for (const catalogId of runningTask.catalogIds) {
+    const beforeChannelState = loadState()
+    const beforeChannelTask = getActiveStarterFeed(beforeChannelState, queuedAt)
+    if (!beforeChannelTask) return null
+    if (beforeChannelTask.processedCatalogIds.includes(catalogId)) continue
+
+    let result = null
+    let failed = false
+    try {
+      result = await prepareStarterFeedChannel(catalogId, queuedAt)
+      if (result?.cancelled) return null
+    } catch (error) {
+      failed = true
+      console.warn(`Starter feed ${catalogId}:`, error.message)
+    }
+
+    const progressState = loadState()
+    const progressTask = getActiveStarterFeed(progressState, queuedAt)
+    if (!progressTask) return null
+    if (!progressTask.processedCatalogIds.includes(catalogId)) {
+      progressTask.processedCatalogIds.push(catalogId)
+    }
+    if (failed && !progressTask.failedCatalogIds.includes(catalogId)) {
+      progressTask.failedCatalogIds.push(catalogId)
+    }
+    progressTask.addedChannelCount += result?.addedChannelCount || 0
+    progressTask.mergedVideoCount += result?.mergedCount || 0
+    progressTask.skippedShortCount += result?.skippedShorts || 0
+    if (!saveState(progressState, { backup: false })) {
+      showToast(t('onboarding.starterFeed.storageError'), 'error')
+      return null
+    }
+    showStarterFeedProgress(progressTask)
+  }
+
+  const completedState = loadState()
+  const completedTask = getActiveStarterFeed(completedState, queuedAt)
+  if (!completedTask) return null
+  const failedCount = completedTask.failedCatalogIds.length
+  const successfulCount = completedTask.catalogIds.length - failedCount
+  completedTask.status = failedCount === 0 ? 'complete' : (successfulCount > 0 ? 'partial' : 'failed')
+  completedTask.completedAt = new Date().toISOString()
+  completedState.onboarding.recommendationsAppliedAt = completedTask.completedAt
+  if (!saveState(completedState)) {
+    showToast(t('onboarding.starterFeed.storageError'), 'error')
+    return null
+  }
+
+  const result = failedCount === 0 ? 'success' : (successfulCount > 0 ? 'partial' : 'failure')
+  trackRefreshCompleted(refreshStartedAtMs, {
+    trigger: 'onboarding',
+    result,
+    failureReason: failedCount ? 'starter_channel_failure' : null,
+    requestedChannelCount: completedTask.catalogIds.length,
+    refreshedChannelCount: successfulCount,
+    failedChannelCount: failedCount,
+    newVideoCount: completedTask.mergedVideoCount,
+    skippedShortCount: completedTask.skippedShortCount
+  })
+  trackEdeniaEvent('onboarding_starter_feed_completed', {
+    result,
+    requested_channel_count: completedTask.catalogIds.length,
+    added_channel_count: completedTask.addedChannelCount,
+    refreshed_channel_count: successfulCount,
+    failed_channel_count: failedCount,
+    new_video_count: completedTask.mergedVideoCount
+  })
+
+  if (!failedCount) {
+    showToast(t('onboarding.starterFeed.ready'))
+  } else if (successfulCount > 0) {
+    showToast(t('onboarding.starterFeed.partial', {
+      count: failedCount,
+      plural: failedCount === 1 ? '' : 's'
+    }), 'warn')
+  } else {
+    showToast(t('onboarding.starterFeed.failed'), 'error')
+  }
+  return completedTask
+}
+
+function startPendingStarterFeedPreparation(
+  state = loadState(),
+  { deferAnki = false } = {}
+) {
+  if (IS_SANDBOX || starterFeedPreparationPromise || !getActiveStarterFeed(state)) {
+    return starterFeedPreparationPromise
+  }
+  const request = runPendingStarterFeedPreparation(state)
+    .catch(error => {
+      console.error('Starter feed preparation:', error)
+      showToast(t('onboarding.starterFeed.failed'), 'error')
+      return null
+    })
+    .finally(() => {
+      if (starterFeedPreparationPromise === request) starterFeedPreparationPromise = null
+      if (!deferAnki) applyAnkiRefreshPreference(loadState())
+      startYoutubeAutoRefresh()
+    })
+  starterFeedPreparationPromise = request
+  return request
+}
+
 async function finishPersonalizedOnboarding() {
   if (personalizedOnboardingState.isApplyingChannels) return
   personalizedOnboardingState.isApplyingChannels = true
   renderPersonalizedOnboarding()
 
   const now = new Date().toISOString()
-  let state = loadState() || defaultState(4, DEFAULT_CHANNELS)
+  const state = loadState() || defaultState(4, DEFAULT_CHANNELS)
   normalizeLearnerProfileState(state)
   normalizeOnboardingState(state)
+  const selectedChannelCatalogIds = personalizedOnboardingState.selectedChannelCatalogIds
+    .slice(0, ONBOARDING_CHANNEL_SELECTION_LIMIT)
   state.learnerProfile = {
     languages: [personalizedOnboardingState.languageId].filter(Boolean),
     level: personalizedOnboardingState.levelId,
-    selectedChannelCatalogIds: personalizedOnboardingState.selectedChannelCatalogIds.slice(0, ONBOARDING_CHANNEL_SELECTION_LIMIT),
+    selectedChannelCatalogIds,
     createdAt: state.learnerProfile.createdAt || now,
     updatedAt: now
   }
-  if (!saveState(state, { backup: false })) {
-    personalizedOnboardingState.isApplyingChannels = false
-    showOnboardingRecovery('storage', { state, resume: 'personalized' })
-    return
-  }
-
-  const resolution = await resolveStarterChannelSelections(state.learnerProfile.selectedChannelCatalogIds)
-  if (resolution.failedCount && !resolution.channels.length) {
-    personalizedOnboardingState.isApplyingChannels = false
-    renderPersonalizedOnboarding()
-    const firstFailure = resolution.failures[0]?.message
-    const issue = t('onboarding.channelIssue', {
-      count: resolution.failedCount,
-      plural: resolution.failedCount === 1 ? '' : 's'
-    })
-    showToast(firstFailure ? `${issue} ${firstFailure}` : issue, 'warn')
-    return
-  }
-
-  let completionNotice = ''
-  if (resolution.failedCount) {
-    const firstFailure = resolution.failures[0]?.message
-    const issue = t('onboarding.channelIssue', {
-      count: resolution.failedCount,
-      plural: resolution.failedCount === 1 ? '' : 's'
-    })
-    completionNotice = firstFailure ? `${issue} ${firstFailure}` : issue
-  }
-
-  state = loadState() || state
-  const starterChannelDecision = getStarterChannelAddDecision(
-    state,
-    resolution.channels
-  )
-  if (starterChannelDecision !== TRACKED_CHANNEL_ADD_DECISIONS.ALLOWED) {
-    personalizedOnboardingState.isApplyingChannels = false
-    renderPersonalizedOnboarding()
-    showTrackedChannelAddRestriction(starterChannelDecision)
-    return
-  }
-  const existingIds = new Set((state.config.channels || []).map(channel => channel.id))
-  let addedChannelCount = 0
-  resolution.channels.forEach(channel => {
-    if (!existingIds.has(channel.id)) {
-      state.config.channels.push(channel)
-      existingIds.add(channel.id)
-      addedChannelCount += 1
-    }
-    state.config.removedChannelIds = (state.config.removedChannelIds || []).filter(channelId => channelId !== channel.id)
-  })
-  if (!saveState(state, { backup: false })) {
-    personalizedOnboardingState.isApplyingChannels = false
-    showOnboardingRecovery('storage', { state, resume: 'personalized' })
-    return
-  }
-
-  let onboardingRefreshResult = null
-  if (resolution.channels.length) {
-    onboardingRefreshResult = await refreshFeed({
-      silent: true,
-      channelIds: resolution.channels.map(channel => channel.id),
-      trigger: 'onboarding'
-    })
-    if (!onboardingRefreshResult?.ok) {
-      const firstError = onboardingRefreshResult?.errors?.[0]?.message || onboardingRefreshResult?.error?.message
-      const videoIssue = firstError ? `${t('onboarding.videoIssue')} ${firstError}` : t('onboarding.videoIssue')
-      completionNotice = completionNotice ? `${completionNotice} ${videoIssue}` : videoIssue
-    }
-    state = loadState() || state
-  }
-
   state.onboarding.version = ONBOARDING_VERSION
   state.onboarding.setupCompleted = true
   state.onboarding.setupCompletedAt = now
-  state.onboarding.recommendationsAppliedAt = resolution.attempted ? now : null
+  state.onboarding.recommendationsAppliedAt = null
+  state.onboarding.starterFeed = createPendingStarterFeed(selectedChannelCatalogIds, now)
   const onboardingDetail = personalizedOnboardingState.levelId
     ? t('log.onboarding.detail', {
         language: t(`onboarding.language.${personalizedOnboardingState.languageId}`),
         level: t(`onboarding.level.${personalizedOnboardingState.levelId}.label`),
-        count: resolution.channels.length
+        count: selectedChannelCatalogIds.length
       })
     : t('log.onboarding.otherDetail', {
         language: t(`onboarding.language.${personalizedOnboardingState.languageId}`)
@@ -3225,15 +3344,12 @@ async function finishPersonalizedOnboarding() {
     learning_languages: state.learnerProfile.languages,
     learner_level: state.learnerProfile.level || null,
     selected_channel_count: state.learnerProfile.selectedChannelCatalogIds.length,
-    added_channel_count: addedChannelCount,
-    resolved_channel_count: resolution.channels.length,
-    failed_channel_count: resolution.failedCount,
-    refresh_result: !onboardingRefreshResult
-      ? 'not_requested'
-      : (onboardingRefreshResult.ok ? 'success' : 'partial_or_failed')
+    added_channel_count: 0,
+    resolved_channel_count: 0,
+    failed_channel_count: 0,
+    refresh_result: selectedChannelCatalogIds.length ? 'queued' : 'not_requested'
   })
-  queueOnboardingNotice(completionNotice)
-  await stopIntroMusic({ fadeDuration: 7.5 })
+  stopIntroMusic({ fadeDuration: 7.5 })
   window.location.assign(getPostOnboardingAppUrl())
 }
 
@@ -5313,6 +5429,7 @@ async function addChannel(options = {}) {
     return
   }
   showToast(t('toast.channelAddedLoading', { name }))
+  if (starterFeedPreparationPromise) return
   refreshAddedChannel(id)
 }
 
@@ -5470,12 +5587,21 @@ function resetApp() {
 // ════════════════════════════════════════════════════════════
 
 async function ytFetch(url) {
-  const res = await fetch(url)
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err?.error?.message || `HTTP ${res.status}`)
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), YOUTUBE_REQUEST_TIMEOUT_MS)
+  try {
+    const res = await fetch(url, { signal: controller.signal })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err?.error?.message || `HTTP ${res.status}`)
+    }
+    return res.json()
+  } catch (error) {
+    if (error?.name === 'AbortError') throw new Error(t('toast.youtubeRequestTimeout'))
+    throw error
+  } finally {
+    window.clearTimeout(timeout)
   }
-  return res.json()
 }
 
 async function fetchYoutubeChannelByFilter(filter, value) {
@@ -6189,6 +6315,11 @@ function trackRefreshCompleted(startedAtMs, properties = {}) {
 }
 
 async function refreshFeed({ silent = false, channelIds = null, trigger = 'automatic' } = {}) {
+  if (starterFeedPreparationPromise) {
+    const task = getActiveStarterFeed(loadState())
+    if (task) showStarterFeedProgress(task)
+    return { ok: true, skipped: true, reason: 'starter-feed-running', errors: [] }
+  }
   const refreshStartedAtMs = Date.now()
   trackEdeniaEvent('refresh_started', {
     trigger,
@@ -15907,9 +16038,14 @@ function showToast(msg, type = 'success', options = {}) {
   el.className   = `toast toast-${type} show`
   el.classList.toggle('has-action', Boolean(options.actionLabel))
   clearTimeout(el._t)
-  el._t = setTimeout(() => {
-    el.classList.remove('show')
-  }, 3500)
+  const durationMs = options.durationMs === undefined ? 3500 : Number(options.durationMs)
+  if (durationMs > 0) {
+    el._t = setTimeout(() => {
+      el.classList.remove('show')
+    }, durationMs)
+  } else {
+    el._t = null
+  }
 }
 
 // ════════════════════════════════════════════════════════════
