@@ -91,7 +91,19 @@ test('default state preserves the complete normal-mode schema and defaults', () 
       walkthroughCompleted: false,
       walkthroughCompletedAt: null,
       levelUpGuidanceShownAt: null,
-      recommendationsAppliedAt: null
+      recommendationsAppliedAt: null,
+      starterFeed: {
+        status: 'idle',
+        catalogIds: [],
+        processedCatalogIds: [],
+        failedCatalogIds: [],
+        addedChannelCount: 0,
+        mergedVideoCount: 0,
+        skippedShortCount: 0,
+        queuedAt: null,
+        startedAt: null,
+        completedAt: null
+      }
     },
     noAnkiFrequentUserPrompt: {
       watchedVideoDateKeys: [],

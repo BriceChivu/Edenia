@@ -226,7 +226,7 @@ test('first visit selects recommendations in order within the current allowance'
   )
   assert.match(
     appSource,
-    /const ONBOARDING_CHANNEL_SELECTION_LIMIT = 5/
+    /const ONBOARDING_CHANNEL_SELECTION_LIMIT = STARTER_FEED_CHANNEL_LIMIT/
   )
   assert.match(
     source,

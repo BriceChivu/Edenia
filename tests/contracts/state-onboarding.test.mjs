@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  createPendingStarterFeed,
   normalizeOnboardingState,
-  ONBOARDING_VERSION
+  ONBOARDING_VERSION,
+  STARTER_FEED_CHANNEL_LIMIT
 } from '../../src/state/onboarding-state.js'
 
 const completedAt = '2026-07-28T01:02:03.000Z'
@@ -19,7 +21,19 @@ test('onboarding normalization preserves the current version and empty defaults'
     walkthroughCompleted: false,
     walkthroughCompletedAt: null,
     levelUpGuidanceShownAt: null,
-    recommendationsAppliedAt: null
+    recommendationsAppliedAt: null,
+    starterFeed: {
+      status: 'idle',
+      catalogIds: [],
+      processedCatalogIds: [],
+      failedCatalogIds: [],
+      addedChannelCount: 0,
+      mergedVideoCount: 0,
+      skippedShortCount: 0,
+      queuedAt: null,
+      startedAt: null,
+      completedAt: null
+    }
   })
   assert.equal(normalizeOnboardingState(state), false)
 })
@@ -45,8 +59,89 @@ test('legacy completion promotes setup, walkthrough, and timestamp fallbacks', (
     walkthroughCompleted: true,
     walkthroughCompletedAt: completedAt,
     levelUpGuidanceShownAt: null,
-    recommendationsAppliedAt: '2026-07-29T01:02:03.000Z'
+    recommendationsAppliedAt: '2026-07-29T01:02:03.000Z',
+    starterFeed: {
+      status: 'idle',
+      catalogIds: [],
+      processedCatalogIds: [],
+      failedCatalogIds: [],
+      addedChannelCount: 0,
+      mergedVideoCount: 0,
+      skippedShortCount: 0,
+      queuedAt: null,
+      startedAt: null,
+      completedAt: null
+    }
   })
+})
+
+test('starter-feed tasks are bounded, deduplicated, and resumable', () => {
+  assert.equal(STARTER_FEED_CHANNEL_LIMIT, 5)
+  const task = createPendingStarterFeed([
+    'one',
+    'two',
+    'one',
+    'three',
+    'four',
+    'five',
+    'six'
+  ], completedAt)
+  assert.deepEqual(task.catalogIds, ['one', 'two', 'three', 'four', 'five'])
+  assert.equal(task.status, 'pending')
+  assert.equal(task.queuedAt, completedAt)
+
+  const state = {
+    onboarding: {
+      setupCompleted: true,
+      starterFeed: {
+        ...task,
+        status: 'complete',
+        processedCatalogIds: ['one', 'missing', 'one'],
+        failedCatalogIds: ['one', 'missing'],
+        addedChannelCount: 1.9,
+        mergedVideoCount: '7',
+        skippedShortCount: -4,
+        completedAt
+      }
+    }
+  }
+  normalizeOnboardingState(state)
+  assert.deepEqual(state.onboarding.starterFeed, {
+    status: 'pending',
+    catalogIds: ['one', 'two', 'three', 'four', 'five'],
+    processedCatalogIds: ['one'],
+    failedCatalogIds: ['one'],
+    addedChannelCount: 1,
+    mergedVideoCount: 7,
+    skippedShortCount: 0,
+    queuedAt: completedAt,
+    startedAt: null,
+    completedAt: null
+  })
+})
+
+test('starter-feed completion preserves terminal state and timestamps', () => {
+  const state = {
+    onboarding: {
+      setupCompleted: true,
+      starterFeed: {
+        status: 'partial',
+        catalogIds: ['one', 'two'],
+        processedCatalogIds: ['one', 'two'],
+        failedCatalogIds: ['two'],
+        addedChannelCount: 1,
+        mergedVideoCount: 8,
+        skippedShortCount: 2,
+        queuedAt: completedAt,
+        startedAt: completedAt,
+        completedAt
+      }
+    }
+  }
+  normalizeOnboardingState(state)
+  assert.equal(state.onboarding.starterFeed.status, 'partial')
+  assert.equal(state.onboarding.starterFeed.completedAt, completedAt)
+  assert.deepEqual(state.onboarding.starterFeed.failedCatalogIds, ['two'])
 })
 
 test('explicit completion timestamps retain precedence over legacy values', () => {

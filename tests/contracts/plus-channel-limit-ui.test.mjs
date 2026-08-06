@@ -73,7 +73,7 @@ test('search results expose policy status without disabling mouse or keyboard ac
   )
 })
 
-test('onboarding preselects and applies only channels inside the current allowance', () => {
+test('onboarding preselects and background-applies only channels inside the current allowance', () => {
   assert.match(
     getFunctionSource('prepareOnboardingChannelSelections', 'getOnboardingChannelSelectionLimit'),
     /slice\(0, getOnboardingChannelSelectionLimit\(\)\)/
@@ -82,14 +82,26 @@ test('onboarding preselects and applies only channels inside the current allowan
     getFunctionSource('toggleOnboardingChannel', 'resolveCuratedChannelEntry'),
     /selectionLimit < ONBOARDING_CHANNEL_SELECTION_LIMIT[\s\S]*?showTrackedChannelAddRestriction/
   )
-  const finishSource = getFunctionSource(
-    'finishPersonalizedOnboarding',
-    'getPostOnboardingAppUrl'
+  const preparationSource = getFunctionSource(
+    'prepareStarterFeedChannel',
+    'runPendingStarterFeedPreparation'
   )
-  const preflightIndex = finishSource.indexOf('getStarterChannelAddDecision(')
-  const mutationIndex = finishSource.indexOf('state.config.channels.push(channel)')
-  assert.ok(preflightIndex > -1)
-  assert.ok(mutationIndex > preflightIndex)
+  const snapshotPreflightIndex = preparationSource.indexOf(
+    'getStarterChannelAddDecision(snapshot, [channel])'
+  )
+  const fetchIndex = preparationSource.indexOf('await fetchChannelVideos(', snapshotPreflightIndex)
+  const latestPreflightIndex = preparationSource.indexOf(
+    'getStarterChannelAddDecision(latestState, [channel])',
+    fetchIndex
+  )
+  const mutationIndex = preparationSource.indexOf(
+    'addResolvedStarterChannel(latestState, channel)',
+    latestPreflightIndex
+  )
+  assert.ok(snapshotPreflightIndex > -1)
+  assert.ok(fetchIndex > snapshotPreflightIndex)
+  assert.ok(latestPreflightIndex > fetchIndex)
+  assert.ok(mutationIndex > latestPreflightIndex)
 })
 
 test('blocked channel restoration leaves undo history and user state untouched', () => {

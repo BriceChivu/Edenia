@@ -25,27 +25,27 @@ import {
 } from '../../src/i18n/runtime.js'
 
 const EXPECTED_DICTIONARY_HASHES = {
-  en: 'a95963cca36e66fbf45e430928a1ad14fa1e7a74336d51c66e175bcf6979f29d',
-  'zh-Hant': '0e076cd4c7a45e2ed61cca70f6f5a90c3a00f2716533db4ec34a0915e48d86de',
-  'zh-Hans': 'c68d02b37f03fe94caff28889dc097a1b00e90d80a24b099b1a85c5a20395a72',
-  es: '4303251988baeabf3a586c529351c1d59e9713c81d9ae2209ae4185920267ea3',
-  fr: 'a03e7a513d55b17a70cc2ecbdf6ee00b5267f2690025aaa754077fd92e30c4c1'
+  en: '0c619f2db71641b2cca8da3feb4b293bed776f2e002a543e9f9b9f25451680df',
+  'zh-Hant': 'f200b77ead9f8c58e35a5b6dda52ce11d9ce9000f60dc0926426c45438197bb8',
+  'zh-Hans': '771880dd8562b3f7dc9d6a71566155007a5c071945a0ea3ff3e052d477d24a96',
+  es: '1a80c3ac8b830a875d7c1609812e9236326a62772c6e2f83a819973550b14b13',
+  fr: '5162f882a9ab0102c094dc81ce0e1e20edc6e985800ebef462436f8d646ecba0'
 }
 
 const EXPECTED_KEY_ORDER_HASHES = {
-  en: 'f8dd24ea073c32cfc4706eb1fcc59cd029c20d02f3d09d1fed27817a7416e328',
-  'zh-Hant': '26ff55661bf4dc3a74d4cb2ed4d6eba27f96d1047a5185eb500f2224c897bef0',
-  'zh-Hans': '26ff55661bf4dc3a74d4cb2ed4d6eba27f96d1047a5185eb500f2224c897bef0',
-  es: '26ff55661bf4dc3a74d4cb2ed4d6eba27f96d1047a5185eb500f2224c897bef0',
-  fr: '26ff55661bf4dc3a74d4cb2ed4d6eba27f96d1047a5185eb500f2224c897bef0'
+  en: 'a2d1e57c985e554dd5afbf95f334c2d0177d070b9407fd2dff339371b98fbc03',
+  'zh-Hant': '4b8f53fbac1c1e49a2310d9f1a55d31a404352d6cb3f01d9dfae4fd48efcda86',
+  'zh-Hans': '4b8f53fbac1c1e49a2310d9f1a55d31a404352d6cb3f01d9dfae4fd48efcda86',
+  es: '4b8f53fbac1c1e49a2310d9f1a55d31a404352d6cb3f01d9dfae4fd48efcda86',
+  fr: '4b8f53fbac1c1e49a2310d9f1a55d31a404352d6cb3f01d9dfae4fd48efcda86'
 }
 
 const EXPECTED_COUNTS = {
-  en: 845,
-  'zh-Hant': 849,
-  'zh-Hans': 849,
-  es: 849,
-  fr: 849
+  en: 852,
+  'zh-Hant': 856,
+  'zh-Hans': 856,
+  es: 856,
+  fr: 856
 }
 
 const LEGACY_NON_ENGLISH_EXTRA_KEYS = [
@@ -67,6 +67,7 @@ const INTENTIONAL_ENGLISH_FALLBACK_KEYS = [
 
 const OPTIONAL_PLURAL_KEYS = new Set([
   'onboarding.channelIssue',
+  'onboarding.starterFeed.partial',
   'toast.refreshFailedChannels',
   'toast.refreshLoaded',
   'toast.refreshLoadedWithErrors',
