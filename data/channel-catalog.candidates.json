@@ -105,6 +105,31 @@
       "searchText": "extra medium stuff extramediummedia"
     },
     {
+      "catalogId": "community-UCeh9Sa5OJf8RGszwkHCVa0A",
+      "channelId": "UCeh9Sa5OJf8RGszwkHCVa0A",
+      "handle": "@frenchwithfelix",
+      "name": "French with Felix",
+      "thumbnailUrl": "https://yt3.ggpht.com/rTU_rUujuUgJk7iZcVUc2v6xucnPzvNYLQy9kOOFy7j3veUx3oPjl1AO_W2UuaTqYFWM6Fkwah8=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-08-27T14:45:54.890091Z",
+      "metadataRefreshedAt": "2026-08-06T05:35:28.244Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-08-05T08:28:17.189Z",
+      "lastSeenAt": "2026-08-05T08:28:17.189Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "french with felix frenchwithfelix"
+    },
+    {
       "catalogId": "community-UCQJ25mE1rDKPa1ZDmC1bv_w",
       "channelId": "UCQJ25mE1rDKPa1ZDmC1bv_w",
       "handle": "@jakelyonsgeo",
@@ -155,6 +180,31 @@
       ],
       "reviewReasons": [],
       "searchText": "jiayouchinese jiayouchinese2023 beginner"
+    },
+    {
+      "catalogId": "community-UCV1OpUwWJCMiv6gJCRR6yAg",
+      "channelId": "UCV1OpUwWJCMiv6gJCRR6yAg",
+      "handle": "@kusdream",
+      "name": "Ku's dream酷的夢-",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_nhnVKtzOTP6G89FHJDwKjO1_ztuDYjvkE36x9C_GOsrcE=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2012-09-11T19:32:08Z",
+      "metadataRefreshedAt": "2026-08-06T05:35:28.244Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-08-05T08:28:42.249Z",
+      "lastSeenAt": "2026-08-05T08:28:42.249Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "ku s dream酷的夢 kusdream"
     },
     {
       "catalogId": "community-UCIYAzXc6_EkPU6I9qmNSD0g",
@@ -332,7 +382,32 @@
       ],
       "reviewReasons": [],
       "searchText": "老师好我叫何同学 hetongxue"
+    },
+    {
+      "catalogId": "community-UCTpUhRp0z_15U6PWg7_27kg",
+      "channelId": "UCTpUhRp0z_15U6PWg7_27kg",
+      "handle": "@cyzstudio",
+      "name": "陈一枝",
+      "thumbnailUrl": "https://yt3.ggpht.com/UIEPxcu658dgfNxWExakC0hU1DEZBqmMYfkVVvvEDZ51z6lLuKXELiVNrp2Fj8uREXOudAauPw=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2022-03-05T02:42:49.91161Z",
+      "metadataRefreshedAt": "2026-08-06T05:35:28.244Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-08-05T15:35:06.097Z",
+      "lastSeenAt": "2026-08-05T15:35:06.097Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "陈一枝 cyzstudio"
     }
   ],
-  "generatedAt": "2026-08-05T05:33:21.127Z"
+  "generatedAt": "2026-08-06T05:35:28.244Z"
 }
