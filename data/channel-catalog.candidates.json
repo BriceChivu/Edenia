@@ -3,6 +3,31 @@
   "lookbackDays": 180,
   "channels": [
     {
+      "catalogId": "community-UCYNcEgQUgIdiToMKBpbxuBQ",
+      "channelId": "UCYNcEgQUgIdiToMKBpbxuBQ",
+      "handle": "@gouzaiduizhang",
+      "name": "《狗仔隊長》分享網紅八卦",
+      "thumbnailUrl": "https://yt3.ggpht.com/oAXEsZzHRENC_65nhA1Fjwc5UkHCbJJW9kCbLVOCShdOMpQAcpEX3o5SosocceEnXVfdQJM7hs0=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-01-17T07:09:13.515125Z",
+      "metadataRefreshedAt": "2026-08-07T04:44:07.913Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-08-06T10:35:24.049Z",
+      "lastSeenAt": "2026-08-06T10:35:24.049Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "狗仔隊長 分享網紅八卦 gouzaiduizhang"
+    },
+    {
       "catalogId": "community-UCj7bNvokLlzDPmTIRbS1wKw",
       "channelId": "UCj7bNvokLlzDPmTIRbS1wKw",
       "handle": "@bradyyourtutor",
@@ -407,7 +432,32 @@
       ],
       "reviewReasons": [],
       "searchText": "陈一枝 cyzstudio"
+    },
+    {
+      "catalogId": "community-UCPKjRmbFOxLliOrRlhRDJug",
+      "channelId": "UCPKjRmbFOxLliOrRlhRDJug",
+      "handle": "@krysjensen86",
+      "name": "雷堤娜 Tyna",
+      "thumbnailUrl": "https://yt3.ggpht.com/JXWtyVlSy8lf9fwb5fKxNSK5x-J4hPFaBHreeM3vfeHaA8P8KpzwGTEx0HDRhpxkCwlOfiMJdw=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2016-08-22T22:54:57Z",
+      "metadataRefreshedAt": "2026-08-07T04:44:07.913Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-08-06T06:16:08.001Z",
+      "lastSeenAt": "2026-08-06T06:16:08.001Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "雷堤娜 tyna krysjensen86"
     }
   ],
-  "generatedAt": "2026-08-06T05:35:28.244Z"
+  "generatedAt": "2026-08-07T04:44:07.913Z"
 }
