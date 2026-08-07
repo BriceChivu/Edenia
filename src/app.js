@@ -7676,15 +7676,12 @@ function revealAddedVideoCard(videoId, state) {
     const found = Boolean(card)
     forcedSearchVideoId = null
     if (card) {
-      if (usesTabletAddedVideoReveal()) {
-        flashVideoCard(card, {
-          duration: 1800,
-          highlightTarget: 'spotlight'
-        })
-      } else {
-        showAddedVideoSpotlight(card, 1800)
-      }
+      flashVideoCard(card, {
+        duration: 1800,
+        highlightTarget: 'spotlight'
+      })
     }
+    trackAddedVideoRevealResult(videoId, card)
     if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
   }
 
@@ -7697,6 +7694,58 @@ function revealAddedVideoCard(videoId, state) {
 
 function usesTabletAddedVideoReveal() {
   return usesTabletCoarseInput()
+}
+
+function trackAddedVideoRevealResult(videoId, card) {
+  const videoUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`
+  const revealMode = usesTabletAddedVideoReveal() ? 'tablet_coarse' : 'standard'
+  if (!card) {
+    trackEdeniaEvent('manual_video_reveal_completed', {
+      video_url: videoUrl,
+      result: 'card_not_found',
+      card_found: false,
+      scroll_requested: false,
+      highlight_started: false,
+      card_visible_after_reveal: false,
+      reveal_mode: revealMode
+    })
+    return
+  }
+
+  let completed = false
+  let observer = null
+  let timeoutId = null
+  const complete = visible => {
+    if (completed) return
+    completed = true
+    observer?.disconnect()
+    if (timeoutId) window.clearTimeout(timeoutId)
+    trackEdeniaEvent('manual_video_reveal_completed', {
+      video_url: videoUrl,
+      result: visible ? 'visible' : 'not_visible',
+      card_found: true,
+      scroll_requested: true,
+      highlight_started: true,
+      card_visible_after_reveal: visible,
+      reveal_mode: revealMode
+    })
+  }
+
+  if (typeof IntersectionObserver === 'function') {
+    observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.target === card && entry.intersectionRatio >= 0.98)) {
+        complete(true)
+      }
+    }, { threshold: [0.98] })
+    observer.observe(card)
+  }
+
+  window.requestAnimationFrame(() => {
+    if (isVideoCardFullyVisibleInViewport(card)) complete(true)
+  })
+  timeoutId = window.setTimeout(() => {
+    complete(isVideoCardFullyVisibleInViewport(card))
+  }, 2500)
 }
 
 async function addVideoFromUrl(event) {
@@ -9844,6 +9893,25 @@ function findVideoCard(videoId, selector = '.video-card') {
   const targetId = String(videoId ?? '')
   return Array.from(document.querySelectorAll(selector))
     .find(element => element.dataset.videoId === targetId) || null
+}
+
+function isVideoCardFullyVisibleInViewport(card) {
+  if (!card?.isConnected) return false
+  const rect = card.getBoundingClientRect()
+  const trackRect = card.closest('.channel-shelf-track')?.getBoundingClientRect()
+  const viewportWidth = document.documentElement.clientWidth
+  const viewportHeight = document.documentElement.clientHeight
+  const edgeTolerance = 1
+  const leftEdge = trackRect ? Math.max(0, trackRect.left) : 0
+  const rightEdge = trackRect
+    ? Math.min(viewportWidth, trackRect.right)
+    : viewportWidth
+  return rect.width > 0
+    && rect.height > 0
+    && rect.left >= leftEdge - edgeTolerance
+    && rect.right <= rightEdge + edgeTolerance
+    && rect.top >= -edgeTolerance
+    && rect.bottom <= viewportHeight + edgeTolerance
 }
 
 function scrollVideoCardIntoView(card) {
