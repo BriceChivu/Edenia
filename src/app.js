@@ -6508,6 +6508,8 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
 async function refreshAddedChannel(channelId, options = {}) {
   if (IS_SANDBOX) return
   const refreshStartedAtMs = Date.now()
+  const focusVideoId = String(options.focusVideoId || '')
+  let focusRevealScheduled = false
   trackEdeniaEvent('refresh_started', {
     trigger: 'channel_added',
     requested_channel_count: 1,
@@ -6580,7 +6582,6 @@ async function refreshAddedChannel(channelId, options = {}) {
       meta: { channelId, fetchedCount: videos.length, mergedCount, skippedShorts }
     })
     saveState(s)
-    const focusVideoId = String(options.focusVideoId || '')
     if (focusVideoId && s.videos[focusVideoId]) {
       pendingAddedChannelReveal = { channelId, videoId: focusVideoId }
       forcedSearchVideoId = focusVideoId
@@ -6589,11 +6590,9 @@ async function refreshAddedChannel(channelId, options = {}) {
     renderChannelList(s.config.channels)
     if (focusVideoId && s.videos[focusVideoId]) {
       const activeReveal = pendingAddedChannelReveal
+      focusRevealScheduled = true
       window.requestAnimationFrame(() => {
-        scrollToVideoCard(focusVideoId, '.video-card', {
-          duration: 1800,
-          highlightTarget: 'spotlight'
-        })
+        revealRenderedAddedVideoCard(focusVideoId)
         const focusedCard = findVideoCard(focusVideoId)
         const refreshedShelf = focusedCard?.closest('.channel-refresh-arriving')
         window.setTimeout(() => refreshedShelf?.classList.remove('channel-refresh-arriving'), 900)
@@ -6638,6 +6637,9 @@ async function refreshAddedChannel(channelId, options = {}) {
       requestedChannelCount: 1,
       failedChannelCount: 1
     })
+    if (focusVideoId && !focusRevealScheduled) {
+      revealAddedVideoCard(focusVideoId, loadState())
+    }
   }
 }
 
@@ -7668,21 +7670,28 @@ function markVideoInProgressOnOpen(videoId, options = {}) {
   return true
 }
 
+function revealRenderedAddedVideoCard(videoId) {
+  const targetVideoId = String(videoId ?? '')
+  const card = findVideoCard(targetVideoId)
+  const found = Boolean(card)
+  if (card) {
+    flashVideoCard(card, {
+      duration: 1800,
+      highlightTarget: 'spotlight'
+    })
+  }
+  trackAddedVideoRevealResult(targetVideoId, card)
+  if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
+  return found
+}
+
 function revealAddedVideoCard(videoId, state) {
-  forcedSearchVideoId = String(videoId ?? '')
+  const targetVideoId = String(videoId ?? '')
+  forcedSearchVideoId = targetVideoId
   renderAll(state)
   const revealCard = () => {
-    const card = findVideoCard(forcedSearchVideoId)
-    const found = Boolean(card)
-    forcedSearchVideoId = null
-    if (card) {
-      flashVideoCard(card, {
-        duration: 1800,
-        highlightTarget: 'spotlight'
-      })
-    }
-    trackAddedVideoRevealResult(videoId, card)
-    if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
+    if (forcedSearchVideoId === targetVideoId) forcedSearchVideoId = null
+    revealRenderedAddedVideoCard(targetVideoId)
   }
 
   if (usesTabletAddedVideoReveal()) {
@@ -7872,7 +7881,11 @@ async function addVideoFromUrl(event) {
     input.value = ''
     if (usesTabletAddedVideoReveal()) input.blur()
     closeManualVideoPopover()
-    revealAddedVideoCard(videoId, s)
+    if (channelWasAdded) {
+      renderAll(s)
+    } else {
+      revealAddedVideoCard(videoId, s)
+    }
     showToast(t('toast.addedWatchedVideo', {
       title: formatToastTitle(s.videos[videoId].title)
     }), 'success')

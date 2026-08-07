@@ -8,7 +8,8 @@ const testedProjects = new Set([
 const fixtureChannelId = 'UC0000000000000000000000'
 const fixtureVideoId = 'fixture0001'
 
-async function seedCompletedState(page) {
+async function seedCompletedState(page, options = {}) {
+  const trackFixtureChannel = options.trackFixtureChannel !== false
   await page.route('**/config.local.js', route => route.fulfill({
     body: `window.EDENIA_CONFIG = {
       youtubeApiKey: 'fixture-key',
@@ -23,11 +24,11 @@ async function seedCompletedState(page) {
     status: 200
   }))
   await page.goto('/')
-  await page.evaluate(channelId => {
-    const state = window.defaultState(4, [{
-      id: channelId,
-      name: 'Fixture Language Channel'
-    }], 'light', [], 'en')
+  await page.evaluate(({ channelId, trackFixtureChannel }) => {
+    const channels = trackFixtureChannel
+      ? [{ id: channelId, name: 'Fixture Language Channel' }]
+      : []
+    const state = window.defaultState(4, channels, 'light', [], 'en')
     const completedAt = '2026-08-05T04:00:00.000Z'
     state.config.ankiEnabled = false
     state.config.ankiDisabledAt = completedAt
@@ -51,11 +52,26 @@ async function seedCompletedState(page) {
       }
     }
     localStorage.setItem('edenia_v1', JSON.stringify(state))
-  }, fixtureChannelId)
+  }, { channelId: fixtureChannelId, trackFixtureChannel })
   await page.reload()
   await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
   await page.evaluate(() => {
     window.__manualVideoRevealEvents = []
+    window.__manualVideoRevealScrollCalls = []
+    const scrollIntoView = Element.prototype.scrollIntoView
+    const scrollTo = Element.prototype.scrollTo
+    Element.prototype.scrollIntoView = function (...args) {
+      if (this.matches?.('.channel-shelf')) {
+        window.__manualVideoRevealScrollCalls.push('shelf')
+      }
+      return scrollIntoView.apply(this, args)
+    }
+    Element.prototype.scrollTo = function (...args) {
+      if (this.matches?.('.channel-shelf-track')) {
+        window.__manualVideoRevealScrollCalls.push('track')
+      }
+      return scrollTo.apply(this, args)
+    }
     window.EDENIA_ANALYTICS_ENABLED = true
     window.posthog = {
       capture(eventName, properties) {
@@ -69,14 +85,9 @@ async function seedCompletedState(page) {
   })
 }
 
-test('adding a video scrolls to its card and reports a visible reveal', async ({
-  page
-}, testInfo) => {
-  test.skip(!testedProjects.has(testInfo.project.name))
-  await seedCompletedState(page)
-
+async function addFixtureVideo(page, projectName) {
   const addButton = page.locator('#manualVideoBtn')
-  if (testInfo.project.name === 'desktop-standard') {
+  if (projectName === 'desktop-standard') {
     await addButton.click()
   } else {
     await addButton.tap()
@@ -84,6 +95,15 @@ test('adding a video scrolls to its card and reports a visible reveal', async ({
   const input = page.locator('#manualVideoUrlInput')
   await input.fill(`https://www.youtube.com/watch?v=${fixtureVideoId}`)
   await input.press('Enter')
+}
+
+test('adding a video scrolls to its card and reports a visible reveal', async ({
+  page
+}, testInfo) => {
+  test.skip(!testedProjects.has(testInfo.project.name))
+  await seedCompletedState(page)
+
+  await addFixtureVideo(page, testInfo.project.name)
 
   const card = page.locator(`.video-card[data-video-id="${fixtureVideoId}"]`)
   await expect(card).toBeAttached()
@@ -123,4 +143,48 @@ test('adding a video scrolls to its card and reports a visible reveal', async ({
   )
   expect(geometry.top).toBeGreaterThanOrEqual(-1)
   expect(geometry.bottom).toBeLessThanOrEqual(geometry.viewportHeight + 1)
+})
+
+test('a newly tracked channel performs one reveal after its refresh render', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await seedCompletedState(page, { trackFixtureChannel: false })
+
+  await addFixtureVideo(page, testInfo.project.name)
+
+  await expect.poll(() => page.evaluate(() => (
+    window.__manualVideoRevealEvents.find(event => (
+      event.eventName === 'refresh_completed'
+      && event.properties.trigger === 'channel_added'
+    ))?.properties.result || null
+  ))).toBe('success')
+  await expect.poll(() => page.evaluate(() => (
+    window.__manualVideoRevealEvents.filter(
+      event => event.eventName === 'manual_video_reveal_completed'
+    ).length
+  ))).toBe(1)
+  await expect.poll(() => page.evaluate(() => (
+    window.__manualVideoRevealScrollCalls
+  ))).toEqual(['shelf', 'track'])
+
+  await page.evaluate(() => new Promise(resolve => {
+    let remainingFrames = 4
+    const waitForFrame = () => {
+      remainingFrames -= 1
+      if (remainingFrames === 0) {
+        resolve()
+        return
+      }
+      window.requestAnimationFrame(waitForFrame)
+    }
+    window.requestAnimationFrame(waitForFrame)
+  }))
+  expect(await page.evaluate(() => window.__manualVideoRevealScrollCalls)).toEqual([
+    'shelf',
+    'track'
+  ])
+
+  const card = page.locator(`.video-card[data-video-id="${fixtureVideoId}"]`)
+  await expect(card).toBeInViewport({ ratio: 0.98 })
 })
