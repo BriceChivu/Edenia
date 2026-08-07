@@ -18,17 +18,40 @@ function getFunctionSource(name, nextName) {
   return appSource.slice(start, end)
 }
 
-test('manual video reveal always uses the scroll-and-highlight path', () => {
+test('rendered manual video reveal owns scrolling, highlighting, and measurement', () => {
   const source = getFunctionSource(
-    'revealAddedVideoCard',
-    'usesTabletAddedVideoReveal'
+    'revealRenderedAddedVideoCard',
+    'revealAddedVideoCard'
   )
   assert.match(
     source,
     /if \(card\) \{\s*flashVideoCard\(card, \{\s*duration: 1800,\s*highlightTarget: 'spotlight'\s*\}\)\s*\}/
   )
-  assert.doesNotMatch(source, /showAddedVideoSpotlight\(/)
-  assert.match(source, /trackAddedVideoRevealResult\(videoId, card\)/)
+  assert.match(source, /trackAddedVideoRevealResult\(targetVideoId, card\)/)
+})
+
+test('immediate manual video reveal renders once and delegates to the owner', () => {
+  const source = getFunctionSource(
+    'revealAddedVideoCard',
+    'usesTabletAddedVideoReveal'
+  )
+  assert.match(source, /renderAll\(state\)/)
+  assert.match(source, /revealRenderedAddedVideoCard\(targetVideoId\)/)
+})
+
+test('newly tracked channels defer reveal until their final refresh render', () => {
+  const addSource = getFunctionSource('addVideoFromUrl', 'normalizeCuratedChannelSearchText')
+  assert.match(
+    addSource,
+    /if \(channelWasAdded\) \{\s*renderAll\(s\)\s*\} else \{\s*revealAddedVideoCard\(videoId, s\)\s*\}/
+  )
+
+  const refreshSource = getFunctionSource('refreshAddedChannel', 'getBaseDocumentTitle')
+  assert.match(refreshSource, /revealRenderedAddedVideoCard\(focusVideoId\)/)
+  assert.match(
+    refreshSource,
+    /if \(focusVideoId && !focusRevealScheduled\) \{\s*revealAddedVideoCard\(focusVideoId, loadState\(\)\)\s*\}/
+  )
 })
 
 test('manual video reveal reports a measured PostHog outcome', () => {
