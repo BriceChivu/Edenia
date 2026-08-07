@@ -1,6 +1,7 @@
 # CHANGES:
 
 ## BUGS:
+- on desktop, searching and then clicking on a seen video while the watched section is closed, doesn't guide and focus on the video. Only when the watched section is open the guiding and highlighting work, but since there is scrolling performed, we don't have time to see the highlighting, it's already gone. We should have the highlighting starting when the scrolling is about to stop.
 - for shorts on desktop: "hace 15 meses" to "hace 15 m" "il y a 1 semaine" to "il y a 1 sem"  Review all other languages and other elements.
 - onboarding process: starting your journey... is very very long. Why?
 - on mobiles: internal_test=1 is very slow, especially when setting a video as watch later or favorite
@@ -28,6 +29,7 @@ In the end, it should look similar to: {
 - autopost on THREADS. See Claude conversation
 
 ## Ideas
+- Give users suggestions of other users tracked channels
 - being able to add playlist instead of channels
 - have a Discover page, where videos or playlist are suggested and then there is a prompt to add the channel in the feed
 - have some kind of notes taking functionality (looking like Keep)
