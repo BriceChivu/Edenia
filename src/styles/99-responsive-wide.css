@@ -716,6 +716,10 @@ body[data-theme="dark"] .channel-shelf-card:is(.is-previewing, .is-preview-closi
   .video-card.next-study-focus-arriving {
     animation: none;
   }
+  .watched-grid .video-card.history-video-arriving,
+  .watched-grid .video-card.video-search-arriving {
+    animation: none;
+  }
   .video-watch-reminder-popover {
     animation: none;
   }

@@ -2770,6 +2770,166 @@ test('saved-video search-result listener preserves selection, analytics, and Ent
   })
 })
 
+test('desktop saved-video search expands Watched and highlights after scrolling settles', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    const targetId = 'protected-collapsed-watched-target'
+    state.config.channels = Array.from({ length: 6 }, (_, index) => ({
+      id: `protected-reveal-channel-${index}`,
+      name: `Protected reveal channel ${index}`
+    }))
+    state.config.channelShelfOrder = state.config.channels.map(channel => channel.id)
+    state.videos = {}
+
+    state.config.channels.forEach((channel, index) => {
+      const id = `protected-reveal-active-${index}`
+      state.videos[id] = {
+        id,
+        title: `Protected active reveal lesson ${index}`,
+        channelId: channel.id,
+        channelTitle: channel.name,
+        duration: 600,
+        publishedAt: `2026-07-${String(27 - index).padStart(2, '0')}T04:00:00.000Z`,
+        status: 'unwatched',
+        thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
+      }
+    })
+
+    for (let index = 0; index < 8; index += 1) {
+      const id = index === 7 ? targetId : `protected-reveal-watched-${index}`
+      state.videos[id] = {
+        id,
+        title: index === 7
+          ? 'Protected collapsed watched target'
+          : `Protected watched reveal lesson ${index}`,
+        channelId: state.config.channels[index % state.config.channels.length].id,
+        channelTitle: state.config.channels[index % state.config.channels.length].name,
+        duration: 600,
+        publishedAt: `2026-07-${String(19 - index).padStart(2, '0')}T04:00:00.000Z`,
+        watchedAt: `2026-07-${String(20 + index).padStart(2, '0')}T04:00:00.000Z`,
+        status: 'watched',
+        thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
+      }
+    }
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+  })
+  await page.reload()
+  await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
+  await page.evaluate(async () => {
+    await document.fonts.ready
+    await new Promise(resolve => {
+      requestAnimationFrame(() => requestAnimationFrame(resolve))
+    })
+  })
+  await page.evaluate(() => window.scrollTo(0, 0))
+
+  const section = page.locator('#watchedSection')
+  const toggle = page.locator('#watchedSectionToggle')
+  const target = page.locator(
+    '#watchedGrid .video-card[data-video-id="protected-collapsed-watched-target"]'
+  )
+  await expect(section).toHaveClass(/\bcollapsed\b/)
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(target).not.toBeVisible()
+  const storedBefore = await page.evaluate(
+    () => localStorage.getItem('edenia_v1')
+  )
+
+  await page.evaluate(() => {
+    window.__watchedSearchReveal = {
+      arrival: null
+    }
+    const observer = new MutationObserver(() => {
+      const card = document.querySelector(
+        '#watchedGrid .video-card[data-video-id="protected-collapsed-watched-target"]'
+      )
+      if (
+        !card?.classList.contains('video-search-arriving')
+        || window.__watchedSearchReveal.arrival
+      ) return
+      const rect = card.getBoundingClientRect()
+      window.__watchedSearchReveal.arrival = {
+        bottom: rect.bottom,
+        scrollY: window.scrollY,
+        top: rect.top,
+        viewportHeight: document.documentElement.clientHeight
+      }
+    })
+    observer.observe(document.getElementById('watchedGrid'), {
+      attributeFilter: ['class'],
+      attributes: true,
+      childList: true,
+      subtree: true
+    })
+    window.__watchedSearchRevealObserver = observer
+  })
+
+  await page.locator('#videoSearchBtn').click()
+  await page.locator('#videoSearchInput').fill('collapsed watched target')
+  await page.locator(
+    '#videoSearchResults [data-video-id="protected-collapsed-watched-target"]'
+  ).click()
+
+  await expect(section).not.toHaveClass(/\bcollapsed\b/)
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  await expect(target).toHaveClass(/\bvideo-search-arriving\b/)
+
+  const reveal = await page.evaluate(async () => {
+    await new Promise(resolve => {
+      let previousScrollY = window.scrollY
+      let stableFrames = 0
+      let frameCount = 0
+      const checkScrollPosition = () => {
+        const currentScrollY = window.scrollY
+        stableFrames = Math.abs(currentScrollY - previousScrollY) < 0.5
+          ? stableFrames + 1
+          : 0
+        previousScrollY = currentScrollY
+        frameCount += 1
+        if (stableFrames >= 4 || frameCount >= 120) {
+          resolve()
+          return
+        }
+        requestAnimationFrame(checkScrollPosition)
+      }
+      requestAnimationFrame(checkScrollPosition)
+    })
+    const card = document.querySelector(
+      '#watchedGrid .video-card[data-video-id="protected-collapsed-watched-target"]'
+    )
+    const rect = card.getBoundingClientRect()
+    window.__watchedSearchRevealObserver.disconnect()
+    return {
+      arrival: window.__watchedSearchReveal.arrival,
+      final: {
+        bottom: rect.bottom,
+        scrollY: window.scrollY,
+        top: rect.top,
+        viewportHeight: document.documentElement.clientHeight
+      }
+    }
+  })
+
+  expect(reveal.arrival).not.toBeNull()
+  expect(reveal.arrival.top).toBeGreaterThanOrEqual(-1)
+  expect(reveal.arrival.bottom).toBeLessThanOrEqual(
+    reveal.arrival.viewportHeight + 1
+  )
+  expect(Math.abs(reveal.final.scrollY - reveal.arrival.scrollY))
+    .toBeLessThanOrEqual(2)
+  expect(reveal.final.top).toBeGreaterThanOrEqual(-1)
+  expect(reveal.final.bottom).toBeLessThanOrEqual(
+    reveal.final.viewportHeight + 1
+  )
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
+    .toBe(storedBefore)
+})
+
 test('saved-video search shell listeners preserve analytics, focus, and responsive geometry', async ({
   page
 }, testInfo) => {
