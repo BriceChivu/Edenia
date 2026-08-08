@@ -18,6 +18,12 @@ export function bindStudyInsightActions(root, actions) {
     ['.study-insight-collapse', () => actions.setCollapsed(true)],
     ['#studyInsightReopen', () => actions.setCollapsed(false)]
   ]
+  if (typeof actions.showNextStudy === 'function') {
+    bindings.push([
+      '#studyGuidanceNextAction',
+      () => actions.showNextStudy()
+    ])
+  }
 
   let installedCount = 0
   bindings.forEach(([selector, listener]) => {

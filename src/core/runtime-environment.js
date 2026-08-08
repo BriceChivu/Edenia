@@ -24,3 +24,10 @@ export function deriveChannelVideoFormatToggleEnabled(
 ) {
   return runtimeEnvironment?.isInternalTest === true || releaseEnabled === true
 }
+
+export function deriveStudyGuidanceEnabled(
+  runtimeEnvironment,
+  releaseEnabled = false
+) {
+  return runtimeEnvironment?.isInternalTest === true || releaseEnabled === true
+}

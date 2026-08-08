@@ -32,6 +32,10 @@ test('Study Insight controls retain explicit analytics identities without inline
     {
       tag: findButton('id="studyInsightReopen"'),
       action: 'insights.reopen'
+    },
+    {
+      tag: findButton('id="studyGuidanceNextAction"'),
+      action: 'insights.guidance.next-video'
     }
   ]
 
@@ -55,13 +59,15 @@ test('Study Insight action names normalize to the exact existing click events', 
       'insights.tab.current',
       'insights.tab.previous',
       'insights.collapse',
-      'insights.reopen'
+      'insights.reopen',
+      'insights.guidance.next-video'
     ].map(action => `${normalize(action)}_clicked`),
     [
       'insights_tab_current_clicked',
       'insights_tab_previous_clicked',
       'insights_collapse_clicked',
-      'insights_reopen_clicked'
+      'insights_reopen_clicked',
+      'insights_guidance_next_video_clicked'
     ]
   )
 })

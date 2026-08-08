@@ -40,6 +40,7 @@ export function normalizeLocalRuntimeConfig(value) {
     videoOrganizationEnabled: value?.videoOrganizationEnabled === true,
     channelVideoFormatToggleEnabled:
       value?.channelVideoFormatToggleEnabled === true,
+    studyGuidanceEnabled: value?.studyGuidanceEnabled === true,
     supabaseUrl: normalizeOptionalRuntimeValue(
       value?.supabaseUrl,
       PLACEHOLDER_URLS

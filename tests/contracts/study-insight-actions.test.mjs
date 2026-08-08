@@ -59,6 +59,23 @@ test('Study Insight action binding is idempotent and tolerates absent controls',
   assert.deepEqual(calls, ['current'])
 })
 
+test('Study Insight action binding exposes optional live guidance action', () => {
+  const { controls, root } = createHarness([
+    '#studyGuidanceNextAction'
+  ])
+  let calls = 0
+  assert.equal(bindStudyInsightActions(root, {
+    setView() {},
+    setCollapsed() {},
+    showNextStudy() {
+      calls += 1
+    }
+  }), 1)
+
+  controls.get('#studyGuidanceNextAction').dispatchEvent(new Event('click'))
+  assert.equal(calls, 1)
+})
+
 test('Study Insight action binding fails closed on invalid boundaries', () => {
   const { root } = createHarness()
   assert.throws(
