@@ -277,7 +277,10 @@ import {
   CHANNEL_VIDEO_FORMATS,
   getAvailableChannelVideoFormat,
   getChannelVideoFormat,
-  normalizeChannelVideoFormat
+  getChannelVideoFormatPreference,
+  normalizeChannelVideoFormatPreferences,
+  normalizeChannelVideoFormat,
+  setChannelVideoFormatPreference
 } from './features/channels/video-format-actions.js'
 import {
   CITY_IMAGE_SOURCES,
@@ -531,7 +534,6 @@ let ankiRefreshDeferredForPrompt = false
 let selectedStatusFilter = 'all'
 let selectedChannelFilters = null
 let knownChannelFilterIds = new Set()
-const selectedChannelVideoFormats = new Map()
 let isWatchedSectionCollapsed = null
 let isRemovedSectionCollapsed = true
 let activeVideoOrganizationTrigger = null
@@ -1052,6 +1054,15 @@ function normalizeLoadedState(state) {
     if (state.config.historyView !== historyView) shouldSave = true
     state.config.historyView = historyView
   }
+  if (state?.config && Object.hasOwn(state.config, 'channelVideoFormats')) {
+    const channelVideoFormats = normalizeChannelVideoFormatPreferences(
+      state.config.channelVideoFormats
+    )
+    if (JSON.stringify(state.config.channelVideoFormats) !== JSON.stringify(channelVideoFormats)) {
+      shouldSave = true
+    }
+    state.config.channelVideoFormats = channelVideoFormats
+  }
   if (state?.config && !Array.isArray(state.config.channels)) state.config.channels = []
   if (normalizeTrackedChannelPolicyState(state)) shouldSave = true
   if (state?.config) delete state.config.apiKey
@@ -1090,6 +1101,11 @@ function normalizeStateBeforeSave(state) {
   removeLegacyVideoWatchReminderState(state)
   normalizeStudyInsightConfig(state)
   normalizeTrackedChannelPolicyState(state)
+  if (state?.config && Object.hasOwn(state.config, 'channelVideoFormats')) {
+    state.config.channelVideoFormats = normalizeChannelVideoFormatPreferences(
+      state.config.channelVideoFormats
+    )
+  }
 }
 
 function createDefaultStateFromConfig(fallback) {
@@ -13140,7 +13156,8 @@ function renderFeed(s) {
     removedChannelIds,
     chronologicalOnly: statusFilter === 'favorite',
     channelVideoFormatEnabled:
-      CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED && includeShorts
+      CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED && includeShorts,
+    channelVideoFormats: s.config?.channelVideoFormats
   }
 
   if (!activeVideos.length) {
@@ -13274,8 +13291,8 @@ function getVideoUploadRibbon(video, currentDateKey = getCurrentAppDateKey()) {
   return toDateKey(publishedAt) === currentDateKey ? t('videos.card.new') : null
 }
 
-function getSelectedChannelVideoFormat(channelKey) {
-  return normalizeChannelVideoFormat(selectedChannelVideoFormats.get(channelKey))
+function getSelectedChannelVideoFormat(channelVideoFormats, channelKey) {
+  return getChannelVideoFormatPreference(channelVideoFormats, channelKey)
 }
 
 function getChannelVideoFormatCountLabel(count) {
@@ -13310,6 +13327,7 @@ function renderChannelVideoFormatControls(group, trackId, selectedFormat) {
           data-channel-video-format-action="select"
           data-channel-key="${escHtml(group.key)}"
           data-channel-video-format="${id}"
+          data-analytics-action="channelVideoFormat"
           aria-controls="${trackId}"
           aria-label="${escHtml(label)}"
           aria-pressed="${selectedFormat === id}"
@@ -13370,14 +13388,42 @@ function selectChannelVideoFormat(control, channelKey, format) {
   if (!CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED) return false
   const shelf = control?.closest?.('.channel-shelf')
   const selectedFormat = normalizeChannelVideoFormat(format)
+  const previousFormat = shelf?.dataset.channelSelectedVideoFormat
   if (
     !shelf
     || shelf.dataset.channelKey !== channelKey
     || shelf.dataset.channelSelectedVideoFormat === selectedFormat
   ) return false
 
-  selectedChannelVideoFormats.set(channelKey, selectedFormat)
-  return applyChannelVideoFormatSelection(shelf, channelKey, selectedFormat)
+  const state = loadState()
+  const preferenceUpdated = setChannelVideoFormatPreference(
+    state,
+    channelKey,
+    selectedFormat
+  )
+  const persisted = preferenceUpdated
+    ? saveState(state, { backup: false, syncAnalytics: false })
+    : false
+  const applied = applyChannelVideoFormatSelection(shelf, channelKey, selectedFormat)
+  if (!applied) return false
+
+  const channel = state?.config?.channels?.find(entry => entry?.id === channelKey)
+  const channelName = channel?.name
+    || shelf.querySelector('.channel-shelf-heading strong')?.textContent?.trim()
+    || channelKey
+  const visibleVideoCount = shelf.querySelectorAll(
+    `.channel-shelf-slot[data-channel-video-format="${selectedFormat}"]:not([hidden])`
+  ).length
+  trackEdeniaEvent('channel_video_format_viewed', {
+    channel_id: channelKey,
+    channel_name: channelName,
+    previous_format: previousFormat,
+    selected_format: selectedFormat,
+    visible_video_count: visibleVideoCount,
+    surface: 'channel_shelf',
+    persistence_succeeded: persisted
+  })
+  return true
 }
 
 function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], configuredChannels = []) {
@@ -13389,7 +13435,10 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
     t('videos.search.youtube')
   ).map((group, index) => {
     const formatEnabled = cardOptions.channelVideoFormatEnabled === true
-    const preferredFormat = getSelectedChannelVideoFormat(group.key)
+    const preferredFormat = getSelectedChannelVideoFormat(
+      cardOptions.channelVideoFormats,
+      group.key
+    )
     const formatCounts = {
       [CHANNEL_VIDEO_FORMATS.VIDEOS]: 0,
       [CHANNEL_VIDEO_FORMATS.SHORTS]: 0

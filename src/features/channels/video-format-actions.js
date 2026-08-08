@@ -14,6 +14,33 @@ export function normalizeChannelVideoFormat(value) {
     : CHANNEL_VIDEO_FORMATS.VIDEOS
 }
 
+export function normalizeChannelVideoFormatPreferences(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(
+    Object.entries(value)
+      .map(([channelKey, format]) => [String(channelKey || '').trim(), format])
+      .filter(([channelKey, format]) => (
+        channelKey
+        && Object.values(CHANNEL_VIDEO_FORMATS).includes(format)
+      ))
+  )
+}
+
+export function getChannelVideoFormatPreference(preferences, channelKey) {
+  const normalizedPreferences = normalizeChannelVideoFormatPreferences(preferences)
+  return normalizeChannelVideoFormat(normalizedPreferences[String(channelKey || '').trim()])
+}
+
+export function setChannelVideoFormatPreference(state, channelKey, format) {
+  const normalizedChannelKey = String(channelKey || '').trim()
+  if (!state?.config || !normalizedChannelKey) return false
+  state.config.channelVideoFormats = {
+    ...normalizeChannelVideoFormatPreferences(state.config.channelVideoFormats),
+    [normalizedChannelKey]: normalizeChannelVideoFormat(format)
+  }
+  return true
+}
+
 export function getAvailableChannelVideoFormat(value, counts = {}) {
   const selectedFormat = normalizeChannelVideoFormat(value)
   const alternateFormat = selectedFormat === CHANNEL_VIDEO_FORMATS.VIDEOS

@@ -173,9 +173,22 @@ async function expectRightArrowScrollsFromHiddenFirstSlot(shelf) {
     .toBeGreaterThan(0)
 }
 
-test('internal format selection is orientation-based, independent, and ephemeral', async ({ page }, testInfo) => {
+test('internal format selection persists per channel and emits channel-aware analytics', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   await seedFormatState(page)
+  await page.evaluate(() => {
+    window.__channelFormatAnalyticsEvents = []
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__channelFormatAnalyticsEvents.push({ eventName, properties })
+      },
+      get_distinct_id() {
+        return 'channel-format-regression'
+      },
+      setPersonProperties() {}
+    }
+  })
 
   const channelA = page.locator('.channel-shelf[data-channel-key="channel-a"]')
   const channelB = page.locator('.channel-shelf[data-channel-key="channel-b"]')
@@ -202,10 +215,6 @@ test('internal format selection is orientation-based, independent, and ephemeral
     '.video-card[data-video-id="a-vertical-long-duration"]'
   )).toBeHidden()
 
-  const storedBefore = await page.evaluate(
-    key => localStorage.getItem(key),
-    internalStorageKey
-  )
   await channelAShorts.focus()
   await channelAShorts.press('Space')
   await expect(channelAShorts).toBeFocused()
@@ -234,10 +243,55 @@ test('internal format selection is orientation-based, independent, and ephemeral
   await expect(channelC.locator('[data-channel-video-format-count-label]')).toHaveText('0 videos')
 
   const storedAfter = await page.evaluate(
-    key => localStorage.getItem(key),
+    key => JSON.parse(localStorage.getItem(key)).config.channelVideoFormats,
     internalStorageKey
   )
-  expect(storedAfter).toBe(storedBefore)
+  expect(storedAfter).toEqual({
+    'channel-a': 'shorts',
+    'channel-c': 'shorts'
+  })
+  expect(await page.evaluate(() => (
+    window.__channelFormatAnalyticsEvents
+      .filter(event => event.eventName === 'channel_video_format_viewed')
+  ))).toEqual([
+    {
+      eventName: 'channel_video_format_viewed',
+      properties: expect.objectContaining({
+        channel_id: 'channel-a',
+        channel_name: 'A deliberately long channel name for layout validation',
+        persistence_succeeded: true,
+        previous_format: 'videos',
+        selected_format: 'shorts',
+        surface: 'channel_shelf',
+        visible_video_count: 1
+      })
+    },
+    {
+      eventName: 'channel_video_format_viewed',
+      properties: expect.objectContaining({
+        channel_id: 'channel-c',
+        channel_name: 'Channel C',
+        persistence_succeeded: true,
+        previous_format: 'videos',
+        selected_format: 'shorts',
+        surface: 'channel_shelf',
+        visible_video_count: 0
+      })
+    }
+  ])
+
+  await page.reload()
+  await waitForApplication(page)
+  const reloadedChannelA = page.locator(
+    '.channel-shelf[data-channel-key="channel-a"]'
+  )
+  await expect(reloadedChannelA).toHaveAttribute(
+    'data-channel-selected-video-format',
+    'shorts'
+  )
+  await expect(reloadedChannelA.locator(
+    '.video-card[data-video-id="a-vertical-long-duration"]'
+  )).toBeVisible()
 })
 
 test('status filters show the available format without overwriting channel preferences', async ({ page }, testInfo) => {
