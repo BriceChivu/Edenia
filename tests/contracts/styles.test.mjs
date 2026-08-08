@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
-import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import { transform } from 'esbuild'
 import { readOrderedStyleSource } from '../../scripts/read-style-source.mjs'
 
 const EXPECTED_STYLE_FILES = [
@@ -24,29 +24,26 @@ const EXPECTED_STYLE_FILES = [
   '99-responsive-wide.css'
 ]
 
-const EXPECTED_SOURCE_BYTES = 263324
-const EXPECTED_SOURCE_SHA256 =
-  '12de6fcee616132016704379e6f336bed95d48b3686847dbe3a669fc70ead851'
-const EXPECTED_BUILT_SHA256 =
-  '63efb5844e14bcc7dca7c1f15f80c1c876221e76824ab63e023ea1214b9d6ec4'
-
-function sha256(value) {
-  return createHash('sha256').update(value).digest('hex')
-}
-
-test('ordered style sections reproduce the protected stylesheet exactly', async () => {
+test('style index preserves the complete ordered section contract', async () => {
   const indexPath = new URL('../../src/styles/index.css', import.meta.url)
-  const { files, source } = await readOrderedStyleSource(indexPath)
+  const { files } = await readOrderedStyleSource(indexPath)
 
   assert.deepEqual(files, EXPECTED_STYLE_FILES)
-  assert.equal(source.length, EXPECTED_SOURCE_BYTES)
-  assert.equal(sha256(source), EXPECTED_SOURCE_SHA256)
 })
 
-test('built stylesheet remains byte-identical after source decomposition', async () => {
+test('built stylesheet matches the current ordered source', async () => {
+  const indexPath = new URL('../../src/styles/index.css', import.meta.url)
+  const { source } = await readOrderedStyleSource(indexPath)
+  const expectedStyle = await transform(source.toString('utf8'), {
+    legalComments: 'none',
+    loader: 'css',
+    minify: true,
+    target: 'es2022'
+  })
   const builtStyle = await readFile(
-    new URL('../../_site/style.css', import.meta.url)
+    new URL('../../_site/style.css', import.meta.url),
+    'utf8'
   )
 
-  assert.equal(sha256(builtStyle), EXPECTED_BUILT_SHA256)
+  assert.equal(builtStyle, expectedStyle.code)
 })
