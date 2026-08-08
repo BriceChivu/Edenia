@@ -168,6 +168,9 @@ checking that ordinary visitors still receive the Set aside experience.
 Leave `channelVideoFormatToggleEnabled: false` when checking that ordinary
 visitors still receive the saved global Shorts preference instead of the
 per-channel Videos/Shorts controls.
+Leave `studyGuidanceEnabled: false` when checking the existing public Study
+Insight experience. The new goal-independent guidance is always available in
+the isolated `?internal_test=1` profile.
 
 `npm run dev` validates the ignored root `config.local.js`, builds `_site`,
 writes a normalized `_site/config.local.js` without printing the key, and

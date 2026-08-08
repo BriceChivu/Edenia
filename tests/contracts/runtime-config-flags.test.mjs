@@ -33,4 +33,8 @@ test('runtime release flags reject ambiguous deployment values', () => {
     ),
     /EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED must be true or false/
   )
+  assert.throws(
+    () => parseRuntimeConfigFlag('on', 'EDENIA_STUDY_GUIDANCE_ENABLED'),
+    /EDENIA_STUDY_GUIDANCE_ENABLED must be true or false/
+  )
 })

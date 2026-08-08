@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   deriveChannelVideoFormatToggleEnabled,
   deriveRuntimeEnvironment,
+  deriveStudyGuidanceEnabled,
   deriveVideoOrganizationEnabled
 } from '../../src/core/runtime-environment.js'
 import { deriveStorageKeys } from '../../src/core/storage-keys.js'
@@ -10,6 +11,7 @@ import {
   getChannelVideoFormatToggleEnabled,
   getFreePlusEnabled,
   getPlusCheckoutEnabled,
+  getStudyGuidanceEnabled,
   getVideoOrganizationEnabled,
   getSupabasePublishableKey,
   getSupabaseUrl,
@@ -149,6 +151,15 @@ test('channel video format toggle enables for internal tests or explicit release
   assert.equal(deriveChannelVideoFormatToggleEnabled(null), false)
 })
 
+test('study guidance enables only for internal tests or an explicit release', () => {
+  assert.equal(deriveStudyGuidanceEnabled({ isInternalTest: false }), false)
+  assert.equal(deriveStudyGuidanceEnabled({ isInternalTest: true }), true)
+  assert.equal(deriveStudyGuidanceEnabled({ isInternalTest: false }, true), true)
+  assert.equal(deriveStudyGuidanceEnabled({ isInternalTest: false }, 'true'), false)
+  assert.equal(deriveStudyGuidanceEnabled(null, true), true)
+  assert.equal(deriveStudyGuidanceEnabled(null), false)
+})
+
 test('runtime config remains late-bound and preserves coercion and errors', () => {
   const target = {}
   assert.deepEqual(publicConfig(target), {})
@@ -158,6 +169,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getPlusCheckoutEnabled(target), false)
   assert.equal(getVideoOrganizationEnabled(target), false)
   assert.equal(getChannelVideoFormatToggleEnabled(target), false)
+  assert.equal(getStudyGuidanceEnabled(target), false)
   assert.equal(getSupabaseUrl(target), '')
   assert.equal(getSupabasePublishableKey(target), '')
   assert.equal(hasSupabaseRuntimeConfig(target), false)
@@ -168,6 +180,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     plusCheckoutEnabled: true,
     videoOrganizationEnabled: true,
     channelVideoFormatToggleEnabled: true,
+    studyGuidanceEnabled: true,
     supabaseUrl: '  https://project.supabase.co  ',
     supabasePublishableKey: '  sb_publishable_test  '
   }
@@ -177,6 +190,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getPlusCheckoutEnabled(target), true)
   assert.equal(getVideoOrganizationEnabled(target), true)
   assert.equal(getChannelVideoFormatToggleEnabled(target), true)
+  assert.equal(getStudyGuidanceEnabled(target), true)
   assert.equal(getSupabaseUrl(target), 'https://project.supabase.co')
   assert.equal(getSupabasePublishableKey(target), 'sb_publishable_test')
   assert.equal(hasSupabaseRuntimeConfig(target), true)
@@ -185,12 +199,14 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     freePlusEnabled: 'true',
     plusCheckoutEnabled: 1,
     videoOrganizationEnabled: 'true',
-    channelVideoFormatToggleEnabled: 'true'
+    channelVideoFormatToggleEnabled: 'true',
+    studyGuidanceEnabled: 'true'
   }
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
   assert.equal(getVideoOrganizationEnabled(target), false)
   assert.equal(getChannelVideoFormatToggleEnabled(target), false)
+  assert.equal(getStudyGuidanceEnabled(target), false)
 
   target.EDENIA_CONFIG = { supabaseUrl: 'https://project.supabase.co' }
   assert.equal(hasSupabaseRuntimeConfig(target), false)
