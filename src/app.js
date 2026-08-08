@@ -273,6 +273,11 @@ import {
   bindChannelShelfScrollActions
 } from './features/channels/shelf-scroll-actions.js'
 import {
+  isSupportedChannelSearchQuery,
+  normalizeChannelSearchText,
+  tokenMatchesChannelSearch
+} from './features/channels/search-model.js'
+import {
   bindChannelVideoFormatActions,
   CHANNEL_VIDEO_FORMATS,
   getAvailableChannelVideoFormat,
@@ -993,7 +998,10 @@ async function loadDynamicChannelCatalogs() {
 
     const input = document.getElementById('manualVideoUrlInput')
     const popover = document.getElementById('manualVideoPopover')
-    if (input?.value.trim().length >= 2 && !popover?.classList.contains('hidden')) {
+    if (
+      isSupportedChannelSearchQuery(input?.value)
+      && !popover?.classList.contains('hidden')
+    ) {
       renderManualChannelSuggestions()
     }
   } catch {
@@ -7924,13 +7932,7 @@ async function addVideoFromUrl(event) {
 }
 
 function normalizeCuratedChannelSearchText(value) {
-  return String(value || '')
-    .normalize('NFKD')
-    .replace(/\p{Mark}+/gu, '')
-    .toLocaleLowerCase()
-    .replace(/[^\p{Letter}\p{Number}]+/gu, ' ')
-    .trim()
-    .replace(/\s+/g, ' ')
+  return normalizeChannelSearchText(value)
 }
 
 function getCuratedChannelSearchTokens(value) {
@@ -7941,16 +7943,12 @@ function getCuratedChannelSearchTokens(value) {
 }
 
 function tokenMatchesCuratedChannel(token, candidateTokens) {
-  return candidateTokens.some(candidateToken => (
-    candidateToken === token
-    || (token.length >= 2 && candidateToken.startsWith(token))
-    || (candidateToken.length >= 2 && token.startsWith(candidateToken))
-  ))
+  return tokenMatchesChannelSearch(token, candidateTokens)
 }
 
 function getCuratedChannelSearchMatches(value, limit = 6) {
   const normalizedQuery = normalizeCuratedChannelSearchText(value)
-  if (normalizedQuery.length < 2) return []
+  if (!isSupportedChannelSearchQuery(normalizedQuery)) return []
 
   const queryTokens = getCuratedChannelSearchTokens(normalizedQuery)
   if (!queryTokens.length) return []
@@ -8083,7 +8081,7 @@ function renderManualChannelSuggestions() {
     || YOUTUBE_CHANNEL_ID_RE.test(value)
     || /(?:youtube\.com|youtu\.be)/i.test(value)
   )
-  if (value.length < 2 || isYoutubeResource) {
+  if (!isSupportedChannelSearchQuery(value) || isYoutubeResource) {
     closeManualChannelSuggestions()
     searchAnalyticsState.lastChannelCatalogOutcomeKey = null
     return
