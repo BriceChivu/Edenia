@@ -36,6 +36,7 @@ async function seedGuidanceState(page, { internalTest }) {
     state.onboarding.setupCompletedAt = completedAt
     state.onboarding.walkthroughCompleted = true
     state.onboarding.walkthroughCompletedAt = completedAt
+    state.onboarding.levelUpGuidanceShownAt = completedAt
     state.config.studyInsights.history = [{
       key: 'saved-insight',
       insightId: 'saved-insight',
@@ -131,9 +132,16 @@ test('Internal study guidance is simple, actionable, and not archived', async ({
     '2 of the last 3 full weeks'
   )
   await expect(page.locator('#studyInsightHistoryCount')).toHaveText('1')
-  await expect.poll(() => page.evaluate(key => (
-    JSON.parse(localStorage.getItem(key)).config.studyInsights.history.length
-  ), storageKey)).toBe(1)
+  await expect.poll(() => page.evaluate(key => {
+    const state = JSON.parse(localStorage.getItem(key))
+    return {
+      historyCount: state.config.studyInsights.history.length,
+      levelUpGuidanceShownAt: state.onboarding.levelUpGuidanceShownAt
+    }
+  }, storageKey)).toEqual({
+    historyCount: 1,
+    levelUpGuidanceShownAt: '2026-07-01T04:00:00.000Z'
+  })
 
   const guidanceAction = page.locator('#studyGuidanceNextAction')
   await expect(guidanceAction).toBeVisible()
