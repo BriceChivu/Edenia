@@ -155,6 +155,31 @@
       "searchText": "french with felix frenchwithfelix"
     },
     {
+      "catalogId": "community-UCHDRdEU6aVuHfbv6VO_V-6w",
+      "channelId": "UCHDRdEU6aVuHfbv6VO_V-6w",
+      "handle": "@ggsgamerchinese",
+      "name": "ggsgamerchinese",
+      "thumbnailUrl": "https://yt3.ggpht.com/TxCo6HeZhSgtMpnPfgYk-vNm6CVGcjHG8zLS0DVO5LN6GtluIrNHtyD1NcKPomEBgwbFow1r=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-12-31T14:35:52.562769Z",
+      "metadataRefreshedAt": "2026-08-08T03:57:51.890Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-08-07T06:28:23.442Z",
+      "lastSeenAt": "2026-08-07T06:28:23.442Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "ggsgamerchinese ggsgamerchinese"
+    },
+    {
       "catalogId": "community-UCQJ25mE1rDKPa1ZDmC1bv_w",
       "channelId": "UCQJ25mE1rDKPa1ZDmC1bv_w",
       "handle": "@jakelyonsgeo",
@@ -230,6 +255,31 @@
       ],
       "reviewReasons": [],
       "searchText": "ku s dream酷的夢 kusdream"
+    },
+    {
+      "catalogId": "community-UCnTenDg0nW6v9oqgcxoGO2g",
+      "channelId": "UCnTenDg0nW6v9oqgcxoGO2g",
+      "handle": "@learnwithca205",
+      "name": "LearnWithCa",
+      "thumbnailUrl": "https://yt3.ggpht.com/frR98U_V2jAJpvdktz5QZm-0WPhRCf5gVI5FNmf-Akhy0wWeoB1dbZoQYoPIn1oTXN0b6ehYfg=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-03-22T05:27:42.895763Z",
+      "metadataRefreshedAt": "2026-08-08T03:57:51.890Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-08-07T18:05:14.737Z",
+      "lastSeenAt": "2026-08-07T18:05:14.737Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "learnwithca learnwithca205"
     },
     {
       "catalogId": "community-UCIYAzXc6_EkPU6I9qmNSD0g",
@@ -459,5 +509,5 @@
       "searchText": "雷堤娜 tyna krysjensen86"
     }
   ],
-  "generatedAt": "2026-08-07T04:44:07.913Z"
+  "generatedAt": "2026-08-08T03:57:51.890Z"
 }
