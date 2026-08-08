@@ -554,6 +554,7 @@ const addedVideoSpotlightState = {
   frame: null,
   timer: null
 }
+let pendingSettledVideoCardHighlight = null
 let nextStudyFocusZoomTimer = null
 let activeNextStudyFocusVideoId = null
 const VIDEO_SHELF_PLAYER_SAVE_INTERVAL_MS = 5000
@@ -9927,22 +9928,95 @@ function isVideoCardFullyVisibleInViewport(card) {
     && rect.bottom <= viewportHeight + edgeTolerance
 }
 
-function scrollVideoCardIntoView(card) {
+function scrollVideoCardIntoView(card, behavior = 'smooth') {
   const slot = card.closest('.channel-shelf-slot')
   const track = card.closest('.channel-shelf-track')
   const shelf = card.closest('.channel-shelf')
   if (!slot || !track || !shelf) {
-    card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+    card.scrollIntoView({ behavior, block: 'center', inline: 'center' })
     return
   }
 
-  shelf.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  shelf.scrollIntoView({ behavior, block: 'center' })
   if (isVideoShelfCardFullyVisible(card)) return
   const centeredLeft = slot.offsetLeft - ((track.clientWidth - slot.offsetWidth) / 2)
   track.scrollTo({
-    behavior: 'smooth',
+    behavior,
     left: Math.max(0, centeredLeft)
   })
+}
+
+function cancelPendingSettledVideoCardHighlight() {
+  const pending = pendingSettledVideoCardHighlight
+  if (!pending) return
+  if (pending.frame) window.cancelAnimationFrame(pending.frame)
+  pendingSettledVideoCardHighlight = null
+}
+
+function startVideoCardHighlight(card, options = {}, duration = 1900) {
+  if (!card?.isConnected) return
+  if (options.highlightTarget === 'spotlight') {
+    showAddedVideoSpotlight(card, duration)
+    return
+  }
+  const className = options.className || 'flash-target'
+  const highlightTarget = options.highlightTarget === 'slot'
+    ? card.closest('.channel-shelf-slot') || card
+    : card
+  highlightTarget.classList.remove(className)
+  void highlightTarget.offsetWidth
+  highlightTarget.classList.add(className)
+  window.setTimeout(() => highlightTarget.classList.remove(className), duration)
+}
+
+function highlightVideoCardWhenScrollSettles(card, options, duration, initialRect) {
+  const movementTolerance = 0.75
+  const requiredStableFrames = 3
+  const maximumWait = 2000
+  const startedAt = performance.now()
+  let previousLeft = initialRect.left
+  let previousTop = initialRect.top
+  let movementStarted = false
+  let stableFrames = 0
+  const pending = { frame: null }
+  pendingSettledVideoCardHighlight = pending
+
+  const finish = () => {
+    if (pendingSettledVideoCardHighlight !== pending) return
+    pendingSettledVideoCardHighlight = null
+    startVideoCardHighlight(card, options, duration)
+  }
+
+  const checkPosition = now => {
+    if (pendingSettledVideoCardHighlight !== pending) return
+    if (!card.isConnected) {
+      pendingSettledVideoCardHighlight = null
+      return
+    }
+
+    const rect = card.getBoundingClientRect()
+    const movement = Math.hypot(
+      rect.left - previousLeft,
+      rect.top - previousTop
+    )
+    if (movement > movementTolerance) movementStarted = true
+    stableFrames = movementStarted && movement <= movementTolerance
+      ? stableFrames + 1
+      : 0
+    previousLeft = rect.left
+    previousTop = rect.top
+
+    if (
+      (stableFrames >= requiredStableFrames && isVideoCardFullyVisibleInViewport(card))
+      || now - startedAt >= maximumWait
+    ) {
+      finish()
+      return
+    }
+    pending.frame = window.requestAnimationFrame(checkPosition)
+  }
+
+  pending.frame = window.requestAnimationFrame(checkPosition)
 }
 
 function removeAddedVideoSpotlight() {
@@ -9990,20 +10064,22 @@ function showAddedVideoSpotlight(card, duration = 1800) {
 }
 
 function flashVideoCard(card, options = {}) {
-  const className = options.className || 'flash-target'
   const duration = Math.max(0, Number(options.duration) || 1900)
-  scrollVideoCardIntoView(card)
-  if (options.highlightTarget === 'spotlight') {
-    showAddedVideoSpotlight(card, duration)
+  cancelPendingSettledVideoCardHighlight()
+  const initiallyVisible = isVideoCardFullyVisibleInViewport(card)
+  const initialRect = card.getBoundingClientRect()
+  const reduceMotion = options.highlightWhenScrollSettles
+    && prefersReducedMotion()
+  scrollVideoCardIntoView(card, reduceMotion ? 'auto' : 'smooth')
+  if (
+    options.highlightWhenScrollSettles
+    && !initiallyVisible
+    && !reduceMotion
+  ) {
+    highlightVideoCardWhenScrollSettles(card, options, duration, initialRect)
     return
   }
-  const highlightTarget = options.highlightTarget === 'slot'
-    ? card.closest('.channel-shelf-slot') || card
-    : card
-  highlightTarget.classList.remove(className)
-  void highlightTarget.offsetWidth
-  highlightTarget.classList.add(className)
-  window.setTimeout(() => highlightTarget.classList.remove(className), duration)
+  startVideoCardHighlight(card, options, duration)
 }
 
 function toggleVideoSearchPopover(event) {
@@ -10150,12 +10226,34 @@ function jumpToVideoFromSearch(videoId) {
   }))
 
   closeVideoSearchPopover()
-  if (VIDEO_ORGANIZATION_ENABLED && isVideoRemovedFromFeed(video)) {
+  const isRemovedTarget = VIDEO_ORGANIZATION_ENABLED
+    && isVideoRemovedFromFeed(video)
+  const shouldRevealInWatchedSection = !usesPhoneComposition()
+    && !isRemovedTarget
+    && getVideoStatus(video) === 'watched'
+    && !isFavoriteVideo(video)
+  if (isRemovedTarget) {
     selectedStatusFilter = 'all'
     isRemovedSectionCollapsed = false
   }
+  if (shouldRevealInWatchedSection) {
+    if (selectedStatusFilter === 'favorite') selectedStatusFilter = 'all'
+    isWatchedSectionCollapsed = false
+  }
   forcedSearchVideoId = targetId
   renderFeed(state)
+  if (shouldRevealInWatchedSection) {
+    window.requestAnimationFrame(() => {
+      const found = scrollToVideoCard(targetId, '#watchedGrid .video-card', {
+        className: 'video-search-arriving',
+        duration: 2200,
+        highlightWhenScrollSettles: true
+      })
+      forcedSearchVideoId = null
+      if (!found) showToast(t('toast.couldNotShowVideo'), 'warn')
+    })
+    return
+  }
   window.setTimeout(() => {
     const found = scrollToVideoCard(targetId)
     forcedSearchVideoId = null

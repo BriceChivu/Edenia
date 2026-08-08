@@ -1071,7 +1071,8 @@ body[data-theme="dark"] .video-card.status-watch-later { background: var(--surfa
   animation: watchedCardConfirm 700ms var(--ease-emphasized);
   opacity: 1;
 }
-.watched-grid .video-card.history-video-arriving {
+.watched-grid .video-card.history-video-arriving,
+.watched-grid .video-card.video-search-arriving {
   animation: historyVideoArrival 2200ms var(--ease-emphasized);
   border-color: var(--green);
   box-shadow: 0 0 0 5px rgba(139,189,40,0.42), 0 8px 18px rgba(5,5,5,0.24);
