@@ -451,6 +451,18 @@
     max-width: calc(100vw - 28px);
     white-space: normal;
   }
+  .toast.has-action {
+    width: max-content;
+  }
+  .toast.has-action > span {
+    min-width: 0;
+  }
+  .toast.has-action .toast-action {
+    flex: 0 0 auto;
+    overflow-wrap: normal;
+    white-space: nowrap;
+    word-break: keep-all;
+  }
   .feedback-confirmation {
     align-items: stretch;
     flex-direction: column;

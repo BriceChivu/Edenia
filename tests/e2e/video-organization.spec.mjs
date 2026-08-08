@@ -269,6 +269,51 @@ test('More menu aligns to its card and keeps option geometry uniform', async ({ 
   }
 })
 
+test('phone remove-from-progress toast stays on one line when it fits and never splits Undo', async ({
+  page
+}, testInfo) => {
+  test.skip(!['phone-standard', 'phone-small'].includes(testInfo.project.name))
+  await seedVideoOrganizationState(page)
+
+  const card = page.locator(
+    '#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]'
+  )
+  await card.scrollIntoViewIfNeeded()
+  await card.locator('[data-video-organization-action="menu"]').click()
+  await page.locator(
+    '#videoActionsPopover [data-video-organization-action="remove-continue"]'
+  ).click()
+
+  const toast = page.locator('#toast')
+  await expect(toast).toHaveClass(/\bhas-action\b/)
+  await expect(toast.locator('span')).toHaveText('Removed from in progress')
+  await expect(toast.locator('.toast-action')).toHaveText('Undo')
+  const layout = await toast.evaluate(element => {
+    const messageRect = element.querySelector('span').getBoundingClientRect()
+    const action = element.querySelector('.toast-action')
+    const actionRect = action.getBoundingClientRect()
+    const actionStyle = getComputedStyle(action)
+    const rect = element.getBoundingClientRect()
+    return {
+      actionFlexShrink: actionStyle.flexShrink,
+      actionWhiteSpace: actionStyle.whiteSpace,
+      actionWordBreak: actionStyle.wordBreak,
+      fitsViewport: rect.left >= 0 && rect.right <= window.innerWidth,
+      sameLine: Math.abs(
+        (messageRect.top + messageRect.height / 2)
+        - (actionRect.top + actionRect.height / 2)
+      ) <= 1
+    }
+  })
+  expect(layout).toEqual({
+    actionFlexShrink: '0',
+    actionWhiteSpace: 'nowrap',
+    actionWordBreak: 'keep-all',
+    fitsViewport: true,
+    sameLine: true
+  })
+})
+
 test('Watched Favorite reveals and highlights the active rewatch card', async ({ page }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
   await seedVideoOrganizationState(page)
