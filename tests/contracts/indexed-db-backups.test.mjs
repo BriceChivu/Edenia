@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 import {
   mergeStateBackupEntries,
@@ -30,6 +31,20 @@ function isValidEntry(entry) {
     && entry?.state?.anki
   )
 }
+
+test('CI installs every browser used by the storage migration suite', async () => {
+  const projectRoot = new URL('../../', import.meta.url)
+  const [playwrightConfig, workflow] = await Promise.all([
+    readFile(new URL('playwright.config.mjs', projectRoot), 'utf8'),
+    readFile(new URL('.github/workflows/ci.yml', projectRoot), 'utf8')
+  ])
+
+  assert.match(playwrightConfig, /name: 'webkit-storage'/)
+  assert.match(
+    workflow,
+    /npx playwright install --with-deps chromium webkit/
+  )
+})
 
 test('legacy parsing distinguishes absence from malformed or duplicate data', () => {
   assert.deepEqual(parseLegacyStateBackupEntries(null, isValidEntry), {
