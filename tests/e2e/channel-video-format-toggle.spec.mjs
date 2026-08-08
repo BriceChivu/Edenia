@@ -583,7 +583,6 @@ test('vertical cards resize without changing the channel shelf footprint', async
               - thumbnailRect.bottom,
             bottomInset: Number.parseFloat(thumbnailStyle.bottom),
             cardHeight: cardRect.height,
-            stillClosing: card.classList.contains('is-preview-closing'),
             timedOut: false,
             transitionDuration: thumbnailStyle.transitionDuration
           })
@@ -639,8 +638,9 @@ test('vertical cards resize without changing the channel shelf footprint', async
     const thumbnailSettled = await shortsCard.evaluate(card => (
       card.shortsClosingThumbnailSettled
     ))
+    // The card width and thumbnail bottom transitions end together, so browsers
+    // may remove the closing class before delivering this transitionend event.
     expect(thumbnailSettled.timedOut).toBe(false)
-    expect(thumbnailSettled.stillClosing).toBe(true)
     expect(thumbnailSettled.transitionDuration).toBe('0.155s')
     expect(thumbnailSettled.bottomInset).toBeCloseTo(0, 2)
     expect(thumbnailSettled.bottomGap).toBeCloseTo(0, 0)
