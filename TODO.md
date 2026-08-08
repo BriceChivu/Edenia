@@ -1,27 +1,15 @@
 # CHANGES:
 
 ## BUGS:
-- on desktop, searching and then clicking on a seen video while the watched section is closed, doesn't guide and focus on the video. Only when the watched section is open the guiding and highlighting work, but since there is scrolling performed, we don't have time to see the highlighting, it's already gone. We should have the highlighting starting when the scrolling is about to stop.
 - for shorts on desktop: "hace 15 meses" to "hace 15 m" "il y a 1 semaine" to "il y a 1 sem"  Review all other languages and other elements.
-- onboarding process: starting your journey... is very very long. Why?
 - on mobiles: internal_test=1 is very slow, especially when setting a video as watch later or favorite
 - on mobiles, in progress, watch later, favorite labels are at the same position as "new" label.
 - on mobiles: "removed from in progress UNDO" should take 1 line if possible. The word "UNDO" should never be broken down in several lines.
 
 ## Usability:
-- moving the mouse around while watching a video in the iframe makes the Youtube iframe buttons pop out. I don't like the obstructing pause button in the middle.
-- rewrite the Connect to Anki step 2: In Add-ons, click AnkiConnect, then Config. Copy [,"https://bricechivu.github.io"]{make it as a code block} and paste it inside the webCorsOriginList bracket list. For example, you can paste it after "http://localhost"{make it as a code block}. 
-In the end, it should look similar to: {
-    "apiKey": null,
-    "apiLogPath": null,
-    "ignoreOriginList": [],
-    "webBindAddress": "127.0.0.1",
-    "webBindPort": 8765,
-    "webCorsOriginList": [
-        "http://localhost","https://bricechivu.github.io"
-    ]
-}
-{make it as a code block}
+- keep the last view of Videos/Shorts persisting accross sessions. And also each channel view should be recorded in PostHog.
+- the Add channel search should also look for partial matches in chinese, japanese, korean, ... characters
+- moving the mouse around while watching a video in the iframe makes the Youtube iframe buttons appear. I don't like the obstructing pause button in the middle.
 - on mobiles, set the max zoom in to twice bigger as the current max
 - add more supported languages
 - add more suggested languages to learn    
@@ -32,9 +20,8 @@ In the end, it should look similar to: {
 - Give users suggestions of other users tracked channels
 - being able to add playlist instead of channels
 - have a Discover page, where videos or playlist are suggested and then there is a prompt to add the channel in the feed
-- have some kind of notes taking functionality (looking like Keep)
+- have some kind of notes taking functionality (looking like Keep) (tldraw?)
 - Trailer + onboarding: make it "what are you learning?", then one of them would be "learning a language"
-- Photoshop: add the duck on the island. sometimes shifting to different locations (like on the deck, in the water floating, or in front of the door of the house)
 - Build Android app
 - Next to Heatmap: dashboard, with detailed views, etc. (Plus or premium version)
 - let the user choose what to upgrade after a level
