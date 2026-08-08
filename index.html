@@ -363,12 +363,24 @@ and momentum—at a glance</h2>
         <ol class="settings-anki-steps">
           <li data-i18n="settings.anki.step1">Open Anki. In Tools, click Add-ons, then Get Add-ons, then paste this code: 2055492159.</li>
           <li>
-            <span data-i18n="settings.anki.step2">In Add-ons, click AnkiConnect, then Config. Make sure the text after "...," is at the end of the config.</span>
-            <div class="settings-code-block" aria-label="AnkiConnect webCorsOriginList">
+            <span data-i18n="settings.anki.step2">In Add-ons, click AnkiConnect, then Config. Copy:</span>
+            <div class="settings-code-block" aria-label="AnkiConnect origin to copy" data-i18n-aria-label="settings.anki.step2InsertCodeLabel" data-anki-config-insert>
+              <code>,"https://bricechivu.github.io"</code>
+            </div>
+            <span data-i18n="settings.anki.step2Paste">and paste it inside the webCorsOriginList bracket list. For example, you can paste it after:</span>
+            <div class="settings-code-block" aria-label="AnkiConnect localhost origin" data-i18n-aria-label="settings.anki.step2ExistingCodeLabel" data-anki-config-existing-origin>
+              <code>"http://localhost"</code>
+            </div>
+            <span data-i18n="settings.anki.step2Result">In the end, it should look similar to:</span>
+            <div class="settings-code-block" aria-label="AnkiConnect configuration example" data-i18n-aria-label="settings.anki.step2ExampleCodeLabel" data-anki-config-example>
               <code>{</code>
-              <code>    ...,</code>
+              <code>    "apiKey": null,</code>
+              <code>    "apiLogPath": null,</code>
+              <code>    "ignoreOriginList": [],</code>
+              <code>    "webBindAddress": "127.0.0.1",</code>
+              <code>    "webBindPort": 8765,</code>
               <code>    "webCorsOriginList": [</code>
-              <code>        "https://bricechivu.github.io"</code>
+              <code>        "http://localhost","https://bricechivu.github.io"</code>
               <code>    ]</code>
               <code>}</code>
             </div>
