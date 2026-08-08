@@ -636,6 +636,7 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
 .settings-howto-section {
   display: grid;
   gap: 7px;
+  min-width: 0;
 }
 .settings-howto-section + .settings-howto-section {
   border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
@@ -679,6 +680,10 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
 .settings-workflow-list li::marker {
   color: var(--muted);
   font-weight: 700;
+}
+.settings-anki-steps,
+.settings-anki-steps > li {
+  min-width: 0;
 }
 .settings-scoring-subtitle {
   color: var(--text);

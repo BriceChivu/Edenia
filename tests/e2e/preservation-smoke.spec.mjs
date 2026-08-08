@@ -3414,6 +3414,48 @@ test('Settings accordion listeners preserve mouse, keyboard, reset, and ordering
   })
 })
 
+test('Anki setup code stays inside Settings and keeps long-line overflow local', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  await page.locator('.gear-btn').click()
+  await page.locator('.settings-howto-toggle').click()
+  await expect(page.locator('#settingsAnkiHowToTarget')).toBeVisible()
+
+  const getGeometry = () => page.evaluate(() => {
+    const accordion = document.querySelector('.settings-howto-group')
+    const content = document.getElementById('settingsHowToContent')
+    const section = document.getElementById('settingsAnkiHowToTarget')
+    const codeBlock = document.querySelector('[data-anki-config-example]')
+    return {
+      accordionClientWidth: accordion.clientWidth,
+      accordionScrollWidth: accordion.scrollWidth,
+      codeClientWidth: codeBlock.clientWidth,
+      codeScrollWidth: codeBlock.scrollWidth,
+      contentRight: content.getBoundingClientRect().right,
+      sectionRight: section.getBoundingClientRect().right
+    }
+  })
+
+  const initialGeometry = await getGeometry()
+  expect(initialGeometry.sectionRight)
+    .toBeLessThanOrEqual(initialGeometry.contentRight)
+  expect(initialGeometry.accordionScrollWidth)
+    .toBe(initialGeometry.accordionClientWidth)
+
+  await page.locator('[data-anki-config-example] code').last().evaluate(code => {
+    code.textContent = 'x'.repeat(160)
+  })
+
+  const stressedGeometry = await getGeometry()
+  expect(stressedGeometry.codeScrollWidth)
+    .toBeGreaterThan(stressedGeometry.codeClientWidth)
+  expect(stressedGeometry.accordionScrollWidth)
+    .toBe(stressedGeometry.accordionClientWidth)
+})
+
 test('Settings reset-confirm listeners preserve visibility, keyboard, storage, and ordering', async ({
   page
 }, testInfo) => {
