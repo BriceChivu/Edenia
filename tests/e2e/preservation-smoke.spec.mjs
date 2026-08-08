@@ -4848,6 +4848,7 @@ test('phone city image defaults to 75% zoom and pans without exposing background
   const wrap = page.locator('.city-image-wrap')
   const image = page.locator('#cityMilestoneImage')
   const reset = page.locator('[data-city-zoom-action="reset"]')
+  const zoomIn = page.locator('[data-city-zoom-action="in"]')
   await wrap.scrollIntoViewIfNeeded()
   await expect(wrap).toHaveCSS('touch-action', 'none')
   await expect(wrap).toHaveClass(/\bis-zoomed\b/)
@@ -4938,6 +4939,15 @@ test('phone city image defaults to 75% zoom and pans without exposing background
     coversLeft: true,
     zoomed: true
   })
+
+  for (let index = 0; index < 12; index += 1) {
+    await zoomIn.dispatchEvent('click')
+  }
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toContain('scale(4)')
+  await zoomIn.dispatchEvent('click')
+  await expect.poll(() => image.evaluate(element => element.style.transform))
+    .toContain('scale(4)')
 
   await reset.dispatchEvent('click')
   await expect.poll(() => image.evaluate(element => element.style.transform))

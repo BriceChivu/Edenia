@@ -135,3 +135,18 @@ test('ArrowDown and Enter still select an explicit catalog suggestion', async ({
     searchSource: 'channel_catalog'
   }])
 })
+
+test('catalog suggestions match partial Chinese text inside a channel name', async ({
+  page
+}, testInfo) => {
+  test.skip(!keyboardProjects.has(testInfo.project.name))
+  await seedCompletedState(page)
+
+  const input = await openChannelEntry(page)
+  await input.fill('叔中')
+  const suggestion = page.locator(
+    '#manualChannelSuggestions .manual-channel-suggestion',
+    { hasText: 'Dashu Mandarin 大叔中文' }
+  )
+  await expect(suggestion).toBeVisible()
+})

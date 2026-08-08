@@ -5,6 +5,9 @@ import {
   CHANNEL_VIDEO_FORMATS,
   getAvailableChannelVideoFormat,
   getChannelVideoFormat,
+  getChannelVideoFormatPreference,
+  normalizeChannelVideoFormatPreferences,
+  setChannelVideoFormatPreference,
   normalizeChannelVideoFormat
 } from '../../src/features/channels/video-format-actions.js'
 
@@ -77,6 +80,28 @@ test('format selection falls back only when the other format has videos', () => 
     videos: 0,
     shorts: 1
   }), 'shorts')
+})
+
+test('format preferences normalize persisted channel choices without retaining invalid data', () => {
+  assert.deepEqual(normalizeChannelVideoFormatPreferences({
+    ' channel-a ': 'shorts',
+    'channel-b': 'videos',
+    'channel-c': 'all',
+    '': 'shorts'
+  }), {
+    'channel-a': 'shorts',
+    'channel-b': 'videos'
+  })
+  assert.deepEqual(normalizeChannelVideoFormatPreferences(null), {})
+  assert.deepEqual(normalizeChannelVideoFormatPreferences([]), {})
+  assert.equal(getChannelVideoFormatPreference({ 'channel-a': 'shorts' }, 'channel-a'), 'shorts')
+  assert.equal(getChannelVideoFormatPreference({}, 'channel-a'), 'videos')
+
+  const state = { config: {} }
+  assert.equal(setChannelVideoFormatPreference(state, ' channel-a ', 'shorts'), true)
+  assert.deepEqual(state.config.channelVideoFormats, { 'channel-a': 'shorts' })
+  assert.equal(setChannelVideoFormatPreference(state, '', 'videos'), false)
+  assert.equal(setChannelVideoFormatPreference(null, 'channel-a', 'videos'), false)
 })
 
 test('format action binding forwards channel and format without consuming clicks', () => {

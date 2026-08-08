@@ -182,15 +182,17 @@ test('mobile Shorts cards use gated portrait geometry and the measured Add width
   )
 })
 
-test('format changes stay shelf-local and do not persist application state', () => {
+test('format changes stay shelf-local while persisting the explicit channel preference', () => {
   const applyStart = appSource.indexOf('function applyChannelVideoFormatSelection')
   const selectEnd = appSource.indexOf('function renderChannelVideoGroups', applyStart)
   assert.notEqual(applyStart, -1)
   assert.notEqual(selectEnd, -1)
   const actionSource = appSource.slice(applyStart, selectEnd)
 
-  assert.match(actionSource, /selectedChannelVideoFormats\.set\(channelKey, selectedFormat\)/)
+  assert.match(actionSource, /setChannelVideoFormatPreference\(\s*state,\s*channelKey,\s*selectedFormat/)
+  assert.match(actionSource, /saveState\(state, \{ backup: false, syncAnalytics: false \}\)/)
   assert.match(actionSource, /slot\.hidden = !isVisible/)
   assert.match(actionSource, /track\.scrollLeft = 0/)
-  assert.doesNotMatch(actionSource, /saveState|localStorage|fetchVideo|refreshFeed/)
+  assert.match(actionSource, /trackEdeniaEvent\('channel_video_format_viewed', \{/)
+  assert.doesNotMatch(actionSource, /fetchVideo|refreshFeed/)
 })

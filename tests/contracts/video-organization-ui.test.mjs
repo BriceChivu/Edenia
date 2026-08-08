@@ -6,6 +6,7 @@ const appSource = fs.readFileSync(new URL('../../src/app.js', import.meta.url), 
 const indexSource = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
 const feedStyles = fs.readFileSync(new URL('../../src/styles/70-video-feed.css', import.meta.url), 'utf8')
 const phoneStyles = fs.readFileSync(new URL('../../src/styles/98-responsive-phone.css', import.meta.url), 'utf8')
+const pageFlowStyles = fs.readFileSync(new URL('../../src/styles/96-responsive-page-flows.css', import.meta.url), 'utf8')
 
 test('video cards switch between staged More actions and legacy Set aside controls', () => {
   assert.match(appSource, /data-video-organization-action="menu"/)
@@ -67,6 +68,21 @@ test('menu options share one geometry while the list owns the divider', () => {
   assert.match(feedStyles, /\.video-actions-list\.has-divider::before \{[^}]*z-index: 1/)
   assert.match(feedStyles, /\.video-actions-item \{[^}]*border-radius: 0/)
   assert.doesNotMatch(feedStyles, /\.video-actions-item\.is-separated/)
+})
+
+test('phone action toasts prefer one line without splitting the Undo label', () => {
+  assert.match(
+    pageFlowStyles,
+    /@media \(max-width: 640px\)[\s\S]*?\.toast\.has-action \{\s*width: max-content;\s*\}/
+  )
+  assert.match(
+    pageFlowStyles,
+    /\.toast\.has-action > span \{\s*min-width: 0;\s*\}/
+  )
+  assert.match(
+    pageFlowStyles,
+    /\.toast\.has-action \.toast-action \{\s*flex: 0 0 auto;\s*overflow-wrap: normal;\s*white-space: nowrap;\s*word-break: keep-all;\s*\}/
+  )
 })
 
 test('organization changes preserve exact snapshots for Undo', () => {
