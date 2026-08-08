@@ -786,6 +786,8 @@ export const ZH_HANS_LOCALIZED = {
   'toast.syncImported': '同步文件已导入',
   'toast.readSyncFailed': '无法读取同步文件',
   'toast.backupUnavailable': '找不到这个备份',
+  'toast.backupCreateFailed': '无法创建并验证回滚备份。你当前的进度没有更改。',
+  'toast.progressSaveFailed': '无法保存这项更改。你当前的进度没有更改。',
   'toast.backupRestored': '备份已恢复',
   'toast.channelDuplicate': '这个频道已经添加',
   'toast.channelAdded': '已添加 {name}',

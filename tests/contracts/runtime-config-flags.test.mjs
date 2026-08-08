@@ -37,4 +37,15 @@ test('runtime release flags reject ambiguous deployment values', () => {
     () => parseRuntimeConfigFlag('on', 'EDENIA_STUDY_GUIDANCE_ENABLED'),
     /EDENIA_STUDY_GUIDANCE_ENABLED must be true or false/
   )
+  assert.throws(
+    () => parseRuntimeConfigFlag('1', 'EDENIA_INDEXED_DB_BACKUPS_ENABLED'),
+    /EDENIA_INDEXED_DB_BACKUPS_ENABLED must be true or false/
+  )
+  assert.throws(
+    () => parseRuntimeConfigFlag(
+      'yes',
+      'EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED'
+    ),
+    /EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED must be true or false/
+  )
 })

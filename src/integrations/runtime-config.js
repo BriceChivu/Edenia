@@ -30,6 +30,14 @@ export function getStudyGuidanceEnabled(target = window) {
   return publicConfig(target).studyGuidanceEnabled === true
 }
 
+export function getIndexedDbBackupsEnabled(target = window) {
+  return publicConfig(target).indexedDbBackupsEnabled === true
+}
+
+export function getIndexedDbBackupCleanupEnabled(target = window) {
+  return publicConfig(target).indexedDbBackupCleanupEnabled === true
+}
+
 export function getSupabaseUrl(target = window) {
   return String(publicConfig(target).supabaseUrl || '').trim()
 }

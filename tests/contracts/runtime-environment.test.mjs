@@ -10,6 +10,8 @@ import { deriveStorageKeys } from '../../src/core/storage-keys.js'
 import {
   getChannelVideoFormatToggleEnabled,
   getFreePlusEnabled,
+  getIndexedDbBackupCleanupEnabled,
+  getIndexedDbBackupsEnabled,
   getPlusCheckoutEnabled,
   getStudyGuidanceEnabled,
   getVideoOrganizationEnabled,
@@ -170,6 +172,8 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getVideoOrganizationEnabled(target), false)
   assert.equal(getChannelVideoFormatToggleEnabled(target), false)
   assert.equal(getStudyGuidanceEnabled(target), false)
+  assert.equal(getIndexedDbBackupsEnabled(target), false)
+  assert.equal(getIndexedDbBackupCleanupEnabled(target), false)
   assert.equal(getSupabaseUrl(target), '')
   assert.equal(getSupabasePublishableKey(target), '')
   assert.equal(hasSupabaseRuntimeConfig(target), false)
@@ -181,6 +185,8 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     videoOrganizationEnabled: true,
     channelVideoFormatToggleEnabled: true,
     studyGuidanceEnabled: true,
+    indexedDbBackupsEnabled: true,
+    indexedDbBackupCleanupEnabled: true,
     supabaseUrl: '  https://project.supabase.co  ',
     supabasePublishableKey: '  sb_publishable_test  '
   }
@@ -191,6 +197,8 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getVideoOrganizationEnabled(target), true)
   assert.equal(getChannelVideoFormatToggleEnabled(target), true)
   assert.equal(getStudyGuidanceEnabled(target), true)
+  assert.equal(getIndexedDbBackupsEnabled(target), true)
+  assert.equal(getIndexedDbBackupCleanupEnabled(target), true)
   assert.equal(getSupabaseUrl(target), 'https://project.supabase.co')
   assert.equal(getSupabasePublishableKey(target), 'sb_publishable_test')
   assert.equal(hasSupabaseRuntimeConfig(target), true)
@@ -200,13 +208,17 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     plusCheckoutEnabled: 1,
     videoOrganizationEnabled: 'true',
     channelVideoFormatToggleEnabled: 'true',
-    studyGuidanceEnabled: 'true'
+    studyGuidanceEnabled: 'true',
+    indexedDbBackupsEnabled: 'true',
+    indexedDbBackupCleanupEnabled: 1
   }
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
   assert.equal(getVideoOrganizationEnabled(target), false)
   assert.equal(getChannelVideoFormatToggleEnabled(target), false)
   assert.equal(getStudyGuidanceEnabled(target), false)
+  assert.equal(getIndexedDbBackupsEnabled(target), false)
+  assert.equal(getIndexedDbBackupCleanupEnabled(target), false)
 
   target.EDENIA_CONFIG = { supabaseUrl: 'https://project.supabase.co' }
   assert.equal(hasSupabaseRuntimeConfig(target), false)

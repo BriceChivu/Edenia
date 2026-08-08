@@ -683,6 +683,8 @@ export const EN_CORE = {
   'toast.syncImported': 'Sync file imported',
   'toast.readSyncFailed': 'Could not read that sync file',
   'toast.backupUnavailable': 'That backup is not available anymore',
+  'toast.backupCreateFailed': 'Could not create a verified rollback backup. Your existing progress was not changed.',
+  'toast.progressSaveFailed': 'Could not save this change. Your existing progress was not changed.',
   'toast.backupRestored': 'Backup restored',
   'toast.channelInvalid': 'Use a YouTube channel URL, @handle, or UC channel ID',
   'toast.channelResolveNeedsKey': 'Add the shared YouTube API key to use @handle or /user URLs, or paste the /channel/UC... URL.',

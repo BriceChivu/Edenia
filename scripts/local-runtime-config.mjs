@@ -41,6 +41,9 @@ export function normalizeLocalRuntimeConfig(value) {
     channelVideoFormatToggleEnabled:
       value?.channelVideoFormatToggleEnabled === true,
     studyGuidanceEnabled: value?.studyGuidanceEnabled === true,
+    indexedDbBackupsEnabled: value?.indexedDbBackupsEnabled === true,
+    indexedDbBackupCleanupEnabled:
+      value?.indexedDbBackupCleanupEnabled === true,
     supabaseUrl: normalizeOptionalRuntimeValue(
       value?.supabaseUrl,
       PLACEHOLDER_URLS

@@ -786,6 +786,8 @@ export const FR_LOCALIZED = {
   'toast.syncImported': 'Fichier de synchronisation importé',
   'toast.readSyncFailed': 'Impossible de lire le fichier de synchronisation',
   'toast.backupUnavailable': 'Cette sauvegarde n’est plus disponible',
+  'toast.backupCreateFailed': 'Impossible de créer une sauvegarde de restauration vérifiée. Votre progression actuelle n’a pas été modifiée.',
+  'toast.progressSaveFailed': 'Impossible d’enregistrer cette modification. Votre progression actuelle n’a pas été modifiée.',
   'toast.backupRestored': 'Sauvegarde restaurée',
   'toast.channelDuplicate': 'Cette chaîne est déjà ajoutée',
   'toast.channelAdded': '{name} ajoutée',

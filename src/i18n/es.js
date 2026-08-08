@@ -786,6 +786,8 @@ export const ES_LOCALIZED = {
   'toast.syncImported': 'Archivo de sincronización importado',
   'toast.readSyncFailed': 'No se pudo leer el archivo de sincronización',
   'toast.backupUnavailable': 'Esta copia ya no está disponible',
+  'toast.backupCreateFailed': 'No se pudo crear una copia de restauración verificada. Tu progreso actual no se modificó.',
+  'toast.progressSaveFailed': 'No se pudo guardar este cambio. Tu progreso actual no se modificó.',
   'toast.backupRestored': 'Copia restaurada',
   'toast.channelDuplicate': 'Este canal ya está añadido',
   'toast.channelAdded': 'Se añadió {name}',

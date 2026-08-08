@@ -131,9 +131,9 @@ jobs:
         if: steps.scope.outputs.supabase == 'true'
         run: npm run test:supabase
 
-      - name: Install Chromium
+      - name: Install Playwright browsers
         if: steps.scope.outputs.browser == 'true'
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       - name: Run browser tests
         if: steps.scope.outputs.browser == 'true'
