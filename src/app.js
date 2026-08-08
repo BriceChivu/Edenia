@@ -575,6 +575,7 @@ const selectedHistoryPeriod = { week: null, month: null }
 let selectedCityDayOffset = 0
 const CITY_IMAGE_MIN_ZOOM = 1
 const CITY_IMAGE_MAX_ZOOM = 2
+const CITY_IMAGE_PHONE_MAX_ZOOM = 4
 const CITY_IMAGE_MOBILE_DEFAULT_ZOOM = 1.75
 const CITY_IMAGE_MOBILE_DEFAULT_Y = -40
 const CITY_IMAGE_ZOOM_STEP = 0.25
@@ -12668,6 +12669,11 @@ function initCityImagePanZoom() {
   wrap.addEventListener('pointerup', endDrag)
   wrap.addEventListener('pointercancel', endDrag)
   window.addEventListener('resize', () => {
+    cityImageView.scale = clampNumber(
+      cityImageView.scale,
+      CITY_IMAGE_MIN_ZOOM,
+      getCityImageMaxZoom()
+    )
     const geometry = clampCityImagePan()
     applyCityImageTransform(geometry)
   })
@@ -12713,7 +12719,7 @@ function updateCityImagePinch(wrap) {
   const nextScale = clampNumber(
     cityImageView.pinchStartScale * getCityImageTouchDistance(points) / cityImageView.pinchStartDistance,
     CITY_IMAGE_MIN_ZOOM,
-    CITY_IMAGE_MAX_ZOOM
+    getCityImageMaxZoom()
   )
   const scaleRatio = nextScale / cityImageView.pinchStartScale
   cityImageView.scale = nextScale
@@ -12752,7 +12758,7 @@ function canZoomCityImageBy(delta) {
   const nextScale = clampNumber(
     cityImageView.scale + delta,
     CITY_IMAGE_MIN_ZOOM,
-    CITY_IMAGE_MAX_ZOOM
+    getCityImageMaxZoom()
   )
   return nextScale !== cityImageView.scale
 }
@@ -12762,7 +12768,7 @@ function zoomCityImageBy(delta, event = null) {
   const nextScale = clampNumber(
     previousScale + delta,
     CITY_IMAGE_MIN_ZOOM,
-    CITY_IMAGE_MAX_ZOOM
+    getCityImageMaxZoom()
   )
   if (nextScale === previousScale) return
 
@@ -12792,6 +12798,12 @@ function resetCityImageView() {
   cityImageView.x = 0
   cityImageView.y = getDefaultCityImageY()
   applyCityImageTransform()
+}
+
+function getCityImageMaxZoom() {
+  return usesPhoneComposition()
+    ? CITY_IMAGE_PHONE_MAX_ZOOM
+    : CITY_IMAGE_MAX_ZOOM
 }
 
 function getDefaultCityImageZoom() {
