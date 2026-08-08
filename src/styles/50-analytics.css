@@ -294,6 +294,30 @@ button.study-insight-current-lock-card:focus-visible {
   line-height: 1.35;
   margin-top: 2px;
 }
+.study-guidance-action {
+  align-items: center;
+  background: var(--planet-lime);
+  border: 1px solid var(--planet-black);
+  border-radius: 999px;
+  color: #243a20;
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 850;
+  justify-content: center;
+  justify-self: start;
+  margin-top: 5px;
+  min-height: 32px;
+  padding: 6px 11px;
+}
+.study-guidance-action:hover {
+  filter: brightness(0.97);
+}
+.study-guidance-action:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
 .study-insight-history-panel {
   display: grid;
   gap: 7px;

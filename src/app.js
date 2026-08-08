@@ -52,6 +52,7 @@ import {
 import {
   deriveChannelVideoFormatToggleEnabled,
   deriveRuntimeEnvironment,
+  deriveStudyGuidanceEnabled,
   deriveVideoOrganizationEnabled
 } from './core/runtime-environment.js'
 import { deriveStorageKeys } from './core/storage-keys.js'
@@ -61,6 +62,10 @@ import {
   normalizeVideoWatchCoverage
 } from './domain/video-watch-coverage.js'
 import { normalizeVideoWatchProgress } from './domain/video-watch-progress.js'
+import {
+  buildStudyGuidance,
+  STUDY_GUIDANCE_LOOKBACK_DAYS
+} from './domain/study-guidance.js'
 import {
   getVideoStatus,
   hasVideoResumePriority,
@@ -110,6 +115,7 @@ import {
   getChannelVideoFormatToggleEnabled,
   getFreePlusEnabled,
   getPlusCheckoutEnabled,
+  getStudyGuidanceEnabled,
   getVideoOrganizationEnabled,
   getSupabasePublishableKey,
   getSupabaseUrl,
@@ -419,6 +425,10 @@ const CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED =
     RUNTIME_ENVIRONMENT,
     getChannelVideoFormatToggleEnabled()
   )
+const STUDY_GUIDANCE_ENABLED = deriveStudyGuidanceEnabled(
+  RUNTIME_ENVIRONMENT,
+  getStudyGuidanceEnabled()
+)
 const PLUS_ACCESS_CONFIG = Object.freeze({
   freePlusEnabled: getFreePlusEnabled(),
   plusCheckoutEnabled: getPlusCheckoutEnabled(),
@@ -538,6 +548,8 @@ let activeVideoOrganizationTrigger = null
 let selectedHistoryRange = 'week'
 let selectedHistoryView = 'summary'
 let selectedStudyInsightView = 'current'
+let activeStudyGuidance = null
+let lastTrackedStudyGuidanceKey = ''
 let selectedActivityLogFilter = 'all'
 let mobileActivityLogVisibleCount = 20
 let plusAccountController = null
@@ -10686,6 +10698,111 @@ function getStudyInsightTimeWindow(hour) {
   ))?.id || 'night'
 }
 
+function getLiveStudyGuidance(state, referenceDate = getCurrentAppDate(state)) {
+  if (!STUDY_GUIDANCE_ENABLED || !state) return null
+  const end = new Date(referenceDate)
+  if (IS_SANDBOX) end.setHours(23, 59, 59, 999)
+  const start = addDays(end, -(STUDY_GUIDANCE_LOOKBACK_DAYS - 1))
+  start.setHours(0, 0, 0, 0)
+  const history = getStudyHistoryBetween(state, start, end)
+  return buildStudyGuidance({
+    referenceDateKey: toDateKey(referenceDate),
+    studyDays: history.rows.map(row => ({
+      dateKey: row.dateKey,
+      videoSeconds: row.secondsWatched
+    }))
+  })
+}
+
+function getStudyGuidanceViewModel(guidance) {
+  if (!guidance) return null
+  const weekday = Number.isInteger(guidance.weekdayIndex)
+    ? formatLocaleDate(
+        new Date(2026, 0, 4 + guidance.weekdayIndex),
+        { weekday: 'long' }
+      )
+    : ''
+  const common = {
+    weekday,
+    minutes: guidance.suggestedMinutes,
+    successfulWeeks: guidance.successfulWeekdayCount,
+    completeWeeks: guidance.completeWeeks,
+    currentTime: formatHoursMinutes(guidance.currentWeekSeconds),
+    usualTime: formatHoursMinutes(guidance.usualThroughTodaySeconds),
+    typicalTime: formatHoursMinutes(guidance.typicalActiveDaySeconds)
+  }
+
+  if (guidance.type === 'extra-day') {
+    return {
+      title: t('guidance.extraDay.title', common),
+      body: t('guidance.extraDay.body', common),
+      evidence: t('guidance.extraDay.evidence', common)
+    }
+  }
+
+  const direction = ['above', 'below'].includes(guidance.comparisonDirection)
+    ? guidance.comparisonDirection
+    : 'similar'
+  return {
+    title: t(`guidance.week.${direction}.title`),
+    body: t(`guidance.week.${direction}.body`, common),
+    evidence: t('guidance.week.evidence', common)
+  }
+}
+
+function getStudyGuidanceAnalyticsProperties(guidance) {
+  return {
+    guidance_key: guidance?.id || '',
+    guidance_type: guidance?.type || '',
+    guidance_version: guidance?.version || 0,
+    confidence: guidance?.confidence || '',
+    complete_weeks: guidance?.completeWeeks || 0,
+    current_week_seconds: guidance?.currentWeekSeconds || 0,
+    current_week_active_days: guidance?.currentWeekActiveDays || 0,
+    usual_week_seconds: guidance?.usualWeekSeconds || 0,
+    usual_week_active_days: guidance?.usualWeekActiveDays || 0,
+    usual_through_today_seconds: guidance?.usualThroughTodaySeconds || 0,
+    typical_active_day_seconds: guidance?.typicalActiveDaySeconds || 0,
+    comparison_direction: guidance?.comparisonDirection || '',
+    suggested_minutes: guidance?.suggestedMinutes || 0,
+    weekday_index: Number.isInteger(guidance?.weekdayIndex)
+      ? guidance.weekdayIndex
+      : null
+  }
+}
+
+function trackStudyGuidanceShown(guidance) {
+  if (!guidance?.id || lastTrackedStudyGuidanceKey === guidance.id) return
+  lastTrackedStudyGuidanceKey = guidance.id
+  trackEdeniaEvent(
+    'study_guidance_shown',
+    getStudyGuidanceAnalyticsProperties(guidance)
+  )
+}
+
+function showNextStudyFromGuidance() {
+  const container = document.getElementById('nextStudyCard')
+  const nextActions = Array.from(
+    container?.querySelectorAll('[data-next-study-action="open"]') || []
+  )
+  const nextAction = nextActions.find(action => action.getClientRects().length)
+    || nextActions[0]
+  if (!container || container.classList.contains('hidden') || !nextAction) {
+    showToast(t('guidance.nextVideo.unavailable'), 'warn')
+    return false
+  }
+  trackEdeniaEvent('study_guidance_action_clicked', {
+    ...getStudyGuidanceAnalyticsProperties(activeStudyGuidance),
+    action_kind: 'show_next_video'
+  })
+  container.scrollIntoView({
+    behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+    block: 'center'
+  })
+  window.requestAnimationFrame(() => nextAction.focus({ preventScroll: true }))
+  return true
+}
+
 function getStudyInsightEvents(state, referenceDate = getCurrentAppDate(state)) {
   const end = new Date(referenceDate)
   if (IS_SANDBOX) end.setHours(23, 59, 59, 999)
@@ -11497,16 +11614,22 @@ function renderStudyInsight(state) {
   const previousTab = document.getElementById('studyInsightPreviousTab')
   const currentPanel = document.getElementById('studyInsightCurrentPanel')
   const currentLock = document.getElementById('studyInsightCurrentLock')
+  const guidanceAction = document.getElementById('studyGuidanceNextAction')
   const historyPanel = document.getElementById('studyInsightHistoryPanel')
   const historyCount = document.getElementById('studyInsightHistoryCount')
   if (!container || !icon || !title || !body || !evidence) return
 
   normalizeStudyInsightConfig(state)
-  const insight = getStudyInsight(state)
-  const viewModel = getStudyInsightViewModel(insight, state)
+  const guidance = getLiveStudyGuidance(state)
+  const usingGuidance = Boolean(guidance)
+  const insight = guidance || getStudyInsight(state)
+  const viewModel = usingGuidance
+    ? getStudyGuidanceViewModel(guidance)
+    : getStudyInsightViewModel(insight, state)
+  activeStudyGuidance = guidance
   const enabled = isStudyInsightsEnabled(state)
   const collapsed = state.config.studyInsights.collapsed === true
-  const currentKey = insight && viewModel
+  const currentKey = !usingGuidance && insight && viewModel
     ? (collapsed && enabled ? getStudyInsightHistoryKey(insight, state) : recordStudyInsight(state, insight))
     : ''
   const archiveAccess = getStudyInsightArchiveAccess({
@@ -11540,19 +11663,30 @@ function renderStudyInsight(state) {
     title.textContent = ''
     body.textContent = ''
     evidence.textContent = ''
+    guidanceAction?.classList.add('hidden')
+    container.removeAttribute('data-guidance-key')
     currentPanel?.classList.remove('is-insight-restricted')
     currentLock?.classList.add('hidden')
     if (currentLock) currentLock.replaceChildren()
     return
   }
 
-  if (currentIsRestricted) container.removeAttribute('data-insight-id')
-  else container.dataset.insightId = insight.id
+  if (currentIsRestricted || usingGuidance) {
+    container.removeAttribute('data-insight-id')
+  } else {
+    container.dataset.insightId = insight.id
+  }
+  if (usingGuidance) container.dataset.guidanceKey = guidance.id
+  else container.removeAttribute('data-guidance-key')
   container.classList.toggle('showing-history', showingHistory)
   title.textContent = currentIsRestricted ? '' : viewModel.title
   body.textContent = currentIsRestricted ? '' : viewModel.body
   evidence.textContent = currentIsRestricted ? '' : viewModel.evidence
   currentPanel?.classList.toggle('is-insight-restricted', currentIsRestricted)
+  guidanceAction?.classList.toggle(
+    'hidden',
+    !usingGuidance || currentIsRestricted || showingHistory
+  )
   currentLock?.classList.toggle('hidden', !currentIsRestricted)
   if (currentLock) {
     currentLock.innerHTML = currentIsRestricted
@@ -11570,6 +11704,9 @@ function renderStudyInsight(state) {
   previousTab?.setAttribute('aria-label', t('insights.previous.aria', { count: allPreviousInsights.length }))
   currentPanel?.classList.toggle('hidden', showingHistory)
   historyPanel?.classList.toggle('hidden', !showingHistory)
+  if (usingGuidance && !showingHistory && !collapsed && enabled) {
+    trackStudyGuidanceShown(guidance)
+  }
   if (historyCount) historyCount.textContent = String(allPreviousInsights.length)
   if (historyPanel) {
     historyPanel.innerHTML = allPreviousInsights.length
@@ -16240,7 +16377,8 @@ function hide(id) { document.getElementById(id).classList.add('hidden') }
 
 bindStudyInsightActions(document, {
   setView: setStudyInsightView,
-  setCollapsed: setStudyInsightsCollapsed
+  setCollapsed: setStudyInsightsCollapsed,
+  showNextStudy: showNextStudyFromGuidance
 })
 bindStudyInsightLockedAccessActions(document, {
   requestAccess: requestStudyInsightAccess

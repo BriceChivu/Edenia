@@ -33,6 +33,10 @@ const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
     process.env.EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED,
     'EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED'
   ),
+  studyGuidanceEnabled: parseRuntimeConfigFlag(
+    process.env.EDENIA_STUDY_GUIDANCE_ENABLED,
+    'EDENIA_STUDY_GUIDANCE_ENABLED'
+  ),
   supabaseUrl,
   supabasePublishableKey
 }, null, 2)}\n`

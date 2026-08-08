@@ -64,6 +64,7 @@ test('local runtime config normalizes a valid ignored key into the generated sit
         + '  "plusCheckoutEnabled": false,\n'
         + '  "videoOrganizationEnabled": false,\n'
         + '  "channelVideoFormatToggleEnabled": false,\n'
+        + '  "studyGuidanceEnabled": false,\n'
         + '  "supabaseUrl": "",\n'
         + '  "supabasePublishableKey": ""\n'
         + '}\n'
@@ -83,6 +84,7 @@ test('local runtime config preserves explicit dormant release flags', async () =
         + '  plusCheckoutEnabled: true,\n'
         + '  videoOrganizationEnabled: true,\n'
         + '  channelVideoFormatToggleEnabled: true,\n'
+        + '  studyGuidanceEnabled: true,\n'
         + "  supabaseUrl: ' https://project.supabase.co ',\n"
         + "  supabasePublishableKey: ' sb_publishable_test '\n"
         + '}\n'
@@ -97,12 +99,13 @@ test('local runtime config preserves explicit dormant release flags', async () =
       plusCheckoutEnabled: true,
       videoOrganizationEnabled: true,
       channelVideoFormatToggleEnabled: true,
+      studyGuidanceEnabled: true,
       supabaseUrl: 'https://project.supabase.co',
       supabasePublishableKey: 'sb_publishable_test'
     })
     assert.match(
       await readFile(outputPath, 'utf8'),
-      /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true,\n  "videoOrganizationEnabled": true,\n  "channelVideoFormatToggleEnabled": true/
+      /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true,\n  "videoOrganizationEnabled": true,\n  "channelVideoFormatToggleEnabled": true,\n  "studyGuidanceEnabled": true/
     )
   })
 })
@@ -125,6 +128,7 @@ test('local runtime config removes tracked Supabase placeholders', async () => {
       plusCheckoutEnabled: false,
       videoOrganizationEnabled: false,
       channelVideoFormatToggleEnabled: false,
+      studyGuidanceEnabled: false,
       supabaseUrl: '',
       supabasePublishableKey: ''
     })

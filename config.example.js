@@ -4,6 +4,7 @@ window.EDENIA_CONFIG = {
   plusCheckoutEnabled: false,
   videoOrganizationEnabled: false,
   channelVideoFormatToggleEnabled: false,
+  studyGuidanceEnabled: false,
   supabaseUrl: 'PASTE_YOUR_SUPABASE_PROJECT_URL_HERE',
   supabasePublishableKey: 'PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE'
 }
