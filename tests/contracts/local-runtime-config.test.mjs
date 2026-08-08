@@ -65,6 +65,8 @@ test('local runtime config normalizes a valid ignored key into the generated sit
         + '  "videoOrganizationEnabled": false,\n'
         + '  "channelVideoFormatToggleEnabled": false,\n'
         + '  "studyGuidanceEnabled": false,\n'
+        + '  "indexedDbBackupsEnabled": false,\n'
+        + '  "indexedDbBackupCleanupEnabled": false,\n'
         + '  "supabaseUrl": "",\n'
         + '  "supabasePublishableKey": ""\n'
         + '}\n'
@@ -85,6 +87,8 @@ test('local runtime config preserves explicit dormant release flags', async () =
         + '  videoOrganizationEnabled: true,\n'
         + '  channelVideoFormatToggleEnabled: true,\n'
         + '  studyGuidanceEnabled: true,\n'
+        + '  indexedDbBackupsEnabled: true,\n'
+        + '  indexedDbBackupCleanupEnabled: true,\n'
         + "  supabaseUrl: ' https://project.supabase.co ',\n"
         + "  supabasePublishableKey: ' sb_publishable_test '\n"
         + '}\n'
@@ -100,12 +104,14 @@ test('local runtime config preserves explicit dormant release flags', async () =
       videoOrganizationEnabled: true,
       channelVideoFormatToggleEnabled: true,
       studyGuidanceEnabled: true,
+      indexedDbBackupsEnabled: true,
+      indexedDbBackupCleanupEnabled: true,
       supabaseUrl: 'https://project.supabase.co',
       supabasePublishableKey: 'sb_publishable_test'
     })
     assert.match(
       await readFile(outputPath, 'utf8'),
-      /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true,\n  "videoOrganizationEnabled": true,\n  "channelVideoFormatToggleEnabled": true,\n  "studyGuidanceEnabled": true/
+      /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true,\n  "videoOrganizationEnabled": true,\n  "channelVideoFormatToggleEnabled": true,\n  "studyGuidanceEnabled": true,\n  "indexedDbBackupsEnabled": true,\n  "indexedDbBackupCleanupEnabled": true/
     )
   })
 })
@@ -129,6 +135,8 @@ test('local runtime config removes tracked Supabase placeholders', async () => {
       videoOrganizationEnabled: false,
       channelVideoFormatToggleEnabled: false,
       studyGuidanceEnabled: false,
+      indexedDbBackupsEnabled: false,
+      indexedDbBackupCleanupEnabled: false,
       supabaseUrl: '',
       supabasePublishableKey: ''
     })

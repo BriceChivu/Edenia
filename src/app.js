@@ -114,6 +114,8 @@ import {
 import {
   getChannelVideoFormatToggleEnabled,
   getFreePlusEnabled,
+  getIndexedDbBackupCleanupEnabled,
+  getIndexedDbBackupsEnabled,
   getPlusCheckoutEnabled,
   getStudyGuidanceEnabled,
   getVideoOrganizationEnabled,
@@ -227,7 +229,13 @@ import {
   createStateStore,
   isStorageQuotaError
 } from './state/store.js'
-import { createStateBackupStore } from './state/backups.js'
+import {
+  createStateBackupStore,
+  isValidStateBackupEntry
+} from './state/backups.js'
+import {
+  createIndexedDbBackupStorage
+} from './state/indexed-db-backups.js'
 import {
   createPlusEntitlementCache
 } from './state/plus-entitlement-cache.js'
@@ -437,6 +445,10 @@ const STUDY_GUIDANCE_ENABLED = deriveStudyGuidanceEnabled(
   RUNTIME_ENVIRONMENT,
   getStudyGuidanceEnabled()
 )
+const LOCAL_BACKUPS_ENABLED = !IS_SANDBOX && !IS_INTERNAL_TEST
+const INDEXED_DB_BACKUPS_ENABLED = getIndexedDbBackupsEnabled()
+const INDEXED_DB_BACKUP_CLEANUP_ENABLED =
+  INDEXED_DB_BACKUPS_ENABLED && getIndexedDbBackupCleanupEnabled()
 const PLUS_ACCESS_CONFIG = Object.freeze({
   freePlusEnabled: getFreePlusEnabled(),
   plusCheckoutEnabled: getPlusCheckoutEnabled(),
@@ -484,19 +496,172 @@ const defaultState = createDefaultStateFactory({
   isDefaultChannelId,
   getBrowserDefaultLocale
 })
-const {
-  createStateBackup,
-  getLatestBackupState,
-  getStateBackupEntries,
-  pruneOldestStateBackup
-} = createStateBackupStore({
-  storage: localStorage,
+const NORMAL_STATE_BACKUP_KEY = deriveStorageKeys({
+  isSandbox: false,
+  isInternalTest: false
+}).stateBackupKey
+const INDEXED_DB_BACKUP_MARKER_KEY =
+  `${NORMAL_STATE_BACKUP_KEY}_indexed_db_v1`
+const stateBackupStoreOptions = {
   storageKey: STORAGE_KEY,
   stateBackupKey: STATE_BACKUP_KEY,
   isSandbox: IS_SANDBOX,
   isValidStateShape,
   prepareStateForBackup
+}
+
+function createDisabledStateBackupStore() {
+  return {
+    createStateBackup: () => null,
+    getLatestBackupState: () => null,
+    getStateBackupEntries: () => [],
+    pruneOldestStateBackup: () => false
+  }
+}
+
+let stateBackupStore = createStateBackupStore({
+  ...stateBackupStoreOptions,
+  storage: localStorage
 })
+let flushStateBackupWrites = async () => ({
+  entries: stateBackupStore.getStateBackupEntries(),
+  error: null,
+  persisted: true
+})
+let backupRecoveryUnavailable = false
+let backupStorageSharesPrimaryQuota = true
+let indexedDbBackupStorageActive = false
+let stateBackupStorageReady = false
+let stateBackupStorageInitialization = null
+
+function createStateBackup(...args) {
+  return stateBackupStore.createStateBackup(...args)
+}
+
+function getLatestBackupState(...args) {
+  return stateBackupStore.getLatestBackupState(...args)
+}
+
+function getStateBackupEntries(...args) {
+  return stateBackupStore.getStateBackupEntries(...args)
+}
+
+function pruneOldestStateBackup(...args) {
+  return stateBackupStore.pruneOldestStateBackup(...args)
+}
+
+function pruneBackupForPrimaryQuota(...args) {
+  if (!backupStorageSharesPrimaryQuota) return false
+  return pruneOldestStateBackup(...args)
+}
+
+async function initializeStateBackupStorage() {
+  if (!LOCAL_BACKUPS_ENABLED) {
+    try { localStorage.removeItem(STATE_BACKUP_KEY) } catch {}
+    stateBackupStore = createDisabledStateBackupStore()
+    flushStateBackupWrites = async () => ({
+      entries: [],
+      error: null,
+      persisted: true
+    })
+    if (IS_INTERNAL_TEST && INDEXED_DB_BACKUPS_ENABLED) {
+      try {
+        const normalRepository = await createIndexedDbBackupStorage({
+          backupKey: NORMAL_STATE_BACKUP_KEY,
+          beforeLegacyCleanup() {
+            try {
+              localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1')
+              return localStorage.getItem(
+                INDEXED_DB_BACKUP_MARKER_KEY
+              ) === '1'
+            } catch {
+              return false
+            }
+          },
+          cleanupLegacy: INDEXED_DB_BACKUP_CLEANUP_ENABLED,
+          indexedDb: window.indexedDB,
+          isValidEntry: entry => isValidStateBackupEntry(
+            entry,
+            isValidStateShape
+          ),
+          legacyStorage: localStorage
+        })
+        if (normalRepository.migration.entryCount > 0) {
+          try {
+            localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1')
+          } catch {}
+        }
+        normalRepository.close()
+      } catch (error) {
+        console.warn(
+          'Edenia normal backup migration from internal test failed.',
+          error
+        )
+      }
+    }
+    return
+  }
+
+  let hasIndexedDbBackups = false
+  try {
+    hasIndexedDbBackups = localStorage.getItem(
+      INDEXED_DB_BACKUP_MARKER_KEY
+    ) === '1'
+  } catch {}
+  if (!INDEXED_DB_BACKUPS_ENABLED && !hasIndexedDbBackups) return
+
+  try {
+    const repository = await createIndexedDbBackupStorage({
+      backupKey: STATE_BACKUP_KEY,
+      beforeLegacyCleanup() {
+        try {
+          localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1')
+          return localStorage.getItem(INDEXED_DB_BACKUP_MARKER_KEY) === '1'
+        } catch {
+          return false
+        }
+      },
+      cleanupLegacy: INDEXED_DB_BACKUP_CLEANUP_ENABLED,
+      indexedDb: window.indexedDB,
+      isValidEntry: entry => isValidStateBackupEntry(
+        entry,
+        isValidStateShape
+      ),
+      legacyStorage: localStorage
+    })
+    stateBackupStore = createStateBackupStore({
+      ...stateBackupStoreOptions,
+      storage: repository.storage
+    })
+    flushStateBackupWrites = repository.flush
+    backupStorageSharesPrimaryQuota = repository.mirrorsLegacy
+    indexedDbBackupStorageActive = true
+    if (repository.migration.entryCount > 0) {
+      try { localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1') } catch {}
+    }
+  } catch (error) {
+    console.warn('Edenia IndexedDB backup initialization failed.', error)
+    backupRecoveryUnavailable = hasIndexedDbBackups
+  }
+}
+
+async function createVerifiedStateBackup(reason, options = {}) {
+  const entry = createStateBackup(reason, options)
+  if (!entry) return null
+  const result = await flushStateBackupWrites()
+  const verified = result.persisted && result.entries.some(candidate => (
+    candidate.id === entry.id
+    && JSON.stringify(candidate) === JSON.stringify(entry)
+  ))
+  if (!verified) {
+    console.error('Edenia could not verify a rollback backup.', result.error)
+    return null
+  }
+  if (indexedDbBackupStorageActive) {
+    try { localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1') } catch {}
+  }
+  return entry
+}
 const {
   canPersistLocalState,
   loadState,
@@ -508,7 +673,7 @@ const {
   normalizeLoadedState,
   normalizeStateBeforeSave,
   createStateBackup,
-  pruneOldestStateBackup,
+  pruneOldestStateBackup: pruneBackupForPrimaryQuota,
   saveConfigCookie,
   syncPersistedStateToAnalytics,
   getLatestBackupState,
@@ -1966,6 +2131,24 @@ function init() {
   reportMissingI18nKeys()
   applyVideoOrganizationVisibility()
   applyChannelVideoFormatExperimentUi()
+  if (!stateBackupStorageReady) {
+    void stateBackupStorageInitialization.then(init)
+    return
+  }
+  if (backupRecoveryUnavailable) {
+    let primaryStateIsReadable = false
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      primaryStateIsReadable = Boolean(
+        raw && isValidStateShape(JSON.parse(raw))
+      )
+    } catch {}
+    if (!primaryStateIsReadable) {
+      applyLocale(loadConfigCookie()?.locale || getBrowserDefaultLocale())
+      showOnboardingRecovery('storage')
+      return
+    }
+  }
   let state = loadState()
   if (!state) {
     state = IS_SANDBOX ? createEmptySandboxState() : defaultState(4, DEFAULT_CHANNELS)
@@ -1992,6 +2175,10 @@ function init() {
   initializeRequestedPlusModal()
   updateDocumentTitle(state)
   document.body.dataset.sandbox = IS_SANDBOX ? 'true' : 'false'
+  document.querySelector('.backup-panel')?.classList.toggle(
+    'hidden',
+    !LOCAL_BACKUPS_ENABLED
+  )
   const sandboxTools = document.getElementById('sandboxTools')
   const sandboxVersionLabel = document.getElementById('sandboxVersionLabel')
   if (sandboxTools) sandboxTools.classList.toggle('hidden', !IS_SANDBOX)
@@ -2694,6 +2881,11 @@ async function copyOnboardingRecoveryLink(button) {
 
 function retryOnboardingRecovery(button) {
   if (!onboardingRecoveryState.active) return
+  if (backupRecoveryUnavailable) {
+    if (button) button.disabled = true
+    window.location.reload()
+    return
+  }
   const status = document.getElementById('onboardingRecoveryStatus')
   if (button) button.disabled = true
 
@@ -4858,14 +5050,16 @@ function importSyncFileFromInput(input) {
   const file = input?.files?.[0]
   if (!file) return
 
+  input.disabled = true
   const reader = new FileReader()
-  reader.onload = () => {
+  reader.onload = async () => {
     let payload
     try {
       payload = JSON.parse(String(reader.result || ''))
     } catch {
       showToast(t('toast.invalidSyncJson'), 'error')
       input.value = ''
+      input.disabled = false
       return
     }
 
@@ -4881,14 +5075,16 @@ function importSyncFileFromInput(input) {
       }
 
       const hadStoredState = Boolean(localStorage.getItem(STORAGE_KEY))
-      const existingBackupIds = new Set(
-        getStateBackupEntries().map(backup => backup.id)
-      )
-      const rollbackBackup = createStateBackup('before sync import', {
-        force: true,
-        returnExisting: true
-      })
-      if (hadStoredState && !rollbackBackup) {
+      const existingBackupIds = new Set(LOCAL_BACKUPS_ENABLED
+        ? getStateBackupEntries().map(backup => backup.id)
+        : [])
+      const rollbackBackup = LOCAL_BACKUPS_ENABLED
+        ? await createVerifiedStateBackup('before sync import', {
+            force: true,
+            returnExisting: true
+          })
+        : null
+      if (LOCAL_BACKUPS_ENABLED && hadStoredState && !rollbackBackup) {
         showToast(t('toast.importStorageFull'), 'error')
         return
       }
@@ -4943,11 +5139,13 @@ function importSyncFileFromInput(input) {
       showToast(t('toast.importFailed'), 'error')
     } finally {
       input.value = ''
+      input.disabled = false
     }
   }
   reader.onerror = () => {
     showToast(t('toast.readSyncFailed'), 'error')
     input.value = ''
+    input.disabled = false
   }
   reader.readAsText(file)
 }
@@ -5183,7 +5381,7 @@ function renderActivityLog(state = loadState()) {
   appendMobileActivityLogMoreButton(list, page.totalCount)
 }
 
-function restoreStateBackup(id) {
+async function restoreStateBackup(id) {
   const entry = getStateBackupEntries().find(candidate => candidate.id === id)
   const state = entry ? prepareStateForBackup(entry.state) : null
   if (!state) {
@@ -5192,17 +5390,34 @@ function restoreStateBackup(id) {
     return
   }
 
-  const rollbackBackup = createStateBackup('before backup restore', { force: true })
-  syncStreak(state)
-  if (rollbackBackup) {
-    appendActivityLog(state, {
-      actor: 'auto',
-      type: 'backup',
-      status: 'info',
-      title: t('log.rollback.title'),
-      detail: t('log.rollback.beforeRestore')
-    })
+  const control = [...document.querySelectorAll(
+    '[data-settings-backup-action="restore"]'
+  )].find(candidate => candidate.dataset.backupId === id)
+  if (control?.dataset.backupBusy === 'true') return
+  if (control) {
+    control.dataset.backupBusy = 'true'
+    control.setAttribute('aria-disabled', 'true')
   }
+  const rollbackBackup = await createVerifiedStateBackup(
+    'before backup restore',
+    { force: true }
+  )
+  if (!rollbackBackup) {
+    if (control?.isConnected) {
+      delete control.dataset.backupBusy
+      control.removeAttribute('aria-disabled')
+    }
+    showToast(t('toast.progressSaveFailed'), 'error')
+    return
+  }
+  syncStreak(state)
+  appendActivityLog(state, {
+    actor: 'auto',
+    type: 'backup',
+    status: 'info',
+    title: t('log.rollback.title'),
+    detail: t('log.rollback.beforeRestore')
+  })
   appendActivityLog(state, {
     actor: 'user',
     type: 'backup-restore',
@@ -5210,7 +5425,14 @@ function restoreStateBackup(id) {
     title: t('log.backupRestored.title'),
     detail: formatBackupTimestamp(entry.createdAt)
   })
-  saveState(state, { backup: false })
+  if (!saveState(state, { backup: false })) {
+    if (control?.isConnected) {
+      delete control.dataset.backupBusy
+      control.removeAttribute('aria-disabled')
+    }
+    showToast(t('toast.backupCreateFailed'), 'error')
+    return
+  }
   applyLocale(state.config.locale)
   updateDocumentTitle(state)
   applyTheme(state.config.theme)
@@ -5605,8 +5827,29 @@ function hideResetConfirm() {
   document.getElementById('resetConfirm')?.classList.add('hidden')
 }
 
-function resetApp() {
-  createStateBackup('before reset', { force: true })
+async function resetApp() {
+  const control = document.querySelector(
+    '[data-settings-reset-confirm-action="confirm"]'
+  )
+  if (control?.dataset.backupBusy === 'true') return
+  if (control) {
+    control.dataset.backupBusy = 'true'
+    control.setAttribute('aria-disabled', 'true')
+  }
+  if (LOCAL_BACKUPS_ENABLED) {
+    const rollbackBackup = await createVerifiedStateBackup(
+      'before reset',
+      { force: true }
+    )
+    if (!rollbackBackup) {
+      if (control?.isConnected) {
+        delete control.dataset.backupBusy
+        control.removeAttribute('aria-disabled')
+      }
+      showToast(t('toast.backupCreateFailed'), 'error')
+      return
+    }
+  }
   queueSandboxWalkthroughAfterReset()
   const nextState = IS_SANDBOX ? createEmptySandboxState() : defaultState(4, DEFAULT_CHANNELS, DEFAULT_THEME)
   appendActivityLog(nextState, {
@@ -5616,7 +5859,14 @@ function resetApp() {
     title: t('log.reset.title'),
     detail: t('log.reset.detail')
   })
-  saveState(nextState, { backup: false })
+  if (!saveState(nextState, { backup: false })) {
+    if (control?.isConnected) {
+      delete control.dataset.backupBusy
+      control.removeAttribute('aria-disabled')
+    }
+    showToast(t('toast.progressSaveFailed'), 'error')
+    return
+  }
   location.reload()
 }
 
@@ -16594,6 +16844,8 @@ bindUndoRedoActions(document, {
 })
 
 bindImageFallbackActions(document)
+stateBackupStorageInitialization = initializeStateBackupStorage()
+  .finally(() => { stateBackupStorageReady = true })
 document.addEventListener('DOMContentLoaded', init)
 window.addEventListener('scroll', syncHeaderCompactState, { passive: true })
 window.addEventListener('scroll', closeVideoShelfPreviewOnViewportChange, { passive: true })

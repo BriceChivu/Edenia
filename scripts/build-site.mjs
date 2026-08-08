@@ -160,6 +160,8 @@ await writeFile(
     + '  "videoOrganizationEnabled": false,\n'
     + '  "channelVideoFormatToggleEnabled": false,\n'
     + '  "studyGuidanceEnabled": false,\n'
+    + '  "indexedDbBackupsEnabled": false,\n'
+    + '  "indexedDbBackupCleanupEnabled": false,\n'
     + '  "supabaseUrl": "",\n'
     + '  "supabasePublishableKey": ""\n'
     + '}\n'

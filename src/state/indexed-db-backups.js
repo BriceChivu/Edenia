@@ -66,6 +66,16 @@ export function parseLegacyStateBackupEntries(raw, isValidEntry) {
   }
 }
 
+export function shouldMirrorLegacyStateBackups({
+  cleanupLegacy,
+  legacyExists,
+  legacyRemoved,
+  legacyValid
+}) {
+  return !cleanupLegacy
+    || (legacyExists && legacyValid && !legacyRemoved)
+}
+
 function requestResult(request) {
   return new Promise((resolve, reject) => {
     request.addEventListener('success', () => resolve(request.result), {
@@ -240,6 +250,7 @@ function createIndexedDbStorageAdapter({
 
 export async function createIndexedDbBackupStorage({
   backupKey,
+  beforeLegacyCleanup = () => true,
   cleanupLegacy = false,
   databaseName = STATE_BACKUP_DATABASE_NAME,
   indexedDb = globalThis.indexedDB,
@@ -290,17 +301,26 @@ export async function createIndexedDbBackupStorage({
     let legacyRemoved = false
     if (cleanupLegacy && legacy.exists && legacyWasVerified) {
       try {
-        legacyStorage.removeItem(backupKey)
-        legacyRemoved = legacyStorage.getItem(backupKey) === null
+        const cleanupAuthorized = await beforeLegacyCleanup()
+        if (cleanupAuthorized !== false) {
+          legacyStorage.removeItem(backupKey)
+          legacyRemoved = legacyStorage.getItem(backupKey) === null
+        }
       } catch {}
     }
 
+    const mirrorLegacy = shouldMirrorLegacyStateBackups({
+      cleanupLegacy,
+      legacyExists: legacy.exists,
+      legacyRemoved,
+      legacyValid: legacy.valid
+    })
     const adapter = createIndexedDbStorageAdapter({
       backupKey,
       database,
       initialEntries: verifiedEntries,
       legacyStorage,
-      mirrorLegacy: !cleanupLegacy
+      mirrorLegacy
     })
 
     return {
@@ -314,7 +334,8 @@ export async function createIndexedDbBackupStorage({
         legacyRemoved,
         legacyValid: legacy.valid,
         legacyVerified: legacyWasVerified
-      }
+      },
+      mirrorsLegacy: mirrorLegacy
     }
   } catch (error) {
     database.close()

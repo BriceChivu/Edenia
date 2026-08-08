@@ -3,6 +3,7 @@ import test from 'node:test'
 import {
   mergeStateBackupEntries,
   parseLegacyStateBackupEntries,
+  shouldMirrorLegacyStateBackups,
   stateBackupEntriesMatch
 } from '../../src/state/indexed-db-backups.js'
 
@@ -89,6 +90,33 @@ test('migration merging is idempotent and lets legacy copies reconcile IDs', () 
     'legacy copy'
   )
   assert.deepEqual(mergeStateBackupEntries(merged, legacy), merged)
+})
+
+test('legacy mirroring follows the staged cleanup and quota boundary', () => {
+  assert.equal(shouldMirrorLegacyStateBackups({
+    cleanupLegacy: false,
+    legacyExists: true,
+    legacyRemoved: false,
+    legacyValid: true
+  }), true)
+  assert.equal(shouldMirrorLegacyStateBackups({
+    cleanupLegacy: true,
+    legacyExists: true,
+    legacyRemoved: false,
+    legacyValid: true
+  }), true)
+  assert.equal(shouldMirrorLegacyStateBackups({
+    cleanupLegacy: true,
+    legacyExists: true,
+    legacyRemoved: true,
+    legacyValid: true
+  }), false)
+  assert.equal(shouldMirrorLegacyStateBackups({
+    cleanupLegacy: true,
+    legacyExists: true,
+    legacyRemoved: false,
+    legacyValid: false
+  }), false)
 })
 
 test('verification compares complete backup content independent of order', () => {

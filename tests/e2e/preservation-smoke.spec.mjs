@@ -841,7 +841,7 @@ test('sandbox remains isolated on its exact origin', async ({ page }) => {
   expect(storageKeys.sandbox).not.toBeNull()
 })
 
-test('sandbox action listeners preserve day advancement, reset backups, keyboard, and ordering', async ({
+test('sandbox action listeners preserve day advancement, backup isolation, keyboard, and ordering', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
@@ -915,7 +915,7 @@ test('sandbox action listeners preserve day advancement, reset backups, keyboard
   await reset.focus()
   await reset.press('Enter')
   await expect.poll(() => page.evaluate(
-    () => window.__sandboxResetAtDocumentBubble?.hasResetBackup
+    () => window.__sandboxResetAtDocumentBubble?.hasResetEntry
   )).toBe(true)
   const resetObservation = await page.evaluate(
     () => window.__sandboxResetAtDocumentBubble
@@ -923,7 +923,7 @@ test('sandbox action listeners preserve day advancement, reset backups, keyboard
   expect(resetObservation.lastDate).toBe(resetObservation.startDate)
   expect(resetObservation).toMatchObject({
     hasResetEntry: true,
-    hasResetBackup: true,
+    hasResetBackup: false,
     normalState: null
   })
 
@@ -1635,58 +1635,11 @@ test('backup Restore listeners preserve live IDs, rollback order, localization, 
       if (!event.target.matches?.(
         '[data-settings-backup-action="restore"]'
       )) return
-      const state = JSON.parse(localStorage.getItem('edenia_v1'))
-      const backups = JSON.parse(
-        localStorage.getItem('edenia_v1_backups') || '[]'
-      )
-      const cookie = document.cookie
-        .split('; ')
-        .find(part => part.startsWith('edenia_config='))
-      const cookieConfig = cookie
-        ? JSON.parse(decodeURIComponent(cookie.slice(cookie.indexOf('=') + 1)))
-        : null
       const clickEvent = window.__backupRestoreAnalytics.find(
         entry => entry.eventName === 'restore_state_backup_clicked'
       )
       window.__backupRestoreAtDocumentBubble = {
         targetConnected: event.target.isConnected,
-        locale: state.config.locale,
-        theme: state.config.theme,
-        weeklyGoalHours: state.config.weeklyGoalHours,
-        includeShorts: state.config.includeShorts,
-        insightsEnabled: state.config.studyInsights?.enabled,
-        apiKeyPresent: Object.prototype.hasOwnProperty.call(
-          state.config,
-          'apiKey'
-        ),
-        remindersPresent: Object.prototype.hasOwnProperty.call(
-          state,
-          'videoWatchReminders'
-        ),
-        activity: state.activityLog.slice(0, 3).map(entry => ({
-          actor: entry.actor,
-          type: entry.type,
-          title: entry.title,
-          detail: entry.detail
-        })),
-        rollback: {
-          reason: backups[0]?.reason,
-          locale: backups[0]?.state?.config?.locale,
-          theme: backups[0]?.state?.config?.theme
-        },
-        targetStillStored: backups.some(
-          entry => entry.id === 'restore-target'
-        ),
-        htmlLang: document.documentElement.lang,
-        htmlTheme: document.documentElement.dataset.theme,
-        cookieLocale: cookieConfig?.locale || null,
-        settingsHidden: document.getElementById('settingsPanel')
-          .classList.contains('hidden'),
-        backupContentHidden: document.getElementById('backupContent').hidden,
-        newRestoreLabel: document.querySelector(
-          '[data-settings-backup-action="restore"]'
-        )?.textContent,
-        toast: document.getElementById('toast').textContent,
         clickedEventCount: window.__backupRestoreAnalytics.filter(
           entry => entry.eventName === 'restore_state_backup_clicked'
         ).length,
@@ -1701,6 +1654,63 @@ test('backup Restore listeners preserve live IDs, rollback order, localization, 
     () => window.__backupRestoreAtDocumentBubble
   )).toMatchObject({
     targetConnected: false,
+    clickedEventCount: 1,
+    buttonName: restoreLabel
+  })
+  await expect(page.locator('#toast')).toHaveText('Sauvegarde restaurée')
+
+  const restoredState = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    const backups = JSON.parse(
+      localStorage.getItem('edenia_v1_backups') || '[]'
+    )
+    const cookie = document.cookie
+      .split('; ')
+      .find(part => part.startsWith('edenia_config='))
+    const cookieConfig = cookie
+      ? JSON.parse(decodeURIComponent(cookie.slice(cookie.indexOf('=') + 1)))
+      : null
+    return {
+      locale: state.config.locale,
+      theme: state.config.theme,
+      weeklyGoalHours: state.config.weeklyGoalHours,
+      includeShorts: state.config.includeShorts,
+      insightsEnabled: state.config.studyInsights?.enabled,
+      apiKeyPresent: Object.prototype.hasOwnProperty.call(
+        state.config,
+        'apiKey'
+      ),
+      remindersPresent: Object.prototype.hasOwnProperty.call(
+        state,
+        'videoWatchReminders'
+      ),
+      activity: state.activityLog.slice(0, 3).map(entry => ({
+        actor: entry.actor,
+        type: entry.type,
+        title: entry.title,
+        detail: entry.detail
+      })),
+      rollback: {
+        reason: backups[0]?.reason,
+        locale: backups[0]?.state?.config?.locale,
+        theme: backups[0]?.state?.config?.theme
+      },
+      targetStillStored: backups.some(
+        entry => entry.id === 'restore-target'
+      ),
+      htmlLang: document.documentElement.lang,
+      htmlTheme: document.documentElement.dataset.theme,
+      cookieLocale: cookieConfig?.locale || null,
+      settingsHidden: document.getElementById('settingsPanel')
+        .classList.contains('hidden'),
+      backupContentHidden: document.getElementById('backupContent').hidden,
+      newRestoreLabel: document.querySelector(
+        '[data-settings-backup-action="restore"]'
+      )?.textContent,
+      toast: document.getElementById('toast').textContent
+    }
+  })
+  expect(restoredState).toMatchObject({
     locale: 'fr',
     theme: 'dark',
     weeklyGoalHours: 7,
@@ -1739,9 +1749,7 @@ test('backup Restore listeners preserve live IDs, rollback order, localization, 
     settingsHidden: false,
     backupContentHidden: false,
     newRestoreLabel: 'Restaurer',
-    toast: 'Sauvegarde restaurée',
-    clickedEventCount: 1,
-    buttonName: restoreLabel
+    toast: 'Sauvegarde restaurée'
   })
   await expect(page.locator('#settingsIncludeShorts')).not.toBeChecked()
   await expect(page.locator('#settingsInsightsEnabled')).toHaveCount(0)
@@ -3712,7 +3720,7 @@ test('Delete data listener preserves backups, reload, isolation, and sandbox han
     )
     return {
       state,
-      resetBackup: backups.find(entry => entry.reason === 'before reset'),
+      backupCount: backups.length,
       normalState: localStorage.getItem('edenia_v1'),
       queuedWalkthrough: sessionStorage.getItem(
         'edenia_v1_sandbox_walkthrough_after_reset'
@@ -3733,19 +3741,7 @@ test('Delete data listener preserves backups, reload, isolation, and sandbox han
     type: 'reset',
     status: 'warn'
   })
-  expect(sandboxReset.resetBackup).toMatchObject({
-    reason: 'before reset',
-    sandbox: true,
-    state: {
-      config: {
-        weeklyGoalHours: 9
-      }
-    }
-  })
-  expect(sandboxReset.resetBackup.state.activityLog[0]).toMatchObject({
-    id: 'sandbox-pre-reset-marker',
-    title: 'Sandbox pre-reset marker'
-  })
+  expect(sandboxReset.backupCount).toBe(0)
   expect(sandboxReset.normalState).toBe('sandbox-origin-normal-sentinel')
   expect(sandboxReset.queuedWalkthrough).toBeNull()
   expect(sandboxReset.url).toContain('localhost:8001/?sandbox=1')

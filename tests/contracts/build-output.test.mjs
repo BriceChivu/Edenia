@@ -80,6 +80,8 @@ test('test build contains empty public keys and disabled release flags', async (
   assert.match(source, /"videoOrganizationEnabled": false/)
   assert.match(source, /"channelVideoFormatToggleEnabled": false/)
   assert.match(source, /"studyGuidanceEnabled": false/)
+  assert.match(source, /"indexedDbBackupsEnabled": false/)
+  assert.match(source, /"indexedDbBackupCleanupEnabled": false/)
   assert.match(source, /"supabaseUrl": ""/)
   assert.match(source, /"supabasePublishableKey": ""/)
   assert.doesNotMatch(source, /PASTE_|AIza/i)
@@ -109,6 +111,14 @@ test('Pages deployment forwards dormant controls and public Supabase config', as
   assert.match(
     workflow,
     /EDENIA_STUDY_GUIDANCE_ENABLED: \$\{\{ vars\.EDENIA_STUDY_GUIDANCE_ENABLED \}\}/
+  )
+  assert.match(
+    workflow,
+    /EDENIA_INDEXED_DB_BACKUPS_ENABLED: \$\{\{ vars\.EDENIA_INDEXED_DB_BACKUPS_ENABLED \}\}/
+  )
+  assert.match(
+    workflow,
+    /EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED: \$\{\{ vars\.EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED \}\}/
   )
   assert.match(
     workflow,

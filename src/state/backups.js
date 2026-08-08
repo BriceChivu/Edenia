@@ -1,6 +1,14 @@
 export const STATE_BACKUP_LIMIT = 8
 export const STATE_BACKUP_AUTO_INTERVAL_MS = 10 * 60_000
 
+export function isValidStateBackupEntry(entry, isValidStateShape) {
+  return Boolean(
+    entry?.id
+    && entry?.createdAt
+    && isValidStateShape(entry.state)
+  )
+}
+
 export function createStateBackupStore({
   storage,
   storageKey,
@@ -17,7 +25,7 @@ export function createStateBackupStore({
       const entries = raw ? JSON.parse(raw) : []
       if (!Array.isArray(entries)) return []
       return entries
-        .filter(entry => entry?.id && entry?.createdAt && isValidStateShape(entry.state))
+        .filter(entry => isValidStateBackupEntry(entry, isValidStateShape))
         .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         .slice(0, STATE_BACKUP_LIMIT)
     } catch {

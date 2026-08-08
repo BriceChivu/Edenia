@@ -70,14 +70,25 @@ export default defineConfig({
     timezoneId: 'Asia/Taipei',
     trace: 'retain-on-failure'
   },
-  projects: responsiveProjects.map(project => ({
-    ...project,
-    use: {
-      browserName: 'chromium',
-      deviceScaleFactor: 1,
-      ...project.use
+  projects: [
+    ...responsiveProjects.map(project => ({
+      ...project,
+      use: {
+        browserName: 'chromium',
+        deviceScaleFactor: 1,
+        ...project.use
+      }
+    })),
+    {
+      name: 'webkit-storage',
+      testMatch: /indexed-db-backups\.spec\.mjs/,
+      use: {
+        browserName: 'webkit',
+        deviceScaleFactor: 1,
+        viewport: { width: 1440, height: 900 }
+      }
     }
-  })),
+  ],
   webServer: [
     {
       command: `node scripts/serve-static.mjs --host localhost --port ${normalPort} --root _site`,

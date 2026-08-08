@@ -786,6 +786,8 @@ export const ZH_HANT_LOCALIZED = {
   'toast.syncImported': '同步檔已匯入',
   'toast.readSyncFailed': '無法讀取同步檔',
   'toast.backupUnavailable': '找不到這個備份',
+  'toast.backupCreateFailed': '無法建立並驗證復原備份。你目前的進度沒有變更。',
+  'toast.progressSaveFailed': '無法儲存這項變更。你目前的進度沒有變更。',
   'toast.backupRestored': '備份已還原',
   'toast.channelDuplicate': '這個頻道已經加入',
   'toast.channelAdded': '已加入 {name}',
