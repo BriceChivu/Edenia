@@ -532,3 +532,158 @@ test('internal organization actions stay in isolated test storage', async ({ pag
   expect(persisted.internal.videos['menu-anchor-video'].removedFromFeedAt).toBeTruthy()
   expect(persisted.normal).toEqual({ sentinel: 'normal-state' })
 })
+
+test('enabled organization migrates legacy state and history idempotently', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await page.goto('/?internal_test=1')
+  await waitForApplication(page)
+  await page.evaluate(storageKey => {
+    const state = window.defaultState(4, [], 'light', [], 'en')
+    const setAsideAt = '2026-08-01T03:00:00.000Z'
+    const hiddenAt = '2026-08-02T03:00:00.000Z'
+    const removedChannelHiddenAt = '2026-08-03T03:00:00.000Z'
+    state.config.channels = [{
+      id: 'active-channel',
+      name: 'Active channel'
+    }]
+    state.config.removedChannelIds = ['removed-channel']
+    state.config.setAsidePromptSeen = true
+    state.videos['legacy-set-aside'] = {
+      id: 'legacy-set-aside',
+      title: 'Legacy set aside',
+      channelId: 'active-channel',
+      channelTitle: 'Active channel',
+      duration: 600,
+      publishedAt: '2026-07-30T03:00:00.000Z',
+      status: 'watched',
+      watchedAt: setAsideAt,
+      setAside: true,
+      setAsideAt,
+      setAsideResumeAtSeconds: 75,
+      thumbnail: ''
+    }
+    state.videos['legacy-individually-hidden'] = {
+      id: 'legacy-individually-hidden',
+      title: 'Legacy individually hidden',
+      channelId: 'active-channel',
+      channelTitle: 'Active channel',
+      duration: 300,
+      publishedAt: '2026-07-29T03:00:00.000Z',
+      status: 'unwatched',
+      hiddenFromGrid: true,
+      hiddenFromGridAt: hiddenAt,
+      thumbnail: ''
+    }
+    state.videos['removed-channel-hidden'] = {
+      id: 'removed-channel-hidden',
+      title: 'Removed channel hidden',
+      channelId: 'removed-channel',
+      channelTitle: 'Removed channel',
+      duration: 240,
+      publishedAt: '2026-07-28T03:00:00.000Z',
+      status: 'unwatched',
+      hiddenFromGrid: true,
+      hiddenFromGridAt: removedChannelHiddenAt,
+      thumbnail: ''
+    }
+    state.undoStack = [{
+      id: 'legacy-set-aside-action',
+      type: 'video-status',
+      videoId: 'legacy-set-aside',
+      before: {
+        video: {
+          ...state.videos['legacy-set-aside'],
+          setAsideResumeAtSeconds: 45
+        }
+      },
+      after: {
+        video: { ...state.videos['legacy-set-aside'] }
+      }
+    }]
+    state.redoStack = [{
+      id: 'legacy-hidden-action',
+      type: 'video-status',
+      videoId: 'legacy-individually-hidden',
+      before: {
+        video: { ...state.videos['legacy-individually-hidden'] }
+      },
+      after: {
+        video: { ...state.videos['legacy-individually-hidden'] }
+      }
+    }]
+    localStorage.setItem(storageKey, JSON.stringify(state))
+  }, internalStorageKey)
+
+  const readMigratedState = () => page.evaluate(storageKey => {
+    const state = JSON.parse(localStorage.getItem(storageKey))
+    return {
+      configHasPromptFlag: Object.prototype.hasOwnProperty.call(
+        state.config,
+        'setAsidePromptSeen'
+      ),
+      individuallyHidden: state.videos['legacy-individually-hidden'],
+      removedChannelHidden: state.videos['removed-channel-hidden'],
+      setAside: state.videos['legacy-set-aside'],
+      undoBefore: state.undoStack[0].before.video,
+      undoAfter: state.undoStack[0].after.video,
+      redoBefore: state.redoStack[0].before.video,
+      redoAfter: state.redoStack[0].after.video
+    }
+  }, internalStorageKey)
+
+  await page.reload()
+  await waitForApplication(page)
+  const firstMigration = await readMigratedState()
+
+  expect(firstMigration.configHasPromptFlag).toBe(false)
+  expect(firstMigration.setAside).toMatchObject({
+    pausedAt: '2026-08-01T03:00:00.000Z',
+    removedFromFeedAt: '2026-08-01T03:00:00.000Z',
+    resumeAtSeconds: 75,
+    status: 'partial',
+    watchedAt: null,
+    watchProgressTracked: true
+  })
+  for (const key of ['setAside', 'setAsideAt', 'setAsideResumeAtSeconds']) {
+    expect(firstMigration.setAside).not.toHaveProperty(key)
+    expect(firstMigration.undoBefore).not.toHaveProperty(key)
+    expect(firstMigration.undoAfter).not.toHaveProperty(key)
+  }
+  expect(firstMigration.undoBefore).toMatchObject({
+    pausedAt: '2026-08-01T03:00:00.000Z',
+    removedFromFeedAt: '2026-08-01T03:00:00.000Z',
+    resumeAtSeconds: 45,
+    status: 'partial',
+    watchedAt: null
+  })
+  expect(firstMigration.undoAfter).toMatchObject({
+    pausedAt: '2026-08-01T03:00:00.000Z',
+    removedFromFeedAt: '2026-08-01T03:00:00.000Z',
+    resumeAtSeconds: 75,
+    status: 'partial',
+    watchedAt: null
+  })
+  expect(firstMigration.individuallyHidden).toMatchObject({
+    hiddenFromGrid: false,
+    hiddenFromGridAt: null,
+    removedFromFeedAt: '2026-08-02T03:00:00.000Z'
+  })
+  expect(firstMigration.removedChannelHidden).toMatchObject({
+    hiddenFromGrid: true,
+    hiddenFromGridAt: '2026-08-03T03:00:00.000Z'
+  })
+  expect(firstMigration.removedChannelHidden).not.toHaveProperty('removedFromFeedAt')
+  for (const snapshot of [firstMigration.redoBefore, firstMigration.redoAfter]) {
+    expect(snapshot).toMatchObject({
+      hiddenFromGrid: true,
+      hiddenFromGridAt: '2026-08-02T03:00:00.000Z'
+    })
+    expect(snapshot).not.toHaveProperty('removedFromFeedAt')
+  }
+
+  await page.reload()
+  await waitForApplication(page)
+  expect(await readMigratedState()).toEqual(firstMigration)
+})
