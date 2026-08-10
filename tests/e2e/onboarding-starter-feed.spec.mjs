@@ -16,7 +16,7 @@ test('onboarding enters Edenia before preparing and incrementally revealing the 
       freePlusEnabled: false,
       plusCheckoutEnabled: false,
       videoOrganizationEnabled: true,
-      channelVideoFormatToggleEnabled: false,
+      channelVideoFormatToggleEnabled: true,
       supabaseUrl: '',
       supabasePublishableKey: ''
     }`,

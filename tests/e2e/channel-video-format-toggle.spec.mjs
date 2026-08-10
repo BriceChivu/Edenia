@@ -25,18 +25,18 @@ async function seedFormatState(
     internalTest = true,
     locale = 'en',
     overflow = false,
-    releaseEnabled = false
+    runtimeFlag = null
   } = {}
 ) {
   const storageKey = internalTest ? internalStorageKey : normalStorageKey
-  if (releaseEnabled) {
+  if (typeof runtimeFlag === 'boolean') {
     await page.route('**/config.local.js', route => route.fulfill({
       body: `window.EDENIA_CONFIG = {
         youtubeApiKey: '',
         freePlusEnabled: false,
         plusCheckoutEnabled: false,
         videoOrganizationEnabled: true,
-        channelVideoFormatToggleEnabled: true,
+        channelVideoFormatToggleEnabled: ${runtimeFlag},
         supabaseUrl: '',
         supabasePublishableKey: ''
       }`,
@@ -743,57 +743,50 @@ test('mobile Shorts cards stay vertical with fixed cropping and visible actions'
   expect(layout.thumbnailTransitionDuration).toBe('0s')
 })
 
-test('switch-off public mode preserves the preference while internal preview includes every duration', async ({ page }, testInfo) => {
+test('retired false marker cannot disable permanent format controls or migrate preferences', async ({ page }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
-  await seedFormatState(page, { includeShorts: false, internalTest: false })
-  await expect(page.locator('.channel-shelf-format-switcher')).toHaveCount(0)
-  await expect(page.locator('#videoGrid .video-card[data-video-id]')).toHaveCount(4)
-  await expect(page.locator(
-    '#videoGrid .video-card[data-video-id="a-horizontal-short-duration"]'
-  )).toHaveCount(0)
-  const publicStatusTabsDesign = await page.locator('.status-tabs').evaluate(element => {
-    const style = getComputedStyle(element)
-    return {
-      background: style.backgroundColor,
-      borderWidth: style.borderTopWidth
-    }
+  await seedFormatState(page, {
+    includeShorts: false,
+    internalTest: false,
+    runtimeFlag: false
   })
-  expect(publicStatusTabsDesign.borderWidth).not.toBe('0px')
-  expect(publicStatusTabsDesign.background).not.toBe('rgba(0, 0, 0, 0)')
-  await page.locator('.gear-btn').click()
-  await expect(page.locator('.settings-shorts-group')).toBeVisible()
-
-  await seedFormatState(page, { includeShorts: true, internalTest: false })
-  const publicVerticalSlot = page.locator(
-    '.channel-shelf-slot:has(.video-card[data-video-id="a-vertical-long-duration"])'
+  await expect(page.locator('body')).toHaveClass(
+    /\bchannel-video-format-toggle-enabled\b/
   )
-  await expect(publicVerticalSlot).toBeVisible()
-  const publicVerticalSize = await publicVerticalSlot.evaluate(slot => {
-    const rect = slot.getBoundingClientRect()
-    return { height: rect.height, width: rect.width }
-  })
-  expect(publicVerticalSize.width).toBeGreaterThan(200)
-  expect(publicVerticalSize.width / publicVerticalSize.height).toBeCloseTo(16 / 9, 2)
-
-  await seedFormatState(page, { includeShorts: false, internalTest: true })
-  await expect(page.locator('body')).toHaveClass(/\bchannel-video-format-toggle-enabled\b/)
   await expect(page.locator('.channel-shelf-format-switcher')).toHaveCount(3)
   await expect(page.locator(
     '#videoGrid .video-card[data-video-id="a-horizontal-short-duration"]'
   )).toBeVisible()
   expect(await page.evaluate(key => (
     JSON.parse(localStorage.getItem(key)).config.includeShorts
-  ), internalStorageKey)).toBe(false)
+  ), normalStorageKey)).toBe(false)
+  const permanentStatusTabsDesign = await page.locator('.status-tabs').evaluate(element => {
+    const style = getComputedStyle(element)
+    return {
+      background: style.backgroundColor,
+      borderWidth: style.borderTopWidth
+    }
+  })
+  expect(permanentStatusTabsDesign.borderWidth).toBe('0px')
+  expect(permanentStatusTabsDesign.background).toBe('rgba(0, 0, 0, 0)')
   await page.locator('.gear-btn').click()
   await expect(page.locator('.settings-shorts-group')).toHaveClass(/\bhidden\b/)
+  await page.evaluate(() => {
+    const input = document.getElementById('settingsIncludeShorts')
+    input.checked = true
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+  })
+  expect(await page.evaluate(key => (
+    JSON.parse(localStorage.getItem(key)).config.includeShorts
+  ), normalStorageKey)).toBe(false)
 })
 
-test('explicit release flag enables format controls in normal mode without migrating preferences', async ({ page }, testInfo) => {
+test('compatibility marker true preserves permanent controls in normal mode', async ({ page }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   await seedFormatState(page, {
     includeShorts: false,
     internalTest: false,
-    releaseEnabled: true
+    runtimeFlag: true
   })
 
   await expect(page.locator('body')).toHaveClass(

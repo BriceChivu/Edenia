@@ -1763,7 +1763,7 @@ test('backup Restore listeners preserve live IDs, rollback order, localization, 
   expect(removedBridgeAction).toBe(false)
 })
 
-test('Settings preference listeners preserve synchronous saves and Anki timing', async ({
+test('Settings Anki saves preserve retired Shorts state and synchronous timing', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
@@ -1799,56 +1799,12 @@ test('Settings preference listeners preserve synchronous saves and Anki timing',
   const anki = page.locator('#settingsAnkiEnabled')
   await expect(shortCard).toHaveCount(1)
   await page.locator('.gear-btn').click()
+  await expect(page.locator('.settings-shorts-group')).toBeHidden()
+  await expect(shorts).toBeChecked()
   await expect(page.locator('#settingsInsightsEnabled')).toHaveCount(0)
-
-  await page.evaluate(() => {
-    window.__shortsPreferenceAtDocumentBubble = null
-    document.addEventListener('change', event => {
-      if (event.target.id !== 'settingsIncludeShorts') return
-      const stored = JSON.parse(localStorage.getItem('edenia_v1'))
-      window.__shortsPreferenceAtDocumentBubble = {
-        checked: event.target.checked,
-        stored: stored.config.includeShorts,
-        activity: stored.activityLog[0],
-        cardVisible: Boolean(document.querySelector(
-          '#videoGrid .video-card[data-video-id="shortvideo1"]'
-        ))
-      }
-    }, { once: true })
-  })
-  await page.locator('.settings-shorts-group label').click()
-  await expect.poll(() => page.evaluate(
-    () => window.__shortsPreferenceAtDocumentBubble
-  )).toMatchObject({
-    checked: false,
-    stored: false,
-    activity: {
-      actor: 'user',
-      type: 'short-videos',
-      status: 'success',
-      title: 'Short video setting changed',
-      detail: 'Short videos are hidden.'
-    },
-    cardVisible: false
-  })
-  await expect(shortCard).toHaveCount(0)
   expect(await page.evaluate(() => (
     JSON.parse(localStorage.getItem('edenia_v1')).videos.shortvideo1.isShort
   ))).toBe(true)
-  const cookieAfterShorts = await page.evaluate(() => {
-    const cookie = document.cookie
-      .split('; ')
-      .find(part => part.startsWith('edenia_config='))
-    return cookie
-      ? JSON.parse(decodeURIComponent(cookie.slice(cookie.indexOf('=') + 1)))
-      : null
-  })
-  expect(cookieAfterShorts.includeShorts).toBe(false)
-
-  await shorts.focus()
-  await shorts.press('Space')
-  await expect(shortCard).toHaveCount(1)
-  await expect(shorts).toBeChecked()
 
   let ankiRequestCount = 0
   let releaseFirstAnkiResponse
@@ -1923,7 +1879,7 @@ test('Settings preference listeners preserve synchronous saves and Anki timing',
     }
   })).toMatchObject({
     anki: true,
-    shorts: false,
+    shorts: true,
     insights: true,
     disabledAt: null,
     baseline: {
@@ -1933,14 +1889,17 @@ test('Settings preference listeners preserve synchronous saves and Anki timing',
       trackedCreated: 0,
       createdAt: fixedNow.toISOString()
     },
-    activityTypes: expect.arrayContaining([
-      'anki-setting',
-      'short-videos'
-    ])
+    activityTypes: expect.arrayContaining(['anki-setting'])
   })
   await expect.poll(() => ankiRequestCount).toBeGreaterThanOrEqual(2)
   await expect(anki).toBeChecked()
   await expect(shorts).not.toBeChecked()
+  await expect(shortCard).toHaveCount(1)
+  expect(await page.evaluate(() => (
+    JSON.parse(localStorage.getItem('edenia_v1')).activityLog.some(
+      entry => entry.type === 'short-videos'
+    )
+  ))).toBe(false)
   expect(await page.evaluate(() => (
     Object.prototype.hasOwnProperty.call(
       window.EdeniaActions || {},
@@ -1987,12 +1946,15 @@ test('Settings preferences preserve raw Anki state on coarse-pointer devices', a
   await page.locator('.settings-howto-toggle').click()
   await expect(page.locator('.settings-anki-section')).toBeHidden()
   await expect(page.locator('.settings-scoring-section')).toBeHidden()
-  await expect(page.locator('.settings-shorts-group')).toBeVisible()
+  await expect(page.locator('.settings-shorts-group')).toBeHidden()
   await expect(page.locator('.settings-insights-group')).toHaveCount(0)
   await expect(page.locator('#settingsAnkiEnabled')).toBeChecked()
 
-  await page.locator('#settingsIncludeShorts').focus()
-  await page.locator('#settingsIncludeShorts').press('Space')
+  await page.evaluate(() => {
+    const input = document.getElementById('settingsIncludeShorts')
+    input.checked = false
+    input.dispatchEvent(new Event('change', { bubbles: true }))
+  })
   await expect.poll(() => page.evaluate(() => {
     const stored = JSON.parse(localStorage.getItem('edenia_v1'))
     return {
@@ -2005,7 +1967,7 @@ test('Settings preferences preserve raw Anki state on coarse-pointer devices', a
   })).toEqual({
     ankiEnabled: true,
     ankiDisabledAt: null,
-    includeShorts: false,
+    includeShorts: true,
     insightsEnabled: true,
     ankiDay: {
       reviewed: 60,

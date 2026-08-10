@@ -77,39 +77,43 @@ that rollback so cached pre-retirement assets retain the organization-enabled
 behavior that was already public. Do not try to reconstruct the removed legacy
 state fields from migrated data.
 
-## Staged channel video-format rollout
+## Retired channel video-format switch
 
-The per-channel Videos/Shorts controls have an independent release boundary:
+Per-channel Videos/Shorts controls are permanent for ordinary and internal-test
+visitors. The application always includes every video duration and uses the
+saved per-channel `channelVideoFormats` preferences. The legacy global Shorts
+preference remains in stored state for rollback compatibility, but the new
+application does not use or change it.
 
-- `/?internal_test=1` always enables the controls in isolated internal-test
-  state.
-- Ordinary visitors keep the saved global Shorts preference while the
-  repository variable `EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED` is absent or
-  exactly `false`.
-- Setting that variable to exactly `true` enables the per-channel controls for
-  ordinary visitors on the next Pages deployment. The rollout includes both
-  video orientations without overwriting the saved global preference.
+During the retirement release, every generated `config.local.js` must continue
+to emit `channelVideoFormatToggleEnabled: true`. New application code does not
+read this field. It is a temporary compatibility marker that keeps a cached
+pre-retirement `app.js` on the already-released Videos/Shorts experience while
+HTML and assets rotate through the Pages cache. The legacy body class and
+hidden Settings markup are retained for the same mixed-cache window, while the
+new stylesheet no longer depends on that class.
 
-Use this release sequence after the video-organization rollout has passed its
-own production observation window:
+Use this release sequence:
 
-1. Merge with `EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED=false` (or leave it
-   absent).
-2. On the ordinary production URL, confirm there are no per-channel format
-   controls and the Settings Shorts preference still governs visible videos.
-3. On `/?internal_test=1`, exercise channels containing only Videos, only
-   Shorts, and both. Verify filtering, shelf scrolling, card actions, previews,
-   long localized channel names, and phone, tablet, and desktop layouts.
-4. If acceptance succeeds, set the repository variable to `true` and manually
-   dispatch the Pages workflow.
-5. Smoke-check a returning user and a clean browser on phone, tablet, and
-   desktop before creating the release.
+1. Merge and deploy the retirement changes. Confirm the generated production
+   config contains `channelVideoFormatToggleEnabled: true` and the Pages
+   workflow no longer accepts `EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED`.
+2. Smoke-check both a returning profile with saved per-channel views and a
+   clean browser on the ordinary production URL. Exercise channels containing
+   only Videos, only Shorts, and both.
+3. Verify format persistence, shelf scrolling, card actions, previews, long
+   localized channel names, and phone, tablet, and desktop layouts. Confirm the
+   legacy global Shorts setting stays hidden and its stored value is unchanged.
+4. Repeat a storage-isolation check with `/?internal_test=1`.
+5. Allow at least the published Pages cache lifetime plus an observation window
+   before removing the compatibility marker, body class, and hidden Settings
+   markup in a separate pull request.
 
-For feature-only rollback, set the variable back to `false`, manually dispatch
-Pages, and verify the ordinary URL. The saved global Shorts preference is not
-migrated by the rollout, so the previous public behavior resumes without
-deleting browser state. Use a revert pull request as well if shared code is at
-fault.
+If a production problem appears, revert the smallest retirement commit through
+a pull request and redeploy. Keep the compatibility marker and repository
+variable set to `true` during that rollback so cached pre-retirement assets
+retain the Videos/Shorts behavior that was already public. No learner-state
+migration or reconstruction is required.
 
 ## Edenia Plus authentication
 

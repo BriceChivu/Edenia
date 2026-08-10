@@ -151,7 +151,7 @@ await copyPath('data/channel-catalog.json')
 await copyPath('data/channel-catalog.community.json')
 await copyPath('data/channel-catalog.discovered.json')
 
-// Keep the marker true until cached pre-retirement app.js assets have expired.
+// Keep compatibility markers true until cached pre-retirement assets expire.
 await writeFile(
   resolve(outputDir, 'config.local.js'),
   'window.EDENIA_CONFIG = {\n'
@@ -159,7 +159,7 @@ await writeFile(
     + '  "freePlusEnabled": false,\n'
     + '  "plusCheckoutEnabled": false,\n'
     + '  "videoOrganizationEnabled": true,\n'
-    + '  "channelVideoFormatToggleEnabled": false,\n'
+    + '  "channelVideoFormatToggleEnabled": true,\n'
     + '  "studyGuidanceEnabled": false,\n'
     + '  "indexedDbBackupsEnabled": false,\n'
     + '  "indexedDbBackupCleanupEnabled": false,\n'

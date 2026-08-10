@@ -19,6 +19,10 @@ const phoneStyleSource = await readFile(
   new URL('../../src/styles/98-responsive-phone.css', import.meta.url),
   'utf8'
 )
+const wideStyleSource = await readFile(
+  new URL('../../src/styles/99-responsive-wide.css', import.meta.url),
+  'utf8'
+)
 const formatIconAssets = Object.fromEntries(await Promise.all(
   [
     'youtube-black.svg',
@@ -31,37 +35,30 @@ const formatIconAssets = Object.fromEntries(await Promise.all(
   ])
 ))
 
-test('channel video format rollout has one internal-test or explicit release boundary', () => {
-  assert.match(
-    runtimeSource,
-    /function deriveChannelVideoFormatToggleEnabled\([\s\S]*?releaseEnabled = false[\s\S]*?runtimeEnvironment\?\.isInternalTest === true \|\| releaseEnabled === true/
+test('channel video format controls are permanent with no runtime release boundary', () => {
+  assert.doesNotMatch(runtimeSource, /deriveChannelVideoFormatToggleEnabled/)
+  assert.doesNotMatch(
+    appSource,
+    /CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED|channelVideoFormatEnabled|getChannelVideoFormatToggleEnabled/
   )
   assert.match(
     appSource,
-    /const CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED =\s*deriveChannelVideoFormatToggleEnabled\(\s*RUNTIME_ENVIRONMENT,\s*getChannelVideoFormatToggleEnabled\(\)\s*\)/
-  )
-  assert.match(
-    appSource,
-    /channelVideoFormatEnabled:\s*CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED && includeShorts/
-  )
-  assert.match(
-    appSource,
-    /if \(cardOptions\.channelVideoFormatEnabled\) \{\s*bindChannelVideoFormatActions\(grid, \{\s*select: selectChannelVideoFormat/
+    /bindChannelVideoFormatActions\(grid, \{\s*select: selectChannelVideoFormat\s*\}\)/
   )
 })
 
-test('internal rollout includes every duration without migrating the saved preference', () => {
+test('permanent format views include every duration without migrating the saved preference', () => {
   assert.match(
     appSource,
-    /function getEffectiveIncludeShorts\(state\) \{\s*return CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED\s*\|\| normalizeIncludeShorts\(state\?\.config\?\.includeShorts\)\s*\}/
+    /function getEffectiveIncludeShorts\(\) \{\s*return true\s*\}/
   )
   assert.match(
     appSource,
-    /function applyChannelVideoFormatExperimentUi\(\) \{[\s\S]*?'channel-video-format-toggle-enabled',[\s\S]*?CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED[\s\S]*?document\.querySelector\('\.settings-shorts-group'\)\?\.classList\.toggle\(\s*'hidden',\s*CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED/
+    /function applyPermanentChannelVideoFormatUi\(\) \{[\s\S]*?document\.body\.classList\.add\('channel-video-format-toggle-enabled'\)[\s\S]*?document\.querySelector\('\.settings-shorts-group'\)\?\.classList\.add\('hidden'\)/
   )
   assert.match(
     appSource,
-    /function init\(\) \{\s*reportMissingI18nKeys\(\)\s*applyChannelVideoFormatExperimentUi\(\)/
+    /function init\(\) \{\s*reportMissingI18nKeys\(\)\s*applyPermanentChannelVideoFormatUi\(\)/
   )
   assert.equal(
     appSource.match(/const includeShorts = getEffectiveIncludeShorts\((?:s|state)\)/g)?.length,
@@ -75,13 +72,25 @@ test('internal rollout includes every duration without migrating the saved prefe
     appSource,
     /state\.config\.includeShorts = includeShorts/
   )
+  const saveSettingsStart = appSource.indexOf('async function saveSettingsOnTheFly')
+  const saveSettingsEnd = appSource.indexOf('\nfunction saveLocaleFromSettings', saveSettingsStart)
+  assert.notEqual(saveSettingsStart, -1)
+  assert.notEqual(saveSettingsEnd, -1)
+  assert.doesNotMatch(
+    appSource.slice(saveSettingsStart, saveSettingsEnd),
+    /includeShorts|short-videos|refetchAllChannelsAfterShortsEnabled/
+  )
 })
 
 test('shelf rendering groups before applying independent format visibility', () => {
+  const renderStart = appSource.indexOf('function renderChannelVideoGroups')
+  const renderEnd = appSource.indexOf('\nfunction renderChannelShelfAvatar', renderStart)
+  const renderSource = appSource.slice(renderStart, renderEnd)
   assert.match(
-    appSource,
-    /groupActiveVideosByChannel\([\s\S]*?const formatEnabled = cardOptions\.channelVideoFormatEnabled === true[\s\S]*?group\.videos\.forEach\(video => \{\s*formatCounts\[getChannelVideoFormat\(video\)\] \+= 1/
+    renderSource,
+    /groupActiveVideosByChannel\([\s\S]*?group\.videos\.forEach\(video => \{\s*formatCounts\[getChannelVideoFormat\(video\)\] \+= 1/
   )
+  assert.doesNotMatch(renderSource, /formatEnabled|channelVideoFormatEnabled/)
   assert.match(
     appSource,
     /data-channel-selected-video-format="\$\{selectedFormat\}"/
@@ -128,22 +137,22 @@ test('format controls use the supplied sanitized light and dark assets', () => {
   })
 })
 
-test('experiment controls align with arrows and share the Insights tab design', () => {
+test('permanent controls align with arrows and share the Insights tab design', () => {
   assert.match(
     videoFeedStyleSource,
     /\.status-tabs,\s*\.channel-shelf-format-switcher \{[\s\S]*?background: var\(--surface-hi\);[\s\S]*?border: 1\.5px solid var\(--border\);[\s\S]*?border-radius: 999px;/
   )
   assert.match(
     videoFeedStyleSource,
-    /body\.channel-video-format-toggle-enabled \.status-tabs,\s*body\.channel-video-format-toggle-enabled \.channel-shelf-format-switcher \{\s*background: transparent;\s*border: 0;\s*border-radius: 0;\s*padding: 0;\s*\}/
+    /\.status-tabs,\s*\.channel-shelf-format-switcher \{\s*background: transparent;\s*border: 0;\s*border-radius: 0;\s*padding: 0;\s*\}/
   )
   assert.match(
     videoFeedStyleSource,
-    /body\.channel-video-format-toggle-enabled \.status-tab\.active,\s*body\.channel-video-format-toggle-enabled \.channel-shelf-format-option\[aria-pressed="true"\] \{\s*box-shadow: 0 1px 3px rgba\(5,5,5,0\.12\);\s*\}/
+    /\.status-tab\.active,\s*\.channel-shelf-format-option\[aria-pressed="true"\] \{\s*box-shadow: 0 1px 3px rgba\(5,5,5,0\.12\);\s*\}/
   )
   assert.match(
     videoFeedStyleSource,
-    /body\.channel-video-format-toggle-enabled \.status-tab:not\(\.active\):not\(:disabled\):hover,\s*body\.channel-video-format-toggle-enabled \.channel-shelf-format-option:hover:not\(\[aria-pressed="true"\]\) \{\s*background: rgba\(5,5,5,0\.08\);\s*\}/
+    /\.status-tab:not\(\.active\):not\(:disabled\):hover,\s*\.channel-shelf-format-option:hover:not\(\[aria-pressed="true"\]\) \{\s*background: rgba\(5,5,5,0\.08\);\s*\}/
   )
   assert.match(
     analyticsStyleSource,
@@ -155,30 +164,33 @@ test('experiment controls align with arrows and share the Insights tab design', 
   )
   assert.match(
     videoFeedStyleSource,
-    /\.channel-shelf-format-switcher \{[\s\S]*?height: 30px;[\s\S]*?padding: 0 2px;/
+    /\.channel-shelf-format-switcher \{[\s\S]*?height: 30px;[\s\S]*?padding: 0;/
   )
   assert.match(
     phoneStyleSource,
-    /body\.channel-video-format-toggle-enabled \.channel-shelf-header\.has-video-format-toggle \{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: 36px minmax\(0, 1fr\) auto;[\s\S]*?body\.channel-video-format-toggle-enabled \.channel-shelf-format-switcher \{[\s\S]*?grid-column: 3;[\s\S]*?height: 40px;[\s\S]*?body\.channel-video-format-toggle-enabled \.channel-shelf-format-option \{[\s\S]*?width: var\(--mobile-channel-format-option-width, 56px\);/
+    /\.channel-shelf-header\.has-video-format-toggle \{[\s\S]*?display: grid;[\s\S]*?grid-template-columns: 36px minmax\(0, 1fr\) auto;[\s\S]*?\.channel-shelf-format-switcher \{[\s\S]*?grid-column: 3;[\s\S]*?height: 40px;[\s\S]*?\.channel-shelf-format-option \{[\s\S]*?width: var\(--mobile-channel-format-option-width, 56px\);/
   )
+  ;[videoFeedStyleSource, phoneStyleSource, wideStyleSource].forEach(source => {
+    assert.doesNotMatch(source, /body\.channel-video-format-toggle-enabled/)
+  })
 })
 
-test('mobile Shorts cards use gated portrait geometry and the measured Add width', () => {
+test('mobile Shorts cards use permanent portrait geometry and the measured Add width', () => {
   assert.match(
     appSource,
-    /if \(CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED && usesPhoneComposition\(\)\) \{\s*mainApp\?\.style\.setProperty\(\s*'--mobile-channel-format-option-width'/
+    /if \(usesPhoneComposition\(\)\) \{\s*mainApp\?\.style\.setProperty\(\s*'--mobile-channel-format-option-width'/
   )
   assert.match(
     phoneStyleSource,
-    /body\.channel-video-format-toggle-enabled \.channel-shelf-slot\[data-channel-video-format="shorts"\] \{\s*--shorts-thumbnail-crop-scale: 1\.4;\s*aspect-ratio: 3 \/ 4;\s*flex-basis: 156px;/
+    /\.channel-shelf-slot\[data-channel-video-format="shorts"\] \{\s*--shorts-thumbnail-crop-scale: 1\.4;\s*aspect-ratio: 3 \/ 4;\s*flex-basis: 156px;/
   )
   assert.match(
     phoneStyleSource,
-    /body\.channel-video-format-toggle-enabled \.channel-shelf-slot\[data-channel-video-format="shorts"\] > \.channel-shelf-card \.thumb \{\s*object-fit: cover;\s*transform: scale\(var\(--shorts-thumbnail-crop-scale\)\);\s*transition: none;/
+    /\.channel-shelf-slot\[data-channel-video-format="shorts"\] > \.channel-shelf-card \.thumb \{\s*object-fit: cover;\s*transform: scale\(var\(--shorts-thumbnail-crop-scale\)\);\s*transition: none;/
   )
   assert.match(
     phoneStyleSource,
-    /body\.channel-video-format-toggle-enabled \.channel-shelf-slot\[data-channel-video-format="shorts"\] > \.channel-shelf-card \.card-copy \{\s*display: none;/
+    /\.channel-shelf-slot\[data-channel-video-format="shorts"\] > \.channel-shelf-card \.card-copy \{\s*display: none;/
   )
 })
 

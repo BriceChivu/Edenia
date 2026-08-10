@@ -50,7 +50,6 @@ import {
   usesTapVideoShelfPreviewInput
 } from './core/responsive-capabilities.js'
 import {
-  deriveChannelVideoFormatToggleEnabled,
   deriveRuntimeEnvironment,
   deriveStudyGuidanceEnabled
 } from './core/runtime-environment.js'
@@ -111,7 +110,6 @@ import {
   YOUTUBE_CHANNEL_ID_RE
 } from './integrations/youtube-parsing.js'
 import {
-  getChannelVideoFormatToggleEnabled,
   getFreePlusEnabled,
   getIndexedDbBackupCleanupEnabled,
   getIndexedDbBackupsEnabled,
@@ -136,7 +134,6 @@ import {
 } from './integrations/plus-billing-controller.js'
 import {
   getEdeniaSessionReplayUrl,
-  getPosthogDistinctId,
   hasEdeniaAnalyticsStateSync,
   isEdeniaAnalyticsEnabled,
   setEdeniaPersonProperties,
@@ -429,11 +426,6 @@ const {
   isLocalhost: IS_LOCALHOST,
   isLocalFeedbackTest: IS_LOCAL_FEEDBACK_TEST
 } = RUNTIME_ENVIRONMENT
-const CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED =
-  deriveChannelVideoFormatToggleEnabled(
-    RUNTIME_ENVIRONMENT,
-    getChannelVideoFormatToggleEnabled()
-  )
 const STUDY_GUIDANCE_ENABLED = deriveStudyGuidanceEnabled(
   RUNTIME_ENVIRONMENT,
   getStudyGuidanceEnabled()
@@ -451,10 +443,6 @@ const PLUS_ACCESS_CONFIG = Object.freeze({
   )
 })
 let plusAccessPolicy = createPlusAccessPolicy(PLUS_ACCESS_CONFIG)
-const TEMP_SHORTS_WHITELIST_VERSION = '2026-07-22-1'
-const TEMP_SHORTS_DISTINCT_IDS = new Set([
-  '019f7f94-34a7-7263-87fc-27029d04e6e7'
-])
 const SANDBOX_CHANNELS_VERSION = 2
 const SANDBOX_CHANNEL_DEFINITIONS = [
   { id: 'sandbox-focus', nameKey: 'sandbox.channel.focus', imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Dermot_Mulroney_Photo_Op_Nightmare_Weekend_Chicago_2025.jpg/250px-Dermot_Mulroney_Photo_Op_Nightmare_Weekend_Chicago_2025.jpg' },
@@ -681,7 +669,6 @@ const YOUTUBE_REQUEST_TIMEOUT_MS = 20_000
 const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const YOUTUBE_REFRESH_INTERVAL_MS = 1 * 60 * 60_000
 const YOUTUBE_REFRESH_ERROR_BACKOFF_MS = 30 * 60_000
-const SHORTS_ENABLE_REFETCH_COOLDOWN_MS = YOUTUBE_REFRESH_INTERVAL_MS
 const SANDBOX_VIDEOS_PER_CHANNEL = 5
 const FETCH_PAGE_SIZE = IS_INTERNAL_TEST ? 8 : 50
 const MAX_FETCH_PAGES_PER_CHANNEL = 1
@@ -724,7 +711,6 @@ let plusBillingViewState = null
 let plusModalFeatureId = null
 let forcedSearchVideoId = null
 let pendingAddedChannelReveal = null
-let shortsEnableRefetchPromise = null
 let starterFeedPreparationPromise = null
 let firstStudyWalkthroughTimer = null
 const addedVideoSpotlightState = {
@@ -956,20 +942,15 @@ function applyLocale(locale = getCurrentLocale()) {
   applyTranslations()
 }
 
-function getEffectiveIncludeShorts(state) {
-  return CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED
-    || normalizeIncludeShorts(state?.config?.includeShorts)
+function getEffectiveIncludeShorts() {
+  return true
 }
 
-function applyChannelVideoFormatExperimentUi() {
-  document.body.classList.toggle(
-    'channel-video-format-toggle-enabled',
-    CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED
-  )
-  document.querySelector('.settings-shorts-group')?.classList.toggle(
-    'hidden',
-    CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED
-  )
+function applyPermanentChannelVideoFormatUi() {
+  // Keep the legacy class for one cache window so new app.js remains
+  // compatible with a cached pre-retirement stylesheet.
+  document.body.classList.add('channel-video-format-toggle-enabled')
+  document.querySelector('.settings-shorts-group')?.classList.add('hidden')
 }
 
 function applyTranslations(root = document) {
@@ -1051,11 +1032,6 @@ function saveConfigCookie(config) {
     const value = encodeURIComponent(JSON.stringify(sanitizeConfigForStorage(config)))
     document.cookie = `${CONFIG_COOKIE_KEY}=${value}; max-age=31536000; path=/`
   } catch {}
-}
-
-function isTemporaryShortsWhitelistedUser() {
-  if (!isEdeniaAnalyticsEnabled()) return false
-  return TEMP_SHORTS_DISTINCT_IDS.has(getPosthogDistinctId())
 }
 
 function isAnkiAvailableOnDevice() {
@@ -1212,9 +1188,7 @@ function normalizeLoadedState(state) {
   if (state?.config) state.config.locale = normalizeLocale(state.config.locale || getBrowserDefaultLocale())
   if (state?.config) state.config.weeklyGoalHours = normalizeWeeklyGoalHours(state.config.weeklyGoalHours)
   if (state?.config) {
-    const includeShorts = isTemporaryShortsWhitelistedUser()
-      ? true
-      : normalizeIncludeShorts(state.config.includeShorts)
+    const includeShorts = normalizeIncludeShorts(state.config.includeShorts)
     if (state.config.includeShorts !== includeShorts) shouldSave = true
     state.config.includeShorts = includeShorts
   }
@@ -2107,7 +2081,7 @@ function initBackgroundPhysics() {
 
 function init() {
   reportMissingI18nKeys()
-  applyChannelVideoFormatExperimentUi()
+  applyPermanentChannelVideoFormatUi()
   if (!stateBackupStorageReady) {
     void stateBackupStorageInitialization.then(init)
     return
@@ -2136,17 +2110,6 @@ function init() {
     plusAccessPolicy
   )
 
-  const shouldForceTemporaryShortsRefetch = Boolean(
-    isTemporaryShortsWhitelistedUser()
-    && state.onboarding?.setupCompleted
-    && state.config.channels.length
-    && state.config.temporaryShortsWhitelistVersion !== TEMP_SHORTS_WHITELIST_VERSION
-  )
-  if (shouldForceTemporaryShortsRefetch) {
-    state.config.includeShorts = true
-    state.config.temporaryShortsWhitelistVersion = TEMP_SHORTS_WHITELIST_VERSION
-  }
-
   applyLocale(state.config.locale)
   initializePlusAccount()
   initializeRequestedPlusModal()
@@ -2171,7 +2134,6 @@ function init() {
   loadDynamicChannelCatalogs()
   syncHeaderCompactState()
   startChannelRefreshLabelTicker()
-  repairStoredShortsDetection()
   hydrateStoredManualVideoChannelImages()
   initCityImagePanZoom()
   initCityWaveformTouchNavigation()
@@ -2185,8 +2147,7 @@ function init() {
     if (state.onboarding.setupCompleted) {
       startLiveIntegrations(state, {
         deferAnki: noAnkiPromptScheduled || Boolean(starterFeedRequest),
-        deferYoutube: Boolean(starterFeedRequest),
-        forceShortsRefetch: shouldForceTemporaryShortsRefetch
+        deferYoutube: Boolean(starterFeedRequest)
       })
     }
   } else {
@@ -2198,16 +2159,10 @@ function init() {
 
 function startLiveIntegrations(
   state = loadState(),
-  { deferAnki = false, deferYoutube = false, forceShortsRefetch = false } = {}
+  { deferAnki = false, deferYoutube = false } = {}
 ) {
   if (IS_SANDBOX || !state?.onboarding?.setupCompleted) return
   if (!deferAnki) applyAnkiRefreshPreference(state)
-  if (forceShortsRefetch && !deferYoutube) {
-    const request = refetchAllChannelsAfterShortsEnabled({ force: true })
-    if (request && typeof request.finally === 'function') request.finally(startYoutubeAutoRefresh)
-    else startYoutubeAutoRefresh()
-    return
-  }
   if (!deferYoutube) startYoutubeAutoRefresh()
 }
 
@@ -3642,7 +3597,7 @@ function syncMobileAddButtonWidth() {
   const addControlWidth = shouldShrinkAddControl ? undoRedoWidth / 2 : undoRedoWidth
   addControl.style.flex = `0 0 ${addControlWidth}px`
   addControl.style.width = `${addControlWidth}px`
-  if (CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED && usesPhoneComposition()) {
+  if (usesPhoneComposition()) {
     mainApp?.style.setProperty(
       '--mobile-channel-format-option-width',
       `${addControlWidth}px`
@@ -4954,7 +4909,6 @@ function handleSettingsKeydown(event) {
 async function saveSettingsOnTheFly() {
   const s      = loadState()
   normalizeStudyInsightConfig(s)
-  const previousIncludeShorts = normalizeIncludeShorts(s.config.includeShorts)
   const previousAnkiEnabled = isAnkiEnabled(s)
   const nextAnkiEnabled = isAnkiAvailableOnDevice()
     ? Boolean(document.getElementById('settingsAnkiEnabled')?.checked)
@@ -4980,19 +4934,8 @@ async function saveSettingsOnTheFly() {
     }
   }
 
-  s.config.includeShorts = Boolean(document.getElementById('settingsIncludeShorts')?.checked)
-  const shortsWereEnabled = !previousIncludeShorts && normalizeIncludeShorts(s.config.includeShorts)
   s.config.ankiEnabled = nextAnkiEnabled
   s.config.ankiDisabledAt = nextAnkiEnabled ? null : now
-  if (normalizeIncludeShorts(s.config.includeShorts) !== previousIncludeShorts) {
-    appendActivityLog(s, {
-      actor: 'user',
-      type: 'short-videos',
-      status: 'success',
-      title: t('log.shortVideos.title'),
-      detail: t(normalizeIncludeShorts(s.config.includeShorts) ? 'log.shortVideos.shown' : 'log.shortVideos.hidden')
-    })
-  }
   if (ankiPreferenceChanged) {
     appendActivityLog(s, {
       actor: 'user',
@@ -5007,8 +4950,6 @@ async function saveSettingsOnTheFly() {
   if (ankiPreferenceChanged) applyAnkiRefreshPreference(s)
   renderAll(s)
   renderActivityLog(s)
-  if (shortsWereEnabled) refetchAllChannelsAfterShortsEnabled()
-  else if (!getEffectiveIncludeShorts(s)) repairStoredShortsDetection()
 }
 
 function saveLocaleFromSettings(locale = null) {
@@ -5144,7 +5085,6 @@ function importSyncFileFromInput(input) {
       applyTheme(importedState.config.theme)
       setDefaultCityDayOffset(importedState)
       renderAll(importedState)
-      if (!getEffectiveIncludeShorts(importedState)) repairStoredShortsDetection()
       renderChannelList(importedState.config.channels)
       renderBackupList()
       renderActivityLog(importedState)
@@ -5457,7 +5397,6 @@ async function restoreStateBackup(id) {
   applyTheme(state.config.theme)
   setDefaultCityDayOffset(state)
   renderAll(state)
-  if (!getEffectiveIncludeShorts(state)) repairStoredShortsDetection()
   renderChannelList(state.config.channels)
   renderBackupList()
   renderActivityLog(state)
@@ -6481,130 +6420,12 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
   }
 }
 
-function hasKnownVideoDuration(video) {
-  return Number(video?.duration || 0) > 0
-}
-
-function needsStoredShortsDetection(video) {
-  return Boolean(
-    video &&
-    isYoutubeVideoId(video.id) &&
-    getVideoStatus(video) !== 'watched' &&
-    !hasKnownVideoDuration(video) &&
-    !isShortDuration(video.duration) &&
-    video.shortsDetectionVersion !== SHORT_VIDEO_DETECTION_VERSION
-  )
-}
-
-function getStoredShortsDetectionCandidates(s) {
-  if (!s?.videos) return []
-  return Object.values(s.videos).filter(needsStoredShortsDetection)
-}
-
-async function repairStoredShortsDetection() {
-  if (IS_SANDBOX || !hasYoutubeApiKey()) return
-  if (repairStoredShortsDetection._running) return
-
-  const initialState = loadState()
-  if (!initialState || getEffectiveIncludeShorts(initialState)) return
-  const candidates = getStoredShortsDetectionCandidates(initialState)
-  if (!candidates.length) return
-
-  repairStoredShortsDetection._running = true
-  try {
-    const detailsById = await fetchVideoDetails(candidates.map(video => video.id), { detectShorts: true })
-    const s = loadState()
-    if (!s || getEffectiveIncludeShorts(s)) return
-
-    let changed = false
-    let checkedCount = 0
-    let shortCount = 0
-    candidates.forEach(candidate => {
-      const video = s.videos?.[candidate.id]
-      const detail = detailsById[candidate.id]
-      if (!video || !detail || !needsStoredShortsDetection(video)) return
-
-      video.duration = detail.duration ?? video.duration ?? 0
-      video.isShort = isShortDuration(detail.duration)
-      video.shortsCheckedAt = detail.shortsCheckedAt || new Date().toISOString()
-      video.shortsDetectionVersion = detail.shortsDetectionVersion || SHORT_VIDEO_DETECTION_VERSION
-      checkedCount += 1
-      if (video.isShort) shortCount += 1
-      changed = true
-    })
-
-    if (changed) {
-      appendActivityLog(s, {
-        actor: 'auto',
-        type: 'short-videos',
-        status: 'info',
-        title: t('log.shortsChecked.title'),
-        detail: t('log.shortsChecked.detail', { checked: checkedCount, shorts: shortCount }),
-        meta: { checkedCount, shortCount }
-      })
-      saveState(s)
-      renderAll(s)
-    }
-  } catch (err) {
-    console.warn('Could not re-check stored short videos:', err)
-    const s = loadState()
-    if (s) {
-      appendActivityLog(s, {
-        actor: 'auto',
-        type: 'short-videos',
-        status: 'warn',
-        title: t('log.shortsCheckFailed.title'),
-        detail: err.message || t('log.shortsCheckFailed.detail')
-      })
-      saveState(s)
-    }
-  } finally {
-    repairStoredShortsDetection._running = false
-  }
-}
-
 function formatSkippedShortsMessage(skippedShorts, loadedVideos = 0) {
   if (!skippedShorts) return ''
   const showSettingsHint = loadedVideos < ACTIVE_VIDEOS_PER_CHANNEL
     && skippedShorts >= ACTIVE_VIDEOS_PER_CHANNEL
   const key = showSettingsHint ? 'toast.skippedShortsSettingsHint' : 'toast.skippedShorts'
   return t(key, { count: skippedShorts, plural: skippedShorts === 1 ? '' : 's' })
-}
-
-function refetchAllChannelsAfterShortsEnabled({ force = false } = {}) {
-  if (IS_SANDBOX || !hasYoutubeApiKey() || shortsEnableRefetchPromise) return shortsEnableRefetchPromise
-
-  const state = loadState()
-  const refetchAvailableAt = new Date(state?.config?.shortsEnableRefetchAvailableAt).getTime()
-  if (!force && Number.isFinite(refetchAvailableAt) && Date.now() < refetchAvailableAt) return null
-
-  const channelIds = (state?.config?.channels || []).map(channel => channel.id).filter(Boolean)
-  if (!channelIds.length) return null
-
-  const input = document.getElementById('settingsIncludeShorts')
-  if (input) input.disabled = true
-  showToast(t('toast.shortsRefetching'))
-
-  const request = refreshFeed({
-    silent: false,
-    channelIds,
-    trigger: 'shorts_enabled'
-  }).then(result => {
-    const latestState = loadState()
-    if (latestState?.config) {
-      const cooldownMs = result?.successfulChannels > 0
-        ? SHORTS_ENABLE_REFETCH_COOLDOWN_MS
-        : YOUTUBE_REFRESH_ERROR_BACKOFF_MS
-      latestState.config.shortsEnableRefetchAvailableAt = new Date(Date.now() + cooldownMs).toISOString()
-      saveState(latestState, { backup: false })
-    }
-    return result
-  }).finally(() => {
-    if (shortsEnableRefetchPromise === request) shortsEnableRefetchPromise = null
-    if (input) input.disabled = false
-  })
-  shortsEnableRefetchPromise = request
-  return request
 }
 
 function trackRefreshCompleted(startedAtMs, properties = {}) {
@@ -13360,8 +13181,6 @@ function renderFeed(s) {
     arrivingChannelId: pendingAddedChannelReveal?.channelId || '',
     removedChannelIds,
     chronologicalOnly: statusFilter === 'favorite',
-    channelVideoFormatEnabled:
-      CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED && includeShorts,
     channelVideoFormats: s.config?.channelVideoFormats
   }
 
@@ -13405,11 +13224,9 @@ function renderFeed(s) {
     startTouch: startTouchChannelShelfDrag
   })
   bindRenderedVideoShelfPreviewActions(grid)
-  if (cardOptions.channelVideoFormatEnabled) {
-    bindChannelVideoFormatActions(grid, {
-      select: selectChannelVideoFormat
-    })
-  }
+  bindChannelVideoFormatActions(grid, {
+    select: selectChannelVideoFormat
+  })
   requestAnimationFrame(() => {
     document.querySelectorAll('.channel-shelf-track').forEach(syncVideoChannelShelfControls)
   })
@@ -13573,7 +13390,6 @@ function applyChannelVideoFormatSelection(shelf, channelKey, format) {
 }
 
 function selectChannelVideoFormat(control, channelKey, format) {
-  if (!CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED) return false
   const shelf = control?.closest?.('.channel-shelf')
   const selectedFormat = normalizeChannelVideoFormat(format)
   const previousFormat = shelf?.dataset.channelSelectedVideoFormat
@@ -13622,7 +13438,6 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
     cardOptions.chronologicalOnly,
     t('videos.search.youtube')
   ).map((group, index) => {
-    const formatEnabled = cardOptions.channelVideoFormatEnabled === true
     const preferredFormat = getSelectedChannelVideoFormat(
       cardOptions.channelVideoFormats,
       group.key
@@ -13631,17 +13446,14 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
       [CHANNEL_VIDEO_FORMATS.VIDEOS]: 0,
       [CHANNEL_VIDEO_FORMATS.SHORTS]: 0
     }
-    if (formatEnabled) {
-      group.videos.forEach(video => {
-        formatCounts[getChannelVideoFormat(video)] += 1
-      })
-    }
-    const selectedFormat = formatEnabled
-      ? getAvailableChannelVideoFormat(preferredFormat, formatCounts)
-      : preferredFormat
-    const visibleCount = formatEnabled
-      ? formatCounts[selectedFormat]
-      : group.videos.length
+    group.videos.forEach(video => {
+      formatCounts[getChannelVideoFormat(video)] += 1
+    })
+    const selectedFormat = getAvailableChannelVideoFormat(
+      preferredFormat,
+      formatCounts
+    )
+    const visibleCount = formatCounts[selectedFormat]
     const countLabel = getChannelVideoFormatCountLabel(visibleCount)
     const trackId = `channelShelfTrack${index}`
     const isArrivingChannel = group.key === cardOptions.arrivingChannelId
@@ -13649,10 +13461,10 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
     return `
       <section class="channel-video-group channel-shelf ${isArrivingChannel ? 'channel-refresh-arriving' : ''}"
         data-channel-key="${escHtml(group.key)}"
-        ${formatEnabled ? `data-channel-selected-video-format="${selectedFormat}"` : ''}
+        data-channel-selected-video-format="${selectedFormat}"
         data-channel-order-action="shelf"
         draggable="true">
-        <header class="channel-shelf-header${formatEnabled ? ' has-video-format-toggle' : ''}"
+        <header class="channel-shelf-header has-video-format-toggle"
           aria-label="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}"
           title="${escHtml(t('videos.channel.dragLabel', { channel: group.title }))}">
           <div class="channel-shelf-identity">
@@ -13672,14 +13484,10 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
                   </svg>
                 </button>`}
               </span>
-              ${formatEnabled
-                ? `<span data-channel-video-format-count-label>${escHtml(countLabel)}</span>`
-                : `<span>${escHtml(countLabel)}</span>`}
+              <span data-channel-video-format-count-label>${escHtml(countLabel)}</span>
             </span>
           </div>
-          ${formatEnabled
-            ? renderChannelVideoFormatControls(group, trackId, selectedFormat)
-            : ''}
+          ${renderChannelVideoFormatControls(group, trackId, selectedFormat)}
           <div class="channel-shelf-controls">
             <button type="button"
               class="channel-shelf-scroll channel-shelf-scroll-prev"
@@ -13707,24 +13515,22 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
           data-channel-shelf-scroll-action="sync"
           data-analytics-action="syncVideoChannelShelfControls"
           aria-label="${escHtml(t('videos.channel.shelfLabel', { channel: group.title }))}">
-          ${formatEnabled ? `
-            <div class="channel-shelf-format-empty"
-              data-channel-video-format-empty="${CHANNEL_VIDEO_FORMATS.VIDEOS}"
-              ${selectedFormat !== CHANNEL_VIDEO_FORMATS.VIDEOS || formatCounts[CHANNEL_VIDEO_FORMATS.VIDEOS] > 0 ? 'hidden' : ''}>
-              ${escHtml(t('videos.channel.format.emptyVideos'))}
-            </div>
-            <div class="channel-shelf-format-empty"
-              data-channel-video-format-empty="${CHANNEL_VIDEO_FORMATS.SHORTS}"
-              ${selectedFormat !== CHANNEL_VIDEO_FORMATS.SHORTS || formatCounts[CHANNEL_VIDEO_FORMATS.SHORTS] > 0 ? 'hidden' : ''}>
-              ${escHtml(t('videos.channel.format.emptyShorts'))}
-            </div>
-          ` : ''}
+          <div class="channel-shelf-format-empty"
+            data-channel-video-format-empty="${CHANNEL_VIDEO_FORMATS.VIDEOS}"
+            ${selectedFormat !== CHANNEL_VIDEO_FORMATS.VIDEOS || formatCounts[CHANNEL_VIDEO_FORMATS.VIDEOS] > 0 ? 'hidden' : ''}>
+            ${escHtml(t('videos.channel.format.emptyVideos'))}
+          </div>
+          <div class="channel-shelf-format-empty"
+            data-channel-video-format-empty="${CHANNEL_VIDEO_FORMATS.SHORTS}"
+            ${selectedFormat !== CHANNEL_VIDEO_FORMATS.SHORTS || formatCounts[CHANNEL_VIDEO_FORMATS.SHORTS] > 0 ? 'hidden' : ''}>
+            ${escHtml(t('videos.channel.format.emptyShorts'))}
+          </div>
           ${group.videos.map((video, videoIndex) => {
-            const videoFormat = formatEnabled ? getChannelVideoFormat(video) : null
+            const videoFormat = getChannelVideoFormat(video)
             return `
             <div class="channel-shelf-slot ${video.id === cardOptions.focusedVideoId ? 'channel-refresh-focus' : ''}"
-              ${formatEnabled ? `data-channel-video-format="${videoFormat}"` : ''}
-              ${formatEnabled && videoFormat !== selectedFormat ? 'hidden' : ''}
+              data-channel-video-format="${videoFormat}"
+              ${videoFormat !== selectedFormat ? 'hidden' : ''}
               style="--channel-refresh-delay: ${Math.min(videoIndex, 8) * 45}ms">
               ${renderCard(video, false, {
                 ...cardOptions,
@@ -14882,8 +14688,7 @@ function positionVideoShelfPreview(card, pointerEvent = null) {
   const slot = card?.closest?.('.channel-shelf-slot')
   if (!slot) return false
 
-  const isShortsPreview = CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED
-    && slot.dataset.channelVideoFormat === CHANNEL_VIDEO_FORMATS.SHORTS
+  const isShortsPreview = slot.dataset.channelVideoFormat === CHANNEL_VIDEO_FORMATS.SHORTS
   const slotRect = slot.getBoundingClientRect()
   const rect = isShortsPreview
     ? card.getBoundingClientRect()

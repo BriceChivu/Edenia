@@ -474,7 +474,6 @@ The supported public runtime variables are:
 
 | Repository variable | Runtime field | Effect |
 | --- | --- | --- |
-| `EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED` | `channelVideoFormatToggleEnabled` | Enables persisted per-channel Videos/Shorts views when short videos are included. |
 | `EDENIA_STUDY_GUIDANCE_ENABLED` | `studyGuidanceEnabled` | Replaces the current eligible insight with goal-independent Study Guidance. |
 | `EDENIA_INDEXED_DB_BACKUPS_ENABLED` | `indexedDbBackupsEnabled` | Migrates and writes normal-mode recovery snapshots in IndexedDB. |
 | `EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED` | `indexedDbBackupCleanupEnabled` | Removes a valid legacy backup copy after verified migration; effective only with IndexedDB backups enabled. |
@@ -484,9 +483,9 @@ The supported public runtime variables are:
 | `SUPABASE_PUBLISHABLE_KEY` | `supabasePublishableKey` | Supplies the browser-safe Supabase publishable key. |
 
 Generated runtime configuration temporarily retains
-`videoOrganizationEnabled: true` as a compatibility marker for cached
-pre-retirement application assets. It is not a release gate and has no
-repository variable.
+`videoOrganizationEnabled: true` and `channelVideoFormatToggleEnabled: true`
+as compatibility markers for cached pre-retirement application assets. They
+are not release gates and have no repository variables.
 
 Boolean release variables default to disabled and accept only `true` or `false`.
 Changing a repository variable does not alter an already deployed artifact;

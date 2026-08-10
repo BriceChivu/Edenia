@@ -10,7 +10,7 @@ async function seedCompletedState(page) {
       freePlusEnabled: false,
       plusCheckoutEnabled: false,
       videoOrganizationEnabled: true,
-      channelVideoFormatToggleEnabled: false,
+      channelVideoFormatToggleEnabled: true,
       supabaseUrl: '',
       supabasePublishableKey: ''
     }`,

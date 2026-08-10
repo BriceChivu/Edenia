@@ -1,6 +1,5 @@
 const boundControls = new WeakSet()
 const preferenceSelectors = [
-  '#settingsIncludeShorts[data-settings-preference-action="save"]',
   '#settingsAnkiEnabled[data-settings-preference-action="save"]'
 ]
 

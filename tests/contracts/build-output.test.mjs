@@ -78,7 +78,7 @@ test('test build contains empty public keys and safe release defaults', async ()
   assert.match(source, /"freePlusEnabled": false/)
   assert.match(source, /"plusCheckoutEnabled": false/)
   assert.match(source, /"videoOrganizationEnabled": true/)
-  assert.match(source, /"channelVideoFormatToggleEnabled": false/)
+  assert.match(source, /"channelVideoFormatToggleEnabled": true/)
   assert.match(source, /"studyGuidanceEnabled": false/)
   assert.match(source, /"indexedDbBackupsEnabled": false/)
   assert.match(source, /"indexedDbBackupCleanupEnabled": false/)
@@ -87,7 +87,7 @@ test('test build contains empty public keys and safe release defaults', async ()
   assert.doesNotMatch(source, /PASTE_|AIza/i)
 })
 
-test('Pages deployment retires organization input and forwards remaining controls', async () => {
+test('Pages deployment retires permanent feature inputs and forwards remaining controls', async () => {
   const workflow = await readFile(
     new URL('.github/workflows/deploy-pages.yml', projectRoot),
     'utf8'
@@ -110,9 +110,11 @@ test('Pages deployment retires organization input and forwards remaining control
     runtimeConfigWriter,
     /process\.env\.EDENIA_VIDEO_ORGANIZATION_ENABLED/
   )
-  assert.match(
-    workflow,
-    /EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED: \$\{\{ vars\.EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED \}\}/
+  assert.doesNotMatch(workflow, /EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED/)
+  assert.match(runtimeConfigWriter, /channelVideoFormatToggleEnabled: true/)
+  assert.doesNotMatch(
+    runtimeConfigWriter,
+    /process\.env\.EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED/
   )
   assert.match(
     workflow,
