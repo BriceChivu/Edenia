@@ -2,16 +2,10 @@
 
 ## BUGS:
 - on mobiles: internal_test=1 is very slow, especially when setting a video as watch later or favorite
-- on mobiles, in progress, watch later, favorite labels are at the same position as "new" label.
-- on mobiles: "removed from in progress UNDO" should take 1 line if possible. The word "UNDO" should never be broken down in several lines.
 
 ## Usability:
 - INSIGHTS: Saying "Try Tuesday" when today is monday doesn't really make sense i feel...
-- change "Support me", to "Buy me a coffee"
-- keep the last view of Videos/Shorts persisting accross sessions. And also each channel view should be recorded in PostHog.
-- the Add channel search should also look for partial matches in chinese, japanese, korean, ... characters
 - moving the mouse around while watching a video in the iframe makes the Youtube iframe buttons appear. I don't like the obstructing pause button in the middle.
-- on mobiles, set the max zoom in to twice bigger as the current max
 - add more supported languages
 - add more suggested languages to learn    
 - do not have more than 2 motivational insights in a row. Give more real analytics and data backed insights. (see Codex)
