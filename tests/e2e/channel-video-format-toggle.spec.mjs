@@ -35,7 +35,7 @@ async function seedFormatState(
         youtubeApiKey: '',
         freePlusEnabled: false,
         plusCheckoutEnabled: false,
-        videoOrganizationEnabled: false,
+        videoOrganizationEnabled: true,
         channelVideoFormatToggleEnabled: true,
         supabaseUrl: '',
         supabasePublishableKey: ''

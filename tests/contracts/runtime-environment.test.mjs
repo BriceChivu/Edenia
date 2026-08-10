@@ -171,7 +171,6 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     youtubeApiKey: '  key-one  ',
     freePlusEnabled: true,
     plusCheckoutEnabled: true,
-    videoOrganizationEnabled: true,
     channelVideoFormatToggleEnabled: true,
     studyGuidanceEnabled: true,
     indexedDbBackupsEnabled: true,
@@ -194,7 +193,6 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   target.EDENIA_CONFIG = {
     freePlusEnabled: 'true',
     plusCheckoutEnabled: 1,
-    videoOrganizationEnabled: 'true',
     channelVideoFormatToggleEnabled: 'true',
     studyGuidanceEnabled: 'true',
     indexedDbBackupsEnabled: 'true',

@@ -9,7 +9,7 @@ async function seedCompletedState(page) {
       youtubeApiKey: 'fixture-key',
       freePlusEnabled: false,
       plusCheckoutEnabled: false,
-      videoOrganizationEnabled: false,
+      videoOrganizationEnabled: true,
       channelVideoFormatToggleEnabled: false,
       supabaseUrl: '',
       supabasePublishableKey: ''

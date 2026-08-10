@@ -44,39 +44,38 @@ After deployment, the acceptance owner should smoke-check the production URL,
 critical first-run and returning-user flows, runtime configuration, and the
 absence of internal-test/sandbox leakage before creating a release.
 
-## Staged video-organization rollout
+## Retired video-organization switch
 
-The inline video-actions drawer is merged safely behind one runtime decision:
+Video organization is permanent for ordinary and internal-test visitors. The
+legacy Set aside interface and the `EDENIA_VIDEO_ORGANIZATION_ENABLED`
+repository variable are no longer supported. Loading or saving state migrates
+legacy Set aside and individually hidden videos into the Removed model while
+preserving recorded study activity and organization Undo/Redo history.
 
-- `/?internal_test=1` always enables the preview and uses the isolated
-  `edenia_v1_internal_test` state.
-- Ordinary visitors keep the legacy Set aside flow while the repository
-  variable `EDENIA_VIDEO_ORGANIZATION_ENABLED` is absent or exactly `false`.
-- Setting that variable to exactly `true` enables the drawer for ordinary
-  visitors on the next Pages deployment.
+During the retirement release, every generated `config.local.js` must continue
+to emit `videoOrganizationEnabled: true`. New application code does not read
+this field; it is a temporary compatibility marker that keeps a cached
+pre-retirement `app.js` on the already-released organization experience while
+HTML and assets rotate through the Pages cache.
 
 Use this release sequence:
 
-1. Merge with `EDENIA_VIDEO_ORGANIZATION_ENABLED=false` (or leave it absent).
-2. After Pages deploys, first smoke-check the ordinary production URL. Confirm
-   an in-progress card has Set aside, has no More menu, and has no visible
-   Removed section.
-3. Open the same production deployment with `/?internal_test=1`. Exercise
-   removal from Continue Watching, removal from the feed, restore, Undo, and a
-   Removed thumbnail preview. Confirm the ordinary browser state is unchanged.
-4. If acceptance succeeds, set the repository variable to `true` and manually
-   dispatch the Pages workflow. Changing a repository variable alone does not
-   rebuild an already deployed static artifact.
-5. Smoke-check both a returning user and a clean browser before creating the
-   release.
+1. Merge and deploy the retirement changes. Confirm the generated production
+   config contains `videoOrganizationEnabled: true` and the Pages workflow no
+   longer accepts `EDENIA_VIDEO_ORGANIZATION_ENABLED`.
+2. Smoke-check both a returning profile and a clean browser on the ordinary
+   production URL. Exercise removal from Continue Watching, removal from the
+   feed, restore, Undo/Redo, and a Removed thumbnail preview.
+3. Repeat a storage-isolation check with `/?internal_test=1` and confirm normal
+   progress is unchanged.
+4. Allow at least the published Pages cache lifetime plus an observation
+   window before removing the compatibility marker in a separate pull request.
 
-The variable is the public kill switch. If a production problem appears, set it
-back to `false`, manually dispatch the Pages workflow, and verify the ordinary
-URL again. Existing `removedFromFeedAt` fields and organization Undo entries are
-kept in local storage but ignored and hidden while the switch is off, so the
-rollback does not destroy user state and a later re-enable remains possible.
-Use a revert pull request as well when the problem is in shared code rather than
-only in the new behavior.
+If a production problem appears, revert the smallest retirement commit through
+a pull request and redeploy. Keep the compatibility marker set to `true` during
+that rollback so cached pre-retirement assets retain the organization-enabled
+behavior that was already public. Do not try to reconstruct the removed legacy
+state fields from migrated data.
 
 ## Staged channel video-format rollout
 

@@ -15,7 +15,7 @@ async function configureIndexedDbBackups(
       youtubeApiKey: '',
       freePlusEnabled: false,
       plusCheckoutEnabled: false,
-      videoOrganizationEnabled: false,
+      videoOrganizationEnabled: true,
       channelVideoFormatToggleEnabled: false,
       studyGuidanceEnabled: false,
       indexedDbBackupsEnabled: enabled,

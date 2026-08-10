@@ -25,10 +25,8 @@ const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
     process.env.EDENIA_PLUS_CHECKOUT_ENABLED,
     'EDENIA_PLUS_CHECKOUT_ENABLED'
   ),
-  videoOrganizationEnabled: parseRuntimeConfigFlag(
-    process.env.EDENIA_VIDEO_ORGANIZATION_ENABLED,
-    'EDENIA_VIDEO_ORGANIZATION_ENABLED'
-  ),
+  // Compatibility marker for cached pre-retirement app.js assets.
+  videoOrganizationEnabled: true,
   channelVideoFormatToggleEnabled: parseRuntimeConfigFlag(
     process.env.EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED,
     'EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED'
