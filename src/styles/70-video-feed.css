@@ -1361,12 +1361,22 @@ body[data-theme="dark"] .video-watch-reminder-favorite:focus-visible {
 }
 .video-watch-reminder-popover.is-player {
   align-items: center;
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  grid-template-columns: minmax(0, 1fr) auto;
   padding: 10px 12px;
 }
-.video-watch-reminder-popover.is-player .video-watch-reminder-copy,
+.video-watch-reminder-popover.is-player .video-watch-reminder-copy {
+  flex: 1 1 auto;
+  white-space: normal;
+}
 .video-watch-reminder-popover.is-player .video-watch-reminder-actions {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  max-width: 100%;
+  white-space: normal;
+}
+.video-watch-reminder-popover.is-player .video-watch-reminder-actions button {
   white-space: nowrap;
 }
 .compact-card .thumb-link {
