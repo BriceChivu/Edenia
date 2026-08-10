@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import { I18N } from '../../src/i18n/index.js'
 
 const source = await readFile(new URL('../../index.html', import.meta.url), 'utf8')
 const styleSource = await readFile(
@@ -27,7 +28,7 @@ test('Ko-fi support link is the safe left-hand footer action', () => {
   assert.equal(getAttribute(supportLink, 'target'), '_blank')
   assert.equal(getAttribute(supportLink, 'rel'), 'noopener noreferrer')
   assert.equal(getAttribute(supportLink, 'data-analytics-action'), 'support.kofi')
-  assert.match(footer, /<span data-i18n="support\.button">Support me<\/span>/)
+  assert.match(footer, /<span data-i18n="support\.button">Buy me a coffee<\/span>/)
   assert.ok(
     footer.indexOf('class="support-link"') < footer.indexOf('id="feedbackLaunchBtn"'),
     'Support link should appear to the left of Feedback'
@@ -54,12 +55,29 @@ test('trailer and Settings expose icon-only Ko-fi support links instead of Kick'
     assert.match(links, /<svg class="intro-social-support-icon"[^>]*aria-hidden="true">/)
     assert.match(
       links,
-      /<span class="sr-only" data-i18n="support\.button">Support me<\/span>/
+      /<span class="sr-only" data-i18n="support\.button">Buy me a coffee<\/span>/
     )
   }
 
   assert.doesNotMatch(source, /kick\.com\/bricelearnstuff|intro-social-kick|>Kick<\/a>/)
   assert.doesNotMatch(introStyleSource, /intro-social-kick/)
+})
+
+test('Ko-fi support copy stays explicit in every supported locale', () => {
+  const expected = {
+    en: 'Buy me a coffee',
+    'zh-Hant': '請我喝杯咖啡',
+    'zh-Hans': '请我喝杯咖啡',
+    es: 'Invítame a un café',
+    fr: 'Offrez-moi un café'
+  }
+
+  assert.deepEqual(
+    Object.fromEntries(
+      Object.keys(expected).map(locale => [locale, I18N[locale]['support.button']])
+    ),
+    expected
+  )
 })
 
 test('creator support hearts inherit the shared rounded-link height', () => {

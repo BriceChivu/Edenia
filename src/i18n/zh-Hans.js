@@ -645,7 +645,7 @@ export const ZH_HANS_LOCALIZED = {
     'walkthrough.resetSafety': '全部重置会重新开始，但 Edenia 会先保留回滚备份。请小心使用，想要浏览器外的保护时请导出同步文件。',
 
   // Feedback translations were historically merged after the initial locale block.
-    'support.button': '支持我',
+    'support.button': '请我喝杯咖啡',
     'feedback.button': '意见反馈',
     'feedback.title': '分享意见',
     'feedback.close': '关闭意见反馈',

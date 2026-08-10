@@ -846,7 +846,7 @@ export const EN_CORE = {
 }
 
 export const EN_FEEDBACK = {
-    'support.button': 'Support me',
+    'support.button': 'Buy me a coffee',
     'feedback.button': 'Feedback',
     'feedback.title': 'Share feedback',
     'feedback.close': 'Close feedback',
