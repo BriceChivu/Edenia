@@ -32,18 +32,75 @@ test('onboarding enters Edenia before preparing and incrementally revealing the 
   const secondChannelRequestGate = new Promise(resolve => {
     releaseSecondChannelRequest = resolve
   })
+  let releaseRemainingChannelRequests
+  const remainingChannelRequestGate = new Promise(resolve => {
+    releaseRemainingChannelRequests = resolve
+  })
   let youtubeRequestCount = 0
   let channelRequestCount = 0
+  const channelIndexesById = new Map()
+  const videoIndexesById = new Map()
+  const getChannelId = index => `UC${String(index).padStart(22, '0')}`
+  const getVideoId = index => `starter${String(index).padStart(4, '0')}`
   await page.route('https://www.googleapis.com/youtube/v3/**', async route => {
     youtubeRequestCount += 1
     if (youtubeRequestCount === 1) await firstYoutubeRequestGate
-    const endpoint = new URL(route.request().url()).pathname.split('/').at(-1)
+    const url = new URL(route.request().url())
+    const endpoint = url.pathname.split('/').at(-1)
+    let fixture = youtubeFixtures[endpoint]
     if (endpoint === 'channels') {
       channelRequestCount += 1
       if (channelRequestCount === 2) await secondChannelRequestGate
+      if (channelRequestCount === 3) await remainingChannelRequestGate
+      const channelId = getChannelId(channelRequestCount)
+      channelIndexesById.set(channelId, channelRequestCount)
+      fixture = {
+        items: [{
+          id: channelId,
+          snippet: {
+            title: `Fixture Language Channel ${channelRequestCount}`,
+            thumbnails: youtubeFixtures.channels.items[0].snippet.thumbnails
+          }
+        }]
+      }
+    } else if (endpoint === 'playlistItems') {
+      const playlistId = url.searchParams.get('playlistId') || ''
+      const channelId = `UC${playlistId.slice(2)}`
+      const channelIndex = channelIndexesById.get(channelId)
+      const videoId = getVideoId(channelIndex)
+      videoIndexesById.set(videoId, channelIndex)
+      fixture = {
+        items: [{
+          snippet: {
+            channelId,
+            channelTitle: `Fixture Language Channel ${channelIndex}`,
+            publishedAt: `2026-07-${String(20 + channelIndex).padStart(2, '0')}T04:00:00.000Z`,
+            resourceId: { videoId },
+            thumbnails: youtubeFixtures.playlistItems.items[0].snippet.thumbnails,
+            title: `Fixture Study Video ${channelIndex}`
+          }
+        }]
+      }
+    } else if (endpoint === 'videos') {
+      const videoId = url.searchParams.get('id') || ''
+      const channelIndex = videoIndexesById.get(videoId)
+      const channelId = getChannelId(channelIndex)
+      fixture = {
+        items: [{
+          ...youtubeFixtures.videos.items[0],
+          id: videoId,
+          snippet: {
+            ...youtubeFixtures.videos.items[0].snippet,
+            channelId,
+            channelTitle: `Fixture Language Channel ${channelIndex}`,
+            publishedAt: `2026-07-${String(20 + channelIndex).padStart(2, '0')}T04:00:00.000Z`,
+            title: `Fixture Study Video ${channelIndex}`
+          }
+        }]
+      }
     }
     await route.fulfill({
-      body: JSON.stringify(youtubeFixtures[endpoint]),
+      body: JSON.stringify(fixture),
       contentType: 'application/json',
       status: 200
     })
@@ -72,20 +129,45 @@ test('onboarding enters Edenia before preparing and incrementally revealing the 
     await expect(page.locator('#toast')).toHaveText(
       'Preparing your starter feed… 1 of 5 channels'
     )
-    await expect(page.getByText('Fixture Study Video', { exact: true })).toBeVisible()
+    await expect(page.getByText('Fixture Study Video 1', { exact: true })).toBeVisible()
+    await expect(page.locator('.walkthrough-progress')).toHaveText('1 / 3')
+    await expect(page.locator('.channel-shelf-title-row strong')).toHaveText([
+      'Fixture Language Channel 1'
+    ])
     await expect.poll(() => channelRequestCount).toBe(2)
+    releaseSecondChannelRequest()
+    await expect(page.locator('.channel-shelf-title-row strong')).toHaveText([
+      'Fixture Language Channel 1',
+      'Fixture Language Channel 2'
+    ])
+    await expect.poll(() => channelRequestCount).toBe(3)
+    releaseRemainingChannelRequests()
   } finally {
     releaseFirstYoutubeRequest()
     releaseSecondChannelRequest()
+    releaseRemainingChannelRequests()
   }
 
   await expect(page.locator('#toast')).toHaveText('Your starter feed is ready.', {
     timeout: 10_000
   })
-  await expect(page.getByText('Fixture Study Video', { exact: true })).toBeVisible()
+  await expect(page.locator('.channel-shelf-title-row strong')).toHaveText([
+    'Fixture Language Channel 1',
+    'Fixture Language Channel 2',
+    'Fixture Language Channel 3',
+    'Fixture Language Channel 4',
+    'Fixture Language Channel 5'
+  ])
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')))
   expect(stored.onboarding.starterFeed.status).toBe('complete')
   expect(stored.onboarding.starterFeed.processedCatalogIds).toHaveLength(5)
-  expect(stored.config.channels).toHaveLength(1)
-  expect(stored.videos.fixture0001.title).toBe('Fixture Study Video')
+  expect(stored.config.channels).toHaveLength(5)
+  expect(stored.config.channelShelfOrder).toEqual([
+    getChannelId(1),
+    getChannelId(2),
+    getChannelId(3),
+    getChannelId(4),
+    getChannelId(5)
+  ])
+  expect(stored.videos[getVideoId(1)].title).toBe('Fixture Study Video 1')
 })
