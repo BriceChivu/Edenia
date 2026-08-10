@@ -314,7 +314,7 @@ test('filter and shelf removal retain exact generated markup and order', () => {
     [
       '<strong>${escHtml(group.title)}</strong>',
       shelfControl.tag,
-      '<span>${escHtml(countLabel)}</span>'
+      '<span data-channel-video-format-count-label>${escHtml(countLabel)}</span>'
     ],
     'shelf heading content'
   )
