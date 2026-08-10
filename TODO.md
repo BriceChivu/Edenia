@@ -6,6 +6,8 @@
 - on mobiles: "removed from in progress UNDO" should take 1 line if possible. The word "UNDO" should never be broken down in several lines.
 
 ## Usability:
+- INSIGHTS: Saying "Try Tuesday" when today is monday doesn't really make sense i feel...
+- change "Support me", to "Buy me a coffee"
 - keep the last view of Videos/Shorts persisting accross sessions. And also each channel view should be recorded in PostHog.
 - the Add channel search should also look for partial matches in chinese, japanese, korean, ... characters
 - moving the mouse around while watching a video in the iframe makes the Youtube iframe buttons appear. I don't like the obstructing pause button in the middle.
