@@ -28,6 +28,19 @@ test('initialization resumes persisted starter work and defers competing integra
   assert.match(source, /startPendingStarterFeedPreparation\(state, \{\s*deferAnki: noAnkiPromptScheduled\s*\}\)/)
 })
 
+test('first-study walkthrough waits for a starter video target while work is active', () => {
+  const onboardingSource = getFunctionSource('maybeStartOnboarding', 'scheduleFirstStudyWalkthrough')
+  const scheduleSource = getFunctionSource('scheduleFirstStudyWalkthrough', 'maybeStartNoAnkiFrequentUserPrompt')
+  assert.match(onboardingSource, /scheduleFirstStudyWalkthrough\(state\)/)
+  assert.match(scheduleSource, /steps\.find\(step => step\.id === 'first-study-video'\)/)
+  assert.match(
+    scheduleSource,
+    /getActiveStarterFeed\(state\) && firstVideoStep && !getWalkthroughTarget\(firstVideoStep\)/
+  )
+  assert.match(scheduleSource, /firstStudyWalkthroughTimer = window\.setTimeout/)
+  assert.match(scheduleSource, /startWalkthrough\(latestSteps\)/)
+})
+
 test('starter channels are fetched sequentially and persisted after every result', () => {
   const source = getFunctionSource(
     'runPendingStarterFeedPreparation',
@@ -57,6 +70,19 @@ test('each completed channel merges into the latest state before rendering', () 
   assert.ok(saveIndex > mergeIndex)
   assert.ok(renderIndex > saveIndex)
   assert.match(source, /if \(!getActiveStarterFeed\(latestState, queuedAt\)\) return \{ cancelled: true \}/)
+})
+
+test('resolved starter channels receive a stable idempotent shelf order', () => {
+  const source = getFunctionSource('addResolvedStarterChannel', 'prepareStarterFeedChannel')
+  assert.match(
+    source,
+    /const channelShelfOrder = normalizeChannelShelfOrder\(state\.config\.channelShelfOrder\)/
+  )
+  assert.match(
+    source,
+    /if \(!channelShelfOrder\.includes\(channel\.id\)\) channelShelfOrder\.push\(channel\.id\)/
+  )
+  assert.match(source, /state\.config\.channelShelfOrder = channelShelfOrder/)
 })
 
 test('completion records outcome analytics and uses success or partial messaging', () => {
