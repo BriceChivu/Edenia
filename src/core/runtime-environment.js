@@ -11,13 +11,6 @@ export function deriveRuntimeEnvironment(locationLike) {
   }
 }
 
-export function deriveChannelVideoFormatToggleEnabled(
-  runtimeEnvironment,
-  releaseEnabled = false
-) {
-  return runtimeEnvironment?.isInternalTest === true || releaseEnabled === true
-}
-
 export function deriveStudyGuidanceEnabled(
   runtimeEnvironment,
   releaseEnabled = false

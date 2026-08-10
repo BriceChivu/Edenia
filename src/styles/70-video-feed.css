@@ -77,23 +77,23 @@
   outline: 2px solid var(--focus);
   outline-offset: 1px;
 }
-body.channel-video-format-toggle-enabled .status-tabs,
-body.channel-video-format-toggle-enabled .channel-shelf-format-switcher {
+.status-tabs,
+.channel-shelf-format-switcher {
   background: transparent;
   border: 0;
   border-radius: 0;
   padding: 0;
 }
-body.channel-video-format-toggle-enabled .status-tab.active,
-body.channel-video-format-toggle-enabled .channel-shelf-format-option[aria-pressed="true"] {
+.status-tab.active,
+.channel-shelf-format-option[aria-pressed="true"] {
   box-shadow: 0 1px 3px rgba(5,5,5,0.12);
 }
-body.channel-video-format-toggle-enabled .status-tab:not(.active):not(:disabled):hover,
-body.channel-video-format-toggle-enabled .channel-shelf-format-option:hover:not([aria-pressed="true"]) {
+.status-tab:not(.active):not(:disabled):hover,
+.channel-shelf-format-option:hover:not([aria-pressed="true"]) {
   background: rgba(5,5,5,0.08);
 }
-body.channel-video-format-toggle-enabled .status-tab:focus-visible,
-body.channel-video-format-toggle-enabled .channel-shelf-format-option:focus-visible {
+.status-tab:focus-visible,
+.channel-shelf-format-option:focus-visible {
   outline-offset: 2px;
 }
 .status-tab-count {
@@ -807,7 +807,7 @@ body[data-theme="dark"] .feed-action-controls .redo-btn:not(:disabled):hover {
   height: 30px;
   margin-left: auto;
   margin-right: 3px;
-  padding: 0 2px;
+  padding: 0;
 }
 .channel-shelf-format-option {
   height: 100%;

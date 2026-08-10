@@ -5,9 +5,10 @@ import {
 } from '../../src/features/settings/preference-actions.js'
 
 const selectors = [
-  '#settingsIncludeShorts[data-settings-preference-action="save"]',
   '#settingsAnkiEnabled[data-settings-preference-action="save"]'
 ]
+const retiredShortsSelector =
+  '#settingsIncludeShorts[data-settings-preference-action="save"]'
 
 function createControl() {
   return {
@@ -53,35 +54,49 @@ test('Settings preference bindings call one shared save with zero arguments', ()
     save(...args) {
       calls.push(args)
     }
-  }), 2)
+  }), 1)
 
   const eventStates = selectors.map(selector => (
     controls.get(selector).change()
   ))
-  assert.deepEqual(calls, [[], []])
+  assert.deepEqual(calls, [[]])
   assert.deepEqual(eventStates, [
-    { defaultPrevented: false, propagationStopped: false },
     { defaultPrevented: false, propagationStopped: false }
   ])
 })
 
 test('Settings preference bindings are idempotent and tolerate missing controls', () => {
-  const { controls, root } = createHarness(selectors.slice(0, 2))
+  const { controls, root } = createHarness(selectors)
   let calls = 0
   const actions = {
     save() {
       calls += 1
     }
   }
-  assert.equal(bindSettingsPreferenceActions(root, actions), 2)
+  assert.equal(bindSettingsPreferenceActions(root, actions), 1)
   assert.equal(bindSettingsPreferenceActions(root, actions), 0)
   controls.get(selectors[0]).change()
-  controls.get(selectors[1]).change()
-  assert.equal(calls, 2)
+  assert.equal(calls, 1)
   assert.equal(
     bindSettingsPreferenceActions(createHarness([]).root, actions),
     0
   )
+})
+
+test('Settings preference bindings leave the retired Shorts control inert', () => {
+  const { controls, root } = createHarness([
+    retiredShortsSelector,
+    ...selectors
+  ])
+  let calls = 0
+  assert.equal(bindSettingsPreferenceActions(root, {
+    save() {
+      calls += 1
+    }
+  }), 1)
+  assert.equal(controls.get(retiredShortsSelector).listener, null)
+  controls.get(selectors[0]).change()
+  assert.equal(calls, 1)
 })
 
 test('Settings preference bindings fail closed on invalid boundaries', () => {
