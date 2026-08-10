@@ -1422,23 +1422,49 @@ body.walkthrough-active .video-card:hover .thumb {
   letter-spacing: 0.02em;
 }
 body[data-theme="dark"] .dur-badge { color: #ffffff; }
-.video-upload-ribbon {
-  background: #e50914;
+.video-card-ribbon {
   border: 0;
-  border-radius: 4px 4px 0 0;
-  bottom: 0;
   box-shadow: 0 2px 6px rgba(5,5,5,0.34);
-  color: #ffffff;
   font-size: 0.7rem;
   font-weight: 850;
-  left: 8px;
   letter-spacing: 0;
   line-height: 1;
   padding: 6px 10px 7px;
   position: absolute;
-  top: auto;
   white-space: nowrap;
+}
+.video-upload-ribbon {
+  background: #e50914;
+  border-radius: 4px 4px 0 0;
+  bottom: 0;
+  color: #ffffff;
+  left: 8px;
+  top: auto;
   z-index: 4;
+}
+.video-card-ribbon.channel-shelf-priority-badge {
+  border-radius: 0 0 4px 4px;
+  bottom: auto;
+  left: 8px;
+  pointer-events: none;
+  top: 0;
+  z-index: 4;
+}
+.partial-priority-badge {
+  background: #fcb831;
+  color: #3c2800;
+}
+.watch-later-priority-badge {
+  background: #12bcea;
+  color: #052a36;
+}
+.favorite-priority-badge {
+  background: #ffe4ec;
+  color: #bd2452;
+}
+.new-priority-badge {
+  background: #e50914;
+  color: #ffffff;
 }
 /* Card body */
 .card-body {

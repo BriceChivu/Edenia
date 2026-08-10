@@ -15921,21 +15921,23 @@ function renderCard(v, compact = false, options = {}) {
   const thumbnailUrl = compact
     ? String(v.thumbnail || '').replace(/\/hqdefault\.jpg(?=\?|$)/, '/mqdefault.jpg')
     : v.thumbnail
-  const uploadRibbon = compact || (options.shelf && isPartial)
+  const uploadRibbon = compact
     ? null
     : getVideoUploadRibbon(v, options.currentDateKey)
   const thumbnailContent = `
     <img src="${escHtml(thumbnailUrl)}" alt="" class="thumb" loading="lazy">
-    ${uploadRibbon ? `<span class="video-upload-ribbon">${escHtml(uploadRibbon)}</span>` : ''}
+    ${uploadRibbon && !options.shelf ? `<span class="video-card-ribbon video-upload-ribbon">${escHtml(uploadRibbon)}</span>` : ''}
     <span class="dur-badge">${formatDuration(v.duration)}</span>
   `
   const thumbnailLink = `<button type="button" class="thumb-link" data-video-id="${safeVideoId}" data-video-preview-action="thumbnail" data-analytics-action="handleVideoThumbnailClick" aria-label="${escHtml(v.title)}">${thumbnailContent}</button>`
   const shelfPriorityBadge = options.shelf && isPartial
-    ? `<span class="channel-shelf-priority-badge partial-priority-badge">${renderVideoActionIcon('partial')}${escHtml(t('videos.status.partial'))}</span>`
+    ? `<span class="video-card-ribbon channel-shelf-priority-badge partial-priority-badge">${escHtml(t('videos.status.partial'))}</span>`
     : options.shelf && isWatchLater
-    ? `<span class="channel-shelf-priority-badge watch-later-priority-badge">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</span>`
+    ? `<span class="video-card-ribbon channel-shelf-priority-badge watch-later-priority-badge">${escHtml(t('videos.card.watchLater'))}</span>`
     : options.shelf && isFavorite
-    ? `<span class="channel-shelf-priority-badge favorite-priority-badge">${renderVideoActionIcon('favorite')}${escHtml(t('videos.card.favorite'))}</span>`
+    ? `<span class="video-card-ribbon channel-shelf-priority-badge favorite-priority-badge">${escHtml(t('videos.card.favorite'))}</span>`
+    : options.shelf && uploadRibbon
+    ? `<span class="video-card-ribbon channel-shelf-priority-badge new-priority-badge">${escHtml(uploadRibbon)}</span>`
     : ''
   const shelfPreviewAction = options.shelf
     ? 'data-video-preview-action="card"'

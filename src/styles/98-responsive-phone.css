@@ -244,38 +244,7 @@
     box-shadow: 0 3px 0 rgba(232,93,134,0.34);
   }
   .channel-shelf-card .channel-shelf-priority-badge {
-    align-items: center;
-    border: 1px solid rgba(255,255,255,0.72);
-    border-radius: 999px;
-    box-shadow: 0 2px 6px rgba(5,5,5,0.3);
     display: inline-flex;
-    font-size: 0.68rem;
-    font-weight: 800;
-    gap: 4px;
-    left: 8px;
-    line-height: 1;
-    padding: 5px 8px;
-    pointer-events: none;
-    position: absolute;
-    top: 8px;
-    z-index: 3;
-  }
-  .channel-shelf-card .partial-priority-badge {
-    background: #fcb831;
-    border-color: transparent;
-    color: #3c2800;
-  }
-  .channel-shelf-card .watch-later-priority-badge {
-    background: #12bcea;
-    border-color: transparent;
-    color: #052a36;
-  }
-  .channel-shelf-card .favorite-priority-badge {
-    background: #ffe4ec;
-    color: #bd2452;
-  }
-  .channel-shelf-card .favorite-priority-badge .action-icon {
-    fill: currentColor;
   }
   .channel-shelf-card .thumb-link {
     aspect-ratio: auto;
@@ -393,11 +362,6 @@
   }
   .channel-shelf-card .dur-badge {
     display: none;
-  }
-  .channel-shelf-card .video-upload-ribbon {
-    border-radius: 4px;
-    bottom: auto;
-    top: 8px;
   }
   .channel-shelf-card:hover,
   .channel-shelf-card:hover .thumb {
