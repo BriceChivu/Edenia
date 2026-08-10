@@ -733,6 +733,7 @@ let forcedSearchVideoId = null
 let pendingAddedChannelReveal = null
 let shortsEnableRefetchPromise = null
 let starterFeedPreparationPromise = null
+let firstStudyWalkthroughTimer = null
 const addedVideoSpotlightState = {
   element: null,
   frame: null,
@@ -2279,10 +2280,46 @@ function maybeStartOnboarding(state) {
     return true
   }
   if (!state?.onboarding?.walkthroughCompleted) {
-    window.setTimeout(() => startWalkthrough(getFirstStudyWalkthroughSteps(state)), 350)
+    scheduleFirstStudyWalkthrough(state)
     return true
   }
   return false
+}
+
+function scheduleFirstStudyWalkthrough(state = loadState()) {
+  if (
+    IS_SANDBOX
+    || firstStudyWalkthroughTimer
+    || walkthroughState.active
+    || !state?.onboarding?.setupCompleted
+    || state.onboarding.walkthroughCompleted
+  ) return false
+
+  const steps = getFirstStudyWalkthroughSteps(state)
+  const firstVideoStep = steps.find(step => step.id === 'first-study-video')
+  if (getActiveStarterFeed(state) && firstVideoStep && !getWalkthroughTarget(firstVideoStep)) {
+    return false
+  }
+
+  firstStudyWalkthroughTimer = window.setTimeout(() => {
+    firstStudyWalkthroughTimer = null
+    const latestState = loadState()
+    if (
+      walkthroughState.active
+      || !latestState?.onboarding?.setupCompleted
+      || latestState.onboarding.walkthroughCompleted
+    ) return
+
+    const latestSteps = getFirstStudyWalkthroughSteps(latestState)
+    const latestVideoStep = latestSteps.find(step => step.id === 'first-study-video')
+    if (
+      getActiveStarterFeed(latestState)
+      && latestVideoStep
+      && !getWalkthroughTarget(latestVideoStep)
+    ) return
+    startWalkthrough(latestSteps)
+  }, 350)
+  return true
 }
 
 function maybeStartNoAnkiFrequentUserPrompt(state) {
@@ -3312,6 +3349,9 @@ function showStarterFeedProgress(task) {
 function addResolvedStarterChannel(state, channel) {
   const existingChannel = (state.config.channels || []).find(candidate => candidate.id === channel.id)
   if (!existingChannel) state.config.channels.push(channel)
+  const channelShelfOrder = normalizeChannelShelfOrder(state.config.channelShelfOrder)
+  if (!channelShelfOrder.includes(channel.id)) channelShelfOrder.push(channel.id)
+  state.config.channelShelfOrder = channelShelfOrder
   state.config.removedChannelIds = (state.config.removedChannelIds || [])
     .filter(channelId => channelId !== channel.id)
   return !existingChannel
@@ -3373,6 +3413,7 @@ async function prepareStarterFeedChannel(catalogId, queuedAt) {
     })
     if (!saveState(latestState)) throw new Error(t('onboarding.starterFeed.storageError'))
     renderAll(latestState)
+    scheduleFirstStudyWalkthrough(latestState)
     throw fetchError
   }
 
@@ -3394,6 +3435,7 @@ async function prepareStarterFeedChannel(catalogId, queuedAt) {
   })
   if (!saveState(latestState)) throw new Error(t('onboarding.starterFeed.storageError'))
   renderAll(latestState)
+  scheduleFirstStudyWalkthrough(latestState)
   return {
     addedChannelCount,
     mergedCount: mergeResult.mergedCount,
@@ -3470,6 +3512,7 @@ async function runPendingStarterFeedPreparation(initialState) {
     showToast(t('onboarding.starterFeed.storageError'), 'error')
     return null
   }
+  scheduleFirstStudyWalkthrough(completedState)
 
   const result = failedCount === 0 ? 'success' : (successfulCount > 0 ? 'partial' : 'failure')
   trackRefreshCompleted(refreshStartedAtMs, {
