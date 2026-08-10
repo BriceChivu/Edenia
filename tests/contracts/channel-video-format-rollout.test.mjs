@@ -61,7 +61,7 @@ test('internal rollout includes every duration without migrating the saved prefe
   )
   assert.match(
     appSource,
-    /function init\(\) \{\s*reportMissingI18nKeys\(\)\s*applyVideoOrganizationVisibility\(\)\s*applyChannelVideoFormatExperimentUi\(\)/
+    /function init\(\) \{\s*reportMissingI18nKeys\(\)\s*applyChannelVideoFormatExperimentUi\(\)/
   )
   assert.equal(
     appSource.match(/const includeShorts = getEffectiveIncludeShorts\((?:s|state)\)/g)?.length,

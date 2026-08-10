@@ -472,7 +472,7 @@ test('phone Favorite keeps the same video and shelf position', async ({ page }, 
   }))).toEqual(positionBefore)
 })
 
-test('normal visitors keep the legacy Set aside flow', async ({ page }, testInfo) => {
+test('normal visitors use the permanent organization flow', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   await seedVideoOrganizationState(page, { internalTest: false })
 
@@ -480,14 +480,19 @@ test('normal visitors keep the legacy Set aside flow', async ({ page }, testInfo
     '#videoGrid .channel-shelf-card[data-video-id="menu-anchor-video"]'
   )
   await expect(card).toHaveCount(1)
-  await expect(card.locator('[data-video-organization-action="menu"]')).toHaveCount(0)
-  await expect(card.locator('[data-video-set-aside-action="request"]')).toHaveCount(1)
-  await expect(page.locator('#removedSection')).toBeHidden()
+  await expect(card.locator('[data-video-organization-action="menu"]')).toHaveCount(1)
+  await expect(card.locator('[data-video-set-aside-action="request"]')).toHaveCount(0)
+  await expect(page.locator('#removedSection')).toBeVisible()
+  await expect(page.locator('#removedCount')).toHaveText('1')
 
-  await card.locator('[data-video-set-aside-action="request"]').focus()
-  await page.keyboard.press('Enter')
-  await expect(page.locator('#setAsidePrompt')).toBeVisible()
-  await page.locator('#setAsidePrompt [data-video-set-aside-action="confirm"]').click()
+  await card.scrollIntoViewIfNeeded()
+  await card.hover()
+  await card.locator('[data-video-organization-action="menu"]').click()
+  await page.locator(
+    '#videoActionsPopover [data-video-organization-action="remove-feed"]'
+  ).click()
+  await expect(card).toHaveCount(0)
+  await expect(page.locator('#removedCount')).toHaveText('2')
 
   const persisted = await page.evaluate(({ normalKey, internalKey }) => ({
     internal: localStorage.getItem(internalKey),
@@ -496,9 +501,9 @@ test('normal visitors keep the legacy Set aside flow', async ({ page }, testInfo
     normalKey: normalStorageKey,
     internalKey: internalStorageKey
   })
-  expect(persisted.video.status).toBe('watched')
-  expect(persisted.video.setAside).toBe(true)
-  expect(persisted.video.removedFromFeedAt).toBeUndefined()
+  expect(persisted.video.status).toBe('partial')
+  expect(persisted.video.setAside).toBeUndefined()
+  expect(persisted.video.removedFromFeedAt).toBeTruthy()
   expect(persisted.internal).toBeNull()
 })
 

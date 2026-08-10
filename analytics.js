@@ -2,9 +2,7 @@
   const ANALYTICS_STATE_KEY = window.EDENIA_INTERNAL_TEST
     ? 'edenia_posthog_state_internal_test_v2'
     : 'edenia_posthog_state_v2';
-  const VIDEO_ORGANIZATION_ENABLED = window.EDENIA_INTERNAL_TEST === true
-    || window.EDENIA_CONFIG?.videoOrganizationEnabled === true;
-  const ANALYTICS_SCHEMA_VERSION = VIDEO_ORGANIZATION_ENABLED ? 3 : 2;
+  const ANALYTICS_SCHEMA_VERSION = 3;
 
   function analyticsAvailable() {
     return Boolean(
@@ -99,9 +97,7 @@
       current_watch_later_video_count: videoState.watchLaterCount || 0,
       current_partial_video_count: videoState.partialCount || 0,
       current_resumable_video_count: videoState.resumableCount || 0,
-      ...(VIDEO_ORGANIZATION_ENABLED
-        ? { current_removed_video_count: videoState.removedFromFeedCount || 0 }
-        : {}),
+      current_removed_video_count: videoState.removedFromFeedCount || 0,
       total_rewatch_count: videoState.totalRewatchCount || 0,
       last_video_opened_at: videoState.lastVideoOpenedAt || null,
       last_successful_refresh_at: videoState.lastSuccessfulRefreshAt || null,
@@ -417,9 +413,7 @@
         watch_later_video_count: snapshot.videoState?.watchLaterCount || 0,
         partial_video_count: snapshot.videoState?.partialCount || 0,
         resumable_video_count: snapshot.videoState?.resumableCount || 0,
-        ...(VIDEO_ORGANIZATION_ENABLED
-          ? { removed_video_count: snapshot.videoState?.removedFromFeedCount || 0 }
-          : {}),
+        removed_video_count: snapshot.videoState?.removedFromFeedCount || 0,
         total_rewatch_count: snapshot.videoState?.totalRewatchCount || 0,
         study_insight_message_count: snapshot.studyInsights?.length || 0,
         study_day_count: snapshot.studyDays?.length || 0,

@@ -8,20 +8,19 @@ const feedStyles = fs.readFileSync(new URL('../../src/styles/70-video-feed.css',
 const phoneStyles = fs.readFileSync(new URL('../../src/styles/98-responsive-phone.css', import.meta.url), 'utf8')
 const pageFlowStyles = fs.readFileSync(new URL('../../src/styles/96-responsive-page-flows.css', import.meta.url), 'utf8')
 
-test('video cards switch between staged More actions and legacy Set aside controls', () => {
+test('video cards expose organization actions and passive priority labels', () => {
   assert.match(appSource, /data-video-organization-action="menu"/)
   assert.match(appSource, /data-video-organization-surface="continue_watching"/)
   assert.match(appSource, /data-video-organization-surface="video_card"/)
-  assert.match(appSource, /!VIDEO_ORGANIZATION_ENABLED \|\| options\.hideOrganizationActions \? '' : `<button class="action-btn more-btn"/)
+  assert.match(appSource, /options\.hideOrganizationActions \? '' : `<button class="action-btn more-btn"/)
   assert.match(
     appSource,
-    /watchedGrid\.innerHTML =[\s\S]*?hideOrganizationActions: true[\s\S]*?stateActionSurface: VIDEO_ORGANIZATION_ENABLED\s*\? 'watched_card'\s*: 'video_card'/
+    /watchedGrid\.innerHTML =[\s\S]*?hideOrganizationActions: true[\s\S]*?stateActionSurface: 'watched_card'/
   )
   assert.doesNotMatch(appSource, /data-video-organization-surface="watched_card"/)
-  assert.match(appSource, /data-video-set-aside-action="request"/)
-  assert.match(appSource, /const organizationShelfPriorityBadge =[\s\S]*?<span class="channel-shelf-priority-badge/)
-  assert.match(appSource, /const legacyShelfPriorityBadge =[\s\S]*?data-video-state-action="clear-paused"/)
-  assert.match(appSource, /const shelfPriorityBadge = VIDEO_ORGANIZATION_ENABLED/)
+  assert.doesNotMatch(appSource, /data-video-set-aside-action="request"/)
+  assert.match(appSource, /const shelfPriorityBadge =[\s\S]*?<span class="channel-shelf-priority-badge/)
+  assert.doesNotMatch(appSource, /legacyShelfPriorityBadge|VIDEO_ORGANIZATION_ENABLED/)
 })
 
 test('Removed recovery and the shared action surface have one static owner', () => {
@@ -29,10 +28,9 @@ test('Removed recovery and the shared action surface have one static owner', () 
   assert.equal((indexSource.match(/id="videoActionsPopover"/g) || []).length, 1)
   assert.match(indexSource, /class="[^"]*removed-section[^"]*collapsed[^"]*" id="removedSection"/)
   assert.match(indexSource, /id="removedSection"[\s\S]*id="removedGrid"/)
-  assert.equal((indexSource.match(/id="setAsidePrompt"/g) || []).length, 1)
-  assert.match(indexSource, /data-video-organization-preview hidden/)
-  assert.match(indexSource, /data-video-organization-legacy/)
-  assert.match(appSource, /function applyVideoOrganizationVisibility\(\)/)
+  assert.equal((indexSource.match(/id="setAsidePrompt"/g) || []).length, 0)
+  assert.doesNotMatch(indexSource, /data-video-organization-(?:preview|legacy)/)
+  assert.doesNotMatch(appSource, /function applyVideoOrganizationVisibility\(\)/)
   assert.match(feedStyles, /\.video-actions-popover[\s\S]*position: fixed/)
   assert.match(phoneStyles, /@media \(max-width: 640px\)[\s\S]*\.video-actions-popover[\s\S]*bottom:/)
 })

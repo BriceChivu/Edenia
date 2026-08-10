@@ -3,8 +3,7 @@ import test from 'node:test'
 import {
   deriveChannelVideoFormatToggleEnabled,
   deriveRuntimeEnvironment,
-  deriveStudyGuidanceEnabled,
-  deriveVideoOrganizationEnabled
+  deriveStudyGuidanceEnabled
 } from '../../src/core/runtime-environment.js'
 import { deriveStorageKeys } from '../../src/core/storage-keys.js'
 import {
@@ -14,7 +13,6 @@ import {
   getIndexedDbBackupsEnabled,
   getPlusCheckoutEnabled,
   getStudyGuidanceEnabled,
-  getVideoOrganizationEnabled,
   getSupabasePublishableKey,
   getSupabaseUrl,
   getYoutubeApiKey,
@@ -124,14 +122,6 @@ test('storage keys preserve normal, internal, sandbox, and combined isolation', 
   }
 })
 
-test('video organization enables only for internal tests or an explicit release', () => {
-  assert.equal(deriveVideoOrganizationEnabled({ isInternalTest: false }), false)
-  assert.equal(deriveVideoOrganizationEnabled({ isInternalTest: true }), true)
-  assert.equal(deriveVideoOrganizationEnabled({ isInternalTest: false }, true), true)
-  assert.equal(deriveVideoOrganizationEnabled({ isInternalTest: false }, 'true'), false)
-  assert.equal(deriveVideoOrganizationEnabled(null, true), true)
-})
-
 test('channel video format toggle enables for internal tests or explicit release', () => {
   assert.equal(
     deriveChannelVideoFormatToggleEnabled({ isInternalTest: false }),
@@ -169,7 +159,6 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(hasYoutubeApiKey(target), false)
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
-  assert.equal(getVideoOrganizationEnabled(target), false)
   assert.equal(getChannelVideoFormatToggleEnabled(target), false)
   assert.equal(getStudyGuidanceEnabled(target), false)
   assert.equal(getIndexedDbBackupsEnabled(target), false)
@@ -194,7 +183,6 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(hasYoutubeApiKey(target), true)
   assert.equal(getFreePlusEnabled(target), true)
   assert.equal(getPlusCheckoutEnabled(target), true)
-  assert.equal(getVideoOrganizationEnabled(target), true)
   assert.equal(getChannelVideoFormatToggleEnabled(target), true)
   assert.equal(getStudyGuidanceEnabled(target), true)
   assert.equal(getIndexedDbBackupsEnabled(target), true)
@@ -214,7 +202,6 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   }
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
-  assert.equal(getVideoOrganizationEnabled(target), false)
   assert.equal(getChannelVideoFormatToggleEnabled(target), false)
   assert.equal(getStudyGuidanceEnabled(target), false)
   assert.equal(getIndexedDbBackupsEnabled(target), false)

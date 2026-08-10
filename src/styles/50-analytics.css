@@ -587,10 +587,6 @@ body[data-theme="dark"] .study-insight-history-lock { background: rgba(5,5,5,0.1
   background: transparent;
   color: var(--muted);
 }
-.next-study-set-aside {
-  background: transparent;
-  color: var(--muted);
-}
 .next-study-more {
   align-items: center;
   background: transparent;

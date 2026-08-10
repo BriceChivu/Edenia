@@ -20,14 +20,14 @@ function functionSource(name, nextName) {
   return appSource.slice(start, end)
 }
 
-test('Watched cards use staged Favorite navigation without changing the legacy list', () => {
+test('Watched cards move favorites into the active timeline', () => {
   assert.match(
     appSource,
-    /let watchedVideos =[\s\S]*?\.filter\(v => getVideoStatus\(v\) === 'watched'\)\s*\.filter\(v => !VIDEO_ORGANIZATION_ENABLED \|\| !isFavoriteVideo\(v\)\)/
+    /let watchedVideos =[\s\S]*?\.filter\(v => getVideoStatus\(v\) === 'watched'\)\s*\.filter\(v => !isFavoriteVideo\(v\)\)/
   )
   assert.match(
     appSource,
-    /watchedGrid\.innerHTML =[\s\S]*?hideOrganizationActions: true[\s\S]*?stateActionSurface: VIDEO_ORGANIZATION_ENABLED\s*\? 'watched_card'\s*: 'video_card'/
+    /watchedGrid\.innerHTML =[\s\S]*?hideOrganizationActions: true[\s\S]*?stateActionSurface: 'watched_card'/
   )
   assert.doesNotMatch(organizationSource, /return-feed|returnToFeed/)
   assert.doesNotMatch(appSource, /function returnWatchedVideoToFeed\(/)
@@ -50,7 +50,7 @@ test('Favorite actions preserve their live card surface', () => {
 
 test('favoriting from Watched reveals and focuses the active rewatch card', () => {
   const toggleSource = functionSource('toggleVideoFavorite', 'syncVideoWatchPromptFavoriteAction')
-  assert.match(toggleSource, /VIDEO_ORGANIZATION_ENABLED/)
+  assert.doesNotMatch(toggleSource, /VIDEO_ORGANIZATION_ENABLED/)
   assert.match(toggleSource, /options\.surface === 'watched_card'/)
   assert.match(toggleSource, /getVideoStatus\(video\) === 'watched'/)
   assert.match(toggleSource, /!isFavoriteVideo\(beforeVideo\)/)

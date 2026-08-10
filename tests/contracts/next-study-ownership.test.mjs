@@ -188,7 +188,7 @@ test('app composition imports and immediately binds generated Next Study actions
 
   assert.match(
     renderSource,
-    /container\.innerHTML = `[\s\S]*?`\s*bindNextStudyActions\(container,\s*\{\s*open: openNextStudyVideoPlayer,\s*focus: focusNextStudyVideoCard,\s*toggleFavorite: toggleVideoFavorite\s*\}\)[\s\S]*?if \(!VIDEO_ORGANIZATION_ENABLED\) \{[\s\S]*?bindVideoSetAsideActions\(container,[\s\S]*?\}\s*return nextVideo/
+    /container\.innerHTML = `[\s\S]*?`\s*bindNextStudyActions\(container,\s*\{\s*open: openNextStudyVideoPlayer,\s*focus: focusNextStudyVideoCard,\s*toggleFavorite: toggleVideoFavorite\s*\}\)\s*return nextVideo/
   )
 
   const emptyClearIndex = renderSource.indexOf("container.innerHTML = ''")

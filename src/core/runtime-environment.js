@@ -11,13 +11,6 @@ export function deriveRuntimeEnvironment(locationLike) {
   }
 }
 
-export function deriveVideoOrganizationEnabled(
-  runtimeEnvironment,
-  releaseEnabled = false
-) {
-  return runtimeEnvironment?.isInternalTest === true || releaseEnabled === true
-}
-
 export function deriveChannelVideoFormatToggleEnabled(
   runtimeEnvironment,
   releaseEnabled = false

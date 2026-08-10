@@ -18,10 +18,6 @@ export function getPlusCheckoutEnabled(target = window) {
   return publicConfig(target).plusCheckoutEnabled === true
 }
 
-export function getVideoOrganizationEnabled(target = window) {
-  return publicConfig(target).videoOrganizationEnabled === true
-}
-
 export function getChannelVideoFormatToggleEnabled(target = window) {
   return publicConfig(target).channelVideoFormatToggleEnabled === true
 }
