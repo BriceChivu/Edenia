@@ -647,7 +647,7 @@ export const FR_LOCALIZED = {
     'walkthrough.resetSafety': 'Tout réinitialiser recommence à zéro, mais Edenia garde d’abord une sauvegarde de retour arrière. Utilisez-le avec prudence et exportez un fichier pour protéger vos données hors du navigateur.',
 
   // Feedback translations were historically merged after the initial locale block.
-    'support.button': 'Soutenez-moi',
+    'support.button': 'Offrez-moi un café',
     'feedback.button': 'Commentaires',
     'feedback.title': 'Partagez vos commentaires',
     'feedback.close': 'Fermer les commentaires',
