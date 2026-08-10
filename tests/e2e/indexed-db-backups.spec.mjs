@@ -16,7 +16,7 @@ async function configureIndexedDbBackups(
       freePlusEnabled: false,
       plusCheckoutEnabled: false,
       videoOrganizationEnabled: true,
-      channelVideoFormatToggleEnabled: false,
+      channelVideoFormatToggleEnabled: true,
       studyGuidanceEnabled: false,
       indexedDbBackupsEnabled: enabled,
       indexedDbBackupCleanupEnabled: enabled && cleanup,

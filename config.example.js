@@ -2,9 +2,9 @@ window.EDENIA_CONFIG = {
   youtubeApiKey: 'PASTE_YOUR_RESTRICTED_YOUTUBE_API_KEY_HERE',
   freePlusEnabled: false,
   plusCheckoutEnabled: false,
-  // Compatibility marker for cached pre-retirement app.js assets.
+  // Compatibility markers for cached pre-retirement app.js assets.
   videoOrganizationEnabled: true,
-  channelVideoFormatToggleEnabled: false,
+  channelVideoFormatToggleEnabled: true,
   studyGuidanceEnabled: false,
   indexedDbBackupsEnabled: false,
   indexedDbBackupCleanupEnabled: false,

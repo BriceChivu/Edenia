@@ -37,10 +37,9 @@ export function normalizeLocalRuntimeConfig(value) {
     youtubeApiKey: normalizeLocalYoutubeApiKey(value?.youtubeApiKey),
     freePlusEnabled: value?.freePlusEnabled === true,
     plusCheckoutEnabled: value?.plusCheckoutEnabled === true,
-    // Compatibility marker for cached pre-retirement app.js assets.
+    // Compatibility markers for cached pre-retirement app.js assets.
     videoOrganizationEnabled: true,
-    channelVideoFormatToggleEnabled:
-      value?.channelVideoFormatToggleEnabled === true,
+    channelVideoFormatToggleEnabled: true,
     studyGuidanceEnabled: value?.studyGuidanceEnabled === true,
     indexedDbBackupsEnabled: value?.indexedDbBackupsEnabled === true,
     indexedDbBackupCleanupEnabled:

@@ -63,7 +63,7 @@ test('local runtime config normalizes a valid ignored key into the generated sit
         + '  "freePlusEnabled": false,\n'
         + '  "plusCheckoutEnabled": false,\n'
         + '  "videoOrganizationEnabled": true,\n'
-        + '  "channelVideoFormatToggleEnabled": false,\n'
+        + '  "channelVideoFormatToggleEnabled": true,\n'
         + '  "studyGuidanceEnabled": false,\n'
         + '  "indexedDbBackupsEnabled": false,\n'
         + '  "indexedDbBackupCleanupEnabled": false,\n'
@@ -74,7 +74,7 @@ test('local runtime config normalizes a valid ignored key into the generated sit
   })
 })
 
-test('local runtime config preserves dormant flags and forces the compatibility marker', async () => {
+test('local runtime config preserves dormant flags and forces compatibility markers', async () => {
   await withTemporaryDirectory(async directory => {
     const configPath = join(directory, 'config.local.js')
     const outputPath = join(directory, 'generated-config.local.js')
@@ -85,7 +85,7 @@ test('local runtime config preserves dormant flags and forces the compatibility 
         + '  freePlusEnabled: true,\n'
         + '  plusCheckoutEnabled: true,\n'
         + '  videoOrganizationEnabled: false,\n'
-        + '  channelVideoFormatToggleEnabled: true,\n'
+        + '  channelVideoFormatToggleEnabled: false,\n'
         + '  studyGuidanceEnabled: true,\n'
         + '  indexedDbBackupsEnabled: true,\n'
         + '  indexedDbBackupCleanupEnabled: true,\n'
@@ -133,7 +133,7 @@ test('local runtime config removes tracked Supabase placeholders', async () => {
       freePlusEnabled: false,
       plusCheckoutEnabled: false,
       videoOrganizationEnabled: true,
-      channelVideoFormatToggleEnabled: false,
+      channelVideoFormatToggleEnabled: true,
       studyGuidanceEnabled: false,
       indexedDbBackupsEnabled: false,
       indexedDbBackupCleanupEnabled: false,
