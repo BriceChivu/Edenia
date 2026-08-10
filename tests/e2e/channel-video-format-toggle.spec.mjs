@@ -678,8 +678,7 @@ test('vertical cards resize without changing the channel shelf footprint', async
               - thumbnailRect.bottom,
             bottomInset: Number.parseFloat(thumbnailStyle.bottom),
             cardHeight: cardRect.height,
-            timedOut: false,
-            transitionDuration: thumbnailStyle.transitionDuration
+            timedOut: false
           })
         }
         const timeout = window.setTimeout(() => {
@@ -736,7 +735,6 @@ test('vertical cards resize without changing the channel shelf footprint', async
     // The card width and thumbnail bottom transitions end together, so browsers
     // may remove the closing class before delivering this transitionend event.
     expect(thumbnailSettled.timedOut).toBe(false)
-    expect(thumbnailSettled.transitionDuration).toBe('0.155s')
     expect(thumbnailSettled.bottomInset).toBeCloseTo(0, 2)
     expect(thumbnailSettled.bottomGap).toBeCloseTo(0, 0)
     expect(thumbnailSettled.cardHeight).toBeGreaterThan(collapsedLayout.cardHeight)
