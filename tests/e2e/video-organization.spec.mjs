@@ -20,13 +20,13 @@ async function waitForApplication(page) {
 
 async function seedVideoOrganizationState(
   page,
-  { locale = 'en', internalTest = true } = {}
+  { locale = 'en', internalTest = true, theme = 'light' } = {}
 ) {
   const storageKey = internalTest ? internalStorageKey : normalStorageKey
   await page.goto(internalTest ? '/?internal_test=1' : '/')
   await waitForApplication(page)
-  await page.evaluate(({ locale: seededLocale, storageKey: seededStorageKey }) => {
-    const state = window.defaultState(4, [], 'light', [], seededLocale)
+  await page.evaluate(({ locale: seededLocale, storageKey: seededStorageKey, theme: seededTheme }) => {
+    const state = window.defaultState(4, [], seededTheme, [], seededLocale)
     const completedAt = '2026-07-20T04:00:00.000Z'
     state.config.ankiEnabled = false
     state.config.ankiDisabledAt = completedAt
@@ -88,7 +88,7 @@ async function seedVideoOrganizationState(
       watchProgressTracked: true
     }
     localStorage.setItem(seededStorageKey, JSON.stringify(state))
-  }, { locale, storageKey })
+  }, { locale, storageKey, theme })
   await page.reload()
   await waitForApplication(page)
   return storageKey
@@ -163,6 +163,77 @@ test('Removed preview playback never mutates study state', async ({ page }, test
     internalStorageKey
   )
   expect(stateAfter).toBe(stateBefore)
+})
+
+test('completion prompt wraps actions without localized overlap', async ({ page }, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  const locales = testInfo.project.name === 'phone-small'
+    ? ['fr']
+    : ['en', 'es', 'fr', 'zh-Hans', 'zh-Hant']
+
+  for (const locale of locales) {
+    await seedVideoOrganizationState(page, {
+      locale,
+      theme: testInfo.project.name === 'phone-small' ? 'dark' : 'light'
+    })
+    await installFakeYoutubePlayer(page)
+    await page.evaluate(() => window.openVideoPlayer('menu-anchor-video'))
+    await expect(page.locator('.video-player-overlay')).toBeVisible()
+    await expect.poll(() => page.evaluate(() => (
+      window.__edeniaFakeYoutubePlayer?.getPlayerState?.()
+    ))).toBe(1)
+
+    await page.evaluate(() => {
+      const player = window.__edeniaFakeYoutubePlayer
+      player.currentTime = 480
+      player.state = 0
+      player.events.onStateChange?.({ data: 0 })
+    })
+
+    const prompt = page.locator('.video-watch-reminder-popover.is-player')
+    await expect(prompt).toBeVisible()
+    await prompt.evaluate(element => Promise.all(
+      element.getAnimations().map(animation => animation.finished)
+    ))
+    const layout = await prompt.evaluate(element => {
+      const copyRect = element.querySelector('.video-watch-reminder-copy').getBoundingClientRect()
+      const actions = element.querySelector('.video-watch-reminder-actions')
+      const actionsRect = actions.getBoundingClientRect()
+      const promptRect = element.getBoundingClientRect()
+      const buttonRects = Array.from(actions.querySelectorAll('button'), button => (
+        button.getBoundingClientRect()
+      ))
+      const overlaps = (first, second) => (
+        Math.min(first.right, second.right) - Math.max(first.left, second.left) > 0.5
+        && Math.min(first.bottom, second.bottom) - Math.max(first.top, second.top) > 0.5
+      )
+      return {
+        actionsOnSecondRow: actionsRect.top >= copyRect.bottom - 0.5,
+        buttonsInsidePrompt: buttonRects.every(rect => (
+          rect.left >= promptRect.left - 0.5
+          && rect.right <= promptRect.right + 0.5
+          && rect.top >= promptRect.top - 0.5
+          && rect.bottom <= promptRect.bottom + 0.5
+        )),
+        buttonsOverlap: buttonRects.some((rect, index) => (
+          buttonRects.slice(index + 1).some(otherRect => overlaps(rect, otherRect))
+        )),
+        copyOverlapsActions: overlaps(copyRect, actionsRect),
+        horizontalOverflow: element.scrollWidth - element.clientWidth,
+        verticalOverflow: element.scrollHeight - element.clientHeight
+      }
+    })
+
+    expect(layout.buttonsInsidePrompt, locale).toBe(true)
+    expect(layout.buttonsOverlap, locale).toBe(false)
+    expect(layout.copyOverlapsActions, locale).toBe(false)
+    expect(layout.horizontalOverflow, locale).toBeLessThanOrEqual(1)
+    expect(layout.verticalOverflow, locale).toBeLessThanOrEqual(1)
+    if (locale === 'fr') expect(layout.actionsOnSecondRow).toBe(true)
+    if (locale === 'en' && testInfo.project.name === 'desktop-standard') {
+      expect(layout.actionsOnSecondRow).toBe(false)
+    }
+  }
 })
 
 test('More menu aligns to its card and keeps option geometry uniform', async ({ page }, testInfo) => {
