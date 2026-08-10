@@ -80,7 +80,7 @@ test('first-study walkthrough preserves exact steps and Other-language addition'
   )
   assert.equal(
     FIRST_STUDY_WALKTHROUGH_STEPS[2].target,
-    '#videoGrid .channel-video-group:first-child .channel-shelf-slot:first-child .video-card'
+    '#videoGrid .channel-video-group:first-child .channel-shelf-slot:not([hidden]) .video-card'
   )
   assert.equal(FIRST_STUDY_WALKTHROUGH_STEPS[2].spotlightPadding, 6)
   assert.equal(FIRST_STUDY_WALKTHROUGH_STEPS[2].spotlightRadius, 12)

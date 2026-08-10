@@ -58,7 +58,7 @@ export const FIRST_STUDY_WALKTHROUGH_STEPS = [
   },
   {
     id: 'first-study-video',
-    target: '#videoGrid .channel-video-group:first-child .channel-shelf-slot:first-child .video-card',
+    target: '#videoGrid .channel-video-group:first-child .channel-shelf-slot:not([hidden]) .video-card',
     textKey: 'walkthrough.startWatching',
     placement: 'top',
     spotlightPadding: 6,
