@@ -1511,6 +1511,7 @@ body[data-theme="dark"] .watch-later-status { color: #9fe7fb; }
   text-overflow: ellipsis;
 }
 .pub-ago { font-size: 0.72rem; color: var(--muted); flex-shrink: 0; }
+.pub-ago-compact { display: none; }
 .card-actions {
   display: flex;
   gap: 6px;

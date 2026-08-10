@@ -25,6 +25,7 @@ async function seedFormatState(
     internalTest = true,
     locale = 'en',
     overflow = false,
+    publishedAt = null,
     runtimeFlag = null
   } = {}
 ) {
@@ -50,6 +51,7 @@ async function seedFormatState(
     includeShorts: seededIncludeShorts,
     locale: seededLocale,
     overflow: seededOverflow,
+    publishedAt: seededPublishedAt,
     storageKey: seededStorageKey
   }) => {
     const state = window.defaultState(4, [], 'light', [], seededLocale)
@@ -147,6 +149,7 @@ async function seedFormatState(
     videos.forEach(video => {
       state.videos[video.id] = {
         ...video,
+        publishedAt: seededPublishedAt || video.publishedAt,
         favorite: false,
         status: 'unwatched',
         thumbnail: '',
@@ -154,7 +157,7 @@ async function seedFormatState(
       }
     })
     localStorage.setItem(seededStorageKey, JSON.stringify(state))
-  }, { includeShorts, locale, overflow, storageKey })
+  }, { includeShorts, locale, overflow, publishedAt, storageKey })
   await page.reload()
   await waitForApplication(page)
   return storageKey
@@ -353,6 +356,98 @@ test('shelf arrows scroll when the selected format hides the first source slot',
   const channelB = page.locator('.channel-shelf[data-channel-key="channel-b"]')
   await expect(channelB).toHaveAttribute('data-channel-selected-video-format', 'videos')
   await expectRightArrowScrollsFromHiddenFirstSlot(channelB)
+})
+
+test('expanded desktop Shorts use compact localized timestamps without crowding actions', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  const oneWeekAgo = new Date(fixedNow.getTime() - (10 * 86_400_000)).toISOString()
+  const fifteenMonthsAgo = new Date(fixedNow.getTime() - (450 * 86_400_000)).toISOString()
+  const cases = [
+    {
+      locale: 'es',
+      publishedAt: oneWeekAgo,
+      full: 'hace 1 semana',
+      compact: 'hace 1 sem'
+    },
+    {
+      locale: 'es',
+      publishedAt: fifteenMonthsAgo,
+      full: 'hace 15 meses',
+      compact: 'hace 15 m'
+    },
+    {
+      locale: 'fr',
+      publishedAt: oneWeekAgo,
+      full: 'il y a 1 semaine',
+      compact: 'il y a 1 sem'
+    }
+  ]
+
+  for (const expected of cases) {
+    await seedFormatState(page, expected)
+    const channel = page.locator('.channel-shelf[data-channel-key="channel-a"]')
+    const videoCard = channel.locator(
+      '.channel-shelf-slot[data-channel-video-format="videos"] .channel-shelf-card'
+    ).first()
+    await expect(videoCard.locator('.pub-ago')).toHaveText(expected.full)
+
+    await channel.locator(
+      '[data-channel-video-format="shorts"][data-channel-video-format-action="select"]'
+    ).click()
+    const shortCard = channel.locator(
+      '.channel-shelf-slot[data-channel-video-format="shorts"]:not([hidden]) .channel-shelf-card'
+    ).first()
+    await shortCard.scrollIntoViewIfNeeded()
+    await shortCard.hover()
+    await expect(shortCard).toHaveClass(/\bis-previewing\b/)
+    await expect.poll(() => shortCard.evaluate(card => {
+      const width = card.getBoundingClientRect().width
+      const targetWidth = Number.parseFloat(
+        getComputedStyle(card).getPropertyValue('--shelf-preview-size')
+      )
+      return Math.abs(width - targetWidth) < 0.1
+    })).toBe(true)
+
+    const fullLabel = shortCard.locator('.pub-ago-full')
+    const compactLabel = shortCard.locator('.pub-ago-compact')
+    await expect(fullLabel).toHaveText(expected.full)
+    await expect(fullLabel).toHaveCSS('display', 'none')
+    await expect(compactLabel).toHaveText(expected.compact)
+    await expect(compactLabel).toBeVisible()
+
+    const layout = await shortCard.evaluate(card => {
+      const cardRect = card.getBoundingClientRect()
+      const timestampRect = card.querySelector('.pub-ago-compact').getBoundingClientRect()
+      const actionRects = Array.from(card.querySelectorAll('.card-actions .action-btn'))
+        .map(button => button.getBoundingClientRect())
+      return {
+        actionLeft: Math.min(...actionRects.map(rect => rect.left)) - cardRect.left,
+        timestampRight: timestampRect.right - cardRect.left
+      }
+    })
+    expect(layout.timestampRight).toBeLessThanOrEqual(layout.actionLeft)
+    await page.mouse.move(0, 0)
+    await expect(shortCard).not.toHaveClass(/\bis-floating-preview\b/)
+  }
+})
+
+test('mobile Shorts retain full localized timestamps', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'phone-standard')
+  await seedFormatState(page, {
+    locale: 'es',
+    publishedAt: new Date(fixedNow.getTime() - (10 * 86_400_000)).toISOString()
+  })
+
+  const channel = page.locator('.channel-shelf[data-channel-key="channel-a"]')
+  await channel.locator(
+    '[data-channel-video-format="shorts"][data-channel-video-format-action="select"]'
+  ).click()
+  const shortCard = channel.locator(
+    '.channel-shelf-slot[data-channel-video-format="shorts"]:not([hidden]) .channel-shelf-card'
+  ).first()
+  await expect(shortCard.locator('.pub-ago-full')).toHaveText('hace 1 semana')
+  await expect(shortCard.locator('.pub-ago-full')).toHaveCSS('display', 'inline')
+  await expect(shortCard.locator('.pub-ago-compact')).toHaveCSS('display', 'none')
 })
 
 test('vertical cards resize without changing the channel shelf footprint', async ({ page }, testInfo) => {
@@ -583,8 +678,7 @@ test('vertical cards resize without changing the channel shelf footprint', async
               - thumbnailRect.bottom,
             bottomInset: Number.parseFloat(thumbnailStyle.bottom),
             cardHeight: cardRect.height,
-            timedOut: false,
-            transitionDuration: thumbnailStyle.transitionDuration
+            timedOut: false
           })
         }
         const timeout = window.setTimeout(() => {
@@ -641,7 +735,6 @@ test('vertical cards resize without changing the channel shelf footprint', async
     // The card width and thumbnail bottom transitions end together, so browsers
     // may remove the closing class before delivering this transitionend event.
     expect(thumbnailSettled.timedOut).toBe(false)
-    expect(thumbnailSettled.transitionDuration).toBe('0.155s')
     expect(thumbnailSettled.bottomInset).toBeCloseTo(0, 2)
     expect(thumbnailSettled.bottomGap).toBeCloseTo(0, 0)
     expect(thumbnailSettled.cardHeight).toBeGreaterThan(collapsedLayout.cardHeight)

@@ -1794,16 +1794,20 @@ function getCurrentAppTimestamp(state = null) {
   return date.toISOString()
 }
 
-function timeAgo(iso) {
+function timeAgo(iso, { compact = false } = {}) {
   const days = Math.floor((Date.now() - new Date(iso)) / 86_400_000)
   if (days < -1) return t('time.inDays', { count: Math.abs(days) })
   if (days === -1) return t('time.tomorrow')
   if (days === 0) return t('time.today')
   if (days === 1) return t('time.yesterday')
   if (days < 7)  return t('time.daysAgo', { count: days })
-  if (days < 14) return t('time.weekAgo')
-  if (days < 30) return t('time.weeksAgo', { count: Math.floor(days / 7) })
-  return t('time.monthsAgo', { count: Math.floor(days / 30) })
+  if (days < 14) return t(compact ? 'time.weekAgoCompact' : 'time.weekAgo')
+  if (days < 30) return t(compact ? 'time.weeksAgoCompact' : 'time.weeksAgo', {
+    count: Math.floor(days / 7)
+  })
+  return t(compact ? 'time.monthsAgoCompact' : 'time.monthsAgo', {
+    count: Math.floor(days / 30)
+  })
 }
 
 function formatWatchedAt(iso) {
@@ -15911,6 +15915,12 @@ function renderCard(v, compact = false, options = {}) {
   const isWatchLater = isVideoWatchLater(v)
   const displayStatus = isPartial ? 'partial' : status
   const isFavorite = isFavoriteVideo(v)
+  const supportsCompactPublishedAt = options.shelf
+    && getChannelVideoFormat(v) === CHANNEL_VIDEO_FORMATS.SHORTS
+  const publishedAtLabel = timeAgo(v.publishedAt)
+  const publishedAtMarkup = supportsCompactPublishedAt
+    ? `<span class="pub-ago"><span class="pub-ago-full">${escHtml(publishedAtLabel)}</span><span class="pub-ago-compact">${escHtml(timeAgo(v.publishedAt, { compact: true }))}</span></span>`
+    : `<span class="pub-ago">${escHtml(publishedAtLabel)}</span>`
   const stateActionSurface = options.stateActionSurface || 'video_card'
   const watchLaterNextStatus = isWatchLater
     ? (isPartial ? 'partial' : 'unwatched')
@@ -15957,7 +15967,7 @@ function renderCard(v, compact = false, options = {}) {
         <div class="card-footer">
           <div class="card-meta">
             <span class="channel-name">${escHtml(v.channelTitle || '')}</span>
-            <span class="pub-ago">${timeAgo(v.publishedAt)}</span>
+            ${publishedAtMarkup}
           </div>
           <div class="card-actions">
             ${!isWatched ? `<button class="action-btn watch-later-btn ${isWatchLater ? 'active' : ''}"

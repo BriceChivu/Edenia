@@ -25,27 +25,27 @@ import {
 } from '../../src/i18n/runtime.js'
 
 const EXPECTED_DICTIONARY_HASHES = {
-  en: 'f39c327006650f755d98407bf88380d990de7dfe5ce3c09a3f9ea9a9771a926f',
-  'zh-Hant': '61e0b0e14fceb58ba91a1e49ad701ec9671c3e7b3ab813a8e7eb7bceeb4b8713',
-  'zh-Hans': 'b431fc8c0ae31342218e9a9e4428b5d661f130f3f65aece33e6ce364f8be4dcc',
-  es: 'b2b6f896027ce177170ba7cc6e34e3979de01f3554748b70d4e67b289d0da7e4',
-  fr: 'a48e66843efe96f22cd52a7b83869c2d1e7f8816fd0e1e2197704663b3c5a17b'
+  en: '836c3ddd17020db6830e5a06053413c4d7c804a9c998163d7c16b8f8759ff3f9',
+  'zh-Hant': '4394852b7c84aa11467602da2bddbe1deac2b15893639bd1ef3dfd891e163d11',
+  'zh-Hans': '8295c64215aff23634c7a34cb5cc2cfa58c6e7f3c73fd6b25a71003371f75a4c',
+  es: '6fc0b3c421deb0b89368c9df0c00792a207a5af218ead86475743e599e4f05d2',
+  fr: '285f9792bbd78fdfe6f5fa1a46df718f96a455b7e44bd0f45f7f3d4f8439dee9'
 }
 
 const EXPECTED_KEY_ORDER_HASHES = {
-  en: 'b601449ead277adad9dcdcf7f194aec32f3aadc1da3d833cf3ce33079a44245d',
-  'zh-Hant': '59b145b997a01afed0c7bb0cfa3e7c8482172e3dec9c150228ed03aaee9ad27d',
-  'zh-Hans': '59b145b997a01afed0c7bb0cfa3e7c8482172e3dec9c150228ed03aaee9ad27d',
-  es: '59b145b997a01afed0c7bb0cfa3e7c8482172e3dec9c150228ed03aaee9ad27d',
-  fr: '59b145b997a01afed0c7bb0cfa3e7c8482172e3dec9c150228ed03aaee9ad27d'
+  en: '26d14ceb632c4cbabc4372294860ed07543d14547f3e10fda819121dfd0b37e3',
+  'zh-Hant': 'd81fb3541a724e7f6d642985ee76f821a6e95243b54f2be10a8fed424124cb56',
+  'zh-Hans': 'd81fb3541a724e7f6d642985ee76f821a6e95243b54f2be10a8fed424124cb56',
+  es: 'd81fb3541a724e7f6d642985ee76f821a6e95243b54f2be10a8fed424124cb56',
+  fr: 'd81fb3541a724e7f6d642985ee76f821a6e95243b54f2be10a8fed424124cb56'
 }
 
 const EXPECTED_COUNTS = {
-  en: 861,
-  'zh-Hant': 865,
-  'zh-Hans': 865,
-  es: 865,
-  fr: 865
+  en: 864,
+  'zh-Hant': 868,
+  'zh-Hans': 868,
+  es: 868,
+  fr: 868
 }
 
 const LEGACY_NON_ENGLISH_EXTRA_KEYS = [
@@ -146,6 +146,25 @@ test('translation placeholders remain compatible with documented plural exceptio
         assert.equal(OPTIONAL_PLURAL_KEYS.has(key), true, `${locale}:${key} exception`)
       }
     }
+  }
+})
+
+test('compact relative-time copy stays explicit across every locale', () => {
+  const expected = {
+    en: ['1w ago', '{count}w ago', '{count}mo ago'],
+    es: ['hace 1 sem', 'hace {count} sem', 'hace {count} m'],
+    fr: ['il y a 1 sem', 'il y a {count} sem', 'il y a {count} m'],
+    'zh-Hans': ['1 周前', '{count} 周前', '{count} 个月前'],
+    'zh-Hant': ['1 週前', '{count} 週前', '{count} 個月前']
+  }
+  const keys = [
+    'time.weekAgoCompact',
+    'time.weeksAgoCompact',
+    'time.monthsAgoCompact'
+  ]
+
+  for (const locale of SUPPORTED_LOCALES) {
+    assert.deepEqual(keys.map(key => I18N[locale][key]), expected[locale])
   }
 })
 
