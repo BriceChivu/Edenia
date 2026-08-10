@@ -19,7 +19,7 @@ test('video cards expose organization actions and passive priority labels', () =
   )
   assert.doesNotMatch(appSource, /data-video-organization-surface="watched_card"/)
   assert.doesNotMatch(appSource, /data-video-set-aside-action="request"/)
-  assert.match(appSource, /const shelfPriorityBadge =[\s\S]*?<span class="channel-shelf-priority-badge/)
+  assert.match(appSource, /const shelfPriorityBadge =[\s\S]*?<span class="[^"]*channel-shelf-priority-badge/)
   assert.doesNotMatch(appSource, /legacyShelfPriorityBadge|VIDEO_ORGANIZATION_ENABLED/)
 })
 

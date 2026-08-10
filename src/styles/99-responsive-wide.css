@@ -186,11 +186,6 @@
   .channel-shelf-card.status-partial:not(.is-previewing):not(.is-preview-closing) {
     border-color: #c68b17;
   }
-  .channel-shelf-card.status-partial {
-    --shelf-resume-bg: rgba(252,184,49,0.92);
-    --shelf-resume-border: #c68b17;
-    --shelf-resume-text: #3c2800;
-  }
   .channel-shelf-card.status-watch-later:not(.is-previewing):not(.is-preview-closing) {
     border-color: #087fa6;
   }
@@ -198,40 +193,7 @@
     border-color: #e85d86;
   }
   .channel-shelf-priority-badge {
-    align-items: center;
-    backdrop-filter: blur(5px);
-    border: 1px solid rgba(255,255,255,0.58);
-    border-radius: 999px;
-    box-shadow: 0 2px 6px rgba(5,5,5,0.24);
     display: inline-flex;
-    font-size: 0.66rem;
-    font-weight: 800;
-    gap: 4px;
-    left: 8px;
-    line-height: 1;
-    padding: 4px 7px;
-    pointer-events: none;
-    position: absolute;
-    top: 8px;
-    transition: opacity var(--motion-fast) var(--ease-standard);
-    z-index: 3;
-  }
-  .partial-priority-badge {
-    background: var(--shelf-resume-bg);
-    border-color: transparent;
-    color: var(--shelf-resume-text);
-  }
-  .watch-later-priority-badge {
-    background: rgba(18,188,234,0.92);
-    border-color: transparent;
-    color: #052a36;
-  }
-  .favorite-priority-badge {
-    background: rgba(255,228,236,0.94);
-    color: #bd2452;
-  }
-  .favorite-priority-badge .action-icon {
-    fill: currentColor;
   }
   .channel-shelf-card .thumb-link {
     aspect-ratio: auto;
