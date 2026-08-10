@@ -2,7 +2,7 @@
 
 Edenia turns YouTube study time and optional Anki activity into visible language-learning progress. It combines a focused video queue, weekly goals, study history, local pattern insights, streaks, and a town that evolves as study points accumulate.
 
-The app is browser-first: its interface and primary study state run from static HTML, CSS, and JavaScript, with YouTube Data API access supplied through a runtime configuration file. Supabase backs optional Edenia Plus authentication and subscription recognition only; signing in or out does not move or replace browser-local study progress. The primary study state remains in the browser unless the user explicitly exports a sync file; the official production deployment sends the analytics, session-recording, search, and optional feedback data described under [Privacy and Analytics](#privacy-and-analytics).
+The app is browser-first: its interface and primary study state run from static HTML, CSS, and JavaScript, with YouTube Data API access supplied through a runtime configuration file. Supabase supports optional Edenia Plus authentication, entitlement lookup, and gated billing entry points; signing in or out does not move or replace browser-local study progress. The primary study state remains in the browser, and an explicit sync export creates a portable copy. The official production deployment sends the analytics, session-recording, search, and optional feedback data described under [Privacy and Analytics](#privacy-and-analytics).
 
 ## Current Features
 
@@ -12,10 +12,10 @@ The app is browser-first: its interface and primary study state run from static 
 - Includes trailer navigation, a language picker, optional procedural music, and a skip action.
 - Asks for one primary learning language: Mandarin Chinese, Japanese, Korean, Spanish, French, German, English, or another language.
 - Asks for an approximate level: just starting, beginner, intermediate, advanced, or not sure.
-- Suggests up to six level-matched channels from a curated catalog.
+- Shows up to six level-matched channels from a curated catalog and lets the learner select up to five.
 - Uses repository-bundled channel avatars so recommendation cards do not need separate profile-image API requests.
-- Resolves selected YouTube handles, saves the working channels, and attempts the first video refresh before opening the dashboard.
-- Continues after partial channel or refresh failures and reports what could not be loaded.
+- Saves the learner profile and opens the dashboard without waiting for optional YouTube work.
+- Resolves and refreshes the selected channels sequentially in the background, reports progress and partial failures, and resumes an unfinished starter-feed task after a reload.
 - Finishes with a short walkthrough of the real dashboard controls.
 
 ### YouTube study queue
@@ -23,15 +23,17 @@ The app is browser-first: its interface and primary study state run from static 
 - Accepts raw `UC...` channel IDs, `@handle` values, `/channel/UC...` URLs, and legacy `/user/...` URLs.
 - Fetches one recent uploads page per due channel and maintains a target of five active videos per channel.
 - Preserves cached video metadata and existing study status across refreshes.
-- Automatically refreshes an unfetched or stale feed after five hours.
+- Automatically refreshes an unfetched or stale feed after one hour.
 - Applies a 30-minute per-channel backoff after refresh errors.
 - Adds individual YouTube videos manually when they do not belong to a tracked channel.
-- Searches saved videos from the header.
+- Searches curated, discovered, and community channel catalogs locally, including partial non-Latin terms, before offering a quota-limited YouTube search.
+- Searches saved videos from the header and reveals matches that are inside Watched or Removed sections.
 - Filters the active queue by status and by any combination of channels.
 - Lets users add, select all, remove, and manage channels from the channel filter.
-- Lets public users set aside an in-progress video they do not plan to finish while preserving the study time already recorded.
-- Includes an internal-test preview of a More actions menu for removing videos from Continue Watching or from the feed, with recovery from a collapsed Removed section below Watched.
+- Provides a More actions menu for clearing Continue Watching or removing a video from the feed, with restoration from a collapsed Removed section below Watched.
+- Restores the legacy Set aside action, without deleting recorded study time, whenever video organization is disabled through runtime configuration.
 - Hides videos of three minutes or less by default; the preference can be changed in Settings.
+- When short videos and the channel-format feature are enabled, lets each channel shelf switch independently between Videos and Shorts and remembers that shelf's last view.
 - Shows a contextual card for the latest paused video, the next watch-later video, or a favorite that is ready to rewatch.
 - Keeps Favorites independent from watched status so watched favorites remain available for later replays.
 
@@ -44,9 +46,9 @@ Supported video states are:
 
 Opening an unwatched or watch-later video marks it in progress. In-progress videos can retain a continue-watching timestamp and watched-progress segments. Adding a fresh video to Watch later does not itself add study time, streak credit, or points. Rewatching a favorite can record another completed watch and award credit for the newly recorded playback.
 
-The video-organization preview is available at `/?internal_test=1` and uses the isolated internal-test storage described below. Public visitors keep the existing Set aside behavior unless the production release flag is explicitly enabled. In the preview, `Removed` is a feed-placement flag rather than a study status. Its thumbnails open in a read-only player that does not record progress or points, and restoring a removed video returns its exact saved status and controls. Removing a video from Continue Watching clears only its resume cursor and current watch-cycle coverage; recorded study activity remains intact. Favoriting a watched video keeps it watched while revealing its rewatch card in the active feed.
+Video organization and per-channel Videos/Shorts views are independent runtime releases. `/?internal_test=1` always enables both release gates against isolated internal-test state; ordinary visitors receive the behavior selected in the deployed runtime configuration. `Removed` is a feed-placement flag rather than a study status. Its thumbnails open in a read-only player that does not record progress or points, and restoring a removed video returns its exact saved status and controls. Removing a video from Continue Watching clears only its resume cursor and current watch-cycle coverage; recorded study activity remains intact. Favoriting a watched video keeps it watched while revealing its rewatch card in the active feed.
 
-Undo and redo cover recent status, progress, Favorite, manual-video, and channel-removal actions together with their related history and score changes. Video-placement actions join that history while the internal preview or public release flag is enabled.
+Undo and redo cover recent status, progress, Favorite, manual-video, and channel-removal actions together with their related history and score changes. Video-placement actions join that history whenever video organization is enabled.
 
 ### Goals, history, and insights
 
@@ -61,8 +63,11 @@ Undo and redo cover recent status, progress, Favorite, manual-video, and channel
 - Generates local study-pattern insights after enough activity has accumulated.
 - Can surface preferred study windows, typical session length, reliable weekdays, weekend opportunities, and recent momentum changes.
 - Keeps up to 12 previously shown insights, supports collapse/reopen, and can be disabled in Settings.
+- Can replace the current insight with goal-independent Study Guidance that compares the current week with the learner's own recent baseline, suggests a sustainable next step, and links to the next available video.
 
 Study insights are calculated locally from up to 42 days of recorded video progress. They appear only after at least 8 active days, 2 hours of video study, and a 14-day observation window.
+
+Study Guidance is a separate runtime release and is always available in the isolated `/?internal_test=1` profile. It needs at least two complete prior weeks, uses up to four complete weeks from the same 42-day window, and does not use the weekly goal or add its live recommendation to insight history.
 
 ### AnkiConnect
 
@@ -78,7 +83,7 @@ Study insights are calculated locally from up to 42 days of recorded video progr
 - Evolves through 12 town stages as the total score crosses milestone thresholds.
 - Reveals unlocked stages with a level-up animation and dual-corner confetti.
 - Uses optimized WebP town images with PNG fallbacks and priority-aware preloading.
-- Supports zooming, panning, reset, and a timeline for previewing the town on earlier activity days.
+- Supports zooming, panning, reset, and a timeline for previewing the town on earlier activity days; phone pinch zoom reaches 4× while larger layouts retain the 2× limit.
 - Keeps progress toward the next stage across weekly boundaries.
 
 ### Interface and accessibility
@@ -160,17 +165,18 @@ Edenia uses the Node.js version pinned in `.nvmrc`.
 
 4. Open [http://localhost:8000/](http://localhost:8000/).
 
-To test the staged video-organization experience without changing the normal
-browser profile, open
+To test runtime-gated experiences without changing the normal browser profile,
+open
 [http://localhost:8000/?internal_test=1](http://localhost:8000/?internal_test=1).
-Leave `videoOrganizationEnabled: false` in local runtime configuration when
-checking that ordinary visitors still receive the Set aside experience.
-Leave `channelVideoFormatToggleEnabled: false` when checking that ordinary
-visitors still receive the saved global Shorts preference instead of the
-per-channel Videos/Shorts controls.
-Leave `studyGuidanceEnabled: false` when checking the existing public Study
-Insight experience. The new goal-independent guidance is always available in
-the isolated `?internal_test=1` profile.
+That mode always enables the video-organization, channel-format, and Study
+Guidance release gates against isolated state. Leave their corresponding local
+flags `false` when verifying the ordinary fallback experiences: Set aside, the
+saved global Shorts preference, and the existing Study Insight model.
+
+IndexedDB backup flags are not forced by internal-test mode. Test normal-mode
+backup storage with `indexedDbBackupsEnabled`; enable
+`indexedDbBackupCleanupEnabled` only when also verifying the guarded removal of
+a fully migrated legacy backup copy.
 
 `npm run dev` validates the ignored root `config.local.js`, builds `_site`,
 writes a normalized `_site/config.local.js` without printing the key, and
@@ -410,25 +416,27 @@ Edenia communicates only with the local AnkiConnect endpoint at `http://127.0.0.
 
 Normal, internal-test, and sandbox progress are isolated in browser storage.
 
-| Mode | URL | State key | Backup key | Config cookie |
-| --- | --- | --- | --- | --- |
-| Normal | `/` | `edenia_v1` | `edenia_v1_backups` | `edenia_config` |
-| Internal test | `/?internal_test=1` | `edenia_v1_internal_test` | `edenia_v1_internal_test_backups` | `edenia_config_internal_test` |
-| Sandbox | `http://localhost:8001/?sandbox=1` | `edenia_v1_sandbox` | `edenia_v1_sandbox_backups` | `edenia_config_sandbox` |
+| Mode | URL | State key | Config cookie |
+| --- | --- | --- | --- |
+| Normal | `/` | `edenia_v1` | `edenia_config` |
+| Internal test | `/?internal_test=1` | `edenia_v1_internal_test` | `edenia_config_internal_test` |
+| Sandbox | `http://localhost:8001/?sandbox=1` | `edenia_v1_sandbox` | `edenia_config_sandbox` |
 
 The primary state includes:
 
-- settings, channels, channel refresh metadata, and removed-channel records;
+- settings, channels, per-channel video-format choices, channel refresh metadata, and removed-channel records;
 - video metadata, statuses, timestamps, and watched-progress segments;
 - weekly progress inputs, streaks, Anki daily logs, and town progression;
-- learner profile and onboarding completion state;
+- learner profile, onboarding completion state, and resumable starter-feed work;
 - study-insight preferences and previously shown insights;
 - undo and redo queues;
 - the activity log.
 
 The config cookie mirrors basic configuration so Edenia can recover settings if the main state is unavailable.
 
-Edenia maintains up to eight recent local backup snapshots. It creates interval-limited automatic backups and forced rollback points before risky operations such as imports, resets, restores, and cleanup. Backups can be restored from **Settings -> Recent local backups**.
+Normal mode maintains up to eight recent local backup snapshots and displays the four newest in **Settings -> Recent local backups**. It creates interval-limited automatic backups and verified rollback points before risky operations such as imports, resets, and restores. Internal-test and sandbox modes deliberately do not create or expose recovery snapshots.
+
+When `indexedDbBackupsEnabled` is active, normal-mode snapshots use the `edenia_state_backups_v1` IndexedDB database instead of sharing the primary state's localStorage quota. Existing `edenia_v1_backups` data is merged and verified before migration completes. The separate `indexedDbBackupCleanupEnabled` switch removes a valid legacy copy only after that verification; malformed or unverifiable legacy data is left in place.
 
 Use **Export sync file** to download the complete current state and **Import sync file** to move it to another browser or device. Normal and sandbox sync files cannot be imported into the opposite mode. Sync files contain personal study history and should be treated as private backups.
 
@@ -452,7 +460,7 @@ During deployment it:
 
 1. Installs the pinned Node.js dependencies.
 2. Builds the static site into `_site` with versioned asset references.
-3. Generates `_site/config.local.js` from the `YOUTUBE_API_KEY` repository secret.
+3. Generates `_site/config.local.js` from the `YOUTUBE_API_KEY` repository secret and supported public repository variables.
 4. Uploads and deploys the static Pages artifact.
 
 Repository setup:
@@ -462,6 +470,26 @@ Repository setup:
 3. Push to `master` or run **Deploy GitHub Pages** manually.
 
 The secret stays out of Git history, but the generated key remains visible in the deployed browser configuration and must retain the restrictions described above.
+
+The supported public runtime variables are:
+
+| Repository variable | Runtime field | Effect |
+| --- | --- | --- |
+| `EDENIA_VIDEO_ORGANIZATION_ENABLED` | `videoOrganizationEnabled` | Enables More actions, Removed, and video-placement Undo/Redo for ordinary visitors. |
+| `EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED` | `channelVideoFormatToggleEnabled` | Enables persisted per-channel Videos/Shorts views when short videos are included. |
+| `EDENIA_STUDY_GUIDANCE_ENABLED` | `studyGuidanceEnabled` | Replaces the current eligible insight with goal-independent Study Guidance. |
+| `EDENIA_INDEXED_DB_BACKUPS_ENABLED` | `indexedDbBackupsEnabled` | Migrates and writes normal-mode recovery snapshots in IndexedDB. |
+| `EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED` | `indexedDbBackupCleanupEnabled` | Removes a valid legacy backup copy after verified migration; effective only with IndexedDB backups enabled. |
+| `EDENIA_FREE_PLUS_ENABLED` | `freePlusEnabled` | Enforces the Free/Plus history, insight, and tracked-channel access policy. |
+| `EDENIA_PLUS_CHECKOUT_ENABLED` | `plusCheckoutEnabled` | Enables the Plus checkout entry point when the public Supabase configuration and backend are ready. |
+| `SUPABASE_URL` | `supabaseUrl` | Supplies the public Supabase project URL. |
+| `SUPABASE_PUBLISHABLE_KEY` | `supabasePublishableKey` | Supplies the browser-safe Supabase publishable key. |
+
+Boolean release variables default to disabled and accept only `true` or `false`.
+Changing a repository variable does not alter an already deployed artifact;
+run the Pages workflow and verify the generated runtime configuration. The
+checked-in `config.example.js` defaults are therefore not proof of current
+production availability.
 
 ## Privacy and Analytics
 
@@ -473,7 +501,7 @@ The app makes these external connections:
 - Local AnkiConnect when Anki tracking is enabled and Anki is available.
 - PostHog only on the official `https://bricechivu.github.io/Edenia/` deployment.
 
-Production analytics create a PostHog person profile for each browser installation. Autocapture is disabled, but session recording is enabled and input text is not masked. Edenia records controlled button actions, raw trimmed search queries, channel additions and removals with channel IDs and names, individual video additions and whether their cards became visible after the reveal attempt, aggregate daily study progress, streak changes, current and earned town levels, current settings, onboarding completion, YouTube refresh results, successful Anki refreshes with their timestamps and summary counts, video opens, playback-session summaries, Favorite and video-placement changes, and watched-state changes. Each person profile includes the current watched-video IDs and count plus the current removed-video count; watched and unwatched events include the video ID, title, channel ID, watched timestamp, duration, source, and short-video status. Existing local study days, configured channels, and watched videos are synchronized once, then only changed values generate additional state events.
+Production analytics create a PostHog person profile for each browser installation. Autocapture is disabled, but session recording is enabled and input text is not masked. Edenia records controlled button actions, raw trimmed search queries, channel additions and removals with channel IDs and names, individual video additions and whether their cards became visible after the reveal attempt, onboarding and starter-feed results, aggregate daily study progress, streak changes, current and earned town levels, current settings, YouTube refresh results, successful Anki refreshes with their timestamps and summary counts, video opens, playback-session summaries, Favorite and video-placement changes, per-channel video-format views, Study Guidance impressions and actions, and watched-state changes. Each person profile includes the current watched-video IDs and count plus the current removed-video count; watched and unwatched events include the video ID, title, channel ID, watched timestamp, duration, source, and short-video status. Existing local study days, configured channels, and watched videos are synchronized once, then only changed values generate additional state events.
 
 Submitting the feedback form sends its category, message, optional name and email, page and display context, and the current session-replay URL to PostHog. Custom analytics events do not include YouTube API keys, sync-file contents, or the full serialized browser state. Because recordings can capture visible UI and unmasked input text, users should not enter sensitive information in Edenia search or feedback fields. PostHog is not initialized on localhost, alternate domains, sandbox mode, or other paths.
 
@@ -484,8 +512,8 @@ Submitting the feedback form sends its category, message, optional name and emai
 | `index.html` | App structure, first-run trailer, runtime script loading, and production analytics initialization |
 | `src/app.js` | Composition entry plus tightly coupled rendering and lifecycle orchestration |
 | `src/core/` | Shared pure helpers and runtime, storage, responsive, and global-action contracts |
-| `src/domain/` | Rendering-independent video state and watch-progress rules |
-| `src/state/` | State normalization, persistence, backups, history, onboarding, Anki, and insights |
+| `src/domain/` | Rendering-independent video state, watch-progress rules, and Study Guidance calculations |
+| `src/state/` | State normalization, persistence, local and IndexedDB backups, history, onboarding, Anki, and insights |
 | `src/features/` | Feature models and module-owned DOM action adapters |
 | `src/integrations/` | Runtime configuration, analytics bridge, and YouTube parsing |
 | `src/i18n/` | Complete English, Traditional Chinese, Simplified Chinese, Spanish, and French dictionaries plus the locale registry |
