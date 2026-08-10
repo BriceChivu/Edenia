@@ -535,6 +535,12 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card:is(.is-previewing, .is-preview-closing) .pub-ago-full {
+    display: none;
+  }
+  .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card:is(.is-previewing, .is-preview-closing) .pub-ago-compact {
+    display: inline;
+  }
   .channel-shelf-slot[data-channel-video-format="shorts"] > .channel-shelf-card:is(.is-previewing, .is-preview-closing) .card-actions {
     gap: 2px;
   }
