@@ -1,7 +1,6 @@
 # CHANGES:
 
 ## BUGS:
-- for shorts on desktop: "hace 15 meses" to "hace 15 m" "il y a 1 semaine" to "il y a 1 sem"  Review all other languages and other elements.
 - on mobiles: internal_test=1 is very slow, especially when setting a video as watch later or favorite
 - on mobiles, in progress, watch later, favorite labels are at the same position as "new" label.
 - on mobiles: "removed from in progress UNDO" should take 1 line if possible. The word "UNDO" should never be broken down in several lines.
@@ -67,5 +66,4 @@ For later:
 # NOTES:
 - How to keep images consistent over time when using AI?
 - How to upscale images (pixelbin model from https://www.upscale.media/zh/upload was good but no more credit)
-
 
