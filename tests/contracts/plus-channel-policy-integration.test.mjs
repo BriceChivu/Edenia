@@ -102,11 +102,11 @@ test('refresh state and analytics keep tracked and manual-only channels distinct
   )
   assert.match(
     getFunctionSource('getEdeniaAnalyticsSnapshot', 'syncPersistedStateToAnalytics'),
-    /const manualVideoOnlyChannels = getManualVideoOnlyChannels\(state, \{[\s\S]*?videoOrganizationEnabled: VIDEO_ORGANIZATION_ENABLED[\s\S]*?\}\)[\s\S]*?channelPolicy: \{[\s\S]*?manualVideoOnlyChannelCount: manualVideoOnlyChannels\.length[\s\S]*?freeTrackedChannelAllowance: getFreeTrackedChannelAllowance\(state\)/
+    /const manualVideoOnlyChannels = getManualVideoOnlyChannels\(state\)[\s\S]*?channelPolicy: \{[\s\S]*?manualVideoOnlyChannelCount: manualVideoOnlyChannels\.length[\s\S]*?freeTrackedChannelAllowance: getFreeTrackedChannelAllowance\(state\)/
   )
   assert.match(
     getFunctionSource('getChannelFilterEntries', 'isHiddenManualVideoChannelEntry'),
-    /const manualVideoOnlyChannelIds = new Set\([\s\S]*?getManualVideoOnlyChannels\(s, \{[\s\S]*?videoOrganizationEnabled: VIDEO_ORGANIZATION_ENABLED[\s\S]*?\}\)[\s\S]*?!manualVideoOnlyChannelIds\.has\(key\)/
+    /const manualVideoOnlyChannelIds = new Set\([\s\S]*?getManualVideoOnlyChannels\(s\)[\s\S]*?!manualVideoOnlyChannelIds\.has\(key\)/
   )
   for (const property of [
     'current_manual_video_only_channel_count',

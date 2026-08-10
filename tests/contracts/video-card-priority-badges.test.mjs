@@ -30,34 +30,24 @@ function getRuleDeclarations(source, selector) {
   return match[1]
 }
 
-test('video-card priority badges switch between preview labels and legacy actions', () => {
+test('video-card priority badges are passive organization labels', () => {
   const renderCardSource = getRenderCardSource()
-  const organizationStart = renderCardSource.indexOf('const organizationShelfPriorityBadge =')
-  const legacyStart = renderCardSource.indexOf('const legacyShelfPriorityBadge =')
-  const selectionStart = renderCardSource.indexOf('const shelfPriorityBadge =')
-  const organizationSource = renderCardSource.slice(organizationStart, legacyStart)
-  const legacySource = renderCardSource.slice(legacyStart, selectionStart)
 
   assert.doesNotMatch(renderCardSource, /t\('videos\.card\.resume'\)/)
   assert.match(
-    organizationSource,
+    renderCardSource,
     /class="channel-shelf-priority-badge partial-priority-badge">\$\{renderVideoActionIcon\('partial'\)\}\$\{escHtml\(t\('videos\.status\.partial'\)\)\}<\/span>/
   )
   assert.match(
-    organizationSource,
+    renderCardSource,
     /class="channel-shelf-priority-badge favorite-priority-badge">\$\{renderVideoActionIcon\('favorite'\)\}\$\{escHtml\(t\('videos\.card\.favorite'\)\)\}<\/span>/
   )
   assert.doesNotMatch(
-    organizationSource,
+    renderCardSource,
     /channel-shelf-priority-badge[^>]*data-video-state-action/
   )
-  assert.match(legacySource, /data-video-state-action="clear-paused"/)
-  assert.match(legacySource, /data-video-state-action="remove-watch-later"/)
-  assert.match(legacySource, /data-video-state-action="remove-favorite"/)
-  assert.match(
-    renderCardSource,
-    /const shelfPriorityBadge = VIDEO_ORGANIZATION_ENABLED\s*\? organizationShelfPriorityBadge\s*: legacyShelfPriorityBadge/
-  )
+  assert.doesNotMatch(renderCardSource, /legacyShelfPriorityBadge/)
+  assert.doesNotMatch(renderCardSource, /VIDEO_ORGANIZATION_ENABLED/)
   assert.match(
     renderCardSource,
     /card-status partial-status[\s\S]*?renderVideoActionIcon\('partial'\)[\s\S]*?t\('videos\.status\.partial'\)/

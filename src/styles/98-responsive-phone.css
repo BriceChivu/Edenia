@@ -13,18 +13,6 @@
     overflow-x: clip;
   }
 
-  .set-aside-prompt-overlay {
-    align-items: flex-end;
-    padding: 12px;
-  }
-  .set-aside-prompt {
-    border-radius: 16px;
-    padding: 16px;
-  }
-  .set-aside-prompt-actions button {
-    flex: 1;
-    min-width: 0;
-  }
   .video-actions-popover {
     border-radius: 18px 18px 14px 14px;
     bottom: max(12px, env(safe-area-inset-bottom));
@@ -398,9 +386,7 @@
     inset: -2px;
     position: absolute;
   }
-  .channel-shelf-card .partial-btn,
   .channel-shelf-card .watch-later-btn,
-  .channel-shelf-card .set-aside-btn,
   .channel-shelf-card .more-btn,
   .channel-shelf-card .favorite-btn {
     flex: 0 0 40px;
@@ -621,7 +607,6 @@
     display: none;
   }
 
-  .watched-grid .compact-card .card-actions .partial-btn,
   .watched-grid .compact-card .card-actions .watch-later-btn {
     display: none;
   }

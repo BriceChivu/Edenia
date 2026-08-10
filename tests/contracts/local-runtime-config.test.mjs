@@ -62,7 +62,7 @@ test('local runtime config normalizes a valid ignored key into the generated sit
         + '  "youtubeApiKey": "fake-development-key",\n'
         + '  "freePlusEnabled": false,\n'
         + '  "plusCheckoutEnabled": false,\n'
-        + '  "videoOrganizationEnabled": false,\n'
+        + '  "videoOrganizationEnabled": true,\n'
         + '  "channelVideoFormatToggleEnabled": false,\n'
         + '  "studyGuidanceEnabled": false,\n'
         + '  "indexedDbBackupsEnabled": false,\n'
@@ -74,7 +74,7 @@ test('local runtime config normalizes a valid ignored key into the generated sit
   })
 })
 
-test('local runtime config preserves explicit dormant release flags', async () => {
+test('local runtime config preserves dormant flags and forces the compatibility marker', async () => {
   await withTemporaryDirectory(async directory => {
     const configPath = join(directory, 'config.local.js')
     const outputPath = join(directory, 'generated-config.local.js')
@@ -84,7 +84,7 @@ test('local runtime config preserves explicit dormant release flags', async () =
         + "  youtubeApiKey: 'fake-development-key',\n"
         + '  freePlusEnabled: true,\n'
         + '  plusCheckoutEnabled: true,\n'
-        + '  videoOrganizationEnabled: true,\n'
+        + '  videoOrganizationEnabled: false,\n'
         + '  channelVideoFormatToggleEnabled: true,\n'
         + '  studyGuidanceEnabled: true,\n'
         + '  indexedDbBackupsEnabled: true,\n'
@@ -132,7 +132,7 @@ test('local runtime config removes tracked Supabase placeholders', async () => {
       youtubeApiKey: 'fake-development-key',
       freePlusEnabled: false,
       plusCheckoutEnabled: false,
-      videoOrganizationEnabled: false,
+      videoOrganizationEnabled: true,
       channelVideoFormatToggleEnabled: false,
       studyGuidanceEnabled: false,
       indexedDbBackupsEnabled: false,

@@ -71,13 +71,13 @@ test('built index preserves the classic deferred script order and one cache vers
   assert.ok(html.indexOf('window.EDENIA_ANALYTICS_ENABLED') < configPosition)
 })
 
-test('test build contains empty public keys and disabled release flags', async () => {
+test('test build contains empty public keys and safe release defaults', async () => {
   const source = await readFile(new URL('config.local.js', siteRoot), 'utf8')
   assert.match(source, /^window\.EDENIA_CONFIG = /)
   assert.match(source, /"youtubeApiKey": ""/)
   assert.match(source, /"freePlusEnabled": false/)
   assert.match(source, /"plusCheckoutEnabled": false/)
-  assert.match(source, /"videoOrganizationEnabled": false/)
+  assert.match(source, /"videoOrganizationEnabled": true/)
   assert.match(source, /"channelVideoFormatToggleEnabled": false/)
   assert.match(source, /"studyGuidanceEnabled": false/)
   assert.match(source, /"indexedDbBackupsEnabled": false/)
@@ -87,9 +87,13 @@ test('test build contains empty public keys and disabled release flags', async (
   assert.doesNotMatch(source, /PASTE_|AIza/i)
 })
 
-test('Pages deployment forwards dormant controls and public Supabase config', async () => {
+test('Pages deployment retires organization input and forwards remaining controls', async () => {
   const workflow = await readFile(
     new URL('.github/workflows/deploy-pages.yml', projectRoot),
+    'utf8'
+  )
+  const runtimeConfigWriter = await readFile(
+    new URL('scripts/write-runtime-config.mjs', projectRoot),
     'utf8'
   )
   assert.match(
@@ -100,9 +104,11 @@ test('Pages deployment forwards dormant controls and public Supabase config', as
     workflow,
     /EDENIA_PLUS_CHECKOUT_ENABLED: \$\{\{ vars\.EDENIA_PLUS_CHECKOUT_ENABLED \}\}/
   )
-  assert.match(
-    workflow,
-    /EDENIA_VIDEO_ORGANIZATION_ENABLED: \$\{\{ vars\.EDENIA_VIDEO_ORGANIZATION_ENABLED \}\}/
+  assert.doesNotMatch(workflow, /EDENIA_VIDEO_ORGANIZATION_ENABLED/)
+  assert.match(runtimeConfigWriter, /videoOrganizationEnabled: true/)
+  assert.doesNotMatch(
+    runtimeConfigWriter,
+    /process\.env\.EDENIA_VIDEO_ORGANIZATION_ENABLED/
   )
   assert.match(
     workflow,

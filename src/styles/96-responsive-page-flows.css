@@ -728,9 +728,7 @@
     text-align: center;
     white-space: normal;
   }
-  .video-card:not(.compact-card) .partial-btn,
   .video-card:not(.compact-card) .watch-later-btn,
-  .video-card:not(.compact-card) .set-aside-btn,
   .video-card:not(.compact-card) .more-btn,
   .video-card:not(.compact-card) .favorite-btn {
     padding-left: 4px;

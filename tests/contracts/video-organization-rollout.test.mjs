@@ -5,6 +5,18 @@ import test from 'node:test'
 const appSource = fs.readFileSync(new URL('../../src/app.js', import.meta.url), 'utf8')
 const analyticsSource = fs.readFileSync(new URL('../../analytics.js', import.meta.url), 'utf8')
 const indexSource = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
+const runtimeEnvironmentSource = fs.readFileSync(
+  new URL('../../src/core/runtime-environment.js', import.meta.url),
+  'utf8'
+)
+const runtimeConfigSource = fs.readFileSync(
+  new URL('../../src/integrations/runtime-config.js', import.meta.url),
+  'utf8'
+)
+const actionHistorySource = fs.readFileSync(
+  new URL('../../src/state/action-history.js', import.meta.url),
+  'utf8'
+)
 
 function functionSource(name, nextName) {
   const start = appSource.indexOf(`function ${name}(`)
@@ -14,74 +26,59 @@ function functionSource(name, nextName) {
   return appSource.slice(start, end)
 }
 
-test('one central decision enables the preview for internal tests or an explicit release', () => {
-  assert.match(
-    appSource,
-    /const VIDEO_ORGANIZATION_ENABLED = deriveVideoOrganizationEnabled\(\s*RUNTIME_ENVIRONMENT,\s*getVideoOrganizationEnabled\(\)\s*\)/
-  )
-  assert.match(
-    analyticsSource,
-    /const VIDEO_ORGANIZATION_ENABLED = window\.EDENIA_INTERNAL_TEST === true\s*\|\| window\.EDENIA_CONFIG\?\.videoOrganizationEnabled === true;/
-  )
-  assert.match(
-    analyticsSource,
-    /const ANALYTICS_SCHEMA_VERSION = VIDEO_ORGANIZATION_ENABLED \? 3 : 2;/
-  )
+test('video organization no longer has a runtime decision boundary', () => {
+  for (const source of [appSource, analyticsSource]) {
+    assert.doesNotMatch(source, /VIDEO_ORGANIZATION_ENABLED/)
+  }
+  assert.doesNotMatch(runtimeEnvironmentSource, /deriveVideoOrganizationEnabled/)
+  assert.doesNotMatch(runtimeConfigSource, /getVideoOrganizationEnabled/)
+  assert.match(analyticsSource, /const ANALYTICS_SCHEMA_VERSION = 3;/)
+  assert.match(appSource, /schemaVersion: 3/)
 })
 
-test('normal state is not migrated and organization actions fail closed', () => {
+test('legacy state migration runs on every load and save', () => {
   assert.match(
     functionSource('normalizeLoadedState', 'normalizeStateBeforeSave'),
-    /VIDEO_ORGANIZATION_ENABLED\s*&& normalizeVideoOrganizationState\(state\)/
+    /if \(normalizeVideoOrganizationState\(state\)\) shouldSave = true/
   )
   assert.match(
     functionSource('normalizeStateBeforeSave', 'createDefaultStateFromConfig'),
-    /if \(VIDEO_ORGANIZATION_ENABLED\) normalizeVideoOrganizationState\(state\)/
+    /normalizeVideoOrganizationState\(state\)/
   )
-  for (const [name, nextName] of [
-    ['requestVideoSetAside', 'closeVideoSetAsidePrompt'],
-    ['setVideoAside', 'clearVideoPausedState'],
-    ['openVideoOrganizationMenu', 'closeVideoOrganizationMenu'],
-    ['removeVideoFromContinueWatching', 'removeVideoFromFeed'],
-    ['removeVideoFromFeed', 'restoreVideoToFeed'],
-    ['restoreVideoToFeed', 'markVideoInProgressOnOpen']
-  ]) {
-    const source = functionSource(name, nextName)
-    const legacyAction = name === 'requestVideoSetAside' || name === 'setVideoAside'
-    assert.match(
-      source,
-      legacyAction
-        ? /if \(VIDEO_ORGANIZATION_ENABLED\) return false/
-        : /if \(!VIDEO_ORGANIZATION_ENABLED\) return false/
-    )
-  }
+  const normalizationSource = functionSource(
+    'normalizeVideoOrganizationState',
+    'normalizeWatchedConfirmationState'
+  )
+  assert.match(normalizationSource, /removedFromFeedAt/)
+  assert.match(normalizationSource, /\['setAside', 'setAsideAt', 'setAsideResumeAtSeconds'\]/)
+  assert.match(normalizationSource, /delete state\.config\.setAsidePromptSeen/)
 })
 
-test('the DOM keeps both experiences but exposes only the selected one', () => {
-  assert.match(indexSource, /data-video-organization-legacy/)
-  assert.match(indexSource, /data-video-organization-preview hidden/)
-  const visibilitySource = functionSource(
-    'applyVideoOrganizationVisibility',
-    'applyTranslations'
-  )
-  assert.match(visibilitySource, /toggleAttribute\('hidden', VIDEO_ORGANIZATION_ENABLED\)/)
-  assert.match(visibilitySource, /toggleAttribute\('hidden', !VIDEO_ORGANIZATION_ENABLED\)/)
+test('only the organization experience remains in the rendered application', () => {
+  assert.match(indexSource, /id="removedSection"/)
+  assert.match(indexSource, /id="videoActionsPopover"/)
+  assert.doesNotMatch(indexSource, /data-video-organization-(?:legacy|preview)/)
+  assert.doesNotMatch(indexSource, /id="setAsidePrompt"/)
+  assert.doesNotMatch(appSource, /data-video-set-aside-action/)
+  assert.doesNotMatch(appSource, /bindVideoSetAsideActions/)
+  assert.doesNotMatch(appSource, /applyVideoOrganizationVisibility/)
 
   const renderCardSource = functionSource('renderCard', 'renderRemovedVideoCard')
-  assert.match(renderCardSource, /!VIDEO_ORGANIZATION_ENABLED && isPartial/)
-  assert.match(renderCardSource, /!VIDEO_ORGANIZATION_ENABLED \|\| options\.hideOrganizationActions/)
-  assert.match(renderCardSource, /const shelfPriorityBadge = VIDEO_ORGANIZATION_ENABLED/)
+  assert.match(renderCardSource, /data-video-organization-action="menu"/)
+  assert.doesNotMatch(renderCardSource, /legacyShelfPriorityBadge/)
 })
 
-test('the public kill switch hides stale organization history without deleting it', () => {
+test('organization history stays visible and executable', () => {
   const applySource = functionSource('applyHistoryAction', 'applyChannelRemoveActionSnapshot')
-  assert.match(
-    applySource,
-    /!VIDEO_ORGANIZATION_ENABLED && action\?\.type === 'video-organization'/
+  assert.match(actionHistorySource, /'video-organization'/)
+  assert.match(applySource, /applyVideoStatusActionSnapshot/)
+  assert.doesNotMatch(applySource, /VIDEO_ORGANIZATION_ENABLED/)
+
+  const tooltipSource = functionSource(
+    'renderHistoryActionTooltip',
+    'formatHistoryActionTimestamp'
   )
-  const tooltipSource = functionSource('renderHistoryActionTooltip', 'renderHistoryActionTooltipItem')
-  assert.match(
-    tooltipSource,
-    /VIDEO_ORGANIZATION_ENABLED \|\| entry\.action\?\.type !== 'video-organization'/
-  )
+  assert.match(tooltipSource, /indexedActions\.map\(entry => renderHistoryActionTooltipItem/)
+  assert.match(tooltipSource, /action\.type === 'video-organization'/)
+  assert.doesNotMatch(tooltipSource, /VIDEO_ORGANIZATION_ENABLED/)
 })

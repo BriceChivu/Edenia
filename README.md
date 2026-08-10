@@ -31,7 +31,6 @@ The app is browser-first: its interface and primary study state run from static 
 - Filters the active queue by status and by any combination of channels.
 - Lets users add, select all, remove, and manage channels from the channel filter.
 - Provides a More actions menu for clearing Continue Watching or removing a video from the feed, with restoration from a collapsed Removed section below Watched.
-- Restores the legacy Set aside action, without deleting recorded study time, whenever video organization is disabled through runtime configuration.
 - Hides videos of three minutes or less by default; the preference can be changed in Settings.
 - When short videos and the channel-format feature are enabled, lets each channel shelf switch independently between Videos and Shorts and remembers that shelf's last view.
 - Shows a contextual card for the latest paused video, the next watch-later video, or a favorite that is ready to rewatch.
@@ -46,9 +45,9 @@ Supported video states are:
 
 Opening an unwatched or watch-later video marks it in progress. In-progress videos can retain a continue-watching timestamp and watched-progress segments. Adding a fresh video to Watch later does not itself add study time, streak credit, or points. Rewatching a favorite can record another completed watch and award credit for the newly recorded playback.
 
-Video organization and per-channel Videos/Shorts views are independent runtime releases. `/?internal_test=1` always enables both release gates against isolated internal-test state; ordinary visitors receive the behavior selected in the deployed runtime configuration. `Removed` is a feed-placement flag rather than a study status. Its thumbnails open in a read-only player that does not record progress or points, and restoring a removed video returns its exact saved status and controls. Removing a video from Continue Watching clears only its resume cursor and current watch-cycle coverage; recorded study activity remains intact. Favoriting a watched video keeps it watched while revealing its rewatch card in the active feed.
+Video organization is permanent for every visitor. The per-channel Videos/Shorts view remains an independent runtime release, and `/?internal_test=1` enables that release gate against isolated internal-test state. `Removed` is a feed-placement flag rather than a study status. Its thumbnails open in a read-only player that does not record progress or points, and restoring a removed video returns its exact saved status and controls. Removing a video from Continue Watching clears only its resume cursor and current watch-cycle coverage; recorded study activity remains intact. Favoriting a watched video keeps it watched while revealing its rewatch card in the active feed.
 
-Undo and redo cover recent status, progress, Favorite, manual-video, and channel-removal actions together with their related history and score changes. Video-placement actions join that history whenever video organization is enabled.
+Undo and redo cover recent status, progress, Favorite, video-placement, manual-video, and channel-removal actions together with their related history and score changes.
 
 ### Goals, history, and insights
 
@@ -475,7 +474,6 @@ The supported public runtime variables are:
 
 | Repository variable | Runtime field | Effect |
 | --- | --- | --- |
-| `EDENIA_VIDEO_ORGANIZATION_ENABLED` | `videoOrganizationEnabled` | Enables More actions, Removed, and video-placement Undo/Redo for ordinary visitors. |
 | `EDENIA_CHANNEL_VIDEO_FORMAT_TOGGLE_ENABLED` | `channelVideoFormatToggleEnabled` | Enables persisted per-channel Videos/Shorts views when short videos are included. |
 | `EDENIA_STUDY_GUIDANCE_ENABLED` | `studyGuidanceEnabled` | Replaces the current eligible insight with goal-independent Study Guidance. |
 | `EDENIA_INDEXED_DB_BACKUPS_ENABLED` | `indexedDbBackupsEnabled` | Migrates and writes normal-mode recovery snapshots in IndexedDB. |
@@ -484,6 +482,11 @@ The supported public runtime variables are:
 | `EDENIA_PLUS_CHECKOUT_ENABLED` | `plusCheckoutEnabled` | Enables the Plus checkout entry point when the public Supabase configuration and backend are ready. |
 | `SUPABASE_URL` | `supabaseUrl` | Supplies the public Supabase project URL. |
 | `SUPABASE_PUBLISHABLE_KEY` | `supabasePublishableKey` | Supplies the browser-safe Supabase publishable key. |
+
+Generated runtime configuration temporarily retains
+`videoOrganizationEnabled: true` as a compatibility marker for cached
+pre-retirement application assets. It is not a release gate and has no
+repository variable.
 
 Boolean release variables default to disabled and accept only `true` or `false`.
 Changing a repository variable does not alter an already deployed artifact;

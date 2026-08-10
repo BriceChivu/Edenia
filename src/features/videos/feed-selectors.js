@@ -128,12 +128,11 @@ export function isHiddenShortVideo(video, includeShorts) {
 
 export function getVisibleActiveVideos(videos, includeShorts = true, options = {}) {
   const limitPerChannel = options.limitPerChannel !== false
-  const videoOrganizationEnabled = options.videoOrganizationEnabled !== false
   const byChannel = new Map()
 
   const visibleVideos = videos
     .filter(video => getVideoStatus(video) !== 'watched')
-    .filter(video => !isHiddenFromVideoGrid(video, videoOrganizationEnabled))
+    .filter(video => !isHiddenFromVideoGrid(video))
     .filter(video => !isHiddenShortVideo(video, includeShorts))
     .sort(compareActiveVideos)
 
@@ -160,9 +159,9 @@ export function getActiveVideoGroupKey(video) {
   return video?.channelId || video?.channelTitle || 'unknown'
 }
 
-export function isHiddenFromVideoGrid(video, videoOrganizationEnabled = true) {
+export function isHiddenFromVideoGrid(video) {
   return Boolean(video?.hiddenFromGrid)
-    || (videoOrganizationEnabled === true && isVideoRemovedFromFeed(video))
+    || isVideoRemovedFromFeed(video)
 }
 
 export function getRemovedFromFeedVideos(videos, includeShorts = true) {

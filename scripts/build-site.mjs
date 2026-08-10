@@ -151,13 +151,14 @@ await copyPath('data/channel-catalog.json')
 await copyPath('data/channel-catalog.community.json')
 await copyPath('data/channel-catalog.discovered.json')
 
+// Keep the marker true until cached pre-retirement app.js assets have expired.
 await writeFile(
   resolve(outputDir, 'config.local.js'),
   'window.EDENIA_CONFIG = {\n'
     + '  "youtubeApiKey": "",\n'
     + '  "freePlusEnabled": false,\n'
     + '  "plusCheckoutEnabled": false,\n'
-    + '  "videoOrganizationEnabled": false,\n'
+    + '  "videoOrganizationEnabled": true,\n'
     + '  "channelVideoFormatToggleEnabled": false,\n'
     + '  "studyGuidanceEnabled": false,\n'
     + '  "indexedDbBackupsEnabled": false,\n'
