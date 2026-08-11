@@ -205,8 +205,14 @@ test('shared backend tests remain connected to package scripts and CI', async ()
     packageJson.scripts['test:supabase'],
     'node --test supabase/functions/_shared/*.test.ts'
   )
+  assert.equal(
+    packageJson.scripts['test:reminder-function'],
+    'deno check --config supabase/functions/dispatch-study-reminders/deno.json supabase/functions/dispatch-study-reminders/index.ts'
+  )
   assert.match(packageJson.scripts.test, /npm run test:supabase/)
+  assert.match(packageJson.scripts.test, /npm run test:reminder-function/)
   assert.match(packageJson.scripts['test:ci'], /npm run test:supabase/)
+  assert.match(packageJson.scripts['test:ci'], /npm run test:reminder-function/)
 
   const workflow = await readFile(
     new URL('.github/workflows/ci.yml', projectRoot),
@@ -215,6 +221,9 @@ test('shared backend tests remain connected to package scripts and CI', async ()
   assert.match(workflow, /supabase\/\*\)/)
   assert.match(workflow, /name: Run Supabase backend tests/)
   assert.match(workflow, /run: npm run test:supabase/)
+  assert.match(workflow, /uses: denoland\/setup-deno@v2/)
+  assert.match(workflow, /deno-version: v2\.1\.4/)
+  assert.match(workflow, /run: npm run test:reminder-function/)
   assert.match(workflow, /version: 2\.111\.0/)
   assert.match(
     workflow,
