@@ -474,6 +474,7 @@ The supported public runtime variables are:
 
 | Repository variable | Runtime field | Effect |
 | --- | --- | --- |
+| `EDENIA_ACCOUNT_FEATURES_ROLLOUT` | `accountFeaturesRollout` | Controls the staged account-feature audience: `off`, `internal`, or `public`. Sandbox remains excluded. |
 | `EDENIA_STUDY_GUIDANCE_ENABLED` | `studyGuidanceEnabled` | Replaces the current eligible insight with goal-independent Study Guidance. |
 | `EDENIA_INDEXED_DB_BACKUPS_ENABLED` | `indexedDbBackupsEnabled` | Migrates and writes normal-mode recovery snapshots in IndexedDB. |
 | `EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED` | `indexedDbBackupCleanupEnabled` | Removes a valid legacy backup copy after verified migration; effective only with IndexedDB backups enabled. |
@@ -488,6 +489,11 @@ as compatibility markers for cached pre-retirement application assets. They
 are not release gates and have no repository variables.
 
 Boolean release variables default to disabled and accept only `true` or `false`.
+`EDENIA_ACCOUNT_FEATURES_ROLLOUT` defaults to `off` and accepts only `off`,
+`internal`, or `public`. Use `internal` to make later account work reachable only
+through `/?internal_test=1`; that URL is a rollout surface, not an authorization
+boundary.
+
 Changing a repository variable does not alter an already deployed artifact;
 run the Pages workflow and verify the generated runtime configuration. The
 checked-in `config.example.js` defaults are therefore not proof of current

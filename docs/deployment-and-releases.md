@@ -115,6 +115,24 @@ variable set to `true` during that rollback so cached pre-retirement assets
 retain the Videos/Shorts behavior that was already public. No learner-state
 migration or reconstruction is required.
 
+## General account rollout
+
+The staged general-account work uses the public repository variable
+`EDENIA_ACCOUNT_FEATURES_ROLLOUT`. Its accepted values are:
+
+- `off`: disable the general-account experience everywhere;
+- `internal`: allow it only with `/?internal_test=1`;
+- `public`: allow it on the ordinary and internal-test application paths.
+
+Missing values default to `off`, invalid values fail the production build, and
+sandbox mode remains excluded. Keep the variable set to `internal` during the
+initial account implementation. Changing the variable requires a new Pages
+deployment before the generated runtime configuration changes.
+
+The internal-test query is public and is not an authorization boundary. Every
+future account backend must independently authenticate users, authorize access,
+and restrict test-only side effects such as email delivery on the server.
+
 ## Edenia Plus authentication
 
 GitHub Pages receives only the public Supabase browser configuration through
