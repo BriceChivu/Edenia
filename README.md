@@ -284,7 +284,7 @@ Each run searches one two-language batch with three focused channel queries per 
 
 The first page of each query uses six `search.list` calls. If either active language still has fewer than six eligible additions after filtering and deduplication, the script can request only one additional results page. A hard request budget stops the run before an eighth search, so automated discovery uses at most seven YouTube searches per Pacific Time quota day. Search pages request the API maximum of 50 results to get the most candidate coverage from each call.
 
-Before searching, the workflow claims the current Pacific Time quota day in the GitHub Actions cache. A second scheduled or manual attempt on that day exits without contacting YouTube. A completed result is cached separately, so validation or publication retries reuse the generated catalog rather than repeating the API search. The quota day, search count, active languages, language-batch cursor, and query cursor are also stored in `data/channel-catalog.discovered.json`.
+Before searching, the workflow claims the current Pacific Time quota day in the GitHub Actions cache. It runs daily at 09:29 UTC, safely after the Pacific quota reset in both standard and daylight-saving time. A second scheduled or manual attempt on that day exits without contacting YouTube. A completed result is cached separately, so validation or publication retries reuse the generated catalog rather than repeating the API search. The quota day, search count, active languages, language-batch cursor, and query cursor are also stored in `data/channel-catalog.discovered.json`.
 
 The script then uses batched `channels.list` requests to verify metadata, statistics, public availability, and profile-picture URLs.
 

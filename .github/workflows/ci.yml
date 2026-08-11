@@ -54,6 +54,10 @@ jobs:
                   run_contracts=true
                   run_supabase=true
                   ;;
+                .github/workflows/discover-language-channels.yml|scripts/discover-language-channels.mjs|scripts/validate-discovered-channel-catalog.mjs)
+                  run_catalogs=true
+                  run_contracts=true
+                  ;;
                 *.md|docs/*|.github/*)
                   ;;
                 data/channel-catalog.discovered.json)
