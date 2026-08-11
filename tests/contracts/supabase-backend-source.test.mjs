@@ -217,8 +217,9 @@ test('shared backend tests remain connected to package scripts and CI', async ()
   assert.match(workflow, /version: 2\.111\.0/)
   assert.match(
     workflow,
-    /supabase db query --local --file "\$\{reminder_migrations\[0\]\}"/
+    /name: Start isolated Supabase database[\s\S]*run: supabase start/
   )
+  assert.doesNotMatch(workflow, /supabase db query --local --file/)
   assert.match(
     workflow,
     /supabase test db supabase\/tests\/reminder_preferences_rls\.test\.sql --local/

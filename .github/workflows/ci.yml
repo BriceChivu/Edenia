@@ -152,17 +152,6 @@ jobs:
         if: steps.scope.outputs.supabase_db == 'true'
         run: supabase start
 
-      - name: Apply reminder preference migration
-        if: steps.scope.outputs.supabase_db == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          mapfile -t reminder_migrations < <(
-            find supabase/migrations -maxdepth 1 -name '*_add_reminder_preferences.sql' -print
-          )
-          test "${#reminder_migrations[@]}" -eq 1
-          supabase db query --local --file "${reminder_migrations[0]}"
-
       - name: Verify reminder preference isolation
         if: steps.scope.outputs.supabase_db == 'true'
         run: supabase test db supabase/tests/reminder_preferences_rls.test.sql --local
