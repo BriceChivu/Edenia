@@ -219,6 +219,15 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
   assert.match(unsubscribeSource, /auth: 'none', cors: false/)
   assert.match(unsubscribeSource, /context\.supabaseAdmin/)
   assert.doesNotMatch(unsubscribeSource, /Deno\.env|getUser|\.from\(/)
+
+  const unsubscribeHandlerSource = await readFile(
+    new URL('_shared/reminder-unsubscribe.ts', functionsRoot),
+    'utf8'
+  )
+  assert.match(unsubscribeHandlerSource, /'Content-Type': 'application\/json/)
+  assert.match(unsubscribeHandlerSource, /https:\/\/bricechivu\.github\.io/)
+  assert.match(unsubscribeHandlerSource, /http:\/\/localhost:8000/)
+  assert.doesNotMatch(unsubscribeHandlerSource, /text\/html|<!doctype html>/i)
 })
 
 test('shared backend tests remain connected to package scripts and CI', async () => {

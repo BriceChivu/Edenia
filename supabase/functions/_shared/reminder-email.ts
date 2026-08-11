@@ -1,11 +1,15 @@
 const REMINDER_LOCALES = ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr'] as const
 const REMINDER_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-const UNSUBSCRIBE_PATH = '/functions/v1/unsubscribe-study-reminders'
+const UNSUBSCRIBE_API_PATH = '/functions/v1/unsubscribe-study-reminders'
 
 const ALLOWED_APP_URLS = new Set([
   'https://bricechivu.github.io/Edenia/?internal_test=1',
   'http://localhost:8000/?internal_test=1',
+])
+const ALLOWED_UNSUBSCRIBE_PAGE_URLS = new Set([
+  'https://bricechivu.github.io/Edenia/unsubscribe/',
+  'http://localhost:8000/unsubscribe/',
 ])
 
 export type ReminderLocale = typeof REMINDER_LOCALES[number]
@@ -101,7 +105,7 @@ function assertUnsubscribeEndpoint(url: URL) {
     (!isHostedEndpoint && !isLocalEndpoint)
     || url.username
     || url.password
-    || url.pathname !== UNSUBSCRIBE_PATH
+    || url.pathname !== UNSUBSCRIBE_API_PATH
     || url.hash
   ) {
     throw new TypeError('Reminder unsubscribe endpoint is not allowlisted')
@@ -159,7 +163,7 @@ export async function digestReminderUnsubscribeToken(token: string) {
   return new Uint8Array(digest)
 }
 
-export function createReminderUnsubscribeUrl(
+export function createReminderUnsubscribeApiUrl(
   endpointUrl: string,
   token: string,
   locale: ReminderLocale,
@@ -168,6 +172,26 @@ export function createReminderUnsubscribeUrl(
   assertUnsubscribeEndpoint(url)
   if (url.search) {
     throw new TypeError('Reminder unsubscribe endpoint must not include a query')
+  }
+  url.searchParams.set('token', requireReminderToken(token))
+  url.searchParams.set('lang', normalizeReminderLocale(locale))
+  return url.href
+}
+
+export function createReminderUnsubscribePageUrl(
+  pageUrl: string,
+  token: string,
+  locale: ReminderLocale,
+) {
+  const url = new URL(pageUrl)
+  if (
+    !ALLOWED_UNSUBSCRIBE_PAGE_URLS.has(url.href)
+    || url.username
+    || url.password
+    || url.hash
+    || url.search
+  ) {
+    throw new TypeError('Reminder unsubscribe page is not allowlisted')
   }
   url.searchParams.set('token', requireReminderToken(token))
   url.searchParams.set('lang', normalizeReminderLocale(locale))
@@ -187,26 +211,29 @@ function requireAppUrl(value: string) {
   return url.href
 }
 
-function requireUnsubscribeUrl(value: string) {
+function requireUnsubscribePageUrl(value: string) {
   let url: URL
   try {
     url = new URL(value)
   } catch {
-    throw new TypeError('Reminder unsubscribe URL is invalid')
+    throw new TypeError('Reminder unsubscribe page URL is invalid')
   }
-  assertUnsubscribeEndpoint(url)
   const keys = [...url.searchParams.keys()]
   if (
-    keys.length !== 2
+    !ALLOWED_UNSUBSCRIBE_PAGE_URLS.has(`${url.origin}${url.pathname}`)
+    || url.username
+    || url.password
+    || url.hash
+    || keys.length !== 2
     || url.searchParams.getAll('token').length !== 1
     || url.searchParams.getAll('lang').length !== 1
     || !keys.every(key => key === 'token' || key === 'lang')
   ) {
-    throw new TypeError('Reminder unsubscribe URL has invalid parameters')
+    throw new TypeError('Reminder unsubscribe page URL has invalid parameters')
   }
   requireReminderToken(url.searchParams.get('token'))
   if (normalizeReminderLocale(url.searchParams.get('lang')) !== url.searchParams.get('lang')) {
-    throw new TypeError('Reminder unsubscribe URL has an invalid locale')
+    throw new TypeError('Reminder unsubscribe page URL has an invalid locale')
   }
   return url.href
 }
@@ -214,18 +241,20 @@ function requireUnsubscribeUrl(value: string) {
 export function renderReminderEmail({
   locale: requestedLocale,
   appUrl: requestedAppUrl,
-  unsubscribeUrl: requestedUnsubscribeUrl,
+  unsubscribePageUrl: requestedUnsubscribePageUrl,
 }: {
   locale: ReminderLocale
   appUrl: string
-  unsubscribeUrl: string
+  unsubscribePageUrl: string
 }) {
   const locale = normalizeReminderLocale(requestedLocale)
   const copy = COPY[locale]
   const appUrl = requireAppUrl(requestedAppUrl)
-  const unsubscribeUrl = requireUnsubscribeUrl(requestedUnsubscribeUrl)
+  const unsubscribePageUrl = requireUnsubscribePageUrl(
+    requestedUnsubscribePageUrl,
+  )
   const escapedAppUrl = escapeHtml(appUrl)
-  const escapedUnsubscribeUrl = escapeHtml(unsubscribeUrl)
+  const escapedUnsubscribeUrl = escapeHtml(unsubscribePageUrl)
 
   return Object.freeze({
     locale,
@@ -238,7 +267,7 @@ export function renderReminderEmail({
       `${copy.cta}: ${appUrl}`,
       '',
       copy.consent,
-      `${copy.unsubscribe}: ${unsubscribeUrl}`,
+      `${copy.unsubscribe}: ${unsubscribePageUrl}`,
     ].join('\n'),
     html: `<!doctype html>
 <html lang="${escapeHtml(locale)}">

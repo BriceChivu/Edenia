@@ -2,8 +2,9 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  createReminderUnsubscribeApiUrl,
+  createReminderUnsubscribePageUrl,
   createReminderUnsubscribeToken,
-  createReminderUnsubscribeUrl,
   digestReminderUnsubscribeToken,
   renderReminderEmail,
 } from './reminder-email.ts'
@@ -13,6 +14,7 @@ const OTHER_DELIVERY_ID = '62222222-2222-4222-8222-222222222222'
 const SECRET = 'a-test-secret-with-at-least-32-bytes-of-entropy'
 const APP_URL = 'https://bricechivu.github.io/Edenia/?internal_test=1'
 const ENDPOINT = 'https://example-project.supabase.co/functions/v1/unsubscribe-study-reminders'
+const PAGE = 'https://bricechivu.github.io/Edenia/unsubscribe/'
 const LOCALES = ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr'] as const
 
 test('creates deterministic opaque per-delivery capabilities and 32-byte digests', async () => {
@@ -45,11 +47,11 @@ test('rejects weak secrets, malformed delivery IDs, and malformed tokens', async
 test('constructs only hosted Supabase or loopback unsubscribe destinations', async () => {
   const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
   assert.equal(
-    createReminderUnsubscribeUrl(ENDPOINT, token, 'fr'),
+    createReminderUnsubscribeApiUrl(ENDPOINT, token, 'fr'),
     `${ENDPOINT}?token=${token}&lang=fr`,
   )
   assert.equal(
-    createReminderUnsubscribeUrl(
+    createReminderUnsubscribeApiUrl(
       'http://127.0.0.1:54321/functions/v1/unsubscribe-study-reminders',
       token,
       'en',
@@ -64,8 +66,36 @@ test('constructs only hosted Supabase or loopback unsubscribe destinations', asy
     `${ENDPOINT}?unexpected=1`,
   ]) {
     assert.throws(
-      () => createReminderUnsubscribeUrl(endpoint, token, 'en'),
+      () => createReminderUnsubscribeApiUrl(endpoint, token, 'en'),
       /endpoint|query/i,
+    )
+  }
+})
+
+test('constructs only exact Edenia unsubscribe page destinations', async () => {
+  const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
+  assert.equal(
+    createReminderUnsubscribePageUrl(PAGE, token, 'zh-Hans'),
+    `${PAGE}?token=${token}&lang=zh-Hans`,
+  )
+  assert.equal(
+    createReminderUnsubscribePageUrl(
+      'http://localhost:8000/unsubscribe/',
+      token,
+      'en',
+    ),
+    `http://localhost:8000/unsubscribe/?token=${token}&lang=en`,
+  )
+
+  for (const pageUrl of [
+    'https://bricechivu.github.io/Edenia/',
+    'https://bricechivu.github.io/Edenia/unsubscribe',
+    'https://evil.example/Edenia/unsubscribe/',
+    `${PAGE}?unexpected=1`,
+  ]) {
+    assert.throws(
+      () => createReminderUnsubscribePageUrl(pageUrl, token, 'en'),
+      /page is not allowlisted/i,
     )
   }
 })
@@ -74,15 +104,15 @@ test('renders text and escaped HTML content in all five locales', async () => {
   const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
 
   for (const locale of LOCALES) {
-    const unsubscribeUrl = createReminderUnsubscribeUrl(
-      ENDPOINT,
+    const unsubscribePageUrl = createReminderUnsubscribePageUrl(
+      PAGE,
       token,
       locale,
     )
     const content = renderReminderEmail({
       locale,
       appUrl: APP_URL,
-      unsubscribeUrl,
+      unsubscribePageUrl,
     })
 
     assert.equal(content.locale, locale)
@@ -99,13 +129,13 @@ test('renders text and escaped HTML content in all five locales', async () => {
 
 test('rejects non-internal app links and tampered unsubscribe links', async () => {
   const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
-  const unsubscribeUrl = createReminderUnsubscribeUrl(ENDPOINT, token, 'en')
+  const unsubscribePageUrl = createReminderUnsubscribePageUrl(PAGE, token, 'en')
 
   assert.throws(
     () => renderReminderEmail({
       locale: 'en',
       appUrl: 'https://bricechivu.github.io/Edenia/',
-      unsubscribeUrl,
+      unsubscribePageUrl,
     }),
     /app URL is not allowlisted/i,
   )
@@ -113,7 +143,7 @@ test('rejects non-internal app links and tampered unsubscribe links', async () =
     () => renderReminderEmail({
       locale: 'en',
       appUrl: APP_URL,
-      unsubscribeUrl: `${unsubscribeUrl}&next=https://evil.example`,
+      unsubscribePageUrl: `${unsubscribePageUrl}&next=https://evil.example`,
     }),
     /invalid parameters/i,
   )
