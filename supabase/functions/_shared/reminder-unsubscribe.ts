@@ -1,5 +1,6 @@
 import {
   digestReminderUnsubscribeToken,
+  encodeReminderDigestForPostgres,
   normalizeReminderLocale,
 } from './reminder-email.ts'
 
@@ -70,12 +71,6 @@ function hasExactParameters(
     && keys.every(name => names.includes(name))
 }
 
-function digestToPostgresBytea(digest: Uint8Array) {
-  return `\\x${[...digest]
-    .map(byte => byte.toString(16).padStart(2, '0'))
-    .join('')}`
-}
-
 function readRequestedHeaderNames(request: Request) {
   return (request.headers.get('access-control-request-headers') || '')
     .split(',')
@@ -126,7 +121,7 @@ async function consumeToken(
   const digest = await digestReminderUnsubscribeToken(token)
   const { data, error } = await client.rpc(
     'consume_reminder_unsubscribe_token',
-    { p_token_digest: digestToPostgresBytea(digest) },
+    { p_token_digest: encodeReminderDigestForPostgres(digest) },
   )
 
   if (error || !['unsubscribed', 'already_unsubscribed', 'invalid'].includes(String(data))) {

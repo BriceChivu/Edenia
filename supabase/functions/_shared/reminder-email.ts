@@ -163,6 +163,15 @@ export async function digestReminderUnsubscribeToken(token: string) {
   return new Uint8Array(digest)
 }
 
+export function encodeReminderDigestForPostgres(digest: Uint8Array) {
+  if (!(digest instanceof Uint8Array) || digest.byteLength !== 32) {
+    throw new TypeError('Reminder token digest is invalid')
+  }
+  return `\\x${[...digest]
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
 export function createReminderUnsubscribeApiUrl(
   endpointUrl: string,
   token: string,

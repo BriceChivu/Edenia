@@ -6,6 +6,7 @@ import {
   createReminderUnsubscribePageUrl,
   createReminderUnsubscribeToken,
   digestReminderUnsubscribeToken,
+  encodeReminderDigestForPostgres,
   renderReminderEmail,
   validateReminderAppUrl,
   validateReminderUnsubscribeEndpointUrl,
@@ -30,6 +31,12 @@ test('creates deterministic opaque per-delivery capabilities and 32-byte digests
   assert.match(first, /^[A-Za-z0-9_-]{43}$/)
   assert.doesNotMatch(first, /61111111|@|edenia/i)
   assert.equal((await digestReminderUnsubscribeToken(first)).byteLength, 32)
+  assert.match(
+    encodeReminderDigestForPostgres(
+      await digestReminderUnsubscribeToken(first),
+    ),
+    /^\\x[0-9a-f]{64}$/u,
+  )
 })
 
 test('rejects weak secrets, malformed delivery IDs, and malformed tokens', async () => {
