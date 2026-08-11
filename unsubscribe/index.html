@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f5f2e9">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src https://*.supabase.co http://localhost:54321 http://127.0.0.1:54321; base-uri 'none'; form-action 'none'">
+  <title>Study reminder preferences · Edenia</title>
+  <link rel="icon" type="image/png" href="../Edenia_favicon_round.png">
+  <link rel="stylesheet" href="style.css">
+  <script src="../config.local.js"></script>
+  <script src="unsubscribe.js" defer></script>
+</head>
+<body>
+  <main class="unsubscribe-page" data-reminder-unsubscribe-root>
+    <p class="unsubscribe-brand">Edenia</p>
+    <h1 data-reminder-unsubscribe-title>Study reminder preferences</h1>
+    <p class="unsubscribe-body" data-reminder-unsubscribe-body>Checking this reminder link…</p>
+    <form class="unsubscribe-form" data-reminder-unsubscribe-form aria-describedby="unsubscribeFeedback" hidden>
+      <button type="submit" data-reminder-unsubscribe-submit>Stop reminders</button>
+    </form>
+    <p class="unsubscribe-feedback" id="unsubscribeFeedback" data-reminder-unsubscribe-feedback role="status" aria-live="polite"></p>
+    <a class="unsubscribe-back" href="../?internal_test=1" data-reminder-unsubscribe-back>Back to Edenia</a>
+    <noscript>
+      <p class="unsubscribe-noscript">JavaScript is required to confirm this request. You can also turn reminders off in Edenia Settings.</p>
+    </noscript>
+  </main>
+</body>
+</html>

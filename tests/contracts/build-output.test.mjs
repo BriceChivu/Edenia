@@ -18,6 +18,9 @@ test('build emits the stable public entrypoint contract', async () => {
     'config.local.js',
     'plus/index.html',
     'plus/plus.js',
+    'unsubscribe/index.html',
+    'unsubscribe/style.css',
+    'unsubscribe/unsubscribe.js',
     'Edenia_favicon_round.png',
     'assets/audio/intro-trailer-rainy-10pm.mp4',
     'assets/fonts/space-grotesk-latin.woff2',
@@ -37,6 +40,18 @@ test('build emits the stable public entrypoint contract', async () => {
     'channel-catalog.discovered.json',
     'channel-catalog.json'
   ])
+})
+
+test('build emits a versioned standalone unsubscribe page', async () => {
+  const html = await readFile(new URL('unsubscribe/index.html', siteRoot), 'utf8')
+  const styleMatch = html.match(/style\.css\?v=([^"'&\s>]+)/)
+  const scriptMatch = html.match(/unsubscribe\.js\?v=([^"'&\s>]+)/)
+  assert.ok(styleMatch)
+  assert.ok(scriptMatch)
+  assert.equal(styleMatch[1], scriptMatch[1])
+  assert.match(html, /\.\.\/config\.local\.js/)
+  assert.match(html, /data-reminder-unsubscribe-root/)
+  assert.doesNotMatch(html, /analytics\.js|app\.js|posthog/i)
 })
 
 test('build emits a versioned dedicated Plus page', async () => {
