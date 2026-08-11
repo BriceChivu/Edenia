@@ -16,6 +16,10 @@ const shared = await readFile(
   new URL('supabase/functions/_shared/reminder-dry-run.ts', projectRoot),
   'utf8'
 )
+const claimShared = await readFile(
+  new URL('supabase/functions/_shared/reminder-delivery-claim.ts', projectRoot),
+  'utf8'
+)
 const denoConfig = JSON.parse(await readFile(
   new URL('deno.json', functionRoot),
   'utf8'
@@ -51,16 +55,17 @@ test('dry-run dispatcher remains manual, bounded, and provider-free', () => {
   assert.match(shared, /const CLAIM_BATCH_SIZE = 25/)
   assert.match(shared, /const DUE_WINDOW_SECONDS = 15 \* 60/)
   assert.match(shared, /const LEASE_SECONDS = 2 \* 60/)
-  assert.match(shared, /reminder_delivery_is_enabled/)
+  assert.match(shared, /readReminderDeliveryEnabled/)
+  assert.match(claimShared, /reminder_delivery_is_enabled/)
   assert.match(shared, /claim_due_reminder_deliveries/)
   assert.match(shared, /complete_reminder_dry_run/)
   assert.match(shared, /event: 'reminder_dry_run_intended'/)
   assert.doesNotMatch(
-    source + shared,
+    source + shared + claimShared,
     /cron\.schedule|pg_cron|net\.http|resend|postmark|sendgrid|mailgun/i
   )
-  assert.doesNotMatch(source + shared, /auth\.users|\.from\(['"]auth|email/i)
-  assert.doesNotMatch(source + shared, /fetch\s*\(/)
+  assert.doesNotMatch(source + shared + claimShared, /auth\.users|\.from\(['"]auth|email/i)
+  assert.doesNotMatch(source + shared + claimShared, /fetch\s*\(/)
 })
 
 test('dry-run logs identify occurrences without exposing fencing tokens', () => {

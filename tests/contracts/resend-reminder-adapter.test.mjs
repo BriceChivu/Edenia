@@ -28,6 +28,10 @@ const dryRun = await readFile(
   new URL('supabase/functions/_shared/reminder-dry-run.ts', projectRoot),
   'utf8'
 )
+const liveDispatcher = await readFile(
+  new URL('supabase/functions/_shared/reminder-live.ts', projectRoot),
+  'utf8'
+)
 
 test('Resend adapter locks the provider and deduplication contract', () => {
   assert.match(adapter, /https:\/\/api\.resend\.com\/emails/)
@@ -51,9 +55,12 @@ test('Resend adapter results cannot expose provider bodies or recipient data', (
   assert.match(adapterTest, /network failures and timeouts/)
 })
 
-test('the provider adapter remains unreachable from the deployed dispatcher', () => {
-  assert.doesNotMatch(dispatcher, /resend-reminder-adapter/)
+test('the provider adapter is reachable only through the fenced live runner', () => {
+  assert.match(dispatcher, /reminder-dispatcher/)
+  assert.match(liveDispatcher, /resend-reminder-adapter/)
+  assert.match(liveDispatcher, /begin_reminder_provider_attempt/)
+  assert.match(liveDispatcher, /store_reminder_unsubscribe_token/)
   assert.doesNotMatch(dryRun, /resend-reminder-adapter/)
-  assert.doesNotMatch(dispatcher, /api\.resend\.com|RESEND_API_KEY/)
+  assert.doesNotMatch(dispatcher, /api\.resend\.com/)
   assert.doesNotMatch(dryRun, /api\.resend\.com|RESEND_API_KEY/)
 })

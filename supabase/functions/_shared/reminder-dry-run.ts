@@ -31,7 +31,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
-export async function readReminderDryRunRequest(
+export async function readReminderDispatchRequest(
   request: Request,
   maximumBytes = 64,
 ) {
@@ -89,6 +89,8 @@ export async function readReminderDryRunRequest(
     )
   }
 }
+
+export const readReminderDryRunRequest = readReminderDispatchRequest
 
 export async function runReminderDryRun(
   client: ReminderDryRunClient,

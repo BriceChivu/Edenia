@@ -63,11 +63,11 @@ export type ReminderLiveResult = Readonly<{
   completionFailed: number
 }>
 
-type ReminderSender = (
+export type ReminderSender = (
   input: ResendReminderSendInput,
 ) => Promise<ResendReminderSendResult>
 
-type ReminderLiveDependencies = Readonly<{
+export type ReminderLiveDependencies = Readonly<{
   send?: ReminderSender
 }>
 
