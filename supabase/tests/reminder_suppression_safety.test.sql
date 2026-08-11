@@ -154,7 +154,7 @@ select ok(
 select ok(
   has_function_privilege(
     'service_role',
-    'public.store_reminder_unsubscribe_token(uuid,bytea,timestamp with time zone)',
+    'public.store_reminder_unsubscribe_token(uuid,uuid,bytea,timestamp with time zone)',
     'EXECUTE'
   ),
   'the service role can bind one digest to a claimed occurrence'
@@ -178,7 +178,7 @@ select ok(
 select ok(
   not has_function_privilege(
     'authenticated',
-    'public.store_reminder_unsubscribe_token(uuid,bytea,timestamp with time zone)',
+    'public.store_reminder_unsubscribe_token(uuid,uuid,bytea,timestamp with time zone)',
     'EXECUTE'
   ),
   'authenticated clients cannot mint token bindings'
@@ -218,6 +218,7 @@ select ok(
 
 create temporary table suppression_claims (
   delivery_id uuid primary key,
+  claim_token uuid not null,
   user_id uuid not null unique
 ) on commit drop;
 grant select, insert on table suppression_claims to service_role;
@@ -225,8 +226,8 @@ grant select, insert on table suppression_claims to service_role;
 set local role service_role;
 set local request.jwt.claim.role = 'service_role';
 
-insert into suppression_claims (delivery_id, user_id)
-select delivery_id, user_id
+insert into suppression_claims (delivery_id, claim_token, user_id)
+select delivery_id, claim_token, user_id
 from public.claim_due_reminder_deliveries(
   timestamptz '2026-08-10 10:15:00+00', 10, 900, 120
 );
@@ -243,6 +244,11 @@ select is(
       from suppression_claims
       where user_id = '51111111-1111-4111-8111-111111111111'
     ),
+    (
+      select claim_token
+      from suppression_claims
+      where user_id = '51111111-1111-4111-8111-111111111111'
+    ),
     decode('abcd', 'hex'),
     timestamptz '2026-08-10 10:15:30+00'
   ),
@@ -253,6 +259,11 @@ select is(
   public.store_reminder_unsubscribe_token(
     (
       select delivery_id
+      from suppression_claims
+      where user_id = '51111111-1111-4111-8111-111111111111'
+    ),
+    (
+      select claim_token
       from suppression_claims
       where user_id = '51111111-1111-4111-8111-111111111111'
     ),
@@ -269,6 +280,11 @@ select is(
       from suppression_claims
       where user_id = '51111111-1111-4111-8111-111111111111'
     ),
+    (
+      select claim_token
+      from suppression_claims
+      where user_id = '51111111-1111-4111-8111-111111111111'
+    ),
     decode(repeat('aa', 32), 'hex'),
     timestamptz '2026-08-10 10:15:40+00'
   ),
@@ -279,6 +295,11 @@ select is(
   public.store_reminder_unsubscribe_token(
     (
       select delivery_id
+      from suppression_claims
+      where user_id = '51111111-1111-4111-8111-111111111111'
+    ),
+    (
+      select claim_token
       from suppression_claims
       where user_id = '51111111-1111-4111-8111-111111111111'
     ),
