@@ -275,6 +275,44 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
   assert.doesNotMatch(resendWebhookSource, /RESEND_API_KEY|api\.resend\.com/)
 })
 
+test('account server export stays self-scoped and omits operational secrets', async () => {
+  const exportMigrations = (await readdir(migrationsRoot)).filter(file =>
+    file.endsWith('_add_self_scoped_account_export.sql')
+  )
+  assert.equal(exportMigrations.length, 1)
+
+  const migration = await readFile(
+    new URL(exportMigrations[0], migrationsRoot),
+    'utf8'
+  )
+  assert.match(
+    migration,
+    /function public\.export_account_server_data\(\)\nreturns jsonb/
+  )
+  assert.match(migration, /stable\nsecurity definer\nset search_path = ''/)
+  assert.match(migration, /export_user_id uuid := \(select auth\.uid\(\)\)/)
+  assert.match(migration, /where account_user\.id = export_user_id/)
+  assert.match(migration, /'current_device_progress', false/)
+  assert.match(migration, /'state', backup\.state_json/)
+  assert.match(
+    migration,
+    /revoke all on function public\.export_account_server_data\(\)[\s\S]*from public, anon, authenticated, service_role/
+  )
+  assert.match(
+    migration,
+    /grant execute on function public\.export_account_server_data\(\)[\s\S]*to authenticated/
+  )
+  assert.doesNotMatch(migration, /\bp_user_id\b/)
+  assert.doesNotMatch(
+    migration,
+    /\b(?:token_digest|claim_token|stripe_customer_id|stripe_subscription_id|email_hash|stripe_checkout_session_id|provider_message_id|event_id)\b/
+  )
+  assert.doesNotMatch(
+    migration,
+    /\b(?:insert into|update|delete from|alter table|create table)\b/i
+  )
+})
+
 test('shared backend tests remain connected to package scripts and CI', async () => {
   const packageJson = JSON.parse(await readFile(
     new URL('package.json', projectRoot),
@@ -320,5 +358,13 @@ test('shared backend tests remain connected to package scripts and CI', async ()
   assert.match(
     workflow,
     /supabase\/migrations\/\*_optimize_account_owner_policies\.sql\|supabase\/tests\/account_owner_policies\.test\.sql/
+  )
+  assert.match(
+    workflow,
+    /supabase test db supabase\/tests\/account_server_data_export\.test\.sql --local/
+  )
+  assert.match(
+    workflow,
+    /supabase\/migrations\/\*_add_self_scoped_account_export\.sql\|supabase\/tests\/account_server_data_export\.test\.sql/
   )
 })
