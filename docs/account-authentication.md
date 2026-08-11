@@ -80,8 +80,12 @@ the authenticated user independently and enforce ownership with row-level
 security. User-editable metadata must never grant access. A signed-in state
 also does not opt a learner into reminders or cloud progress storage.
 
-## Deliberately not included yet
+## Later staged layers
 
-This layer adds no reminder preference, reminder delivery, progress table,
-migration, or sync operation. Those capabilities should arrive in later
-focused changes and continue to use the same controller and rollout policy.
+The authentication layer itself still performs no reminder preference,
+delivery, progress, migration, or sync operation. Later internal-only changes
+added an owner-isolated reminder preference, a private occurrence ledger, a
+manual dry-run dispatcher, and provider-neutral suppression safety around this
+controller. They do not upload or bind local study progress and cannot send
+email. See [Internal account and reminder operations](account-reminder-operations.md)
+for the current gates, acceptance test, and rollback procedure.
