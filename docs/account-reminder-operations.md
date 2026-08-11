@@ -602,13 +602,16 @@ It also reports the pre-existing [leaked-password protection warning](https://su
 Edenia does not currently offer password authentication, so this is not a reason
 to enable a separate password flow.
 
-The performance advisor reports two pre-existing RLS initialization-plan
-warnings on `subscriptions` and `founding_members`; use Supabase's
-[select-wrapped Auth function guidance](https://supabase.com/docs/guides/database/postgres/row-level-security#call-functions-with-select)
-in a focused billing-policy migration. Newly created reminder indexes are still
-reported as unused because delivery remains off and production has no reminder
-preferences. Do not remove safety or queue indexes based on an unused-index INFO
-notice during the inert rollout.
+Migration `20260812123000_optimize_account_owner_policies.sql` follows
+Supabase's [select-wrapped Auth function guidance](https://supabase.com/docs/guides/database/postgres/row-level-security#call-functions-with-select)
+for the two RLS initialization-plan warnings on `subscriptions` and
+`founding_members`. Its database test preserves the two-user, unauthenticated,
+service-role, no-write, policy-role and policy-command boundaries. Re-run the
+performance advisor after deployment and require both warnings to disappear.
+
+Newly created reminder indexes are still reported as unused because delivery
+remains off and production has no reminder preferences. Do not remove safety or
+queue indexes based on an unused-index INFO notice during the inert rollout.
 
 ## Public-readiness items still deferred
 
@@ -619,8 +622,6 @@ notice during the inert rollout.
 - CAPTCHA client integration and a deliberate magic-link rate-limit decision.
 - Google consent-screen publication, branding, privacy/terms URLs and domain
   verification outside the repository.
-- A focused migration for the two pre-existing billing RLS performance
-  warnings.
 
 Supabase database advisors should be recorded after each schema change. An INFO
 notice that a private, grant-revoked table has RLS but no policies is intentional

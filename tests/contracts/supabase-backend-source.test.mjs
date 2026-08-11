@@ -51,6 +51,25 @@ test('applied Supabase migrations preserve their exact identities and bytes', as
   }
 })
 
+test('account owner policies use statement-level auth identity without widening access', async () => {
+  const source = await readFile(
+    new URL('20260812123000_optimize_account_owner_policies.sql', migrationsRoot),
+    'utf8'
+  )
+
+  assert.match(
+    source,
+    /alter policy "Users can view their own subscription"[\s\S]*using \(\(select auth\.uid\(\)\) = user_id\);/
+  )
+  assert.match(
+    source,
+    /alter policy "Users can view their own founding member status"[\s\S]*using \(\(select auth\.uid\(\)\) = user_id\);/
+  )
+  assert.equal(source.match(/alter policy/g)?.length, 2)
+  assert.equal(source.match(/select auth\.uid\(\)/g)?.length, 2)
+  assert.doesNotMatch(source, /create policy|drop policy|grant|revoke/i)
+})
+
 test('billing hardening stays authenticated, environment-owned, and additive', async () => {
   const config = await readFile(
     new URL('supabase/config.toml', projectRoot),
@@ -293,5 +312,13 @@ test('shared backend tests remain connected to package scripts and CI', async ()
   assert.match(
     workflow,
     /supabase test db supabase\/tests\/reminder_preferences_rls\.test\.sql --local/
+  )
+  assert.match(
+    workflow,
+    /supabase test db supabase\/tests\/account_owner_policies\.test\.sql --local/
+  )
+  assert.match(
+    workflow,
+    /supabase\/migrations\/\*_optimize_account_owner_policies\.sql\|supabase\/tests\/account_owner_policies\.test\.sql/
   )
 })
