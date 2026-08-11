@@ -582,9 +582,12 @@ by the signed-in account.
 
 The first export layer is now a database-only foundation. Its privileged
 implementation lives in the non-exposed `private` schema and browser roles
-cannot execute it or use that schema. A service-role-only bridge accepts the
-owner UUID that a future authenticated server transport has independently
-verified; there is no browser-callable export RPC. The versioned JSON document
+cannot execute it or use that schema. A service-role-only bridge accepts only
+the owner UUID independently verified by the `export-account-data` Edge
+Function; there is no browser-callable export RPC. That function revalidates
+the signed-in session, rate-limits a hash of the stable user UUID, accepts only
+an empty JSON request from the exact Edenia or localhost origin, and caps the
+download before returning it with no-store headers. The versioned JSON document
 includes the account identity, user-facing billing and founding status,
 server-held backup snapshots, reminder choices and non-secret delivery history.
 It explicitly marks current device progress as excluded.
@@ -595,8 +598,8 @@ hashes, Stripe customer/session/subscription identifiers, provider message
 identifiers and webhook event identifiers. Anonymous and service-role callers
 cannot use the private implementation directly, and browser roles cannot call
 the service bridge. The internal Settings UI does not offer the download yet;
-authenticated transport, presentation and browser-download behavior remain
-separate changes so each security boundary can be reviewed.
+presentation and browser-download behavior remain a separate change so the
+transport boundary can be reviewed first.
 
 ### Shared-browser and identity behavior
 

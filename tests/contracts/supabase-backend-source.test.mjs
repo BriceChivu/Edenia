@@ -178,6 +178,7 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
     'create-billing-portal',
     'create-checkout-session',
     'dispatch-study-reminders',
+    'export-account-data',
     'get-plus-offer',
     'link-checkout-session',
     'resend-reminder-webhook',
@@ -192,6 +193,7 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
   ])
   const billingFunctionNames = functionNames.filter(
     functionName => !reminderFunctionNames.has(functionName)
+      && functionName !== 'export-account-data'
   )
   const config = await readFile(new URL('supabase/config.toml', projectRoot), 'utf8')
   for (const functionName of billingFunctionNames) {
@@ -273,6 +275,28 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
   assert.match(resendWebhookSource, /RESEND_WEBHOOK_SECRET/)
   assert.match(resendWebhookSource, /record_reminder_provider_event/)
   assert.doesNotMatch(resendWebhookSource, /RESEND_API_KEY|api\.resend\.com/)
+
+  assert.match(
+    config,
+    /\[functions\.export-account-data\][\s\S]*?verify_jwt = true/
+  )
+  const exportDenoConfig = JSON.parse(await readFile(
+    new URL('export-account-data/deno.json', functionsRoot),
+    'utf8'
+  ))
+  assert.equal(
+    exportDenoConfig.imports['@supabase/supabase-js'],
+    'npm:@supabase/supabase-js@2.110.7'
+  )
+  const exportSource = await readFile(
+    new URL('export-account-data/index.ts', functionsRoot),
+    'utf8'
+  )
+  assert.match(exportSource, /supabase\.auth\.getUser\(token\)/)
+  assert.match(exportSource, /export_account_server_data_for_service/)
+  assert.match(exportSource, /p_verified_user_id: userId/)
+  assert.match(exportSource, /scope: 'account-export-user'/)
+  assert.doesNotMatch(exportSource, /private\.export_account_server_data|console\./)
 })
 
 test('account server export stays self-scoped and omits operational secrets', async () => {
@@ -362,10 +386,16 @@ test('shared backend tests remain connected to package scripts and CI', async ()
     packageJson.scripts['test:reminder-function'],
     'deno check --frozen --config supabase/functions/dispatch-study-reminders/deno.json supabase/functions/dispatch-study-reminders/index.ts && deno check --frozen --config supabase/functions/unsubscribe-study-reminders/deno.json supabase/functions/unsubscribe-study-reminders/index.ts && deno check --frozen --config supabase/functions/resend-reminder-webhook/deno.json supabase/functions/resend-reminder-webhook/index.ts'
   )
+  assert.equal(
+    packageJson.scripts['test:account-export-function'],
+    'deno check --frozen --config supabase/functions/export-account-data/deno.json supabase/functions/export-account-data/index.ts'
+  )
   assert.match(packageJson.scripts.test, /npm run test:supabase/)
   assert.match(packageJson.scripts.test, /npm run test:reminder-function/)
+  assert.match(packageJson.scripts.test, /npm run test:account-export-function/)
   assert.match(packageJson.scripts['test:ci'], /npm run test:supabase/)
   assert.match(packageJson.scripts['test:ci'], /npm run test:reminder-function/)
+  assert.match(packageJson.scripts['test:ci'], /npm run test:account-export-function/)
 
   const workflow = await readFile(
     new URL('.github/workflows/ci.yml', projectRoot),
@@ -377,6 +407,7 @@ test('shared backend tests remain connected to package scripts and CI', async ()
   assert.match(workflow, /uses: denoland\/setup-deno@v2/)
   assert.match(workflow, /deno-version: v2\.1\.4/)
   assert.match(workflow, /run: npm run test:reminder-function/)
+  assert.match(workflow, /run: npm run test:account-export-function/)
   assert.match(workflow, /version: 2\.111\.0/)
   assert.match(
     workflow,
