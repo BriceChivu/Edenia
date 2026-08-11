@@ -149,7 +149,7 @@ test('billing hardening stays authenticated, environment-owned, and additive', a
   )
 })
 
-test('Supabase source contains the five staged billing Edge Functions', async () => {
+test('Supabase source contains the staged backend Edge Functions', async () => {
   const entries = await readdir(functionsRoot, { withFileTypes: true })
   const functionNames = entries
     .filter(entry => entry.isDirectory() && entry.name !== '_shared')
@@ -158,16 +158,17 @@ test('Supabase source contains the five staged billing Edge Functions', async ()
   assert.deepEqual(functionNames, [
     'create-billing-portal',
     'create-checkout-session',
+    'dispatch-study-reminders',
     'get-plus-offer',
     'link-checkout-session',
     'stripe-webhook'
   ])
 
-  const config = await readFile(
-    new URL('supabase/config.toml', projectRoot),
-    'utf8'
+  const billingFunctionNames = functionNames.filter(
+    functionName => functionName !== 'dispatch-study-reminders'
   )
-  for (const functionName of functionNames) {
+  const config = await readFile(new URL('supabase/config.toml', projectRoot), 'utf8')
+  for (const functionName of billingFunctionNames) {
     assert.match(config, new RegExp(`\\[functions\\.${functionName}\\]`))
     assert.match(
       config,

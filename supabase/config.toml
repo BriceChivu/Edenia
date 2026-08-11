@@ -43,3 +43,11 @@ entrypoint = "./functions/link-checkout-session/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/link-checkout-session/*.html" ]
+
+[functions.dispatch-study-reminders]
+enabled = true
+# Service-to-service calls use a rotatable secret key in the apikey header.
+# The handler validates the named key with @supabase/server.
+verify_jwt = false
+import_map = "./functions/dispatch-study-reminders/deno.json"
+entrypoint = "./functions/dispatch-study-reminders/index.ts"
