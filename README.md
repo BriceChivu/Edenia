@@ -548,6 +548,7 @@ Submitting the feedback form sends its category, message, optional name and emai
 Architecture, preservation, and release references:
 
 - [Architecture](docs/architecture.md)
+- [Account authentication](docs/account-authentication.md)
 - [Current experience preservation inventory](docs/current-experience-inventory.md)
 - [Responsive review matrix](docs/responsive-review-matrix.md)
 - [Deployment and release runbook](docs/deployment-and-releases.md)

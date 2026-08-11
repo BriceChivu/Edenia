@@ -53,6 +53,9 @@ import {
   deriveRuntimeEnvironment,
   deriveStudyGuidanceEnabled
 } from './core/runtime-environment.js'
+import {
+  deriveAccountFeaturesEnabled
+} from './core/account-feature-rollout.js'
 import { deriveStorageKeys } from './core/storage-keys.js'
 import {
   addVideoWatchCoverageRange,
@@ -110,6 +113,7 @@ import {
   YOUTUBE_CHANNEL_ID_RE
 } from './integrations/youtube-parsing.js'
 import {
+  getAccountFeaturesRollout,
   getFreePlusEnabled,
   getIndexedDbBackupCleanupEnabled,
   getIndexedDbBackupsEnabled,
@@ -122,6 +126,9 @@ import {
   hasYoutubeApiKey
 } from './integrations/runtime-config.js'
 import { createEdeniaSupabaseClient } from './integrations/supabase-client.js'
+import {
+  createAccountAuthController
+} from './integrations/account-auth-controller.js'
 import {
   createPlusAuthController,
   PLUS_ACCOUNT_FEEDBACK,
@@ -430,6 +437,10 @@ const STUDY_GUIDANCE_ENABLED = deriveStudyGuidanceEnabled(
   RUNTIME_ENVIRONMENT,
   getStudyGuidanceEnabled()
 )
+const ACCOUNT_FEATURES_ENABLED = deriveAccountFeaturesEnabled(
+  RUNTIME_ENVIRONMENT,
+  getAccountFeaturesRollout()
+)
 const LOCAL_BACKUPS_ENABLED = !IS_SANDBOX && !IS_INTERNAL_TEST
 const INDEXED_DB_BACKUPS_ENABLED = getIndexedDbBackupsEnabled()
 const INDEXED_DB_BACKUP_CLEANUP_ENABLED =
@@ -461,7 +472,7 @@ const {
   youtubeChannelSearchCacheKey: YOUTUBE_CHANNEL_SEARCH_CACHE_KEY,
   youtubeChannelSearchUsageKey: YOUTUBE_CHANNEL_SEARCH_USAGE_KEY,
   stateBackupKey: STATE_BACKUP_KEY,
-  plusAuthStorageKey: PLUS_AUTH_STORAGE_KEY,
+  accountAuthStorageKey: ACCOUNT_AUTH_STORAGE_KEY,
   plusEntitlementCacheKey: PLUS_ENTITLEMENT_CACHE_KEY,
   sandboxWalkthroughAfterResetKey: SANDBOX_WALKTHROUGH_AFTER_RESET_KEY,
   configCookieKey: CONFIG_COOKIE_KEY
@@ -704,6 +715,8 @@ let activeStudyGuidance = null
 let lastTrackedStudyGuidanceKey = ''
 let selectedActivityLogFilter = 'all'
 let mobileActivityLogVisibleCount = 20
+let supabaseClient = null
+let accountAuthController = null
 let plusAccountController = null
 let plusAccountViewState = null
 let plusBillingController = null
@@ -2115,6 +2128,7 @@ function init() {
   )
 
   applyLocale(state.config.locale)
+  initializeAccountAuth()
   initializePlusAccount()
   initializeRequestedPlusModal()
   updateDocumentTitle(state)
@@ -4708,11 +4722,7 @@ function initializePlusAccount() {
   if (IS_SANDBOX || !hasSupabaseRuntimeConfig()) return
 
   try {
-    const client = createEdeniaSupabaseClient({
-      url: getSupabaseUrl(),
-      publishableKey: getSupabasePublishableKey(),
-      storageKey: PLUS_AUTH_STORAGE_KEY
-    })
+    const client = getSupabaseClient()
     const entitlementCache = createPlusEntitlementCache({
       storage: localStorage,
       storageKey: PLUS_ENTITLEMENT_CACHE_KEY
@@ -4759,6 +4769,31 @@ function initializePlusAccount() {
     updatePlusEntitlementState(PLUS_ENTITLEMENT_STATES.UNAVAILABLE)
     renderPlusAccountSettings()
     renderPlusUpgradeModal()
+  }
+}
+
+function getSupabaseClient() {
+  if (!supabaseClient) {
+    supabaseClient = createEdeniaSupabaseClient({
+      url: getSupabaseUrl(),
+      publishableKey: getSupabasePublishableKey(),
+      storageKey: ACCOUNT_AUTH_STORAGE_KEY
+    })
+  }
+  return supabaseClient
+}
+
+function initializeAccountAuth() {
+  if (!ACCOUNT_FEATURES_ENABLED || !hasSupabaseRuntimeConfig()) return
+
+  try {
+    accountAuthController = createAccountAuthController({
+      client: getSupabaseClient(),
+      onStateChange() {}
+    })
+    void accountAuthController.initialize()
+  } catch (error) {
+    console.warn('Edenia account authentication is unavailable.', error)
   }
 }
 
@@ -16455,6 +16490,7 @@ document.addEventListener('keydown', handleFeedbackModalKeydown)
 document.addEventListener('keydown', handleVideoShelfPlayerKeydown, true)
 window.addEventListener('blur', keepVideoShelfPlayerEscapeAvailable)
 window.addEventListener('pagehide', event => {
+  if (!event.persisted) accountAuthController?.destroy()
   if (!event.persisted) plusAccountController?.destroy()
   const session = activeVideoShelfPlayer
   syncActiveVideoShelfPlayer({ persist: true })
