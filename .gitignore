@@ -4,6 +4,7 @@ config.local.js
 .DS_Store
 **/.DS_Store
 supabase/.temp/
+supabase/.branches/
 node_modules/
 _site/
 playwright-report/
