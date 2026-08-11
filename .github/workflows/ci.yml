@@ -152,6 +152,10 @@ jobs:
         if: steps.scope.outputs.supabase == 'true'
         run: npm run test:reminder-function
 
+      - name: Type-check account export Edge Function
+        if: steps.scope.outputs.supabase == 'true'
+        run: npm run test:account-export-function
+
       - name: Set up Supabase CLI
         if: steps.scope.outputs.supabase_db == 'true'
         uses: supabase/setup-cli@v1
