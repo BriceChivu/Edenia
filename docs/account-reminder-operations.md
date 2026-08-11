@@ -39,6 +39,9 @@ email design.
   claim, and the worker rechecks the database switch before claiming and again
   through the provider-begin RPC immediately before network I/O. With the
   switch off, no current worker generates or stores unsubscribe capabilities.
+- A private provider-event ledger can deduplicate bounded event metadata and
+  atomically apply bounce, complaint, or provider suppression. No webhook
+  endpoint or signing secret exists, so production cannot write these rows yet.
 
 The `internal_test=1` query parameter is a public rollout selector. It is not
 an authorization or security boundary. Supabase Auth, row-level security,
@@ -259,6 +262,9 @@ provider-begin database fence. Its contract is:
   during a retry.
 - The payload always contains the same normalized single recipient, localized
   subject, text and HTML, and RFC 8058 `List-Unsubscribe` headers.
+- Two non-personal tags identify the Edenia reminder source and stable delivery
+  UUID so a signed webhook can correlate an event without persisting or trusting
+  the recipient address from the provider payload.
 - Provider bodies, messages, email addresses, and secrets are never returned in
   adapter results. Results contain only bounded reason codes and, after a
   validated success, the provider message ID.
@@ -297,6 +303,37 @@ provider response body, provider message ID, capability, API key, or claim
 token. A provider `Retry-After` value is logged as a bounded number but does not
 yet extend the database lease; retry scheduling and backoff must be added before
 Cron.
+
+## Provider event invariants
+
+[Resend requires verification against the raw request body](https://resend.com/docs/webhooks/verify-webhooks-requests)
+using `svix-id`, `svix-timestamp`, and `svix-signature`. The event ID is also the
+deduplication key; Resend retries non-200 webhook responses. A future endpoint
+must verify the signature before JSON parsing or any database call.
+
+Outgoing reminders include only two provider tags: the fixed source
+`edenia-study-reminder` and the stable delivery UUID. A verified endpoint must
+require both exact tags and ignore the provider payload's `to`, `from`, and
+subject fields. The private event ledger persists only provider name, event ID,
+event type, delivery ID, provider message ID, event timestamp, receive
+timestamp, and the bounded action. It contains no raw payload or recipient
+address.
+
+The event RPC is service-only and idempotent. Exact replays return `duplicate`;
+an event ID reused with changed content returns `event_conflict`. A provider
+message ID cannot be rebound to another delivery. Signed `email.sent`,
+`email.delivered`, `email.delivery_delayed`, and `email.failed` events are
+observed. `email.bounced`, `email.complained`, and `email.suppressed` also add a
+sticky local suppression and disable the preference. [Resend distinguishes
+temporary delivery delays from permanent bounce events](https://resend.com/docs/webhooks/event-types),
+so delayed events are never treated as a hard bounce.
+
+A signed event may arrive before the dispatcher records the successful API
+response or after an occurrence becomes `outcome_ambiguous`. The delivery tag
+allows the RPC to reconcile either state to `provider_accepted` without trusting
+an email address. This feedback processing remains valid while the emergency
+delivery switch is off; turning off future sends must not prevent bounce or
+complaint suppression for an already in-flight message.
 
 ## Suppression and unsubscribe invariants
 
@@ -430,13 +467,18 @@ without an active sender:
    strict configuration checks and immediate switch, allowlist, consent,
    suppression, and lease fences. Missing configuration or any failed fence
    results in zero provider calls. No credential or schedule is added.
-5. **Webhook and canary readiness:** verify raw-body Svix signatures, deduplicate
-   event IDs, bind unsubscribe tokens and one-click headers, configure an
-   isolated sending subdomain, and inspect real email-client rendering.
-6. **Manual allowlisted canary:** only after an explicit operator review, add
+5. **Provider event ledger (current):** persist no provider payload or address,
+   deduplicate `svix-id`, reconcile acceptance races, and atomically suppress
+   bounce, complaint, and provider-suppressed recipients. No endpoint exists.
+6. **Verified webhook endpoint:** verify raw-body Svix signatures, require the
+   fixed source and delivery tags, pass only bounded metadata to the event RPC,
+   and remain inert without a signing secret.
+7. **Canary readiness:** configure an isolated sending subdomain and inspect
+   real email-client rendering and one-click unsubscribe behavior.
+8. **Manual allowlisted canary:** only after an explicit operator review, add
    secrets, enable the switch briefly, send to one verified tester, inspect the
    provider and suppression ledgers, then turn the switch off again.
-7. **Scheduling:** create Cron only after repeated manual canaries and an
+9. **Scheduling:** create Cron only after repeated manual canaries and an
    operator rollback drill. Public rollout remains a separate later decision.
 
 ## Public-readiness items still deferred

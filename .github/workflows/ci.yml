@@ -80,7 +80,7 @@ jobs:
                 tests/contracts/*)
                   run_contracts=true
                   ;;
-                supabase/migrations/*_add_reminder_preferences.sql|supabase/tests/reminder_preferences_rls.test.sql|supabase/migrations/*_add_reminder_dispatch_ledger.sql|supabase/tests/reminder_dispatch_ledger.test.sql|supabase/migrations/*_add_reminder_suppression_safety.sql|supabase/tests/reminder_suppression_safety.test.sql|supabase/migrations/*_add_reminder_provider_delivery_state.sql|supabase/tests/reminder_provider_delivery_state.test.sql|supabase/migrations/*_fence_live_reminder_prerequisites.sql|supabase/tests/reminder_live_prerequisites.test.sql)
+                supabase/migrations/*_add_reminder_preferences.sql|supabase/tests/reminder_preferences_rls.test.sql|supabase/migrations/*_add_reminder_dispatch_ledger.sql|supabase/tests/reminder_dispatch_ledger.test.sql|supabase/migrations/*_add_reminder_suppression_safety.sql|supabase/tests/reminder_suppression_safety.test.sql|supabase/migrations/*_add_reminder_provider_delivery_state.sql|supabase/tests/reminder_provider_delivery_state.test.sql|supabase/migrations/*_fence_live_reminder_prerequisites.sql|supabase/tests/reminder_live_prerequisites.test.sql|supabase/migrations/*_add_reminder_provider_event_ledger.sql|supabase/tests/reminder_provider_event_ledger.test.sql)
                   run_supabase=true
                   run_supabase_db=true
                   ;;
@@ -170,6 +170,7 @@ jobs:
           supabase test db supabase/tests/reminder_suppression_safety.test.sql --local
           supabase test db supabase/tests/reminder_provider_delivery_state.test.sql --local
           supabase test db supabase/tests/reminder_live_prerequisites.test.sql --local
+          supabase test db supabase/tests/reminder_provider_event_ledger.test.sql --local
 
       - name: Stop isolated Supabase database
         if: always() && steps.scope.outputs.supabase_db == 'true'

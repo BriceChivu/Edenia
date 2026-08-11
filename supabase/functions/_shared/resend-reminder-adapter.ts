@@ -8,6 +8,8 @@ const PROVIDER_MESSAGE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/u
 const MAX_PROVIDER_BODY_BYTES = 16 * 1024
 const DEFAULT_TIMEOUT_MS = 10_000
 
+export const RESEND_REMINDER_SOURCE_TAG = 'edenia-study-reminder'
+
 type ResendFetch = (
   input: string | URL | Request,
   init?: RequestInit,
@@ -228,6 +230,10 @@ export async function sendReminderWithResend(
       'List-Unsubscribe': `<${unsubscribeApiUrl}>`,
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     },
+    tags: [
+      { name: 'source', value: RESEND_REMINDER_SOURCE_TAG },
+      { name: 'delivery_id', value: input.deliveryId.toLowerCase() },
+    ],
   })
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
