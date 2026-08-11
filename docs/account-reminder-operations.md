@@ -29,8 +29,10 @@ email design.
 - `unsubscribe-study-reminders` is a JSON-only mutation API. A valid opaque
   capability submitted by `POST` can perform only the service-owned
   unsubscribe operation; `GET` returns `405` without checking the capability.
-- There is no Cron schedule, email-provider key, sender domain, or live delivery
-  adapter. No current worker generates or stores unsubscribe capabilities.
+- There is no Cron schedule, email-provider key, sender domain, or reachable
+  live delivery adapter. A pure Resend HTTP adapter exists in shared source for
+  review and tests, but neither deployed dispatcher imports it. No current
+  worker generates or stores unsubscribe capabilities.
 
 The `internal_test=1` query parameter is a public rollout selector. It is not
 an authorization or security boundary. Supabase Auth, row-level security,
@@ -210,8 +212,29 @@ a possible duplicate email.
 Resend is the provisional provider because Supabase documents an Edge Function
 integration, the send API accepts idempotency keys, and webhook requests use
 Svix signatures and event IDs. This is an engineering choice, not an active
-vendor integration: no Resend account, domain, API key, webhook secret, client,
-or network path is present in Edenia yet.
+vendor integration: no Resend account, domain, API key, webhook secret, or
+reachable network path is present in Edenia yet.
+
+The shared Resend adapter is deliberately unreachable. It reads no environment
+variables and is not imported by either deployed dispatcher file. Its only
+purpose in the current release is to lock and test the future provider request
+contract:
+
+- `POST https://api.resend.com/emails` is the only allowed destination.
+- The idempotency key is exactly
+  `edenia-study-reminder-v1/<stable-delivery-uuid>` and must never be replaced
+  during a retry.
+- The payload always contains the same normalized single recipient, localized
+  subject, text and HTML, and RFC 8058 `List-Unsubscribe` headers.
+- Provider bodies, messages, email addresses, and secrets are never returned in
+  adapter results. Results contain only bounded reason codes and, after a
+  validated success, the provider message ID.
+- Network failures, timeouts, rate limits, server failures, concurrent requests,
+  and malformed success bodies may be retried only with the same key and payload
+  inside the database's 23-hour horizon.
+- Reusing a key with a changed payload is an operator-visible
+  `idempotency_conflict`. Edenia must not work around it by changing the key,
+  because that could send a duplicate.
 
 The provider-state RPCs are executable only by `service_role`. They require the
 current lease token, preserve the original retry horizon, and refuse a first
@@ -343,17 +366,20 @@ without an active sender:
 1. **Provider-neutral ledger (current):** add durable provider-attempt,
    acceptance, failure, and ambiguity state plus the 23-hour retry boundary.
    No network path exists.
-2. **Fail-closed Resend adapter:** add the provider client and deterministic
-   idempotency key, but do not add credentials, enable the switch, or schedule
-   it. Tests must prove that missing configuration, switch-off, suppression,
-   stale leases, and non-allowlisted users result in zero provider calls.
-3. **Webhook and canary readiness:** verify raw-body Svix signatures, deduplicate
+2. **Unreachable Resend adapter (current):** lock the deterministic request,
+   privacy, timeout, idempotency, error, and unsubscribe-header contracts in a
+   pure shared module. The deployed dispatcher does not import it.
+3. **Fail-closed live orchestration:** wire the adapter only after adding strict
+   configuration checks and immediate switch, allowlist, consent, suppression,
+   and lease fences. Missing configuration or any failed fence must result in
+   zero provider calls. Do not add credentials or a schedule in that PR.
+4. **Webhook and canary readiness:** verify raw-body Svix signatures, deduplicate
    event IDs, bind unsubscribe tokens and one-click headers, configure an
    isolated sending subdomain, and inspect real email-client rendering.
-4. **Manual allowlisted canary:** only after an explicit operator review, add
+5. **Manual allowlisted canary:** only after an explicit operator review, add
    secrets, enable the switch briefly, send to one verified tester, inspect the
    provider and suppression ledgers, then turn the switch off again.
-5. **Scheduling:** create Cron only after repeated manual canaries and an
+6. **Scheduling:** create Cron only after repeated manual canaries and an
    operator rollback drill. Public rollout remains a separate later decision.
 
 ## Public-readiness items still deferred
