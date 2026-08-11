@@ -13,6 +13,12 @@ email design.
   Auth. Production Google OAuth is verified for one approved test account;
   production SMTP for the magic-link fallback is not yet verified.
 - An authenticated user can save only their own `reminder_preferences` row.
+- A signed-in internal user can download a read-only JSON export of Edenia's
+  server-side account data. The Edge Function re-verifies the JWT, passes only
+  that stable UUID to a service-only database bridge, rate-limits requests, and
+  rejects a response whose account UUID or scope does not match.
+- The export explicitly marks current-device progress as excluded. Starting a
+  download never reads, uploads, replaces, or binds progress from the browser.
 - The private tester allowlist stores Supabase user UUIDs, never email
   addresses.
 - `reminder_delivery_enabled` is an independent server-side switch and must
@@ -64,8 +70,10 @@ after the test.
 5. Confirm the Settings section shows the signed-in account.
 6. Configure reminder days, local time, and timezone. Saving an enabled
    preference requires explicit reminder-email consent.
-7. Sign out and confirm the study progress in that browser is unchanged.
-8. Sign in again and confirm the account session and saved reminder preference
+7. Select **Download account data**. Confirm a dated JSON file downloads and
+   its `scope.current_device_progress` value is `false`.
+8. Sign out and confirm the study progress in that browser is unchanged.
+9. Sign in again and confirm the account session and saved reminder preference
    restore independently of local study progress.
 
 No email should arrive. A saved preference proves only authenticated storage;
@@ -75,6 +83,11 @@ off.
 On a shared browser, signing out removes the Edenia account session but does not
 erase local study progress. Do not use account switching as proof that local
 progress belongs to the signed-in user.
+
+An export contains personal account and server history. Store it privately and
+delete it when it is no longer needed. If the account changes while an export
+is in flight, Edenia discards the result instead of downloading data from the
+previous account.
 
 ## Operator preflight
 

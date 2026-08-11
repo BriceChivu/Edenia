@@ -1,4 +1,5 @@
 import { expect, test } from '../support/network-fixture.mjs'
+import { readFile } from 'node:fs/promises'
 
 const runtimeConfig = `window.EDENIA_CONFIG = {
   youtubeApiKey: '',
@@ -42,6 +43,14 @@ const localeExpectations = {
     'Continuer avec Google',
     'visible par toute personne utilisant ce profil de navigateur'
   ]
+}
+
+const exportLocaleExpectations = {
+  en: ['Download account data', 'Study progress saved in this browser is not included.'],
+  'zh-Hant': ['下載帳戶資料', '儲存在此瀏覽器中的學習進度不會包含在內'],
+  'zh-Hans': ['下载账户数据', '不包括保存在此浏览器中的学习进度'],
+  es: ['Descargar datos de la cuenta', 'No se incluye el progreso de estudio guardado en este navegador'],
+  fr: ['Télécharger les données du compte', 'La progression enregistrée dans ce navigateur n’est pas incluse']
 }
 
 const AUTHENTICATED_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
@@ -231,6 +240,129 @@ test('signed-in internal user can save a preference without creating delivery', 
   )
 })
 
+test('signed-in account export copy is localized and responsive', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  await seedAuthenticatedSession(page)
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig,
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://account-ui-test.supabase.co/rest/v1/**', route => (
+    route.fulfill({ json: [], status: 200 })
+  ))
+
+  await page.goto('/?internal_test=1')
+  for (const [locale, [buttonLabel, scopeCopy]] of Object.entries(
+    exportLocaleExpectations
+  )) {
+    await seedReadyState(page, locale)
+    await page.goto('/?internal_test=1&account=1')
+
+    const account = page.locator('#accountSettings')
+    const exportSection = page.locator('.settings-account-export')
+    await expect(page.locator('#accountSignedIn')).toBeVisible()
+    await expect(exportSection.getByRole('button', { name: buttonLabel })).toBeEnabled()
+    await expect(exportSection).toContainText(scopeCopy)
+
+    const geometry = await account.evaluate(element => ({
+      accountWidth: element.scrollWidth,
+      accountClientWidth: element.clientWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      viewportWidth: document.documentElement.clientWidth
+    }))
+    expect(geometry.accountWidth).toBeLessThanOrEqual(geometry.accountClientWidth)
+    expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth)
+  }
+})
+
+test('signed-in user downloads only the matching server export', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  const exportRequests = []
+  const exportedData = {
+    schema_version: 'edenia-account-export-v1',
+    generated_at: '2026-08-12T00:00:00.000Z',
+    scope: {
+      server_data: true,
+      current_device_progress: false
+    },
+    account: {
+      id: AUTHENTICATED_USER_ID,
+      email: 'internal@example.com',
+      providers: ['google']
+    },
+    billing: { subscription: null },
+    cloud_backup_snapshots: [],
+    reminders: { preference: null, delivery_occurrences: [] }
+  }
+  await seedAuthenticatedSession(page)
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig,
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://account-ui-test.supabase.co/rest/v1/**', route => (
+    route.fulfill({ json: [], status: 200 })
+  ))
+  await page.route(
+    'https://account-ui-test.supabase.co/functions/v1/export-account-data',
+    async route => {
+      const request = route.request()
+      exportRequests.push({
+        method: request.method(),
+        body: request.postDataJSON()
+      })
+      await new Promise(resolve => setTimeout(resolve, 150))
+      await route.fulfill({ json: exportedData, status: 200 })
+    }
+  )
+
+  await page.goto('/?internal_test=1')
+  await seedReadyState(page, 'en')
+  await page.evaluate(() => {
+    const storageKey = 'edenia_v1_internal_test'
+    const state = JSON.parse(localStorage.getItem(storageKey))
+    state.streak = { current: 6, longest: 9, lastActivityDate: '2026-08-11' }
+    state.totalRewatchCount = 12
+    localStorage.setItem(storageKey, JSON.stringify(state))
+  })
+  await page.goto('/?internal_test=1&account=1')
+  const localProgressBefore = await readLocalStudyEvidence(page)
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.locator('#accountExportBtn').click()
+  await expect(page.locator('#accountExportBtn')).toBeDisabled()
+  await expect(page.locator('#accountExportBtn')).toHaveText('Preparing download…')
+  await expect(page.locator('.settings-account-export')).toHaveAttribute(
+    'aria-busy',
+    'true'
+  )
+  const download = await downloadPromise
+  expect(download.suggestedFilename()).toMatch(
+    /^edenia-account-data-\d{4}-\d{2}-\d{2}\.json$/
+  )
+  const downloadedData = JSON.parse(await readFile(await download.path(), 'utf8'))
+
+  expect(exportRequests).toEqual([{ method: 'POST', body: {} }])
+  expect(downloadedData).toEqual(exportedData)
+  expect(downloadedData.account.id).toBe(AUTHENTICATED_USER_ID)
+  expect(downloadedData.scope.current_device_progress).toBe(false)
+  expect(downloadedData).not.toHaveProperty('streak')
+  expect(downloadedData).not.toHaveProperty('totalRewatchCount')
+  expect(await readLocalStudyEvidence(page)).toEqual(localProgressBefore)
+  await expect(page.locator('#accountExportFeedback')).toContainText(
+    'Account data downloaded.'
+  )
+  await expect(page.locator('.settings-account-export')).toHaveAttribute(
+    'aria-busy',
+    'false'
+  )
+})
+
 test('shared-browser account switching clears the previous cloud view only', async ({
   page
 }, testInfo) => {
@@ -337,14 +469,24 @@ test('ordinary public mode keeps the internal Account settings section unavailab
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
+  const exportRequests = []
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig,
     contentType: 'text/javascript',
     status: 200
   }))
+  await page.route(
+    'https://account-ui-test.supabase.co/functions/v1/export-account-data',
+    route => {
+      exportRequests.push(route.request().url())
+      return route.fulfill({ json: {}, status: 200 })
+    }
+  )
 
   await page.goto('/')
   await expect(page.locator('#accountSettings')).toBeHidden()
+  await expect(page.locator('#accountExportBtn')).toBeHidden()
+  expect(exportRequests).toEqual([])
 })
 
 test('global off switch blocks the account deep link and reminder reads', async ({
@@ -352,6 +494,7 @@ test('global off switch blocks the account deep link and reminder reads', async 
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   const reminderRequests = []
+  const exportRequests = []
   await seedAuthenticatedSession(page)
   await page.route('**/config.local.js', route => route.fulfill({
     body: disabledRuntimeConfig,
@@ -363,6 +506,13 @@ test('global off switch blocks the account deep link and reminder reads', async 
     if (url.pathname.endsWith('/reminder_preferences')) reminderRequests.push(url.href)
     await route.fulfill({ json: [], status: 200 })
   })
+  await page.route(
+    'https://account-ui-test.supabase.co/functions/v1/export-account-data',
+    route => {
+      exportRequests.push(route.request().url())
+      return route.fulfill({ json: {}, status: 200 })
+    }
+  )
 
   await page.goto('/?internal_test=1')
   await seedReadyState(page, 'en')
@@ -375,4 +525,5 @@ test('global off switch blocks the account deep link and reminder reads', async 
   await expect(page.locator('#accountSettings')).toBeHidden()
   await expect(page.locator('#plusAccountSettings')).toBeVisible()
   expect(reminderRequests).toEqual([])
+  expect(exportRequests).toEqual([])
 })
