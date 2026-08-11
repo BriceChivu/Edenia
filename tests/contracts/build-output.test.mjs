@@ -77,6 +77,7 @@ test('test build contains empty public keys and safe release defaults', async ()
   assert.match(source, /"youtubeApiKey": ""/)
   assert.match(source, /"freePlusEnabled": false/)
   assert.match(source, /"plusCheckoutEnabled": false/)
+  assert.match(source, /"accountFeaturesRollout": "off"/)
   assert.match(source, /"videoOrganizationEnabled": true/)
   assert.match(source, /"channelVideoFormatToggleEnabled": true/)
   assert.match(source, /"studyGuidanceEnabled": false/)
@@ -103,6 +104,14 @@ test('Pages deployment retires permanent feature inputs and forwards remaining c
   assert.match(
     workflow,
     /EDENIA_PLUS_CHECKOUT_ENABLED: \$\{\{ vars\.EDENIA_PLUS_CHECKOUT_ENABLED \}\}/
+  )
+  assert.match(
+    workflow,
+    /EDENIA_ACCOUNT_FEATURES_ROLLOUT: \$\{\{ vars\.EDENIA_ACCOUNT_FEATURES_ROLLOUT \}\}/
+  )
+  assert.match(
+    runtimeConfigWriter,
+    /accountFeaturesRollout: parseRuntimeConfigRollout\(\s*process\.env\.EDENIA_ACCOUNT_FEATURES_ROLLOUT,\s*'EDENIA_ACCOUNT_FEATURES_ROLLOUT'\s*\)/
   )
   assert.doesNotMatch(workflow, /EDENIA_VIDEO_ORGANIZATION_ENABLED/)
   assert.match(runtimeConfigWriter, /videoOrganizationEnabled: true/)

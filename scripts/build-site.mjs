@@ -158,6 +158,7 @@ await writeFile(
     + '  "youtubeApiKey": "",\n'
     + '  "freePlusEnabled": false,\n'
     + '  "plusCheckoutEnabled": false,\n'
+    + '  "accountFeaturesRollout": "off",\n'
     + '  "videoOrganizationEnabled": true,\n'
     + '  "channelVideoFormatToggleEnabled": true,\n'
     + '  "studyGuidanceEnabled": false,\n'

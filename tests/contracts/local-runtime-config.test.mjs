@@ -62,6 +62,7 @@ test('local runtime config normalizes a valid ignored key into the generated sit
         + '  "youtubeApiKey": "fake-development-key",\n'
         + '  "freePlusEnabled": false,\n'
         + '  "plusCheckoutEnabled": false,\n'
+        + '  "accountFeaturesRollout": "off",\n'
         + '  "videoOrganizationEnabled": true,\n'
         + '  "channelVideoFormatToggleEnabled": true,\n'
         + '  "studyGuidanceEnabled": false,\n'
@@ -84,6 +85,7 @@ test('local runtime config preserves dormant flags and forces compatibility mark
         + "  youtubeApiKey: 'fake-development-key',\n"
         + '  freePlusEnabled: true,\n'
         + '  plusCheckoutEnabled: true,\n'
+        + "  accountFeaturesRollout: 'internal',\n"
         + '  videoOrganizationEnabled: false,\n'
         + '  channelVideoFormatToggleEnabled: false,\n'
         + '  studyGuidanceEnabled: true,\n'
@@ -101,6 +103,7 @@ test('local runtime config preserves dormant flags and forces compatibility mark
       youtubeApiKey: 'fake-development-key',
       freePlusEnabled: true,
       plusCheckoutEnabled: true,
+      accountFeaturesRollout: 'internal',
       videoOrganizationEnabled: true,
       channelVideoFormatToggleEnabled: true,
       studyGuidanceEnabled: true,
@@ -111,7 +114,7 @@ test('local runtime config preserves dormant flags and forces compatibility mark
     })
     assert.match(
       await readFile(outputPath, 'utf8'),
-      /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true,\n  "videoOrganizationEnabled": true,\n  "channelVideoFormatToggleEnabled": true,\n  "studyGuidanceEnabled": true,\n  "indexedDbBackupsEnabled": true,\n  "indexedDbBackupCleanupEnabled": true/
+      /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true,\n  "accountFeaturesRollout": "internal",\n  "videoOrganizationEnabled": true,\n  "channelVideoFormatToggleEnabled": true,\n  "studyGuidanceEnabled": true,\n  "indexedDbBackupsEnabled": true,\n  "indexedDbBackupCleanupEnabled": true/
     )
   })
 })
@@ -132,6 +135,7 @@ test('local runtime config removes tracked Supabase placeholders', async () => {
       youtubeApiKey: 'fake-development-key',
       freePlusEnabled: false,
       plusCheckoutEnabled: false,
+      accountFeaturesRollout: 'off',
       videoOrganizationEnabled: true,
       channelVideoFormatToggleEnabled: true,
       studyGuidanceEnabled: false,

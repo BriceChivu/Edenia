@@ -6,6 +6,7 @@ import {
 } from '../../src/core/runtime-environment.js'
 import { deriveStorageKeys } from '../../src/core/storage-keys.js'
 import {
+  getAccountFeaturesRollout,
   getFreePlusEnabled,
   getIndexedDbBackupCleanupEnabled,
   getIndexedDbBackupsEnabled,
@@ -136,6 +137,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(hasYoutubeApiKey(target), false)
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
+  assert.equal(getAccountFeaturesRollout(target), 'off')
   assert.equal(getStudyGuidanceEnabled(target), false)
   assert.equal(getIndexedDbBackupsEnabled(target), false)
   assert.equal(getIndexedDbBackupCleanupEnabled(target), false)
@@ -147,6 +149,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     youtubeApiKey: '  key-one  ',
     freePlusEnabled: true,
     plusCheckoutEnabled: true,
+    accountFeaturesRollout: 'internal',
     channelVideoFormatToggleEnabled: true,
     studyGuidanceEnabled: true,
     indexedDbBackupsEnabled: true,
@@ -158,6 +161,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(hasYoutubeApiKey(target), true)
   assert.equal(getFreePlusEnabled(target), true)
   assert.equal(getPlusCheckoutEnabled(target), true)
+  assert.equal(getAccountFeaturesRollout(target), 'internal')
   assert.equal(getStudyGuidanceEnabled(target), true)
   assert.equal(getIndexedDbBackupsEnabled(target), true)
   assert.equal(getIndexedDbBackupCleanupEnabled(target), true)
@@ -168,6 +172,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   target.EDENIA_CONFIG = {
     freePlusEnabled: 'true',
     plusCheckoutEnabled: 1,
+    accountFeaturesRollout: 'unknown',
     channelVideoFormatToggleEnabled: 'true',
     studyGuidanceEnabled: 'true',
     indexedDbBackupsEnabled: 'true',
@@ -175,6 +180,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   }
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
+  assert.equal(getAccountFeaturesRollout(target), 'off')
   assert.equal(getStudyGuidanceEnabled(target), false)
   assert.equal(getIndexedDbBackupsEnabled(target), false)
   assert.equal(getIndexedDbBackupCleanupEnabled(target), false)

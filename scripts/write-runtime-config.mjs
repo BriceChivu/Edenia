@@ -1,7 +1,10 @@
 import { writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parseRuntimeConfigFlag } from './runtime-config-flags.mjs'
+import {
+  parseRuntimeConfigFlag,
+  parseRuntimeConfigRollout
+} from './runtime-config-flags.mjs'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(scriptDir, '..')
@@ -24,6 +27,10 @@ const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
   plusCheckoutEnabled: parseRuntimeConfigFlag(
     process.env.EDENIA_PLUS_CHECKOUT_ENABLED,
     'EDENIA_PLUS_CHECKOUT_ENABLED'
+  ),
+  accountFeaturesRollout: parseRuntimeConfigRollout(
+    process.env.EDENIA_ACCOUNT_FEATURES_ROLLOUT,
+    'EDENIA_ACCOUNT_FEATURES_ROLLOUT'
   ),
   // Compatibility markers for cached pre-retirement app.js assets.
   videoOrganizationEnabled: true,
