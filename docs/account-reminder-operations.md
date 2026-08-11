@@ -524,18 +524,103 @@ without an active sender:
 9. **Scheduling:** create Cron only after repeated manual canaries and an
    operator rollback drill. Public rollout remains a separate later decision.
 
+## Public-readiness audit (2026-08-12)
+
+This is a read-only snapshot of production configuration, not approval to make
+the account surface public.
+
+- The Auth site URL is `https://bricechivu.github.io/Edenia/`.
+- The redirect allowlist contains exactly the internal production callback and
+  the localhost callback documented in `account-authentication.md`. It contains
+  no wildcard.
+- Google and email authentication are enabled. New-user signup and email
+  confirmation are enabled. Anonymous sign-in and manual identity linking are
+  disabled.
+- Auth currently permits two project emails per hour, 30 sign-up/sign-in
+  requests per IP per five minutes, and 30 OTP or magic-link verifications per
+  IP per five minutes. CAPTCHA is disabled.
+- The client uses only Google OAuth and email OTP. It does not offer passwords,
+  anonymous sign-in, or manual identity linking.
+
+Do not raise the email limit or enable CAPTCHA as a standalone console change.
+The magic-link sender, client CAPTCHA token path, error states, accessibility,
+and recovery behavior must be verified together before either change. The
+current two-email limit is a useful internal-stage brake, but it also means the
+fallback can be exhausted quickly during testing.
+
+### Account-owned server data
+
+The production ownership inventory has mixed deletion behavior:
+
+| Data | Auth user reference | Current delete behavior |
+| --- | --- | --- |
+| Reminder preferences | foreign key | cascade |
+| Reminder deliveries, testers, suppressions and unsubscribe tokens | foreign keys | cascade |
+| State backups | foreign key | no action |
+| Founding checkout reservations | foreign key | no action |
+| Founding members | no Auth foreign key | application-owned history |
+| Subscriptions | no Auth foreign key | application-owned history |
+
+Therefore Edenia must not expose a direct `auth.admin.deleteUser` action yet.
+Depending on the account, it could be blocked by retained rows or delete only
+part of the user's server history. A complete lifecycle design must first
+decide:
+
+1. which billing, founding-member and backup records are exported, anonymized,
+   retained, or deleted;
+2. how an active Plus subscription is cancelled or transferred before Auth
+   deletion;
+3. how the browser-only sync export is presented separately from server data;
+4. how deletion is reauthenticated, made idempotent, audited without storing
+   sensitive payloads, and recovered after a partial external-provider failure;
+5. how a second request reports completed, pending-retention, and failed states.
+
+Account export should be implemented before deletion so these decisions can be
+tested without destroying data. Export must keep browser-local study progress
+separate: it is already available through **Export sync file** and is not owned
+by the signed-in account.
+
+### Shared-browser and identity behavior
+
+The account controller signs out with Supabase's local scope. The regression
+suite signs out user A, switches the same browser to user B, and verifies that
+user A's reminder preference is cleared before user B's preference loads. The
+same test proves that selected local study evidence is unchanged. The Settings
+copy warns that anyone using the browser profile can see its local progress.
+
+Manual identity linking remains disabled. Before email changes or linking are
+offered, test the same verified address through Google and magic link, different
+addresses across providers, an existing Plus account, and unlink/recovery
+behavior. Do not infer account equivalence from an email address in application
+code.
+
+### Advisor record
+
+The post-schema security advisor reports intentional `rls_enabled_no_policy`
+INFO notices for private, grant-revoked tables and older deny-all billing tables.
+It also reports the pre-existing [leaked-password protection warning](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+Edenia does not currently offer password authentication, so this is not a reason
+to enable a separate password flow.
+
+The performance advisor reports two pre-existing RLS initialization-plan
+warnings on `subscriptions` and `founding_members`; use Supabase's
+[select-wrapped Auth function guidance](https://supabase.com/docs/guides/database/postgres/row-level-security#call-functions-with-select)
+in a focused billing-policy migration. Newly created reminder indexes are still
+reported as unused because delivery remains off and production has no reminder
+preferences. Do not remove safety or queue indexes based on an unused-index INFO
+notice during the inert rollout.
+
 ## Public-readiness items still deferred
 
-Account deletion and export need a complete server-data inventory and a clear
-decision about subscriptions and historic cloud backups. Local Edenia progress
-is not in the account and must be explained and exported separately before any
-account deletion action.
-
-Email changes and identity linking require tests across Google and magic-link
-identities so one person is not split into two Supabase users. CAPTCHA and
-magic-link rate limits, Google consent-screen publication and branding, the
-production redirect list, privacy/terms URLs, and custom-domain ownership are
-console and product decisions as well as code work.
+- Server-data export, subscription-aware account deletion, retention choices,
+  and recovery after partial deletion.
+- Email-change and identity-linking behavior across Google, magic link and
+  existing Plus accounts.
+- CAPTCHA client integration and a deliberate magic-link rate-limit decision.
+- Google consent-screen publication, branding, privacy/terms URLs and domain
+  verification outside the repository.
+- A focused migration for the two pre-existing billing RLS performance
+  warnings.
 
 Supabase database advisors should be recorded after each schema change. An INFO
 notice that a private, grant-revoked table has RLS but no policies is intentional

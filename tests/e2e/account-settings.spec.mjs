@@ -11,49 +11,84 @@ const runtimeConfig = `window.EDENIA_CONFIG = {
   supabaseUrl: 'https://account-ui-test.supabase.co',
   supabasePublishableKey: 'test-publishable-key'
 }`
+const disabledRuntimeConfig = runtimeConfig.replace(
+  "accountFeaturesRollout: 'internal'",
+  "accountFeaturesRollout: 'off'"
+)
 
 const localeExpectations = {
-  en: ['Account & reminders', 'Continue with Google'],
-  'zh-Hant': ['帳戶與提醒', '使用 Google 繼續'],
-  'zh-Hans': ['账户与提醒', '使用 Google 继续'],
-  es: ['Cuenta y recordatorios', 'Continuar con Google'],
-  fr: ['Compte et rappels', 'Continuer avec Google']
+  en: [
+    'Account & reminders',
+    'Continue with Google',
+    'visible to anyone using this browser profile'
+  ],
+  'zh-Hant': [
+    '帳戶與提醒',
+    '使用 Google 繼續',
+    '任何使用此瀏覽器設定檔的人都能看到'
+  ],
+  'zh-Hans': [
+    '账户与提醒',
+    '使用 Google 继续',
+    '任何使用此浏览器配置文件的人都能看到'
+  ],
+  es: [
+    'Cuenta y recordatorios',
+    'Continuar con Google',
+    'visible para cualquiera que use este perfil del navegador'
+  ],
+  fr: [
+    'Compte et rappels',
+    'Continuer avec Google',
+    'visible par toute personne utilisant ce profil de navigateur'
+  ]
 }
 
 const AUTHENTICATED_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
+const SECOND_AUTHENTICATED_USER_ID = '223e4567-e89b-42d3-a456-426614174001'
+const ACCOUNT_AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
 
-function fakeAccessToken() {
+function fakeAccessToken(userId) {
   const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url')
   return `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({
     aud: 'authenticated',
     exp: 1893456000,
     role: 'authenticated',
-    sub: AUTHENTICATED_USER_ID
+    sub: userId
   })}.test-signature`
 }
 
-async function seedAuthenticatedSession(page) {
-  await page.addInitScript(({ storageKey, session }) => {
-    localStorage.setItem(storageKey, JSON.stringify(session))
-  }, {
-    storageKey: 'edenia_v1_internal_test_plus_auth_v1',
-    session: {
-      access_token: fakeAccessToken(),
-      expires_at: 1893456000,
-      expires_in: 31536000,
-      refresh_token: 'test-refresh-token',
-      token_type: 'bearer',
-      user: {
-        id: AUTHENTICATED_USER_ID,
-        aud: 'authenticated',
-        role: 'authenticated',
-        email: 'internal@example.com',
-        app_metadata: { provider: 'google', providers: ['google'] },
-        user_metadata: {},
-        identities: [],
-        created_at: '2026-08-01T00:00:00.000Z'
-      }
+function createAuthenticatedSession({ userId, email }) {
+  return {
+    access_token: fakeAccessToken(userId),
+    expires_at: 1893456000,
+    expires_in: 31536000,
+    refresh_token: `test-refresh-token-${userId}`,
+    token_type: 'bearer',
+    user: {
+      id: userId,
+      aud: 'authenticated',
+      role: 'authenticated',
+      email,
+      app_metadata: { provider: 'google', providers: ['google'] },
+      user_metadata: {},
+      identities: [],
+      created_at: '2026-08-01T00:00:00.000Z'
     }
+  }
+}
+
+async function seedAuthenticatedSession(page, {
+  userId = AUTHENTICATED_USER_ID,
+  email = 'internal@example.com'
+} = {}) {
+  await page.addInitScript(({ storageKey, session }) => {
+    if (!localStorage.getItem(storageKey)) {
+      localStorage.setItem(storageKey, JSON.stringify(session))
+    }
+  }, {
+    storageKey: ACCOUNT_AUTH_STORAGE_KEY,
+    session: createAuthenticatedSession({ userId, email })
   })
 }
 
@@ -70,6 +105,17 @@ async function seedReadyState(page, locale) {
   }, locale)
 }
 
+async function readLocalStudyEvidence(page) {
+  return page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test'))
+    return {
+      streak: state.streak,
+      totalRewatchCount: state.totalRewatchCount,
+      onboarding: state.onboarding
+    }
+  })
+}
+
 test('internal Account settings are localized and responsive without exposing public mode', async ({
   page
 }, testInfo) => {
@@ -83,7 +129,9 @@ test('internal Account settings are localized and responsive without exposing pu
   await page.goto('/?internal_test=1')
   await seedReadyState(page, 'en')
 
-  for (const [locale, [title, googleLabel]] of Object.entries(localeExpectations)) {
+  for (const [locale, [title, googleLabel, sharedBrowserCopy]] of Object.entries(
+    localeExpectations
+  )) {
     await seedReadyState(page, locale)
     await page.goto('/?internal_test=1&account=1')
 
@@ -93,6 +141,7 @@ test('internal Account settings are localized and responsive without exposing pu
     await expect(account).toBeVisible()
     await expect(account.getByRole('heading', { name: title })).toBeVisible()
     await expect(account.getByRole('button', { name: googleLabel })).toBeEnabled()
+    await expect(account).toContainText(sharedBrowserCopy)
     await expect(page.locator('#reminderScheduleFields')).toHaveAttribute('disabled', '')
     await expect(page.locator('#reminderSaveBtn')).toBeDisabled()
     await expect(page.locator('#plusAccountSettings')).toBeHidden()
@@ -182,6 +231,108 @@ test('signed-in internal user can save a preference without creating delivery', 
   )
 })
 
+test('shared-browser account switching clears the previous cloud view only', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  const preferences = {
+    [AUTHENTICATED_USER_ID]: {
+      user_id: AUTHENTICATED_USER_ID,
+      enabled: true,
+      days: [1, 3],
+      local_time: '06:10',
+      timezone: 'Asia/Taipei',
+      locale: 'en',
+      consent_granted_at: '2026-08-11T01:00:00.000Z',
+      consent_revoked_at: null,
+      consent_version: 'reminder-email-v1',
+      consent_source: 'settings',
+      created_at: '2026-08-11T01:00:00.000Z',
+      updated_at: '2026-08-11T01:00:00.000Z'
+    },
+    [SECOND_AUTHENTICATED_USER_ID]: {
+      user_id: SECOND_AUTHENTICATED_USER_ID,
+      enabled: false,
+      days: [2, 4],
+      local_time: '21:45',
+      timezone: 'Europe/Paris',
+      locale: 'fr',
+      consent_granted_at: null,
+      consent_revoked_at: null,
+      consent_version: 'reminder-email-v1',
+      consent_source: 'settings',
+      created_at: '2026-08-11T02:00:00.000Z',
+      updated_at: '2026-08-11T02:00:00.000Z'
+    }
+  }
+  await seedAuthenticatedSession(page)
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig,
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://account-ui-test.supabase.co/auth/v1/logout**', route => (
+    route.fulfill({ body: '', status: 204 })
+  ))
+  await page.route('https://account-ui-test.supabase.co/rest/v1/**', async route => {
+    const request = route.request()
+    const url = new URL(request.url())
+    if (url.pathname.endsWith('/subscriptions')) {
+      await route.fulfill({ json: [], status: 200 })
+      return
+    }
+    if (url.pathname.endsWith('/reminder_preferences')) {
+      const userId = String(url.searchParams.get('user_id') || '').replace(/^eq\./, '')
+      await route.fulfill({ json: preferences[userId] || null, status: 200 })
+      return
+    }
+    await route.fulfill({ json: [], status: 200 })
+  })
+
+  await page.goto('/?internal_test=1')
+  await seedReadyState(page, 'en')
+  await page.evaluate(() => {
+    const storageKey = 'edenia_v1_internal_test'
+    const state = JSON.parse(localStorage.getItem(storageKey))
+    state.streak = {
+      current: 3,
+      longest: 7,
+      lastActivityDate: '2026-08-10'
+    }
+    state.totalRewatchCount = 4
+    localStorage.setItem(storageKey, JSON.stringify(state))
+  })
+  await page.goto('/?internal_test=1&account=1')
+
+  const localProgressBefore = await readLocalStudyEvidence(page)
+  await expect(page.locator('#accountUserEmail')).toHaveText('internal@example.com')
+  await expect(page.locator('#reminderLocalTime')).toHaveValue('06:10')
+
+  await page.locator('#accountSignOutBtn').click()
+  await expect(page.locator('#accountSignedOut')).toBeVisible()
+  await expect(page.locator('#reminderScheduleFields')).toHaveAttribute('disabled', '')
+  await expect(page.locator('#reminderLocalTime')).toHaveValue('19:00')
+  await expect.poll(() => readLocalStudyEvidence(page)).toEqual(localProgressBefore)
+
+  await page.evaluate(({ storageKey, session }) => {
+    localStorage.setItem(storageKey, JSON.stringify(session))
+  }, {
+    storageKey: ACCOUNT_AUTH_STORAGE_KEY,
+    session: createAuthenticatedSession({
+      userId: SECOND_AUTHENTICATED_USER_ID,
+      email: 'second@example.com'
+    })
+  })
+  await page.reload()
+
+  await page.locator('[data-settings-shell-action="open"]').click()
+  await expect(page.locator('#accountSignedIn')).toBeVisible()
+  await expect(page.locator('#accountUserEmail')).toHaveText('second@example.com')
+  await expect(page.locator('#reminderLocalTime')).toHaveValue('21:45')
+  await expect(page.locator('#reminderTimezone')).toHaveValue('Europe/Paris')
+  expect(await readLocalStudyEvidence(page)).toEqual(localProgressBefore)
+})
+
 test('ordinary public mode keeps the internal Account settings section unavailable', async ({
   page
 }, testInfo) => {
@@ -194,4 +345,34 @@ test('ordinary public mode keeps the internal Account settings section unavailab
 
   await page.goto('/')
   await expect(page.locator('#accountSettings')).toBeHidden()
+})
+
+test('global off switch blocks the account deep link and reminder reads', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  const reminderRequests = []
+  await seedAuthenticatedSession(page)
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: disabledRuntimeConfig,
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://account-ui-test.supabase.co/rest/v1/**', async route => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/reminder_preferences')) reminderRequests.push(url.href)
+    await route.fulfill({ json: [], status: 200 })
+  })
+
+  await page.goto('/?internal_test=1')
+  await seedReadyState(page, 'en')
+  await page.goto('/?internal_test=1&account=1')
+
+  await expect(page.locator('#settingsPanel')).toBeHidden()
+  await expect(page).toHaveURL(/\?internal_test=1&account=1$/)
+  await page.locator('[data-settings-shell-action="open"]').click()
+  await expect(page.locator('#settingsPanel')).toBeVisible()
+  await expect(page.locator('#accountSettings')).toBeHidden()
+  await expect(page.locator('#plusAccountSettings')).toBeVisible()
+  expect(reminderRequests).toEqual([])
 })

@@ -146,7 +146,7 @@ export const ES_LOCALIZED = {
     'settings.account.remindersFeedback.invalidTime': 'Elige una hora local válida.',
     'settings.account.remindersFeedback.invalidTimezone': 'Introduce una zona horaria IANA válida, como Asia/Taipei.',
     'settings.account.remindersFeedback.consentRequired': 'Acepta los correos de recordatorio antes de activar esta preferencia.',
-    'settings.account.localProgressNote': 'Tu progreso de estudio permanece solo en este navegador. Iniciar o cerrar sesión no lo subirá, sustituirá ni vinculará a tu cuenta.',
+    'settings.account.localProgressNote': 'Tu progreso de estudio permanece en este navegador y es visible para cualquiera que use este perfil del navegador. Iniciar o cerrar sesión no lo subirá, sustituirá ni vinculará a tu cuenta.',
     'settings.account.feedback.googleError': 'No se pudo iniciar el acceso con Google. Inténtalo de nuevo.',
     'settings.account.feedback.invalidEmail': 'Introduce un correo electrónico válido.',
     'settings.account.feedback.magicLinkError': 'Edenia no pudo enviar el enlace de acceso. Inténtalo de nuevo.',

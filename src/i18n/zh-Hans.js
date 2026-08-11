@@ -146,7 +146,7 @@ export const ZH_HANS_LOCALIZED = {
     'settings.account.remindersFeedback.invalidTime': '请选择有效的当地时间。',
     'settings.account.remindersFeedback.invalidTimezone': '请输入有效的 IANA 时区，例如 Asia/Taipei。',
     'settings.account.remindersFeedback.consentRequired': '启用此偏好设置前，请同意接收提醒电子邮件。',
-    'settings.account.localProgressNote': '你的学习进度只会保留在此浏览器中。登录或退出不会上传、替换进度，也不会将进度关联到账户。',
+    'settings.account.localProgressNote': '你的学习进度会保留在此浏览器中，任何使用此浏览器配置文件的人都能看到。登录或退出不会上传、替换进度，也不会将进度关联到账户。',
     'settings.account.feedback.googleError': '无法开始 Google 登录，请重试。',
     'settings.account.feedback.invalidEmail': '请输入有效的电子邮箱。',
     'settings.account.feedback.magicLinkError': 'Edenia 无法发送登录链接，请重试。',
