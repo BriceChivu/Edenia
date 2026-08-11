@@ -2,8 +2,11 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   ACCOUNT_AUTH_ERRORS,
+  ACCOUNT_AUTH_NOTICES,
+  ACCOUNT_AUTH_RETURN_DESTINATIONS,
   ACCOUNT_SESSION_STATES,
-  createAccountAuthController
+  createAccountAuthController,
+  getAccountAuthReturnUrl
 } from '../../src/integrations/account-auth-controller.js'
 
 function createDeferred() {
@@ -15,6 +18,8 @@ function createDeferred() {
 function createClient({
   session = null,
   sessionResponses = [],
+  googleSignInError = null,
+  magicLinkError = null,
   signOutError = null
 } = {}) {
   const calls = []
@@ -43,6 +48,14 @@ function createClient({
             }
           }
         },
+        async signInWithOAuth(options) {
+          calls.push(['signInWithOAuth', options])
+          return { data: {}, error: googleSignInError }
+        },
+        async signInWithOtp(options) {
+          calls.push(['signInWithOtp', options])
+          return { data: {}, error: magicLinkError }
+        },
         async signOut(options) {
           calls.push(['signOut', options])
           return { error: signOutError }
@@ -58,11 +71,21 @@ function createClient({
   }
 }
 
-function createHarness(clientHarness) {
+function createHarness(clientHarness, {
+  href = ACCOUNT_AUTH_RETURN_DESTINATIONS.PRODUCTION
+} = {}) {
   const states = []
   const scheduled = []
+  const replacedUrls = []
   const controller = createAccountAuthController({
     client: clientHarness.client,
+    history: {
+      state: { preserved: true },
+      replaceState(state, title, url) {
+        replacedUrls.push({ state, title, url })
+      }
+    },
+    location: { href },
     onStateChange(state) {
       states.push(state)
     },
@@ -75,6 +98,7 @@ function createHarness(clientHarness) {
     runScheduled() {
       while (scheduled.length) scheduled.shift()()
     },
+    replacedUrls,
     scheduled,
     states
   }
@@ -94,7 +118,8 @@ test('account auth initializes once and fails closed to signed out', async () =>
     userId: null,
     email: '',
     busyAction: null,
-    error: null
+    error: null,
+    notice: null
   })
   assert.deepEqual(clientHarness.calls, [
     ['onAuthStateChange'],
@@ -123,7 +148,8 @@ test('account auth exposes identity fields without retaining session tokens', as
     userId: 'user-1',
     email: 'learner@example.com',
     busyAction: null,
-    error: null
+    error: null,
+    notice: null
   })
   assert.equal(JSON.stringify(harness.controller.getState()).includes('token'), false)
   assert.equal(JSON.stringify(harness.controller.getState()).includes('administrator'), false)
@@ -202,8 +228,160 @@ test('local sign out clears only the account identity state', async () => {
     userId: null,
     email: '',
     busyAction: null,
-    error: null
+    error: null,
+    notice: null
   })
+})
+
+test('sign-in redirects are selected from an exact application allowlist', () => {
+  assert.equal(
+    getAccountAuthReturnUrl({
+      href: 'https://bricechivu.github.io/Edenia/?anything=user-controlled'
+    }),
+    ACCOUNT_AUTH_RETURN_DESTINATIONS.PRODUCTION
+  )
+  assert.equal(
+    getAccountAuthReturnUrl({ href: 'http://localhost:8000/?other=1' }),
+    ACCOUNT_AUTH_RETURN_DESTINATIONS.LOCAL
+  )
+  for (const href of [
+    'http://bricechivu.github.io/Edenia/',
+    'https://bricechivu.github.io/Edenia',
+    'https://bricechivu.github.io/other/',
+    'http://localhost:8001/',
+    'http://127.0.0.1:8000/',
+    'https://attacker.example/?return=https://bricechivu.github.io/Edenia/'
+  ]) {
+    assert.equal(getAccountAuthReturnUrl({ href }), null, href)
+  }
+})
+
+test('Google sign-in uses the allowlisted production return destination', async () => {
+  const clientHarness = createClient()
+  const harness = createHarness(clientHarness, {
+    href: 'https://bricechivu.github.io/Edenia/?internal_test=1&untrusted=1'
+  })
+
+  assert.equal(await harness.controller.signInWithGoogle(), true)
+  assert.deepEqual(clientHarness.calls, [[
+    'signInWithOAuth',
+    {
+      provider: 'google',
+      options: { redirectTo: ACCOUNT_AUTH_RETURN_DESTINATIONS.PRODUCTION }
+    }
+  ]])
+  assert.equal(harness.controller.getState().busyAction, 'google-sign-in')
+})
+
+test('email sign-in normalizes addresses and retains a magic-link fallback', async () => {
+  const clientHarness = createClient()
+  const harness = createHarness(clientHarness, {
+    href: 'http://localhost:8000/?internal_test=1'
+  })
+
+  assert.equal(
+    await harness.controller.sendMagicLink('  Learner@Example.COM  '),
+    true
+  )
+  assert.deepEqual(clientHarness.calls, [[
+    'signInWithOtp',
+    {
+      email: 'learner@example.com',
+      options: {
+        emailRedirectTo: ACCOUNT_AUTH_RETURN_DESTINATIONS.LOCAL,
+        shouldCreateUser: true
+      }
+    }
+  ]])
+  assert.equal(
+    harness.controller.getState().notice,
+    ACCOUNT_AUTH_NOTICES.MAGIC_LINK_SENT
+  )
+})
+
+test('sign-in validation and provider failures publish safe controller errors', async () => {
+  const invalidEmailClient = createClient()
+  const invalidEmailHarness = createHarness(invalidEmailClient)
+  assert.equal(await invalidEmailHarness.controller.sendMagicLink('invalid'), false)
+  assert.deepEqual(invalidEmailClient.calls, [])
+  assert.equal(
+    invalidEmailHarness.controller.getState().error,
+    ACCOUNT_AUTH_ERRORS.INVALID_EMAIL
+  )
+
+  const googleClient = createClient({ googleSignInError: new Error('secret') })
+  const googleHarness = createHarness(googleClient)
+  assert.equal(await googleHarness.controller.signInWithGoogle(), false)
+  assert.equal(
+    googleHarness.controller.getState().error,
+    ACCOUNT_AUTH_ERRORS.GOOGLE_SIGN_IN_FAILED
+  )
+
+  const emailClient = createClient({ magicLinkError: new Error('secret') })
+  const emailHarness = createHarness(emailClient)
+  assert.equal(
+    await emailHarness.controller.sendMagicLink('learner@example.com'),
+    false
+  )
+  assert.equal(
+    emailHarness.controller.getState().error,
+    ACCOUNT_AUTH_ERRORS.MAGIC_LINK_FAILED
+  )
+})
+
+test('sign-in fails closed before calling Supabase from an unknown location', async () => {
+  const clientHarness = createClient()
+  const harness = createHarness(clientHarness, {
+    href: 'https://preview.example/Edenia/?internal_test=1'
+  })
+
+  assert.equal(await harness.controller.signInWithGoogle(), false)
+  assert.equal(
+    await harness.controller.sendMagicLink('learner@example.com'),
+    false
+  )
+  assert.deepEqual(clientHarness.calls, [])
+  assert.equal(
+    harness.controller.getState().error,
+    ACCOUNT_AUTH_ERRORS.RETURN_DESTINATION_NOT_ALLOWED
+  )
+})
+
+test('OAuth cancellations are surfaced and removed from browser history', async () => {
+  const clientHarness = createClient()
+  const harness = createHarness(clientHarness, {
+    href: 'https://bricechivu.github.io/Edenia/?internal_test=1&account=1#error=access_denied&error_description=User+denied+access&preserved=yes'
+  })
+
+  await harness.controller.initialize()
+
+  assert.equal(
+    harness.controller.getState().error,
+    ACCOUNT_AUTH_ERRORS.OAUTH_CANCELLED
+  )
+  assert.deepEqual(harness.replacedUrls, [{
+    state: { preserved: true },
+    title: '',
+    url: '/Edenia/?internal_test=1&account=1#preserved=yes'
+  }])
+})
+
+test('non-cancellation OAuth failures are surfaced without provider details', async () => {
+  const clientHarness = createClient()
+  const harness = createHarness(clientHarness, {
+    href: 'http://localhost:8000/?internal_test=1&account=1&error=server_error&error_description=private+provider+details'
+  })
+
+  await harness.controller.initialize()
+
+  assert.equal(harness.controller.getState().error, ACCOUNT_AUTH_ERRORS.OAUTH_FAILED)
+  assert.deepEqual(harness.replacedUrls.map(entry => entry.url), [
+    '/?internal_test=1&account=1'
+  ])
+  assert.equal(
+    JSON.stringify(harness.controller.getState()).includes('private'),
+    false
+  )
 })
 
 test('sign out failures preserve the current identity and report an error', async () => {
@@ -277,6 +455,8 @@ test('account auth rejects incomplete integration boundaries', () => {
   assert.throws(
     () => createAccountAuthController({
       client: createClient().client,
+      history: { replaceState() {} },
+      location: { href: ACCOUNT_AUTH_RETURN_DESTINATIONS.PRODUCTION },
       onStateChange: null
     }),
     /state callbacks/

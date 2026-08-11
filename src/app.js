@@ -4789,6 +4789,8 @@ function initializeAccountAuth() {
   try {
     accountAuthController = createAccountAuthController({
       client: getSupabaseClient(),
+      history: window.history,
+      location: window.location,
       onStateChange() {}
     })
     void accountAuthController.initialize()
