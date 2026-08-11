@@ -51,3 +51,11 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/dispatch-study-reminders/deno.json"
 entrypoint = "./functions/dispatch-study-reminders/index.ts"
+
+[functions.unsubscribe-study-reminders]
+enabled = true
+# The opaque single-use capability authorizes only this unsubscribe action.
+# GET is read-only; POST consumes the capability through one service-only RPC.
+verify_jwt = false
+import_map = "./functions/unsubscribe-study-reminders/deno.json"
+entrypoint = "./functions/unsubscribe-study-reminders/index.ts"
