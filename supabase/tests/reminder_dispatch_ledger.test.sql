@@ -221,7 +221,7 @@ select ok(
 );
 select ok(
   to_regprocedure(
-    'public.claim_due_reminder_deliveries(timestamp with time zone,integer,integer,integer)'
+    'public.claim_due_reminder_deliveries(timestamp with time zone,integer,integer,integer,text)'
   ) is not null,
   'the atomic claim function exists'
 );
@@ -243,7 +243,7 @@ select ok(
 select ok(
   has_function_privilege(
     'service_role',
-    'public.claim_due_reminder_deliveries(timestamp with time zone,integer,integer,integer)',
+    'public.claim_due_reminder_deliveries(timestamp with time zone,integer,integer,integer,text)',
     'EXECUTE'
   ),
   'the server role can claim reminder work'
@@ -267,7 +267,7 @@ select ok(
 select ok(
   not has_function_privilege(
     'authenticated',
-    'public.claim_due_reminder_deliveries(timestamp with time zone,integer,integer,integer)',
+    'public.claim_due_reminder_deliveries(timestamp with time zone,integer,integer,integer,text)',
     'EXECUTE'
   ),
   'authenticated browser clients cannot claim reminder work'
@@ -291,7 +291,7 @@ select ok(
 select ok(
   not has_function_privilege(
     'anon',
-    'public.claim_due_reminder_deliveries(timestamp with time zone,integer,integer,integer)',
+    'public.claim_due_reminder_deliveries(timestamp with time zone,integer,integer,integer,text)',
     'EXECUTE'
   ),
   'anonymous clients cannot claim reminder work'
