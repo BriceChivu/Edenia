@@ -146,7 +146,7 @@ export const FR_LOCALIZED = {
     'settings.account.remindersFeedback.invalidTime': 'Choisissez une heure locale valide.',
     'settings.account.remindersFeedback.invalidTimezone': 'Saisissez un fuseau horaire IANA valide, comme Asia/Taipei.',
     'settings.account.remindersFeedback.consentRequired': 'Acceptez les e-mails de rappel avant d’activer cette préférence.',
-    'settings.account.localProgressNote': 'Votre progression reste uniquement dans ce navigateur. La connexion ou la déconnexion ne la téléversera pas, ne la remplacera pas et ne la liera pas à votre compte.',
+    'settings.account.localProgressNote': 'Votre progression reste dans ce navigateur et est visible par toute personne utilisant ce profil de navigateur. La connexion ou la déconnexion ne la téléversera pas, ne la remplacera pas et ne la liera pas à votre compte.',
     'settings.account.feedback.googleError': 'La connexion avec Google n’a pas pu démarrer. Réessayez.',
     'settings.account.feedback.invalidEmail': 'Saisissez une adresse e-mail valide.',
     'settings.account.feedback.magicLinkError': 'Edenia n’a pas pu envoyer le lien de connexion. Réessayez.',

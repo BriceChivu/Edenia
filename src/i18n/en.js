@@ -145,7 +145,7 @@ export const EN_CORE = {
   'settings.account.remindersFeedback.invalidTime': 'Choose a valid local time.',
   'settings.account.remindersFeedback.invalidTimezone': 'Enter a valid IANA timezone, such as Asia/Taipei.',
   'settings.account.remindersFeedback.consentRequired': 'Agree to reminder emails before activating this preference.',
-  'settings.account.localProgressNote': 'Your study progress stays only in this browser. Signing in or out will not upload, replace, or link it to your account.',
+  'settings.account.localProgressNote': 'Your study progress stays in this browser and is visible to anyone using this browser profile. Signing in or out will not upload, replace, or link it to your account.',
   'settings.account.feedback.googleError': 'Google sign-in could not start. Please try again.',
   'settings.account.feedback.invalidEmail': 'Enter a valid email address.',
   'settings.account.feedback.magicLinkError': 'Edenia could not send the sign-in link. Please try again.',
