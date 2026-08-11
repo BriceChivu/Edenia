@@ -1,5 +1,10 @@
 import { normalizeCheckoutEmail } from './checkout-identity.ts'
 import { validateReminderUnsubscribeApiUrl } from './reminder-email.ts'
+import {
+  RESEND_REMINDER_SOURCE_TAG,
+} from './reminder-provider-contract.ts'
+
+export { RESEND_REMINDER_SOURCE_TAG } from './reminder-provider-contract.ts'
 
 const RESEND_SEND_URL = 'https://api.resend.com/emails'
 const API_KEY_PATTERN = /^re_[A-Za-z0-9_-]{8,253}$/u
@@ -7,8 +12,6 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3
 const PROVIDER_MESSAGE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/u
 const MAX_PROVIDER_BODY_BYTES = 16 * 1024
 const DEFAULT_TIMEOUT_MS = 10_000
-
-export const RESEND_REMINDER_SOURCE_TAG = 'edenia-study-reminder'
 
 type ResendFetch = (
   input: string | URL | Request,
