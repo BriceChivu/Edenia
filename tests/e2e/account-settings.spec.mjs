@@ -325,6 +325,8 @@ test('shared-browser account switching clears the previous cloud view only', asy
   })
   await page.reload()
 
+  await page.locator('[data-settings-shell-action="open"]').click()
+  await expect(page.locator('#accountSignedIn')).toBeVisible()
   await expect(page.locator('#accountUserEmail')).toHaveText('second@example.com')
   await expect(page.locator('#reminderLocalTime')).toHaveValue('21:45')
   await expect(page.locator('#reminderTimezone')).toHaveValue('Europe/Paris')
