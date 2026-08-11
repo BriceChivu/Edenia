@@ -20,6 +20,9 @@ email design.
 - `dispatch-study-reminders` is manual, secret-key authenticated, bounded to 25
   claims, and dry-run only. It logs intended occurrences and contacts no email
   provider.
+- The private delivery ledger can represent a provider attempt, API acceptance,
+  a bounded permanent failure, or an ambiguous outcome. No deployed code can
+  enter those states because there is still no provider adapter.
 - `/unsubscribe/` is a static, analytics-free confirmation page on Edenia's
   GitHub Pages origin. It removes the capability from the address bar before
   the user can act and never reads local study state.
@@ -183,6 +186,41 @@ and columns in place, keep the switch off, and redeploy the last known-good Edge
 Function commit. Dropping tables while a newer function is deployed is less
 safe than leaving unreachable state.
 
+## Provider hand-off and retry invariants
+
+The delivery ledger separates these facts deliberately:
+
+- `send_started_at` means a provider request may have left Edenia. It is written
+  before a future adapter performs network I/O and is never reset by a retry.
+- `provider_accepted` means the provider API returned a durable message ID. It
+  does not mean the receiving mailbox accepted or displayed the email.
+- `permanent_failure` is reserved for a small reviewed set of failures that are
+  safe not to retry. Network errors and timeouts are not permanent failures.
+- `outcome_ambiguous` means Edenia cannot prove whether the provider accepted
+  the request before its deduplication guarantee expired. Never reset or resend
+  such an occurrence manually; investigate it as a possible send.
+
+The first possible provider attempt fixes a 23-hour retry deadline. This leaves
+one hour of safety inside Resend's documented 24-hour idempotency-key lifetime.
+A future Resend adapter must reuse one deterministic idempotency key derived
+from the reminder occurrence ID on every retry. If the result is still unknown
+at the 23-hour boundary, Edenia intentionally prefers one missed reminder over
+a possible duplicate email.
+
+Resend is the provisional provider because Supabase documents an Edge Function
+integration, the send API accepts idempotency keys, and webhook requests use
+Svix signatures and event IDs. This is an engineering choice, not an active
+vendor integration: no Resend account, domain, API key, webhook secret, client,
+or network path is present in Edenia yet.
+
+The provider-state RPCs are executable only by `service_role`. They require the
+current lease token, preserve the original retry horizon, and refuse a first
+provider attempt unless the independent live-delivery switch, UUID tester
+allowlist, current preference and consent, and suppression checks all pass.
+Turning the switch off prevents the next provider call. A response already in
+flight may still be recorded as accepted or failed so it is not accidentally
+retried later.
+
 ## Suppression and unsubscribe invariants
 
 - Suppression is server-sticky. Re-enabling a client preference cannot make a
@@ -263,8 +301,9 @@ Verify these transitions, then delete the fixture:
   cancellation, and a second-account switch still need acceptance coverage.
 - The Google OAuth consent screen remains a test-user rollout. That is suitable
   for internal testing, not public launch.
-- No email provider, sender domain, From address, webhook endpoint, or live
-  provider credential has been selected or verified.
+- Resend is the provisional provider, but its account terms, regional/data
+  handling, sender domain, From address, webhook endpoint, and credentials have
+  not been configured or verified.
 - The five reminder locales and confirmation pages have automated structural
   coverage, but their copy has not yet been reviewed by native speakers or
   exercised across real email clients.
@@ -280,9 +319,10 @@ and verified:
    reviewed.
 3. The provider secret and webhook signing secret exist only in Edge Function
    secrets.
-4. The provider supports request idempotency, and Edenia defines safe behavior
-   after that provider's deduplication window expires. An ambiguous send should
-   prefer a missed reminder over a possible duplicate.
+4. The provider's idempotency guarantee is rechecked before release. Edenia's
+   current design stops retries after 23 hours and makes an ambiguous occurrence
+   terminal rather than risking a duplicate after Resend's documented 24-hour
+   window.
 5. Webhook signatures are checked against the raw request body, provider event
    IDs are processed idempotently, and only hard bounces or complaints create
    sticky suppression.
@@ -294,6 +334,27 @@ and verified:
 8. Manual allowlisted delivery succeeds before any Cron schedule is created.
 9. Queue age, accepted sends, provider failures, ambiguous sends, duplicate
    prevention, and suppressions are observable without logging email addresses.
+
+## Revised implementation sequence
+
+The original live-delivery PR is split so each safety boundary can be reviewed
+without an active sender:
+
+1. **Provider-neutral ledger (current):** add durable provider-attempt,
+   acceptance, failure, and ambiguity state plus the 23-hour retry boundary.
+   No network path exists.
+2. **Fail-closed Resend adapter:** add the provider client and deterministic
+   idempotency key, but do not add credentials, enable the switch, or schedule
+   it. Tests must prove that missing configuration, switch-off, suppression,
+   stale leases, and non-allowlisted users result in zero provider calls.
+3. **Webhook and canary readiness:** verify raw-body Svix signatures, deduplicate
+   event IDs, bind unsubscribe tokens and one-click headers, configure an
+   isolated sending subdomain, and inspect real email-client rendering.
+4. **Manual allowlisted canary:** only after an explicit operator review, add
+   secrets, enable the switch briefly, send to one verified tester, inspect the
+   provider and suppression ledgers, then turn the switch off again.
+5. **Scheduling:** create Cron only after repeated manual canaries and an
+   operator rollback drill. Public rollout remains a separate later decision.
 
 ## Public-readiness items still deferred
 
