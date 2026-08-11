@@ -56,6 +56,18 @@ as presentation-safe controller states, and then removed from browser history.
 Email addresses are normalized before requesting a magic link and never become
 an authorization or analytics identifier.
 
+## Analytics identity
+
+When analytics is enabled, a signed-in session identifies PostHog with the
+normalized Supabase user UUID only. Edenia rejects email addresses and malformed
+IDs at both the application and classic analytics boundaries. Repeated auth
+events are deduplicated, logout calls `posthog.reset()`, and an unexpected
+account switch resets before identifying the next UUID so two users are not
+merged. Analytics failure never blocks account rendering.
+
+This identity bridge does not read or write Edenia study state and does not
+start a cloud upload, migration, restore, merge, or sync operation.
+
 Supabase Auth callbacks remain synchronous. Edenia schedules state updates
 outside the callback because making asynchronous Supabase calls inside
 `onAuthStateChange` can deadlock the client.

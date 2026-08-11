@@ -76,3 +76,18 @@ test('Account UI actions do not read, write, import, or export study progress', 
 
   assert.doesNotMatch(source, /localStorage|loadState|saveState|progress|backup|sync/i)
 })
+
+test('account session state drives isolated UUID-only analytics identity', async () => {
+  const source = await readFile(appUrl, 'utf8')
+  const identitySource = await readFile(
+    new URL('../../src/integrations/account-analytics-identity.js', import.meta.url),
+    'utf8'
+  )
+
+  assert.match(
+    source,
+    /onStateChange\(state\) \{\s*accountAuthViewState = state\s*accountAnalyticsIdentity\.synchronize\(state\)\s*renderAccountSettings\(state\)/
+  )
+  assert.match(identitySource, /accountState\?\.userId/)
+  assert.doesNotMatch(identitySource, /email|localStorage|loadState|saveState|progress|syncEdenia/i)
+})

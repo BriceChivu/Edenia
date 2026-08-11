@@ -145,11 +145,16 @@ import {
 import {
   getEdeniaSessionReplayUrl,
   hasEdeniaAnalyticsStateSync,
+  identifyEdeniaAuthenticatedUser,
   isEdeniaAnalyticsEnabled,
+  resetEdeniaAuthenticatedUser,
   setEdeniaPersonProperties,
   syncEdeniaAnalyticsState,
   trackEdeniaEvent
 } from './integrations/analytics-bridge.js'
+import {
+  createAccountAnalyticsIdentity
+} from './integrations/account-analytics-identity.js'
 import {
   formatLocaleDate,
   formatLocaleDateTime,
@@ -723,6 +728,10 @@ let selectedActivityLogFilter = 'all'
 let mobileActivityLogVisibleCount = 20
 let supabaseClient = null
 let accountAuthController = null
+const accountAnalyticsIdentity = createAccountAnalyticsIdentity({
+  identify: identifyEdeniaAuthenticatedUser,
+  reset: resetEdeniaAuthenticatedUser
+})
 let accountAuthViewState = Object.freeze({
   sessionState: ACCOUNT_SESSION_STATES.LOADING,
   userId: null,
@@ -5010,6 +5019,7 @@ function initializeAccountAuth() {
       location: window.location,
       onStateChange(state) {
         accountAuthViewState = state
+        accountAnalyticsIdentity.synchronize(state)
         renderAccountSettings(state)
       }
     })

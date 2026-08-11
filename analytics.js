@@ -3,6 +3,7 @@
     ? 'edenia_posthog_state_internal_test_v2'
     : 'edenia_posthog_state_v2';
   const ANALYTICS_SCHEMA_VERSION = 3;
+  const SUPABASE_USER_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
   function analyticsAvailable() {
     return Boolean(
@@ -27,6 +28,26 @@
   function getSessionReplayUrl() {
     if (!analyticsAvailable() || typeof window.posthog.get_session_replay_url !== 'function') return null;
     return window.posthog.get_session_replay_url() || null;
+  }
+
+  function identifyAuthenticatedUser(userId) {
+    const normalizedUserId = String(userId || '').trim().toLowerCase();
+    if (
+      !SUPABASE_USER_UUID_PATTERN.test(normalizedUserId)
+      || !analyticsAvailable()
+      || typeof window.posthog.identify !== 'function'
+    ) return false;
+    window.posthog.identify(normalizedUserId);
+    return true;
+  }
+
+  function resetAuthenticatedUser() {
+    if (
+      !analyticsAvailable()
+      || typeof window.posthog.reset !== 'function'
+    ) return false;
+    window.posthog.reset();
+    return true;
   }
 
   function loadAnalyticsState() {
@@ -431,6 +452,8 @@
   window.setEdeniaPersonProperties = setPersonProperties;
   window.getEdeniaSessionReplayUrl = getSessionReplayUrl;
   window.syncEdeniaAnalyticsState = syncStateSnapshot;
+  window.identifyEdeniaAuthenticatedUser = identifyAuthenticatedUser;
+  window.resetEdeniaAuthenticatedUser = resetAuthenticatedUser;
 
   function normalizeClickEventName(action) {
     return String(action || '')

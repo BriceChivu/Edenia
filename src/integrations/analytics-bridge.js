@@ -22,6 +22,14 @@ function forwardEdeniaAnalyticsState(...args) {
   return window.syncEdeniaAnalyticsState?.(...args)
 }
 
+function forwardAuthenticatedUserIdentity(...args) {
+  return window.identifyEdeniaAuthenticatedUser?.(...args)
+}
+
+function forwardAuthenticatedUserReset(...args) {
+  return window.resetEdeniaAuthenticatedUser?.(...args)
+}
+
 export function getPosthogDistinctId() {
   const getDistinctId = window.posthog?.get_distinct_id
   return typeof getDistinctId === 'function'
@@ -30,7 +38,9 @@ export function getPosthogDistinctId() {
 }
 
 export {
+  forwardAuthenticatedUserIdentity as identifyEdeniaAuthenticatedUser,
   readEdeniaSessionReplayUrl as getEdeniaSessionReplayUrl,
+  forwardAuthenticatedUserReset as resetEdeniaAuthenticatedUser,
   forwardEdeniaPersonProperties as setEdeniaPersonProperties,
   forwardEdeniaAnalyticsState as syncEdeniaAnalyticsState,
   forwardEdeniaEvent as trackEdeniaEvent
