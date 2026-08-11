@@ -67,3 +67,11 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/resend-reminder-webhook/deno.json"
 entrypoint = "./functions/resend-reminder-webhook/index.ts"
+
+[functions.export-account-data]
+enabled = true
+# The platform verifies the signed-in user's JWT before the handler rechecks it
+# and passes only that verified UUID to the service-only database bridge.
+verify_jwt = true
+import_map = "./functions/export-account-data/deno.json"
+entrypoint = "./functions/export-account-data/index.ts"
