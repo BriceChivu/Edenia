@@ -29,15 +29,16 @@ test('localized confirmation redacts its capability and submits without app stat
   await page.route(
     'https://unsubscribe-page-test.supabase.co/functions/v1/unsubscribe-study-reminders',
     async route => {
+      const headers = await route.request().allHeaders()
       requests.push({
         body: route.request().postData(),
-        headers: await route.request().allHeaders(),
+        headers,
         method: route.request().method(),
       })
       await route.fulfill({
         body: JSON.stringify({ status: 'unsubscribed' }),
         headers: {
-          'Access-Control-Allow-Origin': 'http://localhost:8000',
+          'Access-Control-Allow-Origin': headers.origin,
           'Content-Type': 'application/json',
         },
         status: 200,
@@ -72,9 +73,10 @@ test('localized confirmation redacts its capability and submits without app stat
   }
 
   expect(requests).toHaveLength(5)
+  const expectedOrigin = new URL(page.url()).origin
   for (const [index, locale] of Object.keys(localeExpectations).entries()) {
     expect(requests[index].method).toBe('POST')
-    expect(requests[index].headers.origin).toBe('http://localhost:8000')
+    expect(requests[index].headers.origin).toBe(expectedOrigin)
     expect(Object.fromEntries(new URLSearchParams(requests[index].body))).toEqual({
       token: TOKEN,
       lang: locale,
@@ -109,14 +111,15 @@ test('temporary API failures keep a bounded retry path', async ({ page }, testIn
   await routeRuntimeConfig(page)
   await page.route(
     'https://unsubscribe-page-test.supabase.co/functions/v1/unsubscribe-study-reminders',
-    route => {
+    async route => {
       apiCalls += 1
+      const headers = await route.request().allHeaders()
       return route.fulfill({
         body: JSON.stringify({
           status: apiCalls === 1 ? 'unavailable' : 'already_unsubscribed',
         }),
         headers: {
-          'Access-Control-Allow-Origin': 'http://localhost:8000',
+          'Access-Control-Allow-Origin': headers.origin,
           'Content-Type': 'application/json',
         },
         status: 200,
