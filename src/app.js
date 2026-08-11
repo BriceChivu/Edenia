@@ -4657,9 +4657,11 @@ const ACCOUNT_EXPORT_FEEDBACK_VIEWS = Object.freeze({
 })
 
 function renderAccountExport() {
+  const section = document.querySelector('.settings-account-export')
   const button = document.getElementById('accountExportBtn')
   const feedback = document.getElementById('accountExportFeedback')
   const busy = accountExportViewState.busyAction === 'download'
+  section?.setAttribute('aria-busy', String(busy))
   if (button) {
     button.disabled = busy
       || accountAuthViewState.sessionState !== ACCOUNT_SESSION_STATES.SIGNED_IN
