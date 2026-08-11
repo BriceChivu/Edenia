@@ -311,6 +311,42 @@ test('account server export stays self-scoped and omits operational secrets', as
     migration,
     /\b(?:insert into|update|delete from|alter table|create table)\b/i
   )
+
+  const routingMigrations = (await readdir(migrationsRoot)).filter(file =>
+    file.endsWith('_hide_account_export_definer.sql')
+  )
+  assert.equal(routingMigrations.length, 1)
+
+  const routingMigration = await readFile(
+    new URL(routingMigrations[0], migrationsRoot),
+    'utf8'
+  )
+  assert.match(
+    routingMigration,
+    /alter function public\.export_account_server_data\(\)[\s\S]*set schema private/
+  )
+  assert.match(
+    routingMigration,
+    /create function public\.export_account_server_data_for_service\([\s\S]*p_verified_user_id uuid[\s\S]*security definer/
+  )
+  assert.match(
+    routingMigration,
+    /exported_data := private\.export_account_server_data\(\)/
+  )
+  assert.match(
+    routingMigration,
+    /set_config\([\s\S]*'request\.jwt\.claim\.sub'[\s\S]*p_verified_user_id::text/
+  )
+  assert.match(
+    routingMigration,
+    /grant execute on function public\.export_account_server_data_for_service\(uuid\)[\s\S]*to service_role/
+  )
+  assert.doesNotMatch(routingMigration, /grant .* on (?:table|all tables)/i)
+  assert.doesNotMatch(routingMigration, /grant usage on schema private/i)
+  assert.doesNotMatch(
+    routingMigration,
+    /grant execute on function [^\n]+[\s\S]*to (?:anon|authenticated)/
+  )
 })
 
 test('shared backend tests remain connected to package scripts and CI', async () => {
@@ -365,6 +401,6 @@ test('shared backend tests remain connected to package scripts and CI', async ()
   )
   assert.match(
     workflow,
-    /supabase\/migrations\/\*_add_self_scoped_account_export\.sql\|supabase\/tests\/account_server_data_export\.test\.sql/
+    /supabase\/migrations\/\*_add_self_scoped_account_export\.sql\|supabase\/migrations\/\*_hide_account_export_definer\.sql\|supabase\/tests\/account_server_data_export\.test\.sql/
   )
 })

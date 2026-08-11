@@ -580,20 +580,23 @@ tested without destroying data. Export must keep browser-local study progress
 separate: it is already available through **Export sync file** and is not owned
 by the signed-in account.
 
-The first export layer is now a database-only foundation. Authenticated users
-can call `export_account_server_data()` without supplying a user identifier;
-the verified JWT is the only owner input. The versioned JSON document includes
-the account identity, user-facing billing and founding status, server-held
-backup snapshots, reminder choices and non-secret delivery history. It
-explicitly marks current device progress as excluded.
+The first export layer is now a database-only foundation. Its privileged
+implementation lives in the non-exposed `private` schema and browser roles
+cannot execute it or use that schema. A service-role-only bridge accepts the
+owner UUID that a future authenticated server transport has independently
+verified; there is no browser-callable export RPC. The versioned JSON document
+includes the account identity, user-facing billing and founding status,
+server-held backup snapshots, reminder choices and non-secret delivery history.
+It explicitly marks current device progress as excluded.
 
 The function deliberately omits operational capabilities and external-system
 correlators: unsubscribe digests, delivery lease tokens, reservation email
 hashes, Stripe customer/session/subscription identifiers, provider message
 identifiers and webhook event identifiers. Anonymous and service-role callers
-cannot execute this self-service function. The internal Settings UI does not
-offer the download yet; that is a separate presentation and browser-download
-change, so the security boundary can be reviewed first.
+cannot use the private implementation directly, and browser roles cannot call
+the service bridge. The internal Settings UI does not offer the download yet;
+authenticated transport, presentation and browser-download behavior remain
+separate changes so each security boundary can be reviewed.
 
 ### Shared-browser and identity behavior
 
