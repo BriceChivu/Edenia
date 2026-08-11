@@ -149,7 +149,7 @@ test('billing hardening stays authenticated, environment-owned, and additive', a
   )
 })
 
-test('Supabase source contains the five staged billing Edge Functions', async () => {
+test('Supabase source contains the staged backend Edge Functions', async () => {
   const entries = await readdir(functionsRoot, { withFileTypes: true })
   const functionNames = entries
     .filter(entry => entry.isDirectory() && entry.name !== '_shared')
@@ -158,16 +158,17 @@ test('Supabase source contains the five staged billing Edge Functions', async ()
   assert.deepEqual(functionNames, [
     'create-billing-portal',
     'create-checkout-session',
+    'dispatch-study-reminders',
     'get-plus-offer',
     'link-checkout-session',
     'stripe-webhook'
   ])
 
-  const config = await readFile(
-    new URL('supabase/config.toml', projectRoot),
-    'utf8'
+  const billingFunctionNames = functionNames.filter(
+    functionName => functionName !== 'dispatch-study-reminders'
   )
-  for (const functionName of functionNames) {
+  const config = await readFile(new URL('supabase/config.toml', projectRoot), 'utf8')
+  for (const functionName of billingFunctionNames) {
     assert.match(config, new RegExp(`\\[functions\\.${functionName}\\]`))
     assert.match(
       config,
@@ -204,8 +205,14 @@ test('shared backend tests remain connected to package scripts and CI', async ()
     packageJson.scripts['test:supabase'],
     'node --test supabase/functions/_shared/*.test.ts'
   )
+  assert.equal(
+    packageJson.scripts['test:reminder-function'],
+    'deno check --frozen --config supabase/functions/dispatch-study-reminders/deno.json supabase/functions/dispatch-study-reminders/index.ts'
+  )
   assert.match(packageJson.scripts.test, /npm run test:supabase/)
+  assert.match(packageJson.scripts.test, /npm run test:reminder-function/)
   assert.match(packageJson.scripts['test:ci'], /npm run test:supabase/)
+  assert.match(packageJson.scripts['test:ci'], /npm run test:reminder-function/)
 
   const workflow = await readFile(
     new URL('.github/workflows/ci.yml', projectRoot),
@@ -214,6 +221,9 @@ test('shared backend tests remain connected to package scripts and CI', async ()
   assert.match(workflow, /supabase\/\*\)/)
   assert.match(workflow, /name: Run Supabase backend tests/)
   assert.match(workflow, /run: npm run test:supabase/)
+  assert.match(workflow, /uses: denoland\/setup-deno@v2/)
+  assert.match(workflow, /deno-version: v2\.1\.4/)
+  assert.match(workflow, /run: npm run test:reminder-function/)
   assert.match(workflow, /version: 2\.111\.0/)
   assert.match(
     workflow,

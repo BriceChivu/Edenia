@@ -142,6 +142,16 @@ jobs:
         if: steps.scope.outputs.supabase == 'true'
         run: npm run test:supabase
 
+      - name: Set up Deno for Edge Function checks
+        if: steps.scope.outputs.supabase == 'true'
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.1.4
+
+      - name: Type-check reminder Edge Function
+        if: steps.scope.outputs.supabase == 'true'
+        run: npm run test:reminder-function
+
       - name: Set up Supabase CLI
         if: steps.scope.outputs.supabase_db == 'true'
         uses: supabase/setup-cli@v1
