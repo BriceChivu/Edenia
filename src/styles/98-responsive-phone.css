@@ -784,6 +784,17 @@
     height: 22px;
     width: 22px;
   }
+  .settings-reminder-schedule-grid {
+    grid-template-columns: 1fr;
+  }
+  .settings-reminder-day-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .settings-reminder-day-grid label {
+    justify-content: flex-start;
+    min-height: 44px;
+    padding-inline: 12px;
+  }
   .settings-shorts-group .step-hint,
   .settings-anki-group .step-hint {
     margin: 0;

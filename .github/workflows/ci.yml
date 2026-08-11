@@ -35,6 +35,7 @@ jobs:
           run_browser=false
           run_catalogs=false
           run_supabase=false
+          run_supabase_db=false
           run_discovery_catalog=false
           run_community_catalog=false
 
@@ -43,6 +44,7 @@ jobs:
             run_browser=true
             run_catalogs=true
             run_supabase=true
+            run_supabase_db=true
           else
             mapfile -t changed_files < <(git diff --name-only "$BASE_SHA" HEAD)
             printf 'Changed files:\n'
@@ -78,6 +80,10 @@ jobs:
                 tests/contracts/*)
                   run_contracts=true
                   ;;
+                supabase/migrations/*_add_reminder_preferences.sql|supabase/tests/reminder_preferences_rls.test.sql)
+                  run_supabase=true
+                  run_supabase_db=true
+                  ;;
                 supabase/*)
                   run_supabase=true
                   ;;
@@ -93,6 +99,7 @@ jobs:
           echo "browser=$run_browser" >> "$GITHUB_OUTPUT"
           echo "catalogs=$run_catalogs" >> "$GITHUB_OUTPUT"
           echo "supabase=$run_supabase" >> "$GITHUB_OUTPUT"
+          echo "supabase_db=$run_supabase_db" >> "$GITHUB_OUTPUT"
           echo "discovery_catalog=$run_discovery_catalog" >> "$GITHUB_OUTPUT"
           echo "community_catalog=$run_community_catalog" >> "$GITHUB_OUTPUT"
 
@@ -135,6 +142,24 @@ jobs:
         if: steps.scope.outputs.supabase == 'true'
         run: npm run test:supabase
 
+      - name: Set up Supabase CLI
+        if: steps.scope.outputs.supabase_db == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.111.0
+
+      - name: Start isolated Supabase database
+        if: steps.scope.outputs.supabase_db == 'true'
+        run: supabase start
+
+      - name: Verify reminder preference isolation
+        if: steps.scope.outputs.supabase_db == 'true'
+        run: supabase test db supabase/tests/reminder_preferences_rls.test.sql --local
+
+      - name: Stop isolated Supabase database
+        if: always() && steps.scope.outputs.supabase_db == 'true'
+        run: supabase stop --no-backup
+
       - name: Install Playwright browsers
         if: steps.scope.outputs.browser == 'true'
         run: npx playwright install --with-deps chromium webkit
@@ -146,7 +171,7 @@ jobs:
         run: npx playwright test
 
       - name: Report skipped suites
-        if: steps.scope.outputs.contracts != 'true' && steps.scope.outputs.catalogs != 'true' && steps.scope.outputs.supabase != 'true'
+        if: steps.scope.outputs.contracts != 'true' && steps.scope.outputs.catalogs != 'true' && steps.scope.outputs.supabase != 'true' && steps.scope.outputs.supabase_db != 'true'
         run: echo "Documentation or workflow-only change; no automated test suite required."
 
       - name: Upload Playwright diagnostics
