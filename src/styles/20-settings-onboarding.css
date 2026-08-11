@@ -515,6 +515,91 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   gap: 9px;
   padding: 12px;
 }
+.settings-reminder-form,
+.settings-reminder-form > fieldset,
+.settings-reminder-days,
+.settings-reminder-schedule-grid {
+  display: grid;
+  gap: 10px;
+}
+.settings-reminder-form > fieldset,
+.settings-reminder-days {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+.settings-reminder-form > fieldset:disabled { opacity: 0.64; }
+.settings-reminder-enabled,
+.settings-reminder-consent {
+  align-items: flex-start;
+  margin: 0;
+}
+.settings-reminder-enabled input,
+.settings-reminder-consent input,
+.settings-reminder-day-grid input {
+  flex: 0 0 auto;
+  width: auto;
+}
+.settings-reminder-days legend {
+  margin-bottom: 7px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.settings-reminder-day-grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.settings-reminder-day-grid label {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  display: flex;
+  font-size: 0.74rem;
+  gap: 5px;
+  justify-content: center;
+  min-height: 34px;
+  padding: 5px 7px;
+}
+.settings-reminder-schedule-grid {
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+}
+.settings-reminder-schedule-grid label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.settings-reminder-schedule-grid input {
+  min-width: 0;
+}
+.settings-account-reminders .settings-reminder-help,
+.settings-account-reminders .settings-reminder-sign-in,
+.settings-account-reminders .settings-reminder-feedback,
+.settings-account-reminders .settings-reminder-delivery-note {
+  margin: 0;
+}
+.settings-reminder-help { font-size: 0.76rem !important; }
+.settings-reminder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.settings-reminder-actions button { flex: 1 1 140px; }
+.settings-reminder-feedback {
+  border-radius: calc(var(--radius) - 4px);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  padding: 9px 10px;
+}
+.settings-reminder-feedback[data-reminder-tone="error"] {
+  background: color-mix(in srgb, var(--error) 9%, transparent);
+  color: var(--error);
+}
+.settings-account-reminders .settings-reminder-delivery-note {
+  border-top: 1px solid var(--border);
+  padding-top: 9px;
+}
 .settings-account-sign-out { justify-self: start; }
 .settings-account-feedback {
   margin: 0;

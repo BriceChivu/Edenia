@@ -34,7 +34,7 @@ test('general accounts and Plus reuse one browser auth client and storage sessio
   )
   assert.match(
     source,
-    /createAccountAuthController\(\{\s*client: getSupabaseClient\(\)/
+    /const client = getSupabaseClient\(\)[\s\S]*createAccountAuthController\(\{\s*client,/
   )
   assert.equal(
     source.match(/createEdeniaSupabaseClient\(\{/g)?.length,
@@ -69,12 +69,30 @@ test('internal Account UI replaces only the internal Plus settings presentation'
 })
 
 test('Account UI actions do not read, write, import, or export study progress', async () => {
-  const source = await readFile(
+  const accountActionsSource = await readFile(
     new URL('../../src/features/settings/account-actions.js', import.meta.url),
     'utf8'
   )
+  const reminderActionsSource = await readFile(
+    new URL('../../src/features/settings/reminder-preference-actions.js', import.meta.url),
+    'utf8'
+  )
+  const reminderControllerSource = await readFile(
+    new URL('../../src/integrations/reminder-preferences-controller.js', import.meta.url),
+    'utf8'
+  )
 
-  assert.doesNotMatch(source, /localStorage|loadState|saveState|progress|backup|sync/i)
+  for (const source of [
+    accountActionsSource,
+    reminderActionsSource,
+    reminderControllerSource
+  ]) {
+    assert.doesNotMatch(
+      source,
+      /localStorage|loadState|saveState|progress|backup|state_backups|syncEdenia/i
+    )
+  }
+  assert.doesNotMatch(reminderControllerSource, /\bemail\s*:/i)
 })
 
 test('account session state drives isolated UUID-only analytics identity', async () => {
@@ -86,7 +104,7 @@ test('account session state drives isolated UUID-only analytics identity', async
 
   assert.match(
     source,
-    /onStateChange\(state\) \{\s*accountAuthViewState = state\s*accountAnalyticsIdentity\.synchronize\(state\)\s*renderAccountSettings\(state\)/
+    /onStateChange\(state\) \{\s*accountAuthViewState = state\s*accountAnalyticsIdentity\.synchronize\(state\)[\s\S]*reminderPreferencesController\.synchronizeAccount\([\s\S]*renderAccountSettings\(state\)/
   )
   assert.match(identitySource, /accountState\?\.userId/)
   assert.doesNotMatch(identitySource, /email|localStorage|loadState|saveState|progress|syncEdenia/i)
