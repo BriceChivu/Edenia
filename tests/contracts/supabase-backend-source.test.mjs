@@ -459,4 +459,12 @@ test('shared backend tests remain connected to package scripts and CI', async ()
     workflow,
     /supabase\/migrations\/\*_add_self_scoped_account_export\.sql\|supabase\/migrations\/\*_hide_account_export_definer\.sql\|supabase\/tests\/account_server_data_export\.test\.sql/
   )
+  assert.match(
+    workflow,
+    /supabase test db supabase\/tests\/account_export_rate_limit\.test\.sql --local/
+  )
+  assert.match(
+    workflow,
+    /supabase\/migrations\/\*_ensure_account_export_rate_limit\.sql\|supabase\/tests\/account_export_rate_limit\.test\.sql/
+  )
 })
