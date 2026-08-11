@@ -133,6 +133,10 @@ import {
   createAccountAuthController
 } from './integrations/account-auth-controller.js'
 import {
+  ACCOUNT_EXPORT_FEEDBACK,
+  createAccountExportController
+} from './integrations/account-export-controller.js'
+import {
   createPlusAuthController,
   PLUS_ACCOUNT_FEEDBACK,
   PLUS_ACCOUNT_SESSION_STATES
@@ -737,6 +741,7 @@ let selectedActivityLogFilter = 'all'
 let mobileActivityLogVisibleCount = 20
 let supabaseClient = null
 let accountAuthController = null
+let accountExportController = null
 const accountAnalyticsIdentity = createAccountAnalyticsIdentity({
   identify: identifyEdeniaAuthenticatedUser,
   reset: resetEdeniaAuthenticatedUser
@@ -748,6 +753,11 @@ let accountAuthViewState = Object.freeze({
   busyAction: null,
   error: null,
   notice: null
+})
+let accountExportViewState = Object.freeze({
+  userId: null,
+  busyAction: null,
+  feedback: null
 })
 let reminderPreferencesController = null
 let reminderPreferenceViewState = Object.freeze({
@@ -4631,6 +4641,49 @@ const ACCOUNT_AUTH_FEEDBACK_VIEWS = Object.freeze({
   }
 })
 
+const ACCOUNT_EXPORT_FEEDBACK_VIEWS = Object.freeze({
+  [ACCOUNT_EXPORT_FEEDBACK.COMPLETE]: {
+    key: 'settings.account.exportFeedback.complete', tone: 'success'
+  },
+  [ACCOUNT_EXPORT_FEEDBACK.FAILED]: {
+    key: 'settings.account.exportFeedback.failed', tone: 'error'
+  },
+  [ACCOUNT_EXPORT_FEEDBACK.RATE_LIMITED]: {
+    key: 'settings.account.exportFeedback.rateLimited', tone: 'error'
+  },
+  [ACCOUNT_EXPORT_FEEDBACK.SIGN_IN_REQUIRED]: {
+    key: 'settings.account.exportFeedback.signInRequired', tone: 'error'
+  }
+})
+
+function renderAccountExport() {
+  const button = document.getElementById('accountExportBtn')
+  const feedback = document.getElementById('accountExportFeedback')
+  const busy = accountExportViewState.busyAction === 'download'
+  if (button) {
+    button.disabled = busy
+      || accountAuthViewState.sessionState !== ACCOUNT_SESSION_STATES.SIGNED_IN
+      || Boolean(accountAuthViewState.busyAction)
+    button.textContent = t(
+      busy
+        ? 'settings.account.exportDownloading'
+        : 'settings.account.exportDownload'
+    )
+  }
+  const view = ACCOUNT_EXPORT_FEEDBACK_VIEWS[accountExportViewState.feedback]
+    || null
+  if (feedback) {
+    feedback.classList.toggle('hidden', !view)
+    feedback.textContent = view ? t(view.key) : ''
+    feedback.dataset.accountTone = view?.tone || 'success'
+    feedback.setAttribute('role', view?.tone === 'error' ? 'alert' : 'status')
+    feedback.setAttribute(
+      'aria-live',
+      view?.tone === 'error' ? 'assertive' : 'polite'
+    )
+  }
+}
+
 const REMINDER_PREFERENCE_FEEDBACK_VIEWS = Object.freeze({
   [REMINDER_PREFERENCE_FEEDBACK.CONSENT_REQUIRED]: {
     key: 'settings.account.remindersFeedback.consentRequired', tone: 'error'
@@ -4827,6 +4880,7 @@ function renderAccountSettings(state = accountAuthViewState) {
         : 'settings.account.signOut'
     )
   }
+  renderAccountExport()
 
   const feedback = document.getElementById('accountFeedback')
   const feedbackView = ACCOUNT_AUTH_FEEDBACK_VIEWS[state?.error]
@@ -5164,6 +5218,14 @@ function initializeAccountAuth() {
 
   try {
     const client = getSupabaseClient()
+    accountExportController = createAccountExportController({
+      client,
+      download: downloadAccountExport,
+      onStateChange(state) {
+        accountExportViewState = state
+        renderAccountExport()
+      }
+    })
     reminderPreferencesController = createReminderPreferencesController({
       client,
       onStateChange(state) {
@@ -5185,6 +5247,7 @@ function initializeAccountAuth() {
       onStateChange(state) {
         accountAuthViewState = state
         accountAnalyticsIdentity.synchronize(state)
+        accountExportController.synchronizeAccount(state)
         void reminderPreferencesController.synchronizeAccount(
           state,
           getReminderPreferenceDefaults()
@@ -5193,6 +5256,7 @@ function initializeAccountAuth() {
       }
     })
     accountAuthViewState = accountAuthController.getState()
+    accountExportController.synchronizeAccount(accountAuthViewState)
     renderAccountSettings()
     void accountAuthController.initialize()
   } catch (error) {
@@ -5219,6 +5283,24 @@ function sendAccountMagicLink(email) {
 
 function signOutAccount() {
   return accountAuthController?.signOut()
+}
+
+function downloadAccountExport(data, filename) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: 'application/json'
+  })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
+}
+
+function downloadAccountData() {
+  return accountExportController?.exportData()
 }
 
 function saveReminderPreference(input) {
@@ -16806,6 +16888,7 @@ bindSettingsAccountActions(document, {
   signInWithGoogle: signInAccountWithGoogle,
   sendMagicLink: sendAccountMagicLink,
   signOut: signOutAccount,
+  downloadAccount: downloadAccountData,
   refreshPlus: refreshPlusAccount,
   manageBilling: managePlusBilling,
   explorePlus: () => openPlusUpgradeModal()

@@ -322,6 +322,13 @@ and momentum—at a glance</h2>
             <strong id="accountUserEmail"></strong>
           </div>
 
+          <section class="settings-account-export" aria-labelledby="accountExportTitle">
+            <h3 id="accountExportTitle" data-i18n="settings.account.exportTitle">Account data</h3>
+            <p data-i18n="settings.account.exportDescription">Download the account and reminder data Edenia stores on the server. Study progress saved in this browser is not included.</p>
+            <button class="btn-secondary" id="accountExportBtn" type="button" data-account-action="download-account" data-i18n="settings.account.exportDownload">Download account data</button>
+            <p class="settings-account-export-feedback hidden" id="accountExportFeedback" role="status" aria-live="polite"></p>
+          </section>
+
           <section class="settings-account-plus" aria-labelledby="accountPlusTitle">
             <div class="settings-plus-account-header">
               <h3 id="accountPlusTitle" data-i18n="settings.account.plusTitle">Edenia Plus</h3>
