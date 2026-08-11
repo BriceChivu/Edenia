@@ -580,6 +580,21 @@ tested without destroying data. Export must keep browser-local study progress
 separate: it is already available through **Export sync file** and is not owned
 by the signed-in account.
 
+The first export layer is now a database-only foundation. Authenticated users
+can call `export_account_server_data()` without supplying a user identifier;
+the verified JWT is the only owner input. The versioned JSON document includes
+the account identity, user-facing billing and founding status, server-held
+backup snapshots, reminder choices and non-secret delivery history. It
+explicitly marks current device progress as excluded.
+
+The function deliberately omits operational capabilities and external-system
+correlators: unsubscribe digests, delivery lease tokens, reservation email
+hashes, Stripe customer/session/subscription identifiers, provider message
+identifiers and webhook event identifiers. Anonymous and service-role callers
+cannot execute this self-service function. The internal Settings UI does not
+offer the download yet; that is a separate presentation and browser-download
+change, so the security boundary can be reviewed first.
+
 ### Shared-browser and identity behavior
 
 The account controller signs out with Supabase's local scope. The regression
@@ -615,8 +630,8 @@ queue indexes based on an unused-index INFO notice during the inert rollout.
 
 ## Public-readiness items still deferred
 
-- Server-data export, subscription-aware account deletion, retention choices,
-  and recovery after partial deletion.
+- Account-export UI and browser download behavior, subscription-aware account
+  deletion, retention choices, and recovery after partial deletion.
 - Email-change and identity-linking behavior across Google, magic link and
   existing Plus accounts.
 - CAPTCHA client integration and a deliberate magic-link rate-limit decision.
