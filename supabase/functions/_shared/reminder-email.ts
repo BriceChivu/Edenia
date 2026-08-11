@@ -175,6 +175,31 @@ export function createReminderUnsubscribeApiUrl(
   }
   url.searchParams.set('token', requireReminderToken(token))
   url.searchParams.set('lang', normalizeReminderLocale(locale))
+  return validateReminderUnsubscribeApiUrl(url.href)
+}
+
+export function validateReminderUnsubscribeApiUrl(value: string) {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    throw new TypeError('Reminder unsubscribe API URL is invalid')
+  }
+  assertUnsubscribeEndpoint(url)
+  const keys = [...url.searchParams.keys()]
+  if (
+    keys.length !== 2
+    || url.searchParams.getAll('token').length !== 1
+    || url.searchParams.getAll('lang').length !== 1
+    || !keys.every(key => key === 'token' || key === 'lang')
+  ) {
+    throw new TypeError('Reminder unsubscribe API URL has invalid parameters')
+  }
+  requireReminderToken(url.searchParams.get('token'))
+  const locale = url.searchParams.get('lang')
+  if (normalizeReminderLocale(locale) !== locale) {
+    throw new TypeError('Reminder unsubscribe API URL has an invalid locale')
+  }
   return url.href
 }
 
