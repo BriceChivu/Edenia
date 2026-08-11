@@ -20,9 +20,12 @@ email design.
 - `dispatch-study-reminders` is manual, secret-key authenticated, bounded to 25
   claims, and dry-run only. It logs intended occurrences and contacts no email
   provider.
-- `unsubscribe-study-reminders` is a public confirmation endpoint. A `GET`
-  never reads or changes reminder state; a valid opaque capability submitted by
-  `POST` can perform only the service-owned unsubscribe operation.
+- `/unsubscribe/` is a static, analytics-free confirmation page on Edenia's
+  GitHub Pages origin. It removes the capability from the address bar before
+  the user can act and never reads local study state.
+- `unsubscribe-study-reminders` is a JSON-only mutation API. A valid opaque
+  capability submitted by `POST` can perform only the service-owned
+  unsubscribe operation; `GET` returns `405` without checking the capability.
 - There is no Cron schedule, email-provider key, sender domain, or live delivery
   adapter. No current worker generates or stores unsubscribe capabilities.
 
@@ -192,16 +195,22 @@ safe than leaving unreachable state.
   Edge Function secret.
 - One occurrence can bind to only one token digest, and consuming it twice must
   not repeat the mutation.
-- An email-link `GET` shows confirmation rather than consuming the token;
-  security scanners commonly follow links. A deliberate form `POST` performs
-  the unsubscribe. The endpoint also accepts the standard exact
+- An email-link `GET` loads the static Edenia confirmation page rather than
+  consuming the token; security scanners commonly follow links. A deliberate
+  browser action sends the API `POST`. The API also accepts the standard exact
   `List-Unsubscribe=One-Click` form body; a future provider adapter still needs
   to add and verify the corresponding email headers.
 - The endpoint intentionally requires no Supabase JWT. Possession of the
   256-bit capability authorizes only the narrow service-role token-consumption
   RPC. It cannot select users, email addresses, preferences, or private tables.
-- Token URLs are sensitive until consumed. They use `no-referrer` and
-  `no-store` responses and must never be copied into logs, analytics, issue
+- The browser API path accepts only the exact Edenia production origin and the
+  exact localhost development origin when an `Origin` header is present.
+  Supabase's gateway may emit permissive CORS response headers and answer
+  preflight itself, so CORS is not an authorization boundary; the handler still
+  rejects an unrecognized origin on the mutation request.
+- Token URLs are sensitive until consumed. The static page loads no analytics,
+  uses a no-referrer policy, and removes the token from browser history. API
+  responses use `no-store`. Never copy token URLs into logs, analytics, issue
   comments, or pull-request text.
 
 The public endpoint exists before live delivery so its behavior can be tested
@@ -210,29 +219,38 @@ allowlisted live worker is separately reviewed.
 
 ## Verify the inert unsubscribe endpoint
 
-After deploying the Edge Function, use a syntactically valid dummy capability
-to verify only its public confirmation behavior:
+After deploying Pages and the Edge Function, use a syntactically valid dummy
+capability to verify only the public confirmation behavior:
 
 ```text
-https://PROJECT_REF.supabase.co/functions/v1/unsubscribe-study-reminders?token=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&lang=en
+https://bricechivu.github.io/Edenia/unsubscribe/?token=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&lang=en
 ```
 
-The page must show a confirmation button and the database counts in the
-operator preflight must remain unchanged. Submitting this dummy value should
-show a generic invalid-link response and must not create a suppression.
+The page must show a confirmation button, change its visible URL to
+`/Edenia/unsubscribe/?lang=en`, and leave the operator-preflight counts
+unchanged. Submitting this dummy value should show a generic invalid-link
+response and must not create a suppression.
+
+Do not serve this UI directly from the shared Supabase function domain.
+[Supabase documents that HTML responses are rewritten to plain text](https://supabase.com/docs/guides/functions/http-methods)
+because Edge Functions on that domain are intended as APIs. A Supabase custom
+domain could change that constraint, but it is a paid product/domain decision
+and is unnecessary while Edenia already has a static Pages origin.
 
 For a real local integration test, create a disposable user, preference,
 claimed delivery, and matching token digest in the isolated local database.
 Verify these transitions, then delete the fixture:
 
-1. `GET` returns `200` and leaves the preference enabled and token unconsumed.
-2. The first form `POST` returns `200`, disables the preference, records an
+1. Loading the static page leaves the preference enabled and token unconsumed;
+   a direct API `GET` returns JSON `405` without touching the database.
+2. The first allowed-origin form `POST` returns JSON `200`, disables the
+   preference, records an
    `unsubscribed` / `unsubscribe_token` suppression, consumes the digest, and
    changes claimed work to `suppressed` with its lease token cleared.
 3. Repeating the form `POST` and sending the exact one-click form body both
    return `200` without applying another mutation.
 4. Invalid, duplicate, oversized, or wrong-content-type input never calls the
-   database mutation.
+   database mutation, and an unrecognized browser origin receives `403`.
 
 ## Known verification gaps
 
