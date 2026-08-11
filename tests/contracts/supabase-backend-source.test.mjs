@@ -161,11 +161,16 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
     'dispatch-study-reminders',
     'get-plus-offer',
     'link-checkout-session',
-    'stripe-webhook'
+    'stripe-webhook',
+    'unsubscribe-study-reminders'
   ])
 
+  const reminderFunctionNames = new Set([
+    'dispatch-study-reminders',
+    'unsubscribe-study-reminders'
+  ])
   const billingFunctionNames = functionNames.filter(
-    functionName => functionName !== 'dispatch-study-reminders'
+    functionName => !reminderFunctionNames.has(functionName)
   )
   const config = await readFile(new URL('supabase/config.toml', projectRoot), 'utf8')
   for (const functionName of billingFunctionNames) {
@@ -194,6 +199,26 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
     )
     assert.doesNotMatch(functionSource, /stripe@14\?target=deno/)
   }
+
+  assert.match(
+    config,
+    /\[functions\.unsubscribe-study-reminders\][\s\S]*?verify_jwt = false/
+  )
+  const unsubscribeDenoConfig = JSON.parse(await readFile(
+    new URL('unsubscribe-study-reminders/deno.json', functionsRoot),
+    'utf8'
+  ))
+  assert.equal(
+    unsubscribeDenoConfig.imports['@supabase/server'],
+    'npm:@supabase/server@1.4.1'
+  )
+  const unsubscribeSource = await readFile(
+    new URL('unsubscribe-study-reminders/index.ts', functionsRoot),
+    'utf8'
+  )
+  assert.match(unsubscribeSource, /auth: 'none', cors: false/)
+  assert.match(unsubscribeSource, /context\.supabaseAdmin/)
+  assert.doesNotMatch(unsubscribeSource, /Deno\.env|getUser|\.from\(/)
 })
 
 test('shared backend tests remain connected to package scripts and CI', async () => {
@@ -207,7 +232,7 @@ test('shared backend tests remain connected to package scripts and CI', async ()
   )
   assert.equal(
     packageJson.scripts['test:reminder-function'],
-    'deno check --frozen --config supabase/functions/dispatch-study-reminders/deno.json supabase/functions/dispatch-study-reminders/index.ts'
+    'deno check --frozen --config supabase/functions/dispatch-study-reminders/deno.json supabase/functions/dispatch-study-reminders/index.ts && deno check --frozen --config supabase/functions/unsubscribe-study-reminders/deno.json supabase/functions/unsubscribe-study-reminders/index.ts'
   )
   assert.match(packageJson.scripts.test, /npm run test:supabase/)
   assert.match(packageJson.scripts.test, /npm run test:reminder-function/)
