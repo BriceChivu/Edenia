@@ -317,4 +317,8 @@ test('shared backend tests remain connected to package scripts and CI', async ()
     workflow,
     /supabase test db supabase\/tests\/account_owner_policies\.test\.sql --local/
   )
+  assert.match(
+    workflow,
+    /supabase\/migrations\/\*_optimize_account_owner_policies\.sql\|supabase\/tests\/account_owner_policies\.test\.sql/
+  )
 })
