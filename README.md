@@ -549,6 +549,7 @@ Architecture, preservation, and release references:
 
 - [Architecture](docs/architecture.md)
 - [Account authentication](docs/account-authentication.md)
+- [Internal account and reminder operations](docs/account-reminder-operations.md)
 - [Current experience preservation inventory](docs/current-experience-inventory.md)
 - [Responsive review matrix](docs/responsive-review-matrix.md)
 - [Deployment and release runbook](docs/deployment-and-releases.md)
