@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   createResendReminderIdempotencyKey,
+  RESEND_REMINDER_SOURCE_TAG,
   type ResendReminderSendInput,
   sendReminderWithResend,
   validateResendReminderConfiguration,
@@ -77,6 +78,10 @@ test('builds one deterministic privacy-safe Resend request', async () => {
       'List-Unsubscribe': `<${UNSUBSCRIBE_API_URL}>`,
       'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
     },
+    tags: [
+      { name: 'source', value: RESEND_REMINDER_SOURCE_TAG },
+      { name: 'delivery_id', value: DELIVERY_ID },
+    ],
   })
   assert.doesNotMatch(String(capturedInit?.body), /re_test_key/i)
 })

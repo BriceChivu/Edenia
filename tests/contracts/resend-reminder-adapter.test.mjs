@@ -40,6 +40,8 @@ test('Resend adapter locks the provider and deduplication contract', () => {
   assert.match(adapter, /'User-Agent': 'Edenia-reminders\/1\.0'/)
   assert.match(adapter, /'List-Unsubscribe': `<\$\{unsubscribeApiUrl\}>`/)
   assert.match(adapter, /'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click'/)
+  assert.match(adapter, /RESEND_REMINDER_SOURCE_TAG = 'edenia-study-reminder'/)
+  assert.match(adapter, /\{ name: 'delivery_id', value: input\.deliveryId\.toLowerCase\(\) \}/)
   assert.doesNotMatch(adapter, /Deno\.env|process\.env|console\.|\.log\(/)
 })
 

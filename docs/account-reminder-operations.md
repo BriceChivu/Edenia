@@ -259,6 +259,9 @@ provider-begin database fence. Its contract is:
   during a retry.
 - The payload always contains the same normalized single recipient, localized
   subject, text and HTML, and RFC 8058 `List-Unsubscribe` headers.
+- Two non-personal tags identify the Edenia reminder source and stable delivery
+  UUID so a signed webhook can correlate an event without persisting or trusting
+  the recipient address from the provider payload.
 - Provider bodies, messages, email addresses, and secrets are never returned in
   adapter results. Results contain only bounded reason codes and, after a
   validated success, the provider message ID.
