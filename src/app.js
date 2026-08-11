@@ -127,6 +127,9 @@ import {
 } from './integrations/runtime-config.js'
 import { createEdeniaSupabaseClient } from './integrations/supabase-client.js'
 import {
+  ACCOUNT_AUTH_ERRORS,
+  ACCOUNT_AUTH_NOTICES,
+  ACCOUNT_SESSION_STATES,
   createAccountAuthController
 } from './integrations/account-auth-controller.js'
 import {
@@ -366,6 +369,9 @@ import {
 } from './features/study-insights/locked-access-actions.js'
 import { bindActivityLogFilterActions } from './features/settings/activity-log-filter-actions.js'
 import { bindActivityLogPaginationActions } from './features/settings/activity-log-pagination-actions.js'
+import {
+  bindSettingsAccountActions
+} from './features/settings/account-actions.js'
 import {
   bindSettingsBackupRestoreActions
 } from './features/settings/backup-restore-actions.js'
@@ -717,6 +723,14 @@ let selectedActivityLogFilter = 'all'
 let mobileActivityLogVisibleCount = 20
 let supabaseClient = null
 let accountAuthController = null
+let accountAuthViewState = Object.freeze({
+  sessionState: ACCOUNT_SESSION_STATES.LOADING,
+  userId: null,
+  email: '',
+  busyAction: null,
+  error: null,
+  notice: null
+})
 let plusAccountController = null
 let plusAccountViewState = null
 let plusBillingController = null
@@ -983,6 +997,7 @@ function applyTranslations(root = document) {
     el.setAttribute('alt', t(el.dataset.i18nAlt))
   })
   renderLocaleSelect()
+  renderAccountSettings()
   renderPlusAccountSettings()
   renderPlusUpgradeModal()
 }
@@ -2130,6 +2145,7 @@ function init() {
   applyLocale(state.config.locale)
   initializeAccountAuth()
   initializePlusAccount()
+  initializeRequestedAccountSettings()
   initializeRequestedPlusModal()
   updateDocumentTitle(state)
   document.body.dataset.sandbox = IS_SANDBOX ? 'true' : 'false'
@@ -4558,9 +4574,205 @@ const PLUS_SETTINGS_BILLING_FEEDBACK_VIEWS = Object.freeze({
   }
 })
 
+const ACCOUNT_AUTH_FEEDBACK_VIEWS = Object.freeze({
+  [ACCOUNT_AUTH_ERRORS.GOOGLE_SIGN_IN_FAILED]: {
+    key: 'settings.account.feedback.googleError', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.INVALID_EMAIL]: {
+    key: 'settings.account.feedback.invalidEmail', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.MAGIC_LINK_FAILED]: {
+    key: 'settings.account.feedback.magicLinkError', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.OAUTH_CANCELLED]: {
+    key: 'settings.account.feedback.cancelled', tone: 'neutral'
+  },
+  [ACCOUNT_AUTH_ERRORS.OAUTH_FAILED]: {
+    key: 'settings.account.feedback.oauthError', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.RETURN_DESTINATION_NOT_ALLOWED]: {
+    key: 'settings.account.feedback.returnError', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.SESSION_UNAVAILABLE]: {
+    key: 'settings.account.feedback.unavailable', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED]: {
+    key: 'settings.account.feedback.signOutError', tone: 'error'
+  },
+  [ACCOUNT_AUTH_NOTICES.MAGIC_LINK_SENT]: {
+    key: 'settings.account.feedback.linkSent', tone: 'success'
+  }
+})
+
+function getPlusSettingsFeedbackView(state) {
+  return PLUS_SETTINGS_BILLING_FEEDBACK_VIEWS[
+    plusBillingViewState?.feedback
+  ] || PLUS_ACCOUNT_FEEDBACK_VIEWS[state?.feedback]
+    || (state?.usingCachedEntitlement
+      ? {
+          key: 'settings.plusAccount.status.cached',
+          tone: 'warning'
+        }
+      : null)
+}
+
+function renderAccountSettings(state = accountAuthViewState) {
+  const group = document.getElementById('accountSettings')
+  if (!group) return
+  group.classList.toggle('hidden', !ACCOUNT_FEATURES_ENABLED)
+  if (!ACCOUNT_FEATURES_ENABLED) return
+
+  const sessionState = state?.sessionState || ACCOUNT_SESSION_STATES.UNAVAILABLE
+  const signedIn = sessionState === ACCOUNT_SESSION_STATES.SIGNED_IN
+  const loading = sessionState === ACCOUNT_SESSION_STATES.LOADING
+  const unavailable = sessionState === ACCOUNT_SESSION_STATES.UNAVAILABLE
+  const authBusy = Boolean(state?.busyAction)
+  group.setAttribute('aria-busy', String(loading || authBusy))
+  document.getElementById('accountLoading')?.classList.toggle('hidden', !loading)
+  document.getElementById('accountSignedOut')?.classList.toggle(
+    'hidden',
+    loading || signedIn
+  )
+  document.getElementById('accountSignedIn')?.classList.toggle('hidden', !signedIn)
+
+  const email = document.getElementById('accountUserEmail')
+  if (email) email.textContent = state?.email || ''
+  const googleButton = document.getElementById('accountGoogleBtn')
+  if (googleButton) {
+    googleButton.disabled = authBusy || unavailable
+    const label = googleButton.querySelector('[data-i18n]')
+    if (label) {
+      label.textContent = t(
+        state?.busyAction === 'google-sign-in'
+          ? 'settings.account.googleLoading'
+          : 'settings.account.google'
+      )
+    }
+  }
+  const emailInput = document.getElementById('accountEmail')
+  if (emailInput) emailInput.disabled = authBusy || unavailable
+  const emailButton = document.getElementById('accountEmailBtn')
+  if (emailButton) {
+    emailButton.disabled = authBusy || unavailable
+    emailButton.textContent = t(
+      state?.busyAction === 'email-sign-in'
+        ? 'settings.account.sendingLink'
+        : 'settings.account.sendLink'
+    )
+  }
+  const signOutButton = document.getElementById('accountSignOutBtn')
+  if (signOutButton) {
+    signOutButton.disabled = authBusy
+    signOutButton.textContent = t(
+      state?.busyAction === 'sign-out'
+        ? 'settings.account.signingOut'
+        : 'settings.account.signOut'
+    )
+  }
+
+  const feedback = document.getElementById('accountFeedback')
+  const feedbackView = ACCOUNT_AUTH_FEEDBACK_VIEWS[state?.error]
+    || ACCOUNT_AUTH_FEEDBACK_VIEWS[state?.notice]
+    || null
+  if (feedback) {
+    feedback.classList.toggle('hidden', !feedbackView)
+    feedback.textContent = feedbackView ? t(feedbackView.key) : ''
+    feedback.dataset.accountTone = feedbackView?.tone || 'success'
+    feedback.setAttribute('role', feedbackView?.tone === 'error' ? 'alert' : 'status')
+    feedback.setAttribute(
+      'aria-live',
+      feedbackView?.tone === 'error' ? 'assertive' : 'polite'
+    )
+  }
+
+  const plusState = plusAccountViewState
+  const plusStatusView = plusState
+    ? getPlusAccountStatusView(plusState)
+    : { key: 'settings.plusAccount.status.loading', tone: 'neutral' }
+  const plusStatus = document.getElementById('accountPlusStatus')
+  const plusBadge = document.getElementById('accountPlusBadge')
+  if (plusStatus) plusStatus.textContent = t(plusStatusView.key)
+  if (plusBadge) {
+    plusBadge.textContent = t(plusStatusView.key)
+    plusBadge.dataset.plusAccountTone = plusStatusView.tone
+  }
+
+  const hasSubscription = Boolean(plusState?.subscriptionStatus)
+  document.getElementById('accountPlusSubscription')?.classList.toggle(
+    'hidden',
+    !hasSubscription
+  )
+  const plan = document.getElementById('accountPlusPlan')
+  if (plan) {
+    const planKey = String(plusState?.plan || '').includes('annual')
+      ? 'plus.plan.annual.title'
+      : 'plus.plan.monthly.title'
+    plan.textContent = hasSubscription
+      ? t('settings.plusAccount.plan', { plan: t(planKey) })
+      : ''
+  }
+  const period = document.getElementById('accountPlusPeriod')
+  if (period) {
+    const date = plusState?.currentPeriodEnd
+      ? formatLocaleDate(plusState.currentPeriodEnd, {
+          year: 'numeric', month: 'short', day: 'numeric'
+        })
+      : ''
+    period.textContent = date
+      ? t(
+          plusState?.cancelAtPeriodEnd
+            ? 'settings.plusAccount.ends'
+            : 'settings.plusAccount.renews',
+          { date }
+        )
+      : ''
+  }
+  document.getElementById('accountPlusPaymentHelp')?.classList.toggle(
+    'hidden',
+    plusState?.entitlementState !== PLUS_ENTITLEMENT_STATES.PAYMENT_PROBLEM
+  )
+
+  const plusBusy = Boolean(plusState?.busyAction)
+  const refreshButton = document.getElementById('accountPlusRefreshBtn')
+  if (refreshButton) {
+    refreshButton.disabled = plusBusy
+      || plusState?.sessionState === PLUS_ACCOUNT_SESSION_STATES.UNAVAILABLE
+    refreshButton.textContent = t(
+      plusState?.busyAction === 'refresh'
+        ? 'settings.plusAccount.refreshing'
+        : 'settings.plusAccount.refresh'
+    )
+  }
+  const billingButton = document.getElementById('accountPlusBillingBtn')
+  if (billingButton) {
+    billingButton.classList.toggle('hidden', !hasSubscription)
+    billingButton.disabled = plusBusy || Boolean(plusBillingViewState?.busyAction)
+    billingButton.textContent = t(
+      plusBillingViewState?.busyAction === 'create-billing-portal'
+        ? 'plus.account.managing'
+        : 'settings.plusAccount.manageBilling'
+    )
+  }
+  const plusFeedback = document.getElementById('accountPlusFeedback')
+  const plusFeedbackView = getPlusSettingsFeedbackView(plusState)
+  if (plusFeedback) {
+    plusFeedback.classList.toggle('hidden', !plusFeedbackView)
+    plusFeedback.textContent = plusFeedbackView
+      ? t(plusFeedbackView.key, { email: plusState?.feedbackEmail })
+      : ''
+    plusFeedback.dataset.plusAccountTone = plusFeedbackView?.tone || 'success'
+  }
+  renderTrackedChannelAccess()
+}
+
 function renderPlusAccountSettings(state = plusAccountViewState) {
   const group = document.getElementById('plusAccountSettings')
   if (!group || !state) return
+  if (ACCOUNT_FEATURES_ENABLED) {
+    group.classList.add('hidden')
+    renderAccountSettings()
+    return
+  }
   group.classList.remove('hidden')
   renderTrackedChannelAccess()
 
@@ -4658,15 +4870,7 @@ function renderPlusAccountSettings(state = plusAccountViewState) {
 
   const feedback = document.getElementById('plusAccountFeedback')
   if (!feedback) return
-  const feedbackView = PLUS_SETTINGS_BILLING_FEEDBACK_VIEWS[
-    plusBillingViewState?.feedback
-  ] || PLUS_ACCOUNT_FEEDBACK_VIEWS[state.feedback]
-    || (state.usingCachedEntitlement
-      ? {
-          key: 'settings.plusAccount.status.cached',
-          tone: 'warning'
-        }
-      : null)
+  const feedbackView = getPlusSettingsFeedbackView(state)
   feedback.classList.toggle('hidden', !feedbackView)
   feedback.textContent = feedbackView
     ? t(feedbackView.key, { email: state.feedbackEmail })
@@ -4784,19 +4988,58 @@ function getSupabaseClient() {
 }
 
 function initializeAccountAuth() {
-  if (!ACCOUNT_FEATURES_ENABLED || !hasSupabaseRuntimeConfig()) return
+  if (!ACCOUNT_FEATURES_ENABLED) return
+  renderAccountSettings()
+  if (!hasSupabaseRuntimeConfig()) {
+    accountAuthViewState = Object.freeze({
+      sessionState: ACCOUNT_SESSION_STATES.UNAVAILABLE,
+      userId: null,
+      email: '',
+      busyAction: null,
+      error: ACCOUNT_AUTH_ERRORS.SESSION_UNAVAILABLE,
+      notice: null
+    })
+    renderAccountSettings()
+    return
+  }
 
   try {
     accountAuthController = createAccountAuthController({
       client: getSupabaseClient(),
       history: window.history,
       location: window.location,
-      onStateChange() {}
+      onStateChange(state) {
+        accountAuthViewState = state
+        renderAccountSettings(state)
+      }
     })
+    accountAuthViewState = accountAuthController.getState()
+    renderAccountSettings()
     void accountAuthController.initialize()
   } catch (error) {
     console.warn('Edenia account authentication is unavailable.', error)
+    accountAuthViewState = Object.freeze({
+      sessionState: ACCOUNT_SESSION_STATES.UNAVAILABLE,
+      userId: null,
+      email: '',
+      busyAction: null,
+      error: ACCOUNT_AUTH_ERRORS.SESSION_UNAVAILABLE,
+      notice: null
+    })
+    renderAccountSettings()
   }
+}
+
+function signInAccountWithGoogle() {
+  return accountAuthController?.signInWithGoogle()
+}
+
+function sendAccountMagicLink(email) {
+  return accountAuthController?.sendMagicLink(email)
+}
+
+function signOutAccount() {
+  return accountAuthController?.signOut()
 }
 
 function restorePlusAccount(email) {
@@ -4839,6 +5082,19 @@ function initializeRequestedPlusModal() {
   if (params.get('plus') !== '1') return
   selectPlusPlan(params.get('plan'))
   window.setTimeout(() => openPlusUpgradeModal(params.get('feature')), 0)
+}
+
+function initializeRequestedAccountSettings() {
+  if (!ACCOUNT_FEATURES_ENABLED) return
+  const url = new URL(window.location.href)
+  if (url.searchParams.get('account') !== '1') return
+  url.searchParams.delete('account')
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `${url.pathname}${url.search}${url.hash}`
+  )
+  window.setTimeout(() => openSettings(), 0)
 }
 
 function openSettings() {
@@ -5553,15 +5809,18 @@ function renderTrackedChannelAccess(state = loadState()) {
   if (!state) return
   const feedStatus = document.getElementById('manualVideoChannelAccess')
   const settingsStatus = document.getElementById('plusAccountChannelAccess')
+  const accountStatus = document.getElementById('accountPlusChannelAccess')
   const isVisible = plusAccessPolicy.freePlusEnabled === true
     || Boolean(plusAccessPolicy.simulatedTier)
   feedStatus?.classList.toggle('hidden', !isVisible)
   settingsStatus?.classList.toggle('hidden', !isVisible)
+  accountStatus?.classList.toggle('hidden', !isVisible)
   if (!isVisible) return
   const view = getTrackedChannelAccessView(state)
   const text = t(view.key, view.params)
   if (feedStatus) feedStatus.textContent = text
   if (settingsStatus) settingsStatus.textContent = text
+  if (accountStatus) accountStatus.textContent = text
 }
 
 function showTrackedChannelAddRestriction(decision) {
@@ -16339,6 +16598,14 @@ bindSettingsSyncActions(document, {
 })
 bindSettingsPreferenceActions(document, {
   save: saveSettingsOnTheFly
+})
+bindSettingsAccountActions(document, {
+  signInWithGoogle: signInAccountWithGoogle,
+  sendMagicLink: sendAccountMagicLink,
+  signOut: signOutAccount,
+  refreshPlus: refreshPlusAccount,
+  manageBilling: managePlusBilling,
+  explorePlus: () => openPlusUpgradeModal()
 })
 bindSettingsPlusAccountActions(document, {
   restore: restorePlusAccount,
