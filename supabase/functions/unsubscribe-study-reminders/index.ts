@@ -18,7 +18,7 @@ Deno.serve(withSupabase(
         event: 'reminder_unsubscribe_failed',
         reason: 'unexpected_error',
       }))
-      return reminderUnsubscribeUnavailableResponse()
+      return reminderUnsubscribeUnavailableResponse(request)
     }
   },
 ))

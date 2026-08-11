@@ -76,6 +76,26 @@ plusHtml = versionAssetReference(plusHtml, 'plus.js', assetVersion)
 await mkdir(resolve(outputDir, 'plus'), { recursive: true })
 await writeFile(resolve(outputDir, 'plus', 'index.html'), plusHtml)
 
+let unsubscribeHtml = await readFile(
+  resolve(projectRoot, 'unsubscribe', 'index.html'),
+  'utf8'
+)
+unsubscribeHtml = versionAssetReference(
+  unsubscribeHtml,
+  'style.css',
+  assetVersion
+)
+unsubscribeHtml = versionAssetReference(
+  unsubscribeHtml,
+  'unsubscribe.js',
+  assetVersion
+)
+await mkdir(resolve(outputDir, 'unsubscribe'), { recursive: true })
+await writeFile(
+  resolve(outputDir, 'unsubscribe', 'index.html'),
+  unsubscribeHtml
+)
+
 const appBuild = await build({
   bundle: true,
   charset: 'utf8',
@@ -114,6 +134,29 @@ const plusSource = plusBuild.outputFiles[0].text
 if (/^\s*(?:import|export)\b/m.test(plusSource)) {
   throw new Error('Bundled Plus output is not compatible with the classic script entry')
 }
+const unsubscribeBuild = await build({
+  bundle: true,
+  charset: 'utf8',
+  entryPoints: [resolve(projectRoot, 'src', 'reminder-unsubscribe-page.js')],
+  format: 'esm',
+  legalComments: 'none',
+  logLevel: 'silent',
+  platform: 'browser',
+  target: 'es2022',
+  treeShaking: false,
+  write: false
+})
+if (unsubscribeBuild.outputFiles.length !== 1) {
+  throw new Error(
+    `Expected one bundled unsubscribe output, found ${unsubscribeBuild.outputFiles.length}`
+  )
+}
+const unsubscribeSource = unsubscribeBuild.outputFiles[0].text
+if (/^\s*(?:import|export)\b/m.test(unsubscribeSource)) {
+  throw new Error(
+    'Bundled unsubscribe output is not compatible with the classic script entry'
+  )
+}
 const { source: styleSource } = await readOrderedStyleSource(
   resolve(projectRoot, 'src', 'styles', 'index.css')
 )
@@ -132,14 +175,39 @@ const minifiedPlus = await minify(plusSource, {
   compress: true,
   mangle: true
 })
+const minifiedUnsubscribe = await minify(unsubscribeSource, {
+  compress: true,
+  mangle: true
+})
 if (!minifiedApp.code) {
   throw new Error('Terser did not produce app.js output')
 }
 if (!minifiedPlus.code) {
   throw new Error('Terser did not produce plus.js output')
 }
+if (!minifiedUnsubscribe.code) {
+  throw new Error('Terser did not produce unsubscribe.js output')
+}
+const unsubscribeStyle = await readFile(
+  resolve(projectRoot, 'unsubscribe', 'style.css'),
+  'utf8'
+)
+const minifiedUnsubscribeStyle = await transform(unsubscribeStyle, {
+  legalComments: 'none',
+  loader: 'css',
+  minify: true,
+  target: 'es2022'
+})
 await writeFile(resolve(outputDir, 'app.js'), minifiedApp.code)
 await writeFile(resolve(outputDir, 'plus', 'plus.js'), minifiedPlus.code)
+await writeFile(
+  resolve(outputDir, 'unsubscribe', 'unsubscribe.js'),
+  minifiedUnsubscribe.code
+)
+await writeFile(
+  resolve(outputDir, 'unsubscribe', 'style.css'),
+  minifiedUnsubscribeStyle.code
+)
 await writeFile(resolve(outputDir, 'style.css'), minifiedStyle.code)
 
 await copyPath('analytics.js')
