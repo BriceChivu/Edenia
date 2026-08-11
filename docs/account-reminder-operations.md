@@ -23,6 +23,10 @@ email design.
 - The private delivery ledger can represent a provider attempt, API acceptance,
   a bounded permanent failure, or an ambiguous outcome. No deployed code can
   enter those states because there is still no provider adapter.
+- Unsubscribe-token binding requires the current claim token and rechecks the
+  tester allowlist, saved schedule and consent, suppression state, and lease.
+  A narrow no-send RPC can end a current claim as `recipient_unavailable`
+  without falsely recording a provider attempt.
 - `/unsubscribe/` is a static, analytics-free confirmation page on Edenia's
   GitHub Pages origin. It removes the capability from the address bar before
   the user can act and never reads local study state.
@@ -244,6 +248,20 @@ Turning the switch off prevents the next provider call. A response already in
 flight may still be recorded as accepted or failed so it is not accidentally
 retried later.
 
+The same fencing rule now applies before storing an unsubscribe capability. A
+crashed worker's claim token cannot bind or rebind a digest after another worker
+reclaims the occurrence. Retries can reuse only the one deterministic digest
+already attached to that occurrence. Changing the token secret between a first
+attempt and a retry therefore fails closed instead of silently rotating the
+unsubscribe link.
+
+If Supabase Auth confirms that a current claimed user has no usable recipient
+address, the service-only `complete_reminder_without_send` RPC may record only
+`recipient_unavailable`. It clears the lease while leaving `provider_name`,
+`send_started_at`, and `send_retry_deadline` empty. Configuration, template, or
+provider errors cannot use this path, and an occurrence whose provider attempt
+already started cannot be rewritten as though no send was possible.
+
 ## Suppression and unsubscribe invariants
 
 - Suppression is server-sticky. Re-enabling a client preference cannot make a
@@ -369,17 +387,20 @@ without an active sender:
 2. **Unreachable Resend adapter (current):** lock the deterministic request,
    privacy, timeout, idempotency, error, and unsubscribe-header contracts in a
    pure shared module. The deployed dispatcher does not import it.
-3. **Fail-closed live orchestration:** wire the adapter only after adding strict
+3. **Live database prerequisites (current):** require the current claim token
+   when storing a capability and provide one truthful `recipient_unavailable`
+   terminal outcome before any provider request. No sender imports the adapter.
+4. **Fail-closed live orchestration:** wire the adapter only after adding strict
    configuration checks and immediate switch, allowlist, consent, suppression,
    and lease fences. Missing configuration or any failed fence must result in
    zero provider calls. Do not add credentials or a schedule in that PR.
-4. **Webhook and canary readiness:** verify raw-body Svix signatures, deduplicate
+5. **Webhook and canary readiness:** verify raw-body Svix signatures, deduplicate
    event IDs, bind unsubscribe tokens and one-click headers, configure an
    isolated sending subdomain, and inspect real email-client rendering.
-5. **Manual allowlisted canary:** only after an explicit operator review, add
+6. **Manual allowlisted canary:** only after an explicit operator review, add
    secrets, enable the switch briefly, send to one verified tester, inspect the
    provider and suppression ledgers, then turn the switch off again.
-6. **Scheduling:** create Cron only after repeated manual canaries and an
+7. **Scheduling:** create Cron only after repeated manual canaries and an
    operator rollback drill. Public rollout remains a separate later decision.
 
 ## Public-readiness items still deferred
