@@ -214,4 +214,13 @@ test('shared backend tests remain connected to package scripts and CI', async ()
   assert.match(workflow, /supabase\/\*\)/)
   assert.match(workflow, /name: Run Supabase backend tests/)
   assert.match(workflow, /run: npm run test:supabase/)
+  assert.match(workflow, /version: 2\.111\.0/)
+  assert.match(
+    workflow,
+    /supabase db query --local --file "\$\{reminder_migrations\[0\]\}"/
+  )
+  assert.match(
+    workflow,
+    /supabase test db supabase\/tests\/reminder_preferences_rls\.test\.sql --local/
+  )
 })

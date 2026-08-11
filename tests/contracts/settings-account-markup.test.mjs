@@ -16,8 +16,26 @@ test('Settings contains one generic internal account and reminders surface', () 
     /id="accountEmail"[^>]*type="email"[^>]*autocomplete="email"/
   )
   assert.match(html, /data-account-action="sign-out"/)
-  assert.match(html, /data-i18n="settings\.account\.remindersUnavailable"/)
+  assert.match(html, /data-reminder-action="form"/)
+  assert.match(html, /id="reminderScheduleFields" disabled/)
+  assert.match(html, /id="reminderEnabled" type="checkbox"/)
+  assert.match(html, /id="reminderLocalTime" type="time"/)
+  assert.match(html, /id="reminderTimezone" type="text"/)
+  assert.match(html, /id="reminderConsent" type="checkbox"/)
+  assert.match(html, /data-i18n="settings\.account\.remindersNoDelivery"/)
   assert.match(html, /data-i18n="settings\.account\.localProgressNote"/)
+})
+
+test('reminder controls collect schedule and consent without an email field', () => {
+  const reminders = html.match(
+    /<div class="settings-account-reminders">([\s\S]*?)<\/div>\s*<p class="settings-note"/
+  )?.[1] || ''
+
+  assert.match(reminders, /name="reminderDay" value="1"/)
+  assert.match(reminders, /name="reminderDay" value="7"/)
+  assert.match(reminders, /data-reminder-action="cancel"/)
+  assert.match(reminders, /data-reminder-action="retry"/)
+  assert.doesNotMatch(reminders, /type="email"|name="email"/)
 })
 
 test('signed-in Account presentation owns the internal Plus information', () => {
