@@ -1,5 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import vm from 'node:vm'
+import {
+  normalizeAccountFeaturesRollout
+} from '../src/core/account-feature-rollout.js'
 
 const YOUTUBE_PLACEHOLDER_KEYS = new Set([
   'PASTE_YOUR_RESTRICTED_YOUTUBE_API_KEY_HERE',
@@ -37,6 +40,9 @@ export function normalizeLocalRuntimeConfig(value) {
     youtubeApiKey: normalizeLocalYoutubeApiKey(value?.youtubeApiKey),
     freePlusEnabled: value?.freePlusEnabled === true,
     plusCheckoutEnabled: value?.plusCheckoutEnabled === true,
+    accountFeaturesRollout: normalizeAccountFeaturesRollout(
+      value?.accountFeaturesRollout
+    ),
     // Compatibility markers for cached pre-retirement app.js assets.
     videoOrganizationEnabled: true,
     channelVideoFormatToggleEnabled: true,

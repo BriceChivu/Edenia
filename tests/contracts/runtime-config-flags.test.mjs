@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
-  parseRuntimeConfigFlag
+  parseRuntimeConfigFlag,
+  parseRuntimeConfigRollout
 } from '../../scripts/runtime-config-flags.mjs'
 
 test('runtime release flags are disabled by default and accept explicit booleans', () => {
@@ -37,4 +38,24 @@ test('runtime release flags reject ambiguous deployment values', () => {
     ),
     /EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED must be true or false/
   )
+})
+
+test('runtime rollout values default off and accept exact audience stages', () => {
+  assert.equal(parseRuntimeConfigRollout(undefined, 'ROLLOUT'), 'off')
+  assert.equal(parseRuntimeConfigRollout('', 'ROLLOUT'), 'off')
+  assert.equal(parseRuntimeConfigRollout('off', 'ROLLOUT'), 'off')
+  assert.equal(parseRuntimeConfigRollout(' INTERNAL ', 'ROLLOUT'), 'internal')
+  assert.equal(parseRuntimeConfigRollout('PUBLIC', 'ROLLOUT'), 'public')
+})
+
+test('runtime rollout values reject ambiguous deployment stages', () => {
+  for (const value of ['true', 'false', '1', 'internal_test', 'everyone']) {
+    assert.throws(
+      () => parseRuntimeConfigRollout(
+        value,
+        'EDENIA_ACCOUNT_FEATURES_ROLLOUT'
+      ),
+      /EDENIA_ACCOUNT_FEATURES_ROLLOUT must be off, internal, or public/
+    )
+  }
 })

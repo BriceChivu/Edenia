@@ -1,3 +1,7 @@
+import {
+  normalizeAccountFeaturesRollout
+} from '../core/account-feature-rollout.js'
+
 export function publicConfig(target = window) {
   return target.EDENIA_CONFIG || {}
 }
@@ -16,6 +20,12 @@ export function getFreePlusEnabled(target = window) {
 
 export function getPlusCheckoutEnabled(target = window) {
   return publicConfig(target).plusCheckoutEnabled === true
+}
+
+export function getAccountFeaturesRollout(target = window) {
+  return normalizeAccountFeaturesRollout(
+    publicConfig(target).accountFeaturesRollout
+  )
 }
 
 export function getStudyGuidanceEnabled(target = window) {
