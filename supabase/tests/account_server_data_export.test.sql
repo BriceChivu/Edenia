@@ -3,70 +3,167 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, private, auth, pg_catalog;
 
-select plan(31);
+select plan(46);
 
 select has_function(
-  'public',
+  'private',
   'export_account_server_data',
   array[]::text[],
-  'the account export has no caller-controlled owner argument'
+  'the privileged implementation lives in the non-exposed schema'
 );
 select function_returns(
-  'public',
+  'private',
   'export_account_server_data',
   array[]::text[],
   'jsonb',
-  'the account export returns one structured JSON document'
+  'the private implementation retains the versioned JSON result'
 );
 select is(
   (
     select prosecdef
     from pg_catalog.pg_proc
-    where oid = 'public.export_account_server_data()'::regprocedure
+    where oid = 'private.export_account_server_data()'::regprocedure
   ),
   true,
-  'the export can read private owner data through a security definer boundary'
+  'the non-exposed implementation runs with definer rights'
 );
 select is(
   (
     select provolatile
     from pg_catalog.pg_proc
-    where oid = 'public.export_account_server_data()'::regprocedure
+    where oid = 'private.export_account_server_data()'::regprocedure
   ),
   's'::"char",
-  'the export is read-only stable'
+  'the private implementation remains read-only stable'
 );
 select ok(
   (
     select proconfig = array['search_path=""']::text[]
     from pg_catalog.pg_proc
-    where oid = 'public.export_account_server_data()'::regprocedure
+    where oid = 'private.export_account_server_data()'::regprocedure
   ),
-  'the security definer has an empty search path'
+  'the private security definer retains an empty search path'
+);
+select hasnt_function(
+  'public',
+  'export_account_server_data',
+  array[]::text[],
+  'the authenticated definer is no longer exposed through the Data API'
+);
+select has_function(
+  'public',
+  'export_account_server_data_for_service',
+  array['uuid'],
+  'the public bridge requires a server-verified owner UUID'
+);
+select function_returns(
+  'public',
+  'export_account_server_data_for_service',
+  array['uuid'],
+  'jsonb',
+  'the service bridge returns one structured JSON document'
+);
+select is(
+  (
+    select prosecdef
+    from pg_catalog.pg_proc
+    where oid = 'public.export_account_server_data_for_service(uuid)'::regprocedure
+  ),
+  true,
+  'the service-only bridge can enter the private implementation'
+);
+select is(
+  (
+    select provolatile
+    from pg_catalog.pg_proc
+    where oid = 'public.export_account_server_data_for_service(uuid)'::regprocedure
+  ),
+  'v'::"char",
+  'the bridge declares its temporary request-context change truthfully'
+);
+select ok(
+  (
+    select proconfig = array['search_path=""']::text[]
+    from pg_catalog.pg_proc
+    where oid = 'public.export_account_server_data_for_service(uuid)'::regprocedure
+  ),
+  'the service bridge has an empty search path'
 );
 select ok(
   pg_catalog.has_function_privilege(
-    'authenticated',
-    'public.export_account_server_data()',
+    'service_role',
+    'public.export_account_server_data_for_service(uuid)',
     'EXECUTE'
   ),
-  'authenticated users can execute their self-scoped export'
+  'only the server role can invoke the owner bridge'
+);
+select ok(
+  not pg_catalog.has_function_privilege(
+    'authenticated',
+    'public.export_account_server_data_for_service(uuid)',
+    'EXECUTE'
+  ),
+  'authenticated browser clients cannot choose an export owner UUID'
 );
 select ok(
   not pg_catalog.has_function_privilege(
     'anon',
-    'public.export_account_server_data()',
+    'public.export_account_server_data_for_service(uuid)',
     'EXECUTE'
   ),
-  'anonymous clients cannot execute the export'
+  'anonymous clients cannot choose an export owner UUID'
+);
+select ok(
+  not pg_catalog.has_schema_privilege('authenticated', 'private', 'USAGE'),
+  'authenticated browser clients retain the deny-by-schema boundary'
+);
+select ok(
+  not pg_catalog.has_schema_privilege('anon', 'private', 'USAGE'),
+  'anonymous callers cannot resolve private objects'
+);
+select ok(
+  not pg_catalog.has_schema_privilege('service_role', 'private', 'USAGE'),
+  'service role enters private logic only through the owner-controlled bridge'
+);
+select ok(
+  not pg_catalog.has_function_privilege(
+    'authenticated',
+    'private.export_account_server_data()',
+    'EXECUTE'
+  ),
+  'authenticated clients cannot execute the private implementation'
+);
+select ok(
+  not pg_catalog.has_function_privilege(
+    'anon',
+    'private.export_account_server_data()',
+    'EXECUTE'
+  ),
+  'anonymous callers cannot execute the private helper'
 );
 select ok(
   not pg_catalog.has_function_privilege(
     'service_role',
-    'public.export_account_server_data()',
+    'private.export_account_server_data()',
     'EXECUTE'
   ),
-  'service-role callers cannot turn the self-service function into an arbitrary export path'
+  'service role cannot execute the private self-service helper'
+);
+select ok(
+  not exists (
+    select 1
+    from pg_catalog.pg_class as relation
+    join pg_catalog.pg_namespace as namespace
+      on namespace.oid = relation.relnamespace
+    where namespace.nspname = 'private'
+      and relation.relkind in ('r', 'p')
+      and pg_catalog.has_table_privilege(
+        'authenticated',
+        relation.oid,
+        'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER'
+      )
+  ),
+  'authenticated users retain no private-table privilege'
 );
 
 insert into auth.users (id, email, email_confirmed_at, last_sign_in_at)
@@ -282,134 +379,182 @@ insert into private.reminder_provider_events (
     'observed'
   );
 
-set local role authenticated;
-set local request.jwt.claim.role = 'authenticated';
-set local request.jwt.claim.sub = '81111111-1111-4111-8111-111111111111';
+create temporary table account_export_results (
+  owner_label text primary key,
+  payload jsonb not null
+);
+grant select, insert on table account_export_results to service_role;
+
+set local role service_role;
+set local request.jwt.claim.role = 'service_role';
+set local request.jwt.claim.sub = '89999999-9999-4999-8999-999999999999';
+
+insert into account_export_results (owner_label, payload)
+values
+  (
+    'a',
+    public.export_account_server_data_for_service(
+      '81111111-1111-4111-8111-111111111111'
+    )
+  ),
+  (
+    'b',
+    public.export_account_server_data_for_service(
+      '82222222-2222-4222-8222-222222222222'
+    )
+  );
 
 select is(
-  public.export_account_server_data() #>> '{schema_version}',
+  pg_catalog.current_setting('request.jwt.claim.sub', true),
+  '89999999-9999-4999-8999-999999999999',
+  'the service bridge restores its prior request identity after both exports'
+);
+select is(
+  (select payload #>> '{schema_version}' from account_export_results where owner_label = 'a'),
   'edenia-account-export-v1',
   'user A receives the versioned export schema'
 );
 select is(
-  public.export_account_server_data() #>> '{scope,current_device_progress}',
+  (select payload #>> '{scope,current_device_progress}' from account_export_results where owner_label = 'a'),
   'false',
   'the export explicitly excludes current browser-local progress'
 );
 select is(
-  public.export_account_server_data() #>> '{account,email}',
+  (select payload #>> '{account,email}' from account_export_results where owner_label = 'a'),
   'export-a@example.test',
-  'user A receives their own Auth email'
+  'the verified user A UUID selects only user A Auth identity'
 );
 select is(
-  public.export_account_server_data() #>> '{billing,subscription,plan}',
+  (select payload #>> '{billing,subscription,plan}' from account_export_results where owner_label = 'a'),
   'plus-monthly',
   'user A receives their own subscription presentation data'
 );
 select is(
-  public.export_account_server_data() #>> '{billing,founding_member,is_founding_member}',
+  (select payload #>> '{billing,founding_member,is_founding_member}' from account_export_results where owner_label = 'a'),
   'true',
   'user A receives their own founding-member status'
 );
 select is(
-  public.export_account_server_data() #>> '{billing,founding_checkout_reservation,status}',
+  (select payload #>> '{billing,founding_checkout_reservation,status}' from account_export_results where owner_label = 'a'),
   'completed',
   'user A receives their reservation lifecycle without its correlators'
 );
 select is(
-  public.export_account_server_data() #>> '{cloud_backup_snapshots,0,state,marker}',
+  (select payload #>> '{cloud_backup_snapshots,0,state,marker}' from account_export_results where owner_label = 'a'),
   'cloud-backup-a',
   'user A receives the contents of their server-held backup snapshot'
 );
 select is(
-  public.export_account_server_data() #>> '{reminders,preference,timezone}',
+  (select payload #>> '{reminders,preference,timezone}' from account_export_results where owner_label = 'a'),
   'Asia/Taipei',
   'user A receives their own reminder preference'
 );
 select is(
-  public.export_account_server_data() #>> '{reminders,is_internal_tester}',
+  (select payload #>> '{reminders,is_internal_tester}' from account_export_results where owner_label = 'a'),
   'true',
   'user A receives their server tester status'
 );
 select is(
-  public.export_account_server_data() #>> '{reminders,delivery_occurrences,0,id}',
+  (select payload #>> '{reminders,delivery_occurrences,0,id}' from account_export_results where owner_label = 'a'),
   '8c111111-1111-4111-8111-111111111111',
   'user A receives only their reminder occurrence'
 );
 select is(
-  public.export_account_server_data() #>> '{reminders,provider_events,0,event_type}',
+  (select payload #>> '{reminders,provider_events,0,event_type}' from account_export_results where owner_label = 'a'),
   'email.delivered',
   'user A receives non-secret provider event history'
 );
 select ok(
-  pg_catalog.strpos(public.export_account_server_data()::text, 'export-b') = 0,
+  pg_catalog.strpos(
+    (select payload::text from account_export_results where owner_label = 'a'),
+    'export-b'
+  ) = 0,
   'user A export contains no user B marker'
 );
 select ok(
-  pg_catalog.strpos(public.export_account_server_data()::text, 'secret_a') = 0,
+  pg_catalog.strpos(
+    (select payload::text from account_export_results where owner_label = 'a'),
+    'secret_a'
+  ) = 0,
   'the export omits Stripe, provider-event and provider-message correlators'
 );
 select ok(
   pg_catalog.strpos(
-    public.export_account_server_data()::text,
+    (select payload::text from account_export_results where owner_label = 'a'),
     repeat('a', 64)
   ) = 0,
   'the export omits the founding reservation email hash'
 );
 select ok(
   pg_catalog.strpos(
-    public.export_account_server_data()::text,
+    (select payload::text from account_export_results where owner_label = 'a'),
     repeat('1', 64)
   ) = 0,
   'the export omits the unsubscribe capability digest'
 );
-
-set local request.jwt.claim.sub = '82222222-2222-4222-8222-222222222222';
-
 select is(
-  public.export_account_server_data() #>> '{account,email}',
+  (select payload #>> '{account,email}' from account_export_results where owner_label = 'b'),
   'export-b@example.test',
-  'user B receives their own Auth identity'
+  'the verified user B UUID selects only user B Auth identity'
 );
 select is(
-  public.export_account_server_data() #>> '{cloud_backup_snapshots,0,state,marker}',
+  (select payload #>> '{cloud_backup_snapshots,0,state,marker}' from account_export_results where owner_label = 'b'),
   'cloud-backup-b',
   'user B receives only their own server backup'
 );
 select is(
-  public.export_account_server_data() #>> '{reminders,is_internal_tester}',
+  (select payload #>> '{reminders,is_internal_tester}' from account_export_results where owner_label = 'b'),
   'false',
   'user B does not inherit user A tester status'
 );
 select ok(
-  pg_catalog.strpos(public.export_account_server_data()::text, 'export-a') = 0,
+  pg_catalog.strpos(
+    (select payload::text from account_export_results where owner_label = 'b'),
+    'export-a'
+  ) = 0,
   'user B export contains no user A marker'
 );
-
-reset request.jwt.claim.sub;
 select throws_ok(
-  $$select public.export_account_server_data()$$,
+  $$select public.export_account_server_data_for_service(null)$$,
+  'P0002',
+  'account_export_user_not_found',
+  'the service bridge rejects a missing verified owner UUID'
+);
+select throws_ok(
+  $$
+    select public.export_account_server_data_for_service(
+      '83333333-3333-4333-8333-333333333333'
+    )
+  $$,
+  'P0002',
+  'account_export_user_not_found',
+  'the service bridge rejects an unknown verified owner UUID'
+);
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+select throws_ok(
+  $$
+    select public.export_account_server_data_for_service(
+      '81111111-1111-4111-8111-111111111111'
+    )
+  $$,
   '42501',
-  'account_export_authentication_required',
-  'an authenticated role without a verified user cannot export'
+  'permission denied for function export_account_server_data_for_service',
+  'an authenticated browser cannot choose an export owner UUID'
 );
 
 set local role anon;
 set local request.jwt.claim.role = 'anon';
 select throws_ok(
-  $$select public.export_account_server_data()$$,
+  $$
+    select public.export_account_server_data_for_service(
+      '81111111-1111-4111-8111-111111111111'
+    )
+  $$,
   '42501',
-  'permission denied for function export_account_server_data',
-  'an unauthenticated client cannot execute the export'
-);
-
-set local role service_role;
-set local request.jwt.claim.role = 'service_role';
-select throws_ok(
-  $$select public.export_account_server_data()$$,
-  '42501',
-  'permission denied for function export_account_server_data',
-  'service role cannot supply or infer an arbitrary export owner'
+  'permission denied for function export_account_server_data_for_service',
+  'an unauthenticated client cannot choose an export owner UUID'
 );
 
 reset role;
