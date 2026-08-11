@@ -20,8 +20,11 @@ email design.
 - `dispatch-study-reminders` is manual, secret-key authenticated, bounded to 25
   claims, and dry-run only. It logs intended occurrences and contacts no email
   provider.
-- There is no Cron schedule, email-provider key, sender domain, public
-  unsubscribe endpoint, or live delivery adapter.
+- `unsubscribe-study-reminders` is a public confirmation endpoint. A `GET`
+  never reads or changes reminder state; a valid opaque capability submitted by
+  `POST` can perform only the service-owned unsubscribe operation.
+- There is no Cron schedule, email-provider key, sender domain, or live delivery
+  adapter. No current worker generates or stores unsubscribe capabilities.
 
 The `internal_test=1` query parameter is a public rollout selector. It is not
 an authorization or security boundary. Supabase Auth, row-level security,
@@ -183,17 +186,53 @@ safe than leaving unreachable state.
   suppressed UUID claimable.
 - Hard bounces, complaints, manual suppressions, and user unsubscribes disable
   the preference and fence pending or claimed work.
-- A future unsubscribe capability must be opaque, contain no user UUID or
-  email, and be persisted only as a 32-byte SHA-256 digest.
+- An unsubscribe capability is a deterministic HMAC-SHA-256 value for one
+  delivery. It is opaque, contains no user UUID or email, and is persisted only
+  as a 32-byte SHA-256 digest. The HMAC secret must eventually exist only in an
+  Edge Function secret.
 - One occurrence can bind to only one token digest, and consuming it twice must
   not repeat the mutation.
-- An email-link `GET` must show confirmation rather than consume the token;
-  security scanners commonly follow links. A deliberate `POST` performs the
-  unsubscribe. Provider one-click unsubscribe handling must be designed and
-  tested separately.
+- An email-link `GET` shows confirmation rather than consuming the token;
+  security scanners commonly follow links. A deliberate form `POST` performs
+  the unsubscribe. The endpoint also accepts the standard exact
+  `List-Unsubscribe=One-Click` form body; a future provider adapter still needs
+  to add and verify the corresponding email headers.
+- The endpoint intentionally requires no Supabase JWT. Possession of the
+  256-bit capability authorizes only the narrow service-role token-consumption
+  RPC. It cannot select users, email addresses, preferences, or private tables.
+- Token URLs are sensitive until consumed. They use `no-referrer` and
+  `no-store` responses and must never be copied into logs, analytics, issue
+  comments, or pull-request text.
 
-No public unsubscribe endpoint exists yet, so no token digest should exist in
-production today.
+The public endpoint exists before live delivery so its behavior can be tested
+without sending mail. No token digest should exist in production until an
+allowlisted live worker is separately reviewed.
+
+## Verify the inert unsubscribe endpoint
+
+After deploying the Edge Function, use a syntactically valid dummy capability
+to verify only its public confirmation behavior:
+
+```text
+https://PROJECT_REF.supabase.co/functions/v1/unsubscribe-study-reminders?token=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&lang=en
+```
+
+The page must show a confirmation button and the database counts in the
+operator preflight must remain unchanged. Submitting this dummy value should
+show a generic invalid-link response and must not create a suppression.
+
+For a real local integration test, create a disposable user, preference,
+claimed delivery, and matching token digest in the isolated local database.
+Verify these transitions, then delete the fixture:
+
+1. `GET` returns `200` and leaves the preference enabled and token unconsumed.
+2. The first form `POST` returns `200`, disables the preference, records an
+   `unsubscribed` / `unsubscribe_token` suppression, consumes the digest, and
+   changes claimed work to `suppressed` with its lease token cleared.
+3. Repeating the form `POST` and sending the exact one-click form body both
+   return `200` without applying another mutation.
+4. Invalid, duplicate, oversized, or wrong-content-type input never calls the
+   database mutation.
 
 ## Known verification gaps
 
@@ -208,6 +247,9 @@ production today.
   for internal testing, not public launch.
 - No email provider, sender domain, From address, webhook endpoint, or live
   provider credential has been selected or verified.
+- The five reminder locales and confirmation pages have automated structural
+  coverage, but their copy has not yet been reviewed by native speakers or
+  exercised across real email clients.
 
 ## Gates before any live email
 
@@ -226,8 +268,9 @@ and verified:
 5. Webhook signatures are checked against the raw request body, provider event
    IDs are processed idempotently, and only hard bounces or complaints create
    sticky suppression.
-6. Five-locale text and HTML templates are reviewed, including a plain-text
-   alternative and the confirmed unsubscribe flow.
+6. The existing five-locale text and HTML templates are reviewed by humans and
+   in real email clients, including the plain-text alternative, confirmation
+   flow, and provider-generated one-click headers.
 7. The live worker rechecks the emergency switch, tester allowlist, current
    consent, and suppression immediately before every provider call.
 8. Manual allowlisted delivery succeeds before any Cron schedule is created.

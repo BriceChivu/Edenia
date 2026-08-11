@@ -129,7 +129,7 @@ function pageResponse({
   title: string
   body: string
   status?: number
-  form?: { action: string; token: string; label: string }
+  form?: { token: string; label: string }
   allow?: string
 }) {
   const headers = new Headers({
@@ -139,7 +139,7 @@ function pageResponse({
   })
   if (allow) headers.set('Allow', allow)
   const formMarkup = form
-    ? `<form method="post" action="${escapeHtml(form.action)}">
+    ? `<form method="post" action="unsubscribe-study-reminders">
           <input type="hidden" name="token" value="${escapeHtml(form.token)}">
           <input type="hidden" name="lang" value="${escapeHtml(locale)}">
           <button type="submit">${escapeHtml(form.label)}</button>
@@ -211,17 +211,17 @@ function digestToPostgresBytea(digest: Uint8Array) {
 async function readBoundedForm(request: Request) {
   const contentType = request.headers.get('content-type')?.toLowerCase() || ''
   if (contentType.split(';')[0].trim() !== 'application/x-www-form-urlencoded') {
-    return null
+    return { form: null, status: 415 }
   }
   const declaredLength = Number(request.headers.get('content-length'))
   if (Number.isFinite(declaredLength) && declaredLength > MAXIMUM_BODY_BYTES) {
-    return null
+    return { form: null, status: 413 }
   }
   const rawBody = await request.text()
   if (new TextEncoder().encode(rawBody).byteLength > MAXIMUM_BODY_BYTES) {
-    return null
+    return { form: null, status: 413 }
   }
-  return new URLSearchParams(rawBody)
+  return { form: new URLSearchParams(rawBody), status: 200 }
 }
 
 async function consumeToken(
@@ -282,7 +282,6 @@ export async function handleReminderUnsubscribeRequest(
       title: copy.confirmTitle,
       body: copy.confirmBody,
       form: {
-        action: url.pathname,
         token,
         label: copy.confirmButton,
       },
@@ -293,8 +292,11 @@ export async function handleReminderUnsubscribeRequest(
     return invalidResponse(queryLocale, 405, 'GET, POST')
   }
 
-  const form = await readBoundedForm(request)
-  if (!form) return invalidResponse(queryLocale, 415)
+  const formResult = await readBoundedForm(request)
+  if (!formResult.form) {
+    return invalidResponse(queryLocale, formResult.status)
+  }
+  const form = formResult.form
 
   const isOneClick = hasExactParameters(form, ['List-Unsubscribe'])
     && form.get('List-Unsubscribe') === 'One-Click'
