@@ -40,8 +40,11 @@ email design.
   through the provider-begin RPC immediately before network I/O. With the
   switch off, no current worker generates or stores unsubscribe capabilities.
 - A private provider-event ledger can deduplicate bounded event metadata and
-  atomically apply bounce, complaint, or provider suppression. No webhook
-  endpoint or signing secret exists, so production cannot write these rows yet.
+  atomically apply bounce, complaint, or provider suppression.
+- `resend-reminder-webhook` verifies Resend's raw-body Svix signature before it
+  interprets or persists an event. No signing secret or provider webhook is
+  configured, so production returns `503` before reading a request body and
+  cannot write provider-event rows yet.
 
 The `internal_test=1` query parameter is a public rollout selector. It is not
 an authorization or security boundary. Supabase Auth, row-level security,
@@ -96,6 +99,7 @@ Before any database or function operation:
      'preferences', (select count(*) from public.reminder_preferences),
      'deliveries', (select count(*) from private.reminder_deliveries),
      'suppressions', (select count(*) from private.reminder_suppressions),
+     'provider_events', (select count(*) from private.reminder_provider_events),
      'unsubscribe_digests', (
        select count(*) from private.reminder_unsubscribe_tokens
      )
@@ -249,7 +253,8 @@ Resend is the provisional provider because Supabase documents an Edge Function
 integration, the send API accepts idempotency keys, and webhook requests use
 Svix signatures and event IDs. This is an engineering choice, not an active
 vendor integration: no Resend account, domain, API key, webhook secret, or
-configured live network path is present in Edenia yet.
+configured live network path is present in Edenia yet. The public webhook code
+is therefore deployed but inert.
 
 The shared Resend adapter reads no environment variables itself. The dispatcher
 can reach it only through the live runner after the server switch, strict
@@ -307,9 +312,11 @@ Cron.
 ## Provider event invariants
 
 [Resend requires verification against the raw request body](https://resend.com/docs/webhooks/verify-webhooks-requests)
-using `svix-id`, `svix-timestamp`, and `svix-signature`. The event ID is also the
-deduplication key; Resend retries non-200 webhook responses. A future endpoint
-must verify the signature before JSON parsing or any database call.
+using `svix-id`, `svix-timestamp`, and `svix-signature`. The endpoint uses the
+pinned official Svix library, bounds the raw body to 64 KiB, and verifies the
+signature before interpreting the payload or calling the database. Svix also
+rejects stale signatures. The event ID is the database deduplication key;
+Resend retries non-200 webhook responses.
 
 Outgoing reminders include only two provider tags: the fixed source
 `edenia-study-reminder` and the stable delivery UUID. A verified endpoint must
@@ -318,6 +325,14 @@ subject fields. The private event ledger persists only provider name, event ID,
 event type, delivery ID, provider message ID, event timestamp, receive
 timestamp, and the bounded action. It contains no raw payload or recipient
 address.
+
+The provider message identifier is `data.email_id`, which matches the ID
+returned by the Resend send API. Do not substitute the RFC-style
+`data.message_id`; it is a different value and may contain angle brackets and
+an email-domain-shaped suffix. Signed events for another source tag or an
+unsupported event type are acknowledged and ignored. Once the exact Edenia
+source tag is present, malformed correlation fields return a non-200 response
+so a schema or tagging regression stays visible in Resend's retry history.
 
 The event RPC is service-only and idempotent. Exact replays return `duplicate`;
 an event ID reused with changed content returns `event_conflict`. A provider
@@ -334,6 +349,32 @@ allows the RPC to reconcile either state to `provider_accepted` without trusting
 an email address. This feedback processing remains valid while the emergency
 delivery switch is off; turning off future sends must not prevent bounce or
 complaint suppression for an already in-flight message.
+
+The endpoint deliberately does not consult the live-delivery switch. A bounce
+or complaint for an already accepted email must remain processable after the
+operator turns future sends off. Browser roles still cannot execute the event
+RPC, and the endpoint never accepts a Supabase user session as webhook proof.
+
+## Verify the inert provider webhook
+
+Do not create a Resend webhook or add `RESEND_WEBHOOK_SECRET` during an ordinary
+code deployment. With no signing secret configured, a production `POST` must
+return `503` with a generic JSON response and `Retry-After: 300`; it must leave
+the provider-event count unchanged:
+
+```bash
+curl --silent --show-error --include \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --data '{}' \
+  'https://PROJECT_REF.supabase.co/functions/v1/resend-reminder-webhook'
+```
+
+An unsigned or incorrectly signed request must never be used as a positive
+webhook test. After a separate provider review, configure the signing secret
+first, register only the exact production endpoint, and use Resend's signed
+test/replay facility. A successful signed event for a real tagged occurrence
+returns `200`; exact replays also return `200` without a second mutation.
 
 ## Suppression and unsubscribe invariants
 
@@ -416,8 +457,10 @@ Verify these transitions, then delete the fixture:
 - The Google OAuth consent screen remains a test-user rollout. That is suitable
   for internal testing, not public launch.
 - Resend is the provisional provider, but its account terms, regional/data
-  handling, sender domain, From address, webhook endpoint, and credentials have
-  not been configured or verified.
+  handling, sender domain, From address, webhook registration, and credentials
+  have not been configured or verified. The deployed endpoint has only
+  synthetic signature tests; no real Resend-signed production event has been
+  observed.
 - The five reminder locales and confirmation pages have automated structural
   coverage, but their copy has not yet been reviewed by native speakers or
   exercised across real email clients.
@@ -437,9 +480,9 @@ of the following are reviewed and verified:
    current design stops retries after 23 hours and makes an ambiguous occurrence
    terminal rather than risking a duplicate after Resend's documented 24-hour
    window.
-5. Webhook signatures are checked against the raw request body, provider event
-   IDs are processed idempotently, and only hard bounces or complaints create
-   sticky suppression.
+5. A real provider test confirms raw-body signature verification, idempotent
+   event IDs, and sticky suppression for hard bounces, complaints, and
+   provider-suppressed sends while temporary delays remain non-suppressing.
 6. The existing five-locale text and HTML templates are reviewed by humans and
    in real email clients, including the plain-text alternative, confirmation
    flow, and provider-generated one-click headers.
@@ -469,10 +512,10 @@ without an active sender:
    results in zero provider calls. No credential or schedule is added.
 5. **Provider event ledger (current):** persist no provider payload or address,
    deduplicate `svix-id`, reconcile acceptance races, and atomically suppress
-   bounce, complaint, and provider-suppressed recipients. No endpoint exists.
-6. **Verified webhook endpoint:** verify raw-body Svix signatures, require the
-   fixed source and delivery tags, pass only bounded metadata to the event RPC,
-   and remain inert without a signing secret.
+   bounce, complaint, and provider-suppressed recipients.
+6. **Verified webhook endpoint (current):** verify raw-body Svix signatures,
+   require the fixed source and delivery tags, pass only bounded metadata to
+   the event RPC, and remain inert without a signing secret.
 7. **Canary readiness:** configure an isolated sending subdomain and inspect
    real email-client rendering and one-click unsubscribe behavior.
 8. **Manual allowlisted canary:** only after an explicit operator review, add
