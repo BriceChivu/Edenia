@@ -17,7 +17,7 @@
     "test:catalogs:discovery": "node scripts/validate-discovered-channel-catalog.mjs",
     "test:contracts": "node --test tests/contracts/*.test.mjs",
     "test:supabase": "node --test supabase/functions/_shared/*.test.ts",
-    "test:reminder-function": "deno check --frozen --config supabase/functions/dispatch-study-reminders/deno.json supabase/functions/dispatch-study-reminders/index.ts && deno check --frozen --config supabase/functions/unsubscribe-study-reminders/deno.json supabase/functions/unsubscribe-study-reminders/index.ts",
+    "test:reminder-function": "deno check --frozen --config supabase/functions/dispatch-study-reminders/deno.json supabase/functions/dispatch-study-reminders/index.ts && deno check --frozen --config supabase/functions/unsubscribe-study-reminders/deno.json supabase/functions/unsubscribe-study-reminders/index.ts && deno check --frozen --config supabase/functions/resend-reminder-webhook/deno.json supabase/functions/resend-reminder-webhook/index.ts",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:update": "npm run build && playwright test --update-snapshots",
     "test:ci": "npm run build && npm run test:contracts && npm run test:supabase && npm run test:reminder-function && playwright test"

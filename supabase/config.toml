@@ -59,3 +59,11 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/unsubscribe-study-reminders/deno.json"
 entrypoint = "./functions/unsubscribe-study-reminders/index.ts"
+
+[functions.resend-reminder-webhook]
+enabled = true
+# Provider requests are authenticated with the raw-body Svix signature. With no
+# RESEND_WEBHOOK_SECRET configured, every POST fails closed before reading it.
+verify_jwt = false
+import_map = "./functions/resend-reminder-webhook/deno.json"
+entrypoint = "./functions/resend-reminder-webhook/index.ts"
