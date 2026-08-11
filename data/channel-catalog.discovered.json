@@ -1,9 +1,19 @@
 {
-  "schemaVersion": 1,
-  "generatedAt": "2026-07-30T09:07:45.108Z",
-  "lastRotationIndex": 3,
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-11T10:39:35.843Z",
+  "lastRotationIndex": 0,
   "nextRotationIndex": 0,
   "rotationCount": 4,
+  "lastLanguageBatchIndex": 0,
+  "nextLanguageBatchIndex": 1,
+  "languageBatchCount": 4,
+  "languageBatchSize": 2,
+  "lastDiscoveryQuotaDate": "2026-08-11",
+  "lastDiscoveryLanguages": [
+    "french",
+    "english"
+  ],
+  "lastSearchRequestCount": 6,
   "languages": [
     "french",
     "english",
@@ -70,6 +80,34 @@
       "discoveredAt": "2026-07-24T14:15:51.076Z",
       "refreshedAt": "2026-07-24T14:15:51.076Z",
       "searchText": "english motivation mastery 1 6m views 2 days ag egenglish lep english youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCCAGdjUOV9GCnXECWda8erg",
+      "channelId": "UCCAGdjUOV9GCnXECWda8erg",
+      "youtubeInput": "@learnfrenchwithharman",
+      "handle": "@learnfrenchwithharman",
+      "name": " French with Harman",
+      "thumbnailUrl": "https://yt3.ggpht.com/iXAya_oIYO_71blZrR0Q1oGbtt0BtWnhk2cGtybjiBqTLSlM26KsYR7nI2EOeptt-T4jUTxKmA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to French with Harman! Your one-stop channel for learning French, preparing for exams, and exploring the beauty of French culture. Whether you're a beginner or studying for language proficiency tests like DELF, TEF exam for Canada immigration. I’ve got tips and lessons tailored just for you. From grammar bas...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-01-30T14:55:49.962656Z",
+      "subscriberCount": "30100",
+      "videoCount": "338",
+      "viewCount": "3795847",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 240,
+      "discoveredByQueries": [
+        "learn French"
+      ],
+      "discoveredAt": "2026-08-11T10:39:35.536Z",
+      "refreshedAt": "2026-08-11T10:39:35.536Z",
+      "searchText": "french with harman learnfrenchwithharman french youtube discovery"
     },
     {
       "catalogId": "discovered-UCqK3NLhk2_Z971G7GUyuSPA",
@@ -3920,6 +3958,34 @@
       "searchText": "english with alex engvid engvidalex english youtube discovery"
     },
     {
+      "catalogId": "discovered-UCDDDsV1JPmCYlu1XpAOJhuA",
+      "channelId": "UCDDDsV1JPmCYlu1XpAOJhuA",
+      "youtubeInput": "@engwithed",
+      "handle": "@engwithed",
+      "name": "English with Edward",
+      "thumbnailUrl": "https://yt3.ggpht.com/dT8X1dY3Wu-8OpM6m7prESDTnEm10JGaI24E6j08B0x8qTzGzFnN151hwHlmaRPx_K-9_z_v=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to English with Edward – your go-to YouTube channel for learning English the easy and natural way! 🚀 Using the Comprehensible Input method, I help beginners and intermediate learners improve their English vocabulary, grammar, and speaking skills through fun, clear, and practical lessons. Whether you want to...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-06-11T15:13:11.196222Z",
+      "subscriberCount": "9920",
+      "videoCount": "24",
+      "viewCount": "139489",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 269,
+      "discoveredByQueries": [
+        "English comprehensible input"
+      ],
+      "discoveredAt": "2026-08-11T10:39:35.536Z",
+      "refreshedAt": "2026-08-11T10:39:35.536Z",
+      "searchText": "english with edward engwithed english youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCVBErcpqaokOf4fI5j73K_w",
       "channelId": "UCVBErcpqaokOf4fI5j73K_w",
       "youtubeInput": "@engvidemma",
@@ -4732,6 +4798,34 @@
       "discoveredAt": "2026-07-24T14:15:42.400Z",
       "refreshedAt": "2026-07-24T14:15:42.400Z",
       "searchText": "french happens frenchhappens french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCl_bdhy8LGdJWEhK0IN2haA",
+      "channelId": "UCl_bdhy8LGdJWEhK0IN2haA",
+      "youtubeInput": "@frenchinaflash-b",
+      "handle": "@frenchinaflash-b",
+      "name": "French in a Flash",
+      "thumbnailUrl": "https://yt3.ggpht.com/LYjMq5-NxsMj6obX7t0r5iNBE3N6hZjOwe6s6VDozl9YVWVV9xzf7PGDgyAw1q-zJeUpJb2a5xU=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🇫🇷 French in a Flash — Apprends le français facilement, un mot à la fois ! Bienvenue sur French in a Flash, ta chaîne pour apprendre le français de façon simple, rapide et amusante. Chaque vidéo te fait découvrir un nouveau mot, une nouvelle phrase ou une expression du quotidien — en quelques secondes seulement !...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-07-26T00:04:34.215776Z",
+      "subscriberCount": "100",
+      "videoCount": "27",
+      "viewCount": "30118",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 276,
+      "discoveredByQueries": [
+        "apprendre le français"
+      ],
+      "discoveredAt": "2026-08-11T10:39:35.536Z",
+      "refreshedAt": "2026-08-11T10:39:35.536Z",
+      "searchText": "french in a flash frenchinaflash b french youtube discovery"
     },
     {
       "catalogId": "discovered-UCL21c3_gReVh3KLaNhLvKCw",
@@ -6960,6 +7054,34 @@
       "searchText": "langadvance portuguese langadvanceportuguese portuguese youtube discovery"
     },
     {
+      "catalogId": "discovered-UC6s5jDZXIJmS3w0kEMejPFg",
+      "channelId": "UC6s5jDZXIJmS3w0kEMejPFg",
+      "youtubeInput": "@lefrancais-1234",
+      "handle": "@lefrancais-1234",
+      "name": "Le français",
+      "thumbnailUrl": "https://yt3.ggpht.com/xBWKKX3DSHasHmF1DWa7qesW3d5fuHtZon6pZWCpWNtMq9w3Gekef2FqTOueWnbU9y3WYwfkuQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Bonjour à toutes et tous, \" Le français \" est une chaine youtube dédiée à celles et ceux qui veulent apprendre le français du début. Vous trouvez du contenu clair et simple pour apprendre à parler, écrire, et communiquer en français. Vous apprenez de la grammaire facile et simple, et des phrases essentielles du quot...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-03-16T13:54:34.735898Z",
+      "subscriberCount": "6690",
+      "videoCount": "23",
+      "viewCount": "334917",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 244,
+      "discoveredByQueries": [
+        "apprendre le français"
+      ],
+      "discoveredAt": "2026-08-11T10:39:35.536Z",
+      "refreshedAt": "2026-08-11T10:39:35.536Z",
+      "searchText": "le francais lefrancais 1234 french youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCvknfJw4aCj5A6EdaeVQEaw",
       "channelId": "UCvknfJw4aCj5A6EdaeVQEaw",
       "youtubeInput": "@lefrancaisenvideopourtous",
@@ -7356,6 +7478,34 @@
       "searchText": "learn english let s talk free english lessons letstalk english youtube discovery"
     },
     {
+      "catalogId": "discovered-UCVGqn-ARtA4ZhKIBnvP5Lfw",
+      "channelId": "UCVGqn-ARtA4ZhKIBnvP5Lfw",
+      "youtubeInput": "@learnenglishhamzaclassroom",
+      "handle": "@learnenglishhamzaclassroom",
+      "name": "Learn English Hamza Classroom",
+      "thumbnailUrl": "https://yt3.ggpht.com/ACMR0rNP7y9Qa9fTSo5mGzB_3IQu3fcveFiUT6o_wRecxRhc54eM7sr_Gqyi5IHc-8SW6bNk9gc=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to 'Learn English in Hamza's Classroom,' your one-stop destination for mastering the English language. 📚 From grammar lessons to conversational practices, vocabulary tips to sentence structures, our channel boasts over 1,000 videos aimed to take your English to the next level. Each video is crafted with car...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2014-01-23T20:43:48Z",
+      "subscriberCount": "656000",
+      "videoCount": "1799",
+      "viewCount": "40684090",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 276,
+      "discoveredByQueries": [
+        "learn English"
+      ],
+      "discoveredAt": "2026-08-11T10:39:35.536Z",
+      "refreshedAt": "2026-08-11T10:39:35.536Z",
+      "searchText": "learn english hamza classroom learnenglishhamzaclassroom english youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCeLhKOKrfr8MLNvO6b__HkA",
       "channelId": "UCeLhKOKrfr8MLNvO6b__HkA",
       "youtubeInput": "@learnenglishlabyt",
@@ -7440,6 +7590,62 @@
       "searchText": "learn english online learn english online 1 english youtube discovery"
     },
     {
+      "catalogId": "discovered-UC20-CBYtZI8gC7dntiHXA_Q",
+      "channelId": "UC20-CBYtZI8gC7dntiHXA_Q",
+      "youtubeInput": "@learnenglishstepwise",
+      "handle": "@learnenglishstepwise",
+      "name": "Learn English Step wise",
+      "thumbnailUrl": "https://yt3.ggpht.com/we6M3mtj5L7HK415jqv8UvPDlJv6cffUUXdTnaU4LtJX8psCaixsayJsjRXWGduI2xrHApeBSg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to our YouTube channel (Learn English step wise) for learning English with vocabulary speaking! Our channel is designed specifically for beginners and intermediate learners who are looking to improve their English language skills. We understand that learning a new language can be challenging, so we are here...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-04-24T03:36:11.706611Z",
+      "subscriberCount": "130000",
+      "videoCount": "492",
+      "viewCount": "9459394",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 273,
+      "discoveredByQueries": [
+        "learn English"
+      ],
+      "discoveredAt": "2026-08-11T10:39:35.536Z",
+      "refreshedAt": "2026-08-11T10:39:35.536Z",
+      "searchText": "learn english step wise learnenglishstepwise english youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC0uYDsBVghCrKXdZBs9-qSw",
+      "channelId": "UC0uYDsBVghCrKXdZBs9-qSw",
+      "youtubeInput": "@learndailyenglishconversations",
+      "handle": "@learndailyenglishconversations",
+      "name": "Learn English Through Daily Conversations",
+      "thumbnailUrl": "https://yt3.ggpht.com/X9yp59rjfhWanGjGbUpRtMJfBQUwNfiYLKsYaYnjSMwrm5nP9YULkv6t1m8XelAo1ptKKDo=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to our Learn English YouTube channel! Our mission is to help English learners around the world improve their language skills and build confidence in their abilities. We offer a wide range of videos on grammar, vocabulary, pronunciation, conversational English, cultural insights, and more. Our lessons are des...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-01-24T01:45:42.921436Z",
+      "subscriberCount": "6770",
+      "videoCount": "68",
+      "viewCount": "232918",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 294,
+      "discoveredByQueries": [
+        "learn English"
+      ],
+      "discoveredAt": "2026-08-11T10:39:35.536Z",
+      "refreshedAt": "2026-08-11T10:39:35.536Z",
+      "searchText": "learn english through daily conversations learndailyenglishconversations english youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC4euGAvhMFD2csKI_MHK05A",
       "channelId": "UC4euGAvhMFD2csKI_MHK05A",
       "youtubeInput": "@learnenglishthroughstories201",
@@ -7522,6 +7728,34 @@
       "discoveredAt": "2026-07-27T15:11:32.473Z",
       "refreshedAt": "2026-07-27T15:11:32.473Z",
       "searchText": "learn english vocabulary learnenglish vocabulary english youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCNhJbIo6j6Fjvvcq7OvR-1g",
+      "channelId": "UCNhJbIo6j6Fjvvcq7OvR-1g",
+      "youtubeInput": "@englishwithallicia",
+      "handle": "@englishwithallicia",
+      "name": "Learn English with Allicia ",
+      "thumbnailUrl": "https://yt3.ggpht.com/k9H7j6FhC4ebhB0Mg-BJQBy3xw_scMfGlCcrDfby-S9Ua8-gw4BkSnmhqQyzJzUlnHFVGm6sPQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🌟 Welcome to ‘Learn English with Allicia’! 🌟 Embark on an exciting journey of language mastery with me, Allicia! 🚀 Whether you’re a beginner or looking to polish your English skills, this channel is your go-to destination for engaging lessons, practical tips, and immersive content to enhance your language profici...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-06-06T10:57:47.689442Z",
+      "subscriberCount": "402000",
+      "videoCount": "428",
+      "viewCount": "22934648",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 292,
+      "discoveredByQueries": [
+        "learn English"
+      ],
+      "discoveredAt": "2026-08-11T10:39:35.536Z",
+      "refreshedAt": "2026-08-11T10:39:35.536Z",
+      "searchText": "learn english with allicia englishwithallicia english youtube discovery"
     },
     {
       "catalogId": "discovered-UCTp1FxUT8Yo_o0n52EJ-ndQ",
@@ -7942,6 +8176,62 @@
       "discoveredAt": "2026-07-25T15:03:28.802Z",
       "refreshedAt": "2026-07-25T15:03:28.802Z",
       "searchText": "learn french french capsule frenchcapsule french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC3SYzPX3A-uBLCPZOwcgT4A",
+      "channelId": "UC3SYzPX3A-uBLCPZOwcgT4A",
+      "youtubeInput": "@learnfrenshandenglish",
+      "handle": "@learnfrenshandenglish",
+      "name": "learn french and english",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_kADmMiX0UcLY0oy3TH2P-l6Wae7VLVn7-J392IvGQa=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Parler français, apprendre le français, français authentique, grammaire en dialogue Speak French, learn French, French authentic dialogue grammar 講法語，學習法語，法語地道的對話語法 Parla francese, imparare il francese, francese autentica grammatica del dialogo Sprechen Sie Französisch, Französisch lernen, Französisch authentischen...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2015-11-30T20:30:15Z",
+      "subscriberCount": "207000",
+      "videoCount": "897",
+      "viewCount": "15652974",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 283,
+      "discoveredByQueries": [
+        "learn French"
+      ],
+      "discoveredAt": "2026-08-11T10:39:35.536Z",
+      "refreshedAt": "2026-08-11T10:39:35.536Z",
+      "searchText": "learn french and english learnfrenshandenglish french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCLCFMASbaSozSt1326Lqsjw",
+      "channelId": "UCLCFMASbaSozSt1326Lqsjw",
+      "youtubeInput": "@learnfrenchandenglish",
+      "handle": "@learnfrenchandenglish",
+      "name": "learn french and english with caillou",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_lzcQSZrDF9fgyxP33USH1IS7bcPm8InjUGlyYDyrW9PGA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Bienvenue sur Learn french and english with caillou, votre destination pour apprendre le français facilement et efficacement ! 🇫🇷✨ 📚 Ce que vous trouverez ici : ✅ Cours de français pour débutants (A1, A2) ✅ Exercices de grammaire et de conjugaison ✅ Dialogues et mises en situation réelles ✅ Astuces pour améliorer...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2015-11-29T02:12:57Z",
+      "subscriberCount": "125000",
+      "videoCount": "159",
+      "viewCount": "4901381",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 241,
+      "discoveredByQueries": [
+        "learn French"
+      ],
+      "discoveredAt": "2026-08-11T10:39:35.536Z",
+      "refreshedAt": "2026-08-11T10:39:35.536Z",
+      "searchText": "learn french and english with caillou learnfrenchandenglish french youtube discovery"
     },
     {
       "catalogId": "discovered-UCP2gD02QPPCKQrRWO34pHkA",
@@ -10729,6 +11019,34 @@
       "discoveredAt": "2026-07-24T14:15:42.400Z",
       "refreshedAt": "2026-07-24T14:15:42.400Z",
       "searchText": "learnrussian org learnrussianorg russian youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCZpeX5P_erCBvaetX3j_wtA",
+      "channelId": "UCZpeX5P_erCBvaetX3j_wtA",
+      "youtubeInput": "@leo-englishpodcast",
+      "handle": "@leo-englishpodcast",
+      "name": "Leo English Podcast",
+      "thumbnailUrl": "https://yt3.ggpht.com/loI4VjYiTLQV3dE_z48Jz9BxnnP6Kbx7NPglL4rBIAMXx-NVgj1oUCPQE9CIv_Io4a0PdFg-=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Leo English Podcast! 🎙️🌍 Your ultimate place to learn English in a simple and effective way. Here, you’ll find engaging lessons that help you grow your confidence and fluency in every key skill: 📝 Easy Grammar Lessons 📖 Strong Vocabulary Building 🎧 Practical Listening Practice 📚 Reading with Better...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-11-12T09:34:08.379355Z",
+      "subscriberCount": "144000",
+      "videoCount": "198",
+      "viewCount": "5402039",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 293,
+      "discoveredByQueries": [
+        "learn English"
+      ],
+      "discoveredAt": "2026-08-11T10:39:35.536Z",
+      "refreshedAt": "2026-08-11T10:39:35.536Z",
+      "searchText": "leo english podcast leo englishpodcast english youtube discovery"
     },
     {
       "catalogId": "discovered-UCNXSzElUYaOdO387BA0Mpfw",
@@ -14530,6 +14848,34 @@
       "discoveredAt": "2026-07-25T15:03:10.072Z",
       "refreshedAt": "2026-07-25T15:03:10.072Z",
       "searchText": "simpleton portuguese learn european portuguese simpletonportuguese portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCXAP4MoUhsti0QOahasLTfA",
+      "channelId": "UCXAP4MoUhsti0QOahasLTfA",
+      "youtubeInput": "@simplifiedfrench9",
+      "handle": "@simplifiedfrench9",
+      "name": "Simplified French | Concept-Oriented Learning ",
+      "thumbnailUrl": "https://yt3.ggpht.com/uAA5_Pm-tZd0l83dJyX27zQ6wOMxXsxZm8h-Bi2bt0PkQjmGwo7Adrhl49_YEwUQnIem4KrHzg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Simplified French (SF) is a Concept Oriented & Comprehensible Input French Learning Channel designed for A1/A2 learners. 🎯 Learn French like a Top Learner — with less time, more learning. This channel offers 1. Free A1 Beginner Course 📖 2. Podcast A1/A2 🎧 3. Vocabulary in Context (A1/A2) 🗣️ 4. Sounds - Shorts (A...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-05-02T14:27:42.506425Z",
+      "subscriberCount": "132",
+      "videoCount": "64",
+      "viewCount": "13678",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 320,
+      "discoveredByQueries": [
+        "French comprehensible input"
+      ],
+      "discoveredAt": "2026-08-11T10:39:35.536Z",
+      "refreshedAt": "2026-08-11T10:39:35.536Z",
+      "searchText": "simplified french concept oriented learning simplifiedfrench9 french youtube discovery"
     },
     {
       "catalogId": "discovered-UCfsS0pzbNjYKveWGYSkY0_Q",
