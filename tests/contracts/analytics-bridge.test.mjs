@@ -4,7 +4,9 @@ import {
   getEdeniaSessionReplayUrl,
   getPosthogDistinctId,
   hasEdeniaAnalyticsStateSync,
+  identifyEdeniaAuthenticatedUser,
   isEdeniaAnalyticsEnabled,
+  resetEdeniaAuthenticatedUser,
   setEdeniaPersonProperties,
   syncEdeniaAnalyticsState,
   trackEdeniaEvent
@@ -29,6 +31,8 @@ test('analytics bridge preserves absent globals and dynamic availability', () =>
     assert.equal(setEdeniaPersonProperties({}), undefined)
     assert.equal(getEdeniaSessionReplayUrl(), undefined)
     assert.equal(syncEdeniaAnalyticsState({}), undefined)
+    assert.equal(identifyEdeniaAuthenticatedUser('user-id'), undefined)
+    assert.equal(resetEdeniaAuthenticatedUser(), undefined)
     assert.equal(getPosthogDistinctId(), undefined)
   })
 
@@ -85,6 +89,19 @@ test('analytics bridge preserves receivers, arguments, returns, and replacements
       syncEdeniaAnalyticsState({ snapshot: true }),
       'synced'
     )
+
+    target.identifyEdeniaAuthenticatedUser = function (...args) {
+      assert.equal(this, target)
+      assert.deepEqual(args, ['uuid'])
+      return true
+    }
+    target.resetEdeniaAuthenticatedUser = function (...args) {
+      assert.equal(this, target)
+      assert.deepEqual(args, [])
+      return true
+    }
+    assert.equal(identifyEdeniaAuthenticatedUser('uuid'), true)
+    assert.equal(resetEdeniaAuthenticatedUser(), true)
   })
 })
 

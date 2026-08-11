@@ -13,7 +13,7 @@ test('general account auth starts only behind the rollout and public config gate
   )
   assert.match(
     source,
-    /function initializeAccountAuth\(\) \{\s*if \(!ACCOUNT_FEATURES_ENABLED \|\| !hasSupabaseRuntimeConfig\(\)\) return/
+    /function initializeAccountAuth\(\) \{\s*if \(!ACCOUNT_FEATURES_ENABLED\) return[\s\S]*if \(!hasSupabaseRuntimeConfig\(\)\) \{/
   )
   assert.match(
     source,
@@ -49,4 +49,45 @@ test('account auth subscription is released with the existing Plus lifecycle', a
     source,
     /window\.addEventListener\('pagehide', event => \{\s*if \(!event\.persisted\) accountAuthController\?\.destroy\(\)\s*if \(!event\.persisted\) plusAccountController\?\.destroy\(\)/
   )
+})
+
+test('internal Account UI replaces only the internal Plus settings presentation', async () => {
+  const source = await readFile(appUrl, 'utf8')
+
+  assert.match(
+    source,
+    /function renderAccountSettings\([\s\S]*group\.classList\.toggle\('hidden', !ACCOUNT_FEATURES_ENABLED\)/
+  )
+  assert.match(
+    source,
+    /function renderPlusAccountSettings\([\s\S]*if \(ACCOUNT_FEATURES_ENABLED\) \{\s*group\.classList\.add\('hidden'\)\s*renderAccountSettings\(\)\s*return/
+  )
+  assert.match(
+    source,
+    /initializeAccountAuth\(\)\s*initializePlusAccount\(\)\s*initializeRequestedAccountSettings\(\)/
+  )
+})
+
+test('Account UI actions do not read, write, import, or export study progress', async () => {
+  const source = await readFile(
+    new URL('../../src/features/settings/account-actions.js', import.meta.url),
+    'utf8'
+  )
+
+  assert.doesNotMatch(source, /localStorage|loadState|saveState|progress|backup|sync/i)
+})
+
+test('account session state drives isolated UUID-only analytics identity', async () => {
+  const source = await readFile(appUrl, 'utf8')
+  const identitySource = await readFile(
+    new URL('../../src/integrations/account-analytics-identity.js', import.meta.url),
+    'utf8'
+  )
+
+  assert.match(
+    source,
+    /onStateChange\(state\) \{\s*accountAuthViewState = state\s*accountAnalyticsIdentity\.synchronize\(state\)\s*renderAccountSettings\(state\)/
+  )
+  assert.match(identitySource, /accountState\?\.userId/)
+  assert.doesNotMatch(identitySource, /email|localStorage|loadState|saveState|progress|syncEdenia/i)
 })
