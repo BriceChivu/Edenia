@@ -6,7 +6,11 @@ import {
   createReminderUnsubscribePageUrl,
   createReminderUnsubscribeToken,
   digestReminderUnsubscribeToken,
+  encodeReminderDigestForPostgres,
   renderReminderEmail,
+  validateReminderAppUrl,
+  validateReminderUnsubscribeEndpointUrl,
+  validateReminderUnsubscribePageBaseUrl,
 } from './reminder-email.ts'
 
 const DELIVERY_ID = '61111111-1111-4111-8111-111111111111'
@@ -27,6 +31,12 @@ test('creates deterministic opaque per-delivery capabilities and 32-byte digests
   assert.match(first, /^[A-Za-z0-9_-]{43}$/)
   assert.doesNotMatch(first, /61111111|@|edenia/i)
   assert.equal((await digestReminderUnsubscribeToken(first)).byteLength, 32)
+  assert.match(
+    encodeReminderDigestForPostgres(
+      await digestReminderUnsubscribeToken(first),
+    ),
+    /^\\x[0-9a-f]{64}$/u,
+  )
 })
 
 test('rejects weak secrets, malformed delivery IDs, and malformed tokens', async () => {
@@ -72,6 +82,20 @@ test('constructs only hosted Supabase or loopback unsubscribe destinations', asy
   }
 })
 
+test('validates a query-free unsubscribe endpoint before a token exists', () => {
+  assert.equal(validateReminderUnsubscribeEndpointUrl(ENDPOINT), ENDPOINT)
+  assert.throws(
+    () => validateReminderUnsubscribeEndpointUrl(`${ENDPOINT}?token=unsafe`),
+    /must not include a query/i,
+  )
+  assert.throws(
+    () => validateReminderUnsubscribeEndpointUrl(
+      'https://example.test/functions/v1/unsubscribe-study-reminders',
+    ),
+    /not allowlisted/i,
+  )
+})
+
 test('constructs only exact Edenia unsubscribe page destinations', async () => {
   const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
   assert.equal(
@@ -98,6 +122,19 @@ test('constructs only exact Edenia unsubscribe page destinations', async () => {
       /page is not allowlisted/i,
     )
   }
+})
+
+test('validates live URL configuration before any claim exists', () => {
+  assert.equal(validateReminderAppUrl(APP_URL), APP_URL)
+  assert.equal(validateReminderUnsubscribePageBaseUrl(PAGE), PAGE)
+  assert.throws(
+    () => validateReminderAppUrl('https://bricechivu.github.io/Edenia/'),
+    /not allowlisted/i,
+  )
+  assert.throws(
+    () => validateReminderUnsubscribePageBaseUrl(`${PAGE}?token=unsafe`),
+    /not allowlisted/i,
+  )
 })
 
 test('renders text and escaped HTML content in all five locales', async () => {

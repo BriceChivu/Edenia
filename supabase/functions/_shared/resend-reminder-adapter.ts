@@ -24,6 +24,11 @@ export type ResendReminderSendInput = Readonly<{
   unsubscribeApiUrl: string
 }>
 
+export type ResendReminderConfiguration = Readonly<{
+  apiKey: string
+  from: string
+}>
+
 export type ResendReminderSendResult =
   | Readonly<{
     status: 'accepted'
@@ -180,6 +185,16 @@ export function createResendReminderIdempotencyKey(deliveryId: string) {
   return `edenia-study-reminder-v1/${deliveryId.toLowerCase()}`
 }
 
+export function validateResendReminderConfiguration({
+  apiKey,
+  from,
+}: ResendReminderConfiguration) {
+  return Object.freeze({
+    apiKey: requireApiKey(apiKey),
+    from: requireFromAddress(from),
+  })
+}
+
 export async function sendReminderWithResend(
   input: ResendReminderSendInput,
   options: ResendReminderSendOptions = {},
@@ -187,8 +202,7 @@ export async function sendReminderWithResend(
   if (!input || typeof input !== 'object') {
     throw new TypeError('Resend reminder input is invalid')
   }
-  const apiKey = requireApiKey(input.apiKey)
-  const from = requireFromAddress(input.from)
+  const { apiKey, from } = validateResendReminderConfiguration(input)
   const to = normalizeCheckoutEmail(input.to)
   if (!to) throw new TypeError('Reminder recipient is invalid')
   const subject = requireSubject(input.subject)

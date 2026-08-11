@@ -5,6 +5,7 @@ import {
   createResendReminderIdempotencyKey,
   type ResendReminderSendInput,
   sendReminderWithResend,
+  validateResendReminderConfiguration,
 } from './resend-reminder-adapter.ts'
 
 const DELIVERY_ID = '61111111-1111-4111-8111-111111111111'
@@ -90,6 +91,29 @@ test('locks one versioned idempotency key to the stable delivery UUID', () => {
   assert.throws(
     () => createResendReminderIdempotencyKey('not-a-delivery-id'),
     /delivery ID is invalid/i,
+  )
+})
+
+test('validates provider configuration without creating a request', () => {
+  const configuration = validateResendReminderConfiguration(INPUT)
+  assert.deepEqual(configuration, {
+    apiKey: INPUT.apiKey,
+    from: INPUT.from,
+  })
+  assert.ok(Object.isFrozen(configuration))
+  assert.throws(
+    () => validateResendReminderConfiguration({
+      apiKey: 'not-a-key',
+      from: INPUT.from,
+    }),
+    /API key is invalid/i,
+  )
+  assert.throws(
+    () => validateResendReminderConfiguration({
+      apiKey: INPUT.apiKey,
+      from: 'bad-from-address',
+    }),
+    /From address is invalid/i,
   )
 })
 

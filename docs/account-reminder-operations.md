@@ -17,12 +17,13 @@ email design.
   addresses.
 - `reminder_delivery_enabled` is an independent server-side switch and must
   remain `false`.
-- `dispatch-study-reminders` is manual, secret-key authenticated, bounded to 25
-  claims, and dry-run only. It logs intended occurrences and contacts no email
-  provider.
+- `dispatch-study-reminders` is manual and secret-key authenticated. With the
+  server switch off it remains bounded to 25 dry-run claims, logs intended
+  occurrences, and contacts no email provider.
 - The private delivery ledger can represent a provider attempt, API acceptance,
-  a bounded permanent failure, or an ambiguous outcome. No deployed code can
-  enter those states because there is still no provider adapter.
+  a bounded permanent failure, or an ambiguous outcome. The live worker is
+  compiled into the dispatcher but cannot claim live work while the database
+  switch is off.
 - Unsubscribe-token binding requires the current claim token and rechecks the
   tester allowlist, saved schedule and consent, suppression state, and lease.
   A narrow no-send RPC can end a current claim as `recipient_unavailable`
@@ -33,10 +34,11 @@ email design.
 - `unsubscribe-study-reminders` is a JSON-only mutation API. A valid opaque
   capability submitted by `POST` can perform only the service-owned
   unsubscribe operation; `GET` returns `405` without checking the capability.
-- There is no Cron schedule, email-provider key, sender domain, or reachable
-  live delivery adapter. A pure Resend HTTP adapter exists in shared source for
-  review and tests, but neither deployed dispatcher imports it. No current
-  worker generates or stores unsubscribe capabilities.
+- There is no Cron schedule, email-provider key, configured From address, or
+  verified sender domain. Missing or invalid live configuration fails before a
+  claim, and the worker rechecks the database switch before claiming and again
+  through the provider-begin RPC immediately before network I/O. With the
+  switch off, no current worker generates or stores unsubscribe capabilities.
 
 The `internal_test=1` query parameter is a public rollout selector. It is not
 an authorization or security boundary. Supabase Auth, row-level security,
@@ -169,6 +171,31 @@ Dry-run logs may contain Supabase user UUIDs and occurrence IDs. Treat those
 logs as internal operational data. They must not contain email addresses,
 session tokens, secret keys, or claim fencing tokens.
 
+## Inert live-dispatch configuration
+
+The deployed function contains a fail-closed live path, but do not configure or
+enable it as part of an ordinary code deployment. A future manual canary needs
+all of these Edge Function secrets or settings:
+
+- `RESEND_API_KEY`
+- `REMINDER_FROM_ADDRESS`
+- `REMINDER_UNSUBSCRIBE_SECRET` (at least 32 bytes)
+- `REMINDER_APP_URL` (the exact internal-test Edenia URL)
+- `REMINDER_UNSUBSCRIBE_PAGE_URL` (the exact Edenia unsubscribe-page base URL)
+- `SUPABASE_URL` (provided by Supabase and used to derive the unsubscribe API)
+
+The live route validates all six values before it claims anything. It then uses
+a batch size of 5, a 15-minute due window, and a 5-minute lease. It loads the
+current confirmed recipient from Supabase Auth, binds only the deterministic
+unsubscribe-token digest, and calls `begin_reminder_provider_attempt`
+immediately before Resend. Any failed token, switch, tester, consent,
+preference, suppression, or lease fence results in zero provider calls.
+
+Do not put these values in Pages runtime configuration, GitHub Pages variables,
+source control, SQL, a command line, issue text, or pull-request text. They
+belong only in the Supabase Edge Function secret store after a separate
+operator review.
+
 ## Emergency stop and rollback
 
 The live-delivery switch must stay off until a separately reviewed live worker
@@ -184,8 +211,10 @@ where singleton;
 Then verify the row reads `false`. For defense in depth, remove all tester UUIDs
 and stop any future Cron schedule. No Cron exists in the current release.
 
-The current dispatcher intentionally refuses to run when the live switch is
-`true`; changing the switch is not a way to test dry-run behavior.
+The dispatcher selects dry-run only while the live switch is `false`. Never
+turn the switch on to test the route: with missing live settings it returns
+`503` before a claim, while fully configured settings would make provider I/O
+possible for allowlisted due reminders.
 
 Database migrations are additive. During rollback, leave their unused tables
 and columns in place, keep the switch off, and redeploy the last known-good Edge
@@ -208,7 +237,7 @@ The delivery ledger separates these facts deliberately:
 
 The first possible provider attempt fixes a 23-hour retry deadline. This leaves
 one hour of safety inside Resend's documented 24-hour idempotency-key lifetime.
-A future Resend adapter must reuse one deterministic idempotency key derived
+The Resend adapter reuses one deterministic idempotency key derived
 from the reminder occurrence ID on every retry. If the result is still unknown
 at the 23-hour boundary, Edenia intentionally prefers one missed reminder over
 a possible duplicate email.
@@ -217,12 +246,12 @@ Resend is the provisional provider because Supabase documents an Edge Function
 integration, the send API accepts idempotency keys, and webhook requests use
 Svix signatures and event IDs. This is an engineering choice, not an active
 vendor integration: no Resend account, domain, API key, webhook secret, or
-reachable network path is present in Edenia yet.
+configured live network path is present in Edenia yet.
 
-The shared Resend adapter is deliberately unreachable. It reads no environment
-variables and is not imported by either deployed dispatcher file. Its only
-purpose in the current release is to lock and test the future provider request
-contract:
+The shared Resend adapter reads no environment variables itself. The dispatcher
+can reach it only through the live runner after the server switch, strict
+configuration validation, a live claim, unsubscribe-token binding, and the
+provider-begin database fence. Its contract is:
 
 - `POST https://api.resend.com/emails` is the only allowed destination.
 - The idempotency key is exactly
@@ -262,6 +291,13 @@ address, the service-only `complete_reminder_without_send` RPC may record only
 provider errors cannot use this path, and an occurrence whose provider attempt
 already started cannot be rewritten as though no send was possible.
 
+The worker stops the current batch after a provider defer, provider block, or
+accepted response that could not be recorded. It never logs the recipient,
+provider response body, provider message ID, capability, API key, or claim
+token. A provider `Retry-After` value is logged as a bounded number but does not
+yet extend the database lease; retry scheduling and backoff must be added before
+Cron.
+
 ## Suppression and unsubscribe invariants
 
 - Suppression is server-sticky. Re-enabling a client preference cannot make a
@@ -277,8 +313,8 @@ already started cannot be rewritten as though no send was possible.
 - An email-link `GET` loads the static Edenia confirmation page rather than
   consuming the token; security scanners commonly follow links. A deliberate
   browser action sends the API `POST`. The API also accepts the standard exact
-  `List-Unsubscribe=One-Click` form body; a future provider adapter still needs
-  to add and verify the corresponding email headers.
+  `List-Unsubscribe=One-Click` form body, and the provider adapter adds the
+  corresponding email headers.
 - The endpoint intentionally requires no Supabase JWT. Possession of the
   256-bit capability authorizes only the narrow service-role token-consumption
   RPC. It cannot select users, email addresses, preferences, or private tables.
@@ -351,8 +387,8 @@ Verify these transitions, then delete the fixture:
 
 ## Gates before any live email
 
-Do not add a live send path or schedule until all of the following are reviewed
-and verified:
+Do not configure or enable the live path, and do not add a schedule, until all
+of the following are reviewed and verified:
 
 1. A transactional-email provider and data-processing terms are accepted by
    the account owner.
@@ -390,10 +426,10 @@ without an active sender:
 3. **Live database prerequisites (current):** require the current claim token
    when storing a capability and provide one truthful `recipient_unavailable`
    terminal outcome before any provider request. No sender imports the adapter.
-4. **Fail-closed live orchestration:** wire the adapter only after adding strict
-   configuration checks and immediate switch, allowlist, consent, suppression,
-   and lease fences. Missing configuration or any failed fence must result in
-   zero provider calls. Do not add credentials or a schedule in that PR.
+4. **Fail-closed live orchestration (current):** the adapter is wired behind
+   strict configuration checks and immediate switch, allowlist, consent,
+   suppression, and lease fences. Missing configuration or any failed fence
+   results in zero provider calls. No credential or schedule is added.
 5. **Webhook and canary readiness:** verify raw-body Svix signatures, deduplicate
    event IDs, bind unsubscribe tokens and one-click headers, configure an
    isolated sending subdomain, and inspect real email-client rendering.

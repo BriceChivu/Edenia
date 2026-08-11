@@ -163,19 +163,38 @@ export async function digestReminderUnsubscribeToken(token: string) {
   return new Uint8Array(digest)
 }
 
+export function encodeReminderDigestForPostgres(digest: Uint8Array) {
+  if (!(digest instanceof Uint8Array) || digest.byteLength !== 32) {
+    throw new TypeError('Reminder token digest is invalid')
+  }
+  return `\\x${[...digest]
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('')}`
+}
+
 export function createReminderUnsubscribeApiUrl(
   endpointUrl: string,
   token: string,
   locale: ReminderLocale,
 ) {
-  const url = new URL(endpointUrl)
+  const url = new URL(validateReminderUnsubscribeEndpointUrl(endpointUrl))
+  url.searchParams.set('token', requireReminderToken(token))
+  url.searchParams.set('lang', normalizeReminderLocale(locale))
+  return validateReminderUnsubscribeApiUrl(url.href)
+}
+
+export function validateReminderUnsubscribeEndpointUrl(value: string) {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    throw new TypeError('Reminder unsubscribe endpoint is invalid')
+  }
   assertUnsubscribeEndpoint(url)
   if (url.search) {
     throw new TypeError('Reminder unsubscribe endpoint must not include a query')
   }
-  url.searchParams.set('token', requireReminderToken(token))
-  url.searchParams.set('lang', normalizeReminderLocale(locale))
-  return validateReminderUnsubscribeApiUrl(url.href)
+  return url.href
 }
 
 export function validateReminderUnsubscribeApiUrl(value: string) {
@@ -208,7 +227,19 @@ export function createReminderUnsubscribePageUrl(
   token: string,
   locale: ReminderLocale,
 ) {
-  const url = new URL(pageUrl)
+  const url = new URL(validateReminderUnsubscribePageBaseUrl(pageUrl))
+  url.searchParams.set('token', requireReminderToken(token))
+  url.searchParams.set('lang', normalizeReminderLocale(locale))
+  return url.href
+}
+
+export function validateReminderUnsubscribePageBaseUrl(value: string) {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    throw new TypeError('Reminder unsubscribe page URL is invalid')
+  }
   if (
     !ALLOWED_UNSUBSCRIBE_PAGE_URLS.has(url.href)
     || url.username
@@ -218,12 +249,10 @@ export function createReminderUnsubscribePageUrl(
   ) {
     throw new TypeError('Reminder unsubscribe page is not allowlisted')
   }
-  url.searchParams.set('token', requireReminderToken(token))
-  url.searchParams.set('lang', normalizeReminderLocale(locale))
   return url.href
 }
 
-function requireAppUrl(value: string) {
+export function validateReminderAppUrl(value: string) {
   let url: URL
   try {
     url = new URL(value)
@@ -274,7 +303,7 @@ export function renderReminderEmail({
 }) {
   const locale = normalizeReminderLocale(requestedLocale)
   const copy = COPY[locale]
-  const appUrl = requireAppUrl(requestedAppUrl)
+  const appUrl = validateReminderAppUrl(requestedAppUrl)
   const unsubscribePageUrl = requireUnsubscribePageUrl(
     requestedUnsubscribePageUrl,
   )
