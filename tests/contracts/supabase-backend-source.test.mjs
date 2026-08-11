@@ -207,7 +207,7 @@ test('shared backend tests remain connected to package scripts and CI', async ()
   )
   assert.equal(
     packageJson.scripts['test:reminder-function'],
-    'deno check --config supabase/functions/dispatch-study-reminders/deno.json supabase/functions/dispatch-study-reminders/index.ts'
+    'deno check --frozen --config supabase/functions/dispatch-study-reminders/deno.json supabase/functions/dispatch-study-reminders/index.ts'
   )
   assert.match(packageJson.scripts.test, /npm run test:supabase/)
   assert.match(packageJson.scripts.test, /npm run test:reminder-function/)
