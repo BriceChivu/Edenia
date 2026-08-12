@@ -65,14 +65,20 @@ test('snapshot contains only bounded reminder eligibility facts', () => {
         channelName: 'Channel A',
         latestVideoId: 'dQw4w9WgXcQ',
         latestVideoTitle: 'Newest unwatched lesson',
-        latestVideoPublishedAt: '2026-08-13T03:00:00.000Z'
+        latestVideoPublishedAt: '2026-08-13T03:00:00.000Z',
+        streakVideoId: 'dQw4w9WgXcQ',
+        streakVideoTitle: 'Newest unwatched lesson',
+        streakVideoPublishedAt: '2026-08-13T03:00:00.000Z'
       },
       {
         channelId: CHANNEL_B,
         channelName: 'Channel B',
         latestVideoId: null,
         latestVideoTitle: null,
-        latestVideoPublishedAt: null
+        latestVideoPublishedAt: null,
+        streakVideoId: null,
+        streakVideoTitle: null,
+        streakVideoPublishedAt: null
       }
     ]
   })
@@ -80,7 +86,7 @@ test('snapshot contains only bounded reminder eligibility facts', () => {
   assert.equal(JSON.stringify(result).includes('activityLog'), false)
 })
 
-test('latest candidate is unwatched, visible, and respects the shorts choice', () => {
+test('latest and streak candidates stay distinct and respect visibility choices', () => {
   const result = snapshot(state({ videos: {
     aaaaaaaaaaa: {
       id: 'aaaaaaaaaaa', title: 'Watched', channelId: CHANNEL_A,
@@ -100,8 +106,10 @@ test('latest candidate is unwatched, visible, and respects the shorts choice', (
     }
   } }), { includeShorts: false })
 
-  assert.equal(result.channels[0].latestVideoId, 'ddddddddddd')
-  assert.equal(result.channels[0].latestVideoTitle, 'Eligible')
+  assert.equal(result.channels[0].latestVideoId, 'aaaaaaaaaaa')
+  assert.equal(result.channels[0].latestVideoTitle, 'Watched')
+  assert.equal(result.channels[0].streakVideoId, 'ddddddddddd')
+  assert.equal(result.channels[0].streakVideoTitle, 'Eligible')
 })
 
 test('malformed, duplicate, and excessive channels cannot inflate the payload', () => {

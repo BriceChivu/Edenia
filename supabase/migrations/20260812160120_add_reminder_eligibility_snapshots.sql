@@ -45,6 +45,9 @@ create table public.reminder_channel_follows (
   latest_video_id text,
   latest_video_title text,
   latest_video_published_at timestamptz,
+  streak_video_id text,
+  streak_video_title text,
+  streak_video_published_at timestamptz,
   updated_at timestamptz not null default now(),
   constraint reminder_channel_follows_pkey primary key (user_id, channel_id),
   constraint reminder_channel_follows_user_id_fkey
@@ -66,13 +69,25 @@ create table public.reminder_channel_follows (
       and length(latest_video_title) between 1 and 300
       and latest_video_published_at is not null
     )
+  ),
+  constraint reminder_channel_follows_streak_video_check check (
+    (
+      streak_video_id is null
+      and streak_video_title is null
+      and streak_video_published_at is null
+    )
+    or (
+      streak_video_id ~ '^[A-Za-z0-9_-]{11}$'
+      and length(streak_video_title) between 1 and 300
+      and streak_video_published_at is not null
+    )
   )
 );
 
 comment on table public.reminder_eligibility_snapshots is
   'Owner-scoped, derived study facts used by the server to evaluate reminder eligibility.';
 comment on table public.reminder_channel_follows is
-  'Owner-scoped followed channels and one bounded unwatched-video candidate per channel.';
+  'Owner-scoped followed channels with bounded latest-upload and unwatched candidates per channel.';
 comment on column public.reminder_eligibility_snapshots.points_today is
   'The integer points shown for the browser local day at the latest account sync.';
 comment on column public.reminder_eligibility_snapshots.last_qualified_study_date is
@@ -236,6 +251,21 @@ begin
           or nullif(channel.value ->> 'latestVideoPublishedAt', '') is null
         )
       )
+      or (
+        nullif(channel.value ->> 'streakVideoId', '') is null
+        and (
+          nullif(channel.value ->> 'streakVideoTitle', '') is not null
+          or nullif(channel.value ->> 'streakVideoPublishedAt', '') is not null
+        )
+      )
+      or (
+        nullif(channel.value ->> 'streakVideoId', '') is not null
+        and (
+          (channel.value ->> 'streakVideoId') !~ '^[A-Za-z0-9_-]{11}$'
+          or length(coalesce(nullif(btrim(channel.value ->> 'streakVideoTitle'), ''), '')) not between 1 and 300
+          or nullif(channel.value ->> 'streakVideoPublishedAt', '') is null
+        )
+      )
   ) then
     raise exception 'Snapshot contains an invalid channel' using errcode = '22023';
   end if;
@@ -289,6 +319,9 @@ begin
     latest_video_id,
     latest_video_title,
     latest_video_published_at,
+    streak_video_id,
+    streak_video_title,
+    streak_video_published_at,
     updated_at
   )
   select
@@ -298,6 +331,9 @@ begin
     nullif(channel.value ->> 'latestVideoId', ''),
     nullif(btrim(channel.value ->> 'latestVideoTitle'), ''),
     nullif(channel.value ->> 'latestVideoPublishedAt', '')::timestamptz,
+    nullif(channel.value ->> 'streakVideoId', ''),
+    nullif(btrim(channel.value ->> 'streakVideoTitle'), ''),
+    nullif(channel.value ->> 'streakVideoPublishedAt', '')::timestamptz,
     synced_at
   from jsonb_array_elements(payload -> 'channels') as channel(value);
 

@@ -26,10 +26,9 @@ function boundedText(value, maxLength) {
   return String(value || '').trim().slice(0, maxLength)
 }
 
-function normalizeLatestCandidate(video) {
+function normalizeVideoCandidate(video) {
   if (
     !video
-    || getVideoStatus(video) !== 'unwatched'
     || isHiddenFromVideoGrid(video)
     || !isYoutubeVideoId(video.id)
   ) return null
@@ -70,16 +69,29 @@ export function createReminderEligibilitySnapshot({
       .map(channel => [channel.channelId, channel])
   ).values()).slice(0, MAX_REMINDER_SNAPSHOT_CHANNELS)
   const trackedIds = new Set(channels.map(channel => channel.channelId))
-  const candidatesByChannel = new Map()
+  const latestByChannel = new Map()
+  const streakByChannel = new Map()
 
   Object.values(state?.videos || {})
     .filter(video => trackedIds.has(String(video?.channelId || '')))
     .filter(video => includeShorts || !isHiddenShortVideo(video, false))
     .sort(compareActiveVideos)
     .forEach(video => {
-      if (candidatesByChannel.has(video.channelId)) return
-      const candidate = normalizeLatestCandidate(video)
-      if (candidate) candidatesByChannel.set(video.channelId, candidate)
+      const candidate = normalizeVideoCandidate(video)
+      if (!candidate) return
+      if (!latestByChannel.has(video.channelId)) {
+        latestByChannel.set(video.channelId, candidate)
+      }
+      if (
+        getVideoStatus(video) === 'unwatched'
+        && !streakByChannel.has(video.channelId)
+      ) {
+        streakByChannel.set(video.channelId, {
+          streakVideoId: candidate.latestVideoId,
+          streakVideoTitle: candidate.latestVideoTitle,
+          streakVideoPublishedAt: candidate.latestVideoPublishedAt
+        })
+      }
     })
 
   const learningLanguage = Array.isArray(state?.learnerProfile?.languages)
@@ -100,7 +112,11 @@ export function createReminderEligibilitySnapshot({
       latestVideoId: null,
       latestVideoTitle: null,
       latestVideoPublishedAt: null,
-      ...candidatesByChannel.get(channel.channelId)
+      streakVideoId: null,
+      streakVideoTitle: null,
+      streakVideoPublishedAt: null,
+      ...latestByChannel.get(channel.channelId),
+      ...streakByChannel.get(channel.channelId)
     }))
   }
 }

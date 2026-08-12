@@ -103,7 +103,10 @@ select lives_ok(
               'channelName', 'Channel A',
               'latestVideoId', 'aaaaaaaaaaa',
               'latestVideoTitle', 'New lesson',
-              'latestVideoPublishedAt', statement_timestamp()::text
+              'latestVideoPublishedAt', statement_timestamp()::text,
+              'streakVideoId', 'bbbbbbbbbbb',
+              'streakVideoTitle', 'Unwatched lesson',
+              'streakVideoPublishedAt', (statement_timestamp() - interval '1 hour')::text
             ),
             jsonb_build_object(
               'channelId', 'UCbbbbbbbbbbbbbbbbbbbbbb',
@@ -141,12 +144,12 @@ select results_eq(
 );
 select results_eq(
   $$
-    select latest_video_id, latest_video_title
+    select latest_video_id, latest_video_title, streak_video_id, streak_video_title
     from public.reminder_channel_follows
     where channel_id = 'UCaaaaaaaaaaaaaaaaaaaaaa'
   $$,
-  $$values ('aaaaaaaaaaa'::text, 'New lesson'::text)$$,
-  'the bounded latest-video candidate is stored with its channel'
+  $$values ('aaaaaaaaaaa'::text, 'New lesson'::text, 'bbbbbbbbbbb'::text, 'Unwatched lesson'::text)$$,
+  'the bounded latest and unwatched candidates are stored with their channel'
 );
 select throws_ok(
   $$
