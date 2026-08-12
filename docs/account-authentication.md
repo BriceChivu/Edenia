@@ -70,7 +70,12 @@ start a cloud upload, migration, restore, merge, or sync operation.
 
 Supabase Auth callbacks remain synchronous. Edenia schedules state updates
 outside the callback because making asynchronous Supabase calls inside
-`onAuthStateChange` can deadlock the client.
+`onAuthStateChange` can deadlock the client. Sign-in, token-refresh, and
+user-update notifications trigger a fresh `getSession()` after that boundary;
+Edenia publishes signed-in state to protected-data consumers only after the
+shared client confirms its current session. Sign-out still clears account
+identity immediately. This prevents the first reminder or entitlement request
+after an OAuth redirect from racing the client's token installation.
 
 ## Security boundary
 

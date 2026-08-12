@@ -12,6 +12,10 @@ email design.
 - The controller offers Google OAuth and email magic links through Supabase
   Auth. Production Google OAuth is verified for one approved test account;
   production SMTP for the magic-link fallback is not yet verified.
+- After an OAuth callback, the controller confirms the shared client session
+  before it publishes signed-in state to protected-data consumers. The
+  production acceptance test must not use **Try loading again** to make the
+  first reminder-preference read succeed.
 - An authenticated user can save only their own `reminder_preferences` row.
 - A signed-in internal user can download a read-only JSON export of Edenia's
   server-side account data. The Edge Function re-verifies the JWT, passes only
@@ -611,7 +615,7 @@ tested without destroying data. Export must keep browser-local study progress
 separate: it is already available through **Export sync file** and is not owned
 by the signed-in account.
 
-The first export layer is now a database-only foundation. Its privileged
+The account export uses a private database implementation. Its privileged
 implementation lives in the non-exposed `private` schema and browser roles
 cannot execute it or use that schema. A service-role-only bridge accepts only
 the owner UUID independently verified by the `export-account-data` Edge
@@ -628,9 +632,9 @@ correlators: unsubscribe digests, delivery lease tokens, reservation email
 hashes, Stripe customer/session/subscription identifiers, provider message
 identifiers and webhook event identifiers. Anonymous and service-role callers
 cannot use the private implementation directly, and browser roles cannot call
-the service bridge. The internal Settings UI does not offer the download yet;
-presentation and browser-download behavior remain a separate change so the
-transport boundary can be reviewed first.
+the service bridge. The internal Settings UI offers the download only to a
+signed-in account, rejects mismatched or local-progress scope, discards a
+response after account switching, and prevents concurrent downloads.
 
 ### Shared-browser and identity behavior
 
@@ -658,8 +662,11 @@ Migration `20260812123000_optimize_account_owner_policies.sql` follows
 Supabase's [select-wrapped Auth function guidance](https://supabase.com/docs/guides/database/postgres/row-level-security#call-functions-with-select)
 for the two RLS initialization-plan warnings on `subscriptions` and
 `founding_members`. Its database test preserves the two-user, unauthenticated,
-service-role, no-write, policy-role and policy-command boundaries. Re-run the
-performance advisor after deployment and require both warnings to disappear.
+service-role, no-write, policy-role and policy-command boundaries. The
+post-deployment advisor rerun on 2026-08-12 reported neither initialization-plan
+warning. The remaining performance notices are INFO-level unused indexes,
+including indexes for dormant reminder delivery, account export, and restored
+Stripe webhook paths; retain them until those paths have representative usage.
 
 Newly created reminder indexes are still reported as unused because delivery
 remains off and production has no reminder preferences. Do not remove safety or
@@ -667,8 +674,8 @@ queue indexes based on an unused-index INFO notice during the inert rollout.
 
 ## Public-readiness items still deferred
 
-- Account-export UI and browser download behavior, subscription-aware account
-  deletion, retention choices, and recovery after partial deletion.
+- Subscription-aware account deletion, retention choices, and recovery after
+  partial deletion.
 - Email-change and identity-linking behavior across Google, magic link and
   existing Plus accounts.
 - CAPTCHA client integration and a deliberate magic-link rate-limit decision.
