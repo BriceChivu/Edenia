@@ -38,16 +38,12 @@ test('reminder controls collect schedule and consent without an email field', ()
   assert.doesNotMatch(reminders, /type="email"|name="email"/)
 })
 
-test('signed-in Account presentation owns the internal Plus information', () => {
+test('signed-in Account presentation contains no subscription controls', () => {
   const signedIn = html.match(
     /<div class="settings-account-signed-in hidden" id="accountSignedIn">([\s\S]*?)<\/div>\s*<p class="settings-account-feedback/
   )?.[1] || ''
 
-  assert.match(signedIn, /id="accountPlusBadge"/)
-  assert.match(signedIn, /id="accountPlusSubscription"/)
-  assert.match(signedIn, /id="accountPlusPlan"/)
-  assert.match(signedIn, /id="accountPlusPeriod"/)
-  assert.match(signedIn, /data-account-action="refresh-plus"/)
-  assert.match(signedIn, /data-account-action="billing"/)
-  assert.match(signedIn, /data-account-action="explore-plus"/)
+  assert.match(signedIn, /data-account-action="download-account"/)
+  assert.match(signedIn, /data-account-action="sign-out"/)
+  assert.doesNotMatch(signedIn, /subscription|billing|Edenia Plus/i)
 })

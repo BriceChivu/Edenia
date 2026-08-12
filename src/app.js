@@ -143,7 +143,6 @@ import {
 } from './integrations/plus-auth-controller.js'
 import {
   createPlusBillingController,
-  PLUS_BILLING_FEEDBACK,
   PLUS_BILLING_OFFER_STATES
 } from './integrations/plus-billing-controller.js'
 import {
@@ -401,9 +400,6 @@ import { bindSettingsLocaleActions } from './features/settings/locale-actions.js
 import {
   bindSettingsPreferenceActions
 } from './features/settings/preference-actions.js'
-import {
-  bindSettingsPlusAccountActions
-} from './features/settings/plus-account-actions.js'
 import { bindSettingsReplayActions } from './features/settings/replay-actions.js'
 import { bindSettingsResetConfirmActions } from './features/settings/reset-confirm-actions.js'
 import { bindSettingsShellActions } from './features/settings/shell-actions.js'
@@ -4517,100 +4513,6 @@ function showTrackedChannelDowngradeNotice(transition) {
   showToast(t('plus.channels.downgradeNotice', { channels }), 'warn')
 }
 
-function getPlusAccountStatusView(state) {
-  if (
-    state.sessionState === PLUS_ACCOUNT_SESSION_STATES.LOADING
-    || state.entitlementState === PLUS_ENTITLEMENT_STATES.LOADING
-  ) {
-    return {
-      key: 'settings.plusAccount.status.loading',
-      tone: 'neutral'
-    }
-  }
-  if (state.sessionState === PLUS_ACCOUNT_SESSION_STATES.SIGNED_OUT) {
-    return {
-      key: 'settings.plusAccount.status.signedOut',
-      tone: 'neutral'
-    }
-  }
-  if (
-    state.sessionState === PLUS_ACCOUNT_SESSION_STATES.UNAVAILABLE
-    || state.entitlementState === PLUS_ENTITLEMENT_STATES.UNAVAILABLE
-  ) {
-    return {
-      key: 'settings.plusAccount.status.unavailable',
-      tone: 'warning'
-    }
-  }
-  if (state.entitlementState === PLUS_ENTITLEMENT_STATES.PLUS) {
-    return {
-      key: 'settings.plusAccount.status.plus',
-      tone: 'plus'
-    }
-  }
-  if (state.entitlementState === PLUS_ENTITLEMENT_STATES.PAYMENT_PROBLEM) {
-    return {
-      key: 'settings.plusAccount.status.paymentProblem',
-      tone: 'warning'
-    }
-  }
-  return {
-    key: 'settings.plusAccount.status.free',
-    tone: 'neutral'
-  }
-}
-
-const PLUS_ACCOUNT_FEEDBACK_VIEWS = Object.freeze({
-  [PLUS_ACCOUNT_FEEDBACK.CHECKOUT_ERROR]: {
-    key: 'settings.plusAccount.feedback.checkoutError',
-    tone: 'error'
-  },
-  [PLUS_ACCOUNT_FEEDBACK.CHECKOUT_PENDING]: {
-    key: 'settings.plusAccount.feedback.checkoutPending',
-    tone: 'warning'
-  },
-  [PLUS_ACCOUNT_FEEDBACK.CHECKOUT_RESTORED]: {
-    key: 'settings.plusAccount.feedback.checkoutRestored',
-    tone: 'success'
-  },
-  [PLUS_ACCOUNT_FEEDBACK.INVALID_EMAIL]: {
-    key: 'settings.plusAccount.feedback.invalidEmail',
-    tone: 'error'
-  },
-  [PLUS_ACCOUNT_FEEDBACK.REFRESH_ERROR]: {
-    key: 'settings.plusAccount.feedback.refreshError',
-    tone: 'error'
-  },
-  [PLUS_ACCOUNT_FEEDBACK.SIGN_IN_ERROR]: {
-    key: 'settings.plusAccount.feedback.signInError',
-    tone: 'error'
-  },
-  [PLUS_ACCOUNT_FEEDBACK.SIGN_IN_LINK_SENT]: {
-    key: 'settings.plusAccount.feedback.linkSent',
-    tone: 'success'
-  },
-  [PLUS_ACCOUNT_FEEDBACK.UPGRADE_LINK_SENT]: {
-    key: 'plus.feedback.upgradeLinkSent',
-    tone: 'success'
-  },
-  [PLUS_ACCOUNT_FEEDBACK.SIGN_OUT_ERROR]: {
-    key: 'settings.plusAccount.feedback.signOutError',
-    tone: 'error'
-  }
-})
-
-const PLUS_SETTINGS_BILLING_FEEDBACK_VIEWS = Object.freeze({
-  [PLUS_BILLING_FEEDBACK.BILLING_ACCOUNT_NOT_FOUND]: {
-    key: 'plus.feedback.billingMissing', tone: 'error'
-  },
-  [PLUS_BILLING_FEEDBACK.PORTAL_ERROR]: {
-    key: 'plus.feedback.portalError', tone: 'error'
-  },
-  [PLUS_BILLING_FEEDBACK.RATE_LIMITED]: {
-    key: 'plus.feedback.rateLimited', tone: 'warning'
-  }
-})
-
 const ACCOUNT_AUTH_FEEDBACK_VIEWS = Object.freeze({
   [ACCOUNT_AUTH_ERRORS.GOOGLE_SIGN_IN_FAILED]: {
     key: 'settings.account.feedback.googleError', tone: 'error'
@@ -4817,18 +4719,6 @@ function renderReminderPreferences(state = reminderPreferenceViewState) {
   }
 }
 
-function getPlusSettingsFeedbackView(state) {
-  return PLUS_SETTINGS_BILLING_FEEDBACK_VIEWS[
-    plusBillingViewState?.feedback
-  ] || PLUS_ACCOUNT_FEEDBACK_VIEWS[state?.feedback]
-    || (state?.usingCachedEntitlement
-      ? {
-          key: 'settings.plusAccount.status.cached',
-          tone: 'warning'
-        }
-      : null)
-}
-
 function renderAccountSettings(state = accountAuthViewState) {
   const group = document.getElementById('accountSettings')
   if (!group) return
@@ -4899,203 +4789,23 @@ function renderAccountSettings(state = accountAuthViewState) {
     )
   }
 
-  const plusState = plusAccountViewState
-  const plusStatusView = plusState
-    ? getPlusAccountStatusView(plusState)
-    : { key: 'settings.plusAccount.status.loading', tone: 'neutral' }
-  const plusStatus = document.getElementById('accountPlusStatus')
-  const plusBadge = document.getElementById('accountPlusBadge')
-  if (plusStatus) plusStatus.textContent = t(plusStatusView.key)
-  if (plusBadge) {
-    plusBadge.textContent = t(plusStatusView.key)
-    plusBadge.dataset.plusAccountTone = plusStatusView.tone
-  }
-
-  const hasSubscription = Boolean(plusState?.subscriptionStatus)
-  document.getElementById('accountPlusSubscription')?.classList.toggle(
-    'hidden',
-    !hasSubscription
-  )
-  const plan = document.getElementById('accountPlusPlan')
-  if (plan) {
-    const planKey = String(plusState?.plan || '').includes('annual')
-      ? 'plus.plan.annual.title'
-      : 'plus.plan.monthly.title'
-    plan.textContent = hasSubscription
-      ? t('settings.plusAccount.plan', { plan: t(planKey) })
-      : ''
-  }
-  const period = document.getElementById('accountPlusPeriod')
-  if (period) {
-    const date = plusState?.currentPeriodEnd
-      ? formatLocaleDate(plusState.currentPeriodEnd, {
-          year: 'numeric', month: 'short', day: 'numeric'
-        })
-      : ''
-    period.textContent = date
-      ? t(
-          plusState?.cancelAtPeriodEnd
-            ? 'settings.plusAccount.ends'
-            : 'settings.plusAccount.renews',
-          { date }
-        )
-      : ''
-  }
-  document.getElementById('accountPlusPaymentHelp')?.classList.toggle(
-    'hidden',
-    plusState?.entitlementState !== PLUS_ENTITLEMENT_STATES.PAYMENT_PROBLEM
-  )
-
-  const plusBusy = Boolean(plusState?.busyAction)
-  const refreshButton = document.getElementById('accountPlusRefreshBtn')
-  if (refreshButton) {
-    refreshButton.disabled = plusBusy
-      || plusState?.sessionState === PLUS_ACCOUNT_SESSION_STATES.UNAVAILABLE
-    refreshButton.textContent = t(
-      plusState?.busyAction === 'refresh'
-        ? 'settings.plusAccount.refreshing'
-        : 'settings.plusAccount.refresh'
-    )
-  }
-  const billingButton = document.getElementById('accountPlusBillingBtn')
-  if (billingButton) {
-    billingButton.classList.toggle('hidden', !hasSubscription)
-    billingButton.disabled = plusBusy || Boolean(plusBillingViewState?.busyAction)
-    billingButton.textContent = t(
-      plusBillingViewState?.busyAction === 'create-billing-portal'
-        ? 'plus.account.managing'
-        : 'settings.plusAccount.manageBilling'
-    )
-  }
-  const plusFeedback = document.getElementById('accountPlusFeedback')
-  const plusFeedbackView = getPlusSettingsFeedbackView(plusState)
-  if (plusFeedback) {
-    plusFeedback.classList.toggle('hidden', !plusFeedbackView)
-    plusFeedback.textContent = plusFeedbackView
-      ? t(plusFeedbackView.key, { email: plusState?.feedbackEmail })
-      : ''
-    plusFeedback.dataset.plusAccountTone = plusFeedbackView?.tone || 'success'
-  }
   renderTrackedChannelAccess()
   renderReminderPreferences()
 }
 
-function renderPlusAccountSettings(state = plusAccountViewState) {
+function renderPlusAccountSettings() {
   const group = document.getElementById('plusAccountSettings')
-  if (!group || !state) return
-  if (ACCOUNT_FEATURES_ENABLED) {
-    group.classList.add('hidden')
-    renderAccountSettings()
-    return
-  }
-  group.classList.remove('hidden')
-  renderTrackedChannelAccess()
-
-  const statusView = getPlusAccountStatusView(state)
-  const status = document.getElementById('plusAccountStatus')
-  const badge = document.getElementById('plusAccountBadge')
-  if (status) status.textContent = t(statusView.key)
-  if (badge) {
-    badge.textContent = t(statusView.key)
-    badge.dataset.plusAccountTone = statusView.tone
-  }
-
-  const signedIn = Boolean(state.userId)
-  const form = group.querySelector('[data-plus-account-action="restore-form"]')
-  const signedInPanel = document.getElementById('plusAccountSignedIn')
-  form?.classList.toggle('hidden', signedIn)
-  signedInPanel?.classList.toggle('hidden', !signedIn)
-  const email = document.getElementById('plusAccountUserEmail')
-  if (email) email.textContent = state.email || ''
-
-  const subscription = document.getElementById('plusAccountSubscription')
-  const hasSubscription = Boolean(state.subscriptionStatus)
-  subscription?.classList.toggle('hidden', !signedIn || !hasSubscription)
-  const plan = document.getElementById('plusAccountPlan')
-  if (plan) {
-    const planKey = String(state.plan || '').includes('annual')
-      ? 'plus.plan.annual.title'
-      : 'plus.plan.monthly.title'
-    plan.textContent = hasSubscription
-      ? t('settings.plusAccount.plan', { plan: t(planKey) })
-      : ''
-  }
-  const period = document.getElementById('plusAccountPeriod')
-  if (period) {
-    const date = state.currentPeriodEnd
-      ? formatLocaleDate(state.currentPeriodEnd, {
-          year: 'numeric', month: 'short', day: 'numeric'
-        })
-      : ''
-    period.textContent = date
-      ? t(
-          state.cancelAtPeriodEnd
-            ? 'settings.plusAccount.ends'
-            : 'settings.plusAccount.renews',
-          { date }
-        )
-      : ''
-  }
-  document.getElementById('plusAccountPaymentHelp')?.classList.toggle(
-    'hidden',
-    state.entitlementState !== PLUS_ENTITLEMENT_STATES.PAYMENT_PROBLEM
-  )
-
-  const isBusy = Boolean(state.busyAction)
-  group.setAttribute('aria-busy', String(isBusy))
-  const emailInput = document.getElementById('plusAccountEmail')
-  const restoreButton = document.getElementById('plusAccountRestoreBtn')
-  const refreshButton = document.getElementById('plusAccountRefreshBtn')
-  const signOutButton = document.getElementById('plusAccountSignOutBtn')
-  const billingButton = document.getElementById('plusAccountBillingBtn')
-  if (emailInput) emailInput.disabled = isBusy
-  if (restoreButton) {
-    restoreButton.disabled = isBusy
-    restoreButton.textContent = t(
-      state.busyAction === 'restore'
-        ? 'settings.plusAccount.restoring'
-        : 'settings.plusAccount.restore'
-    )
-  }
-  if (refreshButton) {
-    refreshButton.disabled = isBusy
-    refreshButton.textContent = t(
-      state.busyAction === 'refresh'
-        ? 'settings.plusAccount.refreshing'
-        : 'settings.plusAccount.refresh'
-    )
-  }
-  if (signOutButton) {
-    signOutButton.disabled = isBusy
-    signOutButton.textContent = t(
-      state.busyAction === 'sign-out'
-        ? 'settings.plusAccount.signingOut'
-        : 'settings.plusAccount.signOut'
-    )
-  }
-  if (billingButton) {
-    billingButton.classList.toggle('hidden', !signedIn || !hasSubscription)
-    billingButton.disabled = isBusy || Boolean(plusBillingViewState?.busyAction)
-    billingButton.textContent = t(
-      plusBillingViewState?.busyAction === 'create-billing-portal'
-        ? 'plus.account.managing'
-        : 'settings.plusAccount.manageBilling'
-    )
-  }
-
-  const feedback = document.getElementById('plusAccountFeedback')
-  if (!feedback) return
-  const feedbackView = getPlusSettingsFeedbackView(state)
-  feedback.classList.toggle('hidden', !feedbackView)
-  feedback.textContent = feedbackView
-    ? t(feedbackView.key, { email: state.feedbackEmail })
-    : ''
-  feedback.dataset.plusAccountTone = feedbackView?.tone || 'success'
+  group?.classList.add('hidden')
+  if (ACCOUNT_FEATURES_ENABLED) renderAccountSettings()
 }
 
 function renderPlusUpgradeModal() {
   const modal = document.getElementById('plusUpgradeModal')
   if (!modal) return
+  if (!ACCOUNT_FEATURES_ENABLED) {
+    modal.classList.add('hidden')
+    return
+  }
   renderPlusUpgradeExperience(modal, {
     accountState: plusAccountViewState,
     billingState: plusBillingViewState,
@@ -5107,6 +4817,7 @@ function renderPlusUpgradeModal() {
 }
 
 function openPlusUpgradeModal(featureId = null) {
+  if (!ACCOUNT_FEATURES_ENABLED) return false
   const modal = document.getElementById('plusUpgradeModal')
   const dialog = modal?.querySelector('[role="dialog"]')
   if (!modal || !dialog) return false
@@ -5138,7 +4849,7 @@ function closePlusUpgradeModal() {
 }
 
 function initializePlusAccount() {
-  if (IS_SANDBOX || !hasSupabaseRuntimeConfig()) return
+  if (!ACCOUNT_FEATURES_ENABLED || IS_SANDBOX || !hasSupabaseRuntimeConfig()) return
 
   try {
     const client = getSupabaseClient()
@@ -5365,6 +5076,7 @@ function managePlusBilling() {
 }
 
 function initializeRequestedPlusModal() {
+  if (!ACCOUNT_FEATURES_ENABLED) return
   const params = new URLSearchParams(window.location.search)
   if (params.get('plus') !== '1') return
   selectPlusPlan(params.get('plan'))
@@ -16890,23 +16602,13 @@ bindSettingsAccountActions(document, {
   signInWithGoogle: signInAccountWithGoogle,
   sendMagicLink: sendAccountMagicLink,
   signOut: signOutAccount,
-  downloadAccount: downloadAccountData,
-  refreshPlus: refreshPlusAccount,
-  manageBilling: managePlusBilling,
-  explorePlus: () => openPlusUpgradeModal()
+  downloadAccount: downloadAccountData
 })
 bindReminderPreferenceActions(document, {
   save: saveReminderPreference,
   validate: validateReminderPreference,
   cancel: cancelReminderPreferenceChanges,
   retry: retryReminderPreferenceLoad
-})
-bindSettingsPlusAccountActions(document, {
-  restore: restorePlusAccount,
-  refresh: refreshPlusAccount,
-  manageBilling: managePlusBilling,
-  explore: () => openPlusUpgradeModal(),
-  signOut: signOutPlusAccount
 })
 bindPlusUpgradeActions(document.getElementById('plusUpgradeModal'), {
   close: closePlusUpgradeModal,

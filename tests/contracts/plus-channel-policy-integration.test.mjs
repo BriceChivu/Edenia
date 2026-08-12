@@ -55,7 +55,7 @@ test('confirmed entitlement changes reconcile before persistence and rendering',
 
   const reconcileSource = getFunctionSource(
     'reconcileTrackedChannelPolicyState',
-    'getPlusAccountStatusView'
+    'showTrackedChannelDowngradeNotice'
   )
   assert.match(
     reconcileSource,

@@ -1,4 +1,5 @@
 import { deriveRuntimeEnvironment } from './core/runtime-environment.js'
+import { deriveAccountFeaturesEnabled } from './core/account-feature-rollout.js'
 import { deriveStorageKeys } from './core/storage-keys.js'
 import {
   createPlusAccessPolicy,
@@ -17,6 +18,7 @@ import {
 import { createPlusBillingController } from './integrations/plus-billing-controller.js'
 import {
   getPlusCheckoutEnabled,
+  getAccountFeaturesRollout,
   getSupabasePublishableKey,
   getSupabaseUrl,
   hasSupabaseRuntimeConfig
@@ -35,6 +37,10 @@ import { createPlusEntitlementCache } from './state/plus-entitlement-cache.js'
 
 const root = document.getElementById('plusPage')
 const runtimeEnvironment = deriveRuntimeEnvironment(window.location)
+const accountFeaturesEnabled = deriveAccountFeaturesEnabled(
+  runtimeEnvironment,
+  getAccountFeaturesRollout()
+)
 const storageKeys = deriveStorageKeys(runtimeEnvironment)
 const checkoutEnabled = getPlusCheckoutEnabled()
 const policy = createPlusAccessPolicy({
@@ -170,52 +176,57 @@ function initializeControllers() {
   })
 }
 
-setCurrentLocale(normalizeLocale(params.get('locale') || storedLocale()))
-bindPlusUpgradeActions(root, {
-  close() { window.location.assign('../') },
-  selectPlan(plan) {
-    transientFeedback = null
-    if (billingController) {
-      billingController.selectPlan(plan)
-      return
+if (!accountFeaturesEnabled) {
+  window.location.replace('../')
+} else {
+  root.hidden = false
+  setCurrentLocale(normalizeLocale(params.get('locale') || storedLocale()))
+  bindPlusUpgradeActions(root, {
+    close() { window.location.assign('../') },
+    selectPlan(plan) {
+      transientFeedback = null
+      if (billingController) {
+        billingController.selectPlan(plan)
+        return
+      }
+      billingState = {
+        ...billingState,
+        selectedPlan: normalizePlusPlanId(plan)
+      }
+      render()
+    },
+    startCheckout() {
+      transientFeedback = null
+      return billingController?.startCheckout()
+    },
+    startUpgradeSignIn(email) {
+      transientFeedback = null
+      return accountController?.startUpgradeSignIn(
+        email,
+        billingState.selectedPlan
+      )
+    },
+    restore(email) {
+      transientFeedback = null
+      return accountController?.restore(email)
+    },
+    refresh() {
+      transientFeedback = null
+      return accountController?.refresh()
+    },
+    openBillingPortal() {
+      transientFeedback = null
+      return billingController?.openBillingPortal()
+    },
+    signOut() {
+      transientFeedback = null
+      return accountController?.signOut()
     }
-    billingState = {
-      ...billingState,
-      selectedPlan: normalizePlusPlanId(plan)
-    }
+  })
+  document.getElementById('plusLocaleSelect')?.addEventListener('change', event => {
+    setCurrentLocale(normalizeLocale(event.currentTarget.value))
     render()
-  },
-  startCheckout() {
-    transientFeedback = null
-    return billingController?.startCheckout()
-  },
-  startUpgradeSignIn(email) {
-    transientFeedback = null
-    return accountController?.startUpgradeSignIn(
-      email,
-      billingState.selectedPlan
-    )
-  },
-  restore(email) {
-    transientFeedback = null
-    return accountController?.restore(email)
-  },
-  refresh() {
-    transientFeedback = null
-    return accountController?.refresh()
-  },
-  openBillingPortal() {
-    transientFeedback = null
-    return billingController?.openBillingPortal()
-  },
-  signOut() {
-    transientFeedback = null
-    return accountController?.signOut()
-  }
-})
-document.getElementById('plusLocaleSelect')?.addEventListener('change', event => {
-  setCurrentLocale(normalizeLocale(event.currentTarget.value))
+  })
   render()
-})
-render()
-initializeControllers()
+  initializeControllers()
+}

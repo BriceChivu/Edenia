@@ -1,5 +1,20 @@
 import { expect, test } from '../support/network-fixture.mjs'
 
+test.beforeEach(async ({ page }) => {
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: `window.EDENIA_CONFIG = {
+      youtubeApiKey: '',
+      freePlusEnabled: false,
+      plusCheckoutEnabled: false,
+      accountFeaturesRollout: 'internal',
+      supabaseUrl: '',
+      supabasePublishableKey: ''
+    }`,
+    contentType: 'application/javascript',
+    status: 200
+  }))
+})
+
 async function seedCompletedHistoryState(
   page,
   { ankiEnabled = true, includeRecent = true } = {}
@@ -121,8 +136,21 @@ async function seedCompletedInsightState(page) {
   })
 }
 
-test('Plus page presents the approved offer and keeps purchasing disabled', async ({ page }) => {
+test('public Plus page returns to Edenia without rendering authentication', async ({ page }) => {
   await page.goto('/plus/')
+
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page).not.toHaveTitle('Edenia Plus')
+  await expect(page.locator('input[type="email"]:visible')).toHaveCount(0)
+  await expect(page.getByText('Restore Plus', { exact: true })).toHaveCount(0)
+
+  await page.goto('/?plus=1')
+  await expect(page.locator('#plusUpgradeModal')).toBeHidden()
+  await expect(page.locator('#plusUpgradeModal input[type="email"]:visible')).toHaveCount(0)
+})
+
+test('internal Plus page presents the approved offer and keeps purchasing disabled', async ({ page }) => {
+  await page.goto('/plus/?internal_test=1')
 
   await expect(page).toHaveTitle('Edenia Plus')
   await expect(page.locator('[data-plus-benefits] .plus-benefit')).toHaveCount(3)
@@ -148,7 +176,7 @@ test('Plus page presents the approved offer and keeps purchasing disabled', asyn
 })
 
 test('contextual Plus modal traps focus and closes with Escape', async ({ page }) => {
-  await page.goto('/?plus=1&feature=complete-study-history')
+  await page.goto('/?internal_test=1&plus=1&feature=complete-study-history')
 
   const modal = page.locator('#plusUpgradeModal')
   const dialog = modal.getByRole('dialog')
@@ -532,6 +560,7 @@ test('Free channel allowance gates direct, catalog, and restore flows but keeps 
       youtubeApiKey: 'fixture-key',
       freePlusEnabled: false,
       plusCheckoutEnabled: false,
+      accountFeaturesRollout: 'internal',
       supabaseUrl: '',
       supabasePublishableKey: ''
     }`,

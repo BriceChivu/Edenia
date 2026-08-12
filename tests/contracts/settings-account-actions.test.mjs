@@ -9,10 +9,7 @@ const selectors = {
   form: '[data-account-action="email-form"]',
   email: '#accountEmail',
   signOut: '[data-account-action="sign-out"]',
-  downloadAccount: '[data-account-action="download-account"]',
-  refreshPlus: '[data-account-action="refresh-plus"]',
-  billing: '[data-account-action="billing"]',
-  explorePlus: '[data-account-action="explore-plus"]'
+  downloadAccount: '[data-account-action="download-account"]'
 }
 
 function createHarness(included = Object.keys(selectors)) {
@@ -41,17 +38,14 @@ function createActions(calls = []) {
     signInWithGoogle() { calls.push(['google']) },
     sendMagicLink(email) { calls.push(['email', email]) },
     signOut() { calls.push(['sign-out']) },
-    downloadAccount() { calls.push(['download-account']) },
-    refreshPlus() { calls.push(['refresh-plus']) },
-    manageBilling() { calls.push(['billing']) },
-    explorePlus() { calls.push(['explore-plus']) }
+    downloadAccount() { calls.push(['download-account']) }
   }
 }
 
-test('Account controls forward provider, email, session, and Plus intent', () => {
+test('Account controls forward provider, email, session, and export intent', () => {
   const { controls, root } = createHarness()
   const calls = []
-  assert.equal(bindSettingsAccountActions(root, createActions(calls)), 7)
+  assert.equal(bindSettingsAccountActions(root, createActions(calls)), 4)
 
   controls.get(selectors.google).dispatch('click')
   let prevented = false
@@ -60,26 +54,20 @@ test('Account controls forward provider, email, session, and Plus intent', () =>
   })
   controls.get(selectors.signOut).dispatch('click')
   controls.get(selectors.downloadAccount).dispatch('click')
-  controls.get(selectors.refreshPlus).dispatch('click')
-  controls.get(selectors.billing).dispatch('click')
-  controls.get(selectors.explorePlus).dispatch('click')
 
   assert.equal(prevented, true)
   assert.deepEqual(calls, [
     ['google'],
     ['email', 'learner@example.com'],
     ['sign-out'],
-    ['download-account'],
-    ['refresh-plus'],
-    ['billing'],
-    ['explore-plus']
+    ['download-account']
   ])
 })
 
 test('Account binding is idempotent, optional, and boundary checked', () => {
   const { root } = createHarness()
   const actions = createActions()
-  assert.equal(bindSettingsAccountActions(root, actions), 7)
+  assert.equal(bindSettingsAccountActions(root, actions), 4)
   assert.equal(bindSettingsAccountActions(root, actions), 0)
   assert.equal(bindSettingsAccountActions(createHarness([]).root, actions), 0)
   assert.throws(
@@ -88,6 +76,6 @@ test('Account binding is idempotent, optional, and boundary checked', () => {
   )
   assert.throws(
     () => bindSettingsAccountActions(root, { signOut() {} }),
-    /sign-in, export, sign-out, and Plus callbacks/
+    /sign-in, export, and sign-out callbacks/
   )
 })

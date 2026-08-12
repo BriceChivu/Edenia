@@ -153,7 +153,7 @@ test('internal Account settings are localized and responsive without exposing pu
     await expect(account).toContainText(sharedBrowserCopy)
     await expect(page.locator('#reminderScheduleFields')).toHaveAttribute('disabled', '')
     await expect(page.locator('#reminderSaveBtn')).toBeDisabled()
-    await expect(page.locator('#plusAccountSettings')).toBeHidden()
+    await expect(page.locator('#plusAccountSettings')).toHaveCount(0)
     await expect(page).toHaveURL(/\?internal_test=1$/)
 
     const geometry = await account.evaluate(element => ({
@@ -523,7 +523,9 @@ test('global off switch blocks the account deep link and reminder reads', async 
   await page.locator('[data-settings-shell-action="open"]').click()
   await expect(page.locator('#settingsPanel')).toBeVisible()
   await expect(page.locator('#accountSettings')).toBeHidden()
-  await expect(page.locator('#plusAccountSettings')).toBeVisible()
+  await expect(page.locator('#plusAccountSettings')).toHaveCount(0)
+  await expect(page.getByText('Edenia Plus account', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('Restore Plus', { exact: true })).toHaveCount(0)
   expect(reminderRequests).toEqual([])
   expect(exportRequests).toEqual([])
 })

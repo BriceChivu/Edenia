@@ -130,9 +130,8 @@ test('manual videos remain available to Free users without tracking their channe
   )
 })
 
-test('feed, Settings, and downgrade notices explain channel access in every locale', () => {
+test('feed and downgrade notices explain channel access in every locale', () => {
   assert.match(markup, /id="manualVideoChannelAccess"[^>]*role="status"/)
-  assert.match(markup, /id="plusAccountChannelAccess"[^>]*role="status"/)
   assert.match(
     getFunctionSource('showTrackedChannelAddRestriction', 'requestTrackedChannelAddition'),
     /PLUS_FEATURE_IDS\.UNLIMITED_TRACKED_CHANNELS/
