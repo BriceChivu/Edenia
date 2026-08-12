@@ -179,6 +179,31 @@ test('billing hardening stays authenticated, environment-owned, and additive', a
     /grant execute on function public\.consume_billing_rate_limit\([\s\S]*to service_role/
   )
 
+  const webhookRepairMigrations = (await readdir(migrationsRoot)).filter(file =>
+    file.endsWith('_ensure_stripe_webhook_prerequisites.sql')
+  )
+  assert.equal(webhookRepairMigrations.length, 1)
+  const webhookRepairMigration = await readFile(
+    new URL(webhookRepairMigrations[0], migrationsRoot),
+    'utf8'
+  )
+  assert.match(
+    webhookRepairMigration,
+    /create table if not exists public\.stripe_webhook_events/
+  )
+  assert.match(
+    webhookRepairMigration,
+    /create or replace function public\.claim_stripe_webhook_event\(/
+  )
+  assert.match(
+    webhookRepairMigration,
+    /revoke all on function public\.claim_stripe_webhook_event\([\s\S]*from public, anon, authenticated/
+  )
+  assert.match(
+    webhookRepairMigration,
+    /add column if not exists cancel_at_period_end boolean not null default false/
+  )
+
   const cancellationMigrations = (await readdir(migrationsRoot)).filter(file =>
     file.endsWith('_add_subscription_cancellation_state.sql')
   )
