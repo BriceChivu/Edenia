@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
 const appUrl = new URL('../../src/app.js', import.meta.url)
+const plusPageUrl = new URL('../../src/plus-page.js', import.meta.url)
+const plusPageHtmlUrl = new URL('../../plus/index.html', import.meta.url)
 
 test('general account auth starts only behind the rollout and public config gates', async () => {
   const source = await readFile(appUrl, 'utf8')
@@ -34,6 +36,10 @@ test('general accounts and Plus reuse one browser auth client and storage sessio
   )
   assert.match(
     source,
+    /function initializePlusAccount\(\) \{\s*if \(!ACCOUNT_FEATURES_ENABLED \|\| IS_SANDBOX \|\| !hasSupabaseRuntimeConfig\(\)\) return/
+  )
+  assert.match(
+    source,
     /const client = getSupabaseClient\(\)[\s\S]*createAccountAuthController\(\{\s*client,/
   )
   assert.equal(
@@ -51,7 +57,7 @@ test('account auth subscription is released with the existing Plus lifecycle', a
   )
 })
 
-test('internal Account UI replaces only the internal Plus settings presentation', async () => {
+test('internal Account UI replaces the retired Plus settings presentation', async () => {
   const source = await readFile(appUrl, 'utf8')
 
   assert.match(
@@ -60,12 +66,36 @@ test('internal Account UI replaces only the internal Plus settings presentation'
   )
   assert.match(
     source,
-    /function renderPlusAccountSettings\([\s\S]*if \(ACCOUNT_FEATURES_ENABLED\) \{\s*group\.classList\.add\('hidden'\)\s*renderAccountSettings\(\)\s*return/
+    /function renderPlusAccountSettings\(\) \{[\s\S]*group\?\.classList\.add\('hidden'\)[\s\S]*if \(ACCOUNT_FEATURES_ENABLED\) renderAccountSettings\(\)/
   )
   assert.match(
     source,
     /initializeAccountAuth\(\)\s*initializePlusAccount\(\)\s*initializeRequestedAccountSettings\(\)/
   )
+})
+
+test('legacy Plus routes and dialogs share the internal account rollout', async () => {
+  const source = await readFile(appUrl, 'utf8')
+  const plusPageSource = await readFile(plusPageUrl, 'utf8')
+  const plusPageHtml = await readFile(plusPageHtmlUrl, 'utf8')
+
+  assert.match(
+    source,
+    /function openPlusUpgradeModal\(featureId = null\) \{\s*if \(!ACCOUNT_FEATURES_ENABLED\) return false/
+  )
+  assert.match(
+    source,
+    /function initializeRequestedPlusModal\(\) \{\s*if \(!ACCOUNT_FEATURES_ENABLED\) return/
+  )
+  assert.match(
+    plusPageSource,
+    /const accountFeaturesEnabled = deriveAccountFeaturesEnabled\([\s\S]*getAccountFeaturesRollout\(\)/
+  )
+  assert.match(
+    plusPageSource,
+    /if \(!accountFeaturesEnabled\) \{\s*window\.location\.replace\('\.\.\/'\)/
+  )
+  assert.match(plusPageHtml, /id="plusPage" data-plus-upgrade-root hidden/)
 })
 
 test('Account UI actions do not read, write, import, or export study progress', async () => {

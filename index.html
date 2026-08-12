@@ -329,26 +329,6 @@ and momentum—at a glance</h2>
             <p class="settings-account-export-feedback hidden" id="accountExportFeedback" role="status" aria-live="polite"></p>
           </section>
 
-          <section class="settings-account-plus" aria-labelledby="accountPlusTitle">
-            <div class="settings-plus-account-header">
-              <h3 id="accountPlusTitle" data-i18n="settings.account.plusTitle">Edenia Plus</h3>
-              <span class="settings-plus-account-badge" id="accountPlusBadge" data-plus-account-tone="neutral"></span>
-            </div>
-            <p class="sr-only" id="accountPlusStatus" role="status" aria-live="polite"></p>
-            <div class="settings-plus-subscription hidden" id="accountPlusSubscription">
-              <p id="accountPlusPlan"></p>
-              <p id="accountPlusPeriod"></p>
-              <p class="hidden" id="accountPlusPaymentHelp" data-i18n="settings.plusAccount.paymentHelp">Update your payment method to keep Plus active.</p>
-            </div>
-            <p class="settings-note hidden" id="accountPlusChannelAccess" role="status" aria-live="polite"></p>
-            <p class="settings-plus-account-feedback hidden" id="accountPlusFeedback" role="status" aria-live="polite"></p>
-            <div class="settings-plus-account-actions">
-              <button class="btn-secondary" id="accountPlusRefreshBtn" type="button" data-account-action="refresh-plus" data-i18n="settings.plusAccount.refresh">Refresh status</button>
-              <button class="btn-secondary hidden" id="accountPlusBillingBtn" type="button" data-account-action="billing" data-i18n="settings.plusAccount.manageBilling">Manage billing</button>
-              <button class="btn-secondary" type="button" data-account-action="explore-plus" data-i18n="settings.plusAccount.explore">Explore Edenia Plus</button>
-            </div>
-          </section>
-
           <button class="btn-ghost settings-account-sign-out" id="accountSignOutBtn" type="button" data-account-action="sign-out" data-i18n="settings.account.signOut">Sign out</button>
         </div>
 
@@ -406,36 +386,6 @@ and momentum—at a glance</h2>
           <p class="settings-reminder-delivery-note" data-i18n="settings.account.remindersNoDelivery">This version only saves your preference. It has no email sender or scheduled delivery job, so no reminder can be sent.</p>
         </div>
         <p class="settings-note" data-i18n="settings.account.localProgressNote">Your study progress stays in this browser and is visible to anyone using this browser profile. Signing in or out will not upload, replace, or link it to your account.</p>
-      </section>
-
-      <section class="settings-group settings-plus-account hidden" id="plusAccountSettings" aria-labelledby="plusAccountTitle">
-        <div class="settings-plus-account-header">
-          <h2 id="plusAccountTitle" data-i18n="settings.plusAccount.title">Edenia Plus account</h2>
-          <span class="settings-plus-account-badge" id="plusAccountBadge" data-plus-account-tone="neutral"></span>
-        </div>
-        <p class="settings-plus-account-status sr-only" id="plusAccountStatus" role="status" aria-live="polite"></p>
-        <form class="settings-plus-account-form" data-plus-account-action="restore-form" novalidate>
-          <label for="plusAccountEmail" data-i18n="settings.plusAccount.emailLabel">Email address</label>
-          <input id="plusAccountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-i18n-placeholder="settings.plusAccount.emailPlaceholder" placeholder="you@example.com">
-          <button class="btn-secondary" id="plusAccountRestoreBtn" type="submit" data-i18n="settings.plusAccount.restore">Restore Plus</button>
-        </form>
-        <div class="settings-plus-account-signed-in hidden" id="plusAccountSignedIn">
-          <p><span data-i18n="settings.plusAccount.signedInAs">Signed in as</span> <strong id="plusAccountUserEmail"></strong></p>
-          <div class="settings-plus-subscription hidden" id="plusAccountSubscription">
-            <p id="plusAccountPlan"></p>
-            <p id="plusAccountPeriod"></p>
-            <p class="hidden" id="plusAccountPaymentHelp" data-i18n="settings.plusAccount.paymentHelp">Update your payment method to keep Plus active.</p>
-          </div>
-          <div class="settings-plus-account-actions">
-            <button class="btn-secondary" id="plusAccountRefreshBtn" type="button" data-plus-account-action="refresh" data-i18n="settings.plusAccount.refresh">Refresh status</button>
-            <button class="btn-secondary hidden" id="plusAccountBillingBtn" type="button" data-plus-account-action="billing" data-i18n="settings.plusAccount.manageBilling">Manage billing</button>
-            <button class="btn-ghost" id="plusAccountSignOutBtn" type="button" data-plus-account-action="sign-out" data-i18n="settings.plusAccount.signOut">Sign out</button>
-          </div>
-        </div>
-        <p class="settings-note hidden" id="plusAccountChannelAccess" role="status" aria-live="polite"></p>
-        <p class="settings-plus-account-feedback hidden" id="plusAccountFeedback" role="status" aria-live="polite"></p>
-        <button class="btn-secondary settings-plus-explore" type="button" data-plus-account-action="explore" data-i18n="settings.plusAccount.explore">Explore Edenia Plus</button>
-        <p class="settings-note" data-i18n="settings.plusAccount.localProgressNote">Signing in or out does not change progress saved in this browser.</p>
       </section>
 
       <div class="settings-group settings-shorts-group">

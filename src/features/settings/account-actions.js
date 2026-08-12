@@ -10,12 +10,9 @@ export function bindSettingsAccountActions(root, actions) {
     || typeof actions.sendMagicLink !== 'function'
     || typeof actions.signOut !== 'function'
     || typeof actions.downloadAccount !== 'function'
-    || typeof actions.refreshPlus !== 'function'
-    || typeof actions.manageBilling !== 'function'
-    || typeof actions.explorePlus !== 'function'
   ) {
     throw new TypeError(
-      'Settings account actions require sign-in, export, sign-out, and Plus callbacks'
+      'Settings account actions require sign-in, export, and sign-out callbacks'
     )
   }
 
@@ -40,10 +37,7 @@ export function bindSettingsAccountActions(root, actions) {
 
   const controls = [
     ['sign-out', actions.signOut],
-    ['download-account', actions.downloadAccount],
-    ['refresh-plus', actions.refreshPlus],
-    ['billing', actions.manageBilling],
-    ['explore-plus', actions.explorePlus]
+    ['download-account', actions.downloadAccount]
   ]
   for (const [name, callback] of controls) {
     const control = root.querySelector(`[data-account-action="${name}"]`)
