@@ -48,12 +48,12 @@ test('general accounts and Plus reuse one browser auth client and storage sessio
   )
 })
 
-test('account auth subscription is released with the existing Plus lifecycle', async () => {
+test('account integrations are released with the existing Plus lifecycle', async () => {
   const source = await readFile(appUrl, 'utf8')
 
   assert.match(
     source,
-    /window\.addEventListener\('pagehide', event => \{\s*if \(!event\.persisted\) accountAuthController\?\.destroy\(\)\s*if \(!event\.persisted\) plusAccountController\?\.destroy\(\)/
+    /window\.addEventListener\('pagehide', event => \{\s*if \(!event\.persisted\) accountAuthController\?\.destroy\(\)\s*if \(!event\.persisted\) accountStudySnapshotController\?\.destroy\(\)\s*if \(!event\.persisted\) plusAccountController\?\.destroy\(\)/
   )
 })
 

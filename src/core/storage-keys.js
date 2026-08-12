@@ -10,6 +10,7 @@ export function deriveStorageKeys({ isSandbox, isInternalTest }) {
 
   return {
     storageKey,
+    accountStudySyncOwnerKey: `${storageKey}_account_study_sync_owner_v1`,
     youtubeChannelSearchCacheKey:
       `${storageKey}_youtube_channel_search_cache_v1`,
     youtubeChannelSearchUsageKey:
