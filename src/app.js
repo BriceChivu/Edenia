@@ -152,6 +152,9 @@ import {
   REMINDER_PREFERENCE_STATES
 } from './integrations/reminder-preferences-controller.js'
 import {
+  consumeReminderDestination
+} from './integrations/reminder-destination.js'
+import {
   createAccountStudySnapshotController
 } from './integrations/account-study-snapshot-controller.js'
 import {
@@ -2232,6 +2235,7 @@ function init() {
   backgroundPhysics = initBackgroundPhysics()
   show('mainApp')
   renderAll(state)
+  void initializeRequestedReminderDestination()
   loadDynamicChannelCatalogs()
   syncHeaderCompactState()
   startChannelRefreshLabelTicker()
@@ -5051,6 +5055,96 @@ function initializeRequestedAccountSettings() {
     `${url.pathname}${url.search}${url.hash}`
   )
   window.setTimeout(() => openSettings(), 0)
+}
+
+async function initializeRequestedReminderDestination() {
+  const request = consumeReminderDestination({
+    enabled: ACCOUNT_FEATURES_ENABLED,
+    location: window.location,
+    history: window.history
+  })
+  if (!request?.videoId || !request.channelId) return
+
+  const openRequestedVideo = existing => {
+    const opened = openVideoPlayer(request.videoId)
+    trackEdeniaEvent('reminder_video_destination_opened', {
+      email_type: request.emailType,
+      video_url: `https://www.youtube.com/watch?v=${encodeURIComponent(request.videoId)}`,
+      channel_id: request.channelId,
+      video_already_local: existing,
+      result: opened ? 'opened' : 'unavailable'
+    })
+    if (!opened) showToast(t('toast.videoGone'), 'warn')
+  }
+
+  if (loadState()?.videos?.[request.videoId]) {
+    openRequestedVideo(true)
+    return
+  }
+  if (!hasYoutubeApiKey()) {
+    showToast(t('toast.apiKeyMissing'), 'warn')
+    return
+  }
+
+  try {
+    const metadata = await fetchVideoMetadata(request.videoId)
+    if (
+      metadata.id !== request.videoId
+      || metadata.channelId !== request.channelId
+    ) throw new Error(t('toast.videoNotFound'))
+
+    const state = loadState()
+    if (state.videos[request.videoId]) {
+      openRequestedVideo(true)
+      return
+    }
+    const duration = metadata.duration || 0
+    state.videos[request.videoId] = {
+      ...metadata,
+      id: request.videoId,
+      duration,
+      status: 'unwatched',
+      watchedAt: null,
+      watchedConfirmationUnlockedAt: null,
+      resumeAtSeconds: null,
+      pausedAt: null,
+      watchProgress: normalizeVideoWatchProgress(null, duration),
+      source: 'manual',
+      manuallyAdded: true,
+      hiddenFromGrid: false,
+      hiddenFromGridAt: null
+    }
+    pushUndoAction(state, {
+      type: 'manual-video-add',
+      videoId: request.videoId,
+      channelId: metadata.channelId,
+      channelName: metadata.channelTitle || metadata.channelId,
+      channelWasAdded: false,
+      channelTrackingMode: 'manual-video-only',
+      before: { exists: false, video: null, channel: null },
+      after: {
+        exists: true,
+        video: cloneVideoForHistoryAction(state.videos[request.videoId]),
+        channel: null
+      }
+    })
+    appendActivityLog(state, {
+      actor: 'user',
+      type: 'manual-video',
+      status: 'success',
+      title: t('log.videoAdded.title'),
+      detail: t('log.videoAdded.detail', {
+        title: formatToastTitle(state.videos[request.videoId].title)
+      }),
+      meta: { videoId: request.videoId }
+    })
+    saveState(state)
+    renderAll(state)
+    openRequestedVideo(false)
+  } catch (error) {
+    console.warn('Could not open the requested reminder video:', error)
+    showToast(error?.message || t('toast.addVideoFailed'), 'error')
+  }
 }
 
 function openSettings() {
