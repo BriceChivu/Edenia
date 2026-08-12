@@ -8,23 +8,19 @@ export const REMINDER_PREFERENCE_STATES = Object.freeze({
 })
 
 export const REMINDER_PREFERENCE_FEEDBACK = Object.freeze({
-  CONSENT_REQUIRED: 'consent-required',
-  INVALID_DAYS: 'invalid-days',
-  INVALID_TIME: 'invalid-time',
-  INVALID_TIMEZONE: 'invalid-timezone',
+  INVALID_PREFERENCE: 'invalid-preference',
   LOAD_ERROR: 'load-error',
   SAVED: 'saved',
   SAVE_ERROR: 'save-error',
   SIGN_IN_REQUIRED: 'sign-in-required'
 })
 
-export const REMINDER_CONSENT_VERSION = 'reminder-email-v1'
+export const REMINDER_CONSENT_VERSION = 'edenia-email-preferences-v2'
 
 const REMINDER_COLUMNS = [
   'user_id',
-  'enabled',
-  'days',
-  'local_time',
+  'streak_reminders_enabled',
+  'discovery_emails_enabled',
   'timezone',
   'locale',
   'consent_granted_at',
@@ -36,21 +32,7 @@ const REMINDER_COLUMNS = [
 ].join(',')
 const SUPPORTED_LOCALES = new Set(['en', 'zh-Hant', 'zh-Hans', 'es', 'fr'])
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-const TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d(?:\.\d{1,6})?)?$/
 const TIMEZONE_PATTERN = /^(?:UTC|[A-Za-z_]+(?:\/[A-Za-z0-9_+.-]+)+)$/
-
-function normalizeDays(value) {
-  if (!Array.isArray(value)) return null
-  const days = [...new Set(value.map(Number))]
-    .filter(day => Number.isInteger(day) && day >= 1 && day <= 7)
-    .sort((a, b) => a - b)
-  return days.length === value.length && days.length > 0 ? days : null
-}
-
-function normalizeLocalTime(value) {
-  const match = String(value || '').trim().match(TIME_PATTERN)
-  return match ? `${match[1]}:${match[2]}` : null
-}
 
 export function isValidIanaTimezone(value, DateTimeFormat = Intl.DateTimeFormat) {
   const timezone = String(value || '').trim()
@@ -68,15 +50,14 @@ export function createDefaultReminderPreference({
   timezone = 'UTC'
 } = {}) {
   return Object.freeze({
-    enabled: false,
-    days: Object.freeze([1, 2, 3, 4, 5]),
-    localTime: '19:00',
+    streakRemindersEnabled: true,
+    discoveryEmailsEnabled: true,
     timezone: isValidIanaTimezone(timezone) ? timezone : 'UTC',
     locale: SUPPORTED_LOCALES.has(locale) ? locale : 'en',
     consentGrantedAt: null,
     consentRevokedAt: null,
     consentVersion: REMINDER_CONSENT_VERSION,
-    consentSource: 'settings',
+    consentSource: 'account-default',
     createdAt: null,
     updatedAt: null
   })
@@ -85,9 +66,8 @@ export function createDefaultReminderPreference({
 function normalizeStoredPreference(row, defaults) {
   if (!row) return defaults
   return Object.freeze({
-    enabled: row.enabled === true,
-    days: Object.freeze(normalizeDays(row.days) || [...defaults.days]),
-    localTime: normalizeLocalTime(row.local_time) || defaults.localTime,
+    streakRemindersEnabled: row.streak_reminders_enabled === true,
+    discoveryEmailsEnabled: row.discovery_emails_enabled === true,
     timezone: isValidIanaTimezone(row.timezone)
       ? String(row.timezone).trim()
       : defaults.timezone,
@@ -95,27 +75,26 @@ function normalizeStoredPreference(row, defaults) {
     consentGrantedAt: row.consent_granted_at || null,
     consentRevokedAt: row.consent_revoked_at || null,
     consentVersion: row.consent_version || REMINDER_CONSENT_VERSION,
-    consentSource: row.consent_source || 'settings',
+    consentSource: row.consent_source || 'account-default',
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null
   })
 }
 
-function normalizeSaveInput(input) {
-  const days = normalizeDays(input?.days)
-  if (!days) return { error: REMINDER_PREFERENCE_FEEDBACK.INVALID_DAYS }
-  const localTime = normalizeLocalTime(input?.localTime)
-  if (!localTime) return { error: REMINDER_PREFERENCE_FEEDBACK.INVALID_TIME }
-  const timezone = String(input?.timezone || '').trim()
-  if (!isValidIanaTimezone(timezone)) {
-    return { error: REMINDER_PREFERENCE_FEEDBACK.INVALID_TIMEZONE }
+function getPreferenceRow(userId, preference) {
+  return {
+    user_id: userId,
+    enabled: false,
+    streak_reminders_enabled: preference.streakRemindersEnabled,
+    discovery_emails_enabled: preference.discoveryEmailsEnabled,
+    timezone: preference.timezone,
+    locale: preference.locale,
+    consent_granted_at: preference.consentGrantedAt,
+    consent_revoked_at: preference.consentRevokedAt,
+    consent_version: REMINDER_CONSENT_VERSION,
+    consent_source: preference.consentSource,
+    updated_at: preference.updatedAt
   }
-  const locale = SUPPORTED_LOCALES.has(input?.locale) ? input.locale : 'en'
-  const enabled = input?.enabled === true
-  if (enabled && input?.consent !== true) {
-    return { error: REMINDER_PREFERENCE_FEEDBACK.CONSENT_REQUIRED }
-  }
-  return { enabled, days, localTime, timezone, locale }
 }
 
 export function createReminderPreferencesController({
@@ -146,6 +125,49 @@ export function createReminderPreferencesController({
     return currentState
   }
 
+  async function createForUser(userId, activeRequest) {
+    const savedAt = now()
+    const preference = Object.freeze({
+      ...defaults,
+      consentGrantedAt: savedAt,
+      consentRevokedAt: null,
+      consentSource: 'account-default',
+      updatedAt: savedAt
+    })
+    const { data, error } = await client
+      .from('reminder_preferences')
+      .insert(getPreferenceRow(userId, preference))
+      .select(REMINDER_COLUMNS)
+      .single()
+    if (error?.code === '23505') {
+      const { data: existing, error: reloadError } = await client
+        .from('reminder_preferences')
+        .select(REMINDER_COLUMNS)
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (reloadError || !existing) throw reloadError || error
+      if (activeRequest !== requestId || currentState.userId !== userId) {
+        return currentState
+      }
+      return publish({
+        status: REMINDER_PREFERENCE_STATES.READY,
+        preference: normalizeStoredPreference(existing, preference),
+        busyAction: null,
+        feedback: null
+      })
+    }
+    if (error) throw error
+    if (activeRequest !== requestId || currentState.userId !== userId) {
+      return currentState
+    }
+    return publish({
+      status: REMINDER_PREFERENCE_STATES.READY,
+      preference: normalizeStoredPreference(data, preference),
+      busyAction: null,
+      feedback: null
+    })
+  }
+
   async function loadForUser(userId) {
     const activeRequest = ++requestId
     publish({
@@ -165,6 +187,7 @@ export function createReminderPreferencesController({
       if (activeRequest !== requestId || currentState.userId !== userId) {
         return currentState
       }
+      if (!data) return createForUser(userId, activeRequest)
       return publish({
         status: REMINDER_PREFERENCE_STATES.READY,
         preference: normalizeStoredPreference(data, defaults),
@@ -227,25 +250,34 @@ export function createReminderPreferencesController({
       publish({ feedback: REMINDER_PREFERENCE_FEEDBACK.SIGN_IN_REQUIRED })
       return false
     }
-    const normalized = normalizeSaveInput(input)
-    if (normalized.error) {
-      publish({ feedback: normalized.error })
+    if (
+      currentState.status !== REMINDER_PREFERENCE_STATES.READY
+      || currentState.busyAction
+      || typeof input?.streakRemindersEnabled !== 'boolean'
+      || typeof input?.discoveryEmailsEnabled !== 'boolean'
+    ) {
+      publish({ feedback: REMINDER_PREFERENCE_FEEDBACK.INVALID_PREFERENCE })
       return false
     }
 
     const savedAt = now()
     const prior = currentState.preference
-    const consentGrantedAt = normalized.enabled
-      ? (prior.enabled && prior.consentGrantedAt) || savedAt
+    const wasEnabled = prior.streakRemindersEnabled || prior.discoveryEmailsEnabled
+    const isEnabled = input.streakRemindersEnabled || input.discoveryEmailsEnabled
+    const consentGrantedAt = isEnabled
+      ? (wasEnabled && !prior.consentRevokedAt && prior.consentGrantedAt) || savedAt
       : prior.consentGrantedAt
-    const consentRevokedAt = normalized.enabled
+    const consentRevokedAt = isEnabled
       ? null
-      : prior.enabled && prior.consentGrantedAt
+      : wasEnabled && prior.consentGrantedAt
         ? savedAt
         : prior.consentRevokedAt
     const draft = Object.freeze({
       ...prior,
-      ...normalized,
+      streakRemindersEnabled: input.streakRemindersEnabled,
+      discoveryEmailsEnabled: input.discoveryEmailsEnabled,
+      timezone: defaults.timezone,
+      locale: defaults.locale,
       consentGrantedAt,
       consentRevokedAt,
       consentVersion: REMINDER_CONSENT_VERSION,
@@ -260,23 +292,10 @@ export function createReminderPreferencesController({
       feedback: null
     })
 
-    const row = {
-      user_id: userId,
-      enabled: draft.enabled,
-      days: draft.days,
-      local_time: draft.localTime,
-      timezone: draft.timezone,
-      locale: draft.locale,
-      consent_granted_at: draft.consentGrantedAt,
-      consent_revoked_at: draft.consentRevokedAt,
-      consent_version: REMINDER_CONSENT_VERSION,
-      consent_source: 'settings',
-      updated_at: savedAt
-    }
     try {
       const { data, error } = await client
         .from('reminder_preferences')
-        .upsert(row, { onConflict: 'user_id' })
+        .upsert(getPreferenceRow(userId, draft), { onConflict: 'user_id' })
         .select(REMINDER_COLUMNS)
         .single()
       if (error) throw error
@@ -292,7 +311,7 @@ export function createReminderPreferencesController({
       if (activeRequest !== requestId || currentState.userId !== userId) return false
       publish({
         status: REMINDER_PREFERENCE_STATES.READY,
-        preference: draft,
+        preference: prior,
         busyAction: null,
         feedback: REMINDER_PREFERENCE_FEEDBACK.SAVE_ERROR
       })

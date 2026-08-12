@@ -15,67 +15,50 @@ function control(extra = {}) {
 }
 
 function createHarness() {
-  const enabled = control({ checked: true })
-  const time = control({ value: '08:15' })
-  const timezone = control({ value: 'Asia/Taipei' })
-  const consent = control({ checked: true })
-  const days = [control({ value: '1' }), control({ value: '4' })]
+  const streak = control({ checked: true })
+  const discovery = control({ checked: false })
   const form = control({
     querySelector(selector) {
       return new Map([
-        ['#reminderEnabled', enabled],
-        ['#reminderLocalTime', time],
-        ['#reminderTimezone', timezone],
-        ['#reminderConsent', consent]
+        ['#streakRemindersEnabled', streak],
+        ['#discoveryEmailsEnabled', discovery]
       ]).get(selector) || null
-    },
-    querySelectorAll() { return days }
+    }
   })
-  const cancel = control()
   const retry = control()
   const root = {
     querySelector(selector) {
       return new Map([
         ['[data-reminder-action="form"]', form],
-        ['[data-reminder-action="cancel"]', cancel],
         ['[data-reminder-action="retry"]', retry]
       ]).get(selector) || null
     }
   }
-  return { cancel, form, retry, root }
+  return { form, retry, root }
 }
 
-test('reminder form returns schedule and explicit consent only', () => {
+test('email preference form returns only the two email choices', () => {
   const { form } = createHarness()
   assert.deepEqual(readReminderPreferenceForm(form), {
-    enabled: true,
-    days: [1, 4],
-    localTime: '08:15',
-    timezone: 'Asia/Taipei',
-    consent: true
+    streakRemindersEnabled: true,
+    discoveryEmailsEnabled: false
   })
 })
 
-test('reminder controls bind save, validation, cancel, and retry idempotently', () => {
-  const { cancel, form, retry, root } = createHarness()
+test('email choices save on change and retry binding is idempotent', () => {
+  const { form, retry, root } = createHarness()
   const calls = []
   const actions = {
     save: input => calls.push(['save', input]),
-    validate: input => calls.push(['validate', input]),
-    cancel: () => calls.push(['cancel']),
     retry: () => calls.push(['retry'])
   }
-  assert.equal(bindReminderPreferenceActions(root, actions), 3)
+  assert.equal(bindReminderPreferenceActions(root, actions), 2)
   assert.equal(bindReminderPreferenceActions(root, actions), 0)
 
-  let prevented = false
-  form.dispatch('submit', { preventDefault() { prevented = true } })
   form.dispatch('change')
-  cancel.dispatch('click')
   retry.dispatch('click')
 
-  assert.equal(prevented, true)
-  assert.deepEqual(calls.map(call => call[0]), ['save', 'validate', 'cancel', 'retry'])
+  assert.deepEqual(calls.map(call => call[0]), ['save', 'retry'])
   assert.throws(
     () => bindReminderPreferenceActions(null, actions),
     /queryable root/

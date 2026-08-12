@@ -4,7 +4,7 @@ import test from 'node:test'
 
 const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8')
 
-test('Settings contains one generic internal account and reminders surface', () => {
+test('Settings contains one generic internal Account surface', () => {
   assert.match(
     html,
     /class="settings-group settings-account hidden" id="accountSettings"[^>]*aria-labelledby="accountSettingsTitle"/
@@ -17,25 +17,24 @@ test('Settings contains one generic internal account and reminders surface', () 
   )
   assert.match(html, /data-account-action="sign-out"/)
   assert.match(html, /data-reminder-action="form"/)
-  assert.match(html, /id="reminderScheduleFields" disabled/)
-  assert.match(html, /id="reminderEnabled" type="checkbox"/)
-  assert.match(html, /id="reminderLocalTime" type="time"/)
-  assert.match(html, /id="reminderTimezone" type="text"/)
-  assert.match(html, /id="reminderConsent" type="checkbox"/)
-  assert.match(html, /data-i18n="settings\.account\.remindersNoDelivery"/)
-  assert.match(html, /data-i18n="settings\.account\.localProgressNote"/)
+  assert.match(
+    html,
+    /id="reminderPreferenceFields"[^>]*aria-labelledby="accountEmailsTitle"[^>]*disabled/
+  )
+  assert.match(html, /id="streakRemindersEnabled" type="checkbox"/)
+  assert.match(html, /id="discoveryEmailsEnabled" type="checkbox"/)
+  assert.doesNotMatch(html, /id="reminderLocalTime"|name="reminderDay"/)
 })
 
-test('reminder controls collect schedule and consent without an email field', () => {
+test('signed-in email settings expose only two automatic choices', () => {
   const reminders = html.match(
-    /<div class="settings-account-reminders">([\s\S]*?)<\/div>\s*<p class="settings-note"/
+    /<section class="settings-account-reminders"[^>]*>([\s\S]*?)<\/section>/
   )?.[1] || ''
 
-  assert.match(reminders, /name="reminderDay" value="1"/)
-  assert.match(reminders, /name="reminderDay" value="7"/)
-  assert.match(reminders, /data-reminder-action="cancel"/)
+  assert.match(reminders, /settings\.account\.streakReminders/)
+  assert.match(reminders, /settings\.account\.discoveryEmails/)
   assert.match(reminders, /data-reminder-action="retry"/)
-  assert.doesNotMatch(reminders, /type="email"|name="email"/)
+  assert.doesNotMatch(reminders, /type="time"|name="reminderDay"|type="submit"/)
 })
 
 test('signed-in Account presentation contains no subscription controls', () => {
@@ -43,7 +42,6 @@ test('signed-in Account presentation contains no subscription controls', () => {
     /<div class="settings-account-signed-in hidden" id="accountSignedIn">([\s\S]*?)<\/div>\s*<p class="settings-account-feedback/
   )?.[1] || ''
 
-  assert.match(signedIn, /data-account-action="download-account"/)
   assert.match(signedIn, /data-account-action="sign-out"/)
-  assert.doesNotMatch(signedIn, /subscription|billing|Edenia Plus/i)
+  assert.doesNotMatch(signedIn, /download-account|subscription|billing|Edenia Plus/i)
 })

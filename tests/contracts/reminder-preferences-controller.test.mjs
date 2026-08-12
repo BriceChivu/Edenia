@@ -10,7 +10,12 @@ import {
 
 const USER_ID = '123e4567-e89b-42d3-a456-426614174000'
 
-function createClient({ stored = null, loadError = null, saveError = null } = {}) {
+function createClient({
+  stored = null,
+  loadError = null,
+  insertError = null,
+  saveError = null
+} = {}) {
   const calls = []
   return {
     calls,
@@ -29,6 +34,26 @@ function createClient({ stored = null, loadError = null, saveError = null } = {}
           calls.push(['maybeSingle'])
           return { data: stored, error: loadError }
         },
+        insert(row) {
+          calls.push(['insert', row])
+          return {
+            select(columns) {
+              calls.push(['insert-select', columns])
+              return {
+                async single() {
+                  calls.push(['insert-single'])
+                  return {
+                    data: insertError ? null : {
+                      ...row,
+                      created_at: '2026-08-12T00:00:00.000Z'
+                    },
+                    error: insertError
+                  }
+                }
+              }
+            }
+          }
+        },
         upsert(row, options) {
           calls.push(['upsert', row, options])
           return {
@@ -40,7 +65,7 @@ function createClient({ stored = null, loadError = null, saveError = null } = {}
                   return {
                     data: saveError ? null : {
                       ...row,
-                      created_at: stored?.created_at || '2026-08-01T00:00:00.000Z'
+                      created_at: stored?.created_at || '2026-08-12T00:00:00.000Z'
                     },
                     error: saveError
                   }
@@ -58,12 +83,11 @@ function signedIn(userId = USER_ID) {
   return { sessionState: ACCOUNT_SESSION_STATES.SIGNED_IN, userId }
 }
 
-test('signed-in owner loads only the exact reminder preference columns and row', async () => {
+test('signed-in owner loads only their two persisted email choices', async () => {
   const client = createClient({ stored: {
     user_id: USER_ID,
-    enabled: true,
-    days: [1, 3, 5],
-    local_time: '18:30:00',
+    streak_reminders_enabled: false,
+    discovery_emails_enabled: true,
     timezone: 'Asia/Taipei',
     locale: 'zh-Hant',
     consent_granted_at: '2026-08-01T00:00:00.000Z',
@@ -73,10 +97,9 @@ test('signed-in owner loads only the exact reminder preference columns and row',
     created_at: '2026-08-01T00:00:00.000Z',
     updated_at: '2026-08-01T00:00:00.000Z'
   } })
-  const states = []
   const controller = createReminderPreferencesController({
     client,
-    onStateChange: state => states.push(state)
+    onStateChange() {}
   })
 
   await controller.synchronizeAccount(signedIn(), {
@@ -84,21 +107,138 @@ test('signed-in owner loads only the exact reminder preference columns and row',
   })
 
   assert.equal(controller.getState().status, REMINDER_PREFERENCE_STATES.READY)
-  assert.deepEqual(controller.getState().preference.days, [1, 3, 5])
-  assert.equal(controller.getState().preference.localTime, '18:30')
+  assert.equal(controller.getState().preference.streakRemindersEnabled, false)
+  assert.equal(controller.getState().preference.discoveryEmailsEnabled, true)
   assert.equal(controller.getState().preference.timezone, 'Asia/Taipei')
-  assert.deepEqual(client.calls.slice(0, 4).map(call => call[0]), [
-    'from', 'select', 'eq', 'maybeSingle'
-  ])
+  assert.equal(client.calls.some(call => call[0] === 'insert'), false)
   assert.deepEqual(client.calls[2], ['eq', 'user_id', USER_ID])
-  assert.equal(states[0].status, REMINDER_PREFERENCE_STATES.LOADING)
 })
 
-test('saving derives ownership and consent metadata instead of accepting them from UI', async () => {
+test('first signed-in load creates both choices on exactly once', async () => {
   const client = createClient()
   const controller = createReminderPreferencesController({
     client,
-    now: () => '2026-08-11T12:00:00.000Z',
+    now: () => '2026-08-12T12:00:00.000Z',
+    onStateChange() {}
+  })
+
+  await controller.synchronizeAccount(signedIn(), {
+    locale: 'fr', timezone: 'Europe/Paris'
+  })
+
+  const row = client.calls.find(call => call[0] === 'insert')[1]
+  assert.deepEqual(row, {
+    user_id: USER_ID,
+    enabled: false,
+    streak_reminders_enabled: true,
+    discovery_emails_enabled: true,
+    timezone: 'Europe/Paris',
+    locale: 'fr',
+    consent_granted_at: '2026-08-12T12:00:00.000Z',
+    consent_revoked_at: null,
+    consent_version: REMINDER_CONSENT_VERSION,
+    consent_source: 'account-default',
+    updated_at: '2026-08-12T12:00:00.000Z'
+  })
+  assert.equal(row.email, undefined)
+  assert.equal(controller.getState().preference.streakRemindersEnabled, true)
+  assert.equal(controller.getState().preference.discoveryEmailsEnabled, true)
+})
+
+test('a concurrent first-login insert reloads the row created by another tab', async () => {
+  const existing = {
+    user_id: USER_ID,
+    streak_reminders_enabled: false,
+    discovery_emails_enabled: true,
+    timezone: 'Asia/Taipei',
+    locale: 'zh-Hant',
+    consent_granted_at: '2026-08-12T11:59:59.000Z',
+    consent_revoked_at: null,
+    consent_version: REMINDER_CONSENT_VERSION,
+    consent_source: 'account-default'
+  }
+  let loadCount = 0
+  const client = {
+    from() {
+      return {
+        select() { return this },
+        eq() { return this },
+        async maybeSingle() {
+          loadCount += 1
+          return loadCount === 1
+            ? { data: null, error: null }
+            : { data: existing, error: null }
+        },
+        insert() {
+          return {
+            select() {
+              return {
+                async single() {
+                  return {
+                    data: null,
+                    error: { code: '23505', message: 'duplicate key' }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  const controller = createReminderPreferencesController({
+    client,
+    onStateChange() {}
+  })
+
+  await controller.synchronizeAccount(signedIn())
+
+  assert.equal(controller.getState().status, REMINDER_PREFERENCE_STATES.READY)
+  assert.equal(controller.getState().preference.streakRemindersEnabled, false)
+  assert.equal(controller.getState().preference.discoveryEmailsEnabled, true)
+  assert.equal(loadCount, 2)
+})
+
+test('existing disabled choices stay disabled on later sign-in', async () => {
+  const client = createClient({ stored: {
+    user_id: USER_ID,
+    streak_reminders_enabled: false,
+    discovery_emails_enabled: false,
+    timezone: 'UTC',
+    locale: 'en',
+    consent_granted_at: '2026-08-01T00:00:00.000Z',
+    consent_revoked_at: '2026-08-02T00:00:00.000Z',
+    consent_version: REMINDER_CONSENT_VERSION,
+    consent_source: 'settings'
+  } })
+  const controller = createReminderPreferencesController({
+    client,
+    onStateChange() {}
+  })
+
+  await controller.synchronizeAccount(signedIn())
+
+  assert.equal(controller.getState().preference.streakRemindersEnabled, false)
+  assert.equal(controller.getState().preference.discoveryEmailsEnabled, false)
+  assert.equal(client.calls.some(call => call[0] === 'insert'), false)
+  assert.equal(client.calls.some(call => call[0] === 'upsert'), false)
+})
+
+test('saving derives ownership and keeps the obsolete scheduler disabled', async () => {
+  const client = createClient({ stored: {
+    user_id: USER_ID,
+    streak_reminders_enabled: true,
+    discovery_emails_enabled: true,
+    timezone: 'Asia/Taipei',
+    locale: 'en',
+    consent_granted_at: '2026-08-12T11:00:00.000Z',
+    consent_revoked_at: null,
+    consent_version: REMINDER_CONSENT_VERSION,
+    consent_source: 'account-default'
+  } })
+  const controller = createReminderPreferencesController({
+    client,
+    now: () => '2026-08-12T12:00:00.000Z',
     onStateChange() {}
   })
   await controller.synchronizeAccount(signedIn(), {
@@ -108,58 +248,54 @@ test('saving derives ownership and consent metadata instead of accepting them fr
   const saved = await controller.save({
     userId: 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
     email: 'attacker@example.com',
-    enabled: true,
-    days: [2, 4, 6],
-    localTime: '07:45',
-    timezone: 'Europe/Paris',
-    locale: 'fr',
-    consent: true,
-    consentVersion: 'attacker-controlled'
+    streakRemindersEnabled: false,
+    discoveryEmailsEnabled: true
   })
 
   assert.equal(saved, true)
   const row = client.calls.find(call => call[0] === 'upsert')[1]
   assert.equal(row.user_id, USER_ID)
   assert.equal(row.email, undefined)
-  assert.equal(row.consent_version, REMINDER_CONSENT_VERSION)
-  assert.equal(row.consent_source, 'settings')
-  assert.equal(row.consent_granted_at, '2026-08-11T12:00:00.000Z')
+  assert.equal(row.enabled, false)
+  assert.equal(row.streak_reminders_enabled, false)
+  assert.equal(row.discovery_emails_enabled, true)
+  assert.equal(row.consent_granted_at, '2026-08-12T11:00:00.000Z')
   assert.equal(row.consent_revoked_at, null)
+  assert.equal(row.consent_source, 'settings')
   assert.deepEqual(client.calls.find(call => call[0] === 'upsert')[2], {
     onConflict: 'user_id'
   })
   assert.equal(controller.getState().feedback, REMINDER_PREFERENCE_FEEDBACK.SAVED)
 })
 
-test('activation requires a signed-in UUID, consent, valid days, time, and IANA timezone', async () => {
-  const client = createClient()
+test('a failed automatic save restores the last server preference', async () => {
+  const client = createClient({
+    stored: {
+      user_id: USER_ID,
+      streak_reminders_enabled: true,
+      discovery_emails_enabled: true,
+      timezone: 'UTC',
+      locale: 'en',
+      consent_granted_at: '2026-08-01T00:00:00.000Z',
+      consent_revoked_at: null,
+      consent_version: REMINDER_CONSENT_VERSION,
+      consent_source: 'account-default'
+    },
+    saveError: new Error('offline')
+  })
   const controller = createReminderPreferencesController({
     client,
     onStateChange() {}
   })
-  const valid = {
-    enabled: true,
-    days: [1],
-    localTime: '19:00',
-    timezone: 'Asia/Taipei',
-    locale: 'en',
-    consent: true
-  }
-
-  assert.equal(await controller.save(valid), false)
-  assert.equal(controller.getState().feedback, REMINDER_PREFERENCE_FEEDBACK.SIGN_IN_REQUIRED)
   await controller.synchronizeAccount(signedIn())
 
-  for (const [patch, feedback] of [
-    [{ consent: false }, REMINDER_PREFERENCE_FEEDBACK.CONSENT_REQUIRED],
-    [{ days: [] }, REMINDER_PREFERENCE_FEEDBACK.INVALID_DAYS],
-    [{ localTime: '25:00' }, REMINDER_PREFERENCE_FEEDBACK.INVALID_TIME],
-    [{ timezone: 'not/a real timezone' }, REMINDER_PREFERENCE_FEEDBACK.INVALID_TIMEZONE]
-  ]) {
-    assert.equal(await controller.save({ ...valid, ...patch }), false)
-    assert.equal(controller.getState().feedback, feedback)
-  }
-  assert.equal(client.calls.some(call => call[0] === 'upsert'), false)
+  assert.equal(await controller.save({
+    streakRemindersEnabled: false,
+    discoveryEmailsEnabled: true
+  }), false)
+  assert.equal(controller.getState().preference.streakRemindersEnabled, true)
+  assert.equal(controller.getState().preference.discoveryEmailsEnabled, true)
+  assert.equal(controller.getState().feedback, REMINDER_PREFERENCE_FEEDBACK.SAVE_ERROR)
 })
 
 test('sign-out clears the owner and ignores an obsolete in-flight load', async () => {
@@ -181,10 +317,9 @@ test('sign-out clears the owner and ignores an obsolete in-flight load', async (
   })
   const pending = controller.synchronizeAccount(signedIn())
   await controller.synchronizeAccount({ sessionState: ACCOUNT_SESSION_STATES.SIGNED_OUT })
-  finishLoad({ data: { user_id: USER_ID, enabled: true }, error: null })
+  finishLoad({ data: { user_id: USER_ID }, error: null })
   await pending
 
   assert.equal(controller.getState().status, REMINDER_PREFERENCE_STATES.SIGNED_OUT)
   assert.equal(controller.getState().userId, null)
-  assert.equal(controller.getState().preference.enabled, false)
 })
