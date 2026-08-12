@@ -763,7 +763,6 @@ let reminderPreferenceViewState = Object.freeze({
   busyAction: null,
   feedback: null
 })
-let reminderPreferenceFormDirty = false
 let plusAccountController = null
 let plusAccountViewState = null
 let plusBillingController = null
@@ -4589,23 +4588,11 @@ function renderAccountExport() {
 }
 
 const REMINDER_PREFERENCE_FEEDBACK_VIEWS = Object.freeze({
-  [REMINDER_PREFERENCE_FEEDBACK.CONSENT_REQUIRED]: {
-    key: 'settings.account.remindersFeedback.consentRequired', tone: 'error'
-  },
-  [REMINDER_PREFERENCE_FEEDBACK.INVALID_DAYS]: {
-    key: 'settings.account.remindersFeedback.invalidDays', tone: 'error'
-  },
-  [REMINDER_PREFERENCE_FEEDBACK.INVALID_TIME]: {
-    key: 'settings.account.remindersFeedback.invalidTime', tone: 'error'
-  },
-  [REMINDER_PREFERENCE_FEEDBACK.INVALID_TIMEZONE]: {
-    key: 'settings.account.remindersFeedback.invalidTimezone', tone: 'error'
+  [REMINDER_PREFERENCE_FEEDBACK.INVALID_PREFERENCE]: {
+    key: 'settings.account.remindersFeedback.invalidPreference', tone: 'error'
   },
   [REMINDER_PREFERENCE_FEEDBACK.LOAD_ERROR]: {
     key: 'settings.account.remindersFeedback.loadError', tone: 'error'
-  },
-  [REMINDER_PREFERENCE_FEEDBACK.SAVED]: {
-    key: 'settings.account.remindersFeedback.saved', tone: 'success'
   },
   [REMINDER_PREFERENCE_FEEDBACK.SAVE_ERROR]: {
     key: 'settings.account.remindersFeedback.saveError', tone: 'error'
@@ -4623,35 +4610,9 @@ function getReminderPreferenceDefaults() {
   return { locale: getCurrentLocale(), timezone }
 }
 
-function getReminderFormValues() {
-  return {
-    enabled: document.getElementById('reminderEnabled')?.checked === true,
-    days: [...document.querySelectorAll('input[name="reminderDay"]:checked')]
-      .map(input => Number(input.value)),
-    localTime: document.getElementById('reminderLocalTime')?.value || '',
-    timezone: document.getElementById('reminderTimezone')?.value || '',
-    consent: document.getElementById('reminderConsent')?.checked === true
-  }
-}
-
-function updateReminderPreferenceSaveAvailability(input = getReminderFormValues()) {
-  const saveButton = document.getElementById('reminderSaveBtn')
-  if (!saveButton) return
-  const signedIn = accountAuthViewState.sessionState === ACCOUNT_SESSION_STATES.SIGNED_IN
-  const ready = reminderPreferenceViewState.status === REMINDER_PREFERENCE_STATES.READY
-  const valid = input.days.length > 0
-    && Boolean(input.localTime)
-    && Boolean(String(input.timezone).trim())
-    && (!input.enabled || input.consent)
-  saveButton.disabled = !signedIn
-    || !ready
-    || Boolean(reminderPreferenceViewState.busyAction)
-    || !valid
-}
-
 function renderReminderPreferences(state = reminderPreferenceViewState) {
   const form = document.querySelector('[data-reminder-action="form"]')
-  const fields = document.getElementById('reminderScheduleFields')
+  const fields = document.getElementById('reminderPreferenceFields')
   if (!form || !fields) return
 
   const signedIn = accountAuthViewState.sessionState === ACCOUNT_SESSION_STATES.SIGNED_IN
@@ -4661,47 +4622,24 @@ function renderReminderPreferences(state = reminderPreferenceViewState) {
   form.setAttribute('aria-busy', String(loading || busy))
   fields.disabled = !signedIn || !ready || busy
 
-  if (!reminderPreferenceFormDirty) {
-    const preference = state.preference || createDefaultReminderPreference(
-      getReminderPreferenceDefaults()
-    )
-    const enabled = document.getElementById('reminderEnabled')
-    if (enabled) enabled.checked = preference.enabled
-    for (const input of document.querySelectorAll('input[name="reminderDay"]')) {
-      input.checked = preference.days.includes(Number(input.value))
-    }
-    const localTime = document.getElementById('reminderLocalTime')
-    if (localTime) localTime.value = preference.localTime
-    const timezone = document.getElementById('reminderTimezone')
-    if (timezone) timezone.value = preference.timezone
-    const consent = document.getElementById('reminderConsent')
-    if (consent) {
-      consent.checked = preference.enabled
-        && Boolean(preference.consentGrantedAt)
-        && !preference.consentRevokedAt
-    }
+  const preference = state.preference || createDefaultReminderPreference(
+    getReminderPreferenceDefaults()
+  )
+  const streakReminders = document.getElementById('streakRemindersEnabled')
+  if (streakReminders) {
+    streakReminders.checked = preference.streakRemindersEnabled
+  }
+  const discoveryEmails = document.getElementById('discoveryEmailsEnabled')
+  if (discoveryEmails) {
+    discoveryEmails.checked = preference.discoveryEmailsEnabled
   }
 
-  document.getElementById('reminderSignInHint')?.classList.toggle(
-    'hidden',
-    signedIn
-  )
   document.getElementById('reminderRetryBtn')?.classList.toggle(
     'hidden',
     !signedIn
       || state.status !== REMINDER_PREFERENCE_STATES.UNAVAILABLE
       || state.feedback !== REMINDER_PREFERENCE_FEEDBACK.LOAD_ERROR
   )
-
-  const saveButton = document.getElementById('reminderSaveBtn')
-  if (saveButton) {
-    saveButton.textContent = t(
-      state.busyAction === 'save'
-        ? 'settings.account.remindersSaving'
-        : 'settings.account.remindersSave'
-    )
-  }
-  updateReminderPreferenceSaveAvailability()
 
   const feedback = document.getElementById('reminderFeedback')
   const feedbackView = loading && signedIn
@@ -4943,13 +4881,6 @@ function initializeAccountAuth() {
       client,
       onStateChange(state) {
         reminderPreferenceViewState = state
-        if (
-          state.status === REMINDER_PREFERENCE_STATES.LOADING
-          || state.feedback === REMINDER_PREFERENCE_FEEDBACK.SAVED
-          || state.feedback === REMINDER_PREFERENCE_FEEDBACK.SAVE_ERROR
-        ) {
-          reminderPreferenceFormDirty = false
-        }
         renderReminderPreferences(state)
       }
     })
@@ -5017,26 +4948,10 @@ function downloadAccountData() {
 }
 
 function saveReminderPreference(input) {
-  return reminderPreferencesController?.save({
-    ...input,
-    locale: getCurrentLocale()
-  })
-}
-
-function validateReminderPreference() {
-  reminderPreferenceFormDirty = true
-  const feedback = document.getElementById('reminderFeedback')
-  if (feedback) feedback.classList.add('hidden')
-  updateReminderPreferenceSaveAvailability()
-}
-
-function cancelReminderPreferenceChanges() {
-  reminderPreferenceFormDirty = false
-  renderReminderPreferences()
+  return reminderPreferencesController?.save(input)
 }
 
 function retryReminderPreferenceLoad() {
-  reminderPreferenceFormDirty = false
   return reminderPreferencesController?.retry()
 }
 
@@ -16606,8 +16521,6 @@ bindSettingsAccountActions(document, {
 })
 bindReminderPreferenceActions(document, {
   save: saveReminderPreference,
-  validate: validateReminderPreference,
-  cancel: cancelReminderPreferenceChanges,
   retry: retryReminderPreferenceLoad
 })
 bindPlusUpgradeActions(document.getElementById('plusUpgradeModal'), {
