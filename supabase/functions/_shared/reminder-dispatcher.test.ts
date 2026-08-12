@@ -12,6 +12,7 @@ const ENVIRONMENT = Object.freeze({
   REMINDER_UNSUBSCRIBE_PAGE_URL:
     'https://bricechivu.github.io/Edenia/unsubscribe/',
   SUPABASE_URL: 'https://example-project.supabase.co',
+  REMINDER_LIVE_RECIPIENT_EMAIL: 'learner@example.com',
 })
 
 function createHarness(switchValues: boolean[]) {
@@ -34,7 +35,7 @@ function createHarness(switchValues: boolean[]) {
         }
         if (
           name === 'claim_due_typed_reminder_dry_runs'
-          || name === 'claim_due_reminder_deliveries'
+          || name === 'claim_due_typed_reminder_live'
         ) {
           return Promise.resolve({ data: [], error: null })
         }
@@ -119,7 +120,7 @@ test('switch-on dispatch validates config then enters the bounded live path', as
   assert.deepEqual(harness.rpcCalls, [
     'reminder_delivery_is_enabled',
     'reminder_delivery_is_enabled',
-    'claim_due_reminder_deliveries',
+    'claim_due_typed_reminder_live',
   ])
 })
 

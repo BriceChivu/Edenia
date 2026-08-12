@@ -42,6 +42,7 @@ Deno.serve(withSupabase(
           claimed: result.claimed,
           accepted: result.accepted,
           recipient_unavailable: result.recipientUnavailable,
+          recipient_not_allowlisted: result.recipientNotAllowlisted,
           fenced: result.fenced,
           provider_deferred: result.providerDeferred,
           provider_blocked: result.providerBlocked,

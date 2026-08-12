@@ -1,13 +1,13 @@
 import { normalizeCheckoutEmail } from './checkout-identity.ts'
 import {
-  parseReminderDeliveryClaim,
+  parseTypedReminderDryRunClaim as parseTypedReminderClaim,
   readReminderDeliveryEnabled,
   readReminderRpc,
   ReminderDispatchError,
 } from './reminder-delivery-claim.ts'
 import type {
-  ReminderDeliveryClaim,
   ReminderDeliveryClient,
+  TypedReminderDryRunClaim as TypedReminderClaim,
 } from './reminder-delivery-claim.ts'
 import {
   createReminderUnsubscribeApiUrl,
@@ -15,7 +15,7 @@ import {
   createReminderUnsubscribeToken,
   digestReminderUnsubscribeToken,
   encodeReminderDigestForPostgres,
-  renderReminderEmail,
+  renderTypedReminderEmail,
 } from './reminder-email.ts'
 import type { ReminderLiveConfig } from './reminder-live-config.ts'
 import {
@@ -57,6 +57,7 @@ export type ReminderLiveResult = Readonly<{
   claimed: number
   accepted: number
   recipientUnavailable: number
+  recipientNotAllowlisted: number
   fenced: number
   providerDeferred: number
   providerBlocked: number
@@ -138,11 +139,26 @@ function createCounts() {
   return {
     accepted: 0,
     recipientUnavailable: 0,
+    recipientNotAllowlisted: 0,
     fenced: 0,
     providerDeferred: 0,
     providerBlocked: 0,
     completionFailed: 0,
   }
+}
+
+function classifyProviderFailure(
+  reason: Extract<ResendReminderSendResult, { status: 'blocked' }>['reason'],
+) {
+  if (reason === 'request_invalid') return 'template_invalid'
+  if (
+    reason === 'authentication_or_domain'
+    || reason === 'configuration'
+    || reason === 'idempotency_conflict'
+  ) {
+    return 'configuration_invalid'
+  }
+  return 'provider_rejected'
 }
 
 function logSummary(
@@ -157,6 +173,7 @@ function logSummary(
     claimed,
     accepted: counts.accepted,
     recipient_unavailable: counts.recipientUnavailable,
+    recipient_not_allowlisted: counts.recipientNotAllowlisted,
     fenced: counts.fenced,
     provider_deferred: counts.providerDeferred,
     provider_blocked: counts.providerBlocked,
@@ -167,13 +184,14 @@ function logSummary(
 
 async function completeWithoutSend(
   client: ReminderLiveClient,
-  claim: ReminderDeliveryClaim,
+  claim: TypedReminderClaim,
+  failureCode: 'recipient_unavailable' | 'recipient_not_allowlisted',
   log: (entry: ReminderLiveLog) => void,
   counts: ReturnType<typeof createCounts>,
 ) {
-  const completion = await client.rpc('complete_reminder_without_send', {
+  const completion = await client.rpc('complete_typed_reminder_without_send', {
     p_claim_token: claim.claimToken,
-    p_failure_code: 'recipient_unavailable',
+    p_failure_code: failureCode,
   })
   if (completion.error || completion.data !== true) {
     counts.fenced += 1
@@ -186,9 +204,15 @@ async function completeWithoutSend(
     })
     return false
   }
-  counts.recipientUnavailable += 1
+  if (failureCode === 'recipient_unavailable') {
+    counts.recipientUnavailable += 1
+  } else {
+    counts.recipientNotAllowlisted += 1
+  }
   log({
-    event: 'reminder_live_recipient_unavailable',
+    event: failureCode === 'recipient_unavailable'
+      ? 'reminder_live_recipient_unavailable'
+      : 'reminder_live_recipient_not_allowlisted',
     delivery_id: claim.deliveryId,
     attempt_count: claim.attemptCount,
   })
@@ -211,12 +235,11 @@ export async function runReminderLive(
 
   const rawClaims = await readReminderRpc(
     client,
-    'claim_due_reminder_deliveries',
+    'claim_due_typed_reminder_live',
     {
       p_batch_size: CLAIM_BATCH_SIZE,
       p_due_window_seconds: DUE_WINDOW_SECONDS,
       p_lease_seconds: LEASE_SECONDS,
-      p_delivery_mode: 'live',
     },
   )
   if (!Array.isArray(rawClaims)) {
@@ -226,14 +249,32 @@ export async function runReminderLive(
       'database_unavailable',
     )
   }
-  const claims = rawClaims.map(parseReminderDeliveryClaim)
+  const claims = rawClaims.map(parseTypedReminderClaim)
   const counts = createCounts()
   const send = dependencies.send ?? sendReminderWithResend
 
   for (const claim of claims) {
     const recipient = await readConfirmedRecipient(client, claim.userId)
     if (!recipient) {
-      if (!await completeWithoutSend(client, claim, log, counts)) {
+      if (!await completeWithoutSend(
+        client,
+        claim,
+        'recipient_unavailable',
+        log,
+        counts,
+      )) {
+        return logSummary(log, 'blocked', claims.length, counts)
+      }
+      continue
+    }
+    if (recipient !== config.allowedRecipientEmail) {
+      if (!await completeWithoutSend(
+        client,
+        claim,
+        'recipient_not_allowlisted',
+        log,
+        counts,
+      )) {
         return logSummary(log, 'blocked', claims.length, counts)
       }
       continue
@@ -242,7 +283,7 @@ export async function runReminderLive(
     let token: string
     let tokenDigest: Uint8Array
     let unsubscribeApiUrl: string
-    let content: ReturnType<typeof renderReminderEmail>
+    let content: ReturnType<typeof renderTypedReminderEmail>
     try {
       token = await createReminderUnsubscribeToken(
         claim.deliveryId,
@@ -259,10 +300,16 @@ export async function runReminderLive(
         token,
         claim.locale,
       )
-      content = renderReminderEmail({
+      content = renderTypedReminderEmail({
         locale: claim.locale,
         appUrl: config.appUrl,
         unsubscribePageUrl,
+        emailType: claim.emailType,
+        channelId: claim.channelId,
+        channelName: claim.channelName,
+        channelSummary: claim.channelSummary,
+        videoId: claim.videoId,
+        videoTitle: claim.videoTitle,
       })
     } catch {
       throw new ReminderDispatchError(
@@ -272,11 +319,14 @@ export async function runReminderLive(
       )
     }
 
-    const tokenBinding = await client.rpc('store_reminder_unsubscribe_token', {
-      p_delivery_id: claim.deliveryId,
-      p_claim_token: claim.claimToken,
-      p_token_digest: encodeReminderDigestForPostgres(tokenDigest),
-    })
+    const tokenBinding = await client.rpc(
+      'store_typed_reminder_unsubscribe_token',
+      {
+        p_delivery_id: claim.deliveryId,
+        p_claim_token: claim.claimToken,
+        p_token_digest: encodeReminderDigestForPostgres(tokenDigest),
+      },
+    )
     if (tokenBinding.error || tokenBinding.data !== true) {
       counts.fenced += 1
       log({
@@ -289,7 +339,7 @@ export async function runReminderLive(
       return logSummary(log, 'blocked', claims.length, counts)
     }
 
-    const attempt = await client.rpc('begin_reminder_provider_attempt', {
+    const attempt = await client.rpc('begin_typed_reminder_provider_attempt', {
       p_claim_token: claim.claimToken,
       p_provider_name: PROVIDER_NAME,
     })
@@ -349,6 +399,24 @@ export async function runReminderLive(
         attempt_count: claim.attemptCount,
         reason: providerResult.reason,
       })
+      const failure = await client.rpc(
+        'complete_reminder_provider_failure',
+        {
+          p_claim_token: claim.claimToken,
+          p_provider_name: PROVIDER_NAME,
+          p_failure_code: classifyProviderFailure(providerResult.reason),
+        },
+      )
+      if (failure.error || failure.data !== true) {
+        counts.completionFailed += 1
+        log({
+          event: 'reminder_live_completion_failed',
+          delivery_id: claim.deliveryId,
+          attempt_count: claim.attemptCount,
+          reason: failure.error ? 'database_error' : 'claim_fenced',
+        })
+        return logSummary(log, 'deferred', claims.length, counts)
+      }
       return logSummary(log, 'blocked', claims.length, counts)
     }
 

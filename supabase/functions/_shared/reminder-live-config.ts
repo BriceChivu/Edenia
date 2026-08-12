@@ -1,3 +1,4 @@
+import { normalizeCheckoutEmail } from './checkout-identity.ts'
 import {
   validateReminderAppUrl,
   validateReminderUnsubscribeEndpointUrl,
@@ -17,6 +18,7 @@ export type ReminderLiveConfig = Readonly<{
   appUrl: string
   unsubscribeEndpointUrl: string
   unsubscribePageUrl: string
+  allowedRecipientEmail: string
 }>
 
 export type ReminderEnvironmentReader = (name: string) => string | undefined
@@ -66,6 +68,15 @@ export function readReminderLiveConfig(
     const unsubscribeEndpointUrl = validateReminderUnsubscribeEndpointUrl(
       new URL(UNSUBSCRIBE_API_PATH, supabaseUrl).href,
     )
+    const allowedRecipientEmail = normalizeCheckoutEmail(
+      requireEnvironmentValue(
+        readEnvironment,
+        'REMINDER_LIVE_RECIPIENT_EMAIL',
+      ),
+    )
+    if (!allowedRecipientEmail) {
+      throw new TypeError('Reminder live recipient is invalid')
+    }
 
     return Object.freeze({
       resendApiKey: provider.apiKey,
@@ -74,6 +85,7 @@ export function readReminderLiveConfig(
       appUrl,
       unsubscribeEndpointUrl,
       unsubscribePageUrl,
+      allowedRecipientEmail,
     })
   } catch {
     throw new ReminderDispatchError(
