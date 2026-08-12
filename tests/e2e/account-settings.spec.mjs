@@ -1,5 +1,4 @@
 import { expect, test } from '../support/network-fixture.mjs'
-import { readFile } from 'node:fs/promises'
 
 const runtimeConfig = `window.EDENIA_CONFIG = {
   youtubeApiKey: '',
@@ -19,38 +18,25 @@ const disabledRuntimeConfig = runtimeConfig.replace(
 
 const localeExpectations = {
   en: [
-    'Account & reminders',
-    'Continue with Google',
-    'visible to anyone using this browser profile'
+    'Account',
+    'Continue with Google'
   ],
   'zh-Hant': [
-    '帳戶與提醒',
-    '使用 Google 繼續',
-    '任何使用此瀏覽器設定檔的人都能看到'
+    '帳戶',
+    '使用 Google 繼續'
   ],
   'zh-Hans': [
-    '账户与提醒',
-    '使用 Google 继续',
-    '任何使用此浏览器配置文件的人都能看到'
+    '账户',
+    '使用 Google 继续'
   ],
   es: [
-    'Cuenta y recordatorios',
-    'Continuar con Google',
-    'visible para cualquiera que use este perfil del navegador'
+    'Cuenta',
+    'Continuar con Google'
   ],
   fr: [
-    'Compte et rappels',
-    'Continuer avec Google',
-    'visible par toute personne utilisant ce profil de navigateur'
+    'Compte',
+    'Continuer avec Google'
   ]
-}
-
-const exportLocaleExpectations = {
-  en: ['Download account data', 'Study progress saved in this browser is not included.'],
-  'zh-Hant': ['下載帳戶資料', '儲存在此瀏覽器中的學習進度不會包含在內'],
-  'zh-Hans': ['下载账户数据', '不包括保存在此浏览器中的学习进度'],
-  es: ['Descargar datos de la cuenta', 'No se incluye el progreso de estudio guardado en este navegador'],
-  fr: ['Télécharger les données du compte', 'La progression enregistrée dans ce navigateur n’est pas incluse']
 }
 
 const AUTHENTICATED_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
@@ -138,7 +124,7 @@ test('internal Account settings are localized and responsive without exposing pu
   await page.goto('/?internal_test=1')
   await seedReadyState(page, 'en')
 
-  for (const [locale, [title, googleLabel, sharedBrowserCopy]] of Object.entries(
+  for (const [locale, [title, googleLabel]] of Object.entries(
     localeExpectations
   )) {
     await seedReadyState(page, locale)
@@ -150,9 +136,8 @@ test('internal Account settings are localized and responsive without exposing pu
     await expect(account).toBeVisible()
     await expect(account.getByRole('heading', { name: title })).toBeVisible()
     await expect(account.getByRole('button', { name: googleLabel })).toBeEnabled()
-    await expect(account).toContainText(sharedBrowserCopy)
-    await expect(page.locator('#reminderScheduleFields')).toHaveAttribute('disabled', '')
-    await expect(page.locator('#reminderSaveBtn')).toBeDisabled()
+    await expect(page.locator('.settings-account-reminders')).toBeHidden()
+    await expect(page.locator('#accountExportBtn')).toHaveCount(0)
     await expect(page.locator('#plusAccountSettings')).toHaveCount(0)
     await expect(page).toHaveURL(/\?internal_test=1$/)
 
@@ -167,11 +152,12 @@ test('internal Account settings are localized and responsive without exposing pu
   }
 })
 
-test('signed-in internal user can save a preference without creating delivery', async ({
+test('first signed-in load enables both email types and each toggle saves automatically', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   const savedRows = []
+  let storedPreference = null
   await seedAuthenticatedSession(page)
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig,
@@ -190,16 +176,20 @@ test('signed-in internal user can save a preference without creating delivery', 
       return
     }
     if (request.method() === 'GET') {
-      await route.fulfill({ json: [], status: 200 })
+      await route.fulfill({
+        json: storedPreference ? [storedPreference] : [],
+        status: 200
+      })
       return
     }
     const row = request.postDataJSON()
     savedRows.push(row)
+    storedPreference = {
+      ...row,
+      created_at: '2026-08-11T00:00:00.000Z'
+    }
     await route.fulfill({
-      json: {
-        ...row,
-        created_at: '2026-08-11T00:00:00.000Z'
-      },
+      json: storedPreference,
       status: 201
     })
   })
@@ -209,158 +199,31 @@ test('signed-in internal user can save a preference without creating delivery', 
   await page.goto('/?internal_test=1&account=1')
 
   await expect(page.locator('#accountSignedIn')).toBeVisible()
-  await expect(page.locator('#reminderScheduleFields')).toBeEnabled()
-  await page.locator('#reminderEnabled').check()
-  const dayControls = page.locator('input[name="reminderDay"]')
-  for (let index = 0; index < await dayControls.count(); index += 1) {
-    await dayControls.nth(index).uncheck()
-  }
-  await page.locator('input[name="reminderDay"][value="2"]').check()
-  await page.locator('input[name="reminderDay"][value="4"]').check()
-  await page.locator('#reminderLocalTime').fill('08:15')
-  await page.locator('#reminderTimezone').fill('Asia/Taipei')
-  await expect(page.locator('#reminderSaveBtn')).toBeDisabled()
-  await page.locator('#reminderConsent').check()
-  await page.locator('#reminderSaveBtn').click()
-
   await expect.poll(() => savedRows.length).toBe(1)
+  await expect(page.locator('#reminderPreferenceFields')).toBeEnabled()
+  await expect(page.locator('#streakRemindersEnabled')).toBeChecked()
+  await expect(page.locator('#discoveryEmailsEnabled')).toBeChecked()
   expect(savedRows[0]).toMatchObject({
     user_id: AUTHENTICATED_USER_ID,
-    enabled: true,
-    days: [2, 4],
-    local_time: '08:15',
-    timezone: 'Asia/Taipei',
+    enabled: false,
+    streak_reminders_enabled: true,
+    discovery_emails_enabled: true,
     locale: 'en',
-    consent_version: 'reminder-email-v1',
-    consent_source: 'settings'
+    consent_version: 'edenia-email-preferences-v2',
+    consent_source: 'account-default'
   })
   expect(savedRows[0]).not.toHaveProperty('email')
-  await expect(page.locator('#reminderFeedback')).toContainText(
-    'No email has been scheduled or sent.'
-  )
-})
-
-test('signed-in account export copy is localized and responsive', async ({
-  page
-}, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
-  await seedAuthenticatedSession(page)
-  await page.route('**/config.local.js', route => route.fulfill({
-    body: runtimeConfig,
-    contentType: 'text/javascript',
-    status: 200
-  }))
-  await page.route('https://account-ui-test.supabase.co/rest/v1/**', route => (
-    route.fulfill({ json: [], status: 200 })
-  ))
-
-  await page.goto('/?internal_test=1')
-  for (const [locale, [buttonLabel, scopeCopy]] of Object.entries(
-    exportLocaleExpectations
-  )) {
-    await seedReadyState(page, locale)
-    await page.goto('/?internal_test=1&account=1')
-
-    const account = page.locator('#accountSettings')
-    const exportSection = page.locator('.settings-account-export')
-    await expect(page.locator('#accountSignedIn')).toBeVisible()
-    await expect(exportSection.getByRole('button', { name: buttonLabel })).toBeEnabled()
-    await expect(exportSection).toContainText(scopeCopy)
-
-    const geometry = await account.evaluate(element => ({
-      accountWidth: element.scrollWidth,
-      accountClientWidth: element.clientWidth,
-      documentWidth: document.documentElement.scrollWidth,
-      viewportWidth: document.documentElement.clientWidth
-    }))
-    expect(geometry.accountWidth).toBeLessThanOrEqual(geometry.accountClientWidth)
-    expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth)
-  }
-})
-
-test('signed-in user downloads only the matching server export', async ({
-  page
-}, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-standard')
-  const exportRequests = []
-  const exportedData = {
-    schema_version: 'edenia-account-export-v1',
-    generated_at: '2026-08-12T00:00:00.000Z',
-    scope: {
-      server_data: true,
-      current_device_progress: false
-    },
-    account: {
-      id: AUTHENTICATED_USER_ID,
-      email: 'internal@example.com',
-      providers: ['google']
-    },
-    billing: { subscription: null },
-    cloud_backup_snapshots: [],
-    reminders: { preference: null, delivery_occurrences: [] }
-  }
-  await seedAuthenticatedSession(page)
-  await page.route('**/config.local.js', route => route.fulfill({
-    body: runtimeConfig,
-    contentType: 'text/javascript',
-    status: 200
-  }))
-  await page.route('https://account-ui-test.supabase.co/rest/v1/**', route => (
-    route.fulfill({ json: [], status: 200 })
-  ))
-  await page.route(
-    'https://account-ui-test.supabase.co/functions/v1/export-account-data',
-    async route => {
-      const request = route.request()
-      exportRequests.push({
-        method: request.method(),
-        body: request.postDataJSON()
-      })
-      await new Promise(resolve => setTimeout(resolve, 150))
-      await route.fulfill({ json: exportedData, status: 200 })
-    }
-  )
-
-  await page.goto('/?internal_test=1')
-  await seedReadyState(page, 'en')
-  await page.evaluate(() => {
-    const storageKey = 'edenia_v1_internal_test'
-    const state = JSON.parse(localStorage.getItem(storageKey))
-    state.streak = { current: 6, longest: 9, lastActivityDate: '2026-08-11' }
-    state.totalRewatchCount = 12
-    localStorage.setItem(storageKey, JSON.stringify(state))
+  await page.locator('#streakRemindersEnabled').uncheck()
+  await expect.poll(() => savedRows.length).toBe(2)
+  expect(savedRows[1]).toMatchObject({
+    user_id: AUTHENTICATED_USER_ID,
+    enabled: false,
+    streak_reminders_enabled: false,
+    discovery_emails_enabled: true,
+    consent_version: 'edenia-email-preferences-v2',
+    consent_source: 'settings'
   })
-  await page.goto('/?internal_test=1&account=1')
-  const localProgressBefore = await readLocalStudyEvidence(page)
-
-  const downloadPromise = page.waitForEvent('download')
-  await page.locator('#accountExportBtn').click()
-  await expect(page.locator('#accountExportBtn')).toBeDisabled()
-  await expect(page.locator('#accountExportBtn')).toHaveText('Preparing download…')
-  await expect(page.locator('.settings-account-export')).toHaveAttribute(
-    'aria-busy',
-    'true'
-  )
-  const download = await downloadPromise
-  expect(download.suggestedFilename()).toMatch(
-    /^edenia-account-data-\d{4}-\d{2}-\d{2}\.json$/
-  )
-  const downloadedData = JSON.parse(await readFile(await download.path(), 'utf8'))
-
-  expect(exportRequests).toEqual([{ method: 'POST', body: {} }])
-  expect(downloadedData).toEqual(exportedData)
-  expect(downloadedData.account.id).toBe(AUTHENTICATED_USER_ID)
-  expect(downloadedData.scope.current_device_progress).toBe(false)
-  expect(downloadedData).not.toHaveProperty('streak')
-  expect(downloadedData).not.toHaveProperty('totalRewatchCount')
-  expect(await readLocalStudyEvidence(page)).toEqual(localProgressBefore)
-  await expect(page.locator('#accountExportFeedback')).toContainText(
-    'Account data downloaded.'
-  )
-  await expect(page.locator('.settings-account-export')).toHaveAttribute(
-    'aria-busy',
-    'false'
-  )
+  await expect(page.locator('#reminderFeedback')).toBeHidden()
 })
 
 test('shared-browser account switching clears the previous cloud view only', async ({
@@ -370,28 +233,26 @@ test('shared-browser account switching clears the previous cloud view only', asy
   const preferences = {
     [AUTHENTICATED_USER_ID]: {
       user_id: AUTHENTICATED_USER_ID,
-      enabled: true,
-      days: [1, 3],
-      local_time: '06:10',
+      streak_reminders_enabled: true,
+      discovery_emails_enabled: false,
       timezone: 'Asia/Taipei',
       locale: 'en',
       consent_granted_at: '2026-08-11T01:00:00.000Z',
       consent_revoked_at: null,
-      consent_version: 'reminder-email-v1',
+      consent_version: 'edenia-email-preferences-v2',
       consent_source: 'settings',
       created_at: '2026-08-11T01:00:00.000Z',
       updated_at: '2026-08-11T01:00:00.000Z'
     },
     [SECOND_AUTHENTICATED_USER_ID]: {
       user_id: SECOND_AUTHENTICATED_USER_ID,
-      enabled: false,
-      days: [2, 4],
-      local_time: '21:45',
+      streak_reminders_enabled: false,
+      discovery_emails_enabled: true,
       timezone: 'Europe/Paris',
       locale: 'fr',
-      consent_granted_at: null,
+      consent_granted_at: '2026-08-11T02:00:00.000Z',
       consent_revoked_at: null,
-      consent_version: 'reminder-email-v1',
+      consent_version: 'edenia-email-preferences-v2',
       consent_source: 'settings',
       created_at: '2026-08-11T02:00:00.000Z',
       updated_at: '2026-08-11T02:00:00.000Z'
@@ -438,12 +299,12 @@ test('shared-browser account switching clears the previous cloud view only', asy
 
   const localProgressBefore = await readLocalStudyEvidence(page)
   await expect(page.locator('#accountUserEmail')).toHaveText('internal@example.com')
-  await expect(page.locator('#reminderLocalTime')).toHaveValue('06:10')
+  await expect(page.locator('#streakRemindersEnabled')).toBeChecked()
+  await expect(page.locator('#discoveryEmailsEnabled')).not.toBeChecked()
 
   await page.locator('#accountSignOutBtn').click()
   await expect(page.locator('#accountSignedOut')).toBeVisible()
-  await expect(page.locator('#reminderScheduleFields')).toHaveAttribute('disabled', '')
-  await expect(page.locator('#reminderLocalTime')).toHaveValue('19:00')
+  await expect(page.locator('.settings-account-reminders')).toBeHidden()
   await expect.poll(() => readLocalStudyEvidence(page)).toEqual(localProgressBefore)
 
   await page.evaluate(({ storageKey, session }) => {
@@ -460,8 +321,8 @@ test('shared-browser account switching clears the previous cloud view only', asy
   await page.locator('[data-settings-shell-action="open"]').click()
   await expect(page.locator('#accountSignedIn')).toBeVisible()
   await expect(page.locator('#accountUserEmail')).toHaveText('second@example.com')
-  await expect(page.locator('#reminderLocalTime')).toHaveValue('21:45')
-  await expect(page.locator('#reminderTimezone')).toHaveValue('Europe/Paris')
+  await expect(page.locator('#streakRemindersEnabled')).not.toBeChecked()
+  await expect(page.locator('#discoveryEmailsEnabled')).toBeChecked()
   expect(await readLocalStudyEvidence(page)).toEqual(localProgressBefore)
 })
 
@@ -485,7 +346,7 @@ test('ordinary public mode keeps the internal Account settings section unavailab
 
   await page.goto('/')
   await expect(page.locator('#accountSettings')).toBeHidden()
-  await expect(page.locator('#accountExportBtn')).toBeHidden()
+  await expect(page.locator('#accountExportBtn')).toHaveCount(0)
   expect(exportRequests).toEqual([])
 })
 
