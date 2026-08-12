@@ -44,7 +44,10 @@ test('the live worker is bounded and fences immediately before provider I/O', ()
 })
 
 test('the deployment adds neither a schedule nor a credential value', () => {
-  assert.match(entrypoint, /withSupabase\(\s*\{ auth: ['"]secret:default['"] \}/)
+  assert.match(
+    entrypoint,
+    /withSupabase\(\s*\{ auth: ['"]secret:reminder_dispatcher['"] \}/
+  )
   assert.match(entrypoint, /Deno\.env\.get\(name\)/)
   assert.doesNotMatch(combined, /cron\.schedule|pg_cron|net\.http_post/iu)
   assert.doesNotMatch(

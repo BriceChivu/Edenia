@@ -1,8 +1,7 @@
 # Internal account and reminder operations
 
 This runbook covers Edenia's current internal-only account and reminder system.
-It is deliberately written for the system that exists now, not the future live
-email design.
+It is deliberately written for the system that exists now.
 
 ## Current safety state
 
@@ -17,10 +16,8 @@ email design.
   production acceptance test must not use **Try loading again** to make the
   first reminder-preference read succeed.
 - An authenticated user can save only their own `reminder_preferences` row.
-- A signed-in internal user can download a read-only JSON export of Edenia's
-  server-side account data. The Edge Function re-verifies the JWT, passes only
-  that stable UUID to a service-only database bridge, rate-limits requests, and
-  rejects a response whose account UUID or scope does not match.
+- The server has a read-only account-export API, but Settings deliberately does
+  not offer an account-data download control.
 - Account exports allow five requests per ten-minute fixed window. The server
   hashes the verified UUID before using the service-only rate-limit bucket; the
   browser cannot choose the scope, owner, window, or limit.
@@ -30,9 +27,10 @@ email design.
   addresses.
 - `reminder_delivery_enabled` is an independent server-side switch and must
   remain `false`.
-- `dispatch-study-reminders` is manual and secret-key authenticated. With the
-  server switch off it remains bounded to 25 dry-run claims, logs intended
-  occurrences, and contacts no email provider.
+- `dispatch-study-reminders` is manual and authenticated by the dedicated
+  `reminder_dispatcher` secret key. With the server switch off it remains
+  bounded to 25 dry-run claims, logs intended occurrences, and contacts no
+  email provider.
 - The private delivery ledger can represent a provider attempt, API acceptance,
   a bounded permanent failure, or an ambiguous outcome. The live worker is
   compiled into the dispatcher but cannot claim live work while the database
@@ -47,17 +45,20 @@ email design.
 - `unsubscribe-study-reminders` is a JSON-only mutation API. A valid opaque
   capability submitted by `POST` can perform only the service-owned
   unsubscribe operation; `GET` returns `405` without checking the capability.
-- There is no Cron schedule, email-provider key, configured From address, or
-  verified sender domain. Missing or invalid live configuration fails before a
-  claim, and the worker rechecks the database switch before claiming and again
-  through the provider-begin RPC immediately before network I/O. With the
-  switch off, no current worker generates or stores unsubscribe capabilities.
+- There is no Cron schedule. Resend is configured with a send-only key scoped
+  to the verified `mail.edenia.study` domain, an Edenia From address, an exact
+  single-recipient server allowlist, and an independent unsubscribe secret.
+  The worker rechecks the database switch before claiming and again through the
+  provider-begin RPC immediately before network I/O. With the switch off, no
+  worker generates or stores unsubscribe capabilities.
 - A private provider-event ledger can deduplicate bounded event metadata and
   atomically apply bounce, complaint, or provider suppression.
 - `resend-reminder-webhook` verifies Resend's raw-body Svix signature before it
-  interprets or persists an event. No signing secret or provider webhook is
-  configured, so production returns `503` before reading a request body and
-  cannot write provider-event rows yet.
+  interprets or persists an event. Resend is configured to send only the seven
+  supported email events to that exact endpoint. A production transport test
+  received successful signed `email.sent` and `email.delivered` callbacks; the
+  handler intentionally ignored them because the transport test had no Edenia
+  reminder tags.
 
 The `internal_test=1` query parameter is a public rollout selector. It is not
 an authorization or security boundary. Supabase Auth, row-level security,
@@ -72,20 +73,19 @@ after the test.
 1. Export or record the current internal-test progress if it matters.
 2. Open
    `https://bricechivu.github.io/Edenia/?internal_test=1&account=1`.
-3. Open **Settings**, then **Account & reminders**.
+3. Open **Settings**, then **Account**.
 4. Select **Continue with Google** and use an approved Google OAuth test user.
 5. Confirm the Settings section shows the signed-in account.
-6. Configure reminder days, local time, and timezone. Saving an enabled
-   preference requires explicit reminder-email consent.
-7. Select **Download account data**. Confirm a dated JSON file downloads and
-   its `scope.current_device_progress` value is `false`.
-8. Sign out and confirm the study progress in that browser is unchanged.
-9. Sign in again and confirm the account session and saved reminder preference
+6. Confirm **Keep my streak alive** and **Discover channels** are both on for a
+   first-time account. Turn each switch off and on once; each change should save
+   without a separate Save button. There must be no day, time, frequency, or
+   account-download control.
+7. Sign out and confirm the study progress in that browser is unchanged.
+8. Sign in again and confirm the account session and saved reminder preference
    restore independently of local study progress.
 
-No email should arrive. A saved preference proves only authenticated storage;
-delivery remains impossible while there is no provider and the live switch is
-off.
+No reminder email should arrive while the live switch is off. A saved
+preference proves only authenticated storage; it does not enable delivery.
 
 On a shared browser, signing out removes the Edenia account session but does not
 erase local study progress. Do not use account switching as proof that local
@@ -165,16 +165,18 @@ delete from private.reminder_delivery_testers
 where user_id = '00000000-0000-0000-0000-000000000000'::uuid;
 ```
 
-Removing a tester prevents that UUID from entering subsequent claims. The
-current worker has no email side effect, so an occurrence already loaded by a
-running dry run can at most be logged and marked observed.
+Removing a tester prevents that UUID from entering subsequent claims. The live
+provider-begin fence also rechecks the allowlist, so a claimed occurrence that
+has not reached provider I/O cannot send. An already in-flight provider request
+cannot be recalled; turn the delivery switch off as well.
 
-## Invoke the manual dry run
+## Invoke the manual dispatcher
 
-Use a current `sb_secret_...` key named `default`. Supabase secret keys are not
-JWTs: send the key only in the `apikey` header. The function has platform JWT
-verification disabled and performs named secret-key authorization inside the
-handler.
+Use the current `sb_secret_...` key named `reminder_dispatcher`. It exists only
+for this function and must be rotated immediately if exposed. Supabase secret
+keys are not JWTs: send the key only in the `apikey` header. The function has
+platform JWT verification disabled and performs named secret-key authorization
+inside the handler.
 
 The following pattern keeps the secret out of the command line and shell
 history:
@@ -213,20 +215,20 @@ Dry-run logs may contain Supabase user UUIDs and occurrence IDs. Treat those
 logs as internal operational data. They must not contain email addresses,
 session tokens, secret keys, or claim fencing tokens.
 
-## Inert live-dispatch configuration
+## Live-dispatch canary configuration
 
-The deployed function contains a fail-closed live path, but do not configure or
-enable it as part of an ordinary code deployment. A future manual canary needs
-all of these Edge Function secrets or settings:
+The deployed function contains a fail-closed live path. Production currently
+has all of these Edge Function secrets or settings:
 
 - `RESEND_API_KEY`
 - `REMINDER_FROM_ADDRESS`
 - `REMINDER_UNSUBSCRIBE_SECRET` (at least 32 bytes)
 - `REMINDER_APP_URL` (the exact internal-test Edenia URL)
 - `REMINDER_UNSUBSCRIBE_PAGE_URL` (the exact Edenia unsubscribe-page base URL)
+- `REMINDER_LIVE_RECIPIENT_EMAIL` (one exact normalized canary address)
 - `SUPABASE_URL` (provided by Supabase and used to derive the unsubscribe API)
 
-The live route validates all six values before it claims anything. It then uses
+The live route validates all seven values before it claims anything. It then uses
 a batch size of 5, a 15-minute due window, and a 5-minute lease. It loads the
 current confirmed recipient from Supabase Auth, binds only the deterministic
 unsubscribe-token digest, and calls `begin_reminder_provider_attempt`
@@ -235,8 +237,7 @@ preference, suppression, or lease fence results in zero provider calls.
 
 Do not put these values in Pages runtime configuration, GitHub Pages variables,
 source control, SQL, a command line, issue text, or pull-request text. They
-belong only in the Supabase Edge Function secret store after a separate
-operator review.
+belong only in the Supabase Edge Function secret store.
 
 ## Emergency stop and rollback
 
@@ -284,12 +285,12 @@ from the reminder occurrence ID on every retry. If the result is still unknown
 at the 23-hour boundary, Edenia intentionally prefers one missed reminder over
 a possible duplicate email.
 
-Resend is the provisional provider because Supabase documents an Edge Function
+Resend is the configured provider because Supabase documents an Edge Function
 integration, the send API accepts idempotency keys, and webhook requests use
-Svix signatures and event IDs. This is an engineering choice, not an active
-vendor integration: no Resend account, domain, API key, webhook secret, or
-configured live network path is present in Edenia yet. The public webhook code
-is therefore deployed but inert.
+Svix signatures and event IDs. The sender domain, send-only API key, From
+address, and webhook signing secret are active. Product reminder delivery is
+still inert because the independent database switch is off and there is no
+schedule.
 
 The shared Resend adapter reads no environment variables itself. The dispatcher
 can reach it only through the live runner after the server switch, strict
@@ -390,12 +391,11 @@ or complaint for an already accepted email must remain processable after the
 operator turns future sends off. Browser roles still cannot execute the event
 RPC, and the endpoint never accepts a Supabase user session as webhook proof.
 
-## Verify the inert provider webhook
+## Verify the provider webhook
 
-Do not create a Resend webhook or add `RESEND_WEBHOOK_SECRET` during an ordinary
-code deployment. With no signing secret configured, a production `POST` must
-return `503` with a generic JSON response and `Retry-After: 300`; it must leave
-the provider-event count unchanged:
+The Resend webhook and `RESEND_WEBHOOK_SECRET` are configured. An unsigned
+production `POST` must return `400` with a generic JSON response and leave the
+provider-event count unchanged:
 
 ```bash
 curl --silent --show-error --include \
@@ -406,10 +406,11 @@ curl --silent --show-error --include \
 ```
 
 An unsigned or incorrectly signed request must never be used as a positive
-webhook test. After a separate provider review, configure the signing secret
-first, register only the exact production endpoint, and use Resend's signed
-test/replay facility. A successful signed event for a real tagged occurrence
-returns `200`; exact replays also return `200` without a second mutation.
+webhook test. The production endpoint is registered for only the seven event
+types in `REMINDER_PROVIDER_EVENT_TYPES`. A successful signed event for a real
+tagged occurrence returns `200`; exact replays also return `200` without a
+second mutation. A signed transport-test event without the exact source and
+delivery tags returns `200` and is ignored.
 
 ## Suppression and unsubscribe invariants
 
@@ -482,49 +483,41 @@ Verify these transitions, then delete the fixture:
 
 ## Known verification gaps
 
-- The deployed dry-run function rejects unauthenticated production requests,
-  and the named secret-key path passed through the real local Edge runtime. A
-  positive hosted invocation with the current `sb_secret_...` key has not yet
-  been completed; do that before creating any schedule.
+- The deployed dispatcher rejects unauthenticated production requests. Repeat
+  a positive hosted invocation after every named-key rotation before creating
+  any schedule.
 - Production Google OAuth has been exercised with one approved Google test
   account in one desktop browser. Cross-device, private-window, Safari, mobile,
   cancellation, and a second-account switch still need acceptance coverage.
 - The Google OAuth consent screen remains a test-user rollout. That is suitable
   for internal testing, not public launch.
-- Resend is the provisional provider, but its account terms, regional/data
-  handling, sender domain, From address, webhook registration, and credentials
-  have not been configured or verified. The deployed endpoint has only
-  synthetic signature tests; no real Resend-signed production event has been
-  observed.
+- Resend transport, the verified sender domain, and real signed production
+  callbacks have been observed. A genuine tagged reminder, one-click
+  unsubscribe, bounce, complaint, and provider-suppression event have not yet
+  been exercised in production.
 - The five reminder locales and confirmation pages have automated structural
   coverage, but their copy has not yet been reviewed by native speakers or
   exercised across real email clients.
 
 ## Gates before any live email
 
-Do not configure or enable the live path, and do not add a schedule, until all
-of the following are reviewed and verified:
+Do not enable the live path or add a schedule until all of the following are
+reviewed and verified:
 
-1. A transactional-email provider and data-processing terms are accepted by
-   the account owner.
-2. A sending domain and From address are verified, with SPF, DKIM, and DMARC
-   reviewed.
-3. The provider secret and webhook signing secret exist only in Edge Function
-   secrets.
-4. The provider's idempotency guarantee is rechecked before release. Edenia's
+1. The provider's idempotency guarantee is rechecked before release. Edenia's
    current design stops retries after 23 hours and makes an ambiguous occurrence
    terminal rather than risking a duplicate after Resend's documented 24-hour
    window.
-5. A real provider test confirms raw-body signature verification, idempotent
+2. A real tagged-reminder test confirms raw-body signature verification, idempotent
    event IDs, and sticky suppression for hard bounces, complaints, and
    provider-suppressed sends while temporary delays remain non-suppressing.
-6. The existing five-locale text and HTML templates are reviewed by humans and
+3. The existing five-locale text and HTML templates are reviewed by humans and
    in real email clients, including the plain-text alternative, confirmation
    flow, and provider-generated one-click headers.
-7. The live worker rechecks the emergency switch, tester allowlist, current
+4. The live worker rechecks the emergency switch, tester allowlist, current
    consent, and suppression immediately before every provider call.
-8. Manual allowlisted delivery succeeds before any Cron schedule is created.
-9. Queue age, accepted sends, provider failures, ambiguous sends, duplicate
+5. Manual allowlisted delivery succeeds before any Cron schedule is created.
+6. Queue age, accepted sends, provider failures, ambiguous sends, duplicate
    prevention, and suppressions are observable without logging email addresses.
 
 ## Revised implementation sequence
@@ -550,12 +543,15 @@ without an active sender:
    bounce, complaint, and provider-suppressed recipients.
 6. **Verified webhook endpoint (current):** verify raw-body Svix signatures,
    require the fixed source and delivery tags, pass only bounded metadata to
-   the event RPC, and remain inert without a signing secret.
-7. **Canary readiness:** configure an isolated sending subdomain and inspect
-   real email-client rendering and one-click unsubscribe behavior.
-8. **Manual allowlisted canary:** only after an explicit operator review, add
-   secrets, enable the switch briefly, send to one verified tester, inspect the
-   provider and suppression ledgers, then turn the switch off again.
+   the event RPC, and acknowledge unsupported or untagged events without a
+   database mutation.
+7. **Canary readiness (current):** the isolated sending subdomain, send-only
+   key, exact-recipient allowlist, From address, unsubscribe secret, and signed
+   webhook are configured. A transport-only message and callbacks succeeded.
+8. **Manual allowlisted canary:** only when one genuine due occurrence exists,
+   enable the switch briefly, send to the one verified tester, inspect the
+   provider and suppression ledgers, then turn the switch off again. Never
+   manufacture study activity or queue state to force this test.
 9. **Scheduling:** create Cron only after repeated manual canaries and an
    operator rollback drill. Public rollout remains a separate later decision.
 
@@ -670,7 +666,7 @@ Stripe webhook paths; retain them until those paths have representative usage.
 
 Newly created reminder indexes are still reported as unused because delivery
 remains off and production has no reminder preferences. Do not remove safety or
-queue indexes based on an unused-index INFO notice during the inert rollout.
+queue indexes based on an unused-index INFO notice during the manual rollout.
 
 ## Public-readiness items still deferred
 

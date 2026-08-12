@@ -17,7 +17,7 @@ function jsonResponse(body: Record<string, unknown>, status = 200) {
 }
 
 Deno.serve(withSupabase(
-  { auth: 'secret:default' },
+  { auth: 'secret:reminder_dispatcher' },
   async (request, context) => {
     try {
       await readReminderDispatchRequest(request)

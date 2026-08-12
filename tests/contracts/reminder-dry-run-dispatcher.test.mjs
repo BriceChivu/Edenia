@@ -46,7 +46,10 @@ test('dry-run dispatcher uses named secret-key authentication in its handler', (
     denoLock.specifiers['npm:@supabase/server@1.4.1'],
     /^1\.4\.1_/
   )
-  assert.match(source, /withSupabase\(\s*\{ auth: 'secret:default' \}/)
+  assert.match(
+    source,
+    /withSupabase\(\s*\{ auth: 'secret:reminder_dispatcher' \}/
+  )
   assert.match(source, /context\.supabaseAdmin/)
   assert.doesNotMatch(source, /auth:\s*['"](?:none|user|publishable)/)
 })
