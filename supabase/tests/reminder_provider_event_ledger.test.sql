@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, private, auth, pg_catalog;
 
-select plan(43);
+select plan(53);
 
 insert into auth.users (id, email) values
   ('81111111-1111-4111-8111-111111111111', 'event-a@example.test'),
@@ -160,6 +160,48 @@ select ok(
   ),
   'provider event age has an operational index'
 );
+select has_column(
+  'private',
+  'reminder_provider_events',
+  'duplicate_count',
+  'exact provider-event replays have an aggregate counter'
+);
+select has_column(
+  'private',
+  'reminder_provider_events',
+  'last_duplicate_at',
+  'the latest exact replay time is observable'
+);
+select has_function(
+  'public',
+  'get_reminder_operational_metrics',
+  array['timestamp with time zone'],
+  'the privacy-safe reminder metrics function exists'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.get_reminder_operational_metrics(timestamp with time zone)',
+    'EXECUTE'
+  ),
+  'the service role can read aggregate reminder health'
+);
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.get_reminder_operational_metrics(timestamp with time zone)',
+    'EXECUTE'
+  ),
+  'authenticated clients cannot read operational reminder health'
+);
+select ok(
+  not has_function_privilege(
+    'anon',
+    'public.get_reminder_operational_metrics(timestamp with time zone)',
+    'EXECUTE'
+  ),
+  'anonymous clients cannot read operational reminder health'
+);
 
 update private.reminder_delivery_control
 set delivery_enabled = true,
@@ -252,7 +294,7 @@ select is(
     (select delivery_id from event_claims where user_id = '81111111-1111-4111-8111-111111111111'),
     'msg_event_a',
     timestamptz '2026-08-10 10:05:28+00',
-    timestamptz '2026-08-10 10:06:00+00'
+    timestamptz '2026-08-10 10:05:29+00'
   ),
   'duplicate',
   'an exact event replay is idempotent even with a later receive time'
@@ -261,6 +303,15 @@ select is(
   (select count(*) from private.reminder_provider_events),
   1::bigint,
   'an exact replay creates no second row'
+);
+select results_eq(
+  $$
+    select duplicate_count, last_duplicate_at
+    from private.reminder_provider_events
+    where provider_name = 'resend' and event_id = 'evt_sent_a'
+  $$,
+  $$values (1, timestamptz '2026-08-10 10:05:30+00')$$,
+  'an exact replay increments only its counter and keeps time monotonic'
 );
 select is(
   public.record_reminder_provider_event(
@@ -446,6 +497,35 @@ select results_eq(
   $$values ('observed'::text, 2::bigint), ('suppressed'::text, 3::bigint)$$,
   'event actions support privacy-safe delivery and suppression metrics'
 );
+select is(
+  public.get_reminder_operational_metrics(
+    timestamptz '2026-08-11 10:05:00+00'
+  ),
+  jsonb_build_object(
+    'schema_version', 1,
+    'generated_at', timestamptz '2026-08-11 10:05:00+00',
+    'delivery_enabled', false,
+    'queue', jsonb_build_object(
+      'due_occurrences', 0,
+      'oldest_due_at', null,
+      'oldest_age_seconds', null
+    ),
+    'deliveries', jsonb_build_object(
+      'provider_accepted', 5,
+      'permanent_failure', 0,
+      'outcome_ambiguous', 0
+    ),
+    'duplicate_provider_events_prevented', 1,
+    'suppressions', 3
+  ),
+  'operators can read exact aggregate health without user or recipient fields'
+);
+select throws_ok(
+  $$select public.get_reminder_operational_metrics(null)$$,
+  '22023',
+  'reminder_metrics_now_required',
+  'metrics reject an absent observation time'
+);
 
 set local role anon;
 select throws_ok(
@@ -474,6 +554,15 @@ select throws_ok(
   '42501',
   'permission denied for function record_reminder_provider_event',
   'authenticated browser callers cannot forge provider events'
+);
+reset role;
+
+set local role anon;
+select throws_ok(
+  $$select public.get_reminder_operational_metrics(now())$$,
+  '42501',
+  'permission denied for function get_reminder_operational_metrics',
+  'anonymous callers cannot read reminder operations'
 );
 reset role;
 
