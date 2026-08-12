@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "channels": [
+    {
+      "catalogId": "mandarin-grace",
+      "channelId": "UCC_fdR7zZ_5SU--xuOrEdKw",
+      "learningLanguage": "mandarin",
+      "name": "Grace Mandarin Chinese",
+      "summary": "Practical Mandarin pronunciation, vocabulary, and culture lessons."
+    },
+    {
+      "catalogId": "japanese-shun",
+      "channelId": "UCu6sZrHyl4hSS2PvlUo2XZA",
+      "learningLanguage": "japanese",
+      "name": "Japanese with Shun",
+      "summary": "A Japanese podcast with natural, learner-friendly conversations."
+    },
+    {
+      "catalogId": "korean-ttmik",
+      "channelId": "UC5r3WHrX4Z7peSYpDlgktGw",
+      "learningLanguage": "korean",
+      "name": "Talk To Me In Korean",
+      "summary": "Korean lessons and conversations for building practical listening skills."
+    },
+    {
+      "catalogId": "spanish-dreaming",
+      "channelId": "UCouyFdE9-Lrjo3M_2idKq1A",
+      "learningLanguage": "spanish",
+      "name": "Dreaming Spanish",
+      "summary": "Comprehensible-input videos that teach Spanish through stories and everyday topics."
+    },
+    {
+      "catalogId": "french-piece",
+      "channelId": "UCVzyfpNuFF4ENY8zNTIW7ug",
+      "learningLanguage": "french",
+      "name": "Piece of French",
+      "summary": "Casual French conversations and everyday-life videos for natural listening practice."
+    },
+    {
+      "catalogId": "german-easy",
+      "channelId": "UCbxb2fqe9oNgglAoYqsYOtQ",
+      "learningLanguage": "german",
+      "name": "Easy German",
+      "summary": "Street interviews and real conversations with German speakers."
+    },
+    {
+      "catalogId": "english-lukes-podcast",
+      "channelId": "UC2L7vR43LKuBXXV2AentEMw",
+      "learningLanguage": "english",
+      "name": "Luke's English Podcast",
+      "summary": "Long-form English conversations and stories for listening practice."
+    }
+  ]
+}

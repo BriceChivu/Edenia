@@ -32,7 +32,10 @@ function createHarness(switchValues: boolean[]) {
           switchIndex += 1
           return Promise.resolve({ data: value, error: null })
         }
-        if (name === 'claim_due_reminder_deliveries') {
+        if (
+          name === 'claim_due_typed_reminder_dry_runs'
+          || name === 'claim_due_reminder_deliveries'
+        ) {
           return Promise.resolve({ data: [], error: null })
         }
         return Promise.resolve({
@@ -77,7 +80,7 @@ test('switch-off dispatch stays dry-run and never reads live settings', async ()
   assert.deepEqual(harness.rpcCalls, [
     'reminder_delivery_is_enabled',
     'reminder_delivery_is_enabled',
-    'claim_due_reminder_deliveries',
+    'claim_due_typed_reminder_dry_runs',
   ])
 })
 

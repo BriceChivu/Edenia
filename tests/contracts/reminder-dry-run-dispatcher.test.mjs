@@ -57,24 +57,35 @@ test('dry-run dispatcher remains manual, bounded, and provider-free', () => {
   assert.match(shared, /const LEASE_SECONDS = 2 \* 60/)
   assert.match(shared, /readReminderDeliveryEnabled/)
   assert.match(claimShared, /reminder_delivery_is_enabled/)
-  assert.match(shared, /claim_due_reminder_deliveries/)
-  assert.match(shared, /complete_reminder_dry_run/)
+  assert.match(shared, /claim_due_typed_reminder_dry_runs/)
+  assert.match(shared, /complete_typed_reminder_dry_run/)
   assert.match(shared, /event: 'reminder_dry_run_intended'/)
   assert.doesNotMatch(
     source + shared + claimShared,
     /cron\.schedule|pg_cron|net\.http|resend|postmark|sendgrid|mailgun/i
   )
-  assert.doesNotMatch(source + shared + claimShared, /auth\.users|\.from\(['"]auth|email/i)
+  assert.doesNotMatch(
+    source + shared + claimShared,
+    /auth\.users|\.from\(['"]auth|\.email\b|email_address|recipientEmail/i
+  )
   assert.doesNotMatch(source + shared + claimShared, /fetch\s*\(/)
 })
 
 test('dry-run logs identify occurrences without exposing fencing tokens', () => {
   const intendedLog = shared.match(
-    /log\(\{\s*event: 'reminder_dry_run_intended',[\s\S]*?\n\s*\}\)/
+    /const intendedLog: ReminderDryRunLog = \{\s*event: 'reminder_dry_run_intended',[\s\S]*?\n\s*\}/
   )?.[0] || ''
   assert.match(intendedLog, /delivery_id: claim\.deliveryId/)
   assert.match(intendedLog, /user_id: claim\.userId/)
   assert.match(intendedLog, /scheduled_for: claim\.scheduledFor/)
   assert.match(intendedLog, /locale: claim\.locale/)
+  assert.match(intendedLog, /email_type: claim\.emailType/)
   assert.doesNotMatch(intendedLog, /claimToken|claim_token/)
+})
+
+test('dry-run records eligibility before describing an intended reminder', () => {
+  const completionIndex = shared.indexOf("complete_typed_reminder_dry_run")
+  const intendedIndex = shared.indexOf("event: 'reminder_dry_run_intended'")
+  assert.ok(completionIndex >= 0)
+  assert.ok(intendedIndex > completionIndex)
 })

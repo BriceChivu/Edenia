@@ -126,6 +126,7 @@ select results_eq(
     where table_schema = 'private'
       and table_name in ('reminder_deliveries', 'reminder_unsubscribe_tokens')
       and column_name ilike '%email%'
+      and column_name <> 'email_type'
   $$,
   array[0::bigint],
   'the live prerequisites store no email address'

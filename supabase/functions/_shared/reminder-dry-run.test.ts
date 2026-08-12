@@ -17,6 +17,14 @@ const CLAIM = Object.freeze({
   locale: 'zh-Hant',
   consent_version: 'reminder-email-v1',
   attempt_count: 1,
+  email_type: 'discovery',
+  learning_language: 'mandarin',
+  channel_id: 'UCC_fdR7zZ_5SU--xuOrEdKw',
+  channel_name: 'Grace Mandarin Chinese',
+  channel_summary: 'Practical Mandarin lessons.',
+  video_id: 'abcdefghijk',
+  video_title: 'A useful new lesson',
+  video_published_at: '2026-08-12T09:00:00+00:00',
 })
 
 function createClient({
@@ -37,10 +45,10 @@ function createClient({
         if (name === 'reminder_delivery_is_enabled') {
           return Promise.resolve({ data: enabled, error: null })
         }
-        if (name === 'claim_due_reminder_deliveries') {
+        if (name === 'claim_due_typed_reminder_dry_runs') {
           return Promise.resolve({ data: claims, error: null })
         }
-        if (name === 'complete_reminder_dry_run') {
+        if (name === 'complete_typed_reminder_dry_run') {
           return Promise.resolve({
             data: completionData,
             error: completionError,
@@ -71,7 +79,7 @@ test('runs a bounded empty dry run while live delivery is disabled', async () =>
   assert.deepEqual(harness.calls, [
     { name: 'reminder_delivery_is_enabled', params: undefined },
     {
-      name: 'claim_due_reminder_deliveries',
+      name: 'claim_due_typed_reminder_dry_runs',
       params: {
         p_batch_size: 25,
         p_due_window_seconds: 900,
@@ -105,7 +113,7 @@ test('refuses to claim dry-run work when live delivery is enabled', async () => 
   }])
 })
 
-test('logs intended delivery metadata and completes with the fencing token', async () => {
+test('rechecks and completes before logging typed intended metadata', async () => {
   const harness = createClient({ claims: [CLAIM] })
   const logs: Record<string, unknown>[] = []
   const result = await runReminderDryRun(harness.client, entry => logs.push(entry))
@@ -114,7 +122,7 @@ test('logs intended delivery metadata and completes with the fencing token', asy
   assert.equal(result.observed, 1)
   assert.equal(result.completionFailed, 0)
   assert.deepEqual(harness.calls[2], {
-    name: 'complete_reminder_dry_run',
+    name: 'complete_typed_reminder_dry_run',
     params: { p_claim_token: CLAIM.claim_token },
   })
   assert.deepEqual(logs[0], {
@@ -127,6 +135,14 @@ test('logs intended delivery metadata and completes with the fencing token', asy
     locale: CLAIM.locale,
     consent_version: CLAIM.consent_version,
     attempt_count: CLAIM.attempt_count,
+    email_type: CLAIM.email_type,
+    learning_language: CLAIM.learning_language,
+    channel_id: CLAIM.channel_id,
+    channel_name: CLAIM.channel_name,
+    channel_summary: CLAIM.channel_summary,
+    video_id: CLAIM.video_id,
+    video_title: CLAIM.video_title,
+    video_published_at: CLAIM.video_published_at,
   })
   assert.doesNotMatch(JSON.stringify(logs), /claim_token|52222222/)
   assert.doesNotMatch(JSON.stringify(logs), /"email"\s*:|@/i)
@@ -142,13 +158,14 @@ test('leaves failed completions retryable without exposing lease tokens', async 
 
   assert.equal(result.observed, 0)
   assert.equal(result.completionFailed, 1)
-  assert.deepEqual(logs[1], {
+  assert.deepEqual(logs[0], {
     event: 'reminder_dry_run_completion_failed',
     delivery_id: CLAIM.delivery_id,
     attempt_count: 1,
     reason: 'lease_not_completed',
   })
   assert.doesNotMatch(JSON.stringify(logs), /claim_token|52222222/)
+  assert.doesNotMatch(JSON.stringify(logs), /reminder_dry_run_intended/)
 })
 
 test('rejects malformed database claims before logging or completion', async () => {
@@ -163,6 +180,35 @@ test('rejects malformed database claims before logging or completion', async () 
   )
   assert.deepEqual(logs, [])
   assert.equal(harness.calls.length, 2)
+})
+
+test('accepts a streak reminder without a video and rejects partial payloads', async () => {
+  const streakClaim = {
+    ...CLAIM,
+    email_type: 'streak',
+    channel_id: null,
+    channel_name: null,
+    channel_summary: null,
+    video_id: null,
+    video_title: null,
+    video_published_at: null,
+  }
+  const harness = createClient({ claims: [streakClaim] })
+  const logs: Record<string, unknown>[] = []
+  const result = await runReminderDryRun(harness.client, entry => logs.push(entry))
+
+  assert.equal(result.observed, 1)
+  assert.equal(logs[0].email_type, 'streak')
+  assert.equal('video_id' in logs[0], false)
+
+  const invalidHarness = createClient({
+    claims: [{ ...streakClaim, video_id: 'abcdefghijk' }],
+  })
+  await assert.rejects(
+    runReminderDryRun(invalidHarness.client, () => {}),
+    (error: unknown) => error instanceof ReminderDryRunError
+      && error.code === 'invalid_claim',
+  )
 })
 
 test('accepts only a small empty JSON POST request', async () => {
