@@ -122,6 +122,21 @@ Before any database or function operation:
    ) as reminder_state;
    ```
 
+5. Read the service-owned health snapshot. It contains only aggregate counts
+   and timestamps—never a user UUID, address, provider payload, or message ID:
+
+   ```sql
+   select public.get_reminder_operational_metrics(now());
+   ```
+
+   The versioned result reports the live switch, due queue count and oldest
+   queue age, provider acceptances, permanent failures, ambiguous outcomes,
+   exact provider-event replays prevented, and sticky suppressions. The replay
+   counter covers signed provider webhook duplicates; scheduled-occurrence
+   duplication remains prevented by the existing unique user/local-date key.
+   Query this snapshot before and after every manual canary. Browser roles
+   cannot call the metrics function.
+
 Never copy a Supabase secret key into source control, a GitHub repository
 variable used by Pages, SQL text, issue comments, pull-request text, or chat.
 
