@@ -155,8 +155,22 @@ test('account auth exposes identity fields without retaining session tokens', as
   assert.equal(JSON.stringify(harness.controller.getState()).includes('administrator'), false)
 })
 
-test('auth events update state only after leaving the Supabase callback', async () => {
-  const clientHarness = createClient()
+test('auth events confirm the client session after leaving the Supabase callback', async () => {
+  const signedInSession = createDeferred()
+  const clientHarness = createClient({
+    sessionResponses: [
+      { data: { session: null }, error: null },
+      signedInSession.promise,
+      {
+        data: {
+          session: {
+            user: { id: 'user-2', email: 'updated@example.com' }
+          }
+        },
+        error: null
+      }
+    ]
+  })
   const harness = createHarness(clientHarness)
   await harness.controller.initialize()
 
@@ -172,14 +186,30 @@ test('auth events update state only after leaving the Supabase callback', async 
   assert.equal(harness.scheduled.length, 1)
 
   harness.runScheduled()
+  assert.equal(harness.controller.getState().sessionState, 'signed-out')
+  signedInSession.resolve({
+    data: {
+      session: {
+        user: { id: 'user-2', email: 'confirmed@example.com' }
+      }
+    },
+    error: null
+  })
+  await new Promise(resolve => setImmediate(resolve))
   assert.equal(harness.controller.getState().sessionState, 'signed-in')
   assert.equal(harness.controller.getState().userId, 'user-2')
+  assert.equal(harness.controller.getState().email, 'confirmed@example.com')
 
   clientHarness.emit('TOKEN_REFRESHED', {
     user: { id: 'user-2', email: 'updated@example.com' }
   })
   harness.runScheduled()
+  await new Promise(resolve => setImmediate(resolve))
   assert.equal(harness.controller.getState().email, 'updated@example.com')
+  assert.equal(
+    clientHarness.calls.filter(call => call[0] === 'getSession').length,
+    3
+  )
 })
 
 test('session failures become unavailable and a later refresh can recover', async () => {
