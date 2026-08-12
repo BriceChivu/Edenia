@@ -73,6 +73,10 @@ jobs:
                 data/channel-catalog*.json|images/channel-avatars/*)
                   run_catalogs=true
                   ;;
+                data/reminder-discovery-channels.json|scripts/validate-reminder-discovery-channels.mjs)
+                  run_catalogs=true
+                  run_contracts=true
+                  ;;
                 scripts/validate-channel-catalog-json.mjs|scripts/validate-community-channel-catalog.mjs|scripts/community-channel-catalog-policy.mjs)
                   run_catalogs=true
                   run_contracts=true
