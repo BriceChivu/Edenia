@@ -152,6 +152,12 @@ import {
   REMINDER_PREFERENCE_STATES
 } from './integrations/reminder-preferences-controller.js'
 import {
+  createAccountStudySnapshotController
+} from './integrations/account-study-snapshot-controller.js'
+import {
+  createReminderEligibilitySnapshot
+} from './domain/reminder-eligibility-snapshot.js'
+import {
   getEdeniaSessionReplayUrl,
   hasEdeniaAnalyticsStateSync,
   identifyEdeniaAuthenticatedUser,
@@ -489,6 +495,7 @@ const SANDBOX_CHANNEL_DEFINITIONS = [
 ]
 const {
   storageKey: STORAGE_KEY,
+  accountStudySyncOwnerKey: ACCOUNT_STUDY_SYNC_OWNER_KEY,
   youtubeChannelSearchCacheKey: YOUTUBE_CHANNEL_SEARCH_CACHE_KEY,
   youtubeChannelSearchUsageKey: YOUTUBE_CHANNEL_SEARCH_USAGE_KEY,
   stateBackupKey: STATE_BACKUP_KEY,
@@ -738,6 +745,7 @@ let mobileActivityLogVisibleCount = 20
 let supabaseClient = null
 let accountAuthController = null
 let accountExportController = null
+let accountStudySnapshotController = null
 const accountAnalyticsIdentity = createAccountAnalyticsIdentity({
   identify: identifyEdeniaAuthenticatedUser,
   reset: resetEdeniaAuthenticatedUser
@@ -1517,6 +1525,9 @@ function getEdeniaAnalyticsSnapshot(state) {
 }
 
 function syncPersistedStateToAnalytics(state) {
+  if (ACCOUNT_FEATURES_ENABLED && !IS_SANDBOX && state) {
+    accountStudySnapshotController?.synchronizeState(state)
+  }
   if (
     IS_SANDBOX
     || !isEdeniaAnalyticsEnabled()
@@ -1527,6 +1538,30 @@ function syncPersistedStateToAnalytics(state) {
   try {
     syncEdeniaAnalyticsState(getEdeniaAnalyticsSnapshot(state))
   } catch {}
+}
+
+function getAccountStudySnapshot(state) {
+  const studyDate = getCurrentAppDateKey(state)
+  const dayStart = dateKeyToLocalDate(studyDate)
+  const dayEnd = new Date(dayStart)
+  dayEnd.setHours(23, 59, 59, 999)
+  const today = getStudyHistoryBetween(state, dayStart, dayEnd).rows
+    .find(row => row.dateKey === studyDate)
+  let timezone = 'UTC'
+  try {
+    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+  } catch {}
+
+  return createReminderEligibilitySnapshot({
+    state,
+    timezone,
+    locale: normalizeLocale(state?.config?.locale),
+    studyDate,
+    pointsToday: today ? getHistoryDayPoints(today) : 0,
+    lastQualifiedStudyDate: state?.streak?.lastActivityDate || null,
+    currentStreakDays: state?.streak?.current || 0,
+    includeShorts: getEffectiveIncludeShorts(state)
+  })
 }
 
 function prepareStateForBackup(state) {
@@ -4884,6 +4919,12 @@ function initializeAccountAuth() {
         renderReminderPreferences(state)
       }
     })
+    accountStudySnapshotController = createAccountStudySnapshotController({
+      client,
+      storage: localStorage,
+      ownerStorageKey: ACCOUNT_STUDY_SYNC_OWNER_KEY,
+      createSnapshot: getAccountStudySnapshot
+    })
     accountAuthController = createAccountAuthController({
       client,
       history: window.history,
@@ -4896,6 +4937,7 @@ function initializeAccountAuth() {
           state,
           getReminderPreferenceDefaults()
         )
+        accountStudySnapshotController.synchronizeAccount(state, loadState())
         renderAccountSettings(state)
       }
     })
@@ -16669,6 +16711,7 @@ document.addEventListener('keydown', handleVideoShelfPlayerKeydown, true)
 window.addEventListener('blur', keepVideoShelfPlayerEscapeAvailable)
 window.addEventListener('pagehide', event => {
   if (!event.persisted) accountAuthController?.destroy()
+  if (!event.persisted) accountStudySnapshotController?.destroy()
   if (!event.persisted) plusAccountController?.destroy()
   const session = activeVideoShelfPlayer
   syncActiveVideoShelfPlayer({ persist: true })
