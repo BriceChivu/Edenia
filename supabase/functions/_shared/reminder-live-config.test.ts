@@ -15,6 +15,7 @@ const VALUES = Object.freeze({
   REMINDER_UNSUBSCRIBE_PAGE_URL:
     'https://bricechivu.github.io/Edenia/unsubscribe/',
   SUPABASE_URL: 'https://example-project.supabase.co',
+  REMINDER_LIVE_RECIPIENT_EMAIL: 'Learner@Example.COM',
 })
 
 function createEnvironment(
@@ -41,6 +42,7 @@ test('validates and freezes every live-delivery setting before use', () => {
     unsubscribeEndpointUrl:
       'https://example-project.supabase.co/functions/v1/unsubscribe-study-reminders',
     unsubscribePageUrl: VALUES.REMINDER_UNSUBSCRIBE_PAGE_URL,
+    allowedRecipientEmail: 'learner@example.com',
   })
   assert.ok(Object.isFrozen(config))
   assert.deepEqual(environment.reads, [
@@ -50,6 +52,7 @@ test('validates and freezes every live-delivery setting before use', () => {
     'REMINDER_APP_URL',
     'REMINDER_UNSUBSCRIBE_PAGE_URL',
     'SUPABASE_URL',
+    'REMINDER_LIVE_RECIPIENT_EMAIL',
   ])
 })
 
@@ -62,6 +65,7 @@ test('collapses absent and invalid settings into one privacy-safe error', () => 
     { REMINDER_APP_URL: 'https://bricechivu.github.io/Edenia/' },
     { REMINDER_UNSUBSCRIBE_PAGE_URL: 'https://example.test/unsubscribe/' },
     { SUPABASE_URL: 'https://example.test' },
+    { REMINDER_LIVE_RECIPIENT_EMAIL: 'not-an-email' },
   ]
 
   for (const overrides of cases) {

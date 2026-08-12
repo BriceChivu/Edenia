@@ -16,6 +16,14 @@ const CLAIM = Object.freeze({
   locale: 'zh-Hant',
   consent_version: 'reminder-email-v1',
   attempt_count: 1,
+  email_type: 'streak',
+  learning_language: 'mandarin',
+  channel_id: 'UCaaaaaaaaaaaaaaaaaaaaaa',
+  channel_name: 'Grace Mandarin Chinese',
+  channel_summary: null,
+  video_id: 'abcdefghijk',
+  video_title: 'A new tone lesson',
+  video_published_at: '2026-08-12T08:00:00+00:00',
 })
 const SECOND_CLAIM = Object.freeze({
   ...CLAIM,
@@ -31,6 +39,7 @@ const CONFIG: ReminderLiveConfig = Object.freeze({
   unsubscribeEndpointUrl:
     'https://example-project.supabase.co/functions/v1/unsubscribe-study-reminders',
   unsubscribePageUrl: 'https://bricechivu.github.io/Edenia/unsubscribe/',
+  allowedRecipientEmail: 'learner@example.com',
 })
 const CONFIRMED_USER = Object.freeze({
   id: CLAIM.user_id,
@@ -62,11 +71,12 @@ function createHarness({
   const authCalls: string[] = []
   const defaults: Record<string, unknown> = {
     reminder_delivery_is_enabled: enabled,
-    claim_due_reminder_deliveries: claims,
-    complete_reminder_without_send: true,
-    store_reminder_unsubscribe_token: true,
-    begin_reminder_provider_attempt: true,
+    claim_due_typed_reminder_live: claims,
+    complete_typed_reminder_without_send: true,
+    store_typed_reminder_unsubscribe_token: true,
+    begin_typed_reminder_provider_attempt: true,
     complete_reminder_provider_acceptance: true,
+    complete_reminder_provider_failure: true,
   }
   return {
     rpcCalls,
@@ -132,12 +142,11 @@ test('claims a small live batch with a longer bounded lease', async () => {
   assert.equal(result.status, 'completed')
   assert.equal(result.claimed, 0)
   assert.deepEqual(harness.rpcCalls[1], {
-    name: 'claim_due_reminder_deliveries',
+    name: 'claim_due_typed_reminder_live',
     params: {
       p_batch_size: 5,
       p_due_window_seconds: 900,
       p_lease_seconds: 300,
-      p_delivery_mode: 'live',
     },
   })
   assert.deepEqual(logs, [{
@@ -146,6 +155,7 @@ test('claims a small live batch with a longer bounded lease', async () => {
     claimed: 0,
     accepted: 0,
     recipient_unavailable: 0,
+    recipient_not_allowlisted: 0,
     fenced: 0,
     provider_deferred: 0,
     provider_blocked: 0,
@@ -178,7 +188,7 @@ test('ends only definitively unusable recipients before provider state', async (
     assert.equal(result.recipientUnavailable, 1)
     assert.equal(sendCalls, 0)
     assert.deepEqual(harness.rpcCalls.slice(2), [{
-      name: 'complete_reminder_without_send',
+      name: 'complete_typed_reminder_without_send',
       params: {
         p_claim_token: CLAIM.claim_token,
         p_failure_code: 'recipient_unavailable',
@@ -207,7 +217,38 @@ test('recognizes only Supabase structured user-not-found errors as terminal', as
 
   assert.equal(result.recipientUnavailable, 1)
   assert.equal(sendCalls, 0)
-  assert.equal(harness.rpcCalls.at(-1)?.name, 'complete_reminder_without_send')
+  assert.equal(
+    harness.rpcCalls.at(-1)?.name,
+    'complete_typed_reminder_without_send',
+  )
+})
+
+test('ends a confirmed recipient outside the single-address canary allowlist', async () => {
+  const harness = createHarness({
+    user: { ...CONFIRMED_USER, email: 'someone-else@example.com' },
+  })
+  let sendCalls = 0
+  const logs: Record<string, unknown>[] = []
+  const result = await runReminderLive(
+    harness.client,
+    CONFIG,
+    entry => logs.push(entry),
+    { send: async () => {
+      sendCalls += 1
+      return { status: 'accepted', providerMessageId: 'should-not-send' }
+    } },
+  )
+
+  assert.equal(result.recipientNotAllowlisted, 1)
+  assert.equal(sendCalls, 0)
+  assert.deepEqual(harness.rpcCalls.slice(2), [{
+    name: 'complete_typed_reminder_without_send',
+    params: {
+      p_claim_token: CLAIM.claim_token,
+      p_failure_code: 'recipient_not_allowlisted',
+    },
+  }])
+  assert.doesNotMatch(JSON.stringify(logs), /someone-else|@/iu)
 })
 
 test('treats auth lookup failures and mismatched users as retryable service errors', async () => {
@@ -262,15 +303,17 @@ test('stores the opaque token digest and rechecks the claim before send', async 
   assert.equal(sent[0].apiKey, CONFIG.resendApiKey)
   assert.match(String(sent[0].unsubscribeApiUrl), /token=[A-Za-z0-9_-]{43}&lang=zh-Hant$/)
   assert.match(String(sent[0].html), /internal_test=1/)
+  assert.match(String(sent[0].html), /reminder=streak/)
+  assert.match(String(sent[0].html), /A new tone lesson/)
   assert.match(String(sent[0].text), /unsubscribe\/\?token=/)
 
   const tokenBinding = harness.rpcCalls[2]
-  assert.equal(tokenBinding.name, 'store_reminder_unsubscribe_token')
+  assert.equal(tokenBinding.name, 'store_typed_reminder_unsubscribe_token')
   assert.equal(tokenBinding.params?.p_delivery_id, CLAIM.delivery_id)
   assert.equal(tokenBinding.params?.p_claim_token, CLAIM.claim_token)
   assert.match(String(tokenBinding.params?.p_token_digest), /^\\x[0-9a-f]{64}$/u)
   assert.deepEqual(harness.rpcCalls[3], {
-    name: 'begin_reminder_provider_attempt',
+    name: 'begin_typed_reminder_provider_attempt',
     params: {
       p_claim_token: CLAIM.claim_token,
       p_provider_name: 'resend',
@@ -291,8 +334,8 @@ test('stores the opaque token digest and rechecks the claim before send', async 
 
 test('a failed token or provider-begin fence results in zero provider calls', async () => {
   for (const rpcName of [
-    'store_reminder_unsubscribe_token',
-    'begin_reminder_provider_attempt',
+    'store_typed_reminder_unsubscribe_token',
+    'begin_typed_reminder_provider_attempt',
   ]) {
     const harness = createHarness({ rpcData: { [rpcName]: false } })
     let sendCalls = 0
@@ -343,8 +386,45 @@ test('halts the batch after a retryable or blocked provider result', async () =>
       harness.rpcCalls.map(call => call.name).join(','),
       /complete_reminder_provider_acceptance/u,
     )
+    if (providerResult.status === 'blocked') {
+      assert.deepEqual(harness.rpcCalls.at(-1), {
+        name: 'complete_reminder_provider_failure',
+        params: {
+          p_claim_token: CLAIM.claim_token,
+          p_provider_name: 'resend',
+          p_failure_code: 'configuration_invalid',
+        },
+      })
+    }
     assert.doesNotMatch(JSON.stringify(logs), /@|re_test|token=/iu)
   }
+})
+
+test('a failed permanent-provider completion remains safely retryable', async () => {
+  const harness = createHarness({
+    rpcData: { complete_reminder_provider_failure: false },
+  })
+  const result = await runReminderLive(
+    harness.client,
+    CONFIG,
+    () => {},
+    { send: async () => ({
+      status: 'blocked',
+      reason: 'request_invalid',
+    }) },
+  )
+
+  assert.equal(result.status, 'deferred')
+  assert.equal(result.providerBlocked, 1)
+  assert.equal(result.completionFailed, 1)
+  assert.deepEqual(harness.rpcCalls.at(-1), {
+    name: 'complete_reminder_provider_failure',
+    params: {
+      p_claim_token: CLAIM.claim_token,
+      p_provider_name: 'resend',
+      p_failure_code: 'template_invalid',
+    },
+  })
 })
 
 test('leaves an accepted but unrecorded result retryable with the same occurrence ID', async () => {

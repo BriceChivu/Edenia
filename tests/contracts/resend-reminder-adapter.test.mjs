@@ -68,8 +68,8 @@ test('Resend adapter results cannot expose provider bodies or recipient data', (
 test('the provider adapter is reachable only through the fenced live runner', () => {
   assert.match(dispatcher, /reminder-dispatcher/)
   assert.match(liveDispatcher, /resend-reminder-adapter/)
-  assert.match(liveDispatcher, /begin_reminder_provider_attempt/)
-  assert.match(liveDispatcher, /store_reminder_unsubscribe_token/)
+  assert.match(liveDispatcher, /begin_typed_reminder_provider_attempt/)
+  assert.match(liveDispatcher, /store_typed_reminder_unsubscribe_token/)
   assert.doesNotMatch(dryRun, /resend-reminder-adapter/)
   assert.doesNotMatch(dispatcher, /api\.resend\.com/)
   assert.doesNotMatch(dryRun, /api\.resend\.com|RESEND_API_KEY/)

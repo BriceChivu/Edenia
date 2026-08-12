@@ -1,6 +1,8 @@
 const REMINDER_LOCALES = ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr'] as const
 const REMINDER_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/
+const CHANNEL_ID_PATTERN = /^UC[A-Za-z0-9_-]{20,}$/
 const UNSUBSCRIBE_API_PATH = '/functions/v1/unsubscribe-study-reminders'
 
 const ALLOWED_APP_URLS = new Set([
@@ -22,6 +24,27 @@ type ReminderCopy = {
   cta: string
   consent: string
   unsubscribe: string
+}
+
+type TypedReminderCopy = {
+  streakSubject: string
+  streakPreheader: string
+  streakHeading: string
+  streakBody: string
+  streakVideo: (channel: string, video: string) => string
+  streakCta: string
+  discoverySubject: (channel: string) => string
+  discoveryPreheader: (channel: string) => string
+  discoveryHeading: string
+  discoveryBody: (channel: string, summary: string) => string
+  discoveryVideo: (video: string) => string
+  discoveryCta: string
+  consent: string
+  unsubscribe: string
+}
+
+function defineTypedReminderCopy(copy: TypedReminderCopy) {
+  return Object.freeze(copy)
 }
 
 const COPY: Readonly<Record<ReminderLocale, ReminderCopy>> = Object.freeze({
@@ -69,6 +92,89 @@ const COPY: Readonly<Record<ReminderLocale, ReminderCopy>> = Object.freeze({
     cta: 'Étudier avec Edenia',
     consent: 'Vous avez demandé à Edenia de vous envoyer des rappels d’étude.',
     unsubscribe: 'Se désabonner des rappels d’étude',
+  }),
+})
+
+const TYPED_COPY: Readonly<Record<ReminderLocale, TypedReminderCopy>> = Object.freeze({
+  en: defineTypedReminderCopy({
+    streakSubject: 'Keep your Edenia streak alive',
+    streakPreheader: 'You still need a few points for today’s streak.',
+    streakHeading: 'Your streak is waiting',
+    streakBody: 'You still need a few points to keep today’s streak alive.',
+    streakVideo: (channel, video) => `Try this new video from ${channel}: ${video}`,
+    streakCta: 'Study with Edenia',
+    discoverySubject: channel => `Discover ${channel} on Edenia`,
+    discoveryPreheader: channel => `A channel you might enjoy: ${channel}.`,
+    discoveryHeading: 'A channel you might enjoy',
+    discoveryBody: (channel, summary) => `Another learner of your language follows ${channel}. ${summary}`,
+    discoveryVideo: video => `Latest video: ${video}`,
+    discoveryCta: 'Watch in Edenia',
+    consent: 'You can change these email choices in your Edenia Account settings.',
+    unsubscribe: 'Turn off Edenia emails',
+  }),
+  'zh-Hant': defineTypedReminderCopy({
+    streakSubject: '繼續保持你的 Edenia 連續學習紀錄',
+    streakPreheader: '你今天還差一些點數就能延續連續學習紀錄。',
+    streakHeading: '你的連續學習紀錄等著你',
+    streakBody: '你今天還需要一些點數，才能延續連續學習紀錄。',
+    streakVideo: (channel, video) => `試試 ${channel} 的新影片：${video}`,
+    streakCta: '前往 Edenia 學習',
+    discoverySubject: channel => `在 Edenia 探索 ${channel}`,
+    discoveryPreheader: channel => `你可能會喜歡這個頻道：${channel}。`,
+    discoveryHeading: '你可能會喜歡的頻道',
+    discoveryBody: (channel, summary) => `另一位學習相同語言的使用者正在追蹤 ${channel}。${summary}`,
+    discoveryVideo: video => `最新影片：${video}`,
+    discoveryCta: '在 Edenia 觀看',
+    consent: '你可以在 Edenia 的「帳號」設定中更改電子郵件選項。',
+    unsubscribe: '關閉 Edenia 電子郵件',
+  }),
+  'zh-Hans': defineTypedReminderCopy({
+    streakSubject: '继续保持你的 Edenia 连续学习记录',
+    streakPreheader: '你今天还差一些点数就能延续连续学习记录。',
+    streakHeading: '你的连续学习记录等着你',
+    streakBody: '你今天还需要一些点数，才能延续连续学习记录。',
+    streakVideo: (channel, video) => `试试 ${channel} 的新视频：${video}`,
+    streakCta: '前往 Edenia 学习',
+    discoverySubject: channel => `在 Edenia 探索 ${channel}`,
+    discoveryPreheader: channel => `你可能会喜欢这个频道：${channel}。`,
+    discoveryHeading: '你可能会喜欢的频道',
+    discoveryBody: (channel, summary) => `另一位学习相同语言的用户正在关注 ${channel}。${summary}`,
+    discoveryVideo: video => `最新视频：${video}`,
+    discoveryCta: '在 Edenia 观看',
+    consent: '你可以在 Edenia 的“账号”设置中更改电子邮件选项。',
+    unsubscribe: '关闭 Edenia 电子邮件',
+  }),
+  es: defineTypedReminderCopy({
+    streakSubject: 'Mantén viva tu racha de Edenia',
+    streakPreheader: 'Aún necesitas algunos puntos para la racha de hoy.',
+    streakHeading: 'Tu racha te espera',
+    streakBody: 'Aún necesitas algunos puntos para mantener viva la racha de hoy.',
+    streakVideo: (channel, video) => `Prueba este vídeo nuevo de ${channel}: ${video}`,
+    streakCta: 'Estudiar con Edenia',
+    discoverySubject: channel => `Descubre ${channel} en Edenia`,
+    discoveryPreheader: channel => `Un canal que podría gustarte: ${channel}.`,
+    discoveryHeading: 'Un canal que podría gustarte',
+    discoveryBody: (channel, summary) => `Otra persona que aprende tu idioma sigue a ${channel}. ${summary}`,
+    discoveryVideo: video => `Último vídeo: ${video}`,
+    discoveryCta: 'Ver en Edenia',
+    consent: 'Puedes cambiar estas opciones de correo en los ajustes de tu cuenta de Edenia.',
+    unsubscribe: 'Desactivar los correos de Edenia',
+  }),
+  fr: defineTypedReminderCopy({
+    streakSubject: 'Gardez votre série Edenia en vie',
+    streakPreheader: 'Il vous manque encore quelques points pour la série du jour.',
+    streakHeading: 'Votre série vous attend',
+    streakBody: 'Il vous manque encore quelques points pour maintenir votre série aujourd’hui.',
+    streakVideo: (channel, video) => `Essayez cette nouvelle vidéo de ${channel} : ${video}`,
+    streakCta: 'Étudier avec Edenia',
+    discoverySubject: channel => `Découvrez ${channel} sur Edenia`,
+    discoveryPreheader: channel => `Une chaîne qui pourrait vous plaire : ${channel}.`,
+    discoveryHeading: 'Une chaîne qui pourrait vous plaire',
+    discoveryBody: (channel, summary) => `Une autre personne qui apprend votre langue suit ${channel}. ${summary}`,
+    discoveryVideo: video => `Dernière vidéo : ${video}`,
+    discoveryCta: 'Regarder sur Edenia',
+    consent: 'Vous pouvez modifier ces choix dans les réglages de votre compte Edenia.',
+    unsubscribe: 'Désactiver les e-mails Edenia',
   }),
 })
 
@@ -343,6 +449,199 @@ export function renderReminderEmail({
                 <p style="margin:0 0 24px;font-size:17px;line-height:1.6;">${escapeHtml(copy.body)}</p>
                 <p style="margin:0 0 28px;">
                   <a href="${escapedAppUrl}" style="display:inline-block;border-radius:999px;background:#326b4b;color:#ffffff;padding:13px 22px;font-weight:700;text-decoration:none;">${escapeHtml(copy.cta)}</a>
+                </p>
+                <p style="margin:0 0 6px;color:#66736c;font-size:13px;line-height:1.5;">${escapeHtml(copy.consent)}</p>
+                <p style="margin:0;color:#66736c;font-size:13px;line-height:1.5;">
+                  <a href="${escapedUnsubscribeUrl}" style="color:#496855;">${escapeHtml(copy.unsubscribe)}</a>
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`,
+  })
+}
+
+function requireTypedEmailText(
+  value: unknown,
+  label: string,
+  maximumLength: number,
+) {
+  if (
+    typeof value !== 'string'
+    || value.length < 1
+    || value.length > maximumLength
+    || value.trim() !== value
+    || /[\r\n]/u.test(value)
+  ) {
+    throw new TypeError(`Typed reminder ${label} is invalid`)
+  }
+  return value
+}
+
+export function createTypedReminderDestinationUrl({
+  appUrl: requestedAppUrl,
+  emailType,
+  videoId,
+  channelId,
+}: {
+  appUrl: string
+  emailType: 'streak' | 'discovery'
+  videoId: string | null
+  channelId: string | null
+}) {
+  const appUrl = validateReminderAppUrl(requestedAppUrl)
+  if (emailType !== 'streak' && emailType !== 'discovery') {
+    throw new TypeError('Typed reminder email type is invalid')
+  }
+  if (videoId !== null && !VIDEO_ID_PATTERN.test(videoId)) {
+    throw new TypeError('Typed reminder video ID is invalid')
+  }
+  if (channelId !== null && !CHANNEL_ID_PATTERN.test(channelId)) {
+    throw new TypeError('Typed reminder channel ID is invalid')
+  }
+  if (
+    emailType === 'discovery'
+    && (videoId === null || channelId === null)
+  ) {
+    throw new TypeError('Discovery reminder destination is incomplete')
+  }
+  if (emailType === 'streak' && channelId !== null && videoId === null) {
+    throw new TypeError('Streak reminder destination is incomplete')
+  }
+
+  const url = new URL(appUrl)
+  url.searchParams.set('reminder', emailType)
+  if (videoId !== null) url.searchParams.set('video', videoId)
+  if (channelId !== null) url.searchParams.set('channel', channelId)
+  return url.href
+}
+
+export function renderTypedReminderEmail({
+  locale: requestedLocale,
+  appUrl: requestedAppUrl,
+  unsubscribePageUrl: requestedUnsubscribePageUrl,
+  emailType,
+  channelId = null,
+  channelName = null,
+  channelSummary = null,
+  videoId = null,
+  videoTitle = null,
+}: {
+  locale: ReminderLocale
+  appUrl: string
+  unsubscribePageUrl: string
+  emailType: 'streak' | 'discovery'
+  channelId?: string | null
+  channelName?: string | null
+  channelSummary?: string | null
+  videoId?: string | null
+  videoTitle?: string | null
+}) {
+  const locale = normalizeReminderLocale(requestedLocale)
+  const copy = TYPED_COPY[locale]
+  const hasVideo = videoId !== null
+    || videoTitle !== null
+    || channelId !== null
+    || channelName !== null
+  const completeVideo = videoId !== null
+    && videoTitle !== null
+    && channelId !== null
+    && channelName !== null
+
+  if (
+    (emailType === 'streak' && hasVideo && !completeVideo)
+    || (
+      emailType === 'discovery'
+      && (!completeVideo || channelSummary === null)
+    )
+    || (emailType !== 'streak' && emailType !== 'discovery')
+  ) {
+    throw new TypeError('Typed reminder payload is incomplete')
+  }
+
+  const safeChannelName = channelName === null
+    ? null
+    : requireTypedEmailText(channelName, 'channel name', 200)
+  const safeChannelSummary = channelSummary === null
+    ? null
+    : requireTypedEmailText(channelSummary, 'channel summary', 300)
+  const safeVideoTitle = videoTitle === null
+    ? null
+    : requireTypedEmailText(videoTitle, 'video title', 300)
+  const destinationUrl = createTypedReminderDestinationUrl({
+    appUrl: requestedAppUrl,
+    emailType,
+    videoId,
+    channelId,
+  })
+  const unsubscribePageUrl = requireUnsubscribePageUrl(
+    requestedUnsubscribePageUrl,
+  )
+
+  const subject = emailType === 'streak'
+    ? copy.streakSubject
+    : copy.discoverySubject(safeChannelName!)
+  const preheader = emailType === 'streak'
+    ? copy.streakPreheader
+    : copy.discoveryPreheader(safeChannelName!)
+  const heading = emailType === 'streak'
+    ? copy.streakHeading
+    : copy.discoveryHeading
+  const body = emailType === 'streak'
+    ? copy.streakBody
+    : copy.discoveryBody(safeChannelName!, safeChannelSummary!)
+  const videoLine = emailType === 'streak' && completeVideo
+    ? copy.streakVideo(safeChannelName!, safeVideoTitle!)
+    : emailType === 'discovery'
+      ? copy.discoveryVideo(safeVideoTitle!)
+      : null
+  const cta = emailType === 'streak'
+    ? copy.streakCta
+    : copy.discoveryCta
+  const escapedDestinationUrl = escapeHtml(destinationUrl)
+  const escapedUnsubscribeUrl = escapeHtml(unsubscribePageUrl)
+
+  return Object.freeze({
+    locale,
+    emailType,
+    destinationUrl,
+    subject,
+    text: [
+      heading,
+      '',
+      body,
+      ...(videoLine ? ['', videoLine] : []),
+      '',
+      `${cta}: ${destinationUrl}`,
+      '',
+      copy.consent,
+      `${copy.unsubscribe}: ${unsubscribePageUrl}`,
+    ].join('\n'),
+    html: `<!doctype html>
+<html lang="${escapeHtml(locale)}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;background:#f5f2e9;color:#24332b;font-family:Arial,sans-serif;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(preheader)}</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f2e9;padding:24px 12px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #dfe7df;border-radius:16px;">
+            <tr>
+              <td style="padding:32px 28px;">
+                <p style="margin:0 0 12px;color:#54705f;font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Edenia</p>
+                <h1 style="margin:0 0 16px;font-size:28px;line-height:1.25;">${escapeHtml(heading)}</h1>
+                <p style="margin:0 0 16px;font-size:17px;line-height:1.6;">${escapeHtml(body)}</p>
+                ${videoLine ? `<p style="margin:0 0 24px;font-size:16px;line-height:1.6;font-weight:700;">${escapeHtml(videoLine)}</p>` : ''}
+                <p style="margin:0 0 28px;">
+                  <a href="${escapedDestinationUrl}" style="display:inline-block;border-radius:999px;background:#326b4b;color:#ffffff;padding:13px 22px;font-weight:700;text-decoration:none;">${escapeHtml(cta)}</a>
                 </p>
                 <p style="margin:0 0 6px;color:#66736c;font-size:13px;line-height:1.5;">${escapeHtml(copy.consent)}</p>
                 <p style="margin:0;color:#66736c;font-size:13px;line-height:1.5;">
