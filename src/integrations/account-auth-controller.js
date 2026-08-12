@@ -199,10 +199,17 @@ export function createAccountAuthController({
 
   async function initializeOnce() {
     const callbackError = readAndClearOAuthError(locationLike, historyLike)
-    const authListener = client.auth.onAuthStateChange((event, session) => {
+    const authListener = client.auth.onAuthStateChange(event => {
       if (!AUTH_SESSION_EVENTS.has(event)) return
       schedule(() => {
-        if (!destroyed) synchronizeSession(session)
+        if (destroyed) return
+        if (event === 'SIGNED_OUT') {
+          synchronizeSession(null)
+          return
+        }
+        // Confirm the session after the auth callback so dependent data reads
+        // cannot race the client's token installation during OAuth redirects.
+        void refreshSession()
       })
     })
     authSubscription = authListener?.data?.subscription || null
