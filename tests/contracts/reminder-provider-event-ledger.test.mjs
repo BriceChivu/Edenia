@@ -10,6 +10,13 @@ const migration = await readFile(
   ),
   'utf8'
 )
+const metricsMigration = await readFile(
+  new URL(
+    'supabase/migrations/20260812160000_add_reminder_operational_metrics.sql',
+    projectRoot
+  ),
+  'utf8'
+)
 const workflow = await readFile(
   new URL('.github/workflows/ci.yml', projectRoot),
   'utf8'
@@ -82,6 +89,31 @@ test('the provider-event migration cannot create a delivery path', () => {
     /cron\.schedule|pg_cron|net\.http|api\.resend\.com|RESEND_API_KEY|Deno\.env|fetch\s*\(/iu
   )
   assert.doesNotMatch(migration, /delivery_enabled\s*=\s*true/iu)
+})
+
+test('service-only reminder metrics stay aggregate and cannot send', () => {
+  assert.match(
+    metricsMigration,
+    /create function public\.get_reminder_operational_metrics/
+  )
+  assert.match(metricsMigration, /duplicate_provider_events_prevented/)
+  assert.match(metricsMigration, /oldest_age_seconds/)
+  assert.match(metricsMigration, /'provider_accepted'/)
+  assert.match(metricsMigration, /'permanent_failure'/)
+  assert.match(metricsMigration, /'outcome_ambiguous'/)
+  assert.match(
+    metricsMigration,
+    /revoke execute on function public\.get_reminder_operational_metrics\(timestamptz\)[\s\S]*?from public, anon, authenticated/
+  )
+  assert.match(
+    metricsMigration,
+    /grant execute on function public\.get_reminder_operational_metrics\(timestamptz\)[\s\S]*?to service_role/
+  )
+  assert.doesNotMatch(
+    metricsMigration,
+    /recipient_email|email_address|raw_payload|provider_body|cron\.schedule|pg_cron|api\.resend\.com|RESEND_API_KEY|Deno\.env|fetch\s*\(/iu
+  )
+  assert.doesNotMatch(metricsMigration, /delivery_enabled\s*=\s*true/iu)
 })
 
 test('provider event SQL verification is mandatory for matching changes', () => {
