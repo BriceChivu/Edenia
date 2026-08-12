@@ -103,6 +103,7 @@ select results_eq(
     where table_schema = 'private'
       and table_name = 'reminder_deliveries'
       and column_name ilike '%email%'
+      and column_name <> 'email_type'
   $$,
   array[0::bigint],
   'provider delivery state stores no email address'

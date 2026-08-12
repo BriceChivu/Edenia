@@ -168,9 +168,10 @@ select results_eq(
     from information_schema.columns
     where table_schema = 'private'
       and column_name ilike '%email%'
+      and column_name <> 'email_type'
   $$,
   array[0::bigint],
-  'no private reminder column has an email-like name'
+  'no private reminder column stores an email address'
 );
 select results_eq(
   $$
