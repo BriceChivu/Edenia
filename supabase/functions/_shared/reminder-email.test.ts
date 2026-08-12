@@ -5,9 +5,11 @@ import {
   createReminderUnsubscribeApiUrl,
   createReminderUnsubscribePageUrl,
   createReminderUnsubscribeToken,
+  createTypedReminderDestinationUrl,
   digestReminderUnsubscribeToken,
   encodeReminderDigestForPostgres,
   renderReminderEmail,
+  renderTypedReminderEmail,
   validateReminderAppUrl,
   validateReminderUnsubscribeEndpointUrl,
   validateReminderUnsubscribePageBaseUrl,
@@ -184,4 +186,140 @@ test('rejects non-internal app links and tampered unsubscribe links', async () =
     }),
     /invalid parameters/i,
   )
+})
+
+test('builds exact typed Edenia destinations without accepting arbitrary URLs', () => {
+  assert.equal(
+    createTypedReminderDestinationUrl({
+      appUrl: APP_URL,
+      emailType: 'streak',
+      videoId: null,
+      channelId: null,
+    }),
+    `${APP_URL}&reminder=streak`,
+  )
+  assert.equal(
+    createTypedReminderDestinationUrl({
+      appUrl: APP_URL,
+      emailType: 'discovery',
+      videoId: 'abcdefghijk',
+      channelId: 'UCC_fdR7zZ_5SU--xuOrEdKw',
+    }),
+    `${APP_URL}&reminder=discovery&video=abcdefghijk&channel=UCC_fdR7zZ_5SU--xuOrEdKw`,
+  )
+
+  for (const input of [
+    {
+      appUrl: 'https://evil.example/?internal_test=1',
+      emailType: 'streak' as const,
+      videoId: null,
+      channelId: null,
+    },
+    {
+      appUrl: APP_URL,
+      emailType: 'discovery' as const,
+      videoId: null,
+      channelId: 'UCC_fdR7zZ_5SU--xuOrEdKw',
+    },
+    {
+      appUrl: APP_URL,
+      emailType: 'streak' as const,
+      videoId: 'too-short',
+      channelId: 'UCC_fdR7zZ_5SU--xuOrEdKw',
+    },
+  ]) {
+    assert.throws(() => createTypedReminderDestinationUrl(input))
+  }
+})
+
+test('renders localized typed streak and discovery content from frozen payloads', async () => {
+  const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
+
+  for (const locale of LOCALES) {
+    const unsubscribePageUrl = createReminderUnsubscribePageUrl(
+      PAGE,
+      token,
+      locale,
+    )
+    const streak = renderTypedReminderEmail({
+      locale,
+      appUrl: APP_URL,
+      unsubscribePageUrl,
+      emailType: 'streak',
+      channelId: 'UCC_fdR7zZ_5SU--xuOrEdKw',
+      channelName: 'Grace & Friends',
+      videoId: 'abcdefghijk',
+      videoTitle: 'Tone practice <live>',
+    })
+    const discovery = renderTypedReminderEmail({
+      locale,
+      appUrl: APP_URL,
+      unsubscribePageUrl,
+      emailType: 'discovery',
+      channelId: 'UCC_fdR7zZ_5SU--xuOrEdKw',
+      channelName: 'Grace & Friends',
+      channelSummary: 'Practical Mandarin & culture.',
+      videoId: 'abcdefghijk',
+      videoTitle: 'Tone practice <live>',
+    })
+
+    for (const content of [streak, discovery]) {
+      assert.equal(content.locale, locale)
+      assert.ok(content.subject.length > 5)
+      assert.match(content.text, /abcdefghijk/)
+      assert.match(content.text, new RegExp(token))
+      assert.match(content.html, new RegExp(`<html lang="${locale}">`))
+      assert.match(content.html, /reminder=(?:streak|discovery)/)
+      assert.match(content.html, /video=abcdefghijk/)
+      assert.doesNotMatch(content.html, /Grace & Friends|<live>/)
+      assert.match(content.html, /Grace &amp; Friends/)
+      assert.match(content.html, /Tone practice &lt;live&gt;/)
+      assert.doesNotMatch(content.html, /<script|javascript:/i)
+    }
+    assert.equal(streak.emailType, 'streak')
+    assert.equal(discovery.emailType, 'discovery')
+  }
+})
+
+test('allows a streak without a video and rejects partial or multiline payloads', async () => {
+  const token = await createReminderUnsubscribeToken(DELIVERY_ID, SECRET)
+  const unsubscribePageUrl = createReminderUnsubscribePageUrl(PAGE, token, 'en')
+  const content = renderTypedReminderEmail({
+    locale: 'en',
+    appUrl: APP_URL,
+    unsubscribePageUrl,
+    emailType: 'streak',
+  })
+
+  assert.equal(content.destinationUrl, `${APP_URL}&reminder=streak`)
+  assert.doesNotMatch(content.text, /Latest video/i)
+
+  for (const invalid of [
+    {
+      emailType: 'streak' as const,
+      videoId: 'abcdefghijk',
+    },
+    {
+      emailType: 'discovery' as const,
+      channelId: 'UCC_fdR7zZ_5SU--xuOrEdKw',
+      channelName: 'Grace',
+      channelSummary: 'Summary',
+      videoId: 'abcdefghijk',
+    },
+    {
+      emailType: 'discovery' as const,
+      channelId: 'UCC_fdR7zZ_5SU--xuOrEdKw',
+      channelName: 'Grace\nBcc: unsafe@example.test',
+      channelSummary: 'Summary',
+      videoId: 'abcdefghijk',
+      videoTitle: 'Lesson',
+    },
+  ]) {
+    assert.throws(() => renderTypedReminderEmail({
+      locale: 'en',
+      appUrl: APP_URL,
+      unsubscribePageUrl,
+      ...invalid,
+    }))
+  }
 })
