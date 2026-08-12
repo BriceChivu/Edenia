@@ -1,17 +1,17 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-11T10:39:35.843Z",
+  "generatedAt": "2026-08-12T10:34:34.025Z",
   "lastRotationIndex": 0,
   "nextRotationIndex": 0,
   "rotationCount": 4,
-  "lastLanguageBatchIndex": 0,
-  "nextLanguageBatchIndex": 1,
+  "lastLanguageBatchIndex": 1,
+  "nextLanguageBatchIndex": 2,
   "languageBatchCount": 4,
   "languageBatchSize": 2,
-  "lastDiscoveryQuotaDate": "2026-08-11",
+  "lastDiscoveryQuotaDate": "2026-08-12",
   "lastDiscoveryLanguages": [
-    "french",
-    "english"
+    "german",
+    "mandarin"
   ],
   "lastSearchRequestCount": 6,
   "languages": [
@@ -388,6 +388,34 @@
       "discoveredAt": "2026-07-27T15:11:12.608Z",
       "refreshedAt": "2026-07-27T15:11:12.608Z",
       "searchText": "acquire mandarin acquiremandarin mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCwtoSYPqWSnVzks8LwwG14A",
+      "channelId": "UCwtoSYPqWSnVzks8LwwG14A",
+      "youtubeInput": "@acquiringchinese",
+      "handle": "@acquiringchinese",
+      "name": "Acquiring Chinese",
+      "thumbnailUrl": "https://yt3.ggpht.com/XU8WuMLt0Hy_fFwPUeQfFTSaWWJZpJ1fQU5WTHyatbA2SK0cHTr17o4KhTSQMTIwSRUMVSsJ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn Chinese with no pressure. I'm Kevin Tong, a native Chinese speaker, and I make slow, natural Mandarin videos using comprehensible input. No textbook required, no grammar drills before you start, and no need to memorize long vocabulary lists just to follow along. You'll hear simple Chinese in real-life moments,...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-09-20T01:32:00.427255Z",
+      "subscriberCount": "1940",
+      "videoCount": "101",
+      "viewCount": "62869",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 257,
+      "discoveredByQueries": [
+        "Mandarin comprehensible input"
+      ],
+      "discoveredAt": "2026-08-12T10:34:33.818Z",
+      "refreshedAt": "2026-08-12T10:34:33.818Z",
+      "searchText": "acquiring chinese acquiringchinese mandarin youtube discovery"
     },
     {
       "catalogId": "discovered-UCKcZoWbqWzXSYzxQL9utJ1g",
@@ -2609,6 +2637,34 @@
       "searchText": "decoding words with andrew decodingwordswithandrew portuguese youtube discovery"
     },
     {
+      "catalogId": "discovered-UC7-7Cr5YohN2fGRHDh0AJ0Q",
+      "channelId": "UC7-7Cr5YohN2fGRHDh0AJ0Q",
+      "youtubeInput": "@deutschakademie-y5x",
+      "handle": "@deutschakademie-y5x",
+      "name": "Deutsch Akademie",
+      "thumbnailUrl": "https://yt3.ggpht.com/ZckhKIUaLclQ1LXNLJOqtkaLBrl5aWNQA13dfAKf3ifCpjXXryqWLA-Wj1D4f0LU05rwsEOz=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Willkommen bei Deutsch Akademie 🇩🇪📚 Dein Kanal zum einfachen und schnellen Deutschlernen! Egal ob Anfänger oder Fortgeschrittener – hier lernst du deutsche Grammatik, Aussprache, Wortschatz und alltägliche Gespräche auf eine einfache und verständliche Weise. 🗣️✨ 🔹 Deutsch für Anfänger & Fortgeschrittene 🔹 Gram...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-04-12T05:28:56.247482Z",
+      "subscriberCount": "924",
+      "videoCount": "54",
+      "viewCount": "36618",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 241,
+      "discoveredByQueries": [
+        "Deutsch lernen für Anfänger"
+      ],
+      "discoveredAt": "2026-08-12T10:34:33.818Z",
+      "refreshedAt": "2026-08-12T10:34:33.818Z",
+      "searchText": "deutsch akademie deutschakademie y5x german youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC4MiALIvbGufqW9BCp-Zoig",
       "channelId": "UC4MiALIvbGufqW9BCp-Zoig",
       "youtubeInput": "@deutschimohr",
@@ -2803,6 +2859,34 @@
       "discoveredAt": "2026-07-27T15:11:22.372Z",
       "refreshedAt": "2026-07-27T15:11:22.372Z",
       "searchText": "deutsche geschichten german stories 1234 german youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCFtCASxFEa9ym88EUrWZxFQ",
+      "channelId": "UCFtCASxFEa9ym88EUrWZxFQ",
+      "youtubeInput": "@dianeneubauer",
+      "handle": "@dianeneubauer",
+      "name": "Diane Neubauer 杜雁子 Chinese learning & teaching",
+      "thumbnailUrl": "https://yt3.ggpht.com/xo2U9jKqlVup063BGJcfzI5adBpsReTR3Zk2QfTc5b55elITvGPlu1Lx6YWwLujfsvPlMMygDg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome, 欢迎! I post videos for Chinese language learners (videos with beginner-level Chinese narration of life and animals at my rural home, and beginner-level and low intermediate-level Chinese read-along videos) and videos more relevant to language teachers, sometimes specifically Chinese language teachers. 中文老师们，...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2012-09-09T22:30:24Z",
+      "subscriberCount": "3210",
+      "videoCount": "550",
+      "viewCount": "235703",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 269,
+      "discoveredByQueries": [
+        "Mandarin comprehensible input"
+      ],
+      "discoveredAt": "2026-08-12T10:34:33.818Z",
+      "refreshedAt": "2026-08-12T10:34:33.818Z",
+      "searchText": "diane neubauer 杜雁子 chinese learning teaching dianeneubauer mandarin youtube discovery"
     },
     {
       "catalogId": "discovered-UCH-Ahppbu2XzOQGaUy3BMwg",
@@ -3534,6 +3618,34 @@
       "discoveredAt": "2026-07-24T14:15:51.076Z",
       "refreshedAt": "2026-07-24T14:15:51.076Z",
       "searchText": "elllo english listening lesson library online elllovideos english youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCWfURoO8fQnp2UagJ8EWdHw",
+      "channelId": "UCWfURoO8fQnp2UagJ8EWdHw",
+      "youtubeInput": "@emilychinese1990",
+      "handle": "@emilychinese1990",
+      "name": "Emily Chinese",
+      "thumbnailUrl": "https://yt3.ggpht.com/m_QvXCGZlO_MCMplWVfF_IIIyELxV1mCuazmO2-dKnQVYsqh_J99mpge0_c554xl5dobcu4G=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🎓 Learn real-life Mandarin with Emily! I create daily beginner and intermediate Chinese lessons based on everyday conversations, useful vocabulary, and listening practice. 💬 Suitable for zero beginners, self-learners, and travelers. 📅 New video every day | 📚 Practical Chinese | 🌍 Global learners 👋 欢迎来到 Emily C...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-07-20T06:51:05.849402Z",
+      "subscriberCount": "6590",
+      "videoCount": "511",
+      "viewCount": "280707",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 301,
+      "discoveredByQueries": [
+        "学中文 初学者"
+      ],
+      "discoveredAt": "2026-08-12T10:34:33.818Z",
+      "refreshedAt": "2026-08-12T10:34:33.818Z",
+      "searchText": "emily chinese emilychinese1990 mandarin youtube discovery"
     },
     {
       "catalogId": "discovered-UCpDd9PNiPHb12yyWo2miyog",
@@ -5840,6 +5952,34 @@
       "searchText": "german vocabbites germanvocabbites german youtube discovery"
     },
     {
+      "catalogId": "discovered-UC_dQ9lPi73EDrRBg_Ln8Uiw",
+      "channelId": "UC_dQ9lPi73EDrRBg_Ln8Uiw",
+      "youtubeInput": "@germanwithdimitrius",
+      "handle": "@germanwithdimitrius",
+      "name": "German with Dimitrius",
+      "thumbnailUrl": "https://yt3.ggpht.com/b8iSVhKiKtIsRexE0pE2OQqVV5XGLz-S4AS7n0gBgdhlcatPYE7zq3MoXV1riq0dN4RU50jIKw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn German visually and make every word stick. This channel teaches German with powerful images and real-life examples so your brain remembers faster and with less effort.​ Here you will find short, focused lessons where each new word or phrase is linked to a clear picture, simple context, and natural pronunciatio...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2019-11-21T17:47:20.369444Z",
+      "subscriberCount": "1200",
+      "videoCount": "34",
+      "viewCount": "36081",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 234,
+      "discoveredByQueries": [
+        "German comprehensible input"
+      ],
+      "discoveredAt": "2026-08-12T10:34:33.818Z",
+      "refreshedAt": "2026-08-12T10:34:33.818Z",
+      "searchText": "german with dimitrius germanwithdimitrius german youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCwz_-UY3SpqtGAjS9EmnzlA",
       "channelId": "UCwz_-UY3SpqtGAjS9EmnzlA",
       "youtubeInput": "@germanwithgd",
@@ -6120,6 +6260,34 @@
       "searchText": "growth 日本語 nihongo p7d japanese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCjV9n7XvEstg8L2r0HTbZnA",
+      "channelId": "UCjV9n7XvEstg8L2r0HTbZnA",
+      "youtubeInput": "@hallodeutsch-y8q",
+      "handle": "@hallodeutsch-y8q",
+      "name": "Hallo Deutsch",
+      "thumbnailUrl": "https://yt3.ggpht.com/2hFfRYAk15N1kAc-UlK6i9Xt8ja-Vucq6Vm3Tav80xzpAFIZ9m53_hnDgAnTYFCJqJljNHPkgQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Hallo! 👋 Welcome to Hallo Deutsch — learn German the natural way, with simple stories you can actually understand. Every video follows Lena & Max through a slow, clear German story, with German + English subtitles on screen. It's \"comprehensible input\": you learn words and phrases in context, not from boring gramma...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-05-30T14:29:12.319014Z",
+      "subscriberCount": "106",
+      "videoCount": "18",
+      "viewCount": "2089",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 231,
+      "discoveredByQueries": [
+        "German comprehensible input"
+      ],
+      "discoveredAt": "2026-08-12T10:34:33.818Z",
+      "refreshedAt": "2026-08-12T10:34:33.818Z",
+      "searchText": "hallo deutsch hallodeutsch y8q german youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC1o7S_k9BvCgsa1G9flQ7FQ",
       "channelId": "UC1o7S_k9BvCgsa1G9flQ7FQ",
       "youtubeInput": "@hey.russian",
@@ -6174,6 +6342,34 @@
       "discoveredAt": "2026-07-25T15:02:59.342Z",
       "refreshedAt": "2026-07-25T15:02:59.342Z",
       "searchText": "hina japanese hinajapanese e9d japanese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCv33mxPEDfd_Ee1pz1y8KLw",
+      "channelId": "UCv33mxPEDfd_Ee1pz1y8KLw",
+      "youtubeInput": "@hitchinese",
+      "handle": "@hitchinese",
+      "name": "Hit Chinese",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_msIGmWJuHh0RQpLPAw3HwhS3maOi7gxyNYqs68VHhzAGo=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Do you want to learn a language naturally, without robotic memorization? Then Comprehensible Input is the best way to go! In my videos, I simply immerse you in a meaningful (story-based) environment. Given enough exposure, you will be able to use it like it's your second nature. Comprehensible Input is such an effec...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2019-01-04T00:59:19Z",
+      "subscriberCount": "8870",
+      "videoCount": "15",
+      "viewCount": "50250",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 260,
+      "discoveredByQueries": [
+        "Mandarin comprehensible input"
+      ],
+      "discoveredAt": "2026-08-12T10:34:33.818Z",
+      "refreshedAt": "2026-08-12T10:34:33.818Z",
+      "searchText": "hit chinese hitchinese mandarin youtube discovery"
     },
     {
       "catalogId": "discovered-UCMiiCQmgyNDMGtBflr-sURw",
@@ -8826,6 +9022,62 @@
       "searchText": "learn german easily learngermaneasily2022 german youtube discovery"
     },
     {
+      "catalogId": "discovered-UCAb5TNwQfJjY3R0G9tqAlgA",
+      "channelId": "UCAb5TNwQfJjY3R0G9tqAlgA",
+      "youtubeInput": "@learngermaneasystory",
+      "handle": "@learngermaneasystory",
+      "name": "Learn German easy story",
+      "thumbnailUrl": "https://yt3.ggpht.com/ga4lLEUiaDZn7eyE8Y7W2wOMEW30THyJBMVQWnCOGMvmh9A0xhAXEt2GHxJLo3s17QlN43jom1I=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Lerne Deutsch mit spannenden Geschichten! Einfach, unterhaltsam und für alle Sprachniveaus geeignet. Welcome to “Learn German Easy Story” – your fun gateway to mastering German! We bring the language to life through captivating social tales and real-life stories filled with powerful life lessons. These stories will...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-07-04T09:17:58.909189Z",
+      "subscriberCount": "2260",
+      "videoCount": "170",
+      "viewCount": "195961",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 217,
+      "discoveredByQueries": [
+        "learn German"
+      ],
+      "discoveredAt": "2026-08-12T10:34:33.818Z",
+      "refreshedAt": "2026-08-12T10:34:33.818Z",
+      "searchText": "learn german easy story learngermaneasystory german youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCFRt9RF7ffBn2SBDvk1uSLA",
+      "channelId": "UCFRt9RF7ffBn2SBDvk1uSLA",
+      "youtubeInput": "@learngermanfast",
+      "handle": "@learngermanfast",
+      "name": "Learn German Fast",
+      "thumbnailUrl": "https://yt3.ggpht.com/GeQHxOIk4yTxBFEitTaDsfhuMJskeocbQh_9J4OMQL_GT9wVxLuIQ5UgFQxtN7dRm2ACO6ZQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn German Fast and Easy 🇩🇪📚 📌Daily German Lessons 📚Grammar 🔥Only Relevant Vocabulary",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2016-11-26T21:49:21Z",
+      "subscriberCount": "342000",
+      "videoCount": "810",
+      "viewCount": "16331094",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 227,
+      "discoveredByQueries": [
+        "learn German"
+      ],
+      "discoveredAt": "2026-08-12T10:34:33.818Z",
+      "refreshedAt": "2026-08-12T10:34:33.818Z",
+      "searchText": "learn german fast learngermanfast german youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCdc25e0hsRBiE6hOOZaXtGw",
       "channelId": "UCdc25e0hsRBiE6hOOZaXtGw",
       "youtubeInput": "@learngermansongs",
@@ -8993,6 +9245,34 @@
       "discoveredAt": "2026-07-25T15:03:19.156Z",
       "refreshedAt": "2026-07-25T15:03:19.156Z",
       "searchText": "learn german through story learngermanthroughstory german youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCwoYuQFXUEPws4GMqytbWlw",
+      "channelId": "UCwoYuQFXUEPws4GMqytbWlw",
+      "youtubeInput": "@fakhryabdallah",
+      "handle": "@fakhryabdallah",
+      "name": "Learn German with Abdallah",
+      "thumbnailUrl": "https://yt3.ggpht.com/3ApYhy0c8gOos-fT0uTEk_wVHO1qMpwJU5rfg9DZNZwbxN3CV4eeFtqwgBCIggbrNQetf1yo0g=s800-c-k-c0x00ffffff-no-rj",
+      "description": "هل تريد إتقان اللغة الألمانية بسرعة وبطريقة ممتعة؟ انضم إلى قناتنا حيث نقدم دروسًا شاملة تناسب جميع المستويات، من المبتدئين إلى المتقدمين. ستجد لدينا: - دروس فيديو تفاعلية لشرح القواعد والنطق الصحيح. - مفردات وجمل يومية لمساعدتك في التواصل بثقة. - تمارين وتحديات لغوية لتعزيز مهاراتك. ابدأ رحلتك اللغوية معنا الآن، وا...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2016-07-18T21:38:47Z",
+      "subscriberCount": "8230",
+      "videoCount": "454",
+      "viewCount": "516922",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 278,
+      "discoveredByQueries": [
+        "learn German"
+      ],
+      "discoveredAt": "2026-08-12T10:34:33.818Z",
+      "refreshedAt": "2026-08-12T10:34:33.818Z",
+      "searchText": "learn german with abdallah fakhryabdallah german youtube discovery"
     },
     {
       "catalogId": "discovered-UCb7zQwUsUJ6NilFoe2T0bSA",
@@ -11974,6 +12254,34 @@
       "discoveredAt": "2026-07-25T15:03:10.072Z",
       "refreshedAt": "2026-07-25T15:03:10.072Z",
       "searchText": "mia esmeriz academy miaesmerizacademy portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCYCS1MARZjlD2jr7R9WBRQQ",
+      "channelId": "UCYCS1MARZjlD2jr7R9WBRQQ",
+      "youtubeInput": "@michellekeenanmandarin",
+      "handle": "@michellekeenanmandarin",
+      "name": "Michelle & Keenan Mandarin",
+      "thumbnailUrl": "https://yt3.ggpht.com/Awe9sw56wUWMxTU43fpJXaYCiqjp2LoGroVOkluc_ibbiyuCfsEVpQBCxtBV6p4A1E1uLso=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Hi! We’re Michelle and Keenan. Michelle is Vietnamese and is learning Mandarin, while Keenan is a Malaysian Chinese Mandarin teacher. Together, we create structured yet simple Mandarin lessons using real conversations, stories, and comprehensible input. Whether you're a complete beginner or an advanced learner, our...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2013-11-03T04:03:51Z",
+      "subscriberCount": "3010",
+      "videoCount": "112",
+      "viewCount": "138231",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 284,
+      "discoveredByQueries": [
+        "Mandarin comprehensible input"
+      ],
+      "discoveredAt": "2026-08-12T10:34:33.818Z",
+      "refreshedAt": "2026-08-12T10:34:33.818Z",
+      "searchText": "michelle keenan mandarin michellekeenanmandarin mandarin youtube discovery"
     },
     {
       "catalogId": "discovered-UCJWszLrJdZDyP5VUlwhMoLg",
@@ -17602,6 +17910,35 @@
       "discoveredAt": "2026-07-25T15:03:19.156Z",
       "refreshedAt": "2026-07-25T15:03:19.156Z",
       "searchText": "yoyo chinese yoyochinese mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC6vaHDbhkdOtq_HQ60bNGNA",
+      "channelId": "UC6vaHDbhkdOtq_HQ60bNGNA",
+      "youtubeInput": "@zhangkaichinese",
+      "handle": "@zhangkaichinese",
+      "name": "Zhangkai Chinese",
+      "thumbnailUrl": "https://yt3.ggpht.com/z1rbw7qsSxNVzqVHOOjN_PoF9rK8R1I5n6l8SE38V1BG9jhLJ-P80imtafSJSOX93SbZaJn7fg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Hi! I'm Zhang kai. Welcome to my channel! If you are tired of boring textbooks and endless vocabulary lists, you are in the right place. What makes this channel different? • Comprehensible Input (CI): I use real-life Vlogs and visual stories to help you \"acquire\" Chinese naturally. You’ll understand the meaning thro...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-11-27T04:39:46.044142Z",
+      "subscriberCount": "106000",
+      "videoCount": "147",
+      "viewCount": "2984631",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 299,
+      "discoveredByQueries": [
+        "Mandarin comprehensible input",
+        "learn Mandarin Chinese"
+      ],
+      "discoveredAt": "2026-08-12T10:34:33.818Z",
+      "refreshedAt": "2026-08-12T10:34:33.818Z",
+      "searchText": "zhangkai chinese zhangkaichinese mandarin youtube discovery"
     },
     {
       "catalogId": "discovered-UCh-GhnQ7qDQmS6Bz3pGc1Mw",
