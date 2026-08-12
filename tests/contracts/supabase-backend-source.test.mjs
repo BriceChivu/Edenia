@@ -154,6 +154,31 @@ test('billing hardening stays authenticated, environment-owned, and additive', a
     /revoke all on table public\.stripe_webhook_events from public, anon, authenticated/
   )
 
+  const rateLimitRepairMigrations = (await readdir(migrationsRoot)).filter(file =>
+    file.endsWith('_ensure_account_export_rate_limit.sql')
+  )
+  assert.equal(rateLimitRepairMigrations.length, 1)
+  const rateLimitRepairMigration = await readFile(
+    new URL(rateLimitRepairMigrations[0], migrationsRoot),
+    'utf8'
+  )
+  assert.match(
+    rateLimitRepairMigration,
+    /create table if not exists public\.billing_rate_limit_buckets/
+  )
+  assert.match(
+    rateLimitRepairMigration,
+    /create or replace function public\.consume_billing_rate_limit\(/
+  )
+  assert.match(
+    rateLimitRepairMigration,
+    /revoke all on function public\.consume_billing_rate_limit\([\s\S]*from public, anon, authenticated/
+  )
+  assert.match(
+    rateLimitRepairMigration,
+    /grant execute on function public\.consume_billing_rate_limit\([\s\S]*to service_role/
+  )
+
   const cancellationMigrations = (await readdir(migrationsRoot)).filter(file =>
     file.endsWith('_add_subscription_cancellation_state.sql')
   )
@@ -433,5 +458,13 @@ test('shared backend tests remain connected to package scripts and CI', async ()
   assert.match(
     workflow,
     /supabase\/migrations\/\*_add_self_scoped_account_export\.sql\|supabase\/migrations\/\*_hide_account_export_definer\.sql\|supabase\/tests\/account_server_data_export\.test\.sql/
+  )
+  assert.match(
+    workflow,
+    /supabase test db supabase\/tests\/account_export_rate_limit\.test\.sql --local/
+  )
+  assert.match(
+    workflow,
+    /supabase\/migrations\/\*_ensure_account_export_rate_limit\.sql\|supabase\/tests\/account_export_rate_limit\.test\.sql/
   )
 })

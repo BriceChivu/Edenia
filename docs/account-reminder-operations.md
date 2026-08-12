@@ -17,6 +17,9 @@ email design.
   server-side account data. The Edge Function re-verifies the JWT, passes only
   that stable UUID to a service-only database bridge, rate-limits requests, and
   rejects a response whose account UUID or scope does not match.
+- Account exports allow five requests per ten-minute fixed window. The server
+  hashes the verified UUID before using the service-only rate-limit bucket; the
+  browser cannot choose the scope, owner, window, or limit.
 - The export explicitly marks current-device progress as excluded. Starting a
   download never reads, uploads, replaces, or binds progress from the browser.
 - The private tester allowlist stores Supabase user UUIDs, never email
