@@ -8,7 +8,7 @@ const source = await readFile(
 )
 
 test('pgTAP reminder isolation covers two users, anonymous CRUD, and reassignment', () => {
-  assert.match(source, /select plan\(30\)/)
+  assert.match(source, /select plan\(35\)/)
   assert.match(source, /11111111-1111-4111-8111-111111111111/)
   assert.match(source, /22222222-2222-4222-8222-222222222222/)
   assert.match(source, /set local role authenticated/)
@@ -33,6 +33,9 @@ test('pgTAP reminder verification is transactional and checks schema boundaries'
   assert.match(source, /select \* from finish\(\);\s*rollback;\s*$/)
   assert.match(source, /reminder_preferences has RLS enabled/)
   assert.match(source, /hasnt_column\([\s\S]*?'email'/)
+  assert.match(source, /new streak email choices default on/)
+  assert.match(source, /new discovery email choices default on/)
+  assert.match(source, /the obsolete schedule path cannot be re-enabled/)
   assert.match(source, /duplicate reminder days are rejected/)
   assert.match(source, /unknown IANA timezones are rejected/)
   assert.doesNotMatch(source, /cron\.schedule|pg_cron|net\.http|send[_ -]?email/i)
