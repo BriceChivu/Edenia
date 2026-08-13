@@ -18,9 +18,9 @@ import {
 const DELIVERY_ID = '61111111-1111-4111-8111-111111111111'
 const OTHER_DELIVERY_ID = '62222222-2222-4222-8222-222222222222'
 const SECRET = 'a-test-secret-with-at-least-32-bytes-of-entropy'
-const APP_URL = 'https://bricechivu.github.io/Edenia/?internal_test=1'
+const APP_URL = 'https://www.edenia.study/?internal_test=1'
 const ENDPOINT = 'https://example-project.supabase.co/functions/v1/unsubscribe-study-reminders'
-const PAGE = 'https://bricechivu.github.io/Edenia/unsubscribe/'
+const PAGE = 'https://www.edenia.study/unsubscribe/'
 const LOCALES = ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr'] as const
 
 test('creates deterministic opaque per-delivery capabilities and 32-byte digests', async () => {
@@ -114,9 +114,9 @@ test('constructs only exact Edenia unsubscribe page destinations', async () => {
   )
 
   for (const pageUrl of [
-    'https://bricechivu.github.io/Edenia/',
-    'https://bricechivu.github.io/Edenia/unsubscribe',
-    'https://evil.example/Edenia/unsubscribe/',
+    'https://www.edenia.study/',
+    'https://www.edenia.study/unsubscribe',
+    'https://evil.example/unsubscribe/',
     `${PAGE}?unexpected=1`,
   ]) {
     assert.throws(
@@ -130,7 +130,7 @@ test('validates live URL configuration before any claim exists', () => {
   assert.equal(validateReminderAppUrl(APP_URL), APP_URL)
   assert.equal(validateReminderUnsubscribePageBaseUrl(PAGE), PAGE)
   assert.throws(
-    () => validateReminderAppUrl('https://bricechivu.github.io/Edenia/'),
+    () => validateReminderAppUrl('https://www.edenia.study/'),
     /not allowlisted/i,
   )
   assert.throws(
@@ -173,7 +173,7 @@ test('rejects non-internal app links and tampered unsubscribe links', async () =
   assert.throws(
     () => renderReminderEmail({
       locale: 'en',
-      appUrl: 'https://bricechivu.github.io/Edenia/',
+      appUrl: 'https://www.edenia.study/',
       unsubscribePageUrl,
     }),
     /app URL is not allowlisted/i,

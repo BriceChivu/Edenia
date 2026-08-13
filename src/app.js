@@ -828,6 +828,7 @@ const legacyProgressMigrationController =
     createVerifiedBackupFromState: createVerifiedStateBackupFromState,
     decorateMigratedState: decorateLegacyProgressState,
     decryptTransfer: value => decryptProgressTransfer(value, window.crypto),
+    destinationEligible: LEGACY_PROGRESS_RELAY_RUNTIME.destinationEligible,
     deriveCapabilityDigest: value => (
       deriveLegacyProgressCapabilityDigest(value, window.crypto)
     ),

@@ -237,7 +237,8 @@ Recommended Google Cloud restrictions:
 
 1. Restrict the key to **YouTube Data API v3**.
 2. Add an HTTP referrer restriction for the exact hosted origin.
-3. For the current GitHub Pages site, allow `https://bricechivu.github.io/*`.
+3. For the hosted application, allow both `https://www.edenia.study` and
+   `https://www.edenia.study/*`.
 4. Monitor quota usage and configure alerts.
 5. Keep a second restricted key ready for rotation.
 
@@ -406,7 +407,7 @@ If the PostHog project is not in the US region, also set the `POSTHOG_HOST` repo
 
 1. Install [AnkiConnect](https://ankiweb.net/shared/info/2055492159).
 2. Open Anki and keep it running while using Edenia.
-3. For the hosted site, add `https://bricechivu.github.io` to AnkiConnect's `webCorsOriginList` and restart Anki.
+3. For the hosted site, add `https://www.edenia.study` to AnkiConnect's `webCorsOriginList` and restart Anki.
 4. Leave **Track Anki activity** enabled in Edenia Settings.
 
 Edenia communicates only with the local AnkiConnect endpoint at `http://127.0.0.1:8765`.
@@ -438,6 +439,17 @@ Normal mode maintains up to eight recent local backup snapshots and displays the
 When `indexedDbBackupsEnabled` is active, normal-mode snapshots use the `edenia_state_backups_v1` IndexedDB database instead of sharing the primary state's localStorage quota. Existing `edenia_v1_backups` data is merged and verified before migration completes. The separate `indexedDbBackupCleanupEnabled` switch removes a valid legacy copy only after that verification; malformed or unverifiable legacy data is left in place.
 
 Use **Export sync file** to download the complete current state and **Import sync file** to move it to another browser or device. Normal and sandbox sync files cannot be imported into the opposite mode. Sync files contain personal study history and should be treated as private backups.
+
+The repository also contains a default-off, accountless recovery path for the
+move from the legacy GitHub Pages origin to `https://www.edenia.study/`. A
+minimal helper on the old origin can read only normal-mode Edenia progress,
+encrypt it in the browser, and place the encrypted envelope in a short-lived
+Supabase relay. The decryption capability returns in a URL fragment and is
+removed before the application or analytics starts. Edenia verifies a named
+new-origin recovery backup and a read-back hash before treating an import as
+successful. It never automatically replaces nonempty destination progress, and
+it never deletes the old-origin state. Manual sync export and import remain the
+permanent recovery path.
 
 Clearing site data, deleting the browser profile, or losing the device also removes local progress unless a sync file exists elsewhere.
 
@@ -501,17 +513,27 @@ production availability.
 
 ## Privacy and Analytics
 
-Edenia has no application server and does not upload the complete video library, Anki logs, activity logs, backups, or sync files as serialized application state. The official production deployment does send analytics events, person properties, session recordings, search terms, and optional feedback directly to PostHog.
+Edenia keeps the primary study state in the browser and does not routinely
+upload the complete video library, Anki logs, activity logs, backups, or sync
+files as serialized application state. During the temporary legacy-origin
+migration window, the helper can upload one browser-encrypted progress envelope
+to the relay described above. The relay cannot decrypt it, returns it at most
+once, erases its ciphertext after verified completion or expiry, and retains
+only bounded anonymous operational counts. It does not attach an email,
+account, PostHog identifier, raw IP address, or plaintext state to a transfer.
+The official production deployment does send analytics events, person
+properties, session recordings, search terms, and optional feedback directly
+to PostHog.
 
 The app makes these external connections:
 
 - YouTube Data API v3 for channel and video metadata.
 - Local AnkiConnect when Anki tracking is enabled and Anki is available.
-- PostHog only on the official `https://bricechivu.github.io/Edenia/` deployment.
+- PostHog only on the official `https://www.edenia.study/` application root.
 
 Production analytics create a PostHog person profile for each browser installation. Autocapture is disabled, but session recording is enabled and input text is not masked. Edenia records controlled button actions, raw trimmed search queries, channel additions and removals with channel IDs and names, individual video additions and whether their cards became visible after the reveal attempt, onboarding and starter-feed results, aggregate daily study progress, streak changes, current and earned town levels, current settings, YouTube refresh results, successful Anki refreshes with their timestamps and summary counts, video opens, playback-session summaries, Favorite and video-placement changes, per-channel video-format views, Study Guidance impressions and actions, and watched-state changes. Each person profile includes the current watched-video IDs and count plus the current removed-video count; watched and unwatched events include the video ID, title, channel ID, watched timestamp, duration, source, and short-video status. Existing local study days, configured channels, and watched videos are synchronized once, then only changed values generate additional state events.
 
-Submitting the feedback form sends its category, message, optional name and email, page and display context, and the current session-replay URL to PostHog. Custom analytics events do not include YouTube API keys, sync-file contents, or the full serialized browser state. Because recordings can capture visible UI and unmasked input text, users should not enter sensitive information in Edenia search or feedback fields. PostHog is not initialized on localhost, alternate domains, sandbox mode, or other paths.
+Submitting the feedback form sends its category, message, optional name and email, page and display context, and the current session-replay URL to PostHog. Custom analytics events do not include YouTube API keys, sync-file contents, the full serialized browser state, migration ciphertext, or a migration capability. Because recordings can capture visible UI and unmasked input text, users should not enter sensitive information in Edenia search or feedback fields. PostHog is not initialized on localhost, alternate domains, sandbox mode, other paths, or a page load that has just received a legacy-progress outcome fragment.
 
 ## Project Structure
 

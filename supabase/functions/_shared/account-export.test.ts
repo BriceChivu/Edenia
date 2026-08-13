@@ -7,7 +7,7 @@ import {
 } from './account-export.ts'
 
 const ENDPOINT = 'https://example-project.supabase.co/functions/v1/export-account-data'
-const EDENIA_ORIGIN = 'https://bricechivu.github.io'
+const EDENIA_ORIGIN = 'https://www.edenia.study'
 const USER_A = '91111111-1111-4111-8111-111111111111'
 
 function exportedData(overrides: Record<string, unknown> = {}) {

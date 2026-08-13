@@ -8,7 +8,7 @@ import {
 
 const TOKEN = 'A'.repeat(43)
 const ENDPOINT = 'https://example-project.supabase.co/functions/v1/unsubscribe-study-reminders'
-const EDENIA_ORIGIN = 'https://bricechivu.github.io'
+const EDENIA_ORIGIN = 'https://www.edenia.study'
 
 function createClient({
   data = 'unsubscribed',

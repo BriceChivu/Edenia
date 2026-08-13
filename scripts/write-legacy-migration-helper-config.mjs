@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { dirname, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  applyLegacyMigrationHelperCsp,
   createLegacyMigrationHelperProductionConfig,
   renderLegacyMigrationHelperConfig
 } from './legacy-migration-helper-config.mjs'
@@ -30,17 +31,9 @@ const config = createLegacyMigrationHelperProductionConfig({
   supabaseUrl: process.env.SUPABASE_URL
 })
 const html = await readFile(outputHtml, 'utf8')
-const cspMarker = "connect-src 'self'"
-if ((html.match(new RegExp(cspMarker, 'g')) || []).length !== 1) {
-  throw new Error('Expected one safe helper connect-src marker')
-}
-const functionOrigin = new URL(config.createTransferUrl).origin
 await Promise.all([
   writeFile(outputConfig, renderLegacyMigrationHelperConfig(config)),
-  writeFile(outputHtml, html.replace(
-    cspMarker,
-    `connect-src ${functionOrigin}`
-  ))
+  writeFile(outputHtml, applyLegacyMigrationHelperCsp(html, config))
 ])
 
 console.log(`Wrote migration helper config to ${outputConfig}`)

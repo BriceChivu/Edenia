@@ -1,5 +1,5 @@
 const ALLOWED_BROWSER_ORIGINS = new Set([
-  'https://bricechivu.github.io',
+  'https://www.edenia.study',
   'http://localhost:8000',
 ])
 const ALLOWED_PREFLIGHT_HEADERS = new Set([

@@ -46,7 +46,7 @@ test('rejects a Stripe key or event from the other billing environment', () => {
     () => readStripeCheckoutConfig(environment({
       STRIPE_MODE: 'live',
       STRIPE_SECRET_KEY: 'sk_test_example',
-      APP_URL: 'https://edenia.app',
+      APP_URL: 'https://www.edenia.study/',
     })),
     /does not match STRIPE_MODE=live/,
   )
@@ -60,7 +60,7 @@ test('requires https and complete environment configuration in live mode', () =>
     () => readStripeCheckoutConfig(environment({
       STRIPE_MODE: 'live',
       STRIPE_SECRET_KEY: 'sk_live_example',
-      APP_URL: 'http://edenia.app',
+      APP_URL: 'http://localhost:8000/',
     })),
     /must use https in live mode/,
   )
@@ -69,6 +69,56 @@ test('requires https and complete environment configuration in live mode', () =>
       STRIPE_MONTHLY_PRICE_ID: '',
     })),
     /STRIPE_MONTHLY_PRICE_ID/,
+  )
+})
+
+test('allows only the canonical Edenia root in live mode', () => {
+  assert.equal(
+    readStripeCheckoutConfig(environment({
+      STRIPE_MODE: 'live',
+      STRIPE_SECRET_KEY: 'sk_live_example',
+      APP_URL: 'https://www.edenia.study/',
+    })).appUrl,
+    'https://www.edenia.study',
+  )
+
+  for (const appUrl of [
+    'https://edenia.study/',
+    'https://bricechivu.github.io/Edenia/',
+    'https://www.edenia.study/plus/',
+    'https://www.edenia.study/?return=elsewhere',
+    'https://user:password@www.edenia.study/',
+  ]) {
+    assert.throws(
+      () => readStripeCheckoutConfig(environment({
+        STRIPE_MODE: 'live',
+        STRIPE_SECRET_KEY: 'sk_live_example',
+        APP_URL: appUrl,
+      })),
+      /APP_URL/,
+      appUrl,
+    )
+  }
+})
+
+test('test mode permits exact hosted roots and loopback http only', () => {
+  assert.equal(
+    readStripePortalConfig(environment({
+      APP_URL: 'https://preview.example/',
+    })).appUrl,
+    'https://preview.example',
+  )
+  assert.throws(
+    () => readStripePortalConfig(environment({
+      APP_URL: 'http://preview.example/',
+    })),
+    /loopback/,
+  )
+  assert.throws(
+    () => readStripePortalConfig(environment({
+      APP_URL: 'http://localhost:8000/plus/',
+    })),
+    /exact site root/,
   )
 })
 

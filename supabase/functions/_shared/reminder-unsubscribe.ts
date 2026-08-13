@@ -5,7 +5,7 @@ import {
 } from './reminder-email.ts'
 
 const ALLOWED_BROWSER_ORIGINS = new Set([
-  'https://bricechivu.github.io',
+  'https://www.edenia.study',
   'http://localhost:8000',
 ])
 const MAXIMUM_BODY_BYTES = 512

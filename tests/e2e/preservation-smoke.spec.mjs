@@ -157,8 +157,8 @@ async function expectCompletedPhoneDashboardLayout(page) {
   expect(layout.feedbackButton.right).toBeLessThanOrEqual(layout.viewportWidth)
 }
 
-async function seedCompletedState(page, locale = 'en') {
-  await page.goto('/')
+async function seedCompletedState(page, locale = 'en', targetUrl = '/') {
+  await page.goto(targetUrl)
   await waitForApplication(page)
   await page.evaluate(selectedLocale => {
     const state = window.defaultState(4, [], 'light', [], selectedLocale)
@@ -2203,7 +2203,7 @@ test('feedback submission listener preserves validation, analytics, reset, focus
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
 
-  await seedCompletedState(page)
+  await seedCompletedState(page, 'en', 'http://localhost.:8000/')
   const modal = page.locator('#feedbackModal')
   const launcher = page.locator('#feedbackLaunchBtn')
   const form = page.locator('#feedbackForm')

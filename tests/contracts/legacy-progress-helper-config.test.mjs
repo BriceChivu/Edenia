@@ -5,6 +5,7 @@ import {
   deriveLegacyProgressHelperRuntime
 } from '../../src/integrations/legacy-progress-helper-config.js'
 import {
+  applyLegacyMigrationHelperCsp,
   createLegacyMigrationHelperProductionConfig,
   renderLegacyMigrationHelperConfig
 } from '../../scripts/legacy-migration-helper-config.mjs'
@@ -35,6 +36,20 @@ test('production helper config derives exact fixed endpoints and return URL', ()
     EDENIA_LEGACY_MIGRATION_CONFIG: productionConfig,
     location: { href: 'https://bricechivu.github.io/Edenia/' }
   }).valid, false)
+})
+
+test('production helper CSP permits only the configured relay origin', () => {
+  const html = '<meta content="connect-src \'self\'; default-src \'none\'">'
+  const rendered = applyLegacyMigrationHelperCsp(html, productionConfig)
+  assert.equal(
+    rendered,
+    '<meta content="connect-src https://project-ref.supabase.co; default-src \'none\'">'
+  )
+  assert.doesNotMatch(rendered, /connect-src 'self'/)
+  assert.throws(
+    () => applyLegacyMigrationHelperCsp('<p>missing</p>', productionConfig),
+    /one safe helper connect-src marker/
+  )
 })
 
 test('helper runtime accepts only the exact localhost test location and constants', () => {

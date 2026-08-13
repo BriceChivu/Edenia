@@ -8,9 +8,9 @@ const ENVIRONMENT = Object.freeze({
   RESEND_API_KEY: 're_test_key_1234567890',
   REMINDER_FROM_ADDRESS: 'Edenia <reminders@example.com>',
   REMINDER_UNSUBSCRIBE_SECRET: 'a-test-secret-with-at-least-32-bytes-of-entropy',
-  REMINDER_APP_URL: 'https://bricechivu.github.io/Edenia/?internal_test=1',
+  REMINDER_APP_URL: 'https://www.edenia.study/?internal_test=1',
   REMINDER_UNSUBSCRIBE_PAGE_URL:
-    'https://bricechivu.github.io/Edenia/unsubscribe/',
+    'https://www.edenia.study/unsubscribe/',
   SUPABASE_URL: 'https://example-project.supabase.co',
   REMINDER_LIVE_RECIPIENT_EMAIL: 'learner@example.com',
 })

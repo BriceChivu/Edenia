@@ -56,7 +56,7 @@ function createHarness(options = {}) {
       return { persisted: true }
     }
   }
-  const controller = createLegacyProgressMigrationController({
+  const controllerOptions = {
     automaticEnabled: options.automaticEnabled === true,
     async createVerifiedBackupFromState(reason, value) {
       events.push(['backup', reason])
@@ -87,6 +87,7 @@ function createHarness(options = {}) {
         stateSha256: 'S'.repeat(43)
       }
     },
+    destinationEligible: options.destinationEligible !== false,
     async deriveCapabilityDigest() {
       events.push(['digest'])
       return 'D'.repeat(43)
@@ -143,14 +144,50 @@ function createHarness(options = {}) {
       return value
     },
     view
-  })
-  return { backups, controller, events, storage, values, view }
+  }
+  const controller = createLegacyProgressMigrationController(controllerOptions)
+  return {
+    backups,
+    controller,
+    controllerOptions,
+    events,
+    storage,
+    values,
+    view
+  }
 }
 
 function marker(harness) {
   const value = harness.values.get('migration')
   return value === undefined ? null : JSON.parse(value)
 }
+
+async function waitFor(predicate, label) {
+  const deadline = Date.now() + 1_000
+  while (!predicate()) {
+    if (Date.now() >= deadline) {
+      assert.fail(`Timed out waiting for ${label}`)
+    }
+    await new Promise(resolve => setTimeout(resolve, 1))
+  }
+}
+
+test('controller refuses ambiguous runtime gate wiring', () => {
+  const { controllerOptions } = createHarness()
+  for (const field of [
+    'automaticEnabled',
+    'destinationEligible',
+    'runtimeValid'
+  ]) {
+    assert.throws(
+      () => createLegacyProgressMigrationController({
+        ...controllerOptions,
+        [field]: undefined
+      }),
+      /dependencies are incomplete/
+    )
+  }
+})
 
 test('switch-off path has no migration side effects', async () => {
   const harness = createHarness()
@@ -159,6 +196,51 @@ test('switch-off path has no migration side effects', async () => {
   })
   assert.deepEqual(harness.events, [])
   assert.equal(harness.values.has('migration'), false)
+})
+
+test('an ineligible destination discards migration input without starting work', async () => {
+  const harness = createHarness({
+    automaticEnabled: true,
+    destinationEligible: false,
+    fragment: `transfer.${'A'.repeat(43)}`
+  })
+  assert.deepEqual(await harness.controller.runBeforeApplicationStart(), {
+    disposition: 'continue'
+  })
+  assert.deepEqual(harness.events, [])
+  assert.equal(harness.view.failures.length, 0)
+})
+
+test('an empty canonical destination fails closed when relay config is absent', async () => {
+  const harness = createHarness({
+    automaticEnabled: true,
+    runtimeValid: false
+  })
+  assert.deepEqual(await harness.controller.runBeforeApplicationStart(), {
+    disposition: 'waiting'
+  })
+  assert.equal(harness.view.failures.length, 1)
+  assert.equal(harness.events.some(event => event[0] === 'disclosure'), false)
+  assert.equal(harness.events.some(event => event[0] === 'resume'), false)
+  harness.view.failures[0].onRetry()
+  await waitFor(
+    () => harness.events.some(event => event[0] === 'navigate'),
+    'helper navigation after invalid canonical relay configuration'
+  )
+})
+
+test('a returned transfer is handled even when relay config is unavailable', async () => {
+  const harness = createHarness({
+    claimFails: true,
+    fragment: `transfer.${'A'.repeat(43)}`,
+    runtimeValid: false
+  })
+  assert.deepEqual(await harness.controller.runBeforeApplicationStart(), {
+    disposition: 'waiting'
+  })
+  assert.equal(harness.events.some(event => event[0] === 'claim'), true)
+  assert.equal(harness.view.failures.length, 1)
+  assert.equal(marker(harness), null)
 })
 
 test('empty automatic destination discloses then redirects or records cancel', async () => {
@@ -320,7 +402,10 @@ test('local retry reuses the one relay claim while lost claim restarts the helpe
   )
   localOptions.backupFails = false
   local.view.failures[0].onRetry()
-  await new Promise(resolve => setTimeout(resolve, 0))
+  await waitFor(
+    () => local.events.some(event => event[0] === 'resume'),
+    'the retained local migration retry'
+  )
   assert.equal(
     local.events.filter(event => event[0] === 'claim').length,
     1
@@ -334,7 +419,10 @@ test('local retry reuses the one relay claim while lost claim restarts the helpe
   })
   await lost.controller.runBeforeApplicationStart()
   lost.view.failures[0].onRetry()
-  await new Promise(resolve => setTimeout(resolve, 0))
+  await waitFor(
+    () => lost.events.some(event => event[0] === 'navigate'),
+    'a fresh helper navigation after a lost relay claim'
+  )
   assert.deepEqual(
     lost.events.filter(event => event[0] === 'navigate'),
     [['navigate', 'https://bricechivu.github.io/edenia-migrate/']]

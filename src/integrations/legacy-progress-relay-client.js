@@ -55,24 +55,26 @@ export function deriveLegacyProgressRelayRuntime({
   try {
     locationUrl = new URL(locationLike?.href)
   } catch {
-    return Object.freeze({ valid: false })
+    return Object.freeze({ destinationEligible: false, valid: false })
   }
   const production = locationUrl.href === 'https://www.edenia.study/'
   const localTest = isLegacyMigrationTest === true
     && locationUrl.href ===
       'http://localhost:8000/?legacy_migration_test=1'
+  const destinationEligible = production || localTest
   const projectUrl = normalizeProjectUrl(supabaseUrl, { localTest })
   if (
-    (!production && !localTest)
+    !destinationEligible
     || !projectUrl
     || !PUBLISHABLE_KEY_PATTERN.test(supabasePublishableKey || '')
-  ) return Object.freeze({ valid: false })
+  ) return Object.freeze({ destinationEligible, valid: false })
 
   return Object.freeze({
     consumeTransferUrl: new URL(
       LEGACY_PROGRESS_CONSUME_FUNCTION_PATH,
       projectUrl.origin
     ).href,
+    destinationEligible: true,
     localTest,
     supabasePublishableKey,
     valid: true

@@ -50,7 +50,7 @@ test('helper build is wired into normal builds but excluded from Pages upload', 
   assert.match(deployWorkflow, /path: _site/)
   assert.doesNotMatch(deployWorkflow, /_legacy_migration_site/)
   assert.match(writer, /--require-supabase/)
-  assert.match(writer, /connect-src/)
+  assert.match(writer, /applyLegacyMigrationHelperCsp/)
   const frameGate = helperSource.indexOf(
     'target.top !== target.self'
   )

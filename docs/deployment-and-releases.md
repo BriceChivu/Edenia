@@ -44,6 +44,136 @@ After deployment, the acceptance owner should smoke-check the production URL,
 critical first-run and returning-user flows, runtime configuration, and the
 absence of internal-test/sandbox leakage before creating a release.
 
+## Accountless custom-domain migration
+
+The canonical application target is `https://www.edenia.study/`. The legacy
+application origin is `https://bricechivu.github.io/Edenia/`, and the minimal
+progress helper target is `https://bricechivu.github.io/edenia-migrate/`.
+Authentication remains optional and is not a prerequisite for this move.
+
+All operations in this section change live infrastructure. Source preparation
+or a passing local test does not authorize any of them. Before each operation,
+inspect and record the current value without copying credentials, obtain owner
+approval for that specific provider, make the smallest change, and retain its
+before/after evidence.
+
+### DNS and GitHub Pages order
+
+Use GitHub Pages itself to serve both domain variants and redirect the apex to
+`www`; do not use a framed redirect. Current GitHub guidance says to add the
+custom domain to Pages before pointing DNS, recommends verifying ownership to
+reduce takeover risk, and automatically redirects the apex to `www` when both
+sets of DNS records are correct. It also states that a custom Actions Pages
+workflow ignores and does not require a repository `CNAME` file. See GitHub's
+[custom-domain instructions](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site)
+and [domain-verification instructions](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/verifying-your-custom-domain-for-github-pages).
+
+With separate approval for each provider surface:
+
+1. Add `edenia.study` as a verified domain in the owning GitHub account. Put
+   GitHub's exact TXT challenge in Namecheap DNS, verify it, and retain the TXT
+   record.
+2. In the Edenia repository's Pages settings, set the custom domain to
+   `www.edenia.study` before adding traffic-bearing DNS records. Do not add a
+   tracked or generated `CNAME` file to this Actions deployment.
+3. In Namecheap, point the `www` CNAME directly to `bricechivu.github.io`, with
+   no `/Edenia` path. Configure the apex with the current GitHub Pages A records
+   (and optional AAAA records only alongside A records), copied from GitHub's
+   documentation at execution time. Do not create a wildcard DNS record.
+4. Remove or resolve only records that conflict with those exact `@` and `www`
+   names. Do not make unrelated DNS changes.
+5. Verify the TXT, CNAME, apex A/AAAA answers, certificate, and both HTTP and
+   HTTPS behavior. DNS and certificate issuance may take time; do not interpret
+   partial propagation as an application failure.
+6. Enable **Enforce HTTPS** only after GitHub has issued the certificate. Verify
+   that `https://edenia.study/` redirects to
+   `https://www.edenia.study/` while preserving a representative path and
+   query, and that `www` remains the displayed canonical host.
+
+Namecheap's URL Redirect record is not the preferred apex mechanism here:
+Namecheap documents additional certificate requirements for HTTPS-to-HTTPS
+forwarding, while GitHub Pages already supports the required secure apex-to-www
+redirect when both DNS variants are configured. See Namecheap's
+[redirect limitations](https://www.namecheap.com/support/knowledgebase/article.aspx/385/2237/how-to-set-up-a-url-redirect-for-a-domain/).
+
+### Provider change checklist
+
+Add the canonical values before changing DNS. Keep public account, checkout,
+reminder delivery, relay acceptance, and automatic migration switches off while
+the domain is tested.
+
+| Surface | Required canonical value or check |
+| --- | --- |
+| GitHub Pages | Custom domain `www.edenia.study`; HTTPS enforced only after certificate issuance; deployed artifact SHA matches the approved source. |
+| Supabase Auth | Site URL `https://www.edenia.study/`; exact redirect `https://www.edenia.study/?internal_test=1&account=1`; localhost exact redirect only while needed. Add the new exact URL before cutover and remove the old exact callback only after its in-flight magic-link window and a successful canonical OAuth test. Never use a wildcard for production. |
+| Google OAuth | Authorized JavaScript origin `https://www.edenia.study`; keep the provider redirect URI as the exact Supabase Auth callback, not an Edenia page. |
+| Account APIs | Deploy the reviewed exact-`www` account-export and reminder-unsubscribe CORS allowlists before invoking those APIs from `www`. The old app origin is not allowed on these canonical-only APIs. |
+| Reminder email | `REMINDER_APP_URL=https://www.edenia.study/?internal_test=1` and `REMINDER_UNSUBSCRIBE_PAGE_URL=https://www.edenia.study/unsubscribe/`; inspect generated HTML/text and one inert dummy link before any canary. |
+| Stripe or replacement billing provider | Live `APP_URL=https://www.edenia.study/`; exact success, cancel, portal, and approved-return URLs remain under `/plus/`. The backend rejects any other live root. Keep checkout off until sandbox and live callback smoke evidence is reviewed separately. |
+| YouTube browser key | Add both `https://www.edenia.study` and `https://www.edenia.study/*`, retain API restriction to YouTube Data API v3, test from `www`, then remove the old app referrer after the old app no longer serves the full application. Google notes that some browsers send origin-only referrers, so both entries are intentional. |
+| PostHog | Confirm the project/toolbar authorized-domain setting if one is configured. The application initializes PostHog only on the exact `www` root, never on the helper, localhost, sandbox, subpages, or a migration-return page. Do not add email identity as part of this migration. |
+| AnkiConnect | User-facing setup copy names `https://www.edenia.study`. A returning user may need to replace or add this exact origin in `webCorsOriginList` and restart Anki. |
+| Supabase relay | Apply the additive migration and deploy both functions with acceptance and consumption controls false. Verify grants, advisors, capacity, cleanup, and exact old-helper/new-app origins in an approved project before enabling either control. |
+| Legacy helper | Publish only the reviewed helper artifact at `/edenia-migrate/`; verify HTTPS, CSP, no analytics, no accounts, and same-origin read behavior without changing old Edenia bytes. |
+
+Supabase recommends exact production redirect paths; the Site URL is the
+default when no explicit redirect is supplied. Recheck the
+[current Supabase redirect guidance](https://supabase.com/docs/guides/auth/redirect-urls)
+at execution time. Google Cloud's current browser-key guidance likewise
+distinguishes an origin entry from its path wildcard; see
+[API key website restrictions](https://cloud.google.com/docs/authentication/api-keys#add_website_restrictions).
+
+### Cutover smoke and rollback evidence
+
+With automatic migration still off, verify all of the following from a clean
+browser and a backed-up returning browser:
+
+- `https://www.edenia.study/` loads the approved build at the root and survives
+  a hard refresh;
+- `https://edenia.study/` redirects to the exact canonical host over HTTPS;
+- `https://bricechivu.github.io/Edenia/` redirects to the canonical site, while
+  `https://bricechivu.github.io/edenia-migrate/` remains directly reachable;
+- `/plus/` and `/unsubscribe/` load their standalone assets at the root domain;
+- a normal new user reaches the existing trailer/onboarding with the migration
+  switch off;
+- PostHog is absent from the helper, subpages, sandbox, localhost, and a page
+  load carrying a migration outcome; and
+- auth, reminder, billing, YouTube, and Anki calls use only their expected exact
+  origins and return destinations.
+
+Before the first verified new-origin progress, an approved emergency rollback
+may remove the Pages custom domain and restore old routing. After any learner
+has created new-origin progress, normal rollback keeps `www` live, turns off
+automatic migration and new relay acceptance, drains already issued transfers,
+and reverts the smallest application change. Do not revert DNS merely because
+the helper or relay is unhealthy; doing so would hide progress already stored
+under the new origin.
+
+### Five-month helper operations and retirement
+
+Record the public migration enablement timestamp and calculate the earliest
+retirement date as five full calendar months later. Once per month, read-only,
+record:
+
+- helper HTTPS availability, certificate, CSP, and recovery-page behavior;
+- relay acceptance/consumption controls and cleanup-job history;
+- expired-row count, live ciphertext rows and bytes, claim/completion outcomes,
+  and bounded daily anonymous completion counts; and
+- canonical Settings recovery plus permanent manual export/import behavior.
+
+Do not create a recurring automation unless the owner requests it. The helper
+cannot be retired before the five-month date. At or after that date, query the
+anonymous daily completion table for the immediately preceding rolling 90
+days. Any completion restarts the 90-day quiet window. A retirement report must
+record the launch date, earliest eligible date, exact query interval/result,
+support evidence, and replacement static recovery page.
+
+Retirement still requires explicit approval. First disable new acceptance,
+drain valid claims, replace the helper with a static manual-recovery notice,
+wait through the approved notice interval, and only then remove relay code or
+data in a separate reversible change. The canonical app and manual sync import
+remain available permanently.
+
 ## Retired video-organization switch
 
 Video organization is permanent for ordinary and internal-test visitors. The
@@ -147,7 +277,7 @@ the Pages build. Server credentials remain Edge Function secrets.
 Before enabling Plus restoration in production:
 
 1. Configure the production site URL and redirect URL in Supabase Auth for
-   `https://bricechivu.github.io/Edenia/`.
+   `https://www.edenia.study/`.
 2. Add `http://localhost:8000/` as a redirect URL only when local passwordless
    testing is needed.
 3. Configure a production SMTP provider. Supabase's default email sender is not
@@ -176,7 +306,8 @@ Configure these Edge Function secrets independently in each deployment:
 - `STRIPE_MONTHLY_PRICE_ID` and `STRIPE_ANNUAL_PRICE_ID`: Price IDs from the
   same Stripe environment.
 - `STRIPE_FOUNDING_COUPON_ID`: the environment's founding offer coupon ID.
-- `APP_URL`: the exact site root; live mode requires HTTPS.
+- `APP_URL`: the exact site root; live mode accepts only
+  `https://www.edenia.study/`.
 
 Do not share Stripe customers, prices, webhook secrets, or Supabase projects
 between sandbox and production. Do not put any of these server values in the

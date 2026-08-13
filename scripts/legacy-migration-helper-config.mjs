@@ -43,3 +43,15 @@ export function renderLegacyMigrationHelperConfig(config) {
     2
   )}\n`
 }
+
+export function applyLegacyMigrationHelperCsp(html, config) {
+  const cspMarker = "connect-src 'self'"
+  if (
+    typeof html !== 'string'
+    || (html.match(new RegExp(cspMarker, 'g')) || []).length !== 1
+  ) {
+    throw new TypeError('Expected one safe helper connect-src marker')
+  }
+  const functionOrigin = new URL(config.createTransferUrl).origin
+  return html.replace(cspMarker, `connect-src ${functionOrigin}`)
+}

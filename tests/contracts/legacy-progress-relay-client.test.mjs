@@ -53,6 +53,7 @@ test('relay runtime accepts only exact canonical and explicit local test locatio
   assert.deepEqual(productionRuntime, {
     consumeTransferUrl:
       'https://project-ref.supabase.co/functions/v1/consume-legacy-progress-transfer',
+    destinationEligible: true,
     localTest: false,
     supabasePublishableKey: 'sb_publishable_abcdefgh',
     valid: true
@@ -66,6 +67,7 @@ test('relay runtime accepts only exact canonical and explicit local test locatio
     supabaseUrl: 'http://localhost:8000'
   })
   assert.equal(local.valid, true)
+  assert.equal(local.destinationEligible, true)
   assert.equal(local.localTest, true)
 
   for (const input of [
@@ -85,6 +87,25 @@ test('relay runtime accepts only exact canonical and explicit local test locatio
       ...input
     }).valid, false)
   }
+})
+
+test('canonical destination eligibility survives missing relay configuration', () => {
+  assert.deepEqual(deriveLegacyProgressRelayRuntime({
+    locationLike: { href: 'https://www.edenia.study/' },
+    supabasePublishableKey: '',
+    supabaseUrl: ''
+  }), {
+    destinationEligible: true,
+    valid: false
+  })
+  assert.deepEqual(deriveLegacyProgressRelayRuntime({
+    locationLike: { href: 'https://edenia.study/' },
+    supabasePublishableKey: '',
+    supabaseUrl: ''
+  }), {
+    destinationEligible: false,
+    valid: false
+  })
 })
 
 test('relay client sends only a capability digest and publishable key', async () => {

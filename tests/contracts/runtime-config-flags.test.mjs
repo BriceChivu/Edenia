@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  assertLegacyProgressRuntimeConfig,
   parseRuntimeConfigFlag,
   parseRuntimeConfigRollout
 } from '../../scripts/runtime-config-flags.mjs'
@@ -63,6 +64,43 @@ test('runtime rollout values reject ambiguous deployment stages', () => {
         'EDENIA_ACCOUNT_FEATURES_ROLLOUT'
       ),
       /EDENIA_ACCOUNT_FEATURES_ROLLOUT must be off, internal, or public/
+    )
+  }
+})
+
+test('production migration cannot be enabled without exact relay config', () => {
+  assert.doesNotThrow(() => assertLegacyProgressRuntimeConfig({
+    enabled: false,
+    supabasePublishableKey: '',
+    supabaseUrl: ''
+  }))
+  assert.doesNotThrow(() => assertLegacyProgressRuntimeConfig({
+    enabled: true,
+    supabasePublishableKey: 'sb_publishable_abcdefgh',
+    supabaseUrl: 'https://project-ref.supabase.co'
+  }))
+
+  for (const input of [
+    {
+      supabasePublishableKey: '',
+      supabaseUrl: 'https://project-ref.supabase.co'
+    },
+    {
+      supabasePublishableKey: 'legacy-anon-key',
+      supabaseUrl: 'https://project-ref.supabase.co'
+    },
+    {
+      supabasePublishableKey: 'sb_publishable_abcdefgh',
+      supabaseUrl: 'https://attacker.example'
+    },
+    {
+      supabasePublishableKey: 'sb_publishable_abcdefgh',
+      supabaseUrl: 'https://project-ref.supabase.co/path'
+    }
+  ]) {
+    assert.throws(
+      () => assertLegacyProgressRuntimeConfig({ enabled: true, ...input }),
+      /requires a hosted Supabase URL and publishable key/
     )
   }
 })

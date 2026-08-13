@@ -305,7 +305,7 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
     'utf8'
   )
   assert.match(unsubscribeHandlerSource, /'Content-Type': 'application\/json/)
-  assert.match(unsubscribeHandlerSource, /https:\/\/bricechivu\.github\.io/)
+  assert.match(unsubscribeHandlerSource, /https:\/\/www\.edenia\.study/)
   assert.match(unsubscribeHandlerSource, /http:\/\/localhost:8000/)
   assert.doesNotMatch(unsubscribeHandlerSource, /text\/html|<!doctype html>/i)
 

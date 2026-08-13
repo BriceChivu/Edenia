@@ -85,6 +85,7 @@ export function createLegacyProgressMigrationController({
   createVerifiedBackupFromState,
   decorateMigratedState,
   decryptTransfer,
+  destinationEligible,
   deriveCapabilityDigest,
   getBackupEntries,
   helperUrl,
@@ -118,7 +119,10 @@ export function createLegacyProgressMigrationController({
     takeFragment
   }
   if (
-    !storage
+    typeof automaticEnabled !== 'boolean'
+    || typeof destinationEligible !== 'boolean'
+    || typeof runtimeValid !== 'boolean'
+    || !storage
     || typeof storage.getItem !== 'function'
     || typeof storage.setItem !== 'function'
     || !markerKey
@@ -360,8 +364,8 @@ export function createLegacyProgressMigrationController({
   }
 
   async function runBeforeApplicationStart() {
-    if (!runtimeValid) return { disposition: 'continue' }
     const fragment = takeFragment()
+    if (!destinationEligible) return { disposition: 'continue' }
     if (fragment?.startsWith('transfer.')) {
       retainedCapability = fragment.slice('transfer.'.length)
       retainedCapabilityDigest = null
@@ -389,6 +393,13 @@ export function createLegacyProgressMigrationController({
     if (destinationPresent()) {
       remember('destination_present')
       return { disposition: 'continue' }
+    }
+    if (!runtimeValid) {
+      showRecoverableFailure(async () => {
+        navigate(helperUrl)
+        return 'redirected'
+      })
+      return { disposition: 'waiting' }
     }
 
     const proceed = await view.waitForDisclosure({ delayMs: 1_500 })

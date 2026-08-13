@@ -11,9 +11,9 @@ const VALUES = Object.freeze({
   RESEND_API_KEY: 're_test_key_1234567890',
   REMINDER_FROM_ADDRESS: 'Edenia <reminders@example.com>',
   REMINDER_UNSUBSCRIBE_SECRET: 'a-test-secret-with-at-least-32-bytes-of-entropy',
-  REMINDER_APP_URL: 'https://bricechivu.github.io/Edenia/?internal_test=1',
+  REMINDER_APP_URL: 'https://www.edenia.study/?internal_test=1',
   REMINDER_UNSUBSCRIBE_PAGE_URL:
-    'https://bricechivu.github.io/Edenia/unsubscribe/',
+    'https://www.edenia.study/unsubscribe/',
   SUPABASE_URL: 'https://example-project.supabase.co',
   REMINDER_LIVE_RECIPIENT_EMAIL: 'Learner@Example.COM',
 })
@@ -62,7 +62,7 @@ test('collapses absent and invalid settings into one privacy-safe error', () => 
     { RESEND_API_KEY: 'not-a-key' },
     { REMINDER_FROM_ADDRESS: 'invalid' },
     { REMINDER_UNSUBSCRIBE_SECRET: 'too-short' },
-    { REMINDER_APP_URL: 'https://bricechivu.github.io/Edenia/' },
+    { REMINDER_APP_URL: 'https://www.edenia.study/' },
     { REMINDER_UNSUBSCRIBE_PAGE_URL: 'https://example.test/unsubscribe/' },
     { SUPABASE_URL: 'https://example.test' },
     { REMINDER_LIVE_RECIPIENT_EMAIL: 'not-an-email' },

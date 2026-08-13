@@ -72,7 +72,7 @@ after the test.
 
 1. Export or record the current internal-test progress if it matters.
 2. Open
-   `https://bricechivu.github.io/Edenia/?internal_test=1&account=1`.
+   `https://www.edenia.study/?internal_test=1&account=1`.
 3. Open **Settings**, then **Account**.
 4. Select **Continue with Google** and use an approved Google OAuth test user.
 5. Confirm the Settings section shows the signed-in account.
@@ -452,11 +452,11 @@ After deploying Pages and the Edge Function, use a syntactically valid dummy
 capability to verify only the public confirmation behavior:
 
 ```text
-https://bricechivu.github.io/Edenia/unsubscribe/?token=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&lang=en
+https://www.edenia.study/unsubscribe/?token=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA&lang=en
 ```
 
 The page must show a confirmation button, change its visible URL to
-`/Edenia/unsubscribe/?lang=en`, and leave the operator-preflight counts
+`/unsubscribe/?lang=en`, and leave the operator-preflight counts
 unchanged. Submitting this dummy value should show a generic invalid-link
 response and must not create a suppression.
 
@@ -560,7 +560,10 @@ without an active sender:
 This is a read-only snapshot of production configuration, not approval to make
 the account surface public.
 
-- The Auth site URL is `https://bricechivu.github.io/Edenia/`.
+- At the time of this pre-domain-migration snapshot, the Auth site URL was
+  `https://bricechivu.github.io/Edenia/`. Before domain cutover it must become
+  `https://www.edenia.study/` through the approval-gated checklist in
+  `deployment-and-releases.md`.
 - The redirect allowlist contains exactly the internal production callback and
   the localhost callback documented in `account-authentication.md`. It contains
   no wildcard.

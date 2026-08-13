@@ -133,7 +133,10 @@ async function installDestinationSeed(page, primaryRaw = null) {
   }, primaryRaw)
 }
 
-async function installMigrationRoutes(page, { automaticEnabled = true } = {}) {
+async function installMigrationRoutes(page, {
+  automaticEnabled = true,
+  relayConfigured = true
+} = {}) {
   const appConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
     youtubeApiKey: '',
     freePlusEnabled: false,
@@ -143,8 +146,10 @@ async function installMigrationRoutes(page, { automaticEnabled = true } = {}) {
     indexedDbBackupsEnabled: false,
     indexedDbBackupCleanupEnabled: false,
     legacyProgressMigrationEnabled: automaticEnabled,
-    supabaseUrl: DESTINATION_ORIGIN,
-    supabasePublishableKey: 'sb_publishable_localtest'
+    supabaseUrl: relayConfigured ? DESTINATION_ORIGIN : '',
+    supabasePublishableKey: relayConfigured
+      ? 'sb_publishable_localtest'
+      : ''
   })}\n`
   const helperConfig = `window.EDENIA_LEGACY_MIGRATION_CONFIG = ${JSON.stringify({
     createTransferUrl: CREATE_URL,
@@ -327,6 +332,33 @@ test('switch-off path preserves ordinary startup and makes no migration call', a
   expect(relay.calls).toEqual([])
   await expect(page.locator('#legacyProgressRecoverySettings'))
     .not.toHaveClass(/\bhidden\b/)
+})
+
+test('missing relay config blocks an empty migration-enabled destination', async ({
+  page
+}, testInfo) => {
+  test.skip(!STORAGE_PROJECT_NAMES.has(testInfo.project.name))
+  await installDestinationSeed(page)
+  const relay = await installMigrationRoutes(page, {
+    automaticEnabled: true,
+    relayConfigured: false
+  })
+
+  await page.goto(DESTINATION_URL)
+  await expect(page.getByRole('heading', {
+    name: 'Your old progress was not changed'
+  })).toBeVisible()
+  await expect(page.locator('#mainApp')).toHaveClass(/\bhidden\b/)
+  await expect(page.getByRole('button', {
+    name: 'Continue without checking old progress'
+  })).toBeVisible()
+  expect(relay.calls).toEqual([])
+
+  await page.getByRole('button', {
+    name: 'Continue without checking old progress'
+  }).click()
+  await expect(page.locator('#introTrailer')).not.toHaveClass(/\bhidden\b/)
+  expect((await readDestination(page)).marker.status).toBe('deferred')
 })
 
 test('Settings recovery keeps a different destination primary byte-identical', async ({
