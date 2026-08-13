@@ -16,6 +16,7 @@ test('onboarding normalization preserves the current version and empty defaults'
   assert.deepEqual(state.onboarding, {
     version: 2,
     introSeenAt: null,
+    accountStepReachedAt: null,
     setupCompleted: false,
     setupCompletedAt: null,
     walkthroughCompleted: false,
@@ -54,6 +55,7 @@ test('legacy completion promotes setup, walkthrough, and timestamp fallbacks', (
   assert.deepEqual(state.onboarding, {
     version: -3,
     introSeenAt: completedAt,
+    accountStepReachedAt: null,
     setupCompleted: true,
     setupCompletedAt: completedAt,
     walkthroughCompleted: true,
@@ -178,6 +180,27 @@ test('incomplete states discard orphan completion timestamps', () => {
   assert.equal(state.onboarding.setupCompletedAt, null)
   assert.equal(state.onboarding.walkthroughCompletedAt, null)
   assert.equal(state.onboarding.introSeenAt, null)
+})
+
+test('Account-step resume markers survive only while onboarding is incomplete', () => {
+  const incomplete = {
+    onboarding: {
+      accountStepReachedAt: completedAt,
+      setupCompleted: false
+    }
+  }
+  normalizeOnboardingState(incomplete)
+  assert.equal(incomplete.onboarding.accountStepReachedAt, completedAt)
+
+  const complete = {
+    onboarding: {
+      accountStepReachedAt: completedAt,
+      setupCompleted: true,
+      setupCompletedAt: completedAt
+    }
+  }
+  normalizeOnboardingState(complete)
+  assert.equal(complete.onboarding.accountStepReachedAt, null)
 })
 
 test('onboarding normalization preserves null handling and mutation failures', () => {

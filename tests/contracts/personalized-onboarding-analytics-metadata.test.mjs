@@ -104,15 +104,6 @@ const expectedVariants = {
       onboardingStep: 'language',
       ownershipAction: 'set-step',
       pressed: null
-    },
-    {
-      action: 'finishPersonalizedOnboarding',
-      className: 'btn-primary',
-      content: ["${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}"],
-      disabledExpression: "${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}",
-      handler: null,
-      ownershipAction: 'finish',
-      pressed: null
     }
   ],
   level: [
@@ -176,15 +167,6 @@ const expectedVariants = {
       handler: null,
       onboardingStep: 'level',
       ownershipAction: 'set-step',
-      pressed: null
-    },
-    {
-      action: 'finishPersonalizedOnboarding',
-      className: 'btn-primary',
-      content: ["${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}"],
-      disabledExpression: "${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}",
-      handler: null,
-      ownershipAction: 'finish',
       pressed: null
     }
   ]
@@ -373,7 +355,7 @@ test('step navigation retains guards, directional analytics, and rerendering', (
   )
   assert.match(
     source,
-    /if \(!\['language', 'level', 'channels', 'other'\]\.includes\(step\)\) return/
+    /const allowedSteps = \['language', 'level', 'channels', 'other'\]\s*if \(ACCOUNT_FEATURES_ENABLED\) allowedSteps\.push\('account'\)\s*if \(!allowedSteps\.includes\(step\)\) return/
   )
   assert.match(
     source,
