@@ -980,13 +980,32 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   flex-wrap: wrap;
 }
 .add-channel-row input { flex: 1; min-width: 100px; }
-.settings-actions { display: flex; gap: 10px; flex-direction: column; }
+.settings-navigation-group,
+.settings-replay-group,
+.settings-data-group {
+  display: contents;
+}
+.settings-panel.account-features-enabled .settings-navigation-group,
+.settings-panel.account-features-enabled .settings-replay-group,
+.settings-panel.account-features-enabled .settings-data-group {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.settings-panel:not(.account-features-enabled) :is(
+  .activity-log-panel,
+  .backup-panel,
+  .walkthrough-replay-btn,
+  .sync-actions,
+  .settings-data-group > .settings-note,
+  .settings-reset-btn,
+  .reset-confirm
+) {
+  margin-top: -14px;
+}
 .settings-creator {
   align-self: center;
   margin-top: auto;
-}
-.settings-howto-group + .settings-actions {
-  margin-top: -14px;
 }
 .sync-actions {
   display: grid;

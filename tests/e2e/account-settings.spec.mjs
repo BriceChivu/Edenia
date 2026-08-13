@@ -155,6 +155,26 @@ test('internal Account settings are localized and responsive without exposing pu
     }))
     expect(geometry.accountWidth).toBeLessThanOrEqual(geometry.accountClientWidth)
     expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth)
+
+    const spacing = await settings.evaluate(element => {
+      const rect = selector => element.querySelector(selector).getBoundingClientRect()
+      const gap = (first, second) => rect(second).top - rect(first).bottom
+      return {
+        accountToHowTo: gap('#accountSettings', '.settings-howto-group'),
+        howToToActivity: gap('.settings-howto-group', '.activity-log-panel'),
+        activityToReplay: gap('.activity-log-panel', '.settings-replay-group'),
+        replayButtons: gap(
+          '.settings-replay-group .walkthrough-replay-btn:first-child',
+          '.settings-replay-group .walkthrough-replay-btn:last-child'
+        ),
+        replayToData: gap('.settings-replay-group', '.settings-data-group')
+      }
+    })
+    expect(spacing.accountToHowTo).toBe(10)
+    expect(spacing.howToToActivity).toBe(10)
+    expect(spacing.replayButtons).toBe(10)
+    expect(spacing.activityToReplay).toBeGreaterThan(spacing.howToToActivity)
+    expect(spacing.replayToData).toBeGreaterThan(spacing.replayButtons)
   }
 })
 

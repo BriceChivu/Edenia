@@ -4850,6 +4850,10 @@ function renderReminderPreferences(state = reminderPreferenceViewState) {
 }
 
 function renderAccountSettings(state = accountAuthViewState) {
+  document.getElementById('settingsPanel')?.classList.toggle(
+    'account-features-enabled',
+    ACCOUNT_FEATURES_ENABLED
+  )
   const group = document.getElementById('accountSettings')
   if (!group) return
   group.classList.toggle('hidden', !ACCOUNT_FEATURES_ENABLED)
