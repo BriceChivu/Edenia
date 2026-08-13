@@ -16,6 +16,23 @@ function getCodeBlock(attribute) {
   return lines.join('\n')
 }
 
+test('Anki preference follows its explanation inside How to', () => {
+  const howToStart = html.indexOf('id="settingsHowToContent"')
+  const explanation = html.indexOf('data-i18n="settings.anki.whatIntro"')
+  const preference = html.indexOf('id="settingsAnkiEnabled"')
+  const connectHeading = html.indexOf('class="settings-anki-connect-heading"')
+
+  assert.ok(howToStart >= 0)
+  assert.ok(howToStart < explanation)
+  assert.ok(explanation < preference)
+  assert.ok(preference < connectHeading)
+  assert.match(
+    html,
+    /data-i18n="settings\.anki\.enabled">Enable Anki<\/span>/
+  )
+  assert.doesNotMatch(html, /settings\.anki\.toggleHint/)
+})
+
 test('Anki setup copy fragment extends the existing origin as valid JSON', () => {
   const existingOrigin = getCodeBlock('data-anki-config-existing-origin')
   const insertion = getCodeBlock('data-anki-config-insert')

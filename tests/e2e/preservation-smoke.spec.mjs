@@ -1802,6 +1802,9 @@ test('Settings Anki saves preserve retired Shorts state and synchronous timing',
   await expect(page.locator('.settings-shorts-group')).toBeHidden()
   await expect(shorts).toBeChecked()
   await expect(page.locator('#settingsInsightsEnabled')).toHaveCount(0)
+  await expect(anki).toBeHidden()
+  await page.locator('.settings-howto-toggle').click()
+  await expect(anki).toBeVisible()
   expect(await page.evaluate(() => (
     JSON.parse(localStorage.getItem('edenia_v1')).videos.shortvideo1.isShort
   ))).toBe(true)
