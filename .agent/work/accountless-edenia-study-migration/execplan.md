@@ -19,7 +19,7 @@ The current application makes this difficult because startup, import normalizati
 - [x] (2026-08-13 12:50Z) Refreshed `origin`, confirmed the only upstream delta from local `master` was `data/channel-catalog.discovered.json`, created `codex/accountless-domain-migration` from remote SHA `efb5399911e0eb3832bffd14bd9f53799a098432`, and set `meta.json` to implementation-active before product edits.
 - [x] (2026-08-13 12:50Z) Established the baseline with Node `v24.19.0`: `npm run build`, 991 contract tests, 119 Supabase shared tests, and four Chromium/WebKit IndexedDB backup tests all passed.
 - [x] (2026-08-13 12:59Z) Extracted the dormant portable-state and imported-state boundaries, added read-only existing-IndexedDB backup access and supplied-state backup verification, and kept normal startup unchanged. Verification passed with a sequential build, 1,011 contract tests, 119 Supabase tests, and four Chromium/WebKit storage tests.
-- [ ] Prove the cross-origin path and extract the portable progress contract without changing public behavior.
+- [x] (2026-08-13 13:02Z) Proved the cross-origin storage boundary in Chromium and WebKit: a different legacy-origin path read exact normal primary, local-backup, and IndexedDB bytes through the real read-only module; the destination origin could read none of them; and the legacy bytes/store list remained unchanged. Milestone 1 verification is a sequential build, 1,011 contract tests, 119 Supabase tests, and six combined storage/browser cases.
 - [ ] Build and test the standalone legacy-origin helper artifact.
 - [ ] Add the encrypted, one-use Supabase relay behind disabled controls and verify its database and Edge Function security locally or in an approved test project.
 - [ ] Add the canonical-origin startup gate, conflict-safe import transaction, recovery UI, and permanent Settings recovery entry point behind a disabled runtime switch.
@@ -66,6 +66,9 @@ The current application makes this difficult because startup, import normalizati
 - Observation: Several contract tests consume generated `_site` files while `npm run build` deletes and recreates that directory. Running the build and contract suite concurrently can produce false `ENOENT` failures even when both commands are independently healthy.
   Evidence: A concurrent verification run produced four missing-output failures; rebuilding first and then running `npm run test:contracts` sequentially passed all 1,011 tests. Keep build-output verification sequential.
 
+- Observation: The actual read-only IndexedDB module can be exercised from the legacy-origin browser fixture without copying its implementation by serving repository source only on the test-only port and dynamically importing the module from the helper-path page.
+  Evidence: Both Chromium and WebKit read the seeded `backups` store, left the deliberately absent `metadata` store absent, and returned the exact primary and local-backup strings, while an abort-on-upgrade probe at the destination reported the database absent.
+
 - Observation: Edenia validates complete translation parity across English, Traditional Chinese, Simplified Chinese, Spanish, and French.
   Evidence: Every migration gate, helper, Settings recovery, backup reason, status, and failure message must add keys to all five locale modules and keep `getMissingI18nKeys()` empty.
 
@@ -107,7 +110,7 @@ The current application makes this difficult because startup, import normalizati
 
 Planning outcome as of 2026-08-13: the user flow and loss-prevention policy are decided, and the repository-specific implementation path is documented below.
 
-Foundation outcome as of 2026-08-13: Edenia now has reusable, tested boundaries for sanitizing and hashing portable progress, selecting a normal primary or conservative backup candidate, reading an existing IndexedDB archive without creating stores, preserving a supplied incoming state as a reason-specific backup, and reusing the existing import behavior outside the monolithic app module. The code is intentionally dormant: no migration gate, runtime switch, helper navigation, relay call, or public startup behavior uses it yet. No live Supabase resource, helper repository, Pages setting, DNS record, or provider configuration has changed. The remaining Milestone 1 gap is the retained two-origin browser proof and its test-only server fixture.
+Milestone 1 outcome as of 2026-08-13: Edenia now has reusable, tested boundaries for sanitizing and hashing portable progress, selecting a normal primary or conservative backup candidate, reading an existing IndexedDB archive without creating stores, preserving a supplied incoming state as a reason-specific backup, and reusing the existing import behavior outside the monolithic app module. A retained two-origin Chromium/WebKit test proves why the helper must live on the old origin and that the destination cannot directly read old progress. The product code is intentionally dormant: no migration gate, runtime switch, helper navigation, relay call, or public startup behavior uses it yet. No live Supabase resource, helper repository, Pages setting, DNS record, or provider configuration has changed. The next gap is the standalone helper artifact and its encryption/client boundary.
 
 ## Context and Orientation
 
@@ -472,3 +475,5 @@ Plan revision 2026-08-13 (improvement pass 2): Replaced the infeasible private-t
 Plan revision 2026-08-13 (improvement pass 3): Grounded the import transaction in `saveImportedState(...preserveBackupId)`, fixed deterministic backup/activity/hash ordering, kept the existing Settings sync binder narrow by adding a dedicated recovery binder, made five-locale parity explicit, and prohibited silent fallback from oversized current progress to an older smaller backup. These changes close quota, idempotence, localization, and hidden-data-loss gaps found in the current state and Settings code.
 
 Plan revision 2026-08-13 (final consistency audit): Removed the assumed repository `CNAME` artifact and made the existing GitHub Pages Actions environment/custom-domain setting authoritative unless refreshed official evidence proves otherwise. This avoids adding a deployment mechanism the current workflow does not require.
+
+Plan revision 2026-08-13 (Milestone 1 evidence): Recorded the dormant portable-state foundation, exact verification counts, the build-output sequencing constraint, and the retained Chromium/WebKit two-origin proof. This closes the feasibility milestone with observable evidence while leaving every public and live surface unchanged.
