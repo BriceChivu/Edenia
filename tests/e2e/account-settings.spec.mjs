@@ -138,8 +138,10 @@ test('internal Account settings are localized and responsive without exposing pu
       'aria-expanded',
       'true'
     )
-    await expect(account.getByRole('button', { name: googleLabel })).toBeEnabled()
-    await expect(page.locator('#accountEmail')).toHaveCSS('border-radius', '12px')
+    const googleButton = account.getByRole('button', { name: googleLabel })
+    await expect(googleButton).toBeEnabled()
+    await expect(googleButton).toHaveCSS('background-image', /linear-gradient/)
+    await expect(page.locator('#accountEmail')).toHaveCSS('border-radius', '10px')
     await expect(page.locator('.settings-account-reminders')).toBeHidden()
     await expect(page.locator('#accountExportBtn')).toHaveCount(0)
     await expect(page.locator('#plusAccountSettings')).toHaveCount(0)

@@ -302,14 +302,14 @@ and momentum—at a glance</h2>
               <h3 data-i18n="settings.account.signedOutTitle">Sign in to Edenia</h3>
               <p data-i18n="settings.account.signedOutBody">Use Google for the quickest sign-in, or get a secure link by email.</p>
             </div>
-            <button class="btn-primary settings-account-google" id="accountGoogleBtn" type="button" data-account-action="google">
-              <span class="settings-account-google-mark" aria-hidden="true">G</span>
+            <button class="btn-primary account-auth-google settings-account-google" id="accountGoogleBtn" type="button" data-account-action="google">
+              <span class="account-auth-google-mark" aria-hidden="true">G</span>
               <span data-i18n="settings.account.google">Continue with Google</span>
             </button>
             <div class="settings-account-divider"><span data-i18n="settings.account.emailFallback">Or use email</span></div>
             <form class="settings-account-email-form" data-account-action="email-form" novalidate>
               <label for="accountEmail" data-i18n="settings.account.emailLabel">Email address</label>
-              <input id="accountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-i18n-placeholder="settings.account.emailPlaceholder" placeholder="you@example.com">
+              <input class="account-auth-email-input" id="accountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-i18n-placeholder="settings.account.emailPlaceholder" placeholder="you@example.com">
               <button class="btn-secondary" id="accountEmailBtn" type="submit" data-i18n="settings.account.sendLink">Email me a sign-in link</button>
             </form>
           </div>

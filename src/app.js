@@ -3220,14 +3220,14 @@ function renderOnboardingAccountStep(content) {
     `
   } else {
     accountContent = `
-      <button class="btn-primary onboarding-account-google" type="button" data-onboarding-account-action="google" data-analytics-action="onboardingAccountGoogle" ${busy || unavailable ? 'disabled' : ''}>
-        <span class="onboarding-account-google-mark" aria-hidden="true">G</span>
+      <button class="btn-primary account-auth-google onboarding-account-google" type="button" data-onboarding-account-action="google" data-analytics-action="onboardingAccountGoogle" ${busy || unavailable ? 'disabled' : ''}>
+        <span class="account-auth-google-mark" aria-hidden="true">G</span>
         <span>${escHtml(t(state?.busyAction === 'google-sign-in' ? 'settings.account.googleLoading' : 'settings.account.google'))}</span>
       </button>
       <div class="onboarding-account-divider"><span>${escHtml(t('settings.account.emailFallback'))}</span></div>
       <form class="onboarding-account-email-form" data-onboarding-account-action="email-form" novalidate>
         <label for="onboardingAccountEmail">${escHtml(t('settings.account.emailLabel'))}</label>
-        <input id="onboardingAccountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-onboarding-account-email value="${escHtml(personalizedOnboardingState.accountEmail)}" placeholder="${escHtml(t('settings.account.emailPlaceholder'))}" ${busy || unavailable ? 'disabled' : ''}>
+        <input class="account-auth-email-input" id="onboardingAccountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-onboarding-account-email value="${escHtml(personalizedOnboardingState.accountEmail)}" placeholder="${escHtml(t('settings.account.emailPlaceholder'))}" ${busy || unavailable ? 'disabled' : ''}>
         <button class="btn-secondary onboarding-account-email-button" type="submit" data-analytics-action="onboardingAccountEmail" ${busy || unavailable ? 'disabled' : ''}>${escHtml(t(state?.busyAction === 'email-sign-in' ? 'settings.account.sendingLink' : 'settings.account.sendLink'))}</button>
       </form>
       ${feedback}
@@ -3244,7 +3244,7 @@ function renderOnboardingAccountStep(content) {
     </div>
     <div class="onboarding-actions onboarding-account-actions">
       <button type="button" class="btn-ghost" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="${previousStep}" data-analytics-action="setPersonalizedOnboardingStep" ${busy ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
-      <button type="button" class="${signedIn ? 'btn-primary' : 'btn-ghost'}" data-personalized-onboarding-action="finish" data-analytics-action="finishPersonalizedOnboarding" ${busy ? 'disabled' : ''}>${escHtml(t(signedIn ? 'onboarding.build' : 'onboarding.account.skip'))}</button>
+      <button type="button" class="${signedIn ? 'btn-primary' : 'btn-ghost onboarding-account-skip'}" data-personalized-onboarding-action="finish" data-analytics-action="finishPersonalizedOnboarding" ${busy ? 'disabled' : ''}>${escHtml(t(signedIn ? 'onboarding.build' : 'onboarding.account.skip'))}</button>
     </div>
   `
 }
