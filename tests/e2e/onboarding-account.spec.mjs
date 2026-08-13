@@ -32,7 +32,7 @@ async function useAccountReturnOrigin(page) {
 
 async function seedAccountStep(page, {
   locale = 'en',
-  storageKey = 'edenia_v1_internal_test'
+  storageKey = 'edenia_v1'
 } = {}) {
   await page.evaluate(({ nextLocale, nextStorageKey }) => {
     const state = window.defaultState(4, [], 'light', [], nextLocale)
@@ -74,9 +74,9 @@ test('gated Account onboarding supports email sign-in and responsive completion'
     await route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto(`${accountReturnOrigin}/?internal_test=1`)
+  await page.goto(`${accountReturnOrigin}/`)
   await seedAccountStep(page)
-  await page.goto(`${accountReturnOrigin}/?internal_test=1&account=1`)
+  await page.goto(`${accountReturnOrigin}/?account=1`)
 
   const panel = page.locator('#onboardingPanel')
   await expect(panel).toBeVisible()
@@ -144,7 +144,7 @@ test('gated Account onboarding supports email sign-in and responsive completion'
   await panel.getByRole('button', { name: 'Skip for now' }).click()
   await expect(panel).toBeHidden()
   const completion = await page.evaluate(() => {
-    const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test'))
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
     return {
       accountStepReachedAt: state.onboarding.accountStepReachedAt,
       setupCompleted: state.onboarding.setupCompleted

@@ -121,7 +121,8 @@ The staged general-account work uses the public repository variable
 `EDENIA_ACCOUNT_FEATURES_ROLLOUT`. Its accepted values are:
 
 - `off`: disable the general-account experience everywhere;
-- `internal`: allow it only with `/?internal_test=1`;
+- `internal`: allow it with `/?internal_test=1` or at the exact local
+  development origin `http://localhost:8000/`;
 - `public`: allow it on the ordinary and internal-test application paths.
 
 Missing values default to `off`, invalid values fail the production build, and

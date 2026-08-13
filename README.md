@@ -490,9 +490,10 @@ are not release gates and have no repository variables.
 
 Boolean release variables default to disabled and accept only `true` or `false`.
 `EDENIA_ACCOUNT_FEATURES_ROLLOUT` defaults to `off` and accepts only `off`,
-`internal`, or `public`. Use `internal` to make later account work reachable only
-through `/?internal_test=1`; that URL is a rollout surface, not an authorization
-boundary.
+`internal`, or `public`. Use `internal` to make later account work reachable
+through `/?internal_test=1` and the exact local development origin
+`http://localhost:8000/`; those are rollout surfaces, not authorization
+boundaries.
 
 Changing a repository variable does not alter an already deployed artifact;
 run the Pages workflow and verify the generated runtime configuration. The

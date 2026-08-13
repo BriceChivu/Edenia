@@ -25,5 +25,8 @@ export function deriveAccountFeaturesEnabled(
   if (normalizedRollout === ACCOUNT_FEATURE_ROLLOUTS.PUBLIC) return true
 
   return normalizedRollout === ACCOUNT_FEATURE_ROLLOUTS.INTERNAL
-    && runtimeEnvironment.isInternalTest === true
+    && (
+      runtimeEnvironment.isInternalTest === true
+      || runtimeEnvironment.isLocalDevelopment === true
+    )
 }

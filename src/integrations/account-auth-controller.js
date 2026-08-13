@@ -21,7 +21,8 @@ export const ACCOUNT_AUTH_NOTICES = Object.freeze({
 })
 
 export const ACCOUNT_AUTH_RETURN_DESTINATIONS = Object.freeze({
-  LOCAL: 'http://localhost:8000/?internal_test=1&account=1',
+  LOCAL: 'http://localhost:8000/?account=1',
+  LOCAL_INTERNAL: 'http://localhost:8000/?internal_test=1&account=1',
   PRODUCTION: 'https://bricechivu.github.io/Edenia/?internal_test=1&account=1'
 })
 
@@ -59,7 +60,9 @@ export function getAccountAuthReturnUrl(locationLike) {
     return ACCOUNT_AUTH_RETURN_DESTINATIONS.PRODUCTION
   }
   if (url.origin === 'http://localhost:8000' && url.pathname === '/') {
-    return ACCOUNT_AUTH_RETURN_DESTINATIONS.LOCAL
+    return url.searchParams.get('internal_test') === '1'
+      ? ACCOUNT_AUTH_RETURN_DESTINATIONS.LOCAL_INTERNAL
+      : ACCOUNT_AUTH_RETURN_DESTINATIONS.LOCAL
   }
   return null
 }

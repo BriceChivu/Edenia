@@ -29,12 +29,16 @@ test('account features are disabled when the rollout is off or unavailable', () 
     false
   )
   assert.equal(
+    deriveAccountFeaturesEnabled({ isLocalDevelopment: true }, 'off'),
+    false
+  )
+  assert.equal(
     deriveAccountFeaturesEnabled({ isInternalTest: true }, 'invalid'),
     false
   )
 })
 
-test('internal rollout requires the isolated internal-test audience', () => {
+test('internal rollout reaches internal-test and exact local-development audiences', () => {
   assert.equal(
     deriveAccountFeaturesEnabled({ isInternalTest: false }, 'internal'),
     false
@@ -42,6 +46,21 @@ test('internal rollout requires the isolated internal-test audience', () => {
   assert.equal(
     deriveAccountFeaturesEnabled({ isInternalTest: true }, 'internal'),
     true
+  )
+  assert.equal(
+    deriveAccountFeaturesEnabled({ isLocalDevelopment: true }, 'internal'),
+    true
+  )
+  assert.equal(
+    deriveAccountFeaturesEnabled({ isLocalhost: true }, 'internal'),
+    false
+  )
+  assert.equal(
+    deriveAccountFeaturesEnabled({
+      isLocalDevelopment: true,
+      isSandbox: true
+    }, 'internal'),
+    false
   )
 })
 

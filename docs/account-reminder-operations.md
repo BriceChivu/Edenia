@@ -7,7 +7,8 @@ It is deliberately written for the system that exists now.
 
 - The account interface is available only when
   `EDENIA_ACCOUNT_FEATURES_ROLLOUT=internal` and the visitor uses
-  `/?internal_test=1`.
+  `/?internal_test=1` or the exact local development origin
+  `http://localhost:8000/`.
 - The controller offers Google OAuth and email magic links through Supabase
   Auth. Production Google OAuth is verified for one approved test account;
   production SMTP for the magic-link fallback is not yet verified.

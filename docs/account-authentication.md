@@ -15,8 +15,9 @@ of these conditions are true:
 3. both public Supabase runtime values are available.
 
 During the internal rollout, this limits initialization to
-`/?internal_test=1`. The query parameter is a public release boundary, not an
-authentication or authorization control.
+`/?internal_test=1` and the exact local development origin
+`http://localhost:8000/`. The query parameter and local-origin check are release
+boundaries, not authentication or authorization controls.
 
 The generic controller owns only the browser session lifecycle:
 
@@ -40,12 +41,14 @@ The controller supports Google OAuth and retains an email magic-link fallback.
 Both methods can return only to one of these exact application URLs:
 
 - `https://bricechivu.github.io/Edenia/?internal_test=1&account=1`
+- `http://localhost:8000/?account=1`
 - `http://localhost:8000/?internal_test=1&account=1`
 
 The production URL must be added verbatim to Supabase Auth's redirect allow
-list. The localhost URL is for development only. Edenia refuses to start a
-sign-in from any other origin, path, protocol, or port instead of constructing
-a callback from untrusted page input.
+list. The localhost URLs are for development only and preserve whether the
+learner is using ordinary or isolated internal-test browser state. Edenia
+refuses to start a sign-in from any other origin, path, protocol, or port instead
+of constructing a callback from untrusted page input.
 
 In Google Cloud, the authorized JavaScript origin is the Edenia origin, while
 the authorized redirect URI is the Supabase project's Google callback URL.

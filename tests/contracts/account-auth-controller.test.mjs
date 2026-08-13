@@ -274,6 +274,12 @@ test('sign-in redirects are selected from an exact application allowlist', () =>
     getAccountAuthReturnUrl({ href: 'http://localhost:8000/?other=1' }),
     ACCOUNT_AUTH_RETURN_DESTINATIONS.LOCAL
   )
+  assert.equal(
+    getAccountAuthReturnUrl({
+      href: 'http://localhost:8000/?internal_test=1&other=1'
+    }),
+    ACCOUNT_AUTH_RETURN_DESTINATIONS.LOCAL_INTERNAL
+  )
   for (const href of [
     'http://bricechivu.github.io/Edenia/',
     'https://bricechivu.github.io/Edenia',
@@ -306,7 +312,7 @@ test('Google sign-in uses the allowlisted production return destination', async 
 test('email sign-in normalizes addresses and retains a magic-link fallback', async () => {
   const clientHarness = createClient()
   const harness = createHarness(clientHarness, {
-    href: 'http://localhost:8000/?internal_test=1'
+    href: 'http://localhost:8000/'
   })
 
   assert.equal(
@@ -326,6 +332,22 @@ test('email sign-in normalizes addresses and retains a magic-link fallback', asy
   assert.equal(
     harness.controller.getState().notice,
     ACCOUNT_AUTH_NOTICES.MAGIC_LINK_SENT
+  )
+})
+
+test('internal localhost sign-in retains the isolated return destination', async () => {
+  const clientHarness = createClient()
+  const harness = createHarness(clientHarness, {
+    href: 'http://localhost:8000/?internal_test=1'
+  })
+
+  assert.equal(
+    await harness.controller.sendMagicLink('learner@example.com'),
+    true
+  )
+  assert.equal(
+    clientHarness.calls[0][1].options.emailRedirectTo,
+    ACCOUNT_AUTH_RETURN_DESTINATIONS.LOCAL_INTERNAL
   )
 })
 

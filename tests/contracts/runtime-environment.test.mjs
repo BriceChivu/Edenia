@@ -29,6 +29,7 @@ test('runtime environment preserves exact origins, hosts, and first query values
     isSandbox: true,
     isInternalTest: false,
     isLocalhost: true,
+    isLocalDevelopment: false,
     isLocalFeedbackTest: false
   })
   assert.equal(
@@ -56,6 +57,8 @@ test('runtime environment preserves exact origins, hosts, and first query values
     false
   )
   assert.equal(environment('http://localhost:8000/').isLocalFeedbackTest, true)
+  assert.equal(environment('http://localhost:8000/').isLocalDevelopment, true)
+  assert.equal(environment('http://127.0.0.1:8000/').isLocalDevelopment, false)
   assert.equal(environment('http://localhost:4173/').isLocalFeedbackTest, false)
   assert.equal(deriveRuntimeEnvironment({
     hostname: '::1',
