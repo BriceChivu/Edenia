@@ -11,6 +11,24 @@ const internalRuntimeConfig = `window.EDENIA_CONFIG = {
   supabaseUrl: 'https://account-ui-test.supabase.co',
   supabasePublishableKey: 'test-publishable-key'
 }`
+const accountReturnOrigin = 'http://localhost:8000'
+const servedApplicationOrigin = `http://localhost:${Number(
+  process.env.EDENIA_TEST_NORMAL_PORT || 8000
+)}`
+
+async function useAccountReturnOrigin(page) {
+  if (servedApplicationOrigin === accountReturnOrigin) return
+
+  await page.route(`${accountReturnOrigin}/**`, async route => {
+    const requestedUrl = new URL(route.request().url())
+    const servedUrl = new URL(
+      `${requestedUrl.pathname}${requestedUrl.search}`,
+      `${servedApplicationOrigin}/`
+    )
+    const response = await route.fetch({ url: servedUrl.href })
+    await route.fulfill({ response })
+  })
+}
 
 async function seedAccountStep(page, {
   locale = 'en',
@@ -39,6 +57,7 @@ test('gated Account onboarding supports email sign-in and responsive completion'
   page
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  await useAccountReturnOrigin(page)
   await page.route('**/config.local.js', route => route.fulfill({
     body: internalRuntimeConfig,
     contentType: 'text/javascript',
@@ -55,9 +74,9 @@ test('gated Account onboarding supports email sign-in and responsive completion'
     await route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto(`${accountReturnOrigin}/?internal_test=1`)
   await seedAccountStep(page)
-  await page.goto('/?internal_test=1&account=1')
+  await page.goto(`${accountReturnOrigin}/?internal_test=1&account=1`)
 
   const panel = page.locator('#onboardingPanel')
   await expect(panel).toBeVisible()
