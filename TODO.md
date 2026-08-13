@@ -4,7 +4,7 @@
 - on mobiles: internal_test=1 is very slow, especially when setting a video as watch later or favorite
 
 ## Usability:
-- INSIGHTS: Saying "Try Tuesday" when today is monday doesn't really make sense i feel...
+- INSIGHTS: Saying "Try Tuesday" when today is monday doesn't really make sense i feel... Rething Insights again
 - moving the mouse around while watching a video in the iframe makes the Youtube iframe buttons appear. I don't like the obstructing pause button in the middle.
 - add more supported languages
 - add more suggested languages to learn    
@@ -62,4 +62,6 @@ For later:
 # NOTES:
 - How to keep images consistent over time when using AI?
 - How to upscale images (pixelbin model from https://www.upscale.media/zh/upload was good but no more credit)
+- https://www.youtube.com/watch?v=mjg_JUMar04&t=3s
+- spritecook
 
