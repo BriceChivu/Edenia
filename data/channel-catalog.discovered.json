@@ -1,17 +1,17 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-12T10:34:34.025Z",
+  "generatedAt": "2026-08-13T10:36:34.729Z",
   "lastRotationIndex": 0,
   "nextRotationIndex": 0,
   "rotationCount": 4,
-  "lastLanguageBatchIndex": 1,
-  "nextLanguageBatchIndex": 2,
+  "lastLanguageBatchIndex": 2,
+  "nextLanguageBatchIndex": 3,
   "languageBatchCount": 4,
   "languageBatchSize": 2,
-  "lastDiscoveryQuotaDate": "2026-08-12",
+  "lastDiscoveryQuotaDate": "2026-08-13",
   "lastDiscoveryLanguages": [
-    "german",
-    "mandarin"
+    "russian",
+    "spanish"
   ],
   "lastSearchRequestCount": 6,
   "languages": [
@@ -4463,6 +4463,34 @@
       "searchText": "everyday japanese podcast everydayjapanesepodcastforyou japanese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCoGHT_3az9dz8CNEcuDm4Yw",
+      "channelId": "UCoGHT_3az9dz8CNEcuDm4Yw",
+      "youtubeInput": "@expressrussianlearnrussian",
+      "handle": "@expressrussianlearnrussian",
+      "name": "ExpressRussian - Learn Russian with Darya",
+      "thumbnailUrl": "https://yt3.ggpht.com/Q3xDhVGcxP_-CIJLhq-bvirMxUJUxYfo0HWuXgZ-1sCgrbo0XjwBBlMFaCnK8s-sSFVzUwAaAQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "This YouTube channel is a part of the educational portal ExpressRussian.com, which was created to help you learn Russian online. This channel features useful phrases in Russian, explication of Russian grammar rules, videos about Russian culture, extracts of original Russian cartoons and movies with English and Russi...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2016-02-29T11:21:48Z",
+      "subscriberCount": "3920",
+      "videoCount": "123",
+      "viewCount": "483024",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 220,
+      "discoveredByQueries": [
+        "learn Russian"
+      ],
+      "discoveredAt": "2026-08-13T10:36:34.544Z",
+      "refreshedAt": "2026-08-13T10:36:34.544Z",
+      "searchText": "expressrussian learn russian with darya expressrussianlearnrussian russian youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCmCuxEGbmope3_dd8qWUuDA",
       "channelId": "UCmCuxEGbmope3_dd8qWUuDA",
       "youtubeInput": "@fiilanguages",
@@ -4601,6 +4629,62 @@
       "discoveredAt": "2026-07-24T14:15:42.400Z",
       "refreshedAt": "2026-07-24T14:15:42.400Z",
       "searchText": "fluentu portuguese fluentuportuguese portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCVWsffOMZNMkV2Z7ArfeHKg",
+      "channelId": "UCVWsffOMZNMkV2Z7ArfeHKg",
+      "youtubeInput": "@fluenturussian",
+      "handle": "@fluenturussian",
+      "name": "FluentU Russian",
+      "thumbnailUrl": "https://yt3.ggpht.com/JIUePg6YRMlkz1NqOW6I-bk6sW-4KP_X1VS5p1e999gz-ysBUhFx8eJpHB20DlImppIYfxB-_Vg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Are you looking for fun and exciting ways to learn and practice Russian? Do you like to watch movies, music videos, inspiring talks, or the news? Well, you have found the right channel, because here at FluentU Russian we post videos specifically targeted to help YOU become more fluent in Russian through movies, musi...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2019-10-14T02:49:14.280144Z",
+      "subscriberCount": "10500",
+      "videoCount": "68",
+      "viewCount": "221483",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 231,
+      "discoveredByQueries": [
+        "learn Russian"
+      ],
+      "discoveredAt": "2026-08-13T10:36:34.544Z",
+      "refreshedAt": "2026-08-13T10:36:34.544Z",
+      "searchText": "fluentu russian fluenturussian russian youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCaIG6EdT5ExPxsPpMRUB-yw",
+      "channelId": "UCaIG6EdT5ExPxsPpMRUB-yw",
+      "youtubeInput": "@fluentuspanish",
+      "handle": "@fluentuspanish",
+      "name": "FluentU Spanish",
+      "thumbnailUrl": "https://yt3.ggpht.com/KUwrmS8GyHRDSxleG2H34ZYWI0hZ162FxDDzhQXWle3EZ63TR4ZBmMvh1bMCYdJxZK9VQ_lCnkI=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Are you looking for fun and exciting ways to learn and practice Spanish? Do you like to watch movies, music videos, inspiring talks, or the news? Well, you have found the right channel, because here at FluentU Spanish we post videos specifically targeted to help YOU become more fluent in Spanish through movies, musi...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2014-07-30T14:01:19Z",
+      "subscriberCount": "249000",
+      "videoCount": "368",
+      "viewCount": "9041590",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 263,
+      "discoveredByQueries": [
+        "learn Spanish"
+      ],
+      "discoveredAt": "2026-08-13T10:36:34.544Z",
+      "refreshedAt": "2026-08-13T10:36:34.544Z",
+      "searchText": "fluentu spanish fluentuspanish spanish youtube discovery"
     },
     {
       "catalogId": "discovered-UCLv_u_mDLQQ7x3pI6n2NY_w",
@@ -6400,6 +6484,34 @@
       "searchText": "hoc tieng nhat qua chuyen co tich nhat ban hoctiengnhatquachuyencotich japanese youtube discovery"
     },
     {
+      "catalogId": "discovered-UC1qtNVtoGPTjq2iHOZJSkzA",
+      "channelId": "UC1qtNVtoGPTjq2iHOZJSkzA",
+      "youtubeInput": "@howjaneylearned",
+      "handle": "@howjaneylearned",
+      "name": "How Janey Learned Russian (former COLLEGE RUSSIAN)",
+      "thumbnailUrl": "https://yt3.ggpht.com/JQ-UQ2hpPWJh1eLWOzi-Bbh1OGNjOOkTpQLlyOwt8S-_saXYTjEMt_ujb5JyOHLHe-R4QknqTAE=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Здравствуйте! My name is Janey (по-русски--Жанна) and I have been teaching Russian for 13 years, learning Russian for 20 years and loving Russian culture since age 3! I originally designed this channel (formerly called College Russian) because I found that many of my students need a little extra help on things outsi...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2015-08-17T21:07:31Z",
+      "subscriberCount": "21900",
+      "videoCount": "248",
+      "viewCount": "1367630",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 201,
+      "discoveredByQueries": [
+        "learn Russian"
+      ],
+      "discoveredAt": "2026-08-13T10:36:34.544Z",
+      "refreshedAt": "2026-08-13T10:36:34.544Z",
+      "searchText": "how janey learned russian former college russian howjaneylearned russian youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCB48D9vFzR2OKW53uI4q5Aw",
       "channelId": "UCB48D9vFzR2OKW53uI4q5Aw",
       "youtubeInput": "@howtospanishpodcast_official",
@@ -7248,6 +7360,34 @@
       "discoveredAt": "2026-07-24T14:15:51.076Z",
       "refreshedAt": "2026-07-24T14:15:51.076Z",
       "searchText": "langadvance portuguese langadvanceportuguese portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC7VG3xLvjkMn5NByEVPyTQg",
+      "channelId": "UC7VG3xLvjkMn5NByEVPyTQg",
+      "youtubeInput": "@languagebyacquisition",
+      "handle": "@languagebyacquisition",
+      "name": "Language by Acquisition ",
+      "thumbnailUrl": "https://yt3.ggpht.com/Tq9nezFsZWk7UBxUCxpAnxUwlIF-oC5Q9v9E7JvCp25NlnJ8imXhbptZqVt3Qzb6j-NM45o0yWI=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn Arabic, Russian, and Turkish through acquisition, not memorization. Language by Acquisition is built on a simple idea: languages are acquired, not memorized. Decades of language acquisition research suggest that meaningful exposure, repeated listening, and understanding language in context are far more effecti...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-02-13T16:41:21.39982Z",
+      "subscriberCount": "389",
+      "videoCount": "14",
+      "viewCount": "514",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 248,
+      "discoveredByQueries": [
+        "Russian comprehensible input"
+      ],
+      "discoveredAt": "2026-08-13T10:36:34.544Z",
+      "refreshedAt": "2026-08-13T10:36:34.544Z",
+      "searchText": "language by acquisition languagebyacquisition russian youtube discovery"
     },
     {
       "catalogId": "discovered-UC6s5jDZXIJmS3w0kEMejPFg",
@@ -11020,6 +11160,34 @@
       "searchText": "learn spanish with eyakh learnspanish with eyakhas spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UCPNgk5M_7j8VrtfUX6_WYRQ",
+      "channelId": "UCPNgk5M_7j8VrtfUX6_WYRQ",
+      "youtubeInput": "@readitinspanish",
+      "handle": "@readitinspanish",
+      "name": "Learn Spanish with Graded Readers",
+      "thumbnailUrl": "https://yt3.ggpht.com/F7qpMkHaELDIEf3jM8H9fN6KMeZwK4BFSbXiO-a_IJ-0GKCYcThIZhy_hqZ2JZOUF9kqj3V_XQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn Spanish for Beginners with Graded Readers ¡Hola! 👋 Welcome to Read it! This channel helps you learn Spanish naturally through Slow Spanish Audiobooks, Stories, and Comprehensible Input. On this channel, you will improve your Spanish listening skills and vocabulary effortlessly. We adapt classic literature lik...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-01-29T13:21:50.037143Z",
+      "subscriberCount": "1420",
+      "videoCount": "78",
+      "viewCount": "46670",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 254,
+      "discoveredByQueries": [
+        "Spanish comprehensible input"
+      ],
+      "discoveredAt": "2026-08-13T10:36:34.544Z",
+      "refreshedAt": "2026-08-13T10:36:34.544Z",
+      "searchText": "learn spanish with graded readers readitinspanish spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC_6LHxfKzSftxJTcvj84zEA",
       "channelId": "UC_6LHxfKzSftxJTcvj84zEA",
       "youtubeInput": "@spanish55",
@@ -11243,6 +11411,34 @@
       "discoveredAt": "2026-07-25T15:03:19.156Z",
       "refreshedAt": "2026-07-25T15:03:19.156Z",
       "searchText": "learning russian fast learningrussianfast russian youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCOD1W54_Sxwt0grdOFN-g1A",
+      "channelId": "UCOD1W54_Sxwt0grdOFN-g1A",
+      "youtubeInput": "@learningspanish.academy",
+      "handle": "@learningspanish.academy",
+      "name": "Learning Spanish Academy ",
+      "thumbnailUrl": "https://yt3.ggpht.com/1yjUXID-SvlEu50EkSCgBeZTpf6yXb5qgNb8genFF_0G5PLgLieRPla9-XwY4Qbe0T2qPEsy=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Learning Spanish Academy 🎧 If you understand Spanish but struggle to speak it, you’re in the right place. Most learners: ❌ Study grammar ❌ Memorize rules ❌ Understand… but can’t speak 👉 Here, we train differently. 🎧 Train your ear with real Spanish 🧠 Understand how the language works 🗣 Start speaking...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-04-16T23:15:07.020837Z",
+      "subscriberCount": "20900",
+      "videoCount": "92",
+      "viewCount": "641765",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 236,
+      "discoveredByQueries": [
+        "learn Spanish"
+      ],
+      "discoveredAt": "2026-08-13T10:36:34.544Z",
+      "refreshedAt": "2026-08-13T10:36:34.544Z",
+      "searchText": "learning spanish academy learningspanish academy spanish youtube discovery"
     },
     {
       "catalogId": "discovered-UC8in5Q53xdeJhvbg7HVO1Dw",
@@ -11806,6 +12002,34 @@
       "discoveredAt": "2026-07-27T15:11:22.372Z",
       "refreshedAt": "2026-07-27T15:11:22.372Z",
       "searchText": "little fox chinese stories songs for learners littlefoxchinese mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC24uQf9tPkbA3uBQypQ7A3g",
+      "channelId": "UC24uQf9tPkbA3uBQypQ7A3g",
+      "youtubeInput": "@liverussian",
+      "handle": "@liverussian",
+      "name": "Live Russian",
+      "thumbnailUrl": "https://yt3.ggpht.com/UDNCgNQIA-44Wd6UItk7hsDzJli5NZ5rXFe10tNhZaUa8_t7pCzkdWTIHKJ1Am16h4IlFlwdM74=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to the channel, where we're not just learning the Russian language - we're LIVING IT! Learn Russian through live examples and not just by memorising random words. You've been learning Russian for some time and it seems to you that you're not moving forward, you're facing a plateau... It's time to change your...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2011-06-01T11:32:41Z",
+      "subscriberCount": "9790",
+      "videoCount": "552",
+      "viewCount": "775075",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 213,
+      "discoveredByQueries": [
+        "Russian comprehensible input"
+      ],
+      "discoveredAt": "2026-08-13T10:36:34.544Z",
+      "refreshedAt": "2026-08-13T10:36:34.544Z",
+      "searchText": "live russian liverussian russian youtube discovery"
     },
     {
       "catalogId": "discovered-UCs0uARHU_2nVs_8axEF3xew",
@@ -13549,6 +13773,34 @@
       "discoveredAt": "2026-07-27T15:11:22.372Z",
       "refreshedAt": "2026-07-27T15:11:22.372Z",
       "searchText": "portuguese with thai profthaibr portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCzSc_8bMwXlmCAKyf8R2HUA",
+      "channelId": "UCzSc_8bMwXlmCAKyf8R2HUA",
+      "youtubeInput": "@positiverussian",
+      "handle": "@positiverussian",
+      "name": "Positive Russian",
+      "thumbnailUrl": "https://yt3.ggpht.com/dBdsgnNMbv5SPEvM-zLFmz7x_awZq_yHwzYaEZsBp4ANDSRInB-T5yN6IKE-A9n4i1R7uuwd=s800-c-k-c0x00ffffff-no-rj",
+      "description": "My name is Svetlana, and I am a highly qualified educator with over 12 years of experience. I hold a Bachelor's and Master's degree in Foreign Language Teaching, both with honors. ✔ Winner of the \"Student of the Year 2016\" award ✔ Recipient of the Lomonosov Scholarship in 2015, Russia ✔ Winner of the \"Young Teacher...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-07-24T06:57:36.853879Z",
+      "subscriberCount": "8890",
+      "videoCount": "226",
+      "viewCount": "576943",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 212,
+      "discoveredByQueries": [
+        "Russian comprehensible input"
+      ],
+      "discoveredAt": "2026-08-13T10:36:34.544Z",
+      "refreshedAt": "2026-08-13T10:36:34.544Z",
+      "searchText": "positive russian positiverussian russian youtube discovery"
     },
     {
       "catalogId": "discovered-UC_XfIkz0ZbgJ13CkmtBcU5A",
@@ -15578,6 +15830,34 @@
       "searchText": "spanish flashcards spanish flashcards spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UCCg8L8pQR_6tE3Dtkfg0AOQ",
+      "channelId": "UCCg8L8pQR_6tE3Dtkfg0AOQ",
+      "youtubeInput": "@spanish-for-youcom",
+      "handle": "@spanish-for-youcom",
+      "name": "Spanish for You!",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_mhH4H-seGtbv33Wu-6Gv9CoHfyFj6_ayltmJWeBgkhTSU=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Spanish for You! – Fun & Effective Spanish for Grades 3-8 (Ages 8+) Welcome to Spanish for You!, your go-to resource for learning Spanish in a fun, engaging, and effective way! 🎥 Watch Spanish practice videos designed for kids in grades 3-8 🎶 Enjoy catchy learning songs that reinforce vocabulary and grammar 🎲 Dis...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2015-02-02T23:30:24Z",
+      "subscriberCount": "2320",
+      "videoCount": "154",
+      "viewCount": "477420",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 249,
+      "discoveredByQueries": [
+        "Spanish comprehensible input"
+      ],
+      "discoveredAt": "2026-08-13T10:36:34.544Z",
+      "refreshedAt": "2026-08-13T10:36:34.544Z",
+      "searchText": "spanish for you spanish for youcom spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCteQ9ub6N2Ij1CZkMWHxotA",
       "channelId": "UCteQ9ub6N2Ij1CZkMWHxotA",
       "youtubeInput": "@spanishgurus",
@@ -15942,6 +16222,34 @@
       "discoveredAt": "2026-07-27T15:11:04.329Z",
       "refreshedAt": "2026-07-27T15:11:04.329Z",
       "searchText": "spanish with hispanic horizons spanishwithhispanichorizons spanish youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCEYVzkHbLeSbGL6CwW46Iew",
+      "channelId": "UCEYVzkHbLeSbGL6CwW46Iew",
+      "youtubeInput": "@spanishwithjames",
+      "handle": "@spanishwithjames",
+      "name": "Spanish with James",
+      "thumbnailUrl": "https://yt3.ggpht.com/qSV-7TNQat9SxauD2wXOpUToC5kH-JwZ-5Maz5DQ8mGVpT1rMK_PcgQHUnUNq9zz5uthRoaW=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn and improve your Spanish vocabulary, phrases, grammar, pronunciation and work towards fluency with my free Spanish-learning videos for beginner Spanish students, intermediate Spanish and advanced Spanish. I started learning Spanish at 11 years old and was completely fluent by the time I was 20, but you can get...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-04-29T16:32:10.653154Z",
+      "subscriberCount": "14800",
+      "videoCount": "451",
+      "viewCount": "1479849",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 318,
+      "discoveredByQueries": [
+        "learn Spanish"
+      ],
+      "discoveredAt": "2026-08-13T10:36:34.544Z",
+      "refreshedAt": "2026-08-13T10:36:34.544Z",
+      "searchText": "spanish with james spanishwithjames spanish youtube discovery"
     },
     {
       "catalogId": "discovered-UCWQytAtUgm_NdsujRrnHGOQ",
@@ -17770,6 +18078,34 @@
       "discoveredAt": "2026-07-24T14:16:02.265Z",
       "refreshedAt": "2026-07-24T14:16:02.265Z",
       "searchText": "woodward spanish woodwardspanish spanish youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCG6nlrrWxuSd07gFaDxetSA",
+      "channelId": "UCG6nlrrWxuSd07gFaDxetSA",
+      "youtubeInput": "@wowspokenspanish",
+      "handle": "@wowspokenspanish",
+      "name": "WowSpoken Spanish",
+      "thumbnailUrl": "https://yt3.ggpht.com/HQSTLSvsqIMwG6-NrErj_WyLd_XnwLlPMax8BM3mSHoTayKmFeL22BIA1EqMerSfQaZphdd-iQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "¡Hola y bienvenido a WowSpoken Spanish! 🇪🇸✨ ¿Quieres aprender español de forma divertida, fácil y natural? ¡Estás en el lugar indicado! En WowSpoken Spanish, nos dedicamos a ayudarte a hablar español de verdad, tanto si estás empezando como si estás progresando hacia la fluidez. Esto es lo que encontrarás en el ca...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-04-01T13:04:16.123154Z",
+      "subscriberCount": "5110",
+      "videoCount": "650",
+      "viewCount": "294944",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 271,
+      "discoveredByQueries": [
+        "aprender español principiantes"
+      ],
+      "discoveredAt": "2026-08-13T10:36:34.544Z",
+      "refreshedAt": "2026-08-13T10:36:34.544Z",
+      "searchText": "wowspoken spanish wowspokenspanish spanish youtube discovery"
     },
     {
       "catalogId": "discovered-UCstP8x5cV3_fMvVFT_aQ-nA",
