@@ -68,6 +68,7 @@ test('local runtime config normalizes a valid ignored key into the generated sit
         + '  "studyGuidanceEnabled": false,\n'
         + '  "indexedDbBackupsEnabled": false,\n'
         + '  "indexedDbBackupCleanupEnabled": false,\n'
+        + '  "legacyProgressMigrationEnabled": false,\n'
         + '  "supabaseUrl": "",\n'
         + '  "supabasePublishableKey": ""\n'
         + '}\n'
@@ -91,6 +92,7 @@ test('local runtime config preserves dormant flags and forces compatibility mark
         + '  studyGuidanceEnabled: true,\n'
         + '  indexedDbBackupsEnabled: true,\n'
         + '  indexedDbBackupCleanupEnabled: true,\n'
+        + '  legacyProgressMigrationEnabled: true,\n'
         + "  supabaseUrl: ' https://project.supabase.co ',\n"
         + "  supabasePublishableKey: ' sb_publishable_test '\n"
         + '}\n'
@@ -109,12 +111,13 @@ test('local runtime config preserves dormant flags and forces compatibility mark
       studyGuidanceEnabled: true,
       indexedDbBackupsEnabled: true,
       indexedDbBackupCleanupEnabled: true,
+      legacyProgressMigrationEnabled: true,
       supabaseUrl: 'https://project.supabase.co',
       supabasePublishableKey: 'sb_publishable_test'
     })
     assert.match(
       await readFile(outputPath, 'utf8'),
-      /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true,\n  "accountFeaturesRollout": "internal",\n  "videoOrganizationEnabled": true,\n  "channelVideoFormatToggleEnabled": true,\n  "studyGuidanceEnabled": true,\n  "indexedDbBackupsEnabled": true,\n  "indexedDbBackupCleanupEnabled": true/
+      /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true,\n  "accountFeaturesRollout": "internal",\n  "videoOrganizationEnabled": true,\n  "channelVideoFormatToggleEnabled": true,\n  "studyGuidanceEnabled": true,\n  "indexedDbBackupsEnabled": true,\n  "indexedDbBackupCleanupEnabled": true,\n  "legacyProgressMigrationEnabled": true/
     )
   })
 })
@@ -141,6 +144,7 @@ test('local runtime config removes tracked Supabase placeholders', async () => {
       studyGuidanceEnabled: false,
       indexedDbBackupsEnabled: false,
       indexedDbBackupCleanupEnabled: false,
+      legacyProgressMigrationEnabled: false,
       supabaseUrl: '',
       supabasePublishableKey: ''
     })

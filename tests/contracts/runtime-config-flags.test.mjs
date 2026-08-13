@@ -38,6 +38,13 @@ test('runtime release flags reject ambiguous deployment values', () => {
     ),
     /EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED must be true or false/
   )
+  assert.throws(
+    () => parseRuntimeConfigFlag(
+      'enabled',
+      'EDENIA_LEGACY_PROGRESS_MIGRATION_ENABLED'
+    ),
+    /EDENIA_LEGACY_PROGRESS_MIGRATION_ENABLED must be true or false/
+  )
 })
 
 test('runtime rollout values default off and accept exact audience stages', () => {

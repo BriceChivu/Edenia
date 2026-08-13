@@ -7,7 +7,7 @@ export const LEGACY_PROGRESS_PRODUCTION_RETURN_URL =
 export const LEGACY_PROGRESS_LOCAL_HELPER_ORIGIN =
   'http://localhost:8002'
 export const LEGACY_PROGRESS_LOCAL_RETURN_URL =
-  'http://localhost:8000/'
+  'http://localhost:8000/?legacy_migration_test=1'
 
 const PUBLISHABLE_KEY_PATTERN = /^sb_publishable_[A-Za-z0-9_-]{8,}$/
 const CAPABILITY_PATTERN = /^[A-Za-z0-9_-]{43}$/

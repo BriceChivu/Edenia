@@ -18,7 +18,10 @@ function getFunctionSource(name, nextName) {
 }
 
 test('initialization resumes persisted starter work and defers competing integrations', () => {
-  const source = getFunctionSource('init', 'startLiveIntegrations')
+  const source = getFunctionSource(
+    'startApplicationFromLocalState',
+    'resumeApplicationAfterMigration'
+  )
   const starterIndex = source.indexOf('const starterFeedRequest = startPendingStarterFeedPreparation(state, {')
   const integrationsIndex = source.indexOf('startLiveIntegrations(state, {')
   assert.ok(starterIndex > source.indexOf('renderAll(state)'))

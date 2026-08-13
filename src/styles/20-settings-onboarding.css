@@ -2,6 +2,77 @@
 /* ═══════════════════════════════════════════════════════════
    SETTINGS PANEL
 ═══════════════════════════════════════════════════════════ */
+.legacy-progress-migration {
+  align-items: center;
+  background:
+    radial-gradient(circle, rgba(5,5,5,0.045) 1px, transparent 1.8px) 0 0 / 16px 16px,
+    linear-gradient(145deg, rgb(223,248,255), rgb(238,251,208));
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  overflow-y: auto;
+  padding: max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom));
+  position: fixed;
+  z-index: 340;
+}
+body[data-theme="dark"] .legacy-progress-migration {
+  background:
+    radial-gradient(circle, rgba(130,210,239,0.07) 1px, transparent 1.8px) 0 0 / 16px 16px,
+    linear-gradient(145deg, rgb(7,23,29), rgb(16,36,43));
+}
+.legacy-progress-migration-card {
+  background: var(--surface);
+  border: 3px solid var(--planet-black);
+  border-radius: 18px;
+  box-shadow: 0 7px 0 rgba(5,5,5,0.2), 0 18px 42px rgba(5,5,5,0.16);
+  display: grid;
+  gap: 16px;
+  margin: auto;
+  max-width: 620px;
+  padding: clamp(22px, 5vw, 38px);
+  width: min(620px, calc(100vw - 36px));
+}
+.legacy-progress-migration-brand {
+  color: var(--accent);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 2rem;
+  letter-spacing: 0.09em;
+  line-height: 1;
+  text-shadow: 1px 1px 0 var(--planet-black);
+}
+.legacy-progress-migration-card h1 {
+  color: var(--text);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: clamp(2rem, 7vw, 3rem);
+  font-weight: 400;
+  letter-spacing: 0.03em;
+  line-height: 1;
+}
+.legacy-progress-migration-card p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+.legacy-progress-migration-status {
+  font-size: 0.82rem;
+  font-weight: 700;
+  min-height: 1.3em;
+}
+.legacy-progress-migration-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.legacy-progress-migration-actions [data-legacy-progress-action="continue"] {
+  flex-basis: 100%;
+  text-align: right;
+}
+.legacy-progress-recovery-settings {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 .onboarding-panel {
   align-items: center;
   background:

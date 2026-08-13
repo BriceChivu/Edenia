@@ -47,6 +47,10 @@ const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
     process.env.EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED,
     'EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED'
   ),
+  legacyProgressMigrationEnabled: parseRuntimeConfigFlag(
+    process.env.EDENIA_LEGACY_PROGRESS_MIGRATION_ENABLED,
+    'EDENIA_LEGACY_PROGRESS_MIGRATION_ENABLED'
+  ),
   supabaseUrl,
   supabasePublishableKey
 }, null, 2)}\n`

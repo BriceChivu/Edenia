@@ -117,6 +117,7 @@ import {
   getFreePlusEnabled,
   getIndexedDbBackupCleanupEnabled,
   getIndexedDbBackupsEnabled,
+  getLegacyProgressMigrationEnabled,
   getPlusCheckoutEnabled,
   getStudyGuidanceEnabled,
   getSupabasePublishableKey,
@@ -125,6 +126,17 @@ import {
   hasSupabaseRuntimeConfig,
   hasYoutubeApiKey
 } from './integrations/runtime-config.js'
+import {
+  createLegacyProgressRelayClient,
+  deriveLegacyProgressCapabilityDigest,
+  deriveLegacyProgressRelayRuntime
+} from './integrations/legacy-progress-relay-client.js'
+import {
+  decryptProgressTransfer
+} from './state/legacy-progress-crypto.js'
+import {
+  createLegacyProgressMigrationController
+} from './state/legacy-progress-migration.js'
 import { createEdeniaSupabaseClient } from './integrations/supabase-client.js'
 import {
   ACCOUNT_AUTH_ERRORS,
@@ -418,6 +430,12 @@ import { bindSettingsResetConfirmActions } from './features/settings/reset-confi
 import { bindSettingsShellActions } from './features/settings/shell-actions.js'
 import { bindSettingsSyncActions } from './features/settings/sync-actions.js'
 import {
+  bindLegacyProgressRecoveryActions
+} from './features/settings/legacy-progress-recovery-actions.js'
+import {
+  createLegacyProgressMigrationView
+} from './features/migration/legacy-progress-view.js'
+import {
   bindStudyHistoryPeriodOptionActions
 } from './features/study-history/period-option-actions.js'
 import {
@@ -464,7 +482,8 @@ const {
   isSandbox: IS_SANDBOX,
   isInternalTest: IS_INTERNAL_TEST,
   isLocalhost: IS_LOCALHOST,
-  isLocalFeedbackTest: IS_LOCAL_FEEDBACK_TEST
+  isLocalFeedbackTest: IS_LOCAL_FEEDBACK_TEST,
+  isLegacyMigrationTest: IS_LEGACY_MIGRATION_TEST
 } = RUNTIME_ENVIRONMENT
 const STUDY_GUIDANCE_ENABLED = deriveStudyGuidanceEnabled(
   RUNTIME_ENVIRONMENT,
@@ -478,6 +497,8 @@ const LOCAL_BACKUPS_ENABLED = !IS_SANDBOX && !IS_INTERNAL_TEST
 const INDEXED_DB_BACKUPS_ENABLED = getIndexedDbBackupsEnabled()
 const INDEXED_DB_BACKUP_CLEANUP_ENABLED =
   INDEXED_DB_BACKUPS_ENABLED && getIndexedDbBackupCleanupEnabled()
+const LEGACY_PROGRESS_MIGRATION_ENABLED =
+  getLegacyProgressMigrationEnabled()
 const PLUS_ACCESS_CONFIG = Object.freeze({
   freePlusEnabled: getFreePlusEnabled(),
   plusCheckoutEnabled: getPlusCheckoutEnabled(),
@@ -506,6 +527,7 @@ const {
   youtubeChannelSearchCacheKey: YOUTUBE_CHANNEL_SEARCH_CACHE_KEY,
   youtubeChannelSearchUsageKey: YOUTUBE_CHANNEL_SEARCH_USAGE_KEY,
   stateBackupKey: STATE_BACKUP_KEY,
+  legacyProgressMigrationKey: LEGACY_PROGRESS_MIGRATION_KEY,
   accountAuthStorageKey: ACCOUNT_AUTH_STORAGE_KEY,
   plusEntitlementCacheKey: PLUS_ENTITLEMENT_CACHE_KEY,
   sandboxWalkthroughAfterResetKey: SANDBOX_WALKTHROUGH_AFTER_RESET_KEY,
@@ -514,6 +536,15 @@ const {
   isSandbox: IS_SANDBOX,
   isInternalTest: IS_INTERNAL_TEST
 })
+const LEGACY_PROGRESS_RELAY_RUNTIME = deriveLegacyProgressRelayRuntime({
+  isLegacyMigrationTest: IS_LEGACY_MIGRATION_TEST,
+  locationLike: window.location,
+  supabasePublishableKey: getSupabasePublishableKey(),
+  supabaseUrl: getSupabaseUrl()
+})
+const LEGACY_PROGRESS_HELPER_URL = IS_LEGACY_MIGRATION_TEST
+  ? 'http://localhost:8002/_legacy_migration_site/?legacy_migration_test=1'
+  : 'https://bricechivu.github.io/edenia-migrate/'
 const defaultState = createDefaultStateFactory({
   defaultChannels: DEFAULT_CHANNELS,
   defaultChannelsVersion: DEFAULT_CHANNELS_VERSION,
@@ -737,6 +768,88 @@ const {
   loadConfigCookie,
   createDefaultStateFromConfig
 })
+const legacyProgressMigrationView = createLegacyProgressMigrationView({
+  root: document,
+  translate: t
+})
+const legacyProgressRelayClient = LEGACY_PROGRESS_RELAY_RUNTIME.valid
+  ? createLegacyProgressRelayClient({
+      runtime: LEGACY_PROGRESS_RELAY_RUNTIME
+    })
+  : Object.freeze({
+      async claim() {
+        throw new Error('Legacy progress relay is unavailable')
+      },
+      async complete() {
+        throw new Error('Legacy progress relay is unavailable')
+      }
+    })
+let legacyProgressManualImportDone = null
+let applicationStarted = false
+let migrationStartupRunning = false
+
+function normalizeLegacyProgressState(value) {
+  const importedState = getImportedSyncState(value)
+  if (!importedState) return null
+  normalizeLoadedState(importedState)
+  return importedState
+}
+
+function decorateLegacyProgressState(state, context) {
+  normalizeActivityLogState(state)
+  const entryId = `legacy-migration-${context.stateSha256.slice(0, 16)}`
+  if (!state.activityLog.some(entry => entry.id === entryId)) {
+    state.activityLog.unshift({
+      id: entryId,
+      createdAt: context.createdAt,
+      actor: 'auto',
+      type: 'import',
+      status: 'success',
+      title: t('log.legacyProgress.title'),
+      detail: t('log.legacyProgress.detail')
+    })
+  }
+  normalizeActivityLogState(state)
+  syncStreak(state)
+  normalizeStateBeforeSave(state)
+}
+
+function takeLegacyProgressFragment() {
+  const value = window.EDENIA_LEGACY_PROGRESS_FRAGMENT
+  try { delete window.EDENIA_LEGACY_PROGRESS_FRAGMENT } catch {
+    window.EDENIA_LEGACY_PROGRESS_FRAGMENT = undefined
+  }
+  return typeof value === 'string' ? value : null
+}
+
+const legacyProgressMigrationController =
+  createLegacyProgressMigrationController({
+    automaticEnabled: LEGACY_PROGRESS_MIGRATION_ENABLED,
+    createVerifiedBackupFromState: createVerifiedStateBackupFromState,
+    decorateMigratedState: decorateLegacyProgressState,
+    decryptTransfer: value => decryptProgressTransfer(value, window.crypto),
+    deriveCapabilityDigest: value => (
+      deriveLegacyProgressCapabilityDigest(value, window.crypto)
+    ),
+    getBackupEntries: getStateBackupEntries,
+    helperUrl: LEGACY_PROGRESS_HELPER_URL,
+    markerKey: LEGACY_PROGRESS_MIGRATION_KEY,
+    navigate: url => window.location.replace(url),
+    normalizeImportedState: normalizeLegacyProgressState,
+    onManualImport(done) {
+      legacyProgressManualImportDone = done
+      document.getElementById('syncFileInput')?.click()
+    },
+    onResume: resumeApplicationAfterMigration,
+    prepareStateForHash: prepareStateForBackup,
+    primaryKey: STORAGE_KEY,
+    relayClient: legacyProgressRelayClient,
+    runtimeValid: LEGACY_PROGRESS_RELAY_RUNTIME.valid,
+    saveImportedState,
+    storage: localStorage,
+    takeFragment: takeLegacyProgressFragment,
+    view: legacyProgressMigrationView
+  })
 const YOUTUBE_CHANNEL_SEARCH_CACHE_TTL_MS = 24 * 60 * 60_000
 const YOUTUBE_CHANNEL_SEARCH_COOLDOWN_MS = 2500
 const YOUTUBE_CHANNEL_SEARCH_DAILY_LIMIT = 5
@@ -2218,27 +2331,10 @@ function initBackgroundPhysics() {
   }
 }
 
-function init() {
-  reportMissingI18nKeys()
-  applyPermanentChannelVideoFormatUi()
-  if (!stateBackupStorageReady) {
-    void stateBackupStorageInitialization.then(init)
-    return
-  }
-  if (backupRecoveryUnavailable) {
-    let primaryStateIsReadable = false
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      primaryStateIsReadable = Boolean(
-        raw && isValidStateShape(JSON.parse(raw))
-      )
-    } catch {}
-    if (!primaryStateIsReadable) {
-      applyLocale(loadConfigCookie()?.locale || getBrowserDefaultLocale())
-      showOnboardingRecovery('storage')
-      return
-    }
-  }
+function startApplicationFromLocalState() {
+  if (applicationStarted) return
+  applicationStarted = true
+  legacyProgressMigrationView.hide()
   let state = loadState()
   if (!state) {
     state = IS_SANDBOX ? createEmptySandboxState() : defaultState(4, DEFAULT_CHANNELS)
@@ -2297,6 +2393,56 @@ function init() {
   }
   showTrackedChannelDowngradeNotice(initialChannelTransition)
   updateDocumentTitle(state)
+  const migrationNotice = legacyProgressMigrationView.consumeNotice()
+  if (migrationNotice) {
+    const noticeKey = {
+      alreadyPresent: 'migration.notice.alreadyPresent',
+      conflict: 'migration.notice.conflict',
+      pending: 'migration.notice.pending',
+      recovered: 'migration.notice.recovered'
+    }[migrationNotice]
+    showToast(
+      t(noticeKey),
+      ['conflict', 'pending'].includes(migrationNotice) ? 'warn' : 'success',
+      { durationMs: 8_000 }
+    )
+  }
+}
+
+function resumeApplicationAfterMigration() {
+  legacyProgressManualImportDone = null
+  migrationStartupRunning = false
+  startApplicationFromLocalState()
+}
+
+async function init() {
+  reportMissingI18nKeys()
+  applyPermanentChannelVideoFormatUi()
+  if (!stateBackupStorageReady) {
+    void stateBackupStorageInitialization.then(init)
+    return
+  }
+  if (backupRecoveryUnavailable) {
+    let primaryStateIsReadable = false
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      primaryStateIsReadable = Boolean(
+        raw && isValidStateShape(JSON.parse(raw))
+      )
+    } catch {}
+    if (!primaryStateIsReadable) {
+      applyLocale(loadConfigCookie()?.locale || getBrowserDefaultLocale())
+      showOnboardingRecovery('storage')
+      return
+    }
+  }
+  if (migrationStartupRunning || applicationStarted) return
+  migrationStartupRunning = true
+  applyLocale(loadConfigCookie()?.locale || getBrowserDefaultLocale())
+  const result = await legacyProgressMigrationController
+    .runBeforeApplicationStart()
+  migrationStartupRunning = false
+  if (result.disposition === 'continue') startApplicationFromLocalState()
 }
 
 function startLiveIntegrations(
@@ -5648,6 +5794,14 @@ function importSyncFileFromInput(input) {
         return
       }
 
+      if (legacyProgressManualImportDone) {
+        const finishMigrationImport = legacyProgressManualImportDone
+        legacyProgressManualImportDone = null
+        finishMigrationImport()
+        showToast(t('toast.syncImported'))
+        return
+      }
+
       applyLocale(importedState.config.locale)
       updateDocumentTitle(importedState)
       applyTheme(importedState.config.theme)
@@ -5694,6 +5848,8 @@ function formatBackupReason(reason) {
     'before automatic cleanup': 'backups.reason.automaticCleanup',
     'before sandbox reset': 'backups.reason.sandboxReset',
     'before sync import': 'backups.reason.syncImport',
+    'legacy origin recovery': 'backups.reason.legacyRecovery',
+    'legacy origin conflict': 'backups.reason.legacyConflict',
     'before backup restore': 'backups.reason.backupRestore',
     'before reset': 'backups.reason.reset'
   }[String(reason || 'automatic backup')]
@@ -16845,6 +17001,14 @@ bindSettingsSyncActions(document, {
   exportFile: exportSyncFile,
   importFile: importSyncFileFromInput
 })
+bindLegacyProgressRecoveryActions(document, {
+  recover: () => legacyProgressMigrationController
+    .startRecoveryFromSettings()
+})
+document.getElementById('legacyProgressRecoverySettings')?.classList.toggle(
+  'hidden',
+  !LEGACY_PROGRESS_RELAY_RUNTIME.valid
+)
 bindSettingsPreferenceActions(document, {
   save: saveSettingsOnTheFly
 })

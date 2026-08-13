@@ -232,6 +232,7 @@ await writeFile(
     + '  "studyGuidanceEnabled": false,\n'
     + '  "indexedDbBackupsEnabled": false,\n'
     + '  "indexedDbBackupCleanupEnabled": false,\n'
+    + '  "legacyProgressMigrationEnabled": false,\n'
     + '  "supabaseUrl": "",\n'
     + '  "supabasePublishableKey": ""\n'
     + '}\n'

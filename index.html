@@ -6,6 +6,20 @@
   <meta name="description" content="Edenia turns YouTube study time and Anki activity into study history, daily progress, and a growing city.">
   <title>Edenia</title>
   <script>
+    (() => {
+      const match = window.location.hash.match(
+        /^#edenia-legacy-progress=(transfer\.[A-Za-z0-9_-]{43}|none|deferred)$/
+      );
+      if (!match) return;
+      window.EDENIA_LEGACY_PROGRESS_FRAGMENT = match[1];
+      window.history.replaceState(
+        window.history.state,
+        '',
+        window.location.pathname + window.location.search
+      );
+    })();
+  </script>
+  <script>
     const sandboxRequested = new URLSearchParams(window.location.search).has('sandbox');
     const localSandboxOrigin = window.location.origin === 'http://localhost:8001';
     if (sandboxRequested && !localSandboxOrigin) {
@@ -57,6 +71,21 @@
 <body>
 
   <canvas class="background-physics" id="backgroundPhysics" aria-hidden="true"></canvas>
+
+  <section class="legacy-progress-migration hidden" id="legacyProgressMigrationGate" role="dialog" aria-modal="true" aria-labelledby="legacyProgressMigrationTitle" aria-describedby="legacyProgressMigrationBody legacyProgressMigrationStatus">
+    <div class="legacy-progress-migration-card">
+      <span class="legacy-progress-migration-brand" aria-hidden="true">EDENIA</span>
+      <h1 id="legacyProgressMigrationTitle"></h1>
+      <p id="legacyProgressMigrationBody"></p>
+      <p class="legacy-progress-migration-status" id="legacyProgressMigrationStatus" role="status" aria-live="polite"></p>
+      <div class="legacy-progress-migration-actions">
+        <button class="btn-secondary" type="button" data-legacy-progress-action="retry" data-i18n="migration.action.retry" hidden>Try again</button>
+        <button class="btn-secondary" type="button" data-legacy-progress-action="manual" data-i18n="migration.action.manual" hidden>Import sync file</button>
+        <button class="btn-ghost" type="button" data-legacy-progress-action="continue" data-i18n="migration.action.continue" hidden>Continue without checking old progress</button>
+        <button class="btn-ghost" type="button" data-legacy-progress-action="cancel" data-i18n="migration.action.cancel" hidden>Cancel</button>
+      </div>
+    </div>
+  </section>
 
   <!-- ═══════════════════════════════════════════════════════ -->
   <!-- FIRST-RUN INTRO TRAILER                               -->
@@ -464,6 +493,10 @@ and momentum—at a glance</h2>
           <input class="hidden" type="file" id="syncFileInput" accept="application/json,.json" data-settings-sync-action="import-file">
         </div>
         <p class="settings-note" data-i18n="settings.sync.note">Progress is saved in this browser. Use sync files to copy the same progress to another device or browser.</p>
+        <div class="legacy-progress-recovery-settings hidden" id="legacyProgressRecoverySettings">
+          <button class="btn-secondary" type="button" data-settings-legacy-progress-recovery-action="recover" data-i18n="settings.legacyProgress.recover">Recover progress from the old Edenia address</button>
+          <p class="settings-note" data-i18n="settings.legacyProgress.note">Use this if you studied on Edenia before it moved to edenia.study.</p>
+        </div>
         <button class="btn-ghost btn-danger settings-reset-btn" data-settings-reset-confirm-action="show" data-analytics-action="settings.reset.open" data-i18n="settings.reset.open">Reset everything</button>
         <div id="resetConfirm" class="reset-confirm hidden">
           <p data-i18n="settings.reset.warning">This will clear this app's local watch history, streak, saved settings, and cached Anki stats. A rollback backup will be kept here. Your Anki collection will not be changed.</p>

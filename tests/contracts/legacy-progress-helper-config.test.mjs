@@ -40,7 +40,7 @@ test('production helper config derives exact fixed endpoints and return URL', ()
 test('helper runtime accepts only the exact localhost test location and constants', () => {
   const localConfig = {
     createTransferUrl: 'http://localhost:8002/functions/v1/create-legacy-progress-transfer',
-    returnUrl: 'http://localhost:8000/',
+    returnUrl: 'http://localhost:8000/?legacy_migration_test=1',
     supabasePublishableKey: 'sb_publishable_localtest',
     supabaseUrl: 'http://localhost:8002/'
   }

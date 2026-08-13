@@ -40,6 +40,10 @@ export function getIndexedDbBackupCleanupEnabled(target = window) {
   return publicConfig(target).indexedDbBackupCleanupEnabled === true
 }
 
+export function getLegacyProgressMigrationEnabled(target = window) {
+  return publicConfig(target).legacyProgressMigrationEnabled === true
+}
+
 export function getSupabaseUrl(target = window) {
   return String(publicConfig(target).supabaseUrl || '').trim()
 }

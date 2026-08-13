@@ -13,6 +13,7 @@ import { expect, test } from '../support/network-fixture.mjs'
 const HELPER_ORIGIN = 'http://localhost:8002'
 const HELPER_URL = `${HELPER_ORIGIN}/_legacy_migration_site/`
 const DESTINATION_ORIGIN = 'http://localhost:8000'
+const DESTINATION_URL = `${DESTINATION_ORIGIN}/?legacy_migration_test=1`
 const RELAY_URL = `${HELPER_ORIGIN}/functions/v1/create-legacy-progress-transfer`
 const STORAGE_PROJECT_NAMES = new Set([
   'desktop-standard',
@@ -20,7 +21,7 @@ const STORAGE_PROJECT_NAMES = new Set([
 ])
 const TEST_CONFIG = `window.EDENIA_LEGACY_MIGRATION_CONFIG = ${JSON.stringify({
   createTransferUrl: RELAY_URL,
-  returnUrl: `${DESTINATION_ORIGIN}/`,
+  returnUrl: DESTINATION_URL,
   supabasePublishableKey: 'sb_publishable_localtest',
   supabaseUrl: `${HELPER_ORIGIN}/`
 })}`
@@ -203,7 +204,7 @@ test('valid primary is encrypted before relay upload and old bytes stay unchange
 
   await page.goto(`${HELPER_URL}?legacy_migration_test=1`)
   await expect(page).toHaveURL(
-    new RegExp(`^${DESTINATION_ORIGIN}/#edenia-legacy-progress=transfer\.`)
+    new RegExp(`^${DESTINATION_ORIGIN}/\\?legacy_migration_test=1#edenia-legacy-progress=transfer\.`)
   )
   expect(requests).toHaveLength(1)
   const capability = capabilityFromUrl(page.url())
@@ -264,7 +265,7 @@ test('Cancel retains the disclosure window and returns deferred without a relay 
   await expect(cancel).toBeFocused()
   await cancel.press('Enter')
   await expect(page).toHaveURL(
-    `${DESTINATION_ORIGIN}/#edenia-legacy-progress=deferred`
+    `${DESTINATION_URL}#edenia-legacy-progress=deferred`
   )
   expect(relayCalls).toBe(0)
 })
@@ -283,7 +284,7 @@ test('no legacy state returns a conclusive none outcome without contacting the r
 
   await page.goto(`${HELPER_URL}?legacy_migration_test=1`)
   await expect(page).toHaveURL(
-    `${DESTINATION_ORIGIN}/#edenia-legacy-progress=none`
+    `${DESTINATION_URL}#edenia-legacy-progress=none`
   )
   expect(relayCalls).toBe(0)
 })
@@ -314,7 +315,7 @@ test('a corrupt primary uses the newest normal backup without changing either so
 
   await page.goto(`${HELPER_URL}?legacy_migration_test=1`)
   await expect(page).toHaveURL(
-    new RegExp(`^${DESTINATION_ORIGIN}/#edenia-legacy-progress=transfer\.`)
+    new RegExp(`^${DESTINATION_ORIGIN}/\\?legacy_migration_test=1#edenia-legacy-progress=transfer\.`)
   )
   const envelope = await decryptProgressTransfer({
     capability: capabilityFromUrl(page.url()),
@@ -390,7 +391,7 @@ test('fully corrupt sources produce a bounded recovery download and defer path',
     name: 'Return without completing the check'
   }).click()
   await expect(page).toHaveURL(
-    `${DESTINATION_ORIGIN}/#edenia-legacy-progress=deferred`
+    `${DESTINATION_URL}#edenia-legacy-progress=deferred`
   )
 })
 
@@ -455,7 +456,7 @@ test('a retryable relay failure keeps progress local and a later retry succeeds'
   expect(requests).toHaveLength(1)
   await retry.click()
   await expect(page).toHaveURL(
-    new RegExp(`^${DESTINATION_ORIGIN}/#edenia-legacy-progress=transfer\.`)
+    new RegExp(`^${DESTINATION_ORIGIN}/\\?legacy_migration_test=1#edenia-legacy-progress=transfer\.`)
   )
   expect(requests).toHaveLength(2)
   expect(requests[0].capability_digest).not.toBe(
