@@ -367,6 +367,99 @@ body.onboarding-active .toast { z-index: 320; }
   cursor: not-allowed;
   transform: none;
 }
+.onboarding-account-auth {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--accent) 6%, var(--surface)),
+    var(--surface) 42%
+  );
+  border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--border));
+  border-radius: 14px;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+.onboarding-account-google,
+.onboarding-account-email-button {
+  align-items: center;
+  display: inline-flex;
+  font-weight: 700;
+  justify-content: center;
+  min-height: 44px;
+  width: 100%;
+}
+.onboarding-account-google {
+  background: var(--planet-cyan);
+  gap: 9px;
+}
+.onboarding-account-google:hover {
+  background: color-mix(in srgb, var(--planet-cyan) 82%, var(--planet-white));
+}
+.onboarding-account-google-mark {
+  align-items: center;
+  background: #fff;
+  border-radius: 50%;
+  color: #4285f4;
+  display: inline-flex;
+  font-family: Arial, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 800;
+  height: 20px;
+  justify-content: center;
+  width: 20px;
+}
+.onboarding-account-divider {
+  align-items: center;
+  color: var(--muted);
+  display: grid;
+  font-size: 0.72rem;
+  gap: 10px;
+  grid-template-columns: 1fr auto 1fr;
+}
+.onboarding-account-divider::before,
+.onboarding-account-divider::after {
+  border-top: 1px solid var(--border);
+  content: '';
+}
+.onboarding-account-email-form {
+  display: grid;
+  gap: 8px;
+}
+.onboarding-account-email-form label {
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.onboarding-account-email-form input {
+  min-height: 44px;
+  width: 100%;
+}
+.onboarding-account-loading,
+.onboarding-account-identity,
+.onboarding-account-feedback {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  margin: 0;
+}
+.onboarding-account-identity {
+  display: grid;
+  gap: 3px;
+  text-align: center;
+}
+.onboarding-account-identity strong {
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.onboarding-account-feedback {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  border-radius: 10px;
+  padding: 9px 10px;
+}
+.onboarding-account-feedback[data-account-tone="error"] {
+  background: color-mix(in srgb, var(--error) 9%, transparent);
+  color: var(--error);
+}
 .onboarding-panel.is-recovery .onboarding-card { max-width: 620px; }
 .onboarding-recovery-actions { justify-content: flex-end; }
 .onboarding-recovery-status {

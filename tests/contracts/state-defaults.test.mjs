@@ -86,6 +86,7 @@ test('default state preserves the complete normal-mode schema and defaults', () 
     onboarding: {
       version: 2,
       introSeenAt: null,
+      accountStepReachedAt: null,
       setupCompleted: false,
       setupCompletedAt: null,
       walkthroughCompleted: false,

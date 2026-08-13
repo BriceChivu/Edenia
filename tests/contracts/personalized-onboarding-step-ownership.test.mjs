@@ -249,7 +249,7 @@ test('step callback retains every validation and directional transition', () => 
   const source = appSource.slice(start, end)
 
   const guards = [
-    /if \(!\['language', 'level', 'channels', 'other'\]\.includes\(step\)\) return/,
+    /const allowedSteps = \['language', 'level', 'channels', 'other'\]\s*if \(ACCOUNT_FEATURES_ENABLED\) allowedSteps\.push\('account'\)\s*if \(!allowedSteps\.includes\(step\)\) return/,
     /if \(step !== 'language' && !personalizedOnboardingState\.languageId\) return/,
     /if \(step === 'other' && personalizedOnboardingState\.languageId !== 'other'\) return/,
     /if \(\(step === 'level' \|\| step === 'channels'\) && personalizedOnboardingState\.languageId === 'other'\) return/,

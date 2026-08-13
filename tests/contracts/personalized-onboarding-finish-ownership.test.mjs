@@ -70,18 +70,32 @@ const channelsSource = getRenderSource(
   'renderOnboardingChannelsStep',
   'selectOnboardingLanguage'
 )
+const profileFinalStart = appSource.indexOf(
+  'function renderOnboardingProfileFinalAction() {'
+)
+const profileFinalEnd = appSource.indexOf(
+  '\nfunction renderOnboardingAccountStep(',
+  profileFinalStart
+)
+assert.notEqual(profileFinalStart, -1)
+assert.notEqual(profileFinalEnd, -1)
+const profileFinalSource = appSource.slice(profileFinalStart, profileFinalEnd)
+const accountSource = getRenderSource(
+  'renderOnboardingAccountStep',
+  'renderOnboardingLanguageStep'
+)
 
-test('Other and Channel Build controls retain exact module-owned markup', () => {
-  const finishControls = [
-    ...getElements(otherSource, 'button'),
-    ...getElements(channelsSource, 'button')
-  ].filter(element => (
+test('profile completion stays immediate when the Account gate is off', () => {
+  for (const source of [otherSource, channelsSource]) {
+    assert.match(source, /\$\{renderOnboardingProfileFinalAction\(\)\}/)
+  }
+  const finishControls = getElements(profileFinalSource, 'button').filter(element => (
     getAttribute(
       element.tag,
       'data-personalized-onboarding-action'
     ) === 'finish'
   ))
-  assert.equal(finishControls.length, 2)
+  assert.equal(finishControls.length, 1)
 
   for (const control of finishControls) {
     assert.equal(getAttribute(control.tag, 'type'), 'button')
@@ -108,6 +122,10 @@ test('Other and Channel Build controls retain exact module-owned markup', () => 
       "${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}"
     )
   }
+  assert.match(
+    profileFinalSource,
+    /if \(ACCOUNT_FEATURES_ENABLED\)[\s\S]*data-personalized-onboarding-step="account"/
+  )
 })
 
 test('finish ownership calls zero arguments and immediately ignores its Promise', () => {
@@ -224,12 +242,14 @@ test('enabled original button reaches generic analytics before immediate complet
 })
 
 test('busy replacement is disabled and displays Building before async work', () => {
-  for (const source of [otherSource, channelsSource]) {
-    assert.match(
-      source,
-      /data-personalized-onboarding-action="finish"[\s\S]*?\$\{personalizedOnboardingState\.isApplyingChannels \? 'disabled' : ''\}>\$\{escHtml\(t\(personalizedOnboardingState\.isApplyingChannels \? 'onboarding\.building' : 'onboarding\.build'\)\)\}/
-    )
-  }
+  assert.match(
+    profileFinalSource,
+    /data-personalized-onboarding-action="finish"[\s\S]*?\$\{personalizedOnboardingState\.isApplyingChannels \? 'disabled' : ''\}>\$\{escHtml\(t\(personalizedOnboardingState\.isApplyingChannels \? 'onboarding\.building' : 'onboarding\.build'\)\)\}/
+  )
+  assert.match(
+    accountSource,
+    /data-personalized-onboarding-action="finish"[\s\S]*?\$\{busy \? 'disabled' : ''\}/
+  )
   assert.doesNotMatch(
     moduleSource,
     /\.preventDefault\(|\.stopPropagation\(|queueMicrotask|setTimeout/

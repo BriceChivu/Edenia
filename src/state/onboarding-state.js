@@ -105,6 +105,9 @@ export function normalizeOnboardingState(state) {
   const normalized = {
     version: Number.isInteger(existing.version) ? existing.version : ONBOARDING_VERSION,
     introSeenAt: isValidTimestamp(existing.introSeenAt) ? existing.introSeenAt : setupCompletedAt,
+    accountStepReachedAt: !setupCompleted && isValidTimestamp(existing.accountStepReachedAt)
+      ? existing.accountStepReachedAt
+      : null,
     setupCompleted,
     setupCompletedAt,
     walkthroughCompleted,
