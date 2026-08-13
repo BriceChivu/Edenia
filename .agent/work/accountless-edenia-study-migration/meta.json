@@ -2,14 +2,9 @@
   "id": "accountless-edenia-study-migration",
   "title": "Accountless migration to www.edenia.study",
   "stage": "implementation",
-  "state": "blocked",
+  "state": "active",
   "created_at": "2026-08-13T12:32:04Z",
-  "updated_at": "2026-08-13T16:16:27Z",
-  "blocked_on": {
-    "kind": "approval",
-    "summary": "A verified source-only migration-history reconciliation must be published to PR #140 and pass new exact-head CI before any hosted relay action can be reviewed safely.",
-    "immediate_unblock": "Approve committing and pushing the local migration-history reconciliation to PR #140, followed by exact-head CI verification."
-  },
+  "updated_at": "2026-08-13T16:40:24Z",
   "review": {
     "pull_request": 140,
     "url": "https://github.com/BriceChivu/Edenia/pull/140",
@@ -17,9 +12,9 @@
     "base": "master",
     "head": "codex/accountless-domain-migration",
     "remote_check": "success",
-    "remote_head": "eb79c4d532b29a5465bb2079bf770417f331ab5d",
-    "run_url": "https://github.com/BriceChivu/Edenia/actions/runs/31717169010",
-    "repair_validation": "Exact-head CI passed; local migration-history reconciliation passed 24 source contracts, a fresh database bootstrap, 606 database assertions, and clean local advisors"
+    "remote_head": "4697bedafeade98ccad83af5d4099648ed1ae206",
+    "run_url": "https://github.com/BriceChivu/Edenia/actions/runs/31720118740",
+    "repair_validation": "Exact-head CI passed at 4697bed, including 606 database assertions and 215 browser passes with 503 intentional skips. The local follow-up passed fresh bootstrap, 1,057 contracts, 620 database assertions, clean advisors, and a fresh-review hardening pass; linked dry-run proposes only the disabled relay and one additive append-only grace-policy migration, with no hosted history repair."
   },
   "artifacts": {
     "decision": "decision.md",

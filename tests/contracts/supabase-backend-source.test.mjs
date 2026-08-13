@@ -157,26 +157,11 @@ test('billing hardening stays authenticated, environment-owned, and additive', a
   assert.match(webhookSource, /release_stripe_webhook_event/)
   assert.match(webhookSource, /readStripeWebhookConfig/)
 
-  const migrationFiles = (await readdir(migrationsRoot)).filter(file =>
+  const obsoleteBillingMigrations = (await readdir(migrationsRoot)).filter(file =>
     file.endsWith('_harden_stripe_billing_lifecycle.sql')
+      || file.endsWith('_add_subscription_cancellation_state.sql')
   )
-  assert.equal(migrationFiles.length, 1)
-  const migration = await readFile(
-    new URL(migrationFiles[0], migrationsRoot),
-    'utf8'
-  )
-  assert.match(migration, /create table public\.stripe_webhook_events/)
-  assert.match(migration, /create table public\.billing_rate_limit_buckets/)
-  assert.match(migration, /security definer\nset search_path = ''/)
-  assert.match(
-    migration,
-    /set past_due_since = coalesce\(past_due_since, updated_at, now\(\)\)/
-  )
-  assert.match(migration, /subscriptions\.past_due_since > now\(\) - interval '7 days'/)
-  assert.match(
-    migration,
-    /revoke all on table public\.stripe_webhook_events from public, anon, authenticated/
-  )
+  assert.deepEqual(obsoleteBillingMigrations, [])
 
   const rateLimitRepairMigrations = (await readdir(migrationsRoot)).filter(file =>
     file.endsWith('_ensure_account_export_rate_limit.sql')
@@ -228,17 +213,33 @@ test('billing hardening stays authenticated, environment-owned, and additive', a
     /add column if not exists cancel_at_period_end boolean not null default false/
   )
 
-  const cancellationMigrations = (await readdir(migrationsRoot)).filter(file =>
-    file.endsWith('_add_subscription_cancellation_state.sql')
+  const backupGraceMigrations = (await readdir(migrationsRoot)).filter(file =>
+    file.endsWith('_reconcile_plus_backup_grace_policies.sql')
   )
-  assert.equal(cancellationMigrations.length, 1)
-  const cancellationMigration = await readFile(
-    new URL(cancellationMigrations[0], migrationsRoot),
+  assert.equal(backupGraceMigrations.length, 1)
+  const backupGraceMigration = await readFile(
+    new URL(backupGraceMigrations[0], migrationsRoot),
     'utf8'
   )
   assert.match(
-    cancellationMigration,
-    /add column cancel_at_period_end boolean not null default false/
+    backupGraceMigration,
+    /set past_due_since = coalesce\(past_due_since, updated_at, now\(\)\)/
+  )
+  assert.match(
+    backupGraceMigration,
+    /subscriptions\.past_due_since > now\(\) - interval '7 days'/
+  )
+  assert.match(
+    backupGraceMigration,
+    /drop policy if exists "Plus users can update their own state backup"/
+  )
+  assert.match(
+    backupGraceMigration,
+    /revoke update on table public\.state_backups from public, anon, authenticated/
+  )
+  assert.doesNotMatch(
+    backupGraceMigration,
+    /create policy "Plus users can update their own state backup"/
   )
 })
 
