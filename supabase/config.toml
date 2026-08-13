@@ -78,15 +78,16 @@ entrypoint = "./functions/export-account-data/index.ts"
 
 [functions.create-legacy-progress-transfer]
 enabled = true
-# The browser publishable key reaches a handler whose exact-origin policy and
-# disabled database acceptance switch provide the application boundary.
+# The server wrapper validates the named browser publishable key before the
+# handler's exact-origin policy and disabled database acceptance switch.
 verify_jwt = false
 import_map = "./functions/create-legacy-progress-transfer/deno.json"
 entrypoint = "./functions/create-legacy-progress-transfer/index.ts"
 
 [functions.consume-legacy-progress-transfer]
 enabled = true
-# A random fragment-only capability authorizes one claim and completion. The
+# The server wrapper validates the named browser publishable key. A random
+# fragment-only capability then authorizes one claim and completion; the
 # database consumption switch starts disabled independently of acceptance.
 verify_jwt = false
 import_map = "./functions/consume-legacy-progress-transfer/deno.json"

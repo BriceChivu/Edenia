@@ -25,6 +25,7 @@ The current application makes this difficult because startup, import normalizati
 - [x] (2026-08-13 14:10Z) Added the default-off canonical startup gate, pre-analytics fragment escrow, exact relay consumer, verified backup-before-authority transaction, one-claim retry state, durable completion/defer markers, five-locale recovery UI, and independent Settings recovery. `npm test` passed 1,048 contracts, 129 shared backend tests, and every Deno check; eight Chromium/WebKit full round trips passed for restore, no-state onboarding, switch-off, and conflict backup with byte-identical destination primary. The helper and app remain unpublished and the runtime flag remains false by default.
 - [x] (2026-08-13 14:42Z) Updated domain-dependent source surfaces to exact `https://www.edenia.study` policy while keeping authentication optional: PostHog, account returns/CORS, reminder URLs/CORS, live billing root validation, YouTube/Anki guidance, and the approval-gated Pages/DNS/provider checklist. Added a fail-closed enabled-runtime assertion, canonical startup recovery when relay config is missing, and an executable exact-origin helper CSP regression. `npm test` passed 1,057 contracts, 131 shared backend tests, and every Deno check; the stable Chromium/WebKit migration matrix passed 10/10. No provider or public setting changed.
 - [x] (2026-08-13 15:03Z) Completed the local final review and composite release evidence. On the fixed pre-review source snapshot, `CI=1 npm run test:ci` passed the build, 1,057 contracts, 131 shared backend tests, every Deno check, and 717 of 718 serial browser cases; its sole persistent failure was an unchanged stale feedback test that expected both sides of a localhost analytics bypass. The test now uses the same loopback server through `localhost.` so the bypass is intentionally off, and the corrected case passed 1/1. The earlier migration matrix passed 10/10 in Chromium/WebKit, the dummy production helper CSP build was exact, diff/secret/log review was clean, and generated artifacts were restored to inert defaults. No live or real-device claim is made.
+- [x] (2026-08-13 15:09Z) Completed a no-write launch-readiness audit. The old Pages app still returned `200`; the Edenia Pages site was a built public Actions deployment with no custom domain; the domain-verification TXT record was absent; the apex and `www` still resolved to Namecheap parking; and the helper URL returned `404` because no `edenia-migrate` repository exists. The linked `Edenia Plus` Supabase project was active and its exact URL plus active `sb_publishable_` key matched the GitHub Pages variables, while the relay migration and both relay functions were absent and the public migration variable was absent. Current Supabase guidance also exposed a local gap: `verify_jwt = false` does not validate a publishable API key. Both entrypoints now require `auth: 'publishable:default'` through the existing server wrapper; three focused contracts and both frozen Deno checks passed. No GitHub, DNS, Supabase, helper, provider, or public runtime state changed.
 - [ ] With explicit approval, publish and verify the helper and relay while disabled, configure the domain and provider allowlists, run a backed-up canary, then enable automatic migration.
 - [ ] Maintain the operational evidence needed for the five-month minimum and rolling 90-day quiet-period retirement rule; retirement itself remains a separately approved future action.
 
@@ -73,7 +74,7 @@ The current application makes this difficult because startup, import normalizati
   Evidence: Every migration gate, helper, Settings recovery, backup reason, status, and failure message must add keys to all five locale modules and keep `getMissingI18nKeys()` empty.
 
 - Observation: Current hosted Supabase publishable keys are meant to be sent in the `apikey` header; copying the same new publishable key into `Authorization: Bearer` can trigger legacy JWT parsing and fail before the Edge Function runs.
-  Evidence: The helper relay client sends an exact `apikey` plus JSON content type, explicitly omits `Authorization`, and has a contract test for that request shape. Production configuration accepts only the current `sb_publishable_` key family.
+  Evidence: The helper relay client sends an exact `apikey` plus JSON content type, explicitly omits `Authorization`, and has a contract test for that request shape. Production configuration accepts only the current `sb_publishable_` key family. Because the platform does not validate that key when `verify_jwt = false`, the two relay entrypoints additionally use `@supabase/server` with `auth: 'publishable:default'`; a syntactically valid key from another project no longer reaches the handler.
 
 - Observation: A valid empty normal local-backup array is conclusive evidence of no local backup, not corrupt evidence.
   Evidence: The helper tests exposed the distinction while exercising the no-state path. `selectPortableProgressCandidate()` now treats the exact valid `[]` representation as `none`, while malformed or non-array backup data remains corrupt.
@@ -418,6 +419,22 @@ Required launch evidence should eventually be summarized here with secrets redac
     relay created/claimed/completed/cleanup observations without identifiers
     DNS, TLS, redirect, subpath, callback, analytics, and API-referrer checks
     browser/device matrix and explicitly unverified cells
+
+Read-only launch audit at 2026-08-13 15:09Z:
+
+    GitHub Pages: built public Actions deployment; cname=null; old URL HTTP 200
+    Domain ownership TXT: absent
+    edenia.study apex: Namecheap parking A record, not GitHub Pages
+    www.edenia.study: Namecheap parking CNAME, not bricechivu.github.io
+    Canonical HTTPS: not yet available for www or apex
+    Helper repository: absent; helper URL HTTP 404
+    Supabase project: Edenia Plus ACTIVE_HEALTHY in ap-northeast-1
+    Supabase Pages variables: exact project URL and active named publishable key match
+    Public migration variable: absent, therefore disabled
+    Relay database migration: absent from hosted migration history
+    Relay Edge Functions: both absent from hosted function list
+    Supabase advisors: relay-specific hosted findings unavailable until deployment;
+      existing unrelated project findings remain to be reviewed separately
     approval timestamps for each live action
 
 Do not paste state documents, capabilities, ciphertext, service keys, publishable-key values, emails, IP addresses, or provider secrets into this plan.

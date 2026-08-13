@@ -15,6 +15,14 @@ const handler = await readFile(new URL(
   'supabase/functions/_shared/legacy-progress-transfer.ts',
   projectRoot
 ), 'utf8')
+const createEntrypoint = await readFile(new URL(
+  'supabase/functions/create-legacy-progress-transfer/index.ts',
+  projectRoot
+), 'utf8')
+const consumeEntrypoint = await readFile(new URL(
+  'supabase/functions/consume-legacy-progress-transfer/index.ts',
+  projectRoot
+), 'utf8')
 const config = await readFile(new URL('supabase/config.toml', projectRoot), 'utf8')
 const workflow = await readFile(new URL('.github/workflows/ci.yml', projectRoot), 'utf8')
 
@@ -57,6 +65,10 @@ test('relay HTTP surface uses exact origin, wire, and logging policy', () => {
   assert.match(handler, /'Referrer-Policy': 'no-referrer'/)
   assert.doesNotMatch(handler, /Access-Control-Allow-Origin['"]?:\s*['"]\*/)
   assert.doesNotMatch(handler, /console\.|request\.text\(\)/)
+  assert.match(createEntrypoint, /auth: 'publishable:default', cors: false/)
+  assert.match(consumeEntrypoint, /auth: 'publishable:default', cors: false/)
+  assert.doesNotMatch(createEntrypoint, /auth: 'none'/)
+  assert.doesNotMatch(consumeEntrypoint, /auth: 'none'/)
   assert.match(config, /\[functions\.create-legacy-progress-transfer\][\s\S]*?verify_jwt = false/)
   assert.match(config, /\[functions\.consume-legacy-progress-transfer\][\s\S]*?verify_jwt = false/)
 })

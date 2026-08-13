@@ -8,7 +8,7 @@ import type {
 } from '../_shared/legacy-progress-transfer.ts'
 
 Deno.serve(withSupabase(
-  { auth: 'none', cors: false },
+  { auth: 'publishable:default', cors: false },
   async (request, context) => {
     try {
       return await handleLegacyProgressTransferRequest(
