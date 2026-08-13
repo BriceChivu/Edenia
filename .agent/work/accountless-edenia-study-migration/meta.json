@@ -1,0 +1,13 @@
+{
+  "id": "accountless-edenia-study-migration",
+  "title": "Accountless migration to www.edenia.study",
+  "stage": "implementation",
+  "state": "active",
+  "created_at": "2026-08-13T12:32:04Z",
+  "updated_at": "2026-08-13T12:59:32Z",
+  "artifacts": {
+    "decision": "decision.md",
+    "execplan": "execplan.md",
+    "goal": "goal.txt"
+  }
+}
