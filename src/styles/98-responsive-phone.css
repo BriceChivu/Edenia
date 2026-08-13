@@ -784,12 +784,10 @@
     height: 22px;
     width: 22px;
   }
-  .settings-shorts-group .step-hint,
-  .settings-anki-group .step-hint {
+  .settings-shorts-group .step-hint {
     margin: 0;
   }
-  .settings-shorts-group,
-  .settings-anki-group {
+  .settings-shorts-group {
     gap: 0;
   }
   .settings-howto-group + .settings-actions { margin-top: -6px; }
