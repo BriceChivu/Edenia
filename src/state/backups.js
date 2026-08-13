@@ -85,11 +85,16 @@ export function createStateBackupStore({
     }
   }
 
-  function createStateBackup(reason = 'automatic backup', options = {}) {
-    const { force = false, returnExisting = false } = options
-    const state = getStoredStateForBackup()
-    if (!state) return null
-
+  function writePreparedStateBackup(
+    reason,
+    state,
+    {
+      force = false,
+      returnExisting = false,
+      dedupeAll = false,
+      dedupeReason = false
+    } = {}
+  ) {
     const entries = getStateBackupEntries()
     const latest = entries[0]
     const currentDate = now()
@@ -106,11 +111,15 @@ export function createStateBackupStore({
       return null
     }
 
+    let existing = null
     try {
-      if (latest && JSON.stringify(latest.state) === JSON.stringify(state)) {
-        return returnExisting ? latest : null
-      }
+      existing = (dedupeAll ? entries : entries.slice(0, 1))
+        .find(entry => (
+          JSON.stringify(entry.state) === JSON.stringify(state)
+          && (!dedupeReason || entry.reason === reason)
+        ))
     } catch {}
+    if (existing) return returnExisting ? existing : null
 
     const entry = {
       id: `${currentDate.getTime().toString(36)}-${random().toString(36).slice(2, 8)}`,
@@ -127,6 +136,24 @@ export function createStateBackupStore({
       : null
   }
 
+  function createStateBackup(reason = 'automatic backup', options = {}) {
+    const state = getStoredStateForBackup()
+    if (!state) return null
+    return writePreparedStateBackup(reason, state, options)
+  }
+
+  function createStateBackupFromState(reason, sourceState, options = {}) {
+    const state = prepareStateForBackup(sourceState)
+    if (!state) return null
+    return writePreparedStateBackup(reason, state, {
+      ...options,
+      force: true,
+      returnExisting: true,
+      dedupeAll: true,
+      dedupeReason: true
+    })
+  }
+
   function getLatestBackupState() {
     const entry = getStateBackupEntries()[0]
     return entry ? prepareStateForBackup(entry.state) : null
@@ -134,6 +161,7 @@ export function createStateBackupStore({
 
   return {
     createStateBackup,
+    createStateBackupFromState,
     getLatestBackupState,
     getStateBackupEntries,
     getStoredStateForBackup,

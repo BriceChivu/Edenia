@@ -128,6 +128,44 @@ function openBackupDatabase(indexedDb, databaseName) {
   })
 }
 
+function openExistingBackupDatabase(indexedDb, databaseName) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDb.open(
+      databaseName,
+      STATE_BACKUP_DATABASE_VERSION
+    )
+    let missing = false
+    request.addEventListener('upgradeneeded', event => {
+      if (event.oldVersion === 0) {
+        missing = true
+        request.transaction?.abort()
+      }
+    })
+    request.addEventListener('success', () => {
+      const database = request.result
+      if (missing) {
+        database.close()
+        resolve(null)
+        return
+      }
+      database.addEventListener('versionchange', () => database.close())
+      resolve(database)
+    }, { once: true })
+    request.addEventListener('blocked', () => reject(
+      new Error('IndexedDB backup database open was blocked')
+    ), { once: true })
+    request.addEventListener('error', () => {
+      if (missing && request.error?.name === 'AbortError') {
+        resolve(null)
+        return
+      }
+      reject(request.error || new Error(
+        'Could not open the existing IndexedDB backup database'
+      ))
+    }, { once: true })
+  })
+}
+
 async function readBackupEntries(database) {
   const transaction = database.transaction(BACKUP_STORE_NAME, 'readonly')
   const request = transaction.objectStore(BACKUP_STORE_NAME).getAll()
@@ -136,6 +174,45 @@ async function readBackupEntries(database) {
     transactionComplete(transaction)
   ])
   return Array.isArray(entries) ? entries : []
+}
+
+export async function readIndexedDbBackupEntries({
+  databaseName = STATE_BACKUP_DATABASE_NAME,
+  indexedDb = globalThis.indexedDB,
+  isValidEntry
+} = {}) {
+  if (!indexedDb || typeof indexedDb.open !== 'function') {
+    throw new TypeError('IndexedDB backup reader requires IndexedDB')
+  }
+  if (typeof isValidEntry !== 'function') {
+    throw new TypeError('IndexedDB backup reader requires an entry validator')
+  }
+
+  let database
+  try {
+    database = await openExistingBackupDatabase(indexedDb, databaseName)
+    if (!database) return { exists: false, entries: [], error: null }
+    if (!database.objectStoreNames.contains(BACKUP_STORE_NAME)) {
+      return {
+        exists: true,
+        entries: [],
+        error: new Error('IndexedDB backup store is missing')
+      }
+    }
+    const entries = await readBackupEntries(database)
+    if (!entries.every(isValidEntry)) {
+      return {
+        exists: true,
+        entries: [],
+        error: new Error('IndexedDB contains an invalid state backup')
+      }
+    }
+    return { exists: true, entries: cloneJson(entries), error: null }
+  } catch (error) {
+    return { exists: Boolean(database), entries: [], error }
+  } finally {
+    database?.close()
+  }
 }
 
 async function replaceBackupEntries(database, entries) {

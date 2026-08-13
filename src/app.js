@@ -196,6 +196,7 @@ import {
   isValidStateShape,
   sanitizeConfigForStorage
 } from './state/persistence-contract.js'
+import { createImportedStateReader } from './state/imported-state.js'
 import {
   normalizeUndoState,
   UNDO_ACTION_TYPES,
@@ -521,6 +522,10 @@ const defaultState = createDefaultStateFactory({
   isDefaultChannelId,
   getBrowserDefaultLocale
 })
+const readImportedState = createImportedStateReader({
+  createDefaultState: defaultState,
+  removeLegacyVideoWatchReminderState
+})
 const NORMAL_STATE_BACKUP_KEY = deriveStorageKeys({
   isSandbox: false,
   isInternalTest: false
@@ -538,6 +543,7 @@ const stateBackupStoreOptions = {
 function createDisabledStateBackupStore() {
   return {
     createStateBackup: () => null,
+    createStateBackupFromState: () => null,
     getLatestBackupState: () => null,
     getStateBackupEntries: () => [],
     pruneOldestStateBackup: () => false
@@ -561,6 +567,10 @@ let stateBackupStorageInitialization = null
 
 function createStateBackup(...args) {
   return stateBackupStore.createStateBackup(...args)
+}
+
+function createStateBackupFromState(...args) {
+  return stateBackupStore.createStateBackupFromState(...args)
 }
 
 function getLatestBackupState(...args) {
@@ -680,6 +690,28 @@ async function createVerifiedStateBackup(reason, options = {}) {
   ))
   if (!verified) {
     console.error('Edenia could not verify a rollback backup.', result.error)
+    return null
+  }
+  if (indexedDbBackupStorageActive) {
+    try { localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1') } catch {}
+  }
+  return entry
+}
+
+async function createVerifiedStateBackupFromState(
+  reason,
+  state,
+  options = {}
+) {
+  const entry = createStateBackupFromState(reason, state, options)
+  if (!entry) return null
+  const result = await flushStateBackupWrites()
+  const verified = result.persisted && result.entries.some(candidate => (
+    candidate.id === entry.id
+    && JSON.stringify(candidate) === JSON.stringify(entry)
+  ))
+  if (!verified) {
+    console.error('Edenia could not verify an imported recovery backup.')
     return null
   }
   if (indexedDbBackupStorageActive) {
@@ -5944,30 +5976,7 @@ async function restoreStateBackup(id) {
 }
 
 function getImportedSyncState(payload) {
-  const state = payload?.app === 'edenia' ? payload.state : payload
-  if (!state || typeof state !== 'object') return null
-  if (!state.config || typeof state.config !== 'object') return null
-  if (!state.videos || typeof state.videos !== 'object' || Array.isArray(state.videos)) return null
-  if (!state.anki || typeof state.anki !== 'object' || Array.isArray(state.anki)) return null
-
-  const baseState = defaultState(
-    state.config.weeklyGoalHours || 4,
-    state.config.channels,
-    state.config.theme,
-    state.config.removedDefaultChannelIds,
-    state.config.locale
-  )
-
-  const importedState = {
-    ...baseState,
-    ...state,
-    config: {
-      ...baseState.config,
-      ...state.config
-    }
-  }
-  removeLegacyVideoWatchReminderState(importedState)
-  return importedState
+  return readImportedState(payload)
 }
 
 function toggleTheme() {
