@@ -289,6 +289,7 @@ and momentum—at a glance</h2>
         </div>
       </div>
 
+      <div class="settings-navigation-group">
       <section class="settings-group settings-accordion settings-account hidden open" id="accountSettings" aria-labelledby="accountSettingsTitle">
         <button type="button" class="settings-accordion-toggle settings-account-toggle" data-analytics-action="settings.account.title" aria-expanded="true" aria-controls="accountSettingsContent">
           <span id="accountSettingsTitle" data-i18n="settings.account.title">Account</span>
@@ -302,14 +303,14 @@ and momentum—at a glance</h2>
               <h3 data-i18n="settings.account.signedOutTitle">Sign in to Edenia</h3>
               <p data-i18n="settings.account.signedOutBody">Use Google for the quickest sign-in, or get a secure link by email.</p>
             </div>
-            <button class="btn-primary settings-account-google" id="accountGoogleBtn" type="button" data-account-action="google">
-              <span class="settings-account-google-mark" aria-hidden="true">G</span>
+            <button class="btn-primary account-auth-google settings-account-google" id="accountGoogleBtn" type="button" data-account-action="google">
+              <span class="account-auth-google-mark" aria-hidden="true">G</span>
               <span data-i18n="settings.account.google">Continue with Google</span>
             </button>
             <div class="settings-account-divider"><span data-i18n="settings.account.emailFallback">Or use email</span></div>
             <form class="settings-account-email-form" data-account-action="email-form" novalidate>
               <label for="accountEmail" data-i18n="settings.account.emailLabel">Email address</label>
-              <input id="accountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-i18n-placeholder="settings.account.emailPlaceholder" placeholder="you@example.com">
+              <input class="account-auth-email-input" id="accountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-i18n-placeholder="settings.account.emailPlaceholder" placeholder="you@example.com">
               <button class="btn-secondary" id="accountEmailBtn" type="submit" data-i18n="settings.account.sendLink">Email me a sign-in link</button>
             </form>
           </div>
@@ -423,7 +424,6 @@ and momentum—at a glance</h2>
         </div>
       </div>
 
-      <div class="settings-actions">
         <div class="settings-accordion activity-log-panel">
           <button type="button" class="settings-accordion-toggle activity-log-toggle" data-analytics-action="settings.activity.title" aria-expanded="false" aria-controls="activityLogContent">
             <span data-i18n="settings.activity.title">Activity log</span>
@@ -450,8 +450,14 @@ and momentum—at a glance</h2>
             <p class="settings-note" data-i18n="settings.backups.note">Local backups can recover from a bad import, reset, or app save. Export a sync file for protection outside this browser.</p>
           </div>
         </div>
+      </div>
+
+      <div class="settings-replay-group">
         <button class="btn-secondary walkthrough-replay-btn" type="button" data-settings-replay-action="walkthrough" data-analytics-action="settings.walkthroughAgain" data-i18n="settings.walkthroughAgain">Show walkthrough again</button>
         <button class="btn-secondary walkthrough-replay-btn" type="button" data-settings-replay-action="trailer" data-analytics-action="settings.trailerAgain" data-i18n="settings.trailerAgain">Show trailer again</button>
+      </div>
+
+      <div class="settings-data-group">
         <div class="sync-actions">
         <button class="btn-secondary" type="button" data-settings-sync-action="export" data-analytics-action="settings.sync.export" data-i18n="settings.sync.export">Export sync file</button>
         <button class="btn-secondary" type="button" data-settings-sync-action="choose-file" data-analytics-action="settings.sync.import" data-i18n="settings.sync.import">Import sync file</button>

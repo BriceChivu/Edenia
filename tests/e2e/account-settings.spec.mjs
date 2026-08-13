@@ -138,8 +138,10 @@ test('internal Account settings are localized and responsive without exposing pu
       'aria-expanded',
       'true'
     )
-    await expect(account.getByRole('button', { name: googleLabel })).toBeEnabled()
-    await expect(page.locator('#accountEmail')).toHaveCSS('border-radius', '12px')
+    const googleButton = account.getByRole('button', { name: googleLabel })
+    await expect(googleButton).toBeEnabled()
+    await expect(googleButton).toHaveCSS('background-image', /linear-gradient/)
+    await expect(page.locator('#accountEmail')).toHaveCSS('border-radius', '10px')
     await expect(page.locator('.settings-account-reminders')).toBeHidden()
     await expect(page.locator('#accountExportBtn')).toHaveCount(0)
     await expect(page.locator('#plusAccountSettings')).toHaveCount(0)
@@ -153,6 +155,26 @@ test('internal Account settings are localized and responsive without exposing pu
     }))
     expect(geometry.accountWidth).toBeLessThanOrEqual(geometry.accountClientWidth)
     expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth)
+
+    const spacing = await settings.evaluate(element => {
+      const rect = selector => element.querySelector(selector).getBoundingClientRect()
+      const gap = (first, second) => rect(second).top - rect(first).bottom
+      return {
+        accountToHowTo: gap('#accountSettings', '.settings-howto-group'),
+        howToToActivity: gap('.settings-howto-group', '.activity-log-panel'),
+        activityToReplay: gap('.activity-log-panel', '.settings-replay-group'),
+        replayButtons: gap(
+          '.settings-replay-group .walkthrough-replay-btn:first-child',
+          '.settings-replay-group .walkthrough-replay-btn:last-child'
+        ),
+        replayToData: gap('.settings-replay-group', '.settings-data-group')
+      }
+    })
+    expect(spacing.accountToHowTo).toBe(10)
+    expect(spacing.howToToActivity).toBe(10)
+    expect(spacing.replayButtons).toBe(10)
+    expect(spacing.activityToReplay).toBeGreaterThan(spacing.howToToActivity)
+    expect(spacing.replayToData).toBeGreaterThan(spacing.replayButtons)
   }
 })
 

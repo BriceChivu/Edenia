@@ -92,6 +92,8 @@ test('gated Account onboarding supports email sign-in and responsive completion'
 
   const googleButton = panel.getByRole('button', { name: 'Continue with Google' })
   const emailButton = panel.getByRole('button', { name: 'Email me a sign-in link' })
+  const emailInput = page.locator('#onboardingAccountEmail')
+  const skipButton = panel.getByRole('button', { name: 'Skip for now' })
   await expect(googleButton).toBeEnabled()
   await expect(emailButton).toBeEnabled()
   await expect(googleButton).toHaveClass(/\bbtn-primary\b/)
@@ -101,7 +103,7 @@ test('gated Account onboarding supports email sign-in and responsive completion'
     googleButton.evaluate(element => {
       const style = getComputedStyle(element)
       return {
-        backgroundColor: style.backgroundColor,
+        backgroundImage: style.backgroundImage,
         borderRadius: style.borderRadius,
         borderWidth: style.borderWidth
       }
@@ -115,11 +117,14 @@ test('gated Account onboarding supports email sign-in and responsive completion'
       }
     })
   ])
-  expect(googleAppearance.backgroundColor).toBe('rgb(18, 188, 234)')
-  expect(googleAppearance.backgroundColor).not.toBe(emailAppearance.backgroundColor)
+  expect(googleAppearance.backgroundImage).toContain('linear-gradient')
+  expect(googleAppearance.backgroundImage).toContain('rgb(18, 188, 234)')
+  expect(googleAppearance.backgroundImage).toContain('rgb(201, 239, 104)')
   expect(googleAppearance.borderRadius).toBe(emailAppearance.borderRadius)
   expect(googleAppearance.borderWidth).toBe('2px')
   expect(emailAppearance.borderWidth).toBe('2px')
+  await expect(emailInput).toHaveCSS('border-radius', '10px')
+  await expect(skipButton).toHaveCSS('border-color', 'rgba(0, 0, 0, 0)')
 
   const geometry = await panel.evaluate(element => ({
     panelWidth: element.scrollWidth,
@@ -130,7 +135,7 @@ test('gated Account onboarding supports email sign-in and responsive completion'
   expect(geometry.panelWidth).toBeLessThanOrEqual(geometry.panelClientWidth)
   expect(geometry.documentWidth).toBeLessThanOrEqual(geometry.viewportWidth)
 
-  await page.locator('#onboardingAccountEmail').fill('LEARNER@EXAMPLE.COM')
+  await emailInput.fill('LEARNER@EXAMPLE.COM')
   await emailButton.click()
   await expect.poll(() => otpRequests.length).toBe(1)
   expect(otpRequests[0]).toMatchObject({
@@ -141,7 +146,7 @@ test('gated Account onboarding supports email sign-in and responsive completion'
     'Check your email for the secure sign-in link.'
   )).toBeVisible()
 
-  await panel.getByRole('button', { name: 'Skip for now' }).click()
+  await skipButton.click()
   await expect(panel).toBeHidden()
   const completion = await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem('edenia_v1_internal_test'))

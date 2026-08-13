@@ -44,7 +44,7 @@ test('Account onboarding reuses auth methods and preserves an OAuth draft', () =
 test('Account onboarding keeps the requested button hierarchy and omits local-progress copy', () => {
   assert.match(
     appSource,
-    /class="btn-primary onboarding-account-google"/
+    /class="btn-primary account-auth-google onboarding-account-google"/
   )
   assert.match(
     appSource,
@@ -56,7 +56,9 @@ test('Account onboarding keeps the requested button hierarchy and omits local-pr
   )
   assert.match(
     styleSource,
-    /\.onboarding-account-google \{[\s\S]*background: var\(--planet-cyan\);/
+    /\.account-auth-google \{[\s\S]*background: linear-gradient\(90deg, var\(--planet-cyan\), var\(--planet-lime\)\);/
   )
+  assert.match(appSource, /class="account-auth-email-input" id="onboardingAccountEmail"/)
+  assert.match(appSource, /btn-ghost onboarding-account-skip/)
   assert.doesNotMatch(styleSource, /onboarding-account-local-note/)
 })

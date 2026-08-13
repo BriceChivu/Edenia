@@ -379,7 +379,7 @@ body.onboarding-active .toast { z-index: 320; }
   gap: 12px;
   padding: 16px;
 }
-.onboarding-account-google,
+.account-auth-google,
 .onboarding-account-email-button {
   align-items: center;
   display: inline-flex;
@@ -388,14 +388,19 @@ body.onboarding-active .toast { z-index: 320; }
   min-height: 44px;
   width: 100%;
 }
-.onboarding-account-google {
-  background: var(--planet-cyan);
+.account-auth-google {
+  background: linear-gradient(90deg, var(--planet-cyan), var(--planet-lime));
+  color: var(--planet-black);
   gap: 9px;
 }
-.onboarding-account-google:hover {
-  background: color-mix(in srgb, var(--planet-cyan) 82%, var(--planet-white));
+.account-auth-google:hover {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--planet-cyan) 82%, var(--planet-white)),
+    color-mix(in srgb, var(--planet-lime) 82%, var(--planet-white))
+  );
 }
-.onboarding-account-google-mark {
+.account-auth-google-mark {
   align-items: center;
   background: #fff;
   border-radius: 50%;
@@ -430,9 +435,37 @@ body.onboarding-active .toast { z-index: 320; }
   font-size: 0.85rem;
   font-weight: 700;
 }
+.account-auth-email-input {
+  background: var(--planet-white);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  min-width: 0;
+  outline: none;
+  padding: 7px 9px;
+  transition: border-color var(--motion-base) var(--ease-standard);
+}
+.account-auth-email-input:focus {
+  border-color: var(--accent);
+}
 .onboarding-account-email-form input {
   min-height: 44px;
   width: 100%;
+}
+.onboarding-account-skip {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.onboarding-account-skip:hover {
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent);
+  text-decoration: underline;
+}
+.onboarding-account-skip:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 .onboarding-account-loading,
 .onboarding-account-identity,
@@ -556,22 +589,8 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
 .settings-account-google {
   align-items: center;
   display: inline-flex;
-  gap: 9px;
   justify-content: center;
   width: 100%;
-}
-.settings-account-google-mark {
-  align-items: center;
-  background: #fff;
-  border-radius: 50%;
-  color: #4285f4;
-  display: inline-flex;
-  font-family: Arial, sans-serif;
-  font-size: 0.78rem;
-  font-weight: 800;
-  height: 20px;
-  justify-content: center;
-  width: 20px;
 }
 .settings-account-divider {
   align-items: center;
@@ -591,8 +610,7 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   gap: 8px;
 }
 .settings-account-email-form input {
-  border-radius: 12px;
-  min-height: 42px;
+  min-height: 44px;
 }
 .settings-account-identity {
   display: grid;
@@ -962,13 +980,32 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   flex-wrap: wrap;
 }
 .add-channel-row input { flex: 1; min-width: 100px; }
-.settings-actions { display: flex; gap: 10px; flex-direction: column; }
+.settings-navigation-group,
+.settings-replay-group,
+.settings-data-group {
+  display: contents;
+}
+.settings-panel.account-features-enabled .settings-navigation-group,
+.settings-panel.account-features-enabled .settings-replay-group,
+.settings-panel.account-features-enabled .settings-data-group {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.settings-panel:not(.account-features-enabled) :is(
+  .activity-log-panel,
+  .backup-panel,
+  .walkthrough-replay-btn,
+  .sync-actions,
+  .settings-data-group > .settings-note,
+  .settings-reset-btn,
+  .reset-confirm
+) {
+  margin-top: -14px;
+}
 .settings-creator {
   align-self: center;
   margin-top: auto;
-}
-.settings-howto-group + .settings-actions {
-  margin-top: -14px;
 }
 .sync-actions {
   display: grid;
