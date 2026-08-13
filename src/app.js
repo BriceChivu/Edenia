@@ -749,6 +749,7 @@ let supabaseClient = null
 let accountAuthController = null
 let accountExportController = null
 let accountStudySnapshotController = null
+let accountSettingsWasSignedIn = false
 const accountAnalyticsIdentity = createAccountAnalyticsIdentity({
   identify: identifyEdeniaAuthenticatedUser,
   reset: resetEdeniaAuthenticatedUser
@@ -4707,6 +4708,10 @@ function renderAccountSettings(state = accountAuthViewState) {
   const loading = sessionState === ACCOUNT_SESSION_STATES.LOADING
   const unavailable = sessionState === ACCOUNT_SESSION_STATES.UNAVAILABLE
   const authBusy = Boolean(state?.busyAction)
+  if (signedIn !== accountSettingsWasSignedIn) {
+    accountSettingsWasSignedIn = signedIn
+    setSettingsAccountOpen(!signedIn)
+  }
   group.setAttribute('aria-busy', String(loading || authBusy))
   document.getElementById('accountLoading')?.classList.toggle('hidden', !loading)
   document.getElementById('accountSignedOut')?.classList.toggle(
@@ -5160,6 +5165,9 @@ function openSettings() {
   mobileActivityLogVisibleCount = 20
   renderActivityLog(s)
   setSettingsHowToOpen(false)
+  setSettingsAccountOpen(
+    accountAuthViewState.sessionState !== ACCOUNT_SESSION_STATES.SIGNED_IN
+  )
   setSettingsActivityLogOpen(false)
   setSettingsBackupsOpen(false)
   closeLocaleMenu()
@@ -5194,6 +5202,16 @@ function setSettingsAccordionOpen(contentId, toggleSelector, groupSelector, isOp
 
 function setSettingsHowToOpen(isOpen) {
   setSettingsAccordionOpen('settingsHowToContent', '.settings-howto-toggle', '.settings-howto-group', isOpen)
+}
+
+function setSettingsAccountOpen(isOpen) {
+  setSettingsAccordionOpen('accountSettingsContent', '.settings-account-toggle', '.settings-account', isOpen)
+}
+
+function toggleSettingsAccount() {
+  const content = document.getElementById('accountSettingsContent')
+  if (!content) return
+  setSettingsAccountOpen(content.hidden)
 }
 
 function toggleSettingsHowTo() {
@@ -16595,6 +16613,7 @@ bindStudyInsightLockedAccessActions(document, {
   requestAccess: requestStudyInsightAccess
 })
 bindSettingsAccordionActions(document, {
+  toggleAccount: toggleSettingsAccount,
   toggleHowTo: toggleSettingsHowTo,
   toggleActivityLog: toggleSettingsActivityLog,
   toggleBackups: toggleSettingsBackups

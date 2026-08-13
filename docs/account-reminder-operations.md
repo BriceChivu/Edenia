@@ -76,7 +76,7 @@ after the test.
 3. Open **Settings**, then **Account**.
 4. Select **Continue with Google** and use an approved Google OAuth test user.
 5. Confirm the Settings section shows the signed-in account.
-6. Confirm **Daily streak reminder** and **Discover channels** are both on for a
+6. Confirm **Daily streak reminder** and **Discover new channels** are both on for a
    first-time account. Turn each switch off and on once; each change should save
    without a separate Save button. There must be no day, time, frequency, or
    account-download control.

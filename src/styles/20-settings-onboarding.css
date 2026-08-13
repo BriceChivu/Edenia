@@ -425,7 +425,6 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   background: var(--surface);
 }
 .settings-account {
-  padding: 16px;
   border: 1px solid color-mix(in srgb, var(--accent) 32%, var(--border));
   border-radius: calc(var(--radius) - 2px);
   background: linear-gradient(
@@ -434,7 +433,6 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
     var(--surface) 42%
   );
 }
-.settings-account-header h2,
 .settings-account-intro h3,
 .settings-account-export h3,
 .settings-account-plus h3,
@@ -443,7 +441,6 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   font-family: var(--font-body);
   line-height: 1.3;
 }
-.settings-account-header h2 { font-size: 1.05rem; }
 .settings-account-intro h3,
 .settings-account-export h3,
 .settings-account-plus h3,

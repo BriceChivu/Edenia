@@ -127,7 +127,7 @@ export const FR_LOCALIZED = {
     'settings.account.remindersTitle': 'Rappels d’étude',
     'settings.account.emailsTitle': 'E-mails',
     'settings.account.streakReminders': 'Rappel quotidien de série',
-    'settings.account.discoveryEmails': 'Découvrir des chaînes',
+    'settings.account.discoveryEmails': 'Découvrir de nouvelles chaînes',
     'settings.account.remindersDescription': 'Choisissez quand vous souhaitez étudier. Vous devez être connecté pour activer cette préférence.',
     'settings.account.remindersEnabled': 'Activer cette préférence de rappel',
     'settings.account.remindersDays': 'Jours d’étude',

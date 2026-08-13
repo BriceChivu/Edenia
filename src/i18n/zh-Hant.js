@@ -127,7 +127,7 @@ export const ZH_HANT_LOCALIZED = {
     'settings.account.remindersTitle': '學習提醒',
     'settings.account.emailsTitle': '電子郵件',
     'settings.account.streakReminders': '每日連續學習提醒',
-    'settings.account.discoveryEmails': '探索頻道',
+    'settings.account.discoveryEmails': '探索新頻道',
     'settings.account.remindersDescription': '選擇你想學習的時間。你必須登入才能啟用此偏好設定。',
     'settings.account.remindersEnabled': '啟用此提醒偏好設定',
     'settings.account.remindersDays': '學習日',

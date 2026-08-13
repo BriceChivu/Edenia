@@ -126,7 +126,7 @@ export const EN_CORE = {
   'settings.account.remindersTitle': 'Study reminders',
   'settings.account.emailsTitle': 'Emails',
   'settings.account.streakReminders': 'Daily streak reminder',
-  'settings.account.discoveryEmails': 'Discover channels',
+  'settings.account.discoveryEmails': 'Discover new channels',
   'settings.account.remindersDescription': 'Choose when you would like to study. You must be signed in to activate this preference.',
   'settings.account.remindersEnabled': 'Activate this reminder preference',
   'settings.account.remindersDays': 'Study days',
