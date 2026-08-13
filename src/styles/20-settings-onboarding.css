@@ -497,7 +497,10 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   display: grid;
   gap: 8px;
 }
-.settings-account-email-form input { min-height: 42px; }
+.settings-account-email-form input {
+  border-radius: 12px;
+  min-height: 42px;
+}
 .settings-account-identity {
   display: grid;
   gap: 2px;
