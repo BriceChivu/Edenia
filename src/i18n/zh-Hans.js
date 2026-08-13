@@ -127,7 +127,7 @@ export const ZH_HANS_LOCALIZED = {
     'settings.account.remindersTitle': '学习提醒',
     'settings.account.emailsTitle': '电子邮件',
     'settings.account.streakReminders': '每日连续学习提醒',
-    'settings.account.discoveryEmails': '发现频道',
+    'settings.account.discoveryEmails': '发现新频道',
     'settings.account.remindersDescription': '选择你想学习的时间。你必须登录才能启用此偏好设置。',
     'settings.account.remindersEnabled': '启用此提醒偏好设置',
     'settings.account.remindersDays': '学习日',

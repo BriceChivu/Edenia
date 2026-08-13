@@ -127,7 +127,7 @@ export const ES_LOCALIZED = {
     'settings.account.remindersTitle': 'Recordatorios de estudio',
     'settings.account.emailsTitle': 'Correos',
     'settings.account.streakReminders': 'Recordatorio diario de racha',
-    'settings.account.discoveryEmails': 'Descubrir canales',
+    'settings.account.discoveryEmails': 'Descubrir nuevos canales',
     'settings.account.remindersDescription': 'Elige cuándo quieres estudiar. Debes iniciar sesión para activar esta preferencia.',
     'settings.account.remindersEnabled': 'Activar esta preferencia de recordatorio',
     'settings.account.remindersDays': 'Días de estudio',

@@ -207,6 +207,7 @@ test('first signed-in load enables both email types and each toggle saves automa
   await accountToggle.click()
   await expect(accountToggle).toHaveAttribute('aria-expanded', 'true')
   await expect(page.locator('#accountSignedIn')).toBeVisible()
+  await expect(page.getByText('Discover new channels', { exact: true })).toBeVisible()
   const buttonAppearance = locator => locator.evaluate(element => {
     const styles = getComputedStyle(element)
     return {

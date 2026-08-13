@@ -25,11 +25,11 @@ import {
 } from '../../src/i18n/runtime.js'
 
 const EXPECTED_DICTIONARY_HASHES = {
-  en: '623bea59645d3da4943d73c83124ee6c12cc34e79502a9689ad60cd5913c5281',
-  'zh-Hant': 'f8b4e1caf947673b07b4a65b0ddb230e06e9c40dbd3aefa2b7ee7df3f3fbb019',
-  'zh-Hans': '1b7945c573a2be8857798b800675fbd1f48890277c4408733cf84f903aa07704',
-  es: '11ebb72fafa3c4d153d5accd2a6bb8480dc378c0c4055f5806962493e7d838ef',
-  fr: 'ebdfedb87dbd9cb2bdd7372a42433ecc7c96f69f6ae1bd40643aac8a750aad24'
+  en: 'e92e93f075edcc10e5340e1e2c4c5c1920cb02fced4268c2b367990c2790edd8',
+  'zh-Hant': 'b95cb74b13355d704f586971ca6cd9778d03f120701864f434b496eb34a0bdc1',
+  'zh-Hans': 'e5c6fc53f3a3a2c63fbbeba9bc30c7669a1d1d3e4899de9d534485d9bcbaddc0',
+  es: '1adb4f617cc225be84dcf4161776d9447ac0b9379f83f90171ba50a5fba82194',
+  fr: 'b82f95c2218ff9c9b98ab12b3dfce6c096fd5d3e66e149ea866c0c8679bae0f7'
 }
 
 const EXPECTED_KEY_ORDER_HASHES = {
@@ -165,6 +165,20 @@ test('compact relative-time copy stays explicit across every locale', () => {
 
   for (const locale of SUPPORTED_LOCALES) {
     assert.deepEqual(keys.map(key => I18N[locale][key]), expected[locale])
+  }
+})
+
+test('channel discovery email copy stays explicit across every locale', () => {
+  const expected = {
+    en: 'Discover new channels',
+    es: 'Descubrir nuevos canales',
+    fr: 'Découvrir de nouvelles chaînes',
+    'zh-Hans': '发现新频道',
+    'zh-Hant': '探索新頻道'
+  }
+
+  for (const locale of SUPPORTED_LOCALES) {
+    assert.equal(I18N[locale]['settings.account.discoveryEmails'], expected[locale])
   }
 })
 
