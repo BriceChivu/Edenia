@@ -7,7 +7,15 @@ const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8'
 test('Settings contains one generic internal Account surface', () => {
   assert.match(
     html,
-    /class="settings-group settings-account hidden" id="accountSettings"[^>]*aria-labelledby="accountSettingsTitle"/
+    /class="settings-group settings-accordion settings-account hidden open" id="accountSettings"[^>]*aria-labelledby="accountSettingsTitle"/
+  )
+  assert.match(
+    html,
+    /class="settings-accordion-toggle settings-account-toggle"[^>]*aria-expanded="true"[^>]*aria-controls="accountSettingsContent"/
+  )
+  assert.match(
+    html,
+    /class="settings-accordion-content settings-account-content" id="accountSettingsContent"/
   )
   assert.match(html, /data-account-action="google"/)
   assert.match(html, /data-account-action="email-form"/)
@@ -15,7 +23,10 @@ test('Settings contains one generic internal Account surface', () => {
     html,
     /id="accountEmail"[^>]*type="email"[^>]*autocomplete="email"/
   )
-  assert.match(html, /data-account-action="sign-out"/)
+  assert.match(
+    html,
+    /class="btn-secondary settings-account-sign-out"[^>]*data-account-action="sign-out"/
+  )
   assert.match(html, /data-reminder-action="form"/)
   assert.match(
     html,

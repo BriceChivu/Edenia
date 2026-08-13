@@ -289,60 +289,60 @@ and momentum—at a glance</h2>
         </div>
       </div>
 
-      <section class="settings-group settings-account hidden" id="accountSettings" aria-labelledby="accountSettingsTitle">
-        <div class="settings-account-header">
-          <div>
-            <h2 id="accountSettingsTitle" data-i18n="settings.account.title">Account</h2>
-          </div>
-        </div>
+      <section class="settings-group settings-accordion settings-account hidden open" id="accountSettings" aria-labelledby="accountSettingsTitle">
+        <button type="button" class="settings-accordion-toggle settings-account-toggle" data-analytics-action="settings.account.title" aria-expanded="true" aria-controls="accountSettingsContent">
+          <span id="accountSettingsTitle" data-i18n="settings.account.title">Account</span>
+          <span class="settings-accordion-caret" aria-hidden="true"></span>
+        </button>
+        <div class="settings-accordion-content settings-account-content" id="accountSettingsContent">
+          <p class="settings-account-loading" id="accountLoading" role="status" aria-live="polite" data-i18n="settings.account.status.loading">Checking your account…</p>
 
-        <p class="settings-account-loading" id="accountLoading" role="status" aria-live="polite" data-i18n="settings.account.status.loading">Checking your account…</p>
-
-        <div class="settings-account-signed-out hidden" id="accountSignedOut">
-          <div class="settings-account-intro">
-            <h3 data-i18n="settings.account.signedOutTitle">Sign in to Edenia</h3>
-            <p data-i18n="settings.account.signedOutBody">Use Google for the quickest sign-in, or get a secure link by email.</p>
-          </div>
-          <button class="btn-primary settings-account-google" id="accountGoogleBtn" type="button" data-account-action="google">
-            <span class="settings-account-google-mark" aria-hidden="true">G</span>
-            <span data-i18n="settings.account.google">Continue with Google</span>
-          </button>
-          <div class="settings-account-divider"><span data-i18n="settings.account.emailFallback">Or use email</span></div>
-          <form class="settings-account-email-form" data-account-action="email-form" novalidate>
-            <label for="accountEmail" data-i18n="settings.account.emailLabel">Email address</label>
-            <input id="accountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-i18n-placeholder="settings.account.emailPlaceholder" placeholder="you@example.com">
-            <button class="btn-secondary" id="accountEmailBtn" type="submit" data-i18n="settings.account.sendLink">Email me a sign-in link</button>
-          </form>
-        </div>
-
-        <div class="settings-account-signed-in hidden" id="accountSignedIn">
-          <div class="settings-account-identity">
-            <span data-i18n="settings.account.signedInAs">Signed in as</span>
-            <strong id="accountUserEmail"></strong>
-          </div>
-
-          <section class="settings-account-reminders" aria-labelledby="accountEmailsTitle">
-            <h3 id="accountEmailsTitle" data-i18n="settings.account.emailsTitle">Emails</h3>
-            <div class="settings-reminder-form" data-reminder-action="form">
-              <fieldset id="reminderPreferenceFields" aria-labelledby="accountEmailsTitle" disabled>
-                <label class="settings-check" for="streakRemindersEnabled">
-                  <input id="streakRemindersEnabled" type="checkbox">
-                  <span data-i18n="settings.account.streakReminders">Daily streak reminder</span>
-                </label>
-                <label class="settings-check" for="discoveryEmailsEnabled">
-                  <input id="discoveryEmailsEnabled" type="checkbox">
-                  <span data-i18n="settings.account.discoveryEmails">Discover channels</span>
-                </label>
-              </fieldset>
-              <p class="settings-reminder-feedback hidden" id="reminderFeedback" role="status" aria-live="polite"></p>
-              <button class="btn-secondary hidden" id="reminderRetryBtn" type="button" data-reminder-action="retry" data-i18n="settings.account.remindersRetry">Try loading again</button>
+          <div class="settings-account-signed-out hidden" id="accountSignedOut">
+            <div class="settings-account-intro">
+              <h3 data-i18n="settings.account.signedOutTitle">Sign in to Edenia</h3>
+              <p data-i18n="settings.account.signedOutBody">Use Google for the quickest sign-in, or get a secure link by email.</p>
             </div>
-          </section>
+            <button class="btn-primary settings-account-google" id="accountGoogleBtn" type="button" data-account-action="google">
+              <span class="settings-account-google-mark" aria-hidden="true">G</span>
+              <span data-i18n="settings.account.google">Continue with Google</span>
+            </button>
+            <div class="settings-account-divider"><span data-i18n="settings.account.emailFallback">Or use email</span></div>
+            <form class="settings-account-email-form" data-account-action="email-form" novalidate>
+              <label for="accountEmail" data-i18n="settings.account.emailLabel">Email address</label>
+              <input id="accountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-i18n-placeholder="settings.account.emailPlaceholder" placeholder="you@example.com">
+              <button class="btn-secondary" id="accountEmailBtn" type="submit" data-i18n="settings.account.sendLink">Email me a sign-in link</button>
+            </form>
+          </div>
 
-          <button class="btn-ghost settings-account-sign-out" id="accountSignOutBtn" type="button" data-account-action="sign-out" data-i18n="settings.account.signOut">Sign out</button>
+          <div class="settings-account-signed-in hidden" id="accountSignedIn">
+            <div class="settings-account-identity">
+              <span data-i18n="settings.account.signedInAs">Signed in as</span>
+              <strong id="accountUserEmail"></strong>
+            </div>
+
+            <section class="settings-account-reminders" aria-labelledby="accountEmailsTitle">
+              <h3 id="accountEmailsTitle" data-i18n="settings.account.emailsTitle">Emails</h3>
+              <div class="settings-reminder-form" data-reminder-action="form">
+                <fieldset id="reminderPreferenceFields" aria-labelledby="accountEmailsTitle" disabled>
+                  <label class="settings-check" for="streakRemindersEnabled">
+                    <input id="streakRemindersEnabled" type="checkbox">
+                    <span data-i18n="settings.account.streakReminders">Daily streak reminder</span>
+                  </label>
+                  <label class="settings-check" for="discoveryEmailsEnabled">
+                    <input id="discoveryEmailsEnabled" type="checkbox">
+                    <span data-i18n="settings.account.discoveryEmails">Discover channels</span>
+                  </label>
+                </fieldset>
+                <p class="settings-reminder-feedback hidden" id="reminderFeedback" role="status" aria-live="polite"></p>
+                <button class="btn-secondary hidden" id="reminderRetryBtn" type="button" data-reminder-action="retry" data-i18n="settings.account.remindersRetry">Try loading again</button>
+              </div>
+            </section>
+
+            <button class="btn-secondary settings-account-sign-out" id="accountSignOutBtn" type="button" data-account-action="sign-out" data-i18n="settings.account.signOut">Sign out</button>
+          </div>
+
+          <p class="settings-account-feedback hidden" id="accountFeedback" role="status" aria-live="polite"></p>
         </div>
-
-        <p class="settings-account-feedback hidden" id="accountFeedback" role="status" aria-live="polite"></p>
       </section>
 
       <div class="settings-group settings-shorts-group">

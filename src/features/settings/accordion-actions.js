@@ -6,6 +6,7 @@ export function bindSettingsAccordionActions(root, actions) {
   }
   if (
     !actions
+    || typeof actions.toggleAccount !== 'function'
     || typeof actions.toggleHowTo !== 'function'
     || typeof actions.toggleActivityLog !== 'function'
     || typeof actions.toggleBackups !== 'function'
@@ -14,6 +15,7 @@ export function bindSettingsAccordionActions(root, actions) {
   }
 
   const bindings = [
+    ['.settings-account-toggle', actions.toggleAccount],
     ['.settings-howto-toggle', actions.toggleHowTo],
     ['.activity-log-toggle', actions.toggleActivityLog],
     ['.backup-toggle', actions.toggleBackups]

@@ -134,7 +134,10 @@ test('internal Account settings are localized and responsive without exposing pu
     const account = page.locator('#accountSettings')
     await expect(settings).toBeVisible()
     await expect(account).toBeVisible()
-    await expect(account.getByRole('heading', { name: title })).toBeVisible()
+    await expect(account.getByRole('button', { name: title })).toHaveAttribute(
+      'aria-expanded',
+      'true'
+    )
     await expect(account.getByRole('button', { name: googleLabel })).toBeEnabled()
     await expect(page.locator('.settings-account-reminders')).toBeHidden()
     await expect(page.locator('#accountExportBtn')).toHaveCount(0)
@@ -155,7 +158,7 @@ test('internal Account settings are localized and responsive without exposing pu
 test('first signed-in load enables both email types and each toggle saves automatically', async ({
   page
 }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-standard')
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   const savedRows = []
   let storedPreference = null
   await seedAuthenticatedSession(page)
@@ -198,7 +201,26 @@ test('first signed-in load enables both email types and each toggle saves automa
   await seedReadyState(page, 'en')
   await page.goto('/?internal_test=1&account=1')
 
+  const accountToggle = page.locator('.settings-account-toggle')
+  await expect(accountToggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.locator('#accountSettingsContent')).toBeHidden()
+  await accountToggle.click()
+  await expect(accountToggle).toHaveAttribute('aria-expanded', 'true')
   await expect(page.locator('#accountSignedIn')).toBeVisible()
+  const buttonAppearance = locator => locator.evaluate(element => {
+    const styles = getComputedStyle(element)
+    return {
+      backgroundColor: styles.backgroundColor,
+      borderColor: styles.borderColor,
+      borderRadius: styles.borderRadius,
+      color: styles.color
+    }
+  })
+  const [signOutAppearance, walkthroughAppearance] = await Promise.all([
+    buttonAppearance(page.locator('#accountSignOutBtn')),
+    buttonAppearance(page.locator('[data-settings-replay-action="walkthrough"]'))
+  ])
+  expect(signOutAppearance).toEqual(walkthroughAppearance)
   await expect.poll(() => savedRows.length).toBe(1)
   await expect(page.locator('#reminderPreferenceFields')).toBeEnabled()
   await expect(page.locator('#streakRemindersEnabled')).toBeChecked()
@@ -298,11 +320,20 @@ test('shared-browser account switching clears the previous cloud view only', asy
   await page.goto('/?internal_test=1&account=1')
 
   const localProgressBefore = await readLocalStudyEvidence(page)
+  await expect(page.locator('.settings-account-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'false'
+  )
+  await page.locator('.settings-account-toggle').click()
   await expect(page.locator('#accountUserEmail')).toHaveText('internal@example.com')
   await expect(page.locator('#streakRemindersEnabled')).toBeChecked()
   await expect(page.locator('#discoveryEmailsEnabled')).not.toBeChecked()
 
   await page.locator('#accountSignOutBtn').click()
+  await expect(page.locator('.settings-account-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'true'
+  )
   await expect(page.locator('#accountSignedOut')).toBeVisible()
   await expect(page.locator('.settings-account-reminders')).toBeHidden()
   await expect.poll(() => readLocalStudyEvidence(page)).toEqual(localProgressBefore)
@@ -319,6 +350,11 @@ test('shared-browser account switching clears the previous cloud view only', asy
   await page.reload()
 
   await page.locator('[data-settings-shell-action="open"]').click()
+  await expect(page.locator('.settings-account-toggle')).toHaveAttribute(
+    'aria-expanded',
+    'false'
+  )
+  await page.locator('.settings-account-toggle').click()
   await expect(page.locator('#accountSignedIn')).toBeVisible()
   await expect(page.locator('#accountUserEmail')).toHaveText('second@example.com')
   await expect(page.locator('#streakRemindersEnabled')).not.toBeChecked()
