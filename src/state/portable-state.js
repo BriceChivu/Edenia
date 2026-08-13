@@ -284,7 +284,7 @@ export function selectPortableProgressCandidate({
     })
   }
 
-  if (primaryExists || localBackupRaw !== null || backups.malformed) {
+  if (primaryExists || backups.malformed) {
     return { status: 'corrupt', corruptEvidence }
   }
   return { status: 'none', corruptEvidence }

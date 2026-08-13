@@ -9,6 +9,8 @@
   },
   "scripts": {
     "build": "node scripts/build-site.mjs",
+    "build:migration-helper": "node scripts/build-legacy-migration-helper.mjs",
+    "build:migration-helper:production": "npm run build:migration-helper && node scripts/write-legacy-migration-helper-config.mjs --require-supabase",
     "build:production": "npm run build && node scripts/write-runtime-config.mjs --require-key",
     "dev": "node scripts/dev.mjs",
     "test": "npm run build && npm run test:contracts && npm run test:supabase && npm run test:reminder-function && npm run test:account-export-function",

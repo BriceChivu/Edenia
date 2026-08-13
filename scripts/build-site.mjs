@@ -238,3 +238,5 @@ await writeFile(
 )
 
 console.log(`Built Edenia ${assetVersion} in ${outputDir}`)
+
+await import('./build-legacy-migration-helper.mjs')

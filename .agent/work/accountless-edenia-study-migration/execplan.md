@@ -20,7 +20,7 @@ The current application makes this difficult because startup, import normalizati
 - [x] (2026-08-13 12:50Z) Established the baseline with Node `v24.19.0`: `npm run build`, 991 contract tests, 119 Supabase shared tests, and four Chromium/WebKit IndexedDB backup tests all passed.
 - [x] (2026-08-13 12:59Z) Extracted the dormant portable-state and imported-state boundaries, added read-only existing-IndexedDB backup access and supplied-state backup verification, and kept normal startup unchanged. Verification passed with a sequential build, 1,011 contract tests, 119 Supabase tests, and four Chromium/WebKit storage tests.
 - [x] (2026-08-13 13:02Z) Proved the cross-origin storage boundary in Chromium and WebKit: a different legacy-origin path read exact normal primary, local-backup, and IndexedDB bytes through the real read-only module; the destination origin could read none of them; and the legacy bytes/store list remained unchanged. Milestone 1 verification is a sequential build, 1,011 contract tests, 119 Supabase tests, and six combined storage/browser cases.
-- [ ] Build and test the standalone legacy-origin helper artifact.
+- [x] (2026-08-13 13:23Z) Built the standalone legacy-origin helper artifact with exact production/local URL policy, a 1.5-second disclosed cancel window, client-side AES-256-GCM, opaque relay requests, bounded recovery evidence, safe placeholder configuration, and no analytics or account code. Verification passed with a sequential build, 1,023 contract tests, 119 Supabase tests, a dummy production-config build, and 20 combined Chromium/WebKit storage and helper cases.
 - [ ] Add the encrypted, one-use Supabase relay behind disabled controls and verify its database and Edge Function security locally or in an approved test project.
 - [ ] Add the canonical-origin startup gate, conflict-safe import transaction, recovery UI, and permanent Settings recovery entry point behind a disabled runtime switch.
 - [ ] Update domain-dependent application and provider configuration surfaces while preserving optional authentication and switch-off behavior.
@@ -72,6 +72,15 @@ The current application makes this difficult because startup, import normalizati
 - Observation: Edenia validates complete translation parity across English, Traditional Chinese, Simplified Chinese, Spanish, and French.
   Evidence: Every migration gate, helper, Settings recovery, backup reason, status, and failure message must add keys to all five locale modules and keep `getMissingI18nKeys()` empty.
 
+- Observation: Current hosted Supabase publishable keys are meant to be sent in the `apikey` header; copying the same new publishable key into `Authorization: Bearer` can trigger legacy JWT parsing and fail before the Edge Function runs.
+  Evidence: The helper relay client sends an exact `apikey` plus JSON content type, explicitly omits `Authorization`, and has a contract test for that request shape. Production configuration accepts only the current `sb_publishable_` key family.
+
+- Observation: A valid empty normal local-backup array is conclusive evidence of no local backup, not corrupt evidence.
+  Evidence: The helper tests exposed the distinction while exercising the no-state path. `selectPortableProgressCandidate()` now treats the exact valid `[]` representation as `none`, while malformed or non-array backup data remains corrupt.
+
+- Observation: Chromium may block a localhost cross-port iframe at the browser's private-network boundary before helper JavaScript executes, whereas WebKit permits the document and exercises the helper's own top-level frame gate.
+  Evidence: The retained framed-helper test accepts Chromium's stronger browser refusal or the application's refusal, requires WebKit to exercise the application gate, and proves zero relay calls and unchanged legacy bytes in both engines.
+
 ## Decision Log
 
 - Decision: Keep authentication, cloud account sync, and account-based PostHog identity out of this work item.
@@ -111,6 +120,8 @@ The current application makes this difficult because startup, import normalizati
 Planning outcome as of 2026-08-13: the user flow and loss-prevention policy are decided, and the repository-specific implementation path is documented below.
 
 Milestone 1 outcome as of 2026-08-13: Edenia now has reusable, tested boundaries for sanitizing and hashing portable progress, selecting a normal primary or conservative backup candidate, reading an existing IndexedDB archive without creating stores, preserving a supplied incoming state as a reason-specific backup, and reusing the existing import behavior outside the monolithic app module. A retained two-origin Chromium/WebKit test proves why the helper must live on the old origin and that the destination cannot directly read old progress. The product code is intentionally dormant: no migration gate, runtime switch, helper navigation, relay call, or public startup behavior uses it yet. No live Supabase resource, helper repository, Pages setting, DNS record, or provider configuration has changed. The next gap is the standalone helper artifact and its encryption/client boundary.
+
+Milestone 2 outcome as of 2026-08-13: the repository can now build a separate, static `edenia-migrate` helper artifact that refuses unknown origins, paths, configuration, and framed execution; reads only the normal Edenia primary and backup stores; selects progress through the shared portable-state policy; encrypts a canonical envelope locally with an unguessable fragment-only capability; and uploads only authenticated opaque fields through a bounded request. No-state, cancel, corrupt, oversized, unavailable, retry, and recovery-download paths are non-destructive. The ordinary build emits only a deliberately unusable placeholder configuration, the current Pages workflow still uploads only `_site`, and no helper repository, Supabase resource, domain, or public path has changed. The next gap is the disabled relay schema and Edge Functions that implement the tested request contract.
 
 ## Context and Orientation
 
@@ -477,3 +488,5 @@ Plan revision 2026-08-13 (improvement pass 3): Grounded the import transaction i
 Plan revision 2026-08-13 (final consistency audit): Removed the assumed repository `CNAME` artifact and made the existing GitHub Pages Actions environment/custom-domain setting authoritative unless refreshed official evidence proves otherwise. This avoids adding a deployment mechanism the current workflow does not require.
 
 Plan revision 2026-08-13 (Milestone 1 evidence): Recorded the dormant portable-state foundation, exact verification counts, the build-output sequencing constraint, and the retained Chromium/WebKit two-origin proof. This closes the feasibility milestone with observable evidence while leaving every public and live surface unchanged.
+
+Plan revision 2026-08-13 (Milestone 2 evidence): Recorded the standalone helper, current Supabase publishable-key request rule, safe build-time configuration, encrypted transfer boundary, recovery-evidence policy, browser frame behavior, and exact automated evidence. This closes the helper milestone without publishing it or enabling any application path.

@@ -151,6 +151,10 @@ test('backup provenance requires canonical ISO timestamps', () => {
 test('absence, corruption, and oversized current progress stay distinct', () => {
   assert.equal(selectPortableProgressCandidate().status, 'none')
   assert.equal(selectPortableProgressCandidate({
+    localBackupRaw: '[]',
+    indexedDbEntries: []
+  }).status, 'none')
+  assert.equal(selectPortableProgressCandidate({
     primaryRaw: '{bad',
     localBackupRaw: '{bad'
   }).status, 'corrupt')

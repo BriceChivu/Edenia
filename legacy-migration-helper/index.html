@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+    <title>Move your Edenia progress</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main class="helper-card" data-legacy-progress-helper>
+      <p class="helper-kicker">Edenia is moving</p>
+      <h1 id="helperTitle">Checking this browser for your progress</h1>
+      <p id="helperBody">Your existing study progress can be moved to edenia.study without creating an account. The old copy will not be changed.</p>
+      <p id="helperStatus" class="helper-status" role="status" aria-live="polite"></p>
+      <div class="helper-actions">
+        <button id="helperCancel" type="button">Cancel</button>
+        <button id="helperRetry" type="button" hidden>Try again</button>
+        <button id="helperDownloadEvidence" type="button" hidden>Download local recovery evidence</button>
+        <button id="helperReturn" type="button" hidden>Return without completing the check</button>
+      </div>
+    </main>
+    <script src="config.local.js"></script>
+    <script src="helper.js"></script>
+  </body>
+</html>
