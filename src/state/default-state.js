@@ -71,6 +71,7 @@ export function createDefaultStateFactory({
       onboarding: {
         version: onboardingVersion,
         introSeenAt: null,
+        accountStepReachedAt: null,
         setupCompleted: false,
         setupCompletedAt: null,
         walkthroughCompleted: false,

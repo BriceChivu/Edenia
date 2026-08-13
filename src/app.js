@@ -289,6 +289,9 @@ import {
   bindOnboardingRecoveryActions
 } from './features/onboarding/onboarding-recovery-actions.js'
 import {
+  bindOnboardingAccountActions
+} from './features/onboarding/account-actions.js'
+import {
   bindPersonalizedOnboardingActions
 } from './features/onboarding/personalized-onboarding-actions.js'
 import {
@@ -896,6 +899,7 @@ const personalizedOnboardingState = {
   selectedChannelCatalogIds: [],
   channelSelectionsInitialized: false,
   isApplyingChannels: false,
+  accountEmail: '',
   lastTrackedStep: null
 }
 let onboardingChoiceLayoutFrame = 0
@@ -2829,6 +2833,27 @@ function finishIntroTrailer() {
   closeIntroTrailer({ keepMusicPlaying: true })
 }
 
+function canResumeOnboardingAccountStep(state) {
+  if (
+    !ACCOUNT_FEATURES_ENABLED
+    || !isValidTimestamp(state?.onboarding?.accountStepReachedAt)
+  ) return false
+
+  const languageId = state?.learnerProfile?.languages?.[0] || null
+  return Boolean(
+    languageId
+    && (languageId === 'other' || state?.learnerProfile?.level)
+  )
+}
+
+function getInitialPersonalizedOnboardingStep(state) {
+  if (canResumeOnboardingAccountStep(state)) return 'account'
+  const languageId = state.learnerProfile.languages[0]
+  if (!languageId) return 'language'
+  if (languageId === 'other') return 'other'
+  return state.learnerProfile.level ? 'channels' : 'level'
+}
+
 function startPersonalizedOnboarding(state = loadState()) {
   if (!state || IS_SANDBOX) return false
   const panel = document.getElementById('onboardingPanel')
@@ -2841,11 +2866,7 @@ function startPersonalizedOnboarding(state = loadState()) {
     onboardingRecoveryState.active = false
     onboardingRecoveryState.state = null
     personalizedOnboardingState.active = true
-    personalizedOnboardingState.step = state.learnerProfile.languages[0]
-      ? (state.learnerProfile.languages[0] === 'other'
-          ? 'other'
-          : (state.learnerProfile.level ? 'channels' : 'level'))
-      : 'language'
+    personalizedOnboardingState.step = getInitialPersonalizedOnboardingStep(state)
     personalizedOnboardingState.languageId = state.learnerProfile.languages[0] || null
     personalizedOnboardingState.levelId = state.learnerProfile.level || null
     personalizedOnboardingState.selectedChannelCatalogIds = state.learnerProfile.selectedChannelCatalogIds.slice(
@@ -2854,6 +2875,7 @@ function startPersonalizedOnboarding(state = loadState()) {
     )
     personalizedOnboardingState.channelSelectionsInitialized = state.learnerProfile.selectedChannelCatalogIds.length > 0
     personalizedOnboardingState.isApplyingChannels = false
+    personalizedOnboardingState.accountEmail = ''
     personalizedOnboardingState.lastTrackedStep = null
     panel.classList.remove('is-recovery', 'hidden')
     progress.classList.remove('hidden')
@@ -3009,15 +3031,19 @@ function renderPersonalizedOnboarding() {
   const progressFill = document.getElementById('onboardingProgressFill')
   if (!content || !progressLabel || !progressFill) return
 
-  const stepOrder = personalizedOnboardingState.languageId === 'other'
+  const profileStepOrder = personalizedOnboardingState.languageId === 'other'
     ? ['language', 'other']
     : ['language', 'level', 'channels']
+  const stepOrder = ACCOUNT_FEATURES_ENABLED
+    ? [...profileStepOrder, 'account']
+    : profileStepOrder
   const stepIndex = Math.max(0, stepOrder.indexOf(personalizedOnboardingState.step))
   progressLabel.textContent = t('onboarding.progress', { current: stepIndex + 1, total: stepOrder.length })
   progressFill.style.width = `${((stepIndex + 1) / stepOrder.length) * 100}%`
   panel?.classList.toggle('is-language-step', personalizedOnboardingState.step === 'language')
   panel?.classList.toggle('is-channel-step', personalizedOnboardingState.step === 'channels')
   panel?.classList.toggle('is-level-step', personalizedOnboardingState.step === 'level')
+  panel?.classList.toggle('is-account-step', personalizedOnboardingState.step === 'account')
   localePicker?.classList.toggle('hidden', personalizedOnboardingState.step !== 'language')
   clearOnboardingChoiceLayout(panel)
   if (personalizedOnboardingState.lastTrackedStep !== personalizedOnboardingState.step) {
@@ -3039,6 +3065,8 @@ function renderPersonalizedOnboarding() {
   } else if (personalizedOnboardingState.step === 'channels') {
     prepareOnboardingChannelSelections()
     renderOnboardingChannelsStep(content)
+  } else if (personalizedOnboardingState.step === 'account') {
+    renderOnboardingAccountStep(content)
   } else {
     renderOnboardingOtherStep(content)
   }
@@ -3049,6 +3077,10 @@ function renderPersonalizedOnboarding() {
     setStep: setPersonalizedOnboardingStep,
     toggleChannel: toggleOnboardingChannel,
     finish: finishPersonalizedOnboarding
+  })
+  bindOnboardingAccountActions(content, {
+    signInWithGoogle: signInAccountWithGoogle,
+    sendMagicLink: sendOnboardingAccountMagicLink
   })
   syncOnboardingChoiceLayout()
 }
@@ -3145,6 +3177,78 @@ function renderOnboardingHeading(titleKey, subtitleKey = '') {
   `
 }
 
+function renderOnboardingProfileFinalAction() {
+  if (ACCOUNT_FEATURES_ENABLED) {
+    return `
+      <button type="button" class="btn-primary" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="account" data-analytics-action="continuePersonalizedOnboardingToAccount" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.continue'))}</button>
+    `
+  }
+  return `
+    <button type="button" class="btn-primary" data-personalized-onboarding-action="finish" data-analytics-action="finishPersonalizedOnboarding" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}</button>
+  `
+}
+
+function renderOnboardingAccountStep(content) {
+  const state = accountAuthViewState
+  const sessionState = state?.sessionState || ACCOUNT_SESSION_STATES.UNAVAILABLE
+  const signedIn = sessionState === ACCOUNT_SESSION_STATES.SIGNED_IN
+  const loading = sessionState === ACCOUNT_SESSION_STATES.LOADING
+  const unavailable = sessionState === ACCOUNT_SESSION_STATES.UNAVAILABLE
+  const busy = Boolean(state?.busyAction) || personalizedOnboardingState.isApplyingChannels
+  const previousStep = personalizedOnboardingState.languageId === 'other'
+    ? 'other'
+    : 'channels'
+  const feedbackView = ACCOUNT_AUTH_FEEDBACK_VIEWS[state?.error]
+    || ACCOUNT_AUTH_FEEDBACK_VIEWS[state?.notice]
+    || null
+  const feedback = feedbackView
+    ? `<p class="onboarding-account-feedback" data-account-tone="${escHtml(feedbackView.tone)}" role="${feedbackView.tone === 'error' ? 'alert' : 'status'}" aria-live="${feedbackView.tone === 'error' ? 'assertive' : 'polite'}">${escHtml(t(feedbackView.key))}</p>`
+    : ''
+
+  let accountContent
+  if (loading) {
+    accountContent = `
+      <p class="onboarding-account-loading" role="status" aria-live="polite">${escHtml(t('settings.account.status.loading'))}</p>
+    `
+  } else if (signedIn) {
+    accountContent = `
+      <div class="onboarding-account-identity">
+        <span>${escHtml(t('settings.account.signedInAs'))}</span>
+        <strong>${escHtml(state?.email || '')}</strong>
+      </div>
+      ${feedback}
+    `
+  } else {
+    accountContent = `
+      <button class="btn-primary onboarding-account-google" type="button" data-onboarding-account-action="google" data-analytics-action="onboardingAccountGoogle" ${busy || unavailable ? 'disabled' : ''}>
+        <span class="onboarding-account-google-mark" aria-hidden="true">G</span>
+        <span>${escHtml(t(state?.busyAction === 'google-sign-in' ? 'settings.account.googleLoading' : 'settings.account.google'))}</span>
+      </button>
+      <div class="onboarding-account-divider"><span>${escHtml(t('settings.account.emailFallback'))}</span></div>
+      <form class="onboarding-account-email-form" data-onboarding-account-action="email-form" novalidate>
+        <label for="onboardingAccountEmail">${escHtml(t('settings.account.emailLabel'))}</label>
+        <input id="onboardingAccountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-onboarding-account-email value="${escHtml(personalizedOnboardingState.accountEmail)}" placeholder="${escHtml(t('settings.account.emailPlaceholder'))}" ${busy || unavailable ? 'disabled' : ''}>
+        <button class="btn-secondary onboarding-account-email-button" type="submit" data-analytics-action="onboardingAccountEmail" ${busy || unavailable ? 'disabled' : ''}>${escHtml(t(state?.busyAction === 'email-sign-in' ? 'settings.account.sendingLink' : 'settings.account.sendLink'))}</button>
+      </form>
+      ${feedback}
+    `
+  }
+
+  content.innerHTML = `
+    ${renderOnboardingHeading(
+      'onboarding.account.title',
+      signedIn ? 'onboarding.account.signedInSubtitle' : 'onboarding.account.subtitle'
+    )}
+    <div class="onboarding-account-auth" aria-busy="${loading || busy}">
+      ${accountContent}
+    </div>
+    <div class="onboarding-actions onboarding-account-actions">
+      <button type="button" class="btn-ghost" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="${previousStep}" data-analytics-action="setPersonalizedOnboardingStep" ${busy ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
+      <button type="button" class="${signedIn ? 'btn-primary' : 'btn-ghost'}" data-personalized-onboarding-action="finish" data-analytics-action="finishPersonalizedOnboarding" ${busy ? 'disabled' : ''}>${escHtml(t(signedIn ? 'onboarding.build' : 'onboarding.account.skip'))}</button>
+    </div>
+  `
+}
+
 function renderOnboardingLanguageStep(content) {
   const selectedLanguageId = personalizedOnboardingState.languageId
   content.innerHTML = `
@@ -3170,7 +3274,7 @@ function renderOnboardingOtherStep(content) {
     <div class="onboarding-empty">${escHtml(t('onboarding.other.note'))}</div>
     <div class="onboarding-actions">
       <button type="button" class="btn-ghost" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="language" data-analytics-action="setPersonalizedOnboardingStep" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
-      <button type="button" class="btn-primary" data-personalized-onboarding-action="finish" data-analytics-action="finishPersonalizedOnboarding" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}</button>
+      ${renderOnboardingProfileFinalAction()}
     </div>
   `
 }
@@ -3227,7 +3331,7 @@ function renderOnboardingChannelsStep(content) {
     <div class="onboarding-channel-list${recommendations.length >= 4 ? ' onboarding-channel-list-grid' : ''}">${channelMarkup}</div>
     <div class="onboarding-actions">
       <button type="button" class="btn-ghost" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="level" data-analytics-action="setPersonalizedOnboardingStep" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
-      <button type="button" class="btn-primary" data-personalized-onboarding-action="finish" data-analytics-action="finishPersonalizedOnboarding" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t(personalizedOnboardingState.isApplyingChannels ? 'onboarding.building' : 'onboarding.build'))}</button>
+      ${renderOnboardingProfileFinalAction()}
     </div>
   `
 }
@@ -3255,16 +3359,63 @@ function selectOnboardingLevel(levelId) {
   renderPersonalizedOnboarding()
 }
 
+function persistOnboardingAccountDraft() {
+  const now = new Date().toISOString()
+  const state = loadState() || defaultState(4, DEFAULT_CHANNELS)
+  normalizeLearnerProfileState(state)
+  normalizeOnboardingState(state)
+  const selectedChannelCatalogIds = personalizedOnboardingState.selectedChannelCatalogIds
+    .slice(0, ONBOARDING_CHANNEL_SELECTION_LIMIT)
+  state.learnerProfile = {
+    languages: [personalizedOnboardingState.languageId].filter(Boolean),
+    level: personalizedOnboardingState.levelId,
+    selectedChannelCatalogIds,
+    createdAt: state.learnerProfile.createdAt || now,
+    updatedAt: now
+  }
+  state.onboarding.accountStepReachedAt = now
+  if (saveState(state)) return true
+  showOnboardingRecovery('storage', { state, resume: 'personalized' })
+  return false
+}
+
+function clearOnboardingAccountDraftMarker() {
+  const state = loadState()
+  if (!state) return true
+  normalizeOnboardingState(state)
+  if (!state.onboarding.accountStepReachedAt) return true
+  state.onboarding.accountStepReachedAt = null
+  if (saveState(state)) return true
+  showOnboardingRecovery('storage', { state, resume: 'personalized' })
+  return false
+}
+
 function setPersonalizedOnboardingStep(step) {
-  if (!['language', 'level', 'channels', 'other'].includes(step)) return
+  const allowedSteps = ['language', 'level', 'channels', 'other']
+  if (ACCOUNT_FEATURES_ENABLED) allowedSteps.push('account')
+  if (!allowedSteps.includes(step)) return
   if (step !== 'language' && !personalizedOnboardingState.languageId) return
   if (step === 'other' && personalizedOnboardingState.languageId !== 'other') return
   if ((step === 'level' || step === 'channels') && personalizedOnboardingState.languageId === 'other') return
   if (step === 'channels' && !personalizedOnboardingState.levelId) return
+  if (
+    step === 'account'
+    && personalizedOnboardingState.languageId !== 'other'
+    && !personalizedOnboardingState.levelId
+  ) return
   const previousStep = personalizedOnboardingState.step
-  const stepOrder = personalizedOnboardingState.languageId === 'other'
+  if (step === 'account' && !persistOnboardingAccountDraft()) return
+  if (
+    previousStep === 'account'
+    && step !== 'account'
+    && !clearOnboardingAccountDraftMarker()
+  ) return
+  const profileStepOrder = personalizedOnboardingState.languageId === 'other'
     ? ['language', 'other']
     : ['language', 'level', 'channels']
+  const stepOrder = ACCOUNT_FEATURES_ENABLED
+    ? [...profileStepOrder, 'account']
+    : profileStepOrder
   const previousIndex = stepOrder.indexOf(previousStep)
   const nextIndex = stepOrder.indexOf(step)
   personalizedOnboardingState.step = step
@@ -3625,6 +3776,7 @@ async function finishPersonalizedOnboarding() {
     updatedAt: now
   }
   state.onboarding.version = ONBOARDING_VERSION
+  state.onboarding.accountStepReachedAt = null
   state.onboarding.setupCompleted = true
   state.onboarding.setupCompletedAt = now
   state.onboarding.recommendationsAppliedAt = null
@@ -4908,6 +5060,9 @@ function initializeAccountAuth() {
       notice: null
     })
     renderAccountSettings()
+    if (personalizedOnboardingState.step === 'account') {
+      renderPersonalizedOnboarding()
+    }
     return
   }
 
@@ -4948,6 +5103,9 @@ function initializeAccountAuth() {
         )
         accountStudySnapshotController.synchronizeAccount(state, loadState())
         renderAccountSettings(state)
+        if (personalizedOnboardingState.step === 'account') {
+          renderPersonalizedOnboarding()
+        }
       }
     })
     accountAuthViewState = accountAuthController.getState()
@@ -4965,6 +5123,9 @@ function initializeAccountAuth() {
       notice: null
     })
     renderAccountSettings()
+    if (personalizedOnboardingState.step === 'account') {
+      renderPersonalizedOnboarding()
+    }
   }
 }
 
@@ -4974,6 +5135,11 @@ function signInAccountWithGoogle() {
 
 function sendAccountMagicLink(email) {
   return accountAuthController?.sendMagicLink(email)
+}
+
+function sendOnboardingAccountMagicLink(email) {
+  personalizedOnboardingState.accountEmail = String(email || '')
+  return sendAccountMagicLink(email)
 }
 
 function signOutAccount() {
@@ -5059,6 +5225,7 @@ function initializeRequestedAccountSettings() {
     '',
     `${url.pathname}${url.search}${url.hash}`
   )
+  if (canResumeOnboardingAccountStep(loadState())) return
   window.setTimeout(() => openSettings(), 0)
 }
 

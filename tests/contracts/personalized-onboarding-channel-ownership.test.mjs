@@ -68,7 +68,7 @@ const renderSource = appSource.slice(renderStart, renderEnd)
 
 test('channel choices retain exact hook, avatar, and ARIA markup', () => {
   const controls = getElements(renderSource, 'button')
-  assert.equal(controls.length, 3)
+  assert.equal(controls.length, 2)
   const channel = controls[0]
 
   assert.equal(getAttribute(channel.tag, 'type'), 'button')
