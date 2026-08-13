@@ -657,7 +657,7 @@ It also reports the pre-existing [leaked-password protection warning](https://su
 Edenia does not currently offer password authentication, so this is not a reason
 to enable a separate password flow.
 
-Migration `20260812123000_optimize_account_owner_policies.sql` follows
+Migration `20260811224323_optimize_account_owner_policies.sql` follows
 Supabase's [select-wrapped Auth function guidance](https://supabase.com/docs/guides/database/postgres/row-level-security#call-functions-with-select)
 for the two RLS initialization-plan warnings on `subscriptions` and
 `founding_members`. Its database test preserves the two-user, unauthenticated,

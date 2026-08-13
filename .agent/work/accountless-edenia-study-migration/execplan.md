@@ -31,6 +31,10 @@ The current application makes this difficult because startup, import normalizati
 - [x] (2026-08-13 15:37Z) Diagnosed PR #140's exact-head `verify` failure at `5eec64dd77579f15a424371746d1cff1dcfa962d`. Build, 1,057 contracts, 131 Supabase shared tests, all Deno checks, and 61 isolated relay database assertions passed. The browser step passed 204 selected cases and failed 11 because CI serves the normal app on configured port `4173`, while the exact migration/feedback test surfaces deliberately navigate to fixed `localhost:8000`; every failure was `Connection refused`, not an application assertion. A no-source-change reproduction kept CI's `4173` topology, added one temporary `_site` server on `8000`, and passed all 11 affected Chromium/WebKit cases in 49.2 seconds.
 - [x] (2026-08-13 15:37Z) Reached the explicit approval boundary for the GitHub CI-fix workflow's smallest remedy: conditionally start the fixed `localhost:8000` `_site` test server in `playwright.config.mjs` only when the ordinary configured port differs. The owner subsequently approved the config-only repair, focused validation, commit, and push without broadening approval to product or provider changes.
 - [x] (2026-08-13 15:45Z) Implemented the approved Playwright-only server-topology repair without changing product runtime or test assertions. A fresh build passed; the exact CI topology (`EDENIA_TEST_NORMAL_PORT=4173`) passed all 11 previously failing Chromium/WebKit migration and feedback cases in 46.3 seconds without a manually started server; and the default local topology passed all 10 Chromium/WebKit migration cases in 29.1 seconds, proving that the conditional does not start port `8000` twice. Exact-head remote verification remains pending until the approved push.
+- [x] (2026-08-13 15:58Z) Pushed the approved repair and obtained exact-head remote proof on `eb79c4d532b29a5465bb2079bf770417f331ab5d`: PR #140 remained draft, mergeable, and clean; `verify` passed in 12 minutes 15 seconds; and the serial browser step passed 215 cases with 503 intentional skips and no failures. Local, remote branch, and PR heads matched.
+- [x] (2026-08-13 16:16Z) Refreshed every safe pre-cutover surface without provider writes. The deployed old app remained HTTP `200` at Actions SHA `efb5399911e0eb3832bffd14bd9f53799a098432`; Pages still had no custom domain; the verification TXT record was absent; apex and `www` still resolved to Namecheap parking without usable canonical HTTPS; the helper repository remained absent and its URL returned `404`. `Edenia Plus` remained healthy, but the relay migration, relay functions, relay tables/RPCs, `pg_cron`, cleanup job, and public migration variable were absent. The exact current repository Supabase URL/key generated and validated a production helper artifact with canonical return/CSP, after which the inert placeholder artifact was restored and seven focused contracts passed. No value was printed or retained in the plan.
+- [x] (2026-08-13 16:16Z) Reconciled twelve source migration filenames to the exact deployed Supabase history after proving each remote statement set matched the same-named local SQL under comment/whitespace normalization. Updated references and froze all twelve deployed identities and byte hashes. Twenty-four affected source contracts passed; a fresh CI-style `supabase start` applied the full renamed sequence; all 606 assertions across fourteen database files passed, including 61 relay assertions; and local security/performance advisors returned no findings. A linked dry run now gets past the twelve timestamp mismatches but correctly refuses the two older billing migrations that exist in the hosted schema without history rows; `--include-all` would still apply those two plus the relay and therefore must not be used.
+- [ ] (2026-08-13 16:16Z) Blocked at the next explicit publication boundary. The verified migration-history reconciliation is local only; pushing it to PR #140 and requiring new exact-head CI needs owner approval. After that review is green, any hosted migration-history repair, relay deployment, function deployment, Cron enablement, helper publication, domain/provider change, canary, or public enablement remains a separately approved action.
 - [ ] With explicit approval, publish and verify the helper and relay while disabled, configure the domain and provider allowlists, run a backed-up canary, then enable automatic migration.
 - [ ] Maintain the operational evidence needed for the five-month minimum and rolling 90-day quiet-period retirement rule; retirement itself remains a separately approved future action.
 
@@ -114,6 +118,15 @@ The current application makes this difficult because startup, import normalizati
 - Observation: CI's ordinary Playwright server intentionally uses port `4173`, but the new migration test gate and feedback test surface intentionally require the fixed browser-visible origin `http://localhost:8000`.
   Evidence: PR #140's exact-head run passed every non-browser stage, then all ten migration cases plus the one feedback case failed on connection refusal to port `8000` while 204 other browser cases passed. Keeping the `4173` server and adding a temporary `8000` server made the exact same 11-case selection pass. The repair belongs in the test-server topology, not product runtime or assertions.
 
+- Observation: The hosted migration history had twelve reminder/account versions that were absent from source, while source had the same twelve migration names under different timestamps.
+  Evidence: A read-only query proved every remote statement set matched its same-named source SQL after comment/whitespace normalization. Renaming source to the deployed identities removed that mismatch. Two older billing migrations remain absent from history even though read-only catalog probes prove their defining tables, functions, and cancellation column exist; a linked dry run would otherwise try to apply them again before the relay.
+
+- Observation: There is no no-cost isolated hosted Supabase surface available in the current organization.
+  Evidence: Current project inventory shows two active projects, which is the Free-plan limit, and current official Supabase guidance says preview branching requires Pro and incurs separate compute usage. Do not repurpose another product's project or incur a paid upgrade by inference.
+
+- Observation: Supabase CLI 2.111.0 can fresh-start this migration history exactly as CI does, but `db reset` and declarative shadow diff fail on the pre-existing `LOCK TABLE` statement in `20260724111513_enforce_atomic_founding_member_limit.sql` because those paths do not wrap it in the migration transaction it expects.
+  Evidence: A fresh `supabase start` applied every migration in order and all 606 database assertions passed. The failed reset/diff attempts are excluded from evidence and do not contradict the fresh-start/CI path.
+
 ## Decision Log
 
 - Decision: Keep authentication, cloud account sync, and account-based PostHog identity out of this work item.
@@ -156,6 +169,14 @@ The current application makes this difficult because startup, import normalizati
   Rationale: The old application does not need those account surfaces for the accountless helper flow. Exact new-origin source contracts reduce ambiguity, while deployment order and temporary Supabase Auth callback overlap remain visible operator steps.
   Date/Author: 2026-08-13 / Codex
 
+- Decision: Reconcile source migration filenames to exact hosted versions only when the hosted statement set matches the same-named source SQL, and freeze those identities and bytes in the repository contract.
+  Rationale: This repairs deployment history without re-running already-applied SQL or deleting hosted migration records. The two billing history gaps are not safe to infer away; marking them applied remains an explicit hosted metadata mutation after review.
+  Date/Author: 2026-08-13 / Codex
+
+- Decision: Do not silently upgrade Supabase, create a paid branch, or reuse another active/inactive project to obtain hosted test capacity.
+  Rationale: Those choices affect cost or unrelated data. The local/database evidence remains valid, but the lack of an isolated hosted surface is an owner approval boundary before choosing a paid preview branch or a tightly controlled dormant production deployment.
+  Date/Author: 2026-08-13 / Codex
+
 ## Outcomes & Retrospective
 
 Planning outcome as of 2026-08-13: the user flow and loss-prevention policy are decided, and the repository-specific implementation path is documented below.
@@ -172,7 +193,7 @@ Milestone 5 outcome as of 2026-08-13: every reviewed source-level domain contrac
 
 Completion audit outcome as of 2026-08-13: the branch proves the reviewable local implementation but does not prove the user-visible production outcome. Functional items 1 through 5 and switch-off item 7 have automated Chromium/WebKit evidence; item 6 still lacks an approved hosted cleanup run; item 8 lacks the real domain and provider configuration. The local security review and disposable-database tests are strong, but hosted grants, function behavior, advisor results, and operational controls remain unverified. The required Chrome, Safari on macOS and iOS, Firefox, and Edge matrix, backed-up canary, deployed SHA, live runtime configuration, callback/referrer checks, circuit-breaker rehearsal, public owner approval, and retention observations are all missing by design. None can be manufactured locally or obtained through read-only inspection. Work therefore stops at the explicit approval boundary with working public behavior unchanged.
 
-Draft-review outcome as of 2026-08-13: PR #140 is open, draft, and mergeable, but its last required `verify` check is red on a deterministic test-server topology mismatch. The failure does not contradict the migration logic: exact-head remote evidence passed the build, contract, shared backend, Deno, and isolated database layers. The owner approved the config-only repair, and local validation now proves both the exact CI topology and the default local topology pass without a temporary server. Commit, push, and exact-head remote verification are the remaining actions in this approved repair step.
+Draft-review outcome as of 2026-08-13: PR #140 is open, draft, mergeable, and clean at remote head `eb79c4d532b29a5465bb2079bf770417f331ab5d`; its exact-head `verify` run passed every required build, Node, Deno, isolated-database, and browser step. The subsequent read-only launch audit discovered and locally repaired a pre-existing migration-timestamp mismatch needed before any safe hosted relay deployment. That source-only reconciliation is intentionally not pushed, so the green remote check proves `eb79c4d` and does not yet prove the local reconciliation commit.
 
 ## Context and Orientation
 
@@ -449,6 +470,26 @@ Read-only launch audit at 2026-08-13 15:09Z:
       existing unrelated project findings remain to be reviewed separately
     approval timestamps for each live action
 
+Read-only launch audit refreshed at 2026-08-13 16:16Z:
+
+    GitHub Pages: workflow deployment at efb5399911e0eb3832bffd14bd9f53799a098432;
+      cname=null; old application HTTP 200
+    Domain ownership TXT: absent
+    edenia.study apex and www: Namecheap parking, not GitHub Pages
+    Canonical HTTPS: unavailable for www and apex
+    Helper repository: absent; helper URL HTTP 404
+    Supabase project: Edenia Plus ACTIVE_HEALTHY in ap-northeast-1
+    Relay database objects/RPCs/migration/functions: absent
+    pg_cron and cleanup job: absent
+    Hosted advisors: no performance findings; two pre-existing non-relay warnings
+      (authenticated reminder eligibility definer and leaked-password protection off)
+    Hosted test capacity: two active Free projects; preview branching unavailable on Free
+    Source/hosted migration history: twelve exact SQL identities reconciled locally;
+      two existing billing schemas still need approved history marking before relay push
+    Production helper configuration: current public repository variables validated locally;
+      generated output restored to the inert placeholder afterward
+    No GitHub, DNS, Supabase, helper, provider, public runtime, or external-message write
+
 Do not paste state documents, capabilities, ciphertext, service keys, publishable-key values, emails, IP addresses, or provider secrets into this plan.
 
 ## Interfaces and Dependencies
@@ -582,3 +623,5 @@ Plan revision 2026-08-13 (draft PR #140): Recorded the successful branch push, d
 Plan revision 2026-08-13 (PR #140 CI blocker): Recorded the exact-head remote pass/fail boundary, deterministic `4173` versus fixed-`8000` test-server mismatch, 11-of-11 no-source-change proof, smallest config-only repair, and repeated approval blocker. This prevents a harness failure from being misreported as a product regression while stopping before an unapproved PR update.
 
 Plan revision 2026-08-13 (approved PR #140 CI repair): Recorded the owner's narrow approval, the conditional fixed-origin Playwright server, and passing validation in both CI and default local topologies. This resumes remote review without changing application behavior or authorizing any live migration/provider action.
+
+Plan revision 2026-08-13 (green PR and hosted-history reconciliation): Recorded exact-head green CI, refreshed current Pages/DNS/helper/Supabase evidence, validated the helper against current public project configuration, reconciled twelve exact deployed migration identities in source, and isolated two pre-existing billing-history gaps that make an unqualified database push unsafe. This creates a reviewable local repair while stopping before any unapproved push, hosted metadata change, deployment, paid test surface, or public cutover action.

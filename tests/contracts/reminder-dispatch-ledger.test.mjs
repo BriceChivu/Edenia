@@ -5,7 +5,7 @@ import test from 'node:test'
 const projectRoot = new URL('../../', import.meta.url)
 const migration = await readFile(
   new URL(
-    'supabase/migrations/20260812014317_add_reminder_dispatch_ledger.sql',
+    'supabase/migrations/20260811181142_add_reminder_dispatch_ledger.sql',
     projectRoot
   ),
   'utf8'

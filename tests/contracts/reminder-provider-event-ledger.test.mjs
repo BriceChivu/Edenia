@@ -5,14 +5,14 @@ import test from 'node:test'
 const projectRoot = new URL('../../', import.meta.url)
 const migration = await readFile(
   new URL(
-    'supabase/migrations/20260812120000_add_reminder_provider_event_ledger.sql',
+    'supabase/migrations/20260811213747_add_reminder_provider_event_ledger.sql',
     projectRoot
   ),
   'utf8'
 )
 const metricsMigration = await readFile(
   new URL(
-    'supabase/migrations/20260812160000_add_reminder_operational_metrics.sql',
+    'supabase/migrations/20260812032007_add_reminder_operational_metrics.sql',
     projectRoot
   ),
   'utf8'
