@@ -2,23 +2,19 @@
   "id": "accountless-edenia-study-migration",
   "title": "Accountless migration to www.edenia.study",
   "stage": "implementation",
-  "state": "blocked",
+  "state": "active",
   "created_at": "2026-08-13T12:32:04Z",
-  "updated_at": "2026-08-13T15:37:27Z",
-  "blocked_on": {
-    "kind": "approval",
-    "summary": "PR #140 exact-head CI needs a proven config-only fixed-port test-server repair before remote verification can pass.",
-    "immediate_unblock": "Approve the config-only Playwright CI harness fix, focused validation, commit, and push."
-  },
+  "updated_at": "2026-08-13T15:45:22Z",
   "review": {
     "pull_request": 140,
     "url": "https://github.com/BriceChivu/Edenia/pull/140",
     "draft": true,
     "base": "master",
     "head": "codex/accountless-domain-migration",
-    "remote_check": "failed",
+    "remote_check": "rerun_pending",
     "remote_head": "5eec64dd77579f15a424371746d1cff1dcfa962d",
-    "run_url": "https://github.com/BriceChivu/Edenia/actions/runs/31714781658"
+    "run_url": "https://github.com/BriceChivu/Edenia/actions/runs/31714781658",
+    "repair_validation": "11 CI-topology and 10 default-topology browser cases passed locally"
   },
   "artifacts": {
     "decision": "decision.md",
