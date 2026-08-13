@@ -5,7 +5,7 @@ import {
 
 export const LEGACY_PROGRESS_TRANSFER_SCHEMA =
   'edenia-legacy-progress-transfer-v1'
-export const LEGACY_PROGRESS_TRANSFER_MAX_BYTES = 8 * 1024 * 1024
+export const LEGACY_PROGRESS_TRANSFER_MAX_BYTES = 2 * 1024 * 1024
 
 const SHA256_BASE64URL_PATTERN = /^[A-Za-z0-9_-]{43}$/
 

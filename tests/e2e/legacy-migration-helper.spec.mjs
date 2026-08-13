@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import {
   decodeBase64Url,
+  LEGACY_PROGRESS_TRANSFER_MAX_BYTES,
+  sanitizePortableProgressState,
   sha256Base64Url
 } from '../../src/state/portable-state.js'
 import {
@@ -390,6 +392,38 @@ test('fully corrupt sources produce a bounded recovery download and defer path',
   await expect(page).toHaveURL(
     `${DESTINATION_ORIGIN}/#edenia-legacy-progress=deferred`
   )
+})
+
+test('an envelope-overhead overflow stays local and offers recovery evidence', async ({
+  page
+}, testInfo) => {
+  test.skip(!STORAGE_PROJECT_NAMES.has(testInfo.project.name))
+  const oversized = validState('ENVELOPE_LIMIT_MARKER')
+  oversized.config.padding = ''
+  const portable = sanitizePortableProgressState(oversized)
+  const baseBytes = new TextEncoder().encode(JSON.stringify(portable)).byteLength
+  oversized.config.padding = 'x'.repeat(
+    LEGACY_PROGRESS_TRANSFER_MAX_BYTES - baseBytes
+  )
+  const primaryRaw = JSON.stringify(oversized)
+  await seedLegacyStorage(page, { primaryRaw })
+  await routeHelper(page)
+  let relayCalls = 0
+  await page.route(RELAY_URL, route => {
+    relayCalls += 1
+    return route.abort()
+  })
+
+  await page.goto(`${HELPER_URL}?legacy_migration_test=1`)
+  await expect(page.getByRole('heading', {
+    name: 'Your old progress was not changed'
+  })).toBeVisible()
+  await expect(page.getByRole('button', {
+    name: 'Download local recovery evidence'
+  })).toBeVisible()
+  expect(relayCalls).toBe(0)
+  const after = await readOldStorage(page)
+  expect(after.primaryRaw).toBe(primaryRaw)
 })
 
 test('a retryable relay failure keeps progress local and a later retry succeeds', async ({

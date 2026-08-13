@@ -294,8 +294,17 @@ export function startLegacyMigrationHelper(target = globalThis) {
         return
       }
       navigate('transfer', encrypted.capability)
-    } catch {
-      if (runId === activeRun) showUnavailable()
+    } catch (error) {
+      if (runId !== activeRun) return
+      if (error instanceof RangeError) {
+        setEvidence(sources, {
+          source: candidate.source,
+          status: 'too_large'
+        })
+        showUnavailable({ recovery: true })
+        return
+      }
+      showUnavailable()
     }
   }
 

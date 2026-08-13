@@ -225,8 +225,10 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
     .map(entry => entry.name)
     .sort()
   assert.deepEqual(functionNames, [
+    'consume-legacy-progress-transfer',
     'create-billing-portal',
     'create-checkout-session',
+    'create-legacy-progress-transfer',
     'dispatch-study-reminders',
     'export-account-data',
     'get-plus-offer',
@@ -241,8 +243,13 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
     'resend-reminder-webhook',
     'unsubscribe-study-reminders'
   ])
+  const relayFunctionNames = new Set([
+    'consume-legacy-progress-transfer',
+    'create-legacy-progress-transfer'
+  ])
   const billingFunctionNames = functionNames.filter(
     functionName => !reminderFunctionNames.has(functionName)
+      && !relayFunctionNames.has(functionName)
       && functionName !== 'export-account-data'
   )
   const config = await readFile(new URL('supabase/config.toml', projectRoot), 'utf8')
