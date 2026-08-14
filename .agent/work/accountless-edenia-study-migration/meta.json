@@ -2,24 +2,19 @@
   "id": "accountless-edenia-study-migration",
   "title": "Accountless migration to www.edenia.study",
   "stage": "implementation",
-  "state": "blocked",
+  "state": "active",
   "created_at": "2026-08-13T12:32:04Z",
-  "updated_at": "2026-08-13T16:55:04Z",
-  "blocked_on": {
-    "kind": "approval",
-    "summary": "PR #140's implementation source is exact-head green, but merging before the coordinated helper, disabled relay, domain, provider, and canary sequence would be unsafe.",
-    "immediate_unblock": "Approve the named staged live operations: helper publication; disabled Supabase relay, corrective migration, functions, and cleanup proof; then Pages, DNS, and provider configuration for a backed-up private canary. Public enablement remains a later approval."
-  },
+  "updated_at": "2026-08-14T03:04:00Z",
   "review": {
     "pull_request": 140,
     "url": "https://github.com/BriceChivu/Edenia/pull/140",
-    "draft": true,
+    "draft": false,
     "base": "master",
     "head": "codex/accountless-domain-migration",
     "remote_check": "success",
-    "remote_head": "049cb210143054b376675b455ba6c2b4c41335ed",
+    "remote_head": "a33d99cf2c5f12f695d27fd14cb29570f28f0a0d",
     "run_url": "https://github.com/BriceChivu/Edenia/actions/runs/31721907006",
-    "repair_validation": "Exact-head CI passed at implementation source 049cb21 in 13m01s: build, 1,057 contracts, 131 shared backend tests, every Deno check, 620 database assertions across fifteen SQL suites, and 215 browser passes with 503 intentional skips. Linked dry-run proposes only the disabled relay and one additive append-only grace-policy migration, with no hosted history repair."
+    "repair_validation": "PR #140 was merged by the owner at a33d99c and its Pages deployment passed. The disabled relay and grace-policy migrations are applied; the helper is live and hash-verified; a follow-up preflight and tracked Cron change awaits review before hosted cleanup and domain work."
   },
   "artifacts": {
     "decision": "decision.md",

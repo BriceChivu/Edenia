@@ -7,6 +7,10 @@ const migration = await readFile(new URL(
   'supabase/migrations/20260813132440_legacy_progress_transfer_relay.sql',
   projectRoot
 ), 'utf8')
+const cleanupMigration = await readFile(new URL(
+  'supabase/migrations/20260814025929_schedule_legacy_progress_transfer_cleanup.sql',
+  projectRoot
+), 'utf8')
 const databaseTest = await readFile(new URL(
   'supabase/tests/legacy_progress_transfer_relay.test.sql',
   projectRoot
@@ -67,6 +71,14 @@ test('relay HTTP surface uses exact origin, wire, and logging policy', () => {
   assert.doesNotMatch(handler, /console\.|request\.text\(\)/)
   assert.match(createEntrypoint, /auth: 'publishable:default', cors: false/)
   assert.match(consumeEntrypoint, /auth: 'publishable:default', cors: false/)
+  assert.match(
+    createEntrypoint,
+    /request\.method === 'OPTIONS'[\s\S]*?legacyProgressTransferPreflightResponse\(request, 'create'\)[\s\S]*?: handleAuthenticatedRequest\(request\)/
+  )
+  assert.match(
+    consumeEntrypoint,
+    /request\.method === 'OPTIONS'[\s\S]*?legacyProgressTransferPreflightResponse\(request, 'consume'\)[\s\S]*?: handleAuthenticatedRequest\(request\)/
+  )
   assert.doesNotMatch(createEntrypoint, /auth: 'none'/)
   assert.doesNotMatch(consumeEntrypoint, /auth: 'none'/)
   assert.match(config, /\[functions\.create-legacy-progress-transfer\][\s\S]*?verify_jwt = false/)
@@ -87,4 +99,22 @@ test('retained database tests cover concurrency, permissions, and CI routing', (
     /supabase test db supabase\/tests\/legacy_progress_transfer_relay\.test\.sql --local/
   )
   assert.match(workflow, /test:legacy-progress-relay-function/)
+})
+
+test('relay cleanup is scheduled locally without network or browser credentials', () => {
+  assert.match(
+    cleanupMigration,
+    /create extension if not exists pg_cron with schema pg_catalog/
+  )
+  assert.match(
+    cleanupMigration,
+    /cron\.schedule\([\s\S]*?'edenia-legacy-progress-transfer-cleanup'[\s\S]*?'\*\/5 \* \* \* \*'/
+  )
+  assert.match(
+    cleanupMigration,
+    /private\.cleanup_legacy_progress_transfers\(pg_catalog\.now\(\), 1000\)/
+  )
+  assert.match(cleanupMigration, /cron\.job_run_details/)
+  assert.match(cleanupMigration, /interval '30 days'/)
+  assert.doesNotMatch(cleanupMigration, /net\.http|apikey|authorization/i)
 })

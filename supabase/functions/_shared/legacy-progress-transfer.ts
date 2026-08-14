@@ -116,6 +116,13 @@ function preflightResponse(request: Request, mode: RelayMode) {
   return new Response(null, { status: 204, headers })
 }
 
+export function legacyProgressTransferPreflightResponse(
+  request: Request,
+  mode: RelayMode,
+) {
+  return preflightResponse(request, mode)
+}
+
 async function readBoundedJson(request: Request) {
   const contentType = request.headers.get('content-type')?.toLowerCase() || ''
   if (contentType.split(';')[0].trim() !== 'application/json') {
