@@ -4,7 +4,7 @@
   "stage": "implementation",
   "state": "active",
   "created_at": "2026-08-13T12:32:04Z",
-  "updated_at": "2026-08-14T07:08:00Z",
+  "updated_at": "2026-08-14T07:28:00Z",
   "review": {
     "pull_request": 143,
     "url": "https://github.com/BriceChivu/Edenia/pull/143",
@@ -14,7 +14,7 @@
     "remote_check": "success",
     "remote_head": "ce60cd3b201837f33b80cd6f6b64998ce83301c8",
     "run_url": "https://github.com/BriceChivu/Edenia/actions/runs/31768025305",
-    "repair_validation": "PR #143 passed exact-head verification and merged at 91277f5. The ownership/DNS/Pages/TLS cutover and a backed-up real Chrome canary are complete. A fresh prelaunch audit at 2026-08-14T07:08:00Z found current master/Pages 3adbfd0 green, the live verifier 11/11, relay controls off/off with zero ciphertext, healthy cleanup/grants/advisors/log privacy, 1,062 contracts, 131 backend tests, 26 focused migration browser passes, and a green 215-pass/503-skip CI browser matrix. The owner has now approved the remaining public launch and switch-off rehearsal; final live execution and evidence are in progress."
+    "repair_validation": "PR #143 passed exact-head verification and merged at 91277f5. The ownership/DNS/Pages/TLS cutover and backed-up real Chrome canary are complete. Public launch finished at 2026-08-14T07:24:22Z after hosted no-state and valid-state checks plus a successful acceptance-off/application-off drain rehearsal. Final controls are true/true with zero in-flight/ciphertext rows, active cleanup, and privacy-clean bounded logs. The focused public-on verifier/evidence follow-up is pending publication and exact-head CI before this work item is marked completed."
   },
   "artifacts": {
     "decision": "decision.md",

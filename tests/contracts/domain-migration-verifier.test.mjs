@@ -3,6 +3,7 @@ import test from 'node:test'
 
 import {
   GITHUB_PAGES_IPV4,
+  parseExpectedMigrationFlag,
   parseRuntimeConfig,
   verifyDomainMigration
 } from '../../scripts/verify-domain-migration.mjs'
@@ -92,7 +93,7 @@ test('domain verifier accepts the exact safe cutover surface', async () => {
   assert.deepEqual(result.checks.filter(check => !check.ok), [])
 })
 
-test('domain verifier rejects parking DNS and enabled public migration', async () => {
+test('domain verifier rejects parking DNS and an unexpected enabled migration', async () => {
   const badResponses = new Map()
   badResponses.set(`${CANONICAL_ROOT}config.local.js`, response({
     body: 'window.EDENIA_CONFIG = {"legacyProgressMigrationEnabled":true,"plusCheckoutEnabled":false,"accountFeaturesRollout":"internal"}\n',
@@ -112,9 +113,28 @@ test('domain verifier rejects parking DNS and enabled public migration', async (
     [
       'Apex uses GitHub Pages IPv4',
       'www CNAME targets GitHub Pages',
-      'Canonical runtime remains switch-off safe'
+      'Canonical runtime matches expected rollout'
     ]
   )
+})
+
+test('domain verifier accepts an explicitly expected public migration rollout', async () => {
+  const runtimeResponse = new Map()
+  runtimeResponse.set(`${CANONICAL_ROOT}config.local.js`, response({
+    body: 'window.EDENIA_CONFIG = {"legacyProgressMigrationEnabled":true,"plusCheckoutEnabled":false,"accountFeaturesRollout":"internal"}\n',
+    url: `${CANONICAL_ROOT}config.local.js`
+  }))
+  const dependencies = createHealthyDependencies({
+    responses: runtimeResponse
+  })
+
+  const result = await verifyDomainMigration({
+    ...dependencies,
+    expectedLegacyProgressMigrationEnabled: true
+  })
+
+  assert.equal(result.ok, true)
+  assert.deepEqual(result.checks.filter(check => !check.ok), [])
 })
 
 test('domain verifier rejects missing ownership, foreign IPv6, redirects, and helper analytics', async () => {
@@ -156,5 +176,16 @@ test('runtime config parser rejects extra executable content', () => {
   assert.throws(
     () => parseRuntimeConfig('alert(1); window.EDENIA_CONFIG = {}'),
     /one EDENIA_CONFIG object/
+  )
+})
+
+test('expected migration flag parser is strict and defaults off', () => {
+  assert.equal(parseExpectedMigrationFlag(undefined), false)
+  assert.equal(parseExpectedMigrationFlag(''), false)
+  assert.equal(parseExpectedMigrationFlag('false'), false)
+  assert.equal(parseExpectedMigrationFlag('true'), true)
+  assert.throws(
+    () => parseExpectedMigrationFlag('1'),
+    /must be true or false/
   )
 })
