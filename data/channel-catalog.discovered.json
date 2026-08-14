@@ -1,17 +1,17 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-13T10:36:34.729Z",
+  "generatedAt": "2026-08-14T10:32:43.552Z",
   "lastRotationIndex": 0,
-  "nextRotationIndex": 0,
+  "nextRotationIndex": 1,
   "rotationCount": 4,
-  "lastLanguageBatchIndex": 2,
-  "nextLanguageBatchIndex": 3,
+  "lastLanguageBatchIndex": 3,
+  "nextLanguageBatchIndex": 0,
   "languageBatchCount": 4,
   "languageBatchSize": 2,
-  "lastDiscoveryQuotaDate": "2026-08-13",
+  "lastDiscoveryQuotaDate": "2026-08-14",
   "lastDiscoveryLanguages": [
-    "russian",
-    "spanish"
+    "japanese",
+    "portuguese"
   ],
   "lastSearchRequestCount": 6,
   "languages": [
@@ -895,6 +895,34 @@
       "searchText": "atik english atikenglish english youtube discovery"
     },
     {
+      "catalogId": "discovered-UCQFP1zEQhQY7pZP1yed1Rew",
+      "channelId": "UCQFP1zEQhQY7pZP1yed1Rew",
+      "youtubeInput": "@ayana_vs_japanese",
+      "handle": "@ayana_vs_japanese",
+      "name": "Ayana vs Japanese",
+      "thumbnailUrl": "https://yt3.ggpht.com/UhZabsfR7sYeKe3LhtBTrhiSJHovE5qWqDkURAS-8JkvdaHhVILtTqaQLFO6X9RYQKv2P79K6g=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to “Ayana vs Japanese” 🇯🇵✨ I’m Ayana, a Japanese girl who loves sharing Japanese language and culture through comprehensible input — in a fun and natural way! 🌸 In this channel, I speak simple, natural Japanese with English subtitles, so even beginners can understand the meaning from context, not just fro...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-10-25T00:17:57.378711Z",
+      "subscriberCount": "1510",
+      "videoCount": "216",
+      "viewCount": "148161",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 228,
+      "discoveredByQueries": [
+        "Japanese comprehensible input"
+      ],
+      "discoveredAt": "2026-08-14T10:32:43.544Z",
+      "refreshedAt": "2026-08-14T10:32:43.544Z",
+      "searchText": "ayana vs japanese ayana vs japanese japanese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCA0x9FFb02x6B7ZQj1gIG7Q",
       "channelId": "UCA0x9FFb02x6B7ZQj1gIG7Q",
       "youtubeInput": "@am_japanese",
@@ -1118,6 +1146,34 @@
       "discoveredAt": "2026-07-25T15:03:28.802Z",
       "refreshedAt": "2026-07-25T15:03:28.802Z",
       "searchText": "beginner portuguese lessons with stephanie stephanie 123 v2z portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCWM3R2w2inRppXIJ-l-IJJw",
+      "channelId": "UCWM3R2w2inRppXIJ-l-IJJw",
+      "youtubeInput": "@bocchipocchi",
+      "handle": "@bocchipocchi",
+      "name": "Bocchi & Pocchi / Japanese Learning Adventures",
+      "thumbnailUrl": "https://yt3.ggpht.com/AEq_Gx6yFprWRUmghCUm-MD2kZaKMcIS_9AFTq5_m_eS39ckrsLGeqplMJVbnTdYcqGr3TLCPw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Bocchi & Pocchi YouTube Channel! Let's learn Japanese with Bocchi & Pocchi, a friendly pair of socks! 🧦 ✨ Noriko is a Japanese teacher and children's book author and illustrator from Japan. Her children's book series 'Bocchi and Pocchi' has been published in the UK (original English version) and translat...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-03-16T22:26:15.050474Z",
+      "subscriberCount": "37600",
+      "videoCount": "42",
+      "viewCount": "1922915",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 252,
+      "discoveredByQueries": [
+        "learn Japanese"
+      ],
+      "discoveredAt": "2026-08-14T10:32:43.544Z",
+      "refreshedAt": "2026-08-14T10:32:43.544Z",
+      "searchText": "bocchi pocchi japanese learning adventures bocchipocchi japanese youtube discovery"
     },
     {
       "catalogId": "discovered-UChEmp9MCD9K6QE9w_2AHLPg",
@@ -2494,6 +2550,35 @@
       "discoveredAt": "2026-07-30T09:07:44.896Z",
       "refreshedAt": "2026-07-30T09:07:44.896Z",
       "searchText": "daily german talks germandailytalks german youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCMNVKIaw8hV8ln3dDE5z-hA",
+      "channelId": "UCMNVKIaw8hV8ln3dDE5z-hA",
+      "youtubeInput": "@dailyjapanese",
+      "handle": "@dailyjapanese",
+      "name": "Daily Japanese with Naoko",
+      "thumbnailUrl": "https://yt3.ggpht.com/awFJUJnKB5zPA4CLTmHnDQGUqOp5SzUJw3FJaoyTL7gpBgZjqt5bWW5OkqRY9rSuYPFMAzW7=s800-c-k-c0x00ffffff-no-rj",
+      "description": "こんにちは：) なおこです。 私のチャンネルでは、日本語を勉強している人向けに、勉強だと思わずに楽しめる、だけど勉強にもなるような日本語のビデオを作りたいと思っています！ 日本語勉強、日本の文化、日本料理、vlogなどなど☺︎ 少しでも日本語勉強の役に立てたらうれしいです Hi! I’m Naoko. In my channel, I would like to share fun videos which help you learn Japanese without feeling like you are \"studying\". Study, culture, food, Vlog .. etc..！ I'm happy...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-04-22T02:59:44.118609Z",
+      "subscriberCount": "327000",
+      "videoCount": "53",
+      "viewCount": "6021260",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 225,
+      "discoveredByQueries": [
+        "Japanese comprehensible input",
+        "learn Japanese"
+      ],
+      "discoveredAt": "2026-08-14T10:32:43.544Z",
+      "refreshedAt": "2026-08-14T10:32:43.544Z",
+      "searchText": "daily japanese with naoko dailyjapanese japanese youtube discovery"
     },
     {
       "catalogId": "discovered-UCtO49EUg7nyInQENjg_vjsg",
@@ -7136,6 +7221,34 @@
       "searchText": "japanese with yuka japanesewithyuka japanese youtube discovery"
     },
     {
+      "catalogId": "discovered-UC9XYpO2voCl32XhjxkmCgQQ",
+      "channelId": "UC9XYpO2voCl32XhjxkmCgQQ",
+      "youtubeInput": "@nihongo_yuki",
+      "handle": "@nihongo_yuki",
+      "name": "Japanese with Yuki",
+      "thumbnailUrl": "https://yt3.ggpht.com/NzoQuE6LFmMlM6Rsv6H6EnowKV9phTe5oP11rapiQmTkiN6tOJ97FNMUxfxWISCjZjgy2ERhEvI=s800-c-k-c0x00ffffff-no-rj",
+      "description": "This channel is the most fun way to learn Japanese for beginners. On this channel, you will learn: ✅ Hiragana & basic Japanese reading ✅ Real phrases for travel and daily life ✅ Vocabulary with rhythm, beat, and movement ✅ Pronunciation practice that actually sticks I make Japanese unforgettable through: 🎧 Beat Qui...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-11-17T14:02:47.484498Z",
+      "subscriberCount": "5710",
+      "videoCount": "291",
+      "viewCount": "806201",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 233,
+      "discoveredByQueries": [
+        "learn Japanese"
+      ],
+      "discoveredAt": "2026-08-14T10:32:43.544Z",
+      "refreshedAt": "2026-08-14T10:32:43.544Z",
+      "searchText": "japanese with yuki nihongo yuki japanese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCOk9XUAOmj1HCxgNXkouUEQ",
       "channelId": "UCOk9XUAOmj1HCxgNXkouUEQ",
       "youtubeInput": "@japarrot_letslearnjp",
@@ -7163,6 +7276,34 @@
       "discoveredAt": "2026-07-25T15:03:19.156Z",
       "refreshedAt": "2026-07-25T15:03:19.156Z",
       "searchText": "japarrot let s learn japanese japarrot letslearnjp japanese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCpPemQ80aZnquPbaaMxw85A",
+      "channelId": "UCpPemQ80aZnquPbaaMxw85A",
+      "youtubeInput": "@realjoesema",
+      "handle": "@realjoesema",
+      "name": "Joe Sema",
+      "thumbnailUrl": "https://yt3.ggpht.com/5MQL1nyTa_x77Oo9F5lBTY8LbxQ8LVzzIrdRGdnl7b8rqi96VbBxyBFW1Kq2lFKXBIxDwXcDBw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "I'm a Software Engineer who learned Spanish to fluency with self study while living at home in the US. Since then I've developed a passion for language learning and I'll teach you how to learn languages faster. 🇺🇸 English: Native 🇨🇴 Spanish: C1 🇧🇷 Portuguese: A1 🇦🇱 Albanian: Heritage Speaker",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-08-26T03:15:18.733122Z",
+      "subscriberCount": "1140",
+      "videoCount": "236",
+      "viewCount": "260446",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 226,
+      "discoveredByQueries": [
+        "Portuguese comprehensible input"
+      ],
+      "discoveredAt": "2026-08-14T10:32:43.544Z",
+      "refreshedAt": "2026-08-14T10:32:43.544Z",
+      "searchText": "joe sema realjoesema portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UCjRTuEW1W-ZNRtYLQGksJoQ",
@@ -7501,6 +7642,34 @@
       "discoveredAt": "2026-07-24T14:16:02.265Z",
       "refreshedAt": "2026-07-24T14:16:02.265Z",
       "searchText": "learn angolan portuguese learnangolanportuguese portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC5wX7SC8TVO-eQmqQbzo7Jw",
+      "channelId": "UC5wX7SC8TVO-eQmqQbzo7Jw",
+      "youtubeInput": "@learnbrazilianese",
+      "handle": "@learnbrazilianese",
+      "name": "Learn Brazilianese",
+      "thumbnailUrl": "https://yt3.ggpht.com/pnoKn9V2RcIufV6vXuDXWTUXS-mNgZrpARubKiSQ4NbxtMcUceePYZHi5dc6WxAlSxJmyn4BmJQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn Brazilian Portuguese with a native teacher. 🇧🇷 Understand Brazilian Portuguese before you even realize you're studying. Comprehensible Input and Shadowing to help foreigners build real listening skills and speak with confidence.",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-01-11T15:58:06.52557Z",
+      "subscriberCount": "2130",
+      "videoCount": "71",
+      "viewCount": "51006",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 247,
+      "discoveredByQueries": [
+        "Portuguese comprehensible input"
+      ],
+      "discoveredAt": "2026-08-14T10:32:43.544Z",
+      "refreshedAt": "2026-08-14T10:32:43.544Z",
+      "searchText": "learn brazilianese learnbrazilianese portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UCB6Okp3lWoEpN17bY1y15gg",
@@ -10315,6 +10484,34 @@
       "searchText": "learn portuguese learnportuguese portuguese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCrC35N6emOII1Mkm6Be_PnA",
+      "channelId": "UCrC35N6emOII1Mkm6Be_PnA",
+      "youtubeInput": "@learnportuguese6818",
+      "handle": "@learnportuguese6818",
+      "name": "Learn Portuguese",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_n54lC5F77BJ5xGBAeQ7aO7EiRQ6vp_gQytERD0HtmWStw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn Portuguese is a channel that helps you improve your knowledge of Portuguese. Are you travelling the world? Want to establish business with Portuguese? The Learn Portuguese channel helps you improve your language skills and has all the words you need. Listen, learn, and speak Portuguese. Channel Art: - Creator:...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2017-02-02T18:08:29Z",
+      "subscriberCount": "2710",
+      "videoCount": "959",
+      "viewCount": "936859",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 219,
+      "discoveredByQueries": [
+        "learn Portuguese"
+      ],
+      "discoveredAt": "2026-08-14T10:32:43.544Z",
+      "refreshedAt": "2026-08-14T10:32:43.544Z",
+      "searchText": "learn portuguese learnportuguese6818 portuguese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCh-Ph8PP4eRdx5oQ2hGsD0A",
       "channelId": "UCh-Ph8PP4eRdx5oQ2hGsD0A",
       "youtubeInput": "@learnportuguesesimple",
@@ -12424,6 +12621,34 @@
       "searchText": "mayura e english spoken english training program mayuraeng lish english youtube discovery"
     },
     {
+      "catalogId": "discovered-UCFvMt22k_CAIcx6MIJGiHkw",
+      "channelId": "UCFvMt22k_CAIcx6MIJGiHkw",
+      "youtubeInput": "@meis_japanese_lesson",
+      "handle": "@meis_japanese_lesson",
+      "name": "Mei's Japanese Lab",
+      "thumbnailUrl": "https://yt3.ggpht.com/_wNWxUV9iBCnNvd3j_WYOrD52bnI5ikvJ_E_JrhBRFiClnpLmW7NM4CKk808Wth79MXUtLhm5A=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Mei's Japanese Labへようこそ！ Learn Japanese through: - Grammar quizzes and explanations - Useful vocabulary in context - Japanese culture, trend and news -All in *easy-to-understand* Japanese! Perfect for JLPT learners (N5-N1), self-study students, and Japan lovers. New videos weekly! Let's study Japanese together - wit...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-06-26T02:33:39.474729Z",
+      "subscriberCount": "3400",
+      "videoCount": "63",
+      "viewCount": "109464",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 214,
+      "discoveredByQueries": [
+        "Japanese comprehensible input"
+      ],
+      "discoveredAt": "2026-08-14T10:32:43.544Z",
+      "refreshedAt": "2026-08-14T10:32:43.544Z",
+      "searchText": "mei s japanese lab meis japanese lesson japanese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCysAFeq5ywFLqJPx42mNaQg",
       "channelId": "UCysAFeq5ywFLqJPx42mNaQg",
       "youtubeInput": "@danapintilei9654",
@@ -13322,6 +13547,34 @@
       "searchText": "portuguese fairy tales portuguesefairytales portuguese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCjhrbal8hrZI3LoYzj6bgVg",
+      "channelId": "UCjhrbal8hrZI3LoYzj6bgVg",
+      "youtubeInput": "@portuguesefortoddlers",
+      "handle": "@portuguesefortoddlers",
+      "name": "Portuguese for Toddlers",
+      "thumbnailUrl": "https://yt3.ggpht.com/FJd9PhcOyRK_HPYKQeG-s1AlnI6bWci6ZyD--1JIpQAfFOYRjWHH5M8FX3M7pkLY2COA7EVI9A=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🌟 Welcome to \"Portuguese for Toddlers\"! 🌟 Are you looking for a fun, interactive, and engaging way for your little one to learn Portuguese? You've found the perfect place! Inspired by the magic of early childhood learning, our channel is designed to help toddlers absorb Portuguese naturally through music, movement...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-04-08T13:14:29.165356Z",
+      "subscriberCount": "46300",
+      "videoCount": "996",
+      "viewCount": "14590862",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 271,
+      "discoveredByQueries": [
+        "learn Portuguese"
+      ],
+      "discoveredAt": "2026-08-14T10:32:43.544Z",
+      "refreshedAt": "2026-08-14T10:32:43.544Z",
+      "searchText": "portuguese for toddlers portuguesefortoddlers portuguese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCp91oLgbdCPYmH6q1doyU8w",
       "channelId": "UCp91oLgbdCPYmH6q1doyU8w",
       "youtubeInput": "@portuguese.in.real-life",
@@ -13773,6 +14026,34 @@
       "discoveredAt": "2026-07-27T15:11:22.372Z",
       "refreshedAt": "2026-07-27T15:11:22.372Z",
       "searchText": "portuguese with thai profthaibr portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCKRHADaO-FhI8-vm2M0iitg",
+      "channelId": "UCKRHADaO-FhI8-vm2M0iitg",
+      "youtubeInput": "@portuguesewiththomas",
+      "handle": "@portuguesewiththomas",
+      "name": "Portuguese With Thomas",
+      "thumbnailUrl": "https://yt3.ggpht.com/uuJsshMOceNcyeEH2k_5WT9XgZui8e9tHzb-KHqjyBIy-A7NL9XkdDKMbGr9uLKz9k9iTxBnZWc=s800-c-k-c0x00ffffff-no-rj",
+      "description": "I’m Thomas, a native Brazilian Portuguese speaker. This channel helps English speakers learn real Brazilian Portuguese with simple, practical lessons. All videos are recorded with my real voice — no AI — so you hear natural pronunciation, rhythm, and intonation, just like native speakers talk. New lessons every week...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-12-07T17:00:56.385326Z",
+      "subscriberCount": "786",
+      "videoCount": "69",
+      "viewCount": "47714",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 228,
+      "discoveredByQueries": [
+        "learn Portuguese"
+      ],
+      "discoveredAt": "2026-08-14T10:32:43.544Z",
+      "refreshedAt": "2026-08-14T10:32:43.544Z",
+      "searchText": "portuguese with thomas portuguesewiththomas portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UCzSc_8bMwXlmCAKyf8R2HUA",
@@ -17995,6 +18276,34 @@
       "searchText": "vocabfrancais apprendre le francais facilement vocabfrancais french youtube discovery"
     },
     {
+      "catalogId": "discovered-UCpQkiHw7h4Cc4tsUgI-UiGQ",
+      "channelId": "UCpQkiHw7h4Cc4tsUgI-UiGQ",
+      "youtubeInput": "@vouaprenderportugues",
+      "handle": "@vouaprenderportugues",
+      "name": "Vou Aprender Português",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_mpc-b2Wibb6dkMtyyi0RgYaEiaJtLhLPRsImU3_8im9A=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Private Lessons/Clases privadas: https://www.italki.com/i/reft/CEaCC0/CEaCC0 Are you a beginner? Click here: https://vouaprenderportugues.com/portuguese-for-beginners/ Vou Aprender Português é um projeto criado pelo professor Diego Brian. O objetivo deste projeto é fazer com que você aprenda português rápido, de man...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-08-03T21:10:54.62367Z",
+      "subscriberCount": "28700",
+      "videoCount": "270",
+      "viewCount": "1553298",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 265,
+      "discoveredByQueries": [
+        "aprender português iniciantes"
+      ],
+      "discoveredAt": "2026-08-14T10:32:43.544Z",
+      "refreshedAt": "2026-08-14T10:32:43.544Z",
+      "searchText": "vou aprender portugues vouaprenderportugues portuguese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC-0fw2LBBglR1qdIDxHUWtw",
       "channelId": "UC-0fw2LBBglR1qdIDxHUWtw",
       "youtubeInput": "@wespeakgerman",
@@ -18331,6 +18640,34 @@
       "discoveredAt": "2026-07-24T14:00:08.218Z",
       "refreshedAt": "2026-07-24T14:00:08.218Z",
       "searchText": "いろいろな日本語 iroironanihongo japanese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCdZHET-9_Comx6UaVTSETiQ",
+      "channelId": "UCdZHET-9_Comx6UaVTSETiQ",
+      "youtubeInput": "@nihongo-no-jikan",
+      "handle": "@nihongo-no-jikan",
+      "name": "にほんごのじかん | Japanese Comprehensible Input",
+      "thumbnailUrl": "https://yt3.ggpht.com/QHYkWjq1ziMV8VkKfyyJ8sRUVxPE6Z8zUTA9_58R8JnbgOE8tbTlOz11FSgP5j5Y-e432Ul0Dg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Hi, I’m Yuki👋 にほんごのじかん (Nihongo no Jikan) is a place where you can relax and enjoy learning Japanese through Comprehensible Input. I speak in slow, simple Japanese across a wide range of topics and formats, including Japanese culture, everyday life, folktales, gameplay, quizzes, vlogs, cooking, and more. My videos...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-05-10T23:51:08.862817Z",
+      "subscriberCount": "4350",
+      "videoCount": "916",
+      "viewCount": "119301",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 266,
+      "discoveredByQueries": [
+        "Japanese comprehensible input"
+      ],
+      "discoveredAt": "2026-08-14T10:32:43.544Z",
+      "refreshedAt": "2026-08-14T10:32:43.544Z",
+      "searchText": "にほんこのしかん japanese comprehensible input nihongo no jikan japanese youtube discovery"
     },
     {
       "catalogId": "discovered-UCt2D_UD1vf7fRFp6BndOkEA",
