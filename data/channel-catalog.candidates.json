@@ -105,6 +105,31 @@
       "searchText": "chinese with mini chinesewithmini intermediate"
     },
     {
+      "catalogId": "community-UCV_NeDtvRXufw1TuJrRteAQ",
+      "channelId": "UCV_NeDtvRXufw1TuJrRteAQ",
+      "handle": "@celadelle",
+      "name": "Crystal Celadelle",
+      "thumbnailUrl": "https://yt3.ggpht.com/adQ5sOtuH7CCkCI_RdplfOISLhjCDIAG3p53z6YhLYfT-cFgmSLVvwm4vBQ2_Uj0iQQJMDRDBg=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-09-12T09:14:39.310284Z",
+      "metadataRefreshedAt": "2026-08-14T04:29:01.560Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-08-13T13:49:11.845Z",
+      "lastSeenAt": "2026-08-13T13:49:11.845Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "crystal celadelle celadelle"
+    },
+    {
       "catalogId": "community-UCjhMPI8K9D3tu_Og9I_GGOg",
       "channelId": "UCjhMPI8K9D3tu_Og9I_GGOg",
       "handle": "@extramediummedia",
@@ -509,5 +534,5 @@
       "searchText": "雷堤娜 tyna krysjensen86"
     }
   ],
-  "generatedAt": "2026-08-08T03:57:51.890Z"
+  "generatedAt": "2026-08-14T04:29:01.560Z"
 }
