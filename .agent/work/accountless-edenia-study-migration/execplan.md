@@ -47,7 +47,9 @@ The current application makes this difficult because startup, import normalizati
 - [x] (2026-08-14 03:48Z) Merged the documentation-only evidence PR #142 at `541137da1b5663a0edba55a647721837ddd76016`; exact-head CI passed 1,058 contracts and 215 browser cases with 503 intentional skips, and Pages run `31767496971` deployed that merge successfully. Added a read-only `npm run verify:domain-migration` release check that fails closed unless ownership TXT, exact GitHub DNS, trusted HTTPS, apex and legacy redirects, canonical root/subpaths, helper isolation, and migration-off runtime values all agree. Four focused tests, a fresh build, and all 1,062 contracts passed. The live pre-cutover run correctly passed only optional-empty IPv6 and the independent helper, while rejecting absent TXT, Namecheap parking, unavailable canonical HTTPS/subpaths, and the still-unredirected legacy app.
 - [x] (2026-08-14 04:31Z) Completed the coordinated domain cutover without touching the retained mail records. Published and GitHub-verified the exact ownership TXT challenge; attached `www.edenia.study` to Pages; replaced only the Namecheap parking redirect/CNAME with the four GitHub Pages apex A records and `www -> bricechivu.github.io`; waited for the trusted certificate and HTTPS enforcement; and confirmed the Pages API reports the verified canonical HTTPS domain. After the local 30-minute parking-DNS cache expired, all 11 checks in `npm run verify:domain-migration` passed for ownership, exact DNS, canonical TLS/root/runtime, apex and legacy redirects, isolated helper, and Plus/unsubscribe subpaths. Automatic migration remained false, checkout false, and account rollout internal throughout.
 - [x] (2026-08-14 04:31Z) Completed the backed-up private canary with the public flag still off. A 1,787,424-byte manual old-origin export was copied out of band and hash-verified; an isolated conclusive no-state return launched the ordinary zero-progress trailer/onboarding; and the exact helper/app no-state and valid-state contracts passed 13/13 in desktop Chromium and 13/13 in WebKit. For the real Chrome canary, relay consumption was enabled before acceptance, the helper moved the encrypted normal state, and acceptance was disabled immediately after creation. The canonical app showed the same 788 points, four-day streak, 1,592 videos, and 31 Anki days, created a visible `legacy origin recovery` backup, and wrote one migration activity marker tied to the source envelope hash. A second export from the still-open old-origin app had byte-identical state JSON to the pre-canary export. The relay was restored to acceptance=false/consumption=false with one completed tombstone, one completion metric, zero ciphertext-bearing rows, and active cleanup; hosted Edge logs contained no ciphertext/capability fields, bearer values, or PostHog references. Fifteen focused privacy/domain/relay contracts also passed. Current `master` advanced during the canary only through PR #144's community-catalog data file; Pages run `31770041791` succeeded at `3adbfd0b56206cca686e313fd5a16c576f40a30f`, the migration surface was unchanged, and the live verifier passed again.
-- [ ] Obtain separate owner approval before enabling `EDENIA_LEGACY_PROGRESS_MIGRATION_ENABLED` publicly, then execute the public-enable and immediate switch-off rehearsal from this evidence packet.
+- [x] (2026-08-14 07:07Z) Repeated the approval-independent completion audit from a clean, fully pushed branch against unchanged `origin/master` SHA `3adbfd0b56206cca686e313fd5a16c576f40a30f`. The live domain verifier again passed 11/11 and Pages remained verified, HTTPS-enforced, and green at run `31770041791`. The hosted relay remained acceptance=false/consumption=false with one completed tombstone, one anonymous completion, zero ciphertext rows/bytes, no browser table grants, service-only RPC execution, and a successful 07:05Z cleanup. Current Supabase changelog/docs, hosted functions, advisors, and bounded Edge logs showed no relay-specific warning or sensitive-field match. Fresh review found no raw-secret, wildcard-CORS, fragment-analytics, unbounded-payload, or destination-overwrite defect. `npm test` passed 1,062 contracts, 131 shared Supabase tests, and all Deno checks; the focused migration matrix passed 26/26 across Chromium and WebKit; and `CI=1 npm run test:ci` passed 215 browser cases with 503 intentional skips, zero unexpected, and zero flaky cases.
+- [x] (2026-08-14 07:08Z) The owner gave full permission to continue, including the remaining public migration enablement, provider-control changes, commits, pushes, and any necessary merge. This approves the reviewed privacy wording and clears the public-launch gate while leaving retirement a later evidence-driven action. The immediate prelaunch snapshot still has the repository migration variable absent, public runtime false, relay controls off/off, zero ciphertext, healthy cleanup, and the canonical domain green.
+- [ ] Enable and validate the public relay/application path, execute the immediate switch-off-and-drain rehearsal, and restore the approved final launch state only if every invariant remains green.
 - [ ] Maintain the operational evidence needed for the five-month minimum and rolling 90-day quiet-period retirement rule; retirement itself remains a separately approved future action.
 
 ## Surprises & Discoveries
@@ -151,6 +153,12 @@ The current application makes this difficult because startup, import normalizati
 - Observation: A live cutover verifier can distinguish the independently healthy helper from an otherwise unsafe partial domain state without receiving any provider credential.
   Evidence: Against the current pre-cutover deployment, `npm run verify:domain-migration` passes the helper's exact HTTPS/URL/referrer/CSP/no-analytics surface and optional-empty IPv6, but fails ownership TXT, the four GitHub apex A records, the `www` CNAME, canonical HTTPS/runtime/subpaths, apex redirect, and legacy redirect. This is the expected fail-closed boundary before registrar access.
 
+- Observation: The final broad CI report is stable after the domain cutover and private canary, but its 718 project/test combinations include 503 deliberate project-level skips.
+  Evidence: The embedded Playwright report records `total=718`, `expected=215`, `skipped=503`, `unexpected=0`, `flaky=0`, and `ok=true`; the migration-only Chromium/WebKit selection separately passed 26/26. Record both numbers so intentional project filtering is not misreported as incomplete execution.
+
+- Observation: The current Supabase changelog contains breaking changes, but none affects the relay's private schema, publishable-key-authenticated Edge Functions, direct SQL cleanup Cron job, or existing Data API grants.
+  Evidence: The 2026-08-14 refresh retained the official publishable/secret-key and scheduled-function guidance; hosted advisors reported only the three intentional private deny-all RLS notices for relay tables, no relay warning/error, and no relay performance notice.
+
 ## Decision Log
 
 - Decision: Keep authentication, cloud account sync, and account-based PostHog identity out of this work item.
@@ -213,6 +221,10 @@ The current application makes this difficult because startup, import normalizati
   Rationale: DNS, TLS, redirects, helper isolation, root/subpaths, and deployed switch-off values are deterministic and cheap to recheck after propagation. Browser-local byte/hash preservation, provider dashboard state, PostHog network traffic, relay controls, and the deployed Pages SHA require their existing authoritative checks and must not be collapsed into a superficially green URL script.
   Date/Author: 2026-08-14 / Codex
 
+- Decision: Public launch uses the same dependency order as the private canary: enable relay consumption, then acceptance, then deploy the application flag. The circuit-breaker rehearsal disables new acceptance and the application flag while leaving consumption available for a bounded drain; only after switch-off evidence is green may acceptance and the application flag return to the approved launch state.
+  Rationale: The helper must never create a transfer that the destination cannot consume, and rollback must stop new redirects/uploads without stranding an already issued transfer. Re-enabling only after the disabled deployment is observed makes the kill/drain path production evidence rather than an untested runbook claim.
+  Date/Author: 2026-08-14 / user and Codex
+
 ## Outcomes & Retrospective
 
 Planning outcome as of 2026-08-13: the user flow and loss-prevention policy are decided, and the repository-specific implementation path is documented below.
@@ -236,6 +248,8 @@ Staged-live outcome as of 2026-08-14: PRs #140 and #141 are merged, the old appl
 Cutover-readiness outcome as of 2026-08-14: master and Pages now match merge `541137da1b5663a0edba55a647721837ddd76016`, and the repository has a tested, operator-facing live verifier for the deterministic part of the domain cutover. Its real pre-cutover failure report proves the current state is not being mistaken for completion: the helper is healthy, but ownership TXT, GitHub DNS, canonical TLS, redirects, and canonical subpaths are absent. The registrar login remains the sole blocker to beginning those approved infrastructure writes; the backed-up browser canary and public-enable review still follow them.
 
 Domain-cutover and private-canary outcome as of 2026-08-14: `https://www.edenia.study/` is the verified canonical GitHub Pages domain with valid TLS and enforced HTTPS; apex, legacy-project, helper, Plus, and unsubscribe routes pass the release verifier; and existing mail DNS remains intact. A backed-up real Chrome profile moved its normal progress successfully while a still-open old-origin copy remained byte-identical, the destination protected an incoming recovery backup before authority, and the relay completed exactly once before returning to off/off with no ciphertext. The exact current Pages deployment is green at `3adbfd0b56206cca686e313fd5a16c576f40a30f`; its only post-canary source delta is an unrelated community-catalog data import. Public automatic migration remains false by design. The next action is an explicit owner go/no-go for public enablement, followed by the five-month and rolling 90-day observation period rather than any immediate retirement.
+
+Prelaunch completion-audit outcome as of 2026-08-14 07:08Z: no new implementation defect or live drift was found. The exact canonical deployment, helper, relay privacy/grants/capacity, cleanup, current Supabase guidance, focused browser behavior, and broad CI-equivalent suite are green while all migration controls remain off. The owner has now approved public enablement and the switch-off/drain rehearsal. Real Chrome has backed-up canary evidence; Safari on macOS/iOS, Firefox, Edge, and restrictive/private real-device cells remain explicitly unverified rather than being inferred from Chromium/WebKit automation.
 
 ## Context and Orientation
 
@@ -597,6 +611,25 @@ Domain-cutover and private-canary audit at 2026-08-14 04:31Z:
       focused WebKit browser: 13/13 passed
     Remaining approval gate: public automatic migration enablement and switch-off rehearsal
 
+Public prelaunch audit at 2026-08-14 07:08Z:
+
+    Branch/local evidence SHA: 298a0916a1b96e014f1ee4153aefb0752462c410; clean and pushed
+    Current master/Pages SHA: 3adbfd0b56206cca686e313fd5a16c576f40a30f
+    Current Pages deployment: run 31770041791, success; verified www domain and HTTPS enforced
+    Live domain verifier: 11/11 passed with migration=false, checkout=false, accounts=internal
+    Repository migration variable: absent, therefore disabled
+    Relay controls/data: acceptance=false; consumption=false; completed metric=1;
+      one completed tombstone; ciphertext rows/bytes=0
+    Cleanup: active every five minutes; 07:05Z run succeeded with DELETE 0
+    Hosted grants/advisors: no browser table grants; service-only relay RPC execution;
+      intentional private deny-all RLS INFO notices only; no relay warning/performance finding
+    Hosted Edge log scan: no ciphertext/capability field, bearer value, PostHog, or failure-event match
+    Fresh local evidence: npm test passed 1,062 contracts and 131 shared backend tests plus Deno;
+      migration Chromium/WebKit 26/26; CI Playwright expected=215, skipped=503,
+      unexpected=0, flaky=0
+    Owner approval: full remaining launch permission received at 2026-08-14 07:08Z
+    Real-device gaps: Safari macOS/iOS, Firefox, Edge, and restrictive/private modes unverified
+
 Do not paste state documents, capabilities, ciphertext, service keys, publishable-key values, emails, IP addresses, or provider secrets into this plan.
 
 ## Interfaces and Dependencies
@@ -750,3 +783,5 @@ Plan revision 2026-08-14 (green cleanup follow-up and provider preparation): Rec
 Plan revision 2026-08-14 (read-only cutover verifier): Recorded PR #142's merge and deployed evidence, added the credential-free deterministic live-domain verifier plus focused/full contract proof, and retained browser-local, provider, relay-control, PostHog-network, and deployed-SHA evidence as separate authoritative checks. Its real pre-cutover failure report confirms the registrar login remains the external blocker without weakening or redefining the final canary.
 
 Plan revision 2026-08-14 (canonical cutover and backed-up private canary): Recorded the verified Namecheap/GitHub Pages DNS and TLS cutover, current exact Pages deployment, out-of-band real-browser backup, honest isolated no-state evidence, successful real Chrome encrypted transfer, byte-identical old-origin re-export, protected destination backup, source-envelope marker, relay completion/privacy evidence, immediate off/off restoration, and focused Chromium/WebKit/contracts. Public automatic migration remains false and requires a separate owner go/no-go before enablement.
+
+Plan revision 2026-08-14 (fresh prelaunch audit and public approval): Recorded the repeated clean source/live/security audit, exact focused and broad test totals, current Supabase changelog/docs and hosted advisor state, explicit remaining real-device gaps, the owner's full public-launch authorization, and the consumption-before-acceptance plus switch-off/drain order. No live control changed while recording this evidence.
