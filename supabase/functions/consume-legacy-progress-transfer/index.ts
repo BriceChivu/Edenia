@@ -1,13 +1,14 @@
 import { withSupabase } from '@supabase/server'
 import {
   handleLegacyProgressTransferRequest,
+  legacyProgressTransferPreflightResponse,
   legacyProgressTransferUnavailableResponse,
 } from '../_shared/legacy-progress-transfer.ts'
 import type {
   LegacyProgressTransferClient,
 } from '../_shared/legacy-progress-transfer.ts'
 
-Deno.serve(withSupabase(
+const handleAuthenticatedRequest = withSupabase(
   { auth: 'publishable:default', cors: false },
   async (request, context) => {
     try {
@@ -24,4 +25,8 @@ Deno.serve(withSupabase(
       return legacyProgressTransferUnavailableResponse(request, 'consume')
     }
   },
-))
+)
+
+Deno.serve(request => request.method === 'OPTIONS'
+  ? legacyProgressTransferPreflightResponse(request, 'consume')
+  : handleAuthenticatedRequest(request))
