@@ -75,6 +75,22 @@ test('production Auth config preserves exact returns and Free-plan safeguards', 
   assert.doesNotMatch(config, /site_url = "http:|https:\/\/127\.0\.0\.1:3000/)
 })
 
+test('versioned magic-link template stays branded and scanner-resistant', async () => {
+  const template = await readFile(
+    new URL('supabase/templates/magic_link.html', projectRoot),
+    'utf8'
+  )
+
+  assert.match(template, /<title>Sign in to Edenia<\/title>/)
+  assert.match(
+    template,
+    /https:\/\/www\.edenia\.study\/auth\/confirm\/#token_hash=\{\{ \.TokenHash \}\}&amp;type=email/
+  )
+  assert.match(template, /Continue to Edenia/)
+  assert.doesNotMatch(template, /ConfirmationURL|supabase\.co|essddsmidqigxwhuzlgo/i)
+  assert.doesNotMatch(template, /<script|<form|<img|http:\/\//i)
+})
+
 test('applied Supabase migrations preserve their exact identities and bytes', async () => {
   const migrationFiles = (await readdir(migrationsRoot)).sort()
   for (const migrationFile of Object.keys(APPLIED_MIGRATION_HASHES)) {

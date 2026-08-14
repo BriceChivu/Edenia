@@ -26,6 +26,7 @@ This plan ends after a reversible private canary on `https://www.edenia.study/?i
 - [x] (2026-08-14 17:32Z) Reused the existing Google Web client after verifying its exact `https://www.edenia.study` and `http://localhost:8000` JavaScript origins. Deployed only its public client ID in Pages run 31823973617 at exact source `79ed25f`; the live runtime still reports account rollout `internal`, Google transport `oauth_redirect`, One Tap false, and no Turnstile site key, so this preparatory configuration changed no public flow.
 - [ ] (2026-08-14 17:32Z) Provider creation is staged at its browser safety boundary. Resend has one existing reminder-only key and no authentication key; the ready form would create a sending-only key restricted to `mail.edenia.study`. Cloudflare has no existing Turnstile widget; the ready form would create a managed widget restricted to `www.edenia.study` and `localhost`. Creating either persistent credential requires the user's action-time confirmation before the final submit, even though the overall plan was pre-authorized.
 - [x] (2026-08-14 17:37Z) Made the production Supabase Auth URL and non-secret safety configuration durable in `supabase/config.toml`, including the two exact confirmation URLs and no wildcard. A first CLI invocation unexpectedly mutated Auth to generated localhost defaults before a paid-only Storage update failed. Immediately restored the original site URL, three prior returns, email confirmation, 60-second frequency, eight-digit OTP, and TOTP settings while adding the two intended confirmation returns; explicitly kept vector buckets disabled. A second authenticated config push reports API, DB, Auth, and Storage all up to date, the dashboard shows the production URL plus all five exact returns, Google remains enabled, custom SMTP remains disabled, and the focused source contract passes 7/7.
+- [x] (2026-08-14 17:40Z) Added a versioned, branded magic-link source at `supabase/templates/magic_link.html`. Its only action targets Edenia's scanner-resistant confirmation fragment with `{{ .TokenHash }}`; a focused contract forbids `{{ .ConfirmationURL }}`, the opaque project reference, Supabase-branded links, active content, images, forms, or insecure URLs and passes 8/8. Hosted installation remains correctly ordered after custom SMTP activation.
 - [ ] Deploy all new behavior still switched off or internal-only, then configure Google, Resend SMTP, the Supabase email template, and Turnstile in dependency order without printing secrets.
 - [ ] Run the internal desktop, phone, cross-device email, same-email UUID, One Tap, sign-out, quota, and rollback canaries; record exact deployed SHA/provider state and keep the public path unchanged.
 
@@ -81,6 +82,9 @@ This plan ends after a reversible private canary on `https://www.edenia.study/?i
 - Observation: `supabase config push` is an applying command, not a diff-only preview. With Auth sections absent, the CLI compares and writes its generated localhost defaults; it can partially apply one service before a later service fails. Edenia's previous function-only file therefore was not safe for production config pushes even though ordinary function deployment had not exposed the issue.
   Evidence: the first command changed the remote Auth URL, returns, email confirmation, OTP, and TOTP values, then failed with HTTP 402 while trying to enable paid vector buckets. The repaired explicit config restored every observed prior value, added only the two intended confirmation returns, kept vector buckets false, and an immediate second push reported every service up to date.
 
+- Observation: Hosted Supabase email templates are configured separately from the production CLI Auth values tracked in `supabase/config.toml`. Keeping the exact reviewed HTML in the repository gives the dashboard operation a source of truth without incorrectly implying that a config push installs the hosted template.
+  Evidence: current Supabase Auth email-template documentation and the passing `versioned magic-link template stays branded and scanner-resistant` source contract.
+
 
 ## Decision Log
 
@@ -88,6 +92,10 @@ This plan ends after a reversible private canary on `https://www.edenia.study/?i
 - Decision: Track production Auth site/return URLs, email confirmation/frequency/OTP, TOTP, and the Free-plan vector-bucket disable explicitly in `supabase/config.toml`; treat every future `supabase config push` as a full-service production mutation and require an immediate idempotent second-push check.
   Rationale: Implicit CLI defaults can overwrite live Auth settings and attempt paid features even when the repository previously used the file only for Edge Function declarations. Making the non-secret invariants explicit prevents recurrence and provides a reviewable exact-origin source of truth.
   Date/Author: 2026-08-14 / Codex after immediate restoration of an unexpected partial push.
+
+- Decision: Version the production magic-link HTML under `supabase/templates/`, but install it through the hosted Auth template editor only after custom SMTP is active.
+  Rationale: The repository must preserve the exact reviewed branding and fragment-token contract, while the hosted provider operation has an independent lifecycle and must not be conflated with `supabase config push`.
+  Date/Author: 2026-08-14 / Codex.
 
 
 - Decision: Use Google Identity Services JavaScript API only, with Google's rendered button, One Tap, and cancelable automatic sign-in; do not mix the HTML API or preserve a hidden custom-button trigger.
