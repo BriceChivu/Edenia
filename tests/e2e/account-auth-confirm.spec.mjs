@@ -2,6 +2,7 @@ import { expect, test } from '../support/network-fixture.mjs'
 
 const TOKEN_HASH = 'abcdefghijklmnopqrstuvwxyz012345'
 const SUPABASE_ORIGIN = 'https://account-ui-test.supabase.co'
+const LOCAL_ORIGIN = 'http://localhost:8000'
 const AUTHENTICATED_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
 
 const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
@@ -94,8 +95,10 @@ test('confirmation scrubs the fragment and verifies only after a deliberate acti
   const requests = []
   await configureConfirmationPage(page, requests)
 
-  await page.goto(`/auth/confirm/#token_hash=${TOKEN_HASH}&type=email`)
-  await expect(page).toHaveURL('http://localhost:8000/auth/confirm/')
+  await page.goto(
+    `${LOCAL_ORIGIN}/auth/confirm/#token_hash=${TOKEN_HASH}&type=email`
+  )
+  await expect(page).toHaveURL(`${LOCAL_ORIGIN}/auth/confirm/`)
   await expect(page.getByRole('heading', {
     name: 'Confirm your Edenia sign-in'
   })).toBeVisible()
@@ -124,7 +127,7 @@ test('confirmation scrubs the fragment and verifies only after a deliberate acti
     type: 'email'
   })
   await expect(page).toHaveURL(
-    'http://localhost:8000/?internal_test=1&account=1'
+    `${LOCAL_ORIGIN}/?internal_test=1&account=1`
   )
 })
 
@@ -134,7 +137,9 @@ test('confirmation retains only an in-memory retry after transient failure', asy
   test.skip(testInfo.project.name !== 'desktop-standard')
   const requests = []
   await configureConfirmationPage(page, requests)
-  await page.goto(`/auth/confirm/#token_hash=${TOKEN_HASH}&type=email`)
+  await page.goto(
+    `${LOCAL_ORIGIN}/auth/confirm/#token_hash=${TOKEN_HASH}&type=email`
+  )
   await page.evaluate(() => { window.__edeniaConfirmE2e.mode = 'retryable' })
 
   const action = page.getByRole('button', { name: 'Continue to Edenia' })
@@ -143,12 +148,12 @@ test('confirmation retains only an in-memory retry after transient failure', asy
     'Edenia could not verify the link. Try again.'
   )).toBeVisible()
   await expect(action).toBeEnabled()
-  await expect(page).toHaveURL('http://localhost:8000/auth/confirm/')
+  await expect(page).toHaveURL(`${LOCAL_ORIGIN}/auth/confirm/`)
 
   await page.evaluate(() => { window.__edeniaConfirmE2e.mode = 'success' })
   await action.click()
   await expect(page).toHaveURL(
-    'http://localhost:8000/?internal_test=1&account=1'
+    `${LOCAL_ORIGIN}/?internal_test=1&account=1`
   )
 })
 
@@ -158,7 +163,9 @@ test('a definitive invalid confirmation cannot reuse the token', async ({
   test.skip(testInfo.project.name !== 'desktop-standard')
   const requests = []
   await configureConfirmationPage(page, requests)
-  await page.goto(`/auth/confirm/#token_hash=${TOKEN_HASH}&type=email`)
+  await page.goto(
+    `${LOCAL_ORIGIN}/auth/confirm/#token_hash=${TOKEN_HASH}&type=email`
+  )
   await page.evaluate(() => { window.__edeniaConfirmE2e.mode = 'invalid' })
 
   const action = page.getByRole('button', { name: 'Continue to Edenia' })

@@ -2,6 +2,7 @@ import { expect, test } from '../support/network-fixture.mjs'
 
 const SUPABASE_ORIGIN = 'https://account-ui-test.supabase.co'
 const PRODUCTION_ORIGIN = 'https://www.edenia.study'
+const LOCAL_ORIGIN = 'http://localhost:8000'
 const AUTHENTICATED_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
 
 function runtimeConfig({ oneTap = false, turnstile = true } = {}) {
@@ -178,7 +179,7 @@ async function stubSupabase(page, requests) {
 async function proxyProductionOrigin(page) {
   await page.route(`${PRODUCTION_ORIGIN}/**`, async route => {
     const requested = new URL(route.request().url())
-    const localUrl = `http://localhost:8000${requested.pathname}${requested.search}`
+    const localUrl = `${LOCAL_ORIGIN}${requested.pathname}${requested.search}`
     const response = await route.fetch({ url: localUrl })
     await route.fulfill({ response })
   })
@@ -221,12 +222,12 @@ test('official Google and Turnstile flows preserve local study data', async ({
     status: 200
   }))
 
-  await page.goto('/?internal_test=1')
+  await page.goto(`${LOCAL_ORIGIN}/?internal_test=1`)
   await seedStudyState(page, {
     setupCompleted: true,
     walkthroughCompleted: true
   })
-  await page.goto('/?internal_test=1&account=1')
+  await page.goto(`${LOCAL_ORIGIN}/?internal_test=1&account=1`)
   const studyStateBefore = await page.evaluate(() => (
     localStorage.getItem('edenia_v1_internal_test')
   ))
@@ -256,7 +257,7 @@ test('official Google and Turnstile flows preserve local study data', async ({
   expect(await page.evaluate(() => (
     localStorage.getItem('edenia_v1_internal_test')
   ))).toBe(studyStateBefore)
-  await expect(page).toHaveURL(/^http:\/\/localhost:8000\//)
+  await expect(page).toHaveURL(new RegExp(`^${LOCAL_ORIGIN}/`))
 
   await page.locator('#accountSignOutBtn').click()
   await expect(page.locator('#accountSignedOut')).toBeVisible()
