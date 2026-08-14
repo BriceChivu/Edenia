@@ -130,9 +130,9 @@ export function createGoogleIdentityServicesController({
   let promptOpportunityId = null
   let promptAutoSelectEnabled = false
 
-  function publish(status) {
+  function publish(status, details) {
     if (destroyed) return
-    try { onStatusChange(status) } catch {}
+    try { onStatusChange(status, details) } catch {}
   }
 
   function cancelPrompt() {
@@ -185,11 +185,19 @@ export function createGoogleIdentityServicesController({
     }
 
     publish('loading')
+    let failureStage = 'script'
     opportunityPromise = (async () => {
-      const [api, nonce] = await Promise.all([
+      const [apiResult, nonceResult] = await Promise.allSettled([
         loadScript(),
         createNonce(cryptoLike)
       ])
+      if (apiResult.status === 'rejected') throw apiResult.reason
+      if (nonceResult.status === 'rejected') {
+        failureStage = 'nonce'
+        throw nonceResult.reason
+      }
+      const api = apiResult.value
+      const nonce = nonceResult.value
       if (destroyed) return null
       const candidate = {
         autoSelect: requestedAutoSelect,
@@ -199,11 +207,12 @@ export function createGoogleIdentityServicesController({
         rawNonce: nonce.raw
       }
       opportunity = candidate
+      failureStage = 'initialize'
       initializeOpportunity(api, candidate)
       publish('ready')
       return { api, candidate }
     })().catch(() => {
-      if (!destroyed) publish('unavailable')
+      if (!destroyed) publish('unavailable', { stage: failureStage })
       return null
     }).finally(() => {
       opportunityPromise = null

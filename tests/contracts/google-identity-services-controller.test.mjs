@@ -237,6 +237,27 @@ test('script loading is singleton and validates the installed Google boundary', 
   assert.equal(await first, google.api)
 })
 
+test('unavailable status exposes only a safe lifecycle stage', async () => {
+  const statuses = []
+  const controller = createGoogleIdentityServicesController({
+    clientId: 'client.apps.googleusercontent.com',
+    crypto: webcrypto,
+    exchangeCredential: async () => true,
+    googleTarget: {},
+    loadScript: async () => {
+      throw new Error('private provider diagnostic')
+    },
+    onStatusChange(status, details) { statuses.push([status, details]) }
+  })
+
+  assert.equal(await controller.synchronizePrompt({ eligible: true }), false)
+  assert.deepEqual(statuses, [
+    ['loading', undefined],
+    ['unavailable', { stage: 'script' }]
+  ])
+  assert.doesNotMatch(JSON.stringify(statuses), /private provider diagnostic/u)
+})
+
 test('invalid controller boundaries fail before loading Google', () => {
   assert.throws(
     () => createGoogleIdentityServicesController({
