@@ -141,6 +141,19 @@ browser and a backed-up returning browser:
 - auth, reminder, billing, YouTube, and Anki calls use only their expected exact
   origins and return destinations.
 
+After DNS has propagated but before enabling any migration control, run the
+read-only automated portion from the repository root:
+
+    npm run verify:domain-migration
+
+It must report eleven `PASS` lines. The verifier checks the ownership TXT
+presence, exact GitHub Pages apex and `www` DNS, optional-but-exact IPv6,
+trusted HTTPS responses, apex and legacy redirects, root and standalone
+subpaths, helper isolation, and the deployed runtime values that keep automatic
+migration, checkout, and public account features off. It does not replace the
+backed-up browser canary, provider dashboard checks, PostHog network inspection,
+or the separate Pages deployed-SHA comparison.
+
 Before the first verified new-origin progress, an approved emergency rollback
 may remove the Pages custom domain and restore old routing. After any learner
 has created new-origin progress, normal rollback keeps `www` live, turns off
