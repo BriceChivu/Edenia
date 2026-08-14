@@ -39,7 +39,7 @@ second Edenia identity.
 The controller supports Google OAuth and retains an email magic-link fallback.
 Both methods can return only to one of these exact application URLs:
 
-- `https://bricechivu.github.io/Edenia/?internal_test=1&account=1`
+- `https://www.edenia.study/?internal_test=1&account=1`
 - `http://localhost:8000/?internal_test=1&account=1`
 
 The production URL must be added verbatim to Supabase Auth's redirect allow

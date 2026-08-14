@@ -16,6 +16,8 @@ export function deriveStorageKeys({ isSandbox, isInternalTest }) {
     youtubeChannelSearchUsageKey:
       `${storageKey}_youtube_channel_search_usage_v1`,
     stateBackupKey: `${storageKey}_backups`,
+    legacyProgressMigrationKey:
+      `${storageKey}_legacy_progress_migration_v1`,
     accountAuthStorageKey,
     plusAuthStorageKey: accountAuthStorageKey,
     plusEntitlementCacheKey: `${storageKey}_plus_entitlement_cache_v1`,

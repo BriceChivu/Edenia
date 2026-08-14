@@ -35,10 +35,10 @@ const CONFIG: ReminderLiveConfig = Object.freeze({
   resendApiKey: 're_test_key_1234567890',
   fromAddress: 'Edenia <reminders@example.com>',
   unsubscribeSecret: 'a-test-secret-with-at-least-32-bytes-of-entropy',
-  appUrl: 'https://bricechivu.github.io/Edenia/?internal_test=1',
+  appUrl: 'https://www.edenia.study/?internal_test=1',
   unsubscribeEndpointUrl:
     'https://example-project.supabase.co/functions/v1/unsubscribe-study-reminders',
-  unsubscribePageUrl: 'https://bricechivu.github.io/Edenia/unsubscribe/',
+  unsubscribePageUrl: 'https://www.edenia.study/unsubscribe/',
   allowedRecipientEmail: 'learner@example.com',
 })
 const CONFIRMED_USER = Object.freeze({

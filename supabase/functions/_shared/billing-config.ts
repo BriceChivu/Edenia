@@ -89,11 +89,29 @@ function requireAppUrl(readEnvironment: ReadEnvironment, mode: StripeMode) {
   if (!['http:', 'https:'].includes(url.protocol)) {
     throw new Error('APP_URL must use http or https')
   }
+  if (
+    url.username
+    || url.password
+    || url.pathname !== '/'
+    || url.search
+    || url.hash
+  ) {
+    throw new Error('APP_URL must be an exact site root')
+  }
+  if (
+    url.protocol === 'http:'
+    && !['localhost', '127.0.0.1'].includes(url.hostname)
+  ) {
+    throw new Error('APP_URL may use http only on loopback')
+  }
   if (mode === 'live' && url.protocol !== 'https:') {
     throw new Error('APP_URL must use https in live mode')
   }
+  if (mode === 'live' && url.href !== 'https://www.edenia.study/') {
+    throw new Error('APP_URL must be the canonical Edenia URL in live mode')
+  }
 
-  return url.toString().replace(/\/$/, '')
+  return url.origin
 }
 
 export function readStripeCheckoutConfig(

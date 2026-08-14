@@ -1,7 +1,9 @@
 import { defineConfig } from '@playwright/test'
 
 const normalPort = Number(process.env.EDENIA_TEST_NORMAL_PORT || 8000)
+const fixedMigrationDestinationPort = 8000
 const sandboxPort = 8001
+const legacyMigrationPort = 8002
 
 const responsiveProjects = [
   {
@@ -81,7 +83,7 @@ export default defineConfig({
     })),
     {
       name: 'webkit-storage',
-      testMatch: /indexed-db-backups\.spec\.mjs/,
+      testMatch: /(indexed-db-backups|legacy-migration-helper|legacy-origin-storage|legacy-progress-migration)\.spec\.mjs/,
       use: {
         browserName: 'webkit',
         deviceScaleFactor: 1,
@@ -96,11 +98,23 @@ export default defineConfig({
       timeout: 15_000,
       url: `http://localhost:${normalPort}/`
     },
+    ...(normalPort === fixedMigrationDestinationPort ? [] : [{
+      command: `node scripts/serve-static.mjs --host localhost --port ${fixedMigrationDestinationPort} --root _site`,
+      reuseExistingServer: false,
+      timeout: 15_000,
+      url: `http://localhost:${fixedMigrationDestinationPort}/`
+    }]),
     {
       command: `node scripts/serve-static.mjs --host localhost --port ${sandboxPort} --root _site`,
       reuseExistingServer: false,
       timeout: 15_000,
       url: `http://localhost:${sandboxPort}/`
+    },
+    {
+      command: `node scripts/serve-static.mjs --host localhost --port ${legacyMigrationPort} --root .`,
+      reuseExistingServer: false,
+      timeout: 15_000,
+      url: `http://localhost:${legacyMigrationPort}/tests/fixtures/legacy-origin/seed/`
     }
   ]
 })

@@ -9,9 +9,11 @@
   },
   "scripts": {
     "build": "node scripts/build-site.mjs",
+    "build:migration-helper": "node scripts/build-legacy-migration-helper.mjs",
+    "build:migration-helper:production": "npm run build:migration-helper && node scripts/write-legacy-migration-helper-config.mjs --require-supabase",
     "build:production": "npm run build && node scripts/write-runtime-config.mjs --require-key",
     "dev": "node scripts/dev.mjs",
-    "test": "npm run build && npm run test:contracts && npm run test:supabase && npm run test:reminder-function && npm run test:account-export-function",
+    "test": "npm run build && npm run test:contracts && npm run test:supabase && npm run test:reminder-function && npm run test:account-export-function && npm run test:legacy-progress-relay-function",
     "test:catalogs": "node scripts/validate-channel-catalog-json.mjs && node scripts/validate-reminder-discovery-channels.mjs",
     "test:catalogs:community": "node scripts/validate-community-channel-catalog.mjs",
     "test:catalogs:discovery": "node scripts/validate-discovered-channel-catalog.mjs",
@@ -19,9 +21,10 @@
     "test:supabase": "node --test supabase/functions/_shared/*.test.ts",
     "test:reminder-function": "deno check --frozen --config supabase/functions/dispatch-study-reminders/deno.json supabase/functions/dispatch-study-reminders/index.ts && deno check --frozen --config supabase/functions/unsubscribe-study-reminders/deno.json supabase/functions/unsubscribe-study-reminders/index.ts && deno check --frozen --config supabase/functions/resend-reminder-webhook/deno.json supabase/functions/resend-reminder-webhook/index.ts",
     "test:account-export-function": "deno check --frozen --config supabase/functions/export-account-data/deno.json supabase/functions/export-account-data/index.ts",
+    "test:legacy-progress-relay-function": "deno check --frozen --config supabase/functions/create-legacy-progress-transfer/deno.json supabase/functions/create-legacy-progress-transfer/index.ts && deno check --frozen --config supabase/functions/consume-legacy-progress-transfer/deno.json supabase/functions/consume-legacy-progress-transfer/index.ts",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:update": "npm run build && playwright test --update-snapshots",
-    "test:ci": "npm run build && npm run test:contracts && npm run test:supabase && npm run test:reminder-function && npm run test:account-export-function && playwright test"
+    "test:ci": "npm run build && npm run test:contracts && npm run test:supabase && npm run test:reminder-function && npm run test:account-export-function && npm run test:legacy-progress-relay-function && playwright test"
   },
   "devDependencies": {
     "@playwright/test": "1.62.0",

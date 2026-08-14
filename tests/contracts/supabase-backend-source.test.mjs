@@ -21,7 +21,31 @@ const APPLIED_MIGRATION_HASHES = Object.freeze({
   '20260724115832_reserve_founding_checkout_slots.sql':
     '2242d15329ecebcc446f710de98533b772e02d0c13e6971986037c0231c35b13',
   '20260724120318_index_founding_checkout_reservation_user.sql':
-    '9d4df46ad6e40efcb785199665f6be2df90642d7b459e7945ccc8605d691bcb6'
+    '9d4df46ad6e40efcb785199665f6be2df90642d7b459e7945ccc8605d691bcb6',
+  '20260811164133_add_reminder_preferences.sql':
+    '630024afcbda54bd0343ae387ba165a40fb646fe75bff4c6508ad32125b8b81b',
+  '20260811181142_add_reminder_dispatch_ledger.sql':
+    '8df254b6347b98101aae80cb1b31f36dd622c5486e2c65bdba84facf00db5588',
+  '20260811190020_add_reminder_suppression_safety.sql':
+    '33fcc3067389f4d565592f4bbd1432d09dc733cf02aa7f1bac0460ba56880d9d',
+  '20260811204159_add_reminder_provider_delivery_state.sql':
+    '09cbea7e1c2519d683d145d14f3872a2edee6596746320e0e3046a84063d2db0',
+  '20260811210318_fence_live_reminder_prerequisites.sql':
+    'c79bdf333fd9d5072c1355651fe38999c4282dd2bbcee000647924ab978df2af',
+  '20260811213747_add_reminder_provider_event_ledger.sql':
+    '64cf6ccfb918c82db7679e6dac20d8ede482fac8b5f5fc97c787bb48323217b2',
+  '20260811224323_optimize_account_owner_policies.sql':
+    '0d1f8fb9f3ffeef110e90ec48661b2158ae938e671cf062bcb0eb2a0c05e4620',
+  '20260811230042_add_self_scoped_account_export.sql':
+    '90b65e79dd0c63f0f74079dab18dffdbd1e51fe63413f0b88869b4c432e8d230',
+  '20260811231519_hide_account_export_definer.sql':
+    'a870a47f3fdde3fea9987a05f6d693386473ae766d4ad7503b3d8ebb2a1de100',
+  '20260812000351_ensure_account_export_rate_limit.sql':
+    '06b324039d1210c92d56c06bf2ffe057399fb0a66a25383aabcc26b63369bd90',
+  '20260812002050_ensure_stripe_webhook_prerequisites.sql':
+    '64417c01d94fc580f8eeb6d5548bf8e2e0a4fe69b5e6822fb256a5856648aa45',
+  '20260812032007_add_reminder_operational_metrics.sql':
+    'ebf1be299cb342b1e137557f1273b4a05c0a5bf758cf652a6c0e096d50de9c28'
 })
 
 test('applied Supabase migrations preserve their exact identities and bytes', async () => {
@@ -53,7 +77,7 @@ test('applied Supabase migrations preserve their exact identities and bytes', as
 
 test('account owner policies use statement-level auth identity without widening access', async () => {
   const source = await readFile(
-    new URL('20260812123000_optimize_account_owner_policies.sql', migrationsRoot),
+    new URL('20260811224323_optimize_account_owner_policies.sql', migrationsRoot),
     'utf8'
   )
 
@@ -133,26 +157,11 @@ test('billing hardening stays authenticated, environment-owned, and additive', a
   assert.match(webhookSource, /release_stripe_webhook_event/)
   assert.match(webhookSource, /readStripeWebhookConfig/)
 
-  const migrationFiles = (await readdir(migrationsRoot)).filter(file =>
+  const obsoleteBillingMigrations = (await readdir(migrationsRoot)).filter(file =>
     file.endsWith('_harden_stripe_billing_lifecycle.sql')
+      || file.endsWith('_add_subscription_cancellation_state.sql')
   )
-  assert.equal(migrationFiles.length, 1)
-  const migration = await readFile(
-    new URL(migrationFiles[0], migrationsRoot),
-    'utf8'
-  )
-  assert.match(migration, /create table public\.stripe_webhook_events/)
-  assert.match(migration, /create table public\.billing_rate_limit_buckets/)
-  assert.match(migration, /security definer\nset search_path = ''/)
-  assert.match(
-    migration,
-    /set past_due_since = coalesce\(past_due_since, updated_at, now\(\)\)/
-  )
-  assert.match(migration, /subscriptions\.past_due_since > now\(\) - interval '7 days'/)
-  assert.match(
-    migration,
-    /revoke all on table public\.stripe_webhook_events from public, anon, authenticated/
-  )
+  assert.deepEqual(obsoleteBillingMigrations, [])
 
   const rateLimitRepairMigrations = (await readdir(migrationsRoot)).filter(file =>
     file.endsWith('_ensure_account_export_rate_limit.sql')
@@ -204,17 +213,33 @@ test('billing hardening stays authenticated, environment-owned, and additive', a
     /add column if not exists cancel_at_period_end boolean not null default false/
   )
 
-  const cancellationMigrations = (await readdir(migrationsRoot)).filter(file =>
-    file.endsWith('_add_subscription_cancellation_state.sql')
+  const backupGraceMigrations = (await readdir(migrationsRoot)).filter(file =>
+    file.endsWith('_reconcile_plus_backup_grace_policies.sql')
   )
-  assert.equal(cancellationMigrations.length, 1)
-  const cancellationMigration = await readFile(
-    new URL(cancellationMigrations[0], migrationsRoot),
+  assert.equal(backupGraceMigrations.length, 1)
+  const backupGraceMigration = await readFile(
+    new URL(backupGraceMigrations[0], migrationsRoot),
     'utf8'
   )
   assert.match(
-    cancellationMigration,
-    /add column cancel_at_period_end boolean not null default false/
+    backupGraceMigration,
+    /set past_due_since = coalesce\(past_due_since, updated_at, now\(\)\)/
+  )
+  assert.match(
+    backupGraceMigration,
+    /subscriptions\.past_due_since > now\(\) - interval '7 days'/
+  )
+  assert.match(
+    backupGraceMigration,
+    /drop policy if exists "Plus users can update their own state backup"/
+  )
+  assert.match(
+    backupGraceMigration,
+    /revoke update on table public\.state_backups from public, anon, authenticated/
+  )
+  assert.doesNotMatch(
+    backupGraceMigration,
+    /create policy "Plus users can update their own state backup"/
   )
 })
 
@@ -225,8 +250,10 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
     .map(entry => entry.name)
     .sort()
   assert.deepEqual(functionNames, [
+    'consume-legacy-progress-transfer',
     'create-billing-portal',
     'create-checkout-session',
+    'create-legacy-progress-transfer',
     'dispatch-study-reminders',
     'export-account-data',
     'get-plus-offer',
@@ -241,8 +268,13 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
     'resend-reminder-webhook',
     'unsubscribe-study-reminders'
   ])
+  const relayFunctionNames = new Set([
+    'consume-legacy-progress-transfer',
+    'create-legacy-progress-transfer'
+  ])
   const billingFunctionNames = functionNames.filter(
     functionName => !reminderFunctionNames.has(functionName)
+      && !relayFunctionNames.has(functionName)
       && functionName !== 'export-account-data'
   )
   const config = await readFile(new URL('supabase/config.toml', projectRoot), 'utf8')
@@ -298,7 +330,7 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
     'utf8'
   )
   assert.match(unsubscribeHandlerSource, /'Content-Type': 'application\/json/)
-  assert.match(unsubscribeHandlerSource, /https:\/\/bricechivu\.github\.io/)
+  assert.match(unsubscribeHandlerSource, /https:\/\/www\.edenia\.study/)
   assert.match(unsubscribeHandlerSource, /http:\/\/localhost:8000/)
   assert.doesNotMatch(unsubscribeHandlerSource, /text\/html|<!doctype html>/i)
 

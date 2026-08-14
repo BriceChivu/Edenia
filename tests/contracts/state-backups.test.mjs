@@ -264,6 +264,73 @@ test('backup creation reports failure when even the rollback entry cannot fit', 
   assert.equal(harness.values.has('edenia_v1_backups'), false)
 })
 
+test('supplied-state backups never read the primary and deduplicate every entry', () => {
+  const supplied = validState('incoming')
+  const matching = {
+    id: 'matching',
+    createdAt: '2026-07-26T00:00:00.000Z',
+    reason: 'legacy origin recovery',
+    sandbox: false,
+    state: { ...supplied, prepared: true }
+  }
+  const harness = createHarness({
+    storedState: validState('active'),
+    backupValue: JSON.stringify([
+      {
+        id: 'newer',
+        createdAt: '2026-07-27T00:00:00.000Z',
+        reason: 'automatic backup',
+        sandbox: false,
+        state: { ...supplied, prepared: true }
+      },
+      matching
+    ])
+  })
+
+  assert.deepEqual(
+    harness.store.createStateBackupFromState(
+      'legacy origin recovery',
+      supplied,
+      { force: false, returnExisting: false, dedupeAll: false }
+    ),
+    matching
+  )
+  assert.equal(
+    harness.events.some(event => event[0] === 'get' && event[1] === 'edenia_v1'),
+    false
+  )
+  assert.equal(
+    harness.events.some(event => event[0] === 'set'),
+    false
+  )
+})
+
+test('supplied-state backups retain the incoming entry while dropping older quota victims', () => {
+  const existing = {
+    id: 'existing',
+    createdAt: '2026-07-27T00:00:00.000Z',
+    reason: 'automatic backup',
+    sandbox: false,
+    state: validState('existing')
+  }
+  const harness = createHarness({
+    backupValue: JSON.stringify([existing]),
+    failBackupWrites: 1
+  })
+  const entry = harness.store.createStateBackupFromState(
+    'legacy origin recovery',
+    validState('incoming')
+  )
+
+  assert.ok(entry)
+  assert.equal(entry.reason, 'legacy origin recovery')
+  assert.equal(entry.state.prepared, true)
+  assert.deepEqual(
+    JSON.parse(harness.values.get('edenia_v1_backups')).map(item => item.id),
+    [entry.id]
+  )
+})
+
 test('failed backup creation preserves existing backups', () => {
   const existingBackup = {
     id: 'existing',

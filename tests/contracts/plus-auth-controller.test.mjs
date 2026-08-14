@@ -99,7 +99,7 @@ function createControllerHarness({
     pastDueSince: null,
     updatedAt: null
   }),
-  href = 'https://bricechivu.github.io/Edenia/',
+  href = 'https://www.edenia.study/',
   wait = async () => {}
 }) {
   const states = []
@@ -184,7 +184,7 @@ test('passwordless restoration validates email and preserves safe redirect param
   const clientHarness = createClient()
   const harness = createControllerHarness({
     clientHarness,
-    href: 'https://bricechivu.github.io/Edenia/?internal_test=1#private'
+    href: 'https://www.edenia.study/?internal_test=1#private'
   })
   await harness.controller.initialize()
   await harness.controller.refresh()
@@ -207,7 +207,7 @@ test('passwordless restoration validates email and preserves safe redirect param
       email: 'learner@example.com',
       options: {
         emailRedirectTo:
-          'https://bricechivu.github.io/Edenia/?internal_test=1',
+          'https://www.edenia.study/?internal_test=1',
         shouldCreateUser: false
       }
     }]
@@ -218,7 +218,7 @@ test('upgrade sign-in may create an account and preserves the selected plan', as
   const clientHarness = createClient()
   const harness = createControllerHarness({
     clientHarness,
-    href: 'https://bricechivu.github.io/Edenia/plus/?internal_test=1'
+    href: 'https://www.edenia.study/plus/?internal_test=1'
   })
   await harness.controller.initialize()
 
@@ -236,7 +236,7 @@ test('upgrade sign-in may create an account and preserves the selected plan', as
       email: 'learner@example.com',
       options: {
         emailRedirectTo:
-          'https://bricechivu.github.io/Edenia/plus/?internal_test=1&plus=1&plan=monthly',
+          'https://www.edenia.study/plus/?internal_test=1&plus=1&plan=monthly',
         shouldCreateUser: true
       }
     }]
@@ -291,7 +291,7 @@ test('checkout return waits once, verifies the exact user, and removes session d
   const waits = []
   const harness = createControllerHarness({
     clientHarness,
-    href: 'https://bricechivu.github.io/Edenia/?upgrade_success=1&session_id=cs_test_123&kept=1#done',
+    href: 'https://www.edenia.study/?upgrade_success=1&session_id=cs_test_123&kept=1#done',
     wait: async milliseconds => waits.push(milliseconds)
   })
 
@@ -306,7 +306,7 @@ test('checkout return waits once, verifies the exact user, and removes session d
     ['verifyOtp', { token_hash: 'hashed-token', type: 'email' }]
   )
   assert.deepEqual(harness.historyCalls, [
-    [{ preserved: true }, '', '/Edenia/?kept=1#done']
+    [{ preserved: true }, '', '/?kept=1#done']
   ])
   assert.equal(
     harness.controller.getState().feedback,

@@ -2,6 +2,7 @@ import { writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  assertLegacyProgressRuntimeConfig,
   parseRuntimeConfigFlag,
   parseRuntimeConfigRollout
 } from './runtime-config-flags.mjs'
@@ -13,10 +14,19 @@ const requireKey = process.argv.includes('--require-key')
 const youtubeApiKey = process.env.YOUTUBE_API_KEY || ''
 const supabaseUrl = process.env.SUPABASE_URL || ''
 const supabasePublishableKey = process.env.SUPABASE_PUBLISHABLE_KEY || ''
+const legacyProgressMigrationEnabled = parseRuntimeConfigFlag(
+  process.env.EDENIA_LEGACY_PROGRESS_MIGRATION_ENABLED,
+  'EDENIA_LEGACY_PROGRESS_MIGRATION_ENABLED'
+)
 
 if (requireKey && !youtubeApiKey) {
   throw new Error('YOUTUBE_API_KEY is required for the production runtime config')
 }
+assertLegacyProgressRuntimeConfig({
+  enabled: legacyProgressMigrationEnabled,
+  supabasePublishableKey,
+  supabaseUrl
+})
 
 const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
   youtubeApiKey,
@@ -47,6 +57,7 @@ const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
     process.env.EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED,
     'EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED'
   ),
+  legacyProgressMigrationEnabled,
   supabaseUrl,
   supabasePublishableKey
 }, null, 2)}\n`

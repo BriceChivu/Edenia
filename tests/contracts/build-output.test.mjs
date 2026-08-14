@@ -98,6 +98,7 @@ test('test build contains empty public keys and safe release defaults', async ()
   assert.match(source, /"studyGuidanceEnabled": false/)
   assert.match(source, /"indexedDbBackupsEnabled": false/)
   assert.match(source, /"indexedDbBackupCleanupEnabled": false/)
+  assert.match(source, /"legacyProgressMigrationEnabled": false/)
   assert.match(source, /"supabaseUrl": ""/)
   assert.match(source, /"supabasePublishableKey": ""/)
   assert.doesNotMatch(source, /PASTE_|AIza/i)
@@ -151,6 +152,10 @@ test('Pages deployment retires permanent feature inputs and forwards remaining c
   assert.match(
     workflow,
     /EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED: \$\{\{ vars\.EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED \}\}/
+  )
+  assert.match(
+    workflow,
+    /EDENIA_LEGACY_PROGRESS_MIGRATION_ENABLED: \$\{\{ vars\.EDENIA_LEGACY_PROGRESS_MIGRATION_ENABLED \}\}/
   )
   assert.match(
     workflow,

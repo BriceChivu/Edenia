@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  assertLegacyProgressRuntimeConfig,
   parseRuntimeConfigFlag,
   parseRuntimeConfigRollout
 } from '../../scripts/runtime-config-flags.mjs'
@@ -38,6 +39,13 @@ test('runtime release flags reject ambiguous deployment values', () => {
     ),
     /EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED must be true or false/
   )
+  assert.throws(
+    () => parseRuntimeConfigFlag(
+      'enabled',
+      'EDENIA_LEGACY_PROGRESS_MIGRATION_ENABLED'
+    ),
+    /EDENIA_LEGACY_PROGRESS_MIGRATION_ENABLED must be true or false/
+  )
 })
 
 test('runtime rollout values default off and accept exact audience stages', () => {
@@ -56,6 +64,43 @@ test('runtime rollout values reject ambiguous deployment stages', () => {
         'EDENIA_ACCOUNT_FEATURES_ROLLOUT'
       ),
       /EDENIA_ACCOUNT_FEATURES_ROLLOUT must be off, internal, or public/
+    )
+  }
+})
+
+test('production migration cannot be enabled without exact relay config', () => {
+  assert.doesNotThrow(() => assertLegacyProgressRuntimeConfig({
+    enabled: false,
+    supabasePublishableKey: '',
+    supabaseUrl: ''
+  }))
+  assert.doesNotThrow(() => assertLegacyProgressRuntimeConfig({
+    enabled: true,
+    supabasePublishableKey: 'sb_publishable_abcdefgh',
+    supabaseUrl: 'https://project-ref.supabase.co'
+  }))
+
+  for (const input of [
+    {
+      supabasePublishableKey: '',
+      supabaseUrl: 'https://project-ref.supabase.co'
+    },
+    {
+      supabasePublishableKey: 'legacy-anon-key',
+      supabaseUrl: 'https://project-ref.supabase.co'
+    },
+    {
+      supabasePublishableKey: 'sb_publishable_abcdefgh',
+      supabaseUrl: 'https://attacker.example'
+    },
+    {
+      supabasePublishableKey: 'sb_publishable_abcdefgh',
+      supabaseUrl: 'https://project-ref.supabase.co/path'
+    }
+  ]) {
+    assert.throws(
+      () => assertLegacyProgressRuntimeConfig({ enabled: true, ...input }),
+      /requires a hosted Supabase URL and publishable key/
     )
   }
 })

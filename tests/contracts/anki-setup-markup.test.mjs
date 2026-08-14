@@ -38,10 +38,10 @@ test('Anki setup copy fragment extends the existing origin as valid JSON', () =>
   const insertion = getCodeBlock('data-anki-config-insert')
 
   assert.equal(existingOrigin, '"http://localhost"')
-  assert.equal(insertion, ',"https://bricechivu.github.io"')
+  assert.equal(insertion, ',"https://www.edenia.study"')
   assert.deepEqual(
     JSON.parse(`[${existingOrigin}${insertion}]`),
-    ['http://localhost', 'https://bricechivu.github.io']
+    ['http://localhost', 'https://www.edenia.study']
   )
 })
 
@@ -57,7 +57,7 @@ test('Anki setup configuration example is valid and preserves expected settings'
     webBindPort: 8765,
     webCorsOriginList: [
       'http://localhost',
-      'https://bricechivu.github.io'
+      'https://www.edenia.study'
     ]
   })
 })

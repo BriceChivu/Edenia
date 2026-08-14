@@ -5,6 +5,8 @@ import {
 const ACCOUNT_FEATURE_ROLLOUT_VALUES = new Set(
   Object.values(ACCOUNT_FEATURE_ROLLOUTS)
 )
+const SUPABASE_PUBLISHABLE_KEY_PATTERN =
+  /^sb_publishable_[A-Za-z0-9_-]{8,}$/
 
 export function parseRuntimeConfigFlag(value, name) {
   const normalizedValue = String(value || '').trim().toLowerCase()
@@ -20,4 +22,33 @@ export function parseRuntimeConfigRollout(value, name) {
     return normalizedValue
   }
   throw new Error(`${name} must be off, internal, or public`)
+}
+
+export function assertLegacyProgressRuntimeConfig({
+  enabled,
+  supabasePublishableKey,
+  supabaseUrl
+}) {
+  if (!enabled) return
+  let projectUrl
+  try {
+    projectUrl = new URL(String(supabaseUrl || '').trim())
+  } catch {}
+  const hostedProjectUrl = projectUrl?.protocol === 'https:'
+    && /^[a-z0-9-]+\.supabase\.co$/.test(projectUrl.hostname)
+    && !projectUrl.username
+    && !projectUrl.password
+    && projectUrl.pathname === '/'
+    && !projectUrl.search
+    && !projectUrl.hash
+  if (
+    !hostedProjectUrl
+    || !SUPABASE_PUBLISHABLE_KEY_PATTERN.test(
+      String(supabasePublishableKey || '').trim()
+    )
+  ) {
+    throw new Error(
+      'Legacy progress migration requires a hosted Supabase URL and publishable key'
+    )
+  }
 }

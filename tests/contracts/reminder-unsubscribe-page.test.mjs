@@ -17,17 +17,17 @@ const LOCALES = ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr']
 test('parses only an exact opaque token and supported locale', () => {
   assert.deepEqual(
     parseReminderUnsubscribeLocation({
-      href: `https://bricechivu.github.io/Edenia/unsubscribe/?token=${TOKEN}&lang=fr`,
+      href: `https://www.edenia.study/unsubscribe/?token=${TOKEN}&lang=fr`,
     }),
     { locale: 'fr', token: TOKEN, valid: true },
   )
 
   for (const href of [
-    'https://bricechivu.github.io/Edenia/unsubscribe/',
-    `https://bricechivu.github.io/Edenia/unsubscribe/?token=short&lang=en`,
-    `https://bricechivu.github.io/Edenia/unsubscribe/?token=${TOKEN}&lang=de`,
-    `https://bricechivu.github.io/Edenia/unsubscribe/?token=${TOKEN}&lang=en&next=evil`,
-    `https://bricechivu.github.io/Edenia/unsubscribe/?token=${TOKEN}&lang=en#token`,
+    'https://www.edenia.study/unsubscribe/',
+    `https://www.edenia.study/unsubscribe/?token=short&lang=en`,
+    `https://www.edenia.study/unsubscribe/?token=${TOKEN}&lang=de`,
+    `https://www.edenia.study/unsubscribe/?token=${TOKEN}&lang=en&next=evil`,
+    `https://www.edenia.study/unsubscribe/?token=${TOKEN}&lang=en#token`,
   ]) {
     assert.equal(parseReminderUnsubscribeLocation({ href }).valid, false)
   }

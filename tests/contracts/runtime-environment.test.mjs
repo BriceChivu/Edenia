@@ -10,6 +10,7 @@ import {
   getFreePlusEnabled,
   getIndexedDbBackupCleanupEnabled,
   getIndexedDbBackupsEnabled,
+  getLegacyProgressMigrationEnabled,
   getPlusCheckoutEnabled,
   getStudyGuidanceEnabled,
   getSupabasePublishableKey,
@@ -29,7 +30,8 @@ test('runtime environment preserves exact origins, hosts, and first query values
     isSandbox: true,
     isInternalTest: false,
     isLocalhost: true,
-    isLocalFeedbackTest: false
+    isLocalFeedbackTest: false,
+    isLegacyMigrationTest: false
   })
   assert.equal(
     environment('http://127.0.0.1:8001/?sandbox=1').isSandbox,
@@ -56,6 +58,22 @@ test('runtime environment preserves exact origins, hosts, and first query values
     false
   )
   assert.equal(environment('http://localhost:8000/').isLocalFeedbackTest, true)
+  assert.equal(
+    environment('http://localhost:8000/?legacy_migration_test=1')
+      .isLegacyMigrationTest,
+    true
+  )
+  for (const url of [
+    'http://localhost:8000/?legacy_migration_test=1#fragment',
+    'http://localhost:8000/path?legacy_migration_test=1',
+    'http://localhost:8000/?legacy_migration_test=true',
+    'http://localhost:8000/?legacy_migration_test=1&extra=1',
+    'http://localhost:8000/?legacy_migration_test=1&legacy_migration_test=1',
+    'http://127.0.0.1:8000/?legacy_migration_test=1',
+    'https://www.edenia.study/?legacy_migration_test=1'
+  ]) {
+    assert.equal(environment(url).isLegacyMigrationTest, false, url)
+  }
   assert.equal(environment('http://localhost:4173/').isLocalFeedbackTest, false)
   assert.equal(deriveRuntimeEnvironment({
     hostname: '::1',
@@ -107,6 +125,10 @@ test('storage keys preserve normal, internal, sandbox, and combined isolation', 
     )
     assert.equal(keys.stateBackupKey, `${expected.storageKey}_backups`)
     assert.equal(
+      keys.legacyProgressMigrationKey,
+      `${expected.storageKey}_legacy_progress_migration_v1`
+    )
+    assert.equal(
       keys.accountStudySyncOwnerKey,
       `${expected.storageKey}_account_study_sync_owner_v1`
     )
@@ -146,6 +168,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getStudyGuidanceEnabled(target), false)
   assert.equal(getIndexedDbBackupsEnabled(target), false)
   assert.equal(getIndexedDbBackupCleanupEnabled(target), false)
+  assert.equal(getLegacyProgressMigrationEnabled(target), false)
   assert.equal(getSupabaseUrl(target), '')
   assert.equal(getSupabasePublishableKey(target), '')
   assert.equal(hasSupabaseRuntimeConfig(target), false)
@@ -159,6 +182,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     studyGuidanceEnabled: true,
     indexedDbBackupsEnabled: true,
     indexedDbBackupCleanupEnabled: true,
+    legacyProgressMigrationEnabled: true,
     supabaseUrl: '  https://project.supabase.co  ',
     supabasePublishableKey: '  sb_publishable_test  '
   }
@@ -170,6 +194,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getStudyGuidanceEnabled(target), true)
   assert.equal(getIndexedDbBackupsEnabled(target), true)
   assert.equal(getIndexedDbBackupCleanupEnabled(target), true)
+  assert.equal(getLegacyProgressMigrationEnabled(target), true)
   assert.equal(getSupabaseUrl(target), 'https://project.supabase.co')
   assert.equal(getSupabasePublishableKey(target), 'sb_publishable_test')
   assert.equal(hasSupabaseRuntimeConfig(target), true)
@@ -181,7 +206,8 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     channelVideoFormatToggleEnabled: 'true',
     studyGuidanceEnabled: 'true',
     indexedDbBackupsEnabled: 'true',
-    indexedDbBackupCleanupEnabled: 1
+    indexedDbBackupCleanupEnabled: 1,
+    legacyProgressMigrationEnabled: 'true'
   }
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
@@ -189,6 +215,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getStudyGuidanceEnabled(target), false)
   assert.equal(getIndexedDbBackupsEnabled(target), false)
   assert.equal(getIndexedDbBackupCleanupEnabled(target), false)
+  assert.equal(getLegacyProgressMigrationEnabled(target), false)
 
   target.EDENIA_CONFIG = { supabaseUrl: 'https://project.supabase.co' }
   assert.equal(hasSupabaseRuntimeConfig(target), false)

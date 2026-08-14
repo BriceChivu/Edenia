@@ -9,6 +9,7 @@ window.EDENIA_CONFIG = {
   studyGuidanceEnabled: false,
   indexedDbBackupsEnabled: false,
   indexedDbBackupCleanupEnabled: false,
+  legacyProgressMigrationEnabled: false,
   supabaseUrl: 'PASTE_YOUR_SUPABASE_PROJECT_URL_HERE',
   supabasePublishableKey: 'PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY_HERE'
 }

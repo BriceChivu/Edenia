@@ -50,6 +50,8 @@ export function normalizeLocalRuntimeConfig(value) {
     indexedDbBackupsEnabled: value?.indexedDbBackupsEnabled === true,
     indexedDbBackupCleanupEnabled:
       value?.indexedDbBackupCleanupEnabled === true,
+    legacyProgressMigrationEnabled:
+      value?.legacyProgressMigrationEnabled === true,
     supabaseUrl: normalizeOptionalRuntimeValue(
       value?.supabaseUrl,
       PLACEHOLDER_URLS

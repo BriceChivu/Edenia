@@ -266,7 +266,7 @@ test('local sign out clears only the account identity state', async () => {
 test('sign-in redirects are selected from an exact application allowlist', () => {
   assert.equal(
     getAccountAuthReturnUrl({
-      href: 'https://bricechivu.github.io/Edenia/?anything=user-controlled'
+      href: 'https://www.edenia.study/?anything=user-controlled'
     }),
     ACCOUNT_AUTH_RETURN_DESTINATIONS.PRODUCTION
   )
@@ -275,12 +275,13 @@ test('sign-in redirects are selected from an exact application allowlist', () =>
     ACCOUNT_AUTH_RETURN_DESTINATIONS.LOCAL
   )
   for (const href of [
-    'http://bricechivu.github.io/Edenia/',
-    'https://bricechivu.github.io/Edenia',
-    'https://bricechivu.github.io/other/',
+    'http://www.edenia.study/',
+    'https://edenia.study/',
+    'https://www.edenia.study/other/',
+    'https://bricechivu.github.io/Edenia/',
     'http://localhost:8001/',
     'http://127.0.0.1:8000/',
-    'https://attacker.example/?return=https://bricechivu.github.io/Edenia/'
+    'https://attacker.example/?return=https://www.edenia.study/'
   ]) {
     assert.equal(getAccountAuthReturnUrl({ href }), null, href)
   }
@@ -289,7 +290,7 @@ test('sign-in redirects are selected from an exact application allowlist', () =>
 test('Google sign-in uses the allowlisted production return destination', async () => {
   const clientHarness = createClient()
   const harness = createHarness(clientHarness, {
-    href: 'https://bricechivu.github.io/Edenia/?internal_test=1&untrusted=1'
+    href: 'https://www.edenia.study/?internal_test=1&untrusted=1'
   })
 
   assert.equal(await harness.controller.signInWithGoogle(), true)
@@ -380,7 +381,7 @@ test('sign-in fails closed before calling Supabase from an unknown location', as
 test('OAuth cancellations are surfaced and removed from browser history', async () => {
   const clientHarness = createClient()
   const harness = createHarness(clientHarness, {
-    href: 'https://bricechivu.github.io/Edenia/?internal_test=1&account=1#error=access_denied&error_description=User+denied+access&preserved=yes'
+    href: 'https://www.edenia.study/?internal_test=1&account=1#error=access_denied&error_description=User+denied+access&preserved=yes'
   })
 
   await harness.controller.initialize()
@@ -392,7 +393,7 @@ test('OAuth cancellations are surfaced and removed from browser history', async 
   assert.deepEqual(harness.replacedUrls, [{
     state: { preserved: true },
     title: '',
-    url: '/Edenia/?internal_test=1&account=1#preserved=yes'
+    url: '/?internal_test=1&account=1#preserved=yes'
   }])
 })
 

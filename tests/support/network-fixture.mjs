@@ -66,7 +66,7 @@ export const test = base.extend({
         return
       }
 
-      if (['localhost', '127.0.0.1', '::1'].includes(hostname)) {
+      if (['localhost', 'localhost.', '127.0.0.1', '::1'].includes(hostname)) {
         await route.continue()
         return
       }
