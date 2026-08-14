@@ -4,6 +4,7 @@
     : 'edenia_posthog_state_v2';
   const ANALYTICS_SCHEMA_VERSION = 3;
   const SUPABASE_USER_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const ACCOUNT_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   function analyticsAvailable() {
     return Boolean(
@@ -30,14 +31,34 @@
     return window.posthog.get_session_replay_url() || null;
   }
 
-  function identifyAuthenticatedUser(userId) {
+  function normalizeAuthenticatedUserProperties(properties) {
+    if (!properties || typeof properties !== 'object' || Array.isArray(properties)) return null;
+    const keys = Object.keys(properties);
+    if (keys.some(key => !['email', 'auth_method'].includes(key))) return null;
+    const normalized = {};
+    if (Object.prototype.hasOwnProperty.call(properties, 'email')) {
+      const email = String(properties.email || '').trim().toLowerCase();
+      if (!email || email.length > 254 || !ACCOUNT_EMAIL_PATTERN.test(email)) return null;
+      normalized.email = email;
+    }
+    if (Object.prototype.hasOwnProperty.call(properties, 'auth_method')) {
+      const authMethod = String(properties.auth_method || '').trim().toLowerCase();
+      if (!['email', 'google'].includes(authMethod)) return null;
+      normalized.auth_method = authMethod;
+    }
+    return normalized;
+  }
+
+  function identifyAuthenticatedUser(userId, properties = {}) {
     const normalizedUserId = String(userId || '').trim().toLowerCase();
+    const normalizedProperties = normalizeAuthenticatedUserProperties(properties);
     if (
       !SUPABASE_USER_UUID_PATTERN.test(normalizedUserId)
+      || !normalizedProperties
       || !analyticsAvailable()
       || typeof window.posthog.identify !== 'function'
     ) return false;
-    window.posthog.identify(normalizedUserId);
+    window.posthog.identify(normalizedUserId, normalizedProperties);
     return true;
   }
 

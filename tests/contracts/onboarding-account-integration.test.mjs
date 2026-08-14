@@ -37,7 +37,7 @@ test('Account onboarding reuses auth methods and preserves an OAuth draft', () =
   )
   assert.match(
     appSource,
-    /function sendOnboardingAccountMagicLink\(email\) \{\s*personalizedOnboardingState\.accountEmail = String\(email \|\| ''\)\s*return sendAccountMagicLink\(email\)/
+    /function sendOnboardingAccountMagicLink\(email, form = null\) \{\s*personalizedOnboardingState\.accountEmail = String\(email \|\| ''\)\s*return sendAccountMagicLink\(email, form\)/
   )
 })
 

@@ -459,6 +459,16 @@ body.onboarding-active .toast { z-index: 320; }
   min-height: 44px;
   width: 100%;
 }
+.account-google-identity-button {
+  display: flex;
+  justify-content: center;
+  min-height: 44px;
+  overflow: hidden;
+  width: 100%;
+}
+.account-google-identity-button > div {
+  max-width: 100%;
+}
 .account-auth-google {
   background: linear-gradient(90deg, var(--planet-cyan), var(--planet-lime));
   color: var(--planet-black);
@@ -518,6 +528,20 @@ body.onboarding-active .toast { z-index: 320; }
 }
 .account-auth-email-input:focus {
   border-color: var(--accent);
+}
+.account-turnstile {
+  min-height: 65px;
+  overflow: hidden;
+  width: 100%;
+}
+.account-turnstile-status {
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+  margin: 0;
+}
+.account-turnstile-status[data-turnstile-tone="error"] {
+  color: var(--error);
 }
 .onboarding-account-email-form input {
   min-height: 44px;

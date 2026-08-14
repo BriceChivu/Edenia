@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   assertLegacyProgressRuntimeConfig,
+  parseGoogleIdentityClientId,
+  parseGoogleSignInMode,
   parseRuntimeConfigFlag,
   parseRuntimeConfigRollout
 } from '../../scripts/runtime-config-flags.mjs'
@@ -13,6 +15,45 @@ test('runtime release flags are disabled by default and accept explicit booleans
   assert.equal(parseRuntimeConfigFlag(' FALSE ', 'FLAG'), false)
   assert.equal(parseRuntimeConfigFlag('true', 'FLAG'), true)
   assert.equal(parseRuntimeConfigFlag(' TRUE ', 'FLAG'), true)
+})
+
+test('Google client IDs are empty or exact Web application IDs', () => {
+  assert.equal(parseGoogleIdentityClientId(undefined, 'CLIENT_ID'), '')
+  assert.equal(
+    parseGoogleIdentityClientId(
+      ' 1234567890-test_client.apps.googleusercontent.com ',
+      'CLIENT_ID'
+    ),
+    '1234567890-test_client.apps.googleusercontent.com'
+  )
+  for (const value of [
+    'google-client.apps.googleusercontent.com',
+    '1234567890.apps.googleusercontent.com',
+    'https://1234567890-test.apps.googleusercontent.com',
+    '1234567890-test.example.com'
+  ]) {
+    assert.throws(
+      () => parseGoogleIdentityClientId(
+        value,
+        'EDENIA_GOOGLE_IDENTITY_CLIENT_ID'
+      ),
+      /must be a Google Web client ID/
+    )
+  }
+})
+
+test('Google sign-in mode preserves legacy rollback and accepts exact transports', () => {
+  assert.equal(parseGoogleSignInMode(undefined, 'MODE'), 'oauth_redirect')
+  assert.equal(parseGoogleSignInMode('', 'MODE'), 'oauth_redirect')
+  assert.equal(parseGoogleSignInMode(' OFF ', 'MODE'), 'off')
+  assert.equal(parseGoogleSignInMode('oauth_redirect', 'MODE'), 'oauth_redirect')
+  assert.equal(parseGoogleSignInMode('ID_TOKEN', 'MODE'), 'id_token')
+  for (const value of ['true', 'oauth', 'popup', 'id-token']) {
+    assert.throws(
+      () => parseGoogleSignInMode(value, 'EDENIA_GOOGLE_SIGN_IN_MODE'),
+      /must be off, oauth_redirect, or id_token/
+    )
+  }
 })
 
 test('runtime release flags reject ambiguous deployment values', () => {

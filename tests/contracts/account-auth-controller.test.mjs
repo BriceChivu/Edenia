@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   ACCOUNT_AUTH_ERRORS,
+  ACCOUNT_AUTH_CONFIRM_DESTINATIONS,
   ACCOUNT_AUTH_NOTICES,
   ACCOUNT_AUTH_RETURN_DESTINATIONS,
   ACCOUNT_SESSION_STATES,
@@ -16,9 +17,11 @@ function createDeferred() {
 }
 
 function createClient({
+  claimsResponse,
   session = null,
   sessionResponses = [],
   googleSignInError = null,
+  googleIdTokenError = null,
   magicLinkError = null,
   signOutError = null
 } = {}) {
@@ -26,42 +29,51 @@ function createClient({
   let authListener = null
   let unsubscribed = false
   const responses = [...sessionResponses]
-  return {
-    calls,
-    client: {
-      auth: {
-        async getSession() {
-          calls.push(['getSession'])
-          if (responses.length) return responses.shift()
-          return { data: { session }, error: null }
-        },
-        onAuthStateChange(listener) {
-          calls.push(['onAuthStateChange'])
-          authListener = listener
-          return {
-            data: {
-              subscription: {
-                unsubscribe() {
-                  unsubscribed = true
-                }
-              }
+  const auth = {
+    async getSession() {
+      calls.push(['getSession'])
+      if (responses.length) return responses.shift()
+      return { data: { session }, error: null }
+    },
+    onAuthStateChange(listener) {
+      calls.push(['onAuthStateChange'])
+      authListener = listener
+      return {
+        data: {
+          subscription: {
+            unsubscribe() {
+              unsubscribed = true
             }
           }
-        },
-        async signInWithOAuth(options) {
-          calls.push(['signInWithOAuth', options])
-          return { data: {}, error: googleSignInError }
-        },
-        async signInWithOtp(options) {
-          calls.push(['signInWithOtp', options])
-          return { data: {}, error: magicLinkError }
-        },
-        async signOut(options) {
-          calls.push(['signOut', options])
-          return { error: signOutError }
         }
       }
     },
+    async signInWithOAuth(options) {
+      calls.push(['signInWithOAuth', options])
+      return { data: {}, error: googleSignInError }
+    },
+    async signInWithIdToken(options) {
+      calls.push(['signInWithIdToken', options])
+      return { data: {}, error: googleIdTokenError }
+    },
+    async signInWithOtp(options) {
+      calls.push(['signInWithOtp', options])
+      return { data: {}, error: magicLinkError }
+    },
+    async signOut(options) {
+      calls.push(['signOut', options])
+      return { error: signOutError }
+    }
+  }
+  if (claimsResponse !== undefined) {
+    auth.getClaims = async token => {
+      calls.push(['getClaims', token])
+      return claimsResponse
+    }
+  }
+  return {
+    calls,
+    client: { auth },
     emit(event, nextSession) {
       authListener?.(event, nextSession)
     },
@@ -72,7 +84,8 @@ function createClient({
 }
 
 function createHarness(clientHarness, {
-  href = ACCOUNT_AUTH_RETURN_DESTINATIONS.PRODUCTION
+  href = ACCOUNT_AUTH_RETURN_DESTINATIONS.PRODUCTION,
+  now = () => Date.now()
 } = {}) {
   const states = []
   const scheduled = []
@@ -86,6 +99,7 @@ function createHarness(clientHarness, {
       }
     },
     location: { href },
+    now,
     onStateChange(state) {
       states.push(state)
     },
@@ -117,6 +131,7 @@ test('account auth initializes once and fails closed to signed out', async () =>
     sessionState: ACCOUNT_SESSION_STATES.SIGNED_OUT,
     userId: null,
     email: '',
+    authMethod: null,
     busyAction: null,
     error: null,
     notice: null
@@ -135,6 +150,7 @@ test('account auth exposes identity fields without retaining session tokens', as
       user: {
         id: 'user-1',
         email: 'learner@example.com',
+        app_metadata: { provider: 'google' },
         user_metadata: { role: 'administrator' }
       }
     }
@@ -147,12 +163,65 @@ test('account auth exposes identity fields without retaining session tokens', as
     sessionState: ACCOUNT_SESSION_STATES.SIGNED_IN,
     userId: 'user-1',
     email: 'learner@example.com',
+    authMethod: 'google',
     busyAction: null,
     error: null,
     notice: null
   })
   assert.equal(JSON.stringify(harness.controller.getState()).includes('token'), false)
   assert.equal(JSON.stringify(harness.controller.getState()).includes('administrator'), false)
+})
+
+test('verified authentication claims report the current linked sign-in method', async () => {
+  const googleSession = {
+    access_token: 'private-access-token',
+    user: {
+      id: 'user-linked',
+      email: 'learner@example.com',
+      app_metadata: { provider: 'email', providers: ['email', 'google'] }
+    }
+  }
+  const googleHarness = createClient({
+    claimsResponse: {
+      data: {
+        claims: {
+          sub: 'user-linked',
+          amr: [{ method: 'oauth' }]
+        }
+      },
+      error: null
+    },
+    session: googleSession
+  })
+  const googleController = createHarness(googleHarness)
+  await googleController.controller.initialize()
+  assert.equal(googleController.controller.getState().authMethod, 'google')
+  assert.deepEqual(googleHarness.calls.at(-1), [
+    'getClaims',
+    'private-access-token'
+  ])
+
+  const emailHarness = createClient({
+    claimsResponse: {
+      data: {
+        claims: {
+          sub: 'user-linked',
+          amr: [{ method: 'magiclink' }]
+        }
+      },
+      error: null
+    },
+    session: {
+      ...googleSession,
+      user: {
+        ...googleSession.user,
+        app_metadata: { provider: 'google', providers: ['google', 'email'] }
+      }
+    }
+  })
+  const emailController = createHarness(emailHarness)
+  await emailController.controller.initialize()
+  assert.equal(emailController.controller.getState().authMethod, 'email')
 })
 
 test('auth events confirm the client session after leaving the Supabase callback', async () => {
@@ -257,6 +326,7 @@ test('local sign out clears only the account identity state', async () => {
     sessionState: ACCOUNT_SESSION_STATES.SIGNED_OUT,
     userId: null,
     email: '',
+    authMethod: null,
     busyAction: null,
     error: null,
     notice: null
@@ -304,6 +374,62 @@ test('Google sign-in uses the allowlisted production return destination', async 
   assert.equal(harness.controller.getState().busyAction, 'google-sign-in')
 })
 
+test('Google ID-token sign-in exchanges one ephemeral credential without redirecting', async () => {
+  const clientHarness = createClient()
+  const harness = createHarness(clientHarness, {
+    href: 'https://www.edenia.study/?internal_test=1'
+  })
+
+  assert.equal(await harness.controller.signInWithGoogleIdToken({
+    token: 'private-google-id-token',
+    nonce: 'private-raw-nonce'
+  }), true)
+  assert.deepEqual(clientHarness.calls, [[
+    'signInWithIdToken',
+    {
+      provider: 'google',
+      token: 'private-google-id-token',
+      nonce: 'private-raw-nonce'
+    }
+  ]])
+  assert.equal(harness.controller.getState().busyAction, 'google-sign-in')
+  assert.equal(
+    JSON.stringify(harness.controller.getState()).includes('private'),
+    false
+  )
+})
+
+test('Google ID-token failures expose one safe error and no credential details', async () => {
+  const missingHarness = createHarness(createClient())
+  assert.equal(
+    await missingHarness.controller.signInWithGoogleIdToken({
+      token: '', nonce: 'nonce'
+    }),
+    false
+  )
+  assert.equal(
+    missingHarness.controller.getState().error,
+    ACCOUNT_AUTH_ERRORS.GOOGLE_SIGN_IN_FAILED
+  )
+
+  const failedClient = createClient({
+    googleIdTokenError: new Error('provider secret')
+  })
+  const failedHarness = createHarness(failedClient)
+  assert.equal(await failedHarness.controller.signInWithGoogleIdToken({
+    token: 'private-token',
+    nonce: 'private-nonce'
+  }), false)
+  assert.equal(
+    failedHarness.controller.getState().error,
+    ACCOUNT_AUTH_ERRORS.GOOGLE_SIGN_IN_FAILED
+  )
+  assert.equal(
+    JSON.stringify(failedHarness.controller.getState()).includes('private'),
+    false
+  )
+})
+
 test('email sign-in normalizes addresses and retains a magic-link fallback', async () => {
   const clientHarness = createClient()
   const harness = createHarness(clientHarness, {
@@ -319,7 +445,7 @@ test('email sign-in normalizes addresses and retains a magic-link fallback', asy
     {
       email: 'learner@example.com',
       options: {
-        emailRedirectTo: ACCOUNT_AUTH_RETURN_DESTINATIONS.LOCAL,
+        emailRedirectTo: ACCOUNT_AUTH_CONFIRM_DESTINATIONS.LOCAL,
         shouldCreateUser: true
       }
     }
@@ -328,6 +454,46 @@ test('email sign-in normalizes addresses and retains a magic-link fallback', asy
     harness.controller.getState().notice,
     ACCOUNT_AUTH_NOTICES.MAGIC_LINK_SENT
   )
+})
+
+test('email sign-in forwards a bounded CAPTCHA token and enforces cooldown', async () => {
+  let now = 10_000
+  const clientHarness = createClient()
+  const harness = createHarness(clientHarness, {
+    now: () => now
+  })
+
+  assert.equal(await harness.controller.sendMagicLink(
+    'learner@example.com',
+    { captchaToken: 'turnstile-token' }
+  ), true)
+  assert.deepEqual(clientHarness.calls[0], [
+    'signInWithOtp',
+    {
+      email: 'learner@example.com',
+      options: {
+        captchaToken: 'turnstile-token',
+        emailRedirectTo: ACCOUNT_AUTH_CONFIRM_DESTINATIONS.PRODUCTION,
+        shouldCreateUser: true
+      }
+    }
+  ])
+  assert.equal(
+    await harness.controller.sendMagicLink('learner@example.com'),
+    false
+  )
+  assert.equal(
+    harness.controller.getState().error,
+    ACCOUNT_AUTH_ERRORS.MAGIC_LINK_COOLDOWN
+  )
+  assert.equal(clientHarness.calls.length, 1)
+
+  now += 60_000
+  assert.equal(
+    await harness.controller.sendMagicLink('learner@example.com'),
+    true
+  )
+  assert.equal(clientHarness.calls.length, 2)
 })
 
 test('sign-in validation and provider failures publish safe controller errors', async () => {

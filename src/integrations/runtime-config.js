@@ -2,6 +2,9 @@ import {
   normalizeAccountFeaturesRollout
 } from '../core/account-feature-rollout.js'
 
+const GOOGLE_IDENTITY_CLIENT_ID_PATTERN =
+  /^[0-9]+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/
+
 export function publicConfig(target = window) {
   return target.EDENIA_CONFIG || {}
 }
@@ -26,6 +29,45 @@ export function getAccountFeaturesRollout(target = window) {
   return normalizeAccountFeaturesRollout(
     publicConfig(target).accountFeaturesRollout
   )
+}
+
+export function normalizeGoogleSignInMode(value) {
+  const mode = String(value || '').trim().toLowerCase()
+  return ['off', 'oauth_redirect', 'id_token'].includes(mode)
+    ? mode
+    : 'oauth_redirect'
+}
+
+export function getGoogleSignInMode(target = window) {
+  return normalizeGoogleSignInMode(publicConfig(target).googleSignInMode)
+}
+
+export function getGoogleOneTapEnabled(target = window) {
+  return publicConfig(target).googleOneTapEnabled === true
+}
+
+export function getGoogleIdentityClientId(target = window) {
+  return normalizeGoogleIdentityClientId(
+    publicConfig(target).googleIdentityClientId
+  )
+}
+
+export function normalizeGoogleIdentityClientId(value) {
+  const clientId = String(value || '').trim()
+  return GOOGLE_IDENTITY_CLIENT_ID_PATTERN.test(clientId) ? clientId : ''
+}
+
+export function hasGoogleIdentityServicesRuntimeConfig(target = window) {
+  return getGoogleSignInMode(target) === 'id_token'
+    && Boolean(getGoogleIdentityClientId(target))
+}
+
+export function getTurnstileSiteKey(target = window) {
+  return String(publicConfig(target).turnstileSiteKey || '').trim()
+}
+
+export function hasTurnstileRuntimeConfig(target = window) {
+  return Boolean(getTurnstileSiteKey(target))
 }
 
 export function getStudyGuidanceEnabled(target = window) {

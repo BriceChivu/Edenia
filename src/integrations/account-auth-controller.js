@@ -6,9 +6,11 @@ export const ACCOUNT_SESSION_STATES = Object.freeze({
 })
 
 export const ACCOUNT_AUTH_ERRORS = Object.freeze({
+  CAPTCHA_REQUIRED: 'captcha-required',
   GOOGLE_SIGN_IN_FAILED: 'google-sign-in-failed',
   INVALID_EMAIL: 'invalid-email',
   MAGIC_LINK_FAILED: 'magic-link-failed',
+  MAGIC_LINK_COOLDOWN: 'magic-link-cooldown',
   OAUTH_CANCELLED: 'oauth-cancelled',
   OAUTH_FAILED: 'oauth-failed',
   RETURN_DESTINATION_NOT_ALLOWED: 'return-destination-not-allowed',
@@ -25,6 +27,11 @@ export const ACCOUNT_AUTH_RETURN_DESTINATIONS = Object.freeze({
   PRODUCTION: 'https://www.edenia.study/?internal_test=1&account=1'
 })
 
+export const ACCOUNT_AUTH_CONFIRM_DESTINATIONS = Object.freeze({
+  LOCAL: 'http://localhost:8000/auth/confirm/',
+  PRODUCTION: 'https://www.edenia.study/auth/confirm/'
+})
+
 const AUTH_SESSION_EVENTS = new Set([
   'SIGNED_IN',
   'SIGNED_OUT',
@@ -36,6 +43,14 @@ const OAUTH_ERROR_PARAMS = Object.freeze([
   'error',
   'error_code',
   'error_description'
+])
+const CAPTCHA_TOKEN_MAX_LENGTH = 2048
+const MAGIC_LINK_COOLDOWN_MS = 60_000
+const EMAIL_AUTH_METHODS = new Set([
+  'email',
+  'email/signup',
+  'magiclink',
+  'otp'
 ])
 
 function normalizeEmail(value) {
@@ -60,6 +75,22 @@ export function getAccountAuthReturnUrl(locationLike) {
   }
   if (url.origin === 'http://localhost:8000' && url.pathname === '/') {
     return ACCOUNT_AUTH_RETURN_DESTINATIONS.LOCAL
+  }
+  return null
+}
+
+export function getAccountAuthConfirmUrl(locationLike) {
+  let url
+  try {
+    url = new URL(locationLike?.href)
+  } catch {
+    return null
+  }
+  if (url.origin === 'https://www.edenia.study' && url.pathname === '/') {
+    return ACCOUNT_AUTH_CONFIRM_DESTINATIONS.PRODUCTION
+  }
+  if (url.origin === 'http://localhost:8000' && url.pathname === '/') {
+    return ACCOUNT_AUTH_CONFIRM_DESTINATIONS.LOCAL
   }
   return null
 }
@@ -102,12 +133,50 @@ function readAndClearOAuthError(locationLike, historyLike) {
   return error
 }
 
-function getSessionUser(session) {
+function getAuthMethod(user, claims) {
+  const provider = String(user?.app_metadata?.provider || '')
+    .trim()
+    .toLowerCase()
+  const providers = Array.isArray(user?.app_metadata?.providers)
+    ? user.app_metadata.providers.map(value => String(value).toLowerCase())
+    : []
+  const claimsMatchUser = typeof claims?.sub === 'string'
+    && claims.sub === user?.id
+  if (claimsMatchUser && Array.isArray(claims.amr)) {
+    for (const entry of claims.amr) {
+      const method = String(
+        typeof entry === 'string' ? entry : entry?.method || ''
+      ).trim().toLowerCase()
+      if (EMAIL_AUTH_METHODS.has(method)) return 'email'
+      if (
+        ['id_token', 'oauth'].includes(method)
+        && (provider === 'google' || providers.includes('google'))
+      ) return 'google'
+    }
+  }
+  return ['email', 'google'].includes(provider) ? provider : null
+}
+
+function sessionNeedsAuthMethodClaims(session) {
+  const providers = session?.user?.app_metadata?.providers
+  if (!Array.isArray(providers)) return false
+  const accountProviders = new Set(
+    providers
+      .map(value => String(value).trim().toLowerCase())
+      .filter(value => ['email', 'google'].includes(value))
+  )
+  return accountProviders.size > 1
+}
+
+function getSessionUser(session, claims = null) {
   const user = session?.user
   if (typeof user?.id !== 'string' || !user.id) return null
   return {
     userId: user.id,
-    email: typeof user.email === 'string' ? user.email : ''
+    email: typeof user.email === 'string'
+      ? String(user.email).trim().toLowerCase()
+      : '',
+    authMethod: getAuthMethod(user, claims)
   }
 }
 
@@ -116,18 +185,22 @@ export function createAccountAuthController({
   history: historyLike,
   location: locationLike,
   onStateChange,
+  now = () => Date.now(),
   schedule = callback => setTimeout(callback, 0)
 }) {
   if (
     typeof client?.auth?.getSession !== 'function'
     || typeof client?.auth?.onAuthStateChange !== 'function'
-    || typeof client?.auth?.signInWithOAuth !== 'function'
     || typeof client?.auth?.signInWithOtp !== 'function'
     || typeof client?.auth?.signOut !== 'function'
   ) {
     throw new TypeError('Account auth controller requires a Supabase auth client')
   }
-  if (typeof onStateChange !== 'function' || typeof schedule !== 'function') {
+  if (
+    typeof onStateChange !== 'function'
+    || typeof now !== 'function'
+    || typeof schedule !== 'function'
+  ) {
     throw new TypeError('Account auth controller requires state callbacks')
   }
   if (!locationLike?.href || typeof historyLike?.replaceState !== 'function') {
@@ -138,6 +211,7 @@ export function createAccountAuthController({
     sessionState: ACCOUNT_SESSION_STATES.LOADING,
     userId: null,
     email: '',
+    authMethod: null,
     busyAction: null,
     error: null,
     notice: null
@@ -146,6 +220,7 @@ export function createAccountAuthController({
   let authSubscription = null
   let sessionRequestId = 0
   let destroyed = false
+  let magicLinkAvailableAt = 0
 
   function publish(patch) {
     if (destroyed) return currentState
@@ -154,14 +229,15 @@ export function createAccountAuthController({
     return currentState
   }
 
-  function synchronizeSession(session, { error = null } = {}) {
+  function synchronizeSession(session, { claims = null, error = null } = {}) {
     sessionRequestId += 1
-    const user = getSessionUser(session)
+    const user = getSessionUser(session, claims)
     if (!user) {
       return publish({
         sessionState: ACCOUNT_SESSION_STATES.SIGNED_OUT,
         userId: null,
         email: '',
+        authMethod: null,
         busyAction: null,
         error,
         notice: null
@@ -183,13 +259,26 @@ export function createAccountAuthController({
       const { data, error: authError } = await client.auth.getSession()
       if (authError) throw authError
       if (destroyed || requestId !== sessionRequestId) return currentState
-      return synchronizeSession(data?.session || null, { error: completionError })
+      const session = data?.session || null
+      let claims = null
+      if (
+        sessionNeedsAuthMethodClaims(session)
+        && typeof client.auth.getClaims === 'function'
+      ) {
+        try {
+          const claimsResult = await client.auth.getClaims(session.access_token)
+          if (!claimsResult?.error) claims = claimsResult?.data?.claims || null
+        } catch {}
+      }
+      if (destroyed || requestId !== sessionRequestId) return currentState
+      return synchronizeSession(session, { claims, error: completionError })
     } catch {
       if (destroyed || requestId !== sessionRequestId) return currentState
       return publish({
         sessionState: ACCOUNT_SESSION_STATES.UNAVAILABLE,
         userId: null,
         email: '',
+        authMethod: null,
         busyAction: null,
         error: ACCOUNT_AUTH_ERRORS.SESSION_UNAVAILABLE,
         notice: null
@@ -242,6 +331,7 @@ export function createAccountAuthController({
     publish({ busyAction: 'google-sign-in', error: null, notice: null })
     let result
     try {
+      if (typeof client.auth.signInWithOAuth !== 'function') throw new Error()
       result = await client.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo }
@@ -259,7 +349,43 @@ export function createAccountAuthController({
     return true
   }
 
-  async function sendMagicLink(value) {
+  async function signInWithGoogleIdToken({ token, nonce } = {}) {
+    const normalizedToken = String(token || '').trim()
+    const normalizedNonce = String(nonce || '').trim()
+    if (!normalizedToken || !normalizedNonce) {
+      publish({
+        busyAction: null,
+        error: ACCOUNT_AUTH_ERRORS.GOOGLE_SIGN_IN_FAILED,
+        notice: null
+      })
+      return false
+    }
+    publish({ busyAction: 'google-sign-in', error: null, notice: null })
+    let result
+    try {
+      if (typeof client.auth.signInWithIdToken !== 'function') throw new Error()
+      result = await client.auth.signInWithIdToken({
+        provider: 'google',
+        token: normalizedToken,
+        nonce: normalizedNonce
+      })
+    } catch {}
+    if (destroyed) return false
+    if (!result || result.error) {
+      publish({
+        busyAction: null,
+        error: ACCOUNT_AUTH_ERRORS.GOOGLE_SIGN_IN_FAILED,
+        notice: null
+      })
+      return false
+    }
+    return true
+  }
+
+  async function sendMagicLink(
+    value,
+    { captchaRequired = false, captchaToken = '' } = {}
+  ) {
     const email = normalizeEmail(value)
     if (!email) {
       publish({
@@ -269,8 +395,43 @@ export function createAccountAuthController({
       })
       return false
     }
-    const emailRedirectTo = requireReturnUrl()
-    if (!emailRedirectTo) return false
+    const emailRedirectTo = getAccountAuthConfirmUrl(locationLike)
+    if (!emailRedirectTo) {
+      publish({
+        busyAction: null,
+        error: ACCOUNT_AUTH_ERRORS.RETURN_DESTINATION_NOT_ALLOWED,
+        notice: null
+      })
+      return false
+    }
+    const normalizedCaptchaToken = String(captchaToken || '').trim()
+    if (captchaRequired && !normalizedCaptchaToken) {
+      publish({
+        busyAction: null,
+        error: ACCOUNT_AUTH_ERRORS.CAPTCHA_REQUIRED,
+        notice: null
+      })
+      return false
+    }
+    if (captchaToken && (
+      !normalizedCaptchaToken
+      || normalizedCaptchaToken.length > CAPTCHA_TOKEN_MAX_LENGTH
+    )) {
+      publish({
+        busyAction: null,
+        error: ACCOUNT_AUTH_ERRORS.CAPTCHA_REQUIRED,
+        notice: null
+      })
+      return false
+    }
+    if (now() < magicLinkAvailableAt) {
+      publish({
+        busyAction: null,
+        error: ACCOUNT_AUTH_ERRORS.MAGIC_LINK_COOLDOWN,
+        notice: null
+      })
+      return false
+    }
     publish({ busyAction: 'email-sign-in', error: null, notice: null })
     let result
     try {
@@ -278,7 +439,10 @@ export function createAccountAuthController({
         email,
         options: {
           emailRedirectTo,
-          shouldCreateUser: true
+          shouldCreateUser: true,
+          ...(normalizedCaptchaToken
+            ? { captchaToken: normalizedCaptchaToken }
+            : {})
         }
       })
     } catch {}
@@ -291,6 +455,7 @@ export function createAccountAuthController({
       })
       return false
     }
+    magicLinkAvailableAt = now() + MAGIC_LINK_COOLDOWN_MS
     publish({
       busyAction: null,
       error: null,
@@ -335,6 +500,7 @@ export function createAccountAuthController({
     refresh,
     sendMagicLink,
     signInWithGoogle,
+    signInWithGoogleIdToken,
     signOut
   })
 }

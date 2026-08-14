@@ -337,14 +337,17 @@ and momentum—at a glance</h2>
               <h3 data-i18n="settings.account.signedOutTitle">Sign in to Edenia</h3>
               <p data-i18n="settings.account.signedOutBody">Use Google for the quickest sign-in, or get a secure link by email.</p>
             </div>
-            <button class="btn-primary account-auth-google settings-account-google" id="accountGoogleBtn" type="button" data-account-action="google">
+            <div class="account-google-identity-button hidden" id="accountGoogleIdentityButton" data-google-identity-button data-google-identity-surface="settings"></div>
+            <button class="btn-primary account-auth-google settings-account-google hidden" id="accountGoogleBtn" type="button" data-account-action="google">
               <span class="account-auth-google-mark" aria-hidden="true">G</span>
               <span data-i18n="settings.account.google">Continue with Google</span>
             </button>
-            <div class="settings-account-divider"><span data-i18n="settings.account.emailFallback">Or use email</span></div>
+            <div class="settings-account-divider" id="accountEmailDivider"><span data-i18n="settings.account.emailFallback">Or use email</span></div>
             <form class="settings-account-email-form" data-account-action="email-form" novalidate>
               <label for="accountEmail" data-i18n="settings.account.emailLabel">Email address</label>
               <input class="account-auth-email-input" id="accountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-i18n-placeholder="settings.account.emailPlaceholder" placeholder="you@example.com">
+              <div class="account-turnstile hidden" id="accountTurnstile" data-turnstile-widget></div>
+              <p class="account-turnstile-status hidden" id="accountTurnstileStatus" data-turnstile-status role="status" aria-live="polite"></p>
               <button class="btn-secondary" id="accountEmailBtn" type="submit" data-i18n="settings.account.sendLink">Email me a sign-in link</button>
             </form>
           </div>

@@ -115,6 +115,9 @@ import {
 import {
   getAccountFeaturesRollout,
   getFreePlusEnabled,
+  getGoogleIdentityClientId,
+  getGoogleOneTapEnabled,
+  getGoogleSignInMode,
   getIndexedDbBackupCleanupEnabled,
   getIndexedDbBackupsEnabled,
   getLegacyProgressMigrationEnabled,
@@ -122,8 +125,11 @@ import {
   getStudyGuidanceEnabled,
   getSupabasePublishableKey,
   getSupabaseUrl,
+  getTurnstileSiteKey,
   getYoutubeApiKey,
+  hasGoogleIdentityServicesRuntimeConfig,
   hasSupabaseRuntimeConfig,
+  hasTurnstileRuntimeConfig,
   hasYoutubeApiKey
 } from './integrations/runtime-config.js'
 import {
@@ -185,6 +191,12 @@ import {
 import {
   createAccountAnalyticsIdentity
 } from './integrations/account-analytics-identity.js'
+import {
+  createGoogleIdentityServicesController
+} from './integrations/google-identity-services-controller.js'
+import {
+  createTurnstileController
+} from './integrations/turnstile-controller.js'
 import {
   formatLocaleDate,
   formatLocaleDateTime,
@@ -493,6 +505,13 @@ const ACCOUNT_FEATURES_ENABLED = deriveAccountFeaturesEnabled(
   RUNTIME_ENVIRONMENT,
   getAccountFeaturesRollout()
 )
+const GOOGLE_SIGN_IN_MODE = getGoogleSignInMode()
+const GOOGLE_ONE_TAP_ENABLED = getGoogleOneTapEnabled()
+const GOOGLE_IDENTITY_CLIENT_ID = getGoogleIdentityClientId()
+const GOOGLE_IDENTITY_SERVICES_READY =
+  hasGoogleIdentityServicesRuntimeConfig()
+const TURNSTILE_SITE_KEY = getTurnstileSiteKey()
+const TURNSTILE_READY = hasTurnstileRuntimeConfig()
 const LOCAL_BACKUPS_ENABLED = !IS_SANDBOX && !IS_INTERNAL_TEST
 const INDEXED_DB_BACKUPS_ENABLED = getIndexedDbBackupsEnabled()
 const INDEXED_DB_BACKUP_CLEANUP_ENABLED =
@@ -896,6 +915,10 @@ let selectedActivityLogFilter = 'all'
 let mobileActivityLogVisibleCount = 20
 let supabaseClient = null
 let accountAuthController = null
+let googleIdentityServicesController = null
+let turnstileController = null
+const turnstileWidgetStatuses = new WeakMap()
+let onboardingFlowEvaluated = false
 let accountExportController = null
 let accountStudySnapshotController = null
 let accountSettingsWasSignedIn = false
@@ -907,6 +930,7 @@ let accountAuthViewState = Object.freeze({
   sessionState: ACCOUNT_SESSION_STATES.LOADING,
   userId: null,
   email: '',
+  authMethod: null,
   busyAction: null,
   error: null,
   notice: null
@@ -1960,6 +1984,7 @@ function completeWalkthrough(state = loadState()) {
     state.onboarding.walkthroughCompletedAt = new Date().toISOString()
     saveState(state)
   }
+  synchronizeGoogleIdentityServices()
   return state
 }
 
@@ -2378,6 +2403,8 @@ function startApplicationFromLocalState() {
   initCityWaveformTouchNavigation()
   initIntroTrailerTouchNavigation()
   const onboardingExperienceStarted = maybeStartOnboarding(state)
+  onboardingFlowEvaluated = true
+  synchronizeGoogleIdentityServices()
   const noAnkiPromptScheduled = !onboardingExperienceStarted && maybeStartNoAnkiFrequentUserPrompt(state)
   const starterFeedRequest = startPendingStarterFeedPreparation(state, {
     deferAnki: noAnkiPromptScheduled
@@ -3383,6 +3410,18 @@ function renderOnboardingAccountStep(content) {
   const feedback = feedbackView
     ? `<p class="onboarding-account-feedback" data-account-tone="${escHtml(feedbackView.tone)}" role="${feedbackView.tone === 'error' ? 'alert' : 'status'}" aria-live="${feedbackView.tone === 'error' ? 'assertive' : 'polite'}">${escHtml(t(feedbackView.key))}</p>`
     : ''
+  const googleAvailable = GOOGLE_SIGN_IN_MODE === 'oauth_redirect'
+    || GOOGLE_IDENTITY_SERVICES_READY
+  const googleContent = GOOGLE_IDENTITY_SERVICES_READY
+    ? '<div class="account-google-identity-button" data-google-identity-button data-google-identity-surface="onboarding"></div>'
+    : GOOGLE_SIGN_IN_MODE === 'oauth_redirect'
+      ? `
+        <button class="btn-primary account-auth-google onboarding-account-google" type="button" data-onboarding-account-action="google" data-analytics-action="onboardingAccountGoogle" ${busy || unavailable ? 'disabled' : ''}>
+          <span class="account-auth-google-mark" aria-hidden="true">G</span>
+          <span>${escHtml(t(state?.busyAction === 'google-sign-in' ? 'settings.account.googleLoading' : 'settings.account.google'))}</span>
+        </button>
+      `
+      : ''
 
   let accountContent
   if (loading) {
@@ -3399,15 +3438,13 @@ function renderOnboardingAccountStep(content) {
     `
   } else {
     accountContent = `
-      <button class="btn-primary account-auth-google onboarding-account-google" type="button" data-onboarding-account-action="google" data-analytics-action="onboardingAccountGoogle" ${busy || unavailable ? 'disabled' : ''}>
-        <span class="account-auth-google-mark" aria-hidden="true">G</span>
-        <span>${escHtml(t(state?.busyAction === 'google-sign-in' ? 'settings.account.googleLoading' : 'settings.account.google'))}</span>
-      </button>
-      <div class="onboarding-account-divider"><span>${escHtml(t('settings.account.emailFallback'))}</span></div>
+      ${googleContent}
+      ${googleAvailable ? `<div class="onboarding-account-divider"><span>${escHtml(t('settings.account.emailFallback'))}</span></div>` : ''}
       <form class="onboarding-account-email-form" data-onboarding-account-action="email-form" novalidate>
         <label for="onboardingAccountEmail">${escHtml(t('settings.account.emailLabel'))}</label>
         <input class="account-auth-email-input" id="onboardingAccountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-onboarding-account-email value="${escHtml(personalizedOnboardingState.accountEmail)}" placeholder="${escHtml(t('settings.account.emailPlaceholder'))}" ${busy || unavailable ? 'disabled' : ''}>
-        <button class="btn-secondary onboarding-account-email-button" type="submit" data-analytics-action="onboardingAccountEmail" ${busy || unavailable ? 'disabled' : ''}>${escHtml(t(state?.busyAction === 'email-sign-in' ? 'settings.account.sendingLink' : 'settings.account.sendLink'))}</button>
+        ${TURNSTILE_READY ? '<div class="account-turnstile" data-turnstile-widget></div><p class="account-turnstile-status" data-turnstile-status role="status" aria-live="polite"></p>' : ''}
+        <button class="btn-secondary onboarding-account-email-button" type="submit" data-analytics-action="onboardingAccountEmail" ${busy || unavailable || TURNSTILE_READY ? 'disabled' : ''}>${escHtml(t(state?.busyAction === 'email-sign-in' ? 'settings.account.sendingLink' : 'settings.account.sendLink'))}</button>
       </form>
       ${feedback}
     `
@@ -3426,6 +3463,8 @@ function renderOnboardingAccountStep(content) {
       <button type="button" class="${signedIn ? 'btn-primary' : 'btn-ghost onboarding-account-skip'}" data-personalized-onboarding-action="finish" data-analytics-action="finishPersonalizedOnboarding" ${busy ? 'disabled' : ''}>${escHtml(t(signedIn ? 'onboarding.build' : 'onboarding.account.skip'))}</button>
     </div>
   `
+  mountGoogleIdentityServicesButtons(content)
+  mountTurnstileWidgets(content)
 }
 
 function renderOnboardingLanguageStep(content) {
@@ -4131,6 +4170,7 @@ function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {
   if (walkthroughState.active) endWalkthrough({ markCompleted: false })
 
   walkthroughState.active = true
+  synchronizeGoogleIdentityServices()
   walkthroughState.steps = availableSteps
   walkthroughState.index = clampNumber(options.startIndex || 0, 0, availableSteps.length - 1)
   walkthroughState.highlightOnly = false
@@ -4370,6 +4410,7 @@ function endWalkthrough(options = {}) {
     ankiRefreshDeferredForPrompt = false
     applyAnkiRefreshPreference()
   }
+  synchronizeGoogleIdentityServices()
 }
 
 function handleWalkthroughTargetClick(event) {
@@ -4884,6 +4925,9 @@ function showTrackedChannelDowngradeNotice(transition) {
 }
 
 const ACCOUNT_AUTH_FEEDBACK_VIEWS = Object.freeze({
+  [ACCOUNT_AUTH_ERRORS.CAPTCHA_REQUIRED]: {
+    key: 'settings.account.feedback.captchaRequired', tone: 'error'
+  },
   [ACCOUNT_AUTH_ERRORS.GOOGLE_SIGN_IN_FAILED]: {
     key: 'settings.account.feedback.googleError', tone: 'error'
   },
@@ -4892,6 +4936,9 @@ const ACCOUNT_AUTH_FEEDBACK_VIEWS = Object.freeze({
   },
   [ACCOUNT_AUTH_ERRORS.MAGIC_LINK_FAILED]: {
     key: 'settings.account.feedback.magicLinkError', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.MAGIC_LINK_COOLDOWN]: {
+    key: 'settings.account.feedback.magicLinkCooldown', tone: 'neutral'
   },
   [ACCOUNT_AUTH_ERRORS.OAUTH_CANCELLED]: {
     key: 'settings.account.feedback.cancelled', tone: 'neutral'
@@ -4912,6 +4959,123 @@ const ACCOUNT_AUTH_FEEDBACK_VIEWS = Object.freeze({
     key: 'settings.account.feedback.linkSent', tone: 'success'
   }
 })
+
+function getGoogleIdentityLocale() {
+  return {
+    'zh-Hans': 'zh-CN',
+    'zh-Hant': 'zh-TW'
+  }[getCurrentLocale()] || getCurrentLocale()
+}
+
+function mountGoogleIdentityServicesButtons(root = document) {
+  if (
+    !googleIdentityServicesController
+    || accountAuthViewState.sessionState !== ACCOUNT_SESSION_STATES.SIGNED_OUT
+    || typeof root?.querySelectorAll !== 'function'
+  ) return false
+
+  for (const element of root.querySelectorAll('[data-google-identity-button]')) {
+    if (element.classList.contains('hidden')) continue
+    const measuredWidth = element.getBoundingClientRect?.().width
+      || element.parentElement?.getBoundingClientRect?.().width
+      || 320
+    void googleIdentityServicesController.mountButton(element, {
+      locale: getGoogleIdentityLocale(),
+      width: measuredWidth
+    })
+  }
+  return true
+}
+
+function isGoogleOneTapEligible() {
+  if (
+    !onboardingFlowEvaluated
+    || !ACCOUNT_FEATURES_ENABLED
+    || GOOGLE_SIGN_IN_MODE !== 'id_token'
+    || !GOOGLE_ONE_TAP_ENABLED
+    || !googleIdentityServicesController
+    || IS_SANDBOX
+    || !IS_INTERNAL_TEST
+    || walkthroughState.active
+    || accountAuthViewState.sessionState !== ACCOUNT_SESSION_STATES.SIGNED_OUT
+    || window.location.origin !== 'https://www.edenia.study'
+    || window.location.pathname !== '/'
+  ) return false
+  const state = loadState()
+  return Boolean(
+    state?.onboarding?.setupCompleted
+    && state?.onboarding?.walkthroughCompleted
+  )
+}
+
+function synchronizeGoogleIdentityServices() {
+  if (!googleIdentityServicesController) return false
+  mountGoogleIdentityServicesButtons()
+  void googleIdentityServicesController.synchronizePrompt({
+    autoSelect: true,
+    eligible: isGoogleOneTapEligible()
+  })
+  return true
+}
+
+function getTurnstileStatusView(status) {
+  if (status === 'ready') return null
+  if (['error', 'unavailable'].includes(status)) {
+    return {
+      key: 'settings.account.securityCheckUnavailable',
+      tone: 'error'
+    }
+  }
+  if (status === 'expired') {
+    return {
+      key: 'settings.account.securityCheckExpired',
+      tone: 'neutral'
+    }
+  }
+  return {
+    key: 'settings.account.securityCheckPending',
+    tone: 'neutral'
+  }
+}
+
+function synchronizeTurnstileControls(root = document) {
+  if (typeof root?.querySelectorAll !== 'function') return false
+  for (const element of root.querySelectorAll('[data-turnstile-widget]')) {
+    const form = element.closest?.('form')
+    const status = turnstileWidgetStatuses.get(element) || 'pending'
+    const statusView = getTurnstileStatusView(status)
+    const statusElement = form?.querySelector('[data-turnstile-status]')
+    if (statusElement) {
+      statusElement.classList.toggle('hidden', !statusView)
+      statusElement.textContent = statusView ? t(statusView.key) : ''
+      statusElement.dataset.turnstileTone = statusView?.tone || 'neutral'
+    }
+    const submit = form?.querySelector('button[type="submit"]')
+    if (submit && turnstileController) {
+      submit.disabled = status !== 'ready'
+        || Boolean(accountAuthViewState.busyAction)
+        || accountAuthViewState.sessionState === ACCOUNT_SESSION_STATES.UNAVAILABLE
+    }
+  }
+  return true
+}
+
+function mountTurnstileWidgets(root = document) {
+  if (
+    !turnstileController
+    || accountAuthViewState.sessionState !== ACCOUNT_SESSION_STATES.SIGNED_OUT
+    || typeof root?.querySelectorAll !== 'function'
+  ) return false
+  for (const element of root.querySelectorAll('[data-turnstile-widget]')) {
+    if (element.classList.contains('hidden')) continue
+    void turnstileController.mount(element, {
+      language: getGoogleIdentityLocale(),
+      theme: 'auto'
+    })
+  }
+  synchronizeTurnstileControls(root)
+  return true
+}
 
 const ACCOUNT_EXPORT_FEEDBACK_VIEWS = Object.freeze({
   [ACCOUNT_EXPORT_FEEDBACK.COMPLETE]: {
@@ -5057,8 +5221,18 @@ function renderAccountSettings(state = accountAuthViewState) {
 
   const email = document.getElementById('accountUserEmail')
   if (email) email.textContent = state?.email || ''
+  const googleIdentityButton = document.getElementById(
+    'accountGoogleIdentityButton'
+  )
+  const googleIdTokenAvailable = GOOGLE_SIGN_IN_MODE === 'id_token'
+    && Boolean(googleIdentityServicesController)
+  googleIdentityButton?.classList.toggle('hidden', !googleIdTokenAvailable)
   const googleButton = document.getElementById('accountGoogleBtn')
   if (googleButton) {
+    googleButton.classList.toggle(
+      'hidden',
+      GOOGLE_SIGN_IN_MODE !== 'oauth_redirect'
+    )
     googleButton.disabled = authBusy || unavailable
     const label = googleButton.querySelector('[data-i18n]')
     if (label) {
@@ -5069,8 +5243,14 @@ function renderAccountSettings(state = accountAuthViewState) {
       )
     }
   }
+  document.getElementById('accountEmailDivider')?.classList.toggle(
+    'hidden',
+    !googleIdTokenAvailable && GOOGLE_SIGN_IN_MODE !== 'oauth_redirect'
+  )
   const emailInput = document.getElementById('accountEmail')
   if (emailInput) emailInput.disabled = authBusy || unavailable
+  const turnstileElement = document.getElementById('accountTurnstile')
+  turnstileElement?.classList.toggle('hidden', !turnstileController)
   const emailButton = document.getElementById('accountEmailBtn')
   if (emailButton) {
     emailButton.disabled = authBusy || unavailable
@@ -5108,6 +5288,9 @@ function renderAccountSettings(state = accountAuthViewState) {
 
   renderTrackedChannelAccess()
   renderReminderPreferences()
+  mountGoogleIdentityServicesButtons(group)
+  mountTurnstileWidgets(group)
+  synchronizeTurnstileControls(group)
 }
 
 function renderPlusAccountSettings() {
@@ -5238,6 +5421,7 @@ function initializeAccountAuth() {
       sessionState: ACCOUNT_SESSION_STATES.UNAVAILABLE,
       userId: null,
       email: '',
+      authMethod: null,
       busyAction: null,
       error: ACCOUNT_AUTH_ERRORS.SESSION_UNAVAILABLE,
       notice: null
@@ -5289,8 +5473,33 @@ function initializeAccountAuth() {
         if (personalizedOnboardingState.step === 'account') {
           renderPersonalizedOnboarding()
         }
+        synchronizeGoogleIdentityServices()
       }
     })
+    if (GOOGLE_IDENTITY_SERVICES_READY) {
+      googleIdentityServicesController =
+        createGoogleIdentityServicesController({
+          clientId: GOOGLE_IDENTITY_CLIENT_ID,
+          crypto: window.crypto,
+          exchangeCredential(credential) {
+            return accountAuthController.signInWithGoogleIdToken(credential)
+          },
+          googleTarget: window,
+          onStatusChange(status) {
+            document.documentElement.dataset.googleIdentityStatus = status
+          }
+        })
+    }
+    if (TURNSTILE_READY) {
+      turnstileController = createTurnstileController({
+        siteKey: TURNSTILE_SITE_KEY,
+        turnstileTarget: window,
+        onStatusChange(status, element) {
+          turnstileWidgetStatuses.set(element, status)
+          synchronizeTurnstileControls(element.closest?.('form') || document)
+        }
+      })
+    }
     accountAuthViewState = accountAuthController.getState()
     accountExportController.synchronizeAccount(accountAuthViewState)
     renderAccountSettings()
@@ -5301,6 +5510,7 @@ function initializeAccountAuth() {
       sessionState: ACCOUNT_SESSION_STATES.UNAVAILABLE,
       userId: null,
       email: '',
+      authMethod: null,
       busyAction: null,
       error: ACCOUNT_AUTH_ERRORS.SESSION_UNAVAILABLE,
       notice: null
@@ -5313,19 +5523,35 @@ function initializeAccountAuth() {
 }
 
 function signInAccountWithGoogle() {
+  if (GOOGLE_SIGN_IN_MODE !== 'oauth_redirect') return false
   return accountAuthController?.signInWithGoogle()
 }
 
-function sendAccountMagicLink(email) {
-  return accountAuthController?.sendMagicLink(email)
+async function sendAccountMagicLink(email, form = null) {
+  if (!accountAuthController) return false
+  const turnstileElement = form?.querySelector?.('[data-turnstile-widget]')
+    || null
+  const captchaToken = turnstileController?.consumeToken(turnstileElement)
+    || ''
+  try {
+    return await accountAuthController.sendMagicLink(email, {
+      captchaRequired: TURNSTILE_READY,
+      captchaToken
+    })
+  } finally {
+    if (turnstileController && turnstileElement) {
+      turnstileController.reset(turnstileElement)
+    }
+  }
 }
 
-function sendOnboardingAccountMagicLink(email) {
+function sendOnboardingAccountMagicLink(email, form = null) {
   personalizedOnboardingState.accountEmail = String(email || '')
-  return sendAccountMagicLink(email)
+  return sendAccountMagicLink(email, form)
 }
 
 function signOutAccount() {
+  googleIdentityServicesController?.prepareForExplicitSignOut()
   return accountAuthController?.signOut()
 }
 
@@ -17169,6 +17395,8 @@ document.addEventListener('keydown', handleVideoShelfPlayerKeydown, true)
 window.addEventListener('blur', keepVideoShelfPlayerEscapeAvailable)
 window.addEventListener('pagehide', event => {
   if (!event.persisted) accountAuthController?.destroy()
+  if (!event.persisted) googleIdentityServicesController?.destroy()
+  if (!event.persisted) turnstileController?.destroy()
   if (!event.persisted) accountStudySnapshotController?.destroy()
   if (!event.persisted) plusAccountController?.destroy()
   const session = activeVideoShelfPlayer

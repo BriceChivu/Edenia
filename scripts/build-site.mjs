@@ -49,6 +49,27 @@ function versionAssetReference(html, filename, version) {
   return html.replace(pattern, `${filename}?v=${version}`)
 }
 
+function getAuthConfirmConnectSource() {
+  const configuredUrl = String(process.env.SUPABASE_URL || '').trim()
+  if (!configuredUrl) return "'none'"
+  let url
+  try {
+    url = new URL(configuredUrl)
+  } catch {
+    throw new Error('SUPABASE_URL must be a valid hosted project URL')
+  }
+  if (
+    url.protocol !== 'https:'
+    || !/^[a-z0-9-]+\.supabase\.co$/.test(url.hostname)
+    || url.pathname !== '/'
+    || url.search
+    || url.hash
+    || url.username
+    || url.password
+  ) throw new Error('SUPABASE_URL must be a valid hosted project URL')
+  return url.origin
+}
+
 async function copyPath(relativePath) {
   await cp(
     resolve(projectRoot, relativePath),
@@ -94,6 +115,35 @@ await mkdir(resolve(outputDir, 'unsubscribe'), { recursive: true })
 await writeFile(
   resolve(outputDir, 'unsubscribe', 'index.html'),
   unsubscribeHtml
+)
+
+let authConfirmHtml = await readFile(
+  resolve(projectRoot, 'auth', 'confirm', 'index.html'),
+  'utf8'
+)
+authConfirmHtml = authConfirmHtml.replace(
+  '__EDENIA_AUTH_CONFIRM_CONNECT_SRC__',
+  getAuthConfirmConnectSource()
+)
+authConfirmHtml = versionAssetReference(
+  authConfirmHtml,
+  'style.css',
+  assetVersion
+)
+authConfirmHtml = versionAssetReference(
+  authConfirmHtml,
+  'fragment-scrubber.js',
+  assetVersion
+)
+authConfirmHtml = versionAssetReference(
+  authConfirmHtml,
+  'confirm.js',
+  assetVersion
+)
+await mkdir(resolve(outputDir, 'auth', 'confirm'), { recursive: true })
+await writeFile(
+  resolve(outputDir, 'auth', 'confirm', 'index.html'),
+  authConfirmHtml
 )
 
 const appBuild = await build({
@@ -157,6 +207,29 @@ if (/^\s*(?:import|export)\b/m.test(unsubscribeSource)) {
     'Bundled unsubscribe output is not compatible with the classic script entry'
   )
 }
+const authConfirmBuild = await build({
+  bundle: true,
+  charset: 'utf8',
+  entryPoints: [resolve(projectRoot, 'src', 'account-auth-confirm-page.js')],
+  format: 'esm',
+  legalComments: 'none',
+  logLevel: 'silent',
+  platform: 'browser',
+  target: 'es2022',
+  treeShaking: false,
+  write: false
+})
+if (authConfirmBuild.outputFiles.length !== 1) {
+  throw new Error(
+    `Expected one bundled auth confirmation output, found ${authConfirmBuild.outputFiles.length}`
+  )
+}
+const authConfirmSource = authConfirmBuild.outputFiles[0].text
+if (/^\s*(?:import|export)\b/m.test(authConfirmSource)) {
+  throw new Error(
+    'Bundled auth confirmation output is not compatible with the classic script entry'
+  )
+}
 const { source: styleSource } = await readOrderedStyleSource(
   resolve(projectRoot, 'src', 'styles', 'index.css')
 )
@@ -179,6 +252,10 @@ const minifiedUnsubscribe = await minify(unsubscribeSource, {
   compress: true,
   mangle: true
 })
+const minifiedAuthConfirm = await minify(authConfirmSource, {
+  compress: true,
+  mangle: true
+})
 if (!minifiedApp.code) {
   throw new Error('Terser did not produce app.js output')
 }
@@ -187,6 +264,9 @@ if (!minifiedPlus.code) {
 }
 if (!minifiedUnsubscribe.code) {
   throw new Error('Terser did not produce unsubscribe.js output')
+}
+if (!minifiedAuthConfirm.code) {
+  throw new Error('Terser did not produce auth confirmation output')
 }
 const unsubscribeStyle = await readFile(
   resolve(projectRoot, 'unsubscribe', 'style.css'),
@@ -198,6 +278,26 @@ const minifiedUnsubscribeStyle = await transform(unsubscribeStyle, {
   minify: true,
   target: 'es2022'
 })
+const authConfirmStyle = await readFile(
+  resolve(projectRoot, 'auth', 'confirm', 'style.css'),
+  'utf8'
+)
+const minifiedAuthConfirmStyle = await transform(authConfirmStyle, {
+  legalComments: 'none',
+  loader: 'css',
+  minify: true,
+  target: 'es2022'
+})
+const minifiedAuthConfirmFragmentScrubber = await minify(
+  await readFile(
+    resolve(projectRoot, 'auth', 'confirm', 'fragment-scrubber.js'),
+    'utf8'
+  ),
+  { compress: true, mangle: true }
+)
+if (!minifiedAuthConfirmFragmentScrubber.code) {
+  throw new Error('Terser did not produce auth fragment scrubber output')
+}
 await writeFile(resolve(outputDir, 'app.js'), minifiedApp.code)
 await writeFile(resolve(outputDir, 'plus', 'plus.js'), minifiedPlus.code)
 await writeFile(
@@ -207,6 +307,18 @@ await writeFile(
 await writeFile(
   resolve(outputDir, 'unsubscribe', 'style.css'),
   minifiedUnsubscribeStyle.code
+)
+await writeFile(
+  resolve(outputDir, 'auth', 'confirm', 'confirm.js'),
+  minifiedAuthConfirm.code
+)
+await writeFile(
+  resolve(outputDir, 'auth', 'confirm', 'fragment-scrubber.js'),
+  minifiedAuthConfirmFragmentScrubber.code
+)
+await writeFile(
+  resolve(outputDir, 'auth', 'confirm', 'style.css'),
+  minifiedAuthConfirmStyle.code
 )
 await writeFile(resolve(outputDir, 'style.css'), minifiedStyle.code)
 
@@ -227,6 +339,10 @@ await writeFile(
     + '  "freePlusEnabled": false,\n'
     + '  "plusCheckoutEnabled": false,\n'
     + '  "accountFeaturesRollout": "off",\n'
+    + '  "googleSignInMode": "oauth_redirect",\n'
+    + '  "googleOneTapEnabled": false,\n'
+    + '  "googleIdentityClientId": "",\n'
+    + '  "turnstileSiteKey": "",\n'
     + '  "videoOrganizationEnabled": true,\n'
     + '  "channelVideoFormatToggleEnabled": true,\n'
     + '  "studyGuidanceEnabled": false,\n'

@@ -29,7 +29,7 @@ export function bindSettingsAccountActions(root, actions) {
   if (emailForm && emailInput && !boundControls.has(emailForm)) {
     emailForm.addEventListener('submit', event => {
       event.preventDefault()
-      actions.sendMagicLink(emailInput.value)
+      actions.sendMagicLink(emailInput.value, emailForm)
     })
     boundControls.add(emailForm)
     installedCount += 1
