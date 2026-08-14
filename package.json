@@ -22,6 +22,7 @@
     "test:reminder-function": "deno check --frozen --config supabase/functions/dispatch-study-reminders/deno.json supabase/functions/dispatch-study-reminders/index.ts && deno check --frozen --config supabase/functions/unsubscribe-study-reminders/deno.json supabase/functions/unsubscribe-study-reminders/index.ts && deno check --frozen --config supabase/functions/resend-reminder-webhook/deno.json supabase/functions/resend-reminder-webhook/index.ts",
     "test:account-export-function": "deno check --frozen --config supabase/functions/export-account-data/deno.json supabase/functions/export-account-data/index.ts",
     "test:legacy-progress-relay-function": "deno check --frozen --config supabase/functions/create-legacy-progress-transfer/deno.json supabase/functions/create-legacy-progress-transfer/index.ts && deno check --frozen --config supabase/functions/consume-legacy-progress-transfer/deno.json supabase/functions/consume-legacy-progress-transfer/index.ts",
+    "verify:domain-migration": "node scripts/verify-domain-migration.mjs",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:update": "npm run build && playwright test --update-snapshots",
     "test:ci": "npm run build && npm run test:contracts && npm run test:supabase && npm run test:reminder-function && npm run test:account-export-function && npm run test:legacy-progress-relay-function && playwright test"
