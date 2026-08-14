@@ -106,7 +106,10 @@ The page has no main-app, PostHog, Google, Turnstile, or study-state import, and
 uses `no-referrer`, `noindex`, and a restrictive exact-host CSP. A framed copy
 discards the captured capability and never enables confirmation.
 
-The Supabase template must link exactly to:
+The reviewed hosted-template source is
+`supabase/templates/magic_link.html`. Copy that source into Supabase's hosted
+magic-link editor only after custom SMTP is active. Its action must link
+exactly to:
 
 ```text
 https://www.edenia.study/auth/confirm/#token_hash={{ .TokenHash }}&type=email
