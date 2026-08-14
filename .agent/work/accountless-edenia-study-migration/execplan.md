@@ -42,8 +42,10 @@ The current application makes this difficult because startup, import normalizati
 - [x] (2026-08-14 03:04Z) Reverified the merged implementation and every first-write target. Owner-merged PR #140 produced master and Pages SHA `a33d99cf2c5f12f695d27fd14cb29570f28f0a0d`; the old Pages URL returned `200` with no public migration variable. The linked `Edenia Plus` project was healthy; only the relay and grace-policy migrations were pending; both relay controls, relay rows, and relay metrics started false/zero; the browser roles had no relay table/RPC access; and the affected backup policies had no pending data backfill. Current official Supabase function, API-key, Cron, limits, and breaking-change guidance plus CLI 2.111.0 were rechecked before writes.
 - [x] (2026-08-14 03:04Z) Applied only migrations `20260813132440` and `20260813162549` to `Edenia Plus`, retaining `acceptance_enabled=false` and `consumption_enabled=false`, zero relay rows/metrics, private RLS, service-only RPC grants, and append-only seven-day backup policies. Deployed both named relay functions with custom named publishable-key authentication. The first live browser probe found allowed CORS preflight blocked by the wrapper at `401`; a narrow source fix now validates only `OPTIONS` before authentication, while every data-bearing request still traverses `publishable:default`. Focused tests, 61 database assertions, local lint, and full `npm test` passed with 1,058 contracts and 131 shared function tests; the corrected live probe returned allowed `204`, forged-origin `403`, missing/malformed-key `401`, and disabled create/consume `503`.
 - [x] (2026-08-14 03:04Z) Published the dedicated public helper repository at commit `0f98a54efe598bbe8111ede36cdff148710de230` and enabled GitHub Pages at `https://bricechivu.github.io/edenia-migrate/`. Build `1150233811` completed, HTTPS returned `200`, and all four live file hashes matched the reviewed production artifact. Live verification confirmed the exact Supabase-only `connect-src`, canonical `https://www.edenia.study/` return, no analytics/account code, and no secret-key patterns. The relay remains unable to accept data.
-- [ ] Publish and merge the preflight/cleanup follow-up, apply only the tracked cleanup migration, observe a successful hosted cleanup run, and rerun hosted grants/controls/advisors before domain writes.
-- [ ] With explicit approval, publish and verify the helper and relay while disabled, configure the domain and provider allowlists, run a backed-up canary, then enable automatic migration.
+- [x] (2026-08-14 03:26Z) Published follow-up commit `eca58c54cd37d617e70352ca7acbcaebd3e1a546`, obtained exact-head green CI in run `31765722432`, and merged PR #141 at `ca43664be2800c705612575b58bb5a30f1f0469e`. Applied only tracked migration `20260814025929`, which installed the named five-minute bounded cleanup schedule; the first hosted run succeeded at 03:25Z with `DELETE 0`. Hosted controls remain false/false, rows and metrics remain zero, browser roles have no relay table/RPC access, and current advisor findings are either intentional private deny-all RLS notices or pre-existing non-relay notices. Pages deployment `31766478658` passed at the exact merge SHA.
+- [x] (2026-08-14 03:26Z) Prepared canonical provider return paths without making migration public: Supabase Auth now uses `https://www.edenia.study/` as Site URL while retaining only the exact old/internal callback and localhost transition callbacks; Supabase `APP_URL`, reminder, and unsubscribe configuration uses exact `www`; the reviewed Edge Function bundles were redeployed from merged source and canonical CORS probes passed; Google YouTube browser-key restrictions and OAuth JavaScript origins now include exact `www` while retaining the old origin and localhost. PostHog exposes no visible authorized-domain control, and the helper contains no analytics. Stripe remains server-side Checkout/Billing plus Customer Portal with canonical `APP_URL`; checkout itself stays disabled. GitHub domain ownership is pending its generated TXT challenge. Pages still has `cname=null`, and DNS still points to Namecheap parking because the Namecheap account is not authenticated; no unsafe partial cutover was attempted.
+- [ ] Sign in to Namecheap, publish and verify the GitHub ownership TXT record, attach `www.edenia.study` to Pages, replace only the parking apex/`www` records, wait for valid TLS, and verify the old URL, canonical root, apex redirect, helper, and subpaths with all migration controls still off.
+- [ ] Back up one real old-origin browser, run the no-state and valid-state private canaries, review byte/hash/privacy/control evidence, then obtain separate owner approval before enabling automatic migration publicly.
 - [ ] Maintain the operational evidence needed for the five-month minimum and rolling 90-day quiet-period retirement rule; retirement itself remains a separately approved future action.
 
 ## Surprises & Discoveries
@@ -138,6 +140,12 @@ The current application makes this difficult because startup, import normalizati
 - Observation: Supabase CLI 2.111.0 can fresh-start this migration history exactly as CI does, but `db reset` and declarative shadow diff fail on the pre-existing `LOCK TABLE` statement in `20260724111513_enforce_atomic_founding_member_limit.sql` because those paths do not wrap it in the migration transaction it expects.
   Evidence: A fresh `supabase start` applied every migration in order and all 606 database assertions passed. The failed reset/diff attempts are excluded from evidence and do not contradict the fresh-start/CI path.
 
+- Observation: Applying `withSupabase({ auth: 'publishable:default' })` to an entire Edge Function also authenticates browser `OPTIONS` preflights, which carry no API key and therefore fail before strict CORS can answer them.
+  Evidence: The first hosted allowed-origin probe returned `401`. The corrected entrypoints route only `OPTIONS` directly to the shared exact-origin preflight response; every data-bearing request still traverses publishable-key authentication. Hosted probes now return allowed `204`, forged-origin `403`, missing/malformed-key `401`, and disabled create/consume `503`.
+
+- Observation: Attaching the GitHub Pages custom domain while `www` still resolves to Namecheap parking would create a user-visible redirect before the canonical site is routable.
+  Evidence: The live Pages API still reports `cname=null`; the apex resolves to `192.64.119.36` and `www` to `parkingpage.namecheap.com`. The ownership challenge is prepared, but the Namecheap browser session is signed out. Domain attachment and DNS must therefore be one controlled sequence after registrar authentication, not a partial write performed in advance.
+
 ## Decision Log
 
 - Decision: Keep authentication, cloud account sync, and account-based PostHog identity out of this work item.
@@ -192,6 +200,10 @@ The current application makes this difficult because startup, import normalizati
   Rationale: Those choices affect cost or unrelated data. The local/database evidence remains valid, but the lack of an isolated hosted surface is an owner approval boundary before choosing a paid preview branch or a tightly controlled dormant production deployment.
   Date/Author: 2026-08-13 / Codex
 
+- Decision: Do not attach the Pages custom domain until the exact DNS replacement can immediately follow, and keep every migration control off through DNS/TLS smoke testing.
+  Rationale: GitHub Pages will redirect the legacy project URL after custom-domain attachment. Coordinating that write with the four GitHub apex A records and `www -> bricechivu.github.io` prevents users from being redirected to a parked or certificate-invalid destination, while the off switches preserve today's accountless startup during infrastructure validation.
+  Date/Author: 2026-08-14 / Codex
+
 ## Outcomes & Retrospective
 
 Planning outcome as of 2026-08-13: the user flow and loss-prevention policy are decided, and the repository-specific implementation path is documented below.
@@ -209,6 +221,8 @@ Milestone 5 outcome as of 2026-08-13: every reviewed source-level domain contrac
 Completion audit outcome as of 2026-08-13: the branch proves the reviewable local implementation but does not prove the user-visible production outcome. Functional items 1 through 5 and switch-off item 7 have automated Chromium/WebKit evidence; item 6 still lacks an approved hosted cleanup run; item 8 lacks the real domain and provider configuration. The local security review and disposable-database tests are strong, but hosted grants, function behavior, advisor results, and operational controls remain unverified. The required Chrome, Safari on macOS and iOS, Firefox, and Edge matrix, backed-up canary, deployed SHA, live runtime configuration, callback/referrer checks, circuit-breaker rehearsal, public owner approval, and retention observations are all missing by design. None can be manufactured locally or obtained through read-only inspection. Work therefore stops at the explicit approval boundary with working public behavior unchanged.
 
 Draft-review outcome as of 2026-08-13: PR #140 is open, draft, mergeable, and clean at reviewed source head `049cb210143054b376675b455ba6c2b4c41335ed`; exact-head run `31721907006` passed every required build, Node, Deno, database, and browser step, including the new append-only grace-policy assertions and 215 browser passes with 503 intentional skips. The correction removes two obsolete unrecorded billing files, adds one narrowly corrective migration, and leaves linked dry-run with exactly the disabled relay and corrective policy migration. Merge is authorized if later necessary but remains unsafe before the coordinated live deployment sequence; no hosted or public state changed.
+
+Staged-live outcome as of 2026-08-14: PRs #140 and #141 are merged, the old application and independent helper both return HTTPS `200`, and the exact merged Pages deployment is green. The private hosted relay, strict authenticated functions, grace-policy correction, and five-minute cleanup are deployed with acceptance and consumption false; the cleanup has a successful hosted run and no transfer data exists. Canonical Supabase and Google provider paths are prepared, while checkout, reminder delivery, accounts rollout, relay use, and automatic migration remain disabled. No user has been redirected because Pages still has no custom domain and Namecheap still serves its parking records. The next irreducible step is registrar authentication followed by coordinated ownership/DNS/Pages/TLS work and then a separately backed-up private canary.
 
 ## Context and Orientation
 
@@ -506,6 +520,32 @@ Read-only launch audit refreshed at 2026-08-13 16:16Z:
       generated output restored to the inert placeholder afterward
     No GitHub, DNS, Supabase, helper, provider, public runtime, or external-message write
 
+Staged-live audit at 2026-08-14 03:26Z:
+
+    Edenia source/Pages SHA: ca43664be2800c705612575b58bb5a30f1f0469e
+    Edenia Pages deployment: run 31766478658, success; cname=null; old URL HTTPS 200
+    Helper source SHA: 0f98a54efe598bbe8111ede36cdff148710de230
+    Helper Pages deployment: build 1150233811; HTTPS 200; four reviewed hashes exact
+    Supabase migrations: relay, Plus backup grace policy, and tracked cleanup schedule applied
+    Relay functions: corrected strict preflight deployed; data requests retain publishable-key auth
+    Relay controls/data: acceptance=false; consumption=false; rows=0; metrics=0
+    Cleanup: edenia-legacy-progress-transfer-cleanup active every five minutes;
+      latest run at 2026-08-14 03:25Z succeeded with DELETE 0
+    Hosted grants: no browser table access; no browser RPC execute; service-only RPC execute
+    Hosted advisors: intentional private deny-all RLS notices plus pre-existing non-relay notices;
+      no browser-reachable relay-policy or privilege finding
+    Supabase Auth: canonical www Site URL; exact transition/local callbacks retained; no wildcard
+    Supabase server return roots: canonical www; checkout and reminder delivery remain disabled
+    Google: exact www YouTube referrers and OAuth JavaScript origin added; old/local retained
+    PostHog: no visible authorized-domain setting; source starts analytics only at canonical www;
+      helper includes no analytics
+    Stripe: server-side subscription Checkout and Customer Portal paths derive canonical APP_URL;
+      webhook remains at Supabase; no client-side domain callback exists; checkout remains disabled
+    GitHub domain verification: exact ownership challenge prepared but TXT not yet published
+    DNS: apex 192.64.119.36; www parkingpage.namecheap.com; no cutover write performed
+    Public migration runtime: false; account rollout remains internal; public accountless path unchanged
+    Current blocker: authenticate the Namecheap registrar session before coordinated TXT/DNS/Pages writes
+
 Do not paste state documents, capabilities, ciphertext, service keys, publishable-key values, emails, IP addresses, or provider secrets into this plan.
 
 ## Interfaces and Dependencies
@@ -653,3 +693,5 @@ Plan revision 2026-08-13 (green billing-policy follow-up): Recorded the exact pu
 Plan revision 2026-08-14 (staged live-operation approval): Recorded the owner's instruction to continue with the previously named helper, disabled relay, domain/provider preparation, and private-canary sequence. The public migration flag remains outside this approval so every live write must preserve accountless public behavior until a later evidence review.
 
 Plan revision 2026-08-14 (disabled relay and helper publication): Recorded the merged implementation SHA, exact hosted schema/function controls, live discovery and correction of authenticated-wrapper preflight ordering, a tracked local-only Cron schedule awaiting source review, and the independently hash-verified helper deployment. Public migration remains off; the cleanup follow-up must be exact-head green and applied before domain/provider work.
+
+Plan revision 2026-08-14 (green cleanup follow-up and provider preparation): Recorded PR #141's exact-head CI and merge, the tracked hosted cleanup schedule and first successful run, current hosted privilege/control/advisor evidence, exact canonical Supabase and Google return-path preparation, the server-side Stripe return-path review, and the deliberate decision to leave Pages/DNS untouched until Namecheap authentication permits one coordinated cutover. Public migration and relay controls remain off; a backed-up private canary still precedes any public enablement.

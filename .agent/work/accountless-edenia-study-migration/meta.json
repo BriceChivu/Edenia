@@ -4,17 +4,17 @@
   "stage": "implementation",
   "state": "active",
   "created_at": "2026-08-13T12:32:04Z",
-  "updated_at": "2026-08-14T03:04:00Z",
+  "updated_at": "2026-08-14T03:26:00Z",
   "review": {
-    "pull_request": 140,
-    "url": "https://github.com/BriceChivu/Edenia/pull/140",
+    "pull_request": 141,
+    "url": "https://github.com/BriceChivu/Edenia/pull/141",
     "draft": false,
     "base": "master",
-    "head": "codex/accountless-domain-migration",
+    "head": "codex/accountless-domain-migration-live",
     "remote_check": "success",
-    "remote_head": "a33d99cf2c5f12f695d27fd14cb29570f28f0a0d",
-    "run_url": "https://github.com/BriceChivu/Edenia/actions/runs/31721907006",
-    "repair_validation": "PR #140 was merged by the owner at a33d99c and its Pages deployment passed. The disabled relay and grace-policy migrations are applied; the helper is live and hash-verified; a follow-up preflight and tracked Cron change awaits review before hosted cleanup and domain work."
+    "remote_head": "ca43664be2800c705612575b58bb5a30f1f0469e",
+    "run_url": "https://github.com/BriceChivu/Edenia/actions/runs/31765722432",
+    "repair_validation": "PR #141 passed exact-head verification and merged at ca43664; Pages deployment 31766478658 passed at that SHA. The helper is live and hash-verified, the disabled hosted relay has the corrected strict preflight path, and the tracked cleanup job succeeded at 2026-08-14 03:25Z. Canonical provider return paths are prepared while migration remains off. GitHub Pages custom-domain attachment, Namecheap DNS, HTTPS, and the backed-up private canary remain pending because the Namecheap account is not authenticated."
   },
   "artifacts": {
     "decision": "decision.md",
