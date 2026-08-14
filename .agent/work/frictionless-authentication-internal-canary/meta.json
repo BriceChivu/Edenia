@@ -2,9 +2,9 @@
   "id": "frictionless-authentication-internal-canary",
   "title": "Frictionless authentication internal canary",
   "stage": "implementation",
-  "state": "blocked",
+  "state": "active",
   "created_at": "2026-08-14T15:41:44Z",
-  "updated_at": "2026-08-14T17:42:56Z",
+  "updated_at": "2026-08-14T23:30:27Z",
   "artifacts": {
     "decision": "decision.md",
     "execplan": "execplan.md"
