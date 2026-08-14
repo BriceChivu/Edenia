@@ -3,6 +3,8 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   assertLegacyProgressRuntimeConfig,
+  parseGoogleIdentityClientId,
+  parseGoogleSignInMode,
   parseRuntimeConfigFlag,
   parseRuntimeConfigRollout
 } from './runtime-config-flags.mjs'
@@ -42,6 +44,21 @@ const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
     process.env.EDENIA_ACCOUNT_FEATURES_ROLLOUT,
     'EDENIA_ACCOUNT_FEATURES_ROLLOUT'
   ),
+  googleSignInMode: parseGoogleSignInMode(
+    process.env.EDENIA_GOOGLE_SIGN_IN_MODE,
+    'EDENIA_GOOGLE_SIGN_IN_MODE'
+  ),
+  googleOneTapEnabled: parseRuntimeConfigFlag(
+    process.env.EDENIA_GOOGLE_ONE_TAP_ENABLED,
+    'EDENIA_GOOGLE_ONE_TAP_ENABLED'
+  ),
+  googleIdentityClientId: parseGoogleIdentityClientId(
+    process.env.EDENIA_GOOGLE_IDENTITY_CLIENT_ID,
+    'EDENIA_GOOGLE_IDENTITY_CLIENT_ID'
+  ),
+  turnstileSiteKey: String(
+    process.env.EDENIA_TURNSTILE_SITE_KEY || ''
+  ).trim(),
   // Compatibility markers for cached pre-retirement app.js assets.
   videoOrganizationEnabled: true,
   channelVideoFormatToggleEnabled: true,

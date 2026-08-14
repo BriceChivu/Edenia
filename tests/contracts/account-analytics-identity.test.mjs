@@ -10,8 +10,8 @@ const USER_B = 'B0A982B6-5A6F-4CBF-A881-DF1234567890'
 function createHarness({ identifyResult = true, resetResult = true } = {}) {
   const calls = []
   const identity = createAccountAnalyticsIdentity({
-    identify(userId) {
-      calls.push(['identify', userId])
+    identify(userId, properties) {
+      calls.push(['identify', userId, properties])
       return identifyResult
     },
     reset() {
@@ -28,17 +28,28 @@ test('authenticated analytics identifies only a normalized Supabase UUID', () =>
   assert.equal(identity.synchronize({
     sessionState: 'signed-in',
     userId: `  ${USER_B}  `,
-    email: 'must-not-be-used@example.com'
+    email: ' LEARNER@Example.com ',
+    authMethod: 'GOOGLE'
   }), true)
-  assert.deepEqual(calls, [['identify', USER_B.toLowerCase()]])
+  assert.deepEqual(calls, [[
+    'identify',
+    USER_B.toLowerCase(),
+    { email: 'learner@example.com', auth_method: 'google' }
+  ]])
   assert.equal(identity.getIdentifiedUserId(), USER_B.toLowerCase())
 
   assert.equal(identity.synchronize({
     sessionState: 'signed-in',
     userId: USER_B,
-    email: 'changed@example.com'
+    email: 'changed@example.com',
+    authMethod: 'email'
   }), true)
-  assert.equal(calls.length, 1)
+  assert.deepEqual(calls[1], [
+    'identify',
+    USER_B.toLowerCase(),
+    { email: 'changed@example.com', auth_method: 'email' }
+  ])
+  assert.equal(calls.some(call => call[0] === 'reset'), false)
 })
 
 test('emails and malformed identifiers never reach PostHog identify', () => {
@@ -63,9 +74,9 @@ test('logout resets once and an account switch resets before identifying', () =>
   identity.synchronize({ sessionState: 'signed-out' })
 
   assert.deepEqual(calls, [
-    ['identify', USER_A],
+    ['identify', USER_A, {}],
     ['reset'],
-    ['identify', USER_B.toLowerCase()],
+    ['identify', USER_B.toLowerCase(), {}],
     ['reset']
   ])
   assert.equal(identity.getIdentifiedUserId(), null)
@@ -85,7 +96,7 @@ test('analytics failures cannot break account state rendering or merge users', (
   }), false)
   assert.equal(resetFailure.identity.getIdentifiedUserId(), USER_A)
   assert.deepEqual(resetFailure.calls, [
-    ['identify', USER_A],
+    ['identify', USER_A, {}],
     ['reset']
   ])
 

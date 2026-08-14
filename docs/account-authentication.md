@@ -1,96 +1,185 @@
 # Account authentication
 
-Edenia's general account work reuses the existing Supabase Auth integration.
-The browser client uses the pinned `@supabase/supabase-js` dependency with a
-persistent PKCE session and a public publishable key. A Supabase secret or
-service-role key must never be included in the static application.
+Edenia uses Supabase Auth for identity while keeping the public study path
+accountless. The static browser client uses the pinned
+`@supabase/supabase-js` dependency, a persistent PKCE session, and a public
+publishable key. Supabase secrets, Google client secrets, Turnstile secrets,
+Resend credentials, and service-role keys must never enter the static build.
 
-## Current foundation
+## Audience and transport controls
 
-The main application initializes the generic account controller only when all
-of these conditions are true:
+The account controller starts only when `EDENIA_ACCOUNT_FEATURES_ROLLOUT`
+admits the current audience, the page is not sandboxed, and both public
+Supabase runtime values exist. `internal` limits the UI to
+`/?internal_test=1`; that query parameter is a release selector, not an
+authorization boundary.
 
-1. `EDENIA_ACCOUNT_FEATURES_ROLLOUT` admits the current audience;
-2. the page is not in sandbox mode;
-3. both public Supabase runtime values are available.
+Four independent public settings control the new transport:
 
-During the internal rollout, this limits initialization to
-`/?internal_test=1`. The query parameter is a public release boundary, not an
-authentication or authorization control.
+| Setting | Safe default | Purpose |
+| --- | --- | --- |
+| `EDENIA_GOOGLE_SIGN_IN_MODE` | `oauth_redirect` | `off`, legacy redirect rollback, or `id_token` GIS exchange |
+| `EDENIA_GOOGLE_ONE_TAP_ENABLED` | `false` | Allows the post-onboarding Google prompt |
+| `EDENIA_GOOGLE_IDENTITY_CLIENT_ID` | empty | Public Google Web client ID used by GIS |
+| `EDENIA_TURNSTILE_SITE_KEY` | empty | Public site key for email-request challenges |
 
-The generic controller owns only the browser session lifecycle:
+Missing new values preserve the previous Google redirect and do not load
+Google Identity Services or Turnstile. Invalid deployment values fail the
+runtime-config build; invalid browser values normalize to the safe fallback.
+The global account rollout still owns the audience. In particular, the
+ordinary public root loads no account provider script while the rollout
+remains `internal`.
 
-- restore the current Supabase session;
-- publish `loading`, `signed-out`, `signed-in`, or `unavailable` state;
-- expose only the user ID and email to application presentation code;
-- observe sign-in, sign-out, token-refresh, and user-update events;
-- refresh the session on demand;
-- sign out only the current browser session; and
-- unsubscribe when the page is discarded.
+## Google Identity Services
 
-The app-facing state never retains access tokens, refresh tokens, or user
-metadata. Supabase still persists its PKCE session in the existing isolated
-Auth storage key. The neutral `accountAuthStorageKey` deliberately aliases the
-historic Plus key so an existing Plus user is not signed out or split into a
-second Edenia identity.
+In `id_token` mode, Edenia renders Google's official button and exchanges the
+ephemeral credential through:
 
-## Sign-in providers and return destinations
+```js
+client.auth.signInWithIdToken({ provider: 'google', token, nonce })
+```
 
-The controller supports Google OAuth and retains an email magic-link fallback.
-Both methods can return only to one of these exact application URLs:
+The controller owns one active nonce opportunity at a time. It creates 32
+random bytes, sends the SHA-256 digest to Google, sends the raw nonce only to
+Supabase, ignores a duplicate or stale callback, clears both credential and
+nonce after the exchange, and creates a fresh opportunity after a failure.
+Neither value is decoded, logged, stored, put in analytics, or exposed to app
+view state.
 
-- `https://www.edenia.study/?internal_test=1&account=1`
-- `http://localhost:8000/?internal_test=1&account=1`
+Google's official button may be mounted in Settings and the optional final
+onboarding step. One Tap and cancelable automatic sign-in have a narrower
+policy: the learner must be signed out on the exact production root with the
+internal audience selected, onboarding must be complete, the first-study
+walkthrough must be completed or skipped, and no walkthrough may be active.
+The app uses the existing durable `setupCompleted && walkthroughCompleted`
+state. A manual replay suppresses the prompt until it ends. Explicit sign-out
+cancels the prompt and calls `disableAutoSelect()` before clearing the local
+Supabase session.
 
-The production URL must be added verbatim to Supabase Auth's redirect allow
-list. The localhost URL is for development only. Edenia refuses to start a
-sign-in from any other origin, path, protocol, or port instead of constructing
-a callback from untrusted page input.
+The previous `signInWithOAuth` route remains only as an explicit internal
+rollback. Edenia never silently falls back to it after a GIS failure because
+that would reintroduce the opaque project hostname into top-level navigation.
 
-In Google Cloud, the authorized JavaScript origin is the Edenia origin, while
-the authorized redirect URI is the Supabase project's Google callback URL.
-That provider callback is different from the Edenia return destinations above.
+## Email link and confirmation
 
-OAuth cancellation and provider errors are read from the callback URL, exposed
-as presentation-safe controller states, and then removed from browser history.
-Email addresses are normalized before requesting a magic link and never become
-an authorization or analytics identifier.
+When a Turnstile site key is configured, Settings and onboarding render the
+official challenge explicitly. The form remains disabled until a valid token
+is available. A token is bounded to 2,048 characters, kept only in memory,
+valid for at most five minutes, consumed for one request, and reset after every
+response. A failed or unavailable challenge sends no email request.
 
-## Analytics identity
+The account controller normalizes the address and calls:
 
-When analytics is enabled, a signed-in session identifies PostHog with the
-normalized Supabase user UUID only. Edenia rejects email addresses and malformed
-IDs at both the application and classic analytics boundaries. Repeated auth
-events are deduplicated, logout calls `posthog.reset()`, and an unexpected
-account switch resets before identifying the next UUID so two users are not
-merged. Analytics failure never blocks account rendering.
+```js
+client.auth.signInWithOtp({
+  email,
+  options: {
+    captchaToken,
+    emailRedirectTo,
+    shouldCreateUser: true
+  }
+})
+```
 
-This identity bridge does not read or write Edenia study state and does not
-start a cloud upload, migration, restore, merge, or sync operation.
+Only these confirmation destinations are accepted:
 
-Supabase Auth callbacks remain synchronous. Edenia schedules state updates
-outside the callback because making asynchronous Supabase calls inside
-`onAuthStateChange` can deadlock the client. Sign-in, token-refresh, and
-user-update notifications trigger a fresh `getSession()` after that boundary;
-Edenia publishes signed-in state to protected-data consumers only after the
-shared client confirms its current session. Sign-out still clears account
-identity immediately. This prevents the first reminder or entitlement request
-after an OAuth redirect from racing the client's token installation.
+- `https://www.edenia.study/auth/confirm/`
+- `http://localhost:8000/auth/confirm/`
 
-## Security boundary
+A successful request starts a one-minute browser cooldown. Supabase and the
+email provider remain authoritative for server quotas.
 
-Browser session state is suitable for presentation, but it is not an
-authorization decision. Future database tables and Edge Functions must verify
-the authenticated user independently and enforce ownership with row-level
-security. User-editable metadata must never grant access. A signed-in state
-also does not opt a learner into reminders or cloud progress storage.
+`/auth/confirm/` is a standalone, analytics-free page. The branded template
+must place `TokenHash` and `type=email` in an Edenia URL fragment. A tiny first
+script captures the fragment and removes it from browser history before public
+configuration or the confirmation bundle runs. Page load and scanner visits
+perform no verification. Only **Continue to Edenia** calls:
 
-## Later staged layers
+```js
+client.auth.verifyOtp({ token_hash: tokenHash, type: 'email' })
+```
 
-The authentication layer itself still performs no reminder preference,
-delivery, progress, migration, or sync operation. Later internal-only changes
-added an owner-isolated reminder preference, a private occurrence ledger, a
-manual dry-run dispatcher, and provider-neutral suppression safety around this
-controller. They do not upload or bind local study progress and cannot send
-email. See [Internal account and reminder operations](account-reminder-operations.md)
-for the current gates, acceptance test, and rollback procedure.
+The parser accepts exactly one bounded URL-safe token hash and the exact email
+type. A transient or offline failure retains it only in closure memory for a
+deliberate retry; success or a definitive invalid/used response discards it.
+The page has no main-app, PostHog, Google, Turnstile, or study-state import, and
+uses `no-referrer`, `noindex`, and a restrictive exact-host CSP. A framed copy
+discards the captured capability and never enables confirmation.
+
+The Supabase template must link exactly to:
+
+```text
+https://www.edenia.study/auth/confirm/#token_hash={{ .TokenHash }}&type=email
+```
+
+It must not contain `{{ .ConfirmationURL }}` or the Supabase project hostname
+in visible text, HTML links, or the plain-text alternative.
+
+## Session and application boundary
+
+The generic controller owns only the browser session lifecycle. It restores
+and refreshes the session, publishes `loading`, `signed-out`, `signed-in`, or
+`unavailable`, observes auth events, signs out the current browser scope, and
+unsubscribes when the page is discarded. App-facing state contains only the
+normalized user UUID, normalized email, fixed `google` or `email` auth method,
+busy action, and safe status. It never contains tokens, session objects,
+metadata, identities, or Google subjects.
+
+For accounts that expose both email and Google providers, the controller asks
+Supabase to verify the session claims and reduces the current `amr` method to
+`google` or `email`. Single-provider sessions need no extra claim request. This avoids
+mistaking the first linked provider for the method used by the current
+session. If claim verification is unavailable, the fixed trusted provider in
+Supabase app metadata remains the bounded fallback.
+
+Supabase Auth callbacks stay synchronous. Edenia schedules the subsequent
+`getSession()` outside `onAuthStateChange` and publishes signed-in state to
+account consumers only after the shared client confirms the installed session.
+This avoids racing the first protected request after sign-in.
+
+Authentication does not upload, merge, restore, replace, or clear the full
+browser-local study document. Existing reminder preferences and the bounded
+reminder-eligibility snapshot remain separate account consumers behind their
+current gates; this authentication change does not widen those payloads or
+enable reminder delivery.
+
+## PostHog identity
+
+On a confirmed session, PostHog is identified with the normalized Supabase UUID
+as the only `distinct_id`. The allowlisted person properties are normalized
+`email` and `auth_method`. Email and Google subject are never passed as the
+identifier or copied into events or the local analytics state snapshot.
+
+Repeated identical auth events are deduplicated. Changed properties for the
+same UUID update without a reset. Logout resets once, and an unexpected account
+switch resets before identifying the next UUID so two learners are not merged.
+Analytics failure cannot block auth rendering.
+
+## Provider dependency order and rollback
+
+Provider activation begins only after the inert client build is merged and its
+exact Pages deployment is proven:
+
+1. Keep the account rollout `internal`, Google on legacy or off, One Tap off,
+   and Supabase CAPTCHA off.
+2. Configure the Google Web client and deploy only its public client ID.
+3. Configure dedicated Supabase custom SMTP on the existing verified Resend
+   domain, then install the branded token-hash template and test it while
+   CAPTCHA is still off.
+4. Create the restricted Free Turnstile widget, deploy its public site key,
+   and verify the browser token path.
+5. Put the Turnstile secret only in Supabase Auth, enable CAPTCHA, and test
+   missing-token rejection, one-use email success, token replay rejection, and
+   Google ID-token sign-in immediately.
+6. Set Google to `id_token`, enable One Tap for the internal canary, and run the
+   desktop, phone, cross-device email, same-email UUID, PostHog, and local-data
+   checks.
+
+Rollback is dependency ordered: disable One Tap; set Google to legacy or off;
+disable Supabase CAPTCHA if either auth method regresses; then set the global
+account rollout off if the whole surface must disappear. Do not delete users,
+linked identities, PostHog persons, verified domains, or shared reminder
+credentials during a transport rollback.
+
+See [Internal account and reminder operations](account-reminder-operations.md)
+for live gates, reminder separation, and provider canary evidence.

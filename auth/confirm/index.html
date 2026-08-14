@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; connect-src __EDENIA_AUTH_CONFIRM_CONNECT_SRC__; font-src 'self'; form-action 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'">
+  <title>Confirm your Edenia sign-in</title>
+  <link rel="icon" type="image/png" href="../../Edenia_favicon_round.png">
+  <link rel="stylesheet" href="style.css?v=1">
+  <script src="fragment-scrubber.js?v=1"></script>
+  <script src="confirm.js?v=1" defer></script>
+  <script src="../../config.local.js" defer></script>
+</head>
+<body>
+  <main class="auth-confirm" data-auth-confirm-root>
+    <span class="auth-confirm-brand" aria-hidden="true">EDENIA</span>
+    <section class="auth-confirm-card" aria-labelledby="authConfirmTitle">
+      <h1 id="authConfirmTitle" data-auth-confirm-title>Confirm your Edenia sign-in</h1>
+      <p data-auth-confirm-status role="status" aria-live="polite">Checking this sign-in link…</p>
+      <button type="button" data-auth-confirm-action disabled>Continue to Edenia</button>
+    </section>
+  </main>
+</body>
+</html>

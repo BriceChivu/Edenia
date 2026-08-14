@@ -8,9 +8,14 @@ It is deliberately written for the system that exists now.
 - The account interface is available only when
   `EDENIA_ACCOUNT_FEATURES_ROLLOUT=internal` and the visitor uses
   `/?internal_test=1`.
-- The controller offers Google OAuth and email magic links through Supabase
-  Auth. Production Google OAuth is verified for one approved test account;
-  production SMTP for the magic-link fallback is not yet verified.
+- The deployed source can select legacy Google OAuth, Google Identity Services
+  ID-token exchange, and Turnstile-protected email links independently. Until
+  the new provider canary is complete, Google remains legacy or off, One Tap
+  remains off, Supabase CAPTCHA remains off, and production custom SMTP and the
+  branded token-hash template must be treated as unverified.
+- The standalone `/auth/confirm/` page is analytics-free, scrubs its token-hash
+  fragment before unrelated work, and requires a deliberate confirmation
+  action. It reads no local study state.
 - After an OAuth callback, the controller confirms the shared client session
   before it publishes signed-in state to protected-data consumers. The
   production acceptance test must not use **Try loading again** to make the
@@ -64,6 +69,55 @@ The `internal_test=1` query parameter is a public rollout selector. It is not
 an authorization or security boundary. Supabase Auth, row-level security,
 server-only RPC grants, the UUID allowlist, and the independent delivery switch
 are the security boundaries.
+
+## Authentication canary preflight and activation
+
+The authentication provider canary is separate from reminder delivery. It
+must not change `reminder_delivery_enabled`, add a Cron schedule, broaden the
+tester UUID allowlist, or enable a reminder recipient.
+
+Before configuring any provider, prove the exact merged Pages SHA contains the
+inert client capability and confirm these non-secret settings:
+
+```text
+EDENIA_ACCOUNT_FEATURES_ROLLOUT=internal
+EDENIA_GOOGLE_SIGN_IN_MODE=oauth_redirect or off
+EDENIA_GOOGLE_ONE_TAP_ENABLED=false
+Supabase Auth CAPTCHA=disabled
+reminder_delivery_enabled=false
+```
+
+Activate in this order:
+
+1. Google Web client: exact JavaScript origins for production and the approved
+   local test origin, basic identity scopes only, existing Supabase provider
+   configuration preserved, public client ID in Pages.
+2. Resend SMTP: reuse the verified `mail.edenia.study` domain and Free account,
+   create a dedicated Auth SMTP credential when possible, use sender name
+   `Edenia` and `accounts@mail.edenia.study`, and do not modify the reminder
+   send-only credential.
+3. Supabase email template: use only the branded Edenia fragment URL documented
+   in `docs/account-authentication.md`; verify HTML and plain text contain no
+   opaque project reference while CAPTCHA is still disabled.
+4. Turnstile: create a Free widget restricted to `www.edenia.study` and the
+   approved local host, deploy the public site key, verify explicit rendering
+   and one-use token forwarding, then store the secret only in Supabase Auth.
+5. CAPTCHA and GIS: enable CAPTCHA and immediately prove missing-token email
+   rejection, valid-token email success, token replay rejection, official
+   Google button sign-in, and eligible One Tap. If Google breaks, disable
+   CAPTCHA before investigating.
+6. Internal runtime: set Google mode to `id_token` and One Tap to `true` without
+   changing the account rollout from `internal`.
+
+All messages during this canary go only to an already approved internal test
+address. Never record the complete address, ID token, nonce, magic-link token,
+Turnstile token, session cookie, SMTP password, or provider secret in Git,
+terminal output, PR text, or this runbook.
+
+The switch-off rehearsal is also ordered: One Tap off, Google legacy or off,
+CAPTCHA off if required, then account rollout off. At each stage ordinary study
+must remain usable and the public root must remain accountless. Restore the
+intended internal state only after the rehearsal passes.
 
 ## Internal acceptance test
 

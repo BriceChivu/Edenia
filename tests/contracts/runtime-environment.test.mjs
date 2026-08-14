@@ -8,6 +8,9 @@ import { deriveStorageKeys } from '../../src/core/storage-keys.js'
 import {
   getAccountFeaturesRollout,
   getFreePlusEnabled,
+  getGoogleIdentityClientId,
+  getGoogleOneTapEnabled,
+  getGoogleSignInMode,
   getIndexedDbBackupCleanupEnabled,
   getIndexedDbBackupsEnabled,
   getLegacyProgressMigrationEnabled,
@@ -15,8 +18,11 @@ import {
   getStudyGuidanceEnabled,
   getSupabasePublishableKey,
   getSupabaseUrl,
+  getTurnstileSiteKey,
   getYoutubeApiKey,
+  hasGoogleIdentityServicesRuntimeConfig,
   hasSupabaseRuntimeConfig,
+  hasTurnstileRuntimeConfig,
   hasYoutubeApiKey,
   publicConfig
 } from '../../src/integrations/runtime-config.js'
@@ -165,6 +171,12 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
   assert.equal(getAccountFeaturesRollout(target), 'off')
+  assert.equal(getGoogleSignInMode(target), 'oauth_redirect')
+  assert.equal(getGoogleOneTapEnabled(target), false)
+  assert.equal(getGoogleIdentityClientId(target), '')
+  assert.equal(hasGoogleIdentityServicesRuntimeConfig(target), false)
+  assert.equal(getTurnstileSiteKey(target), '')
+  assert.equal(hasTurnstileRuntimeConfig(target), false)
   assert.equal(getStudyGuidanceEnabled(target), false)
   assert.equal(getIndexedDbBackupsEnabled(target), false)
   assert.equal(getIndexedDbBackupCleanupEnabled(target), false)
@@ -178,6 +190,10 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     freePlusEnabled: true,
     plusCheckoutEnabled: true,
     accountFeaturesRollout: 'internal',
+    googleSignInMode: 'id_token',
+    googleOneTapEnabled: true,
+    googleIdentityClientId: '  1234567890-google-client.apps.googleusercontent.com  ',
+    turnstileSiteKey: '  turnstile-site-key  ',
     channelVideoFormatToggleEnabled: true,
     studyGuidanceEnabled: true,
     indexedDbBackupsEnabled: true,
@@ -191,6 +207,15 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getFreePlusEnabled(target), true)
   assert.equal(getPlusCheckoutEnabled(target), true)
   assert.equal(getAccountFeaturesRollout(target), 'internal')
+  assert.equal(getGoogleSignInMode(target), 'id_token')
+  assert.equal(getGoogleOneTapEnabled(target), true)
+  assert.equal(
+    getGoogleIdentityClientId(target),
+    '1234567890-google-client.apps.googleusercontent.com'
+  )
+  assert.equal(hasGoogleIdentityServicesRuntimeConfig(target), true)
+  assert.equal(getTurnstileSiteKey(target), 'turnstile-site-key')
+  assert.equal(hasTurnstileRuntimeConfig(target), true)
   assert.equal(getStudyGuidanceEnabled(target), true)
   assert.equal(getIndexedDbBackupsEnabled(target), true)
   assert.equal(getIndexedDbBackupCleanupEnabled(target), true)
@@ -203,6 +228,8 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     freePlusEnabled: 'true',
     plusCheckoutEnabled: 1,
     accountFeaturesRollout: 'unknown',
+    googleSignInMode: 'unknown',
+    googleOneTapEnabled: 'true',
     channelVideoFormatToggleEnabled: 'true',
     studyGuidanceEnabled: 'true',
     indexedDbBackupsEnabled: 'true',
@@ -212,10 +239,20 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
   assert.equal(getAccountFeaturesRollout(target), 'off')
+  assert.equal(getGoogleSignInMode(target), 'oauth_redirect')
+  assert.equal(getGoogleOneTapEnabled(target), false)
+  assert.equal(hasGoogleIdentityServicesRuntimeConfig(target), false)
   assert.equal(getStudyGuidanceEnabled(target), false)
   assert.equal(getIndexedDbBackupsEnabled(target), false)
   assert.equal(getIndexedDbBackupCleanupEnabled(target), false)
   assert.equal(getLegacyProgressMigrationEnabled(target), false)
+
+  target.EDENIA_CONFIG = {
+    googleIdentityClientId: 'not-a-google-client-id',
+    googleSignInMode: 'id_token'
+  }
+  assert.equal(getGoogleIdentityClientId(target), '')
+  assert.equal(hasGoogleIdentityServicesRuntimeConfig(target), false)
 
   target.EDENIA_CONFIG = { supabaseUrl: 'https://project.supabase.co' }
   assert.equal(hasSupabaseRuntimeConfig(target), false)

@@ -3,6 +3,10 @@ import vm from 'node:vm'
 import {
   normalizeAccountFeaturesRollout
 } from '../src/core/account-feature-rollout.js'
+import {
+  normalizeGoogleIdentityClientId,
+  normalizeGoogleSignInMode
+} from '../src/integrations/runtime-config.js'
 
 const YOUTUBE_PLACEHOLDER_KEYS = new Set([
   'PASTE_YOUR_RESTRICTED_YOUTUBE_API_KEY_HERE',
@@ -42,6 +46,18 @@ export function normalizeLocalRuntimeConfig(value) {
     plusCheckoutEnabled: value?.plusCheckoutEnabled === true,
     accountFeaturesRollout: normalizeAccountFeaturesRollout(
       value?.accountFeaturesRollout
+    ),
+    googleSignInMode: normalizeGoogleSignInMode(value?.googleSignInMode),
+    googleOneTapEnabled: value?.googleOneTapEnabled === true,
+    googleIdentityClientId: normalizeGoogleIdentityClientId(
+      normalizeOptionalRuntimeValue(
+        value?.googleIdentityClientId,
+        new Set(['PASTE_YOUR_GOOGLE_WEB_CLIENT_ID_HERE'])
+      )
+    ),
+    turnstileSiteKey: normalizeOptionalRuntimeValue(
+      value?.turnstileSiteKey,
+      new Set(['PASTE_YOUR_TURNSTILE_SITE_KEY_HERE'])
     ),
     // Compatibility markers for cached pre-retirement app.js assets.
     videoOrganizationEnabled: true,

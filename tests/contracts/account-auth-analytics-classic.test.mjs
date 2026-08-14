@@ -13,7 +13,9 @@ function createHarness({ enabled = true } = {}) {
     EDENIA_INTERNAL_TEST: true,
     posthog: {
       capture() {},
-      identify(userId) { calls.push(['identify', userId]) },
+      identify(userId, properties) {
+        calls.push(['identify', userId, properties])
+      },
       reset() { calls.push(['reset']) }
     }
   }
@@ -31,16 +33,38 @@ function createHarness({ enabled = true } = {}) {
 test('classic analytics identifies a stable UUID without accepting email', () => {
   const { calls, window } = createHarness()
 
-  assert.equal(window.identifyEdeniaAuthenticatedUser(USER_ID), true)
+  assert.equal(window.identifyEdeniaAuthenticatedUser(USER_ID, {
+    email: ' LEARNER@Example.com ',
+    auth_method: 'GOOGLE'
+  }), true)
   assert.equal(
     window.identifyEdeniaAuthenticatedUser('learner@example.com'),
     false
   )
   assert.equal(window.identifyEdeniaAuthenticatedUser('not-a-uuid'), false)
-  assert.deepEqual(calls, [[
-    'identify',
-    USER_ID.toLowerCase()
-  ]])
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0][0], 'identify')
+  assert.equal(calls[0][1], USER_ID.toLowerCase())
+  assert.deepEqual(
+    { ...calls[0][2] },
+    { email: 'learner@example.com', auth_method: 'google' }
+  )
+})
+
+test('classic analytics rejects untrusted account person properties', () => {
+  const { calls, window } = createHarness()
+  for (const properties of [
+    { email: 'invalid' },
+    { auth_method: 'password' },
+    { email: 'learner@example.com', role: 'admin' },
+    []
+  ]) {
+    assert.equal(
+      window.identifyEdeniaAuthenticatedUser(USER_ID, properties),
+      false
+    )
+  }
+  assert.deepEqual(calls, [])
 })
 
 test('classic analytics resets PostHog only in the enabled environment', () => {
