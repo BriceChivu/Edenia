@@ -1,4 +1,29 @@
 
+[auth]
+# Keep production Auth URLs explicit so `supabase config push` cannot replace
+# them with the CLI's localhost defaults. Do not add wildcard redirects.
+site_url = "https://www.edenia.study/"
+additional_redirect_urls = [
+  "https://bricechivu.github.io/Edenia/?internal_test=1&account=1",
+  "http://localhost:8000/?internal_test=1&account=1",
+  "https://www.edenia.study/?internal_test=1&account=1",
+  "https://www.edenia.study/auth/confirm/",
+  "http://localhost:8000/auth/confirm/",
+]
+
+[auth.email]
+enable_confirmations = true
+max_frequency = "1m"
+otp_length = 8
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[storage.vector]
+# Vector buckets require a paid plan and are intentionally disabled.
+enabled = false
+
 [functions.create-checkout-session]
 enabled = true
 verify_jwt = true

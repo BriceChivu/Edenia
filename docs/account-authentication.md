@@ -175,6 +175,13 @@ exact Pages deployment is proven:
    desktop, phone, cross-device email, same-email UUID, PostHog, and local-data
    checks.
 
+Production Auth URLs and the non-secret email/MFA invariants are mirrored in
+`supabase/config.toml`. `supabase config push` is a full-service mutation, not
+a preview command: review the intended file diff first, keep paid-only Storage
+features explicitly disabled, then verify that a second push reports every
+service up to date. The confirmation allowlist contains only the exact
+production and localhost `/auth/confirm/` URLs; it contains no wildcard.
+
 Rollback is dependency ordered: disable One Tap; set Google to legacy or off;
 disable Supabase CAPTCHA if either auth method regresses; then set the global
 account rollout off if the whole surface must disappear. Do not delete users,
