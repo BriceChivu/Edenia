@@ -95,6 +95,15 @@ export function parseRuntimeConfig(source) {
   return JSON.parse(match[1])
 }
 
+export function parseExpectedMigrationFlag(value) {
+  if (value === undefined || value === '') return false
+  if (value === 'true') return true
+  if (value === 'false') return false
+  throw new Error(
+    'EDENIA_EXPECT_LEGACY_PROGRESS_MIGRATION_ENABLED must be true or false'
+  )
+}
+
 export async function verifyDomainMigration({
   dns = {
     resolve4: resolveIpv4,
@@ -102,8 +111,13 @@ export async function verifyDomainMigration({
     resolveCname,
     resolveTxt
   },
+  expectedLegacyProgressMigrationEnabled = false,
   fetchImpl = globalThis.fetch
 } = {}) {
+  assert(
+    typeof expectedLegacyProgressMigrationEnabled === 'boolean',
+    'expected legacy progress migration state must be boolean'
+  )
   const checks = []
 
   async function check(name, operation) {
@@ -158,7 +172,7 @@ export async function verifyDomainMigration({
     return CANONICAL_ROOT
   })
 
-  await check('Canonical runtime remains switch-off safe', async () => {
+  await check('Canonical runtime matches expected rollout', async () => {
     const response = await request(fetchImpl, `${CANONICAL_ROOT}config.local.js`, 'follow')
     assert(response.status === 200, `canonical config returned HTTP ${response.status}`)
     assert(
@@ -167,15 +181,16 @@ export async function verifyDomainMigration({
     )
     const config = parseRuntimeConfig(await response.text())
     assert(
-      config.legacyProgressMigrationEnabled === false,
-      'automatic legacy migration is not false'
+      config.legacyProgressMigrationEnabled
+        === expectedLegacyProgressMigrationEnabled,
+      `automatic legacy migration is not ${expectedLegacyProgressMigrationEnabled}`
     )
     assert(config.plusCheckoutEnabled === false, 'Plus checkout is not false')
     assert(
       config.accountFeaturesRollout === 'internal',
       'account features are not limited to internal rollout'
     )
-    return 'migration=false; checkout=false; accounts=internal'
+    return `migration=${expectedLegacyProgressMigrationEnabled}; checkout=false; accounts=internal`
   })
 
   await check('Apex redirects path and query to www', async () => {
@@ -226,7 +241,11 @@ export async function verifyDomainMigration({
 }
 
 export async function main() {
-  const result = await verifyDomainMigration()
+  const result = await verifyDomainMigration({
+    expectedLegacyProgressMigrationEnabled: parseExpectedMigrationFlag(
+      process.env.EDENIA_EXPECT_LEGACY_PROGRESS_MIGRATION_ENABLED
+    )
+  })
   for (const check of result.checks) {
     console.log(`${check.ok ? 'PASS' : 'FAIL'} ${check.name}: ${check.detail}`)
   }
