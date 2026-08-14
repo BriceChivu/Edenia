@@ -60,6 +60,28 @@ test('Turnstile explicitly renders one dynamic widget with safe options', async 
   assert.deepEqual(statuses.map(([status]) => status), ['loading', 'pending'])
 })
 
+test('concurrent identical mounts render one provider widget', async () => {
+  const turnstile = createTurnstileHarness()
+  const statuses = []
+  const element = { isConnected: true }
+  let resolveScript
+  const scriptReady = new Promise(resolve => { resolveScript = resolve })
+  const controller = createTurnstileController({
+    loadScript: () => scriptReady,
+    onStatusChange(status) { statuses.push(status) },
+    siteKey: 'public-site-key',
+    turnstileTarget: turnstile.target
+  })
+
+  const first = controller.mount(element, { language: 'en', theme: 'auto' })
+  const second = controller.mount(element, { language: 'en', theme: 'auto' })
+  resolveScript(turnstile.api)
+
+  assert.deepEqual(await Promise.all([first, second]), [true, true])
+  assert.equal(turnstile.calls.filter(call => call[0] === 'render').length, 1)
+  assert.deepEqual(statuses, ['loading', 'pending'])
+})
+
 test('Turnstile tokens are memory-only, bounded, single-use, and resettable', async () => {
   const turnstile = createTurnstileHarness()
   let now = 1_000

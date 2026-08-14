@@ -84,6 +84,7 @@ export function createTurnstileController({
   }
 
   const mounts = new Map()
+  const mountOperations = new Map()
   let destroyed = false
 
   function publish(status, element) {
@@ -115,6 +116,31 @@ export function createTurnstileController({
       && existing.options.theme === normalizedOptions.theme
     ) return true
 
+    const pending = mountOperations.get(element)
+    if (pending) {
+      if (
+        pending.options.language === normalizedOptions.language
+        && pending.options.theme === normalizedOptions.theme
+      ) return pending.promise
+      await pending.promise
+      return mount(element, normalizedOptions)
+    }
+
+    const operation = {
+      options: normalizedOptions,
+      promise: null
+    }
+    operation.promise = performMount(element, normalizedOptions, existing)
+      .finally(() => {
+        if (mountOperations.get(element) === operation) {
+          mountOperations.delete(element)
+        }
+      })
+    mountOperations.set(element, operation)
+    return operation.promise
+  }
+
+  async function performMount(element, normalizedOptions, existing) {
     publish('loading', element)
     let api
     try {
@@ -227,6 +253,7 @@ export function createTurnstileController({
       try { api?.remove(record.widgetId) } catch {}
     }
     mounts.clear()
+    mountOperations.clear()
     destroyed = true
   }
 
