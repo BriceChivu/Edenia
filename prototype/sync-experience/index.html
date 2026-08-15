@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Edenia progress-linking experience prototype</title>
+  <link rel="icon" type="image/png" href="../../Edenia_favicon_round.png">
+  <link rel="stylesheet" href="prototype.css">
+</head>
+<body>
+  <!-- Three complete progress-linking directions, switchable via ?variant=, on a throwaway prototype route. -->
+  <header class="prototype-header">
+    <div class="prototype-brand">
+      <img src="../../Edenia_favicon_round.png" alt="" aria-hidden="true">
+      <div>
+        <span class="prototype-kicker">Throwaway decision prototype</span>
+        <h1>First link, conflict, and sync status</h1>
+      </div>
+    </div>
+    <p>Compare the structure, wording, and status placement. Every action is simulated; no learner data or account is touched.</p>
+  </header>
+
+  <nav class="prototype-controls" aria-label="Prototype scenario controls">
+    <fieldset class="scenario-control" data-scenario-control>
+      <legend>Situation</legend>
+      <button type="button" data-scenario="checking">Checking ownership</button>
+      <button type="button" data-scenario="first-link">Both have progress</button>
+      <button type="button" data-scenario="cloud-empty">Cloud is empty</button>
+      <button type="button" data-scenario="offline-link">Offline during link</button>
+      <button type="button" data-scenario="ongoing">Ongoing sync</button>
+      <button type="button" data-scenario="attention">Needs attention</button>
+      <button type="button" data-scenario="signed-out">Signed out, no prior profile</button>
+    </fieldset>
+  </nav>
+
+  <main class="prototype-stage" data-prototype-stage aria-live="polite"></main>
+
+  <details class="prototype-contract">
+    <summary>Safety rules held constant in all three directions</summary>
+    <ul>
+      <li>No learner profile renders or autosaves while ownership is unresolved.</li>
+      <li>Signing in never moves accountless progress by itself.</li>
+      <li>Before replacement or combination, Edenia verifies rollback protection and keeps the untouched other input.</li>
+      <li>The accountless original remains intact after first linking.</li>
+      <li>Unsafe ancestry, invalid data, unsupported schema, or oversize data stops at <strong>Needs attention</strong>.</li>
+      <li>Ordinary local saving continues offline; cloud work retries only for the same verified owner.</li>
+    </ul>
+  </details>
+
+  <aside class="prototype-switcher" aria-label="Design direction switcher">
+    <button type="button" data-variant-previous aria-label="Previous design direction">←</button>
+    <output data-variant-label></output>
+    <button type="button" data-variant-next aria-label="Next design direction">→</button>
+  </aside>
+
+  <script src="prototype.js"></script>
+</body>
+</html>
