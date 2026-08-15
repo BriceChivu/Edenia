@@ -48,6 +48,49 @@ const APPLIED_MIGRATION_HASHES = Object.freeze({
     'ebf1be299cb342b1e137557f1273b4a05c0a5bf758cf652a6c0e096d50de9c28'
 })
 
+test('production Auth config preserves exact returns and Free-plan safeguards', async () => {
+  const config = await readFile(
+    new URL('supabase/config.toml', projectRoot),
+    'utf8'
+  )
+
+  assert.match(
+    config,
+    /\[auth\][\s\S]*?site_url = "https:\/\/www\.edenia\.study\/"/
+  )
+  assert.match(
+    config,
+    /additional_redirect_urls = \[[\s\S]*?"https:\/\/www\.edenia\.study\/auth\/confirm\/"[\s\S]*?"http:\/\/localhost:8000\/auth\/confirm\/"[\s\S]*?\]/
+  )
+  assert.doesNotMatch(config, /additional_redirect_urls = \[[^\]]*\*/)
+  assert.match(
+    config,
+    /\[auth\.email\][\s\S]*?enable_confirmations = true[\s\S]*?max_frequency = "1m"[\s\S]*?otp_length = 8/
+  )
+  assert.match(
+    config,
+    /\[auth\.mfa\.totp\][\s\S]*?enroll_enabled = true[\s\S]*?verify_enabled = true/
+  )
+  assert.match(config, /\[storage\.vector\][\s\S]*?enabled = false/)
+  assert.doesNotMatch(config, /site_url = "http:|https:\/\/127\.0\.0\.1:3000/)
+})
+
+test('versioned magic-link template stays branded and scanner-resistant', async () => {
+  const template = await readFile(
+    new URL('supabase/templates/magic_link.html', projectRoot),
+    'utf8'
+  )
+
+  assert.match(template, /<title>Sign in to Edenia<\/title>/)
+  assert.match(
+    template,
+    /https:\/\/www\.edenia\.study\/auth\/confirm\/#token_hash=\{\{ \.TokenHash \}\}&amp;type=email/
+  )
+  assert.match(template, /Continue to Edenia/)
+  assert.doesNotMatch(template, /ConfirmationURL|supabase\.co|essddsmidqigxwhuzlgo/i)
+  assert.doesNotMatch(template, /<script|<form|<img|http:\/\//i)
+})
+
 test('applied Supabase migrations preserve their exact identities and bytes', async () => {
   const migrationFiles = (await readdir(migrationsRoot)).sort()
   for (const migrationFile of Object.keys(APPLIED_MIGRATION_HASHES)) {

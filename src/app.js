@@ -5485,8 +5485,17 @@ function initializeAccountAuth() {
             return accountAuthController.signInWithGoogleIdToken(credential)
           },
           googleTarget: window,
-          onStatusChange(status) {
+          onStatusChange(status, details = {}) {
             document.documentElement.dataset.googleIdentityStatus = status
+            const failureStage = ['script', 'nonce', 'initialize'].includes(
+              details?.stage
+            ) ? details.stage : ''
+            if (status === 'unavailable' && failureStage) {
+              document.documentElement.dataset.googleIdentityFailureStage =
+                failureStage
+            } else {
+              delete document.documentElement.dataset.googleIdentityFailureStage
+            }
           }
         })
     }

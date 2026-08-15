@@ -96,9 +96,11 @@ Activate in this order:
    create a dedicated Auth SMTP credential when possible, use sender name
    `Edenia` and `accounts@mail.edenia.study`, and do not modify the reminder
    send-only credential.
-3. Supabase email template: use only the branded Edenia fragment URL documented
-   in `docs/account-authentication.md`; verify HTML and plain text contain no
-   opaque project reference while CAPTCHA is still disabled.
+3. Supabase email template: install the reviewed
+   `supabase/templates/magic_link.html` source and use only the branded Edenia
+   fragment URL documented in `docs/account-authentication.md`; verify HTML and
+   plain text contain no opaque project reference while CAPTCHA is still
+   disabled.
 4. Turnstile: create a Free widget restricted to `www.edenia.study` and the
    approved local host, deploy the public site key, verify explicit rendering
    and one-use token forwarding, then store the secret only in Supabase Auth.

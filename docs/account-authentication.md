@@ -106,7 +106,10 @@ The page has no main-app, PostHog, Google, Turnstile, or study-state import, and
 uses `no-referrer`, `noindex`, and a restrictive exact-host CSP. A framed copy
 discards the captured capability and never enables confirmation.
 
-The Supabase template must link exactly to:
+The reviewed hosted-template source is
+`supabase/templates/magic_link.html`. Copy that source into Supabase's hosted
+magic-link editor only after custom SMTP is active. Its action must link
+exactly to:
 
 ```text
 https://www.edenia.study/auth/confirm/#token_hash={{ .TokenHash }}&type=email
@@ -174,6 +177,13 @@ exact Pages deployment is proven:
 6. Set Google to `id_token`, enable One Tap for the internal canary, and run the
    desktop, phone, cross-device email, same-email UUID, PostHog, and local-data
    checks.
+
+Production Auth URLs and the non-secret email/MFA invariants are mirrored in
+`supabase/config.toml`. `supabase config push` is a full-service mutation, not
+a preview command: review the intended file diff first, keep paid-only Storage
+features explicitly disabled, then verify that a second push reports every
+service up to date. The confirmation allowlist contains only the exact
+production and localhost `/auth/confirm/` URLs; it contains no wildcard.
 
 Rollback is dependency ordered: disable One Tap; set Google to legacy or off;
 disable Supabase CAPTCHA if either auth method regresses; then set the global
