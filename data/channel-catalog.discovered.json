@@ -1,17 +1,17 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-14T10:32:43.552Z",
-  "lastRotationIndex": 0,
+  "generatedAt": "2026-08-15T09:49:05.611Z",
+  "lastRotationIndex": 1,
   "nextRotationIndex": 1,
   "rotationCount": 4,
-  "lastLanguageBatchIndex": 3,
-  "nextLanguageBatchIndex": 0,
+  "lastLanguageBatchIndex": 0,
+  "nextLanguageBatchIndex": 1,
   "languageBatchCount": 4,
   "languageBatchSize": 2,
-  "lastDiscoveryQuotaDate": "2026-08-14",
+  "lastDiscoveryQuotaDate": "2026-08-15",
   "lastDiscoveryLanguages": [
-    "japanese",
-    "portuguese"
+    "french",
+    "english"
   ],
   "lastSearchRequestCount": 6,
   "languages": [
@@ -2412,6 +2412,34 @@
       "searchText": "daily deutsch daily deutsch german youtube discovery"
     },
     {
+      "catalogId": "discovered-UCl5q6TY8PMbo3t3VXQGArPA",
+      "channelId": "UCl5q6TY8PMbo3t3VXQGArPA",
+      "youtubeInput": "@daily_easy_french-b7i",
+      "handle": "@daily_easy_french-b7i",
+      "name": "Daily Easy French by Dr. M.",
+      "thumbnailUrl": "https://yt3.ggpht.com/13yWyWGgVPtzIi_Gq113Yc5Q3Yiwyu7hUGMH0WBBXY2Nqwz0PuiOnBMu-pWfJMoqU1bs7GQdcQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Daily Easy French by Dr. M, your fun space to learn French step by step! 🎉 Whether you want French language lessons for beginners, French for kids, or easy French conversation, this channel makes learning French simple and enjoyable. You’ll find French lessons, French learning videos, and French listenin...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-10-01T10:42:53.436731Z",
+      "subscriberCount": "5330",
+      "videoCount": "192",
+      "viewCount": "153116",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 341,
+      "discoveredByQueries": [
+        "French listening practice"
+      ],
+      "discoveredAt": "2026-08-15T09:49:05.603Z",
+      "refreshedAt": "2026-08-15T09:49:05.603Z",
+      "searchText": "daily easy french by dr m daily easy french b7i french youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCV1h_cBE0Drdx19qkTM0WNw",
       "channelId": "UCV1h_cBE0Drdx19qkTM0WNw",
       "youtubeInput": "@dailyenglishconversation",
@@ -3733,6 +3761,63 @@
       "searchText": "emily chinese emilychinese1990 mandarin youtube discovery"
     },
     {
+      "catalogId": "discovered-UCT8XYrynNmSYQ4LxbG9OoPw",
+      "channelId": "UCT8XYrynNmSYQ4LxbG9OoPw",
+      "youtubeInput": "@emilydailyenglish-f1l",
+      "handle": "@emilydailyenglish-f1l",
+      "name": "Emily Daily English",
+      "thumbnailUrl": "https://yt3.ggpht.com/ZAJY2nLnqifn1tU9W1E_riOZwf6FTlMagSX8vTIToTYab3YcSmsGDgNP20TXJcnuvlJ_7wA-tbM=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🎓 Welcome to Emily Daily English! 🌟 Enjoy Slow English Practice every day with simple, clear, and natural lessons designed for beginners and A2 learners. Improve your listening and speaking through real, relaxing conversations that feel natural and easy to follow. 🎧 On this channel, you’ll find: - Slow English Pr...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-10-15T09:13:57.200141Z",
+      "subscriberCount": "170000",
+      "videoCount": "73",
+      "viewCount": "6645011",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 285,
+      "discoveredByQueries": [
+        "English stories for learners"
+      ],
+      "discoveredAt": "2026-08-15T09:49:05.603Z",
+      "refreshedAt": "2026-08-15T09:49:05.603Z",
+      "searchText": "emily daily english emilydailyenglish f1l english youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCQsP21mxg45O75ddk9XsKfA",
+      "channelId": "UCQsP21mxg45O75ddk9XsKfA",
+      "youtubeInput": "@emmadailyenglish",
+      "handle": "@emmadailyenglish",
+      "name": "Emma Daily English",
+      "thumbnailUrl": "https://yt3.ggpht.com/0Sm-WCEzAF71NKU4ApfFydFrFS80Mj4ziTHVdCldBEk6JeOMLjBQJQqorqChfTmbTMQhBxr_gQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Emma Daily English 🌟 Here you can practice English every day with slow, simple, and clear English lessons. Our videos are designed for beginners and A2 learners who want to improve listening and speaking in a natural way. 🎧 On this channel, you will find: - Easy English daily routines and stories - Fami...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-05-02T06:31:40.659636Z",
+      "subscriberCount": "439000",
+      "videoCount": "45",
+      "viewCount": "24796570",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 278,
+      "discoveredByQueries": [
+        "English conversation lessons",
+        "English stories for learners"
+      ],
+      "discoveredAt": "2026-08-15T09:49:05.603Z",
+      "refreshedAt": "2026-08-15T09:49:05.603Z",
+      "searchText": "emma daily english emmadailyenglish english youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCpDd9PNiPHb12yyWo2miyog",
       "channelId": "UCpDd9PNiPHb12yyWo2miyog",
       "youtubeInput": "@englishavenuee",
@@ -4576,6 +4661,34 @@
       "searchText": "expressrussian learn russian with darya expressrussianlearnrussian russian youtube discovery"
     },
     {
+      "catalogId": "discovered-UC8qTYZU9saHWZFyUMm_M4rw",
+      "channelId": "UC8qTYZU9saHWZFyUMm_M4rw",
+      "youtubeInput": "@fatcatbooks",
+      "handle": "@fatcatbooks",
+      "name": "Fat Cat Books English with Mike ",
+      "thumbnailUrl": "https://yt3.ggpht.com/GeoYliqY7xnF2lOk7tAEWD_ZF0H3U-QMbyDq46wIh9hRMCvpmh3lySHU15pW3RePUX8uEspxxQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Transform your child's reading and speaking skills with Mike's Home Learning Phonics Programme! With over 6 years of English teaching experience, Mike has helped thousands kids overcome their fear of reading and speaking and become confident readers and speakers. Thousands of parents have already experienced amazing...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2017-04-07T14:52:29Z",
+      "subscriberCount": "186000",
+      "videoCount": "328",
+      "viewCount": "40881984",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 278,
+      "discoveredByQueries": [
+        "English stories for learners"
+      ],
+      "discoveredAt": "2026-08-15T09:49:05.603Z",
+      "refreshedAt": "2026-08-15T09:49:05.603Z",
+      "searchText": "fat cat books english with mike fatcatbooks english youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCmCuxEGbmope3_dd8qWUuDA",
       "channelId": "UCmCuxEGbmope3_dd8qWUuDA",
       "youtubeInput": "@fiilanguages",
@@ -4828,6 +4941,34 @@
       "searchText": "francais avec nelly francaisavecnelly french youtube discovery"
     },
     {
+      "catalogId": "discovered-UCp0pX8s6K5bibFxIl-Dp4lw",
+      "channelId": "UCp0pX8s6K5bibFxIl-Dp4lw",
+      "youtubeInput": "@frenchonline",
+      "handle": "@frenchonline",
+      "name": "Français Facile - Easy French",
+      "thumbnailUrl": "https://yt3.ggpht.com/e4bwmSEnCku6kiF523wYgut91edRZQ6_Z1OpVY-hpn9YrHNXm3X2hRmQqqzczICpt7HRqdMhAZE=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Bienvenue sur la chaîne \"Français Facile - Easy French\" ! Nous sommes là pour vous aider à apprendre le français de manière simple et accessible. Sur notre chaîne, vous trouverez une variété de ressources et de cours interactifs conçus spécialement pour les débutants et les apprenants intermédiaires de la langue fra...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2010-03-23T18:24:27Z",
+      "subscriberCount": "181000",
+      "videoCount": "794",
+      "viewCount": "21816028",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 355,
+      "discoveredByQueries": [
+        "compréhension orale français"
+      ],
+      "discoveredAt": "2026-08-15T09:49:05.603Z",
+      "refreshedAt": "2026-08-15T09:49:05.603Z",
+      "searchText": "francais facile easy french frenchonline french youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC7xqzOfOgsSegMN48WbrKxw",
       "channelId": "UC7xqzOfOgsSegMN48WbrKxw",
       "youtubeInput": "@easy_french",
@@ -4910,6 +5051,34 @@
       "discoveredAt": "2026-07-24T14:15:51.076Z",
       "refreshedAt": "2026-07-24T14:15:51.076Z",
       "searchText": "francais rapide francaisrapideyt french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCMgPvlKJbXwBHGBbln4skGg",
+      "channelId": "UCMgPvlKJbXwBHGBbln4skGg",
+      "youtubeInput": "@frenchnyou",
+      "handle": "@frenchnyou",
+      "name": "French 'N' You",
+      "thumbnailUrl": "https://yt3.ggpht.com/y5qHl2PGgqvz68texQ96TCS7fdyRzC1wQnV2bR1_IKP6sbjlnqCpVyVTRjSEzij-Kb7UbI9qVg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Hi, I’m Parth 👋 Professor of French (C1 Level) with 5+ years of experience and a DELF Examiner–Corrector (A1–B1 levels) certified and trained by Institut Français en Inde (IFI), French Embassy in India. I support learners preparing for DELF Junior, DELF Tout Public, TEF, and TCF exams through structured, exam-orien...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-04-12T09:42:40.04304Z",
+      "subscriberCount": "35200",
+      "videoCount": "377",
+      "viewCount": "3477400",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 275,
+      "discoveredByQueries": [
+        "French listening practice"
+      ],
+      "discoveredAt": "2026-08-15T09:49:05.603Z",
+      "refreshedAt": "2026-08-15T09:49:05.603Z",
+      "searchText": "french n you frenchnyou french youtube discovery"
     },
     {
       "catalogId": "discovered-UCg-UUtIKtChXUob78kp5PzQ",
@@ -5670,6 +5839,34 @@
       "discoveredAt": "2026-07-30T09:07:44.896Z",
       "refreshedAt": "2026-07-30T09:07:44.896Z",
       "searchText": "french with panache frenchwithpanache french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCYjCyh3ICvZFKV-QXLiJSzA",
+      "channelId": "UCYjCyh3ICvZFKV-QXLiJSzA",
+      "youtubeInput": "@frenchtubelearning",
+      "handle": "@frenchtubelearning",
+      "name": "FrenchTube | Apprends le français ",
+      "thumbnailUrl": "https://yt3.ggpht.com/XLVcMbsCUYZgi9nr7IkKIA8HoprChreTYpNKAo4zLPtH0TXp2_gTiF69nfRIRV4x4hK_XvpV5w=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn French for Beginners | FrenchTube 🇫🇷 – Fun & Easy French Lessons Online Learn French online with FrenchTube – the ultimate channel for beginners! Our step-by-step French lessons make learning French simple, interactive, and enjoyable. Perfect for adults, teens, and kids who want to: ✅ Learn essential French...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-05-02T09:10:53.035592Z",
+      "subscriberCount": "22400",
+      "videoCount": "258",
+      "viewCount": "322583",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 338,
+      "discoveredByQueries": [
+        "French listening practice"
+      ],
+      "discoveredAt": "2026-08-15T09:49:05.603Z",
+      "refreshedAt": "2026-08-15T09:49:05.603Z",
+      "searchText": "frenchtube apprends le francais frenchtubelearning french youtube discovery"
     },
     {
       "catalogId": "discovered-UCzvqMjhrBTVJ0S37WH4LKyw",
@@ -9075,6 +9272,34 @@
       "discoveredAt": "2026-07-27T15:11:12.608Z",
       "refreshedAt": "2026-07-27T15:11:12.608Z",
       "searchText": "learn french with prof learnfrenchwithprof french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCXSQoti8f2GbJUCv6SfFgsQ",
+      "channelId": "UCXSQoti8f2GbJUCv6SfFgsQ",
+      "youtubeInput": "@french.withstories",
+      "handle": "@french.withstories",
+      "name": "Learn French with Stories - Apprenez Français",
+      "thumbnailUrl": "https://yt3.ggpht.com/NayyH8HQ93AMKrZidqkP1aJrwatDYbm0XSi8TvAHcjy4W4Ynxxt1pCT9UaflQiTjqFD7H6Kl5w=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Learn French with Stories! 🇫🇷✨ Want to learn French the fun and easy way? Our videos bring you engaging stories between two friends navigating everyday situations. Each conversation is designed with simple dialogues, clear audio, and English translations to help you learn French naturally. 📌 What you’l...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-11-06T20:32:47.861155Z",
+      "subscriberCount": "485",
+      "videoCount": "308",
+      "viewCount": "17134",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 265,
+      "discoveredByQueries": [
+        "French stories for learners"
+      ],
+      "discoveredAt": "2026-08-15T09:49:05.603Z",
+      "refreshedAt": "2026-08-15T09:49:05.603Z",
+      "searchText": "learn french with stories apprenez francais french withstories french youtube discovery"
     },
     {
       "catalogId": "discovered-UCTUdJ97P839LzVsTx6s8L0w",
@@ -12509,6 +12734,34 @@
       "searchText": "mandarinwithwei mandarinwithwei mandarin youtube discovery"
     },
     {
+      "catalogId": "discovered-UCNwL-NiHTKDSPjPlYLfFoMQ",
+      "channelId": "UCNwL-NiHTKDSPjPlYLfFoMQ",
+      "youtubeInput": "@mariaenglishlistening",
+      "handle": "@mariaenglishlistening",
+      "name": "Maria English Listening ",
+      "thumbnailUrl": "https://yt3.ggpht.com/BWyuBl5iIjpZr0mQxOfsiFjd1gdLYOHAAoMGpqysX5Yqj0eaDgWSD9vCyJ74ITBnVW_7sIUr=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Maria English Listening – Your Daily Dose of Practical English! 🇺🇸 📚 Learn English the easy way with clear, engaging lessons designed for beginners to intermediate learners (A1-B2). Whether you're preparing for exams, improving your speaking skills, or just starting your English journey, we've got you covered! ✨...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-10-08T04:26:38.622332Z",
+      "subscriberCount": "166",
+      "videoCount": "60",
+      "viewCount": "6529",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 303,
+      "discoveredByQueries": [
+        "English conversation lessons"
+      ],
+      "discoveredAt": "2026-08-15T09:49:05.603Z",
+      "refreshedAt": "2026-08-15T09:49:05.603Z",
+      "searchText": "maria english listening mariaenglishlistening english youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC3ZrSg_QdMexvDREPuiCXqA",
       "channelId": "UC3ZrSg_QdMexvDREPuiCXqA",
       "youtubeInput": "@masasensei",
@@ -12731,6 +12984,34 @@
       "discoveredAt": "2026-08-12T10:34:33.818Z",
       "refreshedAt": "2026-08-12T10:34:33.818Z",
       "searchText": "michelle keenan mandarin michellekeenanmandarin mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCmS9Ei5N6NYvUZrhkLPBfRA",
+      "channelId": "UCmS9Ei5N6NYvUZrhkLPBfRA",
+      "youtubeInput": "@missmaryenglish-c5i",
+      "handle": "@missmaryenglish-c5i",
+      "name": "Miss Mary English",
+      "thumbnailUrl": "https://yt3.ggpht.com/1M0cfGZ42fPlq9xp3aCuIB6iO3nehzzmvUYAq-SXLLNMhaBuOTi0Qx2avPed1W8D36Zd-Hjwpg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "**Welcome to Miss Mary English! 🎙️** Improve your English naturally through engaging conversations, real-life dialogues, storytelling, vocabulary, grammar tips, pronunciation practice, and everyday expressions. Our podcast-style videos help English learners build confidence in speaking, listening, and understanding...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-04-29T04:17:57.522592Z",
+      "subscriberCount": "150000",
+      "videoCount": "71",
+      "viewCount": "70828",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 271,
+      "discoveredByQueries": [
+        "English stories for learners"
+      ],
+      "discoveredAt": "2026-08-15T09:49:05.603Z",
+      "refreshedAt": "2026-08-15T09:49:05.603Z",
+      "searchText": "miss mary english missmaryenglish c5i english youtube discovery"
     },
     {
       "catalogId": "discovered-UCJWszLrJdZDyP5VUlwhMoLg",
@@ -16645,6 +16926,34 @@
       "searchText": "speak brazil speakbrazilschool portuguese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCO9UXvuNZlM4-wftfAeY-Nw",
+      "channelId": "UCO9UXvuNZlM4-wftfAeY-Nw",
+      "youtubeInput": "@speakenglishdailytv",
+      "handle": "@speakenglishdailytv",
+      "name": "Speak English Daily",
+      "thumbnailUrl": "https://yt3.ggpht.com/8cCqmsEkSmWcdfn1YdbXV8qNqoItnuSMwLW4xBRWi6BF3Nxpt1l6etmKzqeZauzxESMKW6XZQQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🎧 Welcome to Speak English Daily TV – Learn American English Every Day! Do you want to speak English like an American? You found the right place! Our channel helps beginners (A1-A2) learn to speak English clearly and confidently. What you will learn: ● Daily practice with American accent ● Real English conversation...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-05-16T05:13:10.31934Z",
+      "subscriberCount": "359000",
+      "videoCount": "364",
+      "viewCount": "10134909",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 270,
+      "discoveredByQueries": [
+        "English conversation lessons"
+      ],
+      "discoveredAt": "2026-08-15T09:49:05.603Z",
+      "refreshedAt": "2026-08-15T09:49:05.603Z",
+      "searchText": "speak english daily speakenglishdailytv english youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCnjE0pgXXH2tbCox2tO_7kA",
       "channelId": "UCnjE0pgXXH2tbCox2tO_7kA",
       "youtubeInput": "@easyenglishwithava",
@@ -17457,6 +17766,34 @@
       "discoveredAt": "2026-07-25T15:02:59.342Z",
       "refreshedAt": "2026-07-25T15:02:59.342Z",
       "searchText": "teatime chinese 茶歇中文 teatimechinese mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCWnnbtfNleKZMkA9kRX-Z5w",
+      "channelId": "UCWnnbtfNleKZMkA9kRX-Z5w",
+      "youtubeInput": "@tefcanadamastery",
+      "handle": "@tefcanadamastery",
+      "name": "TEF Canada Mastery",
+      "thumbnailUrl": "https://yt3.ggpht.com/Bm5JNXtyrvVMAxwt6yOgv9HMzrYv4KFuDkse0RukwLRFitauELrVmSFKn0dPnPTssnE1lNgV=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Bienvenue sur TEF Canada Mastery – Votre guide ultime pour réussir le TEF Canada, le TCF, et bien plus encore ! Vous préparez le TEF Canada ou le TCF pour l'immigration, la résidence permanente ou la citoyenneté canadienne ? Vous voulez apprendre le français efficacement, réussir un entretien d’embauche en français...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-12-13T01:25:25.465266Z",
+      "subscriberCount": "22400",
+      "videoCount": "551",
+      "viewCount": "1416319",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 288,
+      "discoveredByQueries": [
+        "compréhension orale français"
+      ],
+      "discoveredAt": "2026-08-15T09:49:05.603Z",
+      "refreshedAt": "2026-08-15T09:49:05.603Z",
+      "searchText": "tef canada mastery tefcanadamastery french youtube discovery"
     },
     {
       "catalogId": "discovered-UCJOXmrQ8An95rJ2cUGkg62g",
