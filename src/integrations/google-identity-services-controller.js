@@ -69,6 +69,13 @@ function bytesToBase64Url(bytes) {
     .replace(/=+$/u, '')
 }
 
+function bytesToHex(bytes) {
+  return Array.from(
+    bytes,
+    byte => byte.toString(16).padStart(2, '0')
+  ).join('')
+}
+
 async function createNonce(cryptoLike) {
   if (
     typeof cryptoLike?.getRandomValues !== 'function'
@@ -84,7 +91,7 @@ async function createNonce(cryptoLike) {
   )
   return {
     raw,
-    hashed: bytesToBase64Url(new Uint8Array(digest))
+    hashed: bytesToHex(new Uint8Array(digest))
   }
 }
 

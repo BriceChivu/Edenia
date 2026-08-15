@@ -78,7 +78,7 @@ test('official buttons share one nonce opportunity and render idempotently', asy
   assert.equal(google.configurations[0].client_id, 'client.apps.googleusercontent.com')
   assert.equal(google.configurations[0].auto_select, false)
   assert.equal(google.configurations[0].itp_support, true)
-  assert.match(google.configurations[0].nonce, /^[A-Za-z0-9_-]{43}$/)
+  assert.match(google.configurations[0].nonce, /^[0-9a-f]{64}$/)
 })
 
 test('one credential consumes its raw nonce once without retaining token state', async () => {
@@ -96,7 +96,8 @@ test('one credential consumes its raw nonce once without retaining token state',
   })
   const element = createElement()
   await controller.mountButton(element)
-  const callback = google.configurations.at(-1).callback
+  const configuration = google.configurations.at(-1)
+  const callback = configuration.callback
 
   await callback({ credential: 'private-id-token' })
   await callback({ credential: 'duplicate-id-token' })
@@ -105,6 +106,12 @@ test('one credential consumes its raw nonce once without retaining token state',
   assert.equal(exchanges.length, 1)
   assert.equal(exchanges[0].token, 'private-id-token')
   assert.match(exchanges[0].nonce, /^[A-Za-z0-9_-]{43}$/)
+  const expectedGoogleNonce = Buffer.from(await webcrypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(exchanges[0].nonce)
+  )).toString('hex')
+  assert.equal(configuration.nonce, expectedGoogleNonce)
+  assert.match(configuration.nonce, /^[0-9a-f]{64}$/)
   assert.equal(
     google.calls.filter(call => call[0] === 'cancel').length,
     1
