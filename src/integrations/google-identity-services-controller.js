@@ -50,7 +50,6 @@ export function createGoogleIdentityServicesScriptLoader({
         script.src = GOOGLE_IDENTITY_SCRIPT_URL
         script.async = true
         script.defer = true
-        script.crossOrigin = 'anonymous'
         documentLike.head.appendChild(script)
       }
     }).catch(error => {
@@ -150,6 +149,7 @@ export function createGoogleIdentityServicesController({
       cancel_on_tap_outside: true,
       client_id: normalizedClientId,
       context: 'signin',
+      itp_support: true,
       nonce: candidate.hashedNonce,
       ux_mode: 'popup'
     })
