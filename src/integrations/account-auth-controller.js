@@ -158,14 +158,18 @@ function getAuthMethod(user, claims) {
 }
 
 function sessionNeedsAuthMethodClaims(session) {
+  const provider = String(
+    session?.user?.app_metadata?.provider || ''
+  ).trim().toLowerCase()
   const providers = session?.user?.app_metadata?.providers
+  if (provider === 'google') return true
   if (!Array.isArray(providers)) return false
   const accountProviders = new Set(
     providers
       .map(value => String(value).trim().toLowerCase())
       .filter(value => ['email', 'google'].includes(value))
   )
-  return accountProviders.size > 1
+  return accountProviders.has('google')
 }
 
 function getSessionUser(session, claims = null) {

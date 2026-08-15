@@ -224,6 +224,69 @@ test('verified authentication claims report the current linked sign-in method', 
   assert.equal(emailController.controller.getState().authMethod, 'email')
 })
 
+test('verified claims distinguish an email magic link on a Google-owned user', async () => {
+  const googleOwnedEmailHarness = createClient({
+    claimsResponse: {
+      data: {
+        claims: {
+          sub: 'user-google-owned',
+          amr: [{ method: 'magiclink' }]
+        }
+      },
+      error: null
+    },
+    session: {
+      access_token: 'private-access-token',
+      user: {
+        id: 'user-google-owned',
+        email: 'learner@example.com',
+        app_metadata: { provider: 'google', providers: ['google'] }
+      }
+    }
+  })
+  const googleOwnedEmailController = createHarness(googleOwnedEmailHarness)
+
+  await googleOwnedEmailController.controller.initialize()
+
+  assert.equal(
+    googleOwnedEmailController.controller.getState().authMethod,
+    'email'
+  )
+  assert.deepEqual(googleOwnedEmailHarness.calls.at(-1), [
+    'getClaims',
+    'private-access-token'
+  ])
+
+  const emailOnlyHarness = createClient({
+    claimsResponse: {
+      data: {
+        claims: {
+          sub: 'user-email-only',
+          amr: [{ method: 'magiclink' }]
+        }
+      },
+      error: null
+    },
+    session: {
+      access_token: 'private-email-access-token',
+      user: {
+        id: 'user-email-only',
+        email: 'email-only@example.com',
+        app_metadata: { provider: 'email', providers: ['email'] }
+      }
+    }
+  })
+  const emailOnlyController = createHarness(emailOnlyHarness)
+
+  await emailOnlyController.controller.initialize()
+
+  assert.equal(emailOnlyController.controller.getState().authMethod, 'email')
+  assert.equal(
+    emailOnlyHarness.calls.some(call => call[0] === 'getClaims'),
+    false
+  )
+})
+
 test('auth events confirm the client session after leaving the Supabase callback', async () => {
   const signedInSession = createDeferred()
   const clientHarness = createClient({

@@ -43,10 +43,12 @@ const AUTHENTICATED_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
 const SECOND_AUTHENTICATED_USER_ID = '223e4567-e89b-42d3-a456-426614174001'
 const ACCOUNT_AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
 
-function fakeAccessToken(userId) {
+function fakeAccessToken(userId, email) {
   const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url')
   return `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({
     aud: 'authenticated',
+    amr: [{ method: 'oauth' }],
+    email,
     exp: 1893456000,
     role: 'authenticated',
     sub: userId
@@ -55,7 +57,7 @@ function fakeAccessToken(userId) {
 
 function createAuthenticatedSession({ userId, email }) {
   return {
-    access_token: fakeAccessToken(userId),
+    access_token: fakeAccessToken(userId, email),
     expires_at: 1893456000,
     expires_in: 31536000,
     refresh_token: `test-refresh-token-${userId}`,
@@ -77,6 +79,29 @@ async function seedAuthenticatedSession(page, {
   userId = AUTHENTICATED_USER_ID,
   email = 'internal@example.com'
 } = {}) {
+  await page.route('https://account-ui-test.supabase.co/auth/v1/user', route => {
+    const authorization = String(
+      route.request().headers().authorization || ''
+    )
+    const token = authorization.replace(/^Bearer\s+/i, '')
+    let payload = null
+    try {
+      payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url'))
+    } catch {}
+    if (!payload?.sub || !payload?.email) {
+      return route.fulfill({ json: { message: 'invalid token' }, status: 401 })
+    }
+    return route.fulfill({
+      json: {
+        id: payload.sub,
+        email: payload.email,
+        app_metadata: { provider: 'google', providers: ['google'] },
+        user_metadata: {},
+        identities: []
+      },
+      status: 200
+    })
+  })
   await page.addInitScript(({ storageKey, session }) => {
     if (!localStorage.getItem(storageKey)) {
       localStorage.setItem(storageKey, JSON.stringify(session))

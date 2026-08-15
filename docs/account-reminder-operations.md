@@ -8,11 +8,11 @@ It is deliberately written for the system that exists now.
 - The account interface is available only when
   `EDENIA_ACCOUNT_FEATURES_ROLLOUT=internal` and the visitor uses
   `/?internal_test=1`.
-- The deployed source can select legacy Google OAuth, Google Identity Services
-  ID-token exchange, and Turnstile-protected email links independently. Until
-  the new provider canary is complete, Google remains legacy or off, One Tap
-  remains off, Supabase CAPTCHA remains off, and production custom SMTP and the
-  branded token-hash template must be treated as unverified.
+- The deployed internal canary uses Google Identity Services ID-token exchange,
+  post-onboarding One Tap, Turnstile-protected email links, dedicated custom
+  SMTP, and the branded scanner-resistant template. The ordinary public route
+  remains accountless. Google transport, One Tap, CAPTCHA, and the complete
+  account surface retain independent rollback controls.
 - The standalone `/auth/confirm/` page is analytics-free, scrubs its token-hash
   fragment before unrelated work, and requires a deliberate confirmation
   action. It reads no local study state.
@@ -120,6 +120,50 @@ The switch-off rehearsal is also ordered: One Tap off, Google legacy or off,
 CAPTCHA off if required, then account rollout off. At each stage ordinary study
 must remain usable and the public root must remain accountless. Restore the
 intended internal state only after the rehearsal passes.
+
+### Provider canary evidence (2026-08-15)
+
+- Provider setup completed on Free plans. The Supabase project remained Free;
+  Resend's Free allowance was 3,000 transactional messages per month and 100
+  per day; and the Free Turnstile widget allowed unlimited challenges. No paid
+  feature or charge was enabled.
+- Implementation repair PR #149 merged as `8a69ca8` after exact-head required
+  `verify` run 31852621407 passed. Pages run 31853264898 deployed that exact
+  merge. The duplicate Turnstile render warning is absent and a fresh hosted
+  page contains one widget.
+- A cross-device branded magic link signed in only the confirming browser. The
+  requesting browser remained signed out, the fragment was absent after entry,
+  the session survived browser recreation, and explicit sign-out survived a
+  reload. The two browser profiles retained their separate 45-card and 40-card
+  local study feeds.
+- The approved address authenticated through Google and email as one Supabase
+  UUID and one PostHog person. Live Auth retains one Google identity for this
+  user even after a same-email magic-link sign-in, so current auth method must
+  be derived from verified session `amr`, not from the retained provider list.
+  A repair for the resulting PostHog method misattribution is tracked in the
+  authentication work item and must be deployed before final closeout.
+- PostHog's default Persons view excludes the Internal tests cohort. Remove
+  that exclusion before auditing the approved canary person; after doing so,
+  searching the normalized approved address returned exactly one person.
+- The switch-off rehearsal succeeded in order: One Tap off, Google legacy,
+  and the global account rollout off. Ordinary study remained available at
+  each stage. The internal state was restored in Pages run 31854276819 with
+  account rollout `internal`, Google `id_token`, and One Tap enabled.
+- GitHub Pages serves `config.local.js` with a ten-minute browser cache. Use
+  the exact workflow source SHA plus a cache-busted configuration fetch when
+  verifying a switch change; an already-open tab can otherwise display the
+  preceding state temporarily.
+- The GIS script remained unavailable in both automated hosted browser
+  surfaces, although a normal Chrome user agent could fetch the complete
+  provider bundle. Local desktop and phone tests cover prompt gating,
+  dismissal, and explicit-sign-out suppression, but a visible hosted One Tap
+  prompt still requires a real non-automated browser proof before closeout.
+
+One earlier canary inspection exposed a one-time magic-link capability in
+ephemeral tool output. It was immediately consumed by the intended
+confirmation and is no longer usable. No durable credential was exposed. Do
+not inspect or record future message bodies or links; transfer a capability
+directly into the confirming browser without rendering it in logs or output.
 
 ## Internal acceptance test
 
