@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Edenia authentication-surface prototype</title>
+  <link rel="icon" type="image/png" href="../../Edenia_favicon_round.png">
+  <link rel="stylesheet" href="prototype.css">
+</head>
+<body>
+  <!-- Three complete authentication-surface directions, switchable via ?variant=, on a throwaway prototype route. -->
+  <header class="prototype-header">
+    <div class="prototype-brand">
+      <img src="../../Edenia_favicon_round.png" alt="" aria-hidden="true">
+      <div>
+        <span class="prototype-kicker">Throwaway design prototype</span>
+        <h1>One Edenia welcome, four surfaces</h1>
+      </div>
+    </div>
+    <p>Compare each direction as a system. Provider calls are disabled; every control only changes this preview.</p>
+  </header>
+
+  <nav class="prototype-controls" aria-label="Prototype preview controls">
+    <fieldset class="segmented-control" data-surface-control>
+      <legend>Surface</legend>
+      <button type="button" data-surface="form">1 · Account form</button>
+      <button type="button" data-surface="signup">2a · New account email</button>
+      <button type="button" data-surface="magic">2b · Returning account email</button>
+      <button type="button" data-surface="confirm">3 · Confirmation page</button>
+    </fieldset>
+    <label class="select-control" data-entry-control>
+      <span>Form entry point</span>
+      <select>
+        <option value="settings">Settings → Account</option>
+        <option value="onboarding">Optional onboarding step</option>
+      </select>
+    </label>
+    <label class="select-control">
+      <span>Locale</span>
+      <select data-locale-control>
+        <option value="en">English</option>
+        <option value="es">Español</option>
+        <option value="fr">Français</option>
+        <option value="zh-Hans">简体中文</option>
+        <option value="zh-Hant">繁體中文</option>
+      </select>
+    </label>
+    <label class="select-control" data-turnstile-control>
+      <span>Turnstile</span>
+      <select>
+        <option value="frictionless">Verified invisibly</option>
+        <option value="challenge">Interaction required</option>
+      </select>
+    </label>
+  </nav>
+
+  <main class="prototype-stage" data-prototype-stage aria-live="polite"></main>
+
+  <aside class="prototype-switcher" aria-label="Design direction switcher">
+    <button type="button" data-variant-previous aria-label="Previous design direction">←</button>
+    <output data-variant-label></output>
+    <button type="button" data-variant-next aria-label="Next design direction">→</button>
+  </aside>
+
+  <script src="prototype.js"></script>
+</body>
+</html>
