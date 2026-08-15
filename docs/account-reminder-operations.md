@@ -140,8 +140,11 @@ intended internal state only after the rehearsal passes.
   UUID and one PostHog person. Live Auth retains one Google identity for this
   user even after a same-email magic-link sign-in, so current auth method must
   be derived from verified session `amr`, not from the retained provider list.
-  A repair for the resulting PostHog method misattribution is tracked in the
-  authentication work item and must be deployed before final closeout.
+  Repair PR #150 passed exact-head `verify` run 31856369518, merged as
+  `18dd46f`, and was deployed by Pages run 31856872515. A new cross-device
+  magic-link canary then updated that one PostHog person to
+  `auth_method=email`; the requesting browser stayed signed out, and the
+  confirming browser was signed out again after verification.
 - PostHog's default Persons view excludes the Internal tests cohort. Remove
   that exclusion before auditing the approved canary person; after doing so,
   searching the normalized approved address returned exactly one person.
@@ -157,7 +160,10 @@ intended internal state only after the rehearsal passes.
   surfaces, although a normal Chrome user agent could fetch the complete
   provider bundle. Local desktop and phone tests cover prompt gating,
   dismissal, and explicit-sign-out suppression, but a visible hosted One Tap
-  prompt still requires a real non-automated browser proof before closeout.
+  prompt still requires a real non-automated browser proof before closeout. A
+  fresh eligible attempt after deployment `18dd46f` again stopped at the safe
+  `script` failure stage before Google initialized; do not count that as a
+  dismissal or successful prompt canary.
 
 One earlier canary inspection exposed a one-time magic-link capability in
 ephemeral tool output. It was immediately consumed by the intended
