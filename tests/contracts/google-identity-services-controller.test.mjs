@@ -77,6 +77,7 @@ test('official buttons share one nonce opportunity and render idempotently', asy
   assert.deepEqual(statuses, ['loading', 'ready'])
   assert.equal(google.configurations[0].client_id, 'client.apps.googleusercontent.com')
   assert.equal(google.configurations[0].auto_select, false)
+  assert.equal(google.configurations[0].itp_support, true)
   assert.match(google.configurations[0].nonce, /^[A-Za-z0-9_-]{43}$/)
 })
 
@@ -229,7 +230,7 @@ test('script loading is singleton and validates the installed Google boundary', 
   assert.equal(first, second)
   assert.equal(appended.length, 1)
   assert.equal(script.src, GOOGLE_IDENTITY_SCRIPT_URL)
-  assert.equal(script.crossOrigin, 'anonymous')
+  assert.equal(script.crossOrigin, undefined)
 
   const google = createGoogleHarness()
   target.google = google.target.google

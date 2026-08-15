@@ -46,6 +46,15 @@ nonce after the exchange, and creates a fresh opportunity after a failure.
 Neither value is decoded, logged, stored, put in analytics, or exposed to app
 view state.
 
+The GIS classic script is loaded with Google's standard script request and no
+`crossorigin` attribute. Google's response is executable as a normal classic
+script but does not grant CORS access, so forcing an anonymous CORS request
+prevents the library and official button from loading. Edenia enables
+`itp_support` for Safari, Firefox, and other ITP browsers. Those browsers use
+Google's upgraded prompt flow and do not support automatic sign-in; the
+cancelable automatic-sign-in canary therefore requires an eligible Chromium
+browser.
+
 Google's official button may be mounted in Settings and the optional final
 onboarding step. One Tap and cancelable automatic sign-in have a narrower
 policy: the learner must be signed out on the exact production root with the
