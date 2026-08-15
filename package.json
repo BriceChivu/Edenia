@@ -14,6 +14,7 @@
     "build:production": "npm run build && node scripts/write-runtime-config.mjs --require-key",
     "dev": "node scripts/dev.mjs",
     "prototype:auth-surface": "node scripts/serve-static.mjs --host localhost --port 4173 --root .",
+    "prototype:sync-experience": "node scripts/serve-static.mjs --host localhost --port 4173 --root .",
     "test": "npm run build && npm run test:contracts && npm run test:supabase && npm run test:reminder-function && npm run test:account-export-function && npm run test:legacy-progress-relay-function",
     "test:catalogs": "node scripts/validate-channel-catalog-json.mjs && node scripts/validate-reminder-discovery-channels.mjs",
     "test:catalogs:community": "node scripts/validate-community-channel-catalog.mjs",
