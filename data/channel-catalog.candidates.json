@@ -205,6 +205,31 @@
       "searchText": "ggsgamerchinese ggsgamerchinese"
     },
     {
+      "catalogId": "community-UCMqenhPGSw0ySojC1lYFygg",
+      "channelId": "UCMqenhPGSw0ySojC1lYFygg",
+      "handle": "@intochinese",
+      "name": "Into Chinese",
+      "thumbnailUrl": "https://yt3.ggpht.com/MQHBgLWz-s-H_JR7bpdoU5G0Cj0BxvB-w-o8OM4kIHQg197NtRoPBdJNWPSHEsG4hL08bQuJuQ=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-04-23T18:51:45.142162Z",
+      "metadataRefreshedAt": "2026-08-15T03:23:48.237Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-08-14T23:53:03.880Z",
+      "lastSeenAt": "2026-08-14T23:53:03.880Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "into chinese intochinese"
+    },
+    {
       "catalogId": "community-UCQJ25mE1rDKPa1ZDmC1bv_w",
       "channelId": "UCQJ25mE1rDKPa1ZDmC1bv_w",
       "handle": "@jakelyonsgeo",
@@ -484,6 +509,31 @@
       "searchText": "老师好我叫何同学 hetongxue"
     },
     {
+      "catalogId": "community-UCaIpvkwJK1MnSNqAhGzvxiw",
+      "channelId": "UCaIpvkwJK1MnSNqAhGzvxiw",
+      "handle": "@xilanceylan2",
+      "name": "錫片",
+      "thumbnailUrl": "https://yt3.ggpht.com/uI22F2N557MJl6_ycA1dWEISqgeXZtVhxRLTrYUOZI1POD30KCdMELmP3ybYC20wtbNwXxb3jgQ=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2018-10-09T06:26:40Z",
+      "metadataRefreshedAt": "2026-08-15T03:23:48.237Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-08-14T23:22:46.576Z",
+      "lastSeenAt": "2026-08-14T23:22:46.576Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "錫片 xilanceylan2"
+    },
+    {
       "catalogId": "community-UCTpUhRp0z_15U6PWg7_27kg",
       "channelId": "UCTpUhRp0z_15U6PWg7_27kg",
       "handle": "@cyzstudio",
@@ -534,5 +584,5 @@
       "searchText": "雷堤娜 tyna krysjensen86"
     }
   ],
-  "generatedAt": "2026-08-14T04:29:01.560Z"
+  "generatedAt": "2026-08-15T03:23:48.237Z"
 }
