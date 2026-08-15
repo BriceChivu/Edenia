@@ -258,6 +258,42 @@ test('unavailable status exposes only a safe lifecycle stage', async () => {
   assert.doesNotMatch(JSON.stringify(statuses), /private provider diagnostic/u)
 })
 
+test('initialization failure discards the candidate before a fresh retry', async () => {
+  const google = createGoogleHarness()
+  const statuses = []
+  const initialize = google.api.initialize
+  let initializeAttempts = 0
+  google.api.initialize = configuration => {
+    initializeAttempts += 1
+    if (initializeAttempts === 1) {
+      google.configurations.push(configuration)
+      throw new Error('private initialization failure')
+    }
+    initialize(configuration)
+  }
+  const controller = createGoogleIdentityServicesController({
+    clientId: 'client.apps.googleusercontent.com',
+    crypto: webcrypto,
+    exchangeCredential: async () => true,
+    googleTarget: google.target,
+    loadScript: async () => google.api,
+    onStatusChange(status, details) { statuses.push([status, details]) }
+  })
+
+  assert.equal(await controller.synchronizePrompt({ eligible: true }), false)
+  const failedNonce = google.configurations[0].nonce
+  assert.equal(await controller.synchronizePrompt({ eligible: true }), true)
+  assert.equal(initializeAttempts, 2)
+  assert.notEqual(google.configurations[1].nonce, failedNonce)
+  assert.deepEqual(statuses.slice(0, 4), [
+    ['loading', undefined],
+    ['unavailable', { stage: 'initialize' }],
+    ['loading', undefined],
+    ['ready', undefined]
+  ])
+  assert.doesNotMatch(JSON.stringify(statuses), /private initialization failure/u)
+})
+
 test('invalid controller boundaries fail before loading Google', () => {
   assert.throws(
     () => createGoogleIdentityServicesController({

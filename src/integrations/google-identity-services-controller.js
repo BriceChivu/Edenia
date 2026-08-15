@@ -186,6 +186,7 @@ export function createGoogleIdentityServicesController({
 
     publish('loading')
     let failureStage = 'script'
+    let initializedCandidate = null
     opportunityPromise = (async () => {
       const [apiResult, nonceResult] = await Promise.allSettled([
         loadScript(),
@@ -207,11 +208,21 @@ export function createGoogleIdentityServicesController({
         rawNonce: nonce.raw
       }
       opportunity = candidate
+      initializedCandidate = candidate
       failureStage = 'initialize'
       initializeOpportunity(api, candidate)
       publish('ready')
       return { api, candidate }
     })().catch(() => {
+      if (initializedCandidate && opportunity === initializedCandidate) {
+        initializedCandidate.rawNonce = ''
+        initializedCandidate.hashedNonce = ''
+        initializedCandidate.consumed = true
+        opportunity = null
+        for (const mount of mounts.values()) {
+          mount.renderedOpportunityId = null
+        }
+      }
       if (!destroyed) publish('unavailable', { stage: failureStage })
       return null
     }).finally(() => {
