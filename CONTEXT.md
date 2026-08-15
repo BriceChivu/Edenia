@@ -32,6 +32,30 @@ _Avoid_: Guest profile, onboarding profile
 The transferable portion of a learner profile, excluding credentials, authentication sessions, analytics identifiers, and device-specific integration data.
 _Avoid_: Full browser state, database dump
 
+**Study fact**:
+A durable record that learning activity occurred, used to calculate Study History, streaks, points, and earned town progress.
+_Avoid_: Study statistic, analytics event
+
+**Study day**:
+The learner-local calendar date assigned when a study fact is recorded and retained when that profile moves between timezones.
+_Avoid_: Display date, current-device date
+
+**Profile combination**:
+A rollback-protected reconciliation of two portable profiles that preserves compatible study facts and resolves other fields by explicit rules.
+_Avoid_: Whole-profile overwrite, last-write-wins
+
+**Profile lineage**:
+The ancestry that identifies revisions as versions of the same learner profile, even when a shared revision is no longer available.
+_Avoid_: Account identity, cloud history
+
+**Profile generation**:
+A segment of a profile lineage started by an intentional reset; older generations can return only through explicit recovery.
+_Avoid_: Schema version, revision
+
+**Meaningfully empty profile**:
+A learner profile with no study facts, saved study organization, learner selections, portable histories, or completed milestones.
+_Avoid_: New account, default document
+
 **Cloud progress snapshot**:
 A recoverable, versioned copy of a signed-in profile's portable profile.
 _Avoid_: Plus backup, live state
