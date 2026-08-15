@@ -12024,7 +12024,11 @@ function recordStudyInsight(state, insight, referenceDate = getCurrentAppDate(st
     comparisonPercent: insight.comparisonPercent || 0,
     recentMinutes: insight.recentMinutes || 0,
     previousMinutes: insight.previousMinutes || 0,
-    suggestedMinutes: insight.suggestedMinutes || 0,
+    suggestedMinutes: clampNumber(
+      Math.round(Number(insight.suggestedMinutes) || 0),
+      1,
+      180
+    ),
     gapDays: insight.gapDays || 0,
     activeDays: insight.activeDays || 0,
     ankiDays: insight.ankiDays || 0,
