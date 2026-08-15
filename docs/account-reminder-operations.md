@@ -156,14 +156,22 @@ intended internal state only after the rehearsal passes.
   the exact workflow source SHA plus a cache-busted configuration fetch when
   verifying a switch change; an already-open tab can otherwise display the
   preceding state temporarily.
-- The GIS script remained unavailable in both automated hosted browser
-  surfaces, although a normal Chrome user agent could fetch the complete
-  provider bundle. Local desktop and phone tests cover prompt gating,
-  dismissal, and explicit-sign-out suppression, but a visible hosted One Tap
-  prompt still requires a real non-automated browser proof before closeout. A
-  fresh eligible attempt after deployment `18dd46f` again stopped at the safe
-  `script` failure stage before Google initialized; do not count that as a
-  dismissal or successful prompt canary.
+- PR #152 removed the forced anonymous-CORS request from the GIS classic
+  script and enabled Google's ITP support. Exact head `f77e2e9` passed required
+  `verify` run 31859092136, merged as `3c1a443`, and was deployed by Pages run
+  31859597726. Google's official button then rendered in both Chrome and Safari.
+- The first real button credential exposed a separate nonce-representation
+  mismatch: Edenia sent Google a Base64URL digest while Supabase expected the
+  lowercase hexadecimal SHA-256 digest. PR #153 changed only that representation,
+  passed exact-head `verify` run 31860058903, merged as `8abccf4`, and was deployed
+  by exact Pages run 31860487920. A hosted Chrome identity chooser then completed
+  without top-level Supabase navigation, and the Auth server recorded a clean
+  status-200 `id_token` exchange.
+- A visible hosted eligible One Tap prompt, dismissal, and Chromium automatic
+  sign-in still require a fresh eligible browser proof before closeout. Safari's
+  ITP experience cannot prove automatic sign-in, and a browser immediately after
+  explicit sign-out must remain signed out rather than being used to force the
+  automatic path.
 
 One earlier canary inspection exposed a one-time magic-link capability in
 ephemeral tool output. It was immediately consumed by the intended
