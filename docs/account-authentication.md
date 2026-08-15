@@ -128,12 +128,15 @@ normalized user UUID, normalized email, fixed `google` or `email` auth method,
 busy action, and safe status. It never contains tokens, session objects,
 metadata, identities, or Google subjects.
 
-For accounts that expose both email and Google providers, the controller asks
-Supabase to verify the session claims and reduces the current `amr` method to
-`google` or `email`. Single-provider sessions need no extra claim request. This avoids
-mistaking the first linked provider for the method used by the current
-session. If claim verification is unavailable, the fixed trusted provider in
-Supabase app metadata remains the bounded fallback.
+For every Google-capable session, the controller asks Supabase to verify the
+session claims and reduces the current `amr` method to `google` or `email`.
+This is necessary even when app metadata lists only Google: Supabase can
+authenticate an email magic link into that same user without adding email to
+the provider list. Email-only sessions remain unambiguous and need no extra
+claim request. This avoids mistaking the account's retained provider metadata
+for the method used by the current session. If claim verification is
+unavailable, the fixed trusted provider in Supabase app metadata remains the
+bounded fallback.
 
 Supabase Auth callbacks stay synchronous. Edenia schedules the subsequent
 `getSession()` outside `onAuthStateChange` and publishes signed-in state to
