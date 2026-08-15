@@ -167,11 +167,14 @@ intended internal state only after the rehearsal passes.
   by exact Pages run 31860487920. A hosted Chrome identity chooser then completed
   without top-level Supabase navigation, and the Auth server recorded a clean
   status-200 `id_token` exchange.
-- A visible hosted eligible One Tap prompt, dismissal, and Chromium automatic
-  sign-in still require a fresh eligible browser proof before closeout. Safari's
-  ITP experience cannot prove automatic sign-in, and a browser immediately after
-  explicit sign-out must remain signed out rather than being used to force the
-  automatic path.
+- The final hosted One Tap canary passed on exact deployment `8abccf4`. A fresh
+  eligible Chrome lifecycle visibly displayed Google's browser-owned identity
+  prompt only after onboarding and walkthrough resolution; native dismissal left
+  Edenia usable and signed out. A separate eligible Chromium profile then signed
+  in automatically without a manual-button click, with a matching status-200
+  Supabase `id_token` exchange. Its 40-card local feed remained present through
+  automatic sign-in and explicit sign-out. Safari's ITP experience was not used
+  as automatic-sign-in evidence.
 
 One earlier canary inspection exposed a one-time magic-link capability in
 ephemeral tool output. It was immediately consumed by the intended
