@@ -175,6 +175,9 @@ intended internal state only after the rehearsal passes.
   Supabase `id_token` exchange. Its 40-card local feed remained present through
   automatic sign-in and explicit sign-out. Safari's ITP experience was not used
   as automatic-sign-in evidence.
+- Evidence closeout PR #151 exact head `d643992` passed required `verify` run
+  31861852918, merged through protection as `600121b`, and was deployed by exact
+  Pages run 31862379844. The authentication internal-canary work item is complete.
 
 One earlier canary inspection exposed a one-time magic-link capability in
 ephemeral tool output. It was immediately consumed by the intended
