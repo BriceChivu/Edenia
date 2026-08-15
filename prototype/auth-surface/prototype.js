@@ -15,7 +15,7 @@ const COPY = Object.freeze({
     signInBody: 'Keep your study progress with you, while this browser stays ready for accountless study.',
     emailLabel: 'Email address',
     emailPlaceholder: 'you@example.com',
-    sendLink: 'Email me a secure link',
+    sendLink: 'Email me a sign-in link',
     emailHint: 'No password. The one-time link expires automatically.',
     challenge: 'Please complete the security check',
     challengeBody: 'Cloudflare is checking this request.',
@@ -36,13 +36,16 @@ const COPY = Object.freeze({
     duckLine: 'Your study space is waiting.',
     settings: 'Settings',
     account: 'Account',
+    settingsSignedOutBody: 'Use Google for the quickest sign-in, or get a secure link by email.',
     language: 'Language',
     google: 'Continue with Google',
     emailFallback: 'Or use email',
     closeSettings: 'Close settings',
     onboardingProgress: 'Step 5 of 5',
+    onboardingPromise: 'Turn YouTube and Anki into visible language-learning progress.',
     onboardingTitle: 'One last step',
     onboardingBody: 'Sign up for a more personalized Edenia experience. It’s free!',
+    onboardingBack: 'Back',
     onboardingSkip: 'Skip for now',
     inbox: 'Inbox',
     toMe: 'to me',
@@ -54,7 +57,7 @@ const COPY = Object.freeze({
     signInBody: 'Lleva contigo tu progreso de estudio, mientras este navegador sigue listo para estudiar sin cuenta.',
     emailLabel: 'Correo electrónico',
     emailPlaceholder: 'tu@ejemplo.com',
-    sendLink: 'Enviarme un enlace seguro',
+    sendLink: 'Enviarme un enlace de acceso',
     emailHint: 'Sin contraseña. El enlace de un solo uso caduca automáticamente.',
     challenge: 'Completa la verificación de seguridad',
     challengeBody: 'Cloudflare está comprobando esta solicitud.',
@@ -75,13 +78,16 @@ const COPY = Object.freeze({
     duckLine: 'Tu espacio de estudio te espera.',
     settings: 'Ajustes',
     account: 'Cuenta',
+    settingsSignedOutBody: 'Usa Google para iniciar sesión rápidamente o recibe un enlace seguro por correo.',
     language: 'Idioma',
     google: 'Continuar con Google',
     emailFallback: 'O usa el correo',
     closeSettings: 'Cerrar ajustes',
     onboardingProgress: 'Paso 5 de 5',
+    onboardingPromise: 'Convierte YouTube y Anki en un progreso visible en el aprendizaje de idiomas.',
     onboardingTitle: 'Un último paso',
     onboardingBody: 'Regístrate para disfrutar de una experiencia de Edenia más personalizada. ¡Es gratis!',
+    onboardingBack: 'Atrás',
     onboardingSkip: 'Omitir por ahora',
     inbox: 'Recibidos',
     toMe: 'para mí',
@@ -93,7 +99,7 @@ const COPY = Object.freeze({
     signInBody: 'Emportez votre progression, tout en gardant ce navigateur prêt pour étudier sans compte.',
     emailLabel: 'Adresse e-mail',
     emailPlaceholder: 'vous@exemple.com',
-    sendLink: 'Recevoir un lien sécurisé',
+    sendLink: 'M’envoyer un lien de connexion',
     emailHint: 'Aucun mot de passe. Le lien à usage unique expire automatiquement.',
     challenge: 'Effectuez la vérification de sécurité',
     challengeBody: 'Cloudflare vérifie cette demande.',
@@ -114,13 +120,16 @@ const COPY = Object.freeze({
     duckLine: 'Votre espace d’étude vous attend.',
     settings: 'Réglages',
     account: 'Compte',
+    settingsSignedOutBody: 'Utilisez Google pour vous connecter rapidement ou recevez un lien sécurisé par e-mail.',
     language: 'Langue',
     google: 'Continuer avec Google',
     emailFallback: 'Ou utilisez votre e-mail',
     closeSettings: 'Fermer les réglages',
     onboardingProgress: 'Étape 5 sur 5',
+    onboardingPromise: 'Transformez Youtube et Anki en progrès visibles.',
     onboardingTitle: 'Une dernière étape',
     onboardingBody: 'Inscrivez-vous pour profiter d’une expérience Edenia plus personnalisée. C’est gratuit !',
+    onboardingBack: 'Retour',
     onboardingSkip: 'Ignorer pour le moment',
     inbox: 'Boîte de réception',
     toMe: 'à moi',
@@ -132,7 +141,7 @@ const COPY = Object.freeze({
     signInBody: '随身同步学习进度，同时这个浏览器仍可随时免账号学习。',
     emailLabel: '电子邮箱',
     emailPlaceholder: 'you@example.com',
-    sendLink: '向我发送安全链接',
+    sendLink: '向我发送登录链接',
     emailHint: '无需密码。一次性链接会自动过期。',
     challenge: '请完成安全验证',
     challengeBody: 'Cloudflare 正在检查此请求。',
@@ -153,13 +162,16 @@ const COPY = Object.freeze({
     duckLine: '你的学习空间正在等你。',
     settings: '设置',
     account: '账户',
+    settingsSignedOutBody: '使用 Google 可快速登录，也可以通过电子邮箱获取安全登录链接。',
     language: '语言',
     google: '使用 Google 继续',
     emailFallback: '或使用电子邮箱',
     closeSettings: '关闭设置',
     onboardingProgress: '第 5 步，共 5 步',
+    onboardingPromise: '把 YouTube 和 Anki 转化为看得见的语言学习进步。',
     onboardingTitle: '最后一步',
     onboardingBody: '注册即可获得更个性化的 Edenia 体验。完全免费！',
+    onboardingBack: '返回',
     onboardingSkip: '暂时跳过',
     inbox: '收件箱',
     toMe: '发给我',
@@ -171,7 +183,7 @@ const COPY = Object.freeze({
     signInBody: '隨身同步學習進度，同時這個瀏覽器仍可隨時免帳號學習。',
     emailLabel: '電子郵件',
     emailPlaceholder: 'you@example.com',
-    sendLink: '傳送安全連結給我',
+    sendLink: '寄送登入連結給我',
     emailHint: '不需密碼。一次性連結會自動到期。',
     challenge: '請完成安全驗證',
     challengeBody: 'Cloudflare 正在檢查此要求。',
@@ -192,13 +204,16 @@ const COPY = Object.freeze({
     duckLine: '你的學習空間正在等你。',
     settings: '設定',
     account: '帳戶',
+    settingsSignedOutBody: '使用 Google 可快速登入，也可以透過電子郵件取得安全登入連結。',
     language: '語言',
     google: '使用 Google 繼續',
     emailFallback: '或使用電子郵件',
     closeSettings: '關閉設定',
     onboardingProgress: '第 5 步，共 5 步',
+    onboardingPromise: '把 YouTube 和 Anki 轉化為看得見的語言學習進步。',
     onboardingTitle: '最後一步',
     onboardingBody: '註冊即可獲得更個人化的 Edenia 體驗。完全免費！',
+    onboardingBack: '返回',
     onboardingSkip: '暫時略過',
     inbox: '收件匣',
     toMe: '寄給我',
@@ -230,6 +245,7 @@ function readState() {
 }
 
 let state = readState()
+let disposeConfirmationPhysics = null
 
 function duck({ className = '', decorative = false } = {}) {
   const alt = decorative ? '' : 'Edenia duck'
@@ -297,19 +313,22 @@ function authJourney(copy, activeStep, branch = '') {
   `
 }
 
-function gardenAccountAuth(copy, { onboarding = false } = {}) {
+function productionEmailForm(copy) {
   return `
-    <section class="garden-account-auth">
-      <div class="garden-account-intro">
-        ${duck({ className: 'garden-account-duck', decorative: true })}
-        <div>
-          <h2>${onboarding ? copy.onboardingTitle : copy.signIn}</h2>
-          <p>${onboarding ? copy.onboardingBody : copy.signInBody}</p>
-        </div>
-      </div>
+    <form class="auth-form production-email-form" onsubmit="return false">
+      <label>${copy.emailLabel}<input type="email" inputmode="email" autocomplete="email" placeholder="${copy.emailPlaceholder}"></label>
+      ${securityChallenge(copy)}
+      <button type="submit">${copy.sendLink}</button>
+    </form>
+  `
+}
+
+function productionProviderControls(copy) {
+  return `
+    <section class="production-account-auth">
       <button class="google-context-button" type="button"><span aria-hidden="true">G</span>${copy.google}</button>
       <div class="account-context-divider"><span>${copy.emailFallback}</span></div>
-      ${emailForm(copy)}
+      ${productionEmailForm(copy)}
     </section>
   `
 }
@@ -344,7 +363,13 @@ function settingsAccountContext(copy) {
           </section>
           <section class="settings-context-account">
             <header><strong>${copy.account}</strong><span aria-hidden="true">⌃</span></header>
-            ${gardenAccountAuth(copy)}
+            <div class="settings-production-account">
+              <div class="settings-production-intro">
+                <h2>${copy.signIn}</h2>
+                <p>${copy.settingsSignedOutBody}</p>
+              </div>
+              ${productionProviderControls(copy)}
+            </div>
           </section>
           <div class="settings-context-row"><span>Short videos</span><span aria-hidden="true">●</span></div>
           <div class="settings-context-row"><span>How to</span><span aria-hidden="true">⌄</span></div>
@@ -361,10 +386,17 @@ function onboardingAccountContext(copy) {
       <span class="onboarding-cloud cloud-two" aria-hidden="true"></span>
       <section class="onboarding-context-card">
         <header><span class="wordmark">EDENIA</span><button type="button">${state.locale === 'en' ? 'English' : state.locale}</button></header>
-        <p class="onboarding-context-promise">Turn YouTube and Anki into visible language-learning progress.</p>
+        <p class="onboarding-context-promise">${copy.onboardingPromise}</p>
         <div class="onboarding-context-progress"><span>${copy.onboardingProgress}</span><i><b></b></i></div>
-        ${gardenAccountAuth(copy, { onboarding: true })}
-        <button class="onboarding-context-skip" type="button">${copy.onboardingSkip}</button>
+        <div class="onboarding-production-heading">
+          <h2>${copy.onboardingTitle}</h2>
+          <p>${copy.onboardingBody}</p>
+        </div>
+        <div class="onboarding-production-auth">${productionProviderControls(copy)}</div>
+        <div class="onboarding-production-actions">
+          <button type="button">${copy.onboardingBack}</button>
+          <button class="onboarding-context-skip" type="button">${copy.onboardingSkip}</button>
+        </div>
       </section>
     </section>
   `
@@ -406,11 +438,10 @@ function confirmationBrowserContext(copy) {
         <div class="browser-context-tabbar"><span class="browser-dot red"></span><span class="browser-dot amber"></span><span class="browser-dot green"></span><span class="browser-tab">${duck({ decorative: true })} Edenia</span></div>
         <div class="browser-context-toolbar"><span>‹</span><span>›</span><span>↻</span><div>🔒 www.edenia.study/auth/confirm/</div><span>☆</span></div>
       </header>
-      <div class="garden-browser-page">
-        <div class="garden-sky" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="edenia-confirm-page" data-confirmation-physics-root>
+        <canvas class="confirmation-physics-canvas" data-confirmation-physics aria-hidden="true"></canvas>
         <section class="garden-card confirm-card">
           ${duck({ className: 'garden-duck', decorative: true })}
-          <span class="security-pill">✓ ${copy.secure}</span>
           <h2>${copy.confirmTitle}</h2>
           <p class="lead">${copy.confirmBody}</p>
           <button class="primary-action" type="button">${copy.confirmAction}</button>
@@ -420,13 +451,174 @@ function confirmationBrowserContext(copy) {
   `
 }
 
+function mountConfirmationPhysics() {
+  const root = stage.querySelector('[data-confirmation-physics-root]')
+  const canvas = root?.querySelector('[data-confirmation-physics]')
+  const context = canvas?.getContext('2d', { alpha: true })
+  if (!root || !canvas || !context) return null
+
+  const radius = 130
+  const particles = []
+  const activeParticles = new Set()
+  const pointer = {
+    x: -radius,
+    y: -radius,
+    vx: 0,
+    vy: 0,
+    lastX: 0,
+    lastY: 0,
+    lastEventAt: 0,
+    hasPosition: false,
+    activeUntil: 0
+  }
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  let width = 0
+  let height = 0
+  let pixelRatio = 1
+  let spacing = 20
+  let columns = 0
+  let rows = 0
+  let frame = null
+  let lastFrameAt = 0
+
+  function draw() {
+    context.setTransform(1, 0, 0, 1, 0, 0)
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0)
+    context.fillStyle = 'rgba(5, 5, 5, 0.095)'
+    context.beginPath()
+    for (const particle of particles) {
+      context.moveTo(particle.x + 1, particle.y)
+      context.arc(particle.x, particle.y, 1, 0, Math.PI * 2)
+    }
+    context.fill()
+  }
+
+  function resetParticles() {
+    const bounds = root.getBoundingClientRect()
+    width = Math.max(1, bounds.width)
+    height = Math.max(1, bounds.height)
+    pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5)
+    spacing = Math.max(18, Math.min(34, Math.sqrt((width * height) / 2600)))
+    columns = Math.ceil(width / spacing) + 1
+    rows = Math.ceil(height / spacing) + 1
+    canvas.width = Math.ceil(width * pixelRatio)
+    canvas.height = Math.ceil(height * pixelRatio)
+    particles.length = 0
+    activeParticles.clear()
+    for (let row = 0; row < rows; row += 1) {
+      for (let column = 0; column < columns; column += 1) {
+        const homeX = (column * spacing) + (spacing * 0.5)
+        const homeY = (row * spacing) + (spacing * 0.5)
+        particles.push({ homeX, homeY, x: homeX, y: homeY, vx: 0, vy: 0 })
+      }
+    }
+    draw()
+  }
+
+  function activateParticlesNearPointer() {
+    const minColumn = Math.max(0, Math.floor((pointer.x - radius) / spacing))
+    const maxColumn = Math.min(columns - 1, Math.ceil((pointer.x + radius) / spacing))
+    const minRow = Math.max(0, Math.floor((pointer.y - radius) / spacing))
+    const maxRow = Math.min(rows - 1, Math.ceil((pointer.y + radius) / spacing))
+    const radiusSquared = radius * radius
+    for (let row = minRow; row <= maxRow; row += 1) {
+      for (let column = minColumn; column <= maxColumn; column += 1) {
+        const particle = particles[(row * columns) + column]
+        if (!particle) continue
+        const dx = particle.homeX - pointer.x
+        const dy = particle.homeY - pointer.y
+        if ((dx * dx) + (dy * dy) <= radiusSquared) activeParticles.add(particle)
+      }
+    }
+  }
+
+  function tick(now) {
+    const timeStep = Math.min(2, Math.max(0.5, (now - lastFrameAt) / 16.67 || 1))
+    const pointerIsActive = now < pointer.activeUntil
+    const radiusSquared = radius * radius
+    const damping = Math.pow(0.82, timeStep)
+    lastFrameAt = now
+    pointer.vx *= Math.pow(0.72, timeStep)
+    pointer.vy *= Math.pow(0.72, timeStep)
+
+    for (const particle of activeParticles) {
+      if (pointerIsActive) {
+        const dx = particle.x - pointer.x
+        const dy = particle.y - pointer.y
+        const distanceSquared = (dx * dx) + (dy * dy)
+        if (distanceSquared < radiusSquared) {
+          const distance = Math.max(1, Math.sqrt(distanceSquared))
+          const influence = 1 - (distance / radius)
+          const push = influence * influence * 1.8 * timeStep
+          particle.vx += ((dx / distance) * push) + (pointer.vx * influence * 0.16)
+          particle.vy += ((dy / distance) * push) + (pointer.vy * influence * 0.16)
+        }
+      }
+      particle.vx = (particle.vx + ((particle.homeX - particle.x) * 0.055 * timeStep)) * damping
+      particle.vy = (particle.vy + ((particle.homeY - particle.y) * 0.055 * timeStep)) * damping
+      particle.x += particle.vx * timeStep
+      particle.y += particle.vy * timeStep
+      const distanceHome = Math.abs(particle.homeX - particle.x) + Math.abs(particle.homeY - particle.y)
+      const speed = Math.abs(particle.vx) + Math.abs(particle.vy)
+      if (!pointerIsActive && distanceHome < 0.08 && speed < 0.04) {
+        particle.x = particle.homeX
+        particle.y = particle.homeY
+        particle.vx = 0
+        particle.vy = 0
+        activeParticles.delete(particle)
+      }
+    }
+    draw()
+    frame = activeParticles.size ? window.requestAnimationFrame(tick) : null
+  }
+
+  function requestTick() {
+    if (frame !== null) return
+    lastFrameAt = performance.now()
+    frame = window.requestAnimationFrame(tick)
+  }
+
+  function handlePointerMove(event) {
+    const bounds = root.getBoundingClientRect()
+    const now = performance.now()
+    const x = event.clientX - bounds.left
+    const y = event.clientY - bounds.top
+    if (pointer.hasPosition) {
+      const elapsedFrames = Math.max(0.5, (now - pointer.lastEventAt) / 16.67)
+      pointer.vx = Math.max(-18, Math.min(18, (x - pointer.lastX) / elapsedFrames))
+      pointer.vy = Math.max(-18, Math.min(18, (y - pointer.lastY) / elapsedFrames))
+    }
+    pointer.x = x
+    pointer.y = y
+    pointer.lastX = x
+    pointer.lastY = y
+    pointer.lastEventAt = now
+    pointer.hasPosition = true
+    pointer.activeUntil = now + 90
+    activateParticlesNearPointer()
+    requestTick()
+  }
+
+  const resizeObserver = new ResizeObserver(resetParticles)
+  resizeObserver.observe(root)
+  if (!reducedMotion) root.addEventListener('pointermove', handlePointerMove, { passive: true })
+  resetParticles()
+
+  return () => {
+    resizeObserver.disconnect()
+    root.removeEventListener('pointermove', handlePointerMove)
+    if (frame !== null) window.cancelAnimationFrame(frame)
+  }
+}
+
 function gardenWelcome(copy) {
   if (state.surface === 'form') {
     return `
       <article class="direction direction-a contextual-direction surface-form">
         ${authJourney(copy, 0)}
         ${state.entry === 'onboarding' ? onboardingAccountContext(copy) : settingsAccountContext(copy)}
-        <p class="direction-caption"><strong>Step 1 · In Edenia</strong> — the compact Garden welcome treatment lives inside ${state.entry === 'onboarding' ? 'the optional final onboarding step' : 'the existing Settings → Account drawer'}.</p>
+        <p class="direction-caption"><strong>Step 1 · In Edenia</strong> — ${state.entry === 'onboarding' ? 'the optional final onboarding step' : 'Settings → Account'} keeps its production design; only the invisible Turnstile space collapses.</p>
       </article>
     `
   }
@@ -436,7 +628,7 @@ function gardenWelcome(copy) {
       <article class="direction direction-a contextual-direction surface-confirm">
         ${authJourney(copy, 2)}
         ${confirmationBrowserContext(copy)}
-        <p class="direction-caption"><strong>Step 3 · Standalone confirmation</strong> — the email opens an analytics-free Edenia page in the learner’s browser; only its button verifies the link.</p>
+        <p class="direction-caption"><strong>Step 3 · Standalone confirmation</strong> — the card sits over Edenia’s gradient and pointer-reactive particle field only; no town or channel surfaces are loaded.</p>
       </article>
     `
   }
@@ -581,6 +773,8 @@ function writeUrl() {
 
 function render() {
   const copy = COPY[state.locale]
+  disposeConfirmationPhysics?.()
+  disposeConfirmationPhysics = null
   document.documentElement.lang = state.locale
   document.body.dataset.variant = state.variant
   stage.innerHTML = state.variant === 'A'
@@ -588,6 +782,9 @@ function render() {
     : state.variant === 'B'
       ? studyPassport(copy)
       : friendlyGuide(copy)
+  if (state.variant === 'A' && state.surface === 'confirm') {
+    disposeConfirmationPhysics = mountConfirmationPhysics()
+  }
 
   document.querySelectorAll('[data-surface]').forEach(button => {
     const selected = button.dataset.surface === state.surface
