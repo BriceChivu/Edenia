@@ -1,17 +1,17 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-15T09:49:05.611Z",
+  "generatedAt": "2026-08-16T09:51:06.855Z",
   "lastRotationIndex": 1,
   "nextRotationIndex": 1,
   "rotationCount": 4,
-  "lastLanguageBatchIndex": 0,
-  "nextLanguageBatchIndex": 1,
+  "lastLanguageBatchIndex": 1,
+  "nextLanguageBatchIndex": 2,
   "languageBatchCount": 4,
   "languageBatchSize": 2,
-  "lastDiscoveryQuotaDate": "2026-08-15",
+  "lastDiscoveryQuotaDate": "2026-08-16",
   "lastDiscoveryLanguages": [
-    "french",
-    "english"
+    "german",
+    "mandarin"
   ],
   "lastSearchRequestCount": 6,
   "languages": [
@@ -556,6 +556,34 @@
       "discoveredAt": "2026-07-25T15:03:10.072Z",
       "refreshedAt": "2026-07-25T15:03:10.072Z",
       "searchText": "alg german comprehensible input alggermancomprehensibleinput german youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCIYEtDYceyJDh5anh-uvJzg",
+      "channelId": "UCIYEtDYceyJDh5anh-uvJzg",
+      "youtubeInput": "@alltagsdeutsch06",
+      "handle": "@alltagsdeutsch06",
+      "name": "Alltagsdeutsch - Learn German",
+      "thumbnailUrl": "https://yt3.ggpht.com/vCfbFDtWSopommVSqPuwhtZdWEeTk5neTx5Er7L0PJ9SacILqBzbI6EYBV1T8q7aKPpcHahWpg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🎙️ Deutsch Lernen Podcast – Your Journey from A1 to C1Willkommen! Welcome to your go-to podcast channel for mastering the German language — whether you're just starting out or polishing your fluency for C1 proficiency. This channel is your complete German learning companion, covering grammar, vocabulary, pronunciat...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-07-10T15:06:21.698561Z",
+      "subscriberCount": "109",
+      "videoCount": "50",
+      "viewCount": "10466",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 295,
+      "discoveredByQueries": [
+        "German listening practice"
+      ],
+      "discoveredAt": "2026-08-16T09:51:06.849Z",
+      "refreshedAt": "2026-08-16T09:51:06.849Z",
+      "searchText": "alltagsdeutsch learn german alltagsdeutsch06 german youtube discovery"
     },
     {
       "catalogId": "discovered-UC2jWzZAobKniymF0UpmpOqA",
@@ -1260,6 +1288,34 @@
       "searchText": "bookbox french bookboxfrench french youtube discovery"
     },
     {
+      "catalogId": "discovered-UCHEzhKyjlp60u0Kgqc_ikNA",
+      "channelId": "UCHEzhKyjlp60u0Kgqc_ikNA",
+      "youtubeInput": "@bookboxgerman",
+      "handle": "@bookboxgerman",
+      "name": "BookBox German",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_kQJzLnFLmoFY_IxO-RnNLySHgOoPjPGAaTAFSW4fWXEg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to BookBox, the land of AniBooks (animated storybooks)! AniBooks are specially designed animated stories that help in reading and language learning for children as well as adults. Our AniBooks are powered by Same Language Subtitling (SLS), which makes reading subconscious and fun. You will find that our stor...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2015-09-01T11:52:10Z",
+      "subscriberCount": "127000",
+      "videoCount": "37",
+      "viewCount": "3414041",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 234,
+      "discoveredByQueries": [
+        "German stories for learners"
+      ],
+      "discoveredAt": "2026-08-16T09:51:06.849Z",
+      "refreshedAt": "2026-08-16T09:51:06.849Z",
+      "searchText": "bookbox german bookboxgerman german youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCUDYKMnIsrksbmaLdxTFQnw",
       "channelId": "UCUDYKMnIsrksbmaLdxTFQnw",
       "youtubeInput": "@boostyourrussian",
@@ -1541,6 +1597,34 @@
       "discoveredAt": "2026-07-24T14:00:08.218Z",
       "refreshedAt": "2026-07-24T14:00:08.218Z",
       "searchText": "chinese for beginners hsk listen repeat chineseforbeginnershsk mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCL7R9X5fUE4gh-nOIxxOkBg",
+      "channelId": "UCL7R9X5fUE4gh-nOIxxOkBg",
+      "youtubeInput": "@chinesehskprepacademy",
+      "handle": "@chinesehskprepacademy",
+      "name": "Chinese HSK Prep Academy",
+      "thumbnailUrl": "https://yt3.ggpht.com/2hPUCQDJPqM-OZ4h-MB6AiWuw_APQrOFHaDzMzcaQ6WuWHB-5GaECNvsb5iE7kYoxwqTQPiTWQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Chinese HSK Prep Academy – your complete guide to mastering the HSK exam (汉语水平考试) and learning Mandarin Chinese!. Our channel is dedicated to helping learners of all levels – from beginners to advanced – prepare for the Chinese Proficiency Test (HSK) providing high-quality resources, practice material, li...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-07-14T15:51:20.035016Z",
+      "subscriberCount": "1420",
+      "videoCount": "88",
+      "viewCount": "82547",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 319,
+      "discoveredByQueries": [
+        "Mandarin listening practice"
+      ],
+      "discoveredAt": "2026-08-16T09:51:06.849Z",
+      "refreshedAt": "2026-08-16T09:51:06.849Z",
+      "searchText": "chinese hsk prep academy chinesehskprepacademy mandarin youtube discovery"
     },
     {
       "catalogId": "discovered-UCiaZLso83p29RXLyR51KYOA",
@@ -2860,6 +2944,34 @@
       "discoveredAt": "2026-07-24T14:15:42.400Z",
       "refreshedAt": "2026-07-24T14:15:42.400Z",
       "searchText": "deutsch lernen mit spaß deutschlernenmitspass y1m german youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCzKqFWHgMBaUVxPAHp5z8Ug",
+      "channelId": "UCzKqFWHgMBaUVxPAHp5z8Ug",
+      "youtubeInput": "@lernedeutschmitalex",
+      "handle": "@lernedeutschmitalex",
+      "name": "Deutsch mit Alex",
+      "thumbnailUrl": "https://yt3.ggpht.com/EkLciLDqK9QF-xsHtWX8WU0MJXX3KYlEV8fGstQGOQGXT2wnkdtYIz9dhNU33NsidI7wf9WT=s800-c-k-c0x00ffffff-no-rj",
+      "description": "#1 Source for German Conversations Through Stories. Learn German with Real-Life Conversations – Master German Through Engaging Stories. Want to learn German in a fun and natural way? You're in the right place! On this channel, we help you learn German through simple, engaging and easy-to-understand Stories. 🎯These...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-10-06T16:25:51.139362Z",
+      "subscriberCount": "15700",
+      "videoCount": "24",
+      "viewCount": "608102",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 251,
+      "discoveredByQueries": [
+        "German listening practice"
+      ],
+      "discoveredAt": "2026-08-16T09:51:06.849Z",
+      "refreshedAt": "2026-08-16T09:51:06.849Z",
+      "searchText": "deutsch mit alex lernedeutschmitalex german youtube discovery"
     },
     {
       "catalogId": "discovered-UCGJ9gQg6AKfjRmxTVS-8nzw",
@@ -5982,6 +6094,35 @@
       "searchText": "gateway to chinese gatewaytochinese8945 mandarin youtube discovery"
     },
     {
+      "catalogId": "discovered-UCmH0n9TQgTD6eXMLrEZ9SXA",
+      "channelId": "UCmH0n9TQgTD6eXMLrEZ9SXA",
+      "youtubeInput": "@germanchats-m3c",
+      "handle": "@germanchats-m3c",
+      "name": "German Chats",
+      "thumbnailUrl": "https://yt3.ggpht.com/uYThjNki9_BZ14ps2g_BJAh4ctQTAUECegj0qpu8tJix8W1mBv7EVGOvxfJ-9pa1UWyT3TxE=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Willkommen bei German Chats! Your perfect destination for learning German through real conversations and everyday dialogues. 📚 What We Offer: We help you Deutsch lernen in a fun and effective way through authentic German conversation and Deutsch Dialoge. Whether you're a beginner or advanced learner, you'll find co...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-10-02T15:47:00.958251Z",
+      "subscriberCount": "37000",
+      "videoCount": "57",
+      "viewCount": "469760",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 303,
+      "discoveredByQueries": [
+        "Deutsch Hörverstehen",
+        "German listening practice"
+      ],
+      "discoveredAt": "2026-08-16T09:51:06.849Z",
+      "refreshedAt": "2026-08-16T09:51:06.849Z",
+      "searchText": "german chats germanchats m3c german youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCP9Rk69P4XRj041bIpqUAPg",
       "channelId": "UCP9Rk69P4XRj041bIpqUAPg",
       "youtubeInput": "@germandailyconversations_1-c6e",
@@ -6008,6 +6149,34 @@
       "discoveredAt": "2026-07-27T15:11:04.329Z",
       "refreshedAt": "2026-07-27T15:11:04.329Z",
       "searchText": "german daily conversations germandailyconversations 1 c6e german youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC8kWqh4--T_B0dpKqusRsTw",
+      "channelId": "UC8kWqh4--T_B0dpKqusRsTw",
+      "youtubeInput": "@german_echo",
+      "handle": "@german_echo",
+      "name": "German Echo",
+      "thumbnailUrl": "https://yt3.ggpht.com/qO7Byngp__Q1crVt2voOICGzNFw3_NBtnGFw1CywGHGazGGoWhJkuNB2buKnhtyGC3fnQB5_rg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Willkommen auf unserem YouTube-Kanal! Hier lernst du Deutsch auf eine einfache und unterhaltsame Weise. Egal, ob du gerade erst anfängst oder bereits fortgeschritten bist – bei uns findest du spannende Inhalte für jedes Niveau. Entdecke die deutsche Sprache, erweitere dein Wissen und lerne neue Wörter und Redewendun...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-03-17T22:00:52.619913Z",
+      "subscriberCount": "695",
+      "videoCount": "34",
+      "viewCount": "19531",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 238,
+      "discoveredByQueries": [
+        "German listening practice"
+      ],
+      "discoveredAt": "2026-08-16T09:51:06.849Z",
+      "refreshedAt": "2026-08-16T09:51:06.849Z",
+      "searchText": "german echo german echo german youtube discovery"
     },
     {
       "catalogId": "discovered-UCayRmJm2M7j4G6DtAe-CTlg",
@@ -7475,6 +7644,34 @@
       "searchText": "japarrot let s learn japanese japarrot letslearnjp japanese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCFSdb93emXfOeBLO74yAciw",
+      "channelId": "UCFSdb93emXfOeBLO74yAciw",
+      "youtubeInput": "@chinesewithjingd",
+      "handle": "@chinesewithjingd",
+      "name": "Jing's story",
+      "thumbnailUrl": "https://yt3.ggpht.com/LjKgzu749qRAbN-i1iaFM2m0oEwUgX5_vl9RnpBx17B9pdzYl32m5M71Cd2uevB4aFBFbhF35g=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Nǐ hǎo! I'm Jing. Here we help you acquire Chinese naturally in a fun, relaxed atmosphere! 🚀 Ready to Level Up Your Chinese? Book a 1-on-1 Trial Lesson with me and build your personalized learning plan today! 👉 Click here to book directly: https://preply.in/JING7EN18887581 (You will be redirected to my official tu...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-06-08T09:13:42.33498Z",
+      "subscriberCount": "1470",
+      "videoCount": "71",
+      "viewCount": "42564",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 268,
+      "discoveredByQueries": [
+        "Chinese stories for learners"
+      ],
+      "discoveredAt": "2026-08-16T09:51:06.849Z",
+      "refreshedAt": "2026-08-16T09:51:06.849Z",
+      "searchText": "jing s story chinesewithjingd mandarin youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCpPemQ80aZnquPbaaMxw85A",
       "channelId": "UCpPemQ80aZnquPbaaMxw85A",
       "youtubeInput": "@realjoesema",
@@ -7982,6 +8179,34 @@
       "searchText": "learn chinese online learnchineseonline mandarin youtube discovery"
     },
     {
+      "catalogId": "discovered-UCuXRcGol8qBlOQtc403wdZA",
+      "channelId": "UCuXRcGol8qBlOQtc403wdZA",
+      "youtubeInput": "@learnchinesepronunciatio-sm6ck",
+      "handle": "@learnchinesepronunciatio-sm6ck",
+      "name": "Learn Chinese pronunciation and listening 中文口语和听力",
+      "thumbnailUrl": "https://yt3.ggpht.com/NeBPxDpEv2sp7lMyj8WybiWBz50Jy9-DJkBgrFsVQH9V-BZeg7UlomuFPz4oFzR4lkd9iNNP=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to my YouTube channel dedicated to helping you master Chinese pronunciation and listening, from beginner to advanced levels! 📚 Comprehensive Learning Materials: The video lessons cover various topics, including everyday conversations, travel essentials, and more. Each lesson empowers you to communicate effe...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-07-21T14:18:50.162528Z",
+      "subscriberCount": "135",
+      "videoCount": "26",
+      "viewCount": "7127",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 286,
+      "discoveredByQueries": [
+        "中文听力"
+      ],
+      "discoveredAt": "2026-08-16T09:51:06.849Z",
+      "refreshedAt": "2026-08-16T09:51:06.849Z",
+      "searchText": "learn chinese pronunciation and listening 中文口语和听力 learnchinesepronunciatio sm6ck mandarin youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCI8Liuxdz6UPv5rgMskfwPg",
       "channelId": "UCI8Liuxdz6UPv5rgMskfwPg",
       "youtubeInput": "@learnchinesethroughpodcast",
@@ -8037,6 +8262,34 @@
       "discoveredAt": "2026-07-24T14:15:42.400Z",
       "refreshedAt": "2026-07-24T14:15:42.400Z",
       "searchText": "learn chinese with chineseclass101 com chineseclass101 mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCKFpakSFrr06ZbLOHWYksmA",
+      "channelId": "UCKFpakSFrr06ZbLOHWYksmA",
+      "youtubeInput": "@learnchinesewithhua-8",
+      "handle": "@learnchinesewithhua-8",
+      "name": "Learn Chinese with Hua",
+      "thumbnailUrl": "https://yt3.ggpht.com/W667Ed2lF9Tzxzwq2RSwZHO9Zp0qaxABWBvHYEXGoRfkbCUzcKh4Tt7HlgCeiGcAoxajmPy-=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🇨🇳 Chinese Listening Practice for Beginners & Intermediate Learners Master Chinese with fun and easy conversations. Whether you're studying HSK, preparing for travel, or simply love learning languages, our lessons help you build confidence naturally. 🎧 Every lesson includes: ✅ Slow Chinese audio ✅ Real-life dialo...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-07-21T02:06:54.836369Z",
+      "subscriberCount": "305",
+      "videoCount": "13",
+      "viewCount": "9509",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 257,
+      "discoveredByQueries": [
+        "Mandarin listening practice"
+      ],
+      "discoveredAt": "2026-08-16T09:51:06.849Z",
+      "refreshedAt": "2026-08-16T09:51:06.849Z",
+      "searchText": "learn chinese with hua learnchinesewithhua 8 mandarin youtube discovery"
     },
     {
       "catalogId": "discovered-UCjf10tuGdICcczoW05Iqe0A",
@@ -12566,6 +12819,35 @@
       "searchText": "mandarin click mandarinclick mandarin youtube discovery"
     },
     {
+      "catalogId": "discovered-UC4jdNNIN0ks-XHAbrV4zSNQ",
+      "channelId": "UC4jdNNIN0ks-XHAbrV4zSNQ",
+      "youtubeInput": "@mandarinlearninghub",
+      "handle": "@mandarinlearninghub",
+      "name": "Mandarin Learning Hub 汉语通",
+      "thumbnailUrl": "https://yt3.ggpht.com/NM6qI6Ivb8lJCSJDLpUEeb9fGVJu311yNAcza9DWnT2p3Cb8VDPUZE-teig3sZ3KfbPDcYnWgQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "欢迎来到 Mandarin Learning Hub（汉语通）！我们希望这些视频能帮助你提升中文听力、扩大词汇量，并增强汉语表达能力。 快来订阅我们的频道，开启你的中文学习之旅吧！ 🌐📬【联系我们 Contact Us】 若有任何商务合作邀请或咨询事宜，请发送邮件至inquiry.hyt@gmail.com。 For any business collaboration invitations or inquiries, please send an email to inquiry.hyt@gmail.com. 感谢您的支持与关注！❤️ Thank you for your support and attention! ❤️",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-10-23T11:19:04.462786Z",
+      "subscriberCount": "30600",
+      "videoCount": "88",
+      "viewCount": "540133",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 281,
+      "discoveredByQueries": [
+        "Chinese stories for learners",
+        "Mandarin listening practice"
+      ],
+      "discoveredAt": "2026-08-16T09:51:06.849Z",
+      "refreshedAt": "2026-08-16T09:51:06.849Z",
+      "searchText": "mandarin learning hub 汉语通 mandarinlearninghub mandarin youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC74G8nF0GZncPg_vv8cSXkQ",
       "channelId": "UC74G8nF0GZncPg_vv8cSXkQ",
       "youtubeInput": "@mandarinmonkey",
@@ -17039,6 +17321,34 @@
       "searchText": "speak german speakgermangr german youtube discovery"
     },
     {
+      "catalogId": "discovered-UCjb-CL9BWe9g8qm393bA4dQ",
+      "channelId": "UCjb-CL9BWe9g8qm393bA4dQ",
+      "youtubeInput": "@speakgermanwithconfidencelevel",
+      "handle": "@speakgermanwithconfidencelevel",
+      "name": "Speak German with Confidence",
+      "thumbnailUrl": "https://yt3.ggpht.com/YbjWyosJcESDqoG1B_hQD0uVU1XJCDRjNHBaClU2ay93jMGS9cYPQSWtCFZCyQODmhhzIzStS9M=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Official YouTube Channel of Speak German with Confidence Prüfungsvorbereitung für Goethe Zertifikat, ÖSD, TELC usw. mit den Videos. Es gibt zahlreiche Übungen mit allen Fertigkeiten auf allen Niveau: Hören, Lesen, Schreiben, Sprechen sowie Grammatik & Wortschatz bzw. Lieder zum Mitsingen und Phonetik Tipps! Viel Spa...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-05-24T16:22:07.182237Z",
+      "subscriberCount": "33700",
+      "videoCount": "764",
+      "viewCount": "2999664",
+      "languages": [
+        "german"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 254,
+      "discoveredByQueries": [
+        "German listening practice"
+      ],
+      "discoveredAt": "2026-08-16T09:51:06.849Z",
+      "refreshedAt": "2026-08-16T09:51:06.849Z",
+      "searchText": "speak german with confidence speakgermanwithconfidencelevel german youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCsAxzbpARCGfbtPrEOeAjtA",
       "channelId": "UCsAxzbpARCGfbtPrEOeAjtA",
       "youtubeInput": "@speakjapanesewithmasumi",
@@ -19033,6 +19343,34 @@
       "discoveredAt": "2026-07-27T15:11:22.372Z",
       "refreshedAt": "2026-07-27T15:11:22.372Z",
       "searchText": "マリの日本語ホットキャスト marisjapanesepodcast japanese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCKzbkBxeFCt7UzQbJxgK1MQ",
+      "channelId": "UCKzbkBxeFCt7UzQbJxgK1MQ",
+      "youtubeInput": "@云水书声",
+      "handle": "@云水书声",
+      "name": "云水书声",
+      "thumbnailUrl": "https://yt3.ggpht.com/UZlyP787vbblcRbxYd6LGHawF7PzUgKYJThi5TxfzkdoI5337h9aXNRWMlWMS5r4nfOz5HgO=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Lili & Jiajia Chinese Learning, a warm and playful channel designed for children and beginners learning Mandarin. Through cinematic 3D stories featuring two adorable sisters, Lili (9) and Jiajia (6), we teach simple Chinese vocabulary, everyday expressions, and basic sentence patterns in a fun and natural...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2012-08-02T05:46:46Z",
+      "subscriberCount": "16700",
+      "videoCount": "129",
+      "viewCount": "1236099",
+      "languages": [
+        "mandarin"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 257,
+      "discoveredByQueries": [
+        "Chinese stories for learners"
+      ],
+      "discoveredAt": "2026-08-16T09:51:06.849Z",
+      "refreshedAt": "2026-08-16T09:51:06.849Z",
+      "searchText": "云水书声 云水书声 mandarin youtube discovery"
     },
     {
       "catalogId": "discovered-UCJIBPIZVtBSVuD0bhci415A",
