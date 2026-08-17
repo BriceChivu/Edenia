@@ -220,6 +220,9 @@ import {
   isValidStateShape,
   sanitizeConfigForStorage
 } from './state/persistence-contract.js'
+import {
+  createPortableLearnerProfileEnvelope
+} from './state/portable-learner-profile.js'
 import { createImportedStateReader } from './state/imported-state.js'
 import {
   normalizeUndoState,
@@ -5930,21 +5933,24 @@ function saveLocaleFromSettings(locale = null) {
   showToast(t('toast.localeChanged', { language: getLocaleLabel(nextLocale) }))
 }
 
-function exportSyncFile() {
+async function exportSyncFile() {
   const state = loadState()
   if (!state) {
     showToast(t('toast.nothingToSync'), 'warn')
     return
   }
 
-  const payload = {
-    app: 'edenia',
-    syncVersion: 1,
-    exportedAt: new Date().toISOString(),
-    sandbox: IS_SANDBOX,
-    state
+  let serialized
+  try {
+    const created = await createPortableLearnerProfileEnvelope(state, {
+      maxBytes: Number.MAX_SAFE_INTEGER
+    })
+    serialized = created.serialized
+  } catch {
+    showToast(t('toast.invalidSync'), 'error')
+    return
   }
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+  const blob = new Blob([serialized], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
