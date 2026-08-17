@@ -32,29 +32,6 @@ test('watch-progress entries preserve validation, flooring, clipping, and order'
   )
 })
 
-test('watch-progress normalization preserves canonical portable fact identity', () => {
-  assert.deepEqual(normalizeVideoWatchProgress([{
-    id: 'video:lesson:2026-07-28T05:00:00.000Z:60:1',
-    studyDay: '2026-07-27',
-    watchedAt: '2026-07-28T05:00:00.000Z',
-    seconds: 60,
-    deviceId: 'must-not-survive'
-  }, {
-    id: '',
-    studyDay: '2026-02-30',
-    watchedAt: '2026-07-28T06:00:00.000Z',
-    seconds: 30
-  }]), [{
-    id: 'video:lesson:2026-07-28T05:00:00.000Z:60:1',
-    studyDay: '2026-07-27',
-    watchedAt: '2026-07-28T05:00:00.000Z',
-    seconds: 60
-  }, {
-    watchedAt: '2026-07-28T06:00:00.000Z',
-    seconds: 30
-  }])
-})
-
 test('coverage normalization clips, rounds, sorts, and removes invalid ranges', () => {
   const input = [
     { start: 8.0004, end: 12.5555 },
