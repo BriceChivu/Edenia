@@ -1,17 +1,17 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-16T09:51:06.855Z",
+  "generatedAt": "2026-08-17T10:04:47.225Z",
   "lastRotationIndex": 1,
   "nextRotationIndex": 1,
   "rotationCount": 4,
-  "lastLanguageBatchIndex": 1,
-  "nextLanguageBatchIndex": 2,
+  "lastLanguageBatchIndex": 2,
+  "nextLanguageBatchIndex": 3,
   "languageBatchCount": 4,
   "languageBatchSize": 2,
-  "lastDiscoveryQuotaDate": "2026-08-16",
+  "lastDiscoveryQuotaDate": "2026-08-17",
   "lastDiscoveryLanguages": [
-    "german",
-    "mandarin"
+    "russian",
+    "spanish"
   ],
   "lastSearchRequestCount": 6,
   "languages": [
@@ -474,6 +474,35 @@
       "searchText": "advanced english conversation advancedenglishconversation english youtube discovery"
     },
     {
+      "catalogId": "discovered-UCJbAvC_nmXt0ULTOW4hiujw",
+      "channelId": "UCJbAvC_nmXt0ULTOW4hiujw",
+      "youtubeInput": "@russianclassicsforthinking",
+      "handle": "@russianclassicsforthinking",
+      "name": "Advanced Russian through Russian Literature",
+      "thumbnailUrl": "https://yt3.ggpht.com/dFERQNCbZdbs7RCkl7HRjzucV1vS7Nh4IbDcUF-Ot8qC2QCc--oBEZg9_IeWcG9OyX9Kk6T6bck=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Advanced Russian through Russian Literature Learn Russian through the masterpieces of Tolstoy, Dostoevsky, Chekhov, and other great authors. We read Russian classics in the original and explain advanced vocabulary, grammar, and cultural context—helping you improve fluency and think in Russian. Perfect for advanced l...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2013-10-26T14:52:09Z",
+      "subscriberCount": "223",
+      "videoCount": "73",
+      "viewCount": "2150",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 210,
+      "discoveredByQueries": [
+        "Russian listening practice",
+        "Russian stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "advanced russian through russian literature russianclassicsforthinking russian youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCoRm3YO7ET6E7zCzzEw3csA",
       "channelId": "UCoRm3YO7ET6E7zCzzEw3csA",
       "youtubeInput": "@advancedspanishpodcast",
@@ -921,6 +950,34 @@
       "discoveredAt": "2026-07-27T15:11:12.608Z",
       "refreshedAt": "2026-07-27T15:11:12.608Z",
       "searchText": "atik english atikenglish english youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC7IN-N_Ik8hkXRsv6TUejoA",
+      "channelId": "UC7IN-N_Ik8hkXRsv6TUejoA",
+      "youtubeInput": "@awesomerussianschool",
+      "handle": "@awesomerussianschool",
+      "name": "Awesome Russian School",
+      "thumbnailUrl": "https://yt3.ggpht.com/Ntm1jf2J9Y83lDKk833r208bmY9z3gZaWammpxorEV9u8p-UNkWC-udPFMkK-KyvM7BFIQ1g=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Awesome Russian School! Here you can learn Russian for life, study, work & travel from Beginner to Advanced level. You will also find Russian culture tips for different life situations. About Teacher My name is Lydia. I’m a professional Russian teacher, course designer, and founder of the Awesome Russian...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2016-12-10T23:09:34Z",
+      "subscriberCount": "921",
+      "videoCount": "111",
+      "viewCount": "82357",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 266,
+      "discoveredByQueries": [
+        "Russian stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "awesome russian school awesomerussianschool russian youtube discovery"
     },
     {
       "catalogId": "discovered-UCQFP1zEQhQY7pZP1yed1Rew",
@@ -1485,6 +1542,34 @@
       "searchText": "business english learn with business english pod businessenglishpod english youtube discovery"
     },
     {
+      "catalogId": "discovered-UCV4cTDKZOZ_3Q8drnUAiDlw",
+      "channelId": "UCV4cTDKZOZ_3Q8drnUAiDlw",
+      "youtubeInput": "@calicospanish",
+      "handle": "@calicospanish",
+      "name": "Calico Spanish for Kids",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_m9NizhmARsSfAx8Q8ITLmO8m_CKEMaopfA4MOp3OwxS-I=s800-c-k-c0x00ffffff-no-rj",
+      "description": "To view all of our YouTube content ad-free and to access 300+ hours of ready-to-teach lesson plans and an industry-leading resource library, check out the Calico Spanish curriculum! Curriculum subscriptions, comic book readers, student workbooks, and classroom visuals are available on our website, https://calicospan...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2009-08-06T15:51:05Z",
+      "subscriberCount": "133000",
+      "videoCount": "84",
+      "viewCount": "31310630",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 232,
+      "discoveredByQueries": [
+        "Spanish stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "calico spanish for kids calicospanish spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCtWi66npewubncfA-827PQQ",
       "channelId": "UCtWi66npewubncfA-827PQQ",
       "youtubeInput": "@calle_espanol",
@@ -2017,6 +2102,34 @@
       "discoveredAt": "2026-07-25T15:02:59.342Z",
       "refreshedAt": "2026-07-25T15:02:59.342Z",
       "searchText": "coffee break french coffeebreakfrenchofficial french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC_p25U9LyG8b_k0fedXV1NQ",
+      "channelId": "UC_p25U9LyG8b_k0fedXV1NQ",
+      "youtubeInput": "@coffeebreakspanish",
+      "handle": "@coffeebreakspanish",
+      "name": "Coffee Break Spanish",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_m-lO9Fgi_ZOU96VvtcnPHjMTuTGVa7duerIiwpwkeTEg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to the Coffee Break Spanish YouTube channel - start learning Spanish on your coffee break! We provide short Spanish lessons for learners at all stages, from beginner to advanced level. Our courses are designed to help you fit learning a language into your busy schedule; we want to make language learning the...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-04-15T10:35:59.789703Z",
+      "subscriberCount": "48400",
+      "videoCount": "257",
+      "viewCount": "1077867",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 261,
+      "discoveredByQueries": [
+        "Spanish stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "coffee break spanish coffeebreakspanish spanish youtube discovery"
     },
     {
       "catalogId": "discovered-UCEq2d4CcJo-92kjG0Uc-ZVw",
@@ -2803,6 +2916,34 @@
       "discoveredAt": "2026-07-24T14:15:51.076Z",
       "refreshedAt": "2026-07-24T14:15:51.076Z",
       "searchText": "dailynata learn european portuguese dailynata portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCnxjpEei-Rpsb-VLZDqfwhg",
+      "channelId": "UCnxjpEei-Rpsb-VLZDqfwhg",
+      "youtubeInput": "@dashaledwon",
+      "handle": "@dashaledwon",
+      "name": "Dasha Ledwon - Russian Language Room",
+      "thumbnailUrl": "https://yt3.ggpht.com/zNQZ21sXVA6dzbRX4TmISx8rhcJCSHT7dctaiKlvX3h6KUYOCEvEeYJpetkSI5tYTVhKCZFc=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Speaking mini-groups 🇷🇺 in September: Waiting List: https://forms.gle/AWCuttMpktv1Rnfz5 Here I share videos with grammar and pronunciation explanations and listening podcast with interesting stories to support your learning. My videos can be helpful for anyone studying Russian. 🎓 I’m Dasha (Daria) Ledwon, a teach...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-06-22T16:30:44.448769Z",
+      "subscriberCount": "1860",
+      "videoCount": "71",
+      "viewCount": "83744",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 289,
+      "discoveredByQueries": [
+        "Russian stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "dasha ledwon russian language room dashaledwon russian youtube discovery"
     },
     {
       "catalogId": "discovered-UCBhO5n8qZf84WDr6A8LrQqw",
@@ -6655,6 +6796,34 @@
       "searchText": "germantalks talksgerman german youtube discovery"
     },
     {
+      "catalogId": "discovered-UCafpwMF61nAOd65T3y_-XXg",
+      "channelId": "UCafpwMF61nAOd65T3y_-XXg",
+      "youtubeInput": "@getfluentinspanish",
+      "handle": "@getfluentinspanish",
+      "name": "Get Fluent in Spanish",
+      "thumbnailUrl": "https://yt3.ggpht.com/1Qn8GFMxZ1rGl8vH2wUYk3rT49xISF3TtuXHMFEU11jCRUiEqZa9V3yK14VbOnNtLvtacjMrEw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "I help motivated adults learn Spanish faster by teaching the habits, mindset, and daily routines that create real fluency. My channel focuses on practical Spanish speaking practice, listening skills, and proven techniques that help you start thinking in Spanish—not translating. Here you’ll find simple, effective met...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-03-25T23:22:04.216315Z",
+      "subscriberCount": "4850",
+      "videoCount": "157",
+      "viewCount": "217881",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 251,
+      "discoveredByQueries": [
+        "Spanish listening practice"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "get fluent in spanish getfluentinspanish spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCjqwH4NThKFA_s0eF8sGg2w",
       "channelId": "UCjqwH4NThKFA_s0eF8sGg2w",
       "youtubeInput": "@nihongaudiolounge",
@@ -6793,6 +6962,34 @@
       "discoveredAt": "2026-07-24T14:15:51.076Z",
       "refreshedAt": "2026-07-24T14:15:51.076Z",
       "searchText": "growth 日本語 nihongo p7d japanese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UChrHmNulUHipsnmA76vhScA",
+      "channelId": "UChrHmNulUHipsnmA76vhScA",
+      "youtubeInput": "@hackyourrussian4091",
+      "handle": "@hackyourrussian4091",
+      "name": "Hack Your Russian",
+      "thumbnailUrl": "https://yt3.ggpht.com/_EQzhAt7MeDrWP2Fvd47EYLNoRSEVd8w2H7soA89onod-pWgKKE8a8qq5aMm0iH6aP9uItOjTQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Are you wondering why learning Russian is so hard? \"Hack Your Russian\" channel is here to change that! Master the language naturally through immersive, high-quality authentic content and unique animated stories. Discover our exclusive Russian Animated Stories series (including a simplified adaptation of Leo Tolstoy'...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-05-26T08:35:59.439079Z",
+      "subscriberCount": "16400",
+      "videoCount": "86",
+      "viewCount": "785191",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 217,
+      "discoveredByQueries": [
+        "Russian stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "hack your russian hackyourrussian4091 russian youtube discovery"
     },
     {
       "catalogId": "discovered-UCjV9n7XvEstg8L2r0HTbZnA",
@@ -11948,6 +12145,34 @@
       "searchText": "learn spanish with us learnspanishwithus l5n spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UCm9d1s3H6AHBQkBcS1-RSQQ",
+      "channelId": "UCm9d1s3H6AHBQkBcS1-RSQQ",
+      "youtubeInput": "@esponvideo",
+      "handle": "@esponvideo",
+      "name": "Learn Spanish with Valeria",
+      "thumbnailUrl": "https://yt3.ggpht.com/fsAwtEH4AvSHK0wQUDHxBV0Jm5mU1QEgHjAIE0K6I7YQyGF-dn_GXzNHNhNCuQ1iClsunpH2=s800-c-k-c0x00ffffff-no-rj",
+      "description": "I create practical Spanish lessons and materials for learners and teachers who want real results, not just theory. This channel is for you if you: • are learning Spanish and want to build real confidence • teach Spanish and are looking for clear, ready-to-use resources • prefer practical, structured content you can...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2014-08-09T15:16:18Z",
+      "subscriberCount": "58700",
+      "videoCount": "224",
+      "viewCount": "5031050",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 279,
+      "discoveredByQueries": [
+        "Spanish stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "learn spanish with valeria esponvideo spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC5B9ci_IO3AMHqGsifkHMJQ",
       "channelId": "UC5B9ci_IO3AMHqGsifkHMJQ",
       "youtubeInput": "@learnspanishworld",
@@ -12226,6 +12451,34 @@
       "discoveredAt": "2026-07-27T15:11:22.372Z",
       "refreshedAt": "2026-07-27T15:11:22.372Z",
       "searchText": "let s learn german lets learngerman german youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCX9K0Ja8J9iGVhCv6L736tg",
+      "channelId": "UCX9K0Ja8J9iGVhCv6L736tg",
+      "youtubeInput": "@letslearnspanish",
+      "handle": "@letslearnspanish",
+      "name": "Let's Learn Spanish!",
+      "thumbnailUrl": "https://yt3.ggpht.com/G7iyFgmIOjdIzho02fFozv76E28lDNxCuJZZmTaWq-E6TumfFQdlzFfh0mKeukRQNFFWoVPf=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Bienvenidos a Let's Learn Spanish, where your spanish learning journey begins! Here you will learn grammar, vocabulary, listening and a lot of useful phrases for everyday which will help you to communicate confidently from the start! We hope you find this channel useful, please let us know what you think on the comm...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2014-05-11T20:37:17Z",
+      "subscriberCount": "11200",
+      "videoCount": "310",
+      "viewCount": "666530",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 264,
+      "discoveredByQueries": [
+        "Spanish listening practice"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "let s learn spanish letslearnspanish spanish youtube discovery"
     },
     {
       "catalogId": "discovered-UCdFm8fzxLAM0aiSxe6dFJcw",
@@ -15576,6 +15829,34 @@
       "searchText": "russian shadowing russianshadowing russian youtube discovery"
     },
     {
+      "catalogId": "discovered-UCGLigZhKS9klwu0scogWEbQ",
+      "channelId": "UCGLigZhKS9klwu0scogWEbQ",
+      "youtubeInput": "@russianstorytime",
+      "handle": "@russianstorytime",
+      "name": "Russian Storytime",
+      "thumbnailUrl": "https://yt3.ggpht.com/M3HwrMeghxr-rmIGHhjSPHU6rCRC33Un4Jk4uJC-ipvRNjEqSjJGTJ03BkM77vqvQcT6PQi5Ng=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn Russian through stories - from A1 to C1! 390+ listening and reading lessons by a certiﬁed Russian teacher and textbook author. Simple stories, natural vocabulary, real comprehension. New videos every week. These videos are helpful for anyone who wants to: • improve listening • read and understand Russian more...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2012-04-15T19:51:57Z",
+      "subscriberCount": "4820",
+      "videoCount": "432",
+      "viewCount": "320170",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 225,
+      "discoveredByQueries": [
+        "Russian stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "russian storytime russianstorytime russian youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCqS35kRvVh8Bmw4P5kYJlUw",
       "channelId": "UCqS35kRvVh8Bmw4P5kYJlUw",
       "youtubeInput": "@russiantutor",
@@ -17573,6 +17854,34 @@
       "searchText": "speaking brazilian language school speakingbrazilian portuguese youtube discovery"
     },
     {
+      "catalogId": "discovered-UC37JHj6DZCqIe9iYNikKjUg",
+      "channelId": "UC37JHj6DZCqIe9iYNikKjUg",
+      "youtubeInput": "@speakingspanish5",
+      "handle": "@speakingspanish5",
+      "name": "Speaking Spanish",
+      "thumbnailUrl": "https://yt3.ggpht.com/7AvalT0exFpHNn7iqeKWt6ZzHYXKW8iKyZHtqJwkdIgEvIXaDQEfwSyJGafhBKKN_jZ_d-0l=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Are you ready to learn Spanish naturally, without the stress of boring grammar rules or confusing textbooks? You are in the right place! Hosted by Sofía and Luis, Speaking Spanish is a Spanish learning podcast designed specifically for absolute beginners and intermediate learners (A1-A2 levels). We believe the best...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-04-01T11:37:33.449998Z",
+      "subscriberCount": "349",
+      "videoCount": "25",
+      "viewCount": "7538",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 249,
+      "discoveredByQueries": [
+        "Spanish listening practice"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "speaking spanish speakingspanish5 spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCYMZtHTIoVvuWR-ZYOKtRKA",
       "channelId": "UCYMZtHTIoVvuWR-ZYOKtRKA",
       "youtubeInput": "@specialjapaneselanguageacademy",
@@ -18189,6 +18498,34 @@
       "discoveredAt": "2026-07-24T14:16:02.265Z",
       "refreshedAt": "2026-07-24T14:16:02.265Z",
       "searchText": "tell me in spanish tellmeinspanisheng spanish youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCc7kmJqwaRvr-EAsuhtl_0A",
+      "channelId": "UCc7kmJqwaRvr-EAsuhtl_0A",
+      "youtubeInput": "@theartoflanguages",
+      "handle": "@theartoflanguages",
+      "name": "The Art Of Languages",
+      "thumbnailUrl": "https://yt3.ggpht.com/6NgT2umVZPlKlNAEZREYCEFs2INi3kG7huRRbX8PT_4PPFtCckontyD-OSS5nLsObFFcxPjtAVo=s800-c-k-c0x00ffffff-no-rj",
+      "description": "1-1 online lessons with teachers from Russia https://www.art-of-russian.com Book a free 45-min trial lesson! Key Benefits of our school: - Personalized 60-min lessons - Audio and video with every lesson - All materials provided - Daily flashcards (Anki app) - Flexible rescheduling - Easy cancellations with refunds f...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-04-21T00:16:53.451756Z",
+      "subscriberCount": "2410",
+      "videoCount": "338",
+      "viewCount": "412963",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 222,
+      "discoveredByQueries": [
+        "Russian listening practice"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "the art of languages theartoflanguages russian youtube discovery"
     },
     {
       "catalogId": "discovered-UCHA3-2eXx_GuFnbMegtekJg",
