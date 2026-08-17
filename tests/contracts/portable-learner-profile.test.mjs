@@ -353,8 +353,8 @@ test('portable normalization is deterministic across nonsemantic source order', 
 
   assert.equal(rightExport.serialized, leftExport.serialized)
   assert.equal(
-    rightExport.envelope.integrity.profileSha256,
-    leftExport.envelope.integrity.profileSha256
+    rightExport.envelope.integrity.payloadSha256,
+    leftExport.envelope.integrity.payloadSha256
   )
 })
 
@@ -364,12 +364,23 @@ test('verification rejects noncanonical, tampered, unsupported, or oversized dat
   })
   const tampered = structuredClone(created.envelope)
   tampered.profile.anki['2026-08-15'].reviewed = 999
+  const exportedAtTampered = structuredClone(created.envelope)
+  exportedAtTampered.exportedAt = '2026-08-18T00:00:00.000Z'
   const unsupported = structuredClone(created.envelope)
   unsupported.version += 1
   const widened = { ...created.envelope, unexpected: true }
-  const before = structuredClone({ tampered, unsupported, widened })
+  const before = structuredClone({
+    exportedAtTampered,
+    tampered,
+    unsupported,
+    widened
+  })
 
   assert.equal(await verifyPortableLearnerProfileEnvelope(tampered), null)
+  assert.equal(
+    await verifyPortableLearnerProfileEnvelope(exportedAtTampered),
+    null
+  )
   assert.equal(await verifyPortableLearnerProfileEnvelope(unsupported), null)
   assert.equal(await verifyPortableLearnerProfileEnvelope(widened), null)
   assert.equal(
@@ -384,7 +395,12 @@ test('verification rejects noncanonical, tampered, unsupported, or oversized dat
     }),
     null
   )
-  assert.deepEqual({ tampered, unsupported, widened }, before)
+  assert.deepEqual({
+    exportedAtTampered,
+    tampered,
+    unsupported,
+    widened
+  }, before)
 
   const source = durableState()
   const sourceBefore = structuredClone(source)

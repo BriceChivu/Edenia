@@ -502,6 +502,10 @@ function serializeWithByteLength(envelope) {
   throw new TypeError('Portable learner profile byte length did not settle')
 }
 
+function createIntegrityPayload({ exportedAt, profile, schema, version }) {
+  return { exportedAt, profile, schema, version }
+}
+
 export async function createPortableLearnerProfileEnvelope(
   state,
   {
@@ -516,12 +520,13 @@ export async function createPortableLearnerProfileEnvelope(
   if (!exportedAt) {
     throw new TypeError('Portable learner profile export time is invalid')
   }
-  const profileSha256 = await sha256Base64Url(
-    canonicalizeJson({
+  const payloadSha256 = await sha256Base64Url(
+    canonicalizeJson(createIntegrityPayload({
+      exportedAt,
       profile,
       schema: PORTABLE_LEARNER_PROFILE_SCHEMA,
       version: PORTABLE_LEARNER_PROFILE_VERSION
-    }),
+    })),
     cryptoLike
   )
   const envelope = {
@@ -529,7 +534,7 @@ export async function createPortableLearnerProfileEnvelope(
     integrity: {
       algorithm: 'SHA-256',
       byteLength: 0,
-      profileSha256
+      payloadSha256
     },
     profile,
     schema: PORTABLE_LEARNER_PROFILE_SCHEMA,
@@ -572,12 +577,12 @@ export async function verifyPortableLearnerProfileEnvelope(
       || !hasExactKeys(envelope.integrity, [
         'algorithm',
         'byteLength',
-        'profileSha256'
+        'payloadSha256'
       ])
       || envelope.integrity.algorithm !== 'SHA-256'
       || !Number.isSafeInteger(envelope.integrity.byteLength)
       || envelope.integrity.byteLength < 1
-      || !SHA256_BASE64URL_PATTERN.test(envelope.integrity.profileSha256)
+      || !SHA256_BASE64URL_PATTERN.test(envelope.integrity.payloadSha256)
       || !isCanonicalProfile(envelope.profile)
     ) return null
 
@@ -589,15 +594,11 @@ export async function verifyPortableLearnerProfileEnvelope(
       || byteLength > maxBytes
     ) return null
 
-    const profileSha256 = await sha256Base64Url(
-      canonicalizeJson({
-        profile: envelope.profile,
-        schema: envelope.schema,
-        version: envelope.version
-      }),
+    const payloadSha256 = await sha256Base64Url(
+      canonicalizeJson(createIntegrityPayload(envelope)),
       cryptoLike
     )
-    return profileSha256 === envelope.integrity.profileSha256
+    return payloadSha256 === envelope.integrity.payloadSha256
       ? JSON.parse(serialized)
       : null
   } catch {
