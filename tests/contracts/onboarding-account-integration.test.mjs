@@ -26,10 +26,10 @@ test('Account onboarding is appended only through the existing account gate', ()
   )
 })
 
-test('Account onboarding reuses auth methods and preserves an OAuth draft', () => {
+test('Account onboarding reuses same-device email auth and preserves its draft', () => {
   assert.match(
     appSource,
-    /bindOnboardingAccountActions\(content, \{\s*signInWithGoogle: signInAccountWithGoogle,\s*sendMagicLink: sendOnboardingAccountMagicLink\s*\}\)/
+    /bindOnboardingAccountActions\(content, \{\s*requestEmailCode: requestOnboardingAccountEmailCode,\s*verifyEmailCode: verifyAccountEmailCode\s*\}\)/
   )
   assert.match(
     appSource,
@@ -37,15 +37,13 @@ test('Account onboarding reuses auth methods and preserves an OAuth draft', () =
   )
   assert.match(
     appSource,
-    /function sendOnboardingAccountMagicLink\(email, form = null\) \{\s*personalizedOnboardingState\.accountEmail = String\(email \|\| ''\)\s*return sendAccountMagicLink\(email, form\)/
+    /function requestOnboardingAccountEmailCode\(email, form = null\) \{\s*personalizedOnboardingState\.accountEmail = String\(email \|\| ''\)\s*return requestAccountEmailCode\(email, form\)/
   )
 })
 
-test('Account onboarding keeps the requested button hierarchy and omits local-progress copy', () => {
-  assert.match(
-    appSource,
-    /class="btn-primary account-auth-google onboarding-account-google"/
-  )
+test('Account onboarding uses the official Google mount and accessible code entry', () => {
+  assert.match(appSource, /data-google-identity-button/)
+  assert.doesNotMatch(appSource, /account-auth-google-mark/)
   assert.match(
     appSource,
     /class="btn-secondary onboarding-account-email-button"/
@@ -54,11 +52,15 @@ test('Account onboarding keeps the requested button hierarchy and omits local-pr
     appSource,
     /Your current study progress stays in this browser/
   )
-  assert.match(
-    styleSource,
-    /\.account-auth-google \{[\s\S]*background: linear-gradient\(90deg, var\(--planet-cyan\), var\(--planet-lime\)\);/
-  )
+  assert.doesNotMatch(styleSource, /\.account-auth-google(?:-mark)?\b/)
+  assert.match(styleSource, /\.account-google-identity-button\s*\{/)
   assert.match(appSource, /class="account-auth-email-input" id="onboardingAccountEmail"/)
+  assert.match(
+    appSource,
+    /id="onboardingAccountEmailCode"[^>]*inputmode="numeric"[^>]*autocomplete="one-time-code"[^>]*maxlength="6"/
+  )
   assert.match(appSource, /btn-ghost onboarding-account-skip/)
+  assert.match(appSource, /onboarding-account-email-form ph-no-capture/)
+  assert.match(appSource, /onboarding-account-code-form ph-no-capture/)
   assert.doesNotMatch(styleSource, /onboarding-account-local-note/)
 })

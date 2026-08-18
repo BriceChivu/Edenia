@@ -11,6 +11,10 @@ const runtimeConfig = `window.EDENIA_CONFIG = {
   supabaseUrl: 'https://account-ui-test.supabase.co',
   supabasePublishableKey: 'test-publishable-key'
 }`
+const googleRuntimeConfig = runtimeConfig.replace(
+  "accountFeaturesRollout: 'internal',",
+  "accountFeaturesRollout: 'internal',\n  googleIdentityClientId: '1234567890-test.apps.googleusercontent.com',\n  googleSignInMode: 'id_token',"
+)
 const disabledRuntimeConfig = runtimeConfig.replace(
   "accountFeaturesRollout: 'internal'",
   "accountFeaturesRollout: 'off'"
@@ -136,12 +140,44 @@ async function readLocalStudyEvidence(page) {
   })
 }
 
+async function installGoogleButtonMock(page) {
+  await page.addInitScript(() => {
+    const labels = {
+      en: 'Continue with Google',
+      es: 'Continuar con Google',
+      fr: 'Continuer avec Google',
+      'zh-CN': '使用 Google 继续',
+      'zh-TW': '使用 Google 繼續'
+    }
+    window.google = {
+      accounts: {
+        id: {
+          initialize() {},
+          renderButton(element, options) {
+            const button = document.createElement('button')
+            button.type = 'button'
+            const label = labels[options.locale] || labels.en
+            button.textContent = label
+            button.setAttribute('aria-label', label)
+            element.replaceChildren(button)
+          }
+        }
+      }
+    }
+  })
+}
+
 test('internal Account settings are localized and responsive without exposing public mode', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(![
+    'desktop-standard',
+    'phone-small',
+    'tablet-portrait'
+  ].includes(testInfo.project.name))
+  await installGoogleButtonMock(page)
   await page.route('**/config.local.js', route => route.fulfill({
-    body: runtimeConfig,
+    body: googleRuntimeConfig,
     contentType: 'text/javascript',
     status: 200
   }))
@@ -165,7 +201,9 @@ test('internal Account settings are localized and responsive without exposing pu
     )
     const googleButton = account.getByRole('button', { name: googleLabel })
     await expect(googleButton).toBeEnabled()
-    await expect(googleButton).toHaveCSS('background-image', /linear-gradient/)
+    await expect(page.locator('#accountGoogleIdentityButton')).toHaveClass(
+      /\baccount-google-identity-button\b/
+    )
     await expect(page.locator('#accountEmail')).toHaveCSS('border-radius', '10px')
     await expect(page.locator('.settings-account-reminders')).toBeHidden()
     await expect(page.locator('#accountExportBtn')).toHaveCount(0)

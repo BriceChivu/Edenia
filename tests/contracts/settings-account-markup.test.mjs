@@ -17,12 +17,23 @@ test('Settings contains one generic internal Account surface', () => {
     html,
     /class="settings-accordion-content settings-account-content" id="accountSettingsContent"/
   )
-  assert.match(html, /data-account-action="google"/)
+  assert.match(
+    html,
+    /data-google-identity-button[^>]*data-google-identity-surface="settings"/
+  )
+  assert.doesNotMatch(html, /data-account-action="google"/)
   assert.match(html, /data-account-action="email-form"/)
+  assert.match(html, /settings-account-signed-out hidden ph-no-capture/)
   assert.match(
     html,
     /id="accountEmail"[^>]*type="email"[^>]*autocomplete="email"/
   )
+  assert.match(html, /data-account-action="code-form"/)
+  assert.match(
+    html,
+    /id="accountEmailCode"[^>]*inputmode="numeric"[^>]*autocomplete="one-time-code"[^>]*maxlength="6"/
+  )
+  assert.match(html, /Sign in or create your account/)
   assert.match(
     html,
     /class="btn-secondary settings-account-sign-out"[^>]*data-account-action="sign-out"/

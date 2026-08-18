@@ -166,6 +166,14 @@ export function createTurnstileController({
     try {
       widgetId = api.render(element, {
         appearance: 'interaction-only',
+        'after-interactive-callback'() {
+          if (destroyed || mounts.get(element) !== record) return
+          publish(record.token ? 'ready' : 'pending', element)
+        },
+        'before-interactive-callback'() {
+          if (destroyed || mounts.get(element) !== record) return
+          publish('interactive', element)
+        },
         callback(token) {
           if (destroyed || mounts.get(element) !== record) return
           const normalizedToken = String(token || '').trim()

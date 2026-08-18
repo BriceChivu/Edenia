@@ -1,16 +1,14 @@
 import { expect, test } from '../support/network-fixture.mjs'
 
 const SUPABASE_ORIGIN = 'https://account-ui-test.supabase.co'
-const PRODUCTION_ORIGIN = 'https://www.edenia.study'
 const LOCAL_ORIGIN = 'http://localhost:8000'
 const AUTHENTICATED_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
 
-function runtimeConfig({ oneTap = false, turnstile = true } = {}) {
+function runtimeConfig() {
   return `window.EDENIA_CONFIG = ${JSON.stringify({
     accountFeaturesRollout: 'internal',
     freePlusEnabled: false,
     googleIdentityClientId: '1234567890-test.apps.googleusercontent.com',
-    googleOneTapEnabled: oneTap,
     googleSignInMode: 'id_token',
     indexedDbBackupCleanupEnabled: false,
     indexedDbBackupsEnabled: false,
@@ -18,7 +16,7 @@ function runtimeConfig({ oneTap = false, turnstile = true } = {}) {
     studyGuidanceEnabled: false,
     supabasePublishableKey: 'test-publishable-key',
     supabaseUrl: SUPABASE_ORIGIN,
-    turnstileSiteKey: turnstile ? '1x00000000000000000000AA' : '',
+    turnstileSiteKey: '1x00000000000000000000AA',
     youtubeApiKey: ''
   })}`
 }
@@ -33,7 +31,7 @@ function fakeAccessToken(userId) {
   })}.test-signature`
 }
 
-function authenticatedSession() {
+function authenticatedSession(provider = 'google') {
   return {
     access_token: fakeAccessToken(AUTHENTICATED_USER_ID),
     expires_at: 1893456000,
@@ -41,7 +39,7 @@ function authenticatedSession() {
     refresh_token: 'test-refresh-token',
     token_type: 'bearer',
     user: {
-      app_metadata: { provider: 'google', providers: ['google'] },
+      app_metadata: { provider, providers: [provider] },
       aud: 'authenticated',
       created_at: '2026-08-01T00:00:00.000Z',
       email: 'learner@example.com',
@@ -57,13 +55,10 @@ async function installProviderMocks(page) {
   await page.addInitScript(() => {
     const tracker = {
       google: {
-        autoSelectDisabled: false,
-        cancelCount: 0,
         configurations: [],
-        disableAutoSelectCount: 0,
-        promptCount: 0,
         renderOptions: []
       },
+      posthogCapture: [],
       posthogIdentify: [],
       turnstile: {
         configurations: {},
@@ -75,32 +70,15 @@ async function installProviderMocks(page) {
     window.__edeniaAuthE2e = tracker
 
     let activeGoogleConfiguration = null
-    tracker.google.triggerAutomaticCredential = () => {
-      if (tracker.google.autoSelectDisabled) return false
-      activeGoogleConfiguration?.callback?.({
-        credential: 'mock-google-id-token'
-      })
-      return true
-    }
     window.google = {
       accounts: {
         id: {
-          cancel() {
-            tracker.google.cancelCount += 1
-          },
-          disableAutoSelect() {
-            tracker.google.autoSelectDisabled = true
-            tracker.google.disableAutoSelectCount += 1
-          },
           initialize(configuration) {
             activeGoogleConfiguration = configuration
             tracker.google.configurations.push({
               autoSelect: configuration.auto_select,
               nonce: configuration.nonce
             })
-          },
-          prompt() {
-            tracker.google.promptCount += 1
           },
           renderButton(element, options) {
             tracker.google.renderOptions.push({ ...options })
@@ -139,7 +117,7 @@ async function installProviderMocks(page) {
 
     window.posthog = {
       __loaded: true,
-      capture() {},
+      capture(...args) { tracker.posthogCapture.push(args) },
       get_session_replay_url() { return null },
       identify(userId, properties) {
         tracker.posthogIdentify.push([userId, { ...properties }])
@@ -164,6 +142,10 @@ async function stubSupabase(page, requests) {
       await route.fulfill({ json: authenticatedSession(), status: 200 })
       return
     }
+    if (url.pathname === '/auth/v1/verify') {
+      await route.fulfill({ json: authenticatedSession('email'), status: 200 })
+      return
+    }
     if (url.pathname === '/auth/v1/logout') {
       await route.fulfill({ body: '', status: 204 })
       return
@@ -173,15 +155,6 @@ async function stubSupabase(page, requests) {
       return
     }
     await route.fulfill({ json: [], status: 200 })
-  })
-}
-
-async function proxyProductionOrigin(page) {
-  await page.route(`${PRODUCTION_ORIGIN}/**`, async route => {
-    const requested = new URL(route.request().url())
-    const localUrl = `${LOCAL_ORIGIN}${requested.pathname}${requested.search}`
-    const response = await route.fetch({ url: localUrl })
-    await route.fulfill({ response })
   })
 }
 
@@ -209,10 +182,14 @@ async function seedStudyState(page, { setupCompleted, walkthroughCompleted }) {
   })
 }
 
-test('official Google and Turnstile flows preserve local study data', async ({
+test('official Google and same-device email-code flows preserve local study data', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(![
+    'desktop-standard',
+    'phone-small',
+    'tablet-portrait'
+  ].includes(testInfo.project.name))
   await installProviderMocks(page)
   const requests = []
   await stubSupabase(page, requests)
@@ -236,7 +213,9 @@ test('official Google and Turnstile flows preserve local study data', async ({
     '#accountGoogleIdentityButton button'
   )
   await expect(officialGoogleButton).toBeVisible()
-  await expect(page.locator('#accountGoogleBtn')).toBeHidden()
+  expect(await page.evaluate(() => (
+    'prompt' in window.google.accounts.id
+  ))).toBe(false)
   await officialGoogleButton.click()
 
   await expect(page.locator('.settings-account-toggle')).toHaveAttribute(
@@ -261,17 +240,43 @@ test('official Google and Turnstile flows preserve local study data', async ({
 
   await page.locator('#accountSignOutBtn').click()
   await expect(page.locator('#accountSignedOut')).toBeVisible()
-  await expect.poll(() => page.evaluate(() => (
-    window.__edeniaAuthE2e.google.disableAutoSelectCount
-  ))).toBe(1)
+  expect(await page.evaluate(() => (
+    window.__edeniaAuthE2e.google.configurations.at(-1).autoSelect
+  ))).toBe(false)
 
   const emailInput = page.locator('#accountEmail')
   const emailButton = page.locator('#accountEmailBtn')
   await expect(emailButton).toBeEnabled()
+  const collapsedGap = await page.locator('.settings-account-email-form').evaluate(
+    form => {
+      const input = form.querySelector('input').getBoundingClientRect()
+      const button = form.querySelector('button').getBoundingClientRect()
+      return button.top - input.bottom
+    }
+  )
+  expect(collapsedGap).toBeLessThanOrEqual(12)
+  await page.evaluate(() => {
+    window.__edeniaAuthE2e.turnstile.configurations[1][
+      'before-interactive-callback'
+    ]()
+  })
+  const interactiveGap = await page.locator('.settings-account-email-form').evaluate(
+    form => {
+      const input = form.querySelector('input').getBoundingClientRect()
+      const button = form.querySelector('button').getBoundingClientRect()
+      return button.top - input.bottom
+    }
+  )
+  expect(interactiveGap).toBeGreaterThan(collapsedGap)
+  await page.evaluate(() => {
+    window.__edeniaAuthE2e.turnstile.configurations[1][
+      'after-interactive-callback'
+    ]()
+  })
   await emailInput.fill('LEARNER@EXAMPLE.COM')
-  await emailButton.click()
+  await emailInput.press('Enter')
   await expect(page.getByText(
-    'Check your email for the secure sign-in link.'
+    'Enter the six-digit code sent to your email.'
   )).toBeVisible()
   const otpRequest = requests.find(request => request.path === '/auth/v1/otp')
   expect(otpRequest.body).toMatchObject({
@@ -282,92 +287,27 @@ test('official Google and Turnstile flows preserve local study data', async ({
   await expect.poll(() => page.evaluate(() => (
     window.__edeniaAuthE2e.turnstile.resetCount
   ))).toBe(1)
-  expect(await page.evaluate(() => (
-    localStorage.getItem('edenia_v1_internal_test')
-  ))).toBe(studyStateBefore)
-})
-
-test('One Tap waits for both onboarding milestones and sign-out suppresses auto-select', async ({
-  page
-}, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
-  await installProviderMocks(page)
-  await proxyProductionOrigin(page)
-  const requests = []
-  await stubSupabase(page, requests)
-  await page.route('**/config.local.js', route => route.fulfill({
-    body: runtimeConfig({ oneTap: true, turnstile: false }),
-    contentType: 'text/javascript',
-    status: 200
-  }))
-
-  const internalUrl = `${PRODUCTION_ORIGIN}/?internal_test=1`
-  await page.goto(internalUrl)
-  await seedStudyState(page, {
-    setupCompleted: false,
-    walkthroughCompleted: false
+  const codeInput = page.locator('#accountEmailCode')
+  await expect(codeInput).toBeVisible()
+  await expect(codeInput).toHaveAttribute('autocomplete', 'one-time-code')
+  await codeInput.fill('123456')
+  await codeInput.press('Enter')
+  const verifyRequest = requests.find(request => request.path === '/auth/v1/verify')
+  expect(verifyRequest.body).toMatchObject({
+    email: 'learner@example.com',
+    token: '123456',
+    type: 'email'
   })
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.waitForTimeout(100)
-  expect(await page.evaluate(() => (
-    window.__edeniaAuthE2e.google.promptCount
-  ))).toBe(0)
-
-  await seedStudyState(page, {
-    setupCompleted: true,
-    walkthroughCompleted: false
-  })
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.waitForTimeout(100)
-  expect(await page.evaluate(() => (
-    window.__edeniaAuthE2e.google.promptCount
-  ))).toBe(0)
-
-  await seedStudyState(page, {
-    setupCompleted: true,
-    walkthroughCompleted: true
-  })
-  await page.reload({ waitUntil: 'domcontentloaded' })
-  await expect.poll(() => page.evaluate(() => (
-    window.__edeniaAuthE2e.google.promptCount
-  ))).toBe(1)
-  const eligibleConfiguration = await page.evaluate(() => (
-    window.__edeniaAuthE2e.google.configurations.at(-1)
-  ))
-  expect(eligibleConfiguration.autoSelect).toBe(true)
-  const studyStateBefore = await page.evaluate(() => (
-    localStorage.getItem('edenia_v1_internal_test')
-  ))
-
-  expect(await page.evaluate(() => (
-    window.__edeniaAuthE2e.google.triggerAutomaticCredential()
-  ))).toBe(true)
-  await expect.poll(() => page.evaluate(() => (
-    window.__edeniaAuthE2e.posthogIdentify.at(-1)
-  ))).toEqual([
-    AUTHENTICATED_USER_ID,
-    { auth_method: 'google', email: 'learner@example.com' }
-  ])
-  expect(await page.evaluate(() => (
-    localStorage.getItem('edenia_v1_internal_test')
-  ))).toBe(studyStateBefore)
-  await expect(page).toHaveURL(new RegExp(`^${PRODUCTION_ORIGIN.replaceAll('.', '\\.')}/`))
-
-  await page.goto(`${PRODUCTION_ORIGIN}/?internal_test=1&account=1`)
-  await expect(page.locator('.settings-account-toggle')).toHaveAttribute(
-    'aria-expanded',
-    'false'
-  )
   await page.locator('.settings-account-toggle').click()
   await expect(page.locator('#accountSignedIn')).toBeVisible()
-  await page.locator('#accountSignOutBtn').click()
-  await expect(page.locator('#accountSignedOut')).toBeVisible()
-  await expect.poll(() => page.evaluate(() => (
-    window.__edeniaAuthE2e.google.disableAutoSelectCount
-  ))).toBe(1)
-  await page.waitForTimeout(100)
-  await expect(page.locator('#accountSignedOut')).toBeVisible()
   expect(await page.evaluate(() => (
     localStorage.getItem('edenia_v1_internal_test')
   ))).toBe(studyStateBefore)
+  const analyticsPayload = await page.evaluate(() => JSON.stringify({
+    capture: window.__edeniaAuthE2e.posthogCapture,
+    identify: window.__edeniaAuthE2e.posthogIdentify
+  }))
+  expect(analyticsPayload).not.toContain('123456')
+  expect(analyticsPayload).not.toContain('mock-google-id-token')
+  expect(analyticsPayload).not.toContain('mock-turnstile-token')
 })

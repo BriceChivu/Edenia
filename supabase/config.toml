@@ -7,14 +7,12 @@ additional_redirect_urls = [
   "https://bricechivu.github.io/Edenia/?internal_test=1&account=1",
   "http://localhost:8000/?internal_test=1&account=1",
   "https://www.edenia.study/?internal_test=1&account=1",
-  "https://www.edenia.study/auth/confirm/",
-  "http://localhost:8000/auth/confirm/",
 ]
 
 [auth.email]
 enable_confirmations = true
 max_frequency = "1m"
-otp_length = 8
+otp_length = 6
 
 [auth.mfa.totp]
 enroll_enabled = true

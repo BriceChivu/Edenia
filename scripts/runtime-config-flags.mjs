@@ -10,7 +10,6 @@ const ACCOUNT_FEATURE_ROLLOUT_VALUES = new Set(
 )
 const GOOGLE_SIGN_IN_MODES = new Set([
   'off',
-  'oauth_redirect',
   'id_token'
 ])
 const SUPABASE_PUBLISHABLE_KEY_PATTERN =
@@ -34,9 +33,9 @@ export function parseRuntimeConfigRollout(value, name) {
 
 export function parseGoogleSignInMode(value, name) {
   const normalizedValue = String(value || '').trim().toLowerCase()
-  if (!normalizedValue) return 'oauth_redirect'
+  if (!normalizedValue) return 'id_token'
   if (GOOGLE_SIGN_IN_MODES.has(normalizedValue)) return normalizedValue
-  throw new Error(`${name} must be off, oauth_redirect, or id_token`)
+  throw new Error(`${name} must be off or id_token`)
 }
 
 export function parseGoogleIdentityClientId(value, name) {

@@ -6,7 +6,7 @@
     <title>Sign in to Edenia</title>
   </head>
   <body style="margin:0;background:#f3f0e8;color:#18352b;font-family:Arial,Helvetica,sans-serif;">
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your secure Edenia sign-in link.</div>
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your six-digit Edenia sign-in code.</div>
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f0e8;padding:32px 16px;">
       <tr>
         <td align="center">
@@ -15,11 +15,9 @@
               <td style="padding:36px;">
                 <p style="margin:0 0 24px;color:#2d6a4f;font-size:14px;font-weight:700;letter-spacing:0.16em;">EDENIA</p>
                 <h1 style="margin:0 0 16px;color:#18352b;font-size:28px;line-height:1.2;">Sign in to Edenia</h1>
-                <p style="margin:0 0 24px;color:#455d54;font-size:16px;line-height:1.6;">Open the secure confirmation page, then select <strong>Continue to Edenia</strong> to finish signing in.</p>
-                <p style="margin:0 0 28px;">
-                  <a href="https://www.edenia.study/auth/confirm/#token_hash={{ .TokenHash }}&amp;type=email" style="display:inline-block;background:#2d6a4f;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;line-height:1;padding:15px 22px;border-radius:10px;">Open Edenia sign-in</a>
-                </p>
-                <p style="margin:0;color:#6b7772;font-size:13px;line-height:1.6;">If you did not request this email, you can safely ignore it. This one-time link expires automatically.</p>
+                <p style="margin:0 0 18px;color:#455d54;font-size:16px;line-height:1.6;">Enter this six-digit code on the Edenia device where you requested it:</p>
+                <p style="margin:0 0 28px;color:#18352b;font-size:34px;font-weight:700;letter-spacing:0.22em;line-height:1;">{{ .Token }}</p>
+                <p style="margin:0;color:#6b7772;font-size:13px;line-height:1.6;">If you did not request this email, you can safely ignore it. This one-time code expires automatically.</p>
               </td>
             </tr>
           </table>

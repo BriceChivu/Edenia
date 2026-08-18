@@ -8,16 +8,15 @@ It is deliberately written for the system that exists now.
 - The account interface is available only when
   `EDENIA_ACCOUNT_FEATURES_ROLLOUT=internal` and the visitor uses
   `/?internal_test=1`.
-- The deployed internal canary uses Google Identity Services ID-token exchange,
-  post-onboarding One Tap, Turnstile-protected email links, dedicated custom
-  SMTP, and the branded scanner-resistant template. The ordinary public route
-  remains accountless. Google transport, One Tap, CAPTCHA, and the complete
-  account surface retain independent rollback controls.
-- The standalone `/auth/confirm/` page is analytics-free, scrubs its token-hash
-  fragment before unrelated work, and requires a deliberate confirmation
-  action. It reads no local study state.
-- After an OAuth callback, the controller confirms the shared client session
-  before it publishes signed-in state to protected-data consumers. The
+- The internal account source uses Google Identity Services ID-token exchange,
+  Turnstile-protected same-device email codes, dedicated custom SMTP, and a
+  branded six-digit-code template. The ordinary public route remains
+  accountless. Google, CAPTCHA, and the complete account surface retain
+  independent rollback controls.
+- There is no One Tap, automatic account selection, custom Google button,
+  magic-link confirmation, or standalone `/auth/confirm/` route.
+- After an authentication callback, the controller confirms the shared client
+  session before it publishes signed-in state to protected-data consumers. The
   production acceptance test must not use **Try loading again** to make the
   first reminder-preference read succeed.
 - An authenticated user can save only their own `reminder_preferences` row.
@@ -81,8 +80,7 @@ inert client capability and confirm these non-secret settings:
 
 ```text
 EDENIA_ACCOUNT_FEATURES_ROLLOUT=internal
-EDENIA_GOOGLE_SIGN_IN_MODE=oauth_redirect or off
-EDENIA_GOOGLE_ONE_TAP_ENABLED=false
+EDENIA_GOOGLE_SIGN_IN_MODE=off
 Supabase Auth CAPTCHA=disabled
 reminder_delivery_enabled=false
 ```
@@ -97,31 +95,33 @@ Activate in this order:
    `Edenia` and `accounts@mail.edenia.study`, and do not modify the reminder
    send-only credential.
 3. Supabase email template: install the reviewed
-   `supabase/templates/magic_link.html` source and use only the branded Edenia
-   fragment URL documented in `docs/account-authentication.md`; verify HTML and
-   plain text contain no opaque project reference while CAPTCHA is still
-   disabled.
+   `supabase/templates/magic_link.html` source; verify it renders only the
+   six-digit `{{ .Token }}`, contains no link or token hash, and exposes no
+   opaque project reference while CAPTCHA is still disabled.
 4. Turnstile: create a Free widget restricted to `www.edenia.study` and the
    approved local host, deploy the public site key, verify explicit rendering
    and one-use token forwarding, then store the secret only in Supabase Auth.
 5. CAPTCHA and GIS: enable CAPTCHA and immediately prove missing-token email
    rejection, valid-token email success, token replay rejection, official
-   Google button sign-in, and eligible One Tap. If Google breaks, disable
-   CAPTCHA before investigating.
-6. Internal runtime: set Google mode to `id_token` and One Tap to `true` without
+   Google button sign-in, and same-device code verification. If email breaks,
+   disable CAPTCHA before investigating.
+6. Internal runtime: set Google mode to `id_token` without
    changing the account rollout from `internal`.
 
 All messages during this canary go only to an already approved internal test
-address. Never record the complete address, ID token, nonce, magic-link token,
+address. Never record the complete address, ID token, nonce, email code,
 Turnstile token, session cookie, SMTP password, or provider secret in Git,
 terminal output, PR text, or this runbook.
 
-The switch-off rehearsal is also ordered: One Tap off, Google legacy or off,
-CAPTCHA off if required, then account rollout off. At each stage ordinary study
+The switch-off rehearsal is also ordered: Google off, CAPTCHA off if required,
+then account rollout off. At each stage ordinary study
 must remain usable and the public root must remain accountless. Restore the
 intended internal state only after the rehearsal passes.
 
-### Provider canary evidence (2026-08-15)
+### Historical link-flow canary evidence (2026-08-15)
+
+This evidence records the retired magic-link and One Tap flow. It is retained
+for audit history and is not the current acceptance procedure after issue #179.
 
 - Provider setup completed on Free plans. The Supabase project remained Free;
   Resend's Free allowance was 3,000 transactional messages per month and 100
@@ -795,9 +795,10 @@ queue indexes based on an unused-index INFO notice during the manual rollout.
 
 - Subscription-aware account deletion, retention choices, and recovery after
   partial deletion.
-- Email-change and identity-linking behavior across Google, magic link and
+- Email-change and identity-linking behavior across Google, email OTP and
   existing Plus accounts.
-- CAPTCHA client integration and a deliberate magic-link rate-limit decision.
+- A deliberate email-code rate-limit decision beyond the current browser
+  cooldown and provider quotas.
 - Google consent-screen publication, branding, privacy/terms URLs and domain
   verification outside the repository.
 

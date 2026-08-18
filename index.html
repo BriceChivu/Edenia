@@ -332,23 +332,24 @@ and momentum—at a glance</h2>
         <div class="settings-accordion-content settings-account-content" id="accountSettingsContent">
           <p class="settings-account-loading" id="accountLoading" role="status" aria-live="polite" data-i18n="settings.account.status.loading">Checking your account…</p>
 
-          <div class="settings-account-signed-out hidden" id="accountSignedOut">
+          <div class="settings-account-signed-out hidden ph-no-capture" id="accountSignedOut">
             <div class="settings-account-intro">
-              <h3 data-i18n="settings.account.signedOutTitle">Sign in to Edenia</h3>
-              <p data-i18n="settings.account.signedOutBody">Use Google for the quickest sign-in, or get a secure link by email.</p>
+              <h3 data-i18n="settings.account.signedOutTitle">Sign in or create your account</h3>
+              <p data-i18n="settings.account.signedOutBody">Use Google, or request a six-digit code by email.</p>
             </div>
             <div class="account-google-identity-button hidden" id="accountGoogleIdentityButton" data-google-identity-button data-google-identity-surface="settings"></div>
-            <button class="btn-primary account-auth-google settings-account-google hidden" id="accountGoogleBtn" type="button" data-account-action="google">
-              <span class="account-auth-google-mark" aria-hidden="true">G</span>
-              <span data-i18n="settings.account.google">Continue with Google</span>
-            </button>
             <div class="settings-account-divider" id="accountEmailDivider"><span data-i18n="settings.account.emailFallback">Or use email</span></div>
             <form class="settings-account-email-form" data-account-action="email-form" novalidate>
               <label for="accountEmail" data-i18n="settings.account.emailLabel">Email address</label>
               <input class="account-auth-email-input" id="accountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-i18n-placeholder="settings.account.emailPlaceholder" placeholder="you@example.com">
               <div class="account-turnstile hidden" id="accountTurnstile" data-turnstile-widget></div>
               <p class="account-turnstile-status hidden" id="accountTurnstileStatus" data-turnstile-status role="status" aria-live="polite"></p>
-              <button class="btn-secondary" id="accountEmailBtn" type="submit" data-i18n="settings.account.sendLink">Email me a sign-in link</button>
+              <button class="btn-secondary" id="accountEmailBtn" type="submit" data-i18n="settings.account.requestCode">Email me a code</button>
+            </form>
+            <form class="settings-account-code-form hidden" id="accountEmailCodeForm" data-account-action="code-form" novalidate>
+              <label for="accountEmailCode" data-i18n="settings.account.codeLabel">Six-digit code</label>
+              <input class="account-auth-email-input account-auth-code-input" id="accountEmailCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" data-i18n-placeholder="settings.account.codePlaceholder" placeholder="123456">
+              <button class="btn-primary" id="accountEmailCodeBtn" type="submit" data-i18n="settings.account.verifyCode">Verify code</button>
             </form>
           </div>
 

@@ -21,10 +21,6 @@ test('build emits the stable public entrypoint contract', async () => {
     'unsubscribe/index.html',
     'unsubscribe/style.css',
     'unsubscribe/unsubscribe.js',
-    'auth/confirm/index.html',
-    'auth/confirm/style.css',
-    'auth/confirm/fragment-scrubber.js',
-    'auth/confirm/confirm.js',
     'Edenia_favicon_round.png',
     'assets/audio/intro-trailer-rainy-10pm.mp4',
     'assets/fonts/space-grotesk-latin.woff2',
@@ -46,37 +42,16 @@ test('build emits the stable public entrypoint contract', async () => {
   ])
 })
 
-test('build emits a scanner-resistant standalone auth confirmation page', async () => {
-  const html = await readFile(
-    new URL('auth/confirm/index.html', siteRoot),
-    'utf8'
+test('build has no dedicated email-auth confirmation route', async () => {
+  await assert.rejects(
+    stat(new URL('auth/confirm/index.html', siteRoot)),
+    error => error?.code === 'ENOENT'
   )
-  const styleMatch = html.match(/style\.css\?v=([^"'&\s>]+)/)
-  const scrubberMatch = html.match(
-    /fragment-scrubber\.js\?v=([^"'&\s>]+)/
-  )
-  const scriptMatch = html.match(/confirm\.js\?v=([^"'&\s>]+)/)
-  assert.ok(styleMatch)
-  assert.ok(scrubberMatch)
-  assert.ok(scriptMatch)
-  assert.equal(styleMatch[1], scrubberMatch[1])
-  assert.equal(styleMatch[1], scriptMatch[1])
-  assert.ok(html.indexOf('fragment-scrubber.js?') < html.indexOf('confirm.js?'))
-  assert.ok(html.indexOf('confirm.js?') < html.indexOf('../../config.local.js'))
-  assert.match(html, /connect-src 'none'/)
-  assert.doesNotMatch(html, /__EDENIA_AUTH_CONFIRM_CONNECT_SRC__/)
-  assert.doesNotMatch(html, /analytics\.js|app\.js|posthog/i)
-
   const buildSource = await readFile(
     new URL('scripts/build-site.mjs', projectRoot),
     'utf8'
   )
-  assert.match(buildSource, /return url\.origin/)
-  assert.match(buildSource, /\^\[a-z0-9-\]\+\\\.supabase\\\.co\$/)
-  assert.doesNotMatch(
-    buildSource,
-    /connect-src https:\/\/\*\.supabase\.co/
-  )
+  assert.doesNotMatch(buildSource, /auth[\s_-]*confirm|auth\/confirm/iu)
 })
 
 test('build emits a versioned standalone unsubscribe page', async () => {
@@ -130,8 +105,8 @@ test('test build contains empty public keys and safe release defaults', async ()
   assert.match(source, /"freePlusEnabled": false/)
   assert.match(source, /"plusCheckoutEnabled": false/)
   assert.match(source, /"accountFeaturesRollout": "off"/)
-  assert.match(source, /"googleSignInMode": "oauth_redirect"/)
-  assert.match(source, /"googleOneTapEnabled": false/)
+  assert.match(source, /"googleSignInMode": "id_token"/)
+  assert.doesNotMatch(source, /googleOneTapEnabled/)
   assert.match(source, /"googleIdentityClientId": ""/)
   assert.match(source, /"turnstileSiteKey": ""/)
   assert.match(source, /"videoOrganizationEnabled": true/)
@@ -170,10 +145,7 @@ test('Pages deployment retires permanent feature inputs and forwards remaining c
     workflow,
     /EDENIA_GOOGLE_SIGN_IN_MODE: \$\{\{ vars\.EDENIA_GOOGLE_SIGN_IN_MODE \}\}/
   )
-  assert.match(
-    workflow,
-    /EDENIA_GOOGLE_ONE_TAP_ENABLED: \$\{\{ vars\.EDENIA_GOOGLE_ONE_TAP_ENABLED \}\}/
-  )
+  assert.doesNotMatch(workflow, /EDENIA_GOOGLE_ONE_TAP_ENABLED/)
   assert.match(
     workflow,
     /EDENIA_GOOGLE_IDENTITY_CLIENT_ID: \$\{\{ vars\.EDENIA_GOOGLE_IDENTITY_CLIENT_ID \}\}/

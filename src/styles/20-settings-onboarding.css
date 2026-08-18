@@ -450,7 +450,6 @@ body.onboarding-active .toast { z-index: 320; }
   gap: 12px;
   padding: 16px;
 }
-.account-auth-google,
 .onboarding-account-email-button {
   align-items: center;
   display: inline-flex;
@@ -469,31 +468,6 @@ body.onboarding-active .toast { z-index: 320; }
 .account-google-identity-button > div {
   max-width: 100%;
 }
-.account-auth-google {
-  background: linear-gradient(90deg, var(--planet-cyan), var(--planet-lime));
-  color: var(--planet-black);
-  gap: 9px;
-}
-.account-auth-google:hover {
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--planet-cyan) 82%, var(--planet-white)),
-    color-mix(in srgb, var(--planet-lime) 82%, var(--planet-white))
-  );
-}
-.account-auth-google-mark {
-  align-items: center;
-  background: #fff;
-  border-radius: 50%;
-  color: #4285f4;
-  display: inline-flex;
-  font-family: Arial, sans-serif;
-  font-size: 0.78rem;
-  font-weight: 800;
-  height: 20px;
-  justify-content: center;
-  width: 20px;
-}
 .onboarding-account-divider {
   align-items: center;
   color: var(--muted);
@@ -507,11 +481,14 @@ body.onboarding-active .toast { z-index: 320; }
   border-top: 1px solid var(--border);
   content: '';
 }
-.onboarding-account-email-form {
+.onboarding-account-email-form,
+.onboarding-account-code-form {
   display: grid;
   gap: 8px;
+  position: relative;
 }
-.onboarding-account-email-form label {
+.onboarding-account-email-form label,
+.onboarding-account-code-form label {
   color: var(--text);
   font-size: 0.85rem;
   font-weight: 700;
@@ -530,9 +507,16 @@ body.onboarding-active .toast { z-index: 320; }
   border-color: var(--accent);
 }
 .account-turnstile {
-  min-height: 65px;
+  height: 0;
+  min-height: 0;
   overflow: hidden;
+  position: absolute;
   width: 100%;
+}
+.account-turnstile.account-turnstile-interactive {
+  height: auto;
+  overflow: visible;
+  position: static;
 }
 .account-turnstile-status {
   color: var(--muted);
@@ -543,9 +527,16 @@ body.onboarding-active .toast { z-index: 320; }
 .account-turnstile-status[data-turnstile-tone="error"] {
   color: var(--error);
 }
-.onboarding-account-email-form input {
+.onboarding-account-email-form input,
+.onboarding-account-code-form input,
+.onboarding-account-code-form button {
   min-height: 44px;
   width: 100%;
+}
+.account-auth-code-input {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.24em;
+  text-align: center;
 }
 .onboarding-account-skip {
   background: transparent;
@@ -681,12 +672,6 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   display: grid;
   gap: 12px;
 }
-.settings-account-google {
-  align-items: center;
-  display: inline-flex;
-  justify-content: center;
-  width: 100%;
-}
 .settings-account-divider {
   align-items: center;
   color: var(--muted);
@@ -700,11 +685,15 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   border-top: 1px solid var(--border);
   content: '';
 }
-.settings-account-email-form {
+.settings-account-email-form,
+.settings-account-code-form {
   display: grid;
   gap: 8px;
+  position: relative;
 }
-.settings-account-email-form input {
+.settings-account-email-form input,
+.settings-account-code-form input,
+.settings-account-code-form button {
   min-height: 44px;
 }
 .settings-account-identity {

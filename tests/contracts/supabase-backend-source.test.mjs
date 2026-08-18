@@ -58,14 +58,11 @@ test('production Auth config preserves exact returns and Free-plan safeguards', 
     config,
     /\[auth\][\s\S]*?site_url = "https:\/\/www\.edenia\.study\/"/
   )
-  assert.match(
-    config,
-    /additional_redirect_urls = \[[\s\S]*?"https:\/\/www\.edenia\.study\/auth\/confirm\/"[\s\S]*?"http:\/\/localhost:8000\/auth\/confirm\/"[\s\S]*?\]/
-  )
+  assert.doesNotMatch(config, /auth\/confirm/)
   assert.doesNotMatch(config, /additional_redirect_urls = \[[^\]]*\*/)
   assert.match(
     config,
-    /\[auth\.email\][\s\S]*?enable_confirmations = true[\s\S]*?max_frequency = "1m"[\s\S]*?otp_length = 8/
+    /\[auth\.email\][\s\S]*?enable_confirmations = true[\s\S]*?max_frequency = "1m"[\s\S]*?otp_length = 6/
   )
   assert.match(
     config,
@@ -75,20 +72,20 @@ test('production Auth config preserves exact returns and Free-plan safeguards', 
   assert.doesNotMatch(config, /site_url = "http:|https:\/\/127\.0\.0\.1:3000/)
 })
 
-test('versioned magic-link template stays branded and scanner-resistant', async () => {
+test('versioned email template renders one branded six-digit code', async () => {
   const template = await readFile(
     new URL('supabase/templates/magic_link.html', projectRoot),
     'utf8'
   )
 
   assert.match(template, /<title>Sign in to Edenia<\/title>/)
-  assert.match(
+  assert.match(template, />\{\{ \.Token \}\}</)
+  assert.match(template, /six-digit code/i)
+  assert.doesNotMatch(
     template,
-    /https:\/\/www\.edenia\.study\/auth\/confirm\/#token_hash=\{\{ \.TokenHash \}\}&amp;type=email/
+    /ConfirmationURL|TokenHash|auth\/confirm|supabase\.co|essddsmidqigxwhuzlgo/i
   )
-  assert.match(template, /Continue to Edenia/)
-  assert.doesNotMatch(template, /ConfirmationURL|supabase\.co|essddsmidqigxwhuzlgo/i)
-  assert.doesNotMatch(template, /<script|<form|<img|http:\/\//i)
+  assert.doesNotMatch(template, /<script|<form|<img|<a\b|https?:\/\//i)
 })
 
 test('applied Supabase migrations preserve their exact identities and bytes', async () => {

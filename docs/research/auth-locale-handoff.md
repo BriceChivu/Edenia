@@ -1,5 +1,9 @@
 # Safe locale handoff for Edenia email authentication
 
+> Superseded by issue #179. Edenia now uses same-device six-digit email codes,
+> so this magic-link locale-handoff research is retained only as historical
+> evidence and must not guide the current implementation.
+
 Date: 2026-08-15
 
 ## Decision

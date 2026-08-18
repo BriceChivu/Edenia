@@ -6,24 +6,15 @@ export function bindOnboardingAccountActions(root, actions) {
   }
   if (
     !actions
-    || typeof actions.signInWithGoogle !== 'function'
-    || typeof actions.sendMagicLink !== 'function'
+    || typeof actions.requestEmailCode !== 'function'
+    || typeof actions.verifyEmailCode !== 'function'
   ) {
     throw new TypeError(
-      'Onboarding account actions require Google and email callbacks'
+      'Onboarding account actions require email callbacks'
     )
   }
 
   let installedCount = 0
-  const googleControl = root.querySelector(
-    '[data-onboarding-account-action="google"]'
-  )
-  if (googleControl && !boundControls.has(googleControl)) {
-    googleControl.addEventListener('click', () => actions.signInWithGoogle())
-    boundControls.add(googleControl)
-    installedCount += 1
-  }
-
   const emailForm = root.querySelector(
     '[data-onboarding-account-action="email-form"]'
   )
@@ -33,9 +24,24 @@ export function bindOnboardingAccountActions(root, actions) {
   if (emailForm && emailInput && !boundControls.has(emailForm)) {
     emailForm.addEventListener('submit', event => {
       event.preventDefault()
-      actions.sendMagicLink(emailInput.value, emailForm)
+      actions.requestEmailCode(emailInput.value, emailForm)
     })
     boundControls.add(emailForm)
+    installedCount += 1
+  }
+
+  const codeForm = root.querySelector(
+    '[data-onboarding-account-action="code-form"]'
+  )
+  const codeInput = codeForm?.querySelector(
+    '[data-onboarding-account-code]'
+  )
+  if (codeForm && codeInput && !boundControls.has(codeForm)) {
+    codeForm.addEventListener('submit', event => {
+      event.preventDefault()
+      actions.verifyEmailCode(codeInput.value)
+    })
+    boundControls.add(codeForm)
     installedCount += 1
   }
 
