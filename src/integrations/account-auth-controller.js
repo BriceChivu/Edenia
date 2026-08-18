@@ -47,6 +47,7 @@ const OAUTH_ERROR_PARAMS = Object.freeze([
 const CAPTCHA_TOKEN_MAX_LENGTH = 2048
 const EMAIL_CODE_COOLDOWN_MS = 60_000
 const EMAIL_CODE_PATTERN = /^\d{6}$/u
+const EMAIL_LOCALES = new Set(['en', 'es', 'fr', 'zh-Hans', 'zh-Hant'])
 const EMAIL_AUTH_METHODS = new Set([
   'email',
   'email/signup',
@@ -58,6 +59,11 @@ function normalizeEmail(value) {
   const email = String(value || '').trim().toLowerCase()
   if (!email || email.length > 254 || !EMAIL_PATTERN.test(email)) return null
   return email
+}
+
+function normalizeEmailLocale(value) {
+  const locale = String(value || '').trim()
+  return EMAIL_LOCALES.has(locale) ? locale : 'en'
 }
 
 function normalizeEmailCode(value) {
@@ -373,7 +379,7 @@ export function createAccountAuthController({
 
   async function requestEmailCode(
     value,
-    { captchaRequired = false, captchaToken = '' } = {}
+    { captchaRequired = false, captchaToken = '', locale = 'en' } = {}
   ) {
     const email = normalizeEmail(value)
     if (!email) {
@@ -386,6 +392,7 @@ export function createAccountAuthController({
     }
     if (!requireAllowedLocation()) return false
     const normalizedCaptchaToken = String(captchaToken || '').trim()
+    const normalizedLocale = normalizeEmailLocale(locale)
     if (captchaRequired && !normalizedCaptchaToken) {
       publish({
         busyAction: null,
@@ -419,6 +426,7 @@ export function createAccountAuthController({
       result = await client.auth.signInWithOtp({
         email,
         options: {
+          data: { edenia_auth_locale: normalizedLocale },
           shouldCreateUser: true,
           ...(normalizedCaptchaToken
             ? { captchaToken: normalizedCaptchaToken }

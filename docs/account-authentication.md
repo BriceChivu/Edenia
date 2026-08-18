@@ -45,6 +45,12 @@ Supabase, ignores duplicate or stale callbacks, and creates a fresh opportunity
 after failure. It never calls `prompt()`, enables auto-selection, or renders a
 custom imitation of Google's button.
 
+Google's official button exposes a successful credential callback but no
+popup-cancellation callback. Closing that provider-owned UI therefore leaves
+Edenia safely signed out without a fabricated error. The controller still
+scrubs and safely maps a legacy OAuth cancellation fragment if an old callback
+URL is opened during the transition.
+
 Neither the ID token nor nonce is decoded, logged, persisted by Edenia, placed
 in analytics, or exposed to view state. The official button may appear in
 Settings and the optional final onboarding step. The classic GIS script is
@@ -59,12 +65,19 @@ and requests the code without any redirect destination:
 ```js
 client.auth.signInWithOtp({
   email,
-  options: { captchaToken, shouldCreateUser: true }
+  options: {
+    captchaToken,
+    data: { edenia_auth_locale: locale },
+    shouldCreateUser: true
+  }
 })
 ```
 
 After a successful request, the normalized address remains only in controller
 memory for the pending verification and a one-minute resend cooldown begins.
+The locale is normalized to one of the five supported UI locales and is stored
+only as an untrusted email-presentation hint in Supabase user metadata. It is
+never application-facing identity or learner-profile authority.
 The six-digit code is verified on the same device:
 
 ```js
@@ -78,7 +91,9 @@ to a new address and its **Magic Link** template to an existing address. The
 versioned `supabase/templates/confirmation.html` and
 `supabase/templates/magic_link.html` sources both render `{{ .Token }}` as
 plain text and must not contain `{{ .ConfirmationURL }}`, `{{ .TokenHash }}`,
-a link, or a Supabase project hostname.
+a link, or a Supabase project hostname. Both sources select one of the five
+localized copies from the bounded hint and show a multilingual fallback when
+an older account has no hint.
 
 Invalid, expired, rate-limited, offline, and provider-failure results map to
 safe localized feedback. The code and provider response details never enter

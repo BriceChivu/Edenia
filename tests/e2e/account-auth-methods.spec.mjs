@@ -281,6 +281,7 @@ test('official Google and same-device email-code flows preserve local study data
   const otpRequest = requests.find(request => request.path === '/auth/v1/otp')
   expect(otpRequest.body).toMatchObject({
     create_user: true,
+    data: { edenia_auth_locale: 'en' },
     email: 'learner@example.com',
     gotrue_meta_security: { captcha_token: 'mock-turnstile-token' }
   })

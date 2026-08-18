@@ -39,6 +39,10 @@ test('Account onboarding reuses same-device email auth and preserves its draft',
     appSource,
     /function requestOnboardingAccountEmailCode\(email, form = null\) \{\s*personalizedOnboardingState\.accountEmail = String\(email \|\| ''\)\s*return requestAccountEmailCode\(email, form\)/
   )
+  assert.match(
+    appSource,
+    /accountAuthController\.requestEmailCode\(email, \{\s*captchaRequired: TURNSTILE_READY,\s*captchaToken,\s*locale: getCurrentLocale\(\)\s*\}\)/
+  )
 })
 
 test('Account onboarding uses the official Google mount and accessible code entry', () => {

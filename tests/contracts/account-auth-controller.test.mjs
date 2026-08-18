@@ -481,14 +481,17 @@ test('Google ID-token failures expose one safe error and no credential details',
   )
 })
 
-test('email sign-in requests a same-device six-digit code without a redirect', async () => {
+test('email sign-in requests a localized same-device code without a redirect', async () => {
   const clientHarness = createClient()
   const harness = createHarness(clientHarness, {
     href: 'http://localhost:8000/?internal_test=1'
   })
 
   assert.equal(
-    await harness.controller.requestEmailCode('  Learner@Example.COM  '),
+    await harness.controller.requestEmailCode(
+      '  Learner@Example.COM  ',
+      { locale: 'fr' }
+    ),
     true
   )
   assert.deepEqual(clientHarness.calls, [[
@@ -496,6 +499,7 @@ test('email sign-in requests a same-device six-digit code without a redirect', a
     {
       email: 'learner@example.com',
       options: {
+        data: { edenia_auth_locale: 'fr' },
         shouldCreateUser: true
       }
     }
@@ -523,6 +527,7 @@ test('email-code requests forward one bounded CAPTCHA token and enforce cooldown
       email: 'learner@example.com',
       options: {
         captchaToken: 'turnstile-token',
+        data: { edenia_auth_locale: 'en' },
         shouldCreateUser: true
       }
     }
@@ -564,7 +569,10 @@ test('six-digit email verification signs in without exposing the code or session
   assert.deepEqual(clientHarness.calls, [
     ['signInWithOtp', {
       email: 'learner@example.com',
-      options: { shouldCreateUser: true }
+      options: {
+        data: { edenia_auth_locale: 'en' },
+        shouldCreateUser: true
+      }
     }],
     ['verifyOtp', {
       email: 'learner@example.com',

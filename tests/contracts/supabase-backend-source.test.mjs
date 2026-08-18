@@ -79,15 +79,28 @@ test('new and existing users receive the same branded six-digit code', async () 
   )
   const templateFiles = ['confirmation.html', 'magic_link.html']
 
+  const templates = []
   for (const templateFile of templateFiles) {
     const template = await readFile(
       new URL(`supabase/templates/${templateFile}`, projectRoot),
       'utf8'
     )
+    templates.push(template)
 
-    assert.match(template, /<title>Sign in to Edenia<\/title>/, templateFile)
+    assert.match(template, /<title>Edenia<\/title>/, templateFile)
     assert.match(template, />\{\{ \.Token \}\}</, templateFile)
     assert.match(template, /six-digit code/i, templateFile)
+    for (const locale of ['en', 'es', 'fr', 'zh-Hans', 'zh-Hant']) {
+      assert.match(
+        template,
+        new RegExp(`\\.Data\\.edenia_auth_locale "${locale}"`),
+        `${templateFile}:${locale}`
+      )
+    }
+    assert.match(template, /código de seis dígitos/i, templateFile)
+    assert.match(template, /code à six chiffres/i, templateFile)
+    assert.match(template, /六位数验证码/, templateFile)
+    assert.match(template, /六位數驗證碼/, templateFile)
     assert.doesNotMatch(
       template,
       /ConfirmationURL|TokenHash|auth\/confirm|supabase\.co|essddsmidqigxwhuzlgo/i,
@@ -99,6 +112,7 @@ test('new and existing users receive the same branded six-digit code', async () 
       templateFile
     )
   }
+  assert.equal(templates[0], templates[1])
 
   assert.match(
     config,
@@ -107,6 +121,10 @@ test('new and existing users receive the same branded six-digit code', async () 
   assert.match(
     config,
     /\[auth\.email\.template\.magic_link\][\s\S]*?content_path = "\.\/supabase\/templates\/magic_link\.html"/
+  )
+  assert.equal(
+    config.match(/subject = .*edenia_auth_locale.*$/gm)?.length,
+    2
   )
 })
 

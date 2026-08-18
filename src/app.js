@@ -5529,7 +5529,8 @@ async function requestAccountEmailCode(email, form = null) {
   try {
     return await accountAuthController.requestEmailCode(email, {
       captchaRequired: TURNSTILE_READY,
-      captchaToken
+      captchaToken,
+      locale: getCurrentLocale()
     })
   } finally {
     if (turnstileController && turnstileElement) {

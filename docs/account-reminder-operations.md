@@ -98,7 +98,8 @@ Activate in this order:
    `supabase/templates/confirmation.html` source into **Confirm signup** and
    `supabase/templates/magic_link.html` into **Magic Link**. Verify both render
    only the six-digit `{{ .Token }}`, contain no link or token hash, and expose
-   no opaque project reference while CAPTCHA is still disabled.
+   no opaque project reference while CAPTCHA is still disabled. Preview all
+   five bounded locale variants plus the multilingual legacy-account fallback.
 4. Turnstile: create a Free widget restricted to `www.edenia.study` and the
    approved local host, deploy the public site key, verify explicit rendering
    and one-use token forwarding, then store the secret only in Supabase Auth.
@@ -613,6 +614,14 @@ Verify these transitions, then delete the fixture:
   acceptance coverage.
 - The Google Cloud consent screen remains restricted to test users. That is
   suitable for internal testing, not public launch.
+- Google's official button exposes no supported popup-cancellation callback.
+  Closing the provider UI safely leaves Edenia signed out, but cancellation-
+  specific app feedback requires an accepted platform exception or a future
+  supported GIS signal; do not infer it from focus or timeout heuristics.
+- Hosted Supabase Auth has not yet produced sanitized evidence that CAPTCHA
+  rejects both a missing token and a replayed token for this code flow. Keep
+  the account rollout internal until the activation canary records those
+  server outcomes without recording either token.
 - Resend transport, the verified sender domain, and real signed production
   callbacks have been observed. A genuine tagged reminder, one-click
   unsubscribe, bounce, complaint, and provider-suppression event have not yet
