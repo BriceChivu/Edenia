@@ -48,6 +48,10 @@ test('Account onboarding uses the official Google mount and accessible code entr
     appSource,
     /class="btn-secondary onboarding-account-email-button"/
   )
+  assert.match(
+    appSource,
+    /class="btn-secondary onboarding-account-email-button"[^>]*data-analytics-action="onboardingAccountEmail"/
+  )
   assert.doesNotMatch(
     appSource,
     /Your current study progress stays in this browser/
@@ -58,6 +62,10 @@ test('Account onboarding uses the official Google mount and accessible code entr
   assert.match(
     appSource,
     /id="onboardingAccountEmailCode"[^>]*inputmode="numeric"[^>]*autocomplete="one-time-code"[^>]*maxlength="6"/
+  )
+  assert.match(
+    appSource,
+    /data-analytics-action="onboardingAccountEmailCode"/
   )
   assert.match(appSource, /btn-ghost onboarding-account-skip/)
   assert.match(appSource, /onboarding-account-email-form ph-no-capture/)

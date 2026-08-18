@@ -73,10 +73,12 @@ client.auth.verifyOtp({ email, token: code, type: 'email' })
 
 The address and code are never placed in a URL. There is no permanent magic
 link, scanner-sensitive action link, cross-device confirmation, or
-`/auth/confirm/` route. The hosted source at
-`supabase/templates/magic_link.html` renders `{{ .Token }}` as plain text and
-must not contain `{{ .ConfirmationURL }}`, `{{ .TokenHash }}`, a link, or a
-Supabase project hostname.
+`/auth/confirm/` route. Supabase sends its separate **Confirm signup** template
+to a new address and its **Magic Link** template to an existing address. The
+versioned `supabase/templates/confirmation.html` and
+`supabase/templates/magic_link.html` sources both render `{{ .Token }}` as
+plain text and must not contain `{{ .ConfirmationURL }}`, `{{ .TokenHash }}`,
+a link, or a Supabase project hostname.
 
 Invalid, expired, rate-limited, offline, and provider-failure results map to
 safe localized feedback. The code and provider response details never enter
@@ -139,7 +141,8 @@ Activate the internal canary in dependency order:
 1. Keep the account rollout `internal`, Google `off`, and Supabase CAPTCHA off.
 2. Configure the exact Google Web origins and deploy only its public client ID.
 3. Configure dedicated Auth SMTP and install the reviewed six-digit-code
-   template while CAPTCHA is still off.
+   sources into both **Confirm signup** and **Magic Link** while CAPTCHA is
+   still off.
 4. Create the restricted Turnstile widget, deploy its public site key, then
    store its secret only in Supabase Auth.
 5. Enable server-side CAPTCHA and prove missing, expired, replayed, and valid

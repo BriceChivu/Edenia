@@ -72,20 +72,42 @@ test('production Auth config preserves exact returns and Free-plan safeguards', 
   assert.doesNotMatch(config, /site_url = "http:|https:\/\/127\.0\.0\.1:3000/)
 })
 
-test('versioned email template renders one branded six-digit code', async () => {
-  const template = await readFile(
-    new URL('supabase/templates/magic_link.html', projectRoot),
+test('new and existing users receive the same branded six-digit code', async () => {
+  const config = await readFile(
+    new URL('supabase/config.toml', projectRoot),
     'utf8'
   )
+  const templateFiles = ['confirmation.html', 'magic_link.html']
 
-  assert.match(template, /<title>Sign in to Edenia<\/title>/)
-  assert.match(template, />\{\{ \.Token \}\}</)
-  assert.match(template, /six-digit code/i)
-  assert.doesNotMatch(
-    template,
-    /ConfirmationURL|TokenHash|auth\/confirm|supabase\.co|essddsmidqigxwhuzlgo/i
+  for (const templateFile of templateFiles) {
+    const template = await readFile(
+      new URL(`supabase/templates/${templateFile}`, projectRoot),
+      'utf8'
+    )
+
+    assert.match(template, /<title>Sign in to Edenia<\/title>/, templateFile)
+    assert.match(template, />\{\{ \.Token \}\}</, templateFile)
+    assert.match(template, /six-digit code/i, templateFile)
+    assert.doesNotMatch(
+      template,
+      /ConfirmationURL|TokenHash|auth\/confirm|supabase\.co|essddsmidqigxwhuzlgo/i,
+      templateFile
+    )
+    assert.doesNotMatch(
+      template,
+      /<script|<form|<img|<a\b|https?:\/\//i,
+      templateFile
+    )
+  }
+
+  assert.match(
+    config,
+    /\[auth\.email\.template\.confirmation\][\s\S]*?content_path = "\.\/supabase\/templates\/confirmation\.html"/
   )
-  assert.doesNotMatch(template, /<script|<form|<img|<a\b|https?:\/\//i)
+  assert.match(
+    config,
+    /\[auth\.email\.template\.magic_link\][\s\S]*?content_path = "\.\/supabase\/templates\/magic_link\.html"/
+  )
 })
 
 test('applied Supabase migrations preserve their exact identities and bytes', async () => {

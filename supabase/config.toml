@@ -14,6 +14,14 @@ enable_confirmations = true
 max_frequency = "1m"
 otp_length = 6
 
+[auth.email.template.confirmation]
+subject = "Your Edenia sign-in code"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.magic_link]
+subject = "Your Edenia sign-in code"
+content_path = "./supabase/templates/magic_link.html"
+
 [auth.mfa.totp]
 enroll_enabled = true
 verify_enabled = true

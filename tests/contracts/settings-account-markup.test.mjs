@@ -31,7 +31,15 @@ test('Settings contains one generic internal Account surface', () => {
   assert.match(html, /data-account-action="code-form"/)
   assert.match(
     html,
+    /id="accountEmailBtn"[^>]*data-analytics-action="accountEmailBtn"/
+  )
+  assert.match(
+    html,
     /id="accountEmailCode"[^>]*inputmode="numeric"[^>]*autocomplete="one-time-code"[^>]*maxlength="6"/
+  )
+  assert.match(
+    html,
+    /id="accountEmailCodeBtn"[^>]*data-analytics-action="accountEmailCodeBtn"/
   )
   assert.match(html, /Sign in or create your account/)
   assert.match(

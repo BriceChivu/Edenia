@@ -94,10 +94,11 @@ Activate in this order:
    create a dedicated Auth SMTP credential when possible, use sender name
    `Edenia` and `accounts@mail.edenia.study`, and do not modify the reminder
    send-only credential.
-3. Supabase email template: install the reviewed
-   `supabase/templates/magic_link.html` source; verify it renders only the
-   six-digit `{{ .Token }}`, contains no link or token hash, and exposes no
-   opaque project reference while CAPTCHA is still disabled.
+3. Supabase email templates: install the reviewed
+   `supabase/templates/confirmation.html` source into **Confirm signup** and
+   `supabase/templates/magic_link.html` into **Magic Link**. Verify both render
+   only the six-digit `{{ .Token }}`, contain no link or token hash, and expose
+   no opaque project reference while CAPTCHA is still disabled.
 4. Turnstile: create a Free widget restricted to `www.edenia.study` and the
    approved local host, deploy the public site key, verify explicit rendering
    and one-use token forwarding, then store the secret only in Supabase Auth.
@@ -194,7 +195,7 @@ after the test.
 2. Open
    `https://www.edenia.study/?internal_test=1&account=1`.
 3. Open **Settings**, then **Account**.
-4. Select **Continue with Google** and use an approved Google OAuth test user.
+4. Use Google's official button and select an approved Google test user.
 5. Confirm the Settings section shows the signed-in account.
 6. Confirm **Daily streak reminder** and **Discover new channels** are both on for a
    first-time account. Turn each switch off and on once; each change should save
@@ -606,11 +607,12 @@ Verify these transitions, then delete the fixture:
 - The deployed dispatcher rejects unauthenticated production requests. Repeat
   a positive hosted invocation after every named-key rotation before creating
   any schedule.
-- Production Google OAuth has been exercised with one approved Google test
-  account in one desktop browser. Cross-device, private-window, Safari, mobile,
-  cancellation, and a second-account switch still need acceptance coverage.
-- The Google OAuth consent screen remains a test-user rollout. That is suitable
-  for internal testing, not public launch.
+- Production Google ID-token sign-in has been exercised with one approved
+  Google test account in one desktop browser. Cross-device, private-window,
+  Safari, mobile, cancellation, and a second-account switch still need
+  acceptance coverage.
+- The Google Cloud consent screen remains restricted to test users. That is
+  suitable for internal testing, not public launch.
 - Resend transport, the verified sender domain, and real signed production
   callbacks have been observed. A genuine tagged reminder, one-click
   unsubscribe, bounce, complaint, and provider-suppression event have not yet
@@ -691,16 +693,16 @@ the account surface public.
   confirmation are enabled. Anonymous sign-in and manual identity linking are
   disabled.
 - Auth currently permits two project emails per hour, 30 sign-up/sign-in
-  requests per IP per five minutes, and 30 OTP or magic-link verifications per
-  IP per five minutes. CAPTCHA is disabled.
-- The client uses only Google OAuth and email OTP. It does not offer passwords,
-  anonymous sign-in, or manual identity linking.
+  requests per IP per five minutes, and 30 email-code verifications per IP per
+  five minutes. CAPTCHA is disabled.
+- The client uses only Google ID-token exchange and email codes. It does not
+  offer passwords, anonymous sign-in, or manual identity linking.
 
 Do not raise the email limit or enable CAPTCHA as a standalone console change.
-The magic-link sender, client CAPTCHA token path, error states, accessibility,
-and recovery behavior must be verified together before either change. The
-current two-email limit is a useful internal-stage brake, but it also means the
-fallback can be exhausted quickly during testing.
+Both Auth code templates, the client CAPTCHA token path, error states,
+accessibility, and recovery behavior must be verified together before either
+change. The current two-email limit is a useful internal-stage brake, but it
+also means the fallback can be exhausted quickly during testing.
 
 ### Account-owned server data
 
@@ -764,10 +766,10 @@ same test proves that selected local study evidence is unchanged. The Settings
 copy warns that anyone using the browser profile can see its local progress.
 
 Manual identity linking remains disabled. Before email changes or linking are
-offered, test the same verified address through Google and magic link, different
-addresses across providers, an existing Plus account, and unlink/recovery
-behavior. Do not infer account equivalence from an email address in application
-code.
+offered, test the same verified address through Google's official button and
+an email code, different addresses across providers, an existing Plus account,
+and unlink/recovery behavior. Do not infer account equivalence from an email
+address in application code.
 
 ### Advisor record
 

@@ -3436,12 +3436,12 @@ function renderOnboardingAccountStep(content) {
         <label for="onboardingAccountEmail">${escHtml(t('settings.account.emailLabel'))}</label>
         <input class="account-auth-email-input" id="onboardingAccountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-onboarding-account-email value="${escHtml(personalizedOnboardingState.accountEmail)}" placeholder="${escHtml(t('settings.account.emailPlaceholder'))}" ${busy || unavailable ? 'disabled' : ''}>
         ${TURNSTILE_READY ? '<div class="account-turnstile" data-turnstile-widget></div><p class="account-turnstile-status" data-turnstile-status role="status" aria-live="polite"></p>' : ''}
-        <button class="btn-secondary onboarding-account-email-button" type="submit" ${busy || unavailable || TURNSTILE_READY ? 'disabled' : ''}>${escHtml(t(state?.busyAction === 'email-code-request' ? 'settings.account.requestingCode' : 'settings.account.requestCode'))}</button>
+        <button class="btn-secondary onboarding-account-email-button" type="submit" data-analytics-action="onboardingAccountEmail" ${busy || unavailable || TURNSTILE_READY ? 'disabled' : ''}>${escHtml(t(state?.busyAction === 'email-code-request' ? 'settings.account.requestingCode' : 'settings.account.requestCode'))}</button>
       </form>
       <form class="onboarding-account-code-form ph-no-capture ${emailCodePending ? '' : 'hidden'}" data-onboarding-account-action="code-form" novalidate>
         <label for="onboardingAccountEmailCode">${escHtml(t('settings.account.codeLabel'))}</label>
         <input class="account-auth-email-input account-auth-code-input" id="onboardingAccountEmailCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" data-onboarding-account-code placeholder="${escHtml(t('settings.account.codePlaceholder'))}" ${busy || unavailable ? 'disabled' : ''}>
-        <button class="btn-primary" type="submit" ${busy || unavailable ? 'disabled' : ''}>${escHtml(t(state?.busyAction === 'email-code-verification' ? 'settings.account.verifyingCode' : 'settings.account.verifyCode'))}</button>
+        <button class="btn-primary" type="submit" data-analytics-action="onboardingAccountEmailCode" ${busy || unavailable ? 'disabled' : ''}>${escHtml(t(state?.busyAction === 'email-code-verification' ? 'settings.account.verifyingCode' : 'settings.account.verifyCode'))}</button>
       </form>
       ${feedback}
     `

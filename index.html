@@ -344,12 +344,12 @@ and momentum—at a glance</h2>
               <input class="account-auth-email-input" id="accountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-i18n-placeholder="settings.account.emailPlaceholder" placeholder="you@example.com">
               <div class="account-turnstile hidden" id="accountTurnstile" data-turnstile-widget></div>
               <p class="account-turnstile-status hidden" id="accountTurnstileStatus" data-turnstile-status role="status" aria-live="polite"></p>
-              <button class="btn-secondary" id="accountEmailBtn" type="submit" data-i18n="settings.account.requestCode">Email me a code</button>
+              <button class="btn-secondary" id="accountEmailBtn" type="submit" data-analytics-action="accountEmailBtn" data-i18n="settings.account.requestCode">Email me a code</button>
             </form>
             <form class="settings-account-code-form hidden" id="accountEmailCodeForm" data-account-action="code-form" novalidate>
               <label for="accountEmailCode" data-i18n="settings.account.codeLabel">Six-digit code</label>
               <input class="account-auth-email-input account-auth-code-input" id="accountEmailCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" data-i18n-placeholder="settings.account.codePlaceholder" placeholder="123456">
-              <button class="btn-primary" id="accountEmailCodeBtn" type="submit" data-i18n="settings.account.verifyCode">Verify code</button>
+              <button class="btn-primary" id="accountEmailCodeBtn" type="submit" data-analytics-action="accountEmailCodeBtn" data-i18n="settings.account.verifyCode">Verify code</button>
             </form>
           </div>
 
