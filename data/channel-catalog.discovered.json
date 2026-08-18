@@ -1,19 +1,19 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-17T10:04:47.225Z",
+  "generatedAt": "2026-08-18T09:57:56.423Z",
   "lastRotationIndex": 1,
-  "nextRotationIndex": 1,
+  "nextRotationIndex": 2,
   "rotationCount": 4,
-  "lastLanguageBatchIndex": 2,
-  "nextLanguageBatchIndex": 3,
+  "lastLanguageBatchIndex": 3,
+  "nextLanguageBatchIndex": 0,
   "languageBatchCount": 4,
   "languageBatchSize": 2,
-  "lastDiscoveryQuotaDate": "2026-08-17",
+  "lastDiscoveryQuotaDate": "2026-08-18",
   "lastDiscoveryLanguages": [
-    "russian",
-    "spanish"
+    "japanese",
+    "portuguese"
   ],
-  "lastSearchRequestCount": 6,
+  "lastSearchRequestCount": 7,
   "languages": [
     "french",
     "english",
@@ -643,6 +643,34 @@
       "searchText": "alpc japanese slow japanese podcast alpaca japanese japanese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCuNUB6Jr0rJakl6-tGJdGcQ",
+      "channelId": "UCuNUB6Jr0rJakl6-tGJdGcQ",
+      "youtubeInput": "@888amara",
+      "handle": "@888amara",
+      "name": "Amara’s Natural Japanese 〜あまらの自然な日本語〜",
+      "thumbnailUrl": "https://yt3.ggpht.com/24js0Pm53LHrDr4FXPqgYWi4cX35c-hH1LQtNmRFPdIPUHrKIUWQsJnouwMVUT-ivijHN4c24t8=s800-c-k-c0x00ffffff-no-rj",
+      "description": "On this channel, I make videos for intermediate and beginner level Japanese learners to practice listening to natural Japanese. I introduce many real-life Japanese phrases that you won't find in textbooks. By listening to my videos, you’ll become used to natural speaking speed, pronunciation, and expressions. Please...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-03-12T06:49:12.090452Z",
+      "subscriberCount": "361",
+      "videoCount": "413",
+      "viewCount": "208322",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 290,
+      "discoveredByQueries": [
+        "日本語 リスニング"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "amara s natural japanese あまらの自然な日本語 888amara japanese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCymAc4YKWYjDqNnLoK7m-2A",
       "channelId": "UCymAc4YKWYjDqNnLoK7m-2A",
       "youtubeInput": "@amazingrussian",
@@ -1233,6 +1261,34 @@
       "searchText": "beginner portuguese lessons with stephanie stephanie 123 v2z portuguese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCc8QJqwkWe9RcKYZTY2Ezuw",
+      "channelId": "UCc8QJqwkWe9RcKYZTY2Ezuw",
+      "youtubeInput": "@the_bitesize_japanese_podcast",
+      "handle": "@the_bitesize_japanese_podcast",
+      "name": "Bite Size Japanese",
+      "thumbnailUrl": "https://yt3.ggpht.com/a42FWVc84Dn89sx5cy0gmaW5iu7S_aclBW6h6ruo2P5nVo_LS7hYZQKpzqOURncgMwiiYWHX4lc=s800-c-k-c0x00ffffff-no-rj",
+      "description": "日本人レイラがホストをする日本語学習者向け（N3・N2レベル）のポッドキャスト！日常、日本語、日本文化、勉強方法など、さまざまなトピックについて自然な日本語で話をしています。 メンバーシップ(Patreon)では、各エピソードの中でわたしが使った文法・単語を復習して、深く学ぶための『DEEP DIVE - Word & Grammar』のエピソードを作っています。その他にも、各エピソードのトランスクリプトや、Patreon限定のPodcastも配信中です！ぜひ、Patreonに参加して、一緒に日本語を勉強していきましょう！😊 Patreon👉Bite size Japanese Layla The Bite size Ja...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-01-07T05:03:49.526825Z",
+      "subscriberCount": "224000",
+      "videoCount": "721",
+      "viewCount": "15107033",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 236,
+      "discoveredByQueries": [
+        "Japanese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "bite size japanese the bitesize japanese podcast japanese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCWM3R2w2inRppXIJ-l-IJJw",
       "channelId": "UCWM3R2w2inRppXIJ-l-IJJw",
       "youtubeInput": "@bocchipocchi",
@@ -1428,6 +1484,34 @@
       "discoveredAt": "2026-07-27T15:11:12.608Z",
       "refreshedAt": "2026-07-27T15:11:12.608Z",
       "searchText": "brazilian input brazilianinput portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCJ5v2edJxm9xT5nydcBszZA",
+      "channelId": "UCJ5v2edJxm9xT5nydcBszZA",
+      "youtubeInput": "@portuguesewithluana",
+      "handle": "@portuguesewithluana",
+      "name": "Brazilian Portuguese with Luana",
+      "thumbnailUrl": "https://yt3.ggpht.com/i-ngcy09gBxs0226G4feitpQ3OX3e7wf0fCpZgSFsWb24cDyG9icUBN6LgF_cwX4jy7hxM0SrA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Hi, I’m Luana Burton! A Brazilian native sharing the real language and culture of my country. Let’s learn Portuguese together! 🇧🇷 💡 What you’ll find here: Grammar and pronunciation lessons. Expressions and slang that Brazilians use every day. Tips to improve your fluency and communication in Portuguese. Content a...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2011-12-09T13:59:26Z",
+      "subscriberCount": "162",
+      "videoCount": "63",
+      "viewCount": "33999",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 321,
+      "discoveredByQueries": [
+        "Portuguese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "brazilian portuguese with luana portuguesewithluana portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UCcZIvyzb0gta17eGLG6sVyw",
@@ -2438,6 +2522,34 @@
       "discoveredAt": "2026-07-25T15:03:19.156Z",
       "refreshedAt": "2026-07-25T15:03:19.156Z",
       "searchText": "construyendo espanol construyendoespanol6100 spanish youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCJnlKt3hwdnScL73C_4hsNg",
+      "channelId": "UCJnlKt3hwdnScL73C_4hsNg",
+      "youtubeInput": "@conversa_club",
+      "handle": "@conversa_club",
+      "name": "Conversa Club",
+      "thumbnailUrl": "https://yt3.ggpht.com/eoxFyNxqzUHVFo8_phDmKCD-5cTkaDNuqsoobAwGDu3lUBnW1-7SQXhgWc3OwcDqCvgoPag6=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Conversa Club Learn real European Portuguese the way it's actually spoken. Conversa Club is a learning community for English speakers who want to move beyond textbooks and memorizing phrases to genuinely using Portuguese in everyday life. I'm Sérgio, a native speaker of both English and European Portuguese who grew...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2010-07-12T16:11:56Z",
+      "subscriberCount": "960",
+      "videoCount": "113",
+      "viewCount": "28332",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 274,
+      "discoveredByQueries": [
+        "Portuguese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "conversa club conversa club portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UCOMWxPPZ7eic6WoCBpUu49w",
@@ -7020,6 +7132,34 @@
       "searchText": "hallo deutsch hallodeutsch y8q german youtube discovery"
     },
     {
+      "catalogId": "discovered-UC5etk4I-a7pAzOMIXIMl_Bw",
+      "channelId": "UC5etk4I-a7pAzOMIXIMl_Bw",
+      "youtubeInput": "@hellorusty",
+      "handle": "@hellorusty",
+      "name": "Hello Rusty",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_m-PopwxiR_nkBA1M-WyQHq7iYPvBGjGxoQFoSX8pTgc3o=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to my YouTube channel, where I share my passion for learning languages! My name is Rusty and I am a Brazilian girl who has always had a love for languages. I am a self-taught English speaker and learned the language with the help of other YouTube channels. Now, I am excited to share my knowledge and experien...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2015-09-06T20:11:49Z",
+      "subscriberCount": "9960",
+      "videoCount": "94",
+      "viewCount": "403462",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 300,
+      "discoveredByQueries": [
+        "Portuguese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "hello rusty hellorusty portuguese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC1o7S_k9BvCgsa1G9flQ7FQ",
       "channelId": "UC1o7S_k9BvCgsa1G9flQ7FQ",
       "youtubeInput": "@hey.russian",
@@ -7614,6 +7754,34 @@
       "searchText": "japanese listening shogun japanese listening shogun japanese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCbn1o91-aEqlBxsj2pDCPYg",
+      "channelId": "UCbn1o91-aEqlBxsj2pDCPYg",
+      "youtubeInput": "@japanesenook",
+      "handle": "@japanesenook",
+      "name": "Japanese Nook",
+      "thumbnailUrl": "https://yt3.ggpht.com/qwonu4j2KgInMDuZLYu4j5pHc_kdVex7CV1hyZSkc6_7csbCKn3bZyWdrfSZ9-IfoNwZEzjHSMA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Japanese Nook — your cozy corner for learning Japanese. 🎋 Whether you're a complete beginner or looking to sound more natural, our podcast-style lessons make Japanese feel simple, warm, and enjoyable. 🎧 What you'll find here: ✦ Daily Japanese conversations — real, natural, easy to follow ✦ Cultural stor...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-09-23T01:54:14.780341Z",
+      "subscriberCount": "3960",
+      "videoCount": "111",
+      "viewCount": "151417",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 237,
+      "discoveredByQueries": [
+        "Japanese stories for learners"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "japanese nook japanesenook japanese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCqRoGBcr5fESDTUf5n8kw4Q",
       "channelId": "UCqRoGBcr5fESDTUf5n8kw4Q",
       "youtubeInput": "@japanesepodcasthana",
@@ -7697,6 +7865,34 @@
       "discoveredAt": "2026-07-27T15:11:32.473Z",
       "refreshedAt": "2026-07-27T15:11:32.473Z",
       "searchText": "japanese smiles japanesesmiles japanese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC_GlNwPQ1DCGjIiJAsKmHMw",
+      "channelId": "UC_GlNwPQ1DCGjIiJAsKmHMw",
+      "youtubeInput": "@japanesesuki88",
+      "handle": "@japanesesuki88",
+      "name": "Japanese Suki",
+      "thumbnailUrl": "https://yt3.ggpht.com/AXX09gRWlWnbMmE_QfVihXvSUVCCMEW0cCm_z4oRjuC3dVUE-EL8qm8Y6fRfXsEsvPMj2Qyb3d8=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to \"Japanese Suki,\" your go-to channel for easy Japanese language learning. Our mission is to make Japanese accessible to all, regardless of your background. We provide concise lessons suitable for beginners and those with prior knowledge. Our experienced instructors offer clear explanations and practical ex...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-07-05T06:56:20.977992Z",
+      "subscriberCount": "114000",
+      "videoCount": "804",
+      "viewCount": "5844608",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 236,
+      "discoveredByQueries": [
+        "Japanese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "japanese suki japanesesuki88 japanese youtube discovery"
     },
     {
       "catalogId": "discovered-UCLp9rnRAcrFSzsoXsjXYJYA",
@@ -7867,6 +8063,34 @@
       "discoveredAt": "2026-08-16T09:51:06.849Z",
       "refreshedAt": "2026-08-16T09:51:06.849Z",
       "searchText": "jing s story chinesewithjingd mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC9lUXurRF3eARazbnI99iJA",
+      "channelId": "UC9lUXurRF3eARazbnI99iJA",
+      "youtubeInput": "@jlptlistening-c8u",
+      "handle": "@jlptlistening-c8u",
+      "name": "JLPT Listening",
+      "thumbnailUrl": "https://yt3.ggpht.com/w3-Xq9IDAcIm0VMGeVUmqx7QgyDECnnH2ZlRud6qYeELAX2aTDugcbk8hC2t8S8EtjZmYaERBA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Our JLPT Learning Channel! 🇯🇵 Are you preparing for the Japanese Language Proficiency Test (JLPT)? You're in the right place! This channel is dedicated to helping Japanese learners improve their listening, vocabulary, grammar, and exam skills through high-quality practice materials. 📚 What you'll find...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-11-05T13:59:04.577248Z",
+      "subscriberCount": "1430",
+      "videoCount": "355",
+      "viewCount": "154814",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 277,
+      "discoveredByQueries": [
+        "Japanese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "jlpt listening jlptlistening c8u japanese youtube discovery"
     },
     {
       "catalogId": "discovered-UCpPemQ80aZnquPbaaMxw85A",
@@ -12734,6 +12958,34 @@
       "searchText": "lingotone podcast lingotonepodcast mandarin youtube discovery"
     },
     {
+      "catalogId": "discovered-UCr5Ws-hy9w0dpPoddx3nkbQ",
+      "channelId": "UCr5Ws-hy9w0dpPoddx3nkbQ",
+      "youtubeInput": "@lisbonshortsbyanareis",
+      "handle": "@lisbonshortsbyanareis",
+      "name": "Lisbon Shorts by Ana Reis",
+      "thumbnailUrl": "https://yt3.ggpht.com/A5JA8Ud1cgTd95LczuB54guP4dtZ5TNARUG1sCAMu7bLigKyXiql63SFWzXe6KayMd15Owh9mA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn European Portuguese with the soul of Lisbon! Olá! I'm Ana Reis, a Lisbon local. My channel turns the city's iconic streets, cafes, and culture into your immersive classroom. What you'll get: 🗣️ Practical Portuguese for real-life situations (travel, dining, conversation). 🇵🇹 Cultural Guides to Lisbon's hidde...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2022-03-10T21:17:18.298868Z",
+      "subscriberCount": "9030",
+      "videoCount": "1984",
+      "viewCount": "1161754",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 330,
+      "discoveredByQueries": [
+        "Portuguese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "lisbon shorts by ana reis lisbonshortsbyanareis portuguese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCb5FiIrUYMkg1MSXDeMlkzw",
       "channelId": "UCb5FiIrUYMkg1MSXDeMlkzw",
       "youtubeInput": "@listenspeakacademy6",
@@ -14983,6 +15235,34 @@
       "discoveredAt": "2026-07-24T14:16:02.265Z",
       "refreshedAt": "2026-07-24T14:16:02.265Z",
       "searchText": "practice portuguese practiceportuguese portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCOxXqROcIRQWUUxocK-Fu3A",
+      "channelId": "UCOxXqROcIRQWUUxocK-Fu3A",
+      "youtubeInput": "@learnportuguesewithus",
+      "handle": "@learnportuguesewithus",
+      "name": "practice Portuguese together ",
+      "thumbnailUrl": "https://yt3.ggpht.com/Vy0A1EhqjVcJY56IYKlshPvKW6Q-4jNvxJsjjURQRiZ5OMa2PMmLBlUM4KOZV86TaAo_hHymrQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "My name is Irina. I am Russian living in Australia and my mom in law is from Brazil. She doesn't speak English and I don't speak Portuguese. So we have decided to have lessons together to teach each other languages. But mostly it's me learning Brazilian Portuguese. Please join us and also share your stories about yo...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-08-01T02:44:45.846638Z",
+      "subscriberCount": "1270",
+      "videoCount": "122",
+      "viewCount": "85474",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 239,
+      "discoveredByQueries": [
+        "Portuguese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "practice portuguese together learnportuguesewithus portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UCBRXmX3weo-Ffsd1qAaeEuw",
@@ -17994,6 +18274,35 @@
       "searchText": "spring spanish learn spanish with chunks springspanish spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UC0PZgMgiXHyJwsMvMK5vcpg",
+      "channelId": "UC0PZgMgiXHyJwsMvMK5vcpg",
+      "youtubeInput": "@storiesinportuguese",
+      "handle": "@storiesinportuguese",
+      "name": "Stories in Portuguese",
+      "thumbnailUrl": "https://yt3.ggpht.com/LAGcJ_z9-xAP1Eh7UqFzwT1hYlWB2zP2tpl7nfxsFwe9FwkSlwcfwEcZ-7iqUrEr18_7UPdF=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Hello, I’m Ellie. I’m from Brazil (Southern Brazil). And as a native Portuguese speaker, I want to share with you what feels so natural and everyday to me. If you're here, it's probably because at some point you’ve been curious or interested in understanding or speaking Portuguese… and honestly, I'd love to chat wit...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-02-25T17:25:19.46871Z",
+      "subscriberCount": "740",
+      "videoCount": "55",
+      "viewCount": "20296",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 251,
+      "discoveredByQueries": [
+        "Portuguese listening practice",
+        "Portuguese stories for learners"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "stories in portuguese storiesinportuguese portuguese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCa2MkPgQHW7hZC9E8xBk6fQ",
       "channelId": "UCa2MkPgQHW7hZC9E8xBk6fQ",
       "youtubeInput": "@annieluo1307",
@@ -18328,6 +18637,34 @@
       "discoveredAt": "2026-07-24T14:15:42.400Z",
       "refreshedAt": "2026-07-24T14:15:42.400Z",
       "searchText": "tanya teaches russian tanya teaches russian russian youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC6NcIEuxeLWejtY1rXrlg2g",
+      "channelId": "UC6NcIEuxeLWejtY1rXrlg2g",
+      "youtubeInput": "@tcj_japanese",
+      "handle": "@tcj_japanese",
+      "name": "TCJ日本語教室",
+      "thumbnailUrl": "https://yt3.ggpht.com/uuRycS_l4S2k6pilHliaHwjfm6F86WNqnF8e561w8r3uW6xvewBA0hShvgLwrmbE8IR7JjOg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🎓 Welcome to the 「TCJ日本語教室」 Channel! Your go-to channel for learning Japanese for living, working, and studying in Japan. Whether you’re already here or planning your move — we’re here to help you thrive with practical Japanese and cultural tips that truly make a difference. 🔴 What you’ll find here: ✅ Useful Japan...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2015-10-07T02:29:27Z",
+      "subscriberCount": "37700",
+      "videoCount": "106",
+      "viewCount": "553423",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 280,
+      "discoveredByQueries": [
+        "Japanese stories for learners"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "tcj日本語教室 tcj japanese japanese youtube discovery"
     },
     {
       "catalogId": "discovered-UC_8_OHEb2-Xn8k00NVqnzlg",
