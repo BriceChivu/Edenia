@@ -14,6 +14,7 @@ import {
   getIndexedDbBackupCleanupEnabled,
   getIndexedDbBackupsEnabled,
   getLegacyProgressMigrationEnabled,
+  getLearnerProfileLifecycleEnabled,
   getPlusCheckoutEnabled,
   getStudyGuidanceEnabled,
   getSupabasePublishableKey,
@@ -139,6 +140,10 @@ test('storage keys preserve normal, internal, sandbox, and combined isolation', 
       `${expected.storageKey}_account_study_sync_owner_v1`
     )
     assert.equal(
+      keys.learnerProfileAccessKey,
+      `${expected.storageKey}_learner_profile_access_v1`
+    )
+    assert.equal(
       keys.plusAuthStorageKey,
       `${expected.storageKey}_plus_auth_v1`
     )
@@ -181,6 +186,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getIndexedDbBackupsEnabled(target), false)
   assert.equal(getIndexedDbBackupCleanupEnabled(target), false)
   assert.equal(getLegacyProgressMigrationEnabled(target), false)
+  assert.equal(getLearnerProfileLifecycleEnabled(target), false)
   assert.equal(getSupabaseUrl(target), '')
   assert.equal(getSupabasePublishableKey(target), '')
   assert.equal(hasSupabaseRuntimeConfig(target), false)
@@ -199,6 +205,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     indexedDbBackupsEnabled: true,
     indexedDbBackupCleanupEnabled: true,
     legacyProgressMigrationEnabled: true,
+    learnerProfileLifecycleEnabled: true,
     supabaseUrl: '  https://project.supabase.co  ',
     supabasePublishableKey: '  sb_publishable_test  '
   }
@@ -220,6 +227,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getIndexedDbBackupsEnabled(target), true)
   assert.equal(getIndexedDbBackupCleanupEnabled(target), true)
   assert.equal(getLegacyProgressMigrationEnabled(target), true)
+  assert.equal(getLearnerProfileLifecycleEnabled(target), true)
   assert.equal(getSupabaseUrl(target), 'https://project.supabase.co')
   assert.equal(getSupabasePublishableKey(target), 'sb_publishable_test')
   assert.equal(hasSupabaseRuntimeConfig(target), true)
@@ -234,7 +242,8 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     studyGuidanceEnabled: 'true',
     indexedDbBackupsEnabled: 'true',
     indexedDbBackupCleanupEnabled: 1,
-    legacyProgressMigrationEnabled: 'true'
+    legacyProgressMigrationEnabled: 'true',
+    learnerProfileLifecycleEnabled: 'true'
   }
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
@@ -246,6 +255,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getIndexedDbBackupsEnabled(target), false)
   assert.equal(getIndexedDbBackupCleanupEnabled(target), false)
   assert.equal(getLegacyProgressMigrationEnabled(target), false)
+  assert.equal(getLearnerProfileLifecycleEnabled(target), false)
 
   target.EDENIA_CONFIG = {
     googleIdentityClientId: 'not-a-google-client-id',

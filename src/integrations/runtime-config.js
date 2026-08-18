@@ -86,6 +86,10 @@ export function getLegacyProgressMigrationEnabled(target = window) {
   return publicConfig(target).legacyProgressMigrationEnabled === true
 }
 
+export function getLearnerProfileLifecycleEnabled(target = window) {
+  return publicConfig(target).learnerProfileLifecycleEnabled === true
+}
+
 export function getSupabaseUrl(target = window) {
   return String(publicConfig(target).supabaseUrl || '').trim()
 }

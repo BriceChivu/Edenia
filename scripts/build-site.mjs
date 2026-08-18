@@ -349,6 +349,7 @@ await writeFile(
     + '  "indexedDbBackupsEnabled": false,\n'
     + '  "indexedDbBackupCleanupEnabled": false,\n'
     + '  "legacyProgressMigrationEnabled": false,\n'
+    + '  "learnerProfileLifecycleEnabled": false,\n'
     + '  "supabaseUrl": "",\n'
     + '  "supabasePublishableKey": ""\n'
     + '}\n'

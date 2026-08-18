@@ -19,7 +19,7 @@ test('general account auth starts only behind the rollout and public config gate
   )
   assert.match(
     source,
-    /applyLocale\(state\.config\.locale\)\s*initializeAccountAuth\(\)\s*initializePlusAccount\(\)/
+    /applyLocale\(state\.config\.locale\)\s*if \(!accountAuthInitialized\) initializeAccountAuth\(\)\s*initializePlusAccount\(\)/
   )
 })
 
@@ -53,7 +53,7 @@ test('account integrations are released with the existing Plus lifecycle', async
 
   assert.match(
     source,
-    /window\.addEventListener\('pagehide', event => \{\s*if \(!event\.persisted\) accountAuthController\?\.destroy\(\)\s*if \(!event\.persisted\) googleIdentityServicesController\?\.destroy\(\)\s*if \(!event\.persisted\) turnstileController\?\.destroy\(\)\s*if \(!event\.persisted\) accountStudySnapshotController\?\.destroy\(\)\s*if \(!event\.persisted\) plusAccountController\?\.destroy\(\)/
+    /window\.addEventListener\('pagehide', event => \{\s*if \(!event\.persisted\) learnerProfileLifecycleAuthority\?\.destroy\(\)\s*if \(!event\.persisted\) accountAuthController\?\.destroy\(\)\s*if \(!event\.persisted\) googleIdentityServicesController\?\.destroy\(\)\s*if \(!event\.persisted\) turnstileController\?\.destroy\(\)\s*if \(!event\.persisted\) accountStudySnapshotController\?\.destroy\(\)\s*if \(!event\.persisted\) plusAccountController\?\.destroy\(\)/
   )
 })
 
@@ -134,7 +134,7 @@ test('account session state drives isolated UUID analytics identity with safe pr
 
   assert.match(
     source,
-    /onStateChange\(state\) \{\s*accountAuthViewState = state\s*accountAnalyticsIdentity\.synchronize\(state\)[\s\S]*reminderPreferencesController\.synchronizeAccount\([\s\S]*renderAccountSettings\(state\)/
+    /onStateChange\(state\) \{\s*accountAuthViewState = state\s*learnerProfileAuthenticationAdapter\.observeAccountState\(state\)\s*accountAnalyticsIdentity\.synchronize\(state\)[\s\S]*reminderPreferencesController\.synchronizeAccount\([\s\S]*renderAccountSettings\(state\)/
   )
   assert.match(identitySource, /accountState\?\.userId/)
   assert.match(identitySource, /properties\.email = email/)
