@@ -21,6 +21,9 @@
 - Next to Heatmap: dashboard, with detailed views, etc. (Plus or premium version)
 - let the user choose what to upgrade after a level
 - streak unfreeze
+- integrated spaced repetition functionality
+- integrated dictionary
+- integrated subtitles pop up
 - try https://github.com/img2threejs/img2threejs
 
 
