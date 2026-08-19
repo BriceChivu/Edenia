@@ -1,19 +1,19 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-18T09:57:56.423Z",
-  "lastRotationIndex": 1,
+  "generatedAt": "2026-08-19T09:58:32.060Z",
+  "lastRotationIndex": 2,
   "nextRotationIndex": 2,
   "rotationCount": 4,
-  "lastLanguageBatchIndex": 3,
-  "nextLanguageBatchIndex": 0,
+  "lastLanguageBatchIndex": 0,
+  "nextLanguageBatchIndex": 1,
   "languageBatchCount": 4,
   "languageBatchSize": 2,
-  "lastDiscoveryQuotaDate": "2026-08-18",
+  "lastDiscoveryQuotaDate": "2026-08-19",
   "lastDiscoveryLanguages": [
-    "japanese",
-    "portuguese"
+    "french",
+    "english"
   ],
-  "lastSearchRequestCount": 7,
+  "lastSearchRequestCount": 6,
   "languages": [
     "french",
     "english",
@@ -416,6 +416,35 @@
       "discoveredAt": "2026-08-12T10:34:33.818Z",
       "refreshedAt": "2026-08-12T10:34:33.818Z",
       "searchText": "acquiring chinese acquiringchinese mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC_0NfufarVw04vDfWFm8z_Q",
+      "channelId": "UC_0NfufarVw04vDfWFm8z_Q",
+      "youtubeInput": "@engvidadam",
+      "handle": "@engvidadam",
+      "name": "Adam’s English Lessons · engVid",
+      "thumbnailUrl": "https://yt3.ggpht.com/RSVmyeC4SnZyA9jIa1wuUcQLoCBVq79Yw2npKR67p1capxJV9j8iBSB_-1VPbjzy54R10G0GMAI=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Do you love English? Me too. That's why we're here—because English is a key to the world. Join me and others from around the world as we practice our English skills and get to know each other. I have taught, coached, and edited for hundreds of non-native English users for 14 years, in four countries. Let me put this...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2012-08-16T00:54:02Z",
+      "subscriberCount": "3710000",
+      "videoCount": "257",
+      "viewCount": "162777607",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 270,
+      "discoveredByQueries": [
+        "English grammar lessons",
+        "English vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "adam s english lessons engvid engvidadam english youtube discovery"
     },
     {
       "catalogId": "discovered-UCKcZoWbqWzXSYzxQL9utJ1g",
@@ -4296,6 +4325,34 @@
       "searchText": "english for beginner englishforbeginner v2d english youtube discovery"
     },
     {
+      "catalogId": "discovered-UC0Hg2Ks00kCekyjZG_LxOmg",
+      "channelId": "UC0Hg2Ks00kCekyjZG_LxOmg",
+      "youtubeInput": "@englishlikeanative",
+      "handle": "@englishlikeanative",
+      "name": "English Like A Native",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_mBrXL5hiIqrQ4ZjOFvXFeHPjWekKzK5G8vvmz0JP-34FM=s800-c-k-c0x00ffffff-no-rj",
+      "description": "You can learn to speak everyday English like a native, with your teacher Anna English. Subscribe and visit regularly as new lessons are added every week. Here you will find lessons on British English pronunciation, everyday English vocabulary, English grammar, British culture and traditions, interview practise, conf...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2016-04-12T18:17:07Z",
+      "subscriberCount": "1130000",
+      "videoCount": "912",
+      "viewCount": "55137745",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 294,
+      "discoveredByQueries": [
+        "English vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "english like a native englishlikeanative english youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCEnKxWHT43Q6Tzfpw2gsZIg",
       "channelId": "UCEnKxWHT43Q6Tzfpw2gsZIg",
       "youtubeInput": "@englishlistening-x3n",
@@ -4378,6 +4435,34 @@
       "discoveredAt": "2026-07-27T15:11:22.372Z",
       "refreshedAt": "2026-07-27T15:11:22.372Z",
       "searchText": "english medium stories englishmediumstories english youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC1YUh6S9uPSrmqEsMPtaGvQ",
+      "channelId": "UC1YUh6S9uPSrmqEsMPtaGvQ",
+      "youtubeInput": "@learnwithenglishnyou",
+      "handle": "@learnwithenglishnyou",
+      "name": "English N You",
+      "thumbnailUrl": "https://yt3.ggpht.com/Tz3vYk8R1sxnKmIIyTVe3bmKjxHLGBewRghOhA7FZ4CxQNc7_nI5SV7Dw3eP4PpGYqXRUDsTtw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞 𝐄𝐧𝐠𝐥𝐢𝐬𝐡 𝐟𝐨𝐫 𝐀𝐥𝐥 𝐂𝐨𝐦𝐩𝐞𝐭𝐢𝐭𝐢𝐯𝐞 𝐄𝐱𝐚𝐦𝐬 Master English Grammar, Vocabulary, Reading Comprehension, Editorial Analysis, and Spoken English through simple, practical, and exam-oriented lessons. Designed for aspirants preparing for: SSC • Banking • UPSC • Railways • Defence • Sta...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-08-10T09:32:09.641059Z",
+      "subscriberCount": "73500",
+      "videoCount": "394",
+      "viewCount": "782287",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 267,
+      "discoveredByQueries": [
+        "English grammar lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "english n you learnwithenglishnyou english youtube discovery"
     },
     {
       "catalogId": "discovered-UCYzh58-dZMru0uN_CM8agKA",
@@ -5250,6 +5335,34 @@
       "searchText": "fluentu spanish fluentuspanish spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UCQsBmgy_R8EK_fjsvrT3iFg",
+      "channelId": "UCQsBmgy_R8EK_fjsvrT3iFg",
+      "youtubeInput": "@abc4u",
+      "handle": "@abc4u",
+      "name": "Français | French | ABC 4U",
+      "thumbnailUrl": "https://yt3.ggpht.com/kKj5T7MCOMZv0ROlv5Ewbc3-Jh3zIPPVikAqOlnNB9NY-TbMLbIwtniReWql9jTKYPLQhaiSHss=s800-c-k-c0x00ffffff-no-rj",
+      "description": "\"Unlock the Elegance of French - Learn, Speak, and Embrace the Language of Romance!\" 🌟 Welcome to \"ABC4U\"! 🌐 Are you fascinated by the enchanting language of love and looking to embark on a linguistic journey? Our channel is dedicated to helping you master the beautiful French language, whether you're a complete b...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-01-01T22:08:06.270074Z",
+      "subscriberCount": "7010",
+      "videoCount": "44",
+      "viewCount": "248672",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 267,
+      "discoveredByQueries": [
+        "French vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "francais french abc 4u abc4u french youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCLv_u_mDLQQ7x3pI6n2NY_w",
       "channelId": "UCLv_u_mDLQQ7x3pI6n2NY_w",
       "youtubeInput": "@francaisavecfloriane",
@@ -5557,6 +5670,34 @@
       "discoveredAt": "2026-07-30T09:07:44.896Z",
       "refreshedAt": "2026-07-30T09:07:44.896Z",
       "searchText": "french daily frenchdaily9 french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCqzwlJZq5jZBAch-0_qIEfw",
+      "channelId": "UCqzwlJZq5jZBAch-0_qIEfw",
+      "youtubeInput": "@frenchforall-lrsw",
+      "handle": "@frenchforall-lrsw",
+      "name": "French For All ",
+      "thumbnailUrl": "https://yt3.ggpht.com/3K_V71Zk7s8cYbzZEsi6Ckx1K0mM_7Sg5nxxH72uMWfesnaYKzEW7NDKvkLaDL5V-28TzDARzto=s800-c-k-c0x00ffffff-no-rj",
+      "description": "French For All, Learn French, French for CBSE, French for ICSE, French for IGCSE, French for IB, Learn French online, French for school students, French grammar lessons, French past papers, CBSE French question papers, ICSE French sample papers, IGCSE French exam help, French for beginners, French for DELF A1, Frenc...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-04-27T14:41:38.285012Z",
+      "subscriberCount": "366",
+      "videoCount": "366",
+      "viewCount": "82393",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 330,
+      "discoveredByQueries": [
+        "French grammar lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "french for all frenchforall lrsw french youtube discovery"
     },
     {
       "catalogId": "discovered-UC5JsIc6DfQeNEIqvw-vGqiQ",
@@ -6063,6 +6204,35 @@
       "discoveredAt": "2026-07-24T14:16:02.265Z",
       "refreshedAt": "2026-07-24T14:16:02.265Z",
       "searchText": "french with alice frenchwithalice french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCNBAmlaaodcIscMzRm0W7bA",
+      "channelId": "UCNBAmlaaodcIscMzRm0W7bA",
+      "youtubeInput": "@frenchwithcc",
+      "handle": "@frenchwithcc",
+      "name": "French with C.C.",
+      "thumbnailUrl": "https://yt3.ggpht.com/KWOsZzGISE6e74FUcKVftSr9DHZkbZA6EDn4ZpNuXMVd_o9i7ihJR-ReMV-WVzhWU6_mdDeVQQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn beginning French! I taught French at the university level for many years and hope I can help others learn the beautiful French language. I will post videos and lessons on beginning French grammar and beginner French vocabulary. I hope my videos will be useful for teachers using a \"flipped\" French classroom too...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-06-23T16:25:27.325812Z",
+      "subscriberCount": "1010",
+      "videoCount": "56",
+      "viewCount": "71369",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 267,
+      "discoveredByQueries": [
+        "French grammar lessons",
+        "French vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "french with c c frenchwithcc french youtube discovery"
     },
     {
       "catalogId": "discovered-UC2a1e5pn0th3H3xgWjtSUEg",
@@ -9694,6 +9864,35 @@
       "searchText": "learn french in 5 days with vincent french5days french youtube discovery"
     },
     {
+      "catalogId": "discovered-UCO5wVmPawtIcEFXmV09qsjQ",
+      "channelId": "UCO5wVmPawtIcEFXmV09qsjQ",
+      "youtubeInput": "@learnfrenchwithavani",
+      "handle": "@learnfrenchwithavani",
+      "name": "Learn French with Avani",
+      "thumbnailUrl": "https://yt3.ggpht.com/3B8vGLCYOhWFZrHLvBHtc9yhty7j0aCwN2mJkHQoquBwES_39gpDpVPPHQ3YDh1P-4J1AgE1=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Learn French with Avani 🇫🇷 Your trusted destination to learn French in a structured, simple, and practical way. On this channel, you’ll find lessons designed to help you improve your speaking, grammar, vocabulary, pronunciation, and overall confidence in French. Whether you are a complete beginner or pr...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-04-23T08:46:25.448149Z",
+      "subscriberCount": "488",
+      "videoCount": "125",
+      "viewCount": "43579",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 289,
+      "discoveredByQueries": [
+        "French grammar lessons",
+        "French vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "learn french with avani learnfrenchwithavani french youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCxZeJ7metBtWs9Hw5KZPlJg",
       "channelId": "UCxZeJ7metBtWs9Hw5KZPlJg",
       "youtubeInput": "@french-cl",
@@ -10058,6 +10257,34 @@
       "discoveredAt": "2026-07-24T14:00:08.218Z",
       "refreshedAt": "2026-07-24T14:00:08.218Z",
       "searchText": "learn french with vincent vincent lefrancois french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC2JrVVT7JR8yOiGCbzqoPIA",
+      "channelId": "UC2JrVVT7JR8yOiGCbzqoPIA",
+      "youtubeInput": "@learntospeakfrench",
+      "handle": "@learntospeakfrench",
+      "name": "Learn French with Walid",
+      "thumbnailUrl": "https://yt3.ggpht.com/Yofdj2PgD3ICub8O-VkLAbItxP-5CAUFF9xNNwoPK501LgrHwq-Q6vzsILDyKRBH2nSEON5zEw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Easy French lessons for beginners and experts alike. Salut à tous! My name is Walid and I've been teaching French to native English speaker and immigrants for several years in Quebec. Here, you'll find full-length lessons and short videos covering the official Francisation Quebec (MIFI) curriculum. Whether you are s...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2016-07-23T21:39:52Z",
+      "subscriberCount": "5290",
+      "videoCount": "117",
+      "viewCount": "130698",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 325,
+      "discoveredByQueries": [
+        "French grammar lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "learn french with walid learntospeakfrench french youtube discovery"
     },
     {
       "catalogId": "discovered-UCecCG_0Ma1-VDdfXB3mNz2Q",
@@ -12479,6 +12706,34 @@
       "discoveredAt": "2026-07-25T15:03:10.072Z",
       "refreshedAt": "2026-07-25T15:03:10.072Z",
       "searchText": "learn to french learntofrench french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCtArm3-faI7bOK-6J-H-SPA",
+      "channelId": "UCtArm3-faI7bOK-6J-H-SPA",
+      "youtubeInput": "@learnexhindi",
+      "handle": "@learnexhindi",
+      "name": "Learnex - English lessons through Hindi",
+      "thumbnailUrl": "https://yt3.ggpht.com/t9jPleOAUh4-nNcrqWKXYlTM4GWSMoEe1wuNk0XnXOnniQUbMyTQEVTz4SnYGr6Y1LI-jDvTgA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Speaking English is aways challenging especially if it's not your mother tongue. If you speak and understand Hindi, Learnex ( English through Hindi) lesson would help you become fluent in English faster. Our English lessons are well-planned understanding the difficulties faced bu non-native English speakers. Of your...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2015-11-07T11:17:24Z",
+      "subscriberCount": "5880000",
+      "videoCount": "2264",
+      "viewCount": "556661426",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 325,
+      "discoveredByQueries": [
+        "English grammar lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "learnex english lessons through hindi learnexhindi english youtube discovery"
     },
     {
       "catalogId": "discovered-UCaSaI33bVcV52JJxjo7Bnqg",
@@ -17825,6 +18080,34 @@
       "searchText": "speak english fast and easily with fun lessons easyenglishwithava english youtube discovery"
     },
     {
+      "catalogId": "discovered-UCPsbxw3XO1YtvBafdrMAQCg",
+      "channelId": "UCPsbxw3XO1YtvBafdrMAQCg",
+      "youtubeInput": "@speakenglishwithkt-usa",
+      "handle": "@speakenglishwithkt-usa",
+      "name": "Speak English with KT | US Teacher",
+      "thumbnailUrl": "https://yt3.ggpht.com/-a2M90X6F9D66CX707CENSYjoe8IREWN8I6rE9lyZ_k67ZF7-p-mdJ17RPjI2KtdQU0S4dbHYw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome everyone! Is channel pe aapko FREE Spoken English Course milega. I want to help you start speaking English confidently, fluently and improve your English Speaking with a Native touch. Main USA mein English phonics teacher hun aur yahan US mein students ko English reading & writing sikhaati hu. Aur is channel...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-11-16T12:01:28.618631Z",
+      "subscriberCount": "170",
+      "videoCount": "88",
+      "viewCount": "9704",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 280,
+      "discoveredByQueries": [
+        "spoken English teacher"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "speak english with kt us teacher speakenglishwithkt usa english youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCR_pOtmem7TGAC2JG6BW9BA",
       "channelId": "UCR_pOtmem7TGAC2JG6BW9BA",
       "youtubeInput": "@speakfrenchpodcast",
@@ -18272,6 +18555,34 @@
       "discoveredAt": "2026-07-24T14:00:08.218Z",
       "refreshedAt": "2026-07-24T14:00:08.218Z",
       "searchText": "spring spanish learn spanish with chunks springspanish spanish youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCBiow6ukIJip6Q0N5GRYhcA",
+      "channelId": "UCBiow6ukIJip6Q0N5GRYhcA",
+      "youtubeInput": "@startlearningfrenchwithaish",
+      "handle": "@startlearningfrenchwithaish",
+      "name": "Start Learning French With Aish",
+      "thumbnailUrl": "https://yt3.ggpht.com/SPSLllu4gs4bsxs8MURgshmxybGGONFCcCLrbVcpYUedJk737MBd-IsEu0VUnwcfFz484NkaQzQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to start learning french with aish your ultimate destination for immersive and effective French language learning! Whether you're an absolute beginner or looking to enhance your fluency, our channel is designed to help you master French with confidence. Join us as we explore the beauty and richness of the Fr...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-03-15T05:21:42.818617Z",
+      "subscriberCount": "541",
+      "videoCount": "68",
+      "viewCount": "82488",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 267,
+      "discoveredByQueries": [
+        "French grammar lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "start learning french with aish startlearningfrenchwithaish french youtube discovery"
     },
     {
       "catalogId": "discovered-UC0PZgMgiXHyJwsMvMK5vcpg",
@@ -18919,6 +19230,34 @@
       "discoveredAt": "2026-07-25T15:03:28.802Z",
       "refreshedAt": "2026-07-25T15:03:28.802Z",
       "searchText": "the easy spanish lesson theeasyspanishlesson spanish youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCbiXbHOa_FwJRK7N3NBluTw",
+      "channelId": "UCbiXbHOa_FwJRK7N3NBluTw",
+      "youtubeInput": "@theenglishclass2917",
+      "handle": "@theenglishclass2917",
+      "name": "The English Class",
+      "thumbnailUrl": "https://yt3.ggpht.com/gd0QXpl8M76LgODOugPa7c3Aa0N8XOry5eg99KNiFEmrl3TsADX4phigd6wN8qpW4BF7Ffnh=s800-c-k-c0x00ffffff-no-rj",
+      "description": "“The English class” is a convenient way to learn English online through beautifully crafted English lessons for all. Our spoken English lessons will help you speak fluent English faster and better. If you are a beginner in English or want to speak advanced English, we have English speaking lessons that would cater t...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-02-08T15:41:00.691805Z",
+      "subscriberCount": "472000",
+      "videoCount": "621",
+      "viewCount": "13141806",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 366,
+      "discoveredByQueries": [
+        "English vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "the english class theenglishclass2917 english youtube discovery"
     },
     {
       "catalogId": "discovered-UCOe3tdFNH6iZgCONcuwd4ag",
