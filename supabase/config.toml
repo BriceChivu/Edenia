@@ -7,14 +7,20 @@ additional_redirect_urls = [
   "https://bricechivu.github.io/Edenia/?internal_test=1&account=1",
   "http://localhost:8000/?internal_test=1&account=1",
   "https://www.edenia.study/?internal_test=1&account=1",
-  "https://www.edenia.study/auth/confirm/",
-  "http://localhost:8000/auth/confirm/",
 ]
 
 [auth.email]
 enable_confirmations = true
 max_frequency = "1m"
-otp_length = 8
+otp_length = 6
+
+[auth.email.template.confirmation]
+subject = '{{ if eq .Data.edenia_auth_locale "es" }}Tu código de acceso a Edenia{{ else if eq .Data.edenia_auth_locale "fr" }}Votre code de connexion Edenia{{ else if eq .Data.edenia_auth_locale "zh-Hans" }}你的 Edenia 登录验证码{{ else if eq .Data.edenia_auth_locale "zh-Hant" }}你的 Edenia 登入驗證碼{{ else if eq .Data.edenia_auth_locale "en" }}Your Edenia sign-in code{{ else }}Edenia verification code · Código de verificación · Code de vérification · 验证码 · 驗證碼{{ end }}'
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.magic_link]
+subject = '{{ if eq .Data.edenia_auth_locale "es" }}Tu código de acceso a Edenia{{ else if eq .Data.edenia_auth_locale "fr" }}Votre code de connexion Edenia{{ else if eq .Data.edenia_auth_locale "zh-Hans" }}你的 Edenia 登录验证码{{ else if eq .Data.edenia_auth_locale "zh-Hant" }}你的 Edenia 登入驗證碼{{ else if eq .Data.edenia_auth_locale "en" }}Your Edenia sign-in code{{ else }}Edenia verification code · Código de verificación · Code de vérification · 验证码 · 驗證碼{{ end }}'
+content_path = "./supabase/templates/magic_link.html"
 
 [auth.mfa.totp]
 enroll_enabled = true

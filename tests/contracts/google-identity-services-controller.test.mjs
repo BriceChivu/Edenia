@@ -11,13 +11,10 @@ function createGoogleHarness() {
   const calls = []
   const configurations = []
   const api = {
-    cancel() { calls.push(['cancel']) },
-    disableAutoSelect() { calls.push(['disableAutoSelect']) },
     initialize(configuration) {
       configurations.push(configuration)
       calls.push(['initialize', configuration])
     },
-    prompt() { calls.push(['prompt']) },
     renderButton(element, options) {
       calls.push(['renderButton', element, options])
       element.children.push({ iframe: true })
@@ -112,13 +109,9 @@ test('one credential consumes its raw nonce once without retaining token state',
   )).toString('hex')
   assert.equal(configuration.nonce, expectedGoogleNonce)
   assert.match(configuration.nonce, /^[0-9a-f]{64}$/)
-  assert.equal(
-    google.calls.filter(call => call[0] === 'cancel').length,
-    1
-  )
 })
 
-test('prompt eligibility is repeat-safe and explicit sign-out suppresses auto select', async () => {
+test('the controller exposes only official-button behavior without prompts', async () => {
   const google = createGoogleHarness()
   const controller = createGoogleIdentityServicesController({
     clientId: 'client.apps.googleusercontent.com',
@@ -128,62 +121,11 @@ test('prompt eligibility is repeat-safe and explicit sign-out suppresses auto se
     loadScript: async () => google.api
   })
 
-  assert.equal(await controller.synchronizePrompt({
-    eligible: true,
-    autoSelect: true
-  }), true)
-  assert.equal(await controller.synchronizePrompt({
-    eligible: true,
-    autoSelect: true
-  }), true)
-  assert.equal(
-    google.calls.filter(call => call[0] === 'prompt').length,
-    1
-  )
-  assert.equal(google.configurations.at(-1).auto_select, true)
-
-  assert.equal(await controller.synchronizePrompt({ eligible: false }), false)
-  controller.prepareForExplicitSignOut()
-  assert.equal(
-    google.calls.filter(call => call[0] === 'disableAutoSelect').length,
-    1
-  )
-  assert.ok(google.calls.filter(call => call[0] === 'cancel').length >= 2)
-})
-
-test('an eligible prompt replaces a manual-only nonce instead of reinitializing it', async () => {
-  const google = createGoogleHarness()
-  const exchanges = []
-  const controller = createGoogleIdentityServicesController({
-    clientId: 'client.apps.googleusercontent.com',
-    crypto: webcrypto,
-    exchangeCredential: async input => {
-      exchanges.push(input)
-      return true
-    },
-    googleTarget: google.target,
-    loadScript: async () => google.api
-  })
   const element = createElement()
-
   await controller.mountButton(element)
-  const firstConfiguration = google.configurations.at(-1)
-  await controller.synchronizePrompt({ eligible: true, autoSelect: true })
-  const secondConfiguration = google.configurations.at(-1)
-
-  assert.equal(google.configurations.length, 2)
-  assert.equal(firstConfiguration.auto_select, false)
-  assert.equal(secondConfiguration.auto_select, true)
-  assert.notEqual(firstConfiguration.nonce, secondConfiguration.nonce)
-  assert.equal(
-    google.calls.filter(call => call[0] === 'renderButton').length,
-    2
-  )
-
-  await firstConfiguration.callback({ credential: 'stale-token' })
-  await secondConfiguration.callback({ credential: 'current-token' })
-  assert.equal(exchanges.length, 1)
-  assert.equal(exchanges[0].token, 'current-token')
+  assert.equal(google.configurations.at(-1).auto_select, false)
+  assert.equal('synchronizePrompt' in controller, false)
+  assert.equal('prepareForExplicitSignOut' in controller, false)
 })
 
 test('failed exchanges create a fresh nonce and rerender mounted buttons', async () => {
@@ -258,7 +200,7 @@ test('unavailable status exposes only a safe lifecycle stage', async () => {
     onStatusChange(status, details) { statuses.push([status, details]) }
   })
 
-  assert.equal(await controller.synchronizePrompt({ eligible: true }), false)
+  assert.equal(await controller.mountButton(createElement()), false)
   assert.deepEqual(statuses, [
     ['loading', undefined],
     ['unavailable', { stage: 'script' }]
@@ -288,9 +230,10 @@ test('initialization failure discards the candidate before a fresh retry', async
     onStatusChange(status, details) { statuses.push([status, details]) }
   })
 
-  assert.equal(await controller.synchronizePrompt({ eligible: true }), false)
+  const element = createElement()
+  assert.equal(await controller.mountButton(element), false)
   const failedNonce = google.configurations[0].nonce
-  assert.equal(await controller.synchronizePrompt({ eligible: true }), true)
+  assert.equal(await controller.mountButton(element), true)
   assert.equal(initializeAttempts, 2)
   assert.notEqual(google.configurations[1].nonce, failedNonce)
   assert.deepEqual(statuses.slice(0, 4), [

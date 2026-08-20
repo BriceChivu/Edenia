@@ -141,3 +141,39 @@ test('account session state drives isolated UUID analytics identity with safe pr
   assert.match(identitySource, /properties\.auth_method = authMethod/)
   assert.doesNotMatch(identitySource, /localStorage|loadState|saveState|progress|syncEdenia/i)
 })
+
+test('authentication credentials have no application persistence or analytics seam', async () => {
+  const accountAuthSource = await readFile(
+    new URL('../../src/integrations/account-auth-controller.js', import.meta.url),
+    'utf8'
+  )
+  const googleAuthSource = await readFile(
+    new URL('../../src/integrations/google-identity-services-controller.js', import.meta.url),
+    'utf8'
+  )
+  const settingsActionsSource = await readFile(
+    new URL('../../src/features/settings/account-actions.js', import.meta.url),
+    'utf8'
+  )
+  const onboardingActionsSource = await readFile(
+    new URL('../../src/features/onboarding/account-actions.js', import.meta.url),
+    'utf8'
+  )
+  const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8')
+  const appSource = await readFile(appUrl, 'utf8')
+
+  for (const source of [
+    accountAuthSource,
+    googleAuthSource,
+    settingsActionsSource,
+    onboardingActionsSource
+  ]) {
+    assert.doesNotMatch(
+      source,
+      /localStorage|sessionStorage|posthog|trackEdeniaEvent|identifyEdeniaAuthenticatedUser/i
+    )
+  }
+  assert.match(html, /settings-account-signed-out hidden ph-no-capture/)
+  assert.match(appSource, /onboarding-account-email-form ph-no-capture/)
+  assert.match(appSource, /onboarding-account-code-form ph-no-capture/)
+})

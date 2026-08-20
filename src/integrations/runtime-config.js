@@ -33,17 +33,13 @@ export function getAccountFeaturesRollout(target = window) {
 
 export function normalizeGoogleSignInMode(value) {
   const mode = String(value || '').trim().toLowerCase()
-  return ['off', 'oauth_redirect', 'id_token'].includes(mode)
+  return ['off', 'id_token'].includes(mode)
     ? mode
-    : 'oauth_redirect'
+    : 'id_token'
 }
 
 export function getGoogleSignInMode(target = window) {
   return normalizeGoogleSignInMode(publicConfig(target).googleSignInMode)
-}
-
-export function getGoogleOneTapEnabled(target = window) {
-  return publicConfig(target).googleOneTapEnabled === true
 }
 
 export function getGoogleIdentityClientId(target = window) {

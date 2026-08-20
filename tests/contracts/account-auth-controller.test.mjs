@@ -2,7 +2,6 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   ACCOUNT_AUTH_ERRORS,
-  ACCOUNT_AUTH_CONFIRM_DESTINATIONS,
   ACCOUNT_AUTH_NOTICES,
   ACCOUNT_AUTH_RETURN_DESTINATIONS,
   ACCOUNT_SESSION_STATES,
@@ -20,9 +19,10 @@ function createClient({
   claimsResponse,
   session = null,
   sessionResponses = [],
-  googleSignInError = null,
   googleIdTokenError = null,
-  magicLinkError = null,
+  emailRequestError = null,
+  emailVerificationError = null,
+  emailVerificationSession = null,
   signOutError = null
 } = {}) {
   const calls = []
@@ -48,17 +48,20 @@ function createClient({
         }
       }
     },
-    async signInWithOAuth(options) {
-      calls.push(['signInWithOAuth', options])
-      return { data: {}, error: googleSignInError }
-    },
     async signInWithIdToken(options) {
       calls.push(['signInWithIdToken', options])
       return { data: {}, error: googleIdTokenError }
     },
     async signInWithOtp(options) {
       calls.push(['signInWithOtp', options])
-      return { data: {}, error: magicLinkError }
+      return { data: {}, error: emailRequestError }
+    },
+    async verifyOtp(options) {
+      calls.push(['verifyOtp', options])
+      return {
+        data: { session: emailVerificationSession },
+        error: emailVerificationError
+      }
     },
     async signOut(options) {
       calls.push(['signOut', options])
@@ -85,6 +88,7 @@ function createClient({
 
 function createHarness(clientHarness, {
   href = ACCOUNT_AUTH_RETURN_DESTINATIONS.PRODUCTION,
+  isOnline = () => true,
   now = () => Date.now()
 } = {}) {
   const states = []
@@ -99,6 +103,7 @@ function createHarness(clientHarness, {
       }
     },
     location: { href },
+    isOnline,
     now,
     onStateChange(state) {
       states.push(state)
@@ -224,7 +229,7 @@ test('verified authentication claims report the current linked sign-in method', 
   assert.equal(emailController.controller.getState().authMethod, 'email')
 })
 
-test('verified claims distinguish an email magic link on a Google-owned user', async () => {
+test('verified claims distinguish an email OTP on a Google-owned user', async () => {
   const googleOwnedEmailHarness = createClient({
     claimsResponse: {
       data: {
@@ -420,23 +425,6 @@ test('sign-in redirects are selected from an exact application allowlist', () =>
   }
 })
 
-test('Google sign-in uses the allowlisted production return destination', async () => {
-  const clientHarness = createClient()
-  const harness = createHarness(clientHarness, {
-    href: 'https://www.edenia.study/?internal_test=1&untrusted=1'
-  })
-
-  assert.equal(await harness.controller.signInWithGoogle(), true)
-  assert.deepEqual(clientHarness.calls, [[
-    'signInWithOAuth',
-    {
-      provider: 'google',
-      options: { redirectTo: ACCOUNT_AUTH_RETURN_DESTINATIONS.PRODUCTION }
-    }
-  ]])
-  assert.equal(harness.controller.getState().busyAction, 'google-sign-in')
-})
-
 test('Google ID-token sign-in exchanges one ephemeral credential without redirecting', async () => {
   const clientHarness = createClient()
   const harness = createHarness(clientHarness, {
@@ -493,14 +481,17 @@ test('Google ID-token failures expose one safe error and no credential details',
   )
 })
 
-test('email sign-in normalizes addresses and retains a magic-link fallback', async () => {
+test('email sign-in requests a localized same-device code without a redirect', async () => {
   const clientHarness = createClient()
   const harness = createHarness(clientHarness, {
     href: 'http://localhost:8000/?internal_test=1'
   })
 
   assert.equal(
-    await harness.controller.sendMagicLink('  Learner@Example.COM  '),
+    await harness.controller.requestEmailCode(
+      '  Learner@Example.COM  ',
+      { locale: 'fr' }
+    ),
     true
   )
   assert.deepEqual(clientHarness.calls, [[
@@ -508,25 +499,25 @@ test('email sign-in normalizes addresses and retains a magic-link fallback', asy
     {
       email: 'learner@example.com',
       options: {
-        emailRedirectTo: ACCOUNT_AUTH_CONFIRM_DESTINATIONS.LOCAL,
+        data: { edenia_auth_locale: 'fr' },
         shouldCreateUser: true
       }
     }
   ]])
   assert.equal(
     harness.controller.getState().notice,
-    ACCOUNT_AUTH_NOTICES.MAGIC_LINK_SENT
+    ACCOUNT_AUTH_NOTICES.EMAIL_CODE_SENT
   )
 })
 
-test('email sign-in forwards a bounded CAPTCHA token and enforces cooldown', async () => {
+test('email-code requests forward one bounded CAPTCHA token and enforce cooldown', async () => {
   let now = 10_000
   const clientHarness = createClient()
   const harness = createHarness(clientHarness, {
     now: () => now
   })
 
-  assert.equal(await harness.controller.sendMagicLink(
+  assert.equal(await harness.controller.requestEmailCode(
     'learner@example.com',
     { captchaToken: 'turnstile-token' }
   ), true)
@@ -536,56 +527,167 @@ test('email sign-in forwards a bounded CAPTCHA token and enforces cooldown', asy
       email: 'learner@example.com',
       options: {
         captchaToken: 'turnstile-token',
-        emailRedirectTo: ACCOUNT_AUTH_CONFIRM_DESTINATIONS.PRODUCTION,
+        data: { edenia_auth_locale: 'en' },
         shouldCreateUser: true
       }
     }
   ])
   assert.equal(
-    await harness.controller.sendMagicLink('learner@example.com'),
+    await harness.controller.requestEmailCode('learner@example.com'),
     false
   )
   assert.equal(
     harness.controller.getState().error,
-    ACCOUNT_AUTH_ERRORS.MAGIC_LINK_COOLDOWN
+    ACCOUNT_AUTH_ERRORS.EMAIL_CODE_COOLDOWN
   )
   assert.equal(clientHarness.calls.length, 1)
 
   now += 60_000
   assert.equal(
-    await harness.controller.sendMagicLink('learner@example.com'),
+    await harness.controller.requestEmailCode('learner@example.com'),
     true
   )
   assert.equal(clientHarness.calls.length, 2)
 })
 
+test('six-digit email verification signs in without exposing the code or session', async () => {
+  const clientHarness = createClient({
+    emailVerificationSession: {
+      access_token: 'private-access-token',
+      refresh_token: 'private-refresh-token',
+      user: {
+        id: 'email-user-id',
+        email: 'learner@example.com',
+        app_metadata: { provider: 'email' }
+      }
+    }
+  })
+  const harness = createHarness(clientHarness)
+
+  await harness.controller.requestEmailCode('learner@example.com')
+  assert.equal(await harness.controller.verifyEmailCode(' 123456 '), true)
+  assert.deepEqual(clientHarness.calls, [
+    ['signInWithOtp', {
+      email: 'learner@example.com',
+      options: {
+        data: { edenia_auth_locale: 'en' },
+        shouldCreateUser: true
+      }
+    }],
+    ['verifyOtp', {
+      email: 'learner@example.com',
+      token: '123456',
+      type: 'email'
+    }]
+  ])
+  assert.equal(harness.controller.getState().sessionState, 'signed-in')
+  assert.equal(harness.controller.getState().userId, 'email-user-id')
+  const publicState = JSON.stringify(harness.controller.getState())
+  assert.doesNotMatch(publicState, /123456|access-token|refresh-token/u)
+})
+
+test('email verification keeps invalid and expired codes safely retryable', async () => {
+  const invalidHarness = createHarness(createClient())
+  await invalidHarness.controller.requestEmailCode('learner@example.com')
+  assert.equal(await invalidHarness.controller.verifyEmailCode('12a45'), false)
+  assert.equal(
+    invalidHarness.controller.getState().error,
+    ACCOUNT_AUTH_ERRORS.INVALID_EMAIL_CODE
+  )
+  assert.equal(
+    invalidHarness.controller.getState().notice,
+    ACCOUNT_AUTH_NOTICES.EMAIL_CODE_SENT
+  )
+
+  const expiredHarness = createHarness(createClient({
+    emailVerificationError: { code: 'otp_expired', status: 403 }
+  }))
+  await expiredHarness.controller.requestEmailCode('learner@example.com')
+  assert.equal(await expiredHarness.controller.verifyEmailCode('654321'), false)
+  assert.equal(
+    expiredHarness.controller.getState().error,
+    ACCOUNT_AUTH_ERRORS.EMAIL_CODE_EXPIRED
+  )
+  assert.equal(
+    expiredHarness.controller.getState().notice,
+    ACCOUNT_AUTH_NOTICES.EMAIL_CODE_SENT
+  )
+
+  const rejectedHarness = createHarness(createClient({
+    emailVerificationError: { code: 'invalid_otp', status: 403 }
+  }))
+  await rejectedHarness.controller.requestEmailCode('learner@example.com')
+  assert.equal(await rejectedHarness.controller.verifyEmailCode('123456'), false)
+  assert.equal(
+    rejectedHarness.controller.getState().error,
+    ACCOUNT_AUTH_ERRORS.INVALID_EMAIL_CODE
+  )
+})
+
+test('email transport maps rate limits and offline failures to safe feedback', async () => {
+  const rateLimitedHarness = createHarness(createClient({
+    emailRequestError: {
+      code: 'over_email_send_rate_limit',
+      message: 'private provider limit details',
+      status: 429
+    }
+  }))
+  assert.equal(
+    await rateLimitedHarness.controller.requestEmailCode('learner@example.com'),
+    false
+  )
+  assert.equal(
+    rateLimitedHarness.controller.getState().error,
+    ACCOUNT_AUTH_ERRORS.EMAIL_RATE_LIMITED
+  )
+
+  const offlineHarness = createHarness(createClient({
+    emailRequestError: new TypeError('private network details')
+  }), { isOnline: () => false })
+  assert.equal(
+    await offlineHarness.controller.requestEmailCode('learner@example.com'),
+    false
+  )
+  assert.equal(
+    offlineHarness.controller.getState().error,
+    ACCOUNT_AUTH_ERRORS.OFFLINE
+  )
+  assert.doesNotMatch(
+    JSON.stringify(offlineHarness.controller.getState()),
+    /private|provider|network/u
+  )
+})
+
 test('sign-in validation and provider failures publish safe controller errors', async () => {
   const invalidEmailClient = createClient()
   const invalidEmailHarness = createHarness(invalidEmailClient)
-  assert.equal(await invalidEmailHarness.controller.sendMagicLink('invalid'), false)
+  assert.equal(await invalidEmailHarness.controller.requestEmailCode('invalid'), false)
   assert.deepEqual(invalidEmailClient.calls, [])
   assert.equal(
     invalidEmailHarness.controller.getState().error,
     ACCOUNT_AUTH_ERRORS.INVALID_EMAIL
   )
 
-  const googleClient = createClient({ googleSignInError: new Error('secret') })
+  const googleClient = createClient({ googleIdTokenError: new Error('secret') })
   const googleHarness = createHarness(googleClient)
-  assert.equal(await googleHarness.controller.signInWithGoogle(), false)
+  assert.equal(await googleHarness.controller.signInWithGoogleIdToken({
+    nonce: 'private-nonce',
+    token: 'private-token'
+  }), false)
   assert.equal(
     googleHarness.controller.getState().error,
     ACCOUNT_AUTH_ERRORS.GOOGLE_SIGN_IN_FAILED
   )
 
-  const emailClient = createClient({ magicLinkError: new Error('secret') })
+  const emailClient = createClient({ emailRequestError: new Error('secret') })
   const emailHarness = createHarness(emailClient)
   assert.equal(
-    await emailHarness.controller.sendMagicLink('learner@example.com'),
+    await emailHarness.controller.requestEmailCode('learner@example.com'),
     false
   )
   assert.equal(
     emailHarness.controller.getState().error,
-    ACCOUNT_AUTH_ERRORS.MAGIC_LINK_FAILED
+    ACCOUNT_AUTH_ERRORS.EMAIL_CODE_REQUEST_FAILED
   )
 })
 
@@ -595,9 +697,12 @@ test('sign-in fails closed before calling Supabase from an unknown location', as
     href: 'https://preview.example/Edenia/?internal_test=1'
   })
 
-  assert.equal(await harness.controller.signInWithGoogle(), false)
+  assert.equal(await harness.controller.signInWithGoogleIdToken({
+    nonce: 'private-nonce',
+    token: 'private-token'
+  }), false)
   assert.equal(
-    await harness.controller.sendMagicLink('learner@example.com'),
+    await harness.controller.requestEmailCode('learner@example.com'),
     false
   )
   assert.deepEqual(clientHarness.calls, [])

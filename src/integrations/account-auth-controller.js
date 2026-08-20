@@ -7,10 +7,15 @@ export const ACCOUNT_SESSION_STATES = Object.freeze({
 
 export const ACCOUNT_AUTH_ERRORS = Object.freeze({
   CAPTCHA_REQUIRED: 'captcha-required',
+  EMAIL_CODE_COOLDOWN: 'email-code-cooldown',
+  EMAIL_CODE_EXPIRED: 'email-code-expired',
+  EMAIL_CODE_REQUEST_FAILED: 'email-code-request-failed',
+  EMAIL_CODE_VERIFICATION_FAILED: 'email-code-verification-failed',
+  EMAIL_RATE_LIMITED: 'email-rate-limited',
   GOOGLE_SIGN_IN_FAILED: 'google-sign-in-failed',
   INVALID_EMAIL: 'invalid-email',
-  MAGIC_LINK_FAILED: 'magic-link-failed',
-  MAGIC_LINK_COOLDOWN: 'magic-link-cooldown',
+  INVALID_EMAIL_CODE: 'invalid-email-code',
+  OFFLINE: 'offline',
   OAUTH_CANCELLED: 'oauth-cancelled',
   OAUTH_FAILED: 'oauth-failed',
   RETURN_DESTINATION_NOT_ALLOWED: 'return-destination-not-allowed',
@@ -19,17 +24,12 @@ export const ACCOUNT_AUTH_ERRORS = Object.freeze({
 })
 
 export const ACCOUNT_AUTH_NOTICES = Object.freeze({
-  MAGIC_LINK_SENT: 'magic-link-sent'
+  EMAIL_CODE_SENT: 'email-code-sent'
 })
 
 export const ACCOUNT_AUTH_RETURN_DESTINATIONS = Object.freeze({
   LOCAL: 'http://localhost:8000/?internal_test=1&account=1',
   PRODUCTION: 'https://www.edenia.study/?internal_test=1&account=1'
-})
-
-export const ACCOUNT_AUTH_CONFIRM_DESTINATIONS = Object.freeze({
-  LOCAL: 'http://localhost:8000/auth/confirm/',
-  PRODUCTION: 'https://www.edenia.study/auth/confirm/'
 })
 
 const AUTH_SESSION_EVENTS = new Set([
@@ -45,7 +45,9 @@ const OAUTH_ERROR_PARAMS = Object.freeze([
   'error_description'
 ])
 const CAPTCHA_TOKEN_MAX_LENGTH = 2048
-const MAGIC_LINK_COOLDOWN_MS = 60_000
+const EMAIL_CODE_COOLDOWN_MS = 60_000
+const EMAIL_CODE_PATTERN = /^\d{6}$/u
+const EMAIL_LOCALES = new Set(['en', 'es', 'fr', 'zh-Hans', 'zh-Hant'])
 const EMAIL_AUTH_METHODS = new Set([
   'email',
   'email/signup',
@@ -57,6 +59,30 @@ function normalizeEmail(value) {
   const email = String(value || '').trim().toLowerCase()
   if (!email || email.length > 254 || !EMAIL_PATTERN.test(email)) return null
   return email
+}
+
+function normalizeEmailLocale(value) {
+  const locale = String(value || '').trim()
+  return EMAIL_LOCALES.has(locale) ? locale : 'en'
+}
+
+function normalizeEmailCode(value) {
+  const code = String(value || '').trim()
+  return EMAIL_CODE_PATTERN.test(code) ? code : null
+}
+
+function isRateLimitError(error) {
+  const code = String(error?.code || '').trim().toLowerCase()
+  return Number(error?.status) === 429
+    || code === 'over_email_send_rate_limit'
+    || code === 'over_request_rate_limit'
+}
+
+function isInvalidEmailCodeError(error) {
+  const status = Number(error?.status)
+  const code = String(error?.code || '').trim().toLowerCase()
+  return [400, 401, 403, 422].includes(status)
+    || ['invalid_otp', 'otp_disabled'].includes(code)
 }
 
 export function getAccountAuthReturnUrl(locationLike) {
@@ -75,22 +101,6 @@ export function getAccountAuthReturnUrl(locationLike) {
   }
   if (url.origin === 'http://localhost:8000' && url.pathname === '/') {
     return ACCOUNT_AUTH_RETURN_DESTINATIONS.LOCAL
-  }
-  return null
-}
-
-export function getAccountAuthConfirmUrl(locationLike) {
-  let url
-  try {
-    url = new URL(locationLike?.href)
-  } catch {
-    return null
-  }
-  if (url.origin === 'https://www.edenia.study' && url.pathname === '/') {
-    return ACCOUNT_AUTH_CONFIRM_DESTINATIONS.PRODUCTION
-  }
-  if (url.origin === 'http://localhost:8000' && url.pathname === '/') {
-    return ACCOUNT_AUTH_CONFIRM_DESTINATIONS.LOCAL
   }
   return null
 }
@@ -187,6 +197,7 @@ function getSessionUser(session, claims = null) {
 export function createAccountAuthController({
   client,
   history: historyLike,
+  isOnline = () => globalThis.navigator?.onLine !== false,
   location: locationLike,
   onStateChange,
   now = () => Date.now(),
@@ -196,12 +207,14 @@ export function createAccountAuthController({
     typeof client?.auth?.getSession !== 'function'
     || typeof client?.auth?.onAuthStateChange !== 'function'
     || typeof client?.auth?.signInWithOtp !== 'function'
+    || typeof client?.auth?.verifyOtp !== 'function'
     || typeof client?.auth?.signOut !== 'function'
   ) {
     throw new TypeError('Account auth controller requires a Supabase auth client')
   }
   if (
     typeof onStateChange !== 'function'
+    || typeof isOnline !== 'function'
     || typeof now !== 'function'
     || typeof schedule !== 'function'
   ) {
@@ -224,7 +237,8 @@ export function createAccountAuthController({
   let authSubscription = null
   let sessionRequestId = 0
   let destroyed = false
-  let magicLinkAvailableAt = 0
+  let emailCodeAvailableAt = 0
+  let emailVerificationAddress = ''
 
   function publish(patch) {
     if (destroyed) return currentState
@@ -236,6 +250,7 @@ export function createAccountAuthController({
   function synchronizeSession(session, { claims = null, error = null } = {}) {
     sessionRequestId += 1
     const user = getSessionUser(session, claims)
+    emailVerificationAddress = ''
     if (!user) {
       return publish({
         sessionState: ACCOUNT_SESSION_STATES.SIGNED_OUT,
@@ -301,7 +316,7 @@ export function createAccountAuthController({
           return
         }
         // Confirm the session after the auth callback so dependent data reads
-        // cannot race the client's token installation during OAuth redirects.
+        // cannot race the client's token installation.
         void refreshSession()
       })
     })
@@ -318,9 +333,8 @@ export function createAccountAuthController({
     return refreshSession({ busyAction: 'refresh' })
   }
 
-  function requireReturnUrl() {
-    const redirectTo = getAccountAuthReturnUrl(locationLike)
-    if (redirectTo) return redirectTo
+  function requireAllowedLocation() {
+    if (getAccountAuthReturnUrl(locationLike)) return true
     publish({
       busyAction: null,
       error: ACCOUNT_AUTH_ERRORS.RETURN_DESTINATION_NOT_ALLOWED,
@@ -329,31 +343,8 @@ export function createAccountAuthController({
     return null
   }
 
-  async function signInWithGoogle() {
-    const redirectTo = requireReturnUrl()
-    if (!redirectTo) return false
-    publish({ busyAction: 'google-sign-in', error: null, notice: null })
-    let result
-    try {
-      if (typeof client.auth.signInWithOAuth !== 'function') throw new Error()
-      result = await client.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo }
-      })
-    } catch {}
-    if (destroyed) return false
-    if (!result || result.error) {
-      publish({
-        busyAction: null,
-        error: ACCOUNT_AUTH_ERRORS.GOOGLE_SIGN_IN_FAILED,
-        notice: null
-      })
-      return false
-    }
-    return true
-  }
-
   async function signInWithGoogleIdToken({ token, nonce } = {}) {
+    if (!requireAllowedLocation()) return false
     const normalizedToken = String(token || '').trim()
     const normalizedNonce = String(nonce || '').trim()
     if (!normalizedToken || !normalizedNonce) {
@@ -386,9 +377,9 @@ export function createAccountAuthController({
     return true
   }
 
-  async function sendMagicLink(
+  async function requestEmailCode(
     value,
-    { captchaRequired = false, captchaToken = '' } = {}
+    { captchaRequired = false, captchaToken = '', locale = 'en' } = {}
   ) {
     const email = normalizeEmail(value)
     if (!email) {
@@ -399,16 +390,9 @@ export function createAccountAuthController({
       })
       return false
     }
-    const emailRedirectTo = getAccountAuthConfirmUrl(locationLike)
-    if (!emailRedirectTo) {
-      publish({
-        busyAction: null,
-        error: ACCOUNT_AUTH_ERRORS.RETURN_DESTINATION_NOT_ALLOWED,
-        notice: null
-      })
-      return false
-    }
+    if (!requireAllowedLocation()) return false
     const normalizedCaptchaToken = String(captchaToken || '').trim()
+    const normalizedLocale = normalizeEmailLocale(locale)
     if (captchaRequired && !normalizedCaptchaToken) {
       publish({
         busyAction: null,
@@ -428,21 +412,21 @@ export function createAccountAuthController({
       })
       return false
     }
-    if (now() < magicLinkAvailableAt) {
+    if (now() < emailCodeAvailableAt) {
       publish({
         busyAction: null,
-        error: ACCOUNT_AUTH_ERRORS.MAGIC_LINK_COOLDOWN,
+        error: ACCOUNT_AUTH_ERRORS.EMAIL_CODE_COOLDOWN,
         notice: null
       })
       return false
     }
-    publish({ busyAction: 'email-sign-in', error: null, notice: null })
+    publish({ busyAction: 'email-code-request', error: null, notice: null })
     let result
     try {
       result = await client.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo,
+          data: { edenia_auth_locale: normalizedLocale },
           shouldCreateUser: true,
           ...(normalizedCaptchaToken
             ? { captchaToken: normalizedCaptchaToken }
@@ -454,17 +438,61 @@ export function createAccountAuthController({
     if (!result || result.error) {
       publish({
         busyAction: null,
-        error: ACCOUNT_AUTH_ERRORS.MAGIC_LINK_FAILED,
+        error: !isOnline()
+          ? ACCOUNT_AUTH_ERRORS.OFFLINE
+          : isRateLimitError(result?.error)
+            ? ACCOUNT_AUTH_ERRORS.EMAIL_RATE_LIMITED
+            : ACCOUNT_AUTH_ERRORS.EMAIL_CODE_REQUEST_FAILED,
         notice: null
       })
       return false
     }
-    magicLinkAvailableAt = now() + MAGIC_LINK_COOLDOWN_MS
+    emailCodeAvailableAt = now() + EMAIL_CODE_COOLDOWN_MS
+    emailVerificationAddress = email
     publish({
       busyAction: null,
       error: null,
-      notice: ACCOUNT_AUTH_NOTICES.MAGIC_LINK_SENT
+      notice: ACCOUNT_AUTH_NOTICES.EMAIL_CODE_SENT
     })
+    return true
+  }
+
+  async function verifyEmailCode(value) {
+    const code = normalizeEmailCode(value)
+    if (!code || !emailVerificationAddress) {
+      publish({
+        busyAction: null,
+        error: ACCOUNT_AUTH_ERRORS.INVALID_EMAIL_CODE
+      })
+      return false
+    }
+    publish({ busyAction: 'email-code-verification', error: null })
+    let result
+    try {
+      result = await client.auth.verifyOtp({
+        email: emailVerificationAddress,
+        token: code,
+        type: 'email'
+      })
+    } catch {}
+    if (destroyed) return false
+    if (!result || result.error || !getSessionUser(result.data?.session)) {
+      const errorCode = String(result?.error?.code || '').trim().toLowerCase()
+      publish({
+        busyAction: null,
+        error: !isOnline()
+          ? ACCOUNT_AUTH_ERRORS.OFFLINE
+          : isRateLimitError(result?.error)
+            ? ACCOUNT_AUTH_ERRORS.EMAIL_RATE_LIMITED
+            : errorCode === 'otp_expired'
+              ? ACCOUNT_AUTH_ERRORS.EMAIL_CODE_EXPIRED
+              : isInvalidEmailCodeError(result?.error)
+                ? ACCOUNT_AUTH_ERRORS.INVALID_EMAIL_CODE
+                : ACCOUNT_AUTH_ERRORS.EMAIL_CODE_VERIFICATION_FAILED
+      })
+      return false
+    }
+    synchronizeSession(result.data.session)
     return true
   }
 
@@ -500,11 +528,12 @@ export function createAccountAuthController({
   return Object.freeze({
     destroy,
     getState: () => currentState,
+    hasPendingEmailCode: () => Boolean(emailVerificationAddress),
     initialize,
     refresh,
-    sendMagicLink,
-    signInWithGoogle,
+    requestEmailCode,
     signInWithGoogleIdToken,
-    signOut
+    signOut,
+    verifyEmailCode
   })
 }
