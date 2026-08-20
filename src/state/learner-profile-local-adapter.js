@@ -42,6 +42,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
   accessStorageKey,
   accountlessProfileId,
   eventTarget,
+  hasProfile = () => true,
   loadProfile,
   replaceProfile,
   saveProfile,
@@ -51,7 +52,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     let profile
     let access
     try {
-      profile = loadProfile()
+      profile = hasProfile() ? loadProfile() : null
       access = readAccessRecord(storage, accessStorageKey)
     } catch {
       return { status: 'invalid' }
@@ -65,6 +66,50 @@ export function createLearnerProfileLocalPersistenceAdapter({
       profile,
       profileId: access.record?.profileId || accountlessProfileId,
       status: 'ready'
+    }
+  }
+
+  function installOwnedProfile(profile, { installedAt, ownerId, profileId }) {
+    if (
+      !isRecord(profile)
+      || typeof ownerId !== 'string'
+      || !ownerId
+      || typeof profileId !== 'string'
+      || !profileId
+      || !Number.isFinite(installedAt)
+    ) return false
+    if (hasProfile()) return false
+    const record = {
+      activatedAt: installedAt,
+      activationId: null,
+      ownerId,
+      profileId,
+      version: PROFILE_ACCESS_RECORD_VERSION
+    }
+    const isInstallCurrent = () => {
+      const current = readAccessRecord(storage, accessStorageKey).record
+      return current?.activationId === null
+        && current.ownerId === ownerId
+        && current.profileId === profileId
+    }
+    try {
+      storage.setItem(accessStorageKey, JSON.stringify(record))
+      if (!isInstallCurrent()) return false
+      const result = replaceProfile(profile, {
+        syncAnalytics: false
+      }, isInstallCurrent)
+      if (result?.persisted && isInstallCurrent()) return true
+      if (!hasProfile() && isInstallCurrent()) {
+        storage.removeItem(accessStorageKey)
+      }
+      return false
+    } catch {
+      try {
+        if (!hasProfile() && isInstallCurrent()) {
+          storage.removeItem(accessStorageKey)
+        }
+      } catch {}
+      return false
     }
   }
 
@@ -151,6 +196,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
 
   return Object.freeze({
     claimActivation,
+    installOwnedProfile,
     isActivationCurrent,
     read,
     releaseActivation,

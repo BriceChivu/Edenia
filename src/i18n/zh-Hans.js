@@ -47,6 +47,7 @@ export const ZH_HANS_LOCALIZED = {
     'onboarding.channels.none': '目前没有符合这个组合的入门频道。你仍可继续并自行添加。',
     'onboarding.continue': '继续',
     'onboarding.back': '返回',
+    'onboarding.startOver': '重新开始',
     'onboarding.build': '开始我的旅程',
     'onboarding.building': '正在开始你的旅程…',
     'onboarding.recovery.storage.title': 'Edenia 无法保存你的进度',

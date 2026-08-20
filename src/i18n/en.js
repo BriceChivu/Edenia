@@ -46,6 +46,7 @@ export const EN_CORE = {
   'onboarding.channels.none': 'No starter channels match this combination yet. You can still continue and add your own.',
   'onboarding.continue': 'Continue',
   'onboarding.back': 'Back',
+  'onboarding.startOver': 'Start over',
   'onboarding.build': 'Start my journey',
   'onboarding.building': 'Starting your journey...',
   'onboarding.recovery.storage.title': 'Edenia can’t save your progress',

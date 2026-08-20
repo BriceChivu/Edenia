@@ -20,6 +20,8 @@ export function deriveStorageKeys({ isSandbox, isInternalTest }) {
       `${storageKey}_legacy_progress_migration_v1`,
     learnerProfileAccessKey:
       `${storageKey}_learner_profile_access_v1`,
+    onboardingProfileDraftKey:
+      `${storageKey}_onboarding_draft_v1`,
     accountAuthStorageKey,
     plusAuthStorageKey: accountAuthStorageKey,
     plusEntitlementCacheKey: `${storageKey}_plus_entitlement_cache_v1`,

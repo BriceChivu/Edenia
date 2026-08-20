@@ -47,6 +47,7 @@ export const ES_LOCALIZED = {
     'onboarding.channels.none': 'Aún no hay canales iniciales para esta combinación. Puedes continuar y añadir los tuyos.',
     'onboarding.continue': 'Continuar',
     'onboarding.back': 'Atrás',
+    'onboarding.startOver': 'Empezar de nuevo',
     'onboarding.build': 'Empezar mi viaje',
     'onboarding.building': 'Preparando tu viaje...',
     'onboarding.recovery.storage.title': 'Edenia no puede guardar tu progreso',

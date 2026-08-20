@@ -86,6 +86,9 @@ import {
   shouldSyncOnboardingChoiceLayoutForViewportResize
 } from './features/onboarding/choice-layout.js'
 import {
+  bindOnboardingStartOverActions
+} from './features/onboarding/start-over-actions.js'
+import {
   ACTIVE_VIDEOS_PER_CHANNEL,
   compareActiveVideos,
   comparePausedVideos,
@@ -283,11 +286,17 @@ import {
   LEARNER_PROFILE_ACCESS_STATES
 } from './state/learner-profile-lifecycle.js'
 import {
+  createOnboardingProfileDraftStore
+} from './state/onboarding-profile-draft.js'
+import {
   createLearnerProfileLocalPersistenceAdapter
 } from './state/learner-profile-local-adapter.js'
 import {
   createLearnerProfileAuthenticationAdapter
 } from './integrations/learner-profile-authentication-adapter.js'
+import {
+  createLearnerProfileCloudPersistenceAdapter
+} from './integrations/learner-profile-cloud-persistence.js'
 import {
   createDefaultStateFactory,
   normalizeHistoryView
@@ -565,6 +574,7 @@ const {
   stateBackupKey: STATE_BACKUP_KEY,
   legacyProgressMigrationKey: LEGACY_PROGRESS_MIGRATION_KEY,
   learnerProfileAccessKey: LEARNER_PROFILE_ACCESS_KEY,
+  onboardingProfileDraftKey: ONBOARDING_PROFILE_DRAFT_KEY,
   accountAuthStorageKey: ACCOUNT_AUTH_STORAGE_KEY,
   plusEntitlementCacheKey: PLUS_ENTITLEMENT_CACHE_KEY,
   sandboxWalkthroughAfterResetKey: SANDBOX_WALKTHROUGH_AFTER_RESET_KEY,
@@ -589,6 +599,14 @@ const defaultState = createDefaultStateFactory({
   isSandbox: IS_SANDBOX,
   isDefaultChannelId,
   getBrowserDefaultLocale
+})
+const onboardingProfileDraftStore = createOnboardingProfileDraftStore({
+  createDefaultState(locale) {
+    return defaultState(4, DEFAULT_CHANNELS, undefined, null, locale)
+  },
+  fallbackLocale: getBrowserDefaultLocale(),
+  storage: localStorage,
+  storageKey: ONBOARDING_PROFILE_DRAFT_KEY
 })
 const readImportedState = createImportedStateReader({
   createDefaultState: defaultState,
@@ -845,6 +863,48 @@ function createLearnerProfileActivationId() {
   return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
+async function createInitialOwnedProfileEnvelope(onboardingState) {
+  normalizeLearnerProfileState(onboardingState)
+  normalizeOnboardingState(onboardingState)
+  const languageId = onboardingState.learnerProfile.languages[0] || null
+  const levelId = onboardingState.learnerProfile.level
+  if (
+    !languageId
+    || (languageId !== 'other' && !levelId)
+    || !onboardingState.onboarding.accountStepReachedAt
+  ) return null
+
+  const completedAt = new Date().toISOString()
+  onboardingState.activityLog = []
+  onboardingState.anki = {}
+  onboardingState.videos = {}
+  onboardingState.cityProgress = {
+    maxLevelIndex: 0,
+    pendingLevelIndex: null
+  }
+  onboardingState.learnerProfile.createdAt = completedAt
+  onboardingState.learnerProfile.updatedAt = completedAt
+  onboardingState.onboarding.accountStepReachedAt = null
+  onboardingState.onboarding.levelUpGuidanceShownAt = null
+  onboardingState.onboarding.recommendationsAppliedAt = null
+  onboardingState.onboarding.setupCompleted = true
+  onboardingState.onboarding.setupCompletedAt = completedAt
+  onboardingState.onboarding.walkthroughCompleted = false
+  onboardingState.onboarding.walkthroughCompletedAt = null
+  const result = await createPortableLearnerProfileEnvelope(
+    onboardingState,
+    { now: () => new Date(completedAt) }
+  )
+  return result.envelope
+}
+
+function importOwnedProfileEnvelope(envelope) {
+  const state = getImportedSyncState(envelope?.profile)
+  if (!state) return null
+  normalizeLoadedState(state)
+  return state
+}
+
 const learnerProfileAccessView = createLearnerProfileAccessView({
   root: document,
   translate: t
@@ -856,6 +916,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     accessStorageKey: LEARNER_PROFILE_ACCESS_KEY,
     accountlessProfileId: `accountless:${STORAGE_KEY}`,
     eventTarget: window,
+    hasProfile: hasPersistedLearnerProfile,
     loadProfile: () => loadPersistedState({ persistCleanup: false }),
     replaceProfile: saveImportedPersistedState,
     saveProfile: savePersistedState,
@@ -870,10 +931,14 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
       },
       authentication: learnerProfileAuthenticationAdapter,
       clock: { now: () => Date.now() },
-      cloudPersistence: {
-        resolve: async () => ({ status: 'waiting' }),
-        save: async () => ({ status: 'waiting' })
-      },
+      cloudPersistence: createLearnerProfileCloudPersistenceAdapter({
+        clearOnboardingDraft: onboardingProfileDraftStore.clear,
+        createOnboardingEnvelope: createInitialOwnedProfileEnvelope,
+        getClient: getSupabaseClient,
+        importEnvelope: importOwnedProfileEnvelope,
+        readOnboardingState: loadOnboardingWorkingState,
+        verifyEnvelope: verifyPortableLearnerProfileEnvelope
+      }),
       connectivity: createLearnerProfileConnectivityAdapter(window),
       exportDownload: {
         download: downloadLearnerProfileSyncFile
@@ -901,6 +966,28 @@ function saveState(state, options = {}) {
   return learnerProfileLifecycleAuthority
     ? learnerProfileLifecycleAuthority.saveActiveProfile(state, options)
     : savePersistedState(state, options)
+}
+
+function hasPersistedLearnerProfile() {
+  try {
+    return localStorage.getItem(STORAGE_KEY) !== null
+  } catch {
+    return false
+  }
+}
+
+function loadOnboardingWorkingState() {
+  if (learnerProfileLifecycleAuthority && !hasPersistedLearnerProfile()) {
+    return onboardingProfileDraftStore.readWorkingState()
+  }
+  return loadState()
+}
+
+function saveOnboardingWorkingState(state, options = {}) {
+  if (learnerProfileLifecycleAuthority && !hasPersistedLearnerProfile()) {
+    return onboardingProfileDraftStore.saveWorkingState(state)
+  }
+  return saveState(state, options)
 }
 const legacyProgressMigrationView = createLegacyProgressMigrationView({
   root: document,
@@ -2576,10 +2663,41 @@ function handleLearnerProfileAccessStateChange(accessState) {
   if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
     const state = learnerProfileLifecycleAuthority?.readActiveProfile()
     if (!state) return
+    closeIntroTrailer()
+    personalizedOnboardingState.active = false
+    document.getElementById('onboardingPanel')?.classList.add('hidden')
+    document.body.classList.remove('onboarding-active')
+    document.getElementById('mainApp')?.removeAttribute('inert')
     if (!applicationStarted) {
       startApplicationWithState(state, { accountAuthInitialized: true })
     } else {
       renderActivatedLearnerProfile(state)
+    }
+    return
+  }
+  const publicOnboardingState = !hasPersistedLearnerProfile()
+    ? loadOnboardingWorkingState()
+    : null
+  if (
+    ACCOUNT_FEATURES_ENABLED
+    && publicOnboardingState
+    && [
+      LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION,
+      LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
+    ].includes(accessState.status)
+  ) {
+    document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
+    applyLocale(publicOnboardingState.config.locale)
+    if (
+      accessState.status === LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
+      && !introTrailerState.active
+      && !personalizedOnboardingState.active
+    ) {
+      if (publicOnboardingState.onboarding.introSeenAt) {
+        startPersonalizedOnboarding(publicOnboardingState)
+      } else {
+        startIntroTrailer({ state: publicOnboardingState })
+      }
     }
     return
   }
@@ -2893,11 +3011,13 @@ function initIntroTrailerTouchNavigation() {
 
 function changeIntroLocale(locale) {
   closeIntroLocaleMenu()
-  const state = loadState()
+  const state = loadOnboardingWorkingState() || introTrailerState.state
   if (!state?.config) return
   const nextLocale = normalizeLocale(locale)
   state.config.locale = nextLocale
-  saveState(state, { backup: false })
+  if (!saveState(state, { backup: false })) {
+    saveOnboardingWorkingState(state, { backup: false })
+  }
   applyLocale(nextLocale)
   updateIntroSoundButton()
   updateIntroCityLevelControls(document.getElementById('introCityLevel')?.textContent || '1')
@@ -2976,11 +3096,13 @@ function closeOnboardingLocaleMenuOnOutsideClick(event) {
 
 function changeOnboardingLocale(locale) {
   closeOnboardingLocaleMenu()
-  const state = loadState()
+  const state = loadOnboardingWorkingState()
   if (!state?.config) return
   const nextLocale = normalizeLocale(locale)
   state.config.locale = nextLocale
-  saveState(state, { backup: false })
+  if (!saveState(state, { backup: false })) {
+    saveOnboardingWorkingState(state, { backup: false })
+  }
   applyLocale(nextLocale)
   updateDocumentTitle(state)
   renderPersonalizedOnboarding()
@@ -3183,7 +3305,7 @@ function finishIntroTrailer() {
     return
   }
 
-  const state = loadState() || introTrailerState.state
+  const state = loadOnboardingWorkingState() || introTrailerState.state
   if (!state) {
     closeIntroTrailer()
     showOnboardingRecovery('setup', { resume: 'personalized' })
@@ -3192,7 +3314,7 @@ function finishIntroTrailer() {
 
   normalizeOnboardingState(state)
   state.onboarding.introSeenAt = state.onboarding.introSeenAt || new Date().toISOString()
-  if (!saveState(state, { backup: false })) {
+  if (!saveOnboardingWorkingState(state, { backup: false })) {
     closeIntroTrailer()
     showOnboardingRecovery('storage', { state, resume: 'personalized' })
     return
@@ -3227,7 +3349,7 @@ function getInitialPersonalizedOnboardingStep(state) {
   return state.learnerProfile.level ? 'channels' : 'level'
 }
 
-function startPersonalizedOnboarding(state = loadState()) {
+function startPersonalizedOnboarding(state = loadOnboardingWorkingState()) {
   if (!state || IS_SANDBOX) return false
   const panel = document.getElementById('onboardingPanel')
   const content = document.getElementById('onboardingContent')
@@ -3451,6 +3573,7 @@ function renderPersonalizedOnboarding() {
     toggleChannel: toggleOnboardingChannel,
     finish: finishPersonalizedOnboarding
   })
+  bindOnboardingStartOverActions(content, startOverPersonalizedOnboarding)
   bindOnboardingAccountActions(content, {
     requestEmailCode: requestOnboardingAccountEmailCode,
     verifyEmailCode: verifyAccountEmailCode
@@ -3625,7 +3748,9 @@ function renderOnboardingAccountStep(content) {
     </div>
     <div class="onboarding-actions onboarding-account-actions">
       <button type="button" class="btn-ghost" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="${previousStep}" data-analytics-action="setPersonalizedOnboardingStep" ${busy ? 'disabled' : ''}>${escHtml(t('onboarding.back'))}</button>
-      <button type="button" class="${signedIn ? 'btn-primary' : 'btn-ghost onboarding-account-skip'}" data-personalized-onboarding-action="finish" data-analytics-action="finishPersonalizedOnboarding" ${busy ? 'disabled' : ''}>${escHtml(t(signedIn ? 'onboarding.build' : 'onboarding.account.skip'))}</button>
+      ${LEARNER_PROFILE_LIFECYCLE_ENABLED
+        ? `<button type="button" class="btn-ghost" data-personalized-onboarding-action="start-over" data-analytics-action="startOverPersonalizedOnboarding" ${busy || signedIn ? 'disabled' : ''}>${escHtml(t('onboarding.startOver'))}</button>`
+        : `<button type="button" class="${signedIn ? 'btn-primary' : 'btn-ghost onboarding-account-skip'}" data-personalized-onboarding-action="finish" data-analytics-action="finishPersonalizedOnboarding" ${busy ? 'disabled' : ''}>${escHtml(t(signedIn ? 'onboarding.build' : 'onboarding.account.skip'))}</button>`}
     </div>
   `
   mountGoogleIdentityServicesButtons(content)
@@ -3742,9 +3867,24 @@ function selectOnboardingLevel(levelId) {
   renderPersonalizedOnboarding()
 }
 
+function startOverPersonalizedOnboarding() {
+  if (!LEARNER_PROFILE_LIFECYCLE_ENABLED) return
+  if (!onboardingProfileDraftStore.clear()) {
+    showOnboardingRecovery('storage', { resume: 'intro' })
+    return
+  }
+  personalizedOnboardingState.active = false
+  document.getElementById('onboardingPanel')?.classList.add('hidden')
+  document.body.classList.remove('onboarding-active')
+  const state = loadOnboardingWorkingState()
+  if (!state || !startIntroTrailer({ state })) {
+    showOnboardingRecovery('setup', { state, resume: 'intro' })
+  }
+}
+
 function persistOnboardingAccountDraft() {
   const now = new Date().toISOString()
-  const state = loadState() || defaultState(4, DEFAULT_CHANNELS)
+  const state = loadOnboardingWorkingState() || defaultState(4, DEFAULT_CHANNELS)
   normalizeLearnerProfileState(state)
   normalizeOnboardingState(state)
   const selectedChannelCatalogIds = personalizedOnboardingState.selectedChannelCatalogIds
@@ -3758,17 +3898,28 @@ function persistOnboardingAccountDraft() {
   }
   state.onboarding.accountStepReachedAt = now
   if (saveState(state)) return true
+  if (
+    learnerProfileLifecycleAuthority
+    && saveOnboardingWorkingState(state)
+  ) {
+    learnerProfileLifecycleAuthority?.refresh()
+    return true
+  }
   showOnboardingRecovery('storage', { state, resume: 'personalized' })
   return false
 }
 
 function clearOnboardingAccountDraftMarker() {
-  const state = loadState()
+  const state = loadOnboardingWorkingState()
   if (!state) return true
   normalizeOnboardingState(state)
   if (!state.onboarding.accountStepReachedAt) return true
   state.onboarding.accountStepReachedAt = null
   if (saveState(state)) return true
+  if (
+    learnerProfileLifecycleAuthority
+    && saveOnboardingWorkingState(state)
+  ) return true
   showOnboardingRecovery('storage', { state, resume: 'personalized' })
   return false
 }

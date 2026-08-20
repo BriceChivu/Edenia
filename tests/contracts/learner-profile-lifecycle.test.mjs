@@ -52,6 +52,7 @@ function createHarness({
   const cloudDeferred = deferred()
   const calls = []
   let currentFence = null
+  let currentLocal = local
   const authority = createLearnerProfileLifecycleAuthority({
     adapters: {
       analytics: {
@@ -87,6 +88,16 @@ function createHarness({
         }
       },
       localPersistence: {
+        installOwnedProfile(profile, identity) {
+          calls.push(['install', profile, identity])
+          currentLocal = {
+            ownerId: identity.ownerId,
+            profile,
+            profileId: identity.profileId,
+            status: 'ready'
+          }
+          return true
+        },
         claimActivation(fence) {
           currentFence = fence
           calls.push(['claim', fence])
@@ -97,7 +108,7 @@ function createHarness({
         },
         read() {
           calls.push(['local-read'])
-          return local
+          return currentLocal
         },
         releaseActivation(fence) {
           calls.push(['release', fence.id])
@@ -310,6 +321,10 @@ test('an explicit owned-profile resolution fences delayed work from an earlier a
   await Promise.resolve()
 
   assert.equal(harness.authority.readActiveProfile(), ownedProfile)
+  assert.ok(
+    harness.calls.findIndex(([name]) => name === 'install')
+      < harness.calls.findIndex(([name]) => name === 'claim')
+  )
   assert.equal(harness.authority.saveActiveProfile(ownedProfile), true)
   const cloudSave = harness.calls.find(([name]) => name === 'cloud-save')
   assert.equal(cloudSave[2].isCurrent(), true)
@@ -324,6 +339,33 @@ test('an explicit owned-profile resolution fences delayed work from an earlier a
     harness.calls.filter(([name]) => name === 'local-save').length,
     1
   )
+})
+
+test('activation remains hidden when profile-finalization cannot clear temporary state', async () => {
+  const harness = createHarness({
+    authentication: {
+      status: 'signed-in',
+      userId: '123e4567-e89b-42d3-a456-426614174000'
+    },
+    cloudResolution: {
+      finalize: () => false,
+      ownerId: '123e4567-e89b-42d3-a456-426614174000',
+      profile: { learnerProfile: { languages: ['mandarin'] } },
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      status: 'activate'
+    },
+    local: { status: 'empty' }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+  )
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(harness.calls.some(([name]) => name === 'claim'), false)
 })
 
 test('a newer tab fence makes the earlier activation inert', () => {
@@ -433,6 +475,54 @@ test('browser persistence shares activation fences across tabs before writes', (
     profile,
     { syncAnalytics: false }
   ]])
+})
+
+test('a new owned profile installs behind a locked owner record before activation', () => {
+  const accessStorageKey = 'edenia_v1_profile_access_v1'
+  const values = new Map()
+  let persistedProfile = null
+  const storage = {
+    getItem(key) {
+      return values.get(key) ?? null
+    },
+    removeItem(key) {
+      values.delete(key)
+    },
+    setItem(key, value) {
+      values.set(key, value)
+    }
+  }
+  const adapter = createLearnerProfileLocalPersistenceAdapter({
+    accessStorageKey,
+    accountlessProfileId: 'accountless:edenia_v1',
+    eventTarget: null,
+    hasProfile: () => Boolean(persistedProfile),
+    loadProfile: () => persistedProfile,
+    replaceProfile(profile, options, canPersist) {
+      const access = JSON.parse(storage.getItem(accessStorageKey))
+      assert.equal(access.activationId, null)
+      assert.equal(access.ownerId, '123e4567-e89b-42d3-a456-426614174000')
+      assert.equal(canPersist(), true)
+      assert.equal(options.syncAnalytics, false)
+      persistedProfile = profile
+      return { persisted: true, error: null }
+    },
+    saveProfile: () => false,
+    storage
+  })
+  const profile = { learnerProfile: { languages: ['mandarin'] } }
+
+  assert.equal(adapter.installOwnedProfile(profile, {
+    installedAt: 1_786_982_400_000,
+    ownerId: '123e4567-e89b-42d3-a456-426614174000',
+    profileId: '223e4567-e89b-42d3-a456-426614174001'
+  }), true)
+  assert.deepEqual(adapter.read(), {
+    ownerId: '123e4567-e89b-42d3-a456-426614174000',
+    profile,
+    profileId: '223e4567-e89b-42d3-a456-426614174001',
+    status: 'ready'
+  })
 })
 
 test('a stale save cannot persist after a newer tab claims activation during preparation', () => {

@@ -122,9 +122,34 @@ export function createLearnerProfileLifecycleAuthority({
         && result.profile
         && typeof result.profile === 'object'
       ) {
+        let resolvedProfile = result.profile
+        if (localProfile?.status === 'empty') {
+          if (!localPersistence.installOwnedProfile(result.profile, {
+            installedAt: clock.now(),
+            ownerId: result.ownerId,
+            profileId: result.profileId
+          })) {
+            publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+            return
+          }
+          const installedProfile = localPersistence.read()
+          if (
+            !isOwnedProfile(installedProfile)
+            || installedProfile.ownerId !== result.ownerId
+            || installedProfile.profileId !== result.profileId
+          ) {
+            publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+            return
+          }
+          resolvedProfile = installedProfile.profile
+        }
+        if (typeof result.finalize === 'function' && !result.finalize()) {
+          publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+          return
+        }
         activate({
           ownerId: result.ownerId,
-          profile: result.profile,
+          profile: resolvedProfile,
           profileId: result.profileId,
           status: 'ready'
         })
@@ -316,6 +341,10 @@ export function createLearnerProfileLifecycleAuthority({
     return evaluate()
   }
 
+  function refresh() {
+    return started ? evaluate() : currentState
+  }
+
   function destroy() {
     resolutionId += 1
     releaseActiveProfile()
@@ -333,6 +362,7 @@ export function createLearnerProfileLifecycleAuthority({
     exportActiveProfile,
     getState: () => currentState,
     readActiveProfile,
+    refresh,
     replaceActiveProfile,
     saveActiveProfile,
     start
