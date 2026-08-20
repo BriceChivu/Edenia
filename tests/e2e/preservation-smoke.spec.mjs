@@ -1175,6 +1175,49 @@ test('Settings locale listeners preserve menu, localization, persistence, and or
   })
 })
 
+test('Settings imports the portable profile it exports', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+
+  await seedCompletedState(page)
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.config.includeShorts = true
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+  })
+  await page.reload()
+  await waitForApplication(page)
+  await page.locator('.gear-btn').click()
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.locator('[data-settings-sync-action="export"]').click()
+  const download = await downloadPromise
+  const downloadPath = await download.path()
+
+  await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem('edenia_v1'))
+    state.config.includeShorts = false
+    state.config.locale = 'fr'
+    localStorage.setItem('edenia_v1', JSON.stringify(state))
+  })
+  await page.reload()
+  await waitForApplication(page)
+  await page.locator('.gear-btn').click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'fr')
+  await expect(page.locator('#settingsIncludeShorts')).not.toBeChecked()
+
+  const fileChooserPromise = page.waitForEvent('filechooser')
+  await page.locator('[data-settings-sync-action="choose-file"]').click()
+  const fileChooser = await fileChooserPromise
+  await fileChooser.setFiles(downloadPath)
+
+  await expect(page.locator('#toast')).toHaveText('Sync file imported')
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+  await expect(page.locator('#settingsTitle')).toHaveText('Settings')
+  await expect(page.locator('#settingsIncludeShorts')).toBeChecked()
+})
+
 test('Settings sync listeners preserve download, picker, import, and failure ordering', async ({
   page
 }, testInfo) => {
