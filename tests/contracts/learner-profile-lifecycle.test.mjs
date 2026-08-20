@@ -10,6 +10,9 @@ import {
 import {
   createLearnerProfileAuthenticationAdapter
 } from '../../src/integrations/learner-profile-authentication-adapter.js'
+import {
+  createStateStore
+} from '../../src/state/store.js'
 
 function deferred() {
   let resolve
@@ -126,6 +129,78 @@ function createHarness({
     connectivity: connectivityAdapter,
     getCurrentFence: () => currentFence,
     setCurrentFence: fence => { currentFence = fence }
+  }
+}
+
+function createPersistenceInterleavingHarness() {
+  const accessStorageKey = 'edenia_v1_profile_access_v1'
+  const storageKey = 'edenia_v1'
+  const originalProfile = {
+    config: {},
+    learnerProfile: { languages: ['french'] }
+  }
+  const values = new Map([[storageKey, JSON.stringify(originalProfile)]])
+  let prepareForPersistence = () => {}
+  const storage = {
+    getItem(key) {
+      return values.get(key) ?? null
+    },
+    removeItem(key) {
+      values.delete(key)
+    },
+    setItem(key, value) {
+      values.set(key, value)
+    }
+  }
+  const stateStore = createStateStore({
+    storage,
+    storageKey,
+    normalizeLoadedState: () => false,
+    normalizeStateBeforeSave() {
+      prepareForPersistence()
+      prepareForPersistence = () => {}
+    },
+    createStateBackup() {},
+    pruneOldestStateBackup: () => false,
+    saveConfigCookie() {},
+    syncPersistedStateToAnalytics() {},
+    getLatestBackupState: () => null,
+    loadConfigCookie: () => null,
+    createDefaultStateFromConfig: () => null
+  })
+  const createAdapter = () => createLearnerProfileLocalPersistenceAdapter({
+    accessStorageKey,
+    accountlessProfileId: `accountless:${storageKey}`,
+    eventTarget: null,
+    loadProfile: () => stateStore.loadState({ persistCleanup: false }),
+    replaceProfile: stateStore.saveImportedState,
+    saveProfile: stateStore.saveState,
+    storage
+  })
+  const earlierTab = createAdapter()
+  const laterTab = createAdapter()
+  const earlierFence = {
+    activatedAt: 100,
+    id: 'earlier-tab',
+    ownerId: null,
+    profileId: `accountless:${storageKey}`
+  }
+  const laterFence = { ...earlierFence, activatedAt: 200, id: 'later-tab' }
+
+  assert.equal(earlierTab.claimActivation(earlierFence), true)
+
+  return {
+    earlierFence,
+    earlierTab,
+    laterFence,
+    laterTab,
+    originalProfile,
+    stateStore,
+    interleaveNewerActivation() {
+      prepareForPersistence = () => {
+        assert.equal(laterTab.claimActivation(laterFence), true)
+      }
+    }
   }
 }
 
@@ -358,6 +433,58 @@ test('browser persistence shares activation fences across tabs before writes', (
     profile,
     { syncAnalytics: false }
   ]])
+})
+
+test('a stale save cannot persist after a newer tab claims activation during preparation', () => {
+  const harness = createPersistenceInterleavingHarness()
+  const staleProfile = {
+    config: {},
+    learnerProfile: { languages: ['spanish'] }
+  }
+  harness.interleaveNewerActivation()
+
+  assert.equal(
+    harness.earlierTab.save(
+      staleProfile,
+      { backup: false },
+      harness.earlierFence
+    ),
+    false
+  )
+  assert.deepEqual(
+    harness.stateStore.loadState({ persistCleanup: false }),
+    harness.originalProfile
+  )
+  assert.equal(
+    harness.laterTab.isActivationCurrent(harness.laterFence),
+    true
+  )
+})
+
+test('a stale replacement cannot persist after a newer tab claims activation during preparation', () => {
+  const harness = createPersistenceInterleavingHarness()
+  const staleProfile = {
+    config: {},
+    learnerProfile: { languages: ['japanese'] }
+  }
+  harness.interleaveNewerActivation()
+
+  assert.deepEqual(
+    harness.earlierTab.replace(
+      staleProfile,
+      { preserveBackupId: 'backup-before-import' },
+      harness.earlierFence
+    ),
+    { persisted: false, error: null }
+  )
+  assert.deepEqual(
+    harness.stateStore.loadState({ persistCleanup: false }),
+    harness.originalProfile
+  )
+  assert.equal(
+    harness.laterTab.isActivationCurrent(harness.laterFence),
+    true
+  )
 })
 
 test('access observations deterministically cover every non-active lifecycle state', () => {

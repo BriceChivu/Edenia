@@ -118,7 +118,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     const persisted = saveProfile(profile, {
       ...options,
       syncAnalytics: false
-    })
+    }, () => isActivationCurrent(fence))
     return persisted === true && isActivationCurrent(fence)
   }
 
@@ -129,7 +129,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     const result = replaceProfile(profile, {
       ...options,
       syncAnalytics: false
-    })
+    }, () => isActivationCurrent(fence))
     if (result?.persisted && !isActivationCurrent(fence)) {
       return { persisted: false, error: result.error || null }
     }
