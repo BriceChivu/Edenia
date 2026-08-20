@@ -220,7 +220,9 @@ import {
   sanitizeConfigForStorage
 } from './state/persistence-contract.js'
 import {
-  createPortableLearnerProfileEnvelope
+  createPortableLearnerProfileEnvelope,
+  PORTABLE_LEARNER_PROFILE_SCHEMA,
+  verifyPortableLearnerProfileEnvelope
 } from './state/portable-learner-profile.js'
 import { createImportedStateReader } from './state/imported-state.js'
 import {
@@ -6141,9 +6143,10 @@ function importSyncFileFromInput(input) {
   input.disabled = true
   const reader = new FileReader()
   reader.onload = async () => {
+    const serialized = String(reader.result || '')
     let payload
     try {
-      payload = JSON.parse(String(reader.result || ''))
+      payload = JSON.parse(serialized)
     } catch {
       showToast(t('toast.invalidSyncJson'), 'error')
       input.value = ''
@@ -6152,7 +6155,16 @@ function importSyncFileFromInput(input) {
     }
 
     try {
-      const importedState = getImportedSyncState(payload)
+      const isPortableProfile =
+        payload?.schema === PORTABLE_LEARNER_PROFILE_SCHEMA
+      const portableEnvelope = isPortableProfile
+        ? await verifyPortableLearnerProfileEnvelope(serialized, {
+            maxBytes: Number.MAX_SAFE_INTEGER
+          })
+        : null
+      const importedState = isPortableProfile
+        ? getImportedSyncState(portableEnvelope?.profile)
+        : getImportedSyncState(payload)
       if (!importedState) {
         showToast(t('toast.invalidSync'), 'error')
         return
