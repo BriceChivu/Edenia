@@ -14,12 +14,15 @@ export function createStateStore({
   function saveImportedState(state, {
     preserveBackupId = null,
     syncAnalytics = true
-  } = {}) {
+  } = {}, canPersist = () => true) {
     normalizeStateBeforeSave(state)
     const serializedState = JSON.stringify(state)
     let persistenceError = null
 
     while (true) {
+      if (!canPersist()) {
+        return { persisted: false, error: null }
+      }
       try {
         storage.setItem(storageKey, serializedState)
         persistenceError = null
@@ -27,7 +30,8 @@ export function createStateStore({
       } catch (error) {
         persistenceError = error
         if (
-          !isStorageQuotaError(error)
+          !canPersist()
+          || !isStorageQuotaError(error)
           || !pruneOldestStateBackup({ preserveId: preserveBackupId })
         ) break
       }
@@ -41,7 +45,7 @@ export function createStateStore({
     return { persisted, error: persistenceError }
   }
 
-  function saveState(state, options = {}) {
+  function saveState(state, options = {}, canPersist = () => true) {
     const {
       backup = true,
       backupReason = 'automatic backup',
@@ -49,15 +53,20 @@ export function createStateStore({
       syncAnalytics = true
     } = options
     normalizeStateBeforeSave(state)
+    if (!canPersist()) return false
     if (backup) createStateBackup(backupReason, { force: forceBackup })
+    const serializedState = JSON.stringify(state)
+    if (!canPersist()) return false
     let persisted = false
     try {
-      storage.setItem(storageKey, JSON.stringify(state))
+      storage.setItem(storageKey, serializedState)
       persisted = true
     } catch {
+      if (!canPersist()) return false
       pruneOldestStateBackup()
+      if (!canPersist()) return false
       try {
-        storage.setItem(storageKey, JSON.stringify(state))
+        storage.setItem(storageKey, serializedState)
         persisted = true
       } catch {}
     }
