@@ -48,7 +48,6 @@ export function normalizeLocalRuntimeConfig(value) {
       value?.accountFeaturesRollout
     ),
     googleSignInMode: normalizeGoogleSignInMode(value?.googleSignInMode),
-    googleOneTapEnabled: value?.googleOneTapEnabled === true,
     googleIdentityClientId: normalizeGoogleIdentityClientId(
       normalizeOptionalRuntimeValue(
         value?.googleIdentityClientId,

@@ -57,7 +57,14 @@ test('Turnstile explicitly renders one dynamic widget with safe options', async 
   assert.equal(options.size, 'flexible')
   assert.equal(options.appearance, 'interaction-only')
   assert.equal(options['response-field'], false)
-  assert.deepEqual(statuses.map(([status]) => status), ['loading', 'pending'])
+  options['before-interactive-callback']()
+  options['after-interactive-callback']()
+  assert.deepEqual(statuses.map(([status]) => status), [
+    'loading',
+    'pending',
+    'interactive',
+    'pending'
+  ])
 })
 
 test('concurrent identical mounts render one provider widget', async () => {

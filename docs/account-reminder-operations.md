@@ -8,16 +8,15 @@ It is deliberately written for the system that exists now.
 - The account interface is available only when
   `EDENIA_ACCOUNT_FEATURES_ROLLOUT=internal` and the visitor uses
   `/?internal_test=1`.
-- The deployed internal canary uses Google Identity Services ID-token exchange,
-  post-onboarding One Tap, Turnstile-protected email links, dedicated custom
-  SMTP, and the branded scanner-resistant template. The ordinary public route
-  remains accountless. Google transport, One Tap, CAPTCHA, and the complete
-  account surface retain independent rollback controls.
-- The standalone `/auth/confirm/` page is analytics-free, scrubs its token-hash
-  fragment before unrelated work, and requires a deliberate confirmation
-  action. It reads no local study state.
-- After an OAuth callback, the controller confirms the shared client session
-  before it publishes signed-in state to protected-data consumers. The
+- The internal account source uses Google Identity Services ID-token exchange,
+  Turnstile-protected same-device email codes, dedicated custom SMTP, and a
+  branded six-digit-code template. The ordinary public route remains
+  accountless. Google, CAPTCHA, and the complete account surface retain
+  independent rollback controls.
+- There is no One Tap, automatic account selection, custom Google button,
+  magic-link confirmation, or standalone `/auth/confirm/` route.
+- After an authentication callback, the controller confirms the shared client
+  session before it publishes signed-in state to protected-data consumers. The
   production acceptance test must not use **Try loading again** to make the
   first reminder-preference read succeed.
 - An authenticated user can save only their own `reminder_preferences` row.
@@ -81,8 +80,7 @@ inert client capability and confirm these non-secret settings:
 
 ```text
 EDENIA_ACCOUNT_FEATURES_ROLLOUT=internal
-EDENIA_GOOGLE_SIGN_IN_MODE=oauth_redirect or off
-EDENIA_GOOGLE_ONE_TAP_ENABLED=false
+EDENIA_GOOGLE_SIGN_IN_MODE=off
 Supabase Auth CAPTCHA=disabled
 reminder_delivery_enabled=false
 ```
@@ -96,32 +94,36 @@ Activate in this order:
    create a dedicated Auth SMTP credential when possible, use sender name
    `Edenia` and `accounts@mail.edenia.study`, and do not modify the reminder
    send-only credential.
-3. Supabase email template: install the reviewed
-   `supabase/templates/magic_link.html` source and use only the branded Edenia
-   fragment URL documented in `docs/account-authentication.md`; verify HTML and
-   plain text contain no opaque project reference while CAPTCHA is still
-   disabled.
+3. Supabase email templates: install the reviewed
+   `supabase/templates/confirmation.html` source into **Confirm signup** and
+   `supabase/templates/magic_link.html` into **Magic Link**. Verify both render
+   only the six-digit `{{ .Token }}`, contain no link or token hash, and expose
+   no opaque project reference while CAPTCHA is still disabled. Preview all
+   five bounded locale variants plus the multilingual legacy-account fallback.
 4. Turnstile: create a Free widget restricted to `www.edenia.study` and the
    approved local host, deploy the public site key, verify explicit rendering
    and one-use token forwarding, then store the secret only in Supabase Auth.
 5. CAPTCHA and GIS: enable CAPTCHA and immediately prove missing-token email
    rejection, valid-token email success, token replay rejection, official
-   Google button sign-in, and eligible One Tap. If Google breaks, disable
-   CAPTCHA before investigating.
-6. Internal runtime: set Google mode to `id_token` and One Tap to `true` without
+   Google button sign-in, and same-device code verification. If email breaks,
+   disable CAPTCHA before investigating.
+6. Internal runtime: set Google mode to `id_token` without
    changing the account rollout from `internal`.
 
 All messages during this canary go only to an already approved internal test
-address. Never record the complete address, ID token, nonce, magic-link token,
+address. Never record the complete address, ID token, nonce, email code,
 Turnstile token, session cookie, SMTP password, or provider secret in Git,
 terminal output, PR text, or this runbook.
 
-The switch-off rehearsal is also ordered: One Tap off, Google legacy or off,
-CAPTCHA off if required, then account rollout off. At each stage ordinary study
+The switch-off rehearsal is also ordered: Google off, CAPTCHA off if required,
+then account rollout off. At each stage ordinary study
 must remain usable and the public root must remain accountless. Restore the
 intended internal state only after the rehearsal passes.
 
-### Provider canary evidence (2026-08-15)
+### Historical link-flow canary evidence (2026-08-15)
+
+This evidence records the retired magic-link and One Tap flow. It is retained
+for audit history and is not the current acceptance procedure after issue #179.
 
 - Provider setup completed on Free plans. The Supabase project remained Free;
   Resend's Free allowance was 3,000 transactional messages per month and 100
@@ -194,7 +196,7 @@ after the test.
 2. Open
    `https://www.edenia.study/?internal_test=1&account=1`.
 3. Open **Settings**, then **Account**.
-4. Select **Continue with Google** and use an approved Google OAuth test user.
+4. Use Google's official button and select an approved Google test user.
 5. Confirm the Settings section shows the signed-in account.
 6. Confirm **Daily streak reminder** and **Discover new channels** are both on for a
    first-time account. Turn each switch off and on once; each change should save
@@ -606,11 +608,20 @@ Verify these transitions, then delete the fixture:
 - The deployed dispatcher rejects unauthenticated production requests. Repeat
   a positive hosted invocation after every named-key rotation before creating
   any schedule.
-- Production Google OAuth has been exercised with one approved Google test
-  account in one desktop browser. Cross-device, private-window, Safari, mobile,
-  cancellation, and a second-account switch still need acceptance coverage.
-- The Google OAuth consent screen remains a test-user rollout. That is suitable
-  for internal testing, not public launch.
+- Production Google ID-token sign-in has been exercised with one approved
+  Google test account in one desktop browser. Cross-device, private-window,
+  Safari, mobile, cancellation, and a second-account switch still need
+  acceptance coverage.
+- The Google Cloud consent screen remains restricted to test users. That is
+  suitable for internal testing, not public launch.
+- Google's official button exposes no supported popup-cancellation callback.
+  Closing the provider UI safely leaves Edenia signed out, but cancellation-
+  specific app feedback requires an accepted platform exception or a future
+  supported GIS signal; do not infer it from focus or timeout heuristics.
+- Hosted Supabase Auth has not yet produced sanitized evidence that CAPTCHA
+  rejects both a missing token and a replayed token for this code flow. Keep
+  the account rollout internal until the activation canary records those
+  server outcomes without recording either token.
 - Resend transport, the verified sender domain, and real signed production
   callbacks have been observed. A genuine tagged reminder, one-click
   unsubscribe, bounce, complaint, and provider-suppression event have not yet
@@ -691,16 +702,16 @@ the account surface public.
   confirmation are enabled. Anonymous sign-in and manual identity linking are
   disabled.
 - Auth currently permits two project emails per hour, 30 sign-up/sign-in
-  requests per IP per five minutes, and 30 OTP or magic-link verifications per
-  IP per five minutes. CAPTCHA is disabled.
-- The client uses only Google OAuth and email OTP. It does not offer passwords,
-  anonymous sign-in, or manual identity linking.
+  requests per IP per five minutes, and 30 email-code verifications per IP per
+  five minutes. CAPTCHA is disabled.
+- The client uses only Google ID-token exchange and email codes. It does not
+  offer passwords, anonymous sign-in, or manual identity linking.
 
 Do not raise the email limit or enable CAPTCHA as a standalone console change.
-The magic-link sender, client CAPTCHA token path, error states, accessibility,
-and recovery behavior must be verified together before either change. The
-current two-email limit is a useful internal-stage brake, but it also means the
-fallback can be exhausted quickly during testing.
+Both Auth code templates, the client CAPTCHA token path, error states,
+accessibility, and recovery behavior must be verified together before either
+change. The current two-email limit is a useful internal-stage brake, but it
+also means the fallback can be exhausted quickly during testing.
 
 ### Account-owned server data
 
@@ -764,10 +775,10 @@ same test proves that selected local study evidence is unchanged. The Settings
 copy warns that anyone using the browser profile can see its local progress.
 
 Manual identity linking remains disabled. Before email changes or linking are
-offered, test the same verified address through Google and magic link, different
-addresses across providers, an existing Plus account, and unlink/recovery
-behavior. Do not infer account equivalence from an email address in application
-code.
+offered, test the same verified address through Google's official button and
+an email code, different addresses across providers, an existing Plus account,
+and unlink/recovery behavior. Do not infer account equivalence from an email
+address in application code.
 
 ### Advisor record
 
@@ -795,9 +806,10 @@ queue indexes based on an unused-index INFO notice during the manual rollout.
 
 - Subscription-aware account deletion, retention choices, and recovery after
   partial deletion.
-- Email-change and identity-linking behavior across Google, magic link and
+- Email-change and identity-linking behavior across Google, email OTP and
   existing Plus accounts.
-- CAPTCHA client integration and a deliberate magic-link rate-limit decision.
+- A deliberate email-code rate-limit decision beyond the current browser
+  cooldown and provider quotas.
 - Google consent-screen publication, branding, privacy/terms URLs and domain
   verification outside the repository.
 

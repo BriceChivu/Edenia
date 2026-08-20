@@ -105,8 +105,8 @@ the domain is tested.
 | Surface | Required canonical value or check |
 | --- | --- |
 | GitHub Pages | Custom domain `www.edenia.study`; HTTPS enforced only after certificate issuance; deployed artifact SHA matches the approved source. |
-| Supabase Auth | Site URL `https://www.edenia.study/`; exact redirect `https://www.edenia.study/?internal_test=1&account=1`; localhost exact redirect only while needed. Add the new exact URL before cutover and remove the old exact callback only after its in-flight magic-link window and a successful canonical OAuth test. Never use a wildcard for production. |
-| Google OAuth | Authorized JavaScript origin `https://www.edenia.study`; keep the provider redirect URI as the exact Supabase Auth callback, not an Edenia page. |
+| Supabase Auth | Site URL `https://www.edenia.study/`; email authentication uses same-device OTP verification without an Edenia redirect. Keep any provider callback entries exact and never use a wildcard for production. |
+| Google Identity Services | Authorized JavaScript origin `https://www.edenia.study`; use the official button with ID-token exchange and no One Tap or automatic account selection. |
 | Account APIs | Deploy the reviewed exact-`www` account-export and reminder-unsubscribe CORS allowlists before invoking those APIs from `www`. The old app origin is not allowed on these canonical-only APIs. |
 | Reminder email | `REMINDER_APP_URL=https://www.edenia.study/?internal_test=1` and `REMINDER_UNSUBSCRIBE_PAGE_URL=https://www.edenia.study/unsubscribe/`; inspect generated HTML/text and one inert dummy link before any canary. |
 | Stripe or replacement billing provider | Live `APP_URL=https://www.edenia.study/`; exact success, cancel, portal, and approved-return URLs remain under `/plus/`. The backend rejects any other live root. Keep checkout off until sandbox and live callback smoke evidence is reviewed separately. |

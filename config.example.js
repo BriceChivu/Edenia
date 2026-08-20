@@ -3,8 +3,7 @@ window.EDENIA_CONFIG = {
   freePlusEnabled: false,
   plusCheckoutEnabled: false,
   accountFeaturesRollout: 'off',
-  googleSignInMode: 'oauth_redirect',
-  googleOneTapEnabled: false,
+  googleSignInMode: 'id_token',
   googleIdentityClientId: 'PASTE_YOUR_GOOGLE_WEB_CLIENT_ID_HERE',
   turnstileSiteKey: 'PASTE_YOUR_TURNSTILE_SITE_KEY_HERE',
   // Compatibility markers for cached pre-retirement app.js assets.

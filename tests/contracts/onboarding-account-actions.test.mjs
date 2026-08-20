@@ -9,21 +9,27 @@ function createControl() {
 }
 
 function createHarness() {
-  const google = createControl()
   const emailInput = { value: 'first@example.com' }
   const emailForm = createControl()
   emailForm.querySelector = selector => {
     assert.equal(selector, '[data-onboarding-account-email]')
     return emailInput
   }
+  const codeInput = { value: '123456' }
+  const codeForm = createControl()
+  codeForm.querySelector = selector => {
+    assert.equal(selector, '[data-onboarding-account-code]')
+    return codeInput
+  }
   const controls = new Map([
-    ['[data-onboarding-account-action="google"]', google],
-    ['[data-onboarding-account-action="email-form"]', emailForm]
+    ['[data-onboarding-account-action="email-form"]', emailForm],
+    ['[data-onboarding-account-action="code-form"]', codeForm]
   ])
   return {
+    codeForm,
+    codeInput,
     emailForm,
     emailInput,
-    google,
     root: {
       querySelector(selector) {
         return controls.get(selector) || null
@@ -32,44 +38,43 @@ function createHarness() {
   }
 }
 
-test('onboarding Account actions bind Google and live email values once', () => {
+test('onboarding Account actions bind live email and code values once', () => {
   const harness = createHarness()
   const calls = []
   const actions = {
-    signInWithGoogle() {
-      calls.push(['google'])
-    },
-    sendMagicLink(email) {
-      calls.push(['email', email])
-    }
+    requestEmailCode(email) { calls.push(['request', email]) },
+    verifyEmailCode(code) { calls.push(['verify', code]) }
   }
 
   assert.equal(bindOnboardingAccountActions(harness.root, actions), 2)
   assert.equal(bindOnboardingAccountActions(harness.root, actions), 0)
-  harness.google.dispatchEvent(new Event('click'))
   harness.emailInput.value = 'latest@example.com'
-  const submit = new Event('submit', { cancelable: true })
-  harness.emailForm.dispatchEvent(submit)
+  harness.codeInput.value = '654321'
+  const requestSubmit = new Event('submit', { cancelable: true })
+  const verifySubmit = new Event('submit', { cancelable: true })
+  harness.emailForm.dispatchEvent(requestSubmit)
+  harness.codeForm.dispatchEvent(verifySubmit)
 
-  assert.equal(submit.defaultPrevented, true)
+  assert.equal(requestSubmit.defaultPrevented, true)
+  assert.equal(verifySubmit.defaultPrevented, true)
   assert.deepEqual(calls, [
-    ['google'],
-    ['email', 'latest@example.com']
+    ['request', 'latest@example.com'],
+    ['verify', '654321']
   ])
 })
 
 test('onboarding Account actions tolerate absent optional controls', () => {
   const root = { querySelector() { return null } }
   assert.equal(bindOnboardingAccountActions(root, {
-    signInWithGoogle() {},
-    sendMagicLink() {}
+    requestEmailCode() {},
+    verifyEmailCode() {}
   }), 0)
 })
 
 test('onboarding Account actions reject invalid boundaries', () => {
   const validActions = {
-    signInWithGoogle() {},
-    sendMagicLink() {}
+    requestEmailCode() {},
+    verifyEmailCode() {}
   }
   assert.throws(
     () => bindOnboardingAccountActions(null, validActions),
@@ -77,6 +82,6 @@ test('onboarding Account actions reject invalid boundaries', () => {
   )
   assert.throws(
     () => bindOnboardingAccountActions({ querySelector() {} }, {}),
-    /Google and email callbacks/
+    /email callbacks/
   )
 })

@@ -48,10 +48,6 @@ const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
     process.env.EDENIA_GOOGLE_SIGN_IN_MODE,
     'EDENIA_GOOGLE_SIGN_IN_MODE'
   ),
-  googleOneTapEnabled: parseRuntimeConfigFlag(
-    process.env.EDENIA_GOOGLE_ONE_TAP_ENABLED,
-    'EDENIA_GOOGLE_ONE_TAP_ENABLED'
-  ),
   googleIdentityClientId: parseGoogleIdentityClientId(
     process.env.EDENIA_GOOGLE_IDENTITY_CLIENT_ID,
     'EDENIA_GOOGLE_IDENTITY_CLIENT_ID'

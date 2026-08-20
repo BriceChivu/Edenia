@@ -5,6 +5,8 @@ const internalRuntimeConfig = `window.EDENIA_CONFIG = {
   freePlusEnabled: false,
   plusCheckoutEnabled: false,
   accountFeaturesRollout: 'internal',
+  googleIdentityClientId: '1234567890-test.apps.googleusercontent.com',
+  googleSignInMode: 'id_token',
   studyGuidanceEnabled: false,
   indexedDbBackupsEnabled: false,
   indexedDbBackupCleanupEnabled: false,
@@ -53,11 +55,41 @@ async function seedAccountStep(page, {
   })
 }
 
+async function installGoogleButtonMock(page) {
+  await page.addInitScript(() => {
+    let configuration = null
+    window.google = {
+      accounts: {
+        id: {
+          initialize(value) {
+            configuration = value
+          },
+          renderButton(element) {
+            const button = document.createElement('button')
+            button.type = 'button'
+            button.textContent = 'Continue with Google'
+            button.setAttribute('aria-label', 'Continue with Google')
+            button.addEventListener('click', () => configuration?.callback?.({
+              credential: 'mock-google-id-token'
+            }))
+            element.replaceChildren(button)
+          }
+        }
+      }
+    }
+  })
+}
+
 test('gated Account onboarding supports email sign-in and responsive completion', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(![
+    'desktop-standard',
+    'phone-small',
+    'tablet-portrait'
+  ].includes(testInfo.project.name))
   await useAccountReturnOrigin(page)
+  await installGoogleButtonMock(page)
   await page.route('**/config.local.js', route => route.fulfill({
     body: internalRuntimeConfig,
     contentType: 'text/javascript',
@@ -81,9 +113,11 @@ test('gated Account onboarding supports email sign-in and responsive completion'
   const panel = page.locator('#onboardingPanel')
   await expect(panel).toBeVisible()
   await expect(page.locator('#settingsPanel')).toBeHidden()
-  await expect(panel.getByRole('heading', { name: 'One last step' })).toBeVisible()
+  await expect(panel.getByRole('heading', {
+    name: 'Sign in or create your account'
+  })).toBeVisible()
   await expect(panel.getByText(
-    'Sign up for a more personalized Edenia experience. It’s free!'
+    'Use Google, or enter a six-digit code sent to your email.'
   )).toBeVisible()
   await expect(page.locator('#onboardingProgressLabel')).toHaveText('Step 4 of 4')
   await expect(panel.getByText(
@@ -91,38 +125,14 @@ test('gated Account onboarding supports email sign-in and responsive completion'
   )).toHaveCount(0)
 
   const googleButton = panel.getByRole('button', { name: 'Continue with Google' })
-  const emailButton = panel.getByRole('button', { name: 'Email me a sign-in link' })
+  const emailButton = panel.getByRole('button', { name: 'Email me a code' })
   const emailInput = page.locator('#onboardingAccountEmail')
   const skipButton = panel.getByRole('button', { name: 'Skip for now' })
   await expect(googleButton).toBeEnabled()
   await expect(emailButton).toBeEnabled()
-  await expect(googleButton).toHaveClass(/\bbtn-primary\b/)
   await expect(emailButton).toHaveClass(/\bbtn-secondary\b/)
 
-  const [googleAppearance, emailAppearance] = await Promise.all([
-    googleButton.evaluate(element => {
-      const style = getComputedStyle(element)
-      return {
-        backgroundImage: style.backgroundImage,
-        borderRadius: style.borderRadius,
-        borderWidth: style.borderWidth
-      }
-    }),
-    emailButton.evaluate(element => {
-      const style = getComputedStyle(element)
-      return {
-        backgroundColor: style.backgroundColor,
-        borderRadius: style.borderRadius,
-        borderWidth: style.borderWidth
-      }
-    })
-  ])
-  expect(googleAppearance.backgroundImage).toContain('linear-gradient')
-  expect(googleAppearance.backgroundImage).toContain('rgb(18, 188, 234)')
-  expect(googleAppearance.backgroundImage).toContain('rgb(201, 239, 104)')
-  expect(googleAppearance.borderRadius).toBe(emailAppearance.borderRadius)
-  expect(googleAppearance.borderWidth).toBe('2px')
-  expect(emailAppearance.borderWidth).toBe('2px')
+  await expect(emailButton).toHaveCSS('border-width', '2px')
   await expect(emailInput).toHaveCSS('border-radius', '10px')
   await expect(skipButton).toHaveCSS('border-color', 'rgba(0, 0, 0, 0)')
 
@@ -143,8 +153,12 @@ test('gated Account onboarding supports email sign-in and responsive completion'
     create_user: true
   })
   await expect(panel.getByText(
-    'Check your email for the secure sign-in link.'
+    'Enter the six-digit code sent to your email.'
   )).toBeVisible()
+  const codeInput = page.locator('#onboardingAccountEmailCode')
+  await expect(codeInput).toBeVisible()
+  await expect(codeInput).toHaveAttribute('inputmode', 'numeric')
+  await expect(codeInput).toHaveAttribute('autocomplete', 'one-time-code')
 
   await skipButton.click()
   await expect(panel).toBeHidden()

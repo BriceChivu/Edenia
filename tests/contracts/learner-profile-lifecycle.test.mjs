@@ -79,7 +79,7 @@ function createHarness({
       connectivity: connectivityAdapter,
       exportDownload: {
         download(profile, context) {
-          calls.push(['download', profile, context.activation.id])
+          calls.push(['download', profile, context.activation.id, context])
           return true
         }
       },
@@ -201,6 +201,11 @@ test('one fenced accountless profile becomes the only writable and exportable pr
     harness.calls.filter(([name]) => name === 'download').length,
     1
   )
+  const downloadContext = harness.calls.find(([name]) => name === 'download')[3]
+  assert.equal(downloadContext.isCurrent(), true)
+
+  harness.authentication.publish({ status: 'loading', userId: null })
+  assert.equal(downloadContext.isCurrent(), false)
 })
 
 test('an explicit owned-profile resolution fences delayed work from an earlier activation', async () => {

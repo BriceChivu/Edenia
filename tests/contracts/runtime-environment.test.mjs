@@ -9,7 +9,6 @@ import {
   getAccountFeaturesRollout,
   getFreePlusEnabled,
   getGoogleIdentityClientId,
-  getGoogleOneTapEnabled,
   getGoogleSignInMode,
   getIndexedDbBackupCleanupEnabled,
   getIndexedDbBackupsEnabled,
@@ -176,8 +175,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
   assert.equal(getAccountFeaturesRollout(target), 'off')
-  assert.equal(getGoogleSignInMode(target), 'oauth_redirect')
-  assert.equal(getGoogleOneTapEnabled(target), false)
+  assert.equal(getGoogleSignInMode(target), 'id_token')
   assert.equal(getGoogleIdentityClientId(target), '')
   assert.equal(hasGoogleIdentityServicesRuntimeConfig(target), false)
   assert.equal(getTurnstileSiteKey(target), '')
@@ -197,7 +195,6 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     plusCheckoutEnabled: true,
     accountFeaturesRollout: 'internal',
     googleSignInMode: 'id_token',
-    googleOneTapEnabled: true,
     googleIdentityClientId: '  1234567890-google-client.apps.googleusercontent.com  ',
     turnstileSiteKey: '  turnstile-site-key  ',
     channelVideoFormatToggleEnabled: true,
@@ -215,7 +212,6 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getPlusCheckoutEnabled(target), true)
   assert.equal(getAccountFeaturesRollout(target), 'internal')
   assert.equal(getGoogleSignInMode(target), 'id_token')
-  assert.equal(getGoogleOneTapEnabled(target), true)
   assert.equal(
     getGoogleIdentityClientId(target),
     '1234567890-google-client.apps.googleusercontent.com'
@@ -237,7 +233,6 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     plusCheckoutEnabled: 1,
     accountFeaturesRollout: 'unknown',
     googleSignInMode: 'unknown',
-    googleOneTapEnabled: 'true',
     channelVideoFormatToggleEnabled: 'true',
     studyGuidanceEnabled: 'true',
     indexedDbBackupsEnabled: 'true',
@@ -248,8 +243,7 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
   assert.equal(getAccountFeaturesRollout(target), 'off')
-  assert.equal(getGoogleSignInMode(target), 'oauth_redirect')
-  assert.equal(getGoogleOneTapEnabled(target), false)
+  assert.equal(getGoogleSignInMode(target), 'id_token')
   assert.equal(hasGoogleIdentityServicesRuntimeConfig(target), false)
   assert.equal(getStudyGuidanceEnabled(target), false)
   assert.equal(getIndexedDbBackupsEnabled(target), false)

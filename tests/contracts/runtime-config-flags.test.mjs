@@ -42,16 +42,15 @@ test('Google client IDs are empty or exact Web application IDs', () => {
   }
 })
 
-test('Google sign-in mode preserves legacy rollback and accepts exact transports', () => {
-  assert.equal(parseGoogleSignInMode(undefined, 'MODE'), 'oauth_redirect')
-  assert.equal(parseGoogleSignInMode('', 'MODE'), 'oauth_redirect')
+test('Google sign-in mode defaults to ID-token transport and accepts off', () => {
+  assert.equal(parseGoogleSignInMode(undefined, 'MODE'), 'id_token')
+  assert.equal(parseGoogleSignInMode('', 'MODE'), 'id_token')
   assert.equal(parseGoogleSignInMode(' OFF ', 'MODE'), 'off')
-  assert.equal(parseGoogleSignInMode('oauth_redirect', 'MODE'), 'oauth_redirect')
   assert.equal(parseGoogleSignInMode('ID_TOKEN', 'MODE'), 'id_token')
-  for (const value of ['true', 'oauth', 'popup', 'id-token']) {
+  for (const value of ['true', 'oauth', 'oauth_redirect', 'popup', 'id-token']) {
     assert.throws(
       () => parseGoogleSignInMode(value, 'EDENIA_GOOGLE_SIGN_IN_MODE'),
-      /must be off, oauth_redirect, or id_token/
+      /must be off or id_token/
     )
   }
 })

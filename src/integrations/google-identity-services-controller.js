@@ -8,9 +8,6 @@ function getGoogleIdentityApi(target) {
   if (
     typeof api?.initialize !== 'function'
     || typeof api?.renderButton !== 'function'
-    || typeof api?.prompt !== 'function'
-    || typeof api?.cancel !== 'function'
-    || typeof api?.disableAutoSelect !== 'function'
   ) return null
   return api
 }
@@ -133,23 +130,15 @@ export function createGoogleIdentityServicesController({
   let opportunity = null
   let opportunitySequence = 0
   let opportunityPromise = null
-  let promptOpportunityId = null
-  let promptAutoSelectEnabled = false
 
   function publish(status, details) {
     if (destroyed) return
     try { onStatusChange(status, details) } catch {}
   }
 
-  function cancelPrompt() {
-    const api = getGoogleIdentityApi(googleTarget)
-    try { api?.cancel() } catch {}
-    promptOpportunityId = null
-  }
-
   function initializeOpportunity(api, candidate) {
     api.initialize({
-      auto_select: candidate.autoSelect,
+      auto_select: false,
       callback(response) {
         return consumeCredential(candidate.id, response?.credential)
       },
@@ -162,34 +151,14 @@ export function createGoogleIdentityServicesController({
     })
   }
 
-  async function ensureOpportunity({ autoSelect = false } = {}) {
+  async function ensureOpportunity() {
     if (destroyed) return null
-    const requestedAutoSelect = autoSelect === true || promptAutoSelectEnabled
     if (opportunity && !opportunity.consumed) {
-      if (requestedAutoSelect && !opportunity.autoSelect) {
-        cancelPrompt()
-        opportunity.rawNonce = ''
-        opportunity.hashedNonce = ''
-        opportunity.consumed = true
-        opportunity = null
-        for (const mount of mounts.values()) {
-          mount.renderedOpportunityId = null
-        }
-      } else {
-        const api = await loadScript()
-        if (destroyed) return null
-        return { api, candidate: opportunity }
-      }
+      const api = await loadScript()
+      if (destroyed) return null
+      return { api, candidate: opportunity }
     }
-    if (opportunityPromise) {
-      const ready = await opportunityPromise
-      if (
-        requestedAutoSelect
-        && ready?.candidate
-        && !ready.candidate.autoSelect
-      ) return ensureOpportunity({ autoSelect: true })
-      return ready
-    }
+    if (opportunityPromise) return opportunityPromise
 
     publish('loading')
     let failureStage = 'script'
@@ -208,7 +177,6 @@ export function createGoogleIdentityServicesController({
       const nonce = nonceResult.value
       if (destroyed) return null
       const candidate = {
-        autoSelect: requestedAutoSelect,
         consumed: false,
         hashedNonce: nonce.hashed,
         id: ++opportunitySequence,
@@ -276,7 +244,6 @@ export function createGoogleIdentityServicesController({
     ) return false
 
     candidate.consumed = true
-    cancelPrompt()
     publish('exchanging')
     let success = false
     try {
@@ -313,35 +280,7 @@ export function createGoogleIdentityServicesController({
     return true
   }
 
-  async function synchronizePrompt({ eligible, autoSelect = false } = {}) {
-    if (!eligible) {
-      promptAutoSelectEnabled = false
-      cancelPrompt()
-      return false
-    }
-    promptAutoSelectEnabled = autoSelect === true
-    const ready = await ensureOpportunity({ autoSelect })
-    if (!ready || destroyed) return false
-    for (const [element, mount] of mounts) {
-      renderMount(ready.api, ready.candidate, element, mount.options)
-    }
-    if (promptOpportunityId === ready.candidate.id) return true
-    promptOpportunityId = ready.candidate.id
-    try {
-      ready.api.prompt()
-      return true
-    } catch {
-      promptOpportunityId = null
-      publish('error')
-      return false
-    }
-  }
-
-  function prepareForExplicitSignOut() {
-    promptAutoSelectEnabled = false
-    cancelPrompt()
-    const api = getGoogleIdentityApi(googleTarget)
-    try { api?.disableAutoSelect() } catch {}
+  function clearOpportunity() {
     if (opportunity) {
       opportunity.rawNonce = ''
       opportunity.hashedNonce = ''
@@ -352,7 +291,7 @@ export function createGoogleIdentityServicesController({
 
   function destroy() {
     if (destroyed) return
-    prepareForExplicitSignOut()
+    clearOpportunity()
     destroyed = true
     mounts.clear()
     opportunitySequence += 1
@@ -360,8 +299,6 @@ export function createGoogleIdentityServicesController({
 
   return Object.freeze({
     destroy,
-    mountButton,
-    prepareForExplicitSignOut,
-    synchronizePrompt
+    mountButton
   })
 }

@@ -4,7 +4,7 @@ Date: 2026-08-15
 
 ## Question
 
-What must Edenia's specification require to prove that Cloudflare Turnstile protects email magic-link requests in Chrome and Safari when the widget uses `interaction-only` appearance, including invisible success, visible challenges, missing, expired, and replayed tokens, failure states, and the requirement that an invisible widget leave no empty layout space?
+What must Edenia's specification require to prove that Cloudflare Turnstile protects email-code requests in Chrome and Safari when the widget uses `interaction-only` appearance, including invisible success, visible challenges, missing, expired, and replayed tokens, failure states, and the requirement that an invisible widget leave no empty layout space?
 
 ## Decision
 
@@ -46,7 +46,7 @@ Edenia currently:
 - disables email submission unless the widget status is `ready`; [`src/app.js`](../../src/app.js#L5021-L5060)
 - consumes the token, passes `captchaRequired: true` whenever the live Turnstile site key is configured, and resets the widget after the Supabase call; [`src/app.js`](../../src/app.js#L5539-L5554)
 - refuses to call `signInWithOtp` when CAPTCHA is required but no token is present, and forwards a bounded token as `options.captchaToken`; [`src/integrations/account-auth-controller.js`](../../src/integrations/account-auth-controller.js#L389-L468)
-- has contract tests for explicit rendering, single-use in-memory tokens, five-minute age bounds, and callback failure states, plus a stubbed browser test proving that the Supabase `/otp` body receives `gotrue_meta_security.captcha_token`. [`tests/contracts/turnstile-controller.test.mjs`](../../tests/contracts/turnstile-controller.test.mjs#L31-L155) and [`tests/e2e/google-one-tap.spec.mjs`](../../tests/e2e/google-one-tap.spec.mjs#L268-L287)
+- has contract tests for explicit rendering, single-use in-memory tokens, five-minute age bounds, and callback failure states, plus a stubbed browser test proving that the Supabase `/otp` body receives `gotrue_meta_security.captcha_token`. [`tests/contracts/turnstile-controller.test.mjs`](../../tests/contracts/turnstile-controller.test.mjs#L31-L155) and [`tests/e2e/account-auth-methods.spec.mjs`](../../tests/e2e/account-auth-methods.spec.mjs)
 
 With a configured Turnstile controller, Edenia's submit button becomes enabled only after Cloudflare invokes the success callback. Thus the reported enabled Chrome button strongly implies that Chrome obtained a token non-interactively. This is a source-based inference, not proof that the live Supabase server validated that token.
 
@@ -93,7 +93,7 @@ Acceptance must be geometry-based rather than tied to one CSS technique. In Chro
 - Submitting the token after 300 seconds must fail and send no email.
 - Invalid provider responses and provider timeouts must fail closed. Rate limits remain a separate abuse-control layer, not evidence that CAPTCHA passed.
 
-Proof must include the Supabase response class and email-provider delivery count without recording the address, CAPTCHA token, magic link, session, publishable key, or provider secret.
+Proof must include the Supabase response class and email-provider delivery count without recording the address, CAPTCHA token, email code, session, publishable key, or provider secret.
 
 ### 4. Proportionate proof for one developer
 

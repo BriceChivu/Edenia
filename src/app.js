@@ -116,8 +116,6 @@ import {
   getAccountFeaturesRollout,
   getFreePlusEnabled,
   getGoogleIdentityClientId,
-  getGoogleOneTapEnabled,
-  getGoogleSignInMode,
   getIndexedDbBackupCleanupEnabled,
   getIndexedDbBackupsEnabled,
   getLegacyProgressMigrationEnabled,
@@ -221,6 +219,9 @@ import {
   isValidStateShape,
   sanitizeConfigForStorage
 } from './state/persistence-contract.js'
+import {
+  createPortableLearnerProfileEnvelope
+} from './state/portable-learner-profile.js'
 import { createImportedStateReader } from './state/imported-state.js'
 import {
   normalizeUndoState,
@@ -519,8 +520,6 @@ const ACCOUNT_FEATURES_ENABLED = deriveAccountFeaturesEnabled(
   RUNTIME_ENVIRONMENT,
   getAccountFeaturesRollout()
 )
-const GOOGLE_SIGN_IN_MODE = getGoogleSignInMode()
-const GOOGLE_ONE_TAP_ENABLED = getGoogleOneTapEnabled()
 const GOOGLE_IDENTITY_CLIENT_ID = getGoogleIdentityClientId()
 const GOOGLE_IDENTITY_SERVICES_READY =
   hasGoogleIdentityServicesRuntimeConfig()
@@ -3451,8 +3450,8 @@ function renderPersonalizedOnboarding() {
     finish: finishPersonalizedOnboarding
   })
   bindOnboardingAccountActions(content, {
-    signInWithGoogle: signInAccountWithGoogle,
-    sendMagicLink: sendOnboardingAccountMagicLink
+    requestEmailCode: requestOnboardingAccountEmailCode,
+    verifyEmailCode: verifyAccountEmailCode
   })
   syncOnboardingChoiceLayout()
 }
@@ -3567,6 +3566,7 @@ function renderOnboardingAccountStep(content) {
   const loading = sessionState === ACCOUNT_SESSION_STATES.LOADING
   const unavailable = sessionState === ACCOUNT_SESSION_STATES.UNAVAILABLE
   const busy = Boolean(state?.busyAction) || personalizedOnboardingState.isApplyingChannels
+  const emailCodePending = accountAuthController?.hasPendingEmailCode() === true
   const previousStep = personalizedOnboardingState.languageId === 'other'
     ? 'other'
     : 'channels'
@@ -3576,18 +3576,10 @@ function renderOnboardingAccountStep(content) {
   const feedback = feedbackView
     ? `<p class="onboarding-account-feedback" data-account-tone="${escHtml(feedbackView.tone)}" role="${feedbackView.tone === 'error' ? 'alert' : 'status'}" aria-live="${feedbackView.tone === 'error' ? 'assertive' : 'polite'}">${escHtml(t(feedbackView.key))}</p>`
     : ''
-  const googleAvailable = GOOGLE_SIGN_IN_MODE === 'oauth_redirect'
-    || GOOGLE_IDENTITY_SERVICES_READY
+  const googleAvailable = GOOGLE_IDENTITY_SERVICES_READY
   const googleContent = GOOGLE_IDENTITY_SERVICES_READY
     ? '<div class="account-google-identity-button" data-google-identity-button data-google-identity-surface="onboarding"></div>'
-    : GOOGLE_SIGN_IN_MODE === 'oauth_redirect'
-      ? `
-        <button class="btn-primary account-auth-google onboarding-account-google" type="button" data-onboarding-account-action="google" data-analytics-action="onboardingAccountGoogle" ${busy || unavailable ? 'disabled' : ''}>
-          <span class="account-auth-google-mark" aria-hidden="true">G</span>
-          <span>${escHtml(t(state?.busyAction === 'google-sign-in' ? 'settings.account.googleLoading' : 'settings.account.google'))}</span>
-        </button>
-      `
-      : ''
+    : ''
 
   let accountContent
   if (loading) {
@@ -3606,11 +3598,16 @@ function renderOnboardingAccountStep(content) {
     accountContent = `
       ${googleContent}
       ${googleAvailable ? `<div class="onboarding-account-divider"><span>${escHtml(t('settings.account.emailFallback'))}</span></div>` : ''}
-      <form class="onboarding-account-email-form" data-onboarding-account-action="email-form" novalidate>
+      <form class="onboarding-account-email-form ph-no-capture" data-onboarding-account-action="email-form" novalidate>
         <label for="onboardingAccountEmail">${escHtml(t('settings.account.emailLabel'))}</label>
         <input class="account-auth-email-input" id="onboardingAccountEmail" type="email" inputmode="email" autocomplete="email" maxlength="254" data-onboarding-account-email value="${escHtml(personalizedOnboardingState.accountEmail)}" placeholder="${escHtml(t('settings.account.emailPlaceholder'))}" ${busy || unavailable ? 'disabled' : ''}>
         ${TURNSTILE_READY ? '<div class="account-turnstile" data-turnstile-widget></div><p class="account-turnstile-status" data-turnstile-status role="status" aria-live="polite"></p>' : ''}
-        <button class="btn-secondary onboarding-account-email-button" type="submit" data-analytics-action="onboardingAccountEmail" ${busy || unavailable || TURNSTILE_READY ? 'disabled' : ''}>${escHtml(t(state?.busyAction === 'email-sign-in' ? 'settings.account.sendingLink' : 'settings.account.sendLink'))}</button>
+        <button class="btn-secondary onboarding-account-email-button" type="submit" data-analytics-action="onboardingAccountEmail" ${busy || unavailable || TURNSTILE_READY ? 'disabled' : ''}>${escHtml(t(state?.busyAction === 'email-code-request' ? 'settings.account.requestingCode' : 'settings.account.requestCode'))}</button>
+      </form>
+      <form class="onboarding-account-code-form ph-no-capture ${emailCodePending ? '' : 'hidden'}" data-onboarding-account-action="code-form" novalidate>
+        <label for="onboardingAccountEmailCode">${escHtml(t('settings.account.codeLabel'))}</label>
+        <input class="account-auth-email-input account-auth-code-input" id="onboardingAccountEmailCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" data-onboarding-account-code placeholder="${escHtml(t('settings.account.codePlaceholder'))}" ${busy || unavailable ? 'disabled' : ''}>
+        <button class="btn-primary" type="submit" data-analytics-action="onboardingAccountEmailCode" ${busy || unavailable ? 'disabled' : ''}>${escHtml(t(state?.busyAction === 'email-code-verification' ? 'settings.account.verifyingCode' : 'settings.account.verifyCode'))}</button>
       </form>
       ${feedback}
     `
@@ -5100,11 +5097,26 @@ const ACCOUNT_AUTH_FEEDBACK_VIEWS = Object.freeze({
   [ACCOUNT_AUTH_ERRORS.INVALID_EMAIL]: {
     key: 'settings.account.feedback.invalidEmail', tone: 'error'
   },
-  [ACCOUNT_AUTH_ERRORS.MAGIC_LINK_FAILED]: {
-    key: 'settings.account.feedback.magicLinkError', tone: 'error'
+  [ACCOUNT_AUTH_ERRORS.EMAIL_CODE_COOLDOWN]: {
+    key: 'settings.account.feedback.codeCooldown', tone: 'neutral'
   },
-  [ACCOUNT_AUTH_ERRORS.MAGIC_LINK_COOLDOWN]: {
-    key: 'settings.account.feedback.magicLinkCooldown', tone: 'neutral'
+  [ACCOUNT_AUTH_ERRORS.EMAIL_CODE_EXPIRED]: {
+    key: 'settings.account.feedback.codeExpired', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.EMAIL_CODE_REQUEST_FAILED]: {
+    key: 'settings.account.feedback.codeRequestError', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.EMAIL_CODE_VERIFICATION_FAILED]: {
+    key: 'settings.account.feedback.codeVerificationError', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.EMAIL_RATE_LIMITED]: {
+    key: 'settings.account.feedback.rateLimited', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.INVALID_EMAIL_CODE]: {
+    key: 'settings.account.feedback.invalidCode', tone: 'error'
+  },
+  [ACCOUNT_AUTH_ERRORS.OFFLINE]: {
+    key: 'settings.account.feedback.offline', tone: 'error'
   },
   [ACCOUNT_AUTH_ERRORS.OAUTH_CANCELLED]: {
     key: 'settings.account.feedback.cancelled', tone: 'neutral'
@@ -5121,8 +5133,8 @@ const ACCOUNT_AUTH_FEEDBACK_VIEWS = Object.freeze({
   [ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED]: {
     key: 'settings.account.feedback.signOutError', tone: 'error'
   },
-  [ACCOUNT_AUTH_NOTICES.MAGIC_LINK_SENT]: {
-    key: 'settings.account.feedback.linkSent', tone: 'success'
+  [ACCOUNT_AUTH_NOTICES.EMAIL_CODE_SENT]: {
+    key: 'settings.account.feedback.codeSent', tone: 'success'
   }
 })
 
@@ -5153,35 +5165,9 @@ function mountGoogleIdentityServicesButtons(root = document) {
   return true
 }
 
-function isGoogleOneTapEligible() {
-  if (
-    !onboardingFlowEvaluated
-    || !ACCOUNT_FEATURES_ENABLED
-    || GOOGLE_SIGN_IN_MODE !== 'id_token'
-    || !GOOGLE_ONE_TAP_ENABLED
-    || !googleIdentityServicesController
-    || IS_SANDBOX
-    || !IS_INTERNAL_TEST
-    || walkthroughState.active
-    || accountAuthViewState.sessionState !== ACCOUNT_SESSION_STATES.SIGNED_OUT
-    || window.location.origin !== 'https://www.edenia.study'
-    || window.location.pathname !== '/'
-  ) return false
-  const state = loadState()
-  return Boolean(
-    state?.onboarding?.setupCompleted
-    && state?.onboarding?.walkthroughCompleted
-  )
-}
-
 function synchronizeGoogleIdentityServices() {
   if (!googleIdentityServicesController) return false
-  mountGoogleIdentityServicesButtons()
-  void googleIdentityServicesController.synchronizePrompt({
-    autoSelect: true,
-    eligible: isGoogleOneTapEligible()
-  })
-  return true
+  return mountGoogleIdentityServicesButtons()
 }
 
 function getTurnstileStatusView(status) {
@@ -5390,28 +5376,11 @@ function renderAccountSettings(state = accountAuthViewState) {
   const googleIdentityButton = document.getElementById(
     'accountGoogleIdentityButton'
   )
-  const googleIdTokenAvailable = GOOGLE_SIGN_IN_MODE === 'id_token'
-    && Boolean(googleIdentityServicesController)
+  const googleIdTokenAvailable = Boolean(googleIdentityServicesController)
   googleIdentityButton?.classList.toggle('hidden', !googleIdTokenAvailable)
-  const googleButton = document.getElementById('accountGoogleBtn')
-  if (googleButton) {
-    googleButton.classList.toggle(
-      'hidden',
-      GOOGLE_SIGN_IN_MODE !== 'oauth_redirect'
-    )
-    googleButton.disabled = authBusy || unavailable
-    const label = googleButton.querySelector('[data-i18n]')
-    if (label) {
-      label.textContent = t(
-        state?.busyAction === 'google-sign-in'
-          ? 'settings.account.googleLoading'
-          : 'settings.account.google'
-      )
-    }
-  }
   document.getElementById('accountEmailDivider')?.classList.toggle(
     'hidden',
-    !googleIdTokenAvailable && GOOGLE_SIGN_IN_MODE !== 'oauth_redirect'
+    !googleIdTokenAvailable
   )
   const emailInput = document.getElementById('accountEmail')
   if (emailInput) emailInput.disabled = authBusy || unavailable
@@ -5421,9 +5390,25 @@ function renderAccountSettings(state = accountAuthViewState) {
   if (emailButton) {
     emailButton.disabled = authBusy || unavailable
     emailButton.textContent = t(
-      state?.busyAction === 'email-sign-in'
-        ? 'settings.account.sendingLink'
-        : 'settings.account.sendLink'
+      state?.busyAction === 'email-code-request'
+        ? 'settings.account.requestingCode'
+        : 'settings.account.requestCode'
+    )
+  }
+  const codeForm = document.getElementById('accountEmailCodeForm')
+  codeForm?.classList.toggle(
+    'hidden',
+    accountAuthController?.hasPendingEmailCode() !== true
+  )
+  const codeInput = document.getElementById('accountEmailCode')
+  if (codeInput) codeInput.disabled = authBusy || unavailable
+  const codeButton = document.getElementById('accountEmailCodeBtn')
+  if (codeButton) {
+    codeButton.disabled = authBusy || unavailable
+    codeButton.textContent = t(
+      state?.busyAction === 'email-code-verification'
+        ? 'settings.account.verifyingCode'
+        : 'settings.account.verifyCode'
     )
   }
   const signOutButton = document.getElementById('accountSignOutBtn')
@@ -5675,6 +5660,10 @@ function initializeAccountAuth() {
         turnstileTarget: window,
         onStatusChange(status, element) {
           turnstileWidgetStatuses.set(element, status)
+          element.classList.toggle(
+            'account-turnstile-interactive',
+            status === 'interactive'
+          )
           synchronizeTurnstileControls(element.closest?.('form') || document)
         }
       })
@@ -5707,21 +5696,17 @@ function initializeAccountAuth() {
   }
 }
 
-function signInAccountWithGoogle() {
-  if (GOOGLE_SIGN_IN_MODE !== 'oauth_redirect') return false
-  return accountAuthController?.signInWithGoogle()
-}
-
-async function sendAccountMagicLink(email, form = null) {
+async function requestAccountEmailCode(email, form = null) {
   if (!accountAuthController) return false
   const turnstileElement = form?.querySelector?.('[data-turnstile-widget]')
     || null
   const captchaToken = turnstileController?.consumeToken(turnstileElement)
     || ''
   try {
-    return await accountAuthController.sendMagicLink(email, {
+    return await accountAuthController.requestEmailCode(email, {
       captchaRequired: TURNSTILE_READY,
-      captchaToken
+      captchaToken,
+      locale: getCurrentLocale()
     })
   } finally {
     if (turnstileController && turnstileElement) {
@@ -5730,13 +5715,16 @@ async function sendAccountMagicLink(email, form = null) {
   }
 }
 
-function sendOnboardingAccountMagicLink(email, form = null) {
+function requestOnboardingAccountEmailCode(email, form = null) {
   personalizedOnboardingState.accountEmail = String(email || '')
-  return sendAccountMagicLink(email, form)
+  return requestAccountEmailCode(email, form)
+}
+
+function verifyAccountEmailCode(code) {
+  return accountAuthController?.verifyEmailCode(code)
 }
 
 function signOutAccount() {
-  googleIdentityServicesController?.prepareForExplicitSignOut()
   return accountAuthController?.signOut()
 }
 
@@ -6106,24 +6094,28 @@ function saveLocaleFromSettings(locale = null) {
   showToast(t('toast.localeChanged', { language: getLocaleLabel(nextLocale) }))
 }
 
-function downloadLearnerProfileSyncFile(state) {
-  const payload = {
-    app: 'edenia',
-    syncVersion: 1,
-    exportedAt: new Date().toISOString(),
-    sandbox: IS_SANDBOX,
-    state
-  }
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `edenia-${IS_SANDBOX ? 'sandbox-' : ''}sync-${toDateKey()}.json`
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-  showToast(t('toast.syncExported'))
+function downloadLearnerProfileSyncFile(state, {
+  exportedAt = Date.now(),
+  isCurrent = () => true
+} = {}) {
+  void createPortableLearnerProfileEnvelope(state, {
+    maxBytes: Number.MAX_SAFE_INTEGER,
+    now: () => new Date(exportedAt)
+  }).then(({ serialized }) => {
+    if (!isCurrent()) return
+    const blob = new Blob([serialized], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `edenia-${IS_SANDBOX ? 'sandbox-' : ''}sync-${toDateKey()}.json`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    showToast(t('toast.syncExported'))
+  }).catch(() => {
+    if (isCurrent()) showToast(t('toast.invalidSync'), 'error')
+  })
   return true
 }
 
@@ -17439,8 +17431,8 @@ bindSettingsPreferenceActions(document, {
   save: saveSettingsOnTheFly
 })
 bindSettingsAccountActions(document, {
-  signInWithGoogle: signInAccountWithGoogle,
-  sendMagicLink: sendAccountMagicLink,
+  requestEmailCode: requestAccountEmailCode,
+  verifyEmailCode: verifyAccountEmailCode,
   signOut: signOutAccount,
   downloadAccount: downloadAccountData
 })

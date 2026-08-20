@@ -1199,6 +1199,20 @@ test('Settings sync listeners preserve download, picker, import, and failure ord
         openedAt: '2026-07-27T04:00:00.000Z'
       }
     }
+    stored.authSession = { accessToken: 'must-not-export' }
+    stored.undoStack = [{ token: 'must-not-export' }]
+    stored.learnerProfile = {
+      languages: ['japanese'],
+      level: 'starting',
+      selectedChannelCatalogIds: [],
+      createdAt: '2026-07-20T04:00:00.000Z',
+      updatedAt: '2026-07-28T04:00:00.000Z'
+    }
+    stored.anki['2026-07-28'] = {
+      reviewed: 18,
+      created: 3,
+      loggedAt: '2026-07-28T03:00:00.000Z'
+    }
     localStorage.setItem('edenia_v1', JSON.stringify(stored))
     localStorage.removeItem('edenia_v1_backups')
   })
@@ -1250,18 +1264,46 @@ test('Settings sync listeners preserve download, picker, import, and failure ord
   const downloadPath = await download.path()
   const downloadText = await readFile(downloadPath, 'utf8')
   const exported = JSON.parse(downloadText)
-  expect(downloadText.startsWith('{\n  "app": "edenia"')).toBe(true)
+  expect(downloadText.startsWith('{"exportedAt"')).toBe(true)
   expect(exported).toMatchObject({
-    app: 'edenia',
-    syncVersion: 1,
     exportedAt: fixedNow.toISOString(),
-    sandbox: false
+    schema: 'edenia-portable-learner-profile',
+    version: 1,
+    integrity: {
+      algorithm: 'SHA-256',
+      byteLength: Buffer.byteLength(downloadText)
+    },
+    profile: {
+      learnerProfile: {
+        languages: ['japanese'],
+        level: 'starting'
+      },
+      anki: {
+        '2026-07-28': {
+          reviewed: 18,
+          created: 3,
+          observedAt: '2026-07-28T03:00:00.000Z'
+        }
+      }
+    }
   })
   expect(Object.prototype.hasOwnProperty.call(
-    exported.state,
+    exported.profile,
     'videoWatchReminders'
   )).toBe(false)
-  expect(exported.state).toEqual(JSON.parse(primaryBeforeExport))
+  expect(Object.prototype.hasOwnProperty.call(
+    exported.profile,
+    'authSession'
+  )).toBe(false)
+  expect(Object.prototype.hasOwnProperty.call(
+    exported.profile,
+    'undoStack'
+  )).toBe(false)
+  expect(Object.prototype.hasOwnProperty.call(
+    exported.profile.config,
+    'theme'
+  )).toBe(false)
+  expect(downloadText).not.toContain('must-not-export')
   expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
     .toBe(primaryBeforeExport)
   expect(await page.evaluate(
@@ -1284,6 +1326,7 @@ test('Settings sync listeners preserve download, picker, import, and failure ord
       settingsHidden: false
     }
   ])
+  await expect(toast).toHaveText('Sync file exported')
 
   await page.evaluate(() => {
     localStorage.removeItem('edenia_v1_backups')

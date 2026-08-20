@@ -291,9 +291,11 @@ export function createLearnerProfileLifecycleAuthority({
   function exportActiveProfile() {
     const profile = readActiveProfile()
     if (!profile) return false
+    const activation = currentState.activation
     return exportDownload.download(profile, {
-      activation: currentState.activation,
-      exportedAt: clock.now()
+      activation,
+      exportedAt: clock.now(),
+      isCurrent: () => getCurrentActivationFor(profile) === activation
     }) === true
   }
 

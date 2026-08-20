@@ -2,10 +2,11 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
 
-const [appSource, defaultStateSource, importedStateSource, htmlSource, feedStyles, phoneStyles, wideStyles] = await Promise.all([
+const [appSource, defaultStateSource, importedStateSource, portableProfileSource, htmlSource, feedStyles, phoneStyles, wideStyles] = await Promise.all([
   readFile(new URL('../../src/app.js', import.meta.url), 'utf8'),
   readFile(new URL('../../src/state/default-state.js', import.meta.url), 'utf8'),
   readFile(new URL('../../src/state/imported-state.js', import.meta.url), 'utf8'),
+  readFile(new URL('../../src/state/portable-learner-profile.js', import.meta.url), 'utf8'),
   readFile(new URL('../../index.html', import.meta.url), 'utf8'),
   readFile(new URL('../../src/styles/70-video-feed.css', import.meta.url), 'utf8'),
   readFile(new URL('../../src/styles/98-responsive-phone.css', import.meta.url), 'utf8'),
@@ -34,7 +35,11 @@ test('new and exported state omit reminders while legacy saved entries are delet
   )
   assert.match(appSource, /if \(removeLegacyVideoWatchReminderState\(state\)\) shouldSave = true/)
   assert.match(importedStateSource, /removeLegacyVideoWatchReminderState\(importedState\)\s*return importedState/)
-  assert.match(appSource, /sandbox: IS_SANDBOX,\s*state\s*\}/)
+  assert.match(
+    appSource,
+    /createPortableLearnerProfileEnvelope\(state, \{\s*maxBytes: Number\.MAX_SAFE_INTEGER/
+  )
+  assert.doesNotMatch(portableProfileSource, /videoWatchReminders/)
 })
 
 test('iframe completion prompt and hidden-tab title remain active', () => {
