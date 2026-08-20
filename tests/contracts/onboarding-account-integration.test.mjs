@@ -33,7 +33,11 @@ test('Account onboarding reuses same-device email auth and preserves its draft',
   )
   assert.match(
     appSource,
-    /state\.onboarding\.accountStepReachedAt = now\s*if \(saveState\(state\)\) return true/
+    /function persistOnboardingAccountDraft\(\) \{\s*return persistPersonalizedOnboardingDraft\(\{\s*markAccountStepReached: true\s*\}\)\s*\}/
+  )
+  assert.match(
+    appSource,
+    /if \(markAccountStepReached\) state\.onboarding\.accountStepReachedAt = now\s*if \(saveOnboardingWorkingState\(state\)\)/
   )
   assert.match(
     appSource,

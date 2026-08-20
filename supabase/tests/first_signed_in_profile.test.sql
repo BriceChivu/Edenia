@@ -3,13 +3,13 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
-select plan(31);
+select plan(36);
 
 select has_function(
   'public',
   'resolve_my_learner_profile',
   array['jsonb'],
-  'the authenticated first-profile resolution operation exists'
+  'the authenticated first signed-in profile resolution operation exists'
 );
 
 select is(
@@ -100,6 +100,19 @@ select results_eq(
   $$values (1::bigint, 1::bigint, 0::bigint)$$,
   'the owner can read exactly the immutable initial version'
 );
+
+reset role;
+select ok(
+  (
+    select eligibility.consumed_at is not null
+    from private.learner_profile_creation_eligibility as eligibility
+    where eligibility.user_id = '11111111-1111-4111-8111-111111111111'
+  ),
+  'successful creation consumes its one-time new-account evidence'
+);
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 
 select results_eq(
   $query$
@@ -378,6 +391,72 @@ select results_eq(
   $$select status, created from public.resolve_my_learner_profile(null)$$,
   $$values ('verified_account_required'::text, false)$$,
   'an unverified Auth row is not authoritative new-account evidence'
+);
+
+reset role;
+insert into auth.users (id, email, email_confirmed_at)
+values (
+  '66666666-6666-4666-8666-666666666666',
+  'returning-backup-owner@example.test',
+  statement_timestamp()
+);
+
+insert into public.state_backups (user_id, state_json)
+values (
+  '66666666-6666-4666-8666-666666666666',
+  '{"learnerProfile":{"languages":["french"]}}'::jsonb
+);
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = '66666666-6666-4666-8666-666666666666';
+
+select results_eq(
+  $query$
+    select status, created
+    from public.resolve_my_learner_profile(
+      (select envelope from first_profile_fixture)
+    )
+  $query$,
+  $$values ('recovery_required'::text, false)$$,
+  'legacy cloud-backup history routes to recovery instead of blank creation'
+);
+
+select results_eq(
+  $$select count(*) from public.learner_profile_heads$$,
+  array[0::bigint],
+  'legacy backup history leaves the returning owner without a partial head'
+);
+
+reset role;
+insert into auth.users (id, email, email_confirmed_at)
+values (
+  '77777777-7777-4777-8777-777777777777',
+  'preexisting-empty-account@example.test',
+  statement_timestamp()
+);
+delete from private.learner_profile_creation_eligibility
+where user_id = '77777777-7777-4777-8777-777777777777';
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = '77777777-7777-4777-8777-777777777777';
+
+select results_eq(
+  $query$
+    select status, created
+    from public.resolve_my_learner_profile(
+      (select envelope from first_profile_fixture)
+    )
+  $query$,
+  $$values ('recovery_required'::text, false)$$,
+  'a verified UUID without server-recorded new-account evidence cannot create'
+);
+
+select results_eq(
+  $$select count(*) from public.learner_profile_versions$$,
+  array[0::bigint],
+  'missing new-account evidence leaves no partial profile history'
 );
 
 reset role;

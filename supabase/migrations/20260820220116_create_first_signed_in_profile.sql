@@ -1,3 +1,4 @@
+-- Create a signed-in profile only for a verified owner with new-account evidence.
 create schema if not exists private;
 create extension if not exists pgcrypto with schema extensions;
 
@@ -30,6 +31,55 @@ alter table private.learner_profile_access_control enable row level security;
 
 revoke all on table private.learner_profile_access_control
   from public, anon, authenticated, service_role;
+
+create table private.learner_profile_creation_eligibility (
+  user_id uuid primary key,
+  auth_user_created_at timestamptz not null,
+  recorded_at timestamptz not null default pg_catalog.now(),
+  consumed_at timestamptz,
+  constraint learner_profile_creation_eligibility_user_id_fkey
+    foreign key (user_id) references auth.users (id) on delete cascade,
+  constraint learner_profile_creation_eligibility_consumed_at_check check (
+    consumed_at is null or consumed_at >= recorded_at
+  )
+);
+
+comment on table private.learner_profile_creation_eligibility is
+  'Server-recorded evidence that an Auth UUID was created after first-profile creation became available; existing accounts are never backfilled.';
+
+alter table private.learner_profile_creation_eligibility
+  enable row level security;
+
+revoke all on table private.learner_profile_creation_eligibility
+  from public, anon, authenticated, service_role;
+
+create or replace function private.record_learner_profile_creation_eligibility()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into private.learner_profile_creation_eligibility (
+    user_id,
+    auth_user_created_at
+  ) values (
+    new.id,
+    coalesce(new.created_at, pg_catalog.now())
+  )
+  on conflict (user_id) do nothing;
+  return new;
+end;
+$$;
+
+revoke execute
+  on function private.record_learner_profile_creation_eligibility()
+  from public, anon, authenticated, service_role;
+
+create trigger record_learner_profile_creation_eligibility
+  after insert on auth.users
+  for each row
+  execute function private.record_learner_profile_creation_eligibility();
 
 create table public.learner_profile_versions (
   id uuid primary key,
@@ -474,6 +524,26 @@ begin
     select 1
     from public.learner_profile_versions as version
     where version.user_id = owner_id
+  ) or exists (
+    select 1
+    from public.state_backups as backup
+    where backup.user_id = owner_id
+  ) then
+    return query select
+      'recovery_required'::text,
+      false,
+      null::uuid,
+      null::bigint,
+      null::bigint,
+      null::jsonb;
+    return;
+  end if;
+
+  if not exists (
+    select 1
+    from private.learner_profile_creation_eligibility as eligibility
+    where eligibility.user_id = owner_id
+      and eligibility.consumed_at is null
   ) then
     return query select
       'recovery_required'::text,
@@ -501,6 +571,21 @@ begin
   );
   new_profile_id := extensions.gen_random_uuid();
   new_version_id := extensions.gen_random_uuid();
+
+  update private.learner_profile_creation_eligibility as eligibility
+  set consumed_at = pg_catalog.now()
+  where eligibility.user_id = owner_id
+    and eligibility.consumed_at is null;
+  if not found then
+    return query select
+      'recovery_required'::text,
+      false,
+      null::uuid,
+      null::bigint,
+      null::bigint,
+      null::jsonb;
+    return;
+  end if;
 
   insert into public.learner_profile_versions (
     id,

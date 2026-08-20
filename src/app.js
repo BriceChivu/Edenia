@@ -227,6 +227,9 @@ import {
   PORTABLE_LEARNER_PROFILE_SCHEMA,
   verifyPortableLearnerProfileEnvelope
 } from './state/portable-learner-profile.js'
+import {
+  createInitialSignedInProfileEnvelope
+} from './state/first-signed-in-profile.js'
 import { createImportedStateReader } from './state/imported-state.js'
 import {
   normalizeUndoState,
@@ -863,42 +866,7 @@ function createLearnerProfileActivationId() {
   return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
-async function createInitialOwnedProfileEnvelope(onboardingState) {
-  normalizeLearnerProfileState(onboardingState)
-  normalizeOnboardingState(onboardingState)
-  const languageId = onboardingState.learnerProfile.languages[0] || null
-  const levelId = onboardingState.learnerProfile.level
-  if (
-    !languageId
-    || (languageId !== 'other' && !levelId)
-    || !onboardingState.onboarding.accountStepReachedAt
-  ) return null
-
-  const completedAt = new Date().toISOString()
-  onboardingState.activityLog = []
-  onboardingState.anki = {}
-  onboardingState.videos = {}
-  onboardingState.cityProgress = {
-    maxLevelIndex: 0,
-    pendingLevelIndex: null
-  }
-  onboardingState.learnerProfile.createdAt = completedAt
-  onboardingState.learnerProfile.updatedAt = completedAt
-  onboardingState.onboarding.accountStepReachedAt = null
-  onboardingState.onboarding.levelUpGuidanceShownAt = null
-  onboardingState.onboarding.recommendationsAppliedAt = null
-  onboardingState.onboarding.setupCompleted = true
-  onboardingState.onboarding.setupCompletedAt = completedAt
-  onboardingState.onboarding.walkthroughCompleted = false
-  onboardingState.onboarding.walkthroughCompletedAt = null
-  const result = await createPortableLearnerProfileEnvelope(
-    onboardingState,
-    { now: () => new Date(completedAt) }
-  )
-  return result.envelope
-}
-
-function importOwnedProfileEnvelope(envelope) {
+function importSignedInProfileEnvelope(envelope) {
   const state = getImportedSyncState(envelope?.profile)
   if (!state) return null
   normalizeLoadedState(state)
@@ -933,9 +901,14 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
       clock: { now: () => Date.now() },
       cloudPersistence: createLearnerProfileCloudPersistenceAdapter({
         clearOnboardingDraft: onboardingProfileDraftStore.clear,
-        createOnboardingEnvelope: createInitialOwnedProfileEnvelope,
+        createOnboardingEnvelope: onboardingState => (
+          createInitialSignedInProfileEnvelope(onboardingState, {
+            createEnvelope: createPortableLearnerProfileEnvelope,
+            normalizeLearnerProfile: normalizeLearnerProfileState
+          })
+        ),
         getClient: getSupabaseClient,
-        importEnvelope: importOwnedProfileEnvelope,
+        importEnvelope: importSignedInProfileEnvelope,
         readOnboardingState: loadOnboardingWorkingState,
         verifyEnvelope: verifyPortableLearnerProfileEnvelope
       }),
@@ -3558,7 +3531,7 @@ function renderPersonalizedOnboarding() {
   } else if (personalizedOnboardingState.step === 'level') {
     renderOnboardingLevelStep(content)
   } else if (personalizedOnboardingState.step === 'channels') {
-    prepareOnboardingChannelSelections()
+    if (!prepareOnboardingChannelSelections()) return
     renderOnboardingChannelsStep(content)
   } else if (personalizedOnboardingState.step === 'account') {
     renderOnboardingAccountStep(content)
@@ -3852,6 +3825,10 @@ function selectOnboardingLanguage(languageId) {
   }
   personalizedOnboardingState.selectedChannelCatalogIds = []
   personalizedOnboardingState.channelSelectionsInitialized = false
+  if (
+    LEARNER_PROFILE_LIFECYCLE_ENABLED
+    && !persistPersonalizedOnboardingDraft()
+  ) return
   renderPersonalizedOnboarding()
 }
 
@@ -3864,6 +3841,10 @@ function selectOnboardingLevel(levelId) {
   personalizedOnboardingState.levelId = levelId
   personalizedOnboardingState.selectedChannelCatalogIds = []
   personalizedOnboardingState.channelSelectionsInitialized = false
+  if (
+    LEARNER_PROFILE_LIFECYCLE_ENABLED
+    && !persistPersonalizedOnboardingDraft()
+  ) return
   renderPersonalizedOnboarding()
 }
 
@@ -3882,7 +3863,9 @@ function startOverPersonalizedOnboarding() {
   }
 }
 
-function persistOnboardingAccountDraft() {
+function persistPersonalizedOnboardingDraft({
+  markAccountStepReached = false
+} = {}) {
   const now = new Date().toISOString()
   const state = loadOnboardingWorkingState() || defaultState(4, DEFAULT_CHANNELS)
   normalizeLearnerProfileState(state)
@@ -3896,17 +3879,20 @@ function persistOnboardingAccountDraft() {
     createdAt: state.learnerProfile.createdAt || now,
     updatedAt: now
   }
-  state.onboarding.accountStepReachedAt = now
-  if (saveState(state)) return true
-  if (
-    learnerProfileLifecycleAuthority
-    && saveOnboardingWorkingState(state)
-  ) {
+  if (markAccountStepReached) state.onboarding.accountStepReachedAt = now
+  if (saveOnboardingWorkingState(state)) {
+    if (!markAccountStepReached) return true
     learnerProfileLifecycleAuthority?.refresh()
     return true
   }
   showOnboardingRecovery('storage', { state, resume: 'personalized' })
   return false
+}
+
+function persistOnboardingAccountDraft() {
+  return persistPersonalizedOnboardingDraft({
+    markAccountStepReached: true
+  })
 }
 
 function clearOnboardingAccountDraftMarker() {
@@ -3969,12 +3955,14 @@ function setPersonalizedOnboardingStep(step) {
 }
 
 function prepareOnboardingChannelSelections() {
-  if (personalizedOnboardingState.channelSelectionsInitialized) return
+  if (personalizedOnboardingState.channelSelectionsInitialized) return true
   personalizedOnboardingState.selectedChannelCatalogIds = getRecommendedChannelCatalog({
     languages: [personalizedOnboardingState.languageId],
     level: personalizedOnboardingState.levelId
   }).slice(0, getOnboardingChannelSelectionLimit()).map(channel => channel.id)
   personalizedOnboardingState.channelSelectionsInitialized = true
+  return !LEARNER_PROFILE_LIFECYCLE_ENABLED
+    || persistPersonalizedOnboardingDraft()
 }
 
 function getOnboardingChannelSelectionLimit(state = loadState()) {
@@ -4011,6 +3999,10 @@ function toggleOnboardingChannel(catalogId) {
     selectedIds.add(catalogId)
   }
   personalizedOnboardingState.selectedChannelCatalogIds = [...selectedIds]
+  if (
+    LEARNER_PROFILE_LIFECYCLE_ENABLED
+    && !persistPersonalizedOnboardingDraft()
+  ) return
   const control = [...document.querySelectorAll('.onboarding-channel')]
     .find(channel => channel.dataset.catalogId === catalogId)
   control?.setAttribute('aria-pressed', String(selectedIds.has(catalogId)))

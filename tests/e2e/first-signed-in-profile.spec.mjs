@@ -1,4 +1,7 @@
 import { expect, test } from '../support/network-fixture.mjs'
+import {
+  LEARNER_PROFILE_RESOLUTION_STATUSES
+} from '../../src/domain/learner-profile-resolution.js'
 
 const SUPABASE_ORIGIN = 'https://first-profile-test.supabase.co'
 const STATE_STORAGE_KEY = 'edenia_v1_internal_test'
@@ -56,6 +59,46 @@ function runtimeConfig() {
   })}`
 }
 
+async function installRuntimeConfig(page) {
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig(),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+}
+
+async function installEmptySupabase(page) {
+  await page.route(`${SUPABASE_ORIGIN}/**`, route => route.fulfill({
+    json: [],
+    status: 200
+  }))
+}
+
+function resolutionRow(status, overrides = {}) {
+  return {
+    created: false,
+    envelope: null,
+    generation: null,
+    profile_id: null,
+    revision: null,
+    status,
+    ...overrides
+  }
+}
+
+async function fulfillEmailAuthentication(route) {
+  const pathname = new URL(route.request().url()).pathname
+  if (pathname === '/auth/v1/otp') {
+    await route.fulfill({ json: {}, status: 200 })
+    return true
+  }
+  if (pathname === '/auth/v1/verify') {
+    await route.fulfill({ json: authenticatedSession(), status: 200 })
+    return true
+  }
+  return false
+}
+
 async function reachAccountStep(page) {
   await page.goto('/?internal_test=1')
   await page.getByRole('button', { name: 'Skip intro' }).click()
@@ -87,15 +130,8 @@ test('public onboarding uses a temporary draft without creating a learner profil
   page
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
-  await page.route('**/config.local.js', route => route.fulfill({
-    body: runtimeConfig(),
-    contentType: 'text/javascript',
-    status: 200
-  }))
-  await page.route(`${SUPABASE_ORIGIN}/**`, route => route.fulfill({
-    json: [],
-    status: 200
-  }))
+  await installRuntimeConfig(page)
+  await installEmptySupabase(page)
 
   await page.goto('/?internal_test=1')
 
@@ -118,15 +154,42 @@ test('public onboarding uses a temporary draft without creating a learner profil
   })
 })
 
-test('authentication creates and activates exactly one owned learner profile', async ({
+test('pre-authentication choices survive reload before authentication', async ({
   page
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
-  await page.route('**/config.local.js', route => route.fulfill({
-    body: runtimeConfig(),
-    contentType: 'text/javascript',
-    status: 200
-  }))
+  await installRuntimeConfig(page)
+  await installEmptySupabase(page)
+
+  await page.goto('/?internal_test=1')
+  await page.getByRole('button', { name: 'Skip intro' }).click()
+  await page.locator('[data-language-id="mandarin"]').click()
+  await page.reload()
+
+  await expect(page.locator(
+    '[data-personalized-onboarding-step="channels"]'
+  )).toBeVisible()
+  await page.locator('[data-level-id="starting"]').click()
+  await page.reload()
+
+  await expect(
+    page.locator('.onboarding-channel[aria-pressed="true"]')
+  ).toHaveCount(5)
+  const draft = await page.evaluate(key => (
+    JSON.parse(localStorage.getItem(key))
+  ), DRAFT_STORAGE_KEY)
+  expect(draft).toMatchObject({
+    languageId: 'mandarin',
+    levelId: 'starting',
+    selectedChannelCatalogIds: expect.arrayContaining([expect.any(String)])
+  })
+})
+
+test('authentication creates and activates exactly one signed-in learner profile', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  await installRuntimeConfig(page)
 
   const resolutionRequests = []
   let releaseResolution
@@ -134,29 +197,24 @@ test('authentication creates and activates exactly one owned learner profile', a
     releaseResolution = resolve
   })
   await page.route(`${SUPABASE_ORIGIN}/**`, async route => {
+    if (await fulfillEmailAuthentication(route)) return
     const request = route.request()
     const url = new URL(request.url())
-    if (url.pathname === '/auth/v1/otp') {
-      await route.fulfill({ json: {}, status: 200 })
-      return
-    }
-    if (url.pathname === '/auth/v1/verify') {
-      await route.fulfill({ json: authenticatedSession(), status: 200 })
-      return
-    }
     if (url.pathname === '/rest/v1/rpc/resolve_my_learner_profile') {
       const body = request.postDataJSON()
       resolutionRequests.push(body)
       await resolutionBarrier
       await route.fulfill({
-        json: [{
+        json: [resolutionRow(
+          LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY,
+          {
           created: true,
           envelope: body.p_onboarding_profile,
           generation: 1,
           profile_id: CREATED_PROFILE_ID,
-          revision: 1,
-          status: 'profile_ready'
-        }],
+          revision: 1
+          }
+        )],
         status: 200
       })
       return
@@ -250,15 +308,8 @@ test('Start over explicitly discards the onboarding draft', async ({
   page
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
-  await page.route('**/config.local.js', route => route.fulfill({
-    body: runtimeConfig(),
-    contentType: 'text/javascript',
-    status: 200
-  }))
-  await page.route(`${SUPABASE_ORIGIN}/**`, route => route.fulfill({
-    json: [],
-    status: 200
-  }))
+  await installRuntimeConfig(page)
+  await installEmptySupabase(page)
 
   await reachAccountStep(page)
   const previousDraft = await page.evaluate(key => (
@@ -286,33 +337,17 @@ test('server gate denial keeps the draft recoverable and writes no profile', asy
   page
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
-  await page.route('**/config.local.js', route => route.fulfill({
-    body: runtimeConfig(),
-    contentType: 'text/javascript',
-    status: 200
-  }))
+  await installRuntimeConfig(page)
   let resolutionCount = 0
   await page.route(`${SUPABASE_ORIGIN}/**`, async route => {
+    if (await fulfillEmailAuthentication(route)) return
     const url = new URL(route.request().url())
-    if (url.pathname === '/auth/v1/otp') {
-      await route.fulfill({ json: {}, status: 200 })
-      return
-    }
-    if (url.pathname === '/auth/v1/verify') {
-      await route.fulfill({ json: authenticatedSession(), status: 200 })
-      return
-    }
     if (url.pathname === '/rest/v1/rpc/resolve_my_learner_profile') {
       resolutionCount += 1
       await route.fulfill({
-        json: [{
-          created: false,
-          envelope: null,
-          generation: null,
-          profile_id: null,
-          revision: null,
-          status: 'access_disabled'
-        }],
+        json: [resolutionRow(
+          LEARNER_PROFILE_RESOLUTION_STATUSES.ACCESS_DISABLED
+        )],
         status: 200
       })
       return
@@ -356,11 +391,7 @@ test('an already signed-in new learner resolves again when onboarding reaches it
   await page.addInitScript(({ authKey, authenticated }) => {
     localStorage.setItem(authKey, JSON.stringify(authenticated))
   }, { authKey: AUTH_STORAGE_KEY, authenticated: session })
-  await page.route('**/config.local.js', route => route.fulfill({
-    body: runtimeConfig(),
-    contentType: 'text/javascript',
-    status: 200
-  }))
+  await installRuntimeConfig(page)
   const resolutionRequests = []
   await page.route(`${SUPABASE_ORIGIN}/**`, async route => {
     const request = route.request()
@@ -370,27 +401,24 @@ test('an already signed-in new learner resolves again when onboarding reaches it
       resolutionRequests.push(body)
       if (!body.p_onboarding_profile) {
         await route.fulfill({
-          json: [{
-            created: false,
-            envelope: null,
-            generation: null,
-            profile_id: null,
-            revision: null,
-            status: 'onboarding_required'
-          }],
+          json: [resolutionRow(
+            LEARNER_PROFILE_RESOLUTION_STATUSES.ONBOARDING_REQUIRED
+          )],
           status: 200
         })
         return
       }
       await route.fulfill({
-        json: [{
-          created: true,
-          envelope: body.p_onboarding_profile,
-          generation: 1,
-          profile_id: CREATED_PROFILE_ID,
-          revision: 1,
-          status: 'profile_ready'
-        }],
+        json: [resolutionRow(
+          LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY,
+          {
+            created: true,
+            envelope: body.p_onboarding_profile,
+            generation: 1,
+            profile_id: CREATED_PROFILE_ID,
+            revision: 1
+          }
+        )],
         status: 200
       })
       return

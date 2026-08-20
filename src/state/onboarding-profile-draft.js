@@ -1,5 +1,10 @@
+import { SUPPORTED_LOCALES } from '../i18n/index.js'
+
 const ONBOARDING_PROFILE_DRAFT_VERSION = 1
-const SUPPORTED_LOCALES = new Set(['en', 'es', 'fr', 'zh-Hans', 'zh-Hant'])
+
+function isSupportedLocale(value) {
+  return SUPPORTED_LOCALES.includes(value)
+}
 
 function isRecord(value) {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
@@ -27,7 +32,7 @@ function normalizeDraft(value, { fallbackLocale, now }) {
   const createdAt = normalizeNullableTimestamp(draft.createdAt) || now()
   return {
     version: ONBOARDING_PROFILE_DRAFT_VERSION,
-    locale: SUPPORTED_LOCALES.has(draft.locale)
+    locale: isSupportedLocale(draft.locale)
       ? draft.locale
       : fallbackLocale,
     introSeenAt: normalizeNullableTimestamp(draft.introSeenAt),
@@ -54,7 +59,7 @@ export function createOnboardingProfileDraftStore({
   if (
     typeof createDefaultState !== 'function'
     || typeof now !== 'function'
-    || !SUPPORTED_LOCALES.has(fallbackLocale)
+    || !isSupportedLocale(fallbackLocale)
     || typeof storage?.getItem !== 'function'
     || typeof storage?.setItem !== 'function'
     || typeof storage?.removeItem !== 'function'
@@ -73,7 +78,7 @@ export function createOnboardingProfileDraftStore({
     }
   }
 
-  function read() {
+  function loadOrCreateDraft() {
     let value = null
     try {
       value = JSON.parse(storage.getItem(storageKey) || 'null')
@@ -84,7 +89,7 @@ export function createOnboardingProfileDraftStore({
   }
 
   function readWorkingState() {
-    const draft = read()
+    const draft = loadOrCreateDraft()
     if (!draft) return null
     const state = createDefaultState(draft.locale)
     state.config.locale = draft.locale
@@ -98,7 +103,7 @@ export function createOnboardingProfileDraftStore({
   }
 
   function saveWorkingState(state) {
-    const current = read()
+    const current = loadOrCreateDraft()
     if (!current || !isRecord(state)) return false
     const updatedAt = now()
     return persist(normalizeDraft({
@@ -123,5 +128,10 @@ export function createOnboardingProfileDraftStore({
     }
   }
 
-  return Object.freeze({ clear, read, readWorkingState, saveWorkingState })
+  return Object.freeze({
+    clear,
+    loadOrCreateDraft,
+    readWorkingState,
+    saveWorkingState
+  })
 }

@@ -38,7 +38,7 @@ ordinary public root loads no account provider script while the rollout is
 prefactor gate. When it is off, the existing accountless landing, onboarding,
 study, persistence, sandbox, backup, and recovery path continues through the
 original store and render flow. Keep this gate off in public configuration
-until the database migration and owned-profile resolution operation are
+until the database migration and signed-in profile resolution operation are
 deployed and verified together.
 
 When enabled, the application can reach learner state only through the
@@ -54,11 +54,11 @@ Each active profile receives a browser-storage activation fence. Reads, saves,
 imports, exports, analytics synchronization, and queued cloud work must still
 hold that fence. A newer tab or later activation invalidates the earlier
 profile object and its delayed callbacks. Every non-active state hides the
-durable learner UI and pauses autosave. Before an owned profile exists, the
+durable learner UI and pauses autosave. Before a signed-in profile exists, the
 public onboarding draft may occupy that surface; otherwise the visible gate
 contains identity-neutral copy only.
 
-## First owned profile creation
+## First signed-in profile creation
 
 With the lifecycle enabled, pre-authentication onboarding writes only a bounded
 version-1 draft under the environment-specific onboarding-draft key. It carries
@@ -66,7 +66,7 @@ locale, the intro and account-step timestamps, one language, one optional
 level, and at most five catalog channel IDs. It contains no videos, Anki data,
 study facts, town progress, session, email, provider metadata, or owner ID. The
 draft survives authentication. The learner can discard it with **Start over**;
-otherwise Edenia removes it only after the new owned profile is installed
+otherwise Edenia removes it only after the new signed-in profile is installed
 behind a local ownership fence.
 
 The authenticated browser calls only:
@@ -80,9 +80,14 @@ client.rpc('resolve_my_learner_profile', {
 The browser supplies no ownership parameter. The public RPC is an invoker
 wrapper around a private security-definer resolver with an empty search path.
 The resolver uses `auth.uid()`, confirms that exact UUID against a verified,
-non-anonymous, non-deleted `auth.users` row, and checks that neither a current
-head nor any historical learner-profile revision exists before creating
-anything. It validates the exact portable schema, its SHA-256 integrity value,
+non-anonymous, non-deleted `auth.users` row, and requires server-recorded
+new-account evidence. A trigger records that evidence only for Auth UUIDs
+created after this migration; existing UUIDs are never backfilled. A UUID with
+legacy `state_backups`, a current head, or any historical learner-profile
+revision routes to its existing profile or recovery instead of blank creation.
+Successful creation consumes the new-account evidence in the same transaction,
+so it cannot authorize a second first profile after later data loss.
+The resolver validates the exact portable schema, its SHA-256 integrity value,
 its UTF-8 byte length, bounded learner choices, and the absence of study data.
 Creation writes one immutable version and one current head at generation 1,
 revision 1, in the same database transaction.
@@ -99,10 +104,11 @@ states are `off`, `developer-canary`, and `signed-in-public`; it defaults to
 the flow, but it cannot admit a UUID or override this server gate.
 
 On success, Edenia verifies the returned portable envelope again, installs the
-owned profile locally behind a locked owner record, clears the draft, claims a
-new activation fence, and only then reveals the town. A resolver failure leaves
-the draft recoverable and does not write a local learner profile. Database
-validation and creation failures roll back the head and version together.
+signed-in profile locally with pending-finalization evidence, claims a new
+activation fence, clears the draft, and only then reveals the town. If draft
+deletion fails, Edenia releases the activation and retries the pending deletion
+without revealing the profile. Database validation and creation failures roll
+back the head and version together.
 
 ## Google Identity Services
 

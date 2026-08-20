@@ -1,3 +1,7 @@
+import {
+  LEARNER_PROFILE_RESOLUTION_STATUSES
+} from '../domain/learner-profile-resolution.js'
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
 
@@ -55,15 +59,26 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
     const row = readResolutionRow(data)
     if (!row) return { status: 'recovering' }
-    if (row.status === 'access_disabled') return { status: 'locked' }
-    if (row.status === 'onboarding_required') {
+    if (
+      row.status === LEARNER_PROFILE_RESOLUTION_STATUSES.ACCESS_DISABLED
+    ) return { status: 'locked' }
+    if (
+      row.status === LEARNER_PROFILE_RESOLUTION_STATUSES.ONBOARDING_REQUIRED
+    ) {
       return { status: 'waiting-authentication' }
     }
-    if (row.status === 'recovery_required') return { status: 'recovering' }
-    if (row.status === 'verified_account_required') {
+    if (
+      row.status === LEARNER_PROFILE_RESOLUTION_STATUSES.RECOVERY_REQUIRED
+    ) return { status: 'recovering' }
+    if (
+      row.status
+        === LEARNER_PROFILE_RESOLUTION_STATUSES.VERIFIED_ACCOUNT_REQUIRED
+    ) {
       return { status: 'waiting-authentication' }
     }
-    if (row.status !== 'profile_ready') return { status: 'recovering' }
+    if (
+      row.status !== LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+    ) return { status: 'recovering' }
     if (typeof row.created !== 'boolean') return { status: 'recovering' }
 
     const profileId = String(row.profile_id || '')
@@ -79,10 +94,12 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const profile = envelope ? importEnvelope(envelope) : null
     if (!profile) return { status: 'recovering' }
 
+    const shouldFinalizeOnboarding = row.created === true
+      || localProfile?.onboardingFinalizationPending === true
     return {
       created: row.created === true,
       finalize() {
-        return row.created === true ? clearOnboardingDraft() : true
+        return shouldFinalizeOnboarding ? clearOnboardingDraft() : true
       },
       generation,
       ownerId: authentication.userId,
