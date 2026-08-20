@@ -434,6 +434,31 @@
       "searchText": "rainbolt2 rainbolt2"
     },
     {
+      "catalogId": "community-UCfq75-6J5seC82CmtLSFxXw",
+      "channelId": "UCfq75-6J5seC82CmtLSFxXw",
+      "handle": "@thedodomen",
+      "name": "The DoDo Men - 嘟嘟人",
+      "thumbnailUrl": "https://yt3.ggpht.com/lTUc_3R4MVXMjXex3xxIzyQSb2V62yaK5YzThol_wzVpseQOCQyZclSE_q-n45v3qiXZ-Yvd=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2019-12-06T05:07:19.892873Z",
+      "metadataRefreshedAt": "2026-08-17T03:33:42.076Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-08-16T16:02:58.910Z",
+      "lastSeenAt": "2026-08-16T16:02:58.910Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "the dodo men 嘟嘟人 thedodomen"
+    },
+    {
       "catalogId": "community-UCiWXd0nmBjlKROwzMyPV-Nw",
       "channelId": "UCiWXd0nmBjlKROwzMyPV-Nw",
       "handle": "@shasha77",
@@ -584,5 +609,5 @@
       "searchText": "雷堤娜 tyna krysjensen86"
     }
   ],
-  "generatedAt": "2026-08-15T03:23:48.237Z"
+  "generatedAt": "2026-08-17T03:33:42.076Z"
 }

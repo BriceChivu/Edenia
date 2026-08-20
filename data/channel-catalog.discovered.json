@@ -1,17 +1,17 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-16T09:51:06.855Z",
-  "lastRotationIndex": 1,
-  "nextRotationIndex": 1,
+  "generatedAt": "2026-08-19T09:58:32.060Z",
+  "lastRotationIndex": 2,
+  "nextRotationIndex": 2,
   "rotationCount": 4,
-  "lastLanguageBatchIndex": 1,
-  "nextLanguageBatchIndex": 2,
+  "lastLanguageBatchIndex": 0,
+  "nextLanguageBatchIndex": 1,
   "languageBatchCount": 4,
   "languageBatchSize": 2,
-  "lastDiscoveryQuotaDate": "2026-08-16",
+  "lastDiscoveryQuotaDate": "2026-08-19",
   "lastDiscoveryLanguages": [
-    "german",
-    "mandarin"
+    "french",
+    "english"
   ],
   "lastSearchRequestCount": 6,
   "languages": [
@@ -418,6 +418,35 @@
       "searchText": "acquiring chinese acquiringchinese mandarin youtube discovery"
     },
     {
+      "catalogId": "discovered-UC_0NfufarVw04vDfWFm8z_Q",
+      "channelId": "UC_0NfufarVw04vDfWFm8z_Q",
+      "youtubeInput": "@engvidadam",
+      "handle": "@engvidadam",
+      "name": "Adam’s English Lessons · engVid",
+      "thumbnailUrl": "https://yt3.ggpht.com/RSVmyeC4SnZyA9jIa1wuUcQLoCBVq79Yw2npKR67p1capxJV9j8iBSB_-1VPbjzy54R10G0GMAI=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Do you love English? Me too. That's why we're here—because English is a key to the world. Join me and others from around the world as we practice our English skills and get to know each other. I have taught, coached, and edited for hundreds of non-native English users for 14 years, in four countries. Let me put this...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2012-08-16T00:54:02Z",
+      "subscriberCount": "3710000",
+      "videoCount": "257",
+      "viewCount": "162777607",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 270,
+      "discoveredByQueries": [
+        "English grammar lessons",
+        "English vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "adam s english lessons engvid engvidadam english youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCKcZoWbqWzXSYzxQL9utJ1g",
       "channelId": "UCKcZoWbqWzXSYzxQL9utJ1g",
       "youtubeInput": "@adeptenglish",
@@ -472,6 +501,35 @@
       "discoveredAt": "2026-07-25T15:02:59.342Z",
       "refreshedAt": "2026-07-25T15:02:59.342Z",
       "searchText": "advanced english conversation advancedenglishconversation english youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCJbAvC_nmXt0ULTOW4hiujw",
+      "channelId": "UCJbAvC_nmXt0ULTOW4hiujw",
+      "youtubeInput": "@russianclassicsforthinking",
+      "handle": "@russianclassicsforthinking",
+      "name": "Advanced Russian through Russian Literature",
+      "thumbnailUrl": "https://yt3.ggpht.com/dFERQNCbZdbs7RCkl7HRjzucV1vS7Nh4IbDcUF-Ot8qC2QCc--oBEZg9_IeWcG9OyX9Kk6T6bck=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Advanced Russian through Russian Literature Learn Russian through the masterpieces of Tolstoy, Dostoevsky, Chekhov, and other great authors. We read Russian classics in the original and explain advanced vocabulary, grammar, and cultural context—helping you improve fluency and think in Russian. Perfect for advanced l...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2013-10-26T14:52:09Z",
+      "subscriberCount": "223",
+      "videoCount": "73",
+      "viewCount": "2150",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 210,
+      "discoveredByQueries": [
+        "Russian listening practice",
+        "Russian stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "advanced russian through russian literature russianclassicsforthinking russian youtube discovery"
     },
     {
       "catalogId": "discovered-UCoRm3YO7ET6E7zCzzEw3csA",
@@ -612,6 +670,34 @@
       "discoveredAt": "2026-07-25T15:03:10.072Z",
       "refreshedAt": "2026-07-25T15:03:10.072Z",
       "searchText": "alpc japanese slow japanese podcast alpaca japanese japanese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCuNUB6Jr0rJakl6-tGJdGcQ",
+      "channelId": "UCuNUB6Jr0rJakl6-tGJdGcQ",
+      "youtubeInput": "@888amara",
+      "handle": "@888amara",
+      "name": "Amara’s Natural Japanese 〜あまらの自然な日本語〜",
+      "thumbnailUrl": "https://yt3.ggpht.com/24js0Pm53LHrDr4FXPqgYWi4cX35c-hH1LQtNmRFPdIPUHrKIUWQsJnouwMVUT-ivijHN4c24t8=s800-c-k-c0x00ffffff-no-rj",
+      "description": "On this channel, I make videos for intermediate and beginner level Japanese learners to practice listening to natural Japanese. I introduce many real-life Japanese phrases that you won't find in textbooks. By listening to my videos, you’ll become used to natural speaking speed, pronunciation, and expressions. Please...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-03-12T06:49:12.090452Z",
+      "subscriberCount": "361",
+      "videoCount": "413",
+      "viewCount": "208322",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 290,
+      "discoveredByQueries": [
+        "日本語 リスニング"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "amara s natural japanese あまらの自然な日本語 888amara japanese youtube discovery"
     },
     {
       "catalogId": "discovered-UCymAc4YKWYjDqNnLoK7m-2A",
@@ -923,6 +1009,34 @@
       "searchText": "atik english atikenglish english youtube discovery"
     },
     {
+      "catalogId": "discovered-UC7IN-N_Ik8hkXRsv6TUejoA",
+      "channelId": "UC7IN-N_Ik8hkXRsv6TUejoA",
+      "youtubeInput": "@awesomerussianschool",
+      "handle": "@awesomerussianschool",
+      "name": "Awesome Russian School",
+      "thumbnailUrl": "https://yt3.ggpht.com/Ntm1jf2J9Y83lDKk833r208bmY9z3gZaWammpxorEV9u8p-UNkWC-udPFMkK-KyvM7BFIQ1g=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Awesome Russian School! Here you can learn Russian for life, study, work & travel from Beginner to Advanced level. You will also find Russian culture tips for different life situations. About Teacher My name is Lydia. I’m a professional Russian teacher, course designer, and founder of the Awesome Russian...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2016-12-10T23:09:34Z",
+      "subscriberCount": "921",
+      "videoCount": "111",
+      "viewCount": "82357",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 266,
+      "discoveredByQueries": [
+        "Russian stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "awesome russian school awesomerussianschool russian youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCQFP1zEQhQY7pZP1yed1Rew",
       "channelId": "UCQFP1zEQhQY7pZP1yed1Rew",
       "youtubeInput": "@ayana_vs_japanese",
@@ -1176,6 +1290,34 @@
       "searchText": "beginner portuguese lessons with stephanie stephanie 123 v2z portuguese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCc8QJqwkWe9RcKYZTY2Ezuw",
+      "channelId": "UCc8QJqwkWe9RcKYZTY2Ezuw",
+      "youtubeInput": "@the_bitesize_japanese_podcast",
+      "handle": "@the_bitesize_japanese_podcast",
+      "name": "Bite Size Japanese",
+      "thumbnailUrl": "https://yt3.ggpht.com/a42FWVc84Dn89sx5cy0gmaW5iu7S_aclBW6h6ruo2P5nVo_LS7hYZQKpzqOURncgMwiiYWHX4lc=s800-c-k-c0x00ffffff-no-rj",
+      "description": "日本人レイラがホストをする日本語学習者向け（N3・N2レベル）のポッドキャスト！日常、日本語、日本文化、勉強方法など、さまざまなトピックについて自然な日本語で話をしています。 メンバーシップ(Patreon)では、各エピソードの中でわたしが使った文法・単語を復習して、深く学ぶための『DEEP DIVE - Word & Grammar』のエピソードを作っています。その他にも、各エピソードのトランスクリプトや、Patreon限定のPodcastも配信中です！ぜひ、Patreonに参加して、一緒に日本語を勉強していきましょう！😊 Patreon👉Bite size Japanese Layla The Bite size Ja...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-01-07T05:03:49.526825Z",
+      "subscriberCount": "224000",
+      "videoCount": "721",
+      "viewCount": "15107033",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 236,
+      "discoveredByQueries": [
+        "Japanese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "bite size japanese the bitesize japanese podcast japanese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCWM3R2w2inRppXIJ-l-IJJw",
       "channelId": "UCWM3R2w2inRppXIJ-l-IJJw",
       "youtubeInput": "@bocchipocchi",
@@ -1373,6 +1515,34 @@
       "searchText": "brazilian input brazilianinput portuguese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCJ5v2edJxm9xT5nydcBszZA",
+      "channelId": "UCJ5v2edJxm9xT5nydcBszZA",
+      "youtubeInput": "@portuguesewithluana",
+      "handle": "@portuguesewithluana",
+      "name": "Brazilian Portuguese with Luana",
+      "thumbnailUrl": "https://yt3.ggpht.com/i-ngcy09gBxs0226G4feitpQ3OX3e7wf0fCpZgSFsWb24cDyG9icUBN6LgF_cwX4jy7hxM0SrA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Hi, I’m Luana Burton! A Brazilian native sharing the real language and culture of my country. Let’s learn Portuguese together! 🇧🇷 💡 What you’ll find here: Grammar and pronunciation lessons. Expressions and slang that Brazilians use every day. Tips to improve your fluency and communication in Portuguese. Content a...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2011-12-09T13:59:26Z",
+      "subscriberCount": "162",
+      "videoCount": "63",
+      "viewCount": "33999",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 321,
+      "discoveredByQueries": [
+        "Portuguese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "brazilian portuguese with luana portuguesewithluana portuguese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCcZIvyzb0gta17eGLG6sVyw",
       "channelId": "UCcZIvyzb0gta17eGLG6sVyw",
       "youtubeInput": "@portuguesewithsofia",
@@ -1483,6 +1653,34 @@
       "discoveredAt": "2026-07-27T15:11:32.473Z",
       "refreshedAt": "2026-07-27T15:11:32.473Z",
       "searchText": "business english learn with business english pod businessenglishpod english youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCV4cTDKZOZ_3Q8drnUAiDlw",
+      "channelId": "UCV4cTDKZOZ_3Q8drnUAiDlw",
+      "youtubeInput": "@calicospanish",
+      "handle": "@calicospanish",
+      "name": "Calico Spanish for Kids",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_m9NizhmARsSfAx8Q8ITLmO8m_CKEMaopfA4MOp3OwxS-I=s800-c-k-c0x00ffffff-no-rj",
+      "description": "To view all of our YouTube content ad-free and to access 300+ hours of ready-to-teach lesson plans and an industry-leading resource library, check out the Calico Spanish curriculum! Curriculum subscriptions, comic book readers, student workbooks, and classroom visuals are available on our website, https://calicospan...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2009-08-06T15:51:05Z",
+      "subscriberCount": "133000",
+      "videoCount": "84",
+      "viewCount": "31310630",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 232,
+      "discoveredByQueries": [
+        "Spanish stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "calico spanish for kids calicospanish spanish youtube discovery"
     },
     {
       "catalogId": "discovered-UCtWi66npewubncfA-827PQQ",
@@ -2019,6 +2217,34 @@
       "searchText": "coffee break french coffeebreakfrenchofficial french youtube discovery"
     },
     {
+      "catalogId": "discovered-UC_p25U9LyG8b_k0fedXV1NQ",
+      "channelId": "UC_p25U9LyG8b_k0fedXV1NQ",
+      "youtubeInput": "@coffeebreakspanish",
+      "handle": "@coffeebreakspanish",
+      "name": "Coffee Break Spanish",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_m-lO9Fgi_ZOU96VvtcnPHjMTuTGVa7duerIiwpwkeTEg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to the Coffee Break Spanish YouTube channel - start learning Spanish on your coffee break! We provide short Spanish lessons for learners at all stages, from beginner to advanced level. Our courses are designed to help you fit learning a language into your busy schedule; we want to make language learning the...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-04-15T10:35:59.789703Z",
+      "subscriberCount": "48400",
+      "videoCount": "257",
+      "viewCount": "1077867",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 261,
+      "discoveredByQueries": [
+        "Spanish stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "coffee break spanish coffeebreakspanish spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCEq2d4CcJo-92kjG0Uc-ZVw",
       "channelId": "UCEq2d4CcJo-92kjG0Uc-ZVw",
       "youtubeInput": "@commonenglishteacher",
@@ -2325,6 +2551,34 @@
       "discoveredAt": "2026-07-25T15:03:19.156Z",
       "refreshedAt": "2026-07-25T15:03:19.156Z",
       "searchText": "construyendo espanol construyendoespanol6100 spanish youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCJnlKt3hwdnScL73C_4hsNg",
+      "channelId": "UCJnlKt3hwdnScL73C_4hsNg",
+      "youtubeInput": "@conversa_club",
+      "handle": "@conversa_club",
+      "name": "Conversa Club",
+      "thumbnailUrl": "https://yt3.ggpht.com/eoxFyNxqzUHVFo8_phDmKCD-5cTkaDNuqsoobAwGDu3lUBnW1-7SQXhgWc3OwcDqCvgoPag6=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Conversa Club Learn real European Portuguese the way it's actually spoken. Conversa Club is a learning community for English speakers who want to move beyond textbooks and memorizing phrases to genuinely using Portuguese in everyday life. I'm Sérgio, a native speaker of both English and European Portuguese who grew...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2010-07-12T16:11:56Z",
+      "subscriberCount": "960",
+      "videoCount": "113",
+      "viewCount": "28332",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 274,
+      "discoveredByQueries": [
+        "Portuguese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "conversa club conversa club portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UCOMWxPPZ7eic6WoCBpUu49w",
@@ -2803,6 +3057,34 @@
       "discoveredAt": "2026-07-24T14:15:51.076Z",
       "refreshedAt": "2026-07-24T14:15:51.076Z",
       "searchText": "dailynata learn european portuguese dailynata portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCnxjpEei-Rpsb-VLZDqfwhg",
+      "channelId": "UCnxjpEei-Rpsb-VLZDqfwhg",
+      "youtubeInput": "@dashaledwon",
+      "handle": "@dashaledwon",
+      "name": "Dasha Ledwon - Russian Language Room",
+      "thumbnailUrl": "https://yt3.ggpht.com/zNQZ21sXVA6dzbRX4TmISx8rhcJCSHT7dctaiKlvX3h6KUYOCEvEeYJpetkSI5tYTVhKCZFc=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Speaking mini-groups 🇷🇺 in September: Waiting List: https://forms.gle/AWCuttMpktv1Rnfz5 Here I share videos with grammar and pronunciation explanations and listening podcast with interesting stories to support your learning. My videos can be helpful for anyone studying Russian. 🎓 I’m Dasha (Daria) Ledwon, a teach...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-06-22T16:30:44.448769Z",
+      "subscriberCount": "1860",
+      "videoCount": "71",
+      "viewCount": "83744",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 289,
+      "discoveredByQueries": [
+        "Russian stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "dasha ledwon russian language room dashaledwon russian youtube discovery"
     },
     {
       "catalogId": "discovered-UCBhO5n8qZf84WDr6A8LrQqw",
@@ -4043,6 +4325,34 @@
       "searchText": "english for beginner englishforbeginner v2d english youtube discovery"
     },
     {
+      "catalogId": "discovered-UC0Hg2Ks00kCekyjZG_LxOmg",
+      "channelId": "UC0Hg2Ks00kCekyjZG_LxOmg",
+      "youtubeInput": "@englishlikeanative",
+      "handle": "@englishlikeanative",
+      "name": "English Like A Native",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_mBrXL5hiIqrQ4ZjOFvXFeHPjWekKzK5G8vvmz0JP-34FM=s800-c-k-c0x00ffffff-no-rj",
+      "description": "You can learn to speak everyday English like a native, with your teacher Anna English. Subscribe and visit regularly as new lessons are added every week. Here you will find lessons on British English pronunciation, everyday English vocabulary, English grammar, British culture and traditions, interview practise, conf...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2016-04-12T18:17:07Z",
+      "subscriberCount": "1130000",
+      "videoCount": "912",
+      "viewCount": "55137745",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 294,
+      "discoveredByQueries": [
+        "English vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "english like a native englishlikeanative english youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCEnKxWHT43Q6Tzfpw2gsZIg",
       "channelId": "UCEnKxWHT43Q6Tzfpw2gsZIg",
       "youtubeInput": "@englishlistening-x3n",
@@ -4125,6 +4435,34 @@
       "discoveredAt": "2026-07-27T15:11:22.372Z",
       "refreshedAt": "2026-07-27T15:11:22.372Z",
       "searchText": "english medium stories englishmediumstories english youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC1YUh6S9uPSrmqEsMPtaGvQ",
+      "channelId": "UC1YUh6S9uPSrmqEsMPtaGvQ",
+      "youtubeInput": "@learnwithenglishnyou",
+      "handle": "@learnwithenglishnyou",
+      "name": "English N You",
+      "thumbnailUrl": "https://yt3.ggpht.com/Tz3vYk8R1sxnKmIIyTVe3bmKjxHLGBewRghOhA7FZ4CxQNc7_nI5SV7Dw3eP4PpGYqXRUDsTtw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞 𝐄𝐧𝐠𝐥𝐢𝐬𝐡 𝐟𝐨𝐫 𝐀𝐥𝐥 𝐂𝐨𝐦𝐩𝐞𝐭𝐢𝐭𝐢𝐯𝐞 𝐄𝐱𝐚𝐦𝐬 Master English Grammar, Vocabulary, Reading Comprehension, Editorial Analysis, and Spoken English through simple, practical, and exam-oriented lessons. Designed for aspirants preparing for: SSC • Banking • UPSC • Railways • Defence • Sta...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-08-10T09:32:09.641059Z",
+      "subscriberCount": "73500",
+      "videoCount": "394",
+      "viewCount": "782287",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 267,
+      "discoveredByQueries": [
+        "English grammar lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "english n you learnwithenglishnyou english youtube discovery"
     },
     {
       "catalogId": "discovered-UCYzh58-dZMru0uN_CM8agKA",
@@ -4997,6 +5335,34 @@
       "searchText": "fluentu spanish fluentuspanish spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UCQsBmgy_R8EK_fjsvrT3iFg",
+      "channelId": "UCQsBmgy_R8EK_fjsvrT3iFg",
+      "youtubeInput": "@abc4u",
+      "handle": "@abc4u",
+      "name": "Français | French | ABC 4U",
+      "thumbnailUrl": "https://yt3.ggpht.com/kKj5T7MCOMZv0ROlv5Ewbc3-Jh3zIPPVikAqOlnNB9NY-TbMLbIwtniReWql9jTKYPLQhaiSHss=s800-c-k-c0x00ffffff-no-rj",
+      "description": "\"Unlock the Elegance of French - Learn, Speak, and Embrace the Language of Romance!\" 🌟 Welcome to \"ABC4U\"! 🌐 Are you fascinated by the enchanting language of love and looking to embark on a linguistic journey? Our channel is dedicated to helping you master the beautiful French language, whether you're a complete b...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-01-01T22:08:06.270074Z",
+      "subscriberCount": "7010",
+      "videoCount": "44",
+      "viewCount": "248672",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 267,
+      "discoveredByQueries": [
+        "French vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "francais french abc 4u abc4u french youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCLv_u_mDLQQ7x3pI6n2NY_w",
       "channelId": "UCLv_u_mDLQQ7x3pI6n2NY_w",
       "youtubeInput": "@francaisavecfloriane",
@@ -5304,6 +5670,34 @@
       "discoveredAt": "2026-07-30T09:07:44.896Z",
       "refreshedAt": "2026-07-30T09:07:44.896Z",
       "searchText": "french daily frenchdaily9 french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCqzwlJZq5jZBAch-0_qIEfw",
+      "channelId": "UCqzwlJZq5jZBAch-0_qIEfw",
+      "youtubeInput": "@frenchforall-lrsw",
+      "handle": "@frenchforall-lrsw",
+      "name": "French For All ",
+      "thumbnailUrl": "https://yt3.ggpht.com/3K_V71Zk7s8cYbzZEsi6Ckx1K0mM_7Sg5nxxH72uMWfesnaYKzEW7NDKvkLaDL5V-28TzDARzto=s800-c-k-c0x00ffffff-no-rj",
+      "description": "French For All, Learn French, French for CBSE, French for ICSE, French for IGCSE, French for IB, Learn French online, French for school students, French grammar lessons, French past papers, CBSE French question papers, ICSE French sample papers, IGCSE French exam help, French for beginners, French for DELF A1, Frenc...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-04-27T14:41:38.285012Z",
+      "subscriberCount": "366",
+      "videoCount": "366",
+      "viewCount": "82393",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 330,
+      "discoveredByQueries": [
+        "French grammar lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "french for all frenchforall lrsw french youtube discovery"
     },
     {
       "catalogId": "discovered-UC5JsIc6DfQeNEIqvw-vGqiQ",
@@ -5810,6 +6204,35 @@
       "discoveredAt": "2026-07-24T14:16:02.265Z",
       "refreshedAt": "2026-07-24T14:16:02.265Z",
       "searchText": "french with alice frenchwithalice french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCNBAmlaaodcIscMzRm0W7bA",
+      "channelId": "UCNBAmlaaodcIscMzRm0W7bA",
+      "youtubeInput": "@frenchwithcc",
+      "handle": "@frenchwithcc",
+      "name": "French with C.C.",
+      "thumbnailUrl": "https://yt3.ggpht.com/KWOsZzGISE6e74FUcKVftSr9DHZkbZA6EDn4ZpNuXMVd_o9i7ihJR-ReMV-WVzhWU6_mdDeVQQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn beginning French! I taught French at the university level for many years and hope I can help others learn the beautiful French language. I will post videos and lessons on beginning French grammar and beginner French vocabulary. I hope my videos will be useful for teachers using a \"flipped\" French classroom too...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-06-23T16:25:27.325812Z",
+      "subscriberCount": "1010",
+      "videoCount": "56",
+      "viewCount": "71369",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 267,
+      "discoveredByQueries": [
+        "French grammar lessons",
+        "French vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "french with c c frenchwithcc french youtube discovery"
     },
     {
       "catalogId": "discovered-UC2a1e5pn0th3H3xgWjtSUEg",
@@ -6655,6 +7078,34 @@
       "searchText": "germantalks talksgerman german youtube discovery"
     },
     {
+      "catalogId": "discovered-UCafpwMF61nAOd65T3y_-XXg",
+      "channelId": "UCafpwMF61nAOd65T3y_-XXg",
+      "youtubeInput": "@getfluentinspanish",
+      "handle": "@getfluentinspanish",
+      "name": "Get Fluent in Spanish",
+      "thumbnailUrl": "https://yt3.ggpht.com/1Qn8GFMxZ1rGl8vH2wUYk3rT49xISF3TtuXHMFEU11jCRUiEqZa9V3yK14VbOnNtLvtacjMrEw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "I help motivated adults learn Spanish faster by teaching the habits, mindset, and daily routines that create real fluency. My channel focuses on practical Spanish speaking practice, listening skills, and proven techniques that help you start thinking in Spanish—not translating. Here you’ll find simple, effective met...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-03-25T23:22:04.216315Z",
+      "subscriberCount": "4850",
+      "videoCount": "157",
+      "viewCount": "217881",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 251,
+      "discoveredByQueries": [
+        "Spanish listening practice"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "get fluent in spanish getfluentinspanish spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCjqwH4NThKFA_s0eF8sGg2w",
       "channelId": "UCjqwH4NThKFA_s0eF8sGg2w",
       "youtubeInput": "@nihongaudiolounge",
@@ -6795,6 +7246,34 @@
       "searchText": "growth 日本語 nihongo p7d japanese youtube discovery"
     },
     {
+      "catalogId": "discovered-UChrHmNulUHipsnmA76vhScA",
+      "channelId": "UChrHmNulUHipsnmA76vhScA",
+      "youtubeInput": "@hackyourrussian4091",
+      "handle": "@hackyourrussian4091",
+      "name": "Hack Your Russian",
+      "thumbnailUrl": "https://yt3.ggpht.com/_EQzhAt7MeDrWP2Fvd47EYLNoRSEVd8w2H7soA89onod-pWgKKE8a8qq5aMm0iH6aP9uItOjTQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Are you wondering why learning Russian is so hard? \"Hack Your Russian\" channel is here to change that! Master the language naturally through immersive, high-quality authentic content and unique animated stories. Discover our exclusive Russian Animated Stories series (including a simplified adaptation of Leo Tolstoy'...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-05-26T08:35:59.439079Z",
+      "subscriberCount": "16400",
+      "videoCount": "86",
+      "viewCount": "785191",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 217,
+      "discoveredByQueries": [
+        "Russian stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "hack your russian hackyourrussian4091 russian youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCjV9n7XvEstg8L2r0HTbZnA",
       "channelId": "UCjV9n7XvEstg8L2r0HTbZnA",
       "youtubeInput": "@hallodeutsch-y8q",
@@ -6821,6 +7300,34 @@
       "discoveredAt": "2026-08-12T10:34:33.818Z",
       "refreshedAt": "2026-08-12T10:34:33.818Z",
       "searchText": "hallo deutsch hallodeutsch y8q german youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC5etk4I-a7pAzOMIXIMl_Bw",
+      "channelId": "UC5etk4I-a7pAzOMIXIMl_Bw",
+      "youtubeInput": "@hellorusty",
+      "handle": "@hellorusty",
+      "name": "Hello Rusty",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_m-PopwxiR_nkBA1M-WyQHq7iYPvBGjGxoQFoSX8pTgc3o=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to my YouTube channel, where I share my passion for learning languages! My name is Rusty and I am a Brazilian girl who has always had a love for languages. I am a self-taught English speaker and learned the language with the help of other YouTube channels. Now, I am excited to share my knowledge and experien...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2015-09-06T20:11:49Z",
+      "subscriberCount": "9960",
+      "videoCount": "94",
+      "viewCount": "403462",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 300,
+      "discoveredByQueries": [
+        "Portuguese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "hello rusty hellorusty portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UC1o7S_k9BvCgsa1G9flQ7FQ",
@@ -7417,6 +7924,34 @@
       "searchText": "japanese listening shogun japanese listening shogun japanese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCbn1o91-aEqlBxsj2pDCPYg",
+      "channelId": "UCbn1o91-aEqlBxsj2pDCPYg",
+      "youtubeInput": "@japanesenook",
+      "handle": "@japanesenook",
+      "name": "Japanese Nook",
+      "thumbnailUrl": "https://yt3.ggpht.com/qwonu4j2KgInMDuZLYu4j5pHc_kdVex7CV1hyZSkc6_7csbCKn3bZyWdrfSZ9-IfoNwZEzjHSMA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Japanese Nook — your cozy corner for learning Japanese. 🎋 Whether you're a complete beginner or looking to sound more natural, our podcast-style lessons make Japanese feel simple, warm, and enjoyable. 🎧 What you'll find here: ✦ Daily Japanese conversations — real, natural, easy to follow ✦ Cultural stor...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-09-23T01:54:14.780341Z",
+      "subscriberCount": "3960",
+      "videoCount": "111",
+      "viewCount": "151417",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 237,
+      "discoveredByQueries": [
+        "Japanese stories for learners"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "japanese nook japanesenook japanese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCqRoGBcr5fESDTUf5n8kw4Q",
       "channelId": "UCqRoGBcr5fESDTUf5n8kw4Q",
       "youtubeInput": "@japanesepodcasthana",
@@ -7500,6 +8035,34 @@
       "discoveredAt": "2026-07-27T15:11:32.473Z",
       "refreshedAt": "2026-07-27T15:11:32.473Z",
       "searchText": "japanese smiles japanesesmiles japanese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC_GlNwPQ1DCGjIiJAsKmHMw",
+      "channelId": "UC_GlNwPQ1DCGjIiJAsKmHMw",
+      "youtubeInput": "@japanesesuki88",
+      "handle": "@japanesesuki88",
+      "name": "Japanese Suki",
+      "thumbnailUrl": "https://yt3.ggpht.com/AXX09gRWlWnbMmE_QfVihXvSUVCCMEW0cCm_z4oRjuC3dVUE-EL8qm8Y6fRfXsEsvPMj2Qyb3d8=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to \"Japanese Suki,\" your go-to channel for easy Japanese language learning. Our mission is to make Japanese accessible to all, regardless of your background. We provide concise lessons suitable for beginners and those with prior knowledge. Our experienced instructors offer clear explanations and practical ex...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-07-05T06:56:20.977992Z",
+      "subscriberCount": "114000",
+      "videoCount": "804",
+      "viewCount": "5844608",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 236,
+      "discoveredByQueries": [
+        "Japanese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "japanese suki japanesesuki88 japanese youtube discovery"
     },
     {
       "catalogId": "discovered-UCLp9rnRAcrFSzsoXsjXYJYA",
@@ -7670,6 +8233,34 @@
       "discoveredAt": "2026-08-16T09:51:06.849Z",
       "refreshedAt": "2026-08-16T09:51:06.849Z",
       "searchText": "jing s story chinesewithjingd mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC9lUXurRF3eARazbnI99iJA",
+      "channelId": "UC9lUXurRF3eARazbnI99iJA",
+      "youtubeInput": "@jlptlistening-c8u",
+      "handle": "@jlptlistening-c8u",
+      "name": "JLPT Listening",
+      "thumbnailUrl": "https://yt3.ggpht.com/w3-Xq9IDAcIm0VMGeVUmqx7QgyDECnnH2ZlRud6qYeELAX2aTDugcbk8hC2t8S8EtjZmYaERBA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Our JLPT Learning Channel! 🇯🇵 Are you preparing for the Japanese Language Proficiency Test (JLPT)? You're in the right place! This channel is dedicated to helping Japanese learners improve their listening, vocabulary, grammar, and exam skills through high-quality practice materials. 📚 What you'll find...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-11-05T13:59:04.577248Z",
+      "subscriberCount": "1430",
+      "videoCount": "355",
+      "viewCount": "154814",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 277,
+      "discoveredByQueries": [
+        "Japanese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "jlpt listening jlptlistening c8u japanese youtube discovery"
     },
     {
       "catalogId": "discovered-UCpPemQ80aZnquPbaaMxw85A",
@@ -9273,6 +9864,35 @@
       "searchText": "learn french in 5 days with vincent french5days french youtube discovery"
     },
     {
+      "catalogId": "discovered-UCO5wVmPawtIcEFXmV09qsjQ",
+      "channelId": "UCO5wVmPawtIcEFXmV09qsjQ",
+      "youtubeInput": "@learnfrenchwithavani",
+      "handle": "@learnfrenchwithavani",
+      "name": "Learn French with Avani",
+      "thumbnailUrl": "https://yt3.ggpht.com/3B8vGLCYOhWFZrHLvBHtc9yhty7j0aCwN2mJkHQoquBwES_39gpDpVPPHQ3YDh1P-4J1AgE1=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Learn French with Avani 🇫🇷 Your trusted destination to learn French in a structured, simple, and practical way. On this channel, you’ll find lessons designed to help you improve your speaking, grammar, vocabulary, pronunciation, and overall confidence in French. Whether you are a complete beginner or pr...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-04-23T08:46:25.448149Z",
+      "subscriberCount": "488",
+      "videoCount": "125",
+      "viewCount": "43579",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 289,
+      "discoveredByQueries": [
+        "French grammar lessons",
+        "French vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "learn french with avani learnfrenchwithavani french youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCxZeJ7metBtWs9Hw5KZPlJg",
       "channelId": "UCxZeJ7metBtWs9Hw5KZPlJg",
       "youtubeInput": "@french-cl",
@@ -9637,6 +10257,34 @@
       "discoveredAt": "2026-07-24T14:00:08.218Z",
       "refreshedAt": "2026-07-24T14:00:08.218Z",
       "searchText": "learn french with vincent vincent lefrancois french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC2JrVVT7JR8yOiGCbzqoPIA",
+      "channelId": "UC2JrVVT7JR8yOiGCbzqoPIA",
+      "youtubeInput": "@learntospeakfrench",
+      "handle": "@learntospeakfrench",
+      "name": "Learn French with Walid",
+      "thumbnailUrl": "https://yt3.ggpht.com/Yofdj2PgD3ICub8O-VkLAbItxP-5CAUFF9xNNwoPK501LgrHwq-Q6vzsILDyKRBH2nSEON5zEw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Easy French lessons for beginners and experts alike. Salut à tous! My name is Walid and I've been teaching French to native English speaker and immigrants for several years in Quebec. Here, you'll find full-length lessons and short videos covering the official Francisation Quebec (MIFI) curriculum. Whether you are s...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2016-07-23T21:39:52Z",
+      "subscriberCount": "5290",
+      "videoCount": "117",
+      "viewCount": "130698",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 325,
+      "discoveredByQueries": [
+        "French grammar lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "learn french with walid learntospeakfrench french youtube discovery"
     },
     {
       "catalogId": "discovered-UCecCG_0Ma1-VDdfXB3mNz2Q",
@@ -11948,6 +12596,34 @@
       "searchText": "learn spanish with us learnspanishwithus l5n spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UCm9d1s3H6AHBQkBcS1-RSQQ",
+      "channelId": "UCm9d1s3H6AHBQkBcS1-RSQQ",
+      "youtubeInput": "@esponvideo",
+      "handle": "@esponvideo",
+      "name": "Learn Spanish with Valeria",
+      "thumbnailUrl": "https://yt3.ggpht.com/fsAwtEH4AvSHK0wQUDHxBV0Jm5mU1QEgHjAIE0K6I7YQyGF-dn_GXzNHNhNCuQ1iClsunpH2=s800-c-k-c0x00ffffff-no-rj",
+      "description": "I create practical Spanish lessons and materials for learners and teachers who want real results, not just theory. This channel is for you if you: • are learning Spanish and want to build real confidence • teach Spanish and are looking for clear, ready-to-use resources • prefer practical, structured content you can...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2014-08-09T15:16:18Z",
+      "subscriberCount": "58700",
+      "videoCount": "224",
+      "viewCount": "5031050",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 279,
+      "discoveredByQueries": [
+        "Spanish stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "learn spanish with valeria esponvideo spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC5B9ci_IO3AMHqGsifkHMJQ",
       "channelId": "UC5B9ci_IO3AMHqGsifkHMJQ",
       "youtubeInput": "@learnspanishworld",
@@ -12030,6 +12706,34 @@
       "discoveredAt": "2026-07-25T15:03:10.072Z",
       "refreshedAt": "2026-07-25T15:03:10.072Z",
       "searchText": "learn to french learntofrench french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCtArm3-faI7bOK-6J-H-SPA",
+      "channelId": "UCtArm3-faI7bOK-6J-H-SPA",
+      "youtubeInput": "@learnexhindi",
+      "handle": "@learnexhindi",
+      "name": "Learnex - English lessons through Hindi",
+      "thumbnailUrl": "https://yt3.ggpht.com/t9jPleOAUh4-nNcrqWKXYlTM4GWSMoEe1wuNk0XnXOnniQUbMyTQEVTz4SnYGr6Y1LI-jDvTgA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Speaking English is aways challenging especially if it's not your mother tongue. If you speak and understand Hindi, Learnex ( English through Hindi) lesson would help you become fluent in English faster. Our English lessons are well-planned understanding the difficulties faced bu non-native English speakers. Of your...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2015-11-07T11:17:24Z",
+      "subscriberCount": "5880000",
+      "videoCount": "2264",
+      "viewCount": "556661426",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 325,
+      "discoveredByQueries": [
+        "English grammar lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "learnex english lessons through hindi learnexhindi english youtube discovery"
     },
     {
       "catalogId": "discovered-UCaSaI33bVcV52JJxjo7Bnqg",
@@ -12226,6 +12930,34 @@
       "discoveredAt": "2026-07-27T15:11:22.372Z",
       "refreshedAt": "2026-07-27T15:11:22.372Z",
       "searchText": "let s learn german lets learngerman german youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCX9K0Ja8J9iGVhCv6L736tg",
+      "channelId": "UCX9K0Ja8J9iGVhCv6L736tg",
+      "youtubeInput": "@letslearnspanish",
+      "handle": "@letslearnspanish",
+      "name": "Let's Learn Spanish!",
+      "thumbnailUrl": "https://yt3.ggpht.com/G7iyFgmIOjdIzho02fFozv76E28lDNxCuJZZmTaWq-E6TumfFQdlzFfh0mKeukRQNFFWoVPf=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Bienvenidos a Let's Learn Spanish, where your spanish learning journey begins! Here you will learn grammar, vocabulary, listening and a lot of useful phrases for everyday which will help you to communicate confidently from the start! We hope you find this channel useful, please let us know what you think on the comm...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2014-05-11T20:37:17Z",
+      "subscriberCount": "11200",
+      "videoCount": "310",
+      "viewCount": "666530",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 264,
+      "discoveredByQueries": [
+        "Spanish listening practice"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "let s learn spanish letslearnspanish spanish youtube discovery"
     },
     {
       "catalogId": "discovered-UCdFm8fzxLAM0aiSxe6dFJcw",
@@ -12479,6 +13211,34 @@
       "discoveredAt": "2026-07-30T09:07:44.896Z",
       "refreshedAt": "2026-07-30T09:07:44.896Z",
       "searchText": "lingotone podcast lingotonepodcast mandarin youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCr5Ws-hy9w0dpPoddx3nkbQ",
+      "channelId": "UCr5Ws-hy9w0dpPoddx3nkbQ",
+      "youtubeInput": "@lisbonshortsbyanareis",
+      "handle": "@lisbonshortsbyanareis",
+      "name": "Lisbon Shorts by Ana Reis",
+      "thumbnailUrl": "https://yt3.ggpht.com/A5JA8Ud1cgTd95LczuB54guP4dtZ5TNARUG1sCAMu7bLigKyXiql63SFWzXe6KayMd15Owh9mA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn European Portuguese with the soul of Lisbon! Olá! I'm Ana Reis, a Lisbon local. My channel turns the city's iconic streets, cafes, and culture into your immersive classroom. What you'll get: 🗣️ Practical Portuguese for real-life situations (travel, dining, conversation). 🇵🇹 Cultural Guides to Lisbon's hidde...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2022-03-10T21:17:18.298868Z",
+      "subscriberCount": "9030",
+      "videoCount": "1984",
+      "viewCount": "1161754",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 330,
+      "discoveredByQueries": [
+        "Portuguese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "lisbon shorts by ana reis lisbonshortsbyanareis portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UCb5FiIrUYMkg1MSXDeMlkzw",
@@ -14732,6 +15492,34 @@
       "searchText": "practice portuguese practiceportuguese portuguese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCOxXqROcIRQWUUxocK-Fu3A",
+      "channelId": "UCOxXqROcIRQWUUxocK-Fu3A",
+      "youtubeInput": "@learnportuguesewithus",
+      "handle": "@learnportuguesewithus",
+      "name": "practice Portuguese together ",
+      "thumbnailUrl": "https://yt3.ggpht.com/Vy0A1EhqjVcJY56IYKlshPvKW6Q-4jNvxJsjjURQRiZ5OMa2PMmLBlUM4KOZV86TaAo_hHymrQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "My name is Irina. I am Russian living in Australia and my mom in law is from Brazil. She doesn't speak English and I don't speak Portuguese. So we have decided to have lessons together to teach each other languages. But mostly it's me learning Brazilian Portuguese. Please join us and also share your stories about yo...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-08-01T02:44:45.846638Z",
+      "subscriberCount": "1270",
+      "videoCount": "122",
+      "viewCount": "85474",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 239,
+      "discoveredByQueries": [
+        "Portuguese listening practice"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "practice portuguese together learnportuguesewithus portuguese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCBRXmX3weo-Ffsd1qAaeEuw",
       "channelId": "UCBRXmX3weo-Ffsd1qAaeEuw",
       "youtubeInput": "@profalvaroferreira",
@@ -15574,6 +16362,34 @@
       "discoveredAt": "2026-07-27T15:11:22.372Z",
       "refreshedAt": "2026-07-27T15:11:22.372Z",
       "searchText": "russian shadowing russianshadowing russian youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCGLigZhKS9klwu0scogWEbQ",
+      "channelId": "UCGLigZhKS9klwu0scogWEbQ",
+      "youtubeInput": "@russianstorytime",
+      "handle": "@russianstorytime",
+      "name": "Russian Storytime",
+      "thumbnailUrl": "https://yt3.ggpht.com/M3HwrMeghxr-rmIGHhjSPHU6rCRC33Un4Jk4uJC-ipvRNjEqSjJGTJ03BkM77vqvQcT6PQi5Ng=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn Russian through stories - from A1 to C1! 390+ listening and reading lessons by a certiﬁed Russian teacher and textbook author. Simple stories, natural vocabulary, real comprehension. New videos every week. These videos are helpful for anyone who wants to: • improve listening • read and understand Russian more...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2012-04-15T19:51:57Z",
+      "subscriberCount": "4820",
+      "videoCount": "432",
+      "viewCount": "320170",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 225,
+      "discoveredByQueries": [
+        "Russian stories for learners"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "russian storytime russianstorytime russian youtube discovery"
     },
     {
       "catalogId": "discovered-UCqS35kRvVh8Bmw4P5kYJlUw",
@@ -17264,6 +18080,34 @@
       "searchText": "speak english fast and easily with fun lessons easyenglishwithava english youtube discovery"
     },
     {
+      "catalogId": "discovered-UCPsbxw3XO1YtvBafdrMAQCg",
+      "channelId": "UCPsbxw3XO1YtvBafdrMAQCg",
+      "youtubeInput": "@speakenglishwithkt-usa",
+      "handle": "@speakenglishwithkt-usa",
+      "name": "Speak English with KT | US Teacher",
+      "thumbnailUrl": "https://yt3.ggpht.com/-a2M90X6F9D66CX707CENSYjoe8IREWN8I6rE9lyZ_k67ZF7-p-mdJ17RPjI2KtdQU0S4dbHYw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome everyone! Is channel pe aapko FREE Spoken English Course milega. I want to help you start speaking English confidently, fluently and improve your English Speaking with a Native touch. Main USA mein English phonics teacher hun aur yahan US mein students ko English reading & writing sikhaati hu. Aur is channel...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-11-16T12:01:28.618631Z",
+      "subscriberCount": "170",
+      "videoCount": "88",
+      "viewCount": "9704",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 280,
+      "discoveredByQueries": [
+        "spoken English teacher"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "speak english with kt us teacher speakenglishwithkt usa english youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCR_pOtmem7TGAC2JG6BW9BA",
       "channelId": "UCR_pOtmem7TGAC2JG6BW9BA",
       "youtubeInput": "@speakfrenchpodcast",
@@ -17573,6 +18417,34 @@
       "searchText": "speaking brazilian language school speakingbrazilian portuguese youtube discovery"
     },
     {
+      "catalogId": "discovered-UC37JHj6DZCqIe9iYNikKjUg",
+      "channelId": "UC37JHj6DZCqIe9iYNikKjUg",
+      "youtubeInput": "@speakingspanish5",
+      "handle": "@speakingspanish5",
+      "name": "Speaking Spanish",
+      "thumbnailUrl": "https://yt3.ggpht.com/7AvalT0exFpHNn7iqeKWt6ZzHYXKW8iKyZHtqJwkdIgEvIXaDQEfwSyJGafhBKKN_jZ_d-0l=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Are you ready to learn Spanish naturally, without the stress of boring grammar rules or confusing textbooks? You are in the right place! Hosted by Sofía and Luis, Speaking Spanish is a Spanish learning podcast designed specifically for absolute beginners and intermediate learners (A1-A2 levels). We believe the best...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2026-04-01T11:37:33.449998Z",
+      "subscriberCount": "349",
+      "videoCount": "25",
+      "viewCount": "7538",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 249,
+      "discoveredByQueries": [
+        "Spanish listening practice"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "speaking spanish speakingspanish5 spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCYMZtHTIoVvuWR-ZYOKtRKA",
       "channelId": "UCYMZtHTIoVvuWR-ZYOKtRKA",
       "youtubeInput": "@specialjapaneselanguageacademy",
@@ -17683,6 +18555,63 @@
       "discoveredAt": "2026-07-24T14:00:08.218Z",
       "refreshedAt": "2026-07-24T14:00:08.218Z",
       "searchText": "spring spanish learn spanish with chunks springspanish spanish youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCBiow6ukIJip6Q0N5GRYhcA",
+      "channelId": "UCBiow6ukIJip6Q0N5GRYhcA",
+      "youtubeInput": "@startlearningfrenchwithaish",
+      "handle": "@startlearningfrenchwithaish",
+      "name": "Start Learning French With Aish",
+      "thumbnailUrl": "https://yt3.ggpht.com/SPSLllu4gs4bsxs8MURgshmxybGGONFCcCLrbVcpYUedJk737MBd-IsEu0VUnwcfFz484NkaQzQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to start learning french with aish your ultimate destination for immersive and effective French language learning! Whether you're an absolute beginner or looking to enhance your fluency, our channel is designed to help you master French with confidence. Join us as we explore the beauty and richness of the Fr...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-03-15T05:21:42.818617Z",
+      "subscriberCount": "541",
+      "videoCount": "68",
+      "viewCount": "82488",
+      "languages": [
+        "french"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 267,
+      "discoveredByQueries": [
+        "French grammar lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "start learning french with aish startlearningfrenchwithaish french youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC0PZgMgiXHyJwsMvMK5vcpg",
+      "channelId": "UC0PZgMgiXHyJwsMvMK5vcpg",
+      "youtubeInput": "@storiesinportuguese",
+      "handle": "@storiesinportuguese",
+      "name": "Stories in Portuguese",
+      "thumbnailUrl": "https://yt3.ggpht.com/LAGcJ_z9-xAP1Eh7UqFzwT1hYlWB2zP2tpl7nfxsFwe9FwkSlwcfwEcZ-7iqUrEr18_7UPdF=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Hello, I’m Ellie. I’m from Brazil (Southern Brazil). And as a native Portuguese speaker, I want to share with you what feels so natural and everyday to me. If you're here, it's probably because at some point you’ve been curious or interested in understanding or speaking Portuguese… and honestly, I'd love to chat wit...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-02-25T17:25:19.46871Z",
+      "subscriberCount": "740",
+      "videoCount": "55",
+      "viewCount": "20296",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 251,
+      "discoveredByQueries": [
+        "Portuguese listening practice",
+        "Portuguese stories for learners"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "stories in portuguese storiesinportuguese portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UCa2MkPgQHW7hZC9E8xBk6fQ",
@@ -18021,6 +18950,34 @@
       "searchText": "tanya teaches russian tanya teaches russian russian youtube discovery"
     },
     {
+      "catalogId": "discovered-UC6NcIEuxeLWejtY1rXrlg2g",
+      "channelId": "UC6NcIEuxeLWejtY1rXrlg2g",
+      "youtubeInput": "@tcj_japanese",
+      "handle": "@tcj_japanese",
+      "name": "TCJ日本語教室",
+      "thumbnailUrl": "https://yt3.ggpht.com/uuRycS_l4S2k6pilHliaHwjfm6F86WNqnF8e561w8r3uW6xvewBA0hShvgLwrmbE8IR7JjOg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🎓 Welcome to the 「TCJ日本語教室」 Channel! Your go-to channel for learning Japanese for living, working, and studying in Japan. Whether you’re already here or planning your move — we’re here to help you thrive with practical Japanese and cultural tips that truly make a difference. 🔴 What you’ll find here: ✅ Useful Japan...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2015-10-07T02:29:27Z",
+      "subscriberCount": "37700",
+      "videoCount": "106",
+      "viewCount": "553423",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 280,
+      "discoveredByQueries": [
+        "Japanese stories for learners"
+      ],
+      "discoveredAt": "2026-08-18T09:57:56.414Z",
+      "refreshedAt": "2026-08-18T09:57:56.414Z",
+      "searchText": "tcj日本語教室 tcj japanese japanese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC_8_OHEb2-Xn8k00NVqnzlg",
       "channelId": "UC_8_OHEb2-Xn8k00NVqnzlg",
       "youtubeInput": "@teachyourselfportuguese",
@@ -18191,6 +19148,34 @@
       "searchText": "tell me in spanish tellmeinspanisheng spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UCc7kmJqwaRvr-EAsuhtl_0A",
+      "channelId": "UCc7kmJqwaRvr-EAsuhtl_0A",
+      "youtubeInput": "@theartoflanguages",
+      "handle": "@theartoflanguages",
+      "name": "The Art Of Languages",
+      "thumbnailUrl": "https://yt3.ggpht.com/6NgT2umVZPlKlNAEZREYCEFs2INi3kG7huRRbX8PT_4PPFtCckontyD-OSS5nLsObFFcxPjtAVo=s800-c-k-c0x00ffffff-no-rj",
+      "description": "1-1 online lessons with teachers from Russia https://www.art-of-russian.com Book a free 45-min trial lesson! Key Benefits of our school: - Personalized 60-min lessons - Audio and video with every lesson - All materials provided - Daily flashcards (Anki app) - Flexible rescheduling - Easy cancellations with refunds f...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-04-21T00:16:53.451756Z",
+      "subscriberCount": "2410",
+      "videoCount": "338",
+      "viewCount": "412963",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 222,
+      "discoveredByQueries": [
+        "Russian listening practice"
+      ],
+      "discoveredAt": "2026-08-17T10:04:47.217Z",
+      "refreshedAt": "2026-08-17T10:04:47.217Z",
+      "searchText": "the art of languages theartoflanguages russian youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCHA3-2eXx_GuFnbMegtekJg",
       "channelId": "UCHA3-2eXx_GuFnbMegtekJg",
       "youtubeInput": "@thecozyfrench",
@@ -18245,6 +19230,34 @@
       "discoveredAt": "2026-07-25T15:03:28.802Z",
       "refreshedAt": "2026-07-25T15:03:28.802Z",
       "searchText": "the easy spanish lesson theeasyspanishlesson spanish youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCbiXbHOa_FwJRK7N3NBluTw",
+      "channelId": "UCbiXbHOa_FwJRK7N3NBluTw",
+      "youtubeInput": "@theenglishclass2917",
+      "handle": "@theenglishclass2917",
+      "name": "The English Class",
+      "thumbnailUrl": "https://yt3.ggpht.com/gd0QXpl8M76LgODOugPa7c3Aa0N8XOry5eg99KNiFEmrl3TsADX4phigd6wN8qpW4BF7Ffnh=s800-c-k-c0x00ffffff-no-rj",
+      "description": "“The English class” is a convenient way to learn English online through beautifully crafted English lessons for all. Our spoken English lessons will help you speak fluent English faster and better. If you are a beginner in English or want to speak advanced English, we have English speaking lessons that would cater t...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-02-08T15:41:00.691805Z",
+      "subscriberCount": "472000",
+      "videoCount": "621",
+      "viewCount": "13141806",
+      "languages": [
+        "english"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 366,
+      "discoveredByQueries": [
+        "English vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-19T09:58:32.052Z",
+      "refreshedAt": "2026-08-19T09:58:32.052Z",
+      "searchText": "the english class theenglishclass2917 english youtube discovery"
     },
     {
       "catalogId": "discovered-UCOe3tdFNH6iZgCONcuwd4ag",
