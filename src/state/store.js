@@ -11,7 +11,10 @@ export function createStateStore({
   loadConfigCookie,
   createDefaultStateFromConfig
 }) {
-  function saveImportedState(state, { preserveBackupId = null } = {}) {
+  function saveImportedState(state, {
+    preserveBackupId = null,
+    syncAnalytics = true
+  } = {}) {
     normalizeStateBeforeSave(state)
     const serializedState = JSON.stringify(state)
     let persistenceError = null
@@ -33,7 +36,7 @@ export function createStateStore({
     const persisted = persistenceError === null
     if (persisted) {
       saveConfigCookie(state.config)
-      syncPersistedStateToAnalytics(state)
+      if (syncAnalytics) syncPersistedStateToAnalytics(state)
     }
     return { persisted, error: persistenceError }
   }
@@ -63,14 +66,14 @@ export function createStateStore({
     return persisted
   }
 
-  function loadState() {
+  function loadState({ persistCleanup = true } = {}) {
     let storageError = false
     try {
       const raw = storage.getItem(storageKey)
       if (raw) {
         const state = JSON.parse(raw)
         const shouldSave = normalizeLoadedState(state)
-        if (shouldSave) {
+        if (shouldSave && persistCleanup) {
           saveState(state, {
             backupReason: 'before automatic cleanup',
             forceBackup: true

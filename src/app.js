@@ -119,6 +119,7 @@ import {
   getIndexedDbBackupCleanupEnabled,
   getIndexedDbBackupsEnabled,
   getLegacyProgressMigrationEnabled,
+  getLearnerProfileLifecycleEnabled,
   getPlusCheckoutEnabled,
   getStudyGuidanceEnabled,
   getSupabasePublishableKey,
@@ -275,6 +276,16 @@ import {
 import {
   createLearnerProfileNormalizer
 } from './state/learner-profile-state.js'
+import {
+  createLearnerProfileLifecycleAuthority,
+  LEARNER_PROFILE_ACCESS_STATES
+} from './state/learner-profile-lifecycle.js'
+import {
+  createLearnerProfileLocalPersistenceAdapter
+} from './state/learner-profile-local-adapter.js'
+import {
+  createLearnerProfileAuthenticationAdapter
+} from './integrations/learner-profile-authentication-adapter.js'
 import {
   createDefaultStateFactory,
   normalizeHistoryView
@@ -449,6 +460,9 @@ import {
   createLegacyProgressMigrationView
 } from './features/migration/legacy-progress-view.js'
 import {
+  createLearnerProfileAccessView
+} from './features/profile-access/view.js'
+import {
   bindStudyHistoryPeriodOptionActions
 } from './features/study-history/period-option-actions.js'
 import {
@@ -517,6 +531,8 @@ const INDEXED_DB_BACKUP_CLEANUP_ENABLED =
   INDEXED_DB_BACKUPS_ENABLED && getIndexedDbBackupCleanupEnabled()
 const LEGACY_PROGRESS_MIGRATION_ENABLED =
   getLegacyProgressMigrationEnabled()
+const LEARNER_PROFILE_LIFECYCLE_ENABLED =
+  getLearnerProfileLifecycleEnabled()
 const PLUS_ACCESS_CONFIG = Object.freeze({
   freePlusEnabled: getFreePlusEnabled(),
   plusCheckoutEnabled: getPlusCheckoutEnabled(),
@@ -546,6 +562,7 @@ const {
   youtubeChannelSearchUsageKey: YOUTUBE_CHANNEL_SEARCH_USAGE_KEY,
   stateBackupKey: STATE_BACKUP_KEY,
   legacyProgressMigrationKey: LEGACY_PROGRESS_MIGRATION_KEY,
+  learnerProfileAccessKey: LEARNER_PROFILE_ACCESS_KEY,
   accountAuthStorageKey: ACCOUNT_AUTH_STORAGE_KEY,
   plusEntitlementCacheKey: PLUS_ENTITLEMENT_CACHE_KEY,
   sandboxWalkthroughAfterResetKey: SANDBOX_WALKTHROUGH_AFTER_RESET_KEY,
@@ -768,12 +785,7 @@ async function createVerifiedStateBackupFromState(
   }
   return entry
 }
-const {
-  canPersistLocalState,
-  loadState,
-  saveImportedState,
-  saveState
-} = createStateStore({
+const stateStore = createStateStore({
   storage: localStorage,
   storageKey: STORAGE_KEY,
   normalizeLoadedState,
@@ -786,6 +798,108 @@ const {
   loadConfigCookie,
   createDefaultStateFromConfig
 })
+const {
+  canPersistLocalState,
+  loadState: loadPersistedState,
+  saveImportedState: saveImportedPersistedState,
+  saveState: savePersistedState
+} = stateStore
+const learnerProfileAuthenticationAdapter =
+  createLearnerProfileAuthenticationAdapter({
+    initialStatus: ACCOUNT_FEATURES_ENABLED ? 'loading' : 'signed-out'
+  })
+
+function createLearnerProfileConnectivityAdapter(target) {
+  const listeners = new Set()
+  const getObservation = () => Object.freeze({
+    status: target.navigator.onLine === false ? 'offline' : 'online'
+  })
+  const publish = () => {
+    const observation = getObservation()
+    for (const listener of listeners) listener(observation)
+  }
+  return Object.freeze({
+    getObservation,
+    subscribe(listener) {
+      listeners.add(listener)
+      target.addEventListener('online', publish)
+      target.addEventListener('offline', publish)
+      return () => {
+        listeners.delete(listener)
+        if (listeners.size) return
+        target.removeEventListener('online', publish)
+        target.removeEventListener('offline', publish)
+      }
+    }
+  })
+}
+
+function createLearnerProfileActivationId() {
+  if (typeof window.crypto?.randomUUID === 'function') {
+    return window.crypto.randomUUID()
+  }
+  const bytes = new Uint8Array(16)
+  window.crypto.getRandomValues(bytes)
+  return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+const learnerProfileAccessView = createLearnerProfileAccessView({
+  root: document,
+  translate: t
+})
+let learnerProfileLifecycleAuthority = null
+
+if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
+  const localPersistence = createLearnerProfileLocalPersistenceAdapter({
+    accessStorageKey: LEARNER_PROFILE_ACCESS_KEY,
+    accountlessProfileId: `accountless:${STORAGE_KEY}`,
+    eventTarget: window,
+    loadProfile: () => loadPersistedState({ persistCleanup: false }),
+    replaceProfile: saveImportedPersistedState,
+    saveProfile: savePersistedState,
+    storage: localStorage
+  })
+  learnerProfileLifecycleAuthority = createLearnerProfileLifecycleAuthority({
+    adapters: {
+      analytics: {
+        accessChanged() {},
+        profileActivated() {},
+        profileSaved: syncPersistedStateToAnalytics
+      },
+      authentication: learnerProfileAuthenticationAdapter,
+      clock: { now: () => Date.now() },
+      cloudPersistence: {
+        resolve: async () => ({ status: 'waiting' }),
+        save: async () => ({ status: 'waiting' })
+      },
+      connectivity: createLearnerProfileConnectivityAdapter(window),
+      exportDownload: {
+        download: downloadLearnerProfileSyncFile
+      },
+      localPersistence
+    },
+    createActivationId: createLearnerProfileActivationId,
+    onStateChange: handleLearnerProfileAccessStateChange
+  })
+}
+
+function loadState() {
+  return learnerProfileLifecycleAuthority
+    ? learnerProfileLifecycleAuthority.readActiveProfile()
+    : loadPersistedState()
+}
+
+function saveImportedState(state, options = {}) {
+  return learnerProfileLifecycleAuthority
+    ? learnerProfileLifecycleAuthority.replaceActiveProfile(state, options)
+    : saveImportedPersistedState(state, options)
+}
+
+function saveState(state, options = {}) {
+  return learnerProfileLifecycleAuthority
+    ? learnerProfileLifecycleAuthority.saveActiveProfile(state, options)
+    : savePersistedState(state, options)
+}
 const legacyProgressMigrationView = createLegacyProgressMigrationView({
   root: document,
   translate: t
@@ -2356,11 +2470,13 @@ function initBackgroundPhysics() {
   }
 }
 
-function startApplicationFromLocalState() {
+function startApplicationWithState(initialState, {
+  accountAuthInitialized = false
+} = {}) {
   if (applicationStarted) return
   applicationStarted = true
   legacyProgressMigrationView.hide()
-  let state = loadState()
+  let state = initialState
   if (!state) {
     state = IS_SANDBOX ? createEmptySandboxState() : defaultState(4, DEFAULT_CHANNELS)
     saveState(state)
@@ -2371,7 +2487,7 @@ function startApplicationFromLocalState() {
   )
 
   applyLocale(state.config.locale)
-  initializeAccountAuth()
+  if (!accountAuthInitialized) initializeAccountAuth()
   initializePlusAccount()
   initializeRequestedAccountSettings()
   initializeRequestedPlusModal()
@@ -2434,6 +2550,56 @@ function startApplicationFromLocalState() {
       { durationMs: 8_000 }
     )
   }
+}
+
+function renderActivatedLearnerProfile(state) {
+  applyLocale(state.config.locale)
+  updateDocumentTitle(state)
+  selectedHistoryView = normalizeHistoryView(
+    state.config.historyView,
+    IS_SANDBOX
+  )
+  setDefaultCityDayOffset(state)
+  syncStreak(state)
+  applyTheme(state.config.theme)
+  show('mainApp')
+  renderAll(state)
+  renderChannelList(state.config.channels)
+  renderBackupList()
+  renderActivityLog(state)
+}
+
+function handleLearnerProfileAccessStateChange(accessState) {
+  learnerProfileAccessView.render(accessState)
+  if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
+    const state = learnerProfileLifecycleAuthority?.readActiveProfile()
+    if (!state) return
+    if (!applicationStarted) {
+      startApplicationWithState(state, { accountAuthInitialized: true })
+    } else {
+      renderActivatedLearnerProfile(state)
+    }
+    return
+  }
+  document.getElementById('mainApp')?.classList.add('hidden')
+  document.getElementById('introTrailer')?.classList.add('hidden')
+  document.getElementById('onboardingPanel')?.classList.add('hidden')
+  document.getElementById('settingsPanel')?.classList.add('hidden')
+  document.title = 'Edenia'
+}
+
+function startApplicationFromLocalState() {
+  if (!learnerProfileLifecycleAuthority) {
+    startApplicationWithState(loadState())
+    return
+  }
+  legacyProgressMigrationView.hide()
+  applyLocale(loadConfigCookie()?.locale || getBrowserDefaultLocale())
+  learnerProfileAccessView.render(
+    learnerProfileLifecycleAuthority.getState()
+  )
+  learnerProfileLifecycleAuthority.start()
+  initializeAccountAuth()
 }
 
 function resumeApplicationAfterMigration() {
@@ -5411,6 +5577,9 @@ function initializeAccountAuth() {
       error: ACCOUNT_AUTH_ERRORS.SESSION_UNAVAILABLE,
       notice: null
     })
+    learnerProfileAuthenticationAdapter.observeAccountState(
+      accountAuthViewState
+    )
     renderAccountSettings()
     if (personalizedOnboardingState.step === 'account') {
       renderPersonalizedOnboarding()
@@ -5447,6 +5616,7 @@ function initializeAccountAuth() {
       location: window.location,
       onStateChange(state) {
         accountAuthViewState = state
+        learnerProfileAuthenticationAdapter.observeAccountState(state)
         accountAnalyticsIdentity.synchronize(state)
         accountExportController.synchronizeAccount(state)
         void reminderPreferencesController.synchronizeAccount(
@@ -5499,6 +5669,9 @@ function initializeAccountAuth() {
       })
     }
     accountAuthViewState = accountAuthController.getState()
+    learnerProfileAuthenticationAdapter.observeAccountState(
+      accountAuthViewState
+    )
     accountExportController.synchronizeAccount(accountAuthViewState)
     renderAccountSettings()
     void accountAuthController.initialize()
@@ -5513,6 +5686,9 @@ function initializeAccountAuth() {
       error: ACCOUNT_AUTH_ERRORS.SESSION_UNAVAILABLE,
       notice: null
     })
+    learnerProfileAuthenticationAdapter.observeAccountState(
+      accountAuthViewState
+    )
     renderAccountSettings()
     if (personalizedOnboardingState.step === 'account') {
       renderPersonalizedOnboarding()
@@ -5918,33 +6094,44 @@ function saveLocaleFromSettings(locale = null) {
   showToast(t('toast.localeChanged', { language: getLocaleLabel(nextLocale) }))
 }
 
-async function exportSyncFile() {
+function downloadLearnerProfileSyncFile(state, {
+  exportedAt = Date.now(),
+  isCurrent = () => true
+} = {}) {
+  void createPortableLearnerProfileEnvelope(state, {
+    maxBytes: Number.MAX_SAFE_INTEGER,
+    now: () => new Date(exportedAt)
+  }).then(({ serialized }) => {
+    if (!isCurrent()) return
+    const blob = new Blob([serialized], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `edenia-${IS_SANDBOX ? 'sandbox-' : ''}sync-${toDateKey()}.json`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    showToast(t('toast.syncExported'))
+  }).catch(() => {
+    if (isCurrent()) showToast(t('toast.invalidSync'), 'error')
+  })
+  return true
+}
+
+function exportSyncFile() {
+  if (learnerProfileLifecycleAuthority) {
+    if (!learnerProfileLifecycleAuthority.exportActiveProfile()) {
+      showToast(t('toast.nothingToSync'), 'warn')
+    }
+    return
+  }
   const state = loadState()
   if (!state) {
     showToast(t('toast.nothingToSync'), 'warn')
     return
   }
-
-  let serialized
-  try {
-    const created = await createPortableLearnerProfileEnvelope(state, {
-      maxBytes: Number.MAX_SAFE_INTEGER
-    })
-    serialized = created.serialized
-  } catch {
-    showToast(t('toast.invalidSync'), 'error')
-    return
-  }
-  const blob = new Blob([serialized], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `edenia-${IS_SANDBOX ? 'sandbox-' : ''}sync-${toDateKey()}.json`
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
-  showToast(t('toast.syncExported'))
+  downloadLearnerProfileSyncFile(state)
 }
 
 function importSyncFileFromInput(input) {
@@ -17398,6 +17585,7 @@ document.addEventListener('keydown', handleFeedbackModalKeydown)
 document.addEventListener('keydown', handleVideoShelfPlayerKeydown, true)
 window.addEventListener('blur', keepVideoShelfPlayerEscapeAvailable)
 window.addEventListener('pagehide', event => {
+  if (!event.persisted) learnerProfileLifecycleAuthority?.destroy()
   if (!event.persisted) accountAuthController?.destroy()
   if (!event.persisted) googleIdentityServicesController?.destroy()
   if (!event.persisted) turnstileController?.destroy()

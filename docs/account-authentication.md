@@ -30,6 +30,30 @@ config build. The global account rollout still owns the audience, so the
 ordinary public root loads no account provider script while the rollout is
 `internal`.
 
+## Learner-profile lifecycle boundary
+
+`EDENIA_LEARNER_PROFILE_LIFECYCLE_ENABLED` is a separate, default-off
+prefactor gate. When it is off, the existing accountless landing, onboarding,
+study, persistence, sandbox, backup, and recovery path continues through the
+original store and render flow. Keep this gate off in public configuration
+until owned-profile cloud resolution is connected.
+
+When enabled, the application can reach learner state only through the
+learner-profile lifecycle authority. The authority alone publishes
+`resolving`, `locked`, `active`, `waiting-authentication`, `waiting-cloud`,
+`migrating`, `conflicting`, or `recovering`. Authentication contributes only a
+normalized session observation; it never activates, claims, uploads, replaces,
+clears, or displays a profile by itself. Local persistence, future cloud
+persistence, clock, connectivity, export/download, and analytics are explicit
+adapters at the authority seam.
+
+Each active profile receives a browser-storage activation fence. Reads, saves,
+imports, exports, analytics synchronization, and queued cloud work must still
+hold that fence. A newer tab or later activation invalidates the earlier
+profile object and its delayed callbacks. Every non-active state hides the
+learner UI and pauses autosave; the visible gate contains identity-neutral copy
+only.
+
 ## Google Identity Services
 
 Edenia renders Google's official button and exchanges its ephemeral credential

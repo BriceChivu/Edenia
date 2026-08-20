@@ -1,0 +1,475 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import {
+  createLearnerProfileLifecycleAuthority,
+  LEARNER_PROFILE_ACCESS_STATES
+} from '../../src/state/learner-profile-lifecycle.js'
+import {
+  createLearnerProfileLocalPersistenceAdapter
+} from '../../src/state/learner-profile-local-adapter.js'
+import {
+  createLearnerProfileAuthenticationAdapter
+} from '../../src/integrations/learner-profile-authentication-adapter.js'
+
+function deferred() {
+  let resolve
+  const promise = new Promise(next => { resolve = next })
+  return { promise, resolve }
+}
+
+function createObservationAdapter(initialObservation) {
+  let observation = initialObservation
+  const listeners = new Set()
+  return {
+    getObservation: () => observation,
+    publish(nextObservation) {
+      observation = nextObservation
+      for (const listener of listeners) listener(observation)
+    },
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    }
+  }
+}
+
+function createHarness({
+  authentication = { status: 'signed-out', userId: null },
+  connectivity = { status: 'online' },
+  local = {
+    status: 'ready',
+    profile: { learnerProfile: { languages: ['french'] } },
+    profileId: 'accountless:browser',
+    ownerId: null
+  },
+  cloudResolution = { status: 'waiting' }
+} = {}) {
+  const authenticationAdapter = createObservationAdapter(authentication)
+  const connectivityAdapter = createObservationAdapter(connectivity)
+  const cloudDeferred = deferred()
+  const calls = []
+  let currentFence = null
+  const authority = createLearnerProfileLifecycleAuthority({
+    adapters: {
+      analytics: {
+        accessChanged(state) {
+          calls.push(['analytics-access', state.status])
+        },
+        profileActivated(context) {
+          calls.push(['analytics-activated', context.profileId])
+        },
+        profileSaved(profile, context) {
+          calls.push(['analytics-saved', profile, context.activation.id])
+        }
+      },
+      authentication: authenticationAdapter,
+      clock: { now: () => 1_786_982_400_000 },
+      cloudPersistence: {
+        resolve(context) {
+          calls.push(['cloud-resolve', context])
+          return cloudResolution === 'deferred'
+            ? cloudDeferred.promise
+            : cloudResolution
+        },
+        save(profile, context) {
+          calls.push(['cloud-save', profile, context])
+          return Promise.resolve({ status: 'saved' })
+        }
+      },
+      connectivity: connectivityAdapter,
+      exportDownload: {
+        download(profile, context) {
+          calls.push(['download', profile, context.activation.id, context])
+          return true
+        }
+      },
+      localPersistence: {
+        claimActivation(fence) {
+          currentFence = fence
+          calls.push(['claim', fence])
+          return true
+        },
+        isActivationCurrent(fence) {
+          return currentFence?.id === fence?.id
+        },
+        read() {
+          calls.push(['local-read'])
+          return local
+        },
+        releaseActivation(fence) {
+          calls.push(['release', fence.id])
+          if (currentFence?.id === fence.id) currentFence = null
+        },
+        replace(profile, options, fence) {
+          calls.push(['replace', profile, options, fence])
+          return { persisted: true, error: null }
+        },
+        save(profile, options, fence) {
+          calls.push(['local-save', profile, options, fence])
+          return true
+        },
+        subscribe() {
+          return () => {}
+        }
+      }
+    },
+    createActivationId: () => `activation-${calls.length + 1}`,
+    onStateChange(state) {
+      calls.push(['state', state.status])
+    }
+  })
+  return {
+    authentication: authenticationAdapter,
+    authority,
+    calls,
+    cloudDeferred,
+    connectivity: connectivityAdapter,
+    getCurrentFence: () => currentFence,
+    setCurrentFence: fence => { currentFence = fence }
+  }
+}
+
+test('authentication alone cannot expose or save an accountless learner profile', async () => {
+  const harness = createHarness({
+    authentication: {
+      status: 'signed-in',
+      userId: '123e4567-e89b-42d3-a456-426614174000'
+    },
+    cloudResolution: 'deferred'
+  })
+
+  harness.authority.start()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.MIGRATING
+  )
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(
+    harness.authority.saveActiveProfile({ learnerProfile: {} }),
+    false
+  )
+  assert.equal(
+    harness.calls.some(([name]) => name === 'local-save'),
+    false
+  )
+  assert.equal(
+    harness.calls.some(([name]) => name === 'cloud-save'),
+    false
+  )
+
+  harness.cloudDeferred.resolve({ status: 'waiting' })
+  await Promise.resolve()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.MIGRATING
+  )
+  assert.equal(harness.authority.readActiveProfile(), null)
+})
+
+test('one fenced accountless profile becomes the only writable and exportable profile', async () => {
+  const harness = createHarness()
+
+  harness.authority.start()
+
+  const profile = harness.authority.readActiveProfile()
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  )
+  assert.equal(profile.learnerProfile.languages[0], 'french')
+  assert.equal(harness.authority.getState().profileId, 'accountless:browser')
+  assert.equal(harness.authority.getState().ownerId, null)
+  assert.match(harness.authority.getState().activation.id, /^activation-/)
+
+  profile.learnerProfile.languages = ['spanish']
+  assert.equal(
+    harness.authority.saveActiveProfile(profile, { backupReason: 'study' }),
+    true
+  )
+  assert.equal(harness.authority.exportActiveProfile(), true)
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'local-save').length,
+    1
+  )
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'cloud-save').length,
+    0
+  )
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'download').length,
+    1
+  )
+  const downloadContext = harness.calls.find(([name]) => name === 'download')[3]
+  assert.equal(downloadContext.isCurrent(), true)
+
+  harness.authentication.publish({ status: 'loading', userId: null })
+  assert.equal(downloadContext.isCurrent(), false)
+})
+
+test('an explicit owned-profile resolution fences delayed work from an earlier activation', async () => {
+  const ownedProfile = {
+    learnerProfile: { languages: ['mandarin'] },
+    videos: { delayed: { id: 'delayed' } }
+  }
+  const harness = createHarness({
+    authentication: {
+      status: 'signed-in',
+      userId: '123e4567-e89b-42d3-a456-426614174000'
+    },
+    cloudResolution: {
+      status: 'activate',
+      ownerId: '123e4567-e89b-42d3-a456-426614174000',
+      profileId: 'owner:123e4567-e89b-42d3-a456-426614174000',
+      profile: ownedProfile
+    },
+    local: { status: 'empty' }
+  })
+
+  harness.authority.start()
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
+  )
+  await Promise.resolve()
+
+  assert.equal(harness.authority.readActiveProfile(), ownedProfile)
+  assert.equal(harness.authority.saveActiveProfile(ownedProfile), true)
+  const cloudSave = harness.calls.find(([name]) => name === 'cloud-save')
+  assert.equal(cloudSave[2].isCurrent(), true)
+
+  harness.authentication.publish({ status: 'signed-out', userId: null })
+
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(harness.authority.saveActiveProfile(ownedProfile), false)
+  assert.equal(harness.authority.exportActiveProfile(), false)
+  assert.equal(cloudSave[2].isCurrent(), false)
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'local-save').length,
+    1
+  )
+})
+
+test('a newer tab fence makes the earlier activation inert', () => {
+  const harness = createHarness()
+  harness.authority.start()
+  const staleProfile = harness.authority.readActiveProfile()
+
+  harness.setCurrentFence({ id: 'activation-from-newer-tab' })
+
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+  )
+  assert.equal(harness.authority.saveActiveProfile(staleProfile), false)
+  assert.equal(harness.authority.exportActiveProfile(), false)
+  assert.equal(
+    harness.calls.some(([name]) => name === 'local-save'),
+    false
+  )
+})
+
+test('profile replacement starts a new activation and rejects the previous profile object', () => {
+  const harness = createHarness()
+  harness.authority.start()
+  const previousProfile = harness.authority.readActiveProfile()
+  const previousActivationId = harness.authority.getState().activation.id
+  const importedProfile = {
+    learnerProfile: { languages: ['japanese'] },
+    videos: {}
+  }
+
+  assert.deepEqual(
+    harness.authority.replaceActiveProfile(importedProfile, {
+      preserveBackupId: 'backup-before-import'
+    }),
+    { persisted: true, error: null }
+  )
+
+  assert.equal(harness.authority.readActiveProfile(), importedProfile)
+  assert.notEqual(
+    harness.authority.getState().activation.id,
+    previousActivationId
+  )
+  assert.equal(harness.authority.saveActiveProfile(previousProfile), false)
+  assert.equal(harness.authority.saveActiveProfile(importedProfile), true)
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'replace').length,
+    1
+  )
+})
+
+test('browser persistence shares activation fences across tabs before writes', () => {
+  const values = new Map()
+  const saveCalls = []
+  const profile = { learnerProfile: { languages: ['french'] } }
+  const storage = {
+    getItem(key) {
+      return values.get(key) ?? null
+    },
+    removeItem(key) {
+      values.delete(key)
+    },
+    setItem(key, value) {
+      values.set(key, value)
+    }
+  }
+  const createAdapter = () => createLearnerProfileLocalPersistenceAdapter({
+    accessStorageKey: 'edenia_v1_profile_access_v1',
+    accountlessProfileId: 'accountless:edenia_v1',
+    eventTarget: null,
+    loadProfile: () => profile,
+    replaceProfile(nextProfile, options) {
+      saveCalls.push(['replace', nextProfile, options])
+      return { persisted: true, error: null }
+    },
+    saveProfile(nextProfile, options) {
+      saveCalls.push(['save', nextProfile, options])
+      return true
+    },
+    storage
+  })
+  const earlierTab = createAdapter()
+  const laterTab = createAdapter()
+  const earlierFence = {
+    activatedAt: 100,
+    id: 'earlier-tab',
+    ownerId: null,
+    profileId: 'accountless:edenia_v1'
+  }
+  const laterFence = { ...earlierFence, activatedAt: 200, id: 'later-tab' }
+
+  assert.deepEqual(earlierTab.read(), {
+    ownerId: null,
+    profile,
+    profileId: 'accountless:edenia_v1',
+    status: 'ready'
+  })
+  assert.equal(earlierTab.claimActivation(earlierFence), true)
+  assert.equal(laterTab.claimActivation(laterFence), true)
+  assert.equal(earlierTab.isActivationCurrent(earlierFence), false)
+  assert.equal(laterTab.isActivationCurrent(laterFence), true)
+  assert.equal(earlierTab.save(profile, {}, earlierFence), false)
+  assert.equal(laterTab.save(profile, {}, laterFence), true)
+  assert.deepEqual(saveCalls, [[
+    'save',
+    profile,
+    { syncAnalytics: false }
+  ]])
+})
+
+test('access observations deterministically cover every non-active lifecycle state', () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const otherOwnerId = '223e4567-e89b-42d3-a456-426614174001'
+  const cases = [
+    {
+      expected: LEARNER_PROFILE_ACCESS_STATES.RESOLVING,
+      options: { authentication: { status: 'loading', userId: null } }
+    },
+    {
+      expected: LEARNER_PROFILE_ACCESS_STATES.LOCKED,
+      options: {
+        authentication: { status: 'signed-out', userId: null },
+        local: {
+          status: 'ready',
+          profile: { learnerProfile: {} },
+          profileId: `owner:${ownerId}`,
+          ownerId
+        }
+      }
+    },
+    {
+      expected: LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION,
+      options: {
+        authentication: { status: 'signed-out', userId: null },
+        local: { status: 'empty' }
+      }
+    },
+    {
+      expected: LEARNER_PROFILE_ACCESS_STATES.RECOVERING,
+      options: {
+        authentication: { status: 'unavailable', userId: null },
+        local: {
+          status: 'ready',
+          profile: { learnerProfile: {} },
+          profileId: `owner:${ownerId}`,
+          ownerId
+        }
+      }
+    },
+    {
+      expected: LEARNER_PROFILE_ACCESS_STATES.CONFLICTING,
+      options: {
+        authentication: { status: 'signed-in', userId: otherOwnerId },
+        local: {
+          status: 'ready',
+          profile: { learnerProfile: {} },
+          profileId: `owner:${ownerId}`,
+          ownerId
+        }
+      }
+    },
+    {
+      expected: LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD,
+      options: {
+        authentication: { status: 'signed-in', userId: ownerId },
+        local: {
+          status: 'ready',
+          profile: { learnerProfile: {} },
+          profileId: `owner:${ownerId}`,
+          ownerId
+        }
+      }
+    },
+    {
+      expected: LEARNER_PROFILE_ACCESS_STATES.MIGRATING,
+      options: {
+        authentication: { status: 'signed-in', userId: ownerId }
+      }
+    }
+  ]
+
+  for (const { expected, options } of cases) {
+    const harness = createHarness(options)
+    harness.authority.start()
+    assert.equal(harness.authority.getState().status, expected)
+    assert.equal(harness.authority.readActiveProfile(), null)
+    harness.authority.destroy()
+  }
+})
+
+test('authentication adapter exposes only lifecycle observations and deduplicates them', () => {
+  const adapter = createLearnerProfileAuthenticationAdapter({
+    initialStatus: 'loading'
+  })
+  const observations = []
+  adapter.subscribe(observation => observations.push(observation))
+  const accountState = {
+    sessionState: 'signed-in',
+    userId: '123e4567-e89b-42d3-a456-426614174000',
+    email: 'private@example.com',
+    accessToken: 'must-not-cross-the-seam'
+  }
+
+  adapter.observeAccountState(accountState)
+  adapter.observeAccountState({ ...accountState, busyAction: 'refresh' })
+
+  assert.deepEqual(adapter.getObservation(), {
+    status: 'signed-in',
+    userId: '123e4567-e89b-42d3-a456-426614174000'
+  })
+  assert.deepEqual(observations, [{
+    status: 'signed-in',
+    userId: '123e4567-e89b-42d3-a456-426614174000'
+  }])
+  assert.equal(JSON.stringify(observations).includes('private@example.com'), false)
+  assert.equal(JSON.stringify(observations).includes('must-not-cross'), false)
+
+  adapter.observeAccountState({ sessionState: 'signed-out', userId: accountState.userId })
+  assert.deepEqual(adapter.getObservation(), {
+    status: 'signed-out',
+    userId: null
+  })
+})

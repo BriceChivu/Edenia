@@ -72,6 +72,7 @@ test('local runtime config normalizes a valid ignored key into the generated sit
         + '  "indexedDbBackupsEnabled": false,\n'
         + '  "indexedDbBackupCleanupEnabled": false,\n'
         + '  "legacyProgressMigrationEnabled": false,\n'
+        + '  "learnerProfileLifecycleEnabled": false,\n'
         + '  "supabaseUrl": "",\n'
         + '  "supabasePublishableKey": ""\n'
         + '}\n'
@@ -99,6 +100,7 @@ test('local runtime config preserves dormant flags and forces compatibility mark
         + '  indexedDbBackupsEnabled: true,\n'
         + '  indexedDbBackupCleanupEnabled: true,\n'
         + '  legacyProgressMigrationEnabled: true,\n'
+        + '  learnerProfileLifecycleEnabled: true,\n'
         + "  supabaseUrl: ' https://project.supabase.co ',\n"
         + "  supabasePublishableKey: ' sb_publishable_test '\n"
         + '}\n'
@@ -121,12 +123,13 @@ test('local runtime config preserves dormant flags and forces compatibility mark
       indexedDbBackupsEnabled: true,
       indexedDbBackupCleanupEnabled: true,
       legacyProgressMigrationEnabled: true,
+      learnerProfileLifecycleEnabled: true,
       supabaseUrl: 'https://project.supabase.co',
       supabasePublishableKey: 'sb_publishable_test'
     })
     assert.match(
       await readFile(outputPath, 'utf8'),
-      /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true,\n  "accountFeaturesRollout": "internal",\n  "googleSignInMode": "id_token",\n  "googleIdentityClientId": "1234567890-google-client\.apps\.googleusercontent\.com",\n  "turnstileSiteKey": "turnstile-site-key",\n  "videoOrganizationEnabled": true,\n  "channelVideoFormatToggleEnabled": true,\n  "studyGuidanceEnabled": true,\n  "indexedDbBackupsEnabled": true,\n  "indexedDbBackupCleanupEnabled": true,\n  "legacyProgressMigrationEnabled": true/
+      /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true,\n  "accountFeaturesRollout": "internal",\n  "googleSignInMode": "id_token",\n  "googleIdentityClientId": "1234567890-google-client\.apps\.googleusercontent\.com",\n  "turnstileSiteKey": "turnstile-site-key",\n  "videoOrganizationEnabled": true,\n  "channelVideoFormatToggleEnabled": true,\n  "studyGuidanceEnabled": true,\n  "indexedDbBackupsEnabled": true,\n  "indexedDbBackupCleanupEnabled": true,\n  "legacyProgressMigrationEnabled": true,\n  "learnerProfileLifecycleEnabled": true/
     )
   })
 })
@@ -157,6 +160,7 @@ test('local runtime config removes tracked Supabase placeholders', async () => {
       indexedDbBackupsEnabled: false,
       indexedDbBackupCleanupEnabled: false,
       legacyProgressMigrationEnabled: false,
+      learnerProfileLifecycleEnabled: false,
       supabaseUrl: '',
       supabasePublishableKey: ''
     })

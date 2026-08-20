@@ -128,6 +128,23 @@ test('automatic cleanup preserves forced pre-cleanup backup and save ordering', 
   ])
 })
 
+test('gated loading normalizes in memory without saving before activation', () => {
+  const state = { config: { locale: 'en' }, videos: {}, anki: {} }
+  const harness = createHarness({
+    raw: JSON.stringify(state),
+    shouldSave: true
+  })
+
+  assert.deepEqual(
+    harness.store.loadState({ persistCleanup: false }),
+    state
+  )
+  assert.deepEqual(
+    harness.events.map(event => event[0]),
+    ['get', 'normalize-loaded']
+  )
+})
+
 test('load errors recover from backup before consulting the config cookie', () => {
   const recoveredState = { recovered: true }
   const parseFailure = createHarness({
@@ -266,6 +283,23 @@ test('import saving prunes older backups until a quota retry succeeds', () => {
     ['prune', { preserveId: 'rollback' }],
     ['prune', { preserveId: 'rollback' }]
   ])
+})
+
+test('gated import leaves analytics synchronization to the lifecycle authority', () => {
+  const state = { config: { locale: 'en' }, value: 1 }
+  const harness = createHarness()
+
+  assert.deepEqual(harness.store.saveImportedState(state, {
+    preserveBackupId: 'rollback',
+    syncAnalytics: false
+  }), {
+    persisted: true,
+    error: null
+  })
+  assert.deepEqual(
+    harness.events.map(event => event[0]),
+    ['normalize-before-save', 'set', 'cookie']
+  )
 })
 
 test('import saving preserves state when only the rollback backup remains', () => {
