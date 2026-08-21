@@ -15,17 +15,31 @@ const BUSY_STATES = new Set([
   'waiting-cloud'
 ])
 
+const RECOVERY_ACTION_STATES = new Set([
+  'conflicting',
+  'recovering',
+  'waiting-cloud'
+])
+
 export function createLearnerProfileAccessView({ root, translate }) {
   const gate = root.getElementById('learnerProfileAccessGate')
   const title = root.getElementById('learnerProfileAccessTitle')
   const body = root.getElementById('learnerProfileAccessBody')
   const status = root.getElementById('learnerProfileAccessStatus')
+  const retry = root.getElementById('learnerProfileAccessRetry')
+  const signOut = root.getElementById('learnerProfileAccessSignOut')
+
+  function showRecoveryActions(show) {
+    retry.hidden = !show
+    signOut.hidden = !show
+  }
 
   function render(accessState) {
     if (accessState?.status === 'active') {
       root.documentElement.dataset.learnerProfileAccessState = 'active'
       gate.classList.add('hidden')
       gate.setAttribute('aria-busy', 'false')
+      showRecoveryActions(false)
       return
     }
     const state = COPY_KEYS[accessState?.status]
@@ -37,6 +51,7 @@ export function createLearnerProfileAccessView({ root, translate }) {
     body.textContent = translate(`${key}.body`)
     status.textContent = translate('profileAccess.noProfileVisible')
     gate.setAttribute('aria-busy', String(BUSY_STATES.has(state)))
+    showRecoveryActions(RECOVERY_ACTION_STATES.has(state))
     gate.classList.remove('hidden')
   }
 

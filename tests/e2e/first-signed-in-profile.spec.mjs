@@ -2,6 +2,9 @@ import { expect, test } from '../support/network-fixture.mjs'
 import {
   LEARNER_PROFILE_RESOLUTION_STATUSES
 } from '../../src/domain/learner-profile-resolution.js'
+import {
+  createPortableLearnerProfileEnvelope
+} from '../../src/state/portable-learner-profile.js'
 
 const SUPABASE_ORIGIN = 'https://first-profile-test.supabase.co'
 const ACCOUNT_RETURN_ORIGIN = 'http://localhost:8000'
@@ -16,6 +19,7 @@ const PROFILE_ACCESS_STORAGE_KEY =
 const AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
 const AUTHENTICATED_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
 const CREATED_PROFILE_ID = '223e4567-e89b-42d3-a456-426614174001'
+const RETURNING_CHANNEL_NAME = 'RETURNING OWNER PRIVATE CHANNEL'
 
 function fakeAccessToken(userId) {
   const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url')
@@ -105,6 +109,64 @@ function resolutionRow(status, overrides = {}) {
   }
 }
 
+function returningOwnerResolutionRow(envelope) {
+  return resolutionRow(
+    LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY,
+    {
+      envelope,
+      generation: 4,
+      profile_id: CREATED_PROFILE_ID,
+      revision: 12
+    }
+  )
+}
+
+async function createReturningOwnerEnvelope() {
+  const completedAt = '2026-08-20T21:00:00.000Z'
+  const { envelope } = await createPortableLearnerProfileEnvelope({
+    activityLog: [],
+    anki: {},
+    cityProgress: { maxLevelIndex: 2 },
+    config: {
+      ankiEnabled: true,
+      channelShelfOrder: ['returning-owner-channel'],
+      channelVideoFormats: {},
+      channels: [{
+        id: 'returning-owner-channel',
+        imageUrl: '',
+        name: RETURNING_CHANNEL_NAME
+      }],
+      includeShorts: true,
+      locale: 'en',
+      removedChannelIds: [],
+      removedDefaultChannelIds: [],
+      weeklyGoalHours: 4
+    },
+    learnerProfile: {
+      createdAt: completedAt,
+      languages: ['french'],
+      level: 'beginner',
+      selectedChannelCatalogIds: [],
+      updatedAt: completedAt
+    },
+    noAnkiFrequentUserPrompt: {
+      respondedAt: null,
+      response: null
+    },
+    onboarding: {
+      introSeenAt: completedAt,
+      levelUpGuidanceShownAt: null,
+      recommendationsAppliedAt: null,
+      setupCompleted: true,
+      setupCompletedAt: completedAt,
+      walkthroughCompleted: true,
+      walkthroughCompletedAt: completedAt
+    },
+    videos: {}
+  }, { now: () => new Date(completedAt) })
+  return envelope
+}
+
 async function fulfillEmailAuthentication(route) {
   const pathname = new URL(route.request().url()).pathname
   if (pathname === '/auth/v1/otp') {
@@ -171,6 +233,181 @@ test('public onboarding uses a temporary draft without creating a learner profil
     selectedChannelCatalogIds: [],
     version: 1
   })
+})
+
+test('a restored returning-owner session stays neutral until the cloud head activates', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  const session = authenticatedSession()
+  const returningEnvelope = await createReturningOwnerEnvelope()
+  await page.addInitScript(({
+    authKey,
+    authenticated,
+    draftKey
+  }) => {
+    localStorage.setItem(authKey, JSON.stringify(authenticated))
+    localStorage.setItem(draftKey, JSON.stringify({
+      accountStepReachedAt: '2026-08-21T00:00:00.000Z',
+      createdAt: '2026-08-21T00:00:00.000Z',
+      introSeenAt: '2026-08-21T00:00:00.000Z',
+      languageId: 'mandarin',
+      levelId: 'starting',
+      locale: 'en',
+      selectedChannelCatalogIds: ['mandarin-daily'],
+      updatedAt: '2026-08-21T00:00:00.000Z',
+      version: 1
+    }))
+  }, {
+    authKey: AUTH_STORAGE_KEY,
+    authenticated: session,
+    draftKey: DRAFT_STORAGE_KEY
+  })
+  await installRuntimeConfig(page)
+  let releaseResolution
+  let resolutionCount = 0
+  const resolutionBarrier = new Promise(resolve => {
+    releaseResolution = resolve
+  })
+  await page.route(`${SUPABASE_ORIGIN}/**`, async route => {
+    const url = new URL(route.request().url())
+    if (url.pathname === '/rest/v1/rpc/resolve_my_learner_profile') {
+      resolutionCount += 1
+      await resolutionBarrier
+      await route.fulfill({
+        json: [returningOwnerResolutionRow(returningEnvelope)],
+        status: 200
+      })
+      return
+    }
+    await route.fulfill({ json: {}, status: 200 })
+  })
+
+  try {
+    await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+    await expect.poll(() => resolutionCount).toBe(1)
+
+    await expect(page.locator('#learnerProfileAccessGate')).toBeVisible()
+    await expect(page.locator('html')).toHaveAttribute(
+      'data-learner-profile-access-state',
+      'waiting-cloud'
+    )
+    await expect(page.locator('#mainApp')).toBeHidden()
+    await expect(page.locator('#introTrailer')).toBeHidden()
+    await expect(page.locator('#onboardingPanel')).toBeHidden()
+    await expect(page.locator('body')).not.toContainText(RETURNING_CHANNEL_NAME)
+    const waitingStorage = await page.evaluate(({
+      draftKey,
+      stateKey
+    }) => ({
+      draft: localStorage.getItem(draftKey),
+      state: localStorage.getItem(stateKey)
+    }), { draftKey: DRAFT_STORAGE_KEY, stateKey: STATE_STORAGE_KEY })
+    expect(waitingStorage.draft).not.toBeNull()
+    expect(waitingStorage.state).toBeNull()
+
+    releaseResolution()
+    await expect(page.locator('#mainApp')).toBeVisible()
+    const activated = await page.evaluate(({
+      accessKey,
+      draftKey,
+      stateKey
+    }) => ({
+      access: JSON.parse(localStorage.getItem(accessKey)),
+      draft: localStorage.getItem(draftKey),
+      state: JSON.parse(localStorage.getItem(stateKey))
+    }), {
+      accessKey: PROFILE_ACCESS_STORAGE_KEY,
+      draftKey: DRAFT_STORAGE_KEY,
+      stateKey: STATE_STORAGE_KEY
+    })
+    expect(activated.draft).toBeNull()
+    expect(activated.access).toMatchObject({
+      ownerId: AUTHENTICATED_USER_ID,
+      profileId: CREATED_PROFILE_ID
+    })
+    expect(activated.state.learnerProfile.languages).toEqual(['french'])
+    expect(activated.state.config.channels).toEqual([
+      expect.objectContaining({ name: RETURNING_CHANNEL_NAME })
+    ])
+  } finally {
+    releaseResolution()
+  }
+})
+
+test('a returning owner can retry an unresolved cloud-head check', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  const returningEnvelope = await createReturningOwnerEnvelope()
+  await page.addInitScript(({ authKey, authenticated }) => {
+    localStorage.setItem(authKey, JSON.stringify(authenticated))
+  }, {
+    authKey: AUTH_STORAGE_KEY,
+    authenticated: authenticatedSession()
+  })
+  await installRuntimeConfig(page)
+  let resolutionCount = 0
+  await page.route(`${SUPABASE_ORIGIN}/**`, async route => {
+    const url = new URL(route.request().url())
+    if (url.pathname === '/rest/v1/rpc/resolve_my_learner_profile') {
+      resolutionCount += 1
+      if (resolutionCount === 1) {
+        await route.fulfill({
+          json: [resolutionRow(
+            LEARNER_PROFILE_RESOLUTION_STATUSES.RECOVERY_REQUIRED
+          )],
+          status: 200
+        })
+        return
+      }
+      await route.fulfill({
+        json: [returningOwnerResolutionRow(returningEnvelope)],
+        status: 200
+      })
+      return
+    }
+    await route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  await expect.poll(() => resolutionCount).toBe(1)
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'recovering'
+  )
+  await expect(page.locator('#mainApp')).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
+  const waitingStorage = await page.evaluate(({
+    accessKey,
+    stateKey
+  }) => ({
+    access: localStorage.getItem(accessKey),
+    state: localStorage.getItem(stateKey)
+  }), {
+    accessKey: PROFILE_ACCESS_STORAGE_KEY,
+    stateKey: STATE_STORAGE_KEY
+  })
+  expect(waitingStorage).toEqual({ access: null, state: null })
+
+  await page.getByRole('button', { name: 'Try again' }).click()
+  await expect.poll(() => resolutionCount).toBe(2)
+  await expect(page.locator('#mainApp')).toBeVisible()
+  const activated = await page.evaluate(({
+    accessKey,
+    stateKey
+  }) => ({
+    access: JSON.parse(localStorage.getItem(accessKey)),
+    state: JSON.parse(localStorage.getItem(stateKey))
+  }), {
+    accessKey: PROFILE_ACCESS_STORAGE_KEY,
+    stateKey: STATE_STORAGE_KEY
+  })
+  expect(activated.access).toMatchObject({
+    ownerId: AUTHENTICATED_USER_ID,
+    profileId: CREATED_PROFILE_ID
+  })
+  expect(activated.state.learnerProfile.languages).toEqual(['french'])
 })
 
 test('pre-authentication choices survive reload before authentication', async ({

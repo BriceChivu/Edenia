@@ -474,6 +474,9 @@ import {
   createLegacyProgressMigrationView
 } from './features/migration/legacy-progress-view.js'
 import {
+  bindLearnerProfileAccessActions
+} from './features/profile-access/actions.js'
+import {
   createLearnerProfileAccessView
 } from './features/profile-access/view.js'
 import {
@@ -2651,13 +2654,19 @@ function handleLearnerProfileAccessStateChange(accessState) {
   const publicOnboardingState = !hasPersistedLearnerProfile()
     ? loadOnboardingWorkingState()
     : null
+  const onboardingAlreadyVisible = introTrailerState.active
+    || personalizedOnboardingState.active
   if (
     ACCOUNT_FEATURES_ENABLED
     && publicOnboardingState
-    && [
-      LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION,
-      LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
-    ].includes(accessState.status)
+    && (
+      accessState.status
+        === LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
+      || (
+        accessState.status === LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
+        && onboardingAlreadyVisible
+      )
+    )
   ) {
     document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
     applyLocale(publicOnboardingState.config.locale)
@@ -17590,6 +17599,10 @@ bindSettingsAccountActions(document, {
   verifyEmailCode: verifyAccountEmailCode,
   signOut: signOutAccount,
   downloadAccount: downloadAccountData
+})
+bindLearnerProfileAccessActions(document, {
+  retry: () => learnerProfileLifecycleAuthority?.refresh(),
+  signOut: signOutAccount
 })
 bindReminderPreferenceActions(document, {
   save: saveReminderPreference,
