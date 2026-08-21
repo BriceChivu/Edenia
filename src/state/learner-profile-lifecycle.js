@@ -407,6 +407,8 @@ export function createLearnerProfileLifecycleAuthority({
       ) {
         const verification = getCurrentOfflineVerification(localProfile)
         if (verification) return activateOffline(localProfile, verification)
+      } else {
+        ownerVerification?.clear?.()
       }
       releaseActiveProfile()
       return publish(
@@ -500,6 +502,7 @@ export function createLearnerProfileLifecycleAuthority({
       || Array.isArray(profile)
     ) return { persisted: false, error: null }
     const previousState = currentState
+    const previousOfflineExpiresAt = offlineVerificationExpiresAt
     releaseActiveProfile()
     const activation = Object.freeze({
       activatedAt: clock.now(),
@@ -522,7 +525,9 @@ export function createLearnerProfileLifecycleAuthority({
       publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
       return result || { persisted: false, error: null }
     }
-    activateProfile({ profile }, activation)
+    activateProfile({ profile }, activation, {
+      offlineExpiresAt: previousOfflineExpiresAt
+    })
     analytics.profileSaved(profile, { activation })
     enqueueCloudSave(profile, activation)
     return result
@@ -553,7 +558,24 @@ export function createLearnerProfileLifecycleAuthority({
       if (
         currentState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
         && getCurrentActivationFor(activeProfile)
-      ) return
+      ) {
+        if (
+          !currentState.ownerId
+          || connectivity.getObservation()?.status === 'online'
+        ) return
+        const verification = getCurrentOfflineVerification(
+          localPersistence.read()
+        )
+        if (!verification) {
+          releaseActiveProfile()
+          publish(LEARNER_PROFILE_ACCESS_STATES.LOCKED)
+          return
+        }
+        offlineVerificationExpiresAt =
+          verification.verifiedAt + OWNER_VERIFICATION_MAX_AGE_MS
+        scheduleOfflineExpiryCheck()
+        return
+      }
       evaluate()
     })
     unsubscribeLocalPersistence = localPersistence.subscribe(() => {

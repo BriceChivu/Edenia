@@ -617,6 +617,83 @@ test('an active signed-in profile stays writable when connectivity drops', async
   )
 })
 
+test('an online-verified profile expires 30 days after connectivity drops', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const profile = { marker: 'online-then-offline' }
+  const verifiedAt = 1_786_982_400_000
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId,
+      revision: 4,
+      status: 'activate'
+    },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId,
+      revision: 4,
+      status: 'ready'
+    },
+    now: verifiedAt
+  })
+  harness.authority.start()
+  await Promise.resolve()
+
+  harness.connectivity.publish({ status: 'offline' })
+  harness.setNow(verifiedAt + (30 * 24 * 60 * 60 * 1000) + 1)
+
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.LOCKED
+  )
+})
+
+test('replacing an offline profile preserves its verification deadline', () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const verifiedAt = 1_786_982_400_000
+  const profile = { marker: 'before-offline-import' }
+  const replacement = { marker: 'after-offline-import' }
+  const harness = createHarness({
+    authentication: {
+      failure: 'network',
+      status: 'unavailable',
+      userId: null
+    },
+    connectivity: { status: 'offline' },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 4,
+      status: 'ready'
+    },
+    now: verifiedAt + 1_000,
+    ownerVerification: { ownerId, verifiedAt }
+  })
+  harness.authority.start()
+
+  assert.deepEqual(
+    harness.authority.replaceActiveProfile(replacement),
+    { persisted: true, error: null }
+  )
+  assert.equal(harness.authority.readActiveProfile(), replacement)
+  harness.setNow(verifiedAt + (30 * 24 * 60 * 60 * 1000) + 1)
+
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.LOCKED
+  )
+})
+
 test('another tab renewing verification does not start an online resolution loop', async () => {
   const ownerId = '123e4567-e89b-42d3-a456-426614174000'
   const profileId = '223e4567-e89b-42d3-a456-426614174001'
@@ -952,6 +1029,51 @@ test('definitive ownership failure removes the offline grace path', async () => 
     status: 'unavailable',
     userId: null
   })
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.LOCKED
+  )
+})
+
+test('invalid authentication revokes verification before a later outage', () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { marker: 'invalid-authentication' }
+  const now = 1_786_982_400_000
+  const harness = createHarness({
+    authentication: {
+      failure: 'network',
+      status: 'unavailable',
+      userId: null
+    },
+    connectivity: { status: 'offline' },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 4,
+      status: 'ready'
+    },
+    now,
+    ownerVerification: { ownerId, verifiedAt: now - 10_000 }
+  })
+  harness.authority.start()
+  assert.equal(harness.authority.readActiveProfile(), profile)
+
+  harness.authentication.publish({
+    failure: 'invalid',
+    status: 'unavailable',
+    userId: null
+  })
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(harness.getOwnerVerification(), null)
+
+  harness.authentication.publish({
+    failure: 'network',
+    status: 'unavailable',
+    userId: null
+  })
+  assert.equal(harness.authority.readActiveProfile(), null)
   assert.equal(
     harness.authority.getState().status,
     LEARNER_PROFILE_ACCESS_STATES.LOCKED
