@@ -428,13 +428,22 @@ export function createLearnerProfileLifecycleAuthority({
       evaluate()
       return
     }
-    const verification = getCurrentOfflineVerification(localPersistence.read())
-    if (!verification) {
-      releaseActiveProfile()
-      publish(LEARNER_PROFILE_ACCESS_STATES.LOCKED)
-      return
-    }
-    if (offlineVerificationExpiresAt === null) return
+    const verification = requireCurrentOwnerVerification()
+    if (!verification || offlineVerificationExpiresAt === null) return
+    applyOfflineVerificationDeadline(verification)
+  }
+
+  function requireCurrentOwnerVerification() {
+    const verification = getCurrentOfflineVerification(
+      localPersistence.read()
+    )
+    if (verification) return verification
+    releaseActiveProfile()
+    publish(LEARNER_PROFILE_ACCESS_STATES.LOCKED)
+    return null
+  }
+
+  function applyOfflineVerificationDeadline(verification) {
     offlineVerificationExpiresAt =
       verification.verifiedAt + OWNER_VERIFICATION_MAX_AGE_MS
     scheduleOfflineExpiryCheck()
@@ -563,17 +572,8 @@ export function createLearnerProfileLifecycleAuthority({
           !currentState.ownerId
           || connectivity.getObservation()?.status === 'online'
         ) return
-        const verification = getCurrentOfflineVerification(
-          localPersistence.read()
-        )
-        if (!verification) {
-          releaseActiveProfile()
-          publish(LEARNER_PROFILE_ACCESS_STATES.LOCKED)
-          return
-        }
-        offlineVerificationExpiresAt =
-          verification.verifiedAt + OWNER_VERIFICATION_MAX_AGE_MS
-        scheduleOfflineExpiryCheck()
+        const verification = requireCurrentOwnerVerification()
+        if (verification) applyOfflineVerificationDeadline(verification)
         return
       }
       evaluate()
