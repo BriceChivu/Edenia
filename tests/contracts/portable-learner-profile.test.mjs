@@ -388,6 +388,23 @@ test('portable normalization is deterministic across nonsemantic source order', 
   )
 })
 
+test('portable channel ordering matches the server bytewise canonical order', () => {
+  const source = durableState()
+  source.config.channels = [
+    { id: 'a', imageUrl: '', name: 'Lowercase' },
+    { id: 'B', imageUrl: '', name: 'Uppercase' }
+  ]
+
+  const prepared = preparePortableLearnerProfileEnvelope(source, {
+    now: () => new Date('2026-08-17T00:00:00.000Z')
+  })
+
+  assert.deepEqual(
+    prepared.profile.config.channels.map(channel => channel.id),
+    ['B', 'a']
+  )
+})
+
 test('verification rejects noncanonical, tampered, unsupported, or oversized data losslessly', async () => {
   const created = await createPortableLearnerProfileEnvelope(durableState(), {
     now: () => new Date('2026-08-17T00:00:00.000Z')

@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
-select plan(12);
+select plan(13);
 
 select has_function(
   'public',
@@ -209,6 +209,17 @@ select throws_ok(
   '22023',
   'Learner profile envelope is invalid',
   'a correctly rehashed noncanonical learner list is rejected'
+);
+
+select lives_ok(
+  $query$
+    select private.assert_learner_profile_envelope(
+      $profile$
+        {"exportedAt":"2026-08-21T02:03:04.000Z","integrity":{"algorithm":"SHA-256","byteLength":996,"payloadSha256":"fCi8JTQVYZ7sde7Asqm9X6ZQEG00fed8KKlkwpmq8UA"},"profile":{"activityLog":[],"anki":{},"cityProgress":{"maxLevelIndex":0},"config":{"ankiEnabled":true,"channelShelfOrder":[],"channelVideoFormats":{},"channels":[{"catalogId":null,"id":"B","imageUrl":"","name":"Uppercase"},{"catalogId":null,"id":"a","imageUrl":"","name":"Lowercase"}],"includeShorts":true,"locale":"en","removedChannelIds":[],"removedDefaultChannelIds":[],"weeklyGoalHours":4},"learnerProfile":{"createdAt":null,"languages":[],"level":null,"selectedChannelCatalogIds":[],"updatedAt":null},"noAnkiFrequentUserPrompt":{"respondedAt":null,"response":null},"onboarding":{"introSeenAt":null,"levelUpGuidanceShownAt":null,"recommendationsAppliedAt":null,"setupCompleted":false,"setupCompletedAt":null,"walkthroughCompleted":false,"walkthroughCompletedAt":null},"videos":{}},"schema":"edenia-portable-learner-profile","version":1}
+      $profile$::jsonb
+    )
+  $query$,
+  'browser and server accept the same mixed-case channel ordering'
 );
 
 select lives_ok(
