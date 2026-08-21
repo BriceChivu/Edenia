@@ -231,6 +231,9 @@ test('a recently verified owner can reopen and save the local profile while offl
 
   await expect(page.locator('#mainApp')).toBeVisible()
   await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(
+    'Not yet backed up'
+  )
   const reopenedState = await page.evaluate(key => (
     JSON.parse(localStorage.getItem(key))
   ), STATE_STORAGE_KEY)

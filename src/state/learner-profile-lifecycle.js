@@ -553,6 +553,17 @@ export function createLearnerProfileLifecycleAuthority({
     }) === true
   }
 
+  function retryCloudBackup() {
+    const profile = readActiveProfile()
+    const activation = currentState.activation
+    if (!profile || !activation?.ownerId) return false
+    try {
+      if (cloudPersistence.retry?.() === true) return true
+    } catch {}
+    enqueueCloudSave(profile, activation)
+    return true
+  }
+
   function start() {
     if (started) return currentState
     started = true
@@ -623,6 +634,7 @@ export function createLearnerProfileLifecycleAuthority({
     readActiveProfile,
     refresh,
     replaceActiveProfile,
+    retryCloudBackup,
     saveActiveProfile,
     start
   })

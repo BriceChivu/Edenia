@@ -27,7 +27,8 @@ import { isValidStateShape } from './persistence-contract.js'
 export const PORTABLE_LEARNER_PROFILE_SCHEMA =
   'edenia-portable-learner-profile'
 export const PORTABLE_LEARNER_PROFILE_VERSION = 1
-export const PORTABLE_LEARNER_PROFILE_MAX_BYTES = 2 * 1024 * 1024
+export const LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES = 2 * 1024 * 1024
+export const PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES = 8 * 1024 * 1024
 
 const SHA256_BASE64URL_PATTERN = /^[A-Za-z0-9_-]{43}$/
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -527,7 +528,7 @@ function createIntegrityPayload({ exportedAt, profile, schema, version }) {
 export function preparePortableLearnerProfileEnvelope(
   state,
   {
-    maxBytes = PORTABLE_LEARNER_PROFILE_MAX_BYTES,
+    maxBytes = PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES,
     now = () => new Date()
   } = {}
 ) {
@@ -568,7 +569,7 @@ export async function finalizePortableLearnerProfileEnvelope(
   value,
   {
     cryptoLike = globalThis.crypto,
-    maxBytes = PORTABLE_LEARNER_PROFILE_MAX_BYTES
+    maxBytes = PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES
   } = {}
 ) {
   validateMaximumBytes(maxBytes)
@@ -631,7 +632,7 @@ export async function verifyPortableLearnerProfileEnvelope(
   value,
   {
     cryptoLike = globalThis.crypto,
-    maxBytes = PORTABLE_LEARNER_PROFILE_MAX_BYTES
+    maxBytes = PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES
   } = {}
 ) {
   try {

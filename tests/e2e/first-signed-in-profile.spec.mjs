@@ -1,4 +1,5 @@
 import { expect, test } from '../support/network-fixture.mjs'
+import { readFile } from 'node:fs/promises'
 import {
   LEARNER_PROFILE_RESOLUTION_STATUSES
 } from '../../src/domain/learner-profile-resolution.js'
@@ -324,6 +325,10 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
 
     releaseResolution()
     await expect(page.locator('#mainApp')).toBeVisible()
+    await expect.poll(() => page.evaluate(stateKey => (
+      JSON.parse(localStorage.getItem(stateKey))
+        .config.trackedChannelPolicy.lastConfirmedTier
+    ), STATE_STORAGE_KEY)).toBe('free')
     const activated = await page.evaluate(({
       accessKey,
       draftKey,
@@ -898,6 +903,144 @@ test('offline progress survives reload and activates on a second device after sy
   } finally {
     await secondContext.close()
   }
+})
+
+test('rejected cloud backup preserves continued local study, recovery export, and retry', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let cloudEnvelope = await createReturningOwnerEnvelope()
+  let cloudRevision = 12
+  let acceptCommits = true
+  const commitRequests = []
+
+  await page.addInitScript(({ authKey, authenticated }) => {
+    localStorage.setItem(authKey, JSON.stringify(authenticated))
+  }, {
+    authKey: AUTH_STORAGE_KEY,
+    authenticated: authenticatedSession()
+  })
+  await installRuntimeConfig(page)
+  await page.route(`${SUPABASE_ORIGIN}/**`, async route => {
+    const request = route.request()
+    const pathname = new URL(request.url()).pathname
+    if (pathname === '/auth/v1/token') {
+      await route.fulfill({ json: authenticatedSession(), status: 200 })
+      return
+    }
+    if (pathname === '/rest/v1/rpc/resolve_my_learner_profile') {
+      await route.fulfill({
+        json: [returningOwnerResolutionRow(cloudEnvelope, cloudRevision)],
+        status: 200
+      })
+      return
+    }
+    if (pathname === '/rest/v1/rpc/commit_my_learner_profile') {
+      const operation = request.postDataJSON()
+      commitRequests.push(operation)
+      if (!acceptCommits) {
+        await route.fulfill({
+          json: [{ status: 'rejected' }],
+          status: 200
+        })
+        return
+      }
+      expect(operation.p_base_revision).toBe(cloudRevision)
+      cloudEnvelope = operation.p_envelope
+      cloudRevision += 1
+      await route.fulfill({
+        json: [{
+          base_revision: operation.p_base_revision,
+          generation: operation.p_generation,
+          payload_sha256: operation.p_envelope.integrity.payloadSha256,
+          profile_id: operation.p_profile_id,
+          revision: cloudRevision,
+          status: 'accepted'
+        }],
+        status: 200
+      })
+      return
+    }
+    await route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  const startingRevision = cloudRevision
+  acceptCommits = false
+  commitRequests.length = 0
+  await page.locator('.gear-btn').click()
+  await page.locator('.settings-howto-toggle').click()
+  await page.locator('#settingsAnkiEnabled').uncheck()
+
+  await expect(page.locator('#learnerProfileSyncSettingsStatus')).toHaveText(
+    'Not backed up'
+  )
+  const accountToggle = page.locator('.settings-account-toggle')
+  if (await accountToggle.getAttribute('aria-expanded') === 'false') {
+    await accountToggle.click()
+  }
+  await expect(page.locator('#learnerProfileSyncActions')).toBeVisible()
+  await expect(page.locator('#learnerProfileSyncGuidance')).toHaveText(
+    'Your study stays on this device. You can keep studying, try the backup again, or export a recovery copy.'
+  )
+  expect(cloudRevision).toBe(startingRevision)
+  expect(cloudEnvelope.profile.config.ankiEnabled).toBe(true)
+
+  await page.locator('#settingsLocaleBtn').click()
+  await page.locator('input[name="settingsLocale"][value="fr"]').check()
+  await expect.poll(() => page.evaluate(key => (
+    JSON.parse(localStorage.getItem(key)).config
+  ), STATE_STORAGE_KEY)).toMatchObject({
+    ankiEnabled: false,
+    locale: 'fr'
+  })
+  await expect(page.locator('#learnerProfileSyncSettingsStatus')).toHaveText(
+    'Non sauvegardé'
+  )
+  const pending = await page.evaluate(key => (
+    JSON.parse(localStorage.getItem(key))
+  ), PROFILE_SYNC_STORAGE_KEY)
+  expect(pending).toMatchObject({
+    acceptedRevision: startingRevision,
+    pending: {
+      baseRevision: startingRevision,
+      envelope: { profile: { config: { ankiEnabled: false, locale: 'en' } } },
+      prepared: null
+    },
+    queued: {
+      baseRevision: startingRevision + 1,
+      prepared: { profile: { config: { ankiEnabled: false, locale: 'fr' } } }
+    }
+  })
+  expect(cloudRevision).toBe(startingRevision)
+
+  const downloadPromise = page.waitForEvent('download')
+  await page.locator(
+    '[data-profile-sync-action="export-recovery"]'
+  ).click()
+  const download = await downloadPromise
+  const downloadPath = await download.path()
+  const serialized = await readFile(downloadPath, 'utf8')
+  const recoveryEnvelope = JSON.parse(serialized)
+  expect(recoveryEnvelope.profile.config).toMatchObject({
+    ankiEnabled: false,
+    locale: 'fr'
+  })
+  expect(Buffer.byteLength(serialized, 'utf8')).toBe(
+    recoveryEnvelope.integrity.byteLength
+  )
+
+  acceptCommits = true
+  await page.locator('[data-profile-sync-action="retry"]').click()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('À jour')
+  expect(cloudRevision).toBe(startingRevision + 2)
+  expect(cloudEnvelope.profile.config).toMatchObject({
+    ankiEnabled: false,
+    locale: 'fr'
+  })
+  expect(commitRequests).toHaveLength(4)
 })
 
 test('an already signed-in new learner resolves again when onboarding reaches its final step', async ({

@@ -225,6 +225,8 @@ import {
 import {
   createPortableLearnerProfileEnvelope,
   finalizePortableLearnerProfileEnvelope,
+  LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES,
+  PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES,
   PORTABLE_LEARNER_PROFILE_SCHEMA,
   preparePortableLearnerProfileEnvelope,
   verifyPortableLearnerProfileEnvelope
@@ -484,6 +486,9 @@ import {
 import {
   bindLearnerProfileAccessActions
 } from './features/profile-access/actions.js'
+import {
+  bindLearnerProfileSyncActions
+} from './features/profile-access/sync-actions.js'
 import {
   createLearnerProfileAccessView
 } from './features/profile-access/view.js'
@@ -923,23 +928,37 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     clearOnboardingDraft: onboardingProfileDraftStore.clear,
     createOnboardingEnvelope: onboardingState => (
       createInitialSignedInProfileEnvelope(onboardingState, {
-        createEnvelope: createPortableLearnerProfileEnvelope,
+        createEnvelope: (state, options) => (
+          createPortableLearnerProfileEnvelope(state, {
+            ...options,
+            maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES
+          })
+        ),
         normalizeLearnerProfile: normalizeLearnerProfileState
       })
     ),
     createOperationId: createLearnerProfileActivationId,
     eventTarget: window,
-    finalizeEnvelope: finalizePortableLearnerProfileEnvelope,
+    finalizeEnvelope: prepared => finalizePortableLearnerProfileEnvelope(
+      prepared,
+      { maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES }
+    ),
     getClient: getSupabaseClient,
     importEnvelope: importSignedInProfileEnvelope,
     isOnline: () => window.navigator.onLine !== false,
     now: () => Date.now(),
-    prepareEnvelope: preparePortableLearnerProfileEnvelope,
+    prepareEnvelope: profile => preparePortableLearnerProfileEnvelope(
+      profile,
+      { maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES }
+    ),
     readOnboardingState: loadOnboardingWorkingState,
     setTimer: (callback, delay) => window.setTimeout(callback, delay),
     storage: localStorage,
     syncStorageKey: LEARNER_PROFILE_SYNC_KEY,
-    verifyEnvelope: verifyPortableLearnerProfileEnvelope
+    verifyEnvelope: envelope => verifyPortableLearnerProfileEnvelope(
+      envelope,
+      { maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES }
+    )
   })
   cloudPersistence.subscribe(state => {
     learnerProfileSyncViewState = state
@@ -6345,7 +6364,7 @@ function downloadLearnerProfileSyncFile(state, {
   isCurrent = () => true
 } = {}) {
   void createPortableLearnerProfileEnvelope(state, {
-    maxBytes: Number.MAX_SAFE_INTEGER,
+    maxBytes: PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES,
     now: () => new Date(exportedAt)
   }).then(({ serialized }) => {
     if (!isCurrent()) return
@@ -6403,7 +6422,7 @@ function importSyncFileFromInput(input) {
         payload?.schema === PORTABLE_LEARNER_PROFILE_SCHEMA
       const portableEnvelope = isPortableProfile
         ? await verifyPortableLearnerProfileEnvelope(serialized, {
-            maxBytes: Number.MAX_SAFE_INTEGER
+            maxBytes: PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES
           })
         : null
       const importedState = isPortableProfile
@@ -17696,6 +17715,10 @@ bindSettingsAccountActions(document, {
 bindLearnerProfileAccessActions(document, {
   retry: () => learnerProfileLifecycleAuthority?.refresh(),
   signOut: signOutAccount
+})
+bindLearnerProfileSyncActions(document, {
+  retry: () => learnerProfileLifecycleAuthority?.retryCloudBackup(),
+  exportRecovery: () => learnerProfileLifecycleAuthority?.exportActiveProfile()
 })
 bindReminderPreferenceActions(document, {
   save: saveReminderPreference,

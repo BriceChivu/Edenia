@@ -158,6 +158,76 @@ test('cloud unavailability remains distinct from unsafe profile recovery', async
   })
 })
 
+test('an unverifiable cloud head stays not yet backed up when verified local study activates', async () => {
+  const serializedRecord = JSON.stringify({
+    acceptedRevision: 4,
+    generation: 1,
+    ownerId: OWNER_ID,
+    pending: null,
+    profileId: PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: serializedRecord
+  })
+  const states = []
+  const adapter = createAdapter({
+    rpc: async () => { throw new TypeError('network unavailable') },
+    storage
+  })
+  adapter.subscribe(state => states.push(state.status))
+
+  assert.deepEqual(await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      generation: 1,
+      ownerId: OWNER_ID,
+      profile: { marker: 'verified-local' },
+      profileId: PROFILE_ID,
+      revision: 4,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  }), { status: 'waiting-cloud' })
+  assert.equal(states.at(-1), 'not-yet-backed-up')
+
+  const activation = {
+    activatedAt: 1,
+    id: 'activation-current',
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  }
+  assert.equal(adapter.activate({
+    activation,
+    generation: 1,
+    isCurrent: () => true,
+    revision: 4
+  }), true)
+  assert.equal(states.at(-1), 'not-yet-backed-up')
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), serializedRecord)
+})
+
+test('a verified local profile without cloud revision metadata is visibly not yet backed up', () => {
+  const states = []
+  const adapter = createAdapter()
+  adapter.subscribe(state => states.push(state.status))
+
+  assert.equal(adapter.activate({
+    activation: {
+      activatedAt: 1,
+      id: 'activation-current',
+      ownerId: OWNER_ID,
+      profileId: `owner:${OWNER_ID}`
+    },
+    generation: undefined,
+    isCurrent: () => true,
+    revision: undefined
+  }), false)
+  assert.equal(states.at(-1), 'not-yet-backed-up')
+})
+
 test('an unsupported or damaged cloud envelope cannot activate or clear local state', async () => {
   let clearCalls = 0
   const adapter = createAdapter({
@@ -699,6 +769,103 @@ test('thrown network failures keep the exact operation and retry it with bounded
   assert.equal(syncStates.at(-1), 'up-to-date')
 })
 
+test('repeated cloud failures stop automatically and a learner retry restarts bounded backoff', async () => {
+  let now = 10_000
+  const eventTarget = createEventTarget()
+  const storage = createMemoryStorage()
+  const scheduled = []
+  const commitCalls = []
+  const syncStates = []
+  const adapter = createAdapter({
+    createOperationId: () => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    eventTarget,
+    now: () => now,
+    rpc: async (name, parameters) => {
+      if (name === 'resolve_my_learner_profile') {
+        return {
+          data: [{
+            created: false,
+            envelope: { profile: { marker: 'cloud' } },
+            generation: 1,
+            profile_id: PROFILE_ID,
+            revision: 1,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          error: null
+        }
+      }
+      commitCalls.push(parameters)
+      return {
+        data: null,
+        error: { code: 'PGRST000', message: 'upstream unavailable' },
+        status: 503
+      }
+    },
+    setTimer(callback, delay) {
+      scheduled.push({ callback, delay })
+      return scheduled.length
+    },
+    storage
+  })
+  adapter.start()
+  adapter.subscribe(state => syncStates.push(state.status))
+  const resolved = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      ownerId: OWNER_ID,
+      profile: { marker: 'cloud' },
+      profileId: PROFILE_ID,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+  const activation = {
+    activatedAt: 1,
+    id: 'activation-current',
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  }
+  adapter.activate({
+    activation,
+    generation: resolved.generation,
+    isCurrent: () => true,
+    revision: resolved.revision
+  })
+  adapter.save({ marker: 'local' }, { activation, isCurrent: () => true })
+  await flush()
+
+  for (let attempt = 1; attempt < 5; attempt += 1) {
+    const record = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+    now = record.pending.nextRetryAt
+    scheduled.at(-1).callback()
+    await flush()
+  }
+
+  let record = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+  assert.equal(commitCalls.length, 5)
+  assert.equal(scheduled.length, 4)
+  assert.equal(record.pending.operationId, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+  assert.equal(record.pending.retryCount, 5)
+  assert.equal(syncStates.at(-1), 'not-backed-up')
+
+  eventTarget.dispatch('focus')
+  await flush()
+
+  assert.equal(commitCalls.length, 5)
+  assert.equal(syncStates.at(-1), 'not-backed-up')
+
+  assert.equal(adapter.retry(), true)
+  await flush()
+
+  record = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+  assert.equal(commitCalls.length, 6)
+  assert.equal(scheduled.length, 5)
+  assert.equal(record.pending.operationId, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+  assert.equal(record.pending.retryCount, 1)
+  assert.equal(syncStates.at(-1), 'waiting')
+})
+
 test('reload closes an accepted-operation crash window with the exact receipt', async () => {
   const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
   const storage = createMemoryStorage({
@@ -811,7 +978,7 @@ test('a malformed durable sync record is preserved for recovery', async () => {
   assert.equal(storage.getItem(SYNC_STORAGE_KEY), malformed)
 })
 
-test('queue preparation failures publish an accessible failed sync state', async () => {
+test('queue preparation rejection reports that the local candidate is not backed up', async () => {
   const adapter = createAdapter({
     prepareEnvelope: () => {
       throw new TypeError('invalid local candidate')
@@ -848,7 +1015,179 @@ test('queue preparation failures publish an accessible failed sync state', async
       activation,
       isCurrent: () => true
     }),
-    { status: 'needs-attention' }
+    { status: 'not-backed-up' }
   )
-  assert.equal(states.at(-1), 'needs-attention')
+  assert.equal(states.at(-1), 'not-backed-up')
+})
+
+test('durable candidate integrity rejection keeps the candidate pending for recovery', async () => {
+  const storage = createMemoryStorage()
+  const states = []
+  const adapter = createAdapter({
+    createOperationId: () => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    finalizeEnvelope: async () => {
+      throw new TypeError('durable candidate integrity mismatch')
+    },
+    storage
+  })
+  adapter.subscribe(state => states.push(state.status))
+  const resolved = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      ownerId: OWNER_ID,
+      profile: { marker: 'cloud' },
+      profileId: PROFILE_ID,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+  const activation = {
+    activatedAt: 1,
+    id: 'activation-current',
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  }
+  adapter.activate({
+    activation,
+    generation: resolved.generation,
+    isCurrent: () => true,
+    revision: resolved.revision
+  })
+  adapter.save({ marker: 'local-integrity-mismatch' }, {
+    activation,
+    isCurrent: () => true
+  })
+  await flush()
+
+  const record = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+  assert.equal(record.acceptedRevision, 1)
+  assert.equal(record.pending.operationId, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+  assert.deepEqual(record.pending.prepared.profile, {
+    marker: 'local-integrity-mismatch'
+  })
+  assert.equal(record.pending.envelope, null)
+  assert.equal(states.at(-1), 'not-backed-up')
+})
+
+test('sync queue quota rejection preserves its previous cloud receipt state', async () => {
+  let serializedRecord = JSON.stringify({
+    acceptedRevision: 4,
+    generation: 1,
+    ownerId: OWNER_ID,
+    pending: null,
+    profileId: PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+  let writes = 0
+  const storage = {
+    getItem: key => key === SYNC_STORAGE_KEY ? serializedRecord : null,
+    setItem(key, value) {
+      if (key !== SYNC_STORAGE_KEY) return
+      writes += 1
+      if (writes > 1) throw new DOMException('Quota exceeded', 'QuotaExceededError')
+      serializedRecord = String(value)
+    }
+  }
+  const adapter = createAdapter({ storage })
+  const states = []
+  adapter.subscribe(state => states.push(state.status))
+  const activation = {
+    activatedAt: 1,
+    id: 'activation-current',
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  }
+  assert.equal(adapter.activate({
+    activation,
+    generation: 1,
+    isCurrent: () => true,
+    revision: 4
+  }), true)
+  const before = serializedRecord
+
+  assert.deepEqual(adapter.save({ marker: 'local-too-large-for-queue' }, {
+    activation,
+    isCurrent: () => true
+  }), { status: 'not-backed-up' })
+  assert.equal(serializedRecord, before)
+  assert.equal(states.at(-1), 'not-backed-up')
+})
+
+test('server rejection preserves the exact local candidate and accepted cloud revision', async () => {
+  const storage = createMemoryStorage()
+  const scheduled = []
+  const states = []
+  const adapter = createAdapter({
+    createOperationId: () => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    rpc: async name => {
+      if (name === 'resolve_my_learner_profile') {
+        return {
+          data: [{
+            created: false,
+            envelope: { profile: { marker: 'cloud' } },
+            generation: 1,
+            profile_id: PROFILE_ID,
+            revision: 4,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          error: null
+        }
+      }
+      return {
+        data: null,
+        error: {
+          code: '22023',
+          message: 'Learner profile envelope is invalid'
+        },
+        status: 400
+      }
+    },
+    setTimer(callback, delay) {
+      scheduled.push({ callback, delay })
+      return scheduled.length
+    },
+    storage
+  })
+  adapter.subscribe(state => states.push(state.status))
+  const resolved = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      ownerId: OWNER_ID,
+      profile: { marker: 'cloud' },
+      profileId: PROFILE_ID,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+  const activation = {
+    activatedAt: 1,
+    id: 'activation-current',
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  }
+  adapter.activate({
+    activation,
+    generation: resolved.generation,
+    isCurrent: () => true,
+    revision: resolved.revision
+  })
+  adapter.save({ marker: 'local-rejected' }, {
+    activation,
+    isCurrent: () => true
+  })
+  await flush()
+
+  const record = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+  assert.equal(record.acceptedRevision, 4)
+  assert.equal(record.pending.operationId, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+  assert.deepEqual(record.pending.envelope.profile, {
+    marker: 'local-rejected'
+  })
+  assert.equal(record.pending.retryCount, 0)
+  assert.equal(record.queued, null)
+  assert.equal(scheduled.length, 0)
+  assert.equal(states.at(-1), 'not-backed-up')
 })

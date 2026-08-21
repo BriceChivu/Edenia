@@ -47,6 +47,7 @@ function createHarness({
   },
   claimActivationResult = true,
   cloudResolution = { status: 'waiting' },
+  cloudRetryResult = false,
   completeOnboardingFinalizationResult = true,
   now = 1_786_982_400_000,
   ownerVerification = null
@@ -98,6 +99,10 @@ function createHarness({
           return cloudResolution === 'deferred'
             ? cloudDeferred.promise
             : cloudResolution
+        },
+        retry() {
+          calls.push(['cloud-retry'])
+          return cloudRetryResult
         },
         save(profile, context) {
           calls.push(['cloud-save', profile, context])
@@ -532,6 +537,51 @@ test('cloud revision identity is installed and activated before signed-in saves 
   assert.ok(
     harness.calls.findIndex(([name]) => name === 'cloud-activate')
       < harness.calls.findIndex(([name]) => name === 'cloud-save')
+  )
+})
+
+test('backup retry resubmits the active local profile and keeps recovery export available', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const profile = { marker: 'local-not-backed-up' }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId,
+      revision: 4,
+      status: 'activate'
+    },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId,
+      revision: 4,
+      status: 'ready'
+    }
+  })
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(harness.authority.retryCloudBackup(), true)
+  assert.equal(harness.authority.exportActiveProfile(), true)
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'cloud-retry').length,
+    1
+  )
+  const cloudSave = harness.calls.find(([name]) => name === 'cloud-save')
+  assert.equal(cloudSave[1], profile)
+  assert.equal(cloudSave[2].isCurrent(), true)
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'local-save').length,
+    0
+  )
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'download').length,
+    1
   )
 })
 

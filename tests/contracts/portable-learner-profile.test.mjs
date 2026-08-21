@@ -3,6 +3,8 @@ import test from 'node:test'
 import {
   createPortableLearnerProfileEnvelope,
   finalizePortableLearnerProfileEnvelope,
+  LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES,
+  PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES,
   PORTABLE_LEARNER_PROFILE_SCHEMA,
   PORTABLE_LEARNER_PROFILE_VERSION,
   preparePortableLearnerProfileEnvelope,
@@ -194,6 +196,79 @@ test('a durable sync candidate includes its integrity before async verification'
     await verifyPortableLearnerProfileEnvelope(finalized.serialized),
     finalized.envelope
   )
+})
+
+test('cloud acceptance and local recovery use separate envelope bounds', async () => {
+  assert.equal(LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES, 2 * 1024 * 1024)
+  assert.equal(PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES, 8 * 1024 * 1024)
+
+  const source = durableState()
+  source.videos.retained.title = 'x'.repeat(2 * 1024 * 1024)
+  const recovery = await createPortableLearnerProfileEnvelope(source, {
+    now: () => new Date('2026-08-17T00:00:00.000Z')
+  })
+
+  assert.ok(
+    recovery.byteLength > LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES
+  )
+  assert.ok(
+    recovery.byteLength < PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES
+  )
+  await assert.rejects(
+    createPortableLearnerProfileEnvelope(source, {
+      maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES,
+      now: () => new Date('2026-08-17T00:00:00.000Z')
+    }),
+    /too large/
+  )
+  assert.deepEqual(
+    await verifyPortableLearnerProfileEnvelope(recovery.serialized),
+    recovery.envelope
+  )
+})
+
+test('cloud verification accepts the exact byte bound and rejects one byte more', async () => {
+  const source = durableState()
+  const exportedAt = new Date('2026-08-17T00:00:00.000Z')
+  let fillerLength = LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES
+  let exactBoundary = null
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    source.videos.retained.title = 'x'.repeat(fillerLength)
+    const candidate = await createPortableLearnerProfileEnvelope(source, {
+      now: () => exportedAt
+    })
+    if (candidate.byteLength === LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES) {
+      exactBoundary = candidate
+      break
+    }
+    fillerLength += (
+      LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES - candidate.byteLength
+    )
+  }
+
+  assert.ok(exactBoundary)
+  assert.equal(
+    exactBoundary.byteLength,
+    LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES
+  )
+  assert.ok(await verifyPortableLearnerProfileEnvelope(
+    exactBoundary.serialized,
+    { maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES }
+  ))
+
+  source.videos.retained.title += 'x'
+  const oneByteOver = await createPortableLearnerProfileEnvelope(source, {
+    now: () => exportedAt
+  })
+  assert.equal(
+    oneByteOver.byteLength,
+    LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES + 1
+  )
+  assert.equal(await verifyPortableLearnerProfileEnvelope(
+    oneByteOver.serialized,
+    { maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES }
+  ), null)
 })
 
 test('portable envelope preserves durable learner data and excludes browser authority', async () => {
