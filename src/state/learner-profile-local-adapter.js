@@ -20,9 +20,20 @@ function readAccessRecord(storage, accessStorageKey) {
       || !record.profileId
       || !isNullableString(record.ownerId)
       || !isNullableString(record.activationId)
+      || (
+        record.onboardingFinalizationPending !== undefined
+        && typeof record.onboardingFinalizationPending !== 'boolean'
+      )
       || !Number.isFinite(record.activatedAt)
     ) return { present: true, record: null }
-    return { present: true, record }
+    return {
+      present: true,
+      record: {
+        ...record,
+        onboardingFinalizationPending:
+          record.onboardingFinalizationPending === true
+      }
+    }
   } catch {
     return { present: true, record: null }
   }
@@ -42,6 +53,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
   accessStorageKey,
   accountlessProfileId,
   eventTarget,
+  hasProfile = () => true,
   loadProfile,
   replaceProfile,
   saveProfile,
@@ -51,7 +63,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     let profile
     let access
     try {
-      profile = loadProfile()
+      profile = hasProfile() ? loadProfile() : null
       access = readAccessRecord(storage, accessStorageKey)
     } catch {
       return { status: 'invalid' }
@@ -60,19 +72,80 @@ export function createLearnerProfileLocalPersistenceAdapter({
       return access.present ? { status: 'invalid' } : { status: 'empty' }
     }
     if (access.present && !access.record) return { status: 'invalid' }
-    return {
+    const localProfile = {
       ownerId: access.record?.ownerId || null,
       profile,
       profileId: access.record?.profileId || accountlessProfileId,
       status: 'ready'
     }
+    if (access.record?.onboardingFinalizationPending === true) {
+      localProfile.onboardingFinalizationPending = true
+    }
+    return localProfile
+  }
+
+  function installSignedInProfile(profile, {
+    installedAt,
+    onboardingFinalizationPending = false,
+    ownerId,
+    profileId
+  }) {
+    if (
+      !isRecord(profile)
+      || typeof onboardingFinalizationPending !== 'boolean'
+      || typeof ownerId !== 'string'
+      || !ownerId
+      || typeof profileId !== 'string'
+      || !profileId
+      || !Number.isFinite(installedAt)
+    ) return false
+    if (hasProfile()) return false
+    const record = {
+      activatedAt: installedAt,
+      activationId: null,
+      onboardingFinalizationPending,
+      ownerId,
+      profileId,
+      version: PROFILE_ACCESS_RECORD_VERSION
+    }
+    const isInstallCurrent = () => {
+      const current = readAccessRecord(storage, accessStorageKey).record
+      return current?.activationId === null
+        && current.ownerId === ownerId
+        && current.profileId === profileId
+    }
+    try {
+      storage.setItem(accessStorageKey, JSON.stringify(record))
+      if (!isInstallCurrent()) return false
+      const result = replaceProfile(profile, {
+        syncAnalytics: false
+      }, isInstallCurrent)
+      if (result?.persisted && isInstallCurrent()) return true
+      if (!hasProfile() && isInstallCurrent()) {
+        storage.removeItem(accessStorageKey)
+      }
+      return false
+    } catch {
+      try {
+        if (!hasProfile() && isInstallCurrent()) {
+          storage.removeItem(accessStorageKey)
+        }
+      } catch {}
+      return false
+    }
   }
 
   function claimActivation(fence) {
     if (!isValidFence(fence)) return false
+    const current = readAccessRecord(storage, accessStorageKey).record
     const record = {
       activatedAt: fence.activatedAt,
       activationId: fence.id,
+      onboardingFinalizationPending: Boolean(
+        current?.onboardingFinalizationPending
+        && current.ownerId === fence.ownerId
+        && current.profileId === fence.profileId
+      ),
       ownerId: fence.ownerId,
       profileId: fence.profileId,
       version: PROFILE_ACCESS_RECORD_VERSION
@@ -100,14 +173,34 @@ export function createLearnerProfileLocalPersistenceAdapter({
   function releaseActivation(fence) {
     if (!isActivationCurrent(fence)) return false
     try {
+      const current = readAccessRecord(storage, accessStorageKey).record
       storage.setItem(accessStorageKey, JSON.stringify({
         activatedAt: fence.activatedAt,
         activationId: null,
+        onboardingFinalizationPending:
+          current?.onboardingFinalizationPending === true,
         ownerId: fence.ownerId,
         profileId: fence.profileId,
         version: PROFILE_ACCESS_RECORD_VERSION
       }))
       return true
+    } catch {
+      return false
+    }
+  }
+
+  function completeOnboardingFinalization(fence) {
+    if (!isActivationCurrent(fence)) return false
+    try {
+      const current = readAccessRecord(storage, accessStorageKey).record
+      if (!current?.onboardingFinalizationPending) return true
+      storage.setItem(accessStorageKey, JSON.stringify({
+        ...current,
+        onboardingFinalizationPending: false
+      }))
+      const completed = readAccessRecord(storage, accessStorageKey).record
+      return completed?.onboardingFinalizationPending === false
+        && isActivationCurrent(fence)
     } catch {
       return false
     }
@@ -151,6 +244,8 @@ export function createLearnerProfileLocalPersistenceAdapter({
 
   return Object.freeze({
     claimActivation,
+    completeOnboardingFinalization,
+    installSignedInProfile,
     isActivationCurrent,
     read,
     releaseActivation,

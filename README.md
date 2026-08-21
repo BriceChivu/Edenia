@@ -487,7 +487,7 @@ The supported public runtime variables are:
 | Repository variable | Runtime field | Effect |
 | --- | --- | --- |
 | `EDENIA_ACCOUNT_FEATURES_ROLLOUT` | `accountFeaturesRollout` | Controls the staged account-feature audience: `off`, `internal`, or `public`. Sandbox remains excluded. |
-| `EDENIA_LEARNER_PROFILE_LIFECYCLE_ENABLED` | `learnerProfileLifecycleEnabled` | Routes profile loading, activation, rendering, saving, import, export, analytics sync, and future cloud work through the fenced lifecycle authority. Keep off until owned-profile resolution is connected. |
+| `EDENIA_LEARNER_PROFILE_LIFECYCLE_ENABLED` | `learnerProfileLifecycleEnabled` | Routes profile loading, activation, rendering, saving, import, export, analytics sync, and future cloud work through the fenced lifecycle authority. Keep off until signed-in profile resolution is connected. |
 | `EDENIA_STUDY_GUIDANCE_ENABLED` | `studyGuidanceEnabled` | Replaces the current eligible insight with goal-independent Study Guidance. |
 | `EDENIA_INDEXED_DB_BACKUPS_ENABLED` | `indexedDbBackupsEnabled` | Migrates and writes normal-mode recovery snapshots in IndexedDB. |
 | `EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED` | `indexedDbBackupCleanupEnabled` | Removes a valid legacy backup copy after verified migration; effective only with IndexedDB backups enabled. |

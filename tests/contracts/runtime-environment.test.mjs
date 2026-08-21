@@ -143,6 +143,10 @@ test('storage keys preserve normal, internal, sandbox, and combined isolation', 
       `${expected.storageKey}_learner_profile_access_v1`
     )
     assert.equal(
+      keys.onboardingProfileDraftKey,
+      `${expected.storageKey}_onboarding_draft_v1`
+    )
+    assert.equal(
       keys.plusAuthStorageKey,
       `${expected.storageKey}_plus_auth_v1`
     )

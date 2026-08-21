@@ -45,6 +45,7 @@ function createHarness({
     profileId: 'accountless:browser',
     ownerId: null
   },
+  claimActivationResult = true,
   cloudResolution = { status: 'waiting' }
 } = {}) {
   const authenticationAdapter = createObservationAdapter(authentication)
@@ -52,6 +53,7 @@ function createHarness({
   const cloudDeferred = deferred()
   const calls = []
   let currentFence = null
+  let currentLocal = local
   const authority = createLearnerProfileLifecycleAuthority({
     adapters: {
       analytics: {
@@ -87,9 +89,28 @@ function createHarness({
         }
       },
       localPersistence: {
+        installSignedInProfile(profile, identity) {
+          calls.push(['install', profile, identity])
+          currentLocal = {
+            ownerId: identity.ownerId,
+            profile,
+            profileId: identity.profileId,
+            status: 'ready'
+          }
+          if (identity.onboardingFinalizationPending) {
+            currentLocal.onboardingFinalizationPending = true
+          }
+          return true
+        },
         claimActivation(fence) {
-          currentFence = fence
           calls.push(['claim', fence])
+          if (!claimActivationResult) return false
+          currentFence = fence
+          return true
+        },
+        completeOnboardingFinalization(fence) {
+          calls.push(['complete-onboarding-finalization', fence])
+          delete currentLocal.onboardingFinalizationPending
           return true
         },
         isActivationCurrent(fence) {
@@ -97,7 +118,7 @@ function createHarness({
         },
         read() {
           calls.push(['local-read'])
-          return local
+          return currentLocal
         },
         releaseActivation(fence) {
           calls.push(['release', fence.id])
@@ -283,8 +304,8 @@ test('one fenced accountless profile becomes the only writable and exportable pr
   assert.equal(downloadContext.isCurrent(), false)
 })
 
-test('an explicit owned-profile resolution fences delayed work from an earlier activation', async () => {
-  const ownedProfile = {
+test('an explicit signed-in profile resolution fences delayed work from an earlier activation', async () => {
+  const signedInProfile = {
     learnerProfile: { languages: ['mandarin'] },
     videos: { delayed: { id: 'delayed' } }
   }
@@ -297,7 +318,7 @@ test('an explicit owned-profile resolution fences delayed work from an earlier a
       status: 'activate',
       ownerId: '123e4567-e89b-42d3-a456-426614174000',
       profileId: 'owner:123e4567-e89b-42d3-a456-426614174000',
-      profile: ownedProfile
+      profile: signedInProfile
     },
     local: { status: 'empty' }
   })
@@ -309,21 +330,91 @@ test('an explicit owned-profile resolution fences delayed work from an earlier a
   )
   await Promise.resolve()
 
-  assert.equal(harness.authority.readActiveProfile(), ownedProfile)
-  assert.equal(harness.authority.saveActiveProfile(ownedProfile), true)
+  assert.equal(harness.authority.readActiveProfile(), signedInProfile)
+  assert.ok(
+    harness.calls.findIndex(([name]) => name === 'install')
+      < harness.calls.findIndex(([name]) => name === 'claim')
+  )
+  assert.equal(harness.authority.saveActiveProfile(signedInProfile), true)
   const cloudSave = harness.calls.find(([name]) => name === 'cloud-save')
   assert.equal(cloudSave[2].isCurrent(), true)
 
   harness.authentication.publish({ status: 'signed-out', userId: null })
 
   assert.equal(harness.authority.readActiveProfile(), null)
-  assert.equal(harness.authority.saveActiveProfile(ownedProfile), false)
+  assert.equal(harness.authority.saveActiveProfile(signedInProfile), false)
   assert.equal(harness.authority.exportActiveProfile(), false)
   assert.equal(cloudSave[2].isCurrent(), false)
   assert.equal(
     harness.calls.filter(([name]) => name === 'local-save').length,
     1
   )
+})
+
+test('activation remains hidden when profile-finalization cannot clear temporary state', async () => {
+  let finalizationCalls = 0
+  const harness = createHarness({
+    authentication: {
+      status: 'signed-in',
+      userId: '123e4567-e89b-42d3-a456-426614174000'
+    },
+    cloudResolution: {
+      finalize: () => {
+        finalizationCalls += 1
+        return false
+      },
+      ownerId: '123e4567-e89b-42d3-a456-426614174000',
+      profile: { learnerProfile: { languages: ['mandarin'] } },
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      status: 'activate'
+    },
+    local: { status: 'empty' }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+  )
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(finalizationCalls, 1)
+  assert.equal(harness.calls.some(([name]) => name === 'claim'), true)
+  assert.equal(harness.calls.some(([name]) => name === 'release'), true)
+})
+
+test('draft finalization waits until the local activation fence is claimed', async () => {
+  let finalizationCalls = 0
+  const harness = createHarness({
+    authentication: {
+      status: 'signed-in',
+      userId: '123e4567-e89b-42d3-a456-426614174000'
+    },
+    claimActivationResult: false,
+    cloudResolution: {
+      created: true,
+      finalize: () => {
+        finalizationCalls += 1
+        return true
+      },
+      ownerId: '123e4567-e89b-42d3-a456-426614174000',
+      profile: { learnerProfile: { languages: ['mandarin'] } },
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      status: 'activate'
+    },
+    local: { status: 'empty' }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(finalizationCalls, 0)
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+  )
+  assert.equal(harness.authority.readActiveProfile(), null)
 })
 
 test('a newer tab fence makes the earlier activation inert', () => {
@@ -433,6 +524,56 @@ test('browser persistence shares activation fences across tabs before writes', (
     profile,
     { syncAnalytics: false }
   ]])
+})
+
+test('a new signed-in profile installs behind a locked owner record before activation', () => {
+  const accessStorageKey = 'edenia_v1_profile_access_v1'
+  const values = new Map()
+  let persistedProfile = null
+  const storage = {
+    getItem(key) {
+      return values.get(key) ?? null
+    },
+    removeItem(key) {
+      values.delete(key)
+    },
+    setItem(key, value) {
+      values.set(key, value)
+    }
+  }
+  const adapter = createLearnerProfileLocalPersistenceAdapter({
+    accessStorageKey,
+    accountlessProfileId: 'accountless:edenia_v1',
+    eventTarget: null,
+    hasProfile: () => Boolean(persistedProfile),
+    loadProfile: () => persistedProfile,
+    replaceProfile(profile, options, canPersist) {
+      const access = JSON.parse(storage.getItem(accessStorageKey))
+      assert.equal(access.activationId, null)
+      assert.equal(access.ownerId, '123e4567-e89b-42d3-a456-426614174000')
+      assert.equal(canPersist(), true)
+      assert.equal(options.syncAnalytics, false)
+      persistedProfile = profile
+      return { persisted: true, error: null }
+    },
+    saveProfile: () => false,
+    storage
+  })
+  const profile = { learnerProfile: { languages: ['mandarin'] } }
+
+  assert.equal(adapter.installSignedInProfile(profile, {
+    installedAt: 1_786_982_400_000,
+    onboardingFinalizationPending: true,
+    ownerId: '123e4567-e89b-42d3-a456-426614174000',
+    profileId: '223e4567-e89b-42d3-a456-426614174001'
+  }), true)
+  assert.deepEqual(adapter.read(), {
+    onboardingFinalizationPending: true,
+    ownerId: '123e4567-e89b-42d3-a456-426614174000',
+    profile,
+    profileId: '223e4567-e89b-42d3-a456-426614174001',
+    status: 'ready'
+  })
 })
 
 test('a stale save cannot persist after a newer tab claims activation during preparation', () => {

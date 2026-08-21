@@ -47,6 +47,7 @@ export const FR_LOCALIZED = {
     'onboarding.channels.none': 'Aucune chaîne de départ ne correspond encore à cette combinaison. Vous pouvez continuer et ajouter les vôtres.',
     'onboarding.continue': 'Continuer',
     'onboarding.back': 'Retour',
+    'onboarding.startOver': 'Recommencer',
     'onboarding.build': 'Commencer mon parcours',
     'onboarding.building': 'Préparation de votre parcours…',
     'onboarding.recovery.storage.title': 'Edenia ne peut pas enregistrer votre progression',

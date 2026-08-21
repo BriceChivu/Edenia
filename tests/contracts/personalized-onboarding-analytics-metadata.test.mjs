@@ -321,7 +321,7 @@ test('language and level selection retain reset and replacement behavior', () =>
   )
   assert.match(
     languageSource,
-    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\]\s*personalizedOnboardingState\.channelSelectionsInitialized = false\s*renderPersonalizedOnboarding\(\)/
+    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\]\s*personalizedOnboardingState\.channelSelectionsInitialized = false\s*if \(\s*LEARNER_PROFILE_LIFECYCLE_ENABLED\s*&& !persistPersonalizedOnboardingDraft\(\)\s*\) return\s*renderPersonalizedOnboarding\(\)/
   )
 
   const continueSource = getFunctionSource(
@@ -344,7 +344,7 @@ test('language and level selection retain reset and replacement behavior', () =>
   )
   assert.match(
     levelSource,
-    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\]\s*personalizedOnboardingState\.channelSelectionsInitialized = false\s*renderPersonalizedOnboarding\(\)/
+    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\]\s*personalizedOnboardingState\.channelSelectionsInitialized = false\s*if \(\s*LEARNER_PROFILE_LIFECYCLE_ENABLED\s*&& !persistPersonalizedOnboardingDraft\(\)\s*\) return\s*renderPersonalizedOnboarding\(\)/
   )
 })
 
@@ -387,7 +387,7 @@ test('channel toggling retains guards, limit feedback, and live visual state', (
   )
   assert.match(
     source,
-    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\.\.\.selectedIds\]\s*const control = \[\.\.\.document\.querySelectorAll\('\.onboarding-channel'\)\][\s\S]*?control\?\.setAttribute\('aria-pressed', String\(selectedIds\.has\(catalogId\)\)\)\s*syncOnboardingChoiceLayout\(\)/
+    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\.\.\.selectedIds\]\s*if \(\s*LEARNER_PROFILE_LIFECYCLE_ENABLED\s*&& !persistPersonalizedOnboardingDraft\(\)\s*\) return\s*const control = \[\.\.\.document\.querySelectorAll\('\.onboarding-channel'\)\][\s\S]*?control\?\.setAttribute\('aria-pressed', String\(selectedIds\.has\(catalogId\)\)\)\s*syncOnboardingChoiceLayout\(\)/
   )
   assert.doesNotMatch(source, /renderPersonalizedOnboarding\(\)/)
 })

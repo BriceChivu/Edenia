@@ -1,11 +1,13 @@
 # Account authentication
 
-Edenia uses Supabase Auth for identity while keeping the public study path
-accountless. The browser client uses the pinned `@supabase/supabase-js`
-dependency, persistent PKCE sessions, and a public publishable key. Supabase
-secrets, Google client secrets, Turnstile secrets, SMTP credentials, email
-codes, and session tokens must never enter the static build or application
-state.
+Edenia uses Supabase Auth for identity. The default-off learner-profile
+lifecycle keeps the existing accountless study path unchanged. When that
+lifecycle is enabled, the landing page and onboarding remain public, but sign-in
+is the final action before Edenia creates or displays durable learner state.
+The browser client uses the pinned `@supabase/supabase-js` dependency,
+persistent PKCE sessions, and a public publishable key. Supabase secrets, Google
+client secrets, Turnstile secrets, SMTP credentials, email codes, and session
+tokens must never enter the static build or application state.
 
 ## Audience and transport controls
 
@@ -36,23 +38,77 @@ ordinary public root loads no account provider script while the rollout is
 prefactor gate. When it is off, the existing accountless landing, onboarding,
 study, persistence, sandbox, backup, and recovery path continues through the
 original store and render flow. Keep this gate off in public configuration
-until owned-profile cloud resolution is connected.
+until the database migration and signed-in profile resolution operation are
+deployed and verified together.
 
 When enabled, the application can reach learner state only through the
 learner-profile lifecycle authority. The authority alone publishes
 `resolving`, `locked`, `active`, `waiting-authentication`, `waiting-cloud`,
 `migrating`, `conflicting`, or `recovering`. Authentication contributes only a
 normalized session observation; it never activates, claims, uploads, replaces,
-clears, or displays a profile by itself. Local persistence, future cloud
-persistence, clock, connectivity, export/download, and analytics are explicit
-adapters at the authority seam.
+clears, or displays a profile by itself. Local persistence, cloud persistence,
+clock, connectivity, export/download, and analytics are explicit adapters at
+the authority seam.
 
 Each active profile receives a browser-storage activation fence. Reads, saves,
 imports, exports, analytics synchronization, and queued cloud work must still
 hold that fence. A newer tab or later activation invalidates the earlier
 profile object and its delayed callbacks. Every non-active state hides the
-learner UI and pauses autosave; the visible gate contains identity-neutral copy
-only.
+durable learner UI and pauses autosave. Before a signed-in profile exists, the
+public onboarding draft may occupy that surface; otherwise the visible gate
+contains identity-neutral copy only.
+
+## First signed-in profile creation
+
+With the lifecycle enabled, pre-authentication onboarding writes only a bounded
+version-1 draft under the environment-specific onboarding-draft key. It carries
+locale, the intro and account-step timestamps, one language, one optional
+level, and at most five catalog channel IDs. It contains no videos, Anki data,
+study facts, town progress, session, email, provider metadata, or owner ID. The
+draft survives authentication. The learner can discard it with **Start over**;
+otherwise Edenia removes it only after the new signed-in profile is installed
+behind a local ownership fence.
+
+The authenticated browser calls only:
+
+```js
+client.rpc('resolve_my_learner_profile', {
+  p_onboarding_profile: portableOnboardingEnvelope
+})
+```
+
+The browser supplies no ownership parameter. The public RPC is an invoker
+wrapper around a private security-definer resolver with an empty search path.
+The resolver uses `auth.uid()`, confirms that exact UUID against a verified,
+non-anonymous, non-deleted `auth.users` row, and requires server-recorded
+new-account evidence. A trigger records that evidence only for Auth UUIDs
+created after this migration; existing UUIDs are never backfilled. A UUID with
+legacy `state_backups`, a current head, or any historical learner-profile
+revision routes to its existing profile or recovery instead of blank creation.
+Successful creation consumes the new-account evidence in the same transaction,
+so it cannot authorize a second first profile after later data loss.
+The resolver validates the exact portable schema, its SHA-256 integrity value,
+its UTF-8 byte length, bounded learner choices, and the absence of study data.
+Creation writes one immutable version and one current head at generation 1,
+revision 1, in the same database transaction.
+
+`public.learner_profile_heads` and
+`public.learner_profile_versions` have owner-read RLS policies. Authenticated
+clients receive `SELECT` plus execute access to the narrow resolver, but no
+direct write grant. The resolver derives all ownership server-side.
+
+`private.learner_profile_access_control` is the independent server gate. Its
+states are `off`, `developer-canary`, and `signed-in-public`; it defaults to
+`off`. Developer canary admits only the UUID stored in
+`developer_user_id`. The browser runtime flag controls whether the UI attempts
+the flow, but it cannot admit a UUID or override this server gate.
+
+On success, Edenia verifies the returned portable envelope again, installs the
+signed-in profile locally with pending-finalization evidence, claims a new
+activation fence, clears the draft, and only then reveals the town. If draft
+deletion fails, Edenia releases the activation and retries the pending deletion
+without revealing the profile. Database validation and creation failures roll
+back the head and version together.
 
 ## Google Identity Services
 

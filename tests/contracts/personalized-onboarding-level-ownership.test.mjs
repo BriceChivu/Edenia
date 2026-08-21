@@ -236,7 +236,7 @@ test('level selection retains validation, reset, and synchronous rerender', () =
   )
   assert.match(
     source,
-    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\]\s*personalizedOnboardingState\.channelSelectionsInitialized = false\s*renderPersonalizedOnboarding\(\)/
+    /personalizedOnboardingState\.selectedChannelCatalogIds = \[\]\s*personalizedOnboardingState\.channelSelectionsInitialized = false\s*if \(\s*LEARNER_PROFILE_LIFECYCLE_ENABLED\s*&& !persistPersonalizedOnboardingDraft\(\)\s*\) return\s*renderPersonalizedOnboarding\(\)/
   )
   assert.doesNotMatch(source, /\.preventDefault\(|\.stopPropagation\(/)
 })

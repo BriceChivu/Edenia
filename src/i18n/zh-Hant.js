@@ -47,6 +47,7 @@ export const ZH_HANT_LOCALIZED = {
     'onboarding.channels.none': '目前沒有符合這個組合的入門頻道。你仍可繼續並自行新增。',
     'onboarding.continue': '繼續',
     'onboarding.back': '返回',
+    'onboarding.startOver': '重新開始',
     'onboarding.build': '開始我的旅程',
     'onboarding.building': '正在開始你的旅程…',
     'onboarding.recovery.storage.title': 'Edenia 無法儲存你的進度',

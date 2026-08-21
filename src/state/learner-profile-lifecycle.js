@@ -20,7 +20,7 @@ function isAccountlessProfile(localProfile) {
   return localProfile?.status === 'ready' && !localProfile.ownerId
 }
 
-function isOwnedProfile(localProfile) {
+function isSignedInProfile(localProfile) {
   return localProfile?.status === 'ready'
     && typeof localProfile.ownerId === 'string'
     && Boolean(localProfile.ownerId)
@@ -71,7 +71,7 @@ export function createLearnerProfileLifecycleAuthority({
     if (activation) localPersistence.releaseActivation(activation)
   }
 
-  function activate(localProfile) {
+  function prepareActivation(localProfile) {
     releaseActiveProfile()
     const activation = Object.freeze({
       activatedAt: clock.now(),
@@ -80,8 +80,12 @@ export function createLearnerProfileLifecycleAuthority({
       profileId: localProfile.profileId
     })
     if (!localPersistence.claimActivation(activation)) {
-      return publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+      return null
     }
+    return activation
+  }
+
+  function completeActivation(localProfile, activation) {
     activeProfile = localProfile.profile
     profileActivations.set(activeProfile, activation)
     publish(LEARNER_PROFILE_ACCESS_STATES.ACTIVE, {
@@ -95,6 +99,14 @@ export function createLearnerProfileLifecycleAuthority({
       profileId: activation.profileId
     })
     return currentState
+  }
+
+  function activate(localProfile) {
+    const activation = prepareActivation(localProfile)
+    if (!activation) {
+      return publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+    }
+    return completeActivation(localProfile, activation)
   }
 
   function enqueueCloudSave(profile, activation) {
@@ -122,12 +134,46 @@ export function createLearnerProfileLifecycleAuthority({
         && result.profile
         && typeof result.profile === 'object'
       ) {
-        activate({
+        let resolvedProfile = result.profile
+        if (localProfile?.status === 'empty') {
+          if (!localPersistence.installSignedInProfile(result.profile, {
+            installedAt: clock.now(),
+            onboardingFinalizationPending: result.created === true,
+            ownerId: result.ownerId,
+            profileId: result.profileId
+          })) {
+            publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+            return
+          }
+          const installedProfile = localPersistence.read()
+          if (
+            !isSignedInProfile(installedProfile)
+            || installedProfile.ownerId !== result.ownerId
+            || installedProfile.profileId !== result.profileId
+          ) {
+            publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+            return
+          }
+          resolvedProfile = installedProfile.profile
+        }
+        const activationProfile = {
           ownerId: result.ownerId,
-          profile: result.profile,
+          profile: resolvedProfile,
           profileId: result.profileId,
           status: 'ready'
-        })
+        }
+        const activation = prepareActivation(activationProfile)
+        if (!activation) {
+          publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+          return
+        }
+        if (typeof result.finalize === 'function' && !result.finalize()) {
+          localPersistence.releaseActivation(activation)
+          publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+          return
+        }
+        localPersistence.completeOnboardingFinalization?.(activation)
+        completeActivation(activationProfile, activation)
         return
       }
       const resultStates = {
@@ -174,14 +220,14 @@ export function createLearnerProfileLifecycleAuthority({
       if (!auth.userId || localProfile?.status === 'invalid') {
         return publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
       }
-      if (isOwnedProfile(localProfile) && localProfile.ownerId !== auth.userId) {
+      if (isSignedInProfile(localProfile) && localProfile.ownerId !== auth.userId) {
         return publish(LEARNER_PROFILE_ACCESS_STATES.CONFLICTING)
       }
       publish(LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD)
       resolveCloudProfile({
         auth,
         localProfile,
-        purpose: 'resolve-owned-profile',
+        purpose: 'resolve-signed-in-profile',
         requestId
       })
       return currentState
@@ -190,7 +236,7 @@ export function createLearnerProfileLifecycleAuthority({
       if (isAccountlessProfile(localProfile)) return activate(localProfile)
       releaseActiveProfile()
       return publish(
-        isOwnedProfile(localProfile)
+        isSignedInProfile(localProfile)
           ? LEARNER_PROFILE_ACCESS_STATES.LOCKED
           : localProfile?.status === 'invalid'
             ? LEARNER_PROFILE_ACCESS_STATES.RECOVERING
@@ -201,7 +247,7 @@ export function createLearnerProfileLifecycleAuthority({
       if (isAccountlessProfile(localProfile)) return activate(localProfile)
       releaseActiveProfile()
       return publish(
-        isOwnedProfile(localProfile) || localProfile?.status === 'invalid'
+        isSignedInProfile(localProfile) || localProfile?.status === 'invalid'
           ? LEARNER_PROFILE_ACCESS_STATES.RECOVERING
           : LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
       )
@@ -316,6 +362,10 @@ export function createLearnerProfileLifecycleAuthority({
     return evaluate()
   }
 
+  function refresh() {
+    return started ? evaluate() : currentState
+  }
+
   function destroy() {
     resolutionId += 1
     releaseActiveProfile()
@@ -333,6 +383,7 @@ export function createLearnerProfileLifecycleAuthority({
     exportActiveProfile,
     getState: () => currentState,
     readActiveProfile,
+    refresh,
     replaceActiveProfile,
     saveActiveProfile,
     start
