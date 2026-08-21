@@ -52,6 +52,20 @@ async function flush() {
   await Promise.resolve()
 }
 
+function preparedEnvelope(profile, payloadSha256 = 'A'.repeat(43)) {
+  return {
+    exportedAt: '2026-08-21T00:00:00.000Z',
+    integrity: {
+      algorithm: 'SHA-256',
+      byteLength: 100,
+      payloadSha256
+    },
+    profile: structuredClone(profile),
+    schema: 'edenia-portable-learner-profile',
+    version: 1
+  }
+}
+
 function createAdapter({
   clearOnboardingDraft,
   createOperationId,
@@ -72,14 +86,7 @@ function createAdapter({
     eventTarget: eventTarget || createEventTarget(),
     finalizeEnvelope: finalizeEnvelope || (async prepared => ({
       byteLength: 100,
-      envelope: {
-        ...prepared,
-        integrity: {
-          algorithm: 'SHA-256',
-          byteLength: 100,
-          payloadSha256: 'A'.repeat(43)
-        }
-      },
+      envelope: prepared,
       serialized: JSON.stringify(prepared)
     })),
     getClient: () => ({
@@ -98,12 +105,7 @@ function createAdapter({
     importEnvelope: envelope => envelope.profile,
     isOnline: isOnline || (() => true),
     now: now || (() => 0),
-    prepareEnvelope: prepareEnvelope || (profile => ({
-      exportedAt: '2026-08-21T00:00:00.000Z',
-      profile: structuredClone(profile),
-      schema: 'edenia-portable-learner-profile',
-      version: 1
-    })),
+    prepareEnvelope: prepareEnvelope || preparedEnvelope,
     readOnboardingState: () => null,
     setTimer: setTimer || ((callback, delay) => setTimeout(callback, delay)),
     storage: storage || createMemoryStorage(),
@@ -262,7 +264,7 @@ test('a stale activation fence cannot discard an onboarding draft', async () => 
   assert.equal(clearCalls, 0)
 })
 
-test('a local save durably queues its fenced cloud operation before hashing or network work', async () => {
+test('a local save durably queues its integrity before async verification or network work', async () => {
   const storage = createMemoryStorage()
   const digest = deferred()
   const rpcCalls = []
@@ -327,7 +329,10 @@ test('a local save durably queues its fenced cloud operation before hashing or n
   assert.equal(record.pending.baseRevision, 7)
   assert.equal(record.pending.revision, 8)
   assert.equal(record.pending.activationId, 'activation-current')
-  assert.equal(record.pending.integrity, null)
+  assert.equal(
+    record.pending.integrity.payloadSha256,
+    'A'.repeat(43)
+  )
   assert.equal(record.pending.envelope, null)
   assert.deepEqual(record.pending.prepared.profile, localProfile.profile)
   assert.equal(
@@ -342,7 +347,7 @@ test('a local save durably queues its fenced cloud operation before hashing or n
       integrity: {
         algorithm: 'SHA-256',
         byteLength: 100,
-        payloadSha256: 'B'.repeat(43)
+        payloadSha256: 'A'.repeat(43)
       }
     },
     serialized: '{}'
@@ -352,11 +357,11 @@ test('a local save durably queues its fenced cloud operation before hashing or n
   assert.equal(finalizedRecord.pending.prepared, null)
   assert.equal(
     finalizedRecord.pending.integrity.payloadSha256,
-    'B'.repeat(43)
+    'A'.repeat(43)
   )
   assert.equal(
     finalizedRecord.pending.envelope.integrity.payloadSha256,
-    'B'.repeat(43)
+    'A'.repeat(43)
   )
 })
 
@@ -371,6 +376,10 @@ test('one upload stays in flight while later local saves coalesce to the newest 
   ]
   const adapter = createAdapter({
     createOperationId: () => operationIds.shift(),
+    prepareEnvelope: profile => preparedEnvelope(
+      profile,
+      String(profile.marker).repeat(43)
+    ),
     finalizeEnvelope: async prepared => ({
       byteLength: 100,
       envelope: {
@@ -492,16 +501,15 @@ test('reload adopts the exact durable operation and reconnect retries it behind 
         baseRevision: 4,
         envelope: null,
         generation: 2,
-        integrity: null,
+        integrity: {
+          algorithm: 'SHA-256',
+          byteLength: 100,
+          payloadSha256: 'A'.repeat(43)
+        },
         nextRetryAt: 0,
         operationId,
         ownerId: OWNER_ID,
-        prepared: {
-          exportedAt: '2026-08-21T00:00:00.000Z',
-          profile: { marker: 'local-pending' },
-          schema: 'edenia-portable-learner-profile',
-          version: 1
-        },
+        prepared: preparedEnvelope({ marker: 'local-pending' }),
         profileId: PROFILE_ID,
         revision: 5,
         retryCount: 2
@@ -703,16 +711,15 @@ test('reload closes an accepted-operation crash window with the exact receipt', 
         baseRevision: 4,
         envelope: null,
         generation: 2,
-        integrity: null,
+        integrity: {
+          algorithm: 'SHA-256',
+          byteLength: 100,
+          payloadSha256: 'A'.repeat(43)
+        },
         nextRetryAt: 0,
         operationId,
         ownerId: OWNER_ID,
-        prepared: {
-          exportedAt: '2026-08-21T00:00:00.000Z',
-          profile: { marker: 'accepted-before-reload' },
-          schema: 'edenia-portable-learner-profile',
-          version: 1
-        },
+        prepared: preparedEnvelope({ marker: 'accepted-before-reload' }),
         profileId: PROFILE_ID,
         revision: 5,
         retryCount: 0

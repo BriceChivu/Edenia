@@ -49,7 +49,7 @@ test('Settings contains one generic internal Account surface', () => {
   assert.match(html, /data-reminder-action="form"/)
   assert.match(
     html,
-    /id="learnerProfileSyncStatus"[^>]*data-settings-shell-action="open"[^>]*aria-live="polite"/
+    /id="learnerProfileSyncStatus"[^>]*data-settings-shell-action="sync-status"[^>]*aria-live="polite"/
   )
   assert.match(
     html,

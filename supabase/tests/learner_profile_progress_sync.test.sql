@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
-select plan(11);
+select plan(12);
 
 select has_function(
   'public',
@@ -137,6 +137,79 @@ select results_eq(
 );
 
 reset role;
+
+create function pg_temp.rehash_learner_profile_envelope(p_envelope jsonb)
+returns jsonb
+language plpgsql
+set search_path = ''
+as $$
+declare
+  result jsonb := p_envelope;
+  canonical_payload text;
+  canonical_envelope text;
+  payload_digest text;
+  claimed_bytes integer := 0;
+  measured_bytes integer;
+begin
+  canonical_payload := private.canonical_jsonb_text(
+    pg_catalog.jsonb_build_object(
+      'exportedAt', result -> 'exportedAt',
+      'profile', result -> 'profile',
+      'schema', result -> 'schema',
+      'version', result -> 'version'
+    )
+  );
+  payload_digest := pg_catalog.rtrim(pg_catalog.translate(
+    pg_catalog.encode(
+      extensions.digest(
+        pg_catalog.convert_to(canonical_payload, 'UTF8'),
+        'sha256'
+      ),
+      'base64'
+    ),
+    '+/',
+    '-_'
+  ), '=');
+  result := pg_catalog.jsonb_set(
+    result,
+    '{integrity,payloadSha256}',
+    pg_catalog.to_jsonb(payload_digest)
+  );
+  for attempt in 1..8 loop
+    result := pg_catalog.jsonb_set(
+      result,
+      '{integrity,byteLength}',
+      pg_catalog.to_jsonb(claimed_bytes)
+    );
+    canonical_envelope := private.canonical_jsonb_text(result);
+    measured_bytes := pg_catalog.octet_length(
+      pg_catalog.convert_to(canonical_envelope, 'UTF8')
+    );
+    exit when measured_bytes = claimed_bytes;
+    claimed_bytes := measured_bytes;
+  end loop;
+  return result;
+end;
+$$;
+
+select throws_ok(
+  $query$
+    select private.assert_learner_profile_envelope(
+      pg_temp.rehash_learner_profile_envelope(
+        pg_catalog.jsonb_set(
+          (select envelope
+           from public.learner_profile_versions
+           where revision = 1),
+          '{profile,learnerProfile,languages}',
+          '["japanese", "french"]'::jsonb
+        )
+      )
+    )
+  $query$,
+  '22023',
+  'Learner profile envelope is invalid',
+  'a correctly rehashed noncanonical learner list is rejected'
+);
 
 select lives_ok(
   $query$

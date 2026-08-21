@@ -37,8 +37,15 @@ function hasExactKeys(value, expectedKeys) {
 }
 
 function isPreparedEnvelope(value) {
-  return hasExactKeys(value, ['exportedAt', 'profile', 'schema', 'version'])
+  return hasExactKeys(value, [
+    'exportedAt',
+    'integrity',
+    'profile',
+    'schema',
+    'version'
+  ])
     && typeof value.exportedAt === 'string'
+    && isIntegrity(value.integrity)
     && isRecord(value.profile)
     && value.schema === 'edenia-portable-learner-profile'
     && value.version === 1
@@ -83,7 +90,11 @@ function isSyncOperation(value, identity) {
   ) return false
   const isPrepared = isPreparedEnvelope(value.prepared)
     && value.envelope === null
-    && value.integrity === null
+    && isIntegrity(value.integrity)
+    && value.prepared.integrity.algorithm === value.integrity.algorithm
+    && value.prepared.integrity.byteLength === value.integrity.byteLength
+    && value.prepared.integrity.payloadSha256
+      === value.integrity.payloadSha256
   const isFinalized = value.prepared === null
     && isRecord(value.envelope)
     && isIntegrity(value.integrity)
@@ -280,6 +291,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return verified
     }
     const finalized = await finalizeEnvelope(operation.prepared)
+    if (
+      finalized?.envelope?.integrity?.algorithm
+        !== operation.integrity.algorithm
+      || finalized?.envelope?.integrity?.byteLength
+        !== operation.integrity.byteLength
+      || finalized?.envelope?.integrity?.payloadSha256
+        !== operation.integrity.payloadSha256
+    ) throw new TypeError('Durable learner-profile integrity changed')
     const current = readSyncRecord()
     if (current?.pending?.operationId !== operation.operationId) {
       throw new TypeError('Learner-profile operation lost its fence')
@@ -619,7 +638,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       baseRevision,
       envelope: null,
       generation: record.generation,
-      integrity: null,
+      integrity: prepared.integrity,
       nextRetryAt: 0,
       operationId: createOperationId(),
       ownerId: record.ownerId,

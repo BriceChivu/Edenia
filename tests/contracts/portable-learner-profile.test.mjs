@@ -168,7 +168,7 @@ function durableState() {
   }
 }
 
-test('a durable sync candidate is safe to persist before its async digest settles', async () => {
+test('a durable sync candidate includes its integrity before async verification', async () => {
   const source = durableState()
   const before = structuredClone(source)
   const prepared = preparePortableLearnerProfileEnvelope(source, {
@@ -180,6 +180,12 @@ test('a durable sync candidate is safe to persist before its async digest settle
   assert.equal(prepared.exportedAt, '2026-08-17T00:00:00.000Z')
   assert.equal(prepared.schema, PORTABLE_LEARNER_PROFILE_SCHEMA)
   assert.equal(prepared.version, PORTABLE_LEARNER_PROFILE_VERSION)
+  assert.equal(prepared.integrity.algorithm, 'SHA-256')
+  assert.match(prepared.integrity.payloadSha256, /^[A-Za-z0-9_-]{43}$/)
+  assert.equal(
+    new TextEncoder().encode(serializedPrepared).byteLength,
+    prepared.integrity.byteLength
+  )
   assert.equal(serializedPrepared.includes('youtube-secret'), false)
   assert.equal(serializedPrepared.includes('auth-secret'), false)
 

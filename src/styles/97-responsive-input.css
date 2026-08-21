@@ -16,6 +16,9 @@
   [tabindex]:focus:not(:focus-visible) {
     outline: none;
   }
+  .learner-profile-sync-status {
+    min-height: 44px;
+  }
 }
 @media (max-width: 640px) {
   .history-heatmap {

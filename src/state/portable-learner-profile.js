@@ -19,7 +19,8 @@ import {
 } from './config-normalization.js'
 import {
   canonicalizeJson,
-  sha256Base64Url
+  sha256Base64Url,
+  sha256Base64UrlSync
 } from './portable-state.js'
 import { isValidStateShape } from './persistence-contract.js'
 
@@ -519,12 +520,31 @@ export function preparePortableLearnerProfileEnvelope(
   if (!exportedAt) {
     throw new TypeError('Portable learner profile export time is invalid')
   }
-  return {
+  const prepared = {
     exportedAt,
     profile,
     schema: PORTABLE_LEARNER_PROFILE_SCHEMA,
     version: PORTABLE_LEARNER_PROFILE_VERSION
   }
+  const payloadSha256 = sha256Base64UrlSync(
+    canonicalizeJson(createIntegrityPayload(prepared))
+  )
+  const envelope = {
+    exportedAt,
+    integrity: {
+      algorithm: 'SHA-256',
+      byteLength: 0,
+      payloadSha256
+    },
+    profile,
+    schema: PORTABLE_LEARNER_PROFILE_SCHEMA,
+    version: PORTABLE_LEARNER_PROFILE_VERSION
+  }
+  const { serialized, byteLength } = serializeWithByteLength(envelope)
+  if (byteLength > maxBytes) {
+    throw new RangeError('Portable learner profile is too large')
+  }
+  return JSON.parse(serialized)
 }
 
 export async function finalizePortableLearnerProfileEnvelope(
@@ -537,36 +557,45 @@ export async function finalizePortableLearnerProfileEnvelope(
   validateMaximumBytes(maxBytes)
   const prepared = cloneJson(value)
   if (
-    !hasExactKeys(prepared, ['exportedAt', 'profile', 'schema', 'version'])
+    !hasExactKeys(prepared, [
+      'exportedAt',
+      'integrity',
+      'profile',
+      'schema',
+      'version'
+    ])
     || prepared.schema !== PORTABLE_LEARNER_PROFILE_SCHEMA
     || prepared.version !== PORTABLE_LEARNER_PROFILE_VERSION
     || normalizeTimestamp(prepared.exportedAt) !== prepared.exportedAt
+    || !hasExactKeys(prepared.integrity, [
+      'algorithm',
+      'byteLength',
+      'payloadSha256'
+    ])
+    || prepared.integrity.algorithm !== 'SHA-256'
+    || !Number.isSafeInteger(prepared.integrity.byteLength)
+    || prepared.integrity.byteLength < 1
+    || !SHA256_BASE64URL_PATTERN.test(prepared.integrity.payloadSha256)
     || !isCanonicalProfile(prepared.profile)
   ) {
     throw new TypeError('Prepared portable learner profile is invalid')
   }
+  const serialized = canonicalizeJson(prepared)
+  const byteLength = getUtf8ByteLength(serialized)
+  if (
+    byteLength !== prepared.integrity.byteLength
+    || byteLength > maxBytes
+  ) throw new RangeError('Portable learner profile is too large or invalid')
   const payloadSha256 = await sha256Base64Url(
     canonicalizeJson(createIntegrityPayload(prepared)),
     cryptoLike
   )
-  const envelope = {
-    exportedAt: prepared.exportedAt,
-    integrity: {
-      algorithm: 'SHA-256',
-      byteLength: 0,
-      payloadSha256
-    },
-    profile: prepared.profile,
-    schema: prepared.schema,
-    version: prepared.version
-  }
-  const { serialized, byteLength } = serializeWithByteLength(envelope)
-  if (byteLength > maxBytes) {
-    throw new RangeError('Portable learner profile is too large')
+  if (payloadSha256 !== prepared.integrity.payloadSha256) {
+    throw new TypeError('Prepared portable learner profile integrity is invalid')
   }
   return {
     byteLength,
-    envelope: JSON.parse(serialized),
+    envelope: prepared,
     serialized
   }
 }

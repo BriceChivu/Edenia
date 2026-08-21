@@ -58,4 +58,8 @@ test('the learner-profile sync status keeps the protected phone touch target', a
     responsiveInput,
     /@media \(max-width: 640px\)[\s\S]*\.learner-profile-sync-status[\s\S]*min-height: 44px;/
   )
+  assert.match(
+    responsiveInput,
+    /@media \(pointer: coarse\)[\s\S]*\.learner-profile-sync-status[\s\S]*min-height: 44px;/
+  )
 })

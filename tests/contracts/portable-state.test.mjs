@@ -10,6 +10,7 @@ import {
   sanitizePortableProgressState,
   selectPortableProgressCandidate,
   sha256Base64Url,
+  sha256Base64UrlSync,
   verifyPortableProgressEnvelope
 } from '../../src/state/portable-state.js'
 
@@ -73,6 +74,15 @@ test('canonical JSON and SHA-256 ignore object key insertion order only', async 
     await sha256Base64Url(canonicalizeJson(left)),
     await sha256Base64Url(canonicalizeJson({ ...right, z: 2 }))
   )
+})
+
+test('synchronous SHA-256 matches Web Crypto before a durable operation returns', async () => {
+  for (const value of ['', 'abc', '你好', canonicalizeJson(validState())]) {
+    assert.equal(
+      sha256Base64UrlSync(value),
+      await sha256Base64Url(value)
+    )
+  }
 })
 
 test('base64url helpers round-trip canonical bytes and reject widened forms', () => {
