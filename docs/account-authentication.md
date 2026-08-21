@@ -54,9 +54,11 @@ Each active profile receives a browser-storage activation fence. Reads, saves,
 imports, exports, analytics synchronization, and queued cloud work must still
 hold that fence. A newer tab or later activation invalidates the earlier
 profile object and its delayed callbacks. Every non-active state hides the
-durable learner UI and pauses autosave. Before a signed-in profile exists, the
-public onboarding draft may occupy that surface; otherwise the visible gate
-contains identity-neutral copy only.
+durable learner UI and pauses autosave. A learner who signs in from an already
+visible onboarding step may keep that draft visible while first-profile
+resolution finishes. A restored signed-in session starts behind the
+identity-neutral gate until the current cloud head or a safe recovery state is
+known.
 
 ## First signed-in profile creation
 
@@ -66,8 +68,8 @@ locale, the intro and account-step timestamps, one language, one optional
 level, and at most five catalog channel IDs. It contains no videos, Anki data,
 study facts, town progress, session, email, provider metadata, or owner ID. The
 draft survives authentication. The learner can discard it with **Start over**;
-otherwise Edenia removes it only after the new signed-in profile is installed
-behind a local ownership fence.
+otherwise Edenia removes it only after an owned profile, whether new or
+returning, is installed behind a local ownership fence.
 
 The authenticated browser calls only:
 
@@ -91,6 +93,14 @@ The resolver validates the exact portable schema, its SHA-256 integrity value,
 its UTF-8 byte length, bounded learner choices, and the absence of study data.
 Creation writes one immutable version and one current head at generation 1,
 revision 1, in the same database transaction.
+
+A restored session calls the same owner-derived resolver before Edenia renders
+or saves any learner state. An existing current head takes precedence over an
+incidental onboarding draft. Missing-head history returns recovery instead of
+creating a blank profile. Network and server unavailability remain
+`waiting-cloud`; rejected or unverifiable profile data enters `recovering`.
+Both states preserve local data and expose retry plus local sign-out without
+revealing the learner's email, profile, or town.
 
 `public.learner_profile_heads` and
 `public.learner_profile_versions` have owner-read RLS policies. Authenticated

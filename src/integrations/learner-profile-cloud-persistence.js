@@ -51,11 +51,23 @@ export function createLearnerProfileCloudPersistenceAdapter({
       }
     }
 
-    const { data, error } = await getClient().rpc(
-      'resolve_my_learner_profile',
-      { p_onboarding_profile: onboardingEnvelope }
-    )
-    if (error) return { status: 'recovering' }
+    let response
+    try {
+      response = await getClient().rpc(
+        'resolve_my_learner_profile',
+        { p_onboarding_profile: onboardingEnvelope }
+      )
+    } catch {
+      return { status: 'waiting-cloud' }
+    }
+    const { data, error, status } = response || {}
+    if (error) {
+      return {
+        status: status === 0 || status >= 500
+          ? 'waiting-cloud'
+          : 'recovering'
+      }
+    }
 
     const row = readResolutionRow(data)
     if (!row) return { status: 'recovering' }
@@ -94,12 +106,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const profile = envelope ? importEnvelope(envelope) : null
     if (!profile) return { status: 'recovering' }
 
-    const shouldFinalizeOnboarding = row.created === true
-      || localProfile?.onboardingFinalizationPending === true
     return {
       created: row.created === true,
       finalize() {
-        return shouldFinalizeOnboarding ? clearOnboardingDraft() : true
+        return clearOnboardingDraft()
       },
       generation,
       ownerId: authentication.userId,

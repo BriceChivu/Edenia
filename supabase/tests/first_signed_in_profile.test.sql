@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
-select plan(37);
+select plan(39);
 
 select has_function(
   'public',
@@ -126,6 +126,30 @@ select results_eq(
   $query$,
   $$values ('profile_ready'::text, false, 1::bigint, 1::bigint)$$,
   'an exact retry resolves the existing profile without another creation'
+);
+
+select results_eq(
+  $query$
+    select
+      status,
+      created,
+      envelope #>> '{profile,learnerProfile,languages,0}'
+    from public.resolve_my_learner_profile(
+      '{"incidental":"onboarding draft"}'::jsonb
+    )
+  $query$,
+  $$values ('profile_ready'::text, false, 'french'::text)$$,
+  'an existing owner head takes precedence over an incidental onboarding draft'
+);
+
+select results_eq(
+  $query$
+    select
+      (select count(*) from public.learner_profile_heads),
+      (select count(*) from public.learner_profile_versions)
+  $query$,
+  $$values (1::bigint, 1::bigint)$$,
+  'returning-owner resolution creates no blank head or version'
 );
 
 reset role;

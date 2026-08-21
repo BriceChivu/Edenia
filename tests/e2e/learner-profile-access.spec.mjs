@@ -1,6 +1,7 @@
 import { expect, test } from '../support/network-fixture.mjs'
 
 const OWNER_ID = '123e4567-e89b-42d3-a456-426614174000'
+const OTHER_OWNER_ID = '223e4567-e89b-42d3-a456-426614174001'
 const SECRET_CHANNEL_NAME = 'PRIVATE LEARNER CHANNEL'
 const AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
 const PROFILE_ACCESS_STORAGE_KEY =
@@ -39,6 +40,28 @@ function expiredSession() {
     user: {
       id: OWNER_ID,
       email: 'private@example.com',
+      app_metadata: { provider: 'email', providers: ['email'] },
+      user_metadata: {}
+    }
+  }
+}
+
+function restoredSession(userId) {
+  const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url')
+  return {
+    access_token: `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({
+      aud: 'authenticated',
+      exp: 1893456000,
+      role: 'authenticated',
+      sub: userId
+    })}.test-signature`,
+    expires_at: 1893456000,
+    expires_in: 31536000,
+    refresh_token: 'test-refresh-token',
+    token_type: 'bearer',
+    user: {
+      id: userId,
+      email: 'other-private@example.com',
       app_metadata: { provider: 'email', providers: ['email'] },
       user_metadata: {}
     }
@@ -143,4 +166,81 @@ test('locked profile access exposes no learner content and performs no autosave'
   await expect(page.locator('#learnerProfileAccessTitle')).toHaveText(
     'Your learner profile is locked'
   )
+})
+
+test('owner mismatch stays neutral and local sign-out changes no profile', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  let lifecycleEnabled = false
+  let resolutionCount = 0
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    if (new URL(route.request().url()).pathname.includes('/rpc/')) {
+      resolutionCount += 1
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto('/?internal_test=1')
+  const storedState = await seedPrivateLearnerProfile(page)
+  await page.evaluate(({
+    accessStorageKey,
+    authStorageKey,
+    ownerId,
+    session
+  }) => {
+    localStorage.setItem(authStorageKey, JSON.stringify(session))
+    localStorage.setItem(accessStorageKey, JSON.stringify({
+      activatedAt: 1_786_982_400_000,
+      activationId: null,
+      ownerId,
+      profileId: `owner:${ownerId}`,
+      version: 1
+    }))
+  }, {
+    accessStorageKey: PROFILE_ACCESS_STORAGE_KEY,
+    authStorageKey: AUTH_STORAGE_KEY,
+    ownerId: OWNER_ID,
+    session: restoredSession(OTHER_OWNER_ID)
+  })
+  const storedAccess = await page.evaluate(
+    key => localStorage.getItem(key),
+    PROFILE_ACCESS_STORAGE_KEY
+  )
+  lifecycleEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expectNeutralProfileGate(page, 'conflicting', storedState)
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
+  expect(resolutionCount).toBe(0)
+
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'locked'
+  )
+  const afterSignOut = await page.evaluate(({
+    accessKey,
+    stateKey
+  }) => ({
+    access: localStorage.getItem(accessKey),
+    state: localStorage.getItem(stateKey)
+  }), {
+    accessKey: PROFILE_ACCESS_STORAGE_KEY,
+    stateKey: STATE_STORAGE_KEY
+  })
+  expect(afterSignOut).toEqual({
+    access: storedAccess,
+    state: storedState
+  })
+  expect(resolutionCount).toBe(0)
 })

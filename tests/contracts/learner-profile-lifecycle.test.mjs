@@ -264,6 +264,51 @@ test('authentication alone cannot expose or save an accountless learner profile'
   assert.equal(harness.authority.readActiveProfile(), null)
 })
 
+test('a restored owner session cannot write a matching local copy before cloud activation', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const localProfile = { learnerProfile: { languages: ['french'] } }
+  const cloudProfile = { learnerProfile: { languages: ['mandarin'] } }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: 'deferred',
+    local: {
+      ownerId,
+      profile: localProfile,
+      profileId,
+      status: 'ready'
+    }
+  })
+
+  harness.authority.start()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
+  )
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(harness.authority.saveActiveProfile(localProfile), false)
+  assert.equal(
+    harness.calls.some(([name]) => name === 'local-save'),
+    false
+  )
+
+  harness.cloudDeferred.resolve({
+    finalize: () => true,
+    ownerId,
+    profile: cloudProfile,
+    profileId,
+    status: 'activate'
+  })
+  await Promise.resolve()
+
+  assert.equal(harness.authority.readActiveProfile(), cloudProfile)
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  )
+})
+
 test('one fenced accountless profile becomes the only writable and exportable profile', async () => {
   const harness = createHarness()
 
