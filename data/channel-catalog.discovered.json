@@ -1,17 +1,17 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-20T09:59:50.474Z",
+  "generatedAt": "2026-08-21T10:00:07.410Z",
   "lastRotationIndex": 2,
   "nextRotationIndex": 2,
   "rotationCount": 4,
-  "lastLanguageBatchIndex": 1,
-  "nextLanguageBatchIndex": 2,
+  "lastLanguageBatchIndex": 2,
+  "nextLanguageBatchIndex": 3,
   "languageBatchCount": 4,
   "languageBatchSize": 2,
-  "lastDiscoveryQuotaDate": "2026-08-20",
+  "lastDiscoveryQuotaDate": "2026-08-21",
   "lastDiscoveryLanguages": [
-    "german",
-    "mandarin"
+    "russian",
+    "spanish"
   ],
   "lastSearchRequestCount": 6,
   "languages": [
@@ -8602,6 +8602,34 @@
       "searchText": "kendra s spanish kendraspanish spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UCCrEfwHGfHc__UQ9mrY8J-Q",
+      "channelId": "UCCrEfwHGfHc__UQ9mrY8J-Q",
+      "youtubeInput": "@laemadrid",
+      "handle": "@laemadrid",
+      "name": "LAE Madrid Spanish Language School",
+      "thumbnailUrl": "https://yt3.ggpht.com/J_BaW7Op6YnDfzfCT76yKJ_Shh4p5DDtQ_KcId3XwBpJxvnLH6fnNrFY_iElooLYSYb_ZPvs2DM=s800-c-k-c0x00ffffff-no-rj",
+      "description": "¡Bienvenidos al canal de YouTube de LAE Madrid! Welcome to the official YouTube channel of LAE Madrid, a leading Spanish language school in the heart of Madrid. Whether you're just starting out or looking to perfect your fluency, this is the place to learn real, practical Spanish that you'll actually use. 🎓 At LAE...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2012-09-12T11:59:48Z",
+      "subscriberCount": "19400",
+      "videoCount": "779",
+      "viewCount": "2684982",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 298,
+      "discoveredByQueries": [
+        "Spanish grammar lessons"
+      ],
+      "discoveredAt": "2026-08-21T10:00:07.402Z",
+      "refreshedAt": "2026-08-21T10:00:07.402Z",
+      "searchText": "lae madrid spanish language school laemadrid spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC2sUCcYnhcjc3KzDqBtokiA",
       "channelId": "UC2sUCcYnhcjc3KzDqBtokiA",
       "youtubeInput": "@lalachinese",
@@ -12285,6 +12313,35 @@
       "searchText": "learn russian conversation learnrussianconversation8308 russian youtube discovery"
     },
     {
+      "catalogId": "discovered-UCKEW3O0q3rMLjxQnMbDHvIA",
+      "channelId": "UCKEW3O0q3rMLjxQnMbDHvIA",
+      "youtubeInput": "@learnrussianfastinhindi",
+      "handle": "@learnrussianfastinhindi",
+      "name": "LEARN RUSSIAN FAST IN HINDI",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_lh_4dKP2gjJLRiJlVGq0jtVAmjmKIKahX0ltmQ4Tie8Xo=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Hello, Russian Learners! My dream is to live in the world with no language barriers. This channel is a start of that vision coming true! #russianlanguageinhindi If you want to learn Russian but: - you don't have a lot of time to study - you don't know what exactly to learn - you think that Russian words are hard to...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-03-24T08:55:35.170361Z",
+      "subscriberCount": "29700",
+      "videoCount": "128",
+      "viewCount": "1599370",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 233,
+      "discoveredByQueries": [
+        "Russian grammar lessons",
+        "Russian vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-21T10:00:07.402Z",
+      "refreshedAt": "2026-08-21T10:00:07.402Z",
+      "searchText": "learn russian fast in hindi learnrussianfastinhindi russian youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCl8rr2lyyvpsMPtO8ExrPAQ",
       "channelId": "UCl8rr2lyyvpsMPtO8ExrPAQ",
       "youtubeInput": "@rustories",
@@ -12339,6 +12396,35 @@
       "discoveredAt": "2026-07-27T15:11:12.608Z",
       "refreshedAt": "2026-07-27T15:11:12.608Z",
       "searchText": "learn russian hindi learnrussianhindi123 russian youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCchXUFRS8oRUaehkwZ5PN3A",
+      "channelId": "UCchXUFRS8oRUaehkwZ5PN3A",
+      "youtubeInput": "@learnrussiannowwithanastas58",
+      "handle": "@learnrussiannowwithanastas58",
+      "name": "Learn Russian Now! with Anastasia",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_l6GTx2NvpPxUJe4G8QJA6StUlkyRKsVfIbcs4rNu9WrQg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Hey there! I'm Anastasia, your YouTube Russian Teacher! Welcome to LEARN RUSSIAN NOW! I create short and useful videos which will help you to learn Russian language. SUBSCRIBE so you will NEVER MISS NEW LESSONS - New videos are uploaded every week! Follow my Facebook page: https://www.facebook.com/learnrussiannowpag...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2016-09-07T18:46:46Z",
+      "subscriberCount": "5740",
+      "videoCount": "49",
+      "viewCount": "178327",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 227,
+      "discoveredByQueries": [
+        "Russian grammar lessons",
+        "Russian vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-21T10:00:07.402Z",
+      "refreshedAt": "2026-08-21T10:00:07.402Z",
+      "searchText": "learn russian now with anastasia learnrussiannowwithanastas58 russian youtube discovery"
     },
     {
       "catalogId": "discovered-UCMubNbd_vxdgWqzF9VBdnzg",
@@ -12681,6 +12767,35 @@
       "searchText": "learn spanish learnspanishlearnspanish spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UCEumt49LH6faifPdixb-l6w",
+      "channelId": "UCEumt49LH6faifPdixb-l6w",
+      "youtubeInput": "@learnspanishlang",
+      "handle": "@learnspanishlang",
+      "name": "Learn Spanish ",
+      "thumbnailUrl": "https://yt3.ggpht.com/DWMVPFMFmx3HoCmiW8f8ljkHfyaAw1IAkmExnMjphu68A7Sx_8wchPIrMO9O1AUl6UmXI5xocQ=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🇪🇸 Learn Spanish Easily | Spanish Lessons for Beginners 🇪🇸 Do you want to learn Spanish fast and easily? In this video, we’ll cover the most important Spanish words, phrases, and daily conversations to help you speak confidently. Whether you’re a beginner or want to improve your Spanish skills, this lesson is pe...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-08-25T17:56:54.731987Z",
+      "subscriberCount": "1710",
+      "videoCount": "84",
+      "viewCount": "234835",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 342,
+      "discoveredByQueries": [
+        "Spanish grammar lessons",
+        "Spanish vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-21T10:00:07.402Z",
+      "refreshedAt": "2026-08-21T10:00:07.402Z",
+      "searchText": "learn spanish learnspanishlang spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCo0ZEuf8Oc4L-9Li8e0vpEw",
       "channelId": "UCo0ZEuf8Oc4L-9Li8e0vpEw",
       "youtubeInput": "@learnspanish-espanol8965",
@@ -12707,6 +12822,34 @@
       "discoveredAt": "2026-07-24T14:00:08.218Z",
       "refreshedAt": "2026-07-24T14:00:08.218Z",
       "searchText": "learn spanish aprender espanol learnspanish espanol8965 spanish youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCquD9eua5UZErx7_26ZFk_A",
+      "channelId": "UCquD9eua5UZErx7_26ZFk_A",
+      "youtubeInput": "@learnspanishbykrishneel",
+      "handle": "@learnspanishbykrishneel",
+      "name": "Learn Spanish By Krishneel",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_kPa64GJmYwUilkUjzSs_enE4AE--ruepU3kQjk0qSL5mo=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn Spanish language easily with the help of these videos. It is very easy and has been well explained with images. Spanish is an official language of Spain and Equatorial Guinea and 18 countries along with one territory in the America. Learn Spanish and make friends from these 18 different countries. It would be...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-06-06T13:30:54.968252Z",
+      "subscriberCount": "256",
+      "videoCount": "17",
+      "viewCount": "3606",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 347,
+      "discoveredByQueries": [
+        "Spanish grammar lessons"
+      ],
+      "discoveredAt": "2026-08-21T10:00:07.402Z",
+      "refreshedAt": "2026-08-21T10:00:07.402Z",
+      "searchText": "learn spanish by krishneel learnspanishbykrishneel spanish youtube discovery"
     },
     {
       "catalogId": "discovered-UC9Lrwt_3Pv3oM5o120h44ZQ",
@@ -12819,6 +12962,34 @@
       "discoveredAt": "2026-08-13T10:36:34.544Z",
       "refreshedAt": "2026-08-13T10:36:34.544Z",
       "searchText": "learn spanish with graded readers readitinspanish spanish youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCIla2qIrtvG1MCj48Caz4gQ",
+      "channelId": "UCIla2qIrtvG1MCj48Caz4gQ",
+      "youtubeInput": "@spanish-md",
+      "handle": "@spanish-md",
+      "name": "Learn Spanish with Maria and Diego",
+      "thumbnailUrl": "https://yt3.ggpht.com/L9yJsox08hHgk92TuFRmCs-sS7Ri88c1XKcYHjHomXAI1i2bkyEqlfKnrIVZ-ir7emJMYp92FA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "¡Hola, amigos! After months of hard work and heart, we are so excited to officially launch our new digital home: https://pandatwin.com/spanish-md/ Welcome to Learn Spanish with Maria and Diego, your new favorite place to learn Spanish in a way that is fun, easy, and stress-free. Are you a complete beginner who feels...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-07-01T21:13:03.940075Z",
+      "subscriberCount": "1740",
+      "videoCount": "122",
+      "viewCount": "59480",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 312,
+      "discoveredByQueries": [
+        "Spanish vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-21T10:00:07.402Z",
+      "refreshedAt": "2026-08-21T10:00:07.402Z",
+      "searchText": "learn spanish with maria and diego spanish md spanish youtube discovery"
     },
     {
       "catalogId": "discovered-UC_6LHxfKzSftxJTcvj84zEA",
@@ -16225,6 +16396,34 @@
       "searchText": "rota de estudo rotadeestudo portuguese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCHpAU3b5uxPDjwVZ9dic74g",
+      "channelId": "UCHpAU3b5uxPDjwVZ9dic74g",
+      "youtubeInput": "@rusberrylanguageschool",
+      "handle": "@rusberrylanguageschool",
+      "name": "RUSBERRY Russian Language School",
+      "thumbnailUrl": "https://yt3.ggpht.com/sxa9fNp06anXkYEW8EgCVXQhuzqxWm26TGZpJ2rlud4cCU0z1kbJXqP1PLloeuLtDfhtnBX4jLY=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Hello there! Fancy learning to speak Russian easily and fluently? Then welcome to our school's channel! We’ve put together the most interesting and useful bits to help you speak confidently and with ease. Our lessons are clear even for complete beginners, and cover such a variety of topics that there's something for...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2018-09-28T17:40:11Z",
+      "subscriberCount": "1510",
+      "videoCount": "114",
+      "viewCount": "76369",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 252,
+      "discoveredByQueries": [
+        "Russian grammar lessons"
+      ],
+      "discoveredAt": "2026-08-21T10:00:07.402Z",
+      "refreshedAt": "2026-08-21T10:00:07.402Z",
+      "searchText": "rusberry russian language school rusberrylanguageschool russian youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCWHqGSc8jZTLzaUMnq2N57A",
       "channelId": "UCWHqGSc8jZTLzaUMnq2N57A",
       "youtubeInput": "@russiancomprehensive",
@@ -16419,6 +16618,34 @@
       "discoveredAt": "2026-07-27T15:11:22.372Z",
       "refreshedAt": "2026-07-27T15:11:22.372Z",
       "searchText": "russian from zero to hero russian fromzerotohero russian youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCgwbkBVA039CNpWeNqwM2xA",
+      "channelId": "UCgwbkBVA039CNpWeNqwM2xA",
+      "youtubeInput": "@russianfromzerotozebra",
+      "handle": "@russianfromzerotozebra",
+      "name": "Russian from zero to zebra",
+      "thumbnailUrl": "https://yt3.ggpht.com/PSBDCNCI_r-jn3m1hGlPX6Rd5oqSRM_jA_TsYWzUmsIS5uk_4KWAfc1dhs0V2UiCOnrce3Flkw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Your one-stop destination for learning Russian from scratch to fluency! 🚀 We make Russian logical and accessible for English speakers. Through practical texts and dialogues from real-life situations, you'll build vocabulary, grammar, and confidence step by step. Our structured journey takes you from Absolute Beginn...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-05-25T11:11:57.760446Z",
+      "subscriberCount": "346",
+      "videoCount": "57",
+      "viewCount": "14126",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 251,
+      "discoveredByQueries": [
+        "Russian vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-21T10:00:07.402Z",
+      "refreshedAt": "2026-08-21T10:00:07.402Z",
+      "searchText": "russian from zero to zebra russianfromzerotozebra russian youtube discovery"
     },
     {
       "catalogId": "discovered-UCcqadbwW8gPcUW3h2I1BGJg",
@@ -16930,6 +17157,35 @@
       "searchText": "russian with sasha russianwithsasha russian youtube discovery"
     },
     {
+      "catalogId": "discovered-UCh7Ks51O3CKVsw1W_5maaow",
+      "channelId": "UCh7Ks51O3CKVsw1W_5maaow",
+      "youtubeInput": "@russianwithvictoria",
+      "handle": "@russianwithvictoria",
+      "name": "Russian with Victoria",
+      "thumbnailUrl": "https://yt3.ggpht.com/6nxVHDvAlIx_BaVAPTA0CyjdW_Uu-P9uP4mm4k3IIe9OTxImvMVnVRbuCl73psHXYSQMKZGG4Q=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Hi guys! my name is Victoria. I am a certified teacher of Russian for foreigners. I have been successfully teaching for 13 years. In this channel, I share useful videos about Russian! Subscribe to my channel, so as not to miss new videos! I hope you will have fun staying tune with me! Try my AI Russian Learning Bot...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2016-09-30T08:37:18Z",
+      "subscriberCount": "2660",
+      "videoCount": "52",
+      "viewCount": "133272",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 240,
+      "discoveredByQueries": [
+        "Russian grammar lessons",
+        "Russian vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-21T10:00:07.402Z",
+      "refreshedAt": "2026-08-21T10:00:07.402Z",
+      "searchText": "russian with victoria russianwithvictoria russian youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCzyBMng6E8zAbyQLD_4Qrog",
       "channelId": "UCzyBMng6E8zAbyQLD_4Qrog",
       "youtubeInput": "@russianyoucanunderstand9376",
@@ -16956,6 +17212,34 @@
       "discoveredAt": "2026-07-25T15:03:19.156Z",
       "refreshedAt": "2026-07-25T15:03:19.156Z",
       "searchText": "russian you can understand russianyoucanunderstand9376 russian youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCiHKGaUfo_ws3485CTOd53w",
+      "channelId": "UCiHKGaUfo_ws3485CTOd53w",
+      "youtubeInput": "@russianasl7604",
+      "handle": "@russianasl7604",
+      "name": "RussianASL Русский как иностранный",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_lzNaWE1qsAUcJgiYkE93Jp6trmdt0V3aWlVbwNkwrxuA=s800-c-k-c0x00ffffff-no-rj",
+      "description": "We are online school where you can study Russian language. Our channel will help you to study Russian grammar by yourself as we have many usefull lessons. You can also come to our online lessons and study with our professional teachers. https://skylcclub.com/rus.html We will help you to achieve your goal in Russian...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2015-03-13T15:19:10Z",
+      "subscriberCount": "437",
+      "videoCount": "75",
+      "viewCount": "28646",
+      "languages": [
+        "russian"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 224,
+      "discoveredByQueries": [
+        "Russian grammar lessons"
+      ],
+      "discoveredAt": "2026-08-21T10:00:07.402Z",
+      "refreshedAt": "2026-08-21T10:00:07.402Z",
+      "searchText": "russianasl русскии как иностранныи russianasl7604 russian youtube discovery"
     },
     {
       "catalogId": "discovered-UCq1b1x1nZbV-rmZDb3XOB2g",
@@ -18306,6 +18590,34 @@
       "searchText": "spanish stories spanish stories 1 spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UClUFXLA2vuXS7eySuYztKEA",
+      "channelId": "UClUFXLA2vuXS7eySuYztKEA",
+      "youtubeInput": "@spanishblackbeltonline",
+      "handle": "@spanishblackbeltonline",
+      "name": "SpanishBlackbelt Language School",
+      "thumbnailUrl": "https://yt3.ggpht.com/XypEUfei-5F8Z9wBcmjxiFyAm-B_ycgNA1J2isfJbQ0m4iG5Q4vtQiO5Xd-aUdxBQu3ejdO3Rw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn Spanish with conversational Spanish immersion lessons that develop and improve your pronunciation, listening, speaking, writing, reading, vocabulary, grammar and the Latino culture. Our Spanish lessons are for all Spanish levels of fluency whether you are learning Spanish from scratch or whether you have some...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2013-11-08T17:37:19Z",
+      "subscriberCount": "1120",
+      "videoCount": "227",
+      "viewCount": "198567",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 291,
+      "discoveredByQueries": [
+        "Spanish vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-21T10:00:07.402Z",
+      "refreshedAt": "2026-08-21T10:00:07.402Z",
+      "searchText": "spanishblackbelt language school spanishblackbeltonline spanish youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC_fZnRqQUdOeBXnYilEkIcQ",
       "channelId": "UC_fZnRqQUdOeBXnYilEkIcQ",
       "youtubeInput": "@sparkleenglish",
@@ -18781,6 +19093,34 @@
       "discoveredAt": "2026-08-17T10:04:47.217Z",
       "refreshedAt": "2026-08-17T10:04:47.217Z",
       "searchText": "speaking spanish speakingspanish5 spanish youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCbpKmNrCW5uVODk_w38kYVw",
+      "channelId": "UCbpKmNrCW5uVODk_w38kYVw",
+      "youtubeInput": "@speakmundo",
+      "handle": "@speakmundo",
+      "name": "Speakmundo -Learn Spanish ",
+      "thumbnailUrl": "https://yt3.ggpht.com/glPyRq8jAEEYaVq2HaXLisZAfqCBjdgFQNhxp1NF23WN5njjYL5Uoh1wdlXvSgLWOM2qCoVBZg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "\"नमस्कार! मैं Rishav Kumar, और आप देख रहे हैं Spanish in Hindi – आपका आसान और मज़ेदार तरीका Spanish सीखने का! 🌟 अगर आप Spanish सीखना चाहते हैं, तो सही जगह पर हैं! यहां मिलेगा: ✅ Basic से Advanced तक Spanish Grammar ✅ Hindi में आसान समझ और Examples ✅ Practice Tips और Conversation Tricks Spanish सीखें बिना किसी मुश्क...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-03-04T14:17:01.382608Z",
+      "subscriberCount": "653",
+      "videoCount": "144",
+      "viewCount": "96772",
+      "languages": [
+        "spanish"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 303,
+      "discoveredByQueries": [
+        "Spanish grammar lessons"
+      ],
+      "discoveredAt": "2026-08-21T10:00:07.402Z",
+      "refreshedAt": "2026-08-21T10:00:07.402Z",
+      "searchText": "speakmundo learn spanish speakmundo spanish youtube discovery"
     },
     {
       "catalogId": "discovered-UCYMZtHTIoVvuWR-ZYOKtRKA",
