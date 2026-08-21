@@ -8,6 +8,10 @@ function isNullableString(value) {
   return value === null || (typeof value === 'string' && Boolean(value))
 }
 
+function isPositiveInteger(value) {
+  return Number.isSafeInteger(value) && value > 0
+}
+
 function readAccessRecord(storage, accessStorageKey) {
   const serialized = storage.getItem(accessStorageKey)
   if (serialized === null) return { present: false, record: null }
@@ -20,6 +24,15 @@ function readAccessRecord(storage, accessStorageKey) {
       || !record.profileId
       || !isNullableString(record.ownerId)
       || !isNullableString(record.activationId)
+      || (
+        record.generation !== undefined
+        && !isPositiveInteger(record.generation)
+      )
+      || (
+        record.revision !== undefined
+        && !isPositiveInteger(record.revision)
+      )
+      || ((record.generation === undefined) !== (record.revision === undefined))
       || (
         record.onboardingFinalizationPending !== undefined
         && typeof record.onboardingFinalizationPending !== 'boolean'
@@ -78,6 +91,13 @@ export function createLearnerProfileLocalPersistenceAdapter({
       profileId: access.record?.profileId || accountlessProfileId,
       status: 'ready'
     }
+    if (
+      isPositiveInteger(access.record?.generation)
+      && isPositiveInteger(access.record?.revision)
+    ) {
+      localProfile.generation = access.record.generation
+      localProfile.revision = access.record.revision
+    }
     if (access.record?.onboardingFinalizationPending === true) {
       localProfile.onboardingFinalizationPending = true
     }
@@ -85,10 +105,12 @@ export function createLearnerProfileLocalPersistenceAdapter({
   }
 
   function installSignedInProfile(profile, {
+    generation,
     installedAt,
     onboardingFinalizationPending = false,
     ownerId,
-    profileId
+    profileId,
+    revision
   }) {
     if (
       !isRecord(profile)
@@ -97,15 +119,19 @@ export function createLearnerProfileLocalPersistenceAdapter({
       || !ownerId
       || typeof profileId !== 'string'
       || !profileId
+      || !isPositiveInteger(generation)
+      || !isPositiveInteger(revision)
       || !Number.isFinite(installedAt)
     ) return false
     if (hasProfile()) return false
     const record = {
       activatedAt: installedAt,
       activationId: null,
+      generation,
       onboardingFinalizationPending,
       ownerId,
       profileId,
+      revision,
       version: PROFILE_ACCESS_RECORD_VERSION
     }
     const isInstallCurrent = () => {
@@ -113,6 +139,8 @@ export function createLearnerProfileLocalPersistenceAdapter({
       return current?.activationId === null
         && current.ownerId === ownerId
         && current.profileId === profileId
+        && current.generation === generation
+        && current.revision === revision
     }
     try {
       storage.setItem(accessStorageKey, JSON.stringify(record))
@@ -141,6 +169,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     const record = {
       activatedAt: fence.activatedAt,
       activationId: fence.id,
+      generation: current?.generation,
       onboardingFinalizationPending: Boolean(
         current?.onboardingFinalizationPending
         && current.ownerId === fence.ownerId
@@ -148,12 +177,70 @@ export function createLearnerProfileLocalPersistenceAdapter({
       ),
       ownerId: fence.ownerId,
       profileId: fence.profileId,
+      revision: current?.revision,
       version: PROFILE_ACCESS_RECORD_VERSION
     }
     try {
       storage.setItem(accessStorageKey, JSON.stringify(record))
       return isActivationCurrent(fence)
     } catch {
+      return false
+    }
+  }
+
+  function reconcileSignedInProfile(profile, {
+    generation,
+    ownerId,
+    profileId,
+    revision
+  }) {
+    if (
+      !isRecord(profile)
+      || typeof ownerId !== 'string'
+      || !ownerId
+      || typeof profileId !== 'string'
+      || !profileId
+      || !isPositiveInteger(generation)
+      || !isPositiveInteger(revision)
+    ) return false
+    const current = readAccessRecord(storage, accessStorageKey).record
+    if (
+      !current
+      || current.activationId !== null
+      || current.ownerId !== ownerId
+      || current.profileId !== profileId
+      || !hasProfile()
+    ) return false
+    const reconciled = {
+      ...current,
+      generation,
+      revision
+    }
+    const isReconcileCurrent = () => {
+      const next = readAccessRecord(storage, accessStorageKey).record
+      return next?.activationId === null
+        && next.ownerId === ownerId
+        && next.profileId === profileId
+        && next.generation === generation
+        && next.revision === revision
+    }
+    try {
+      storage.setItem(accessStorageKey, JSON.stringify(reconciled))
+      if (!isReconcileCurrent()) return false
+      const result = replaceProfile(profile, {
+        syncAnalytics: false
+      }, isReconcileCurrent)
+      if (result?.persisted && isReconcileCurrent()) return true
+      if (isReconcileCurrent()) {
+        storage.setItem(accessStorageKey, JSON.stringify(current))
+      }
+      return false
+    } catch {
+      try {
+        if (isReconcileCurrent()) {
+          storage.setItem(accessStorageKey, JSON.stringify(current))
+        }
+      } catch {}
       return false
     }
   }
@@ -177,10 +264,12 @@ export function createLearnerProfileLocalPersistenceAdapter({
       storage.setItem(accessStorageKey, JSON.stringify({
         activatedAt: fence.activatedAt,
         activationId: null,
+        generation: current?.generation,
         onboardingFinalizationPending:
           current?.onboardingFinalizationPending === true,
         ownerId: fence.ownerId,
         profileId: fence.profileId,
+        revision: current?.revision,
         version: PROFILE_ACCESS_RECORD_VERSION
       }))
       return true
@@ -248,6 +337,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     installSignedInProfile,
     isActivationCurrent,
     read,
+    reconcileSignedInProfile,
     releaseActivation,
     replace,
     save,

@@ -19,7 +19,8 @@ import {
 } from './config-normalization.js'
 import {
   canonicalizeJson,
-  sha256Base64Url
+  sha256Base64Url,
+  sha256Base64UrlSync
 } from './portable-state.js'
 import { isValidStateShape } from './persistence-contract.js'
 
@@ -31,6 +32,7 @@ export const PORTABLE_LEARNER_PROFILE_MAX_BYTES = 2 * 1024 * 1024
 const SHA256_BASE64URL_PATTERN = /^[A-Za-z0-9_-]{43}$/
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const ACTIVITY_LOG_LIMIT = 500
+const UTF8_ENCODER = new TextEncoder()
 const VIDEO_STATUSES = new Set([
   'watch-later',
   'unwatched',
@@ -77,7 +79,7 @@ function cloneJson(value) {
 }
 
 function getUtf8ByteLength(value) {
-  return new TextEncoder().encode(String(value)).byteLength
+  return UTF8_ENCODER.encode(String(value)).byteLength
 }
 
 function normalizeTimestamp(value) {
@@ -102,12 +104,24 @@ function normalizeOptionalString(value) {
   return normalized || null
 }
 
+function compareCanonicalStrings(left, right) {
+  const leftBytes = UTF8_ENCODER.encode(String(left))
+  const rightBytes = UTF8_ENCODER.encode(String(right))
+  const sharedLength = Math.min(leftBytes.byteLength, rightBytes.byteLength)
+  for (let index = 0; index < sharedLength; index += 1) {
+    if (leftBytes[index] !== rightBytes[index]) {
+      return leftBytes[index] - rightBytes[index]
+    }
+  }
+  return leftBytes.byteLength - rightBytes.byteLength
+}
+
 function normalizeStringList(value) {
   const seen = new Set()
   return (Array.isArray(value) ? value : [])
     .map(item => String(item || '').trim())
     .filter(item => item && !seen.has(item) && seen.add(item))
-    .sort()
+    .sort(compareCanonicalStrings)
 }
 
 function normalizeChannel(channel) {
@@ -125,7 +139,7 @@ function normalizeChannels(value) {
   const channels = (Array.isArray(value) ? value : [])
     .map(normalizeChannel)
     .filter(Boolean)
-    .sort((left, right) => left.id.localeCompare(right.id))
+    .sort((left, right) => compareCanonicalStrings(left.id, right.id))
   const byId = new Map()
   for (const channel of channels) {
     const existing = byId.get(channel.id)
@@ -160,7 +174,7 @@ function normalizeConfig(value) {
     channelShelfOrder: normalizeChannelShelfOrder(config.channelShelfOrder),
     channelVideoFormats: Object.fromEntries(
       Object.entries(channelVideoFormats)
-        .sort(([left], [right]) => left.localeCompare(right))
+        .sort(([left], [right]) => compareCanonicalStrings(left, right))
     ),
     channels: normalizeChannels(config.channels),
     includeShorts: normalizeIncludeShorts(config.includeShorts),
@@ -209,8 +223,8 @@ function normalizeWatchProgress(videoId, progress, duration, options = {}) {
 
   return entries
     .sort((left, right) => (
-      left.watchedAt.localeCompare(right.watchedAt)
-      || left.studyDay.localeCompare(right.studyDay)
+      compareCanonicalStrings(left.watchedAt, right.watchedAt)
+      || compareCanonicalStrings(left.studyDay, right.studyDay)
       || left.seconds - right.seconds
     ))
     .map((entry, index) => ({
@@ -300,7 +314,7 @@ function normalizeVideos(value) {
   const normalized = Object.entries(videos)
     .map(([videoKey, video]) => normalizeVideo(videoKey, video))
     .filter(Boolean)
-    .sort((left, right) => left.id.localeCompare(right.id))
+    .sort((left, right) => compareCanonicalStrings(left.id, right.id))
   const byId = new Map()
   for (const video of normalized) {
     const existing = byId.get(video.id)
@@ -338,7 +352,7 @@ export function reconcilePortableAnkiDays(...sources) {
         ),
         observedAt: [existing?.observedAt, observedAt]
           .filter(Boolean)
-          .sort()
+          .sort(compareCanonicalStrings)
           .at(-1) || null,
         reviewed: Math.max(
           existing?.reviewed || 0,
@@ -349,7 +363,9 @@ export function reconcilePortableAnkiDays(...sources) {
     }
   }
   return Object.fromEntries(
-    [...byDate.entries()].sort(([left], [right]) => left.localeCompare(right))
+    [...byDate.entries()].sort(
+      ([left], [right]) => compareCanonicalStrings(left, right)
+    )
   )
 }
 
@@ -408,7 +424,9 @@ function normalizeActivityMeta(value) {
     }
   }
   return entries.length
-    ? Object.fromEntries(entries.sort(([left], [right]) => left.localeCompare(right)))
+    ? Object.fromEntries(entries.sort(
+      ([left], [right]) => compareCanonicalStrings(left, right)
+    ))
     : null
 }
 
@@ -436,8 +454,8 @@ function normalizeActivityLog(value) {
     })
     .filter(Boolean)
     .sort((left, right) => (
-      right.createdAt.localeCompare(left.createdAt)
-      || left.id.localeCompare(right.id)
+      compareCanonicalStrings(right.createdAt, left.createdAt)
+      || compareCanonicalStrings(left.id, right.id)
     ))
 
   const byId = new Map()
@@ -506,10 +524,9 @@ function createIntegrityPayload({ exportedAt, profile, schema, version }) {
   return { exportedAt, profile, schema, version }
 }
 
-export async function createPortableLearnerProfileEnvelope(
+export function preparePortableLearnerProfileEnvelope(
   state,
   {
-    cryptoLike = globalThis.crypto,
     maxBytes = PORTABLE_LEARNER_PROFILE_MAX_BYTES,
     now = () => new Date()
   } = {}
@@ -520,14 +537,14 @@ export async function createPortableLearnerProfileEnvelope(
   if (!exportedAt) {
     throw new TypeError('Portable learner profile export time is invalid')
   }
-  const payloadSha256 = await sha256Base64Url(
-    canonicalizeJson(createIntegrityPayload({
-      exportedAt,
-      profile,
-      schema: PORTABLE_LEARNER_PROFILE_SCHEMA,
-      version: PORTABLE_LEARNER_PROFILE_VERSION
-    })),
-    cryptoLike
+  const prepared = {
+    exportedAt,
+    profile,
+    schema: PORTABLE_LEARNER_PROFILE_SCHEMA,
+    version: PORTABLE_LEARNER_PROFILE_VERSION
+  }
+  const payloadSha256 = sha256Base64UrlSync(
+    canonicalizeJson(createIntegrityPayload(prepared))
   )
   const envelope = {
     exportedAt,
@@ -544,11 +561,70 @@ export async function createPortableLearnerProfileEnvelope(
   if (byteLength > maxBytes) {
     throw new RangeError('Portable learner profile is too large')
   }
+  return JSON.parse(serialized)
+}
+
+export async function finalizePortableLearnerProfileEnvelope(
+  value,
+  {
+    cryptoLike = globalThis.crypto,
+    maxBytes = PORTABLE_LEARNER_PROFILE_MAX_BYTES
+  } = {}
+) {
+  validateMaximumBytes(maxBytes)
+  const prepared = cloneJson(value)
+  if (
+    !hasExactKeys(prepared, [
+      'exportedAt',
+      'integrity',
+      'profile',
+      'schema',
+      'version'
+    ])
+    || prepared.schema !== PORTABLE_LEARNER_PROFILE_SCHEMA
+    || prepared.version !== PORTABLE_LEARNER_PROFILE_VERSION
+    || normalizeTimestamp(prepared.exportedAt) !== prepared.exportedAt
+    || !hasExactKeys(prepared.integrity, [
+      'algorithm',
+      'byteLength',
+      'payloadSha256'
+    ])
+    || prepared.integrity.algorithm !== 'SHA-256'
+    || !Number.isSafeInteger(prepared.integrity.byteLength)
+    || prepared.integrity.byteLength < 1
+    || !SHA256_BASE64URL_PATTERN.test(prepared.integrity.payloadSha256)
+    || !isCanonicalProfile(prepared.profile)
+  ) {
+    throw new TypeError('Prepared portable learner profile is invalid')
+  }
+  const serialized = canonicalizeJson(prepared)
+  const byteLength = getUtf8ByteLength(serialized)
+  if (
+    byteLength !== prepared.integrity.byteLength
+    || byteLength > maxBytes
+  ) throw new RangeError('Portable learner profile is too large or invalid')
+  const payloadSha256 = await sha256Base64Url(
+    canonicalizeJson(createIntegrityPayload(prepared)),
+    cryptoLike
+  )
+  if (payloadSha256 !== prepared.integrity.payloadSha256) {
+    throw new TypeError('Prepared portable learner profile integrity is invalid')
+  }
   return {
     byteLength,
-    envelope: JSON.parse(serialized),
+    envelope: prepared,
     serialized
   }
+}
+
+export async function createPortableLearnerProfileEnvelope(
+  state,
+  options = {}
+) {
+  return finalizePortableLearnerProfileEnvelope(
+    preparePortableLearnerProfileEnvelope(state, options),
+    options
+  )
 }
 
 export async function verifyPortableLearnerProfileEnvelope(

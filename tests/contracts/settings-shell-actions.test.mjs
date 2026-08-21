@@ -6,6 +6,7 @@ import {
 
 const selectors = [
   '.gear-btn[data-settings-shell-action="open"]',
+  '#learnerProfileSyncStatus[data-settings-shell-action="sync-status"]',
   '.settings-overlay[data-settings-shell-action="close"]',
   '#settingsCloseBtn[data-settings-shell-action="close"]'
 ]
@@ -32,7 +33,7 @@ test('Settings shell binding preserves exact zero-argument uncancelled calls', (
     close(...args) {
       calls.push(['close', args])
     }
-  }), 3)
+  }), 4)
 
   selectors.forEach(selector => {
     const event = new Event('click', { cancelable: true })
@@ -40,6 +41,7 @@ test('Settings shell binding preserves exact zero-argument uncancelled calls', (
     assert.equal(event.defaultPrevented, false)
   })
   assert.deepEqual(calls, [
+    ['open', []],
     ['open', []],
     ['close', []],
     ['close', []]

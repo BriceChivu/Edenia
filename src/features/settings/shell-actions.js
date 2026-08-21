@@ -14,6 +14,10 @@ export function bindSettingsShellActions(root, actions) {
 
   const bindings = [
     ['.gear-btn[data-settings-shell-action="open"]', () => actions.open()],
+    [
+      '#learnerProfileSyncStatus[data-settings-shell-action="sync-status"]',
+      () => actions.open()
+    ],
     ['.settings-overlay[data-settings-shell-action="close"]', () => actions.close()],
     ['#settingsCloseBtn[data-settings-shell-action="close"]', () => actions.close()]
   ]

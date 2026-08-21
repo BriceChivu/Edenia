@@ -224,7 +224,9 @@ import {
 } from './state/persistence-contract.js'
 import {
   createPortableLearnerProfileEnvelope,
+  finalizePortableLearnerProfileEnvelope,
   PORTABLE_LEARNER_PROFILE_SCHEMA,
+  preparePortableLearnerProfileEnvelope,
   verifyPortableLearnerProfileEnvelope
 } from './state/portable-learner-profile.js'
 import {
@@ -480,6 +482,9 @@ import {
   createLearnerProfileAccessView
 } from './features/profile-access/view.js'
 import {
+  createLearnerProfileSyncView
+} from './features/profile-access/sync-view.js'
+import {
   bindStudyHistoryPeriodOptionActions
 } from './features/study-history/period-option-actions.js'
 import {
@@ -580,6 +585,7 @@ const {
   stateBackupKey: STATE_BACKUP_KEY,
   legacyProgressMigrationKey: LEGACY_PROGRESS_MIGRATION_KEY,
   learnerProfileAccessKey: LEARNER_PROFILE_ACCESS_KEY,
+  learnerProfileSyncKey: LEARNER_PROFILE_SYNC_KEY,
   onboardingProfileDraftKey: ONBOARDING_PROFILE_DRAFT_KEY,
   accountAuthStorageKey: ACCOUNT_AUTH_STORAGE_KEY,
   plusEntitlementCacheKey: PLUS_ENTITLEMENT_CACHE_KEY,
@@ -880,6 +886,12 @@ const learnerProfileAccessView = createLearnerProfileAccessView({
   root: document,
   translate: t
 })
+const learnerProfileSyncView = createLearnerProfileSyncView({
+  root: document,
+  translate: t
+})
+let learnerProfileSyncViewState = Object.freeze({ status: 'idle' })
+learnerProfileSyncView.render(learnerProfileSyncViewState)
 let learnerProfileLifecycleAuthority = null
 
 if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
@@ -893,6 +905,32 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     saveProfile: savePersistedState,
     storage: localStorage
   })
+  const cloudPersistence = createLearnerProfileCloudPersistenceAdapter({
+    clearOnboardingDraft: onboardingProfileDraftStore.clear,
+    createOnboardingEnvelope: onboardingState => (
+      createInitialSignedInProfileEnvelope(onboardingState, {
+        createEnvelope: createPortableLearnerProfileEnvelope,
+        normalizeLearnerProfile: normalizeLearnerProfileState
+      })
+    ),
+    createOperationId: createLearnerProfileActivationId,
+    eventTarget: window,
+    finalizeEnvelope: finalizePortableLearnerProfileEnvelope,
+    getClient: getSupabaseClient,
+    importEnvelope: importSignedInProfileEnvelope,
+    isOnline: () => window.navigator.onLine !== false,
+    now: () => Date.now(),
+    prepareEnvelope: preparePortableLearnerProfileEnvelope,
+    readOnboardingState: loadOnboardingWorkingState,
+    setTimer: (callback, delay) => window.setTimeout(callback, delay),
+    storage: localStorage,
+    syncStorageKey: LEARNER_PROFILE_SYNC_KEY,
+    verifyEnvelope: verifyPortableLearnerProfileEnvelope
+  })
+  cloudPersistence.subscribe(state => {
+    learnerProfileSyncViewState = state
+    learnerProfileSyncView.render(state)
+  })
   learnerProfileLifecycleAuthority = createLearnerProfileLifecycleAuthority({
     adapters: {
       analytics: {
@@ -902,19 +940,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
       },
       authentication: learnerProfileAuthenticationAdapter,
       clock: { now: () => Date.now() },
-      cloudPersistence: createLearnerProfileCloudPersistenceAdapter({
-        clearOnboardingDraft: onboardingProfileDraftStore.clear,
-        createOnboardingEnvelope: onboardingState => (
-          createInitialSignedInProfileEnvelope(onboardingState, {
-            createEnvelope: createPortableLearnerProfileEnvelope,
-            normalizeLearnerProfile: normalizeLearnerProfileState
-          })
-        ),
-        getClient: getSupabaseClient,
-        importEnvelope: importSignedInProfileEnvelope,
-        readOnboardingState: loadOnboardingWorkingState,
-        verifyEnvelope: verifyPortableLearnerProfileEnvelope
-      }),
+      cloudPersistence,
       connectivity: createLearnerProfileConnectivityAdapter(window),
       exportDownload: {
         download: downloadLearnerProfileSyncFile
@@ -1394,6 +1420,7 @@ function applyTranslations(root = document) {
   })
   renderLocaleSelect()
   renderAccountSettings()
+  learnerProfileSyncView.render(learnerProfileSyncViewState)
   renderPlusAccountSettings()
   renderPlusUpgradeModal()
 }

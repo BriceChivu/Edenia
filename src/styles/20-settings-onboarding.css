@@ -648,7 +648,8 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
 .settings-account-intro h3,
 .settings-account-export h3,
 .settings-account-plus h3,
-.settings-account-reminders h3 {
+.settings-account-reminders h3,
+.settings-account-sync h3 {
   margin: 0;
   font-family: var(--font-body);
   line-height: 1.3;
@@ -656,7 +657,8 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
 .settings-account-intro h3,
 .settings-account-export h3,
 .settings-account-plus h3,
-.settings-account-reminders h3 { font-size: 0.9rem; }
+.settings-account-reminders h3,
+.settings-account-sync h3 { font-size: 0.9rem; }
 .settings-account-header p,
 .settings-account-intro p,
 .settings-account-loading,
@@ -711,6 +713,26 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   display: grid;
   gap: 9px;
   padding: 12px;
+}
+.settings-account-sync {
+  background: var(--surface-hi);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: grid;
+  gap: 5px;
+  padding: 10px 12px;
+}
+.learner-profile-sync-settings-status {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  margin: 0;
+}
+.learner-profile-sync-settings-status:is(
+  [data-sync-status="needs-attention"],
+  [data-sync-status="conflicting"]
+) {
+  color: var(--error);
 }
 .settings-reminder-form,
 .settings-reminder-form > fieldset {
