@@ -102,6 +102,21 @@ creating a blank profile. Network and server unavailability remain
 Both states preserve local data and expose retry plus local sign-out without
 revealing the learner's email, profile, or town.
 
+After a successful online ownership check, the browser stores only the verified
+Supabase UUID and the verification time. A matching owner may continue studying
+through a network or Auth outage for at most 30 days, including the exact
+30-day boundary. The local profile remains authoritative and cloud writes stay
+queued. Expiry, a mismatched owner, a rejected or revoked session, an invalid
+profile response, or an ownership conflict locks the profile immediately. None
+of those outcomes delete the retained owner-bound local copy.
+
+While a verified profile is open, Edenia revalidates the session and reconciles
+the cloud head after focus returns or connectivity is restored. Rechecks are
+coalesced and focus checks are rate-limited. A successful online check renews
+the 30-day window; a transient transport failure does not. The verification
+record never contains an email, credential, provider response, access token,
+refresh token, or profile data.
+
 `public.learner_profile_heads` and
 `public.learner_profile_versions` have owner-read RLS policies. Authenticated
 clients receive `SELECT` plus execute access to the narrow resolver, but no
@@ -212,7 +227,12 @@ only in Supabase; the browser receives only the restricted public site key.
 
 The generic controller restores and refreshes the persistent Supabase session,
 publishes `loading`, `signed-out`, `signed-in`, or `unavailable`, observes auth
-events, signs out only the current browser, and unsubscribes on discard.
+events, and unsubscribes on discard. **Sign out** requests Supabase's local
+scope and immediately locks the retained local profile in this browser.
+**Sign out everywhere** requests the global scope. Other browsers lock when
+Supabase definitively rejects their session, when they reconnect, or when their
+session expires. Both actions clear the local ownership-verification record;
+neither action deletes the owner-bound study copy.
 App-facing state contains only the normalized user UUID, normalized email,
 fixed `google` or `email` method, busy action, and safe status. It never
 contains codes, tokens, session objects, provider metadata, identities, or

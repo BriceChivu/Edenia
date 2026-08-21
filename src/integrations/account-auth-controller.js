@@ -85,6 +85,20 @@ function isInvalidEmailCodeError(error) {
     || ['invalid_otp', 'otp_disabled'].includes(code)
 }
 
+function isTransientSessionError(error, isOnline) {
+  if (!isOnline()) return true
+  const status = Number(error?.status)
+  const code = String(error?.code || '').trim().toLowerCase()
+  return error?.name === 'AuthRetryableFetchError'
+    || error?.name === 'TypeError'
+    || status === 0
+    || status === 408
+    || status === 425
+    || status === 429
+    || status >= 500
+    || code === 'request_timeout'
+}
+
 export function getAccountAuthReturnUrl(locationLike) {
   let url
   try {
@@ -205,6 +219,7 @@ export function createAccountAuthController({
 }) {
   if (
     typeof client?.auth?.getSession !== 'function'
+    || typeof client?.auth?.refreshSession !== 'function'
     || typeof client?.auth?.onAuthStateChange !== 'function'
     || typeof client?.auth?.signInWithOtp !== 'function'
     || typeof client?.auth?.verifyOtp !== 'function'
@@ -271,11 +286,17 @@ export function createAccountAuthController({
     })
   }
 
-  async function refreshSession({ busyAction = null, completionError = null } = {}) {
+  async function refreshSession({
+    busyAction = null,
+    completionError = null,
+    verifyOnline = false
+  } = {}) {
     const requestId = ++sessionRequestId
     if (busyAction) publish({ busyAction, error: null, notice: null })
     try {
-      const { data, error: authError } = await client.auth.getSession()
+      const { data, error: authError } = verifyOnline
+        ? await client.auth.refreshSession()
+        : await client.auth.getSession()
       if (authError) throw authError
       if (destroyed || requestId !== sessionRequestId) return currentState
       const session = data?.session || null
@@ -291,8 +312,11 @@ export function createAccountAuthController({
       }
       if (destroyed || requestId !== sessionRequestId) return currentState
       return synchronizeSession(session, { claims, error: completionError })
-    } catch {
+    } catch (error) {
       if (destroyed || requestId !== sessionRequestId) return currentState
+      if (!isTransientSessionError(error, isOnline)) {
+        return synchronizeSession(null)
+      }
       return publish({
         sessionState: ACCOUNT_SESSION_STATES.UNAVAILABLE,
         userId: null,
@@ -331,6 +355,10 @@ export function createAccountAuthController({
 
   function refresh() {
     return refreshSession({ busyAction: 'refresh' })
+  }
+
+  function reverify() {
+    return refreshSession({ verifyOnline: true })
   }
 
   function requireAllowedLocation() {
@@ -496,15 +524,27 @@ export function createAccountAuthController({
     return true
   }
 
-  async function signOut() {
+  async function signOutWithScope(scope, busyAction) {
     const requestId = ++sessionRequestId
-    publish({ busyAction: 'sign-out', error: null, notice: null })
+    emailVerificationAddress = ''
+    publish({
+      sessionState: ACCOUNT_SESSION_STATES.SIGNED_OUT,
+      userId: null,
+      email: '',
+      authMethod: null,
+      busyAction,
+      error: null,
+      notice: null
+    })
     let result
     try {
-      result = await client.auth.signOut({ scope: 'local' })
+      result = await client.auth.signOut({ scope })
     } catch {}
     if (destroyed) return false
     if (!result || result.error) {
+      if (scope === 'global') {
+        try { await client.auth.signOut({ scope: 'local' }) } catch {}
+      }
       if (requestId === sessionRequestId) {
         publish({
           busyAction: null,
@@ -514,8 +554,18 @@ export function createAccountAuthController({
       }
       return false
     }
-    synchronizeSession(null)
+    if (requestId === sessionRequestId) {
+      publish({ busyAction: null, error: null, notice: null })
+    }
     return true
+  }
+
+  function signOut() {
+    return signOutWithScope('local', 'sign-out')
+  }
+
+  function signOutEverywhere() {
+    return signOutWithScope('global', 'sign-out-everywhere')
   }
 
   function destroy() {
@@ -531,9 +581,11 @@ export function createAccountAuthController({
     hasPendingEmailCode: () => Boolean(emailVerificationAddress),
     initialize,
     refresh,
+    reverify,
     requestEmailCode,
     signInWithGoogleIdToken,
     signOut,
+    signOutEverywhere,
     verifyEmailCode
   })
 }

@@ -6,6 +6,8 @@ const SECRET_CHANNEL_NAME = 'PRIVATE LEARNER CHANNEL'
 const AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
 const PROFILE_ACCESS_STORAGE_KEY =
   'edenia_v1_internal_test_learner_profile_access_v1'
+const OWNER_VERIFICATION_STORAGE_KEY =
+  'edenia_v1_internal_test_learner_profile_owner_verification_v1'
 const STATE_STORAGE_KEY = 'edenia_v1_internal_test'
 
 function runtimeConfig({ accountFeaturesRollout = 'off', lifecycle = false } = {}) {
@@ -164,16 +166,22 @@ test('locked profile access exposes no learner content and performs no autosave'
 
   await expectNeutralProfileGate(page, 'locked', storedState)
   await expect(page.locator('#learnerProfileAccessTitle')).toHaveText(
-    'Your learner profile is locked'
+    'Welcome back — sign in to continue your town.'
   )
 })
 
-test('owner mismatch stays neutral and local sign-out changes no profile', async ({
+test('a recently verified owner can reopen and save the local profile while offline', async ({
   page
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   let lifecycleEnabled = false
   let resolutionCount = 0
+  await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      get: () => false
+    })
+  })
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
       accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
@@ -183,8 +191,97 @@ test('owner mismatch stays neutral and local sign-out changes no profile', async
     status: 200
   }))
   await page.route('https://profile-access-test.supabase.co/**', route => {
-    if (new URL(route.request().url()).pathname.includes('/rpc/')) {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
       resolutionCount += 1
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto('/?internal_test=1')
+  await seedPrivateLearnerProfile(page)
+  await page.evaluate(({
+    accessStorageKey,
+    authStorageKey,
+    ownerId,
+    session,
+    verificationStorageKey
+  }) => {
+    localStorage.setItem(authStorageKey, JSON.stringify(session))
+    localStorage.setItem(accessStorageKey, JSON.stringify({
+      activatedAt: Date.now(),
+      activationId: null,
+      ownerId,
+      profileId: `owner:${ownerId}`,
+      version: 1
+    }))
+    localStorage.setItem(verificationStorageKey, JSON.stringify({
+      ownerId,
+      verifiedAt: Date.now()
+    }))
+  }, {
+    accessStorageKey: PROFILE_ACCESS_STORAGE_KEY,
+    authStorageKey: AUTH_STORAGE_KEY,
+    ownerId: OWNER_ID,
+    session: restoredSession(OWNER_ID),
+    verificationStorageKey: OWNER_VERIFICATION_STORAGE_KEY
+  })
+  lifecycleEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+  const reopenedState = await page.evaluate(key => (
+    JSON.parse(localStorage.getItem(key))
+  ), STATE_STORAGE_KEY)
+  expect(reopenedState.config.channels).toEqual([
+    expect.objectContaining({ name: SECRET_CHANNEL_NAME })
+  ])
+  expect(resolutionCount).toBe(0)
+  const verification = await page.evaluate(key => (
+    JSON.parse(localStorage.getItem(key))
+  ), OWNER_VERIFICATION_STORAGE_KEY)
+  expect(Object.keys(verification).sort()).toEqual(['ownerId', 'verifiedAt'])
+  expect(verification.ownerId).toBe(OWNER_ID)
+
+  await page.locator('.gear-btn').click()
+  if (testInfo.project.name === 'phone-small') {
+    await page.locator('#settingsLocaleBtn').click()
+    await page.locator('input[name="settingsLocale"][value="fr"]').check()
+    await expect.poll(() => page.evaluate(key => (
+      JSON.parse(localStorage.getItem(key)).config.locale
+    ), STATE_STORAGE_KEY)).toBe('fr')
+  } else {
+    await page.locator('.settings-howto-toggle').click()
+    await page.locator('#settingsAnkiEnabled').uncheck()
+    await expect.poll(() => page.evaluate(key => (
+      JSON.parse(localStorage.getItem(key)).config.ankiEnabled
+    ), STATE_STORAGE_KEY)).toBe(false)
+  }
+})
+
+test('owner mismatch stays neutral and local sign-out changes no profile', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  let lifecycleEnabled = false
+  let resolutionCount = 0
+  const signOutScopes = []
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const url = new URL(route.request().url())
+    if (url.pathname.includes('/rpc/')) {
+      resolutionCount += 1
+    }
+    if (url.pathname === '/auth/v1/logout') {
+      signOutScopes.push(url.searchParams.get('scope'))
     }
     return route.fulfill({ json: {}, status: 200 })
   })
@@ -242,5 +339,6 @@ test('owner mismatch stays neutral and local sign-out changes no profile', async
     access: storedAccess,
     state: storedState
   })
+  await expect.poll(() => signOutScopes).toEqual(['local'])
   expect(resolutionCount).toBe(0)
 })

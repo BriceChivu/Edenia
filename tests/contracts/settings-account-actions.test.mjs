@@ -10,6 +10,7 @@ const selectors = {
   codeForm: '[data-account-action="code-form"]',
   code: '#accountEmailCode',
   signOut: '[data-account-action="sign-out"]',
+  signOutEverywhere: '[data-account-action="sign-out-everywhere"]',
   downloadAccount: '[data-account-action="download-account"]'
 }
 
@@ -41,6 +42,7 @@ function createActions(calls = []) {
     requestEmailCode(email) { calls.push(['request', email]) },
     verifyEmailCode(code) { calls.push(['verify', code]) },
     signOut() { calls.push(['sign-out']) },
+    signOutEverywhere() { calls.push(['sign-out-everywhere']) },
     downloadAccount() { calls.push(['download-account']) }
   }
 }
@@ -48,7 +50,7 @@ function createActions(calls = []) {
 test('Account controls forward email request, verification, session, and export intent', () => {
   const { controls, root } = createHarness()
   const calls = []
-  assert.equal(bindSettingsAccountActions(root, createActions(calls)), 4)
+  assert.equal(bindSettingsAccountActions(root, createActions(calls)), 5)
 
   let prevented = false
   controls.get(selectors.form).dispatch('submit', {
@@ -58,6 +60,7 @@ test('Account controls forward email request, verification, session, and export 
     preventDefault() { prevented = true }
   })
   controls.get(selectors.signOut).dispatch('click')
+  controls.get(selectors.signOutEverywhere).dispatch('click')
   controls.get(selectors.downloadAccount).dispatch('click')
 
   assert.equal(prevented, true)
@@ -65,6 +68,7 @@ test('Account controls forward email request, verification, session, and export 
     ['request', 'learner@example.com'],
     ['verify', '123456'],
     ['sign-out'],
+    ['sign-out-everywhere'],
     ['download-account']
   ])
 })
@@ -72,7 +76,7 @@ test('Account controls forward email request, verification, session, and export 
 test('Account binding is idempotent, optional, and boundary checked', () => {
   const { root } = createHarness()
   const actions = createActions()
-  assert.equal(bindSettingsAccountActions(root, actions), 4)
+  assert.equal(bindSettingsAccountActions(root, actions), 5)
   assert.equal(bindSettingsAccountActions(root, actions), 0)
   assert.equal(bindSettingsAccountActions(createHarness([]).root, actions), 0)
   assert.throws(

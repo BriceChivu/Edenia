@@ -46,6 +46,10 @@ test('Settings contains one generic internal Account surface', () => {
     html,
     /class="btn-secondary settings-account-sign-out"[^>]*data-account-action="sign-out"/
   )
+  assert.match(
+    html,
+    /id="accountSignOutEverywhereBtn"[^>]*data-account-action="sign-out-everywhere"[^>]*data-i18n="settings.account.signOutEverywhere"/
+  )
   assert.match(html, /data-reminder-action="form"/)
   assert.match(
     html,
@@ -82,5 +86,6 @@ test('signed-in Account presentation contains no subscription controls', () => {
   )?.[1] || ''
 
   assert.match(signedIn, /data-account-action="sign-out"/)
+  assert.match(signedIn, /data-account-action="sign-out-everywhere"/)
   assert.doesNotMatch(signedIn, /download-account|subscription|billing|Edenia Plus/i)
 })

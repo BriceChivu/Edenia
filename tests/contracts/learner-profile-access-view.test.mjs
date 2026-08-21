@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   createLearnerProfileAccessView
 } from '../../src/features/profile-access/view.js'
+import { I18N } from '../../src/i18n/index.js'
 
 const html = await readFile(new URL('../../index.html', import.meta.url), 'utf8')
 
@@ -87,5 +88,12 @@ test('the guarded profile surface contains retry and safe sign-out controls', ()
   assert.match(
     html,
     /id="learnerProfileAccessSignOut"[^>]*data-profile-access-action="sign-out"[^>]*hidden/
+  )
+})
+
+test('the signed-out returning surface uses the protected-town message', () => {
+  assert.equal(
+    I18N.en['profileAccess.locked.title'],
+    'Welcome back — sign in to continue your town.'
   )
 })
