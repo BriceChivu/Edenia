@@ -31,7 +31,10 @@ function createHarness() {
     ['learnerProfileAccessBody', createElement()],
     ['learnerProfileAccessStatus', createElement()],
     ['learnerProfileAccessRetry', createElement()],
-    ['learnerProfileAccessSignOut', createElement()]
+    ['learnerProfileAccessSignOut', createElement()],
+    ['learnerProfileAccessContinue', createElement()],
+    ['learnerProfileAccessExport', createElement()],
+    ['learnerProfileAccessDiscard', createElement()]
   ])
   const root = {
     documentElement: { dataset: {} },
@@ -95,5 +98,40 @@ test('the signed-out returning surface uses the protected-town message', () => {
   assert.equal(
     I18N.en['profileAccess.locked.title'],
     'Welcome back — sign in to continue your town.'
+  )
+})
+
+test('account changes expose only actions that have protected the previous copy', () => {
+  const { elements, root, view } = createHarness()
+  const continueButton = elements.get('learnerProfileAccessContinue')
+  const exportButton = elements.get('learnerProfileAccessExport')
+  const discardButton = elements.get('learnerProfileAccessDiscard')
+  const signOutButton = elements.get('learnerProfileAccessSignOut')
+
+  view.render({
+    replacement: { protectionStatus: 'synchronized' },
+    status: 'account-change'
+  })
+  assert.equal(root.documentElement.dataset.learnerProfileAccessState, 'account-change')
+  assert.equal(continueButton.hidden, false)
+  assert.equal(exportButton.hidden, true)
+  assert.equal(discardButton.hidden, true)
+  assert.equal(signOutButton.hidden, false)
+  assert.equal(
+    elements.get('learnerProfileAccessBody').textContent,
+    'profileAccess.accountChange.synchronized.body'
+  )
+
+  view.render({
+    replacement: { protectionStatus: 'pending' },
+    status: 'account-change'
+  })
+  assert.equal(continueButton.hidden, true)
+  assert.equal(exportButton.hidden, false)
+  assert.equal(discardButton.hidden, false)
+  assert.equal(signOutButton.hidden, false)
+  assert.equal(
+    elements.get('learnerProfileAccessBody').textContent,
+    'profileAccess.accountChange.pending.body'
   )
 })

@@ -48,6 +48,7 @@ function createHarness({
   claimActivationResult = true,
   cloudResolution = { status: 'waiting' },
   completeOnboardingFinalizationResult = true,
+  markDirtyResult = null,
   now = 1_786_982_400_000,
   ownerVerification = null
 } = {}) {
@@ -93,6 +94,12 @@ function createHarness({
           calls.push(['cloud-activate', context])
           return true
         },
+        ...(markDirtyResult === null ? {} : {
+          markDirty(context) {
+            calls.push(['cloud-mark-dirty', context])
+            return markDirtyResult
+          }
+        }),
         resolve(context) {
           calls.push(['cloud-resolve', context])
           return cloudResolution === 'deferred'
@@ -417,7 +424,7 @@ test('one fenced accountless profile becomes the only writable and exportable pr
     harness.authority.saveActiveProfile(profile, { backupReason: 'study' }),
     true
   )
-  assert.equal(harness.authority.exportActiveProfile(), true)
+  assert.equal(await harness.authority.exportActiveProfile(), true)
   assert.equal(
     harness.calls.filter(([name]) => name === 'local-save').length,
     1
@@ -478,7 +485,7 @@ test('an explicit signed-in profile resolution fences delayed work from an earli
 
   assert.equal(harness.authority.readActiveProfile(), null)
   assert.equal(harness.authority.saveActiveProfile(signedInProfile), false)
-  assert.equal(harness.authority.exportActiveProfile(), false)
+  assert.equal(await harness.authority.exportActiveProfile(), false)
   assert.equal(cloudSave[2].isCurrent(), false)
   assert.equal(
     harness.calls.filter(([name]) => name === 'local-save').length,
@@ -532,6 +539,42 @@ test('cloud revision identity is installed and activated before signed-in saves 
   assert.ok(
     harness.calls.findIndex(([name]) => name === 'cloud-activate')
       < harness.calls.findIndex(([name]) => name === 'cloud-save')
+  )
+})
+
+test('a signed-in local write is refused unless unsynchronized work is durably marked', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const profile = { learnerProfile: { languages: ['mandarin'] } }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId,
+      revision: 1,
+      status: 'activate'
+    },
+    local: { status: 'empty' },
+    markDirtyResult: false
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(harness.authority.saveActiveProfile(profile), false)
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'cloud-mark-dirty').length,
+    1
+  )
+  assert.equal(
+    harness.calls.some(([name]) => name === 'local-save'),
+    false
+  )
+  assert.equal(
+    harness.calls.some(([name]) => name === 'cloud-save'),
+    false
   )
 })
 
@@ -1332,7 +1375,7 @@ test('draft deletion follows activation even when a newer fence then wins', asyn
   )
 })
 
-test('a newer tab fence makes the earlier activation inert', () => {
+test('a newer tab fence makes the earlier activation inert', async () => {
   const harness = createHarness()
   harness.authority.start()
   const staleProfile = harness.authority.readActiveProfile()
@@ -1345,7 +1388,7 @@ test('a newer tab fence makes the earlier activation inert', () => {
     LEARNER_PROFILE_ACCESS_STATES.RECOVERING
   )
   assert.equal(harness.authority.saveActiveProfile(staleProfile), false)
-  assert.equal(harness.authority.exportActiveProfile(), false)
+  assert.equal(await harness.authority.exportActiveProfile(), false)
   assert.equal(
     harness.calls.some(([name]) => name === 'local-save'),
     false
@@ -1635,7 +1678,7 @@ test('access observations deterministically cover every non-active lifecycle sta
       }
     },
     {
-      expected: LEARNER_PROFILE_ACCESS_STATES.CONFLICTING,
+      expected: LEARNER_PROFILE_ACCESS_STATES.ACCOUNT_CHANGE,
       options: {
         authentication: { status: 'signed-in', userId: otherOwnerId },
         local: {

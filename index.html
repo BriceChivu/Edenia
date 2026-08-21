@@ -84,6 +84,9 @@
       <p id="learnerProfileAccessBody"></p>
       <p class="legacy-progress-migration-status" id="learnerProfileAccessStatus" role="status" aria-live="polite"></p>
       <div class="legacy-progress-migration-actions">
+        <button class="btn-primary" id="learnerProfileAccessContinue" type="button" data-profile-access-action="continue-replacement" data-i18n="profileAccess.accountChange.continue" hidden>Continue with this account</button>
+        <button class="btn-secondary" id="learnerProfileAccessExport" type="button" data-profile-access-action="export-replacement" data-i18n="profileAccess.accountChange.export" hidden>Export progress and continue</button>
+        <button class="btn-ghost btn-danger" id="learnerProfileAccessDiscard" type="button" data-profile-access-action="discard-replacement" data-i18n="profileAccess.accountChange.discard" hidden>Discard progress and continue</button>
         <button class="btn-secondary" id="learnerProfileAccessRetry" type="button" data-profile-access-action="retry" data-i18n="migration.action.retry" hidden>Try again</button>
         <button class="btn-ghost" id="learnerProfileAccessSignOut" type="button" data-profile-access-action="sign-out" data-i18n="settings.account.signOut" hidden>Sign out</button>
       </div>

@@ -191,6 +191,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
   let started = false
   let syncState = Object.freeze({ status: 'idle' })
   const listeners = new Set()
+  const dirtyStorageKey = `${syncStorageKey}_dirty`
 
   function publish(status, details = {}) {
     syncState = Object.freeze({ ...details, status })
@@ -226,6 +227,59 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
+  function readDirtyRecord() {
+    try {
+      const serialized = storage.getItem(dirtyStorageKey)
+      if (serialized === null) return { present: false, record: null }
+      const record = JSON.parse(serialized)
+      if (
+        !hasExactKeys(record, [
+          'generation',
+          'ownerId',
+          'profileId',
+          'version'
+        ])
+        || record.version !== 1
+        || !UUID_PATTERN.test(record.ownerId)
+        || !UUID_PATTERN.test(record.profileId)
+        || !normalizePositiveInteger(record.generation)
+      ) return { present: true, record: null }
+      return { present: true, record }
+    } catch {
+      return { present: true, record: null }
+    }
+  }
+
+  function dirtyRecordMatches(identity, dirty = readDirtyRecord()) {
+    return !dirty.present || Boolean(
+      dirty.record
+      && dirty.record.ownerId === identity?.ownerId
+      && dirty.record.profileId === identity?.profileId
+      && dirty.record.generation === identity?.generation
+    )
+  }
+
+  function clearDirtyRecord(identity) {
+    const dirty = readDirtyRecord()
+    if (!dirty.present) return true
+    if (!dirtyRecordMatches(identity, dirty)) return false
+    try {
+      storage.removeItem(dirtyStorageKey)
+      return storage.getItem(dirtyStorageKey) === null
+    } catch {
+      return false
+    }
+  }
+
+  function removeDirtyRecord() {
+    try {
+      storage.removeItem(dirtyStorageKey)
+      return storage.getItem(dirtyStorageKey) === null
+    } catch {
+      return false
+    }
+  }
+
   function ensureSyncRecord({ generation, ownerId, profileId, revision }) {
     const current = readSyncRecord()
     if (
@@ -244,6 +298,126 @@ export function createLearnerProfileCloudPersistenceAdapter({
       version: 1
     }
     return writeSyncRecord(record) ? record : null
+  }
+
+  function getReplacementProtection(localProfile) {
+    const record = readSyncRecord()
+    const dirty = readDirtyRecord()
+    if (
+      !record
+      || localProfile?.status !== 'ready'
+      || record.ownerId !== localProfile.ownerId
+      || record.profileId !== localProfile.profileId
+      || record.generation !== localProfile.generation
+      || !dirtyRecordMatches(record, dirty)
+    ) return 'blocked'
+    return record.pending || dirty.present ? 'pending' : 'synchronized'
+  }
+
+  function commitReplacement(result, transition) {
+    if (
+      result?.status !== 'activate'
+      || result.ownerId !== transition?.nextOwnerId
+      || !UUID_PATTERN.test(result.ownerId)
+      || !UUID_PATTERN.test(result.profileId)
+      || !normalizePositiveInteger(result.generation)
+      || !normalizePositiveInteger(result.revision)
+      || typeof transition?.previousOwnerId !== 'string'
+      || typeof transition?.previousProfileId !== 'string'
+      || !['discarded', 'exported', 'synchronized'].includes(
+        transition.protection
+      )
+    ) return false
+    const current = readSyncRecord()
+    const dirty = readDirtyRecord()
+    const requiresSynchronizedCopy = transition.protection === 'synchronized'
+    const dirtyBelongsToPrevious = !dirty.record || (
+      dirty.record.ownerId === transition.previousOwnerId
+      && dirty.record.profileId === transition.previousProfileId
+    )
+    if (!dirtyBelongsToPrevious) return false
+    const previousIdentity = {
+      generation: dirty.record?.generation ?? current?.generation,
+      ownerId: transition.previousOwnerId,
+      profileId: transition.previousProfileId
+    }
+    if (
+      current?.ownerId === result.ownerId
+      && current.profileId === result.profileId
+      && current.generation === result.generation
+      && current.acceptedRevision === result.revision
+      && current.pending === null
+    ) {
+      const cleared = requiresSynchronizedCopy
+        ? clearDirtyRecord(previousIdentity)
+        : removeDirtyRecord()
+      if (!cleared) return false
+      activeBinding = null
+      publish('idle')
+      return true
+    }
+    if (
+      current
+      && (
+        current.ownerId !== transition.previousOwnerId
+        || current.profileId !== transition.previousProfileId
+      )
+    ) return false
+    if (
+      requiresSynchronizedCopy
+      && (!current || current.pending !== null || dirty.present)
+    ) return false
+    const committed = writeSyncRecord({
+      acceptedRevision: result.revision,
+      generation: result.generation,
+      ownerId: result.ownerId,
+      pending: null,
+      profileId: result.profileId,
+      queued: null,
+      version: 1
+    })
+    if (!committed) return false
+    const cleared = requiresSynchronizedCopy
+      ? clearDirtyRecord(previousIdentity)
+      : removeDirtyRecord()
+    if (!cleared) return false
+    activeBinding = null
+    publish('idle')
+    return true
+  }
+
+  function createOperation(profile, record, activationId) {
+    const prepared = prepareEnvelope(profile)
+    const baseRevision = record.pending
+      ? record.pending.baseRevision + 1
+      : record.acceptedRevision
+    return {
+      activationId,
+      baseRevision,
+      envelope: null,
+      generation: record.generation,
+      integrity: prepared.integrity,
+      nextRetryAt: 0,
+      operationId: createOperationId(),
+      ownerId: record.ownerId,
+      prepared,
+      profileId: record.profileId,
+      retryCount: 0,
+      revision: baseRevision + 1
+    }
+  }
+
+  function queueProfile(profile, record, activationId) {
+    let operation
+    try {
+      operation = createOperation(profile, record, activationId)
+    } catch {
+      return false
+    }
+    if (record.pending) record.queued = operation
+    else record.pending = operation
+    if (!writeSyncRecord(record)) return false
+    return clearDirtyRecord(record)
   }
 
   function scheduleTransientRetry(operation) {
@@ -314,13 +488,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
   async function pump() {
     if (inFlight) return
+    const binding = activeBinding
     const record = readSyncRecord()
     const operation = record?.pending
     if (
       !operation
-      || !activeBinding
-      || !activeBinding.isCurrent()
-      || operation.activationId !== activeBinding.activation.id
+      || !binding
+      || !binding.isCurrent()
+      || operation.activationId !== binding.activation.id
     ) return
     if (!isOnline()) {
       publish('waiting')
@@ -344,7 +519,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
       envelope = await finalizeDurableOperation(operation)
     } catch {
       inFlight = false
-      publish('needs-attention')
+      if (activeBinding === binding && binding.isCurrent()) {
+        publish('needs-attention')
+      }
+      return
+    }
+    if (activeBinding !== binding || !binding.isCurrent()) {
+      inFlight = false
+      if (activeBinding?.isCurrent()) void pump()
       return
     }
     let response
@@ -355,8 +537,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
       )
     } catch {
       inFlight = false
+      if (activeBinding !== binding || !binding.isCurrent()) return
       if (isOnline()) scheduleTransientRetry(operation)
       else publish('waiting')
+      return
+    }
+    if (activeBinding !== binding || !binding.isCurrent()) {
+      inFlight = false
+      if (activeBinding?.isCurrent()) void pump()
       return
     }
     try {
@@ -379,10 +567,15 @@ export function createLearnerProfileCloudPersistenceAdapter({
           current.queued = null
           if (!writeSyncRecord(current)) {
             publish('needs-attention')
+          } else if (
+            current.pending === null
+            && !clearDirtyRecord(current)
+          ) {
+            publish('needs-attention')
           } else {
             publish(current.pending ? 'syncing' : 'up-to-date', {
               accepted: {
-                activation: activeBinding.activation,
+                activation: binding.activation,
                 generation: operation.generation,
                 ownerId: operation.ownerId,
                 profileId: operation.profileId,
@@ -394,7 +587,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       } else if (!response?.error && row?.status === 'conflict') {
         publish('conflicting', {
           conflict: {
-            activation: activeBinding.activation,
+            activation: binding.activation,
             cloudGeneration: normalizePositiveInteger(row.generation),
             cloudRevision: normalizePositiveInteger(row.revision),
             generation: operation.generation,
@@ -485,6 +678,17 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const envelope = await verifyEnvelope(row.envelope)
     const cloudProfile = envelope ? importEnvelope(envelope) : null
     if (!cloudProfile) return { status: 'recovering' }
+    if (purpose === 'replace-owner-profile') {
+      return {
+        created: row.created === true,
+        generation,
+        ownerId: authentication.userId,
+        profile: cloudProfile,
+        profileId,
+        revision,
+        status: 'activate'
+      }
+    }
     let currentRecord = readSyncRecord()
     if (!currentRecord && hasStoredSyncRecord()) {
       return { status: 'recovering' }
@@ -497,6 +701,22 @@ export function createLearnerProfileCloudPersistenceAdapter({
         || currentRecord.profileId !== profileId
         || currentRecord.generation !== generation
       ) return { status: 'recovering' }
+      const dirty = readDirtyRecord()
+      if (dirty.present) {
+        if (
+          !dirtyRecordMatches(currentRecord, dirty)
+          || localProfile?.status !== 'ready'
+          || localProfile.ownerId !== authentication.userId
+          || localProfile.profileId !== profileId
+          || !queueProfile(
+            localProfile.profile,
+            currentRecord,
+            `dirty-recovery-${createOperationId()}`
+          )
+        ) return { status: 'recovering' }
+        currentRecord = readSyncRecord()
+        if (!currentRecord) return { status: 'recovering' }
+      }
       if (currentRecord.pending) {
         if (
           currentRecord.pending.baseRevision + 1 === revision
@@ -589,6 +809,11 @@ export function createLearnerProfileCloudPersistenceAdapter({
       publish('needs-attention')
       return false
     }
+    const dirty = readDirtyRecord()
+    if (!dirtyRecordMatches(record, dirty)) {
+      publish('needs-attention')
+      return false
+    }
     if (record.pending) record.pending.activationId = activation.id
     if (record.queued) record.queued.activationId = activation.id
     if (!writeSyncRecord(record)) {
@@ -598,10 +823,52 @@ export function createLearnerProfileCloudPersistenceAdapter({
     publish(
       record.pending
         ? isOnline() ? 'syncing' : 'waiting'
-        : 'up-to-date'
+        : dirty.present ? 'needs-attention' : 'up-to-date'
     )
     void pump()
     return true
+  }
+
+  function markDirty({ activation, isCurrent } = {}) {
+    if (
+      !activeBinding
+      || activeBinding.activation !== activation
+      || typeof isCurrent !== 'function'
+      || !isCurrent()
+      || !activeBinding.isCurrent()
+    ) return false
+    const record = readSyncRecord()
+    if (
+      !record
+      || record.ownerId !== activation.ownerId
+      || record.profileId !== activation.profileId
+      || record.generation !== activeBinding.generation
+    ) {
+      publish('needs-attention')
+      return false
+    }
+    const dirty = readDirtyRecord()
+    if (!dirtyRecordMatches(record, dirty)) {
+      publish('needs-attention')
+      return false
+    }
+    try {
+      storage.setItem(dirtyStorageKey, JSON.stringify({
+        generation: record.generation,
+        ownerId: record.ownerId,
+        profileId: record.profileId,
+        version: 1
+      }))
+      const written = readDirtyRecord()
+      if (!written.present || !dirtyRecordMatches(record, written)) {
+        publish('needs-attention')
+        return false
+      }
+      return true
+    } catch {
+      publish('needs-attention')
+      return false
+    }
   }
 
   function save(profile, { activation, isCurrent } = {}) {
@@ -623,33 +890,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return { status: 'needs-attention' }
     }
 
-    let prepared
-    try {
-      prepared = prepareEnvelope(profile)
-    } catch {
-      publish('needs-attention')
-      return { status: 'needs-attention' }
-    }
-    const baseRevision = record.pending
-      ? record.pending.baseRevision + 1
-      : record.acceptedRevision
-    const operation = {
-      activationId: activation.id,
-      baseRevision,
-      envelope: null,
-      generation: record.generation,
-      integrity: prepared.integrity,
-      nextRetryAt: 0,
-      operationId: createOperationId(),
-      ownerId: record.ownerId,
-      prepared,
-      profileId: record.profileId,
-      retryCount: 0,
-      revision: baseRevision + 1
-    }
-    if (record.pending) record.queued = operation
-    else record.pending = operation
-    if (!writeSyncRecord(record)) {
+    if (!queueProfile(profile, record, activation.id)) {
       publish('needs-attention')
       return { status: 'needs-attention' }
     }
@@ -699,8 +940,11 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
   return Object.freeze({
     activate,
+    commitReplacement,
     destroy,
     getState: () => syncState,
+    getReplacementProtection,
+    markDirty,
     resolve,
     retry,
     save,
