@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
-select plan(36);
+select plan(37);
 
 select has_function(
   'public',
@@ -22,13 +22,18 @@ select is(
   'the Data API resolver is an invoker wrapper'
 );
 
+select ok(
+  not has_schema_privilege('authenticated', 'private', 'usage'),
+  'authenticated cannot enter the shared private schema'
+);
+
 select results_eq(
   $query$
     select procedure.oid::regprocedure::text
     from pg_catalog.pg_proc as procedure
     join pg_catalog.pg_namespace as namespace
       on namespace.oid = procedure.pronamespace
-    where namespace.nspname = 'private'
+    where namespace.nspname = 'learner_profile_rpc'
       and has_function_privilege(
         'authenticated',
         procedure.oid,
@@ -36,8 +41,8 @@ select results_eq(
       )
     order by 1
   $query$,
-  $$values ('private.resolve_my_learner_profile(jsonb)'::text)$$,
-  'authenticated can execute only the narrow resolver in the private schema'
+    $$values ('learner_profile_rpc.resolve_my_learner_profile(jsonb)'::text)$$,
+  'authenticated can execute only the narrow resolver in its dedicated schema'
 );
 
 select ok(
@@ -54,10 +59,10 @@ select is(
   (
     select prosecdef
     from pg_catalog.pg_proc
-    where oid = 'private.resolve_my_learner_profile(jsonb)'::regprocedure
+    where oid = 'learner_profile_rpc.resolve_my_learner_profile(jsonb)'::regprocedure
   ),
   true,
-  'the elevated owner-derived resolver stays in the private schema'
+  'the elevated owner-derived resolver stays outside the public schema'
 );
 
 insert into auth.users (id, email, email_confirmed_at)

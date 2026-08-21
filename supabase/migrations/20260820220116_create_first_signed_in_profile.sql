@@ -1,8 +1,11 @@
 -- Create a signed-in profile only for a verified owner with new-account evidence.
 create schema if not exists private;
+create schema if not exists learner_profile_rpc;
 create extension if not exists pgcrypto with schema extensions;
 
 revoke all on schema private from public, anon, authenticated, service_role;
+revoke all on schema learner_profile_rpc
+  from public, anon, authenticated, service_role;
 
 create table private.learner_profile_access_control (
   singleton boolean primary key default true,
@@ -435,7 +438,7 @@ revoke execute on function
   private.assert_initial_learner_profile_envelope(jsonb)
   from public, anon, authenticated, service_role;
 
-create or replace function private.resolve_my_learner_profile(
+create or replace function learner_profile_rpc.resolve_my_learner_profile(
   p_onboarding_profile jsonb
 )
 returns table (
@@ -633,10 +636,10 @@ begin
 end;
 $$;
 
-revoke execute on function private.resolve_my_learner_profile(jsonb)
+revoke execute on function learner_profile_rpc.resolve_my_learner_profile(jsonb)
   from public, anon, authenticated, service_role;
-grant usage on schema private to authenticated;
-grant execute on function private.resolve_my_learner_profile(jsonb)
+grant usage on schema learner_profile_rpc to authenticated;
+grant execute on function learner_profile_rpc.resolve_my_learner_profile(jsonb)
   to authenticated;
 
 create or replace function public.resolve_my_learner_profile(
@@ -656,7 +659,7 @@ security invoker
 set search_path = ''
 as $$
   select *
-  from private.resolve_my_learner_profile(p_onboarding_profile);
+  from learner_profile_rpc.resolve_my_learner_profile(p_onboarding_profile);
 $$;
 
 revoke execute on function public.resolve_my_learner_profile(jsonb)
@@ -665,4 +668,4 @@ grant execute on function public.resolve_my_learner_profile(jsonb)
   to authenticated;
 
 comment on function public.resolve_my_learner_profile(jsonb) is
-  'Invoker wrapper for the private authenticated-owner learner-profile resolver.';
+  'Invoker wrapper for the dedicated authenticated-owner learner-profile resolver.';
