@@ -16,6 +16,14 @@ function normalizePositiveInteger(value) {
   return Number.isSafeInteger(number) && number > 0 ? number : null
 }
 
+function isTransientCloudStatus(status) {
+  return status === 0
+    || status === 408
+    || status === 425
+    || status === 429
+    || status >= 500
+}
+
 export function createLearnerProfileCloudPersistenceAdapter({
   clearOnboardingDraft,
   createOnboardingEnvelope,
@@ -63,7 +71,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const { data, error, status } = response || {}
     if (error) {
       return {
-        status: status === 0 || status >= 500
+        status: isTransientCloudStatus(status)
           ? 'waiting-cloud'
           : 'recovering'
       }
@@ -108,7 +116,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
     return {
       created: row.created === true,
-      finalize() {
+      finalize({ isCurrent } = {}) {
+        if (typeof isCurrent !== 'function' || !isCurrent()) return false
         return clearOnboardingDraft()
       },
       generation,

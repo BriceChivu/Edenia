@@ -85,7 +85,12 @@ export function createLearnerProfileLifecycleAuthority({
     return activation
   }
 
-  function completeActivation(localProfile, activation) {
+  function activateProfile(localProfile, activation) {
+    if (!localPersistence.isActivationCurrent(activation)) {
+      activeProfile = null
+      localPersistence.releaseActivation(activation)
+      return publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+    }
     activeProfile = localProfile.profile
     profileActivations.set(activeProfile, activation)
     publish(LEARNER_PROFILE_ACCESS_STATES.ACTIVE, {
@@ -106,7 +111,7 @@ export function createLearnerProfileLifecycleAuthority({
     if (!activation) {
       return publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
     }
-    return completeActivation(localProfile, activation)
+    return activateProfile(localProfile, activation)
   }
 
   function enqueueCloudSave(profile, activation) {
@@ -167,13 +172,39 @@ export function createLearnerProfileLifecycleAuthority({
           publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
           return
         }
-        if (typeof result.finalize === 'function' && !result.finalize()) {
+        let localFinalizationCompleted = true
+        try {
+          if (typeof localPersistence.completeOnboardingFinalization === 'function') {
+            localFinalizationCompleted =
+              localPersistence.completeOnboardingFinalization(activation)
+          }
+        } catch {
+          localFinalizationCompleted = false
+        }
+        if (
+          !localFinalizationCompleted
+          || !localPersistence.isActivationCurrent(activation)
+        ) {
           localPersistence.releaseActivation(activation)
           publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
           return
         }
-        localPersistence.completeOnboardingFinalization?.(activation)
-        completeActivation(activationProfile, activation)
+        const activationState = activateProfile(activationProfile, activation)
+        if (activationState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
+          return
+        }
+        try {
+          if (typeof result.finalize === 'function') {
+            result.finalize({
+              isCurrent: () =>
+                localPersistence.isActivationCurrent(activation)
+            })
+          }
+        } catch {}
+        if (!localPersistence.isActivationCurrent(activation)) {
+          releaseActiveProfile()
+          publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+        }
         return
       }
       const resultStates = {

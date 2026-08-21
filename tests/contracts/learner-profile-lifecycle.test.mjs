@@ -46,7 +46,8 @@ function createHarness({
     ownerId: null
   },
   claimActivationResult = true,
-  cloudResolution = { status: 'waiting' }
+  cloudResolution = { status: 'waiting' },
+  completeOnboardingFinalizationResult = true
 } = {}) {
   const authenticationAdapter = createObservationAdapter(authentication)
   const connectivityAdapter = createObservationAdapter(connectivity)
@@ -110,6 +111,7 @@ function createHarness({
         },
         completeOnboardingFinalization(fence) {
           calls.push(['complete-onboarding-finalization', fence])
+          if (!completeOnboardingFinalizationResult) return false
           delete currentLocal.onboardingFinalizationPending
           return true
         },
@@ -396,7 +398,7 @@ test('an explicit signed-in profile resolution fences delayed work from an earli
   )
 })
 
-test('activation remains hidden when profile-finalization cannot clear temporary state', async () => {
+test('a verified profile stays active when later draft cleanup fails', async () => {
   let finalizationCalls = 0
   const harness = createHarness({
     authentication: {
@@ -421,12 +423,14 @@ test('activation remains hidden when profile-finalization cannot clear temporary
 
   assert.equal(
     harness.authority.getState().status,
-    LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+    LEARNER_PROFILE_ACCESS_STATES.ACTIVE
   )
-  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.deepEqual(harness.authority.readActiveProfile(), {
+    learnerProfile: { languages: ['mandarin'] }
+  })
   assert.equal(finalizationCalls, 1)
   assert.equal(harness.calls.some(([name]) => name === 'claim'), true)
-  assert.equal(harness.calls.some(([name]) => name === 'release'), true)
+  assert.equal(harness.calls.some(([name]) => name === 'release'), false)
 })
 
 test('draft finalization waits until the local activation fence is claimed', async () => {
@@ -460,6 +464,126 @@ test('draft finalization waits until the local activation fence is claimed', asy
     LEARNER_PROFILE_ACCESS_STATES.RECOVERING
   )
   assert.equal(harness.authority.readActiveProfile(), null)
+})
+
+test('failed local onboarding finalization preserves the draft and hides activation', async () => {
+  let finalizationCalls = 0
+  const harness = createHarness({
+    authentication: {
+      status: 'signed-in',
+      userId: '123e4567-e89b-42d3-a456-426614174000'
+    },
+    cloudResolution: {
+      finalize: () => {
+        finalizationCalls += 1
+        return true
+      },
+      ownerId: '123e4567-e89b-42d3-a456-426614174000',
+      profile: { learnerProfile: { languages: ['mandarin'] } },
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      status: 'activate'
+    },
+    completeOnboardingFinalizationResult: false,
+    local: {
+      onboardingFinalizationPending: true,
+      ownerId: '123e4567-e89b-42d3-a456-426614174000',
+      profile: { learnerProfile: { languages: ['mandarin'] } },
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      status: 'ready'
+    }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(finalizationCalls, 0)
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+  )
+})
+
+test('a fence lost after activation completion preserves the onboarding draft', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  let draftPresent = true
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: 'deferred',
+    local: {
+      ownerId,
+      profile: { learnerProfile: { languages: ['french'] } },
+      profileId,
+      status: 'ready'
+    }
+  })
+
+  harness.authority.start()
+  harness.cloudDeferred.resolve({
+    finalize({ isCurrent }) {
+      harness.setCurrentFence({ id: 'activation-from-newer-tab' })
+      if (!isCurrent()) return false
+      draftPresent = false
+      return true
+    },
+    ownerId,
+    profile: { learnerProfile: { languages: ['mandarin'] } },
+    profileId,
+    status: 'activate'
+  })
+  await Promise.resolve()
+
+  assert.equal(draftPresent, true)
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+  )
+})
+
+test('draft deletion follows activation even when a newer fence then wins', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  let activationWasActiveBeforeDeletion = false
+  let draftPresent = true
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: 'deferred',
+    local: {
+      ownerId,
+      profile: { learnerProfile: { languages: ['french'] } },
+      profileId,
+      status: 'ready'
+    }
+  })
+
+  harness.authority.start()
+  harness.cloudDeferred.resolve({
+    finalize({ isCurrent }) {
+      activationWasActiveBeforeDeletion =
+        harness.authority.getState().status
+          === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+        && harness.authority.readActiveProfile() !== null
+      if (!isCurrent()) return false
+      draftPresent = false
+      harness.setCurrentFence({ id: 'activation-from-newer-tab' })
+      return true
+    },
+    ownerId,
+    profile: { learnerProfile: { languages: ['mandarin'] } },
+    profileId,
+    status: 'activate'
+  })
+  await Promise.resolve()
+
+  assert.equal(activationWasActiveBeforeDeletion, true)
+  assert.equal(draftPresent, false)
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+  )
 })
 
 test('a newer tab fence makes the earlier activation inert', () => {

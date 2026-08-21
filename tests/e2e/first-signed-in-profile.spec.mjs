@@ -109,6 +109,18 @@ function resolutionRow(status, overrides = {}) {
   }
 }
 
+function returningOwnerResolutionRow(envelope) {
+  return resolutionRow(
+    LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY,
+    {
+      envelope,
+      generation: 4,
+      profile_id: CREATED_PROFILE_ID,
+      revision: 12
+    }
+  )
+}
+
 async function createReturningOwnerEnvelope() {
   const completedAt = '2026-08-20T21:00:00.000Z'
   const { envelope } = await createPortableLearnerProfileEnvelope({
@@ -263,15 +275,7 @@ test('a restored returning-owner session stays neutral until the cloud head acti
       resolutionCount += 1
       await resolutionBarrier
       await route.fulfill({
-        json: [resolutionRow(
-          LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY,
-          {
-            envelope: returningEnvelope,
-            generation: 4,
-            profile_id: CREATED_PROFILE_ID,
-            revision: 12
-          }
-        )],
+        json: [returningOwnerResolutionRow(returningEnvelope)],
         status: 200
       })
       return
@@ -358,15 +362,7 @@ test('a returning owner can retry an unresolved cloud-head check', async ({
         return
       }
       await route.fulfill({
-        json: [resolutionRow(
-          LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY,
-          {
-            envelope: returningEnvelope,
-            generation: 4,
-            profile_id: CREATED_PROFILE_ID,
-            revision: 12
-          }
-        )],
+        json: [returningOwnerResolutionRow(returningEnvelope)],
         status: 200
       })
       return

@@ -34,13 +34,7 @@ function createAdapter({ clearOnboardingDraft, rpc, verifyEnvelope } = {}) {
 }
 
 test('cloud unavailability remains distinct from unsafe profile recovery', async () => {
-  const unavailable = createAdapter({
-    rpc: async () => ({
-      data: null,
-      error: { code: 'PGRST000', message: 'upstream unavailable' },
-      status: 503
-    })
-  })
+  const unavailableStatuses = [408, 429, 503]
   const rejected = createAdapter({
     rpc: async () => ({
       data: null,
@@ -63,9 +57,18 @@ test('cloud unavailability remains distinct from unsafe profile recovery', async
     purpose: 'resolve-signed-in-profile'
   }
 
-  assert.deepEqual(await unavailable.resolve(context), {
-    status: 'waiting-cloud'
-  })
+  for (const status of unavailableStatuses) {
+    const unavailable = createAdapter({
+      rpc: async () => ({
+        data: null,
+        error: { code: 'PGRST000', message: 'upstream unavailable' },
+        status
+      })
+    })
+    assert.deepEqual(await unavailable.resolve(context), {
+      status: 'waiting-cloud'
+    })
+  }
   assert.deepEqual(await thrown.resolve(context), {
     status: 'waiting-cloud'
   })
@@ -100,7 +103,7 @@ test('an unsupported or damaged cloud envelope cannot activate or clear local st
   assert.equal(clearCalls, 0)
 })
 
-test('a retried signed-in profile activation finishes pending draft deletion', async () => {
+test('a retried signed-in profile activation finishes fenced pending draft deletion', async () => {
   let clearCalls = 0
   const adapter = createAdapter({
     clearOnboardingDraft: () => {
@@ -124,7 +127,7 @@ test('a retried signed-in profile activation finishes pending draft deletion', a
 
   assert.equal(result.status, 'activate')
   assert.equal(result.created, false)
-  assert.equal(result.finalize(), true)
+  assert.equal(result.finalize({ isCurrent: () => true }), true)
   assert.equal(clearCalls, 1)
 })
 
@@ -150,6 +153,32 @@ test('a returning owner activation discards an incidental onboarding draft', asy
   })
 
   assert.equal(clearCalls, 0)
-  assert.equal(result.finalize(), true)
+  assert.equal(result.finalize({ isCurrent: () => true }), true)
   assert.equal(clearCalls, 1)
+})
+
+test('a stale activation fence cannot discard an onboarding draft', async () => {
+  let clearCalls = 0
+  const adapter = createAdapter({
+    clearOnboardingDraft: () => {
+      clearCalls += 1
+      return true
+    }
+  })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      ownerId: OWNER_ID,
+      profile: { learnerProfile: {} },
+      profileId: PROFILE_ID,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(result.status, 'activate')
+  assert.equal(result.finalize({ isCurrent: () => false }), false)
+  assert.equal(clearCalls, 0)
 })
