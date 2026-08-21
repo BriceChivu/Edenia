@@ -14,8 +14,15 @@ function normalizeObservation(accountState) {
     && accountState.userId
     ? accountState.userId
     : null
+  const normalizedStatus = status === 'signed-in' && !userId
+    ? 'unavailable'
+    : status
+  const failure = normalizedStatus === 'unavailable'
+    ? status === 'unavailable' ? 'network' : 'invalid'
+    : null
   return Object.freeze({
-    status: status === 'signed-in' && !userId ? 'unavailable' : status,
+    ...(failure ? { failure } : {}),
+    status: normalizedStatus,
     userId
   })
 }
@@ -31,6 +38,7 @@ export function createLearnerProfileAuthenticationAdapter({
     if (
       nextObservation.status === observation.status
       && nextObservation.userId === observation.userId
+      && nextObservation.failure === observation.failure
     ) return observation
     observation = nextObservation
     for (const listener of listeners) listener(observation)

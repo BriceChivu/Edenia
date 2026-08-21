@@ -297,8 +297,14 @@ import {
   createLearnerProfileLocalPersistenceAdapter
 } from './state/learner-profile-local-adapter.js'
 import {
+  createLearnerProfileOwnerVerificationStore
+} from './state/learner-profile-owner-verification.js'
+import {
   createLearnerProfileAuthenticationAdapter
 } from './integrations/learner-profile-authentication-adapter.js'
+import {
+  createLearnerProfileReverificationController
+} from './integrations/learner-profile-reverification.js'
 import {
   createLearnerProfileCloudPersistenceAdapter
 } from './integrations/learner-profile-cloud-persistence.js'
@@ -585,6 +591,8 @@ const {
   stateBackupKey: STATE_BACKUP_KEY,
   legacyProgressMigrationKey: LEGACY_PROGRESS_MIGRATION_KEY,
   learnerProfileAccessKey: LEARNER_PROFILE_ACCESS_KEY,
+  learnerProfileOwnerVerificationKey:
+    LEARNER_PROFILE_OWNER_VERIFICATION_KEY,
   learnerProfileSyncKey: LEARNER_PROFILE_SYNC_KEY,
   onboardingProfileDraftKey: ONBOARDING_PROFILE_DRAFT_KEY,
   accountAuthStorageKey: ACCOUNT_AUTH_STORAGE_KEY,
@@ -893,8 +901,14 @@ const learnerProfileSyncView = createLearnerProfileSyncView({
 let learnerProfileSyncViewState = Object.freeze({ status: 'idle' })
 learnerProfileSyncView.render(learnerProfileSyncViewState)
 let learnerProfileLifecycleAuthority = null
+let learnerProfileReverificationController = null
 
 if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
+  const ownerVerification = createLearnerProfileOwnerVerificationStore({
+    eventTarget: window,
+    storage: localStorage,
+    storageKey: LEARNER_PROFILE_OWNER_VERIFICATION_KEY
+  })
   const localPersistence = createLearnerProfileLocalPersistenceAdapter({
     accessStorageKey: LEARNER_PROFILE_ACCESS_KEY,
     accountlessProfileId: `accountless:${STORAGE_KEY}`,
@@ -939,13 +953,18 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
         profileSaved: syncPersistedStateToAnalytics
       },
       authentication: learnerProfileAuthenticationAdapter,
-      clock: { now: () => Date.now() },
+      clock: {
+        clearTimer: timer => window.clearTimeout(timer),
+        now: () => Date.now(),
+        setTimer: (callback, delay) => window.setTimeout(callback, delay)
+      },
       cloudPersistence,
       connectivity: createLearnerProfileConnectivityAdapter(window),
       exportDownload: {
         download: downloadLearnerProfileSyncFile
       },
-      localPersistence
+      localPersistence,
+      ownerVerification
     },
     createActivationId: createLearnerProfileActivationId,
     onStateChange: handleLearnerProfileAccessStateChange
@@ -5601,6 +5620,17 @@ function renderAccountSettings(state = accountAuthViewState) {
         : 'settings.account.signOut'
     )
   }
+  const signOutEverywhereButton = document.getElementById(
+    'accountSignOutEverywhereBtn'
+  )
+  if (signOutEverywhereButton) {
+    signOutEverywhereButton.disabled = authBusy
+    signOutEverywhereButton.textContent = t(
+      state?.busyAction === 'sign-out-everywhere'
+        ? 'settings.account.signingOutEverywhere'
+        : 'settings.account.signOutEverywhere'
+    )
+  }
   renderAccountExport()
 
   const feedback = document.getElementById('accountFeedback')
@@ -5745,6 +5775,36 @@ function getSupabaseClient() {
   return supabaseClient
 }
 
+function startLearnerProfileReverification() {
+  if (
+    learnerProfileReverificationController
+    || !learnerProfileLifecycleAuthority
+    || !accountAuthController
+  ) return
+  learnerProfileReverificationController =
+    createLearnerProfileReverificationController({
+      eventTarget: window,
+      isEligible() {
+        const access = learnerProfileLifecycleAuthority?.getState()
+        return window.navigator.onLine !== false
+          && access?.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+          && Boolean(access.ownerId)
+      },
+      now: () => Date.now(),
+      async reverify() {
+        const access = learnerProfileLifecycleAuthority?.getState()
+        const auth = await accountAuthController?.reverify()
+        if (
+          auth?.sessionState === ACCOUNT_SESSION_STATES.SIGNED_IN
+          && auth.userId === access?.ownerId
+          && learnerProfileLifecycleAuthority?.getState().status
+            === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+        ) learnerProfileLifecycleAuthority.refresh()
+      }
+    })
+  learnerProfileReverificationController.start()
+}
+
 function initializeAccountAuth() {
   if (!ACCOUNT_FEATURES_ENABLED) return
   renderAccountSettings()
@@ -5856,6 +5916,7 @@ function initializeAccountAuth() {
     accountExportController.synchronizeAccount(accountAuthViewState)
     renderAccountSettings()
     void accountAuthController.initialize()
+    startLearnerProfileReverification()
   } catch (error) {
     console.warn('Edenia account authentication is unavailable.', error)
     accountAuthViewState = Object.freeze({
@@ -5907,6 +5968,10 @@ function verifyAccountEmailCode(code) {
 
 function signOutAccount() {
   return accountAuthController?.signOut()
+}
+
+function signOutAccountEverywhere() {
+  return accountAuthController?.signOutEverywhere()
 }
 
 function downloadAccountExport(data, filename) {
@@ -17625,6 +17690,7 @@ bindSettingsAccountActions(document, {
   requestEmailCode: requestAccountEmailCode,
   verifyEmailCode: verifyAccountEmailCode,
   signOut: signOutAccount,
+  signOutEverywhere: signOutAccountEverywhere,
   downloadAccount: downloadAccountData
 })
 bindLearnerProfileAccessActions(document, {
@@ -17780,6 +17846,7 @@ document.addEventListener('keydown', handleFeedbackModalKeydown)
 document.addEventListener('keydown', handleVideoShelfPlayerKeydown, true)
 window.addEventListener('blur', keepVideoShelfPlayerEscapeAvailable)
 window.addEventListener('pagehide', event => {
+  if (!event.persisted) learnerProfileReverificationController?.destroy()
   if (!event.persisted) learnerProfileLifecycleAuthority?.destroy()
   if (!event.persisted) accountAuthController?.destroy()
   if (!event.persisted) googleIdentityServicesController?.destroy()

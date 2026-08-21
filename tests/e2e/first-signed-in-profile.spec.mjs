@@ -18,6 +18,8 @@ const PROFILE_ACCESS_STORAGE_KEY =
   'edenia_v1_internal_test_learner_profile_access_v1'
 const PROFILE_SYNC_STORAGE_KEY =
   'edenia_v1_internal_test_learner_profile_sync_v1'
+const OWNER_VERIFICATION_STORAGE_KEY =
+  'edenia_v1_internal_test_learner_profile_owner_verification_v1'
 const AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
 const AUTHENTICATED_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
 const CREATED_PROFILE_ID = '223e4567-e89b-42d3-a456-426614174001'
@@ -237,7 +239,7 @@ test('public onboarding uses a temporary draft without creating a learner profil
   })
 })
 
-test('a restored returning-owner session stays neutral until the cloud head activates', async ({
+test('a returning owner activates online, rechecks within bounds, and can sign out everywhere', async ({
   page
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
@@ -268,6 +270,8 @@ test('a restored returning-owner session stays neutral until the cloud head acti
   await installRuntimeConfig(page)
   let releaseResolution
   let resolutionCount = 0
+  let refreshCount = 0
+  const signOutScopes = []
   const resolutionBarrier = new Promise(resolve => {
     releaseResolution = resolve
   })
@@ -275,11 +279,21 @@ test('a restored returning-owner session stays neutral until the cloud head acti
     const url = new URL(route.request().url())
     if (url.pathname === '/rest/v1/rpc/resolve_my_learner_profile') {
       resolutionCount += 1
-      await resolutionBarrier
+      if (resolutionCount === 1) await resolutionBarrier
       await route.fulfill({
         json: [returningOwnerResolutionRow(returningEnvelope)],
         status: 200
       })
+      return
+    }
+    if (url.pathname === '/auth/v1/token') {
+      refreshCount += 1
+      await route.fulfill({ json: authenticatedSession(), status: 200 })
+      return
+    }
+    if (url.pathname === '/auth/v1/logout') {
+      signOutScopes.push(url.searchParams.get('scope'))
+      await route.fulfill({ json: {}, status: 200 })
       return
     }
     await route.fulfill({ json: {}, status: 200 })
@@ -313,15 +327,19 @@ test('a restored returning-owner session stays neutral until the cloud head acti
     const activated = await page.evaluate(({
       accessKey,
       draftKey,
-      stateKey
+      stateKey,
+      verificationKey
     }) => ({
       access: JSON.parse(localStorage.getItem(accessKey)),
       draft: localStorage.getItem(draftKey),
-      state: JSON.parse(localStorage.getItem(stateKey))
+      state: JSON.parse(localStorage.getItem(stateKey)),
+      stateSerialized: localStorage.getItem(stateKey),
+      verification: JSON.parse(localStorage.getItem(verificationKey))
     }), {
       accessKey: PROFILE_ACCESS_STORAGE_KEY,
       draftKey: DRAFT_STORAGE_KEY,
-      stateKey: STATE_STORAGE_KEY
+      stateKey: STATE_STORAGE_KEY,
+      verificationKey: OWNER_VERIFICATION_STORAGE_KEY
     })
     expect(activated.draft).toBeNull()
     expect(activated.access).toMatchObject({
@@ -332,6 +350,59 @@ test('a restored returning-owner session stays neutral until the cloud head acti
     expect(activated.state.config.channels).toEqual([
       expect.objectContaining({ name: RETURNING_CHANNEL_NAME })
     ])
+    expect(Object.keys(activated.verification).sort()).toEqual([
+      'ownerId',
+      'verifiedAt'
+    ])
+    expect(activated.verification.ownerId).toBe(AUTHENTICATED_USER_ID)
+
+    const resolutionAfterActivation = resolutionCount
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('focus'))
+      window.dispatchEvent(new Event('focus'))
+    })
+    await expect.poll(() => refreshCount).toBe(1)
+    await expect.poll(() => resolutionCount).toBe(
+      resolutionAfterActivation + 1
+    )
+    await page.waitForTimeout(100)
+    expect(refreshCount).toBe(1)
+
+    const resolutionAfterFocus = resolutionCount
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('offline'))
+      window.dispatchEvent(new Event('online'))
+      window.dispatchEvent(new Event('online'))
+    })
+    await expect.poll(() => refreshCount).toBe(2)
+    await expect.poll(() => resolutionCount).toBe(resolutionAfterFocus + 1)
+
+    await page.locator('.gear-btn').click()
+    await page.getByRole('button', { name: 'Account' }).click()
+    await page.getByRole('button', { name: 'Sign out everywhere' }).click()
+    await expect(page.locator('html')).toHaveAttribute(
+      'data-learner-profile-access-state',
+      'locked'
+    )
+    await expect(page.locator('#learnerProfileAccessTitle')).toHaveText(
+      'Welcome back — sign in to continue your town.'
+    )
+    await expect(page.locator('body')).not.toContainText(RETURNING_CHANNEL_NAME)
+    await expect.poll(() => signOutScopes).toEqual(['global'])
+    const signedOutStorage = await page.evaluate(({
+      stateKey,
+      verificationKey
+    }) => ({
+      state: localStorage.getItem(stateKey),
+      verification: localStorage.getItem(verificationKey)
+    }), {
+      stateKey: STATE_STORAGE_KEY,
+      verificationKey: OWNER_VERIFICATION_STORAGE_KEY
+    })
+    expect(signedOutStorage).toEqual({
+      state: activated.stateSerialized,
+      verification: null
+    })
   } finally {
     releaseResolution()
   }
@@ -655,6 +726,10 @@ test('offline progress survives reload and activates on a second device after sy
     await targetPage.route(`${SUPABASE_ORIGIN}/**`, async route => {
       const request = route.request()
       const pathname = new URL(request.url()).pathname
+      if (pathname === '/auth/v1/token') {
+        await route.fulfill({ json: authenticatedSession(), status: 200 })
+        return
+      }
       if (pathname === '/rest/v1/rpc/resolve_my_learner_profile') {
         await route.fulfill({
           json: [returningOwnerResolutionRow(cloudEnvelope, cloudRevision)],
@@ -748,7 +823,13 @@ test('offline progress survives reload and activates on a second device after sy
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute(
     'data-learner-profile-access-state',
-    'waiting-cloud'
+    'active'
+  )
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(
+    usesPhoneLocaleChange
+      ? 'Enregistré sur cet appareil — en attente de synchronisation.'
+      : 'Saved on this device — waiting to sync.'
   )
   pending = await page.evaluate(key => (
     JSON.parse(localStorage.getItem(key))
@@ -763,13 +844,18 @@ test('offline progress survives reload and activates on a second device after sy
     window.dispatchEvent(new Event('online'))
   })
   await expect(page.locator('#mainApp')).toBeVisible()
-  await expect.poll(() => commitRequests.length).toBe(1)
+  await expect.poll(() => (
+    commitRequests.at(-1)?.p_envelope.profile.config
+  )).toMatchObject(
+    usesPhoneLocaleChange ? { locale: 'fr' } : { ankiEnabled: false }
+  )
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(
     usesPhoneLocaleChange ? 'À jour' : 'Up to date'
   )
-  expect(commitRequests[0].p_envelope.profile.config).toMatchObject(
+  expect(commitRequests.at(-1).p_envelope.profile.config).toMatchObject(
     usesPhoneLocaleChange ? { locale: 'fr' } : { ankiEnabled: false }
   )
+  const firstDeviceRevision = cloudRevision
 
   const secondContext = await browser.newContext()
   const secondPage = await secondContext.newPage()
@@ -802,7 +888,7 @@ test('offline progress survives reload and activates on a second device after sy
     )
     expect(secondDevice.access).toMatchObject({
       generation: 4,
-      revision: startingRevision + 1
+      revision: firstDeviceRevision
     })
     expect(secondDevice.sync).toMatchObject({
       acceptedRevision: cloudRevision,

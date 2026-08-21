@@ -9,6 +9,7 @@ export function bindSettingsAccountActions(root, actions) {
     || typeof actions.requestEmailCode !== 'function'
     || typeof actions.verifyEmailCode !== 'function'
     || typeof actions.signOut !== 'function'
+    || typeof actions.signOutEverywhere !== 'function'
     || typeof actions.downloadAccount !== 'function'
   ) {
     throw new TypeError(
@@ -41,6 +42,7 @@ export function bindSettingsAccountActions(root, actions) {
 
   const controls = [
     ['sign-out', actions.signOut],
+    ['sign-out-everywhere', actions.signOutEverywhere],
     ['download-account', actions.downloadAccount]
   ]
   for (const [name, callback] of controls) {

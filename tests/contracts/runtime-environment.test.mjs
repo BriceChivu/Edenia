@@ -143,6 +143,10 @@ test('storage keys preserve normal, internal, sandbox, and combined isolation', 
       `${expected.storageKey}_learner_profile_access_v1`
     )
     assert.equal(
+      keys.learnerProfileOwnerVerificationKey,
+      `${expected.storageKey}_learner_profile_owner_verification_v1`
+    )
+    assert.equal(
       keys.learnerProfileSyncKey,
       `${expected.storageKey}_learner_profile_sync_v1`
     )

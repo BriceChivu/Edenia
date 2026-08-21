@@ -19,6 +19,7 @@ function createClient({
   claimsResponse,
   session = null,
   sessionResponses = [],
+  refreshSessionResponses = [],
   googleIdTokenError = null,
   emailRequestError = null,
   emailVerificationError = null,
@@ -29,10 +30,16 @@ function createClient({
   let authListener = null
   let unsubscribed = false
   const responses = [...sessionResponses]
+  const refreshResponses = [...refreshSessionResponses]
   const auth = {
     async getSession() {
       calls.push(['getSession'])
       if (responses.length) return responses.shift()
+      return { data: { session }, error: null }
+    },
+    async refreshSession() {
+      calls.push(['refreshSession'])
+      if (refreshResponses.length) return refreshResponses.shift()
       return { data: { session }, error: null }
     },
     onAuthStateChange(listener) {
@@ -352,7 +359,13 @@ test('auth events confirm the client session after leaving the Supabase callback
 test('session failures become unavailable and a later refresh can recover', async () => {
   const clientHarness = createClient({
     sessionResponses: [
-      { data: { session: null }, error: new Error('offline') },
+      {
+        data: { session: null },
+        error: {
+          name: 'AuthRetryableFetchError',
+          status: 503
+        }
+      },
       {
         data: {
           session: {
@@ -376,6 +389,48 @@ test('session failures become unavailable and a later refresh can recover', asyn
   assert.equal(harness.controller.getState().sessionState, 'signed-in')
   assert.equal(harness.controller.getState().userId, 'user-3')
   assert.equal(harness.controller.getState().error, null)
+})
+
+test('definitive session rejection becomes signed out instead of unavailable', async () => {
+  const clientHarness = createClient({
+    sessionResponses: [{
+      data: { session: null },
+      error: {
+        code: 'refresh_token_not_found',
+        status: 400
+      }
+    }]
+  })
+  const harness = createHarness(clientHarness)
+
+  await harness.controller.initialize()
+
+  assert.equal(
+    harness.controller.getState().sessionState,
+    ACCOUNT_SESSION_STATES.SIGNED_OUT
+  )
+  assert.equal(harness.controller.getState().error, null)
+})
+
+test('online reverification forces a provider session refresh', async () => {
+  const session = {
+    user: { id: 'user-3', email: 'verified@example.com' }
+  }
+  const clientHarness = createClient({
+    refreshSessionResponses: [{ data: { session }, error: null }],
+    session
+  })
+  const harness = createHarness(clientHarness)
+  await harness.controller.initialize()
+
+  const state = await harness.controller.reverify()
+
+  assert.equal(state.sessionState, ACCOUNT_SESSION_STATES.SIGNED_IN)
+  assert.equal(state.userId, 'user-3')
+  assert.equal(
+    clientHarness.calls.filter(call => call[0] === 'refreshSession').length,
+    1
+  )
 })
 
 test('local sign out clears only the account identity state', async () => {
@@ -749,7 +804,7 @@ test('non-cancellation OAuth failures are surfaced without provider details', as
   )
 })
 
-test('sign out failures preserve the current identity and report an error', async () => {
+test('sign out failures still clear the current identity and report an error', async () => {
   const clientHarness = createClient({
     session: { user: { id: 'user-5', email: 'learner@example.com' } },
     signOutError: new Error('network failure')
@@ -758,11 +813,29 @@ test('sign out failures preserve the current identity and report an error', asyn
   await harness.controller.initialize()
 
   assert.equal(await harness.controller.signOut(), false)
-  assert.equal(harness.controller.getState().sessionState, 'signed-in')
-  assert.equal(harness.controller.getState().userId, 'user-5')
+  assert.equal(harness.controller.getState().sessionState, 'signed-out')
+  assert.equal(harness.controller.getState().userId, null)
   assert.equal(
     harness.controller.getState().error,
     ACCOUNT_AUTH_ERRORS.SIGN_OUT_FAILED
+  )
+})
+
+test('sign out everywhere uses Supabase global session revocation', async () => {
+  const clientHarness = createClient({
+    session: { user: { id: 'user-5', email: 'learner@example.com' } }
+  })
+  const harness = createHarness(clientHarness)
+  await harness.controller.initialize()
+
+  assert.equal(await harness.controller.signOutEverywhere(), true)
+  assert.deepEqual(
+    clientHarness.calls.find(call => call[0] === 'signOut'),
+    ['signOut', { scope: 'global' }]
+  )
+  assert.equal(
+    harness.controller.getState().sessionState,
+    ACCOUNT_SESSION_STATES.SIGNED_OUT
   )
 })
 

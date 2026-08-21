@@ -53,7 +53,7 @@ test('account integrations are released with the existing Plus lifecycle', async
 
   assert.match(
     source,
-    /window\.addEventListener\('pagehide', event => \{\s*if \(!event\.persisted\) learnerProfileLifecycleAuthority\?\.destroy\(\)\s*if \(!event\.persisted\) accountAuthController\?\.destroy\(\)\s*if \(!event\.persisted\) googleIdentityServicesController\?\.destroy\(\)\s*if \(!event\.persisted\) turnstileController\?\.destroy\(\)\s*if \(!event\.persisted\) accountStudySnapshotController\?\.destroy\(\)\s*if \(!event\.persisted\) plusAccountController\?\.destroy\(\)/
+    /window\.addEventListener\('pagehide', event => \{\s*if \(!event\.persisted\) learnerProfileReverificationController\?\.destroy\(\)\s*if \(!event\.persisted\) learnerProfileLifecycleAuthority\?\.destroy\(\)\s*if \(!event\.persisted\) accountAuthController\?\.destroy\(\)\s*if \(!event\.persisted\) googleIdentityServicesController\?\.destroy\(\)\s*if \(!event\.persisted\) turnstileController\?\.destroy\(\)\s*if \(!event\.persisted\) accountStudySnapshotController\?\.destroy\(\)\s*if \(!event\.persisted\) plusAccountController\?\.destroy\(\)/
   )
 })
 

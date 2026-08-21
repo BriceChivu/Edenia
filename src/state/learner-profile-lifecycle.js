@@ -15,6 +15,8 @@ const EMPTY_ACCESS_STATE = Object.freeze({
   profileId: null,
   status: LEARNER_PROFILE_ACCESS_STATES.RESOLVING
 })
+const OWNER_VERIFICATION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
+const OFFLINE_EXPIRY_TIMER_MAX_DELAY_MS = 24 * 60 * 60 * 1000
 
 function isAccountlessProfile(localProfile) {
   return localProfile?.status === 'ready' && !localProfile.ownerId
@@ -38,10 +40,13 @@ export function createLearnerProfileLifecycleAuthority({
     cloudPersistence,
     connectivity,
     exportDownload,
-    localPersistence
+    localPersistence,
+    ownerVerification
   } = adapters
   let currentState = EMPTY_ACCESS_STATE
   let activeProfile = null
+  let offlineVerificationExpiresAt = null
+  let offlineExpiryTimer = null
   let started = false
   let resolutionId = 0
   const profileActivations = new WeakMap()
@@ -49,6 +54,7 @@ export function createLearnerProfileLifecycleAuthority({
   let unsubscribeCloudPersistence = null
   let unsubscribeConnectivity = null
   let unsubscribeLocalPersistence = null
+  let unsubscribeOwnerVerification = null
 
   function publish(status, {
     activation = null,
@@ -69,7 +75,38 @@ export function createLearnerProfileLifecycleAuthority({
   function releaseActiveProfile() {
     const activation = currentState.activation
     activeProfile = null
+    offlineVerificationExpiresAt = null
+    if (offlineExpiryTimer !== null) {
+      clock.clearTimer?.(offlineExpiryTimer)
+      offlineExpiryTimer = null
+    }
     if (activation) localPersistence.releaseActivation(activation)
+  }
+
+  function scheduleOfflineExpiryCheck() {
+    if (
+      offlineVerificationExpiresAt === null
+      || typeof clock.setTimer !== 'function'
+    ) return
+    if (offlineExpiryTimer !== null) clock.clearTimer?.(offlineExpiryTimer)
+    const remaining = offlineVerificationExpiresAt - clock.now()
+    const delay = Math.min(
+      OFFLINE_EXPIRY_TIMER_MAX_DELAY_MS,
+      Math.max(1, remaining + 1)
+    )
+    offlineExpiryTimer = clock.setTimer(() => {
+      offlineExpiryTimer = null
+      if (
+        currentState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+        || offlineVerificationExpiresAt === null
+      ) return
+      if (clock.now() > offlineVerificationExpiresAt) {
+        releaseActiveProfile()
+        publish(LEARNER_PROFILE_ACCESS_STATES.LOCKED)
+        return
+      }
+      scheduleOfflineExpiryCheck()
+    }, delay)
   }
 
   function prepareActivation(localProfile) {
@@ -88,19 +125,25 @@ export function createLearnerProfileLifecycleAuthority({
     return activation
   }
 
-  function activateProfile(localProfile, activation) {
+  function activateProfile(localProfile, activation, {
+    offlineExpiresAt = null
+  } = {}) {
     if (!localPersistence.isActivationCurrent(activation)) {
       activeProfile = null
       localPersistence.releaseActivation(activation)
       return publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
     }
     activeProfile = localProfile.profile
+    offlineVerificationExpiresAt = Number.isFinite(offlineExpiresAt)
+      ? offlineExpiresAt
+      : null
     profileActivations.set(activeProfile, activation)
     publish(LEARNER_PROFILE_ACCESS_STATES.ACTIVE, {
       activation,
       ownerId: activation.ownerId,
       profileId: activation.profileId
     })
+    scheduleOfflineExpiryCheck()
     analytics.profileActivated({
       activation,
       ownerId: activation.ownerId,
@@ -117,12 +160,31 @@ export function createLearnerProfileLifecycleAuthority({
     return currentState
   }
 
-  function activate(localProfile) {
+  function activate(localProfile, options = {}) {
     const activation = prepareActivation(localProfile)
     if (!activation) {
       return publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
     }
-    return activateProfile(localProfile, activation)
+    return activateProfile(localProfile, activation, options)
+  }
+
+  function getCurrentOfflineVerification(localProfile) {
+    if (!isSignedInProfile(localProfile)) return null
+    const verification = ownerVerification?.read?.()
+    const now = clock.now()
+    return verification?.ownerId === localProfile.ownerId
+      && Number.isFinite(verification.verifiedAt)
+      && verification.verifiedAt <= now
+      && now - verification.verifiedAt <= OWNER_VERIFICATION_MAX_AGE_MS
+      ? verification
+      : null
+  }
+
+  function activateOffline(localProfile, verification) {
+    return activate(localProfile, {
+      offlineExpiresAt:
+        verification.verifiedAt + OWNER_VERIFICATION_MAX_AGE_MS
+    })
   }
 
   function enqueueCloudSave(profile, activation) {
@@ -142,6 +204,15 @@ export function createLearnerProfileLifecycleAuthority({
     })).then(result => {
       if (requestId !== resolutionId) return
       if (!result || result.status === 'waiting') return
+      if (result.status === 'waiting-cloud') {
+        const verification = auth.userId === localProfile?.ownerId
+          ? getCurrentOfflineVerification(localProfile)
+          : null
+        if (verification) {
+          activateOffline(localProfile, verification)
+          return
+        }
+      }
       if (
         result.status === 'activate'
         && result.ownerId === auth.userId
@@ -234,6 +305,10 @@ export function createLearnerProfileLifecycleAuthority({
         if (activationState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
           return
         }
+        ownerVerification?.record?.({
+          ownerId: auth.userId,
+          verifiedAt: clock.now()
+        })
         try {
           if (typeof result.finalize === 'function') {
             result.finalize({
@@ -257,6 +332,7 @@ export function createLearnerProfileLifecycleAuthority({
           LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION,
         'waiting-cloud': LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
       }
+      if (result.status !== 'waiting-cloud') ownerVerification?.clear?.()
       publish(
         resultStates[result.status]
           || LEARNER_PROFILE_ACCESS_STATES.RECOVERING
@@ -293,7 +369,15 @@ export function createLearnerProfileLifecycleAuthority({
         return publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
       }
       if (isSignedInProfile(localProfile) && localProfile.ownerId !== auth.userId) {
+        ownerVerification?.clear?.()
         return publish(LEARNER_PROFILE_ACCESS_STATES.CONFLICTING)
+      }
+      if (
+        connectivity.getObservation()?.status !== 'online'
+        && isSignedInProfile(localProfile)
+      ) {
+        const verification = getCurrentOfflineVerification(localProfile)
+        if (verification) return activateOffline(localProfile, verification)
       }
       publish(LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD)
       resolveCloudProfile({
@@ -305,6 +389,7 @@ export function createLearnerProfileLifecycleAuthority({
       return currentState
     }
     if (auth.status === 'signed-out') {
+      ownerVerification?.clear?.()
       if (isAccountlessProfile(localProfile)) return activate(localProfile)
       releaseActiveProfile()
       return publish(
@@ -317,15 +402,51 @@ export function createLearnerProfileLifecycleAuthority({
     }
     if (auth.status === 'unavailable') {
       if (isAccountlessProfile(localProfile)) return activate(localProfile)
+      if (
+        auth.failure === 'network'
+      ) {
+        const verification = getCurrentOfflineVerification(localProfile)
+        if (verification) return activateOffline(localProfile, verification)
+      } else {
+        ownerVerification?.clear?.()
+      }
       releaseActiveProfile()
       return publish(
-        isSignedInProfile(localProfile) || localProfile?.status === 'invalid'
-          ? LEARNER_PROFILE_ACCESS_STATES.RECOVERING
-          : LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
+        isSignedInProfile(localProfile)
+          ? LEARNER_PROFILE_ACCESS_STATES.LOCKED
+          : localProfile?.status === 'invalid'
+            ? LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+            : LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
       )
     }
     releaseActiveProfile()
     return publish(LEARNER_PROFILE_ACCESS_STATES.RESOLVING)
+  }
+
+  function handleOwnerVerificationChange() {
+    if (currentState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
+      evaluate()
+      return
+    }
+    const verification = requireCurrentOwnerVerification()
+    if (!verification || offlineVerificationExpiresAt === null) return
+    applyOfflineVerificationDeadline(verification)
+  }
+
+  function requireCurrentOwnerVerification() {
+    const verification = getCurrentOfflineVerification(
+      localPersistence.read()
+    )
+    if (verification) return verification
+    releaseActiveProfile()
+    publish(LEARNER_PROFILE_ACCESS_STATES.LOCKED)
+    return null
+  }
+
+  function applyOfflineVerificationDeadline(verification) {
+    offlineVerificationExpiresAt =
+      verification.verifiedAt + OWNER_VERIFICATION_MAX_AGE_MS
+    scheduleOfflineExpiryCheck()
   }
 
   function getCurrentActivationFor(profile) {
@@ -337,6 +458,14 @@ export function createLearnerProfileLifecycleAuthority({
       || activeProfile !== profile
       || currentState.activation !== activation
     ) return null
+    if (
+      offlineVerificationExpiresAt !== null
+      && clock.now() > offlineVerificationExpiresAt
+    ) {
+      releaseActiveProfile()
+      publish(LEARNER_PROFILE_ACCESS_STATES.LOCKED)
+      return null
+    }
     if (!localPersistence.isActivationCurrent(activation)) {
       releaseActiveProfile()
       publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
@@ -354,6 +483,7 @@ export function createLearnerProfileLifecycleAuthority({
       || getCurrentActivationFor(activeProfile) !== activation
     ) return
     releaseActiveProfile()
+    ownerVerification?.clear?.()
     publish(LEARNER_PROFILE_ACCESS_STATES.CONFLICTING)
   }
 
@@ -381,6 +511,7 @@ export function createLearnerProfileLifecycleAuthority({
       || Array.isArray(profile)
     ) return { persisted: false, error: null }
     const previousState = currentState
+    const previousOfflineExpiresAt = offlineVerificationExpiresAt
     releaseActiveProfile()
     const activation = Object.freeze({
       activatedAt: clock.now(),
@@ -403,7 +534,9 @@ export function createLearnerProfileLifecycleAuthority({
       publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
       return result || { persisted: false, error: null }
     }
-    activateProfile({ profile }, activation)
+    activateProfile({ profile }, activation, {
+      offlineExpiresAt: previousOfflineExpiresAt
+    })
     analytics.profileSaved(profile, { activation })
     enqueueCloudSave(profile, activation)
     return result
@@ -434,7 +567,15 @@ export function createLearnerProfileLifecycleAuthority({
       if (
         currentState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
         && getCurrentActivationFor(activeProfile)
-      ) return
+      ) {
+        if (
+          !currentState.ownerId
+          || connectivity.getObservation()?.status === 'online'
+        ) return
+        const verification = requireCurrentOwnerVerification()
+        if (verification) applyOfflineVerificationDeadline(verification)
+        return
+      }
       evaluate()
     })
     unsubscribeLocalPersistence = localPersistence.subscribe(() => {
@@ -446,6 +587,11 @@ export function createLearnerProfileLifecycleAuthority({
       releaseActiveProfile()
       publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
     })
+    if (typeof ownerVerification?.subscribe === 'function') {
+      unsubscribeOwnerVerification = ownerVerification.subscribe(
+        handleOwnerVerificationChange
+      )
+    }
     return evaluate()
   }
 
@@ -460,11 +606,13 @@ export function createLearnerProfileLifecycleAuthority({
     unsubscribeCloudPersistence?.()
     unsubscribeConnectivity?.()
     unsubscribeLocalPersistence?.()
+    unsubscribeOwnerVerification?.()
     cloudPersistence.destroy?.()
     unsubscribeAuthentication = null
     unsubscribeCloudPersistence = null
     unsubscribeConnectivity = null
     unsubscribeLocalPersistence = null
+    unsubscribeOwnerVerification = null
     started = false
   }
 

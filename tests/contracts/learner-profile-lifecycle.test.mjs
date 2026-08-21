@@ -47,15 +47,21 @@ function createHarness({
   },
   claimActivationResult = true,
   cloudResolution = { status: 'waiting' },
-  completeOnboardingFinalizationResult = true
+  completeOnboardingFinalizationResult = true,
+  now = 1_786_982_400_000,
+  ownerVerification = null
 } = {}) {
   const authenticationAdapter = createObservationAdapter(authentication)
   const connectivityAdapter = createObservationAdapter(connectivity)
   const cloudDeferred = deferred()
   const cloudListeners = new Set()
+  const ownerVerificationListeners = new Set()
   const calls = []
+  let currentNow = now
   let currentFence = null
   let currentLocal = local
+  let currentOwnerVerification = ownerVerification
+  let scheduledTimer = null
   const authority = createLearnerProfileLifecycleAuthority({
     adapters: {
       analytics: {
@@ -70,7 +76,18 @@ function createHarness({
         }
       },
       authentication: authenticationAdapter,
-      clock: { now: () => 1_786_982_400_000 },
+      clock: {
+        clearTimer(timer) {
+          calls.push(['clock-clear', timer])
+          if (scheduledTimer?.id === timer) scheduledTimer = null
+        },
+        now: () => currentNow,
+        setTimer(callback, delay) {
+          scheduledTimer = { callback, delay, id: 'offline-expiry-timer' }
+          calls.push(['clock-set', delay])
+          return scheduledTimer.id
+        }
+      },
       cloudPersistence: {
         activate(context) {
           calls.push(['cloud-activate', context])
@@ -96,6 +113,26 @@ function createHarness({
         download(profile, context) {
           calls.push(['download', profile, context.activation.id, context])
           return true
+        }
+      },
+      ownerVerification: {
+        clear() {
+          calls.push(['owner-verification-clear'])
+          currentOwnerVerification = null
+          return true
+        },
+        read() {
+          calls.push(['owner-verification-read'])
+          return currentOwnerVerification
+        },
+        record(record) {
+          calls.push(['owner-verification-record', record])
+          currentOwnerVerification = record
+          return true
+        },
+        subscribe(listener) {
+          ownerVerificationListeners.add(listener)
+          return () => ownerVerificationListeners.delete(listener)
         }
       },
       localPersistence: {
@@ -174,10 +211,27 @@ function createHarness({
     cloudDeferred,
     connectivity: connectivityAdapter,
     getCurrentFence: () => currentFence,
+    getLocal: () => currentLocal,
+    getOwnerVerification: () => currentOwnerVerification,
     publishCloud(state) {
       for (const listener of cloudListeners) listener(state)
     },
-    setCurrentFence: fence => { currentFence = fence }
+    publishOwnerVerification() {
+      for (const listener of ownerVerificationListeners) listener()
+    },
+    revokeOwnerVerification() {
+      currentOwnerVerification = null
+      for (const listener of ownerVerificationListeners) listener()
+    },
+    runScheduledTimer() {
+      const timer = scheduledTimer
+      scheduledTimer = null
+      timer?.callback()
+    },
+    scheduledTimerDelay: () => scheduledTimer?.delay ?? null,
+    setCurrentFence: fence => { currentFence = fence },
+    setNow: value => { currentNow = value },
+    setOwnerVerification: value => { currentOwnerVerification = value }
   }
 }
 
@@ -337,6 +391,10 @@ test('a restored owner session cannot write a matching local copy before cloud a
     harness.authority.getState().status,
     LEARNER_PROFILE_ACCESS_STATES.ACTIVE
   )
+  assert.deepEqual(harness.getOwnerVerification(), {
+    ownerId,
+    verifiedAt: 1_786_982_400_000
+  })
 })
 
 test('one fenced accountless profile becomes the only writable and exportable profile', async () => {
@@ -426,6 +484,12 @@ test('an explicit signed-in profile resolution fences delayed work from an earli
     harness.calls.filter(([name]) => name === 'local-save').length,
     1
   )
+  assert.equal(harness.getLocal().profile, signedInProfile)
+  assert.equal(
+    harness.getLocal().ownerId,
+    '123e4567-e89b-42d3-a456-426614174000'
+  )
+  assert.equal(harness.getOwnerVerification(), null)
 })
 
 test('cloud revision identity is installed and activated before signed-in saves can synchronize', async () => {
@@ -553,6 +617,469 @@ test('an active signed-in profile stays writable when connectivity drops', async
   )
 })
 
+test('an online-verified profile expires 30 days after connectivity drops', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const profile = { marker: 'online-then-offline' }
+  const verifiedAt = 1_786_982_400_000
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId,
+      revision: 4,
+      status: 'activate'
+    },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId,
+      revision: 4,
+      status: 'ready'
+    },
+    now: verifiedAt
+  })
+  harness.authority.start()
+  await Promise.resolve()
+
+  harness.connectivity.publish({ status: 'offline' })
+  harness.setNow(verifiedAt + (30 * 24 * 60 * 60 * 1000) + 1)
+
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.LOCKED
+  )
+})
+
+test('replacing an offline profile preserves its verification deadline', () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const verifiedAt = 1_786_982_400_000
+  const profile = { marker: 'before-offline-import' }
+  const replacement = { marker: 'after-offline-import' }
+  const harness = createHarness({
+    authentication: {
+      failure: 'network',
+      status: 'unavailable',
+      userId: null
+    },
+    connectivity: { status: 'offline' },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 4,
+      status: 'ready'
+    },
+    now: verifiedAt + 1_000,
+    ownerVerification: { ownerId, verifiedAt }
+  })
+  harness.authority.start()
+
+  assert.deepEqual(
+    harness.authority.replaceActiveProfile(replacement),
+    { persisted: true, error: null }
+  )
+  assert.equal(harness.authority.readActiveProfile(), replacement)
+  harness.setNow(verifiedAt + (30 * 24 * 60 * 60 * 1000) + 1)
+
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.LOCKED
+  )
+})
+
+test('another tab renewing verification does not start an online resolution loop', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const profile = { marker: 'online-renewal' }
+  const now = 1_786_982_400_000
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId,
+      revision: 4,
+      status: 'activate'
+    },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId,
+      revision: 4,
+      status: 'ready'
+    },
+    now
+  })
+  harness.authority.start()
+  await Promise.resolve()
+  const resolveCount = harness.calls.filter(
+    ([name]) => name === 'cloud-resolve'
+  ).length
+
+  harness.setNow(now + 1)
+  harness.setOwnerVerification({ ownerId, verifiedAt: now + 1 })
+  harness.publishOwnerVerification()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  )
+  assert.equal(harness.authority.readActiveProfile(), profile)
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'cloud-resolve').length,
+    resolveCount
+  )
+})
+
+test('a verified owner can reopen the matching local profile at the exact offline boundary', () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { marker: 'verified-offline' }
+  const now = 1_786_982_400_000
+  const harness = createHarness({
+    authentication: {
+      failure: 'network',
+      status: 'unavailable',
+      userId: null
+    },
+    connectivity: { status: 'offline' },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 4,
+      status: 'ready'
+    },
+    now,
+    ownerVerification: {
+      ownerId,
+      verifiedAt: now - (30 * 24 * 60 * 60 * 1000)
+    }
+  })
+
+  harness.authority.start()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  )
+  assert.equal(harness.authority.readActiveProfile(), profile)
+  assert.equal(harness.authority.saveActiveProfile(profile), true)
+  assert.equal(
+    harness.calls.some(([name]) => name === 'cloud-resolve'),
+    false
+  )
+  assert.deepEqual(harness.getOwnerVerification(), {
+    ownerId,
+    verifiedAt: now - (30 * 24 * 60 * 60 * 1000)
+  })
+})
+
+test('offline reopening locks one millisecond after owner verification expires', () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { marker: 'expired-offline' }
+  const now = 1_786_982_400_000
+  const harness = createHarness({
+    authentication: {
+      failure: 'network',
+      status: 'unavailable',
+      userId: null
+    },
+    connectivity: { status: 'offline' },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 4,
+      status: 'ready'
+    },
+    now,
+    ownerVerification: {
+      ownerId,
+      verifiedAt: now - (30 * 24 * 60 * 60 * 1000) - 1
+    }
+  })
+
+  harness.authority.start()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.LOCKED
+  )
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(harness.authority.saveActiveProfile(profile), false)
+})
+
+test('a cached owner session opens its verified local profile without connectivity', () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { marker: 'cached-session-offline' }
+  const now = 1_786_982_400_000
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    connectivity: { status: 'offline' },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 4,
+      status: 'ready'
+    },
+    now,
+    ownerVerification: {
+      ownerId,
+      verifiedAt: now - 10_000
+    }
+  })
+
+  harness.authority.start()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  )
+  assert.equal(harness.authority.readActiveProfile(), profile)
+  assert.equal(
+    harness.calls.some(([name]) => name === 'cloud-resolve'),
+    false
+  )
+})
+
+test('temporary cloud unavailability falls back to the verified matching local profile', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { marker: 'cloud-unavailable' }
+  const now = 1_786_982_400_000
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: { status: 'waiting-cloud' },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 4,
+      status: 'ready'
+    },
+    now,
+    ownerVerification: {
+      ownerId,
+      verifiedAt: now - 10_000
+    }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  )
+  assert.equal(harness.authority.readActiveProfile(), profile)
+  assert.deepEqual(harness.getOwnerVerification(), {
+    ownerId,
+    verifiedAt: now - 10_000
+  })
+})
+
+test('an open offline profile locks when its verification window expires', () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { marker: 'expires-while-open' }
+  const verifiedAt = 1_786_982_400_000
+  const harness = createHarness({
+    authentication: {
+      failure: 'network',
+      status: 'unavailable',
+      userId: null
+    },
+    connectivity: { status: 'offline' },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 4,
+      status: 'ready'
+    },
+    now: verifiedAt + (30 * 24 * 60 * 60 * 1000),
+    ownerVerification: { ownerId, verifiedAt }
+  })
+  harness.authority.start()
+  assert.equal(harness.authority.readActiveProfile(), profile)
+
+  harness.setNow(verifiedAt + (30 * 24 * 60 * 60 * 1000) + 1)
+
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(harness.authority.saveActiveProfile(profile), false)
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.LOCKED
+  )
+})
+
+test('the offline expiry timer hides an idle learner profile after the boundary', () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { marker: 'idle-at-expiry' }
+  const verifiedAt = 1_786_982_400_000
+  const expiresAt = verifiedAt + (30 * 24 * 60 * 60 * 1000)
+  const harness = createHarness({
+    authentication: {
+      failure: 'network',
+      status: 'unavailable',
+      userId: null
+    },
+    connectivity: { status: 'offline' },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 4,
+      status: 'ready'
+    },
+    now: expiresAt - 1_000,
+    ownerVerification: { ownerId, verifiedAt }
+  })
+  harness.authority.start()
+
+  assert.equal(harness.scheduledTimerDelay(), 1_001)
+  harness.setNow(expiresAt + 1)
+  harness.runScheduledTimer()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.LOCKED
+  )
+  assert.equal(harness.authority.readActiveProfile(), null)
+})
+
+test('verification revocation from another tab immediately locks offline study', () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { marker: 'revoked-in-another-tab' }
+  const now = 1_786_982_400_000
+  const harness = createHarness({
+    authentication: {
+      failure: 'network',
+      status: 'unavailable',
+      userId: null
+    },
+    connectivity: { status: 'offline' },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 4,
+      status: 'ready'
+    },
+    now,
+    ownerVerification: { ownerId, verifiedAt: now - 10_000 }
+  })
+  harness.authority.start()
+  assert.equal(harness.authority.readActiveProfile(), profile)
+
+  harness.revokeOwnerVerification()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.LOCKED
+  )
+  assert.equal(harness.authority.readActiveProfile(), null)
+})
+
+test('definitive ownership failure removes the offline grace path', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { marker: 'ownership-rejected' }
+  const now = 1_786_982_400_000
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: { status: 'recovering' },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 4,
+      status: 'ready'
+    },
+    now,
+    ownerVerification: { ownerId, verifiedAt: now - 10_000 }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+  )
+  assert.equal(harness.getOwnerVerification(), null)
+
+  harness.authentication.publish({
+    failure: 'network',
+    status: 'unavailable',
+    userId: null
+  })
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.LOCKED
+  )
+})
+
+test('invalid authentication revokes verification before a later outage', () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { marker: 'invalid-authentication' }
+  const now = 1_786_982_400_000
+  const harness = createHarness({
+    authentication: {
+      failure: 'network',
+      status: 'unavailable',
+      userId: null
+    },
+    connectivity: { status: 'offline' },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 4,
+      status: 'ready'
+    },
+    now,
+    ownerVerification: { ownerId, verifiedAt: now - 10_000 }
+  })
+  harness.authority.start()
+  assert.equal(harness.authority.readActiveProfile(), profile)
+
+  harness.authentication.publish({
+    failure: 'invalid',
+    status: 'unavailable',
+    userId: null
+  })
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(harness.getOwnerVerification(), null)
+
+  harness.authentication.publish({
+    failure: 'network',
+    status: 'unavailable',
+    userId: null
+  })
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.LOCKED
+  )
+})
+
 test('a conditional-write conflict locks the active candidate without replacing either profile', async () => {
   const ownerId = '123e4567-e89b-42d3-a456-426614174000'
   const profileId = '223e4567-e89b-42d3-a456-426614174001'
@@ -604,6 +1131,7 @@ test('a conditional-write conflict locks the active candidate without replacing 
     harness.calls.filter(([name]) => name === 'local-save').length,
     0
   )
+  assert.equal(harness.getOwnerVerification(), null)
 })
 
 test('a verified profile stays active when later draft cleanup fails', async () => {
@@ -1095,7 +1623,7 @@ test('access observations deterministically cover every non-active lifecycle sta
       }
     },
     {
-      expected: LEARNER_PROFILE_ACCESS_STATES.RECOVERING,
+      expected: LEARNER_PROFILE_ACCESS_STATES.LOCKED,
       options: {
         authentication: { status: 'unavailable', userId: null },
         local: {
@@ -1177,6 +1705,20 @@ test('authentication adapter exposes only lifecycle observations and deduplicate
   adapter.observeAccountState({ sessionState: 'signed-out', userId: accountState.userId })
   assert.deepEqual(adapter.getObservation(), {
     status: 'signed-out',
+    userId: null
+  })
+
+  adapter.observeAccountState({ sessionState: 'unavailable' })
+  assert.deepEqual(adapter.getObservation(), {
+    failure: 'network',
+    status: 'unavailable',
+    userId: null
+  })
+
+  adapter.observeAccountState({ sessionState: 'signed-in', userId: '' })
+  assert.deepEqual(adapter.getObservation(), {
+    failure: 'invalid',
+    status: 'unavailable',
     userId: null
   })
 })
