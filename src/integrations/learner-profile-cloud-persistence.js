@@ -540,7 +540,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const envelope = await verifyEnvelope(row.envelope)
     const cloudProfile = envelope ? importEnvelope(envelope) : null
     if (!cloudProfile) return { status: 'recovering' }
-    const backupRequired = localProfile?.status === 'ready'
+    let backupRequired = localProfile?.status === 'ready'
       && localProfile.ownerId === authentication.userId
       && isRecord(localProfile.profile)
       && localProfile.generation === undefined
@@ -549,6 +549,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
     if (!currentRecord && hasStoredSyncRecord()) {
       return { status: 'recovering' }
     }
+    const acceptedRevisionAtStart = currentRecord?.acceptedRevision
+    const hadPendingOperation = Boolean(currentRecord?.pending)
     let profile = backupRequired ? localProfile.profile : cloudProfile
     if (currentRecord) {
       if (
@@ -616,6 +618,31 @@ export function createLearnerProfileCloudPersistenceAdapter({
       profileId,
       revision
     })) return { status: 'recovering' }
+
+    if (
+      !backupRequired
+      && currentRecord
+      && !hadPendingOperation
+      && acceptedRevisionAtStart === revision
+      && localProfile?.status === 'ready'
+      && localProfile.ownerId === authentication.userId
+      && localProfile.profileId === profileId
+      && localProfile.generation === generation
+      && isRecord(localProfile.profile)
+    ) {
+      let localCanonicalProfile = null
+      try {
+        localCanonicalProfile = prepareEnvelope(localProfile.profile).profile
+      } catch {}
+      if (
+        !localCanonicalProfile
+        || JSON.stringify(localCanonicalProfile)
+          !== JSON.stringify(envelope.profile)
+      ) {
+        backupRequired = true
+        profile = localProfile.profile
+      }
+    }
 
     cloudHeadKnown = true
     return {

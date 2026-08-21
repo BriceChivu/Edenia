@@ -159,6 +159,9 @@ When a provisional owned profile has no cloud generation or revision yet, a
 successful retry adopts only the resolved cloud identity metadata. Edenia keeps
 the current local study state unchanged and uploads that state as the next
 revision instead of replacing it with the older cloud snapshot.
+After a queue-storage or preparation failure, reload compares the canonical
+local profile with the last accepted cloud head. A mismatch follows the same
+local-preserving backup path even when no pending candidate could be stored.
 
 ## Google Identity Services
 

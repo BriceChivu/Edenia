@@ -261,6 +261,57 @@ test('resolving a provisional owned profile adopts the cloud identity without re
   })
 })
 
+test('reload infers an unqueued local candidate from the accepted cloud head without replacing it', async () => {
+  const localProfile = { marker: 'local-save-that-did-not-fit-the-sync-queue' }
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 4,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const adapter = createAdapter({
+    rpc: async () => ({
+      data: [{
+        created: false,
+        envelope: { profile: { marker: 'last-accepted-cloud-copy' } },
+        generation: 1,
+        profile_id: PROFILE_ID,
+        revision: 4,
+        status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+      }],
+      error: null
+    }),
+    storage
+  })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      generation: 1,
+      ownerId: OWNER_ID,
+      profile: localProfile,
+      profileId: PROFILE_ID,
+      revision: 4,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(result.status, 'activate')
+  assert.equal(result.backupRequired, true)
+  assert.equal(result.profile, localProfile)
+  assert.equal(
+    JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).acceptedRevision,
+    4
+  )
+})
+
 test('an unsupported or damaged cloud envelope cannot activate or clear local state', async () => {
   let clearCalls = 0
   const adapter = createAdapter({

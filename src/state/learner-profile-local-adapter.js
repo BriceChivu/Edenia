@@ -263,13 +263,17 @@ export function createLearnerProfileLocalPersistenceAdapter({
       || !isPositiveInteger(revision)
     ) return false
     const current = readAccessRecord(storage, accessStorageKey).record
+    const hasProvisionalIdentity = current?.generation === undefined
+      && current?.revision === undefined
+    const hasMatchingCloudIdentity = current?.profileId === profileId
+      && current?.generation === generation
+      && isPositiveInteger(current?.revision)
     if (
       !current
       || current.activationId !== null
       || current.ownerId !== ownerId
       || current.profileId !== previousProfileId
-      || current.generation !== undefined
-      || current.revision !== undefined
+      || (!hasProvisionalIdentity && !hasMatchingCloudIdentity)
       || !hasProfile()
     ) return false
     const adopted = {

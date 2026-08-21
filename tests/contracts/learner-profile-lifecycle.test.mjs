@@ -1076,6 +1076,17 @@ test('adopting a cloud identity changes only provisional access metadata', () =>
     status: 'ready'
   })
   assert.equal(replaceCalls, 0)
+
+  assert.equal(adapter.adoptCloudIdentity({
+    generation: 2,
+    ownerId,
+    previousProfileId: cloudProfileId,
+    profileId: cloudProfileId,
+    revision: 8
+  }), true)
+  assert.equal(adapter.read().revision, 8)
+  assert.equal(adapter.read().profile, profile)
+  assert.equal(replaceCalls, 0)
 })
 
 test('an open offline profile locks when its verification window expires', () => {
