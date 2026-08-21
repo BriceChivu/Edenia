@@ -726,6 +726,10 @@ test('offline progress survives reload and activates on a second device after sy
     await targetPage.route(`${SUPABASE_ORIGIN}/**`, async route => {
       const request = route.request()
       const pathname = new URL(request.url()).pathname
+      if (pathname === '/auth/v1/token') {
+        await route.fulfill({ json: authenticatedSession(), status: 200 })
+        return
+      }
       if (pathname === '/rest/v1/rpc/resolve_my_learner_profile') {
         await route.fulfill({
           json: [returningOwnerResolutionRow(cloudEnvelope, cloudRevision)],
@@ -819,7 +823,13 @@ test('offline progress survives reload and activates on a second device after sy
   await page.reload()
   await expect(page.locator('html')).toHaveAttribute(
     'data-learner-profile-access-state',
-    'waiting-cloud'
+    'active'
+  )
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(
+    usesPhoneLocaleChange
+      ? 'Enregistré sur cet appareil — en attente de synchronisation.'
+      : 'Saved on this device — waiting to sync.'
   )
   pending = await page.evaluate(key => (
     JSON.parse(localStorage.getItem(key))
@@ -834,13 +844,18 @@ test('offline progress survives reload and activates on a second device after sy
     window.dispatchEvent(new Event('online'))
   })
   await expect(page.locator('#mainApp')).toBeVisible()
-  await expect.poll(() => commitRequests.length).toBe(1)
+  await expect.poll(() => (
+    commitRequests.at(-1)?.p_envelope.profile.config
+  )).toMatchObject(
+    usesPhoneLocaleChange ? { locale: 'fr' } : { ankiEnabled: false }
+  )
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(
     usesPhoneLocaleChange ? 'À jour' : 'Up to date'
   )
-  expect(commitRequests[0].p_envelope.profile.config).toMatchObject(
+  expect(commitRequests.at(-1).p_envelope.profile.config).toMatchObject(
     usesPhoneLocaleChange ? { locale: 'fr' } : { ankiEnabled: false }
   )
+  const firstDeviceRevision = cloudRevision
 
   const secondContext = await browser.newContext()
   const secondPage = await secondContext.newPage()
@@ -873,7 +888,7 @@ test('offline progress survives reload and activates on a second device after sy
     )
     expect(secondDevice.access).toMatchObject({
       generation: 4,
-      revision: startingRevision + 1
+      revision: firstDeviceRevision
     })
     expect(secondDevice.sync).toMatchObject({
       acceptedRevision: cloudRevision,
