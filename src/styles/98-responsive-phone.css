@@ -13,6 +13,75 @@
     overflow-x: clip;
   }
 
+  html[data-learner-profile-access-state="conflicting"] .learner-profile-access-card {
+    padding: 20px 16px;
+    width: calc(100vw - 24px);
+  }
+  .learner-profile-conflict-table thead {
+    border: 0;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    height: 1px;
+    overflow: hidden;
+    position: absolute;
+    white-space: nowrap;
+    width: 1px;
+  }
+  .learner-profile-conflict-table,
+  .learner-profile-conflict-table tbody,
+  .learner-profile-conflict-table tr,
+  .learner-profile-conflict-table th,
+  .learner-profile-conflict-table td {
+    display: block;
+    width: 100%;
+  }
+  .learner-profile-conflict-table tr {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .learner-profile-conflict-table tbody th {
+    background: var(--surface-hi);
+    border-bottom: 1px solid var(--border);
+  }
+  .learner-profile-conflict-table td {
+    display: grid;
+    gap: 4px;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .learner-profile-conflict-cell-label {
+    color: var(--muted);
+    display: block;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .learner-profile-conflict-export-actions,
+  .learner-profile-conflict-choice-actions,
+  .learner-profile-conflict-confirmation-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .learner-profile-conflict-export-actions button,
+  .learner-profile-conflict-choice-actions button,
+  .learner-profile-conflict-confirmation-actions button {
+    min-height: 44px;
+    width: 100%;
+  }
+  .learner-profile-conflict-recovery {
+    margin-inline: 12px;
+  }
+  .learner-profile-conflict-recovery-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .learner-profile-conflict-recovery button {
+    min-height: 44px;
+    width: 100%;
+  }
+
   .video-actions-popover {
     border-radius: 18px 18px 14px 14px;
     bottom: max(12px, env(safe-area-inset-bottom));

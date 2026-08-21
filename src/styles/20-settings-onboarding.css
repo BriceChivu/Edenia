@@ -67,6 +67,118 @@ body[data-theme="dark"] .legacy-progress-migration {
   flex-basis: 100%;
   text-align: right;
 }
+.learner-profile-conflict {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+html[data-learner-profile-access-state="conflicting"] .learner-profile-access-card {
+  max-width: 980px;
+  width: min(980px, calc(100vw - 36px));
+}
+.learner-profile-conflict h2,
+.learner-profile-conflict-recovery h2 {
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+.learner-profile-conflict-table-wrap {
+  max-width: 100%;
+  min-width: 0;
+  overflow: clip;
+}
+.learner-profile-conflict-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  width: 100%;
+}
+.learner-profile-conflict-table th,
+.learner-profile-conflict-table td {
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+  padding: 11px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.learner-profile-conflict-table thead th {
+  background: var(--surface-hi);
+  font-size: 0.76rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.learner-profile-conflict-table thead th:first-child {
+  width: 24%;
+}
+.learner-profile-conflict-table tbody th {
+  font-weight: 800;
+}
+.learner-profile-conflict-cell-label {
+  display: none;
+}
+.learner-profile-conflict-empty {
+  background: var(--surface-hi);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.learner-profile-conflict-export-actions,
+.learner-profile-conflict-choice-actions,
+.learner-profile-conflict-confirmation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+.learner-profile-conflict-choice-actions {
+  justify-content: flex-end;
+}
+.learner-profile-conflict-confirmation {
+  background: var(--surface-hi);
+  border: 2px solid var(--planet-black);
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+.learner-profile-conflict-feedback {
+  font-size: 0.84rem;
+  font-weight: 700;
+  min-height: 1.3em;
+}
+.learner-profile-conflict-recovery {
+  background: var(--surface-hi);
+  border: 2px solid var(--planet-black);
+  border-radius: 14px;
+  display: grid;
+  gap: 16px;
+  margin: 14px clamp(12px, 3vw, 34px) 0;
+  max-width: 100%;
+  min-width: 0;
+  padding: 14px 16px;
+}
+.learner-profile-conflict-recovery-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.learner-profile-conflict-recovery-item {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  min-width: 0;
+}
+.learner-profile-conflict-recovery p {
+  color: var(--muted);
+  flex: 1 1 auto;
+  line-height: 1.4;
+}
+.learner-profile-conflict-recovery button {
+  flex: 0 0 auto;
+}
 .legacy-progress-recovery-settings {
   display: grid;
   gap: 8px;

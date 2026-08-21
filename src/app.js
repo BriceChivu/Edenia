@@ -485,6 +485,12 @@ import {
   bindLearnerProfileAccessActions
 } from './features/profile-access/actions.js'
 import {
+  bindLearnerProfileConflictActions
+} from './features/profile-access/conflict-actions.js'
+import {
+  createLearnerProfileConflictView
+} from './features/profile-access/conflict-view.js'
+import {
   createLearnerProfileAccessView
 } from './features/profile-access/view.js'
 import {
@@ -891,6 +897,15 @@ function importSignedInProfileEnvelope(envelope) {
 }
 
 const learnerProfileAccessView = createLearnerProfileAccessView({
+  root: document,
+  translate: t
+})
+const learnerProfileConflictView = createLearnerProfileConflictView({
+  formatDateTime: value => formatLocaleDateTime(value, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }),
+  formatNumber: value => new Intl.NumberFormat(getCurrentLocale()).format(value),
   root: document,
   translate: t
 })
@@ -1439,6 +1454,7 @@ function applyTranslations(root = document) {
   })
   renderLocaleSelect()
   renderAccountSettings()
+  learnerProfileConflictView.refreshTranslations()
   learnerProfileSyncView.render(learnerProfileSyncViewState)
   renderPlusAccountSettings()
   renderPlusUpgradeModal()
@@ -2682,6 +2698,11 @@ function renderActivatedLearnerProfile(state) {
 
 function handleLearnerProfileAccessStateChange(accessState) {
   learnerProfileAccessView.render(accessState)
+  if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING) {
+    learnerProfileConflictView.renderConflict(accessState.conflict)
+  } else {
+    learnerProfileConflictView.hideConflict()
+  }
   if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
     const state = learnerProfileLifecycleAuthority?.readActiveProfile()
     if (!state) return
@@ -2695,8 +2716,16 @@ function handleLearnerProfileAccessStateChange(accessState) {
     } else {
       renderActivatedLearnerProfile(state)
     }
+    if (accessState.protectedConflicts?.length) {
+      learnerProfileConflictView.showProtected(
+        accessState.protectedConflicts
+      )
+    } else {
+      learnerProfileConflictView.hideProtected()
+    }
     return
   }
+  learnerProfileConflictView.hideProtected()
   const publicOnboardingState = !hasPersistedLearnerProfile()
     ? loadOnboardingWorkingState()
     : null
@@ -6342,7 +6371,8 @@ function saveLocaleFromSettings(locale = null) {
 
 function downloadLearnerProfileSyncFile(state, {
   exportedAt = Date.now(),
-  isCurrent = () => true
+  isCurrent = () => true,
+  side = null
 } = {}) {
   void createPortableLearnerProfileEnvelope(state, {
     maxBytes: Number.MAX_SAFE_INTEGER,
@@ -6353,7 +6383,12 @@ function downloadLearnerProfileSyncFile(state, {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `edenia-${IS_SANDBOX ? 'sandbox-' : ''}sync-${toDateKey()}.json`
+    const version = side === 'device'
+      ? 'this-device-'
+      : side === 'cloud'
+        ? 'cloud-'
+        : ''
+    link.download = `edenia-${IS_SANDBOX ? 'sandbox-' : ''}sync-${version}${toDateKey()}.json`
     document.body.appendChild(link)
     link.click()
     link.remove()
@@ -17696,6 +17731,34 @@ bindSettingsAccountActions(document, {
 bindLearnerProfileAccessActions(document, {
   retry: () => learnerProfileLifecycleAuthority?.refresh(),
   signOut: signOutAccount
+})
+bindLearnerProfileConflictActions(document, {
+  cancelChoice: () => learnerProfileConflictView.cancelChoice(),
+  async confirmChoice(side) {
+    learnerProfileConflictView.setBusy(true)
+    const chosen = await learnerProfileLifecycleAuthority
+      ?.chooseConflictVersion(side, { confirmed: true })
+    learnerProfileConflictView.setBusy(false)
+    if (!chosen) showToast(t('profileConflict.choiceFailed'), 'error')
+  },
+  exportBoth() {
+    const device = learnerProfileLifecycleAuthority
+      ?.exportConflictVersion('device') === true
+    const cloud = learnerProfileLifecycleAuthority
+      ?.exportConflictVersion('cloud') === true
+    if (!device || !cloud) {
+      showToast(t('profileConflict.exportFailed'), 'error')
+    }
+  },
+  exportVersion(side, conflictId) {
+    if (!learnerProfileLifecycleAuthority?.exportConflictVersion(
+      side,
+      conflictId
+    )) {
+      showToast(t('profileConflict.exportFailed'), 'error')
+    }
+  },
+  requestChoice: side => learnerProfileConflictView.requestChoice(side)
 })
 bindReminderPreferenceActions(document, {
   save: saveReminderPreference,

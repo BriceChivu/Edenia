@@ -78,11 +78,45 @@
   <canvas class="background-physics" id="backgroundPhysics" aria-hidden="true"></canvas>
 
   <section class="legacy-progress-migration hidden" id="learnerProfileAccessGate" role="dialog" aria-modal="true" aria-labelledby="learnerProfileAccessTitle" aria-describedby="learnerProfileAccessBody learnerProfileAccessStatus">
-    <div class="legacy-progress-migration-card">
+    <div class="legacy-progress-migration-card learner-profile-access-card">
       <span class="legacy-progress-migration-brand" aria-hidden="true">EDENIA</span>
       <h1 id="learnerProfileAccessTitle"></h1>
       <p id="learnerProfileAccessBody"></p>
       <p class="legacy-progress-migration-status" id="learnerProfileAccessStatus" role="status" aria-live="polite"></p>
+      <div class="learner-profile-conflict hidden" id="learnerProfileConflict" aria-labelledby="learnerProfileConflictTitle">
+        <h2 id="learnerProfileConflictTitle" data-i18n="profileConflict.comparisonTitle">Compare your profiles</h2>
+        <p data-i18n="profileConflict.neutralNote">Choose the version you recognize. Edenia does not recommend one based on which was updated most recently.</p>
+        <div class="learner-profile-conflict-table-wrap">
+          <table class="learner-profile-conflict-table">
+            <thead>
+              <tr>
+                <th scope="col" data-i18n="profileConflict.difference">Difference</th>
+                <th scope="col" data-i18n="profileConflict.thisDevice">This device</th>
+                <th scope="col" data-i18n="profileConflict.cloud">Cloud</th>
+              </tr>
+            </thead>
+            <tbody id="learnerProfileConflictRows"></tbody>
+          </table>
+        </div>
+        <p class="learner-profile-conflict-empty hidden" id="learnerProfileConflictEmpty" data-i18n="profileConflict.noMeaningfulDifferences">These versions have no meaningful differences in the compared study details.</p>
+        <div class="learner-profile-conflict-export-actions">
+          <button class="btn-ghost" type="button" data-profile-conflict-action="export-device" data-i18n="profileConflict.exportDevice">Export This device</button>
+          <button class="btn-ghost" type="button" data-profile-conflict-action="export-cloud" data-i18n="profileConflict.exportCloud">Export Cloud</button>
+          <button class="btn-secondary" type="button" data-profile-conflict-action="export-both" data-i18n="profileConflict.exportBoth">Export both</button>
+        </div>
+        <div class="learner-profile-conflict-choice-actions">
+          <button class="btn-primary" type="button" data-profile-conflict-action="choose-device" data-i18n="profileConflict.chooseDevice">Use This device</button>
+          <button class="btn-primary" type="button" data-profile-conflict-action="choose-cloud" data-i18n="profileConflict.chooseCloud">Use Cloud</button>
+        </div>
+        <div class="learner-profile-conflict-confirmation hidden" id="learnerProfileConflictConfirmation" role="group" aria-labelledby="learnerProfileConflictConfirmationText">
+          <p id="learnerProfileConflictConfirmationText"></p>
+          <div class="learner-profile-conflict-confirmation-actions">
+            <button class="btn-primary" id="learnerProfileConflictConfirm" type="button" data-profile-conflict-action="confirm-choice" data-i18n="profileConflict.confirm">Confirm this choice</button>
+            <button class="btn-ghost" type="button" data-profile-conflict-action="cancel-choice" data-i18n="profileConflict.cancel">Cancel</button>
+          </div>
+        </div>
+        <p class="learner-profile-conflict-feedback" id="learnerProfileConflictFeedback" role="status" aria-live="polite"></p>
+      </div>
       <div class="legacy-progress-migration-actions">
         <button class="btn-secondary" id="learnerProfileAccessRetry" type="button" data-profile-access-action="retry" data-i18n="migration.action.retry" hidden>Try again</button>
         <button class="btn-ghost" id="learnerProfileAccessSignOut" type="button" data-profile-access-action="sign-out" data-i18n="settings.account.signOut" hidden>Sign out</button>
@@ -612,6 +646,11 @@ and momentum—at a glance</h2>
         </button>
       </div>
     </header>
+
+    <section class="learner-profile-conflict-recovery hidden" id="learnerProfileConflictRecovery" aria-labelledby="learnerProfileConflictRecoveryTitle">
+      <h2 id="learnerProfileConflictRecoveryTitle" data-i18n="profileConflict.protectedTitle">Your protected profile versions</h2>
+      <ul class="learner-profile-conflict-recovery-list" id="learnerProfileConflictRecoveryList" data-profile-conflict-export-list></ul>
+    </section>
 
     <!-- CITY BUILDER ──────────────────────────────────────── -->
     <section class="city-section">

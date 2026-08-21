@@ -790,6 +790,138 @@ test('reload closes an accepted-operation crash window with the exact receipt', 
   })
 })
 
+test('a missed acceptance followed by another writer still opens a conflict', async () => {
+  const originalOperationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const replayOperationId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+  const conflictId = '323e4567-e89b-42d3-a456-426614174002'
+  const deviceEnvelope = preparedEnvelope(
+    { marker: 'accepted-device' },
+    'A'.repeat(43)
+  )
+  const cloudEnvelope = preparedEnvelope(
+    { marker: 'later-cloud' },
+    'C'.repeat(43)
+  )
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 1,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: {
+        activationId: 'activation-before-reload',
+        baseRevision: 1,
+        envelope: null,
+        generation: 1,
+        integrity: deviceEnvelope.integrity,
+        nextRetryAt: 0,
+        operationId: originalOperationId,
+        ownerId: OWNER_ID,
+        prepared: deviceEnvelope,
+        profileId: PROFILE_ID,
+        retryCount: 0,
+        revision: 2
+      },
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const rpcCalls = []
+  const adapter = createAdapter({
+    createOperationId: () => replayOperationId,
+    rpc: async (name, parameters) => {
+      rpcCalls.push([name, parameters])
+      if (name === 'resolve_my_learner_profile') {
+        return {
+          data: [{
+            created: false,
+            envelope: cloudEnvelope,
+            generation: 1,
+            profile_id: PROFILE_ID,
+            revision: 3,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          error: null
+        }
+      }
+      if (name === 'commit_my_learner_profile') {
+        if (parameters.p_operation_id === originalOperationId) {
+          return {
+            data: [{
+              base_revision: 1,
+              generation: 1,
+              payload_sha256: deviceEnvelope.integrity.payloadSha256,
+              profile_id: PROFILE_ID,
+              revision: 2,
+              status: 'already_accepted'
+            }],
+            error: null
+          }
+        }
+        assert.equal(parameters.p_operation_id, replayOperationId)
+        assert.equal(parameters.p_base_revision, 2)
+        return {
+          data: [{
+            base_revision: 2,
+            conflict_id: conflictId,
+            generation: 1,
+            payload_sha256: cloudEnvelope.integrity.payloadSha256,
+            profile_id: PROFILE_ID,
+            revision: 3,
+            status: 'conflict'
+          }],
+          error: null
+        }
+      }
+      assert.equal(name, 'read_my_learner_profile_conflict')
+      return {
+        data: [{
+          cloud_envelope: cloudEnvelope,
+          cloud_generation: 1,
+          cloud_revision: 3,
+          conflict_id: conflictId,
+          device_envelope: deviceEnvelope,
+          device_generation: 1,
+          device_revision: 3,
+          operation_id: replayOperationId,
+          profile_id: PROFILE_ID,
+          protected_until: null,
+          selected_side: null,
+          status: 'open'
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      ownerId: OWNER_ID,
+      profile: deviceEnvelope.profile,
+      profileId: PROFILE_ID,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(result.status, 'conflicting')
+  assert.deepEqual(result.conflict.device.profile, {
+    marker: 'accepted-device'
+  })
+  assert.deepEqual(result.conflict.cloud.profile, { marker: 'later-cloud' })
+  assert.equal(
+    rpcCalls.filter(([name]) => name === 'commit_my_learner_profile').length,
+    2
+  )
+  assert.equal(
+    JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).pending.operationId,
+    replayOperationId
+  )
+})
+
 test('a malformed durable sync record is preserved for recovery', async () => {
   const malformed = '{"version":1,"pending":'
   const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: malformed })
@@ -851,4 +983,739 @@ test('queue preparation failures publish an accessible failed sync state', async
     { status: 'needs-attention' }
   )
   assert.equal(states.at(-1), 'needs-attention')
+})
+
+test('a stale commit exposes both server-preserved conflict versions without choosing', async () => {
+  const conflictId = '323e4567-e89b-42d3-a456-426614174002'
+  const protectedUntil = '2026-09-20T00:00:00.000Z'
+  const rpcCalls = []
+  const states = []
+  const storage = createMemoryStorage()
+  let chosen = false
+  const adapter = createAdapter({
+    createOperationId: () => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    rpc: async (name, parameters) => {
+      rpcCalls.push([name, parameters])
+      if (name === 'resolve_my_learner_profile') {
+        return {
+          data: [{
+            created: false,
+            envelope: preparedEnvelope({ marker: 'cloud-base' }),
+            generation: 1,
+            profile_id: PROFILE_ID,
+            revision: 1,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          error: null
+        }
+      }
+      if (name === 'commit_my_learner_profile') {
+        return {
+          data: [{
+            base_revision: 1,
+            conflict_id: conflictId,
+            generation: 1,
+            payload_sha256: 'C'.repeat(43),
+            profile_id: PROFILE_ID,
+            revision: 2,
+            status: 'conflict'
+          }],
+          error: null
+        }
+      }
+      if (name === 'choose_my_learner_profile_conflict') {
+        assert.deepEqual(parameters, {
+          p_confirmed: true,
+          p_conflict_id: conflictId,
+          p_selected_side: 'device'
+        })
+        chosen = true
+        return {
+          data: [{
+            conflict_id: conflictId,
+            envelope: preparedEnvelope(
+              { marker: 'this-device' },
+              'A'.repeat(43)
+            ),
+            generation: 1,
+            profile_id: PROFILE_ID,
+            protected_until: protectedUntil,
+            revision: 3,
+            selected_side: 'device',
+            status: 'chosen'
+          }],
+          error: null
+        }
+      }
+      assert.equal(name, 'read_my_learner_profile_conflict')
+      assert.deepEqual(parameters, { p_conflict_id: conflictId })
+      return {
+        data: [{
+          cloud_envelope: preparedEnvelope(
+            { marker: 'cloud-newer' },
+            'C'.repeat(43)
+          ),
+          cloud_generation: 1,
+          cloud_revision: 2,
+          conflict_id: conflictId,
+          device_envelope: preparedEnvelope(
+            { marker: 'this-device' },
+            'A'.repeat(43)
+          ),
+          device_generation: 1,
+          device_revision: 2,
+          operation_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          profile_id: PROFILE_ID,
+          protected_until: chosen ? protectedUntil : null,
+          selected_side: chosen ? 'device' : null,
+          status: chosen ? 'resolved' : 'open'
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+  adapter.subscribe(state => states.push(state))
+  const resolved = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      ownerId: OWNER_ID,
+      profile: { marker: 'cloud-base' },
+      profileId: PROFILE_ID,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+  const activation = {
+    activatedAt: 1,
+    id: 'activation-current',
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  }
+  adapter.activate({
+    activation,
+    generation: resolved.generation,
+    isCurrent: () => true,
+    revision: resolved.revision
+  })
+  adapter.save(
+    { marker: 'this-device' },
+    { activation, isCurrent: () => true }
+  )
+  await flush()
+  await flush()
+
+  const conflict = states.at(-1)
+  assert.equal(conflict.status, 'conflicting')
+  assert.equal(conflict.conflict.id, conflictId)
+  assert.equal(conflict.conflict.ownerId, OWNER_ID)
+  assert.equal(conflict.conflict.profileId, PROFILE_ID)
+  assert.deepEqual(conflict.conflict.device.profile, {
+    marker: 'this-device'
+  })
+  assert.deepEqual(conflict.conflict.cloud.profile, {
+    marker: 'cloud-newer'
+  })
+  assert.equal(
+    rpcCalls.filter(([name]) => name === 'commit_my_learner_profile').length,
+    1
+  )
+  assert.equal(
+    rpcCalls.filter(
+      ([name]) => name === 'read_my_learner_profile_conflict'
+    ).length,
+    1
+  )
+
+  assert.deepEqual(await adapter.chooseConflict({
+    confirmed: false,
+    conflict: conflict.conflict,
+    selectedSide: 'device'
+  }), { status: 'confirmation-required' })
+  assert.equal(
+    rpcCalls.filter(
+      ([name]) => name === 'choose_my_learner_profile_conflict'
+    ).length,
+    0
+  )
+
+  const choice = await adapter.chooseConflict({
+    confirmed: true,
+    conflict: conflict.conflict,
+    selectedSide: 'device'
+  })
+  assert.equal(choice.status, 'chosen')
+  assert.equal(choice.selectedSide, 'device')
+  assert.deepEqual(choice.profile, { marker: 'this-device' })
+  assert.equal(choice.conflict.status, 'resolved')
+  assert.equal(choice.conflict.protectedUntil, Date.parse(protectedUntil))
+  assert.deepEqual(choice.conflict.device.profile, {
+    marker: 'this-device'
+  })
+  assert.deepEqual(choice.conflict.cloud.profile, {
+    marker: 'cloud-newer'
+  })
+  const record = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+  assert.equal(record.acceptedRevision, 3)
+  assert.equal(record.pending, null)
+  assert.deepEqual(record.protectedConflictIds, [conflictId])
+  assert.equal(record.queued, null)
+  assert.equal(
+    rpcCalls.filter(
+      ([name]) => name === 'choose_my_learner_profile_conflict'
+    ).length,
+    1
+  )
+})
+
+test('a changed cloud head refreshes an open conflict instead of stranding it', async () => {
+  const conflictId = '323e4567-e89b-42d3-a456-426614174002'
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const deviceEnvelope = preparedEnvelope(
+    { marker: 'this-device' },
+    'A'.repeat(43)
+  )
+  const originalCloudEnvelope = preparedEnvelope(
+    { marker: 'original-cloud' },
+    'C'.repeat(43)
+  )
+  const currentCloudEnvelope = preparedEnvelope(
+    { marker: 'current-cloud' },
+    'D'.repeat(43)
+  )
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 1,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: {
+        activationId: 'activation-before-conflict',
+        baseRevision: 1,
+        envelope: deviceEnvelope,
+        generation: 1,
+        integrity: deviceEnvelope.integrity,
+        nextRetryAt: 0,
+        operationId,
+        ownerId: OWNER_ID,
+        prepared: null,
+        profileId: PROFILE_ID,
+        retryCount: 0,
+        revision: 2
+      },
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const adapter = createAdapter({
+    rpc: async name => {
+      if (name === 'choose_my_learner_profile_conflict') {
+        return {
+          data: [{
+            conflict_id: conflictId,
+            envelope: null,
+            generation: null,
+            profile_id: null,
+            protected_until: null,
+            revision: null,
+            selected_side: null,
+            status: 'conflict_changed'
+          }],
+          error: null
+        }
+      }
+      assert.equal(name, 'read_my_learner_profile_conflict')
+      return {
+        data: [{
+          cloud_envelope: currentCloudEnvelope,
+          cloud_generation: 1,
+          cloud_revision: 3,
+          conflict_id: conflictId,
+          device_envelope: deviceEnvelope,
+          device_generation: 1,
+          device_revision: 2,
+          operation_id: operationId,
+          profile_id: PROFILE_ID,
+          protected_until: null,
+          selected_side: null,
+          status: 'open'
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+  const conflict = {
+    cloud: {
+      envelope: originalCloudEnvelope,
+      generation: 1,
+      profile: originalCloudEnvelope.profile,
+      revision: 2
+    },
+    device: {
+      envelope: deviceEnvelope,
+      generation: 1,
+      profile: deviceEnvelope.profile,
+      revision: 2
+    },
+    id: conflictId,
+    operationId,
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID,
+    protectedUntil: null,
+    selectedSide: null,
+    status: 'open'
+  }
+
+  const result = await adapter.chooseConflict({
+    confirmed: true,
+    conflict,
+    selectedSide: 'device'
+  })
+
+  assert.equal(result.status, 'conflict-changed')
+  assert.equal(result.conflict.status, 'open')
+  assert.equal(result.conflict.cloud.revision, 3)
+  assert.deepEqual(result.conflict.cloud.profile, { marker: 'current-cloud' })
+  assert.deepEqual(result.conflict.device.profile, { marker: 'this-device' })
+})
+
+test('reload recovers the preserved conflict instead of selecting the cloud head', async () => {
+  const conflictId = '323e4567-e89b-42d3-a456-426614174002'
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 1,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: {
+        activationId: 'activation-before-reload',
+        baseRevision: 1,
+        envelope: null,
+        generation: 1,
+        integrity: {
+          algorithm: 'SHA-256',
+          byteLength: 100,
+          payloadSha256: 'A'.repeat(43)
+        },
+        nextRetryAt: 0,
+        operationId,
+        ownerId: OWNER_ID,
+        prepared: preparedEnvelope({ marker: 'this-device' }),
+        profileId: PROFILE_ID,
+        retryCount: 0,
+        revision: 2
+      },
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const rpcCalls = []
+  const adapter = createAdapter({
+    rpc: async (name, parameters) => {
+      rpcCalls.push([name, parameters])
+      if (name === 'resolve_my_learner_profile') {
+        return {
+          data: [{
+            created: false,
+            envelope: preparedEnvelope(
+              { marker: 'cloud-newer' },
+              'C'.repeat(43)
+            ),
+            generation: 1,
+            profile_id: PROFILE_ID,
+            revision: 3,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          error: null
+        }
+      }
+      if (name === 'commit_my_learner_profile') {
+        return {
+          data: [{
+            base_revision: 1,
+            conflict_id: conflictId,
+            generation: 1,
+            payload_sha256: 'C'.repeat(43),
+            profile_id: PROFILE_ID,
+            revision: 3,
+            status: 'conflict'
+          }],
+          error: null
+        }
+      }
+      return {
+        data: [{
+          cloud_envelope: preparedEnvelope(
+            { marker: 'cloud-newer' },
+            'C'.repeat(43)
+          ),
+          cloud_generation: 1,
+          cloud_revision: 3,
+          conflict_id: conflictId,
+          device_envelope: preparedEnvelope({ marker: 'this-device' }),
+          device_generation: 1,
+          device_revision: 2,
+          operation_id: operationId,
+          profile_id: PROFILE_ID,
+          protected_until: null,
+          selected_side: null,
+          status: 'open'
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      ownerId: OWNER_ID,
+      profile: { marker: 'this-device' },
+      profileId: PROFILE_ID,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(result.status, 'conflicting')
+  assert.equal(result.conflict.id, conflictId)
+  assert.equal(result.conflict.activation, null)
+  assert.deepEqual(result.conflict.device.profile, {
+    marker: 'this-device'
+  })
+  assert.deepEqual(result.conflict.cloud.profile, {
+    marker: 'cloud-newer'
+  })
+  assert.deepEqual(
+    rpcCalls.map(([name]) => name),
+    [
+      'resolve_my_learner_profile',
+      'commit_my_learner_profile',
+      'read_my_learner_profile_conflict'
+    ]
+  )
+  assert.equal(
+    JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).pending.operationId,
+    operationId
+  )
+})
+
+test('reload recovers a server-confirmed choice after response verification failed', async () => {
+  const conflictId = '323e4567-e89b-42d3-a456-426614174002'
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const protectedUntil = '2026-09-20T00:00:00.000Z'
+  const deviceEnvelope = preparedEnvelope(
+    { marker: 'this-device' },
+    'A'.repeat(43)
+  )
+  const cloudEnvelope = preparedEnvelope(
+    { marker: 'cloud-newer' },
+    'C'.repeat(43)
+  )
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 1,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: {
+        activationId: 'activation-before-reload',
+        baseRevision: 1,
+        envelope: null,
+        generation: 1,
+        integrity: deviceEnvelope.integrity,
+        nextRetryAt: 0,
+        operationId,
+        ownerId: OWNER_ID,
+        prepared: deviceEnvelope,
+        profileId: PROFILE_ID,
+        retryCount: 0,
+        revision: 2
+      },
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const rpcCalls = []
+  const adapter = createAdapter({
+    rpc: async (name, parameters) => {
+      rpcCalls.push([name, parameters])
+      if (name === 'resolve_my_learner_profile') {
+        return {
+          data: [{
+            created: false,
+            envelope: deviceEnvelope,
+            generation: 1,
+            profile_id: PROFILE_ID,
+            revision: 4,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          error: null
+        }
+      }
+      if (name === 'commit_my_learner_profile') {
+        return {
+          data: [{
+            base_revision: 1,
+            conflict_id: conflictId,
+            generation: 1,
+            payload_sha256: cloudEnvelope.integrity.payloadSha256,
+            profile_id: PROFILE_ID,
+            revision: 3,
+            status: 'conflict'
+          }],
+          error: null
+        }
+      }
+      if (name === 'choose_my_learner_profile_conflict') {
+        assert.deepEqual(parameters, {
+          p_confirmed: true,
+          p_conflict_id: conflictId,
+          p_selected_side: 'device'
+        })
+        return {
+          data: [{
+            conflict_id: conflictId,
+            envelope: deviceEnvelope,
+            generation: 1,
+            profile_id: PROFILE_ID,
+            protected_until: protectedUntil,
+            revision: 4,
+            selected_side: 'device',
+            status: 'already_chosen'
+          }],
+          error: null
+        }
+      }
+      assert.equal(name, 'read_my_learner_profile_conflict')
+      return {
+        data: [{
+          cloud_envelope: cloudEnvelope,
+          cloud_generation: 1,
+          cloud_revision: 3,
+          conflict_id: conflictId,
+          device_envelope: deviceEnvelope,
+          device_generation: 1,
+          device_revision: 2,
+          operation_id: operationId,
+          profile_id: PROFILE_ID,
+          protected_until: protectedUntil,
+          selected_side: 'device',
+          status: 'resolved'
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      ownerId: OWNER_ID,
+      profile: deviceEnvelope.profile,
+      profileId: PROFILE_ID,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(result.status, 'activate')
+  assert.equal(result.revision, 4)
+  assert.deepEqual(result.profile, deviceEnvelope.profile)
+  assert.equal(result.protectedConflicts[0].status, 'resolved')
+  assert.equal(result.protectedConflicts[0].selectedSide, 'device')
+  assert.deepEqual(
+    rpcCalls.map(([name]) => name),
+    [
+      'resolve_my_learner_profile',
+      'commit_my_learner_profile',
+      'read_my_learner_profile_conflict',
+      'choose_my_learner_profile_conflict',
+      'read_my_learner_profile_conflict'
+    ]
+  )
+  assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)), {
+    acceptedRevision: 4,
+    generation: 1,
+    ownerId: OWNER_ID,
+    pending: null,
+    profileId: PROFILE_ID,
+    protectedConflictIds: [conflictId],
+    queued: null,
+    version: 1
+  })
+})
+
+test('reload keeps the protected unchosen version downloadable', async () => {
+  const conflictId = '323e4567-e89b-42d3-a456-426614174002'
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const protectedUntil = '2026-09-20T00:00:00.000Z'
+  const deviceEnvelope = preparedEnvelope(
+    { marker: 'this-device' },
+    'A'.repeat(43)
+  )
+  const cloudEnvelope = preparedEnvelope(
+    { marker: 'cloud-newer' },
+    'C'.repeat(43)
+  )
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 4,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      protectedConflictIds: [conflictId],
+      queued: null,
+      version: 1
+    })
+  })
+  const rpcCalls = []
+  const adapter = createAdapter({
+    rpc: async (name, parameters) => {
+      rpcCalls.push([name, parameters])
+      if (name === 'resolve_my_learner_profile') {
+        return {
+          data: [{
+            created: false,
+            envelope: deviceEnvelope,
+            generation: 1,
+            profile_id: PROFILE_ID,
+            revision: 4,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          error: null
+        }
+      }
+      assert.equal(name, 'read_my_learner_profile_conflict')
+      assert.deepEqual(parameters, { p_conflict_id: conflictId })
+      return {
+        data: [{
+          cloud_envelope: cloudEnvelope,
+          cloud_generation: 1,
+          cloud_revision: 3,
+          conflict_id: conflictId,
+          device_envelope: deviceEnvelope,
+          device_generation: 1,
+          device_revision: 2,
+          operation_id: operationId,
+          profile_id: PROFILE_ID,
+          protected_until: protectedUntil,
+          selected_side: 'device',
+          status: 'resolved'
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      ownerId: OWNER_ID,
+      profile: deviceEnvelope.profile,
+      profileId: PROFILE_ID,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(result.status, 'activate')
+  assert.equal(result.protectedConflicts[0].status, 'resolved')
+  assert.equal(result.protectedConflicts[0].selectedSide, 'device')
+  assert.deepEqual(result.protectedConflicts[0].cloud.profile, {
+    marker: 'cloud-newer'
+  })
+  assert.deepEqual(
+    rpcCalls.map(([name]) => name),
+    ['resolve_my_learner_profile', 'read_my_learner_profile_conflict']
+  )
+})
+
+test('reload retains every unexpired protected conflict download', async () => {
+  const conflictIds = [
+    '323e4567-e89b-42d3-a456-426614174002',
+    '423e4567-e89b-42d3-a456-426614174003'
+  ]
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 6,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      protectedConflictIds: conflictIds,
+      queued: null,
+      version: 1
+    })
+  })
+  const adapter = createAdapter({
+    rpc: async (name, parameters) => {
+      if (name === 'resolve_my_learner_profile') {
+        return {
+          data: [{
+            created: false,
+            envelope: preparedEnvelope({ marker: 'current' }),
+            generation: 1,
+            profile_id: PROFILE_ID,
+            revision: 6,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          error: null
+        }
+      }
+      assert.equal(name, 'read_my_learner_profile_conflict')
+      const index = conflictIds.indexOf(parameters.p_conflict_id)
+      assert.notEqual(index, -1)
+      return {
+        data: [{
+          cloud_envelope: preparedEnvelope({ marker: `cloud-${index}` }),
+          cloud_generation: 1,
+          cloud_revision: index + 2,
+          conflict_id: conflictIds[index],
+          device_envelope: preparedEnvelope({ marker: `device-${index}` }),
+          device_generation: 1,
+          device_revision: index + 2,
+          operation_id: `${index + 1}aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa`,
+          profile_id: PROFILE_ID,
+          protected_until: '2026-09-20T00:00:00.000Z',
+          selected_side: index === 0 ? 'device' : 'cloud',
+          status: 'resolved'
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      ownerId: OWNER_ID,
+      profile: { marker: 'current' },
+      profileId: PROFILE_ID,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(result.status, 'activate')
+  assert.deepEqual(
+    result.protectedConflicts.map(conflict => conflict.id),
+    conflictIds
+  )
+  assert.deepEqual(
+    result.protectedConflicts.map(conflict => conflict.selectedSide),
+    ['device', 'cloud']
+  )
 })

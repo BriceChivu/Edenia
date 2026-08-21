@@ -46,6 +46,7 @@ function createHarness({
     ownerId: null
   },
   claimActivationResult = true,
+  cloudChoice = { status: 'recovering' },
   cloudResolution = { status: 'waiting' },
   completeOnboardingFinalizationResult = true,
   now = 1_786_982_400_000,
@@ -93,6 +94,10 @@ function createHarness({
           calls.push(['cloud-activate', context])
           return true
         },
+        chooseConflict(context) {
+          calls.push(['cloud-choose-conflict', context])
+          return Promise.resolve(cloudChoice)
+        },
         resolve(context) {
           calls.push(['cloud-resolve', context])
           return cloudResolution === 'deferred'
@@ -111,7 +116,12 @@ function createHarness({
       connectivity: connectivityAdapter,
       exportDownload: {
         download(profile, context) {
-          calls.push(['download', profile, context.activation.id, context])
+          calls.push([
+            'download',
+            profile,
+            context.activation?.id || null,
+            context
+          ])
           return true
         }
       },
@@ -1109,15 +1119,26 @@ test('a conditional-write conflict locks the active candidate without replacing 
   const activation = harness.authority.getState().activation
   assert.equal(harness.authority.readActiveProfile(), localProfile)
 
-  harness.publishCloud({
-    conflict: {
-      activation,
-      cloudGeneration: 1,
-      cloudRevision: 2,
+  const conflict = {
+    activation,
+    cloud: {
       generation: 1,
-      ownerId,
-      profileId
+      profile: { learnerProfile: { languages: ['mandarin'] } },
+      revision: 2
     },
+    device: {
+      generation: 1,
+      profile: localProfile,
+      revision: 2
+    },
+    id: '323e4567-e89b-42d3-a456-426614174002',
+    ownerId,
+    profileId,
+    status: 'open'
+  }
+
+  harness.publishCloud({
+    conflict,
     status: 'conflicting'
   })
 
@@ -1125,13 +1146,237 @@ test('a conditional-write conflict locks the active candidate without replacing 
     harness.authority.getState().status,
     LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
   )
+  assert.equal(harness.authority.getState().conflict, conflict)
   assert.equal(harness.authority.readActiveProfile(), null)
   assert.equal(harness.authority.saveActiveProfile(localProfile), false)
+  assert.equal(harness.authority.exportConflictVersion('device'), true)
+  assert.equal(harness.authority.exportConflictVersion('cloud'), true)
+  assert.equal(harness.authority.exportConflictVersion('newest'), false)
   assert.equal(
     harness.calls.filter(([name]) => name === 'local-save').length,
     0
   )
+  assert.deepEqual(
+    harness.calls
+      .filter(([name]) => name === 'download')
+      .map(([, profile]) => profile),
+    [conflict.device.profile, conflict.cloud.profile]
+  )
   assert.equal(harness.getOwnerVerification(), null)
+})
+
+test('only a confirmed protected conflict choice can reactivate a profile', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const deviceProfile = { learnerProfile: { languages: ['french'] } }
+  const cloudProfile = { learnerProfile: { languages: ['mandarin'] } }
+  const protectedConflict = {
+    cloud: { generation: 1, profile: cloudProfile, revision: 2 },
+    device: { generation: 1, profile: deviceProfile, revision: 2 },
+    id: '323e4567-e89b-42d3-a456-426614174002',
+    operationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    ownerId,
+    profileId,
+    protectedUntil: 1_789_574_400_000,
+    selectedSide: 'device',
+    status: 'resolved'
+  }
+  const earlierProtectedConflict = {
+    cloud: { profile: cloudProfile },
+    device: { profile: { learnerProfile: { languages: ['spanish'] } } },
+    id: '423e4567-e89b-42d3-a456-426614174003',
+    ownerId,
+    profileId,
+    protectedUntil: 1_789_488_000_000,
+    selectedSide: 'cloud',
+    status: 'resolved'
+  }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudChoice: {
+      conflict: protectedConflict,
+      generation: 1,
+      ownerId,
+      profile: deviceProfile,
+      profileId,
+      protectedConflicts: [earlierProtectedConflict, protectedConflict],
+      protectedUntil: protectedConflict.protectedUntil,
+      revision: 3,
+      selectedSide: 'device',
+      status: 'chosen'
+    },
+    cloudResolution: {
+      generation: 1,
+      ownerId,
+      profile: deviceProfile,
+      profileId,
+      revision: 1,
+      status: 'activate'
+    },
+    local: {
+      generation: 1,
+      ownerId,
+      profile: deviceProfile,
+      profileId,
+      revision: 1,
+      status: 'ready'
+    }
+  })
+  harness.authority.start()
+  await Promise.resolve()
+  const conflict = {
+    activation: harness.authority.getState().activation,
+    cloud: { generation: 1, profile: cloudProfile, revision: 2 },
+    device: { generation: 1, profile: deviceProfile, revision: 2 },
+    id: protectedConflict.id,
+    operationId: protectedConflict.operationId,
+    ownerId,
+    profileId,
+    status: 'open'
+  }
+  harness.publishCloud({ conflict, status: 'conflicting' })
+
+  assert.equal(await harness.authority.chooseConflictVersion('device'), false)
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'cloud-choose-conflict').length,
+    0
+  )
+  assert.equal(
+    await harness.authority.chooseConflictVersion(
+      'device',
+      { confirmed: true }
+    ),
+    true
+  )
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  )
+  assert.equal(harness.authority.readActiveProfile(), deviceProfile)
+  assert.equal(harness.getLocal().revision, 3)
+  assert.deepEqual(harness.authority.getState().protectedConflicts, [
+    earlierProtectedConflict,
+    protectedConflict
+  ])
+  assert.equal(harness.authority.exportConflictVersion(
+    'device',
+    earlierProtectedConflict.id
+  ), true)
+  assert.equal(harness.authority.exportConflictVersion(
+    'cloud',
+    protectedConflict.id
+  ), true)
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'cloud-choose-conflict').length,
+    1
+  )
+})
+
+test('a recovered server-confirmed choice stays protected after activation', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const profile = { learnerProfile: { languages: ['french'] } }
+  const protectedConflict = {
+    cloud: { profile: { learnerProfile: { languages: ['mandarin'] } } },
+    device: { profile },
+    id: '323e4567-e89b-42d3-a456-426614174002',
+    ownerId,
+    profileId,
+    protectedUntil: 1_789_574_400_000,
+    selectedSide: 'device',
+    status: 'resolved'
+  }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId,
+      protectedConflicts: [protectedConflict],
+      revision: 3,
+      status: 'activate'
+    },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId,
+      revision: 1,
+      status: 'ready'
+    }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(
+    harness.authority.getState().protectedConflicts[0],
+    protectedConflict
+  )
+  assert.equal(harness.authority.exportConflictVersion('cloud'), true)
+})
+
+test('a cloud head change returns the learner to the refreshed conflict', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const deviceProfile = { marker: 'this-device' }
+  const refreshedConflict = {
+    cloud: { profile: { marker: 'current-cloud' }, revision: 3 },
+    device: { profile: deviceProfile, revision: 2 },
+    id: '323e4567-e89b-42d3-a456-426614174002',
+    operationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    ownerId,
+    profileId,
+    status: 'open'
+  }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudChoice: {
+      conflict: refreshedConflict,
+      status: 'conflict-changed'
+    },
+    cloudResolution: {
+      generation: 1,
+      ownerId,
+      profile: deviceProfile,
+      profileId,
+      revision: 1,
+      status: 'activate'
+    },
+    local: {
+      generation: 1,
+      ownerId,
+      profile: deviceProfile,
+      profileId,
+      revision: 1,
+      status: 'ready'
+    }
+  })
+  harness.authority.start()
+  await Promise.resolve()
+  refreshedConflict.activation = harness.authority.getState().activation
+  harness.publishCloud({
+    conflict: {
+      ...refreshedConflict,
+      cloud: { profile: { marker: 'old-cloud' }, revision: 2 }
+    },
+    status: 'conflicting'
+  })
+
+  assert.equal(
+    await harness.authority.chooseConflictVersion(
+      'device',
+      { confirmed: true }
+    ),
+    false
+  )
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
+  )
+  assert.equal(harness.authority.getState().conflict, refreshedConflict)
 })
 
 test('a verified profile stays active when later draft cleanup fails', async () => {

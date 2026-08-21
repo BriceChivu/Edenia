@@ -58,13 +58,20 @@ export function createLearnerProfileLifecycleAuthority({
 
   function publish(status, {
     activation = null,
+    conflict = null,
     ownerId = null,
-    profileId = null
+    profileId = null,
+    protectedConflicts = []
   } = {}) {
+    const retainedConflicts = Object.freeze([...protectedConflicts])
     currentState = Object.freeze({
       activation,
+      ...(conflict ? { conflict } : {}),
       ownerId,
       profileId,
+      ...(retainedConflicts.length
+        ? { protectedConflicts: retainedConflicts }
+        : {}),
       status
     })
     onStateChange(currentState)
@@ -126,7 +133,8 @@ export function createLearnerProfileLifecycleAuthority({
   }
 
   function activateProfile(localProfile, activation, {
-    offlineExpiresAt = null
+    offlineExpiresAt = null,
+    protectedConflicts = []
   } = {}) {
     if (!localPersistence.isActivationCurrent(activation)) {
       activeProfile = null
@@ -141,7 +149,8 @@ export function createLearnerProfileLifecycleAuthority({
     publish(LEARNER_PROFILE_ACCESS_STATES.ACTIVE, {
       activation,
       ownerId: activation.ownerId,
-      profileId: activation.profileId
+      profileId: activation.profileId,
+      protectedConflicts
     })
     scheduleOfflineExpiryCheck()
     analytics.profileActivated({
@@ -301,7 +310,9 @@ export function createLearnerProfileLifecycleAuthority({
           publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
           return
         }
-        const activationState = activateProfile(activationProfile, activation)
+        const activationState = activateProfile(activationProfile, activation, {
+          protectedConflicts: result.protectedConflicts || []
+        })
         if (activationState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
           return
         }
@@ -335,7 +346,14 @@ export function createLearnerProfileLifecycleAuthority({
       if (result.status !== 'waiting-cloud') ownerVerification?.clear?.()
       publish(
         resultStates[result.status]
-          || LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+          || LEARNER_PROFILE_ACCESS_STATES.RECOVERING,
+        result.status === 'conflicting' && result.conflict
+          ? {
+              conflict: result.conflict,
+              ownerId: result.conflict.ownerId,
+              profileId: result.conflict.profileId
+            }
+          : undefined
       )
     }).catch(() => {
       if (requestId === resolutionId) {
@@ -484,7 +502,11 @@ export function createLearnerProfileLifecycleAuthority({
     ) return
     releaseActiveProfile()
     ownerVerification?.clear?.()
-    publish(LEARNER_PROFILE_ACCESS_STATES.CONFLICTING)
+    publish(LEARNER_PROFILE_ACCESS_STATES.CONFLICTING, {
+      conflict: state.conflict,
+      ownerId: state.conflict.ownerId,
+      profileId: state.conflict.profileId
+    })
   }
 
   function readActiveProfile() {
@@ -553,6 +575,136 @@ export function createLearnerProfileLifecycleAuthority({
     }) === true
   }
 
+  function exportConflictVersion(side, conflictId = null) {
+    const protectedConflicts = currentState.protectedConflicts || []
+    const conflict = currentState.status
+        === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
+      ? currentState.conflict
+      : currentState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+        ? protectedConflicts.find(item => (
+            conflictId ? item.id === conflictId : protectedConflicts.length === 1
+          ))
+        : null
+    const version = ['device', 'cloud'].includes(side)
+      ? conflict?.[side]
+      : null
+    if (!version?.profile || typeof version.profile !== 'object') return false
+    return exportDownload.download(version.profile, {
+      conflictId: conflict.id,
+      exportedAt: clock.now(),
+      isCurrent: () => (
+        currentState.status === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
+          && currentState.conflict === conflict
+      ) || (
+        currentState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+          && currentState.protectedConflicts?.includes(conflict)
+      ),
+      side
+    }) === true
+  }
+
+  async function chooseConflictVersion(side, { confirmed = false } = {}) {
+    if (
+      confirmed !== true
+      || !['device', 'cloud'].includes(side)
+      || currentState.status !== LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
+      || !currentState.conflict
+      || typeof cloudPersistence.chooseConflict !== 'function'
+    ) return false
+    const conflict = currentState.conflict
+    let result
+    try {
+      result = await cloudPersistence.chooseConflict({
+        confirmed: true,
+        conflict,
+        selectedSide: side
+      })
+    } catch {
+      result = null
+    }
+    const auth = authentication.getObservation()
+    if (
+      currentState.status !== LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
+      || currentState.conflict !== conflict
+      || auth?.status !== 'signed-in'
+      || auth.userId !== conflict.ownerId
+    ) return false
+    if (
+      result?.status === 'conflict-changed'
+      && result.conflict?.status === 'open'
+      && result.conflict.ownerId === conflict.ownerId
+      && result.conflict.profileId === conflict.profileId
+      && result.conflict.id === conflict.id
+    ) {
+      publish(LEARNER_PROFILE_ACCESS_STATES.CONFLICTING, {
+        conflict: result.conflict,
+        ownerId: result.conflict.ownerId,
+        profileId: result.conflict.profileId
+      })
+      return false
+    }
+    if (
+      result?.status !== 'chosen'
+      || result.ownerId !== conflict.ownerId
+      || typeof result.profileId !== 'string'
+      || !result.profileId
+      || !result.profile
+      || typeof result.profile !== 'object'
+      || !Number.isSafeInteger(result.generation)
+      || result.generation <= 0
+      || !Number.isSafeInteger(result.revision)
+      || result.revision <= 0
+      || result.selectedSide !== side
+      || result.conflict?.status !== 'resolved'
+      || result.conflict.id !== conflict.id
+      || !Array.isArray(result.protectedConflicts)
+      || !result.protectedConflicts.some(item => (
+        item?.id === result.conflict.id
+        && item.selectedSide === result.conflict.selectedSide
+        && item.protectedUntil === result.conflict.protectedUntil
+      ))
+      || !Number.isFinite(result.protectedUntil)
+      || result.protectedUntil <= clock.now()
+    ) {
+      publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+      return false
+    }
+    if (!localPersistence.reconcileSignedInProfile(result.profile, {
+      generation: result.generation,
+      ownerId: result.ownerId,
+      profileId: result.profileId,
+      revision: result.revision
+    })) {
+      publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+      return false
+    }
+    const localProfile = localPersistence.read()
+    if (
+      !isSignedInProfile(localProfile)
+      || localProfile.ownerId !== result.ownerId
+      || localProfile.profileId !== result.profileId
+      || localProfile.generation !== result.generation
+      || localProfile.revision !== result.revision
+    ) {
+      publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+      return false
+    }
+    const activation = prepareActivation(localProfile)
+    if (!activation) {
+      publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+      return false
+    }
+    const activated = activateProfile(localProfile, activation, {
+      protectedConflicts: result.protectedConflicts
+    })
+    if (activated.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) return false
+    ownerVerification?.record?.({
+      ownerId: result.ownerId,
+      verifiedAt: clock.now()
+    })
+    return true
+  }
+
   function start() {
     if (started) return currentState
     started = true
@@ -617,8 +769,10 @@ export function createLearnerProfileLifecycleAuthority({
   }
 
   return Object.freeze({
+    chooseConflictVersion,
     destroy,
     exportActiveProfile,
+    exportConflictVersion,
     getState: () => currentState,
     readActiveProfile,
     refresh,

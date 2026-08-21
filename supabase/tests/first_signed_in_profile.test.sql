@@ -42,7 +42,9 @@ select results_eq(
     order by 1
   $query$,
     $$values
+      ('learner_profile_rpc.choose_my_learner_profile_conflict(uuid,text,boolean)'::text),
       ('learner_profile_rpc.commit_my_learner_profile(uuid,uuid,bigint,bigint,jsonb)'::text),
+      ('learner_profile_rpc.read_my_learner_profile_conflict(uuid)'::text),
       ('learner_profile_rpc.resolve_my_learner_profile(jsonb)'::text)
     $$,
   'authenticated can execute only the narrow learner-profile operations'

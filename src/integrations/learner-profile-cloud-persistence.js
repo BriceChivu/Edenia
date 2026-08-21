@@ -106,16 +106,28 @@ function isSyncOperation(value, identity) {
 }
 
 function isSyncRecord(value) {
+  const requiredKeys = [
+    'acceptedRevision',
+    'generation',
+    'ownerId',
+    'pending',
+    'profileId',
+    'queued',
+    'version'
+  ]
   if (
-    !hasExactKeys(value, [
-      'acceptedRevision',
-      'generation',
-      'ownerId',
-      'pending',
-      'profileId',
-      'queued',
-      'version'
-    ])
+    !hasExactKeys(value, requiredKeys)
+      && !hasExactKeys(value, [...requiredKeys, 'protectedConflictIds'])
+  ) return false
+  const protectedConflictIds = 'protectedConflictIds' in value
+    ? value.protectedConflictIds
+    : []
+  if (
+    !Array.isArray(protectedConflictIds)
+    || protectedConflictIds.some(
+      conflictId => !UUID_PATTERN.test(String(conflictId || ''))
+    )
+    || new Set(protectedConflictIds).size !== protectedConflictIds.length
     || value.version !== 1
     || !UUID_PATTERN.test(value.ownerId)
     || !UUID_PATTERN.test(value.profileId)
@@ -312,6 +324,344 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return finalized.envelope
   }
 
+  async function readVerifiedConflict(conflictId, ownerId, activation = null) {
+    if (
+      !UUID_PATTERN.test(String(conflictId || ''))
+      || !UUID_PATTERN.test(String(ownerId || ''))
+      || (activation !== null && !isRecord(activation))
+    ) return null
+    let response
+    try {
+      response = await getClient().rpc(
+        'read_my_learner_profile_conflict',
+        { p_conflict_id: conflictId }
+      )
+    } catch {
+      return null
+    }
+    if (response?.error) return null
+    const row = readSingleRpcRow(response?.data)
+    const deviceGeneration = normalizePositiveInteger(row?.device_generation)
+    const deviceRevision = normalizePositiveInteger(row?.device_revision)
+    const cloudGeneration = normalizePositiveInteger(row?.cloud_generation)
+    const cloudRevision = normalizePositiveInteger(row?.cloud_revision)
+    const status = row?.status
+    const selectedSide = status === 'resolved'
+      && ['device', 'cloud'].includes(row?.selected_side)
+      ? row.selected_side
+      : null
+    const protectedUntil = status === 'resolved'
+      ? Date.parse(String(row?.protected_until || ''))
+      : null
+    if (row?.conflict_id !== conflictId
+      || !UUID_PATTERN.test(String(row.operation_id || ''))
+      || !UUID_PATTERN.test(String(row.profile_id || ''))
+    ) return null
+    if (status === 'expired') {
+      return Object.freeze({
+        id: conflictId,
+        operationId: row.operation_id,
+        ownerId,
+        profileId: row.profile_id,
+        status
+      })
+    }
+    if (
+      !['open', 'resolved'].includes(status)
+      || !deviceGeneration
+      || !deviceRevision
+      || !cloudGeneration
+      || !cloudRevision
+      || (
+        status === 'open'
+        && (row.selected_side !== null || row.protected_until !== null)
+      )
+      || (
+        status === 'resolved'
+        && (!selectedSide || !Number.isFinite(protectedUntil)
+          || protectedUntil <= now())
+      )
+    ) return null
+    let deviceEnvelope
+    let cloudEnvelope
+    try {
+      [deviceEnvelope, cloudEnvelope] = await Promise.all([
+        verifyEnvelope(row.device_envelope),
+        verifyEnvelope(row.cloud_envelope)
+      ])
+    } catch {
+      return null
+    }
+    if (
+      !deviceEnvelope
+      || !cloudEnvelope
+    ) return null
+    const deviceProfile = importEnvelope(deviceEnvelope)
+    const cloudProfile = importEnvelope(cloudEnvelope)
+    if (!isRecord(deviceProfile) || !isRecord(cloudProfile)) return null
+    return Object.freeze({
+      activation,
+      cloud: Object.freeze({
+        envelope: cloudEnvelope,
+        generation: cloudGeneration,
+        profile: cloudProfile,
+        revision: cloudRevision
+      }),
+      device: Object.freeze({
+        envelope: deviceEnvelope,
+        generation: deviceGeneration,
+        profile: deviceProfile,
+        revision: deviceRevision
+      }),
+      id: conflictId,
+      operationId: row.operation_id,
+      ownerId,
+      profileId: row.profile_id,
+      protectedUntil,
+      selectedSide,
+      status
+    })
+  }
+
+  async function readPreservedConflict(receipt, operation, activation) {
+    if (
+      !UUID_PATTERN.test(String(receipt?.conflict_id || ''))
+      || !isRecord(operation)
+    ) return null
+    const conflict = await readVerifiedConflict(
+      receipt.conflict_id,
+      operation.ownerId,
+      activation
+    )
+    if (
+      !['open', 'resolved'].includes(conflict?.status)
+      || conflict.operationId !== operation.operationId
+      || conflict.profileId !== operation.profileId
+      || conflict.device.generation !== operation.generation
+      || conflict.device.revision !== operation.revision
+      || conflict.cloud.generation
+        !== normalizePositiveInteger(receipt.generation)
+      || conflict.cloud.revision !== normalizePositiveInteger(receipt.revision)
+      || conflict.device.envelope.integrity?.payloadSha256
+        !== operation.integrity.payloadSha256
+      || conflict.cloud.envelope.integrity?.payloadSha256
+        !== receipt.payload_sha256
+    ) return null
+    return conflict
+  }
+
+  async function readResolvedConflict(conflict, selectedSide, protectedUntil) {
+    const resolved = await readVerifiedConflict(
+      conflict.id,
+      conflict.ownerId
+    )
+    if (
+      resolved?.status !== 'resolved'
+      || resolved.operationId !== conflict.operationId
+      || resolved.profileId !== conflict.profileId
+      || resolved.selectedSide !== selectedSide
+      || resolved.protectedUntil !== protectedUntil
+      || resolved.device.envelope.integrity?.payloadSha256
+        !== conflict.device.envelope.integrity?.payloadSha256
+      || resolved.cloud.envelope.integrity?.payloadSha256
+        !== conflict.cloud.envelope.integrity?.payloadSha256
+    ) return null
+    return resolved
+  }
+
+  async function readRefreshedOpenConflict(conflict) {
+    const refreshed = await readVerifiedConflict(
+      conflict.id,
+      conflict.ownerId,
+      conflict.activation || null
+    )
+    if (
+      refreshed?.status !== 'open'
+      || refreshed.operationId !== conflict.operationId
+      || refreshed.profileId !== conflict.profileId
+      || refreshed.device.generation !== conflict.device.generation
+      || refreshed.device.revision !== conflict.device.revision
+      || refreshed.device.envelope.integrity?.payloadSha256
+        !== conflict.device.envelope.integrity?.payloadSha256
+    ) return null
+    return refreshed
+  }
+
+  async function readStoredProtectedConflicts(
+    record,
+    verifiedConflicts = new Map()
+  ) {
+    const conflictIds = record?.protectedConflictIds || []
+    const conflicts = []
+    const retainedIds = []
+    for (const conflictId of conflictIds) {
+      const conflict = verifiedConflicts.get(conflictId)
+        || await readVerifiedConflict(conflictId, record.ownerId)
+      if (conflict?.status === 'resolved') {
+        conflicts.push(conflict)
+        retainedIds.push(conflictId)
+      } else if (conflict?.status !== 'expired') {
+        return null
+      }
+    }
+    if (retainedIds.length !== conflictIds.length) {
+      const current = readSyncRecord()
+      if (
+        !current
+        || JSON.stringify(current.protectedConflictIds || [])
+          !== JSON.stringify(conflictIds)
+      ) return null
+      if (retainedIds.length) current.protectedConflictIds = retainedIds
+      else delete current.protectedConflictIds
+      if (!writeSyncRecord(current)) return null
+    }
+    return { conflicts: Object.freeze(conflicts) }
+  }
+
+  async function resolvePreservedConflict(receipt, operation) {
+    const conflict = await readPreservedConflict(receipt, operation, null)
+    if (!conflict) return { status: 'recovering' }
+    if (conflict.status === 'open') {
+      return { conflict, status: 'conflicting' }
+    }
+    const recovered = await chooseConflict({
+      confirmed: true,
+      conflict,
+      selectedSide: conflict.selectedSide
+    })
+    return recovered.status === 'chosen'
+      ? {
+          created: false,
+          generation: recovered.generation,
+          ownerId: recovered.ownerId,
+          profile: recovered.profile,
+          profileId: recovered.profileId,
+          protectedConflicts: recovered.protectedConflicts,
+          revision: recovered.revision,
+          status: 'activate'
+        }
+      : { status: 'recovering' }
+  }
+
+  async function chooseConflict({
+    confirmed = false,
+    conflict,
+    selectedSide
+  } = {}) {
+    if (confirmed !== true) return { status: 'confirmation-required' }
+    if (
+      !['device', 'cloud'].includes(selectedSide)
+      || !['open', 'resolved'].includes(conflict?.status)
+      || (
+        conflict.status === 'resolved'
+        && conflict.selectedSide !== selectedSide
+      )
+      || !UUID_PATTERN.test(String(conflict.id || ''))
+      || !UUID_PATTERN.test(String(conflict.ownerId || ''))
+      || !UUID_PATTERN.test(String(conflict.profileId || ''))
+      || !UUID_PATTERN.test(String(conflict.operationId || ''))
+    ) return { status: 'recovering' }
+    const record = readSyncRecord()
+    if (
+      !record?.pending
+      || record.ownerId !== conflict.ownerId
+      || record.profileId !== conflict.profileId
+      || record.pending.operationId !== conflict.operationId
+    ) return { status: 'recovering' }
+
+    let response
+    try {
+      response = await getClient().rpc(
+        'choose_my_learner_profile_conflict',
+        {
+          p_confirmed: true,
+          p_conflict_id: conflict.id,
+          p_selected_side: selectedSide
+        }
+      )
+    } catch {
+      return { status: 'recovering' }
+    }
+    if (response?.error) return { status: 'recovering' }
+    const row = readSingleRpcRow(response?.data)
+    if (
+      row?.status === 'conflict_changed'
+      && row.conflict_id === conflict.id
+    ) {
+      const refreshed = await readRefreshedOpenConflict(conflict)
+      return refreshed
+        ? { conflict: refreshed, status: 'conflict-changed' }
+        : { status: 'recovering' }
+    }
+    const generation = normalizePositiveInteger(row?.generation)
+    const revision = normalizePositiveInteger(row?.revision)
+    const protectedUntil = Date.parse(String(row?.protected_until || ''))
+    if (
+      !['chosen', 'already_chosen'].includes(row?.status)
+      || row.conflict_id !== conflict.id
+      || row.selected_side !== selectedSide
+      || !UUID_PATTERN.test(String(row.profile_id || ''))
+      || !generation
+      || !revision
+      || !Number.isFinite(protectedUntil)
+      || protectedUntil <= now()
+    ) return { status: 'recovering' }
+    let envelope
+    try {
+      envelope = await verifyEnvelope(row.envelope)
+    } catch {
+      return { status: 'recovering' }
+    }
+    const expectedDigest = conflict[selectedSide].envelope
+      .integrity?.payloadSha256
+    const profile = envelope ? importEnvelope(envelope) : null
+    if (
+      !envelope
+      || envelope.integrity?.payloadSha256 !== expectedDigest
+      || !isRecord(profile)
+    ) return { status: 'recovering' }
+    const protectedConflict = await readResolvedConflict(
+      conflict,
+      selectedSide,
+      protectedUntil
+    )
+    if (!protectedConflict) return { status: 'recovering' }
+
+    const current = readSyncRecord()
+    if (current?.pending?.operationId !== conflict.operationId) {
+      return { status: 'recovering' }
+    }
+    current.acceptedRevision = revision
+    current.generation = generation
+    current.profileId = row.profile_id
+    current.pending = null
+    current.protectedConflictIds = [
+      ...(current.protectedConflictIds || []).filter(id => id !== conflict.id),
+      conflict.id
+    ]
+    current.queued = null
+    if (!writeSyncRecord(current)) return { status: 'recovering' }
+    const protectedResult = await readStoredProtectedConflicts(
+      current,
+      new Map([[conflict.id, protectedConflict]])
+    )
+    if (!protectedResult) return { status: 'recovering' }
+    activeBinding = null
+    publish('up-to-date', { conflict: protectedConflict })
+    return {
+      conflict: protectedConflict,
+      generation,
+      ownerId: conflict.ownerId,
+      profile,
+      profileId: row.profile_id,
+      protectedConflicts: protectedResult.conflicts,
+      protectedUntil,
+      revision,
+      selectedSide,
+      status: 'chosen'
+    }
+  }
+
   async function pump() {
     if (inFlight) return
     const record = readSyncRecord()
@@ -392,16 +742,13 @@ export function createLearnerProfileCloudPersistenceAdapter({
           }
         }
       } else if (!response?.error && row?.status === 'conflict') {
-        publish('conflicting', {
-          conflict: {
-            activation: activeBinding.activation,
-            cloudGeneration: normalizePositiveInteger(row.generation),
-            cloudRevision: normalizePositiveInteger(row.revision),
-            generation: operation.generation,
-            ownerId: operation.ownerId,
-            profileId: operation.profileId
-          }
-        })
+        const conflict = await readPreservedConflict(
+          row,
+          operation,
+          activeBinding.activation
+        )
+        if (conflict) publish('conflicting', { conflict })
+        else publish('needs-attention')
       } else {
         publish('needs-attention')
       }
@@ -499,7 +846,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       ) return { status: 'recovering' }
       if (currentRecord.pending) {
         if (
-          currentRecord.pending.baseRevision + 1 === revision
+          currentRecord.pending.baseRevision !== revision
           && localProfile?.status === 'ready'
           && localProfile.ownerId === authentication.userId
           && localProfile.profileId === profileId
@@ -523,6 +870,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
           currentRecord = readSyncRecord()
           if (!currentRecord?.pending) return { status: 'recovering' }
           const receipt = readSingleRpcRow(receiptResponse?.data)
+          if (!receiptResponse?.error && receipt?.status === 'conflict') {
+            return resolvePreservedConflict(receipt, currentRecord.pending)
+          }
           if (
             receiptResponse?.error
             || !isAcceptedOperationReceipt(
@@ -532,14 +882,59 @@ export function createLearnerProfileCloudPersistenceAdapter({
               ['already_accepted']
             )
           ) return { status: 'conflicting' }
-          currentRecord.acceptedRevision = revision
+          const acceptedRevision = normalizePositiveInteger(receipt.revision)
+          if (acceptedRevision !== revision) {
+            const acceptedOperation = currentRecord.pending
+            const replayOperation = currentRecord.queued || {
+              ...acceptedOperation,
+              baseRevision: acceptedRevision,
+              envelope: pendingEnvelope,
+              integrity: pendingEnvelope.integrity,
+              nextRetryAt: 0,
+              operationId: createOperationId(),
+              prepared: null,
+              retryCount: 0,
+              revision: acceptedRevision + 1
+            }
+            currentRecord.acceptedRevision = acceptedRevision
+            currentRecord.pending = replayOperation
+            currentRecord.queued = null
+            if (!writeSyncRecord(currentRecord)) {
+              return { status: 'recovering' }
+            }
+            let replayEnvelope
+            let replayResponse
+            try {
+              replayEnvelope = await finalizeDurableOperation(replayOperation)
+              replayResponse = await getClient().rpc(
+                'commit_my_learner_profile',
+                operationParameters(replayOperation, replayEnvelope)
+              )
+            } catch {
+              return { status: 'waiting-cloud' }
+            }
+            const replayReceipt = readSingleRpcRow(replayResponse?.data)
+            if (!replayResponse?.error
+              && replayReceipt?.status === 'conflict') {
+              return resolvePreservedConflict(
+                replayReceipt,
+                readSyncRecord()?.pending
+              )
+            }
+            return {
+              status: replayResponse?.error
+                && isTransientCloudStatus(replayResponse.status)
+                ? 'waiting-cloud'
+                : 'recovering'
+            }
+          }
+          currentRecord.acceptedRevision = acceptedRevision
           currentRecord.pending = currentRecord.queued
           currentRecord.queued = null
           if (!writeSyncRecord(currentRecord)) return { status: 'recovering' }
           profile = localProfile.profile
         } else if (
-          currentRecord.pending.baseRevision !== revision
-          || localProfile?.status !== 'ready'
+          localProfile?.status !== 'ready'
           || localProfile.ownerId !== authentication.userId
           || localProfile.profileId !== profileId
         ) return { status: 'conflicting' }
@@ -550,12 +945,19 @@ export function createLearnerProfileCloudPersistenceAdapter({
         currentRecord.acceptedRevision = revision
         if (!writeSyncRecord(currentRecord)) return { status: 'recovering' }
       }
-    } else if (!ensureSyncRecord({
-      generation,
-      ownerId: authentication.userId,
-      profileId,
-      revision
-    })) return { status: 'recovering' }
+    } else {
+      currentRecord = ensureSyncRecord({
+        generation,
+        ownerId: authentication.userId,
+        profileId,
+        revision
+      })
+      if (!currentRecord) return { status: 'recovering' }
+    }
+
+    currentRecord = readSyncRecord()
+    const protectedResult = await readStoredProtectedConflicts(currentRecord)
+    if (!protectedResult) return { status: 'recovering' }
 
     return {
       created: row.created === true,
@@ -567,6 +969,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       ownerId: authentication.userId,
       profile,
       profileId,
+      protectedConflicts: protectedResult.conflicts,
       revision,
       status: 'activate'
     }
@@ -699,6 +1102,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
   return Object.freeze({
     activate,
+    chooseConflict,
     destroy,
     getState: () => syncState,
     resolve,
