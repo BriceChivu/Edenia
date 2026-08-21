@@ -46,6 +46,7 @@ export function createLearnerProfileLifecycleAuthority({
   let resolutionId = 0
   const profileActivations = new WeakMap()
   let unsubscribeAuthentication = null
+  let unsubscribeCloudPersistence = null
   let unsubscribeConnectivity = null
   let unsubscribeLocalPersistence = null
 
@@ -75,9 +76,11 @@ export function createLearnerProfileLifecycleAuthority({
     releaseActiveProfile()
     const activation = Object.freeze({
       activatedAt: clock.now(),
+      generation: localProfile.generation,
       id: createActivationId(),
       ownerId: localProfile.ownerId || null,
-      profileId: localProfile.profileId
+      profileId: localProfile.profileId,
+      revision: localProfile.revision
     })
     if (!localPersistence.claimActivation(activation)) {
       return null
@@ -103,6 +106,14 @@ export function createLearnerProfileLifecycleAuthority({
       ownerId: activation.ownerId,
       profileId: activation.profileId
     })
+    if (activation.ownerId && typeof cloudPersistence.activate === 'function') {
+      cloudPersistence.activate({
+        activation,
+        generation: activation.generation,
+        isCurrent: () => Boolean(getCurrentActivationFor(activeProfile)),
+        revision: activation.revision
+      })
+    }
     return currentState
   }
 
@@ -138,14 +149,20 @@ export function createLearnerProfileLifecycleAuthority({
         && result.profileId
         && result.profile
         && typeof result.profile === 'object'
+        && Number.isSafeInteger(result.generation)
+        && result.generation > 0
+        && Number.isSafeInteger(result.revision)
+        && result.revision > 0
       ) {
         let resolvedProfile = result.profile
         if (localProfile?.status === 'empty') {
           if (!localPersistence.installSignedInProfile(result.profile, {
+            generation: result.generation,
             installedAt: clock.now(),
             onboardingFinalizationPending: result.created === true,
             ownerId: result.ownerId,
-            profileId: result.profileId
+            profileId: result.profileId,
+            revision: result.revision
           })) {
             publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
             return
@@ -160,11 +177,35 @@ export function createLearnerProfileLifecycleAuthority({
             return
           }
           resolvedProfile = installedProfile.profile
+        } else if (isSignedInProfile(localProfile)) {
+          if (!localPersistence.reconcileSignedInProfile(result.profile, {
+            generation: result.generation,
+            ownerId: result.ownerId,
+            profileId: result.profileId,
+            revision: result.revision
+          })) {
+            publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+            return
+          }
+          const reconciledProfile = localPersistence.read()
+          if (
+            !isSignedInProfile(reconciledProfile)
+            || reconciledProfile.ownerId !== result.ownerId
+            || reconciledProfile.profileId !== result.profileId
+            || reconciledProfile.generation !== result.generation
+            || reconciledProfile.revision !== result.revision
+          ) {
+            publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+            return
+          }
+          resolvedProfile = reconciledProfile.profile
         }
         const activationProfile = {
+          generation: result.generation,
           ownerId: result.ownerId,
           profile: resolvedProfile,
           profileId: result.profileId,
+          revision: result.revision,
           status: 'ready'
         }
         const activation = prepareActivation(activationProfile)
@@ -304,6 +345,18 @@ export function createLearnerProfileLifecycleAuthority({
     return activation
   }
 
+  function handleCloudPersistenceState(state) {
+    if (state?.status !== 'conflicting') return
+    const activation = state.conflict?.activation
+    if (
+      !activation
+      || activation !== currentState.activation
+      || getCurrentActivationFor(activeProfile) !== activation
+    ) return
+    releaseActiveProfile()
+    publish(LEARNER_PROFILE_ACCESS_STATES.CONFLICTING)
+  }
+
   function readActiveProfile() {
     if (!getCurrentActivationFor(activeProfile)) return null
     return activeProfile
@@ -331,9 +384,11 @@ export function createLearnerProfileLifecycleAuthority({
     releaseActiveProfile()
     const activation = Object.freeze({
       activatedAt: clock.now(),
+      generation: previousState.activation?.generation,
       id: createActivationId(),
       ownerId: previousState.ownerId,
-      profileId: previousState.profileId
+      profileId: previousState.profileId,
+      revision: previousState.activation?.revision
     })
     if (!localPersistence.claimActivation(activation)) {
       publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
@@ -348,18 +403,7 @@ export function createLearnerProfileLifecycleAuthority({
       publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
       return result || { persisted: false, error: null }
     }
-    activeProfile = profile
-    profileActivations.set(profile, activation)
-    publish(LEARNER_PROFILE_ACCESS_STATES.ACTIVE, {
-      activation,
-      ownerId: activation.ownerId,
-      profileId: activation.profileId
-    })
-    analytics.profileActivated({
-      activation,
-      ownerId: activation.ownerId,
-      profileId: activation.profileId
-    })
+    activateProfile({ profile }, activation)
     analytics.profileSaved(profile, { activation })
     enqueueCloudSave(profile, activation)
     return result
@@ -379,8 +423,20 @@ export function createLearnerProfileLifecycleAuthority({
   function start() {
     if (started) return currentState
     started = true
+    cloudPersistence.start?.()
     unsubscribeAuthentication = authentication.subscribe(evaluate)
-    unsubscribeConnectivity = connectivity.subscribe(evaluate)
+    if (typeof cloudPersistence.subscribe === 'function') {
+      unsubscribeCloudPersistence = cloudPersistence.subscribe(
+        handleCloudPersistenceState
+      )
+    }
+    unsubscribeConnectivity = connectivity.subscribe(() => {
+      if (
+        currentState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+        && getCurrentActivationFor(activeProfile)
+      ) return
+      evaluate()
+    })
     unsubscribeLocalPersistence = localPersistence.subscribe(() => {
       if (currentState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
         evaluate()
@@ -401,9 +457,12 @@ export function createLearnerProfileLifecycleAuthority({
     resolutionId += 1
     releaseActiveProfile()
     unsubscribeAuthentication?.()
+    unsubscribeCloudPersistence?.()
     unsubscribeConnectivity?.()
     unsubscribeLocalPersistence?.()
+    cloudPersistence.destroy?.()
     unsubscribeAuthentication = null
+    unsubscribeCloudPersistence = null
     unsubscribeConnectivity = null
     unsubscribeLocalPersistence = null
     started = false

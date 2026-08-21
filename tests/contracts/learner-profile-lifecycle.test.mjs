@@ -52,6 +52,7 @@ function createHarness({
   const authenticationAdapter = createObservationAdapter(authentication)
   const connectivityAdapter = createObservationAdapter(connectivity)
   const cloudDeferred = deferred()
+  const cloudListeners = new Set()
   const calls = []
   let currentFence = null
   let currentLocal = local
@@ -71,6 +72,10 @@ function createHarness({
       authentication: authenticationAdapter,
       clock: { now: () => 1_786_982_400_000 },
       cloudPersistence: {
+        activate(context) {
+          calls.push(['cloud-activate', context])
+          return true
+        },
         resolve(context) {
           calls.push(['cloud-resolve', context])
           return cloudResolution === 'deferred'
@@ -80,6 +85,10 @@ function createHarness({
         save(profile, context) {
           calls.push(['cloud-save', profile, context])
           return Promise.resolve({ status: 'saved' })
+        },
+        subscribe(listener) {
+          cloudListeners.add(listener)
+          return () => cloudListeners.delete(listener)
         }
       },
       connectivity: connectivityAdapter,
@@ -93,9 +102,11 @@ function createHarness({
         installSignedInProfile(profile, identity) {
           calls.push(['install', profile, identity])
           currentLocal = {
+            generation: identity.generation,
             ownerId: identity.ownerId,
             profile,
             profileId: identity.profileId,
+            revision: identity.revision,
             status: 'ready'
           }
           if (identity.onboardingFinalizationPending) {
@@ -121,6 +132,18 @@ function createHarness({
         read() {
           calls.push(['local-read'])
           return currentLocal
+        },
+        reconcileSignedInProfile(profile, identity) {
+          calls.push(['reconcile', profile, identity])
+          currentLocal = {
+            generation: identity.generation,
+            ownerId: identity.ownerId,
+            profile,
+            profileId: identity.profileId,
+            revision: identity.revision,
+            status: 'ready'
+          }
+          return true
         },
         releaseActivation(fence) {
           calls.push(['release', fence.id])
@@ -151,6 +174,9 @@ function createHarness({
     cloudDeferred,
     connectivity: connectivityAdapter,
     getCurrentFence: () => currentFence,
+    publishCloud(state) {
+      for (const listener of cloudListeners) listener(state)
+    },
     setCurrentFence: fence => { currentFence = fence }
   }
 }
@@ -297,9 +323,11 @@ test('a restored owner session cannot write a matching local copy before cloud a
 
   harness.cloudDeferred.resolve({
     finalize: () => true,
+    generation: 1,
     ownerId,
     profile: cloudProfile,
     profileId,
+    revision: 1,
     status: 'activate'
   })
   await Promise.resolve()
@@ -362,10 +390,12 @@ test('an explicit signed-in profile resolution fences delayed work from an earli
       userId: '123e4567-e89b-42d3-a456-426614174000'
     },
     cloudResolution: {
+      generation: 1,
       status: 'activate',
       ownerId: '123e4567-e89b-42d3-a456-426614174000',
       profileId: 'owner:123e4567-e89b-42d3-a456-426614174000',
-      profile: signedInProfile
+      profile: signedInProfile,
+      revision: 1
     },
     local: { status: 'empty' }
   })
@@ -398,6 +428,184 @@ test('an explicit signed-in profile resolution fences delayed work from an earli
   )
 })
 
+test('cloud revision identity is installed and activated before signed-in saves can synchronize', async () => {
+  const signedInProfile = {
+    learnerProfile: { languages: ['mandarin'] },
+    videos: {}
+  }
+  const harness = createHarness({
+    authentication: {
+      status: 'signed-in',
+      userId: '123e4567-e89b-42d3-a456-426614174000'
+    },
+    cloudResolution: {
+      generation: 2,
+      ownerId: '123e4567-e89b-42d3-a456-426614174000',
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      profile: signedInProfile,
+      revision: 7,
+      status: 'activate'
+    },
+    local: { status: 'empty' }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  const install = harness.calls.find(([name]) => name === 'install')
+  assert.equal(install[2].generation, 2)
+  assert.equal(install[2].revision, 7)
+  const claim = harness.calls.find(([name]) => name === 'claim')
+  assert.equal(claim[1].generation, 2)
+  assert.equal(claim[1].revision, 7)
+  const cloudActivation = harness.calls.find(
+    ([name]) => name === 'cloud-activate'
+  )
+  assert.equal(cloudActivation[1].activation, claim[1])
+  assert.equal(cloudActivation[1].generation, 2)
+  assert.equal(cloudActivation[1].revision, 7)
+  assert.equal(harness.authority.saveActiveProfile(signedInProfile), true)
+  assert.ok(
+    harness.calls.findIndex(([name]) => name === 'cloud-activate')
+      < harness.calls.findIndex(([name]) => name === 'cloud-save')
+  )
+})
+
+test('a newer cloud head is saved locally before a returning device activates it', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const localProfile = { marker: 'revision-6' }
+  const cloudProfile = { marker: 'revision-7' }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: {
+      generation: 2,
+      ownerId,
+      profile: cloudProfile,
+      profileId,
+      revision: 7,
+      status: 'activate'
+    },
+    local: {
+      generation: 2,
+      ownerId,
+      profile: localProfile,
+      profileId,
+      revision: 6,
+      status: 'ready'
+    }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(harness.authority.readActiveProfile(), cloudProfile)
+  assert.ok(
+    harness.calls.findIndex(([name]) => name === 'reconcile')
+      < harness.calls.findIndex(([name]) => name === 'claim')
+  )
+  assert.equal(
+    harness.calls.find(([name]) => name === 'reconcile')[2].revision,
+    7
+  )
+})
+
+test('an active signed-in profile stays writable when connectivity drops', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const profile = { marker: 'active-offline' }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId,
+      revision: 4,
+      status: 'activate'
+    },
+    local: {
+      generation: 1,
+      ownerId,
+      profile,
+      profileId,
+      revision: 4,
+      status: 'ready'
+    }
+  })
+  harness.authority.start()
+  await Promise.resolve()
+  const resolveCount = harness.calls.filter(
+    ([name]) => name === 'cloud-resolve'
+  ).length
+
+  harness.connectivity.publish({ status: 'offline' })
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  )
+  assert.equal(harness.authority.readActiveProfile(), profile)
+  assert.equal(harness.authority.saveActiveProfile(profile), true)
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'cloud-resolve').length,
+    resolveCount
+  )
+})
+
+test('a conditional-write conflict locks the active candidate without replacing either profile', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const localProfile = { learnerProfile: { languages: ['french'] } }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: {
+      generation: 1,
+      ownerId,
+      profile: localProfile,
+      profileId,
+      revision: 1,
+      status: 'activate'
+    },
+    local: {
+      generation: 1,
+      ownerId,
+      profile: localProfile,
+      profileId,
+      revision: 1,
+      status: 'ready'
+    }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+  const activation = harness.authority.getState().activation
+  assert.equal(harness.authority.readActiveProfile(), localProfile)
+
+  harness.publishCloud({
+    conflict: {
+      activation,
+      cloudGeneration: 1,
+      cloudRevision: 2,
+      generation: 1,
+      ownerId,
+      profileId
+    },
+    status: 'conflicting'
+  })
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
+  )
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(harness.authority.saveActiveProfile(localProfile), false)
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'local-save').length,
+    0
+  )
+})
+
 test('a verified profile stays active when later draft cleanup fails', async () => {
   let finalizationCalls = 0
   const harness = createHarness({
@@ -410,9 +618,11 @@ test('a verified profile stays active when later draft cleanup fails', async () 
         finalizationCalls += 1
         return false
       },
+      generation: 1,
       ownerId: '123e4567-e89b-42d3-a456-426614174000',
       profile: { learnerProfile: { languages: ['mandarin'] } },
       profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 1,
       status: 'activate'
     },
     local: { status: 'empty' }
@@ -447,9 +657,11 @@ test('draft finalization waits until the local activation fence is claimed', asy
         finalizationCalls += 1
         return true
       },
+      generation: 1,
       ownerId: '123e4567-e89b-42d3-a456-426614174000',
       profile: { learnerProfile: { languages: ['mandarin'] } },
       profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 1,
       status: 'activate'
     },
     local: { status: 'empty' }
@@ -478,9 +690,11 @@ test('failed local onboarding finalization preserves the draft and hides activat
         finalizationCalls += 1
         return true
       },
+      generation: 1,
       ownerId: '123e4567-e89b-42d3-a456-426614174000',
       profile: { learnerProfile: { languages: ['mandarin'] } },
       profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 1,
       status: 'activate'
     },
     completeOnboardingFinalizationResult: false,
@@ -527,9 +741,11 @@ test('a fence lost after activation completion preserves the onboarding draft', 
       draftPresent = false
       return true
     },
+    generation: 1,
     ownerId,
     profile: { learnerProfile: { languages: ['mandarin'] } },
     profileId,
+    revision: 1,
     status: 'activate'
   })
   await Promise.resolve()
@@ -570,9 +786,11 @@ test('draft deletion follows activation even when a newer fence then wins', asyn
       harness.setCurrentFence({ id: 'activation-from-newer-tab' })
       return true
     },
+    generation: 1,
     ownerId,
     profile: { learnerProfile: { languages: ['mandarin'] } },
     profileId,
+    revision: 1,
     status: 'activate'
   })
   await Promise.resolve()
@@ -633,6 +851,52 @@ test('profile replacement starts a new activation and rejects the previous profi
   assert.equal(
     harness.calls.filter(([name]) => name === 'replace').length,
     1
+  )
+})
+
+test('signed-in profile replacement carries its cloud revision into the new activation', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const previousProfile = { marker: 'before-import' }
+  const importedProfile = { marker: 'after-import' }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: {
+      generation: 3,
+      ownerId,
+      profile: previousProfile,
+      profileId,
+      revision: 9,
+      status: 'activate'
+    },
+    local: {
+      generation: 3,
+      ownerId,
+      profile: previousProfile,
+      profileId,
+      revision: 9,
+      status: 'ready'
+    }
+  })
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.deepEqual(
+    harness.authority.replaceActiveProfile(importedProfile),
+    { persisted: true, error: null }
+  )
+  const activation = harness.authority.getState().activation
+  assert.equal(activation.generation, 3)
+  assert.equal(activation.revision, 9)
+  assert.equal(harness.authority.saveActiveProfile(importedProfile), true)
+  const cloudActivations = harness.calls.filter(
+    ([name]) => name === 'cloud-activate'
+  )
+  assert.equal(cloudActivations.length, 2)
+  assert.equal(cloudActivations.at(-1)[1].activation, activation)
+  assert.ok(
+    harness.calls.findLastIndex(([name]) => name === 'cloud-activate')
+      < harness.calls.findLastIndex(([name]) => name === 'cloud-save')
   )
 })
 
@@ -719,7 +983,9 @@ test('a new signed-in profile installs behind a locked owner record before activ
     replaceProfile(profile, options, canPersist) {
       const access = JSON.parse(storage.getItem(accessStorageKey))
       assert.equal(access.activationId, null)
+      assert.equal(access.generation, 1)
       assert.equal(access.ownerId, '123e4567-e89b-42d3-a456-426614174000')
+      assert.equal(access.revision, 1)
       assert.equal(canPersist(), true)
       assert.equal(options.syncAnalytics, false)
       persistedProfile = profile
@@ -731,16 +997,20 @@ test('a new signed-in profile installs behind a locked owner record before activ
   const profile = { learnerProfile: { languages: ['mandarin'] } }
 
   assert.equal(adapter.installSignedInProfile(profile, {
+    generation: 1,
     installedAt: 1_786_982_400_000,
     onboardingFinalizationPending: true,
     ownerId: '123e4567-e89b-42d3-a456-426614174000',
-    profileId: '223e4567-e89b-42d3-a456-426614174001'
+    profileId: '223e4567-e89b-42d3-a456-426614174001',
+    revision: 1
   }), true)
   assert.deepEqual(adapter.read(), {
+    generation: 1,
     onboardingFinalizationPending: true,
     ownerId: '123e4567-e89b-42d3-a456-426614174000',
     profile,
     profileId: '223e4567-e89b-42d3-a456-426614174001',
+    revision: 1,
     status: 'ready'
   })
 })

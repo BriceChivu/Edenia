@@ -16,6 +16,8 @@ const DRAFT_STORAGE_KEY =
   'edenia_v1_internal_test_onboarding_draft_v1'
 const PROFILE_ACCESS_STORAGE_KEY =
   'edenia_v1_internal_test_learner_profile_access_v1'
+const PROFILE_SYNC_STORAGE_KEY =
+  'edenia_v1_internal_test_learner_profile_sync_v1'
 const AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
 const AUTHENTICATED_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
 const CREATED_PROFILE_ID = '223e4567-e89b-42d3-a456-426614174001'
@@ -109,14 +111,14 @@ function resolutionRow(status, overrides = {}) {
   }
 }
 
-function returningOwnerResolutionRow(envelope) {
+function returningOwnerResolutionRow(envelope, revision = 12) {
   return resolutionRow(
     LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY,
     {
       envelope,
       generation: 4,
       profile_id: CREATED_PROFILE_ID,
-      revision: 12
+      revision
     }
   )
 }
@@ -637,6 +639,179 @@ test('server gate denial keeps the draft recoverable and writes no profile', asy
     draft: draftBeforeSignIn,
     state: null
   })
+})
+
+test('offline progress survives reload and activates on a second device after sync', async ({
+  browser,
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  const usesPhoneLocaleChange = testInfo.project.name === 'phone-small'
+  let cloudEnvelope = await createReturningOwnerEnvelope()
+  let cloudRevision = 12
+  const commitRequests = []
+
+  const installCloud = async targetPage => {
+    await targetPage.route(`${SUPABASE_ORIGIN}/**`, async route => {
+      const request = route.request()
+      const pathname = new URL(request.url()).pathname
+      if (pathname === '/rest/v1/rpc/resolve_my_learner_profile') {
+        await route.fulfill({
+          json: [returningOwnerResolutionRow(cloudEnvelope, cloudRevision)],
+          status: 200
+        })
+        return
+      }
+      if (pathname === '/rest/v1/rpc/commit_my_learner_profile') {
+        const operation = request.postDataJSON()
+        commitRequests.push(operation)
+        expect(operation.p_base_revision).toBe(cloudRevision)
+        cloudEnvelope = operation.p_envelope
+        cloudRevision += 1
+        await route.fulfill({
+          json: [{
+            base_revision: operation.p_base_revision,
+            generation: operation.p_generation,
+            payload_sha256: operation.p_envelope.integrity.payloadSha256,
+            profile_id: operation.p_profile_id,
+            revision: cloudRevision,
+            status: 'accepted'
+          }],
+          status: 200
+        })
+        return
+      }
+      await route.fulfill({ json: {}, status: 200 })
+    })
+  }
+
+  await page.addInitScript(({ authKey, authenticated }) => {
+    localStorage.setItem(authKey, JSON.stringify(authenticated))
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      get: () => localStorage.getItem('edenia-test-offline') !== '1'
+    })
+  }, {
+    authKey: AUTH_STORAGE_KEY,
+    authenticated: authenticatedSession()
+  })
+  await installRuntimeConfig(page)
+  await installCloud(page)
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('Up to date')
+  const startingRevision = cloudRevision
+  commitRequests.length = 0
+
+  await page.evaluate(() => {
+    localStorage.setItem('edenia-test-offline', '1')
+    window.dispatchEvent(new Event('offline'))
+  })
+  await page.locator('.gear-btn').click()
+  if (usesPhoneLocaleChange) {
+    await page.locator('#settingsLocaleBtn').click()
+    await page.locator(
+      'input[name="settingsLocale"][value="fr"]'
+    ).check()
+  } else {
+    await page.locator('.settings-howto-toggle').click()
+    await page.locator('#settingsAnkiEnabled').uncheck()
+  }
+
+  await expect.poll(() => page.evaluate(key => (
+    JSON.parse(localStorage.getItem(key)).config
+  ), STATE_STORAGE_KEY)).toMatchObject(
+    usesPhoneLocaleChange ? { locale: 'fr' } : { ankiEnabled: false }
+  )
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(
+    usesPhoneLocaleChange
+      ? 'Enregistré sur cet appareil — en attente de synchronisation.'
+      : 'Saved on this device — waiting to sync.'
+  )
+  let pending = await page.evaluate(key => (
+    JSON.parse(localStorage.getItem(key))
+  ), PROFILE_SYNC_STORAGE_KEY)
+  expect(pending).toMatchObject({
+    acceptedRevision: startingRevision,
+    generation: 4,
+    ownerId: AUTHENTICATED_USER_ID,
+    pending: {
+      baseRevision: startingRevision,
+      generation: 4,
+      ownerId: AUTHENTICATED_USER_ID,
+      profileId: CREATED_PROFILE_ID
+    },
+    profileId: CREATED_PROFILE_ID
+  })
+  expect(commitRequests).toHaveLength(0)
+
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'waiting-cloud'
+  )
+  pending = await page.evaluate(key => (
+    JSON.parse(localStorage.getItem(key))
+  ), PROFILE_SYNC_STORAGE_KEY)
+  expect(pending.pending.operationId).toEqual(expect.any(String))
+  expect(pending.pending.prepared.profile.config).toMatchObject(
+    usesPhoneLocaleChange ? { locale: 'fr' } : { ankiEnabled: false }
+  )
+
+  await page.evaluate(() => {
+    localStorage.removeItem('edenia-test-offline')
+    window.dispatchEvent(new Event('online'))
+  })
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect.poll(() => commitRequests.length).toBe(1)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(
+    usesPhoneLocaleChange ? 'À jour' : 'Up to date'
+  )
+  expect(commitRequests[0].p_envelope.profile.config).toMatchObject(
+    usesPhoneLocaleChange ? { locale: 'fr' } : { ankiEnabled: false }
+  )
+
+  const secondContext = await browser.newContext()
+  const secondPage = await secondContext.newPage()
+  try {
+    await secondPage.addInitScript(({ authKey, authenticated }) => {
+      localStorage.setItem(authKey, JSON.stringify(authenticated))
+    }, {
+      authKey: AUTH_STORAGE_KEY,
+      authenticated: authenticatedSession()
+    })
+    await installRuntimeConfig(secondPage)
+    await installCloud(secondPage)
+    await secondPage.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+    await expect(secondPage.locator('#mainApp')).toBeVisible()
+    const secondDevice = await secondPage.evaluate(({
+      accessKey,
+      stateKey,
+      syncKey
+    }) => ({
+      access: JSON.parse(localStorage.getItem(accessKey)),
+      state: JSON.parse(localStorage.getItem(stateKey)),
+      sync: JSON.parse(localStorage.getItem(syncKey))
+    }), {
+      accessKey: PROFILE_ACCESS_STORAGE_KEY,
+      stateKey: STATE_STORAGE_KEY,
+      syncKey: PROFILE_SYNC_STORAGE_KEY
+    })
+    expect(secondDevice.state.config).toMatchObject(
+      usesPhoneLocaleChange ? { locale: 'fr' } : { ankiEnabled: false }
+    )
+    expect(secondDevice.access).toMatchObject({
+      generation: 4,
+      revision: startingRevision + 1
+    })
+    expect(secondDevice.sync).toMatchObject({
+      acceptedRevision: cloudRevision,
+      pending: null,
+      queued: null
+    })
+  } finally {
+    await secondContext.close()
+  }
 })
 
 test('an already signed-in new learner resolves again when onboarding reaches its final step', async ({

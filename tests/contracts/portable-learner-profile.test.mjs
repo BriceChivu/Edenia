@@ -2,8 +2,10 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   createPortableLearnerProfileEnvelope,
+  finalizePortableLearnerProfileEnvelope,
   PORTABLE_LEARNER_PROFILE_SCHEMA,
   PORTABLE_LEARNER_PROFILE_VERSION,
+  preparePortableLearnerProfileEnvelope,
   reconcilePortableAnkiDays,
   verifyPortableLearnerProfileEnvelope
 } from '../../src/state/portable-learner-profile.js'
@@ -165,6 +167,28 @@ function durableState() {
     lastVideoOpenedAt: '2026-08-15T12:00:00.000Z'
   }
 }
+
+test('a durable sync candidate is safe to persist before its async digest settles', async () => {
+  const source = durableState()
+  const before = structuredClone(source)
+  const prepared = preparePortableLearnerProfileEnvelope(source, {
+    now: () => new Date('2026-08-17T00:00:00.000Z')
+  })
+  const serializedPrepared = JSON.stringify(prepared)
+
+  assert.deepEqual(source, before)
+  assert.equal(prepared.exportedAt, '2026-08-17T00:00:00.000Z')
+  assert.equal(prepared.schema, PORTABLE_LEARNER_PROFILE_SCHEMA)
+  assert.equal(prepared.version, PORTABLE_LEARNER_PROFILE_VERSION)
+  assert.equal(serializedPrepared.includes('youtube-secret'), false)
+  assert.equal(serializedPrepared.includes('auth-secret'), false)
+
+  const finalized = await finalizePortableLearnerProfileEnvelope(prepared)
+  assert.deepEqual(
+    await verifyPortableLearnerProfileEnvelope(finalized.serialized),
+    finalized.envelope
+  )
+})
 
 test('portable envelope preserves durable learner data and excludes browser authority', async () => {
   const source = durableState()

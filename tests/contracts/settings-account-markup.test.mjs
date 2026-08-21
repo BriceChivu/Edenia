@@ -49,6 +49,15 @@ test('Settings contains one generic internal Account surface', () => {
   assert.match(html, /data-reminder-action="form"/)
   assert.match(
     html,
+    /id="learnerProfileSyncStatus"[^>]*data-settings-shell-action="open"[^>]*aria-live="polite"/
+  )
+  assert.match(
+    html,
+    /id="learnerProfileSyncSettingsStatus"[^>]*role="status"[^>]*aria-live="polite"/
+  )
+  assert.match(html, /data-i18n="progressSync\.title"/)
+  assert.match(
+    html,
     /id="reminderPreferenceFields"[^>]*aria-labelledby="accountEmailsTitle"[^>]*disabled/
   )
   assert.match(html, /id="streakRemindersEnabled" type="checkbox"/)

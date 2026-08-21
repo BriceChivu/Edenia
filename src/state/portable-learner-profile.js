@@ -506,10 +506,9 @@ function createIntegrityPayload({ exportedAt, profile, schema, version }) {
   return { exportedAt, profile, schema, version }
 }
 
-export async function createPortableLearnerProfileEnvelope(
+export function preparePortableLearnerProfileEnvelope(
   state,
   {
-    cryptoLike = globalThis.crypto,
     maxBytes = PORTABLE_LEARNER_PROFILE_MAX_BYTES,
     now = () => new Date()
   } = {}
@@ -520,25 +519,46 @@ export async function createPortableLearnerProfileEnvelope(
   if (!exportedAt) {
     throw new TypeError('Portable learner profile export time is invalid')
   }
+  return {
+    exportedAt,
+    profile,
+    schema: PORTABLE_LEARNER_PROFILE_SCHEMA,
+    version: PORTABLE_LEARNER_PROFILE_VERSION
+  }
+}
+
+export async function finalizePortableLearnerProfileEnvelope(
+  value,
+  {
+    cryptoLike = globalThis.crypto,
+    maxBytes = PORTABLE_LEARNER_PROFILE_MAX_BYTES
+  } = {}
+) {
+  validateMaximumBytes(maxBytes)
+  const prepared = cloneJson(value)
+  if (
+    !hasExactKeys(prepared, ['exportedAt', 'profile', 'schema', 'version'])
+    || prepared.schema !== PORTABLE_LEARNER_PROFILE_SCHEMA
+    || prepared.version !== PORTABLE_LEARNER_PROFILE_VERSION
+    || normalizeTimestamp(prepared.exportedAt) !== prepared.exportedAt
+    || !isCanonicalProfile(prepared.profile)
+  ) {
+    throw new TypeError('Prepared portable learner profile is invalid')
+  }
   const payloadSha256 = await sha256Base64Url(
-    canonicalizeJson(createIntegrityPayload({
-      exportedAt,
-      profile,
-      schema: PORTABLE_LEARNER_PROFILE_SCHEMA,
-      version: PORTABLE_LEARNER_PROFILE_VERSION
-    })),
+    canonicalizeJson(createIntegrityPayload(prepared)),
     cryptoLike
   )
   const envelope = {
-    exportedAt,
+    exportedAt: prepared.exportedAt,
     integrity: {
       algorithm: 'SHA-256',
       byteLength: 0,
       payloadSha256
     },
-    profile,
-    schema: PORTABLE_LEARNER_PROFILE_SCHEMA,
-    version: PORTABLE_LEARNER_PROFILE_VERSION
+    profile: prepared.profile,
+    schema: prepared.schema,
+    version: prepared.version
   }
   const { serialized, byteLength } = serializeWithByteLength(envelope)
   if (byteLength > maxBytes) {
@@ -549,6 +569,16 @@ export async function createPortableLearnerProfileEnvelope(
     envelope: JSON.parse(serialized),
     serialized
   }
+}
+
+export async function createPortableLearnerProfileEnvelope(
+  state,
+  options = {}
+) {
+  return finalizePortableLearnerProfileEnvelope(
+    preparePortableLearnerProfileEnvelope(state, options),
+    options
+  )
 }
 
 export async function verifyPortableLearnerProfileEnvelope(
