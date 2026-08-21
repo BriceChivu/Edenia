@@ -48,6 +48,7 @@ function createHarness({
   claimActivationResult = true,
   cloudResolution = { status: 'waiting' },
   cloudRetryResult = false,
+  cloudSyncState = { status: 'idle' },
   completeOnboardingFinalizationResult = true,
   now = 1_786_982_400_000,
   ownerVerification = null
@@ -99,6 +100,9 @@ function createHarness({
           return cloudResolution === 'deferred'
             ? cloudDeferred.promise
             : cloudResolution
+        },
+        getState() {
+          return cloudSyncState
         },
         retry() {
           calls.push(['cloud-retry'])
@@ -939,6 +943,47 @@ test('temporary cloud unavailability falls back to the verified matching local p
     ownerId,
     verifiedAt: now - 10_000
   })
+})
+
+test('temporary cloud unavailability keeps a matching owned local profile active without a verification receipt', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { marker: 'owned-local-with-unknown-cloud-head' }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: { status: 'waiting-cloud' },
+    cloudSyncState: { status: 'not-yet-backed-up' },
+    local: {
+      ownerId,
+      profile,
+      profileId: `owner:${ownerId}`,
+      status: 'ready'
+    }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  )
+  assert.equal(harness.authority.readActiveProfile(), profile)
+  assert.equal(harness.getOwnerVerification(), null)
+  const cloudActivation = harness.calls.find(
+    ([name]) => name === 'cloud-activate'
+  )
+  assert.equal(cloudActivation[1].profile, profile)
+
+  assert.equal(harness.authority.retryCloudBackup(), true)
+  await Promise.resolve()
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'cloud-resolve').length,
+    2
+  )
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'cloud-save').length,
+    0
+  )
 })
 
 test('an open offline profile locks when its verification window expires', () => {

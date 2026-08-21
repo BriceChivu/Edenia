@@ -223,6 +223,7 @@ test('a verified local profile without cloud revision metadata is visibly not ye
     },
     generation: undefined,
     isCurrent: () => true,
+    profile: { marker: 'local-without-cloud-identity' },
     revision: undefined
   }), false)
   assert.equal(states.at(-1), 'not-yet-backed-up')
@@ -1115,12 +1116,15 @@ test('sync queue quota rejection preserves its previous cloud receipt state', as
   assert.equal(states.at(-1), 'not-backed-up')
 })
 
-test('server rejection preserves the exact local candidate and accepted cloud revision', async () => {
+test('server rejection preserves the exact local candidate and stops automatic retries until the learner retries', async () => {
   const storage = createMemoryStorage()
+  const eventTarget = createEventTarget()
   const scheduled = []
   const states = []
+  let commitCalls = 0
   const adapter = createAdapter({
     createOperationId: () => 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    eventTarget,
     rpc: async name => {
       if (name === 'resolve_my_learner_profile') {
         return {
@@ -1135,6 +1139,7 @@ test('server rejection preserves the exact local candidate and accepted cloud re
           error: null
         }
       }
+      commitCalls += 1
       return {
         data: null,
         error: {
@@ -1151,6 +1156,7 @@ test('server rejection preserves the exact local candidate and accepted cloud re
     storage
   })
   adapter.subscribe(state => states.push(state.status))
+  adapter.start()
   const resolved = await adapter.resolve({
     authentication: { userId: OWNER_ID },
     connectivity: { status: 'online' },
@@ -1172,6 +1178,7 @@ test('server rejection preserves the exact local candidate and accepted cloud re
     activation,
     generation: resolved.generation,
     isCurrent: () => true,
+    profile: { marker: 'local-rejected' },
     revision: resolved.revision
   })
   adapter.save({ marker: 'local-rejected' }, {
@@ -1180,14 +1187,159 @@ test('server rejection preserves the exact local candidate and accepted cloud re
   })
   await flush()
 
-  const record = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+  let record = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
   assert.equal(record.acceptedRevision, 4)
   assert.equal(record.pending.operationId, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
   assert.deepEqual(record.pending.envelope.profile, {
     marker: 'local-rejected'
   })
-  assert.equal(record.pending.retryCount, 0)
+  assert.equal(record.pending.retryCount, 5)
   assert.equal(record.queued, null)
   assert.equal(scheduled.length, 0)
   assert.equal(states.at(-1), 'not-backed-up')
+
+  adapter.save({ marker: 'newer-local-study' }, {
+    activation,
+    isCurrent: () => true
+  })
+  eventTarget.dispatch('focus')
+  eventTarget.dispatch('online')
+  await flush()
+
+  record = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+  assert.equal(commitCalls, 1)
+  assert.equal(record.pending.retryCount, 5)
+  assert.deepEqual(record.queued.prepared.profile, {
+    marker: 'newer-local-study'
+  })
+
+  assert.equal(adapter.retry(), true)
+  await flush()
+  assert.equal(commitCalls, 2)
+  record = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+  assert.equal(record.pending.retryCount, 5)
+  assert.equal(states.at(-1), 'not-backed-up')
+})
+
+test('an accepted older pending operation requeues the latest local profile after a quota rejection', async () => {
+  const firstCommit = deferred()
+  const commitCalls = []
+  let rejectWrites = false
+  let serializedRecord = JSON.stringify({
+    acceptedRevision: 4,
+    generation: 1,
+    ownerId: OWNER_ID,
+    pending: {
+      activationId: 'activation-before-reload',
+      baseRevision: 4,
+      envelope: preparedEnvelope({ marker: 'older-pending' }),
+      generation: 1,
+      integrity: preparedEnvelope({ marker: 'older-pending' }).integrity,
+      nextRetryAt: 0,
+      operationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      ownerId: OWNER_ID,
+      prepared: null,
+      profileId: PROFILE_ID,
+      retryCount: 0,
+      revision: 5
+    },
+    profileId: PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+  const storage = {
+    getItem: key => key === SYNC_STORAGE_KEY ? serializedRecord : null,
+    setItem(key, value) {
+      if (key !== SYNC_STORAGE_KEY) return
+      if (rejectWrites) {
+        throw new DOMException('Quota exceeded', 'QuotaExceededError')
+      }
+      serializedRecord = String(value)
+    }
+  }
+  const adapter = createAdapter({
+    createOperationId: () => 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    prepareEnvelope: profile => preparedEnvelope(
+      profile,
+      profile.marker === 'latest-local-study'
+        ? 'B'.repeat(43)
+        : 'A'.repeat(43)
+    ),
+    rpc: async (name, parameters) => {
+      if (name === 'resolve_my_learner_profile') {
+        return {
+          data: [{
+            created: false,
+            envelope: { profile: { marker: 'cloud-base' } },
+            generation: 1,
+            profile_id: PROFILE_ID,
+            revision: 4,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          error: null
+        }
+      }
+      commitCalls.push(parameters)
+      if (commitCalls.length === 1) return firstCommit.promise
+      return {
+        data: [{
+          base_revision: 5,
+          generation: 1,
+          payload_sha256: parameters.p_envelope.integrity.payloadSha256,
+          profile_id: PROFILE_ID,
+          revision: 6,
+          status: 'accepted'
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+  const profile = { marker: 'older-pending' }
+  const activation = {
+    activatedAt: 1,
+    id: 'activation-current',
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  }
+  adapter.activate({
+    activation,
+    generation: 1,
+    isCurrent: () => true,
+    profile,
+    revision: 4
+  })
+  await flush()
+  assert.equal(commitCalls.length, 1)
+
+  profile.marker = 'latest-local-study'
+  rejectWrites = true
+  assert.deepEqual(adapter.save(profile, {
+    activation,
+    isCurrent: () => true
+  }), { status: 'not-backed-up' })
+  rejectWrites = false
+  firstCommit.resolve({
+    data: [{
+      base_revision: 4,
+      generation: 1,
+      payload_sha256: 'A'.repeat(43),
+      profile_id: PROFILE_ID,
+      revision: 5,
+      status: 'accepted'
+    }],
+    error: null
+  })
+  await flush()
+  await flush()
+
+  assert.equal(commitCalls.length, 2)
+  assert.equal(commitCalls[1].p_base_revision, 5)
+  assert.deepEqual(commitCalls[1].p_envelope.profile, {
+    marker: 'latest-local-study'
+  })
+  const record = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+  assert.equal(record.acceptedRevision, 6)
+  assert.equal(record.pending, null)
+  assert.equal(record.queued, null)
 })

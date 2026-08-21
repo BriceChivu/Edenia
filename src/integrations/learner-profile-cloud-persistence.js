@@ -284,6 +284,19 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return true
   }
 
+  function stopAutomaticRetry(operation) {
+    const current = readSyncRecord()
+    if (current?.pending?.operationId !== operation.operationId) return false
+    current.pending.retryCount = MAX_AUTOMATIC_RETRIES
+    current.pending.nextRetryAt = 0
+    if (!writeSyncRecord(current)) {
+      publish('needs-attention')
+      return false
+    }
+    publish('not-backed-up')
+    return true
+  }
+
   function operationParameters(operation, envelope) {
     return {
       p_base_revision: operation.baseRevision,
@@ -326,6 +339,29 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return finalized.envelope
   }
 
+  function queueLatestActiveProfileIfChanged(acceptedEnvelope) {
+    if (
+      !activeBinding?.profile
+      || !activeBinding.isCurrent()
+      || readSyncRecord()?.pending
+    ) return false
+    let prepared
+    try {
+      prepared = prepareEnvelope(activeBinding.profile)
+    } catch {
+      publish('not-backed-up')
+      return false
+    }
+    if (
+      JSON.stringify(prepared.profile)
+      === JSON.stringify(acceptedEnvelope.profile)
+    ) return false
+    return save(activeBinding.profile, {
+      activation: activeBinding.activation,
+      isCurrent: activeBinding.isCurrent
+    }).status === 'queued'
+  }
+
   async function pump() {
     if (inFlight) return
     const record = readSyncRecord()
@@ -336,6 +372,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
       || !activeBinding.isCurrent()
       || operation.activationId !== activeBinding.activation.id
     ) return
+    if (operation.retryCount >= MAX_AUTOMATIC_RETRIES) {
+      publish('not-backed-up')
+      return
+    }
     if (!isOnline()) {
       publish('waiting')
       return
@@ -358,7 +398,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       envelope = await finalizeDurableOperation(operation)
     } catch {
       inFlight = false
-      publish('not-backed-up')
+      stopAutomaticRetry(operation)
       return
     }
     let response
@@ -403,6 +443,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
                 revision: current.acceptedRevision
               }
             })
+            if (!current.pending) {
+              queueLatestActiveProfileIfChanged(envelope)
+            }
           }
         }
       } else if (!response?.error && row?.status === 'conflict') {
@@ -417,7 +460,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
           }
         })
       } else {
-        publish('not-backed-up')
+        stopAutomaticRetry(operation)
       }
     } catch {
       publish('needs-attention')
@@ -585,7 +628,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
-  function activate({ activation, generation, isCurrent, revision }) {
+  function activate({ activation, generation, isCurrent, profile, revision }) {
     if (
       !isRecord(activation)
       || typeof isCurrent !== 'function'
@@ -599,7 +642,13 @@ export function createLearnerProfileCloudPersistenceAdapter({
       }
       return false
     }
-    activeBinding = { activation, generation, isCurrent, revision }
+    activeBinding = {
+      activation,
+      generation,
+      isCurrent,
+      profile: isRecord(profile) ? profile : null,
+      revision
+    }
     const record = readSyncRecord()
     if (
       record?.ownerId !== activation.ownerId

@@ -154,6 +154,7 @@ export function createLearnerProfileLifecycleAuthority({
         activation,
         generation: activation.generation,
         isCurrent: () => Boolean(getCurrentActivationFor(activeProfile)),
+        profile: activeProfile,
         revision: activation.revision
       })
     }
@@ -188,11 +189,16 @@ export function createLearnerProfileLifecycleAuthority({
   }
 
   function enqueueCloudSave(profile, activation) {
-    if (!activation.ownerId) return
-    Promise.resolve(cloudPersistence.save(profile, {
-      activation,
-      isCurrent: () => Boolean(getCurrentActivationFor(profile))
-    })).catch(() => {})
+    if (!activation.ownerId) return false
+    try {
+      Promise.resolve(cloudPersistence.save(profile, {
+        activation,
+        isCurrent: () => Boolean(getCurrentActivationFor(profile))
+      })).catch(() => {})
+      return true
+    } catch {
+      return false
+    }
   }
 
   function resolveCloudProfile({ auth, localProfile, purpose, requestId }) {
@@ -205,11 +211,18 @@ export function createLearnerProfileLifecycleAuthority({
       if (requestId !== resolutionId) return
       if (!result || result.status === 'waiting') return
       if (result.status === 'waiting-cloud') {
-        const verification = auth.userId === localProfile?.ownerId
+        const matchingOwnedLocalProfile =
+          auth.userId === localProfile?.ownerId
+          && isSignedInProfile(localProfile)
+        const verification = matchingOwnedLocalProfile
           ? getCurrentOfflineVerification(localProfile)
           : null
         if (verification) {
           activateOffline(localProfile, verification)
+          return
+        }
+        if (matchingOwnedLocalProfile) {
+          activate(localProfile)
           return
         }
       }
@@ -557,11 +570,28 @@ export function createLearnerProfileLifecycleAuthority({
     const profile = readActiveProfile()
     const activation = currentState.activation
     if (!profile || !activation?.ownerId) return false
+    if (cloudPersistence.getState?.().status === 'not-yet-backed-up') {
+      const auth = authentication.getObservation()
+      const localProfile = localPersistence.read()
+      if (
+        auth?.status !== 'signed-in'
+        || auth.userId !== activation.ownerId
+        || !isSignedInProfile(localProfile)
+        || localProfile.ownerId !== activation.ownerId
+      ) return false
+      const requestId = ++resolutionId
+      resolveCloudProfile({
+        auth,
+        localProfile,
+        purpose: 'resolve-signed-in-profile',
+        requestId
+      })
+      return true
+    }
     try {
       if (cloudPersistence.retry?.() === true) return true
     } catch {}
-    enqueueCloudSave(profile, activation)
-    return true
+    return enqueueCloudSave(profile, activation)
   }
 
   function start() {

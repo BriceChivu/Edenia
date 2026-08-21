@@ -908,7 +908,7 @@ test('offline progress survives reload and activates on a second device after sy
 test('rejected cloud backup preserves continued local study, recovery export, and retry', async ({
   page
 }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-standard')
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   let cloudEnvelope = await createReturningOwnerEnvelope()
   let cloudRevision = 12
   let acceptCommits = true
@@ -971,33 +971,47 @@ test('rejected cloud backup preserves continued local study, recovery export, an
   acceptCommits = false
   commitRequests.length = 0
   await page.locator('.gear-btn').click()
-  await page.locator('.settings-howto-toggle').click()
-  await page.locator('#settingsAnkiEnabled').uncheck()
+  if (testInfo.project.name === 'phone-small') {
+    await page.locator('#settingsLocaleBtn').click()
+    await page.locator('input[name="settingsLocale"][value="fr"]').check()
+  } else {
+    await page.locator('.settings-howto-toggle').click()
+    await page.locator('#settingsAnkiEnabled').uncheck()
+  }
 
-  await expect(page.locator('#learnerProfileSyncSettingsStatus')).toHaveText(
-    'Not backed up'
+  await expect(page.locator('#learnerProfileSyncSettingsStatus')).toHaveAttribute(
+    'data-sync-status',
+    'not-backed-up'
   )
   const accountToggle = page.locator('.settings-account-toggle')
   if (await accountToggle.getAttribute('aria-expanded') === 'false') {
     await accountToggle.click()
   }
   await expect(page.locator('#learnerProfileSyncActions')).toBeVisible()
-  await expect(page.locator('#learnerProfileSyncGuidance')).toHaveText(
-    'Your study stays on this device. You can keep studying, try the backup again, or export a recovery copy.'
-  )
+  await expect(page.locator('#learnerProfileSyncGuidance')).not.toBeEmpty()
+  await expect(page.locator(
+    '[data-profile-sync-action="retry"]'
+  )).toBeVisible()
+  await expect(page.locator(
+    '[data-profile-sync-action="export-recovery"]'
+  )).toBeVisible()
   expect(cloudRevision).toBe(startingRevision)
   expect(cloudEnvelope.profile.config.ankiEnabled).toBe(true)
 
   await page.locator('#settingsLocaleBtn').click()
-  await page.locator('input[name="settingsLocale"][value="fr"]').check()
+  const continuedLocale = testInfo.project.name === 'phone-small' ? 'es' : 'fr'
+  await page.locator(
+    `input[name="settingsLocale"][value="${continuedLocale}"]`
+  ).check()
   await expect.poll(() => page.evaluate(key => (
     JSON.parse(localStorage.getItem(key)).config
   ), STATE_STORAGE_KEY)).toMatchObject({
-    ankiEnabled: false,
-    locale: 'fr'
+    ankiEnabled: testInfo.project.name === 'phone-small',
+    locale: continuedLocale
   })
-  await expect(page.locator('#learnerProfileSyncSettingsStatus')).toHaveText(
-    'Non sauvegardé'
+  await expect(page.locator('#learnerProfileSyncSettingsStatus')).toHaveAttribute(
+    'data-sync-status',
+    'not-backed-up'
   )
   const pending = await page.evaluate(key => (
     JSON.parse(localStorage.getItem(key))
@@ -1006,12 +1020,26 @@ test('rejected cloud backup preserves continued local study, recovery export, an
     acceptedRevision: startingRevision,
     pending: {
       baseRevision: startingRevision,
-      envelope: { profile: { config: { ankiEnabled: false, locale: 'en' } } },
+      envelope: {
+        profile: {
+          config: {
+            ankiEnabled: testInfo.project.name === 'phone-small',
+            locale: testInfo.project.name === 'phone-small' ? 'fr' : 'en'
+          }
+        }
+      },
       prepared: null
     },
     queued: {
       baseRevision: startingRevision + 1,
-      prepared: { profile: { config: { ankiEnabled: false, locale: 'fr' } } }
+      prepared: {
+        profile: {
+          config: {
+            ankiEnabled: testInfo.project.name === 'phone-small',
+            locale: continuedLocale
+          }
+        }
+      }
     }
   })
   expect(cloudRevision).toBe(startingRevision)
@@ -1025,8 +1053,8 @@ test('rejected cloud backup preserves continued local study, recovery export, an
   const serialized = await readFile(downloadPath, 'utf8')
   const recoveryEnvelope = JSON.parse(serialized)
   expect(recoveryEnvelope.profile.config).toMatchObject({
-    ankiEnabled: false,
-    locale: 'fr'
+    ankiEnabled: testInfo.project.name === 'phone-small',
+    locale: continuedLocale
   })
   expect(Buffer.byteLength(serialized, 'utf8')).toBe(
     recoveryEnvelope.integrity.byteLength
@@ -1034,13 +1062,16 @@ test('rejected cloud backup preserves continued local study, recovery export, an
 
   acceptCommits = true
   await page.locator('[data-profile-sync-action="retry"]').click()
-  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText('À jour')
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveAttribute(
+    'data-sync-status',
+    'up-to-date'
+  )
   expect(cloudRevision).toBe(startingRevision + 2)
   expect(cloudEnvelope.profile.config).toMatchObject({
-    ankiEnabled: false,
-    locale: 'fr'
+    ankiEnabled: testInfo.project.name === 'phone-small',
+    locale: continuedLocale
   })
-  expect(commitRequests).toHaveLength(4)
+  expect(commitRequests).toHaveLength(3)
 })
 
 test('an already signed-in new learner resolves again when onboarding reaches its final step', async ({

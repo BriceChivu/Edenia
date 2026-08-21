@@ -170,7 +170,7 @@ test('locked profile access exposes no learner content and performs no autosave'
   )
 })
 
-test('a recently verified owner can reopen and save the local profile while offline', async ({
+test('a signed-in owner can reopen and save the matching local profile while the cloud head is unavailable', async ({
   page
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
@@ -215,10 +215,7 @@ test('a recently verified owner can reopen and save the local profile while offl
       profileId: `owner:${ownerId}`,
       version: 1
     }))
-    localStorage.setItem(verificationStorageKey, JSON.stringify({
-      ownerId,
-      verifiedAt: Date.now()
-    }))
+    localStorage.removeItem(verificationStorageKey)
   }, {
     accessStorageKey: PROFILE_ACCESS_STORAGE_KEY,
     authStorageKey: AUTH_STORAGE_KEY,
@@ -241,11 +238,9 @@ test('a recently verified owner can reopen and save the local profile while offl
     expect.objectContaining({ name: SECRET_CHANNEL_NAME })
   ])
   expect(resolutionCount).toBe(0)
-  const verification = await page.evaluate(key => (
-    JSON.parse(localStorage.getItem(key))
-  ), OWNER_VERIFICATION_STORAGE_KEY)
-  expect(Object.keys(verification).sort()).toEqual(['ownerId', 'verifiedAt'])
-  expect(verification.ownerId).toBe(OWNER_ID)
+  expect(await page.evaluate(key => (
+    localStorage.getItem(key)
+  ), OWNER_VERIFICATION_STORAGE_KEY)).toBeNull()
 
   await page.locator('.gear-btn').click()
   if (testInfo.project.name === 'phone-small') {

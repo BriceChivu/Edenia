@@ -151,7 +151,9 @@ the local profile, and a failed write leaves the last accepted cloud head and
 receipts unchanged. The learner can continue studying, export a recovery copy,
 or retry from Account settings. Transient retries use bounded exponential
 backoff and stop after five failed attempts until the learner explicitly tries
-again.
+again. A permanent rejection stops automatic retries immediately; later local
+study replaces only the queued candidate and does not restart transport until
+the learner explicitly tries again.
 
 ## Google Identity Services
 
