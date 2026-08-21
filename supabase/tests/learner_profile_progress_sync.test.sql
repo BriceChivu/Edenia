@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
-select plan(9);
+select plan(11);
 
 select has_function(
   'public',
@@ -101,6 +101,26 @@ select throws_ok(
   'a changed payload with stale integrity cannot be committed'
 );
 
+select throws_ok(
+  $query$
+    select *
+    from public.commit_my_learner_profile(
+      'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      (select profile_id from public.learner_profile_heads),
+      1,
+      2,
+      pg_catalog.jsonb_set(
+        (select envelope from public.learner_profile_versions where revision = 1),
+        '{profile,config}',
+        '{}'::jsonb
+      )
+    )
+  $query$,
+  '22023',
+  'Learner profile envelope is invalid',
+  'a rehashable envelope with an incomplete nested profile is rejected'
+);
+
 select results_eq(
   $query$
     select status, generation, revision, base_revision
@@ -117,6 +137,17 @@ select results_eq(
 );
 
 reset role;
+
+select lives_ok(
+  $query$
+    select private.assert_learner_profile_envelope(
+      $profile$
+        {"exportedAt":"2026-08-21T01:02:03.000Z","integrity":{"algorithm":"SHA-256","byteLength":2242,"payloadSha256":"c-a3epgrMvQKEPkuXvMJLjEZiZLGRvM0JKcIpbmd7Hs"},"profile":{"activityLog":[{"actor":"user","createdAt":"2026-08-21T01:02:03.000Z","detail":"Watched lesson","id":"activity-1","meta":{"seconds":90,"videoId":"video-1"},"status":"success","title":"Study","type":"video"}],"anki":{"2026-08-21":{"created":2,"observedAt":"2026-08-21T01:02:03.000Z","reviewed":5}},"cityProgress":{"maxLevelIndex":3},"config":{"ankiEnabled":true,"channelShelfOrder":["channel-1"],"channelVideoFormats":{"channel-1":"videos"},"channels":[{"catalogId":"catalog-1","id":"channel-1","imageUrl":"https://example.test/channel.jpg","name":"Channel"}],"includeShorts":false,"locale":"fr","removedChannelIds":["removed-1"],"removedDefaultChannelIds":["default-1"],"weeklyGoalHours":7},"learnerProfile":{"createdAt":"2026-08-21T01:02:03.000Z","languages":["french"],"level":"beginner","selectedChannelCatalogIds":["catalog-1"],"updatedAt":"2026-08-21T01:02:03.000Z"},"noAnkiFrequentUserPrompt":{"respondedAt":"2026-08-21T01:02:03.000Z","response":"yes"},"onboarding":{"introSeenAt":"2026-08-21T01:02:03.000Z","levelUpGuidanceShownAt":"2026-08-21T01:02:03.000Z","recommendationsAppliedAt":"2026-08-21T01:02:03.000Z","setupCompleted":true,"setupCompletedAt":"2026-08-21T01:02:03.000Z","walkthroughCompleted":true,"walkthroughCompletedAt":"2026-08-21T01:02:03.000Z"},"videos":{"video-1":{"aspectRatio":1.777,"channelId":"channel-1","channelImageUrl":"https://example.test/channel.jpg","channelTitle":"Channel","duration":120,"favorite":true,"hiddenFromGrid":false,"hiddenFromGridAt":null,"id":"video-1","isShort":false,"manuallyAdded":false,"pausedAt":null,"publishedAt":"2026-08-21T01:02:03.000Z","removedFromFeedAt":null,"resumeAtSeconds":30,"source":"youtube","status":"partial","thumbnail":"https://example.test/video.jpg","title":"Lesson","watchLater":false,"watchProgress":[{"id":"video:video-1:2026-08-21T01:02:03.000Z:90:1","seconds":90,"studyDay":"2026-08-21","watchedAt":"2026-08-21T01:02:03.000Z"}],"watchProgressTracked":true,"watchedAt":null,"watchedConfirmationUnlockedAt":"2026-08-21T01:02:03.000Z"}}},"schema":"edenia-portable-learner-profile","version":1}
+      $profile$::jsonb
+    )
+  $query$,
+  'a complete non-empty portable learner profile passes server validation'
+);
 
 select ok(
   pg_catalog.has_function_privilege(

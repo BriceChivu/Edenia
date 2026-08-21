@@ -47,3 +47,15 @@ test('built stylesheet matches the current ordered source', async () => {
 
   assert.equal(builtStyle, expectedStyle.code)
 })
+
+test('the learner-profile sync status keeps the protected phone touch target', async () => {
+  const responsiveInput = await readFile(
+    new URL('../../src/styles/97-responsive-input.css', import.meta.url),
+    'utf8'
+  )
+
+  assert.match(
+    responsiveInput,
+    /@media \(max-width: 640px\)[\s\S]*\.learner-profile-sync-status[\s\S]*min-height: 44px;/
+  )
+})

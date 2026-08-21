@@ -1,4 +1,6 @@
 -- Accept one owner-derived, idempotent learner-profile revision at a time.
+create extension if not exists pg_jsonschema with schema extensions;
+
 create table public.learner_profile_write_receipts (
   user_id uuid not null,
   operation_id uuid not null,
@@ -43,6 +45,333 @@ grant select, insert, update, delete
   on table public.learner_profile_write_receipts
   to service_role;
 
+create or replace function private.learner_profile_envelope_schema()
+returns json
+language sql
+immutable
+security invoker
+set search_path = ''
+as $$
+  select $schema$
+  {
+    "type": "object",
+    "required": ["exportedAt", "integrity", "profile", "schema", "version"],
+    "additionalProperties": false,
+    "properties": {
+      "exportedAt": { "$ref": "#/definitions/timestamp" },
+      "integrity": {
+        "type": "object",
+        "required": ["algorithm", "byteLength", "payloadSha256"],
+        "additionalProperties": false,
+        "properties": {
+          "algorithm": { "const": "SHA-256" },
+          "byteLength": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2097152
+          },
+          "payloadSha256": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{43}$"
+          }
+        }
+      },
+      "profile": { "$ref": "#/definitions/profile" },
+      "schema": { "const": "edenia-portable-learner-profile" },
+      "version": { "const": 1 }
+    },
+    "definitions": {
+      "timestamp": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+      },
+      "nullableTimestamp": {
+        "anyOf": [
+          { "$ref": "#/definitions/timestamp" },
+          { "type": "null" }
+        ]
+      },
+      "nonEmptyString": {
+        "type": "string",
+        "minLength": 1
+      },
+      "nullableNonEmptyString": {
+        "anyOf": [
+          { "$ref": "#/definitions/nonEmptyString" },
+          { "type": "null" }
+        ]
+      },
+      "stringSet": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": { "$ref": "#/definitions/nonEmptyString" }
+      },
+      "activityMeta": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "channelId": { "$ref": "#/definitions/nonEmptyString" },
+          "fetchedCount": { "type": "number" },
+          "levelIndex": { "type": "number" },
+          "mergedCount": { "type": "number" },
+          "operation": { "$ref": "#/definitions/nonEmptyString" },
+          "pointsDelta": { "type": "number" },
+          "seconds": { "type": "number" },
+          "skippedShorts": { "type": "number" },
+          "status": { "$ref": "#/definitions/nonEmptyString" },
+          "videoId": { "$ref": "#/definitions/nonEmptyString" }
+        }
+      },
+      "activity": {
+        "type": "object",
+        "required": ["actor", "createdAt", "detail", "id", "status", "title", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "actor": { "enum": ["auto", "user"] },
+          "createdAt": { "$ref": "#/definitions/timestamp" },
+          "detail": { "type": "string" },
+          "id": { "$ref": "#/definitions/nonEmptyString" },
+          "meta": { "$ref": "#/definitions/activityMeta" },
+          "status": { "enum": ["success", "warn", "error", "info"] },
+          "title": { "type": "string" },
+          "type": { "$ref": "#/definitions/nonEmptyString" }
+        }
+      },
+      "ankiDay": {
+        "type": "object",
+        "required": ["created", "observedAt", "reviewed"],
+        "additionalProperties": false,
+        "properties": {
+          "created": { "type": "integer", "minimum": 0 },
+          "observedAt": { "$ref": "#/definitions/nullableTimestamp" },
+          "reviewed": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "channel": {
+        "type": "object",
+        "required": ["catalogId", "id", "imageUrl", "name"],
+        "additionalProperties": false,
+        "properties": {
+          "catalogId": { "$ref": "#/definitions/nullableNonEmptyString" },
+          "id": { "$ref": "#/definitions/nonEmptyString" },
+          "imageUrl": { "type": "string" },
+          "name": { "type": "string" }
+        }
+      },
+      "config": {
+        "type": "object",
+        "required": [
+          "ankiEnabled", "channelShelfOrder", "channelVideoFormats",
+          "channels", "includeShorts", "locale", "removedChannelIds",
+          "removedDefaultChannelIds", "weeklyGoalHours"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "ankiEnabled": { "type": "boolean" },
+          "channelShelfOrder": { "$ref": "#/definitions/stringSet" },
+          "channelVideoFormats": {
+            "type": "object",
+            "propertyNames": { "minLength": 1 },
+            "additionalProperties": { "enum": ["videos", "shorts"] }
+          },
+          "channels": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "$ref": "#/definitions/channel" }
+          },
+          "includeShorts": { "type": "boolean" },
+          "locale": { "enum": ["en", "zh-Hant", "zh-Hans", "es", "fr"] },
+          "removedChannelIds": { "$ref": "#/definitions/stringSet" },
+          "removedDefaultChannelIds": { "$ref": "#/definitions/stringSet" },
+          "weeklyGoalHours": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99
+          }
+        }
+      },
+      "learnerProfile": {
+        "type": "object",
+        "required": [
+          "createdAt", "languages", "level", "selectedChannelCatalogIds",
+          "updatedAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "createdAt": { "$ref": "#/definitions/nullableTimestamp" },
+          "languages": { "$ref": "#/definitions/stringSet" },
+          "level": { "$ref": "#/definitions/nullableNonEmptyString" },
+          "selectedChannelCatalogIds": { "$ref": "#/definitions/stringSet" },
+          "updatedAt": { "$ref": "#/definitions/nullableTimestamp" }
+        }
+      },
+      "noAnkiPrompt": {
+        "type": "object",
+        "required": ["respondedAt", "response"],
+        "additionalProperties": false,
+        "properties": {
+          "respondedAt": { "$ref": "#/definitions/nullableTimestamp" },
+          "response": {
+            "anyOf": [
+              { "enum": ["yes", "not-interested"] },
+              { "type": "null" }
+            ]
+          }
+        }
+      },
+      "onboarding": {
+        "type": "object",
+        "required": [
+          "introSeenAt", "levelUpGuidanceShownAt",
+          "recommendationsAppliedAt", "setupCompleted", "setupCompletedAt",
+          "walkthroughCompleted", "walkthroughCompletedAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "introSeenAt": { "$ref": "#/definitions/nullableTimestamp" },
+          "levelUpGuidanceShownAt": { "$ref": "#/definitions/nullableTimestamp" },
+          "recommendationsAppliedAt": { "$ref": "#/definitions/nullableTimestamp" },
+          "setupCompleted": { "type": "boolean" },
+          "setupCompletedAt": { "$ref": "#/definitions/nullableTimestamp" },
+          "walkthroughCompleted": { "type": "boolean" },
+          "walkthroughCompletedAt": { "$ref": "#/definitions/nullableTimestamp" }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "setupCompleted": { "const": false } } },
+            "then": { "properties": { "setupCompletedAt": { "type": "null" } } }
+          },
+          {
+            "if": { "properties": { "walkthroughCompleted": { "const": false } } },
+            "then": { "properties": { "walkthroughCompletedAt": { "type": "null" } } }
+          }
+        ]
+      },
+      "watchProgress": {
+        "type": "object",
+        "required": ["id", "seconds", "studyDay", "watchedAt"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "$ref": "#/definitions/nonEmptyString" },
+          "seconds": { "type": "integer", "minimum": 1 },
+          "studyDay": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+          },
+          "watchedAt": { "$ref": "#/definitions/timestamp" }
+        }
+      },
+      "video": {
+        "type": "object",
+        "required": [
+          "aspectRatio", "channelId", "channelImageUrl", "channelTitle",
+          "duration", "favorite", "hiddenFromGrid", "hiddenFromGridAt", "id",
+          "isShort", "manuallyAdded", "pausedAt", "publishedAt",
+          "removedFromFeedAt", "resumeAtSeconds", "source", "status",
+          "thumbnail", "title", "watchLater", "watchProgress",
+          "watchProgressTracked", "watchedAt", "watchedConfirmationUnlockedAt"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "aspectRatio": {
+            "anyOf": [
+              { "type": "number", "exclusiveMinimum": 0 },
+              { "type": "null" }
+            ]
+          },
+          "channelId": { "$ref": "#/definitions/nullableNonEmptyString" },
+          "channelImageUrl": { "type": "string" },
+          "channelTitle": { "type": "string" },
+          "duration": { "type": "integer", "minimum": 0 },
+          "favorite": { "type": "boolean" },
+          "hiddenFromGrid": { "type": "boolean" },
+          "hiddenFromGridAt": { "$ref": "#/definitions/nullableTimestamp" },
+          "id": { "$ref": "#/definitions/nonEmptyString" },
+          "isShort": { "type": "boolean" },
+          "manuallyAdded": { "type": "boolean" },
+          "pausedAt": { "$ref": "#/definitions/nullableTimestamp" },
+          "publishedAt": { "$ref": "#/definitions/nullableTimestamp" },
+          "removedFromFeedAt": { "$ref": "#/definitions/nullableTimestamp" },
+          "resumeAtSeconds": {
+            "anyOf": [
+              { "type": "integer", "minimum": 0 },
+              { "type": "null" }
+            ]
+          },
+          "source": { "$ref": "#/definitions/nullableNonEmptyString" },
+          "status": { "enum": ["watch-later", "unwatched", "partial", "watched"] },
+          "thumbnail": { "type": "string" },
+          "title": { "type": "string" },
+          "watchLater": { "type": "boolean" },
+          "watchProgress": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "$ref": "#/definitions/watchProgress" }
+          },
+          "watchProgressTracked": { "const": true },
+          "watchedAt": { "$ref": "#/definitions/nullableTimestamp" },
+          "watchedConfirmationUnlockedAt": { "$ref": "#/definitions/nullableTimestamp" }
+        },
+        "anyOf": [
+          { "properties": { "status": { "enum": ["watch-later", "partial", "watched"] } } },
+          { "properties": { "favorite": { "const": true } } },
+          { "properties": { "watchLater": { "const": true } } },
+          { "properties": { "removedFromFeedAt": { "$ref": "#/definitions/timestamp" } } },
+          { "properties": { "resumeAtSeconds": { "type": "integer" } } },
+          { "properties": { "watchProgress": { "minItems": 1 } } },
+          { "properties": { "manuallyAdded": { "const": true } } },
+          { "properties": { "hiddenFromGrid": { "const": true } } },
+          { "properties": { "watchedConfirmationUnlockedAt": { "$ref": "#/definitions/timestamp" } } }
+        ]
+      },
+      "profile": {
+        "type": "object",
+        "required": [
+          "activityLog", "anki", "cityProgress", "config", "learnerProfile",
+          "noAnkiFrequentUserPrompt", "onboarding", "videos"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "activityLog": {
+            "type": "array",
+            "maxItems": 500,
+            "items": { "$ref": "#/definitions/activity" }
+          },
+          "anki": {
+            "type": "object",
+            "propertyNames": {
+              "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+            },
+            "additionalProperties": { "$ref": "#/definitions/ankiDay" }
+          },
+          "cityProgress": {
+            "type": "object",
+            "required": ["maxLevelIndex"],
+            "additionalProperties": false,
+            "properties": {
+              "maxLevelIndex": { "type": "integer", "minimum": 0 }
+            }
+          },
+          "config": { "$ref": "#/definitions/config" },
+          "learnerProfile": { "$ref": "#/definitions/learnerProfile" },
+          "noAnkiFrequentUserPrompt": { "$ref": "#/definitions/noAnkiPrompt" },
+          "onboarding": { "$ref": "#/definitions/onboarding" },
+          "videos": {
+            "type": "object",
+            "propertyNames": { "minLength": 1 },
+            "additionalProperties": { "$ref": "#/definitions/video" }
+          }
+        }
+      }
+    }
+  }
+  $schema$::json;
+$$;
+
+revoke execute on function private.learner_profile_envelope_schema()
+  from public, anon, authenticated, service_role;
+
 create or replace function private.assert_learner_profile_envelope(
   p_envelope jsonb
 )
@@ -60,41 +389,41 @@ declare
   expected_digest text;
   claimed_bytes integer;
 begin
-  if not private.jsonb_has_exact_keys(
-    p_envelope,
-    array['exportedAt', 'integrity', 'profile', 'schema', 'version']
-  )
-    or coalesce(p_envelope ->> 'schema', '')
-      <> 'edenia-portable-learner-profile'
-    or coalesce(p_envelope ->> 'version', '') <> '1'
-    or coalesce(p_envelope ->> 'exportedAt', '')
-      !~ '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$'
-    or not private.jsonb_has_exact_keys(
-      integrity,
-      array['algorithm', 'byteLength', 'payloadSha256']
-    )
-    or coalesce(integrity ->> 'algorithm', '') <> 'SHA-256'
-    or coalesce(integrity ->> 'byteLength', '') !~ '^\d+$'
-    or coalesce(integrity ->> 'payloadSha256', '')
-      !~ '^[A-Za-z0-9_-]{43}$'
-    or not private.jsonb_has_exact_keys(
-      profile,
-      array[
-        'activityLog', 'anki', 'cityProgress', 'config', 'learnerProfile',
-        'noAnkiFrequentUserPrompt', 'onboarding', 'videos'
-      ]
-    )
-    or pg_catalog.jsonb_typeof(profile -> 'activityLog') <> 'array'
-    or pg_catalog.jsonb_typeof(profile -> 'anki') <> 'object'
-    or pg_catalog.jsonb_typeof(profile -> 'cityProgress') <> 'object'
-    or pg_catalog.jsonb_typeof(profile -> 'config') <> 'object'
-    or pg_catalog.jsonb_typeof(profile -> 'learnerProfile') <> 'object'
-    or pg_catalog.jsonb_typeof(
-      profile -> 'noAnkiFrequentUserPrompt'
-    ) <> 'object'
-    or pg_catalog.jsonb_typeof(profile -> 'onboarding') <> 'object'
-    or pg_catalog.jsonb_typeof(profile -> 'videos') <> 'object'
-  then
+  if not extensions.jsonb_matches_schema(
+    private.learner_profile_envelope_schema(),
+    p_envelope
+  ) then
+    raise exception 'Learner profile envelope is invalid'
+      using errcode = '22023';
+  end if;
+
+  if exists (
+    select 1
+    from pg_catalog.jsonb_array_elements(
+      profile -> 'activityLog'
+    ) as activity(entry)
+    group by activity.entry ->> 'id'
+    having pg_catalog.count(*) > 1
+  ) or exists (
+    select 1
+    from pg_catalog.jsonb_array_elements(
+      profile #> '{config,channels}'
+    ) as channel(entry)
+    group by channel.entry ->> 'id'
+    having pg_catalog.count(*) > 1
+  ) or exists (
+    select 1
+    from pg_catalog.jsonb_each(profile -> 'videos') as video(key, value)
+    where video.key <> video.value ->> 'id'
+  ) or exists (
+    select 1
+    from pg_catalog.jsonb_each(profile -> 'videos') as video(key, value)
+    cross join lateral pg_catalog.jsonb_array_elements(
+      video.value -> 'watchProgress'
+    ) as progress(entry)
+    group by video.key, progress.entry ->> 'id'
+    having pg_catalog.count(*) > 1
+  ) then
     raise exception 'Learner profile envelope is invalid'
       using errcode = '22023';
   end if;

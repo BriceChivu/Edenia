@@ -325,7 +325,10 @@ test('a local save durably queues its fenced cloud operation before hashing or n
   assert.equal(record.acceptedRevision, 7)
   assert.equal(record.pending.operationId, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
   assert.equal(record.pending.baseRevision, 7)
+  assert.equal(record.pending.revision, 8)
   assert.equal(record.pending.activationId, 'activation-current')
+  assert.equal(record.pending.integrity, null)
+  assert.equal(record.pending.envelope, null)
   assert.deepEqual(record.pending.prepared.profile, localProfile.profile)
   assert.equal(
     rpcCalls.filter(([name]) => name === 'commit_my_learner_profile').length,
@@ -345,6 +348,16 @@ test('a local save durably queues its fenced cloud operation before hashing or n
     serialized: '{}'
   })
   await flush()
+  const finalizedRecord = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+  assert.equal(finalizedRecord.pending.prepared, null)
+  assert.equal(
+    finalizedRecord.pending.integrity.payloadSha256,
+    'B'.repeat(43)
+  )
+  assert.equal(
+    finalizedRecord.pending.envelope.integrity.payloadSha256,
+    'B'.repeat(43)
+  )
 })
 
 test('one upload stays in flight while later local saves coalesce to the newest candidate', async () => {
@@ -477,7 +490,10 @@ test('reload adopts the exact durable operation and reconnect retries it behind 
       pending: {
         activationId: 'activation-before-reload',
         baseRevision: 4,
+        envelope: null,
         generation: 2,
+        integrity: null,
+        nextRetryAt: 0,
         operationId,
         ownerId: OWNER_ID,
         prepared: {
@@ -487,6 +503,7 @@ test('reload adopts the exact durable operation and reconnect retries it behind 
           version: 1
         },
         profileId: PROFILE_ID,
+        revision: 5,
         retryCount: 2
       },
       profileId: PROFILE_ID,
@@ -684,7 +701,9 @@ test('reload closes an accepted-operation crash window with the exact receipt', 
       pending: {
         activationId: 'activation-before-reload',
         baseRevision: 4,
+        envelope: null,
         generation: 2,
+        integrity: null,
         nextRetryAt: 0,
         operationId,
         ownerId: OWNER_ID,
@@ -695,6 +714,7 @@ test('reload closes an accepted-operation crash window with the exact receipt', 
           version: 1
         },
         profileId: PROFILE_ID,
+        revision: 5,
         retryCount: 0
       },
       profileId: PROFILE_ID,
@@ -782,4 +802,46 @@ test('a malformed durable sync record is preserved for recovery', async () => {
 
   assert.deepEqual(resolved, { status: 'recovering' })
   assert.equal(storage.getItem(SYNC_STORAGE_KEY), malformed)
+})
+
+test('queue preparation failures publish an accessible failed sync state', async () => {
+  const adapter = createAdapter({
+    prepareEnvelope: () => {
+      throw new TypeError('invalid local candidate')
+    }
+  })
+  const states = []
+  adapter.subscribe(state => states.push(state.status))
+  const resolved = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      ownerId: OWNER_ID,
+      profile: { marker: 'cloud' },
+      profileId: PROFILE_ID,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+  const activation = {
+    activatedAt: 1,
+    id: 'activation-current',
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  }
+  adapter.activate({
+    activation,
+    generation: resolved.generation,
+    isCurrent: () => true,
+    revision: resolved.revision
+  })
+
+  assert.deepEqual(
+    adapter.save({ marker: 'invalid' }, {
+      activation,
+      isCurrent: () => true
+    }),
+    { status: 'needs-attention' }
+  )
+  assert.equal(states.at(-1), 'needs-attention')
 })

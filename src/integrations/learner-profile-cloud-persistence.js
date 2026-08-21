@@ -5,7 +5,7 @@ import {
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
 
-function readResolutionRow(data) {
+function readSingleRpcRow(data) {
   if (Array.isArray(data) && data.length !== 1) return null
   const row = Array.isArray(data) ? data[0] : data
   return row && typeof row === 'object' && !Array.isArray(row) ? row : null
@@ -26,6 +26,114 @@ function isTransientCloudStatus(status) {
 
 function isRecord(value) {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function hasExactKeys(value, expectedKeys) {
+  if (!isRecord(value)) return false
+  const actualKeys = Object.keys(value).sort()
+  const sortedExpected = [...expectedKeys].sort()
+  return actualKeys.length === sortedExpected.length
+    && actualKeys.every((key, index) => key === sortedExpected[index])
+}
+
+function isPreparedEnvelope(value) {
+  return hasExactKeys(value, ['exportedAt', 'profile', 'schema', 'version'])
+    && typeof value.exportedAt === 'string'
+    && isRecord(value.profile)
+    && value.schema === 'edenia-portable-learner-profile'
+    && value.version === 1
+}
+
+function isIntegrity(value) {
+  return hasExactKeys(value, ['algorithm', 'byteLength', 'payloadSha256'])
+    && value.algorithm === 'SHA-256'
+    && Number.isSafeInteger(value.byteLength)
+    && value.byteLength > 0
+    && /^[A-Za-z0-9_-]{43}$/u.test(value.payloadSha256)
+}
+
+function isSyncOperation(value, identity) {
+  if (
+    !hasExactKeys(value, [
+      'activationId',
+      'baseRevision',
+      'envelope',
+      'generation',
+      'integrity',
+      'nextRetryAt',
+      'operationId',
+      'ownerId',
+      'prepared',
+      'profileId',
+      'retryCount',
+      'revision'
+    ])
+    || typeof value.activationId !== 'string'
+    || !value.activationId
+    || !UUID_PATTERN.test(value.operationId)
+    || value.ownerId !== identity.ownerId
+    || value.profileId !== identity.profileId
+    || value.generation !== identity.generation
+    || !normalizePositiveInteger(value.baseRevision)
+    || value.revision !== value.baseRevision + 1
+    || !Number.isSafeInteger(value.retryCount)
+    || value.retryCount < 0
+    || !Number.isFinite(value.nextRetryAt)
+    || value.nextRetryAt < 0
+  ) return false
+  const isPrepared = isPreparedEnvelope(value.prepared)
+    && value.envelope === null
+    && value.integrity === null
+  const isFinalized = value.prepared === null
+    && isRecord(value.envelope)
+    && isIntegrity(value.integrity)
+    && value.envelope.integrity?.algorithm === value.integrity.algorithm
+    && value.envelope.integrity?.byteLength === value.integrity.byteLength
+    && value.envelope.integrity?.payloadSha256
+      === value.integrity.payloadSha256
+  return isPrepared || isFinalized
+}
+
+function isSyncRecord(value) {
+  if (
+    !hasExactKeys(value, [
+      'acceptedRevision',
+      'generation',
+      'ownerId',
+      'pending',
+      'profileId',
+      'queued',
+      'version'
+    ])
+    || value.version !== 1
+    || !UUID_PATTERN.test(value.ownerId)
+    || !UUID_PATTERN.test(value.profileId)
+    || !normalizePositiveInteger(value.generation)
+    || !normalizePositiveInteger(value.acceptedRevision)
+  ) return false
+  if (value.pending === null) return value.queued === null
+  const identity = {
+    generation: value.generation,
+    ownerId: value.ownerId,
+    profileId: value.profileId
+  }
+  if (
+    !isSyncOperation(value.pending, identity)
+    || value.pending.baseRevision !== value.acceptedRevision
+  ) return false
+  return value.queued === null || (
+    isSyncOperation(value.queued, identity)
+    && value.queued.baseRevision === value.pending.revision
+  )
+}
+
+function isAcceptedOperationReceipt(row, operation, envelope, statuses) {
+  return statuses.includes(row?.status)
+    && row.profile_id === operation.profileId
+    && normalizePositiveInteger(row.generation) === operation.generation
+    && normalizePositiveInteger(row.base_revision) === operation.baseRevision
+    && normalizePositiveInteger(row.revision) === operation.revision
+    && row.payload_sha256 === envelope?.integrity?.payloadSha256
 }
 
 export function createLearnerProfileCloudPersistenceAdapter({
@@ -84,7 +192,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       const serialized = storage.getItem(syncStorageKey)
       if (serialized === null) return null
       const record = JSON.parse(serialized)
-      return isRecord(record) ? record : null
+      return isSyncRecord(record) ? record : null
     } catch {
       return null
     }
@@ -161,6 +269,30 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
+  async function finalizeDurableOperation(operation) {
+    if (operation.envelope) {
+      const verified = await verifyEnvelope(operation.envelope)
+      if (
+        !verified
+        || verified.integrity?.payloadSha256
+          !== operation.integrity?.payloadSha256
+      ) throw new TypeError('Durable learner-profile operation is invalid')
+      return verified
+    }
+    const finalized = await finalizeEnvelope(operation.prepared)
+    const current = readSyncRecord()
+    if (current?.pending?.operationId !== operation.operationId) {
+      throw new TypeError('Learner-profile operation lost its fence')
+    }
+    current.pending.envelope = finalized.envelope
+    current.pending.integrity = finalized.envelope.integrity
+    current.pending.prepared = null
+    if (!writeSyncRecord(current)) {
+      throw new TypeError('Learner-profile operation could not be finalized')
+    }
+    return finalized.envelope
+  }
+
   async function pump() {
     if (inFlight) return
     const record = readSyncRecord()
@@ -188,9 +320,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
     inFlight = true
     publish('syncing')
-    let finalized
+    let envelope
     try {
-      finalized = await finalizeEnvelope(operation.prepared)
+      envelope = await finalizeDurableOperation(operation)
     } catch {
       inFlight = false
       publish('needs-attention')
@@ -200,7 +332,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     try {
       response = await getClient().rpc(
         'commit_my_learner_profile',
-        operationParameters(operation, finalized.envelope)
+        operationParameters(operation, envelope)
       )
     } catch {
       inFlight = false
@@ -209,18 +341,17 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return
     }
     try {
-      const row = readResolutionRow(response?.data)
+      const row = readSingleRpcRow(response?.data)
       if (response?.error && isTransientCloudStatus(response.status)) {
         scheduleTransientRetry(operation)
       } else if (
         !response?.error
-        && ['accepted', 'already_accepted'].includes(row?.status)
-        && row.profile_id === operation.profileId
-        && normalizePositiveInteger(row.generation) === operation.generation
-        && normalizePositiveInteger(row.base_revision) === operation.baseRevision
-        && normalizePositiveInteger(row.revision) === operation.baseRevision + 1
-        && row.payload_sha256
-          === finalized.envelope?.integrity?.payloadSha256
+        && isAcceptedOperationReceipt(
+          row,
+          operation,
+          envelope,
+          ['accepted', 'already_accepted']
+        )
       ) {
         const current = readSyncRecord()
         if (current?.pending?.operationId === operation.operationId) {
@@ -299,7 +430,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       }
     }
 
-    const row = readResolutionRow(data)
+    const row = readSingleRpcRow(data)
     if (!row) return { status: 'recovering' }
     if (
       row.status === LEARNER_PROFILE_RESOLUTION_STATUSES.ACCESS_DISABLED
@@ -354,31 +485,33 @@ export function createLearnerProfileCloudPersistenceAdapter({
           && localProfile.ownerId === authentication.userId
           && localProfile.profileId === profileId
         ) {
-          let finalized
+          let pendingEnvelope
           let receiptResponse
           try {
-            finalized = await finalizeEnvelope(currentRecord.pending.prepared)
+            pendingEnvelope = await finalizeDurableOperation(
+              currentRecord.pending
+            )
             receiptResponse = await getClient().rpc(
               'commit_my_learner_profile',
               operationParameters(
                 currentRecord.pending,
-                finalized.envelope
+                pendingEnvelope
               )
             )
           } catch {
             return { status: 'waiting-cloud' }
           }
-          const receipt = readResolutionRow(receiptResponse?.data)
+          currentRecord = readSyncRecord()
+          if (!currentRecord?.pending) return { status: 'recovering' }
+          const receipt = readSingleRpcRow(receiptResponse?.data)
           if (
             receiptResponse?.error
-            || receipt?.status !== 'already_accepted'
-            || receipt.profile_id !== profileId
-            || normalizePositiveInteger(receipt.generation) !== generation
-            || normalizePositiveInteger(receipt.base_revision)
-              !== currentRecord.pending.baseRevision
-            || normalizePositiveInteger(receipt.revision) !== revision
-            || receipt.payload_sha256
-              !== finalized.envelope?.integrity?.payloadSha256
+            || !isAcceptedOperationReceipt(
+              receipt,
+              currentRecord.pending,
+              pendingEnvelope,
+              ['already_accepted']
+            )
           ) return { status: 'conflicting' }
           currentRecord.acceptedRevision = revision
           currentRecord.pending = currentRecord.queued
@@ -433,7 +566,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
       record?.ownerId !== activation.ownerId
       || record?.profileId !== activation.profileId
       || record?.generation !== generation
-    ) return false
+    ) {
+      publish('needs-attention')
+      return false
+    }
     if (record.pending) record.pending.activationId = activation.id
     if (record.queued) record.queued.activationId = activation.id
     if (!writeSyncRecord(record)) {
@@ -463,12 +599,16 @@ export function createLearnerProfileCloudPersistenceAdapter({
       || record.ownerId !== activation.ownerId
       || record.profileId !== activation.profileId
       || record.generation !== activeBinding.generation
-    ) return { status: 'needs-attention' }
+    ) {
+      publish('needs-attention')
+      return { status: 'needs-attention' }
+    }
 
     let prepared
     try {
       prepared = prepareEnvelope(profile)
     } catch {
+      publish('needs-attention')
       return { status: 'needs-attention' }
     }
     const baseRevision = record.pending
@@ -477,17 +617,23 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const operation = {
       activationId: activation.id,
       baseRevision,
+      envelope: null,
       generation: record.generation,
+      integrity: null,
+      nextRetryAt: 0,
       operationId: createOperationId(),
       ownerId: record.ownerId,
       prepared,
       profileId: record.profileId,
       retryCount: 0,
-      nextRetryAt: 0
+      revision: baseRevision + 1
     }
     if (record.pending) record.queued = operation
     else record.pending = operation
-    if (!writeSyncRecord(record)) return { status: 'needs-attention' }
+    if (!writeSyncRecord(record)) {
+      publish('needs-attention')
+      return { status: 'needs-attention' }
+    }
     void pump()
     return { status: 'queued' }
   }
