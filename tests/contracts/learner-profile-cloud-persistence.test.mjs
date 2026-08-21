@@ -229,6 +229,38 @@ test('a verified local profile without cloud revision metadata is visibly not ye
   assert.equal(states.at(-1), 'not-yet-backed-up')
 })
 
+test('resolving a provisional owned profile adopts the cloud identity without replacing local study', async () => {
+  const localProfile = { marker: 'local-study-after-cloud-became-unknown' }
+  const storage = createMemoryStorage()
+  const adapter = createAdapter({ storage })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      ownerId: OWNER_ID,
+      profile: localProfile,
+      profileId: `owner:${OWNER_ID}`,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(result.status, 'activate')
+  assert.equal(result.backupRequired, true)
+  assert.equal(result.profile, localProfile)
+  assert.equal(result.profileId, PROFILE_ID)
+  assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)), {
+    acceptedRevision: 1,
+    generation: 1,
+    ownerId: OWNER_ID,
+    pending: null,
+    profileId: PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+})
+
 test('an unsupported or damaged cloud envelope cannot activate or clear local state', async () => {
   let clearCalls = 0
   const adapter = createAdapter({

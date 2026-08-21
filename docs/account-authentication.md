@@ -155,6 +155,11 @@ again. A permanent rejection stops automatic retries immediately; later local
 study replaces only the queued candidate and does not restart transport until
 the learner explicitly tries again.
 
+When a provisional owned profile has no cloud generation or revision yet, a
+successful retry adopts only the resolved cloud identity metadata. Edenia keeps
+the current local study state unchanged and uploads that state as the next
+revision instead of replacing it with the older cloud snapshot.
+
 ## Google Identity Services
 
 Edenia renders Google's official button and exchanges its ephemeral credential

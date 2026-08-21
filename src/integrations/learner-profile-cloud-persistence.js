@@ -540,11 +540,16 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const envelope = await verifyEnvelope(row.envelope)
     const cloudProfile = envelope ? importEnvelope(envelope) : null
     if (!cloudProfile) return { status: 'recovering' }
+    const backupRequired = localProfile?.status === 'ready'
+      && localProfile.ownerId === authentication.userId
+      && isRecord(localProfile.profile)
+      && localProfile.generation === undefined
+      && localProfile.revision === undefined
     let currentRecord = readSyncRecord()
     if (!currentRecord && hasStoredSyncRecord()) {
       return { status: 'recovering' }
     }
-    let profile = cloudProfile
+    let profile = backupRequired ? localProfile.profile : cloudProfile
     if (currentRecord) {
       if (
         currentRecord.version !== 1
@@ -614,6 +619,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
     cloudHeadKnown = true
     return {
+      backupRequired,
       created: row.created === true,
       finalize({ isCurrent } = {}) {
         if (typeof isCurrent !== 'function' || !isCurrent()) return false
@@ -758,6 +764,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return resumePendingOperation({ restartBackoff: false })
   }
 
+  function requiresCloudHeadResolution() {
+    return cloudHeadKnown === false
+  }
+
   function subscribe(listener) {
     if (typeof listener !== 'function') {
       throw new TypeError('Learner-profile sync listener must be a function')
@@ -779,6 +789,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     eventTarget.removeEventListener('online', retryWhenAvailable)
     eventTarget.removeEventListener('focus', retryWhenAvailable)
     activeBinding = null
+    cloudHeadKnown = false
     started = false
   }
 
@@ -786,6 +797,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     activate,
     destroy,
     getState: () => syncState,
+    requiresCloudHeadResolution,
     resolve,
     retry,
     save,

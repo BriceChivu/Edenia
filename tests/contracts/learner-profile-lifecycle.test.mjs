@@ -99,10 +99,15 @@ function createHarness({
           calls.push(['cloud-resolve', context])
           return cloudResolution === 'deferred'
             ? cloudDeferred.promise
-            : cloudResolution
+            : typeof cloudResolution === 'function'
+              ? cloudResolution(context)
+              : cloudResolution
         },
         getState() {
           return cloudSyncState
+        },
+        requiresCloudHeadResolution() {
+          return cloudSyncState.status === 'not-yet-backed-up'
         },
         retry() {
           calls.push(['cloud-retry'])
@@ -145,6 +150,16 @@ function createHarness({
         }
       },
       localPersistence: {
+        adoptCloudIdentity(identity) {
+          calls.push(['adopt-cloud-identity', identity])
+          currentLocal = {
+            ...currentLocal,
+            generation: identity.generation,
+            profileId: identity.profileId,
+            revision: identity.revision
+          }
+          return true
+        },
         installSignedInProfile(profile, identity) {
           calls.push(['install', profile, identity])
           currentLocal = {
@@ -947,10 +962,25 @@ test('temporary cloud unavailability falls back to the verified matching local p
 
 test('temporary cloud unavailability keeps a matching owned local profile active without a verification receipt', async () => {
   const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const cloudProfileId = '223e4567-e89b-42d3-a456-426614174001'
   const profile = { marker: 'owned-local-with-unknown-cloud-head' }
+  let resolutionCount = 0
   const harness = createHarness({
     authentication: { status: 'signed-in', userId: ownerId },
-    cloudResolution: { status: 'waiting-cloud' },
+    cloudResolution: () => {
+      resolutionCount += 1
+      return resolutionCount === 1
+        ? { status: 'waiting-cloud' }
+        : {
+            backupRequired: true,
+            generation: 1,
+            ownerId,
+            profile,
+            profileId: cloudProfileId,
+            revision: 4,
+            status: 'activate'
+          }
+    },
     cloudSyncState: { status: 'not-yet-backed-up' },
     local: {
       ownerId,
@@ -976,14 +1006,76 @@ test('temporary cloud unavailability keeps a matching owned local profile active
 
   assert.equal(harness.authority.retryCloudBackup(), true)
   await Promise.resolve()
+  await Promise.resolve()
   assert.equal(
     harness.calls.filter(([name]) => name === 'cloud-resolve').length,
     2
   )
+  assert.equal(harness.authority.readActiveProfile(), profile)
+  assert.equal(harness.getLocal().profile, profile)
+  assert.equal(harness.getLocal().profileId, cloudProfileId)
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'adopt-cloud-identity').length,
+    1
+  )
+  const cloudSave = harness.calls.find(([name]) => name === 'cloud-save')
+  assert.equal(cloudSave[1], profile)
+  assert.equal(cloudSave[2].isCurrent(), true)
   assert.equal(
     harness.calls.filter(([name]) => name === 'cloud-save').length,
-    0
+    1
   )
+})
+
+test('adopting a cloud identity changes only provisional access metadata', () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const cloudProfileId = '223e4567-e89b-42d3-a456-426614174001'
+  const accessStorageKey = 'edenia_profile_access_v1'
+  const profile = { marker: 'must-not-be-replaced' }
+  const values = new Map([[
+    accessStorageKey,
+    JSON.stringify({
+      activatedAt: 100,
+      activationId: null,
+      ownerId,
+      profileId: `owner:${ownerId}`,
+      version: 1
+    })
+  ]])
+  let replaceCalls = 0
+  const adapter = createLearnerProfileLocalPersistenceAdapter({
+    accessStorageKey,
+    accountlessProfileId: 'accountless:browser',
+    eventTarget: null,
+    loadProfile: () => profile,
+    replaceProfile: () => {
+      replaceCalls += 1
+      return { persisted: true, error: null }
+    },
+    saveProfile: () => true,
+    storage: {
+      getItem: key => values.get(key) ?? null,
+      removeItem: key => values.delete(key),
+      setItem: (key, value) => values.set(key, String(value))
+    }
+  })
+
+  assert.equal(adapter.adoptCloudIdentity({
+    generation: 2,
+    ownerId,
+    previousProfileId: `owner:${ownerId}`,
+    profileId: cloudProfileId,
+    revision: 7
+  }), true)
+  assert.deepEqual(adapter.read(), {
+    generation: 2,
+    ownerId,
+    profile,
+    profileId: cloudProfileId,
+    revision: 7,
+    status: 'ready'
+  })
+  assert.equal(replaceCalls, 0)
 })
 
 test('an open offline profile locks when its verification window expires', () => {

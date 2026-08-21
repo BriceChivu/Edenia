@@ -245,6 +245,55 @@ export function createLearnerProfileLocalPersistenceAdapter({
     }
   }
 
+  function adoptCloudIdentity({
+    generation,
+    ownerId,
+    previousProfileId,
+    profileId,
+    revision
+  }) {
+    if (
+      typeof ownerId !== 'string'
+      || !ownerId
+      || typeof previousProfileId !== 'string'
+      || !previousProfileId
+      || typeof profileId !== 'string'
+      || !profileId
+      || !isPositiveInteger(generation)
+      || !isPositiveInteger(revision)
+    ) return false
+    const current = readAccessRecord(storage, accessStorageKey).record
+    if (
+      !current
+      || current.activationId !== null
+      || current.ownerId !== ownerId
+      || current.profileId !== previousProfileId
+      || current.generation !== undefined
+      || current.revision !== undefined
+      || !hasProfile()
+    ) return false
+    const adopted = {
+      ...current,
+      generation,
+      profileId,
+      revision
+    }
+    const isAdoptionCurrent = () => {
+      const next = readAccessRecord(storage, accessStorageKey).record
+      return next?.activationId === null
+        && next.ownerId === ownerId
+        && next.profileId === profileId
+        && next.generation === generation
+        && next.revision === revision
+    }
+    try {
+      storage.setItem(accessStorageKey, JSON.stringify(adopted))
+      return isAdoptionCurrent()
+    } catch {
+      return false
+    }
+  }
+
   function isActivationCurrent(fence) {
     if (!isValidFence(fence)) return false
     try {
@@ -332,6 +381,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
   }
 
   return Object.freeze({
+    adoptCloudIdentity,
     claimActivation,
     completeOnboardingFinalization,
     installSignedInProfile,

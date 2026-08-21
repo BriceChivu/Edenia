@@ -238,6 +238,9 @@ export function createLearnerProfileLifecycleAuthority({
         && Number.isSafeInteger(result.revision)
         && result.revision > 0
       ) {
+        if (currentState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
+          releaseActiveProfile()
+        }
         let resolvedProfile = result.profile
         if (localProfile?.status === 'empty') {
           if (!localPersistence.installSignedInProfile(result.profile, {
@@ -262,12 +265,22 @@ export function createLearnerProfileLifecycleAuthority({
           }
           resolvedProfile = installedProfile.profile
         } else if (isSignedInProfile(localProfile)) {
-          if (!localPersistence.reconcileSignedInProfile(result.profile, {
+          const identity = {
             generation: result.generation,
             ownerId: result.ownerId,
             profileId: result.profileId,
             revision: result.revision
-          })) {
+          }
+          const reconciled = result.backupRequired === true
+            ? localPersistence.adoptCloudIdentity?.({
+                ...identity,
+                previousProfileId: localProfile.profileId
+              })
+            : localPersistence.reconcileSignedInProfile(
+                result.profile,
+                identity
+              )
+          if (!reconciled) {
             publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
             return
           }
@@ -333,6 +346,10 @@ export function createLearnerProfileLifecycleAuthority({
         if (!localPersistence.isActivationCurrent(activation)) {
           releaseActiveProfile()
           publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+          return
+        }
+        if (result.backupRequired === true) {
+          enqueueCloudSave(resolvedProfile, activation)
         }
         return
       }
@@ -570,7 +587,7 @@ export function createLearnerProfileLifecycleAuthority({
     const profile = readActiveProfile()
     const activation = currentState.activation
     if (!profile || !activation?.ownerId) return false
-    if (cloudPersistence.getState?.().status === 'not-yet-backed-up') {
+    if (cloudPersistence.requiresCloudHeadResolution?.() === true) {
       const auth = authentication.getObservation()
       const localProfile = localPersistence.read()
       if (
