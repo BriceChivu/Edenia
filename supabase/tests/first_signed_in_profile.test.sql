@@ -45,9 +45,12 @@ select results_eq(
       ('learner_profile_rpc.choose_my_learner_profile_conflict(uuid,text,boolean)'::text),
       ('learner_profile_rpc.commit_my_learner_profile(uuid,uuid,bigint,bigint,jsonb)'::text),
       ('learner_profile_rpc.import_my_learner_profile(uuid,uuid,bigint,bigint,jsonb,boolean)'::text),
+      ('learner_profile_rpc.list_my_learner_profile_recovery_candidates()'::text),
       ('learner_profile_rpc.read_my_learner_profile_conflict(uuid)'::text),
       ('learner_profile_rpc.read_my_learner_profile_import_backup(uuid)'::text),
+      ('learner_profile_rpc.read_my_learner_profile_recovery_candidate(uuid)'::text),
       ('learner_profile_rpc.resolve_my_learner_profile(jsonb)'::text),
+      ('learner_profile_rpc.restore_my_learner_profile(uuid,text,uuid,uuid,bigint,bigint,jsonb,boolean)'::text),
       ('learner_profile_rpc.rollback_my_learner_profile_import(uuid)'::text)
     $$,
   'authenticated can execute only the narrow learner-profile operations'
@@ -455,7 +458,7 @@ select results_eq(
       (select envelope from first_profile_fixture)
     )
   $query$,
-  $$values ('recovery_required'::text, false)$$,
+  $$values ('current_head_missing'::text, false)$$,
   'legacy cloud-backup history routes to recovery instead of blank creation'
 );
 
@@ -533,7 +536,7 @@ set local request.jwt.claim.sub = '55555555-5555-4555-8555-555555555555';
 
 select results_eq(
   $$select status, created from public.resolve_my_learner_profile(null)$$,
-  $$values ('recovery_required'::text, false)$$,
+  $$values ('current_head_missing'::text, false)$$,
   'historical evidence without a current head never creates a blank profile'
 );
 

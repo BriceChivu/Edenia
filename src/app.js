@@ -924,6 +924,10 @@ async function clearLearnerDerivedDataForOwnerReplacement() {
 }
 
 const learnerProfileAccessView = createLearnerProfileAccessView({
+  formatDateTime: value => formatLocaleDateTime(value, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }),
   root: document,
   translate: t
 })
@@ -17961,7 +17965,11 @@ bindLearnerProfileAccessActions(document, {
   continueReplacement: continueLearnerProfileOwnerReplacement,
   discardReplacement: discardAndReplaceLearnerProfileOwner,
   exportReplacement: exportAndReplaceLearnerProfileOwner,
+  exportRecovery: candidateId => learnerProfileLifecycleAuthority
+    ?.exportRecoveryCandidate(candidateId),
   retry: () => learnerProfileLifecycleAuthority?.refresh(),
+  restoreRecovery: candidateId => learnerProfileLifecycleAuthority
+    ?.restoreRecoveryCandidate(candidateId, { confirmed: true }),
   signOut: signOutAccount
 })
 bindLearnerProfileSyncActions(document, {

@@ -67,6 +67,35 @@ body[data-theme="dark"] .legacy-progress-migration {
   flex-basis: 100%;
   text-align: right;
 }
+.learner-profile-recovery {
+  background: var(--surface-hi);
+  border: 2px solid var(--planet-black);
+  border-radius: 14px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+.learner-profile-recovery h2 {
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+.learner-profile-recovery-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.learner-profile-recovery-item {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+.learner-profile-recovery-item p {
+  margin: 0;
+}
 .learner-profile-conflict {
   display: grid;
   gap: 14px;
