@@ -135,6 +135,34 @@ deletion fails, Edenia releases the activation and retries the pending deletion
 without revealing the profile. Database validation and creation failures roll
 back the head and version together.
 
+Cloud progress writes accept a complete canonical version-1 learner-profile
+envelope of at most 2,097,152 UTF-8 bytes. The browser checks the schema,
+canonical content, SHA-256 integrity, and byte count before transport; the
+database independently repeats those checks before it changes a head, creates
+a version, or records an idempotency receipt. The larger 8 MiB recovery-file
+limit is separate, so a profile rejected by cloud acceptance can still be
+exported locally. The evidence and selection rationale for both limits are in
+[Learner-profile cloud transport bound](research/learner-profile-transport-bound.md).
+
+An unknown cloud head is shown as **Not yet backed up**. An invalid, oversized,
+corrupt, unsupported, quota-rejected, or provider-rejected candidate is shown
+as **Not backed up**. Neither outcome truncates, compacts, replaces, or discards
+the local profile, and a failed write leaves the last accepted cloud head and
+receipts unchanged. The learner can continue studying, export a recovery copy,
+or retry from Account settings. Transient retries use bounded exponential
+backoff and stop after five failed attempts until the learner explicitly tries
+again. A permanent rejection stops automatic retries immediately; later local
+study replaces only the queued candidate and does not restart transport until
+the learner explicitly tries again.
+
+When a provisional owned profile has no cloud generation or revision yet, a
+successful retry adopts only the resolved cloud identity metadata. Edenia keeps
+the current local study state unchanged and uploads that state as the next
+revision instead of replacing it with the older cloud snapshot.
+After a queue-storage or preparation failure, reload compares the canonical
+local profile with the last accepted cloud head. A mismatch follows the same
+local-preserving backup path even when no pending candidate could be stored.
+
 ## Google Identity Services
 
 Edenia renders Google's official button and exchanges its ephemeral credential

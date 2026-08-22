@@ -177,6 +177,7 @@ export function createLearnerProfileLifecycleAuthority({
         activation,
         generation: activation.generation,
         isCurrent: () => Boolean(getCurrentActivationFor(activeProfile)),
+        profile: activeProfile,
         revision: activation.revision
       })
     }
@@ -211,17 +212,27 @@ export function createLearnerProfileLifecycleAuthority({
   }
 
   function enqueueCloudSave(profile, activation) {
-    if (!activation.ownerId) return
-    Promise.resolve(cloudPersistence.save(profile, {
-      activation,
-      isCurrent: () => Boolean(getCurrentActivationFor(profile))
-    })).catch(() => {})
+    if (!activation.ownerId) return false
+    try {
+      Promise.resolve(cloudPersistence.save(profile, {
+        activation,
+        isCurrent: () => Boolean(getCurrentActivationFor(profile))
+      })).catch(() => {})
+      return true
+    } catch {
+      return false
+    }
   }
 
   function markCloudSaveRequired(profile, activation) {
     if (!activation.ownerId || typeof cloudPersistence.markDirty !== 'function') {
       return true
     }
+    if (
+      cloudPersistence.requiresCloudHeadResolution?.() === true
+      && (!Number.isSafeInteger(activation.generation)
+        || !Number.isSafeInteger(activation.revision))
+    ) return true
     return cloudPersistence.markDirty({
       activation,
       isCurrent: () => getCurrentActivationFor(profile) === activation
@@ -238,11 +249,18 @@ export function createLearnerProfileLifecycleAuthority({
       if (requestId !== resolutionId) return
       if (!result || result.status === 'waiting') return
       if (result.status === 'waiting-cloud') {
-        const verification = auth.userId === localProfile?.ownerId
+        const matchingOwnedLocalProfile =
+          auth.userId === localProfile?.ownerId
+          && isSignedInProfile(localProfile)
+        const verification = matchingOwnedLocalProfile
           ? getCurrentOfflineVerification(localProfile)
           : null
         if (verification) {
           activateOffline(localProfile, verification)
+          return
+        }
+        if (matchingOwnedLocalProfile) {
+          activate(localProfile)
           return
         }
       }
@@ -258,6 +276,9 @@ export function createLearnerProfileLifecycleAuthority({
         && Number.isSafeInteger(result.revision)
         && result.revision > 0
       ) {
+        if (currentState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
+          releaseActiveProfile()
+        }
         let resolvedProfile = result.profile
         if (localProfile?.status === 'empty') {
           if (!localPersistence.installSignedInProfile(result.profile, {
@@ -282,12 +303,22 @@ export function createLearnerProfileLifecycleAuthority({
           }
           resolvedProfile = installedProfile.profile
         } else if (isSignedInProfile(localProfile)) {
-          if (!localPersistence.reconcileSignedInProfile(result.profile, {
+          const identity = {
             generation: result.generation,
             ownerId: result.ownerId,
             profileId: result.profileId,
             revision: result.revision
-          })) {
+          }
+          const reconciled = result.backupRequired === true
+            ? localPersistence.adoptCloudIdentity?.({
+                ...identity,
+                previousProfileId: localProfile.profileId
+              })
+            : localPersistence.reconcileSignedInProfile(
+                result.profile,
+                identity
+              )
+          if (!reconciled) {
             publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
             return
           }
@@ -355,6 +386,10 @@ export function createLearnerProfileLifecycleAuthority({
         if (!localPersistence.isActivationCurrent(activation)) {
           releaseActiveProfile()
           publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+          return
+        }
+        if (result.backupRequired === true) {
+          enqueueCloudSave(resolvedProfile, activation)
         }
         return
       }
@@ -622,6 +657,34 @@ export function createLearnerProfileLifecycleAuthority({
       exportedAt: clock.now(),
       isCurrent: () => getCurrentActivationFor(profile) === activation
     }) === true
+  }
+
+  function retryCloudBackup() {
+    const profile = readActiveProfile()
+    const activation = currentState.activation
+    if (!profile || !activation?.ownerId) return false
+    if (cloudPersistence.requiresCloudHeadResolution?.() === true) {
+      const auth = authentication.getObservation()
+      const localProfile = localPersistence.read()
+      if (
+        auth?.status !== 'signed-in'
+        || auth.userId !== activation.ownerId
+        || !isSignedInProfile(localProfile)
+        || localProfile.ownerId !== activation.ownerId
+      ) return false
+      const requestId = ++resolutionId
+      resolveCloudProfile({
+        auth,
+        localProfile,
+        purpose: 'resolve-signed-in-profile',
+        requestId
+      })
+      return true
+    }
+    try {
+      if (cloudPersistence.retry?.() === true) return true
+    } catch {}
+    return enqueueCloudSave(profile, activation)
   }
 
   function exportConflictVersion(side, conflictId = null) {
@@ -968,6 +1031,7 @@ export function createLearnerProfileLifecycleAuthority({
     refresh,
     replaceOwnerProfile,
     replaceActiveProfile,
+    retryCloudBackup,
     saveActiveProfile,
     start
   })

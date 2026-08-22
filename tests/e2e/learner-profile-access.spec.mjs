@@ -337,16 +337,20 @@ test('locked profile access exposes no learner content and performs no autosave'
   )
 })
 
-test('a recently verified owner can reopen and save the local profile while offline', async ({
+test('a signed-in owner can reopen and save the matching local profile while the cloud head is unavailable', async ({
   page
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   let lifecycleEnabled = false
   let resolutionCount = 0
+  let commitCount = 0
+  let cloudEnvelope = null
+  let committedEnvelope = null
   await page.addInitScript(() => {
+    window.__profileAccessCloudOnline = false
     Object.defineProperty(window.navigator, 'onLine', {
       configurable: true,
-      get: () => false
+      get: () => window.__profileAccessCloudOnline === true
     })
   })
   await page.route('**/config.local.js', route => route.fulfill({
@@ -361,51 +365,67 @@ test('a recently verified owner can reopen and save the local profile while offl
     const pathname = new URL(route.request().url()).pathname
     if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
       resolutionCount += 1
+      return route.fulfill({
+        json: [{
+          created: false,
+          envelope: cloudEnvelope,
+          generation: 1,
+          profile_id: '323e4567-e89b-42d3-a456-426614174002',
+          revision: 3,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+        }],
+        status: 200
+      })
+    }
+    if (pathname.endsWith('/rpc/commit_my_learner_profile')) {
+      commitCount += 1
+      const operation = route.request().postDataJSON()
+      committedEnvelope = operation.p_envelope
+      return route.fulfill({
+        json: [{
+          base_revision: operation.p_base_revision,
+          generation: operation.p_generation,
+          payload_sha256: operation.p_envelope.integrity.payloadSha256,
+          profile_id: operation.p_profile_id,
+          revision: 4,
+          status: 'accepted'
+        }],
+        status: 200
+      })
     }
     return route.fulfill({ json: {}, status: 200 })
   })
 
   await page.goto('/?internal_test=1')
-  await seedPrivateLearnerProfile(page)
+  const privateProfile = JSON.parse(await seedPrivateLearnerProfile(page))
+  const olderCloudProfile = structuredClone(privateProfile)
+  olderCloudProfile.config.channels = []
+  olderCloudProfile.config.locale = 'en'
+  const cloudExport = await createPortableLearnerProfileEnvelope(
+    olderCloudProfile
+  )
+  cloudEnvelope = cloudExport.envelope
   await page.evaluate(({
     accessStorageKey,
     authStorageKey,
     ownerId,
-    profileId,
     session,
-    syncStorageKey,
     verificationStorageKey
   }) => {
     localStorage.setItem(authStorageKey, JSON.stringify(session))
     localStorage.setItem(accessStorageKey, JSON.stringify({
       activatedAt: Date.now(),
       activationId: null,
-      generation: 1,
       ownerId,
-      profileId,
-      revision: 4,
+      profileId: `owner:${ownerId}`,
       version: 1
     }))
-    localStorage.setItem(syncStorageKey, JSON.stringify({
-      acceptedRevision: 4,
-      generation: 1,
-      ownerId,
-      pending: null,
-      profileId,
-      queued: null,
-      version: 1
-    }))
-    localStorage.setItem(verificationStorageKey, JSON.stringify({
-      ownerId,
-      verifiedAt: Date.now()
-    }))
+    localStorage.removeItem(verificationStorageKey)
   }, {
     accessStorageKey: PROFILE_ACCESS_STORAGE_KEY,
     authStorageKey: AUTH_STORAGE_KEY,
     ownerId: OWNER_ID,
-    profileId: OWNER_PROFILE_ID,
     session: restoredSession(OWNER_ID),
-    syncStorageKey: PROFILE_SYNC_STORAGE_KEY,
     verificationStorageKey: OWNER_VERIFICATION_STORAGE_KEY
   })
   lifecycleEnabled = true
@@ -413,6 +433,9 @@ test('a recently verified owner can reopen and save the local profile while offl
 
   await expect(page.locator('#mainApp')).toBeVisible()
   await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(
+    'Not yet backed up'
+  )
   const reopenedState = await page.evaluate(key => (
     JSON.parse(localStorage.getItem(key))
   ), STATE_STORAGE_KEY)
@@ -420,11 +443,9 @@ test('a recently verified owner can reopen and save the local profile while offl
     expect.objectContaining({ name: SECRET_CHANNEL_NAME })
   ])
   expect(resolutionCount).toBe(0)
-  const verification = await page.evaluate(key => (
-    JSON.parse(localStorage.getItem(key))
-  ), OWNER_VERIFICATION_STORAGE_KEY)
-  expect(Object.keys(verification).sort()).toEqual(['ownerId', 'verifiedAt'])
-  expect(verification.ownerId).toBe(OWNER_ID)
+  expect(await page.evaluate(key => (
+    localStorage.getItem(key)
+  ), OWNER_VERIFICATION_STORAGE_KEY)).toBeNull()
 
   await page.locator('.gear-btn').click()
   if (testInfo.project.name === 'phone-small') {
@@ -439,6 +460,36 @@ test('a recently verified owner can reopen and save the local profile while offl
     await expect.poll(() => page.evaluate(key => (
       JSON.parse(localStorage.getItem(key)).config.ankiEnabled
     ), STATE_STORAGE_KEY)).toBe(false)
+  }
+
+  const accountToggle = page.locator('.settings-account-toggle')
+  if (await accountToggle.getAttribute('aria-expanded') === 'false') {
+    await accountToggle.click()
+  }
+  await page.evaluate(() => { window.__profileAccessCloudOnline = true })
+  await page.locator('[data-profile-sync-action="retry"]').click()
+
+  await expect.poll(() => resolutionCount).toBe(1)
+  await expect.poll(() => commitCount).toBe(1)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveAttribute(
+    'data-sync-status',
+    'up-to-date'
+  )
+  const synchronizedState = await page.evaluate(key => (
+    JSON.parse(localStorage.getItem(key))
+  ), STATE_STORAGE_KEY)
+  expect(synchronizedState.config.channels).toEqual([
+    expect.objectContaining({ name: SECRET_CHANNEL_NAME })
+  ])
+  expect(committedEnvelope.profile.config.channels).toEqual([
+    expect.objectContaining({ name: SECRET_CHANNEL_NAME })
+  ])
+  if (testInfo.project.name === 'phone-small') {
+    expect(synchronizedState.config.locale).toBe('fr')
+    expect(committedEnvelope.profile.config.locale).toBe('fr')
+  } else {
+    expect(synchronizedState.config.ankiEnabled).toBe(false)
+    expect(committedEnvelope.profile.config.ankiEnabled).toBe(false)
   }
 })
 

@@ -37,7 +37,7 @@ test('new and exported state omit reminders while legacy saved entries are delet
   assert.match(importedStateSource, /removeLegacyVideoWatchReminderState\(importedState\)\s*return importedState/)
   assert.match(
     appSource,
-    /createPortableLearnerProfileEnvelope\(state, \{\s*maxBytes: Number\.MAX_SAFE_INTEGER/
+    /createPortableLearnerProfileEnvelope\(state, \{\s*maxBytes: PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES/
   )
   assert.doesNotMatch(portableProfileSource, /videoWatchReminders/)
 })

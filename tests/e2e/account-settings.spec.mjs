@@ -367,15 +367,17 @@ test('shared-browser account switching clears the previous cloud view only', asy
       updated_at: '2026-08-11T02:00:00.000Z'
     }
   }
+  let signOutCount = 0
   await seedAuthenticatedSession(page)
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig,
     contentType: 'text/javascript',
     status: 200
   }))
-  await page.route('https://account-ui-test.supabase.co/auth/v1/logout**', route => (
-    route.fulfill({ body: '', status: 204 })
-  ))
+  await page.route('https://account-ui-test.supabase.co/auth/v1/logout**', route => {
+    signOutCount += 1
+    return route.fulfill({ body: '', status: 204 })
+  })
   await page.route('https://account-ui-test.supabase.co/rest/v1/**', async route => {
     const request = route.request()
     const url = new URL(request.url())
@@ -424,6 +426,11 @@ test('shared-browser account switching clears the previous cloud view only', asy
   await expect(page.locator('#accountSignedOut')).toBeVisible()
   await expect(page.locator('.settings-account-reminders')).toBeHidden()
   await expect.poll(() => readLocalStudyEvidence(page)).toEqual(localProgressBefore)
+  await expect.poll(() => signOutCount).toBe(1)
+  await expect.poll(() => page.evaluate(
+    storageKey => localStorage.getItem(storageKey),
+    ACCOUNT_AUTH_STORAGE_KEY
+  )).toBeNull()
 
   await page.evaluate(({ storageKey, session }) => {
     localStorage.setItem(storageKey, JSON.stringify(session))

@@ -412,6 +412,11 @@ and momentum—at a glance</h2>
             <section class="settings-account-sync" aria-labelledby="learnerProfileSyncTitle">
               <h3 id="learnerProfileSyncTitle" data-i18n="progressSync.title">Progress sync</h3>
               <p class="learner-profile-sync-settings-status hidden" id="learnerProfileSyncSettingsStatus" role="status" aria-live="polite"></p>
+              <p class="settings-note hidden" id="learnerProfileSyncGuidance" data-i18n="progressSync.backupGuidance"></p>
+              <div class="sync-actions hidden" id="learnerProfileSyncActions">
+                <button class="btn-secondary" type="button" data-profile-sync-action="retry" data-i18n="progressSync.retry">Try backup again</button>
+                <button class="btn-secondary" type="button" data-profile-sync-action="export-recovery" data-i18n="progressSync.exportRecovery">Export recovery copy</button>
+              </div>
             </section>
 
             <section class="settings-account-reminders" aria-labelledby="accountEmailsTitle">

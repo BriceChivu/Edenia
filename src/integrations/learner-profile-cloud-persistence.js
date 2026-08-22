@@ -4,6 +4,7 @@ import {
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
+const MAX_AUTOMATIC_RETRIES = 5
 
 function readSingleRpcRow(data) {
   if (Array.isArray(data) && data.length !== 1) return null
@@ -198,6 +199,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     throw new TypeError('Learner-profile cloud persistence requires adapters')
   }
   let activeBinding = null
+  let cloudHeadKnown = false
   let inFlight = false
   let retryTimer = null
   let started = false
@@ -209,6 +211,12 @@ export function createLearnerProfileCloudPersistenceAdapter({
     syncState = Object.freeze({ ...details, status })
     for (const listener of listeners) listener(syncState)
     return syncState
+  }
+
+  function waitForCloudHead() {
+    cloudHeadKnown = false
+    publish('not-yet-backed-up')
+    return { status: 'waiting-cloud' }
   }
 
   function readSyncRecord() {
@@ -441,9 +449,15 @@ export function createLearnerProfileCloudPersistenceAdapter({
     ) + 1
     const delay = Math.min(30_000, 1_000 * (2 ** (retryCount - 1)))
     current.pending.retryCount = retryCount
-    current.pending.nextRetryAt = now() + delay
+    current.pending.nextRetryAt = retryCount >= MAX_AUTOMATIC_RETRIES
+      ? 0
+      : now() + delay
     if (!writeSyncRecord(current)) {
       publish('needs-attention')
+      return false
+    }
+    if (retryCount >= MAX_AUTOMATIC_RETRIES) {
+      publish('not-backed-up')
       return false
     }
     publish('waiting')
@@ -453,6 +467,19 @@ export function createLearnerProfileCloudPersistenceAdapter({
         void pump()
       }, delay)
     }
+    return true
+  }
+
+  function stopAutomaticRetry(operation) {
+    const current = readSyncRecord()
+    if (current?.pending?.operationId !== operation.operationId) return false
+    current.pending.retryCount = MAX_AUTOMATIC_RETRIES
+    current.pending.nextRetryAt = 0
+    if (!writeSyncRecord(current)) {
+      publish('needs-attention')
+      return false
+    }
+    publish('not-backed-up')
     return true
   }
 
@@ -496,6 +523,29 @@ export function createLearnerProfileCloudPersistenceAdapter({
       throw new TypeError('Learner-profile operation could not be finalized')
     }
     return finalized.envelope
+  }
+
+  function queueLatestActiveProfileIfChanged(acceptedEnvelope) {
+    if (
+      !activeBinding?.profile
+      || !activeBinding.isCurrent()
+      || readSyncRecord()?.pending
+    ) return false
+    let prepared
+    try {
+      prepared = prepareEnvelope(activeBinding.profile)
+    } catch {
+      publish('not-backed-up')
+      return false
+    }
+    if (
+      JSON.stringify(prepared.profile)
+      === JSON.stringify(acceptedEnvelope.profile)
+    ) return false
+    return save(activeBinding.profile, {
+      activation: activeBinding.activation,
+      isCurrent: activeBinding.isCurrent
+    }).status === 'queued'
   }
 
   async function readVerifiedConflict(conflictId, ownerId, activation = null) {
@@ -847,6 +897,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
       || !binding.isCurrent()
       || operation.activationId !== binding.activation.id
     ) return
+    if (operation.retryCount >= MAX_AUTOMATIC_RETRIES) {
+      publish('not-backed-up')
+      return
+    }
     if (!isOnline()) {
       publish('waiting')
       return
@@ -870,7 +924,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     } catch {
       inFlight = false
       if (activeBinding === binding && binding.isCurrent()) {
-        publish('needs-attention')
+        stopAutomaticRetry(operation)
       }
       return
     }
@@ -932,6 +986,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
                 revision: current.acceptedRevision
               }
             })
+            if (!current.pending) {
+              queueLatestActiveProfileIfChanged(envelope)
+            }
           }
         }
       } else if (!response?.error && row?.status === 'conflict') {
@@ -945,7 +1002,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
           else publish('needs-attention')
         }
       } else {
-        publish('needs-attention')
+        stopAutomaticRetry(operation)
       }
     } catch {
       publish('needs-attention')
@@ -959,7 +1016,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
   async function resolve({ authentication, connectivity, localProfile, purpose }) {
     if (connectivity?.status !== 'online') {
-      return { status: 'waiting-cloud' }
+      return waitForCloudHead()
     }
     if (purpose === 'link-accountless-profile') {
       return { status: 'migrating' }
@@ -980,15 +1037,13 @@ export function createLearnerProfileCloudPersistenceAdapter({
         { p_onboarding_profile: onboardingEnvelope }
       )
     } catch {
-      return { status: 'waiting-cloud' }
+      return waitForCloudHead()
     }
     const { data, error, status } = response || {}
     if (error) {
-      return {
-        status: isTransientCloudStatus(status)
-          ? 'waiting-cloud'
-          : 'recovering'
-      }
+      return isTransientCloudStatus(status)
+        ? waitForCloudHead()
+        : { status: 'recovering' }
     }
 
     const row = readSingleRpcRow(data)
@@ -1038,11 +1093,18 @@ export function createLearnerProfileCloudPersistenceAdapter({
         status: 'activate'
       }
     }
+    let backupRequired = localProfile?.status === 'ready'
+      && localProfile.ownerId === authentication.userId
+      && isRecord(localProfile.profile)
+      && localProfile.generation === undefined
+      && localProfile.revision === undefined
     let currentRecord = readSyncRecord()
     if (!currentRecord && hasStoredSyncRecord()) {
       return { status: 'recovering' }
     }
-    let profile = cloudProfile
+    const acceptedRevisionAtStart = currentRecord?.acceptedRevision
+    const hadPendingOperation = Boolean(currentRecord?.pending)
+    let profile = backupRequired ? localProfile.profile : cloudProfile
     if (currentRecord) {
       if (
         currentRecord.version !== 1
@@ -1087,7 +1149,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
               )
             )
           } catch {
-            return { status: 'waiting-cloud' }
+            return waitForCloudHead()
           }
           currentRecord = readSyncRecord()
           if (!currentRecord?.pending) return { status: 'recovering' }
@@ -1181,7 +1243,34 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const protectedResult = await readStoredProtectedConflicts(currentRecord)
     if (!protectedResult) return { status: 'recovering' }
 
+    if (
+      !backupRequired
+      && currentRecord
+      && !hadPendingOperation
+      && acceptedRevisionAtStart === revision
+      && localProfile?.status === 'ready'
+      && localProfile.ownerId === authentication.userId
+      && localProfile.profileId === profileId
+      && localProfile.generation === generation
+      && isRecord(localProfile.profile)
+    ) {
+      let localCanonicalProfile = null
+      try {
+        localCanonicalProfile = prepareEnvelope(localProfile.profile).profile
+      } catch {}
+      if (
+        !localCanonicalProfile
+        || JSON.stringify(localCanonicalProfile)
+          !== JSON.stringify(envelope.profile)
+      ) {
+        backupRequired = true
+        profile = localProfile.profile
+      }
+    }
+
+    cloudHeadKnown = true
     return {
+      backupRequired,
       created: row.created === true,
       finalize({ isCurrent } = {}) {
         if (typeof isCurrent !== 'function' || !isCurrent()) return false
@@ -1197,21 +1286,34 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
-  function activate({ activation, generation, isCurrent, revision }) {
+  function activate({ activation, generation, isCurrent, profile, revision }) {
     if (
       !isRecord(activation)
       || typeof isCurrent !== 'function'
-      || !normalizePositiveInteger(generation)
-      || !normalizePositiveInteger(revision)
     ) return false
-    activeBinding = { activation, generation, isCurrent, revision }
+    if (
+      !normalizePositiveInteger(generation)
+      || !normalizePositiveInteger(revision)
+    ) {
+      if (activation.ownerId && isCurrent() && !cloudHeadKnown) {
+        publish('not-yet-backed-up')
+      }
+      return false
+    }
+    activeBinding = {
+      activation,
+      generation,
+      isCurrent,
+      profile: isRecord(profile) ? profile : null,
+      revision
+    }
     const record = readSyncRecord()
     if (
       record?.ownerId !== activation.ownerId
       || record?.profileId !== activation.profileId
       || record?.generation !== generation
     ) {
-      publish('needs-attention')
+      publish(cloudHeadKnown ? 'needs-attention' : 'not-yet-backed-up')
       return false
     }
     const dirty = readDirtyRecord()
@@ -1226,9 +1328,11 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return false
     }
     publish(
-      record.pending
-        ? isOnline() ? 'syncing' : 'waiting'
-        : dirty.present ? 'needs-attention' : 'up-to-date'
+      !cloudHeadKnown
+        ? 'not-yet-backed-up'
+        : record.pending
+          ? isOnline() ? 'syncing' : 'waiting'
+          : dirty.present ? 'needs-attention' : 'up-to-date'
     )
     void pump()
     return true
@@ -1296,14 +1400,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
 
     if (!queueProfile(profile, record, activation.id)) {
-      publish('needs-attention')
-      return { status: 'needs-attention' }
+      publish('not-backed-up')
+      return { status: 'not-backed-up' }
     }
     void pump()
     return { status: 'queued' }
   }
 
-  function retry() {
+  function resumePendingOperation({ restartBackoff }) {
     const record = readSyncRecord()
     if (!record?.pending) return false
     if (!isOnline()) {
@@ -1311,12 +1415,30 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return false
     }
     record.pending.nextRetryAt = 0
+    if (restartBackoff) record.pending.retryCount = 0
     if (!writeSyncRecord(record)) {
       publish('needs-attention')
       return false
     }
     void pump()
     return true
+  }
+
+  function retry() {
+    return resumePendingOperation({ restartBackoff: true })
+  }
+
+  function retryWhenAvailable() {
+    const record = readSyncRecord()
+    if (record?.pending?.retryCount >= MAX_AUTOMATIC_RETRIES) {
+      publish('not-backed-up')
+      return false
+    }
+    return resumePendingOperation({ restartBackoff: false })
+  }
+
+  function requiresCloudHeadResolution() {
+    return cloudHeadKnown === false
   }
 
   function subscribe(listener) {
@@ -1330,16 +1452,17 @@ export function createLearnerProfileCloudPersistenceAdapter({
   function start() {
     if (started) return syncState
     started = true
-    eventTarget.addEventListener('online', retry)
-    eventTarget.addEventListener('focus', retry)
+    eventTarget.addEventListener('online', retryWhenAvailable)
+    eventTarget.addEventListener('focus', retryWhenAvailable)
     return syncState
   }
 
   function destroy() {
     if (!started) return
-    eventTarget.removeEventListener('online', retry)
-    eventTarget.removeEventListener('focus', retry)
+    eventTarget.removeEventListener('online', retryWhenAvailable)
+    eventTarget.removeEventListener('focus', retryWhenAvailable)
     activeBinding = null
+    cloudHeadKnown = false
     started = false
   }
 
@@ -1349,6 +1472,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     commitReplacement,
     destroy,
     getState: () => syncState,
+    requiresCloudHeadResolution,
     getReplacementProtection,
     markDirty,
     resolve,
