@@ -1,17 +1,17 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-21T10:00:07.410Z",
+  "generatedAt": "2026-08-22T09:50:56.877Z",
   "lastRotationIndex": 2,
-  "nextRotationIndex": 2,
+  "nextRotationIndex": 3,
   "rotationCount": 4,
-  "lastLanguageBatchIndex": 2,
-  "nextLanguageBatchIndex": 3,
+  "lastLanguageBatchIndex": 3,
+  "nextLanguageBatchIndex": 0,
   "languageBatchCount": 4,
   "languageBatchSize": 2,
-  "lastDiscoveryQuotaDate": "2026-08-21",
+  "lastDiscoveryQuotaDate": "2026-08-22",
   "lastDiscoveryLanguages": [
-    "russian",
-    "spanish"
+    "japanese",
+    "portuguese"
   ],
   "lastSearchRequestCount": 6,
   "languages": [
@@ -1513,6 +1513,34 @@
       "discoveredAt": "2026-07-27T15:11:12.608Z",
       "refreshedAt": "2026-07-27T15:11:12.608Z",
       "searchText": "brazilian input brazilianinput portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCFiN2qX-H3YZpchNXMs4yjw",
+      "channelId": "UCFiN2qX-H3YZpchNXMs4yjw",
+      "youtubeInput": "@brazilianacademy",
+      "handle": "@brazilianacademy",
+      "name": "Brazilian Portuguese Academy",
+      "thumbnailUrl": "https://yt3.ggpht.com/ZqRknfYoVOfHAU7PoSmsppkkdbTkarkCxcJ-0yLxy654WKhbLGr98C2czNTF_zFSCrS2QK6_feY=s800-c-k-c0x00ffffff-no-rj",
+      "description": "\"Ready to learn Brazilian Portuguese? Welcome to Brazilian Portuguese Academy—your go-to YouTube channel for mastering Brazil's vibrant and expressive language! I’m Marciel, a language enthusiast with a degree in Portuguese and English Language and Literature. Portuguese is my native language, and I’m fluent in Engl...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2020-04-21T11:39:08.49097Z",
+      "subscriberCount": "2110",
+      "videoCount": "45",
+      "viewCount": "92055",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 261,
+      "discoveredByQueries": [
+        "Portuguese vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-22T09:50:56.869Z",
+      "refreshedAt": "2026-08-22T09:50:56.869Z",
+      "searchText": "brazilian portuguese academy brazilianacademy portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UCJ5v2edJxm9xT5nydcBszZA",
@@ -7528,6 +7556,34 @@
       "searchText": "han s chinese teapot han rifles mandarin youtube discovery"
     },
     {
+      "catalogId": "discovered-UCQN50hdr-ftDMf8mXirhRfw",
+      "channelId": "UCQN50hdr-ftDMf8mXirhRfw",
+      "youtubeInput": "@hellojapanese364",
+      "handle": "@hellojapanese364",
+      "name": "Hello Japanese",
+      "thumbnailUrl": "https://yt3.ggpht.com/Q5r1LiuLWnI1iso56ex3ctEFWy8Eb75hcwcb42NrIv3FyYvPrBoVIUqVkzHXRkpOpAOmvEC7cg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Hello Japanese helps you to improve Japanese grammar, vocabulary, speaking, and listening skills with many lessons taught by professional native teachers. You can learn real Japanese with abundant teaching materials You can learn Japanese without going to Japan or paying for pricy language schools. Have fun learning...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-05-30T09:01:20.022615Z",
+      "subscriberCount": "580",
+      "videoCount": "200",
+      "viewCount": "27301",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 254,
+      "discoveredByQueries": [
+        "Japanese grammar lessons"
+      ],
+      "discoveredAt": "2026-08-22T09:50:56.869Z",
+      "refreshedAt": "2026-08-22T09:50:56.869Z",
+      "searchText": "hello japanese hellojapanese364 japanese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UC5etk4I-a7pAzOMIXIMl_Bw",
       "channelId": "UC5etk4I-a7pAzOMIXIMl_Bw",
       "youtubeInput": "@hellorusty",
@@ -8037,6 +8093,35 @@
       "searchText": "japanese language jobs japaneselanguage japanese youtube discovery"
     },
     {
+      "catalogId": "discovered-UC3Oclx_KTAr1A6Ei77q1EbA",
+      "channelId": "UC3Oclx_KTAr1A6Ei77q1EbA",
+      "youtubeInput": "@japaneselanguagechannel1418",
+      "handle": "@japaneselanguagechannel1418",
+      "name": "Japanese Language Channel",
+      "thumbnailUrl": "https://yt3.ggpht.com/jIomXZ4xCTNONhYBRsC-IX9NRrbTetEBj3XO-H5Fxo3I5rEEFjGR0-2rsBAx3jnUsjyf7-auIdw=s800-c-k-c0x00ffffff-no-rj",
+      "description": "#Learn Japanese #Easy Japanese Course #Japanese Class # Japanese Lesson #Learn Japanese in Urdu Learn #Japanese in Hindi Japanese #Japanese Writing Course # Hiragana Writing #Katakana Writing #Japanese for beginning #Learn Kanji #Kanji Lesson #Japanese Conversation #Talk in Japanese #Introduction in Japanese #How to...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2018-12-28T09:14:30Z",
+      "subscriberCount": "15200",
+      "videoCount": "20",
+      "viewCount": "483957",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 257,
+      "discoveredByQueries": [
+        "Japanese grammar lessons",
+        "Japanese vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-22T09:50:56.869Z",
+      "refreshedAt": "2026-08-22T09:50:56.869Z",
+      "searchText": "japanese language channel japaneselanguagechannel1418 japanese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCCTCYOSlLDwp1keP7drwGOA",
       "channelId": "UCCTCYOSlLDwp1keP7drwGOA",
       "youtubeInput": "@japaneselearners1",
@@ -8404,6 +8489,34 @@
       "searchText": "japanese with yuki nihongo yuki japanese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCwJP-G9AEZHd8riOl9tsYTA",
+      "channelId": "UCwJP-G9AEZHd8riOl9tsYTA",
+      "youtubeInput": "@japaneseworldacademy",
+      "handle": "@japaneseworldacademy",
+      "name": "JAPANESE WORLD ACADEMY",
+      "thumbnailUrl": "https://yt3.ggpht.com/GHO4rjG4pc0kIRDSri86V2sv6VTR7XfN3KdNNvA2WFEups2407Y8kPQBpmhmVlQaJ7wT14mF=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Konnichiwa! 🇯🇵 I’m Satoko, founder of Japanese World Academy (JWA), an online Japanese language school helping students learn Japanese in a simple, practical, and easy-to-understand way. Born and raised in Akita, Japan, I created JWA to make Japanese finally make sense; from grammar and pronunciation to the Japane...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2014-04-30T02:14:07Z",
+      "subscriberCount": "12000",
+      "videoCount": "706",
+      "viewCount": "1319204",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 260,
+      "discoveredByQueries": [
+        "Japanese grammar lessons"
+      ],
+      "discoveredAt": "2026-08-22T09:50:56.869Z",
+      "refreshedAt": "2026-08-22T09:50:56.869Z",
+      "searchText": "japanese world academy japaneseworldacademy japanese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCOk9XUAOmj1HCxgNXkouUEQ",
       "channelId": "UCOk9XUAOmj1HCxgNXkouUEQ",
       "youtubeInput": "@japarrot_letslearnjp",
@@ -8431,6 +8544,34 @@
       "discoveredAt": "2026-07-25T15:03:19.156Z",
       "refreshedAt": "2026-07-25T15:03:19.156Z",
       "searchText": "japarrot let s learn japanese japarrot letslearnjp japanese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCS9Lfxv4R3aN06aNWEJFW7Q",
+      "channelId": "UCS9Lfxv4R3aN06aNWEJFW7Q",
+      "youtubeInput": "@japoket-japanese",
+      "handle": "@japoket-japanese",
+      "name": "Japoket-Japanese",
+      "thumbnailUrl": "https://yt3.ggpht.com/08vtm0EN-xF9iIysqLi3u9OD5k5dRRamxEuvy-SlMEvmHriXy9hwbAFB6YpWPVnRWYmrWemFrUc=s800-c-k-c0x00ffffff-no-rj",
+      "description": "はじめまして。このチャンネルでは、日本語を勉強したい人、日本のことを知りたい人に向けて、日本語や日本についての情報を発信しています。 私はネイティブの日本人で、１０年以上日本語教師をしています。 使っている日本語はN5～N2レベルです。 楽しく日本語を勉強しましょう。 🤩このチャンネルの特徴🤩 ・正しい発音が学べます。 ・正しい文法が学べます。 ・語彙や語彙の使い方が学べます。 ・日本文化が学べます。 ・リスニングの練習ができます。 ・シャドーイングの練習ができます。 ・漢字の読み方の練習ができます。 🔔チャンネル登録お願いします！ Nice to meet you. This channel provides info...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-08-02T04:17:41.84263Z",
+      "subscriberCount": "15200",
+      "videoCount": "30",
+      "viewCount": "385956",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 287,
+      "discoveredByQueries": [
+        "日本語 文法"
+      ],
+      "discoveredAt": "2026-08-22T09:50:56.869Z",
+      "refreshedAt": "2026-08-22T09:50:56.869Z",
+      "searchText": "japoket japanese japoket japanese japanese youtube discovery"
     },
     {
       "catalogId": "discovered-UCFSdb93emXfOeBLO74yAciw",
@@ -11443,6 +11584,35 @@
       "searchText": "learn japanese coto japanese academy cotolanguageacademy japanese youtube discovery"
     },
     {
+      "catalogId": "discovered-UCEnw1rlVisKvcY9fdE7iZAw",
+      "channelId": "UCEnw1rlVisKvcY9fdE7iZAw",
+      "youtubeInput": "@learnjapanese407",
+      "handle": "@learnjapanese407",
+      "name": "Learn Japanese 407",
+      "thumbnailUrl": "https://yt3.ggpht.com/GP5diV4g247Y9hKmXQzYEo2LN6dsUL2ewT_BiWR0IBM4XtlXVRF2WkC1LMv1G9ddf-BI53lQ0w=s800-c-k-c0x00ffffff-no-rj",
+      "description": "🎌 Welcome to Learn Japanese 407 – by Kanakoi! 🎌 Are you a Nepali learner dreaming of speaking Japanese fluently? This channel is made just for you! We teach Japanese grammar, vocabulary, kanji, speaking, listening, and JLPT preparation from N5 to N3 – in Nepali and English. 👉 Using books like Minna no Nihongo, an...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2025-04-23T02:44:27.454392Z",
+      "subscriberCount": "1150",
+      "videoCount": "23",
+      "viewCount": "44341",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 396,
+      "discoveredByQueries": [
+        "Japanese grammar lessons",
+        "日本語 文法"
+      ],
+      "discoveredAt": "2026-08-22T09:50:56.869Z",
+      "refreshedAt": "2026-08-22T09:50:56.869Z",
+      "searchText": "learn japanese 407 learnjapanese407 japanese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCEGj1Os83_UyGjdR_me72iA",
       "channelId": "UCEGj1Os83_UyGjdR_me72iA",
       "youtubeInput": "@learnjapaneseeveryday",
@@ -11778,6 +11948,34 @@
       "discoveredAt": "2026-07-27T15:11:22.372Z",
       "refreshedAt": "2026-07-27T15:11:22.372Z",
       "searchText": "learn japanese with tanaka san japanese tanakasan japanese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC0lzVpBH69k2c74iIEJSzFA",
+      "channelId": "UC0lzVpBH69k2c74iIEJSzFA",
+      "youtubeInput": "@yatomonkey",
+      "handle": "@yatomonkey",
+      "name": "Learn Japanese with YaToMonkey Sensei:日本語",
+      "thumbnailUrl": "https://yt3.ggpht.com/wmUl3NOPupHDYmwUvtstIMGFTIejTHL-tsdbzeCgx9rkUXWjJdyqRxb8O9fAllmCT5OQfqQ6=s800-c-k-c0x00ffffff-no-rj",
+      "description": "『Learn Japanese with YaToMonkey Sensei（ヤトモンキー先生の日本語）』は日本語を勉強している世界中の日本語学習者のためのチャンネルです！ このチャンネルではJLPT（日本語能力試験）N5～N1レベルの文法を中心に、漢字やリスニング、そして実際に使える日本語表現をわかりやすい例文とイラストで紹介しています！ 私はこれまでにさまざまな国を訪れ、たくさんの国の人と出会ってきました。 これからも日本語を通じて、世界中の人々とつながり、一緒に笑顔になれる時間を作りたいと思っています。 日本語を学ぶことで、日本の文化・歴史・アニメ・音楽・食べ物など、多くの魅力に出会ってほしいです！ そして「日本っていい...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2024-10-25T07:27:01.486217Z",
+      "subscriberCount": "1750",
+      "videoCount": "425",
+      "viewCount": "109917",
+      "languages": [
+        "japanese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 271,
+      "discoveredByQueries": [
+        "日本語 文法"
+      ],
+      "discoveredAt": "2026-08-22T09:50:56.869Z",
+      "refreshedAt": "2026-08-22T09:50:56.869Z",
+      "searchText": "learn japanese with yatomonkey sensei 日本語 yatomonkey japanese youtube discovery"
     },
     {
       "catalogId": "discovered-UCtQbiBiFpLgTo1rOLatxnNw",
@@ -12142,6 +12340,35 @@
       "discoveredAt": "2026-07-27T15:11:12.608Z",
       "refreshedAt": "2026-07-27T15:11:12.608Z",
       "searchText": "learn portuguese with aziz تعلم البرتغالية مع عزيز learnportuguesewithaziz6593 portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCDj78aCAi6yjWENrxfKAKzQ",
+      "channelId": "UCDj78aCAi6yjWENrxfKAKzQ",
+      "youtubeInput": "@learnportuguesewithlucas",
+      "handle": "@learnportuguesewithlucas",
+      "name": "Learn Portuguese with Lucas",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_na2plGWBskHoMUbG2blyxpcHDvImMgGezN1jhMwy_KEg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Learn Portuguese with Lucas. This channel is the place where you can learn Brazilian Portuguese fast and for free.",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2017-02-08T20:42:14Z",
+      "subscriberCount": "3740",
+      "videoCount": "67",
+      "viewCount": "260008",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 235,
+      "discoveredByQueries": [
+        "Portuguese grammar lessons",
+        "Portuguese vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-22T09:50:56.869Z",
+      "refreshedAt": "2026-08-22T09:50:56.869Z",
+      "searchText": "learn portuguese with lucas learnportuguesewithlucas portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UC-Re3nPj0dWNJuCKkQe8VSA",
@@ -13467,6 +13694,34 @@
       "discoveredAt": "2026-07-24T14:15:42.400Z",
       "refreshedAt": "2026-07-24T14:15:42.400Z",
       "searchText": "let s study japanese letsstudyjapanese japanese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UC7jzELoEB568XTrh6PpOdCA",
+      "channelId": "UC7jzELoEB568XTrh6PpOdCA",
+      "youtubeInput": "@letsportuguesebr",
+      "handle": "@letsportuguesebr",
+      "name": "Lets Portuguese",
+      "thumbnailUrl": "https://yt3.ggpht.com/uveUebBQyj_BDLtzlsLbMsoJG4GgmoGCLTaR_BiUPsOQ5z05K__aHZuUlV6Zp0T2D4pa8Zn-Rvs=s800-c-k-c0x00ffffff-no-rj",
+      "description": "I am Fer Brunello, a passionate Brazilian Portuguese teacher with over 15 years of experience. Originally from Brazil, I have been traveling the world as a digital nomad, teaching Portuguese to people from different cultures. I hold a degree in Linguistics from Brazil, an MBA in International Business, and have comp...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-04-09T21:17:23.512827Z",
+      "subscriberCount": "374",
+      "videoCount": "118",
+      "viewCount": "16366",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 257,
+      "discoveredByQueries": [
+        "Portuguese grammar lessons"
+      ],
+      "discoveredAt": "2026-08-22T09:50:56.869Z",
+      "refreshedAt": "2026-08-22T09:50:56.869Z",
+      "searchText": "lets portuguese letsportuguesebr portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UC2VrCidMeyL22kC_zoKJtCg",
@@ -17944,6 +18199,34 @@
       "searchText": "smart mandarin katrina lee smartmandarinkatrinalee mandarin youtube discovery"
     },
     {
+      "catalogId": "discovered-UCRdOIXu0DH-cNYIy_hA365A",
+      "channelId": "UCRdOIXu0DH-cNYIy_hA365A",
+      "youtubeInput": "@sonia-portuguese8202",
+      "handle": "@sonia-portuguese8202",
+      "name": "Sonia-Portuguese",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_kOepN1YnFC4dkP_B-Whqblj7OdUtAt3ARHnjRuJJy8ZOk=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Welcome to Sonia-Portuguese channel! If you want to learn Portuguese, you have come to the right place! Sonia-Portuguese aims to help anyone who is learning Portuguese as a foreign language. I am Sonia, a fully qualified and certified language teacher. I have been teaching Brazilian Portuguese to people from differe...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2014-06-28T12:52:49Z",
+      "subscriberCount": "146",
+      "videoCount": "55",
+      "viewCount": "8692",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 279,
+      "discoveredByQueries": [
+        "Portuguese grammar lessons"
+      ],
+      "discoveredAt": "2026-08-22T09:50:56.869Z",
+      "refreshedAt": "2026-08-22T09:50:56.869Z",
+      "searchText": "sonia portuguese sonia portuguese8202 portuguese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCqNXeDiSHSXD5fPLjhHYVHA",
       "channelId": "UCqNXeDiSHSXD5fPLjhHYVHA",
       "youtubeInput": "@spanishboostmartin",
@@ -19123,6 +19406,34 @@
       "searchText": "speakmundo learn spanish speakmundo spanish youtube discovery"
     },
     {
+      "catalogId": "discovered-UCz8zZzaoi-vkxWstPP8oQJQ",
+      "channelId": "UCz8zZzaoi-vkxWstPP8oQJQ",
+      "youtubeInput": "@speakportuguesee",
+      "handle": "@speakportuguesee",
+      "name": "Speakportuguesee",
+      "thumbnailUrl": "https://yt3.ggpht.com/HB0tiU5CZo_MD93kp9wbQ85OFYQFmYRU98rBXkH6I0mUsX1qOHIuAwOci3deAI5wMaJ4JamTi2Y=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Portuguese Lessons Portuguese for foreigners Teacher Online lessons personalized for you. Vamos falar português?",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2022-01-27T21:33:01.427674Z",
+      "subscriberCount": "1740",
+      "videoCount": "40",
+      "viewCount": "52941",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 241,
+      "discoveredByQueries": [
+        "Portuguese vocabulary lessons"
+      ],
+      "discoveredAt": "2026-08-22T09:50:56.869Z",
+      "refreshedAt": "2026-08-22T09:50:56.869Z",
+      "searchText": "speakportuguesee speakportuguesee portuguese youtube discovery"
+    },
+    {
       "catalogId": "discovered-UCYMZtHTIoVvuWR-ZYOKtRKA",
       "channelId": "UCYMZtHTIoVvuWR-ZYOKtRKA",
       "youtubeInput": "@specialjapaneselanguageacademy",
@@ -19374,6 +19685,34 @@
       "discoveredAt": "2026-07-27T15:11:22.372Z",
       "refreshedAt": "2026-07-27T15:11:22.372Z",
       "searchText": "storytalks portuguese storytalksportuguese portuguese youtube discovery"
+    },
+    {
+      "catalogId": "discovered-UCE4GnhknLxgj8HIfpjNJ3LA",
+      "channelId": "UCE4GnhknLxgj8HIfpjNJ3LA",
+      "youtubeInput": "@suasaulasdeportugues",
+      "handle": "@suasaulasdeportugues",
+      "name": "Suas Aulas de Português",
+      "thumbnailUrl": "https://yt3.ggpht.com/jnJQiL6LdYuqQdp_nnSs2Qx7TC7UpfJ_VGKgRFzqxRXGeq4q8_Ahl7GorkE9OVHWW_K2Ha7ysg=s800-c-k-c0x00ffffff-no-rj",
+      "description": "Aprenda Português do Brasil com aulas práticas, claras e sem enrolação! Você fala espanhol e quer aprender português brasileiro com confiança, estrutura e pronúncia correta? Aqui é o seu lugar. Sou a Márcia, professora de português para estrangeiros com mais de 8 anos de experiência ensinando online. Neste canal, vo...",
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-01-05T23:02:07.40678Z",
+      "subscriberCount": "150",
+      "videoCount": "31",
+      "viewCount": "29612",
+      "languages": [
+        "portuguese"
+      ],
+      "levels": [],
+      "style": "YouTube discovery",
+      "aliases": [],
+      "discoveryScore": 240,
+      "discoveredByQueries": [
+        "aulas de português"
+      ],
+      "discoveredAt": "2026-08-22T09:50:56.869Z",
+      "refreshedAt": "2026-08-22T09:50:56.869Z",
+      "searchText": "suas aulas de portugues suasaulasdeportugues portuguese youtube discovery"
     },
     {
       "catalogId": "discovered-UCG3AR9U_hPzZCAnk19uZp8A",
