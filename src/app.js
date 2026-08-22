@@ -3856,7 +3856,7 @@ function renderOnboardingAccountStep(content) {
     `
   } else if (signedIn) {
     accountContent = `
-      <div class="onboarding-account-identity">
+      <div class="onboarding-account-identity ph-no-capture">
         <span>${escHtml(t('settings.account.signedInAs'))}</span>
         <strong>${escHtml(state?.email || '')}</strong>
       </div>

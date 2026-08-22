@@ -166,6 +166,28 @@ test('production analytics masks inputs and redacts secret URL values', () => {
   )
 })
 
+test('production analytics protects OAuth error callback metadata', () => {
+  const result = runAnalyticsBootstrap(
+    'https://www.edenia.study/?error=access_denied'
+      + '&error_description=private+provider+details'
+  )
+
+  assert.equal(result.config.disable_session_recording, true)
+  const currentUrl = new URL(result.config.get_current_url())
+  assert.equal(currentUrl.searchParams.get('error'), '[REDACTED]')
+  assert.equal(
+    currentUrl.searchParams.get('error_description'),
+    '[REDACTED]'
+  )
+
+  const browserUrl = new URL(result.browserUrl)
+  assert.equal(browserUrl.searchParams.get('error'), 'access_denied')
+  assert.equal(
+    browserUrl.searchParams.get('error_description'),
+    'private provider details'
+  )
+})
+
 test('production replay starts immediately when the live URL has no auth secret', () => {
   const result = runAnalyticsBootstrap(
     'https://www.edenia.study/?utm_source=welcome#study'

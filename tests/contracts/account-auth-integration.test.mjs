@@ -181,6 +181,8 @@ test('authentication credentials have no application persistence or analytics se
     )
   }
   assert.match(html, /settings-account-signed-out hidden ph-no-capture/)
+  assert.match(html, /settings-account-identity ph-no-capture/)
+  assert.match(appSource, /onboarding-account-identity ph-no-capture/)
   assert.match(appSource, /onboarding-account-email-form ph-no-capture/)
   assert.match(appSource, /onboarding-account-code-form ph-no-capture/)
 })

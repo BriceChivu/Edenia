@@ -290,6 +290,9 @@ test('official Google and same-device email-code flows preserve local study data
   await expect(page.locator('#accountUserEmail')).toHaveText(
     'learner@example.com'
   )
+  await expect(page.locator('#accountUserEmail').locator('..')).toHaveClass(
+    /ph-no-capture/
+  )
   const tokenRequest = requests.find(request => request.path === '/auth/v1/token')
   expect(tokenRequest.body).toMatchObject({
     id_token: 'mock-google-id-token',

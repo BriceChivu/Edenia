@@ -45,27 +45,27 @@
         'EDENIA_LEGACY_PROGRESS_FRAGMENT'
       );
 
-    const authSecretUrlParameterPattern = /(?:^|[_-])(?:access_token|refresh_token|id_token|token_hash|token|code|otp|credential|password|secret|session|nonce|captcha|api_key|key|capability|state|email)(?:$|[_-])/i;
+    const authSensitiveUrlParameterPattern = /(?:^|[_-])(?:access_token|refresh_token|id_token|token_hash|token|code|otp|credential|password|secret|session|nonce|captcha|api_key|key|capability|state|email|error)(?:$|[_-])/i;
 
-    function isAuthSecretParameterKey(key) {
+    function isAuthSensitiveParameterKey(key) {
       const normalizedKey = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2');
-      return authSecretUrlParameterPattern.test(normalizedKey);
+      return authSensitiveUrlParameterPattern.test(normalizedKey);
     }
 
-    function redactAuthSecretParameters(parameters) {
+    function redactAuthSensitiveParameters(parameters) {
       for (const key of [...parameters.keys()]) {
-        if (isAuthSecretParameterKey(key)) parameters.set(key, '[REDACTED]');
+        if (isAuthSensitiveParameterKey(key)) parameters.set(key, '[REDACTED]');
       }
     }
 
-    function hasAuthSecretParameters(parameters) {
+    function hasAuthSensitiveParameters(parameters) {
       for (const key of parameters.keys()) {
-        if (isAuthSecretParameterKey(key)) return true;
+        if (isAuthSensitiveParameterKey(key)) return true;
       }
       return false;
     }
 
-    function analyticsUrlContainsAuthSecrets(value) {
+    function analyticsUrlContainsAuthSensitiveData(value) {
       if (typeof value !== 'string' || !value) return false;
       let url;
       try {
@@ -73,11 +73,11 @@
       } catch {
         return false;
       }
-      if (hasAuthSecretParameters(url.searchParams)) return true;
+      if (hasAuthSensitiveParameters(url.searchParams)) return true;
       const rawFragment = url.hash.slice(1);
       if (!rawFragment.includes('=')) return false;
       const queryStart = rawFragment.indexOf('?');
-      return hasAuthSecretParameters(new URLSearchParams(
+      return hasAuthSensitiveParameters(new URLSearchParams(
         queryStart >= 0 ? rawFragment.slice(queryStart + 1) : rawFragment
       ));
     }
@@ -90,7 +90,7 @@
       } catch {
         return value;
       }
-      redactAuthSecretParameters(url.searchParams);
+      redactAuthSensitiveParameters(url.searchParams);
       url.hash = '';
       return url.href;
     }
@@ -116,7 +116,7 @@
     window.resumeEdeniaSessionRecording = function() {
       if (!window.EDENIA_ANALYTICS_ENABLED) return false;
       if (!sessionRecordingBlockedForAuthUrl) return true;
-      if (analyticsUrlContainsAuthSecrets(window.location.href)) return false;
+      if (analyticsUrlContainsAuthSensitiveData(window.location.href)) return false;
       if (typeof posthog.startSessionRecording !== 'function') return false;
       posthog.startSessionRecording();
       sessionRecordingBlockedForAuthUrl = false;
@@ -124,7 +124,7 @@
     };
 
     if (window.EDENIA_ANALYTICS_ENABLED) {
-      sessionRecordingBlockedForAuthUrl = analyticsUrlContainsAuthSecrets(
+      sessionRecordingBlockedForAuthUrl = analyticsUrlContainsAuthSensitiveData(
         window.location.href
       );
       posthog.init('phc_soeip95Z57vX8tK5rCMEjh7nDsmyR7gmJtSFRk59FyWg', {
@@ -491,7 +491,7 @@ and momentum—at a glance</h2>
           </div>
 
           <div class="settings-account-signed-in hidden" id="accountSignedIn">
-            <div class="settings-account-identity">
+            <div class="settings-account-identity ph-no-capture">
               <span data-i18n="settings.account.signedInAs">Signed in as</span>
               <strong id="accountUserEmail"></strong>
             </div>
