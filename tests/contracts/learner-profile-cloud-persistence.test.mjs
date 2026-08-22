@@ -13,6 +13,7 @@ const SECOND_OWNER_ID = '323e4567-e89b-42d3-a456-426614174002'
 const SECOND_PROFILE_ID = '423e4567-e89b-42d3-a456-426614174003'
 const SYNC_STORAGE_KEY = 'edenia_profile_sync_v1'
 const DIRTY_STORAGE_KEY = `${SYNC_STORAGE_KEY}_dirty`
+const IMPORT_STORAGE_KEY = `${SYNC_STORAGE_KEY}_import_v1`
 
 function createMemoryStorage(initial = {}) {
   const values = new Map(Object.entries(initial))
@@ -2687,4 +2688,814 @@ test('reload retains every unexpired protected conflict download', async () => {
     result.protectedConflicts.map(conflict => conflict.selectedSide),
     ['device', 'cloud']
   )
+})
+
+test('confirmed profile import protects the latest accepted cloud revision', async () => {
+  const previousEnvelope = preparedEnvelope(
+    { marker: 'current-profile' },
+    'C'.repeat(43)
+  )
+  const importedEnvelope = preparedEnvelope(
+    { marker: 'owner-neutral-import' },
+    'I'.repeat(43)
+  )
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const protectedUntil = '2026-10-01T00:00:00.000Z'
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 4,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const rpcCalls = []
+  const adapter = createAdapter({
+    createOperationId: () => operationId,
+    finalizeEnvelope: async () => ({
+      byteLength: 100,
+      envelope: importedEnvelope,
+      serialized: JSON.stringify(importedEnvelope)
+    }),
+    now: () => Date.parse('2026-08-22T00:00:00.000Z'),
+    prepareEnvelope: () => importedEnvelope,
+    rpc: async (name, parameters) => {
+      rpcCalls.push([name, parameters])
+      if (name === 'resolve_my_learner_profile') {
+        return {
+          data: [{
+            created: false,
+            envelope: previousEnvelope,
+            generation: 1,
+            profile_id: PROFILE_ID,
+            revision: 4,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          error: null
+        }
+      }
+      if (name === 'import_my_learner_profile') {
+        assert.deepEqual(parameters, {
+          p_base_revision: 6,
+          p_confirmed: true,
+          p_envelope: importedEnvelope,
+          p_generation: 1,
+          p_operation_id: operationId,
+          p_profile_id: PROFILE_ID
+        })
+        return {
+          data: [{
+            base_revision: 6,
+            generation: 1,
+            payload_sha256: importedEnvelope.integrity.payloadSha256,
+            profile_id: PROFILE_ID,
+            protected_until: protectedUntil,
+            revision: 7,
+            status: 'replaced'
+          }],
+          error: null
+        }
+      }
+      assert.equal(name, 'read_my_learner_profile_import_backup')
+      assert.deepEqual(parameters, { p_operation_id: operationId })
+      return {
+        data: [{
+          base_revision: 6,
+          generation: 1,
+          imported_envelope: importedEnvelope,
+          imported_revision: 7,
+          operation_id: operationId,
+          previous_envelope: previousEnvelope,
+          profile_id: PROFILE_ID,
+          protected_until: protectedUntil,
+          status: 'protected'
+        }],
+        error: null
+      }
+    },
+    storage,
+    verifyEnvelope: async envelope => envelope
+  })
+  const localProfile = {
+    generation: 1,
+    ownerId: OWNER_ID,
+    profile: previousEnvelope.profile,
+    profileId: PROFILE_ID,
+    revision: 4,
+    status: 'ready'
+  }
+  assert.equal((await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile,
+    purpose: 'resolve-signed-in-profile'
+  })).status, 'activate')
+  const activation = {
+    activatedAt: 1,
+    id: 'activation-before-import',
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  }
+  assert.equal(adapter.activate({
+    activation,
+    generation: 1,
+    isCurrent: () => true,
+    profile: previousEnvelope.profile,
+    revision: 4
+  }), true)
+  storage.setItem(SYNC_STORAGE_KEY, JSON.stringify({
+    acceptedRevision: 6,
+    generation: 1,
+    ownerId: OWNER_ID,
+    pending: null,
+    profileId: PROFILE_ID,
+    queued: null,
+    version: 1
+  }))
+
+  const result = await adapter.importProfile(importedEnvelope.profile, {
+    activation,
+    confirmed: true,
+    isCurrent: () => true
+  })
+
+  assert.deepEqual(result, {
+    baseRevision: 6,
+    generation: 1,
+    operationId,
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID,
+    protectedUntil: Date.parse(protectedUntil),
+    revision: 7,
+    status: 'protected'
+  })
+  assert.equal(
+    JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).acceptedRevision,
+    6
+  )
+  assert.equal(adapter.confirmImport(result), false)
+  assert.equal(adapter.confirmImport(result, {
+    isCurrent: () => true
+  }), true)
+  assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)), {
+    acceptedRevision: 7,
+    generation: 1,
+    ownerId: OWNER_ID,
+    pending: null,
+    profileId: PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+  assert.deepEqual(
+    rpcCalls.map(([name]) => name),
+    [
+      'resolve_my_learner_profile',
+      'import_my_learner_profile',
+      'read_my_learner_profile_import_backup'
+    ]
+  )
+})
+
+test('stale or unsynchronized profiles cannot start an import', async () => {
+  const serializedRecord = JSON.stringify({
+    acceptedRevision: 4,
+    generation: 1,
+    ownerId: OWNER_ID,
+    pending: null,
+    profileId: PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+  const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: serializedRecord })
+  const rpcCalls = []
+  const adapter = createAdapter({
+    rpc: async (name, parameters) => {
+      rpcCalls.push([name, parameters])
+      if (name === 'resolve_my_learner_profile') {
+        return {
+          data: [{
+            created: false,
+            envelope: preparedEnvelope({ marker: 'current' }),
+            generation: 1,
+            profile_id: PROFILE_ID,
+            revision: 4,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          error: null
+        }
+      }
+      return {
+        data: [{
+          base_revision: 4,
+          generation: 1,
+          profile_id: PROFILE_ID,
+          revision: 5,
+          status: 'stale_revision'
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+  const localProfile = {
+    generation: 1,
+    ownerId: OWNER_ID,
+    profile: { marker: 'current' },
+    profileId: PROFILE_ID,
+    revision: 4,
+    status: 'ready'
+  }
+  await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile,
+    purpose: 'resolve-signed-in-profile'
+  })
+  const activation = {
+    activatedAt: 1,
+    id: 'activation-before-import',
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  }
+  adapter.activate({
+    activation,
+    generation: 1,
+    isCurrent: () => true,
+    profile: localProfile.profile,
+    revision: 4
+  })
+
+  assert.deepEqual(await adapter.importProfile({ marker: 'candidate' }, {
+    activation,
+    confirmed: true,
+    isCurrent: () => true
+  }), { status: 'stale-revision' })
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), serializedRecord)
+
+  const record = JSON.parse(serializedRecord)
+  record.pending = { operationId: 'pending-save' }
+  storage.setItem(SYNC_STORAGE_KEY, JSON.stringify(record))
+  assert.deepEqual(await adapter.importProfile({ marker: 'candidate' }, {
+    activation,
+    confirmed: true,
+    isCurrent: () => true
+  }), { status: 'protection-required' })
+  assert.equal(
+    rpcCalls.filter(([name]) => name === 'import_my_learner_profile').length,
+    1
+  )
+})
+
+test('failed backup verification automatically rolls the cloud import back', async () => {
+  const previousEnvelope = preparedEnvelope(
+    { marker: 'current-profile' },
+    'C'.repeat(43)
+  )
+  const importedEnvelope = preparedEnvelope(
+    { marker: 'candidate' },
+    'I'.repeat(43)
+  )
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 4,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const rpcCalls = []
+  const adapter = createAdapter({
+    createOperationId: () => operationId,
+    finalizeEnvelope: async () => ({
+      byteLength: 100,
+      envelope: importedEnvelope,
+      serialized: JSON.stringify(importedEnvelope)
+    }),
+    now: () => Date.parse('2026-08-22T00:00:00.000Z'),
+    prepareEnvelope: () => importedEnvelope,
+    rpc: async name => {
+      rpcCalls.push(name)
+      if (name === 'resolve_my_learner_profile') {
+        return {
+          data: [{
+            created: false,
+            envelope: previousEnvelope,
+            generation: 1,
+            profile_id: PROFILE_ID,
+            revision: 4,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          error: null
+        }
+      }
+      if (name === 'import_my_learner_profile') {
+        return {
+          data: [{
+            base_revision: 4,
+            generation: 1,
+            payload_sha256: importedEnvelope.integrity.payloadSha256,
+            profile_id: PROFILE_ID,
+            protected_until: '2026-10-01T00:00:00.000Z',
+            revision: 5,
+            status: 'replaced'
+          }],
+          error: null
+        }
+      }
+      if (name === 'read_my_learner_profile_import_backup') {
+        return {
+          data: [{
+            base_revision: 4,
+            generation: 1,
+            imported_envelope: importedEnvelope,
+            imported_revision: 5,
+            operation_id: operationId,
+            previous_envelope: { invalid: true },
+            profile_id: PROFILE_ID,
+            protected_until: '2026-10-01T00:00:00.000Z',
+            status: 'protected'
+          }],
+          error: null
+        }
+      }
+      assert.equal(name, 'rollback_my_learner_profile_import')
+      return {
+        data: [{
+          base_revision: 4,
+          generation: 1,
+          profile_id: PROFILE_ID,
+          revision: 6,
+          status: 'rolled_back'
+        }],
+        error: null
+      }
+    },
+    storage,
+    verifyEnvelope: async envelope => envelope?.invalid ? null : envelope
+  })
+  const localProfile = {
+    generation: 1,
+    ownerId: OWNER_ID,
+    profile: previousEnvelope.profile,
+    profileId: PROFILE_ID,
+    revision: 4,
+    status: 'ready'
+  }
+  await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile,
+    purpose: 'resolve-signed-in-profile'
+  })
+  const activation = {
+    activatedAt: 1,
+    id: 'activation-before-import',
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  }
+  adapter.activate({
+    activation,
+    generation: 1,
+    isCurrent: () => true,
+    profile: localProfile.profile,
+    revision: 4
+  })
+
+  assert.deepEqual(await adapter.importProfile(importedEnvelope.profile, {
+    activation,
+    confirmed: true,
+    isCurrent: () => true
+  }), { status: 'backup-failed' })
+  assert.deepEqual(rpcCalls, [
+    'resolve_my_learner_profile',
+    'import_my_learner_profile',
+    'read_my_learner_profile_import_backup',
+    'rollback_my_learner_profile_import'
+  ])
+  assert.equal(
+    JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).acceptedRevision,
+    6
+  )
+})
+
+test('a lost import response is recovered by its durable operation identity', async () => {
+  const previousEnvelope = preparedEnvelope(
+    { marker: 'current-profile' },
+    'C'.repeat(43)
+  )
+  const importedEnvelope = preparedEnvelope(
+    { marker: 'owner-neutral-import' },
+    'I'.repeat(43)
+  )
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const protectedUntil = '2026-10-01T00:00:00.000Z'
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 4,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const rpcCalls = []
+  const adapter = createAdapter({
+    createOperationId: () => operationId,
+    finalizeEnvelope: async () => ({
+      byteLength: 100,
+      envelope: importedEnvelope,
+      serialized: JSON.stringify(importedEnvelope)
+    }),
+    now: () => Date.parse('2026-08-22T00:00:00.000Z'),
+    prepareEnvelope: () => importedEnvelope,
+    rpc: async name => {
+      rpcCalls.push(name)
+      if (name === 'resolve_my_learner_profile') {
+        return {
+          data: [{
+            created: false,
+            envelope: previousEnvelope,
+            generation: 1,
+            profile_id: PROFILE_ID,
+            revision: 4,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          error: null
+        }
+      }
+      if (name === 'import_my_learner_profile') {
+        throw new TypeError('response lost after server commit')
+      }
+      assert.equal(name, 'read_my_learner_profile_import_backup')
+      return {
+        data: [{
+          base_revision: 4,
+          generation: 1,
+          imported_envelope: importedEnvelope,
+          imported_revision: 5,
+          operation_id: operationId,
+          previous_envelope: previousEnvelope,
+          profile_id: PROFILE_ID,
+          protected_until: protectedUntil,
+          status: 'protected'
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+  const localProfile = {
+    generation: 1,
+    ownerId: OWNER_ID,
+    profile: previousEnvelope.profile,
+    profileId: PROFILE_ID,
+    revision: 4,
+    status: 'ready'
+  }
+  await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile,
+    purpose: 'resolve-signed-in-profile'
+  })
+  const activation = {
+    activatedAt: 1,
+    id: 'activation-before-import',
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  }
+  adapter.activate({
+    activation,
+    generation: 1,
+    isCurrent: () => true,
+    profile: previousEnvelope.profile,
+    revision: 4
+  })
+
+  const protectedImport = await adapter.importProfile(
+    importedEnvelope.profile,
+    { activation, confirmed: true, isCurrent: () => true }
+  )
+
+  assert.equal(protectedImport.status, 'protected')
+  assert.deepEqual(JSON.parse(storage.getItem(IMPORT_STORAGE_KEY)), {
+    baseRevision: 4,
+    generation: 1,
+    operationId,
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID,
+    revision: 5,
+    version: 1
+  })
+  assert.deepEqual(rpcCalls, [
+    'resolve_my_learner_profile',
+    'import_my_learner_profile',
+    'read_my_learner_profile_import_backup'
+  ])
+  assert.equal(adapter.confirmImport(protectedImport, {
+    isCurrent: () => true
+  }), true)
+  assert.equal(storage.getItem(IMPORT_STORAGE_KEY), null)
+})
+
+test('reload rolls a durable protected import back before resolving the profile', async () => {
+  const previousEnvelope = preparedEnvelope(
+    { marker: 'current-profile' },
+    'C'.repeat(43)
+  )
+  const importedEnvelope = preparedEnvelope(
+    { marker: 'owner-neutral-import' },
+    'I'.repeat(43)
+  )
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const storage = createMemoryStorage({
+    [IMPORT_STORAGE_KEY]: JSON.stringify({
+      baseRevision: 4,
+      generation: 1,
+      operationId,
+      ownerId: OWNER_ID,
+      profileId: PROFILE_ID,
+      revision: 5,
+      version: 1
+    }),
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 4,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const rpcCalls = []
+  const adapter = createAdapter({
+    now: () => Date.parse('2026-08-22T00:00:00.000Z'),
+    rpc: async name => {
+      rpcCalls.push(name)
+      if (name === 'read_my_learner_profile_import_backup') {
+        return {
+          data: [{
+            base_revision: 4,
+            generation: 1,
+            imported_envelope: importedEnvelope,
+            imported_revision: 5,
+            operation_id: operationId,
+            previous_envelope: previousEnvelope,
+            profile_id: PROFILE_ID,
+            protected_until: '2026-10-01T00:00:00.000Z',
+            status: 'protected'
+          }],
+          error: null
+        }
+      }
+      if (name === 'rollback_my_learner_profile_import') {
+        return {
+          data: [{
+            base_revision: 4,
+            generation: 1,
+            profile_id: PROFILE_ID,
+            revision: 6,
+            status: 'rolled_back'
+          }],
+          error: null
+        }
+      }
+      assert.equal(name, 'resolve_my_learner_profile')
+      return {
+        data: [{
+          created: false,
+          envelope: previousEnvelope,
+          generation: 1,
+          profile_id: PROFILE_ID,
+          revision: 6,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      generation: 1,
+      ownerId: OWNER_ID,
+      profile: importedEnvelope.profile,
+      profileId: PROFILE_ID,
+      revision: 5,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(result.status, 'activate')
+  assert.equal(result.backupRequired, false)
+  assert.deepEqual(result.profile, previousEnvelope.profile)
+  assert.equal(result.revision, 6)
+  assert.equal(storage.getItem(IMPORT_STORAGE_KEY), null)
+  assert.deepEqual(rpcCalls, [
+    'read_my_learner_profile_import_backup',
+    'rollback_my_learner_profile_import',
+    'resolve_my_learner_profile'
+  ])
+})
+
+test('rollback restores sync identity even when its durable marker cannot clear', async () => {
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const memory = createMemoryStorage({
+    [IMPORT_STORAGE_KEY]: JSON.stringify({
+      baseRevision: 4,
+      generation: 1,
+      operationId,
+      ownerId: OWNER_ID,
+      profileId: PROFILE_ID,
+      revision: 5,
+      version: 1
+    }),
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 5,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const storage = {
+    getItem: memory.getItem,
+    removeItem(key) {
+      if (key !== IMPORT_STORAGE_KEY) memory.removeItem(key)
+    },
+    setItem(key, value) {
+      if (key === IMPORT_STORAGE_KEY) {
+        throw new Error('durable marker is temporarily read-only')
+      }
+      memory.setItem(key, value)
+    }
+  }
+  const adapter = createAdapter({
+    rpc: async name => {
+      assert.equal(name, 'rollback_my_learner_profile_import')
+      return {
+        data: [{
+          base_revision: 4,
+          generation: 1,
+          profile_id: PROFILE_ID,
+          revision: 6,
+          status: 'rolled_back'
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+
+  assert.deepEqual(await adapter.rollbackImport({
+    baseRevision: 4,
+    generation: 1,
+    operationId,
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID,
+    revision: 5,
+    status: 'protected'
+  }), {
+    cleanupPending: true,
+    revision: 6,
+    status: 'rolled-back'
+  })
+  assert.equal(
+    JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).acceptedRevision,
+    6
+  )
+  assert.notEqual(storage.getItem(IMPORT_STORAGE_KEY), null)
+})
+
+test('late durable cleanup never rewinds progress saved after rollback', async () => {
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const previousEnvelope = preparedEnvelope(
+    { marker: 'protected-profile' },
+    'P'.repeat(43)
+  )
+  const importedEnvelope = preparedEnvelope(
+    { marker: 'rolled-back-import' },
+    'I'.repeat(43)
+  )
+  const advancedEnvelope = preparedEnvelope(
+    { marker: 'study-after-rollback' },
+    'A'.repeat(43)
+  )
+  const memory = createMemoryStorage({
+    [IMPORT_STORAGE_KEY]: JSON.stringify({
+      baseRevision: 4,
+      generation: 1,
+      operationId,
+      ownerId: OWNER_ID,
+      profileId: PROFILE_ID,
+      revision: 5,
+      version: 1
+    }),
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 7,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const acceptedRevisionWrites = []
+  const storage = {
+    getItem: memory.getItem,
+    removeItem: memory.removeItem,
+    setItem(key, value) {
+      if (key === SYNC_STORAGE_KEY) {
+        acceptedRevisionWrites.push(JSON.parse(value).acceptedRevision)
+      }
+      memory.setItem(key, value)
+    }
+  }
+  const adapter = createAdapter({
+    now: () => Date.parse('2026-08-22T00:00:00.000Z'),
+    rpc: async name => {
+      if (name === 'read_my_learner_profile_import_backup') {
+        return {
+          data: [{
+            base_revision: 4,
+            generation: 1,
+            imported_envelope: importedEnvelope,
+            imported_revision: 5,
+            operation_id: operationId,
+            previous_envelope: previousEnvelope,
+            profile_id: PROFILE_ID,
+            protected_until: '2026-10-01T00:00:00.000Z',
+            status: 'rolled-back'
+          }],
+          error: null
+        }
+      }
+      if (name === 'rollback_my_learner_profile_import') {
+        return {
+          data: [{
+            base_revision: 4,
+            generation: 1,
+            profile_id: PROFILE_ID,
+            revision: 6,
+            status: 'already_rolled_back'
+          }],
+          error: null
+        }
+      }
+      assert.equal(name, 'resolve_my_learner_profile')
+      return {
+        data: [{
+          created: false,
+          envelope: advancedEnvelope,
+          generation: 1,
+          profile_id: PROFILE_ID,
+          revision: 7,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      generation: 1,
+      ownerId: OWNER_ID,
+      profile: advancedEnvelope.profile,
+      profileId: PROFILE_ID,
+      revision: 7,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(result.status, 'activate')
+  assert.equal(result.revision, 7)
+  assert.deepEqual(result.profile, advancedEnvelope.profile)
+  assert.equal(
+    JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).acceptedRevision,
+    7
+  )
+  assert.equal(acceptedRevisionWrites.includes(6), false)
+  assert.equal(storage.getItem(IMPORT_STORAGE_KEY), null)
 })

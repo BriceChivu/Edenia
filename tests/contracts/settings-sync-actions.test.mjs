@@ -5,6 +5,8 @@ import {
 } from '../../src/features/settings/sync-actions.js'
 
 const selectors = {
+  cancel: '[data-settings-sync-action="cancel-import"]',
+  confirm: '[data-settings-sync-action="confirm-import"]',
   export: '[data-settings-sync-action="export"]',
   choose: '[data-settings-sync-action="choose-file"]',
   input: '#syncFileInput[data-settings-sync-action="import-file"]'
@@ -46,11 +48,13 @@ test('Settings sync binding preserves exact export callback arguments', () => {
   const { controls, root } = createHarness()
   const calls = []
   assert.equal(bindSettingsSyncActions(root, {
+    cancelImport() {},
+    confirmImport() {},
     exportFile(...args) {
       calls.push(args)
     },
     importFile() {}
-  }), 3)
+  }), 5)
 
   let defaultPrevented = false
   let propagationStopped = false
@@ -70,6 +74,8 @@ test('Settings sync binding preserves exact export callback arguments', () => {
 test('Settings sync picker click stays synchronous with its trigger', () => {
   const { controls, order, root } = createHarness()
   bindSettingsSyncActions(root, {
+    cancelImport() {},
+    confirmImport() {},
     exportFile() {},
     importFile() {}
   })
@@ -86,6 +92,8 @@ test('Settings sync change forwards the exact input and no event', () => {
   const { controls, root } = createHarness()
   const calls = []
   bindSettingsSyncActions(root, {
+    cancelImport() {},
+    confirmImport() {},
     exportFile() {},
     importFile(...args) {
       calls.push(args)
@@ -112,13 +120,21 @@ test('Settings sync binding is idempotent and tolerates absent controls', () => 
     },
     importFile() {
       calls.push('import')
+    },
+    cancelImport() {
+      calls.push('cancel')
+    },
+    confirmImport() {
+      calls.push('confirm')
     }
   }
-  assert.equal(bindSettingsSyncActions(root, actions), 3)
+  assert.equal(bindSettingsSyncActions(root, actions), 5)
   assert.equal(bindSettingsSyncActions(root, actions), 0)
   controls.get(selectors.export).dispatch('click')
   controls.get(selectors.input).dispatch('change')
-  assert.deepEqual(calls, ['export', 'import'])
+  controls.get(selectors.cancel).dispatch('click')
+  controls.get(selectors.confirm).dispatch('click')
+  assert.deepEqual(calls, ['export', 'import', 'cancel', 'confirm'])
 
   assert.equal(bindSettingsSyncActions(createHarness([]).root, actions), 0)
   assert.equal(
@@ -134,6 +150,8 @@ test('Settings sync binding fails closed on invalid boundaries', () => {
   const { root } = createHarness()
   assert.throws(
     () => bindSettingsSyncActions(null, {
+      cancelImport() {},
+      confirmImport() {},
       exportFile() {},
       importFile() {}
     }),
@@ -141,8 +159,9 @@ test('Settings sync binding fails closed on invalid boundaries', () => {
   )
   assert.throws(
     () => bindSettingsSyncActions(root, {
+      cancelImport() {},
       exportFile() {}
     }),
-    /exportFile and importFile callbacks/
+    /export, import, confirm, and cancel callbacks/
   )
 })
