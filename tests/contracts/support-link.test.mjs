@@ -58,7 +58,10 @@ test('footer exposes one subtle Privacy link', () => {
   )
 
   const privacyRule = styleSource.match(/\.privacy-link\s*{([^}]*)}/s)?.[1] ?? ''
+  assert.match(privacyRule, /align-items:\s*center;/)
   assert.match(privacyRule, /color:\s*var\(--muted\);/)
+  assert.match(privacyRule, /display:\s*inline-flex;/)
+  assert.match(privacyRule, /min-height:\s*44px;/)
   assert.doesNotMatch(privacyRule, /\b(?:background|border|box-shadow):/)
 })
 

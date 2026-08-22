@@ -136,6 +136,10 @@ test('account session state drives isolated UUID analytics identity with safe pr
     source,
     /onStateChange\(state\) \{\s*accountAuthViewState = state\s*learnerProfileAuthenticationAdapter\.observeAccountState\(state\)\s*accountAnalyticsIdentity\.synchronize\(state\)[\s\S]*reminderPreferencesController\.synchronizeAccount\([\s\S]*renderAccountSettings\(state\)/
   )
+  assert.match(
+    source,
+    /addEventListener\('edenia:analytics-ready',[\s\S]*accountAnalyticsIdentity\.synchronize\(accountAuthViewState\)/
+  )
   assert.match(identitySource, /accountState\?\.userId/)
   assert.match(identitySource, /properties\.email = email/)
   assert.doesNotMatch(

@@ -56,6 +56,31 @@
       }
     }
 
+    function hasAuthSecretParameters(parameters) {
+      for (const key of parameters.keys()) {
+        const normalizedKey = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2');
+        if (authSecretUrlParameterPattern.test(normalizedKey)) return true;
+      }
+      return false;
+    }
+
+    function analyticsUrlContainsAuthSecrets(value) {
+      if (typeof value !== 'string' || !value) return false;
+      let url;
+      try {
+        url = new URL(value, window.location.origin);
+      } catch {
+        return false;
+      }
+      if (hasAuthSecretParameters(url.searchParams)) return true;
+      const rawFragment = url.hash.slice(1);
+      if (!rawFragment.includes('=')) return false;
+      const queryStart = rawFragment.indexOf('?');
+      return hasAuthSecretParameters(new URLSearchParams(
+        queryStart >= 0 ? rawFragment.slice(queryStart + 1) : rawFragment
+      ));
+    }
+
     function redactAnalyticsUrl(value) {
       if (typeof value !== 'string' || !value) return value;
       let url;
@@ -65,19 +90,7 @@
         return value;
       }
       redactAuthSecretParameters(url.searchParams);
-
-      const rawFragment = url.hash.slice(1);
-      if (rawFragment.includes('=')) {
-        const queryStart = rawFragment.indexOf('?');
-        const route = queryStart >= 0
-          ? rawFragment.slice(0, queryStart + 1)
-          : '';
-        const parameters = new URLSearchParams(
-          queryStart >= 0 ? rawFragment.slice(queryStart + 1) : rawFragment
-        );
-        redactAuthSecretParameters(parameters);
-        url.hash = route + parameters.toString();
-      }
+      url.hash = '';
       return url.href;
     }
 
@@ -98,22 +111,31 @@
       return sanitized;
     }
 
+    let sessionRecordingBlockedForAuthUrl = false;
+    window.resumeEdeniaSessionRecording = function() {
+      if (!window.EDENIA_ANALYTICS_ENABLED) return false;
+      if (!sessionRecordingBlockedForAuthUrl) return true;
+      if (analyticsUrlContainsAuthSecrets(window.location.href)) return false;
+      if (typeof posthog.startSessionRecording !== 'function') return false;
+      posthog.startSessionRecording();
+      sessionRecordingBlockedForAuthUrl = false;
+      return true;
+    };
+
     if (window.EDENIA_ANALYTICS_ENABLED) {
-      const sanitizedCurrentUrl = redactAnalyticsUrl(window.location.href);
-      if (sanitizedCurrentUrl !== window.location.href) {
-        window.history.replaceState(
-          window.history.state,
-          '',
-          sanitizedCurrentUrl
-        );
-      }
+      sessionRecordingBlockedForAuthUrl = analyticsUrlContainsAuthSecrets(
+        window.location.href
+      );
       posthog.init('phc_soeip95Z57vX8tK5rCMEjh7nDsmyR7gmJtSFRk59FyWg', {
         api_host: 'https://us.i.posthog.com',
         defaults: '2026-05-30',
         autocapture: false,
         disable_capture_url_hashes: true,
-        disable_session_recording: false,
+        disable_session_recording: sessionRecordingBlockedForAuthUrl,
         get_current_url: () => redactAnalyticsUrl(window.location.href),
+        loaded: () => {
+          window.dispatchEvent(new Event('edenia:analytics-ready'));
+        },
         sanitize_properties: sanitizeAnalyticsProperties,
         session_recording: {
           maskAllInputs: true

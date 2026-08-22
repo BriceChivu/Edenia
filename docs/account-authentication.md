@@ -282,7 +282,10 @@ input values while leaving ordinary non-input product behavior available. The
 code, Google credential, nonce, CAPTCHA token, session, cookies, and provider
 response metadata are never sent to analytics. Captured URLs omit fragments and
 replace secret-bearing query values with `[REDACTED]` while preserving ordinary
-campaign and product parameters.
+campaign and product parameters. The live callback URL remains available until
+Supabase consumes its PKCE values; the analytics sanitizer never rewrites that
+browser input. Session replay starts paused on any URL with an authentication
+secret key and resumes only after the live URL is safe.
 
 On a confirmed session, PostHog identifies only the normalized Supabase UUID.
 The sole allowlisted account person property is normalized `email`; it is not

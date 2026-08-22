@@ -15,16 +15,45 @@ function getAccountPersonProperties(accountState) {
   return Object.freeze(properties)
 }
 
-export function createAccountAnalyticsIdentity({ identify, reset }) {
-  if (typeof identify !== 'function' || typeof reset !== 'function') {
-    throw new TypeError('Account analytics identity requires identify and reset callbacks')
+export function createAccountAnalyticsIdentity({
+  getPersistedAnalyticsUserId,
+  identify,
+  reset
+}) {
+  if (
+    typeof getPersistedAnalyticsUserId !== 'function'
+    || typeof identify !== 'function'
+    || typeof reset !== 'function'
+  ) {
+    throw new TypeError(
+      'Account analytics identity requires persisted analytics user, identify, and reset callbacks'
+    )
   }
 
   let identifiedUserId = null
   let identifiedPropertiesKey = ''
+  let resetCompleted = false
 
-  function resetIdentity() {
-    if (!identifiedUserId) return true
+  function readPersistedAnalyticsUserId() {
+    try {
+      const rawUserId = getPersistedAnalyticsUserId()
+      if (rawUserId === undefined) return null
+      return {
+        exists: rawUserId !== undefined && rawUserId !== null && rawUserId !== '',
+        userId: normalizeSupabaseUserId(rawUserId)
+      }
+    } catch {
+      return null
+    }
+  }
+
+  function resetIdentity(force = false) {
+    if (resetCompleted && !identifiedUserId) return true
+    if (!force && !identifiedUserId) {
+      const currentIdentity = readPersistedAnalyticsUserId()
+      if (!currentIdentity) return false
+      if (!currentIdentity.exists) return true
+    }
     try {
       if (reset() !== true) return false
     } catch {
@@ -32,6 +61,7 @@ export function createAccountAnalyticsIdentity({ identify, reset }) {
     }
     identifiedUserId = null
     identifiedPropertiesKey = ''
+    resetCompleted = true
     return true
   }
 
@@ -41,6 +71,15 @@ export function createAccountAnalyticsIdentity({ identify, reset }) {
 
     const userId = normalizeSupabaseUserId(accountState?.userId)
     if (!userId) return false
+    if (!identifiedUserId && !resetCompleted) {
+      const currentIdentity = readPersistedAnalyticsUserId()
+      if (!currentIdentity) return false
+      if (
+        currentIdentity.exists
+        && currentIdentity.userId !== userId
+        && !resetIdentity(true)
+      ) return false
+    }
     const properties = getAccountPersonProperties(accountState)
     const propertiesKey = JSON.stringify(properties)
     if (
@@ -58,6 +97,7 @@ export function createAccountAnalyticsIdentity({ identify, reset }) {
     }
     identifiedUserId = userId
     identifiedPropertiesKey = propertiesKey
+    resetCompleted = false
     return true
   }
 

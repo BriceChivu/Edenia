@@ -9,6 +9,7 @@ const analyticsBootstrap = [...html.matchAll(/<script>\s*([\s\S]*?)<\/script>/g)
   .find(source => source.includes('window.EDENIA_ANALYTICS_ENABLED'))
 
 function runAnalyticsBootstrap(href, { escrowedOutcome } = {}) {
+  const dispatchedEvents = []
   const insertedScripts = []
   const firstScript = {
     parentNode: {
@@ -18,6 +19,9 @@ function runAnalyticsBootstrap(href, { escrowedOutcome } = {}) {
     }
   }
   const context = {
+    Event: class Event {
+      constructor(type) { this.type = type }
+    },
     URL,
     URLSearchParams,
     document: {
@@ -35,7 +39,10 @@ function runAnalyticsBootstrap(href, { escrowedOutcome } = {}) {
         context.location = new URL(nextUrl, context.location)
       }
     },
-    location: new URL(href)
+    location: new URL(href),
+    dispatchEvent(event) {
+      dispatchedEvents.push(event.type)
+    }
   }
   context.window = context
   if (escrowedOutcome !== undefined) {
@@ -46,6 +53,8 @@ function runAnalyticsBootstrap(href, { escrowedOutcome } = {}) {
   return {
     browserUrl: context.location.href,
     config: context.posthog?._i?.[0]?.[1],
+    context,
+    dispatchedEvents,
     enabled: context.EDENIA_ANALYTICS_ENABLED,
     insertedScripts
   }
@@ -107,24 +116,24 @@ test('production analytics masks inputs and redacts secret URL values', () => {
 
   assert.equal(result.config.session_recording.maskAllInputs, true)
   assert.equal(result.config.disable_capture_url_hashes, true)
+  assert.equal(result.config.disable_session_recording, true)
 
   const currentUrl = new URL(result.config.get_current_url())
   assert.equal(currentUrl.searchParams.get('utm_source'), 'welcome')
   assert.equal(currentUrl.searchParams.get('access_token'), '[REDACTED]')
   assert.equal(currentUrl.searchParams.get('accessToken'), '[REDACTED]')
-  const fragment = new URLSearchParams(currentUrl.hash.slice(1))
-  assert.equal(fragment.get('section'), 'account')
-  assert.equal(fragment.get('refresh_token'), '[REDACTED]')
+  assert.equal(currentUrl.hash, '')
 
   const browserUrl = new URL(result.browserUrl)
-  assert.equal(browserUrl.searchParams.get('access_token'), '[REDACTED]')
+  assert.equal(browserUrl.searchParams.get('access_token'), 'query-secret')
   assert.equal(
     new URLSearchParams(browserUrl.hash.slice(1)).get('refresh_token'),
-    '[REDACTED]'
+    'fragment-secret'
   )
 
   const properties = result.config.sanitize_properties({
-    $current_url: 'https://www.edenia.study/?code=private-code&account=1',
+    $current_url: 'https://www.edenia.study/?code=private-code&account=1'
+      + '#access_token=private-fragment',
     $referrer: 'https://example.com/source?credential=private-credential',
     video_url: 'https://www.youtube.com/watch?v=public-video-id',
     token: 'posthog-project-token'
@@ -133,6 +142,7 @@ test('production analytics masks inputs and redacts secret URL values', () => {
     new URL(properties.$current_url).searchParams.get('code'),
     '[REDACTED]'
   )
+  assert.equal(new URL(properties.$current_url).hash, '')
   assert.equal(
     new URL(properties.$referrer).searchParams.get('credential'),
     '[REDACTED]'
@@ -142,4 +152,31 @@ test('production analytics masks inputs and redacts secret URL values', () => {
     'public-video-id'
   )
   assert.equal(properties.token, 'posthog-project-token')
+
+  assert.equal(result.context.resumeEdeniaSessionRecording(), false)
+  result.context.history.replaceState(
+    null,
+    '',
+    'https://www.edenia.study/?utm_source=welcome'
+  )
+  assert.equal(result.context.resumeEdeniaSessionRecording(), true)
+  assert.equal(
+    result.context.posthog.some(call => call[0] === 'startSessionRecording'),
+    true
+  )
+})
+
+test('production replay starts immediately when the live URL has no auth secret', () => {
+  const result = runAnalyticsBootstrap(
+    'https://www.edenia.study/?utm_source=welcome#study'
+  )
+
+  assert.equal(result.config.disable_session_recording, false)
+  assert.equal(result.context.resumeEdeniaSessionRecording(), true)
+  assert.equal(
+    result.context.posthog.some(call => call[0] === 'startSessionRecording'),
+    false
+  )
+  result.config.loaded()
+  assert.deepEqual(result.dispatchedEvents, ['edenia:analytics-ready'])
 })

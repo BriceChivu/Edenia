@@ -10,10 +10,14 @@
   padding: 10px 20px max(38px, calc(env(safe-area-inset-bottom) + 26px));
 }
 .privacy-link {
+  align-items: center;
   color: var(--muted);
+  display: inline-flex;
   flex: 0 0 auto;
   font-size: 0.82rem;
   font-weight: 700;
+  min-height: 44px;
+  padding: 0 4px;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
 }

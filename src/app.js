@@ -182,9 +182,11 @@ import {
 } from './domain/reminder-eligibility-snapshot.js'
 import {
   getEdeniaSessionReplayUrl,
+  getPersistedAnalyticsUserId,
   hasEdeniaAnalyticsStateSync,
   identifyEdeniaAuthenticatedUser,
   isEdeniaAnalyticsEnabled,
+  resumeEdeniaSessionRecording,
   resetEdeniaAuthenticatedUser,
   setEdeniaPersonProperties,
   syncEdeniaAnalyticsState,
@@ -1204,6 +1206,7 @@ let accountExportController = null
 let accountStudySnapshotController = null
 let accountSettingsWasSignedIn = false
 const accountAnalyticsIdentity = createAccountAnalyticsIdentity({
+  getPersistedAnalyticsUserId,
   identify: identifyEdeniaAuthenticatedUser,
   reset: resetEdeniaAuthenticatedUser
 })
@@ -1233,6 +1236,9 @@ let plusAccountController = null
 let plusAccountViewState = null
 let plusBillingController = null
 let plusBillingViewState = null
+window.addEventListener('edenia:analytics-ready', () => {
+  accountAnalyticsIdentity.synchronize(accountAuthViewState)
+})
 let plusModalFeatureId = null
 let forcedSearchVideoId = null
 let pendingAddedChannelReveal = null
@@ -6030,7 +6036,9 @@ function initializeAccountAuth() {
     )
     accountExportController.synchronizeAccount(accountAuthViewState)
     renderAccountSettings()
-    void accountAuthController.initialize()
+    void accountAuthController.initialize().finally(() => {
+      resumeEdeniaSessionRecording()
+    })
     startLearnerProfileReverification()
   } catch (error) {
     console.warn('Edenia account authentication is unavailable.', error)

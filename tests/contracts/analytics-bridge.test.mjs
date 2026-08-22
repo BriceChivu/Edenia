@@ -2,10 +2,12 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
   getEdeniaSessionReplayUrl,
+  getPersistedAnalyticsUserId,
   getPosthogDistinctId,
   hasEdeniaAnalyticsStateSync,
   identifyEdeniaAuthenticatedUser,
   isEdeniaAnalyticsEnabled,
+  resumeEdeniaSessionRecording,
   resetEdeniaAuthenticatedUser,
   setEdeniaPersonProperties,
   syncEdeniaAnalyticsState,
@@ -32,8 +34,10 @@ test('analytics bridge preserves absent globals and dynamic availability', () =>
     assert.equal(getEdeniaSessionReplayUrl(), undefined)
     assert.equal(syncEdeniaAnalyticsState({}), undefined)
     assert.equal(identifyEdeniaAuthenticatedUser('user-id'), undefined)
+    assert.equal(resumeEdeniaSessionRecording(), undefined)
     assert.equal(resetEdeniaAuthenticatedUser(), undefined)
     assert.equal(getPosthogDistinctId(), undefined)
+    assert.equal(getPersistedAnalyticsUserId(), undefined)
   })
 
   const target = { EDENIA_ANALYTICS_ENABLED: 'enabled' }
@@ -100,7 +104,13 @@ test('analytics bridge preserves receivers, arguments, returns, and replacements
       assert.deepEqual(args, [])
       return true
     }
+    target.resumeEdeniaSessionRecording = function (...args) {
+      assert.equal(this, target)
+      assert.deepEqual(args, [])
+      return true
+    }
     assert.equal(identifyEdeniaAuthenticatedUser('uuid'), true)
+    assert.equal(resumeEdeniaSessionRecording(), true)
     assert.equal(resetEdeniaAuthenticatedUser(), true)
   })
 })
@@ -112,8 +122,14 @@ test('analytics bridge preserves PostHog receiver and propagated errors', () => 
       return 'distinct-id'
     }
   }
-  withWindow({ posthog }, () => {
+  const target = { posthog }
+  target.getEdeniaAuthenticatedUserId = function () {
+    assert.equal(this, target)
+    return 'authenticated-user-id'
+  }
+  withWindow(target, () => {
     assert.equal(getPosthogDistinctId(), 'distinct-id')
+    assert.equal(getPersistedAnalyticsUserId(), 'authenticated-user-id')
   })
 
   withWindow({
