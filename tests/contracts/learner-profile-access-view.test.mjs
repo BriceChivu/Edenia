@@ -13,13 +13,21 @@ function createElement() {
   const attributes = new Map()
   return {
     hidden: true,
+    children: [],
+    dataset: {},
     textContent: '',
+    append(...children) {
+      this.children.push(...children)
+    },
     classList: {
       add: value => classes.add(value),
       remove: value => classes.delete(value),
       contains: value => classes.has(value)
     },
     getAttribute: name => attributes.get(name) ?? null,
+    replaceChildren(...children) {
+      this.children = children
+    },
     setAttribute: (name, value) => attributes.set(name, value)
   }
 }
@@ -34,9 +42,14 @@ function createHarness() {
     ['learnerProfileAccessSignOut', createElement()],
     ['learnerProfileAccessContinue', createElement()],
     ['learnerProfileAccessExport', createElement()],
-    ['learnerProfileAccessDiscard', createElement()]
+    ['learnerProfileAccessDiscard', createElement()],
+    ['learnerProfileRecovery', createElement()],
+    ['learnerProfileRecoveryList', createElement()],
+    ['learnerProfileRecoveryEmpty', createElement()],
+    ['learnerProfileRecoveryFeedback', createElement()]
   ])
   const root = {
+    createElement: () => createElement(),
     documentElement: { dataset: {} },
     getElementById: id => elements.get(id) || null
   }
@@ -112,7 +125,10 @@ test('account changes expose only actions that have protected the previous copy'
     replacement: { protectionStatus: 'synchronized' },
     status: 'account-change'
   })
-  assert.equal(root.documentElement.dataset.learnerProfileAccessState, 'account-change')
+  assert.equal(
+    root.documentElement.dataset.learnerProfileAccessState,
+    'account-change'
+  )
   assert.equal(continueButton.hidden, false)
   assert.equal(exportButton.hidden, true)
   assert.equal(discardButton.hidden, true)
@@ -133,5 +149,104 @@ test('account changes expose only actions that have protected the previous copy'
   assert.equal(
     elements.get('learnerProfileAccessBody').textContent,
     'profileAccess.accountChange.pending.body'
+  )
+})
+
+test('missing-head recovery explains only local and protected sources', () => {
+  const { elements, view } = createHarness()
+
+  view.render({
+    recovery: {
+      candidates: [{ id: 'local', source: 'local' }, {
+        id: '523e4567-e89b-42d3-a456-426614174004',
+        protectedUntil: Date.parse('2026-09-21T00:00:00.000Z'),
+        source: 'protected'
+      }],
+      reason: 'current-head-missing'
+    },
+    status: 'recovering'
+  })
+
+  assert.equal(
+    elements.get('learnerProfileAccessTitle').textContent,
+    'profileAccess.missingHead.title'
+  )
+  assert.equal(
+    elements.get('learnerProfileRecovery').classList.contains('hidden'),
+    false
+  )
+  const items = elements.get('learnerProfileRecoveryList').children
+  assert.equal(items.length, 2)
+  assert.equal(items[0].children[0].textContent, 'profileAccess.recovery.local')
+  assert.equal(
+    items[1].children[0].textContent,
+    'profileAccess.recovery.protected'
+  )
+  assert.deepEqual(items.map(item => item.children.slice(1).map(button => ({
+    action: button.dataset.profileRecoveryAction,
+    candidateId: button.dataset.recoveryCandidateId,
+    text: button.textContent
+  }))), [[{
+    action: 'restore',
+    candidateId: 'local',
+    text: 'profileAccess.recovery.restore'
+  }, {
+    action: 'export',
+    candidateId: 'local',
+    text: 'profileAccess.recovery.export'
+  }], [{
+    action: 'restore',
+    candidateId: '523e4567-e89b-42d3-a456-426614174004',
+    text: 'profileAccess.recovery.restore'
+  }, {
+    action: 'export',
+    candidateId: '523e4567-e89b-42d3-a456-426614174004',
+    text: 'profileAccess.recovery.export'
+  }]])
+})
+
+test('missing-head recovery with no usable candidate keeps retry and sign-out available', () => {
+  const { elements, view } = createHarness()
+
+  view.render({
+    recovery: {
+      candidates: [],
+      feedback: 'restore-failed',
+      reason: 'current-head-missing'
+    },
+    status: 'recovering'
+  })
+
+  assert.equal(elements.get('learnerProfileRecoveryEmpty').hidden, false)
+  assert.equal(
+    elements.get('learnerProfileRecoveryEmpty').textContent,
+    'profileAccess.recovery.none'
+  )
+  assert.equal(
+    elements.get('learnerProfileRecoveryFeedback').textContent,
+    'profileAccess.recovery.restoreFailed'
+  )
+  assert.equal(elements.get('learnerProfileAccessRetry').hidden, false)
+  assert.equal(elements.get('learnerProfileAccessSignOut').hidden, false)
+})
+
+test('an unusable current head has distinct guarded recovery copy', () => {
+  const { elements, view } = createHarness()
+
+  view.render({
+    recovery: {
+      candidates: [{ id: 'local', source: 'local' }],
+      reason: 'current-head-unusable'
+    },
+    status: 'recovering'
+  })
+
+  assert.equal(
+    elements.get('learnerProfileAccessBody').textContent,
+    'profileAccess.unusableHead.body'
+  )
+  assert.equal(
+    elements.get('learnerProfileRecovery').classList.contains('hidden'),
+    false
   )
 })

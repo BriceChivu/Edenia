@@ -9,7 +9,9 @@ export function bindLearnerProfileAccessActions(root, actions) {
     || typeof actions.continueReplacement !== 'function'
     || typeof actions.discardReplacement !== 'function'
     || typeof actions.exportReplacement !== 'function'
+    || typeof actions.exportRecovery !== 'function'
     || typeof actions.retry !== 'function'
+    || typeof actions.restoreRecovery !== 'function'
     || typeof actions.signOut !== 'function'
   ) {
     throw new TypeError(
@@ -32,6 +34,21 @@ export function bindLearnerProfileAccessActions(root, actions) {
     if (!control || boundControls.has(control)) continue
     control.addEventListener('click', () => callback())
     boundControls.add(control)
+    installedCount += 1
+  }
+  const recoveryList = root.querySelector('[data-profile-recovery-list]')
+  if (recoveryList && !boundControls.has(recoveryList)) {
+    recoveryList.addEventListener('click', event => {
+      const control = event.target?.closest?.('[data-profile-recovery-action]')
+      const candidateId = control?.dataset?.recoveryCandidateId
+      if (!candidateId) return
+      if (control.dataset.profileRecoveryAction === 'restore') {
+        actions.restoreRecovery(candidateId)
+      } else if (control.dataset.profileRecoveryAction === 'export') {
+        actions.exportRecovery(candidateId)
+      }
+    })
+    boundControls.add(recoveryList)
     installedCount += 1
   }
 

@@ -1,10 +1,18 @@
 import {
+  LEARNER_PROFILE_RECOVERY_REASONS,
+  LEARNER_PROFILE_RECOVERY_SOURCES,
   LEARNER_PROFILE_RESOLUTION_STATUSES
 } from '../domain/learner-profile-resolution.js'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
 const MAX_AUTOMATIC_RETRIES = 5
+const RECOVERY_REJECTION_STATUSES = new Set([
+  'access_disabled',
+  'confirmation_required',
+  'recovery_required',
+  'verified_account_required'
+])
 
 function readSingleRpcRow(data) {
   if (Array.isArray(data) && data.length !== 1) return null
@@ -160,6 +168,83 @@ function isAcceptedOperationReceipt(row, operation, envelope, statuses) {
     && row.payload_sha256 === envelope?.integrity?.payloadSha256
 }
 
+function prepareLocalRecoveryCandidate(localProfile, ownerId, prepareEnvelope) {
+  if (
+    localProfile?.status !== 'ready'
+    || localProfile.ownerId !== ownerId
+    || !UUID_PATTERN.test(String(localProfile.profileId || ''))
+    || !normalizePositiveInteger(localProfile.generation)
+    || !normalizePositiveInteger(localProfile.revision)
+    || !isRecord(localProfile.profile)
+  ) return null
+  try {
+    const envelope = prepareEnvelope(localProfile.profile)
+    return isPreparedEnvelope(envelope) ? {
+      envelope,
+      generation: localProfile.generation,
+      profileId: localProfile.profileId,
+      revision: localProfile.revision
+    } : null
+  } catch {
+    return null
+  }
+}
+
+function readProtectedRecoveryCandidates(data, currentTime) {
+  if (!Array.isArray(data)) return null
+  const candidates = []
+  const seen = new Set()
+  for (const row of data) {
+    const id = String(row?.candidate_id || '')
+    const protectedUntil = Date.parse(String(row?.protected_until || ''))
+    if (
+      row?.source !== LEARNER_PROFILE_RECOVERY_SOURCES.PROTECTED
+      || !UUID_PATTERN.test(id)
+      || !Number.isFinite(protectedUntil)
+      || protectedUntil <= currentTime
+      || seen.has(id)
+    ) return null
+    seen.add(id)
+    candidates.push(Object.freeze({
+      id,
+      protectedUntil,
+      source: LEARNER_PROFILE_RECOVERY_SOURCES.PROTECTED
+    }))
+  }
+  return candidates
+}
+
+function isRecoveryOperation(value) {
+  if (!hasExactKeys(value, [
+    'candidateId',
+    'envelope',
+    'generation',
+    'operationId',
+    'ownerId',
+    'profileId',
+    'revision',
+    'source',
+    'version'
+  ])
+    || value.version !== 1
+    || !UUID_PATTERN.test(String(value.operationId || ''))
+    || !UUID_PATTERN.test(String(value.ownerId || ''))
+    || !Object.values(LEARNER_PROFILE_RECOVERY_SOURCES).includes(value.source)
+  ) return false
+  if (value.source === LEARNER_PROFILE_RECOVERY_SOURCES.PROTECTED) {
+    return UUID_PATTERN.test(String(value.candidateId || ''))
+      && value.envelope === null
+      && value.generation === null
+      && value.profileId === null
+      && value.revision === null
+  }
+  return value.candidateId === LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL
+    && isPreparedEnvelope(value.envelope)
+    && normalizePositiveInteger(value.generation) !== null
+    && UUID_PATTERN.test(String(value.profileId || ''))
+    && normalizePositiveInteger(value.revision) !== null
+}
+
 export function createLearnerProfileCloudPersistenceAdapter({
   clearOnboardingDraft,
   createOnboardingEnvelope,
@@ -206,6 +291,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
   let syncState = Object.freeze({ status: 'idle' })
   const listeners = new Set()
   const dirtyStorageKey = `${syncStorageKey}_dirty`
+  const recoveryStorageKey = `${syncStorageKey}_recovery`
 
   function publish(status, details = {}) {
     syncState = Object.freeze({ ...details, status })
@@ -298,6 +384,125 @@ export function createLearnerProfileCloudPersistenceAdapter({
     } catch {
       return false
     }
+  }
+
+  function readRecoveryOperation() {
+    try {
+      const serialized = storage.getItem(recoveryStorageKey)
+      if (serialized === null) return { operation: null, present: false }
+      const operation = JSON.parse(serialized)
+      return {
+        operation: isRecoveryOperation(operation) ? operation : null,
+        present: true
+      }
+    } catch {
+      return { operation: null, present: true }
+    }
+  }
+
+  function writeRecoveryOperation(operation) {
+    try {
+      storage.setItem(recoveryStorageKey, JSON.stringify(operation))
+      return JSON.stringify(readRecoveryOperation().operation)
+        === JSON.stringify(operation)
+    } catch {
+      return false
+    }
+  }
+
+  function clearRecoveryOperation(operation) {
+    const stored = readRecoveryOperation()
+    if (
+      !stored.present
+      || stored.operation?.operationId !== operation.operationId
+    ) return !stored.present
+    try {
+      storage.removeItem(recoveryStorageKey)
+      return storage.getItem(recoveryStorageKey) === null
+    } catch {
+      return false
+    }
+  }
+
+  async function prepareRecoveryOperation({
+    authentication,
+    candidate,
+    confirmed,
+    localProfile
+  }) {
+    if (
+      confirmed !== true
+      || !UUID_PATTERN.test(String(authentication?.userId || ''))
+      || !Object.values(LEARNER_PROFILE_RECOVERY_SOURCES).includes(
+        candidate?.source
+      )
+      || typeof candidate.id !== 'string'
+      || !candidate.id
+    ) return null
+    const localCandidate = candidate.source === LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL
+      ? prepareLocalRecoveryCandidate(
+          localProfile,
+          authentication.userId,
+          prepareEnvelope
+        )
+      : null
+    const stored = readRecoveryOperation()
+    if (stored.present) {
+      const operation = stored.operation
+      if (
+        !operation
+        || operation.ownerId !== authentication.userId
+        || operation.source !== candidate.source
+        || operation.candidateId !== candidate.id
+      ) return null
+      if (candidate.source === LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL) {
+        if (
+          !localCandidate
+          || localCandidate.profileId !== operation.profileId
+          || localCandidate.generation !== operation.generation
+          || localCandidate.revision !== operation.revision
+          || JSON.stringify(localCandidate.envelope.profile)
+            !== JSON.stringify(operation.envelope.profile)
+        ) return null
+      }
+      return operation
+    }
+    let operation
+    if (candidate.source === LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL) {
+      if (!localCandidate) return null
+      let finalized
+      try {
+        finalized = await finalizeEnvelope(localCandidate.envelope)
+      } catch {
+        return null
+      }
+      if (!isPreparedEnvelope(finalized?.envelope)) return null
+      operation = {
+        candidateId: LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL,
+        envelope: finalized.envelope,
+        generation: localCandidate.generation,
+        operationId: createOperationId(),
+        ownerId: authentication.userId,
+        profileId: localCandidate.profileId,
+        revision: localCandidate.revision,
+        source: LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL,
+        version: 1
+      }
+    } else {
+      if (!UUID_PATTERN.test(candidate.id)) return null
+      operation = {
+        candidateId: candidate.id,
+        envelope: null,
+        generation: null,
+        operationId: createOperationId(),
+        ownerId: authentication.userId,
+        profileId: null,
+        revision: null,
+        source: LEARNER_PROFILE_RECOVERY_SOURCES.PROTECTED,
+        version: 1
+      }
+    }
+    return writeRecoveryOperation(operation) ? operation : null
   }
 
   function ensureSyncRecord({ generation, ownerId, profileId, revision }) {
@@ -645,6 +850,235 @@ export function createLearnerProfileCloudPersistenceAdapter({
       selectedSide,
       status
     })
+  }
+
+  async function readRecoveryCandidate({ candidate } = {}) {
+    if (
+      candidate?.source !== LEARNER_PROFILE_RECOVERY_SOURCES.PROTECTED
+      || !UUID_PATTERN.test(String(candidate.id || ''))
+      || !Number.isFinite(candidate.protectedUntil)
+      || candidate.protectedUntil <= now()
+    ) return { status: 'recovering' }
+    let response
+    try {
+      response = await getClient().rpc(
+        'read_my_learner_profile_recovery_candidate',
+        { p_candidate_id: candidate.id }
+      )
+    } catch {
+      return { status: 'waiting-cloud' }
+    }
+    if (response?.error) {
+      return isTransientCloudStatus(response.status)
+        ? { status: 'waiting-cloud' }
+        : { status: 'recovering' }
+    }
+    const row = readSingleRpcRow(response?.data)
+    const protectedUntil = Date.parse(String(row?.protected_until || ''))
+    if (
+      row?.status !== 'available'
+      || row.candidate_id !== candidate.id
+      || protectedUntil !== candidate.protectedUntil
+      || protectedUntil <= now()
+    ) return { status: 'recovering' }
+    const envelope = await verifyEnvelope(row.envelope)
+    const profile = envelope ? importEnvelope(envelope) : null
+    return profile && typeof profile === 'object'
+      ? { profile, status: 'ready' }
+      : { status: 'recovering' }
+  }
+
+  async function resolveRecoveryCandidates({
+    authentication,
+    localProfile,
+    reason
+  }) {
+    let candidatesResponse
+    try {
+      candidatesResponse = await getClient().rpc(
+        'list_my_learner_profile_recovery_candidates',
+        {}
+      )
+    } catch {
+      return waitForCloudHead()
+    }
+    if (candidatesResponse?.error) {
+      return isTransientCloudStatus(candidatesResponse.status)
+        ? waitForCloudHead()
+        : { status: 'recovering' }
+    }
+    const protectedCandidates = readProtectedRecoveryCandidates(
+      candidatesResponse?.data,
+      now()
+    )
+    if (!protectedCandidates) return { status: 'recovering' }
+    const candidates = prepareLocalRecoveryCandidate(
+      localProfile,
+      authentication.userId,
+      prepareEnvelope
+    )
+      ? [Object.freeze({
+          id: LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL,
+          source: LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL
+        })]
+      : []
+    candidates.push(...protectedCandidates)
+    return {
+      recovery: Object.freeze({
+        candidates: Object.freeze(candidates),
+        reason
+      }),
+      status: 'recovering'
+    }
+  }
+
+  async function requestRecoveryOperation(operation) {
+    let response
+    try {
+      response = await getClient().rpc('restore_my_learner_profile', {
+        p_candidate_id: operation.source === LEARNER_PROFILE_RECOVERY_SOURCES.PROTECTED
+          ? operation.candidateId
+          : null,
+        p_confirmed: true,
+        p_envelope: operation.envelope,
+        p_generation: operation.generation,
+        p_operation_id: operation.operationId,
+        p_profile_id: operation.profileId,
+        p_revision: operation.revision,
+        p_source: operation.source
+      })
+    } catch {
+      return { status: 'waiting-cloud' }
+    }
+    if (response?.error) {
+      return isTransientCloudStatus(response.status)
+        ? { status: 'waiting-cloud' }
+        : { status: 'rejected' }
+    }
+    const row = readSingleRpcRow(response?.data)
+    if (
+      RECOVERY_REJECTION_STATUSES.has(row?.status)
+      && row.profile_id === null
+      && row.generation === null
+      && row.revision === null
+      && row.envelope === null
+      && row.protected_until === null
+    ) return { status: 'rejected' }
+    const generation = normalizePositiveInteger(row?.generation)
+    const profileId = String(row?.profile_id || '')
+    const protectedUntil = Date.parse(String(row?.protected_until || ''))
+    const revision = normalizePositiveInteger(row?.revision)
+    if (
+      !['already_restored', 'restored'].includes(row?.status)
+      || !generation
+      || !UUID_PATTERN.test(profileId)
+      || !Number.isFinite(protectedUntil)
+      || protectedUntil <= now()
+      || !revision
+      || (operation.source === LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL && (
+        profileId !== operation.profileId
+        || generation !== operation.generation
+        || revision <= operation.revision
+      ))
+    ) return { status: 'recovering' }
+    const envelope = await verifyEnvelope(row.envelope)
+    const profile = envelope ? importEnvelope(envelope) : null
+    if (!profile || typeof profile !== 'object') {
+      return { status: 'recovering' }
+    }
+    return {
+      generation,
+      profile,
+      profileId,
+      protectedUntil,
+      receiptStatus: row.status,
+      revision,
+      status: 'restored'
+    }
+  }
+
+  function recoveryReceiptResult(result) {
+    return {
+      generation: result.generation,
+      profile: result.profile,
+      profileId: result.profileId,
+      protectedUntil: result.protectedUntil,
+      revision: result.revision,
+      status: 'restored'
+    }
+  }
+
+  function commitRecoveryReceipt(operation, result) {
+    const current = readSyncRecord()
+    const dirty = readDirtyRecord()
+    if (
+      (hasStoredSyncRecord() && (
+        !current
+        || current.ownerId !== operation.ownerId
+      ))
+      || (dirty.present && (
+        !dirty.record
+        || dirty.record.ownerId !== operation.ownerId
+      ))
+    ) return false
+    const record = {
+      acceptedRevision: result.revision,
+      generation: result.generation,
+      ownerId: operation.ownerId,
+      pending: null,
+      profileId: result.profileId,
+      queued: null,
+      version: 1
+    }
+    if (current?.protectedConflictIds?.length) {
+      record.protectedConflictIds = [...current.protectedConflictIds]
+    }
+    if (
+      !writeSyncRecord(record)
+      || !removeDirtyRecord()
+    ) return false
+    activeBinding = null
+    cloudHeadKnown = true
+    publish('up-to-date')
+    return true
+  }
+
+  async function resumeRecoveryOperation(ownerId, currentHead) {
+    const stored = readRecoveryOperation()
+    if (!stored.present) return null
+    if (!stored.operation || stored.operation.ownerId !== ownerId) {
+      return { status: 'recovering' }
+    }
+    const result = await requestRecoveryOperation(stored.operation)
+    if (result.status === 'rejected') {
+      return clearRecoveryOperation(stored.operation)
+        ? { status: 'discarded' }
+        : { status: 'recovering' }
+    }
+    if (result.status !== 'restored') return result
+    const acceptedHead = result.receiptStatus === 'already_restored'
+      ? currentHead
+      : result
+    if (!commitRecoveryReceipt(stored.operation, acceptedHead)) {
+      return { status: 'recovering' }
+    }
+    return result.receiptStatus === 'already_restored'
+      ? { operation: stored.operation, status: 'current' }
+      : { ...recoveryReceiptResult(result), operation: stored.operation }
+  }
+
+  async function restoreRecoveryCandidate(context = {}) {
+    const operation = await prepareRecoveryOperation(context)
+    if (!operation) return { status: 'recovering' }
+    const result = await requestRecoveryOperation(operation)
+    if (result.status === 'rejected') {
+      clearRecoveryOperation(operation)
+      return { status: 'recovering' }
+    }
+    if (result.status !== 'restored') return result
+    return commitRecoveryReceipt(operation, result)
+      ? recoveryReceiptResult(result)
+      : { status: 'recovering' }
   }
 
   async function readPreservedConflict(receipt, operation, activation) {
@@ -1056,6 +1490,20 @@ export function createLearnerProfileCloudPersistenceAdapter({
     ) {
       return { status: 'waiting-authentication' }
     }
+    if (row.status === LEARNER_PROFILE_RESOLUTION_STATUSES.CURRENT_HEAD_MISSING) {
+      return resolveRecoveryCandidates({
+        authentication,
+        localProfile,
+        reason: LEARNER_PROFILE_RECOVERY_REASONS.CURRENT_HEAD_MISSING
+      })
+    }
+    if (row.status === LEARNER_PROFILE_RESOLUTION_STATUSES.CURRENT_HEAD_UNUSABLE) {
+      return resolveRecoveryCandidates({
+        authentication,
+        localProfile,
+        reason: LEARNER_PROFILE_RECOVERY_REASONS.CURRENT_HEAD_UNUSABLE
+      })
+    }
     if (
       row.status === LEARNER_PROFILE_RESOLUTION_STATUSES.RECOVERY_REQUIRED
     ) return { status: 'recovering' }
@@ -1070,18 +1518,40 @@ export function createLearnerProfileCloudPersistenceAdapter({
     ) return { status: 'recovering' }
     if (typeof row.created !== 'boolean') return { status: 'recovering' }
 
-    const profileId = String(row.profile_id || '')
-    const generation = normalizePositiveInteger(row.generation)
-    const revision = normalizePositiveInteger(row.revision)
+    let profileId = String(row.profile_id || '')
+    let generation = normalizePositiveInteger(row.generation)
+    let revision = normalizePositiveInteger(row.revision)
     if (!UUID_PATTERN.test(profileId) || !generation || !revision) {
       return { status: 'recovering' }
     }
     if (row.created && (generation !== 1 || revision !== 1)) {
       return { status: 'recovering' }
     }
-    const envelope = await verifyEnvelope(row.envelope)
-    const cloudProfile = envelope ? importEnvelope(envelope) : null
+    let envelope = await verifyEnvelope(row.envelope)
+    let cloudProfile = envelope ? importEnvelope(envelope) : null
     if (!cloudProfile) return { status: 'recovering' }
+    let recoveryFinalizationOperation = null
+    const resumedRecovery = await resumeRecoveryOperation(
+      authentication.userId,
+      { generation, profile: cloudProfile, profileId, revision }
+    )
+    if (resumedRecovery?.status === 'waiting-cloud') {
+      return waitForCloudHead()
+    }
+    if (resumedRecovery?.status === 'recovering') {
+      return { status: 'recovering' }
+    }
+    if (resumedRecovery?.status === 'current') {
+      recoveryFinalizationOperation = resumedRecovery.operation
+    }
+    if (resumedRecovery?.status === 'restored') {
+      recoveryFinalizationOperation = resumedRecovery.operation
+      generation = resumedRecovery.generation
+      profileId = resumedRecovery.profileId
+      revision = resumedRecovery.revision
+      cloudProfile = resumedRecovery.profile
+      envelope = prepareEnvelope(cloudProfile)
+    }
     if (purpose === 'replace-owner-profile') {
       return {
         created: row.created === true,
@@ -1245,6 +1715,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
     if (
       !backupRequired
+      && !recoveryFinalizationOperation
       && currentRecord
       && !hadPendingOperation
       && acceptedRevisionAtStart === revision
@@ -1274,7 +1745,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
       created: row.created === true,
       finalize({ isCurrent } = {}) {
         if (typeof isCurrent !== 'function' || !isCurrent()) return false
-        return clearOnboardingDraft()
+        if (!clearOnboardingDraft()) return false
+        return recoveryFinalizationOperation
+          ? clearRecoveryOperation(recoveryFinalizationOperation)
+          : true
       },
       generation,
       ownerId: authentication.userId,
@@ -1475,7 +1949,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
     requiresCloudHeadResolution,
     getReplacementProtection,
     markDirty,
+    readRecoveryCandidate,
     resolve,
+    restoreRecoveryCandidate,
     retry,
     save,
     start,
