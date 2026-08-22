@@ -134,7 +134,7 @@ test('account session state drives isolated UUID analytics identity with safe pr
 
   assert.match(
     source,
-    /onStateChange\(state\) \{\s*accountAuthViewState = state\s*learnerProfileAuthenticationAdapter\.observeAccountState\(state\)\s*accountAnalyticsIdentity\.synchronize\(state\)[\s\S]*reminderPreferencesController\.synchronizeAccount\([\s\S]*renderAccountSettings\(state\)/
+    /function applyAccountAuthenticationState\(state,[\s\S]*accountAuthViewState = state\s*accountlessProfileMigrationController\?\.observeAuthentication\(state\)[\s\S]*learnerProfileAuthenticationAdapter\.observeAccountState\(state\)[\s\S]*onStateChange\(state\) \{\s*applyAccountAuthenticationState\(state\)\s*accountAnalyticsIdentity\.synchronize\(state\)[\s\S]*reminderPreferencesController\.synchronizeAccount\([\s\S]*renderAccountSettings\(state\)/
   )
   assert.match(identitySource, /accountState\?\.userId/)
   assert.match(identitySource, /properties\.email = email/)

@@ -44,6 +44,7 @@ select results_eq(
     $$values
       ('learner_profile_rpc.choose_my_learner_profile_conflict(uuid,text,boolean)'::text),
       ('learner_profile_rpc.commit_my_learner_profile(uuid,uuid,bigint,bigint,jsonb)'::text),
+      ('learner_profile_rpc.migrate_my_accountless_profile(uuid,jsonb)'::text),
       ('learner_profile_rpc.read_my_learner_profile_conflict(uuid)'::text),
       ('learner_profile_rpc.resolve_my_learner_profile(jsonb)'::text)
     $$,
