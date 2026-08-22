@@ -726,6 +726,7 @@ test('offline progress survives reload and activates on a second device after sy
   let cloudEnvelope = await createReturningOwnerEnvelope()
   let cloudRevision = 12
   const commitRequests = []
+  const acceptedOperations = new Map()
 
   const installCloud = async targetPage => {
     await targetPage.route(`${SUPABASE_ORIGIN}/**`, async route => {
@@ -745,18 +746,29 @@ test('offline progress survives reload and activates on a second device after sy
       if (pathname === '/rest/v1/rpc/commit_my_learner_profile') {
         const operation = request.postDataJSON()
         commitRequests.push(operation)
+        const priorReceipt = acceptedOperations.get(operation.p_operation_id)
+        if (priorReceipt) {
+          expect(operation).toEqual(priorReceipt.operation)
+          await route.fulfill({
+            json: [{ ...priorReceipt.row, status: 'already_accepted' }],
+            status: 200
+          })
+          return
+        }
         expect(operation.p_base_revision).toBe(cloudRevision)
         cloudEnvelope = operation.p_envelope
         cloudRevision += 1
+        const row = {
+          base_revision: operation.p_base_revision,
+          generation: operation.p_generation,
+          payload_sha256: operation.p_envelope.integrity.payloadSha256,
+          profile_id: operation.p_profile_id,
+          revision: cloudRevision,
+          status: 'accepted'
+        }
+        acceptedOperations.set(operation.p_operation_id, { operation, row })
         await route.fulfill({
-          json: [{
-            base_revision: operation.p_base_revision,
-            generation: operation.p_generation,
-            payload_sha256: operation.p_envelope.integrity.payloadSha256,
-            profile_id: operation.p_profile_id,
-            revision: cloudRevision,
-            status: 'accepted'
-          }],
+          json: [row],
           status: 200
         })
         return

@@ -490,6 +490,12 @@ import {
   bindLearnerProfileSyncActions
 } from './features/profile-access/sync-actions.js'
 import {
+  bindLearnerProfileConflictActions
+} from './features/profile-access/conflict-actions.js'
+import {
+  createLearnerProfileConflictView
+} from './features/profile-access/conflict-view.js'
+import {
   createLearnerProfileAccessView
 } from './features/profile-access/view.js'
 import {
@@ -657,7 +663,8 @@ function createDisabledStateBackupStore() {
     createStateBackupFromState: () => null,
     getLatestBackupState: () => null,
     getStateBackupEntries: () => [],
-    pruneOldestStateBackup: () => false
+    pruneOldestStateBackup: () => false,
+    writeStateBackupEntries: () => []
   }
 }
 
@@ -895,7 +902,37 @@ function importSignedInProfileEnvelope(envelope) {
   return state
 }
 
+async function clearLearnerDerivedDataForOwnerReplacement() {
+  stateBackupStore.writeStateBackupEntries([])
+  const backupResult = await flushStateBackupWrites()
+  if (!backupResult.persisted || backupResult.entries.length !== 0) return false
+
+  const keys = [
+    ACCOUNT_STUDY_SYNC_OWNER_KEY,
+    PLUS_ENTITLEMENT_CACHE_KEY,
+    YOUTUBE_CHANNEL_SEARCH_CACHE_KEY,
+    YOUTUBE_CHANNEL_SEARCH_USAGE_KEY
+  ]
+  try {
+    for (const key of keys) localStorage.removeItem(key)
+    document.cookie = `${CONFIG_COOKIE_KEY}=; max-age=0; path=/`
+    return keys.every(key => localStorage.getItem(key) === null)
+      && getCookie(CONFIG_COOKIE_KEY) === null
+  } catch {
+    return false
+  }
+}
+
 const learnerProfileAccessView = createLearnerProfileAccessView({
+  root: document,
+  translate: t
+})
+const learnerProfileConflictView = createLearnerProfileConflictView({
+  formatDateTime: value => formatLocaleDateTime(value, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }),
+  formatNumber: value => new Intl.NumberFormat(getCurrentLocale()).format(value),
   root: document,
   translate: t
 })
@@ -917,6 +954,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
   const localPersistence = createLearnerProfileLocalPersistenceAdapter({
     accessStorageKey: LEARNER_PROFILE_ACCESS_KEY,
     accountlessProfileId: `accountless:${STORAGE_KEY}`,
+    clearLearnerDerivedData: clearLearnerDerivedDataForOwnerReplacement,
     eventTarget: window,
     hasProfile: hasPersistedLearnerProfile,
     loadProfile: () => loadPersistedState({ persistCleanup: false }),
@@ -1047,6 +1085,7 @@ const legacyProgressRelayClient = LEGACY_PROGRESS_RELAY_RUNTIME.valid
     })
 let legacyProgressManualImportDone = null
 let applicationStarted = false
+let renderedLearnerProfileOwnerId
 let migrationStartupRunning = false
 
 function normalizeLegacyProgressState(value) {
@@ -1458,6 +1497,7 @@ function applyTranslations(root = document) {
   })
   renderLocaleSelect()
   renderAccountSettings()
+  learnerProfileConflictView.refreshTranslations()
   learnerProfileSyncView.render(learnerProfileSyncViewState)
   renderPlusAccountSettings()
   renderPlusUpgradeModal()
@@ -2701,9 +2741,24 @@ function renderActivatedLearnerProfile(state) {
 
 function handleLearnerProfileAccessStateChange(accessState) {
   learnerProfileAccessView.render(accessState)
+  if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING) {
+    learnerProfileConflictView.renderConflict(accessState.conflict)
+  } else {
+    learnerProfileConflictView.hideConflict()
+  }
   if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
     const state = learnerProfileLifecycleAuthority?.readActiveProfile()
     if (!state) return
+    if (
+      applicationStarted
+      && renderedLearnerProfileOwnerId !== undefined
+      && renderedLearnerProfileOwnerId !== accessState.ownerId
+    ) {
+      window.location.reload()
+      return
+    }
+    renderedLearnerProfileOwnerId = accessState.ownerId
+    synchronizeAccountStudySnapshotForProfile(accessState, state)
     closeIntroTrailer()
     personalizedOnboardingState.active = false
     document.getElementById('onboardingPanel')?.classList.add('hidden')
@@ -2714,8 +2769,16 @@ function handleLearnerProfileAccessStateChange(accessState) {
     } else {
       renderActivatedLearnerProfile(state)
     }
+    if (accessState.protectedConflicts?.length) {
+      learnerProfileConflictView.showProtected(
+        accessState.protectedConflicts
+      )
+    } else {
+      learnerProfileConflictView.hideProtected()
+    }
     return
   }
+  learnerProfileConflictView.hideProtected()
   const publicOnboardingState = !hasPersistedLearnerProfile()
     ? loadOnboardingWorkingState()
     : null
@@ -2748,11 +2811,38 @@ function handleLearnerProfileAccessStateChange(accessState) {
     }
     return
   }
+  synchronizeAccountStudySnapshotForProfile(accessState, null)
   document.getElementById('mainApp')?.classList.add('hidden')
   document.getElementById('introTrailer')?.classList.add('hidden')
   document.getElementById('onboardingPanel')?.classList.add('hidden')
   document.getElementById('settingsPanel')?.classList.add('hidden')
+  document.getElementById('toast')?.classList.remove('show')
   document.title = 'Edenia'
+  if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.RELOADING) {
+    window.location.reload()
+  }
+}
+
+function synchronizeAccountStudySnapshotForProfile(accessState, profile) {
+  if (!accountStudySnapshotController) return
+  if (!learnerProfileLifecycleAuthority) {
+    accountStudySnapshotController.synchronizeAccount(
+      accountAuthViewState,
+      profile
+    )
+    return
+  }
+  const accountMatchesProfile = accessState?.status
+      === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+    && accountAuthViewState.sessionState === ACCOUNT_SESSION_STATES.SIGNED_IN
+    && accountAuthViewState.userId === accessState.ownerId
+    && profile
+  accountStudySnapshotController.synchronizeAccount(
+    accountMatchesProfile
+      ? accountAuthViewState
+      : { sessionState: ACCOUNT_SESSION_STATES.SIGNED_OUT },
+    accountMatchesProfile ? profile : null
+  )
 }
 
 function startApplicationFromLocalState() {
@@ -5883,7 +5973,13 @@ function initializeAccountAuth() {
           state,
           getReminderPreferenceDefaults()
         )
-        accountStudySnapshotController.synchronizeAccount(state, loadState())
+        const accessState = learnerProfileLifecycleAuthority?.getState()
+        synchronizeAccountStudySnapshotForProfile(
+          accessState,
+          accessState?.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+            ? learnerProfileLifecycleAuthority.readActiveProfile()
+            : learnerProfileLifecycleAuthority ? null : loadState()
+        )
         renderAccountSettings(state)
         if (personalizedOnboardingState.step === 'account') {
           renderPersonalizedOnboarding()
@@ -5991,6 +6087,28 @@ function signOutAccount() {
 
 function signOutAccountEverywhere() {
   return accountAuthController?.signOutEverywhere()
+}
+
+function continueLearnerProfileOwnerReplacement() {
+  return learnerProfileLifecycleAuthority?.replaceOwnerProfile({
+    protection: 'synchronized'
+  })
+}
+
+function exportAndReplaceLearnerProfileOwner() {
+  return learnerProfileLifecycleAuthority?.replaceOwnerProfile({
+    protection: 'exported'
+  })
+}
+
+function discardAndReplaceLearnerProfileOwner() {
+  if (!window.confirm(t('profileAccess.accountChange.discardConfirm'))) {
+    return false
+  }
+  return learnerProfileLifecycleAuthority?.replaceOwnerProfile({
+    confirmed: true,
+    protection: 'discarded'
+  })
 }
 
 function downloadAccountExport(data, filename) {
@@ -6361,9 +6479,10 @@ function saveLocaleFromSettings(locale = null) {
 
 function downloadLearnerProfileSyncFile(state, {
   exportedAt = Date.now(),
-  isCurrent = () => true
+  isCurrent = () => true,
+  side = null
 } = {}) {
-  void createPortableLearnerProfileEnvelope(state, {
+  return createPortableLearnerProfileEnvelope(state, {
     maxBytes: PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES,
     now: () => new Date(exportedAt)
   }).then(({ serialized }) => {
@@ -6372,21 +6491,27 @@ function downloadLearnerProfileSyncFile(state, {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `edenia-${IS_SANDBOX ? 'sandbox-' : ''}sync-${toDateKey()}.json`
+    const version = side === 'device'
+      ? 'this-device-'
+      : side === 'cloud'
+        ? 'cloud-'
+        : ''
+    link.download = `edenia-${IS_SANDBOX ? 'sandbox-' : ''}sync-${version}${toDateKey()}.json`
     document.body.appendChild(link)
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
     showToast(t('toast.syncExported'))
+    return true
   }).catch(() => {
     if (isCurrent()) showToast(t('toast.invalidSync'), 'error')
+    return false
   })
-  return true
 }
 
-function exportSyncFile() {
+async function exportSyncFile() {
   if (learnerProfileLifecycleAuthority) {
-    if (!learnerProfileLifecycleAuthority.exportActiveProfile()) {
+    if (!await learnerProfileLifecycleAuthority.exportActiveProfile()) {
       showToast(t('toast.nothingToSync'), 'warn')
     }
     return
@@ -17713,12 +17838,43 @@ bindSettingsAccountActions(document, {
   downloadAccount: downloadAccountData
 })
 bindLearnerProfileAccessActions(document, {
+  continueReplacement: continueLearnerProfileOwnerReplacement,
+  discardReplacement: discardAndReplaceLearnerProfileOwner,
+  exportReplacement: exportAndReplaceLearnerProfileOwner,
   retry: () => learnerProfileLifecycleAuthority?.refresh(),
   signOut: signOutAccount
 })
 bindLearnerProfileSyncActions(document, {
   retry: () => learnerProfileLifecycleAuthority?.retryCloudBackup(),
   exportRecovery: () => learnerProfileLifecycleAuthority?.exportActiveProfile()
+})
+bindLearnerProfileConflictActions(document, {
+  cancelChoice: () => learnerProfileConflictView.cancelChoice(),
+  async confirmChoice(side) {
+    learnerProfileConflictView.setBusy(true)
+    const chosen = await learnerProfileLifecycleAuthority
+      ?.chooseConflictVersion(side, { confirmed: true })
+    learnerProfileConflictView.setBusy(false)
+    if (!chosen) showToast(t('profileConflict.choiceFailed'), 'error')
+  },
+  exportBoth() {
+    const device = learnerProfileLifecycleAuthority
+      ?.exportConflictVersion('device') === true
+    const cloud = learnerProfileLifecycleAuthority
+      ?.exportConflictVersion('cloud') === true
+    if (!device || !cloud) {
+      showToast(t('profileConflict.exportFailed'), 'error')
+    }
+  },
+  exportVersion(side, conflictId) {
+    if (!learnerProfileLifecycleAuthority?.exportConflictVersion(
+      side,
+      conflictId
+    )) {
+      showToast(t('profileConflict.exportFailed'), 'error')
+    }
+  },
+  requestChoice: side => learnerProfileConflictView.requestChoice(side)
 })
 bindReminderPreferenceActions(document, {
   save: saveReminderPreference,
