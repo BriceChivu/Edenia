@@ -47,19 +47,20 @@
 
     const authSecretUrlParameterPattern = /(?:^|[_-])(?:access_token|refresh_token|id_token|token_hash|token|code|otp|credential|password|secret|session|nonce|captcha|api_key|key|capability|state|email)(?:$|[_-])/i;
 
+    function isAuthSecretParameterKey(key) {
+      const normalizedKey = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2');
+      return authSecretUrlParameterPattern.test(normalizedKey);
+    }
+
     function redactAuthSecretParameters(parameters) {
       for (const key of [...parameters.keys()]) {
-        const normalizedKey = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2');
-        if (authSecretUrlParameterPattern.test(normalizedKey)) {
-          parameters.set(key, '[REDACTED]');
-        }
+        if (isAuthSecretParameterKey(key)) parameters.set(key, '[REDACTED]');
       }
     }
 
     function hasAuthSecretParameters(parameters) {
       for (const key of parameters.keys()) {
-        const normalizedKey = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2');
-        if (authSecretUrlParameterPattern.test(normalizedKey)) return true;
+        if (isAuthSecretParameterKey(key)) return true;
       }
       return false;
     }
