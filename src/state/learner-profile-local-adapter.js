@@ -12,6 +12,22 @@ function isPositiveInteger(value) {
   return Number.isSafeInteger(value) && value > 0
 }
 
+const OWNER_REPLACEMENT_PROTECTIONS = new Set([
+  'discarded',
+  'exported',
+  'synchronized'
+])
+
+function isOwnerReplacement(value) {
+  return isRecord(value)
+    && typeof value.id === 'string'
+    && Boolean(value.id)
+    && typeof value.nextOwnerId === 'string'
+    && Boolean(value.nextOwnerId)
+    && OWNER_REPLACEMENT_PROTECTIONS.has(value.protection)
+    && Number.isFinite(value.startedAt)
+}
+
 function readAccessRecord(storage, accessStorageKey) {
   const serialized = storage.getItem(accessStorageKey)
   if (serialized === null) return { present: false, record: null }
@@ -36,6 +52,10 @@ function readAccessRecord(storage, accessStorageKey) {
       || (
         record.onboardingFinalizationPending !== undefined
         && typeof record.onboardingFinalizationPending !== 'boolean'
+      )
+      || (
+        record.replacement !== undefined
+        && !isOwnerReplacement(record.replacement)
       )
       || !Number.isFinite(record.activatedAt)
     ) return { present: true, record: null }
@@ -65,6 +85,7 @@ function isValidFence(fence) {
 export function createLearnerProfileLocalPersistenceAdapter({
   accessStorageKey,
   accountlessProfileId,
+  clearLearnerDerivedData = async () => true,
   eventTarget,
   hasProfile = () => true,
   loadProfile,
@@ -85,6 +106,17 @@ export function createLearnerProfileLocalPersistenceAdapter({
       return access.present ? { status: 'invalid' } : { status: 'empty' }
     }
     if (access.present && !access.record) return { status: 'invalid' }
+    if (access.record?.replacement) {
+      return {
+        nextOwnerId: access.record.replacement.nextOwnerId,
+        previousOwnerId: access.record.ownerId,
+        previousProfileId: access.record.profileId,
+        protection: access.record.replacement.protection,
+        startedAt: access.record.replacement.startedAt,
+        status: 'replacing',
+        transitionId: access.record.replacement.id
+      }
+    }
     const localProfile = {
       ownerId: access.record?.ownerId || null,
       profile,
@@ -166,6 +198,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
   function claimActivation(fence) {
     if (!isValidFence(fence)) return false
     const current = readAccessRecord(storage, accessStorageKey).record
+    if (current?.replacement) return false
     const record = {
       activatedAt: fence.activatedAt,
       activationId: fence.id,
@@ -183,6 +216,139 @@ export function createLearnerProfileLocalPersistenceAdapter({
     try {
       storage.setItem(accessStorageKey, JSON.stringify(record))
       return isActivationCurrent(fence)
+    } catch {
+      return false
+    }
+  }
+
+  function isOwnerReplacementCurrent(transition) {
+    if (
+      !isRecord(transition)
+      || typeof transition.id !== 'string'
+      || !transition.id
+      || typeof transition.nextOwnerId !== 'string'
+      || !transition.nextOwnerId
+      || typeof transition.previousOwnerId !== 'string'
+      || !transition.previousOwnerId
+      || typeof transition.previousProfileId !== 'string'
+      || !transition.previousProfileId
+      || !OWNER_REPLACEMENT_PROTECTIONS.has(transition.protection)
+      || !Number.isFinite(transition.startedAt)
+    ) return false
+    try {
+      const current = readAccessRecord(storage, accessStorageKey).record
+      return current?.ownerId === transition.previousOwnerId
+        && current.profileId === transition.previousProfileId
+        && current.replacement?.id === transition.id
+        && current.replacement.nextOwnerId === transition.nextOwnerId
+        && current.replacement.protection === transition.protection
+        && current.replacement.startedAt === transition.startedAt
+    } catch {
+      return false
+    }
+  }
+
+  function beginOwnerReplacement({
+    id,
+    nextOwnerId,
+    previousOwnerId,
+    previousProfileId,
+    protection,
+    startedAt
+  } = {}) {
+    const transition = Object.freeze({
+      id,
+      nextOwnerId,
+      previousOwnerId,
+      previousProfileId,
+      protection,
+      startedAt
+    })
+    if (
+      typeof id !== 'string'
+      || !id.startsWith('replacement-')
+      || typeof nextOwnerId !== 'string'
+      || !nextOwnerId
+      || typeof previousOwnerId !== 'string'
+      || !previousOwnerId
+      || nextOwnerId === previousOwnerId
+      || typeof previousProfileId !== 'string'
+      || !previousProfileId
+      || !OWNER_REPLACEMENT_PROTECTIONS.has(protection)
+      || !Number.isFinite(startedAt)
+    ) return null
+    const current = readAccessRecord(storage, accessStorageKey).record
+    if (
+      !current
+      || current.activationId !== null
+      || current.replacement
+      || current.ownerId !== previousOwnerId
+      || current.profileId !== previousProfileId
+      || !hasProfile()
+    ) return null
+    try {
+      storage.setItem(accessStorageKey, JSON.stringify({
+        ...current,
+        activatedAt: startedAt,
+        replacement: {
+          id,
+          nextOwnerId,
+          protection,
+          startedAt
+        }
+      }))
+      return isOwnerReplacementCurrent(transition) ? transition : null
+    } catch {
+      return null
+    }
+  }
+
+  async function completeOwnerReplacement(
+    profile,
+    { generation, ownerId, profileId, revision } = {},
+    transition
+  ) {
+    if (
+      !isRecord(profile)
+      || typeof ownerId !== 'string'
+      || ownerId !== transition?.nextOwnerId
+      || typeof profileId !== 'string'
+      || !profileId
+      || !isPositiveInteger(generation)
+      || !isPositiveInteger(revision)
+      || !isOwnerReplacementCurrent(transition)
+    ) return false
+    const isCurrent = () => isOwnerReplacementCurrent(transition)
+    let result
+    try {
+      result = replaceProfile(profile, {
+        backup: false,
+        syncAnalytics: false
+      }, isCurrent)
+    } catch {
+      return false
+    }
+    if (!result?.persisted || !isCurrent()) return false
+    try {
+      if (await clearLearnerDerivedData() !== true || !isCurrent()) {
+        return false
+      }
+      storage.setItem(accessStorageKey, JSON.stringify({
+        activatedAt: transition.startedAt,
+        activationId: null,
+        generation,
+        onboardingFinalizationPending: false,
+        ownerId,
+        profileId,
+        revision,
+        version: PROFILE_ACCESS_RECORD_VERSION
+      }))
+      const completed = read()
+      return completed.status === 'ready'
+        && completed.ownerId === ownerId
+        && completed.profileId === profileId
+        && completed.generation === generation
+        && completed.revision === revision
     } catch {
       return false
     }
@@ -332,7 +498,9 @@ export function createLearnerProfileLocalPersistenceAdapter({
   }
 
   return Object.freeze({
+    beginOwnerReplacement,
     claimActivation,
+    completeOwnerReplacement,
     completeOnboardingFinalization,
     installSignedInProfile,
     isActivationCurrent,

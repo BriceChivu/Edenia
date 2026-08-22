@@ -9,7 +9,10 @@ import {
 
 const OWNER_ID = '123e4567-e89b-42d3-a456-426614174000'
 const PROFILE_ID = '223e4567-e89b-42d3-a456-426614174001'
+const SECOND_OWNER_ID = '323e4567-e89b-42d3-a456-426614174002'
+const SECOND_PROFILE_ID = '423e4567-e89b-42d3-a456-426614174003'
 const SYNC_STORAGE_KEY = 'edenia_profile_sync_v1'
+const DIRTY_STORAGE_KEY = `${SYNC_STORAGE_KEY}_dirty`
 
 function createMemoryStorage(initial = {}) {
   const values = new Map(Object.entries(initial))
@@ -156,6 +159,251 @@ test('cloud unavailability remains distinct from unsafe profile recovery', async
   assert.deepEqual(await rejected.resolve(context), {
     status: 'recovering'
   })
+})
+
+test('owner replacement prepares the new cloud profile before replacing the old sync binding', async () => {
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 4,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const nextProfile = { learnerProfile: { languages: ['mandarin'] } }
+  const adapter = createAdapter({
+    rpc: async name => {
+      assert.equal(name, 'resolve_my_learner_profile')
+      return {
+        data: [{
+          created: false,
+          envelope: { profile: nextProfile },
+          generation: 2,
+          profile_id: SECOND_PROFILE_ID,
+          revision: 7,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+  const previousLocal = {
+    generation: 1,
+    ownerId: OWNER_ID,
+    profile: { learnerProfile: { languages: ['french'] } },
+    profileId: PROFILE_ID,
+    revision: 4,
+    status: 'ready'
+  }
+
+  assert.equal(
+    adapter.getReplacementProtection(previousLocal),
+    'synchronized'
+  )
+  const result = await adapter.resolve({
+    authentication: { userId: SECOND_OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: previousLocal,
+    purpose: 'replace-owner-profile'
+  })
+
+  assert.deepEqual(result, {
+    created: false,
+    generation: 2,
+    ownerId: SECOND_OWNER_ID,
+    profile: nextProfile,
+    profileId: SECOND_PROFILE_ID,
+    revision: 7,
+    status: 'activate'
+  })
+  assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).ownerId, OWNER_ID)
+
+  assert.equal(adapter.commitReplacement(result, {
+    id: 'replacement-cloud-test',
+    nextOwnerId: SECOND_OWNER_ID,
+    previousOwnerId: OWNER_ID,
+    previousProfileId: PROFILE_ID,
+    protection: 'synchronized',
+    startedAt: 200
+  }), true)
+  assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)), {
+    acceptedRevision: 7,
+    generation: 2,
+    ownerId: SECOND_OWNER_ID,
+    pending: null,
+    profileId: SECOND_PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+})
+
+test('explicit protection replaces unverifiable sync metadata without weakening synchronized replacement', () => {
+  const replacement = {
+    generation: 2,
+    ownerId: SECOND_OWNER_ID,
+    profile: { learnerProfile: { languages: ['mandarin'] } },
+    profileId: SECOND_PROFILE_ID,
+    revision: 7,
+    status: 'activate'
+  }
+  const transition = protection => ({
+    id: `replacement-${protection}-test`,
+    nextOwnerId: SECOND_OWNER_ID,
+    previousOwnerId: OWNER_ID,
+    previousProfileId: PROFILE_ID,
+    protection,
+    startedAt: 200
+  })
+
+  const missingStorage = createMemoryStorage()
+  const missingAdapter = createAdapter({ storage: missingStorage })
+  assert.equal(
+    missingAdapter.commitReplacement(
+      replacement,
+      transition('synchronized')
+    ),
+    false
+  )
+  assert.equal(
+    missingAdapter.commitReplacement(replacement, transition('exported')),
+    true
+  )
+  assert.deepEqual(JSON.parse(missingStorage.getItem(SYNC_STORAGE_KEY)), {
+    acceptedRevision: 7,
+    generation: 2,
+    ownerId: SECOND_OWNER_ID,
+    pending: null,
+    profileId: SECOND_PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+
+  const malformedStorage = createMemoryStorage({
+    [DIRTY_STORAGE_KEY]: '{"broken":',
+    [SYNC_STORAGE_KEY]: '{"broken":'
+  })
+  const malformedAdapter = createAdapter({ storage: malformedStorage })
+  assert.equal(
+    malformedAdapter.commitReplacement(replacement, transition('discarded')),
+    true
+  )
+  assert.equal(malformedStorage.getItem(DIRTY_STORAGE_KEY), null)
+  assert.equal(
+    JSON.parse(malformedStorage.getItem(SYNC_STORAGE_KEY)).ownerId,
+    SECOND_OWNER_ID
+  )
+
+  const competingStorage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 3,
+      generation: 1,
+      ownerId: SECOND_OWNER_ID,
+      pending: null,
+      profileId: SECOND_PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  assert.equal(
+    createAdapter({ storage: competingStorage }).commitReplacement(
+      replacement,
+      transition('exported')
+    ),
+    false
+  )
+})
+
+test('an in-flight upload from the previous owner is inert after replacement', async () => {
+  const upload = deferred()
+  let operation = null
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 4,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const adapter = createAdapter({
+    rpc: async (name, parameters) => {
+      assert.equal(name, 'commit_my_learner_profile')
+      operation = parameters
+      return upload.promise
+    },
+    storage
+  })
+  const activation = {
+    activatedAt: 100,
+    generation: 1,
+    id: 'old-owner-activation',
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID,
+    revision: 4
+  }
+  let activationCurrent = true
+  assert.equal(adapter.activate({
+    activation,
+    generation: 1,
+    isCurrent: () => activationCurrent,
+    revision: 4
+  }), true)
+  assert.deepEqual(adapter.save({ learnerProfile: { languages: ['french'] } }, {
+    activation,
+    isCurrent: () => activationCurrent
+  }), { status: 'queued' })
+  await flush()
+  assert.ok(operation)
+
+  activationCurrent = false
+  const replacement = {
+    generation: 2,
+    ownerId: SECOND_OWNER_ID,
+    profile: { learnerProfile: { languages: ['mandarin'] } },
+    profileId: SECOND_PROFILE_ID,
+    revision: 7,
+    status: 'activate'
+  }
+  assert.equal(adapter.commitReplacement(replacement, {
+    id: 'replacement-stale-upload-test',
+    nextOwnerId: SECOND_OWNER_ID,
+    previousOwnerId: OWNER_ID,
+    previousProfileId: PROFILE_ID,
+    protection: 'exported',
+    startedAt: 200
+  }), true)
+  assert.deepEqual(adapter.getState(), { status: 'idle' })
+
+  upload.resolve({
+    data: [{
+      base_revision: operation.p_base_revision,
+      generation: operation.p_generation,
+      payload_sha256: operation.p_envelope.integrity.payloadSha256,
+      profile_id: operation.p_profile_id,
+      revision: operation.p_base_revision + 1,
+      status: 'accepted'
+    }],
+    error: null,
+    status: 200
+  })
+  await flush()
+
+  assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)), {
+    acceptedRevision: 7,
+    generation: 2,
+    ownerId: SECOND_OWNER_ID,
+    pending: null,
+    profileId: SECOND_PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+  assert.deepEqual(adapter.getState(), { status: 'idle' })
 })
 
 test('an unsupported or damaged cloud envelope cannot activate or clear local state', async () => {
@@ -943,11 +1191,13 @@ test('a malformed durable sync record is preserved for recovery', async () => {
   assert.equal(storage.getItem(SYNC_STORAGE_KEY), malformed)
 })
 
-test('queue preparation failures publish an accessible failed sync state', async () => {
+test('queue preparation failures durably block unsafe owner replacement', async () => {
+  const storage = createMemoryStorage()
   const adapter = createAdapter({
     prepareEnvelope: () => {
       throw new TypeError('invalid local candidate')
-    }
+    },
+    storage
   })
   const states = []
   adapter.subscribe(state => states.push(state.status))
@@ -974,6 +1224,10 @@ test('queue preparation failures publish an accessible failed sync state', async
     isCurrent: () => true,
     revision: resolved.revision
   })
+  assert.equal(adapter.markDirty({
+    activation,
+    isCurrent: () => true
+  }), true)
 
   assert.deepEqual(
     adapter.save({ marker: 'invalid' }, {
@@ -983,6 +1237,90 @@ test('queue preparation failures publish an accessible failed sync state', async
     { status: 'needs-attention' }
   )
   assert.equal(states.at(-1), 'needs-attention')
+  assert.deepEqual(JSON.parse(storage.getItem(DIRTY_STORAGE_KEY)), {
+    generation: 1,
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID,
+    version: 1
+  })
+
+  const reloaded = createAdapter({
+    prepareEnvelope: () => {
+      throw new TypeError('invalid local candidate')
+    },
+    storage
+  })
+  const localProfile = {
+    generation: 1,
+    ownerId: OWNER_ID,
+    profile: { marker: 'invalid' },
+    profileId: PROFILE_ID,
+    status: 'ready'
+  }
+  assert.equal(reloaded.getReplacementProtection(localProfile), 'pending')
+  assert.deepEqual(await reloaded.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile,
+    purpose: 'resolve-signed-in-profile'
+  }), { status: 'recovering' })
+  assert.notEqual(storage.getItem(DIRTY_STORAGE_KEY), null)
+})
+
+test('sync-record write failures preserve the durable unsynchronized marker', () => {
+  const baseStorage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 1,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  let rejectSyncWrites = false
+  const storage = {
+    getItem: key => baseStorage.getItem(key),
+    removeItem: key => baseStorage.removeItem(key),
+    setItem(key, value) {
+      if (rejectSyncWrites && key === SYNC_STORAGE_KEY) {
+        throw new TypeError('storage unavailable')
+      }
+      baseStorage.setItem(key, value)
+    }
+  }
+  const adapter = createAdapter({ storage })
+  const activation = {
+    activatedAt: 1,
+    id: 'activation-current',
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  }
+  assert.equal(adapter.activate({
+    activation,
+    generation: 1,
+    isCurrent: () => true,
+    revision: 1
+  }), true)
+  assert.equal(adapter.markDirty({
+    activation,
+    isCurrent: () => true
+  }), true)
+
+  rejectSyncWrites = true
+  assert.deepEqual(adapter.save({ marker: 'local' }, {
+    activation,
+    isCurrent: () => true
+  }), { status: 'needs-attention' })
+  assert.notEqual(storage.getItem(DIRTY_STORAGE_KEY), null)
+  assert.equal(adapter.getReplacementProtection({
+    generation: 1,
+    ownerId: OWNER_ID,
+    profile: { marker: 'local' },
+    profileId: PROFILE_ID,
+    status: 'ready'
+  }), 'pending')
 })
 
 test('a stale commit exposes both server-preserved conflict versions without choosing', async () => {

@@ -658,7 +658,8 @@ function createDisabledStateBackupStore() {
     createStateBackupFromState: () => null,
     getLatestBackupState: () => null,
     getStateBackupEntries: () => [],
-    pruneOldestStateBackup: () => false
+    pruneOldestStateBackup: () => false,
+    writeStateBackupEntries: () => []
   }
 }
 
@@ -896,6 +897,27 @@ function importSignedInProfileEnvelope(envelope) {
   return state
 }
 
+async function clearLearnerDerivedDataForOwnerReplacement() {
+  stateBackupStore.writeStateBackupEntries([])
+  const backupResult = await flushStateBackupWrites()
+  if (!backupResult.persisted || backupResult.entries.length !== 0) return false
+
+  const keys = [
+    ACCOUNT_STUDY_SYNC_OWNER_KEY,
+    PLUS_ENTITLEMENT_CACHE_KEY,
+    YOUTUBE_CHANNEL_SEARCH_CACHE_KEY,
+    YOUTUBE_CHANNEL_SEARCH_USAGE_KEY
+  ]
+  try {
+    for (const key of keys) localStorage.removeItem(key)
+    document.cookie = `${CONFIG_COOKIE_KEY}=; max-age=0; path=/`
+    return keys.every(key => localStorage.getItem(key) === null)
+      && getCookie(CONFIG_COOKIE_KEY) === null
+  } catch {
+    return false
+  }
+}
+
 const learnerProfileAccessView = createLearnerProfileAccessView({
   root: document,
   translate: t
@@ -927,6 +949,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
   const localPersistence = createLearnerProfileLocalPersistenceAdapter({
     accessStorageKey: LEARNER_PROFILE_ACCESS_KEY,
     accountlessProfileId: `accountless:${STORAGE_KEY}`,
+    clearLearnerDerivedData: clearLearnerDerivedDataForOwnerReplacement,
     eventTarget: window,
     hasProfile: hasPersistedLearnerProfile,
     loadProfile: () => loadPersistedState({ persistCleanup: false }),
@@ -1043,6 +1066,7 @@ const legacyProgressRelayClient = LEGACY_PROGRESS_RELAY_RUNTIME.valid
     })
 let legacyProgressManualImportDone = null
 let applicationStarted = false
+let renderedLearnerProfileOwnerId
 let migrationStartupRunning = false
 
 function normalizeLegacyProgressState(value) {
@@ -2706,6 +2730,16 @@ function handleLearnerProfileAccessStateChange(accessState) {
   if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
     const state = learnerProfileLifecycleAuthority?.readActiveProfile()
     if (!state) return
+    if (
+      applicationStarted
+      && renderedLearnerProfileOwnerId !== undefined
+      && renderedLearnerProfileOwnerId !== accessState.ownerId
+    ) {
+      window.location.reload()
+      return
+    }
+    renderedLearnerProfileOwnerId = accessState.ownerId
+    synchronizeAccountStudySnapshotForProfile(accessState, state)
     closeIntroTrailer()
     personalizedOnboardingState.active = false
     document.getElementById('onboardingPanel')?.classList.add('hidden')
@@ -2758,11 +2792,38 @@ function handleLearnerProfileAccessStateChange(accessState) {
     }
     return
   }
+  synchronizeAccountStudySnapshotForProfile(accessState, null)
   document.getElementById('mainApp')?.classList.add('hidden')
   document.getElementById('introTrailer')?.classList.add('hidden')
   document.getElementById('onboardingPanel')?.classList.add('hidden')
   document.getElementById('settingsPanel')?.classList.add('hidden')
+  document.getElementById('toast')?.classList.remove('show')
   document.title = 'Edenia'
+  if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.RELOADING) {
+    window.location.reload()
+  }
+}
+
+function synchronizeAccountStudySnapshotForProfile(accessState, profile) {
+  if (!accountStudySnapshotController) return
+  if (!learnerProfileLifecycleAuthority) {
+    accountStudySnapshotController.synchronizeAccount(
+      accountAuthViewState,
+      profile
+    )
+    return
+  }
+  const accountMatchesProfile = accessState?.status
+      === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+    && accountAuthViewState.sessionState === ACCOUNT_SESSION_STATES.SIGNED_IN
+    && accountAuthViewState.userId === accessState.ownerId
+    && profile
+  accountStudySnapshotController.synchronizeAccount(
+    accountMatchesProfile
+      ? accountAuthViewState
+      : { sessionState: ACCOUNT_SESSION_STATES.SIGNED_OUT },
+    accountMatchesProfile ? profile : null
+  )
 }
 
 function startApplicationFromLocalState() {
@@ -5893,7 +5954,13 @@ function initializeAccountAuth() {
           state,
           getReminderPreferenceDefaults()
         )
-        accountStudySnapshotController.synchronizeAccount(state, loadState())
+        const accessState = learnerProfileLifecycleAuthority?.getState()
+        synchronizeAccountStudySnapshotForProfile(
+          accessState,
+          accessState?.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+            ? learnerProfileLifecycleAuthority.readActiveProfile()
+            : learnerProfileLifecycleAuthority ? null : loadState()
+        )
         renderAccountSettings(state)
         if (personalizedOnboardingState.step === 'account') {
           renderPersonalizedOnboarding()
@@ -6001,6 +6068,28 @@ function signOutAccount() {
 
 function signOutAccountEverywhere() {
   return accountAuthController?.signOutEverywhere()
+}
+
+function continueLearnerProfileOwnerReplacement() {
+  return learnerProfileLifecycleAuthority?.replaceOwnerProfile({
+    protection: 'synchronized'
+  })
+}
+
+function exportAndReplaceLearnerProfileOwner() {
+  return learnerProfileLifecycleAuthority?.replaceOwnerProfile({
+    protection: 'exported'
+  })
+}
+
+function discardAndReplaceLearnerProfileOwner() {
+  if (!window.confirm(t('profileAccess.accountChange.discardConfirm'))) {
+    return false
+  }
+  return learnerProfileLifecycleAuthority?.replaceOwnerProfile({
+    confirmed: true,
+    protection: 'discarded'
+  })
 }
 
 function downloadAccountExport(data, filename) {
@@ -6374,7 +6463,7 @@ function downloadLearnerProfileSyncFile(state, {
   isCurrent = () => true,
   side = null
 } = {}) {
-  void createPortableLearnerProfileEnvelope(state, {
+  return createPortableLearnerProfileEnvelope(state, {
     maxBytes: Number.MAX_SAFE_INTEGER,
     now: () => new Date(exportedAt)
   }).then(({ serialized }) => {
@@ -6394,15 +6483,16 @@ function downloadLearnerProfileSyncFile(state, {
     link.remove()
     URL.revokeObjectURL(url)
     showToast(t('toast.syncExported'))
+    return true
   }).catch(() => {
     if (isCurrent()) showToast(t('toast.invalidSync'), 'error')
+    return false
   })
-  return true
 }
 
-function exportSyncFile() {
+async function exportSyncFile() {
   if (learnerProfileLifecycleAuthority) {
-    if (!learnerProfileLifecycleAuthority.exportActiveProfile()) {
+    if (!await learnerProfileLifecycleAuthority.exportActiveProfile()) {
       showToast(t('toast.nothingToSync'), 'warn')
     }
     return
@@ -17729,6 +17819,9 @@ bindSettingsAccountActions(document, {
   downloadAccount: downloadAccountData
 })
 bindLearnerProfileAccessActions(document, {
+  continueReplacement: continueLearnerProfileOwnerReplacement,
+  discardReplacement: discardAndReplaceLearnerProfileOwner,
+  exportReplacement: exportAndReplaceLearnerProfileOwner,
   retry: () => learnerProfileLifecycleAuthority?.refresh(),
   signOut: signOutAccount
 })

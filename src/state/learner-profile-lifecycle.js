@@ -1,10 +1,13 @@
 export const LEARNER_PROFILE_ACCESS_STATES = Object.freeze({
   ACTIVE: 'active',
+  ACCOUNT_CHANGE: 'account-change',
   CONFLICTING: 'conflicting',
   LOCKED: 'locked',
   MIGRATING: 'migrating',
   RECOVERING: 'recovering',
   RESOLVING: 'resolving',
+  RELOADING: 'reloading',
+  REPLACING: 'replacing',
   WAITING_AUTHENTICATION: 'waiting-authentication',
   WAITING_CLOUD: 'waiting-cloud'
 })
@@ -61,7 +64,8 @@ export function createLearnerProfileLifecycleAuthority({
     conflict = null,
     ownerId = null,
     profileId = null,
-    protectedConflicts = []
+    protectedConflicts = [],
+    replacement = null
   } = {}) {
     const retainedConflicts = Object.freeze([...protectedConflicts])
     currentState = Object.freeze({
@@ -72,11 +76,21 @@ export function createLearnerProfileLifecycleAuthority({
       ...(retainedConflicts.length
         ? { protectedConflicts: retainedConflicts }
         : {}),
+      ...(replacement ? { replacement: Object.freeze(replacement) } : {}),
       status
     })
     onStateChange(currentState)
     analytics.accessChanged(currentState)
     return currentState
+  }
+
+  function publishAccountChange(localProfile) {
+    const protectionStatus = cloudPersistence.getReplacementProtection?.(
+      localProfile
+    ) || 'blocked'
+    return publish(LEARNER_PROFILE_ACCESS_STATES.ACCOUNT_CHANGE, {
+      replacement: { protectionStatus }
+    })
   }
 
   function releaseActiveProfile() {
@@ -202,6 +216,16 @@ export function createLearnerProfileLifecycleAuthority({
       activation,
       isCurrent: () => Boolean(getCurrentActivationFor(profile))
     })).catch(() => {})
+  }
+
+  function markCloudSaveRequired(profile, activation) {
+    if (!activation.ownerId || typeof cloudPersistence.markDirty !== 'function') {
+      return true
+    }
+    return cloudPersistence.markDirty({
+      activation,
+      isCurrent: () => getCurrentActivationFor(profile) === activation
+    }) === true
   }
 
   function resolveCloudProfile({ auth, localProfile, purpose, requestId }) {
@@ -386,9 +410,30 @@ export function createLearnerProfileLifecycleAuthority({
       if (!auth.userId || localProfile?.status === 'invalid') {
         return publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
       }
+      if (localProfile?.status === 'replacing') {
+        if (localProfile.nextOwnerId !== auth.userId) {
+          return publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+        }
+        publish(LEARNER_PROFILE_ACCESS_STATES.REPLACING)
+        void finishOwnerReplacement({
+          auth,
+          localProfile,
+          protection: localProfile.protection,
+          requestId,
+          transition: {
+            id: localProfile.transitionId,
+            nextOwnerId: localProfile.nextOwnerId,
+            previousOwnerId: localProfile.previousOwnerId,
+            previousProfileId: localProfile.previousProfileId,
+            protection: localProfile.protection,
+            startedAt: localProfile.startedAt
+          }
+        })
+        return currentState
+      }
       if (isSignedInProfile(localProfile) && localProfile.ownerId !== auth.userId) {
         ownerVerification?.clear?.()
-        return publish(LEARNER_PROFILE_ACCESS_STATES.CONFLICTING)
+        return publishAccountChange(localProfile)
       }
       if (
         connectivity.getObservation()?.status !== 'online'
@@ -517,6 +562,7 @@ export function createLearnerProfileLifecycleAuthority({
   function saveActiveProfile(profile, options = {}) {
     const activation = getCurrentActivationFor(profile)
     if (!activation) return false
+    if (!markCloudSaveRequired(profile, activation)) return false
     const persisted = localPersistence.save(profile, options, activation)
     if (!persisted || !getCurrentActivationFor(profile)) return false
     analytics.profileSaved(profile, { activation })
@@ -534,6 +580,9 @@ export function createLearnerProfileLifecycleAuthority({
     ) return { persisted: false, error: null }
     const previousState = currentState
     const previousOfflineExpiresAt = offlineVerificationExpiresAt
+    if (!markCloudSaveRequired(previousProfile, previousState.activation)) {
+      return { persisted: false, error: null }
+    }
     releaseActiveProfile()
     const activation = Object.freeze({
       activatedAt: clock.now(),
@@ -564,11 +613,11 @@ export function createLearnerProfileLifecycleAuthority({
     return result
   }
 
-  function exportActiveProfile() {
+  async function exportActiveProfile() {
     const profile = readActiveProfile()
     if (!profile) return false
     const activation = currentState.activation
-    return exportDownload.download(profile, {
+    return await exportDownload.download(profile, {
       activation,
       exportedAt: clock.now(),
       isCurrent: () => getCurrentActivationFor(profile) === activation
@@ -705,6 +754,147 @@ export function createLearnerProfileLifecycleAuthority({
     return true
   }
 
+  async function finishOwnerReplacement({
+    auth,
+    localProfile,
+    protection,
+    requestId,
+    transition: existingTransition = null
+  }) {
+    let transition = existingTransition
+    try {
+      const result = await cloudPersistence.resolve({
+        authentication: auth,
+        connectivity: connectivity.getObservation(),
+        localProfile,
+        purpose: 'replace-owner-profile'
+      })
+      const currentAuth = authentication.getObservation()
+      const currentLocal = localPersistence.read()
+      const localIsCurrent = transition
+        ? currentLocal?.status === 'replacing'
+          && currentLocal.transitionId === transition.id
+          && currentLocal.nextOwnerId === transition.nextOwnerId
+        : currentLocal?.status === 'ready'
+          && currentLocal.ownerId === localProfile.ownerId
+          && currentLocal.profileId === localProfile.profileId
+      if (
+        requestId !== resolutionId
+        || currentState.status !== LEARNER_PROFILE_ACCESS_STATES.REPLACING
+        || currentAuth?.status !== 'signed-in'
+        || currentAuth.userId !== auth.userId
+        || !localIsCurrent
+        || result?.status !== 'activate'
+        || result.ownerId !== auth.userId
+        || typeof result.profileId !== 'string'
+        || !result.profileId
+        || !result.profile
+        || typeof result.profile !== 'object'
+        || !Number.isSafeInteger(result.generation)
+        || result.generation <= 0
+        || !Number.isSafeInteger(result.revision)
+        || result.revision <= 0
+      ) throw new TypeError('Owner replacement could not be prepared')
+
+      if (!transition) {
+        transition = localPersistence.beginOwnerReplacement({
+          id: `replacement-${createActivationId()}`,
+          nextOwnerId: result.ownerId,
+          previousOwnerId: localProfile.ownerId,
+          previousProfileId: localProfile.profileId,
+          protection,
+          startedAt: clock.now()
+        })
+      }
+      if (!transition) {
+        throw new TypeError('Owner replacement could not be fenced')
+      }
+      if (cloudPersistence.commitReplacement(result, transition) !== true) {
+        throw new TypeError('Owner replacement sync state could not be installed')
+      }
+      const completed = await localPersistence.completeOwnerReplacement(
+        result.profile,
+        {
+          generation: result.generation,
+          ownerId: result.ownerId,
+          profileId: result.profileId,
+          revision: result.revision
+        },
+        transition
+      )
+      if (!completed) {
+        throw new TypeError('Owner replacement could not be persisted')
+      }
+      ownerVerification?.record?.({
+        ownerId: result.ownerId,
+        verifiedAt: clock.now()
+      })
+      publish(LEARNER_PROFILE_ACCESS_STATES.RELOADING)
+      return true
+    } catch {
+      if (requestId !== resolutionId) return false
+      if (transition) {
+        publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+      } else {
+        publishAccountChange(localPersistence.read())
+      }
+      return false
+    }
+  }
+
+  async function replaceOwnerProfile({
+    confirmed = false,
+    protection
+  } = {}) {
+    if (
+      currentState.status !== LEARNER_PROFILE_ACCESS_STATES.ACCOUNT_CHANGE
+      || !['discarded', 'exported', 'synchronized'].includes(protection)
+    ) return false
+    const auth = authentication.getObservation()
+    const localProfile = localPersistence.read()
+    if (
+      auth?.status !== 'signed-in'
+      || !auth.userId
+      || !isSignedInProfile(localProfile)
+      || localProfile.ownerId === auth.userId
+    ) return false
+
+    const protectionStatus = cloudPersistence.getReplacementProtection?.(
+      localProfile
+    ) || 'blocked'
+    if (
+      protection === 'synchronized'
+      && protectionStatus !== 'synchronized'
+    ) return false
+    if (protection === 'discarded' && confirmed !== true) return false
+    if (protection === 'exported') {
+      const downloaded = await exportDownload.download(localProfile.profile, {
+        exportedAt: clock.now(),
+        isCurrent: () => {
+          const currentAuth = authentication.getObservation()
+          const currentLocal = localPersistence.read()
+          return currentState.status
+              === LEARNER_PROFILE_ACCESS_STATES.ACCOUNT_CHANGE
+            && currentAuth?.status === 'signed-in'
+            && currentAuth.userId === auth.userId
+            && currentLocal?.status === 'ready'
+            && currentLocal.ownerId === localProfile.ownerId
+            && currentLocal.profileId === localProfile.profileId
+        }
+      })
+      if (downloaded !== true) return false
+    }
+
+    const requestId = ++resolutionId
+    publish(LEARNER_PROFILE_ACCESS_STATES.REPLACING)
+    return finishOwnerReplacement({
+      auth,
+      localProfile,
+      protection,
+      requestId
+    })
+  }
+
   function start() {
     if (started) return currentState
     started = true
@@ -776,6 +966,7 @@ export function createLearnerProfileLifecycleAuthority({
     getState: () => currentState,
     readActiveProfile,
     refresh,
+    replaceOwnerProfile,
     replaceActiveProfile,
     saveActiveProfile,
     start
