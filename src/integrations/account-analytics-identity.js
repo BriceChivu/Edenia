@@ -71,7 +71,7 @@ export function createAccountAnalyticsIdentity({
 
     const userId = normalizeSupabaseUserId(accountState?.userId)
     if (!userId) return false
-    if (!identifiedUserId && !resetCompleted) {
+    if (!resetCompleted) {
       const currentIdentity = readPersistedAnalyticsUserId()
       if (!currentIdentity) return false
       if (
@@ -79,6 +79,10 @@ export function createAccountAnalyticsIdentity({
         && currentIdentity.userId !== userId
         && !resetIdentity(true)
       ) return false
+      if (!currentIdentity.exists && identifiedUserId) {
+        identifiedUserId = null
+        identifiedPropertiesKey = ''
+      }
     }
     const properties = getAccountPersonProperties(accountState)
     const propertiesKey = JSON.stringify(properties)

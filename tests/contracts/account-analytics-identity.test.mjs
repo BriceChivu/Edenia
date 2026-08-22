@@ -67,7 +67,7 @@ test('authenticated analytics identifies a normalized UUID with only approved em
     userId: USER_B,
     email: 'changed@example.com'
   }), true)
-  assert.deepEqual(calls[2], [
+  assert.deepEqual(calls[4], [
     'identify',
     USER_B.toLowerCase(),
     { email: 'changed@example.com' }
@@ -100,6 +100,7 @@ test('logout resets once and an account switch resets before identifying', () =>
   assert.deepEqual(calls, [
     ['get-current-user-id'],
     ['identify', USER_A, {}],
+    ['get-current-user-id'],
     ['reset'],
     ['identify', USER_B.toLowerCase(), {}],
     ['reset']
@@ -123,6 +124,23 @@ test('a reloaded adapter resets a persisted learner before identifying another',
     ['get-current-user-id'],
     ['reset'],
     ['identify', USER_B.toLowerCase(), {}]
+  ])
+})
+
+test('a live adapter repairs a persisted identity changed by another tab', () => {
+  const { calls, identity, sharedState } = createHarness()
+  identity.synchronize({ sessionState: 'signed-in', userId: USER_A })
+  sharedState.currentUserId = USER_B
+
+  assert.equal(identity.synchronize({
+    sessionState: 'signed-in', userId: USER_A
+  }), true)
+  assert.deepEqual(calls, [
+    ['get-current-user-id'],
+    ['identify', USER_A, {}],
+    ['get-current-user-id'],
+    ['reset'],
+    ['identify', USER_A, {}]
   ])
 })
 
@@ -206,6 +224,7 @@ test('analytics failures cannot break account state rendering or merge users', (
   assert.deepEqual(resetFailure.calls, [
     ['get-current-user-id'],
     ['identify', USER_A, {}],
+    ['get-current-user-id'],
     ['reset']
   ])
 
