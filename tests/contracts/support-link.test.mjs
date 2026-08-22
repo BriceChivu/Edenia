@@ -14,6 +14,7 @@ const introStyleSource = await readFile(
 )
 const footer = source.match(/<footer class="app-footer">([\s\S]*?)<\/footer>/)?.[1] ?? ''
 const supportLink = footer.match(/<a\b[^>]*class="support-link"[^>]*>/)?.[0] ?? ''
+const privacyLink = footer.match(/<a\b[^>]*class="privacy-link"[^>]*>/)?.[0] ?? ''
 const creatorLinks = [
   ...source.matchAll(/<nav class="intro-creator-links"[^>]*>([\s\S]*?)<\/nav>/g)
 ].map(match => match[1])
@@ -37,6 +38,28 @@ test('Ko-fi support link is the safe left-hand footer action', () => {
 
 test('Ko-fi overlay JavaScript is not loaded', () => {
   assert.doesNotMatch(source, /overlay-widget\.js|kofiWidgetOverlay/)
+})
+
+test('footer exposes one subtle Privacy link', () => {
+  assert.notEqual(privacyLink, '')
+  assert.equal(
+    getAttribute(privacyLink, 'href'),
+    'https://github.com/BriceChivu/Edenia#privacy-and-analytics'
+  )
+  assert.equal(getAttribute(privacyLink, 'target'), '_blank')
+  assert.equal(getAttribute(privacyLink, 'rel'), 'noopener noreferrer')
+  assert.equal(getAttribute(privacyLink, 'data-analytics-action'), 'privacy')
+  assert.match(footer, /<span data-i18n="privacy\.link">Privacy<\/span>/)
+  assert.ok(
+    footer.indexOf('class="support-link"') < footer.indexOf('class="privacy-link"')
+  )
+  assert.ok(
+    footer.indexOf('class="privacy-link"') < footer.indexOf('id="feedbackLaunchBtn"')
+  )
+
+  const privacyRule = styleSource.match(/\.privacy-link\s*{([^}]*)}/s)?.[1] ?? ''
+  assert.match(privacyRule, /color:\s*var\(--muted\);/)
+  assert.doesNotMatch(privacyRule, /\b(?:background|border|box-shadow):/)
 })
 
 test('trailer and Settings expose icon-only Ko-fi support links instead of Kick', () => {
@@ -75,6 +98,23 @@ test('Ko-fi support copy stays explicit in every supported locale', () => {
   assert.deepEqual(
     Object.fromEntries(
       Object.keys(expected).map(locale => [locale, I18N[locale]['support.button']])
+    ),
+    expected
+  )
+})
+
+test('Privacy link copy stays localized in every supported locale', () => {
+  const expected = {
+    en: 'Privacy',
+    'zh-Hant': '隱私',
+    'zh-Hans': '隐私',
+    es: 'Privacidad',
+    fr: 'Confidentialité'
+  }
+
+  assert.deepEqual(
+    Object.fromEntries(
+      Object.keys(expected).map(locale => [locale, I18N[locale]['privacy.link']])
     ),
     expected
   )

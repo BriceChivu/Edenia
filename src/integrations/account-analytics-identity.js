@@ -12,12 +12,6 @@ function getAccountPersonProperties(accountState) {
   if (email.length <= 254 && EMAIL_PATTERN.test(email)) {
     properties.email = email
   }
-  const authMethod = String(accountState?.authMethod || '')
-    .trim()
-    .toLowerCase()
-  if (['email', 'google'].includes(authMethod)) {
-    properties.auth_method = authMethod
-  }
   return Object.freeze(properties)
 }
 

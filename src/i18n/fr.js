@@ -831,6 +831,7 @@ export const FR_LOCALIZED = {
 
   // Feedback translations were historically merged after the initial locale block.
     'support.button': 'Offrez-moi un café',
+    'privacy.link': 'Confidentialité',
     'feedback.button': 'Commentaires',
     'feedback.title': 'Partagez vos commentaires',
     'feedback.close': 'Fermer les commentaires',

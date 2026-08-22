@@ -34,17 +34,12 @@
   function normalizeAuthenticatedUserProperties(properties) {
     if (!properties || typeof properties !== 'object' || Array.isArray(properties)) return null;
     const keys = Object.keys(properties);
-    if (keys.some(key => !['email', 'auth_method'].includes(key))) return null;
+    if (keys.some(key => key !== 'email')) return null;
     const normalized = {};
     if (Object.prototype.hasOwnProperty.call(properties, 'email')) {
       const email = String(properties.email || '').trim().toLowerCase();
       if (!email || email.length > 254 || !ACCOUNT_EMAIL_PATTERN.test(email)) return null;
       normalized.email = email;
-    }
-    if (Object.prototype.hasOwnProperty.call(properties, 'auth_method')) {
-      const authMethod = String(properties.auth_method || '').trim().toLowerCase();
-      if (!['email', 'google'].includes(authMethod)) return null;
-      normalized.auth_method = authMethod;
     }
     return normalized;
   }

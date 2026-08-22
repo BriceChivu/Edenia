@@ -51,8 +51,19 @@ function authenticatedSession(provider = 'google') {
   }
 }
 
-async function installProviderMocks(page) {
-  await page.addInitScript(() => {
+async function installProviderMocks(page, {
+  analyticsEnabled = false,
+  identifyThrows = false,
+  resetThrows = false
+} = {}) {
+  await page.addInitScript(options => {
+    if (options.analyticsEnabled) {
+      Object.defineProperty(window, 'EDENIA_ANALYTICS_ENABLED', {
+        configurable: false,
+        get() { return true },
+        set() {}
+      })
+    }
     const tracker = {
       google: {
         configurations: [],
@@ -60,6 +71,8 @@ async function installProviderMocks(page) {
       },
       posthogCapture: [],
       posthogIdentify: [],
+      posthogInit: [],
+      posthogResetCount: 0,
       turnstile: {
         configurations: {},
         nextWidgetId: 1,
@@ -121,13 +134,19 @@ async function installProviderMocks(page) {
       get_session_replay_url() { return null },
       identify(userId, properties) {
         tracker.posthogIdentify.push([userId, { ...properties }])
+        if (options.identifyThrows) throw new Error('identify unavailable')
       },
-      init() {},
+      init(_projectKey, configuration) {
+        tracker.posthogInit.push(configuration)
+      },
       register() {},
-      reset() {},
+      reset() {
+        tracker.posthogResetCount += 1
+        if (options.resetThrows) throw new Error('reset unavailable')
+      },
       setPersonProperties() {}
     }
-  })
+  }, { analyticsEnabled, identifyThrows, resetThrows })
 }
 
 async function stubSupabase(page, requests) {
@@ -311,4 +330,101 @@ test('official Google and same-device email-code flows preserve local study data
   expect(analyticsPayload).not.toContain('123456')
   expect(analyticsPayload).not.toContain('mock-google-id-token')
   expect(analyticsPayload).not.toContain('mock-turnstile-token')
+})
+
+test('browser auth identifies one UUID and protects replay from Auth fields and URLs', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await installProviderMocks(page, { analyticsEnabled: true })
+  const requests = []
+  await stubSupabase(page, requests)
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig(),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+
+  await page.goto(`${LOCAL_ORIGIN}/?internal_test=1`)
+  await seedStudyState(page, {
+    setupCompleted: true,
+    walkthroughCompleted: true
+  })
+  await page.goto(
+    `${LOCAL_ORIGIN}/?internal_test=1&account=1&code=browser-secret`
+      + '#access_token=fragment-secret'
+  )
+  const replayProtection = await page.evaluate(() => {
+    const configuration = window.__edeniaAuthE2e.posthogInit.at(-1)
+    return {
+      authSurfaceBlocked: document.querySelector('#accountSignedOut')
+        .classList.contains('ph-no-capture'),
+      currentUrl: configuration.get_current_url(),
+      fragmentCaptureDisabled: configuration.disable_capture_url_hashes,
+      maskAllInputs: configuration.session_recording.maskAllInputs,
+      ordinaryProductVisible: !document.querySelector('#videoGrid')
+        .classList.contains('ph-no-capture'),
+      replayEnabled: configuration.disable_session_recording === false
+    }
+  })
+  expect(replayProtection).toMatchObject({
+    authSurfaceBlocked: true,
+    fragmentCaptureDisabled: true,
+    maskAllInputs: true,
+    ordinaryProductVisible: true,
+    replayEnabled: true
+  })
+  const protectedUrl = new URL(replayProtection.currentUrl)
+  expect(protectedUrl.searchParams.get('code')).toBe('[REDACTED]')
+  expect(new URLSearchParams(protectedUrl.hash.slice(1)).get('access_token'))
+    .toBe('[REDACTED]')
+  const browserUrl = new URL(page.url())
+  expect(browserUrl.searchParams.get('code')).toBe('[REDACTED]')
+  expect(new URLSearchParams(browserUrl.hash.slice(1)).get('access_token'))
+    .toBe('[REDACTED]')
+
+  await page.locator('#accountGoogleIdentityButton button').click()
+  await expect.poll(() => page.evaluate(() => (
+    window.__edeniaAuthE2e.posthogIdentify
+  ))).toEqual([[
+    AUTHENTICATED_USER_ID,
+    { email: 'learner@example.com' }
+  ]])
+
+  await page.locator('.settings-account-toggle').click()
+  await page.locator('#accountSignOutBtn').click()
+  await expect(page.locator('#accountSignedOut')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (
+    window.__edeniaAuthE2e.posthogResetCount
+  ))).toBe(1)
+})
+
+test('an analytics identify exception cannot block browser authentication', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await installProviderMocks(page, {
+    analyticsEnabled: true,
+    identifyThrows: true
+  })
+  const requests = []
+  await stubSupabase(page, requests)
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig(),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+
+  await page.goto(`${LOCAL_ORIGIN}/?internal_test=1`)
+  await seedStudyState(page, {
+    setupCompleted: true,
+    walkthroughCompleted: true
+  })
+  await page.goto(`${LOCAL_ORIGIN}/?internal_test=1&account=1`)
+  await page.locator('#accountGoogleIdentityButton button').click()
+  await page.locator('.settings-account-toggle').click()
+  await expect(page.locator('#accountSignedIn')).toBeVisible()
+  await expect(page.locator('#accountUserEmail')).toHaveText(
+    'learner@example.com'
+  )
 })

@@ -1034,6 +1034,7 @@ export const EN_CORE = {
 
 export const EN_FEEDBACK = {
     'support.button': 'Buy me a coffee',
+    'privacy.link': 'Privacy',
     'feedback.button': 'Feedback',
     'feedback.title': 'Share feedback',
     'feedback.close': 'Close feedback',

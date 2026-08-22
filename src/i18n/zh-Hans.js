@@ -829,6 +829,7 @@ export const ZH_HANS_LOCALIZED = {
 
   // Feedback translations were historically merged after the initial locale block.
     'support.button': '请我喝杯咖啡',
+    'privacy.link': '隐私',
     'feedback.button': '意见反馈',
     'feedback.title': '分享意见',
     'feedback.close': '关闭意见反馈',

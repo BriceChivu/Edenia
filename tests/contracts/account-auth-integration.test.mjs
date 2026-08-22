@@ -138,7 +138,10 @@ test('account session state drives isolated UUID analytics identity with safe pr
   )
   assert.match(identitySource, /accountState\?\.userId/)
   assert.match(identitySource, /properties\.email = email/)
-  assert.match(identitySource, /properties\.auth_method = authMethod/)
+  assert.doesNotMatch(
+    identitySource,
+    /authMethod|auth_method|provider|subject|displayName|\bname\b/i
+  )
   assert.doesNotMatch(identitySource, /localStorage|loadState|saveState|progress|syncEdenia/i)
 })
 

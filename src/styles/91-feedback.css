@@ -9,6 +9,17 @@
   justify-content: space-between;
   padding: 10px 20px max(38px, calc(env(safe-area-inset-bottom) + 26px));
 }
+.privacy-link {
+  color: var(--muted);
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.privacy-link:hover {
+  color: var(--text);
+}
 .feedback-launch-btn,
 .support-link {
   align-items: center;
@@ -376,6 +387,9 @@
     font-size: 0.78rem;
     gap: 6px;
     padding: 0 10px;
+  }
+  .privacy-link {
+    font-size: 0.76rem;
   }
   .feedback-launch-icon,
   .support-link-icon {

@@ -277,15 +277,18 @@ snapshot are separate consumers behind their existing gates.
 
 ## Analytics and replay privacy
 
-Auth forms carry PostHog's `ph-no-capture` class. Email and code inputs are not
-autocaptured or included in session replay. The code, Google credential,
-nonce, CAPTCHA token, session, and provider response metadata are never sent to
-analytics.
+Auth forms carry PostHog's `ph-no-capture` class, and session replay masks all
+input values while leaving ordinary non-input product behavior available. The
+code, Google credential, nonce, CAPTCHA token, session, cookies, and provider
+response metadata are never sent to analytics. Captured URLs omit fragments and
+replace secret-bearing query values with `[REDACTED]` while preserving ordinary
+campaign and product parameters.
 
 On a confirmed session, PostHog identifies only the normalized Supabase UUID.
-The existing allowlisted person properties are normalized `email` and
-`auth_method`; neither is used as the distinct ID. Logout resets once, and an
-account switch resets before identifying the next UUID.
+The sole allowlisted account person property is normalized `email`; it is not
+copied into ordinary event payloads. Auth method, provider subject, provider
+labels, and names do not cross the analytics identity boundary. Logout resets
+once, and an account switch resets before identifying the next UUID.
 
 ## Provider activation and rollback
 

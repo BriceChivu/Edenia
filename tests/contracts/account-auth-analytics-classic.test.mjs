@@ -34,8 +34,7 @@ test('classic analytics identifies a stable UUID without accepting email', () =>
   const { calls, window } = createHarness()
 
   assert.equal(window.identifyEdeniaAuthenticatedUser(USER_ID, {
-    email: ' LEARNER@Example.com ',
-    auth_method: 'GOOGLE'
+    email: ' LEARNER@Example.com '
   }), true)
   assert.equal(
     window.identifyEdeniaAuthenticatedUser('learner@example.com'),
@@ -47,7 +46,7 @@ test('classic analytics identifies a stable UUID without accepting email', () =>
   assert.equal(calls[0][1], USER_ID.toLowerCase())
   assert.deepEqual(
     { ...calls[0][2] },
-    { email: 'learner@example.com', auth_method: 'google' }
+    { email: 'learner@example.com' }
   )
 })
 
@@ -55,7 +54,7 @@ test('classic analytics rejects untrusted account person properties', () => {
   const { calls, window } = createHarness()
   for (const properties of [
     { email: 'invalid' },
-    { auth_method: 'password' },
+    { auth_method: 'google' },
     { email: 'learner@example.com', role: 'admin' },
     []
   ]) {

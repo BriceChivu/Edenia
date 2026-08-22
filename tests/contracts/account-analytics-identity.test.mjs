@@ -22,32 +22,33 @@ function createHarness({ identifyResult = true, resetResult = true } = {}) {
   return { calls, identity }
 }
 
-test('authenticated analytics identifies only a normalized Supabase UUID', () => {
+test('authenticated analytics identifies a normalized UUID with only approved email', () => {
   const { calls, identity } = createHarness()
 
   assert.equal(identity.synchronize({
     sessionState: 'signed-in',
     userId: `  ${USER_B}  `,
     email: ' LEARNER@Example.com ',
-    authMethod: 'GOOGLE'
+    authMethod: 'GOOGLE',
+    name: 'Learner Name',
+    providerSubject: 'google-subject'
   }), true)
   assert.deepEqual(calls, [[
     'identify',
     USER_B.toLowerCase(),
-    { email: 'learner@example.com', auth_method: 'google' }
+    { email: 'learner@example.com' }
   ]])
   assert.equal(identity.getIdentifiedUserId(), USER_B.toLowerCase())
 
   assert.equal(identity.synchronize({
     sessionState: 'signed-in',
     userId: USER_B,
-    email: 'changed@example.com',
-    authMethod: 'email'
+    email: 'changed@example.com'
   }), true)
   assert.deepEqual(calls[1], [
     'identify',
     USER_B.toLowerCase(),
-    { email: 'changed@example.com', auth_method: 'email' }
+    { email: 'changed@example.com' }
   ])
   assert.equal(calls.some(call => call[0] === 'reset'), false)
 })
