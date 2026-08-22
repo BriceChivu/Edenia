@@ -569,6 +569,15 @@ and momentum—at a glance</h2>
           <input class="hidden" type="file" id="syncFileInput" accept="application/json,.json" data-settings-sync-action="import-file">
         </div>
         <p class="settings-note" data-i18n="settings.sync.note">Progress is saved in this browser. Use sync files to copy the same progress to another device or browser.</p>
+        <div class="sync-import-confirm hidden" id="syncImportConfirm" role="alertdialog" aria-labelledby="syncImportConfirmTitle" aria-describedby="syncImportConfirmBody syncImportConfirmFile">
+          <h3 id="syncImportConfirmTitle" data-i18n="settings.sync.importWarningTitle">Replace this profile?</h3>
+          <p id="syncImportConfirmBody" data-i18n="settings.sync.importWarning">Import replaces this profile. Edenia does not merge progress automatically. It protects the current version first so a failed import can roll back.</p>
+          <p class="sync-import-confirm-file" id="syncImportConfirmFile" aria-live="polite"></p>
+          <div class="sync-import-confirm-actions">
+            <button class="btn-ghost" type="button" data-settings-sync-action="cancel-import" data-i18n="settings.sync.importCancel">Cancel</button>
+            <button class="btn-ghost btn-danger" type="button" data-settings-sync-action="confirm-import" data-i18n="settings.sync.importConfirm">Protect current progress and replace</button>
+          </div>
+        </div>
         <div class="legacy-progress-recovery-settings hidden" id="legacyProgressRecoverySettings">
           <button class="btn-secondary" type="button" data-settings-legacy-progress-recovery-action="recover" data-i18n="settings.legacyProgress.recover">Recover progress from the old Edenia address</button>
           <p class="settings-note" data-i18n="settings.legacyProgress.note">Use this if you studied on Edenia before it moved to edenia.study.</p>

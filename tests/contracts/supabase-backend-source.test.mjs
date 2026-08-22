@@ -586,6 +586,14 @@ test('shared backend tests remain connected to package scripts and CI', async ()
   )
   assert.match(
     workflow,
+    /supabase test db supabase\/tests\/learner_profile_import\.test\.sql --local/
+  )
+  assert.match(
+    workflow,
+    /supabase\/migrations\/\*_import_learner_profile_with_rollback\.sql\|supabase\/tests\/learner_profile_import\.test\.sql/
+  )
+  assert.match(
+    workflow,
     /supabase test db supabase\/tests\/reminder_preferences_rls\.test\.sql --local/
   )
   assert.match(

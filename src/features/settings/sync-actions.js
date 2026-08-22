@@ -8,9 +8,11 @@ export function bindSettingsSyncActions(root, actions) {
     !actions
     || typeof actions.exportFile !== 'function'
     || typeof actions.importFile !== 'function'
+    || typeof actions.confirmImport !== 'function'
+    || typeof actions.cancelImport !== 'function'
   ) {
     throw new TypeError(
-      'Settings sync actions require exportFile and importFile callbacks'
+      'Settings sync actions require export, import, confirm, and cancel callbacks'
     )
   }
 
@@ -39,6 +41,20 @@ export function bindSettingsSyncActions(root, actions) {
   if (input && !boundControls.has(input)) {
     input.addEventListener('change', () => actions.importFile(input))
     boundControls.add(input)
+    installedCount += 1
+  }
+
+  const confirmationBindings = [
+    ['cancel-import', () => actions.cancelImport()],
+    ['confirm-import', () => actions.confirmImport()]
+  ]
+  for (const [name, listener] of confirmationBindings) {
+    const control = root.querySelector(
+      `[data-settings-sync-action="${name}"]`
+    )
+    if (!control || boundControls.has(control)) continue
+    control.addEventListener('click', listener)
+    boundControls.add(control)
     installedCount += 1
   }
 

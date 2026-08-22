@@ -1088,6 +1088,7 @@ const legacyProgressRelayClient = LEGACY_PROGRESS_RELAY_RUNTIME.valid
       }
     })
 let legacyProgressManualImportDone = null
+let pendingLearnerProfileImport = null
 let applicationStarted = false
 let renderedLearnerProfileOwnerId
 let migrationStartupRunning = false
@@ -2745,6 +2746,17 @@ function renderActivatedLearnerProfile(state) {
 
 function handleLearnerProfileAccessStateChange(accessState) {
   learnerProfileAccessView.render(accessState)
+  const syncImportControl = document.querySelector(
+    '[data-settings-sync-action="choose-file"]'
+  )
+  if (syncImportControl && learnerProfileLifecycleAuthority) {
+    syncImportControl.disabled = accessState.status
+      !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  }
+  if (
+    pendingLearnerProfileImport
+    && accessState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  ) clearPendingLearnerProfileImport()
   if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING) {
     learnerProfileConflictView.renderConflict(accessState.conflict)
   } else {
@@ -6533,6 +6545,7 @@ function importSyncFileFromInput(input) {
   if (!file) return
 
   input.disabled = true
+  let keepInputPending = false
   const reader = new FileReader()
   reader.onload = async () => {
     const serialized = String(reader.result || '')
@@ -6551,7 +6564,9 @@ function importSyncFileFromInput(input) {
         payload?.schema === PORTABLE_LEARNER_PROFILE_SCHEMA
       const portableEnvelope = isPortableProfile
         ? await verifyPortableLearnerProfileEnvelope(serialized, {
-            maxBytes: PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES
+            maxBytes: learnerProfileLifecycleAuthority
+              ? LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES
+              : PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES
           })
         : null
       const importedState = isPortableProfile
@@ -6563,6 +6578,40 @@ function importSyncFileFromInput(input) {
       }
       if (payload?.app === 'edenia' && Boolean(payload.sandbox) !== IS_SANDBOX) {
         showToast(IS_SANDBOX ? t('toast.useSandboxSync') : t('toast.useNormalSync'), 'warn')
+        return
+      }
+
+      if (learnerProfileLifecycleAuthority && !legacyProgressManualImportDone) {
+        const access = learnerProfileLifecycleAuthority.getState()
+        if (!isPortableProfile || !portableEnvelope) {
+          showToast(t('toast.invalidSync'), 'error')
+          return
+        }
+        if (
+          access.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+          || !access.ownerId
+        ) {
+          showToast(t('toast.importOwnerRequired'), 'warn')
+          return
+        }
+        normalizeLoadedState(importedState)
+        pendingLearnerProfileImport = {
+          fileName: file.name || '',
+          importedState,
+          input
+        }
+        const confirmation = document.getElementById('syncImportConfirm')
+        const fileLabel = document.getElementById('syncImportConfirmFile')
+        if (fileLabel) {
+          fileLabel.textContent = t('settings.sync.importFile', {
+            fileName: file.name || ''
+          })
+        }
+        confirmation?.classList.remove('hidden')
+        document.querySelector(
+          '[data-settings-sync-action="confirm-import"]'
+        )?.focus()
+        keepInputPending = true
         return
       }
 
@@ -6637,8 +6686,10 @@ function importSyncFileFromInput(input) {
       console.error('Edenia sync import failed', error)
       showToast(t('toast.importFailed'), 'error')
     } finally {
-      input.value = ''
-      input.disabled = false
+      if (!keepInputPending) {
+        input.value = ''
+        input.disabled = false
+      }
     }
   }
   reader.onerror = () => {
@@ -6647,6 +6698,73 @@ function importSyncFileFromInput(input) {
     input.disabled = false
   }
   reader.readAsText(file)
+}
+
+function clearPendingLearnerProfileImport({ restoreFocus = false } = {}) {
+  const pending = pendingLearnerProfileImport
+  pendingLearnerProfileImport = null
+  document.getElementById('syncImportConfirm')?.classList.add('hidden')
+  const fileLabel = document.getElementById('syncImportConfirmFile')
+  if (fileLabel) fileLabel.textContent = ''
+  for (const action of ['cancel-import', 'confirm-import']) {
+    const control = document.querySelector(
+      `[data-settings-sync-action="${action}"]`
+    )
+    if (control) control.disabled = false
+  }
+  if (pending?.input) {
+    pending.input.value = ''
+    pending.input.disabled = false
+  }
+  if (restoreFocus) {
+    document.querySelector(
+      '[data-settings-sync-action="choose-file"]'
+    )?.focus()
+  }
+}
+
+function cancelPendingLearnerProfileImport() {
+  clearPendingLearnerProfileImport({ restoreFocus: true })
+}
+
+async function confirmPendingLearnerProfileImport() {
+  const pending = pendingLearnerProfileImport
+  if (!pending || !learnerProfileLifecycleAuthority) return
+  for (const action of ['cancel-import', 'confirm-import']) {
+    const control = document.querySelector(
+      `[data-settings-sync-action="${action}"]`
+    )
+    if (control) control.disabled = true
+  }
+
+  try {
+    const importedState = pending.importedState
+    const result = await learnerProfileLifecycleAuthority.importActiveProfile(
+      importedState,
+      { confirmed: true }
+    )
+    const toast = {
+      'owner-required': ['toast.importOwnerRequired', 'warn'],
+      fenced: ['toast.importOwnerRequired', 'warn'],
+      'protection-required': ['toast.importProtectionRequired', 'error'],
+      'backup-failed': ['toast.importProtectionRequired', 'error'],
+      unavailable: ['toast.importProtectionRequired', 'error'],
+      'stale-revision': ['toast.importStaleRevision', 'warn'],
+      'rolled-back': ['toast.importRolledBack', 'warn']
+    }[result?.status]
+    if (result?.status === 'imported') {
+      showToast(t('toast.syncImported'))
+    } else if (toast) {
+      showToast(t(toast[0]), toast[1])
+    } else {
+      showToast(t('toast.importFailed'), 'error')
+    }
+  } catch (error) {
+    console.error('Edenia sync import failed', error)
+    showToast(t('toast.importFailed'), 'error')
+  } finally {
+    clearPendingLearnerProfileImport()
+  }
 }
 
 function formatBackupTimestamp(value) {
@@ -17820,6 +17938,8 @@ bindSettingsLocaleActions(document, {
   select: saveLocaleFromSettings
 })
 bindSettingsSyncActions(document, {
+  cancelImport: cancelPendingLearnerProfileImport,
+  confirmImport: confirmPendingLearnerProfileImport,
   exportFile: exportSyncFile,
   importFile: importSyncFileFromInput
 })
