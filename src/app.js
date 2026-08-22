@@ -944,6 +944,7 @@ let learnerProfileSyncViewState = Object.freeze({ status: 'idle' })
 learnerProfileSyncView.render(learnerProfileSyncViewState)
 let learnerProfileLifecycleAuthority = null
 let learnerProfileReverificationController = null
+let learnerProfileProtectedReset = null
 
 if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
   const ownerVerification = createLearnerProfileOwnerVerificationStore({
@@ -1007,6 +1008,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
       analytics: {
         accessChanged() {},
         profileActivated() {},
+        profileStartedOver: () => trackEdeniaEvent('profile_started_over'),
         profileSaved: syncPersistedStateToAnalytics
       },
       authentication: learnerProfileAuthenticationAdapter,
@@ -1501,6 +1503,7 @@ function applyTranslations(root = document) {
   learnerProfileSyncView.render(learnerProfileSyncViewState)
   renderPlusAccountSettings()
   renderPlusUpgradeModal()
+  renderStartOverUndo(learnerProfileProtectedReset)
 }
 
 function renderLocaleSelect() {
@@ -2776,8 +2779,10 @@ function handleLearnerProfileAccessStateChange(accessState) {
     } else {
       learnerProfileConflictView.hideProtected()
     }
+    renderStartOverUndo(accessState.protectedReset)
     return
   }
+  renderStartOverUndo(null)
   learnerProfileConflictView.hideProtected()
   const publicOnboardingState = !hasPersistedLearnerProfile()
     ? loadOnboardingWorkingState()
@@ -7303,6 +7308,62 @@ function hideResetConfirm() {
   document.getElementById('resetConfirm')?.classList.add('hidden')
 }
 
+function renderStartOverUndo(protectedReset) {
+  const controlKeys = LEARNER_PROFILE_LIFECYCLE_ENABLED
+    ? {
+        cancel: 'settings.startOver.cancel',
+        confirm: 'settings.startOver.confirm',
+        show: 'settings.startOver.open'
+      }
+    : {
+        cancel: 'settings.reset.cancel',
+        confirm: 'settings.reset.delete',
+        show: 'settings.reset.open'
+      }
+  for (const [action, key] of Object.entries(controlKeys)) {
+    const control = document.querySelector(
+      `[data-settings-reset-confirm-action="${action}"]`
+    )
+    if (!control) continue
+    control.dataset.i18n = key
+    control.textContent = t(key)
+  }
+  const warning = document.getElementById('startOverWarning')
+  if (warning) {
+    warning.dataset.i18n = LEARNER_PROFILE_LIFECYCLE_ENABLED
+      ? 'settings.startOver.warning'
+      : 'settings.reset.warning'
+    warning.textContent = t(warning.dataset.i18n)
+  }
+  const root = document.getElementById('startOverUndo')
+  const deadline = document.getElementById('startOverUndoDeadline')
+  const protectedUntil = Number(protectedReset?.protectedUntil)
+  const available = Boolean(
+    LEARNER_PROFILE_LIFECYCLE_ENABLED
+    && protectedReset?.status === 'available'
+    && Number.isFinite(protectedUntil)
+    && protectedUntil > Date.now()
+  )
+  learnerProfileProtectedReset = available ? protectedReset : null
+  root?.classList.toggle('hidden', !available)
+  if (deadline) {
+    deadline.textContent = available
+      ? t('settings.startOver.undoAvailableUntil', {
+          date: formatLocaleDateTime(protectedUntil, {
+            dateStyle: 'medium',
+            timeStyle: 'short'
+          })
+        })
+      : ''
+  }
+}
+
+function releaseStartOverControl(control) {
+  if (!control?.isConnected) return
+  delete control.dataset.backupBusy
+  control.removeAttribute('aria-disabled')
+}
+
 async function resetApp() {
   const control = document.querySelector(
     '[data-settings-reset-confirm-action="confirm"]'
@@ -7312,16 +7373,30 @@ async function resetApp() {
     control.dataset.backupBusy = 'true'
     control.setAttribute('aria-disabled', 'true')
   }
+  if (learnerProfileLifecycleAuthority) {
+    const startedOver = await learnerProfileLifecycleAuthority.startOverProfile(
+      defaultState(4, [], DEFAULT_THEME, [], getCurrentLocale()),
+      { confirmed: true }
+    )
+    if (!startedOver) {
+      releaseStartOverControl(control)
+      showToast(t('toast.startOverFailed'), 'error')
+      return
+    }
+    releaseStartOverControl(control)
+    hideResetConfirm()
+    document.querySelector(
+      '[data-settings-reset-confirm-action="undo"]'
+    )?.focus()
+    return
+  }
   if (LOCAL_BACKUPS_ENABLED) {
     const rollbackBackup = await createVerifiedStateBackup(
       'before reset',
       { force: true }
     )
     if (!rollbackBackup) {
-      if (control?.isConnected) {
-        delete control.dataset.backupBusy
-        control.removeAttribute('aria-disabled')
-      }
+      releaseStartOverControl(control)
       showToast(t('toast.backupCreateFailed'), 'error')
       return
     }
@@ -7336,14 +7411,34 @@ async function resetApp() {
     detail: t('log.reset.detail')
   })
   if (!saveState(nextState, { backup: false })) {
-    if (control?.isConnected) {
-      delete control.dataset.backupBusy
-      control.removeAttribute('aria-disabled')
-    }
+    releaseStartOverControl(control)
     showToast(t('toast.progressSaveFailed'), 'error')
     return
   }
   location.reload()
+}
+
+async function undoStartOver() {
+  const control = document.querySelector(
+    '[data-settings-reset-confirm-action="undo"]'
+  )
+  if (control?.dataset.backupBusy === 'true') return
+  if (control) {
+    control.dataset.backupBusy = 'true'
+    control.setAttribute('aria-disabled', 'true')
+  }
+  const restored = await learnerProfileLifecycleAuthority?.undoStartOver({
+    confirmed: true
+  })
+  if (!restored) {
+    releaseStartOverControl(control)
+    showToast(t('toast.startOverUndoFailed'), 'error')
+    return
+  }
+  releaseStartOverControl(control)
+  document.querySelector(
+    '[data-settings-reset-confirm-action="show"]'
+  )?.focus()
 }
 
 // ════════════════════════════════════════════════════════════
@@ -17799,7 +17894,8 @@ bindThemeActions(document, {
 bindSettingsResetConfirmActions(document, {
   show: showResetConfirm,
   hide: hideResetConfirm,
-  confirm: resetApp
+  confirm: resetApp,
+  undo: undoStartOver
 })
 bindFeedbackConfirmationActions(document, {
   close: closeFeedbackConfirmation

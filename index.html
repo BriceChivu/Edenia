@@ -567,9 +567,14 @@ and momentum—at a glance</h2>
           <button class="btn-secondary" type="button" data-settings-legacy-progress-recovery-action="recover" data-i18n="settings.legacyProgress.recover">Recover progress from the old Edenia address</button>
           <p class="settings-note" data-i18n="settings.legacyProgress.note">Use this if you studied on Edenia before it moved to edenia.study.</p>
         </div>
+        <div id="startOverUndo" class="start-over-undo hidden" aria-live="polite">
+          <strong data-i18n="settings.startOver.undoTitle">Started over</strong>
+          <p id="startOverUndoDeadline"></p>
+          <button class="btn-ghost" data-settings-reset-confirm-action="undo" data-analytics-action="settings.startOver.undo" data-i18n="settings.startOver.undo">Undo Start over</button>
+        </div>
         <button class="btn-ghost btn-danger settings-reset-btn" data-settings-reset-confirm-action="show" data-analytics-action="settings.reset.open" data-i18n="settings.reset.open">Reset everything</button>
         <div id="resetConfirm" class="reset-confirm hidden">
-          <p data-i18n="settings.reset.warning">This will clear this app's local watch history, streak, saved settings, and cached Anki stats. A rollback backup will be kept here. Your Anki collection will not be changed.</p>
+          <p id="startOverWarning" data-i18n="settings.reset.warning">This will clear this app's local watch history, streak, saved settings, and cached Anki stats. A rollback backup will be kept here. Your Anki collection will not be changed.</p>
           <div class="reset-confirm-actions">
             <button class="btn-ghost" data-settings-reset-confirm-action="hide" data-analytics-action="settings.reset.cancel" data-i18n="settings.reset.cancel">Cancel</button>
             <button class="btn-ghost btn-danger" data-settings-reset-confirm-action="confirm" data-analytics-action="settings.reset.delete" data-i18n="settings.reset.delete">Delete data</button>

@@ -1217,7 +1217,8 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   .sync-actions,
   .settings-data-group > .settings-note,
   .settings-reset-btn,
-  .reset-confirm
+  .reset-confirm,
+  .start-over-undo
 ) {
   margin-top: -14px;
 }
@@ -1298,6 +1299,22 @@ body[data-theme="dark"] .reset-confirm {
   background: #2a1110;
   border-color: #b84a42;
   color: #ffd1cc;
+}
+.start-over-undo {
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  color: var(--text);
+  padding: 10px;
+  font-size: 0.84rem;
+}
+.start-over-undo strong {
+  display: block;
+  margin-bottom: 4px;
+}
+.start-over-undo p {
+  color: var(--muted);
+  margin-bottom: 10px;
 }
 body[data-theme="dark"] .backup-panel {
   background: color-mix(in srgb, var(--surface-hi) 58%, transparent);

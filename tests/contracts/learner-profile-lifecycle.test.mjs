@@ -47,9 +47,12 @@ function createHarness({
   },
   claimActivationResult = true,
   cloudChoice = { status: 'recovering' },
+  cloudProtectedReset = undefined,
   cloudResolution = { status: 'waiting' },
   cloudRetryResult = false,
+  cloudStartOver = { status: 'recovering' },
   cloudSyncState = { status: 'idle' },
+  cloudUndoStartOver = { status: 'recovering' },
   completeOnboardingFinalizationResult = true,
   markDirtyResult = null,
   now = 1_786_982_400_000,
@@ -77,6 +80,9 @@ function createHarness({
         },
         profileSaved(profile, context) {
           calls.push(['analytics-saved', profile, context.activation.id])
+        },
+        profileStartedOver(...args) {
+          calls.push(['analytics-started-over', args])
         }
       },
       authentication: authenticationAdapter,
@@ -115,6 +121,12 @@ function createHarness({
               ? cloudResolution(context)
               : cloudResolution
         },
+        ...(cloudProtectedReset === undefined ? {} : {
+          readProtectedReset(identity) {
+            calls.push(['cloud-read-protected-reset', identity])
+            return Promise.resolve(cloudProtectedReset)
+          }
+        }),
         getState() {
           return cloudSyncState
         },
@@ -129,9 +141,17 @@ function createHarness({
           calls.push(['cloud-save', profile, context])
           return Promise.resolve({ status: 'saved' })
         },
+        startOver(profile, context) {
+          calls.push(['cloud-start-over', profile, context])
+          return Promise.resolve(cloudStartOver)
+        },
         subscribe(listener) {
           cloudListeners.add(listener)
           return () => cloudListeners.delete(listener)
+        },
+        undoStartOver(context) {
+          calls.push(['cloud-undo-start-over', context])
+          return Promise.resolve(cloudUndoStartOver)
         }
       },
       connectivity: connectivityAdapter,
@@ -2237,4 +2257,170 @@ test('authentication adapter exposes only lifecycle observations and deduplicate
     status: 'unavailable',
     userId: null
   })
+})
+
+test('a confirmed Start over activates the protected new generation without changing identity', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const priorProfile = { marker: 'prior-progress' }
+  const blankProfile = { marker: 'blank-profile' }
+  const protectedReset = {
+    id: '323e4567-e89b-42d3-a456-426614174002',
+    ownerId,
+    priorGeneration: 4,
+    priorRevision: 7,
+    profileId,
+    protectedUntil: 1_789_574_400_000,
+    resetGeneration: 5,
+    status: 'available'
+  }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: {
+      created: false,
+      generation: 4,
+      ownerId,
+      profile: priorProfile,
+      profileId,
+      revision: 7,
+      status: 'activate'
+    },
+    cloudStartOver: {
+      generation: 5,
+      ownerId,
+      profile: blankProfile,
+      profileId,
+      protectedReset,
+      revision: 1,
+      status: 'started-over'
+    },
+    local: {
+      generation: 4,
+      ownerId,
+      profile: priorProfile,
+      profileId,
+      revision: 7,
+      status: 'ready'
+    }
+  })
+  harness.authority.start()
+  await Promise.resolve()
+  await Promise.resolve()
+
+  assert.equal(await harness.authority.startOverProfile(blankProfile, {
+    confirmed: true
+  }), true)
+  assert.deepEqual(harness.authority.readActiveProfile(), blankProfile)
+  assert.equal(harness.authority.getState().ownerId, ownerId)
+  assert.equal(harness.authority.getState().activation.generation, 5)
+  assert.equal(harness.authority.getState().activation.revision, 1)
+  assert.deepEqual(harness.authority.getState().protectedReset, protectedReset)
+  assert.deepEqual(harness.authentication.getObservation(), {
+    status: 'signed-in',
+    userId: ownerId
+  })
+  assert.deepEqual(
+    harness.calls.find(([name]) => name === 'analytics-started-over'),
+    ['analytics-started-over', []]
+  )
+})
+
+test('a failed Start over leaves the active local profile and generation unchanged', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const priorProfile = { marker: 'prior-progress' }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: {
+      created: false,
+      generation: 4,
+      ownerId,
+      profile: priorProfile,
+      profileId,
+      revision: 7,
+      status: 'activate'
+    },
+    cloudStartOver: { status: 'recovering' },
+    local: {
+      generation: 4,
+      ownerId,
+      profile: priorProfile,
+      profileId,
+      revision: 7,
+      status: 'ready'
+    }
+  })
+  harness.authority.start()
+  await Promise.resolve()
+  await Promise.resolve()
+
+  assert.equal(await harness.authority.startOverProfile(
+    { marker: 'blank-profile' },
+    { confirmed: true }
+  ), false)
+  assert.equal(harness.authority.getState().status, 'active')
+  assert.equal(harness.authority.getState().activation.generation, 4)
+  assert.equal(harness.authority.getState().activation.revision, 7)
+  assert.deepEqual(harness.authority.readActiveProfile(), priorProfile)
+  assert.equal(
+    harness.calls.some(([name]) => name === 'analytics-started-over'),
+    false
+  )
+})
+
+test('Undo discovered on another device restores progress through the current generation fence', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const blankProfile = { marker: 'blank-profile' }
+  const restoredProfile = { marker: 'restored-progress' }
+  const protectedReset = {
+    id: '323e4567-e89b-42d3-a456-426614174002',
+    ownerId,
+    priorGeneration: 4,
+    priorRevision: 7,
+    profileId,
+    protectedUntil: 1_789_574_400_000,
+    resetGeneration: 5,
+    status: 'available'
+  }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudProtectedReset: protectedReset,
+    cloudResolution: {
+      created: false,
+      generation: 5,
+      ownerId,
+      profile: blankProfile,
+      profileId,
+      revision: 1,
+      status: 'activate'
+    },
+    cloudUndoStartOver: {
+      generation: 5,
+      ownerId,
+      profile: restoredProfile,
+      profileId,
+      revision: 2,
+      status: 'undone'
+    },
+    local: {
+      generation: 5,
+      ownerId,
+      profile: blankProfile,
+      profileId,
+      revision: 1,
+      status: 'ready'
+    }
+  })
+  harness.authority.start()
+  await Promise.resolve()
+  await Promise.resolve()
+  await Promise.resolve()
+
+  assert.deepEqual(harness.authority.getState().protectedReset, protectedReset)
+  assert.equal(await harness.authority.undoStartOver({ confirmed: true }), true)
+  assert.deepEqual(harness.authority.readActiveProfile(), restoredProfile)
+  assert.equal(harness.authority.getState().activation.generation, 5)
+  assert.equal(harness.authority.getState().activation.revision, 2)
+  assert.equal(harness.authority.getState().protectedReset, undefined)
 })

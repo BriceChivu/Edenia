@@ -65,6 +65,7 @@ export function createLearnerProfileLifecycleAuthority({
     ownerId = null,
     profileId = null,
     protectedConflicts = [],
+    protectedReset = null,
     replacement = null
   } = {}) {
     const retainedConflicts = Object.freeze([...protectedConflicts])
@@ -76,6 +77,7 @@ export function createLearnerProfileLifecycleAuthority({
       ...(retainedConflicts.length
         ? { protectedConflicts: retainedConflicts }
         : {}),
+      ...(protectedReset ? { protectedReset } : {}),
       ...(replacement ? { replacement: Object.freeze(replacement) } : {}),
       status
     })
@@ -148,7 +150,8 @@ export function createLearnerProfileLifecycleAuthority({
 
   function activateProfile(localProfile, activation, {
     offlineExpiresAt = null,
-    protectedConflicts = []
+    protectedConflicts = [],
+    protectedReset = null
   } = {}) {
     if (!localPersistence.isActivationCurrent(activation)) {
       activeProfile = null
@@ -164,7 +167,8 @@ export function createLearnerProfileLifecycleAuthority({
       activation,
       ownerId: activation.ownerId,
       profileId: activation.profileId,
-      protectedConflicts
+      protectedConflicts,
+      protectedReset
     })
     scheduleOfflineExpiryCheck()
     analytics.profileActivated({
@@ -245,7 +249,7 @@ export function createLearnerProfileLifecycleAuthority({
       connectivity: connectivity.getObservation(),
       localProfile,
       purpose
-    })).then(result => {
+    })).then(async result => {
       if (requestId !== resolutionId) return
       if (!result || result.status === 'waiting') return
       if (result.status === 'waiting-cloud') {
@@ -276,6 +280,22 @@ export function createLearnerProfileLifecycleAuthority({
         && Number.isSafeInteger(result.revision)
         && result.revision > 0
       ) {
+        let protectedReset = result.protectedReset || null
+        if (
+          !protectedReset
+          && typeof cloudPersistence.readProtectedReset === 'function'
+        ) {
+          try {
+            protectedReset = await cloudPersistence.readProtectedReset({
+              generation: result.generation,
+              ownerId: result.ownerId,
+              profileId: result.profileId
+            })
+          } catch {
+            protectedReset = null
+          }
+          if (requestId !== resolutionId) return
+        }
         if (currentState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
           releaseActiveProfile()
         }
@@ -366,7 +386,8 @@ export function createLearnerProfileLifecycleAuthority({
           return
         }
         const activationState = activateProfile(activationProfile, activation, {
-          protectedConflicts: result.protectedConflicts || []
+          protectedConflicts: result.protectedConflicts || [],
+          protectedReset
         })
         if (activationState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
           return
@@ -685,6 +706,151 @@ export function createLearnerProfileLifecycleAuthority({
       if (cloudPersistence.retry?.() === true) return true
     } catch {}
     return enqueueCloudSave(profile, activation)
+  }
+
+  function installCloudProfileTransition(result, {
+    protectedConflicts = [],
+    protectedReset = null
+  } = {}) {
+    if (
+      !result
+      || typeof result.ownerId !== 'string'
+      || !result.ownerId
+      || typeof result.profileId !== 'string'
+      || !result.profileId
+      || !result.profile
+      || typeof result.profile !== 'object'
+      || Array.isArray(result.profile)
+      || !Number.isSafeInteger(result.generation)
+      || result.generation <= 0
+      || !Number.isSafeInteger(result.revision)
+      || result.revision <= 0
+    ) return false
+    releaseActiveProfile()
+    if (!localPersistence.reconcileSignedInProfile(result.profile, {
+      generation: result.generation,
+      ownerId: result.ownerId,
+      profileId: result.profileId,
+      revision: result.revision
+    })) {
+      publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+      return false
+    }
+    const localProfile = localPersistence.read()
+    if (
+      !isSignedInProfile(localProfile)
+      || localProfile.ownerId !== result.ownerId
+      || localProfile.profileId !== result.profileId
+      || localProfile.generation !== result.generation
+      || localProfile.revision !== result.revision
+    ) {
+      publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+      return false
+    }
+    const activation = prepareActivation(localProfile)
+    if (!activation) {
+      publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+      return false
+    }
+    const activated = activateProfile(localProfile, activation, {
+      protectedConflicts,
+      protectedReset
+    })
+    if (activated.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) return false
+    ownerVerification?.record?.({
+      ownerId: result.ownerId,
+      verifiedAt: clock.now()
+    })
+    return true
+  }
+
+  async function startOverProfile(profile, { confirmed = false } = {}) {
+    const previousProfile = readActiveProfile()
+    const previousState = currentState
+    if (
+      confirmed !== true
+      || !previousProfile
+      || !profile
+      || typeof profile !== 'object'
+      || Array.isArray(profile)
+      || !previousState.ownerId
+      || typeof cloudPersistence.startOver !== 'function'
+    ) return false
+    let result
+    try {
+      result = await cloudPersistence.startOver(profile, {
+        activation: previousState.activation,
+        confirmed: true,
+        isCurrent: () => (
+          currentState === previousState
+          && getCurrentActivationFor(previousProfile)
+            === previousState.activation
+        )
+      })
+    } catch {
+      result = null
+    }
+    const auth = authentication.getObservation()
+    if (
+      currentState !== previousState
+      || getCurrentActivationFor(previousProfile) !== previousState.activation
+      || auth?.status !== 'signed-in'
+      || auth.userId !== previousState.ownerId
+      || result?.status !== 'started-over'
+      || result.ownerId !== previousState.ownerId
+      || result.profileId !== previousState.profileId
+      || result.protectedReset?.status !== 'available'
+    ) return false
+    const installed = installCloudProfileTransition(result, {
+      protectedConflicts: previousState.protectedConflicts || [],
+      protectedReset: result.protectedReset
+    })
+    if (!installed) return false
+    analytics.profileStartedOver()
+    return true
+  }
+
+  async function undoStartOver({ confirmed = false } = {}) {
+    const previousProfile = readActiveProfile()
+    const previousState = currentState
+    const protectedReset = previousState.protectedReset
+    if (
+      confirmed !== true
+      || !previousProfile
+      || !previousState.ownerId
+      || protectedReset?.status !== 'available'
+      || typeof cloudPersistence.undoStartOver !== 'function'
+    ) return false
+    let result
+    try {
+      result = await cloudPersistence.undoStartOver({
+        activation: previousState.activation,
+        confirmed: true,
+        isCurrent: () => (
+          currentState === previousState
+          && getCurrentActivationFor(previousProfile)
+            === previousState.activation
+        ),
+        protectedReset
+      })
+    } catch {
+      result = null
+    }
+    const auth = authentication.getObservation()
+    if (
+      currentState !== previousState
+      || getCurrentActivationFor(previousProfile) !== previousState.activation
+      || auth?.status !== 'signed-in'
+      || auth.userId !== previousState.ownerId
+      || result?.status !== 'undone'
+      || result.ownerId !== previousState.ownerId
+      || result.profileId !== previousState.profileId
+      || result.generation !== previousState.activation?.generation
+      || result.revision <= previousState.activation?.revision
+    ) return false
+    return installCloudProfileTransition(result, {
+      protectedConflicts: previousState.protectedConflicts || []
+    })
   }
 
   function exportConflictVersion(side, conflictId = null) {
@@ -1033,6 +1199,8 @@ export function createLearnerProfileLifecycleAuthority({
     replaceActiveProfile,
     retryCloudBackup,
     saveActiveProfile,
-    start
+    start,
+    startOverProfile,
+    undoStartOver
   })
 }
