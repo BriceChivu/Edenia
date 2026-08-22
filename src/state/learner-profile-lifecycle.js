@@ -1,3 +1,8 @@
+import {
+  LEARNER_PROFILE_RECOVERY_FEEDBACK,
+  LEARNER_PROFILE_RECOVERY_SOURCES
+} from '../domain/learner-profile-resolution.js'
+
 export const LEARNER_PROFILE_ACCESS_STATES = Object.freeze({
   ACTIVE: 'active',
   ACCOUNT_CHANGE: 'account-change',
@@ -65,6 +70,7 @@ export function createLearnerProfileLifecycleAuthority({
     ownerId = null,
     profileId = null,
     protectedConflicts = [],
+    recovery = null,
     replacement = null
   } = {}) {
     const retainedConflicts = Object.freeze([...protectedConflicts])
@@ -76,6 +82,10 @@ export function createLearnerProfileLifecycleAuthority({
       ...(retainedConflicts.length
         ? { protectedConflicts: retainedConflicts }
         : {}),
+      ...(recovery ? { recovery: Object.freeze({
+        ...recovery,
+        candidates: Object.freeze([...(recovery.candidates || [])])
+      }) } : {}),
       ...(replacement ? { replacement: Object.freeze(replacement) } : {}),
       status
     })
@@ -412,6 +422,8 @@ export function createLearnerProfileLifecycleAuthority({
               ownerId: result.conflict.ownerId,
               profileId: result.conflict.profileId
             }
+          : result.status === 'recovering' && result.recovery
+            ? { recovery: result.recovery }
           : undefined
       )
     }).catch(() => {
@@ -657,6 +669,96 @@ export function createLearnerProfileLifecycleAuthority({
       exportedAt: clock.now(),
       isCurrent: () => getCurrentActivationFor(profile) === activation
     }) === true
+  }
+
+  function readRecoveryCandidate(candidateId) {
+    if (
+      currentState.status !== LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+      || typeof candidateId !== 'string'
+      || !candidateId
+    ) return null
+    return currentState.recovery?.candidates?.find(
+      candidate => candidate?.id === candidateId
+    ) || null
+  }
+
+  async function exportRecoveryCandidate(candidateId) {
+    const recovery = currentState.recovery
+    const candidate = readRecoveryCandidate(candidateId)
+    if (!candidate) return false
+    let profile = null
+    if (candidate.source === LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL) {
+      const auth = authentication.getObservation()
+      const localProfile = localPersistence.read()
+      if (
+        auth?.status !== 'signed-in'
+        || localProfile?.status !== 'ready'
+        || localProfile.ownerId !== auth.userId
+      ) return false
+      profile = localProfile.profile
+    } else if (candidate.source === LEARNER_PROFILE_RECOVERY_SOURCES.PROTECTED) {
+      let result
+      try {
+        result = await cloudPersistence.readRecoveryCandidate({ candidate })
+      } catch {
+        result = null
+      }
+      if (
+        currentState.recovery !== recovery
+        || result?.status !== 'ready'
+        || !result.profile
+        || typeof result.profile !== 'object'
+      ) return false
+      profile = result.profile
+    }
+    if (!profile || typeof profile !== 'object') return false
+    return await exportDownload.download(profile, {
+      exportedAt: clock.now(),
+      isCurrent: () => currentState.recovery === recovery
+        && readRecoveryCandidate(candidateId) === candidate,
+      side: candidate.source === LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL
+        ? 'device'
+        : 'cloud'
+    }) === true
+  }
+
+  async function restoreRecoveryCandidate(
+    candidateId,
+    { confirmed = false } = {}
+  ) {
+    if (confirmed !== true) return false
+    const recovery = currentState.recovery
+    const candidate = readRecoveryCandidate(candidateId)
+    const auth = authentication.getObservation()
+    if (!candidate || auth?.status !== 'signed-in' || !auth.userId) {
+      return false
+    }
+    let result
+    try {
+      result = await cloudPersistence.restoreRecoveryCandidate({
+        authentication: auth,
+        candidate,
+        confirmed: true,
+        localProfile: localPersistence.read()
+      })
+    } catch {
+      result = null
+    }
+    if (
+      currentState.recovery !== recovery
+      || readRecoveryCandidate(candidateId) !== candidate
+    ) return false
+    if (result?.status === 'restored') {
+      evaluate()
+      return true
+    }
+    publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING, {
+      recovery: {
+        ...recovery,
+        feedback: LEARNER_PROFILE_RECOVERY_FEEDBACK.RESTORE_FAILED
+      }
+    })
+    return false
   }
 
   function retryCloudBackup() {
@@ -1026,12 +1128,14 @@ export function createLearnerProfileLifecycleAuthority({
     destroy,
     exportActiveProfile,
     exportConflictVersion,
+    exportRecoveryCandidate,
     getState: () => currentState,
     readActiveProfile,
     refresh,
     replaceOwnerProfile,
     replaceActiveProfile,
     retryCloudBackup,
+    restoreRecoveryCandidate,
     saveActiveProfile,
     start
   })

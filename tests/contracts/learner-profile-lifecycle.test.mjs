@@ -47,7 +47,9 @@ function createHarness({
   },
   claimActivationResult = true,
   cloudChoice = { status: 'recovering' },
+  cloudRecoveryCandidate = { status: 'recovering' },
   cloudResolution = { status: 'waiting' },
+  cloudRestore = { status: 'recovering' },
   cloudRetryResult = false,
   cloudSyncState = { status: 'idle' },
   completeOnboardingFinalizationResult = true,
@@ -101,6 +103,10 @@ function createHarness({
           calls.push(['cloud-choose-conflict', context])
           return Promise.resolve(cloudChoice)
         },
+        readRecoveryCandidate(context) {
+          calls.push(['cloud-read-recovery', context])
+          return Promise.resolve(cloudRecoveryCandidate)
+        },
         ...(markDirtyResult === null ? {} : {
           markDirty(context) {
             calls.push(['cloud-mark-dirty', context])
@@ -114,6 +120,10 @@ function createHarness({
             : typeof cloudResolution === 'function'
               ? cloudResolution(context)
               : cloudResolution
+        },
+        restoreRecoveryCandidate(context) {
+          calls.push(['cloud-restore-recovery', context])
+          return Promise.resolve(cloudRestore)
         },
         getState() {
           return cloudSyncState
@@ -1313,6 +1323,75 @@ test('definitive ownership failure removes the offline grace path', async () => 
   assert.equal(
     harness.authority.getState().status,
     LEARNER_PROFILE_ACCESS_STATES.LOCKED
+  )
+})
+
+test('missing-head recovery keeps matching local and protected candidates exportable after a failed restore', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const protectedId = '323e4567-e89b-42d3-a456-426614174002'
+  const localProfile = { marker: 'matching-local-recovery' }
+  const protectedProfile = { marker: 'protected-cloud-recovery' }
+  const recovery = {
+    candidates: [{ id: 'local', source: 'local' }, {
+      id: protectedId,
+      protectedUntil: 1_789_574_400_000,
+      source: 'protected'
+    }],
+    reason: 'current-head-missing'
+  }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudRecoveryCandidate: {
+      profile: protectedProfile,
+      status: 'ready'
+    },
+    cloudResolution: { recovery, status: 'recovering' },
+    cloudRestore: { status: 'recovering' },
+    local: {
+      generation: 2,
+      ownerId,
+      profile: localProfile,
+      profileId,
+      revision: 7,
+      status: 'ready'
+    }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.deepEqual(harness.authority.getState().recovery, recovery)
+  assert.equal(
+    await harness.authority.exportRecoveryCandidate('local'),
+    true
+  )
+  assert.equal(
+    await harness.authority.exportRecoveryCandidate(protectedId),
+    true
+  )
+  assert.equal(
+    await harness.authority.restoreRecoveryCandidate(
+      protectedId,
+      { confirmed: true }
+    ),
+    false
+  )
+  assert.deepEqual(harness.authority.getState().recovery, {
+    ...recovery,
+    feedback: 'restore-failed'
+  })
+  assert.equal(
+    await harness.authority.exportRecoveryCandidate('local'),
+    true
+  )
+  assert.equal(
+    await harness.authority.exportRecoveryCandidate(protectedId),
+    true
+  )
+  assert.deepEqual(
+    harness.calls.filter(([name]) => name === 'download').map(call => call[1]),
+    [localProfile, protectedProfile, localProfile, protectedProfile]
   )
 })
 
