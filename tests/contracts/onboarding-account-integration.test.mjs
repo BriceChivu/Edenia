@@ -11,14 +11,14 @@ const styleSource = await readFile(
   'utf8'
 )
 
-test('Account onboarding is appended only through the existing account gate', () => {
+test('Account onboarding is appended only when account entry is required', () => {
   assert.match(
     appSource,
-    /const stepOrder = ACCOUNT_FEATURES_ENABLED\s*\? \[\.\.\.profileStepOrder, 'account'\]\s*: profileStepOrder/
+    /const stepOrder = ACCOUNT_ENTRY_REQUIRED\s*\? \[\.\.\.profileStepOrder, 'account'\]\s*: profileStepOrder/
   )
   assert.match(
     appSource,
-    /if \(ACCOUNT_FEATURES_ENABLED\) \{\s*return `[\s\S]*data-personalized-onboarding-step="account"/
+    /if \(ACCOUNT_ENTRY_REQUIRED\) \{\s*return `[\s\S]*data-personalized-onboarding-step="account"/
   )
   assert.match(
     appSource,

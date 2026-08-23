@@ -108,17 +108,23 @@ test('notice and countdown copy offer voluntary backup without hiding final urge
   view.render({
     daysRemaining: 0,
     dismissible: false,
+    entryRequired: true,
     finalGateAt: Date.parse('2026-09-21T00:00:00.000Z'),
-    status: 'countdown',
-    urgencyLevel: 8
+    status: 'final-gate'
   })
   assert.equal(
     elements.get('accountlessProfileMigrationTitle').textContent,
-    'Sign-in required now'
+    'Welcome back — your town is still here.'
   )
+  assert.equal(elements.get('accountlessProfileMigrationBackup').hidden, false)
+  assert.equal(elements.get('accountlessProfileMigrationLater').hidden, true)
   assert.equal(
     elements.get('accountlessProfileMigrationNotice').getAttribute('role'),
-    'region'
+    'dialog'
+  )
+  assert.equal(
+    elements.get('accountlessProfileMigrationNotice').getAttribute('aria-modal'),
+    'true'
   )
 })
 

@@ -768,23 +768,96 @@ test('accountless-profile migration never treats unknown cloud state as absent s
       status: 200
     })
   })
-  const populated = createAdapter({
-    rpc: async () => ({
-      data: [{ status: 'profile_present' }],
-      error: null,
-      status: 200
-    })
-  })
-
   assert.deepEqual(await transient.resolve(context), {
     status: 'migration-backup-failed'
   })
   assert.deepEqual(await unknown.resolve(context), {
     status: 'migration-backup-failed'
   })
-  assert.deepEqual(await populated.resolve(context), {
-    status: 'migration-signed-in-profile-present'
+})
+
+test('meaningful cloud progress enters the ordinary protected comparison', async () => {
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const conflictId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+  const deviceProfile = { marker: 'legacy-device-town' }
+  const cloudProfile = { marker: 'existing-cloud-town' }
+  const deviceEnvelope = preparedEnvelope(deviceProfile)
+  const cloudEnvelope = preparedEnvelope(cloudProfile, 'B'.repeat(43))
+  const storage = createMemoryStorage()
+  const calls = []
+  const adapter = createAdapter({
+    prepareEnvelope: () => deviceEnvelope,
+    rpc: async (name, parameters) => {
+      calls.push([name, parameters])
+      if (name === 'migrate_my_accountless_profile') {
+        return { data: [{ status: 'profile_present' }], error: null, status: 200 }
+      }
+      if (name === 'commit_my_learner_profile') {
+        return {
+          data: [{
+            base_revision: 1,
+            conflict_id: conflictId,
+            generation: 3,
+            payload_sha256: cloudEnvelope.integrity.payloadSha256,
+            profile_id: PROFILE_ID,
+            revision: 7,
+            status: 'conflict'
+          }],
+          error: null,
+          status: 200
+        }
+      }
+      assert.equal(name, 'read_my_learner_profile_conflict')
+      return {
+        data: [{
+          cloud_envelope: cloudEnvelope,
+          cloud_generation: 3,
+          cloud_revision: 7,
+          conflict_id: conflictId,
+          device_envelope: deviceEnvelope,
+          device_generation: 1,
+          device_revision: 2,
+          operation_id: operationId,
+          profile_id: operationId,
+          protected_until: null,
+          selected_side: null,
+          status: 'open'
+        }],
+        error: null,
+        status: 200
+      }
+    },
+    storage
   })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    accountlessAttachment: { operationId },
+    localProfile: {
+      ownerId: null,
+      profile: deviceProfile,
+      profileId: 'accountless:edenia_v1',
+      status: 'ready'
+    },
+    purpose: 'migrate-accountless-profile'
+  })
+
+  assert.equal(result.status, 'conflicting')
+  assert.deepEqual(result.conflict.device.profile, deviceProfile)
+  assert.deepEqual(result.conflict.cloud.profile, cloudProfile)
+  assert.deepEqual(calls[1], ['commit_my_learner_profile', {
+    p_base_revision: 1,
+    p_envelope: deviceEnvelope,
+    p_generation: 1,
+    p_operation_id: operationId,
+    p_profile_id: operationId
+  }])
+  const sync = JSON.parse(storage.getItem(SYNC_STORAGE_KEY))
+  assert.equal(sync.ownerId, OWNER_ID)
+  assert.equal(sync.profileId, operationId)
+  assert.equal(sync.pending.operationId, operationId)
+  assert.equal(sync.pending.envelope.integrity.payloadSha256, 'A'.repeat(43))
 })
 
 test('accountless-profile migration reload retries the protected first envelope before syncing later study', async () => {

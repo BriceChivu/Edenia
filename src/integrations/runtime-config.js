@@ -31,6 +31,21 @@ export function getAccountFeaturesRollout(target = window) {
   )
 }
 
+export function getEmergencyAccountlessRollbackEnabled(target = window) {
+  return publicConfig(target).emergencyAccountlessRollbackEnabled === true
+}
+
+export function normalizeAccountlessProfileFinalCutoverAt(value) {
+  const timestamp = Date.parse(String(value || '').trim())
+  return Number.isFinite(timestamp) ? timestamp : null
+}
+
+export function getAccountlessProfileFinalCutoverAt(target = window) {
+  return normalizeAccountlessProfileFinalCutoverAt(
+    publicConfig(target).accountlessProfileFinalCutoverAt
+  )
+}
+
 export function normalizeGoogleSignInMode(value) {
   const mode = String(value || '').trim().toLowerCase()
   return ['off', 'id_token'].includes(mode)

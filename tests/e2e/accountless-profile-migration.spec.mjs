@@ -1,9 +1,14 @@
 import { expect, test } from '../support/network-fixture.mjs'
+import {
+  createPortableLearnerProfileEnvelope
+} from '../../src/state/portable-learner-profile.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const ACCOUNT_RETURN_URL = 'http://localhost:8000/?internal_test=1'
 const OWNER_ID = '123e4567-e89b-42d3-a456-426614174000'
 const PROFILE_ID = '323e4567-e89b-42d3-a456-426614174002'
+const CONFLICT_ID = '423e4567-e89b-42d3-a456-426614174003'
+const PROTECTED_UNTIL = '2026-10-31T00:00:00.000Z'
 const AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
 const PROFILE_ACCESS_STORAGE_KEY =
   'edenia_v1_internal_test_learner_profile_access_v1'
@@ -16,12 +21,18 @@ const MIGRATION_BACKUP_STORAGE_KEY =
 const STATE_STORAGE_KEY = 'edenia_v1_internal_test'
 const SECRET_CHANNEL_NAME = 'LEGACY PRIVATE LEARNER CHANNEL'
 
-function runtimeConfig(enabled) {
+function runtimeConfig(
+  enabled,
+  emergencyRollbackEnabled = false,
+  finalCutoverAt = ''
+) {
   return `window.EDENIA_CONFIG = {
     youtubeApiKey: '',
     freePlusEnabled: false,
     plusCheckoutEnabled: false,
     accountFeaturesRollout: '${enabled ? 'internal' : 'off'}',
+    accountlessProfileFinalCutoverAt: '${finalCutoverAt}',
+    emergencyAccountlessRollbackEnabled: ${emergencyRollbackEnabled},
     learnerProfileLifecycleEnabled: ${enabled},
     studyGuidanceEnabled: false,
     indexedDbBackupsEnabled: false,
@@ -95,13 +106,129 @@ async function seedAccountlessProfile(page, { withSession = false } = {}) {
   })
 }
 
-async function installRuntimeRoute(page, isEnabled) {
+async function installRuntimeRoute(
+  page,
+  isEnabled,
+  isEmergencyRollbackEnabled = () => false,
+  getFinalCutoverAt = () => ''
+) {
   await page.route('**/config.local.js', route => route.fulfill({
-    body: runtimeConfig(isEnabled()),
+    body: runtimeConfig(
+      isEnabled(),
+      isEmergencyRollbackEnabled(),
+      getFinalCutoverAt()
+    ),
     contentType: 'text/javascript',
     status: 200
   }))
 }
+
+test('the final gate hides a returning legacy town until authentication starts', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  let enabled = false
+  let finalCutoverAt = ''
+  await installRuntimeRoute(
+    page,
+    () => enabled,
+    () => false,
+    () => finalCutoverAt
+  )
+  await page.route('https://accountless-profile-test.supabase.co/**', route => (
+    route.fulfill({ json: {}, status: 200 })
+  ))
+
+  await page.goto(ACCOUNT_RETURN_URL)
+  const originalState = await seedAccountlessProfile(page)
+  finalCutoverAt = new Date(Date.now() - 1).toISOString()
+  enabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expect(page.locator('#mainApp')).toBeHidden()
+  await expect(page.locator('#accountlessProfileMigrationTitle')).toHaveText(
+    'Welcome back — your town is still here.'
+  )
+  await expect(page.locator('body')).not.toContainText(SECRET_CHANNEL_NAME)
+  await page.getByRole('button', { name: 'Back up my progress now' }).click()
+  await expect(page.locator('#mainApp')).toBeHidden()
+  await expect(page.locator('#accountlessProfileMigrationTitle')).toHaveText(
+    'Sign in or create your account'
+  )
+  expect(await page.evaluate(stateKey => localStorage.getItem(stateKey), STATE_STORAGE_KEY))
+    .toBe(originalState)
+})
+
+test('the emergency switch restores the expired accountless route', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let enabled = false
+  let rollbackEnabled = false
+  await installRuntimeRoute(
+    page,
+    () => enabled,
+    () => rollbackEnabled
+  )
+  await page.route('https://accountless-profile-test.supabase.co/**', route => (
+    route.fulfill({ json: {}, status: 200 })
+  ))
+
+  await page.goto(ACCOUNT_RETURN_URL)
+  await seedAccountlessProfile(page)
+  await page.evaluate(({ dayMs, migrationKey }) => {
+    const now = Date.now()
+    localStorage.setItem(migrationKey, JSON.stringify({
+      attempt: null,
+      finalGateAt: now - 1,
+      graceStartedAt: now - (31 * dayMs),
+      nextNoticeAt: null,
+      version: 1
+    }))
+  }, { dayMs: DAY_MS, migrationKey: MIGRATION_STORAGE_KEY })
+  enabled = true
+  rollbackEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#accountlessProfileMigrationNotice')).toBeHidden()
+  expect(await page.evaluate(stateKey => (
+    JSON.parse(localStorage.getItem(stateKey)).config.channels
+  ), STATE_STORAGE_KEY)).toEqual([
+    expect.objectContaining({ name: SECRET_CHANNEL_NAME })
+  ])
+})
+
+test('the emergency route marks a newly completed profile as legacy', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await installRuntimeRoute(page, () => true, () => true)
+  await page.route('https://accountless-profile-test.supabase.co/**', route => (
+    route.fulfill({ json: {}, status: 200 })
+  ))
+
+  await page.goto(ACCOUNT_RETURN_URL)
+  await page.getByRole('button', { name: 'Skip intro' }).click()
+  await page.locator('[data-language-id="other"]').click()
+  await page.locator(
+    '[data-personalized-onboarding-action="continue-language"]'
+  ).click()
+  const reloaded = page.waitForEvent('domcontentloaded')
+  await page.locator('[data-personalized-onboarding-action="finish"]').click()
+  await reloaded
+
+  await expect(page.locator('#mainApp')).toBeVisible()
+  const access = await page.evaluate(accessKey => (
+    JSON.parse(localStorage.getItem(accessKey))
+  ), PROFILE_ACCESS_STORAGE_KEY)
+  expect(access).toMatchObject({
+    activationId: expect.any(String),
+    legacy: true,
+    ownerId: null,
+    profileId: `accountless:${STATE_STORAGE_KEY}`
+  })
+})
 
 function fulfillMigration(route) {
   const operation = route.request().postDataJSON()
@@ -283,6 +410,181 @@ test('an inherited session attaches the untouched town only after explicit confi
   expect(stored.migrationBackup).toBeNull()
 })
 
+test('legacy and cloud progress use the ordinary protected browser comparison', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let enabled = false
+  let conflictOperation = null
+  let selectedSide = null
+  const choiceRequests = []
+  let cloudEnvelope = null
+  await installRuntimeRoute(page, () => enabled)
+  await page.route('https://accountless-profile-test.supabase.co/**', route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/rpc/migrate_my_accountless_profile')) {
+      return route.fulfill({ json: [{ status: 'profile_present' }], status: 200 })
+    }
+    if (pathname.endsWith('/rpc/commit_my_learner_profile')) {
+      if (selectedSide) {
+        const operation = route.request().postDataJSON()
+        return route.fulfill({
+          json: [{
+            base_revision: operation.p_base_revision,
+            generation: operation.p_generation,
+            payload_sha256: operation.p_envelope.integrity.payloadSha256,
+            profile_id: operation.p_profile_id,
+            revision: operation.p_base_revision + 1,
+            status: 'accepted'
+          }],
+          status: 200
+        })
+      }
+      conflictOperation = route.request().postDataJSON()
+      return route.fulfill({
+        json: [{
+          base_revision: conflictOperation.p_base_revision,
+          conflict_id: CONFLICT_ID,
+          generation: 4,
+          payload_sha256: cloudEnvelope.integrity.payloadSha256,
+          profile_id: PROFILE_ID,
+          revision: 7,
+          status: 'conflict'
+        }],
+        status: 200
+      })
+    }
+    if (pathname.endsWith('/rpc/read_my_learner_profile_conflict')) {
+      return route.fulfill({
+        json: [{
+          cloud_envelope: cloudEnvelope,
+          cloud_generation: 4,
+          cloud_revision: 7,
+          conflict_id: CONFLICT_ID,
+          device_envelope: conflictOperation.p_envelope,
+          device_generation: 1,
+          device_revision: 2,
+          operation_id: conflictOperation.p_operation_id,
+          profile_id: conflictOperation.p_profile_id,
+          protected_until: selectedSide ? PROTECTED_UNTIL : null,
+          selected_side: selectedSide,
+          status: selectedSide ? 'resolved' : 'open'
+        }],
+        status: 200
+      })
+    }
+    if (pathname.endsWith('/rpc/choose_my_learner_profile_conflict')) {
+      const request = route.request().postDataJSON()
+      choiceRequests.push(request)
+      selectedSide = request.p_selected_side
+      return route.fulfill({
+        json: [{
+          conflict_id: CONFLICT_ID,
+          envelope: selectedSide === 'cloud'
+            ? cloudEnvelope
+            : conflictOperation.p_envelope,
+          generation: selectedSide === 'cloud' ? 4 : 1,
+          profile_id: selectedSide === 'cloud'
+            ? PROFILE_ID
+            : conflictOperation.p_profile_id,
+          protected_until: PROTECTED_UNTIL,
+          revision: 8,
+          selected_side: selectedSide,
+          status: 'chosen'
+        }],
+        status: 200
+      })
+    }
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      return route.fulfill({
+        json: [{
+          created: false,
+          envelope: cloudEnvelope,
+          generation: 4,
+          profile_id: PROFILE_ID,
+          revision: 8,
+          status: 'profile_ready'
+        }],
+        status: 200
+      })
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto(ACCOUNT_RETURN_URL)
+  const serializedDevice = await seedAccountlessProfile(page, {
+    withSession: true
+  })
+  const cloudState = structuredClone(JSON.parse(serializedDevice))
+  cloudState.config.locale = 'fr'
+  cloudState.config.channels = [{
+    id: 'cloud-profile-channel',
+    image: '',
+    language: 'French',
+    name: 'CLOUD PROFILE CHANNEL'
+  }]
+  cloudState.learnerProfile.languages = ['french']
+  cloudState.learnerProfile.level = 'beginner'
+  cloudState.learnerProfile.updatedAt = '2026-08-22T00:00:00.000Z'
+  cloudEnvelope = (await createPortableLearnerProfileEnvelope(
+    cloudState,
+    { now: () => new Date('2026-08-22T00:00:00.000Z') }
+  )).envelope
+  enabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await page.getByRole('button', { name: 'Back up my progress now' }).click()
+  await page.getByRole('button', { name: 'Continue as this email' }).click()
+  await expect(page.getByRole('heading', { name: 'Compare your profiles' }))
+    .toBeVisible()
+  await expect(page.getByRole('columnheader', { name: 'This device' }))
+    .toBeAttached()
+  await expect(page.getByRole('columnheader', { name: 'Cloud' })).toBeAttached()
+  await expect(page.locator('#mainApp')).toBeHidden()
+  await expect(page.locator('#accountlessProfileMigrationNotice')).toBeHidden()
+  await expect(page.getByRole('button', { name: /Combine/i })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Use Cloud' }).click()
+  expect(choiceRequests).toHaveLength(0)
+  await page.getByRole('button', { name: 'Confirm this choice' }).click()
+  await expect.poll(() => choiceRequests.length).toBe(1)
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect.poll(() => page.evaluate(syncKey => (
+    JSON.parse(localStorage.getItem(syncKey))?.pending
+  ), PROFILE_SYNC_STORAGE_KEY)).toBeNull()
+  const stored = await page.evaluate(({
+    accessKey,
+    migrationKey,
+    stateKey,
+    syncKey
+  }) => ({
+    access: JSON.parse(localStorage.getItem(accessKey)),
+    migration: localStorage.getItem(migrationKey),
+    state: JSON.parse(localStorage.getItem(stateKey)),
+    sync: JSON.parse(localStorage.getItem(syncKey))
+  }), {
+    accessKey: PROFILE_ACCESS_STORAGE_KEY,
+    migrationKey: MIGRATION_STORAGE_KEY,
+    stateKey: STATE_STORAGE_KEY,
+    syncKey: PROFILE_SYNC_STORAGE_KEY
+  })
+  expect(stored.state.config.locale).toBe('fr')
+  expect(stored.access).toMatchObject({
+    generation: 4,
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID,
+    revision: 8
+  })
+  expect(stored.access.legacy).toBeUndefined()
+  expect(stored.sync).toMatchObject({
+    acceptedRevision: 9,
+    pending: null,
+    profileId: PROFILE_ID,
+    protectedConflictIds: [CONFLICT_ID]
+  })
+  expect(stored.migration).toBeNull()
+})
+
 test('a failed first backup survives reload and retries the same protected operation', async ({
   page
 }, testInfo) => {
@@ -454,12 +756,18 @@ test('a restored sign-in still waits for explicit confirmation after reload', as
   ), PROFILE_ACCESS_STORAGE_KEY)).toBeNull()
 })
 
-test('failed authentication leaves the accountless town and pending choice intact', async ({
+test('failed authentication at the final gate preserves the hidden legacy town', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   let enabled = false
-  await installRuntimeRoute(page, () => enabled)
+  let finalCutoverAt = ''
+  await installRuntimeRoute(
+    page,
+    () => enabled,
+    () => false,
+    () => finalCutoverAt
+  )
   await page.route('https://accountless-profile-test.supabase.co/**', route => {
     const pathname = new URL(route.request().url()).pathname
     if (pathname.endsWith('/auth/v1/otp')) {
@@ -470,8 +778,10 @@ test('failed authentication leaves the accountless town and pending choice intac
 
   await page.goto(ACCOUNT_RETURN_URL)
   const originalState = await seedAccountlessProfile(page)
+  finalCutoverAt = new Date(Date.now() - 1).toISOString()
   enabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.locator('#mainApp')).toBeHidden()
   await page.getByRole('button', { name: 'Back up my progress now' }).click()
   await expect(page.locator('#settingsPanel')).toBeVisible()
   await page.locator('#accountEmail').fill('failed@example.com')
@@ -480,6 +790,8 @@ test('failed authentication leaves the accountless town and pending choice intac
   await page.locator('#accountEmailCode').fill('123')
   await page.locator('#accountEmailCodeForm').press('Enter')
   await expect(page.locator('#accountFeedback')).toBeVisible()
+  await expect(page.locator('#mainApp')).toBeHidden()
+  await expect(page.locator('body')).not.toContainText(SECRET_CHANNEL_NAME)
 
   const stored = await page.evaluate(({
     accessKey,
@@ -500,6 +812,6 @@ test('failed authentication leaves the accountless town and pending choice intac
   expect(stored.state.config.channels).toEqual([
     expect.objectContaining({ name: SECRET_CHANNEL_NAME })
   ])
-  expect(stored.access.ownerId).toBeNull()
+  expect(stored.access?.ownerId ?? null).toBeNull()
   expect(stored.migration.attempt.status).toBe('awaiting-authentication')
 })

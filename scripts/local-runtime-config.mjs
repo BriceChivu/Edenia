@@ -4,6 +4,7 @@ import {
   normalizeAccountFeaturesRollout
 } from '../src/core/account-feature-rollout.js'
 import {
+  normalizeAccountlessProfileFinalCutoverAt,
   normalizeGoogleIdentityClientId,
   normalizeGoogleSignInMode
 } from '../src/integrations/runtime-config.js'
@@ -39,6 +40,11 @@ function normalizeOptionalRuntimeValue(value, placeholders) {
   return normalizedValue
 }
 
+function normalizeOptionalCutoverAt(value) {
+  const timestamp = normalizeAccountlessProfileFinalCutoverAt(value)
+  return timestamp === null ? '' : new Date(timestamp).toISOString()
+}
+
 export function normalizeLocalRuntimeConfig(value) {
   return {
     youtubeApiKey: normalizeLocalYoutubeApiKey(value?.youtubeApiKey),
@@ -47,6 +53,11 @@ export function normalizeLocalRuntimeConfig(value) {
     accountFeaturesRollout: normalizeAccountFeaturesRollout(
       value?.accountFeaturesRollout
     ),
+    accountlessProfileFinalCutoverAt: normalizeOptionalCutoverAt(
+      value?.accountlessProfileFinalCutoverAt
+    ),
+    emergencyAccountlessRollbackEnabled:
+      value?.emergencyAccountlessRollbackEnabled === true,
     googleSignInMode: normalizeGoogleSignInMode(value?.googleSignInMode),
     googleIdentityClientId: normalizeGoogleIdentityClientId(
       normalizeOptionalRuntimeValue(

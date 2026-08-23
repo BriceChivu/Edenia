@@ -105,6 +105,8 @@ test('test build contains empty public keys and safe release defaults', async ()
   assert.match(source, /"freePlusEnabled": false/)
   assert.match(source, /"plusCheckoutEnabled": false/)
   assert.match(source, /"accountFeaturesRollout": "off"/)
+  assert.match(source, /"accountlessProfileFinalCutoverAt": ""/)
+  assert.match(source, /"emergencyAccountlessRollbackEnabled": false/)
   assert.match(source, /"googleSignInMode": "id_token"/)
   assert.doesNotMatch(source, /googleOneTapEnabled/)
   assert.match(source, /"googleIdentityClientId": ""/)
@@ -144,6 +146,14 @@ test('Pages deployment retires permanent feature inputs and forwards remaining c
   )
   assert.match(
     workflow,
+    /EDENIA_ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT: \$\{\{ vars\.EDENIA_ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT \}\}/
+  )
+  assert.match(
+    workflow,
+    /EDENIA_EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED: \$\{\{ vars\.EDENIA_EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED \}\}/
+  )
+  assert.match(
+    workflow,
     /EDENIA_GOOGLE_SIGN_IN_MODE: \$\{\{ vars\.EDENIA_GOOGLE_SIGN_IN_MODE \}\}/
   )
   assert.doesNotMatch(workflow, /EDENIA_GOOGLE_ONE_TAP_ENABLED/)
@@ -158,6 +168,14 @@ test('Pages deployment retires permanent feature inputs and forwards remaining c
   assert.match(
     runtimeConfigWriter,
     /accountFeaturesRollout: parseRuntimeConfigRollout\(\s*process\.env\.EDENIA_ACCOUNT_FEATURES_ROLLOUT,\s*'EDENIA_ACCOUNT_FEATURES_ROLLOUT'\s*\)/
+  )
+  assert.match(
+    runtimeConfigWriter,
+    /accountlessProfileFinalCutoverAt: parseRuntimeConfigTimestamp\(\s*process\.env\.EDENIA_ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT,\s*'EDENIA_ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT'\s*\)/
+  )
+  assert.match(
+    runtimeConfigWriter,
+    /emergencyAccountlessRollbackEnabled: parseRuntimeConfigFlag\(\s*process\.env\.EDENIA_EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED,\s*'EDENIA_EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED'\s*\)/
   )
   assert.doesNotMatch(workflow, /EDENIA_VIDEO_ORGANIZATION_ENABLED/)
   assert.match(runtimeConfigWriter, /videoOrganizationEnabled: true/)

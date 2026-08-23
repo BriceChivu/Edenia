@@ -124,7 +124,7 @@ test('profile completion stays immediate when the Account gate is off', () => {
   }
   assert.match(
     profileFinalSource,
-    /if \(ACCOUNT_FEATURES_ENABLED\)[\s\S]*data-personalized-onboarding-step="account"/
+    /if \(ACCOUNT_ENTRY_REQUIRED\)[\s\S]*data-personalized-onboarding-step="account"/
   )
 })
 
@@ -276,7 +276,9 @@ test('finish queues starter work, persists completion, and redirects without awa
     'state.onboarding.setupCompleted = true',
     'state.onboarding.starterFeed = createPendingStarterFeed(',
     "appendActivityLog(state, {",
-    'if (!saveState(state)) {',
+    'const persisted = EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED',
+    ': saveState(state)',
+    'if (!persisted) {',
     "trackEdeniaEvent('onboarding_completed', {",
     'stopIntroMusic({ fadeDuration: 7.5 })',
     'window.location.assign(getPostOnboardingAppUrl())'

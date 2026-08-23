@@ -17,12 +17,19 @@ function createStorage() {
   }
 }
 
-function createHarness({ now = STARTED_AT, storage = createStorage() } = {}) {
+function createHarness({
+  emergencyRollbackEnabled = false,
+  finalCutoverAt = null,
+  now = STARTED_AT,
+  storage = createStorage()
+} = {}) {
   let currentNow = now
   const states = []
   const controller = createAccountlessProfileMigrationController({
     clock: { now: () => currentNow },
     createOperationId: () => 'migration-operation-1',
+    emergencyRollbackEnabled,
+    finalCutoverAt,
     onStateChange: state => states.push(state),
     storage,
     storageKey: 'accountless-profile-migration'
@@ -98,9 +105,73 @@ test('the final-seven-day countdown becomes more prominent and cannot be hidden'
 
   harness.setNow(STARTED_AT + (30 * DAY_MS))
   assert.equal(harness.controller.refresh().daysRemaining, 0)
-  assert.equal(harness.controller.getState().status, 'countdown')
-  assert.equal(harness.controller.getState().urgencyLevel, 8)
+  assert.equal(harness.controller.getState().status, 'final-gate')
+  assert.equal(harness.controller.getState().entryRequired, true)
   assert.equal(harness.controller.later(), false)
+})
+
+test('the serious-incident rollback restores accountless access after the final gate', () => {
+  const storage = createStorage()
+  storage.setItem('accountless-profile-migration', JSON.stringify({
+    attempt: null,
+    finalGateAt: STARTED_AT,
+    graceStartedAt: STARTED_AT - (30 * DAY_MS),
+    nextNoticeAt: null,
+    version: 1
+  }))
+  const harness = createHarness({
+    emergencyRollbackEnabled: true,
+    now: STARTED_AT + DAY_MS,
+    storage
+  })
+
+  assert.deepEqual(
+    harness.controller.start({ hasAccountlessProfile: true }),
+    { emergencyRollback: true, status: 'hidden' }
+  )
+  assert.equal(harness.controller.isEntryRequired(), false)
+})
+
+test('the authoritative cutover fails closed when local grace state is missing or corrupt', () => {
+  for (const storedValue of [null, '{not-json']) {
+    const storage = createStorage()
+    if (storedValue !== null) {
+      storage.setItem('accountless-profile-migration', storedValue)
+    }
+    const harness = createHarness({
+      finalCutoverAt: STARTED_AT - 1,
+      storage
+    })
+
+    assert.equal(
+      harness.controller.start({ hasAccountlessProfile: true }).status,
+      'final-gate'
+    )
+    assert.equal(harness.controller.isEntryRequired(), true)
+    assert.equal(harness.controller.later(), false)
+  }
+})
+
+test('a pending pre-authentication attempt reloads through the final welcome', () => {
+  const harness = createHarness()
+  harness.controller.start({ hasAccountlessProfile: true })
+  harness.controller.observeAuthentication({ status: 'signed-out' })
+  assert.equal(harness.controller.begin(), true)
+  harness.setNow(STARTED_AT + (31 * DAY_MS))
+
+  const reloaded = createHarness({
+    now: STARTED_AT + (31 * DAY_MS),
+    storage: harness.storage
+  })
+  assert.equal(
+    reloaded.controller.start({ hasAccountlessProfile: true }).status,
+    'final-gate'
+  )
+  assert.equal(reloaded.controller.begin(), true)
+  assert.equal(
+    reloaded.controller.getState().status,
+    'awaiting-authentication'
+  )
 })
 
 test('an inherited session requires confirmation without persisting identity', () => {
@@ -242,6 +313,33 @@ test('completion removes the one-time migration record', () => {
   assert.equal(harness.controller.complete(), true)
   assert.equal(harness.storage.getItem('accountless-profile-migration'), null)
   assert.deepEqual(harness.controller.getState(), { status: 'hidden' })
+})
+
+test('ordinary conflict comparison hides the gate without losing migration state', () => {
+  const harness = createHarness()
+  harness.controller.start({ hasAccountlessProfile: true })
+  harness.controller.observeAuthentication({ status: 'signed-out' })
+  harness.controller.begin()
+  harness.controller.observeAuthentication({ status: 'signed-in' })
+  harness.controller.confirmInheritedSession()
+
+  assert.equal(harness.controller.markConflictReady(), true)
+  assert.deepEqual(harness.controller.getState(), {
+    daysRemaining: 30,
+    finalGateAt: STARTED_AT + (30 * DAY_MS),
+    status: 'hidden'
+  })
+  assert.equal(harness.controller.hasPendingMigration(), true)
+  assert.equal(harness.controller.getAttachment(), null)
+
+  const reloaded = createHarness({ storage: harness.storage })
+  assert.equal(
+    reloaded.controller.start({ hasLegacyProfile: true }).status,
+    'hidden'
+  )
+  assert.equal(reloaded.controller.hasPendingMigration(), true)
+  assert.equal(reloaded.controller.complete(), true)
+  assert.equal(harness.storage.getItem('accountless-profile-migration'), null)
 })
 
 test('a populated signed-in profile cannot claim the accountless attempt', () => {

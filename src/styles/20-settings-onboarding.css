@@ -1534,3 +1534,6 @@ body[data-theme="dark"] .backup-panel {
 body[data-theme="dark"] .activity-log-panel {
   background: color-mix(in srgb, var(--surface-hi) 58%, transparent);
 }
+.settings-panel.account-only .settings-group:not(.settings-account) {
+  display: none;
+}

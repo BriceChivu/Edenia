@@ -6,7 +6,8 @@ import {
   parseGoogleIdentityClientId,
   parseGoogleSignInMode,
   parseRuntimeConfigFlag,
-  parseRuntimeConfigRollout
+  parseRuntimeConfigRollout,
+  parseRuntimeConfigTimestamp
 } from './runtime-config-flags.mjs'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
@@ -43,6 +44,14 @@ const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
   accountFeaturesRollout: parseRuntimeConfigRollout(
     process.env.EDENIA_ACCOUNT_FEATURES_ROLLOUT,
     'EDENIA_ACCOUNT_FEATURES_ROLLOUT'
+  ),
+  accountlessProfileFinalCutoverAt: parseRuntimeConfigTimestamp(
+    process.env.EDENIA_ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT,
+    'EDENIA_ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT'
+  ),
+  emergencyAccountlessRollbackEnabled: parseRuntimeConfigFlag(
+    process.env.EDENIA_EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED,
+    'EDENIA_EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED'
   ),
   googleSignInMode: parseGoogleSignInMode(
     process.env.EDENIA_GOOGLE_SIGN_IN_MODE,
