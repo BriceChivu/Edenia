@@ -114,6 +114,35 @@ async function seedPrivateLearnerProfile(page) {
   })
 }
 
+async function seedOwnedLearnerProfile(page) {
+  const storedState = await seedPrivateLearnerProfile(page)
+  await page.evaluate(({
+    accessStorageKey,
+    authStorageKey,
+    ownerId,
+    profileId,
+    session
+  }) => {
+    localStorage.setItem(authStorageKey, JSON.stringify(session))
+    localStorage.setItem(accessStorageKey, JSON.stringify({
+      activatedAt: Date.now(),
+      activationId: null,
+      generation: 1,
+      ownerId,
+      profileId,
+      revision: 3,
+      version: 1
+    }))
+  }, {
+    accessStorageKey: PROFILE_ACCESS_STORAGE_KEY,
+    authStorageKey: AUTH_STORAGE_KEY,
+    ownerId: OWNER_ID,
+    profileId: OWNER_PROFILE_ID,
+    session: restoredSession(OWNER_ID)
+  })
+  return storedState
+}
+
 async function createNextOwnerEnvelope() {
   const completedAt = '2026-08-22T00:00:00.000Z'
   const { envelope } = await createPortableLearnerProfileEnvelope({
@@ -335,6 +364,304 @@ test('locked profile access exposes no learner content and performs no autosave'
   await expect(page.locator('#learnerProfileAccessTitle')).toHaveText(
     'Welcome back — sign in to continue your town.'
   )
+})
+
+test('a missing cloud head offers neutral local and protected recovery copies', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  let lifecycleEnabled = false
+  let protectedEnvelope = null
+  let restored = false
+  const protectedCandidateId = '523e4567-e89b-42d3-a456-426614174004'
+  const protectedUntil = '2026-09-21T00:00:00.000Z'
+  const restoreRequests = []
+  let protectedReads = 0
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      return route.fulfill({
+        json: [restored ? {
+          created: false,
+          envelope: protectedEnvelope,
+          generation: 1,
+          profile_id: OWNER_PROFILE_ID,
+          revision: 8,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+        } : {
+          created: false,
+          envelope: null,
+          generation: null,
+          profile_id: null,
+          revision: null,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.CURRENT_HEAD_MISSING
+        }],
+        status: 200
+      })
+    }
+    if (pathname.endsWith('/rpc/list_my_learner_profile_recovery_candidates')) {
+      return route.fulfill({
+        json: [{
+          candidate_id: protectedCandidateId,
+          protected_until: protectedUntil,
+          source: 'protected'
+        }],
+        status: 200
+      })
+    }
+    if (pathname.endsWith('/rpc/read_my_learner_profile_recovery_candidate')) {
+      protectedReads += 1
+      return route.fulfill({
+        json: [{
+          candidate_id: protectedCandidateId,
+          envelope: protectedEnvelope,
+          protected_until: protectedUntil,
+          status: 'available'
+        }],
+        status: 200
+      })
+    }
+    if (pathname.endsWith('/rpc/restore_my_learner_profile')) {
+      restoreRequests.push(route.request().postDataJSON())
+      restored = true
+      return route.fulfill({
+        json: [{
+          envelope: protectedEnvelope,
+          generation: 1,
+          profile_id: OWNER_PROFILE_ID,
+          protected_until: protectedUntil,
+          revision: 8,
+          status: 'restored'
+        }],
+        status: 200
+      })
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto('/?internal_test=1')
+  const storedState = await seedOwnedLearnerProfile(page)
+  const protectedProfile = structuredClone(JSON.parse(storedState))
+  protectedProfile.config.channels = [{
+    id: 'protected-channel',
+    image: '',
+    language: 'Mandarin',
+    name: NEXT_OWNER_CHANNEL_NAME
+  }]
+  protectedEnvelope = (
+    await createPortableLearnerProfileEnvelope(protectedProfile)
+  ).envelope
+  lifecycleEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expectNeutralProfileGate(page, 'recovering', storedState)
+  await expect(page.locator('#learnerProfileAccessTitle')).toHaveText(
+    'Choose a recovery copy'
+  )
+  const recoveryItems = page.locator('#learnerProfileRecoveryList li')
+  await expect(recoveryItems).toHaveCount(2)
+  const localItem = recoveryItems.filter({
+    hasText: 'This device has a learner profile verified for the signed-in account.'
+  })
+  const protectedItem = recoveryItems.filter({
+    hasText: 'A protected cloud progress snapshot is available until'
+  })
+  await expect(localItem).toHaveCount(1)
+  await expect(protectedItem).toHaveCount(1)
+  await expect(page.locator('body')).not.toContainText(OWNER_ID)
+  await expect(page.locator('body')).not.toContainText(OTHER_OWNER_ID)
+  await expect(page.locator('body')).not.toContainText(NEXT_OWNER_CHANNEL_NAME)
+  expect(await page.evaluate(() => (
+    document.documentElement.scrollWidth
+      <= document.documentElement.clientWidth
+  ))).toBe(true)
+
+  const localDownloadPromise = page.waitForEvent('download')
+  await localItem.getByRole('button', { name: 'Export this copy' }).click()
+  const localDownload = await localDownloadPromise
+  expect(localDownload.suggestedFilename()).toMatch(
+    /^edenia-sync-this-device-\d{4}-\d{2}-\d{2}\.json$/
+  )
+
+  const protectedDownloadPromise = page.waitForEvent('download')
+  await protectedItem.getByRole('button', { name: 'Export this copy' }).click()
+  const protectedDownload = await protectedDownloadPromise
+  expect(protectedDownload.suggestedFilename()).toMatch(
+    /^edenia-sync-cloud-\d{4}-\d{2}-\d{2}\.json$/
+  )
+  expect(protectedReads).toBe(1)
+
+  await protectedItem.getByRole('button', {
+    name: 'Restore this copy'
+  }).click()
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect.poll(() => page.evaluate(key => (
+    JSON.parse(localStorage.getItem(key)).config.channels.map(
+      channel => channel.name
+    )
+  ), STATE_STORAGE_KEY)).toContain(NEXT_OWNER_CHANNEL_NAME)
+  expect(restoreRequests).toHaveLength(2)
+  expect(restoreRequests[1]).toEqual(restoreRequests[0])
+  expect(restoreRequests[0]).toMatchObject({
+    p_candidate_id: protectedCandidateId,
+    p_confirmed: true,
+    p_envelope: null,
+    p_generation: null,
+    p_profile_id: null,
+    p_revision: null,
+    p_source: 'protected'
+  })
+})
+
+test('failed unusable-head restoration keeps recovery export and retry available', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let lifecycleEnabled = false
+  let restoreAttempts = 0
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      return route.fulfill({
+        json: [{
+          created: false,
+          envelope: null,
+          generation: null,
+          profile_id: null,
+          revision: null,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.CURRENT_HEAD_UNUSABLE
+        }],
+        status: 200
+      })
+    }
+    if (pathname.endsWith('/rpc/list_my_learner_profile_recovery_candidates')) {
+      return route.fulfill({ json: [], status: 200 })
+    }
+    if (pathname.endsWith('/rpc/restore_my_learner_profile')) {
+      restoreAttempts += 1
+      return route.fulfill({
+        json: [{
+          envelope: null,
+          generation: null,
+          profile_id: null,
+          protected_until: null,
+          revision: null,
+          status: 'recovery_required'
+        }],
+        status: 200
+      })
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto('/?internal_test=1')
+  const storedState = await seedOwnedLearnerProfile(page)
+  lifecycleEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expectNeutralProfileGate(page, 'recovering', storedState)
+  await expect(page.locator('#learnerProfileAccessBody')).toHaveText(
+    'Edenia could not safely read the current cloud progress snapshot. Restore or export one of the trusted copies below.'
+  )
+  const localItem = page.locator('#learnerProfileRecoveryList li').filter({
+    hasText: 'This device has a learner profile verified for the signed-in account.'
+  })
+  const restore = localItem.getByRole('button', { name: 'Restore this copy' })
+  await restore.click()
+  await expect(page.locator('#learnerProfileRecoveryFeedback')).toHaveText(
+    'Edenia could not restore that copy. Nothing was replaced, and the recovery copies remain available.'
+  )
+  await expect(localItem.getByRole('button', {
+    name: 'Export this copy'
+  })).toBeVisible()
+  await expect(restore).toBeVisible()
+  expect(await page.evaluate(key => localStorage.getItem(key), STATE_STORAGE_KEY))
+    .toBe(storedState)
+
+  await restore.click()
+  await expect.poll(() => restoreAttempts).toBe(2)
+})
+
+test('missing-head history with no usable copy stays guarded', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let lifecycleEnabled = false
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      return route.fulfill({
+        json: [{
+          created: false,
+          envelope: null,
+          generation: null,
+          profile_id: null,
+          revision: null,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.CURRENT_HEAD_MISSING
+        }],
+        status: 200
+      })
+    }
+    if (pathname.endsWith('/rpc/list_my_learner_profile_recovery_candidates')) {
+      return route.fulfill({ json: [], status: 200 })
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto('/?internal_test=1')
+  await page.evaluate(({
+    accessStorageKey,
+    authStorageKey,
+    session,
+    stateStorageKey
+  }) => {
+    localStorage.removeItem(accessStorageKey)
+    localStorage.removeItem(stateStorageKey)
+    localStorage.setItem(authStorageKey, JSON.stringify(session))
+  }, {
+    accessStorageKey: PROFILE_ACCESS_STORAGE_KEY,
+    authStorageKey: AUTH_STORAGE_KEY,
+    session: restoredSession(OWNER_ID),
+    stateStorageKey: STATE_STORAGE_KEY
+  })
+  lifecycleEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'recovering'
+  )
+  await expect(page.locator('#mainApp')).toBeHidden()
+  await expect(page.locator('#learnerProfileRecoveryList li')).toHaveCount(0)
+  await expect(page.locator('#learnerProfileRecoveryEmpty')).toHaveText(
+    'No trusted recovery copy is available yet. Try again or sign out.'
+  )
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
 })
 
 test('a signed-in owner can reopen and save the matching local profile while the cloud head is unavailable', async ({

@@ -96,11 +96,25 @@ revision 1, in the same database transaction.
 
 A restored session calls the same owner-derived resolver before Edenia renders
 or saves any learner state. An existing current head takes precedence over an
-incidental onboarding draft. Missing-head history returns recovery instead of
-creating a blank profile. Network and server unavailability remain
-`waiting-cloud`; rejected or unverifiable profile data enters `recovering`.
-Both states preserve local data and expose retry plus local sign-out without
-revealing the learner's email, profile, or town.
+incidental onboarding draft. Owner history without a current head returns the
+distinct `current_head_missing` result instead of creating a blank profile.
+An unreadable current envelope returns the separate `current_head_unusable`
+result. Network and server unavailability remain `waiting-cloud`; other
+rejected or unverifiable profile data enters guarded recovery without candidate
+choices.
+
+For a missing or unusable head, the browser offers only a matching
+owner-verified local profile and up to eight unexpired protected cloud progress
+snapshots. The neutral gate labels them by source and protection deadline
+without rendering profile contents, account identifiers, email addresses,
+names, or provider metadata.
+The learner can export either exact candidate or explicitly restore one. A
+restore validates the portable envelope again, writes a new immutable accepted
+revision through an owner-derived idempotent RPC, and protects any displaced
+head for at least 30 days. A failed restore leaves both the current head and the
+candidate unchanged, so export and retry remain available. Missing history with
+no eligible candidate stays guarded; a genuinely new account with unused
+server-recorded creation evidence still creates its first profile normally.
 
 After a successful online ownership check, the browser stores only the verified
 Supabase UUID and the verification time. A matching owner may continue studying

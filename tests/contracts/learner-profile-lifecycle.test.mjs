@@ -48,12 +48,21 @@ function createHarness({
   claimActivationResult = true,
   cloudChoice = { status: 'recovering' },
   cloudProtectedReset = undefined,
+  cloudImport = { status: 'failed' },
+  cloudImportConfirmationResult = true,
+  cloudImportRollback = context => ({
+    revision: context.revision + 1,
+    status: 'rolled-back'
+  }),
+  cloudRecoveryCandidate = { status: 'recovering' },
   cloudResolution = { status: 'waiting' },
+  cloudRestore = { status: 'recovering' },
   cloudRetryResult = false,
   cloudStartOver = { status: 'recovering' },
   cloudSyncState = { status: 'idle' },
   cloudUndoStartOver = { status: 'recovering' },
   completeOnboardingFinalizationResult = true,
+  reconcileSignedInProfileResult = true,
   markDirtyResult = null,
   now = 1_786_982_400_000,
   ownerVerification = null
@@ -107,6 +116,30 @@ function createHarness({
           calls.push(['cloud-choose-conflict', context])
           return Promise.resolve(cloudChoice)
         },
+        confirmImport(context) {
+          calls.push(['cloud-confirm-import', context])
+          return cloudImportConfirmationResult
+        },
+        importProfile(profile, context) {
+          calls.push(['cloud-import', profile, context])
+          return Promise.resolve(
+            typeof cloudImport === 'function'
+              ? cloudImport(profile, context)
+              : cloudImport
+          )
+        },
+        rollbackImport(context) {
+          calls.push(['cloud-rollback-import', context])
+          return Promise.resolve(
+            typeof cloudImportRollback === 'function'
+              ? cloudImportRollback(context)
+              : cloudImportRollback
+          )
+        },
+        readRecoveryCandidate(context) {
+          calls.push(['cloud-read-recovery', context])
+          return Promise.resolve(cloudRecoveryCandidate)
+        },
         ...(markDirtyResult === null ? {} : {
           markDirty(context) {
             calls.push(['cloud-mark-dirty', context])
@@ -127,6 +160,10 @@ function createHarness({
             return Promise.resolve(cloudProtectedReset)
           }
         }),
+        restoreRecoveryCandidate(context) {
+          calls.push(['cloud-restore-recovery', context])
+          return Promise.resolve(cloudRestore)
+        },
         getState() {
           return cloudSyncState
         },
@@ -233,6 +270,10 @@ function createHarness({
         },
         reconcileSignedInProfile(profile, identity) {
           calls.push(['reconcile', profile, identity])
+          const reconciled = typeof reconcileSignedInProfileResult === 'function'
+            ? reconcileSignedInProfileResult(profile, identity)
+            : reconcileSignedInProfileResult
+          if (!reconciled) return false
           currentLocal = {
             generation: identity.generation,
             ownerId: identity.ownerId,
@@ -1336,6 +1377,75 @@ test('definitive ownership failure removes the offline grace path', async () => 
   )
 })
 
+test('missing-head recovery keeps matching local and protected candidates exportable after a failed restore', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const protectedId = '323e4567-e89b-42d3-a456-426614174002'
+  const localProfile = { marker: 'matching-local-recovery' }
+  const protectedProfile = { marker: 'protected-cloud-recovery' }
+  const recovery = {
+    candidates: [{ id: 'local', source: 'local' }, {
+      id: protectedId,
+      protectedUntil: 1_789_574_400_000,
+      source: 'protected'
+    }],
+    reason: 'current-head-missing'
+  }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudRecoveryCandidate: {
+      profile: protectedProfile,
+      status: 'ready'
+    },
+    cloudResolution: { recovery, status: 'recovering' },
+    cloudRestore: { status: 'recovering' },
+    local: {
+      generation: 2,
+      ownerId,
+      profile: localProfile,
+      profileId,
+      revision: 7,
+      status: 'ready'
+    }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.deepEqual(harness.authority.getState().recovery, recovery)
+  assert.equal(
+    await harness.authority.exportRecoveryCandidate('local'),
+    true
+  )
+  assert.equal(
+    await harness.authority.exportRecoveryCandidate(protectedId),
+    true
+  )
+  assert.equal(
+    await harness.authority.restoreRecoveryCandidate(
+      protectedId,
+      { confirmed: true }
+    ),
+    false
+  )
+  assert.deepEqual(harness.authority.getState().recovery, {
+    ...recovery,
+    feedback: 'restore-failed'
+  })
+  assert.equal(
+    await harness.authority.exportRecoveryCandidate('local'),
+    true
+  )
+  assert.equal(
+    await harness.authority.exportRecoveryCandidate(protectedId),
+    true
+  )
+  assert.deepEqual(
+    harness.calls.filter(([name]) => name === 'download').map(call => call[1]),
+    [localProfile, protectedProfile, localProfile, protectedProfile]
+  )
+})
+
 test('invalid authentication revokes verification before a later outage', () => {
   const ownerId = '123e4567-e89b-42d3-a456-426614174000'
   const profile = { marker: 'invalid-authentication' }
@@ -1961,6 +2071,353 @@ test('signed-in profile replacement carries its cloud revision into the new acti
   assert.ok(
     harness.calls.findLastIndex(([name]) => name === 'cloud-activate')
       < harness.calls.findLastIndex(([name]) => name === 'cloud-save')
+  )
+})
+
+test('profile import requires confirmation from the active verified owner', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { marker: 'before-import' }
+  const importedProfile = { marker: 'after-import' }
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: {
+      generation: 3,
+      ownerId,
+      profile,
+      profileId,
+      revision: 9,
+      status: 'activate'
+    },
+    local: {
+      generation: 3,
+      ownerId,
+      profile,
+      profileId,
+      revision: 9,
+      status: 'ready'
+    }
+  })
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.deepEqual(
+    await harness.authority.importActiveProfile(importedProfile),
+    { status: 'confirmation-required' }
+  )
+  assert.equal(harness.authority.readActiveProfile(), profile)
+  assert.equal(
+    harness.calls.some(([name]) => name === 'cloud-import'),
+    false
+  )
+
+  harness.authentication.publish({
+    status: 'signed-in',
+    userId: '323e4567-e89b-42d3-a456-426614174002'
+  })
+  assert.deepEqual(
+    await harness.authority.importActiveProfile(importedProfile, {
+      confirmed: true
+    }),
+    { status: 'owner-required' }
+  )
+  assert.equal(harness.authority.readActiveProfile(), null)
+})
+
+test('profile import protects cloud progress before activating imported content', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const previousProfile = { marker: 'before-import' }
+  const importedProfile = { marker: 'cross-account-portable-profile' }
+  const cloudImport = {
+    baseRevision: 10,
+    generation: 3,
+    operationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    ownerId,
+    profileId,
+    protectedUntil: 1_800_000_000_000,
+    revision: 11,
+    status: 'protected'
+  }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudImport,
+    cloudResolution: {
+      generation: 3,
+      ownerId,
+      profile: previousProfile,
+      profileId,
+      revision: 9,
+      status: 'activate'
+    },
+    local: {
+      generation: 3,
+      ownerId,
+      profile: previousProfile,
+      profileId,
+      revision: 9,
+      status: 'ready'
+    }
+  })
+  harness.authority.start()
+  await Promise.resolve()
+  const activationBeforeImport = harness.authority.getState().activation
+
+  assert.deepEqual(
+    await harness.authority.importActiveProfile(importedProfile, {
+      confirmed: true
+    }),
+    { status: 'imported' }
+  )
+
+  const activation = harness.authority.getState().activation
+  assert.equal(harness.authority.readActiveProfile(), importedProfile)
+  assert.equal(activation.ownerId, ownerId)
+  assert.equal(activation.profileId, profileId)
+  assert.equal(activation.generation, 3)
+  assert.equal(activation.revision, 11)
+  assert.notEqual(activation.id, activationBeforeImport.id)
+  const importIndex = harness.calls.findIndex(([name]) => name === 'cloud-import')
+  const reconcileIndex = harness.calls.findLastIndex(
+    ([name]) => name === 'reconcile'
+  )
+  const confirmIndex = harness.calls.findLastIndex(
+    ([name]) => name === 'cloud-confirm-import'
+  )
+  assert.ok(importIndex >= 0)
+  assert.ok(importIndex < reconcileIndex)
+  assert.ok(reconcileIndex < confirmIndex)
+  assert.equal(
+    harness.calls.some(([name]) => name === 'cloud-save'),
+    false
+  )
+})
+
+test('local import persistence failure rolls cloud back and reactivates current progress', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const previousProfile = { marker: 'before-import' }
+  const importedProfile = { marker: 'must-not-activate' }
+  const cloudImport = {
+    baseRevision: 10,
+    generation: 3,
+    operationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    ownerId,
+    profileId,
+    protectedUntil: 1_800_000_000_000,
+    revision: 11,
+    status: 'protected'
+  }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudImport,
+    cloudResolution: {
+      generation: 3,
+      ownerId,
+      profile: previousProfile,
+      profileId,
+      revision: 9,
+      status: 'activate'
+    },
+    local: {
+      generation: 3,
+      ownerId,
+      profile: previousProfile,
+      profileId,
+      revision: 9,
+      status: 'ready'
+    },
+    reconcileSignedInProfileResult: profile => profile !== importedProfile
+  })
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.deepEqual(
+    await harness.authority.importActiveProfile(importedProfile, {
+      confirmed: true
+    }),
+    { status: 'rolled-back' }
+  )
+  assert.equal(harness.authority.readActiveProfile(), previousProfile)
+  assert.equal(harness.authority.getState().activation.revision, 12)
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  )
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'cloud-rollback-import').length,
+    1
+  )
+  assert.equal(
+    harness.calls.filter(
+      ([name, profile, identity]) => name === 'reconcile'
+        && profile === previousProfile
+        && identity.revision === 12
+    ).length,
+    1
+  )
+})
+
+test('sync receipt persistence failure rolls imported content back locally and in cloud', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const previousProfile = { marker: 'before-import' }
+  const importedProfile = { marker: 'must-be-rolled-back' }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudImport: {
+      baseRevision: 10,
+      generation: 3,
+      operationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      ownerId,
+      profileId,
+      protectedUntil: 1_800_000_000_000,
+      revision: 11,
+      status: 'protected'
+    },
+    cloudImportConfirmationResult: false,
+    cloudResolution: {
+      generation: 3,
+      ownerId,
+      profile: previousProfile,
+      profileId,
+      revision: 9,
+      status: 'activate'
+    },
+    local: {
+      generation: 3,
+      ownerId,
+      profile: previousProfile,
+      profileId,
+      revision: 9,
+      status: 'ready'
+    }
+  })
+  harness.authority.start()
+  await Promise.resolve()
+  const reconcileCount = harness.calls.filter(
+    ([name]) => name === 'reconcile'
+  ).length
+
+  assert.deepEqual(
+    await harness.authority.importActiveProfile(importedProfile, {
+      confirmed: true
+    }),
+    { status: 'rolled-back' }
+  )
+  assert.equal(harness.authority.readActiveProfile(), previousProfile)
+  assert.equal(harness.authority.getState().activation.revision, 12)
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'cloud-rollback-import').length,
+    1
+  )
+  assert.deepEqual(
+    harness.calls.filter(([name]) => name === 'reconcile')
+      .slice(reconcileCount)
+      .map(([, profile, identity]) => [profile, identity.revision]),
+    [[importedProfile, 11], [previousProfile, 12]]
+  )
+})
+
+test('durable-marker cleanup failure still restores current progress', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const previousProfile = { marker: 'before-import' }
+  const importedProfile = { marker: 'must-be-rolled-back' }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudImport: {
+      baseRevision: 10,
+      generation: 3,
+      operationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      ownerId,
+      profileId,
+      protectedUntil: 1_800_000_000_000,
+      revision: 11,
+      status: 'protected'
+    },
+    cloudImportConfirmationResult: false,
+    cloudImportRollback: {
+      cleanupPending: true,
+      revision: 12,
+      status: 'rolled-back'
+    },
+    cloudResolution: {
+      generation: 3,
+      ownerId,
+      profile: previousProfile,
+      profileId,
+      revision: 9,
+      status: 'activate'
+    },
+    local: {
+      generation: 3,
+      ownerId,
+      profile: previousProfile,
+      profileId,
+      revision: 9,
+      status: 'ready'
+    }
+  })
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.deepEqual(
+    await harness.authority.importActiveProfile(importedProfile, {
+      confirmed: true
+    }),
+    { status: 'recovery-required' }
+  )
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(harness.getLocal().profile, previousProfile)
+  assert.equal(harness.getLocal().revision, 12)
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+  )
+})
+
+test('stale cloud revision leaves the active profile unchanged', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const previousProfile = { marker: 'before-import' }
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudImport: { status: 'stale-revision' },
+    cloudResolution: {
+      generation: 3,
+      ownerId,
+      profile: previousProfile,
+      profileId,
+      revision: 9,
+      status: 'activate'
+    },
+    local: {
+      generation: 3,
+      ownerId,
+      profile: previousProfile,
+      profileId,
+      revision: 9,
+      status: 'ready'
+    }
+  })
+  harness.authority.start()
+  await Promise.resolve()
+  const reconcileCount = harness.calls.filter(
+    ([name]) => name === 'reconcile'
+  ).length
+
+  assert.deepEqual(
+    await harness.authority.importActiveProfile(
+      { marker: 'must-not-activate' },
+      { confirmed: true }
+    ),
+    { status: 'stale-revision' }
+  )
+  assert.equal(harness.authority.readActiveProfile(), previousProfile)
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'reconcile').length,
+    reconcileCount
   )
 })
 
