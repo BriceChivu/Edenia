@@ -24,6 +24,7 @@ const OWNER_VERIFICATION_STORAGE_KEY =
 const AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
 const AUTHENTICATED_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
 const CREATED_PROFILE_ID = '223e4567-e89b-42d3-a456-426614174001'
+const START_OVER_RESET_ID = '323e4567-e89b-42d3-a456-426614174002'
 const RETURNING_CHANNEL_NAME = 'RETURNING OWNER PRIVATE CHANNEL'
 
 function fakeAccessToken(userId) {
@@ -411,6 +412,265 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
   } finally {
     releaseResolution()
   }
+})
+
+test('Start over keeps the account and analytics identity while Undo restores progress', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  const returningEnvelope = await createReturningOwnerEnvelope()
+  const protectedUntil = '2026-09-21T00:00:00.000Z'
+  let cloudEnvelope = returningEnvelope
+  let protectedEnvelope = returningEnvelope
+  let protectedPriorRevision = 12
+  let generation = 4
+  let revision = 12
+  let resetAvailable = false
+  let startOverRequests = 0
+  let undoRequests = 0
+  const logoutRequests = []
+
+  await page.addInitScript(({
+    authKey,
+    authenticated
+  }) => {
+    localStorage.setItem(authKey, JSON.stringify(authenticated))
+    const calls = JSON.parse(
+      sessionStorage.getItem('__startOverAnalyticsCalls') || '[]'
+    )
+    const save = (method, args) => {
+      calls.push({ method, args })
+      sessionStorage.setItem(
+        '__startOverAnalyticsCalls',
+        JSON.stringify(calls)
+      )
+    }
+    window.posthog = {
+      __loaded: true,
+      capture(...args) {
+        save('capture', args)
+      },
+      get_distinct_id() {
+        return 'stable-analytics-identity'
+      },
+      identify(...args) {
+        save('identify', args)
+      },
+      reset(...args) {
+        save('reset', args)
+      },
+      setPersonProperties(...args) {
+        save('setPersonProperties', args)
+      }
+    }
+  }, {
+    authKey: AUTH_STORAGE_KEY,
+    authenticated: authenticatedSession()
+  })
+  await installRuntimeConfig(page)
+  await page.route(`${SUPABASE_ORIGIN}/**`, async route => {
+    const request = route.request()
+    const pathname = new URL(request.url()).pathname
+    if (pathname === '/auth/v1/token') {
+      await route.fulfill({ json: authenticatedSession(), status: 200 })
+      return
+    }
+    if (pathname === '/auth/v1/logout') {
+      logoutRequests.push(request.url())
+      await route.fulfill({ json: {}, status: 200 })
+      return
+    }
+    if (pathname === '/rest/v1/rpc/resolve_my_learner_profile') {
+      await route.fulfill({
+        json: [resolutionRow(
+          LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY,
+          {
+            envelope: cloudEnvelope,
+            generation,
+            profile_id: CREATED_PROFILE_ID,
+            revision
+          }
+        )],
+        status: 200
+      })
+      return
+    }
+    if (pathname === '/rest/v1/rpc/read_my_latest_learner_profile_reset') {
+      await route.fulfill({
+        json: [resetAvailable
+          ? {
+              envelope: protectedEnvelope,
+              prior_generation: 4,
+              prior_revision: protectedPriorRevision,
+              profile_id: CREATED_PROFILE_ID,
+              protected_until: protectedUntil,
+              reset_generation: 5,
+              reset_id: START_OVER_RESET_ID,
+              status: 'available'
+            }
+          : { status: 'none' }],
+        status: 200
+      })
+      return
+    }
+    if (pathname === '/rest/v1/rpc/commit_my_learner_profile') {
+      const body = request.postDataJSON()
+      expect(body).toMatchObject({
+        p_base_revision: revision,
+        p_generation: generation,
+        p_profile_id: CREATED_PROFILE_ID
+      })
+      cloudEnvelope = body.p_envelope
+      revision += 1
+      await route.fulfill({
+        json: [{
+          base_revision: body.p_base_revision,
+          generation,
+          payload_sha256: body.p_envelope.integrity.payloadSha256,
+          profile_id: CREATED_PROFILE_ID,
+          revision,
+          status: 'accepted'
+        }],
+        status: 200
+      })
+      return
+    }
+    if (pathname === '/rest/v1/rpc/start_over_my_learner_profile') {
+      startOverRequests += 1
+      const body = request.postDataJSON()
+      expect(body).toMatchObject({
+        p_base_revision: revision,
+        p_confirmed: true,
+        p_generation: 4,
+        p_profile_id: CREATED_PROFILE_ID
+      })
+      expect(body.p_envelope.profile.learnerProfile.languages).toEqual([])
+      expect(body.p_envelope.profile.config.channels).toEqual([])
+      expect(body.p_envelope.profile.onboarding.setupCompleted).toBe(false)
+      protectedEnvelope = cloudEnvelope
+      protectedPriorRevision = revision
+      cloudEnvelope = body.p_envelope
+      generation = 5
+      revision = 1
+      resetAvailable = true
+      await route.fulfill({
+        json: [{
+          envelope: cloudEnvelope,
+          generation,
+          profile_id: CREATED_PROFILE_ID,
+          protected_until: protectedUntil,
+          reset_id: START_OVER_RESET_ID,
+          revision,
+          status: 'started_over'
+        }],
+        status: 200
+      })
+      return
+    }
+    if (pathname === '/rest/v1/rpc/undo_my_learner_profile_start_over') {
+      undoRequests += 1
+      expect(request.postDataJSON()).toMatchObject({
+        p_confirmed: true,
+        p_reset_id: START_OVER_RESET_ID
+      })
+      cloudEnvelope = protectedEnvelope
+      revision = 2
+      resetAvailable = false
+      await route.fulfill({
+        json: [{
+          envelope: cloudEnvelope,
+          generation,
+          profile_id: CREATED_PROFILE_ID,
+          reset_id: START_OVER_RESET_ID,
+          revision,
+          status: 'undone'
+        }],
+        status: 200
+      })
+      return
+    }
+    await route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect.poll(() => page.evaluate(stateKey => (
+    JSON.parse(localStorage.getItem(stateKey))
+      .config.channels[0]?.name
+  ), STATE_STORAGE_KEY)).toBe(RETURNING_CHANNEL_NAME)
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(
+    'Up to date'
+  )
+  await page.evaluate(() => {
+    window.EDENIA_ANALYTICS_ENABLED = true
+  })
+  const identityBefore = await page.evaluate(
+    () => window.posthog.get_distinct_id()
+  )
+
+  await page.locator('.gear-btn').click()
+  const open = page.getByRole('button', { name: 'Start over', exact: true })
+  await open.click()
+  expect(startOverRequests).toBe(0)
+  await expect(page.locator('#resetConfirm')).toBeVisible()
+  await expect(page.locator('#startOverWarning')).toContainText('across devices')
+  await expect(page.locator('#startOverWarning')).toContainText('30 days')
+  await expect(page.getByRole('button', { name: 'Delete data' })).toHaveCount(0)
+
+  await page.locator('[data-settings-reset-confirm-action="confirm"]').click()
+  await expect.poll(() => startOverRequests).toBe(1)
+  await expect(page.locator('#startOverUndo')).toBeVisible()
+  await expect(page.locator('#startOverUndoDeadline')).not.toBeEmpty()
+  await expect(page.getByRole('button', { name: 'Undo Start over' })).toBeFocused()
+  await expect(page.locator('body')).not.toContainText(RETURNING_CHANNEL_NAME)
+  const afterStartOver = await page.evaluate(({
+    accessKey,
+    authKey,
+    stateKey
+  }) => ({
+    access: JSON.parse(localStorage.getItem(accessKey)),
+    analyticsCalls: JSON.parse(
+      sessionStorage.getItem('__startOverAnalyticsCalls') || '[]'
+    ),
+    auth: JSON.parse(localStorage.getItem(authKey)),
+    distinctId: window.posthog.get_distinct_id(),
+    state: JSON.parse(localStorage.getItem(stateKey))
+  }), {
+    accessKey: PROFILE_ACCESS_STORAGE_KEY,
+    authKey: AUTH_STORAGE_KEY,
+    stateKey: STATE_STORAGE_KEY
+  })
+  expect(afterStartOver.access).toMatchObject({ generation: 5, revision: 1 })
+  expect(afterStartOver.auth.user.id).toBe(AUTHENTICATED_USER_ID)
+  expect(afterStartOver.distinctId).toBe(identityBefore)
+  expect(afterStartOver.state.learnerProfile.languages).toEqual([])
+  expect(afterStartOver.state.config.channels).toEqual([])
+  expect(afterStartOver.analyticsCalls.filter(call => (
+    call.method === 'capture'
+    && call.args[0] === 'profile_started_over'
+  ))).toEqual([{
+    args: ['profile_started_over', null],
+    method: 'capture'
+  }])
+  expect(afterStartOver.analyticsCalls.filter(call => (
+    call.method === 'reset'
+  ))).toEqual([])
+  expect(logoutRequests).toEqual([])
+
+  await page.getByRole('button', { name: 'Undo Start over' }).click()
+  await expect.poll(() => undoRequests).toBe(1)
+  await expect(page.locator('#startOverUndo')).toBeHidden()
+  await expect(open).toBeFocused()
+  const restored = await page.evaluate(({ accessKey, stateKey }) => ({
+    access: JSON.parse(localStorage.getItem(accessKey)),
+    state: JSON.parse(localStorage.getItem(stateKey))
+  }), {
+    accessKey: PROFILE_ACCESS_STORAGE_KEY,
+    stateKey: STATE_STORAGE_KEY
+  })
+  expect(restored.access).toMatchObject({ generation: 5, revision: 2 })
+  expect(restored.state.learnerProfile.languages).toEqual(['french'])
+  expect(logoutRequests).toEqual([])
 })
 
 test('a returning owner can retry an unresolved cloud-head check', async ({
@@ -889,16 +1149,13 @@ test('offline progress survives reload and activates on a second device after sy
     await expect(secondPage.locator('#mainApp')).toBeVisible()
     const secondDevice = await secondPage.evaluate(({
       accessKey,
-      stateKey,
-      syncKey
+      stateKey
     }) => ({
       access: JSON.parse(localStorage.getItem(accessKey)),
-      state: JSON.parse(localStorage.getItem(stateKey)),
-      sync: JSON.parse(localStorage.getItem(syncKey))
+      state: JSON.parse(localStorage.getItem(stateKey))
     }), {
       accessKey: PROFILE_ACCESS_STORAGE_KEY,
-      stateKey: STATE_STORAGE_KEY,
-      syncKey: PROFILE_SYNC_STORAGE_KEY
+      stateKey: STATE_STORAGE_KEY
     })
     expect(secondDevice.state.config).toMatchObject(
       usesPhoneLocaleChange ? { locale: 'fr' } : { ankiEnabled: false }
@@ -907,7 +1164,14 @@ test('offline progress survives reload and activates on a second device after sy
       generation: 4,
       revision: firstDeviceRevision
     })
-    expect(secondDevice.sync).toMatchObject({
+    await expect.poll(() => secondPage.evaluate(syncKey => {
+      const sync = JSON.parse(localStorage.getItem(syncKey))
+      return {
+        acceptedRevision: sync.acceptedRevision,
+        pending: sync.pending,
+        queued: sync.queued
+      }
+    }, PROFILE_SYNC_STORAGE_KEY)).toMatchObject({
       acceptedRevision: cloudRevision,
       pending: null,
       queued: null

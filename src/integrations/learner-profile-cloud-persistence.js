@@ -1,10 +1,18 @@
 import {
+  LEARNER_PROFILE_RECOVERY_REASONS,
+  LEARNER_PROFILE_RECOVERY_SOURCES,
   LEARNER_PROFILE_RESOLUTION_STATUSES
 } from '../domain/learner-profile-resolution.js'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
 const MAX_AUTOMATIC_RETRIES = 5
+const RECOVERY_REJECTION_STATUSES = new Set([
+  'access_disabled',
+  'confirmation_required',
+  'recovery_required',
+  'verified_account_required'
+])
 
 function readSingleRpcRow(data) {
   if (Array.isArray(data) && data.length !== 1) return null
@@ -160,6 +168,102 @@ function isAcceptedOperationReceipt(row, operation, envelope, statuses) {
     && row.payload_sha256 === envelope?.integrity?.payloadSha256
 }
 
+function prepareLocalRecoveryCandidate(localProfile, ownerId, prepareEnvelope) {
+  if (
+    localProfile?.status !== 'ready'
+    || localProfile.ownerId !== ownerId
+    || !UUID_PATTERN.test(String(localProfile.profileId || ''))
+    || !normalizePositiveInteger(localProfile.generation)
+    || !normalizePositiveInteger(localProfile.revision)
+    || !isRecord(localProfile.profile)
+  ) return null
+  try {
+    const envelope = prepareEnvelope(localProfile.profile)
+    return isPreparedEnvelope(envelope) ? {
+      envelope,
+      generation: localProfile.generation,
+      profileId: localProfile.profileId,
+      revision: localProfile.revision
+    } : null
+  } catch {
+    return null
+  }
+}
+
+function readProtectedRecoveryCandidates(data, currentTime) {
+  if (!Array.isArray(data)) return null
+  const candidates = []
+  const seen = new Set()
+  for (const row of data) {
+    const id = String(row?.candidate_id || '')
+    const protectedUntil = Date.parse(String(row?.protected_until || ''))
+    if (
+      row?.source !== LEARNER_PROFILE_RECOVERY_SOURCES.PROTECTED
+      || !UUID_PATTERN.test(id)
+      || !Number.isFinite(protectedUntil)
+      || protectedUntil <= currentTime
+      || seen.has(id)
+    ) return null
+    seen.add(id)
+    candidates.push(Object.freeze({
+      id,
+      protectedUntil,
+      source: LEARNER_PROFILE_RECOVERY_SOURCES.PROTECTED
+    }))
+  }
+  return candidates
+}
+
+function isRecoveryOperation(value) {
+  if (!hasExactKeys(value, [
+    'candidateId',
+    'envelope',
+    'generation',
+    'operationId',
+    'ownerId',
+    'profileId',
+    'revision',
+    'source',
+    'version'
+  ])
+    || value.version !== 1
+    || !UUID_PATTERN.test(String(value.operationId || ''))
+    || !UUID_PATTERN.test(String(value.ownerId || ''))
+    || !Object.values(LEARNER_PROFILE_RECOVERY_SOURCES).includes(value.source)
+  ) return false
+  if (value.source === LEARNER_PROFILE_RECOVERY_SOURCES.PROTECTED) {
+    return UUID_PATTERN.test(String(value.candidateId || ''))
+      && value.envelope === null
+      && value.generation === null
+      && value.profileId === null
+      && value.revision === null
+  }
+  return value.candidateId === LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL
+    && isPreparedEnvelope(value.envelope)
+    && normalizePositiveInteger(value.generation) !== null
+    && UUID_PATTERN.test(String(value.profileId || ''))
+    && normalizePositiveInteger(value.revision) !== null
+}
+
+function isDurableImport(value) {
+  return hasExactKeys(value, [
+    'baseRevision',
+    'generation',
+    'operationId',
+    'ownerId',
+    'profileId',
+    'revision',
+    'version'
+  ])
+    && value.version === 1
+    && UUID_PATTERN.test(String(value.operationId || ''))
+    && UUID_PATTERN.test(String(value.ownerId || ''))
+    && UUID_PATTERN.test(String(value.profileId || ''))
+    && Boolean(normalizePositiveInteger(value.generation))
+    && Boolean(normalizePositiveInteger(value.baseRevision))
+    && value.revision === value.baseRevision + 1
+}
+
 export function createLearnerProfileCloudPersistenceAdapter({
   clearOnboardingDraft,
   createOnboardingEnvelope,
@@ -205,7 +309,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
   let started = false
   let syncState = Object.freeze({ status: 'idle' })
   const listeners = new Set()
+  const protectedImports = new WeakMap()
   const dirtyStorageKey = `${syncStorageKey}_dirty`
+  const importStorageKey = `${syncStorageKey}_import_v1`
+  const recoveryStorageKey = `${syncStorageKey}_recovery`
 
   function publish(status, details = {}) {
     syncState = Object.freeze({ ...details, status })
@@ -242,6 +349,44 @@ export function createLearnerProfileCloudPersistenceAdapter({
     try {
       storage.setItem(syncStorageKey, JSON.stringify(record))
       return true
+    } catch {
+      return false
+    }
+  }
+
+  function readDurableImport() {
+    try {
+      const serialized = storage.getItem(importStorageKey)
+      if (serialized === null) return { present: false, record: null }
+      const record = JSON.parse(serialized)
+      return {
+        present: true,
+        record: isDurableImport(record) ? record : null
+      }
+    } catch {
+      return { present: true, record: null }
+    }
+  }
+
+  function writeDurableImport(record) {
+    if (!isDurableImport(record)) return false
+    try {
+      storage.setItem(importStorageKey, JSON.stringify(record))
+      return readDurableImport().record?.operationId === record.operationId
+    } catch {
+      return false
+    }
+  }
+
+  function clearDurableImport(operationId) {
+    const stored = readDurableImport()
+    if (!stored.present) return true
+    if (!stored.record || stored.record.operationId !== operationId) {
+      return false
+    }
+    try {
+      storage.removeItem(importStorageKey)
+      return storage.getItem(importStorageKey) === null
     } catch {
       return false
     }
@@ -298,6 +443,125 @@ export function createLearnerProfileCloudPersistenceAdapter({
     } catch {
       return false
     }
+  }
+
+  function readRecoveryOperation() {
+    try {
+      const serialized = storage.getItem(recoveryStorageKey)
+      if (serialized === null) return { operation: null, present: false }
+      const operation = JSON.parse(serialized)
+      return {
+        operation: isRecoveryOperation(operation) ? operation : null,
+        present: true
+      }
+    } catch {
+      return { operation: null, present: true }
+    }
+  }
+
+  function writeRecoveryOperation(operation) {
+    try {
+      storage.setItem(recoveryStorageKey, JSON.stringify(operation))
+      return JSON.stringify(readRecoveryOperation().operation)
+        === JSON.stringify(operation)
+    } catch {
+      return false
+    }
+  }
+
+  function clearRecoveryOperation(operation) {
+    const stored = readRecoveryOperation()
+    if (
+      !stored.present
+      || stored.operation?.operationId !== operation.operationId
+    ) return !stored.present
+    try {
+      storage.removeItem(recoveryStorageKey)
+      return storage.getItem(recoveryStorageKey) === null
+    } catch {
+      return false
+    }
+  }
+
+  async function prepareRecoveryOperation({
+    authentication,
+    candidate,
+    confirmed,
+    localProfile
+  }) {
+    if (
+      confirmed !== true
+      || !UUID_PATTERN.test(String(authentication?.userId || ''))
+      || !Object.values(LEARNER_PROFILE_RECOVERY_SOURCES).includes(
+        candidate?.source
+      )
+      || typeof candidate.id !== 'string'
+      || !candidate.id
+    ) return null
+    const localCandidate = candidate.source === LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL
+      ? prepareLocalRecoveryCandidate(
+          localProfile,
+          authentication.userId,
+          prepareEnvelope
+        )
+      : null
+    const stored = readRecoveryOperation()
+    if (stored.present) {
+      const operation = stored.operation
+      if (
+        !operation
+        || operation.ownerId !== authentication.userId
+        || operation.source !== candidate.source
+        || operation.candidateId !== candidate.id
+      ) return null
+      if (candidate.source === LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL) {
+        if (
+          !localCandidate
+          || localCandidate.profileId !== operation.profileId
+          || localCandidate.generation !== operation.generation
+          || localCandidate.revision !== operation.revision
+          || JSON.stringify(localCandidate.envelope.profile)
+            !== JSON.stringify(operation.envelope.profile)
+        ) return null
+      }
+      return operation
+    }
+    let operation
+    if (candidate.source === LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL) {
+      if (!localCandidate) return null
+      let finalized
+      try {
+        finalized = await finalizeEnvelope(localCandidate.envelope)
+      } catch {
+        return null
+      }
+      if (!isPreparedEnvelope(finalized?.envelope)) return null
+      operation = {
+        candidateId: LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL,
+        envelope: finalized.envelope,
+        generation: localCandidate.generation,
+        operationId: createOperationId(),
+        ownerId: authentication.userId,
+        profileId: localCandidate.profileId,
+        revision: localCandidate.revision,
+        source: LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL,
+        version: 1
+      }
+    } else {
+      if (!UUID_PATTERN.test(candidate.id)) return null
+      operation = {
+        candidateId: candidate.id,
+        envelope: null,
+        generation: null,
+        operationId: createOperationId(),
+        ownerId: authentication.userId,
+        profileId: null,
+        revision: null,
+        source: LEARNER_PROFILE_RECOVERY_SOURCES.PROTECTED,
+        version: 1
+      }
+    }
+    return writeRecoveryOperation(operation) ? operation : null
   }
 
   function ensureSyncRecord({ generation, ownerId, profileId, revision }) {
@@ -404,6 +668,320 @@ export function createLearnerProfileCloudPersistenceAdapter({
     activeBinding = null
     publish('idle')
     return true
+  }
+
+  function commitCloudHead(identity, currentRecord) {
+    const nextRecord = {
+      acceptedRevision: identity.revision,
+      generation: identity.generation,
+      ownerId: identity.ownerId,
+      pending: null,
+      profileId: identity.profileId,
+      queued: null,
+      version: 1
+    }
+    if (currentRecord.protectedConflictIds?.length) {
+      nextRecord.protectedConflictIds = [
+        ...currentRecord.protectedConflictIds
+      ]
+    }
+    if (!writeSyncRecord(nextRecord)) return false
+    const committed = readSyncRecord()
+    if (
+      !committed
+      || committed.ownerId !== identity.ownerId
+      || committed.profileId !== identity.profileId
+      || committed.generation !== identity.generation
+      || committed.acceptedRevision !== identity.revision
+      || committed.pending !== null
+      || committed.queued !== null
+    ) return false
+    activeBinding = null
+    cloudHeadKnown = true
+    publish('up-to-date')
+    return true
+  }
+
+  async function finalizeProfileEnvelope(profile) {
+    const prepared = prepareEnvelope(profile)
+    const finalized = await finalizeEnvelope(prepared)
+    if (
+      !isRecord(finalized?.envelope)
+      || finalized.envelope.integrity?.algorithm
+        !== prepared.integrity?.algorithm
+      || finalized.envelope.integrity?.byteLength
+        !== prepared.integrity?.byteLength
+      || finalized.envelope.integrity?.payloadSha256
+        !== prepared.integrity?.payloadSha256
+    ) throw new TypeError('Learner-profile operation integrity changed')
+    return finalized.envelope
+  }
+
+  function canReplaceSynchronizedHead({ activation, isCurrent }) {
+    if (
+      !activeBinding
+      || activeBinding.activation !== activation
+      || typeof isCurrent !== 'function'
+      || !isCurrent()
+      || !activeBinding.isCurrent()
+      || cloudHeadKnown !== true
+    ) return null
+    const record = readSyncRecord()
+    const dirty = readDirtyRecord()
+    if (
+      !record
+      || record.ownerId !== activation.ownerId
+      || record.profileId !== activation.profileId
+      || record.generation !== activeBinding.generation
+      || record.acceptedRevision !== activeBinding.revision
+      || record.pending !== null
+      || record.queued !== null
+      || dirty.present
+    ) return null
+    return record
+  }
+
+  async function startOver(profile, {
+    activation,
+    confirmed = false,
+    isCurrent
+  } = {}) {
+    if (confirmed !== true) return { status: 'confirmation-required' }
+    const record = canReplaceSynchronizedHead({ activation, isCurrent })
+    if (!record) return { status: 'not-synchronized' }
+    if (!isOnline()) return { status: 'waiting-cloud' }
+    let envelope
+    try {
+      envelope = await finalizeProfileEnvelope(profile)
+    } catch {
+      return { status: 'recovering' }
+    }
+    if (!isCurrent() || !activeBinding?.isCurrent()) {
+      return { status: 'fenced' }
+    }
+    let response
+    try {
+      response = await getClient().rpc(
+        'start_over_my_learner_profile',
+        {
+          p_base_revision: record.acceptedRevision,
+          p_confirmed: true,
+          p_envelope: envelope,
+          p_generation: record.generation,
+          p_operation_id: createOperationId(),
+          p_profile_id: record.profileId
+        }
+      )
+    } catch {
+      return { status: 'waiting-cloud' }
+    }
+    if (response?.error) {
+      return {
+        status: isTransientCloudStatus(response.status)
+          ? 'waiting-cloud'
+          : 'recovering'
+      }
+    }
+    const row = readSingleRpcRow(response?.data)
+    const generation = normalizePositiveInteger(row?.generation)
+    const revision = normalizePositiveInteger(row?.revision)
+    const protectedUntil = Date.parse(String(row?.protected_until || ''))
+    if (
+      !['started_over', 'already_started_over'].includes(row?.status)
+      || !UUID_PATTERN.test(String(row.reset_id || ''))
+      || row.profile_id !== record.profileId
+      || generation !== record.generation + 1
+      || revision !== 1
+      || !Number.isFinite(protectedUntil)
+      || protectedUntil <= now()
+    ) return { status: 'recovering' }
+    let verifiedEnvelope
+    let importedProfile
+    try {
+      verifiedEnvelope = await verifyEnvelope(row.envelope)
+      importedProfile = verifiedEnvelope
+        ? importEnvelope(verifiedEnvelope)
+        : null
+    } catch {
+      return { status: 'recovering' }
+    }
+    if (
+      !isRecord(importedProfile)
+      || verifiedEnvelope.integrity?.payloadSha256
+        !== envelope.integrity?.payloadSha256
+      || !isCurrent()
+      || !activeBinding?.isCurrent()
+    ) return { status: 'recovering' }
+    const identity = {
+      generation,
+      ownerId: record.ownerId,
+      profileId: record.profileId,
+      revision
+    }
+    if (!commitCloudHead(identity, record)) return { status: 'recovering' }
+    return {
+      ...identity,
+      profile: importedProfile,
+      protectedReset: Object.freeze({
+        id: row.reset_id,
+        ownerId: record.ownerId,
+        priorGeneration: record.generation,
+        priorRevision: record.acceptedRevision,
+        profileId: record.profileId,
+        protectedUntil,
+        resetGeneration: generation,
+        status: 'available'
+      }),
+      status: 'started-over'
+    }
+  }
+
+  async function undoStartOver({
+    activation,
+    confirmed = false,
+    isCurrent,
+    protectedReset
+  } = {}) {
+    if (confirmed !== true) return { status: 'confirmation-required' }
+    const record = canReplaceSynchronizedHead({ activation, isCurrent })
+    if (!record) return { status: 'not-synchronized' }
+    if (
+      !UUID_PATTERN.test(String(protectedReset?.id || ''))
+      || protectedReset.status !== 'available'
+      || protectedReset.ownerId !== record.ownerId
+      || protectedReset.profileId !== record.profileId
+      || protectedReset.resetGeneration !== record.generation
+      || !Number.isFinite(protectedReset.protectedUntil)
+      || protectedReset.protectedUntil <= now()
+    ) return { status: 'recovering' }
+    if (!isOnline()) return { status: 'waiting-cloud' }
+    let response
+    try {
+      response = await getClient().rpc(
+        'undo_my_learner_profile_start_over',
+        {
+          p_confirmed: true,
+          p_operation_id: createOperationId(),
+          p_reset_id: protectedReset.id
+        }
+      )
+    } catch {
+      return { status: 'waiting-cloud' }
+    }
+    if (response?.error) {
+      return {
+        status: isTransientCloudStatus(response.status)
+          ? 'waiting-cloud'
+          : 'recovering'
+      }
+    }
+    const row = readSingleRpcRow(response?.data)
+    const generation = normalizePositiveInteger(row?.generation)
+    const revision = normalizePositiveInteger(row?.revision)
+    if (
+      !['undone', 'already_undone'].includes(row?.status)
+      || row.reset_id !== protectedReset.id
+      || row.profile_id !== record.profileId
+      || generation !== record.generation
+      || !revision
+      || revision <= record.acceptedRevision
+    ) return { status: 'recovering' }
+    let verifiedEnvelope
+    let importedProfile
+    try {
+      verifiedEnvelope = await verifyEnvelope(row.envelope)
+      importedProfile = verifiedEnvelope
+        ? importEnvelope(verifiedEnvelope)
+        : null
+    } catch {
+      return { status: 'recovering' }
+    }
+    if (
+      !isRecord(importedProfile)
+      || !isCurrent()
+      || !activeBinding?.isCurrent()
+    ) return { status: 'recovering' }
+    const identity = {
+      generation,
+      ownerId: record.ownerId,
+      profileId: record.profileId,
+      revision
+    }
+    if (!commitCloudHead(identity, record)) return { status: 'recovering' }
+    return {
+      ...identity,
+      profile: importedProfile,
+      status: 'undone'
+    }
+  }
+
+  async function readResetReceipt({ generation, ownerId, profileId } = {}) {
+    if (
+      !UUID_PATTERN.test(String(ownerId || ''))
+      || !UUID_PATTERN.test(String(profileId || ''))
+      || !normalizePositiveInteger(generation)
+    ) return null
+    let response
+    try {
+      response = await getClient().rpc(
+        'read_my_latest_learner_profile_reset'
+      )
+    } catch {
+      return null
+    }
+    if (response?.error) return null
+    const row = readSingleRpcRow(response?.data)
+    if (row?.status === 'none') return null
+    const priorGeneration = normalizePositiveInteger(row?.prior_generation)
+    const priorRevision = normalizePositiveInteger(row?.prior_revision)
+    const resetGeneration = normalizePositiveInteger(row?.reset_generation)
+    const protectedUntil = Date.parse(String(row?.protected_until || ''))
+    if (
+      !['available', 'expired', 'undone'].includes(row?.status)
+      || !UUID_PATTERN.test(String(row.reset_id || ''))
+      || row.profile_id !== profileId
+      || resetGeneration !== generation
+      || priorGeneration !== generation - 1
+      || !priorRevision
+      || !Number.isFinite(protectedUntil)
+    ) return null
+    let protectedReset = null
+    if (row.status === 'available') {
+      try {
+        const envelope = await verifyEnvelope(row.prior_envelope)
+        if (!envelope || !isRecord(importEnvelope(envelope))) return null
+      } catch {
+        return null
+      }
+      if (protectedUntil > now()) {
+        protectedReset = Object.freeze({
+          id: row.reset_id,
+          ownerId,
+          priorGeneration,
+          priorRevision,
+          profileId,
+          protectedUntil,
+          resetGeneration,
+          status: 'available'
+        })
+      }
+    }
+    return Object.freeze({
+      id: row.reset_id,
+      ownerId,
+      priorGeneration,
+      priorRevision,
+      profileId,
+      protectedReset,
+      protectedUntil,
+      resetGeneration,
+      status: row.status
+    })
+  }
+
+  async function readProtectedReset(identity = {}) {
+    const receipt = await readResetReceipt(identity)
+    return receipt?.protectedReset || null
   }
 
   function createOperation(profile, record, activationId) {
@@ -645,6 +1223,235 @@ export function createLearnerProfileCloudPersistenceAdapter({
       selectedSide,
       status
     })
+  }
+
+  async function readRecoveryCandidate({ candidate } = {}) {
+    if (
+      candidate?.source !== LEARNER_PROFILE_RECOVERY_SOURCES.PROTECTED
+      || !UUID_PATTERN.test(String(candidate.id || ''))
+      || !Number.isFinite(candidate.protectedUntil)
+      || candidate.protectedUntil <= now()
+    ) return { status: 'recovering' }
+    let response
+    try {
+      response = await getClient().rpc(
+        'read_my_learner_profile_recovery_candidate',
+        { p_candidate_id: candidate.id }
+      )
+    } catch {
+      return { status: 'waiting-cloud' }
+    }
+    if (response?.error) {
+      return isTransientCloudStatus(response.status)
+        ? { status: 'waiting-cloud' }
+        : { status: 'recovering' }
+    }
+    const row = readSingleRpcRow(response?.data)
+    const protectedUntil = Date.parse(String(row?.protected_until || ''))
+    if (
+      row?.status !== 'available'
+      || row.candidate_id !== candidate.id
+      || protectedUntil !== candidate.protectedUntil
+      || protectedUntil <= now()
+    ) return { status: 'recovering' }
+    const envelope = await verifyEnvelope(row.envelope)
+    const profile = envelope ? importEnvelope(envelope) : null
+    return profile && typeof profile === 'object'
+      ? { profile, status: 'ready' }
+      : { status: 'recovering' }
+  }
+
+  async function resolveRecoveryCandidates({
+    authentication,
+    localProfile,
+    reason
+  }) {
+    let candidatesResponse
+    try {
+      candidatesResponse = await getClient().rpc(
+        'list_my_learner_profile_recovery_candidates',
+        {}
+      )
+    } catch {
+      return waitForCloudHead()
+    }
+    if (candidatesResponse?.error) {
+      return isTransientCloudStatus(candidatesResponse.status)
+        ? waitForCloudHead()
+        : { status: 'recovering' }
+    }
+    const protectedCandidates = readProtectedRecoveryCandidates(
+      candidatesResponse?.data,
+      now()
+    )
+    if (!protectedCandidates) return { status: 'recovering' }
+    const candidates = prepareLocalRecoveryCandidate(
+      localProfile,
+      authentication.userId,
+      prepareEnvelope
+    )
+      ? [Object.freeze({
+          id: LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL,
+          source: LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL
+        })]
+      : []
+    candidates.push(...protectedCandidates)
+    return {
+      recovery: Object.freeze({
+        candidates: Object.freeze(candidates),
+        reason
+      }),
+      status: 'recovering'
+    }
+  }
+
+  async function requestRecoveryOperation(operation) {
+    let response
+    try {
+      response = await getClient().rpc('restore_my_learner_profile', {
+        p_candidate_id: operation.source === LEARNER_PROFILE_RECOVERY_SOURCES.PROTECTED
+          ? operation.candidateId
+          : null,
+        p_confirmed: true,
+        p_envelope: operation.envelope,
+        p_generation: operation.generation,
+        p_operation_id: operation.operationId,
+        p_profile_id: operation.profileId,
+        p_revision: operation.revision,
+        p_source: operation.source
+      })
+    } catch {
+      return { status: 'waiting-cloud' }
+    }
+    if (response?.error) {
+      return isTransientCloudStatus(response.status)
+        ? { status: 'waiting-cloud' }
+        : { status: 'rejected' }
+    }
+    const row = readSingleRpcRow(response?.data)
+    if (
+      RECOVERY_REJECTION_STATUSES.has(row?.status)
+      && row.profile_id === null
+      && row.generation === null
+      && row.revision === null
+      && row.envelope === null
+      && row.protected_until === null
+    ) return { status: 'rejected' }
+    const generation = normalizePositiveInteger(row?.generation)
+    const profileId = String(row?.profile_id || '')
+    const protectedUntil = Date.parse(String(row?.protected_until || ''))
+    const revision = normalizePositiveInteger(row?.revision)
+    if (
+      !['already_restored', 'restored'].includes(row?.status)
+      || !generation
+      || !UUID_PATTERN.test(profileId)
+      || !Number.isFinite(protectedUntil)
+      || protectedUntil <= now()
+      || !revision
+      || (operation.source === LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL && (
+        profileId !== operation.profileId
+        || generation !== operation.generation
+        || revision <= operation.revision
+      ))
+    ) return { status: 'recovering' }
+    const envelope = await verifyEnvelope(row.envelope)
+    const profile = envelope ? importEnvelope(envelope) : null
+    if (!profile || typeof profile !== 'object') {
+      return { status: 'recovering' }
+    }
+    return {
+      generation,
+      profile,
+      profileId,
+      protectedUntil,
+      receiptStatus: row.status,
+      revision,
+      status: 'restored'
+    }
+  }
+
+  function recoveryReceiptResult(result) {
+    return {
+      generation: result.generation,
+      profile: result.profile,
+      profileId: result.profileId,
+      protectedUntil: result.protectedUntil,
+      revision: result.revision,
+      status: 'restored'
+    }
+  }
+
+  function commitRecoveryReceipt(operation, result) {
+    const current = readSyncRecord()
+    const dirty = readDirtyRecord()
+    if (
+      (hasStoredSyncRecord() && (
+        !current
+        || current.ownerId !== operation.ownerId
+      ))
+      || (dirty.present && (
+        !dirty.record
+        || dirty.record.ownerId !== operation.ownerId
+      ))
+    ) return false
+    const record = {
+      acceptedRevision: result.revision,
+      generation: result.generation,
+      ownerId: operation.ownerId,
+      pending: null,
+      profileId: result.profileId,
+      queued: null,
+      version: 1
+    }
+    if (current?.protectedConflictIds?.length) {
+      record.protectedConflictIds = [...current.protectedConflictIds]
+    }
+    if (
+      !writeSyncRecord(record)
+      || !removeDirtyRecord()
+    ) return false
+    activeBinding = null
+    cloudHeadKnown = true
+    publish('up-to-date')
+    return true
+  }
+
+  async function resumeRecoveryOperation(ownerId, currentHead) {
+    const stored = readRecoveryOperation()
+    if (!stored.present) return null
+    if (!stored.operation || stored.operation.ownerId !== ownerId) {
+      return { status: 'recovering' }
+    }
+    const result = await requestRecoveryOperation(stored.operation)
+    if (result.status === 'rejected') {
+      return clearRecoveryOperation(stored.operation)
+        ? { status: 'discarded' }
+        : { status: 'recovering' }
+    }
+    if (result.status !== 'restored') return result
+    const acceptedHead = result.receiptStatus === 'already_restored'
+      ? currentHead
+      : result
+    if (!commitRecoveryReceipt(stored.operation, acceptedHead)) {
+      return { status: 'recovering' }
+    }
+    return result.receiptStatus === 'already_restored'
+      ? { operation: stored.operation, status: 'current' }
+      : { ...recoveryReceiptResult(result), operation: stored.operation }
+  }
+
+  async function restoreRecoveryCandidate(context = {}) {
+    const operation = await prepareRecoveryOperation(context)
+    if (!operation) return { status: 'recovering' }
+    const result = await requestRecoveryOperation(operation)
+    if (result.status === 'rejected') {
+      clearRecoveryOperation(operation)
+      return { status: 'recovering' }
+    }
+    if (result.status !== 'restored') return result
+    return commitRecoveryReceipt(operation, result)
+      ? recoveryReceiptResult(result)
+      : { status: 'recovering' }
   }
 
   async function readPreservedConflict(receipt, operation, activation) {
@@ -971,23 +1778,26 @@ export function createLearnerProfileCloudPersistenceAdapter({
           current.queued = null
           if (!writeSyncRecord(current)) {
             publish('needs-attention')
-          } else if (
-            current.pending === null
-            && !clearDirtyRecord(current)
-          ) {
-            publish('needs-attention')
           } else {
-            publish(current.pending ? 'syncing' : 'up-to-date', {
-              accepted: {
-                activation: binding.activation,
-                generation: operation.generation,
-                ownerId: operation.ownerId,
-                profileId: operation.profileId,
-                revision: current.acceptedRevision
+            binding.revision = current.acceptedRevision
+            if (
+              current.pending === null
+              && !clearDirtyRecord(current)
+            ) {
+              publish('needs-attention')
+            } else {
+              publish(current.pending ? 'syncing' : 'up-to-date', {
+                accepted: {
+                  activation: binding.activation,
+                  generation: operation.generation,
+                  ownerId: operation.ownerId,
+                  profileId: operation.profileId,
+                  revision: current.acceptedRevision
+                }
+              })
+              if (!current.pending) {
+                queueLatestActiveProfileIfChanged(envelope)
               }
-            })
-            if (!current.pending) {
-              queueLatestActiveProfileIfChanged(envelope)
             }
           }
         }
@@ -1014,10 +1824,82 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
+  async function recoverDurableImport(authentication, localProfile) {
+    const stored = readDurableImport()
+    if (!stored.present) return { localProfile, status: 'ready' }
+    const durableImport = stored.record
+    if (
+      !durableImport
+      || authentication?.userId !== durableImport.ownerId
+    ) return { status: 'recovering' }
+    const syncRecord = readSyncRecord()
+    if (
+      !syncRecord
+      || syncRecord.ownerId !== durableImport.ownerId
+      || syncRecord.profileId !== durableImport.profileId
+      || syncRecord.generation !== durableImport.generation
+      || syncRecord.acceptedRevision < durableImport.baseRevision
+    ) return { status: 'recovering' }
+
+    const protection = await readProtectedImport(durableImport)
+    if (protection.status === 'unavailable') {
+      return { status: 'waiting-cloud' }
+    }
+    if (protection.status === 'not-found') {
+      if (!clearDurableImport(durableImport.operationId)) {
+        return { status: 'recovering' }
+      }
+      return localProfile?.revision === durableImport.revision
+        ? { status: 'recovering' }
+        : { localProfile, status: 'ready' }
+    }
+    if (!['protected', 'rolled-back'].includes(protection.status)) {
+      return { status: 'recovering' }
+    }
+    const rollback = await rollbackImport(protection.protectedImport)
+    if (!['rolled-back', 'already-rolled-back'].includes(rollback.status)) {
+      return rollback.status === 'unavailable'
+        ? { status: 'waiting-cloud' }
+        : { status: 'recovering' }
+    }
+    const previousProfile = importEnvelope(protection.previousEnvelope)
+    if (!isRecord(previousProfile)) return { status: 'recovering' }
+    const localAlreadyAdvanced = localProfile?.status === 'ready'
+      && localProfile.ownerId === durableImport.ownerId
+      && localProfile.profileId === durableImport.profileId
+      && localProfile.generation === durableImport.generation
+      && Number.isSafeInteger(localProfile.revision)
+      && localProfile.revision > rollback.revision
+    return {
+      localProfile: localAlreadyAdvanced
+        ? localProfile
+        : {
+            generation: durableImport.generation,
+            ownerId: durableImport.ownerId,
+            profile: previousProfile,
+            profileId: durableImport.profileId,
+            revision: rollback.revision,
+            status: 'ready'
+          },
+      status: 'restored'
+    }
+  }
+
   async function resolve({ authentication, connectivity, localProfile, purpose }) {
     if (connectivity?.status !== 'online') {
       return waitForCloudHead()
     }
+    const durableRecovery = await recoverDurableImport(
+      authentication,
+      localProfile
+    )
+    if (durableRecovery.status === 'waiting-cloud') {
+      return waitForCloudHead()
+    }
+    if (durableRecovery.status === 'recovering') {
+      return { status: 'recovering' }
+    }
+    localProfile = durableRecovery.localProfile
     if (purpose === 'link-accountless-profile') {
       return { status: 'migrating' }
     }
@@ -1056,6 +1938,20 @@ export function createLearnerProfileCloudPersistenceAdapter({
     ) {
       return { status: 'waiting-authentication' }
     }
+    if (row.status === LEARNER_PROFILE_RESOLUTION_STATUSES.CURRENT_HEAD_MISSING) {
+      return resolveRecoveryCandidates({
+        authentication,
+        localProfile,
+        reason: LEARNER_PROFILE_RECOVERY_REASONS.CURRENT_HEAD_MISSING
+      })
+    }
+    if (row.status === LEARNER_PROFILE_RESOLUTION_STATUSES.CURRENT_HEAD_UNUSABLE) {
+      return resolveRecoveryCandidates({
+        authentication,
+        localProfile,
+        reason: LEARNER_PROFILE_RECOVERY_REASONS.CURRENT_HEAD_UNUSABLE
+      })
+    }
     if (
       row.status === LEARNER_PROFILE_RESOLUTION_STATUSES.RECOVERY_REQUIRED
     ) return { status: 'recovering' }
@@ -1070,18 +1966,40 @@ export function createLearnerProfileCloudPersistenceAdapter({
     ) return { status: 'recovering' }
     if (typeof row.created !== 'boolean') return { status: 'recovering' }
 
-    const profileId = String(row.profile_id || '')
-    const generation = normalizePositiveInteger(row.generation)
-    const revision = normalizePositiveInteger(row.revision)
+    let profileId = String(row.profile_id || '')
+    let generation = normalizePositiveInteger(row.generation)
+    let revision = normalizePositiveInteger(row.revision)
     if (!UUID_PATTERN.test(profileId) || !generation || !revision) {
       return { status: 'recovering' }
     }
     if (row.created && (generation !== 1 || revision !== 1)) {
       return { status: 'recovering' }
     }
-    const envelope = await verifyEnvelope(row.envelope)
-    const cloudProfile = envelope ? importEnvelope(envelope) : null
+    let envelope = await verifyEnvelope(row.envelope)
+    let cloudProfile = envelope ? importEnvelope(envelope) : null
     if (!cloudProfile) return { status: 'recovering' }
+    let recoveryFinalizationOperation = null
+    const resumedRecovery = await resumeRecoveryOperation(
+      authentication.userId,
+      { generation, profile: cloudProfile, profileId, revision }
+    )
+    if (resumedRecovery?.status === 'waiting-cloud') {
+      return waitForCloudHead()
+    }
+    if (resumedRecovery?.status === 'recovering') {
+      return { status: 'recovering' }
+    }
+    if (resumedRecovery?.status === 'current') {
+      recoveryFinalizationOperation = resumedRecovery.operation
+    }
+    if (resumedRecovery?.status === 'restored') {
+      recoveryFinalizationOperation = resumedRecovery.operation
+      generation = resumedRecovery.generation
+      profileId = resumedRecovery.profileId
+      revision = resumedRecovery.revision
+      cloudProfile = resumedRecovery.profile
+      envelope = prepareEnvelope(cloudProfile)
+    }
     if (purpose === 'replace-owner-profile') {
       return {
         created: row.created === true,
@@ -1105,13 +2023,36 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const acceptedRevisionAtStart = currentRecord?.acceptedRevision
     const hadPendingOperation = Boolean(currentRecord?.pending)
     let profile = backupRequired ? localProfile.profile : cloudProfile
+    let protectedReset = null
     if (currentRecord) {
       if (
         currentRecord.version !== 1
         || currentRecord.ownerId !== authentication.userId
         || currentRecord.profileId !== profileId
-        || currentRecord.generation !== generation
       ) return { status: 'recovering' }
+      if (currentRecord.generation !== generation) {
+        const resetReceipt = generation === currentRecord.generation + 1
+          ? await readResetReceipt({
+              generation,
+              ownerId: authentication.userId,
+              profileId
+            })
+          : null
+        if (
+          !resetReceipt
+          || resetReceipt.priorGeneration !== currentRecord.generation
+        ) return { status: 'recovering' }
+        if (!clearDirtyRecord(currentRecord)) return { status: 'recovering' }
+        if (!commitCloudHead({
+          generation,
+          ownerId: authentication.userId,
+          profileId,
+          revision
+        }, currentRecord)) return { status: 'recovering' }
+        currentRecord = readSyncRecord()
+        if (!currentRecord) return { status: 'recovering' }
+        protectedReset = resetReceipt.protectedReset
+      }
       const dirty = readDirtyRecord()
       if (dirty.present) {
         if (
@@ -1245,6 +2186,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
 
     if (
       !backupRequired
+      && !recoveryFinalizationOperation
       && currentRecord
       && !hadPendingOperation
       && acceptedRevisionAtStart === revision
@@ -1274,13 +2216,17 @@ export function createLearnerProfileCloudPersistenceAdapter({
       created: row.created === true,
       finalize({ isCurrent } = {}) {
         if (typeof isCurrent !== 'function' || !isCurrent()) return false
-        return clearOnboardingDraft()
+        if (!clearOnboardingDraft()) return false
+        return recoveryFinalizationOperation
+          ? clearRecoveryOperation(recoveryFinalizationOperation)
+          : true
       },
       generation,
       ownerId: authentication.userId,
       profile,
       profileId,
       protectedConflicts: protectedResult.conflicts,
+      protectedReset,
       revision,
       status: 'activate'
     }
@@ -1380,6 +2326,359 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
+  async function readProtectedImport(durableImport, expectedEnvelope = null) {
+    let response
+    try {
+      response = await getClient().rpc(
+        'read_my_learner_profile_import_backup',
+        { p_operation_id: durableImport.operationId }
+      )
+    } catch {
+      return { status: 'unavailable' }
+    }
+    if (response?.error) {
+      return isTransientCloudStatus(response.status)
+        ? { status: 'unavailable' }
+        : { status: 'failed' }
+    }
+    const backup = readSingleRpcRow(response?.data)
+    if (backup?.status === 'recovery_required') {
+      return { status: 'not-found' }
+    }
+    let previousEnvelope = null
+    let importedEnvelope = null
+    try {
+      previousEnvelope = await verifyEnvelope(backup?.previous_envelope)
+      importedEnvelope = await verifyEnvelope(backup?.imported_envelope)
+    } catch {}
+    const protectedUntil = Date.parse(String(backup?.protected_until || ''))
+    const valid = ['protected', 'rolled-back'].includes(backup?.status)
+      && backup.operation_id === durableImport.operationId
+      && backup.profile_id === durableImport.profileId
+      && normalizePositiveInteger(backup.generation)
+        === durableImport.generation
+      && normalizePositiveInteger(backup.base_revision)
+        === durableImport.baseRevision
+      && normalizePositiveInteger(backup.imported_revision)
+        === durableImport.revision
+      && Number.isFinite(protectedUntil)
+      && protectedUntil > now()
+      && isRecord(previousEnvelope)
+      && isRecord(importedEnvelope)
+      && (
+        !expectedEnvelope
+        || importedEnvelope.integrity?.payloadSha256
+          === expectedEnvelope.integrity?.payloadSha256
+      )
+      && isRecord(importEnvelope(previousEnvelope))
+      && isRecord(importEnvelope(importedEnvelope))
+    if (!valid) return { status: 'failed' }
+    return {
+      importedEnvelope,
+      previousEnvelope,
+      protectedImport: {
+        baseRevision: durableImport.baseRevision,
+        generation: durableImport.generation,
+        operationId: durableImport.operationId,
+        ownerId: durableImport.ownerId,
+        profileId: durableImport.profileId,
+        protectedUntil,
+        revision: durableImport.revision,
+        status: 'protected'
+      },
+      status: backup.status === 'protected' ? 'protected' : 'rolled-back'
+    }
+  }
+
+  async function rollbackImport(protectedImport) {
+    if (
+      !isRecord(protectedImport)
+      || !UUID_PATTERN.test(String(protectedImport.operationId || ''))
+      || !UUID_PATTERN.test(String(protectedImport.ownerId || ''))
+      || !UUID_PATTERN.test(String(protectedImport.profileId || ''))
+      || !normalizePositiveInteger(protectedImport.generation)
+      || !normalizePositiveInteger(protectedImport.baseRevision)
+      || protectedImport.revision !== protectedImport.baseRevision + 1
+    ) return { status: 'failed' }
+    let response
+    try {
+      response = await getClient().rpc(
+        'rollback_my_learner_profile_import',
+        { p_operation_id: protectedImport.operationId }
+      )
+    } catch {
+      return { status: 'unavailable' }
+    }
+    if (response?.error) {
+      return isTransientCloudStatus(response.status)
+        ? { status: 'unavailable' }
+        : { status: 'failed' }
+    }
+    const row = readSingleRpcRow(response?.data)
+    const revision = normalizePositiveInteger(row?.revision)
+    const status = row?.status === 'rolled_back'
+      ? 'rolled-back'
+      : row?.status === 'already_rolled_back'
+        ? 'already-rolled-back'
+        : row?.status === 'recovery_required'
+          ? 'not-found'
+          : row?.status === 'stale_revision'
+            ? 'stale-revision'
+            : null
+    if (
+      !status
+      || (
+        status !== 'not-found'
+        && (
+          row.profile_id !== protectedImport.profileId
+          || normalizePositiveInteger(row.generation)
+            !== protectedImport.generation
+          || normalizePositiveInteger(row.base_revision)
+            !== protectedImport.baseRevision
+          || !revision
+          || (
+            ['rolled-back', 'already-rolled-back'].includes(status)
+            && revision !== protectedImport.revision + 1
+          )
+        )
+      )
+    ) return { status: 'failed' }
+    if (['rolled-back', 'already-rolled-back'].includes(status)) {
+      let syncRecordPending = false
+      const current = readSyncRecord()
+      const matchingSyncRecord = (
+        current?.ownerId === protectedImport.ownerId
+        && current.profileId === protectedImport.profileId
+        && current.generation === protectedImport.generation
+        && current.acceptedRevision >= protectedImport.baseRevision
+      )
+      if (
+        matchingSyncRecord
+        && current.pending === null
+        && current.acceptedRevision <= revision
+      ) {
+        current.acceptedRevision = revision
+        current.queued = null
+        syncRecordPending = !writeSyncRecord(current)
+      } else if (
+        !matchingSyncRecord
+        || current.acceptedRevision < revision
+        || (
+          status === 'rolled-back'
+          && current.acceptedRevision > revision
+        )
+      ) {
+        syncRecordPending = true
+      }
+      const cleanupPending = !clearDurableImport(
+        protectedImport.operationId
+      )
+      protectedImports.delete(protectedImport)
+      cloudHeadKnown = true
+      publish(
+        cleanupPending || syncRecordPending
+          ? 'needs-attention'
+          : 'up-to-date'
+      )
+      return {
+        ...(cleanupPending ? { cleanupPending: true } : {}),
+        revision,
+        ...(syncRecordPending ? { syncRecordPending: true } : {}),
+        status
+      }
+    }
+    if (status === 'not-found') {
+      return clearDurableImport(protectedImport.operationId)
+        ? { status }
+        : { cleanupPending: true, status }
+    }
+    return { revision, status }
+  }
+
+  async function importProfile(profile, {
+    activation,
+    confirmed = false,
+    isCurrent
+  } = {}) {
+    const binding = activeBinding
+    if (confirmed !== true) return { status: 'confirmation-required' }
+    if (
+      !isRecord(profile)
+      || !binding
+      || binding.activation !== activation
+      || typeof isCurrent !== 'function'
+      || !isCurrent()
+      || !binding.isCurrent()
+      || !activation?.ownerId
+    ) return { status: 'fenced' }
+    if (!isOnline()) return { status: 'unavailable' }
+    const record = readSyncRecord()
+    const dirty = readDirtyRecord()
+    if (
+      !cloudHeadKnown
+      || !record
+      || record.ownerId !== activation.ownerId
+      || record.profileId !== activation.profileId
+      || record.generation !== binding.generation
+      || record.acceptedRevision < binding.revision
+      || record.pending !== null
+      || record.queued !== null
+      || dirty.present
+    ) return { status: 'protection-required' }
+    const priorDurableImport = readDurableImport()
+    if (priorDurableImport.present) {
+      if (
+        !priorDurableImport.record
+        || priorDurableImport.record.ownerId !== activation.ownerId
+        || priorDurableImport.record.profileId !== activation.profileId
+        || priorDurableImport.record.generation !== binding.generation
+      ) return { status: 'recovery-required' }
+      const rollback = await rollbackImport(priorDurableImport.record)
+      if (![
+        'rolled-back',
+        'already-rolled-back',
+        'not-found'
+      ].includes(rollback.status)) return { status: 'recovery-required' }
+    }
+
+    let envelope
+    try {
+      const prepared = prepareEnvelope(profile)
+      const finalized = await finalizeEnvelope(prepared)
+      envelope = finalized?.envelope
+      if (!isRecord(envelope)) return { status: 'invalid' }
+    } catch {
+      return { status: 'invalid' }
+    }
+    if (
+      !isCurrent()
+      || activeBinding !== binding
+      || !binding.isCurrent()
+    ) {
+      return { status: 'fenced' }
+    }
+    const operationId = createOperationId()
+    if (!UUID_PATTERN.test(String(operationId || ''))) {
+      return { status: 'failed' }
+    }
+    const baseRevision = record.acceptedRevision
+    const durableImport = {
+      baseRevision,
+      generation: binding.generation,
+      operationId,
+      ownerId: activation.ownerId,
+      profileId: activation.profileId,
+      revision: baseRevision + 1,
+      version: 1
+    }
+    if (!writeDurableImport(durableImport)) {
+      return { status: 'protection-required' }
+    }
+    let response = null
+    let transportStatus = 'unavailable'
+    try {
+      response = await getClient().rpc('import_my_learner_profile', {
+        p_base_revision: baseRevision,
+        p_confirmed: true,
+        p_envelope: envelope,
+        p_generation: binding.generation,
+        p_operation_id: operationId,
+        p_profile_id: activation.profileId
+      })
+    } catch {}
+    if (response?.error) {
+      if (!isTransientCloudStatus(response.status)) {
+        return clearDurableImport(operationId)
+          ? { status: 'failed' }
+          : { status: 'recovery-required' }
+      }
+      transportStatus = 'unavailable'
+    }
+    const row = readSingleRpcRow(response?.data)
+    if (row?.status === 'stale_revision') {
+      return clearDurableImport(operationId)
+        ? { status: 'stale-revision' }
+        : { status: 'recovery-required' }
+    }
+    const protection = await readProtectedImport(durableImport, envelope)
+    const protectedImport = protection.protectedImport
+    const responseVerified = !row || (
+      ['replaced', 'already_replaced'].includes(row.status)
+      && row.profile_id === durableImport.profileId
+      && normalizePositiveInteger(row.generation)
+        === durableImport.generation
+      && normalizePositiveInteger(row.base_revision)
+        === durableImport.baseRevision
+      && normalizePositiveInteger(row.revision) === durableImport.revision
+      && row.payload_sha256 === envelope.integrity?.payloadSha256
+      && Date.parse(String(row.protected_until || ''))
+        === protectedImport?.protectedUntil
+    )
+    if (protection.status === 'not-found') {
+      return clearDurableImport(operationId)
+        ? { status: transportStatus }
+        : { status: 'recovery-required' }
+    }
+    if (
+      protection.status !== 'protected'
+      || !responseVerified
+      || !isCurrent()
+      || activeBinding !== binding
+      || !binding.isCurrent()
+    ) {
+      const rollback = await rollbackImport(
+        protectedImport || durableImport
+      )
+      return ['rolled-back', 'already-rolled-back'].includes(rollback.status)
+        ? {
+            status: protection.status === 'protected' && responseVerified
+              ? 'fenced'
+              : 'backup-failed'
+          }
+        : { status: 'recovery-required' }
+    }
+    protectedImports.set(protectedImport, binding)
+    return protectedImport
+  }
+
+  function confirmImport(protectedImport, { isCurrent } = {}) {
+    const binding = isRecord(protectedImport)
+      ? protectedImports.get(protectedImport)
+      : null
+    if (
+      !isRecord(protectedImport)
+      || protectedImport.status !== 'protected'
+      || !binding
+      || activeBinding !== binding
+      || binding.generation !== protectedImport.generation
+      || binding.revision > protectedImport.baseRevision
+      || binding.activation.ownerId !== protectedImport.ownerId
+      || binding.activation.profileId !== protectedImport.profileId
+      || typeof isCurrent !== 'function'
+      || !isCurrent()
+    ) return false
+    const record = readSyncRecord()
+    const dirty = readDirtyRecord()
+    if (
+      !record
+      || record.ownerId !== protectedImport.ownerId
+      || record.profileId !== protectedImport.profileId
+      || record.generation !== protectedImport.generation
+      || record.acceptedRevision !== protectedImport.baseRevision
+      || record.pending !== null
+      || record.queued !== null
+      || dirty.present
+    ) return false
+    record.acceptedRevision = protectedImport.revision
+    if (!writeSyncRecord(record)) return false
+    if (!clearDurableImport(protectedImport.operationId)) return false
+    protectedImports.delete(protectedImport)
+    activeBinding = null
+    cloudHeadKnown = true
+    publish('up-to-date')
+    return true
+  }
+
   function save(profile, { activation, isCurrent } = {}) {
     if (
       !activeBinding
@@ -1470,15 +2769,23 @@ export function createLearnerProfileCloudPersistenceAdapter({
     activate,
     chooseConflict,
     commitReplacement,
+    confirmImport,
     destroy,
     getState: () => syncState,
     requiresCloudHeadResolution,
     getReplacementProtection,
+    importProfile,
     markDirty,
+    readProtectedReset,
+    readRecoveryCandidate,
     resolve,
+    restoreRecoveryCandidate,
     retry,
+    rollbackImport,
     save,
     start,
-    subscribe
+    startOver,
+    subscribe,
+    undoStartOver
   })
 }

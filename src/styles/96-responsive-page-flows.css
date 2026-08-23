@@ -711,6 +711,7 @@
     grid-template-columns: 1fr;
   }
   .add-channel-row .btn-secondary,
+  .sync-import-confirm-actions .btn-ghost,
   .reset-confirm-actions .btn-ghost {
     width: 100%;
   }
