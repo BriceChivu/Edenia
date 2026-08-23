@@ -874,7 +874,8 @@
     .sync-actions,
     .settings-data-group > .settings-note,
     .settings-reset-btn,
-    .reset-confirm
+    .reset-confirm,
+    .start-over-undo
   ) {
     margin-top: -6px;
   }

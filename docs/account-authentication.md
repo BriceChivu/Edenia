@@ -177,6 +177,23 @@ After a queue-storage or preparation failure, reload compares the canonical
 local profile with the last accepted cloud head. A mismatch follows the same
 local-preserving backup path even when no pending candidate could be stored.
 
+## Start over and Undo
+
+**Start over** creates a blank revision in a new learner-profile generation.
+It keeps the Supabase account, current session, and analytics identity. The
+previous generation is protected for 30 days and remains available through an
+owner-scoped **Undo Start over** action on every device signed in to that
+account. A stale device may preserve its local copy for recovery, but it cannot
+automatically replace the new generation.
+
+Undo verifies the protected envelope again and restores its learner data as the
+next revision of the current generation. It does not roll the generation fence
+back or bypass ordinary ownership, integrity, activation, and conditional-head
+checks. Backup creation, Start over, and Undo each fail transactionally, leaving
+the last accepted head and protected history unchanged. General account
+deletion remains outside the MVP; Start over neither deletes the account nor
+signs the learner out.
+
 ## Google Identity Services
 
 Edenia renders Google's official button and exchanges its ephemeral credential

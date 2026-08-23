@@ -21,21 +21,32 @@ test('Settings reset-confirm controls retain analytics identities without inline
   const controls = [
     {
       key: 'settings.reset.open',
+      analyticsAction: 'settings.reset.open',
       action: 'show'
     },
     {
       key: 'settings.reset.cancel',
+      analyticsAction: 'settings.reset.cancel',
       action: 'hide'
     },
     {
       key: 'settings.reset.delete',
+      analyticsAction: 'settings.reset.delete',
       action: 'confirm'
+    },
+    {
+      key: 'settings.startOver.undo',
+      analyticsAction: 'settings.startOver.undo',
+      action: 'undo'
     }
   ]
 
   for (const expected of controls) {
     const tag = findButton(expected.key)
-    assert.equal(getAttribute(tag, 'data-analytics-action'), expected.key)
+    assert.equal(
+      getAttribute(tag, 'data-analytics-action'),
+      expected.analyticsAction
+    )
     assert.equal(
       getAttribute(tag, 'data-settings-reset-confirm-action'),
       expected.action
@@ -58,14 +69,16 @@ test('Settings reset-confirm controls retain exact generic click event names', (
     [
       'settings.reset.open',
       'settings.reset.cancel',
-      'settings.reset.delete'
+      'settings.reset.delete',
+      'settings.startOver.undo'
     ].map(
       action => `${normalize(action)}_clicked`
     ),
     [
       'settings_reset_open_clicked',
       'settings_reset_cancel_clicked',
-      'settings_reset_delete_clicked'
+      'settings_reset_delete_clicked',
+      'settings_start_over_undo_clicked'
     ]
   )
 })

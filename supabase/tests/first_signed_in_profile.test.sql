@@ -46,12 +46,15 @@ select results_eq(
       ('learner_profile_rpc.commit_my_learner_profile(uuid,uuid,bigint,bigint,jsonb)'::text),
       ('learner_profile_rpc.import_my_learner_profile(uuid,uuid,bigint,bigint,jsonb,boolean)'::text),
       ('learner_profile_rpc.list_my_learner_profile_recovery_candidates()'::text),
+      ('learner_profile_rpc.read_my_latest_learner_profile_reset()'::text),
       ('learner_profile_rpc.read_my_learner_profile_conflict(uuid)'::text),
       ('learner_profile_rpc.read_my_learner_profile_import_backup(uuid)'::text),
       ('learner_profile_rpc.read_my_learner_profile_recovery_candidate(uuid)'::text),
       ('learner_profile_rpc.resolve_my_learner_profile(jsonb)'::text),
       ('learner_profile_rpc.restore_my_learner_profile(uuid,text,uuid,uuid,bigint,bigint,jsonb,boolean)'::text),
-      ('learner_profile_rpc.rollback_my_learner_profile_import(uuid)'::text)
+      ('learner_profile_rpc.rollback_my_learner_profile_import(uuid)'::text),
+      ('learner_profile_rpc.start_over_my_learner_profile(uuid,uuid,bigint,bigint,jsonb,boolean)'::text),
+      ('learner_profile_rpc.undo_my_learner_profile_start_over(uuid,uuid,boolean)'::text)
     $$,
   'authenticated can execute only the narrow learner-profile operations'
 );
