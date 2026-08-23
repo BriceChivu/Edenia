@@ -62,6 +62,7 @@ function createHarness({
   cloudSyncState = { status: 'idle' },
   cloudUndoStartOver = { status: 'recovering' },
   completeOnboardingFinalizationResult = true,
+  accountlessProfileMigration = null,
   reconcileSignedInProfileResult = true,
   markDirtyResult = null,
   now = 1_786_982_400_000,
@@ -224,6 +225,20 @@ function createHarness({
         }
       },
       localPersistence: {
+        attachAccountlessProfile(identity) {
+          calls.push(['attach-accountless-profile', identity])
+          if (currentLocal.status !== 'ready' || currentLocal.ownerId) {
+            return false
+          }
+          currentLocal = {
+            ...currentLocal,
+            generation: identity.generation,
+            ownerId: identity.ownerId,
+            profileId: identity.profileId,
+            revision: identity.revision
+          }
+          return true
+        },
         adoptCloudIdentity(identity) {
           calls.push(['adopt-cloud-identity', identity])
           currentLocal = {
@@ -299,7 +314,8 @@ function createHarness({
         subscribe() {
           return () => {}
         }
-      }
+      },
+      ...(accountlessProfileMigration ? { accountlessProfileMigration } : {})
     },
     createActivationId: () => `activation-${calls.length + 1}`,
     onStateChange(state) {
@@ -409,7 +425,7 @@ function createPersistenceInterleavingHarness() {
   }
 }
 
-test('authentication alone cannot expose or save an accountless learner profile', async () => {
+test('authentication alone cannot expose or save an Accountless profile', async () => {
   const harness = createHarness({
     authentication: {
       status: 'signed-in',
@@ -446,6 +462,194 @@ test('authentication alone cannot expose or save an accountless learner profile'
     LEARNER_PROFILE_ACCESS_STATES.MIGRATING
   )
   assert.equal(harness.authority.readActiveProfile(), null)
+})
+
+test('voluntary migration keeps an inherited session on the accountless profile until confirmation', () => {
+  const migrationState = { status: 'confirming-session' }
+  const harness = createHarness({
+    authentication: {
+      status: 'signed-in',
+      userId: '123e4567-e89b-42d3-a456-426614174000'
+    },
+    accountlessProfileMigration: {
+      getAttachment: () => null,
+      getState: () => migrationState
+    }
+  })
+
+  harness.authority.start()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  )
+  assert.equal(harness.authority.getState().ownerId, null)
+  assert.ok(harness.authority.readActiveProfile())
+  assert.equal(
+    harness.calls.some(([name]) => name === 'cloud-resolve'),
+    false
+  )
+})
+
+test('verified voluntary migration attaches the untouched local profile after cloud acceptance', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const migrationCalls = []
+  const accountlessProfileMigration = {
+    complete() {
+      migrationCalls.push('complete')
+      return true
+    },
+    getAttachment: () => ({ operationId: 'migration-operation-1' }),
+    getState: () => ({ status: 'attaching' }),
+    markBackupFailed() {
+      migrationCalls.push('backup-failed')
+      return true
+    }
+  }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: context => ({
+      generation: 1,
+      ownerId,
+      profile: context.localProfile.profile,
+      profileId,
+      revision: 1,
+      status: 'activate'
+    }),
+    accountlessProfileMigration
+  })
+  const accountlessProfile = harness.getLocal().profile
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  )
+  assert.equal(harness.authority.getState().ownerId, ownerId)
+  assert.equal(harness.authority.readActiveProfile(), accountlessProfile)
+  assert.deepEqual(migrationCalls, ['complete'])
+  assert.deepEqual(
+    harness.calls.find(([name]) => name === 'cloud-resolve')[1],
+    {
+      authentication: { status: 'signed-in', userId: ownerId },
+      connectivity: { status: 'online' },
+      accountlessAttachment: { operationId: 'migration-operation-1' },
+      localProfile: {
+        ownerId: null,
+        profile: accountlessProfile,
+        profileId: 'accountless:browser',
+        status: 'ready'
+      },
+      purpose: 'migrate-accountless-profile'
+    }
+  )
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'cloud-save').length,
+    0
+  )
+})
+
+test('a failed first migration backup reopens the untouched accountless profile', async () => {
+  const migrationCalls = []
+  const harness = createHarness({
+    authentication: {
+      status: 'signed-in',
+      userId: '123e4567-e89b-42d3-a456-426614174000'
+    },
+    cloudResolution: { status: 'migration-backup-failed' },
+    accountlessProfileMigration: {
+      getAttachment: () => ({ operationId: 'migration-operation-1' }),
+      getState: () => ({ status: 'attaching' }),
+      markBackupFailed() {
+        migrationCalls.push('backup-failed')
+        return true
+      }
+    }
+  })
+  const accountlessProfile = harness.getLocal().profile
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(harness.authority.getState().status, 'active')
+  assert.equal(harness.authority.getState().ownerId, null)
+  assert.equal(harness.authority.readActiveProfile(), accountlessProfile)
+  assert.deepEqual(migrationCalls, ['backup-failed'])
+  assert.equal(
+    harness.calls.some(([name]) => name === 'attach-accountless-profile'),
+    false
+  )
+})
+
+test('migration cannot attach while the current accountless profile still needs backup', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const migrationCalls = []
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: context => ({
+      backupRequired: true,
+      generation: 1,
+      ownerId,
+      profile: context.localProfile.profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 1,
+      status: 'activate'
+    }),
+    accountlessProfileMigration: {
+      getAttachment: () => ({ operationId: 'migration-operation-1' }),
+      getState: () => ({ status: 'attaching' }),
+      markBackupFailed() {
+        migrationCalls.push('backup-failed')
+        return true
+      }
+    }
+  })
+  const accountlessProfile = harness.getLocal().profile
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(harness.authority.getState().status, 'active')
+  assert.equal(harness.authority.getState().ownerId, null)
+  assert.equal(harness.authority.readActiveProfile(), accountlessProfile)
+  assert.deepEqual(migrationCalls, ['backup-failed'])
+  assert.equal(
+    harness.calls.some(([name]) => name === 'attach-accountless-profile'),
+    false
+  )
+})
+
+test('a populated signed-in profile leaves the voluntary Accountless profile active', async () => {
+  const migrationCalls = []
+  const harness = createHarness({
+    authentication: {
+      status: 'signed-in',
+      userId: '123e4567-e89b-42d3-a456-426614174000'
+    },
+    cloudResolution: { status: 'migration-signed-in-profile-present' },
+    accountlessProfileMigration: {
+      getAttachment: () => ({ operationId: 'migration-operation-1' }),
+      getState: () => ({ status: 'attaching' }),
+      markSignedInProfilePresent() {
+        migrationCalls.push('signed-in-profile-present')
+        return true
+      }
+    }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(harness.authority.getState().status, 'active')
+  assert.equal(harness.authority.getState().ownerId, null)
+  assert.deepEqual(migrationCalls, ['signed-in-profile-present'])
+  assert.equal(
+    harness.calls.some(([name]) => name === 'attach-accountless-profile'),
+    false
+  )
 })
 
 test('a restored owner session cannot write a matching local copy before cloud activation', async () => {
@@ -2528,6 +2732,46 @@ test('a new signed-in profile installs behind a locked owner record before activ
   assert.deepEqual(adapter.read(), {
     generation: 1,
     onboardingFinalizationPending: true,
+    ownerId: '123e4567-e89b-42d3-a456-426614174000',
+    profile,
+    profileId: '223e4567-e89b-42d3-a456-426614174001',
+    revision: 1,
+    status: 'ready'
+  })
+})
+
+test('verified migration attaches an accountless profile without rewriting its contents', () => {
+  const accessStorageKey = 'edenia_v1_profile_access_v1'
+  const values = new Map()
+  const profile = { learnerProfile: { languages: ['french'] } }
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    removeItem: key => values.delete(key),
+    setItem: (key, value) => values.set(key, value)
+  }
+  let writes = 0
+  const adapter = createLearnerProfileLocalPersistenceAdapter({
+    accessStorageKey,
+    accountlessProfileId: 'accountless:edenia_v1',
+    eventTarget: null,
+    hasProfile: () => true,
+    loadProfile: () => profile,
+    replaceProfile: () => { writes += 1 },
+    saveProfile: () => { writes += 1 },
+    storage
+  })
+
+  assert.equal(adapter.attachAccountlessProfile({
+    attachedAt: 1_787_155_200_000,
+    generation: 1,
+    ownerId: '123e4567-e89b-42d3-a456-426614174000',
+    previousProfileId: 'accountless:edenia_v1',
+    profileId: '223e4567-e89b-42d3-a456-426614174001',
+    revision: 1
+  }), true)
+  assert.equal(writes, 0)
+  assert.deepEqual(adapter.read(), {
+    generation: 1,
     ownerId: '123e4567-e89b-42d3-a456-426614174000',
     profile,
     profileId: '223e4567-e89b-42d3-a456-426614174001',

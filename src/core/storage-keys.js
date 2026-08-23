@@ -24,6 +24,8 @@ export function deriveStorageKeys({ isSandbox, isInternalTest }) {
       `${storageKey}_learner_profile_owner_verification_v1`,
     learnerProfileSyncKey:
       `${storageKey}_learner_profile_sync_v1`,
+    accountlessProfileMigrationKey:
+      `${storageKey}_accountless_profile_migration_v1`,
     onboardingProfileDraftKey:
       `${storageKey}_onboarding_draft_v1`,
     accountAuthStorageKey,

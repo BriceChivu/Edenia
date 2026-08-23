@@ -220,6 +220,22 @@
     </div>
   </section>
 
+  <section class="accountless-profile-migration hidden" id="accountlessProfileMigrationNotice" aria-labelledby="accountlessProfileMigrationTitle" aria-describedby="accountlessProfileMigrationBody accountlessProfileMigrationStatus">
+    <div class="accountless-profile-migration-card">
+      <span class="legacy-progress-migration-brand" aria-hidden="true">EDENIA</span>
+      <h1 id="accountlessProfileMigrationTitle"></h1>
+      <p id="accountlessProfileMigrationBody"></p>
+      <p class="legacy-progress-migration-status" id="accountlessProfileMigrationStatus" role="status" aria-live="polite"></p>
+      <div class="legacy-progress-migration-actions">
+        <button class="btn-primary" id="accountlessProfileMigrationBackup" type="button" data-accountless-profile-migration-action="begin" data-i18n="accountlessProfileMigration.action.backup" hidden>Back up my progress now</button>
+        <button class="btn-primary" id="accountlessProfileMigrationConfirm" type="button" data-accountless-profile-migration-action="confirm" data-i18n="accountlessProfileMigration.action.confirm" hidden>Continue as this email</button>
+        <button class="btn-primary" id="accountlessProfileMigrationSignIn" type="button" data-accountless-profile-migration-action="open-sign-in" data-i18n="accountlessProfileMigration.action.openSignIn" hidden>Open sign-in</button>
+        <button class="btn-primary" id="accountlessProfileMigrationRetry" type="button" data-accountless-profile-migration-action="retry" data-i18n="accountlessProfileMigration.action.retry" hidden>Try backup again</button>
+        <button class="btn-ghost" id="accountlessProfileMigrationLater" type="button" data-accountless-profile-migration-action="later" data-i18n="accountlessProfileMigration.action.later" hidden>Later</button>
+      </div>
+    </div>
+  </section>
+
   <section class="legacy-progress-migration hidden" id="legacyProgressMigrationGate" role="dialog" aria-modal="true" aria-labelledby="legacyProgressMigrationTitle" aria-describedby="legacyProgressMigrationBody legacyProgressMigrationStatus">
     <div class="legacy-progress-migration-card">
       <span class="legacy-progress-migration-brand" aria-hidden="true">EDENIA</span>

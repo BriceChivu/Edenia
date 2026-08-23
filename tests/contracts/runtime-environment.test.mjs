@@ -151,6 +151,10 @@ test('storage keys preserve normal, internal, sandbox, and combined isolation', 
       `${expected.storageKey}_learner_profile_sync_v1`
     )
     assert.equal(
+      keys.accountlessProfileMigrationKey,
+      `${expected.storageKey}_accountless_profile_migration_v1`
+    )
+    assert.equal(
       keys.onboardingProfileDraftKey,
       `${expected.storageKey}_onboarding_draft_v1`
     )

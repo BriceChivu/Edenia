@@ -311,6 +311,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
   const listeners = new Set()
   const protectedImports = new WeakMap()
   const dirtyStorageKey = `${syncStorageKey}_dirty`
+  const accountlessMigrationStorageKey = `${syncStorageKey}_accountless_migration`
   const importStorageKey = `${syncStorageKey}_import_v1`
   const recoveryStorageKey = `${syncStorageKey}_recovery`
 
@@ -342,6 +343,79 @@ export function createLearnerProfileCloudPersistenceAdapter({
       return storage.getItem(syncStorageKey) !== null
     } catch {
       return true
+    }
+  }
+
+  function readAccountlessMigrationRecord() {
+    try {
+      const serialized = storage.getItem(accountlessMigrationStorageKey)
+      if (serialized === null) return null
+      const record = JSON.parse(serialized)
+      const hasCurrentShape = hasExactKeys(record, [
+        'catchUp',
+        'envelope',
+        'operationId',
+        'version'
+      ])
+      const hasPreviousShape = hasExactKeys(record, [
+        'envelope',
+        'operationId',
+        'version'
+      ])
+      const catchUp = hasCurrentShape ? record.catchUp : null
+      const validCatchUp = catchUp === null || (
+        hasExactKeys(catchUp, [
+          'baseRevision',
+          'envelope',
+          'operationId'
+        ])
+        && normalizePositiveInteger(catchUp.baseRevision)
+        && UUID_PATTERN.test(catchUp.operationId)
+        && isPreparedEnvelope(catchUp.envelope)
+      )
+      return (hasCurrentShape || hasPreviousShape)
+        && record.version === 1
+        && UUID_PATTERN.test(record.operationId)
+        && isPreparedEnvelope(record.envelope)
+        && validCatchUp
+        ? { ...record, catchUp }
+        : null
+    } catch {
+      return null
+    }
+  }
+
+  function hasStoredAccountlessMigrationRecord() {
+    try {
+      return storage.getItem(accountlessMigrationStorageKey) !== null
+    } catch {
+      return true
+    }
+  }
+
+  function writeAccountlessMigrationRecord(record) {
+    try {
+      storage.setItem(accountlessMigrationStorageKey, JSON.stringify(record))
+      const written = readAccountlessMigrationRecord()
+      return written?.operationId === record.operationId
+        && written.envelope.integrity.payloadSha256
+          === record.envelope.integrity.payloadSha256
+        && written.catchUp?.operationId === record.catchUp?.operationId
+        && written.catchUp?.envelope?.integrity?.payloadSha256
+          === record.catchUp?.envelope?.integrity?.payloadSha256
+    } catch {
+      return false
+    }
+  }
+
+  function clearAccountlessMigrationRecord(operationId) {
+    const record = readAccountlessMigrationRecord()
+    if (!record || record.operationId !== operationId) return false
+    try {
+      storage.removeItem(accountlessMigrationStorageKey)
+      return storage.getItem(accountlessMigrationStorageKey) === null
+    } catch {
+      return false
     }
   }
 
@@ -1824,6 +1898,219 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
+  async function resolveAccountlessMigration({
+    authentication,
+    connectivity,
+    accountlessAttachment,
+    localProfile
+  }) {
+    const operationId = String(accountlessAttachment?.operationId || '')
+    if (
+      connectivity?.status !== 'online'
+      || !UUID_PATTERN.test(String(authentication?.userId || ''))
+      || !UUID_PATTERN.test(operationId)
+      || localProfile?.status !== 'ready'
+      || localProfile.ownerId !== null
+      || !isRecord(localProfile.profile)
+    ) return { status: 'migration-backup-failed' }
+
+    let migrationRecord = readAccountlessMigrationRecord()
+    if (
+      hasStoredAccountlessMigrationRecord()
+      && (
+        !migrationRecord
+        || migrationRecord.operationId !== operationId
+      )
+    ) return { status: 'migration-backup-failed' }
+    if (!migrationRecord) {
+      let finalized
+      try {
+        finalized = await finalizeEnvelope(prepareEnvelope(localProfile.profile))
+      } catch {
+        return { status: 'migration-backup-failed' }
+      }
+      const envelope = await verifyEnvelope(finalized?.envelope)
+      if (!envelope || !writeAccountlessMigrationRecord({
+        catchUp: null,
+        envelope,
+        operationId,
+        version: 1
+      })) return { status: 'migration-backup-failed' }
+      migrationRecord = readAccountlessMigrationRecord()
+    }
+
+    const envelope = await verifyEnvelope(migrationRecord?.envelope)
+    if (!envelope) return { status: 'migration-backup-failed' }
+    let response
+    try {
+      response = await getClient().rpc(
+        'migrate_my_accountless_profile',
+        {
+          p_envelope: envelope,
+          p_operation_id: operationId
+        }
+      )
+    } catch {
+      return { status: 'migration-backup-failed' }
+    }
+    if (response?.error) return { status: 'migration-backup-failed' }
+    const row = readSingleRpcRow(response?.data)
+    if (row?.status === 'profile_present') {
+      clearAccountlessMigrationRecord(operationId)
+      return { status: 'migration-signed-in-profile-present' }
+    }
+    if (row?.status !== 'migrated') {
+      return { status: 'migration-backup-failed' }
+    }
+
+    const profileId = String(row.profile_id || '')
+    const generation = normalizePositiveInteger(row.generation)
+    const revision = normalizePositiveInteger(row.revision)
+    const acceptedEnvelope = await verifyEnvelope(row.envelope)
+    if (
+      !UUID_PATTERN.test(profileId)
+      || generation !== 1
+      || revision !== 1
+      || !acceptedEnvelope
+      || row.payload_sha256 !== envelope.integrity.payloadSha256
+      || acceptedEnvelope.integrity.payloadSha256
+        !== envelope.integrity.payloadSha256
+      || JSON.stringify(acceptedEnvelope.profile)
+        !== JSON.stringify(envelope.profile)
+      || !importEnvelope(acceptedEnvelope)
+    ) return { status: 'migration-backup-failed' }
+
+    let acceptedRevision = revision
+    let latestAcceptedEnvelope = acceptedEnvelope
+    let currentCanonicalEnvelope
+    try {
+      currentCanonicalEnvelope = prepareEnvelope(localProfile.profile)
+    } catch {
+      return { status: 'migration-backup-failed' }
+    }
+    for (let step = 0; step < 4; step += 1) {
+      if (
+        JSON.stringify(currentCanonicalEnvelope.profile)
+        === JSON.stringify(latestAcceptedEnvelope.profile)
+      ) break
+
+      let catchUp = migrationRecord.catchUp
+      if (!catchUp) {
+        const catchUpOperationId = createOperationId()
+        if (!UUID_PATTERN.test(String(catchUpOperationId || ''))) {
+          return { status: 'migration-backup-failed' }
+        }
+        let finalized
+        try {
+          finalized = await finalizeEnvelope(currentCanonicalEnvelope)
+        } catch {
+          return { status: 'migration-backup-failed' }
+        }
+        const catchUpEnvelope = await verifyEnvelope(finalized?.envelope)
+        if (!catchUpEnvelope) return { status: 'migration-backup-failed' }
+        catchUp = {
+          baseRevision: acceptedRevision,
+          envelope: catchUpEnvelope,
+          operationId: catchUpOperationId
+        }
+        if (!writeAccountlessMigrationRecord({
+          ...migrationRecord,
+          catchUp
+        })) return { status: 'migration-backup-failed' }
+        migrationRecord = readAccountlessMigrationRecord()
+        catchUp = migrationRecord?.catchUp
+      }
+
+      const catchUpEnvelope = await verifyEnvelope(catchUp?.envelope)
+      const catchUpBaseRevision = normalizePositiveInteger(
+        catchUp?.baseRevision
+      )
+      if (!catchUpEnvelope || !catchUpBaseRevision) {
+        return { status: 'migration-backup-failed' }
+      }
+      const catchUpOperation = {
+        baseRevision: catchUpBaseRevision,
+        generation,
+        operationId: catchUp.operationId,
+        profileId,
+        revision: catchUpBaseRevision + 1
+      }
+      let catchUpResponse
+      try {
+        catchUpResponse = await getClient().rpc(
+          'commit_my_learner_profile',
+          operationParameters(catchUpOperation, catchUpEnvelope)
+        )
+      } catch {
+        return { status: 'migration-backup-failed' }
+      }
+      if (catchUpResponse?.error) {
+        return { status: 'migration-backup-failed' }
+      }
+      const catchUpReceipt = readSingleRpcRow(catchUpResponse?.data)
+      if (!isAcceptedOperationReceipt(
+        catchUpReceipt,
+        catchUpOperation,
+        catchUpEnvelope,
+        ['accepted', 'already_accepted']
+      )) return { status: 'migration-backup-failed' }
+
+      acceptedRevision = catchUpOperation.revision
+      latestAcceptedEnvelope = catchUpEnvelope
+      if (
+        JSON.stringify(currentCanonicalEnvelope.profile)
+        === JSON.stringify(latestAcceptedEnvelope.profile)
+      ) break
+      migrationRecord = {
+        ...migrationRecord,
+        catchUp: null
+      }
+      if (!writeAccountlessMigrationRecord(migrationRecord)) {
+        return { status: 'migration-backup-failed' }
+      }
+    }
+    if (
+      JSON.stringify(currentCanonicalEnvelope.profile)
+      !== JSON.stringify(latestAcceptedEnvelope.profile)
+    ) return { status: 'migration-backup-failed' }
+
+    const currentRecord = readSyncRecord()
+    if (
+      hasStoredSyncRecord()
+      && (
+        !currentRecord
+        || currentRecord.ownerId !== authentication.userId
+        || currentRecord.profileId !== profileId
+        || currentRecord.generation !== generation
+        || currentRecord.acceptedRevision !== acceptedRevision
+        || currentRecord.pending !== null
+        || currentRecord.queued !== null
+      )
+    ) return { status: 'migration-backup-failed' }
+    if (!currentRecord && !ensureSyncRecord({
+      generation,
+      ownerId: authentication.userId,
+      profileId,
+      revision: acceptedRevision
+    })) return { status: 'migration-backup-failed' }
+
+    cloudHeadKnown = true
+    return {
+      backupRequired: false,
+      finalize({ isCurrent } = {}) {
+        return typeof isCurrent === 'function'
+          && isCurrent()
+          && clearAccountlessMigrationRecord(operationId)
+      },
+      generation,
+      ownerId: authentication.userId,
+      profile: localProfile.profile,
+      profileId,
+      revision: acceptedRevision,
+      status: 'activate'
+    }
+  }
+
   async function recoverDurableImport(authentication, localProfile) {
     const stored = readDurableImport()
     if (!stored.present) return { localProfile, status: 'ready' }
@@ -1885,7 +2172,21 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
-  async function resolve({ authentication, connectivity, localProfile, purpose }) {
+  async function resolve({
+    authentication,
+    connectivity,
+    accountlessAttachment,
+    localProfile,
+    purpose
+  }) {
+    if (purpose === 'migrate-accountless-profile') {
+      return resolveAccountlessMigration({
+        authentication,
+        connectivity,
+        accountlessAttachment,
+        localProfile
+      })
+    }
     if (connectivity?.status !== 'online') {
       return waitForCloudHead()
     }

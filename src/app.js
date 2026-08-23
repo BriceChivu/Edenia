@@ -291,6 +291,12 @@ import {
   createLearnerProfileNormalizer
 } from './state/learner-profile-state.js'
 import {
+  createAccountlessProfileMigrationController
+} from './state/accountless-profile-migration.js'
+import {
+  ACCOUNTLESS_PROFILE_MIGRATION_STATES
+} from './domain/accountless-profile-migration.js'
+import {
   createLearnerProfileLifecycleAuthority,
   LEARNER_PROFILE_ACCESS_STATES
 } from './state/learner-profile-lifecycle.js'
@@ -486,6 +492,12 @@ import {
   createLegacyProgressMigrationView
 } from './features/migration/legacy-progress-view.js'
 import {
+  bindAccountlessProfileMigrationActions
+} from './features/migration/accountless-profile-migration-actions.js'
+import {
+  createAccountlessProfileMigrationView
+} from './features/migration/accountless-profile-migration-view.js'
+import {
   bindLearnerProfileAccessActions
 } from './features/profile-access/actions.js'
 import {
@@ -607,6 +619,8 @@ const {
   learnerProfileOwnerVerificationKey:
     LEARNER_PROFILE_OWNER_VERIFICATION_KEY,
   learnerProfileSyncKey: LEARNER_PROFILE_SYNC_KEY,
+  accountlessProfileMigrationKey:
+    ACCOUNTLESS_PROFILE_MIGRATION_KEY,
   onboardingProfileDraftKey: ONBOARDING_PROFILE_DRAFT_KEY,
   accountAuthStorageKey: ACCOUNT_AUTH_STORAGE_KEY,
   plusEntitlementCacheKey: PLUS_ENTITLEMENT_CACHE_KEY,
@@ -946,10 +960,17 @@ const learnerProfileSyncView = createLearnerProfileSyncView({
   root: document,
   translate: t
 })
+const accountlessProfileMigrationView =
+  createAccountlessProfileMigrationView({
+    root: document,
+    translate: t
+  })
 let learnerProfileSyncViewState = Object.freeze({ status: 'idle' })
 learnerProfileSyncView.render(learnerProfileSyncViewState)
 let learnerProfileLifecycleAuthority = null
+let learnerProfileLocalPersistence = null
 let learnerProfileReverificationController = null
+let accountlessProfileMigrationController = null
 let learnerProfileProtectedReset = null
 
 if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
@@ -958,7 +979,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     storage: localStorage,
     storageKey: LEARNER_PROFILE_OWNER_VERIFICATION_KEY
   })
-  const localPersistence = createLearnerProfileLocalPersistenceAdapter({
+  learnerProfileLocalPersistence = createLearnerProfileLocalPersistenceAdapter({
     accessStorageKey: LEARNER_PROFILE_ACCESS_KEY,
     accountlessProfileId: `accountless:${STORAGE_KEY}`,
     clearLearnerDerivedData: clearLearnerDerivedDataForOwnerReplacement,
@@ -969,6 +990,21 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     saveProfile: savePersistedState,
     storage: localStorage
   })
+  accountlessProfileMigrationController =
+    createAccountlessProfileMigrationController({
+      clock: { now: () => Date.now() },
+      createOperationId: createLearnerProfileActivationId,
+      onStateChange(state) {
+        accountlessProfileMigrationView.render(state)
+        if (
+          state.status === ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING
+        ) {
+          learnerProfileLifecycleAuthority?.refresh()
+        }
+      },
+      storage: localStorage,
+      storageKey: ACCOUNTLESS_PROFILE_MIGRATION_KEY
+    })
   const cloudPersistence = createLearnerProfileCloudPersistenceAdapter({
     clearOnboardingDraft: onboardingProfileDraftStore.clear,
     createOnboardingEnvelope: onboardingState => (
@@ -1028,7 +1064,8 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
       exportDownload: {
         download: downloadLearnerProfileSyncFile
       },
-      localPersistence,
+      accountlessProfileMigration: accountlessProfileMigrationController,
+      localPersistence: learnerProfileLocalPersistence,
       ownerVerification
     },
     createActivationId: createLearnerProfileActivationId,
@@ -1226,6 +1263,17 @@ let accountAuthViewState = Object.freeze({
   error: null,
   notice: null
 })
+
+function applyAccountAuthenticationState(state, {
+  observeLearnerProfile = true
+} = {}) {
+  accountAuthViewState = state
+  accountlessProfileMigrationController?.observeAuthentication(state)
+  if (observeLearnerProfile) {
+    learnerProfileAuthenticationAdapter.observeAccountState(state)
+  }
+  return state
+}
 let accountExportViewState = Object.freeze({
   userId: null,
   busyAction: null,
@@ -2882,6 +2930,14 @@ function startApplicationFromLocalState() {
   learnerProfileAccessView.render(
     learnerProfileLifecycleAuthority.getState()
   )
+  const localProfile = learnerProfileLocalPersistence?.read()
+  accountlessProfileMigrationController?.start({
+    hasAccountlessProfile: localProfile?.status === 'ready'
+      && localProfile.ownerId === null
+  })
+  applyAccountAuthenticationState(accountAuthViewState, {
+    observeLearnerProfile: false
+  })
   learnerProfileLifecycleAuthority.start()
   initializeAccountAuth()
 }
@@ -5945,7 +6001,7 @@ function initializeAccountAuth() {
   if (!ACCOUNT_FEATURES_ENABLED) return
   renderAccountSettings()
   if (!hasSupabaseRuntimeConfig()) {
-    accountAuthViewState = Object.freeze({
+    applyAccountAuthenticationState(Object.freeze({
       sessionState: ACCOUNT_SESSION_STATES.UNAVAILABLE,
       userId: null,
       email: '',
@@ -5953,10 +6009,7 @@ function initializeAccountAuth() {
       busyAction: null,
       error: ACCOUNT_AUTH_ERRORS.SESSION_UNAVAILABLE,
       notice: null
-    })
-    learnerProfileAuthenticationAdapter.observeAccountState(
-      accountAuthViewState
-    )
+    }))
     renderAccountSettings()
     if (personalizedOnboardingState.step === 'account') {
       renderPersonalizedOnboarding()
@@ -5992,8 +6045,7 @@ function initializeAccountAuth() {
       history: window.history,
       location: window.location,
       onStateChange(state) {
-        accountAuthViewState = state
-        learnerProfileAuthenticationAdapter.observeAccountState(state)
+        applyAccountAuthenticationState(state)
         accountAnalyticsIdentity.synchronize(state)
         accountExportController.synchronizeAccount(state)
         void reminderPreferencesController.synchronizeAccount(
@@ -6051,10 +6103,7 @@ function initializeAccountAuth() {
         }
       })
     }
-    accountAuthViewState = accountAuthController.getState()
-    learnerProfileAuthenticationAdapter.observeAccountState(
-      accountAuthViewState
-    )
+    applyAccountAuthenticationState(accountAuthController.getState())
     accountExportController.synchronizeAccount(accountAuthViewState)
     renderAccountSettings()
     void accountAuthController.initialize().finally(() => {
@@ -6063,7 +6112,7 @@ function initializeAccountAuth() {
     startLearnerProfileReverification()
   } catch (error) {
     console.warn('Edenia account authentication is unavailable.', error)
-    accountAuthViewState = Object.freeze({
+    applyAccountAuthenticationState(Object.freeze({
       sessionState: ACCOUNT_SESSION_STATES.UNAVAILABLE,
       userId: null,
       email: '',
@@ -6071,10 +6120,7 @@ function initializeAccountAuth() {
       busyAction: null,
       error: ACCOUNT_AUTH_ERRORS.SESSION_UNAVAILABLE,
       notice: null
-    })
-    learnerProfileAuthenticationAdapter.observeAccountState(
-      accountAuthViewState
-    )
+    }))
     renderAccountSettings()
     if (personalizedOnboardingState.step === 'account') {
       renderPersonalizedOnboarding()
@@ -6367,6 +6413,12 @@ function setSettingsHowToOpen(isOpen) {
 
 function setSettingsAccountOpen(isOpen) {
   setSettingsAccordionOpen('accountSettingsContent', '.settings-account-toggle', '.settings-account', isOpen)
+}
+
+function openAccountlessProfileMigrationSignIn() {
+  openSettings()
+  setSettingsAccountOpen(true)
+  window.setTimeout(() => document.getElementById('accountEmail')?.focus(), 0)
 }
 
 function toggleSettingsAccount() {
@@ -18064,6 +18116,20 @@ bindSettingsAccountActions(document, {
   signOut: signOutAccount,
   signOutEverywhere: signOutAccountEverywhere,
   downloadAccount: downloadAccountData
+})
+bindAccountlessProfileMigrationActions(document, {
+  begin() {
+    if (!accountlessProfileMigrationController?.begin()) return
+    if (
+      accountlessProfileMigrationController.getState().status
+        === ACCOUNTLESS_PROFILE_MIGRATION_STATES.AWAITING_AUTHENTICATION
+    ) openAccountlessProfileMigrationSignIn()
+  },
+  confirm: () => accountlessProfileMigrationController
+    ?.confirmInheritedSession(),
+  later: () => accountlessProfileMigrationController?.later(),
+  openSignIn: openAccountlessProfileMigrationSignIn,
+  retry: () => accountlessProfileMigrationController?.retry()
 })
 bindLearnerProfileAccessActions(document, {
   continueReplacement: continueLearnerProfileOwnerReplacement,

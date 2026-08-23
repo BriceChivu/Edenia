@@ -670,6 +670,324 @@ test('an older recovery receipt cannot replace a newer current head', async () =
   assert.equal(storage.getItem(RECOVERY_STORAGE_KEY), null)
 })
 
+test('voluntary migration accepts one verified revision when no signed-in profile history exists', async () => {
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const accountlessProfile = { marker: 'untouched-accountless-town' }
+  const envelope = preparedEnvelope(accountlessProfile)
+  const rpcCalls = []
+  const storage = createMemoryStorage()
+  const adapter = createAdapter({
+    finalizeEnvelope: async prepared => ({
+      byteLength: prepared.integrity.byteLength,
+      envelope: prepared,
+      serialized: JSON.stringify(prepared)
+    }),
+    prepareEnvelope: () => envelope,
+    rpc: async (name, parameters) => {
+      rpcCalls.push([name, parameters])
+      return {
+        data: [{
+          envelope,
+          generation: 1,
+          payload_sha256: envelope.integrity.payloadSha256,
+          profile_id: PROFILE_ID,
+          revision: 1,
+          status: 'migrated'
+        }],
+        error: null,
+        status: 200
+      }
+    },
+    storage
+  })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    accountlessAttachment: { operationId },
+    localProfile: {
+      ownerId: null,
+      profile: accountlessProfile,
+      profileId: 'accountless:edenia_v1',
+      status: 'ready'
+    },
+    purpose: 'migrate-accountless-profile'
+  })
+
+  assert.deepEqual(rpcCalls, [[
+    'migrate_my_accountless_profile',
+    {
+      p_envelope: envelope,
+      p_operation_id: operationId
+    }
+  ]])
+  assert.equal(result.status, 'activate')
+  assert.equal(result.ownerId, OWNER_ID)
+  assert.equal(result.profileId, PROFILE_ID)
+  assert.equal(result.generation, 1)
+  assert.equal(result.revision, 1)
+  assert.equal(result.profile, accountlessProfile)
+  assert.equal(result.backupRequired, false)
+  assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)), {
+    acceptedRevision: 1,
+    generation: 1,
+    ownerId: OWNER_ID,
+    pending: null,
+    profileId: PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+})
+
+test('accountless-profile migration never treats unknown cloud state as absent signed-in profile history', async () => {
+  const context = {
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    accountlessAttachment: {
+      operationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    },
+    localProfile: {
+      ownerId: null,
+      profile: { marker: 'untouched-accountless-town' },
+      profileId: 'accountless:edenia_v1',
+      status: 'ready'
+    },
+    purpose: 'migrate-accountless-profile'
+  }
+  const transient = createAdapter({
+    rpc: async () => ({
+      data: null,
+      error: { code: 'PGRST000', message: 'unavailable' },
+      status: 503
+    })
+  })
+  const unknown = createAdapter({
+    rpc: async () => ({
+      data: [{ status: 'unknown' }],
+      error: null,
+      status: 200
+    })
+  })
+  const populated = createAdapter({
+    rpc: async () => ({
+      data: [{ status: 'profile_present' }],
+      error: null,
+      status: 200
+    })
+  })
+
+  assert.deepEqual(await transient.resolve(context), {
+    status: 'migration-backup-failed'
+  })
+  assert.deepEqual(await unknown.resolve(context), {
+    status: 'migration-backup-failed'
+  })
+  assert.deepEqual(await populated.resolve(context), {
+    status: 'migration-signed-in-profile-present'
+  })
+})
+
+test('accountless-profile migration reload retries the protected first envelope before syncing later study', async () => {
+  const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const originalProfile = { marker: 'town-at-first-attempt' }
+  const laterProfile = { marker: 'town-after-local-study' }
+  const envelope = preparedEnvelope(originalProfile)
+  const laterEnvelope = preparedEnvelope(laterProfile, 'B'.repeat(43))
+  const storage = createMemoryStorage()
+  const context = profile => ({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    accountlessAttachment: { operationId },
+    localProfile: {
+      ownerId: null,
+      profile,
+      profileId: 'accountless:edenia_v1',
+      status: 'ready'
+    },
+    purpose: 'migrate-accountless-profile'
+  })
+  const first = createAdapter({
+    finalizeEnvelope: async prepared => ({ envelope: prepared }),
+    prepareEnvelope: () => envelope,
+    rpc: async () => { throw new TypeError('response lost') },
+    storage
+  })
+
+  assert.deepEqual(await first.resolve(context(originalProfile)), {
+    status: 'migration-backup-failed'
+  })
+
+  const rpcCalls = []
+  const retry = createAdapter({
+    createOperationId: () => 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    prepareEnvelope(profile) {
+      assert.deepEqual(profile, laterProfile)
+      return laterEnvelope
+    },
+    rpc: async (name, parameters) => {
+      rpcCalls.push([name, parameters])
+      if (name === 'migrate_my_accountless_profile') {
+        assert.deepEqual(parameters.p_envelope, envelope)
+        return {
+          data: [{
+            envelope,
+            generation: 1,
+            payload_sha256: envelope.integrity.payloadSha256,
+            profile_id: PROFILE_ID,
+            revision: 1,
+            status: 'migrated'
+          }],
+          error: null,
+          status: 200
+        }
+      }
+      assert.equal(name, 'commit_my_learner_profile')
+      assert.deepEqual(parameters, {
+        p_base_revision: 1,
+        p_envelope: laterEnvelope,
+        p_generation: 1,
+        p_operation_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        p_profile_id: PROFILE_ID
+      })
+      return {
+        data: [{
+          base_revision: 1,
+          generation: 1,
+          payload_sha256: laterEnvelope.integrity.payloadSha256,
+          profile_id: PROFILE_ID,
+          revision: 2,
+          status: 'accepted'
+        }],
+        error: null,
+        status: 200
+      }
+    },
+    storage
+  })
+
+  const result = await retry.resolve(context(laterProfile))
+  assert.equal(result.status, 'activate')
+  assert.equal(result.profile, laterProfile)
+  assert.equal(result.backupRequired, false)
+  assert.equal(result.revision, 2)
+  assert.equal(rpcCalls.length, 2)
+  assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)), {
+    acceptedRevision: 2,
+    generation: 1,
+    ownerId: OWNER_ID,
+    pending: null,
+    profileId: PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+})
+
+test('a failed catch-up backup preserves the Accountless profile and retries the exact operation', async () => {
+  const migrationOperationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const catchUpOperationId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+  const originalProfile = { marker: 'town-at-first-attempt' }
+  const currentProfile = { marker: 'town-after-more-study' }
+  const originalEnvelope = preparedEnvelope(originalProfile)
+  const currentEnvelope = preparedEnvelope(currentProfile, 'B'.repeat(43))
+  const storage = createMemoryStorage()
+  const context = profile => ({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    accountlessAttachment: { operationId: migrationOperationId },
+    localProfile: {
+      ownerId: null,
+      profile,
+      profileId: 'accountless:edenia_v1',
+      status: 'ready'
+    },
+    purpose: 'migrate-accountless-profile'
+  })
+  const protectOriginal = createAdapter({
+    prepareEnvelope: () => originalEnvelope,
+    rpc: async () => { throw new TypeError('network unavailable') },
+    storage
+  })
+  assert.deepEqual(await protectOriginal.resolve(context(originalProfile)), {
+    status: 'migration-backup-failed'
+  })
+
+  let failedCatchUpParameters = null
+  const failCatchUp = createAdapter({
+    createOperationId: () => catchUpOperationId,
+    prepareEnvelope: () => currentEnvelope,
+    rpc: async (name, parameters) => {
+      if (name === 'migrate_my_accountless_profile') {
+        return {
+          data: [{
+            envelope: originalEnvelope,
+            generation: 1,
+            payload_sha256: originalEnvelope.integrity.payloadSha256,
+            profile_id: PROFILE_ID,
+            revision: 1,
+            status: 'migrated'
+          }],
+          error: null,
+          status: 200
+        }
+      }
+      failedCatchUpParameters = structuredClone(parameters)
+      return {
+        data: [{ status: 'unknown' }],
+        error: null,
+        status: 200
+      }
+    },
+    storage
+  })
+  assert.deepEqual(await failCatchUp.resolve(context(currentProfile)), {
+    status: 'migration-backup-failed'
+  })
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), null)
+  const protectedRecord = JSON.parse(storage.getItem(
+    `${SYNC_STORAGE_KEY}_accountless_migration`
+  ))
+  assert.equal(protectedRecord.catchUp.operationId, catchUpOperationId)
+  assert.deepEqual(protectedRecord.catchUp.envelope, currentEnvelope)
+
+  const retry = createAdapter({
+    prepareEnvelope: () => currentEnvelope,
+    rpc: async (name, parameters) => {
+      if (name === 'migrate_my_accountless_profile') {
+        return {
+          data: [{
+            envelope: originalEnvelope,
+            generation: 1,
+            payload_sha256: originalEnvelope.integrity.payloadSha256,
+            profile_id: PROFILE_ID,
+            revision: 1,
+            status: 'migrated'
+          }],
+          error: null,
+          status: 200
+        }
+      }
+      assert.deepEqual(parameters, failedCatchUpParameters)
+      return {
+        data: [{
+          base_revision: 1,
+          generation: 1,
+          payload_sha256: currentEnvelope.integrity.payloadSha256,
+          profile_id: PROFILE_ID,
+          revision: 2,
+          status: 'already_accepted'
+        }],
+        error: null,
+        status: 200
+      }
+    },
+    storage
+  })
+  const result = await retry.resolve(context(currentProfile))
+  assert.equal(result.status, 'activate')
+  assert.equal(result.backupRequired, false)
+  assert.equal(result.revision, 2)
+})
+
 test('an unverifiable cloud head stays not yet backed up when verified local study activates', async () => {
   const serializedRecord = JSON.stringify({
     acceptedRevision: 4,

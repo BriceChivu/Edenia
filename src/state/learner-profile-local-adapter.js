@@ -195,6 +195,75 @@ export function createLearnerProfileLocalPersistenceAdapter({
     }
   }
 
+  function attachAccountlessProfile({
+    attachedAt,
+    generation,
+    ownerId,
+    previousProfileId,
+    profileId,
+    revision
+  } = {}) {
+    if (
+      !Number.isFinite(attachedAt)
+      || !isPositiveInteger(generation)
+      || typeof ownerId !== 'string'
+      || !ownerId
+      || previousProfileId !== accountlessProfileId
+      || typeof profileId !== 'string'
+      || !profileId
+      || !isPositiveInteger(revision)
+      || !hasProfile()
+    ) return false
+    const access = readAccessRecord(storage, accessStorageKey)
+    const current = access.record
+    if (
+      (access.present && !current)
+      || (current && current.activationId !== null)
+      || current?.ownerId
+      || (current && current.profileId !== previousProfileId)
+      || current?.replacement
+      || current?.generation !== undefined
+      || current?.revision !== undefined
+    ) return false
+    const attached = {
+      activatedAt: attachedAt,
+      activationId: null,
+      generation,
+      onboardingFinalizationPending: false,
+      ownerId,
+      profileId,
+      revision,
+      version: PROFILE_ACCESS_RECORD_VERSION
+    }
+    const isAttachmentCurrent = () => {
+      const next = readAccessRecord(storage, accessStorageKey).record
+      return next?.activationId === null
+        && next.ownerId === ownerId
+        && next.profileId === profileId
+        && next.generation === generation
+        && next.revision === revision
+    }
+    try {
+      storage.setItem(accessStorageKey, JSON.stringify(attached))
+      if (isAttachmentCurrent()) return true
+      if (current) {
+        storage.setItem(accessStorageKey, JSON.stringify(current))
+      } else {
+        storage.removeItem(accessStorageKey)
+      }
+      return false
+    } catch {
+      try {
+        if (current) {
+          storage.setItem(accessStorageKey, JSON.stringify(current))
+        } else {
+          storage.removeItem(accessStorageKey)
+        }
+      } catch {}
+      return false
+    }
+  }
+
   function claimActivation(fence) {
     if (!isValidFence(fence)) return false
     const current = readAccessRecord(storage, accessStorageKey).record
@@ -552,6 +621,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
 
   return Object.freeze({
     adoptCloudIdentity,
+    attachAccountlessProfile,
     beginOwnerReplacement,
     claimActivation,
     completeOwnerReplacement,

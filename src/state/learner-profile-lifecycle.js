@@ -1,4 +1,7 @@
 import {
+  ACCOUNTLESS_PROFILE_MIGRATION_STATES
+} from '../domain/accountless-profile-migration.js'
+import {
   LEARNER_PROFILE_RECOVERY_FEEDBACK,
   LEARNER_PROFILE_RECOVERY_SOURCES
 } from '../domain/learner-profile-resolution.js'
@@ -48,6 +51,7 @@ export function createLearnerProfileLifecycleAuthority({
     cloudPersistence,
     connectivity,
     exportDownload,
+    accountlessProfileMigration,
     localPersistence,
     ownerVerification
   } = adapters
@@ -253,15 +257,47 @@ export function createLearnerProfileLifecycleAuthority({
     }) === true
   }
 
-  function resolveCloudProfile({ auth, localProfile, purpose, requestId }) {
+  function resolveCloudProfile({
+    auth,
+    accountlessAttachment = null,
+    localProfile,
+    purpose,
+    requestId
+  }) {
     Promise.resolve(cloudPersistence.resolve({
       authentication: auth,
       connectivity: connectivity.getObservation(),
+      ...(accountlessAttachment ? { accountlessAttachment } : {}),
       localProfile,
       purpose
     })).then(async result => {
       if (requestId !== resolutionId) return
       if (!result || result.status === 'waiting') return
+      if (
+        purpose === 'migrate-accountless-profile'
+        && result.status === 'migration-backup-failed'
+      ) {
+        accountlessProfileMigration?.markBackupFailed?.()
+        activate(localProfile)
+        return
+      }
+      if (
+        purpose === 'migrate-accountless-profile'
+        && result.status === 'migration-signed-in-profile-present'
+      ) {
+        accountlessProfileMigration?.markSignedInProfilePresent?.()
+        activate(localProfile)
+        return
+      }
+      if (
+        purpose === 'migrate-accountless-profile'
+        && result.status === 'activate'
+        && result.backupRequired === true
+      ) {
+        accountlessProfileMigration?.markBackupFailed?.()
+        activate(localProfile)
+        return
+      }
       if (result.status === 'waiting-cloud') {
         const matchingOwnedLocalProfile =
           auth.userId === localProfile?.ownerId
@@ -310,7 +346,34 @@ export function createLearnerProfileLifecycleAuthority({
           releaseActiveProfile()
         }
         let resolvedProfile = result.profile
-        if (localProfile?.status === 'empty') {
+        if (
+          purpose === 'migrate-accountless-profile'
+          && isAccountlessProfile(localProfile)
+        ) {
+          if (!localPersistence.attachAccountlessProfile?.({
+            attachedAt: clock.now(),
+            generation: result.generation,
+            ownerId: result.ownerId,
+            previousProfileId: localProfile.profileId,
+            profileId: result.profileId,
+            revision: result.revision
+          })) {
+            publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+            return
+          }
+          const attachedProfile = localPersistence.read()
+          if (
+            !isSignedInProfile(attachedProfile)
+            || attachedProfile.ownerId !== result.ownerId
+            || attachedProfile.profileId !== result.profileId
+            || attachedProfile.generation !== result.generation
+            || attachedProfile.revision !== result.revision
+          ) {
+            publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+            return
+          }
+          resolvedProfile = attachedProfile.profile
+        } else if (localProfile?.status === 'empty') {
           if (!localPersistence.installSignedInProfile(result.profile, {
             generation: result.generation,
             installedAt: clock.now(),
@@ -406,6 +469,9 @@ export function createLearnerProfileLifecycleAuthority({
           ownerId: auth.userId,
           verifiedAt: clock.now()
         })
+        if (purpose === 'migrate-accountless-profile') {
+          accountlessProfileMigration?.complete?.()
+        }
         try {
           if (typeof result.finalize === 'function') {
             result.finalize({
@@ -449,7 +515,15 @@ export function createLearnerProfileLifecycleAuthority({
       )
     }).catch(() => {
       if (requestId === resolutionId) {
-        publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+        if (
+          purpose === 'migrate-accountless-profile'
+          && isAccountlessProfile(localProfile)
+        ) {
+          accountlessProfileMigration?.markBackupFailed?.()
+          activate(localProfile)
+        } else {
+          publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+        }
       }
     })
   }
@@ -461,6 +535,28 @@ export function createLearnerProfileLifecycleAuthority({
     if (!auth || auth.status === 'loading') {
       releaseActiveProfile()
       return publish(LEARNER_PROFILE_ACCESS_STATES.RESOLVING)
+    }
+    if (isAccountlessProfile(localProfile) && accountlessProfileMigration) {
+      const accountlessAttachment = accountlessProfileMigration.getAttachment?.()
+      if (
+        auth.status === 'signed-in'
+        && auth.userId
+        && accountlessProfileMigration.getState?.().status
+          === ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING
+        && accountlessAttachment
+      ) {
+        releaseActiveProfile()
+        publish(LEARNER_PROFILE_ACCESS_STATES.MIGRATING)
+        resolveCloudProfile({
+          auth,
+          accountlessAttachment,
+          localProfile,
+          purpose: 'migrate-accountless-profile',
+          requestId
+        })
+        return currentState
+      }
+      return activate(localProfile)
     }
     if (auth?.status === 'signed-in' && isAccountlessProfile(localProfile)) {
       releaseActiveProfile()
