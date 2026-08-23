@@ -41,6 +41,18 @@ function readAccessRecord(storage, accessStorageKey) {
       || !isNullableString(record.ownerId)
       || !isNullableString(record.activationId)
       || (
+        record.legacy !== undefined
+        && record.legacy !== true
+      )
+      || (
+        record.legacy === true
+        && record.ownerId !== null
+        && (
+          record.generation !== undefined
+          || record.revision !== undefined
+        )
+      )
+      || (
         record.generation !== undefined
         && !isPositiveInteger(record.generation)
       )
@@ -118,6 +130,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
       }
     }
     const localProfile = {
+      ...(access.record?.legacy === true ? { legacy: true } : {}),
       ownerId: access.record?.ownerId || null,
       profile,
       profileId: access.record?.profileId || accountlessProfileId,
@@ -134,6 +147,49 @@ export function createLearnerProfileLocalPersistenceAdapter({
       localProfile.onboardingFinalizationPending = true
     }
     return localProfile
+  }
+
+  function installLegacyAccountlessProfile(profile, { createdAt } = {}) {
+    if (!isRecord(profile) || !Number.isFinite(createdAt) || hasProfile()) {
+      return false
+    }
+    const existingAccess = readAccessRecord(storage, accessStorageKey)
+    if (existingAccess.present) return false
+    const record = {
+      activatedAt: createdAt,
+      activationId: null,
+      legacy: true,
+      ownerId: null,
+      profileId: accountlessProfileId,
+      version: PROFILE_ACCESS_RECORD_VERSION
+    }
+    const isInstallCurrent = () => {
+      const current = readAccessRecord(storage, accessStorageKey).record
+      return current?.activationId === null
+        && current.legacy === true
+        && current.ownerId === null
+        && current.profileId === accountlessProfileId
+    }
+    try {
+      storage.setItem(accessStorageKey, JSON.stringify(record))
+      if (!isInstallCurrent()) return false
+      const result = replaceProfile(profile, {
+        backup: false,
+        syncAnalytics: false
+      }, isInstallCurrent)
+      if (result?.persisted && isInstallCurrent()) return true
+      if (!hasProfile() && isInstallCurrent()) {
+        storage.removeItem(accessStorageKey)
+      }
+      return false
+    } catch {
+      try {
+        if (!hasProfile() && isInstallCurrent()) {
+          storage.removeItem(accessStorageKey)
+        }
+      } catch {}
+      return false
+    }
   }
 
   function installSignedInProfile(profile, {
@@ -264,6 +320,54 @@ export function createLearnerProfileLocalPersistenceAdapter({
     }
   }
 
+  function claimAccountlessProfileForMigration({
+    claimedAt,
+    ownerId,
+    previousProfileId,
+    profileId
+  } = {}) {
+    if (
+      !Number.isFinite(claimedAt)
+      || typeof ownerId !== 'string'
+      || !ownerId
+      || previousProfileId !== accountlessProfileId
+      || typeof profileId !== 'string'
+      || !profileId
+      || !hasProfile()
+    ) return false
+    const access = readAccessRecord(storage, accessStorageKey)
+    const current = access.record
+    if (
+      (access.present && !current)
+      || (current && current.activationId !== null)
+      || current?.ownerId
+      || (current && current.profileId !== previousProfileId)
+      || current?.replacement
+      || current?.generation !== undefined
+      || current?.revision !== undefined
+    ) return false
+    const claimed = {
+      activatedAt: claimedAt,
+      activationId: null,
+      legacy: true,
+      ownerId,
+      profileId,
+      version: PROFILE_ACCESS_RECORD_VERSION
+    }
+    try {
+      storage.setItem(accessStorageKey, JSON.stringify(claimed))
+      const next = readAccessRecord(storage, accessStorageKey).record
+      return next?.activationId === null
+        && next.legacy === true
+        && next.ownerId === ownerId
+        && next.profileId === profileId
+        && next.generation === undefined
+        && next.revision === undefined
+    } catch {
+      return false
+    }
+  }
+
   function claimActivation(fence) {
     if (!isValidFence(fence)) return false
     const current = readAccessRecord(storage, accessStorageKey).record
@@ -272,6 +376,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
       activatedAt: fence.activatedAt,
       activationId: fence.id,
       generation: current?.generation,
+      ...(current?.legacy === true ? { legacy: true } : {}),
       onboardingFinalizationPending: Boolean(
         current?.onboardingFinalizationPending
         && current.ownerId === fence.ownerId
@@ -426,6 +531,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
   function reconcileSignedInProfile(profile, {
     generation,
     ownerId,
+    previousProfileId = null,
     profileId,
     revision
   }) {
@@ -439,18 +545,27 @@ export function createLearnerProfileLocalPersistenceAdapter({
       || !isPositiveInteger(revision)
     ) return false
     const current = readAccessRecord(storage, accessStorageKey).record
+    const replacesProvisionalIdentity = previousProfileId !== null
+      && current?.profileId === previousProfileId
+      && current?.generation === undefined
+      && current?.revision === undefined
     if (
       !current
       || current.activationId !== null
       || current.ownerId !== ownerId
-      || current.profileId !== profileId
+      || (
+        current.profileId !== profileId
+        && !replacesProvisionalIdentity
+      )
       || !hasProfile()
     ) return false
     const reconciled = {
       ...current,
       generation,
+      profileId,
       revision
     }
+    delete reconciled.legacy
     const isReconcileCurrent = () => {
       const next = readAccessRecord(storage, accessStorageKey).record
       return next?.activationId === null
@@ -553,6 +668,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
         activatedAt: fence.activatedAt,
         activationId: null,
         generation: current?.generation,
+        ...(current?.legacy === true ? { legacy: true } : {}),
         onboardingFinalizationPending:
           current?.onboardingFinalizationPending === true,
         ownerId: fence.ownerId,
@@ -624,9 +740,11 @@ export function createLearnerProfileLocalPersistenceAdapter({
     attachAccountlessProfile,
     beginOwnerReplacement,
     claimActivation,
+    claimAccountlessProfileForMigration,
     completeOwnerReplacement,
     completeOnboardingFinalization,
     installSignedInProfile,
+    installLegacyAccountlessProfile,
     isActivationCurrent,
     read,
     reconcileSignedInProfile,

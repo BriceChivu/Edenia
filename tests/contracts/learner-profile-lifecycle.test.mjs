@@ -239,6 +239,18 @@ function createHarness({
           }
           return true
         },
+        claimAccountlessProfileForMigration(identity) {
+          calls.push(['claim-accountless-profile', identity])
+          if (currentLocal.status !== 'ready' || currentLocal.ownerId) {
+            return false
+          }
+          currentLocal = {
+            ...currentLocal,
+            ownerId: identity.ownerId,
+            profileId: identity.profileId
+          }
+          return true
+        },
         adoptCloudIdentity(identity) {
           calls.push(['adopt-cloud-identity', identity])
           currentLocal = {
@@ -491,6 +503,46 @@ test('voluntary migration keeps an inherited session on the accountless profile 
   )
 })
 
+test('the final legacy gate exposes no accountless profile before migration starts', () => {
+  const accountlessProfileMigration = {
+    getAttachment: () => null,
+    getState: () => ({ entryRequired: true, status: 'final-gate' }),
+    isEntryRequired: () => true
+  }
+  const signedOut = createHarness({ accountlessProfileMigration })
+
+  signedOut.authority.start()
+
+  assert.equal(
+    signedOut.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.LOCKED
+  )
+  assert.equal(signedOut.authority.readActiveProfile(), null)
+  assert.equal(
+    signedOut.calls.some(([name]) => name === 'claim'),
+    false
+  )
+
+  const inheritedSession = createHarness({
+    authentication: {
+      status: 'signed-in',
+      userId: '123e4567-e89b-42d3-a456-426614174000'
+    },
+    accountlessProfileMigration
+  })
+  inheritedSession.authority.start()
+
+  assert.equal(
+    inheritedSession.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.LOCKED
+  )
+  assert.equal(inheritedSession.authority.readActiveProfile(), null)
+  assert.equal(
+    inheritedSession.calls.some(([name]) => name === 'cloud-resolve'),
+    false
+  )
+})
+
 test('verified voluntary migration attaches the untouched local profile after cloud acceptance', async () => {
   const ownerId = '123e4567-e89b-42d3-a456-426614174000'
   const profileId = '223e4567-e89b-42d3-a456-426614174001'
@@ -650,6 +702,112 @@ test('a populated signed-in profile leaves the voluntary Accountless profile act
     harness.calls.some(([name]) => name === 'attach-accountless-profile'),
     false
   )
+})
+
+test('legacy and cloud progress enter the guarded ordinary conflict state', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const provisionalProfileId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const cloudProfileId = '223e4567-e89b-42d3-a456-426614174001'
+  const protectedUntil = 1_789_574_400_000
+  const conflict = {
+    cloud: {
+      generation: 3,
+      profile: { learnerProfile: { languages: ['mandarin'] } },
+      revision: 7
+    },
+    device: {
+      generation: 1,
+      profile: { learnerProfile: { languages: ['french'] } },
+      revision: 2
+    },
+    id: '323e4567-e89b-42d3-a456-426614174002',
+    operationId: provisionalProfileId,
+    ownerId,
+    profileId: provisionalProfileId,
+    status: 'open'
+  }
+  const migrationCalls = []
+  const resolvedConflict = {
+    ...conflict,
+    protectedUntil,
+    selectedSide: 'cloud',
+    status: 'resolved'
+  }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudChoice: {
+      conflict: resolvedConflict,
+      generation: 3,
+      ownerId,
+      profile: conflict.cloud.profile,
+      profileId: cloudProfileId,
+      protectedConflicts: [resolvedConflict],
+      protectedUntil,
+      revision: 8,
+      selectedSide: 'cloud',
+      status: 'chosen'
+    },
+    cloudResolution: { conflict, status: 'conflicting' },
+    accountlessProfileMigration: {
+      getAttachment: () => ({ operationId: provisionalProfileId }),
+      getState: () => ({ status: 'attaching' }),
+      hasPendingMigration: () => true,
+      isEntryRequired: () => true,
+      complete() {
+        migrationCalls.push('complete')
+        return true
+      },
+      markConflictReady() {
+        migrationCalls.push('conflict-ready')
+        return true
+      }
+    }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
+  )
+  assert.equal(harness.authority.getState().conflict, conflict)
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(harness.getLocal().ownerId, ownerId)
+  assert.equal(harness.getLocal().profileId, provisionalProfileId)
+  assert.deepEqual(migrationCalls, ['conflict-ready'])
+  assert.deepEqual(
+    harness.calls.find(([name]) => name === 'claim-accountless-profile')[1],
+    {
+      claimedAt: 1_786_982_400_000,
+      ownerId,
+      previousProfileId: 'accountless:browser',
+      profileId: provisionalProfileId
+    }
+  )
+
+  assert.equal(
+    await harness.authority.chooseConflictVersion(
+      'cloud',
+      { confirmed: true }
+    ),
+    true
+  )
+  assert.equal(harness.authority.readActiveProfile(), conflict.cloud.profile)
+  assert.deepEqual(
+    harness.calls.find(([name]) => name === 'reconcile').slice(1),
+    [
+      conflict.cloud.profile,
+      {
+        generation: 3,
+        ownerId,
+        previousProfileId: provisionalProfileId,
+        profileId: cloudProfileId,
+        revision: 8
+      }
+    ]
+  )
+  assert.deepEqual(migrationCalls, ['conflict-ready', 'complete'])
 })
 
 test('a restored owner session cannot write a matching local copy before cloud activation', async () => {
@@ -2776,6 +2934,77 @@ test('verified migration attaches an accountless profile without rewriting its c
     profile,
     profileId: '223e4567-e89b-42d3-a456-426614174001',
     revision: 1,
+    status: 'ready'
+  })
+})
+
+test('the emergency route creates an explicitly legacy accountless profile', () => {
+  const accessStorageKey = 'edenia_v1_profile_access_v1'
+  const storageKey = 'edenia_v1'
+  const profile = { learnerProfile: { languages: ['french'] } }
+  const values = new Map()
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    removeItem: key => values.delete(key),
+    setItem: (key, value) => values.set(key, value)
+  }
+  const adapter = createLearnerProfileLocalPersistenceAdapter({
+    accessStorageKey,
+    accountlessProfileId: `accountless:${storageKey}`,
+    eventTarget: null,
+    hasProfile: () => values.has(storageKey),
+    loadProfile: () => JSON.parse(values.get(storageKey)),
+    replaceProfile(nextProfile, _options, isCurrent) {
+      if (!isCurrent()) return { persisted: false }
+      values.set(storageKey, JSON.stringify(nextProfile))
+      return { persisted: true }
+    },
+    saveProfile: () => false,
+    storage
+  })
+
+  assert.equal(adapter.installLegacyAccountlessProfile(profile, {
+    createdAt: Date.parse('2026-08-23T00:00:00.000Z')
+  }), true)
+  assert.deepEqual(adapter.read(), {
+    legacy: true,
+    ownerId: null,
+    profile,
+    profileId: `accountless:${storageKey}`,
+    status: 'ready'
+  })
+  assert.deepEqual(JSON.parse(values.get(accessStorageKey)), {
+    activatedAt: Date.parse('2026-08-23T00:00:00.000Z'),
+    activationId: null,
+    legacy: true,
+    ownerId: null,
+    profileId: `accountless:${storageKey}`,
+    version: 1
+  })
+
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const provisionalProfileId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  const cloudProfile = { learnerProfile: { languages: ['mandarin'] } }
+  assert.equal(adapter.claimAccountlessProfileForMigration({
+    claimedAt: Date.parse('2026-08-24T00:00:00.000Z'),
+    ownerId,
+    previousProfileId: `accountless:${storageKey}`,
+    profileId: provisionalProfileId
+  }), true)
+  assert.equal(adapter.read().legacy, true)
+  assert.equal(adapter.reconcileSignedInProfile(cloudProfile, {
+    generation: 3,
+    ownerId,
+    previousProfileId: provisionalProfileId,
+    profileId: '223e4567-e89b-42d3-a456-426614174001',
+    revision: 8
+  }), true)
+  assert.deepEqual(adapter.read(), {
+    generation: 3,
+    ownerId,
+    profile: cloudProfile,
+    profileId: '223e4567-e89b-42d3-a456-426614174001',
+    revision: 8,
     status: 'ready'
   })
 })

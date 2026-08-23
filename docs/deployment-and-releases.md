@@ -260,6 +260,23 @@ migration or reconstruction is required.
 
 ## General account rollout
 
+### Legacy accountless entry rollback
+
+`EDENIA_EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED` is a serious-incident switch.
+It restores legacy accountless entry without changing the server profile-data
+gate or granting access to an owner-bound profile. Set
+`EDENIA_ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT` to the approved ISO 8601 UTC
+cutover before it occurs; after that timestamp, missing or damaged browser
+grace bookkeeping fails closed. Record the UTC start of the current
+incident-free period. Do not remove the
+switch until 30 incident-free days have elapsed after cutover and the product
+owner has approved removal explicitly.
+
+Keep the legacy profile migrator installed for at least 12 full calendar months
+after final cutover. Retirement also requires a rolling 90-day period with no
+completed migration and explicit product-owner approval. Any later completed
+migration restarts the 90-day period.
+
 The staged general-account work uses the public repository variable
 `EDENIA_ACCOUNT_FEATURES_ROLLOUT`. Its accepted values are:
 

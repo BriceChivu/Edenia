@@ -355,7 +355,7 @@ test('step navigation retains guards, directional analytics, and rerendering', (
   )
   assert.match(
     source,
-    /const allowedSteps = \['language', 'level', 'channels', 'other'\]\s*if \(ACCOUNT_FEATURES_ENABLED\) allowedSteps\.push\('account'\)\s*if \(!allowedSteps\.includes\(step\)\) return/
+    /const allowedSteps = \['language', 'level', 'channels', 'other'\]\s*if \(ACCOUNT_ENTRY_REQUIRED\) allowedSteps\.push\('account'\)\s*if \(!allowedSteps\.includes\(step\)\) return/
   )
   assert.match(
     source,

@@ -7,6 +7,8 @@ const STATE_COPY = Object.freeze({
     'accountlessProfileMigration.notice',
   [ACCOUNTLESS_PROFILE_MIGRATION_STATES.COUNTDOWN]:
     'accountlessProfileMigration.countdown',
+  [ACCOUNTLESS_PROFILE_MIGRATION_STATES.FINAL_GATE]:
+    'accountlessProfileMigration.finalGate',
   [ACCOUNTLESS_PROFILE_MIGRATION_STATES.AWAITING_AUTHENTICATION]:
     'accountlessProfileMigration.authentication',
   [ACCOUNTLESS_PROFILE_MIGRATION_STATES.CONFIRMING_SESSION]:
@@ -21,7 +23,8 @@ const STATE_COPY = Object.freeze({
 
 const DIALOG_STATES = new Set([
   ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING,
-  ACCOUNTLESS_PROFILE_MIGRATION_STATES.CONFIRMING_SESSION
+  ACCOUNTLESS_PROFILE_MIGRATION_STATES.CONFIRMING_SESSION,
+  ACCOUNTLESS_PROFILE_MIGRATION_STATES.FINAL_GATE
 ])
 
 export function createAccountlessProfileMigrationView({ root, translate }) {
@@ -41,11 +44,12 @@ export function createAccountlessProfileMigrationView({ root, translate }) {
     for (const control of Object.values(actions)) control.hidden = true
   }
 
-  function showActions(state) {
+  function showActions(state, { entryRequired = false } = {}) {
     hideActions()
     if ([
       ACCOUNTLESS_PROFILE_MIGRATION_STATES.NOTICE,
-      ACCOUNTLESS_PROFILE_MIGRATION_STATES.COUNTDOWN
+      ACCOUNTLESS_PROFILE_MIGRATION_STATES.COUNTDOWN,
+      ACCOUNTLESS_PROFILE_MIGRATION_STATES.FINAL_GATE
     ].includes(state)) actions.begin.hidden = false
     if (
       [
@@ -55,7 +59,7 @@ export function createAccountlessProfileMigrationView({ root, translate }) {
         ACCOUNTLESS_PROFILE_MIGRATION_STATES.BACKUP_FAILED,
         ACCOUNTLESS_PROFILE_MIGRATION_STATES.SIGNED_IN_PROFILE_PRESENT
       ].includes(state)
-    ) actions.later.hidden = false
+    ) actions.later.hidden = entryRequired
     if (
       state === ACCOUNTLESS_PROFILE_MIGRATION_STATES.CONFIRMING_SESSION
     ) actions.confirm.hidden = false
@@ -108,7 +112,7 @@ export function createAccountlessProfileMigrationView({ root, translate }) {
     gate.setAttribute('aria-busy', String(
       state === ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING
     ))
-    showActions(state)
+    showActions(state, viewState)
     gate.classList.remove('hidden')
   }
 

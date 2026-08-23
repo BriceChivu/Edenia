@@ -257,6 +257,14 @@ export function createLearnerProfileLifecycleAuthority({
     }) === true
   }
 
+  function restoreAccountlessAfterMigrationFailure(localProfile) {
+    if (accountlessProfileMigration?.isEntryRequired?.() === true) {
+      releaseActiveProfile()
+      return publish(LEARNER_PROFILE_ACCESS_STATES.LOCKED)
+    }
+    return activate(localProfile)
+  }
+
   function resolveCloudProfile({
     auth,
     accountlessAttachment = null,
@@ -278,7 +286,7 @@ export function createLearnerProfileLifecycleAuthority({
         && result.status === 'migration-backup-failed'
       ) {
         accountlessProfileMigration?.markBackupFailed?.()
-        activate(localProfile)
+        restoreAccountlessAfterMigrationFailure(localProfile)
         return
       }
       if (
@@ -286,7 +294,7 @@ export function createLearnerProfileLifecycleAuthority({
         && result.status === 'migration-signed-in-profile-present'
       ) {
         accountlessProfileMigration?.markSignedInProfilePresent?.()
-        activate(localProfile)
+        restoreAccountlessAfterMigrationFailure(localProfile)
         return
       }
       if (
@@ -295,7 +303,7 @@ export function createLearnerProfileLifecycleAuthority({
         && result.backupRequired === true
       ) {
         accountlessProfileMigration?.markBackupFailed?.()
-        activate(localProfile)
+        restoreAccountlessAfterMigrationFailure(localProfile)
         return
       }
       if (result.status === 'waiting-cloud') {
@@ -490,6 +498,46 @@ export function createLearnerProfileLifecycleAuthority({
         }
         return
       }
+      if (
+        purpose === 'migrate-accountless-profile'
+        && result.status === 'conflicting'
+        && result.conflict?.status === 'open'
+        && result.conflict.ownerId === auth.userId
+        && typeof result.conflict.profileId === 'string'
+        && result.conflict.profileId
+        && isAccountlessProfile(localProfile)
+      ) {
+        if (!localPersistence.claimAccountlessProfileForMigration?.({
+          claimedAt: clock.now(),
+          ownerId: auth.userId,
+          previousProfileId: localProfile.profileId,
+          profileId: result.conflict.profileId
+        })) {
+          publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+          return
+        }
+        const claimedProfile = localPersistence.read()
+        if (
+          !isSignedInProfile(claimedProfile)
+          || claimedProfile.ownerId !== auth.userId
+          || claimedProfile.profileId !== result.conflict.profileId
+          || claimedProfile.generation !== undefined
+          || claimedProfile.revision !== undefined
+        ) {
+          publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+          return
+        }
+        if (!accountlessProfileMigration?.markConflictReady?.()) {
+          publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+          return
+        }
+        publish(LEARNER_PROFILE_ACCESS_STATES.CONFLICTING, {
+          conflict: result.conflict,
+          ownerId: result.conflict.ownerId,
+          profileId: result.conflict.profileId
+        })
+        return
+      }
       const resultStates = {
         conflicting: LEARNER_PROFILE_ACCESS_STATES.CONFLICTING,
         locked: LEARNER_PROFILE_ACCESS_STATES.LOCKED,
@@ -498,6 +546,12 @@ export function createLearnerProfileLifecycleAuthority({
         'waiting-authentication':
           LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION,
         'waiting-cloud': LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
+      }
+      if (
+        result.status === 'conflicting'
+        && accountlessProfileMigration?.hasPendingMigration?.()
+      ) {
+        accountlessProfileMigration.markConflictReady?.()
       }
       if (result.status !== 'waiting-cloud') ownerVerification?.clear?.()
       publish(
@@ -520,7 +574,7 @@ export function createLearnerProfileLifecycleAuthority({
           && isAccountlessProfile(localProfile)
         ) {
           accountlessProfileMigration?.markBackupFailed?.()
-          activate(localProfile)
+          restoreAccountlessAfterMigrationFailure(localProfile)
         } else {
           publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
         }
@@ -555,6 +609,10 @@ export function createLearnerProfileLifecycleAuthority({
           requestId
         })
         return currentState
+      }
+      if (accountlessProfileMigration.isEntryRequired?.() === true) {
+        releaseActiveProfile()
+        return publish(LEARNER_PROFILE_ACCESS_STATES.LOCKED)
       }
       return activate(localProfile)
     }
@@ -1092,12 +1150,26 @@ export function createLearnerProfileLifecycleAuthority({
       || result.revision <= 0
     ) return false
     releaseActiveProfile()
-    if (!localPersistence.reconcileSignedInProfile(result.profile, {
-      generation: result.generation,
-      ownerId: result.ownerId,
-      profileId: result.profileId,
-      revision: result.revision
-    })) {
+    const localBeforeChoice = localPersistence.read()
+    const provisionalProfileId = isSignedInProfile(localBeforeChoice)
+        && localBeforeChoice.ownerId === result.ownerId
+        && localBeforeChoice.generation === undefined
+        && localBeforeChoice.revision === undefined
+      ? localBeforeChoice.profileId
+      : null
+    const reconciled = localPersistence.reconcileSignedInProfile(
+      result.profile,
+      {
+        generation: result.generation,
+        ownerId: result.ownerId,
+        ...(provisionalProfileId
+          ? { previousProfileId: provisionalProfileId }
+          : {}),
+        profileId: result.profileId,
+        revision: result.revision
+      }
+    )
+    if (!reconciled) {
       publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
       return false
     }
@@ -1126,6 +1198,9 @@ export function createLearnerProfileLifecycleAuthority({
       ownerId: result.ownerId,
       verifiedAt: clock.now()
     })
+    if (accountlessProfileMigration?.hasPendingMigration?.()) {
+      accountlessProfileMigration.complete?.()
+    }
     return true
   }
 
@@ -1312,40 +1387,9 @@ export function createLearnerProfileLifecycleAuthority({
       publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
       return false
     }
-    if (!localPersistence.reconcileSignedInProfile(result.profile, {
-      generation: result.generation,
-      ownerId: result.ownerId,
-      profileId: result.profileId,
-      revision: result.revision
-    })) {
-      publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
-      return false
-    }
-    const localProfile = localPersistence.read()
-    if (
-      !isSignedInProfile(localProfile)
-      || localProfile.ownerId !== result.ownerId
-      || localProfile.profileId !== result.profileId
-      || localProfile.generation !== result.generation
-      || localProfile.revision !== result.revision
-    ) {
-      publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
-      return false
-    }
-    const activation = prepareActivation(localProfile)
-    if (!activation) {
-      publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
-      return false
-    }
-    const activated = activateProfile(localProfile, activation, {
+    return installCloudProfileTransition(result, {
       protectedConflicts: result.protectedConflicts
     })
-    if (activated.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) return false
-    ownerVerification?.record?.({
-      ownerId: result.ownerId,
-      verifiedAt: clock.now()
-    })
-    return true
   }
 
   async function finishOwnerReplacement({

@@ -14,6 +14,8 @@ const GOOGLE_SIGN_IN_MODES = new Set([
 ])
 const SUPABASE_PUBLISHABLE_KEY_PATTERN =
   /^sb_publishable_[A-Za-z0-9_-]{8,}$/
+const ISO_INSTANT_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/
 
 export function parseRuntimeConfigFlag(value, name) {
   const normalizedValue = String(value || '').trim().toLowerCase()
@@ -29,6 +31,17 @@ export function parseRuntimeConfigRollout(value, name) {
     return normalizedValue
   }
   throw new Error(`${name} must be off, internal, or public`)
+}
+
+export function parseRuntimeConfigTimestamp(value, name) {
+  const normalizedValue = String(value || '').trim()
+  if (!normalizedValue) return ''
+  const timestamp = Date.parse(normalizedValue)
+  if (
+    ISO_INSTANT_PATTERN.test(normalizedValue)
+    && Number.isFinite(timestamp)
+  ) return new Date(timestamp).toISOString()
+  throw new Error(`${name} must be an ISO 8601 timestamp`)
 }
 
 export function parseGoogleSignInMode(value, name) {

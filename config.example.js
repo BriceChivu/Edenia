@@ -3,6 +3,8 @@ window.EDENIA_CONFIG = {
   freePlusEnabled: false,
   plusCheckoutEnabled: false,
   accountFeaturesRollout: 'off',
+  accountlessProfileFinalCutoverAt: '',
+  emergencyAccountlessRollbackEnabled: false,
   googleSignInMode: 'id_token',
   googleIdentityClientId: 'PASTE_YOUR_GOOGLE_WEB_CLIENT_ID_HERE',
   turnstileSiteKey: 'PASTE_YOUR_TURNSTILE_SITE_KEY_HERE',

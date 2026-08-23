@@ -63,6 +63,8 @@ test('local runtime config normalizes a valid ignored key into the generated sit
         + '  "freePlusEnabled": false,\n'
         + '  "plusCheckoutEnabled": false,\n'
         + '  "accountFeaturesRollout": "off",\n'
+        + '  "accountlessProfileFinalCutoverAt": "",\n'
+        + '  "emergencyAccountlessRollbackEnabled": false,\n'
         + '  "googleSignInMode": "id_token",\n'
         + '  "googleIdentityClientId": "",\n'
         + '  "turnstileSiteKey": "",\n'
@@ -91,6 +93,8 @@ test('local runtime config preserves dormant flags and forces compatibility mark
         + '  freePlusEnabled: true,\n'
         + '  plusCheckoutEnabled: true,\n'
         + "  accountFeaturesRollout: 'internal',\n"
+        + "  accountlessProfileFinalCutoverAt: '2026-09-30T00:00:00Z',\n"
+        + '  emergencyAccountlessRollbackEnabled: true,\n'
         + "  googleSignInMode: 'id_token',\n"
         + "  googleIdentityClientId: ' 1234567890-google-client.apps.googleusercontent.com ',\n"
         + "  turnstileSiteKey: ' turnstile-site-key ',\n"
@@ -114,6 +118,8 @@ test('local runtime config preserves dormant flags and forces compatibility mark
       freePlusEnabled: true,
       plusCheckoutEnabled: true,
       accountFeaturesRollout: 'internal',
+      accountlessProfileFinalCutoverAt: '2026-09-30T00:00:00.000Z',
+      emergencyAccountlessRollbackEnabled: true,
       googleSignInMode: 'id_token',
       googleIdentityClientId: '1234567890-google-client.apps.googleusercontent.com',
       turnstileSiteKey: 'turnstile-site-key',
@@ -129,7 +135,7 @@ test('local runtime config preserves dormant flags and forces compatibility mark
     })
     assert.match(
       await readFile(outputPath, 'utf8'),
-      /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true,\n  "accountFeaturesRollout": "internal",\n  "googleSignInMode": "id_token",\n  "googleIdentityClientId": "1234567890-google-client\.apps\.googleusercontent\.com",\n  "turnstileSiteKey": "turnstile-site-key",\n  "videoOrganizationEnabled": true,\n  "channelVideoFormatToggleEnabled": true,\n  "studyGuidanceEnabled": true,\n  "indexedDbBackupsEnabled": true,\n  "indexedDbBackupCleanupEnabled": true,\n  "legacyProgressMigrationEnabled": true,\n  "learnerProfileLifecycleEnabled": true/
+      /"freePlusEnabled": true,\n  "plusCheckoutEnabled": true,\n  "accountFeaturesRollout": "internal",\n  "accountlessProfileFinalCutoverAt": "2026-09-30T00:00:00\.000Z",\n  "emergencyAccountlessRollbackEnabled": true,\n  "googleSignInMode": "id_token",\n  "googleIdentityClientId": "1234567890-google-client\.apps\.googleusercontent\.com",\n  "turnstileSiteKey": "turnstile-site-key",\n  "videoOrganizationEnabled": true,\n  "channelVideoFormatToggleEnabled": true,\n  "studyGuidanceEnabled": true,\n  "indexedDbBackupsEnabled": true,\n  "indexedDbBackupCleanupEnabled": true,\n  "legacyProgressMigrationEnabled": true,\n  "learnerProfileLifecycleEnabled": true/
     )
   })
 })
@@ -151,6 +157,8 @@ test('local runtime config removes tracked Supabase placeholders', async () => {
       freePlusEnabled: false,
       plusCheckoutEnabled: false,
       accountFeaturesRollout: 'off',
+      accountlessProfileFinalCutoverAt: '',
+      emergencyAccountlessRollbackEnabled: false,
       googleSignInMode: 'id_token',
       googleIdentityClientId: '',
       turnstileSiteKey: '',

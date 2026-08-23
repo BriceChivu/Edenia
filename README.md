@@ -487,6 +487,8 @@ The supported public runtime variables are:
 | Repository variable | Runtime field | Effect |
 | --- | --- | --- |
 | `EDENIA_ACCOUNT_FEATURES_ROLLOUT` | `accountFeaturesRollout` | Controls the staged account-feature audience: `off`, `internal`, or `public`. Sandbox remains excluded. |
+| `EDENIA_ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT` | `accountlessProfileFinalCutoverAt` | Sets the authoritative UTC cutoff for legacy profile entry. Once elapsed, clearing local grace bookkeeping cannot restore accountless study. |
+| `EDENIA_EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED` | `emergencyAccountlessRollbackEnabled` | Temporarily restores legacy accountless entry during an approved serious incident. It does not change profile-data authorization. |
 | `EDENIA_LEARNER_PROFILE_LIFECYCLE_ENABLED` | `learnerProfileLifecycleEnabled` | Routes profile loading, activation, rendering, saving, import, export, analytics sync, and future cloud work through the fenced lifecycle authority. Keep off until signed-in profile resolution is connected. |
 | `EDENIA_STUDY_GUIDANCE_ENABLED` | `studyGuidanceEnabled` | Replaces the current eligible insight with goal-independent Study Guidance. |
 | `EDENIA_INDEXED_DB_BACKUPS_ENABLED` | `indexedDbBackupsEnabled` | Migrates and writes normal-mode recovery snapshots in IndexedDB. |

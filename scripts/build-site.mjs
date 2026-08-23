@@ -227,6 +227,8 @@ await writeFile(
     + '  "freePlusEnabled": false,\n'
     + '  "plusCheckoutEnabled": false,\n'
     + '  "accountFeaturesRollout": "off",\n'
+    + '  "accountlessProfileFinalCutoverAt": "",\n'
+    + '  "emergencyAccountlessRollbackEnabled": false,\n'
     + '  "googleSignInMode": "id_token",\n'
     + '  "googleIdentityClientId": "",\n'
     + '  "turnstileSiteKey": "",\n'

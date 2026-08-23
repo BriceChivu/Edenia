@@ -7,6 +7,8 @@ import {
 import { deriveStorageKeys } from '../../src/core/storage-keys.js'
 import {
   getAccountFeaturesRollout,
+  getAccountlessProfileFinalCutoverAt,
+  getEmergencyAccountlessRollbackEnabled,
   getFreePlusEnabled,
   getGoogleIdentityClientId,
   getGoogleSignInMode,
@@ -191,6 +193,8 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
   assert.equal(getAccountFeaturesRollout(target), 'off')
+  assert.equal(getAccountlessProfileFinalCutoverAt(target), null)
+  assert.equal(getEmergencyAccountlessRollbackEnabled(target), false)
   assert.equal(getGoogleSignInMode(target), 'id_token')
   assert.equal(getGoogleIdentityClientId(target), '')
   assert.equal(hasGoogleIdentityServicesRuntimeConfig(target), false)
@@ -210,6 +214,8 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     freePlusEnabled: true,
     plusCheckoutEnabled: true,
     accountFeaturesRollout: 'internal',
+    accountlessProfileFinalCutoverAt: '2026-09-30T00:00:00.000Z',
+    emergencyAccountlessRollbackEnabled: true,
     googleSignInMode: 'id_token',
     googleIdentityClientId: '  1234567890-google-client.apps.googleusercontent.com  ',
     turnstileSiteKey: '  turnstile-site-key  ',
@@ -227,6 +233,11 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getFreePlusEnabled(target), true)
   assert.equal(getPlusCheckoutEnabled(target), true)
   assert.equal(getAccountFeaturesRollout(target), 'internal')
+  assert.equal(
+    getAccountlessProfileFinalCutoverAt(target),
+    Date.parse('2026-09-30T00:00:00.000Z')
+  )
+  assert.equal(getEmergencyAccountlessRollbackEnabled(target), true)
   assert.equal(getGoogleSignInMode(target), 'id_token')
   assert.equal(
     getGoogleIdentityClientId(target),
@@ -248,6 +259,8 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
     freePlusEnabled: 'true',
     plusCheckoutEnabled: 1,
     accountFeaturesRollout: 'unknown',
+    accountlessProfileFinalCutoverAt: 'not-a-date',
+    emergencyAccountlessRollbackEnabled: 'true',
     googleSignInMode: 'unknown',
     channelVideoFormatToggleEnabled: 'true',
     studyGuidanceEnabled: 'true',
@@ -259,6 +272,8 @@ test('runtime config remains late-bound and preserves coercion and errors', () =
   assert.equal(getFreePlusEnabled(target), false)
   assert.equal(getPlusCheckoutEnabled(target), false)
   assert.equal(getAccountFeaturesRollout(target), 'off')
+  assert.equal(getAccountlessProfileFinalCutoverAt(target), null)
+  assert.equal(getEmergencyAccountlessRollbackEnabled(target), false)
   assert.equal(getGoogleSignInMode(target), 'id_token')
   assert.equal(hasGoogleIdentityServicesRuntimeConfig(target), false)
   assert.equal(getStudyGuidanceEnabled(target), false)

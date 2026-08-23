@@ -5,7 +5,8 @@ import {
   parseGoogleIdentityClientId,
   parseGoogleSignInMode,
   parseRuntimeConfigFlag,
-  parseRuntimeConfigRollout
+  parseRuntimeConfigRollout,
+  parseRuntimeConfigTimestamp
 } from '../../scripts/runtime-config-flags.mjs'
 
 test('runtime release flags are disabled by default and accept explicit booleans', () => {
@@ -15,6 +16,22 @@ test('runtime release flags are disabled by default and accept explicit booleans
   assert.equal(parseRuntimeConfigFlag(' FALSE ', 'FLAG'), false)
   assert.equal(parseRuntimeConfigFlag('true', 'FLAG'), true)
   assert.equal(parseRuntimeConfigFlag(' TRUE ', 'FLAG'), true)
+})
+
+test('runtime cutover timestamps are empty or normalized ISO instants', () => {
+  assert.equal(parseRuntimeConfigTimestamp(undefined, 'CUTOVER'), '')
+  assert.equal(
+    parseRuntimeConfigTimestamp('2026-09-30T09:00:00+09:00', 'CUTOVER'),
+    '2026-09-30T00:00:00.000Z'
+  )
+  assert.throws(
+    () => parseRuntimeConfigTimestamp('after launch', 'CUTOVER'),
+    /CUTOVER must be an ISO 8601 timestamp/
+  )
+  assert.throws(
+    () => parseRuntimeConfigTimestamp('2026-09-30', 'CUTOVER'),
+    /CUTOVER must be an ISO 8601 timestamp/
+  )
 })
 
 test('Google client IDs are empty or exact Web application IDs', () => {

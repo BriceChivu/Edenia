@@ -117,6 +117,8 @@ import {
 } from './integrations/youtube-parsing.js'
 import {
   getAccountFeaturesRollout,
+  getAccountlessProfileFinalCutoverAt,
+  getEmergencyAccountlessRollbackEnabled,
   getFreePlusEnabled,
   getGoogleIdentityClientId,
   getIndexedDbBackupCleanupEnabled,
@@ -573,6 +575,12 @@ const ACCOUNT_FEATURES_ENABLED = deriveAccountFeaturesEnabled(
   RUNTIME_ENVIRONMENT,
   getAccountFeaturesRollout()
 )
+const EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED =
+  getEmergencyAccountlessRollbackEnabled()
+const ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT =
+  getAccountlessProfileFinalCutoverAt()
+const ACCOUNT_ENTRY_REQUIRED = ACCOUNT_FEATURES_ENABLED
+  && !EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED
 const GOOGLE_IDENTITY_CLIENT_ID = getGoogleIdentityClientId()
 const GOOGLE_IDENTITY_SERVICES_READY =
   hasGoogleIdentityServicesRuntimeConfig()
@@ -994,6 +1002,8 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
     createAccountlessProfileMigrationController({
       clock: { now: () => Date.now() },
       createOperationId: createLearnerProfileActivationId,
+      emergencyRollbackEnabled: EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED,
+      finalCutoverAt: ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT,
       onStateChange(state) {
         accountlessProfileMigrationView.render(state)
         if (
@@ -2803,6 +2813,12 @@ function renderActivatedLearnerProfile(state) {
 
 function handleLearnerProfileAccessStateChange(accessState) {
   learnerProfileAccessView.render(accessState)
+  if (
+    accessState.status === LEARNER_PROFILE_ACCESS_STATES.LOCKED
+    && accountlessProfileMigrationController?.isEntryRequired?.() === true
+  ) {
+    document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
+  }
   const syncImportControl = document.querySelector(
     '[data-settings-sync-action="choose-file"]'
   )
@@ -2933,7 +2949,9 @@ function startApplicationFromLocalState() {
   const localProfile = learnerProfileLocalPersistence?.read()
   accountlessProfileMigrationController?.start({
     hasAccountlessProfile: localProfile?.status === 'ready'
-      && localProfile.ownerId === null
+      && localProfile.ownerId === null,
+    hasLegacyProfile: localProfile?.status === 'ready'
+      && localProfile.legacy === true
   })
   applyAccountAuthenticationState(accountAuthViewState, {
     observeLearnerProfile: false
@@ -3550,7 +3568,7 @@ function finishIntroTrailer() {
 
 function canResumeOnboardingAccountStep(state) {
   if (
-    !ACCOUNT_FEATURES_ENABLED
+    !ACCOUNT_ENTRY_REQUIRED
     || !isValidTimestamp(state?.onboarding?.accountStepReachedAt)
   ) return false
 
@@ -3749,7 +3767,7 @@ function renderPersonalizedOnboarding() {
   const profileStepOrder = personalizedOnboardingState.languageId === 'other'
     ? ['language', 'other']
     : ['language', 'level', 'channels']
-  const stepOrder = ACCOUNT_FEATURES_ENABLED
+  const stepOrder = ACCOUNT_ENTRY_REQUIRED
     ? [...profileStepOrder, 'account']
     : profileStepOrder
   const stepIndex = Math.max(0, stepOrder.indexOf(personalizedOnboardingState.step))
@@ -3894,7 +3912,7 @@ function renderOnboardingHeading(titleKey, subtitleKey = '') {
 }
 
 function renderOnboardingProfileFinalAction() {
-  if (ACCOUNT_FEATURES_ENABLED) {
+  if (ACCOUNT_ENTRY_REQUIRED) {
     return `
       <button type="button" class="btn-primary" data-personalized-onboarding-action="set-step" data-personalized-onboarding-step="account" data-analytics-action="continuePersonalizedOnboardingToAccount" ${personalizedOnboardingState.isApplyingChannels ? 'disabled' : ''}>${escHtml(t('onboarding.continue'))}</button>
     `
@@ -4159,7 +4177,7 @@ function clearOnboardingAccountDraftMarker() {
 
 function setPersonalizedOnboardingStep(step) {
   const allowedSteps = ['language', 'level', 'channels', 'other']
-  if (ACCOUNT_FEATURES_ENABLED) allowedSteps.push('account')
+  if (ACCOUNT_ENTRY_REQUIRED) allowedSteps.push('account')
   if (!allowedSteps.includes(step)) return
   if (step !== 'language' && !personalizedOnboardingState.languageId) return
   if (step === 'other' && personalizedOnboardingState.languageId !== 'other') return
@@ -4180,7 +4198,7 @@ function setPersonalizedOnboardingStep(step) {
   const profileStepOrder = personalizedOnboardingState.languageId === 'other'
     ? ['language', 'other']
     : ['language', 'level', 'channels']
-  const stepOrder = ACCOUNT_FEATURES_ENABLED
+  const stepOrder = ACCOUNT_ENTRY_REQUIRED
     ? [...profileStepOrder, 'account']
     : profileStepOrder
   const previousIndex = stepOrder.indexOf(previousStep)
@@ -4570,10 +4588,20 @@ async function finishPersonalizedOnboarding() {
     title: t('log.onboarding.title'),
     detail: onboardingDetail
   })
-  if (!saveState(state)) {
+  const persisted = EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED
+      && learnerProfileLifecycleAuthority
+      && !hasPersistedLearnerProfile()
+    ? learnerProfileLocalPersistence?.installLegacyAccountlessProfile(state, {
+        createdAt: Date.now()
+      }) === true
+    : saveState(state)
+  if (!persisted) {
     personalizedOnboardingState.isApplyingChannels = false
     showOnboardingRecovery('storage', { state, resume: 'complete' })
     return
+  }
+  if (EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED) {
+    onboardingProfileDraftStore.clear()
   }
   trackEdeniaEvent('onboarding_completed', {
     learning_languages: state.learnerProfile.languages,
@@ -6359,10 +6387,19 @@ async function initializeRequestedReminderDestination() {
   }
 }
 
-function openSettings() {
+function openSettingsShell({ accountOnly = false, focusId }) {
   const panel = document.getElementById('settingsPanel')
   const main = document.getElementById('mainApp')
+  panel?.classList.toggle('account-only', accountOnly)
   if (panel?.classList.contains('hidden')) openSettings.returnFocus = document.activeElement
+  show('settingsPanel')
+  const drawer = panel?.querySelector('.settings-drawer')
+  if (drawer && usesPhoneComposition()) drawer.scrollTop = 0
+  if (main) main.inert = true
+  window.setTimeout(() => document.getElementById(focusId)?.focus(), 0)
+}
+
+function openSettings() {
   const s = loadState()
   applyLocale(s.config.locale)
   document.getElementById('settingsIncludeShorts').checked = normalizeIncludeShorts(s.config.includeShorts)
@@ -6379,16 +6416,13 @@ function openSettings() {
   setSettingsBackupsOpen(false)
   closeLocaleMenu()
   renderPlusAccountSettings()
-  show('settingsPanel')
-  const drawer = panel?.querySelector('.settings-drawer')
-  if (drawer && usesPhoneComposition()) drawer.scrollTop = 0
-  if (main) main.inert = true
-  window.setTimeout(() => document.getElementById('settingsCloseBtn')?.focus(), 0)
+  openSettingsShell({ focusId: 'settingsCloseBtn' })
 }
 
 function closeSettings() {
   const panel = document.getElementById('settingsPanel')
   if (!panel || panel.classList.contains('hidden')) return
+  panel.classList.remove('account-only')
   hide('settingsPanel')
   const main = document.getElementById('mainApp')
   if (main) main.inert = false
@@ -6416,9 +6450,9 @@ function setSettingsAccountOpen(isOpen) {
 }
 
 function openAccountlessProfileMigrationSignIn() {
-  openSettings()
+  renderAccountSettings()
   setSettingsAccountOpen(true)
-  window.setTimeout(() => document.getElementById('accountEmail')?.focus(), 0)
+  openSettingsShell({ accountOnly: true, focusId: 'accountEmail' })
 }
 
 function toggleSettingsAccount() {

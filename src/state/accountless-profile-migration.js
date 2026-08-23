@@ -50,6 +50,8 @@ function readRecord(storage, storageKey) {
 export function createAccountlessProfileMigrationController({
   clock,
   createOperationId,
+  emergencyRollbackEnabled = false,
+  finalCutoverAt = null,
   onStateChange,
   storage,
   storageKey
@@ -57,6 +59,7 @@ export function createAccountlessProfileMigrationController({
   if (
     typeof clock?.now !== 'function'
     || typeof createOperationId !== 'function'
+    || (finalCutoverAt !== null && !Number.isFinite(finalCutoverAt))
     || typeof onStateChange !== 'function'
     || typeof storage?.getItem !== 'function'
     || typeof storage?.removeItem !== 'function'
@@ -69,6 +72,7 @@ export function createAccountlessProfileMigrationController({
 
   let eligible = false
   let record = null
+  let finalGateAcknowledged = false
   let confirmedSessionForAttempt = false
   let authentication = Object.freeze({
     email: '',
@@ -77,6 +81,26 @@ export function createAccountlessProfileMigrationController({
   let currentState = Object.freeze({
     status: ACCOUNTLESS_PROFILE_MIGRATION_STATES.HIDDEN
   })
+
+  function isEntryRequired() {
+    return eligible
+      && Boolean(record)
+      && clock.now() >= getEffectiveFinalGateAt()
+      && emergencyRollbackEnabled !== true
+  }
+
+  function getEffectiveFinalGateAt() {
+    return Number.isFinite(finalCutoverAt)
+      ? Math.min(record?.finalGateAt ?? finalCutoverAt, finalCutoverAt)
+      : record?.finalGateAt ?? null
+  }
+
+  function isAwaitingFinalGateAcknowledgement() {
+    return isEntryRequired()
+      && !finalGateAcknowledged
+      && record?.attempt?.status
+        === ACCOUNTLESS_PROFILE_MIGRATION_STATES.AWAITING_AUTHENTICATION
+  }
 
   function writeRecord(nextRecord) {
     try {
@@ -97,22 +121,47 @@ export function createAccountlessProfileMigrationController({
       })
     } else {
       const now = clock.now()
+      const effectiveFinalGateAt = getEffectiveFinalGateAt()
       const daysRemaining = Math.max(
         0,
-        Math.ceil((record.finalGateAt - now) / DAY_MS)
+        Math.ceil((effectiveFinalGateAt - now) / DAY_MS)
       )
       const common = {
         daysRemaining,
-        finalGateAt: record.finalGateAt
+        finalGateAt: effectiveFinalGateAt,
+        ...(isEntryRequired() ? { entryRequired: true } : {})
       }
-      if (record.attempt) {
+      if (emergencyRollbackEnabled === true) {
+        currentState = Object.freeze({
+          emergencyRollback: true,
+          status: ACCOUNTLESS_PROFILE_MIGRATION_STATES.HIDDEN
+        })
+      } else if (isAwaitingFinalGateAcknowledgement()) {
         currentState = Object.freeze({
           ...common,
-          ...(record.attempt.status
-            === ACCOUNTLESS_PROFILE_MIGRATION_STATES.CONFIRMING_SESSION
-            ? { email: authentication.email }
-            : {}),
-          status: record.attempt.status
+          dismissible: false,
+          status: ACCOUNTLESS_PROFILE_MIGRATION_STATES.FINAL_GATE
+        })
+      } else if (record.attempt) {
+        currentState = record.attempt.status
+          === ACCOUNTLESS_PROFILE_MIGRATION_STATES.COMPARING
+          ? Object.freeze({
+              ...common,
+              status: ACCOUNTLESS_PROFILE_MIGRATION_STATES.HIDDEN
+            })
+          : Object.freeze({
+              ...common,
+              ...(record.attempt.status
+                === ACCOUNTLESS_PROFILE_MIGRATION_STATES.CONFIRMING_SESSION
+                ? { email: authentication.email }
+                : {}),
+              status: record.attempt.status
+            })
+      } else if (daysRemaining === 0) {
+        currentState = Object.freeze({
+          ...common,
+          dismissible: false,
+          status: ACCOUNTLESS_PROFILE_MIGRATION_STATES.FINAL_GATE
         })
       } else if (daysRemaining <= 7) {
         currentState = Object.freeze({
@@ -135,28 +184,34 @@ export function createAccountlessProfileMigrationController({
     return currentState
   }
 
-  function start({ hasAccountlessProfile } = {}) {
-    eligible = hasAccountlessProfile === true
+  function start({ hasAccountlessProfile, hasLegacyProfile } = {}) {
+    eligible = hasAccountlessProfile === true || hasLegacyProfile === true
+    finalGateAcknowledged = false
     if (!eligible) return publish()
     record = readRecord(storage, storageKey)
     if (!record) {
       const now = clock.now()
-      if (!writeRecord({
+      const effectiveFinalGateAt = Number.isFinite(finalCutoverAt)
+        ? Math.min(now + GRACE_PERIOD_MS, finalCutoverAt)
+        : now + GRACE_PERIOD_MS
+      const nextRecord = {
         attempt: null,
-        finalGateAt: now + GRACE_PERIOD_MS,
-        graceStartedAt: now,
+        finalGateAt: effectiveFinalGateAt,
+        graceStartedAt: effectiveFinalGateAt - GRACE_PERIOD_MS,
         nextNoticeAt: null,
         version: RECORD_VERSION
-      })) return publish()
+      }
+      if (!writeRecord(nextRecord)) record = nextRecord
     }
     return publish()
   }
 
   function later() {
     if (!eligible || !record) return false
+    if (isEntryRequired()) return false
     if (
       !record.attempt
-      && Math.ceil((record.finalGateAt - clock.now()) / DAY_MS) <= 7
+      && Math.ceil((getEffectiveFinalGateAt() - clock.now()) / DAY_MS) <= 7
     ) return false
     const written = writeRecord({
       ...record,
@@ -216,9 +271,18 @@ export function createAccountlessProfileMigrationController({
   }
 
   function begin() {
-    if (!eligible || !record || record.attempt) return false
+    if (!eligible || !record) return false
+    if (record.attempt) {
+      if (isAwaitingFinalGateAcknowledgement()) {
+        finalGateAcknowledged = true
+        publish()
+        return true
+      }
+      return false
+    }
     const operationId = createOperationId()
     if (typeof operationId !== 'string' || !operationId) return false
+    finalGateAcknowledged = true
     confirmedSessionForAttempt = false
     const written = writeRecord({
       ...record,
@@ -277,6 +341,26 @@ export function createAccountlessProfileMigrationController({
     return written
   }
 
+  function markConflictReady() {
+    if (
+      record?.attempt?.status
+      !== ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING
+    ) return false
+    const written = writeRecord({
+      ...record,
+      attempt: {
+        ...record.attempt,
+        status: ACCOUNTLESS_PROFILE_MIGRATION_STATES.COMPARING
+      }
+    })
+    publish()
+    return written
+  }
+
+  function hasPendingMigration() {
+    return Boolean(record?.attempt)
+  }
+
   function markSignedInProfilePresent() {
     if (
       record?.attempt?.status
@@ -317,8 +401,10 @@ export function createAccountlessProfileMigrationController({
 
   function complete() {
     if (
-      record?.attempt?.status
-      !== ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING
+      ![
+        ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING,
+        ACCOUNTLESS_PROFILE_MIGRATION_STATES.COMPARING
+      ].includes(record?.attempt?.status)
     ) return false
     try {
       storage.removeItem(storageKey)
@@ -338,9 +424,12 @@ export function createAccountlessProfileMigrationController({
     confirmInheritedSession,
     getAttachment,
     getState: () => currentState,
+    hasPendingMigration,
+    isEntryRequired,
     later,
     markSignedInProfilePresent,
     markBackupFailed,
+    markConflictReady,
     observeAuthentication,
     refresh: publish,
     retry,

@@ -1956,8 +1956,66 @@ export function createLearnerProfileCloudPersistenceAdapter({
     if (response?.error) return { status: 'migration-backup-failed' }
     const row = readSingleRpcRow(response?.data)
     if (row?.status === 'profile_present') {
-      clearAccountlessMigrationRecord(operationId)
-      return { status: 'migration-signed-in-profile-present' }
+      const provisionalProfileId = operationId
+      let syncRecord = readSyncRecord()
+      if (!syncRecord && hasStoredSyncRecord()) {
+        return { status: 'migration-backup-failed' }
+      }
+      if (!syncRecord) {
+        const operation = {
+          activationId: `accountless-migration:${operationId}`,
+          baseRevision: 1,
+          envelope,
+          generation: 1,
+          integrity: envelope.integrity,
+          nextRetryAt: 0,
+          operationId,
+          ownerId: authentication.userId,
+          prepared: null,
+          profileId: provisionalProfileId,
+          retryCount: 0,
+          revision: 2
+        }
+        if (!writeSyncRecord({
+          acceptedRevision: 1,
+          generation: 1,
+          ownerId: authentication.userId,
+          pending: operation,
+          profileId: provisionalProfileId,
+          queued: null,
+          version: 1
+        })) return { status: 'migration-backup-failed' }
+        syncRecord = readSyncRecord()
+      }
+      const operation = syncRecord?.pending
+      if (
+        syncRecord?.ownerId !== authentication.userId
+        || syncRecord.profileId !== provisionalProfileId
+        || syncRecord.generation !== 1
+        || syncRecord.acceptedRevision !== 1
+        || syncRecord.queued !== null
+        || operation?.operationId !== operationId
+        || operation.profileId !== provisionalProfileId
+        || operation.integrity?.payloadSha256
+          !== envelope.integrity.payloadSha256
+      ) return { status: 'migration-backup-failed' }
+      let conflictResponse
+      try {
+        conflictResponse = await getClient().rpc(
+          'commit_my_learner_profile',
+          operationParameters(operation, envelope)
+        )
+      } catch {
+        return { status: 'migration-backup-failed' }
+      }
+      if (conflictResponse?.error) {
+        return { status: 'migration-backup-failed' }
+      }
+      const conflictReceipt = readSingleRpcRow(conflictResponse?.data)
+      if (conflictReceipt?.status !== 'conflict') {
+        return { status: 'migration-backup-failed' }
+      }
+      return resolvePreservedConflict(conflictReceipt, operation)
     }
     if (row?.status !== 'migrated') {
       return { status: 'migration-backup-failed' }
