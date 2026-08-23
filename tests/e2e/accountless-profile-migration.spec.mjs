@@ -1,6 +1,7 @@
 import { expect, test } from '../support/network-fixture.mjs'
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const ACCOUNT_RETURN_URL = 'http://localhost:8000/?internal_test=1'
 const OWNER_ID = '123e4567-e89b-42d3-a456-426614174000'
 const PROFILE_ID = '323e4567-e89b-42d3-a456-426614174002'
 const AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
@@ -396,9 +397,11 @@ test('a failed first backup survives reload and retries the same protected opera
     'Continue as accountless-owner@example.com?'
   )
   expect(migrationOperations.length).toBe(2)
+  const reloadCompleted = page.waitForEvent('domcontentloaded')
   await page.getByRole('button', { name: 'Continue as this email' }).click()
   await expect.poll(() => migrationOperations.length).toBe(3)
   await expect.poll(() => catchUpOperations.length).toBe(2)
+  await reloadCompleted
   await expect(page.locator('#accountlessProfileMigrationNotice')).toBeHidden()
   expect(migrationOperations[1].p_operation_id)
     .toBe(migrationOperations[0].p_operation_id)
@@ -465,7 +468,7 @@ test('failed authentication leaves the accountless town and pending choice intac
     return route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto(ACCOUNT_RETURN_URL)
   const originalState = await seedAccountlessProfile(page)
   enabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
