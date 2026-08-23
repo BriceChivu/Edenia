@@ -19,8 +19,10 @@ const bundledSource = appBuild.outputFiles[0].text
 
 test('classic app bundle does not declare over analytics-owned globals', () => {
   const analyticsGlobalNames = [
+    'getEdeniaAuthenticatedUserId',
     'getEdeniaSessionReplayUrl',
     'identifyEdeniaAuthenticatedUser',
+    'resumeEdeniaSessionRecording',
     'resetEdeniaAuthenticatedUser',
     'setEdeniaPersonProperties',
     'syncEdeniaAnalyticsState',

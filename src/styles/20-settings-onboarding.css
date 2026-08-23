@@ -131,6 +131,35 @@ html[data-accountless-profile-migration-urgency="8"] .accountless-profile-migrat
     width: 100%;
   }
 }
+.learner-profile-recovery {
+  background: var(--surface-hi);
+  border: 2px solid var(--planet-black);
+  border-radius: 14px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+.learner-profile-recovery h2 {
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+.learner-profile-recovery-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.learner-profile-recovery-item {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+.learner-profile-recovery-item p {
+  margin: 0;
+}
 .learner-profile-conflict {
   display: grid;
   gap: 14px;
@@ -1281,7 +1310,8 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   .sync-actions,
   .settings-data-group > .settings-note,
   .settings-reset-btn,
-  .reset-confirm
+  .reset-confirm,
+  .start-over-undo
 ) {
   margin-top: -14px;
 }
@@ -1352,6 +1382,29 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   padding: 10px;
   font-size: 0.84rem;
 }
+.sync-import-confirm {
+  background: #fff7f5;
+  border: 2px solid #d96b61;
+  border-radius: 12px;
+  color: #741d19;
+  display: grid;
+  font-size: 0.84rem;
+  gap: 10px;
+  padding: 12px;
+}
+.sync-import-confirm h3,
+.sync-import-confirm p {
+  margin: 0;
+}
+.sync-import-confirm-file {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.sync-import-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .reset-confirm p { margin-bottom: 10px; }
 .reset-confirm-actions {
   display: flex;
@@ -1359,6 +1412,27 @@ body[data-theme="dark"] .onboarding-choice[aria-pressed="true"] .onboarding-choi
   flex-wrap: wrap;
 }
 body[data-theme="dark"] .reset-confirm {
+  background: #2a1110;
+  border-color: #b84a42;
+  color: #ffd1cc;
+}
+.start-over-undo {
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  color: var(--text);
+  padding: 10px;
+  font-size: 0.84rem;
+}
+.start-over-undo strong {
+  display: block;
+  margin-bottom: 4px;
+}
+.start-over-undo p {
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+body[data-theme="dark"] .sync-import-confirm {
   background: #2a1110;
   border-color: #b84a42;
   color: #ffd1cc;

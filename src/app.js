@@ -182,9 +182,11 @@ import {
 } from './domain/reminder-eligibility-snapshot.js'
 import {
   getEdeniaSessionReplayUrl,
+  getPersistedAnalyticsUserId,
   hasEdeniaAnalyticsStateSync,
   identifyEdeniaAuthenticatedUser,
   isEdeniaAnalyticsEnabled,
+  resumeEdeniaSessionRecording,
   resetEdeniaAuthenticatedUser,
   setEdeniaPersonProperties,
   syncEdeniaAnalyticsState,
@@ -938,6 +940,10 @@ async function clearLearnerDerivedDataForOwnerReplacement() {
 }
 
 const learnerProfileAccessView = createLearnerProfileAccessView({
+  formatDateTime: value => formatLocaleDateTime(value, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }),
   root: document,
   translate: t
 })
@@ -965,6 +971,7 @@ let learnerProfileLifecycleAuthority = null
 let learnerProfileLocalPersistence = null
 let learnerProfileReverificationController = null
 let accountlessProfileMigrationController = null
+let learnerProfileProtectedReset = null
 
 if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
   const ownerVerification = createLearnerProfileOwnerVerificationStore({
@@ -1043,6 +1050,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
       analytics: {
         accessChanged() {},
         profileActivated() {},
+        profileStartedOver: () => trackEdeniaEvent('profile_started_over'),
         profileSaved: syncPersistedStateToAnalytics
       },
       authentication: learnerProfileAuthenticationAdapter,
@@ -1121,6 +1129,7 @@ const legacyProgressRelayClient = LEGACY_PROGRESS_RELAY_RUNTIME.valid
       }
     })
 let legacyProgressManualImportDone = null
+let pendingLearnerProfileImport = null
 let applicationStarted = false
 let renderedLearnerProfileOwnerId
 let migrationStartupRunning = false
@@ -1241,6 +1250,7 @@ let accountExportController = null
 let accountStudySnapshotController = null
 let accountSettingsWasSignedIn = false
 const accountAnalyticsIdentity = createAccountAnalyticsIdentity({
+  getPersistedAnalyticsUserId,
   identify: identifyEdeniaAuthenticatedUser,
   reset: resetEdeniaAuthenticatedUser
 })
@@ -1281,6 +1291,9 @@ let plusAccountController = null
 let plusAccountViewState = null
 let plusBillingController = null
 let plusBillingViewState = null
+window.addEventListener('edenia:analytics-ready', () => {
+  accountAnalyticsIdentity.synchronize(accountAuthViewState)
+})
 let plusModalFeatureId = null
 let forcedSearchVideoId = null
 let pendingAddedChannelReveal = null
@@ -1549,6 +1562,7 @@ function applyTranslations(root = document) {
   learnerProfileSyncView.render(learnerProfileSyncViewState)
   renderPlusAccountSettings()
   renderPlusUpgradeModal()
+  renderStartOverUndo(learnerProfileProtectedReset)
 }
 
 function renderLocaleSelect() {
@@ -2789,6 +2803,17 @@ function renderActivatedLearnerProfile(state) {
 
 function handleLearnerProfileAccessStateChange(accessState) {
   learnerProfileAccessView.render(accessState)
+  const syncImportControl = document.querySelector(
+    '[data-settings-sync-action="choose-file"]'
+  )
+  if (syncImportControl && learnerProfileLifecycleAuthority) {
+    syncImportControl.disabled = accessState.status
+      !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  }
+  if (
+    pendingLearnerProfileImport
+    && accessState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+  ) clearPendingLearnerProfileImport()
   if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING) {
     learnerProfileConflictView.renderConflict(accessState.conflict)
   } else {
@@ -2824,8 +2849,10 @@ function handleLearnerProfileAccessStateChange(accessState) {
     } else {
       learnerProfileConflictView.hideProtected()
     }
+    renderStartOverUndo(accessState.protectedReset)
     return
   }
+  renderStartOverUndo(null)
   learnerProfileConflictView.hideProtected()
   const publicOnboardingState = !hasPersistedLearnerProfile()
     ? loadOnboardingWorkingState()
@@ -3906,7 +3933,7 @@ function renderOnboardingAccountStep(content) {
     `
   } else if (signedIn) {
     accountContent = `
-      <div class="onboarding-account-identity">
+      <div class="onboarding-account-identity ph-no-capture">
         <span>${escHtml(t('settings.account.signedInAs'))}</span>
         <strong>${escHtml(state?.email || '')}</strong>
       </div>
@@ -6079,7 +6106,9 @@ function initializeAccountAuth() {
     applyAccountAuthenticationState(accountAuthController.getState())
     accountExportController.synchronizeAccount(accountAuthViewState)
     renderAccountSettings()
-    void accountAuthController.initialize()
+    void accountAuthController.initialize().finally(() => {
+      resumeEdeniaSessionRecording()
+    })
     startLearnerProfileReverification()
   } catch (error) {
     console.warn('Edenia account authentication is unavailable.', error)
@@ -6581,6 +6610,7 @@ function importSyncFileFromInput(input) {
   if (!file) return
 
   input.disabled = true
+  let keepInputPending = false
   const reader = new FileReader()
   reader.onload = async () => {
     const serialized = String(reader.result || '')
@@ -6599,7 +6629,9 @@ function importSyncFileFromInput(input) {
         payload?.schema === PORTABLE_LEARNER_PROFILE_SCHEMA
       const portableEnvelope = isPortableProfile
         ? await verifyPortableLearnerProfileEnvelope(serialized, {
-            maxBytes: PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES
+            maxBytes: learnerProfileLifecycleAuthority
+              ? LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES
+              : PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES
           })
         : null
       const importedState = isPortableProfile
@@ -6611,6 +6643,40 @@ function importSyncFileFromInput(input) {
       }
       if (payload?.app === 'edenia' && Boolean(payload.sandbox) !== IS_SANDBOX) {
         showToast(IS_SANDBOX ? t('toast.useSandboxSync') : t('toast.useNormalSync'), 'warn')
+        return
+      }
+
+      if (learnerProfileLifecycleAuthority && !legacyProgressManualImportDone) {
+        const access = learnerProfileLifecycleAuthority.getState()
+        if (!isPortableProfile || !portableEnvelope) {
+          showToast(t('toast.invalidSync'), 'error')
+          return
+        }
+        if (
+          access.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+          || !access.ownerId
+        ) {
+          showToast(t('toast.importOwnerRequired'), 'warn')
+          return
+        }
+        normalizeLoadedState(importedState)
+        pendingLearnerProfileImport = {
+          fileName: file.name || '',
+          importedState,
+          input
+        }
+        const confirmation = document.getElementById('syncImportConfirm')
+        const fileLabel = document.getElementById('syncImportConfirmFile')
+        if (fileLabel) {
+          fileLabel.textContent = t('settings.sync.importFile', {
+            fileName: file.name || ''
+          })
+        }
+        confirmation?.classList.remove('hidden')
+        document.querySelector(
+          '[data-settings-sync-action="confirm-import"]'
+        )?.focus()
+        keepInputPending = true
         return
       }
 
@@ -6685,8 +6751,10 @@ function importSyncFileFromInput(input) {
       console.error('Edenia sync import failed', error)
       showToast(t('toast.importFailed'), 'error')
     } finally {
-      input.value = ''
-      input.disabled = false
+      if (!keepInputPending) {
+        input.value = ''
+        input.disabled = false
+      }
     }
   }
   reader.onerror = () => {
@@ -6695,6 +6763,73 @@ function importSyncFileFromInput(input) {
     input.disabled = false
   }
   reader.readAsText(file)
+}
+
+function clearPendingLearnerProfileImport({ restoreFocus = false } = {}) {
+  const pending = pendingLearnerProfileImport
+  pendingLearnerProfileImport = null
+  document.getElementById('syncImportConfirm')?.classList.add('hidden')
+  const fileLabel = document.getElementById('syncImportConfirmFile')
+  if (fileLabel) fileLabel.textContent = ''
+  for (const action of ['cancel-import', 'confirm-import']) {
+    const control = document.querySelector(
+      `[data-settings-sync-action="${action}"]`
+    )
+    if (control) control.disabled = false
+  }
+  if (pending?.input) {
+    pending.input.value = ''
+    pending.input.disabled = false
+  }
+  if (restoreFocus) {
+    document.querySelector(
+      '[data-settings-sync-action="choose-file"]'
+    )?.focus()
+  }
+}
+
+function cancelPendingLearnerProfileImport() {
+  clearPendingLearnerProfileImport({ restoreFocus: true })
+}
+
+async function confirmPendingLearnerProfileImport() {
+  const pending = pendingLearnerProfileImport
+  if (!pending || !learnerProfileLifecycleAuthority) return
+  for (const action of ['cancel-import', 'confirm-import']) {
+    const control = document.querySelector(
+      `[data-settings-sync-action="${action}"]`
+    )
+    if (control) control.disabled = true
+  }
+
+  try {
+    const importedState = pending.importedState
+    const result = await learnerProfileLifecycleAuthority.importActiveProfile(
+      importedState,
+      { confirmed: true }
+    )
+    const toast = {
+      'owner-required': ['toast.importOwnerRequired', 'warn'],
+      fenced: ['toast.importOwnerRequired', 'warn'],
+      'protection-required': ['toast.importProtectionRequired', 'error'],
+      'backup-failed': ['toast.importProtectionRequired', 'error'],
+      unavailable: ['toast.importProtectionRequired', 'error'],
+      'stale-revision': ['toast.importStaleRevision', 'warn'],
+      'rolled-back': ['toast.importRolledBack', 'warn']
+    }[result?.status]
+    if (result?.status === 'imported') {
+      showToast(t('toast.syncImported'))
+    } else if (toast) {
+      showToast(t(toast[0]), toast[1])
+    } else {
+      showToast(t('toast.importFailed'), 'error')
+    }
+  } catch (error) {
+    console.error('Edenia sync import failed', error)
+    showToast(t('toast.importFailed'), 'error')
+  } finally {
+    clearPendingLearnerProfileImport()
+  }
 }
 
 function formatBackupTimestamp(value) {
@@ -7355,6 +7490,62 @@ function hideResetConfirm() {
   document.getElementById('resetConfirm')?.classList.add('hidden')
 }
 
+function renderStartOverUndo(protectedReset) {
+  const controlKeys = LEARNER_PROFILE_LIFECYCLE_ENABLED
+    ? {
+        cancel: 'settings.startOver.cancel',
+        confirm: 'settings.startOver.confirm',
+        show: 'settings.startOver.open'
+      }
+    : {
+        cancel: 'settings.reset.cancel',
+        confirm: 'settings.reset.delete',
+        show: 'settings.reset.open'
+      }
+  for (const [action, key] of Object.entries(controlKeys)) {
+    const control = document.querySelector(
+      `[data-settings-reset-confirm-action="${action}"]`
+    )
+    if (!control) continue
+    control.dataset.i18n = key
+    control.textContent = t(key)
+  }
+  const warning = document.getElementById('startOverWarning')
+  if (warning) {
+    warning.dataset.i18n = LEARNER_PROFILE_LIFECYCLE_ENABLED
+      ? 'settings.startOver.warning'
+      : 'settings.reset.warning'
+    warning.textContent = t(warning.dataset.i18n)
+  }
+  const root = document.getElementById('startOverUndo')
+  const deadline = document.getElementById('startOverUndoDeadline')
+  const protectedUntil = Number(protectedReset?.protectedUntil)
+  const available = Boolean(
+    LEARNER_PROFILE_LIFECYCLE_ENABLED
+    && protectedReset?.status === 'available'
+    && Number.isFinite(protectedUntil)
+    && protectedUntil > Date.now()
+  )
+  learnerProfileProtectedReset = available ? protectedReset : null
+  root?.classList.toggle('hidden', !available)
+  if (deadline) {
+    deadline.textContent = available
+      ? t('settings.startOver.undoAvailableUntil', {
+          date: formatLocaleDateTime(protectedUntil, {
+            dateStyle: 'medium',
+            timeStyle: 'short'
+          })
+        })
+      : ''
+  }
+}
+
+function releaseStartOverControl(control) {
+  if (!control?.isConnected) return
+  delete control.dataset.backupBusy
+  control.removeAttribute('aria-disabled')
+}
+
 async function resetApp() {
   const control = document.querySelector(
     '[data-settings-reset-confirm-action="confirm"]'
@@ -7364,16 +7555,30 @@ async function resetApp() {
     control.dataset.backupBusy = 'true'
     control.setAttribute('aria-disabled', 'true')
   }
+  if (learnerProfileLifecycleAuthority) {
+    const startedOver = await learnerProfileLifecycleAuthority.startOverProfile(
+      defaultState(4, [], DEFAULT_THEME, [], getCurrentLocale()),
+      { confirmed: true }
+    )
+    if (!startedOver) {
+      releaseStartOverControl(control)
+      showToast(t('toast.startOverFailed'), 'error')
+      return
+    }
+    releaseStartOverControl(control)
+    hideResetConfirm()
+    document.querySelector(
+      '[data-settings-reset-confirm-action="undo"]'
+    )?.focus()
+    return
+  }
   if (LOCAL_BACKUPS_ENABLED) {
     const rollbackBackup = await createVerifiedStateBackup(
       'before reset',
       { force: true }
     )
     if (!rollbackBackup) {
-      if (control?.isConnected) {
-        delete control.dataset.backupBusy
-        control.removeAttribute('aria-disabled')
-      }
+      releaseStartOverControl(control)
       showToast(t('toast.backupCreateFailed'), 'error')
       return
     }
@@ -7388,14 +7593,34 @@ async function resetApp() {
     detail: t('log.reset.detail')
   })
   if (!saveState(nextState, { backup: false })) {
-    if (control?.isConnected) {
-      delete control.dataset.backupBusy
-      control.removeAttribute('aria-disabled')
-    }
+    releaseStartOverControl(control)
     showToast(t('toast.progressSaveFailed'), 'error')
     return
   }
   location.reload()
+}
+
+async function undoStartOver() {
+  const control = document.querySelector(
+    '[data-settings-reset-confirm-action="undo"]'
+  )
+  if (control?.dataset.backupBusy === 'true') return
+  if (control) {
+    control.dataset.backupBusy = 'true'
+    control.setAttribute('aria-disabled', 'true')
+  }
+  const restored = await learnerProfileLifecycleAuthority?.undoStartOver({
+    confirmed: true
+  })
+  if (!restored) {
+    releaseStartOverControl(control)
+    showToast(t('toast.startOverUndoFailed'), 'error')
+    return
+  }
+  releaseStartOverControl(control)
+  document.querySelector(
+    '[data-settings-reset-confirm-action="show"]'
+  )?.focus()
 }
 
 // ════════════════════════════════════════════════════════════
@@ -17851,7 +18076,8 @@ bindThemeActions(document, {
 bindSettingsResetConfirmActions(document, {
   show: showResetConfirm,
   hide: hideResetConfirm,
-  confirm: resetApp
+  confirm: resetApp,
+  undo: undoStartOver
 })
 bindFeedbackConfirmationActions(document, {
   close: closeFeedbackConfirmation
@@ -17868,6 +18094,8 @@ bindSettingsLocaleActions(document, {
   select: saveLocaleFromSettings
 })
 bindSettingsSyncActions(document, {
+  cancelImport: cancelPendingLearnerProfileImport,
+  confirmImport: confirmPendingLearnerProfileImport,
   exportFile: exportSyncFile,
   importFile: importSyncFileFromInput
 })
@@ -17907,7 +18135,11 @@ bindLearnerProfileAccessActions(document, {
   continueReplacement: continueLearnerProfileOwnerReplacement,
   discardReplacement: discardAndReplaceLearnerProfileOwner,
   exportReplacement: exportAndReplaceLearnerProfileOwner,
+  exportRecovery: candidateId => learnerProfileLifecycleAuthority
+    ?.exportRecoveryCandidate(candidateId),
   retry: () => learnerProfileLifecycleAuthority?.refresh(),
+  restoreRecovery: candidateId => learnerProfileLifecycleAuthority
+    ?.restoreRecoveryCandidate(candidateId, { confirmed: true }),
   signOut: signOutAccount
 })
 bindLearnerProfileSyncActions(document, {

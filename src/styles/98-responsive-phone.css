@@ -17,6 +17,14 @@
     padding: 20px 16px;
     width: calc(100vw - 24px);
   }
+  .learner-profile-recovery-item {
+    align-items: stretch;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .learner-profile-recovery-item button {
+    min-height: 44px;
+    width: 100%;
+  }
   .learner-profile-conflict-table thead {
     border: 0;
     clip: rect(0 0 0 0);
@@ -866,7 +874,8 @@
     .sync-actions,
     .settings-data-group > .settings-note,
     .settings-reset-btn,
-    .reset-confirm
+    .reset-confirm,
+    .start-over-undo
   ) {
     margin-top: -6px;
   }

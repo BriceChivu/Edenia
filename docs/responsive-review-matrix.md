@@ -56,8 +56,9 @@ candidate becomes implementable only after the user changes its status to
 
 ## Approved changes
 
-None. The architecture migration contains no intentional responsive visual or
-behavioral changes.
+| Migration ID | Inventory row | Approved difference | Implementation | Acceptance evidence |
+|---|---|---|---|---|
+| RESP-191 | PRIVACY-001 | Add one localized, low-emphasis Privacy link between Support and Feedback at every width, with a 44px touch target and no consent wall. | `4e32c97` and its #191 review follow-up | Footer contract tests plus completed-dashboard Playwright coverage across the six preserved viewport profiles |
 
 ## Revisit
 

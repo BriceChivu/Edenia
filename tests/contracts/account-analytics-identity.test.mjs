@@ -7,48 +7,72 @@ import {
 const USER_A = '3940e250-7b9d-4d2a-8f5c-4c111c812345'
 const USER_B = 'B0A982B6-5A6F-4CBF-A881-DF1234567890'
 
-function createHarness({ identifyResult = true, resetResult = true } = {}) {
+function createHarness({
+  currentUserId = null,
+  identifyResult = true,
+  resetClearsCurrentUserId = true,
+  resetResult = true,
+  sharedState = { currentUserId }
+} = {}) {
   const calls = []
   const identity = createAccountAnalyticsIdentity({
+    getPersistedAnalyticsUserId() {
+      calls.push(['get-current-user-id'])
+      return sharedState.currentUserId
+    },
     identify(userId, properties) {
       calls.push(['identify', userId, properties])
+      if (identifyResult === true) sharedState.currentUserId = userId
       return identifyResult
     },
     reset() {
       calls.push(['reset'])
+      if (resetResult === true && resetClearsCurrentUserId) {
+        sharedState.currentUserId = null
+      }
       return resetResult
     }
   })
-  return { calls, identity }
+  return { calls, identity, sharedState }
 }
 
-test('authenticated analytics identifies only a normalized Supabase UUID', () => {
+test('authenticated analytics identifies a normalized UUID with only approved email', () => {
   const { calls, identity } = createHarness()
 
   assert.equal(identity.synchronize({
     sessionState: 'signed-in',
     userId: `  ${USER_B}  `,
     email: ' LEARNER@Example.com ',
-    authMethod: 'GOOGLE'
+    authMethod: 'GOOGLE',
+    name: 'Learner Name',
+    providerSubject: 'google-subject'
   }), true)
   assert.deepEqual(calls, [[
+    'get-current-user-id'
+  ], [
     'identify',
     USER_B.toLowerCase(),
-    { email: 'learner@example.com', auth_method: 'google' }
+    { email: 'learner@example.com' }
   ]])
   assert.equal(identity.getIdentifiedUserId(), USER_B.toLowerCase())
 
   assert.equal(identity.synchronize({
     sessionState: 'signed-in',
     userId: USER_B,
-    email: 'changed@example.com',
-    authMethod: 'email'
+    email: 'learner@example.com'
   }), true)
-  assert.deepEqual(calls[1], [
+
+  assert.equal(identity.synchronize({
+    sessionState: 'signed-in',
+    userId: USER_B,
+    email: 'changed@example.com'
+  }), true)
+  assert.deepEqual(calls[4], [
     'identify',
     USER_B.toLowerCase(),
-    { email: 'changed@example.com', auth_method: 'email' }
+    { email: 'changed@example.com' }
   ])
+  assert.equal(calls.filter(call => call[0] === 'identify').length, 2)
   assert.equal(calls.some(call => call[0] === 'reset'), false)
 })
 
@@ -74,12 +98,114 @@ test('logout resets once and an account switch resets before identifying', () =>
   identity.synchronize({ sessionState: 'signed-out' })
 
   assert.deepEqual(calls, [
+    ['get-current-user-id'],
     ['identify', USER_A, {}],
+    ['get-current-user-id'],
     ['reset'],
     ['identify', USER_B.toLowerCase(), {}],
     ['reset']
   ])
   assert.equal(identity.getIdentifiedUserId(), null)
+})
+
+test('a reloaded adapter resets a persisted learner before identifying another', () => {
+  const sharedState = { currentUserId: null }
+  const first = createHarness({ sharedState })
+  first.identity.synchronize({ sessionState: 'signed-in', userId: USER_A })
+
+  const reloaded = createHarness({ sharedState })
+  reloaded.identity.synchronize({ sessionState: 'signed-in', userId: USER_B })
+
+  assert.deepEqual(first.calls, [
+    ['get-current-user-id'],
+    ['identify', USER_A, {}]
+  ])
+  assert.deepEqual(reloaded.calls, [
+    ['get-current-user-id'],
+    ['reset'],
+    ['identify', USER_B.toLowerCase(), {}]
+  ])
+})
+
+test('a live adapter repairs a persisted identity changed by another tab', () => {
+  const { calls, identity, sharedState } = createHarness()
+  identity.synchronize({ sessionState: 'signed-in', userId: USER_A })
+  sharedState.currentUserId = USER_B
+
+  assert.equal(identity.synchronize({
+    sessionState: 'signed-in', userId: USER_A
+  }), true)
+  assert.deepEqual(calls, [
+    ['get-current-user-id'],
+    ['identify', USER_A, {}],
+    ['get-current-user-id'],
+    ['reset'],
+    ['identify', USER_A, {}]
+  ])
+})
+
+test('identity waits for the persisted PostHog identity to become readable', () => {
+  let ready = false
+  const calls = []
+  const identity = createAccountAnalyticsIdentity({
+    getPersistedAnalyticsUserId() {
+      calls.push(['get-persisted-analytics-user-id'])
+      return ready ? null : undefined
+    },
+    identify(userId) {
+      calls.push(['identify', userId])
+      return true
+    },
+    reset() {
+      calls.push(['reset'])
+      return true
+    }
+  })
+
+  assert.equal(identity.synchronize({
+    sessionState: 'signed-in', userId: USER_A
+  }), false)
+  ready = true
+  assert.equal(identity.synchronize({
+    sessionState: 'signed-in', userId: USER_A
+  }), true)
+  assert.deepEqual(calls, [
+    ['get-persisted-analytics-user-id'],
+    ['get-persisted-analytics-user-id'],
+    ['identify', USER_A]
+  ])
+})
+
+test('a signed-out reload clears one persisted authenticated identity', () => {
+  const { calls, identity } = createHarness({ currentUserId: USER_A })
+
+  assert.equal(identity.synchronize({ sessionState: 'signed-out' }), true)
+  assert.equal(identity.synchronize({ sessionState: 'signed-out' }), true)
+
+  assert.deepEqual(calls, [
+    ['get-current-user-id'],
+    ['reset']
+  ])
+})
+
+test('one successful reset is enough when persisted-marker cleanup fails', () => {
+  const { calls, identity } = createHarness({
+    currentUserId: USER_A,
+    resetClearsCurrentUserId: false
+  })
+
+  assert.equal(identity.synchronize({ sessionState: 'signed-out' }), true)
+  assert.equal(identity.synchronize({ sessionState: 'signed-out' }), true)
+  assert.equal(identity.synchronize({
+    sessionState: 'signed-in',
+    userId: USER_B
+  }), true)
+
+  assert.deepEqual(calls, [
+    ['get-current-user-id'],
+    ['reset'],
+    ['identify', USER_B.toLowerCase(), {}]
+  ])
 })
 
 test('analytics failures cannot break account state rendering or merge users', () => {
@@ -96,11 +222,14 @@ test('analytics failures cannot break account state rendering or merge users', (
   }), false)
   assert.equal(resetFailure.identity.getIdentifiedUserId(), USER_A)
   assert.deepEqual(resetFailure.calls, [
+    ['get-current-user-id'],
     ['identify', USER_A, {}],
+    ['get-current-user-id'],
     ['reset']
   ])
 
   const throwingIdentity = createAccountAnalyticsIdentity({
+    getPersistedAnalyticsUserId() { throw new Error('analytics unavailable') },
     identify() { throw new Error('analytics unavailable') },
     reset() { throw new Error('analytics unavailable') }
   })
@@ -111,7 +240,7 @@ test('analytics failures cannot break account state rendering or merge users', (
 
 test('account analytics identity validates its integration boundary', () => {
   assert.throws(
-    () => createAccountAnalyticsIdentity({ identify() {} }),
-    /identify and reset callbacks/
+    () => createAccountAnalyticsIdentity({ identify() {}, reset() {} }),
+    /persisted analytics user, identify, and reset callbacks/
   )
 })

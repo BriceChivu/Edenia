@@ -171,6 +171,7 @@
 | FEEDBACK-002 | Feedback modal | Desktop modal versus phone bottom sheet; backdrop/close/Escape; focus trap/return; category cards; required message; optional name/email; length limits. | High | Keep |
 | FEEDBACK-003 | Feedback submission | Required-message error, live-only analytics requirement, local simulation, captured metadata, disabled/busy submit state, form reset, and no duplicate state. | High | Keep |
 | FEEDBACK-004 | Feedback confirmation | Success toast-dialog, Discord link, explicit OK, focus transfer, and return to launcher. | Medium | Keep |
+| PRIVACY-001 | Privacy link | One localized, low-emphasis footer link opens the repository's Privacy and Analytics information without adding a consent wall. | Medium | Approved change (RESP-191) |
 | TOAST-001 | Toast system | Success/warn/error visual states, polite versus assertive live announcements, localized text, phone wrapping/safe-area position, and 3.5-second dismissal. | High | Keep |
 
 ## Loading, error, empty, and disabled-state catalog

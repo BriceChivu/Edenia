@@ -30,6 +30,10 @@ function forwardAuthenticatedUserReset(...args) {
   return window.resetEdeniaAuthenticatedUser?.(...args)
 }
 
+function forwardSessionRecordingResume() {
+  return window.resumeEdeniaSessionRecording?.()
+}
+
 export function getPosthogDistinctId() {
   const getDistinctId = window.posthog?.get_distinct_id
   return typeof getDistinctId === 'function'
@@ -37,9 +41,17 @@ export function getPosthogDistinctId() {
     : undefined
 }
 
+export function getPersistedAnalyticsUserId() {
+  const getAuthenticatedUserId = window.getEdeniaAuthenticatedUserId
+  return typeof getAuthenticatedUserId === 'function'
+    ? getAuthenticatedUserId.call(window)
+    : undefined
+}
+
 export {
   forwardAuthenticatedUserIdentity as identifyEdeniaAuthenticatedUser,
   readEdeniaSessionReplayUrl as getEdeniaSessionReplayUrl,
+  forwardSessionRecordingResume as resumeEdeniaSessionRecording,
   forwardAuthenticatedUserReset as resetEdeniaAuthenticatedUser,
   forwardEdeniaPersonProperties as setEdeniaPersonProperties,
   forwardEdeniaAnalyticsState as syncEdeniaAnalyticsState,

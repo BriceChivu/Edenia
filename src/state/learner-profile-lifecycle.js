@@ -1,6 +1,10 @@
 import {
   ACCOUNTLESS_PROFILE_MIGRATION_STATES
 } from '../domain/accountless-profile-migration.js'
+import {
+  LEARNER_PROFILE_RECOVERY_FEEDBACK,
+  LEARNER_PROFILE_RECOVERY_SOURCES
+} from '../domain/learner-profile-resolution.js'
 
 export const LEARNER_PROFILE_ACCESS_STATES = Object.freeze({
   ACTIVE: 'active',
@@ -70,6 +74,8 @@ export function createLearnerProfileLifecycleAuthority({
     ownerId = null,
     profileId = null,
     protectedConflicts = [],
+    protectedReset = null,
+    recovery = null,
     replacement = null
   } = {}) {
     const retainedConflicts = Object.freeze([...protectedConflicts])
@@ -81,6 +87,11 @@ export function createLearnerProfileLifecycleAuthority({
       ...(retainedConflicts.length
         ? { protectedConflicts: retainedConflicts }
         : {}),
+      ...(protectedReset ? { protectedReset } : {}),
+      ...(recovery ? { recovery: Object.freeze({
+        ...recovery,
+        candidates: Object.freeze([...(recovery.candidates || [])])
+      }) } : {}),
       ...(replacement ? { replacement: Object.freeze(replacement) } : {}),
       status
     })
@@ -153,7 +164,8 @@ export function createLearnerProfileLifecycleAuthority({
 
   function activateProfile(localProfile, activation, {
     offlineExpiresAt = null,
-    protectedConflicts = []
+    protectedConflicts = [],
+    protectedReset = null
   } = {}) {
     if (!localPersistence.isActivationCurrent(activation)) {
       activeProfile = null
@@ -169,7 +181,8 @@ export function createLearnerProfileLifecycleAuthority({
       activation,
       ownerId: activation.ownerId,
       profileId: activation.profileId,
-      protectedConflicts
+      protectedConflicts,
+      protectedReset
     })
     scheduleOfflineExpiryCheck()
     analytics.profileActivated({
@@ -257,7 +270,7 @@ export function createLearnerProfileLifecycleAuthority({
       ...(accountlessAttachment ? { accountlessAttachment } : {}),
       localProfile,
       purpose
-    })).then(result => {
+    })).then(async result => {
       if (requestId !== resolutionId) return
       if (!result || result.status === 'waiting') return
       if (
@@ -313,6 +326,22 @@ export function createLearnerProfileLifecycleAuthority({
         && Number.isSafeInteger(result.revision)
         && result.revision > 0
       ) {
+        let protectedReset = result.protectedReset || null
+        if (
+          !protectedReset
+          && typeof cloudPersistence.readProtectedReset === 'function'
+        ) {
+          try {
+            protectedReset = await cloudPersistence.readProtectedReset({
+              generation: result.generation,
+              ownerId: result.ownerId,
+              profileId: result.profileId
+            })
+          } catch {
+            protectedReset = null
+          }
+          if (requestId !== resolutionId) return
+        }
         if (currentState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
           releaseActiveProfile()
         }
@@ -430,7 +459,8 @@ export function createLearnerProfileLifecycleAuthority({
           return
         }
         const activationState = activateProfile(activationProfile, activation, {
-          protectedConflicts: result.protectedConflicts || []
+          protectedConflicts: result.protectedConflicts || [],
+          protectedReset
         })
         if (activationState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
           return
@@ -479,6 +509,8 @@ export function createLearnerProfileLifecycleAuthority({
               ownerId: result.conflict.ownerId,
               profileId: result.conflict.profileId
             }
+          : result.status === 'recovering' && result.recovery
+            ? { recovery: result.recovery }
           : undefined
       )
     }).catch(() => {
@@ -745,6 +777,173 @@ export function createLearnerProfileLifecycleAuthority({
     return result
   }
 
+  async function importActiveProfile(profile, { confirmed = false } = {}) {
+    if (confirmed !== true) return { status: 'confirmation-required' }
+    const previousProfile = readActiveProfile()
+    const previousState = currentState
+    const previousActivation = previousState.activation
+    const previousOfflineExpiresAt = offlineVerificationExpiresAt
+    const auth = authentication.getObservation()
+    if (
+      !previousProfile
+      || !profile
+      || typeof profile !== 'object'
+      || Array.isArray(profile)
+      || previousState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+      || auth?.status !== 'signed-in'
+      || !previousState.ownerId
+      || auth.userId !== previousState.ownerId
+      || previousActivation?.ownerId !== previousState.ownerId
+      || !Number.isSafeInteger(previousActivation.generation)
+      || !Number.isSafeInteger(previousActivation.revision)
+      || typeof cloudPersistence.importProfile !== 'function'
+    ) return { status: 'owner-required' }
+
+    let protectedImport
+    try {
+      protectedImport = await cloudPersistence.importProfile(profile, {
+        activation: previousActivation,
+        confirmed: true,
+        isCurrent: () => (
+          getCurrentActivationFor(previousProfile) === previousActivation
+        )
+      })
+    } catch {
+      protectedImport = { status: 'unavailable' }
+    }
+
+    const currentAuth = authentication.getObservation()
+    if (
+      getCurrentActivationFor(previousProfile) !== previousActivation
+      || currentAuth?.status !== 'signed-in'
+      || currentAuth.userId !== previousState.ownerId
+    ) {
+      if (protectedImport?.status === 'protected') {
+        try {
+          await cloudPersistence.rollbackImport?.(protectedImport)
+        } catch {}
+      }
+      return { status: 'owner-required' }
+    }
+    if (protectedImport?.status !== 'protected') {
+      return { status: protectedImport?.status || 'failed' }
+    }
+    if (
+      protectedImport.ownerId !== previousState.ownerId
+      || protectedImport.profileId !== previousState.profileId
+      || protectedImport.generation !== previousActivation.generation
+      || protectedImport.baseRevision < previousActivation.revision
+      || protectedImport.revision !== protectedImport.baseRevision + 1
+      || !Number.isFinite(protectedImport.protectedUntil)
+      || protectedImport.protectedUntil <= clock.now()
+    ) {
+      try {
+        await cloudPersistence.rollbackImport?.(protectedImport)
+      } catch {}
+      return { status: 'failed' }
+    }
+
+    releaseActiveProfile()
+    const identity = {
+      generation: protectedImport.generation,
+      ownerId: protectedImport.ownerId,
+      profileId: protectedImport.profileId,
+      revision: protectedImport.revision
+    }
+    let replacementActivation = null
+    const rollbackToPreviousProfile = async () => {
+      if (replacementActivation) {
+        localPersistence.releaseActivation(replacementActivation)
+        replacementActivation = null
+      }
+      let rollback = null
+      try {
+        rollback = await cloudPersistence.rollbackImport?.(protectedImport)
+      } catch {}
+      if (!['rolled-back', 'already-rolled-back'].includes(rollback?.status)) {
+        publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+        return { status: 'recovery-required' }
+      }
+      if (rollback.revision !== protectedImport.revision + 1) {
+        publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+        return { status: 'recovery-required' }
+      }
+      const restored = localPersistence.reconcileSignedInProfile(
+        previousProfile,
+        {
+          generation: protectedImport.generation,
+          ownerId: protectedImport.ownerId,
+          profileId: protectedImport.profileId,
+          revision: rollback.revision
+        }
+      )
+      const localProfile = restored ? localPersistence.read() : null
+      if (
+        !isSignedInProfile(localProfile)
+        || localProfile.ownerId !== previousState.ownerId
+        || localProfile.profileId !== previousState.profileId
+        || localProfile.generation !== previousActivation.generation
+        || localProfile.revision !== rollback.revision
+      ) {
+        publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+        return { status: 'recovery-required' }
+      }
+      if (rollback.cleanupPending || rollback.syncRecordPending) {
+        publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+        return { status: 'recovery-required' }
+      }
+      activate(localProfile, {
+        offlineExpiresAt: previousState.ownerId
+          ? previousOfflineExpiresAt
+          : null
+      })
+      return { status: 'rolled-back' }
+    }
+    const reconciled = localPersistence.reconcileSignedInProfile(
+      profile,
+      identity
+    )
+    if (!reconciled) return rollbackToPreviousProfile()
+    const localProfile = localPersistence.read()
+    if (
+      !isSignedInProfile(localProfile)
+      || localProfile.ownerId !== identity.ownerId
+      || localProfile.profileId !== identity.profileId
+      || localProfile.generation !== identity.generation
+      || localProfile.revision !== identity.revision
+    ) return rollbackToPreviousProfile()
+    replacementActivation = prepareActivation(localProfile)
+    if (!replacementActivation) return rollbackToPreviousProfile()
+    if (cloudPersistence.confirmImport?.(protectedImport, {
+      isCurrent: () => {
+        const auth = authentication.getObservation()
+        const local = localPersistence.read()
+        return auth?.status === 'signed-in'
+          && auth.userId === identity.ownerId
+          && localPersistence.isActivationCurrent(replacementActivation)
+          && isSignedInProfile(local)
+          && local.ownerId === identity.ownerId
+          && local.profileId === identity.profileId
+          && local.generation === identity.generation
+          && local.revision === identity.revision
+      }
+    }) !== true) {
+      return rollbackToPreviousProfile()
+    }
+    const activated = activateProfile(localProfile, replacementActivation)
+    const activation = replacementActivation
+    replacementActivation = null
+    if (activated.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
+      return rollbackToPreviousProfile()
+    }
+    ownerVerification?.record?.({
+      ownerId: identity.ownerId,
+      verifiedAt: clock.now()
+    })
+    analytics.profileSaved(profile, { activation })
+    return { status: 'imported' }
+  }
+
   async function exportActiveProfile() {
     const profile = readActiveProfile()
     if (!profile) return false
@@ -754,6 +953,96 @@ export function createLearnerProfileLifecycleAuthority({
       exportedAt: clock.now(),
       isCurrent: () => getCurrentActivationFor(profile) === activation
     }) === true
+  }
+
+  function readRecoveryCandidate(candidateId) {
+    if (
+      currentState.status !== LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+      || typeof candidateId !== 'string'
+      || !candidateId
+    ) return null
+    return currentState.recovery?.candidates?.find(
+      candidate => candidate?.id === candidateId
+    ) || null
+  }
+
+  async function exportRecoveryCandidate(candidateId) {
+    const recovery = currentState.recovery
+    const candidate = readRecoveryCandidate(candidateId)
+    if (!candidate) return false
+    let profile = null
+    if (candidate.source === LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL) {
+      const auth = authentication.getObservation()
+      const localProfile = localPersistence.read()
+      if (
+        auth?.status !== 'signed-in'
+        || localProfile?.status !== 'ready'
+        || localProfile.ownerId !== auth.userId
+      ) return false
+      profile = localProfile.profile
+    } else if (candidate.source === LEARNER_PROFILE_RECOVERY_SOURCES.PROTECTED) {
+      let result
+      try {
+        result = await cloudPersistence.readRecoveryCandidate({ candidate })
+      } catch {
+        result = null
+      }
+      if (
+        currentState.recovery !== recovery
+        || result?.status !== 'ready'
+        || !result.profile
+        || typeof result.profile !== 'object'
+      ) return false
+      profile = result.profile
+    }
+    if (!profile || typeof profile !== 'object') return false
+    return await exportDownload.download(profile, {
+      exportedAt: clock.now(),
+      isCurrent: () => currentState.recovery === recovery
+        && readRecoveryCandidate(candidateId) === candidate,
+      side: candidate.source === LEARNER_PROFILE_RECOVERY_SOURCES.LOCAL
+        ? 'device'
+        : 'cloud'
+    }) === true
+  }
+
+  async function restoreRecoveryCandidate(
+    candidateId,
+    { confirmed = false } = {}
+  ) {
+    if (confirmed !== true) return false
+    const recovery = currentState.recovery
+    const candidate = readRecoveryCandidate(candidateId)
+    const auth = authentication.getObservation()
+    if (!candidate || auth?.status !== 'signed-in' || !auth.userId) {
+      return false
+    }
+    let result
+    try {
+      result = await cloudPersistence.restoreRecoveryCandidate({
+        authentication: auth,
+        candidate,
+        confirmed: true,
+        localProfile: localPersistence.read()
+      })
+    } catch {
+      result = null
+    }
+    if (
+      currentState.recovery !== recovery
+      || readRecoveryCandidate(candidateId) !== candidate
+    ) return false
+    if (result?.status === 'restored') {
+      evaluate()
+      return true
+    }
+    publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING, {
+      recovery: {
+        ...recovery,
+        feedback: LEARNER_PROFILE_RECOVERY_FEEDBACK.RESTORE_FAILED
+      }
+    })
+    return false
   }
 
   function retryCloudBackup() {
@@ -782,6 +1071,151 @@ export function createLearnerProfileLifecycleAuthority({
       if (cloudPersistence.retry?.() === true) return true
     } catch {}
     return enqueueCloudSave(profile, activation)
+  }
+
+  function installCloudProfileTransition(result, {
+    protectedConflicts = [],
+    protectedReset = null
+  } = {}) {
+    if (
+      !result
+      || typeof result.ownerId !== 'string'
+      || !result.ownerId
+      || typeof result.profileId !== 'string'
+      || !result.profileId
+      || !result.profile
+      || typeof result.profile !== 'object'
+      || Array.isArray(result.profile)
+      || !Number.isSafeInteger(result.generation)
+      || result.generation <= 0
+      || !Number.isSafeInteger(result.revision)
+      || result.revision <= 0
+    ) return false
+    releaseActiveProfile()
+    if (!localPersistence.reconcileSignedInProfile(result.profile, {
+      generation: result.generation,
+      ownerId: result.ownerId,
+      profileId: result.profileId,
+      revision: result.revision
+    })) {
+      publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+      return false
+    }
+    const localProfile = localPersistence.read()
+    if (
+      !isSignedInProfile(localProfile)
+      || localProfile.ownerId !== result.ownerId
+      || localProfile.profileId !== result.profileId
+      || localProfile.generation !== result.generation
+      || localProfile.revision !== result.revision
+    ) {
+      publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+      return false
+    }
+    const activation = prepareActivation(localProfile)
+    if (!activation) {
+      publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+      return false
+    }
+    const activated = activateProfile(localProfile, activation, {
+      protectedConflicts,
+      protectedReset
+    })
+    if (activated.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) return false
+    ownerVerification?.record?.({
+      ownerId: result.ownerId,
+      verifiedAt: clock.now()
+    })
+    return true
+  }
+
+  async function startOverProfile(profile, { confirmed = false } = {}) {
+    const previousProfile = readActiveProfile()
+    const previousState = currentState
+    if (
+      confirmed !== true
+      || !previousProfile
+      || !profile
+      || typeof profile !== 'object'
+      || Array.isArray(profile)
+      || !previousState.ownerId
+      || typeof cloudPersistence.startOver !== 'function'
+    ) return false
+    let result
+    try {
+      result = await cloudPersistence.startOver(profile, {
+        activation: previousState.activation,
+        confirmed: true,
+        isCurrent: () => (
+          currentState === previousState
+          && getCurrentActivationFor(previousProfile)
+            === previousState.activation
+        )
+      })
+    } catch {
+      result = null
+    }
+    const auth = authentication.getObservation()
+    if (
+      currentState !== previousState
+      || getCurrentActivationFor(previousProfile) !== previousState.activation
+      || auth?.status !== 'signed-in'
+      || auth.userId !== previousState.ownerId
+      || result?.status !== 'started-over'
+      || result.ownerId !== previousState.ownerId
+      || result.profileId !== previousState.profileId
+      || result.protectedReset?.status !== 'available'
+    ) return false
+    const installed = installCloudProfileTransition(result, {
+      protectedConflicts: previousState.protectedConflicts || [],
+      protectedReset: result.protectedReset
+    })
+    if (!installed) return false
+    analytics.profileStartedOver()
+    return true
+  }
+
+  async function undoStartOver({ confirmed = false } = {}) {
+    const previousProfile = readActiveProfile()
+    const previousState = currentState
+    const protectedReset = previousState.protectedReset
+    if (
+      confirmed !== true
+      || !previousProfile
+      || !previousState.ownerId
+      || protectedReset?.status !== 'available'
+      || typeof cloudPersistence.undoStartOver !== 'function'
+    ) return false
+    let result
+    try {
+      result = await cloudPersistence.undoStartOver({
+        activation: previousState.activation,
+        confirmed: true,
+        isCurrent: () => (
+          currentState === previousState
+          && getCurrentActivationFor(previousProfile)
+            === previousState.activation
+        ),
+        protectedReset
+      })
+    } catch {
+      result = null
+    }
+    const auth = authentication.getObservation()
+    if (
+      currentState !== previousState
+      || getCurrentActivationFor(previousProfile) !== previousState.activation
+      || auth?.status !== 'signed-in'
+      || auth.userId !== previousState.ownerId
+      || result?.status !== 'undone'
+      || result.ownerId !== previousState.ownerId
+      || result.profileId !== previousState.profileId
+      || result.generation !== previousState.activation?.generation
+      || result.revision <= previousState.activation?.revision
+    ) return false
+    return installCloudProfileTransition(result, {
+      protectedConflicts: previousState.protectedConflicts || []
+    })
   }
 
   function exportConflictVersion(side, conflictId = null) {
@@ -1123,13 +1557,18 @@ export function createLearnerProfileLifecycleAuthority({
     destroy,
     exportActiveProfile,
     exportConflictVersion,
+    exportRecoveryCandidate,
     getState: () => currentState,
+    importActiveProfile,
     readActiveProfile,
     refresh,
     replaceOwnerProfile,
     replaceActiveProfile,
     retryCloudBackup,
+    restoreRecoveryCandidate,
     saveActiveProfile,
-    start
+    start,
+    startOverProfile,
+    undoStartOver
   })
 }
