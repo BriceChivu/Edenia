@@ -1149,16 +1149,13 @@ test('offline progress survives reload and activates on a second device after sy
     await expect(secondPage.locator('#mainApp')).toBeVisible()
     const secondDevice = await secondPage.evaluate(({
       accessKey,
-      stateKey,
-      syncKey
+      stateKey
     }) => ({
       access: JSON.parse(localStorage.getItem(accessKey)),
-      state: JSON.parse(localStorage.getItem(stateKey)),
-      sync: JSON.parse(localStorage.getItem(syncKey))
+      state: JSON.parse(localStorage.getItem(stateKey))
     }), {
       accessKey: PROFILE_ACCESS_STORAGE_KEY,
-      stateKey: STATE_STORAGE_KEY,
-      syncKey: PROFILE_SYNC_STORAGE_KEY
+      stateKey: STATE_STORAGE_KEY
     })
     expect(secondDevice.state.config).toMatchObject(
       usesPhoneLocaleChange ? { locale: 'fr' } : { ankiEnabled: false }
@@ -1167,7 +1164,14 @@ test('offline progress survives reload and activates on a second device after sy
       generation: 4,
       revision: firstDeviceRevision
     })
-    expect(secondDevice.sync).toMatchObject({
+    await expect.poll(() => secondPage.evaluate(syncKey => {
+      const sync = JSON.parse(localStorage.getItem(syncKey))
+      return {
+        acceptedRevision: sync.acceptedRevision,
+        pending: sync.pending,
+        queued: sync.queued
+      }
+    }, PROFILE_SYNC_STORAGE_KEY)).toMatchObject({
       acceptedRevision: cloudRevision,
       pending: null,
       queued: null

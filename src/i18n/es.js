@@ -854,6 +854,7 @@ export const ES_LOCALIZED = {
 
   // Feedback translations were historically merged after the initial locale block.
     'support.button': 'Invítame a un café',
+    'privacy.link': 'Privacidad',
     'feedback.button': 'Comentarios',
     'feedback.title': 'Comparte tus comentarios',
     'feedback.close': 'Cerrar comentarios',

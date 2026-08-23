@@ -45,14 +45,101 @@
         'EDENIA_LEGACY_PROGRESS_FRAGMENT'
       );
 
+    const authSensitiveUrlParameterPattern = /(?:^|[_-])(?:access_token|refresh_token|id_token|token_hash|token|code|otp|credential|password|secret|session|nonce|captcha|api_key|key|capability|state|email|error)(?:$|[_-])/i;
+
+    function isAuthSensitiveParameterKey(key) {
+      const normalizedKey = key.replace(/([a-z0-9])([A-Z])/g, '$1_$2');
+      return authSensitiveUrlParameterPattern.test(normalizedKey);
+    }
+
+    function redactAuthSensitiveParameters(parameters) {
+      for (const key of [...parameters.keys()]) {
+        if (isAuthSensitiveParameterKey(key)) parameters.set(key, '[REDACTED]');
+      }
+    }
+
+    function hasAuthSensitiveParameters(parameters) {
+      for (const key of parameters.keys()) {
+        if (isAuthSensitiveParameterKey(key)) return true;
+      }
+      return false;
+    }
+
+    function analyticsUrlContainsAuthSensitiveData(value) {
+      if (typeof value !== 'string' || !value) return false;
+      let url;
+      try {
+        url = new URL(value, window.location.origin);
+      } catch {
+        return false;
+      }
+      if (hasAuthSensitiveParameters(url.searchParams)) return true;
+      const rawFragment = url.hash.slice(1);
+      if (!rawFragment.includes('=')) return false;
+      const queryStart = rawFragment.indexOf('?');
+      return hasAuthSensitiveParameters(new URLSearchParams(
+        queryStart >= 0 ? rawFragment.slice(queryStart + 1) : rawFragment
+      ));
+    }
+
+    function redactAnalyticsUrl(value) {
+      if (typeof value !== 'string' || !value) return value;
+      let url;
+      try {
+        url = new URL(value, window.location.origin);
+      } catch {
+        return value;
+      }
+      redactAuthSensitiveParameters(url.searchParams);
+      url.hash = '';
+      return url.href;
+    }
+
+    function sanitizeAnalyticsProperties(properties) {
+      if (!properties || typeof properties !== 'object') return properties;
+      const sanitized = { ...properties };
+      for (const [key, value] of Object.entries(sanitized)) {
+        if (
+          typeof value === 'string'
+          && (
+            /(?:url|href|referrer)$/i.test(key)
+            || /^https?:\/\//i.test(value)
+          )
+        ) {
+          sanitized[key] = redactAnalyticsUrl(value);
+        }
+      }
+      return sanitized;
+    }
+
+    let sessionRecordingBlockedForAuthUrl = false;
+    window.resumeEdeniaSessionRecording = function() {
+      if (!window.EDENIA_ANALYTICS_ENABLED) return false;
+      if (!sessionRecordingBlockedForAuthUrl) return true;
+      if (analyticsUrlContainsAuthSensitiveData(window.location.href)) return false;
+      if (typeof posthog.startSessionRecording !== 'function') return false;
+      posthog.startSessionRecording();
+      sessionRecordingBlockedForAuthUrl = false;
+      return true;
+    };
+
     if (window.EDENIA_ANALYTICS_ENABLED) {
+      sessionRecordingBlockedForAuthUrl = analyticsUrlContainsAuthSensitiveData(
+        window.location.href
+      );
       posthog.init('phc_soeip95Z57vX8tK5rCMEjh7nDsmyR7gmJtSFRk59FyWg', {
         api_host: 'https://us.i.posthog.com',
         defaults: '2026-05-30',
         autocapture: false,
-        disable_session_recording: false,
+        disable_capture_url_hashes: true,
+        disable_session_recording: sessionRecordingBlockedForAuthUrl,
+        get_current_url: () => redactAnalyticsUrl(window.location.href),
+        loaded: () => {
+          window.dispatchEvent(new Event('edenia:analytics-ready'));
+        },
+        sanitize_properties: sanitizeAnalyticsProperties,
         session_recording: {
-          maskAllInputs: false
+          maskAllInputs: true
         },
         person_profiles: 'always'
       });
@@ -410,7 +497,7 @@ and momentum—at a glance</h2>
           </div>
 
           <div class="settings-account-signed-in hidden" id="accountSignedIn">
-            <div class="settings-account-identity">
+            <div class="settings-account-identity ph-no-capture">
               <span data-i18n="settings.account.signedInAs">Signed in as</span>
               <strong id="accountUserEmail"></strong>
             </div>
@@ -919,6 +1006,9 @@ and momentum—at a glance</h2>
           <path d="M12 20s-7-4.35-7-10a4 4 0 0 1 7-2.65A4 4 0 0 1 19 10c0 5.65-7 10-7 10Z"></path>
         </svg>
         <span data-i18n="support.button">Buy me a coffee</span>
+      </a>
+      <a class="privacy-link" href="https://github.com/BriceChivu/Edenia#privacy-and-analytics" target="_blank" rel="noopener noreferrer" data-analytics-action="privacy">
+        <span data-i18n="privacy.link">Privacy</span>
       </a>
       <button class="feedback-launch-btn" id="feedbackLaunchBtn" type="button" data-feedback-modal-action="open" data-analytics-action="feedback" aria-haspopup="dialog" aria-controls="feedbackModal">
         <svg class="feedback-launch-icon" viewBox="0 0 24 24" aria-hidden="true">

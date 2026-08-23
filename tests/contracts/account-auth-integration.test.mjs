@@ -136,9 +136,16 @@ test('account session state drives isolated UUID analytics identity with safe pr
     source,
     /onStateChange\(state\) \{\s*accountAuthViewState = state\s*learnerProfileAuthenticationAdapter\.observeAccountState\(state\)\s*accountAnalyticsIdentity\.synchronize\(state\)[\s\S]*reminderPreferencesController\.synchronizeAccount\([\s\S]*renderAccountSettings\(state\)/
   )
+  assert.match(
+    source,
+    /addEventListener\('edenia:analytics-ready',[\s\S]*accountAnalyticsIdentity\.synchronize\(accountAuthViewState\)/
+  )
   assert.match(identitySource, /accountState\?\.userId/)
   assert.match(identitySource, /properties\.email = email/)
-  assert.match(identitySource, /properties\.auth_method = authMethod/)
+  assert.doesNotMatch(
+    identitySource,
+    /authMethod|auth_method|provider|subject|displayName|\bname\b/i
+  )
   assert.doesNotMatch(identitySource, /localStorage|loadState|saveState|progress|syncEdenia/i)
 })
 
@@ -174,6 +181,8 @@ test('authentication credentials have no application persistence or analytics se
     )
   }
   assert.match(html, /settings-account-signed-out hidden ph-no-capture/)
+  assert.match(html, /settings-account-identity ph-no-capture/)
+  assert.match(appSource, /onboarding-account-identity ph-no-capture/)
   assert.match(appSource, /onboarding-account-email-form ph-no-capture/)
   assert.match(appSource, /onboarding-account-code-form ph-no-capture/)
 })

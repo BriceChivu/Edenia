@@ -51,15 +51,41 @@ function authenticatedSession(provider = 'google') {
   }
 }
 
-async function installProviderMocks(page) {
-  await page.addInitScript(() => {
+async function installProviderMocks(page, {
+  analyticsEnabled = false,
+  authenticatedUserId = null,
+  identifyThrows = false
+} = {}) {
+  await page.addInitScript(options => {
+    if (
+      options.analyticsEnabled
+      && new URLSearchParams(window.location.search).get('account') === '1'
+    ) {
+      Object.defineProperty(window, 'EDENIA_ANALYTICS_ENABLED', {
+        configurable: false,
+        get() { return true },
+        set() {}
+      })
+    }
+    if (options.authenticatedUserId) {
+      localStorage.setItem(
+        'edenia_posthog_authenticated_user_v1',
+        options.authenticatedUserId
+      )
+    }
     const tracker = {
       google: {
         configurations: [],
         renderOptions: []
       },
       posthogCapture: [],
+      posthogDistinctId: options.authenticatedUserId || 'anonymous-browser-id',
       posthogIdentify: [],
+      posthogInit: [],
+      posthogLifecycle: [],
+      posthogResetCount: 0,
+      posthogStartRecordingCount: 0,
+      posthogUserId: options.authenticatedUserId,
       turnstile: {
         configurations: {},
         nextWidgetId: 1,
@@ -117,17 +143,46 @@ async function installProviderMocks(page) {
 
     window.posthog = {
       __loaded: true,
-      capture(...args) { tracker.posthogCapture.push(args) },
+      capture(...args) {
+        tracker.posthogCapture.push([tracker.posthogDistinctId, ...args])
+        tracker.posthogLifecycle.push([
+          'capture', tracker.posthogDistinctId, args[0]
+        ])
+      },
+      get_distinct_id() { return tracker.posthogDistinctId },
+      get_property(key) {
+        return key === '$user_id' ? tracker.posthogUserId : undefined
+      },
       get_session_replay_url() { return null },
       identify(userId, properties) {
-        tracker.posthogIdentify.push([userId, { ...properties }])
+        tracker.posthogIdentify.push({
+          fromDistinctId: tracker.posthogDistinctId,
+          properties: { ...properties },
+          userId
+        })
+        tracker.posthogLifecycle.push([
+          'identify', tracker.posthogDistinctId, userId
+        ])
+        if (options.identifyThrows) throw new Error('identify unavailable')
+        tracker.posthogDistinctId = userId
+        tracker.posthogUserId = userId
       },
-      init() {},
+      init(_projectKey, configuration) {
+        tracker.posthogInit.push(configuration)
+      },
       register() {},
-      reset() {},
-      setPersonProperties() {}
+      reset() {
+        tracker.posthogLifecycle.push(['reset', tracker.posthogDistinctId])
+        tracker.posthogResetCount += 1
+        tracker.posthogDistinctId = `anonymous-after-reset-${tracker.posthogResetCount}`
+        tracker.posthogUserId = null
+      },
+      setPersonProperties() {},
+      startSessionRecording() {
+        tracker.posthogStartRecordingCount += 1
+      }
     }
-  })
+  }, { analyticsEnabled, authenticatedUserId, identifyThrows })
 }
 
 async function stubSupabase(page, requests) {
@@ -182,15 +237,11 @@ async function seedStudyState(page, { setupCompleted, walkthroughCompleted }) {
   })
 }
 
-test('official Google and same-device email-code flows preserve local study data', async ({
-  page
-}, testInfo) => {
-  test.skip(![
-    'desktop-standard',
-    'phone-small',
-    'tablet-portrait'
-  ].includes(testInfo.project.name))
-  await installProviderMocks(page)
+async function openCompletedAccountPage(page, {
+  destination = `${LOCAL_ORIGIN}/?internal_test=1&account=1`,
+  providerMocks = {}
+} = {}) {
+  await installProviderMocks(page, providerMocks)
   const requests = []
   await stubSupabase(page, requests)
   await page.route('**/config.local.js', route => route.fulfill({
@@ -204,7 +255,19 @@ test('official Google and same-device email-code flows preserve local study data
     setupCompleted: true,
     walkthroughCompleted: true
   })
-  await page.goto(`${LOCAL_ORIGIN}/?internal_test=1&account=1`)
+  await page.goto(destination)
+  return requests
+}
+
+test('official Google and same-device email-code flows preserve local study data', async ({
+  page
+}, testInfo) => {
+  test.skip(![
+    'desktop-standard',
+    'phone-small',
+    'tablet-portrait'
+  ].includes(testInfo.project.name))
+  const requests = await openCompletedAccountPage(page)
   const studyStateBefore = await page.evaluate(() => (
     localStorage.getItem('edenia_v1_internal_test')
   ))
@@ -226,6 +289,9 @@ test('official Google and same-device email-code flows preserve local study data
   await expect(page.locator('#accountSignedIn')).toBeVisible()
   await expect(page.locator('#accountUserEmail')).toHaveText(
     'learner@example.com'
+  )
+  await expect(page.locator('#accountUserEmail').locator('..')).toHaveClass(
+    /ph-no-capture/
   )
   const tokenRequest = requests.find(request => request.path === '/auth/v1/token')
   expect(tokenRequest.body).toMatchObject({
@@ -311,4 +377,128 @@ test('official Google and same-device email-code flows preserve local study data
   expect(analyticsPayload).not.toContain('123456')
   expect(analyticsPayload).not.toContain('mock-google-id-token')
   expect(analyticsPayload).not.toContain('mock-turnstile-token')
+})
+
+test('browser auth identifies one UUID and protects replay from Auth fields and URLs', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await openCompletedAccountPage(page, {
+    destination: `${LOCAL_ORIGIN}/?internal_test=1&account=1`
+      + '&token=query-secret#token=fragment-secret',
+    providerMocks: { analyticsEnabled: true }
+  })
+  const replayProtection = await page.evaluate(() => {
+    const configuration = window.__edeniaAuthE2e.posthogInit.at(-1)
+    return {
+      authSurfaceBlocked: document.querySelector('#accountSignedOut')
+        .classList.contains('ph-no-capture'),
+      currentUrl: configuration.get_current_url(),
+      fragmentCaptureDisabled: configuration.disable_capture_url_hashes,
+      maskAllInputs: configuration.session_recording.maskAllInputs,
+      ordinaryProductVisible: !document.querySelector('#videoGrid')
+        .classList.contains('ph-no-capture'),
+      replayBlocked: configuration.disable_session_recording === true
+    }
+  })
+  expect(replayProtection).toMatchObject({
+    authSurfaceBlocked: true,
+    fragmentCaptureDisabled: true,
+    maskAllInputs: true,
+    ordinaryProductVisible: true,
+    replayBlocked: true
+  })
+  const protectedUrl = new URL(replayProtection.currentUrl)
+  expect(protectedUrl.searchParams.get('token')).toBe('[REDACTED]')
+  expect(protectedUrl.hash).toBe('')
+  const browserUrl = new URL(page.url())
+  expect(browserUrl.searchParams.get('token')).toBe('query-secret')
+  expect(new URLSearchParams(browserUrl.hash.slice(1)).get('token'))
+    .toBe('fragment-secret')
+
+  expect(await page.evaluate(() => (
+    window.__edeniaAuthE2e.posthogStartRecordingCount
+  ))).toBe(0)
+  await page.evaluate(() => {
+    window.history.replaceState(
+      window.history.state,
+      '',
+      '/?internal_test=1&account=1'
+    )
+    window.resumeEdeniaSessionRecording()
+  })
+  expect(await page.evaluate(() => (
+    window.__edeniaAuthE2e.posthogStartRecordingCount
+  ))).toBe(1)
+
+  const anonymousDistinctId = await page.evaluate(() => (
+    window.__edeniaAuthE2e.posthogDistinctId
+  ))
+  expect(anonymousDistinctId).toBe('anonymous-browser-id')
+  await expect.poll(() => page.evaluate(() => (
+    window.__edeniaAuthE2e.posthogCapture.some(
+      ([distinctId]) => distinctId === 'anonymous-browser-id'
+    )
+  ))).toBe(true)
+
+  await page.locator('#accountGoogleIdentityButton button').click()
+  await expect.poll(() => page.evaluate(() => (
+    window.__edeniaAuthE2e.posthogIdentify
+  ))).toEqual([{
+    fromDistinctId: 'anonymous-browser-id',
+    properties: { email: 'learner@example.com' },
+    userId: AUTHENTICATED_USER_ID
+  }])
+
+  await page.locator('.settings-account-toggle').click()
+  await page.locator('#accountSignOutBtn').click()
+  await expect(page.locator('#accountSignedOut')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (
+    window.__edeniaAuthE2e.posthogResetCount
+  ))).toBe(1)
+})
+
+test('a persisted learner resets before a different browser account identifies', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  const previousUserId = 'e5410993-1277-4813-88f6-2ddf3108cb97'
+  await openCompletedAccountPage(page, {
+    providerMocks: {
+      analyticsEnabled: true,
+      authenticatedUserId: previousUserId
+    }
+  })
+
+  await expect.poll(() => page.evaluate(() => (
+    window.__edeniaAuthE2e.posthogResetCount
+  ))).toBe(1)
+  await page.locator('#accountGoogleIdentityButton button').click()
+
+  await expect.poll(() => page.evaluate(() => (
+    window.__edeniaAuthE2e.posthogLifecycle.filter(
+      ([event]) => event === 'reset' || event === 'identify'
+    )
+  ))).toEqual([
+    ['reset', previousUserId],
+    ['identify', 'anonymous-after-reset-1', AUTHENTICATED_USER_ID]
+  ])
+})
+
+test('an analytics identify exception cannot block browser authentication', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await openCompletedAccountPage(page, {
+    providerMocks: {
+      analyticsEnabled: true,
+      identifyThrows: true
+    }
+  })
+  await page.locator('#accountGoogleIdentityButton button').click()
+  await page.locator('.settings-account-toggle').click()
+  await expect(page.locator('#accountSignedIn')).toBeVisible()
+  await expect(page.locator('#accountUserEmail')).toHaveText(
+    'learner@example.com'
+  )
 })
