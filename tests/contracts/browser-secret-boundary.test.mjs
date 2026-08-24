@@ -11,7 +11,8 @@ const browserDeliveryFiles = [
   'scripts/write-runtime-config.mjs',
   'src/integrations/runtime-config.js',
   '_site/app.js',
-  '_site/config.local.js'
+  '_site/config.local.js',
+  '_site/release.json'
 ]
 
 test('browser delivery never includes Supabase or Stripe server secrets', async () => {

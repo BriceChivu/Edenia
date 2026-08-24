@@ -75,7 +75,7 @@ function runtimeConfig() {
 
 async function installRuntimeConfig(page) {
   await useAccountReturnOrigin(page)
-  await page.route('**/config.local.js', route => route.fulfill({
+  await page.route('**/config.local.js*', route => route.fulfill({
     body: runtimeConfig(),
     contentType: 'text/javascript',
     status: 200

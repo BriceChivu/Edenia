@@ -11,6 +11,12 @@ import { fileURLToPath } from 'node:url'
 import { build, transform } from 'esbuild'
 import { minify } from 'terser'
 import { readOrderedStyleSource } from './read-style-source.mjs'
+import {
+  createReleaseManifest,
+  getReleaseAssetVersion,
+  getReleaseCommit,
+  writeReleaseManifest
+} from './release-manifest.mjs'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(scriptDir, '..')
@@ -18,23 +24,6 @@ const outputDir = resolve(projectRoot, '_site')
 
 if (relative(projectRoot, outputDir) !== '_site') {
   throw new Error(`Refusing to clean unexpected build directory: ${outputDir}`)
-}
-
-function getAssetVersion() {
-  const configuredVersion = process.env.EDENIA_ASSET_VERSION
-    || process.env.GITHUB_SHA
-
-  if (configuredVersion) return configuredVersion.slice(0, 12)
-
-  try {
-    return execFileSync(
-      'git',
-      ['rev-parse', '--short=12', 'HEAD'],
-      { cwd: projectRoot, encoding: 'utf8' }
-    ).trim()
-  } catch {
-    return '1.0.0'
-  }
 }
 
 function versionAssetReference(html, filename, version) {
@@ -63,16 +52,25 @@ async function copyPath(relativePath) {
 await rm(outputDir, { recursive: true, force: true })
 await mkdir(outputDir, { recursive: true })
 
-const assetVersion = getAssetVersion()
+const releaseCommit = getReleaseCommit({
+  runGit: () => execFileSync(
+    'git',
+    ['rev-parse', 'HEAD'],
+    { cwd: projectRoot, encoding: 'utf8' }
+  )
+})
+const assetVersion = getReleaseAssetVersion({ releaseCommit })
 let html = await readFile(resolve(projectRoot, 'index.html'), 'utf8')
 html = versionAssetReference(html, 'style.css', assetVersion)
 html = versionAssetReference(html, 'analytics.js', assetVersion)
 html = versionAssetReference(html, 'app.js', assetVersion)
+html = versionAssetReference(html, 'config.local.js', assetVersion)
 await writeFile(resolve(outputDir, 'index.html'), html)
 
 let plusHtml = await readFile(resolve(projectRoot, 'plus', 'index.html'), 'utf8')
 plusHtml = versionAssetReference(plusHtml, 'style.css', assetVersion)
 plusHtml = versionAssetReference(plusHtml, 'plus.js', assetVersion)
+plusHtml = versionAssetReference(plusHtml, 'config.local.js', assetVersion)
 await mkdir(resolve(outputDir, 'plus'), { recursive: true })
 await writeFile(resolve(outputDir, 'plus', 'index.html'), plusHtml)
 
@@ -88,6 +86,11 @@ unsubscribeHtml = versionAssetReference(
 unsubscribeHtml = versionAssetReference(
   unsubscribeHtml,
   'unsubscribe.js',
+  assetVersion
+)
+unsubscribeHtml = versionAssetReference(
+  unsubscribeHtml,
+  'config.local.js',
   assetVersion
 )
 await mkdir(resolve(outputDir, 'unsubscribe'), { recursive: true })
@@ -220,9 +223,7 @@ await copyPath('data/channel-catalog.community.json')
 await copyPath('data/channel-catalog.discovered.json')
 
 // Keep compatibility markers true until cached pre-retirement assets expire.
-await writeFile(
-  resolve(outputDir, 'config.local.js'),
-  'window.EDENIA_CONFIG = {\n'
+const runtimeConfigSource = 'window.EDENIA_CONFIG = {\n'
     + '  "youtubeApiKey": "",\n'
     + '  "freePlusEnabled": false,\n'
     + '  "plusCheckoutEnabled": false,\n'
@@ -242,6 +243,14 @@ await writeFile(
     + '  "supabaseUrl": "",\n'
     + '  "supabasePublishableKey": ""\n'
     + '}\n'
+await writeFile(resolve(outputDir, 'config.local.js'), runtimeConfigSource)
+await writeReleaseManifest(
+  resolve(outputDir, 'release.json'),
+  createReleaseManifest({
+    deployedCommit: releaseCommit,
+    assetVersion,
+    runtimeConfigSource
+  })
 )
 
 console.log(`Built Edenia ${assetVersion} in ${outputDir}`)
