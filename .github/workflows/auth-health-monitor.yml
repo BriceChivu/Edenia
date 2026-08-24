@@ -1,0 +1,47 @@
+name: Auth health monitor
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auth-health-monitor
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check required runtime values
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_PUBLISHABLE_KEY"
+          test -n "$SUPABASE_DB_URL"
+
+      - name: Probe Auth and record aggregate health
+        run: node scripts/check-auth-health.mjs
+
+      - name: Emit an actionable outage annotation
+        if: failure()
+        run: |
+          echo '::error title=Edenia Auth outage::The scheduled Auth health probe recorded a provider or network outage. Inspect this run, compare the deployed commit and runtime gates, and keep the profile-data gate disabled until recovery is verified.'
