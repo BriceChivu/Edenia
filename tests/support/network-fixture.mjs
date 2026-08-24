@@ -48,6 +48,18 @@ function youtubeApiFixture(pathname) {
 }
 
 export const test = base.extend({
+  page: async ({ page }, use) => {
+    const route = page.route.bind(page)
+    const unroute = page.unroute.bind(page)
+    const normalizeConfigPattern = pattern => (
+      pattern === '**/config.local.js' ? '**/config.local.js*' : pattern
+    )
+
+    page.route = (pattern, ...args) => route(normalizeConfigPattern(pattern), ...args)
+    page.unroute = (pattern, ...args) => unroute(normalizeConfigPattern(pattern), ...args)
+    await use(page)
+  },
+
   networkGuard: [async ({ context }, use) => {
     const analyticsRequests = []
     const unexpectedRequests = []

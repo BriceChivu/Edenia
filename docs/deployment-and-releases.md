@@ -44,6 +44,12 @@ After deployment, the acceptance owner should smoke-check the production URL,
 critical first-run and returning-user flows, runtime configuration, and the
 absence of internal-test/sandbox leakage before creating a release.
 
+For the mandatory-account release, use the deployment-bound canary report in
+[Release-readiness canaries](release-readiness-canaries.md). It fetches the
+published commit and cache-busted runtime-config hash, records the required
+browser, provider, profile, database, and rollback evidence, and stops at an
+explicit product-owner approval request.
+
 ## Accountless custom-domain migration
 
 The canonical application target is `https://www.edenia.study/`. The legacy

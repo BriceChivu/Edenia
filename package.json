@@ -12,6 +12,7 @@
     "build:migration-helper": "node scripts/build-legacy-migration-helper.mjs",
     "build:migration-helper:production": "npm run build:migration-helper && node scripts/write-legacy-migration-helper-config.mjs --require-supabase",
     "build:production": "npm run build && node scripts/write-runtime-config.mjs --require-key",
+    "release:readiness": "node scripts/release-readiness.mjs",
     "dev": "node scripts/dev.mjs",
     "prototype:auth-surface": "node scripts/serve-static.mjs --host localhost --port 4173 --root .",
     "prototype:sync-experience": "node scripts/serve-static.mjs --host localhost --port 4173 --root .",

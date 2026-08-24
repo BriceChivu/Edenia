@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { readdir, readFile, stat } from 'node:fs/promises'
 import test from 'node:test'
 
@@ -16,6 +17,7 @@ test('build emits the stable public entrypoint contract', async () => {
     'analytics.js',
     'style.css',
     'config.local.js',
+    'release.json',
     'plus/index.html',
     'plus/plus.js',
     'unsubscribe/index.html',
@@ -58,10 +60,13 @@ test('build emits a versioned standalone unsubscribe page', async () => {
   const html = await readFile(new URL('unsubscribe/index.html', siteRoot), 'utf8')
   const styleMatch = html.match(/style\.css\?v=([^"'&\s>]+)/)
   const scriptMatch = html.match(/unsubscribe\.js\?v=([^"'&\s>]+)/)
+  const configMatch = html.match(/config\.local\.js\?v=([^"'&\s>]+)/)
   assert.ok(styleMatch)
   assert.ok(scriptMatch)
+  assert.ok(configMatch)
   assert.equal(styleMatch[1], scriptMatch[1])
-  assert.match(html, /\.\.\/config\.local\.js/)
+  assert.equal(styleMatch[1], configMatch[1])
+  assert.match(html, /\.\.\/config\.local\.js\?v=/)
   assert.match(html, /data-reminder-unsubscribe-root/)
   assert.doesNotMatch(html, /analytics\.js|app\.js|posthog/i)
 })
@@ -70,15 +75,23 @@ test('build emits a versioned dedicated Plus page', async () => {
   const html = await readFile(new URL('plus/index.html', siteRoot), 'utf8')
   const styleMatch = html.match(/style\.css\?v=([^"'&\s>]+)/)
   const plusMatch = html.match(/plus\.js\?v=([^"'&\s>]+)/)
+  const configMatch = html.match(/config\.local\.js\?v=([^"'&\s>]+)/)
   assert.ok(styleMatch)
   assert.ok(plusMatch)
+  assert.ok(configMatch)
   assert.equal(styleMatch[1], plusMatch[1])
-  assert.match(html, /\.\.\/config\.local\.js/)
+  assert.equal(styleMatch[1], configMatch[1])
+  assert.match(html, /\.\.\/config\.local\.js\?v=/)
   assert.match(html, /data-plus-upgrade-root/)
 })
 
 test('built index preserves the classic deferred script order and one cache version', async () => {
-  const html = await readFile(new URL('index.html', siteRoot), 'utf8')
+  const [html, manifestSource, configSource] = await Promise.all([
+    readFile(new URL('index.html', siteRoot), 'utf8'),
+    readFile(new URL('release.json', siteRoot), 'utf8'),
+    readFile(new URL('config.local.js', siteRoot), 'utf8')
+  ])
+  const manifest = JSON.parse(manifestSource)
   const styleMatch = html.match(/style\.css\?v=([^"'&\s>]+)/)
   const analyticsMatch = html.match(/analytics\.js\?v=([^"'&\s>]+)/)
   const appMatch = html.match(/app\.js\?v=([^"'&\s>]+)/)
@@ -89,13 +102,20 @@ test('built index preserves the classic deferred script order and one cache vers
   assert.equal(styleMatch[1], analyticsMatch[1])
   assert.equal(styleMatch[1], appMatch[1])
 
-  const configPosition = html.indexOf('<script src="config.local.js" defer></script>')
+  const configPosition = html.indexOf('<script src="config.local.js?v=')
   const analyticsPosition = html.indexOf('<script src="analytics.js?')
   const appPosition = html.indexOf('<script src="app.js?')
   assert.ok(configPosition > 0)
   assert.ok(configPosition < analyticsPosition)
   assert.ok(analyticsPosition < appPosition)
   assert.ok(html.indexOf('window.EDENIA_ANALYTICS_ENABLED') < configPosition)
+  assert.equal(manifest.schemaVersion, 1)
+  assert.match(manifest.deployedCommit, /^[0-9a-f]{40}$/)
+  assert.equal(manifest.assetVersion, styleMatch[1])
+  assert.equal(
+    manifest.runtimeConfigSha256,
+    createHash('sha256').update(configSource, 'utf8').digest('hex')
+  )
 })
 
 test('test build contains empty public keys and safe release defaults', async () => {

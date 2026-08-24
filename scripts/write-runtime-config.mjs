@@ -9,6 +9,13 @@ import {
   parseRuntimeConfigRollout,
   parseRuntimeConfigTimestamp
 } from './runtime-config-flags.mjs'
+import {
+  createReleaseManifest,
+  getReleaseAssetVersion,
+  getReleaseCommit,
+  readReleaseManifest,
+  writeReleaseManifest
+} from './release-manifest.mjs'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(scriptDir, '..')
@@ -88,5 +95,23 @@ const runtimeConfig = `window.EDENIA_CONFIG = ${JSON.stringify({
   supabasePublishableKey
 }, null, 2)}\n`
 
+const releaseManifestPath = resolve(projectRoot, '_site', 'release.json')
+const releaseManifest = await readReleaseManifest(releaseManifestPath)
+const releaseCommit = getReleaseCommit()
+const assetVersion = getReleaseAssetVersion({ releaseCommit })
+if (
+  releaseManifest.deployedCommit !== releaseCommit
+  || releaseManifest.assetVersion !== assetVersion
+) {
+  throw new Error('Production runtime config does not match the build release identity')
+}
 await writeFile(outputPath, runtimeConfig)
+await writeReleaseManifest(
+  releaseManifestPath,
+  createReleaseManifest({
+    deployedCommit: releaseCommit,
+    assetVersion,
+    runtimeConfigSource: runtimeConfig
+  })
+)
 console.log(`Wrote runtime config to ${outputPath}`)
