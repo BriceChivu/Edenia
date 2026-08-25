@@ -5,6 +5,7 @@ const execFile = promisify(execFileCallback)
 
 const AUTH_HEALTH_PATH = '/auth/v1/health'
 const DEFAULT_TIMEOUT_MS = 10000
+const MISSING_RECORDER_PATTERN = /private\.record_auth_health_check[\s\S]*does not exist/iu
 
 export const classifyAuthHealthResponse = ({ status, error } = {}) => {
   if (error) return 'network_error'
@@ -55,6 +56,16 @@ const requireEnvironment = name => {
   return value
 }
 
+const describeRecorderFailure = error => {
+  if (MISSING_RECORDER_PATTERN.test(error?.stderr ?? '')) {
+    return 'Auth health recorder schema is not deployed'
+  }
+  if (error?.code === 'ENOENT') {
+    return 'Auth health recorder client is unavailable'
+  }
+  return 'Auth health recorder failed'
+}
+
 const run = async () => {
   const supabaseUrl = requireEnvironment('SUPABASE_URL').replace(/\/$/u, '')
   const databaseUrl = requireEnvironment('SUPABASE_DB_URL')
@@ -67,15 +78,20 @@ const run = async () => {
     'select outcome || \'|\' || alert_state || \'|\' || alert_action || \'|\' || consecutive_provider_failures',
     `from private.record_auth_health_check('${result.outcome}', ${result.status ?? 'null'}, ${result.latencyMs})`
   ].join(' ')
-  const { stdout } = await execFile('psql', [
-    '--no-psqlrc',
-    '--dbname',
-    databaseUrl,
-    '--tuples-only',
-    '--no-align',
-    '--command',
-    sql
-  ], { maxBuffer: 1024 * 1024 })
+  let stdout
+  try {
+    ({ stdout } = await execFile('psql', [
+      '--no-psqlrc',
+      '--dbname',
+      databaseUrl,
+      '--tuples-only',
+      '--no-align',
+      '--command',
+      sql
+    ], { maxBuffer: 1024 * 1024 }))
+  } catch (error) {
+    throw new Error(describeRecorderFailure(error))
+  }
   const [outcome, alertState, alertAction, failures] = stdout.trim().split('|')
   if (!outcome || !alertState || !alertAction || !failures) {
     throw new Error('Auth health recorder returned no aggregate result')
@@ -91,11 +107,7 @@ const run = async () => {
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   run().catch(error => {
-    console.error(
-      error?.message === 'Auth health alert is open'
-        ? error.message
-        : 'Auth health monitoring failed'
-    )
+    console.error(error?.message ?? 'Auth health monitoring failed')
     process.exitCode = 1
   })
 }

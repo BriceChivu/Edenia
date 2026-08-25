@@ -41,7 +41,7 @@ jobs:
       - name: Probe Auth and record aggregate health
         run: node scripts/check-auth-health.mjs
 
-      - name: Emit an actionable outage annotation
+      - name: Emit an actionable monitor-failure annotation
         if: failure()
         run: |
-          echo '::error title=Edenia Auth outage::The scheduled Auth health probe recorded a provider or network outage. Inspect this run, compare the deployed commit and runtime gates, and keep the profile-data gate disabled until recovery is verified.'
+          echo '::error title=Edenia Auth health monitor failure::The scheduled Auth health monitor failed. Inspect the sanitized probe diagnostic, verify the deployed monitoring schema and runtime configuration, and keep the profile-data gate disabled until a successful probe records aggregate health.'

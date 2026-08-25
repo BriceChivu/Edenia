@@ -571,13 +571,15 @@
   text-align: center;
 }
 .history-heatmap {
-  --heatmap-cell-size: 12px;
-  --heatmap-gap: 3px;
+  --heatmap-cell-size: 18px;
+  --heatmap-gap: 4px;
   align-self: flex-start;
   background: var(--surface);
   border: 2px solid var(--planet-black);
   border-radius: var(--radius);
+  box-sizing: border-box;
   box-shadow: 0 3px 0 rgba(5,5,5,0.12);
+  max-width: 100%;
   padding: 12px;
   width: max-content;
 }
@@ -585,13 +587,6 @@
   align-items: flex-start;
   display: flex;
   gap: 8px;
-}
-.history-heatmap.is-sparse {
-  --heatmap-cell-size: 18px;
-  --heatmap-gap: 4px;
-}
-.history-heatmap.is-sparse .heatmap-scroll {
-  flex: 0 0 auto;
 }
 .heatmap-weekday-labels {
   color: var(--muted);
@@ -613,9 +608,11 @@
   height: var(--heatmap-cell-size);
 }
 .heatmap-scroll {
-  flex: 0 0 auto;
-  min-width: max-content;
-  overflow: visible;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding-bottom: 2px;
 }
 .heatmap-months {

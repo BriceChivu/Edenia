@@ -22,8 +22,6 @@
 }
 @media (max-width: 640px) {
   .history-heatmap {
-    --heatmap-cell-size: 16px;
-    --heatmap-gap: 4px;
     padding: 14px;
   }
   .heatmap-tooltip {

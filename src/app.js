@@ -12180,7 +12180,6 @@ function renderStudyHistoryPanel(s) {
     if (selectedHistoryView === 'heatmap') {
       renderHistoryHeatmap(s || { videos: {}, anki: {} }, heatmapView)
     } else if (!plusAccessPolicy.featureAccess[PLUS_FEATURE_IDS.COMPLETE_STUDY_HISTORY]) {
-      heatmapView.classList.remove('is-sparse')
       heatmapView.replaceChildren()
     }
   }
@@ -12264,7 +12263,10 @@ function renderRestrictedHistoryHeatmapDay(accessState) {
 }
 
 function renderHistoryHeatmap(s, container) {
-  container.classList.remove('is-sparse')
+  const existingScroll = container.querySelector('.heatmap-scroll')
+  const preservedScrollLeft = container.dataset.historyScrollSession === 'active'
+    ? existingScroll?.scrollLeft ?? null
+    : null
   const ankiEnabled = isAnkiTrackingActive(s)
   const end = IS_SANDBOX ? getSandboxHeatmapEndDate(s) : getCurrentAppDate(s)
   end.setHours(23, 59, 59, 999)
@@ -12290,7 +12292,6 @@ function renderHistoryHeatmap(s, container) {
   const historicalStreakDayCounts = getHistoricalStreakDayCounts(s, end)
   const weekCount = Math.ceil(days.length / 7)
   const monthLabels = getHeatmapMonthLabels(gridStart, end, weekCount)
-  container.classList.toggle('is-sparse', weekCount <= 8)
 
   container.innerHTML = `
     <div class="heatmap-body">
@@ -12327,6 +12328,12 @@ function renderHistoryHeatmap(s, container) {
     position: positionHeatmapTooltip,
     hide: hideHeatmapTooltip,
     toggle: toggleHeatmapTooltip
+  })
+  window.requestAnimationFrame(() => {
+    const scroll = container.querySelector('.heatmap-scroll')
+    if (!scroll) return
+    scroll.scrollLeft = preservedScrollLeft ?? scroll.scrollWidth
+    container.dataset.historyScrollSession = 'active'
   })
 }
 
@@ -13682,7 +13689,11 @@ function setHistoryPeriodForRange(range, periodKey) {
 }
 
 function setHistoryView(view) {
-  selectedHistoryView = view === 'heatmap' ? 'heatmap' : 'summary'
+  const nextView = view === 'heatmap' ? 'heatmap' : 'summary'
+  if (selectedHistoryView !== nextView) {
+    delete document.getElementById('historyHeatmapView')?.dataset.historyScrollSession
+  }
+  selectedHistoryView = nextView
   const state = loadState()
   if (state?.config) {
     state.config.historyView = selectedHistoryView
