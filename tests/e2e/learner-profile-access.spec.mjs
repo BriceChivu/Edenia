@@ -460,6 +460,8 @@ test('a signed-out owner can authenticate from locked access before cloud activa
     await expect(page.locator('#settingsPanel')).toBeHidden()
     await expectNeutralProfileGate(page, 'waiting-cloud', storedState)
     await expect(page.locator('#learnerProfileAccessGate')).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(page.locator('#learnerProfileAccessRetry')).toBeFocused()
 
     releaseResolution()
     await expect(page.locator('#mainApp')).toBeVisible()

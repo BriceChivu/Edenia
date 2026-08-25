@@ -2816,7 +2816,7 @@ function handleLearnerProfileAccessStateChange(accessState) {
   const settingsPanel = document.getElementById('settingsPanel')
   const profileAccessGate = document.getElementById('learnerProfileAccessGate')
   const transfersProfileAccessFocusToApplication =
-    document.activeElement === profileAccessGate
+    profileAccessGate?.contains(document.activeElement) === true
   const closesProfileAccessAuthentication = (
     settingsPanel?.classList.contains('learner-profile-access-auth')
     && !isLearnerProfileAuthenticationState(accessState.status)
