@@ -8,6 +8,10 @@ import {
 
 const OWNER_ID = '123e4567-e89b-42d3-a456-426614174000'
 const OTHER_OWNER_ID = '223e4567-e89b-42d3-a456-426614174001'
+const ACCOUNT_RETURN_ORIGIN = 'http://localhost:8000'
+const SERVED_APPLICATION_ORIGIN = `http://localhost:${Number(
+  process.env.EDENIA_TEST_NORMAL_PORT || 8000
+)}`
 const SECRET_CHANNEL_NAME = 'PRIVATE LEARNER CHANNEL'
 const NEXT_OWNER_CHANNEL_NAME = 'NEXT OWNER PRIVATE CHANNEL'
 const AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
@@ -63,6 +67,20 @@ async function installGoogleIdentityMock(page) {
         }
       }
     }
+  })
+}
+
+async function useAccountReturnOrigin(page) {
+  if (SERVED_APPLICATION_ORIGIN === ACCOUNT_RETURN_ORIGIN) return
+
+  await page.route(`${ACCOUNT_RETURN_ORIGIN}/**`, async route => {
+    const requestedUrl = new URL(route.request().url())
+    const servedUrl = new URL(
+      `${requestedUrl.pathname}${requestedUrl.search}`,
+      `${SERVED_APPLICATION_ORIGIN}/`
+    )
+    const response = await route.fetch({ url: servedUrl.href })
+    await route.fulfill({ response })
   })
 }
 
@@ -372,6 +390,7 @@ test('a signed-out owner can authenticate from locked access before cloud activa
     releaseResolution = resolve
   })
   await installGoogleIdentityMock(page)
+  await useAccountReturnOrigin(page)
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
       accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
@@ -410,7 +429,7 @@ test('a signed-out owner can authenticate from locked access before cloud activa
     await route.fulfill({ json: {}, status: 200 })
   })
 
-  await page.goto('/?internal_test=1')
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
   const storedState = await seedOwnedLearnerProfile(page)
   profileEnvelope = (
     await createPortableLearnerProfileEnvelope(JSON.parse(storedState))
