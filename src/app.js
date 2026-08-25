@@ -2813,13 +2813,14 @@ function renderActivatedLearnerProfile(state) {
 
 function handleLearnerProfileAccessStateChange(accessState) {
   const settingsPanel = document.getElementById('settingsPanel')
-  if (
+  const closesProfileAccessAuthentication = (
     settingsPanel?.classList.contains('learner-profile-access-auth')
     && ![
       LEARNER_PROFILE_ACCESS_STATES.LOCKED,
       LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
     ].includes(accessState.status)
-  ) {
+  )
+  if (closesProfileAccessAuthentication) {
     settingsPanel.classList.remove(
       'account-only',
       'learner-profile-access-auth'
@@ -2834,6 +2835,11 @@ function handleLearnerProfileAccessStateChange(accessState) {
   ) {
     document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
   }
+  const profileAccessGate = document.getElementById('learnerProfileAccessGate')
+  if (
+    closesProfileAccessAuthentication
+    && !profileAccessGate?.classList.contains('hidden')
+  ) profileAccessGate.focus()
   const syncImportControl = document.querySelector(
     '[data-settings-sync-action="choose-file"]'
   )
@@ -6472,19 +6478,23 @@ function setSettingsAccountOpen(isOpen) {
   setSettingsAccordionOpen('accountSettingsContent', '.settings-account-toggle', '.settings-account', isOpen)
 }
 
-function openAccountlessProfileMigrationSignIn() {
+function openAccountSignIn({ fromProfileAccess = false } = {}) {
+  const panel = document.getElementById('settingsPanel')
+  panel?.classList.toggle('learner-profile-access-auth', fromProfileAccess)
   renderAccountSettings()
   setSettingsAccountOpen(true)
   openSettingsShell({ accountOnly: true, focusId: 'accountEmail' })
+  if (fromProfileAccess) {
+    document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
+  }
+}
+
+function openAccountlessProfileMigrationSignIn() {
+  openAccountSignIn()
 }
 
 function openLearnerProfileAccessSignIn() {
-  const panel = document.getElementById('settingsPanel')
-  panel?.classList.add('learner-profile-access-auth')
-  renderAccountSettings()
-  setSettingsAccountOpen(true)
-  openSettingsShell({ accountOnly: true, focusId: 'accountEmail' })
-  document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
+  openAccountSignIn({ fromProfileAccess: true })
 }
 
 function toggleSettingsAccount() {

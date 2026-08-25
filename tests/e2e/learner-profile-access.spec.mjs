@@ -26,19 +26,44 @@ const STATE_STORAGE_KEY = 'edenia_v1_internal_test'
 const OWNER_PROFILE_ID = '323e4567-e89b-42d3-a456-426614174002'
 const OTHER_OWNER_PROFILE_ID = '423e4567-e89b-42d3-a456-426614174003'
 
-function runtimeConfig({ accountFeaturesRollout = 'off', lifecycle = false } = {}) {
-  return `window.EDENIA_CONFIG = {
-    youtubeApiKey: '',
+function runtimeConfig({
+  accountFeaturesRollout = 'off',
+  googleIdentityClientId = '',
+  lifecycle = false
+} = {}) {
+  return `window.EDENIA_CONFIG = ${JSON.stringify({
+    accountFeaturesRollout,
     freePlusEnabled: false,
-    plusCheckoutEnabled: false,
-    accountFeaturesRollout: '${accountFeaturesRollout}',
-    learnerProfileLifecycleEnabled: ${lifecycle},
-    studyGuidanceEnabled: false,
-    indexedDbBackupsEnabled: false,
+    googleIdentityClientId,
+    googleSignInMode: googleIdentityClientId ? 'id_token' : 'off',
     indexedDbBackupCleanupEnabled: false,
+    indexedDbBackupsEnabled: false,
+    learnerProfileLifecycleEnabled: lifecycle,
+    plusCheckoutEnabled: false,
+    studyGuidanceEnabled: false,
+    supabasePublishableKey: 'test-publishable-key',
     supabaseUrl: 'https://profile-access-test.supabase.co',
-    supabasePublishableKey: 'test-publishable-key'
-  }`
+    youtubeApiKey: ''
+  })}`
+}
+
+async function installGoogleIdentityMock(page) {
+  await page.addInitScript(() => {
+    window.google = {
+      accounts: {
+        id: {
+          initialize() {},
+          renderButton(element) {
+            const button = document.createElement('button')
+            button.type = 'button'
+            button.setAttribute('aria-label', 'Continue with Google')
+            button.textContent = 'Continue with Google'
+            element.replaceChildren(button)
+          }
+        }
+      }
+    }
+  })
 }
 
 function expiredSession() {
@@ -346,9 +371,11 @@ test('a signed-out owner can authenticate from locked access before cloud activa
   const resolutionBarrier = new Promise(resolve => {
     releaseResolution = resolve
   })
+  await installGoogleIdentityMock(page)
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
       accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      googleIdentityClientId: '1234567890-test.apps.googleusercontent.com',
       lifecycle: lifecycleEnabled
     }),
     contentType: 'text/javascript',
@@ -410,6 +437,11 @@ test('a signed-out owner can authenticate from locked access before cloud activa
     await expect(page.getByRole('heading', {
       name: 'Sign in or create your account'
     })).toBeVisible()
+    const googleSignIn = page.locator('#accountGoogleIdentityButton button')
+    await expect(googleSignIn).toBeVisible()
+    await expect(googleSignIn).toHaveAccessibleName(
+      'Continue with Google'
+    )
     await expect(page.locator('#accountEmail')).toBeFocused()
 
     await page.locator('#settingsCloseBtn').click()
@@ -427,6 +459,7 @@ test('a signed-out owner can authenticate from locked access before cloud activa
     await expect.poll(() => resolutionCount).toBe(1)
     await expect(page.locator('#settingsPanel')).toBeHidden()
     await expectNeutralProfileGate(page, 'waiting-cloud', storedState)
+    await expect(page.locator('#learnerProfileAccessGate')).toBeFocused()
 
     releaseResolution()
     await expect(page.locator('#mainApp')).toBeVisible()
