@@ -25,9 +25,17 @@ workflow. A missing value fails the check without attempting a probe.
 | `network_error` | The request timed out or could not connect | Adds one outage failure |
 
 Three consecutive provider or network failures open the aggregate alert. A
-fresh successful response closes it. The workflow emits a failed run with the
-next action in its annotation. A stale probe older than ten minutes is not
-healthy, even if its last recorded result was good.
+fresh successful response closes it. A failed monitor run does not by itself
+prove an Auth outage: the workflow annotation is deliberately neutral, and the
+sanitized probe diagnostic identifies the failed boundary.
+`Auth health recorder schema is not deployed` means the production migration
+chain does not yet contain the private recorder. Keep the profile-data gate
+off, reconcile all pending migrations in order, obtain approval for the
+production schema change, and rerun the monitor after deployment.
+`Auth health recorder failed` means the recorder could not complete for another
+reason; verify the database connection and deployed schema without printing the
+URL or credentials. A stale probe older than ten minutes is not healthy, even
+if its last recorded result was good.
 
 Before mandatory-account launch, configure GitHub notifications for this
 workflow and run it manually once. Confirm that a deliberately recorded
