@@ -2,6 +2,7 @@
 
 ## BUGS:
 - on mobiles: internal_test=1 is very slow, especially when setting a video as watch later or favorite
+- FIx heatmap sizing
 
 ## Usability:
 - INSIGHTS: Saying "Try Tuesday" when today is monday doesn't really make sense i feel... Rething Insights again
