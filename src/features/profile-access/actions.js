@@ -10,12 +10,13 @@ export function bindLearnerProfileAccessActions(root, actions) {
     || typeof actions.discardReplacement !== 'function'
     || typeof actions.exportReplacement !== 'function'
     || typeof actions.exportRecovery !== 'function'
+    || typeof actions.openSignIn !== 'function'
     || typeof actions.retry !== 'function'
     || typeof actions.restoreRecovery !== 'function'
     || typeof actions.signOut !== 'function'
   ) {
     throw new TypeError(
-      'Learner profile access actions require replacement, retry, and sign-out callbacks'
+      'Learner profile access actions require authentication, replacement, retry, and sign-out callbacks'
     )
   }
 
@@ -24,6 +25,7 @@ export function bindLearnerProfileAccessActions(root, actions) {
     ['continue-replacement', actions.continueReplacement],
     ['export-replacement', actions.exportReplacement],
     ['discard-replacement', actions.discardReplacement],
+    ['open-sign-in', actions.openSignIn],
     ['retry', actions.retry],
     ['sign-out', actions.signOut]
   ]

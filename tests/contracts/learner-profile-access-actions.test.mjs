@@ -8,6 +8,7 @@ const selectors = {
   continueReplacement: '[data-profile-access-action="continue-replacement"]',
   discardReplacement: '[data-profile-access-action="discard-replacement"]',
   exportReplacement: '[data-profile-access-action="export-replacement"]',
+  openSignIn: '[data-profile-access-action="open-sign-in"]',
   recoveryList: '[data-profile-recovery-list]',
   retry: '[data-profile-access-action="retry"]',
   signOut: '[data-profile-access-action="sign-out"]'
@@ -42,14 +43,16 @@ test('profile access controls forward protected replacement and recovery intent'
     discardReplacement: () => calls.push('discard-replacement'),
     exportReplacement: () => calls.push('export-replacement'),
     exportRecovery: candidateId => calls.push(`export-recovery:${candidateId}`),
+    openSignIn: () => calls.push('open-sign-in'),
     retry: () => calls.push('retry'),
     restoreRecovery: candidateId => calls.push(`restore-recovery:${candidateId}`),
     signOut: () => calls.push('sign-out')
-  }), 6)
+  }), 7)
 
   controls.get(selectors.continueReplacement).dispatch('click')
   controls.get(selectors.exportReplacement).dispatch('click')
   controls.get(selectors.discardReplacement).dispatch('click')
+  controls.get(selectors.openSignIn).dispatch('click')
   controls.get(selectors.retry).dispatch('click')
   controls.get(selectors.signOut).dispatch('click')
   controls.get(selectors.recoveryList).dispatch('click', {
@@ -77,6 +80,7 @@ test('profile access controls forward protected replacement and recovery intent'
     'continue-replacement',
     'export-replacement',
     'discard-replacement',
+    'open-sign-in',
     'retry',
     'sign-out',
     'restore-recovery:protected-candidate',
@@ -91,12 +95,13 @@ test('profile access recovery binding is idempotent and boundary checked', () =>
     discardReplacement() {},
     exportReplacement() {},
     exportRecovery() {},
+    openSignIn() {},
     retry() {},
     restoreRecovery() {},
     signOut() {}
   }
 
-  assert.equal(bindLearnerProfileAccessActions(root, actions), 6)
+  assert.equal(bindLearnerProfileAccessActions(root, actions), 7)
   assert.equal(bindLearnerProfileAccessActions(root, actions), 0)
   assert.equal(bindLearnerProfileAccessActions(createHarness([]).root, actions), 0)
   assert.throws(

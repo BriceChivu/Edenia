@@ -512,7 +512,8 @@ import {
   createLearnerProfileConflictView
 } from './features/profile-access/conflict-view.js'
 import {
-  createLearnerProfileAccessView
+  createLearnerProfileAccessView,
+  isLearnerProfileAuthenticationState
 } from './features/profile-access/view.js'
 import {
   createLearnerProfileSyncView
@@ -2812,6 +2813,22 @@ function renderActivatedLearnerProfile(state) {
 }
 
 function handleLearnerProfileAccessStateChange(accessState) {
+  const settingsPanel = document.getElementById('settingsPanel')
+  const profileAccessGate = document.getElementById('learnerProfileAccessGate')
+  const transfersProfileAccessFocusToApplication =
+    profileAccessGate?.contains(document.activeElement) === true
+  const closesProfileAccessAuthentication = (
+    settingsPanel?.classList.contains('learner-profile-access-auth')
+    && !isLearnerProfileAuthenticationState(accessState.status)
+  )
+  if (closesProfileAccessAuthentication) {
+    settingsPanel.classList.remove(
+      'account-only',
+      'learner-profile-access-auth'
+    )
+    settingsPanel.classList.add('hidden')
+    openSettings.returnFocus = null
+  }
   learnerProfileAccessView.render(accessState)
   if (
     accessState.status === LEARNER_PROFILE_ACCESS_STATES.LOCKED
@@ -2819,6 +2836,10 @@ function handleLearnerProfileAccessStateChange(accessState) {
   ) {
     document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
   }
+  if (
+    closesProfileAccessAuthentication
+    && !profileAccessGate?.classList.contains('hidden')
+  ) profileAccessGate.focus()
   const syncImportControl = document.querySelector(
     '[data-settings-sync-action="choose-file"]'
   )
@@ -2852,7 +2873,8 @@ function handleLearnerProfileAccessStateChange(accessState) {
     personalizedOnboardingState.active = false
     document.getElementById('onboardingPanel')?.classList.add('hidden')
     document.body.classList.remove('onboarding-active')
-    document.getElementById('mainApp')?.removeAttribute('inert')
+    const mainApp = document.getElementById('mainApp')
+    mainApp?.removeAttribute('inert')
     if (!applicationStarted) {
       startApplicationWithState(state, { accountAuthInitialized: true })
     } else {
@@ -2866,6 +2888,11 @@ function handleLearnerProfileAccessStateChange(accessState) {
       learnerProfileConflictView.hideProtected()
     }
     renderStartOverUndo(accessState.protectedReset)
+    if (
+      transfersProfileAccessFocusToApplication
+      && !mainApp?.classList.contains('hidden')
+      && !mainApp?.hasAttribute('inert')
+    ) mainApp.focus()
     return
   }
   renderStartOverUndo(null)
@@ -6422,10 +6449,18 @@ function openSettings() {
 function closeSettings() {
   const panel = document.getElementById('settingsPanel')
   if (!panel || panel.classList.contains('hidden')) return
-  panel.classList.remove('account-only')
+  const returnsToProfileAccess = panel.classList.contains(
+    'learner-profile-access-auth'
+  )
+  panel.classList.remove('account-only', 'learner-profile-access-auth')
   hide('settingsPanel')
   const main = document.getElementById('mainApp')
-  if (main) main.inert = false
+  if (main) main.inert = returnsToProfileAccess
+  if (returnsToProfileAccess) {
+    learnerProfileAccessView.render(
+      learnerProfileLifecycleAuthority?.getState()
+    )
+  }
   const returnFocus = openSettings.returnFocus
   openSettings.returnFocus = null
   if (returnFocus?.isConnected) window.setTimeout(() => returnFocus.focus(), 0)
@@ -6449,10 +6484,23 @@ function setSettingsAccountOpen(isOpen) {
   setSettingsAccordionOpen('accountSettingsContent', '.settings-account-toggle', '.settings-account', isOpen)
 }
 
-function openAccountlessProfileMigrationSignIn() {
+function openAccountSignIn({ fromProfileAccess = false } = {}) {
+  const panel = document.getElementById('settingsPanel')
+  panel?.classList.toggle('learner-profile-access-auth', fromProfileAccess)
   renderAccountSettings()
   setSettingsAccountOpen(true)
   openSettingsShell({ accountOnly: true, focusId: 'accountEmail' })
+  if (fromProfileAccess) {
+    document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
+  }
+}
+
+function openAccountlessProfileMigrationSignIn() {
+  openAccountSignIn()
+}
+
+function openLearnerProfileAccessSignIn() {
+  openAccountSignIn({ fromProfileAccess: true })
 }
 
 function toggleSettingsAccount() {
@@ -18182,6 +18230,7 @@ bindLearnerProfileAccessActions(document, {
   exportReplacement: exportAndReplaceLearnerProfileOwner,
   exportRecovery: candidateId => learnerProfileLifecycleAuthority
     ?.exportRecoveryCandidate(candidateId),
+  openSignIn: openLearnerProfileAccessSignIn,
   retry: () => learnerProfileLifecycleAuthority?.refresh(),
   restoreRecovery: candidateId => learnerProfileLifecycleAuthority
     ?.restoreRecoveryCandidate(candidateId, { confirmed: true }),

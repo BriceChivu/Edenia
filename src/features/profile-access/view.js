@@ -31,6 +31,15 @@ const RECOVERY_ACTION_STATES = new Set([
   'waiting-cloud'
 ])
 
+const AUTHENTICATION_ACTION_STATES = new Set([
+  'locked',
+  'waiting-authentication'
+])
+
+export function isLearnerProfileAuthenticationState(status) {
+  return AUTHENTICATION_ACTION_STATES.has(status)
+}
+
 const RECOVERY_COPY_KEYS = Object.freeze({
   [LEARNER_PROFILE_RECOVERY_REASONS.CURRENT_HEAD_MISSING]:
     'profileAccess.missingHead',
@@ -47,6 +56,7 @@ export function createLearnerProfileAccessView({
   const title = root.getElementById('learnerProfileAccessTitle')
   const body = root.getElementById('learnerProfileAccessBody')
   const status = root.getElementById('learnerProfileAccessStatus')
+  const openSignIn = root.getElementById('learnerProfileAccessOpenSignIn')
   const retry = root.getElementById('learnerProfileAccessRetry')
   const signOut = root.getElementById('learnerProfileAccessSignOut')
   const continueReplacement = root.getElementById(
@@ -117,6 +127,7 @@ export function createLearnerProfileAccessView({
 
   function hideActions() {
     for (const control of [
+      openSignIn,
       retry,
       signOut,
       continueReplacement,
@@ -127,6 +138,10 @@ export function createLearnerProfileAccessView({
 
   function showActions(accessState) {
     hideActions()
+    if (isLearnerProfileAuthenticationState(accessState?.status)) {
+      openSignIn.hidden = false
+      return
+    }
     if (RECOVERY_ACTION_STATES.has(accessState?.status)) {
       retry.hidden = false
       signOut.hidden = false

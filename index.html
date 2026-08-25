@@ -164,7 +164,7 @@
 
   <canvas class="background-physics" id="backgroundPhysics" aria-hidden="true"></canvas>
 
-  <section class="legacy-progress-migration hidden" id="learnerProfileAccessGate" role="dialog" aria-modal="true" aria-labelledby="learnerProfileAccessTitle" aria-describedby="learnerProfileAccessBody learnerProfileAccessStatus">
+  <section class="legacy-progress-migration hidden" id="learnerProfileAccessGate" role="dialog" aria-modal="true" aria-labelledby="learnerProfileAccessTitle" aria-describedby="learnerProfileAccessBody learnerProfileAccessStatus" tabindex="-1">
     <div class="legacy-progress-migration-card learner-profile-access-card">
       <span class="legacy-progress-migration-brand" aria-hidden="true">EDENIA</span>
       <h1 id="learnerProfileAccessTitle"></h1>
@@ -211,6 +211,7 @@
         <p class="learner-profile-conflict-feedback" id="learnerProfileConflictFeedback" role="status" aria-live="polite"></p>
       </div>
       <div class="legacy-progress-migration-actions">
+        <button class="btn-primary" id="learnerProfileAccessOpenSignIn" type="button" data-profile-access-action="open-sign-in" data-i18n="accountlessProfileMigration.action.openSignIn" hidden>Open sign-in</button>
         <button class="btn-primary" id="learnerProfileAccessContinue" type="button" data-profile-access-action="continue-replacement" data-i18n="profileAccess.accountChange.continue" hidden>Continue with this account</button>
         <button class="btn-secondary" id="learnerProfileAccessExport" type="button" data-profile-access-action="export-replacement" data-i18n="profileAccess.accountChange.export" hidden>Export progress and continue</button>
         <button class="btn-ghost btn-danger" id="learnerProfileAccessDiscard" type="button" data-profile-access-action="discard-replacement" data-i18n="profileAccess.accountChange.discard" hidden>Discard progress and continue</button>
@@ -723,7 +724,7 @@ and momentum—at a glance</h2>
   <!-- ═══════════════════════════════════════════════════════ -->
   <!-- MAIN APP                                              -->
   <!-- ═══════════════════════════════════════════════════════ -->
-  <main id="mainApp" class="hidden">
+  <main id="mainApp" class="hidden" tabindex="-1">
 
     <!-- HEADER -->
     <header class="app-header">
