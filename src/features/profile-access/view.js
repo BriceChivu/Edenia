@@ -36,6 +36,10 @@ const AUTHENTICATION_ACTION_STATES = new Set([
   'waiting-authentication'
 ])
 
+export function isLearnerProfileAuthenticationState(status) {
+  return AUTHENTICATION_ACTION_STATES.has(status)
+}
+
 const RECOVERY_COPY_KEYS = Object.freeze({
   [LEARNER_PROFILE_RECOVERY_REASONS.CURRENT_HEAD_MISSING]:
     'profileAccess.missingHead',
@@ -134,7 +138,7 @@ export function createLearnerProfileAccessView({
 
   function showActions(accessState) {
     hideActions()
-    if (AUTHENTICATION_ACTION_STATES.has(accessState?.status)) {
+    if (isLearnerProfileAuthenticationState(accessState?.status)) {
       openSignIn.hidden = false
       return
     }

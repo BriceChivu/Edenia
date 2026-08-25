@@ -512,7 +512,8 @@ import {
   createLearnerProfileConflictView
 } from './features/profile-access/conflict-view.js'
 import {
-  createLearnerProfileAccessView
+  createLearnerProfileAccessView,
+  isLearnerProfileAuthenticationState
 } from './features/profile-access/view.js'
 import {
   createLearnerProfileSyncView
@@ -2813,12 +2814,12 @@ function renderActivatedLearnerProfile(state) {
 
 function handleLearnerProfileAccessStateChange(accessState) {
   const settingsPanel = document.getElementById('settingsPanel')
+  const profileAccessGate = document.getElementById('learnerProfileAccessGate')
+  const transfersProfileAccessFocusToApplication =
+    document.activeElement === profileAccessGate
   const closesProfileAccessAuthentication = (
     settingsPanel?.classList.contains('learner-profile-access-auth')
-    && ![
-      LEARNER_PROFILE_ACCESS_STATES.LOCKED,
-      LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
-    ].includes(accessState.status)
+    && !isLearnerProfileAuthenticationState(accessState.status)
   )
   if (closesProfileAccessAuthentication) {
     settingsPanel.classList.remove(
@@ -2835,7 +2836,6 @@ function handleLearnerProfileAccessStateChange(accessState) {
   ) {
     document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
   }
-  const profileAccessGate = document.getElementById('learnerProfileAccessGate')
   if (
     closesProfileAccessAuthentication
     && !profileAccessGate?.classList.contains('hidden')
@@ -2873,7 +2873,8 @@ function handleLearnerProfileAccessStateChange(accessState) {
     personalizedOnboardingState.active = false
     document.getElementById('onboardingPanel')?.classList.add('hidden')
     document.body.classList.remove('onboarding-active')
-    document.getElementById('mainApp')?.removeAttribute('inert')
+    const mainApp = document.getElementById('mainApp')
+    mainApp?.removeAttribute('inert')
     if (!applicationStarted) {
       startApplicationWithState(state, { accountAuthInitialized: true })
     } else {
@@ -2887,6 +2888,11 @@ function handleLearnerProfileAccessStateChange(accessState) {
       learnerProfileConflictView.hideProtected()
     }
     renderStartOverUndo(accessState.protectedReset)
+    if (
+      transfersProfileAccessFocusToApplication
+      && !mainApp?.classList.contains('hidden')
+      && !mainApp?.hasAttribute('inert')
+    ) mainApp.focus()
     return
   }
   renderStartOverUndo(null)

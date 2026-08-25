@@ -107,6 +107,7 @@ test('active profile access hides the guarded surface and recovery controls', ()
 })
 
 test('the guarded profile surface contains authentication, retry, and safe sign-out controls', () => {
+  assert.match(html, /id="mainApp"[^>]*tabindex="-1"/)
   assert.match(
     html,
     /id="learnerProfileAccessGate"[^>]*role="dialog"[^>]*tabindex="-1"/

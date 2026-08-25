@@ -464,6 +464,7 @@ test('a signed-out owner can authenticate from locked access before cloud activa
     releaseResolution()
     await expect(page.locator('#mainApp')).toBeVisible()
     await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+    await expect(page.locator('#mainApp')).toBeFocused()
     await expect(page.locator('html')).toHaveAttribute(
       'data-learner-profile-access-state',
       'active'
