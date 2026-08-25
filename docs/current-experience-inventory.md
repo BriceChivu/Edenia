@@ -114,10 +114,10 @@
 | HIST-004 | Summary rows | Localized date, video time, watched-video count, optional Anki counts, daily floor-rounded points, and newest-day-first ordering. | High | Keep |
 | HIST-005 | Watched-video detail | Hover/focus/click popover, thumbnails/fallbacks, aggregated watched duration, jump back to saved video, missing-video warning, forced reveal, scroll, and arrival highlight. | High | Keep |
 | HIST-006 | Point breakdown | Daily total, per-video fractional contribution, Anki review contribution, empty breakdown, hover/focus/touch opening, and outside/Escape closing. | High | Keep |
-| HIST-007 | Heatmap | Up to one year from first active week, localized weekdays/months, seven activity levels, five-day streak outlines, fixed 18px cells with 4px gaps, content-width growth up to the available space, newest-first internal horizontal scrolling, in-view position preservation, and legend. | High | Keep |
+| HIST-007 | Heatmap | Up to one year from first active week, localized weekdays/months, seven activity levels, five-day streak outlines, fixed 18px cells with 4px gaps, content-width growth up to the available space, newest-first internal horizontal scrolling, in-view position preservation, and legend. | High | Approved change (RESP-HIST-001) |
 | HIST-008 | Heatmap tooltip | Date, points, streak badge, video time/count, conditional historical Anki rows, hover/focus/tap behavior, viewport-aware positioning, and outside dismissal. | High | Keep |
 | HIST-009 | History empty states | No activity in selected range, no activity map, no available period, zero watched count, and empty point breakdown remain distinct. | Medium | Keep |
-| HIST-010 | Responsive history | Two-by-two phone summary metrics, full-width view/range controls, phone fixed-bottom detail sheets, shared 18px heatmap cells with internal horizontal scrolling, and hidden empty mobile range toolbar. | High | Keep |
+| HIST-010 | Responsive history | Two-by-two phone summary metrics, full-width view/range controls, phone fixed-bottom detail sheets, shared 18px heatmap cells with internal horizontal scrolling, and hidden empty mobile range toolbar. | High | Approved change (RESP-HIST-001) |
 
 ## Video feed, channels, and playback
 

@@ -59,7 +59,7 @@ candidate becomes implementable only after the user changes its status to
 | Migration ID | Inventory row | Approved difference | Implementation | Acceptance evidence |
 |---|---|---|---|---|
 | RESP-191 | PRIVACY-001 | Add one localized, low-emphasis Privacy link between Support and Feedback at every width, with a 44px touch target and no consent wall. | `4e32c97` and its #191 review follow-up | Footer contract tests plus completed-dashboard Playwright coverage across the six preserved viewport profiles |
-| RESP-HIST-001 | HIST-007, HIST-010 | Replace week-count and viewport-dependent heatmap sizing with fixed 18px cells and 4px gaps on every device. Let the card grow to the available width, then scroll internally; open at the newest week and preserve a learner's manual position until they leave Heatmap. | `56ac012` | `history-heatmap-layout.spec.mjs` coverage on desktop, tablet, and phone plus the existing heatmap tooltip and view-listener Playwright coverage |
+| RESP-HIST-001 | HIST-007, HIST-010 | Replace week-count and viewport-dependent heatmap sizing with fixed 18px cells and 4px gaps on every device. Let the card grow to the available width, then scroll internally; open at the newest week and preserve a learner's manual position until they leave Heatmap. | `56ac012` and its review follow-up | `history-heatmap-layout.spec.mjs` coverage on desktop, tablet, and phone plus the existing heatmap tooltip and view-listener Playwright coverage |
 
 ## Revisit
 

@@ -22,7 +22,7 @@ async function waitForApplication(page) {
   })
 }
 
-async function seedCompletedState(page) {
+async function seedOnboardedHeatmapProfile(page) {
   await page.goto('/')
   await waitForApplication(page)
   await page.evaluate(() => {
@@ -102,7 +102,7 @@ test('Study History heatmap keeps fixed cells and opens long history at the newe
 }, testInfo) => {
   test.skip(!TEST_PROJECTS.has(testInfo.project.name))
 
-  await seedCompletedState(page)
+  await seedOnboardedHeatmapProfile(page)
   await page.locator('[data-history-view="heatmap"]').click()
   const shortLayout = await readHeatmapLayout(page)
 
@@ -137,7 +137,7 @@ test('Study History heatmap preserves manual history position until the view is 
     testInfo.project.name
   ))
 
-  await seedCompletedState(page)
+  await seedOnboardedHeatmapProfile(page)
   await addLongHistoryAndVideo(page)
   const heatmapTab = page.locator('[data-history-view="heatmap"]')
   const summaryTab = page.locator('[data-history-view="summary"]')
