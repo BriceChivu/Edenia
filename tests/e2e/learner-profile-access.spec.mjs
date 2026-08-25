@@ -335,35 +335,114 @@ test('resolving profile access exposes no learner content and performs no autosa
   releaseAuthRequest?.()
 })
 
-test('locked profile access exposes no learner content and performs no autosave', async ({
+test('a signed-out owner can authenticate from locked access before cloud activation', async ({
   page
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
   let lifecycleEnabled = false
+  let profileEnvelope = null
+  let releaseResolution = null
+  let resolutionCount = 0
+  const resolutionBarrier = new Promise(resolve => {
+    releaseResolution = resolve
+  })
   await page.route('**/config.local.js', route => route.fulfill({
-    body: runtimeConfig({ lifecycle: lifecycleEnabled }),
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled
+    }),
     contentType: 'text/javascript',
     status: 200
   }))
+  await page.route('https://profile-access-test.supabase.co/**', async route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname === '/auth/v1/otp') {
+      await route.fulfill({ json: {}, status: 200 })
+      return
+    }
+    if (pathname === '/auth/v1/verify') {
+      await route.fulfill({ json: restoredSession(OWNER_ID), status: 200 })
+      return
+    }
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      resolutionCount += 1
+      await resolutionBarrier
+      await route.fulfill({
+        json: [{
+          created: false,
+          envelope: profileEnvelope,
+          generation: 1,
+          profile_id: OWNER_PROFILE_ID,
+          revision: 3,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+        }],
+        status: 200
+      })
+      return
+    }
+    await route.fulfill({ json: {}, status: 200 })
+  })
 
   await page.goto('/?internal_test=1')
-  const storedState = await seedPrivateLearnerProfile(page)
-  await page.evaluate(({ accessStorageKey, ownerId }) => {
-    localStorage.setItem(accessStorageKey, JSON.stringify({
-      activatedAt: 1_786_982_400_000,
-      activationId: null,
-      ownerId,
-      profileId: `owner:${ownerId}`,
-      version: 1
-    }))
-  }, { accessStorageKey: PROFILE_ACCESS_STORAGE_KEY, ownerId: OWNER_ID })
+  const storedState = await seedOwnedLearnerProfile(page)
+  profileEnvelope = (
+    await createPortableLearnerProfileEnvelope(JSON.parse(storedState))
+  ).envelope
+  await page.evaluate(authStorageKey => {
+    localStorage.removeItem(authStorageKey)
+  }, AUTH_STORAGE_KEY)
   lifecycleEnabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
 
-  await expectNeutralProfileGate(page, 'locked', storedState)
-  await expect(page.locator('#learnerProfileAccessTitle')).toHaveText(
-    'Welcome back — sign in to continue your town.'
-  )
+  try {
+    await expectNeutralProfileGate(page, 'locked', storedState)
+    await expect(page.locator('#learnerProfileAccessTitle')).toHaveText(
+      'Welcome back — sign in to continue your town.'
+    )
+    const openSignIn = page.getByRole('button', { name: 'Open sign-in' })
+    await expect(openSignIn).toBeVisible()
+    await openSignIn.focus()
+    await expect(openSignIn).toBeFocused()
+    await openSignIn.press('Enter')
+
+    await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+    await expect(page.locator('#settingsPanel')).toBeVisible()
+    await expect(page.getByRole('heading', {
+      name: 'Sign in or create your account'
+    })).toBeVisible()
+    await expect(page.locator('#accountEmail')).toBeFocused()
+
+    await page.locator('#settingsCloseBtn').click()
+    await expect(page.locator('#settingsPanel')).toBeHidden()
+    await expect(page.locator('#learnerProfileAccessGate')).toBeVisible()
+    await expect(openSignIn).toBeFocused()
+    await openSignIn.press('Enter')
+    await expect(page.locator('#accountEmail')).toBeFocused()
+
+    await page.locator('#accountEmail').fill('owner@example.com')
+    await page.getByRole('button', { name: 'Email me a code' }).click()
+    await page.locator('#accountEmailCode').fill('123456')
+    await page.getByRole('button', { name: 'Verify code' }).click()
+
+    await expect.poll(() => resolutionCount).toBe(1)
+    await expect(page.locator('#settingsPanel')).toBeHidden()
+    await expectNeutralProfileGate(page, 'waiting-cloud', storedState)
+
+    releaseResolution()
+    await expect(page.locator('#mainApp')).toBeVisible()
+    await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+    await expect(page.locator('html')).toHaveAttribute(
+      'data-learner-profile-access-state',
+      'active'
+    )
+    await expect.poll(() => page.evaluate(key => (
+      JSON.parse(localStorage.getItem(key)).config.channels.map(
+        channel => channel.name
+      )
+    ), STATE_STORAGE_KEY)).toContain(SECRET_CHANNEL_NAME)
+  } finally {
+    releaseResolution()
+  }
 })
 
 test('a missing cloud head offers neutral local and protected recovery copies', async ({

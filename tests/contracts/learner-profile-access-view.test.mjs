@@ -38,6 +38,7 @@ function createHarness() {
     ['learnerProfileAccessTitle', createElement()],
     ['learnerProfileAccessBody', createElement()],
     ['learnerProfileAccessStatus', createElement()],
+    ['learnerProfileAccessOpenSignIn', createElement()],
     ['learnerProfileAccessRetry', createElement()],
     ['learnerProfileAccessSignOut', createElement()],
     ['learnerProfileAccessContinue', createElement()],
@@ -65,18 +66,26 @@ function createHarness() {
 
 test('retryable profile access states expose neutral recovery controls', () => {
   const { elements, root, view } = createHarness()
+  const openSignIn = elements.get('learnerProfileAccessOpenSignIn')
   const retry = elements.get('learnerProfileAccessRetry')
   const signOut = elements.get('learnerProfileAccessSignOut')
 
   for (const status of ['waiting-cloud', 'recovering', 'conflicting']) {
     view.render({ status })
     assert.equal(root.documentElement.dataset.learnerProfileAccessState, status)
+    assert.equal(openSignIn.hidden, true)
     assert.equal(retry.hidden, false)
     assert.equal(signOut.hidden, false)
   }
 
-  for (const status of ['resolving', 'locked', 'waiting-authentication']) {
+  view.render({ status: 'resolving' })
+  assert.equal(openSignIn.hidden, true)
+  assert.equal(retry.hidden, true)
+  assert.equal(signOut.hidden, true)
+
+  for (const status of ['locked', 'waiting-authentication']) {
     view.render({ status })
+    assert.equal(openSignIn.hidden, false)
     assert.equal(retry.hidden, true)
     assert.equal(signOut.hidden, true)
   }
@@ -92,11 +101,16 @@ test('active profile access hides the guarded surface and recovery controls', ()
     elements.get('learnerProfileAccessGate').classList.contains('hidden'),
     true
   )
+  assert.equal(elements.get('learnerProfileAccessOpenSignIn').hidden, true)
   assert.equal(elements.get('learnerProfileAccessRetry').hidden, true)
   assert.equal(elements.get('learnerProfileAccessSignOut').hidden, true)
 })
 
-test('the guarded profile surface contains retry and safe sign-out controls', () => {
+test('the guarded profile surface contains authentication, retry, and safe sign-out controls', () => {
+  assert.match(
+    html,
+    /id="learnerProfileAccessOpenSignIn"[^>]*data-profile-access-action="open-sign-in"[^>]*hidden/
+  )
   assert.match(
     html,
     /id="learnerProfileAccessRetry"[^>]*data-profile-access-action="retry"[^>]*hidden/
