@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Edenia locked sign-in panel prototype</title>
+  <link rel="icon" type="image/png" href="../../Edenia_favicon_round.png">
+  <link rel="stylesheet" href="prototype.css">
+</head>
+<body>
+  <!-- Three in-panel sign-in directions, switchable via ?variant=, on a throwaway prototype route. -->
+  <main class="prototype-stage">
+    <section class="access-card" data-access-card aria-live="polite"></section>
+  </main>
+
+  <aside class="prototype-state" aria-label="Prototype state">
+    <span>Throwaway prototype</span>
+    <output data-state-label></output>
+    <button type="button" data-reset>Reset preview</button>
+  </aside>
+
+  <aside class="prototype-switcher" aria-label="Design direction switcher">
+    <button type="button" data-variant-previous aria-label="Previous design direction">←</button>
+    <output data-variant-label></output>
+    <button type="button" data-variant-next aria-label="Next design direction">→</button>
+  </aside>
+
+  <script src="prototype.js"></script>
+</body>
+</html>
