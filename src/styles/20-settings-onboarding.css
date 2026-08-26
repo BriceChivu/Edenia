@@ -1534,6 +1534,13 @@ body[data-theme="dark"] .backup-panel {
 body[data-theme="dark"] .activity-log-panel {
   background: color-mix(in srgb, var(--surface-hi) 58%, transparent);
 }
-.settings-panel.account-only .settings-group:not(.settings-account) {
+.settings-panel.account-only :is(
+  .settings-group:not(.settings-account),
+  .activity-log-panel,
+  .backup-panel,
+  .settings-replay-group,
+  .settings-data-group,
+  .settings-creator
+) {
   display: none;
 }

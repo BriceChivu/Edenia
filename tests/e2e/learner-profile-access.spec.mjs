@@ -463,6 +463,20 @@ test('a signed-out owner can authenticate from locked access before cloud activa
     )
     await expect(page.locator('#accountEmail')).toBeFocused()
 
+    const nonAccountSettingsGroups = [
+      page.locator('.settings-locale-group'),
+      page.locator('.settings-shorts-group'),
+      page.locator('.settings-howto-group'),
+      page.locator('.activity-log-panel'),
+      page.locator('.backup-panel'),
+      page.locator('.settings-replay-group'),
+      page.locator('.settings-data-group'),
+      page.locator('.settings-creator')
+    ]
+    for (const group of nonAccountSettingsGroups) {
+      await expect(group).toBeHidden()
+    }
+
     await page.locator('#settingsCloseBtn').click()
     await expect(page.locator('#settingsPanel')).toBeHidden()
     await expect(page.locator('#learnerProfileAccessGate')).toBeVisible()
