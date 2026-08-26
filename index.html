@@ -170,6 +170,15 @@
       <h1 id="learnerProfileAccessTitle"></h1>
       <p id="learnerProfileAccessBody"></p>
       <p class="legacy-progress-migration-status" id="learnerProfileAccessStatus" role="status" aria-live="polite"></p>
+      <section class="learner-profile-access-authentication hidden" id="learnerProfileAccessAuthentication" aria-labelledby="learnerProfileAccessAuthenticationTitle" aria-describedby="learnerProfileAccessAuthenticationBody learnerProfileAccessAuthenticationStatus">
+        <div class="learner-profile-access-authentication-heading">
+          <h1 id="learnerProfileAccessAuthenticationTitle" data-i18n="profileAccess.authentication.title">Sign in to unlock your profile</h1>
+          <p id="learnerProfileAccessAuthenticationBody" data-i18n="profileAccess.authentication.body">Use the account that owns this learner profile.</p>
+        </div>
+        <div class="learner-profile-access-authentication-content" id="learnerProfileAccessAuthenticationContent"></div>
+        <button class="btn-ghost learner-profile-access-authentication-back" type="button" data-profile-access-action="close-sign-in" data-i18n="profileAccess.authentication.back">Back to locked message</button>
+        <p class="legacy-progress-migration-status learner-profile-access-authentication-status" id="learnerProfileAccessAuthenticationStatus" data-i18n="profileAccess.authentication.status">Your learner profile stays hidden until ownership checks succeed.</p>
+      </section>
       <section class="learner-profile-recovery hidden" id="learnerProfileRecovery" aria-labelledby="learnerProfileRecoveryTitle">
         <h2 id="learnerProfileRecoveryTitle" data-i18n="profileAccess.recovery.title">Available recovery copies</h2>
         <ul class="learner-profile-recovery-list" id="learnerProfileRecoveryList" data-profile-recovery-list></ul>

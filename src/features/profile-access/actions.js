@@ -7,6 +7,7 @@ export function bindLearnerProfileAccessActions(root, actions) {
   if (
     !actions
     || typeof actions.continueReplacement !== 'function'
+    || typeof actions.closeSignIn !== 'function'
     || typeof actions.discardReplacement !== 'function'
     || typeof actions.exportReplacement !== 'function'
     || typeof actions.exportRecovery !== 'function'
@@ -22,6 +23,7 @@ export function bindLearnerProfileAccessActions(root, actions) {
 
   let installedCount = 0
   const controls = [
+    ['close-sign-in', actions.closeSignIn],
     ['continue-replacement', actions.continueReplacement],
     ['export-replacement', actions.exportReplacement],
     ['discard-replacement', actions.discardReplacement],

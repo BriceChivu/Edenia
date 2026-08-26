@@ -67,6 +67,62 @@ body[data-theme="dark"] .legacy-progress-migration {
   flex-basis: 100%;
   text-align: right;
 }
+.learner-profile-access-authentication {
+  display: grid;
+  gap: 16px;
+}
+.learner-profile-access-authentication-heading {
+  display: grid;
+  gap: 9px;
+  text-align: center;
+}
+.learner-profile-access-authentication-heading p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+.learner-profile-access-authentication-content {
+  display: grid;
+  gap: 14px;
+}
+.learner-profile-access-authentication-content .settings-account-intro {
+  display: none;
+}
+.learner-profile-access-authentication-content :is(
+  .settings-account-signed-out,
+  .settings-account-email-form,
+  .settings-account-code-form
+) {
+  gap: 12px;
+}
+.learner-profile-access-authentication-content :is(
+  .settings-account-email-form,
+  .settings-account-code-form
+) > button {
+  width: 100%;
+}
+.learner-profile-access-authentication-back {
+  justify-self: start;
+  padding-left: 0;
+}
+.learner-profile-access-authentication-status {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  text-align: center;
+}
+.learner-profile-access-card:has(
+  > .learner-profile-access-authentication:not(.hidden)
+) > .legacy-progress-migration-brand {
+  display: block;
+  text-align: center;
+}
+.learner-profile-access-card:has(
+  > .learner-profile-access-authentication:not(.hidden)
+) > :not(
+  .legacy-progress-migration-brand,
+  .learner-profile-access-authentication
+) {
+  display: none;
+}
 .accountless-profile-migration {
   align-items: flex-end;
   display: flex;

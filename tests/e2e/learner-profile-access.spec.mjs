@@ -29,6 +29,38 @@ const CONFIG_COOKIE_KEY = 'edenia_config_internal_test'
 const STATE_STORAGE_KEY = 'edenia_v1_internal_test'
 const OWNER_PROFILE_ID = '323e4567-e89b-42d3-a456-426614174002'
 const OTHER_OWNER_PROFILE_ID = '423e4567-e89b-42d3-a456-426614174003'
+const GUARDED_AUTHENTICATION_COPY = Object.freeze({
+  en: {
+    back: 'Back to locked message',
+    body: 'Use the account that owns this learner profile.',
+    status: 'Your learner profile stays hidden until ownership checks succeed.',
+    title: 'Sign in to unlock your profile'
+  },
+  'zh-Hant': {
+    back: '返回鎖定提示',
+    body: '請使用擁有此學習檔案的帳戶。',
+    status: '在擁有權驗證成功前，你的學習檔案將保持隱藏。',
+    title: '登入以解鎖你的學習檔案'
+  },
+  'zh-Hans': {
+    back: '返回锁定提示',
+    body: '请使用拥有此学习档案的账户。',
+    status: '在所有权验证成功前，你的学习档案将保持隐藏。',
+    title: '登录以解锁你的学习档案'
+  },
+  es: {
+    back: 'Volver al mensaje de bloqueo',
+    body: 'Usa la cuenta propietaria de este perfil de estudiante.',
+    status: 'Tu perfil de estudiante permanecerá oculto hasta que se verifique la propiedad.',
+    title: 'Inicia sesión para desbloquear tu perfil'
+  },
+  fr: {
+    back: 'Revenir au message de verrouillage',
+    body: 'Utilisez le compte propriétaire de ce profil d’apprentissage.',
+    status: 'Votre profil d’apprentissage reste masqué jusqu’à la vérification de son propriétaire.',
+    title: 'Connectez-vous pour déverrouiller votre profil'
+  }
+})
 
 function runtimeConfig({
   accountFeaturesRollout = 'off',
@@ -381,7 +413,11 @@ test('resolving profile access exposes no learner content and performs no autosa
 test('a signed-out owner can authenticate from locked access before cloud activation', async ({
   page
 }, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  test.skip(![
+    'desktop-standard',
+    'tablet-portrait',
+    'phone-small'
+  ].includes(testInfo.project.name))
   let lifecycleEnabled = false
   let profileEnvelope = null
   let releaseResolution = null
@@ -445,17 +481,86 @@ test('a signed-out owner can authenticate from locked access before cloud activa
     await expect(page.locator('#learnerProfileAccessTitle')).toHaveText(
       'Welcome back — sign in to continue your town.'
     )
+
+    if (testInfo.project.name === 'desktop-standard') {
+      for (const [locale, copy] of Object.entries(
+        GUARDED_AUTHENTICATION_COPY
+      )) {
+        await page.evaluate(({ configCookieKey, locale }) => {
+          document.cookie = `${configCookieKey}=${encodeURIComponent(
+            JSON.stringify({ locale })
+          )}; path=/`
+        }, { configCookieKey: CONFIG_COOKIE_KEY, locale })
+        await page.reload({ waitUntil: 'domcontentloaded' })
+        await expectNeutralProfileGate(page, 'locked', storedState)
+        await page.locator('#learnerProfileAccessOpenSignIn').click()
+        const localizedAuthentication = page.locator(
+          '#learnerProfileAccessAuthentication'
+        )
+        await expect(localizedAuthentication).toBeVisible()
+        await expect(page.locator(
+          '#learnerProfileAccessAuthenticationTitle'
+        )).toHaveText(copy.title)
+        await expect(page.locator(
+          '#learnerProfileAccessAuthenticationBody'
+        )).toHaveText(copy.body)
+        await expect(page.locator(
+          '#learnerProfileAccessAuthenticationStatus'
+        )).toHaveText(copy.status)
+        await expect(localizedAuthentication.locator(
+          '[data-profile-access-action="close-sign-in"]'
+        )).toHaveText(copy.back)
+        expect(await page.evaluate(() => ({
+          card: document.querySelector('.learner-profile-access-card')
+            ?.scrollWidth > document.querySelector('.learner-profile-access-card')
+              ?.clientWidth,
+          document: document.documentElement.scrollWidth
+            > document.documentElement.clientWidth
+        }))).toEqual({ card: false, document: false })
+        await localizedAuthentication.locator(
+          '[data-profile-access-action="close-sign-in"]'
+        ).click()
+      }
+      await page.evaluate(configCookieKey => {
+        document.cookie = `${configCookieKey}=${encodeURIComponent(
+          JSON.stringify({ locale: 'en' })
+        )}; path=/`
+      }, CONFIG_COOKIE_KEY)
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await expectNeutralProfileGate(page, 'locked', storedState)
+    }
+
     const openSignIn = page.getByRole('button', { name: 'Open sign-in' })
     await expect(openSignIn).toBeVisible()
     await openSignIn.focus()
     await expect(openSignIn).toBeFocused()
     await openSignIn.press('Enter')
 
-    await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
-    await expect(page.locator('#settingsPanel')).toBeVisible()
-    await expect(page.getByRole('heading', {
-      name: 'Sign in or create your account'
+    await expect(page.locator('#learnerProfileAccessGate')).toBeVisible()
+    await expect(page.locator('#settingsPanel')).toBeHidden()
+    const guardedSignIn = page.locator('#learnerProfileAccessAuthentication')
+    await expect(guardedSignIn).toBeVisible()
+    await expect(guardedSignIn.getByRole('heading', {
+      name: 'Sign in to unlock your profile'
     })).toBeVisible()
+    await expect(guardedSignIn).toContainText(
+      'Use the account that owns this learner profile.'
+    )
+    await expect(page.locator(
+      '#learnerProfileAccessAuthenticationStatus'
+    )).toHaveText(
+      'Your learner profile stays hidden until ownership checks succeed.'
+    )
+    await expect(page.locator(
+      '.learner-profile-access-card > .legacy-progress-migration-brand'
+    )).toHaveCSS('text-align', 'center')
+    expect(await page.evaluate(() => ({
+      card: document.querySelector('.learner-profile-access-card')
+        ?.scrollWidth > document.querySelector('.learner-profile-access-card')
+          ?.clientWidth,
+      document: document.documentElement.scrollWidth
+        > document.documentElement.clientWidth
+    }))).toEqual({ card: false, document: false })
     const googleSignIn = page.locator('#accountGoogleIdentityButton button')
     await expect(googleSignIn).toBeVisible()
     await expect(googleSignIn).toHaveAccessibleName(
@@ -463,23 +568,11 @@ test('a signed-out owner can authenticate from locked access before cloud activa
     )
     await expect(page.locator('#accountEmail')).toBeFocused()
 
-    const nonAccountSettingsGroups = [
-      page.locator('.settings-locale-group'),
-      page.locator('.settings-shorts-group'),
-      page.locator('.settings-howto-group'),
-      page.locator('.activity-log-panel'),
-      page.locator('.backup-panel'),
-      page.locator('.settings-replay-group'),
-      page.locator('.settings-data-group'),
-      page.locator('.settings-creator')
-    ]
-    for (const group of nonAccountSettingsGroups) {
-      await expect(group).toBeHidden()
-    }
-
-    await page.locator('#settingsCloseBtn').click()
-    await expect(page.locator('#settingsPanel')).toBeHidden()
-    await expect(page.locator('#learnerProfileAccessGate')).toBeVisible()
+    await guardedSignIn.getByRole('button', {
+      name: 'Back to locked message'
+    }).click()
+    await expect(guardedSignIn).toBeHidden()
+    await expect(page.locator('#learnerProfileAccessTitle')).toBeVisible()
     await expect(openSignIn).toBeFocused()
     await openSignIn.press('Enter')
     await expect(page.locator('#accountEmail')).toBeFocused()

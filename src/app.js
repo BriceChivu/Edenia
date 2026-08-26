@@ -2813,21 +2813,15 @@ function renderActivatedLearnerProfile(state) {
 }
 
 function handleLearnerProfileAccessStateChange(accessState) {
-  const settingsPanel = document.getElementById('settingsPanel')
   const profileAccessGate = document.getElementById('learnerProfileAccessGate')
   const transfersProfileAccessFocusToApplication =
     profileAccessGate?.contains(document.activeElement) === true
   const closesProfileAccessAuthentication = (
-    settingsPanel?.classList.contains('learner-profile-access-auth')
+    profileAccessGate?.classList.contains('authentication-open')
     && !isLearnerProfileAuthenticationState(accessState.status)
   )
   if (closesProfileAccessAuthentication) {
-    settingsPanel.classList.remove(
-      'account-only',
-      'learner-profile-access-auth'
-    )
-    settingsPanel.classList.add('hidden')
-    openSettings.returnFocus = null
+    closeLearnerProfileAccessSignIn({ returnFocus: false })
   }
   learnerProfileAccessView.render(accessState)
   if (
@@ -6449,18 +6443,10 @@ function openSettings() {
 function closeSettings() {
   const panel = document.getElementById('settingsPanel')
   if (!panel || panel.classList.contains('hidden')) return
-  const returnsToProfileAccess = panel.classList.contains(
-    'learner-profile-access-auth'
-  )
-  panel.classList.remove('account-only', 'learner-profile-access-auth')
+  panel.classList.remove('account-only')
   hide('settingsPanel')
   const main = document.getElementById('mainApp')
-  if (main) main.inert = returnsToProfileAccess
-  if (returnsToProfileAccess) {
-    learnerProfileAccessView.render(
-      learnerProfileLifecycleAuthority?.getState()
-    )
-  }
+  if (main) main.inert = false
   const returnFocus = openSettings.returnFocus
   openSettings.returnFocus = null
   if (returnFocus?.isConnected) window.setTimeout(() => returnFocus.focus(), 0)
@@ -6485,22 +6471,96 @@ function setSettingsAccountOpen(isOpen) {
 }
 
 function openAccountSignIn({ fromProfileAccess = false } = {}) {
-  const panel = document.getElementById('settingsPanel')
-  panel?.classList.toggle('learner-profile-access-auth', fromProfileAccess)
+  if (fromProfileAccess) {
+    openLearnerProfileAccessSignIn()
+    return
+  }
   renderAccountSettings()
   setSettingsAccountOpen(true)
   openSettingsShell({ accountOnly: true, focusId: 'accountEmail' })
-  if (fromProfileAccess) {
-    document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
-  }
 }
 
 function openAccountlessProfileMigrationSignIn() {
   openAccountSignIn()
 }
 
+function getLearnerProfileAuthenticationControls() {
+  const controls = {
+    feedback: document.getElementById('accountFeedback'),
+    loading: document.getElementById('accountLoading'),
+    signedIn: document.getElementById('accountSignedIn'),
+    signedOut: document.getElementById('accountSignedOut')
+  }
+  return Object.values(controls).every(Boolean) ? controls : null
+}
+
+function moveLearnerProfileAuthenticationControls(destination) {
+  const controls = getLearnerProfileAuthenticationControls()
+  if (!destination || !controls) return false
+  destination.append(controls.loading, controls.signedOut, controls.feedback)
+  return true
+}
+
+function restoreLearnerProfileAuthenticationControls() {
+  const accountContent = document.getElementById('accountSettingsContent')
+  const controls = getLearnerProfileAuthenticationControls()
+  if (!accountContent || !controls) return false
+  accountContent.prepend(controls.loading)
+  controls.signedIn.before(controls.signedOut)
+  accountContent.append(controls.feedback)
+  return true
+}
+
+function closeLearnerProfileAccessSignIn({ returnFocus = true } = {}) {
+  const gate = document.getElementById('learnerProfileAccessGate')
+  const authentication = document.getElementById(
+    'learnerProfileAccessAuthentication'
+  )
+  if (!gate?.classList.contains('authentication-open')) return false
+  restoreLearnerProfileAuthenticationControls()
+  authentication?.classList.add('hidden')
+  gate.classList.remove('authentication-open')
+  gate.setAttribute('aria-labelledby', 'learnerProfileAccessTitle')
+  gate.setAttribute(
+    'aria-describedby',
+    'learnerProfileAccessBody learnerProfileAccessStatus'
+  )
+  learnerProfileAccessView.render(
+    learnerProfileLifecycleAuthority?.getState()
+  )
+  if (returnFocus) {
+    window.setTimeout(() => {
+      document.getElementById('learnerProfileAccessOpenSignIn')?.focus()
+    }, 0)
+  }
+  return true
+}
+
 function openLearnerProfileAccessSignIn() {
-  openAccountSignIn({ fromProfileAccess: true })
+  const gate = document.getElementById('learnerProfileAccessGate')
+  const authentication = document.getElementById(
+    'learnerProfileAccessAuthentication'
+  )
+  const content = document.getElementById(
+    'learnerProfileAccessAuthenticationContent'
+  )
+  if (!gate || !authentication || !content) return false
+  renderAccountSettings()
+  if (!moveLearnerProfileAuthenticationControls(content)) return false
+  gate.classList.add('authentication-open')
+  gate.setAttribute(
+    'aria-labelledby',
+    'learnerProfileAccessAuthenticationTitle'
+  )
+  gate.setAttribute(
+    'aria-describedby',
+    'learnerProfileAccessAuthenticationBody learnerProfileAccessAuthenticationStatus'
+  )
+  authentication.classList.remove('hidden')
+  mountGoogleIdentityServicesButtons(authentication)
+  mountTurnstileWidgets(authentication)
+  window.setTimeout(() => document.getElementById('accountEmail')?.focus(), 0)
+  return true
 }
 
 function toggleSettingsAccount() {
@@ -18225,6 +18285,7 @@ bindAccountlessProfileMigrationActions(document, {
   retry: () => accountlessProfileMigrationController?.retry()
 })
 bindLearnerProfileAccessActions(document, {
+  closeSignIn: closeLearnerProfileAccessSignIn,
   continueReplacement: continueLearnerProfileOwnerReplacement,
   discardReplacement: discardAndReplaceLearnerProfileOwner,
   exportReplacement: exportAndReplaceLearnerProfileOwner,
