@@ -4554,7 +4554,8 @@ function startPendingStarterFeedPreparation(
   if (IS_SANDBOX || starterFeedPreparationPromise || !getActiveStarterFeed(state)) {
     return starterFeedPreparationPromise
   }
-  const request = runPendingStarterFeedPreparation(state)
+  const request = Promise.resolve()
+    .then(() => runPendingStarterFeedPreparation(state))
     .catch(error => {
       console.error('Starter feed preparation:', error)
       showToast(t('onboarding.starterFeed.failed'), 'error')

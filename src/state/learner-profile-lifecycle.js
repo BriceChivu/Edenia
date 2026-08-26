@@ -466,6 +466,19 @@ export function createLearnerProfileLifecycleAuthority({
           publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
           return
         }
+        const finalizedLocalProfile = localPersistence.read()
+        if (
+          !isSignedInProfile(finalizedLocalProfile)
+          || finalizedLocalProfile.ownerId !== result.ownerId
+          || finalizedLocalProfile.profileId !== result.profileId
+          || finalizedLocalProfile.generation !== result.generation
+          || finalizedLocalProfile.revision !== result.revision
+        ) {
+          localPersistence.releaseActivation(activation)
+          publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+          return
+        }
+        activationProfile.profile = finalizedLocalProfile.profile
         const activationState = activateProfile(activationProfile, activation, {
           protectedConflicts: result.protectedConflicts || [],
           protectedReset
