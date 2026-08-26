@@ -217,14 +217,19 @@ URL is opened during the transition.
 
 Neither the ID token nor nonce is decoded, logged, persisted by Edenia, placed
 in analytics, or exposed to view state. The official button may appear in
-Settings and the optional final onboarding step. The classic GIS script is
-loaded without a forced CORS mode and with ITP support enabled.
+Settings, the optional final onboarding step, and the guarded returning-owner
+surface. That guarded surface reuses the same control inside the identity-neutral
+profile-access card; it does not open Settings or reveal learner content. The
+classic GIS script is loaded without a forced CORS mode and with ITP support
+enabled.
 
 ## Same-device email verification codes
 
-Settings and onboarding offer one email path: request a six-digit code, then
-enter it in the same form and browser. The controller normalizes the address
-and requests the code without any redirect destination:
+Settings, onboarding, and guarded returning-owner access offer one email path:
+request a six-digit code, then enter it in the same form and browser. The
+guarded surface reuses the existing controls inside the profile-access card.
+The controller normalizes the address and requests the code without any
+redirect destination:
 
 ```js
 client.auth.signInWithOtp({

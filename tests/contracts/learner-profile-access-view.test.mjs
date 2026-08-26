@@ -118,6 +118,14 @@ test('the guarded profile surface contains authentication, retry, and safe sign-
   )
   assert.match(
     html,
+    /id="learnerProfileAccessAuthentication"[^>]*aria-labelledby="learnerProfileAccessAuthenticationTitle"/
+  )
+  assert.match(
+    html,
+    /data-profile-access-action="close-sign-in"[^>]*data-i18n="profileAccess\.authentication\.back"/
+  )
+  assert.match(
+    html,
     /id="learnerProfileAccessRetry"[^>]*data-profile-access-action="retry"[^>]*hidden/
   )
   assert.match(

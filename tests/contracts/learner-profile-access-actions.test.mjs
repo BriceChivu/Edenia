@@ -5,6 +5,7 @@ import {
 } from '../../src/features/profile-access/actions.js'
 
 const selectors = {
+  closeSignIn: '[data-profile-access-action="close-sign-in"]',
   continueReplacement: '[data-profile-access-action="continue-replacement"]',
   discardReplacement: '[data-profile-access-action="discard-replacement"]',
   exportReplacement: '[data-profile-access-action="export-replacement"]',
@@ -39,6 +40,7 @@ test('profile access controls forward protected replacement and recovery intent'
   const calls = []
 
   assert.equal(bindLearnerProfileAccessActions(root, {
+    closeSignIn: () => calls.push('close-sign-in'),
     continueReplacement: () => calls.push('continue-replacement'),
     discardReplacement: () => calls.push('discard-replacement'),
     exportReplacement: () => calls.push('export-replacement'),
@@ -47,8 +49,9 @@ test('profile access controls forward protected replacement and recovery intent'
     retry: () => calls.push('retry'),
     restoreRecovery: candidateId => calls.push(`restore-recovery:${candidateId}`),
     signOut: () => calls.push('sign-out')
-  }), 7)
+  }), 8)
 
+  controls.get(selectors.closeSignIn).dispatch('click')
   controls.get(selectors.continueReplacement).dispatch('click')
   controls.get(selectors.exportReplacement).dispatch('click')
   controls.get(selectors.discardReplacement).dispatch('click')
@@ -77,6 +80,7 @@ test('profile access controls forward protected replacement and recovery intent'
   })
 
   assert.deepEqual(calls, [
+    'close-sign-in',
     'continue-replacement',
     'export-replacement',
     'discard-replacement',
@@ -91,6 +95,7 @@ test('profile access controls forward protected replacement and recovery intent'
 test('profile access recovery binding is idempotent and boundary checked', () => {
   const { root } = createHarness()
   const actions = {
+    closeSignIn() {},
     continueReplacement() {},
     discardReplacement() {},
     exportReplacement() {},
@@ -101,7 +106,7 @@ test('profile access recovery binding is idempotent and boundary checked', () =>
     signOut() {}
   }
 
-  assert.equal(bindLearnerProfileAccessActions(root, actions), 7)
+  assert.equal(bindLearnerProfileAccessActions(root, actions), 8)
   assert.equal(bindLearnerProfileAccessActions(root, actions), 0)
   assert.equal(bindLearnerProfileAccessActions(createHarness([]).root, actions), 0)
   assert.throws(
