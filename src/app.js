@@ -2719,7 +2719,8 @@ function initBackgroundPhysics() {
 }
 
 function startApplicationWithState(initialState, {
-  accountAuthInitialized = false
+  accountAuthInitialized = false,
+  deferStarterFeedUntilProfileActivation = false
 } = {}) {
   if (applicationStarted) return
   applicationStarted = true
@@ -2770,7 +2771,8 @@ function startApplicationWithState(initialState, {
   synchronizeGoogleIdentityServices()
   const noAnkiPromptScheduled = !onboardingExperienceStarted && maybeStartNoAnkiFrequentUserPrompt(state)
   const starterFeedRequest = startPendingStarterFeedPreparation(state, {
-    deferAnki: noAnkiPromptScheduled
+    deferAnki: noAnkiPromptScheduled,
+    deferUntilProfileActivation: deferStarterFeedUntilProfileActivation
   })
   if (!IS_SANDBOX) {
     if (state.onboarding.setupCompleted) {
@@ -2934,7 +2936,10 @@ function handleLearnerProfileAccessStateChange(accessState) {
     const mainApp = document.getElementById('mainApp')
     mainApp?.removeAttribute('inert')
     if (!applicationStarted) {
-      startApplicationWithState(state, { accountAuthInitialized: true })
+      startApplicationWithState(state, {
+        accountAuthInitialized: true,
+        deferStarterFeedUntilProfileActivation: Boolean(accessState.ownerId)
+      })
     } else {
       renderActivatedLearnerProfile(state)
     }
@@ -4615,12 +4620,21 @@ async function runPendingStarterFeedPreparation(initialState) {
 
 function startPendingStarterFeedPreparation(
   state = loadState(),
-  { deferAnki = false } = {}
+  {
+    deferAnki = false,
+    deferUntilProfileActivation = false
+  } = {}
 ) {
   if (IS_SANDBOX || starterFeedPreparationPromise || !getActiveStarterFeed(state)) {
     return starterFeedPreparationPromise
   }
-  const request = runPendingStarterFeedPreparation(state)
+  let resolveRun
+  let rejectRun
+  const runCompletion = new Promise((resolve, reject) => {
+    resolveRun = resolve
+    rejectRun = reject
+  })
+  const request = runCompletion
     .catch(error => {
       console.error('Starter feed preparation:', error)
       showToast(t('onboarding.starterFeed.failed'), 'error')
@@ -4632,6 +4646,14 @@ function startPendingStarterFeedPreparation(
       startYoutubeAutoRefresh()
     })
   starterFeedPreparationPromise = request
+  const run = () => {
+    void runPendingStarterFeedPreparation(state).then(resolveRun, rejectRun)
+  }
+  if (deferUntilProfileActivation) {
+    void Promise.resolve().then(run)
+  } else {
+    run()
+  }
   return request
 }
 

@@ -56,12 +56,14 @@ function createHarness({
   }),
   cloudRecoveryCandidate = { status: 'recovering' },
   cloudResolution = { status: 'waiting' },
+  cloudSave = () => ({ status: 'saved' }),
   cloudRestore = { status: 'recovering' },
   cloudRetryResult = false,
   cloudStartOver = { status: 'recovering' },
   cloudSyncState = { status: 'idle' },
   cloudUndoStartOver = { status: 'recovering' },
   completeOnboardingFinalizationResult = true,
+  freshLocalProfileReads = false,
   accountlessProfileMigration = null,
   reconcileSignedInProfileResult = true,
   markDirtyResult = null,
@@ -177,7 +179,7 @@ function createHarness({
         },
         save(profile, context) {
           calls.push(['cloud-save', profile, context])
-          return Promise.resolve({ status: 'saved' })
+          return Promise.resolve(cloudSave(profile, context))
         },
         startOver(profile, context) {
           calls.push(['cloud-start-over', profile, context])
@@ -293,7 +295,15 @@ function createHarness({
         },
         read() {
           calls.push(['local-read'])
-          return currentLocal
+          if (
+            !freshLocalProfileReads
+            || !currentLocal?.profile
+            || typeof currentLocal.profile !== 'object'
+          ) return currentLocal
+          return {
+            ...currentLocal,
+            profile: structuredClone(currentLocal.profile)
+          }
         },
         reconcileSignedInProfile(profile, identity) {
           calls.push(['reconcile', profile, identity])
@@ -1501,6 +1511,51 @@ test('temporary cloud unavailability keeps a matching owned local profile active
     harness.calls.filter(([name]) => name === 'cloud-save').length,
     1
   )
+})
+
+test('a finalized signed-in profile remains eligible for its required cloud backup', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { marker: 'returning-owner-local-progress' }
+  let acceptedCloudSaveCount = 0
+  let resolutionCount = 0
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: () => {
+      resolutionCount += 1
+      return resolutionCount === 1
+        ? { status: 'waiting-cloud' }
+        : {
+            backupRequired: true,
+            generation: 1,
+            ownerId,
+            profile,
+            profileId: '223e4567-e89b-42d3-a456-426614174001',
+            revision: 4,
+            status: 'activate'
+          }
+    },
+    cloudSave(_profile, { isCurrent }) {
+      if (!isCurrent()) return { status: 'fenced' }
+      acceptedCloudSaveCount += 1
+      return { status: 'queued' }
+    },
+    cloudSyncState: { status: 'not-yet-backed-up' },
+    freshLocalProfileReads: true,
+    local: {
+      ownerId,
+      profile,
+      profileId: `owner:${ownerId}`,
+      status: 'ready'
+    }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+  harness.authority.retryCloudBackup()
+  await Promise.resolve()
+  await Promise.resolve()
+
+  assert.equal(acceptedCloudSaveCount, 1)
 })
 
 test('a provisional owned profile remains locally writable while its cloud head is unknown', async () => {
@@ -2896,6 +2951,154 @@ test('a new signed-in profile installs behind a locked owner record before activ
     revision: 1,
     status: 'ready'
   })
+})
+
+test('a new signed-in profile queues its selected recommendations before activation', () => {
+  const accessStorageKey = 'edenia_v1_profile_access_v1'
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const queuedAt = '2026-08-21T01:00:00.000Z'
+  const values = new Map()
+  let persistedProfile = null
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    removeItem: key => values.delete(key),
+    setItem: (key, value) => values.set(key, value)
+  }
+  const adapter = createLearnerProfileLocalPersistenceAdapter({
+    accessStorageKey,
+    accountlessProfileId: 'accountless:edenia_v1',
+    eventTarget: null,
+    hasProfile: () => Boolean(persistedProfile),
+    loadProfile: () => persistedProfile,
+    replaceProfile(profile) {
+      persistedProfile = profile
+      return { persisted: true, error: null }
+    },
+    saveProfile(profile, options, canPersist) {
+      assert.deepEqual(options, {
+        backup: false,
+        syncAnalytics: false
+      })
+      assert.equal(canPersist(), true)
+      persistedProfile = profile
+      return true
+    },
+    storage
+  })
+  const profile = {
+    learnerProfile: {
+      selectedChannelCatalogIds: [
+        'mandarin-daily',
+        'mandarin-stories'
+      ]
+    },
+    onboarding: {
+      setupCompletedAt: queuedAt,
+      starterFeed: {
+        status: 'idle',
+        catalogIds: []
+      }
+    }
+  }
+  const fence = {
+    activatedAt: 1_787_296_800_000,
+    id: 'first-profile-activation',
+    ownerId,
+    profileId
+  }
+
+  assert.equal(adapter.installSignedInProfile(profile, {
+    generation: 1,
+    installedAt: 1_787_296_800_000,
+    onboardingFinalizationPending: true,
+    ownerId,
+    profileId,
+    revision: 1
+  }), true)
+  assert.equal(adapter.claimActivation(fence), true)
+  assert.equal(adapter.completeOnboardingFinalization(fence), true)
+
+  assert.deepEqual(adapter.read().profile.onboarding.starterFeed, {
+    status: 'pending',
+    catalogIds: ['mandarin-daily', 'mandarin-stories'],
+    processedCatalogIds: [],
+    failedCatalogIds: [],
+    addedChannelCount: 0,
+    mergedVideoCount: 0,
+    skippedShortCount: 0,
+    queuedAt,
+    startedAt: null,
+    completedAt: null
+  })
+})
+
+test('a newer activation survives onboarding finalization by an earlier tab', () => {
+  const accessStorageKey = 'edenia_v1_profile_access_v1'
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const values = new Map()
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    removeItem: key => values.delete(key),
+    setItem: (key, value) => values.set(key, value)
+  }
+  let persistedProfile = null
+  let newerActivationClaimed = false
+  let laterTab
+  const earlierFence = {
+    activatedAt: 100,
+    id: 'earlier-tab',
+    ownerId,
+    profileId
+  }
+  const laterFence = { ...earlierFence, activatedAt: 200, id: 'later-tab' }
+  const createAdapter = () => createLearnerProfileLocalPersistenceAdapter({
+    accessStorageKey,
+    accountlessProfileId: 'accountless:edenia_v1',
+    eventTarget: null,
+    hasProfile: () => Boolean(persistedProfile),
+    loadProfile: () => persistedProfile,
+    replaceProfile(profile) {
+      persistedProfile = profile
+      return { persisted: true, error: null }
+    },
+    saveProfile(profile, _options, canPersist) {
+      if (!canPersist()) return false
+      newerActivationClaimed = laterTab.claimActivation(laterFence)
+      persistedProfile = profile
+      return true
+    },
+    storage
+  })
+  const earlierTab = createAdapter()
+  laterTab = createAdapter()
+  const profile = {
+    learnerProfile: {
+      selectedChannelCatalogIds: ['mandarin-daily']
+    },
+    onboarding: {
+      setupCompletedAt: '2026-08-21T01:00:00.000Z'
+    }
+  }
+
+  assert.equal(earlierTab.installSignedInProfile(profile, {
+    generation: 1,
+    installedAt: 50,
+    onboardingFinalizationPending: true,
+    ownerId,
+    profileId,
+    revision: 1
+  }), true)
+  assert.equal(earlierTab.claimActivation(earlierFence), true)
+
+  assert.equal(
+    earlierTab.completeOnboardingFinalization(earlierFence),
+    false
+  )
+  assert.equal(newerActivationClaimed, true)
+  assert.equal(laterTab.isActivationCurrent(laterFence), true)
+  assert.equal(laterTab.read().onboardingFinalizationPending, true)
 })
 
 test('verified migration attaches an accountless profile without rewriting its contents', () => {

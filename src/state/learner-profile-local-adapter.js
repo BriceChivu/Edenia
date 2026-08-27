@@ -1,3 +1,5 @@
+import { createPendingStarterFeed } from './onboarding-state.js'
+
 const PROFILE_ACCESS_RECORD_VERSION = 1
 
 function isRecord(value) {
@@ -687,6 +689,23 @@ export function createLearnerProfileLocalPersistenceAdapter({
     try {
       const current = readAccessRecord(storage, accessStorageKey).record
       if (!current?.onboardingFinalizationPending) return true
+      const profile = loadProfile()
+      if (!isRecord(profile)) return false
+      const finalizedProfile = {
+        ...profile,
+        onboarding: {
+          ...profile.onboarding,
+          starterFeed: createPendingStarterFeed(
+            profile.learnerProfile?.selectedChannelCatalogIds,
+            profile.onboarding?.setupCompletedAt
+          )
+        }
+      }
+      if (!saveProfile(finalizedProfile, {
+        backup: false,
+        syncAnalytics: false
+      }, () => isActivationCurrent(fence))) return false
+      if (!isActivationCurrent(fence)) return false
       storage.setItem(accessStorageKey, JSON.stringify({
         ...current,
         onboardingFinalizationPending: false

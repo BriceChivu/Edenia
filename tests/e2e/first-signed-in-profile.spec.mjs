@@ -26,6 +26,20 @@ const AUTHENTICATED_USER_ID = '123e4567-e89b-42d3-a456-426614174000'
 const CREATED_PROFILE_ID = '223e4567-e89b-42d3-a456-426614174001'
 const START_OVER_RESET_ID = '323e4567-e89b-42d3-a456-426614174002'
 const RETURNING_CHANNEL_NAME = 'RETURNING OWNER PRIVATE CHANNEL'
+const youtubeFixtures = {
+  channels: JSON.parse(await readFile(
+    new URL('../fixtures/youtube/channels.json', import.meta.url),
+    'utf8'
+  )),
+  playlistItems: JSON.parse(await readFile(
+    new URL('../fixtures/youtube/playlist-items.json', import.meta.url),
+    'utf8'
+  )),
+  videos: JSON.parse(await readFile(
+    new URL('../fixtures/youtube/videos.json', import.meta.url),
+    'utf8'
+  ))
+}
 
 function fakeAccessToken(userId) {
   const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url')
@@ -57,7 +71,7 @@ function authenticatedSession() {
   }
 }
 
-function runtimeConfig() {
+function runtimeConfig(overrides = {}) {
   return `window.EDENIA_CONFIG = ${JSON.stringify({
     accountFeaturesRollout: 'internal',
     freePlusEnabled: false,
@@ -69,14 +83,15 @@ function runtimeConfig() {
     studyGuidanceEnabled: false,
     supabasePublishableKey: 'test-publishable-key',
     supabaseUrl: SUPABASE_ORIGIN,
-    youtubeApiKey: ''
+    youtubeApiKey: '',
+    ...overrides
   })}`
 }
 
-async function installRuntimeConfig(page) {
+async function installRuntimeConfig(page, overrides = {}) {
   await useAccountReturnOrigin(page)
   await page.route('**/config.local.js*', route => route.fulfill({
-    body: runtimeConfig(),
+    body: runtimeConfig(overrides),
     contentType: 'text/javascript',
     status: 200
   }))
@@ -783,7 +798,14 @@ test('authentication creates and activates exactly one signed-in learner profile
   page
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
-  await installRuntimeConfig(page)
+  await installRuntimeConfig(page, { youtubeApiKey: 'fixture-key' })
+  await page.route('https://www.googleapis.com/youtube/v3/**', route => {
+    const endpoint = new URL(route.request().url()).pathname.split('/').at(-1)
+    return route.fulfill({
+      json: youtubeFixtures[endpoint],
+      status: 200
+    })
+  })
 
   const resolutionRequests = []
   let releaseResolution
@@ -893,6 +915,8 @@ test('authentication creates and activates exactly one signed-in learner profile
       selectedChannelCatalogIds:
         draftBeforeSignIn.selectedChannelCatalogIds.slice().sort()
     })
+    await expect(page.getByText('Fixture Study Video', { exact: true }))
+      .toBeVisible()
   } finally {
     releaseResolution()
   }
