@@ -13,3 +13,4 @@ test-results/
 blob-report/
 .cache/
 coverage/
+.vscode/
