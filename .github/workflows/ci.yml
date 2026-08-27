@@ -120,7 +120,7 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        if: steps.scope.outputs.contracts == 'true'
+        if: steps.scope.outputs.contracts == 'true' || steps.scope.outputs.supabase == 'true'
         run: npm ci
 
       - name: Validate channel catalogs
