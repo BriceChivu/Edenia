@@ -177,6 +177,25 @@ grant select on table first_profile_fixture to authenticated;
 
 insert into auth.users (id, email, email_confirmed_at)
 values (
+  '88888888-8888-4888-8888-888888888888',
+  'unrelated-learner@example.test',
+  statement_timestamp()
+);
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = '88888888-8888-4888-8888-888888888888';
+
+create temporary table unrelated_profile_fixture on commit drop as
+select status, created, generation, revision
+from public.resolve_my_learner_profile(
+  (select envelope from first_profile_fixture)
+);
+
+reset role;
+
+insert into auth.users (id, email, email_confirmed_at)
+values (
   '22222222-2222-4222-8222-222222222222',
   'other-learner@example.test',
   statement_timestamp()
@@ -248,9 +267,22 @@ set local request.jwt.claim.role = 'service_role';
 reset request.jwt.claim.sub;
 
 select results_eq(
-  $$select count(*) from public.learner_profile_heads$$,
-  array[2::bigint],
-  'the trusted server sees two separately owned heads'
+  $query$
+    select user_id::text
+    from public.learner_profile_heads
+    where user_id in (
+      '11111111-1111-4111-8111-111111111111',
+      '22222222-2222-4222-8222-222222222222',
+      '88888888-8888-4888-8888-888888888888'
+    )
+    order by user_id
+  $query$,
+  $$values
+    ('11111111-1111-4111-8111-111111111111'::text),
+    ('22222222-2222-4222-8222-222222222222'::text),
+    ('88888888-8888-4888-8888-888888888888'::text)
+  $$,
+  'the trusted server sees both scenario owners alongside unrelated profiles'
 );
 
 reset role;
