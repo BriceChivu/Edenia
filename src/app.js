@@ -1102,6 +1102,11 @@ function saveState(state, options = {}) {
     : savePersistedState(state, options)
 }
 
+function isCurrentLearnerProfileOperation(state) {
+  return !learnerProfileLifecycleAuthority
+    || learnerProfileLifecycleAuthority.readActiveProfile() === state
+}
+
 function hasPersistedLearnerProfile() {
   try {
     return localStorage.getItem(STORAGE_KEY) !== null
@@ -8392,6 +8397,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     silent: Boolean(silent)
   })
   const btn = document.getElementById('refreshBtn')
+  let originatingState = null
   if (btn) {
     btn.textContent = `↻ ${t('videos.refreshing')}`
     btn.classList.add('loading')
@@ -8405,6 +8411,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     }
 
     const s = loadState()
+    originatingState = s
     if (!hasYoutubeApiKey()) {
       showToast(t('toast.apiKeyMissing'), 'warn')
       trackRefreshCompleted(refreshStartedAtMs, {
@@ -8450,6 +8457,9 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     } catch (err) {
       console.warn('Channel profile pictures:', err.message)
     }
+    if (!isCurrentLearnerProfileOperation(s)) {
+      return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+    }
 
     await Promise.all(channelsToRefresh.map(async ch => {
       try {
@@ -8484,9 +8494,14 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
         errors.push({ channelId: ch.id, name: ch.name, message: err.message || t('log.unknownError') })
       }
     }))
+    if (!isCurrentLearnerProfileOperation(s)) {
+      return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+    }
 
     if (successfulChannels === 0) {
-      saveState(s)
+      if (!saveState(s)) {
+        return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+      }
       showToast(t('toast.refreshFailedChannels', { count: errors.length, plural: errors.length > 1 ? 's' : '' }), 'error')
       trackRefreshCompleted(refreshStartedAtMs, {
         trigger,
@@ -8500,6 +8515,9 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
 
     const unique = dedupeVideos(all)
     const detailsById = await getFetchedVideoDetails(s, unique, includeShorts)
+    if (!isCurrentLearnerProfileOperation(s)) {
+      return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+    }
     const mergeResult = mergeFetchedVideos(s, unique, detailsById, includeShorts)
     const mergedCount = mergeResult.mergedCount
     const skippedShorts = filteredShortsDuringFetch + mergeResult.skippedShorts
@@ -8514,7 +8532,9 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       })
     }
 
-    saveState(s)
+    if (!saveState(s)) {
+      return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+    }
     renderAll(s)
 
     const shortsMsg = formatSkippedShortsMessage(skippedShorts, mergedCount)
@@ -8539,6 +8559,12 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     }
 
   } catch (err) {
+    if (
+      originatingState
+      && !isCurrentLearnerProfileOperation(originatingState)
+    ) {
+      return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+    }
     console.error(err)
     const s = loadState()
     if (s) {
@@ -8566,7 +8592,10 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       btn.classList.remove('loading')
       btn.disabled = false
     }
-    if (!IS_SANDBOX) scheduleYoutubeAutoRefresh(loadState())
+    if (
+      !IS_SANDBOX
+      && (!originatingState || isCurrentLearnerProfileOperation(originatingState))
+    ) scheduleYoutubeAutoRefresh(loadState())
   }
 }
 
@@ -8575,6 +8604,7 @@ async function refreshAddedChannel(channelId, options = {}) {
   const refreshStartedAtMs = Date.now()
   const focusVideoId = String(options.focusVideoId || '')
   let focusRevealScheduled = false
+  let originatingState = null
   trackEdeniaEvent('refresh_started', {
     trigger: 'channel_added',
     requested_channel_count: 1,
@@ -8593,6 +8623,7 @@ async function refreshAddedChannel(channelId, options = {}) {
 
   try {
     const s = loadState()
+    originatingState = s
     const channel = s.config.channels.find(ch => ch.id === channelId)
     if (!channel) {
       trackRefreshCompleted(refreshStartedAtMs, {
@@ -8609,9 +8640,11 @@ async function refreshAddedChannel(channelId, options = {}) {
     } catch (err) {
       console.warn('Channel profile picture:', err.message)
     }
+    if (!isCurrentLearnerProfileOperation(s)) return
 
     const includeShorts = getEffectiveIncludeShorts(s)
     const fetchResult = await fetchChannelVideos(channel, s.videos, { includeShorts })
+    if (!isCurrentLearnerProfileOperation(s)) return
     const videos = dedupeVideos(fetchResult.videos)
     const first = videos[0]
     if (first?.channelTitle && first.channelTitle !== channel.name) {
@@ -8619,6 +8652,7 @@ async function refreshAddedChannel(channelId, options = {}) {
     }
 
     const detailsById = await getFetchedVideoDetails(s, videos, includeShorts)
+    if (!isCurrentLearnerProfileOperation(s)) return
     const mergeResult = mergeFetchedVideos(s, videos, detailsById, includeShorts)
     const mergedCount = mergeResult.mergedCount
     const skippedShorts = fetchResult.filteredShorts + mergeResult.skippedShorts
@@ -8626,6 +8660,7 @@ async function refreshAddedChannel(channelId, options = {}) {
     if (revealDelayRemaining > 0) {
       await new Promise(resolve => window.setTimeout(resolve, revealDelayRemaining))
     }
+    if (!isCurrentLearnerProfileOperation(s)) return
     const currentState = loadState()
     if (!currentState.config.channels.some(currentChannel => currentChannel.id === channel.id)) {
       trackRefreshCompleted(refreshStartedAtMs, {
@@ -8646,7 +8681,7 @@ async function refreshAddedChannel(channelId, options = {}) {
       detail: t('log.channelRefreshed.loaded', { name: channel.name || channelId, count: mergedCount }),
       meta: { channelId, fetchedCount: videos.length, mergedCount, skippedShorts }
     })
-    saveState(s)
+    if (!saveState(s)) return
     if (focusVideoId && s.videos[focusVideoId]) {
       pendingAddedChannelReveal = { channelId, videoId: focusVideoId }
       forcedSearchVideoId = focusVideoId
@@ -8657,11 +8692,17 @@ async function refreshAddedChannel(channelId, options = {}) {
       const activeReveal = pendingAddedChannelReveal
       focusRevealScheduled = true
       window.requestAnimationFrame(() => {
+        if (!isCurrentLearnerProfileOperation(s)) return
         revealRenderedAddedVideoCard(focusVideoId)
         const focusedCard = findVideoCard(focusVideoId)
         const refreshedShelf = focusedCard?.closest('.channel-refresh-arriving')
-        window.setTimeout(() => refreshedShelf?.classList.remove('channel-refresh-arriving'), 900)
         window.setTimeout(() => {
+          if (isCurrentLearnerProfileOperation(s)) {
+            refreshedShelf?.classList.remove('channel-refresh-arriving')
+          }
+        }, 900)
+        window.setTimeout(() => {
+          if (!isCurrentLearnerProfileOperation(s)) return
           if (forcedSearchVideoId === focusVideoId) forcedSearchVideoId = null
           if (pendingAddedChannelReveal === activeReveal) pendingAddedChannelReveal = null
         }, 1800)
@@ -8680,6 +8721,10 @@ async function refreshAddedChannel(channelId, options = {}) {
       skippedShortCount: skippedShorts
     })
   } catch (err) {
+    if (
+      originatingState
+      && !isCurrentLearnerProfileOperation(originatingState)
+    ) return
     console.error(err)
     const s = loadState()
     if (s?.config?.channels?.some(channel => channel.id === channelId)) {
