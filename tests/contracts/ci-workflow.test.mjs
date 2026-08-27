@@ -15,6 +15,14 @@ function readStep(name) {
   return workflow.slice(start, next === -1 ? undefined : next)
 }
 
+function readCaseArmContaining(step, marker) {
+  const start = step.indexOf(marker)
+  assert.notEqual(start, -1, `missing CI case marker: ${marker}`)
+  const end = step.indexOf('\n                  ;;', start)
+  assert.notEqual(end, -1, `unterminated CI case marker: ${marker}`)
+  return step.slice(start, end)
+}
+
 test('Supabase backend CI installs Node dependencies before running its tests', () => {
   const installStep = readStep('Install dependencies')
   const backendTestStep = readStep('Run Supabase backend tests')
@@ -25,4 +33,23 @@ test('Supabase backend CI installs Node dependencies before running its tests', 
     /steps\.scope\.outputs\.supabase == 'true'/
   )
   assert.ok(workflow.indexOf(installStep) < workflow.indexOf(backendTestStep))
+})
+
+test('divergent profile database changes run their pgTAP acceptance suite', () => {
+  const scopeStep = readStep('Determine test scope')
+  const databaseStep = readStep('Verify database safety')
+  const databaseChanges = [
+    '.github/workflows/ci.yml',
+    'supabase/migrations/*_resolve_divergent_learner_profiles.sql',
+    'supabase/migrations/*_choose_divergent_learner_profile.sql',
+    'supabase/tests/learner_profile_conflict_resolution.test.sql'
+  ]
+
+  for (const change of databaseChanges) {
+    assert.match(readCaseArmContaining(scopeStep, change), /run_supabase_db=true/)
+  }
+  assert.match(
+    databaseStep,
+    /^          supabase test db supabase\/tests\/learner_profile_conflict_resolution\.test\.sql --local$/m
+  )
 })
