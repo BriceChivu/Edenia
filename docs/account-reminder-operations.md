@@ -610,14 +610,15 @@ Verify these transitions, then delete the fixture:
   any schedule.
 - Production Google ID-token sign-in has been exercised with one approved
   Google test account in one desktop browser. Cross-device, private-window,
-  Safari, mobile, cancellation, and a second-account switch still need
-  acceptance coverage.
+  Safari, mobile, and a second-account switch still need acceptance coverage.
 - The Google Cloud consent screen remains restricted to test users. That is
   suitable for internal testing, not public launch.
 - Google's official button exposes no supported popup-cancellation callback.
-  Closing the provider UI safely leaves Edenia signed out, but cancellation-
-  specific app feedback requires an accepted platform exception or a future
-  supported GIS signal; do not infer it from focus or timeout heuristics.
+  The product owner accepted the platform exception on 2026-08-27: closing the
+  provider UI safely leaves Edenia signed out with the authentication surface
+  available for retry and no fabricated cancellation feedback. Revisit this
+  only if GIS adds an explicit supported cancellation result; do not infer it
+  from focus, popup polling, or timeout heuristics.
 - Hosted Supabase Auth has not yet produced sanitized evidence that CAPTCHA
   rejects both a missing token and a replayed token for this code flow. Keep
   the account rollout internal until the activation canary records those
