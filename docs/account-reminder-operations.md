@@ -619,10 +619,12 @@ Verify these transitions, then delete the fixture:
   available for retry and no fabricated cancellation feedback. Revisit this
   only if GIS adds an explicit supported cancellation result; do not infer it
   from focus, popup polling, or timeout heuristics.
-- Hosted Supabase Auth has not yet produced sanitized evidence that CAPTCHA
-  rejects both a missing token and a replayed token for this code flow. Keep
-  the account rollout internal until the activation canary records those
-  server outcomes without recording either token.
+- A sanitized hosted Supabase Auth canary on 2026-08-27, bound to deployed
+  commit `20ea9d049deed41fa98e6e39be86710fdd8a21e1`, confirmed that missing,
+  invalid, replayed, and expired CAPTCHA tokens are rejected; one fresh token
+  produced exactly one delivery; and its six-digit code verified successfully.
+  The evidence records no email address, CAPTCHA token, verification code,
+  session, API URL/key, provider secret, or raw provider response.
 - Resend transport, the verified sender domain, and real signed production
   callbacks have been observed. A genuine tagged reminder, one-click
   unsubscribe, bounce, complaint, and provider-suppression event have not yet
