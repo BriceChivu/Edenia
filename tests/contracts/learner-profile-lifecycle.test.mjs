@@ -3033,6 +3033,74 @@ test('a new signed-in profile queues its selected recommendations before activat
   })
 })
 
+test('a newer activation survives onboarding finalization by an earlier tab', () => {
+  const accessStorageKey = 'edenia_v1_profile_access_v1'
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const values = new Map()
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    removeItem: key => values.delete(key),
+    setItem: (key, value) => values.set(key, value)
+  }
+  let persistedProfile = null
+  let newerActivationClaimed = false
+  let laterTab
+  const earlierFence = {
+    activatedAt: 100,
+    id: 'earlier-tab',
+    ownerId,
+    profileId
+  }
+  const laterFence = { ...earlierFence, activatedAt: 200, id: 'later-tab' }
+  const createAdapter = () => createLearnerProfileLocalPersistenceAdapter({
+    accessStorageKey,
+    accountlessProfileId: 'accountless:edenia_v1',
+    eventTarget: null,
+    hasProfile: () => Boolean(persistedProfile),
+    loadProfile: () => persistedProfile,
+    replaceProfile(profile) {
+      persistedProfile = profile
+      return { persisted: true, error: null }
+    },
+    saveProfile(profile, _options, canPersist) {
+      if (!canPersist()) return false
+      newerActivationClaimed = laterTab.claimActivation(laterFence)
+      persistedProfile = profile
+      return true
+    },
+    storage
+  })
+  const earlierTab = createAdapter()
+  laterTab = createAdapter()
+  const profile = {
+    learnerProfile: {
+      selectedChannelCatalogIds: ['mandarin-daily']
+    },
+    onboarding: {
+      setupCompletedAt: '2026-08-21T01:00:00.000Z'
+    }
+  }
+
+  assert.equal(earlierTab.installSignedInProfile(profile, {
+    generation: 1,
+    installedAt: 50,
+    onboardingFinalizationPending: true,
+    ownerId,
+    profileId,
+    revision: 1
+  }), true)
+  assert.equal(earlierTab.claimActivation(earlierFence), true)
+
+  assert.equal(
+    earlierTab.completeOnboardingFinalization(earlierFence),
+    false
+  )
+  assert.equal(newerActivationClaimed, true)
+  assert.equal(laterTab.isActivationCurrent(laterFence), true)
+  assert.equal(laterTab.read().onboardingFinalizationPending, true)
+})
+
 test('verified migration attaches an accountless profile without rewriting its contents', () => {
   const accessStorageKey = 'edenia_v1_profile_access_v1'
   const values = new Map()

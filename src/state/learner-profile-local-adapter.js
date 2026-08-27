@@ -705,6 +705,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
         backup: false,
         syncAnalytics: false
       }, () => isActivationCurrent(fence))) return false
+      if (!isActivationCurrent(fence)) return false
       storage.setItem(accessStorageKey, JSON.stringify({
         ...current,
         onboardingFinalizationPending: false
