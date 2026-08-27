@@ -17,6 +17,115 @@ function getFunctionSource(name, nextName) {
   return appSource.slice(start, end)
 }
 
+function createStarterFeedPreparationHarness({ events, run }) {
+  const source = getFunctionSource(
+    'startPendingStarterFeedPreparation',
+    'finishPersonalizedOnboarding'
+  )
+  return new Function('dependencies', `
+    const {
+      events,
+      runPendingStarterFeedPreparation
+    } = dependencies
+    const IS_SANDBOX = false
+    const applyAnkiRefreshPreference = () => events.push('anki-started')
+    const getActiveStarterFeed = () => ({ status: 'pending' })
+    const loadState = () => ({})
+    const showToast = () => {}
+    const startYoutubeAutoRefresh = () => events.push('youtube-started')
+    const t = key => key
+    let starterFeedPreparationPromise = null
+
+    ${source}
+
+    return {
+      getRequest: () => starterFeedPreparationPromise,
+      start: startPendingStarterFeedPreparation
+    }
+  `)({
+    events,
+    runPendingStarterFeedPreparation: run
+  })
+}
+
+test('starter preparation latches single-flight before synchronous startup effects', async () => {
+  const events = []
+  let releaseRun
+  const runBarrier = new Promise(resolve => {
+    releaseRun = resolve
+  })
+  let startAgain
+  let reentrantRequest
+  const harness = createStarterFeedPreparationHarness({
+    events,
+    run: async state => {
+      events.push('starter-running')
+      reentrantRequest = startAgain(state)
+      events.push('starter-persisted')
+      await runBarrier
+      events.push('starter-completed')
+      return { status: 'complete' }
+    }
+  })
+  startAgain = harness.start
+
+  const request = harness.start({ onboarding: { starterFeed: { status: 'pending' } } })
+  events.push('integrations-started')
+
+  assert.equal(harness.getRequest(), request)
+  assert.equal(reentrantRequest, request)
+  assert.deepEqual(events, [
+    'starter-running',
+    'starter-persisted',
+    'integrations-started'
+  ])
+
+  releaseRun()
+  assert.deepEqual(await request, { status: 'complete' })
+  assert.equal(harness.getRequest(), null)
+  assert.deepEqual(events, [
+    'starter-running',
+    'starter-persisted',
+    'integrations-started',
+    'starter-completed',
+    'anki-started',
+    'youtube-started'
+  ])
+})
+
+test('only signed-in profile activation defers starter preparation', async () => {
+  const events = []
+  let releaseRun
+  const runBarrier = new Promise(resolve => {
+    releaseRun = resolve
+  })
+  const harness = createStarterFeedPreparationHarness({
+    events,
+    run: async () => {
+      events.push('starter-running')
+      await runBarrier
+      return { status: 'complete' }
+    }
+  })
+
+  const request = harness.start(
+    { onboarding: { starterFeed: { status: 'pending' } } },
+    { deferUntilProfileActivation: true }
+  )
+  events.push('profile-activation-completed')
+
+  assert.deepEqual(events, ['profile-activation-completed'])
+  assert.equal(harness.getRequest(), request)
+  await Promise.resolve()
+  assert.deepEqual(events, [
+    'profile-activation-completed',
+    'starter-running'
+  ])
+
+  releaseRun()
+  await request
+})
+
 test('initialization resumes persisted starter work and defers competing integrations', () => {
   const source = getFunctionSource(
     'startApplicationWithState',
@@ -28,7 +137,10 @@ test('initialization resumes persisted starter work and defers competing integra
   assert.ok(integrationsIndex > starterIndex)
   assert.match(source, /deferAnki: noAnkiPromptScheduled \|\| Boolean\(starterFeedRequest\)/)
   assert.match(source, /deferYoutube: Boolean\(starterFeedRequest\)/)
-  assert.match(source, /startPendingStarterFeedPreparation\(state, \{\s*deferAnki: noAnkiPromptScheduled\s*\}\)/)
+  assert.match(
+    source,
+    /startPendingStarterFeedPreparation\(state, \{\s*deferAnki: noAnkiPromptScheduled,\s*deferUntilProfileActivation: deferStarterFeedUntilProfileActivation\s*\}\)/
+  )
 })
 
 test('first-study walkthrough waits for a starter video target while work is active', () => {
