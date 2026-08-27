@@ -12,6 +12,7 @@ const ACCOUNT_RETURN_ORIGIN = 'http://localhost:8000'
 const SERVED_APPLICATION_ORIGIN = `http://localhost:${Number(
   process.env.EDENIA_TEST_NORMAL_PORT || 8000
 )}`
+const SECRET_ACTIVITY_TITLE = 'PRIVATE LEARNER ACTIVITY'
 const SECRET_CHANNEL_NAME = 'PRIVATE LEARNER CHANNEL'
 const NEXT_OWNER_CHANNEL_NAME = 'NEXT OWNER PRIVATE CHANNEL'
 const AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
@@ -65,7 +66,8 @@ const GUARDED_AUTHENTICATION_COPY = Object.freeze({
 function runtimeConfig({
   accountFeaturesRollout = 'off',
   googleIdentityClientId = '',
-  lifecycle = false
+  lifecycle = false,
+  youtubeApiKey = ''
 } = {}) {
   return `window.EDENIA_CONFIG = ${JSON.stringify({
     accountFeaturesRollout,
@@ -79,7 +81,7 @@ function runtimeConfig({
     studyGuidanceEnabled: false,
     supabasePublishableKey: 'test-publishable-key',
     supabaseUrl: 'https://profile-access-test.supabase.co',
-    youtubeApiKey: ''
+    youtubeApiKey
   })}`
 }
 
@@ -217,6 +219,247 @@ async function seedOwnedLearnerProfile(page) {
   })
   return storedState
 }
+
+test('a revoked activation fences an in-flight feed refresh completion', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let releasePlaylist
+  const playlistReleased = new Promise(resolve => {
+    releasePlaylist = resolve
+  })
+  let playlistRequested
+  const playlistStarted = new Promise(resolve => {
+    playlistRequested = resolve
+  })
+  let profileEnvelope = null
+
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: 'internal',
+      lifecycle: true,
+      youtubeApiKey: 'fixture-key'
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      return route.fulfill({
+        json: [{
+          created: false,
+          envelope: profileEnvelope,
+          generation: 1,
+          profile_id: OWNER_PROFILE_ID,
+          revision: 3,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+        }],
+        status: 200
+      })
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+  await page.route('https://www.googleapis.com/youtube/v3/playlistItems?**', async route => {
+    playlistRequested()
+    await playlistReleased
+    await route.fallback()
+  })
+
+  await page.goto('/?internal_test=1')
+  await seedOwnedLearnerProfile(page)
+  await page.evaluate(storageKey => {
+    const state = JSON.parse(localStorage.getItem(storageKey))
+    state.config.ankiEnabled = false
+    state.config.ankiDisabledAt = '2026-08-27T00:00:00.000Z'
+    state.config.channels[0].imageUrl = 'https://yt3.ggpht.com/fixture-channel.jpg'
+    localStorage.setItem(storageKey, JSON.stringify(state))
+  }, STATE_STORAGE_KEY)
+  const seededProfile = await page.evaluate(
+    storageKey => localStorage.getItem(storageKey),
+    STATE_STORAGE_KEY
+  )
+  profileEnvelope = (
+    await createPortableLearnerProfileEnvelope(JSON.parse(seededProfile))
+  ).envelope
+
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await playlistStarted
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'active'
+  )
+  const activeProfile = await page.evaluate(
+    storageKey => localStorage.getItem(storageKey),
+    STATE_STORAGE_KEY
+  )
+  await page.evaluate(() => {
+    window.__staleRefreshEvents = []
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__staleRefreshEvents.push({ eventName, properties })
+      },
+      get_distinct_id() {
+        return 'stale-refresh-regression'
+      },
+      setPersonProperties() {}
+    }
+    document.getElementById('accountSignOutBtn').click()
+  })
+
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'locked'
+  )
+  await expect(page.getByText(SECRET_CHANNEL_NAME, { exact: true })).toHaveCount(0)
+  const playlistResponse = page.waitForResponse(response => (
+    response.url().includes('/youtube/v3/playlistItems?')
+  ))
+  releasePlaylist()
+  await playlistResponse
+  await page.evaluate(() => new Promise(resolve => {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(resolve))
+  }))
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'locked'
+  )
+  await expect(page.getByText(SECRET_CHANNEL_NAME, { exact: true })).toHaveCount(0)
+  await expect(page.locator('#toast')).not.toHaveClass(/\bshow\b/)
+  expect(await page.evaluate(storageKey => (
+    localStorage.getItem(storageKey)
+  ), STATE_STORAGE_KEY)).toBe(activeProfile)
+  expect(await page.evaluate(() => (
+    window.__staleRefreshEvents.filter(event => (
+      event.eventName === 'refresh_completed'
+    ))
+  ))).toEqual([])
+})
+
+test('a revoked activation fences an in-flight added-channel refresh completion', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let releasePlaylist
+  const playlistReleased = new Promise(resolve => {
+    releasePlaylist = resolve
+  })
+  let playlistRequested
+  const playlistStarted = new Promise(resolve => {
+    playlistRequested = resolve
+  })
+  let profileEnvelope = null
+
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: 'internal',
+      lifecycle: true,
+      youtubeApiKey: 'fixture-key'
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      return route.fulfill({
+        json: [{
+          created: false,
+          envelope: profileEnvelope,
+          generation: 1,
+          profile_id: OWNER_PROFILE_ID,
+          revision: 3,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+        }],
+        status: 200
+      })
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+  await page.route('https://www.googleapis.com/youtube/v3/playlistItems?**', async route => {
+    playlistRequested()
+    await playlistReleased
+    await route.fallback()
+  })
+
+  await page.goto('/?internal_test=1')
+  await seedOwnedLearnerProfile(page)
+  await page.evaluate(storageKey => {
+    const state = JSON.parse(localStorage.getItem(storageKey))
+    state.config.ankiEnabled = false
+    state.config.ankiDisabledAt = '2026-08-27T00:00:00.000Z'
+    state.config.channels = []
+    localStorage.setItem(storageKey, JSON.stringify(state))
+  }, STATE_STORAGE_KEY)
+  const seededProfile = await page.evaluate(
+    storageKey => localStorage.getItem(storageKey),
+    STATE_STORAGE_KEY
+  )
+  profileEnvelope = (
+    await createPortableLearnerProfileEnvelope(JSON.parse(seededProfile))
+  ).envelope
+
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'active'
+  )
+  await page.evaluate(() => {
+    window.__staleAddedChannelEvents = []
+    window.EDENIA_ANALYTICS_ENABLED = true
+    window.posthog = {
+      capture(eventName, properties) {
+        window.__staleAddedChannelEvents.push({ eventName, properties })
+      },
+      get_distinct_id() {
+        return 'stale-added-channel-regression'
+      },
+      setPersonProperties() {}
+    }
+  })
+  await page.locator('#manualVideoBtn').click()
+  await page.locator('#manualVideoUrlInput').fill(
+    'https://www.youtube.com/watch?v=fixture0001'
+  )
+  await page.locator('#manualVideoUrlInput').press('Enter')
+  await playlistStarted
+  const activeProfile = await page.evaluate(
+    storageKey => localStorage.getItem(storageKey),
+    STATE_STORAGE_KEY
+  )
+  await page.evaluate(() => {
+    window.__staleAddedChannelEvents.length = 0
+    document.getElementById('accountSignOutBtn').click()
+  })
+
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'locked'
+  )
+  const playlistResponse = page.waitForResponse(response => (
+    response.url().includes('/youtube/v3/playlistItems?')
+  ))
+  releasePlaylist()
+  await playlistResponse
+  await page.waitForTimeout(2_500)
+
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'locked'
+  )
+  await expect(page.locator('#mainApp')).toBeHidden()
+  await expect(page.locator('#toast')).not.toHaveClass(/\bshow\b/)
+  expect(await page.evaluate(storageKey => (
+    localStorage.getItem(storageKey)
+  ), STATE_STORAGE_KEY)).toBe(activeProfile)
+  expect(await page.evaluate(() => (
+    window.__staleAddedChannelEvents.filter(event => (
+      event.eventName === 'refresh_completed'
+      && event.properties.trigger === 'channel_added'
+    ))
+  ))).toEqual([])
+})
 
 async function createNextOwnerEnvelope() {
   const completedAt = '2026-08-22T00:00:00.000Z'
@@ -1059,6 +1302,96 @@ test('a signed-in owner can reopen and save the matching local profile while the
     expect(synchronizedState.config.ankiEnabled).toBe(false)
     expect(committedEnvelope.profile.config.ankiEnabled).toBe(false)
   }
+})
+
+test('same-page sign-out removes rendered learner content before locking access', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let lifecycleEnabled = false
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+
+  await page.goto('/?internal_test=1')
+  const privateProfile = JSON.parse(await seedPrivateLearnerProfile(page))
+  privateProfile.activityLog = [{
+    actor: 'user',
+    createdAt: '2026-08-27T00:00:00.000Z',
+    detail: '',
+    id: 'private-learner-activity',
+    status: 'info',
+    title: SECRET_ACTIVITY_TITLE,
+    type: 'general'
+  }]
+  const storedState = JSON.stringify(privateProfile)
+  await page.goto('about:blank')
+
+  await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      get: () => false
+    })
+  })
+  await page.addInitScript(({
+    accessStorageKey,
+    authStorageKey,
+    ownerId,
+    session,
+    stateStorageKey,
+    storedState
+  }) => {
+    localStorage.setItem(stateStorageKey, storedState)
+    localStorage.setItem(authStorageKey, JSON.stringify(session))
+    localStorage.setItem(accessStorageKey, JSON.stringify({
+      activatedAt: Date.now(),
+      activationId: null,
+      ownerId,
+      profileId: `owner:${ownerId}`,
+      version: 1
+    }))
+  }, {
+    accessStorageKey: PROFILE_ACCESS_STORAGE_KEY,
+    authStorageKey: AUTH_STORAGE_KEY,
+    ownerId: OWNER_ID,
+    session: restoredSession(OWNER_ID),
+    stateStorageKey: STATE_STORAGE_KEY,
+    storedState
+  })
+  await page.route(
+    'https://profile-access-test.supabase.co/**',
+    route => route.fulfill({ json: {}, status: 200 })
+  )
+  lifecycleEnabled = true
+  await page.goto('/?internal_test=1', { waitUntil: 'domcontentloaded' })
+
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'active'
+  )
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await page.locator('.gear-btn').click()
+  await expect(page.locator('#settingsPanel')).toBeVisible()
+  await expect(page.locator('body')).toContainText(SECRET_ACTIVITY_TITLE)
+  const accountToggle = page.locator('.settings-account-toggle')
+  if (await accountToggle.getAttribute('aria-expanded') === 'false') {
+    await accountToggle.click()
+  }
+  const storedStateBeforeSignOut = await page.evaluate(
+    stateStorageKey => localStorage.getItem(stateStorageKey),
+    STATE_STORAGE_KEY
+  )
+  await page.locator('#accountSignOutBtn').click()
+
+  await expectNeutralProfileGate(page, 'locked', storedStateBeforeSignOut)
+  await expect(page.locator('body')).not.toContainText(SECRET_ACTIVITY_TITLE)
+  await expect(page.locator('#settingsPanel')).toBeHidden()
+  await expect(page.locator('#accountSignOutBtn')).toBeHidden()
 })
 
 test('an unverified owner replacement stays blocked and local sign-out changes no profile', async ({

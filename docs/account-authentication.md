@@ -215,6 +215,13 @@ Edenia safely signed out without a fabricated error. The controller still
 scrubs and safely maps a legacy OAuth cancellation fragment if an old callback
 URL is opened during the transition.
 
+The product owner accepted this provider limitation on 2026-08-27. For the
+official Google button, closing provider-owned UI is a safe, silent
+cancellation: the learner remains signed out, the authentication surface stays
+available for retry, and Edenia does not infer cancellation from focus changes,
+popup polling, or timeouts. Cancellation feedback remains appropriate only when
+a provider supplies an explicit supported cancellation result.
+
 Neither the ID token nor nonce is decoded, logged, persisted by Edenia, placed
 in analytics, or exposed to view state. The official button may appear in
 Settings, the optional final onboarding step, and the guarded returning-owner
