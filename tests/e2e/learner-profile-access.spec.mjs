@@ -12,6 +12,7 @@ const ACCOUNT_RETURN_ORIGIN = 'http://localhost:8000'
 const SERVED_APPLICATION_ORIGIN = `http://localhost:${Number(
   process.env.EDENIA_TEST_NORMAL_PORT || 8000
 )}`
+const SECRET_ACTIVITY_TITLE = 'PRIVATE LEARNER ACTIVITY'
 const SECRET_CHANNEL_NAME = 'PRIVATE LEARNER CHANNEL'
 const NEXT_OWNER_CHANNEL_NAME = 'NEXT OWNER PRIVATE CHANNEL'
 const AUTH_STORAGE_KEY = 'edenia_v1_internal_test_plus_auth_v1'
@@ -1059,6 +1060,96 @@ test('a signed-in owner can reopen and save the matching local profile while the
     expect(synchronizedState.config.ankiEnabled).toBe(false)
     expect(committedEnvelope.profile.config.ankiEnabled).toBe(false)
   }
+})
+
+test('same-page sign-out removes rendered learner content before locking access', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let lifecycleEnabled = false
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+
+  await page.goto('/?internal_test=1')
+  const privateProfile = JSON.parse(await seedPrivateLearnerProfile(page))
+  privateProfile.activityLog = [{
+    actor: 'user',
+    createdAt: '2026-08-27T00:00:00.000Z',
+    detail: '',
+    id: 'private-learner-activity',
+    status: 'info',
+    title: SECRET_ACTIVITY_TITLE,
+    type: 'general'
+  }]
+  const storedState = JSON.stringify(privateProfile)
+  await page.goto('about:blank')
+
+  await page.addInitScript(() => {
+    Object.defineProperty(window.navigator, 'onLine', {
+      configurable: true,
+      get: () => false
+    })
+  })
+  await page.addInitScript(({
+    accessStorageKey,
+    authStorageKey,
+    ownerId,
+    session,
+    stateStorageKey,
+    storedState
+  }) => {
+    localStorage.setItem(stateStorageKey, storedState)
+    localStorage.setItem(authStorageKey, JSON.stringify(session))
+    localStorage.setItem(accessStorageKey, JSON.stringify({
+      activatedAt: Date.now(),
+      activationId: null,
+      ownerId,
+      profileId: `owner:${ownerId}`,
+      version: 1
+    }))
+  }, {
+    accessStorageKey: PROFILE_ACCESS_STORAGE_KEY,
+    authStorageKey: AUTH_STORAGE_KEY,
+    ownerId: OWNER_ID,
+    session: restoredSession(OWNER_ID),
+    stateStorageKey: STATE_STORAGE_KEY,
+    storedState
+  })
+  await page.route(
+    'https://profile-access-test.supabase.co/**',
+    route => route.fulfill({ json: {}, status: 200 })
+  )
+  lifecycleEnabled = true
+  await page.goto('/?internal_test=1', { waitUntil: 'domcontentloaded' })
+
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'active'
+  )
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await page.locator('.gear-btn').click()
+  await expect(page.locator('#settingsPanel')).toBeVisible()
+  await expect(page.locator('body')).toContainText(SECRET_ACTIVITY_TITLE)
+  const accountToggle = page.locator('.settings-account-toggle')
+  if (await accountToggle.getAttribute('aria-expanded') === 'false') {
+    await accountToggle.click()
+  }
+  const storedStateBeforeSignOut = await page.evaluate(
+    stateStorageKey => localStorage.getItem(stateStorageKey),
+    STATE_STORAGE_KEY
+  )
+  await page.locator('#accountSignOutBtn').click()
+
+  await expectNeutralProfileGate(page, 'locked', storedStateBeforeSignOut)
+  await expect(page.locator('body')).not.toContainText(SECRET_ACTIVITY_TITLE)
+  await expect(page.locator('#settingsPanel')).toBeHidden()
+  await expect(page.locator('#accountSignOutBtn')).toBeHidden()
 })
 
 test('an unverified owner replacement stays blocked and local sign-out changes no profile', async ({

@@ -2812,7 +2812,66 @@ function renderActivatedLearnerProfile(state) {
   renderActivityLog(state)
 }
 
+const LEARNER_PROFILE_DOM_SELECTORS = Object.freeze([
+  '#introTrailer',
+  '#onboardingPanel',
+  '.settings-locale-group',
+  '.settings-shorts-group',
+  '.settings-howto-group',
+  '.activity-log-panel',
+  '.backup-panel',
+  '.settings-replay-group',
+  '.settings-data-group',
+  '.settings-creator',
+  '#mainApp'
+])
+const PUBLIC_ONBOARDING_DOM_SELECTORS = Object.freeze([
+  '#introTrailer',
+  '#onboardingPanel'
+])
+let parkedLearnerProfileDom = []
+
+function parkLearnerProfileDom() {
+  const parkedSelectors = new Set(
+    parkedLearnerProfileDom.map(({ selector }) => selector)
+  )
+  const newlyParkedLearnerProfileDom = LEARNER_PROFILE_DOM_SELECTORS
+    .filter(selector => !parkedSelectors.has(selector))
+    .map(selector => {
+      const element = document.querySelector(selector)
+      if (!element) return null
+      const placeholder = document.createComment('edenia-learner-profile-dom')
+      element.replaceWith(placeholder)
+      return { element, placeholder, selector }
+    })
+    .filter(Boolean)
+  parkedLearnerProfileDom.push(...newlyParkedLearnerProfileDom)
+
+  document.getElementById('videoActionsList')?.replaceChildren()
+  document.getElementById('videoActionsPopover')?.classList.add('hidden')
+  document.getElementById('toast')?.replaceChildren()
+  document.getElementById('heatmapTooltip')?.replaceChildren()
+}
+
+function restoreLearnerProfileDom(
+  selectors = LEARNER_PROFILE_DOM_SELECTORS
+) {
+  const restoredSelectors = new Set(selectors)
+  parkedLearnerProfileDom = parkedLearnerProfileDom.filter(({
+    element,
+    placeholder,
+    selector
+  }) => {
+    if (!restoredSelectors.has(selector)) return true
+    if (placeholder.isConnected) placeholder.replaceWith(element)
+    return false
+  })
+}
+
 function handleLearnerProfileAccessStateChange(accessState) {
+  if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
+    restoreLearnerProfileDom()
+  }
   const profileAccessGate = document.getElementById('learnerProfileAccessGate')
   const transfersProfileAccessFocusToApplication =
     profileAccessGate?.contains(document.activeElement) === true
@@ -2908,6 +2967,7 @@ function handleLearnerProfileAccessStateChange(accessState) {
       )
     )
   ) {
+    restoreLearnerProfileDom(PUBLIC_ONBOARDING_DOM_SELECTORS)
     document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
     applyLocale(publicOnboardingState.config.locale)
     if (
@@ -2930,6 +2990,7 @@ function handleLearnerProfileAccessStateChange(accessState) {
   document.getElementById('settingsPanel')?.classList.add('hidden')
   document.getElementById('toast')?.classList.remove('show')
   document.title = 'Edenia'
+  parkLearnerProfileDom()
   if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.RELOADING) {
     window.location.reload()
   }
