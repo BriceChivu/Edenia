@@ -216,6 +216,12 @@ insert into public.learner_profile_heads (
   '66666666-6666-4666-8666-666666666666'
 );
 
+update private.learner_profile_access_control
+set rollout_state = 'developer-canary',
+    developer_user_id = '55555555-5555-4555-8555-555555555555',
+    updated_at = statement_timestamp()
+where singleton;
+
 select results_eq(
   $query$
     select status, server_gate_before, server_gate_after, deployed_commit
@@ -233,7 +239,7 @@ select results_eq(
       'unknown'
     )
   $query$,
-  $$values ('started'::text, 'off'::text, 'off'::text, '0123456789abcdef0123456789abcdef01234567'::text)$$,
+  $$values ('started'::text, 'developer-canary'::text, 'off'::text, '0123456789abcdef0123456789abcdef01234567'::text)$$,
   'recovery disables the server profile-data gate before inspection'
 );
 
@@ -244,7 +250,11 @@ select is(
 );
 
 select is(
-  (select count(*)::integer from private.learner_profile_operator_recovery_incidents),
+  (
+    select count(*)::integer
+    from private.learner_profile_operator_recovery_incidents
+    where incident_id = '55555555-5555-4555-8555-555555555551'
+  ),
   1,
   'recovery records one minimal incident'
 );

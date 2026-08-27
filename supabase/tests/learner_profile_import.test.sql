@@ -219,20 +219,6 @@ select results_eq(
   'a stale import is rejected without opening a merge conflict'
 );
 
-reset role;
-
-select results_eq(
-  $query$
-    select
-      (select count(*) from public.learner_profile_versions),
-      (select count(*) from private.learner_profile_conflicts),
-      (select revision from public.learner_profile_heads)
-  $query$,
-  $$values (2::bigint, 0::bigint, 2::bigint)$$,
-  'stale import leaves versions, conflicts, and current head unchanged'
-);
-
-set local role authenticated;
 set local request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
 
 select *
@@ -241,6 +227,36 @@ from public.resolve_my_learner_profile(
     {"exportedAt":"2026-08-22T01:00:00.000Z","integrity":{"algorithm":"SHA-256","byteLength":976,"payloadSha256":"BrmDISMDH-CydpnAIgiQ1FnBBV1wVrqo-Pc4PDMCINg"},"profile":{"activityLog":[],"anki":{},"cityProgress":{"maxLevelIndex":0},"config":{"ankiEnabled":true,"channelShelfOrder":[],"channelVideoFormats":{},"channels":[],"includeShorts":true,"locale":"en","removedChannelIds":[],"removedDefaultChannelIds":[],"weeklyGoalHours":4},"learnerProfile":{"createdAt":"2026-08-22T01:00:00.000Z","languages":["french"],"level":"beginner","selectedChannelCatalogIds":[],"updatedAt":"2026-08-22T01:00:00.000Z"},"noAnkiFrequentUserPrompt":{"respondedAt":null,"response":null},"onboarding":{"introSeenAt":"2026-08-22T01:00:00.000Z","levelUpGuidanceShownAt":null,"recommendationsAppliedAt":null,"setupCompleted":true,"setupCompletedAt":"2026-08-22T01:00:00.000Z","walkthroughCompleted":false,"walkthroughCompletedAt":null},"videos":{}},"schema":"edenia-portable-learner-profile","version":1}
   $profile$::jsonb
 );
+
+set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
+
+reset role;
+
+select results_eq(
+  $query$
+    select
+      (
+        select count(*)
+        from public.learner_profile_versions
+        where user_id = '11111111-1111-4111-8111-111111111111'
+      ),
+      (
+        select count(*)
+        from private.learner_profile_conflicts
+        where user_id = '11111111-1111-4111-8111-111111111111'
+      ),
+      (
+        select revision
+        from public.learner_profile_heads
+        where user_id = '11111111-1111-4111-8111-111111111111'
+      )
+  $query$,
+  $$values (2::bigint, 0::bigint, 2::bigint)$$,
+  'stale import leaves versions, conflicts, and current head unchanged'
+);
+
+set local role authenticated;
+set local request.jwt.claim.sub = '22222222-2222-4222-8222-222222222222';
 
 select results_eq(
   $query$
