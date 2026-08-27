@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
-select plan(17);
+select plan(18);
 
 select has_function(
   'public',
@@ -35,15 +35,89 @@ from public.resolve_my_learner_profile(
   $profile$::jsonb
 );
 
+reset role;
+
+create temporary table progress_sync_fixture on commit drop as
+select
+  head.user_id,
+  head.profile_id,
+  head.generation,
+  head.revision,
+  version.envelope,
+  version.payload_sha256,
+  version.payload_bytes
+from public.learner_profile_heads as head
+join public.learner_profile_versions as version
+  on version.id = head.current_version_id
+ and version.user_id = head.user_id
+ and version.profile_id = head.profile_id
+ and version.generation = head.generation
+ and version.revision = head.revision
+where head.user_id = '11111111-1111-4111-8111-111111111111';
+
+grant select on table progress_sync_fixture to authenticated;
+
+insert into auth.users (id, email, email_confirmed_at)
+values (
+  '18318318-3183-4183-8183-183183183183',
+  'sync-history-owner@example.test',
+  statement_timestamp()
+);
+
+insert into public.learner_profile_versions (
+  id,
+  user_id,
+  profile_id,
+  generation,
+  revision,
+  base_revision,
+  envelope,
+  payload_sha256,
+  payload_bytes
+)
+select
+  history.version_id,
+  '18318318-3183-4183-8183-183183183183',
+  '18318318-3183-4183-8183-183183183186',
+  history.generation,
+  1,
+  0,
+  fixture.envelope,
+  fixture.payload_sha256,
+  fixture.payload_bytes
+from progress_sync_fixture as fixture
+cross join (values
+  ('18318318-3183-4183-8183-183183183184'::uuid, 1::bigint),
+  ('18318318-3183-4183-8183-183183183185'::uuid, 2::bigint)
+) as history(version_id, generation);
+
+insert into public.learner_profile_heads (
+  user_id,
+  profile_id,
+  generation,
+  revision,
+  current_version_id
+) values (
+  '18318318-3183-4183-8183-183183183183',
+  '18318318-3183-4183-8183-183183183186',
+  2,
+  1,
+  '18318318-3183-4183-8183-183183183185'
+);
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
+
 select results_eq(
   $query$
     select status, generation, revision, base_revision
     from public.commit_my_learner_profile(
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-      (select profile_id from public.learner_profile_heads),
+      (select profile_id from progress_sync_fixture),
       1,
       1,
-      (select envelope from public.learner_profile_versions where revision = 1)
+      (select envelope from progress_sync_fixture)
     )
   $query$,
   $$values ('accepted'::text, 1::bigint, 2::bigint, 1::bigint)$$,
@@ -55,10 +129,10 @@ select results_eq(
     select status, generation, revision, base_revision
     from public.commit_my_learner_profile(
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-      (select profile_id from public.learner_profile_heads),
+      (select profile_id from progress_sync_fixture),
       1,
       1,
-      (select envelope from public.learner_profile_versions where revision = 1)
+      (select envelope from progress_sync_fixture)
     )
   $query$,
   $$values ('already_accepted'::text, 1::bigint, 2::bigint, 1::bigint)$$,
@@ -70,10 +144,10 @@ select throws_ok(
     select *
     from public.commit_my_learner_profile(
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-      (select profile_id from public.learner_profile_heads),
+      (select profile_id from progress_sync_fixture),
       1,
       2,
-      (select envelope from public.learner_profile_versions where revision = 1)
+      (select envelope from progress_sync_fixture)
     )
   $query$,
   '22023',
@@ -86,11 +160,11 @@ select throws_ok(
     select *
     from public.commit_my_learner_profile(
       'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
-      (select profile_id from public.learner_profile_heads),
+      (select profile_id from progress_sync_fixture),
       1,
       2,
       pg_catalog.jsonb_set(
-        (select envelope from public.learner_profile_versions where revision = 1),
+        (select envelope from progress_sync_fixture),
         '{profile,config,locale}',
         '"fr"'::jsonb
       )
@@ -106,11 +180,11 @@ select throws_ok(
     select *
     from public.commit_my_learner_profile(
       'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
-      (select profile_id from public.learner_profile_heads),
+      (select profile_id from progress_sync_fixture),
       1,
       2,
       pg_catalog.jsonb_set(
-        (select envelope from public.learner_profile_versions where revision = 1),
+        (select envelope from progress_sync_fixture),
         '{profile,config}',
         '{}'::jsonb
       )
@@ -126,10 +200,10 @@ select results_eq(
     select status, generation, revision, base_revision
     from public.commit_my_learner_profile(
       'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-      (select profile_id from public.learner_profile_heads),
+      (select profile_id from progress_sync_fixture),
       1,
       1,
-      (select envelope from public.learner_profile_versions where revision = 1)
+      (select envelope from progress_sync_fixture)
     )
   $query$,
   $$values ('conflict'::text, 1::bigint, 2::bigint, 1::bigint)$$,
@@ -242,14 +316,40 @@ select throws_ok(
   'malformed JSON is rejected before the commit function can run'
 );
 
+reset role;
+
+select results_eq(
+  $query$
+    select
+      (
+        select count(*)
+        from public.learner_profile_versions
+        where user_id in (
+          '11111111-1111-4111-8111-111111111111',
+          '18318318-3183-4183-8183-183183183183'
+        )
+          and revision = 1
+      ),
+      (
+        select count(*)
+        from public.learner_profile_versions as version
+        join progress_sync_fixture as fixture
+          on version.user_id = fixture.user_id
+         and version.profile_id = fixture.profile_id
+         and version.generation = fixture.generation
+         and version.revision = fixture.revision
+      )
+  $query$,
+  $$values (3::bigint, 1::bigint)$$,
+  'the sync fixture stays unique alongside another owner and an older generation'
+);
+
 select throws_ok(
   $query$
     select private.assert_learner_profile_envelope(
       pg_temp.rehash_learner_profile_envelope(
         pg_catalog.jsonb_set(
-          (select envelope
-           from public.learner_profile_versions
-           where revision = 1),
+          (select envelope from progress_sync_fixture),
           '{profile,learnerProfile,languages}',
           '["japanese", "french"]'::jsonb
         )
@@ -294,23 +394,17 @@ select
   pg_temp.rehash_learner_profile_envelope(
     pg_catalog.jsonb_set(envelope, '{version}', '2'::jsonb)
   )
-from public.learner_profile_versions
-where user_id = '11111111-1111-4111-8111-111111111111'
-  and revision = 1
+from progress_sync_fixture
 union all
 select
   'exact-boundary',
   pg_temp.resize_learner_profile_envelope(envelope, 2097152)
-from public.learner_profile_versions
-where user_id = '11111111-1111-4111-8111-111111111111'
-  and revision = 1
+from progress_sync_fixture
 union all
 select
   'oversize',
   pg_temp.resize_learner_profile_envelope(envelope, 2097153)
-from public.learner_profile_versions
-where user_id = '11111111-1111-4111-8111-111111111111'
-  and revision = 1;
+from progress_sync_fixture;
 
 grant select on boundary_learner_profile_envelopes to authenticated;
 

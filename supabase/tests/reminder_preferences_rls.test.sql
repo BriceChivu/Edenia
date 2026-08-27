@@ -66,7 +66,26 @@ select col_default_is(
 insert into auth.users (id, email)
 values
   ('11111111-1111-4111-8111-111111111111', 'reminder-user-a@example.test'),
-  ('22222222-2222-4222-8222-222222222222', 'reminder-user-b@example.test');
+  ('22222222-2222-4222-8222-222222222222', 'reminder-user-b@example.test'),
+  ('99999999-9999-4999-8999-999999999999', 'reminder-unrelated@example.test');
+
+insert into public.reminder_preferences (
+  user_id,
+  streak_reminders_enabled,
+  discovery_emails_enabled,
+  timezone,
+  locale,
+  consent_version,
+  consent_source
+) values (
+  '99999999-9999-4999-8999-999999999999',
+  false,
+  false,
+  'UTC',
+  'en',
+  'reminder-email-v1',
+  'settings'
+);
 
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
@@ -391,7 +410,14 @@ select results_eq(
 reset role;
 
 select results_eq(
-  $$select count(*) from public.reminder_preferences$$,
+  $$
+    select count(*)
+    from public.reminder_preferences
+    where user_id in (
+      '11111111-1111-4111-8111-111111111111',
+      '22222222-2222-4222-8222-222222222222'
+    )
+  $$,
   array[0::bigint],
   'only owner-authorized deletes removed the fixture rows'
 );

@@ -631,7 +631,22 @@ select results_eq(
     from private.learner_profile_capacity_checks
     where singleton
   $query$,
-  $$values (1986::bigint, 993::bigint, 993::bigint, 993::bigint)$$,
+  $expected$
+    select
+      coalesce(sum(version.payload_bytes), 0)::bigint,
+      percentile_cont(0.5) within group (
+        order by version.payload_bytes
+      )::bigint,
+      percentile_cont(0.95) within group (
+        order by version.payload_bytes
+      )::bigint,
+      coalesce(max(version.payload_bytes), 0)::bigint
+    from public.learner_profile_heads as head
+    join public.learner_profile_versions as version
+      on version.id = head.current_version_id
+     and version.user_id = head.user_id
+     and version.profile_id = head.profile_id
+  $expected$,
   'capacity evidence measures current profile heads and stores every size percentile'
 );
 

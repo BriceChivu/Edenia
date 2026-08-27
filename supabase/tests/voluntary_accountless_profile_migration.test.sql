@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
-select plan(17);
+select plan(18);
 
 select has_function(
   'public',
@@ -63,14 +63,23 @@ insert into accountless_migration_fixture (envelope) values (
 grant select on accountless_migration_fixture to authenticated;
 
 insert into auth.users (id, email, email_confirmed_at)
-values (
-  '11111111-1111-4111-8111-111111111111',
-  'accountless-owner@example.test',
-  statement_timestamp()
-);
+values
+  (
+    '11111111-1111-4111-8111-111111111111',
+    'accountless-owner@example.test',
+    statement_timestamp()
+  ),
+  (
+    '99999999-9999-4999-8999-999999999999',
+    'accountless-unrelated@example.test',
+    statement_timestamp()
+  );
 
 delete from private.learner_profile_creation_eligibility
-where user_id = '11111111-1111-4111-8111-111111111111';
+where user_id in (
+  '11111111-1111-4111-8111-111111111111',
+  '99999999-9999-4999-8999-999999999999'
+);
 
 update private.learner_profile_access_control
 set rollout_state = 'signed-in-public',
@@ -79,6 +88,18 @@ where singleton;
 
 set local role authenticated;
 set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = '99999999-9999-4999-8999-999999999999';
+
+select lives_ok(
+  $query$
+    select public.migrate_my_accountless_profile(
+      '99999999-9999-4999-8999-999999999998',
+      (select envelope from accountless_migration_fixture)
+    )
+  $query$,
+  'an unrelated accepted migration makes whole-table retry counts invalid'
+);
+
 set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 
 select results_eq(
@@ -148,9 +169,22 @@ reset role;
 select results_eq(
   $query$
     select
-      (select count(*) from public.learner_profile_heads),
-      (select count(*) from public.learner_profile_versions),
-      (select count(*) from private.learner_profile_accountless_migration_receipts)
+      (
+        select count(*)
+        from public.learner_profile_heads
+        where user_id = '11111111-1111-4111-8111-111111111111'
+      ),
+      (
+        select count(*)
+        from public.learner_profile_versions
+        where user_id = '11111111-1111-4111-8111-111111111111'
+      ),
+      (
+        select count(*)
+        from private.learner_profile_accountless_migration_receipts
+        where user_id = '11111111-1111-4111-8111-111111111111'
+          and operation_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      )
   $query$,
   $$values (1::bigint, 1::bigint, 1::bigint)$$,
   'an exact retry creates no second head, version, or receipt'

@@ -79,7 +79,38 @@ select ok(
 insert into auth.users (id, email)
 values
   ('11111111-1111-4111-8111-111111111111', 'snapshot-a@example.test'),
-  ('22222222-2222-4222-8222-222222222222', 'snapshot-b@example.test');
+  ('22222222-2222-4222-8222-222222222222', 'snapshot-b@example.test'),
+  ('99999999-9999-4999-8999-999999999999', 'snapshot-unrelated@example.test');
+
+insert into public.reminder_eligibility_snapshots (
+  user_id,
+  timezone,
+  locale,
+  learning_language,
+  study_date,
+  points_today,
+  last_qualified_study_date,
+  current_streak_days
+) values (
+  '99999999-9999-4999-8999-999999999999',
+  'UTC',
+  'en',
+  'other',
+  current_date,
+  0,
+  null,
+  0
+);
+
+insert into public.reminder_channel_follows (
+  user_id,
+  channel_id,
+  channel_name
+) values (
+  '99999999-9999-4999-8999-999999999999',
+  'UCzzzzzzzzzzzzzzzzzzzzzz',
+  'Unrelated channel'
+);
 
 set local role authenticated;
 set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
@@ -361,12 +392,26 @@ reset role;
 set local role service_role;
 
 select results_eq(
-  $$select count(*) from public.reminder_eligibility_snapshots$$,
+  $$
+    select count(*)
+    from public.reminder_eligibility_snapshots
+    where user_id in (
+      '11111111-1111-4111-8111-111111111111',
+      '22222222-2222-4222-8222-222222222222'
+    )
+  $$,
   array[2::bigint],
   'the trusted server sees both isolated snapshot rows'
 );
 select results_eq(
-  $$select count(*) from public.reminder_channel_follows$$,
+  $$
+    select count(*)
+    from public.reminder_channel_follows
+    where user_id in (
+      '11111111-1111-4111-8111-111111111111',
+      '22222222-2222-4222-8222-222222222222'
+    )
+  $$,
   array[3::bigint],
   'the trusted server sees all three isolated channel rows'
 );
