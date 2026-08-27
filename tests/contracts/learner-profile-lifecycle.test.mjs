@@ -56,12 +56,14 @@ function createHarness({
   }),
   cloudRecoveryCandidate = { status: 'recovering' },
   cloudResolution = { status: 'waiting' },
+  cloudSave = () => ({ status: 'saved' }),
   cloudRestore = { status: 'recovering' },
   cloudRetryResult = false,
   cloudStartOver = { status: 'recovering' },
   cloudSyncState = { status: 'idle' },
   cloudUndoStartOver = { status: 'recovering' },
   completeOnboardingFinalizationResult = true,
+  freshLocalProfileReads = false,
   accountlessProfileMigration = null,
   reconcileSignedInProfileResult = true,
   markDirtyResult = null,
@@ -177,7 +179,7 @@ function createHarness({
         },
         save(profile, context) {
           calls.push(['cloud-save', profile, context])
-          return Promise.resolve({ status: 'saved' })
+          return Promise.resolve(cloudSave(profile, context))
         },
         startOver(profile, context) {
           calls.push(['cloud-start-over', profile, context])
@@ -293,7 +295,15 @@ function createHarness({
         },
         read() {
           calls.push(['local-read'])
-          return currentLocal
+          if (
+            !freshLocalProfileReads
+            || !currentLocal?.profile
+            || typeof currentLocal.profile !== 'object'
+          ) return currentLocal
+          return {
+            ...currentLocal,
+            profile: structuredClone(currentLocal.profile)
+          }
         },
         reconcileSignedInProfile(profile, identity) {
           calls.push(['reconcile', profile, identity])
@@ -1501,6 +1511,51 @@ test('temporary cloud unavailability keeps a matching owned local profile active
     harness.calls.filter(([name]) => name === 'cloud-save').length,
     1
   )
+})
+
+test('a finalized signed-in profile remains eligible for its required cloud backup', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { marker: 'returning-owner-local-progress' }
+  let acceptedCloudSaveCount = 0
+  let resolutionCount = 0
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: () => {
+      resolutionCount += 1
+      return resolutionCount === 1
+        ? { status: 'waiting-cloud' }
+        : {
+            backupRequired: true,
+            generation: 1,
+            ownerId,
+            profile,
+            profileId: '223e4567-e89b-42d3-a456-426614174001',
+            revision: 4,
+            status: 'activate'
+          }
+    },
+    cloudSave(_profile, { isCurrent }) {
+      if (!isCurrent()) return { status: 'fenced' }
+      acceptedCloudSaveCount += 1
+      return { status: 'queued' }
+    },
+    cloudSyncState: { status: 'not-yet-backed-up' },
+    freshLocalProfileReads: true,
+    local: {
+      ownerId,
+      profile,
+      profileId: `owner:${ownerId}`,
+      status: 'ready'
+    }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+  harness.authority.retryCloudBackup()
+  await Promise.resolve()
+  await Promise.resolve()
+
+  assert.equal(acceptedCloudSaveCount, 1)
 })
 
 test('a provisional owned profile remains locally writable while its cloud head is unknown', async () => {

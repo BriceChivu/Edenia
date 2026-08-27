@@ -478,7 +478,8 @@ export function createLearnerProfileLifecycleAuthority({
           publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
           return
         }
-        activationProfile.profile = finalizedLocalProfile.profile
+        resolvedProfile = finalizedLocalProfile.profile
+        activationProfile.profile = resolvedProfile
         const activationState = activateProfile(activationProfile, activation, {
           protectedConflicts: result.protectedConflicts || [],
           protectedReset
