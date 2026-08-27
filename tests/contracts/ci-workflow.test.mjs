@@ -53,3 +53,22 @@ test('divergent profile database changes run their pgTAP acceptance suite', () =
     /^          supabase test db supabase\/tests\/learner_profile_conflict_resolution\.test\.sql --local$/m
   )
 })
+
+test('Start over database changes run their pgTAP acceptance suite', () => {
+  const scopeStep = readStep('Determine test scope')
+  const databaseStep = readStep('Verify database safety')
+  const databaseChanges = [
+    'supabase/migrations/*_start_over_learner_profile.sql',
+    'supabase/tests/learner_profile_start_over.test.sql'
+  ]
+
+  for (const change of databaseChanges) {
+    const scopeArm = readCaseArmContaining(scopeStep, change)
+    assert.match(scopeArm, /run_supabase=true/)
+    assert.match(scopeArm, /run_supabase_db=true/)
+  }
+  assert.match(
+    databaseStep,
+    /^          supabase test db supabase\/tests\/learner_profile_start_over\.test\.sql --local$/m
+  )
+})
