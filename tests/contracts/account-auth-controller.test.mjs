@@ -412,6 +412,27 @@ test('definitive session rejection becomes signed out instead of unavailable', a
   assert.equal(harness.controller.getState().error, null)
 })
 
+test('definitive session rejection wins over an offline connectivity hint', async () => {
+  const clientHarness = createClient({
+    sessionResponses: [{
+      data: { session: null },
+      error: {
+        code: 'refresh_token_not_found',
+        status: 400
+      }
+    }]
+  })
+  const harness = createHarness(clientHarness, { isOnline: () => false })
+
+  await harness.controller.initialize()
+
+  assert.equal(
+    harness.controller.getState().sessionState,
+    ACCOUNT_SESSION_STATES.SIGNED_OUT
+  )
+  assert.equal(harness.controller.getState().error, null)
+})
+
 test('online reverification forces a provider session refresh', async () => {
   const session = {
     user: { id: 'user-3', email: 'verified@example.com' }
