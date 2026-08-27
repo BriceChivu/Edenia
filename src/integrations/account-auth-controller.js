@@ -86,17 +86,20 @@ function isInvalidEmailCodeError(error) {
 }
 
 function isTransientSessionError(error, isOnline) {
-  if (!isOnline()) return true
   const status = Number(error?.status)
   const code = String(error?.code || '').trim().toLowerCase()
-  return error?.name === 'AuthRetryableFetchError'
-    || error?.name === 'TypeError'
-    || status === 0
+  if (
+    status === 0
     || status === 408
     || status === 425
     || status === 429
     || status >= 500
     || code === 'request_timeout'
+  ) return true
+  if (Number.isFinite(status) && status > 0) return false
+  return !isOnline()
+    || error?.name === 'AuthRetryableFetchError'
+    || error?.name === 'TypeError'
 }
 
 export function getAccountAuthReturnUrl(locationLike) {
