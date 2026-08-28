@@ -157,6 +157,10 @@ function completeRecords(evidenceDeployment = deployment) {
     }),
     addRecord('operations-monitoring', 'operator-cli', {
       authAlert: 'actionable',
+      externalAuthMonitor: 'five-minute-no-gap-over-ten',
+      operatorNotification: 'down-and-up-received',
+      authMonitorCanary: 'provider-failure-and-recovery',
+      staleWatchdog: 'verified',
       weeklyRestore: 'verified',
       capacityEvidence: 'fresh'
     }),

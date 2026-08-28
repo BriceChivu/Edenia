@@ -21,8 +21,32 @@ const migration = await readFile(
   new URL('../../supabase/migrations/20260824021719_add_auth_monitoring_and_operator_recovery.sql', import.meta.url),
   'utf8'
 )
+const externalMonitorMigration = await readFile(
+  new URL('../../supabase/migrations/20260828041926_add_external_auth_monitor_bridge.sql', import.meta.url),
+  'utf8'
+)
 const probe = await readFile(
   new URL('../../scripts/check-auth-health.mjs', import.meta.url),
+  'utf8'
+)
+const freshnessCheck = await readFile(
+  new URL('../../scripts/check-auth-health-freshness.mjs', import.meta.url),
+  'utf8'
+)
+const monitorHandler = await readFile(
+  new URL('../../supabase/functions/_shared/auth-health-monitor.ts', import.meta.url),
+  'utf8'
+)
+const monitorFunction = await readFile(
+  new URL('../../supabase/functions/auth-health-monitor/index.ts', import.meta.url),
+  'utf8'
+)
+const setupWizard = await readFile(
+  new URL('../../scripts/setup-auth-monitoring.sh', import.meta.url),
+  'utf8'
+)
+const ciWorkflow = await readFile(
+  new URL('../../.github/workflows/ci.yml', import.meta.url),
   'utf8'
 )
 
@@ -54,14 +78,45 @@ test('Auth health classification keeps expected client errors separate from prov
   assert.equal(classifyAuthHealthResponse({ error: new Error('timeout') }), 'network_error')
 })
 
-test('Auth health monitoring probes the provider on a five-minute schedule without sign-in data', () => {
-  assert.match(workflow, /cron:\s*['"]\*\/5 \* \* \* \*['"]/)
+test('GitHub is only the secondary freshness watchdog and manual diagnostic', () => {
+  assert.doesNotMatch(workflow, /cron:\s*['"]\*\/5 \* \* \* \*['"]/)
+  assert.match(workflow, /Secondary stale-record watchdog only/)
+  assert.match(workflow, /check-auth-health-freshness\.mjs/)
+  assert.match(workflow, /github\.event_name == 'workflow_dispatch'/)
   assert.match(workflow, /SUPABASE_URL:/)
-  assert.match(workflow, /SUPABASE_PUBLISHABLE_KEY:/)
-  assert.match(workflow, /SUPABASE_DB_URL:/)
+  assert.match(workflow, /EDENIA_AUTH_MONITOR_TOKEN:/)
   assert.match(workflow, /check-auth-health\.mjs/)
-  assert.match(probe, /auth\/v1\/health/)
-  assert.doesNotMatch(workflow, /signInWithOtp|verifyOtp|email|otp|token/i)
+  assert.doesNotMatch(workflow, /signInWithOtp|verifyOtp|email|otp/i)
+})
+
+test('the external monitor endpoint probes Auth, records aggregates, and exposes a stale watchdog', () => {
+  assert.match(monitorFunction, /auth\/v1\/health/)
+  assert.match(monitorFunction, /record_auth_health_check_from_monitor/)
+  assert.match(monitorFunction, /read_auth_health_monitor_status/)
+  assert.match(monitorHandler, /x-edenia-auth-monitor-canary/)
+  assert.match(monitorHandler, /canaryEnabled/)
+  assert.match(monitorHandler, /Cache-Control': 'no-store/)
+  assert.doesNotMatch(
+    `${monitorFunction}\n${monitorHandler}`,
+    /signInWithOtp|verifyOtp|profile|cookie|user_id/i
+  )
+  assert.match(freshnessCheck, /method: 'GET'/)
+  assert.match(freshnessCheck, /Authorization: `Bearer \$\{token\}`/)
+})
+
+test('the repeatable setup keeps monitor capabilities private and requires hosted proof', () => {
+  assert.match(setupWizard, /https:\/\/dashboard\.uptimerobot\.com\/monitors/)
+  assert.match(setupWizard, /Interval: 5 minutes/)
+  assert.match(setupWizard, /set_secret EDENIA_AUTH_MONITOR_TOKEN/)
+  assert.match(setupWizard, /supabase secrets set --env-file/)
+  assert.match(setupWizard, /provider_unavailable/)
+  assert.match(setupWizard, /DOWN notification within 10 minutes/)
+  assert.match(setupWizard, /at least 24 continuous hours/)
+  assert.doesNotMatch(setupWizard, /write_env EDENIA_AUTH_MONITOR_TOKEN/)
+  assert.doesNotMatch(setupWizard, /echo[^\n]*AUTH_MONITOR_TOKEN/)
+  assert.match(runbook, /independent UptimeRobot API monitor/)
+  assert.match(runbook, /Detection SLA:[\s\S]*within ten minutes/)
+  assert.match(runbook, /largest aggregate gap at most 10 minutes|no gap over ten minutes/i)
 })
 
 test('Auth health monitoring reports an undeployed recorder without leaking credentials', async t => {
@@ -105,9 +160,68 @@ test('Auth health monitoring reports an undeployed recorder without leaking cred
 })
 
 test('Auth health workflow does not label every monitor failure as an Auth outage', () => {
-  assert.match(workflow, /title=Edenia Auth health monitor failure/)
-  assert.match(workflow, /Inspect the sanitized probe diagnostic/)
+  assert.match(workflow, /title=Edenia Auth monitor is stale or unavailable/)
+  assert.match(workflow, /independent external monitor/)
   assert.doesNotMatch(workflow, /title=Edenia Auth outage/)
+})
+
+test('freshness watchdog sends the bearer capability without logging it', async t => {
+  let receivedAuthorization = ''
+  const server = createServer((request, response) => {
+    receivedAuthorization = request.headers.authorization || ''
+    response.writeHead(200, { 'content-type': 'application/json' })
+    response.end('{"status":"healthy"}')
+  })
+  await listen(server)
+  t.after(() => close(server))
+  const address = server.address()
+  const token = 'c'.repeat(64)
+  const result = await runCommand(
+    process.execPath,
+    [fileURLToPath(new URL('../../scripts/check-auth-health-freshness.mjs', import.meta.url))],
+    {
+      env: {
+        ...process.env,
+        EDENIA_AUTH_MONITOR_TOKEN: token,
+        SUPABASE_URL: `http://127.0.0.1:${address.port}`
+      }
+    }
+  )
+
+  assert.equal(result.code, 0)
+  assert.equal(result.stdout, 'Auth monitor freshness status=200\n')
+  assert.equal(result.stderr, '')
+  assert.equal(receivedAuthorization, `Bearer ${token}`)
+  assert.doesNotMatch(`${result.stdout}${result.stderr}`, new RegExp(token))
+})
+
+test('freshness watchdog fails with a bounded diagnostic for stale aggregate state', async t => {
+  const server = createServer((_request, response) => {
+    response.writeHead(503, { 'content-type': 'application/json' })
+    response.end('{"status":"stale","detail":"fixture-secret"}')
+  })
+  await listen(server)
+  t.after(() => close(server))
+  const address = server.address()
+  const result = await runCommand(
+    process.execPath,
+    [fileURLToPath(new URL('../../scripts/check-auth-health-freshness.mjs', import.meta.url))],
+    {
+      env: {
+        ...process.env,
+        EDENIA_AUTH_MONITOR_TOKEN: 'd'.repeat(64),
+        SUPABASE_URL: `http://127.0.0.1:${address.port}`
+      }
+    }
+  )
+
+  assert.equal(result.code, 1)
+  assert.equal(result.stdout, 'Auth monitor freshness status=503\n')
+  assert.equal(
+    result.stderr,
+    'Auth health records are stale, alerting, or unavailable\n'
+  )
+  assert.doesNotMatch(`${result.stdout}${result.stderr}`, /fixture-secret/)
 })
 
 test('operator runbook defines gate-first recovery, sanitized selection, rollback triggers, and the under-13 path', () => {
@@ -142,4 +256,22 @@ test('operator recovery is service-only, gate-first, metadata-only, and protecte
   assert.match(migration, /source = 'operator'/)
   assert.doesNotMatch(migration, /delete from public\.learner_profile_write_receipts/)
   assert.match(migration, /revoke execute[\s\S]*record_auth_health_check[\s\S]*from public, anon, authenticated, service_role/)
+})
+
+test('external monitor database bridges are service-only and CI runs their security suite', () => {
+  assert.match(externalMonitorMigration, /record_auth_health_check_from_monitor/)
+  assert.match(externalMonitorMigration, /read_auth_health_monitor_status/)
+  assert.match(
+    externalMonitorMigration,
+    /security definer\nset search_path = ''/g
+  )
+  assert.match(
+    externalMonitorMigration,
+    /revoke execute[\s\S]*from public, anon, authenticated, service_role/
+  )
+  assert.match(
+    ciWorkflow,
+    /supabase\/tests\/auth_monitoring_freshness\.test\.sql/
+  )
+  assert.match(ciWorkflow, /npm run test:auth-monitor-function/)
 })

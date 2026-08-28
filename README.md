@@ -565,6 +565,7 @@ Submitting the feedback form sends its category, message, optional name and emai
 | `images/channel-avatars/` | Bundled curated-channel avatars |
 | `images/city/` | Optimized town progression images |
 | `.github/workflows/ci.yml` | Path-selected catalog, build, contract, browser-flow, and visual checks |
+| `.github/workflows/auth-health-monitor.yml` | Secondary stale-record watchdog and manual Auth diagnostic; the independent external monitor is the production clock |
 | `.github/workflows/deploy-pages.yml` | Static GitHub Pages build and deployment workflow |
 | `.github/workflows/refresh-channel-catalog.yml` | Scheduled and source-triggered curated catalog refresh |
 | `.github/workflows/discover-language-channels.yml` | Daily automated channel discovery |
@@ -576,6 +577,7 @@ Architecture, preservation, and release references:
 
 - [Architecture](docs/architecture.md)
 - [Account authentication](docs/account-authentication.md)
+- [Auth monitoring and operator recovery](docs/auth-operations.md) — run `scripts/setup-auth-monitoring.sh` after the monitoring repair is merged
 - [Internal account and reminder operations](docs/account-reminder-operations.md)
 - [Current experience preservation inventory](docs/current-experience-inventory.md)
 - [Responsive review matrix](docs/responsive-review-matrix.md)

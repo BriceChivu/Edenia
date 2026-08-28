@@ -8,14 +8,45 @@ envelope into a command, issue, chat, or log.
 
 ## Auth health monitoring
 
-`.github/workflows/auth-health-monitor.yml` runs every five minutes and can be
-run manually before a release. It calls the Supabase Auth health endpoint at
-`/auth/v1/health`. The probe records only this bounded result in the private
-database table:
+The production clock is an independent UptimeRobot API monitor. Every five
+minutes it sends an authenticated `POST` to the deployed
+`auth-health-monitor` Edge Function. The function calls Supabase Auth at
+`/auth/v1/health`, records only the bounded result below through a service-only
+database bridge, and returns a non-2xx response for provider, network,
+recorder, or function failures. UptimeRobot confirms a failure with its own
+retries and sends the attached operator notification.
 
-Configure repository variable `SUPABASE_URL`, repository variable
-`SUPABASE_PUBLISHABLE_KEY`, and secret `SUPABASE_DB_URL` before enabling the
-workflow. A missing value fails the check without attempting a probe.
+Detection SLA: a continuously failing Auth endpoint must produce a confirmed
+DOWN incident and deliver the operator notification within ten minutes of the
+last healthy external check. During healthy operation, aggregate probe records
+must likewise have no gap over ten minutes. The 24-hour proof below verifies
+both the configured five-minute interval and this ten-minute outer bound.
+
+GitHub Actions is not the production clock. The scheduled job in
+`.github/workflows/auth-health-monitor.yml` is an independent secondary
+watchdog: it sends an authenticated `GET` to the function and fails when the
+latest aggregate record is older than ten minutes, the aggregate alert is
+open, or the function/database is unavailable. GitHub scheduled events are
+best-effort, so this job supplements the external monitor and never replaces
+it. `workflow_dispatch` retains the original direct probe as a manual
+diagnostic.
+
+Operational assumptions are pinned to the provider documentation: the
+[UptimeRobot free interval is five minutes](https://help.uptimerobot.com/en/articles/11360876-what-is-a-monitoring-interval-in-uptimerobot),
+[API monitors support bearer authentication and response assertions](https://help.uptimerobot.com/en/articles/13628553-uptimerobot-api-monitoring),
+and [notification proof requires checking the destination](https://help.uptimerobot.com/en/articles/11602913-how-to-test-notifications-in-uptimerobot-quick-guide).
+GitHub documents that [scheduled events can be delayed or dropped](https://docs.github.com/en/actions/how-tos/troubleshoot-workflows#scheduled-workflows-running-at-unexpected-times),
+which is why it is only the secondary watchdog.
+
+The dedicated 64-character lowercase hexadecimal
+`EDENIA_AUTH_MONITOR_TOKEN` is stored in exactly three places: the Supabase
+Edge Function secrets, the UptimeRobot API monitor bearer-auth field, and the
+GitHub Actions secret of the same name. It is never a Pages variable, URL
+parameter, issue value, command-line argument, or log field. The optional
+`EDENIA_AUTH_MONITOR_CANARY_ENABLED` Edge Function secret is exactly `true` or
+`false` and remains `false` outside a supervised alert rehearsal. Run
+`scripts/setup-auth-monitoring.sh` after the migration and function are merged
+to provision these values without printing them.
 
 | Result | Meaning | Alert effect |
 | --- | --- | --- |
@@ -26,8 +57,9 @@ workflow. A missing value fails the check without attempting a probe.
 
 Three consecutive provider or network failures open the aggregate alert. A
 fresh successful response closes it. A failed monitor run does not by itself
-prove an Auth outage: the workflow annotation is deliberately neutral, and the
-sanitized probe diagnostic identifies the failed boundary.
+prove an Auth outage: the UptimeRobot incident and secondary-watchdog
+annotation are deliberately neutral, and the sanitized result class identifies
+the failed boundary.
 `Auth health recorder schema is not deployed` means the production migration
 chain does not yet contain the private recorder. Keep the profile-data gate
 off, reconcile all pending migrations in order, obtain approval for the
@@ -37,11 +69,55 @@ reason; verify the database connection and deployed schema without printing the
 URL or credentials. A stale probe older than ten minutes is not healthy, even
 if its last recorded result was good.
 
-Before mandatory-account launch, configure GitHub notifications for this
-workflow and run it manually once. Confirm that a deliberately recorded
-expected client error does not page the operator and that a three-sample
-provider failure opens the alert. Do not use a real sign-in request as a
-synthetic probe.
+### Provision and prove the independent monitor
+
+Before mandatory-account launch:
+
+1. Apply `20260828041926_add_external_auth_monitor_bridge.sql`, deploy
+   `auth-health-monitor` from the same commit, and keep
+   `EDENIA_AUTH_MONITOR_CANARY_ENABLED=false`.
+2. Run `scripts/setup-auth-monitoring.sh`. In UptimeRobot create an API monitor
+   named `Edenia production Auth`, use `POST`, the exact function URL, bearer
+   authentication, a five-minute interval, zero notification delay, and the
+   activated operator contact for both DOWN and UP events. Assert HTTP 200 and
+   JSON `$.status` equal to `available` or `expected_client_error`.
+3. Use UptimeRobot's notification test and confirm that the operator actually
+   receives both simulated DOWN and UP messages. A dashboard success message
+   is not delivery proof.
+4. Run one ordinary external check and confirm a new aggregate record exists.
+   Do not print the token, endpoint response body, database URL, or raw table.
+5. Rehearse the provider-failure path. Set the canary flag to `true`, add the
+   request header `X-Edenia-Auth-Monitor-Canary: provider_unavailable` to the
+   external monitor, and wait for its confirmation retries to produce a DOWN
+   incident and open the three-failure database alert. Confirm receipt of the
+   real DOWN notification. Remove the canary header **before** setting the flag
+   back to `false`; the next real probe must return UP, close the aggregate
+   alert, and deliver the recovery notification. Stop and keep the profile-data
+   gate off if any cleanup or recovery step is ambiguous.
+6. Prove the stale-record path separately by pausing the external monitor for
+   more than ten minutes while the server profile-data gate is off. The
+   authenticated function `GET` must return non-2xx, and the secondary GitHub
+   watchdog must fail when it next runs. Resume the external monitor and verify
+   that a fresh record returns both paths to healthy.
+7. Observe at least 24 continuous hours after the rehearsal. The external
+   monitor must show its configured five-minute checks with no unexplained gap,
+   and private aggregate records must show no gap over ten minutes. Record only
+   the window start/end, check count, largest gap, incident/recovery times,
+   notification channel class, deployed commit, and pass/fail result.
+
+Do not use a real sign-in request as a synthetic probe. Never enable the canary
+flag on an ordinary learner-facing path; it exists only on the bearer-protected
+operator endpoint and fails closed when disabled.
+
+### Monitoring rollback
+
+If the new function or recorder bridge is defective, keep the profile-data gate
+off and point the external monitor directly at `/auth/v1/health` while a revert
+PR is prepared. This temporarily preserves independent provider-availability
+alerts but does not satisfy aggregate recording or freshness evidence. Revert
+the function and workflow together, leave the additive service-only bridge in
+place until nothing calls it, rotate `EDENIA_AUTH_MONITOR_TOKEN`, and repeat the
+full alert/recovery rehearsal before claiming readiness again.
 
 ## Serious profile recovery
 
