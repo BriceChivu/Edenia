@@ -8,7 +8,8 @@ envelope into a command, issue, chat, or log.
 
 ## Auth health monitoring
 
-The production clock is an independent UptimeRobot HTTP / website monitor.
+The production clock is an Independent Auth monitor operated through Pulsetic
+Free Website Monitoring.
 Every five minutes it sends an authenticated `POST` to the deployed
 `auth-health-monitor` Edge Function. The function calls Supabase Auth at
 `/auth/v1/health`, records only the bounded result below through a service-only
@@ -19,31 +20,38 @@ failure with its own retries, and sends the attached operator notification.
 
 Detection SLA: a continuously failing Auth endpoint must produce a confirmed
 DOWN incident and deliver the operator notification within ten minutes of the
-last healthy external check. During healthy operation, aggregate probe records
-must likewise have no gap over ten minutes. The 24-hour proof below verifies
-both the configured five-minute interval and this ten-minute outer bound.
+last healthy Independent Auth monitor check. During healthy operation,
+aggregate probe records must likewise have no gap over ten minutes. The 24-hour
+proof below verifies both the configured five-minute interval and this
+ten-minute outer bound.
 
 GitHub Actions is not the production clock. The scheduled job in
 `.github/workflows/auth-health-monitor.yml` is an independent secondary
 watchdog: it sends an authenticated `GET` to the function and fails when the
 latest aggregate record is older than ten minutes, the aggregate alert is
 open, or the function/database is unavailable. GitHub scheduled events are
-best-effort, so this job supplements the external monitor and never replaces
-it. `workflow_dispatch` retains the original direct probe as a manual
+best-effort, so this job supplements the Independent Auth monitor and never
+replaces it. `workflow_dispatch` retains the original direct probe as a manual
 diagnostic.
 
 Operational assumptions are pinned to the provider documentation: the
-[UptimeRobot Free plan includes HTTP / website monitors](https://help.uptimerobot.com/en/articles/11604710-who-should-use-uptimerobot-s-free-plan),
-[its interval is five minutes](https://help.uptimerobot.com/en/articles/11360876-what-is-a-monitoring-interval-in-uptimerobot),
-[an HTTP monitor treats an error status code as DOWN](https://help.uptimerobot.com/en/articles/11358364-how-to-create-your-first-monitor-on-uptimerobot-quick-setup-guide),
-and [notification proof requires checking the destination](https://help.uptimerobot.com/en/articles/11602913-how-to-test-notifications-in-uptimerobot-quick-guide).
+[Pulsetic Free plan includes ten monitors, five-minute checks, and email
+alerts](https://pulsetic.com/pricing/), its
+[saved Advanced Settings expose HTTP methods, request headers, and exact
+expected statuses](https://help.pulsetic.com/article/21-how-to-use-the-advanced-settings),
+and monitors can be
+[paused and resumed while retaining their configuration](https://help.pulsetic.com/article/281-using-bulk-actions-on-monitors).
+[Pulsetic pauses Free monitors after more than three months without an account
+login](https://help.pulsetic.com/article/352-monitor-paused). Maintain a monthly
+operator reminder and sign in at least every 80 days; do not treat the reminder
+itself as monitor evidence.
 GitHub documents that [scheduled events can be delayed or dropped](https://docs.github.com/en/actions/how-tos/troubleshoot-workflows#scheduled-workflows-running-at-unexpected-times),
 which is why it is only the secondary watchdog.
 
 The dedicated 64-character lowercase hexadecimal
 `EDENIA_AUTH_MONITOR_TOKEN` is stored in exactly three places: the Supabase
-Edge Function secrets, the UptimeRobot HTTP monitor bearer-auth field, and the
-GitHub Actions secret of the same name. It is never a Pages variable, URL
+Edge Function secrets, the Pulsetic monitor's `Authorization` request header,
+and the GitHub Actions secret of the same name. It is never a Pages variable, URL
 parameter, issue value, command-line argument, or log field. The optional
 `EDENIA_AUTH_MONITOR_CANARY_ENABLED` Edge Function secret is exactly `true` or
 `false` and remains `false` outside a supervised alert rehearsal. Run
@@ -59,7 +67,7 @@ to provision these values without printing them.
 
 Three consecutive provider or network failures open the aggregate alert. A
 fresh successful response closes it. A failed monitor run does not by itself
-prove an Auth outage: the UptimeRobot incident and secondary-watchdog
+prove an Auth outage: the Pulsetic incident and secondary-watchdog
 annotation are deliberately neutral, and the sanitized result class identifies
 the failed boundary.
 `Auth health recorder schema is not deployed` means the production migration
@@ -71,43 +79,48 @@ reason; verify the database connection and deployed schema without printing the
 URL or credentials. A stale probe older than ten minutes is not healthy, even
 if its last recorded result was good.
 
-### Provision and prove the independent monitor
+### Provision and prove the Independent Auth monitor
 
 Before mandatory-account launch:
 
 1. Apply `20260828041926_add_external_auth_monitor_bridge.sql`, deploy
    `auth-health-monitor` from the same commit, and keep
    `EDENIA_AUTH_MONITOR_CANARY_ENABLED=false`.
-2. Run `scripts/setup-auth-monitoring.sh`. In UptimeRobot create an HTTP /
-   website monitor named `Edenia production Auth`, use `POST`, the exact
-   function URL, bearer authentication, a five-minute interval, zero
-   notification delay, and the operator email contact for both DOWN and UP
-   events. Keep the HTTP status check: HTTP 200 is UP and HTTP 503 is DOWN. Do
-   not require an API monitor or JSON response assertions; the Edge Function
-   owns the sanitized outcome classification and exposes only the status-code
-   boundary to the external monitor.
-3. Use UptimeRobot's notification test and confirm that the operator actually
-   receives both simulated DOWN and UP messages. A dashboard success message
-   is not delivery proof.
-4. Run one ordinary external check and confirm a new aggregate record exists.
+2. Run `scripts/setup-auth-monitoring.sh`. In Pulsetic create a temporary
+   Website Monitoring monitor for `https://example.com`. Keep the Free-plan
+   five-minute interval, zero notification delay, and Email Alert enabled.
+   Save it without entering the production endpoint or Auth monitor capability.
+3. Open the temporary monitor's saved Advanced Settings. In one update, set
+   Name to `Edenia production Auth`, replace the URL with the exact function
+   URL, set Request → HTTP Method to `POST`, add request header
+   `Authorization` = `Bearer <Auth monitor capability>`, and set Response and
+   Keywords → Expected statuses to `200`. The saved update converts the
+   temporary monitor; there must not be a separate `example.com` monitor left
+   behind. Keep the HTTP status check: HTTP 200 is UP and HTTP 503 is DOWN. Do
+   not add response-body assertions; the Edge Function owns the sanitized
+   outcome classification and exposes only the status-code boundary.
+4. Run one Pulsetic check, wait for the converted monitor to become Online,
+   and confirm a new aggregate record exists.
    Do not print the token, endpoint response body, database URL, or raw table.
 5. Rehearse the provider-failure path. Set the canary flag to `true`, add the
    request header `X-Edenia-Auth-Monitor-Canary: provider_unavailable` to the
-   external monitor, and wait for its confirmation retries to produce a DOWN
-   incident and open the three-failure database alert. Confirm receipt of the
+   Independent Auth monitor, and wait for its confirmation retries to produce a
+   DOWN incident and open the three-failure database alert. Confirm receipt of the
    real DOWN notification. Remove the canary header **before** setting the flag
    back to `false`; the next real probe must return UP, close the aggregate
-   alert, and deliver the recovery notification. Stop and keep the profile-data
+   alert, and deliver the recovery notification. These real canary DOWN and
+   recovery notifications are the operator-delivery proof; verify them at the
+   destination, not from dashboard state alone. Stop and keep the profile-data
    gate off if any cleanup or recovery step is ambiguous.
-6. Prove the stale-record path separately by pausing the external monitor for
-   more than ten minutes while the server profile-data gate is off. The
+6. Prove the stale-record path separately by pausing the Independent Auth
+   monitor for more than ten minutes while the server profile-data gate is off. The
    authenticated function `GET` must return non-2xx, and the secondary GitHub
-   watchdog must fail when it next runs. Resume the external monitor and verify
-   that a fresh record returns both paths to healthy.
-7. Observe at least 24 continuous hours after the rehearsal. The external
-   monitor must show its configured five-minute checks with no unexplained gap,
-   and private aggregate records must show no gap over ten minutes. Record only
-   the window start/end, check count, largest gap, incident/recovery times,
+   watchdog must fail when it next runs. Resume the Independent Auth monitor and
+   verify that a fresh record returns both paths to healthy.
+7. Observe at least 24 continuous hours after the rehearsal. The Independent
+   Auth monitor must show its configured five-minute checks with no unexplained
+   gap, and private aggregate records must show no gap over ten minutes. Record
+   only the window start/end, check count, largest gap, incident/recovery times,
    notification channel class, deployed commit, and pass/fail result.
 
 Do not use a real sign-in request as a synthetic probe. Never enable the canary
@@ -117,8 +130,8 @@ operator endpoint and fails closed when disabled.
 ### Monitoring rollback
 
 If the new function or recorder bridge is defective, keep the profile-data gate
-off and point the external monitor directly at `/auth/v1/health` while a revert
-PR is prepared. This temporarily preserves independent provider-availability
+off and point the Independent Auth monitor directly at `/auth/v1/health` while
+a revert PR is prepared. This temporarily preserves provider-availability
 alerts but does not satisfy aggregate recording or freshness evidence. Revert
 the function and workflow together, leave the additive service-only bridge in
 place until nothing calls it, rotate `EDENIA_AUTH_MONITOR_TOKEN`, and repeat the

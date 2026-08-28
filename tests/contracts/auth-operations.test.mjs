@@ -89,7 +89,7 @@ test('GitHub is only the secondary freshness watchdog and manual diagnostic', ()
   assert.doesNotMatch(workflow, /signInWithOtp|verifyOtp|email|otp/i)
 })
 
-test('the external monitor endpoint probes Auth, records aggregates, and exposes a stale watchdog', () => {
+test('the Independent Auth monitor endpoint probes Auth, records aggregates, and exposes a stale watchdog', () => {
   assert.match(monitorFunction, /auth\/v1\/health/)
   assert.match(monitorFunction, /record_auth_health_check_from_monitor/)
   assert.match(monitorFunction, /read_auth_health_monitor_status/)
@@ -104,22 +104,37 @@ test('the external monitor endpoint probes Auth, records aggregates, and exposes
   assert.match(freshnessCheck, /Authorization: `Bearer \$\{token\}`/)
 })
 
-test('the repeatable setup keeps monitor capabilities private and requires hosted proof', () => {
-  assert.match(setupWizard, /https:\/\/dashboard\.uptimerobot\.com\/monitors/)
+test('the repeatable setup keeps the Auth monitor capability private and requires hosted proof', () => {
+  const totalStageAssignments = [...setupWizard.matchAll(/^TOTAL_STAGES=(\d+)$/gm)]
+  const totalStages = Number(totalStageAssignments.at(-1)?.[1])
+  const authoredStages = setupWizard.match(/^stage "/gm) ?? []
+  assert.equal(totalStages, authoredStages.length)
+  assert.match(setupWizard, /https:\/\/app\.pulsetic\.com\/monitors/)
   assert.match(setupWizard, /Interval: 5 minutes/)
   assert.match(setupWizard, /set_secret EDENIA_AUTH_MONITOR_TOKEN/)
   assert.match(setupWizard, /supabase secrets set --env-file/)
   assert.match(setupWizard, /provider_unavailable/)
   assert.match(setupWizard, /DOWN notification within 10 minutes/)
   assert.match(setupWizard, /at least 24 continuous hours/)
-  assert.match(setupWizard, /Create an HTTP \/ website monitor/)
+  assert.match(setupWizard, /temporary Website Monitoring monitor[\s\S]*https:\/\/example\.com/)
+  assert.match(setupWizard, /saved Advanced Settings/)
+  assert.match(setupWizard, /HTTP Method: POST/)
+  assert.match(setupWizard, /Authorization = Bearer/)
+  assert.match(setupWizard, /Expected statuses: 200/)
   assert.match(setupWizard, /returns 200 for healthy outcomes and 503 for monitor failures/)
-  assert.doesNotMatch(setupWizard, /Create an API monitor|Add OR assertions/i)
+  assert.match(setupWizard, /real DOWN[\s\S]*real UP/)
+  assert.match(setupWizard, /sign in at least every 80 days/i)
+  assert.doesNotMatch(setupWizard, /UptimeRobot|Create an API monitor|Add OR assertions|Test Notification|simulated DOWN/i)
   assert.doesNotMatch(setupWizard, /write_env EDENIA_AUTH_MONITOR_TOKEN/)
   assert.doesNotMatch(setupWizard, /echo[^\n]*AUTH_MONITOR_TOKEN/)
-  assert.match(runbook, /independent UptimeRobot HTTP \/ website monitor/)
+  assert.match(runbook, /Independent Auth monitor operated through Pulsetic[\s\S]*Free Website Monitoring/)
+  assert.match(runbook, /temporary[\s\S]*`https:\/\/example\.com`/)
+  assert.match(runbook, /saved Advanced Settings[\s\S]*HTTP Method[\s\S]*`POST`/)
+  assert.match(runbook, /`Authorization`[\s\S]*`Bearer <Auth monitor capability>`/)
   assert.match(runbook, /HTTP 200 is UP and HTTP 503 is DOWN/)
-  assert.doesNotMatch(runbook, /In UptimeRobot create an API monitor|Assert HTTP 200 and JSON/i)
+  assert.match(runbook, /real canary DOWN and\s+recovery notifications/i)
+  assert.match(runbook, /sign in at least every 80 days/i)
+  assert.doesNotMatch(runbook, /UptimeRobot|Test Notification|simulated DOWN|Assert HTTP 200 and JSON/i)
   assert.match(runbook, /Detection SLA:[\s\S]*within ten minutes/)
   assert.match(runbook, /largest aggregate gap at most 10 minutes|no gap over ten minutes/i)
 })
@@ -263,7 +278,7 @@ test('operator recovery is service-only, gate-first, metadata-only, and protecte
   assert.match(migration, /revoke execute[\s\S]*record_auth_health_check[\s\S]*from public, anon, authenticated, service_role/)
 })
 
-test('external monitor database bridges are service-only and CI runs their security suite', () => {
+test('Independent Auth monitor database bridges are service-only and CI runs their security suite', () => {
   assert.match(externalMonitorMigration, /record_auth_health_check_from_monitor/)
   assert.match(externalMonitorMigration, /read_auth_health_monitor_status/)
   assert.match(
