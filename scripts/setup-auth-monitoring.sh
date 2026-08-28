@@ -185,6 +185,7 @@ finish() {
 # ──────────────────────────────────────────────────────────────────────────
 
 TOTAL_STAGES=5
+MONITOR_REGION=ap-northeast-1
 
 PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$PROJECT_ROOT"
@@ -264,11 +265,19 @@ monitor_http_status() {
       --write-out '%{http_code}' --request "$method" "$MONITOR_ENDPOINT"
 }
 
+monitor_edge_region() {
+  local method="$1"
+  printf 'header = "Authorization: Bearer %s"\n' "$AUTH_MONITOR_TOKEN" \
+    | curl --config - --silent --show-error --dump-header - --output /dev/null \
+      --request "$method" "$MONITOR_ENDPOINT" \
+    | awk 'tolower($1) == "x-sb-edge-region:" { gsub("\\r", "", $2); print $2 }'
+}
+
 banner "Edenia production Auth monitoring"
 
 stage "Preflight and operator notification"
 say "This provisions production monitoring. It never prints or writes the bearer token to the repository."
-for required in git gh supabase openssl curl; do require_command "$required"; done
+for required in git gh supabase openssl curl jq awk; do require_command "$required"; done
 if ! gh auth status >/dev/null 2>&1; then
   warn "Authenticate gh before continuing"
   exit 1
@@ -297,7 +306,21 @@ if [[ ! "$SUPABASE_URL" =~ ^https://[a-z0-9-]+\.supabase\.co/?$ ]]; then
   exit 1
 fi
 SUPABASE_URL=${SUPABASE_URL%/}
-MONITOR_ENDPOINT="$SUPABASE_URL/functions/v1/auth-health-monitor"
+PROJECT_REF=${SUPABASE_URL#https://}
+PROJECT_REF=${PROJECT_REF%%.*}
+DEPLOYED_REGION=$(supabase projects list --output json \
+  | jq -r --arg project_ref "$PROJECT_REF" \
+    '.[] | select(.id == $project_ref) | .region' \
+  | head -n1)
+if [[ -z "$DEPLOYED_REGION" || "$DEPLOYED_REGION" == "null" ]]; then
+  warn "Could not verify the linked Supabase project region"
+  exit 1
+fi
+if [[ "$DEPLOYED_REGION" != "$MONITOR_REGION" ]]; then
+  warn "The deployed region is $DEPLOYED_REGION, but this repair expects $MONITOR_REGION"
+  exit 1
+fi
+MONITOR_ENDPOINT="$SUPABASE_URL/functions/v1/auth-health-monitor?forceFunctionRegion=$MONITOR_REGION"
 AUTH_MONITOR_TOKEN=$(openssl rand -hex 32)
 if [[ ! "$AUTH_MONITOR_TOKEN" =~ ^[0-9a-f]{64}$ ]]; then
   warn "Could not generate the monitor token"
@@ -340,7 +363,12 @@ if [[ "$BASELINE_STATUS" != "200" ]]; then
   warn "The authenticated production probe returned HTTP $BASELINE_STATUS instead of 200"
   exit 1
 fi
-say "The Auth health probe endpoint returned HTTP 200 and recorded an aggregate probe."
+BASELINE_REGION=$(monitor_edge_region POST)
+if [[ "$BASELINE_REGION" != "$MONITOR_REGION" ]]; then
+  warn "The authenticated production probe ran in ${BASELINE_REGION:-an unknown region} instead of $MONITOR_REGION"
+  exit 1
+fi
+say "The Auth health probe returned HTTP 200 from $MONITOR_REGION and recorded an aggregate probe."
 
 stage "Rehearse provider failure and recovery"
 warn "Keep the server profile-data gate off for this supervised rehearsal."

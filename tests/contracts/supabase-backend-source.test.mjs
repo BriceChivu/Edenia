@@ -403,7 +403,11 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
     new URL('auth-health-monitor/index.ts', functionsRoot),
     'utf8'
   )
-  assert.match(authMonitorSource, /auth\/v1\/health/)
+  const authHealthProbeSource = await readFile(
+    new URL('_shared/auth-health-probe.ts', functionsRoot),
+    'utf8'
+  )
+  assert.match(authHealthProbeSource, /auth\/v1\/health/)
   assert.match(authMonitorSource, /record_auth_health_check_from_monitor/)
   assert.match(authMonitorSource, /read_auth_health_monitor_status/)
 

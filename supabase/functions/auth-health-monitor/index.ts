@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
+import { probeAuthHealth as runAuthHealthProbe } from '../_shared/auth-health-probe.ts'
 import {
-  classifyAuthHealthResponse,
   handleAuthHealthMonitorRequest,
   type AuthHealthOutcome,
   type AuthHealthProbeResult,
@@ -30,30 +30,10 @@ const supabase = createClient(
 
 const publishableKey = Deno.env.get('SUPABASE_ANON_KEY')?.trim()
 
-async function probeAuthHealth(): Promise<AuthHealthProbeResult> {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 10_000)
-  const startedAt = Date.now()
-  try {
-    const response = await fetch(`${supabaseUrl}/auth/v1/health`, {
-      headers: publishableKey ? { apikey: publishableKey } : undefined,
-      signal: controller.signal,
-    })
-    return {
-      outcome: classifyAuthHealthResponse({ status: response.status }),
-      status: response.status,
-      latencyMs: Math.max(0, Date.now() - startedAt),
-    }
-  } catch {
-    return {
-      outcome: 'network_error',
-      status: null,
-      latencyMs: Math.max(0, Date.now() - startedAt),
-    }
-  } finally {
-    clearTimeout(timeout)
-  }
-}
+const probeAuthHealth = () => runAuthHealthProbe({
+  publishableKey,
+  supabaseUrl,
+})
 
 async function recordAuthHealth(result: AuthHealthProbeResult) {
   const { data, error } = await supabase.rpc(
