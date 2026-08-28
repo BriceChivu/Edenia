@@ -285,8 +285,8 @@ if [[ "$CURRENT_BRANCH" != "master" ]]; then
 fi
 open_url "https://dashboard.uptimerobot.com/"
 step "Sign in or create the no-cost account; do not share its address or session here."
-step "Open Notification channels and make the account email contact Active for both DOWN and UP."
-pause "Continue only after the operator notification contact is Active."
+step "Confirm that the account email can receive alerts. The monitor form exposes it as the E-mail contact."
+pause "Continue only after the operator notification destination is ready."
 
 stage "Deploy the production recorder and endpoint"
 say "The migration is additive. The function stays unreachable without a dedicated 64-hex bearer token."
@@ -317,12 +317,12 @@ say "Production migration, function, canary-off state, and GitHub watchdog secre
 stage "Create the independent five-minute monitor"
 copy_monitor_token
 open_url "https://dashboard.uptimerobot.com/monitors"
-step "Create an API monitor named: Edenia production Auth"
+step "Create an HTTP / website monitor named: Edenia production Auth"
 step "Method: POST"
 step "URL: $MONITOR_ENDPOINT"
 step "Authentication: Bearer Token. Paste the token currently on your clipboard."
-step "Interval: 5 minutes. Notification delay: 0. Attach the Active operator contact for DOWN and UP."
-step "Add OR assertions: $.status equals available; $.status equals expected_client_error."
+step "Interval: 5 minutes. Notification delay: 0. Attach the E-mail contact for DOWN and UP."
+step "Success rule: keep the HTTP status check. The Edge Function returns 200 for healthy outcomes and 503 for monitor failures. Do not add JSON assertions."
 step "Detection SLA: a continuous failure must produce the DOWN notification within 10 minutes of the last healthy check."
 step "Save the monitor and wait for its first check to become UP."
 pause "Continue only after the monitor is UP."
