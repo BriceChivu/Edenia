@@ -1,12 +1,10 @@
 # CHANGES:
 
 ## BUGS:
-- on mobiles: internal_test=1 is very slow, especially when setting a video as watch later or favorite
-- FIx heatmap sizing
+
 
 ## Usability:
 - INSIGHTS: Saying "Try Tuesday" when today is monday doesn't really make sense i feel... Rething Insights again
-- moving the mouse around while watching a video in the iframe makes the Youtube iframe buttons appear. I don't like the obstructing pause button in the middle.
 - add more supported languages
 - add more suggested languages to learn    
 - do not have more than 2 motivational insights in a row. Give more real analytics and data backed insights. (see Codex)
