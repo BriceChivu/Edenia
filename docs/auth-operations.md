@@ -11,7 +11,8 @@ envelope into a command, issue, chat, or log.
 The production clock is an Independent Auth monitor operated through Pulsetic
 Free Website Monitoring.
 Every five minutes it sends an authenticated `POST` to the deployed
-`auth-health-monitor` Edge Function. The function calls Supabase Auth at
+`auth-health-monitor` Edge Function, pinned to `ap-northeast-1` with
+`forceFunctionRegion=ap-northeast-1`. The function calls Supabase Auth at
 `/auth/v1/health`, records only the bounded result below through a service-only
 database bridge, and returns HTTP 200 for an available provider response or an
 expected client error. It returns HTTP 503 for provider, network, recorder, or
@@ -24,6 +25,14 @@ last healthy Independent Auth monitor check. During healthy operation,
 aggregate probe records must likewise have no gap over ten minutes. The 24-hour
 proof below verifies both the configured five-minute interval and this
 ten-minute outer bound.
+
+Supabase otherwise runs an Edge Function near each caller. Pulsetic scheduled
+checks and confirmation retries can originate from different locations, so an
+unpinned invocation can take a different cross-region path to the Tokyo Auth
+and database services than a direct operator check. The production monitor URL
+therefore pins every invocation to the project's deployed region. Verify the
+sanitized `x-sb-edge-region` response header is `ap-northeast-1`; do not record
+the endpoint, capability, response body, request headers, or execution ID.
 
 GitHub Actions is not the production clock. The scheduled job in
 `.github/workflows/auth-health-monitor.yml` is an independent secondary
@@ -92,7 +101,8 @@ Before mandatory-account launch:
    Save it without entering the production endpoint or Auth monitor capability.
 3. Open the temporary monitor's saved Advanced Settings. In one update, set
    Name to `Edenia production Auth`, replace the URL with the exact function
-   URL, set Request → HTTP Method to `POST`, add request header
+   URL ending in `?forceFunctionRegion=ap-northeast-1`, set Request → HTTP Method
+   to `POST`, add request header
    `Authorization` = `Bearer <Auth monitor capability>`, and set Response and
    Keywords → Expected statuses to `200`. The saved update converts the
    temporary monitor; there must not be a separate `example.com` monitor left
@@ -100,7 +110,8 @@ Before mandatory-account launch:
    not add response-body assertions; the Edge Function owns the sanitized
    outcome classification and exposes only the status-code boundary.
 4. Run one Pulsetic check, wait for the converted monitor to become Online,
-   and confirm a new aggregate record exists.
+   confirm the response `x-sb-edge-region` is `ap-northeast-1`, and confirm a
+   new aggregate record exists.
    Do not print the token, endpoint response body, database URL, or raw table.
 5. Rehearse the provider-failure path. Set the canary flag to `true`, add the
    request header `X-Edenia-Auth-Monitor-Canary: provider_unavailable` to the

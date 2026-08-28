@@ -41,6 +41,10 @@ const monitorFunction = await readFile(
   new URL('../../supabase/functions/auth-health-monitor/index.ts', import.meta.url),
   'utf8'
 )
+const monitorProbe = await readFile(
+  new URL('../../supabase/functions/_shared/auth-health-probe.ts', import.meta.url),
+  'utf8'
+)
 const setupWizard = await readFile(
   new URL('../../scripts/setup-auth-monitoring.sh', import.meta.url),
   'utf8'
@@ -90,14 +94,14 @@ test('GitHub is only the secondary freshness watchdog and manual diagnostic', ()
 })
 
 test('the Independent Auth monitor endpoint probes Auth, records aggregates, and exposes a stale watchdog', () => {
-  assert.match(monitorFunction, /auth\/v1\/health/)
+  assert.match(monitorProbe, /auth\/v1\/health/)
   assert.match(monitorFunction, /record_auth_health_check_from_monitor/)
   assert.match(monitorFunction, /read_auth_health_monitor_status/)
   assert.match(monitorHandler, /x-edenia-auth-monitor-canary/)
   assert.match(monitorHandler, /canaryEnabled/)
   assert.match(monitorHandler, /Cache-Control': 'no-store/)
   assert.doesNotMatch(
-    `${monitorFunction}\n${monitorHandler}`,
+    `${monitorFunction}\n${monitorProbe}\n${monitorHandler}`,
     /signInWithOtp|verifyOtp|profile|cookie|user_id/i
   )
   assert.match(freshnessCheck, /method: 'GET'/)
@@ -118,6 +122,10 @@ test('the repeatable setup keeps the Auth monitor capability private and require
   assert.match(setupWizard, /at least 24 continuous hours/)
   assert.match(setupWizard, /temporary Website Monitoring monitor[\s\S]*https:\/\/example\.com/)
   assert.match(setupWizard, /saved Advanced Settings/)
+  assert.match(setupWizard, /MONITOR_REGION=ap-northeast-1/)
+  assert.match(setupWizard, /forceFunctionRegion=\$MONITOR_REGION/)
+  assert.match(setupWizard, /DEPLOYED_REGION[\s\S]*MONITOR_REGION/)
+  assert.match(setupWizard, /x-sb-edge-region:[\s\S]*BASELINE_REGION[\s\S]*MONITOR_REGION/i)
   assert.match(setupWizard, /HTTP Method: POST/)
   assert.match(setupWizard, /Authorization = Bearer/)
   assert.match(setupWizard, /Expected statuses: 200/)
@@ -130,6 +138,8 @@ test('the repeatable setup keeps the Auth monitor capability private and require
   assert.match(runbook, /Independent Auth monitor operated through Pulsetic[\s\S]*Free Website Monitoring/)
   assert.match(runbook, /temporary[\s\S]*`https:\/\/example\.com`/)
   assert.match(runbook, /saved Advanced Settings[\s\S]*HTTP Method[\s\S]*`POST`/)
+  assert.match(runbook, /`forceFunctionRegion=ap-northeast-1`/)
+  assert.match(runbook, /`x-sb-edge-region`[\s\S]*`ap-northeast-1`/)
   assert.match(runbook, /`Authorization`[\s\S]*`Bearer <Auth monitor capability>`/)
   assert.match(runbook, /HTTP 200 is UP and HTTP 503 is DOWN/)
   assert.match(runbook, /real canary DOWN and\s+recovery notifications/i)
