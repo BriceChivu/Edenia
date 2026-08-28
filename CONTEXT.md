@@ -67,3 +67,15 @@ _Avoid_: Realtime collaboration, cloud-only storage
 **Internal canary**:
 A release stage in which account-backed behavior is available only to the developer for production-like verification.
 _Avoid_: Private deployment, public beta
+
+**Auth health probe**:
+A synthetic check of Edenia Auth availability that neither signs in as a learner nor uses learner data.
+_Avoid_: Test login, learner probe
+
+**Auth monitor capability**:
+Revocable authority to invoke the Auth health probe and read its aggregate status, without authority over learner identities or profiles.
+_Avoid_: Account credential, learner token
+
+**Independent Auth monitor**:
+An Auth health probe scheduler and operator-alert path whose control plane is outside Edenia, Supabase, and GitHub Actions.
+_Avoid_: Auth workflow, internal health job

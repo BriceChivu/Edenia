@@ -184,7 +184,7 @@ finish() {
 # Replace the example below. Set TOTAL_STAGES to match the stages you write.
 # ──────────────────────────────────────────────────────────────────────────
 
-TOTAL_STAGES=6
+TOTAL_STAGES=5
 
 PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$PROJECT_ROOT"
@@ -283,9 +283,10 @@ if [[ "$CURRENT_BRANCH" != "master" ]]; then
   warn "Current branch is $CURRENT_BRANCH; production setup normally runs from merged master"
   confirm "Continue from this exact checkout?" || exit 1
 fi
-open_url "https://dashboard.uptimerobot.com/"
+open_url "https://app.pulsetic.com/account/general-alerts/email"
 step "Sign in or create the no-cost account; do not share its address or session here."
-step "Confirm that the account email can receive alerts. The monitor form exposes it as the E-mail contact."
+step "Confirm that the account email is verified and can receive monitor alerts."
+step "Maintain a monthly reminder and sign in at least every 80 days so Pulsetic does not pause the Free account for inactivity."
 pause "Continue only after the operator notification destination is ready."
 
 stage "Deploy the production recorder and endpoint"
@@ -314,48 +315,48 @@ if ! gh secret list --json name --jq '.[].name' | grep -qx EDENIA_AUTH_MONITOR_T
 fi
 say "Production migration, function, canary-off state, and GitHub watchdog secret are configured."
 
-stage "Create the independent five-minute monitor"
+stage "Create the Independent Auth monitor"
+open_url "https://app.pulsetic.com/monitors"
+step "Create a temporary Website Monitoring monitor for: https://example.com"
+step "Interval: 5 minutes. Notification delay: 0. Keep Email Alert enabled."
+step "Save without entering the production endpoint or Auth monitor capability."
+step "Open the temporary monitor, choose More, then open its saved Advanced Settings."
+pause "Continue only after the temporary monitor exists and its saved Advanced Settings are open."
 copy_monitor_token
-open_url "https://dashboard.uptimerobot.com/monitors"
-step "Create an HTTP / website monitor named: Edenia production Auth"
-step "Method: POST"
-step "URL: $MONITOR_ENDPOINT"
-step "Authentication: Bearer Token. Paste the token currently on your clipboard."
-step "Interval: 5 minutes. Notification delay: 0. Attach the E-mail contact for DOWN and UP."
+step "In one saved update, set Name = Edenia production Auth and URL = $MONITOR_ENDPOINT"
+step "Under Request set HTTP Method: POST"
+step "Under Request Headers set Authorization = Bearer followed by the Auth monitor capability currently on your clipboard."
+step "Under Response and Keywords set Expected statuses: 200"
+step "Keep the five-minute interval, zero notification delay, and Email Alert enabled."
+step "Verify Request Preview shows the production URL, POST, and the Authorization header without copying or sharing its value."
+step "Update the monitor, run one check, and wait for it to become Online."
+step "Confirm the temporary monitor was converted in place and no separate example.com monitor remains."
 step "Success rule: keep the HTTP status check. The Edge Function returns 200 for healthy outcomes and 503 for monitor failures. Do not add JSON assertions."
 step "Detection SLA: a continuous failure must produce the DOWN notification within 10 minutes of the last healthy check."
-step "Save the monitor and wait for its first check to become UP."
-pause "Continue only after the monitor is UP."
+pause "Continue only after the converted production monitor is Online."
 clear_clipboard
 BASELINE_STATUS=$(monitor_http_status POST)
 if [[ "$BASELINE_STATUS" != "200" ]]; then
   warn "The authenticated production probe returned HTTP $BASELINE_STATUS instead of 200"
   exit 1
 fi
-say "The independent endpoint returned HTTP 200 and recorded an aggregate probe."
-
-stage "Prove operator notification delivery"
-open_url "https://dashboard.uptimerobot.com/monitors"
-step "Open Edenia production Auth and click Test Notification."
-step "Send both the simulated DOWN and UP notifications to the attached operator contact."
-step "Check the destination itself. A dashboard success message is not receipt proof."
-confirm "Did the operator actually receive both DOWN and UP messages?" || exit 1
-say "Notification delivery is confirmed privately; record only the channel class and pass result."
+say "The Auth health probe endpoint returned HTTP 200 and recorded an aggregate probe."
 
 stage "Rehearse provider failure and recovery"
 warn "Keep the server profile-data gate off for this supervised rehearsal."
 confirm "Is the server profile-data gate confirmed off?" || exit 1
+confirm "Is the operator email verified and Email Alert enabled for Edenia production Auth?" || exit 1
 confirm "Enable the bounded provider-failure canary now?" || exit 1
 set_supabase_monitor_secrets true
 CANARY_ACTIVE=true
-open_url "https://dashboard.uptimerobot.com/monitors"
-step "Edit Edenia production Auth and add request header:"
+open_url "https://app.pulsetic.com/monitors"
+step "Open Edenia production Auth, choose More, open Advanced Settings, and add request header:"
 step "X-Edenia-Auth-Monitor-Canary = provider_unavailable"
-step "Save. Confirmation retries must produce a real DOWN incident and open the three-failure aggregate alert."
+step "Do not alter the Authorization header. Update the monitor; confirmation retries must produce a real DOWN incident and open the three-failure aggregate alert."
 pause "Continue only after the real DOWN notification is received."
 confirm "Was the DOWN notification delivered within 10 minutes of the last healthy check?" || exit 1
 step "Remove the X-Edenia-Auth-Monitor-Canary header and save the monitor."
-confirm "Has the canary header been removed from UptimeRobot?" || exit 1
+confirm "Has the canary header been removed from Pulsetic?" || exit 1
 set_supabase_monitor_secrets false
 CANARY_ACTIVE=false
 step "Wait for the real probe to return UP and close the aggregate alert."
@@ -365,10 +366,10 @@ if [[ "$RECOVERY_STATUS" != "200" ]]; then
   warn "The post-canary production probe returned HTTP $RECOVERY_STATUS"
   exit 1
 fi
-say "Canary is off, the custom header is removed, and the real provider probe is healthy."
+say "The real DOWN and real UP notifications prove operator delivery. Canary is off, the custom header is removed, and the real provider probe is healthy."
 
 stage "Prove freshness and the sustained cadence"
-open_url "https://dashboard.uptimerobot.com/monitors"
+open_url "https://app.pulsetic.com/monitors"
 step "Pause Edenia production Auth and note the UTC time outside any public issue."
 step "Wait at least 11 minutes, then return here."
 pause "Press Enter only after at least 11 minutes have elapsed."
@@ -381,13 +382,13 @@ say "The authenticated freshness endpoint now fails closed with HTTP $STALE_STAT
 open_url "https://github.com/BriceChivu/Edenia/actions/workflows/auth-health-monitor.yml"
 step "Wait for the next delivered scheduled watchdog run and confirm that it fails on stale aggregate state."
 pause "Continue only after the secondary hosted watchdog failure is visible."
-step "Resume Edenia production Auth in UptimeRobot and wait for UP."
+step "Resume Edenia production Auth in Pulsetic with Run or Start and wait for Online."
 pause "Continue after a fresh external probe returns the monitor and watchdog to healthy."
 step "Leave the monitor active for at least 24 continuous hours, then return here."
 pause "Press Enter after the 24-hour observation window is complete."
 supabase db query --linked "with ordered as (select checked_at, lag(checked_at) over (order by checked_at) as prior_checked_at from private.auth_health_checks where checked_at >= pg_catalog.now() - interval '24 hours') select count(*) as check_count, min(checked_at) as window_start, max(checked_at) as window_end, round(max(extract(epoch from checked_at - prior_checked_at)) / 60.0, 2) as largest_gap_minutes from ordered;"
-step "Confirm UptimeRobot shows the five-minute monitor active throughout the same window."
+step "Confirm Pulsetic shows the five-minute monitor active throughout the same window."
 step "Record only window start/end, count, largest gap, incident/recovery times, notification channel class, deployed commit, and pass/fail."
-confirm "Is the largest aggregate gap at most 10 minutes with no unexplained UptimeRobot gap?" || exit 1
+confirm "Is the largest aggregate gap at most 10 minutes with no unexplained Pulsetic gap?" || exit 1
 
 finish
