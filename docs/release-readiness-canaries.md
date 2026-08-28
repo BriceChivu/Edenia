@@ -92,7 +92,7 @@ values are not a substitute for the observed behavior.
 | `backup-retention-restore` | Protected backup creation, eight-version retention, capacity evidence, and an external restore rehearsal produce exact bounded counts and hashes. |
 | `legacy-final-gate` | Voluntary migration, final-gate routing, inherited-session confirmation, cloud conflict, and first-backup failure behave safely. |
 | `emergency-rollback` | The server-controlled accountless rollback path restores only explicitly marked legacy profiles and does not weaken owner isolation. |
-| `operations-monitoring` | Auth alerting, weekly external-backup restoration, capacity evidence, and rollback triggers are actionable. |
+| `operations-monitoring` | The independent five-minute Auth monitor has no gap over ten minutes in a 24-hour window; the provider-failure canary delivers real DOWN and UP notifications; the stale-record watchdog, weekly external-backup restoration, capacity evidence, and rollback triggers are verified. |
 | `switch-off-and-rerun` | Switch-off behavior and the emergency rollback exercise pass, with affected scenarios rerun after each changed deployment or runtime gate. |
 
 The database and operator records use `operator-cli` as their browser target,

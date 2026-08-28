@@ -1,19 +1,47 @@
-name: Auth health monitor
+name: Auth health monitor watchdog
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    # Secondary stale-record watchdog only. The independent external monitor is
+    # the production five-minute clock and operator alert path.
+    - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: auth-health-monitor
+  group: auth-health-monitor-watchdog
   cancel-in-progress: true
 
 jobs:
-  probe:
+  freshness:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      EDENIA_AUTH_MONITOR_TOKEN: ${{ secrets.EDENIA_AUTH_MONITOR_TOKEN }}
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check aggregate monitor freshness
+        run: node scripts/check-auth-health-freshness.mjs
+
+      - name: Emit an actionable stale-monitor annotation
+        if: failure()
+        run: |
+          echo '::error title=Edenia Auth monitor is stale or unavailable::The secondary watchdog could not verify a fresh healthy aggregate record. Check the independent external monitor and its operator notification first; keep the profile-data gate disabled until a successful external probe records healthy aggregate state.'
+
+  manual-probe:
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     env:
@@ -41,7 +69,7 @@ jobs:
       - name: Probe Auth and record aggregate health
         run: node scripts/check-auth-health.mjs
 
-      - name: Emit an actionable monitor-failure annotation
+      - name: Emit an actionable manual-probe annotation
         if: failure()
         run: |
-          echo '::error title=Edenia Auth health monitor failure::The scheduled Auth health monitor failed. Inspect the sanitized probe diagnostic, verify the deployed monitoring schema and runtime configuration, and keep the profile-data gate disabled until a successful probe records aggregate health.'
+          echo '::error title=Edenia manual Auth health probe failed::Inspect the sanitized probe diagnostic, verify the deployed monitoring schema and runtime configuration, and keep the profile-data gate disabled until the independent external monitor records healthy aggregate state.'

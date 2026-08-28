@@ -330,6 +330,7 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
     .map(entry => entry.name)
     .sort()
   assert.deepEqual(functionNames, [
+    'auth-health-monitor',
     'consume-legacy-progress-transfer',
     'create-billing-portal',
     'create-checkout-session',
@@ -355,6 +356,7 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
   const billingFunctionNames = functionNames.filter(
     functionName => !reminderFunctionNames.has(functionName)
       && !relayFunctionNames.has(functionName)
+      && functionName !== 'auth-health-monitor'
       && functionName !== 'export-account-data'
   )
   const config = await readFile(new URL('supabase/config.toml', projectRoot), 'utf8')
@@ -384,6 +386,26 @@ test('Supabase source contains the staged backend Edge Functions', async () => {
     )
     assert.doesNotMatch(functionSource, /stripe@14\?target=deno/)
   }
+
+  assert.match(
+    config,
+    /\[functions\.auth-health-monitor\][\s\S]*?verify_jwt = false/
+  )
+  const authMonitorDenoConfig = JSON.parse(await readFile(
+    new URL('auth-health-monitor/deno.json', functionsRoot),
+    'utf8'
+  ))
+  assert.equal(
+    authMonitorDenoConfig.imports['@supabase/supabase-js'],
+    'npm:@supabase/supabase-js@2.110.7'
+  )
+  const authMonitorSource = await readFile(
+    new URL('auth-health-monitor/index.ts', functionsRoot),
+    'utf8'
+  )
+  assert.match(authMonitorSource, /auth\/v1\/health/)
+  assert.match(authMonitorSource, /record_auth_health_check_from_monitor/)
+  assert.match(authMonitorSource, /read_auth_health_monitor_status/)
 
   assert.match(
     config,

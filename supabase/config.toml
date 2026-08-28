@@ -123,3 +123,10 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/consume-legacy-progress-transfer/deno.json"
 entrypoint = "./functions/consume-legacy-progress-transfer/index.ts"
+
+[functions.auth-health-monitor]
+enabled = true
+# The handler verifies a dedicated bearer capability before any probe or read.
+verify_jwt = false
+import_map = "./functions/auth-health-monitor/deno.json"
+entrypoint = "./functions/auth-health-monitor/index.ts"
