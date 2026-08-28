@@ -22,11 +22,22 @@ const concurrencyProbe = await readFile(
 test('learner profile disaster backup workflow runs a weekly off-project dump and restore rehearsal', () => {
   assert.match(workflow, /schedule:\s*[\s\S]*cron:/)
   assert.match(workflow, /SUPABASE_DB_URL:/)
+  assert.match(workflow, /version:\s*2\.116\.0/)
   assert.match(workflow, /supabase db dump[\s\S]*--file/)
   assert.match(workflow, /--data-only[\s\S]*--use-copy/)
+  assert.match(
+    workflow,
+    /cd "\$backup_dir"[\s\S]*sha256sum schema\.sql data\.sql[\s\S]*SHA256SUMS/
+  )
   assert.match(workflow, /actions\/upload-artifact@v4/)
   assert.match(workflow, /retention-days:\s*35/)
-  assert.match(workflow, /supabase db query --local --file/)
+  assert.match(workflow, /supabase status -o json/)
+  assert.match(workflow, /sub\(":\/\/postgres:"; ":\/\/supabase_admin:"\)/)
+  assert.match(
+    workflow,
+    /psql "\$restore_db_url"[\s\S]*--single-transaction[\s\S]*ON_ERROR_STOP=1[\s\S]*schema\.sql[\s\S]*data\.sql/
+  )
+  assert.doesNotMatch(workflow, /supabase db query --local --file/)
   assert.doesNotMatch(workflow, /cat\s+.*(?:schema|data)\.sql/)
   assert.doesNotMatch(workflow, /echo\s+.*SUPABASE_DB_URL/)
 })
@@ -38,6 +49,10 @@ test('learner profile operations runbook records the capacity gate and restore r
   assert.match(runbook, /restore rehearsal/i)
   assert.match(runbook, /35 days/i)
   assert.match(runbook, /read-only/i)
+  assert.match(runbook, /psql "\$restore_db_url"/)
+  assert.match(runbook, /--single-transaction/)
+  assert.match(runbook, /ON_ERROR_STOP=1/)
+  assert.doesNotMatch(runbook, /supabase db query --local --file/)
   assert.doesNotMatch(runbook, /select\s+.*(?:email|envelope|state_json)/i)
 })
 

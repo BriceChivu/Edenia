@@ -88,6 +88,12 @@ file, and a compressed GitHub Actions artifact retained for 35 days. The
 artifact is the external copy. Keep Actions artifacts restricted to repository
 operators because the data dump contains account and study data.
 
+The checksum manifest uses archive-relative names, so it continues to verify
+after the artifact is downloaded into a different directory. The data dump
+includes Auth and Supabase-managed database records in addition to Edenia's
+schemas. Supabase Storage objects themselves are not database rows and require
+their own recovery process if Edenia starts using Storage.
+
 The workflow never prints the dump, a connection URL, or a row-level query. Its
 capacity alert contains only an aggregate status. The local restore commands
 also suppress the local Supabase startup output, which includes development
@@ -99,9 +105,11 @@ The scheduled workflow extracts the artifact, verifies `SHA256SUMS`, starts a
 fresh local Supabase database, applies `schema.sql` and `data.sql`, and checks
 only aggregate profile-head and profile-version counts. A failed rehearsal
 fails the workflow while the uploaded artifact remains available for the
-operator.
+operator. The workflow pins Supabase CLI `2.116.0` so the isolated Auth and
+Storage schemas match the hosted dump format exercised by this rehearsal.
 
-For a manual rehearsal, download one artifact from the Actions run and run:
+For a manual rehearsal, install that Supabase CLI version plus `psql` and `jq`,
+download one artifact from the Actions run, and run:
 
 ```sh
 restore_dir="${TMPDIR:-/tmp}/edenia-restore"
@@ -112,10 +120,24 @@ tar -xzf edenia-database-backup.tar.gz -C "$restore_dir"
   sha256sum -c SHA256SUMS
 )
 supabase start > /dev/null 2>&1
-supabase db query --local --file "$restore_dir/schema.sql" > /dev/null
-supabase db query --local --file "$restore_dir/data.sql" > /dev/null
-supabase db query --local --output csv \
-  "select count(*) as profile_heads, (select count(*) from public.learner_profile_versions) as profile_versions from public.learner_profile_heads;"
+restore_db_url="$(
+  supabase status -o json 2>/dev/null |
+    jq -er '.DB_URL
+      | select(test("^postgres(?:ql)?://postgres:"))
+      | sub("://postgres:"; "://supabase_admin:")'
+)"
+psql "$restore_db_url" \
+  --single-transaction \
+  --variable ON_ERROR_STOP=1 \
+  --file "$restore_dir/schema.sql" \
+  --command 'SET session_replication_role = replica' \
+  --file "$restore_dir/data.sql" \
+  > /dev/null
+psql "$restore_db_url" \
+  --csv \
+  --variable ON_ERROR_STOP=1 \
+  --command "select count(*) as profile_heads, (select count(*) from public.learner_profile_versions) as profile_versions from public.learner_profile_heads;"
+unset restore_db_url
 supabase stop --no-backup > /dev/null 2>&1 || true
 ```
 
@@ -123,4 +145,7 @@ The archive name in the example is intentionally generic. Replace it with the
 downloaded artifact path. Do not open the SQL files in a terminal or paste
 their contents into a ticket. The rehearsal proves that the external logical
 copy can initialize an isolated project; it does not modify the production
-Supabase project.
+Supabase project. The derived URL selects the isolated database's local
+`supabase_admin` role because a complete data dump contains managed Auth and
+Storage tables that the ordinary local `postgres` role cannot restore. The URL
+is held only in a shell variable and must never be printed.
