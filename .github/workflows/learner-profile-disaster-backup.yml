@@ -26,7 +26,7 @@ jobs:
       - name: Set up Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: 2.111.0
+          version: 2.116.0
 
       - name: Check database URL secret
         shell: bash
@@ -50,8 +50,10 @@ jobs:
             --data-only \
             --use-copy \
             --file "$backup_dir/data.sql"
-          sha256sum "$backup_dir/schema.sql" "$backup_dir/data.sql" \
-            > "$backup_dir/SHA256SUMS"
+          (
+            cd "$backup_dir"
+            sha256sum schema.sql data.sql > SHA256SUMS
+          )
           tar -czf "$archive" \
             -C "$backup_dir" \
             schema.sql data.sql SHA256SUMS
@@ -68,7 +70,15 @@ jobs:
 
       - name: Start isolated restore database
         shell: bash
-        run: supabase start > /dev/null 2>&1
+        run: |
+          set -euo pipefail
+
+          restore_project="$RUNNER_TEMP/edenia-restore-project"
+          supabase init --workdir "$restore_project" > /dev/null
+          supabase start \
+            --workdir "$restore_project" \
+            --exclude gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor \
+            > /dev/null 2>&1
 
       - name: Restore dump into isolated database
         shell: bash
@@ -77,21 +87,37 @@ jobs:
 
           archive="${{ steps.dump.outputs.archive }}"
           restore_dir="$RUNNER_TEMP/edenia-database-restore"
+          restore_project="$RUNNER_TEMP/edenia-restore-project"
           mkdir -p "$restore_dir"
           tar -xzf "$archive" -C "$restore_dir"
           (
             cd "$restore_dir"
             sha256sum -c SHA256SUMS
           )
-          supabase db query --local --file "$restore_dir/schema.sql" > /dev/null
-          supabase db query --local --file "$restore_dir/data.sql" > /dev/null
-          supabase db query --local --output csv \
-            "select count(*) as profile_heads, (select count(*) from public.learner_profile_versions) as profile_versions from public.learner_profile_heads;"
+
+          restore_db_url="$(
+            supabase status --workdir "$restore_project" -o json 2>/dev/null |
+              jq -er '.DB_URL
+                | select(test("^postgres(?:ql)?://postgres:"))
+                | sub("://postgres:"; "://supabase_admin:")'
+          )"
+          psql "$restore_db_url" \
+            --single-transaction \
+            --variable ON_ERROR_STOP=1 \
+            --file "$restore_dir/schema.sql" \
+            --command 'SET session_replication_role = replica' \
+            --file "$restore_dir/data.sql" \
+            > /dev/null
+          psql "$restore_db_url" \
+            --csv \
+            --variable ON_ERROR_STOP=1 \
+            --command "select count(*) as profile_heads, (select count(*) from public.learner_profile_versions) as profile_versions from public.learner_profile_heads;"
+          unset restore_db_url
 
       - name: Stop isolated restore database
         if: always()
         shell: bash
-        run: supabase stop --no-backup > /dev/null 2>&1 || true
+        run: supabase stop --workdir "$RUNNER_TEMP/edenia-restore-project" --no-backup > /dev/null 2>&1 || true
 
       - name: Record capacity evidence and run guarded retention
         shell: bash
