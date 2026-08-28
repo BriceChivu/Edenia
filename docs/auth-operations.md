@@ -8,13 +8,14 @@ envelope into a command, issue, chat, or log.
 
 ## Auth health monitoring
 
-The production clock is an independent UptimeRobot API monitor. Every five
-minutes it sends an authenticated `POST` to the deployed
+The production clock is an independent UptimeRobot HTTP / website monitor.
+Every five minutes it sends an authenticated `POST` to the deployed
 `auth-health-monitor` Edge Function. The function calls Supabase Auth at
 `/auth/v1/health`, records only the bounded result below through a service-only
-database bridge, and returns a non-2xx response for provider, network,
-recorder, or function failures. UptimeRobot confirms a failure with its own
-retries and sends the attached operator notification.
+database bridge, and returns HTTP 200 for an available provider response or an
+expected client error. It returns HTTP 503 for provider, network, recorder, or
+function failures. The HTTP monitor uses this status-code boundary, confirms a
+failure with its own retries, and sends the attached operator notification.
 
 Detection SLA: a continuously failing Auth endpoint must produce a confirmed
 DOWN incident and deliver the operator notification within ten minutes of the
@@ -32,15 +33,16 @@ it. `workflow_dispatch` retains the original direct probe as a manual
 diagnostic.
 
 Operational assumptions are pinned to the provider documentation: the
-[UptimeRobot free interval is five minutes](https://help.uptimerobot.com/en/articles/11360876-what-is-a-monitoring-interval-in-uptimerobot),
-[API monitors support bearer authentication and response assertions](https://help.uptimerobot.com/en/articles/13628553-uptimerobot-api-monitoring),
+[UptimeRobot Free plan includes HTTP / website monitors](https://help.uptimerobot.com/en/articles/11604710-who-should-use-uptimerobot-s-free-plan),
+[its interval is five minutes](https://help.uptimerobot.com/en/articles/11360876-what-is-a-monitoring-interval-in-uptimerobot),
+[an HTTP monitor treats an error status code as DOWN](https://help.uptimerobot.com/en/articles/11358364-how-to-create-your-first-monitor-on-uptimerobot-quick-setup-guide),
 and [notification proof requires checking the destination](https://help.uptimerobot.com/en/articles/11602913-how-to-test-notifications-in-uptimerobot-quick-guide).
 GitHub documents that [scheduled events can be delayed or dropped](https://docs.github.com/en/actions/how-tos/troubleshoot-workflows#scheduled-workflows-running-at-unexpected-times),
 which is why it is only the secondary watchdog.
 
 The dedicated 64-character lowercase hexadecimal
 `EDENIA_AUTH_MONITOR_TOKEN` is stored in exactly three places: the Supabase
-Edge Function secrets, the UptimeRobot API monitor bearer-auth field, and the
+Edge Function secrets, the UptimeRobot HTTP monitor bearer-auth field, and the
 GitHub Actions secret of the same name. It is never a Pages variable, URL
 parameter, issue value, command-line argument, or log field. The optional
 `EDENIA_AUTH_MONITOR_CANARY_ENABLED` Edge Function secret is exactly `true` or
@@ -76,11 +78,14 @@ Before mandatory-account launch:
 1. Apply `20260828041926_add_external_auth_monitor_bridge.sql`, deploy
    `auth-health-monitor` from the same commit, and keep
    `EDENIA_AUTH_MONITOR_CANARY_ENABLED=false`.
-2. Run `scripts/setup-auth-monitoring.sh`. In UptimeRobot create an API monitor
-   named `Edenia production Auth`, use `POST`, the exact function URL, bearer
-   authentication, a five-minute interval, zero notification delay, and the
-   activated operator contact for both DOWN and UP events. Assert HTTP 200 and
-   JSON `$.status` equal to `available` or `expected_client_error`.
+2. Run `scripts/setup-auth-monitoring.sh`. In UptimeRobot create an HTTP /
+   website monitor named `Edenia production Auth`, use `POST`, the exact
+   function URL, bearer authentication, a five-minute interval, zero
+   notification delay, and the operator email contact for both DOWN and UP
+   events. Keep the HTTP status check: HTTP 200 is UP and HTTP 503 is DOWN. Do
+   not require an API monitor or JSON response assertions; the Edge Function
+   owns the sanitized outcome classification and exposes only the status-code
+   boundary to the external monitor.
 3. Use UptimeRobot's notification test and confirm that the operator actually
    receives both simulated DOWN and UP messages. A dashboard success message
    is not delivery proof.
