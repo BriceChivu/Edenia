@@ -101,27 +101,40 @@ credentials.
 
 ## Restore rehearsal
 
-The scheduled workflow extracts the artifact, verifies `SHA256SUMS`, starts a
-fresh local Supabase database, applies `schema.sql` and `data.sql`, and checks
-only aggregate profile-head and profile-version counts. A failed rehearsal
-fails the workflow while the uploaded artifact remains available for the
-operator. The workflow pins Supabase CLI `2.116.0` so the isolated Auth and
-Storage schemas match the hosted dump format exercised by this rehearsal.
+The scheduled workflow extracts the artifact, verifies `SHA256SUMS`, initializes
+a temporary Supabase project with no Edenia migrations, starts only its Postgres
+service, applies `schema.sql` and `data.sql`, and checks only aggregate
+profile-head and profile-version counts. A failed rehearsal fails the workflow
+while the uploaded artifact remains available for the operator. The workflow
+pins Supabase CLI `2.116.0` so the isolated Auth and Storage schemas match the
+hosted dump format exercised by this rehearsal.
 
 For a manual rehearsal, install that Supabase CLI version plus `psql` and `jq`,
 download one artifact from the Actions run, and run:
 
 ```sh
+set -euo pipefail
+
 restore_dir="${TMPDIR:-/tmp}/edenia-restore"
+restore_project="$(mktemp -d "${TMPDIR:-/tmp}/edenia-restore-project.XXXXXX")"
+cleanup_restore() {
+  supabase stop --workdir "$restore_project" --no-backup > /dev/null 2>&1 || true
+}
+trap cleanup_restore EXIT
+
 mkdir -p "$restore_dir"
 tar -xzf edenia-database-backup.tar.gz -C "$restore_dir"
 (
   cd "$restore_dir"
   sha256sum -c SHA256SUMS
 )
-supabase start > /dev/null 2>&1
+supabase init --workdir "$restore_project" > /dev/null
+supabase start \
+  --workdir "$restore_project" \
+  --exclude gotrue,realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor \
+  > /dev/null 2>&1
 restore_db_url="$(
-  supabase status -o json 2>/dev/null |
+  supabase status --workdir "$restore_project" -o json 2>/dev/null |
     jq -er '.DB_URL
       | select(test("^postgres(?:ql)?://postgres:"))
       | sub("://postgres:"; "://supabase_admin:")'
@@ -138,7 +151,8 @@ psql "$restore_db_url" \
   --variable ON_ERROR_STOP=1 \
   --command "select count(*) as profile_heads, (select count(*) from public.learner_profile_versions) as profile_versions from public.learner_profile_heads;"
 unset restore_db_url
-supabase stop --no-backup > /dev/null 2>&1 || true
+cleanup_restore
+trap - EXIT
 ```
 
 The archive name in the example is intentionally generic. Replace it with the
@@ -148,4 +162,6 @@ copy can initialize an isolated project; it does not modify the production
 Supabase project. The derived URL selects the isolated database's local
 `supabase_admin` role because a complete data dump contains managed Auth and
 Storage tables that the ordinary local `postgres` role cannot restore. The URL
-is held only in a shell variable and must never be printed.
+is held only in a shell variable and must never be printed. Starting only
+Postgres avoids making the database rehearsal depend on unrelated local API,
+Studio, Auth, or Storage services.

@@ -31,7 +31,13 @@ test('learner profile disaster backup workflow runs a weekly off-project dump an
   )
   assert.match(workflow, /actions\/upload-artifact@v4/)
   assert.match(workflow, /retention-days:\s*35/)
-  assert.match(workflow, /supabase status -o json/)
+  assert.match(workflow, /supabase init --workdir "\$restore_project"/)
+  assert.match(
+    workflow,
+    /supabase start[\s\S]*--workdir "\$restore_project"[\s\S]*--exclude/
+  )
+  assert.match(workflow, /supabase status[\s\S]*--workdir "\$restore_project"[\s\S]*-o json/)
+  assert.match(workflow, /supabase stop[\s\S]*--workdir "\$RUNNER_TEMP\/edenia-restore-project"/)
   assert.match(workflow, /sub\(":\/\/postgres:"; ":\/\/supabase_admin:"\)/)
   assert.match(
     workflow,
@@ -52,6 +58,8 @@ test('learner profile operations runbook records the capacity gate and restore r
   assert.match(runbook, /psql "\$restore_db_url"/)
   assert.match(runbook, /--single-transaction/)
   assert.match(runbook, /ON_ERROR_STOP=1/)
+  assert.match(runbook, /supabase init --workdir "\$restore_project"/)
+  assert.match(runbook, /supabase start[\s\S]*--workdir "\$restore_project"[\s\S]*--exclude/)
   assert.doesNotMatch(runbook, /supabase db query --local --file/)
   assert.doesNotMatch(runbook, /select\s+.*(?:email|envelope|state_json)/i)
 })
