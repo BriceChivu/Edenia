@@ -21,6 +21,10 @@ const migration = await readFile(
   new URL('../../supabase/migrations/20260824021719_add_auth_monitoring_and_operator_recovery.sql', import.meta.url),
   'utf8'
 )
+const browserVerificationMigration = await readFile(
+  new URL('../../supabase/migrations/20260829023312_verify_operator_recovery_from_browser.sql', import.meta.url),
+  'utf8'
+)
 const externalMonitorMigration = await readFile(
   new URL('../../supabase/migrations/20260828041926_add_external_auth_monitor_bridge.sql', import.meta.url),
   'utf8'
@@ -260,6 +264,7 @@ test('operator runbook defines gate-first recovery, sanitized selection, rollbac
   assert.match(runbook, /begin_learner_profile_recovery/)
   assert.match(runbook, /list_learner_profile_operator_candidates/)
   assert.match(runbook, /restore_learner_profile_from_operator_candidate/)
+  assert.match(runbook, /verify_my_operator_recovery/)
   assert.match(runbook, /fresh browser/i)
   assert.match(runbook, /under-13/i)
   assert.match(runbook, /guardian consent/i)
@@ -286,6 +291,40 @@ test('operator recovery is service-only, gate-first, metadata-only, and protecte
   assert.match(migration, /source = 'operator'/)
   assert.doesNotMatch(migration, /delete from public\.learner_profile_write_receipts/)
   assert.match(migration, /revoke execute[\s\S]*record_auth_health_check[\s\S]*from public, anon, authenticated, service_role/)
+})
+
+test('fresh-browser recovery verification is exact-owner, gate-off, and metadata-only', () => {
+  assert.match(
+    browserVerificationMigration,
+    /create or replace function public\.verify_my_operator_recovery/
+  )
+  assert.match(browserVerificationMigration, /owner_id uuid := auth\.uid\(\)/)
+  assert.match(
+    browserVerificationMigration,
+    /recovery_incident\.target_user_id = owner_id/
+  )
+  assert.match(browserVerificationMigration, /recovery_incident\.status = 'restored'/)
+  assert.match(browserVerificationMigration, /access_control\.rollout_state = 'off'/)
+  assert.match(
+    browserVerificationMigration,
+    /head\.current_version_id = incident\.restored_version_id/
+  )
+  assert.match(
+    browserVerificationMigration,
+    /revoke execute[\s\S]*from public, anon, authenticated, service_role/
+  )
+  assert.match(
+    browserVerificationMigration,
+    /grant execute[\s\S]*to authenticated/
+  )
+  assert.doesNotMatch(
+    browserVerificationMigration,
+    /version\.envelope|account\.email|token|cookie|credential/i
+  )
+  assert.match(
+    ciWorkflow,
+    /supabase\/migrations\/\*_verify_operator_recovery_from_browser\.sql\|supabase\/tests\/auth_operations\.test\.sql/
+  )
 })
 
 test('Independent Auth monitor database bridges are service-only and CI runs their security suite', () => {

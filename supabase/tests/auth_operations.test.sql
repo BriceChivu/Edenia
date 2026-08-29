@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
-select plan(46);
+select plan(51);
 
 select has_table(
   'private',
@@ -62,6 +62,13 @@ select has_function(
   'restore_learner_profile_from_operator_candidate',
   array['uuid', 'uuid', 'uuid', 'text'],
   'operator restore exists'
+);
+
+select has_function(
+  'public',
+  'verify_my_operator_recovery',
+  array['uuid'],
+  'a recovered owner has one metadata-only browser verification operation'
 );
 
 select has_function(
@@ -216,6 +223,57 @@ insert into public.learner_profile_heads (
   '66666666-6666-4666-8666-666666666666'
 );
 
+insert into auth.users (id, email, email_confirmed_at)
+values (
+  '88888888-8888-4888-8888-888888888888',
+  'operator-control@example.test',
+  statement_timestamp()
+);
+
+insert into public.learner_profile_versions (
+  id,
+  user_id,
+  profile_id,
+  generation,
+  revision,
+  base_revision,
+  envelope,
+  payload_sha256,
+  payload_bytes
+) values (
+  '99999999-9999-4999-8999-999999999999',
+  '88888888-8888-4888-8888-888888888888',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  2,
+  4,
+  3,
+  $profile$
+    {"exportedAt":"2026-08-20T21:00:00.000Z","integrity":{"algorithm":"SHA-256","byteLength":993,"payloadSha256":"hqjlf4nsc6lGE8DD_MOwb8oQ2nRIt5TCEe6ajII-bEs"},"profile":{"activityLog":[],"anki":{},"cityProgress":{"maxLevelIndex":0},"config":{"ankiEnabled":true,"channelShelfOrder":[],"channelVideoFormats":{},"channels":[],"includeShorts":true,"locale":"en","removedChannelIds":[],"removedDefaultChannelIds":[],"weeklyGoalHours":4},"learnerProfile":{"createdAt":"2026-08-20T21:00:00.000Z","languages":["french"],"level":"beginner","selectedChannelCatalogIds":["french-mornings"],"updatedAt":"2026-08-20T21:00:00.000Z"},"noAnkiFrequentUserPrompt":{"respondedAt":null,"response":null},"onboarding":{"introSeenAt":"2026-08-20T21:00:00.000Z","levelUpGuidanceShownAt":null,"recommendationsAppliedAt":null,"setupCompleted":true,"setupCompletedAt":"2026-08-20T21:00:00.000Z","walkthroughCompleted":false,"walkthroughCompletedAt":null},"videos":{}},"schema":"edenia-portable-learner-profile","version":1}
+  $profile$::jsonb,
+  'hqjlf4nsc6lGE8DD_MOwb8oQ2nRIt5TCEe6ajII-bEs',
+  993
+);
+
+insert into public.learner_profile_heads (
+  user_id,
+  profile_id,
+  generation,
+  revision,
+  current_version_id
+) values (
+  '88888888-8888-4888-8888-888888888888',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  2,
+  4,
+  '99999999-9999-4999-8999-999999999999'
+);
+
+create temporary table unrelated_owner_head_before as
+select profile_id, generation, revision, current_version_id
+from public.learner_profile_heads
+where user_id = '88888888-8888-4888-8888-888888888888';
+grant select on unrelated_owner_head_before to authenticated;
+
 update private.learner_profile_access_control
 set rollout_state = 'developer-canary',
     developer_user_id = '55555555-5555-4555-8555-555555555555',
@@ -357,6 +415,69 @@ select results_eq(
   $$values (2::bigint, true, 'operator'::text, true)$$,
   'the restored version becomes the current head through the recovery ledger'
 );
+
+create temporary table operator_recovery_expected as
+select incident.restored_version_id
+from private.learner_profile_operator_recovery_incidents as incident
+where incident.incident_id = '55555555-5555-4555-8555-555555555551';
+grant select on operator_recovery_expected to authenticated;
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = '55555555-5555-4555-8555-555555555555';
+
+select results_eq(
+  $query$
+    select status, restored_version_id, profile_id, generation, revision,
+      payload_sha256, payload_bytes, updated_at = restored_at
+    from public.verify_my_operator_recovery(
+      '55555555-5555-4555-8555-555555555551'
+    )
+  $query$,
+  $$values (
+    'verified'::text,
+    (select restored_version_id from operator_recovery_expected),
+    '77777777-7777-4777-8777-777777777777'::uuid,
+    1::bigint,
+    2::bigint,
+    'hqjlf4nsc6lGE8DD_MOwb8oQ2nRIt5TCEe6ajII-bEs'::text,
+    993,
+    true
+  )$$,
+  'the exact recovered owner verifies the restored head metadata while the gate is off'
+);
+
+reset role;
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = '88888888-8888-4888-8888-888888888888';
+
+select throws_ok(
+  $query$
+    select *
+    from public.verify_my_operator_recovery(
+      '55555555-5555-4555-8555-555555555551'
+    )
+  $query$,
+  '42501',
+  'Recovery verification is not available',
+  'an unrelated owner cannot verify another owner recovery incident'
+);
+
+select results_eq(
+  $query$
+    select profile_id, generation, revision, current_version_id
+    from public.learner_profile_heads
+  $query$,
+  $query$
+    select profile_id, generation, revision, current_version_id
+    from unrelated_owner_head_before
+  $query$,
+  'the unrelated owner current head remains unchanged'
+);
+
+reset role;
 
 select results_eq(
   $query$
@@ -577,6 +698,25 @@ select ok(
     'execute'
   ),
   'authenticated cannot execute operator operations'
+);
+
+select ok(
+  has_function_privilege(
+    'authenticated',
+    'public.verify_my_operator_recovery(uuid)',
+    'execute'
+  )
+  and not has_function_privilege(
+    'anon',
+    'public.verify_my_operator_recovery(uuid)',
+    'execute'
+  )
+  and not has_function_privilege(
+    'service_role',
+    'public.verify_my_operator_recovery(uuid)',
+    'execute'
+  ),
+  'only an authenticated recovered owner can enter the browser verification operation'
 );
 
 select ok(
