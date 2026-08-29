@@ -177,11 +177,17 @@ at the end of this procedure passes.
    protects the displaced head for at least 30 days. It never patches a head,
    deletes a write receipt, or removes a candidate to force a retry.
 6. Keep the server gate off. Open a fresh browser with the exact deployed
-   commit, authenticate as the confirmed owner, and verify that the resulting
-   current head has the returned profile ID, generation, revision, integrity
-   digest, byte count, and update time. Verify that an unrelated owner sees no
-   change. This is the fresh-browser verification exercise, not a check of an
-   existing cached tab.
+   commit and authenticate as the confirmed owner. From that browser, call
+   `public.verify_my_operator_recovery` with the exact incident ID and require
+   one `verified` row whose restored version ID, profile ID, generation,
+   revision, integrity digest, byte count, restored time, and head update time
+   match the restore result. This self-scoped operation is available only to
+   the exact recovered owner for that completed incident while the live gate
+   remains `off`; it never returns the profile envelope. Confirm that the same
+   incident is unavailable to an unrelated authenticated owner and compare
+   that owner's sanitized head metadata before and after the restore to prove
+   it did not change. This is the fresh-browser verification exercise, not a
+   check of an existing cached tab.
 7. Record whether issued sessions remained valid, were rejected, or were
    revoked. If sessions were revoked, verify the fresh browser can establish a
    new session. Re-enable the server gate only after the browser and unrelated-
