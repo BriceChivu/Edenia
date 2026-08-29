@@ -52,9 +52,11 @@ const PROFILE_DATA_GATE_VALUES = new Set([
 const SAFE_METADATA_KEYS = new Set([
   'accountlessProfilesMarkedLegacy',
   'affectedScenariosRerun',
+  'aggregateRecordCount',
   'alertAction',
   'authAlert',
   'authMonitorCanary',
+  'boundedCanaryDuringSoak',
   'capacityEvidence',
   'byteCount',
   'cloudConflict',
@@ -68,6 +70,7 @@ const SAFE_METADATA_KEYS = new Set([
   'privateBrowsingNotApplicableReason',
   'externalBackup',
   'externalAuthMonitor',
+  'externalCheckCount',
   'exactRestore',
   'failureCases',
   'finalGate',
@@ -79,6 +82,11 @@ const SAFE_METADATA_KEYS = new Set([
   'identityValueRecorded',
   'importOutcome',
   'inheritedSession',
+  'largestAggregateGapSeconds',
+  'largestExternalGapSeconds',
+  'monitoringWindowEndUtc',
+  'monitoringWindowStartUtc',
+  'networkErrorCount',
   'otpOutcome',
   'ownershipLeak',
   'offlineDays',
@@ -92,6 +100,7 @@ const SAFE_METADATA_KEYS = new Set([
   'provider',
   'providerOutcome',
   'providerPair',
+  'providerUnavailableCount',
   'negativeCases',
   'recoveryOutcome',
   'rejectedWriteCount',
@@ -139,8 +148,20 @@ const SCENARIO_DEPENDENCIES = Object.freeze({
   'backup-retention-restore': ['database', 'operations'],
   'legacy-final-gate': ['artifact', 'runtime-config', 'database'],
   'emergency-rollback': ['artifact', 'runtime-config', 'database', 'operations'],
-  'operations-monitoring': ['database', 'operations'],
+  'operations-monitoring': ['artifact', 'runtime-config', 'database', 'operations'],
   'switch-off-and-rerun': ['artifact', 'runtime-config', 'operations']
+})
+
+const REQUIRED_PROFILE_DATA_GATE_BY_SCENARIO = Object.freeze({
+  'profile-lifecycle': 'developer-canary',
+  'profile-sync-conflict': 'developer-canary',
+  'profile-failure-preservation': 'developer-canary',
+  'profile-portability': 'developer-canary',
+  'profile-recovery': 'developer-canary',
+  'profile-start-over-undo': 'developer-canary',
+  'legacy-final-gate': 'developer-canary',
+  'operations-monitoring': 'off',
+  'switch-off-and-rerun': 'off'
 })
 
 export const REQUIRED_SCENARIOS = Object.freeze([
@@ -256,7 +277,10 @@ const SCENARIO_METADATA_REQUIREMENTS = Object.freeze({
     authMonitorCanary: 'provider-failure-and-recovery',
     staleWatchdog: 'verified',
     weeklyRestore: 'verified',
-    capacityEvidence: 'fresh'
+    capacityEvidence: 'fresh',
+    boundedCanaryDuringSoak: 'disabled',
+    providerUnavailableCount: 0,
+    networkErrorCount: 0
   },
   'switch-off-and-rerun': {
     evidenceEnvironment: 'deployed-browser',
@@ -291,7 +315,12 @@ function normalizeBaseUrl(value) {
 
 function normalizeUtcTimestamp(value, label = 'Observed time') {
   const timestamp = String(value || '').trim()
-  if (!UTC_TIMESTAMP_PATTERN.test(timestamp)) {
+  const parsedTimestamp = Date.parse(timestamp)
+  if (
+    !UTC_TIMESTAMP_PATTERN.test(timestamp)
+    || !Number.isFinite(parsedTimestamp)
+    || new Date(parsedTimestamp).toISOString() !== timestamp
+  ) {
     throw new Error(`${label} must be an ISO timestamp in UTC`)
   }
   return timestamp
@@ -405,14 +434,24 @@ function validateEvidenceSource(scenarioId, browserTarget, evidenceSource) {
   }
 }
 
-function deploymentIdentity(deployment) {
+function serializeDeploymentIdentity(deployment, gateState) {
   return [
     deployment.baseUrl,
     deployment.deployedCommit,
     deployment.assetVersion,
     deployment.runtimeConfigSha256,
-    JSON.stringify(deployment.gateState)
+    JSON.stringify(gateState)
   ].join('|')
+}
+
+function deploymentIdentity(deployment) {
+  return serializeDeploymentIdentity(deployment, deployment.gateState)
+}
+
+function deploymentIdentityWithoutProfileDataGate(deployment) {
+  const runtimeGateState = { ...deployment.gateState }
+  delete runtimeGateState.profileDataGate
+  return serializeDeploymentIdentity(deployment, runtimeGateState)
 }
 
 function normalizeDeployment(deployment) {
@@ -611,14 +650,28 @@ function validateRecord(record, expectedDeployment, errors) {
   }
   try {
     const recordDeployment = normalizeDeployment(record.deployment)
-    if (deploymentIdentity(recordDeployment) !== deploymentIdentity(expectedDeployment)) {
+    if (
+      deploymentIdentityWithoutProfileDataGate(recordDeployment)
+      !== deploymentIdentityWithoutProfileDataGate(expectedDeployment)
+    ) {
       errors.push(`Evidence record ${record.scenarioId} has a different deployment identity`)
+    }
+    const requiredProfileDataGate = REQUIRED_PROFILE_DATA_GATE_BY_SCENARIO[record.scenarioId]
+    const expectedProfileDataGate = requiredProfileDataGate
+      || expectedDeployment.gateState.profileDataGate
+    if (recordDeployment.gateState.profileDataGate !== expectedProfileDataGate) {
+      errors.push(requiredProfileDataGate
+        ? `Evidence record ${record.scenarioId} must use profile-data gate ${requiredProfileDataGate}`
+        : `Evidence record ${record.scenarioId} has a different gate state`)
+    }
+    if (
+      record.gateState
+      && JSON.stringify(record.gateState) !== JSON.stringify(recordDeployment.gateState)
+    ) {
+      errors.push(`Evidence record ${record.scenarioId} gate state does not match its deployment`)
     }
   } catch (error) {
     errors.push(`Evidence record ${record.scenarioId} deployment is invalid: ${error.message}`)
-  }
-  if (record.gateState && JSON.stringify(record.gateState) !== JSON.stringify(expectedDeployment.gateState)) {
-    errors.push(`Evidence record ${record.scenarioId} has a different gate state`)
   }
 }
 
@@ -646,6 +699,116 @@ function validateScenarioMetadata(record, errors) {
         errors.push(error.message)
       }
     }
+  }
+  if (record.scenarioId === 'operations-monitoring' && record.result === 'pass') {
+    let monitoringWindowSeconds
+    try {
+      const windowStart = normalizeUtcTimestamp(
+        record.metadata?.monitoringWindowStartUtc,
+        'Operations monitoring window start'
+      )
+      const windowEnd = normalizeUtcTimestamp(
+        record.metadata?.monitoringWindowEndUtc,
+        'Operations monitoring window end'
+      )
+      monitoringWindowSeconds = (Date.parse(windowEnd) - Date.parse(windowStart)) / 1000
+      if (monitoringWindowSeconds < 24 * 60 * 60) {
+        errors.push('Operations monitoring window must cover at least 24 hours')
+      }
+      if (windowEnd !== record.observedAt) {
+        errors.push('Operations monitoring window end must match the evidence observation time')
+      }
+    } catch (error) {
+      errors.push(error.message)
+    }
+    for (const key of ['externalCheckCount', 'aggregateRecordCount']) {
+      if (!Number.isSafeInteger(record.metadata?.[key]) || record.metadata[key] <= 0) {
+        errors.push(`Operations monitoring ${key} must be a positive integer`)
+      }
+    }
+    for (const [key, label] of [
+      ['largestExternalGapSeconds', 'external-check'],
+      ['largestAggregateGapSeconds', 'aggregate']
+    ]) {
+      if (
+        !Number.isSafeInteger(record.metadata?.[key])
+        || record.metadata[key] <= 0
+        || record.metadata[key] > 600
+      ) {
+        errors.push(`Operations monitoring ${label} gap must be positive and no more than ten minutes`)
+      }
+    }
+    for (const [countKey, gapKey, label] of [
+      ['externalCheckCount', 'largestExternalGapSeconds', 'external-check'],
+      ['aggregateRecordCount', 'largestAggregateGapSeconds', 'aggregate']
+    ]) {
+      const count = record.metadata?.[countKey]
+      const largestGapSeconds = record.metadata?.[gapKey]
+      if (
+        Number.isFinite(monitoringWindowSeconds)
+        && Number.isSafeInteger(count)
+        && count > 0
+        && Number.isSafeInteger(largestGapSeconds)
+        && largestGapSeconds > 0
+        && largestGapSeconds <= 600
+        && count < Math.ceil(monitoringWindowSeconds / largestGapSeconds) + 1
+      ) {
+        errors.push(
+          `Operations monitoring ${label} count is inconsistent with its window and largest gap`
+        )
+      }
+    }
+  }
+}
+
+function validateGatePhaseOrder(records, release, reportObservedAt, errors) {
+  const candidateIdentity = deploymentIdentityWithoutProfileDataGate(release)
+  const candidateRecords = records.filter(record => {
+    try {
+      return deploymentIdentityWithoutProfileDataGate(
+        normalizeDeployment(record.deployment)
+      ) === candidateIdentity
+    } catch {
+      return false
+    }
+  })
+  const recordTimes = scenarioIds => candidateRecords
+    .filter(record => scenarioIds.has(record.scenarioId))
+    .map(record => Date.parse(record.observedAt))
+    .filter(Number.isFinite)
+  const monitoringTimes = recordTimes(new Set(['operations-monitoring']))
+  const developerCanaryTimes = recordTimes(new Set(
+    Object.entries(REQUIRED_PROFILE_DATA_GATE_BY_SCENARIO)
+      .filter(([, gate]) => gate === 'developer-canary')
+      .map(([scenarioId]) => scenarioId)
+  ))
+  const switchOffTimes = recordTimes(new Set(['switch-off-and-rerun']))
+  const finalContextTimes = candidateRecords
+    .filter(record => !Object.hasOwn(REQUIRED_PROFILE_DATA_GATE_BY_SCENARIO, record.scenarioId))
+    .map(record => Date.parse(record.observedAt))
+    .filter(Number.isFinite)
+
+  const latestMonitoring = Math.max(...monitoringTimes)
+  const earliestDeveloperCanary = Math.min(...developerCanaryTimes)
+  const latestDeveloperCanary = Math.max(...developerCanaryTimes)
+  const earliestSwitchOff = Math.min(...switchOffTimes)
+  const latestSwitchOff = Math.max(...switchOffTimes)
+  const earliestFinalContext = Math.min(...finalContextTimes)
+  const latestCandidateEvidence = Math.max(
+    ...candidateRecords.map(record => Date.parse(record.observedAt)).filter(Number.isFinite)
+  )
+
+  if (monitoringTimes.length && developerCanaryTimes.length && latestMonitoring >= earliestDeveloperCanary) {
+    errors.push('Operations monitoring must finish before developer-canary profile evidence starts')
+  }
+  if (developerCanaryTimes.length && switchOffTimes.length && latestDeveloperCanary >= earliestSwitchOff) {
+    errors.push('Developer-canary profile evidence must finish before the final switch-off')
+  }
+  if (switchOffTimes.length && finalContextTimes.length && latestSwitchOff > earliestFinalContext) {
+    errors.push('Final gate-off evidence must not predate the final switch-off')
+  }
+  if (Number.isFinite(latestCandidateEvidence) && latestCandidateEvidence > Date.parse(reportObservedAt)) {
+    errors.push('Final report observation time must not predate candidate evidence')
   }
 }
 
@@ -712,6 +875,9 @@ export function validateReleaseReadinessReport(report) {
     if (release.gateState.profileDataGate === 'unknown') {
       errors.push('Profile-data server gate must be recorded before readiness can be claimed')
     }
+    if (release.gateState.profileDataGate !== 'off') {
+      errors.push('Final release-readiness report must use profile-data gate off')
+    }
     for (const record of records) {
       validateRecord(record, release, errors)
       validateScenarioMetadata(record, errors)
@@ -755,6 +921,9 @@ export function validateReleaseReadinessReport(report) {
   }
 
   const passRecords = [...records, ...retainedRecords].filter(record => record?.result === 'pass')
+  if (release) {
+    validateGatePhaseOrder(passRecords, release, report.observedAt, errors)
+  }
   const missingScenarios = REQUIRED_SCENARIOS
     .filter(scenario => !passRecords.some(record => record.scenarioId === scenario.id))
     .map(scenario => scenario.id)
@@ -820,7 +989,18 @@ export function getCanaryRerunPlan({
   const rerunScenarioIds = []
   const retainScenarioIds = []
   for (const scenario of REQUIRED_SCENARIOS) {
-    if (scenario.dependencies.some(dependency => surfaces.has(dependency))) {
+    const requiredProfileDataGate = REQUIRED_PROFILE_DATA_GATE_BY_SCENARIO[scenario.id]
+    const gateChangeRequiresRerun = surfaces.has('gate-state')
+      && scenario.id !== 'operations-monitoring'
+      && (
+        scenario.id === 'switch-off-and-rerun'
+        || !requiredProfileDataGate
+        || previousRelease?.gateState?.profileDataGate !== requiredProfileDataGate
+      )
+    const otherChangeRequiresRerun = scenario.dependencies.some(
+      dependency => dependency !== 'gate-state' && surfaces.has(dependency)
+    )
+    if (gateChangeRequiresRerun || otherChangeRequiresRerun) {
       rerunScenarioIds.push(scenario.id)
     } else {
       retainScenarioIds.push(scenario.id)
@@ -1051,9 +1231,18 @@ async function runCli(argv) {
     if (flags.metadata) {
       metadata = JSON.parse(flags.metadata)
     }
+    const evidenceDeployment = flags['profile-data-gate']
+      ? createDeploymentEvidenceContext({
+          ...report.release,
+          gateState: {
+            ...report.release.gateState,
+            profileDataGate: flags['profile-data-gate']
+          }
+        })
+      : report.release
     const evidence = createEvidenceRecord({
       scenarioId: flags.scenario,
-      deployment: report.release,
+      deployment: evidenceDeployment,
       browserTarget: flags.target,
       browser: flags.browser,
       browserVersion: flags['browser-version'],

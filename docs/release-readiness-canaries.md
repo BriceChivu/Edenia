@@ -36,12 +36,58 @@ Before creating a report, replace the inspector's
 server value. Read it from the approved operator surface and keep it out of
 the report if it contains anything beyond the gate state.
 
+## Collect the gate phases in order
+
+The Mandatory Auth-monitoring soak and the Internal canary use the same Pages
+candidate but different server profile-data gate states. Keep those phases
+separate and retain the exact state on every record:
+
+1. Prepare and deploy the final Internal canary runtime with
+   `accountFeaturesRollout: "internal"` and the learner-profile lifecycle
+   enabled. Keep the server profile-data gate `off`. This runtime change needs
+   separate product-owner approval and is not performed by the evidence tool.
+2. Inspect that exact candidate, then observe the Independent Auth monitor for
+   at least 24 continuous hours. Restart the soak after any deployment,
+   runtime-config change, unexplained external-check or aggregate-record gap
+   over ten minutes, `provider_unavailable`, or `network_error` outcome.
+3. After the soak passes, obtain separate approval to set only the server
+   profile-data gate to `developer-canary` for the exact tester. Do not deploy
+   new Pages bytes or change runtime configuration between the soak and the
+   Internal canary.
+4. Inspect the candidate again. The deployed commit, asset version, and
+   runtime-config hash must match the gate-off soak candidate exactly. Collect
+   the `profile-lifecycle`, `profile-sync-conflict`,
+   `profile-failure-preservation`, `profile-portability`, `profile-recovery`,
+   `profile-start-over-undo`, and `legacy-final-gate` records in this
+   `developer-canary` phase.
+5. Return the server profile-data gate to `off`, run
+   `switch-off-and-rerun`, and collect or rerun every scenario the gate plan
+   marks as affected. Keep the bounded Auth-monitor canary disabled.
+6. Inspect the final gate-off candidate again. Its deployed commit, asset
+   version, and runtime-config hash must still match both earlier phases.
+7. Initialize the final report with the gate-off deployment context. Append
+   each developer-canary record with `--profile-data-gate developer-canary` and
+   each gate-off record with `--profile-data-gate off`. The flag records an
+   observed evidence phase; it never changes the server gate.
+
+The seven named profile scenarios are fixed to `developer-canary`.
+`operations-monitoring` and `switch-off-and-rerun` are fixed to `off`. Every
+other scenario must match the final report's gate-off context. The validator
+rejects a final report whose release gate is not `off`, a phase-bound record at
+the wrong gate, and every other arbitrary mixed-gate record. A planned
+off-to-developer-canary transition retains the completed monitoring soak. The
+return to off retains that same soak and the seven developer-canary profile
+records, but always reruns `switch-off-and-rerun` and the affected
+final-context scenarios. Record times must also prove that the soak finished
+before developer-canary evidence, developer-canary evidence finished before
+switch-off, and final-context evidence did not predate switch-off.
+
 Initialize a report:
 
 ```sh
 npm run release:readiness -- init \
   --deployment deployment.json \
-  --profile-data-gate developer-canary \
+  --profile-data-gate off \
   --output readiness.json
 ```
 
@@ -61,8 +107,39 @@ npm run release:readiness -- append \
   --os-version "26.0" \
   --evidence-source live-browser-canary \
   --observedAt 2026-08-24T01:02:03.000Z \
-  --metadata '{"evidenceEnvironment":"deployed-browser","provider":"email","providerOutcome":"accepted","turnstileOutcome":"accepted","otpOutcome":"verified","emailDeliveryCount":1}'
+  --metadata '{"evidenceEnvironment":"deployed-browser","provider":"email","providerOutcome":"accepted","turnstileOutcome":"accepted","otpOutcome":"verified","negativeCases":"missing-expired-replay-invalid-zero-delivery","emailDeliveryCount":1}'
 ```
+
+For each of the seven developer-canary profile scenarios, add
+`--profile-data-gate developer-canary` to the append command. Review the
+generated record to confirm its gate is `developer-canary` while the report's
+final release gate remains `off`.
+
+Append the completed gate-off monitoring phase to the final report:
+
+```sh
+npm run release:readiness -- append \
+  --report readiness.json \
+  --output readiness.next.json \
+  --scenario operations-monitoring \
+  --target operator-cli \
+  --browser "psql" \
+  --browser-version "17.0" \
+  --os "macOS" \
+  --os-version "26.5" \
+  --evidence-source deployed-schema-canary \
+  --profile-data-gate off \
+  --observedAt 2026-08-30T01:27:10.000Z \
+  --metadata '{"evidenceEnvironment":"deployed-database","authAlert":"actionable","externalAuthMonitor":"five-minute-no-gap-over-ten","operatorNotification":"down-and-up-received","authMonitorCanary":"provider-failure-and-recovery","staleWatchdog":"verified","weeklyRestore":"verified","capacityEvidence":"fresh","boundedCanaryDuringSoak":"disabled","monitoringWindowStartUtc":"2026-08-29T01:27:10.000Z","monitoringWindowEndUtc":"2026-08-30T01:27:10.000Z","externalCheckCount":289,"aggregateRecordCount":289,"largestExternalGapSeconds":300,"largestAggregateGapSeconds":300,"providerUnavailableCount":0,"networkErrorCount":0}'
+```
+
+Use measured values, not the example counts or gaps. The monitoring window end
+must equal the evidence `observedAt` time. The bounds are the first and last
+included observation times, and each count includes both boundary
+observations. Both counts must be positive and mathematically sufficient for
+the reported window and largest gap, both largest gaps must be positive and no
+more than 600 seconds, and both failure counts must be zero. Review the
+generated file before moving it into the next report position.
 
 Review the generated file, then move it into the next report position. Do not
 put credentials, addresses, UUIDs, raw provider responses, profile envelopes,
@@ -92,7 +169,7 @@ values are not a substitute for the observed behavior.
 | `backup-retention-restore` | Protected backup creation, eight-version retention, capacity evidence, and an external restore rehearsal produce exact bounded counts and hashes. |
 | `legacy-final-gate` | Voluntary migration, final-gate routing, inherited-session confirmation, cloud conflict, and first-backup failure behave safely. |
 | `emergency-rollback` | The server-controlled accountless rollback path restores only explicitly marked legacy profiles and does not weaken owner isolation. |
-| `operations-monitoring` | The independent five-minute Auth monitor has no gap over ten minutes in a 24-hour window; the provider-failure canary delivers real DOWN and UP notifications; the stale-record watchdog, weekly external-backup restoration, capacity evidence, and rollback triggers are verified. |
+| `operations-monitoring` | With the server profile-data gate off and the bounded canary disabled, the independent five-minute Auth monitor has no external-check or aggregate-record gap over ten minutes and no provider/network failure in a 24-hour window. The record includes sanitized UTC bounds, positive external/aggregate counts, both largest gaps, and zero failure counts. The earlier provider-failure canary delivers real DOWN and UP notifications; the stale-record watchdog, weekly external-backup restoration, capacity evidence, and rollback triggers are also verified. |
 | `switch-off-and-rerun` | Switch-off behavior and the emergency rollback exercise pass, with affected scenarios rerun after each changed deployment or runtime gate. |
 
 The database and operator records use `operator-cli` as their browser target,
@@ -142,6 +219,16 @@ inside `retainedRecords`; newly affected scenarios must be appended with the
 new deployment context. Validation rejects retained evidence for a changed
 surface, and rejects a report whose current release URL does not match the
 candidate inspected with `--url`.
+
+The off-to-developer-canary gate transition retains the completed gate-off
+`operations-monitoring` record. The developer-canary-to-off transition retains
+that same monitoring record and the seven developer-canary profile records.
+`switch-off-and-rerun` always reruns after the transition it proves, and every
+other scenario depends on the report's current gate. An artifact or
+runtime-config change restarts the gate-off soak and invalidates every scenario
+with that dependency; do not manually copy records onto the changed candidate.
+Retention eligibility does not replace the required chronological collection
+order; the validator checks that order from each record's UTC observation time.
 
 The same dependency plan is available without importing JavaScript:
 
