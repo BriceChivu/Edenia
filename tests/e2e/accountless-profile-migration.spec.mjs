@@ -18,6 +18,7 @@ const MIGRATION_STORAGE_KEY =
   'edenia_v1_internal_test_accountless_profile_migration_v1'
 const MIGRATION_BACKUP_STORAGE_KEY =
   `${PROFILE_SYNC_STORAGE_KEY}_accountless_migration`
+const PUBLIC_STATE_STORAGE_KEY = 'edenia_v1'
 const STATE_STORAGE_KEY = 'edenia_v1_internal_test'
 const SECRET_CHANNEL_NAME = 'LEGACY PRIVATE LEARNER CHANNEL'
 const YOUTUBE_CHANNEL_ID = 'UC0000000000000000000000'
@@ -28,13 +29,14 @@ function runtimeConfig(
   enabled,
   emergencyRollbackEnabled = false,
   finalCutoverAt = '',
-  youtubeApiKey = ''
+  youtubeApiKey = '',
+  accountFeaturesRollout = enabled ? 'internal' : 'off'
 ) {
   return `window.EDENIA_CONFIG = {
     youtubeApiKey: '${youtubeApiKey}',
     freePlusEnabled: false,
     plusCheckoutEnabled: false,
-    accountFeaturesRollout: '${enabled ? 'internal' : 'off'}',
+    accountFeaturesRollout: '${accountFeaturesRollout}',
     accountlessProfileFinalCutoverAt: '${finalCutoverAt}',
     emergencyAccountlessRollbackEnabled: ${emergencyRollbackEnabled},
     learnerProfileLifecycleEnabled: ${enabled},
@@ -70,7 +72,11 @@ function restoredSession() {
 
 async function seedAccountlessProfile(
   page,
-  { cachedVideo = null, withSession = false } = {}
+  {
+    cachedVideo = null,
+    stateStorageKey = STATE_STORAGE_KEY,
+    withSession = false
+  } = {}
 ) {
   return page.evaluate(({
     authStorageKey,
@@ -136,7 +142,7 @@ async function seedAccountlessProfile(
     channelName: SECRET_CHANNEL_NAME,
     ordinaryVideoId: ORDINARY_VIDEO_ID,
     session: restoredSession(),
-    stateStorageKey: STATE_STORAGE_KEY,
+    stateStorageKey,
     withRestoredSession: withSession,
     youtubeChannelId: YOUTUBE_CHANNEL_ID
   })
@@ -145,16 +151,22 @@ async function seedAccountlessProfile(
 async function installRuntimeRoute(
   page,
   isEnabled,
-  isEmergencyRollbackEnabled = () => false,
-  getFinalCutoverAt = () => '',
-  getYoutubeApiKey = () => ''
+  {
+    getAccountFeaturesRollout = () => (
+      isEnabled() ? 'internal' : 'off'
+    ),
+    getFinalCutoverAt = () => '',
+    getYoutubeApiKey = () => '',
+    isEmergencyRollbackEnabled = () => false
+  } = {}
 ) {
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig(
       isEnabled(),
       isEmergencyRollbackEnabled(),
       getFinalCutoverAt(),
-      getYoutubeApiKey()
+      getYoutubeApiKey(),
+      getAccountFeaturesRollout()
     ),
     contentType: 'text/javascript',
     status: 200
@@ -170,8 +182,7 @@ test('the final gate hides a returning legacy town until authentication starts',
   await installRuntimeRoute(
     page,
     () => enabled,
-    () => false,
-    () => finalCutoverAt
+    { getFinalCutoverAt: () => finalCutoverAt }
   )
   await page.route('https://accountless-profile-test.supabase.co/**', route => (
     route.fulfill({ json: {}, status: 200 })
@@ -206,7 +217,7 @@ test('the emergency switch restores the expired accountless route', async ({
   await installRuntimeRoute(
     page,
     () => enabled,
-    () => rollbackEnabled
+    { isEmergencyRollbackEnabled: () => rollbackEnabled }
   )
   await page.route('https://accountless-profile-test.supabase.co/**', route => (
     route.fulfill({ json: {}, status: 200 })
@@ -241,7 +252,9 @@ test('the emergency route marks a newly completed profile as legacy', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
-  await installRuntimeRoute(page, () => true, () => true)
+  await installRuntimeRoute(page, () => true, {
+    isEmergencyRollbackEnabled: () => true
+  })
   await page.route('https://accountless-profile-test.supabase.co/**', route => (
     route.fulfill({ json: {}, status: 200 })
   ))
@@ -393,6 +406,58 @@ async function installProgressSyncRpcFixture(page, {
 
   return { commitOperations, migrationOperations }
 }
+
+test('the Internal lifecycle canary leaves the ordinary accountless path unchanged', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let enabled = false
+  await installRuntimeRoute(page, () => enabled)
+
+  await page.goto('/')
+  await seedAccountlessProfile(page, {
+    cachedVideo: { favorite: false },
+    stateStorageKey: PUBLIC_STATE_STORAGE_KEY
+  })
+  enabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.getByText(
+    SECRET_CHANNEL_NAME,
+    { exact: true }
+  ).first()).toBeVisible()
+  await expect(page.locator('#accountlessProfileMigrationNotice')).toBeHidden()
+})
+
+test('the Public lifecycle rollout reaches the ordinary accountless path', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let enabled = false
+  await installRuntimeRoute(
+    page,
+    () => enabled,
+    {
+      getAccountFeaturesRollout: () => enabled ? 'public' : 'off'
+    }
+  )
+
+  await page.goto('/')
+  await seedAccountlessProfile(page, {
+    cachedVideo: { favorite: false },
+    stateStorageKey: PUBLIC_STATE_STORAGE_KEY
+  })
+  enabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.getByText(
+    SECRET_CHANNEL_NAME,
+    { exact: true }
+  ).first()).toBeVisible()
+  await expect(page.locator('#accountlessProfileMigrationNotice')).toBeVisible()
+})
 
 test('the grace notice snoozes early and becomes non-dismissible for the final seven days', async ({
   page
@@ -928,9 +993,7 @@ test('first signed-in progress sync keeps an active one-channel town rendered wh
   await installRuntimeRoute(
     page,
     () => clientEnabled,
-    () => false,
-    () => '',
-    () => 'test-youtube-api-key'
+    { getYoutubeApiKey: () => 'test-youtube-api-key' }
   )
   await page.route(
     'https://www.googleapis.com/youtube/v3/playlistItems**',
@@ -1055,9 +1118,7 @@ test('retained favorite stays rendered through first signed-in progress sync wit
   await installRuntimeRoute(
     page,
     () => clientEnabled,
-    () => false,
-    () => '',
-    () => 'test-youtube-api-key'
+    { getYoutubeApiKey: () => 'test-youtube-api-key' }
   )
   await page.route(
     'https://www.googleapis.com/youtube/v3/playlistItems**',
@@ -1189,8 +1250,7 @@ test('failed authentication at the final gate preserves the hidden legacy town',
   await installRuntimeRoute(
     page,
     () => enabled,
-    () => false,
-    () => finalCutoverAt
+    { getFinalCutoverAt: () => finalCutoverAt }
   )
   await page.route('https://accountless-profile-test.supabase.co/**', route => {
     const pathname = new URL(route.request().url()).pathname
