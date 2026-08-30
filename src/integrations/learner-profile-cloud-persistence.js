@@ -37,6 +37,15 @@ function isRecord(value) {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value))
 }
 
+function retainLocalFeedCache(cloudProfile, localProfile) {
+  const profile = { ...cloudProfile }
+  if (isRecord(localProfile?.videos)) profile.videos = localProfile.videos
+  if (isRecord(localProfile?.channelRefreshes)) {
+    profile.channelRefreshes = localProfile.channelRefreshes
+  }
+  return profile
+}
+
 function hasExactKeys(value, expectedKeys) {
   if (!isRecord(value)) return false
   const actualKeys = Object.keys(value).sort()
@@ -2566,6 +2575,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
       ) {
         backupRequired = true
         profile = localProfile.profile
+      } else {
+        profile = retainLocalFeedCache(cloudProfile, localProfile.profile)
       }
     }
 
