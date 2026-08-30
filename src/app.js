@@ -594,7 +594,7 @@ const INDEXED_DB_BACKUP_CLEANUP_ENABLED =
 const LEGACY_PROGRESS_MIGRATION_ENABLED =
   getLegacyProgressMigrationEnabled()
 const LEARNER_PROFILE_LIFECYCLE_ENABLED =
-  getLearnerProfileLifecycleEnabled()
+  getLearnerProfileLifecycleEnabled() && ACCOUNT_FEATURES_ENABLED
 const PLUS_ACCESS_CONFIG = Object.freeze({
   freePlusEnabled: getFreePlusEnabled(),
   plusCheckoutEnabled: getPlusCheckoutEnabled(),
