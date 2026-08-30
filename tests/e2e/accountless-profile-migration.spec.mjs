@@ -20,14 +20,18 @@ const MIGRATION_BACKUP_STORAGE_KEY =
   `${PROFILE_SYNC_STORAGE_KEY}_accountless_migration`
 const STATE_STORAGE_KEY = 'edenia_v1_internal_test'
 const SECRET_CHANNEL_NAME = 'LEGACY PRIVATE LEARNER CHANNEL'
+const YOUTUBE_CHANNEL_ID = 'UC0000000000000000000000'
+const ORDINARY_VIDEO_ID = 'accountless-ordinary-fetched-video'
+const HYDRATED_VIDEO_TITLE = 'Fixture Study Video'
 
 function runtimeConfig(
   enabled,
   emergencyRollbackEnabled = false,
-  finalCutoverAt = ''
+  finalCutoverAt = '',
+  youtubeApiKey = ''
 ) {
   return `window.EDENIA_CONFIG = {
-    youtubeApiKey: '',
+    youtubeApiKey: '${youtubeApiKey}',
     freePlusEnabled: false,
     plusCheckoutEnabled: false,
     accountFeaturesRollout: '${enabled ? 'internal' : 'off'}',
@@ -64,13 +68,19 @@ function restoredSession() {
   }
 }
 
-async function seedAccountlessProfile(page, { withSession = false } = {}) {
+async function seedAccountlessProfile(
+  page,
+  { cachedVideo = null, withSession = false } = {}
+) {
   return page.evaluate(({
     authStorageKey,
+    cachedVideoOptions,
     channelName,
+    ordinaryVideoId,
     session,
     stateStorageKey,
-    withRestoredSession
+    withRestoredSession,
+    youtubeChannelId
   }) => {
     const state = window.defaultState(4, [], 'light', [], 'en')
     const completedAt = '2026-08-18T00:00:00.000Z'
@@ -81,11 +91,34 @@ async function seedAccountlessProfile(page, { withSession = false } = {}) {
     state.onboarding.walkthroughCompletedAt = completedAt
     state.config.ankiEnabled = false
     state.config.channels = [{
-      id: 'accountless-private-channel',
+      id: cachedVideoOptions
+        ? youtubeChannelId
+        : 'accountless-private-channel',
       image: '',
       language: 'French',
       name: channelName
     }]
+    if (cachedVideoOptions) {
+      state.config.channelShelfOrder = [youtubeChannelId]
+      state.videos[ordinaryVideoId] = {
+        channelId: youtubeChannelId,
+        channelTitle: channelName,
+        duration: 754,
+        favorite: cachedVideoOptions.favorite === true,
+        id: ordinaryVideoId,
+        publishedAt: '2026-08-29T00:00:00.000Z',
+        status: 'unwatched',
+        thumbnail: '',
+        title: 'Ordinary fetched lesson',
+        watchLater: false,
+        watchProgress: []
+      }
+      state.channelRefreshes[youtubeChannelId] = {
+        lastError: null,
+        lastFailedAt: null,
+        lastFetchedAt: new Date().toISOString()
+      }
+    }
     state.streak = {
       current: 41,
       lastActivityDate: '2026-08-21',
@@ -99,10 +132,13 @@ async function seedAccountlessProfile(page, { withSession = false } = {}) {
     return serialized
   }, {
     authStorageKey: AUTH_STORAGE_KEY,
+    cachedVideoOptions: cachedVideo,
     channelName: SECRET_CHANNEL_NAME,
+    ordinaryVideoId: ORDINARY_VIDEO_ID,
     session: restoredSession(),
     stateStorageKey: STATE_STORAGE_KEY,
-    withRestoredSession: withSession
+    withRestoredSession: withSession,
+    youtubeChannelId: YOUTUBE_CHANNEL_ID
   })
 }
 
@@ -110,13 +146,15 @@ async function installRuntimeRoute(
   page,
   isEnabled,
   isEmergencyRollbackEnabled = () => false,
-  getFinalCutoverAt = () => ''
+  getFinalCutoverAt = () => '',
+  getYoutubeApiKey = () => ''
 ) {
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig(
       isEnabled(),
       isEmergencyRollbackEnabled(),
-      getFinalCutoverAt()
+      getFinalCutoverAt(),
+      getYoutubeApiKey()
     ),
     contentType: 'text/javascript',
     status: 200
@@ -243,6 +281,117 @@ function fulfillMigration(route) {
     }],
     status: 200
   })
+}
+
+function captureRpcOperation(route) {
+  const request = route.request()
+  return {
+    authorization: request.headers().authorization,
+    operation: request.postDataJSON()
+  }
+}
+
+function expectOwnerBoundRpc(captured, { profileId = null } = {}) {
+  expect(captured.authorization)
+    .toBe(`Bearer ${restoredSession().access_token}`)
+  if (!profileId) return
+  expect(captured.operation.p_generation).toBe(1)
+  expect(captured.operation.p_profile_id).toBe(profileId)
+}
+
+function expectOneChannelPortableEnvelope(
+  envelope,
+  { retainedFavorite = false } = {}
+) {
+  expect(envelope.profile.config.channels).toEqual([
+    expect.objectContaining({ id: YOUTUBE_CHANNEL_ID })
+  ])
+  expect(envelope.profile.onboarding.setupCompleted).toBe(true)
+  if (retainedFavorite) {
+    expect(envelope.profile.videos[ORDINARY_VIDEO_ID])
+      .toEqual(expect.objectContaining({ favorite: true }))
+  } else {
+    expect(envelope.profile.videos[ORDINARY_VIDEO_ID]).toBeUndefined()
+  }
+}
+
+function fulfillHydratedPlaylist(route) {
+  return route.fulfill({
+    json: {
+      items: [{
+        snippet: {
+          channelId: YOUTUBE_CHANNEL_ID,
+          channelTitle: 'Fixture Language Channel',
+          publishedAt: '2026-08-29T00:00:00.000Z',
+          resourceId: { videoId: 'fixture0001' },
+          thumbnails: { high: { url: '' } },
+          title: HYDRATED_VIDEO_TITLE
+        }
+      }]
+    },
+    status: 200
+  })
+}
+
+async function installProgressSyncRpcFixture(page, {
+  getServerGate = () => 'developer-canary',
+  waitForAcceptedMigration = async () => {}
+} = {}) {
+  let acceptedEnvelope = null
+  let acceptedRevision = 1
+  const migrationOperations = []
+  const commitOperations = []
+
+  await page.route('https://accountless-profile-test.supabase.co/**', async route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/rpc/migrate_my_accountless_profile')) {
+      const captured = captureRpcOperation(route)
+      migrationOperations.push(captured)
+      if (getServerGate() === 'off') {
+        return route.fulfill({
+          json: [{ status: 'access_disabled' }],
+          status: 200
+        })
+      }
+      acceptedEnvelope = captured.operation.p_envelope
+      await waitForAcceptedMigration()
+      return fulfillMigration(route)
+    }
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      return route.fulfill({
+        json: [{
+          created: false,
+          envelope: acceptedEnvelope,
+          generation: 1,
+          profile_id: PROFILE_ID,
+          revision: acceptedRevision,
+          status: acceptedEnvelope ? 'profile_ready' : 'access_disabled'
+        }],
+        status: 200
+      })
+    }
+    if (pathname.endsWith('/rpc/commit_my_learner_profile')) {
+      const captured = captureRpcOperation(route)
+      const { operation } = captured
+      commitOperations.push(captured)
+      acceptedEnvelope = operation.p_envelope
+      acceptedRevision = operation.p_base_revision + 1
+      return route.fulfill({
+        json: [{
+          base_revision: operation.p_base_revision,
+          generation: operation.p_generation,
+          payload_sha256: operation.p_envelope.integrity.payloadSha256,
+          profile_id: operation.p_profile_id,
+          revision: acceptedRevision,
+          status: 'accepted'
+        }],
+        status: 200
+      })
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+
+  return { commitOperations, migrationOperations }
 }
 
 test('the grace notice snoozes early and becomes non-dismissible for the final seven days', async ({
@@ -716,6 +865,281 @@ test('a failed first backup survives reload and retries the same protected opera
   expect(await page.evaluate(accessKey => (
     JSON.parse(localStorage.getItem(accessKey))?.ownerId
   ), PROFILE_ACCESS_STORAGE_KEY)).toBe(OWNER_ID)
+})
+
+test('first signed-in progress sync keeps an active one-channel town rendered while feed hydration waits', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  const initialNow = new Date('2026-08-30T04:00:00.000Z')
+  let clientEnabled = false
+  let serverGate = 'off'
+  let captureTransitionSnapshots = false
+  let releaseFinalMigration
+  let releasePlaylist
+  const transitionSnapshots = []
+  const finalMigrationBarrier = new Promise(resolve => {
+    releaseFinalMigration = resolve
+  })
+  const playlistBarrier = new Promise(resolve => {
+    releasePlaylist = resolve
+  })
+  let playlistRequests = 0
+
+  await page.clock.setFixedTime(initialNow)
+  await page.exposeFunction('recordProfileTransitionSnapshot', snapshot => {
+    if (captureTransitionSnapshots) transitionSnapshots.push(snapshot)
+  })
+  await page.addInitScript(({ stateKey }) => {
+    let lastSnapshot = ''
+    const captureProfileTransitionSnapshot = () => {
+      let state = null
+      try {
+        state = JSON.parse(localStorage.getItem(stateKey))
+      } catch {}
+      const transitionSnapshot = {
+        access: document.documentElement?.dataset.learnerProfileAccessState || '',
+        channels: Array.isArray(state?.config?.channels)
+          ? state.config.channels.length
+          : null,
+        mainVisible: document.getElementById('mainApp')?.classList
+          .contains('hidden') === false,
+        shelves: document.querySelectorAll('#videoGrid .channel-shelf').length,
+        videos: state?.videos && typeof state.videos === 'object'
+          ? Object.keys(state.videos).length
+          : null
+      }
+      const snapshot = JSON.stringify(transitionSnapshot)
+      if (snapshot === lastSnapshot) return
+      lastSnapshot = snapshot
+      Promise.resolve(
+        window.recordProfileTransitionSnapshot?.(transitionSnapshot)
+      )
+        .catch(() => {})
+    }
+    new MutationObserver(captureProfileTransitionSnapshot).observe(document, {
+      attributes: true,
+      childList: true,
+      subtree: true
+    })
+    captureProfileTransitionSnapshot()
+  }, { stateKey: STATE_STORAGE_KEY })
+
+  await installRuntimeRoute(
+    page,
+    () => clientEnabled,
+    () => false,
+    () => '',
+    () => 'test-youtube-api-key'
+  )
+  await page.route(
+    'https://www.googleapis.com/youtube/v3/playlistItems**',
+    async route => {
+      playlistRequests += 1
+      await playlistBarrier
+      await fulfillHydratedPlaylist(route)
+    }
+  )
+  const { commitOperations, migrationOperations } =
+    await installProgressSyncRpcFixture(page, {
+      getServerGate: () => serverGate,
+      waitForAcceptedMigration: () => finalMigrationBarrier
+    })
+
+  await page.goto('/?internal_test=1', { waitUntil: 'domcontentloaded' })
+  await seedAccountlessProfile(page, {
+    cachedVideo: { favorite: false },
+    withSession: true
+  })
+  captureTransitionSnapshots = true
+  clientEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.locator('#videoGrid .channel-shelf')).toHaveCount(1)
+
+  await page.getByRole('button', { name: 'Back up my progress now' }).click()
+  await page.getByRole('button', { name: 'Continue as this email' }).click()
+  await expect.poll(() => migrationOperations.length).toBe(1)
+  await expect(page.locator('#accountlessProfileMigrationTitle')).toHaveText(
+    'Not backed up yet'
+  )
+  await expect(page.locator('#videoGrid .channel-shelf')).toHaveCount(1)
+
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.locator('#accountlessProfileMigrationTitle')).toHaveText(
+    'Not backed up yet'
+  )
+  await expect(page.locator('#videoGrid .channel-shelf')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Try backup again' }).click()
+  await expect(page.locator('#accountlessProfileMigrationTitle')).toHaveText(
+    'Continue as accountless-owner@example.com?'
+  )
+  serverGate = 'developer-canary'
+  const reloadCompleted = page.waitForEvent('domcontentloaded')
+  await page.getByRole('button', { name: 'Continue as this email' }).click()
+  await expect.poll(() => migrationOperations.length).toBe(2)
+  await page.clock.setFixedTime(new Date(initialNow.getTime() + (2 * 60 * 60_000)))
+  releaseFinalMigration()
+  await reloadCompleted
+
+  try {
+    await expect.poll(() => playlistRequests).toBe(1)
+    await expect(page.locator('html')).toHaveAttribute(
+      'data-learner-profile-access-state',
+      'active'
+    )
+    await expect(page.locator('#videoGrid .channel-shelf')).toHaveCount(1)
+  } finally {
+    releasePlaylist()
+  }
+
+  await expect(page.getByText(HYDRATED_VIDEO_TITLE, { exact: true })).toBeVisible()
+  await expect.poll(() => page.evaluate(syncKey => (
+    JSON.parse(localStorage.getItem(syncKey))?.pending
+  ), PROFILE_SYNC_STORAGE_KEY)).toBeNull()
+
+  expect(transitionSnapshots.length).toBeGreaterThan(0)
+  expect(transitionSnapshots.every(snapshot => snapshot.channels === 1))
+    .toBe(true)
+  const activeSnapshots = transitionSnapshots.filter(snapshot => (
+    snapshot.access === 'active' && snapshot.mainVisible
+  ))
+  expect(activeSnapshots.length).toBeGreaterThan(0)
+  expect(activeSnapshots.every(snapshot => snapshot.shelves === 1))
+    .toBe(true)
+
+  expect(migrationOperations).toHaveLength(2)
+  for (const captured of migrationOperations) {
+    expectOwnerBoundRpc(captured)
+    expectOneChannelPortableEnvelope(captured.operation.p_envelope)
+  }
+  for (const captured of commitOperations) {
+    expectOwnerBoundRpc(captured, { profileId: PROFILE_ID })
+    expectOneChannelPortableEnvelope(captured.operation.p_envelope)
+  }
+
+  const stored = await page.evaluate(({ accessKey, stateKey, syncKey }) => ({
+    access: JSON.parse(localStorage.getItem(accessKey)),
+    state: JSON.parse(localStorage.getItem(stateKey)),
+    sync: JSON.parse(localStorage.getItem(syncKey))
+  }), {
+    accessKey: PROFILE_ACCESS_STORAGE_KEY,
+    stateKey: STATE_STORAGE_KEY,
+    syncKey: PROFILE_SYNC_STORAGE_KEY
+  })
+  expect(stored.state.config.channels).toHaveLength(1)
+  expect(stored.access).toMatchObject({
+    generation: 1,
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  })
+  expect(stored.sync).toMatchObject({
+    generation: 1,
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  })
+})
+
+test('retained favorite stays rendered through first signed-in progress sync without feed hydration', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let clientEnabled = false
+  let releasePlaylist
+  let playlistFulfilled = false
+  let playlistRequests = 0
+  const playlistBarrier = new Promise(resolve => {
+    releasePlaylist = resolve
+  })
+
+  await page.clock.setFixedTime(new Date('2026-08-30T04:00:00.000Z'))
+  await installRuntimeRoute(
+    page,
+    () => clientEnabled,
+    () => false,
+    () => '',
+    () => 'test-youtube-api-key'
+  )
+  await page.route(
+    'https://www.googleapis.com/youtube/v3/playlistItems**',
+    async route => {
+      playlistRequests += 1
+      await playlistBarrier
+      await fulfillHydratedPlaylist(route)
+      playlistFulfilled = true
+    }
+  )
+  const { commitOperations, migrationOperations } =
+    await installProgressSyncRpcFixture(page)
+
+  await page.goto('/?internal_test=1', { waitUntil: 'domcontentloaded' })
+  await seedAccountlessProfile(page, {
+    cachedVideo: { favorite: true },
+    withSession: true
+  })
+  clientEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.getByText('Ordinary fetched lesson', { exact: true }))
+    .toBeVisible()
+
+  const reloadCompleted = page.waitForEvent('domcontentloaded')
+  await page.getByRole('button', { name: 'Back up my progress now' }).click()
+  await page.getByRole('button', { name: 'Continue as this email' }).click()
+  await expect.poll(() => migrationOperations.length).toBe(1)
+  await reloadCompleted
+
+  try {
+    await expect(page.locator('html')).toHaveAttribute(
+      'data-learner-profile-access-state',
+      'active'
+    )
+    await expect(page.locator('#videoGrid .channel-shelf')).toHaveCount(1)
+    await expect(page.getByText('Ordinary fetched lesson', { exact: true }))
+      .toBeVisible()
+    expect(playlistFulfilled).toBe(false)
+  } finally {
+    releasePlaylist()
+  }
+  if (playlistRequests) {
+    await expect.poll(() => playlistFulfilled).toBe(true)
+  }
+
+  for (const captured of migrationOperations) {
+    expectOwnerBoundRpc(captured)
+    expectOneChannelPortableEnvelope(captured.operation.p_envelope, {
+      retainedFavorite: true
+    })
+  }
+  for (const captured of commitOperations) {
+    expectOwnerBoundRpc(captured, { profileId: PROFILE_ID })
+    expectOneChannelPortableEnvelope(captured.operation.p_envelope, {
+      retainedFavorite: true
+    })
+  }
+
+  const stored = await page.evaluate(({ accessKey, stateKey, syncKey }) => ({
+    access: JSON.parse(localStorage.getItem(accessKey)),
+    state: JSON.parse(localStorage.getItem(stateKey)),
+    sync: JSON.parse(localStorage.getItem(syncKey))
+  }), {
+    accessKey: PROFILE_ACCESS_STORAGE_KEY,
+    stateKey: STATE_STORAGE_KEY,
+    syncKey: PROFILE_SYNC_STORAGE_KEY
+  })
+  expect(stored.state.config.channels).toEqual([
+    expect.objectContaining({ id: YOUTUBE_CHANNEL_ID })
+  ])
+  expect(stored.state.videos[ORDINARY_VIDEO_ID])
+    .toEqual(expect.objectContaining({ favorite: true }))
+  expect(stored.access).toMatchObject({
+    generation: 1,
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  })
+  expect(stored.sync).toMatchObject({
+    generation: 1,
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID
+  })
 })
 
 test('a restored sign-in still waits for explicit confirmation after reload', async ({
