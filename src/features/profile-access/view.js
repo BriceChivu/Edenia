@@ -48,8 +48,11 @@ const RECOVERY_COPY_KEYS = Object.freeze({
 })
 
 export function createLearnerProfileAccessView({
+  busyPresentationDelayMs = 0,
+  clearTimer,
   formatDateTime,
   root,
+  setTimer,
   translate
 }) {
   const gate = root.getElementById('learnerProfileAccessGate')
@@ -73,6 +76,39 @@ export function createLearnerProfileAccessView({
   const dateTime = typeof formatDateTime === 'function'
     ? formatDateTime
     : value => String(value || '')
+  const busyDelay = Number.isFinite(Number(busyPresentationDelayMs))
+    ? Math.max(0, Number(busyPresentationDelayMs))
+    : 0
+  let busyRevealGeneration = 0
+  let busyRevealTimer = null
+
+  function cancelBusyReveal() {
+    busyRevealGeneration += 1
+    if (busyRevealTimer !== null && typeof clearTimer === 'function') {
+      clearTimer(busyRevealTimer)
+    }
+    busyRevealTimer = null
+  }
+
+  function revealGateForState(state) {
+    const delaysHiddenBusyState =
+      BUSY_STATES.has(state)
+      && busyDelay > 0
+      && gate.classList.contains('hidden')
+      && typeof setTimer === 'function'
+    if (!delaysHiddenBusyState) {
+      cancelBusyReveal()
+      gate.classList.remove('hidden')
+      return
+    }
+    if (busyRevealTimer !== null) return
+    const generation = ++busyRevealGeneration
+    busyRevealTimer = setTimer(() => {
+      if (generation !== busyRevealGeneration) return
+      busyRevealTimer = null
+      gate.classList.remove('hidden')
+    }, busyDelay)
+  }
 
   function hideRecovery() {
     recoveryList.replaceChildren()
@@ -159,6 +195,7 @@ export function createLearnerProfileAccessView({
 
   function render(accessState) {
     if (accessState?.status === 'active') {
+      cancelBusyReveal()
       root.documentElement.dataset.learnerProfileAccessState = 'active'
       gate.classList.add('hidden')
       gate.setAttribute('aria-busy', 'false')
@@ -185,7 +222,7 @@ export function createLearnerProfileAccessView({
     gate.setAttribute('aria-busy', String(BUSY_STATES.has(state)))
     showActions(accessState)
     renderRecovery(accessState?.recovery)
-    gate.classList.remove('hidden')
+    revealGateForState(state)
   }
 
   return Object.freeze({ render })

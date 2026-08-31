@@ -88,6 +88,8 @@ async function createConflictEnvelope({
   locale,
   maxLevelIndex,
   reviewed,
+  selectedChannelCatalogIds = [channelId],
+  setupCompleted = true,
   updatedAt
 }) {
   const { envelope } = await createPortableLearnerProfileEnvelope({
@@ -128,7 +130,7 @@ async function createConflictEnvelope({
       createdAt: '2026-08-20T00:00:00.000Z',
       languages: [language],
       level,
-      selectedChannelCatalogIds: [channelId],
+      selectedChannelCatalogIds,
       updatedAt
     },
     noAnkiFrequentUserPrompt: {
@@ -139,17 +141,26 @@ async function createConflictEnvelope({
       introSeenAt: '2026-08-20T00:00:00.000Z',
       levelUpGuidanceShownAt: null,
       recommendationsAppliedAt: null,
-      setupCompleted: true,
-      setupCompletedAt: '2026-08-20T00:00:00.000Z',
-      walkthroughCompleted: true,
-      walkthroughCompletedAt: '2026-08-20T00:00:00.000Z'
+      setupCompleted,
+      setupCompletedAt: setupCompleted
+        ? '2026-08-20T00:00:00.000Z'
+        : null,
+      walkthroughCompleted: setupCompleted,
+      walkthroughCompletedAt: setupCompleted
+        ? '2026-08-20T00:00:00.000Z'
+        : null
     },
     videos: {}
   }, { now: () => new Date(updatedAt) })
   return envelope
 }
 
-async function prepareConflictPage(page, { failChoice = false } = {}) {
+async function prepareConflictPage(page, {
+  acceptPostChoiceCommits = false,
+  cloudSetupCompleted = true,
+  failChoice = false,
+  preserveStateOnReload = false
+} = {}) {
   const deviceEnvelope = await createConflictEnvelope({
     channelId: 'device-channel',
     channelName: 'Device channel',
@@ -168,10 +179,25 @@ async function prepareConflictPage(page, { failChoice = false } = {}) {
     locale: 'fr',
     maxLevelIndex: 2,
     reviewed: 8,
+    selectedChannelCatalogIds: cloudSetupCompleted
+      ? ['cloud-channel']
+      : [
+          'french-nlf',
+          'french-alexa',
+          'french-piece',
+          'french-elisabeth',
+          'french-facile'
+        ],
+    setupCompleted: cloudSetupCompleted,
     updatedAt: '2026-08-21T10:15:00.000Z'
   })
   const choiceRequests = []
+  const commitRequests = []
+  const resolutionRequests = []
+  const acceptedCommitOperations = new Map()
   let failedResolvedRead = false
+  let resolvedEnvelope = cloudEnvelope
+  let resolvedRevision = 14
   let selectedSide = null
 
   await page.addInitScript(({
@@ -179,9 +205,11 @@ async function prepareConflictPage(page, { failChoice = false } = {}) {
     authKey,
     authenticated,
     device,
+    preserveReloadState,
     stateKey,
     syncKey
   }) => {
+    if (preserveReloadState && localStorage.getItem(stateKey) !== null) return
     localStorage.setItem(authKey, JSON.stringify(authenticated))
     localStorage.setItem(stateKey, JSON.stringify(device.profile))
     localStorage.setItem(accessKey, JSON.stringify({
@@ -221,6 +249,7 @@ async function prepareConflictPage(page, { failChoice = false } = {}) {
     authKey: AUTH_KEY,
     authenticated: authenticatedSession(),
     device: deviceEnvelope,
+    preserveReloadState: preserveStateOnReload,
     stateKey: STATE_KEY,
     syncKey: SYNC_KEY
   })
@@ -239,16 +268,14 @@ async function prepareConflictPage(page, { failChoice = false } = {}) {
       return
     }
     if (pathname === '/rest/v1/rpc/resolve_my_learner_profile') {
-      const resolvedEnvelope = selectedSide === 'device'
-        ? deviceEnvelope
-        : cloudEnvelope
+      resolutionRequests.push(true)
       await route.fulfill({
         json: [{
           created: false,
           envelope: resolvedEnvelope,
           generation: 4,
           profile_id: PROFILE_ID,
-          revision: selectedSide ? 15 : 14,
+          revision: resolvedRevision,
           status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
         }],
         status: 200
@@ -256,6 +283,38 @@ async function prepareConflictPage(page, { failChoice = false } = {}) {
       return
     }
     if (pathname === '/rest/v1/rpc/commit_my_learner_profile') {
+      const body = request.postDataJSON()
+      commitRequests.push(body)
+      if (selectedSide && acceptPostChoiceCommits) {
+        const acceptedOperation = acceptedCommitOperations.get(
+          body.p_operation_id
+        )
+        if (acceptedOperation) {
+          await route.fulfill({
+            json: [{ ...acceptedOperation, status: 'already_accepted' }],
+            status: 200
+          })
+          return
+        }
+        resolvedEnvelope = body.p_envelope
+        resolvedRevision = body.p_base_revision + 1
+        const acceptedOperationReceipt = {
+          base_revision: body.p_base_revision,
+          generation: body.p_generation,
+          payload_sha256: body.p_envelope.integrity.payloadSha256,
+          profile_id: body.p_profile_id,
+          revision: resolvedRevision
+        }
+        acceptedCommitOperations.set(
+          body.p_operation_id,
+          acceptedOperationReceipt
+        )
+        await route.fulfill({
+          json: [{ ...acceptedOperationReceipt, status: 'accepted' }],
+          status: 200
+        })
+        return
+      }
       await route.fulfill({
         json: [{
           base_revision: 12,
@@ -302,6 +361,8 @@ async function prepareConflictPage(page, { failChoice = false } = {}) {
       const selectedEnvelope = selectedSide === 'device'
         ? deviceEnvelope
         : cloudEnvelope
+      resolvedEnvelope = selectedEnvelope
+      resolvedRevision = 15
       await route.fulfill({
         json: [{
           conflict_id: CONFLICT_ID,
@@ -320,7 +381,13 @@ async function prepareConflictPage(page, { failChoice = false } = {}) {
     await route.fulfill({ json: {}, status: 200 })
   })
   await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
-  return { choiceRequests, cloudEnvelope, deviceEnvelope }
+  return {
+    choiceRequests,
+    cloudEnvelope,
+    commitRequests,
+    deviceEnvelope,
+    resolutionRequests
+  }
 }
 
 test('divergent profiles require exportable, confirmed choices at every width', async ({
@@ -445,4 +512,128 @@ test('a protected-backup verification failure activates neither input', async ({
   await expect(page.locator('#mainApp')).toBeVisible()
   await expect(page.locator('#learnerProfileConflictRecovery')).toBeVisible()
   await expect.poll(() => choiceRequests.length).toBe(2)
+})
+
+test('choosing an unfinished Cloud profile opens onboarding without exposing the town', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let captureProfileSurface = false
+  const profileSurfaceSnapshots = []
+  await page.exposeFunction('recordProfileSurfaceSnapshot', snapshot => {
+    if (captureProfileSurface) profileSurfaceSnapshots.push(snapshot)
+  })
+  await page.addInitScript(() => {
+    let lastSnapshot = ''
+    const capture = () => {
+      const mainApp = document.getElementById('mainApp')
+      const onboardingPanel = document.getElementById('onboardingPanel')
+      const snapshot = {
+        access: document.documentElement?.dataset
+          .learnerProfileAccessState || '',
+        mainVisible: mainApp?.classList.contains('hidden') === false,
+        onboardingVisible:
+          onboardingPanel?.classList.contains('hidden') === false
+      }
+      const serialized = JSON.stringify(snapshot)
+      if (serialized === lastSnapshot) return
+      lastSnapshot = serialized
+      Promise.resolve(window.recordProfileSurfaceSnapshot?.(snapshot))
+        .catch(() => {})
+    }
+    new MutationObserver(capture).observe(document, {
+      attributeFilter: ['class', 'data-learner-profile-access-state'],
+      attributes: true,
+      childList: true,
+      subtree: true
+    })
+    capture()
+  })
+  const { choiceRequests, resolutionRequests } = await prepareConflictPage(page, {
+    acceptPostChoiceCommits: true,
+    cloudSetupCompleted: false,
+    preserveStateOnReload: true
+  })
+
+  await page.getByRole('button', { name: 'Use Cloud' }).click()
+  await expect(page.locator('#learnerProfileConflictConfirmation')).toBeVisible()
+  captureProfileSurface = true
+  await page.getByRole('button', { name: 'Confirm this choice' }).click()
+
+  await expect.poll(() => choiceRequests.length).toBe(1)
+  await expect(page.locator('#onboardingPanel')).toBeVisible()
+  await expect.poll(() => profileSurfaceSnapshots.some(
+    snapshot => snapshot.onboardingVisible
+  )).toBe(true)
+  expect(profileSurfaceSnapshots.some(snapshot => (
+    snapshot.mainVisible && !snapshot.onboardingVisible
+  ))).toBe(false)
+
+  const resolutionCountBeforeFocus = resolutionRequests.length
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect.poll(() => resolutionRequests.length).toBeGreaterThan(
+    resolutionCountBeforeFocus
+  )
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'active'
+  )
+  await expect(page.locator('#onboardingPanel')).toBeVisible()
+  await expect(page.locator('#mainApp')).toBeHidden()
+
+  profileSurfaceSnapshots.length = 0
+  await page.reload()
+  await expect(page.locator('#onboardingPanel')).toBeVisible()
+  await expect.poll(() => profileSurfaceSnapshots.some(
+    snapshot => snapshot.onboardingVisible
+  )).toBe(true)
+  expect(profileSurfaceSnapshots.some(snapshot => (
+    snapshot.mainVisible && !snapshot.onboardingVisible
+  ))).toBe(false)
+
+  await page.locator(
+    '[data-personalized-onboarding-action="set-step"]'
+    + '[data-personalized-onboarding-step="account"]'
+  ).click()
+  const finishButton = page.locator(
+    '[data-personalized-onboarding-action="finish"]'
+  )
+  await expect(finishButton).toBeVisible()
+  await expect(finishButton).toBeEnabled()
+  await finishButton.click()
+  await expect(page.locator('#onboardingPanel')).toBeHidden()
+  await expect(page.locator('#mainApp')).toBeVisible()
+})
+
+test('reloading an unchanged unfinished Cloud profile creates no cloud revision', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  const { commitRequests } = await prepareConflictPage(page, {
+    acceptPostChoiceCommits: true,
+    cloudSetupCompleted: false,
+    preserveStateOnReload: true
+  })
+
+  await page.getByRole('button', { name: 'Use Cloud' }).click()
+  await page.getByRole('button', { name: 'Confirm this choice' }).click()
+  await expect(page.locator('#onboardingPanel')).toBeVisible()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveAttribute(
+    'data-sync-status',
+    'up-to-date'
+  )
+  commitRequests.length = 0
+
+  await page.reload()
+
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'active'
+  )
+  await expect(page.locator('#onboardingPanel')).toBeVisible()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveAttribute(
+    'data-sync-status',
+    'up-to-date'
+  )
+  expect(commitRequests).toHaveLength(0)
 })

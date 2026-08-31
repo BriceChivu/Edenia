@@ -798,11 +798,16 @@ export function createLearnerProfileLifecycleAuthority({
   function saveActiveProfile(profile, options = {}) {
     const activation = getCurrentActivationFor(profile)
     if (!activation) return false
-    if (!markCloudSaveRequired(profile, activation)) return false
-    const persisted = localPersistence.save(profile, options, activation)
+    const { syncCloud = true, ...persistenceOptions } = options
+    if (syncCloud && !markCloudSaveRequired(profile, activation)) return false
+    const persisted = localPersistence.save(
+      profile,
+      persistenceOptions,
+      activation
+    )
     if (!persisted || !getCurrentActivationFor(profile)) return false
     analytics.profileSaved(profile, { activation })
-    enqueueCloudSave(profile, activation)
+    if (syncCloud) enqueueCloudSave(profile, activation)
     return true
   }
 
