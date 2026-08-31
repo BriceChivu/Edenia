@@ -4,60 +4,121 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Edenia</title>
+    <style>
+      @media only screen and (max-width: 520px) {
+        .email-shell { width: 100% !important; }
+        .email-padding { padding-left: 18px !important; padding-right: 18px !important; }
+        .hero-duck-cell { width: 74px !important; }
+        .hero-duck { width: 68px !important; }
+        .speech-title { font-size: 23px !important; }
+        .code-value { font-size: 38px !important; letter-spacing: 8px !important; }
+      }
+    </style>
   </head>
-  <body style="margin:0;background:#f3f0e8;color:#18352b;font-family:Arial,Helvetica,sans-serif;">
+  <body style="margin:0;padding:0;background:#e9f8ed;color:#10232a;font-family:Arial,Helvetica,sans-serif;">
     {{ if eq .Data.edenia_auth_locale "es" }}
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Tu código de acceso de seis dígitos para Edenia.</div>
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Tu código de acceso de seis dígitos para Edenia.</div>
     {{ else if eq .Data.edenia_auth_locale "fr" }}
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Votre code de connexion Edenia à six chiffres.</div>
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Votre code de connexion Edenia à six chiffres.</div>
     {{ else if eq .Data.edenia_auth_locale "zh-Hans" }}
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">你的六位数 Edenia 登录验证码。</div>
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">你的六位数 Edenia 登录验证码。</div>
     {{ else if eq .Data.edenia_auth_locale "zh-Hant" }}
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">你的六位數 Edenia 登入驗證碼。</div>
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">你的六位數 Edenia 登入驗證碼。</div>
     {{ else if eq .Data.edenia_auth_locale "en" }}
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your six-digit Edenia sign-in code.</div>
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Your six-digit Edenia sign-in code.</div>
     {{ else }}
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Your Edenia verification code · Código · Code · 验证码 · 驗證碼</div>
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Your Edenia verification code · Código · Code · 验证码 · 驗證碼</div>
     {{ end }}
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f0e8;padding:32px 16px;">
+    <table class="email-canvas" role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#e9f8ed;">
       <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #d9d3c4;border-radius:16px;">
+        <td align="center" style="padding:32px 12px;">
+          <table class="email-shell" role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="width:600px;max-width:600px;background:#f8fdff;border:2px solid #050505;border-radius:8px;border-collapse:separate;overflow:hidden;">
             <tr>
-              <td style="padding:36px;">
-                <p style="margin:0 0 24px;color:#2d6a4f;font-size:14px;font-weight:700;letter-spacing:0.16em;">EDENIA</p>
+              <td class="email-header" style="padding:15px 22px;background:#f8fdff;border-bottom:2px solid #050505;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td class="brand-wordmark" style="color:#12bcea;font-family:Impact,'Arial Narrow',Arial,sans-serif;font-size:28px;font-weight:900;line-height:1;letter-spacing:3px;text-shadow:1px 1px 0 #050505;">EDENIA</td>
+                    <td align="right">
+                      <span class="email-status" style="display:inline-block;padding:6px 10px;background:#c9ef68;border:1px solid #050505;border-radius:999px;color:#10232a;font-size:10px;font-weight:700;line-height:1;">
+                        {{ if eq .Data.edenia_auth_locale "es" }}●&nbsp; Código de un solo uso{{ else if eq .Data.edenia_auth_locale "fr" }}●&nbsp; Code à usage unique{{ else if eq .Data.edenia_auth_locale "zh-Hans" }}●&nbsp; 一次性验证码{{ else if eq .Data.edenia_auth_locale "zh-Hant" }}●&nbsp; 一次性驗證碼{{ else }}●&nbsp; One-time code{{ end }}
+                      </span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td class="email-padding email-hero" style="padding:30px 32px 24px;background:#e3f6fb;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td class="hero-duck-cell" width="118" valign="bottom" style="width:118px;padding-right:18px;">
+                      <img class="hero-duck" src="{{ .SiteURL }}Edenia_favicon_round.png" width="104" alt="" style="display:block;width:104px;max-width:100%;height:auto;border:0;">
+                    </td>
+                    <td class="speech-bubble" valign="middle" style="padding:21px;background:#f8fdff;border:2px solid #050505;border-radius:20px;box-shadow:5px 5px 0 #82d2ef;">
+                      {{ if eq .Data.edenia_auth_locale "es" }}
+                      <div class="email-eyebrow" style="margin:0 0 7px;color:#087fa6;font-size:10px;font-weight:700;letter-spacing:2px;line-height:1.2;">QUÉ BUENO VERTE</div>
+                      <h1 class="speech-title email-title" style="margin:0 0 9px;color:#10232a;font-size:28px;line-height:1.08;letter-spacing:-0.7px;">¿Listo para seguir aprendiendo?</h1>
+                      <p class="email-copy" style="margin:0;color:#54737b;font-size:15px;line-height:1.55;">Este es el código que te devuelve a tu ciudad de estudio.</p>
+                      {{ else if eq .Data.edenia_auth_locale "fr" }}
+                      <div class="email-eyebrow" style="margin:0 0 7px;color:#087fa6;font-size:10px;font-weight:700;letter-spacing:2px;line-height:1.2;">HEUREUX DE VOUS REVOIR</div>
+                      <h1 class="speech-title email-title" style="margin:0 0 9px;color:#10232a;font-size:28px;line-height:1.08;letter-spacing:-0.7px;">Prêt à continuer d’apprendre&nbsp;?</h1>
+                      <p class="email-copy" style="margin:0;color:#54737b;font-size:15px;line-height:1.55;">Voici le code qui vous ramène dans votre ville d’apprentissage.</p>
+                      {{ else if eq .Data.edenia_auth_locale "zh-Hans" }}
+                      <div class="email-eyebrow" style="margin:0 0 7px;color:#087fa6;font-size:10px;font-weight:700;letter-spacing:2px;line-height:1.2;">欢迎回来</div>
+                      <h1 class="speech-title email-title" style="margin:0 0 9px;color:#10232a;font-size:28px;line-height:1.08;letter-spacing:-0.7px;">准备好继续学习了吗？</h1>
+                      <p class="email-copy" style="margin:0;color:#54737b;font-size:15px;line-height:1.55;">用这个验证码回到你的学习小镇。</p>
+                      {{ else if eq .Data.edenia_auth_locale "zh-Hant" }}
+                      <div class="email-eyebrow" style="margin:0 0 7px;color:#087fa6;font-size:10px;font-weight:700;letter-spacing:2px;line-height:1.2;">歡迎回來</div>
+                      <h1 class="speech-title email-title" style="margin:0 0 9px;color:#10232a;font-size:28px;line-height:1.08;letter-spacing:-0.7px;">準備好繼續學習了嗎？</h1>
+                      <p class="email-copy" style="margin:0;color:#54737b;font-size:15px;line-height:1.55;">用這組驗證碼回到你的學習小鎮。</p>
+                      {{ else if eq .Data.edenia_auth_locale "en" }}
+                      <div class="email-eyebrow" style="margin:0 0 7px;color:#087fa6;font-size:10px;font-weight:700;letter-spacing:2px;line-height:1.2;">WELCOME BACK</div>
+                      <h1 class="speech-title email-title" style="margin:0 0 9px;color:#10232a;font-size:28px;line-height:1.08;letter-spacing:-0.7px;">Ready to keep learning?</h1>
+                      <p class="email-copy" style="margin:0;color:#54737b;font-size:15px;line-height:1.55;">Here’s the code that brings you back to your study town.</p>
+                      {{ else }}
+                      <div class="email-eyebrow" style="margin:0 0 7px;color:#087fa6;font-size:10px;font-weight:700;letter-spacing:2px;line-height:1.2;">EDENIA</div>
+                      <h1 class="speech-title email-title" style="margin:0 0 9px;color:#10232a;font-size:28px;line-height:1.08;letter-spacing:-0.7px;">Edenia verification code</h1>
+                      <p class="email-copy" style="margin:0;color:#54737b;font-size:15px;line-height:1.55;">Use this one-time code to return to Edenia.</p>
+                      {{ end }}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td class="email-padding email-main" style="padding:28px 32px 27px;background:#f8fdff;">
                 {{ if eq .Data.edenia_auth_locale "es" }}
-                <h1 style="margin:0 0 16px;color:#18352b;font-size:28px;line-height:1.2;">Inicia sesión en Edenia</h1>
-                <p style="margin:0 0 18px;color:#455d54;font-size:16px;line-height:1.6;">Introduce este código de seis dígitos en el dispositivo Edenia donde lo solicitaste:</p>
+                <p class="email-copy" style="margin:0 0 18px;color:#54737b;font-size:15px;line-height:1.6;">Introduce este código de seis dígitos en el dispositivo Edenia donde lo solicitaste:</p>
                 {{ else if eq .Data.edenia_auth_locale "fr" }}
-                <h1 style="margin:0 0 16px;color:#18352b;font-size:28px;line-height:1.2;">Connectez-vous à Edenia</h1>
-                <p style="margin:0 0 18px;color:#455d54;font-size:16px;line-height:1.6;">Saisissez ce code à six chiffres sur l’appareil Edenia où vous l’avez demandé :</p>
+                <p class="email-copy" style="margin:0 0 18px;color:#54737b;font-size:15px;line-height:1.6;">Saisissez ce code à six chiffres sur l’appareil Edenia où vous l’avez demandé&nbsp;:</p>
                 {{ else if eq .Data.edenia_auth_locale "zh-Hans" }}
-                <h1 style="margin:0 0 16px;color:#18352b;font-size:28px;line-height:1.2;">登录 Edenia</h1>
-                <p style="margin:0 0 18px;color:#455d54;font-size:16px;line-height:1.6;">请在请求验证码的 Edenia 设备上输入这个六位数验证码：</p>
+                <p class="email-copy" style="margin:0 0 18px;color:#54737b;font-size:15px;line-height:1.6;">请在请求验证码的 Edenia 设备上输入这个六位数验证码：</p>
                 {{ else if eq .Data.edenia_auth_locale "zh-Hant" }}
-                <h1 style="margin:0 0 16px;color:#18352b;font-size:28px;line-height:1.2;">登入 Edenia</h1>
-                <p style="margin:0 0 18px;color:#455d54;font-size:16px;line-height:1.6;">請在要求驗證碼的 Edenia 裝置上輸入這組六位數驗證碼：</p>
+                <p class="email-copy" style="margin:0 0 18px;color:#54737b;font-size:15px;line-height:1.6;">請在要求驗證碼的 Edenia 裝置上輸入這組六位數驗證碼：</p>
                 {{ else if eq .Data.edenia_auth_locale "en" }}
-                <h1 style="margin:0 0 16px;color:#18352b;font-size:28px;line-height:1.2;">Sign in to Edenia</h1>
-                <p style="margin:0 0 18px;color:#455d54;font-size:16px;line-height:1.6;">Enter this six-digit code on the Edenia device where you requested it:</p>
+                <p class="email-copy" style="margin:0 0 18px;color:#54737b;font-size:15px;line-height:1.6;">Enter this six-digit code on the Edenia device where you requested it:</p>
                 {{ else }}
-                <h1 style="margin:0 0 16px;color:#18352b;font-size:28px;line-height:1.2;">Edenia verification code</h1>
-                <p style="margin:0 0 18px;color:#455d54;font-size:15px;line-height:1.7;"><strong>English:</strong> Enter this six-digit code on the Edenia device where you requested it.<br><strong>Español:</strong> Introduce este código de seis dígitos en el dispositivo Edenia donde lo solicitaste.<br><strong>Français :</strong> Saisissez ce code à six chiffres sur l’appareil Edenia où vous l’avez demandé.<br><strong>简体中文：</strong>请在请求验证码的 Edenia 设备上输入这个六位数验证码。<br><strong>繁體中文：</strong>請在要求驗證碼的 Edenia 裝置上輸入這組六位數驗證碼。</p>
+                <p class="email-copy" style="margin:0 0 18px;color:#54737b;font-size:14px;line-height:1.7;"><strong>English:</strong> Enter this six-digit code on the Edenia device where you requested it.<br><strong>Español:</strong> Introduce este código de seis dígitos en el dispositivo Edenia donde lo solicitaste.<br><strong>Français :</strong> Saisissez ce code à six chiffres sur l’appareil Edenia où vous l’avez demandé.<br><strong>简体中文：</strong>请在请求验证码的 Edenia 设备上输入这个六位数验证码。<br><strong>繁體中文：</strong>請在要求驗證碼的 Edenia 裝置上輸入這組六位數驗證碼。</p>
                 {{ end }}
-                <p style="margin:0 0 28px;color:#18352b;font-size:34px;font-weight:700;letter-spacing:0.22em;line-height:1;">{{ .Token }}</p>
+                <div class="code-panel" style="padding:20px 16px 19px;background:#c9ef68;border:2px solid #050505;border-radius:11px;box-shadow:0 4px 0 #050505;text-align:center;">
+                  <span class="code-value" style="color:#10232a;font-size:48px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:11px;line-height:1;white-space:nowrap;">{{ .Token }}</span>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td class="email-padding email-footer" style="padding:19px 32px 23px;background:#f8fdff;border-top:1px solid #b4dbe4;color:#54737b;font-size:12px;line-height:1.6;">
                 {{ if eq .Data.edenia_auth_locale "es" }}
-                <p style="margin:0;color:#6b7772;font-size:13px;line-height:1.6;">Si no solicitaste este correo, puedes ignorarlo. Este código de un solo uso caduca automáticamente.</p>
+                Si no solicitaste este correo, puedes ignorarlo. Este código de un solo uso caduca automáticamente.
                 {{ else if eq .Data.edenia_auth_locale "fr" }}
-                <p style="margin:0;color:#6b7772;font-size:13px;line-height:1.6;">Si vous n’avez pas demandé cet e-mail, vous pouvez l’ignorer. Ce code à usage unique expire automatiquement.</p>
+                Si vous n’avez pas demandé cet e-mail, vous pouvez l’ignorer. Ce code à usage unique expire automatiquement.
                 {{ else if eq .Data.edenia_auth_locale "zh-Hans" }}
-                <p style="margin:0;color:#6b7772;font-size:13px;line-height:1.6;">如果你没有请求这封邮件，可以放心忽略。此一次性验证码会自动过期。</p>
+                如果你没有请求这封邮件，可以放心忽略。此一次性验证码会自动过期。
                 {{ else if eq .Data.edenia_auth_locale "zh-Hant" }}
-                <p style="margin:0;color:#6b7772;font-size:13px;line-height:1.6;">如果你沒有要求這封電子郵件，可以放心忽略。這組一次性驗證碼會自動過期。</p>
+                如果你沒有要求這封電子郵件，可以放心忽略。這組一次性驗證碼會自動過期。
                 {{ else if eq .Data.edenia_auth_locale "en" }}
-                <p style="margin:0;color:#6b7772;font-size:13px;line-height:1.6;">If you did not request this email, you can safely ignore it. This one-time code expires automatically.</p>
+                If you did not request this email, you can safely ignore it. This one-time code expires automatically.
                 {{ else }}
-                <p style="margin:0;color:#6b7772;font-size:13px;line-height:1.7;">If you did not request this email, ignore it. · Si no solicitaste este correo, ignóralo. · Si vous n’avez pas demandé cet e-mail, ignorez-le.<br>如果你没有请求这封邮件，请忽略。 · 如果你沒有要求這封電子郵件，請忽略。</p>
+                If you did not request this email, ignore it. · Si no solicitaste este correo, ignóralo. · Si vous n’avez pas demandé cet e-mail, ignorez-le.<br>如果你没有请求这封邮件，请忽略。 · 如果你沒有要求這封電子郵件，請忽略。
                 {{ end }}
               </td>
             </tr>

@@ -80,6 +80,19 @@ test('new and existing users receive the same branded six-digit code', async () 
   const templateFiles = ['confirmation.html', 'magic_link.html']
 
   const templates = []
+  const approvedPalette = [
+    '#050505',
+    '#087fa6',
+    '#10232a',
+    '#12bcea',
+    '#54737b',
+    '#82d2ef',
+    '#b4dbe4',
+    '#c9ef68',
+    '#e3f6fb',
+    '#e9f8ed',
+    '#f8fdff'
+  ].sort()
   for (const templateFile of templateFiles) {
     const template = await readFile(
       new URL(`supabase/templates/${templateFile}`, projectRoot),
@@ -88,7 +101,16 @@ test('new and existing users receive the same branded six-digit code', async () 
     templates.push(template)
 
     assert.match(template, /<title>Edenia<\/title>/, templateFile)
-    assert.match(template, />\{\{ \.Token \}\}</, templateFile)
+    assert.equal(
+      template.match(/\{\{ \.Token \}\}/g)?.length,
+      1,
+      `${templateFile}: the OTP is rendered exactly once`
+    )
+    assert.match(
+      template,
+      /<span class="code-value"[^>]*>\{\{ \.Token \}\}<\/span>/,
+      `${templateFile}: the OTP remains one contiguous selectable text node`
+    )
     assert.match(template, /six-digit code/i, templateFile)
     for (const locale of ['en', 'es', 'fr', 'zh-Hans', 'zh-Hant']) {
       assert.match(
@@ -106,8 +128,41 @@ test('new and existing users receive the same branded six-digit code', async () 
       /ConfirmationURL|TokenHash|auth\/confirm|supabase\.co|essddsmidqigxwhuzlgo/i,
       templateFile
     )
-    assert.doesNotMatch(
+    assert.match(
       template,
+      /<img class="hero-duck" src="\{\{ \.SiteURL \}\}Edenia_favicon_round\.png"[^>]*alt=""/,
+      `${templateFile}: the decorative duck uses Edenia's configured site origin`
+    )
+    assert.equal(
+      template.match(/\{\{ \.SiteURL \}\}/g)?.length,
+      1,
+      `${templateFile}: the duck is the only site-hosted asset`
+    )
+    assert.match(
+      template,
+      /class="email-status"[^>]*background:#c9ef68/,
+      `${templateFile}: the one-time-code badge uses planet-lime`
+    )
+    assert.match(
+      template,
+      /class="code-panel"[^>]*background:#c9ef68/,
+      `${templateFile}: the code panel uses planet-lime`
+    )
+    const palette = [
+      ...new Set(
+        (template.match(/#[0-9a-f]{6}/gi) ?? []).map(color =>
+          color.toLowerCase()
+        )
+      )
+    ].sort()
+    assert.deepEqual(
+      palette,
+      approvedPalette,
+      `${templateFile}: colors stay mapped to the Edenia Color Bible`
+    )
+    const templateWithoutApprovedDuck = template.replace(/<img class="hero-duck"[^>]*>/, '')
+    assert.doesNotMatch(
+      templateWithoutApprovedDuck,
       /<script|<form|<img|<a\b|https?:\/\//i,
       templateFile
     )
