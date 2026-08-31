@@ -32,7 +32,7 @@ function createElement() {
   }
 }
 
-function createHarness() {
+function createHarness(viewOptions = {}) {
   const elements = new Map([
     ['learnerProfileAccessGate', createElement()],
     ['learnerProfileAccessTitle', createElement()],
@@ -59,10 +59,60 @@ function createHarness() {
     root,
     view: createLearnerProfileAccessView({
       root,
-      translate: key => key
+      translate: key => key,
+      ...viewOptions
     })
   }
 }
+
+test('fast busy profile checks stay visually quiet until activation', () => {
+  const timers = []
+  const { elements, root, view } = createHarness({
+    busyPresentationDelayMs: 250,
+    clearTimer(timerId) {
+      const timer = timers[timerId - 1]
+      if (timer) timer.cleared = true
+    },
+    setTimer(callback, delay) {
+      timers.push({ callback, cleared: false, delay })
+      return timers.length
+    }
+  })
+  const gate = elements.get('learnerProfileAccessGate')
+
+  view.render({ status: 'resolving' })
+  assert.equal(root.documentElement.dataset.learnerProfileAccessState, 'resolving')
+  assert.equal(gate.classList.contains('hidden'), true)
+  assert.equal(timers.length, 1)
+  assert.equal(timers[0].delay, 250)
+
+  view.render({ status: 'waiting-cloud' })
+  assert.equal(root.documentElement.dataset.learnerProfileAccessState, 'waiting-cloud')
+  assert.equal(gate.classList.contains('hidden'), true)
+  assert.equal(timers.length, 1)
+
+  view.render({ status: 'active' })
+  timers[0].callback()
+  assert.equal(gate.classList.contains('hidden'), true)
+})
+
+test('a slow busy profile check appears after the quiet delay', () => {
+  const timers = []
+  const { elements, view } = createHarness({
+    busyPresentationDelayMs: 250,
+    clearTimer() {},
+    setTimer(callback, delay) {
+      timers.push({ callback, delay })
+      return timers.length
+    }
+  })
+  const gate = elements.get('learnerProfileAccessGate')
+
+  view.render({ status: 'waiting-cloud' })
+  assert.equal(gate.classList.contains('hidden'), true)
+  timers[0].callback()
+  assert.equal(gate.classList.contains('hidden'), false)
+})
 
 test('retryable profile access states expose neutral recovery controls', () => {
   const { elements, root, view } = createHarness()

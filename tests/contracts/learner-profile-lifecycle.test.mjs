@@ -1009,6 +1009,52 @@ test('cloud revision identity is installed and activated before signed-in saves 
   )
 })
 
+test('a device-only signed-in save stays local and retains its activation fence', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profile = { learnerProfile: { languages: ['mandarin'] } }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: {
+      generation: 2,
+      ownerId,
+      profile,
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 7,
+      status: 'activate'
+    },
+    local: { status: 'empty' },
+    markDirtyResult: true
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+
+  assert.equal(harness.authority.saveActiveProfile(profile, {
+    backupReason: 'startup',
+    syncCloud: false
+  }), true)
+  const localSave = harness.calls.find(([name]) => name === 'local-save')
+  assert.deepEqual(localSave[2], { backupReason: 'startup' })
+  assert.equal(localSave[3], harness.getCurrentFence())
+  assert.equal(
+    harness.calls.some(([name]) => name === 'cloud-mark-dirty'),
+    false
+  )
+  assert.equal(
+    harness.calls.some(([name]) => name === 'cloud-save'),
+    false
+  )
+
+  harness.authentication.publish({ status: 'signed-out', userId: null })
+  assert.equal(harness.authority.saveActiveProfile(profile, {
+    syncCloud: false
+  }), false)
+  assert.equal(
+    harness.calls.filter(([name]) => name === 'local-save').length,
+    1
+  )
+})
+
 test('a signed-in local write is refused unless unsynchronized work is durably marked', async () => {
   const ownerId = '123e4567-e89b-42d3-a456-426614174000'
   const profileId = '223e4567-e89b-42d3-a456-426614174001'

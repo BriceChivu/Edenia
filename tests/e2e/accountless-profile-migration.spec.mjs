@@ -632,6 +632,7 @@ test('legacy and cloud progress use the ordinary protected browser comparison', 
   let conflictOperation = null
   let selectedSide = null
   const choiceRequests = []
+  const postChoiceCommitRequests = []
   let cloudEnvelope = null
   await installRuntimeRoute(page, () => enabled)
   await page.route('https://accountless-profile-test.supabase.co/**', route => {
@@ -642,6 +643,7 @@ test('legacy and cloud progress use the ordinary protected browser comparison', 
     if (pathname.endsWith('/rpc/commit_my_learner_profile')) {
       if (selectedSide) {
         const operation = route.request().postDataJSON()
+        postChoiceCommitRequests.push(operation)
         return route.fulfill({
           json: [{
             base_revision: operation.p_base_revision,
@@ -791,11 +793,12 @@ test('legacy and cloud progress use the ordinary protected browser comparison', 
   })
   expect(stored.access.legacy).toBeUndefined()
   expect(stored.sync).toMatchObject({
-    acceptedRevision: 9,
+    acceptedRevision: 8,
     pending: null,
     profileId: PROFILE_ID,
     protectedConflictIds: [CONFLICT_ID]
   })
+  expect(postChoiceCommitRequests).toHaveLength(0)
   expect(stored.migration).toBeNull()
 })
 
