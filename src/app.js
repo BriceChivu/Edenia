@@ -1151,15 +1151,29 @@ function hasPersistedLearnerProfile() {
   }
 }
 
+function shouldUseOnboardingProfileDraft() {
+  if (!learnerProfileLifecycleAuthority) return false
+  if (!hasPersistedLearnerProfile()) return true
+  const accessStatus = learnerProfileLifecycleAuthority?.getState()?.status
+  return accessStatus === LEARNER_PROFILE_ACCESS_STATES.ONBOARDING_REQUIRED
+    || (
+      onboardingProfileDraftStore.hasDraft()
+      && [
+        LEARNER_PROFILE_ACCESS_STATES.ACCOUNT_CHANGE,
+        LEARNER_PROFILE_ACCESS_STATES.REPLACING
+      ].includes(accessStatus)
+    )
+}
+
 function loadOnboardingWorkingState() {
-  if (learnerProfileLifecycleAuthority && !hasPersistedLearnerProfile()) {
+  if (shouldUseOnboardingProfileDraft()) {
     return onboardingProfileDraftStore.readWorkingState()
   }
   return loadState()
 }
 
 function saveOnboardingWorkingState(state, options = {}) {
-  if (learnerProfileLifecycleAuthority && !hasPersistedLearnerProfile()) {
+  if (shouldUseOnboardingProfileDraft()) {
     return onboardingProfileDraftStore.saveWorkingState(state)
   }
   return saveState(state, options)
@@ -3037,7 +3051,11 @@ function handleLearnerProfileAccessStateChange(accessState) {
   }
   renderStartOverUndo(null)
   learnerProfileConflictView.hideProtected()
-  const publicOnboardingState = !hasPersistedLearnerProfile()
+  const publicOnboardingState = (
+    !hasPersistedLearnerProfile()
+    || accessState.status
+      === LEARNER_PROFILE_ACCESS_STATES.ONBOARDING_REQUIRED
+  )
     ? loadOnboardingWorkingState()
     : null
   const onboardingAlreadyVisible = introTrailerState.active
@@ -3048,6 +3066,8 @@ function handleLearnerProfileAccessStateChange(accessState) {
     && (
       accessState.status
         === LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
+      || accessState.status
+        === LEARNER_PROFILE_ACCESS_STATES.ONBOARDING_REQUIRED
       || (
         accessState.status === LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
         && onboardingAlreadyVisible
@@ -3058,7 +3078,10 @@ function handleLearnerProfileAccessStateChange(accessState) {
     document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
     applyLocale(publicOnboardingState.config.locale)
     if (
-      accessState.status === LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
+      [
+        LEARNER_PROFILE_ACCESS_STATES.ONBOARDING_REQUIRED,
+        LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
+      ].includes(accessState.status)
       && !introTrailerState.active
       && !personalizedOnboardingState.active
     ) {

@@ -9,6 +9,7 @@ const COPY_KEYS = Object.freeze({
   conflicting: 'profileAccess.conflicting',
   locked: 'profileAccess.locked',
   migrating: 'profileAccess.migrating',
+  'onboarding-required': 'profileAccess.waitingAuthentication',
   recovering: 'profileAccess.recovering',
   resolving: 'profileAccess.resolving',
   reloading: 'profileAccess.reloading',

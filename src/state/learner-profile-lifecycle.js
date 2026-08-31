@@ -12,6 +12,7 @@ export const LEARNER_PROFILE_ACCESS_STATES = Object.freeze({
   CONFLICTING: 'conflicting',
   LOCKED: 'locked',
   MIGRATING: 'migrating',
+  ONBOARDING_REQUIRED: 'onboarding-required',
   RECOVERING: 'recovering',
   RESOLVING: 'resolving',
   RELOADING: 'reloading',
@@ -556,6 +557,8 @@ export function createLearnerProfileLifecycleAuthority({
         conflicting: LEARNER_PROFILE_ACCESS_STATES.CONFLICTING,
         locked: LEARNER_PROFILE_ACCESS_STATES.LOCKED,
         migrating: LEARNER_PROFILE_ACCESS_STATES.MIGRATING,
+        'onboarding-required':
+          LEARNER_PROFILE_ACCESS_STATES.ONBOARDING_REQUIRED,
         recovering: LEARNER_PROFILE_ACCESS_STATES.RECOVERING,
         'waiting-authentication':
           LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION,
@@ -669,6 +672,25 @@ export function createLearnerProfileLifecycleAuthority({
       }
       if (isSignedInProfile(localProfile) && localProfile.ownerId !== auth.userId) {
         ownerVerification?.clear?.()
+        const replacement = currentState.status
+            === LEARNER_PROFILE_ACCESS_STATES.ONBOARDING_REQUIRED
+          ? currentState.replacement
+          : null
+        if (
+          replacement?.nextOwnerId === auth.userId
+          && ['discarded', 'exported', 'synchronized'].includes(
+            replacement.protection
+          )
+        ) {
+          publish(LEARNER_PROFILE_ACCESS_STATES.REPLACING)
+          void finishOwnerReplacement({
+            auth,
+            localProfile,
+            protection: replacement.protection,
+            requestId
+          })
+          return currentState
+        }
         return publishAccountChange(localProfile)
       }
       if (
@@ -1435,6 +1457,24 @@ export function createLearnerProfileLifecycleAuthority({
         : currentLocal?.status === 'ready'
           && currentLocal.ownerId === localProfile.ownerId
           && currentLocal.profileId === localProfile.profileId
+      if (
+        !transition
+        && requestId === resolutionId
+        && currentState.status === LEARNER_PROFILE_ACCESS_STATES.REPLACING
+        && currentAuth?.status === 'signed-in'
+        && currentAuth.userId === auth.userId
+        && localIsCurrent
+        && result?.status === 'onboarding-required'
+      ) {
+        publish(LEARNER_PROFILE_ACCESS_STATES.ONBOARDING_REQUIRED, {
+          replacement: {
+            nextOwnerId: auth.userId,
+            protection,
+            protectionStatus: protection
+          }
+        })
+        return false
+      }
       if (
         requestId !== resolutionId
         || currentState.status !== LEARNER_PROFILE_ACCESS_STATES.REPLACING

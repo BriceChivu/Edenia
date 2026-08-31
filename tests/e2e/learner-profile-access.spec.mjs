@@ -20,6 +20,8 @@ const PROFILE_ACCESS_STORAGE_KEY =
   'edenia_v1_internal_test_learner_profile_access_v1'
 const OWNER_VERIFICATION_STORAGE_KEY =
   'edenia_v1_internal_test_learner_profile_owner_verification_v1'
+const ONBOARDING_DRAFT_STORAGE_KEY =
+  'edenia_v1_internal_test_onboarding_draft_v1'
 const PROFILE_SYNC_STORAGE_KEY =
   'edenia_v1_internal_test_learner_profile_sync_v1'
 const CHANNEL_CACHE_STORAGE_KEY =
@@ -1600,6 +1602,143 @@ test('a synchronized browser copy is replaced only after the learner continues',
     snapshot.currentStreakDays !== 99
   ))).toBe(true)
   expect(studySnapshots.at(-1).learningLanguage).toBe('mandarin')
+})
+
+test('a different new account starts onboarding without exposing or replacing the synchronized browser copy', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  let lifecycleEnabled = false
+  let newOwnerEnvelope = null
+  let resolutionCount = 0
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      resolutionCount += 1
+      const onboardingEnvelope = route.request().postDataJSON()
+        ?.p_onboarding_profile || null
+      if (onboardingEnvelope) newOwnerEnvelope = onboardingEnvelope
+      if (newOwnerEnvelope) {
+        return route.fulfill({
+          json: [{
+            created: Boolean(onboardingEnvelope),
+            envelope: newOwnerEnvelope,
+            generation: 1,
+            profile_id: OTHER_OWNER_PROFILE_ID,
+            revision: 1,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          status: 200
+        })
+      }
+      return route.fulfill({
+        json: [{
+          created: false,
+          envelope: null,
+          generation: null,
+          profile_id: null,
+          revision: null,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.ONBOARDING_REQUIRED
+        }],
+        status: 200
+      })
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto('/?internal_test=1')
+  const storedState = await seedOwnerChangeStorage(page, {
+    accountStudyOwner: false,
+    pending: false
+  })
+  lifecycleEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'account-change'
+  )
+  await page.getByRole('button', {
+    name: 'Continue with this account'
+  }).click()
+
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'onboarding-required'
+  )
+  await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+  await expect(page.locator('#introTrailer')).toBeVisible()
+  await expect(page.locator('#mainApp')).toBeHidden()
+  await expect(page.locator('body')).not.toContainText(SECRET_CHANNEL_NAME)
+  const storage = await page.evaluate(({
+    draftKey,
+    stateKey
+  }) => ({
+    draft: JSON.parse(localStorage.getItem(draftKey)),
+    state: localStorage.getItem(stateKey)
+  }), {
+    draftKey: ONBOARDING_DRAFT_STORAGE_KEY,
+    stateKey: STATE_STORAGE_KEY
+  })
+  expect(storage.state).toBe(storedState)
+  expect(storage.draft).toMatchObject({
+    languageId: null,
+    levelId: null,
+    selectedChannelCatalogIds: [],
+    version: 1
+  })
+  expect(resolutionCount).toBe(1)
+
+  await page.getByRole('button', { name: 'Skip intro' }).click()
+  await page.locator('[data-language-id="mandarin"]').click()
+  await page.locator(
+    '[data-personalized-onboarding-action="continue-language"]'
+  ).click()
+  await page.locator('[data-level-id="starting"]').click()
+  await page.locator(
+    '[data-personalized-onboarding-step="channels"]'
+  ).click()
+  await page.locator(
+    '[data-personalized-onboarding-step="account"]'
+  ).click()
+
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'active'
+  )
+  await expect(page.locator('body')).not.toContainText(SECRET_CHANNEL_NAME)
+  const replacement = await page.evaluate(({
+    accessKey,
+    draftKey,
+    stateKey
+  }) => ({
+    access: JSON.parse(localStorage.getItem(accessKey)),
+    draft: localStorage.getItem(draftKey),
+    state: JSON.parse(localStorage.getItem(stateKey))
+  }), {
+    accessKey: PROFILE_ACCESS_STORAGE_KEY,
+    draftKey: ONBOARDING_DRAFT_STORAGE_KEY,
+    stateKey: STATE_STORAGE_KEY
+  })
+  expect(replacement.access).toMatchObject({
+    ownerId: OTHER_OWNER_ID,
+    profileId: OTHER_OWNER_PROFILE_ID
+  })
+  expect(replacement.draft).toBeNull()
+  expect(replacement.state.learnerProfile).toMatchObject({
+    languages: ['mandarin'],
+    level: 'starting'
+  })
+  expect(resolutionCount).toBeGreaterThanOrEqual(3)
 })
 
 test('unverifiable progress downloads before the browser replaces its owner', async ({

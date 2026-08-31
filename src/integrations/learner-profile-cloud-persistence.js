@@ -2273,7 +2273,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
 
     let onboardingEnvelope = null
-    if (localProfile?.status === 'empty') {
+    if (
+      localProfile?.status === 'empty'
+      || purpose === 'replace-owner-profile'
+    ) {
       const onboardingState = readOnboardingState()
       if (onboardingState) {
         onboardingEnvelope = await createOnboardingEnvelope(onboardingState)
@@ -2304,7 +2307,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     if (
       row.status === LEARNER_PROFILE_RESOLUTION_STATUSES.ONBOARDING_REQUIRED
     ) {
-      return { status: 'waiting-authentication' }
+      return { status: 'onboarding-required' }
     }
     if (row.status === LEARNER_PROFILE_RESOLUTION_STATUSES.CURRENT_HEAD_MISSING) {
       return resolveRecoveryCandidates({

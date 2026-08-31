@@ -128,8 +128,17 @@ export function createOnboardingProfileDraftStore({
     }
   }
 
+  function hasDraft() {
+    try {
+      return storage.getItem(storageKey) !== null
+    } catch {
+      return false
+    }
+  }
+
   return Object.freeze({
     clear,
+    hasDraft,
     loadOrCreateDraft,
     readWorkingState,
     saveWorkingState
