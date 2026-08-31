@@ -1513,6 +1513,9 @@ export function createLearnerProfileLifecycleAuthority({
         result.profile,
         {
           generation: result.generation,
+          ...(result.created === true
+            ? { onboardingFinalizationPending: true }
+            : {}),
           ownerId: result.ownerId,
           profileId: result.profileId,
           revision: result.revision
