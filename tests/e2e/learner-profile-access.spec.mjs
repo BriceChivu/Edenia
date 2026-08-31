@@ -1,4 +1,5 @@
 import { expect, test } from '../support/network-fixture.mjs'
+import { readFile } from 'node:fs/promises'
 import {
   LEARNER_PROFILE_RESOLUTION_STATUSES
 } from '../../src/domain/learner-profile-resolution.js'
@@ -32,6 +33,20 @@ const CONFIG_COOKIE_KEY = 'edenia_config_internal_test'
 const STATE_STORAGE_KEY = 'edenia_v1_internal_test'
 const OWNER_PROFILE_ID = '323e4567-e89b-42d3-a456-426614174002'
 const OTHER_OWNER_PROFILE_ID = '423e4567-e89b-42d3-a456-426614174003'
+const youtubeFixtures = {
+  channels: JSON.parse(await readFile(
+    new URL('../fixtures/youtube/channels.json', import.meta.url),
+    'utf8'
+  )),
+  playlistItems: JSON.parse(await readFile(
+    new URL('../fixtures/youtube/playlist-items.json', import.meta.url),
+    'utf8'
+  )),
+  videos: JSON.parse(await readFile(
+    new URL('../fixtures/youtube/videos.json', import.meta.url),
+    'utf8'
+  ))
+}
 const GUARDED_AUTHENTICATION_COPY = Object.freeze({
   en: {
     back: 'Back to locked message',
@@ -1614,11 +1629,19 @@ test('a different new account starts onboarding without exposing or replacing th
   await page.route('**/config.local.js', route => route.fulfill({
     body: runtimeConfig({
       accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
-      lifecycle: lifecycleEnabled
+      lifecycle: lifecycleEnabled,
+      youtubeApiKey: 'fixture-key'
     }),
     contentType: 'text/javascript',
     status: 200
   }))
+  await page.route('https://www.googleapis.com/youtube/v3/**', route => {
+    const endpoint = new URL(route.request().url()).pathname.split('/').at(-1)
+    return route.fulfill({
+      json: youtubeFixtures[endpoint],
+      status: 200
+    })
+  })
   await page.route('https://profile-access-test.supabase.co/**', route => {
     const pathname = new URL(route.request().url()).pathname
     if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
@@ -1736,8 +1759,16 @@ test('a different new account starts onboarding without exposing or replacing th
   expect(replacement.draft).toBeNull()
   expect(replacement.state.learnerProfile).toMatchObject({
     languages: ['mandarin'],
-    level: 'starting'
+    level: 'starting',
+    selectedChannelCatalogIds: expect.arrayContaining([
+      expect.any(String)
+    ])
   })
+  expect(replacement.state.onboarding.starterFeed.catalogIds).toEqual(
+    replacement.state.learnerProfile.selectedChannelCatalogIds
+  )
+  await expect(page.getByText('Fixture Study Video', { exact: true }))
+    .toBeVisible()
   expect(resolutionCount).toBeGreaterThanOrEqual(3)
 })
 

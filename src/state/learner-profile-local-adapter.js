@@ -481,7 +481,13 @@ export function createLearnerProfileLocalPersistenceAdapter({
 
   async function completeOwnerReplacement(
     profile,
-    { generation, ownerId, profileId, revision } = {},
+    {
+      generation,
+      onboardingFinalizationPending = false,
+      ownerId,
+      profileId,
+      revision
+    } = {},
     transition
   ) {
     if (
@@ -513,7 +519,8 @@ export function createLearnerProfileLocalPersistenceAdapter({
         activatedAt: transition.startedAt,
         activationId: null,
         generation,
-        onboardingFinalizationPending: false,
+        onboardingFinalizationPending:
+          onboardingFinalizationPending === true,
         ownerId,
         profileId,
         revision,
