@@ -514,7 +514,7 @@ test('Start over keeps the account and analytics identity while Undo restores pr
       await route.fulfill({
         json: [resetAvailable
           ? {
-              envelope: protectedEnvelope,
+              prior_envelope: protectedEnvelope,
               prior_generation: 4,
               prior_revision: protectedPriorRevision,
               profile_id: CREATED_PROFILE_ID,
@@ -635,6 +635,7 @@ test('Start over keeps the account and analytics identity while Undo restores pr
   await page.locator('[data-settings-reset-confirm-action="confirm"]').click()
   await expect.poll(() => startOverRequests).toBe(1)
   await expect(page.locator('#startOverUndo')).toBeVisible()
+  await expect(page.locator('#mainApp')).toBeVisible()
   await expect(page.locator('#startOverUndoDeadline')).not.toBeEmpty()
   await expect(page.getByRole('button', { name: 'Undo Start over' })).toBeFocused()
   await expect(page.locator('body')).not.toContainText(RETURNING_CHANNEL_NAME)
@@ -671,6 +672,14 @@ test('Start over keeps the account and analytics identity while Undo restores pr
     call.method === 'reset'
   ))).toEqual([])
   expect(logoutRequests).toEqual([])
+
+  await page.reload()
+  await page.waitForTimeout(500)
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#introTrailer')).toBeHidden()
+  await expect(page.locator('#onboardingPanel')).toBeHidden()
+  await page.locator('.gear-btn').click()
+  await expect(page.locator('#startOverUndo')).toBeVisible()
 
   await page.getByRole('button', { name: 'Undo Start over' }).click()
   await expect.poll(() => undoRequests).toBe(1)

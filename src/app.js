@@ -2771,6 +2771,7 @@ function initBackgroundPhysics() {
 function startApplicationWithState(initialState, {
   accountAuthInitialized = false,
   deferStarterFeedUntilProfileActivation = false,
+  skipUnfinishedOnboarding = false,
   startUnfinishedOnboardingImmediately = false
 } = {}) {
   if (applicationStarted) return
@@ -2808,7 +2809,8 @@ function startApplicationWithState(initialState, {
   applyTheme(state.config.theme)
   backgroundPhysics = initBackgroundPhysics()
   const unfinishedOnboardingStartsImmediately =
-    startUnfinishedOnboardingImmediately
+    !skipUnfinishedOnboarding
+    && startUnfinishedOnboardingImmediately
     && !IS_SANDBOX
     && !state?.onboarding?.setupCompleted
   if (!unfinishedOnboardingStartsImmediately) show('mainApp')
@@ -2821,9 +2823,11 @@ function startApplicationWithState(initialState, {
   initCityImagePanZoom()
   initCityWaveformTouchNavigation()
   initIntroTrailerTouchNavigation()
-  const onboardingExperienceStarted = maybeStartOnboarding(state, {
-    startImmediately: unfinishedOnboardingStartsImmediately
-  })
+  const onboardingExperienceStarted = skipUnfinishedOnboarding
+    ? false
+    : maybeStartOnboarding(state, {
+        startImmediately: unfinishedOnboardingStartsImmediately
+      })
   onboardingFlowEvaluated = true
   synchronizeGoogleIdentityServices()
   const noAnkiPromptScheduled = !onboardingExperienceStarted && maybeStartNoAnkiFrequentUserPrompt(state)
@@ -2998,10 +3002,13 @@ function handleLearnerProfileAccessStateChange(accessState) {
     const state = learnerProfileLifecycleAuthority?.readActiveProfile()
     if (!state) return
     rememberPersistedPortableProfile(state)
+    const hasActiveProtectedReset =
+      accessState.protectedReset?.status === 'available'
     const preserveUnfinishedOnboarding =
       applicationStarted
       && !IS_SANDBOX
       && !state?.onboarding?.setupCompleted
+      && !hasActiveProtectedReset
     if (
       applicationStarted
       && renderedLearnerProfileOwnerId !== undefined
@@ -3024,6 +3031,7 @@ function handleLearnerProfileAccessStateChange(accessState) {
       startApplicationWithState(state, {
         accountAuthInitialized: true,
         deferStarterFeedUntilProfileActivation: Boolean(accessState.ownerId),
+        skipUnfinishedOnboarding: hasActiveProtectedReset,
         startUnfinishedOnboardingImmediately: Boolean(accessState.ownerId)
       })
     } else {
