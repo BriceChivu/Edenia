@@ -1,0 +1,507 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway visual exploration.
+  Question: what should automatic profile opening look like when the private
+  learner profile stays hidden until activation?
+  Three variants are switchable with ?variant=A|B|C. State is ?state=fast|delayed|ready|recovery.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Edenia — Profile opening prototype</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #10252c;
+      --muted: #587078;
+      --surface: rgba(255, 255, 255, 0.88);
+      --surface-solid: #ffffff;
+      --border: rgba(16, 37, 44, 0.16);
+      --accent: #12bcea;
+      --accent-strong: #087ca2;
+      --lime: #c9ef68;
+      --planet-black: #10181b;
+      --warm: #ffcf54;
+      --danger: #c0264d;
+      --shadow: 0 18px 42px rgba(16, 37, 44, 0.15);
+      font-family: "Space Grotesk", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      background:
+        radial-gradient(circle at 15% 12%, rgba(201, 239, 104, .58), transparent 27%),
+        radial-gradient(circle at 84% 78%, rgba(18, 188, 234, .24), transparent 31%),
+        linear-gradient(145deg, #dff8ff, #eefbd0);
+      color: var(--ink);
+      margin: 0;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      background-image: radial-gradient(rgba(16, 37, 44, .14) 1px, transparent 1.5px);
+      background-size: 16px 16px;
+      content: "";
+      inset: 0;
+      opacity: .32;
+      pointer-events: none;
+      position: fixed;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    .prototype-label {
+      background: var(--planet-black);
+      border-radius: 0 0 10px 0;
+      color: white;
+      font-size: .68rem;
+      font-weight: 800;
+      left: 0;
+      letter-spacing: .08em;
+      padding: 8px 12px;
+      position: fixed;
+      text-transform: uppercase;
+      top: 0;
+      z-index: 20;
+    }
+
+    .neutral-shell {
+      align-items: center;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 72px 24px 120px;
+      position: relative;
+    }
+
+    .neutral-shell__brand {
+      color: var(--accent-strong);
+      font-size: 1.05rem;
+      font-weight: 950;
+      left: 28px;
+      letter-spacing: .18em;
+      position: absolute;
+      top: 28px;
+    }
+
+    .private-placeholder {
+      color: rgba(16, 37, 44, .48);
+      font-size: .76rem;
+      letter-spacing: .05em;
+      max-width: 300px;
+      text-align: center;
+    }
+
+    .private-placeholder strong {
+      color: rgba(16, 37, 44, .66);
+      display: block;
+      font-size: 1.1rem;
+      letter-spacing: -.02em;
+      margin-bottom: 8px;
+    }
+
+    .opening-status {
+      align-items: center;
+      color: var(--muted);
+      display: flex;
+      font-size: .9rem;
+      gap: 10px;
+      line-height: 1.4;
+    }
+
+    .opening-status::before {
+      animation: pulse 1.6s ease-in-out infinite;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 0 5px rgba(18, 188, 234, .13);
+      content: "";
+      flex: 0 0 8px;
+      height: 8px;
+      width: 8px;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: .42; transform: scale(.85); }
+      50% { opacity: 1; transform: scale(1); }
+    }
+
+    .variant-a .opening-status {
+      background: rgba(255, 255, 255, .42);
+      border: 1px solid rgba(16, 37, 44, .08);
+      border-radius: 999px;
+      padding: 11px 16px;
+    }
+
+    .variant-a .neutral-shell {
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .variant-b .neutral-shell {
+      align-items: flex-start;
+      padding-top: 112px;
+    }
+
+    .variant-b .neutral-shell__brand { top: 30px; }
+
+    .variant-b .opening-status {
+      background: rgba(255, 255, 255, .6);
+      border-bottom: 1px solid rgba(16, 37, 44, .13);
+      border-top: 1px solid rgba(16, 37, 44, .13);
+      justify-content: center;
+      left: 0;
+      padding: 13px 20px;
+      position: absolute;
+      right: 0;
+      top: 70px;
+    }
+
+    .variant-b .private-placeholder { margin-top: 14vh; }
+
+    .variant-c .neutral-shell { align-items: flex-end; }
+
+    .variant-c .opening-status {
+      background: rgba(255, 255, 255, .9);
+      border: 1px solid rgba(16, 37, 44, .13);
+      border-radius: 13px;
+      bottom: 28px;
+      box-shadow: 0 10px 24px rgba(16, 37, 44, .12);
+      padding: 13px 16px;
+      position: absolute;
+    }
+
+    .app-preview {
+      background: rgba(255, 255, 255, .65);
+      border: 1px solid rgba(16, 37, 44, .12);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      min-height: 420px;
+      padding: 28px;
+      width: min(760px, 100%);
+    }
+
+    .app-preview__header {
+      align-items: center;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 34px;
+    }
+
+    .app-preview__title {
+      font-size: 1.7rem;
+      font-weight: 950;
+      letter-spacing: .08em;
+    }
+
+    .app-preview__sync {
+      align-items: center;
+      background: rgba(255, 255, 255, .8);
+      border: 1px solid rgba(16, 37, 44, .14);
+      border-radius: 999px;
+      color: var(--accent-strong);
+      display: flex;
+      font-size: .78rem;
+      font-weight: 800;
+      gap: 7px;
+      padding: 9px 12px;
+    }
+
+    .app-preview__sync::before {
+      background: #54b84b;
+      border-radius: 50%;
+      content: "";
+      height: 7px;
+      width: 7px;
+    }
+
+    .app-preview__content {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .app-preview__tile {
+      background: rgba(255, 255, 255, .76);
+      border: 1px solid rgba(16, 37, 44, .1);
+      border-radius: 15px;
+      min-height: 180px;
+      padding: 18px;
+    }
+
+    .app-preview__tile span {
+      background: var(--lime);
+      border-radius: 999px;
+      display: block;
+      height: 10px;
+      margin-bottom: 24px;
+      width: 42%;
+    }
+
+    .app-preview__tile strong { display: block; font-size: 1.05rem; }
+    .app-preview__tile p { color: var(--muted); font-size: .82rem; line-height: 1.5; }
+
+    .recovery-layer {
+      align-items: center;
+      background: rgba(223, 248, 255, .52);
+      display: flex;
+      inset: 0;
+      justify-content: center;
+      padding: 24px;
+      position: fixed;
+      z-index: 10;
+    }
+
+    .recovery-card {
+      background: var(--surface-solid);
+      border: 3px solid var(--planet-black);
+      border-radius: 18px;
+      box-shadow: 0 7px 0 rgba(5, 5, 5, .18), var(--shadow);
+      max-width: 620px;
+      padding: clamp(24px, 5vw, 38px);
+      width: min(620px, calc(100vw - 36px));
+    }
+
+    .recovery-card__brand {
+      color: var(--accent-strong);
+      font-size: 1rem;
+      font-weight: 950;
+      letter-spacing: .16em;
+    }
+
+    .recovery-card h1 {
+      font-size: clamp(2rem, 7vw, 3rem);
+      letter-spacing: -.04em;
+      line-height: 1;
+      margin: 28px 0 14px;
+    }
+
+    .recovery-card p { color: var(--muted); line-height: 1.55; }
+
+    .recovery-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 26px;
+    }
+
+    .recovery-actions button {
+      border-radius: 999px;
+      font-weight: 800;
+      padding: 11px 16px;
+    }
+
+    .recovery-actions button:first-child { background: var(--accent); color: var(--planet-black); }
+    .recovery-actions button:last-child { background: transparent; color: var(--danger); }
+
+    .toast {
+      background: var(--planet-black);
+      border: 2px solid var(--accent);
+      border-radius: 999px;
+      bottom: 92px;
+      box-shadow: 0 9px 24px rgba(16, 37, 44, .22);
+      color: white;
+      font-size: .88rem;
+      font-weight: 800;
+      left: 50%;
+      padding: 12px 18px;
+      position: fixed;
+      transform: translateX(-50%);
+      z-index: 12;
+    }
+
+    .prototype-controls {
+      align-items: center;
+      background: rgba(16, 24, 27, .96);
+      border: 1px solid rgba(255, 255, 255, .15);
+      border-radius: 16px;
+      bottom: 18px;
+      box-shadow: 0 12px 28px rgba(16, 24, 27, .28);
+      color: white;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      justify-content: center;
+      left: 50%;
+      max-width: calc(100vw - 28px);
+      padding: 10px 12px;
+      position: fixed;
+      transform: translateX(-50%);
+      z-index: 30;
+    }
+
+    .prototype-controls__variant {
+      align-items: center;
+      display: flex;
+      gap: 7px;
+      padding-right: 4px;
+    }
+
+    .prototype-controls button {
+      background: rgba(255, 255, 255, .13);
+      border-radius: 8px;
+      color: white;
+      min-height: 32px;
+      min-width: 32px;
+      padding: 5px 9px;
+    }
+
+    .prototype-controls button:hover,
+    .prototype-controls button[aria-pressed="true"] { background: var(--accent); color: var(--planet-black); }
+
+    .prototype-controls__label { font-size: .74rem; font-weight: 800; white-space: nowrap; }
+    .prototype-controls__states { display: flex; gap: 5px; }
+    .prototype-controls__states button { font-size: .68rem; min-width: auto; }
+
+    .sr-only {
+      clip: rect(0, 0, 0, 0);
+      clip-path: inset(50%);
+      height: 1px;
+      overflow: hidden;
+      position: absolute;
+      white-space: nowrap;
+      width: 1px;
+    }
+
+    @media (max-width: 620px) {
+      .neutral-shell { padding-left: 16px; padding-right: 16px; }
+      .neutral-shell__brand { left: 18px; top: 22px; }
+      .app-preview { border-radius: 16px; padding: 18px; }
+      .app-preview__header { align-items: flex-start; flex-direction: column; gap: 14px; }
+      .app-preview__content { grid-template-columns: 1fr; }
+      .app-preview__tile { min-height: 110px; }
+      .prototype-controls { border-radius: 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="prototype-label">Prototype · throwaway</div>
+  <main id="prototypeRoot"></main>
+  <div class="prototype-controls" aria-label="Prototype controls">
+    <div class="prototype-controls__variant">
+      <button id="previousVariant" type="button" aria-label="Previous variant">←</button>
+      <span class="prototype-controls__label" id="variantLabel"></span>
+      <button id="nextVariant" type="button" aria-label="Next variant">→</button>
+    </div>
+    <div class="prototype-controls__states" aria-label="Preview state">
+      <button type="button" data-state="fast">Fast</button>
+      <button type="button" data-state="delayed">Delayed</button>
+      <button type="button" data-state="ready">Ready</button>
+      <button type="button" data-state="recovery">Recovery</button>
+    </div>
+  </div>
+
+  <script>
+    const variants = {
+      A: 'Centered status',
+      B: 'Top status line',
+      C: 'Bottom status pill'
+    }
+    const variantKeys = Object.keys(variants)
+    const stateLabels = {
+      fast: 'Fast opening',
+      delayed: 'Delayed opening',
+      ready: 'Active profile',
+      recovery: 'Recovery required'
+    }
+
+    const params = new URLSearchParams(location.search)
+    let variant = variants[params.get('variant')] ? params.get('variant') : 'A'
+    let state = stateLabels[params.get('state')] ? params.get('state') : 'delayed'
+
+    function setUrl() {
+      const next = new URL(location.href)
+      next.searchParams.set('variant', variant)
+      next.searchParams.set('state', state)
+      history.replaceState({}, '', next)
+    }
+
+    function appPreview() {
+      return `
+        <section class="app-preview" aria-label="Active Edenia profile preview">
+          <div class="app-preview__header">
+            <div class="app-preview__title">EDENIA</div>
+            <div class="app-preview__sync">Up to date</div>
+          </div>
+          <div class="app-preview__content">
+            <article class="app-preview__tile"><span></span><strong>Study queue</strong><p>Your learning space is ready.</p></article>
+            <article class="app-preview__tile"><span></span><strong>Study History</strong><p>Your recent activity remains in place.</p></article>
+            <article class="app-preview__tile"><span></span><strong>Your town</strong><p>Continue where you left off.</p></article>
+          </div>
+        </section>
+      `
+    }
+
+    function render() {
+      const root = document.getElementById('prototypeRoot')
+      document.body.className = `variant-${variant.toLowerCase()}`
+      document.getElementById('variantLabel').textContent = `${variant} — ${variants[variant]}`
+      for (const button of document.querySelectorAll('[data-state]')) {
+        button.setAttribute('aria-pressed', String(button.dataset.state === state))
+      }
+
+      if (state === 'ready') {
+        root.innerHTML = `<div class="neutral-shell">${appPreview()}<div class="toast" role="status">Up to date</div></div>`
+        setUrl()
+        return
+      }
+
+      if (state === 'recovery') {
+        root.innerHTML = `
+          <div class="neutral-shell"><div class="private-placeholder"><strong>Your profile stays protected</strong>This is only the automatic opening path.</div></div>
+          <div class="recovery-layer" role="dialog" aria-modal="true" aria-labelledby="recoveryTitle">
+            <section class="recovery-card">
+              <div class="recovery-card__brand">EDENIA</div>
+              <h1 id="recoveryTitle">We need your help to open this profile.</h1>
+              <p>Edenia could not safely finish profile opening. Your existing profile remains protected while you choose what to do next.</p>
+              <div class="recovery-actions"><button type="button">Try again</button><button type="button">Sign out</button></div>
+            </section>
+          </div>
+        `
+        setUrl()
+        return
+      }
+
+      const status = state === 'delayed'
+        ? '<div class="opening-status" role="status" aria-live="polite">Getting your progress ready…</div>'
+        : '<div class="sr-only" role="status" aria-live="polite">Opening in the background.</div>'
+      root.innerHTML = `
+        <div class="neutral-shell">
+          <div class="neutral-shell__brand">EDENIA</div>
+          <div class="private-placeholder">Private learner content stays hidden until the active profile is ready.</div>
+          ${status}
+        </div>
+      `
+      setUrl()
+    }
+
+    function moveVariant(direction) {
+      const index = variantKeys.indexOf(variant)
+      variant = variantKeys[(index + direction + variantKeys.length) % variantKeys.length]
+      render()
+    }
+
+    document.getElementById('previousVariant').addEventListener('click', () => moveVariant(-1))
+    document.getElementById('nextVariant').addEventListener('click', () => moveVariant(1))
+    for (const button of document.querySelectorAll('[data-state]')) {
+      button.addEventListener('click', () => {
+        state = button.dataset.state
+        render()
+      })
+    }
+    document.addEventListener('keydown', event => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return
+      if (event.key === 'ArrowLeft') moveVariant(-1)
+      if (event.key === 'ArrowRight') moveVariant(1)
+    })
+    render()
+  </script>
+</body>
+</html>

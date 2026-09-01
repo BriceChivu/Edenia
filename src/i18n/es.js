@@ -396,6 +396,8 @@ export const ES_LOCALIZED = {
     'profileAccess.waitingAuthentication.body': 'Edenia necesita una identidad verificada antes de abrir un perfil de aprendizaje.',
     'profileAccess.waitingCloud.title': 'Abriendo tu progreso…',
     'profileAccess.waitingCloud.body': 'Edenia está comprobando el perfil con sesión iniciada antes de abrirlo en este dispositivo.',
+    'profileAccess.opening.protected': 'El contenido privado de aprendizaje permanecerá oculto hasta que el perfil activo esté listo.',
+    'profileAccess.opening.status': 'Preparando tu progreso…',
     'profileAccess.migrating.title': 'Preparando un perfil protegido…',
     'profileAccess.migrating.body': 'Iniciar sesión no movió ni reclamó el progreso de este navegador. Edenia espera una decisión de migración segura.',
   'profileAccess.conflicting.title': 'Tus perfiles necesitan una elección segura',

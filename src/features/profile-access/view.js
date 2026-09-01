@@ -55,6 +55,7 @@ export function createLearnerProfileAccessView({
   busyPresentationDelayMs = 0,
   clearTimer,
   formatDateTime,
+  openingStatusPresentationDelayMs = 0,
   root,
   setTimer,
   translate
@@ -63,6 +64,11 @@ export function createLearnerProfileAccessView({
   const title = root.getElementById('learnerProfileAccessTitle')
   const body = root.getElementById('learnerProfileAccessBody')
   const status = root.getElementById('learnerProfileAccessStatus')
+  const openingNotice = root.getElementById('learnerProfileOpeningNotice')
+  const openingProtection = root.getElementById(
+    'learnerProfileOpeningProtection'
+  )
+  const openingStatus = root.getElementById('learnerProfileOpeningStatus')
   const openSignIn = root.getElementById('learnerProfileAccessOpenSignIn')
   const retry = root.getElementById('learnerProfileAccessRetry')
   const signOut = root.getElementById('learnerProfileAccessSignOut')
@@ -83,8 +89,15 @@ export function createLearnerProfileAccessView({
   const busyDelay = Number.isFinite(Number(busyPresentationDelayMs))
     ? Math.max(0, Number(busyPresentationDelayMs))
     : 0
+  const openingStatusDelay = Number.isFinite(
+    Number(openingStatusPresentationDelayMs)
+  )
+    ? Math.max(0, Number(openingStatusPresentationDelayMs))
+    : 0
   let busyRevealGeneration = 0
   let busyRevealTimer = null
+  let openingRevealGeneration = 0
+  let openingRevealTimer = null
 
   function cancelBusyReveal() {
     busyRevealGeneration += 1
@@ -94,7 +107,52 @@ export function createLearnerProfileAccessView({
     busyRevealTimer = null
   }
 
+  function hideOpeningNotice() {
+    openingRevealGeneration += 1
+    if (
+      openingRevealTimer !== null
+      && typeof clearTimer === 'function'
+    ) clearTimer(openingRevealTimer)
+    openingRevealTimer = null
+    if (!openingNotice) return
+    openingNotice.classList.add('hidden')
+    openingNotice.classList.remove('sr-only')
+    if (openingProtection) openingProtection.textContent = ''
+    if (openingStatus) openingStatus.textContent = ''
+  }
+
+  function showOpeningNotice() {
+    if (!openingNotice || !openingProtection || !openingStatus) return
+    openingProtection.textContent = translate(
+      'profileAccess.opening.protected'
+    )
+    openingStatus.textContent = translate('profileAccess.opening.status')
+    openingNotice.classList.remove('hidden')
+    openingNotice.classList.add('sr-only')
+    if (
+      openingStatusDelay <= 0
+      || typeof setTimer !== 'function'
+    ) {
+      openingNotice.classList.remove('sr-only')
+      return
+    }
+    if (openingRevealTimer !== null) return
+    const generation = ++openingRevealGeneration
+    openingRevealTimer = setTimer(() => {
+      if (generation !== openingRevealGeneration) return
+      openingRevealTimer = null
+      openingNotice.classList.remove('sr-only')
+    }, openingStatusDelay)
+  }
+
   function revealGateForState(state) {
+    if (OPENING_STATES.has(state)) {
+      cancelBusyReveal()
+      gate.classList.add('hidden')
+      showOpeningNotice()
+      return
+    }
+    hideOpeningNotice()
     const delaysHiddenBusyState =
       BUSY_STATES.has(state)
       && busyDelay > 0
@@ -210,6 +268,7 @@ export function createLearnerProfileAccessView({
   function render(accessState) {
     if (accessState?.status === 'active') {
       cancelBusyReveal()
+      hideOpeningNotice()
       root.documentElement.dataset.learnerProfileAccessState = 'active'
       gate.classList.add('hidden')
       gate.setAttribute('aria-busy', 'false')
@@ -245,5 +304,5 @@ export function createLearnerProfileAccessView({
     revealGateForState(state)
   }
 
-  return Object.freeze({ render })
+  return Object.freeze({ hideOpeningNotice, render })
 }
