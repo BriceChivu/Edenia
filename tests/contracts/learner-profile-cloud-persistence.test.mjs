@@ -5213,11 +5213,11 @@ test('a verified cloud copy repairs bookkeeping for an obsolete profile identity
     authentication: { userId: OWNER_ID },
     connectivity: { status: 'online' },
     localProfile: {
-      generation: 1,
+      generation: 6,
       ownerId: OWNER_ID,
       profile: cloudEnvelope.profile,
-      profileId: SECOND_PROFILE_ID,
-      revision: 5,
+      profileId: PROFILE_ID,
+      revision: 18,
       status: 'ready'
     },
     purpose: 'resolve-signed-in-profile'
@@ -5267,11 +5267,11 @@ test('obsolete profile bookkeeping stays guarded when local progress differs', a
     authentication: { userId: OWNER_ID },
     connectivity: { status: 'online' },
     localProfile: {
-      generation: 1,
+      generation: 6,
       ownerId: OWNER_ID,
       profile: { marker: 'different-local-progress' },
-      profileId: SECOND_PROFILE_ID,
-      revision: 5,
+      profileId: PROFILE_ID,
+      revision: 18,
       status: 'ready'
     },
     purpose: 'resolve-signed-in-profile'
