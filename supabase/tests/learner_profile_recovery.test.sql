@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
-select plan(23);
+select plan(26);
 
 select results_eq(
   $query$
@@ -210,8 +210,8 @@ set local request.jwt.claim.sub = '11111111-1111-4111-8111-111111111111';
 
 select results_eq(
   $$select status, created from public.resolve_my_learner_profile(null)$$,
-  $$values ('current_head_missing'::text, false)$$,
-  'immutable owner history without a current head is classified explicitly'
+  $$values ('onboarding_required'::text, false)$$,
+  'immutable owner history without a current head routes the owner to onboarding'
 );
 
 select results_eq(
@@ -497,14 +497,25 @@ set local request.jwt.claim.sub = '33333333-3333-4333-8333-333333333333';
 
 select results_eq(
   $$select status from public.resolve_my_learner_profile(null)$$,
-  $$values ('current_head_missing'::text)$$,
-  'history without an eligible copy still blocks blank-profile creation'
+  $$values ('onboarding_required'::text)$$,
+  'history without an eligible copy routes the owner to onboarding'
 );
 
 select results_eq(
   $$select count(*) from public.list_my_learner_profile_recovery_candidates()$$,
   $$values (0::bigint)$$,
   'history without an eligible protected version offers no cloud candidate'
+);
+
+select results_eq(
+  $query$
+    select status, created, generation, revision
+    from public.resolve_my_learner_profile(
+      (select cloud_envelope from recovery_test_profiles)
+    )
+  $query$,
+  $$values ('profile_ready'::text, true, 1::bigint, 1::bigint)$$,
+  'completed onboarding creates a fresh signed-in profile when no trusted state remains'
 );
 
 reset role;
@@ -528,6 +539,40 @@ select results_eq(
   $query$,
   $$values ('profile_ready'::text, true, 1::bigint, 1::bigint)$$,
   'authoritative absence and new-account evidence still permit first use'
+);
+
+reset role;
+update public.learner_profile_heads
+set revision = 2
+where user_id = '44444444-4444-4444-8444-444444444444';
+
+set local role authenticated;
+set local request.jwt.claim.role = 'authenticated';
+set local request.jwt.claim.sub = '44444444-4444-4444-8444-444444444444';
+
+select results_eq(
+  $query$
+    select status, created, generation, revision
+    from public.resolve_my_learner_profile(null)
+  $query$,
+  $$values ('profile_ready'::text, false, 1::bigint, 2::bigint)$$,
+  'an unusable current head automatically restores the newest trusted predecessor'
+);
+
+select results_eq(
+  $query$
+    select
+      head.generation,
+      head.revision,
+      version.generation,
+      version.revision
+    from public.learner_profile_heads as head
+    join public.learner_profile_versions as version
+      on version.id = head.current_version_id
+    where head.user_id = '44444444-4444-4444-8444-444444444444'
+  $query$,
+  $$values (1::bigint, 2::bigint, 1::bigint, 2::bigint)$$,
+  'automatic restoration advances the same-generation head to a valid immutable version'
 );
 
 reset role;

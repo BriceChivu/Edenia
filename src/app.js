@@ -1054,6 +1054,10 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
       { maxBytes: LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES }
     ),
     getClient: getSupabaseClient,
+    hasOnboardingProfileDraft: () => (
+      onboardingProfileDraftStore.hasDraft()
+      && personalizedOnboardingState.active
+    ),
     importEnvelope: importSignedInProfileEnvelope,
     isOnline: () => window.navigator.onLine !== false,
     now: () => Date.now(),
@@ -1183,6 +1187,10 @@ function shouldUseOnboardingProfileDraft() {
         LEARNER_PROFILE_ACCESS_STATES.ACCOUNT_CHANGE,
         LEARNER_PROFILE_ACCESS_STATES.REPLACING
       ].includes(accessStatus)
+    )
+    || (
+      onboardingProfileDraftStore.hasDraft()
+      && personalizedOnboardingState.active
     )
 }
 

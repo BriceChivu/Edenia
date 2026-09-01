@@ -29,6 +29,7 @@ const EMPTY_ACCESS_STATE = Object.freeze({
 })
 const OWNER_VERIFICATION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000
 const OFFLINE_EXPIRY_TIMER_MAX_DELAY_MS = 24 * 60 * 60 * 1000
+const PROFILE_OPENING_RECOVERY_ATTEMPT_LIMIT = 3
 
 function isAccountlessProfile(localProfile) {
   return localProfile?.status === 'ready' && !localProfile.ownerId
@@ -62,6 +63,8 @@ export function createLearnerProfileLifecycleAuthority({
   let offlineExpiryTimer = null
   let started = false
   let resolutionId = 0
+  let profileOpeningRecoveryAttempts = 0
+  let profileOpeningRecoveryOwnerId = null
   const profileActivations = new WeakMap()
   let unsubscribeAuthentication = null
   let unsubscribeCloudPersistence = null
@@ -99,6 +102,37 @@ export function createLearnerProfileLifecycleAuthority({
     onStateChange(currentState)
     analytics.accessChanged(currentState)
     return currentState
+  }
+
+  function resetProfileOpeningRecoveryAttempts() {
+    profileOpeningRecoveryAttempts = 0
+    profileOpeningRecoveryOwnerId = null
+  }
+
+  function shouldRequireProfileOpeningReauthentication(auth, purpose) {
+    if (
+      purpose !== 'resolve-signed-in-profile'
+      || auth?.status !== 'signed-in'
+      || typeof auth.userId !== 'string'
+      || !auth.userId
+    ) return false
+    if (profileOpeningRecoveryOwnerId !== auth.userId) {
+      profileOpeningRecoveryOwnerId = auth.userId
+      profileOpeningRecoveryAttempts = 0
+    }
+    profileOpeningRecoveryAttempts += 1
+    return profileOpeningRecoveryAttempts
+      >= PROFILE_OPENING_RECOVERY_ATTEMPT_LIMIT
+  }
+
+  function publishProfileOpeningFailure(auth, purpose) {
+    const requiresReauthentication =
+      shouldRequireProfileOpeningReauthentication(auth, purpose)
+    return publish(
+      requiresReauthentication
+        ? LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
+        : LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+    )
   }
 
   function publishAccountChange(localProfile) {
@@ -185,6 +219,7 @@ export function createLearnerProfileLifecycleAuthority({
       protectedConflicts,
       protectedReset
     })
+    resetProfileOpeningRecoveryAttempts()
     scheduleOfflineExpiryCheck()
     analytics.profileActivated({
       activation,
@@ -281,7 +316,11 @@ export function createLearnerProfileLifecycleAuthority({
       purpose
     })).then(async result => {
       if (requestId !== resolutionId) return
-      if (!result || result.status === 'waiting') return
+      if (result?.status === 'waiting') return
+      if (!result) {
+        publishProfileOpeningFailure(auth, purpose)
+        return
+      }
       if (
         purpose === 'migrate-accountless-profile'
         && result.status === 'migration-backup-failed'
@@ -382,13 +421,17 @@ export function createLearnerProfileLifecycleAuthority({
             return
           }
           resolvedProfile = attachedProfile.profile
-        } else if (localProfile?.status === 'empty') {
+        } else if (
+          localProfile?.status === 'empty'
+          || result.freshProfile === true
+        ) {
           if (!localPersistence.installSignedInProfile(result.profile, {
             generation: result.generation,
             installedAt: clock.now(),
             onboardingFinalizationPending: result.created === true,
             ownerId: result.ownerId,
             profileId: result.profileId,
+            replaceExisting: result.freshProfile === true,
             revision: result.revision
           })) {
             publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
@@ -564,6 +607,21 @@ export function createLearnerProfileLifecycleAuthority({
           LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION,
         'waiting-cloud': LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
       }
+      const hasActionableRecovery =
+        result.status === 'recovering' && result.recovery
+      const isKnownTerminalResult = [
+        'conflicting',
+        'locked',
+        'migrating',
+        'onboarding-required',
+        'waiting-authentication',
+        'waiting-cloud'
+      ].includes(result.status)
+      const isProfileOpeningFailure = !hasActionableRecovery
+        && !isKnownTerminalResult
+      const requiresReauthentication = isProfileOpeningFailure
+        && shouldRequireProfileOpeningReauthentication(auth, purpose)
+      if (!isProfileOpeningFailure) resetProfileOpeningRecoveryAttempts()
       if (
         result.status === 'conflicting'
         && accountlessProfileMigration?.hasPendingMigration?.()
@@ -572,7 +630,9 @@ export function createLearnerProfileLifecycleAuthority({
       }
       if (result.status !== 'waiting-cloud') ownerVerification?.clear?.()
       publish(
-        resultStates[result.status]
+        requiresReauthentication
+          ? LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
+          : resultStates[result.status]
           || LEARNER_PROFILE_ACCESS_STATES.RECOVERING,
         result.status === 'conflicting' && result.conflict
           ? {
@@ -593,7 +653,7 @@ export function createLearnerProfileLifecycleAuthority({
           accountlessProfileMigration?.markBackupFailed?.()
           restoreAccountlessAfterMigrationFailure(localProfile)
         } else {
-          publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+          publishProfileOpeningFailure(auth, purpose)
         }
       }
     })
@@ -603,6 +663,11 @@ export function createLearnerProfileLifecycleAuthority({
     const requestId = ++resolutionId
     const auth = authentication.getObservation()
     const localProfile = localPersistence.read()
+    if (
+      auth?.status !== 'signed-in'
+      || currentState.status
+        === LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
+    ) resetProfileOpeningRecoveryAttempts()
     if (!auth || auth.status === 'loading') {
       releaseActiveProfile()
       return publish(LEARNER_PROFILE_ACCESS_STATES.RESOLVING)
@@ -647,7 +712,9 @@ export function createLearnerProfileLifecycleAuthority({
     if (auth.status === 'signed-in') {
       releaseActiveProfile()
       if (!auth.userId || localProfile?.status === 'invalid') {
-        return publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+        return !auth.userId
+          ? publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+          : publishProfileOpeningFailure(auth, 'resolve-signed-in-profile')
       }
       if (localProfile?.status === 'replacing') {
         if (localProfile.nextOwnerId !== auth.userId) {

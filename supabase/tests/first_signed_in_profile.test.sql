@@ -494,14 +494,14 @@ select results_eq(
       (select envelope from first_profile_fixture)
     )
   $query$,
-  $$values ('current_head_missing'::text, false)$$,
-  'legacy cloud-backup history routes to recovery instead of blank creation'
+  $$values ('profile_ready'::text, true)$$,
+  'legacy cloud-backup history creates a fresh signed-in profile after onboarding'
 );
 
 select results_eq(
   $$select count(*) from public.learner_profile_heads$$,
-  array[0::bigint],
-  'legacy backup history leaves the returning owner without a partial head'
+  array[1::bigint],
+  'legacy backup history creates one fresh profile head'
 );
 
 reset role;
@@ -572,8 +572,8 @@ set local request.jwt.claim.sub = '55555555-5555-4555-8555-555555555555';
 
 select results_eq(
   $$select status, created from public.resolve_my_learner_profile(null)$$,
-  $$values ('current_head_missing'::text, false)$$,
-  'historical evidence without a current head never creates a blank profile'
+  $$values ('onboarding_required'::text, false)$$,
+  'historical evidence without a current head routes the owner to onboarding'
 );
 
 reset role;

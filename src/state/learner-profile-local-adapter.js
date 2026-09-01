@@ -200,6 +200,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     onboardingFinalizationPending = false,
     ownerId,
     profileId,
+    replaceExisting = false,
     revision
   }) {
     if (
@@ -211,9 +212,20 @@ export function createLearnerProfileLocalPersistenceAdapter({
       || !profileId
       || !isPositiveInteger(generation)
       || !isPositiveInteger(revision)
+      || typeof replaceExisting !== 'boolean'
       || !Number.isFinite(installedAt)
     ) return false
-    if (hasProfile()) return false
+    const hadProfile = hasProfile()
+    const previousAccess = readAccessRecord(storage, accessStorageKey)
+    const previousProfile = hadProfile ? loadProfile() : null
+    if (
+      hadProfile
+      && (
+        !replaceExisting
+        || previousAccess.record?.ownerId !== ownerId
+        || !previousProfile
+      )
+    ) return false
     const record = {
       activatedAt: installedAt,
       activationId: null,
@@ -239,13 +251,19 @@ export function createLearnerProfileLocalPersistenceAdapter({
         syncAnalytics: false
       }, isInstallCurrent)
       if (result?.persisted && isInstallCurrent()) return true
-      if (!hasProfile() && isInstallCurrent()) {
-        storage.removeItem(accessStorageKey)
+      if (isInstallCurrent()) {
+        if (replaceExisting && previousAccess.record) {
+          storage.setItem(accessStorageKey, JSON.stringify(previousAccess.record))
+        } else if (!hasProfile()) {
+          storage.removeItem(accessStorageKey)
+        }
       }
       return false
     } catch {
       try {
-        if (!hasProfile() && isInstallCurrent()) {
+        if (replaceExisting && previousAccess.record && isInstallCurrent()) {
+          storage.setItem(accessStorageKey, JSON.stringify(previousAccess.record))
+        } else if (!hasProfile() && isInstallCurrent()) {
           storage.removeItem(accessStorageKey)
         }
       } catch {}
