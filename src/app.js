@@ -3038,8 +3038,11 @@ function handleLearnerProfileAccessStateChange(accessState) {
       renderActivatedLearnerProfile(state, {
         showMainApplication: !preserveUnfinishedOnboarding
       })
-      if (preserveUnfinishedOnboarding) {
-        restoreUnfinishedOnboardingSurface()
+      if (
+        preserveUnfinishedOnboarding
+        && !restoreUnfinishedOnboardingSurface()
+      ) {
+        maybeStartOnboarding(state, { startImmediately: true })
       }
     }
     if (accessState.protectedConflicts?.length) {
