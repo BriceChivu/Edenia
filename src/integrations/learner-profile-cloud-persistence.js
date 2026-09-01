@@ -2463,6 +2463,34 @@ export function createLearnerProfileCloudPersistenceAdapter({
     if (!currentRecord && hasStoredSyncRecord()) {
       return { status: 'recovering' }
     }
+    const cloudIdentity = {
+      generation,
+      ownerId: authentication.userId,
+      profileId,
+      revision
+    }
+    if (
+      currentRecord
+      && (
+        currentRecord.ownerId !== cloudIdentity.ownerId
+        || currentRecord.profileId !== cloudIdentity.profileId
+      )
+      && currentRecord.pending === null
+      && currentRecord.queued === null
+      && isVerifiedCurrentLocalCopy(
+        localProfile,
+        cloudIdentity,
+        envelope,
+        prepareEnvelope
+      )
+    ) {
+      if (!clearDirtyRecord(currentRecord)) return { status: 'recovering' }
+      if (!commitCloudHead(cloudIdentity, currentRecord)) {
+        return { status: 'recovering' }
+      }
+      currentRecord = readSyncRecord()
+      if (!currentRecord) return { status: 'recovering' }
+    }
     const acceptedRevisionAtStart = currentRecord?.acceptedRevision
     const hadPendingOperation = Boolean(currentRecord?.pending)
     let profile = backupRequired ? localProfile.profile : cloudProfile
@@ -2474,12 +2502,6 @@ export function createLearnerProfileCloudPersistenceAdapter({
         || currentRecord.profileId !== profileId
       ) return { status: 'recovering' }
       if (currentRecord.generation !== generation) {
-        const cloudIdentity = {
-          generation,
-          ownerId: authentication.userId,
-          profileId,
-          revision
-        }
         const resetReceipt = generation === currentRecord.generation + 1
           ? await readResetReceipt({
               generation,
