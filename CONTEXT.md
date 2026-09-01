@@ -60,6 +60,10 @@ _Avoid_: New account, default document
 A recoverable, versioned copy of a signed-in profile's portable profile.
 _Avoid_: Plus backup, live state
 
+**Protected profile version**:
+An unchosen profile version retained after a learner resolves a conflict and available for download until its protection deadline.
+_Avoid_: Conflict backup, discarded profile
+
 **Progress sync**:
 The local-first reconciliation of a signed-in profile with its cloud progress snapshots.
 _Avoid_: Realtime collaboration, cloud-only storage
