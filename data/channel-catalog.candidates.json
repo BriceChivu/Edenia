@@ -180,6 +180,31 @@
       "searchText": "french with felix frenchwithfelix"
     },
     {
+      "catalogId": "community-UC1zTj3xDI7gFJQ0wRPcDyQg",
+      "channelId": "UC1zTj3xDI7gFJQ0wRPcDyQg",
+      "handle": "@geoguessr",
+      "name": "GeoGuessr",
+      "thumbnailUrl": "https://yt3.ggpht.com/dpOubrBEmfohFa-Dak_ToVn7bT9QrixeIQABhKQMveoLj2uWmNEyBvUafrc72_SWMbzvcpEK=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2021-05-26T10:58:09.268646Z",
+      "metadataRefreshedAt": "2026-09-01T07:59:16.059Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-08-31T18:07:57.049Z",
+      "lastSeenAt": "2026-08-31T18:07:57.049Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "geoguessr geoguessr"
+    },
+    {
       "catalogId": "community-UCHDRdEU6aVuHfbv6VO_V-6w",
       "channelId": "UCHDRdEU6aVuHfbv6VO_V-6w",
       "handle": "@ggsgamerchinese",
@@ -270,7 +295,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2017-01-28T03:44:08Z",
-      "metadataRefreshedAt": "2026-08-01T05:42:44.924Z",
+      "metadataRefreshedAt": "2026-09-01T07:59:16.059Z",
       "addCount": 2,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-07-31T22:14:50.814Z",
@@ -472,7 +497,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2018-05-28T18:04:47Z",
-      "metadataRefreshedAt": "2026-08-01T05:42:44.924Z",
+      "metadataRefreshedAt": "2026-09-01T07:59:16.059Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-07-30T12:27:56.492Z",
@@ -497,7 +522,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2016-10-25T02:47:41Z",
-      "metadataRefreshedAt": "2026-08-01T05:42:44.924Z",
+      "metadataRefreshedAt": "2026-09-01T07:59:16.059Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-07-31T05:48:53.461Z",
@@ -522,7 +547,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2020-05-01T16:59:14.088126Z",
-      "metadataRefreshedAt": "2026-08-01T05:42:44.924Z",
+      "metadataRefreshedAt": "2026-09-01T07:59:16.059Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-07-31T05:50:28.485Z",
@@ -609,5 +634,5 @@
       "searchText": "雷堤娜 tyna krysjensen86"
     }
   ],
-  "generatedAt": "2026-08-17T03:33:42.076Z"
+  "generatedAt": "2026-09-01T07:59:16.059Z"
 }
