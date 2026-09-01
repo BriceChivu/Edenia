@@ -800,6 +800,120 @@ test('matching restored progress repairs reset bookkeeping without asking the le
   })
 })
 
+test('matching cloud progress repairs an obsolete profile identity without asking the learner', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let lifecycleEnabled = false
+  let profileEnvelope = null
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      return route.fulfill({
+        json: [{
+          created: false,
+          envelope: profileEnvelope,
+          generation: 1,
+          profile_id: OTHER_OWNER_PROFILE_ID,
+          revision: 5,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+        }],
+        status: 200
+      })
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto('/?internal_test=1')
+  const storedState = await seedOwnedLearnerProfile(page)
+  profileEnvelope = (
+    await createPortableLearnerProfileEnvelope(JSON.parse(storedState))
+  ).envelope
+  await page.evaluate(({
+    accessStorageKey,
+    dirtyStorageKey,
+    nextProfileId,
+    ownerId,
+    previousProfileId,
+    syncStorageKey
+  }) => {
+    const access = JSON.parse(localStorage.getItem(accessStorageKey))
+    access.profileId = nextProfileId
+    access.revision = 5
+    localStorage.setItem(accessStorageKey, JSON.stringify(access))
+    localStorage.setItem(syncStorageKey, JSON.stringify({
+      acceptedRevision: 18,
+      generation: 6,
+      ownerId,
+      pending: null,
+      profileId: previousProfileId,
+      queued: null,
+      version: 1
+    }))
+    localStorage.setItem(dirtyStorageKey, JSON.stringify({
+      generation: 6,
+      ownerId,
+      profileId: previousProfileId,
+      version: 1
+    }))
+  }, {
+    accessStorageKey: PROFILE_ACCESS_STORAGE_KEY,
+    dirtyStorageKey: `${PROFILE_SYNC_STORAGE_KEY}_dirty`,
+    nextProfileId: OTHER_OWNER_PROFILE_ID,
+    ownerId: OWNER_ID,
+    previousProfileId: OWNER_PROFILE_ID,
+    syncStorageKey: PROFILE_SYNC_STORAGE_KEY
+  })
+  lifecycleEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'active'
+  )
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+  expect(await page.evaluate(({
+    dirtyStorageKey,
+    syncStorageKey
+  }) => ({
+    dirty: localStorage.getItem(dirtyStorageKey),
+    sync: (({
+      acceptedRevision,
+      generation,
+      ownerId,
+      profileId,
+      version
+    }) => ({
+      acceptedRevision,
+      generation,
+      ownerId,
+      profileId,
+      version
+    }))(JSON.parse(localStorage.getItem(syncStorageKey)))
+  }), {
+    dirtyStorageKey: `${PROFILE_SYNC_STORAGE_KEY}_dirty`,
+    syncStorageKey: PROFILE_SYNC_STORAGE_KEY
+  })).toEqual({
+    dirty: null,
+    sync: {
+      acceptedRevision: 5,
+      generation: 1,
+      ownerId: OWNER_ID,
+      profileId: OTHER_OWNER_PROFILE_ID,
+      version: 1
+    }
+  })
+})
+
 test('a signed-out owner can authenticate from locked access before cloud activation', async ({
   page
 }, testInfo) => {
