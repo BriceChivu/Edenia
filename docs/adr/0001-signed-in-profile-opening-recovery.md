@@ -39,7 +39,9 @@ Profile opening will use this ordered outcome model:
    lineage by verified revision evidence.
 5. If no trusted state exists within the current generation, show normal
    language-selection onboarding. Create a fresh signed-in profile only after
-   the learner completes that onboarding.
+   the learner completes that onboarding. This includes a verified account
+   that has no profile history because it predates the creation-eligibility
+   trigger.
 6. If the owner cannot be verified, require authentication again. Do not
    create or activate a fallback profile.
 
@@ -83,7 +85,8 @@ Costs and risks:
 - Automatic restoration needs an owner-scoped, idempotent operation that
   preserves the displaced head and records the restoration.
 - A signed-in fresh-profile path is needed for an existing owner whose current
-  generation has no trusted state.
+  generation has no trusted state, including accounts created before the
+  creation-eligibility trigger existed.
 - Regression coverage must prove both recovery liveness and accountless-route
   containment.
 
