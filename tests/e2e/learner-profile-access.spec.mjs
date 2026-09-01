@@ -639,6 +639,29 @@ async function expectNeutralProfileGate(page, expectedState, storedState) {
     .toBe(storedState)
 }
 
+async function expectQuietProfileOpening(page, expectedState, storedState) {
+  await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    expectedState
+  )
+  await expect(page.locator('#mainApp')).toBeHidden()
+  await expect(page.locator('#introTrailer')).toBeHidden()
+  await expect(page.locator('#onboardingPanel')).toBeHidden()
+  await expect(page.locator('#learnerProfileOpeningNotice'))
+    .not.toHaveClass(/hidden/)
+  await expect(page.locator('#learnerProfileOpeningProtection')).toHaveText(
+    'Private learner content stays hidden until the active profile is ready.'
+  )
+  await expect(page.locator('#learnerProfileOpeningStatus')).toHaveText(
+    'Getting your progress ready…'
+  )
+  await expect(page.getByText(SECRET_CHANNEL_NAME)).toHaveCount(0)
+  await expect(page.locator('body')).not.toContainText(SECRET_CHANNEL_NAME)
+  expect(await page.evaluate(key => localStorage.getItem(key), STATE_STORAGE_KEY))
+    .toBe(storedState)
+}
+
 test('resolving profile access exposes no learner content and performs no autosave', async ({
   page
 }, testInfo) => {
@@ -666,7 +689,7 @@ test('resolving profile access exposes no learner content and performs no autosa
   lifecycleEnabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
 
-  await expectNeutralProfileGate(page, 'resolving', storedState)
+  await expectQuietProfileOpening(page, 'resolving', storedState)
   releaseAuthRequest?.()
 })
 
@@ -1088,16 +1111,12 @@ test('a signed-out owner can authenticate from locked access before cloud activa
 
     await expect.poll(() => resolutionCount).toBe(1)
     await expect(page.locator('#settingsPanel')).toBeHidden()
-    await expectNeutralProfileGate(page, 'waiting-cloud', storedState)
-    await expect(page.locator('#learnerProfileAccessTitle')).toHaveText(
-      'Opening your progress…'
-    )
-    await expect(page.locator('#learnerProfileAccessBody')).toBeHidden()
-    await expect(page.locator('#learnerProfileAccessStatus')).toBeHidden()
+    await expectQuietProfileOpening(page, 'waiting-cloud', storedState)
     await expect(page.locator('#learnerProfileAccessRetry')).toBeHidden()
     await expect(page.locator('#learnerProfileAccessSignOut')).toBeHidden()
-    await expect(page.locator('#learnerProfileAccessGate')).toBeFocused()
+    await expect(page.locator('#learnerProfileAccessGate')).not.toBeFocused()
 
+    await page.waitForTimeout(2_100)
     releaseResolution()
     await expect(page.locator('#mainApp')).toBeVisible()
     await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
@@ -1106,6 +1125,8 @@ test('a signed-out owner can authenticate from locked access before cloud activa
       'data-learner-profile-access-state',
       'active'
     )
+    await expect(page.locator('#learnerProfileOpeningNotice')).toBeHidden()
+    await expect(page.locator('#toast')).toHaveText('Up to date')
     await expect.poll(() => page.evaluate(key => (
       JSON.parse(localStorage.getItem(key)).config.channels.map(
         channel => channel.name

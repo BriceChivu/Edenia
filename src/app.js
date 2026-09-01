@@ -596,6 +596,7 @@ const LEGACY_PROGRESS_MIGRATION_ENABLED =
 const LEARNER_PROFILE_LIFECYCLE_ENABLED =
   getLearnerProfileLifecycleEnabled() && ACCOUNT_FEATURES_ENABLED
 const LEARNER_PROFILE_ACCESS_BUSY_PRESENTATION_DELAY_MS = 250
+const LEARNER_PROFILE_OPENING_STATUS_PRESENTATION_DELAY_MS = 2_000
 const PLUS_ACCESS_CONFIG = Object.freeze({
   freePlusEnabled: getFreePlusEnabled(),
   plusCheckoutEnabled: getPlusCheckoutEnabled(),
@@ -956,6 +957,8 @@ const learnerProfileAccessView = createLearnerProfileAccessView({
     dateStyle: 'medium',
     timeStyle: 'short'
   }),
+  openingStatusPresentationDelayMs:
+    LEARNER_PROFILE_OPENING_STATUS_PRESENTATION_DELAY_MS,
   root: document,
   setTimer: (callback, delay) => window.setTimeout(callback, delay),
   translate: t
@@ -988,6 +991,9 @@ let learnerProfileLocalPersistence = null
 let learnerProfileReverificationController = null
 let accountlessProfileMigrationController = null
 let learnerProfileProtectedReset = null
+let learnerProfileOpeningStartedAt = null
+let learnerProfileOpeningCompletionToastPending = false
+let learnerProfileOpeningFocusHandoffPending = false
 
 if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
   const ownerVerification = createLearnerProfileOwnerVerificationStore({
@@ -1062,6 +1068,13 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
   cloudPersistence.subscribe(state => {
     learnerProfileSyncViewState = state
     learnerProfileSyncView.render(state)
+    if (
+      state?.status === 'up-to-date'
+      && learnerProfileOpeningCompletionToastPending
+    ) {
+      learnerProfileOpeningCompletionToastPending = false
+      showToast(t('progressSync.upToDate'))
+    }
   })
   learnerProfileLifecycleAuthority = createLearnerProfileLifecycleAuthority({
     adapters: {
@@ -2961,7 +2974,36 @@ function restoreLearnerProfileDom(
   })
 }
 
+function trackLearnerProfileOpening(accessState) {
+  const status = accessState?.status
+  if (
+    status === LEARNER_PROFILE_ACCESS_STATES.RESOLVING
+    || status === LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
+  ) {
+    if (
+      document.getElementById('learnerProfileAccessGate')
+        ?.contains(document.activeElement)
+    ) learnerProfileOpeningFocusHandoffPending = true
+    learnerProfileOpeningStartedAt ??= Date.now()
+    return
+  }
+  if (status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
+    const startedAt = learnerProfileOpeningStartedAt
+    learnerProfileOpeningStartedAt = null
+    learnerProfileOpeningCompletionToastPending = (
+      startedAt !== null
+      && Date.now() - startedAt
+        >= LEARNER_PROFILE_OPENING_STATUS_PRESENTATION_DELAY_MS
+    )
+    return
+  }
+  learnerProfileOpeningStartedAt = null
+  learnerProfileOpeningCompletionToastPending = false
+  learnerProfileOpeningFocusHandoffPending = false
+}
+
 function handleLearnerProfileAccessStateChange(accessState) {
+  trackLearnerProfileOpening(accessState)
   if (
     accessState.status === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
     && accessState.conflict?.id
@@ -2981,6 +3023,13 @@ function handleLearnerProfileAccessStateChange(accessState) {
     profileAccessGate?.classList.contains('authentication-open')
     && !isLearnerProfileAuthenticationState(accessState.status)
   )
+  if (
+    closesProfileAccessAuthentication
+    && [
+      LEARNER_PROFILE_ACCESS_STATES.RESOLVING,
+      LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD
+    ].includes(accessState.status)
+  ) learnerProfileOpeningFocusHandoffPending = true
   if (closesProfileAccessAuthentication) {
     closeLearnerProfileAccessSignIn({ returnFocus: false })
   }
@@ -3083,10 +3132,14 @@ function handleLearnerProfileAccessStateChange(accessState) {
     }
     renderStartOverUndo(accessState.protectedReset)
     if (
-      transfersProfileAccessFocusToApplication
+      (
+        transfersProfileAccessFocusToApplication
+        || learnerProfileOpeningFocusHandoffPending
+      )
       && !mainApp?.classList.contains('hidden')
       && !mainApp?.hasAttribute('inert')
     ) mainApp.focus()
+    learnerProfileOpeningFocusHandoffPending = false
     return
   }
   renderStartOverUndo(null)
@@ -3116,6 +3169,7 @@ function handleLearnerProfileAccessStateChange(accessState) {
   ) {
     restoreLearnerProfileDom(PUBLIC_ONBOARDING_DOM_SELECTORS)
     document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
+    learnerProfileAccessView.hideOpeningNotice()
     applyLocale(publicOnboardingState.config.locale)
     if (
       [

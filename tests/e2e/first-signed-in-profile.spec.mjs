@@ -320,10 +320,18 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
     await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
     await expect.poll(() => resolutionCount).toBe(1)
 
-    await expect(page.locator('#learnerProfileAccessGate')).toBeVisible()
+    await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
     await expect(page.locator('html')).toHaveAttribute(
       'data-learner-profile-access-state',
       'waiting-cloud'
+    )
+    await expect(page.locator('#learnerProfileOpeningNotice'))
+      .not.toHaveClass(/hidden/)
+    await expect(page.locator('#learnerProfileOpeningProtection')).toHaveText(
+      'Private learner content stays hidden until the active profile is ready.'
+    )
+    await expect(page.locator('#learnerProfileOpeningStatus')).toHaveText(
+      'Getting your progress ready…'
     )
     await expect(page.locator('#mainApp')).toBeHidden()
     await expect(page.locator('#introTrailer')).toBeHidden()
