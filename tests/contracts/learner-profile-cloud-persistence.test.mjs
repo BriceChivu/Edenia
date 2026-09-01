@@ -72,6 +72,47 @@ function preparedEnvelope(profile, payloadSha256 = 'A'.repeat(43)) {
   }
 }
 
+function emptyPortableProfile(overrides = {}) {
+  return {
+    activityLog: [],
+    anki: {},
+    cityProgress: { maxLevelIndex: 0 },
+    config: {
+      ankiEnabled: true,
+      channelShelfOrder: [],
+      channelVideoFormats: {},
+      channels: [],
+      includeShorts: true,
+      locale: 'en',
+      removedChannelIds: [],
+      removedDefaultChannelIds: [],
+      weeklyGoalHours: 4
+    },
+    learnerProfile: {
+      createdAt: null,
+      languages: [],
+      level: null,
+      selectedChannelCatalogIds: [],
+      updatedAt: null
+    },
+    noAnkiFrequentUserPrompt: {
+      respondedAt: null,
+      response: null
+    },
+    onboarding: {
+      introSeenAt: null,
+      levelUpGuidanceShownAt: null,
+      recommendationsAppliedAt: null,
+      setupCompleted: false,
+      setupCompletedAt: null,
+      walkthroughCompleted: false,
+      walkthroughCompletedAt: null
+    },
+    videos: {},
+    ...overrides
+  }
+}
+
 function createAdapter({
   clearOnboardingDraft,
   createOperationId,
@@ -779,8 +820,24 @@ test('accountless-profile migration never treats unknown cloud state as absent s
 test('meaningful cloud progress enters the ordinary protected comparison', async () => {
   const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
   const conflictId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
-  const deviceProfile = { marker: 'legacy-device-town' }
-  const cloudProfile = { marker: 'existing-cloud-town' }
+  const deviceProfile = emptyPortableProfile({
+    learnerProfile: {
+      createdAt: '2026-08-20T00:00:00.000Z',
+      languages: ['french'],
+      level: 'beginner',
+      selectedChannelCatalogIds: [],
+      updatedAt: '2026-08-20T00:00:00.000Z'
+    }
+  })
+  const cloudProfile = emptyPortableProfile({
+    learnerProfile: {
+      createdAt: '2026-08-21T00:00:00.000Z',
+      languages: ['mandarin'],
+      level: 'intermediate',
+      selectedChannelCatalogIds: [],
+      updatedAt: '2026-08-21T00:00:00.000Z'
+    }
+  })
   const deviceEnvelope = preparedEnvelope(deviceProfile)
   const cloudEnvelope = preparedEnvelope(cloudProfile, 'B'.repeat(43))
   const storage = createMemoryStorage()
@@ -859,6 +916,184 @@ test('meaningful cloud progress enters the ordinary protected comparison', async
   assert.equal(sync.pending.operationId, operationId)
   assert.equal(sync.pending.envelope.integrity.payloadSha256, 'A'.repeat(43))
 })
+
+for (const {
+  cloudProfile,
+  deviceProfile,
+  label,
+  selectedSide
+} of [{
+  cloudProfile: emptyPortableProfile(),
+  deviceProfile: emptyPortableProfile({
+    learnerProfile: {
+      createdAt: '2026-08-20T00:00:00.000Z',
+      languages: ['french'],
+      level: 'beginner',
+      selectedChannelCatalogIds: [],
+      updatedAt: '2026-08-20T00:00:00.000Z'
+    }
+  }),
+  label: 'an empty cloud profile automatically keeps meaningful device progress',
+  selectedSide: 'device'
+}, {
+  cloudProfile: emptyPortableProfile({
+    videos: {
+      lesson: {
+        favorite: true,
+        id: 'lesson',
+        status: 'unwatched',
+        watchLater: false,
+        watchProgress: []
+      }
+    }
+  }),
+  deviceProfile: emptyPortableProfile(),
+  label: 'an empty device profile automatically restores meaningful cloud progress',
+  selectedSide: 'cloud'
+}, {
+  cloudProfile: emptyPortableProfile({
+    learnerProfile: {
+      createdAt: '2026-08-21T00:00:00.000Z',
+      languages: [],
+      level: null,
+      selectedChannelCatalogIds: [],
+      updatedAt: '2026-08-21T00:00:00.000Z'
+    }
+  }),
+  deviceProfile: emptyPortableProfile(),
+  label: 'two empty profiles automatically keep the existing cloud lineage',
+  selectedSide: 'cloud'
+}, {
+  cloudProfile: emptyPortableProfile({
+    learnerProfile: {
+      createdAt: '2026-08-21T00:00:00.000Z',
+      languages: ['french'],
+      level: 'beginner',
+      selectedChannelCatalogIds: [],
+      updatedAt: '2026-08-21T00:00:00.000Z'
+    }
+  }),
+  deviceProfile: emptyPortableProfile({
+    learnerProfile: {
+      createdAt: '2026-08-21T00:00:00.000Z',
+      languages: ['french'],
+      level: 'beginner',
+      selectedChannelCatalogIds: [],
+      updatedAt: '2026-08-21T00:00:00.000Z'
+    }
+  }),
+  label: 'matching meaningful profiles automatically keep the existing cloud lineage',
+  selectedSide: 'cloud'
+}]) {
+  test(label, async () => {
+    const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    const conflictId = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+    const protectedUntil = '2026-09-21T00:00:00.000Z'
+    const deviceEnvelope = preparedEnvelope(deviceProfile)
+    const cloudEnvelope = preparedEnvelope(cloudProfile, 'B'.repeat(43))
+    const selectedEnvelope = selectedSide === 'device'
+      ? deviceEnvelope
+      : cloudEnvelope
+    const calls = []
+    let chosen = false
+    const adapter = createAdapter({
+      prepareEnvelope: () => deviceEnvelope,
+      rpc: async (name, parameters) => {
+        calls.push([name, parameters])
+        if (name === 'migrate_my_accountless_profile') {
+          return {
+            data: [{ status: 'profile_present' }],
+            error: null,
+            status: 200
+          }
+        }
+        if (name === 'commit_my_learner_profile') {
+          return {
+            data: [{
+              base_revision: 1,
+              conflict_id: conflictId,
+              generation: 3,
+              payload_sha256: cloudEnvelope.integrity.payloadSha256,
+              profile_id: PROFILE_ID,
+              revision: 7,
+              status: 'conflict'
+            }],
+            error: null,
+            status: 200
+          }
+        }
+        if (name === 'choose_my_learner_profile_conflict') {
+          assert.deepEqual(parameters, {
+            p_confirmed: true,
+            p_conflict_id: conflictId,
+            p_selected_side: selectedSide
+          })
+          chosen = true
+          return {
+            data: [{
+              conflict_id: conflictId,
+              envelope: selectedEnvelope,
+              generation: 4,
+              profile_id: PROFILE_ID,
+              protected_until: protectedUntil,
+              revision: 8,
+              selected_side: selectedSide,
+              status: 'chosen'
+            }],
+            error: null,
+            status: 200
+          }
+        }
+        assert.equal(name, 'read_my_learner_profile_conflict')
+        return {
+          data: [{
+            cloud_envelope: cloudEnvelope,
+            cloud_generation: 3,
+            cloud_revision: 7,
+            conflict_id: conflictId,
+            device_envelope: deviceEnvelope,
+            device_generation: 1,
+            device_revision: 2,
+            operation_id: operationId,
+            profile_id: operationId,
+            protected_until: chosen ? protectedUntil : null,
+            selected_side: chosen ? selectedSide : null,
+            status: chosen ? 'resolved' : 'open'
+          }],
+          error: null,
+          status: 200
+        }
+      }
+    })
+
+    const result = await adapter.resolve({
+      authentication: { userId: OWNER_ID },
+      connectivity: { status: 'online' },
+      accountlessAttachment: { operationId },
+      localProfile: {
+        ownerId: null,
+        profile: deviceProfile,
+        profileId: 'accountless:edenia_v1',
+        status: 'ready'
+      },
+      purpose: 'migrate-accountless-profile'
+    })
+
+    assert.equal(result.status, 'activate')
+    assert.deepEqual(result.profile, selectedSide === 'device'
+      ? deviceProfile
+      : cloudProfile)
+    assert.equal(result.protectedConflicts.length, 1)
+    assert.equal(result.protectedConflicts[0].selectedSide, selectedSide)
+    assert.deepEqual(calls.map(([name]) => name), [
+      'migrate_my_accountless_profile',
+      'commit_my_learner_profile',
+      'read_my_learner_profile_conflict',
+      'choose_my_learner_profile_conflict',
+      'read_my_learner_profile_conflict'
+    ])
+  })
+}
 
 test('accountless-profile migration reload retries the protected first envelope before syncing later study', async () => {
   const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
