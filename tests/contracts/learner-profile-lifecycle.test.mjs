@@ -1841,6 +1841,43 @@ test('definitive ownership failure removes the offline grace path', async () => 
   )
 })
 
+test('repeated signed-in opening failures end in reauthentication instead of an endless recovery gate', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    cloudResolution: { status: 'recovering' },
+    local: {
+      generation: 1,
+      ownerId,
+      profile: { marker: 'unopenable' },
+      profileId: '223e4567-e89b-42d3-a456-426614174001',
+      revision: 4,
+      status: 'ready'
+    }
+  })
+
+  harness.authority.start()
+  await Promise.resolve()
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+  )
+
+  harness.authority.refresh()
+  await Promise.resolve()
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+  )
+
+  harness.authority.refresh()
+  await Promise.resolve()
+  assert.equal(
+    harness.authority.getState().status,
+    LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
+  )
+})
+
 test('missing-head recovery keeps matching local and protected candidates exportable after a failed restore', async () => {
   const ownerId = '123e4567-e89b-42d3-a456-426614174000'
   const profileId = '223e4567-e89b-42d3-a456-426614174001'

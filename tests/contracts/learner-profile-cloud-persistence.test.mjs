@@ -115,12 +115,15 @@ function emptyPortableProfile(overrides = {}) {
 
 function createAdapter({
   clearOnboardingDraft,
+  createOnboardingEnvelope,
   createOperationId,
   eventTarget,
+  hasOnboardingProfileDraft,
   finalizeEnvelope,
   isOnline,
   now,
   prepareEnvelope,
+  readOnboardingState,
   rpc,
   setTimer,
   storage,
@@ -128,7 +131,7 @@ function createAdapter({
 } = {}) {
   return createLearnerProfileCloudPersistenceAdapter({
     clearOnboardingDraft: clearOnboardingDraft || (() => true),
-    createOnboardingEnvelope: async () => null,
+    createOnboardingEnvelope: createOnboardingEnvelope || (async () => null),
     createOperationId: createOperationId || (() => crypto.randomUUID()),
     eventTarget: eventTarget || createEventTarget(),
     finalizeEnvelope: finalizeEnvelope || (async prepared => ({
@@ -153,7 +156,8 @@ function createAdapter({
     isOnline: isOnline || (() => true),
     now: now || (() => 0),
     prepareEnvelope: prepareEnvelope || preparedEnvelope,
-    readOnboardingState: () => null,
+    hasOnboardingProfileDraft: hasOnboardingProfileDraft || (() => false),
+    readOnboardingState: readOnboardingState || (() => null),
     setTimer: setTimer || ((callback, delay) => setTimeout(callback, delay)),
     storage: storage || createMemoryStorage(),
     syncStorageKey: SYNC_STORAGE_KEY,
@@ -305,12 +309,107 @@ test('missing-head recovery never offers a local profile bound to another owner'
   })
 
   assert.deepEqual(result, {
-    recovery: {
-      candidates: [],
-      reason: 'current-head-missing'
-    },
-    status: 'recovering'
+    status: 'onboarding-required'
   })
+})
+
+test('completed onboarding creates a fresh signed-in profile without inheriting old sync state', async () => {
+  const onboardingEnvelope = preparedEnvelope(emptyPortableProfile({
+    learnerProfile: {
+      createdAt: '2026-08-22T00:00:00.000Z',
+      languages: ['mandarin'],
+      level: 'starting',
+      selectedChannelCatalogIds: [],
+      updatedAt: '2026-08-22T00:00:00.000Z'
+    },
+    onboarding: {
+      introSeenAt: '2026-08-22T00:00:00.000Z',
+      setupCompleted: true,
+      setupCompletedAt: '2026-08-22T00:00:00.000Z'
+    }
+  }))
+  const rpcCalls = []
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 4,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    }),
+    [DIRTY_STORAGE_KEY]: JSON.stringify({
+      generation: 1,
+      ownerId: OWNER_ID,
+      profileId: PROFILE_ID,
+      version: 1
+    })
+  })
+  const adapter = createAdapter({
+    hasOnboardingProfileDraft: () => true,
+    readOnboardingState: () => ({
+      learnerProfile: {
+        languages: ['mandarin'],
+        level: 'starting'
+      },
+      onboarding: {
+        accountStepReachedAt: '2026-08-22T00:00:00.000Z'
+      }
+    }),
+    createOnboardingEnvelope: async () => onboardingEnvelope,
+    storage,
+    rpc: async (name, parameters) => {
+      rpcCalls.push({ name, parameters })
+      assert.equal(name, 'resolve_my_learner_profile')
+      assert.deepEqual(parameters, {
+        p_onboarding_profile: onboardingEnvelope
+      })
+      return {
+        data: [{
+          created: true,
+          envelope: onboardingEnvelope,
+          generation: 1,
+          profile_id: SECOND_PROFILE_ID,
+          revision: 1,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+        }],
+        error: null
+      }
+    }
+  })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      generation: 1,
+      ownerId: OWNER_ID,
+      profile: { marker: 'old-town' },
+      profileId: PROFILE_ID,
+      revision: 4,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(result.status, 'activate')
+  assert.equal(result.freshProfile, true)
+  assert.equal(result.profileId, SECOND_PROFILE_ID)
+  assert.equal(result.generation, 1)
+  assert.equal(result.revision, 1)
+  assert.deepEqual(result.profile.learnerProfile, onboardingEnvelope.profile.learnerProfile)
+  assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)), {
+    acceptedRevision: 1,
+    generation: 1,
+    ownerId: OWNER_ID,
+    pending: null,
+    profileId: SECOND_PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+  assert.equal(storage.getItem(DIRTY_STORAGE_KEY), null)
+  assert.equal(rpcCalls.length, 1)
 })
 
 test('an unusable current head offers the matching verified local candidate', async () => {
