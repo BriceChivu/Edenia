@@ -780,7 +780,7 @@ test('a returning owner can retry an unresolved cloud-head check', async ({
     'recovering'
   )
   await expect(page.locator('#mainApp')).toBeHidden()
-  await expect(page.getByRole('button', { name: 'Continue' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
   const waitingStorage = await page.evaluate(({
     accessKey,
     stateKey
@@ -793,7 +793,7 @@ test('a returning owner can retry an unresolved cloud-head check', async ({
   })
   expect(waitingStorage).toEqual({ access: null, state: null })
 
-  await page.getByRole('button', { name: 'Continue' }).click()
+  await page.getByRole('button', { name: 'Try again' }).click()
   await expect.poll(() => resolutionCount).toBe(2)
   await expect(page.locator('#mainApp')).toBeVisible()
   const activated = await page.evaluate(({
