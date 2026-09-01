@@ -8,9 +8,12 @@ function formatList(values, none, formatItem = value => value) {
 }
 
 export function createLearnerProfileConflictView({
+  clearTimer,
   formatDateTime,
   formatNumber,
+  now,
   root,
+  setTimer,
   translate
 }) {
   const panel = root.getElementById('learnerProfileConflict')
@@ -48,7 +51,30 @@ export function createLearnerProfileConflictView({
   const dateTime = typeof formatDateTime === 'function'
     ? formatDateTime
     : value => String(value || '')
+  const currentTime = typeof now === 'function' ? now : Date.now
+  const scheduleTimer = typeof setTimer === 'function' ? setTimer : null
+  const cancelTimer = typeof clearTimer === 'function' ? clearTimer : () => {}
   let protectedConflicts = []
+  let protectedExpiryTimer = null
+
+  function clearProtectedExpiryTimer() {
+    if (protectedExpiryTimer === null) return
+    cancelTimer(protectedExpiryTimer)
+    protectedExpiryTimer = null
+  }
+
+  function scheduleProtectedExpiry() {
+    clearProtectedExpiryTimer()
+    if (!scheduleTimer || !protectedConflicts.length) return
+    const delay = Math.min(
+      Math.max(0, protectedConflicts[0].protectedUntil - currentTime()),
+      2_147_000_000
+    )
+    protectedExpiryTimer = scheduleTimer(() => {
+      protectedExpiryTimer = null
+      showProtected(protectedConflicts)
+    }, delay)
+  }
 
   function none() {
     return translate('profileConflict.value.none')
@@ -220,7 +246,13 @@ export function createLearnerProfileConflictView({
       hideProtected()
       return false
     }
-    protectedConflicts = [...conflicts]
+    protectedConflicts = conflicts
+      .filter(conflict => conflict.protectedUntil > currentTime())
+      .sort((left, right) => left.protectedUntil - right.protectedUntil)
+    if (!protectedConflicts.length) {
+      hideProtected()
+      return false
+    }
     const items = protectedConflicts.map((conflict, index) => {
       const unchosen = conflict.selectedSide === 'device' ? 'cloud' : 'device'
       const item = root.createElement('li')
@@ -247,10 +279,12 @@ export function createLearnerProfileConflictView({
     })
     recoveryList.replaceChildren(...items)
     recovery.classList.remove('hidden')
+    scheduleProtectedExpiry()
     return true
   }
 
   function hideProtected() {
+    clearProtectedExpiryTimer()
     protectedConflicts = []
     recoveryList.replaceChildren()
     recovery.classList.add('hidden')

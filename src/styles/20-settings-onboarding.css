@@ -301,10 +301,11 @@ html[data-learner-profile-access-state="conflicting"] .learner-profile-access-ca
   border-radius: 14px;
   display: grid;
   gap: 16px;
-  margin: 14px clamp(12px, 3vw, 34px) 0;
+  margin: 0;
   max-width: 100%;
   min-width: 0;
   padding: 14px 16px;
+  scroll-margin-block: 24px;
 }
 .learner-profile-conflict-recovery-list {
   display: grid;
@@ -314,10 +315,10 @@ html[data-learner-profile-access-state="conflicting"] .learner-profile-access-ca
   padding: 0;
 }
 .learner-profile-conflict-recovery-item {
-  align-items: center;
+  align-items: stretch;
   display: flex;
+  flex-direction: column;
   gap: 16px;
-  justify-content: space-between;
   min-width: 0;
 }
 .learner-profile-conflict-recovery p {
@@ -326,7 +327,8 @@ html[data-learner-profile-access-state="conflicting"] .learner-profile-access-ca
   line-height: 1.4;
 }
 .learner-profile-conflict-recovery button {
-  flex: 0 0 auto;
+  min-height: 44px;
+  width: 100%;
 }
 .legacy-progress-recovery-settings {
   display: grid;

@@ -63,6 +63,7 @@ function createHarness({
   cloudSyncState = { status: 'idle' },
   cloudUndoStartOver = { status: 'recovering' },
   completeOnboardingFinalizationResult = true,
+  exportDownload = () => true,
   freshLocalProfileReads = false,
   accountlessProfileMigration = null,
   reconcileSignedInProfileResult = true,
@@ -203,7 +204,7 @@ function createHarness({
             context.activation?.id || null,
             context
           ])
-          return true
+          return exportDownload(profile, context)
         }
       },
       ownerVerification: {
@@ -1968,6 +1969,7 @@ test('a conditional-write conflict locks the active candidate without replacing 
       revision: 1,
       status: 'activate'
     },
+    exportDownload: async () => true,
     local: {
       generation: 1,
       ownerId,
@@ -2013,9 +2015,9 @@ test('a conditional-write conflict locks the active candidate without replacing 
   assert.equal(harness.authority.getState().conflict, conflict)
   assert.equal(harness.authority.readActiveProfile(), null)
   assert.equal(harness.authority.saveActiveProfile(localProfile), false)
-  assert.equal(harness.authority.exportConflictVersion('device'), true)
-  assert.equal(harness.authority.exportConflictVersion('cloud'), true)
-  assert.equal(harness.authority.exportConflictVersion('newest'), false)
+  assert.equal(await harness.authority.exportConflictVersion('device'), true)
+  assert.equal(await harness.authority.exportConflictVersion('cloud'), true)
+  assert.equal(await harness.authority.exportConflictVersion('newest'), false)
   assert.equal(
     harness.calls.filter(([name]) => name === 'local-save').length,
     0
@@ -2123,11 +2125,11 @@ test('only a confirmed protected conflict choice can reactivate a profile', asyn
     earlierProtectedConflict,
     protectedConflict
   ])
-  assert.equal(harness.authority.exportConflictVersion(
+  assert.equal(await harness.authority.exportConflictVersion(
     'device',
     earlierProtectedConflict.id
   ), true)
-  assert.equal(harness.authority.exportConflictVersion(
+  assert.equal(await harness.authority.exportConflictVersion(
     'cloud',
     protectedConflict.id
   ), true)
@@ -2179,7 +2181,7 @@ test('a recovered server-confirmed choice stays protected after activation', asy
     harness.authority.getState().protectedConflicts[0],
     protectedConflict
   )
-  assert.equal(harness.authority.exportConflictVersion('cloud'), true)
+  assert.equal(await harness.authority.exportConflictVersion('cloud'), true)
 })
 
 test('a cloud head change returns the learner to the refreshed conflict', async () => {

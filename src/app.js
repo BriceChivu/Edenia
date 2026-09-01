@@ -961,12 +961,15 @@ const learnerProfileAccessView = createLearnerProfileAccessView({
   translate: t
 })
 const learnerProfileConflictView = createLearnerProfileConflictView({
+  clearTimer: timer => window.clearTimeout(timer),
   formatDateTime: value => formatLocaleDateTime(value, {
     dateStyle: 'medium',
     timeStyle: 'short'
   }),
   formatNumber: value => new Intl.NumberFormat(getCurrentLocale()).format(value),
+  now: () => Date.now(),
   root: document,
+  setTimer: (callback, delay) => window.setTimeout(callback, delay),
   translate: t
 })
 const learnerProfileSyncView = createLearnerProfileSyncView({
@@ -2919,6 +2922,7 @@ const PUBLIC_ONBOARDING_DOM_SELECTORS = Object.freeze([
   '#onboardingPanel'
 ])
 let parkedLearnerProfileDom = []
+const protectedConflictAnnouncementIds = new Set()
 
 function parkLearnerProfileDom() {
   const parkedSelectors = new Set(
@@ -2958,6 +2962,15 @@ function restoreLearnerProfileDom(
 }
 
 function handleLearnerProfileAccessStateChange(accessState) {
+  if (
+    accessState.status === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
+    && accessState.conflict?.id
+  ) protectedConflictAnnouncementIds.add(accessState.conflict.id)
+  if ([
+    LEARNER_PROFILE_ACCESS_STATES.LOCKED,
+    LEARNER_PROFILE_ACCESS_STATES.ONBOARDING_REQUIRED,
+    LEARNER_PROFILE_ACCESS_STATES.WAITING_AUTHENTICATION
+  ].includes(accessState.status)) protectedConflictAnnouncementIds.clear()
   if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
     restoreLearnerProfileDom()
   }
@@ -3051,6 +3064,22 @@ function handleLearnerProfileAccessStateChange(accessState) {
       )
     } else {
       learnerProfileConflictView.hideProtected()
+    }
+    const newlyProtectedConflict = accessState.protectedConflicts?.find(
+      conflict => protectedConflictAnnouncementIds.has(conflict.id)
+    )
+    protectedConflictAnnouncementIds.clear()
+    if (newlyProtectedConflict) {
+      showToast(t('profileConflict.protectedAvailableToast', {
+        date: formatLocaleDateTime(newlyProtectedConflict.protectedUntil, {
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        })
+      }), 'success', {
+        actionLabel: t('profileConflict.viewInSettings'),
+        durationMs: 8_000,
+        onAction: openProtectedProfileVersionsSettings
+      })
     }
     renderStartOverUndo(accessState.protectedReset)
     if (
@@ -6650,6 +6679,17 @@ function openSettings() {
   openSettingsShell({ focusId: 'settingsCloseBtn' })
 }
 
+function openProtectedProfileVersionsSettings() {
+  openSettings()
+  const protectedVersions = document.getElementById(
+    'learnerProfileConflictRecovery'
+  )
+  window.setTimeout(() => {
+    protectedVersions?.scrollIntoView({ block: 'center' })
+    protectedVersions?.focus({ preventScroll: true })
+  }, 0)
+}
+
 function closeSettings() {
   const panel = document.getElementById('settingsPanel')
   if (!panel || panel.classList.contains('hidden')) return
@@ -6934,10 +6974,10 @@ function downloadLearnerProfileSyncFile(state, {
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
-    showToast(t('toast.syncExported'))
+    if (side === null) showToast(t('toast.syncExported'))
     return true
   }).catch(() => {
-    if (isCurrent()) showToast(t('toast.invalidSync'), 'error')
+    if (isCurrent() && side === null) showToast(t('toast.invalidSync'), 'error')
     return false
   })
 }
@@ -18560,22 +18600,28 @@ bindLearnerProfileConflictActions(document, {
     learnerProfileConflictView.setBusy(false)
     if (!chosen) showToast(t('profileConflict.choiceFailed'), 'error')
   },
-  exportBoth() {
-    const device = learnerProfileLifecycleAuthority
-      ?.exportConflictVersion('device') === true
-    const cloud = learnerProfileLifecycleAuthority
-      ?.exportConflictVersion('cloud') === true
+  async exportBoth() {
+    const [device, cloud] = await Promise.all([
+      learnerProfileLifecycleAuthority?.exportConflictVersion('device'),
+      learnerProfileLifecycleAuthority?.exportConflictVersion('cloud')
+    ])
     if (!device || !cloud) {
       showToast(t('profileConflict.exportFailed'), 'error')
+      return
     }
+    showToast(t('toast.syncExported'))
   },
-  exportVersion(side, conflictId) {
-    if (!learnerProfileLifecycleAuthority?.exportConflictVersion(
-      side,
-      conflictId
-    )) {
+  async exportVersion(side, conflictId) {
+    const exported = await learnerProfileLifecycleAuthority
+      ?.exportConflictVersion(
+        side,
+        conflictId
+      )
+    if (!exported) {
       showToast(t('profileConflict.exportFailed'), 'error')
+      return
     }
+    showToast(t('profileConflict.protectedDownloadStarted'))
   },
   requestChoice: side => learnerProfileConflictView.requestChoice(side)
 })

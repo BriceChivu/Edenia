@@ -402,6 +402,15 @@ test('divergent profiles require exportable, confirmed choices at every width', 
     ? 'cloud'
     : 'device'
   const unchosenSide = selectedSide === 'device' ? 'cloud' : 'device'
+  const protectedToastCopy = selectedSide === 'device'
+    ? 'La versión protegida está disponible hasta'
+    : 'La version protégée est disponible jusqu’au'
+  const viewInSettingsCopy = selectedSide === 'device'
+    ? 'Ver en Ajustes'
+    : 'Voir dans les paramètres'
+  const protectedDownloadStartedCopy = selectedSide === 'device'
+    ? 'Se inició la descarga de la versión protegida.'
+    : 'Le téléchargement de la version protégée a commencé.'
   const { choiceRequests } = await prepareConflictPage(page)
 
   const gate = page.locator('#learnerProfileAccessGate')
@@ -449,7 +458,26 @@ test('divergent profiles require exportable, confirmed choices at every width', 
     p_selected_side: selectedSide
   })
   await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#learnerProfileConflictRecovery')).toBeHidden()
+  await expect(page.locator('#toast')).toContainText(protectedToastCopy)
+  await page.getByRole('button', { name: viewInSettingsCopy }).click()
+  await expect(page.locator('#settingsPanel')).toBeVisible()
   await expect(page.locator('#learnerProfileConflictRecovery')).toBeVisible()
+  await expect(page.locator('#learnerProfileConflictRecovery')).toBeFocused()
+  const settingsGeometry = await page.locator(
+    '#learnerProfileConflictRecovery'
+  ).evaluate(card => ({
+    clientWidth: card.clientWidth,
+    documentWidth: document.documentElement.scrollWidth,
+    scrollWidth: card.scrollWidth,
+    viewportWidth: document.documentElement.clientWidth
+  }))
+  expect(settingsGeometry.scrollWidth).toBeLessThanOrEqual(
+    settingsGeometry.clientWidth
+  )
+  expect(settingsGeometry.documentWidth).toBeLessThanOrEqual(
+    settingsGeometry.viewportWidth
+  )
   await expect(page.locator(
     '[data-profile-conflict-action="export-protected"]'
   ))
@@ -470,6 +498,10 @@ test('divergent profiles require exportable, confirmed choices at every width', 
 
   await page.reload()
   await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#learnerProfileConflictRecovery')).toBeHidden()
+  await expect(page.getByRole('button', { name: viewInSettingsCopy }))
+    .toHaveCount(0)
+  await page.locator('.gear-btn[data-settings-shell-action="open"]').click()
   await expect(page.locator('#learnerProfileConflictRecovery')).toBeVisible()
   await page.locator(
     '[data-profile-conflict-action="export-protected"]'
@@ -478,6 +510,14 @@ test('divergent profiles require exportable, confirmed choices at every width', 
   expect(downloads.at(-1)).toContain(unchosenSide === 'device'
     ? 'this-device'
     : 'cloud')
+  await expect(page.locator('#toast')).toContainText(
+    protectedDownloadStartedCopy
+  )
+  await page.locator(
+    '[data-profile-conflict-action="export-protected"]'
+  ).click()
+  await expect.poll(() => downloads.length).toBe(4)
+  await expect(page.locator('#learnerProfileConflictRecovery')).toBeVisible()
 })
 
 test('a protected-backup verification failure activates neither input', async ({
@@ -510,6 +550,8 @@ test('a protected-backup verification failure activates neither input', async ({
 
   await page.getByRole('button', { name: 'Try again' }).click()
   await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#learnerProfileConflictRecovery')).toBeHidden()
+  await page.getByRole('button', { name: 'Ver en Ajustes' }).click()
   await expect(page.locator('#learnerProfileConflictRecovery')).toBeVisible()
   await expect.poll(() => choiceRequests.length).toBe(2)
 })
