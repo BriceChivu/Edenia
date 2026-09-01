@@ -49,6 +49,34 @@ function retainLocalFeedCache(cloudProfile, localProfile) {
   return profile
 }
 
+function canonicalProfilesMatch(localProfile, cloudEnvelope, prepareEnvelope) {
+  if (!isRecord(localProfile) || !isRecord(cloudEnvelope?.profile)) return false
+  try {
+    return JSON.stringify(prepareEnvelope(localProfile).profile)
+      === JSON.stringify(cloudEnvelope.profile)
+  } catch {
+    return false
+  }
+}
+
+function isVerifiedCurrentLocalCopy(
+  localProfile,
+  identity,
+  cloudEnvelope,
+  prepareEnvelope
+) {
+  return localProfile?.status === 'ready'
+    && localProfile.ownerId === identity.ownerId
+    && localProfile.profileId === identity.profileId
+    && localProfile.generation === identity.generation
+    && localProfile.revision === identity.revision
+    && canonicalProfilesMatch(
+      localProfile.profile,
+      cloudEnvelope,
+      prepareEnvelope
+    )
+}
+
 function hasExactKeys(value, expectedKeys) {
   if (!isRecord(value)) return false
   const actualKeys = Object.keys(value).sort()
@@ -2446,6 +2474,12 @@ export function createLearnerProfileCloudPersistenceAdapter({
         || currentRecord.profileId !== profileId
       ) return { status: 'recovering' }
       if (currentRecord.generation !== generation) {
+        const cloudIdentity = {
+          generation,
+          ownerId: authentication.userId,
+          profileId,
+          revision
+        }
         const resetReceipt = generation === currentRecord.generation + 1
           ? await readResetReceipt({
               generation,
@@ -2457,13 +2491,21 @@ export function createLearnerProfileCloudPersistenceAdapter({
           !resetReceipt
           || resetReceipt.priorGeneration !== currentRecord.generation
         ) return { status: 'recovering' }
-        if (!clearDirtyRecord(currentRecord)) return { status: 'recovering' }
-        if (!commitCloudHead({
-          generation,
-          ownerId: authentication.userId,
-          profileId,
-          revision
-        }, currentRecord)) return { status: 'recovering' }
+        const dirty = readDirtyRecord()
+        const dirtyIdentity = dirty.present
+          && dirtyRecordMatches(cloudIdentity, dirty)
+          && isVerifiedCurrentLocalCopy(
+            localProfile,
+            cloudIdentity,
+            envelope,
+            prepareEnvelope
+          )
+          ? cloudIdentity
+          : currentRecord
+        if (!clearDirtyRecord(dirtyIdentity)) return { status: 'recovering' }
+        if (!commitCloudHead(cloudIdentity, currentRecord)) {
+          return { status: 'recovering' }
+        }
         currentRecord = readSyncRecord()
         if (!currentRecord) return { status: 'recovering' }
         protectedReset = resetReceipt.protectedReset
@@ -2611,14 +2653,12 @@ export function createLearnerProfileCloudPersistenceAdapter({
       && localProfile.generation === generation
       && isRecord(localProfile.profile)
     ) {
-      let localCanonicalProfile = null
-      try {
-        localCanonicalProfile = prepareEnvelope(localProfile.profile).profile
-      } catch {}
       if (
-        !localCanonicalProfile
-        || JSON.stringify(localCanonicalProfile)
-          !== JSON.stringify(envelope.profile)
+        !canonicalProfilesMatch(
+          localProfile.profile,
+          envelope,
+          prepareEnvelope
+        )
       ) {
         backupRequired = true
         profile = localProfile.profile
