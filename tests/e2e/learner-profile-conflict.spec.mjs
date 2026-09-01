@@ -508,7 +508,7 @@ test('a protected-backup verification failure activates neither input', async ({
     pending: { operationId: OPERATION_ID }
   })
 
-  await page.getByRole('button', { name: 'Try again' }).click()
+  await page.getByRole('button', { name: 'Continue' }).click()
   await expect(page.locator('#mainApp')).toBeVisible()
   await expect(page.locator('#learnerProfileConflictRecovery')).toBeVisible()
   await expect.poll(() => choiceRequests.length).toBe(2)
