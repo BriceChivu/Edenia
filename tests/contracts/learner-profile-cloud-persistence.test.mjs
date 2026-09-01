@@ -5021,6 +5021,157 @@ test('a device offline through Undo accepts the restored head without exposing U
   })
 })
 
+test('a verified restored head repairs stale reset bookkeeping automatically', async () => {
+  const resetId = '523e4567-e89b-42d3-a456-426614174004'
+  const restoredEnvelope = preparedEnvelope({ marker: 'restored-progress' })
+  const storage = createMemoryStorage({
+    [DIRTY_STORAGE_KEY]: JSON.stringify({
+      generation: 6,
+      ownerId: OWNER_ID,
+      profileId: PROFILE_ID,
+      version: 1
+    }),
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 17,
+      generation: 5,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const adapter = createAdapter({
+    rpc: async name => {
+      if (name === 'resolve_my_learner_profile') {
+        return {
+          data: [{
+            created: false,
+            envelope: restoredEnvelope,
+            generation: 6,
+            profile_id: PROFILE_ID,
+            revision: 18,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          error: null
+        }
+      }
+      assert.equal(name, 'read_my_latest_learner_profile_reset')
+      return {
+        data: [{
+          prior_envelope: null,
+          prior_generation: 5,
+          prior_revision: 17,
+          profile_id: PROFILE_ID,
+          protected_until: '2026-09-21T00:00:00.000Z',
+          reset_generation: 6,
+          reset_id: resetId,
+          status: 'undone'
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      generation: 6,
+      ownerId: OWNER_ID,
+      profile: restoredEnvelope.profile,
+      profileId: PROFILE_ID,
+      revision: 18,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(result.status, 'activate')
+  assert.deepEqual(result.profile, restoredEnvelope.profile)
+  assert.equal(result.protectedReset, null)
+  assert.equal(storage.getItem(DIRTY_STORAGE_KEY), null)
+  assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)), {
+    acceptedRevision: 18,
+    generation: 6,
+    ownerId: OWNER_ID,
+    pending: null,
+    profileId: PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+})
+
+test('stale reset bookkeeping stays guarded when local progress differs', async () => {
+  const restoredEnvelope = preparedEnvelope({ marker: 'restored-progress' })
+  const dirtyRecord = JSON.stringify({
+    generation: 6,
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID,
+    version: 1
+  })
+  const syncRecord = JSON.stringify({
+    acceptedRevision: 17,
+    generation: 5,
+    ownerId: OWNER_ID,
+    pending: null,
+    profileId: PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+  const storage = createMemoryStorage({
+    [DIRTY_STORAGE_KEY]: dirtyRecord,
+    [SYNC_STORAGE_KEY]: syncRecord
+  })
+  const adapter = createAdapter({
+    rpc: async name => name === 'resolve_my_learner_profile'
+      ? {
+          data: [{
+            created: false,
+            envelope: restoredEnvelope,
+            generation: 6,
+            profile_id: PROFILE_ID,
+            revision: 18,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          error: null
+        }
+      : {
+          data: [{
+            prior_envelope: null,
+            prior_generation: 5,
+            prior_revision: 17,
+            profile_id: PROFILE_ID,
+            protected_until: '2026-09-21T00:00:00.000Z',
+            reset_generation: 6,
+            reset_id: '523e4567-e89b-42d3-a456-426614174004',
+            status: 'undone'
+          }],
+          error: null
+        },
+    storage
+  })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      generation: 6,
+      ownerId: OWNER_ID,
+      profile: { marker: 'unsynchronized-local-progress' },
+      profileId: PROFILE_ID,
+      revision: 18,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.deepEqual(result, { status: 'recovering' })
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), syncRecord)
+  assert.equal(storage.getItem(DIRTY_STORAGE_KEY), dirtyRecord)
+})
+
 test('reload rolls a durable protected import back before resolving the profile', async () => {
   const previousEnvelope = preparedEnvelope(
     { marker: 'current-profile' },

@@ -114,17 +114,30 @@ test('a slow busy profile check appears after the quiet delay', () => {
   assert.equal(gate.classList.contains('hidden'), false)
 })
 
-test('retryable profile access states expose neutral recovery controls', () => {
+test('opening progress stays automatic while genuine recovery keeps an escape', () => {
   const { elements, root, view } = createHarness()
   const openSignIn = elements.get('learnerProfileAccessOpenSignIn')
   const retry = elements.get('learnerProfileAccessRetry')
   const signOut = elements.get('learnerProfileAccessSignOut')
 
-  for (const status of ['waiting-cloud', 'recovering', 'conflicting']) {
-    view.render({ status })
-    assert.equal(root.documentElement.dataset.learnerProfileAccessState, status)
-    assert.equal(openSignIn.hidden, true)
+  view.render({ status: 'waiting-cloud' })
+  assert.equal(root.documentElement.dataset.learnerProfileAccessState, 'waiting-cloud')
+  assert.equal(openSignIn.hidden, true)
+  assert.equal(retry.hidden, true)
+  assert.equal(signOut.hidden, true)
+
+  view.render({ status: 'recovering' })
+  assert.equal(retry.hidden, false)
+  assert.equal(retry.textContent, 'profileAccess.recovering.continue')
+  assert.equal(signOut.hidden, true)
+
+  for (const accessState of [{
+    recovery: { candidates: [], reason: 'current-head-missing' },
+    status: 'recovering'
+  }, { status: 'conflicting' }]) {
+    view.render(accessState)
     assert.equal(retry.hidden, false)
+    assert.equal(retry.textContent, 'migration.action.retry')
     assert.equal(signOut.hidden, false)
   }
 
@@ -139,6 +152,21 @@ test('retryable profile access states expose neutral recovery controls', () => {
     assert.equal(retry.hidden, true)
     assert.equal(signOut.hidden, true)
   }
+})
+
+test('opening progress uses one calm message without technical status', () => {
+  const { elements, view } = createHarness({
+    translate: key => I18N.en[key]
+  })
+
+  view.render({ status: 'waiting-cloud' })
+
+  assert.equal(
+    elements.get('learnerProfileAccessTitle').textContent,
+    'Opening your progress…'
+  )
+  assert.equal(elements.get('learnerProfileAccessBody').hidden, true)
+  assert.equal(elements.get('learnerProfileAccessStatus').hidden, true)
 })
 
 test('active profile access hides the guarded surface and recovery controls', () => {

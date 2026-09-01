@@ -670,6 +670,136 @@ test('resolving profile access exposes no learner content and performs no autosa
   releaseAuthRequest?.()
 })
 
+test('matching restored progress repairs reset bookkeeping without asking the learner', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let lifecycleEnabled = false
+  let profileEnvelope = null
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      return route.fulfill({
+        json: [{
+          created: false,
+          envelope: profileEnvelope,
+          generation: 2,
+          profile_id: OWNER_PROFILE_ID,
+          revision: 4,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+        }],
+        status: 200
+      })
+    }
+    if (pathname.endsWith('/rpc/read_my_latest_learner_profile_reset')) {
+      return route.fulfill({
+        json: [{
+          prior_envelope: null,
+          prior_generation: 1,
+          prior_revision: 3,
+          profile_id: OWNER_PROFILE_ID,
+          protected_until: '2026-09-21T00:00:00.000Z',
+          reset_generation: 2,
+          reset_id: '523e4567-e89b-42d3-a456-426614174004',
+          status: 'undone'
+        }],
+        status: 200
+      })
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto('/?internal_test=1')
+  await seedOwnedLearnerProfile(page)
+  const storedState = await page.evaluate(stateStorageKey => {
+    const state = JSON.parse(localStorage.getItem(stateStorageKey))
+    state.config.ankiEnabled = false
+    state.config.ankiDisabledAt = '2026-08-27T00:00:00.000Z'
+    const serialized = JSON.stringify(state)
+    localStorage.setItem(stateStorageKey, serialized)
+    return serialized
+  }, STATE_STORAGE_KEY)
+  profileEnvelope = (
+    await createPortableLearnerProfileEnvelope(JSON.parse(storedState))
+  ).envelope
+  await page.evaluate(({
+    accessStorageKey,
+    dirtyStorageKey,
+    ownerId,
+    profileId,
+    syncStorageKey
+  }) => {
+    const access = JSON.parse(localStorage.getItem(accessStorageKey))
+    access.generation = 2
+    access.revision = 4
+    localStorage.setItem(accessStorageKey, JSON.stringify(access))
+    localStorage.setItem(syncStorageKey, JSON.stringify({
+      acceptedRevision: 3,
+      generation: 1,
+      ownerId,
+      pending: null,
+      profileId,
+      queued: null,
+      version: 1
+    }))
+    localStorage.setItem(dirtyStorageKey, JSON.stringify({
+      generation: 2,
+      ownerId,
+      profileId,
+      version: 1
+    }))
+  }, {
+    accessStorageKey: PROFILE_ACCESS_STORAGE_KEY,
+    dirtyStorageKey: `${PROFILE_SYNC_STORAGE_KEY}_dirty`,
+    ownerId: OWNER_ID,
+    profileId: OWNER_PROFILE_ID,
+    syncStorageKey: PROFILE_SYNC_STORAGE_KEY
+  })
+  lifecycleEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'active'
+  )
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+  expect(await page.evaluate(({
+    dirtyStorageKey,
+    stateStorageKey,
+    syncStorageKey
+  }) => ({
+    channels: JSON.parse(localStorage.getItem(stateStorageKey))
+      .config.channels.map(channel => channel.name),
+    dirty: localStorage.getItem(dirtyStorageKey),
+    sync: JSON.parse(localStorage.getItem(syncStorageKey))
+  }), {
+    dirtyStorageKey: `${PROFILE_SYNC_STORAGE_KEY}_dirty`,
+    stateStorageKey: STATE_STORAGE_KEY,
+    syncStorageKey: PROFILE_SYNC_STORAGE_KEY
+  })).toEqual({
+    channels: [SECRET_CHANNEL_NAME],
+    dirty: null,
+    sync: {
+      acceptedRevision: 4,
+      generation: 2,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: OWNER_PROFILE_ID,
+      queued: null,
+      version: 1
+    }
+  })
+})
+
 test('a signed-out owner can authenticate from locked access before cloud activation', async ({
   page
 }, testInfo) => {
@@ -845,9 +975,14 @@ test('a signed-out owner can authenticate from locked access before cloud activa
     await expect.poll(() => resolutionCount).toBe(1)
     await expect(page.locator('#settingsPanel')).toBeHidden()
     await expectNeutralProfileGate(page, 'waiting-cloud', storedState)
+    await expect(page.locator('#learnerProfileAccessTitle')).toHaveText(
+      'Opening your progress…'
+    )
+    await expect(page.locator('#learnerProfileAccessBody')).toBeHidden()
+    await expect(page.locator('#learnerProfileAccessStatus')).toBeHidden()
+    await expect(page.locator('#learnerProfileAccessRetry')).toBeHidden()
+    await expect(page.locator('#learnerProfileAccessSignOut')).toBeHidden()
     await expect(page.locator('#learnerProfileAccessGate')).toBeFocused()
-    await page.keyboard.press('Tab')
-    await expect(page.locator('#learnerProfileAccessRetry')).toBeFocused()
 
     releaseResolution()
     await expect(page.locator('#mainApp')).toBeVisible()

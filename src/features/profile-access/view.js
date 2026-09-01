@@ -26,10 +26,13 @@ const BUSY_STATES = new Set([
   'waiting-cloud'
 ])
 
-const RECOVERY_ACTION_STATES = new Set([
-  'conflicting',
-  'recovering',
+const OPENING_STATES = new Set([
+  'resolving',
   'waiting-cloud'
+])
+
+const RECOVERY_ACTION_STATES = new Set([
+  'conflicting'
 ])
 
 const AUTHENTICATION_ACTION_STATES = new Set([
@@ -175,8 +178,18 @@ export function createLearnerProfileAccessView({
 
   function showActions(accessState) {
     hideActions()
+    retry.textContent = translate('migration.action.retry')
     if (isLearnerProfileAuthenticationState(accessState?.status)) {
       openSignIn.hidden = false
+      return
+    }
+    if (accessState?.status === 'recovering') {
+      retry.hidden = false
+      if (accessState.recovery?.reason) {
+        signOut.hidden = false
+      } else {
+        retry.textContent = translate('profileAccess.recovering.continue')
+      }
       return
     }
     if (RECOVERY_ACTION_STATES.has(accessState?.status)) {
@@ -217,9 +230,15 @@ export function createLearnerProfileAccessView({
     const key = state === 'account-change'
       ? `profileAccess.accountChange.${protectionStatus}`
       : recoveryCopyKey || COPY_KEYS[state]
+    const isOpening = OPENING_STATES.has(state)
+    const isGenericRecovery = state === 'recovering' && !recoveryCopyKey
     title.textContent = translate(`${key}.title`)
     body.textContent = translate(`${key}.body`)
-    status.textContent = translate('profileAccess.noProfileVisible')
+    body.hidden = isOpening
+    status.hidden = isOpening || isGenericRecovery
+    status.textContent = status.hidden
+      ? ''
+      : translate('profileAccess.noProfileVisible')
     gate.setAttribute('aria-busy', String(BUSY_STATES.has(state)))
     showActions(accessState)
     renderRecovery(accessState?.recovery)
