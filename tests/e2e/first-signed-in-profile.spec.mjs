@@ -142,7 +142,7 @@ function returningOwnerResolutionRow(envelope, revision = 12) {
   )
 }
 
-async function createReturningOwnerEnvelope() {
+async function createReturningOwnerEnvelope({ setupCompleted = true } = {}) {
   const completedAt = '2026-08-20T21:00:00.000Z'
   const { envelope } = await createPortableLearnerProfileEnvelope({
     activityLog: [],
@@ -178,8 +178,8 @@ async function createReturningOwnerEnvelope() {
       introSeenAt: completedAt,
       levelUpGuidanceShownAt: null,
       recommendationsAppliedAt: null,
-      setupCompleted: true,
-      setupCompletedAt: completedAt,
+      setupCompleted,
+      setupCompletedAt: setupCompleted ? completedAt : null,
       walkthroughCompleted: true,
       walkthroughCompletedAt: completedAt
     },
@@ -429,11 +429,22 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
   }
 })
 
-test('Start over keeps the account and analytics identity while Undo restores progress', async ({
+const startOverRestoreCases = [{
+  name: 'Start over keeps the account and analytics identity while Undo restores progress',
+  setupCompleted: true
+}, {
+  name: 'Undo immediately resumes onboarding for an incomplete restored profile',
+  setupCompleted: false
+}]
+
+for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   const returningEnvelope = await createReturningOwnerEnvelope()
+  const restoredEnvelope = restoreCase.setupCompleted
+    ? returningEnvelope
+    : await createReturningOwnerEnvelope({ setupCompleted: false })
   const protectedUntil = '2026-09-21T00:00:00.000Z'
   let cloudEnvelope = returningEnvelope
   let protectedEnvelope = returningEnvelope
@@ -562,7 +573,9 @@ test('Start over keeps the account and analytics identity while Undo restores pr
       expect(body.p_envelope.profile.learnerProfile.languages).toEqual([])
       expect(body.p_envelope.profile.config.channels).toEqual([])
       expect(body.p_envelope.profile.onboarding.setupCompleted).toBe(false)
-      protectedEnvelope = cloudEnvelope
+      // Protected revisions can contain study data without a completed
+      // onboarding marker. Undo must resume that onboarding immediately.
+      protectedEnvelope = restoredEnvelope
       protectedPriorRevision = revision
       cloudEnvelope = body.p_envelope
       generation = 5
@@ -684,7 +697,16 @@ test('Start over keeps the account and analytics identity while Undo restores pr
   await page.getByRole('button', { name: 'Undo Start over' }).click()
   await expect.poll(() => undoRequests).toBe(1)
   await expect(page.locator('#startOverUndo')).toBeHidden()
-  await expect(open).toBeFocused()
+  if (restoreCase.setupCompleted) {
+    await expect(open).toBeFocused()
+    await expect(page.locator('#mainApp')).toBeVisible()
+    await expect(page.locator('#onboardingPanel')).toBeHidden()
+  } else {
+    await expect(page.locator('#mainApp')).toBeHidden()
+    await expect(page.locator('#introTrailer')).toBeHidden()
+    await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+    await expect(page.locator('#onboardingPanel')).toBeVisible()
+  }
   const restored = await page.evaluate(({ accessKey, stateKey }) => ({
     access: JSON.parse(localStorage.getItem(accessKey)),
     state: JSON.parse(localStorage.getItem(stateKey))
@@ -694,7 +716,18 @@ test('Start over keeps the account and analytics identity while Undo restores pr
   })
   expect(restored.access).toMatchObject({ generation: 5, revision: 2 })
   expect(restored.state.learnerProfile.languages).toEqual(['french'])
+  expect(restored.state.config.channels).toEqual([
+    expect.objectContaining({ name: RETURNING_CHANNEL_NAME })
+  ])
+  expect(restored.state.onboarding.setupCompleted).toBe(
+    restoreCase.setupCompleted
+  )
   expect(logoutRequests).toEqual([])
+  if (!restoreCase.setupCompleted) {
+    await page.reload()
+    await expect(page.locator('#mainApp')).toBeHidden()
+    await expect(page.locator('#onboardingPanel')).toBeVisible()
+  }
 })
 
 test('a returning owner can retry an unresolved cloud-head check', async ({
