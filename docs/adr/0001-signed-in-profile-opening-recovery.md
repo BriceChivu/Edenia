@@ -45,6 +45,12 @@ Profile opening will use this ordered outcome model:
 6. If the owner cannot be verified, require authentication again. Do not
    create or activate a fallback profile.
 
+When the saved town data is valid but its local access metadata is malformed,
+Edenia treats that data as a recoverable accountless copy. The existing fenced
+migration path may attach it to the verified owner; if there is no usable local
+town data, the malformed metadata is treated as an empty local profile so the
+normal signed-in resolver can route to onboarding or an existing cloud town.
+
 Automatic fallback must never cross an intentional Start-over reset boundary.
 An older profile generation remains available only through explicit recovery.
 Edenia will not create an isolated signed-in profile as the normal fallback.
@@ -115,6 +121,9 @@ Costs and risks:
   the reset boundary automatically.
 - No trusted state in the current generation enters language-selection
   onboarding and creates a fresh signed-in profile only after completion.
+- Valid local town data with malformed access metadata reaches migration or
+  activation instead of generic recovery; no local town data reaches the
+  signed-in onboarding resolver.
 - Two valid divergent states use progress-conflict UI and do not trigger
   rollback or onboarding.
 - Transient network/server failure remains `waiting-cloud` and retryable.
