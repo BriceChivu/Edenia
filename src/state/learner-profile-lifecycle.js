@@ -1334,7 +1334,7 @@ export function createLearnerProfileLifecycleAuthority({
     })
   }
 
-  function exportConflictVersion(side, conflictId = null) {
+  async function exportConflictVersion(side, conflictId = null) {
     const protectedConflicts = currentState.protectedConflicts || []
     const conflict = currentState.status
         === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
@@ -1348,7 +1348,7 @@ export function createLearnerProfileLifecycleAuthority({
       ? conflict?.[side]
       : null
     if (!version?.profile || typeof version.profile !== 'object') return false
-    return exportDownload.download(version.profile, {
+    return await exportDownload.download(version.profile, {
       conflictId: conflict.id,
       exportedAt: clock.now(),
       isCurrent: () => (

@@ -675,7 +675,11 @@ and momentum—at a glance</h2>
         <button class="btn-secondary walkthrough-replay-btn" type="button" data-settings-replay-action="trailer" data-analytics-action="settings.trailerAgain" data-i18n="settings.trailerAgain">Show trailer again</button>
       </div>
 
-      <div class="settings-data-group">
+      <div class="settings-data-group" id="settingsDataGroup">
+        <section class="learner-profile-conflict-recovery hidden" id="learnerProfileConflictRecovery" aria-labelledby="learnerProfileConflictRecoveryTitle" tabindex="-1">
+          <h2 id="learnerProfileConflictRecoveryTitle" data-i18n="profileConflict.protectedTitle">Your protected profile versions</h2>
+          <ul class="learner-profile-conflict-recovery-list" id="learnerProfileConflictRecoveryList" data-profile-conflict-export-list></ul>
+        </section>
         <div class="sync-actions">
         <button class="btn-secondary" type="button" data-settings-sync-action="export" data-analytics-action="settings.sync.export" data-i18n="settings.sync.export">Export sync file</button>
         <button class="btn-secondary" type="button" data-settings-sync-action="choose-file" data-analytics-action="settings.sync.import" data-i18n="settings.sync.import">Import sync file</button>
@@ -787,11 +791,6 @@ and momentum—at a glance</h2>
         </button>
       </div>
     </header>
-
-    <section class="learner-profile-conflict-recovery hidden" id="learnerProfileConflictRecovery" aria-labelledby="learnerProfileConflictRecoveryTitle">
-      <h2 id="learnerProfileConflictRecoveryTitle" data-i18n="profileConflict.protectedTitle">Your protected profile versions</h2>
-      <ul class="learner-profile-conflict-recovery-list" id="learnerProfileConflictRecoveryList" data-profile-conflict-export-list></ul>
-    </section>
 
     <!-- CITY BUILDER ──────────────────────────────────────── -->
     <section class="city-section">

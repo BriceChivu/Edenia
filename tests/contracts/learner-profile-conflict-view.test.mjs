@@ -45,7 +45,7 @@ function element(initialClasses = []) {
   }
 }
 
-function createHarness() {
+function createHarness(viewOptions = {}) {
   let translationPrefix = ''
   const elements = new Map([
     ['learnerProfileConflict', element(['hidden'])],
@@ -70,12 +70,14 @@ function createHarness() {
     view: createLearnerProfileConflictView({
       formatDateTime: value => `date:${value}`,
       formatNumber: value => `number:${value}`,
+      now: () => 0,
       root,
       translate: (key, params = {}) => translationPrefix
         + Object.entries(params).reduce(
           (text, [name, value]) => `${text}|${name}=${value}`,
           key
-        )
+        ),
+      ...viewOptions
     })
   }
 }
@@ -130,13 +132,13 @@ test('resolved conflict view keeps every unchosen version downloadable', () => {
   assert.equal(view.showProtected([
     {
       id: 'conflict-1',
-      protectedUntil: 1_789_574_400_000,
+      protectedUntil: 1_789_660_800_000,
       selectedSide: 'device',
       status: 'resolved'
     },
     {
       id: 'conflict-2',
-      protectedUntil: 1_789_660_800_000,
+      protectedUntil: 1_789_574_400_000,
       selectedSide: 'cloud',
       status: 'resolved'
     }
@@ -151,8 +153,8 @@ test('resolved conflict view keeps every unchosen version downloadable', () => {
     id: item.children[1].dataset.conflictId,
     side: item.children[1].dataset.conflictSide
   })), [
-    { id: 'conflict-1', side: 'cloud' },
-    { id: 'conflict-2', side: 'device' }
+    { id: 'conflict-2', side: 'device' },
+    { id: 'conflict-1', side: 'cloud' }
   ])
   for (const item of items) {
     assert.ok(item.children[0].id)
@@ -179,6 +181,58 @@ test('protected conflict copy refreshes when the active locale changes', () => {
   const [item] = elements.get('learnerProfileConflictRecoveryList').children
   assert.match(item.children[0].textContent, /^next-locale:/u)
   assert.match(item.children[1].textContent, /^next-locale:/u)
+})
+
+test('protected versions disappear at their deadlines', () => {
+  let now = 1_000
+  let expiryCallback = null
+  const { elements, view } = createHarness({
+    clearTimer() {},
+    now: () => now,
+    setTimer(callback) {
+      expiryCallback = callback
+      return 1
+    }
+  })
+
+  assert.equal(view.showProtected([
+    {
+      id: 'conflict-1',
+      protectedUntil: 2_000,
+      selectedSide: 'device',
+      status: 'resolved'
+    },
+    {
+      id: 'conflict-2',
+      protectedUntil: 3_000,
+      selectedSide: 'cloud',
+      status: 'resolved'
+    }
+  ]), true)
+  assert.equal(
+    elements.get('learnerProfileConflictRecoveryList').children.length,
+    2
+  )
+
+  now = 2_000
+  expiryCallback()
+  assert.deepEqual(
+    elements.get('learnerProfileConflictRecoveryList').children.map(
+      item => item.children[1].dataset.conflictId
+    ),
+    ['conflict-2']
+  )
+
+  now = 3_000
+  expiryCallback()
+  assert.equal(
+    elements.get('learnerProfileConflictRecovery').classList.contains('hidden'),
+    true
+  )
+  assert.equal(
+    elements.get('learnerProfileConflictRecoveryList').children.length,
+    0
+  )
 })
 
 test('conflict markup names both versions and offers no automatic merge action', () => {

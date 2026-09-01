@@ -78,9 +78,6 @@
     min-height: 44px;
     width: 100%;
   }
-  .learner-profile-conflict-recovery {
-    margin-inline: 12px;
-  }
   .learner-profile-conflict-recovery-item {
     align-items: stretch;
     flex-direction: column;
