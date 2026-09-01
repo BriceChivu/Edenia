@@ -20,6 +20,10 @@ _Avoid_: User document, app state
 The one learner profile whose study state Edenia currently displays and accepts changes for.
 _Avoid_: Current user, selected account
 
+**Profile opening**:
+The transition that makes a verified signed-in profile active after Edenia completes the checks needed to display it safely.
+_Avoid_: Loading progress, profile sync
+
 **Cached signed-in profile**:
 A signed-in profile retained on a browser while inactive and available only to its verified owning identity.
 _Avoid_: Remembered account, dormant user

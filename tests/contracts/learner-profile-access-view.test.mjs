@@ -38,6 +38,9 @@ function createHarness(viewOptions = {}) {
     ['learnerProfileAccessTitle', createElement()],
     ['learnerProfileAccessBody', createElement()],
     ['learnerProfileAccessStatus', createElement()],
+    ['learnerProfileOpeningNotice', createElement()],
+    ['learnerProfileOpeningProtection', createElement()],
+    ['learnerProfileOpeningStatus', createElement()],
     ['learnerProfileAccessOpenSignIn', createElement()],
     ['learnerProfileAccessRetry', createElement()],
     ['learnerProfileAccessSignOut', createElement()],
@@ -65,10 +68,10 @@ function createHarness(viewOptions = {}) {
   }
 }
 
-test('fast busy profile checks stay visually quiet until activation', () => {
+test('fast profile opening stays non-modal until activation', () => {
   const timers = []
   const { elements, root, view } = createHarness({
-    busyPresentationDelayMs: 250,
+    openingStatusPresentationDelayMs: 250,
     clearTimer(timerId) {
       const timer = timers[timerId - 1]
       if (timer) timer.cleared = true
@@ -85,6 +88,14 @@ test('fast busy profile checks stay visually quiet until activation', () => {
   assert.equal(gate.classList.contains('hidden'), true)
   assert.equal(timers.length, 1)
   assert.equal(timers[0].delay, 250)
+  assert.equal(
+    elements.get('learnerProfileOpeningNotice').classList.contains('hidden'),
+    false
+  )
+  assert.equal(
+    elements.get('learnerProfileOpeningNotice').classList.contains('sr-only'),
+    true
+  )
 
   view.render({ status: 'waiting-cloud' })
   assert.equal(root.documentElement.dataset.learnerProfileAccessState, 'waiting-cloud')
@@ -94,12 +105,16 @@ test('fast busy profile checks stay visually quiet until activation', () => {
   view.render({ status: 'active' })
   timers[0].callback()
   assert.equal(gate.classList.contains('hidden'), true)
+  assert.equal(
+    elements.get('learnerProfileOpeningNotice').classList.contains('hidden'),
+    true
+  )
 })
 
-test('a slow busy profile check appears after the quiet delay', () => {
+test('a slow profile opening reveals its compact status after the quiet delay', () => {
   const timers = []
   const { elements, view } = createHarness({
-    busyPresentationDelayMs: 250,
+    openingStatusPresentationDelayMs: 250,
     clearTimer() {},
     setTimer(callback, delay) {
       timers.push({ callback, delay })
@@ -107,11 +122,15 @@ test('a slow busy profile check appears after the quiet delay', () => {
     }
   })
   const gate = elements.get('learnerProfileAccessGate')
+  const notice = elements.get('learnerProfileOpeningNotice')
 
   view.render({ status: 'waiting-cloud' })
   assert.equal(gate.classList.contains('hidden'), true)
+  assert.equal(notice.classList.contains('hidden'), false)
+  assert.equal(notice.classList.contains('sr-only'), true)
   timers[0].callback()
-  assert.equal(gate.classList.contains('hidden'), false)
+  assert.equal(gate.classList.contains('hidden'), true)
+  assert.equal(notice.classList.contains('sr-only'), false)
 })
 
 test('opening progress stays automatic while genuine recovery keeps an escape', () => {
@@ -122,6 +141,14 @@ test('opening progress stays automatic while genuine recovery keeps an escape', 
 
   view.render({ status: 'waiting-cloud' })
   assert.equal(root.documentElement.dataset.learnerProfileAccessState, 'waiting-cloud')
+  assert.equal(
+    elements.get('learnerProfileAccessGate').classList.contains('hidden'),
+    true
+  )
+  assert.equal(
+    elements.get('learnerProfileOpeningNotice').classList.contains('hidden'),
+    false
+  )
   assert.equal(openSignIn.hidden, true)
   assert.equal(retry.hidden, true)
   assert.equal(signOut.hidden, true)
@@ -154,7 +181,7 @@ test('opening progress stays automatic while genuine recovery keeps an escape', 
   }
 })
 
-test('opening progress uses one calm message without technical status', () => {
+test('opening progress shows protection and progress-ready status in order', () => {
   const { elements, view } = createHarness({
     translate: key => I18N.en[key]
   })
@@ -162,11 +189,25 @@ test('opening progress uses one calm message without technical status', () => {
   view.render({ status: 'waiting-cloud' })
 
   assert.equal(
-    elements.get('learnerProfileAccessTitle').textContent,
-    'Opening your progress…'
+    elements.get('learnerProfileOpeningProtection').textContent,
+    'Private learner content stays hidden until the active profile is ready.'
   )
-  assert.equal(elements.get('learnerProfileAccessBody').hidden, true)
-  assert.equal(elements.get('learnerProfileAccessStatus').hidden, true)
+  assert.equal(
+    elements.get('learnerProfileOpeningStatus').textContent,
+    'Getting your progress ready…'
+  )
+  assert.equal(
+    elements.get('learnerProfileOpeningNotice').classList.contains('hidden'),
+    false
+  )
+  assert.equal(
+    elements.get('learnerProfileOpeningNotice').classList.contains('sr-only'),
+    false
+  )
+  assert.equal(
+    elements.get('learnerProfileAccessGate').classList.contains('hidden'),
+    true
+  )
 })
 
 test('active profile access hides the guarded surface and recovery controls', () => {
@@ -182,6 +223,10 @@ test('active profile access hides the guarded surface and recovery controls', ()
   assert.equal(elements.get('learnerProfileAccessOpenSignIn').hidden, true)
   assert.equal(elements.get('learnerProfileAccessRetry').hidden, true)
   assert.equal(elements.get('learnerProfileAccessSignOut').hidden, true)
+  assert.equal(
+    elements.get('learnerProfileOpeningNotice').classList.contains('hidden'),
+    true
+  )
 })
 
 test('the guarded profile surface contains authentication, retry, and safe sign-out controls', () => {
@@ -209,6 +254,18 @@ test('the guarded profile surface contains authentication, retry, and safe sign-
   assert.match(
     html,
     /id="learnerProfileAccessSignOut"[^>]*data-profile-access-action="sign-out"[^>]*hidden/
+  )
+  assert.match(
+    html,
+    /id="learnerProfileOpeningNotice"[^>]*aria-atomic="true"/
+  )
+  assert.match(
+    html,
+    /id="learnerProfileOpeningProtection"[^>]*data-i18n="profileAccess\.opening\.protected"/
+  )
+  assert.match(
+    html,
+    /id="learnerProfileOpeningStatus"[^>]*role="status"[^>]*aria-live="polite"[^>]*data-i18n="profileAccess\.opening\.status"/
   )
 })
 

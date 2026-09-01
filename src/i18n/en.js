@@ -393,6 +393,8 @@ export const EN_CORE = {
   'profileAccess.waitingAuthentication.body': 'Edenia needs a verified identity before it can open a learner profile.',
   'profileAccess.waitingCloud.title': 'Opening your progress…',
   'profileAccess.waitingCloud.body': 'Edenia is checking the signed-in profile before opening it on this device.',
+  'profileAccess.opening.protected': 'Private learner content stays hidden until the active profile is ready.',
+  'profileAccess.opening.status': 'Getting your progress ready…',
   'profileAccess.migrating.title': 'Preparing a protected profile…',
   'profileAccess.migrating.body': 'Signing in did not move or claim this browser’s progress. Edenia is waiting for a safe migration decision.',
   'profileAccess.conflicting.title': 'Your profiles need a safe choice',

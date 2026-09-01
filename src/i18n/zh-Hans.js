@@ -396,6 +396,8 @@ export const ZH_HANS_LOCALIZED = {
     'profileAccess.waitingAuthentication.body': 'Edenia 需要验证身份后才能打开学习者档案。',
     'profileAccess.waitingCloud.title': '正在打开你的学习进度…',
     'profileAccess.waitingCloud.body': 'Edenia 正在检查已登录的档案，然后才会在此设备上打开。',
+    'profileAccess.opening.protected': '学习者内容会保持隐藏，直到当前学习者档案准备就绪。',
+    'profileAccess.opening.status': '正在准备你的学习进度…',
     'profileAccess.migrating.title': '正在准备受保护的档案…',
     'profileAccess.migrating.body': '登录不会自动移动或认领此浏览器中的进度。Edenia 正在等待安全的迁移决定。',
     'profileAccess.conflicting.title': '你的档案需要安全选择',

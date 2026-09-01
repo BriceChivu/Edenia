@@ -397,6 +397,8 @@ export const ZH_HANT_LOCALIZED = {
     'profileAccess.waitingAuthentication.body': 'Edenia 需要驗證身分後才能開啟學習者檔案。',
     'profileAccess.waitingCloud.title': '正在開啟你的學習進度…',
     'profileAccess.waitingCloud.body': 'Edenia 正在檢查已登入的檔案，之後才會在此裝置上開啟。',
+    'profileAccess.opening.protected': '你的學習者內容會保持隱藏，直到目前的學習者檔案準備就緒。',
+    'profileAccess.opening.status': '正在準備你的學習進度…',
     'profileAccess.migrating.title': '正在準備受保護的檔案…',
     'profileAccess.migrating.body': '登入不會自動移動或認領此瀏覽器中的進度。Edenia 正在等待安全的遷移決定。',
     'profileAccess.conflicting.title': '你的檔案需要安全選擇',
