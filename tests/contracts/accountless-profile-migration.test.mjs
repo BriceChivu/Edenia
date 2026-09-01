@@ -132,6 +132,24 @@ test('the serious-incident rollback restores accountless access after the final 
   assert.equal(harness.controller.isEntryRequired(), false)
 })
 
+test('the serious-incident rollback suppresses automatic accountless attachment', () => {
+  const harness = createHarness({ emergencyRollbackEnabled: true })
+
+  assert.deepEqual(
+    harness.controller.start({ hasAccountlessProfile: true }),
+    { emergencyRollback: true, status: 'hidden' }
+  )
+  harness.controller.observeAuthentication({ status: 'signed-in' })
+
+  assert.equal(harness.controller.getAttachment(), null)
+  assert.equal(
+    JSON.parse(
+      harness.storage.getItem('accountless-profile-migration')
+    ).attempt,
+    null
+  )
+})
+
 test('the authoritative cutover fails closed when local grace state is missing or corrupt', () => {
   for (const storedValue of [null, '{not-json']) {
     const storage = createStorage()
@@ -174,7 +192,31 @@ test('a pending pre-authentication attempt reloads through the final welcome', (
   )
 })
 
-test('an inherited session requires confirmation without persisting identity', () => {
+test('a legacy confirmation attempt reloads without showing Continue as', () => {
+  const storage = createStorage()
+  storage.setItem('accountless-profile-migration', JSON.stringify({
+    attempt: {
+      id: 'migration-operation-1',
+      retryCount: 0,
+      startedAt: STARTED_AT,
+      status: 'confirming-session'
+    },
+    finalGateAt: STARTED_AT + (30 * DAY_MS),
+    graceStartedAt: STARTED_AT,
+    nextNoticeAt: null,
+    version: 1
+  }))
+  const harness = createHarness({ storage })
+
+  assert.equal(
+    harness.controller.start({ hasAccountlessProfile: true }).status,
+    'awaiting-authentication'
+  )
+  harness.controller.observeAuthentication({ status: 'signed-in' })
+  assert.equal(harness.controller.getState().status, 'attaching')
+})
+
+test('a signed-in Accountless profile starts attachment without persisting identity', () => {
   const harness = createHarness()
   harness.controller.start({ hasAccountlessProfile: true })
   harness.controller.observeAuthentication({
@@ -183,24 +225,19 @@ test('an inherited session requires confirmation without persisting identity', (
     userId: '123e4567-e89b-42d3-a456-426614174000'
   })
 
-  assert.equal(harness.controller.begin(), true)
   assert.deepEqual(harness.controller.getState(), {
     daysRemaining: 30,
-    email: 'owner@example.test',
     finalGateAt: STARTED_AT + (30 * DAY_MS),
-    status: 'confirming-session'
+    status: 'attaching'
   })
-  const persistedBeforeConfirmation = harness.storage.getItem(
+  const persistedAttachment = harness.storage.getItem(
     'accountless-profile-migration'
   )
-  assert.doesNotMatch(persistedBeforeConfirmation, /owner@example\.test/)
+  assert.doesNotMatch(persistedAttachment, /owner@example\.test/)
   assert.doesNotMatch(
-    persistedBeforeConfirmation,
+    persistedAttachment,
     /123e4567-e89b-42d3-a456-426614174000/
   )
-
-  assert.equal(harness.controller.confirmInheritedSession(), true)
-  assert.equal(harness.controller.getState().status, 'attaching')
   assert.deepEqual(harness.controller.getAttachment(), {
     operationId: 'migration-operation-1'
   })
@@ -212,9 +249,7 @@ test('an inherited session requires confirmation without persisting identity', (
     status: 'signed-in',
     userId: '123e4567-e89b-42d3-a456-426614174000'
   })
-  assert.equal(reloaded.controller.getState().status, 'confirming-session')
-  assert.equal(reloaded.controller.getAttachment(), null)
-  assert.equal(reloaded.controller.confirmInheritedSession(), true)
+  assert.equal(reloaded.controller.getState().status, 'attaching')
   assert.deepEqual(reloaded.controller.getAttachment(), {
     operationId: 'migration-operation-1'
   })
@@ -245,7 +280,7 @@ test('failed or cancelled authentication keeps the migration voluntary', () => {
   )
 })
 
-test('a signed-in session restored while authentication is pending still requires confirmation', () => {
+test('a signed-in session restored while authentication is pending attaches automatically', () => {
   const harness = createHarness()
   harness.controller.start({ hasAccountlessProfile: true })
   harness.controller.observeAuthentication({ status: 'signed-out' })
@@ -262,9 +297,7 @@ test('a signed-in session restored while authentication is pending still require
     status: 'signed-in'
   })
 
-  assert.equal(reloaded.controller.getState().status, 'confirming-session')
-  assert.equal(reloaded.controller.getAttachment(), null)
-  assert.equal(reloaded.controller.confirmInheritedSession(), true)
+  assert.equal(reloaded.controller.getState().status, 'attaching')
   assert.deepEqual(reloaded.controller.getAttachment(), {
     operationId: 'migration-operation-1'
   })
@@ -276,7 +309,6 @@ test('a failed first backup retries the same durable operation after reload', ()
   harness.controller.observeAuthentication({ status: 'signed-out' })
   harness.controller.begin()
   harness.controller.observeAuthentication({ status: 'signed-in' })
-  harness.controller.confirmInheritedSession()
 
   assert.equal(harness.controller.markBackupFailed(), true)
   assert.equal(harness.controller.getState().status, 'backup-failed')
@@ -289,9 +321,7 @@ test('a failed first backup retries the same durable operation after reload', ()
   reloaded.controller.observeAuthentication({ status: 'signed-in' })
   assert.equal(reloaded.controller.getState().status, 'backup-failed')
   assert.equal(reloaded.controller.retry(), true)
-  assert.equal(reloaded.controller.getState().status, 'confirming-session')
-  assert.equal(reloaded.controller.getAttachment(), null)
-  assert.equal(reloaded.controller.confirmInheritedSession(), true)
+  assert.equal(reloaded.controller.getState().status, 'attaching')
   assert.deepEqual(reloaded.controller.getAttachment(), {
     operationId: 'migration-operation-1'
   })
@@ -308,7 +338,6 @@ test('completion removes the one-time migration record', () => {
   harness.controller.observeAuthentication({ status: 'signed-out' })
   harness.controller.begin()
   harness.controller.observeAuthentication({ status: 'signed-in' })
-  harness.controller.confirmInheritedSession()
 
   assert.equal(harness.controller.complete(), true)
   assert.equal(harness.storage.getItem('accountless-profile-migration'), null)
@@ -321,7 +350,6 @@ test('ordinary conflict comparison hides the gate without losing migration state
   harness.controller.observeAuthentication({ status: 'signed-out' })
   harness.controller.begin()
   harness.controller.observeAuthentication({ status: 'signed-in' })
-  harness.controller.confirmInheritedSession()
 
   assert.equal(harness.controller.markConflictReady(), true)
   assert.deepEqual(harness.controller.getState(), {
@@ -348,7 +376,6 @@ test('a populated signed-in profile cannot claim the accountless attempt', () =>
   harness.controller.observeAuthentication({ status: 'signed-out' })
   harness.controller.begin()
   harness.controller.observeAuthentication({ status: 'signed-in' })
-  harness.controller.confirmInheritedSession()
 
   assert.equal(harness.controller.markSignedInProfilePresent(), true)
   assert.equal(harness.controller.getState().status, 'signed-in-profile-present')

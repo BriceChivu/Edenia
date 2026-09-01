@@ -512,7 +512,7 @@ test('the grace notice snoozes early and becomes non-dismissible for the final s
   await expect(page.locator('body')).toHaveAttribute('data-theme', 'dark')
 })
 
-test('an inherited session attaches the untouched town only after explicit confirmation and verified cloud acceptance', async ({
+test('an accountless town connects automatically and locks after sign-out', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
@@ -520,9 +520,15 @@ test('an inherited session attaches the untouched town only after explicit confi
   let migrationCalls = 0
   let acceptedEnvelope = null
   let acceptedRevision = 1
+  const signOutScopes = []
   await installRuntimeRoute(page, () => enabled)
   await page.route('https://accountless-profile-test.supabase.co/**', route => {
-    const pathname = new URL(route.request().url()).pathname
+    const url = new URL(route.request().url())
+    const pathname = url.pathname
+    if (pathname.endsWith('/auth/v1/logout')) {
+      signOutScopes.push(url.searchParams.get('scope'))
+      return route.fulfill({ json: {}, status: 200 })
+    }
     if (pathname.endsWith('/rpc/migrate_my_accountless_profile')) {
       migrationCalls += 1
       acceptedEnvelope = route.request().postDataJSON().p_envelope
@@ -565,17 +571,12 @@ test('an inherited session attaches the untouched town only after explicit confi
   enabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
 
-  await expect(page.locator('#mainApp')).toBeVisible()
-  await page.getByRole('button', { name: 'Back up my progress now' }).click()
-  await expect(page.locator('#accountlessProfileMigrationTitle')).toHaveText(
-    'Continue as accountless-owner@example.com?'
-  )
-  expect(migrationCalls).toBe(0)
-
-  await page.getByRole('button', { name: 'Continue as this email' }).click()
   await expect.poll(() => migrationCalls).toBe(1)
   await expect(page.locator('#mainApp')).toBeVisible()
   await expect(page.locator('#accountlessProfileMigrationNotice')).toBeHidden()
+  await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(
+    'Up to date'
+  )
   await expect.poll(() => page.evaluate(syncKey => (
     JSON.parse(localStorage.getItem(syncKey))?.pending
   ), PROFILE_SYNC_STORAGE_KEY)).toBeNull()
@@ -622,9 +623,22 @@ test('an inherited session attaches the untouched town only after explicit confi
   expect(stored.sync.acceptedRevision).toBeGreaterThanOrEqual(1)
   expect(stored.migration).toBeNull()
   expect(stored.migrationBackup).toBeNull()
+
+  await page.locator('.gear-btn').click()
+  await page.getByRole('button', { name: 'Account' }).click()
+  await page.getByRole('button', { name: 'Sign out everywhere' }).click()
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'locked'
+  )
+  await expect(page.locator('#mainApp')).toBeHidden()
+  await expect(page.locator('#learnerProfileAccessTitle')).toHaveText(
+    'Welcome back — sign in to continue your town.'
+  )
+  await expect.poll(() => signOutScopes).toEqual(['global'])
 })
 
-test('legacy and cloud progress use the ordinary protected browser comparison', async ({
+test('automatic connection preserves the protected device and cloud comparison', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
@@ -749,8 +763,6 @@ test('legacy and cloud progress use the ordinary protected browser comparison', 
   enabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
 
-  await page.getByRole('button', { name: 'Back up my progress now' }).click()
-  await page.getByRole('button', { name: 'Continue as this email' }).click()
   await expect(page.getByRole('heading', { name: 'Compare your profiles' }))
     .toBeVisible()
   await expect(page.getByRole('columnheader', { name: 'This device' }))
@@ -850,8 +862,6 @@ test('a failed first backup survives reload and retries the same protected opera
   const originalState = await seedAccountlessProfile(page, { withSession: true })
   enabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.getByRole('button', { name: 'Back up my progress now' }).click()
-  await page.getByRole('button', { name: 'Continue as this email' }).click()
 
   await expect(page.locator('#accountlessProfileMigrationTitle')).toHaveText(
     'Not backed up yet'
@@ -894,11 +904,6 @@ test('a failed first backup survives reload and retries the same protected opera
     'Not backed up yet'
   )
   await page.getByRole('button', { name: 'Try backup again' }).click()
-  await expect(page.locator('#accountlessProfileMigrationTitle')).toHaveText(
-    'Continue as accountless-owner@example.com?'
-  )
-  expect(migrationOperations.length).toBe(1)
-  await page.getByRole('button', { name: 'Continue as this email' }).click()
   await expect.poll(() => migrationOperations.length).toBe(2)
   await expect.poll(() => catchUpOperations.length).toBe(1)
   await expect(page.locator('#accountlessProfileMigrationTitle')).toHaveText(
@@ -911,13 +916,9 @@ test('a failed first backup survives reload and retries the same protected opera
   ), PROFILE_ACCESS_STORAGE_KEY)).toBeNull()
 
   await page.reload({ waitUntil: 'domcontentloaded' })
-  await page.getByRole('button', { name: 'Try backup again' }).click()
-  await expect(page.locator('#accountlessProfileMigrationTitle')).toHaveText(
-    'Continue as accountless-owner@example.com?'
-  )
   expect(migrationOperations.length).toBe(2)
   const reloadCompleted = page.waitForEvent('domcontentloaded')
-  await page.getByRole('button', { name: 'Continue as this email' }).click()
+  await page.getByRole('button', { name: 'Try backup again' }).click()
   await expect.poll(() => migrationOperations.length).toBe(3)
   await expect.poll(() => catchUpOperations.length).toBe(2)
   await reloadCompleted
@@ -1022,8 +1023,6 @@ test('first signed-in progress sync keeps an active one-channel town rendered wh
   await page.reload({ waitUntil: 'domcontentloaded' })
   await expect(page.locator('#videoGrid .channel-shelf')).toHaveCount(1)
 
-  await page.getByRole('button', { name: 'Back up my progress now' }).click()
-  await page.getByRole('button', { name: 'Continue as this email' }).click()
   await expect.poll(() => migrationOperations.length).toBe(1)
   await expect(page.locator('#accountlessProfileMigrationTitle')).toHaveText(
     'Not backed up yet'
@@ -1035,13 +1034,9 @@ test('first signed-in progress sync keeps an active one-channel town rendered wh
     'Not backed up yet'
   )
   await expect(page.locator('#videoGrid .channel-shelf')).toHaveCount(1)
-  await page.getByRole('button', { name: 'Try backup again' }).click()
-  await expect(page.locator('#accountlessProfileMigrationTitle')).toHaveText(
-    'Continue as accountless-owner@example.com?'
-  )
   serverGate = 'developer-canary'
   const reloadCompleted = page.waitForEvent('domcontentloaded')
-  await page.getByRole('button', { name: 'Continue as this email' }).click()
+  await page.getByRole('button', { name: 'Try backup again' }).click()
   await expect.poll(() => migrationOperations.length).toBe(2)
   await page.clock.setFixedTime(new Date(initialNow.getTime() + (2 * 60 * 60_000)))
   releaseFinalMigration()
@@ -1145,11 +1140,7 @@ test('retained favorite stays rendered through first signed-in progress sync wit
   await expect(page.getByText('Ordinary fetched lesson', { exact: true }))
     .toBeVisible()
 
-  const reloadCompleted = page.waitForEvent('domcontentloaded')
-  await page.getByRole('button', { name: 'Back up my progress now' }).click()
-  await page.getByRole('button', { name: 'Continue as this email' }).click()
   await expect.poll(() => migrationOperations.length).toBe(1)
-  await reloadCompleted
 
   try {
     await expect(page.locator('html')).toHaveAttribute(
@@ -1206,7 +1197,7 @@ test('retained favorite stays rendered through first signed-in progress sync wit
   })
 })
 
-test('a restored sign-in still waits for explicit confirmation after reload', async ({
+test('a restored sign-in starts the pending accountless migration automatically', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
@@ -1235,10 +1226,10 @@ test('a restored sign-in still waits for explicit confirmation after reload', as
   })
 
   await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect.poll(() => migrationCalls).toBe(1)
   await expect(page.locator('#accountlessProfileMigrationTitle')).toHaveText(
-    'Continue as accountless-owner@example.com?'
+    'Not backed up yet'
   )
-  expect(migrationCalls).toBe(0)
   expect(await page.evaluate(accessKey => (
     JSON.parse(localStorage.getItem(accessKey))?.ownerId
   ), PROFILE_ACCESS_STORAGE_KEY)).toBeNull()

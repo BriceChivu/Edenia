@@ -1,4 +1,7 @@
 import {
+  isMeaningfullyEmptyLearnerProfile
+} from '../domain/learner-profile-meaning.js'
+import {
   LEARNER_PROFILE_RECOVERY_REASONS,
   LEARNER_PROFILE_RECOVERY_SOURCES,
   LEARNER_PROFILE_RESOLUTION_STATUSES
@@ -1632,11 +1635,50 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return { conflicts: Object.freeze(conflicts) }
   }
 
-  async function resolvePreservedConflict(receipt, operation) {
+  async function resolvePreservedConflict(
+    receipt,
+    operation,
+    { chooseWhenEmpty = false } = {}
+  ) {
     const conflict = await readPreservedConflict(receipt, operation, null)
     if (!conflict) return { status: 'recovering' }
     if (conflict.status === 'open') {
-      return { conflict, status: 'conflicting' }
+      if (!chooseWhenEmpty) return { conflict, status: 'conflicting' }
+      const deviceIsEmpty = isMeaningfullyEmptyLearnerProfile(
+        conflict.device.profile
+      )
+      const cloudIsEmpty = isMeaningfullyEmptyLearnerProfile(
+        conflict.cloud.profile
+      )
+      const profilesMatch = JSON.stringify(conflict.device.profile)
+        === JSON.stringify(conflict.cloud.profile)
+      if (!deviceIsEmpty && !cloudIsEmpty && !profilesMatch) {
+        return { conflict, status: 'conflicting' }
+      }
+      const selectedSide = deviceIsEmpty || profilesMatch ? 'cloud' : 'device'
+      const automaticallyChosen = await chooseConflict({
+        confirmed: true,
+        conflict,
+        selectedSide
+      })
+      if (automaticallyChosen.status === 'conflict-changed') {
+        return {
+          conflict: automaticallyChosen.conflict,
+          status: 'conflicting'
+        }
+      }
+      return automaticallyChosen.status === 'chosen'
+        ? {
+            created: false,
+            generation: automaticallyChosen.generation,
+            ownerId: automaticallyChosen.ownerId,
+            profile: automaticallyChosen.profile,
+            profileId: automaticallyChosen.profileId,
+            protectedConflicts: automaticallyChosen.protectedConflicts,
+            revision: automaticallyChosen.revision,
+            status: 'activate'
+          }
+        : { status: 'recovering' }
     }
     const recovered = await chooseConflict({
       confirmed: true,
@@ -2024,7 +2066,9 @@ export function createLearnerProfileCloudPersistenceAdapter({
       if (conflictReceipt?.status !== 'conflict') {
         return { status: 'migration-backup-failed' }
       }
-      return resolvePreservedConflict(conflictReceipt, operation)
+      return resolvePreservedConflict(conflictReceipt, operation, {
+        chooseWhenEmpty: true
+      })
     }
     if (row?.status !== 'migrated') {
       return { status: 'migration-backup-failed' }

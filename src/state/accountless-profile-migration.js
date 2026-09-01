@@ -73,7 +73,6 @@ export function createAccountlessProfileMigrationController({
   let eligible = false
   let record = null
   let finalGateAcknowledged = false
-  let confirmedSessionForAttempt = false
   let authentication = Object.freeze({
     email: '',
     status: 'loading'
@@ -189,6 +188,19 @@ export function createAccountlessProfileMigrationController({
     finalGateAcknowledged = false
     if (!eligible) return publish()
     record = readRecord(storage, storageKey)
+    if (
+      record?.attempt?.status
+      === ACCOUNTLESS_PROFILE_MIGRATION_STATES.CONFIRMING_SESSION
+    ) {
+      const upgradedRecord = {
+        ...record,
+        attempt: {
+          ...record.attempt,
+          status: ACCOUNTLESS_PROFILE_MIGRATION_STATES.AWAITING_AUTHENTICATION
+        }
+      }
+      if (!writeRecord(upgradedRecord)) record = upgradedRecord
+    }
     if (!record) {
       const now = clock.now()
       const effectiveFinalGateAt = Number.isFinite(finalCutoverAt)
@@ -221,9 +233,6 @@ export function createAccountlessProfileMigrationController({
         : null,
       nextNoticeAt: clock.now() + NOTICE_SNOOZE_MS
     })
-    if (written && record.attempt === null) {
-      confirmedSessionForAttempt = false
-    }
     publish()
     return written
   }
@@ -240,20 +249,39 @@ export function createAccountlessProfileMigrationController({
           : 'unavailable'
     })
     const attempt = record?.attempt
-    if (!attempt) return publish()
-    if (['signed-out', 'unavailable'].includes(authentication.status)) {
-      confirmedSessionForAttempt = false
+    if (!attempt) {
+      if (
+        eligible
+        && record
+        && emergencyRollbackEnabled !== true
+        && authentication.status === 'signed-in'
+      ) {
+        const operationId = createOperationId()
+        if (typeof operationId === 'string' && operationId) {
+          const written = writeRecord({
+            ...record,
+            attempt: {
+              id: operationId,
+              retryCount: 0,
+              startedAt: clock.now(),
+              status: ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING
+            },
+            nextNoticeAt: null
+          })
+          if (written) return publish()
+        }
+      }
+      return currentState
     }
     let status = attempt.status
     if (
-      status === ACCOUNTLESS_PROFILE_MIGRATION_STATES.AWAITING_AUTHENTICATION
+      [
+        ACCOUNTLESS_PROFILE_MIGRATION_STATES.AWAITING_AUTHENTICATION,
+        ACCOUNTLESS_PROFILE_MIGRATION_STATES.CONFIRMING_SESSION
+      ].includes(status)
+      && emergencyRollbackEnabled !== true
       && authentication.status === 'signed-in'
-    ) status = ACCOUNTLESS_PROFILE_MIGRATION_STATES.CONFIRMING_SESSION
-    if (
-      status === ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING
-      && authentication.status === 'signed-in'
-      && !confirmedSessionForAttempt
-    ) status = ACCOUNTLESS_PROFILE_MIGRATION_STATES.CONFIRMING_SESSION
+    ) status = ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING
     if (
       [
         ACCOUNTLESS_PROFILE_MIGRATION_STATES.CONFIRMING_SESSION,
@@ -262,12 +290,13 @@ export function createAccountlessProfileMigrationController({
       && ['signed-out', 'unavailable'].includes(authentication.status)
     ) status = ACCOUNTLESS_PROFILE_MIGRATION_STATES.AWAITING_AUTHENTICATION
     if (status !== attempt.status) {
-      writeRecord({
+      const written = writeRecord({
         ...record,
         attempt: { ...attempt, status }
       })
+      if (written) return publish()
     }
-    return publish()
+    return currentState
   }
 
   function begin() {
@@ -283,7 +312,6 @@ export function createAccountlessProfileMigrationController({
     const operationId = createOperationId()
     if (typeof operationId !== 'string' || !operationId) return false
     finalGateAcknowledged = true
-    confirmedSessionForAttempt = false
     const written = writeRecord({
       ...record,
       attempt: {
@@ -291,7 +319,7 @@ export function createAccountlessProfileMigrationController({
         retryCount: 0,
         startedAt: clock.now(),
         status: authentication.status === 'signed-in'
-          ? ACCOUNTLESS_PROFILE_MIGRATION_STATES.CONFIRMING_SESSION
+          ? ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING
           : ACCOUNTLESS_PROFILE_MIGRATION_STATES.AWAITING_AUTHENTICATION
       },
       nextNoticeAt: null
@@ -313,7 +341,6 @@ export function createAccountlessProfileMigrationController({
         status: ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING
       }
     })
-    if (written) confirmedSessionForAttempt = true
     publish()
     return written
   }
@@ -387,11 +414,9 @@ export function createAccountlessProfileMigrationController({
       attempt: {
         ...record.attempt,
         retryCount: record.attempt.retryCount + 1,
-        status: authentication.status !== 'signed-in'
-          ? ACCOUNTLESS_PROFILE_MIGRATION_STATES.AWAITING_AUTHENTICATION
-          : confirmedSessionForAttempt
-            ? ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING
-            : ACCOUNTLESS_PROFILE_MIGRATION_STATES.CONFIRMING_SESSION
+        status: authentication.status === 'signed-in'
+          ? ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING
+          : ACCOUNTLESS_PROFILE_MIGRATION_STATES.AWAITING_AUTHENTICATION
       },
       nextNoticeAt: null
     })
