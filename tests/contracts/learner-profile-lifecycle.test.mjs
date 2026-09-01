@@ -2982,6 +2982,68 @@ test('browser persistence shares activation fences across tabs before writes', (
   ]])
 })
 
+test('valid local town data remains recoverable when access metadata is malformed', () => {
+  const accessStorageKey = 'edenia_v1_profile_access_v1'
+  const values = new Map([[accessStorageKey, JSON.stringify({
+    profileId: 'not-a-complete-access-record',
+    version: 1
+  })]])
+  const profile = { learnerProfile: { languages: ['french'] } }
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    removeItem: key => values.delete(key),
+    setItem: (key, value) => values.set(key, String(value))
+  }
+  const adapter = createLearnerProfileLocalPersistenceAdapter({
+    accessStorageKey,
+    accountlessProfileId: 'accountless:edenia_v1',
+    eventTarget: null,
+    hasProfile: () => true,
+    loadProfile: () => profile,
+    replaceProfile: () => ({ persisted: true, error: null }),
+    saveProfile: () => true,
+    storage
+  })
+
+  assert.deepEqual(adapter.read(), {
+    accessMetadataRepairRequired: true,
+    ownerId: null,
+    profile,
+    profileId: 'accountless:edenia_v1',
+    status: 'ready'
+  })
+  assert.equal(adapter.attachAccountlessProfile({
+    attachedAt: 1_787_155_200_000,
+    generation: 1,
+    ownerId: '123e4567-e89b-42d3-a456-426614174000',
+    previousProfileId: 'accountless:edenia_v1',
+    profileId: '223e4567-e89b-42d3-a456-426614174001',
+    revision: 1
+  }), true)
+  assert.equal(adapter.read().ownerId, '123e4567-e89b-42d3-a456-426614174000')
+})
+
+test('missing local town data ignores malformed access metadata so onboarding can start', () => {
+  const accessStorageKey = 'edenia_v1_profile_access_v1'
+  const values = new Map([[accessStorageKey, '{malformed-json']])
+  const adapter = createLearnerProfileLocalPersistenceAdapter({
+    accessStorageKey,
+    accountlessProfileId: 'accountless:edenia_v1',
+    eventTarget: null,
+    hasProfile: () => false,
+    loadProfile: () => null,
+    replaceProfile: () => ({ persisted: true, error: null }),
+    saveProfile: () => true,
+    storage: {
+      getItem: key => values.get(key) ?? null,
+      removeItem: key => values.delete(key),
+      setItem: (key, value) => values.set(key, String(value))
+    }
+  })
+
+  assert.deepEqual(adapter.read(), { status: 'empty' })
+})
+
 test('a new signed-in profile installs behind a locked owner record before activation', () => {
   const accessStorageKey = 'edenia_v1_profile_access_v1'
   const values = new Map()

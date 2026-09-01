@@ -117,9 +117,21 @@ export function createLearnerProfileLocalPersistenceAdapter({
       return { status: 'invalid' }
     }
     if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
-      return access.present ? { status: 'invalid' } : { status: 'empty' }
+      return access.present && access.record
+        ? { status: 'invalid' }
+        : { status: 'empty' }
     }
-    if (access.present && !access.record) return { status: 'invalid' }
+    if (access.present && !access.record) {
+      // The profile data is still usable. Treat it as an accountless copy so
+      // signed-in lifecycle startup can migrate or replace its broken fence.
+      return {
+        accessMetadataRepairRequired: true,
+        ownerId: null,
+        profile,
+        profileId: accountlessProfileId,
+        status: 'ready'
+      }
+    }
     if (access.record?.replacement) {
       return {
         nextOwnerId: access.record.replacement.nextOwnerId,
@@ -293,8 +305,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     const access = readAccessRecord(storage, accessStorageKey)
     const current = access.record
     if (
-      (access.present && !current)
-      || (current && current.activationId !== null)
+      (current && current.activationId !== null)
       || current?.ownerId
       || (current && current.profileId !== previousProfileId)
       || current?.replacement
@@ -358,8 +369,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     const access = readAccessRecord(storage, accessStorageKey)
     const current = access.record
     if (
-      (access.present && !current)
-      || (current && current.activationId !== null)
+      (current && current.activationId !== null)
       || current?.ownerId
       || (current && current.profileId !== previousProfileId)
       || current?.replacement
