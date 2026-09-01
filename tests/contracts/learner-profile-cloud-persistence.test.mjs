@@ -5172,6 +5172,115 @@ test('stale reset bookkeeping stays guarded when local progress differs', async 
   assert.equal(storage.getItem(DIRTY_STORAGE_KEY), dirtyRecord)
 })
 
+test('a verified cloud copy repairs bookkeeping for an obsolete profile identity', async () => {
+  const cloudEnvelope = preparedEnvelope({ marker: 'linked-progress' })
+  const storage = createMemoryStorage({
+    [DIRTY_STORAGE_KEY]: JSON.stringify({
+      generation: 6,
+      ownerId: OWNER_ID,
+      profileId: PROFILE_ID,
+      version: 1
+    }),
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 18,
+      generation: 6,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const adapter = createAdapter({
+    rpc: async name => {
+      assert.equal(name, 'resolve_my_learner_profile')
+      return {
+        data: [{
+          created: false,
+          envelope: cloudEnvelope,
+          generation: 1,
+          profile_id: SECOND_PROFILE_ID,
+          revision: 5,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      generation: 1,
+      ownerId: OWNER_ID,
+      profile: cloudEnvelope.profile,
+      profileId: SECOND_PROFILE_ID,
+      revision: 5,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(result.status, 'activate')
+  assert.equal(storage.getItem(DIRTY_STORAGE_KEY), null)
+  assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)), {
+    acceptedRevision: 5,
+    generation: 1,
+    ownerId: OWNER_ID,
+    pending: null,
+    profileId: SECOND_PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+})
+
+test('obsolete profile bookkeeping stays guarded when local progress differs', async () => {
+  const cloudEnvelope = preparedEnvelope({ marker: 'linked-progress' })
+  const syncRecord = JSON.stringify({
+    acceptedRevision: 18,
+    generation: 6,
+    ownerId: OWNER_ID,
+    pending: null,
+    profileId: PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+  const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: syncRecord })
+  const adapter = createAdapter({
+    rpc: async () => ({
+      data: [{
+        created: false,
+        envelope: cloudEnvelope,
+        generation: 1,
+        profile_id: SECOND_PROFILE_ID,
+        revision: 5,
+        status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+      }],
+      error: null
+    }),
+    storage
+  })
+
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      generation: 1,
+      ownerId: OWNER_ID,
+      profile: { marker: 'different-local-progress' },
+      profileId: SECOND_PROFILE_ID,
+      revision: 5,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.deepEqual(result, { status: 'recovering' })
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), syncRecord)
+})
+
 test('reload rolls a durable protected import back before resolving the profile', async () => {
   const previousEnvelope = preparedEnvelope(
     { marker: 'current-profile' },
