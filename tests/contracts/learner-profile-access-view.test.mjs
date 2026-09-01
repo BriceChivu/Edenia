@@ -128,8 +128,8 @@ test('opening progress stays automatic while genuine recovery keeps an escape', 
 
   view.render({ status: 'recovering' })
   assert.equal(retry.hidden, false)
-  assert.equal(retry.textContent, 'profileAccess.recovering.continue')
-  assert.equal(signOut.hidden, true)
+  assert.equal(retry.textContent, 'migration.action.retry')
+  assert.equal(signOut.hidden, false)
 
   for (const accessState of [{
     recovery: { candidates: [], reason: 'current-head-missing' },

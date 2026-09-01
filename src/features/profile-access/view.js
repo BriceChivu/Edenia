@@ -185,11 +185,7 @@ export function createLearnerProfileAccessView({
     }
     if (accessState?.status === 'recovering') {
       retry.hidden = false
-      if (accessState.recovery?.reason) {
-        signOut.hidden = false
-      } else {
-        retry.textContent = translate('profileAccess.recovering.continue')
-      }
+      signOut.hidden = false
       return
     }
     if (RECOVERY_ACTION_STATES.has(accessState?.status)) {

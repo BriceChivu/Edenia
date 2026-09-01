@@ -50,6 +50,7 @@ import {
   usesTapVideoShelfPreviewInput
 } from './core/responsive-capabilities.js'
 import {
+  deriveLearnerProfileAccessVisualTest,
   deriveRuntimeEnvironment,
   deriveStudyGuidanceEnabled
 } from './core/runtime-environment.js'
@@ -595,6 +596,10 @@ const LEGACY_PROGRESS_MIGRATION_ENABLED =
   getLegacyProgressMigrationEnabled()
 const LEARNER_PROFILE_LIFECYCLE_ENABLED =
   getLearnerProfileLifecycleEnabled() && ACCOUNT_FEATURES_ENABLED
+const LEARNER_PROFILE_ACCESS_VISUAL_TEST_STATE =
+  deriveLearnerProfileAccessVisualTest(window.location)
+let learnerProfileAccessVisualTestActive =
+  LEARNER_PROFILE_ACCESS_VISUAL_TEST_STATE !== null
 const LEARNER_PROFILE_ACCESS_BUSY_PRESENTATION_DELAY_MS = 250
 const PLUS_ACCESS_CONFIG = Object.freeze({
   freePlusEnabled: getFreePlusEnabled(),
@@ -2962,6 +2967,9 @@ function restoreLearnerProfileDom(
 }
 
 function handleLearnerProfileAccessStateChange(accessState) {
+  if (learnerProfileAccessVisualTestActive) {
+    accessState = { status: LEARNER_PROFILE_ACCESS_VISUAL_TEST_STATE }
+  }
   if (
     accessState.status === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
     && accessState.conflict?.id
@@ -18585,7 +18593,10 @@ bindLearnerProfileAccessActions(document, {
   retry: () => learnerProfileLifecycleAuthority?.refresh(),
   restoreRecovery: candidateId => learnerProfileLifecycleAuthority
     ?.restoreRecoveryCandidate(candidateId, { confirmed: true }),
-  signOut: signOutAccount
+  signOut: () => {
+    learnerProfileAccessVisualTestActive = false
+    return signOutAccount()
+  }
 })
 bindLearnerProfileSyncActions(document, {
   retry: () => learnerProfileLifecycleAuthority?.retryCloudBackup(),
