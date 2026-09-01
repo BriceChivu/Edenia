@@ -32,9 +32,17 @@ async function waitForApplication(page) {
   await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
 }
 
-async function readIndexedDbBackups(page) {
-  return page.evaluate(() => new Promise((resolve, reject) => {
-    const request = indexedDB.open('edenia_state_backups_v1', 1)
+async function readIndexedDbBackups(
+  page,
+  databaseName = 'edenia_state_backups_v1'
+) {
+  return page.evaluate(databaseName => new Promise((resolve, reject) => {
+    const request = indexedDB.open(databaseName, 1)
+    request.onupgradeneeded = () => {
+      if (!request.result.objectStoreNames.contains('backups')) {
+        request.result.createObjectStore('backups', { keyPath: 'id' })
+      }
+    }
     request.onerror = () => reject(request.error)
     request.onsuccess = () => {
       const database = request.result
@@ -46,7 +54,7 @@ async function readIndexedDbBackups(page) {
         database.close()
       }
     }
-  }))
+  }), databaseName)
 }
 
 test('verified migration preserves progression and PostHog before removing legacy backups', async ({
@@ -57,6 +65,7 @@ test('verified migration preserves progression and PostHog before removing legac
   await configureIndexedDbBackups(page, { enabled: false })
   await page.goto('/')
   await waitForApplication(page)
+  await expect(page.locator('.backup-panel')).not.toHaveClass(/\bhidden\b/)
 
   await page.evaluate(() => {
     const state = window.defaultState(4, [], 'light', [], 'en')
@@ -204,7 +213,13 @@ test('malformed legacy data and test-mode progression are never broadly cleared'
     normalBackups: localStorage.getItem('edenia_v1_backups'),
     normalPrimary: localStorage.getItem('edenia_v1')
   }))).toEqual({
-    normalBackups: null,
+    normalBackups: JSON.stringify([{
+      id: 'normal-from-internal-test',
+      createdAt: '2026-08-09T03:59:00.000Z',
+      reason: 'automatic backup',
+      sandbox: false,
+      state: JSON.parse(normalPrimary)
+    }]),
     normalPrimary
   })
   const testValues = await page.evaluate(() => {
@@ -230,8 +245,8 @@ test('malformed legacy data and test-mode progression are never broadly cleared'
     posthogIdentity: localStorage.getItem('ph_phc_test_posthog'),
     primary: localStorage.getItem('edenia_v1_internal_test')
   }))).toEqual({
-    backupPanelHidden: true,
-    backups: null,
+    backupPanelHidden: false,
+    backups: '[{"test":true}]',
     analyticsState: '{"protected":true}',
     posthogIdentity: 'protected-test-identity',
     primary: testValues.primary
@@ -262,4 +277,60 @@ test('malformed legacy data and test-mode progression are never broadly cleared'
     posthogIdentity: 'protected-sandbox-identity',
     primary: sandboxValues.primary
   })
+})
+
+test('internal test exposes isolated recent local backups', async ({
+  page
+}, testInfo) => {
+  test.skip(!STORAGE_PROJECT_NAMES.has(testInfo.project.name))
+  await page.clock.setFixedTime(fixedNow)
+  await configureIndexedDbBackups(page)
+  await page.goto('/?internal_test=1')
+  await waitForApplication(page)
+
+  await page.evaluate(() => {
+    const state = window.defaultState(4, [], 'light', [], 'en')
+    const completedAt = '2026-08-01T04:00:00.000Z'
+    state.config.ankiEnabled = false
+    state.config.ankiDisabledAt = completedAt
+    state.onboarding.introSeenAt = completedAt
+    state.onboarding.setupCompleted = true
+    state.onboarding.setupCompletedAt = completedAt
+    state.onboarding.walkthroughCompleted = true
+    state.onboarding.walkthroughCompletedAt = completedAt
+    const backupState = structuredClone(state)
+    backupState.config.weeklyGoalHours = 7
+    localStorage.setItem(
+      'edenia_v1_internal_test',
+      JSON.stringify(state)
+    )
+    localStorage.setItem('edenia_v1_internal_test_backups', JSON.stringify([{
+      id: 'internal-visible-backup',
+      createdAt: '2026-08-09T03:59:00.000Z',
+      reason: 'before reset',
+      sandbox: false,
+      state: backupState
+    }]))
+  })
+  await page.reload()
+  await waitForApplication(page)
+
+  await expect(page.locator('.backup-panel')).not.toHaveClass(/\bhidden\b/)
+  await page.locator('.gear-btn').click()
+  await page.locator('.backup-toggle').click()
+  await expect(page.locator(
+    '[data-settings-backup-action="restore"][data-backup-id="internal-visible-backup"]'
+  )).toBeVisible()
+  expect(await page.evaluate(
+    () => localStorage.getItem('edenia_v1_internal_test_backups')
+  )).toBeNull()
+  expect(await readIndexedDbBackups(
+    page,
+    'edenia_state_backups_v1_internal_test'
+  )).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: 'internal-visible-backup' })
+  ]))
+  expect(await readIndexedDbBackups(page)).not.toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: 'internal-visible-backup' })
+  ]))
 })

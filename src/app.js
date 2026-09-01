@@ -334,7 +334,8 @@ import {
   isValidStateBackupEntry
 } from './state/backups.js'
 import {
-  createIndexedDbBackupStorage
+  createIndexedDbBackupStorage,
+  STATE_BACKUP_DATABASE_NAME
 } from './state/indexed-db-backups.js'
 import {
   createPlusEntitlementCache
@@ -588,7 +589,7 @@ const GOOGLE_IDENTITY_SERVICES_READY =
   hasGoogleIdentityServicesRuntimeConfig()
 const TURNSTILE_SITE_KEY = getTurnstileSiteKey()
 const TURNSTILE_READY = hasTurnstileRuntimeConfig()
-const LOCAL_BACKUPS_ENABLED = !IS_SANDBOX && !IS_INTERNAL_TEST
+const LOCAL_BACKUPS_ENABLED = !IS_SANDBOX
 const INDEXED_DB_BACKUPS_ENABLED = getIndexedDbBackupsEnabled()
 const INDEXED_DB_BACKUP_CLEANUP_ENABLED =
   INDEXED_DB_BACKUPS_ENABLED && getIndexedDbBackupCleanupEnabled()
@@ -675,12 +676,11 @@ const readImportedState = createImportedStateReader({
   createDefaultState: defaultState,
   removeLegacyVideoWatchReminderState
 })
-const NORMAL_STATE_BACKUP_KEY = deriveStorageKeys({
-  isSandbox: false,
-  isInternalTest: false
-}).stateBackupKey
+const STATE_BACKUP_DATABASE = IS_INTERNAL_TEST
+  ? `${STATE_BACKUP_DATABASE_NAME}_internal_test`
+  : STATE_BACKUP_DATABASE_NAME
 const INDEXED_DB_BACKUP_MARKER_KEY =
-  `${NORMAL_STATE_BACKUP_KEY}_indexed_db_v1`
+  `${STATE_BACKUP_KEY}_indexed_db_v1`
 const stateBackupStoreOptions = {
   storageKey: STORAGE_KEY,
   stateBackupKey: STATE_BACKUP_KEY,
@@ -749,41 +749,6 @@ async function initializeStateBackupStorage() {
       error: null,
       persisted: true
     })
-    if (IS_INTERNAL_TEST && INDEXED_DB_BACKUPS_ENABLED) {
-      try {
-        const normalRepository = await createIndexedDbBackupStorage({
-          backupKey: NORMAL_STATE_BACKUP_KEY,
-          beforeLegacyCleanup() {
-            try {
-              localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1')
-              return localStorage.getItem(
-                INDEXED_DB_BACKUP_MARKER_KEY
-              ) === '1'
-            } catch {
-              return false
-            }
-          },
-          cleanupLegacy: INDEXED_DB_BACKUP_CLEANUP_ENABLED,
-          indexedDb: window.indexedDB,
-          isValidEntry: entry => isValidStateBackupEntry(
-            entry,
-            isValidStateShape
-          ),
-          legacyStorage: localStorage
-        })
-        if (normalRepository.migration.entryCount > 0) {
-          try {
-            localStorage.setItem(INDEXED_DB_BACKUP_MARKER_KEY, '1')
-          } catch {}
-        }
-        normalRepository.close()
-      } catch (error) {
-        console.warn(
-          'Edenia normal backup migration from internal test failed.',
-          error
-        )
-      }
-    }
     return
   }
 
@@ -807,6 +772,7 @@ async function initializeStateBackupStorage() {
         }
       },
       cleanupLegacy: INDEXED_DB_BACKUP_CLEANUP_ENABLED,
+      databaseName: STATE_BACKUP_DATABASE,
       indexedDb: window.indexedDB,
       isValidEntry: entry => isValidStateBackupEntry(
         entry,
