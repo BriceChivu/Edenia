@@ -2471,15 +2471,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
     if (
       currentRecord
-      && (
-        currentRecord.ownerId !== cloudIdentity.ownerId
-        || currentRecord.profileId !== cloudIdentity.profileId
-      )
+      && currentRecord.ownerId === cloudIdentity.ownerId
+      && currentRecord.profileId !== cloudIdentity.profileId
       && currentRecord.pending === null
       && currentRecord.queued === null
-      && isVerifiedCurrentLocalCopy(
-        localProfile,
-        cloudIdentity,
+      && localProfile?.status === 'ready'
+      && localProfile.ownerId === cloudIdentity.ownerId
+      && canonicalProfilesMatch(
+        localProfile.profile,
         envelope,
         prepareEnvelope
       )
