@@ -16,6 +16,19 @@ export function deriveRuntimeEnvironment(locationLike) {
   }
 }
 
+export function deriveLearnerProfileAccessVisualTest(locationLike) {
+  const urlParams = new URLSearchParams(locationLike.search)
+  const profileAccessTest = urlParams.getAll('profile_access_test')
+  if (
+    !['localhost', '127.0.0.1', '::1'].includes(locationLike.hostname)
+    || urlParams.getAll('internal_test').length !== 1
+    || urlParams.get('internal_test') !== '1'
+    || profileAccessTest.length !== 1
+    || profileAccessTest[0] !== 'recovering'
+  ) return null
+  return 'recovering'
+}
+
 export function deriveStudyGuidanceEnabled(
   runtimeEnvironment,
   releaseEnabled = false

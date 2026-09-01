@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  deriveLearnerProfileAccessVisualTest,
   deriveRuntimeEnvironment,
   deriveStudyGuidanceEnabled
 } from '../../src/core/runtime-environment.js'
@@ -88,6 +89,24 @@ test('runtime environment preserves exact origins, hosts, and first query values
     origin: 'http://[::1]:4173',
     search: ''
   }).isLocalhost, true)
+})
+
+test('learner profile access visual test is localhost-only and internal-only', () => {
+  assert.equal(
+    deriveLearnerProfileAccessVisualTest(
+      new URL('http://localhost:8000/?internal_test=1&profile_access_test=recovering')
+    ),
+    'recovering'
+  )
+  for (const url of [
+    'https://www.edenia.study/?internal_test=1&profile_access_test=recovering',
+    'http://localhost:8000/?profile_access_test=recovering',
+    'http://localhost:8000/?internal_test=1&profile_access_test=conflicting',
+    'http://localhost:8000/?internal_test=1&profile_access_test=recovering&profile_access_test=recovering',
+    'http://localhost:8000/?internal_test=1&profile_access_test=recovering&internal_test=1'
+  ]) {
+    assert.equal(deriveLearnerProfileAccessVisualTest(new URL(url)), null, url)
+  }
 })
 
 test('storage keys preserve normal, internal, sandbox, and combined isolation', () => {

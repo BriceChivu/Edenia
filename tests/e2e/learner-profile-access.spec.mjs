@@ -1435,6 +1435,87 @@ test('missing-head history with no usable copy stays guarded', async ({
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
 })
 
+test('generic recovery gives the learner a retry and sign-out path', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let lifecycleEnabled = false
+  let resolutionCount = 0
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      resolutionCount += 1
+      return route.fulfill({
+        json: [],
+        status: 200
+      })
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto('/?internal_test=1')
+  const storedState = await seedOwnedLearnerProfile(page)
+  lifecycleEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expectNeutralProfileGate(page, 'recovering', storedState)
+  await expect(page.locator('#learnerProfileAccessTitle')).toHaveText(
+    'We need to check your progress'
+  )
+  await expect(page.locator('#learnerProfileAccessBody')).toHaveText(
+    'Edenia could not open your progress yet. Your saved copies are safe. Try again or sign out.'
+  )
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Continue' })).toHaveCount(0)
+  expect(resolutionCount).toBeGreaterThan(0)
+
+  await page.getByRole('button', { name: 'Sign out' }).click()
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'locked'
+  )
+  expect(await page.evaluate(key => localStorage.getItem(key), STATE_STORAGE_KEY))
+    .toBe(storedState)
+})
+
+test('localhost visual recovery switch opens the generic recovery gate', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: 'internal',
+      lifecycle: true
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => (
+    route.fulfill({ json: {}, status: 200 })
+  ))
+
+  await page.goto('/?internal_test=1&profile_access_test=recovering')
+
+  await expectNeutralProfileGate(page, 'recovering', null)
+  await expect(page.locator('#learnerProfileAccessTitle')).toHaveText(
+    'We need to check your progress'
+  )
+  await expect(page.locator('#learnerProfileAccessBody')).toHaveText(
+    'Edenia could not open your progress yet. Your saved copies are safe. Try again or sign out.'
+  )
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
+})
+
 test('a signed-in owner can reopen and save the matching local profile while the cloud head is unavailable', async ({
   page
 }, testInfo) => {
