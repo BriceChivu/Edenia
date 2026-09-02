@@ -204,11 +204,14 @@ async function prepareImportPage(page, {
       }))
       sessionStorage.setItem(seededKey, '1')
     }
-    window.__failNextImportedProfileWrite = false
+    window.__failImportedProfileWrite = false
     const originalSetItem = Storage.prototype.setItem
     Storage.prototype.setItem = function (key, value) {
-      if (key === stateKey && window.__failNextImportedProfileWrite) {
-        window.__failNextImportedProfileWrite = false
+      if (
+        key === stateKey
+        && value.includes('"source-entry-499"')
+        && window.__failImportedProfileWrite
+      ) {
         throw new DOMException('Forced profile write failure', 'QuotaExceededError')
       }
       return originalSetItem.call(this, key, value)
@@ -540,7 +543,7 @@ test('a local persistence failure rolls the protected cloud import back', async 
   await page.locator('[data-settings-shell-action="open"]').click()
   await selectImportFile(page, importedEnvelope, 'write-failure.json')
   await page.evaluate(() => {
-    window.__failNextImportedProfileWrite = true
+    window.__failImportedProfileWrite = true
   })
   await page.getByRole('button', {
     name: 'Protect current progress and replace'
