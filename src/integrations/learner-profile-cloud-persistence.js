@@ -2476,7 +2476,11 @@ export function createLearnerProfileCloudPersistenceAdapter({
       && localProfile.generation === undefined
       && localProfile.revision === undefined
     let currentRecord = readSyncRecord()
-    if (!currentRecord && hasStoredSyncRecord()) {
+    if (
+      !currentRecord
+      && hasStoredSyncRecord()
+      && localProfile?.status !== 'empty'
+    ) {
       return { status: 'recovering' }
     }
     const cloudIdentity = {

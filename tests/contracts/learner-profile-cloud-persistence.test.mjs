@@ -209,6 +209,52 @@ test('cloud unavailability remains distinct from unsafe profile recovery', async
   })
 })
 
+test('a valid cloud profile replaces a malformed sync marker for an empty local namespace', async () => {
+  const cloudEnvelope = preparedEnvelope({ marker: 'cloud-profile' })
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: '{malformed-sync-record'
+  })
+  const adapter = createAdapter({
+    rpc: async name => {
+      assert.equal(name, 'resolve_my_learner_profile')
+      return {
+        data: [{
+          created: false,
+          envelope: cloudEnvelope,
+          generation: 1,
+          profile_id: PROFILE_ID,
+          revision: 3,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+
+  const resolved = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: { status: 'empty' },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(resolved.status, 'activate')
+  assert.equal(resolved.ownerId, OWNER_ID)
+  assert.equal(resolved.profileId, PROFILE_ID)
+  assert.equal(resolved.generation, 1)
+  assert.equal(resolved.revision, 3)
+  assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)), {
+    acceptedRevision: 3,
+    generation: 1,
+    ownerId: OWNER_ID,
+    pending: null,
+    profileId: PROFILE_ID,
+    queued: null,
+    version: 1
+  })
+})
+
 test('a missing current head offers only matching local and protected recovery candidates', async () => {
   const rpcCalls = []
   const adapter = createAdapter({
