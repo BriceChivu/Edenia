@@ -1369,7 +1369,7 @@ test('failed unusable-head restoration keeps recovery export and retry available
   await expect.poll(() => restoreAttempts).toBe(2)
 })
 
-test('missing-head history with no usable copy stays guarded', async ({
+test('missing-head history with no trusted copy routes to onboarding', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
@@ -1424,15 +1424,12 @@ test('missing-head history with no usable copy stays guarded', async ({
 
   await expect(page.locator('html')).toHaveAttribute(
     'data-learner-profile-access-state',
-    'recovering'
+    'onboarding-required'
   )
+  await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+  await expect(page.locator('#introTrailer')).toBeVisible()
   await expect(page.locator('#mainApp')).toBeHidden()
-  await expect(page.locator('#learnerProfileRecoveryList li')).toHaveCount(0)
-  await expect(page.locator('#learnerProfileRecoveryEmpty')).toHaveText(
-    'No trusted recovery copy is available yet. Try again or sign out.'
-  )
-  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
+  await expect(page.getByText(SECRET_CHANNEL_NAME, { exact: true })).toHaveCount(0)
 })
 
 test('generic recovery gives the learner a retry and sign-out path', async ({
@@ -1485,6 +1482,79 @@ test('generic recovery gives the learner a retry and sign-out path', async ({
   )
   expect(await page.evaluate(key => localStorage.getItem(key), STATE_STORAGE_KEY))
     .toBe(storedState)
+})
+
+test('malformed access metadata keeps a valid local town on a signed-in path', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let lifecycleEnabled = false
+  let migrationCount = 0
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/rpc/migrate_my_accountless_profile')) {
+      migrationCount += 1
+      const operation = route.request().postDataJSON()
+      return route.fulfill({
+        json: [{
+          envelope: operation.p_envelope,
+          generation: 1,
+          payload_sha256: operation.p_envelope.integrity.payloadSha256,
+          profile_id: OWNER_PROFILE_ID,
+          revision: 1,
+          status: 'migrated'
+        }],
+        status: 200
+      })
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto('/?internal_test=1')
+  const storedState = await seedPrivateLearnerProfile(page)
+  await page.evaluate(({
+    accessStorageKey,
+    authStorageKey,
+    session
+  }) => {
+    localStorage.setItem(authStorageKey, JSON.stringify(session))
+    localStorage.setItem(accessStorageKey, JSON.stringify({
+      profileId: 'malformed-access-metadata',
+      version: 1
+    }))
+  }, {
+    accessStorageKey: PROFILE_ACCESS_STORAGE_KEY,
+    authStorageKey: AUTH_STORAGE_KEY,
+    session: restoredSession(OWNER_ID)
+  })
+  lifecycleEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expect.poll(() => migrationCount).toBe(1)
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'active'
+  )
+  await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+  await expect(page.locator('#mainApp')).toBeVisible()
+  const repairedAccess = await page.evaluate(key => (
+    JSON.parse(localStorage.getItem(key))
+  ), PROFILE_ACCESS_STORAGE_KEY)
+  expect(repairedAccess).toMatchObject({
+    generation: 1,
+    ownerId: OWNER_ID,
+    profileId: OWNER_PROFILE_ID,
+    revision: 1,
+    version: 1
+  })
 })
 
 test('localhost visual recovery switch opens the generic recovery gate', async ({
@@ -2121,6 +2191,151 @@ test('a different new account starts onboarding without exposing or replacing th
   await expect(page.getByText('Fixture Study Video', { exact: true }))
     .toBeVisible()
   expect(resolutionCount).toBeGreaterThanOrEqual(3)
+})
+
+test('an owner with no trusted cloud predecessor is routed through fresh onboarding', async ({
+  page
+}, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  let lifecycleEnabled = false
+  let newOwnerEnvelope = null
+  let resolutionCount = 0
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled,
+      youtubeApiKey: 'fixture-key'
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://www.googleapis.com/youtube/v3/**', route => {
+    const endpoint = new URL(route.request().url()).pathname.split('/').at(-1)
+    return route.fulfill({
+      json: youtubeFixtures[endpoint],
+      status: 200
+    })
+  })
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      resolutionCount += 1
+      const onboardingEnvelope = route.request().postDataJSON()
+        ?.p_onboarding_profile || null
+      if (onboardingEnvelope) {
+        newOwnerEnvelope = onboardingEnvelope
+        return route.fulfill({
+          json: [{
+            created: true,
+            envelope: newOwnerEnvelope,
+            generation: 1,
+            profile_id: OTHER_OWNER_PROFILE_ID,
+            revision: 1,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+          }],
+          status: 200
+        })
+      }
+      return route.fulfill({
+        json: [{
+          created: false,
+          envelope: null,
+          generation: null,
+          profile_id: null,
+          revision: null,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.CURRENT_HEAD_UNUSABLE
+        }],
+        status: 200
+      })
+    }
+    if (pathname.endsWith('/rpc/list_my_learner_profile_recovery_candidates')) {
+      return route.fulfill({ json: [], status: 200 })
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto('/?internal_test=1')
+  const storedState = await seedPrivateLearnerProfile(page)
+  await page.evaluate(({
+    accessStorageKey,
+    authStorageKey,
+    ownerId,
+    profileId,
+    session
+  }) => {
+    localStorage.setItem(authStorageKey, JSON.stringify(session))
+    localStorage.setItem(accessStorageKey, JSON.stringify({
+      activatedAt: Date.now(),
+      activationId: null,
+      ownerId,
+      profileId,
+      version: 1
+    }))
+  }, {
+    accessStorageKey: PROFILE_ACCESS_STORAGE_KEY,
+    authStorageKey: AUTH_STORAGE_KEY,
+    ownerId: OWNER_ID,
+    profileId: OWNER_PROFILE_ID,
+    session: restoredSession(OWNER_ID)
+  })
+  lifecycleEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'onboarding-required'
+  )
+  await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+  await expect(page.locator('#introTrailer')).toBeVisible()
+  await expect(page.locator('#mainApp')).toBeHidden()
+  await expect(page.locator('body')).not.toContainText(SECRET_CHANNEL_NAME)
+  expect(await page.evaluate(key => localStorage.getItem(key), STATE_STORAGE_KEY))
+    .toBe(storedState)
+
+  await page.getByRole('button', { name: 'Skip intro' }).click()
+  await expect(page.locator('[data-language-id="mandarin"]')).toBeVisible()
+  await page.locator('[data-language-id="mandarin"]').click()
+  await page.locator(
+    '[data-personalized-onboarding-action="continue-language"]'
+  ).click()
+  await page.locator('[data-level-id="starting"]').click()
+  await page.locator(
+    '[data-personalized-onboarding-step="channels"]'
+  ).click()
+  await page.locator(
+    '[data-personalized-onboarding-step="account"]'
+  ).click()
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'active'
+  )
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('body')).not.toContainText(SECRET_CHANNEL_NAME)
+  const freshStorage = await page.evaluate(({
+    accessStorageKey,
+    draftKey,
+    stateKey
+  }) => ({
+    access: JSON.parse(localStorage.getItem(accessStorageKey)),
+    draft: localStorage.getItem(draftKey),
+    state: JSON.parse(localStorage.getItem(stateKey))
+  }), {
+    accessStorageKey: PROFILE_ACCESS_STORAGE_KEY,
+    draftKey: ONBOARDING_DRAFT_STORAGE_KEY,
+    stateKey: STATE_STORAGE_KEY
+  })
+  expect(freshStorage.access).toMatchObject({
+    generation: 1,
+    ownerId: OWNER_ID,
+    profileId: OTHER_OWNER_PROFILE_ID,
+    revision: 1
+  })
+  expect(freshStorage.draft).toBeNull()
+  expect(freshStorage.state.learnerProfile).toMatchObject({
+    languages: ['mandarin'],
+    level: 'starting'
+  })
+  expect(resolutionCount).toBeGreaterThanOrEqual(2)
 })
 
 test('unverifiable progress downloads before the browser replaces its owner', async ({

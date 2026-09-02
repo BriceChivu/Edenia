@@ -54,6 +54,25 @@ test('divergent profile database changes run their pgTAP acceptance suite', () =
   )
 })
 
+test('trusted predecessor recovery database changes run their pgTAP acceptance suite', () => {
+  const scopeStep = readStep('Determine test scope')
+  const databaseStep = readStep('Verify database safety')
+  const databaseChanges = [
+    'supabase/migrations/*_automatic_trusted_predecessor_recovery.sql',
+    'supabase/tests/learner_profile_recovery.test.sql'
+  ]
+
+  for (const change of databaseChanges) {
+    const scopeArm = readCaseArmContaining(scopeStep, change)
+    assert.match(scopeArm, /run_supabase=true/)
+    assert.match(scopeArm, /run_supabase_db=true/)
+  }
+  assert.match(
+    databaseStep,
+    /^          supabase test db supabase\/tests\/learner_profile_recovery\.test\.sql --local$/m
+  )
+})
+
 test('Start over database changes run their pgTAP acceptance suite', () => {
   const scopeStep = readStep('Determine test scope')
   const databaseStep = readStep('Verify database safety')

@@ -117,9 +117,21 @@ export function createLearnerProfileLocalPersistenceAdapter({
       return { status: 'invalid' }
     }
     if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
-      return access.present ? { status: 'invalid' } : { status: 'empty' }
+      return access.present && access.record
+        ? { status: 'invalid' }
+        : { status: 'empty' }
     }
-    if (access.present && !access.record) return { status: 'invalid' }
+    if (access.present && !access.record) {
+      // The profile data is still usable. Treat it as an accountless copy so
+      // signed-in lifecycle startup can migrate or replace its broken fence.
+      return {
+        accessMetadataRepairRequired: true,
+        ownerId: null,
+        profile,
+        profileId: accountlessProfileId,
+        status: 'ready'
+      }
+    }
     if (access.record?.replacement) {
       return {
         nextOwnerId: access.record.replacement.nextOwnerId,
@@ -200,6 +212,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     onboardingFinalizationPending = false,
     ownerId,
     profileId,
+    replaceExisting = false,
     revision
   }) {
     if (
@@ -211,9 +224,20 @@ export function createLearnerProfileLocalPersistenceAdapter({
       || !profileId
       || !isPositiveInteger(generation)
       || !isPositiveInteger(revision)
+      || typeof replaceExisting !== 'boolean'
       || !Number.isFinite(installedAt)
     ) return false
-    if (hasProfile()) return false
+    const hadProfile = hasProfile()
+    const previousAccess = readAccessRecord(storage, accessStorageKey)
+    const previousProfile = hadProfile ? loadProfile() : null
+    if (
+      hadProfile
+      && (
+        !replaceExisting
+        || previousAccess.record?.ownerId !== ownerId
+        || !previousProfile
+      )
+    ) return false
     const record = {
       activatedAt: installedAt,
       activationId: null,
@@ -239,13 +263,19 @@ export function createLearnerProfileLocalPersistenceAdapter({
         syncAnalytics: false
       }, isInstallCurrent)
       if (result?.persisted && isInstallCurrent()) return true
-      if (!hasProfile() && isInstallCurrent()) {
-        storage.removeItem(accessStorageKey)
+      if (isInstallCurrent()) {
+        if (replaceExisting && previousAccess.record) {
+          storage.setItem(accessStorageKey, JSON.stringify(previousAccess.record))
+        } else if (!hasProfile()) {
+          storage.removeItem(accessStorageKey)
+        }
       }
       return false
     } catch {
       try {
-        if (!hasProfile() && isInstallCurrent()) {
+        if (replaceExisting && previousAccess.record && isInstallCurrent()) {
+          storage.setItem(accessStorageKey, JSON.stringify(previousAccess.record))
+        } else if (!hasProfile() && isInstallCurrent()) {
           storage.removeItem(accessStorageKey)
         }
       } catch {}
@@ -275,8 +305,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     const access = readAccessRecord(storage, accessStorageKey)
     const current = access.record
     if (
-      (access.present && !current)
-      || (current && current.activationId !== null)
+      (current && current.activationId !== null)
       || current?.ownerId
       || (current && current.profileId !== previousProfileId)
       || current?.replacement
@@ -340,8 +369,7 @@ export function createLearnerProfileLocalPersistenceAdapter({
     const access = readAccessRecord(storage, accessStorageKey)
     const current = access.record
     if (
-      (access.present && !current)
-      || (current && current.activationId !== null)
+      (current && current.activationId !== null)
       || current?.ownerId
       || (current && current.profileId !== previousProfileId)
       || current?.replacement

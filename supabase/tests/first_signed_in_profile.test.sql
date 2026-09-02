@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public, auth, pg_catalog;
 
-select plan(39);
+select plan(40);
 
 select has_function(
   'public',
@@ -494,14 +494,14 @@ select results_eq(
       (select envelope from first_profile_fixture)
     )
   $query$,
-  $$values ('current_head_missing'::text, false)$$,
-  'legacy cloud-backup history routes to recovery instead of blank creation'
+  $$values ('profile_ready'::text, true)$$,
+  'legacy cloud-backup history creates a fresh signed-in profile after onboarding'
 );
 
 select results_eq(
   $$select count(*) from public.learner_profile_heads$$,
-  array[0::bigint],
-  'legacy backup history leaves the returning owner without a partial head'
+  array[1::bigint],
+  'legacy backup history creates one fresh profile head'
 );
 
 reset role;
@@ -519,20 +519,26 @@ set local request.jwt.claim.role = 'authenticated';
 set local request.jwt.claim.sub = '77777777-7777-4777-8777-777777777777';
 
 select results_eq(
+  $$select status, created from public.resolve_my_learner_profile(null)$$,
+  $$values ('onboarding_required'::text, false)$$,
+  'a verified owner without profile history is sent to onboarding first'
+);
+
+select results_eq(
   $query$
     select status, created
     from public.resolve_my_learner_profile(
       (select envelope from first_profile_fixture)
     )
   $query$,
-  $$values ('recovery_required'::text, false)$$,
-  'a verified UUID without server-recorded new-account evidence cannot create'
+  $$values ('profile_ready'::text, true)$$,
+  'a verified owner without profile history can start a fresh town through onboarding'
 );
 
 select results_eq(
   $$select count(*) from public.learner_profile_versions$$,
-  array[0::bigint],
-  'missing new-account evidence leaves no partial profile history'
+  array[1::bigint],
+  'fresh onboarding creates exactly one initial profile version'
 );
 
 reset role;
@@ -572,8 +578,8 @@ set local request.jwt.claim.sub = '55555555-5555-4555-8555-555555555555';
 
 select results_eq(
   $$select status, created from public.resolve_my_learner_profile(null)$$,
-  $$values ('current_head_missing'::text, false)$$,
-  'historical evidence without a current head never creates a blank profile'
+  $$values ('onboarding_required'::text, false)$$,
+  'historical evidence without a current head routes the owner to onboarding'
 );
 
 reset role;

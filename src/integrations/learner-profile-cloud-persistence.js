@@ -311,6 +311,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
   eventTarget,
   finalizeEnvelope,
   getClient,
+  hasOnboardingProfileDraft = () => false,
   importEnvelope,
   isOnline,
   now,
@@ -354,6 +355,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
   const accountlessMigrationStorageKey = `${syncStorageKey}_accountless_migration`
   const importStorageKey = `${syncStorageKey}_import_v1`
   const recoveryStorageKey = `${syncStorageKey}_recovery`
+
+  function hasExplicitOnboardingProfileDraft() {
+    try {
+      return hasOnboardingProfileDraft() === true
+    } catch {
+      return false
+    }
+  }
 
   function publish(status, details = {}) {
     syncState = Object.freeze({ ...details, status })
@@ -1410,6 +1419,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
         })]
       : []
     candidates.push(...protectedCandidates)
+    if (candidates.length === 0) return { status: 'onboarding-required' }
     return {
       recovery: Object.freeze({
         candidates: Object.freeze(candidates),
@@ -2348,6 +2358,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     if (
       localProfile?.status === 'empty'
       || purpose === 'replace-owner-profile'
+      || hasExplicitOnboardingProfileDraft()
     ) {
       const onboardingState = readOnboardingState()
       if (onboardingState) {
@@ -2418,6 +2429,10 @@ export function createLearnerProfileCloudPersistenceAdapter({
     if (row.created && (generation !== 1 || revision !== 1)) {
       return { status: 'recovering' }
     }
+    const freshSignedInProfile = row.created === true
+      && hasExplicitOnboardingProfileDraft()
+      && localProfile?.status === 'ready'
+      && localProfile.ownerId === authentication.userId
     let envelope = await verifyEnvelope(row.envelope)
     let cloudProfile = envelope ? importEnvelope(envelope) : null
     if (!cloudProfile) return { status: 'recovering' }
@@ -2454,7 +2469,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
         status: 'activate'
       }
     }
-    let backupRequired = localProfile?.status === 'ready'
+    let backupRequired = !freshSignedInProfile
+      && localProfile?.status === 'ready'
       && localProfile.ownerId === authentication.userId
       && isRecord(localProfile.profile)
       && localProfile.generation === undefined
@@ -2468,6 +2484,11 @@ export function createLearnerProfileCloudPersistenceAdapter({
       ownerId: authentication.userId,
       profileId,
       revision
+    }
+    if (freshSignedInProfile) {
+      if (!removeDirtyRecord()) return { status: 'recovering' }
+      currentRecord = ensureSyncRecord(cloudIdentity)
+      if (!currentRecord) return { status: 'recovering' }
     }
     if (
       currentRecord
@@ -2699,6 +2720,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
           ? clearRecoveryOperation(recoveryFinalizationOperation)
           : true
       },
+      ...(freshSignedInProfile ? { freshProfile: true } : {}),
       generation,
       ownerId: authentication.userId,
       profile,

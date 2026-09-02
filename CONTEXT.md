@@ -56,6 +56,18 @@ _Avoid_: Account identity, cloud history
 A segment of a profile lineage started by an intentional reset; older generations can return only through explicit recovery.
 _Avoid_: Schema version, revision
 
+**Trusted profile predecessor**:
+The newest earlier version within the current profile generation that is owner-bound, structurally valid, and connected to the profile lineage by verified revision evidence; it can safely become active when the current version cannot be opened.
+_Avoid_: Last-write-wins backup, arbitrary old copy
+
+**Profile-opening fallback**:
+A safe outcome of profile opening that restores a trusted profile predecessor within the current generation, or sends the verified owner through language-selection onboarding when no trusted state remains; it never crosses an intentional reset boundary or creates an isolated signed-in profile.
+_Avoid_: Isolated town, blank recovery, indefinite recovery
+
+**Fresh signed-in profile**:
+A meaningfully empty learner profile created through language-selection onboarding after Edenia verifies the owner and finds no trusted state in the current profile generation.
+_Avoid_: Guest profile, shadow profile
+
 **Meaningfully empty profile**:
 A learner profile with no study facts, saved study organization, learner selections, portable histories, or completed milestones.
 _Avoid_: New account, default document
