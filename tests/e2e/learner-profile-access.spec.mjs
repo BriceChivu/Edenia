@@ -1432,7 +1432,7 @@ test('missing-head history with no trusted copy routes to onboarding', async ({
   await expect(page.getByText(SECRET_CHANNEL_NAME, { exact: true })).toHaveCount(0)
 })
 
-test('a valid cloud town opens past malformed sync metadata on the internal route', async ({
+test('a valid cloud town opens and reloads past malformed durable metadata on the internal route', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
@@ -1474,6 +1474,7 @@ test('a valid cloud town opens past malformed sync metadata on the internal rout
   await page.evaluate(({
     accessStorageKey,
     authStorageKey,
+    importStorageKey,
     session,
     stateStorageKey,
     syncStorageKey
@@ -1481,10 +1482,12 @@ test('a valid cloud town opens past malformed sync metadata on the internal rout
     localStorage.removeItem(accessStorageKey)
     localStorage.removeItem(stateStorageKey)
     localStorage.setItem(authStorageKey, JSON.stringify(session))
+    localStorage.setItem(importStorageKey, '{malformed-import-marker')
     localStorage.setItem(syncStorageKey, '{malformed-sync-record')
   }, {
     accessStorageKey: PROFILE_ACCESS_STORAGE_KEY,
     authStorageKey: AUTH_STORAGE_KEY,
+    importStorageKey: `${PROFILE_SYNC_STORAGE_KEY}_import_v1`,
     session: restoredSession(OWNER_ID),
     stateStorageKey: STATE_STORAGE_KEY,
     syncStorageKey: PROFILE_SYNC_STORAGE_KEY
@@ -1492,13 +1495,92 @@ test('a valid cloud town opens past malformed sync metadata on the internal rout
   lifecycleEnabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
 
-  await expect.poll(() => resolutionCount).toBe(1)
   await expect(page.locator('html')).toHaveAttribute(
     'data-learner-profile-access-state',
     'active'
   )
+  await expect.poll(() => resolutionCount).toBe(1)
   await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
   await expect(page.locator('#mainApp')).toBeVisible()
+  expect(await page.evaluate(
+    key => localStorage.getItem(key),
+    `${PROFILE_SYNC_STORAGE_KEY}_import_v1`
+  )).toBeNull()
+
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'active'
+  )
+  await expect.poll(() => resolutionCount).toBe(2)
+  await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+  await expect(page.locator('#mainApp')).toBeVisible()
+})
+
+test('recovery-required with no trusted candidate enters onboarding on the internal route', async ({
+  page
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let lifecycleEnabled = false
+  const rpcCalls = []
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled
+    }),
+    contentType: 'text/javascript',
+    status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      rpcCalls.push('resolve')
+      return route.fulfill({
+        json: [{
+          created: false,
+          envelope: null,
+          generation: null,
+          profile_id: null,
+          revision: null,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.RECOVERY_REQUIRED
+        }],
+        status: 200
+      })
+    }
+    if (pathname.endsWith('/rpc/list_my_learner_profile_recovery_candidates')) {
+      rpcCalls.push('candidates')
+      return route.fulfill({ json: [], status: 200 })
+    }
+    return route.fulfill({ json: {}, status: 200 })
+  })
+
+  await page.goto('/?internal_test=1')
+  await page.evaluate(({
+    accessStorageKey,
+    authStorageKey,
+    session,
+    stateStorageKey
+  }) => {
+    localStorage.removeItem(accessStorageKey)
+    localStorage.removeItem(stateStorageKey)
+    localStorage.setItem(authStorageKey, JSON.stringify(session))
+  }, {
+    accessStorageKey: PROFILE_ACCESS_STORAGE_KEY,
+    authStorageKey: AUTH_STORAGE_KEY,
+    session: restoredSession(OWNER_ID),
+    stateStorageKey: STATE_STORAGE_KEY
+  })
+  lifecycleEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+
+  await expect(page.locator('html')).toHaveAttribute(
+    'data-learner-profile-access-state',
+    'onboarding-required'
+  )
+  expect(rpcCalls).toEqual(['resolve', 'candidates'])
+  await expect(page.locator('#learnerProfileAccessGate')).toBeHidden()
+  await expect(page.locator('#introTrailer')).toBeVisible()
+  await expect(page.locator('#mainApp')).toBeHidden()
 })
 
 test('generic recovery gives the learner a retry and sign-out path', async ({

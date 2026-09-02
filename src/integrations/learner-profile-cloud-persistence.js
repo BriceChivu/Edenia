@@ -515,6 +515,18 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
+  function clearUnreadableDurableImport() {
+    const stored = readDurableImport()
+    if (!stored.present) return true
+    if (stored.record) return false
+    try {
+      storage.removeItem(importStorageKey)
+      return storage.getItem(importStorageKey) === null
+    } catch {
+      return false
+    }
+  }
+
   function readDirtyRecord() {
     try {
       const serialized = storage.getItem(dirtyStorageKey)
@@ -2264,10 +2276,18 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const stored = readDurableImport()
     if (!stored.present) return { localProfile, status: 'ready' }
     const durableImport = stored.record
-    if (
-      !durableImport
-      || authentication?.userId !== durableImport.ownerId
-    ) return { status: 'recovering' }
+    if (!durableImport) {
+      return localProfile?.status === 'empty'
+        ? {
+            localProfile,
+            malformedImportCleanupRequired: true,
+            status: 'ready'
+          }
+        : { status: 'recovering' }
+    }
+    if (authentication?.userId !== durableImport.ownerId) {
+      return { status: 'recovering' }
+    }
     const syncRecord = readSyncRecord()
     if (
       !syncRecord
@@ -2349,6 +2369,8 @@ export function createLearnerProfileCloudPersistenceAdapter({
     if (durableRecovery.status === 'recovering') {
       return { status: 'recovering' }
     }
+    const malformedImportCleanupRequired =
+      durableRecovery.malformedImportCleanupRequired === true
     localProfile = durableRecovery.localProfile
     if (purpose === 'link-accountless-profile') {
       return { status: 'migrating' }
@@ -2408,7 +2430,13 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
     if (
       row.status === LEARNER_PROFILE_RESOLUTION_STATUSES.RECOVERY_REQUIRED
-    ) return { status: 'recovering' }
+    ) {
+      return resolveRecoveryCandidates({
+        authentication,
+        localProfile,
+        reason: LEARNER_PROFILE_RECOVERY_REASONS.CURRENT_HEAD_UNUSABLE
+      })
+    }
     if (
       row.status
         === LEARNER_PROFILE_RESOLUTION_STATUSES.VERIFIED_ACCOUNT_REQUIRED
@@ -2720,8 +2748,12 @@ export function createLearnerProfileCloudPersistenceAdapter({
       finalize({ isCurrent } = {}) {
         if (typeof isCurrent !== 'function' || !isCurrent()) return false
         if (!clearOnboardingDraft()) return false
-        return recoveryFinalizationOperation
-          ? clearRecoveryOperation(recoveryFinalizationOperation)
+        if (
+          recoveryFinalizationOperation
+          && !clearRecoveryOperation(recoveryFinalizationOperation)
+        ) return false
+        return malformedImportCleanupRequired
+          ? clearUnreadableDurableImport()
           : true
       },
       ...(freshSignedInProfile ? { freshProfile: true } : {}),

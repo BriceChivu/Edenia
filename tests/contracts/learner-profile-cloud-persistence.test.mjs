@@ -255,6 +255,118 @@ test('a valid cloud profile replaces a malformed sync marker for an empty local 
   })
 })
 
+test('a valid cloud profile clears a malformed import marker only after activation finalizes', async () => {
+  const malformed = '{malformed-import-marker'
+  const storage = createMemoryStorage({
+    [IMPORT_STORAGE_KEY]: malformed
+  })
+  const adapter = createAdapter({
+    rpc: async name => {
+      assert.equal(name, 'resolve_my_learner_profile')
+      return {
+        data: [{
+          created: false,
+          envelope: preparedEnvelope({ marker: 'cloud-profile' }),
+          generation: 1,
+          profile_id: PROFILE_ID,
+          revision: 3,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+        }],
+        error: null
+      }
+    },
+    storage
+  })
+
+  const resolved = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: { status: 'empty' },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(resolved.status, 'activate')
+  assert.equal(storage.getItem(IMPORT_STORAGE_KEY), malformed)
+  assert.equal(resolved.finalize({ isCurrent: () => false }), false)
+  assert.equal(storage.getItem(IMPORT_STORAGE_KEY), malformed)
+  assert.equal(resolved.finalize({ isCurrent: () => true }), true)
+  assert.equal(storage.getItem(IMPORT_STORAGE_KEY), null)
+})
+
+test('malformed import cleanup preserves a valid operation written before activation finalizes', async () => {
+  const storage = createMemoryStorage({
+    [IMPORT_STORAGE_KEY]: '{malformed-import-marker'
+  })
+  const adapter = createAdapter({
+    rpc: async () => ({
+      data: [{
+        created: false,
+        envelope: preparedEnvelope({ marker: 'cloud-profile' }),
+        generation: 1,
+        profile_id: PROFILE_ID,
+        revision: 3,
+        status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+      }],
+      error: null
+    }),
+    storage
+  })
+  const resolved = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: { status: 'empty' },
+    purpose: 'resolve-signed-in-profile'
+  })
+  const replacement = JSON.stringify({
+    baseRevision: 3,
+    generation: 1,
+    operationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    ownerId: OWNER_ID,
+    profileId: PROFILE_ID,
+    revision: 4,
+    version: 1
+  })
+  storage.setItem(IMPORT_STORAGE_KEY, replacement)
+
+  assert.equal(resolved.finalize({ isCurrent: () => true }), false)
+  assert.equal(storage.getItem(IMPORT_STORAGE_KEY), replacement)
+})
+
+test('recovery-required with no trusted candidate enters onboarding', async () => {
+  const rpcCalls = []
+  const adapter = createAdapter({
+    rpc: async name => {
+      rpcCalls.push(name)
+      if (name === 'resolve_my_learner_profile') {
+        return {
+          data: [{
+            created: false,
+            envelope: null,
+            generation: null,
+            profile_id: null,
+            revision: null,
+            status: LEARNER_PROFILE_RESOLUTION_STATUSES.RECOVERY_REQUIRED
+          }],
+          error: null
+        }
+      }
+      assert.equal(name, 'list_my_learner_profile_recovery_candidates')
+      return { data: [], error: null }
+    }
+  })
+
+  assert.deepEqual(await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: { status: 'empty' },
+    purpose: 'resolve-signed-in-profile'
+  }), { status: 'onboarding-required' })
+  assert.deepEqual(rpcCalls, [
+    'resolve_my_learner_profile',
+    'list_my_learner_profile_recovery_candidates'
+  ])
+})
+
 test('a missing current head offers only matching local and protected recovery candidates', async () => {
   const rpcCalls = []
   const adapter = createAdapter({
