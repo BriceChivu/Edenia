@@ -434,9 +434,9 @@ The primary state includes:
 
 The config cookie mirrors basic configuration so Edenia can recover settings if the main state is unavailable.
 
-Normal mode maintains up to eight recent local backup snapshots and displays the four newest in **Settings -> Recent local backups**. It creates interval-limited automatic backups and verified rollback points before risky operations such as imports, resets, and restores. Internal-test and sandbox modes deliberately do not create or expose recovery snapshots.
+Normal and internal-test modes each maintain up to eight recent local backup snapshots and display the four newest in **Settings -> Recent local backups**. They create interval-limited automatic backups and verified rollback points before risky operations such as imports, resets, and restores. Internal-test snapshots use an isolated browser storage namespace and IndexedDB database; sandbox mode deliberately does not create or expose recovery snapshots.
 
-When `indexedDbBackupsEnabled` is active, normal-mode snapshots use the `edenia_state_backups_v1` IndexedDB database instead of sharing the primary state's localStorage quota. Existing `edenia_v1_backups` data is merged and verified before migration completes. The separate `indexedDbBackupCleanupEnabled` switch removes a valid legacy copy only after that verification; malformed or unverifiable legacy data is left in place.
+When `indexedDbBackupsEnabled` is active, normal-mode snapshots use the `edenia_state_backups_v1` IndexedDB database and internal-test snapshots use a separate internal-test database instead of sharing the primary state's localStorage quota. Existing mode-specific backup data is merged and verified before migration completes. The separate `indexedDbBackupCleanupEnabled` switch removes a valid legacy copy only after that verification; malformed or unverifiable legacy data is left in place.
 
 Use **Export sync file** to download the complete current state and **Import sync file** to move it to another browser or device. Normal and sandbox sync files cannot be imported into the opposite mode. Sync files contain personal study history and should be treated as private backups.
 
@@ -491,7 +491,7 @@ The supported public runtime variables are:
 | `EDENIA_EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED` | `emergencyAccountlessRollbackEnabled` | Temporarily restores legacy accountless entry during an approved serious incident. It does not change profile-data authorization. |
 | `EDENIA_LEARNER_PROFILE_LIFECYCLE_ENABLED` | `learnerProfileLifecycleEnabled` | Routes profile loading, activation, rendering, saving, import, export, analytics sync, and future cloud work through the fenced lifecycle authority. Keep off until signed-in profile resolution is connected. |
 | `EDENIA_STUDY_GUIDANCE_ENABLED` | `studyGuidanceEnabled` | Replaces the current eligible insight with goal-independent Study Guidance. |
-| `EDENIA_INDEXED_DB_BACKUPS_ENABLED` | `indexedDbBackupsEnabled` | Migrates and writes normal-mode recovery snapshots in IndexedDB. |
+| `EDENIA_INDEXED_DB_BACKUPS_ENABLED` | `indexedDbBackupsEnabled` | Migrates and writes normal- and internal-test recovery snapshots in their mode-isolated IndexedDB databases. |
 | `EDENIA_INDEXED_DB_BACKUP_CLEANUP_ENABLED` | `indexedDbBackupCleanupEnabled` | Removes a valid legacy backup copy after verified migration; effective only with IndexedDB backups enabled. |
 | `EDENIA_FREE_PLUS_ENABLED` | `freePlusEnabled` | Enforces the Free/Plus history, insight, and tracked-channel access policy. |
 | `EDENIA_PLUS_CHECKOUT_ENABLED` | `plusCheckoutEnabled` | Enables the Plus checkout entry point when the public Supabase configuration and backend are ready. |
