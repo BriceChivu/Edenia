@@ -210,9 +210,10 @@ test('cloud unavailability remains distinct from unsafe profile recovery', async
 })
 
 test('a valid cloud profile replaces a malformed sync marker for an empty local namespace', async () => {
+  const malformed = '{malformed-sync-record'
   const cloudEnvelope = preparedEnvelope({ marker: 'cloud-profile' })
   const storage = createMemoryStorage({
-    [SYNC_STORAGE_KEY]: '{malformed-sync-record'
+    [SYNC_STORAGE_KEY]: malformed
   })
   const adapter = createAdapter({
     rpc: async name => {
@@ -244,6 +245,16 @@ test('a valid cloud profile replaces a malformed sync marker for an empty local 
   assert.equal(resolved.profileId, PROFILE_ID)
   assert.equal(resolved.generation, 1)
   assert.equal(resolved.revision, 3)
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), malformed)
+  assert.equal(
+    resolved.commitSyncRepair({ isCurrent: () => false }),
+    false
+  )
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), malformed)
+  assert.equal(
+    resolved.commitSyncRepair({ isCurrent: () => true }),
+    true
+  )
   assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)), {
     acceptedRevision: 3,
     generation: 1,
@@ -255,7 +266,117 @@ test('a valid cloud profile replaces a malformed sync marker for an empty local 
   })
 })
 
-test('a valid cloud profile clears a malformed import marker only after activation finalizes', async () => {
+test('sync repair preserves a marker changed after cloud resolution', async () => {
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: '{malformed-sync-record'
+  })
+  const adapter = createAdapter({
+    rpc: async () => ({
+      data: [{
+        created: false,
+        envelope: preparedEnvelope({ marker: 'cloud-profile' }),
+        generation: 1,
+        profile_id: PROFILE_ID,
+        revision: 3,
+        status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+      }],
+      error: null
+    }),
+    storage
+  })
+
+  const resolved = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: { status: 'empty' },
+    purpose: 'resolve-signed-in-profile'
+  })
+  const replacement = '{different-malformed-sync-record'
+  storage.setItem(SYNC_STORAGE_KEY, replacement)
+
+  assert.equal(
+    resolved.commitSyncRepair({ isCurrent: () => true }),
+    false
+  )
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), replacement)
+})
+
+test('cloud resolution preserves a sync marker changed while its request is in flight', async () => {
+  const rpcResponse = deferred()
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: '{malformed-sync-record'
+  })
+  const adapter = createAdapter({
+    rpc: async () => rpcResponse.promise,
+    storage
+  })
+
+  const resolving = adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: { status: 'empty' },
+    purpose: 'resolve-signed-in-profile'
+  })
+  await flush()
+  const replacement = '{different-in-flight-sync-record'
+  storage.setItem(SYNC_STORAGE_KEY, replacement)
+  rpcResponse.resolve({
+    data: [{
+      created: false,
+      envelope: preparedEnvelope({ marker: 'cloud-profile' }),
+      generation: 1,
+      profile_id: PROFILE_ID,
+      revision: 3,
+      status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+    }],
+    error: null
+  })
+
+  assert.deepEqual(await resolving, { status: 'recovering' })
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), replacement)
+})
+
+test('sync repair reports a storage write failure without hiding the malformed marker', async () => {
+  const malformed = '{malformed-sync-record'
+  const values = new Map([[SYNC_STORAGE_KEY, malformed]])
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    removeItem: key => values.delete(key),
+    setItem(key, value) {
+      if (key === SYNC_STORAGE_KEY) throw new Error('storage unavailable')
+      values.set(key, String(value))
+    }
+  }
+  const adapter = createAdapter({
+    rpc: async () => ({
+      data: [{
+        created: false,
+        envelope: preparedEnvelope({ marker: 'cloud-profile' }),
+        generation: 1,
+        profile_id: PROFILE_ID,
+        revision: 3,
+        status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+      }],
+      error: null
+    }),
+    storage
+  })
+
+  const resolved = await adapter.resolve({
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: { status: 'empty' },
+    purpose: 'resolve-signed-in-profile'
+  })
+
+  assert.equal(
+    resolved.commitSyncRepair({ isCurrent: () => true }),
+    false
+  )
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), malformed)
+})
+
+test('a valid cloud profile repairs malformed metadata only behind a current activation fence', async () => {
   const malformed = '{malformed-import-marker'
   const storage = createMemoryStorage({
     [IMPORT_STORAGE_KEY]: malformed
@@ -287,10 +408,19 @@ test('a valid cloud profile clears a malformed import marker only after activati
 
   assert.equal(resolved.status, 'activate')
   assert.equal(storage.getItem(IMPORT_STORAGE_KEY), malformed)
-  assert.equal(resolved.finalize({ isCurrent: () => false }), false)
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), null)
+  assert.equal(
+    resolved.commitSyncRepair({ isCurrent: () => false }),
+    false
+  )
   assert.equal(storage.getItem(IMPORT_STORAGE_KEY), malformed)
-  assert.equal(resolved.finalize({ isCurrent: () => true }), true)
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), null)
+  assert.equal(
+    resolved.commitSyncRepair({ isCurrent: () => true }),
+    true
+  )
   assert.equal(storage.getItem(IMPORT_STORAGE_KEY), null)
+  assert.notEqual(storage.getItem(SYNC_STORAGE_KEY), null)
 })
 
 test('malformed import cleanup preserves a valid operation written before activation finalizes', async () => {
@@ -328,7 +458,11 @@ test('malformed import cleanup preserves a valid operation written before activa
   })
   storage.setItem(IMPORT_STORAGE_KEY, replacement)
 
-  assert.equal(resolved.finalize({ isCurrent: () => true }), false)
+  assert.equal(
+    resolved.commitSyncRepair({ isCurrent: () => true }),
+    false
+  )
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), null)
   assert.equal(storage.getItem(IMPORT_STORAGE_KEY), replacement)
 })
 

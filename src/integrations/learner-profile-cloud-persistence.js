@@ -376,23 +376,51 @@ export function createLearnerProfileCloudPersistenceAdapter({
     return { status: 'waiting-cloud' }
   }
 
-  function readSyncRecord() {
+  function readStoredSyncRecord() {
+    let serialized
     try {
-      const serialized = storage.getItem(syncStorageKey)
-      if (serialized === null) return null
-      const record = JSON.parse(serialized)
-      return isSyncRecord(record) ? record : null
+      serialized = storage.getItem(syncStorageKey)
     } catch {
-      return null
+      return {
+        present: true,
+        readable: false,
+        record: null,
+        serialized: null
+      }
+    }
+    if (serialized === null) {
+      return {
+        present: false,
+        readable: true,
+        record: null,
+        serialized
+      }
+    }
+    try {
+      const record = JSON.parse(serialized)
+      return {
+        present: true,
+        readable: true,
+        record: isSyncRecord(record) ? record : null,
+        serialized
+      }
+    } catch {
+      return {
+        present: true,
+        readable: true,
+        record: null,
+        serialized
+      }
     }
   }
 
+  function readSyncRecord() {
+    return readStoredSyncRecord().record
+  }
+
   function hasStoredSyncRecord() {
-    try {
-      return storage.getItem(syncStorageKey) !== null
-    } catch {
-      return true
-    }
+    const stored = readStoredSyncRecord()
+    return !stored.readable || stored.present
   }
 
   function readAccountlessMigrationRecord() {
@@ -478,16 +506,40 @@ export function createLearnerProfileCloudPersistenceAdapter({
   }
 
   function readDurableImport() {
+    let serialized
     try {
-      const serialized = storage.getItem(importStorageKey)
-      if (serialized === null) return { present: false, record: null }
+      serialized = storage.getItem(importStorageKey)
+    } catch {
+      return {
+        present: true,
+        readable: false,
+        record: null,
+        serialized: null
+      }
+    }
+    if (serialized === null) {
+      return {
+        present: false,
+        readable: true,
+        record: null,
+        serialized
+      }
+    }
+    try {
       const record = JSON.parse(serialized)
       return {
         present: true,
-        record: isDurableImport(record) ? record : null
+        readable: true,
+        record: isDurableImport(record) ? record : null,
+        serialized
       }
     } catch {
-      return { present: true, record: null }
+      return {
+        present: true,
+        readable: true,
+        record: null,
+        serialized
+      }
     }
   }
 
@@ -515,13 +567,25 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
-  function clearUnreadableDurableImport() {
-    const stored = readDurableImport()
-    if (!stored.present) return true
-    if (stored.record) return false
+  function commitStoredRepair({ expectedSerialized, key, nextSerialized }, {
+    isCurrent
+  } = {}) {
+    if (typeof isCurrent !== 'function' || !isCurrent()) return false
     try {
-      storage.removeItem(importStorageKey)
-      return storage.getItem(importStorageKey) === null
+      if (storage.getItem(key) !== expectedSerialized) return false
+      if (!isCurrent()) return false
+      if (nextSerialized === null) storage.removeItem(key)
+      else storage.setItem(key, nextSerialized)
+      if (storage.getItem(key) !== nextSerialized) return false
+      return isCurrent()
+    } catch {
+      return false
+    }
+  }
+
+  function storedRepairMatches({ expectedSerialized, key }) {
+    try {
+      return storage.getItem(key) === expectedSerialized
     } catch {
       return false
     }
@@ -707,7 +771,17 @@ export function createLearnerProfileCloudPersistenceAdapter({
       && current.profileId === profileId
       && current.generation === generation
     ) return current
-    const record = {
+    const record = createSyncRecord({
+      generation,
+      ownerId,
+      profileId,
+      revision
+    })
+    return writeSyncRecord(record) ? record : null
+  }
+
+  function createSyncRecord({ generation, ownerId, profileId, revision }) {
+    return {
       acceptedRevision: revision,
       generation,
       ownerId,
@@ -716,7 +790,6 @@ export function createLearnerProfileCloudPersistenceAdapter({
       queued: null,
       version: 1
     }
-    return writeSyncRecord(record) ? record : null
   }
 
   function getReplacementProtection(localProfile) {
@@ -2277,10 +2350,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
     if (!stored.present) return { localProfile, status: 'ready' }
     const durableImport = stored.record
     if (!durableImport) {
-      return localProfile?.status === 'empty'
+      return stored.readable && localProfile?.status === 'empty'
         ? {
             localProfile,
-            malformedImportCleanupRequired: true,
+            malformedImportRepair: {
+              expectedSerialized: stored.serialized,
+              key: importStorageKey,
+              nextSerialized: null
+            },
             status: 'ready'
           }
         : { status: 'recovering' }
@@ -2369,12 +2446,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
     if (durableRecovery.status === 'recovering') {
       return { status: 'recovering' }
     }
-    const malformedImportCleanupRequired =
-      durableRecovery.malformedImportCleanupRequired === true
+    const malformedImportRepair = durableRecovery.malformedImportRepair || null
     localProfile = durableRecovery.localProfile
     if (purpose === 'link-accountless-profile') {
       return { status: 'migrating' }
     }
+
+    const localWasEmptyBeforeRequest = localProfile?.status === 'empty'
+    const storedSyncBeforeRequest = readStoredSyncRecord()
 
     let onboardingEnvelope = null
     if (
@@ -2503,19 +2582,32 @@ export function createLearnerProfileCloudPersistenceAdapter({
       && isRecord(localProfile.profile)
       && localProfile.generation === undefined
       && localProfile.revision === undefined
-    let currentRecord = readSyncRecord()
-    if (
-      !currentRecord
-      && hasStoredSyncRecord()
-      && localProfile?.status !== 'empty'
-    ) {
-      return { status: 'recovering' }
-    }
     const cloudIdentity = {
       generation,
       ownerId: authentication.userId,
       profileId,
       revision
+    }
+    const storedSync = readStoredSyncRecord()
+    let currentRecord = storedSync.record
+    let syncRecordRepair = null
+    const mustDeferSyncRecord = !currentRecord
+      && (storedSync.present || malformedImportRepair)
+    if (mustDeferSyncRecord) {
+      if (
+        !localWasEmptyBeforeRequest
+        || localProfile?.status !== 'empty'
+        || !storedSyncBeforeRequest.readable
+        || !storedSync.readable
+        || storedSyncBeforeRequest.record
+        || storedSyncBeforeRequest.serialized !== storedSync.serialized
+      ) return { status: 'recovering' }
+      currentRecord = createSyncRecord(cloudIdentity)
+      syncRecordRepair = {
+        expectedSerialized: storedSync.serialized,
+        key: syncStorageKey,
+        nextSerialized: JSON.stringify(currentRecord)
+      }
     }
     if (freshSignedInProfile) {
       if (!removeDirtyRecord()) return { status: 'recovering' }
@@ -2701,7 +2793,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
         currentRecord.acceptedRevision = revision
         if (!writeSyncRecord(currentRecord)) return { status: 'recovering' }
       }
-    } else {
+    } else if (!syncRecordRepair) {
       currentRecord = ensureSyncRecord({
         generation,
         ownerId: authentication.userId,
@@ -2711,7 +2803,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
       if (!currentRecord) return { status: 'recovering' }
     }
 
-    currentRecord = readSyncRecord()
+    if (!syncRecordRepair) currentRecord = readSyncRecord()
     const protectedResult = await readStoredProtectedConflicts(currentRecord)
     if (!protectedResult) return { status: 'recovering' }
 
@@ -2741,9 +2833,27 @@ export function createLearnerProfileCloudPersistenceAdapter({
       }
     }
 
+    const syncRepairs = [
+      ...(malformedImportRepair ? [malformedImportRepair] : []),
+      ...(syncRecordRepair ? [syncRecordRepair] : [])
+    ]
     cloudHeadKnown = true
     return {
       backupRequired,
+      ...(syncRepairs.length ? {
+        commitSyncRepair({ isCurrent } = {}) {
+          if (
+            typeof isCurrent !== 'function'
+            || !isCurrent()
+            || !syncRepairs.every(storedRepairMatches)
+            || !isCurrent()
+          ) return false
+          for (const repair of syncRepairs) {
+            if (!commitStoredRepair(repair, { isCurrent })) return false
+          }
+          return true
+        }
+      } : {}),
       created: row.created === true,
       finalize({ isCurrent } = {}) {
         if (typeof isCurrent !== 'function' || !isCurrent()) return false
@@ -2752,9 +2862,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
           recoveryFinalizationOperation
           && !clearRecoveryOperation(recoveryFinalizationOperation)
         ) return false
-        return malformedImportCleanupRequired
-          ? clearUnreadableDurableImport()
-          : true
+        return true
       },
       ...(freshSignedInProfile ? { freshProfile: true } : {}),
       generation,
