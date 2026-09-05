@@ -154,7 +154,7 @@ values are not a substitute for the observed behavior.
 | Scenario | What the canary must demonstrate |
 | --- | --- |
 | `deployment-identity` | The candidate serves the expected full SHA and runtime-config hash. |
-| `browser-matrix` | Current macOS Chrome, current macOS Safari, current iPhone Safari, a fresh Chrome profile paired with another device, and the applicable private-browsing smoke. |
+| `browser-matrix` | Current macOS Chrome, current macOS Safari, a fresh isolated Chrome context on the same Mac, and the applicable private-browsing smoke. iPhone Safari and a separate physical device are optional supplemental coverage. |
 | `auth-google` | The official Google button completes a live ID-token sign-in. |
 | `auth-email-otp-turnstile` | A live same-device email code completes with Turnstile accepted and exactly one delivery. Missing, expired, replayed, and invalid-token results remain rejected with zero deliveries. |
 | `auth-method-equivalence` | Google and email for the approved verified address resolve to the same Supabase UUID. Record only `identityMatch: "same_uuid"` and `identityValueRecorded: false`. |
@@ -195,7 +195,7 @@ npm run release:readiness -- validate \
 
 The command fails if a record points to another commit, asset version, or
 runtime-config hash. It also fails for missing browsers, failed scenarios,
-unknown server-gate state, unsafe evidence, or a non-empty confidence-gap
+unknown server-gate state, unsafe evidence, or a blocking confidence-gap
 list. After reviewing all passing records and confirming there is no known
 progress-loss or ownership defect, make that assertion explicit:
 
@@ -248,3 +248,29 @@ accepted write, silent overwrite, missing backup, integrity mismatch,
 uncontrolled retry, wrong-target cleanup, or a browser that cannot resolve the
 recorded head. The report should contain the sanitized failure and confidence
 gap, not an account identifier or a copy of the affected profile.
+
+## Desktop coverage and optional devices
+
+The v4 internal-canary contract requires `macos-chrome`, `macos-safari`,
+`fresh-chrome-isolated-context`, and `private-browsing` under its existing
+applicability rule. Multi-context lifecycle, synchronization, conflict, sign-out,
+Start over and Undo scenarios use independently persisted browser contexts on
+the same Mac, with separate sessions and storage; two tabs sharing storage are
+insufficient. Keep the existing owner-bound fixtures, explicit request counts,
+and progress/protected-history assertions. Required live evidence cannot be
+replaced with mocks.
+
+`ios-safari` and `fresh-chrome-paired-device` remain valid optional evidence
+labels. Validate their actual provenance if supplied; do not relabel historical
+records. Their absence never blocks completeness or owner review. Record omitted
+optional coverage in `confidenceGaps` using exactly:
+
+```text
+Optional iPhone Safari and separate physical-device coverage was not performed.
+```
+
+This one statement is non-blocking and supplies no PASS record. Every other
+confidence gap and every observed ownership or progress-loss defect remains
+blocking, including defects discovered on optional devices. A desktop-only
+report can reach `awaiting-product-owner-approval`; public promotion still
+requires the separate product-owner decision.
