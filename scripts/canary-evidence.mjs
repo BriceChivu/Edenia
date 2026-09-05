@@ -11,9 +11,16 @@ const ASSERTIONS = new Set(['identity-matches', 'gate-matches', 'owner-isolated'
 const OPERATIONS = new Set(['read', 'resolve', 'backup', 'sync', 'import', 'reset', 'undo', 'delivery', 'auth', 'sign-out', 'gate-transition', 'monitor-transition'])
 
 function check(value) { if (!value) throw new Error('Invalid or unsafe canary evidence') }
+function matches(pattern, value) { return typeof value === 'string' && pattern.test(value) }
 function exact(value, keys) {
-  check(value && typeof value === 'object' && !Array.isArray(value))
+  check(value && typeof value === 'object' && !Array.isArray(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value)))
+  check(Reflect.ownKeys(value).every(key => typeof key === 'string' && Object.getOwnPropertyDescriptor(value, key)?.get === undefined && Object.getOwnPropertyDescriptor(value, key)?.set === undefined))
   check(Object.keys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key)))
+}
+function plainArray(value) {
+  check(Array.isArray(value) && Object.getPrototypeOf(value) === Array.prototype)
+  check(Reflect.ownKeys(value).length === value.length + 1)
+  check(Reflect.ownKeys(value).every(key => key === 'length' || (typeof key === 'string' && /^(0|[1-9][0-9]*)$/u.test(key) && Number(key) < value.length && Object.getOwnPropertyDescriptor(value, key)?.get === undefined)))
 }
 function utc(value) { check(typeof value === 'string' && TIMESTAMP.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value) }
 
@@ -22,24 +29,25 @@ function utc(value) { check(typeof value === 'string' && TIMESTAMP.test(value) &
 // A reviewer must retrieve and verify the separately retained source evidence.
 export function encodeCanaryEvidence(record) {
   exact(record, ['schemaVersion', 'runId', 'scenario', 'subcase', 'procedureSha256', 'runnerSha', 'candidateSha', 'gate', 'target', 'browserVersion', 'osVersion', 'sourceKind', 'startedUtc', 'finishedUtc', 'assertions', 'operations', 'cleanup', 'sourceHashes'])
-  check(record.schemaVersion === 1 && UUID.test(record.runId) && SCENARIOS.has(record.scenario))
+  check(record.schemaVersion === 1 && matches(UUID, record.runId) && SCENARIOS.has(record.scenario))
   check(Number.isSafeInteger(record.subcase) && record.subcase >= 1 && record.subcase <= 1000)
-  check(HASH.test(record.procedureSha256) && SHA.test(record.runnerSha) && SHA.test(record.candidateSha))
+  check(matches(HASH, record.procedureSha256) && matches(SHA, record.runnerSha) && matches(SHA, record.candidateSha))
   check(['off', 'developer-canary'].includes(record.gate) && TARGETS.has(record.target))
   check(['local-synthetic', 'live-browser', 'deployed-schema', 'operator-metadata'].includes(record.sourceKind))
-  for (const version of [record.browserVersion, record.osVersion]) check(version === null || /^\d+(?:\.\d+){0,4}$/u.test(version))
+  for (const version of [record.browserVersion, record.osVersion]) check(version === null || matches(/^\d+(?:\.\d+){0,4}$/u, version))
   if (record.sourceKind === 'live-browser') check(record.browserVersion !== null && record.osVersion !== null && !['operator-cli', 'local-node'].includes(record.target))
   utc(record.startedUtc)
   utc(record.finishedUtc)
   check(Date.parse(record.finishedUtc) >= Date.parse(record.startedUtc))
-  check(Array.isArray(record.assertions) && record.assertions.length > 0)
+  plainArray(record.assertions)
+  check(record.assertions.length > 0)
   const assertionIds = new Set()
   for (const assertion of record.assertions) {
     exact(assertion, ['id', 'passed'])
     check(ASSERTIONS.has(assertion.id) && !assertionIds.has(assertion.id) && typeof assertion.passed === 'boolean')
     assertionIds.add(assertion.id)
   }
-  check(Array.isArray(record.operations))
+  plainArray(record.operations)
   const operationIds = new Set()
   for (const operation of record.operations) {
     exact(operation, ['id', 'expected', 'observed'])
@@ -48,7 +56,9 @@ export function encodeCanaryEvidence(record) {
     operationIds.add(operation.id)
   }
   check(['verified', 'failed', 'not-required'].includes(record.cleanup))
-  check(Array.isArray(record.sourceHashes) && record.sourceHashes.length > 0 && record.sourceHashes.every(hash => typeof hash === 'string' && HASH.test(hash)))
-  const json = JSON.stringify(record, null, 2) + '\n'
+  plainArray(record.sourceHashes)
+  check(record.sourceHashes.length > 0 && record.sourceHashes.every(hash => typeof hash === 'string' && HASH.test(hash)))
+  const safe = { ...record, assertions: record.assertions.map(({ id, passed }) => ({ id, passed })), operations: record.operations.map(({ id, expected, observed }) => ({ id, expected, observed })), sourceHashes: [...record.sourceHashes] }
+  const json = JSON.stringify(safe, null, 2) + '\n'
   return { json, sha256: createHash('sha256').update(json).digest('hex') }
 }

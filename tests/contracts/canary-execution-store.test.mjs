@@ -121,4 +121,8 @@ test('closure reconciliation never permits a new operation', t => {
   first.acquire('runner-b', 1004, 1000)
   assert.throws(() => first.beginOperation('runner-b', 1005, intent), /Closed execution/)
   assert.equal(first.state().pending.length, 0)
+  first.reconcileExpired(2005, { previousExecutorStopped: true, candidate: 'e'.repeat(40), gate: 'off', evidenceHash })
+  assert.equal(first.state().phase, 'closed')
+  first.acquire('runner-c', 2006, 1000)
+  assert.throws(() => first.beginOperation('runner-c', 2007, { ...intent, candidate: 'e'.repeat(40), gate: 'off' }), /Closed execution/)
 })

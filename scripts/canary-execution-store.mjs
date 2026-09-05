@@ -166,7 +166,7 @@ export class CanaryExecutionStore {
         this.db.prepare('UPDATE operations SET state = ?, evidence_hash = ? WHERE id = ?').run(pendingOutcome.outcome, evidenceHash, pending.id)
       }
       const changed = candidate !== state.candidate || gate !== state.gate
-      this.db.prepare('UPDATE execution SET owner = NULL, expires = NULL, candidate = ?, gate = ?, phase = ? WHERE singleton = 1').run(candidate, gate, changed ? 'preflight' : state.phase)
+      this.db.prepare('UPDATE execution SET owner = NULL, expires = NULL, candidate = ?, gate = ?, phase = ? WHERE singleton = 1').run(candidate, gate, changed && state.phase !== 'closed' ? 'preflight' : state.phase)
       return { reconciled: true, evidenceInvalidated: changed }
     })
   }
