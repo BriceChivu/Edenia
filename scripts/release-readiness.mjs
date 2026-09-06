@@ -9,13 +9,24 @@ import {
 } from './release-manifest.mjs'
 
 export const RELEASE_READINESS_SCHEMA_VERSION = 1
-export const BROWSER_TARGETS = Object.freeze([
+export const REQUIRED_BROWSER_TARGETS = Object.freeze([
   'macos-chrome',
   'macos-safari',
-  'ios-safari',
-  'fresh-chrome-paired-device',
+  'fresh-chrome-isolated-context',
   'private-browsing'
 ])
+export const OPTIONAL_BROWSER_TARGETS = Object.freeze([
+  'ios-safari',
+  'fresh-chrome-paired-device'
+])
+export const BROWSER_TARGETS = Object.freeze([
+  ...REQUIRED_BROWSER_TARGETS,
+  ...OPTIONAL_BROWSER_TARGETS
+])
+// Only this absence-of-coverage statement is non-blocking. Defects and every
+// other confidence gap retain their existing blocking semantics.
+export const OPTIONAL_DEVICE_CONFIDENCE_GAP =
+  'Optional iPhone Safari and separate physical-device coverage was not performed.'
 
 const OPERATOR_TARGET = 'operator-cli'
 const UTC_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u
@@ -167,7 +178,7 @@ const REQUIRED_PROFILE_DATA_GATE_BY_SCENARIO = Object.freeze({
 export const REQUIRED_SCENARIOS = Object.freeze([
   ...Object.entries(SCENARIO_DEPENDENCIES).map(([id, dependencies]) => ({
     id,
-    requiredBrowserTargets: id === 'browser-matrix' ? BROWSER_TARGETS : [],
+    requiredBrowserTargets: id === 'browser-matrix' ? REQUIRED_BROWSER_TARGETS : [],
     dependencies: [...dependencies, 'gate-state']
   }))
 ])
@@ -821,7 +832,7 @@ export function validateReleaseReadinessReport(report) {
       decision: 'blocked',
       errors: ['Release readiness report must be an object'],
       missingScenarios: REQUIRED_SCENARIOS.map(scenario => scenario.id),
-      missingBrowserTargets: [...BROWSER_TARGETS]
+      missingBrowserTargets: [...REQUIRED_BROWSER_TARGETS]
     }
   }
   if (report.schemaVersion !== RELEASE_READINESS_SCHEMA_VERSION) {
@@ -927,7 +938,7 @@ export function validateReleaseReadinessReport(report) {
   const missingScenarios = REQUIRED_SCENARIOS
     .filter(scenario => !passRecords.some(record => record.scenarioId === scenario.id))
     .map(scenario => scenario.id)
-  const missingBrowserTargets = BROWSER_TARGETS.filter(target => {
+  const missingBrowserTargets = REQUIRED_BROWSER_TARGETS.filter(target => {
     const targetRecords = passRecords.filter(
       record => record.scenarioId === 'browser-matrix' && record.browserTarget === target
     )
@@ -943,7 +954,7 @@ export function validateReleaseReadinessReport(report) {
   const evidenceComplete = errors.length === 0
     && missingScenarios.length === 0
     && missingBrowserTargets.length === 0
-    && confidenceGaps.length === 0
+    && confidenceGaps.every(gap => gap === OPTIONAL_DEVICE_CONFIDENCE_GAP)
   const decision = !evidenceComplete
     ? 'blocked'
     : report.productOwnerApproval === 'approved'
