@@ -524,6 +524,29 @@ export function createLearnerProfileLifecycleAuthority({
         }
         resolvedProfile = finalizedLocalProfile.profile
         activationProfile.profile = resolvedProfile
+        const isActivationRequestCurrent = () => {
+          const currentAuth = authentication.getObservation()
+          return requestId === resolutionId
+            && currentAuth?.status === 'signed-in'
+            && currentAuth.userId === auth.userId
+            && localPersistence.isActivationCurrent(activation)
+        }
+        if (typeof result.commitSyncRepair === 'function') {
+          let syncRepairCommitted = false
+          try {
+            syncRepairCommitted = result.commitSyncRepair({
+              isCurrent: isActivationRequestCurrent
+            }) === true
+          } catch {}
+          if (!syncRepairCommitted) {
+            localPersistence.releaseActivation(activation)
+            if (
+              requestId === resolutionId
+              && authentication.getObservation()?.userId === auth.userId
+            ) publishProfileOpeningFailure(auth, purpose)
+            return
+          }
+        }
         const activationState = activateProfile(activationProfile, activation, {
           protectedConflicts: result.protectedConflicts || [],
           protectedReset
@@ -541,14 +564,15 @@ export function createLearnerProfileLifecycleAuthority({
         try {
           if (typeof result.finalize === 'function') {
             result.finalize({
-              isCurrent: () =>
-                localPersistence.isActivationCurrent(activation)
+              isCurrent: isActivationRequestCurrent
             })
           }
         } catch {}
-        if (!localPersistence.isActivationCurrent(activation)) {
-          releaseActiveProfile()
-          publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+        if (!isActivationRequestCurrent()) {
+          if (currentState.activation === activation) {
+            releaseActiveProfile()
+            publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
+          }
           return
         }
         if (result.backupRequired === true) {

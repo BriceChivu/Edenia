@@ -51,6 +51,21 @@ migration path may attach it to the verified owner; if there is no usable local
 town data, the malformed metadata is treated as an empty local profile so the
 normal signed-in resolver can route to onboarding or an existing cloud town.
 
+Profile opening may prepare a repair to malformed durable bookkeeping, but it
+must not perform that repair while cloud resolution is still in flight. The
+lifecycle authority may commit the prepared repair only after it has installed
+the verified profile and claimed its activation fence. Immediately before the
+mutation, the request, authenticated owner, activation, and exact captured
+durable value must still be current. Any observable change or write failure
+stops the repair instead of replacing the newer value.
+
+This fencing is deliberately narrower than a transactional storage guarantee.
+The current browser storage cannot make the final comparison and mutation
+linearizable across tabs, so another tab can still win inside that last window.
+The authority rechecks its fence after the mutation and treats a lost fence as
+stale. Moving all profile metadata to transactional storage is a separate
+architecture and migration decision, not part of this recovery repair.
+
 Automatic fallback must never cross an intentional Start-over reset boundary.
 An older profile generation remains available only through explicit recovery.
 Edenia will not create an isolated signed-in profile as the normal fallback.
@@ -95,6 +110,9 @@ Costs and risks:
   creation-eligibility trigger existed.
 - Regression coverage must prove both recovery liveness and accountless-route
   containment.
+- Durable-bookkeeping repair remains a bounded best-effort operation rather
+  than an atomic cross-tab transaction; tests must cover stale requests,
+  changed values, write failure, and both tab-completion orders.
 
 ## Narrow implementation plan
 

@@ -11,6 +11,12 @@ import {
   createLearnerProfileAuthenticationAdapter
 } from '../../src/integrations/learner-profile-authentication-adapter.js'
 import {
+  createLearnerProfileCloudPersistenceAdapter
+} from '../../src/integrations/learner-profile-cloud-persistence.js'
+import {
+  LEARNER_PROFILE_RESOLUTION_STATUSES
+} from '../../src/domain/learner-profile-resolution.js'
+import {
   createStateStore
 } from '../../src/state/store.js'
 
@@ -446,6 +452,227 @@ function createPersistenceInterleavingHarness() {
       }
     }
   }
+}
+
+function createSyncRepairCompletionHarness() {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const stateStorageKey = 'edenia_v1_internal_test'
+  const accessStorageKey = `${stateStorageKey}_profile_access_v1`
+  const syncStorageKey = `${stateStorageKey}_profile_sync_v1`
+  const importStorageKey = `${syncStorageKey}_import_v1`
+  const malformedSync = '{malformed-sync-record'
+  const malformedImport = '{malformed-import-record'
+  const profile = {
+    config: {},
+    learnerProfile: { languages: ['mandarin'] }
+  }
+  const envelope = {
+    exportedAt: '2026-09-04T00:00:00.000Z',
+    integrity: {
+      algorithm: 'SHA-256',
+      byteLength: 100,
+      payloadSha256: 'A'.repeat(43)
+    },
+    profile,
+    schema: 'edenia-portable-learner-profile',
+    version: 1
+  }
+  const values = new Map([
+    [importStorageKey, malformedImport],
+    [syncStorageKey, malformedSync]
+  ])
+  const storage = {
+    getItem: key => values.get(key) ?? null,
+    removeItem: key => values.delete(key),
+    setItem: (key, value) => values.set(key, String(value))
+  }
+  const noEvents = {
+    addEventListener() {},
+    removeEventListener() {}
+  }
+  const createLocalPersistence = () =>
+    createLearnerProfileLocalPersistenceAdapter({
+      accessStorageKey,
+      accountlessProfileId: `accountless:${stateStorageKey}`,
+      eventTarget: null,
+      hasProfile: () => storage.getItem(stateStorageKey) !== null,
+      loadProfile: () => {
+        const stored = storage.getItem(stateStorageKey)
+        return stored === null ? null : JSON.parse(stored)
+      },
+      replaceProfile(nextProfile, options, canPersist) {
+        if (!canPersist()) return { error: null, persisted: false }
+        storage.setItem(stateStorageKey, JSON.stringify(nextProfile))
+        return { error: null, persisted: canPersist() }
+      },
+      saveProfile(nextProfile, options, canPersist) {
+        if (!canPersist()) return false
+        storage.setItem(stateStorageKey, JSON.stringify(nextProfile))
+        return canPersist()
+      },
+      storage
+    })
+  const createTab = name => {
+    const rpcResponse = deferred()
+    const localPersistence = createLocalPersistence()
+    const cloudPersistence = createLearnerProfileCloudPersistenceAdapter({
+      clearOnboardingDraft: () => true,
+      createOnboardingEnvelope: async () => null,
+      createOperationId: () => crypto.randomUUID(),
+      eventTarget: noEvents,
+      finalizeEnvelope: async prepared => ({
+        byteLength: 100,
+        envelope: prepared,
+        serialized: JSON.stringify(prepared)
+      }),
+      getClient: () => ({
+        rpc: async rpcName => {
+          assert.equal(rpcName, 'resolve_my_learner_profile')
+          return rpcResponse.promise
+        }
+      }),
+      hasOnboardingProfileDraft: () => false,
+      importEnvelope: prepared => prepared.profile,
+      isOnline: () => true,
+      now: () => 0,
+      prepareEnvelope: nextProfile => ({
+        ...envelope,
+        profile: structuredClone(nextProfile)
+      }),
+      readOnboardingState: () => null,
+      setTimer: () => null,
+      storage,
+      syncStorageKey,
+      verifyEnvelope: async prepared => prepared
+    })
+    let activationCount = 0
+    const authority = createLearnerProfileLifecycleAuthority({
+      adapters: {
+        analytics: {
+          accessChanged() {},
+          profileActivated() {},
+          profileSaved() {},
+          profileStartedOver() {}
+        },
+        authentication: {
+          getObservation: () => ({ status: 'signed-in', userId: ownerId }),
+          subscribe: () => () => {}
+        },
+        clock: {
+          clearTimer() {},
+          now: () => 1_788_451_200_000,
+          setTimer: () => null
+        },
+        cloudPersistence,
+        connectivity: {
+          getObservation: () => ({ status: 'online' }),
+          subscribe: () => () => {}
+        },
+        exportDownload: { download: async () => true },
+        localPersistence,
+        ownerVerification: {
+          clear: () => true,
+          read: () => null,
+          record: () => true,
+          subscribe: () => () => {}
+        }
+      },
+      createActivationId: () => `${name}-activation-${++activationCount}`,
+      onStateChange() {}
+    })
+    return { authority, name, rpcResponse }
+  }
+  return {
+    accessStorageKey,
+    createTab,
+    envelope,
+    importStorageKey,
+    malformedImport,
+    malformedSync,
+    ownerId,
+    profileId,
+    stateStorageKey,
+    storage,
+    syncStorageKey
+  }
+}
+
+for (const completionOrder of [
+  ['tab-a', 'tab-b'],
+  ['tab-b', 'tab-a']
+]) {
+  test(`only the winning activation repairs malformed sync metadata when ${completionOrder.join(' then ')} resolves`, async () => {
+    const harness = createSyncRepairCompletionHarness()
+    const tabs = Object.fromEntries(
+      completionOrder.map(name => [name, harness.createTab(name)])
+    )
+    for (const tab of Object.values(tabs)) tab.authority.start()
+
+    assert.equal(
+      harness.storage.getItem(harness.syncStorageKey),
+      harness.malformedSync
+    )
+    assert.equal(
+      harness.storage.getItem(harness.importStorageKey),
+      harness.malformedImport
+    )
+
+    const [winnerName, staleName] = completionOrder
+    tabs[winnerName].rpcResponse.resolve({
+      data: [{
+        created: false,
+        envelope: harness.envelope,
+        generation: 1,
+        profile_id: harness.profileId,
+        revision: 3,
+        status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+      }],
+      error: null
+    })
+    await new Promise(resolve => setImmediate(resolve))
+
+    assert.equal(
+      tabs[winnerName].authority.getState().status,
+      LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+    )
+    assert.equal(harness.storage.getItem(harness.importStorageKey), null)
+    const repairedSync = harness.storage.getItem(harness.syncStorageKey)
+    assert.deepEqual(JSON.parse(repairedSync), {
+      acceptedRevision: 3,
+      generation: 1,
+      ownerId: harness.ownerId,
+      pending: null,
+      profileId: harness.profileId,
+      queued: null,
+      version: 1
+    })
+
+    tabs[staleName].rpcResponse.resolve({
+      data: [{
+        created: false,
+        envelope: harness.envelope,
+        generation: 1,
+        profile_id: harness.profileId,
+        revision: 3,
+        status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+      }],
+      error: null
+    })
+    await new Promise(resolve => setImmediate(resolve))
+
+    assert.equal(
+      tabs[staleName].authority.getState().status,
+      LEARNER_PROFILE_ACCESS_STATES.RECOVERING
+    )
+    assert.equal(tabs[staleName].authority.readActiveProfile(), null)
+    assert.equal(harness.storage.getItem(harness.syncStorageKey), repairedSync)
+    assert.equal(harness.storage.getItem(harness.importStorageKey), null)
+    const access = JSON.parse(
+      harness.storage.getItem(harness.accessStorageKey)
+    )
+    assert.match(access.activationId, new RegExp(`^${winnerName}-activation-`))
+  })
 }
 
 test('authentication alone cannot expose or save an Accountless profile', async () => {
