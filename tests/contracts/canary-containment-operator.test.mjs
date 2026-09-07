@@ -21,12 +21,12 @@ function fixture(state = { rollout_state: 'developer-canary', owner }) {
   }
 }
 
-test('containment establishes gate-off and monitor-off then becomes a read-only no-op', async () => {
+test('containment establishes gate-off and monitor-off and fences repeated containment', async () => {
   const { operator, writes } = fixture()
   assert.equal((await containCanary(operator, owner)).gateOff, true)
   assert.deepEqual(writes, ['gate', 'monitor'])
-  assert.equal((await containCanary(operator, owner)).gateWriteAttempted, false)
-  assert.deepEqual(writes, ['gate', 'monitor'])
+  assert.equal((await containCanary(operator, owner)).gateWriteAttempted, true)
+  assert.deepEqual(writes, ['gate', 'monitor', 'gate'])
 })
 
 test('containment never takes over another owner, public gate, or ambiguous off state', async () => {

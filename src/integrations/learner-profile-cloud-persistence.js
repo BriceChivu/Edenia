@@ -2591,15 +2591,25 @@ export function createLearnerProfileCloudPersistenceAdapter({
     const storedSync = readStoredSyncRecord()
     let currentRecord = storedSync.record
     let syncRecordRepair = null
-    const mustDeferSyncRecord = !currentRecord
-      && (storedSync.present || malformedImportRepair)
+    const staleEmptyBinding = localWasEmptyBeforeRequest
+      && localProfile?.status === 'empty'
+      && currentRecord
+      && currentRecord.ownerId === cloudIdentity.ownerId
+      && currentRecord.profileId === cloudIdentity.profileId
+      && currentRecord.generation === cloudIdentity.generation
+      && currentRecord.acceptedRevision < revision
+      && currentRecord.pending === null
+      && currentRecord.queued === null
+    const mustDeferSyncRecord = staleEmptyBinding || (!currentRecord
+      && (storedSync.present || malformedImportRepair))
     if (mustDeferSyncRecord) {
       if (
         !localWasEmptyBeforeRequest
         || localProfile?.status !== 'empty'
         || !storedSyncBeforeRequest.readable
         || !storedSync.readable
-        || storedSyncBeforeRequest.record
+        || (!staleEmptyBinding && storedSyncBeforeRequest.record)
+        || readDirtyRecord().present
         || storedSyncBeforeRequest.serialized !== storedSync.serialized
       ) return { status: 'recovering' }
       currentRecord = createSyncRecord(cloudIdentity)
@@ -2845,6 +2855,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
           if (
             typeof isCurrent !== 'function'
             || !isCurrent()
+            || readDirtyRecord().present
             || !syncRepairs.every(storedRepairMatches)
             || !isCurrent()
           ) return false

@@ -124,8 +124,12 @@ try {
   process.off('SIGINT', onSignal)
   process.off('SIGTERM', onSignal)
 }
+const scriptSources = {}
+for (const name of ['canary-containment-operator.mjs', 'canary-profile-verifier.mjs', 'canary-execution-store.mjs', 'watch-canary-execution.mjs']) {
+  scriptSources[name] = createHash('sha256').update(await readFile(new URL('./' + name, import.meta.url))).digest('hex')
+}
 const receipt = {
-  schemaVersion: 1, evidenceKind: 'local-synthetic-database', startedUtc,
+  schemaVersion: 1, scriptSources, evidenceKind: 'local-synthetic-database', startedUtc,
   finishedUtc: new Date().toISOString(), suites: results, migrationSources, containment, profileVerifier, cleanupVerified,
   hostedOperations: 0, logs, complete: !failure && !interrupted && cleanupVerified
 }

@@ -265,3 +265,67 @@ The complete scenario mapping, concrete clock/storage/OTP procedures, linked
 schema probe and archive provenance procedure are in
 `docs/internal-canary-execution-manifest.md`. Its acceptance receipts remain
 separate from the procedures; do not infer live PASS from a prepared command.
+
+## Packet 1 guarded opening
+
+`hosted-profile-opening-smoke.mjs` implements the Packet 1 matrix only: clean,
+malformed and stale bookkeeping, reload, and injected transport failure followed
+by the deployed retry action. Its versioned portable fixture has Anki enabled.
+Local adapter tests exercise the same browser procedure against localhost.
+
+After exact-source review and deployment, the synthetic command is:
+
+```sh
+node scripts/hosted-profile-opening-smoke.mjs --synthetic DEPLOYED_SHA
+```
+
+`EDENIA_CANARY_OPERATOR_WORKDIR` privately identifies the already verified linked
+operator checkout. The command requires gate off, no owner, disabled monitor,
+internal rollout and lifecycle enabled. Provider responses are synthetic and
+blocked from the provider. Runtime and app asset bytes are checked against the
+recorded deployment. Output remains distinct from real-browser acceptance.
+
+`run-live-profile-opening.mjs DEPLOYED_SHA REVIEWED_RUNNER_SHA` coordinates the
+full sequence. `EDENIA_CANARY_PRIVATE_CONFIG` points to private JSON containing
+`workdir`, `projectRef`, `expectedOwner`, `invocationUtc`, `baseSha`,
+`heartbeatReference`, and `rehearsalReceipt`. Never put these private capabilities
+or owner values in tracker receipts. The recovery receipt must be a successful
+local database rehearsal with source hashes matching the verifier, store,
+containment operator and watchdog. The reviewed Git tree must be clean and
+match the reviewed runner identity before invocation.
+
+The coordinator uses the shared operator checkout's Packet 1 SQLite journal.
+An existing execution refuses automatic replay and requires reconciliation.
+It renews one lease, arms an independent watchdog, contains any same-owner
+handoff, runs deployed synthetic cases with the gate off, and opens a guarded
+private authentication UI. Authentication accepts only the approved owner and
+never permits a profile RPC. A private provider challenge that cannot be
+completed through the approved capability is an Exceptional pause.
+
+Before enable, each phase and every dispatched provider call, the original
+valid head must still match. Gate enable compares the off-state timestamp
+captured before the final lease check. Containment revokes the lease and always
+advances that timestamp, including when already off; delayed enable requests
+therefore cannot reopen a contained gate. Local PostgreSQL rehearsals verify
+both race orderings. The gate transition journal requires verified readback.
+
+The network guard blocks workers, sockets, all undeclared profile operations,
+public-root navigation and redirects for provider calls. Known non-profile
+reminder reads/snapshot attempts are blocked and counted separately. Each phase
+has one null-onboarding resolver attempt; injected failure is aborted before
+provider dispatch. A remotely dispatched resolver remains pending unless its
+`profile_ready` response and unchanged full original head are both verified.
+A timeout never becomes a successful or non-applied receipt.
+
+Finally, contexts close, the watchdog contains and stops, and the coordinator
+independently verifies gate off, removed owner, disabled monitor and unchanged
+original head/history. Setup failures also attempt this bounded containment.
+A fully passing matrix uses the Packet 1 cleanup transition to preserve its
+case evidence at the planned off-state exit. This transition requires the same
+candidate, completed matching watchdog, expired stopped executor, four distinct
+case hashes and no pending operation. Failures use ordinary reconciliation.
+Receipts retain deployment, procedure, browser, timestamps and source hashes;
+no rendered learner content or authentication material enters them. An
+ambiguous outcome keeps the ticket open for reconciliation. The runner does
+not close GitHub issues, cancel the same-task heartbeat, or select another
+packet: those final receipt/closure steps belong to the active execution.

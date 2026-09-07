@@ -145,8 +145,8 @@ export function createLearnerProfileAccessView({
     }, openingStatusDelay)
   }
 
-  function revealGateForState(state) {
-    if (OPENING_STATES.has(state)) {
+  function revealGateForState(state, retryable = false) {
+    if (OPENING_STATES.has(state) && !retryable) {
       cancelBusyReveal()
       gate.classList.add('hidden')
       showOpeningNotice()
@@ -155,6 +155,7 @@ export function createLearnerProfileAccessView({
     hideOpeningNotice()
     const delaysHiddenBusyState =
       BUSY_STATES.has(state)
+      && !retryable
       && busyDelay > 0
       && gate.classList.contains('hidden')
       && typeof setTimer === 'function'
@@ -241,7 +242,8 @@ export function createLearnerProfileAccessView({
       openSignIn.hidden = false
       return
     }
-    if (accessState?.status === 'recovering') {
+    if (accessState?.status === 'recovering'
+      || (accessState?.status === 'waiting-cloud' && accessState.retryable === true)) {
       retry.hidden = false
       signOut.hidden = false
       return
@@ -284,8 +286,10 @@ export function createLearnerProfileAccessView({
       : null
     const key = state === 'account-change'
       ? `profileAccess.accountChange.${protectionStatus}`
-      : recoveryCopyKey || COPY_KEYS[state]
-    const isOpening = OPENING_STATES.has(state)
+      : state === 'waiting-cloud' && accessState.retryable === true
+        ? COPY_KEYS.recovering
+        : recoveryCopyKey || COPY_KEYS[state]
+    const isOpening = OPENING_STATES.has(state) && accessState.retryable !== true
     const isGenericRecovery = state === 'recovering' && !recoveryCopyKey
     title.textContent = translate(`${key}.title`)
     body.textContent = translate(`${key}.body`)
@@ -294,10 +298,10 @@ export function createLearnerProfileAccessView({
     status.textContent = status.hidden
       ? ''
       : translate('profileAccess.noProfileVisible')
-    gate.setAttribute('aria-busy', String(BUSY_STATES.has(state)))
+    gate.setAttribute('aria-busy', String(BUSY_STATES.has(state) && accessState.retryable !== true))
     showActions(accessState)
     renderRecovery(accessState?.recovery)
-    revealGateForState(state)
+    revealGateForState(state, accessState.retryable === true)
   }
 
   return Object.freeze({ hideOpeningNotice, render })

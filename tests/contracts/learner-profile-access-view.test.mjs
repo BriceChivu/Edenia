@@ -412,3 +412,14 @@ test('an unusable current head has distinct guarded recovery copy', () => {
     false
   )
 })
+
+test('a completed retryable cloud failure exposes retry while an in-flight check stays quiet', () => {
+  const { elements, view } = createHarness()
+  view.render({ status: 'waiting-cloud', retryable: true })
+  assert.equal(elements.get('learnerProfileAccessGate').classList.contains('hidden'), false)
+  assert.equal(elements.get('learnerProfileAccessRetry').hidden, false)
+  assert.equal(elements.get('learnerProfileAccessGate').getAttribute('aria-busy'), 'false')
+  view.render({ status: 'waiting-cloud' })
+  assert.equal(elements.get('learnerProfileAccessGate').classList.contains('hidden'), true)
+  assert.equal(elements.get('learnerProfileAccessRetry').hidden, true)
+})

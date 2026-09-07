@@ -280,3 +280,49 @@ test('derived repair preserves the interrupted phase and resumes only through fr
   assert.equal(first.state().candidate, 'c'.repeat(40))
   assert.equal(first.checkpoint().repairs[0].state, 'closed')
 })
+
+test('a verified gate transition updates its receipt and expected gate atomically', t => {
+  const { first } = fixture(t)
+  first.acquire('runner-a', 1000, 10000)
+  first.beginOperation('runner-a', 1001, { ...intent, id: 'gate-off' })
+  assert.throws(() => first.finishGateTransition('runner-a', 1002, {
+    id: 'gate-off', from: 'off', to: 'developer-canary', evidenceHash
+  }))
+  assert.equal(first.state().pending.length, 1)
+  first.finishGateTransition('runner-a', 1003, { id: 'gate-off', from: 'developer-canary', to: 'off', evidenceHash })
+  assert.equal(first.state().gate, 'off')
+  assert.equal(first.state().pending.length, 0)
+  assert.throws(() => first.beginOperation('runner-a', 1004, { ...intent, id: 'gate-off' }))
+})
+
+test('Packet 1 planned cleanup rejects drift, missing cases, pending operations and unfinished containment', t => {
+  const { first } = fixture(t)
+  first.acquire('runner-a', 1000, 10000)
+  first.writeCheckpoint('runner-a', 1001, {
+    planId: 'internal-canary-codex-autonomous-2026-09-05-v4', topLevelIssue: 286,
+    invocationUtc: '2026-09-07T00:00:00.000Z', manifestSha256: evidenceHash,
+    reviewSha: candidate, baseSha: candidate, deploymentSha: candidate, artifactHashes: [],
+    soakStartUtc: null, soakEndUtc: null, sourceCursor: null, recoveryState: 'prepared', heartbeatReference: 'fixture-heartbeat'
+  })
+  for (const phase of ['local-work', 'reviewed', 'delivered', 'live-scenario']) first.advancePhase('runner-a', 1002, { phase, skipSoak: true, evidenceHash })
+  first.claimWatchdog('watch-a', 'runner-a', 1003, 20000)
+  first.beginOperation('runner-a', 1004, intent)
+  first.beginContainment('watch-a', 1005)
+  const proof = { previousExecutorStopped: true, candidate, gate: 'off', ownerRemoved: true,
+    monitorDisabled: true, headUnchanged: true, caseEvidenceHashes: ['a', 'b', 'c', 'd'].map(c => c.repeat(64)), evidenceHash }
+  assert.throws(() => first.reconcilePacketOneCleanup(1006, proof), /not current/)
+  first.finishContainment('watch-a', evidenceHash, true)
+  assert.throws(() => first.reconcilePacketOneCleanup(1006, proof), /not current/)
+  // Use the normal recovery path to resolve the deliberately ambiguous fixture.
+  first.reconcileExpired(1006, { previousExecutorStopped: true, candidate, gate: 'developer-canary', pendingOutcome: { id: intent.id, outcome: 'completed' }, evidenceHash })
+  first.acquire('runner-b', 1007, 1000)
+  first.claimWatchdog('watch-b', 'runner-b', 1008, 20000)
+  first.beginContainment('watch-b', 1009)
+  first.finishContainment('watch-b', evidenceHash, true)
+  assert.throws(() => first.reconcilePacketOneCleanup(1010, { ...proof, candidate: 'f'.repeat(40) }), /not current/)
+  assert.throws(() => first.reconcilePacketOneCleanup(1010, { ...proof, caseEvidenceHashes: [] }), /evidence is required/)
+  assert.equal(first.reconcilePacketOneCleanup(1010, proof).evidenceInvalidated, false)
+  assert.equal(first.state().phase, 'cleanup')
+  assert.equal(first.state().owner, null)
+  assert.equal(first.state().gate, 'off')
+})

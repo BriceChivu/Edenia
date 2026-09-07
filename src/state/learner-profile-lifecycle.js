@@ -80,11 +80,13 @@ export function createLearnerProfileLifecycleAuthority({
     protectedConflicts = [],
     protectedReset = null,
     recovery = null,
-    replacement = null
+    replacement = null,
+    retryable = false
   } = {}) {
     const retainedConflicts = Object.freeze([...protectedConflicts])
     currentState = Object.freeze({
       activation,
+      ...(retryable ? { retryable: true } : {}),
       ...(conflict ? { conflict } : {}),
       ownerId,
       profileId,
@@ -666,7 +668,7 @@ export function createLearnerProfileLifecycleAuthority({
             }
           : result.status === 'recovering' && result.recovery
             ? { recovery: result.recovery }
-          : undefined
+          : result.status === 'waiting-cloud' ? { retryable: true } : undefined
       )
     }).catch(() => {
       if (requestId === resolutionId) {

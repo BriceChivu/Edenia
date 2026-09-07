@@ -290,6 +290,44 @@ export class CanaryExecutionStore {
     })
   }
 
+  finishGateTransition(owner, now, { id, from, to, evidenceHash }) {
+    requireCondition(typeof id === 'string' && /^gate-[a-z0-9-]+$/u.test(id)
+      && GATES.has(from) && GATES.has(to) && from !== to && HASH.test(evidenceHash), 'Invalid verified gate transition')
+    return this.transaction(() => {
+      const state = this.requireLease(owner, now)
+      requireCondition(state.gate === from, 'Gate transition baseline changed')
+      requireCondition(state.pending.length === 1 && state.pending[0].id === id, 'No matching gate intent')
+      this.db.prepare("UPDATE operations SET state = 'completed', evidence_hash = ? WHERE id = ?").run(evidenceHash, id)
+      this.db.prepare('UPDATE execution SET gate = ? WHERE singleton = 1').run(to)
+    })
+  }
+
+  // Packet 1 requires a planned gate-off exit after its unchanged-head matrix.
+  // This narrow cleanup transition does not relax candidate/gate invalidation
+  // for failed executions or any later packet's evidence.
+  reconcilePacketOneCleanup(now, { previousExecutorStopped, candidate, gate,
+    ownerRemoved, monitorDisabled, headUnchanged, caseEvidenceHashes, evidenceHash }) {
+    requireTime(now)
+    requireCondition(previousExecutorStopped === true && SHA.test(candidate)
+      && gate === 'off' && ownerRemoved === true && monitorDisabled === true && headUnchanged === true
+      && HASH.test(evidenceHash) && Array.isArray(caseEvidenceHashes) && caseEvidenceHashes.length === 4
+      && new Set(caseEvidenceHashes).size === 4 && caseEvidenceHashes.every(value => HASH.test(value)), 'Verified Packet 1 cleanup evidence is required')
+    return this.transaction(() => {
+      const state = this.state()
+      const checkpoint = this.checkpoint().metadata
+      const watchdog = this.db.prepare('SELECT * FROM watchdog').get()
+      requireCondition(checkpoint?.topLevelIssue === 286 && checkpoint.deploymentSha === candidate
+        && state.candidate === candidate && state.phase === 'live-scenario' && state.gate === 'developer-canary'
+        && state.owner && state.expires <= now && state.pending.length === 0
+        && watchdog?.executor === state.owner && watchdog.state === 'completed', 'Packet 1 cleanup is not current')
+      this.db.prepare('INSERT INTO phase_receipts (phase, evidence_hash) VALUES (?, ?)').run('cleanup', evidenceHash)
+      this.db.prepare("UPDATE execution SET owner = NULL, expires = NULL, gate = 'off', phase = 'cleanup' WHERE singleton = 1").run()
+      this.db.prepare('UPDATE checkpoint SET metadata = ? WHERE singleton = 1').run(JSON.stringify({ ...checkpoint,
+        recoveryState: 'verified', artifactHashes: [...checkpoint.artifactHashes, ...caseEvidenceHashes, evidenceHash] }))
+      return { reconciled: true, evidenceInvalidated: false }
+    })
+  }
+
   release(owner, now) {
     return this.transaction(() => {
       const state = this.requireLease(owner, now)
