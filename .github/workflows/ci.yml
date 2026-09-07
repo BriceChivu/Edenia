@@ -106,6 +106,11 @@ jobs:
                   run_supabase=true
                   run_supabase_db=true
                   ;;
+                scripts/canary-*.mjs|scripts/rehearse-canary-*.mjs|scripts/watch-canary-execution.mjs|supabase/tests/canary_deployed_schema.test.sql)
+                  run_contracts=true
+                  run_supabase=true
+                  run_supabase_db=true
+                  ;;
                 supabase/*)
                   run_supabase=true
                   ;;
@@ -224,6 +229,7 @@ jobs:
           supabase test db supabase/tests/stripe_webhook_prerequisites.test.sql --local
           supabase test db supabase/tests/plus_backup_grace_policies.test.sql --local
           supabase test db supabase/tests/legacy_progress_transfer_relay.test.sql --local
+          supabase test db supabase/tests/canary_deployed_schema.test.sql --local
           node scripts/test-learner-profile-concurrency.mjs
 
       - name: Stop isolated Supabase database

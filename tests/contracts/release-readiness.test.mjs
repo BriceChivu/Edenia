@@ -18,6 +18,9 @@ import {
   validateReleaseReadinessReport
 } from '../../scripts/release-readiness.mjs'
 
+const REQUIRED_BROWSER_TARGETS = ['macos-chrome', 'macos-safari', 'fresh-chrome-isolated-context', 'private-browsing']
+const OPTIONAL_DEVICE_CONFIDENCE_GAP = 'Optional iPhone Safari and separate physical-device coverage was not performed.'
+
 const COMMIT = 'a'.repeat(40)
 const NEXT_COMMIT = 'b'.repeat(40)
 const THIRD_COMMIT = 'e'.repeat(40)
@@ -147,7 +150,7 @@ function completeRecords(evidenceDeployment = gateOffDeployment) {
   }
   return [
     addRecord('deployment-identity'),
-    ...BROWSER_TARGETS.map(target => addRecord('browser-matrix', target)),
+    ...REQUIRED_BROWSER_TARGETS.map(target => addRecord('browser-matrix', target)),
     addRecord('auth-google', 'macos-chrome', {
       provider: 'google',
       providerOutcome: 'accepted'
@@ -160,19 +163,19 @@ function completeRecords(evidenceDeployment = gateOffDeployment) {
       negativeCases: 'missing-expired-replay-invalid-zero-delivery',
       emailDeliveryCount: 1
     }),
-    addRecord('auth-method-equivalence', 'fresh-chrome-paired-device', {
+    addRecord('auth-method-equivalence', 'fresh-chrome-isolated-context', {
       providerPair: 'google-email',
       identityMatch: 'same_uuid',
       identityValueRecorded: false
     }),
-    addRecord('profile-lifecycle', 'fresh-chrome-paired-device', {
+    addRecord('profile-lifecycle', 'fresh-chrome-isolated-context', {
       progressLoss: false,
       ownershipLeak: false,
       offlineDays: 30,
       profileCount: 1,
       lifecycleSubflows: 'new-returning-reload-offline30-signout-shared-browser-isolation'
     }),
-    addRecord('profile-sync-conflict', 'fresh-chrome-paired-device', {
+    addRecord('profile-sync-conflict', 'fresh-chrome-isolated-context', {
       progressLoss: false,
       conflictChoice: 'explicit',
       syncOrder: 'sequential'
@@ -194,7 +197,7 @@ function completeRecords(evidenceDeployment = gateOffDeployment) {
       protectedVersion: true,
       progressLoss: false
     }),
-    addRecord('profile-start-over-undo', 'fresh-chrome-paired-device', {
+    addRecord('profile-start-over-undo', 'fresh-chrome-isolated-context', {
       undoOutcome: 'accepted',
       generationAdvanced: true,
       progressLoss: false
@@ -514,7 +517,7 @@ test('append records the developer-canary profile phase without changing the fin
     '--report', reportPath,
     '--output', outputPath,
     '--scenario', 'profile-lifecycle',
-    '--target', 'fresh-chrome-paired-device',
+    '--target', 'fresh-chrome-isolated-context',
     '--browser', 'Chrome',
     '--browser-version', '151.0.7922.34',
     '--os', 'macOS',
@@ -699,4 +702,26 @@ test('required scenario catalog covers the release proof boundary', () => {
   for (const scenario of REQUIRED_SCENARIOS) {
     assert.equal(scenario.dependencies.includes('gate-state'), true)
   }
+})
+
+test('desktop-only readiness allows only the named optional-device confidence gap', () => {
+  const report = createReleaseReadinessReport({
+    deployment: gateOffDeployment, records: completeRecords(),
+    confidenceGaps: [OPTIONAL_DEVICE_CONFIDENCE_GAP],
+    noKnownProgressLossOrOwnershipDefect: true, observedAt: OBSERVED_AT
+  })
+  assert.equal(report.records.some(record => ['ios-safari', 'fresh-chrome-paired-device'].includes(record.browserTarget)), false)
+  assert.equal(validateReleaseReadinessReport(report).decision, 'awaiting-product-owner-approval')
+  for (const target of REQUIRED_BROWSER_TARGETS) {
+    const incomplete = { ...report, records: report.records.filter(record => record.browserTarget !== target) }
+    assert.ok(validateReleaseReadinessReport(incomplete).missingBrowserTargets.includes(target))
+  }
+  assert.equal(validateReleaseReadinessReport({ ...report, confidenceGaps: ['Ownership remains uncertain.'] }).decision, 'blocked')
+  const unsafe = structuredClone(report)
+  unsafe.records.find(record => record.scenarioId === 'profile-lifecycle').metadata.ownershipLeak = true
+  assert.equal(validateReleaseReadinessReport(unsafe).decision, 'blocked')
+  const optional = record('browser-matrix', 'ios-safari', {}, gateOffDeployment)
+  assert.equal(validateReleaseReadinessReport({ ...report, records: [...report.records, optional] }).decision, 'awaiting-product-owner-approval')
+  optional.deployment = { ...optional.deployment, deployedCommit: NEXT_COMMIT }
+  assert.equal(validateReleaseReadinessReport({ ...report, records: [...report.records, optional] }).decision, 'blocked')
 })

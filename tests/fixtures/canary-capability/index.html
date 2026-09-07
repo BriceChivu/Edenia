@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Canary browser isolation rehearsal</title>
+<h1>Canary browser isolation rehearsal</h1>
+<p>This local fixture writes only its own synthetic markers. No account or learner data is used.</p>
+<button id="a">Store context A</button>
+<button id="b">Store context B</button>
+<button id="clear">Clear rehearsal markers</button>
+<pre id="result" aria-live="polite"></pre>
+<script>
+const key = 'edenia_packet0_isolation_rehearsal'
+const result = document.querySelector('#result')
+function render() {
+  try {
+    const cookie = document.cookie.split('; ').find(value => value.startsWith(key + '='))?.split('=')[1] || 'empty'
+    result.textContent = `Local marker: ${localStorage.getItem(key) || 'empty'}\nSession marker: ${sessionStorage.getItem(key) || 'empty'}\nCookie marker: ${cookie}`
+  } catch { result.textContent = 'Storage unavailable' }
+}
+function store(value) {
+  try {
+    localStorage.setItem(key, value)
+    sessionStorage.setItem(key, value)
+    document.cookie = `${key}=${value}; Path=/; SameSite=Strict; Max-Age=3600`
+    render()
+  } catch { result.textContent = 'Storage unavailable' }
+}
+document.querySelector('#a').onclick = () => store('context-a')
+document.querySelector('#b').onclick = () => store('context-b')
+document.querySelector('#clear').onclick = () => {
+  try {
+    localStorage.removeItem(key)
+    sessionStorage.removeItem(key)
+    document.cookie = `${key}=; Path=/; SameSite=Strict; Max-Age=0`
+    render()
+  } catch { result.textContent = 'Storage unavailable' }
+}
+render()
+</script>
+</html>
