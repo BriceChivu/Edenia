@@ -218,7 +218,7 @@ export async function runOpeningCase({ browser, applicationOrigin, providerOrigi
     if (bookkeeping === 'retry') {
       await startPhase('injected-failure')
       guard.injectTransportFailure()
-      await page.goto(applicationOrigin + '/?internal_test=1')
+      await page.goto(applicationOrigin + '/?internal_test=1', { waitUntil: 'domcontentloaded' })
       await expect(page.locator('html')).toHaveAttribute('data-learner-profile-access-state', 'waiting-cloud')
       await finishPhase()
       await startPhase('retry')
@@ -227,13 +227,13 @@ export async function runOpeningCase({ browser, applicationOrigin, providerOrigi
       await finishPhase()
     } else {
       await startPhase('activation')
-      await page.goto(applicationOrigin + '/?internal_test=1')
+      await page.goto(applicationOrigin + '/?internal_test=1', { waitUntil: 'domcontentloaded' })
       await assertActive()
       await finishPhase()
     }
     if (phases.some(phase => !phase.complete)) throw new Error('Opening phase rejected')
     await startPhase('reload')
-    await page.reload()
+    await page.reload({ waitUntil: 'domcontentloaded' })
     await assertActive()
     await finishPhase()
     if (phases.some(phase => !phase.complete)) throw new Error('Opening phase rejected')
@@ -444,7 +444,9 @@ export async function prepareOpeningAuthentication({ browser, providerOrigin, ex
       return route.abort('blockedbyclient')
     })
     const page = await context.newPage()
-    await page.goto(OPENING_URL)
+    // CAPTCHA and other subresources can remain unsettled after the document
+    // is usable. Authentication readiness must not depend on the load event.
+    await page.goto(OPENING_URL, { waitUntil: 'domcontentloaded' })
     await onReady()
     const deadline = Date.now() + timeoutMs
     while (!stopped && Date.now() < deadline) {
