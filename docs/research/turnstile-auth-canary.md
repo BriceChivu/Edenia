@@ -95,6 +95,8 @@ Acceptance must be geometry-based rather than tied to one CSS technique. In Chro
 
 Proof must include the Supabase response class and email-provider delivery count without recording the address, CAPTCHA token, email code, session, publishable key, or provider secret.
 
+For the approved v4 internal-canary plan, the concrete independent delivery surface is the approved Gmail inbox. Pair a terminal CAPTCHA-specific rejection with deduplicated `in:anywhere` observations for the exact recipient/sender and recorded ten-minute window, as specified in `docs/internal-canary-execution-manifest.md`. Report zero matching messages observed in that window; do not label it an SMTP-provider send count or an unlimited no-delivery guarantee. A missing or ambiguous observation fails the case.
+
 ### 4. Proportionate proof for one developer
 
 Use three small layers rather than maintaining a second permanent cloud stack:
