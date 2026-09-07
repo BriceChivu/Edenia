@@ -11419,7 +11419,9 @@ async function refreshAnkiStats({ silent = false } = {}) {
   } catch (err) {
     ankiStatsCache = null
     const s = loadState()
-    if (s) {
+    // Failed automatic refreshes contain no Study fact. Keep their status
+    // feedback local instead of creating a signed-in profile revision.
+    if (s && !(silent && learnerProfileLifecycleAuthority)) {
       const message = formatAnkiConnectError(err)
       appendActivityLog(s, {
         actor: 'auto',
