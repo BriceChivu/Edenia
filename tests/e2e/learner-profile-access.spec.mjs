@@ -2702,3 +2702,47 @@ test('discarding progress recovers from malformed sync metadata', async ({
   })
   expect(replacement.dirty).toBeNull()
 })
+
+test('failed automatic Anki refresh does not write a signed-in profile diagnostic', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let enabled = false
+  let envelope
+  let commits = 0
+  let ankiAttempts = 0
+  await page.route('**/config.local.js*', route => route.fulfill({ contentType: 'text/javascript',
+    body: runtimeConfig({ accountFeaturesRollout: enabled ? 'internal' : 'off', lifecycle: enabled }) }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith('/rpc/resolve_my_learner_profile')) return route.fulfill({ json: [{
+      created: false, envelope, generation: 1, profile_id: OWNER_PROFILE_ID, revision: 3, status: 'profile_ready'
+    }] })
+    if (path.endsWith('/rpc/commit_my_learner_profile')) commits += 1
+    return route.fulfill({ json: path.endsWith('read_my_latest_learner_profile_reset') ? [{ status: 'none' }] : {} })
+  })
+  await page.route('http://127.0.0.1:8765/**', route => { ankiAttempts += 1; return route.fulfill({ json: { result: null, error: 'Synthetic unavailable AnkiConnect' } }) })
+  await page.route('http://localhost:8765/**', route => { ankiAttempts += 1; return route.fulfill({ json: { result: null, error: 'Synthetic unavailable AnkiConnect' } }) })
+  await page.goto('/?internal_test=1')
+  const state = await page.evaluate(() => {
+    const state = window.defaultState(4, [], 'light', [], 'en')
+    const time = '2026-09-04T12:00:00.000Z'
+    Object.assign(state.onboarding, { introSeenAt: time, setupCompleted: true,
+      setupCompletedAt: time, walkthroughCompleted: true, walkthroughCompletedAt: time })
+    return state
+  })
+  envelope = (await createPortableLearnerProfileEnvelope(state)).envelope
+  await page.evaluate(({ session, key }) => {
+    localStorage.clear()
+    sessionStorage.clear()
+    localStorage.setItem(key, JSON.stringify(session))
+  }, { session: restoredSession(OWNER_ID), key: AUTH_STORAGE_KEY })
+  enabled = true
+  await page.reload()
+  await expect(page.locator('html')).toHaveAttribute('data-learner-profile-access-state', 'active')
+  await expect.poll(() => ankiAttempts).toBeGreaterThan(0)
+  // Wait for the failed request's UI completion and any resulting persistence.
+  await expect.poll(async () => page.evaluate(() => window.loadState().activityLog.filter(
+    entry => entry.type === 'anki-refresh' && entry.status === 'warn').length)).toBe(0)
+  await page.waitForTimeout(500)
+  expect(commits).toBe(0)
+  await expect(page.locator('#mainApp')).toBeVisible()
+})
