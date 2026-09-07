@@ -320,6 +320,10 @@ A timeout never becomes a successful or non-applied receipt.
 Finally, contexts close, the watchdog contains and stops, and the coordinator
 independently verifies gate off, removed owner, disabled monitor and unchanged
 original head/history. Setup failures also attempt this bounded containment.
+A fully passing matrix uses the Packet 1 cleanup transition to preserve its
+case evidence at the planned off-state exit. This transition requires the same
+candidate, completed matching watchdog, expired stopped executor, four distinct
+case hashes and no pending operation. Failures use ordinary reconciliation.
 Receipts retain deployment, procedure, browser, timestamps and source hashes;
 no rendered learner content or authentication material enters them. An
 ambiguous outcome keeps the ticket open for reconciliation. The runner does

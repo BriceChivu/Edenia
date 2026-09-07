@@ -191,7 +191,13 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
       if (!fallbackContained || !Object.values(equality).every(Boolean)) throw new Error('Cleanup is not verified')
       receipt.cleanup = { gateOff: true, ownerRemoved: true, monitorDisabled: true, watchdogStopped: !watchdog || exit !== null, independentContainmentVerified: exit === 0 && watchdogOutput.includes('"state":"contained"'), ...equality }
       if (store.state().pending.length !== 0) throw new Error('Pending remote outcome requires reconciliation')
-      store.reconcileExpired(Date.now(), { previousExecutorStopped: true, candidate, gate: 'off', pendingOutcome: null, evidenceHash: hash(receipt.cleanup) })
+      if (!failed && results.length === 4 && receipt.cleanup.independentContainmentVerified) {
+        const evidenceHash = hash({ cleanup: receipt.cleanup, results })
+        await writeFile(join(directory, evidenceHash + '.json'), JSON.stringify({ cleanup: receipt.cleanup, results }), { mode: 0o600 })
+        store.reconcilePacketOneCleanup(Date.now(), { previousExecutorStopped: true, candidate, gate: 'off',
+          ownerRemoved: true, monitorDisabled: true, headUnchanged: true,
+          caseEvidenceHashes: results.map(result => result.sourceSha256), evidenceHash })
+      } else store.reconcileExpired(Date.now(), { previousExecutorStopped: true, candidate, gate: 'off', pendingOutcome: null, evidenceHash: hash(receipt.cleanup) })
     } catch { failed = true }
     receipt.finishedUtc = new Date().toISOString()
     receipt.complete = !failed && receipt.cleanup?.independentContainmentVerified === true && results.length === 4 && receipt.cleanup !== null

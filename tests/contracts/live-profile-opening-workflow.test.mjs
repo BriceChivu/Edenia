@@ -78,6 +78,7 @@ test('workflow completes four phases with original head, receipt and independent
   assert.equal(result.cleanup.independentContainmentVerified, true)
   assert.deepEqual(f.inspect(), { gate: 'off', enabled: 1, calls: 4, closed: true })
   assert.equal(f.state().pending.length, 0)
+  assert.equal(f.state().phase, 'cleanup')
   await assert.rejects(executeOpeningWorkflow(f.input, f.dependencies), /Existing execution requires reconciliation/)
   assert.equal(f.inspect().enabled, 1)
 })
