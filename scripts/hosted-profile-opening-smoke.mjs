@@ -338,37 +338,105 @@ if (process.argv[1] && import.meta.url === (await import('node:url')).pathToFile
   if (!complete) process.exitCode = 1
 }
 
+// Match only the installed SDK's existing email-code flow. Authentication
+// setup is constrained to an already verified account; it is not evidence of
+// unchanged deployed authentication behavior because creation is suppressed.
+export function createOpeningEmailAuthenticationPolicy({ providerOrigin, expectedEmail }) {
+  const provider = new URL(providerOrigin)
+  if (provider.origin !== providerOrigin || provider.protocol !== 'https:'
+    || typeof expectedEmail !== 'string' || expectedEmail.length > 254
+    || !/^[^\s@]+@[^\s@]+$/u.test(expectedEmail)) throw new Error('Invalid email authentication target')
+  let failed = false, delivery = 0, verification = 0, reads = 0
+  const deny = () => { failed = true; return { kind: 'deny' } }
+  const keys = (value, allowed) => value && !Array.isArray(value) && typeof value === 'object'
+    && Object.keys(value).every(key => allowed.includes(key))
+  return {
+    classify({ method, url, body }) {
+      if (failed) return deny()
+      let target, payload
+      try { target = new URL(url) } catch { return deny() }
+      if (target.origin !== providerOrigin || target.search || target.hash || target.username || target.password) return deny()
+      if (method === 'GET' && target.pathname === '/auth/v1/user' && !body && reads < 2) {
+        reads++; return { kind: 'user-read' }
+      }
+      if (method !== 'POST' || typeof body !== 'string' || body.length > 8192) return deny()
+      try { payload = JSON.parse(body) } catch { return deny() }
+      // The SDK serializes canonical JSON. Equality also rejects duplicate keys.
+      if (JSON.stringify(payload) !== body || payload?.email !== expectedEmail) return deny()
+      if (target.pathname === '/auth/v1/otp' && delivery === 0
+        && keys(payload, ['email', 'data', 'create_user', 'gotrue_meta_security', 'code_challenge', 'code_challenge_method'])
+        && typeof payload.create_user === 'boolean'
+        && keys(payload.data, ['edenia_auth_locale'])
+        && typeof payload.data.edenia_auth_locale === 'string' && /^[a-zA-Z-]{2,16}$/u.test(payload.data.edenia_auth_locale)
+        && keys(payload.gotrue_meta_security, ['captcha_token'])
+        && (payload.gotrue_meta_security.captcha_token === undefined
+          || typeof payload.gotrue_meta_security.captcha_token === 'string' && payload.gotrue_meta_security.captcha_token.length > 0 && payload.gotrue_meta_security.captcha_token.length <= 2048)
+        && ((payload.code_challenge === null && payload.code_challenge_method === null)
+          || typeof payload.code_challenge === 'string' && /^[a-zA-Z0-9_-]{43}$/u.test(payload.code_challenge) && payload.code_challenge_method === 's256')) {
+        delivery++; return { kind: 'email-code-request', body: JSON.stringify({ ...payload, create_user: false }) }
+      }
+      if (target.pathname === '/auth/v1/verify' && delivery === 1 && verification < 3
+        && keys(payload, ['email', 'token', 'type', 'gotrue_meta_security'])
+        && typeof payload.token === 'string' && /^\d{6}$/u.test(payload.token) && payload.type === 'email'
+        && keys(payload.gotrue_meta_security, []) ) {
+        verification++; return { kind: 'email-code-verify', body }
+      }
+      return deny()
+    }
+  }
+}
+
 // Existing-account authentication setup is separate from profile acceptance.
 // The caller drives the visible UI through native controls. Session material
 // remains in memory and is used only in fresh contexts at the same app origin.
 export async function prepareOpeningAuthentication({ browser, providerOrigin, expectedOwner,
-  verifyGateOff, onReady = () => {}, timeoutMs = 300000 }) {
+  verifyGateOff, onReady = () => {}, timeoutMs = 300000, method = 'google', expectedEmail }) {
   if (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u.test(expectedOwner)
-    || typeof verifyGateOff !== 'function' || timeoutMs < 1000 || timeoutMs > 300000) throw new Error('Invalid private authentication preflight')
+    || typeof verifyGateOff !== 'function' || timeoutMs < 1000 || timeoutMs > 300000
+    || !['google', 'email-code'].includes(method)) throw new Error('Invalid private authentication preflight')
+  const emailPolicy = method === 'email-code' ? createOpeningEmailAuthenticationPolicy({ providerOrigin, expectedEmail }) : null
   await verifyGateOff()
   const context = await browser.newContext({ serviceWorkers: 'block' })
   let stopped = false
   let attempts = 0
+  let challenges = 0
   try {
     await context.routeWebSocket('**/*', socket => socket.close())
     await context.route('**/*', async route => {
       const request = route.request()
       const target = new URL(request.url())
       if (stopped) return route.abort()
+      // Successful sign-in can schedule profile opening before the session
+      // poll runs. Deny that traffic without treating it as an auth failure.
+      if (target.pathname.startsWith('/rest/v1/')) return route.abort('blockedbyclient')
       if (target.origin === providerOrigin) {
-        const read = request.method() === 'GET' && target.pathname === '/auth/v1/user' && !target.search
-        const exchange = request.method() === 'POST' && target.pathname === '/auth/v1/token'
-          && target.search === '?grant_type=id_token'
-        if (!read && !exchange) return route.abort('blockedbyclient')
-        if (++attempts > 5) { stopped = true; return route.abort('blockedbyclient') }
+        let constrainedBody
+        if (emailPolicy) {
+          const classified = emailPolicy.classify({ method: request.method(), url: request.url(), body: request.postData() })
+          if (classified.kind === 'deny') { stopped = true; return route.abort('blockedbyclient') }
+          constrainedBody = classified.body
+        } else {
+          const read = request.method() === 'GET' && target.pathname === '/auth/v1/user' && !target.search
+          const exchange = request.method() === 'POST' && target.pathname === '/auth/v1/token'
+            && target.search === '?grant_type=id_token'
+          if (!read && !exchange) return route.abort('blockedbyclient')
+          if (++attempts > 5) { stopped = true; return route.abort('blockedbyclient') }
+        }
         await verifyGateOff()
-        const response = await route.fetch({ maxRedirects: 0, maxRetries: 0 })
+        const response = await route.fetch({ maxRedirects: 0, maxRetries: 0,
+          ...(constrainedBody === undefined ? {} : { postData: constrainedBody }) })
         if (response.status() >= 300 && response.status() < 400) { stopped = true; return route.abort() }
         return route.fulfill({ response })
       }
       if (target.pathname.startsWith('/rest/v1/') || target.pathname.startsWith('/auth/v1/')) return route.abort()
       if (target.origin === 'https://www.edenia.study' && request.resourceType() === 'document' && target.href !== OPENING_URL) return route.abort('blockedbyclient')
-      const googleAuth = ['accounts.google.com', 'accounts.youtube.com'].includes(target.hostname)
+      if (emailPolicy && target.origin === 'https://challenges.cloudflare.com'
+        && ['GET', 'POST'].includes(request.method())
+        && ['/turnstile/', '/cdn-cgi/challenge-platform/'].some(prefix => target.pathname.startsWith(prefix))) {
+        if (++challenges > 128) { stopped = true; return route.abort('blockedbyclient') }
+        return route.continue()
+      }
+      const googleAuth = method === 'google' && ['accounts.google.com', 'accounts.youtube.com'].includes(target.hostname)
       const staticRead = request.method() === 'GET' && (target.origin === 'https://www.edenia.study'
         || target.hostname === 'accounts.google.com' || target.hostname.endsWith('.gstatic.com')
         || target.hostname.endsWith('.googleapis.com'))

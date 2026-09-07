@@ -147,7 +147,18 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
     receipt.browserVersion = browser.version()
     receipt.osVersion = dependencies.osVersion || execFileSync('sw_vers', ['-productVersion'], { encoding: 'utf8' }).trim()
     receipt.procedureSha256 = createHash('sha256').update(await readFile(new URL('./hosted-profile-opening-smoke.mjs', import.meta.url))).digest('hex')
+    const authMethod = config.authMethod || 'google'
+    let expectedEmail
+    if (authMethod === 'email-code') {
+      requireLease()
+      await verifyGateOff()
+      const accounts = await operator.query(`select email from auth.users where id = '${config.expectedOwner}'::uuid and email_confirmed_at is not null and deleted_at is null;`)
+      if (accounts.length !== 1 || typeof accounts[0].email !== 'string') throw new Error('Existing authentication target unavailable')
+      expectedEmail = accounts[0].email.trim().toLowerCase()
+    }
+    receipt.authenticationSetup = { method: authMethod, accountCreationSuppressed: authMethod === 'email-code', evidenceClass: 'constrained-authentication-setup' }
     const session = await (dependencies.authenticate || prepareOpeningAuthentication)({ browser, providerOrigin: deployment.providerOrigin,
+      method: authMethod, expectedEmail,
       expectedOwner: config.expectedOwner, verifyGateOff: async () => { requireLease(); await verifyGateOff() },
       onReady: () => notify({ state: 'private-authentication-ui-ready', gate: 'off' }) })
     requireLease()
