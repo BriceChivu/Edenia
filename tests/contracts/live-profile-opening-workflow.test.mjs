@@ -22,7 +22,7 @@ async function fixture(t, options = {}) {
   await writeFile(rehearsalReceipt, JSON.stringify({ complete: true, cleanupVerified: true, hostedOperations: 0, scriptSources,
     containment: ['executor-killed', 'hard-deadline', 'execution-store-unavailable', 'containment-before-delayed-enable', 'enable-before-containment'].map(scenario => ({ scenario, gateOff: true })) }))
   const config = { expectedOwner: owner, workdir, rehearsalReceipt, invocationUtc: '2026-09-07T00:00:00.000Z', baseSha: 'b'.repeat(40), heartbeatReference: 'synthetic-heartbeat' }
-  let gate = 'off', version = '2026-09-07 00:00:00+00', enabled = 0, calls = 0, head = 'original', closed = false
+  let gate = 'off', version = '2026-09-07 00:00:00+00', enabled = 0, calls = 0, containments = 0, head = 'original', closed = false
   const operator = {
     async query(sql) {
       if (sql === READ_GATE_SQL) return [{ rollout_state: gate, owner: gate === 'off' ? null : owner, version }]
@@ -30,7 +30,7 @@ async function fixture(t, options = {}) {
         if (options.rejectEnable) return []
         gate = 'developer-canary'; enabled++; return [{ rollout_state: gate }]
       }
-      gate = 'off'; version = '2026-09-07 00:00:01+00'; return [{ rollout_state: gate }]
+      containments++; gate = 'off'; version = '2026-09-07 00:00:01+00'; return [{ rollout_state: gate }]
     },
     async monitorDisabled() { return true }, async disableMonitor() { throw new Error('Unexpected monitor mutation') }
   }
@@ -67,6 +67,7 @@ async function fixture(t, options = {}) {
   }
   return { input: { candidate, reviewed: candidate, config }, dependencies,
     inspect: () => ({ gate, enabled, calls, closed }),
+    containmentCount: () => containments,
     state: () => { const store = new CanaryExecutionStore(join(workdir, '.cache/canary-execution/packet-1.sqlite')); try { return store.state() } finally { store.close() } } }
 }
 
@@ -119,4 +120,29 @@ test('explicit post-repair continuation preserves the journal and prior attempt 
   assert.equal(receipts.filter(receipt => receipt.complete).length, 1)
   assert.equal(receipts.filter(receipt => !receipt.complete).length, 1)
   await assert.rejects(executeOpeningWorkflow(resumed, f.dependencies), /Existing execution requires reconciliation/)
+})
+
+test('competing resumed invocation cannot contain the executor that owns the lease', async t => {
+  const f = await fixture(t)
+  f.dependencies.runSynthetic = async () => ({ code: 1, output: '{}' })
+  await executeOpeningWorkflow(f.input, f.dependencies)
+  const store = new CanaryExecutionStore(join(f.input.config.workdir, '.cache/canary-execution/packet-1.sqlite'))
+  try {
+    store.acquire('repair-owner', Date.now(), 10000)
+    store.suspendForRepair('repair-owner', Date.now(), { issue: 305, evidenceHash: 'f'.repeat(64) })
+    store.resumeAfterRepair('repair-owner', Date.now(), { issue: 305, closureEvidenceHash: 'e'.repeat(64), candidate, gate: 'off' })
+    store.release('repair-owner', Date.now())
+  } finally { store.close() }
+  const before = f.containmentCount()
+  let arrivals = 0, release
+  const barrier = new Promise(resolve => { release = resolve })
+  f.dependencies.beforeAcquire = async () => { if (++arrivals === 2) release(); await barrier }
+  f.dependencies.runSynthetic = async () => ({ code: 0, output: '{}' })
+  const resumed = { ...f.input, config: { ...f.input.config, resumeAfterRepair: true } }
+  const outcomes = await Promise.allSettled([executeOpeningWorkflow(resumed, f.dependencies), executeOpeningWorkflow(resumed, f.dependencies)])
+  assert.equal(outcomes.filter(result => result.status === 'fulfilled' && result.value.complete).length, 1)
+  assert.equal(outcomes.filter(result => result.status === 'rejected').length, 1)
+  assert.equal(f.inspect().enabled, 1)
+  assert.equal(f.inspect().calls, 4)
+  assert.equal(f.containmentCount() - before, 2) // Winner watchdog plus independent final containment only.
 })

@@ -92,8 +92,13 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
   const results = []
   const receipt = { candidate, reviewed, startedUtc, procedure: 'packet-1-profile-opening-v1', rehearsalSha256: hash(rehearsal), runtimeConfigSha256: deployment.runtimeHash, assetIdentity: deployment.assetIdentity, sourceKind: 'packet-1-workflow', complete: false, results, cleanup: null }
   const requireLease = () => { if (renewalFailed) throw new Error('Lease lost'); store.requireLease(executor, Date.now()) }
+  // A losing executor owns no cleanup authority. Only successful acquisition
+  // enters the block that can contain the hosted gate on exit.
   try {
+    if (dependencies.beforeAcquire) await dependencies.beforeAcquire()
     store.acquire(executor, Date.now(), 30000)
+  } catch (error) { store.close(); throw error }
+  try {
     if (existing) for (const phase of ['local-work', 'reviewed', 'delivered']) {
       store.advancePhase(executor, Date.now(), { phase, evidenceHash: hash({ candidate, reviewed, rehearsal: hash(rehearsal), deployment, repair: lastRepair.closure_evidence }) })
     }
