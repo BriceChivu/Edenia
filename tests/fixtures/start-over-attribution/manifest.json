@@ -1,0 +1,27 @@
+{
+  "scenario": "second confirmed Start over with meaningful Study fact and protected prior reset",
+  "clock": "2026-09-04T12:00:00.000Z",
+  "route": "http://localhost:8000/?internal_test=1",
+  "project": "desktop-standard",
+  "initialStorage": "synthetic authenticated session only; remaining keys empty",
+  "initialHead": {
+    "generation": 11,
+    "revision": 22
+  },
+  "protectedReset": {
+    "priorGeneration": 10,
+    "priorRevision": 21,
+    "resetGeneration": 11
+  },
+  "preAction": "await active town and Up to date; observe exact accepted revision and all replacement predicates",
+  "confirmation": "open settings; Start over; confirm once",
+  "expectedStartOverRequests": 1,
+  "success": "generation 12 revision 1; blank profile; reload; Undo restores Study fact",
+  "sources": {
+    "tests/e2e/first-signed-in-profile.spec.mjs": "a8c9d072ed7b71f9a496283f2d3b709095b740f0c88304b6bbbfff3a502b22c6",
+    "tests/support/start-over-attribution.mjs": "367d475a245e387317dd7f2e0d84a930cfba43acf1d7369e3e3f1e9484b65806",
+    "tests/support/network-fixture.mjs": "1f714f45df7adf1e96b63d48036be32995cf1a4c71c2e19572bbd31e44869b29"
+  },
+  "revision": 3,
+  "supersedes": "v2 all pass; v3 adds explicit owner/profile predicate capture, distinct newest Undo receipt and stored Study fact/reload assertions"
+}

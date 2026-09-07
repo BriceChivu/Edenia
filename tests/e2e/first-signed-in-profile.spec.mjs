@@ -142,7 +142,7 @@ function returningOwnerResolutionRow(envelope, revision = 12) {
   )
 }
 
-async function createReturningOwnerEnvelope({ setupCompleted = true } = {}) {
+async function createReturningOwnerEnvelope({ setupCompleted = true, studyFacts = false } = {}) {
   const completedAt = '2026-08-20T21:00:00.000Z'
   const { envelope } = await createPortableLearnerProfileEnvelope({
     activityLog: [],
@@ -183,7 +183,18 @@ async function createReturningOwnerEnvelope({ setupCompleted = true } = {}) {
       walkthroughCompleted: true,
       walkthroughCompletedAt: completedAt
     },
-    videos: {}
+    videos: studyFacts ? {
+      'synthetic-study-video': {
+        id: 'synthetic-study-video',
+        channelId: 'returning-owner-channel',
+        title: 'Synthetic study fact',
+        duration: 120,
+        status: 'watched',
+        watchedAt: completedAt,
+        watchProgressTracked: true,
+        watchProgress: [{ seconds: 120, studyDay: '2026-08-21', watchedAt: completedAt }]
+      }
+    } : {}
   }, { now: () => new Date(completedAt) })
   return envelope
 }
@@ -438,6 +449,10 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
 })
 
 const startOverRestoreCases = [{
+  name: 'Start over with an older protected reset reaches its RPC once and Undo restores progress',
+  olderReset: true,
+  setupCompleted: true
+}, {
   name: 'Start over keeps the account and analytics identity while Undo restores progress',
   setupCompleted: true
 }, {
@@ -449,17 +464,22 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
-  const returningEnvelope = await createReturningOwnerEnvelope()
+  if (restoreCase.olderReset) {
+    await page.clock.setFixedTime(new Date('2026-09-04T12:00:00.000Z'))
+  }
+  const returningEnvelope = await createReturningOwnerEnvelope({ studyFacts: restoreCase.olderReset })
   const restoredEnvelope = restoreCase.setupCompleted
     ? returningEnvelope
     : await createReturningOwnerEnvelope({ setupCompleted: false })
   const protectedUntil = '2026-09-21T00:00:00.000Z'
   let cloudEnvelope = returningEnvelope
   let protectedEnvelope = returningEnvelope
-  let protectedPriorRevision = 12
-  let generation = 4
-  let revision = 12
-  let resetAvailable = false
+  let protectedPriorRevision = restoreCase.olderReset ? 21 : 12
+  const initialGeneration = restoreCase.olderReset ? 11 : 4
+  let generation = initialGeneration
+  let revision = restoreCase.olderReset ? 22 : 12
+  let resetAvailable = Boolean(restoreCase.olderReset)
+  let activeResetId = START_OVER_RESET_ID
   let startOverRequests = 0
   let undoRequests = 0
   const logoutRequests = []
@@ -502,6 +522,10 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
     authenticated: authenticatedSession()
   })
   await installRuntimeConfig(page)
+  if (restoreCase.olderReset && process.env.EDENIA_START_OVER_ATTRIBUTION === '1') {
+    const { installStartOverAttribution } = await import('../support/start-over-attribution.mjs')
+    await installStartOverAttribution(page)
+  }
   await page.route(`${SUPABASE_ORIGIN}/**`, async route => {
     const request = route.request()
     const pathname = new URL(request.url()).pathname
@@ -534,12 +558,12 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
         json: [resetAvailable
           ? {
               prior_envelope: protectedEnvelope,
-              prior_generation: 4,
+              prior_generation: generation - 1,
               prior_revision: protectedPriorRevision,
               profile_id: CREATED_PROFILE_ID,
               protected_until: protectedUntil,
-              reset_generation: 5,
-              reset_id: START_OVER_RESET_ID,
+              reset_generation: generation,
+              reset_id: activeResetId,
               status: 'available'
             }
           : { status: 'none' }],
@@ -575,7 +599,7 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
       expect(body).toMatchObject({
         p_base_revision: revision,
         p_confirmed: true,
-        p_generation: 4,
+        p_generation: initialGeneration,
         p_profile_id: CREATED_PROFILE_ID
       })
       expect(body.p_envelope.profile.learnerProfile.languages).toEqual([])
@@ -586,16 +610,17 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
       protectedEnvelope = restoredEnvelope
       protectedPriorRevision = revision
       cloudEnvelope = body.p_envelope
-      generation = 5
+      generation = initialGeneration + 1
       revision = 1
       resetAvailable = true
+      if (restoreCase.olderReset) activeResetId = '423e4567-e89b-42d3-a456-426614174003'
       await route.fulfill({
         json: [{
           envelope: cloudEnvelope,
           generation,
           profile_id: CREATED_PROFILE_ID,
           protected_until: protectedUntil,
-          reset_id: START_OVER_RESET_ID,
+          reset_id: activeResetId,
           revision,
           status: 'started_over'
         }],
@@ -607,7 +632,7 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
       undoRequests += 1
       expect(request.postDataJSON()).toMatchObject({
         p_confirmed: true,
-        p_reset_id: START_OVER_RESET_ID
+        p_reset_id: activeResetId
       })
       cloudEnvelope = protectedEnvelope
       revision = 2
@@ -617,7 +642,7 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
           envelope: cloudEnvelope,
           generation,
           profile_id: CREATED_PROFILE_ID,
-          reset_id: START_OVER_RESET_ID,
+          reset_id: activeResetId,
           revision,
           status: 'undone'
         }],
@@ -637,6 +662,11 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
   await expect(page.locator('#learnerProfileSyncStatus')).toHaveText(
     'Up to date'
   )
+  if (restoreCase.olderReset) {
+    const storedVideo = await page.evaluate(key => JSON.parse(localStorage.getItem(key))
+      .videos['synthetic-study-video'], STATE_STORAGE_KEY)
+    expect(storedVideo.watchProgress).toEqual([{ seconds: 120, watchedAt: '2026-08-20T21:00:00.000Z' }])
+  }
   await page.evaluate(() => {
     window.EDENIA_ANALYTICS_ENABLED = true
   })
@@ -651,10 +681,29 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
   await expect(page.locator('#resetConfirm')).toBeVisible()
   await expect(page.locator('#startOverWarning')).toContainText('across devices')
   await expect(page.locator('#startOverWarning')).toContainText('30 days')
+  if (restoreCase.olderReset) {
+    await expect(page.locator('#startOverUndo')).toBeVisible()
+  }
   await expect(page.getByRole('button', { name: 'Delete data' })).toHaveCount(0)
 
   await page.locator('[data-settings-reset-confirm-action="confirm"]').click()
   await expect.poll(() => startOverRequests).toBe(1)
+  if (restoreCase.olderReset && process.env.EDENIA_START_OVER_ATTRIBUTION === '1') {
+    const observation = await page.evaluate(() => window.__startOverAttribution)
+    expect(observation.handlerCalls).toBe(1)
+    expect(observation.boundaries).toHaveLength(1)
+    expect(observation.boundaries[0]).toMatchObject({
+      bound: true, activationMatches: true, current: true, bindingCurrent: true,
+      cloudHeadKnown: true, online: true, generation: 11,
+      ownerMatches: true, profileMatches: true, syncPresentation: 'Up to date',
+      pending: false, queued: false, dirty: false
+    })
+    expect(observation.boundaries[0].acceptedRevision).toBe(observation.boundaries[0].bindingRevision)
+    await testInfo.attach('pre-rpc-observation', {
+      body: JSON.stringify(observation, null, 2), contentType: 'application/json'
+    })
+    console.log('START_OVER_ATTRIBUTION', JSON.stringify(observation))
+  }
   await expect(page.locator('#startOverUndo')).toBeVisible()
   await expect(page.locator('#mainApp')).toBeVisible()
   await expect(page.locator('#startOverUndoDeadline')).not.toBeEmpty()
@@ -677,11 +726,14 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
     authKey: AUTH_STORAGE_KEY,
     stateKey: STATE_STORAGE_KEY
   })
-  expect(afterStartOver.access).toMatchObject({ generation: 5, revision: 1 })
+  expect(afterStartOver.access).toMatchObject({ generation: initialGeneration + 1, revision: 1 })
   expect(afterStartOver.auth.user.id).toBe(AUTHENTICATED_USER_ID)
   expect(afterStartOver.distinctId).toBe(identityBefore)
   expect(afterStartOver.state.learnerProfile.languages).toEqual([])
   expect(afterStartOver.state.config.channels).toEqual([])
+  if (restoreCase.olderReset) {
+    expect(afterStartOver.state.videos).toEqual({})
+  }
   expect(afterStartOver.analyticsCalls.filter(call => (
     call.method === 'capture'
     && call.args[0] === 'profile_started_over'
@@ -702,6 +754,15 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
   await page.locator('.gear-btn').click()
   await expect(page.locator('#startOverUndo')).toBeVisible()
 
+  if (restoreCase.olderReset) {
+    const reloaded = await page.evaluate(({ accessKey, stateKey }) => ({
+      access: JSON.parse(localStorage.getItem(accessKey)),
+      state: JSON.parse(localStorage.getItem(stateKey))
+    }), { accessKey: PROFILE_ACCESS_STORAGE_KEY, stateKey: STATE_STORAGE_KEY })
+    expect(reloaded.access.generation).toBe(12)
+    expect(reloaded.state.learnerProfile.languages).toEqual([])
+    expect(reloaded.state.videos).toEqual({})
+  }
   await page.getByRole('button', { name: 'Undo Start over' }).click()
   await expect.poll(() => undoRequests).toBe(1)
   await expect(page.locator('#startOverUndo')).toBeHidden()
@@ -722,7 +783,7 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
     accessKey: PROFILE_ACCESS_STORAGE_KEY,
     stateKey: STATE_STORAGE_KEY
   })
-  expect(restored.access).toMatchObject({ generation: 5, revision: 2 })
+  expect(restored.access).toMatchObject({ generation: initialGeneration + 1, revision: 2 })
   expect(restored.state.learnerProfile.languages).toEqual(['french'])
   expect(restored.state.config.channels).toEqual([
     expect.objectContaining({ name: RETURNING_CHANNEL_NAME })
@@ -730,6 +791,13 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
   expect(restored.state.onboarding.setupCompleted).toBe(
     restoreCase.setupCompleted
   )
+  if (restoreCase.olderReset) {
+    expect(restored.state.videos['synthetic-study-video'].watchProgress).toEqual(
+      returningEnvelope.profile.videos['synthetic-study-video'].watchProgress.map(
+        ({ seconds, watchedAt }) => ({ seconds, watchedAt })
+      )
+    )
+  }
   expect(logoutRequests).toEqual([])
   if (!restoreCase.setupCompleted) {
     await page.reload()

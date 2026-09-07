@@ -1,0 +1,71 @@
+{
+  "fixtureManifestSha256": "d951839e9541022a75df4632cc99d27e0bbab0358a1f71d3bf179b7a666b32be",
+  "observations": {
+    "A": {
+      "handlerCalls": 1,
+      "boundaries": [
+        {
+          "bound": true,
+          "activationMatches": true,
+          "current": true,
+          "bindingCurrent": true,
+          "cloudHeadKnown": true,
+          "online": true,
+          "ownerMatches": true,
+          "profileMatches": true,
+          "syncPresentation": "Up to date",
+          "generation": 11,
+          "acceptedRevision": 23,
+          "bindingRevision": 23,
+          "pending": false,
+          "queued": false,
+          "dirty": false
+        }
+      ]
+    },
+    "B": {
+      "handlerCalls": 1,
+      "boundaries": [
+        {
+          "bound": true,
+          "activationMatches": true,
+          "current": true,
+          "bindingCurrent": true,
+          "cloudHeadKnown": true,
+          "online": true,
+          "ownerMatches": true,
+          "profileMatches": true,
+          "syncPresentation": "Up to date",
+          "generation": 11,
+          "acceptedRevision": 23,
+          "bindingRevision": 23,
+          "pending": false,
+          "queued": false,
+          "dirty": false
+        }
+      ]
+    },
+    "C": {
+      "handlerCalls": 1,
+      "boundaries": [
+        {
+          "bound": true,
+          "activationMatches": true,
+          "current": true,
+          "bindingCurrent": true,
+          "cloudHeadKnown": true,
+          "online": true,
+          "ownerMatches": true,
+          "profileMatches": true,
+          "syncPresentation": "Up to date",
+          "generation": 11,
+          "acceptedRevision": 23,
+          "bindingRevision": 23,
+          "pending": false,
+          "queued": false,
+          "dirty": false
+        }
+      ]
+    }
+  }
+}
