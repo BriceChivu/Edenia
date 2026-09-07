@@ -290,6 +290,18 @@ export class CanaryExecutionStore {
     })
   }
 
+  finishGateTransition(owner, now, { id, from, to, evidenceHash }) {
+    requireCondition(typeof id === 'string' && /^gate-[a-z0-9-]+$/u.test(id)
+      && GATES.has(from) && GATES.has(to) && from !== to && HASH.test(evidenceHash), 'Invalid verified gate transition')
+    return this.transaction(() => {
+      const state = this.requireLease(owner, now)
+      requireCondition(state.gate === from, 'Gate transition baseline changed')
+      requireCondition(state.pending.length === 1 && state.pending[0].id === id, 'No matching gate intent')
+      this.db.prepare("UPDATE operations SET state = 'completed', evidence_hash = ? WHERE id = ?").run(evidenceHash, id)
+      this.db.prepare('UPDATE execution SET gate = ? WHERE singleton = 1').run(to)
+    })
+  }
+
   release(owner, now) {
     return this.transaction(() => {
       const state = this.requireLease(owner, now)

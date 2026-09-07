@@ -1,3 +1,4 @@
+import { containCanary, enableCanarySql } from './canary-containment-operator.mjs'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { writeFile } from 'node:fs/promises'
@@ -61,6 +62,32 @@ export async function rehearseCanaryContainment({ workdir, project, query, owner
       await query("update private.learner_profile_access_control set rollout_state = 'off', developer_user_id = null where singleton = true;")
       await writeFile(join(workdir, 'monitor-fixture'), 'false', { mode: 0o600 })
     }
+  }
+  const operator = {
+    async query(sql) {
+      const statement = sql.replace(/;$/u, '')
+      const wrapped = sql.startsWith('select')
+        ? `select coalesce(json_agg(row_to_json(value)), '[]'::json) from (${statement}) value;`
+        : `with changed as (${statement}) select coalesce(json_agg(row_to_json(changed)), '[]'::json) from changed;`
+      return JSON.parse((await query(wrapped)).trim())
+    },
+    async monitorDisabled() { return true },
+    async disableMonitor() { throw new Error('Unexpected monitor change') }
+  }
+  for (const scenario of ['containment-before-delayed-enable', 'enable-before-containment']) {
+    await containCanary(operator, owner)
+    const token = (await query('select updated_at::text from private.learner_profile_access_control where singleton;')).trim()
+    const delayedEnable = enableCanarySql(owner, token)
+    if (scenario === 'containment-before-delayed-enable') {
+      await containCanary(operator, owner)
+      assert.equal((await operator.query(delayedEnable)).length, 0)
+    } else {
+      assert.equal((await operator.query(delayedEnable)).length, 1)
+      await containCanary(operator, owner)
+    }
+    assert.equal((await query("select rollout_state = 'off' and developer_user_id is null from private.learner_profile_access_control where singleton;")).trim(), 't')
+    assert.equal(await invariant(), before)
+    results.push({ scenario, gateOff: true, profileCountsPreserved: true, fenced: true })
   }
   return results
 }

@@ -5964,3 +5964,99 @@ test('late durable cleanup never rewinds progress saved after rollback', async (
   assert.equal(acceptedRevisionWrites.includes(6), false)
   assert.equal(storage.getItem(IMPORT_STORAGE_KEY), null)
 })
+
+for (const key of [IMPORT_STORAGE_KEY, SYNC_STORAGE_KEY]) {
+  test(`profile opening preserves unknown bytes when ${key} cannot be read`, async () => {
+    const writes = []
+    const adapter = createAdapter({ storage: {
+      getItem(name) { if (name === key) throw new Error('unavailable'); return null },
+      setItem(...args) { writes.push(args) },
+      removeItem(...args) { writes.push(args) }
+    } })
+    const result = await adapter.resolve({
+      authentication: { userId: OWNER_ID }, connectivity: { status: 'online' },
+      localProfile: { status: 'empty' }, purpose: 'resolve-signed-in-profile'
+    })
+    assert.equal(result.status, 'recovering')
+    assert.deepEqual(writes, [])
+  })
+}
+
+test('payload-free stale sync revision is repaired only after activation in an empty namespace', async () => {
+  const original = JSON.stringify({ version: 1, ownerId: OWNER_ID,
+    profileId: PROFILE_ID, generation: 1, acceptedRevision: 1, pending: null, queued: null })
+  const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: original })
+  const adapter = createAdapter({ storage, rpc: async () => ({ data: [{
+    created: false, envelope: preparedEnvelope({ marker: 'cloud' }), generation: 1,
+    profile_id: PROFILE_ID, revision: 3, status: 'profile_ready'
+  }], error: null }) })
+  const result = await adapter.resolve({ authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' }, localProfile: { status: 'empty' },
+    purpose: 'resolve-signed-in-profile' })
+  assert.equal(result.status, 'activate')
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), original)
+  assert.equal(result.commitSyncRepair({ isCurrent: () => false }), false)
+  assert.equal(result.commitSyncRepair({ isCurrent: () => true }), true)
+  assert.equal(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).acceptedRevision, 3)
+})
+
+for (const binding of ['missing', 'older-revision', 'other-owner', 'other-lineage']) {
+  test(`valid import with ${binding} sync remains protected without proven completion`, async () => {
+    const marker = { baseRevision: 2, generation: 1,
+      operationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', ownerId: OWNER_ID,
+      profileId: PROFILE_ID, revision: 3, version: 1 }
+    const sync = { version: 1, ownerId: binding === 'other-owner' ? SECOND_OWNER_ID : OWNER_ID,
+      profileId: binding === 'other-lineage' ? SECOND_PROFILE_ID : PROFILE_ID,
+      generation: 1, acceptedRevision: 1, pending: null, queued: null }
+    const original = JSON.stringify(marker)
+    const stored = binding === 'missing' ? null : JSON.stringify(sync)
+    const storage = createMemoryStorage({ [IMPORT_STORAGE_KEY]: original,
+      ...(stored ? { [SYNC_STORAGE_KEY]: stored } : {}) })
+    let calls = 0
+    const adapter = createAdapter({ storage, rpc: async () => { calls += 1; throw new Error('unexpected RPC') } })
+    const result = await adapter.resolve({ authentication: { userId: OWNER_ID },
+      connectivity: { status: 'online' }, localProfile: { status: 'empty' },
+      purpose: 'resolve-signed-in-profile' })
+    assert.equal(result.status, 'recovering')
+    assert.equal(storage.getItem(IMPORT_STORAGE_KEY), original)
+    assert.equal(storage.getItem(SYNC_STORAGE_KEY), stored)
+    assert.equal(calls, 0)
+  })
+}
+
+for (const unsafe of ['dirty', 'other-owner', 'other-lineage', 'newer-revision']) {
+  test(`empty namespace does not reconcile a valid ${unsafe} sync binding`, async () => {
+    const original = JSON.stringify({ version: 1,
+      ownerId: unsafe === 'other-owner' ? SECOND_OWNER_ID : OWNER_ID,
+      profileId: unsafe === 'other-lineage' ? SECOND_PROFILE_ID : PROFILE_ID,
+      generation: 1, acceptedRevision: unsafe === 'newer-revision' ? 4 : 1,
+      pending: null, queued: null })
+    const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: original,
+      ...(unsafe === 'dirty' ? { [DIRTY_STORAGE_KEY]: 'unclassified-dirty-state' } : {}) })
+    const adapter = createAdapter({ storage, rpc: async () => ({ data: [{
+      created: false, envelope: preparedEnvelope({ marker: 'cloud' }), generation: 1,
+      profile_id: PROFILE_ID, revision: 3, status: 'profile_ready'
+    }], error: null }) })
+    const result = await adapter.resolve({ authentication: { userId: OWNER_ID },
+      connectivity: { status: 'online' }, localProfile: { status: 'empty' },
+      purpose: 'resolve-signed-in-profile' })
+    assert.notEqual(result.status, 'activate')
+    assert.equal(storage.getItem(SYNC_STORAGE_KEY), original)
+  })
+}
+
+test('a dirty marker appearing after resolution prevents deferred metadata repair', async () => {
+  const original = '{malformed-sync'
+  const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: original })
+  const adapter = createAdapter({ storage, rpc: async () => ({ data: [{
+    created: false, envelope: preparedEnvelope({ marker: 'cloud' }), generation: 1,
+    profile_id: PROFILE_ID, revision: 3, status: 'profile_ready'
+  }], error: null }) })
+  const result = await adapter.resolve({ authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' }, localProfile: { status: 'empty' },
+    purpose: 'resolve-signed-in-profile' })
+  storage.setItem(DIRTY_STORAGE_KEY, 'newer-device-work')
+  assert.equal(result.commitSyncRepair({ isCurrent: () => true }), false)
+  assert.equal(storage.getItem(SYNC_STORAGE_KEY), original)
+  assert.equal(storage.getItem(DIRTY_STORAGE_KEY), 'newer-device-work')
+})

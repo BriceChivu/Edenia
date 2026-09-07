@@ -7,7 +7,7 @@ import { promisify } from 'node:util'
 const execute = promisify(execFile)
 const UUID = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u
 const DISABLED_DIGEST = createHash('sha256').update('false').digest('hex')
-export const READ_GATE_SQL = 'select rollout_state, developer_user_id::text as owner from private.learner_profile_access_control where singleton = true;'
+export const READ_GATE_SQL = 'select rollout_state, developer_user_id::text as owner, updated_at::text as version from private.learner_profile_access_control where singleton = true;'
 
 // Containment changes only the gate and bounded monitor flag. It never repairs
 // profile data or chooses a recovery copy. An unknown outcome requires operator
@@ -25,12 +25,13 @@ export async function containCanary(operator, expectedOwner) {
   let state = await read()
   let gateWriteAttempted = false
   let monitorWriteAttempted = false
-  if (state.rollout_state === 'developer-canary') {
-    gateWriteAttempted = true
-    await operator.query(`update private.learner_profile_access_control set rollout_state = 'off', developer_user_id = null, updated_at = now() where singleton = true and rollout_state = 'developer-canary' and developer_user_id = '${expectedOwner}'::uuid returning rollout_state;`)
-    state = await read()
-    if (state.rollout_state !== 'off') throw new Error('Gate containment not verified')
-  }
+  // Advance the fencing token even when already off. A delayed enable captured
+  // before lease revocation must never reopen a contained gate.
+  gateWriteAttempted = true
+  const changed = await operator.query(`update private.learner_profile_access_control set rollout_state = 'off', developer_user_id = null, updated_at = greatest(clock_timestamp(), updated_at + interval '1 microsecond') where singleton = true and ((rollout_state = 'developer-canary' and developer_user_id = '${expectedOwner}'::uuid) or (rollout_state = 'off' and developer_user_id is null)) returning rollout_state;`)
+  if (!Array.isArray(changed) || changed.length !== 1) throw new Error('Gate containment not verified')
+  state = await read()
+  if (state.rollout_state !== 'off') throw new Error('Gate containment not verified')
   if (!await operator.monitorDisabled()) {
     monitorWriteAttempted = true
     await operator.disableMonitor()
@@ -38,6 +39,14 @@ export async function containCanary(operator, expectedOwner) {
   state = await read()
   if (state.rollout_state !== 'off' || !await operator.monitorDisabled()) throw new Error('Containment postcondition not verified')
   return { gateOff: true, ownerRemoved: true, monitorDisabled: true, gateWriteAttempted, monitorWriteAttempted }
+}
+
+// Capture this token before the final lease check. Containment revokes that
+// lease and advances the database token, fencing delayed or orphaned requests.
+export function enableCanarySql(expectedOwner, version) {
+  if (!UUID.test(expectedOwner || '') || typeof version !== 'string'
+    || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{1,6})?\+00$/u.test(version)) throw new Error('Invalid gate fence')
+  return `update private.learner_profile_access_control set rollout_state = 'developer-canary', developer_user_id = '${expectedOwner}'::uuid, updated_at = greatest(clock_timestamp(), updated_at + interval '1 microsecond') where singleton = true and rollout_state = 'off' and developer_user_id is null and updated_at = '${version}'::timestamptz returning rollout_state;`
 }
 
 // The linked adapter is prepared for later packet authority. Packet 0 must not

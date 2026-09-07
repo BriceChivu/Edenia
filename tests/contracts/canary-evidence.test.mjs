@@ -60,3 +60,10 @@ test('custom serialization cannot inject private data after validation', () => {
   assert.throws(() => encodeCanaryEvidence(arrays), /unsafe canary evidence/)
   assert.throws(() => encodeCanaryEvidence({ ...fixture(), candidateSha: ['c'.repeat(40)] }), /unsafe canary evidence/)
 })
+
+test('deployed synthetic browser evidence stays distinct from real-account acceptance', () => {
+  const record = { ...fixture(), scenario: 'packet-1-profile-opening', sourceKind: 'deployed-synthetic',
+    target: 'macos-chrome', browserVersion: '152.0.0.0', osVersion: '26.6.2' }
+  assert.equal(JSON.parse(encodeCanaryEvidence(record).json).sourceKind, 'deployed-synthetic')
+  assert.throws(() => encodeCanaryEvidence({ ...record, browserVersion: null }))
+})

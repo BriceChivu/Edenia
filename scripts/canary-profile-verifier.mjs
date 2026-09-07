@@ -30,6 +30,7 @@ export async function observeCanaryProfile(query, owner) {
     (select encode(extensions.digest((envelope -> 'profile')::text, 'sha256'), 'hex') from heads) as profile_hash,
     (select row_hash from heads) as head_row_hash,
     (select current_version_id::text from heads) as current_version,
+    (select profile_id::text from heads) as profile_id,
     (select generation::text from heads) as generation,
     (select revision::text from heads) as revision,
     (select coalesce(json_agg(hash order by hash), '[]'::json) from versions) as version_hashes,
@@ -41,8 +42,9 @@ export async function observeCanaryProfile(query, owner) {
   if (!Array.isArray(row.protection_hashes) || !row.protection_hashes.every(hash => typeof hash === 'string' && HASH.test(hash))) throw new Error('Invalid protection observation')
   for (const key of ['head_hash', 'profile_hash', 'head_row_hash']) if (row[key] !== null && !(typeof row[key] === 'string' && HASH.test(row[key]))) throw new Error('Invalid verifier fingerprint')
   for (const key of ['generation', 'revision']) if (row[key] !== null && !(typeof row[key] === 'string' && /^[1-9][0-9]*$/u.test(row[key]))) throw new Error('Invalid verifier revision')
+  if (row.profile_id !== null && !(typeof row.profile_id === 'string' && UUID.test(row.profile_id))) throw new Error('Invalid private profile identity')
   if (row.current_version !== null && !(typeof row.current_version === 'string' && UUID.test(row.current_version))) throw new Error('Invalid private head identity')
-  return { owner, currentVersion: row.current_version, headRowHash: row.head_row_hash, headCount: row.head_count, validHead: row.valid_head === true, headHash: row.head_hash, profileHash: row.profile_hash, generation: row.generation, revision: row.revision, versionHashes: [...row.version_hashes], protectionHashes: [...row.protection_hashes] }
+  return { owner, profileId: row.profile_id, currentVersion: row.current_version, headRowHash: row.head_row_hash, headCount: row.head_count, validHead: row.valid_head === true, headHash: row.head_hash, profileHash: row.profile_hash, generation: row.generation, revision: row.revision, versionHashes: [...row.version_hashes], protectionHashes: [...row.protection_hashes] }
 }
 
 export function compareCanaryProfiles(before, after) {

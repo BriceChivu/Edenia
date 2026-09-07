@@ -280,3 +280,17 @@ test('derived repair preserves the interrupted phase and resumes only through fr
   assert.equal(first.state().candidate, 'c'.repeat(40))
   assert.equal(first.checkpoint().repairs[0].state, 'closed')
 })
+
+test('a verified gate transition updates its receipt and expected gate atomically', t => {
+  const { first } = fixture(t)
+  first.acquire('runner-a', 1000, 10000)
+  first.beginOperation('runner-a', 1001, { ...intent, id: 'gate-off' })
+  assert.throws(() => first.finishGateTransition('runner-a', 1002, {
+    id: 'gate-off', from: 'off', to: 'developer-canary', evidenceHash
+  }))
+  assert.equal(first.state().pending.length, 1)
+  first.finishGateTransition('runner-a', 1003, { id: 'gate-off', from: 'developer-canary', to: 'off', evidenceHash })
+  assert.equal(first.state().gate, 'off')
+  assert.equal(first.state().pending.length, 0)
+  assert.throws(() => first.beginOperation('runner-a', 1004, { ...intent, id: 'gate-off' }))
+})

@@ -129,7 +129,7 @@ npm run test:ci
 
 The database command creates its own target and accepts no target arguments. It
 runs all twelve named pgTAP suites, the private profile verifier / operator restore
-rehearsal and three independent containment cases, then checks removal of its
+rehearsal and five containment/interlock cases, then checks removal of its
 containers and volumes. Nonzero exit, skipped assertions or failed cleanup fail
 capability acceptance. Preserve the receipt and its source/log hashes.
 
