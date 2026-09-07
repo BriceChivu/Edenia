@@ -59,14 +59,27 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
     return current
   }
   const deployment = await readDeployment()
-  const directory = join(config.workdir, '.cache', 'canary-execution')
-  await mkdir(directory, { recursive: true, mode: 0o700 })
-  const storePath = join(directory, 'packet-1.sqlite')
+  const sharedDirectory = join(config.workdir, '.cache', 'canary-execution')
+  await mkdir(sharedDirectory, { recursive: true, mode: 0o700 })
+  const storePath = join(sharedDirectory, 'packet-1.sqlite')
   const store = new CanaryExecutionStore(storePath)
-  try { store.state(); throw new Error('Existing execution requires reconciliation; do not replay') }
+  let existing = null
+  try { existing = store.checkpoint() }
   catch (error) { if (error.message !== 'Execution is not initialized') { store.close(); throw error } }
-  store.initialize({ candidate, gate: initialGate, phase: 'delivered' })
-  const executor = 'opening-' + randomUUID()
+  const lastRepair = existing?.repairs?.at(-1)
+  if (existing && !(config.resumeAfterRepair === true && initialGate === 'off'
+    && existing.execution.gate === 'off' && existing.execution.candidate === candidate
+    && existing.execution.phase === 'preflight' && existing.execution.owner === null
+    && existing.execution.pending.length === 0 && existing.watchdog?.state === 'completed'
+    && existing.metadata?.topLevelIssue === 286 && existing.metadata.invocationUtc === config.invocationUtc
+    && lastRepair?.state === 'closed')) {
+    store.close(); throw new Error('Existing execution requires reconciliation; do not replay')
+  }
+  if (!existing) store.initialize({ candidate, gate: initialGate, phase: 'delivered' })
+  const attempt = randomUUID()
+  const executor = 'opening-' + attempt
+  const directory = join(sharedDirectory, 'attempt-' + attempt)
+  await mkdir(directory, { mode: 0o700 })
   let renewal, watchdog, watchdogExit
   let renewalFailed = false
   let watchdogOutput = ''
@@ -77,10 +90,13 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
   let acknowledged = false
   let failed = false
   const results = []
-  const receipt = { candidate, reviewed, startedUtc, procedure: 'packet-1-profile-opening-v1', rehearsalSha256: hash(rehearsal), runtimeConfigSha256: deployment.runtimeHash, assetIdentity: deployment.assetIdentity, sourceKind: 'live-browser', complete: false, results, cleanup: null }
+  const receipt = { candidate, reviewed, startedUtc, procedure: 'packet-1-profile-opening-v1', rehearsalSha256: hash(rehearsal), runtimeConfigSha256: deployment.runtimeHash, assetIdentity: deployment.assetIdentity, sourceKind: 'packet-1-workflow', complete: false, results, cleanup: null }
   const requireLease = () => { if (renewalFailed) throw new Error('Lease lost'); store.requireLease(executor, Date.now()) }
   try {
     store.acquire(executor, Date.now(), 30000)
+    if (existing) for (const phase of ['local-work', 'reviewed', 'delivered']) {
+      store.advancePhase(executor, Date.now(), { phase, evidenceHash: hash({ candidate, reviewed, rehearsal: hash(rehearsal), deployment, repair: lastRepair.closure_evidence }) })
+    }
     renewal = setInterval(() => {
       try { store.renew(executor, Date.now(), 30000) } catch { renewalFailed = true }
     }, 5000)
@@ -103,10 +119,10 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
     while (!watchdogOutput.includes('"state":"armed"') && Date.now() < armedDeadline) await new Promise(resolve => setTimeout(resolve, 100))
     if (!watchdogOutput.includes('"state":"armed"')) throw new Error('Independent containment did not arm')
     if (initialGate === 'developer-canary') {
-      store.beginOperation(executor, Date.now(), { id: 'gate-entry-off', candidate, gate: initialGate })
+      store.beginOperation(executor, Date.now(), { id: 'gate-' + attempt + '-entry-off', candidate, gate: initialGate })
       const contained = await containCanary(operator, config.expectedOwner)
       if (!Object.values(compareCanaryProfiles(initialHead, await observe())).every(Boolean)) throw new Error('Entry head changed')
-      store.finishGateTransition(executor, Date.now(), { id: 'gate-entry-off', from: initialGate, to: 'off', evidenceHash: hash(contained) })
+      store.finishGateTransition(executor, Date.now(), { id: 'gate-' + attempt + '-entry-off', from: initialGate, to: 'off', evidenceHash: hash(contained) })
     }
     await verifyGateOff()
     // Synthetic deployed-client verification always precedes real account entry.
@@ -133,11 +149,11 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
     await verifyInitialHead()
     const offGate = await readGate()
     requireLease()
-    store.beginOperation(executor, Date.now(), { id: 'gate-real-enable', candidate, gate: 'off' })
+    store.beginOperation(executor, Date.now(), { id: 'gate-' + attempt + '-real-enable', candidate, gate: 'off' })
     if (offGate.rollout_state !== 'off') throw new Error('Canary entry requires off gate')
     const enabled = await operator.query(enableCanarySql(config.expectedOwner, offGate.version))
     if (enabled.length !== 1 || (await readGate()).rollout_state !== 'developer-canary') throw new Error('Canary entry did not verify')
-    store.finishGateTransition(executor, Date.now(), { id: 'gate-real-enable', from: 'off', to: 'developer-canary', evidenceHash: hash({ gate: 'developer-canary', ownerMatches: true }) })
+    store.finishGateTransition(executor, Date.now(), { id: 'gate-' + attempt + '-real-enable', from: 'off', to: 'developer-canary', evidenceHash: hash({ gate: 'developer-canary', ownerMatches: true }) })
     store.advancePhase(executor, Date.now(), { phase: 'live-scenario', skipSoak: true, evidenceHash: hash({ packet: 1, soakRequired: false, syntheticPassed: true }) })
     for (const bookkeeping of ['clean', 'malformed', 'stale', 'retry']) {
       const phaseStartedUtc = new Date().toISOString()
@@ -151,7 +167,7 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
           requireLease()
           if (classification === 'resolve') {
             acknowledged = false
-            pending = 'resolve-' + (++sequence)
+            pending = 'resolve-' + attempt + '-' + (++sequence)
             store.beginOperation(executor, Date.now(), { id: pending, candidate, gate: 'developer-canary' })
           }
           return true
@@ -216,6 +232,7 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
       await writeFile(join(directory, evidence.sha256 + '.json'), evidence.json, { mode: 0o600 })
     }
     await writeFile(join(directory, 'packet-1-live-result.json'), JSON.stringify(receipt, null, 2) + '\n', { mode: 0o600 })
+    await writeFile(join(sharedDirectory, 'packet-1-live-result.json'), JSON.stringify(receipt, null, 2) + '\n', { mode: 0o600 })
     store.close()
     notify(receipt)
   }

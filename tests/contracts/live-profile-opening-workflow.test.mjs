@@ -93,3 +93,30 @@ for (const option of ['driftAtAuth', 'driftAtPhase', 'ambiguousResolver', 'setup
     if (option === 'driftAtPhase') assert.equal(f.state().pending.length, 0)
   })
 }
+
+test('explicit post-repair continuation preserves the journal and prior attempt evidence', async t => {
+  const f = await fixture(t)
+  f.dependencies.runSynthetic = async () => ({ code: 1, output: '{"complete":false}' })
+  assert.equal((await executeOpeningWorkflow(f.input, f.dependencies)).complete, false)
+  assert.equal(f.state().phase, 'delivered')
+  await assert.rejects(executeOpeningWorkflow({ ...f.input, config: { ...f.input.config, resumeAfterRepair: true } }, f.dependencies), /Existing execution requires reconciliation/)
+  const store = new CanaryExecutionStore(join(f.input.config.workdir, '.cache/canary-execution/packet-1.sqlite'))
+  try {
+    store.acquire('repair-owner', Date.now(), 10000)
+    store.suspendForRepair('repair-owner', Date.now(), { issue: 305, evidenceHash: 'f'.repeat(64) })
+    store.resumeAfterRepair('repair-owner', Date.now(), { issue: 305, closureEvidenceHash: 'e'.repeat(64), candidate, gate: 'off' })
+    store.release('repair-owner', Date.now())
+  } finally { store.close() }
+  f.dependencies.runSynthetic = async () => ({ code: 0, output: '{"complete":true}' })
+  const resumed = { ...f.input, config: { ...f.input.config, resumeAfterRepair: true } }
+  assert.equal((await executeOpeningWorkflow(resumed, f.dependencies)).complete, true)
+  assert.equal(f.state().phase, 'cleanup')
+  const { readdir } = await import('node:fs/promises')
+  const directory = join(f.input.config.workdir, '.cache/canary-execution')
+  const attempts = (await readdir(directory)).filter(name => name.startsWith('attempt-'))
+  assert.equal(attempts.length, 2)
+  const receipts = await Promise.all(attempts.map(name => readFile(join(directory, name, 'packet-1-live-result.json'), 'utf8').then(JSON.parse)))
+  assert.equal(receipts.filter(receipt => receipt.complete).length, 1)
+  assert.equal(receipts.filter(receipt => !receipt.complete).length, 1)
+  await assert.rejects(executeOpeningWorkflow(resumed, f.dependencies), /Existing execution requires reconciliation/)
+})
