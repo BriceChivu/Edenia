@@ -14,7 +14,8 @@ export function createOpeningPolicy({ providerOrigin, now = Date.now }) {
   let reads = 0
   let unauthorized = 0
   let ancillaryBlocked = 0
-  const deny = () => { failed = true; unauthorized += 1; active?.abort(); return 'deny' }
+  let rejectionReason = null
+  const deny = (reason = 'unclassified-or-out-of-phase') => { failed = true; rejectionReason ||= reason; unauthorized += 1; active?.abort(); return 'deny' }
   return {
     beginPhase(name) {
       if (failed || active || !PHASES.has(name)) throw new Error('Opening phase is not available')
@@ -34,7 +35,7 @@ export function createOpeningPolicy({ providerOrigin, now = Date.now }) {
         || (method === 'GET' && ['/rest/v1/reminder_preferences', '/rest/v1/subscriptions'].includes(target.pathname)
           && [...target.searchParams.keys()].every(key => ['select', 'user_id'].includes(key)))
       if (ancillary) {
-        if (ancillaryBlocked >= 6) return deny()
+        if (ancillaryBlocked >= 6) return deny('ancillary-budget')
         ancillaryBlocked += 1
         return 'ancillary-block'
       }
@@ -63,7 +64,7 @@ export function createOpeningPolicy({ providerOrigin, now = Date.now }) {
       const result = active.finish()
       active = null
       failed ||= !result.complete
-      return { phase: phaseName, complete: !failed, resolve: result.counts.resolve, read: reads, unauthorized, ancillaryBlocked }
+      return { phase: phaseName, complete: !failed, resolve: result.counts.resolve, read: reads, unauthorized, ancillaryBlocked, rejectionReason }
     }
   }
 }
@@ -89,7 +90,11 @@ export async function installOpeningGuard(context, {
       if (stopped) return await route.abort('blockedbyclient')
       if (target.origin === providerOrigin) {
         const classification = policy.classify({ method: request.method(), url: request.url(), body: request.postData() })
-        if (classification === 'deny' || classification === 'ancillary-block') return await route.abort('blockedbyclient')
+        if (classification === 'deny') return await route.abort('blockedbyclient')
+        // A network abort makes idempotent SDK reads retry. This explicit local
+        // denial blocks the same requests without inventing provider success.
+        if (classification === 'ancillary-block') return await route.fulfill({ status: 403,
+          json: { code: 'CANARY_ANCILLARY_BLOCKED', message: 'Blocked by the local opening guard', details: null, hint: null } })
         if (classification === 'resolve' && injectFailure) {
           injectFailure = false
           return await route.abort('failed')

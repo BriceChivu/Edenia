@@ -138,3 +138,25 @@ test('private authentication blocks public documents and provider redirects', as
   assert.equal(redirectBlocked, true)
   assert.equal(closed, true)
 })
+
+test('blocked ancillary reads return a local denial without triggering SDK network retries', async () => {
+  const { PostgrestClient } = await import('@supabase/postgrest-js')
+  let intercept, attempts = 0
+  const context = { routeWebSocket: async () => {}, route: async (_, handler) => { intercept = handler } }
+  const guard = await installOpeningGuard(context, { serviceWorkers: 'block', providerOrigin: origin })
+  guard.policy.beginPhase('activation')
+  const client = new PostgrestClient(origin + '/rest/v1', { fetch: async (url, options) => {
+    attempts++
+    return new Promise((resolve, reject) => {
+      void intercept({ request: () => ({ url: () => url.toString(), method: () => options.method, postData: () => options.body }),
+        abort: async () => reject(new TypeError('Synthetic network rejection')),
+        fulfill: async ({ status, json }) => resolve(new Response(JSON.stringify(json), { status, headers: { 'content-type': 'application/json' } })),
+        continue: () => assert.fail('Ancillary call reached network') })
+    })
+  } })
+  const results = await Promise.all(['subscriptions', 'reminder_preferences'].map(table => client.from(table).select('*')))
+  assert.equal(attempts, 2)
+  assert.ok(results.every(result => result.error?.code === 'CANARY_ANCILLARY_BLOCKED'))
+  assert.equal(guard.policy.classify(request()), 'resolve')
+  assert.equal(guard.policy.finishPhase().complete, true)
+})

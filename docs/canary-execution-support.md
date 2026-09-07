@@ -296,6 +296,11 @@ match the reviewed runner identity before invocation.
 
 The coordinator uses the shared operator checkout's Packet 1 SQLite journal.
 An existing execution refuses automatic replay and requires reconciliation.
+After a recorded derived repair is closed and the same journal explicitly
+returns to preflight at the new candidate, private `resumeAfterRepair: true`
+permits a fresh attempt. It requires no lease or pending operation and completed
+prior containment. Each attempt keeps separate receipts and unique operation
+IDs; the journal is never recreated.
 It renews one lease, arms an independent watchdog, contains any same-owner
 handoff, runs deployed synthetic cases with the gate off, and opens a guarded
 private authentication UI. Authentication accepts only the approved owner and
@@ -311,7 +316,10 @@ both race orderings. The gate transition journal requires verified readback.
 
 The network guard blocks workers, sockets, all undeclared profile operations,
 public-root navigation and redirects for provider calls. Known non-profile
-reminder reads/snapshot attempts are blocked and counted separately. Each phase
+reminder reads/snapshot attempts receive an explicit local denial and are
+counted separately. This is a harness-generated failure, not a provider
+response; it prevents the SDK retrying intercepted GETs as network failures.
+No additional request is forwarded and the original six-request bound remains. Each phase
 has one null-onboarding resolver attempt; injected failure is aborted before
 provider dispatch. A remotely dispatched resolver remains pending unless its
 `profile_ready` response and unchanged full original head are both verified.
