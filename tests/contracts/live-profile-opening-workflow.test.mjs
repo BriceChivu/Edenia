@@ -83,6 +83,32 @@ test('workflow completes four phases with original head, receipt and independent
   await assert.rejects(executeOpeningWorkflow(f.input, f.dependencies), /Existing execution requires reconciliation/)
   assert.equal(f.inspect().enabled, 1)
 })
+
+test('email setup derives only the approved existing account and keeps its identity out of receipts', async t => {
+  const f = await fixture(t)
+  f.input.config.authMethod = 'email-code'
+  const originalQuery = f.dependencies.operator.query
+  let derived = false
+  f.dependencies.operator.query = async sql => {
+    if (sql.startsWith('select email from auth.users')) {
+      assert.equal(sql, `select email from auth.users where id = '${owner}'::uuid and email_confirmed_at is not null and deleted_at is null;`)
+      derived = true
+      return [{ email: 'approved@example.invalid' }]
+    }
+    return originalQuery(sql)
+  }
+  f.dependencies.authenticate = async args => {
+    assert.equal(derived, true)
+    assert.equal(args.expectedOwner, owner)
+    assert.equal(args.expectedEmail, 'approved@example.invalid')
+    assert.equal(args.method, 'email-code')
+    return { user: { id: owner } }
+  }
+  const result = await executeOpeningWorkflow(f.input, f.dependencies)
+  assert.equal(result.complete, true)
+  assert.equal(JSON.stringify(result).includes('approved@example.invalid'), false)
+  assert.deepEqual(result.authenticationSetup, { method: 'email-code', accountCreationSuppressed: true, evidenceClass: 'constrained-authentication-setup' })
+})
 for (const option of ['driftAtAuth', 'driftAtPhase', 'ambiguousResolver', 'setupFailure', 'rejectEnable']) {
   test(`workflow contains and fails closed on ${option}`, async t => {
     const f = await fixture(t, { [option]: true })
