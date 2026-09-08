@@ -92,3 +92,61 @@ Reconcile only the exact owned preparation profile:
 Real-origin preparation remains a separate human import step after all prior
 acceptance/delivery conditions. Challenge refusal stops the attempt; it never
 permits weakening certificate, request, owner or traffic checks.
+
+## Document diagnostics (#315)
+
+Native progress is transport evidence only. `browserStarted` means the owned
+process lock was observed. `documentDelivered` means the proxy finished writing
+an HTTP 200, nonempty HTML response for the exact internal document after its
+existing authorization and response checks. Neither proves that Chrome parsed
+the document, ran its scripts, rendered the sign-in UI, or accepted a challenge.
+The native runner therefore does not emit `private-authentication-ui-ready`.
+No new browser callback endpoint, document injection, or trust bypass is used.
+
+The coordinator retains `authenticationSetup.diagnostic` on failure, including
+failures before session handoff. `failure` is the first retained terminal category;
+`connectionFailure` describes a rejected client TLS, HTTP, or CONNECT connection,
+which may be incidental background traffic rather than the document's cause.
+The vocabulary is allowlisted in `native-opening-auth-diagnostics.mjs`. Unknown
+failure strings become `unknown`; arbitrary fields and raw exception messages
+are discarded at IPC and receipt boundaries. Do not add request URLs, queries,
+headers, bodies, credentials, owner identifiers, or private paths to this schema.
+
+Local regression command (no hosted requests or Chrome/certificate import):
+
+```sh
+node --test tests/contracts/native-opening-auth-proxy.test.mjs tests/contracts/native-opening-auth-worker.test.mjs tests/contracts/native-opening-authentication.test.mjs tests/contracts/native-opening-handoff.test.mjs tests/contracts/live-profile-opening-workflow.test.mjs
+```
+
+The empty-document IPC case resets a verified loopback TLS upstream before any
+response, then checks the real proxy/worker/wrapper diagnostic, failed handoff,
+and profile cleanup. It is an injected failure reproduction, not attribution of
+the original Chrome `ERR_EMPTY_RESPONSE`. That incident remains unexplained.
+Do not repeat real-origin imports/sign-in solely because these contracts pass;
+retain the existing invocation and complete review and matching preparation
+acceptance before any live retry.
+
+### Automatic local document sequence
+
+`node tests/fixtures/native-document-rehearsal.mjs --prepare-local` creates an
+exclusive attempt directory and a disposable native Chrome profile behind a
+denying preparation proxy. The printed attempt directory contains the public
+`app.document-test.invalid.crt`; only import that leaf in that disposable
+profile. After the user confirms the import, create the `start` file in that
+exact attempt directory. Stale files from earlier attempts cannot start a run.
+
+The fake page reports its script callback, waits for the local server to
+acknowledge that the reset is armed, and reloads itself. The second document
+request is reset before a response. The harness waits for `upstream-reset`,
+then stops its owned Chrome, removes its profile and keys, and saves the result.
+A passing result requires the successful first document, one script report,
+one injected reset, the matching proxy diagnostic, and verified cleanup; an
+expired or interrupted attempt fails even if the first page loaded. The proxy
+keeps its five-minute ceiling; the automatic sequence has a shorter one-minute
+bound. There is no human reload deadline inside that sequence.
+
+The receipt proves the native request sequence and guard diagnosis. It does
+not prove that Chrome displayed its error page, or establish the cause of the
+original hosted incident. No repeated visual check is required for this local
+transport result. Headless HTTP checks of the sequence are a separate evidence
+class and do not substitute for this native guarded TLS run.

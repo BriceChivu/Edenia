@@ -1,3 +1,4 @@
+import { sanitizeNativeAuthenticationDiagnostic, nativeUpstreamFailure } from './native-opening-auth-diagnostics.mjs'
 import http from 'node:http'
 import https from 'node:https'
 import tls from 'node:tls'
@@ -13,7 +14,7 @@ const hash = bytes => createHash('sha256').update(bytes).digest('hex')
 // Local tests may substitute only TLS-verified loopback upstreams. They never
 // prove native-browser egress, production challenge acceptance or ownership.
 export async function createNativeOpeningAuthenticationProxy({ applicationOrigin, providerOrigin, expectedEmail,
-  expectedOwner, certificates, authorize = async () => false, onSession = async () => {},
+  expectedOwner, certificates, onProgress = () => {}, authorize = async () => false, onSession = async () => {},
   deadlineMs = 300000, expectedRuntimeHash, assetIdentity, localTestUpstreams = null, localChallengeOrigin, listenPort = 0 }) {
   if (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u.test(expectedOwner || '')
     || !Number.isInteger(deadlineMs) || deadlineMs < 1 || deadlineMs > 300000
@@ -25,20 +26,31 @@ export async function createNativeOpeningAuthenticationProxy({ applicationOrigin
     || !/^[a-f0-9]{12}$/u.test(assetIdentity?.version || '') || !/^[a-f0-9]{64}$/u.test(assetIdentity?.sha256 || '')))
     throw new Error('Native authentication requires deployment identity')
   const authorities = new Map(), sockets = new Set(), upstreams = new Set()
-  const stats = { forwarded: 0, denied: 0, ownerVerified: false, sealed: false, localOnly: Boolean(localTestUpstreams) }
+  const stats = { forwarded: 0, denied: 0, ownerVerified: false, sealed: false, localOnly: Boolean(localTestUpstreams), diagnostic: sanitizeNativeAuthenticationDiagnostic() }
   let pending = Promise.resolve(), stopped = false, sessionDelivered = false
   const started = performance.now()
   const track = socket => { sockets.add(socket); socket.once('close', () => sockets.delete(socket)) }
-  const seal = () => {
+  let reportedDiagnostic = null
+  const report = update => {
+    stats.diagnostic = sanitizeNativeAuthenticationDiagnostic({ ...stats.diagnostic, ...update,
+      connectionFailure: stats.diagnostic.connectionFailure || update?.connectionFailure })
+    const serialized = JSON.stringify(stats.diagnostic)
+    if (serialized === reportedDiagnostic) return
+    reportedDiagnostic = serialized
+    try { onProgress({ ...stats.diagnostic }) } catch { seal('progress-callback') }
+  }
+  const seal = (failure = null) => {
     if (stopped) return
     stopped = true; stats.sealed = true; policy.seal()
+    if (failure && !stats.diagnostic.failure) stats.diagnostic.failure = failure
     for (const request of upstreams) request.destroy()
     for (const socket of sockets) socket.destroy()
+    report({})
   }
   const permitted = async kind => {
-    if (stopped || performance.now() - started >= deadlineMs) { seal(); return false }
-    try { if (await authorize(kind) !== true || stopped || performance.now() - started >= deadlineMs) { seal(); return false } }
-    catch { seal(); return false }
+    if (stopped || performance.now() - started >= deadlineMs) { seal('deadline'); return false }
+    try { if (await authorize(kind) !== true || stopped || performance.now() - started >= deadlineMs) { seal('authorization-denied'); return false } }
+    catch { seal('authorization-denied'); return false }
     return true
   }
   const deny = res => {
@@ -73,14 +85,14 @@ export async function createNativeOpeningAuthenticationProxy({ applicationOrigin
         const chunks = []; let bytes = 0
         response.on('data', chunk => {
           bytes += chunk.length
-          if (bytes > 12 * 1024 * 1024) { response.destroy(); request.destroy(); reject(new Error('Native response bound')); return }
+          if (bytes > 12 * 1024 * 1024) { seal('response-bound'); response.destroy(); request.destroy(); reject(new Error('Native response bound')); return }
           chunks.push(chunk)
         })
-        response.on('error', reject)
+        response.on('error', error => { seal(nativeUpstreamFailure(error)); reject(error) })
         response.on('end', () => resolve({ status: response.statusCode, headers: response.headers, body: Buffer.concat(chunks) }))
       })
       upstreams.add(request); request.once('close', () => upstreams.delete(request))
-      request.on('error', reject); request.setTimeout(10000, () => request.destroy(new Error('Native upstream timeout')))
+      request.on('error', error => { seal(nativeUpstreamFailure(error)); reject(error) }); request.setTimeout(10000, () => { seal('upstream-timeout'); request.destroy(new Error('Native upstream timeout')) })
       stats.forwarded++; request.end(body)
     })
   }
@@ -120,22 +132,27 @@ export async function createNativeOpeningAuthenticationProxy({ applicationOrigin
         const response = await fetchUpstream({ origin, path: req.url, method: req.method, headers: req.headers,
           body: decision.body ?? body, kind: decision.kind })
         if (stopped) return
-        if (response.status >= 300 && response.status < 400) { deny(res); seal(); return }
-        if (response.headers['content-encoding'] && response.headers['content-encoding'] !== 'identity') { seal(); return }
+        if (response.status >= 300 && response.status < 400) { deny(res); seal('response-redirect'); return }
+        if (response.headers['content-encoding'] && response.headers['content-encoding'] !== 'identity') { seal('response-encoding'); return }
         if (origin === applicationOrigin && expectedRuntimeHash && req.url.split('?')[0] === '/config.local.js'
-          && (response.status !== 200 || hash(response.body) !== expectedRuntimeHash)) { seal(); return }
+          && (response.status !== 200 || hash(response.body) !== expectedRuntimeHash)) { seal('deployment-mismatch'); return }
         if (origin === applicationOrigin && assetIdentity && req.url.split('?')[0] === '/app.js'
-          && (req.url !== '/app.js?v=' + assetIdentity.version || response.status !== 200 || hash(response.body) !== assetIdentity.sha256)) { seal(); return }
+          && (req.url !== '/app.js?v=' + assetIdentity.version || response.status !== 200 || hash(response.body) !== assetIdentity.sha256)) { seal('deployment-mismatch'); return }
+        const document = origin === applicationOrigin && req.url === '/?internal_test=1' && req.headers['sec-fetch-dest'] === 'document'
+        if (document && (response.status !== 200 || response.body.length === 0
+          || !/^text\/html(?:;|$)/iu.test(response.headers['content-type'] || ''))) {
+          seal('document-response'); return
+        }
         let session = null
         if (decision.kind === 'email-code-verify' && response.status === 200) {
           const parsed = JSON.parse(response.body.toString('utf8'))
           if (typeof parsed.access_token !== 'string' || typeof parsed.refresh_token !== 'string'
-            || parsed.user?.id !== expectedOwner || sessionDelivered) { seal(); return }
+            || parsed.user?.id !== expectedOwner || sessionDelivered) { seal('owner-verification'); return }
           const read = policy.classify({ origin: providerOrigin, path: '/auth/v1/user', method: 'GET', destination: 'empty' })
-          if (read.kind !== 'user-read') { seal(); return }
+          if (read.kind !== 'user-read') { seal('owner-verification'); return }
           const verified = await fetchUpstream({ origin: providerOrigin, path: '/auth/v1/user', method: 'GET', kind: 'user-read',
             headers: { apikey: req.headers.apikey, authorization: 'Bearer ' + parsed.access_token }, body: '' })
-          if (verified.status !== 200 || JSON.parse(verified.body.toString('utf8')).id !== expectedOwner) { seal(); return }
+          if (verified.status !== 200 || JSON.parse(verified.body.toString('utf8')).id !== expectedOwner) { seal('owner-verification'); return }
           if (!await permitted('session-acceptance')) return
           stats.ownerVerified = true; sessionDelivered = true
           session = { ...parsed, expires_at: parsed.expires_at ?? Math.floor(Date.now() / 1000) + parsed.expires_in }
@@ -147,29 +164,32 @@ export async function createNativeOpeningAuthenticationProxy({ applicationOrigin
         // profile has no cached worker; neither registration nor worker code
         // may gain a transport outside this guard.
         headers['content-security-policy'] = [...[response.headers['content-security-policy']].flat().filter(Boolean), "worker-src 'none'; object-src 'none'"]
+        if (document) res.once('finish', () => {
+          if (!stopped) report({ documentDelivered: true })
+        })
         res.writeHead(response.status, headers); res.end(response.body)
         if (session) await onSession(session)
-      }).catch(() => seal())
+      }).catch(() => seal('request-processing'))
     })
     secure.requestTimeout = 5000; secure.headersTimeout = 5000
-    secure.on('secureConnection', track); secure.on('tlsClientError', () => {})
-    secure.on('clientError', (_error, socket) => socket.destroy())
+    secure.on('secureConnection', track); secure.on('tlsClientError', () => report({ connectionFailure: 'client-tls' }))
+    secure.on('clientError', (_error, socket) => { report({ connectionFailure: 'client-http' }); socket.destroy() })
     secure.on('upgrade', (_req, socket) => { stats.denied++; socket.destroy() })
     secure.on('checkContinue', (_req, res) => deny(res))
     authorities.set(hostname + ':443', secure)
   }
   const server = http.createServer({ maxHeaderSize: 8192 }, (_req, res) => deny(res))
   server.on('connection', socket => { track(socket); socket.setTimeout(15000, () => socket.destroy()); if (stopped || sockets.size > 32) socket.destroy() })
-  server.on('clientError', (_error, socket) => socket.destroy())
+  server.on('clientError', (_error, socket) => { report({ connectionFailure: 'client-http' }); socket.destroy() })
   server.on('upgrade', (_req, socket) => { stats.denied++; socket.destroy() })
   server.on('connect', (req, socket, head) => {
     const secure = authorities.get(req.url)
     if (stopped || !secure || req.headers.host !== req.url || head.length || req.headers['transfer-encoding']
-      || req.headers['content-length'] || req.headers.upgrade) { stats.denied++; socket.destroy(); return }
+      || req.headers['content-length'] || req.headers.upgrade) { stats.denied++; report({ connectionFailure: 'connect-rejected' }); socket.destroy(); return }
     socket.write('HTTP/1.1 200 Connection Established\r\n\r\n'); secure.emit('connection', socket)
   })
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(listenPort, '127.0.0.1', resolve) })
-  const timer = setTimeout(seal, deadlineMs)
+  const timer = setTimeout(() => seal('deadline'), deadlineMs)
   return { port: server.address().port, stats, seal, async close() {
     clearTimeout(timer); seal(); await new Promise(resolve => server.close(resolve)); await pending.catch(() => {})
   } }

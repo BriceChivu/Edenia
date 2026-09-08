@@ -1,3 +1,4 @@
+import { sanitizeNativeAuthenticationDiagnostic } from './native-opening-auth-diagnostics.mjs'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { spawn, execFileSync } from 'node:child_process'
@@ -173,18 +174,30 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
       // The wrapper returns only after the native guard/profile are stopped and
       // cleaned. The session stays in memory within this invocation; no browser
       // for profile cases exists until that handoff is complete.
-      session = await (dependencies.authenticateNative || prepareNativeOpeningAuthentication)({ ...authOptions,
-        applicationOrigin: 'https://www.edenia.study', native: config.nativeAuthentication,
-        lease: { workdir: config.workdir, executor, candidate },
-        expectedRuntimeHash: deployment.runtimeHash, assetIdentity: deployment.assetIdentity,
-        verifyPreparation: dependencies.verifyNativePreparation || createNativePreparationVerifier({
-          ...config.nativeAuthentication, candidate, reviewed, invocation: config.invocationUtc
-        }) })
+      receipt.authenticationSetup.transport = 'native-inspected'
+      receipt.authenticationSetup.preparationSha256 = config.nativeAuthentication?.manifestSha256
+      receipt.authenticationSetup.diagnostic = sanitizeNativeAuthenticationDiagnostic()
+      try {
+        session = await (dependencies.authenticateNative || prepareNativeOpeningAuthentication)({ ...authOptions, onReady: undefined,
+          onProgress: value => {
+            const diagnostic = sanitizeNativeAuthenticationDiagnostic(value)
+            receipt.authenticationSetup.diagnostic = diagnostic
+            notify({ state: 'native-authentication-progress', gate: 'off', diagnostic })
+          },
+          applicationOrigin: 'https://www.edenia.study', native: config.nativeAuthentication,
+          lease: { workdir: config.workdir, executor, candidate },
+          expectedRuntimeHash: deployment.runtimeHash, assetIdentity: deployment.assetIdentity,
+          verifyPreparation: dependencies.verifyNativePreparation || createNativePreparationVerifier({
+            ...config.nativeAuthentication, candidate, reviewed, invocation: config.invocationUtc
+          }) })
+      } catch (error) {
+        receipt.authenticationSetup.diagnostic = sanitizeNativeAuthenticationDiagnostic(error?.nativeDiagnostic
+          || { ...receipt.authenticationSetup.diagnostic, failure: receipt.authenticationSetup.diagnostic?.failure || 'unknown' })
+        throw error
+      }
       requireLease()
       await verifyGateOff()
       if (session?.user?.id !== config.expectedOwner) throw new Error('Native authentication owner mismatch')
-      receipt.authenticationSetup.transport = 'native-inspected'
-      receipt.authenticationSetup.preparationSha256 = config.nativeAuthentication?.manifestSha256
       await launchCaseBrowser()
     } else {
       session = await (dependencies.authenticate || prepareOpeningAuthentication)({ ...authOptions, browser, method: authMethod })

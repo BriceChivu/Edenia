@@ -1,3 +1,4 @@
+import { sanitizeNativeAuthenticationDiagnostic } from './native-opening-auth-diagnostics.mjs'
 import { readFile, rm, readlink } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
@@ -14,6 +15,14 @@ export function runNativeOpeningAuthenticationWorker(channel = process, dependen
   const launch = dependencies.launch || spawn
   let initialization = Promise.resolve(), cleanupPromise = null
   let proxy, browser, store, checkTimer, config, exiting = false, browserExited = false
+  let diagnostic = sanitizeNativeAuthenticationDiagnostic()
+  const progress = update => {
+    diagnostic = sanitizeNativeAuthenticationDiagnostic({ ...diagnostic, ...update,
+      browserStarted: diagnostic.browserStarted || update?.browserStarted,
+      failure: diagnostic.failure || update?.failure })
+    // Diagnostics must not interrupt containment when IPC closes concurrently.
+    try { if (channel.connected) channel.send({ type: 'progress', diagnostic }, () => {}) } catch {}
+  }
   let sequence = 0
   const permissions = new Map()
   function requireLease() {
@@ -47,12 +56,13 @@ export function runNativeOpeningAuthenticationWorker(channel = process, dependen
     })()
     return cleanupPromise
   }
-  async function finish(session = null) {
+  async function finish(session = null, failure = null) {
     if (cleanupPromise) return
     try {
+      if (failure) progress({ failure })
       await cleanup()
-      if (channel.connected) channel.send({ type: 'finished', complete: Boolean(session), cleanupVerified: true, session }, () => channel.disconnect())
-    } catch { if (channel.connected) channel.send({ type: 'finished', complete: false, cleanupVerified: false }, () => channel.disconnect()) }
+      if (channel.connected) channel.send({ type: 'finished', complete: Boolean(session), cleanupVerified: true, session, diagnostic }, () => channel.disconnect())
+    } catch { diagnostic = sanitizeNativeAuthenticationDiagnostic({ ...diagnostic, failure: diagnostic.failure || 'cleanup-failed' }); if (channel.connected) channel.send({ type: 'finished', complete: false, cleanupVerified: false, diagnostic }, () => channel.disconnect()) }
   }
   const authorize = async kind => {
     requireLease()
@@ -75,10 +85,10 @@ export function runNativeOpeningAuthenticationWorker(channel = process, dependen
         certificates[item.origin] = { cert: await io.readFile(item.certificateFile), key: await io.readFile(item.keyFile), sha256: item.sha256 }
         requireLease()
       }
-      proxy = await makeProxy({ ...config, certificates, authorize,
+      proxy = await makeProxy({ ...config, certificates, authorize, onProgress: progress,
         onSession: session => { requireLease(); queueMicrotask(() => { void finish(session) }) } })
       requireLease()
-      checkTimer = setInterval(() => { try { requireLease(); if (proxy.stats.sealed) void finish() } catch { void finish() } }, 100)
+      checkTimer = setInterval(() => { try { requireLease(); if (proxy.stats.sealed) void finish() } catch { void finish(null, 'lease-invalid') } }, 100)
       if (!await authorize('native-browser-start')) throw new Error('Native browser start denied')
       if (exiting) return
       browser = launch('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
@@ -87,17 +97,17 @@ export function runNativeOpeningAuthenticationWorker(channel = process, dependen
         '--disable-quic', '--webrtc-ip-handling-policy=disable_non_proxied_udp',
         config.applicationOrigin + '/?internal_test=1'
       ], { stdio: 'ignore' })
-      browser.once('exit', () => { browserExited = true; if (!exiting) void finish() })
-      browser.once('error', () => { browserExited = true; if (!exiting) void finish() })
+      browser.once('exit', () => { browserExited = true; if (!exiting) void finish(null, 'browser-exit') })
+      browser.once('error', () => { browserExited = true; if (!exiting) void finish(null, 'browser-start') })
       let ready = false
       for (let i = 0; i < 100 && !exiting && !browserExited; i++) {
         try { ready = Number((await io.readlink(join(config.profileDirectory, 'SingletonLock'))).split('-').at(-1)) === browser.pid } catch {}
         if (ready) break
         await new Promise(resolve => setTimeout(resolve, 100))
       }
-      if (!ready || exiting) throw new Error('Native browser readiness failed')
-      if (channel.connected) channel.send({ type: 'ready' })
-      setTimeout(() => { void finish() }, config.deadlineMs).unref()
+      if (!ready || exiting) { progress({ failure: 'browser-lock' }); throw new Error('Native browser readiness failed') }
+      progress({ browserStarted: true })
+      setTimeout(() => { void finish(null, diagnostic.documentDelivered ? 'deadline' : 'document-not-delivered') }, config.deadlineMs).unref()
   }
   channel.on('message', message => {
     if (message?.type === 'permission') {
@@ -108,7 +118,7 @@ export function runNativeOpeningAuthenticationWorker(channel = process, dependen
     if (message?.type === 'stop') { void finish(); return }
     if (message?.type !== 'start' || config || exiting) { void finish(); return }
     initialization = initialize(message.config)
-    void initialization.catch(() => { void finish() })
+    void initialization.catch(() => { void finish(null, 'worker-initialization') })
   })
   channel.on('disconnect', () => { void finish() })
   channel.on('SIGINT', () => { void finish() })

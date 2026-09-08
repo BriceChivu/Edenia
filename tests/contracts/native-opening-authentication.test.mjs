@@ -67,24 +67,24 @@ test('hung worker times out with explicit failure and no accepted session', asyn
   assert.deepEqual(f.kills, ['SIGKILL'])
 })
 
-for (const failure of ['unverified-cleanup', 'abnormal-exit', 'wrong-owner', 'authorization-loss', 'ready-failed']) {
+for (const failure of ['unverified-cleanup', 'abnormal-exit', 'wrong-owner', 'authorization-loss', 'progress-failed']) {
   test(`native wrapper rejects a claimed session after ${failure}`, async t => {
     const f = await fixture(t)
     let gateChecks = 0
     const result = prepareNativeOpeningAuthentication({ ...f.options, verifyPreparation: async () => true,
       verifyGateOff: async () => { if (++gateChecks > 1 && failure === 'authorization-loss') throw new Error('Gate changed') },
-      onReady: async () => { if (failure === 'ready-failed') throw new Error('UI unavailable') }
+      onProgress: async () => { if (failure === 'progress-failed') throw new Error('UI unavailable') }
     }, f.dependencies)
     const rejected = assert.rejects(result, /Native authentication incomplete/)
     await f.ready
     if (failure === 'authorization-loss') f.worker.emit('message', { type: 'authorize', id: 1 })
-    if (failure === 'ready-failed') f.worker.emit('message', { type: 'ready' })
+    if (failure === 'progress-failed') f.worker.emit('message', { type: 'progress', diagnostic: {} })
     await new Promise(resolve => setImmediate(resolve))
     f.worker.emit('message', { type: 'finished', complete: true, cleanupVerified: failure !== 'unverified-cleanup',
       session: { user: { id: failure === 'wrong-owner' ? 'other' : 'owner' } } })
     f.worker.emit('exit', failure === 'abnormal-exit' ? null : 0, failure === 'abnormal-exit' ? 'SIGKILL' : null)
     await rejected
-    if (['authorization-loss', 'ready-failed'].includes(failure)) assert.ok(f.messages.some(message => message.type === 'stop'))
+    if (['authorization-loss', 'progress-failed'].includes(failure)) assert.ok(f.messages.some(message => message.type === 'stop'))
   })
 }
 
@@ -98,4 +98,19 @@ test('a stopped failed attempt cannot reuse its preparation capability', async t
   f.worker.emit('exit', 1)
   await rejected
   await assert.rejects(prepareNativeOpeningAuthentication(options, f.dependencies), { code: 'EEXIST' })
+})
+
+test('wrapper retains only bounded diagnostic fields from private IPC on failure', async t => {
+  const f = await fixture(t), updates = []
+  const result = prepareNativeOpeningAuthentication({ ...f.options, verifyPreparation: async () => true, onProgress: value => updates.push(value) }, f.dependencies)
+  const rejected = assert.rejects(result, error => {
+    assert.deepEqual(error.nativeDiagnostic, { browserStarted: true, documentDelivered: false, failure: 'upstream-reset', connectionFailure: null })
+    return true
+  })
+  await f.ready
+  f.worker.emit('message', { type: 'progress', diagnostic: { browserStarted: true, failure: 'upstream-reset', url: 'SECRET', body: 'SECRET' } })
+  f.worker.emit('message', { type: 'finished', complete: false, cleanupVerified: true, diagnostic: { failure: 'SECRET' } })
+  f.worker.emit('exit', 0)
+  await rejected
+  assert.equal(JSON.stringify(updates).includes('SECRET'), false)
 })

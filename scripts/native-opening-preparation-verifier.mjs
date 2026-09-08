@@ -5,7 +5,7 @@ import { join, relative, isAbsolute } from 'node:path'
 import { validateNativeAuthLeaf } from './native-auth-leaf-certificate.mjs'
 
 export const nativePreparationSources = Object.freeze([
-  'native-auth-leaf-certificate.mjs', 'native-opening-auth-policy.mjs',
+  'native-opening-auth-diagnostics.mjs', 'native-auth-leaf-certificate.mjs', 'native-opening-auth-policy.mjs',
   'native-opening-auth-proxy.mjs', 'native-opening-auth-worker.mjs',
   'native-opening-authentication.mjs', 'native-opening-preparation-verifier.mjs',
   'hosted-profile-opening-smoke.mjs', 'run-live-profile-opening.mjs'

@@ -13,7 +13,7 @@ import { CanaryExecutionStore } from '../../scripts/canary-execution-store.mjs'
 import { prepareNativeOpeningAuthentication } from '../../scripts/native-opening-authentication.mjs'
 import { access, writeFile, chmod } from 'node:fs/promises'
 
-for (const wrongOwner of [false, true]) test(`real IPC worker ${wrongOwner ? 'rejects a mismatched fresh owner' : 'hands off only after cleanup and exit'}`, { timeout: 10000 }, async t => {
+for (const wrongOwner of [false, true, 'empty-document']) test(`real IPC worker ${wrongOwner === 'empty-document' ? 'retains an empty document transport failure' : wrongOwner ? 'rejects a mismatched fresh owner' : 'hands off only after cleanup and exit'}`, { timeout: 10000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'native-ipc-regression-'))
   t.after(() => rm(root, { recursive: true, force: true }))
   const origins = ['https://app.native-test.invalid', 'https://provider.native-test.invalid', 'https://challenges.cloudflare.com']
@@ -31,6 +31,7 @@ for (const wrongOwner of [false, true]) test(`real IPC worker ${wrongOwner ? 're
   const upstream = https.createServer(materials['https://localhost'], async (req, res) => {
     for await (const part of req) { /* synthetic body is not retained */ }
     observed.push(req.url)
+    if (wrongOwner === 'empty-document') { res.destroy(); return }
     if(req.url === '/auth/v1/verify') res.end(JSON.stringify({access_token:'synthetic-access',refresh_token:'synthetic-refresh',expires_in:3600,user:{id:owner}}))
     else if(req.url === '/auth/v1/user') { ownerArrived.resolve(); await releaseOwner.promise; res.end(JSON.stringify({id:wrongOwner ? '22222222-2222-2222-2222-222222222222' : owner})) }
     else res.end('{}')
@@ -46,7 +47,7 @@ for (const wrongOwner of [false, true]) test(`real IPC worker ${wrongOwner ? 're
   const manifestFile=join(root,'manifest.json'); await writeFile(manifestFile,manifest)
   let worker, port, resolved=false
   const ready=Promise.withResolvers()
-  const result=prepareNativeOpeningAuthentication({applicationOrigin:origins[0],providerOrigin:origins[1],expectedOwner:owner,expectedEmail:'approved@example.invalid',verifyGateOff:async()=>{},verifyPreparation:async()=>true,onReady:()=>ready.resolve(),timeoutMs:5000,
+  const result=prepareNativeOpeningAuthentication({applicationOrigin:origins[0],providerOrigin:origins[1],expectedOwner:owner,expectedEmail:'approved@example.invalid',verifyGateOff:async()=>{},verifyPreparation:async()=>true,onProgress:value=>{if(value.browserStarted)ready.resolve()},timeoutMs:5000,
     native:{preparationRoot:root,manifestFile,manifestSha256:createHash('sha256').update(manifest).digest('hex')},lease:{workdir:root,candidate,executor}}, {
     fork:()=>{
       worker=fork(new URL('../fixtures/native-opening-worker.mjs',import.meta.url),[],{stdio:['ignore','ignore','ignore','ipc']})
@@ -63,14 +64,28 @@ for (const wrongOwner of [false, true]) test(`real IPC worker ${wrongOwner ? 're
   t.after(async()=>{if(worker.exitCode===null&&worker.signalCode===null){const exited=once(worker,'exit');worker.kill('SIGTERM');await exited}})
   await ready.promise
   const requestThroughProxy = (path, body) => new Promise(resolve => {
-    const hostname = new URL(origins[1]).hostname
+    const origin = path === '/?internal_test=1' ? origins[0] : origins[1]
+    const hostname = new URL(origin).hostname
     const request = http.request({ hostname: '127.0.0.1', port, method: 'CONNECT', path: hostname + ':443', headers: { host: hostname + ':443' } })
     request.on('connect', (_response, socket) => {
-      const stream = tls.connect({ socket, servername: hostname, ca: materials[origins[1]].cert }, () => stream.write('POST '+path+' HTTP/1.1\r\nHost: ' + hostname + '\r\nSec-Fetch-Dest: empty\r\nApikey: synthetic-key\r\nContent-Length: '+Buffer.byteLength(body)+'\r\nConnection: close\r\n\r\n'+body))
+      const stream = tls.connect({ socket, servername: hostname, ca: materials[origin].cert }, () => stream.write((origin === origins[0] ? 'GET ' : 'POST ')+path+' HTTP/1.1\r\nHost: ' + hostname + '\r\nSec-Fetch-Dest: '+(origin === origins[0] ? 'document' : 'empty')+'\r\nApikey: synthetic-key\r\nContent-Length: '+Buffer.byteLength(body)+'\r\nConnection: close\r\n\r\n'+body))
       let responseBody = ''; stream.on('data', part => { responseBody += part }); stream.on('close', () => resolve(responseBody)); stream.on('error', () => resolve(responseBody))
     })
     request.on('error', () => resolve('')); request.end()
   })
+  if (wrongOwner === 'empty-document') {
+    assert.equal(await requestThroughProxy('/?internal_test=1', ''), '')
+    await assert.rejects(result, error => {
+      assert.equal(error.nativeDiagnostic.failure, 'upstream-reset')
+      assert.equal(error.nativeDiagnostic.browserStarted, true)
+      assert.equal(error.nativeDiagnostic.documentDelivered, false)
+      return true
+    })
+    assert.deepEqual(observed, ['/?internal_test=1'])
+    assert.equal(worker.exitCode, 0)
+    await assert.rejects(access(profileDirectory), { code: 'ENOENT' })
+    return
+  }
   const email='approved@example.invalid'
   assert.match(await requestThroughProxy('/auth/v1/otp',JSON.stringify({email,data:{edenia_auth_locale:'en'},create_user:true,gotrue_meta_security:{},code_challenge:null,code_challenge_method:null})),/200 OK/)
   const verification=requestThroughProxy('/auth/v1/verify',JSON.stringify({email,token:'123456',type:'email',gotrue_meta_security:{}}))
