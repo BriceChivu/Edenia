@@ -172,3 +172,72 @@ test('competing resumed invocation cannot contain the executor that owns the lea
   assert.equal(f.inspect().calls, 4)
   assert.equal(f.containmentCount() - before, 2) // Winner watchdog plus independent final containment only.
 })
+
+async function nativeFixture(t) {
+  const f = await fixture(t)
+  f.input.config.authMethod = 'email-code'
+  f.input.config.authTransport = 'native-inspected'
+  f.input.config.nativeAuthentication = { manifestSha256: 'e'.repeat(64) }
+  const query = f.dependencies.operator.query
+  f.dependencies.operator.query = async sql => sql.startsWith('select email from auth.users')
+    ? [{ email: 'approved@example.invalid' }] : query(sql)
+  f.dependencies.authenticate = async () => { throw new Error('Native mode must not use Playwright authentication') }
+  return f
+}
+
+test('native workflow hands off within the same lease before creating the case browser or enabling gate', async t => {
+  const f = await nativeFixture(t), events = []
+  const launch = f.dependencies.launchBrowser
+  f.dependencies.launchBrowser = async () => { events.push('case-browser'); return launch() }
+  f.dependencies.authenticateNative = async args => {
+    assert.equal(f.inspect().enabled, 0)
+    assert.equal(events.length, 0)
+    assert.equal(args.browser, undefined)
+    assert.equal(args.expectedEmail, 'approved@example.invalid')
+    assert.equal(args.expectedOwner, owner)
+    assert.equal(args.expectedRuntimeHash, 'c'.repeat(64))
+    assert.equal(args.lease.candidate, candidate)
+    assert.equal(args.lease.workdir, f.input.config.workdir)
+    assert.equal(f.state().owner, args.lease.executor)
+    await args.verifyGateOff()
+    events.push('native-cleaned')
+    return { user: { id: owner } }
+  }
+  const result = await executeOpeningWorkflow(f.input, f.dependencies)
+  assert.equal(result.complete, true)
+  assert.deepEqual(events, ['native-cleaned', 'case-browser'])
+  assert.equal(result.authenticationSetup.transport, 'native-inspected')
+  assert.equal(result.authenticationSetup.preparationSha256, 'e'.repeat(64))
+  assert.equal(JSON.stringify(result).includes('approved@example.invalid'), false)
+})
+for (const failure of ['preparation-denied', 'owner-mismatch', 'gate-change']) {
+  test(`native workflow never launches case browser or enables gate on ${failure}`, async t => {
+    const f = await nativeFixture(t)
+    let launched = false
+    f.dependencies.launchBrowser = async () => { launched = true; throw new Error('Unexpected launch') }
+    f.dependencies.authenticateNative = async args => {
+      if (failure === 'preparation-denied') throw new Error('Preparation not reviewed')
+      if (failure === 'gate-change') {
+        const original = f.dependencies.operator.query
+        let first = true
+        f.dependencies.operator.query = async sql => {
+          if (sql === READ_GATE_SQL && first) { first = false; return [{ rollout_state: 'developer-canary', owner }] }
+          return original(sql)
+        }
+      }
+      return { user: { id: failure === 'owner-mismatch' ? 'different-owner' : owner } }
+    }
+    const result = await executeOpeningWorkflow(f.input, f.dependencies)
+    assert.equal(result.complete, false)
+    assert.equal(launched, false)
+    assert.equal(f.inspect().enabled, 0)
+    assert.equal(f.inspect().calls, 0)
+    assert.equal(f.inspect().gate, 'off')
+  })
+}
+test('native mode rejects unsupported authentication before acquiring authority', async t => {
+  const f = await nativeFixture(t)
+  f.input.config.authMethod = 'google'
+  await assert.rejects(executeOpeningWorkflow(f.input, f.dependencies), /Unsupported authentication transport/)
+  assert.equal(f.containmentCount(), 0)
+})
