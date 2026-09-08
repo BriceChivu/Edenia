@@ -103,9 +103,10 @@ export function createAccountlessProfileMigrationController({
 
   function writeRecord(nextRecord) {
     try {
-      storage.setItem(storageKey, JSON.stringify(nextRecord))
+      const serialized = JSON.stringify(nextRecord)
+      storage.setItem(storageKey, serialized)
       const written = readRecord(storage, storageKey)
-      if (!written) return false
+      if (!written || JSON.stringify(written) !== serialized) return false
       record = written
       return true
     } catch {
@@ -125,6 +126,8 @@ export function createAccountlessProfileMigrationController({
         0,
         Math.ceil((effectiveFinalGateAt - now) / DAY_MS)
       )
+      const backupFailed = record.attempt?.status
+        === ACCOUNTLESS_PROFILE_MIGRATION_STATES.BACKUP_FAILED
       const common = {
         daysRemaining,
         finalGateAt: effectiveFinalGateAt,
@@ -141,7 +144,7 @@ export function createAccountlessProfileMigrationController({
           dismissible: false,
           status: ACCOUNTLESS_PROFILE_MIGRATION_STATES.FINAL_GATE
         })
-      } else if (record.attempt) {
+      } else if (record.attempt && !backupFailed) {
         currentState = record.attempt.status
           === ACCOUNTLESS_PROFILE_MIGRATION_STATES.COMPARING
           ? Object.freeze({
@@ -150,6 +153,7 @@ export function createAccountlessProfileMigrationController({
             })
           : Object.freeze({
               ...common,
+              ...(daysRemaining <= 7 ? { dismissible: false } : {}),
               ...(record.attempt.status
                 === ACCOUNTLESS_PROFILE_MIGRATION_STATES.CONFIRMING_SESSION
                 ? { email: authentication.email }
@@ -159,12 +163,14 @@ export function createAccountlessProfileMigrationController({
       } else if (daysRemaining === 0) {
         currentState = Object.freeze({
           ...common,
+          ...(backupFailed ? { retryAvailable: true } : {}),
           dismissible: false,
           status: ACCOUNTLESS_PROFILE_MIGRATION_STATES.FINAL_GATE
         })
       } else if (daysRemaining <= 7) {
         currentState = Object.freeze({
           ...common,
+          ...(backupFailed ? { retryAvailable: true } : {}),
           dismissible: false,
           status: ACCOUNTLESS_PROFILE_MIGRATION_STATES.COUNTDOWN,
           urgencyLevel: Math.min(8, Math.max(1, 8 - daysRemaining))
@@ -175,7 +181,9 @@ export function createAccountlessProfileMigrationController({
           status: Number.isFinite(record.nextNoticeAt)
             && record.nextNoticeAt > now
             ? ACCOUNTLESS_PROFILE_MIGRATION_STATES.HIDDEN
-            : ACCOUNTLESS_PROFILE_MIGRATION_STATES.NOTICE
+            : backupFailed
+              ? ACCOUNTLESS_PROFILE_MIGRATION_STATES.BACKUP_FAILED
+              : ACCOUNTLESS_PROFILE_MIGRATION_STATES.NOTICE
         })
       }
     }
@@ -220,10 +228,13 @@ export function createAccountlessProfileMigrationController({
 
   function later() {
     if (!eligible || !record) return false
-    if (isEntryRequired()) return false
+    const now = clock.now()
+    if (Math.ceil((getEffectiveFinalGateAt() - now) / DAY_MS) <= 7) return false
     if (
-      !record.attempt
-      && Math.ceil((getEffectiveFinalGateAt() - clock.now()) / DAY_MS) <= 7
+      [
+        ACCOUNTLESS_PROFILE_MIGRATION_STATES.ATTACHING,
+        ACCOUNTLESS_PROFILE_MIGRATION_STATES.COMPARING
+      ].includes(record.attempt?.status)
     ) return false
     const written = writeRecord({
       ...record,
@@ -231,7 +242,7 @@ export function createAccountlessProfileMigrationController({
         === ACCOUNTLESS_PROFILE_MIGRATION_STATES.BACKUP_FAILED
         ? record.attempt
         : null,
-      nextNoticeAt: clock.now() + NOTICE_SNOOZE_MS
+      nextNoticeAt: now + NOTICE_SNOOZE_MS
     })
     publish()
     return written

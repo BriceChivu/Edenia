@@ -814,10 +814,12 @@ test('automatic connection preserves the protected device and cloud comparison',
   expect(stored.migration).toBeNull()
 })
 
-test('a failed first backup survives reload and retries the same protected operation', async ({
+test('Later snoozes a failed backup across reload and expiry retries the same protected operation', async ({
   page
 }, testInfo) => {
-  test.skip(testInfo.project.name !== 'desktop-standard')
+  test.skip(!['desktop-standard', 'phone-standard'].includes(testInfo.project.name))
+  const now = new Date('2026-08-25T00:00:00.000Z')
+  await page.clock.setFixedTime(now)
   let enabled = false
   const migrationOperations = []
   const catchUpOperations = []
@@ -893,6 +895,36 @@ test('a failed first backup survives reload and retries the same protected opera
   expect(failed.migration.attempt.status).toBe('backup-failed')
   expect(failed.sync).toBeNull()
 
+  const protectedBefore = await page.evaluate(key => localStorage.getItem(key), MIGRATION_BACKUP_STORAGE_KEY)
+  expect(protectedBefore).not.toBeNull()
+  const requestsDuringLater = []
+  // The town independently preloads its animation images while it stays usable.
+  const collectRequest = request => {
+    if (!new URL(request.url()).pathname.startsWith('/images/city/')) {
+      requestsDuringLater.push(request.url())
+    }
+  }
+  page.on('request', collectRequest)
+  await page.getByRole('button', { name: 'Later', exact: true }).click()
+  await expect(page.locator('#accountlessProfileMigrationNotice')).toBeHidden()
+  await expect(page.locator('#mainApp')).toBeVisible()
+  page.off('request', collectRequest)
+  expect(requestsDuringLater).toEqual([])
+  const snoozed = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), MIGRATION_STORAGE_KEY)
+  expect(snoozed).toEqual({ ...failed.migration, nextNoticeAt: now.getTime() + DAY_MS })
+  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), STATE_STORAGE_KEY)).toEqual(failed.state)
+
+  await page.clock.setFixedTime(new Date(now.getTime() + DAY_MS - 1))
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await expect(page.locator('#accountlessProfileMigrationNotice')).toBeHidden()
+  expect(migrationOperations).toHaveLength(1)
+  expect(catchUpOperations).toHaveLength(0)
+  expect(await page.evaluate(key => localStorage.getItem(key), MIGRATION_BACKUP_STORAGE_KEY)).toBe(protectedBefore)
+  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), MIGRATION_STORAGE_KEY)).toEqual(snoozed)
+  expect(await page.evaluate(key => JSON.parse(localStorage.getItem(key)), STATE_STORAGE_KEY)).toEqual(failed.state)
+
+  await page.clock.setFixedTime(new Date(now.getTime() + DAY_MS))
   await page.evaluate(stateKey => {
     const state = JSON.parse(localStorage.getItem(stateKey))
     state.config.weeklyGoalHours = 13
@@ -915,13 +947,38 @@ test('a failed first backup survives reload and retries the same protected opera
     JSON.parse(localStorage.getItem(accessKey))?.ownerId
   ), PROFILE_ACCESS_STORAGE_KEY)).toBeNull()
 
+  // The migration RPC has accepted a head, but catch-up failed. Snoozing still
+  // preserves the protected retry and never sends another cloud operation.
+  const catchUpProtection = await page.evaluate(key => localStorage.getItem(key), MIGRATION_BACKUP_STORAGE_KEY)
+  const finalGateAt = now.getTime() + 8 * DAY_MS + 1
+  await page.evaluate(({ key, finalGateAt, dayMs }) => {
+    const record = JSON.parse(localStorage.getItem(key))
+    record.finalGateAt = finalGateAt
+    record.graceStartedAt = finalGateAt - 30 * dayMs
+    localStorage.setItem(key, JSON.stringify(record))
+  }, { key: MIGRATION_STORAGE_KEY, finalGateAt, dayMs: DAY_MS })
   await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.getByRole('button', { name: 'Later', exact: true }).click()
+  await expect(page.locator('#accountlessProfileMigrationNotice')).toBeHidden()
+  await page.clock.setFixedTime(new Date(finalGateAt - 7 * DAY_MS))
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.locator('#accountlessProfileMigrationTitle')).toHaveText('Sign-in required in 7 days')
+  await expect(page.getByRole('button', { name: 'Later', exact: true })).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Try backup again' })).toBeVisible()
+  await expect(page.locator('#mainApp')).toBeVisible()
+  await page.clock.setFixedTime(new Date(finalGateAt))
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(page.locator('#accountlessProfileMigrationNotice')).toHaveAttribute('role', 'dialog')
+  await expect(page.getByRole('button', { name: 'Later', exact: true })).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Back up my progress now' })).toBeHidden()
+  await expect(page.locator('#mainApp')).toBeHidden()
+  expect(await page.evaluate(key => localStorage.getItem(key), MIGRATION_BACKUP_STORAGE_KEY)).toBe(catchUpProtection)
   expect(migrationOperations.length).toBe(2)
-  const reloadCompleted = page.waitForEvent('domcontentloaded')
+  expect(catchUpOperations.length).toBe(1)
   await page.getByRole('button', { name: 'Try backup again' }).click()
   await expect.poll(() => migrationOperations.length).toBe(3)
   await expect.poll(() => catchUpOperations.length).toBe(2)
-  await reloadCompleted
+  await expect(page.locator('#mainApp')).toBeVisible()
   await expect(page.locator('#accountlessProfileMigrationNotice')).toBeHidden()
   expect(migrationOperations[1].p_operation_id)
     .toBe(migrationOperations[0].p_operation_id)

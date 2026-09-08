@@ -303,7 +303,7 @@ test('a signed-in session restored while authentication is pending attaches auto
   })
 })
 
-test('a failed first backup retries the same durable operation after reload', () => {
+test('Later hides a failed backup for exactly 24 hours and retry keeps the durable operation', () => {
   const harness = createHarness()
   harness.controller.start({ hasAccountlessProfile: true })
   harness.controller.observeAuthentication({ status: 'signed-out' })
@@ -313,12 +313,21 @@ test('a failed first backup retries the same durable operation after reload', ()
   assert.equal(harness.controller.markBackupFailed(), true)
   assert.equal(harness.controller.getState().status, 'backup-failed')
   assert.equal(harness.controller.getAttachment(), null)
+  const failed = JSON.parse(harness.storage.getItem('accountless-profile-migration'))
   assert.equal(harness.controller.later(), true)
-  assert.equal(harness.controller.getState().status, 'backup-failed')
+  assert.equal(harness.controller.getState().status, 'hidden')
+  const snoozed = JSON.parse(harness.storage.getItem('accountless-profile-migration'))
+  assert.deepEqual(snoozed, { ...failed, nextNoticeAt: STARTED_AT + DAY_MS })
+  assert.equal(harness.controller.hasPendingMigration(), true)
+  assert.equal(harness.controller.getAttachment(), null)
 
-  const reloaded = createHarness({ storage: harness.storage })
+  const reloaded = createHarness({ storage: harness.storage, now: STARTED_AT + DAY_MS - 1 })
   reloaded.controller.start({ hasAccountlessProfile: true })
   reloaded.controller.observeAuthentication({ status: 'signed-in' })
+  assert.equal(reloaded.controller.getState().status, 'hidden')
+  assert.equal(reloaded.controller.getAttachment(), null)
+  reloaded.setNow(STARTED_AT + DAY_MS)
+  reloaded.controller.refresh()
   assert.equal(reloaded.controller.getState().status, 'backup-failed')
   assert.equal(reloaded.controller.retry(), true)
   assert.equal(reloaded.controller.getState().status, 'attaching')
@@ -330,6 +339,73 @@ test('a failed first backup retries the same durable operation after reload', ()
       .attempt.retryCount,
     1
   )
+})
+
+test('the final countdown and day-zero gate override a failed-backup snooze but preserve retry', () => {
+  const harness = createHarness()
+  harness.controller.start({ hasAccountlessProfile: true })
+  harness.controller.observeAuthentication({ status: 'signed-in' })
+  harness.controller.markBackupFailed()
+  const boundary = STARTED_AT + 23 * DAY_MS
+  harness.setNow(boundary - 1)
+  assert.equal(harness.controller.later(), true)
+  assert.equal(harness.controller.getState().status, 'hidden')
+  const stored = harness.storage.getItem('accountless-profile-migration')
+
+  for (const [now, status, daysRemaining] of [
+    [boundary, 'countdown', 7],
+    [STARTED_AT + 30 * DAY_MS, 'final-gate', 0]
+  ]) {
+    const reloaded = createHarness({ storage: harness.storage, now })
+    assert.equal(reloaded.controller.start({ hasAccountlessProfile: true }).status, status)
+    assert.equal(reloaded.controller.getState().daysRemaining, daysRemaining)
+    assert.equal(reloaded.controller.getState().retryAvailable, true)
+    assert.equal(reloaded.controller.getState().dismissible, false)
+    assert.equal(reloaded.controller.isEntryRequired(), daysRemaining === 0)
+    assert.equal(reloaded.controller.later(), false)
+    assert.equal(harness.storage.getItem('accountless-profile-migration'), stored)
+    assert.equal(reloaded.controller.hasPendingMigration(), true)
+    reloaded.controller.observeAuthentication({ status: 'signed-in' })
+    assert.equal(reloaded.controller.retry(), true)
+    assert.deepEqual(reloaded.controller.getAttachment(), { operationId: 'migration-operation-1' })
+    harness.storage.setItem('accountless-profile-migration', stored)
+  }
+})
+
+for (const failure of ['throw', 'discard']) test(`failed-backup snooze is not acknowledged when storage writes ${failure}`, () => {
+  const harness = createHarness()
+  harness.controller.start({ hasAccountlessProfile: true })
+  harness.controller.observeAuthentication({ status: 'signed-in' })
+  harness.controller.markBackupFailed()
+  const before = harness.storage.getItem('accountless-profile-migration')
+  harness.storage.setItem = () => { if (failure === 'throw') throw new Error('Storage unavailable') }
+  assert.equal(harness.controller.later(), false)
+  assert.equal(harness.controller.getState().status, 'backup-failed')
+  assert.equal(harness.storage.getItem('accountless-profile-migration'), before)
+  const reloaded = createHarness({ storage: harness.storage })
+  assert.equal(reloaded.controller.start({ hasAccountlessProfile: true }).status, 'backup-failed')
+})
+
+for (const status of ['attaching', 'comparing']) test(`Later cannot cancel active ${status} work`, () => {
+  const harness = createHarness()
+  harness.controller.start({ hasAccountlessProfile: true })
+  harness.controller.observeAuthentication({ status: 'signed-in' })
+  if (status === 'comparing') harness.controller.markConflictReady()
+  const before = harness.storage.getItem('accountless-profile-migration')
+  assert.equal(harness.controller.later(), false)
+  assert.equal(harness.storage.getItem('accountless-profile-migration'), before)
+})
+
+test('the final period makes pending authentication non-dismissible without replacing it', () => {
+  const harness = createHarness()
+  harness.controller.start({ hasAccountlessProfile: true })
+  harness.controller.begin()
+  harness.setNow(STARTED_AT + 23 * DAY_MS)
+  assert.equal(harness.controller.refresh().status, 'awaiting-authentication')
+  assert.equal(harness.controller.getState().dismissible, false)
+  const before = harness.storage.getItem('accountless-profile-migration')
+  assert.equal(harness.controller.later(), false)
+  assert.equal(harness.storage.getItem('accountless-profile-migration'), before)
 })
 
 test('completion removes the one-time migration record', () => {
