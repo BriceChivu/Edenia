@@ -33,7 +33,7 @@ async function fixture(t, options = {}) {
   const upstream = https.createServer(material['https://localhost'], async (req, res) => {
     let body = ''; for await (const part of req) body += part
     observed.push({ path: req.url, body, host: req.headers.host })
-    if (options.onRequest) { await options.onRequest(req, res); if (res.destroyed) return }
+    if (options.onRequest) { await options.onRequest(req, res); if (res.destroyed || res.writableEnded) return }
     if (options.redirect) { res.writeHead(302, { location: providerOrigin + '/rest/v1/rpc/forbidden' }); res.end(); return }
     if (req.url === '/auth/v1/verify') {
       res.setHeader('content-type', 'application/json')
@@ -47,7 +47,7 @@ async function fixture(t, options = {}) {
   const localTestUpstreams = Object.fromEntries([applicationOrigin, providerOrigin, challengeOrigin].map(origin => [origin,
     { hostname: '127.0.0.1', port: upstream.address().port, servername: 'localhost', ca: material['https://localhost'].cert }]))
   const proxy = await createNativeOpeningAuthenticationProxy({ applicationOrigin, providerOrigin, expectedEmail: email, expectedOwner: owner,
-    certificates: material, localTestUpstreams, authorize: async kind => { if (options.beforeAuthorize) await options.beforeAuthorize(kind); return allowed }, onSession: async session => sessions.push(session), deadlineMs: options.deadlineMs ?? 5000 })
+    certificates: material, localTestUpstreams, onProgress: options.onProgress, authorize: async kind => { if (options.beforeAuthorize) await options.beforeAuthorize(kind); return allowed }, onSession: async session => sessions.push(session), deadlineMs: options.deadlineMs ?? 5000 })
   t.after(async () => { await proxy.close() })
   const send = ({ origin = providerOrigin, path = '/auth/v1/otp', body = otp, method = 'POST', destination = 'empty', headers = {}, connectHost, sni, trust = true, raw }) => new Promise(resolve => {
     let done = false
@@ -59,7 +59,7 @@ async function fixture(t, options = {}) {
         stream.write(raw || `${method} ${path} HTTP/1.1\r\nHost: ${hostname}\r\nConnection: close\r\nSec-Fetch-Dest: ${destination}\r\nApikey: synthetic-key\r\nContent-Length: ${Buffer.byteLength(body)}\r\n${Object.entries(headers).map(([k, v]) => `${k}: ${v}\r\n`).join('')}\r\n${body}`)
       })
       let out = ''; stream.on('data', chunk => { out += chunk }); stream.on('close', () => finish(out || 'closed')); stream.on('error', () => finish('closed'))
-      stream.setTimeout(3000, () => { stream.destroy(); finish('timeout') })
+      stream.setTimeout(3000, () => { stream.destroy(); finish(out || 'timeout') })
     })
     request.on('error', () => finish('closed')); request.end()
   })
@@ -144,4 +144,42 @@ test('revocation while authorization is pending prevents its upstream dispatch',
   assert.equal(await request, 'closed')
   assert.equal(f.observed.length, 0)
   assert.equal(f.sessions.length, 0)
+})
+
+for (const failure of ['empty', 'encoding']) test(`document transport retains sanitized ${failure} failure`, async t => {
+  const f = await fixture(t, { onRequest: async (req, res) => {
+    if (failure === 'empty') res.destroy()
+    else res.setHeader('content-encoding', 'gzip')
+  } })
+  assert.equal(await f.send({ origin: applicationOrigin, path: '/?internal_test=1', method: 'GET', destination: 'document', body: '' }), 'closed')
+  assert.equal(f.proxy.stats.diagnostic.failure, failure === 'empty' ? 'upstream-reset' : 'response-encoding')
+  assert.equal(f.proxy.stats.diagnostic.documentDelivered, false)
+  assert.equal(f.proxy.stats.sealed, true)
+})
+test('document delivery requires successful nonempty HTML and is separate from browser readiness', async t => {
+  const progress = []
+  const f = await fixture(t, { onProgress: value => progress.push(value), onRequest: async (_req, res) => {
+    res.setHeader('content-type', 'text/html; charset=utf-8'); res.end('<!doctype html><title>Fixture</title>')
+  } })
+  assert.match(await f.send({ origin: applicationOrigin, raw: 'GET /?internal_test=1 HTTP/1.1\r\nHost: app.example.invalid\r\nConnection: keep-alive\r\nSec-Fetch-Dest: document\r\n\r\n' }), /200 OK/)
+  assert.equal(f.proxy.stats.diagnostic.documentDelivered, true)
+  assert.equal(progress.some(value => value.documentDelivered), true)
+})
+
+for (const response of ['empty-html', 'error-html', 'non-html']) test(`invalid document ${response} cannot count as delivered`, async t => {
+  const f = await fixture(t, { onRequest: async (_req, res) => {
+    res.setHeader('content-type', response === 'non-html' ? 'application/json' : 'text/html')
+    res.statusCode = response === 'error-html' ? 503 : 200
+    res.end(response === 'empty-html' ? '' : '<title>Fixture</title>')
+  } })
+  assert.equal(await f.send({ origin: applicationOrigin, path: '/?internal_test=1', method: 'GET', destination: 'document', body: '' }), 'closed')
+  assert.equal(f.proxy.stats.diagnostic.documentDelivered, false)
+  assert.equal(f.proxy.stats.diagnostic.failure, 'document-response')
+})
+test('a failed progress observer cannot leave the proxy forwarding', async t => {
+  const f = await fixture(t, { onProgress: () => { throw new Error('private exception must not escape') } })
+  await f.send({ connectHost: 'denied.invalid:443' })
+  assert.equal(f.proxy.stats.sealed, true)
+  assert.equal(f.proxy.stats.diagnostic.failure, 'progress-callback')
+  assert.equal(f.observed.length, 0)
 })

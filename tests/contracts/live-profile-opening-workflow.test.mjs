@@ -241,3 +241,19 @@ test('native mode rejects unsupported authentication before acquiring authority'
   await assert.rejects(executeOpeningWorkflow(f.input, f.dependencies), /Unsupported authentication transport/)
   assert.equal(f.containmentCount(), 0)
 })
+
+test('native failure receipt retains sanitized transport evidence and still contains the attempt', async t => {
+  const f = await nativeFixture(t)
+  f.dependencies.authenticateNative = async args => {
+    assert.equal(args.onReady, undefined)
+    args.onProgress({ browserStarted: true, documentDelivered: false, url: 'SECRET' })
+    throw Object.assign(new Error('SECRET'), { nativeDiagnostic: { browserStarted: true, documentDelivered: false, failure: 'upstream-reset', body: 'SECRET' } })
+  }
+  const result = await executeOpeningWorkflow(f.input, f.dependencies)
+  assert.equal(result.complete, false)
+  assert.deepEqual(result.authenticationSetup.diagnostic, { browserStarted: true, documentDelivered: false, failure: 'upstream-reset', connectionFailure: null })
+  assert.equal(JSON.stringify(result).includes('SECRET'), false)
+  assert.equal(f.inspect().enabled, 0)
+  assert.equal(f.inspect().calls, 0)
+  assert.equal(f.inspect().gate, 'off')
+})

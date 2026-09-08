@@ -92,3 +92,36 @@ Reconcile only the exact owned preparation profile:
 Real-origin preparation remains a separate human import step after all prior
 acceptance/delivery conditions. Challenge refusal stops the attempt; it never
 permits weakening certificate, request, owner or traffic checks.
+
+## Document diagnostics (#315)
+
+Native progress is transport evidence only. `browserStarted` means the owned
+process lock was observed. `documentDelivered` means the proxy finished writing
+an HTTP 200, nonempty HTML response for the exact internal document after its
+existing authorization and response checks. Neither proves that Chrome parsed
+the document, ran its scripts, rendered the sign-in UI, or accepted a challenge.
+The native runner therefore does not emit `private-authentication-ui-ready`.
+No new browser callback endpoint, document injection, or trust bypass is used.
+
+The coordinator retains `authenticationSetup.diagnostic` on failure, including
+failures before session handoff. `failure` is the first retained terminal category;
+`connectionFailure` describes a rejected client TLS, HTTP, or CONNECT connection,
+which may be incidental background traffic rather than the document's cause.
+The vocabulary is allowlisted in `native-opening-auth-diagnostics.mjs`. Unknown
+failure strings become `unknown`; arbitrary fields and raw exception messages
+are discarded at IPC and receipt boundaries. Do not add request URLs, queries,
+headers, bodies, credentials, owner identifiers, or private paths to this schema.
+
+Local regression command (no hosted requests or Chrome/certificate import):
+
+```sh
+node --test tests/contracts/native-opening-auth-proxy.test.mjs tests/contracts/native-opening-auth-worker.test.mjs tests/contracts/native-opening-authentication.test.mjs tests/contracts/native-opening-handoff.test.mjs tests/contracts/live-profile-opening-workflow.test.mjs
+```
+
+The empty-document IPC case resets a verified loopback TLS upstream before any
+response, then checks the real proxy/worker/wrapper diagnostic, failed handoff,
+and profile cleanup. It is an injected failure reproduction, not attribution of
+the original Chrome `ERR_EMPTY_RESPONSE`. That incident remains unexplained.
+Do not repeat real-origin imports/sign-in solely because these contracts pass;
+retain the existing invocation and complete review and matching preparation
+acceptance before any live retry.

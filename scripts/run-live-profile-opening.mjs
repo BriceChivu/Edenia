@@ -1,3 +1,4 @@
+import { sanitizeNativeAuthenticationDiagnostic } from './native-opening-auth-diagnostics.mjs'
 import { readFile, writeFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { spawn, execFileSync } from 'node:child_process'
@@ -173,7 +174,15 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
       // The wrapper returns only after the native guard/profile are stopped and
       // cleaned. The session stays in memory within this invocation; no browser
       // for profile cases exists until that handoff is complete.
-      session = await (dependencies.authenticateNative || prepareNativeOpeningAuthentication)({ ...authOptions,
+      receipt.authenticationSetup.transport = 'native-inspected'
+      receipt.authenticationSetup.preparationSha256 = config.nativeAuthentication?.manifestSha256
+      receipt.authenticationSetup.diagnostic = sanitizeNativeAuthenticationDiagnostic()
+      session = await (dependencies.authenticateNative || prepareNativeOpeningAuthentication)({ ...authOptions, onReady: undefined,
+        onProgress: value => {
+          const diagnostic = sanitizeNativeAuthenticationDiagnostic(value)
+          receipt.authenticationSetup.diagnostic = diagnostic
+          notify({ state: 'native-authentication-progress', gate: 'off', diagnostic })
+        },
         applicationOrigin: 'https://www.edenia.study', native: config.nativeAuthentication,
         lease: { workdir: config.workdir, executor, candidate },
         expectedRuntimeHash: deployment.runtimeHash, assetIdentity: deployment.assetIdentity,
@@ -234,7 +243,13 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
       if (!result.complete) throw new Error('Live opening phase failed')
     }
     if (hash(await readDeployment()) !== hash(deployment)) throw new Error('Deployment changed')
-  } catch { failed = true }
+  } catch (error) {
+    failed = true
+    if (receipt.authenticationSetup?.transport === 'native-inspected') {
+      receipt.authenticationSetup.diagnostic = sanitizeNativeAuthenticationDiagnostic(error?.nativeDiagnostic
+        || { ...receipt.authenticationSetup.diagnostic, failure: receipt.authenticationSetup.diagnostic?.failure || 'unknown' })
+    }
+  }
   finally {
     try { await browser?.close() } catch { failed = true }
     clearInterval(renewal)

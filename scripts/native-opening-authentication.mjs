@@ -1,3 +1,4 @@
+import { sanitizeNativeAuthenticationDiagnostic } from './native-opening-auth-diagnostics.mjs'
 import { fork } from 'node:child_process'
 import { readFile, realpath, lstat, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
@@ -7,7 +8,7 @@ import { join, isAbsolute, relative } from 'node:path'
 // the exact reviewed preparation verifier; default denial prevents selecting
 // this new path until native egress and trust evidence have both been audited.
 export async function prepareNativeOpeningAuthentication({ applicationOrigin = 'https://www.edenia.study', providerOrigin,
-  expectedOwner, expectedEmail, verifyGateOff, onReady = () => {}, timeoutMs = 300000,
+  expectedOwner, expectedEmail, verifyGateOff, onProgress = () => {}, timeoutMs = 300000,
   native, lease, expectedRuntimeHash, assetIdentity, verifyPreparation = async () => false }, dependencies = {}) {
   if (typeof verifyGateOff !== 'function' || !native || !lease || !isAbsolute(native.manifestFile || '')
     || !isAbsolute(native.preparationRoot || '') || !/^[a-f0-9]{64}$/u.test(native.manifestSha256 || '')
@@ -39,13 +40,22 @@ export async function prepareNativeOpeningAuthentication({ applicationOrigin = '
   const worker = (dependencies.fork || fork)(new URL('./native-opening-auth-worker.mjs', import.meta.url), [], { stdio: ['ignore', 'ignore', 'ignore', 'ipc'] })
   return await new Promise((resolve, reject) => {
     let complete = false, finished = null, escalation, revoked = false
+    let diagnostic = sanitizeNativeAuthenticationDiagnostic()
+    const retain = value => {
+      const next = sanitizeNativeAuthenticationDiagnostic(value)
+      diagnostic = { browserStarted: diagnostic.browserStarted || next.browserStarted,
+        documentDelivered: diagnostic.documentDelivered || next.documentDelivered,
+        failure: diagnostic.failure || next.failure,
+        connectionFailure: diagnostic.connectionFailure || next.connectionFailure }
+    }
     const clearTimers = () => { clearTimeout(timer); clearTimeout(escalation) }
-    const fail = () => { if (!complete) { complete = true; clearTimers(); reject(new Error('Native authentication incomplete; inspect sanitized containment result')) } }
+    const fail = () => { if (!complete) { complete = true; clearTimers(); reject(Object.assign(new Error('Native authentication incomplete; inspect sanitized containment result'), { nativeDiagnostic: diagnostic })) } }
     const send = message => {
       try { if (worker.connected) { worker.send(message); return true } } catch {}
       return false
     }
-    const stop = () => {
+    const stop = (failure = null) => {
+      if (failure) retain({ failure })
       revoked = true; finished = null
       send({ type: 'stop' })
       if (escalation) return
@@ -56,26 +66,31 @@ export async function prepareNativeOpeningAuthentication({ applicationOrigin = '
         fail()
       }, 20000)
     }
-    const timer = setTimeout(stop, timeoutMs + 15000)
+    const timer = setTimeout(() => stop('wrapper-timeout'), timeoutMs + 15000)
     worker.on('message', async message => {
       if (complete) return
       try {
         if (message?.type === 'authorize') {
           let allowed = false
           try { await verifyGateOff(); allowed = !revoked && !complete } catch {}
-          if (!allowed && !complete) stop()
+          if (!allowed && !complete) stop('authorization-denied')
           if (!complete && !send({ type: 'permission', id: message.id, allowed })) stop()
-        } else if (message?.type === 'ready') await onReady()
-        else if (message?.type === 'finished' && !revoked) finished = message
-      } catch { if (!complete) stop() }
+        } else if (message?.type === 'progress') {
+          retain(message.diagnostic)
+          await onProgress({ ...diagnostic })
+        } else if (message?.type === 'finished') {
+          retain(message.diagnostic)
+          if (!revoked) finished = message
+        }
+      } catch { if (!complete) stop('progress-callback') }
     })
     worker.once('exit', (code, signal) => {
       if (complete) return
       if (!revoked && code === 0 && !signal && finished?.complete === true && finished.cleanupVerified === true && finished.session?.user?.id === expectedOwner) {
         complete = true; clearTimers(); resolve(finished.session)
-      } else fail()
+      } else { retain({ failure: 'worker-exit' }); fail() }
     })
-    worker.once('error', () => { if (!complete) stop() })
+    worker.once('error', () => { if (!complete) stop('worker-error') })
     if (!send({ type: 'start', config: { applicationOrigin, providerOrigin, expectedEmail, expectedOwner,
       profileDirectory, certificates: manifest.certificates, expectedRuntimeHash, assetIdentity, deadlineMs: timeoutMs,
       storePath: join(lease.workdir, '.cache/canary-execution/packet-1.sqlite'), candidate: lease.candidate, executor: lease.executor } })) stop()

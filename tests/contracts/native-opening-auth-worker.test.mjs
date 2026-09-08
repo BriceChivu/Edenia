@@ -31,3 +31,26 @@ for (const stage of ['read', 'proxy']) for (const signal of ['stop', 'disconnect
     if (signal === 'stop') assert.equal(messages.at(-1).cleanupVerified, true)
   })
 }
+
+test('owned browser lock never announces UI readiness without document evidence', async () => {
+  const channel = new EventEmitter(), browser = new EventEmitter(), messages = []
+  channel.connected = true
+  channel.send = (message, callback) => {
+    messages.push(message)
+    if (message.type === 'authorize') queueMicrotask(() => channel.emit('message', { type: 'permission', id: message.id, allowed: true }))
+    callback?.()
+  }
+  channel.disconnect = () => { channel.connected = false; channel.emit('disconnect') }
+  browser.pid = 1234; browser.kill = () => browser.emit('exit', 0)
+  const worker = runNativeOpeningAuthenticationWorker(channel, {
+    makeStore: () => ({ requireLease() {}, state: () => ({ candidate: 'fixture', gate: 'off' }), close() {} }),
+    io: { readlink: async () => 'fixture-1234', rm: async () => {} },
+    makeProxy: async () => ({ port: 12345, stats: {}, seal() {}, close: async () => {} }), launch: () => browser
+  })
+  try {
+    channel.emit('message', { type: 'start', config: { candidate: 'fixture', certificates: [], profileDirectory: '/synthetic/never-created', applicationOrigin: 'https://app.example.invalid', deadlineMs: 10000 } })
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(messages.some(message => message.type === 'ready'), false)
+    assert.equal(messages.some(message => message.type === 'progress' && message.diagnostic.browserStarted === true && message.diagnostic.documentDelivered === false), true)
+  } finally { await worker.stop() }
+})
