@@ -190,6 +190,21 @@ test('the migration surface contains the required voluntary choices', () => {
   )
 })
 
+test('failed-backup countdown and final gate retain retry and never offer Later or a new operation', () => {
+  const { elements, view } = createViewHarness()
+  for (const [status, daysRemaining] of [['countdown', 7], ['final-gate', 0]]) {
+    view.render({ status, daysRemaining, dismissible: false, retryAvailable: true })
+    assert.equal(elements.get('accountlessProfileMigrationLater').hidden, true)
+    assert.equal(elements.get('accountlessProfileMigrationBackup').hidden, true)
+    assert.equal(elements.get('accountlessProfileMigrationRetry').hidden, false)
+  }
+  view.render({ status: 'awaiting-authentication', daysRemaining: 7, dismissible: false })
+  assert.equal(elements.get('accountlessProfileMigrationLater').hidden, true)
+  assert.equal(elements.get('accountlessProfileMigrationSignIn').hidden, false)
+  view.render({ status: 'hidden' })
+  assert.equal(elements.get('accountlessProfileMigrationRetry').hidden, true)
+})
+
 test('migration controls bind once and forward each explicit intent', () => {
   const actions = ['begin', 'later', 'confirm', 'open-sign-in', 'retry']
   const controls = new Map(actions.map(action => [

@@ -44,13 +44,13 @@ export function createAccountlessProfileMigrationView({ root, translate }) {
     for (const control of Object.values(actions)) control.hidden = true
   }
 
-  function showActions(state, { entryRequired = false } = {}) {
+  function showActions(state, { entryRequired = false, dismissible = true, retryAvailable = false } = {}) {
     hideActions()
     if ([
       ACCOUNTLESS_PROFILE_MIGRATION_STATES.NOTICE,
       ACCOUNTLESS_PROFILE_MIGRATION_STATES.COUNTDOWN,
       ACCOUNTLESS_PROFILE_MIGRATION_STATES.FINAL_GATE
-    ].includes(state)) actions.begin.hidden = false
+    ].includes(state)) actions.begin.hidden = retryAvailable
     if (
       [
         ACCOUNTLESS_PROFILE_MIGRATION_STATES.NOTICE,
@@ -59,7 +59,7 @@ export function createAccountlessProfileMigrationView({ root, translate }) {
         ACCOUNTLESS_PROFILE_MIGRATION_STATES.BACKUP_FAILED,
         ACCOUNTLESS_PROFILE_MIGRATION_STATES.SIGNED_IN_PROFILE_PRESENT
       ].includes(state)
-    ) actions.later.hidden = entryRequired
+    ) actions.later.hidden = entryRequired || dismissible === false
     if (
       state === ACCOUNTLESS_PROFILE_MIGRATION_STATES.CONFIRMING_SESSION
     ) actions.confirm.hidden = false
@@ -68,6 +68,7 @@ export function createAccountlessProfileMigrationView({ root, translate }) {
     ) actions.openSignIn.hidden = false
     if (
       state === ACCOUNTLESS_PROFILE_MIGRATION_STATES.BACKUP_FAILED
+      || retryAvailable
     ) actions.retry.hidden = false
   }
 
