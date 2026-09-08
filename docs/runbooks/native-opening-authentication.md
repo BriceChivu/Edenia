@@ -125,3 +125,28 @@ the original Chrome `ERR_EMPTY_RESPONSE`. That incident remains unexplained.
 Do not repeat real-origin imports/sign-in solely because these contracts pass;
 retain the existing invocation and complete review and matching preparation
 acceptance before any live retry.
+
+### Automatic local document sequence
+
+`node tests/fixtures/native-document-rehearsal.mjs --prepare-local` creates an
+exclusive attempt directory and a disposable native Chrome profile behind a
+denying preparation proxy. The printed attempt directory contains the public
+`app.document-test.invalid.crt`; only import that leaf in that disposable
+profile. After the user confirms the import, create the `start` file in that
+exact attempt directory. Stale files from earlier attempts cannot start a run.
+
+The fake page reports its script callback, waits for the local server to
+acknowledge that the reset is armed, and reloads itself. The second document
+request is reset before a response. The harness waits for `upstream-reset`,
+then stops its owned Chrome, removes its profile and keys, and saves the result.
+A passing result requires the successful first document, one script report,
+one injected reset, the matching proxy diagnostic, and verified cleanup; an
+expired or interrupted attempt fails even if the first page loaded. The proxy
+keeps its five-minute ceiling; the automatic sequence has a shorter one-minute
+bound. There is no human reload deadline inside that sequence.
+
+The receipt proves the native request sequence and guard diagnosis. It does
+not prove that Chrome displayed its error page, or establish the cause of the
+original hosted incident. No repeated visual check is required for this local
+transport result. Headless HTTP checks of the sequence are a separate evidence
+class and do not substitute for this native guarded TLS run.
