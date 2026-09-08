@@ -4,7 +4,7 @@ import { X509Certificate, createHash } from 'node:crypto'
 import { join } from 'node:path'
 import http from 'node:http'
 import https from 'node:https'
-import { nativeDocumentSequenceScript, nativeDocumentSequenceComplete } from './native-document-sequence.mjs'
+import { nativeDocumentSequenceScript, nativeDocumentSequenceComplete, stopOwnedNativeBrowser, cleanupNativeDocumentFixture } from './native-document-sequence.mjs'
 import { createNativeOpeningAuthenticationProxy } from '../../scripts/native-opening-auth-proxy.mjs'
 if (process.argv[2] !== '--prepare-local') throw Error('Explicit --prepare-local required')
 const output = new URL('../../.cache/issue-315-native/', import.meta.url).pathname
@@ -18,7 +18,7 @@ const sockets = new Set(), events = []
 const result = { runnerSha256: createHash('sha256').update(await readFile(new URL(import.meta.url))).digest('hex'), proxySha256: createHash('sha256').update(await readFile(new URL('../../scripts/native-opening-auth-proxy.mjs',import.meta.url))).digest('hex'), sequenceSha256: createHash('sha256').update(nativeDocumentSequenceScript).digest('hex'), nativeChrome: true, localOnly: true, documentRequests: 0, renderedReports: 0, injectedResets: 0, cleanupVerified: false }
 const pause = ms => new Promise(r => setTimeout(r, ms))
 const exists = async path => { try { await lstat(path); return true } catch (e) { if (e.code === 'ENOENT') return false; throw e } }
-const wait = async (predicate, ms) => { const deadline = Date.now()+ms; while (!await predicate()) { if (stopping || Date.now()>deadline) throw Error('Bounded fixture wait ended'); await pause(100) } }
+const wait = async (predicate, ms, cleanup = false) => { const deadline = Date.now()+ms; while (!await predicate()) { if ((!cleanup && stopping) || Date.now()>deadline) throw Error('Bounded fixture wait ended'); await pause(100) } }
 const record = async stage => { events.push({stage, utc:new Date().toISOString()}); await writeFile(join(root,'status.json'),JSON.stringify({stage,...result,diagnostic:proxy?.stats.diagnostic}),{mode:0o600}); console.log(JSON.stringify({ stage, attemptDirectory: root })) }
 const listen = async server => { server.on('connection', s=>{sockets.add(s);s.once('close',()=>sockets.delete(s))}); await new Promise((r,j)=>{server.once('error',j);server.listen(0,'127.0.0.1',r)}); return server.address().port }
 const launch = async (url, port) => {
@@ -27,7 +27,7 @@ const launch = async (url, port) => {
  chrome.once('exit',()=>{chromeExited=true});chrome.once('error',()=>{chromeExited=true})
  await wait(async()=>{try{return Number((await readlink(join(profile,'SingletonLock'))).split('-').at(-1))===chrome.pid}catch{return false}},10000)
 }
-const stopChrome = async () => { if(!chrome || chromeExited)return;chrome.kill('SIGTERM');await wait(()=>chromeExited,10000) }
+const stopChrome = () => stopOwnedNativeBrowser(chrome,()=>chromeExited,ms=>wait(()=>chromeExited,ms,true))
 process.on('SIGTERM',()=>{stopping=true});process.on('SIGINT',()=>{stopping=true})
 try {
  await mkdir(privateRoot,{mode:0o700}); await mkdir(profile,{mode:0o700})
@@ -66,8 +66,18 @@ try {
 } catch { result.fixtureIncomplete=true }
 finally {
  proxy?.seal()
- stopping=false
- try{await stopChrome();proxy?.seal();await proxy?.close();for(const s of sockets)s.destroy();for(const server of [upstream,prep])if(server)await new Promise(r=>server.close(r));await rm(privateRoot,{recursive:true,force:true});result.cleanupVerified=chromeExited && !await exists(privateRoot)}catch{result.cleanupVerified=false}
+ result.cleanupVerified=await cleanupNativeDocumentFixture({
+  stopBrowser:stopChrome,
+  closeTransport:async()=>{
+   const closures=[]
+   for(const socket of sockets)socket.destroy()
+   closures.push(Promise.resolve().then(()=>proxy?.close()))
+   for(const server of [upstream,prep])if(server)closures.push(new Promise((resolve,reject)=>server.close(error=>error && error.code!=='ERR_SERVER_NOT_RUNNING'?reject(error):resolve())))
+   const outcomes=await Promise.allSettled(closures)
+   if(outcomes.some(outcome=>outcome.status==='rejected'))throw Error('Transport cleanup unverified')
+  },
+  removePrivate:async()=>{await rm(privateRoot,{recursive:true,force:true});if(await exists(privateRoot))throw Error('Private directory remains')}
+ })
  result.events=events
  result.complete = nativeDocumentSequenceComplete(result)
  await writeFile(join(root,'result.json'),JSON.stringify(result,null,2),{mode:0o600})

@@ -20,3 +20,22 @@ export function nativeDocumentSequenceComplete(result) {
     && result.diagnostic?.failure === 'upstream-reset'
     && result.cleanupVerified === true
 }
+
+export async function stopOwnedNativeBrowser(browser, hasExited, waitForExit) {
+  if (!browser || hasExited()) return
+  browser.kill('SIGTERM')
+  try { await waitForExit(5000) } catch {
+    if (!hasExited()) browser.kill('SIGKILL')
+    await waitForExit(3000)
+  }
+  if (!hasExited()) throw Error('Owned browser exit unverified')
+}
+
+export async function cleanupNativeDocumentFixture({ stopBrowser, closeTransport, removePrivate }) {
+  let browserStopped = false, transportClosed = false
+  try { await stopBrowser(); browserStopped = true } catch {}
+  try { await closeTransport(); transportClosed = true } catch {}
+  if (!browserStopped) return false
+  try { await removePrivate() } catch { return false }
+  return transportClosed
+}

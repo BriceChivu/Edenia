@@ -39,3 +39,25 @@ test('local sequence cannot report success after expiry, missing failure check, 
     assert.equal(nativeDocumentSequenceComplete({ ...complete, ...change }), false)
   }
 })
+
+test('SIGTERM-resistant owned browser is escalated before removal', async () => {
+  const { stopOwnedNativeBrowser, cleanupNativeDocumentFixture } = await import('../fixtures/native-document-sequence.mjs')
+  const events = []; let exited = false
+  const browser = { kill: signal => { events.push(signal); if (signal === 'SIGKILL') exited = true } }
+  const verified = await cleanupNativeDocumentFixture({
+    stopBrowser: () => stopOwnedNativeBrowser(browser, () => exited, async () => { if (!exited) throw Error('timeout') }),
+    closeTransport: async () => events.push('close-transport'), removePrivate: async () => events.push('remove-private')
+  })
+  assert.equal(verified, true)
+  assert.deepEqual(events, ['SIGTERM', 'SIGKILL', 'close-transport', 'remove-private'])
+})
+test('unverified browser exit still closes transport and retains private profile', async () => {
+  const { stopOwnedNativeBrowser, cleanupNativeDocumentFixture } = await import('../fixtures/native-document-sequence.mjs')
+  const events = []
+  const verified = await cleanupNativeDocumentFixture({
+    stopBrowser: () => stopOwnedNativeBrowser({ kill: signal => events.push(signal) }, () => false, async () => { throw Error('timeout') }),
+    closeTransport: async () => events.push('close-transport'), removePrivate: async () => events.push('remove-private')
+  })
+  assert.equal(verified, false)
+  assert.deepEqual(events, ['SIGTERM', 'SIGKILL', 'close-transport'])
+})
