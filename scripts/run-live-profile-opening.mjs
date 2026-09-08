@@ -8,9 +8,14 @@ import { CanaryExecutionStore } from './canary-execution-store.mjs'
 import { containCanary, enableCanarySql, linkedContainmentOperator, READ_GATE_SQL } from './canary-containment-operator.mjs'
 import { observeCanaryProfile, compareCanaryProfiles } from './canary-profile-verifier.mjs'
 import { prepareOpeningAuthentication, runOpeningCase } from './hosted-profile-opening-smoke.mjs'
+import { createNativePreparationVerifier } from './native-opening-preparation-verifier.mjs'
+import { prepareNativeOpeningAuthentication } from './native-opening-authentication.mjs'
 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex')
 export async function executeOpeningWorkflow({ candidate, reviewed, config }, dependencies = {}) {
+  const authTransport = config.authTransport || 'playwright'
+  if (!['playwright', 'native-inspected'].includes(authTransport)
+    || (authTransport === 'native-inspected' && config.authMethod !== 'email-code')) throw new Error('Unsupported authentication transport')
   const startedUtc = new Date().toISOString()
   const notify = dependencies.notify || (value => console.log(JSON.stringify(value)))
   if (!/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/u.test(config.expectedOwner || '')) throw new Error('Approved private owner is required')
@@ -143,8 +148,11 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
     const { code: syntheticCode, output: syntheticOutput } = await runSynthetic()
     await writeFile(join(directory, 'packet-1-synthetic.json'), syntheticOutput, { mode: 0o600 })
     if (syntheticCode !== 0) throw new Error('Synthetic deployed-client verification failed')
-    browser = await (dependencies.launchBrowser || (() => chromium.launch({ channel: 'chrome', headless: false })))()
-    receipt.browserVersion = browser.version()
+    const launchCaseBrowser = async () => {
+      browser = await (dependencies.launchBrowser || (() => chromium.launch({ channel: 'chrome', headless: false })))()
+      receipt.browserVersion = browser.version()
+    }
+    if (authTransport === 'playwright') await launchCaseBrowser()
     receipt.osVersion = dependencies.osVersion || execFileSync('sw_vers', ['-productVersion'], { encoding: 'utf8' }).trim()
     receipt.procedureSha256 = createHash('sha256').update(await readFile(new URL('./hosted-profile-opening-smoke.mjs', import.meta.url))).digest('hex')
     const authMethod = config.authMethod || 'google'
@@ -157,10 +165,30 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
       expectedEmail = accounts[0].email.trim().toLowerCase()
     }
     receipt.authenticationSetup = { method: authMethod, accountCreationSuppressed: authMethod === 'email-code', evidenceClass: 'constrained-authentication-setup' }
-    const session = await (dependencies.authenticate || prepareOpeningAuthentication)({ browser, providerOrigin: deployment.providerOrigin,
-      method: authMethod, expectedEmail,
+    const authOptions = { providerOrigin: deployment.providerOrigin, expectedEmail,
       expectedOwner: config.expectedOwner, verifyGateOff: async () => { requireLease(); await verifyGateOff() },
-      onReady: () => notify({ state: 'private-authentication-ui-ready', gate: 'off' }) })
+      onReady: () => notify({ state: 'private-authentication-ui-ready', gate: 'off' }) }
+    let session
+    if (authTransport === 'native-inspected') {
+      // The wrapper returns only after the native guard/profile are stopped and
+      // cleaned. The session stays in memory within this invocation; no browser
+      // for profile cases exists until that handoff is complete.
+      session = await (dependencies.authenticateNative || prepareNativeOpeningAuthentication)({ ...authOptions,
+        applicationOrigin: 'https://www.edenia.study', native: config.nativeAuthentication,
+        lease: { workdir: config.workdir, executor, candidate },
+        expectedRuntimeHash: deployment.runtimeHash, assetIdentity: deployment.assetIdentity,
+        verifyPreparation: dependencies.verifyNativePreparation || createNativePreparationVerifier({
+          ...config.nativeAuthentication, candidate, reviewed, invocation: config.invocationUtc
+        }) })
+      requireLease()
+      await verifyGateOff()
+      if (session?.user?.id !== config.expectedOwner) throw new Error('Native authentication owner mismatch')
+      receipt.authenticationSetup.transport = 'native-inspected'
+      receipt.authenticationSetup.preparationSha256 = config.nativeAuthentication?.manifestSha256
+      await launchCaseBrowser()
+    } else {
+      session = await (dependencies.authenticate || prepareOpeningAuthentication)({ ...authOptions, browser, method: authMethod })
+    }
     requireLease()
     await verifyInitialHead()
     const offGate = await readGate()
