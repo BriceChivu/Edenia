@@ -257,3 +257,16 @@ test('native failure receipt retains sanitized transport evidence and still cont
   assert.equal(f.inspect().calls, 0)
   assert.equal(f.inspect().gate, 'off')
 })
+
+test('later case failure does not mislabel completed native authentication', async t => {
+  const f = await nativeFixture(t)
+  f.dependencies.authenticateNative = async args => {
+    args.onProgress({ browserStarted: true, documentDelivered: true })
+    return { user: { id: owner } }
+  }
+  f.dependencies.runCase = async () => { throw new Error('Later case failed') }
+  const result = await executeOpeningWorkflow(f.input, f.dependencies)
+  assert.equal(result.complete, false)
+  assert.deepEqual(result.authenticationSetup.diagnostic, { browserStarted: true, documentDelivered: true, failure: null, connectionFailure: null })
+  assert.equal(f.inspect().gate, 'off')
+})

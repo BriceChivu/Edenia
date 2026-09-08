@@ -7,7 +7,7 @@ const failures = new Set([
   'request-processing', 'document-response', 'document-not-delivered',
   'worker-initialization', 'browser-start', 'browser-exit', 'browser-lock',
   'lease-invalid', 'cleanup-failed', 'worker-exit', 'worker-error',
-  'wrapper-timeout', 'progress-callback', 'preparation-failed', 'unknown'
+  'wrapper-timeout', 'progress-callback', 'unknown'
 ])
 const connections = new Set(['client-tls', 'client-http', 'connect-rejected'])
 export function sanitizeNativeAuthenticationDiagnostic(value) {

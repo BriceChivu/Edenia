@@ -177,23 +177,27 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
       receipt.authenticationSetup.transport = 'native-inspected'
       receipt.authenticationSetup.preparationSha256 = config.nativeAuthentication?.manifestSha256
       receipt.authenticationSetup.diagnostic = sanitizeNativeAuthenticationDiagnostic()
-      session = await (dependencies.authenticateNative || prepareNativeOpeningAuthentication)({ ...authOptions, onReady: undefined,
-        onProgress: value => {
-          const diagnostic = sanitizeNativeAuthenticationDiagnostic(value)
-          receipt.authenticationSetup.diagnostic = diagnostic
-          notify({ state: 'native-authentication-progress', gate: 'off', diagnostic })
-        },
-        applicationOrigin: 'https://www.edenia.study', native: config.nativeAuthentication,
-        lease: { workdir: config.workdir, executor, candidate },
-        expectedRuntimeHash: deployment.runtimeHash, assetIdentity: deployment.assetIdentity,
-        verifyPreparation: dependencies.verifyNativePreparation || createNativePreparationVerifier({
-          ...config.nativeAuthentication, candidate, reviewed, invocation: config.invocationUtc
-        }) })
+      try {
+        session = await (dependencies.authenticateNative || prepareNativeOpeningAuthentication)({ ...authOptions, onReady: undefined,
+          onProgress: value => {
+            const diagnostic = sanitizeNativeAuthenticationDiagnostic(value)
+            receipt.authenticationSetup.diagnostic = diagnostic
+            notify({ state: 'native-authentication-progress', gate: 'off', diagnostic })
+          },
+          applicationOrigin: 'https://www.edenia.study', native: config.nativeAuthentication,
+          lease: { workdir: config.workdir, executor, candidate },
+          expectedRuntimeHash: deployment.runtimeHash, assetIdentity: deployment.assetIdentity,
+          verifyPreparation: dependencies.verifyNativePreparation || createNativePreparationVerifier({
+            ...config.nativeAuthentication, candidate, reviewed, invocation: config.invocationUtc
+          }) })
+      } catch (error) {
+        receipt.authenticationSetup.diagnostic = sanitizeNativeAuthenticationDiagnostic(error?.nativeDiagnostic
+          || { ...receipt.authenticationSetup.diagnostic, failure: receipt.authenticationSetup.diagnostic?.failure || 'unknown' })
+        throw error
+      }
       requireLease()
       await verifyGateOff()
       if (session?.user?.id !== config.expectedOwner) throw new Error('Native authentication owner mismatch')
-      receipt.authenticationSetup.transport = 'native-inspected'
-      receipt.authenticationSetup.preparationSha256 = config.nativeAuthentication?.manifestSha256
       await launchCaseBrowser()
     } else {
       session = await (dependencies.authenticate || prepareOpeningAuthentication)({ ...authOptions, browser, method: authMethod })
@@ -243,13 +247,7 @@ export async function executeOpeningWorkflow({ candidate, reviewed, config }, de
       if (!result.complete) throw new Error('Live opening phase failed')
     }
     if (hash(await readDeployment()) !== hash(deployment)) throw new Error('Deployment changed')
-  } catch (error) {
-    failed = true
-    if (receipt.authenticationSetup?.transport === 'native-inspected') {
-      receipt.authenticationSetup.diagnostic = sanitizeNativeAuthenticationDiagnostic(error?.nativeDiagnostic
-        || { ...receipt.authenticationSetup.diagnostic, failure: receipt.authenticationSetup.diagnostic?.failure || 'unknown' })
-    }
-  }
+  } catch { failed = true }
   finally {
     try { await browser?.close() } catch { failed = true }
     clearInterval(renewal)

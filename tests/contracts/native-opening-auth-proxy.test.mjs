@@ -183,3 +183,12 @@ test('a failed progress observer cannot leave the proxy forwarding', async t => 
   assert.equal(f.proxy.stats.diagnostic.failure, 'progress-callback')
   assert.equal(f.observed.length, 0)
 })
+
+test('repeated rejected connections cannot produce unbounded progress records', async t => {
+  const updates = []
+  const f = await fixture(t, { onProgress: value => updates.push(value) })
+  for (let i = 0; i < 10; i++) assert.equal(await f.send({ connectHost: 'denied.invalid:443' }), 'closed')
+  assert.equal(updates.length, 1)
+  assert.equal(updates[0].connectionFailure, 'connect-rejected')
+  assert.equal(f.observed.length, 0)
+})

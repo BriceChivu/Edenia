@@ -30,8 +30,13 @@ export async function createNativeOpeningAuthenticationProxy({ applicationOrigin
   let pending = Promise.resolve(), stopped = false, sessionDelivered = false
   const started = performance.now()
   const track = socket => { sockets.add(socket); socket.once('close', () => sockets.delete(socket)) }
+  let reportedDiagnostic = null
   const report = update => {
-    stats.diagnostic = sanitizeNativeAuthenticationDiagnostic({ ...stats.diagnostic, ...update })
+    stats.diagnostic = sanitizeNativeAuthenticationDiagnostic({ ...stats.diagnostic, ...update,
+      connectionFailure: stats.diagnostic.connectionFailure || update?.connectionFailure })
+    const serialized = JSON.stringify(stats.diagnostic)
+    if (serialized === reportedDiagnostic) return
+    reportedDiagnostic = serialized
     try { onProgress({ ...stats.diagnostic }) } catch { seal('progress-callback') }
   }
   const seal = (failure = null) => {
