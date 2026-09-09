@@ -196,6 +196,18 @@ signs the learner out.
 
 ## Google Identity Services
 
+For HTTP localhost development, `npm run dev` serves HTML with
+`Referrer-Policy: no-referrer-when-downgrade`, as required by
+[Google's GIS setup guidance](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid).
+This local server policy does not change hosted headers, CSP, or COOP and does
+not authorize a Google origin. Google must also allow the exact local origin.
+Keep local public client selection in ignored `config.local.js`; never put a
+Google client secret in browser configuration. A dedicated localhost Web client
+requires its public ID in Supabase's accepted client list, preserving the
+production Web client first and retaining nonce verification and its existing
+secret. Provider changes and live authentication require the Packet 2 preflight,
+rollback, and unchanged-profile verification described in the v4 execution plan.
+
 Edenia renders Google's official button and exchanges its ephemeral credential
 through:
 

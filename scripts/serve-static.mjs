@@ -64,6 +64,10 @@ const server = createServer(async (request, response) => {
   }
 
   response.writeHead(200, {
+    // GIS requires this policy for HTTP localhost; keep hosted policy separate.
+    ...(host === 'localhost' && extname(filePath).toLowerCase() === '.html'
+      ? { 'Referrer-Policy': 'no-referrer-when-downgrade' }
+      : {}),
     'Cache-Control': 'no-store',
     'Content-Length': String((await stat(filePath)).size),
     'Content-Type': MIME_TYPES[extname(filePath).toLowerCase()] || 'application/octet-stream'
