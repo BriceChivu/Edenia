@@ -1067,6 +1067,9 @@ test('a signed-out owner can authenticate from locked access before cloud activa
     await expect(page.locator('#settingsPanel')).toBeHidden()
     const guardedSignIn = page.locator('#learnerProfileAccessAuthentication')
     await expect(guardedSignIn).toBeVisible()
+    await expect(guardedSignIn.locator('[data-turnstile-widget]')).toBeHidden()
+    await expect(guardedSignIn.locator('[data-turnstile-status]')).toBeHidden()
+    await expect(guardedSignIn.locator('[data-turnstile-status]')).toBeEmpty()
     await expect(guardedSignIn.getByRole('heading', {
       name: 'Sign in to unlock your profile'
     })).toBeVisible()

@@ -219,3 +219,22 @@ test('invalid Turnstile boundaries fail before script loading', () => {
     /requires a site key and callbacks/
   )
 })
+
+for (const failure of ['script', 'mount']) {
+  test(`Turnstile ${failure} failure is unavailable and has no consumable token`, async () => {
+    const statuses = []
+    const element = { isConnected: true }
+    const controller = createTurnstileController({
+      siteKey: 'public-site-key',
+      turnstileTarget: {},
+      onStatusChange(status) { statuses.push(status) },
+      async loadScript() {
+        if (failure === 'script') throw new Error('synthetic script failure')
+        return { render() { throw new Error('synthetic mount failure') } }
+      }
+    })
+    assert.equal(await controller.mount(element), false)
+    assert.equal(statuses.at(-1), 'unavailable')
+    assert.equal(controller.consumeToken(element), null)
+  })
+}

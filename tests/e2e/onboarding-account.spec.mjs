@@ -130,6 +130,8 @@ test('gated Account onboarding supports email sign-in and responsive completion'
   const skipButton = panel.getByRole('button', { name: 'Skip for now' })
   await expect(googleButton).toBeEnabled()
   await expect(emailButton).toBeEnabled()
+  await expect(panel.locator('[data-turnstile-widget]')).toHaveCount(0)
+  await expect(panel.locator('[data-turnstile-status]')).toHaveCount(0)
   await expect(emailButton).toHaveClass(/\bbtn-secondary\b/)
 
   await expect(emailButton).toHaveCSS('border-width', '2px')
@@ -148,6 +150,7 @@ test('gated Account onboarding supports email sign-in and responsive completion'
   await emailInput.fill('LEARNER@EXAMPLE.COM')
   await emailButton.click()
   await expect.poll(() => otpRequests.length).toBe(1)
+  expect(otpRequests[0].gotrue_meta_security?.captcha_token).toBeUndefined()
   expect(otpRequests[0]).toMatchObject({
     email: 'learner@example.com',
     create_user: true
@@ -197,4 +200,40 @@ test('switch-off onboarding retains immediate accountless completion', async ({
   await expect(panel.getByRole('heading', { name: 'Your starter study feed' })).toBeVisible()
   await expect(panel.getByRole('heading', { name: 'One last step' })).toHaveCount(0)
   await expect(panel.getByRole('button', { name: 'Start my journey' })).toBeVisible()
+})
+
+test('configured unavailable Turnstile blocks onboarding email without tokenless requests', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await useAccountReturnOrigin(page)
+  await installGoogleButtonMock(page)
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: internalRuntimeConfig.replace("youtubeApiKey: '',", "youtubeApiKey: '', turnstileSiteKey: 'synthetic-site-key',"),
+    contentType: 'text/javascript'
+  }))
+  await page.addInitScript(() => {
+    window.turnstile = {
+      render() { throw new Error('Synthetic unavailable widget mount') },
+      reset() {}, remove() {}
+    }
+  })
+  const requests = []
+  await page.route('https://account-ui-test.supabase.co/auth/v1/otp', route => {
+    requests.push(route.request().postDataJSON())
+    return route.fulfill({ json: {} })
+  })
+  await page.goto(`${accountReturnOrigin}/?internal_test=1`)
+  await seedAccountStep(page)
+  await page.goto(`${accountReturnOrigin}/?internal_test=1&account=1`)
+  const form = page.locator('.onboarding-account-email-form')
+  await expect(form).toBeVisible()
+  await expect(form.locator('[data-turnstile-status]')).toBeVisible()
+  await expect(form.locator('[data-turnstile-status]')).toHaveAttribute('data-turnstile-tone', 'error')
+  await expect(form.locator('button[type="submit"]')).toBeDisabled()
+  await page.locator('#onboardingAccountEmail').fill('learner@example.com')
+  await form.evaluate(element => {
+    element.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  })
+  await expect(page.locator('#onboardingPanel [role="alert"]')).toBeVisible()
+  expect(requests).toHaveLength(0)
+  await expect(form.locator('button[type="submit"]')).toBeDisabled()
 })
