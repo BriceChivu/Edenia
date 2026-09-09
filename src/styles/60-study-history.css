@@ -715,11 +715,13 @@
   position: fixed;
   text-align: left;
   transition: opacity var(--motion-fast) var(--ease-standard);
+  visibility: hidden;
   width: 230px;
   z-index: 500;
 }
 .heatmap-tooltip.show {
   opacity: 1;
+  visibility: visible;
 }
 .heatmap-tooltip-head {
   align-items: center;

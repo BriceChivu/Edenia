@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { expect, test } from '../support/network-fixture.mjs'
+import { I18N } from '../../src/i18n/index.js'
 import { GLOBAL_ACTION_NAMES } from '../../src/core/global-action-contract.js'
 
 const fixedNow = new Date('2026-07-28T04:00:00.000Z')
@@ -170,7 +171,9 @@ async function seedCompletedState(page, locale = 'en', targetUrl = '/') {
     state.onboarding.setupCompletedAt = completedAt
     state.onboarding.walkthroughCompleted = true
     state.onboarding.walkthroughCompletedAt = completedAt
-    localStorage.setItem('edenia_v1', JSON.stringify(state))
+    const storageKey = new URL(location.href).searchParams.get('internal_test') === '1'
+      ? 'edenia_v1_internal_test' : 'edenia_v1'
+    localStorage.setItem(storageKey, JSON.stringify(state))
   }, locale)
   await page.reload()
   await waitForApplication(page)
@@ -5713,130 +5716,212 @@ test('Study History points popover listeners preserve fine and coarse interactio
   })
 })
 
-test('Study History heatmap listeners preserve tooltip input and positioning branches', async ({
-  page
-}, testInfo) => {
-  test.skip(!['desktop-standard', 'phone-standard'].includes(
-    testInfo.project.name
-  ))
+async function expectClosedHeatmapDetails(tooltip) {
+  await expect(tooltip).not.toHaveClass(/\bshow\b/)
+  await expect(tooltip).toBeEmpty()
+  await expect(tooltip).toHaveCSS('visibility', 'hidden')
+  await expect(tooltip).toHaveAttribute('aria-hidden', 'true')
+  expect(await tooltip.evaluate(element => element._target)).toBe(null)
+  expect(await tooltip.ariaSnapshot()).toBe('')
+}
 
-  await seedCompletedState(page)
-  await page.evaluate(() => {
-    const state = JSON.parse(localStorage.getItem('edenia_v1'))
-    state.anki['2026-07-28'] = {
-      reviewed: 6,
-      created: 1
-    }
-    localStorage.setItem('edenia_v1', JSON.stringify(state))
-    localStorage.removeItem('edenia_posthog_state_v2')
-  })
-  await page.reload()
-  await waitForApplication(page)
-  const summaryTab = page.locator('[data-history-view="summary"]')
-  const heatmapTab = page.locator('[data-history-view="heatmap"]')
-  await heatmapTab.click()
-  await summaryTab.click()
-  await heatmapTab.click()
+for (const targetUrl of ['/', '/?internal_test=1']) {
+  const heatmapStorageKey = targetUrl.includes('internal_test') ? 'edenia_v1_internal_test' : 'edenia_v1'
+  test(`Study History heatmap listeners preserve tooltip input and positioning branches on ${targetUrl}`, async ({
+    page
+  }, testInfo) => {
+    test.skip(!['desktop-standard', 'phone-standard'].includes(
+      testInfo.project.name
+    ))
 
-  const day = page.locator(
-    '[data-history-heatmap-action="tooltip"][data-points="2"]'
-  )
-  const tooltip = page.locator('#heatmapTooltip')
-  const storedBefore = await page.evaluate(
-    () => localStorage.getItem('edenia_v1')
-  )
-  await expect(day).toHaveCount(1)
-  await page.evaluate(() => {
-    window.__historyHeatmapAnalyticsEvents = []
-    window.__historyHeatmapAtDocumentBubble = null
-    window.EDENIA_ANALYTICS_ENABLED = true
-    window.posthog = {
-      capture(eventName, properties) {
-        window.__historyHeatmapAnalyticsEvents.push({
-          eventName,
-          properties
-        })
-      },
-      get_distinct_id() {
-        return 'preservation-history-heatmap'
-      },
-      setPersonProperties() {}
-    }
-    document.addEventListener('click', event => {
-      if (!event.target.closest?.(
-        '[data-history-heatmap-action="tooltip"]'
-      )) return
-      window.__historyHeatmapAtDocumentBubble = true
-    }, { once: true })
-  })
+    await seedCompletedState(page, 'en', targetUrl)
+    await page.evaluate(storageKey => {
+      const state = JSON.parse(localStorage.getItem(storageKey))
+      state.anki['2026-07-28'] = {
+        reviewed: 6,
+        created: 1
+      }
+      localStorage.setItem(storageKey, JSON.stringify(state))
+      localStorage.removeItem('edenia_posthog_state_v2')
+    }, heatmapStorageKey)
+    await page.reload()
+    await waitForApplication(page)
+    const summaryTab = page.locator('[data-history-view="summary"]')
+    const heatmapTab = page.locator('[data-history-view="heatmap"]')
+    await heatmapTab.click()
+    await summaryTab.click()
+    await heatmapTab.click()
 
-  if (testInfo.project.name === 'desktop-standard') {
-    await day.hover()
-    await expect(tooltip).toHaveClass(/\bshow\b/)
-    await expect(tooltip).toContainText('2 pts')
-    await expect(tooltip).toHaveCSS('position', 'fixed')
-    await page.mouse.move(0, 0)
-    await expect(tooltip).not.toHaveClass(/\bshow\b/)
-
-    await day.focus()
-    await expect(tooltip).toHaveClass(/\bshow\b/)
-    await day.blur()
-    await expect(tooltip).not.toHaveClass(/\bshow\b/)
-
-    await day.focus()
-    await expect(tooltip).toHaveClass(/\bshow\b/)
-    await day.press('Enter')
-    await expect(tooltip).not.toHaveClass(/\bshow\b/)
-    await day.press('Space')
-    await expect(tooltip).toHaveClass(/\bshow\b/)
-    await page.keyboard.press('Escape')
-    await expect(tooltip).toHaveClass(/\bshow\b/)
-    await page.locator('.section-title').first().click()
-    await expect(tooltip).not.toHaveClass(/\bshow\b/)
-  } else {
-    await day.press('Space')
-    await expect(tooltip).toHaveClass(/\bshow\b/)
-    await expect(tooltip).toContainText('2 pts')
-    await expect(tooltip).toHaveCSS('position', 'absolute')
-    await day.press('Enter')
-    await expect(tooltip).toHaveClass(/\bshow\b/)
-    await page.locator('.section-title').first().click()
-    await expect(tooltip).not.toHaveClass(/\bshow\b/)
-  }
-
-  await expect.poll(() => page.evaluate(
-    () => window.__historyHeatmapAtDocumentBubble
-  )).toBe(null)
-  expect(await page.evaluate(
-    () => window.__historyHeatmapAnalyticsEvents
-  )).toEqual([])
-  expect(await page.evaluate(() => localStorage.getItem('edenia_v1')))
-    .toBe(storedBefore)
-  const removedBridgeActions = await page.evaluate(() => ({
-    hide: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions || {},
-      'hideHeatmapTooltip'
-    ),
-    position: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions || {},
-      'positionHeatmapTooltip'
-    ),
-    show: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions || {},
-      'showHeatmapTooltip'
-    ),
-    toggle: Object.prototype.hasOwnProperty.call(
-      window.EdeniaActions || {},
-      'toggleHeatmapTooltip'
+    const day = page.locator(
+      '[data-history-heatmap-action="tooltip"][data-points="2"]'
     )
-  }))
-  expect(removedBridgeActions).toEqual({
-    hide: false,
-    position: false,
-    show: false,
-    toggle: false
+    const tooltip = page.locator('#heatmapTooltip')
+    await day.focus()
+    await expect(tooltip).toHaveClass(/\bshow\b/)
+    await summaryTab.click()
+    await expectClosedHeatmapDetails(tooltip)
+    await heatmapTab.click()
+    const storedBefore = await page.evaluate(
+      storageKey => localStorage.getItem(storageKey), heatmapStorageKey
+    )
+    await expect(day).toHaveCount(1)
+    await expect(day).not.toHaveAttribute('aria-describedby')
+    await expect(tooltip).not.toHaveAttribute('role')
+    await page.evaluate(() => {
+      window.__historyHeatmapAnalyticsEvents = []
+      window.__historyHeatmapAtDocumentBubble = null
+      window.EDENIA_ANALYTICS_ENABLED = true
+      window.posthog = {
+        capture(eventName, properties) {
+          window.__historyHeatmapAnalyticsEvents.push({
+            eventName,
+            properties
+          })
+        },
+        get_distinct_id() {
+          return 'preservation-history-heatmap'
+        },
+        setPersonProperties() {}
+      }
+      document.addEventListener('click', event => {
+        if (!event.target.closest?.(
+          '[data-history-heatmap-action="tooltip"]'
+        )) return
+        window.__historyHeatmapAtDocumentBubble = true
+      }, { once: true })
+    })
+
+    if (testInfo.project.name === 'desktop-standard') {
+      await day.hover()
+      await expect(tooltip).toHaveClass(/\bshow\b/)
+      await expect(tooltip).toContainText('2 pts')
+      await expect(tooltip).toHaveAttribute('aria-hidden', 'true')
+      expect(await tooltip.ariaSnapshot()).toBe('')
+      await expect(tooltip).toHaveCSS('position', 'fixed')
+      await page.mouse.move(0, 0)
+      await expectClosedHeatmapDetails(tooltip)
+
+      await day.focus()
+      await expect(tooltip).toHaveClass(/\bshow\b/)
+      await day.blur()
+      await expectClosedHeatmapDetails(tooltip)
+
+      await day.focus()
+      await expect(tooltip).toHaveClass(/\bshow\b/)
+      await day.press('Enter')
+      await expectClosedHeatmapDetails(tooltip)
+      await day.press('Space')
+      await expect(tooltip).toHaveClass(/\bshow\b/)
+      await page.keyboard.press('Escape')
+      await expectClosedHeatmapDetails(tooltip)
+      await expect(day).toBeFocused()
+      await day.press('Space')
+      await expect(tooltip).toHaveClass(/\bshow\b/)
+      await page.locator('.section-title').first().click()
+      await expectClosedHeatmapDetails(tooltip)
+    } else {
+      await day.press('Space')
+      await expect(tooltip).toHaveClass(/\bshow\b/)
+      await expect(tooltip).toContainText('2 pts')
+      await expect(tooltip).toHaveAttribute('aria-hidden', 'true')
+      expect(await tooltip.ariaSnapshot()).toBe('')
+      await expect(tooltip).toHaveCSS('position', 'absolute')
+      await day.press('Enter')
+      await expect(tooltip).toHaveClass(/\bshow\b/)
+      await page.keyboard.press('Escape')
+      await expectClosedHeatmapDetails(tooltip)
+      await expect(day).toBeFocused()
+      await day.press('Space')
+      await page.locator('.section-title').first().click()
+      await expectClosedHeatmapDetails(tooltip)
+    }
+
+    await expect.poll(() => page.evaluate(
+      () => window.__historyHeatmapAtDocumentBubble
+    )).toBe(null)
+    expect(await page.evaluate(
+      () => window.__historyHeatmapAnalyticsEvents
+    )).toEqual([])
+    expect(await page.evaluate(storageKey => localStorage.getItem(storageKey), heatmapStorageKey))
+      .toBe(storedBefore)
+    const removedBridgeActions = await page.evaluate(() => ({
+      hide: Object.prototype.hasOwnProperty.call(
+        window.EdeniaActions || {},
+        'hideHeatmapTooltip'
+      ),
+      position: Object.prototype.hasOwnProperty.call(
+        window.EdeniaActions || {},
+        'positionHeatmapTooltip'
+      ),
+      show: Object.prototype.hasOwnProperty.call(
+        window.EdeniaActions || {},
+        'showHeatmapTooltip'
+      ),
+      toggle: Object.prototype.hasOwnProperty.call(
+        window.EdeniaActions || {},
+        'toggleHeatmapTooltip'
+      )
+    }))
+    expect(removedBridgeActions).toEqual({
+      hide: false,
+      position: false,
+      show: false,
+      toggle: false
+    })
   })
-})
+}
+
+for (const targetUrl of ['/', '/?internal_test=1']) {
+  for (const locale of ['en', 'zh-Hant', 'zh-Hans', 'es', 'fr']) {
+    test(`Study History heatmap presents complete day names and fresh visual details in ${locale} on ${targetUrl}`, async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== 'desktop-standard')
+      const storageKey = targetUrl.includes('internal_test') ? 'edenia_v1_internal_test' : 'edenia_v1'
+      await seedCompletedState(page, locale, targetUrl)
+      await page.evaluate(key => {
+        const state = JSON.parse(localStorage.getItem(key))
+        state.onboarding.levelUpGuidanceShownAt = '2026-07-20T04:00:00.000Z'
+        for (let day = 23; day <= 27; day += 1) {
+          state.anki[`2026-07-${day}`] = { reviewed: 60, created: 1 }
+        }
+        state.anki['2026-07-28'] = { reviewed: 6, created: 1 }
+        localStorage.setItem(key, JSON.stringify(state))
+      }, storageKey)
+      await page.reload()
+      await waitForApplication(page)
+      await page.locator('[data-history-view="heatmap"]').click()
+      await page.mouse.move(0, 0)
+      const tooltip = page.locator('#heatmapTooltip')
+      for (const streakDays of ['1', '5', '']) {
+        const day = page.locator(`[data-history-heatmap-action="tooltip"][data-streak-days="${streakDays}"]`).last()
+        await day.focus()
+        await expect(tooltip).toHaveClass(/\bshow\b/)
+        await expect(tooltip).toHaveAttribute('aria-hidden', 'true')
+        expect(await tooltip.ariaSnapshot()).toBe('')
+        const data = await day.evaluate(element => ({ ...element.dataset }))
+        const key = data.ankiEnabled === 'true' ? 'history.heatmapAria' : 'history.heatmapAriaNoAnki'
+        const expected = I18N[locale][key].replace(/\{(\w+)\}/g, (_, name) => data[name])
+          + (streakDays ? `; ${streakDays} ${I18N[locale]['streak.day']}` : '')
+        await expect(day).toHaveAccessibleName(expected)
+        await expect(day).not.toHaveAttribute('aria-describedby')
+        await expect(tooltip.locator('.heatmap-tooltip-title')).toHaveText(data.date)
+        await expect(tooltip.locator('.heatmap-tooltip-streak')).toHaveCount(streakDays ? 1 : 0)
+        expect(await tooltip.evaluate(element => element._target?.dataset.date)).toBe(data.date)
+        await expect(tooltip.locator('button, a, input, select, textarea, [tabindex], [contenteditable]')).toHaveCount(0)
+        // The same dismissal is effective in both existing theme styles.
+        await page.locator('body').evaluate(element => { element.dataset.theme = 'dark' })
+        await page.keyboard.press('Escape')
+        await expect(day).toBeFocused()
+        await expectClosedHeatmapDetails(tooltip)
+        await page.locator('body').evaluate(element => { element.dataset.theme = 'light' })
+      }
+      await page.locator('[data-history-view="summary"]').click()
+      await expectClosedHeatmapDetails(tooltip)
+      await page.reload()
+      await waitForApplication(page)
+      await expect(page.locator('[data-history-view="summary"]')).toHaveAttribute('aria-selected', 'true')
+    })
+  }
+}
 
 test('Study History view listeners preserve persistence, keyboard, and ordering', async ({
   page

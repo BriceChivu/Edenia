@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFile } from 'node:fs/promises'
 import {
   bindStudyHistoryHeatmapTooltipActions
 } from '../../src/features/study-history/heatmap-tooltip-actions.js'
@@ -149,4 +150,59 @@ test('heatmap tooltip binding fails closed on invalid boundaries', () => {
     }),
     /show, position, hide, and toggle callbacks/
   )
+})
+
+const appSource = await readFile(new URL('../../src/app.js', import.meta.url), 'utf8')
+function appFunction(name) {
+  const start = appSource.indexOf(`function ${name}(`)
+  assert.notEqual(start, -1)
+  return appSource.slice(start, appSource.indexOf('\nfunction ', start + 1))
+}
+
+test('every tooltip close clears content and target without changing focus', () => {
+  const tooltip = {
+    _target: {},
+    content: 'previous day',
+    classList: { remove(value) { assert.equal(value, 'show') } },
+    replaceChildren() { this.content = '' }
+  }
+  const document = { getElementById: () => tooltip }
+  const actions = new Function('document', `
+    ${appFunction('hideHeatmapTooltip')}
+    ${appFunction('clearHeatmapTooltip')}
+    ${appFunction('hideHeatmapTooltipOnEscape')}
+    return { hideHeatmapTooltip, clearHeatmapTooltip, hideHeatmapTooltipOnEscape }
+  `)(document)
+  actions.hideHeatmapTooltipOnEscape({ key: 'Enter' })
+  assert.equal(tooltip.content, 'previous day')
+  for (const close of [actions.hideHeatmapTooltip, actions.clearHeatmapTooltip,
+    () => actions.hideHeatmapTooltipOnEscape({ key: 'Escape' })]) {
+    tooltip._target = {}
+    tooltip.content = 'previous day'
+    close()
+    assert.equal(tooltip._target, null)
+    assert.equal(tooltip.content, '')
+  }
+})
+
+test('heatmap rerender closes the old surface before replacing even an empty grid', () => {
+  const calls = []
+  const render = new Function('hideHeatmapTooltip', `
+    const IS_SANDBOX = false
+    const isAnkiTrackingActive = () => false
+    const getCurrentAppDate = () => new Date('2026-07-28T00:00:00Z')
+    const addDays = date => date
+    const getStudyHistoryBetween = () => ({ rows: [] })
+    const hasHistoryActivity = () => false
+    const escHtml = value => value
+    const t = key => key
+    ${appFunction('renderHistoryHeatmap')}
+    return renderHistoryHeatmap
+  `)(() => calls.push('close'))
+  render({}, {
+    querySelector() { return null },
+    dataset: {},
+    set innerHTML(value) { calls.push('replace'); assert.match(value, /history-empty/) }
+  })
+  assert.deepEqual(calls, ['close', 'replace'])
 })

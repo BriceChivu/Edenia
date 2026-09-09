@@ -12654,9 +12654,9 @@ function formatHeatmapTitle(row) {
   return formatLocaleDate(date, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-function formatHeatmapAriaLabel(row, ankiEnabled = true) {
+function formatHeatmapAriaLabel(row, ankiEnabled = true, streakDayCount = 0) {
   const key = ankiEnabled ? 'history.heatmapAria' : 'history.heatmapAriaNoAnki'
-  return t(key, {
+  const details = t(key, {
     date: formatHeatmapTitle(row),
     points: getHistoryDayPoints(row),
     time: formatHistoryTime(row.secondsWatched),
@@ -12664,6 +12664,9 @@ function formatHeatmapAriaLabel(row, ankiEnabled = true) {
     reviewed: row.ankiReviewed,
     created: row.ankiCreated
   })
+  return streakDayCount > 0
+    ? `${details}; ${streakDayCount} ${t('streak.day')}`
+    : details
 }
 
 function getWeekMonday(date) {
@@ -12699,6 +12702,7 @@ function renderRestrictedHistoryHeatmapDay(accessState) {
 }
 
 function renderHistoryHeatmap(s, container) {
+  hideHeatmapTooltip()
   const existingScroll = container.querySelector('.heatmap-scroll')
   const preservedScrollLeft = container.dataset.historyScrollSession === 'active'
     ? existingScroll?.scrollLeft ?? null
@@ -12748,7 +12752,7 @@ function renderHistoryHeatmap(s, container) {
             const streakDayCount = historicalStreakDayCounts.get(row.dateKey) || 0
             const streakOutlineClass = streakDayCount ? ' streak-run' : ''
             return `
-            <button type="button" class="heatmap-day level-${getHistoryHeatLevel(row)}${streakOutlineClass}" data-history-heatmap-action="tooltip" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-streak-days="${streakDayCount || ''}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-anki-enabled="${showAnkiForRow ? 'true' : 'false'}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row, showAnkiForRow))}"></button>
+            <button type="button" class="heatmap-day level-${getHistoryHeatLevel(row)}${streakOutlineClass}" data-history-heatmap-action="tooltip" data-date="${escHtml(formatHeatmapTitle(row))}" data-points="${getHistoryDayPoints(row)}" data-streak-days="${streakDayCount || ''}" data-time="${escHtml(formatHistoryTime(row.secondsWatched))}" data-videos="${row.videosWatched}" data-anki-enabled="${showAnkiForRow ? 'true' : 'false'}" data-reviewed="${row.ankiReviewed}" data-created="${row.ankiCreated}" aria-label="${escHtml(formatHeatmapAriaLabel(row, showAnkiForRow, streakDayCount))}"></button>
           `}).join('')}
         </div>
       </div>
@@ -12855,13 +12859,15 @@ function hideHeatmapTooltip() {
   if (!tooltip) return
   tooltip._target = null
   tooltip.classList.remove('show')
+  tooltip.replaceChildren()
 }
 
 function clearHeatmapTooltip() {
-  const tooltip = document.getElementById('heatmapTooltip')
-  if (!tooltip) return
   hideHeatmapTooltip()
-  tooltip.replaceChildren()
+}
+
+function hideHeatmapTooltipOnEscape(event) {
+  if (event.key === 'Escape') hideHeatmapTooltip()
 }
 
 function hideHeatmapTooltipOnOutsideClick(event) {
@@ -18798,6 +18804,7 @@ document.addEventListener('click', closeVideoOrganizationMenuOnOutsideClick)
 document.addEventListener('click', closeIntroLocaleMenuOnOutsideClick)
 document.addEventListener('click', closeOnboardingLocaleMenuOnOutsideClick)
 document.addEventListener('click', hideHeatmapTooltipOnOutsideClick)
+document.addEventListener('keydown', hideHeatmapTooltipOnEscape)
 document.addEventListener('click', clearCityWaveformPreviewOnOutsideClick)
 document.addEventListener('keydown', closeHistoryVideoPopoversOnEscape)
 document.addEventListener('keydown', closeHistoryPointsPopoversOnEscape)
