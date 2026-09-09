@@ -1,5 +1,7 @@
 import { expect, test } from '../support/network-fixture.mjs'
 
+const ACCOUNT_RETURN_ORIGIN = 'http://localhost:8000'
+
 const runtimeConfig = `window.EDENIA_CONFIG = {
   youtubeApiKey: '',
   freePlusEnabled: false,
@@ -531,9 +533,9 @@ test('unconfigured Turnstile stays hidden and sends no CAPTCHA on localhost inte
     requests.push(route.request().postDataJSON())
     return route.fulfill({ json: {} })
   })
-  await page.goto('/?internal_test=1')
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
   await seedReadyState(page, 'en')
-  await page.goto('/?internal_test=1&account=1')
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1&account=1`)
   await expect(page.locator('#accountEmail')).toBeVisible()
   await expect(page.locator('#accountTurnstile')).toBeHidden()
   await expect(page.locator('#accountTurnstileStatus')).toBeHidden()
@@ -566,9 +568,9 @@ test('configured Turnstile script without an API stays visible and blocks tokenl
     requests.push(route.request().postDataJSON())
     return route.fulfill({ json: {} })
   })
-  await page.goto('/?internal_test=1')
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
   await seedReadyState(page, 'en')
-  await page.goto('/?internal_test=1&account=1')
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1&account=1`)
   await expect(page.locator('#accountTurnstileStatus')).toBeVisible()
   await expect(page.locator('#accountTurnstileStatus')).toHaveAttribute('data-turnstile-tone', 'error')
   await expect(page.locator('#accountEmailBtn')).toBeDisabled()
