@@ -303,3 +303,36 @@ test('locale date formatting preserves invalid and Intl behavior', () => {
   assert.equal(formatLocaleDateTime('invalid'), '')
   setCurrentLocale(DEFAULT_LOCALE)
 })
+
+const heatmapAppSource = await readFile(new URL('../../src/app.js', import.meta.url), 'utf8')
+const heatmapLabelSource = heatmapAppSource.slice(
+  heatmapAppSource.indexOf('function formatHeatmapAriaLabel('),
+  heatmapAppSource.indexOf('\nfunction getWeekMonday(')
+)
+const formatHeatmapLabel = new Function('t', 'formatHeatmapTitle', 'getHistoryDayPoints', 'formatHistoryTime', `
+  ${heatmapLabelSource}
+  return formatHeatmapAriaLabel
+`)(t, () => 'DATE', () => 12, () => 'TIME')
+
+for (const [locale, streakTerm] of Object.entries({
+  en: 'day streak', 'zh-Hant': '天連續', 'zh-Hans': '天连续',
+  es: 'días de racha', fr: 'jours de série'
+})) {
+  test(`heatmap accessible name preserves complete localized details and optional streak in ${locale}`, () => {
+    setCurrentLocale(locale)
+    try {
+      const row = { secondsWatched: 60, videosWatched: 3, ankiReviewed: 6, ankiCreated: 1 }
+      for (const ankiEnabled of [true, false]) {
+        const base = t(ankiEnabled ? 'history.heatmapAria' : 'history.heatmapAriaNoAnki', {
+          date: 'DATE', points: 12, time: 'TIME', videos: 3, reviewed: 6, created: 1
+        })
+        assert.equal(formatHeatmapLabel(row, ankiEnabled, 0), base)
+        for (const count of [1, 5]) {
+          assert.equal(formatHeatmapLabel(row, ankiEnabled, count), `${base}; ${count} ${streakTerm}`)
+        }
+      }
+    } finally {
+      setCurrentLocale(DEFAULT_LOCALE)
+    }
+  })
+}

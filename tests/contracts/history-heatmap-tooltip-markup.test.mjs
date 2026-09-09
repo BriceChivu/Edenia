@@ -43,7 +43,7 @@ test('heatmap day retains its complete live data and accessibility contract', ()
   assert.equal(getAttribute(day, 'data-created'), '${row.ankiCreated}')
   assert.equal(
     getAttribute(day, 'aria-label'),
-    '${escHtml(formatHeatmapAriaLabel(row, showAnkiForRow))}'
+    '${escHtml(formatHeatmapAriaLabel(row, showAnkiForRow, streakDayCount))}'
   )
 })
 
@@ -59,4 +59,13 @@ test('heatmap day has scoped ownership without analytics or inline handlers', ()
     assert.equal(getAttribute(day, attribute), null)
   })
   assert.equal(getAttribute(day, 'data-analytics-action'), null)
+})
+
+const markup = await readFile(new URL('../../index.html', import.meta.url), 'utf8')
+
+test('heatmap visual details are always excluded from accessibility and initially empty', () => {
+  const tooltip = markup.match(/<div[^>]*id="heatmapTooltip"[^>]*>/)?.[0] || ''
+  assert.notEqual(tooltip, '')
+  assert.equal(getAttribute(tooltip, 'aria-hidden'), 'true')
+  assert.equal(getAttribute(tooltip, 'role'), null)
 })
