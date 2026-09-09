@@ -502,3 +502,33 @@ test('an analytics identify exception cannot block browser authentication', asyn
     'learner@example.com'
   )
 })
+
+test('configured Turnstile callbacks keep settings fail closed until a fresh token', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  const requests = await openCompletedAccountPage(page)
+  const submit = page.locator('#accountEmailBtn')
+  const status = page.locator('#accountTurnstileStatus')
+  await page.locator('#accountEmail').fill('learner@example.com')
+  await expect(submit).toBeEnabled()
+  for (const callback of [
+    'before-interactive-callback', 'expired-callback', 'timeout-callback',
+    'unsupported-callback', 'error-callback'
+  ]) {
+    await page.evaluate(callbackName => {
+      window.__edeniaAuthE2e.turnstile.configurations[1][callbackName]()
+    }, callback)
+    await expect(submit).toBeDisabled()
+    await expect(status).toBeVisible()
+    expect(requests.filter(request => request.path === '/auth/v1/otp')).toHaveLength(0)
+    await page.evaluate(() => {
+      window.__edeniaAuthE2e.turnstile.configurations[1].callback('synthetic-fresh-token')
+    })
+    await expect(submit).toBeEnabled()
+    await expect(status).toBeHidden()
+    await expect(status).toBeEmpty()
+  }
+  await submit.click()
+  await expect.poll(() => requests.filter(request => request.path === '/auth/v1/otp').length).toBe(1)
+  await expect(submit).toBeDisabled()
+  await expect(status).toBeVisible()
+})

@@ -520,3 +520,64 @@ test('global off switch blocks the account deep link and reminder reads', async 
   expect(reminderRequests).toEqual([])
   expect(exportRequests).toEqual([])
 })
+
+test('unconfigured Turnstile stays hidden and sends no CAPTCHA on localhost internal settings', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig, contentType: 'text/javascript'
+  }))
+  const requests = []
+  await page.route('https://account-ui-test.supabase.co/auth/v1/otp', route => {
+    requests.push(route.request().postDataJSON())
+    return route.fulfill({ json: {} })
+  })
+  await page.goto('/?internal_test=1')
+  await seedReadyState(page, 'en')
+  await page.goto('/?internal_test=1&account=1')
+  await expect(page.locator('#accountEmail')).toBeVisible()
+  await expect(page.locator('#accountTurnstile')).toBeHidden()
+  await expect(page.locator('#accountTurnstileStatus')).toBeHidden()
+  await expect(page.locator('#accountTurnstileStatus')).toBeEmpty()
+  await expect(page.locator('#accountEmailBtn')).toBeEnabled()
+  await page.locator('#accountEmail').fill('not-an-email')
+  await page.locator('#accountEmailBtn').click()
+  expect(requests).toHaveLength(0)
+  await page.locator('#accountEmail').fill('learner@example.com')
+  await page.locator('#accountEmailBtn').click()
+  await expect.poll(() => requests.length).toBe(1)
+  expect(requests[0].gotrue_meta_security?.captcha_token).toBeUndefined()
+  await expect(page.locator('#accountEmailCode')).toBeVisible()
+  await expect(page.locator('#accountTurnstileStatus')).toBeHidden()
+  await expect(page.locator('#accountTurnstileStatus')).toBeEmpty()
+})
+
+test('configured Turnstile script without an API stays visible and blocks tokenless settings requests', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig.replace("youtubeApiKey: '',", "youtubeApiKey: '', turnstileSiteKey: 'synthetic-site-key',"),
+    contentType: 'text/javascript'
+  }))
+  await page.route('https://challenges.cloudflare.com/**', route => route.fulfill({
+    body: '// Synthetic loaded script with unavailable Turnstile API.',
+    contentType: 'text/javascript'
+  }))
+  const requests = []
+  await page.route('https://account-ui-test.supabase.co/auth/v1/otp', route => {
+    requests.push(route.request().postDataJSON())
+    return route.fulfill({ json: {} })
+  })
+  await page.goto('/?internal_test=1')
+  await seedReadyState(page, 'en')
+  await page.goto('/?internal_test=1&account=1')
+  await expect(page.locator('#accountTurnstileStatus')).toBeVisible()
+  await expect(page.locator('#accountTurnstileStatus')).toHaveAttribute('data-turnstile-tone', 'error')
+  await expect(page.locator('#accountEmailBtn')).toBeDisabled()
+  await page.locator('#accountEmail').fill('learner@example.com')
+  // Exercise the submit handler even if a caller bypasses the disabled button.
+  await page.locator('#accountEmail').locator('..').evaluate(form => {
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  })
+  await expect(page.locator('#accountFeedback')).toBeVisible()
+  expect(requests).toHaveLength(0)
+  await expect(page.locator('#accountEmailBtn')).toBeDisabled()
+})

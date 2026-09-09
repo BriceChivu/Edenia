@@ -5908,19 +5908,22 @@ function getTurnstileStatusView(status) {
 
 function synchronizeTurnstileControls(root = document) {
   if (typeof root?.querySelectorAll !== 'function') return false
-  for (const element of root.querySelectorAll('[data-turnstile-widget]')) {
-    const form = element.closest?.('form')
-    const status = turnstileWidgetStatuses.get(element) || 'pending'
-    const statusView = getTurnstileStatusView(status)
-    const statusElement = form?.querySelector('[data-turnstile-status]')
+  for (const statusElement of root.querySelectorAll('[data-turnstile-status]')) {
+    const form = statusElement.closest?.('form')
+    const element = form?.querySelector('[data-turnstile-widget]')
+    element?.classList.toggle('hidden', !TURNSTILE_READY)
+    const status = turnstileController && element
+      ? turnstileWidgetStatuses.get(element) || 'pending'
+      : 'unavailable'
+    const statusView = TURNSTILE_READY ? getTurnstileStatusView(status) : null
     if (statusElement) {
       statusElement.classList.toggle('hidden', !statusView)
       statusElement.textContent = statusView ? t(statusView.key) : ''
       statusElement.dataset.turnstileTone = statusView?.tone || 'neutral'
     }
     const submit = form?.querySelector('button[type="submit"]')
-    if (submit && turnstileController) {
-      submit.disabled = status !== 'ready'
+    if (submit) {
+      submit.disabled = (TURNSTILE_READY && status !== 'ready')
         || Boolean(accountAuthViewState.busyAction)
         || accountAuthViewState.sessionState === ACCOUNT_SESSION_STATES.UNAVAILABLE
     }
@@ -5929,6 +5932,7 @@ function synchronizeTurnstileControls(root = document) {
 }
 
 function mountTurnstileWidgets(root = document) {
+  synchronizeTurnstileControls(root)
   if (
     !turnstileController
     || accountAuthViewState.sessionState !== ACCOUNT_SESSION_STATES.SIGNED_OUT
@@ -6101,7 +6105,7 @@ function renderAccountSettings(state = accountAuthViewState) {
   const emailInput = document.getElementById('accountEmail')
   if (emailInput) emailInput.disabled = authBusy || unavailable
   const turnstileElement = document.getElementById('accountTurnstile')
-  turnstileElement?.classList.toggle('hidden', !turnstileController)
+  turnstileElement?.classList.toggle('hidden', !TURNSTILE_READY)
   const emailButton = document.getElementById('accountEmailBtn')
   if (emailButton) {
     emailButton.disabled = authBusy || unavailable
@@ -6456,8 +6460,9 @@ async function requestAccountEmailCode(email, form = null) {
   if (!accountAuthController) return false
   const turnstileElement = form?.querySelector?.('[data-turnstile-widget]')
     || null
-  const captchaToken = turnstileController?.consumeToken(turnstileElement)
-    || ''
+  const captchaToken = TURNSTILE_READY
+    ? turnstileController?.consumeToken(turnstileElement) || ''
+    : ''
   try {
     return await accountAuthController.requestEmailCode(email, {
       captchaRequired: TURNSTILE_READY,
