@@ -25,6 +25,7 @@ export async function createNativeOpeningAuthenticationProxy({ applicationOrigin
   if (!localTestUpstreams && (!/^[a-f0-9]{64}$/u.test(expectedRuntimeHash || '')
     || !/^[a-f0-9]{12}$/u.test(assetIdentity?.version || '') || !/^[a-f0-9]{64}$/u.test(assetIdentity?.sha256 || '')))
     throw new Error('Native authentication requires deployment identity')
+  const applicationAuthority = new URL(applicationOrigin).hostname + ':443'
   const authorities = new Map(), sockets = new Set(), upstreams = new Set()
   const stats = { forwarded: 0, denied: 0, ownerVerified: false, sealed: false, localOnly: Boolean(localTestUpstreams), diagnostic: sanitizeNativeAuthenticationDiagnostic() }
   let pending = Promise.resolve(), stopped = false, sessionDelivered = false
@@ -33,7 +34,12 @@ export async function createNativeOpeningAuthenticationProxy({ applicationOrigin
   let reportedDiagnostic = null
   const report = update => {
     stats.diagnostic = sanitizeNativeAuthenticationDiagnostic({ ...stats.diagnostic, ...update,
-      connectionFailure: stats.diagnostic.connectionFailure || update?.connectionFailure })
+      connectionFailure: stats.diagnostic.connectionFailure || update?.connectionFailure,
+      applicationTransport: {
+        connectAccepted: stats.diagnostic.applicationTransport.connectAccepted || update?.applicationTransport?.connectAccepted,
+        tlsEstablished: stats.diagnostic.applicationTransport.tlsEstablished || update?.applicationTransport?.tlsEstablished,
+        connectionFailure: stats.diagnostic.applicationTransport.connectionFailure || update?.applicationTransport?.connectionFailure
+      } })
     const serialized = JSON.stringify(stats.diagnostic)
     if (serialized === reportedDiagnostic) return
     reportedDiagnostic = serialized
@@ -172,8 +178,20 @@ export async function createNativeOpeningAuthenticationProxy({ applicationOrigin
       }).catch(() => seal('request-processing'))
     })
     secure.requestTimeout = 5000; secure.headersTimeout = 5000
-    secure.on('secureConnection', track); secure.on('tlsClientError', () => report({ connectionFailure: 'client-tls' }))
-    secure.on('clientError', (_error, socket) => { report({ connectionFailure: 'client-http' }); socket.destroy() })
+    const established = new WeakSet()
+    const reportConnection = (connectionFailure, applicationFailure = connectionFailure) => report({ connectionFailure,
+      ...(origin === applicationOrigin && applicationFailure ? { applicationTransport: { connectionFailure: applicationFailure } } : {}) })
+    secure.on('secureConnection', socket => {
+      track(socket); established.add(socket)
+      if (origin === applicationOrigin) report({ applicationTransport: { tlsEstablished: true } })
+    })
+    secure.on('tlsClientError', () => reportConnection('client-tls'))
+    secure.on('clientError', (_error, socket) => {
+      // HTTPS also emits clientError for a failed TLS handshake. Let the
+      // tlsClientError event classify that stage rather than calling it HTTP.
+      reportConnection('client-http', established.has(socket) ? 'client-http' : null)
+      socket.destroy()
+    })
     secure.on('upgrade', (_req, socket) => { stats.denied++; socket.destroy() })
     secure.on('checkContinue', (_req, res) => deny(res))
     authorities.set(hostname + ':443', secure)
@@ -185,7 +203,13 @@ export async function createNativeOpeningAuthenticationProxy({ applicationOrigin
   server.on('connect', (req, socket, head) => {
     const secure = authorities.get(req.url)
     if (stopped || !secure || req.headers.host !== req.url || head.length || req.headers['transfer-encoding']
-      || req.headers['content-length'] || req.headers.upgrade) { stats.denied++; report({ connectionFailure: 'connect-rejected' }); socket.destroy(); return }
+      || req.headers['content-length'] || req.headers.upgrade) {
+      stats.denied++; report({ connectionFailure: 'connect-rejected',
+        ...(req.url === applicationAuthority ? { applicationTransport: { connectionFailure: 'connect-rejected' } } : {}) })
+      socket.destroy(); return
+    }
+    if (req.url === applicationAuthority) report({ applicationTransport: { connectAccepted: true } })
+    if (stopped) { socket.destroy(); return }
     socket.write('HTTP/1.1 200 Connection Established\r\n\r\n'); secure.emit('connection', socket)
   })
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(listenPort, '127.0.0.1', resolve) })

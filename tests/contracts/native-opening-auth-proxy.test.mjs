@@ -192,3 +192,48 @@ test('repeated rejected connections cannot produce unbounded progress records', 
   assert.equal(updates[0].connectionFailure, 'connect-rejected')
   assert.equal(f.observed.length, 0)
 })
+
+
+test('background CONNECT rejection cannot mask application TLS failure', async t => {
+  const updates = []
+  const f = await fixture(t, { onProgress: value => updates.push(value) })
+  assert.equal(await f.send({ connectHost: 'background.invalid:443' }), 'closed')
+  assert.equal(await f.send({ origin: applicationOrigin, sni: 'wrong-sni.invalid' }), 'closed')
+  // TLS server notification may follow the client's local close notification.
+  for (let attempt = 0; attempt < 50 && !f.proxy.stats.diagnostic.applicationTransport?.connectionFailure; attempt++) {
+    await new Promise(resolve => setTimeout(resolve, 10))
+  }
+  assert.equal(f.proxy.stats.diagnostic.connectionFailure, 'connect-rejected')
+  assert.deepEqual(f.proxy.stats.diagnostic.applicationTransport, {
+    connectAccepted: true, tlsEstablished: false, connectionFailure: 'client-tls'
+  })
+  assert.equal(updates.some(value => value.applicationTransport?.connectionFailure === 'client-tls'), true)
+  const boundedUpdates = updates.length
+  for (let attempt = 0; attempt < 3; attempt++) await f.send({ origin: applicationOrigin, sni: 'wrong-sni.invalid' })
+  assert.equal(updates.length, boundedUpdates)
+  assert.equal(f.observed.length, 0)
+  assert.equal(f.proxy.stats.diagnostic.documentDelivered, false)
+})
+
+test('provider TLS failure is separate from successful application transport', async t => {
+  const f = await fixture(t, { onRequest: async (_req, res) => {
+    res.setHeader('content-type', 'text/html'); res.end('<title>Local fixture</title>')
+  } })
+  await f.send({ sni: 'wrong-sni.invalid' })
+  assert.match(await f.send({ origin: applicationOrigin, path: '/?internal_test=1', method: 'GET', destination: 'document', body: '' }), /200 OK/)
+  assert.deepEqual(f.proxy.stats.diagnostic.applicationTransport, {
+    connectAccepted: true, tlsEstablished: true, connectionFailure: null
+  })
+  assert.equal(f.proxy.stats.diagnostic.documentDelivered, true)
+})
+
+
+test('application HTTP parser failure is recorded only after its TLS handshake', async t => {
+  const f = await fixture(t)
+  assert.equal(await f.send({ origin: applicationOrigin,
+    raw: 'GET /?internal_test=1 HTTP/1.1\r\nHost: app.example.invalid\r\nContent-Length: 0\r\nContent-Length: 1\r\n\r\nx' }), 'closed')
+  assert.deepEqual(f.proxy.stats.diagnostic.applicationTransport, {
+    connectAccepted: true, tlsEstablished: true, connectionFailure: 'client-http'
+  })
+  assert.equal(f.observed.length, 0)
+})

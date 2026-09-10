@@ -46,7 +46,12 @@ export async function prepareNativeOpeningAuthentication({ applicationOrigin = '
       diagnostic = { browserStarted: diagnostic.browserStarted || next.browserStarted,
         documentDelivered: diagnostic.documentDelivered || next.documentDelivered,
         failure: diagnostic.failure || next.failure,
-        connectionFailure: diagnostic.connectionFailure || next.connectionFailure }
+        connectionFailure: diagnostic.connectionFailure || next.connectionFailure,
+        applicationTransport: {
+          connectAccepted: diagnostic.applicationTransport.connectAccepted || next.applicationTransport.connectAccepted,
+          tlsEstablished: diagnostic.applicationTransport.tlsEstablished || next.applicationTransport.tlsEstablished,
+          connectionFailure: diagnostic.applicationTransport.connectionFailure || next.applicationTransport.connectionFailure
+        } }
     }
     const clearTimers = () => { clearTimeout(timer); clearTimeout(escalation) }
     const fail = () => { if (!complete) { complete = true; clearTimers(); reject(Object.assign(new Error('Native authentication incomplete; inspect sanitized containment result'), { nativeDiagnostic: diagnostic })) } }

@@ -247,11 +247,11 @@ test('native failure receipt retains sanitized transport evidence and still cont
   f.dependencies.authenticateNative = async args => {
     assert.equal(args.onReady, undefined)
     args.onProgress({ browserStarted: true, documentDelivered: false, url: 'SECRET' })
-    throw Object.assign(new Error('SECRET'), { nativeDiagnostic: { browserStarted: true, documentDelivered: false, failure: 'upstream-reset', body: 'SECRET' } })
+    throw Object.assign(new Error('SECRET'), { nativeDiagnostic: { browserStarted: true, documentDelivered: false, failure: 'upstream-reset', body: 'SECRET', applicationTransport: { connectAccepted: true, tlsEstablished: false, connectionFailure: 'client-tls', body: 'SECRET' } } })
   }
   const result = await executeOpeningWorkflow(f.input, f.dependencies)
   assert.equal(result.complete, false)
-  assert.deepEqual(result.authenticationSetup.diagnostic, { browserStarted: true, documentDelivered: false, failure: 'upstream-reset', connectionFailure: null })
+  assert.deepEqual(result.authenticationSetup.diagnostic, { browserStarted: true, documentDelivered: false, failure: 'upstream-reset', connectionFailure: null, applicationTransport: { connectAccepted: true, tlsEstablished: false, connectionFailure: 'client-tls' } })
   assert.equal(JSON.stringify(result).includes('SECRET'), false)
   assert.equal(f.inspect().enabled, 0)
   assert.equal(f.inspect().calls, 0)
@@ -267,6 +267,6 @@ test('later case failure does not mislabel completed native authentication', asy
   f.dependencies.runCase = async () => { throw new Error('Later case failed') }
   const result = await executeOpeningWorkflow(f.input, f.dependencies)
   assert.equal(result.complete, false)
-  assert.deepEqual(result.authenticationSetup.diagnostic, { browserStarted: true, documentDelivered: true, failure: null, connectionFailure: null })
+  assert.deepEqual(result.authenticationSetup.diagnostic, { browserStarted: true, documentDelivered: true, failure: null, connectionFailure: null, applicationTransport: { connectAccepted: false, tlsEstablished: false, connectionFailure: null } })
   assert.equal(f.inspect().gate, 'off')
 })
