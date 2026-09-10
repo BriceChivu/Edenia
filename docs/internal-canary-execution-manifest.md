@@ -235,9 +235,14 @@ accepted-client list, original ignored local runtime, then recoverably delete on
 the dedicated client and verify the original production configuration. Keep prior
 failures and rollback receipts separate from current successful observations.
 
-Finish with private invariant checks, gate-off/owner-absent/monitor-disabled proof,
+Finish each manual scenario with private invariant checks,
+gate-off/owner-absent/monitor-disabled proof,
 closed disposable contexts, stopped temporary servers, settled watchdog, no
-pending operations, released lease, and paused manual-step heartbeat. Independent
+pending operations, released scenario lease, and paused manual-step heartbeat.
+This is pre-closure scenario cleanup. For final ticket closure, reacquire the
+coordinator lease and use the original v4 closure ordering: retain closure-only
+coordination through the completion receipt and issue closure, then release the
+lease, cancel the heartbeat, and publish the final closure receipt. Independent
 Standards and Spec review must audit every amended criterion before explicit
 closure. Mark the unused production-client configuration branch N/A with its
 rationale. Preserve the exact live-tested deployment identity when delivering a
