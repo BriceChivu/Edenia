@@ -237,6 +237,45 @@ async function seedOwnedLearnerProfile(page) {
   return storedState
 }
 
+test('authenticated gate-off account can sign out from the locked authentication panel', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let lifecycleEnabled = false
+  let logoutCount = 0
+  const profileWrites = []
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({ accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off', lifecycle: lifecycleEnabled }),
+    contentType: 'text/javascript', status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/logout')) logoutCount += 1
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      return route.fulfill({ json: [{ status: 'access_disabled' }], status: 200 })
+    }
+    if (pathname.includes('/rpc/')) profileWrites.push(pathname)
+    return route.fulfill({ json: {}, status: 200 })
+  })
+  await page.goto('/?internal_test=1')
+  const storedState = await seedOwnedLearnerProfile(page)
+  lifecycleEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expectNeutralProfileGate(page, 'locked', storedState)
+  await page.locator('#learnerProfileAccessOpenSignIn').click()
+  const panel = page.locator('#learnerProfileAccessAuthentication')
+  await expect(panel.locator('#accountSignOutBtn')).toBeVisible()
+  await expect(page.locator('#accountSignOutEverywhereBtn')).toBeHidden()
+  await panel.getByRole('button', { name: 'Back to locked message' }).click()
+  await expect(page.locator('#accountSignedIn #accountSignOutBtn')).toHaveCount(1)
+  await page.locator('#learnerProfileAccessOpenSignIn').click()
+  await expect(panel.locator('#accountSignOutBtn')).toBeVisible()
+  await panel.locator('#accountSignOutBtn').click()
+  await expect.poll(() => logoutCount).toBe(1)
+  await expect.poll(() => page.evaluate(key => localStorage.getItem(key), AUTH_STORAGE_KEY)).toBeNull()
+  expect(await page.evaluate(key => localStorage.getItem(key), STATE_STORAGE_KEY)).toBe(storedState)
+  await expect(page.locator('#mainApp')).toBeHidden()
+  expect(profileWrites).toEqual([])
+})
+
 test('a revoked activation fences an in-flight feed refresh completion', async ({
   page
 }, testInfo) => {

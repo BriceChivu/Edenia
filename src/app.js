@@ -6090,6 +6090,7 @@ function renderAccountSettings(state = accountAuthViewState) {
     loading || signedIn
   )
   document.getElementById('accountSignedIn')?.classList.toggle('hidden', !signedIn)
+  document.getElementById('accountSignOutBtn')?.classList.toggle('hidden', !signedIn)
 
   const email = document.getElementById('accountUserEmail')
   if (email) email.textContent = state?.email || ''
@@ -6780,6 +6781,7 @@ function getLearnerProfileAuthenticationControls() {
     feedback: document.getElementById('accountFeedback'),
     loading: document.getElementById('accountLoading'),
     signedIn: document.getElementById('accountSignedIn'),
+    signOut: document.getElementById('accountSignOutBtn'),
     signedOut: document.getElementById('accountSignedOut')
   }
   return Object.values(controls).every(Boolean) ? controls : null
@@ -6788,7 +6790,7 @@ function getLearnerProfileAuthenticationControls() {
 function moveLearnerProfileAuthenticationControls(destination) {
   const controls = getLearnerProfileAuthenticationControls()
   if (!destination || !controls) return false
-  destination.append(controls.loading, controls.signedOut, controls.feedback)
+  destination.append(controls.loading, controls.signedOut, controls.signOut, controls.feedback)
   return true
 }
 
@@ -6798,6 +6800,7 @@ function restoreLearnerProfileAuthenticationControls() {
   if (!accountContent || !controls) return false
   accountContent.prepend(controls.loading)
   controls.signedIn.before(controls.signedOut)
+  controls.signedIn.insertBefore(controls.signOut, document.getElementById('accountSignOutEverywhereBtn'))
   accountContent.append(controls.feedback)
   return true
 }
