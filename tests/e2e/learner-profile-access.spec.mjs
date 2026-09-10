@@ -276,6 +276,67 @@ test('authenticated gate-off account can sign out from the locked authentication
   expect(profileWrites).toEqual([])
 })
 
+test('fresh onboarding draft stays visible immediately after gate-off Google signout', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  let logoutCount = 0
+  const profileWrites = []
+  await page.addInitScript(() => {
+    let configuration
+    window.google = { accounts: { id: {
+      initialize(value) { configuration = value },
+      renderButton(element) {
+        const button = document.createElement('button')
+        button.type = 'button'
+        button.textContent = 'Continue with Google'
+        button.addEventListener('click', () => configuration.callback({
+          credential: 'mock-google-id-token'
+        }))
+        element.replaceChildren(button)
+      }
+    } } }
+  })
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({ accountFeaturesRollout: 'internal', lifecycle: true,
+      googleIdentityClientId: '1234567890-test.apps.googleusercontent.com' }),
+    contentType: 'text/javascript', status: 200
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => {
+    const pathname = new URL(route.request().url()).pathname
+    if (pathname.endsWith('/token')) {
+      return route.fulfill({ json: restoredSession(OWNER_ID), status: 200 })
+    }
+    if (pathname.endsWith('/logout')) logoutCount += 1
+    if (pathname.endsWith('/rpc/resolve_my_learner_profile')) {
+      return route.fulfill({ json: [{ status: 'access_disabled' }], status: 200 })
+    }
+    if (pathname.includes('/rpc/')) profileWrites.push(pathname)
+    return route.fulfill({ json: {}, status: 200 })
+  })
+  await page.goto('/?internal_test=1')
+  await page.getByRole('button', { name: 'Skip intro' }).click()
+  await page.locator('[data-language-id="other"]').click()
+  await page.locator('[data-personalized-onboarding-action="continue-language"]').click()
+  await page.locator('[data-personalized-onboarding-step="account"]').click()
+  const onboarding = page.locator('#onboardingPanel')
+  const draft = await page.evaluate(key => localStorage.getItem(key), ONBOARDING_DRAFT_STORAGE_KEY)
+  expect(draft).not.toBeNull()
+  await onboarding.getByRole('button', { name: 'Continue with Google' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-learner-profile-access-state', 'locked')
+  await page.locator('#learnerProfileAccessOpenSignIn').click()
+  await page.locator('#learnerProfileAccessAuthentication #accountSignOutBtn').click()
+  await expect.poll(() => logoutCount).toBe(1)
+  await expect.poll(() => page.evaluate(key => localStorage.getItem(key), AUTH_STORAGE_KEY)).toBeNull()
+  await expect(onboarding).toBeVisible()
+  await expect(onboarding.getByRole('button', { name: 'Continue with Google' })).toBeVisible()
+  expect(await page.evaluate(key => localStorage.getItem(key), ONBOARDING_DRAFT_STORAGE_KEY)).toBe(draft)
+  expect(await page.evaluate(key => localStorage.getItem(key), STATE_STORAGE_KEY)).toBeNull()
+  await expect(page.locator('#mainApp')).toBeHidden()
+  expect(profileWrites).toEqual([])
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expect(onboarding.getByRole('button', { name: 'Continue with Google' })).toBeVisible()
+  expect(await page.evaluate(key => localStorage.getItem(key), ONBOARDING_DRAFT_STORAGE_KEY)).toBe(draft)
+})
+
 test('a revoked activation fences an in-flight feed refresh completion', async ({
   page
 }, testInfo) => {

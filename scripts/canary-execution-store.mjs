@@ -57,6 +57,11 @@ export class CanaryExecutionStore {
         issue INTEGER PRIMARY KEY, parent_phase TEXT NOT NULL,
         suspended_evidence TEXT NOT NULL, closure_evidence TEXT, state TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS repair_history (
+        sequence INTEGER PRIMARY KEY, issue INTEGER NOT NULL,
+        parent_phase TEXT NOT NULL, suspended_evidence TEXT NOT NULL,
+        closure_evidence TEXT NOT NULL, state TEXT NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS executors (owner TEXT PRIMARY KEY);
       CREATE TABLE IF NOT EXISTS phase_receipts (
         sequence INTEGER PRIMARY KEY, phase TEXT NOT NULL,
@@ -145,7 +150,8 @@ export class CanaryExecutionStore {
       metadata: row ? JSON.parse(row.metadata) : null,
       execution: this.state(),
       watchdog: this.db.prepare('SELECT * FROM watchdog').get() ?? null,
-      repairs: this.db.prepare('SELECT * FROM repairs ORDER BY issue').all()
+      repairs: this.db.prepare('SELECT * FROM repairs ORDER BY issue').all(),
+      repairHistory: this.db.prepare('SELECT * FROM repair_history ORDER BY sequence').all()
     }
   }
 
@@ -171,6 +177,23 @@ export class CanaryExecutionStore {
       // Always re-enter preflight: reviewed delivery and affected evidence must
       // be re-inspected even when a repair changed no source bytes.
       this.db.prepare("UPDATE execution SET phase = 'preflight', candidate = ?, gate = ? WHERE singleton = 1").run(candidate, gate)
+    })
+  }
+
+  reopenRepair(owner, now, { issue, evidenceHash }) {
+    requireCondition(Number.isSafeInteger(issue) && issue > 0 && HASH.test(evidenceHash), 'Repair identity and safe-state evidence are required')
+    return this.transaction(() => {
+      const state = this.requireLease(owner, now)
+      this.requireContainmentSettled()
+      requireCondition(state.gate === 'off' && state.pending.length === 0 && !['closed', 'repairing-derived'].includes(state.phase), 'Repair requires settled safe parent state')
+      const previous = this.db.prepare('SELECT * FROM repairs WHERE issue = ?').get(issue)
+      requireCondition(previous?.state === 'closed' && HASH.test(previous.closure_evidence), 'A verified closed repair is required')
+      this.db.prepare(`INSERT INTO repair_history
+        (issue, parent_phase, suspended_evidence, closure_evidence, state)
+        SELECT issue, parent_phase, suspended_evidence, closure_evidence, state
+        FROM repairs WHERE issue = ?`).run(issue)
+      this.db.prepare("UPDATE repairs SET parent_phase = ?, suspended_evidence = ?, closure_evidence = NULL, state = 'open' WHERE issue = ?").run(state.phase, evidenceHash, issue)
+      this.db.prepare("UPDATE execution SET phase = 'repairing-derived' WHERE singleton = 1").run()
     })
   }
 
