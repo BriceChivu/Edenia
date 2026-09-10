@@ -278,6 +278,7 @@ test('authenticated gate-off account can sign out from the locked authentication
 
 test('fresh onboarding draft stays visible immediately after gate-off Google signout', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
+  await useAccountReturnOrigin(page)
   let logoutCount = 0
   const profileWrites = []
   await page.addInitScript(() => {
@@ -312,7 +313,7 @@ test('fresh onboarding draft stays visible immediately after gate-off Google sig
     if (pathname.includes('/rpc/')) profileWrites.push(pathname)
     return route.fulfill({ json: {}, status: 200 })
   })
-  await page.goto('/?internal_test=1')
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
   await page.getByRole('button', { name: 'Skip intro' }).click()
   await page.locator('[data-language-id="other"]').click()
   await page.locator('[data-personalized-onboarding-action="continue-language"]').click()
