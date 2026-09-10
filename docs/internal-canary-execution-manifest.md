@@ -77,7 +77,8 @@ Missing source evidence fails the row. Do not close the issue before that review
    revision, retained versions and protected-state fingerprints. Record booleans
    only. For accepted mutation/recovery compare the declared revision/generation
    change, exact logical profile facts and preserved prior versions separately.
-6. Register the exact provider method/URL and operation budget before each action.
+6. Register the exact provider method/URL and operation budget before each action,
+   except for the explicitly approved Packet 2 owner-operated procedure below.
    Profile RPCs use the privately verified project's `/rest/v1/rpc/<name>` endpoint.
    Validate owner-derived target, generation, accepted revision and operation ID
    in the body before forwarding. No arbitrary host, extra query or batch is
@@ -199,6 +200,55 @@ COOP behavior using current official GIS documentation. Two successful Auth
 exchanges, two sign-outs, zero learner-profile mutations; provider-negative port
 has zero accepted Auth exchange. The preflight source and provider snapshots,
 not invented example values, determine the exact rollback delta.
+
+### Packet 2 owner-operated exception approved for #291
+
+The owner-approved amendment in [#291](https://github.com/BriceChivu/Edenia/issues/291)
+applies only to its existing v4 invocation started on 2026-09-09. It supersedes
+machine-enforced provider request budgets and exact Auth-exchange counts above
+for the named manual Google/Supabase saves and Google sign-in/sign-out checks.
+Other packets and all learner-profile write restrictions retain their original
+rules. This exception does not authorize profile opening or onboarding completion.
+
+For each named manual step, record a durable intent, one deliberate owner action,
+a five-minute window, a fresh private invariant check, and an independent watchdog.
+Keep profile access off, the canary owner absent, and the monitor disabled. Use
+fresh isolated native Chrome contexts without debugging, imported sessions,
+proxies, certificate changes, automated authentication, or challenge bypass.
+Sign-in and sign-out require separate intents and observed outcomes. Settle the
+watchdog and reconcile the actual outcome before releasing the lease or starting
+the next step; expiry alone proves no outcome.
+
+Accept the two flows through observed intended-account authentication and
+subsequent session removal, immediate signed-out UI, and unchanged private profile
+fingerprints. Record popup/FedCM behavior only where actually observed. For the
+unapproved port, require Google's visible official origin rejection; an
+application error alone is insufficient. Record raw HTTP request counts and
+accepted-exchange counts as **unverified** unless independent authoritative evidence
+establishes them. Zero remaining sessions does not establish zero exchanges.
+
+Read back the exact provider delta: dedicated localhost origins and no redirects,
+unchanged production origins, production-first accepted audiences, preserved nonce
+and email policies, and unchanged primary-client/secret placement. Retrieve no
+secret. Compare local and hosted client selection. On failure restore the original
+accepted-client list, original ignored local runtime, then recoverably delete only
+the dedicated client and verify the original production configuration. Keep prior
+failures and rollback receipts separate from current successful observations.
+
+Finish each manual scenario with private invariant checks,
+gate-off/owner-absent/monitor-disabled proof,
+closed disposable contexts, stopped temporary servers, settled watchdog, no
+pending operations, released scenario lease, and paused manual-step heartbeat.
+This is pre-closure scenario cleanup. For final ticket closure, reacquire the
+coordinator lease and use the original v4 closure ordering: retain closure-only
+coordination through the completion receipt and issue closure, then release the
+lease, cancel the heartbeat, and publish the final closure receipt. Independent
+Standards and Spec review must audit every amended criterion before explicit
+closure. Mark the unused production-client configuration branch N/A with its
+rationale. Preserve the exact live-tested deployment identity when delivering a
+documentation-only follow-up; compare source/runtime before carrying evidence
+forward and do not claim new browser observations. No #196, #286, or #315
+acceptance is implied.
 
 ## Owner-bound head fixture
 
