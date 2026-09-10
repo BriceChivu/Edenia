@@ -15,7 +15,15 @@ export function sanitizeNativeAuthenticationDiagnostic(value) {
     browserStarted: value?.browserStarted === true,
     documentDelivered: value?.documentDelivered === true,
     failure: value?.failure == null ? null : failures.has(value.failure) ? value.failure : 'unknown',
-    connectionFailure: connections.has(value?.connectionFailure) ? value.connectionFailure : null
+    connectionFailure: connections.has(value?.connectionFailure) ? value.connectionFailure : null,
+    // Aggregate observations for the application tunnel, not attribution to a
+    // particular document or proof that the page rendered.
+    applicationTransport: {
+      connectAccepted: value?.applicationTransport?.connectAccepted === true,
+      tlsEstablished: value?.applicationTransport?.tlsEstablished === true,
+      connectionFailure: connections.has(value?.applicationTransport?.connectionFailure)
+        ? value.applicationTransport.connectionFailure : null
+    }
   }
 }
 export function nativeUpstreamFailure(error) {

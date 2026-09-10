@@ -104,13 +104,24 @@ test('wrapper retains only bounded diagnostic fields from private IPC on failure
   const f = await fixture(t), updates = []
   const result = prepareNativeOpeningAuthentication({ ...f.options, verifyPreparation: async () => true, onProgress: value => updates.push(value) }, f.dependencies)
   const rejected = assert.rejects(result, error => {
-    assert.deepEqual(error.nativeDiagnostic, { browserStarted: true, documentDelivered: false, failure: 'upstream-reset', connectionFailure: null })
+    assert.deepEqual(error.nativeDiagnostic, { browserStarted: true, documentDelivered: false, failure: 'upstream-reset', connectionFailure: null,
+      applicationTransport: { connectAccepted: true, tlsEstablished: false, connectionFailure: 'client-tls' } })
     return true
   })
   await f.ready
-  f.worker.emit('message', { type: 'progress', diagnostic: { browserStarted: true, failure: 'upstream-reset', url: 'SECRET', body: 'SECRET' } })
+  f.worker.emit('message', { type: 'progress', diagnostic: { browserStarted: true, failure: 'upstream-reset', url: 'SECRET', body: 'SECRET', applicationTransport: { connectAccepted: true, tlsEstablished: 'SECRET', connectionFailure: 'client-tls', url: 'SECRET' } } })
   f.worker.emit('message', { type: 'finished', complete: false, cleanupVerified: true, diagnostic: { failure: 'SECRET' } })
   f.worker.emit('exit', 0)
   await rejected
   assert.equal(JSON.stringify(updates).includes('SECRET'), false)
+})
+
+
+test('application transport sanitizer rejects arbitrary values and nested private fields', async () => {
+  const { sanitizeNativeAuthenticationDiagnostic } = await import('../../scripts/native-opening-auth-diagnostics.mjs')
+  const diagnostic = sanitizeNativeAuthenticationDiagnostic({ applicationTransport: {
+    connectAccepted: 'SECRET', tlsEstablished: 1, connectionFailure: 'SECRET', headers: { authorization: 'SECRET' }
+  } })
+  assert.deepEqual(diagnostic.applicationTransport, { connectAccepted: false, tlsEstablished: false, connectionFailure: null })
+  assert.equal(JSON.stringify(diagnostic).includes('SECRET'), false)
 })
