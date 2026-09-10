@@ -56,6 +56,11 @@ safe-state evidence hash. The parent cannot dispatch while suspended. The derive
 repair uses the same coordination store and cannot create a second live executor.
 `resumeAfterRepair` requires the verified closure receipt and new candidate,
 then always returns the parent to preflight for deployment/rerun inspection.
+If that same repair fails a later check, `reopenRepair` requires a settled,
+gate-off parent and the existing verified closure. It archives the prior repair
+record in the checkpoint's `repairHistory`, replaces the current suspension
+evidence, and fences the parent again. Repeated cycles retain every prior
+closure; a reopened repair still resumes only through `resumeAfterRepair`.
 
 ## Operation guard
 

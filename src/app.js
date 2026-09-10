@@ -3153,6 +3153,13 @@ function handleLearnerProfileAccessStateChange(accessState) {
     document.getElementById('learnerProfileAccessGate')?.classList.add('hidden')
     learnerProfileAccessView.hideOpeningNotice()
     applyLocale(publicOnboardingState.config.locale)
+    // A locked outcome parks and hides onboarding without discarding its draft
+    // or active step. Restore that presentation when public onboarding resumes.
+    if (introTrailerState.active) {
+      document.getElementById('introTrailer')?.classList.remove('hidden')
+    } else if (personalizedOnboardingState.active) {
+      document.getElementById('onboardingPanel')?.classList.remove('hidden')
+    }
     if (
       [
         LEARNER_PROFILE_ACCESS_STATES.ONBOARDING_REQUIRED,
