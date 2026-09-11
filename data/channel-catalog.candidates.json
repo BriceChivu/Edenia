@@ -180,6 +180,33 @@
       "searchText": "french with felix frenchwithfelix"
     },
     {
+      "catalogId": "community-UC_QFBm2uiTOwTwxRJLUjfZQ",
+      "channelId": "UC_QFBm2uiTOwTwxRJLUjfZQ",
+      "handle": "@gaspardfrancais",
+      "name": "gas",
+      "thumbnailUrl": "https://yt3.ggpht.com/VzYwSPT9nEk7qMZdPqWf03omYurAIerDnm4mHRRgusM18S9oS_4HOa1uTbsz000qHa68FEr2=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [
+        "intermediate"
+      ],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2022-02-13T22:49:22.316325Z",
+      "metadataRefreshedAt": "2026-09-11T07:29:04.110Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-09-10T08:57:33.225Z",
+      "lastSeenAt": "2026-09-10T08:57:33.225Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "gas gaspardfrancais intermediate"
+    },
+    {
       "catalogId": "community-UC1zTj3xDI7gFJQ0wRPcDyQg",
       "channelId": "UC1zTj3xDI7gFJQ0wRPcDyQg",
       "handle": "@geoguessr",
@@ -355,6 +382,31 @@
       ],
       "reviewReasons": [],
       "searchText": "learnwithca learnwithca205"
+    },
+    {
+      "catalogId": "community-UCoT2EhKDzP6kjTdIMD1vInw",
+      "channelId": "UCoT2EhKDzP6kjTdIMD1vInw",
+      "handle": "@linguriosa",
+      "name": "Linguriosa",
+      "thumbnailUrl": "https://yt3.ggpht.com/NgumTy7L_gBrLECtbVOq2oeX7H5LNJp0BMlMOV_kGlVXG50Aw7Oifu4DYO-PlAe8GWHMqGbYtA=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2019-09-08T20:48:36Z",
+      "metadataRefreshedAt": "2026-09-11T07:29:04.110Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-09-10T10:28:24.375Z",
+      "lastSeenAt": "2026-09-10T10:28:24.375Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "linguriosa linguriosa"
     },
     {
       "catalogId": "community-UCIYAzXc6_EkPU6I9qmNSD0g",
@@ -634,5 +686,5 @@
       "searchText": "雷堤娜 tyna krysjensen86"
     }
   ],
-  "generatedAt": "2026-09-07T07:33:13.070Z"
+  "generatedAt": "2026-09-11T07:29:04.110Z"
 }
