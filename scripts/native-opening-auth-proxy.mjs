@@ -2,7 +2,7 @@ import { sanitizeNativeAuthenticationDiagnostic, nativeUpstreamFailure } from '.
 import http from 'node:http'
 import https from 'node:https'
 import tls from 'node:tls'
-import { createHash } from 'node:crypto'
+import { constants, createHash } from 'node:crypto'
 import { validateNativeAuthLeaf } from './native-auth-leaf-certificate.mjs'
 import { createNativeOpeningAuthenticationPolicy } from './native-opening-auth-policy.mjs'
 
@@ -107,8 +107,12 @@ export async function createNativeOpeningAuthenticationProxy({ applicationOrigin
     const material = certificates?.[origin]
     if (!material?.cert || !material.key) throw new Error('Missing native leaf certificate')
     validateNativeAuthLeaf(material, hostname)
-    const context = tls.createSecureContext({ cert: material.cert, key: material.key })
-    const secure = https.createServer({ cert: material.cert, key: material.key, maxHeaderSize: 16384,
+    // TLS 1.2 resumption can omit socket.servername. Require a fresh handshake
+    // on reconnect so the exact SNI check below remains authoritative.
+    // Apply this to both contexts; no session-ID recovery cache is installed.
+    const secureOptions = constants.SSL_OP_NO_TICKET
+    const context = tls.createSecureContext({ cert: material.cert, key: material.key, secureOptions })
+    const secure = https.createServer({ cert: material.cert, key: material.key, secureOptions, maxHeaderSize: 16384,
       ALPNProtocols: ['http/1.1'], SNICallback: (name, callback) => name === hostname ? callback(null, context) : callback(new Error('Native SNI rejected')) }, (req, res) => {
       // Serialize policy classification and dispatch, including OTP budgets.
       // Bound idle/body time so an incomplete request cannot occupy the queue.
