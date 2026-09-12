@@ -49,15 +49,19 @@ async function fixture(t, options = {}) {
   const proxy = await createNativeOpeningAuthenticationProxy({ applicationOrigin, providerOrigin, expectedEmail: email, expectedOwner: owner,
     certificates: material, localTestUpstreams, onProgress: options.onProgress, authorize: async kind => { if (options.beforeAuthorize) await options.beforeAuthorize(kind); return allowed }, onSession: async session => sessions.push(session), deadlineMs: options.deadlineMs ?? 5000 })
   t.after(async () => { await proxy.close() })
-  const send = ({ origin = providerOrigin, path = '/auth/v1/otp', body = otp, method = 'POST', destination = 'empty', headers = {}, connectHost, sni, trust = true, raw }) => new Promise(resolve => {
+  const send = ({ origin = providerOrigin, path = '/auth/v1/otp', body = otp, method = 'POST', destination = 'empty', headers = {}, connectHost, sni, trust = true, raw,
+    tlsVersion, tlsSession, onTls, onTlsSession }) => new Promise(resolve => {
     let done = false
     const finish = value => { if (!done) { done = true; resolve(value) } }
     const hostname = new URL(origin).hostname, authority = connectHost || hostname + ':443'
     const request = http.request({ hostname: '127.0.0.1', port: proxy.port, method: 'CONNECT', path: authority, headers: { host: authority } })
     request.on('connect', (_res, socket) => {
-      const stream = tls.connect({ socket, servername: sni || hostname, ...(trust ? { ca: material[origin].cert } : {}) }, () => {
+      const stream = tls.connect({ socket, host: hostname, servername: sni === null ? undefined : sni || hostname,
+        minVersion: tlsVersion, maxVersion: tlsVersion, session: tlsSession, ...(trust ? { ca: material[origin].cert } : {}) }, () => {
+        onTls?.(stream)
         stream.write(raw || `${method} ${path} HTTP/1.1\r\nHost: ${hostname}\r\nConnection: close\r\nSec-Fetch-Dest: ${destination}\r\nApikey: synthetic-key\r\nContent-Length: ${Buffer.byteLength(body)}\r\n${Object.entries(headers).map(([k, v]) => `${k}: ${v}\r\n`).join('')}\r\n${body}`)
       })
+      if (onTlsSession) stream.on('session', onTlsSession)
       let out = ''; stream.on('data', chunk => { out += chunk }); stream.on('close', () => finish(out || 'closed')); stream.on('error', () => finish('closed'))
       stream.setTimeout(3000, () => { stream.destroy(); finish(out || 'timeout') })
     })
@@ -236,4 +240,47 @@ test('application HTTP parser failure is recorded only after its TLS handshake',
     connectAccepted: true, tlsEstablished: true, connectionFailure: 'client-http'
   })
   assert.equal(f.observed.length, 0)
+})
+
+for (const tlsVersion of ['TLSv1.2', 'TLSv1.3']) test(`allowed document reconnect completes a fresh ${tlsVersion} handshake`, async t => {
+  const html = '<!doctype html><title>Verified reconnect document</title>'
+  const f = await fixture(t, { onRequest: async (_req, res) => {
+    res.setHeader('content-type', 'text/html'); res.end(html)
+  } })
+  let tlsSession
+  const handshakes = []
+  const request = { origin: applicationOrigin, path: '/?internal_test=1', method: 'GET', destination: 'document', body: '', tlsVersion,
+    onTls: stream => {
+      handshakes.push({ authorized: stream.authorized, reused: stream.isSessionReused(), protocol: stream.getProtocol() })
+      if (tlsVersion === 'TLSv1.2') tlsSession = stream.getSession()
+    }, onTlsSession: value => { tlsSession = value } }
+  assert.match(await f.send(request), /200 OK/)
+  assert.ok(Buffer.isBuffer(tlsSession), 'retain a synthetic TLS session for the reconnect offer')
+  const reconnected = await f.send({ ...request, tlsSession })
+  assert.match(reconnected, /200 OK/)
+  assert.ok(reconnected.includes(html), 'reconnected document body is delivered')
+  assert.equal(f.observed.length, 2)
+  assert.deepEqual(handshakes, [
+    { authorized: true, reused: false, protocol: tlsVersion },
+    { authorized: true, reused: false, protocol: tlsVersion }
+  ])
+  assert.equal(f.proxy.stats.denied, 0)
+  assert.equal(f.proxy.stats.diagnostic.documentDelivered, true)
+})
+
+test('TLS reconnect cannot replace missing or wrong SNI, Host, or origin with saved state', async t => {
+  const f = await fixture(t, { onRequest: async (_req, res) => {
+    res.setHeader('content-type', 'text/html'); res.end('<title>Local document</title>')
+  } })
+  let tlsSession
+  const document = { origin: applicationOrigin, path: '/?internal_test=1', method: 'GET', destination: 'document', body: '', tlsVersion: 'TLSv1.2' }
+  assert.match(await f.send({ ...document, onTls: stream => { tlsSession = stream.getSession() } }), /200 OK/)
+  assert.ok(Buffer.isBuffer(tlsSession))
+  assert.equal(await f.send({ ...document, tlsSession, sni: 'wrong-sni.invalid' }), 'closed')
+  assert.match(await f.send({ ...document, tlsSession, sni: null }), /403 Forbidden/)
+  assert.match(await f.send({ ...document, tlsSession,
+    raw: 'GET /?internal_test=1 HTTP/1.1\r\nHost: wrong-host.invalid\r\nConnection: close\r\nSec-Fetch-Dest: document\r\n\r\n' }), /403 Forbidden/)
+  assert.match(await f.send({ ...document, tlsSession, origin: providerOrigin }), /403 Forbidden/)
+  assert.equal(f.observed.length, 1, 'only the initial allowed document reaches the upstream')
+  assert.equal(f.sessions.length, 0)
 })
