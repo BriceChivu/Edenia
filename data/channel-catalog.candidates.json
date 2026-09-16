@@ -486,6 +486,31 @@
       "searchText": "rainbolt2 rainbolt2"
     },
     {
+      "catalogId": "community-UCosbGL8QDp-4iPPswvMeDWw",
+      "channelId": "UCosbGL8QDp-4iPPswvMeDWw",
+      "handle": "@realfakepod",
+      "name": "REALFAKE",
+      "thumbnailUrl": "https://yt3.ggpht.com/M7s_IDGI7rgFPC45zh7ur36GiV5pxRwKAHLxJJcBXMdPvGuW0I5Lpj2c7xu3MMp99t_HjEaZfw=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2023-06-28T08:06:04.950233Z",
+      "metadataRefreshedAt": "2026-09-16T07:55:24.854Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-09-15T11:39:46.940Z",
+      "lastSeenAt": "2026-09-15T11:39:46.940Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "realfake realfakepod"
+    },
+    {
       "catalogId": "community-UCfq75-6J5seC82CmtLSFxXw",
       "channelId": "UCfq75-6J5seC82CmtLSFxXw",
       "handle": "@thedodomen",
@@ -499,7 +524,7 @@
       "available": true,
       "privacyStatus": "public",
       "publishedAt": "2019-12-06T05:07:19.892873Z",
-      "metadataRefreshedAt": "2026-08-17T03:33:42.076Z",
+      "metadataRefreshedAt": "2026-09-16T07:55:24.854Z",
       "addCount": 1,
       "distinctUserCount": 1,
       "firstSeenAt": "2026-08-16T16:02:58.910Z",
@@ -688,5 +713,5 @@
       "searchText": "雷堤娜 tyna krysjensen86"
     }
   ],
-  "generatedAt": "2026-09-14T08:07:07.505Z"
+  "generatedAt": "2026-09-16T07:55:24.854Z"
 }
