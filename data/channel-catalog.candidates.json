@@ -130,6 +130,31 @@
       "searchText": "crystal celadelle celadelle"
     },
     {
+      "catalogId": "community-UCcjhYlL1WRBjKaJsMH_h7Lg",
+      "channelId": "UCcjhYlL1WRBjKaJsMH_h7Lg",
+      "handle": "@epicurious",
+      "name": "Epicurious",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_lZx80-3cTYmxKt9xeXzUUkAP9RuDcDT6J0u_5RSRBYHQ=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2007-10-03T18:07:10Z",
+      "metadataRefreshedAt": "2026-09-17T07:59:16.793Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-09-16T15:13:42.649Z",
+      "lastSeenAt": "2026-09-16T15:13:42.649Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "epicurious epicurious"
+    },
+    {
       "catalogId": "community-UCjhMPI8K9D3tu_Og9I_GGOg",
       "channelId": "UCjhMPI8K9D3tu_Og9I_GGOg",
       "handle": "@extramediummedia",
@@ -382,6 +407,33 @@
       ],
       "reviewReasons": [],
       "searchText": "linguriosa linguriosa"
+    },
+    {
+      "catalogId": "community-UCc5ueW8aqO73Q6MevB8L5PA",
+      "channelId": "UCc5ueW8aqO73Q6MevB8L5PA",
+      "handle": "@mandarinblueprint",
+      "name": "Mandarin Blueprint",
+      "thumbnailUrl": "https://yt3.ggpht.com/ytc/AIdro_laOIYeB6bk6cYafFi0Yuryvh1b5ynNOVeIx_euft211f8=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [
+        "starting"
+      ],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2017-01-08T04:14:05Z",
+      "metadataRefreshedAt": "2026-09-17T07:59:16.793Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-09-17T04:52:44.955Z",
+      "lastSeenAt": "2026-09-17T04:52:44.955Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "mandarin blueprint mandarinblueprint starting"
     },
     {
       "catalogId": "community-UCIYAzXc6_EkPU6I9qmNSD0g",
@@ -713,5 +765,5 @@
       "searchText": "雷堤娜 tyna krysjensen86"
     }
   ],
-  "generatedAt": "2026-09-16T07:55:24.854Z"
+  "generatedAt": "2026-09-17T07:59:16.793Z"
 }
