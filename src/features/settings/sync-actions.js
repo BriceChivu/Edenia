@@ -33,7 +33,10 @@ export function bindSettingsSyncActions(root, actions) {
     '[data-settings-sync-action="choose-file"]'
   )
   if (importControl && input && !boundControls.has(importControl)) {
-    importControl.addEventListener('click', () => input.click())
+    importControl.addEventListener('click', () => {
+      actions.beforeChooseFile?.(input)
+      input.click()
+    })
     boundControls.add(importControl)
     installedCount += 1
   }

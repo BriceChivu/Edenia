@@ -1123,23 +1123,25 @@ export function createLearnerProfileCloudPersistenceAdapter({
     }
   }
 
-  async function readResetReceipt({ generation, ownerId, profileId } = {}) {
+  async function readResetState({ generation, ownerId, profileId } = {}) {
     if (
       !UUID_PATTERN.test(String(ownerId || ''))
       || !UUID_PATTERN.test(String(profileId || ''))
       || !normalizePositiveInteger(generation)
-    ) return null
+    ) return { status: 'invalid' }
     let response
     try {
       response = await getClient().rpc(
         'read_my_latest_learner_profile_reset'
       )
     } catch {
-      return null
+      return { status: 'unavailable' }
     }
-    if (response?.error) return null
+    if (response?.error) {
+      return { status: isTransientCloudStatus(response.status) ? 'unavailable' : 'invalid' }
+    }
     const row = readSingleRpcRow(response?.data)
-    if (row?.status === 'none') return null
+    if (row?.status === 'none') return { status: 'none' }
     const priorGeneration = normalizePositiveInteger(row?.prior_generation)
     const priorRevision = normalizePositiveInteger(row?.prior_revision)
     const resetGeneration = normalizePositiveInteger(row?.reset_generation)
@@ -1152,14 +1154,14 @@ export function createLearnerProfileCloudPersistenceAdapter({
       || priorGeneration !== generation - 1
       || !priorRevision
       || !Number.isFinite(protectedUntil)
-    ) return null
+    ) return { status: 'invalid' }
     let protectedReset = null
     if (row.status === 'available') {
       try {
         const envelope = await verifyEnvelope(row.prior_envelope)
-        if (!envelope || !isRecord(importEnvelope(envelope))) return null
+        if (!envelope || !isRecord(importEnvelope(envelope))) return { status: 'invalid' }
       } catch {
-        return null
+        return { status: 'invalid' }
       }
       if (protectedUntil > now()) {
         protectedReset = Object.freeze({
@@ -1183,8 +1185,15 @@ export function createLearnerProfileCloudPersistenceAdapter({
       protectedReset,
       protectedUntil,
       resetGeneration,
-      status: row.status
+      status: row.status === 'available' && !protectedReset ? 'expired' : row.status
     })
+  }
+
+  async function readResetReceipt(identity) {
+    const receipt = await readResetState(identity)
+    return ['available', 'expired', 'undone'].includes(receipt.status)
+      ? receipt
+      : null
   }
 
   async function readProtectedReset(identity = {}) {
@@ -2836,8 +2845,13 @@ export function createLearnerProfileCloudPersistenceAdapter({
           prepareEnvelope
         )
       ) {
-        backupRequired = true
-        profile = localProfile.profile
+        // An earlier opening may advance the sync marker without activating
+        // its result. Only the local profile's own revision proves this is an
+        // unqueued change to the current cloud head rather than an older copy.
+        if (localProfile.revision === revision) {
+          backupRequired = true
+          profile = localProfile.profile
+        }
       } else {
         profile = retainLocalFeedCache(cloudProfile, localProfile.profile)
       }
@@ -3432,6 +3446,7 @@ export function createLearnerProfileCloudPersistenceAdapter({
     importProfile,
     markDirty,
     readProtectedReset,
+    readResetState,
     readRecoveryCandidate,
     resolve,
     restoreRecoveryCandidate,

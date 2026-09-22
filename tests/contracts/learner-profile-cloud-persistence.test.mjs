@@ -165,6 +165,194 @@ function createAdapter({
   })
 }
 
+test('a superseded opening cannot turn an older local profile into a backup over a newer cloud revision', async () => {
+  const localState = emptyPortableProfile({
+    videos: { 'study-video': { id: 'study-video', favorite: true, watchLater: false, status: 'partial' } }
+  })
+  const cloudState = structuredClone(localState)
+  cloudState.videos['study-video'].watchLater = true
+  const cloudEnvelope = preparedEnvelope(cloudState)
+  const storage = createMemoryStorage({
+    [SYNC_STORAGE_KEY]: JSON.stringify({
+      acceptedRevision: 20,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: null,
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    })
+  })
+  const requests = [deferred(), deferred()]
+  let requestCount = 0
+  const adapter = createAdapter({
+    rpc: async name => {
+      assert.equal(name, 'resolve_my_learner_profile')
+      return requests[requestCount++].promise
+    },
+    storage
+  })
+  const context = {
+    authentication: { userId: OWNER_ID },
+    connectivity: { status: 'online' },
+    localProfile: {
+      generation: 1,
+      ownerId: OWNER_ID,
+      profile: localState,
+      profileId: PROFILE_ID,
+      revision: 20,
+      status: 'ready'
+    },
+    purpose: 'resolve-signed-in-profile'
+  }
+  const response = {
+    data: [{
+      created: false,
+      envelope: cloudEnvelope,
+      generation: 1,
+      profile_id: PROFILE_ID,
+      revision: 22,
+      status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+    }],
+    error: null
+  }
+
+  const supersededOpening = adapter.resolve(context)
+  const currentOpening = adapter.resolve(context)
+  await flush()
+  assert.equal(requestCount, 2)
+  requests[0].resolve(response)
+  const superseded = await supersededOpening
+  assert.equal(superseded.profile.videos['study-video'].watchLater, true)
+  // The lifecycle ignores this superseded result, so the durable local profile
+  // still represents revision 20 when the current opening finishes.
+  requests[1].resolve(response)
+  const current = await currentOpening
+
+  assert.equal(current.status, 'activate')
+  assert.equal(current.backupRequired, false, 'An older synchronized local copy must not overwrite the accepted cloud change')
+  assert.equal(current.profile.videos['study-video'].watchLater, true)
+  assert.equal(current.profile.videos['study-video'].favorite, true)
+})
+
+for (const pendingState of ['pending', 'queued', 'dirty']) {
+  test(`revision drift still preserves a real ${pendingState} local change`, async () => {
+    const localProfile = { videos: { 'study-video': { watchLater: true } } }
+    const localEnvelope = preparedEnvelope(localProfile)
+    const operationId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    const pendingProfile = pendingState === 'queued'
+      ? { videos: { 'study-video': { watchLater: false, favorite: true } } }
+      : localProfile
+    const pendingEnvelope = preparedEnvelope(pendingProfile)
+    const syncRecord = {
+      acceptedRevision: 22,
+      generation: 1,
+      ownerId: OWNER_ID,
+      pending: pendingState !== 'dirty' ? {
+        activationId: 'previous-activation',
+        baseRevision: 22,
+        envelope: null,
+        generation: 1,
+        integrity: localEnvelope.integrity,
+        nextRetryAt: 0,
+        operationId,
+        ownerId: OWNER_ID,
+        prepared: pendingEnvelope,
+        profileId: PROFILE_ID,
+        revision: 23,
+        retryCount: 0
+      } : null,
+      profileId: PROFILE_ID,
+      queued: null,
+      version: 1
+    }
+    if (pendingState === 'queued') {
+      syncRecord.queued = {
+        ...syncRecord.pending, baseRevision: 23, revision: 24,
+        operationId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+        prepared: localEnvelope
+      }
+    }
+    const storage = createMemoryStorage({
+      [SYNC_STORAGE_KEY]: JSON.stringify(syncRecord),
+      ...(pendingState === 'dirty' ? { [DIRTY_STORAGE_KEY]: JSON.stringify({
+        generation: 1, ownerId: OWNER_ID, profileId: PROFILE_ID, version: 1
+      }) } : {})
+    })
+    const adapter = createAdapter({
+      createOperationId: () => operationId,
+      rpc: async name => {
+        assert.equal(name, 'resolve_my_learner_profile')
+        return { data: [{
+          created: false,
+          envelope: preparedEnvelope({ videos: { 'study-video': { watchLater: false } } }),
+          generation: 1,
+          profile_id: PROFILE_ID,
+          revision: 22,
+          status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+        }], error: null }
+      },
+      storage
+    })
+    const result = await adapter.resolve({
+      authentication: { userId: OWNER_ID },
+      connectivity: { status: 'online' },
+      localProfile: {
+        generation: 1, ownerId: OWNER_ID, profile: localProfile,
+        profileId: PROFILE_ID, revision: 20, status: 'ready'
+      },
+      purpose: 'resolve-signed-in-profile'
+    })
+    assert.equal(result.status, 'activate')
+    assert.equal(result.profile.videos['study-video'].watchLater, true)
+    const pending = JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).pending
+    assert.equal(pending.baseRevision, 22)
+    assert.deepEqual(pending.prepared.profile, pendingProfile)
+    if (pendingState === 'queued') {
+      assert.deepEqual(pending, syncRecord.pending)
+      assert.deepEqual(JSON.parse(storage.getItem(SYNC_STORAGE_KEY)).queued, syncRecord.queued)
+    }
+    if (pendingState === 'pending') assert.equal(pending.operationId, operationId)
+    // A recovered dirty marker is removed only after its candidate is durable
+    // in the pending operation checked above.
+    if (pendingState === 'dirty') assert.equal(storage.getItem(DIRTY_STORAGE_KEY), null)
+  })
+}
+
+test('an older local binding retains feed caches only when portable content matches the cloud', async () => {
+  const localProfile = {
+    marker: 'current-portable-profile',
+    videos: { 'cached-video': { status: 'unwatched' } },
+    channelRefreshes: { 'test-channel': { lastFetchedAt: '2026-09-13T09:00:00.000Z' } }
+  }
+  const storage = createMemoryStorage({ [SYNC_STORAGE_KEY]: JSON.stringify({
+    acceptedRevision: 22, generation: 1, ownerId: OWNER_ID, pending: null,
+    profileId: PROFILE_ID, queued: null, version: 1
+  }) })
+  const adapter = createAdapter({
+    prepareEnvelope: profile => preparedEnvelope({ marker: profile.marker }),
+    rpc: async name => {
+      assert.equal(name, 'resolve_my_learner_profile')
+      return { data: [{
+        created: false, envelope: preparedEnvelope({ marker: localProfile.marker }),
+        generation: 1, profile_id: PROFILE_ID, revision: 22,
+        status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+      }], error: null }
+    },
+    storage
+  })
+  const result = await adapter.resolve({
+    authentication: { userId: OWNER_ID }, connectivity: { status: 'online' },
+    localProfile: { generation: 1, ownerId: OWNER_ID, profile: localProfile,
+      profileId: PROFILE_ID, revision: 20, status: 'ready' },
+    purpose: 'resolve-signed-in-profile'
+  })
+  assert.equal(result.status, 'activate')
+  assert.equal(result.backupRequired, false)
+  assert.deepEqual(result.profile.videos, localProfile.videos)
+  assert.deepEqual(result.profile.channelRefreshes, localProfile.channelRefreshes)
+})
+
 test('cloud unavailability remains distinct from unsafe profile recovery', async () => {
   const unavailableStatuses = [408, 429, 503]
   const rejected = createAdapter({
@@ -6060,3 +6248,38 @@ test('a dirty marker appearing after resolution prevents deferred metadata repai
   assert.equal(storage.getItem(SYNC_STORAGE_KEY), original)
   assert.equal(storage.getItem(DIRTY_STORAGE_KEY), 'newer-device-work')
 })
+
+
+for (const scenario of ['available', 'elapsed', 'expired', 'none', 'network', 'server', 'malformed', 'other-profile', 'bad-envelope']) {
+  test(`reset evidence preserves ${scenario} separately from Undo availability`, async () => {
+    const row = {
+      status: scenario === 'expired' ? 'expired' : 'available',
+      reset_id: RECOVERY_ID, profile_id: PROFILE_ID, prior_generation: 1,
+      prior_revision: 7, reset_generation: 2,
+      protected_until: scenario === 'elapsed' ? '2026-08-20T00:00:00Z' : '2026-09-20T00:00:00Z',
+      prior_envelope: preparedEnvelope({ marker: 'protected-progress' })
+    }
+    if (scenario === 'none') row.status = 'none'
+    if (scenario === 'malformed') row.prior_generation = 5
+    if (scenario === 'other-profile') row.profile_id = SECOND_PROFILE_ID
+    const adapter = createAdapter({
+      now: () => Date.parse('2026-08-22T00:00:00Z'),
+      verifyEnvelope: async envelope => scenario === 'bad-envelope' ? null : envelope,
+      rpc: async () => {
+        if (scenario === 'network') throw new Error('offline')
+        if (scenario === 'server') return { error: {}, status: 503 }
+        return { data: [row], error: null }
+      }
+    })
+    const result = await adapter.readResetState({ ownerId: OWNER_ID, profileId: PROFILE_ID, generation: 2 })
+    const expected = ['network', 'server'].includes(scenario) ? 'unavailable'
+      : ['malformed', 'other-profile', 'bad-envelope'].includes(scenario) ? 'invalid'
+        : scenario === 'elapsed' ? 'expired' : scenario
+    assert.equal(result.status, expected)
+    assert.equal(Boolean(result.protectedReset), scenario === 'available')
+    if (['available', 'expired'].includes(expected)) {
+      assert.equal(result.ownerId, OWNER_ID)
+      assert.equal(result.resetGeneration, 2)
+    }
+  })
+}

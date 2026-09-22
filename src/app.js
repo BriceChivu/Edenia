@@ -1191,6 +1191,8 @@ const legacyProgressRelayClient = LEGACY_PROGRESS_RELAY_RUNTIME.valid
     })
 let legacyProgressManualImportDone = null
 let pendingLearnerProfileImport = null
+let settingsSyncImportInteraction = null
+let settingsSyncRefreshDeferred = false
 let applicationStarted = false
 let renderedLearnerProfileOwnerId
 let migrationStartupRunning = false
@@ -1246,7 +1248,9 @@ const legacyProgressMigrationController =
     normalizeImportedState: normalizeLegacyProgressState,
     onManualImport(done) {
       legacyProgressManualImportDone = done
-      document.getElementById('syncFileInput')?.click()
+      const input = document.getElementById('syncFileInput')
+      beginSettingsSyncImportInteraction(input)
+      input?.click()
     },
     onResume: resumeApplicationAfterMigration,
     prepareStateForHash: prepareStateForBackup,
@@ -3037,6 +3041,9 @@ function handleLearnerProfileAccessStateChange(accessState) {
     pendingLearnerProfileImport
     && accessState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE
   ) clearPendingLearnerProfileImport()
+  if (accessState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
+    finishSettingsSyncImportInteraction()
+  }
   if (accessState.status === LEARNER_PROFILE_ACCESS_STATES.CONFLICTING) {
     learnerProfileConflictView.renderConflict(accessState.conflict)
   } else {
@@ -3046,13 +3053,13 @@ function handleLearnerProfileAccessStateChange(accessState) {
     const state = learnerProfileLifecycleAuthority?.readActiveProfile()
     if (!state) return
     rememberPersistedPortableProfile(state)
-    const hasActiveProtectedReset =
-      accessState.protectedReset?.status === 'available'
+    const hasResetIntent = accessState.resetIntent === true
+      || accessState.protectedReset?.status === 'available'
     const preserveUnfinishedOnboarding =
       applicationStarted
       && !IS_SANDBOX
       && !state?.onboarding?.setupCompleted
-      && !hasActiveProtectedReset
+      && !hasResetIntent
     if (
       applicationStarted
       && renderedLearnerProfileOwnerId !== undefined
@@ -3075,7 +3082,7 @@ function handleLearnerProfileAccessStateChange(accessState) {
       startApplicationWithState(state, {
         accountAuthInitialized: true,
         deferStarterFeedUntilProfileActivation: Boolean(accessState.ownerId),
-        skipUnfinishedOnboarding: hasActiveProtectedReset,
+        skipUnfinishedOnboarding: hasResetIntent,
         startUnfinishedOnboardingImmediately: Boolean(accessState.ownerId)
       })
     } else {
@@ -6327,7 +6334,12 @@ function startLearnerProfileReverification() {
           && auth.userId === access?.ownerId
           && learnerProfileLifecycleAuthority?.getState().status
             === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
-        ) learnerProfileLifecycleAuthority.refresh()
+        ) {
+          if (shouldDeferSettingsSyncRefresh(
+            learnerProfileLifecycleAuthority.getState()
+          )) settingsSyncRefreshDeferred = true
+          else learnerProfileLifecycleAuthority.refresh()
+        }
       }
     })
   learnerProfileReverificationController.start()
@@ -6749,6 +6761,7 @@ function closeSettings() {
   const returnFocus = openSettings.returnFocus
   openSettings.returnFocus = null
   if (returnFocus?.isConnected) window.setTimeout(() => returnFocus.focus(), 0)
+  finishSettingsSyncImportInteraction({ refresh: true })
 }
 
 function setSettingsAccordionOpen(contentId, toggleSelector, groupSelector, isOpen) {
@@ -7048,14 +7061,80 @@ async function exportSyncFile() {
   downloadLearnerProfileSyncFile(state)
 }
 
+function beginSettingsSyncImportInteraction(input) {
+  const previousInput = settingsSyncImportInteraction?.input
+  if (previousInput) {
+    previousInput.value = ''
+    previousInput.disabled = false
+  }
+  clearPendingLearnerProfileImport()
+  const access = learnerProfileLifecycleAuthority?.getState()
+  settingsSyncImportInteraction = {
+    input,
+    legacyImport: legacyProgressManualImportDone,
+    ownerId: access?.ownerId || null,
+    profileId: access?.profileId || null,
+    generation: access?.activation?.generation
+  }
+}
+
+function isSettingsSyncImportCurrent(interaction) {
+  if (!interaction || settingsSyncImportInteraction !== interaction) return false
+  if (interaction.legacyImport) {
+    return interaction.legacyImport === legacyProgressManualImportDone
+  }
+  const panel = document.getElementById('settingsPanel')
+  if (!panel || panel.classList.contains('hidden')) return false
+  if (!learnerProfileLifecycleAuthority) return true
+  const access = learnerProfileLifecycleAuthority.getState()
+  return access.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+    && access.ownerId === interaction.ownerId
+    && access.profileId === interaction.profileId
+    && access.activation?.generation === interaction.generation
+}
+
+function shouldDeferSettingsSyncRefresh(access) {
+  return Boolean(
+    settingsSyncImportInteraction
+    && access?.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE
+    && access.ownerId === settingsSyncImportInteraction.ownerId
+    && access.profileId === settingsSyncImportInteraction.profileId
+    && access.activation?.generation === settingsSyncImportInteraction.generation
+  )
+}
+
+function finishSettingsSyncImportInteraction({ refresh = false } = {}) {
+  const refreshDeferredProfile = settingsSyncRefreshDeferred
+    && shouldDeferSettingsSyncRefresh(learnerProfileLifecycleAuthority?.getState())
+  const input = settingsSyncImportInteraction?.input
+  settingsSyncImportInteraction = null
+  settingsSyncRefreshDeferred = false
+  clearPendingLearnerProfileImport()
+  if (input) {
+    input.value = ''
+    input.disabled = false
+  }
+  if (refresh && refreshDeferredProfile) learnerProfileLifecycleAuthority.refresh()
+}
+
 function importSyncFileFromInput(input) {
   const file = input?.files?.[0]
   if (!file) return
+  if (!settingsSyncImportInteraction && legacyProgressManualImportDone) {
+    beginSettingsSyncImportInteraction(input)
+  }
+  const interaction = settingsSyncImportInteraction
+  const isCurrent = () => isSettingsSyncImportCurrent(interaction)
+  if (!isCurrent()) return
 
   input.disabled = true
   let keepInputPending = false
   const reader = new FileReader()
   reader.onload = async () => {
+    if (!isCurrent()) {
+      if (settingsSyncImportInteraction === interaction) finishSettingsSyncImportInteraction()
+      return
+    }
     const serialized = String(reader.result || '')
     let payload
     try {
@@ -7077,6 +7156,7 @@ function importSyncFileFromInput(input) {
               : PORTABLE_LEARNER_PROFILE_RECOVERY_MAX_BYTES
           })
         : null
+      if (!isCurrent()) return
       const importedState = isPortableProfile
         ? getImportedSyncState(portableEnvelope?.profile)
         : getImportedSyncState(payload)
@@ -7106,7 +7186,8 @@ function importSyncFileFromInput(input) {
         pendingLearnerProfileImport = {
           fileName: file.name || '',
           importedState,
-          input
+          input,
+          interaction
         }
         const confirmation = document.getElementById('syncImportConfirm')
         const fileLabel = document.getElementById('syncImportConfirmFile')
@@ -7133,6 +7214,7 @@ function importSyncFileFromInput(input) {
             returnExisting: true
           })
         : null
+      if (!isCurrent()) return
       if (LOCAL_BACKUPS_ENABLED && hadStoredState && !rollbackBackup) {
         showToast(t('toast.importStorageFull'), 'error')
         return
@@ -7191,16 +7273,18 @@ function importSyncFileFromInput(input) {
       applyAnkiRefreshPreference(importedState)
       showToast(t('toast.syncImported'))
     } catch (error) {
+      if (!isCurrent()) return
       console.error('Edenia sync import failed', error)
       showToast(t('toast.importFailed'), 'error')
     } finally {
-      if (!keepInputPending) {
+      if (!keepInputPending && settingsSyncImportInteraction === interaction) {
         input.value = ''
         input.disabled = false
       }
     }
   }
   reader.onerror = () => {
+    if (!isCurrent()) return
     showToast(t('toast.readSyncFailed'), 'error')
     input.value = ''
     input.disabled = false
@@ -7233,11 +7317,16 @@ function clearPendingLearnerProfileImport({ restoreFocus = false } = {}) {
 
 function cancelPendingLearnerProfileImport() {
   clearPendingLearnerProfileImport({ restoreFocus: true })
+  finishSettingsSyncImportInteraction({ refresh: true })
 }
 
 async function confirmPendingLearnerProfileImport() {
   const pending = pendingLearnerProfileImport
   if (!pending || !learnerProfileLifecycleAuthority) return
+  if (!isSettingsSyncImportCurrent(pending.interaction)) {
+    clearPendingLearnerProfileImport()
+    return
+  }
   for (const action of ['cancel-import', 'confirm-import']) {
     const control = document.querySelector(
       `[data-settings-sync-action="${action}"]`
@@ -7251,6 +7340,7 @@ async function confirmPendingLearnerProfileImport() {
       importedState,
       { confirmed: true }
     )
+    if (!isSettingsSyncImportCurrent(pending.interaction)) return
     const toast = {
       'owner-required': ['toast.importOwnerRequired', 'warn'],
       fenced: ['toast.importOwnerRequired', 'warn'],
@@ -7268,10 +7358,11 @@ async function confirmPendingLearnerProfileImport() {
       showToast(t('toast.importFailed'), 'error')
     }
   } catch (error) {
+    if (!isSettingsSyncImportCurrent(pending.interaction)) return
     console.error('Edenia sync import failed', error)
     showToast(t('toast.importFailed'), 'error')
   } finally {
-    clearPendingLearnerProfileImport()
+    if (pendingLearnerProfileImport === pending) clearPendingLearnerProfileImport()
   }
 }
 
@@ -8541,6 +8632,7 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
   maybeRefreshFeed._running = true
   const s = loadState()
   try {
+    if (!s) return
     if (shouldRefreshYoutubeFeed(s)) {
       await refreshFeed({ silent: hasAnyChannelRefreshTimestamp(s) })
     } else if (!hasYoutubeApiKey() && notifyMissingKey) {
@@ -8620,6 +8712,7 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
         ? existing.watchedConfirmationUnlockedAt
         : null,
       favorite: Boolean(existing?.favorite),
+      watchLater: isVideoWatchLater(existing),
       setAside: existing?.setAside === true,
       setAsideAt: isValidTimestamp(existing?.setAsideAt)
         ? existing.setAsideAt
@@ -18596,6 +18689,7 @@ bindSettingsLocaleActions(document, {
   select: saveLocaleFromSettings
 })
 bindSettingsSyncActions(document, {
+  beforeChooseFile: beginSettingsSyncImportInteraction,
   cancelImport: cancelPendingLearnerProfileImport,
   confirmImport: confirmPendingLearnerProfileImport,
   exportFile: exportSyncFile,

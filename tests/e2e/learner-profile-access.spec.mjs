@@ -1245,6 +1245,7 @@ test('a missing cloud head offers neutral local and protected recovery copies', 
   page
 }, testInfo) => {
   test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  await page.clock.setFixedTime(new Date('2026-09-04T12:00:00.000Z'))
   let lifecycleEnabled = false
   let protectedEnvelope = null
   let restored = false

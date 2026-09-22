@@ -382,7 +382,10 @@ async function prepareImportPage(page, {
 }
 
 async function selectImportFile(page, envelope, name) {
-  await page.locator('#syncFileInput').setInputFiles({
+  const chooserPromise = page.waitForEvent('filechooser')
+  await page.locator('[data-settings-sync-action="choose-file"]').click()
+  const chooser = await chooserPromise
+  await chooser.setFiles({
     buffer: Buffer.from(JSON.stringify(envelope)),
     mimeType: 'application/json',
     name
@@ -647,7 +650,10 @@ test('invalid and cloud-oversized imports are rejected before confirmation', asy
     ...importedEnvelope,
     padding: 'x'.repeat(LEARNER_PROFILE_CLOUD_ENVELOPE_MAX_BYTES)
   })
-  await page.locator('#syncFileInput').setInputFiles({
+  const chooserPromise = page.waitForEvent('filechooser')
+  await page.locator('[data-settings-sync-action="choose-file"]').click()
+  const chooser = await chooserPromise
+  await chooser.setFiles({
     buffer: Buffer.from(oversized),
     mimeType: 'application/json',
     name: 'oversized.json'
@@ -661,4 +667,22 @@ test('invalid and cloud-oversized imports are rejected before confirmation', asy
     JSON.parse(localStorage.getItem(stateKey))
   ), STATE_KEY)
   expect(stored).toEqual(previousStoredState)
+})
+
+
+test('picker return rechecks Auth without dismissing import confirmation', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  const { importedEnvelope, importRequests } = await prepareImportPage(page)
+  await page.locator('[data-settings-shell-action="open"]').click()
+  await selectImportFile(page, importedEnvelope, 'picker-return.json')
+  await expect(page.locator('#syncImportConfirm')).toBeVisible()
+  const authChecked = page.waitForResponse(response => response.url().includes('/auth/v1/token'))
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await authChecked
+  await expect(page.locator('#settingsPanel')).toBeVisible()
+  await expect(page.locator('#syncImportConfirm')).toBeVisible()
+  expect(importRequests).toHaveLength(0)
+  await page.locator('[data-settings-sync-action="cancel-import"]').click()
+  await expect(page.locator('#syncImportConfirm')).toBeHidden()
+  expect(importRequests).toHaveLength(0)
 })
