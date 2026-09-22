@@ -2836,8 +2836,13 @@ export function createLearnerProfileCloudPersistenceAdapter({
           prepareEnvelope
         )
       ) {
-        backupRequired = true
-        profile = localProfile.profile
+        // An earlier opening may advance the sync marker without activating
+        // its result. Only the local profile's own revision proves this is an
+        // unqueued change to the current cloud head rather than an older copy.
+        if (localProfile.revision === revision) {
+          backupRequired = true
+          profile = localProfile.profile
+        }
       } else {
         profile = retainLocalFeedCache(cloudProfile, localProfile.profile)
       }
