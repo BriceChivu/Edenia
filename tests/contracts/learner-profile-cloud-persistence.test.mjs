@@ -6248,3 +6248,38 @@ test('a dirty marker appearing after resolution prevents deferred metadata repai
   assert.equal(storage.getItem(SYNC_STORAGE_KEY), original)
   assert.equal(storage.getItem(DIRTY_STORAGE_KEY), 'newer-device-work')
 })
+
+
+for (const scenario of ['available', 'elapsed', 'expired', 'none', 'network', 'server', 'malformed', 'other-profile', 'bad-envelope']) {
+  test(`reset evidence preserves ${scenario} separately from Undo availability`, async () => {
+    const row = {
+      status: scenario === 'expired' ? 'expired' : 'available',
+      reset_id: RECOVERY_ID, profile_id: PROFILE_ID, prior_generation: 1,
+      prior_revision: 7, reset_generation: 2,
+      protected_until: scenario === 'elapsed' ? '2026-08-20T00:00:00Z' : '2026-09-20T00:00:00Z',
+      prior_envelope: preparedEnvelope({ marker: 'protected-progress' })
+    }
+    if (scenario === 'none') row.status = 'none'
+    if (scenario === 'malformed') row.prior_generation = 5
+    if (scenario === 'other-profile') row.profile_id = SECOND_PROFILE_ID
+    const adapter = createAdapter({
+      now: () => Date.parse('2026-08-22T00:00:00Z'),
+      verifyEnvelope: async envelope => scenario === 'bad-envelope' ? null : envelope,
+      rpc: async () => {
+        if (scenario === 'network') throw new Error('offline')
+        if (scenario === 'server') return { error: {}, status: 503 }
+        return { data: [row], error: null }
+      }
+    })
+    const result = await adapter.readResetState({ ownerId: OWNER_ID, profileId: PROFILE_ID, generation: 2 })
+    const expected = ['network', 'server'].includes(scenario) ? 'unavailable'
+      : ['malformed', 'other-profile', 'bad-envelope'].includes(scenario) ? 'invalid'
+        : scenario === 'elapsed' ? 'expired' : scenario
+    assert.equal(result.status, expected)
+    assert.equal(Boolean(result.protectedReset), scenario === 'available')
+    if (['available', 'expired'].includes(expected)) {
+      assert.equal(result.ownerId, OWNER_ID)
+      assert.equal(result.resetGeneration, 2)
+    }
+  })
+}

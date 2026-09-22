@@ -54,6 +54,7 @@ function createHarness({
   claimActivationResult = true,
   cloudChoice = { status: 'recovering' },
   cloudProtectedReset = undefined,
+  cloudResetState = undefined,
   cloudImport = { status: 'failed' },
   cloudImportConfirmationResult = true,
   cloudImportRollback = context => ({
@@ -124,7 +125,7 @@ function createHarness({
         },
         chooseConflict(context) {
           calls.push(['cloud-choose-conflict', context])
-          return Promise.resolve(cloudChoice)
+          return Promise.resolve(typeof cloudChoice === 'function' ? cloudChoice(context) : cloudChoice)
         },
         confirmImport(context) {
           calls.push(['cloud-confirm-import', context])
@@ -164,10 +165,20 @@ function createHarness({
               ? cloudResolution(context)
               : cloudResolution
         },
+        ...(cloudResetState === undefined ? {} : {
+          readResetState(identity) {
+            calls.push(['cloud-read-reset-state', identity])
+            return Promise.resolve(typeof cloudResetState === 'function'
+              ? cloudResetState(identity)
+              : cloudResetState)
+          }
+        }),
         ...(cloudProtectedReset === undefined ? {} : {
           readProtectedReset(identity) {
             calls.push(['cloud-read-protected-reset', identity])
-            return Promise.resolve(cloudProtectedReset)
+            return Promise.resolve(typeof cloudProtectedReset === 'function'
+              ? cloudProtectedReset(identity)
+              : cloudProtectedReset)
           }
         }),
         restoreRecoveryCandidate(context) {
@@ -2403,6 +2414,79 @@ test('only a confirmed protected conflict choice can reactivate a profile', asyn
   )
 })
 
+for (const interruption of ['none', 'sign-out', 'replacement-conflict']) {
+  const signsOutDuringResetRead = interruption === 'sign-out'
+  test(`choosing another device's empty reset generation handles ${interruption}`, async () => {
+    const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+    const profileId = '223e4567-e89b-42d3-a456-426614174001'
+    const priorProfile = { learnerProfile: { languages: ['french'] } }
+    const resetProfile = { learnerProfile: { languages: [] }, onboarding: { setupCompleted: false }, videos: {} }
+    const protectedReset = {
+      id: '323e4567-e89b-42d3-a456-426614174002', ownerId, profileId,
+      priorGeneration: 1, priorRevision: 7, resetGeneration: 2,
+      protectedUntil: 1_789_574_400_000, status: 'available'
+    }
+    const protectedConflict = {
+      id: '423e4567-e89b-42d3-a456-426614174003', ownerId, profileId,
+      selectedSide: 'cloud', status: 'resolved', protectedUntil: protectedReset.protectedUntil,
+      device: { generation: 1, revision: 8, profile: priorProfile },
+      cloud: { generation: 2, revision: 1, profile: resetProfile }
+    }
+    const resetRead = deferred()
+    let choices = 0
+    const harness = createHarness({
+      authentication: { status: 'signed-in', userId: ownerId },
+      cloudProtectedReset: identity => identity.generation === 2 ? resetRead.promise : null,
+      cloudChoice: () => ++choices === 1
+        ? { status: 'chosen', generation: 2, revision: 1, ownerId, profileId,
+            profile: resetProfile, selectedSide: 'cloud', conflict: protectedConflict,
+            protectedConflicts: [protectedConflict], protectedUntil: protectedConflict.protectedUntil }
+        : { status: 'conflict-changed', conflict: { ...protectedConflict, status: 'open',
+            selectedSide: undefined, cloud: { ...protectedConflict.cloud, revision: 2 } } },
+      cloudResolution: { status: 'activate', generation: 1, revision: 7, ownerId, profileId, profile: priorProfile },
+      cloudUndoStartOver: { status: 'undone', generation: 2, revision: 2, ownerId, profileId, profile: priorProfile },
+      local: { status: 'ready', generation: 1, revision: 7, ownerId, profileId, profile: priorProfile }
+    })
+    harness.authority.start()
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+    harness.publishCloud({ status: 'conflicting', conflict: {
+      ...protectedConflict, status: 'open', selectedSide: undefined,
+      activation: harness.authority.getState().activation
+    } })
+    const choice = harness.authority.chooseConflictVersion('cloud', { confirmed: true })
+    await Promise.resolve()
+    assert.ok(harness.calls.some(([name, identity]) => name === 'cloud-read-protected-reset' && identity.generation === 2),
+      'Conflict choice must obtain the selected generation reset receipt before activation')
+    if (signsOutDuringResetRead) harness.authentication.publish({ status: 'signed-out', userId: null })
+    if (interruption === 'replacement-conflict') {
+      await harness.authority.chooseConflictVersion('cloud', { confirmed: true })
+    }
+    resetRead.resolve(protectedReset)
+    assert.equal(await choice, interruption === 'none')
+    if (interruption === 'replacement-conflict') {
+      assert.equal(harness.authority.getState().conflict.cloud.revision, 2)
+      assert.equal(harness.getLocal().generation, 1)
+      return
+    }
+    if (signsOutDuringResetRead) {
+      assert.equal(harness.authority.readActiveProfile(), null)
+      assert.equal(harness.getLocal().generation, 1)
+      return
+    }
+    assert.equal(harness.authority.getState().status, LEARNER_PROFILE_ACCESS_STATES.ACTIVE)
+    assert.equal(harness.authority.getState().ownerId, ownerId)
+    assert.equal(harness.authority.getState().activation.generation, 2)
+    assert.deepEqual(harness.authority.readActiveProfile(), resetProfile)
+    assert.deepEqual(harness.authority.getState().protectedReset, protectedReset)
+    assert.deepEqual(harness.authority.getState().protectedConflicts, [protectedConflict])
+    assert.equal(await harness.authority.undoStartOver({ confirmed: true }), true)
+    assert.deepEqual(harness.authority.readActiveProfile(), priorProfile)
+    assert.equal(harness.authority.getState().activation.generation, 2)
+  })
+}
+
 test('a recovered server-confirmed choice stays protected after activation', async () => {
   const ownerId = '123e4567-e89b-42d3-a456-426614174000'
   const profileId = '223e4567-e89b-42d3-a456-426614174001'
@@ -3930,4 +4014,74 @@ test('Undo discovered on another device restores progress through the current ge
   assert.equal(harness.authority.getState().activation.generation, 5)
   assert.equal(harness.authority.getState().activation.revision, 2)
   assert.equal(harness.authority.getState().protectedReset, undefined)
+})
+
+
+for (const receiptStatus of ['available', 'expired', 'none', 'unavailable', 'invalid']) {
+  test(`opening an incomplete later generation distinguishes ${receiptStatus} reset evidence`, async () => {
+    const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+    const profileId = '223e4567-e89b-42d3-a456-426614174001'
+    const profile = { onboarding: { setupCompleted: false }, videos: {} }
+    const harness = createHarness({
+      authentication: { status: 'signed-in', userId: ownerId },
+      local: { status: 'ready', ownerId, profileId, generation: 2, revision: 1, profile },
+      cloudResolution: { status: 'activate', ownerId, profileId, generation: 2, revision: 1, profile },
+      cloudResetState: { status: receiptStatus, ownerId, profileId, resetGeneration: 2, protectedReset: null }
+    })
+    harness.authority.start()
+    for (let i = 0; i < 8; i += 1) await Promise.resolve()
+    const state = harness.authority.getState()
+    if (['unavailable', 'invalid'].includes(receiptStatus)) {
+      assert.equal(harness.authority.readActiveProfile(), null)
+      if (receiptStatus === 'unavailable') assert.equal(state.retryable, true)
+      else assert.equal(state.status, 'recovering')
+    } else {
+      assert.equal(state.status, 'active')
+      assert.equal(state.resetIntent === true, ['available', 'expired'].includes(receiptStatus))
+      assert.equal(state.protectedReset, undefined)
+      if (receiptStatus === 'expired') {
+        harness.connectivity.publish({ status: 'offline' })
+        harness.authority.refresh()
+        assert.equal(harness.authority.getState().resetIntent, true)
+        assert.equal(harness.authority.getState().protectedReset, undefined)
+      }
+    }
+  })
+}
+
+test('reset receipt outage after a confirmed cloud choice retries the chosen generation without repeating the choice', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const prior = { onboarding: { setupCompleted: true }, videos: {} }
+  const profile = { onboarding: { setupCompleted: false }, videos: {} }
+  const conflict = { id: 'reset-conflict', ownerId, profileId, status: 'resolved',
+    selectedSide: 'cloud', protectedUntil: 1_789_574_400_000 }
+  let selected = false
+  let receipt = { status: 'unavailable' }
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    local: { status: 'ready', ownerId, profileId, generation: 1, revision: 7, profile: prior },
+    cloudResolution: () => ({ status: 'activate', ownerId, profileId,
+      generation: selected ? 2 : 1, revision: selected ? 1 : 7, profile: selected ? profile : prior }),
+    cloudChoice: { status: 'chosen', ownerId, profileId, generation: 2, revision: 1,
+      profile, selectedSide: 'cloud', conflict, protectedConflicts: [conflict], protectedUntil: conflict.protectedUntil },
+    cloudResetState: () => receipt
+  })
+  harness.authority.start()
+  for (let i = 0; i < 8; i += 1) await Promise.resolve()
+  harness.publishCloud({ status: 'conflicting', conflict: { ...conflict, status: 'open',
+    activation: harness.authority.getState().activation } })
+  assert.equal(await harness.authority.chooseConflictVersion('cloud', { confirmed: true }), false)
+  selected = true
+  assert.equal(harness.authority.getState().status, 'waiting-cloud')
+  assert.equal(harness.authority.getState().retryable, true)
+  assert.equal(harness.authority.readActiveProfile(), null)
+  assert.equal(harness.getLocal().generation, 1)
+  receipt = { status: 'expired', ownerId, profileId, resetGeneration: 2, protectedReset: null }
+  harness.authority.refresh()
+  for (let i = 0; i < 8; i += 1) await Promise.resolve()
+  assert.equal(harness.authority.getState().status, 'active')
+  assert.equal(harness.authority.getState().resetIntent, true)
+  assert.equal(harness.getLocal().generation, 2)
+  assert.equal(harness.calls.filter(([name]) => name === 'cloud-choose-conflict').length, 1)
 })

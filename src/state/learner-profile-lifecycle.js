@@ -79,6 +79,7 @@ export function createLearnerProfileLifecycleAuthority({
     profileId = null,
     protectedConflicts = [],
     protectedReset = null,
+    resetIntent = false,
     recovery = null,
     replacement = null,
     retryable = false
@@ -94,6 +95,7 @@ export function createLearnerProfileLifecycleAuthority({
         ? { protectedConflicts: retainedConflicts }
         : {}),
       ...(protectedReset ? { protectedReset } : {}),
+      ...(resetIntent ? { resetIntent: true } : {}),
       ...(recovery ? { recovery: Object.freeze({
         ...recovery,
         candidates: Object.freeze([...(recovery.candidates || [])])
@@ -202,7 +204,8 @@ export function createLearnerProfileLifecycleAuthority({
   function activateProfile(localProfile, activation, {
     offlineExpiresAt = null,
     protectedConflicts = [],
-    protectedReset = null
+    protectedReset = null,
+    resetIntent = false
   } = {}) {
     if (!localPersistence.isActivationCurrent(activation)) {
       activeProfile = null
@@ -219,7 +222,8 @@ export function createLearnerProfileLifecycleAuthority({
       ownerId: activation.ownerId,
       profileId: activation.profileId,
       protectedConflicts,
-      protectedReset
+      protectedReset,
+      resetIntent
     })
     resetProfileOpeningRecoveryAttempts()
     scheduleOfflineExpiryCheck()
@@ -261,7 +265,14 @@ export function createLearnerProfileLifecycleAuthority({
   }
 
   function activateOffline(localProfile, verification) {
+    const sameProfile = currentState.ownerId === localProfile.ownerId
+      && currentState.profileId === localProfile.profileId
+      && currentState.activation?.generation === localProfile.generation
+      && currentState.activation?.revision === localProfile.revision
     return activate(localProfile, {
+      protectedReset: sameProfile ? currentState.protectedReset : null,
+      resetIntent: sameProfile && (currentState.resetIntent === true
+        || currentState.protectedReset?.status === 'available'),
       offlineExpiresAt:
         verification.verifiedAt + OWNER_VERIFICATION_MAX_AGE_MS
     })
@@ -376,22 +387,23 @@ export function createLearnerProfileLifecycleAuthority({
         && Number.isSafeInteger(result.revision)
         && result.revision > 0
       ) {
-        let protectedReset = result.protectedReset || null
-        if (
-          !protectedReset
-          && typeof cloudPersistence.readProtectedReset === 'function'
-        ) {
-          try {
-            protectedReset = await cloudPersistence.readProtectedReset({
-              generation: result.generation,
-              ownerId: result.ownerId,
-              profileId: result.profileId
-            })
-          } catch {
-            protectedReset = null
-          }
-          if (requestId !== resolutionId) return
+        const reset = !result.protectedReset && (
+          typeof cloudPersistence.readProtectedReset === 'function'
+          || typeof cloudPersistence.readResetState === 'function'
+        ) ? await readProfileReset(result) : {
+          protectedReset: result.protectedReset || null,
+          resetIntent: Boolean(result.protectedReset)
         }
+        if (requestId !== resolutionId) return
+        if (reset.status === 'unavailable') {
+          publish(LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD, { retryable: true })
+          return
+        }
+        if (reset.status === 'invalid') {
+          publishProfileOpeningFailure(auth, purpose)
+          return
+        }
+        const { protectedReset, resetIntent } = reset
         if (currentState.status === LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
           releaseActiveProfile()
         }
@@ -551,7 +563,8 @@ export function createLearnerProfileLifecycleAuthority({
         }
         const activationState = activateProfile(activationProfile, activation, {
           protectedConflicts: result.protectedConflicts || [],
-          protectedReset
+          protectedReset,
+          resetIntent
         })
         if (activationState.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) {
           return
@@ -1265,9 +1278,46 @@ export function createLearnerProfileLifecycleAuthority({
     return enqueueCloudSave(profile, activation)
   }
 
+  async function readProfileReset(result) {
+    if (result.protectedReset) {
+      return { protectedReset: result.protectedReset, resetIntent: true }
+    }
+    const identity = {
+      generation: result.generation, ownerId: result.ownerId, profileId: result.profileId
+    }
+    // An empty later generation may be an intentional reset even after Undo
+    // expires. Never infer that intent from an unavailable or malformed receipt.
+    if (result.generation > 1 && result.profile.onboarding?.setupCompleted === false
+      && typeof cloudPersistence.readResetState === 'function') {
+      let reset
+      try {
+        reset = await cloudPersistence.readResetState(identity)
+      } catch {
+        return { status: 'unavailable' }
+      }
+      if (!reset || ['unavailable', 'invalid'].includes(reset.status)) {
+        return { status: reset?.status || 'invalid' }
+      }
+      if (['available', 'expired'].includes(reset.status)) {
+        if (reset.ownerId !== result.ownerId || reset.profileId !== result.profileId
+          || reset.resetGeneration !== result.generation) return { status: 'invalid' }
+        return { protectedReset: reset.protectedReset, resetIntent: true }
+      }
+      if (!['none', 'undone'].includes(reset.status)) return { status: 'invalid' }
+      return { protectedReset: null, resetIntent: false }
+    }
+    try {
+      const protectedReset = await cloudPersistence.readProtectedReset?.(identity) || null
+      return { protectedReset, resetIntent: Boolean(protectedReset) }
+    } catch {
+      return { protectedReset: null, resetIntent: false }
+    }
+  }
+
   function installCloudProfileTransition(result, {
     protectedConflicts = [],
-    protectedReset = null
+    protectedReset = null,
+    resetIntent = false
   } = {}) {
     if (
       !result
@@ -1325,7 +1375,8 @@ export function createLearnerProfileLifecycleAuthority({
     }
     const activated = activateProfile(localProfile, activation, {
       protectedConflicts,
-      protectedReset
+      protectedReset,
+      resetIntent
     })
     if (activated.status !== LEARNER_PROFILE_ACCESS_STATES.ACTIVE) return false
     ownerVerification?.record?.({
@@ -1521,8 +1572,24 @@ export function createLearnerProfileLifecycleAuthority({
       publish(LEARNER_PROFILE_ACCESS_STATES.RECOVERING)
       return false
     }
+    const reset = await readProfileReset(result)
+    const currentAuth = authentication.getObservation()
+    if (currentState.status !== LEARNER_PROFILE_ACCESS_STATES.CONFLICTING
+      || currentState.conflict !== conflict
+      || currentAuth?.status !== 'signed-in'
+      || currentAuth.userId !== conflict.ownerId) return false
+    if (reset.status === 'unavailable') {
+      publish(LEARNER_PROFILE_ACCESS_STATES.WAITING_CLOUD, { retryable: true })
+      return false
+    }
+    if (reset.status === 'invalid') {
+      publishProfileOpeningFailure(currentAuth, 'resolve-signed-in-profile')
+      return false
+    }
     return installCloudProfileTransition(result, {
-      protectedConflicts: result.protectedConflicts
+      protectedConflicts: result.protectedConflicts,
+      protectedReset: reset.protectedReset,
+      resetIntent: reset.resetIntent
     })
   }
 

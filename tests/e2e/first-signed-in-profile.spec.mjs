@@ -449,6 +449,10 @@ test('a returning owner activates online, rechecks within bounds, and can sign o
 })
 
 const startOverRestoreCases = [{
+  name: 'an expired reset reopens an empty town without onboarding or Undo',
+  expiresBeforeReload: true,
+  setupCompleted: true
+}, {
   name: 'Start over with an older protected reset reaches its RPC once and Undo restores progress',
   olderReset: true,
   setupCompleted: true
@@ -464,9 +468,7 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
-  if (restoreCase.olderReset) {
-    await page.clock.setFixedTime(new Date('2026-09-04T12:00:00.000Z'))
-  }
+  await page.clock.setFixedTime(new Date('2026-09-04T12:00:00.000Z'))
   const returningEnvelope = await createReturningOwnerEnvelope({ studyFacts: restoreCase.olderReset })
   const restoredEnvelope = restoreCase.setupCompleted
     ? returningEnvelope
@@ -746,12 +748,20 @@ for (const restoreCase of startOverRestoreCases) test(restoreCase.name, async ({
   ))).toEqual([])
   expect(logoutRequests).toEqual([])
 
+  if (restoreCase.expiresBeforeReload) {
+    await page.clock.setFixedTime(new Date('2026-09-22T12:00:00.000Z'))
+  }
   await page.reload()
   await page.waitForTimeout(500)
   await expect(page.locator('#mainApp')).toBeVisible()
   await expect(page.locator('#introTrailer')).toBeHidden()
   await expect(page.locator('#onboardingPanel')).toBeHidden()
   await page.locator('.gear-btn').click()
+  if (restoreCase.expiresBeforeReload) {
+    await expect(page.locator('#startOverUndo')).toBeHidden()
+    expect(undoRequests).toBe(0)
+    return
+  }
   await expect(page.locator('#startOverUndo')).toBeVisible()
 
   if (restoreCase.olderReset) {

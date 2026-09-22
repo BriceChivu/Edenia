@@ -3053,13 +3053,13 @@ function handleLearnerProfileAccessStateChange(accessState) {
     const state = learnerProfileLifecycleAuthority?.readActiveProfile()
     if (!state) return
     rememberPersistedPortableProfile(state)
-    const hasActiveProtectedReset =
-      accessState.protectedReset?.status === 'available'
+    const hasResetIntent = accessState.resetIntent === true
+      || accessState.protectedReset?.status === 'available'
     const preserveUnfinishedOnboarding =
       applicationStarted
       && !IS_SANDBOX
       && !state?.onboarding?.setupCompleted
-      && !hasActiveProtectedReset
+      && !hasResetIntent
     if (
       applicationStarted
       && renderedLearnerProfileOwnerId !== undefined
@@ -3082,7 +3082,7 @@ function handleLearnerProfileAccessStateChange(accessState) {
       startApplicationWithState(state, {
         accountAuthInitialized: true,
         deferStarterFeedUntilProfileActivation: Boolean(accessState.ownerId),
-        skipUnfinishedOnboarding: hasActiveProtectedReset,
+        skipUnfinishedOnboarding: hasResetIntent,
         startUnfinishedOnboardingImmediately: Boolean(accessState.ownerId)
       })
     } else {
