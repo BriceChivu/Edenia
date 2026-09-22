@@ -282,6 +282,31 @@
       "searchText": "ggsgamerchinese ggsgamerchinese"
     },
     {
+      "catalogId": "community-UCqqJQ_cXSat0KIAVfIfKkVA",
+      "channelId": "UCqqJQ_cXSat0KIAVfIfKkVA",
+      "handle": "@jkenjilopezalt",
+      "name": "J. Kenji López-Alt",
+      "thumbnailUrl": "https://yt3.ggpht.com/tEql8Eq4IgP3UNx5v646k5U1QKidegUlZRvS18PyF2WM9YGt770IlxFVRrdDatLKHRCFuv9kfA=s800-c-k-c0x00ffffff-no-rj",
+      "languages": [],
+      "levels": [],
+      "style": "",
+      "description": "",
+      "aliases": [],
+      "available": true,
+      "privacyStatus": "public",
+      "publishedAt": "2006-07-13T04:59:16Z",
+      "metadataRefreshedAt": "2026-09-22T07:57:16.369Z",
+      "addCount": 1,
+      "distinctUserCount": 1,
+      "firstSeenAt": "2026-09-21T11:05:40.275Z",
+      "lastSeenAt": "2026-09-21T11:05:40.275Z",
+      "sources": [
+        "direct_input"
+      ],
+      "reviewReasons": [],
+      "searchText": "j kenji lopez alt jkenjilopezalt"
+    },
+    {
       "catalogId": "community-UCQJ25mE1rDKPa1ZDmC1bv_w",
       "channelId": "UCQJ25mE1rDKPa1ZDmC1bv_w",
       "handle": "@jakelyonsgeo",
@@ -765,5 +790,5 @@
       "searchText": "雷堤娜 tyna krysjensen86"
     }
   ],
-  "generatedAt": "2026-09-17T07:59:16.793Z"
+  "generatedAt": "2026-09-22T07:57:16.369Z"
 }
