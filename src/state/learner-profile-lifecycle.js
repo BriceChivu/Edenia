@@ -58,6 +58,7 @@ export function createLearnerProfileLifecycleAuthority({
     ownerVerification
   } = adapters
   let currentState = EMPTY_ACCESS_STATE
+  let lastResetActivation = EMPTY_ACCESS_STATE
   let activeProfile = null
   let offlineVerificationExpiresAt = null
   let offlineExpiryTimer = null
@@ -225,6 +226,10 @@ export function createLearnerProfileLifecycleAuthority({
       protectedReset,
       resetIntent
     })
+    lastResetActivation = protectedReset || resetIntent
+      ? { activation, ownerId: activation.ownerId, profileId: activation.profileId,
+          protectedReset, resetIntent }
+      : EMPTY_ACCESS_STATE
     resetProfileOpeningRecoveryAttempts()
     scheduleOfflineExpiryCheck()
     analytics.profileActivated({
@@ -264,15 +269,21 @@ export function createLearnerProfileLifecycleAuthority({
       : null
   }
 
+  function retainedResetOptions(localProfile, state = lastResetActivation) {
+    const sameProfile = state.ownerId === localProfile.ownerId
+      && state.profileId === localProfile.profileId
+      && state.activation?.generation === localProfile.generation
+      && state.activation?.revision === localProfile.revision
+    return {
+      protectedReset: sameProfile ? state.protectedReset : null,
+      resetIntent: sameProfile && (state.resetIntent === true
+        || state.protectedReset?.status === 'available')
+    }
+  }
+
   function activateOffline(localProfile, verification) {
-    const sameProfile = currentState.ownerId === localProfile.ownerId
-      && currentState.profileId === localProfile.profileId
-      && currentState.activation?.generation === localProfile.generation
-      && currentState.activation?.revision === localProfile.revision
     return activate(localProfile, {
-      protectedReset: sameProfile ? currentState.protectedReset : null,
-      resetIntent: sameProfile && (currentState.resetIntent === true
-        || currentState.protectedReset?.status === 'available'),
+      ...retainedResetOptions(localProfile),
       offlineExpiresAt:
         verification.verifiedAt + OWNER_VERIFICATION_MAX_AGE_MS
     })
@@ -371,7 +382,7 @@ export function createLearnerProfileLifecycleAuthority({
           return
         }
         if (matchingOwnedLocalProfile) {
-          activate(localProfile)
+          activate(localProfile, retainedResetOptions(localProfile))
           return
         }
       }
@@ -702,6 +713,10 @@ export function createLearnerProfileLifecycleAuthority({
     const requestId = ++resolutionId
     const auth = authentication.getObservation()
     const localProfile = localPersistence.read()
+    if (auth?.status === 'signed-out'
+      || (auth?.status === 'signed-in' && auth.userId !== lastResetActivation.ownerId)) {
+      lastResetActivation = EMPTY_ACCESS_STATE
+    }
     if (
       auth?.status !== 'signed-in'
       || currentState.status
@@ -1802,6 +1817,7 @@ export function createLearnerProfileLifecycleAuthority({
   }
 
   function destroy() {
+    lastResetActivation = EMPTY_ACCESS_STATE
     resolutionId += 1
     releaseActiveProfile()
     unsubscribeAuthentication?.()

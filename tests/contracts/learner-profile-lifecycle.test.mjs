@@ -4085,3 +4085,69 @@ test('reset receipt outage after a confirmed cloud choice retries the chosen gen
   assert.equal(harness.getLocal().generation, 2)
   assert.equal(harness.calls.filter(([name]) => name === 'cloud-choose-conflict').length, 1)
 })
+
+
+test('an online refresh preserves verified reset intent through a cached network fallback', async () => {
+  const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+  const profileId = '223e4567-e89b-42d3-a456-426614174001'
+  const profile = { onboarding: { setupCompleted: false }, videos: {} }
+  let unavailable = false
+  const harness = createHarness({
+    authentication: { status: 'signed-in', userId: ownerId },
+    local: { status: 'ready', ownerId, profileId, generation: 2, revision: 1, profile },
+    cloudResolution: () => unavailable ? { status: 'waiting-cloud' }
+      : { status: 'activate', ownerId, profileId, generation: 2, revision: 1, profile },
+    cloudResetState: { status: 'expired', ownerId, profileId, resetGeneration: 2, protectedReset: null }
+  })
+  harness.authority.start()
+  for (let i = 0; i < 8; i += 1) await Promise.resolve()
+  assert.equal(harness.authority.getState().resetIntent, true)
+  unavailable = true
+  harness.authority.refresh()
+  for (let i = 0; i < 8; i += 1) await Promise.resolve()
+  assert.equal(harness.authority.getState().status, 'active')
+  assert.equal(harness.authority.getState().resetIntent, true)
+  assert.equal(harness.authority.getState().protectedReset, undefined)
+})
+
+
+for (const completionOrder of [[0, 1], [1, 0]]) {
+  for (const interruption of ['none', 'sign-out', 'other-owner']) {
+    test(`overlapping reset refreshes ${completionOrder} retain only authorized intent after ${interruption}`, async () => {
+      const ownerId = '123e4567-e89b-42d3-a456-426614174000'
+      const profileId = '223e4567-e89b-42d3-a456-426614174001'
+      const profile = { onboarding: { setupCompleted: false }, videos: {} }
+      const requests = [deferred(), deferred()]
+      let requestIndex = -1
+      const harness = createHarness({
+        authentication: { status: 'signed-in', userId: ownerId },
+        local: { status: 'ready', ownerId, profileId, generation: 2, revision: 1, profile },
+        cloudResolution: () => requestIndex < 0
+          ? { status: 'activate', ownerId, profileId, generation: 2, revision: 1, profile }
+          : requests[requestIndex++].promise,
+        cloudResetState: { status: 'expired', ownerId, profileId, resetGeneration: 2, protectedReset: null }
+      })
+      harness.authority.start()
+      for (let i = 0; i < 8; i += 1) await Promise.resolve()
+      assert.equal(harness.authority.getState().resetIntent, true)
+      requestIndex = 0
+      harness.authority.refresh()
+      harness.authority.refresh()
+      if (interruption === 'sign-out') harness.authentication.publish({ status: 'signed-out', userId: null })
+      if (interruption === 'other-owner') harness.authentication.publish({ status: 'signed-in', userId: 'other-owner' })
+      for (const index of completionOrder) {
+        requests[index].resolve({ status: 'waiting-cloud' })
+        for (let i = 0; i < 8; i += 1) await Promise.resolve()
+      }
+      const state = harness.authority.getState()
+      if (interruption === 'none') {
+        assert.equal(state.status, 'active')
+        assert.equal(state.resetIntent, true)
+      } else {
+        assert.notEqual(state.status, 'active')
+        assert.equal(state.resetIntent, undefined)
+        assert.equal(harness.authority.readActiveProfile(), null)
+      }
+    })
+  }
+}
