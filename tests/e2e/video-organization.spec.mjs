@@ -692,3 +692,41 @@ test('enabled organization migrates legacy state and history idempotently', asyn
   await waitForApplication(page)
   expect(await readMigratedState()).toEqual(firstMigration)
 })
+
+
+test('public feed refresh preserves Watch later and study progress', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop-standard')
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: 'window.EDENIA_CONFIG = { youtubeApiKey: "", accountFeaturesRollout: "internal" }',
+    contentType: 'application/javascript'
+  }))
+  await seedVideoOrganizationState(page, { internalTest: false })
+  await page.evaluate(storageKey => {
+    const state = JSON.parse(localStorage.getItem(storageKey))
+    state.config.channels = [{ id: 'UC0000000000000000000000', name: 'Fixture Language Channel' }]
+    state.videos = { fixture0001: {
+      id: 'fixture0001', title: 'Before refresh', channelId: state.config.channels[0].id,
+      channelTitle: state.config.channels[0].name, status: 'partial', watchLater: true,
+      favorite: true, lastPosition: 42, duration: 600,
+      watchProgress: [{ seconds: 42, watchedAt: '2026-08-01T04:00:00.000Z' }],
+      watchProgressTracked: true
+    } }
+    state.channelRefreshes = {}
+    localStorage.setItem(storageKey, JSON.stringify(state))
+  }, normalStorageKey)
+  await page.unroute('**/config.local.js')
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: 'window.EDENIA_CONFIG = { youtubeApiKey: "fixture-key", accountFeaturesRollout: "internal" }',
+    contentType: 'application/javascript'
+  }))
+  await page.reload()
+  await waitForApplication(page)
+  await expect.poll(() => page.evaluate(storageKey => (
+    JSON.parse(localStorage.getItem(storageKey)).videos.fixture0001.title
+  ), normalStorageKey)).toBe('Fixture Study Video')
+  const video = await page.evaluate(storageKey => (
+    JSON.parse(localStorage.getItem(storageKey)).videos.fixture0001
+  ), normalStorageKey)
+  expect(video).toMatchObject({ status: 'partial', watchLater: true, favorite: true, lastPosition: 42 })
+  expect(video.watchProgress).toEqual([{ seconds: 42, watchedAt: '2026-08-01T04:00:00.000Z' }])
+})
