@@ -282,6 +282,10 @@ async function prepareConflictPage(page, {
       })
       return
     }
+    if (pathname === '/rest/v1/rpc/read_my_latest_learner_profile_reset') {
+      await route.fulfill({ json: [{ status: 'none' }], status: 200 })
+      return
+    }
     if (pathname === '/rest/v1/rpc/commit_my_learner_profile') {
       const body = request.postDataJSON()
       commitRequests.push(body)

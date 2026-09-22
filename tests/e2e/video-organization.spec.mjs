@@ -707,7 +707,7 @@ test('public feed refresh preserves Watch later and study progress', async ({ pa
     state.videos = { fixture0001: {
       id: 'fixture0001', title: 'Before refresh', channelId: state.config.channels[0].id,
       channelTitle: state.config.channels[0].name, status: 'partial', watchLater: true,
-      favorite: true, lastPosition: 42, duration: 600,
+      favorite: true, resumeAtSeconds: 42, duration: 600,
       watchProgress: [{ seconds: 42, watchedAt: '2026-08-01T04:00:00.000Z' }],
       watchProgressTracked: true
     } }
@@ -727,6 +727,6 @@ test('public feed refresh preserves Watch later and study progress', async ({ pa
   const video = await page.evaluate(storageKey => (
     JSON.parse(localStorage.getItem(storageKey)).videos.fixture0001
   ), normalStorageKey)
-  expect(video).toMatchObject({ status: 'partial', watchLater: true, favorite: true, lastPosition: 42 })
+  expect(video).toMatchObject({ status: 'partial', watchLater: true, favorite: true, resumeAtSeconds: 42 })
   expect(video.watchProgress).toEqual([{ seconds: 42, watchedAt: '2026-08-01T04:00:00.000Z' }])
 })
