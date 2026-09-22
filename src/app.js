@@ -8621,6 +8621,7 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
         ? existing.watchedConfirmationUnlockedAt
         : null,
       favorite: Boolean(existing?.favorite),
+      watchLater: isVideoWatchLater(existing),
       setAside: existing?.setAside === true,
       setAsideAt: isValidTimestamp(existing?.setAsideAt)
         ? existing.setAsideAt
