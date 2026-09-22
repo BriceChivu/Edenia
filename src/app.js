@@ -8541,6 +8541,7 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
   maybeRefreshFeed._running = true
   const s = loadState()
   try {
+    if (!s) return
     if (shouldRefreshYoutubeFeed(s)) {
       await refreshFeed({ silent: hasAnyChannelRefreshTimestamp(s) })
     } else if (!hasYoutubeApiKey() && notifyMissingKey) {
