@@ -111,6 +111,24 @@ test('Settings sync change forwards the exact input and no event', () => {
   assert.equal(defaultPrevented, false)
 })
 
+test('Settings sync prepares the picker interaction without delaying the native click', () => {
+  const { controls, order, root } = createHarness()
+  const input = controls.get(selectors.input)
+  bindSettingsSyncActions(root, {
+    beforeChooseFile(selectedInput) {
+      assert.equal(selectedInput, input)
+      order.push('prepare')
+    },
+    cancelImport() {},
+    confirmImport() {},
+    exportFile() {},
+    importFile() {}
+  })
+  controls.get(selectors.choose).dispatch('click')
+  order.push('after-dispatch')
+  assert.deepEqual(order, ['prepare', 'input:native-click', 'after-dispatch'])
+})
+
 test('Settings sync binding is idempotent and tolerates absent controls', () => {
   const { controls, root } = createHarness()
   const calls = []
