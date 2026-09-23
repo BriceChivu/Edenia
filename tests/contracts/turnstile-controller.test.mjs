@@ -209,6 +209,56 @@ test('Turnstile script loading is singleton and uses explicit rendering', async 
   assert.equal(await first, turnstile.api)
 })
 
+test('unmount clears tokens and ignores callbacks from a relocated widget', async () => {
+  const turnstile = createTurnstileHarness()
+  const statuses = []
+  const element = { isConnected: true }
+  const controller = createTurnstileController({
+    loadScript: async () => turnstile.api,
+    siteKey: 'public-site-key',
+    turnstileTarget: turnstile.target,
+    onStatusChange(status) { statuses.push(status) }
+  })
+  await controller.mount(element)
+  const old = turnstile.configurations[0].configuration
+  old.callback('old-token')
+  controller.unmount(element)
+  assert.equal(controller.consumeToken(element), null)
+  await controller.mount(element)
+  turnstile.configurations[1].configuration.callback('new-token')
+  for (const name of [
+    'before-interactive-callback', 'after-interactive-callback',
+    'error-callback', 'expired-callback', 'timeout-callback',
+    'unsupported-callback'
+  ]) old[name]()
+  old.callback('stale-token')
+  assert.equal(statuses.at(-1), 'ready')
+  assert.equal(controller.consumeToken(element), 'new-token')
+  assert.deepEqual(turnstile.calls.filter(call => call[0] === 'remove'), [
+    ['remove', 1]
+  ])
+})
+
+test('unmount cancels pending loading without discarding the replacement mount', async () => {
+  const turnstile = createTurnstileHarness()
+  const element = { isConnected: true }
+  let resolveScript
+  const script = new Promise(resolve => { resolveScript = resolve })
+  const controller = createTurnstileController({
+    loadScript: () => script,
+    siteKey: 'public-site-key',
+    turnstileTarget: turnstile.target
+  })
+  const oldMount = controller.mount(element)
+  controller.unmount(element)
+  const replacement = controller.mount(element)
+  resolveScript(turnstile.api)
+  assert.deepEqual(await Promise.all([oldMount, replacement]), [false, true])
+  assert.equal(turnstile.configurations.length, 1)
+  await controller.mount(element)
+  assert.equal(turnstile.configurations.length, 1)
+})
+
 test('invalid Turnstile boundaries fail before script loading', () => {
   assert.throws(
     () => createTurnstileController({
