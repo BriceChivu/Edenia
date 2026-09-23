@@ -5963,6 +5963,12 @@ function mountTurnstileWidgets(root = document) {
   return true
 }
 
+function unmountTurnstileWidgets(root) {
+  for (const element of root.querySelectorAll('[data-turnstile-widget]')) {
+    turnstileController?.unmount(element)
+  }
+}
+
 const ACCOUNT_EXPORT_FEEDBACK_VIEWS = Object.freeze({
   [ACCOUNT_EXPORT_FEEDBACK.COMPLETE]: {
     key: 'settings.account.exportFeedback.complete', tone: 'success'
@@ -6810,6 +6816,8 @@ function getLearnerProfileAuthenticationControls() {
 function moveLearnerProfileAuthenticationControls(destination) {
   const controls = getLearnerProfileAuthenticationControls()
   if (!destination || !controls) return false
+  // Reparenting reloads provider iframes; do not retain their mounted state.
+  unmountTurnstileWidgets(controls.signedOut)
   destination.append(controls.loading, controls.signedOut, controls.signOut, controls.feedback)
   return true
 }
@@ -6818,6 +6826,7 @@ function restoreLearnerProfileAuthenticationControls() {
   const accountContent = document.getElementById('accountSettingsContent')
   const controls = getLearnerProfileAuthenticationControls()
   if (!accountContent || !controls) return false
+  unmountTurnstileWidgets(controls.signedOut)
   accountContent.prepend(controls.loading)
   controls.signedIn.before(controls.signedOut)
   controls.signedIn.insertBefore(controls.signOut, document.getElementById('accountSignOutEverywhereBtn'))

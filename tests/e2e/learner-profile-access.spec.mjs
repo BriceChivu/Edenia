@@ -84,6 +84,7 @@ function runtimeConfig({
   accountFeaturesRollout = 'off',
   googleIdentityClientId = '',
   lifecycle = false,
+  turnstileSiteKey = '',
   youtubeApiKey = ''
 } = {}) {
   return `window.EDENIA_CONFIG = ${JSON.stringify({
@@ -98,6 +99,7 @@ function runtimeConfig({
     studyGuidanceEnabled: false,
     supabasePublishableKey: 'test-publishable-key',
     supabaseUrl: 'https://profile-access-test.supabase.co',
+    turnstileSiteKey,
     youtubeApiKey
   })}`
 }
@@ -1036,6 +1038,69 @@ test('matching cloud progress repairs an obsolete profile identity without askin
       version: 1
     }
   })
+})
+
+test('locked sign-in keeps an interactive security check usable after moving the form', async ({ page }, testInfo) => {
+  test.skip(!['desktop-standard', 'phone-small'].includes(testInfo.project.name))
+  let lifecycleEnabled = false
+  await useAccountReturnOrigin(page)
+  await page.addInitScript(() => {
+    const widgets = new Map()
+    let nextId = 0
+    window.turnstile = {
+      render(element, options) {
+        const id = ++nextId
+        const frame = document.createElement('iframe')
+        frame.title = 'Security check'
+        // A real browsing context loses its initialized document when its
+        // ancestor is reparented. A span-only provider mock misses this.
+        frame.addEventListener('load', () => {
+          const button = frame.contentDocument.createElement('button')
+          button.textContent = 'Verify test challenge'
+          button.onclick = () => options.callback('local-test-token')
+          frame.contentDocument.body.append(button)
+          queueMicrotask(() => options['before-interactive-callback']())
+        }, { once: true })
+        widgets.set(id, frame)
+        element.append(frame)
+        return id
+      },
+      remove(id) { widgets.get(id)?.remove(); widgets.delete(id) },
+      reset() {}
+    }
+  })
+  await page.route('**/config.local.js', route => route.fulfill({
+    body: runtimeConfig({
+      accountFeaturesRollout: lifecycleEnabled ? 'internal' : 'off',
+      lifecycle: lifecycleEnabled,
+      turnstileSiteKey: 'local-test-site-key'
+    }),
+    contentType: 'text/javascript'
+  }))
+  await page.route('https://profile-access-test.supabase.co/**', route => (
+    route.fulfill({ json: {}, status: 200 })
+  ))
+  await page.goto(`${ACCOUNT_RETURN_ORIGIN}/?internal_test=1`)
+  const storedState = await seedOwnedLearnerProfile(page)
+  await page.evaluate(key => localStorage.removeItem(key), AUTH_STORAGE_KEY)
+  lifecycleEnabled = true
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await expectNeutralProfileGate(page, 'locked', storedState)
+  const challenge = page.frameLocator('#accountTurnstile iframe')
+    .getByRole('button', { name: 'Verify test challenge' })
+  await expect(page.frameLocator('#accountTurnstile iframe').locator('button'))
+    .toBeAttached()
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await page.getByRole('button', { name: 'Open sign-in' }).click()
+    await expect(challenge).toBeVisible()
+    await expect(page.locator('#accountEmailBtn')).toBeDisabled()
+    await challenge.click()
+    await expect(page.locator('#accountEmailBtn')).toBeEnabled()
+    await page.getByRole('button', { name: 'Back to locked message' }).click()
+  }
+  expect(await page.evaluate(key => localStorage.getItem(key), STATE_STORAGE_KEY))
+    .toBe(storedState)
 })
 
 test('a signed-out owner can authenticate from locked access before cloud activation', async ({

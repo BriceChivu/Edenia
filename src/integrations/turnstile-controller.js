@@ -127,10 +127,11 @@ export function createTurnstileController({
     }
 
     const operation = {
+      cancelled: false,
       options: normalizedOptions,
       promise: null
     }
-    operation.promise = performMount(element, normalizedOptions, existing)
+    operation.promise = performMount(element, normalizedOptions, existing, operation)
       .finally(() => {
         if (mountOperations.get(element) === operation) {
           mountOperations.delete(element)
@@ -140,20 +141,23 @@ export function createTurnstileController({
     return operation.promise
   }
 
-  async function performMount(element, normalizedOptions, existing) {
+  async function performMount(element, normalizedOptions, existing, operation) {
     publish('loading', element)
     let api
     try {
       api = await loadScript()
     } catch {
-      publish('unavailable', element)
+      if (!operation.cancelled) publish('unavailable', element)
       return false
     }
-    if (destroyed) return false
+    if (destroyed || operation.cancelled || element.isConnected === false) {
+      return false
+    }
     removeDisconnectedMounts(api)
     if (existing) {
-      try { api.remove(existing.widgetId) } catch {}
       mounts.delete(element)
+      clearToken(existing)
+      try { api.remove(existing.widgetId) } catch {}
     }
 
     const record = {
@@ -190,10 +194,12 @@ export function createTurnstileController({
           publish('ready', element)
         },
         'error-callback'() {
+          if (destroyed || mounts.get(element) !== record) return
           clearToken(record)
           publish('error', element)
         },
         'expired-callback'() {
+          if (destroyed || mounts.get(element) !== record) return
           clearToken(record)
           publish('expired', element)
         },
@@ -203,10 +209,12 @@ export function createTurnstileController({
         size: 'flexible',
         theme: normalizedOptions.theme,
         'timeout-callback'() {
+          if (destroyed || mounts.get(element) !== record) return
           clearToken(record)
           publish('expired', element)
         },
         'unsupported-callback'() {
+          if (destroyed || mounts.get(element) !== record) return
           clearToken(record)
           publish('unavailable', element)
         }
@@ -253,6 +261,21 @@ export function createTurnstileController({
     }
   }
 
+  function unmount(element) {
+    const pending = mountOperations.get(element)
+    if (pending) {
+      pending.cancelled = true
+      mountOperations.delete(element)
+    }
+    const record = mounts.get(element)
+    if (record) {
+      mounts.delete(element)
+      clearToken(record)
+      try { getTurnstileApi(turnstileTarget)?.remove(record.widgetId) } catch {}
+    }
+    publish('pending', element)
+  }
+
   function destroy() {
     if (destroyed) return
     const api = getTurnstileApi(turnstileTarget)
@@ -269,6 +292,7 @@ export function createTurnstileController({
     consumeToken,
     destroy,
     mount,
-    reset
+    reset,
+    unmount
   })
 }
