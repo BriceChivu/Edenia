@@ -101,6 +101,7 @@ for (const input of [
     const before = preparePortableLearnerProfileEnvelope(harness.profile).profile.videos['study-video']
     const result = await harness.refresh()
     assert.equal(result.ok, true)
+    assert.equal(result.mergedCount, 1, 'Metadata refreshes must not count as newly loaded videos')
     assert.equal(harness.savedEnvelopes.length, 1)
     const saved = harness.savedEnvelopes[0].profile.videos['study-video']
     assert.equal(saved.watchLater, before.watchLater, 'Refreshing metadata must not erase the cloud-restored Watch later choice')

@@ -8435,14 +8435,16 @@ function getRefreshCandidateDetails(s, videos) {
 
 async function fetchChannelVideos(channel, knownVideos = {}) {
   const fetched = []
-  const seenVideoIds = new Set(Object.keys(knownVideos))
+  const seenVideoIds = new Set()
+  let newCount = 0
   const requestedPageTokens = new Set()
   let pageToken = ''
 
   // Start at the newest uploads on every refresh. Walking past cached IDs
   // naturally resumes older history without a saved cursor that can skip
-  // uploads when the playlist changes. Only unseen IDs consume the batch.
-  while (fetched.length < FETCH_PAGE_SIZE) {
+  // uploads when the playlist changes. Keep cached metadata fresh too, but
+  // only unseen IDs consume the 50-video allowance.
+  while (newCount < FETCH_PAGE_SIZE) {
     if (requestedPageTokens.has(pageToken)) {
       throw new Error('YouTube returned a repeated uploads page token')
     }
@@ -8452,7 +8454,8 @@ async function fetchChannelVideos(channel, knownVideos = {}) {
       if (!video.id || seenVideoIds.has(video.id)) continue
       seenVideoIds.add(video.id)
       fetched.push(video)
-      if (fetched.length === FETCH_PAGE_SIZE) break
+      if (!knownVideos[video.id]) newCount += 1
+      if (newCount === FETCH_PAGE_SIZE) break
     }
     if (!page.nextPageToken) break
     pageToken = page.nextPageToken
@@ -8650,8 +8653,10 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
     ? videos
     : videos.filter(v => s.videos[v.id] || !detailsById[v.id]?.isShort)
 
+  let mergedCount = 0
   videosToMerge.forEach(v => {
     const existing = s.videos[v.id]
+    if (!existing) mergedCount += 1
     const detail = detailsById[v.id] || {}
     const duration = detail.duration ?? v.duration ?? existing?.duration ?? 0
     s.videos[v.id] = {
@@ -8700,7 +8705,7 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
   })
 
   return {
-    mergedCount: videosToMerge.length,
+    mergedCount,
     skippedShorts: includeShorts ? 0 : videos.length - videosToMerge.length
   }
 }

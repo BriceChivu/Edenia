@@ -55,7 +55,10 @@ function createHarness(initialIds, { internalTest = false, requestHook = () => {
     setUploads: next => { ids = next },
     fetch: async (known = {}) => {
       const result = await context.fetchChannelVideos(channel, known)
-      return JSON.parse(JSON.stringify(result))
+      return JSON.parse(JSON.stringify({
+        ...result,
+        newVideos: result.videos.filter(video => !known[video.id])
+      }))
     }
   }
 }
@@ -64,7 +67,7 @@ for (const internalTest of [false, true]) {
   test(`first fetch loads 50 uploads, including internal-test=${internalTest}`, async () => {
     const harness = createHarness(uploads(120), { internalTest })
     const result = await harness.fetch()
-    assert.deepEqual(result.videos.map(video => video.id), uploads(50))
+    assert.deepEqual(result.newVideos.map(video => video.id), uploads(50))
     assert.equal(result.filteredShorts, 0)
     assert.equal(harness.requests.length, 1)
     assert.equal(harness.requests[0].searchParams.get('maxResults'), '50')
@@ -79,7 +82,7 @@ for (const newestCount of [0, 3, 50, 70]) {
     const known = asKnownVideos(oldIds.slice(0, 100))
     const original = structuredClone(known)
     const result = await harness.fetch(known)
-    assert.deepEqual(result.videos.map(video => video.id), [
+    assert.deepEqual(result.newVideos.map(video => video.id), [
       ...newIds, ...oldIds.slice(100)
     ].slice(0, 50))
     assert.deepEqual(known, original, 'Pagination cannot mutate learner progress')
@@ -91,14 +94,14 @@ test('successive refreshes continue history without losing the unselected tail o
   const harness = createHarness(oldIds)
   let known = {}
   const first = await harness.fetch(known)
-  known = asKnownVideos(first.videos.map(video => video.id))
+  known = asKnownVideos(first.newVideos.map(video => video.id))
   harness.setUploads([...uploads(3, 'new'), ...oldIds])
   const second = await harness.fetch(known)
-  assert.deepEqual(second.videos.map(video => video.id), [...uploads(3, 'new'), ...oldIds.slice(50, 97)])
-  Object.assign(known, asKnownVideos(second.videos.map(video => video.id)))
+  assert.deepEqual(second.newVideos.map(video => video.id), [...uploads(3, 'new'), ...oldIds.slice(50, 97)])
+  Object.assign(known, asKnownVideos(second.newVideos.map(video => video.id)))
   // Simulate reloading persisted state between hourly refreshes.
   const third = await harness.fetch(JSON.parse(JSON.stringify(known)))
-  assert.deepEqual(third.videos.map(video => video.id), oldIds.slice(97, 147))
+  assert.deepEqual(third.newVideos.map(video => video.id), oldIds.slice(97, 147))
 })
 
 test('more than 50 new uploads leave the overflow ahead of older history on the next refresh', async () => {
@@ -107,23 +110,23 @@ test('more than 50 new uploads leave the overflow ahead of older history on the 
   const known = asKnownVideos(oldIds.slice(0, 50))
   const harness = createHarness([...newIds, ...oldIds])
   const first = await harness.fetch(known)
-  Object.assign(known, asKnownVideos(first.videos.map(video => video.id)))
+  Object.assign(known, asKnownVideos(first.newVideos.map(video => video.id)))
   const second = await harness.fetch(known)
-  assert.deepEqual(second.videos.map(video => video.id), [...newIds.slice(50), ...oldIds.slice(50, 80)])
+  assert.deepEqual(second.newVideos.map(video => video.id), [...newIds.slice(50), ...oldIds.slice(50, 80)])
 })
 
 test('deleted cached uploads do not shift the next batch past unseen older uploads', async () => {
   const oldIds = uploads(160)
   const harness = createHarness(oldIds.slice(13))
   const result = await harness.fetch(asKnownVideos(oldIds.slice(0, 100)))
-  assert.deepEqual(result.videos.map(video => video.id), oldIds.slice(100, 150))
+  assert.deepEqual(result.newVideos.map(video => video.id), oldIds.slice(100, 150))
 })
 
 test('duplicate and missing IDs do not consume the 50-video allowance', async () => {
   const ids = uploads(80)
   const harness = createHarness([null, '', ...ids.slice(0, 30), ...ids])
   const result = await harness.fetch()
-  assert.deepEqual(result.videos.map(video => video.id), ids.slice(0, 50))
+  assert.deepEqual(result.newVideos.map(video => video.id), ids.slice(0, 50))
 })
 
 for (const total of [0, 17, 100, 113]) {
@@ -131,7 +134,7 @@ for (const total of [0, 17, 100, 113]) {
     const ids = uploads(total)
     const harness = createHarness(ids)
     const result = await harness.fetch(asKnownVideos(ids.slice(0, 100)))
-    assert.deepEqual(result.videos.map(video => video.id), ids.slice(100))
+    assert.deepEqual(result.newVideos.map(video => video.id), ids.slice(100))
     assert.equal(harness.requests.length, Math.max(1, Math.ceil(total / 50)))
   })
 }
@@ -146,11 +149,22 @@ test('a failed older-page request leaves the batch retryable without skipping ID
   await assert.rejects(harness.fetch(known), /Network failure/)
   assert.equal(Object.keys(known).length, 40)
   fail = false
-  assert.deepEqual((await harness.fetch(known)).videos.map(video => video.id), ids.slice(40, 90))
+  assert.deepEqual((await harness.fetch(known)).newVideos.map(video => video.id), ids.slice(40, 90))
 })
 
 test('a repeated API page token fails instead of looping indefinitely', async () => {
   const harness = createHarness([])
   harness.context.fetchChannelVideosPage = async () => ({ videos: [], nextPageToken: 'repeat' })
   await assert.rejects(harness.fetch(), /repeated uploads page token/)
+})
+
+test('cached upload metadata is refreshed without consuming any of the 50 new-video slots', async () => {
+  const ids = uploads(120)
+  const known = asKnownVideos(ids.slice(0, 50))
+  known[ids[0]].title = 'Before refresh'
+  const harness = createHarness(ids)
+  const result = await harness.fetch(known)
+  assert.equal(result.videos.find(video => video.id === ids[0])?.title, ids[0])
+  assert.deepEqual(result.videos.filter(video => !known[video.id]).map(video => video.id), ids.slice(50, 100))
+  assert.equal(known[ids[0]].title, 'Before refresh', 'Fetching alone must not mutate saved state')
 })
