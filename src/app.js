@@ -1271,8 +1271,7 @@ const ANKI_CONNECT_URL = 'http://127.0.0.1:8765'
 const YOUTUBE_REFRESH_INTERVAL_MS = 1 * 60 * 60_000
 const YOUTUBE_REFRESH_ERROR_BACKOFF_MS = 30 * 60_000
 const SANDBOX_VIDEOS_PER_CHANNEL = 5
-const FETCH_PAGE_SIZE = IS_INTERNAL_TEST ? 8 : 50
-const MAX_FETCH_PAGES_PER_CHANNEL = 1
+const FETCH_PAGE_SIZE = 50
 const BACKGROUND_PHYSICS_RADIUS = 130
 const BACKGROUND_PHYSICS_MAX_PARTICLES = 2600
 const ANKI_AUTO_REFRESH_MS = 5 * 60_000
@@ -4658,7 +4657,7 @@ async function prepareStarterFeedChannel(catalogId, queuedAt) {
   let detailsById = {}
   let fetchError = null
   try {
-    fetchResult = await fetchChannelVideos(channel, snapshot.videos, { includeShorts })
+    fetchResult = await fetchChannelVideos(channel, snapshot.videos)
     videos = dedupeVideos(fetchResult.videos)
     detailsById = await getFetchedVideoDetails(snapshot, videos, includeShorts)
   } catch (error) {
@@ -8407,45 +8406,6 @@ function getVideoWatchActivityDateKeys(video) {
     .map(entry => toDateKey(new Date(entry.watchedAt)))
 }
 
-function isActiveRefreshVideo(video) {
-  return getVideoStatus(video) !== 'watched'
-}
-
-function isCountableRefreshVideo(video, includeShorts) {
-  return isActiveRefreshVideo(video) && (includeShorts || !isShortDuration(video?.duration))
-}
-
-function getRefreshCountCandidate(video, knownVideos = {}) {
-  const known = knownVideos[video.id]
-  return known
-    ? { ...video, ...known, isShort: Boolean(video.isShort || known.isShort) }
-    : video
-}
-
-function getKnownChannelActiveCount(channel, knownVideos = {}, includeShorts = true) {
-  return Object.values(knownVideos)
-    .filter(video => video.channelId === channel.id)
-    .filter(video => isCountableRefreshVideo(video, includeShorts))
-    .length
-}
-
-function applyFetchedVideoDetails(videos, detailsById = {}) {
-  return videos.map(video => {
-    const detail = detailsById[video.id]
-    return detail
-      ? {
-        ...video,
-        duration: detail.duration,
-        aspectRatio: normalizeVideoAspectRatio(detail.aspectRatio)
-          ?? normalizeVideoAspectRatio(video.aspectRatio),
-        isShort: Boolean(detail.isShort),
-        shortsCheckedAt: detail.shortsCheckedAt,
-        shortsDetectionVersion: detail.shortsDetectionVersion
-      }
-      : video
-  })
-}
-
 function getRefreshCandidateDetails(s, videos) {
   const detailsById = {}
   videos.forEach(video => {
@@ -8473,47 +8433,32 @@ function getRefreshCandidateDetails(s, videos) {
   return detailsById
 }
 
-async function fetchChannelVideos(channel, knownVideos = {}, options = {}) {
-  const includeShorts = normalizeIncludeShorts(options.includeShorts)
+async function fetchChannelVideos(channel, knownVideos = {}) {
   const fetched = []
-  let filteredShorts = 0
+  const seenVideoIds = new Set(Object.keys(knownVideos))
+  const requestedPageTokens = new Set()
   let pageToken = ''
-  let pages = 0
-  let newCount = 0
-  let knownActiveCount = getKnownChannelActiveCount(channel, knownVideos, includeShorts)
 
-  while (pages < MAX_FETCH_PAGES_PER_CHANNEL) {
+  // Start at the newest uploads on every refresh. Walking past cached IDs
+  // naturally resumes older history without a saved cursor that can skip
+  // uploads when the playlist changes. Only unseen IDs consume the batch.
+  while (fetched.length < FETCH_PAGE_SIZE) {
+    if (requestedPageTokens.has(pageToken)) {
+      throw new Error('YouTube returned a repeated uploads page token')
+    }
+    requestedPageTokens.add(pageToken)
     const page = await fetchChannelVideosPage(channel, pageToken)
-    pages += 1
-    const detailsById = includeShorts
-      ? {}
-      : await fetchVideoDetails(page.videos.map(video => video.id), { detectShorts: true })
-    const acceptedVideos = includeShorts
-      ? page.videos
-      : page.videos.filter(video => knownVideos[video.id] || !detailsById[video.id]?.isShort)
-    filteredShorts += page.videos.length - acceptedVideos.length
-    const detailedAcceptedVideos = applyFetchedVideoDetails(acceptedVideos, detailsById)
-    fetched.push(...detailedAcceptedVideos)
-
-    const pageNewVideos = detailedAcceptedVideos.filter(v => !knownVideos[v.id])
-    newCount += pageNewVideos.length
-
-    const pageKnownOnly = pageNewVideos.length === 0
-    const pageActiveCount = detailedAcceptedVideos
-      .filter(v => isCountableRefreshVideo(getRefreshCountCandidate(v, knownVideos), includeShorts))
-      .length
-    knownActiveCount += pageNewVideos.filter(video => isCountableRefreshVideo(video, includeShorts)).length
-
-    if (
-      newCount >= ACTIVE_VIDEOS_PER_CHANNEL ||
-      (knownActiveCount >= ACTIVE_VIDEOS_PER_CHANNEL && pageKnownOnly) ||
-      pageActiveCount >= ACTIVE_VIDEOS_PER_CHANNEL ||
-      !page.nextPageToken
-    ) break
+    for (const video of page.videos) {
+      if (!video.id || seenVideoIds.has(video.id)) continue
+      seenVideoIds.add(video.id)
+      fetched.push(video)
+      if (fetched.length === FETCH_PAGE_SIZE) break
+    }
+    if (!page.nextPageToken) break
     pageToken = page.nextPageToken
   }
 
-  return { videos: fetched, filteredShorts }
+  return { videos: fetched, filteredShorts: 0 }
 }
 
 async function fetchVideoDetails(videoIds, { detectShorts = false } = {}) {
@@ -8861,7 +8806,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
 
     await Promise.all(channelsToRefresh.map(async ch => {
       try {
-        const { videos: vids, filteredShorts } = await fetchChannelVideos(ch, s.videos, { includeShorts })
+        const { videos: vids, filteredShorts } = await fetchChannelVideos(ch, s.videos)
         successfulChannels += 1
         all.push(...vids)
         filteredShortsDuringFetch += filteredShorts
@@ -9041,7 +8986,7 @@ async function refreshAddedChannel(channelId, options = {}) {
     if (!isCurrentLearnerProfileOperation(s)) return
 
     const includeShorts = getEffectiveIncludeShorts(s)
-    const fetchResult = await fetchChannelVideos(channel, s.videos, { includeShorts })
+    const fetchResult = await fetchChannelVideos(channel, s.videos)
     if (!isCurrentLearnerProfileOperation(s)) return
     const videos = dedupeVideos(fetchResult.videos)
     const first = videos[0]
