@@ -20,12 +20,14 @@ export function normalizeChannelRefreshState(state) {
     const lastError = typeof entry?.lastError === 'string' ? entry.lastError : null
     if (lastFetchedAt) {
       normalized[channelId] = {
+        ...(entry?.coverage ? { coverage: entry.coverage } : {}),
         lastFetchedAt,
         lastError,
         lastFailedAt
       }
     } else if (entry) {
       normalized[channelId] = {
+        ...(entry?.coverage ? { coverage: entry.coverage } : {}),
         lastFetchedAt: null,
         lastError,
         lastFailedAt

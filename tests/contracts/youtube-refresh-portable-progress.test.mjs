@@ -42,9 +42,10 @@ function createRefreshHarness(options = {}) {
   const renders = []
   const context = vm.createContext({
     IS_SANDBOX: false,
+    isYoutubeMetadataFresh: () => true,
     starterFeedPreparationPromise: null,
     document: { getElementById: () => null },
-    console: { error: error => { throw error }, warn() {} },
+    console: { error: error => { if (!options.failMetadata) throw error }, warn() {} },
     loadState: () => active ? profile : null,
     hasYoutubeApiKey: () => true,
     getDueYoutubeChannels: state => state.config.channels,
@@ -56,6 +57,7 @@ function createRefreshHarness(options = {}) {
       { id: 'new-video', channelId: 'test-channel', title: 'New title', duration: 150 }
     ], filteredShorts: 0 }),
     getFetchedVideoDetails: async () => {
+      if (options.failMetadata) throw Error('Metadata failure')
       if (loseActivation) active = false
       return {}
     },
@@ -68,6 +70,7 @@ function createRefreshHarness(options = {}) {
     normalizeVideoAspectRatio,
     normalizeVideoWatchProgress,
     markChannelRefreshSuccess() {},
+    markChannelRefreshError(state, id) { state.channelRefreshes = { [id]: { lastFailedAt: new Date().toISOString() } } },
     appendActivityLog() {},
     saveState(state) {
       assert.equal(active, true)
@@ -122,4 +125,13 @@ test('a refresh finishing after profile deactivation cannot save its captured pr
   assert.equal(harness.savedEnvelopes.length, 0)
   assert.equal(harness.renders.length, 0)
   assert.equal(harness.profile.videos['study-video'].watchLater, true)
+})
+
+ test('detail failure retains videos and records failure backoff before scheduling retry', async () => {
+  const h = createRefreshHarness({ failMetadata: true })
+  const before = structuredClone(h.profile.videos)
+  const result = await h.refresh()
+  assert.equal(result.ok, false)
+  assert.deepEqual(h.profile.videos, before)
+  assert.ok(h.profile.channelRefreshes['test-channel'].lastFailedAt)
 })
