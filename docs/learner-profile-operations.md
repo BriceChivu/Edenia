@@ -1,5 +1,12 @@
 # Learner profile retention and disaster recovery
 
+During the internal Auth experiment pause, weekly external dumps and 35-day
+retention remain enabled. Restore rehearsal and guarded retention steps require
+`EDENIA_AUTH_EXPERIMENT_ENABLED=true`; they are paused independently of backup
+creation. Server profile cleanup is disabled. See
+[the pause record](auth-operations.md#internal-experiment-pause-2026-09-27).
+
+
 This runbook covers the operator boundary for signed-in learner profiles. The
 browser does not call these private maintenance functions.
 

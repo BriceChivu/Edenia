@@ -3,6 +3,16 @@
 This runbook covers Edenia's current internal-only account and reminder system.
 It is deliberately written for the system that exists now.
 
+## Internal experiment paused
+
+As of 2026-09-27, authentication testing and reminder canary delivery are
+paused. Browser account rollout and profile lifecycle are off. The delivery
+switch remains false, there are no active delivery leases or reminder Cron
+jobs, and unsubscribe/provider-webhook services remain available. The sections
+below describe the retained system for an explicitly authorized future resume;
+they do not authorize re-enabling it. See the
+[Auth pause record](auth-operations.md#internal-experiment-pause-2026-09-27).
+
 ## Current safety state
 
 - The account interface is available only when

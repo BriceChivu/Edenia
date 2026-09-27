@@ -554,6 +554,11 @@ import {
   renderPlusUpgradeExperience
 } from './features/plus/upgrade-presenter.js'
 
+import {
+  shouldHoldPausedInternalProfile,
+  showPausedInternalProfile
+} from './features/profile-access/experiment-pause.js'
+
 // Fresh public-beta users start with no pre-filled YouTube channels.
 const DEFAULT_CHANNELS = []
 const DEFAULT_CHANNELS_VERSION = 2
@@ -578,6 +583,12 @@ const ACCOUNT_FEATURES_ENABLED = deriveAccountFeaturesEnabled(
   RUNTIME_ENVIRONMENT,
   getAccountFeaturesRollout()
 )
+// Experiment: pixel-art-town. Gate: IS_INTERNAL_TEST with Auth rollout off.
+const INTERNAL_PROFILE_PAUSED = shouldHoldPausedInternalProfile({
+  location: window.location,
+  accountFeaturesEnabled: ACCOUNT_FEATURES_ENABLED,
+  readStorage: key => localStorage.getItem(key)
+})
 const EMERGENCY_ACCOUNTLESS_ROLLBACK_ENABLED =
   getEmergencyAccountlessRollbackEnabled()
 const ACCOUNTLESS_PROFILE_FINAL_CUTOVER_AT =
@@ -741,6 +752,7 @@ function pruneBackupForPrimaryQuota(...args) {
 }
 
 async function initializeStateBackupStorage() {
+  if (INTERNAL_PROFILE_PAUSED) return
   if (!LOCAL_BACKUPS_ENABLED) {
     try { localStorage.removeItem(STATE_BACKUP_KEY) } catch {}
     stateBackupStore = createDisabledStateBackupStore()
@@ -1080,6 +1092,7 @@ if (LEARNER_PROFILE_LIFECYCLE_ENABLED) {
 }
 
 function loadState() {
+  if (INTERNAL_PROFILE_PAUSED) return null
   return learnerProfileLifecycleAuthority
     ? learnerProfileLifecycleAuthority.readActiveProfile()
     : loadPersistedState()
@@ -1104,12 +1117,14 @@ function rememberPersistedPortableProfile(state) {
 }
 
 function saveImportedState(state, options = {}) {
+  if (INTERNAL_PROFILE_PAUSED) return { persisted: false, error: null }
   return learnerProfileLifecycleAuthority
     ? learnerProfileLifecycleAuthority.replaceActiveProfile(state, options)
     : saveImportedPersistedState(state, options)
 }
 
 function saveState(state, options = {}) {
+  if (INTERNAL_PROFILE_PAUSED) return false
   if (!learnerProfileLifecycleAuthority) {
     return savePersistedState(state, options)
   }
@@ -3248,6 +3263,10 @@ function resumeApplicationAfterMigration() {
 }
 
 async function init() {
+  if (INTERNAL_PROFILE_PAUSED) {
+    showPausedInternalProfile(document)
+    return
+  }
   reportMissingI18nKeys()
   applyPermanentChannelVideoFormatUi()
   if (!stateBackupStorageReady) {

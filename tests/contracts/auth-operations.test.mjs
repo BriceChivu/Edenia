@@ -87,6 +87,7 @@ test('Auth health classification keeps expected client errors separate from prov
 })
 
 test('GitHub is only the secondary freshness watchdog and manual diagnostic', () => {
+  assert.equal((workflow.match(/if: vars\.EDENIA_AUTH_EXPERIMENT_ENABLED == 'true' && github\.event_name/g) || []).length, 2)
   assert.doesNotMatch(workflow, /cron:\s*['"]\*\/5 \* \* \* \*['"]/)
   assert.match(workflow, /Secondary stale-record watchdog only/)
   assert.match(workflow, /check-auth-health-freshness\.mjs/)

@@ -69,6 +69,7 @@ jobs:
           retention-days: 35
 
       - name: Start isolated restore database
+        if: vars.EDENIA_AUTH_EXPERIMENT_ENABLED == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -81,6 +82,7 @@ jobs:
             > /dev/null 2>&1
 
       - name: Restore dump into isolated database
+        if: vars.EDENIA_AUTH_EXPERIMENT_ENABLED == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -115,11 +117,12 @@ jobs:
           unset restore_db_url
 
       - name: Stop isolated restore database
-        if: always()
+        if: always() && vars.EDENIA_AUTH_EXPERIMENT_ENABLED == 'true'
         shell: bash
         run: supabase stop --workdir "$RUNNER_TEMP/edenia-restore-project" --no-backup > /dev/null 2>&1 || true
 
       - name: Record capacity evidence and run guarded retention
+        if: vars.EDENIA_AUTH_EXPERIMENT_ENABLED == 'true'
         shell: bash
         run: |
           set -euo pipefail

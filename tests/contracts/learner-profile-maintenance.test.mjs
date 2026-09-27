@@ -19,7 +19,7 @@ const concurrencyProbe = await readFile(
   'utf8'
 )
 
-test('learner profile disaster backup workflow runs a weekly off-project dump and restore rehearsal', () => {
+test('learner profile disaster backup workflow keeps weekly dumps while independently gating experiment rehearsals', () => {
   assert.match(workflow, /schedule:\s*[\s\S]*cron:/)
   assert.match(workflow, /SUPABASE_DB_URL:/)
   assert.match(workflow, /version:\s*2\.116\.0/)
@@ -31,6 +31,11 @@ test('learner profile disaster backup workflow runs a weekly off-project dump an
   )
   assert.match(workflow, /actions\/upload-artifact@v4/)
   assert.match(workflow, /retention-days:\s*35/)
+  for (const step of ['Start isolated restore database', 'Restore dump into isolated database', 'Record capacity evidence and run guarded retention']) {
+    assert.ok(workflow.includes(`- name: ${step}\n        if: vars.EDENIA_AUTH_EXPERIMENT_ENABLED == 'true'`))
+  }
+  assert.match(workflow, /name: Create external logical dump\n        id: dump/)
+
   assert.match(workflow, /supabase init --workdir "\$restore_project"/)
   assert.match(
     workflow,
