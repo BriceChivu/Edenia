@@ -36,3 +36,13 @@ test('metadata renewed after expiration can expire again on a later offline open
   assert.equal(expireYoutubeMetadata(s, now + 45 * 86400000), true)
   assert.equal(s.videos.v.title, '')
 })
+test('maintenance preserves learner edits saved while provider requests are in flight', async () => {
+  const snapshot = state()
+  const latest = structuredClone(snapshot)
+  await refreshSavedYoutubeMetadata({ state: snapshot, now, isCurrent: () => true, readCurrent: () => latest,
+    fetchVideos: async () => { latest.videos.v.favorite = false; latest.videos.v.status = 'watched'; latest.videos.v.resumeAtSeconds = 95; return { v: { title: 'Updated', duration: 600 } } },
+    fetchChannels: async () => {} })
+  assert.equal(snapshot.videos.v.favorite, false)
+  assert.equal(snapshot.videos.v.status, 'watched')
+  assert.equal(snapshot.videos.v.resumeAtSeconds, 95)
+})

@@ -39,7 +39,7 @@ export function expireYoutubeMetadata(state, now = Date.now(), includeUndated = 
 }
 
 // Separate from playlist coverage. A manual-only library needs the same cache lifecycle.
-export async function refreshSavedYoutubeMetadata({ state, fetchVideos, fetchChannels, isCurrent, now = Date.now() }) {
+export async function refreshSavedYoutubeMetadata({ state, fetchVideos, fetchChannels, isCurrent, readCurrent = () => state, now = Date.now() }) {
   if (!isCurrent()) return false
   let changed = expireYoutubeMetadata(state, now)
   if (now - Date.parse(state.youtubeMetadataFailedAt) < 30 * 60_000) return changed
@@ -58,7 +58,10 @@ export async function refreshSavedYoutubeMetadata({ state, fetchVideos, fetchCha
     if (!isCurrent()) return false
     await fetchChannels(staleChannels)
     if (!isCurrent()) return false
-    stale.forEach(video => {
+    Object.assign(state, readCurrent())
+    stale.forEach(candidate => {
+      const video = state.videos?.[candidate.id]
+      if (!video) return
       const detail = details[video.id]
       if (!detail || detail.metadataUnavailable) clearYoutubeVideoMetadata(video)
       if (detail) Object.assign(video, detail)
@@ -76,6 +79,7 @@ export async function refreshSavedYoutubeMetadata({ state, fetchVideos, fetchCha
     return true
   } catch {
     if (!isCurrent()) return false
+    Object.assign(state, readCurrent())
     expireYoutubeMetadata(state, now, true)
     state.youtubeMetadataFailedAt = new Date(now).toISOString()
     return true

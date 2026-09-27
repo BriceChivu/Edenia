@@ -8611,7 +8611,8 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
         state: s,
         fetchVideos: ids => fetchVideoDetails(ids),
         fetchChannels: channels => hydrateYoutubeChannelProfiles(channels),
-        isCurrent: () => isCurrentLearnerProfileOperation(s)
+        isCurrent: () => isCurrentLearnerProfileOperation(s),
+        readCurrent: loadState
       })
       if (!isCurrentLearnerProfileOperation(s)) return
       if (changed && saveState(s)) renderAll(s)
