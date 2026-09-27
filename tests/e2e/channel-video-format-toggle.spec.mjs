@@ -163,12 +163,12 @@ async function seedFormatState(
   return storageKey
 }
 
-async function expectRightArrowScrollsFromHiddenFirstSlot(shelf) {
+async function expectRightArrowScrollsForSelectedFormat(shelf) {
   const track = shelf.locator('.channel-shelf-track')
   const nextButton = shelf.locator('[data-shelf-direction="1"]')
-  expect(await shelf.evaluate(element => (
-    element.querySelector('.channel-shelf-slot')?.hidden === true
-  ))).toBe(true)
+  await shelf.scrollIntoViewIfNeeded()
+  await expect(shelf.locator('.channel-shelf-slot').first()).toBeVisible()
+  expect(await shelf.locator('.channel-shelf-slot[hidden]').count()).toBe(0)
   await expect(nextButton).toBeEnabled()
   await expect(track).toHaveJSProperty('scrollLeft', 0)
   await nextButton.click()
@@ -343,7 +343,7 @@ test('status filters show the available format without overwriting channel prefe
   await expect(channelB).toHaveAttribute('data-channel-selected-video-format', 'shorts')
 })
 
-test('shelf arrows scroll when the selected format hides the first source slot', async ({ page }, testInfo) => {
+test('shelf arrows scroll when only the selected format is mounted', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
   await seedFormatState(page, { overflow: true })
 
@@ -351,11 +351,11 @@ test('shelf arrows scroll when the selected format hides the first source slot',
   await channelA.locator(
     '[data-channel-video-format="shorts"][data-channel-video-format-action="select"]'
   ).click()
-  await expectRightArrowScrollsFromHiddenFirstSlot(channelA)
+  await expectRightArrowScrollsForSelectedFormat(channelA)
 
   const channelB = page.locator('.channel-shelf[data-channel-key="channel-b"]')
   await expect(channelB).toHaveAttribute('data-channel-selected-video-format', 'videos')
-  await expectRightArrowScrollsFromHiddenFirstSlot(channelB)
+  await expectRightArrowScrollsForSelectedFormat(channelB)
 })
 
 test('expanded desktop Shorts use compact localized timestamps without crowding actions', async ({ page }, testInfo) => {

@@ -145,6 +145,14 @@ test('shelf ribbons cover every priority and remain flush on responsive cards', 
     const card = page.locator(
       `#videoGrid .channel-shelf-card[data-video-id="${videoId}"]`
     )
+    const track = page.locator('#videoGrid .channel-shelf-track').first()
+    await track.scrollIntoViewIfNeeded()
+    await track.evaluate(element => element.scrollTo({ left: 0, behavior: 'instant' }))
+    await page.waitForTimeout(50)
+    for (let step = 0; step < 8 && !await card.count(); step += 1) {
+      await track.evaluate(element => element.scrollBy({ left: element.clientWidth, behavior: 'instant' }))
+      await page.waitForTimeout(50)
+    }
     await expect(card).toHaveCount(1)
     await card.scrollIntoViewIfNeeded()
     const ribbon = card.locator('.channel-shelf-priority-badge')

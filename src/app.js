@@ -1,4 +1,6 @@
 import { createYoutubeRequestGate, isYoutubeQuotaError } from './integrations/youtube-quota.js'
+import { createCollectionWindow } from './features/videos/collection-window.js'
+import { createShelfWindow } from './features/videos/shelf-window.js'
 import { isYoutubeMetadataFresh, expireYoutubeMetadata, refreshSavedYoutubeMetadata } from './integrations/youtube-metadata-cache.js'
 import { checkNewUploads } from './integrations/youtube-upload-check.js'
 /* ═══════════════════════════════════════════════════════════
@@ -5002,6 +5004,11 @@ function getWalkthroughTargetSelector(step) {
 }
 
 function getWalkthroughTarget(step) {
+  if (step?.id === 'first-study-video') {
+    const entry = videoShelfWindows.values().next().value
+    const video = entry?.group.videos.find(video => getChannelVideoFormat(video) === entry.format)
+    if (video) entry.window.ensure(video.id)
+  }
   const selector = getWalkthroughTargetSelector(step)
   return selector ? document.querySelector(selector) : null
 }
@@ -12242,6 +12249,14 @@ function scrollToVideoCard(videoId, selector = '.video-card', options = {}) {
 
 function findVideoCard(videoId, selector = '.video-card') {
   const targetId = String(videoId ?? '')
+  for (const entry of videoShelfWindows.values()) {
+    const video = entry.group.videos.find(video => String(video.id) === targetId)
+    if (!video) continue
+    const format = getChannelVideoFormat(video)
+    if (entry.format !== format) applyChannelVideoFormatSelection(entry.shelf, entry.group.key, format)
+    entry.window.ensure(targetId)
+  }
+  videoCollectionWindows.forEach(entry => entry.ensure(targetId))
   return Array.from(document.querySelectorAll(selector))
     .find(element => element.dataset.videoId === targetId) || null
 }
@@ -12564,8 +12579,7 @@ function jumpToVideoFromSearch(videoId) {
 
   closeVideoSearchPopover()
   const isRemovedTarget = isVideoRemovedFromFeed(video)
-  const shouldRevealInWatchedSection = !usesPhoneComposition()
-    && !isRemovedTarget
+  const shouldRevealInWatchedSection = !isRemovedTarget
     && getVideoStatus(video) === 'watched'
     && !isFavoriteVideo(video)
   if (isRemovedTarget) {
@@ -15521,7 +15535,18 @@ function updateCityMilestoneImage(score, options = {}) {
   }
 }
 
+const videoShelfWindows = new Map()
+const videoCollectionWindows = new Map()
+const videoCollectionDefinitions = new Map()
+let pendingShelfGroups = []
+
 function renderFeed(s) {
+  videoShelfWindows.forEach(entry => entry.window.destroy())
+  videoShelfWindows.clear()
+  videoCollectionWindows.forEach(entry => entry.destroy())
+  videoCollectionWindows.clear()
+  videoCollectionDefinitions.clear()
+  pendingShelfGroups = []
   closeVideoOrganizationMenu(false)
   renderChannelFilterOptions(s)
   renderTrackedChannelAccess(s)
@@ -15638,6 +15663,22 @@ function renderFeed(s) {
       s.config?.channels
     )
   }
+  pendingShelfGroups.forEach(({ group, trackId, cardOptions, selectedFormat }) => {
+    const track = document.getElementById(trackId)
+    const shelf = track.closest('.channel-shelf')
+    const entry = { group, shelf, format: selectedFormat }
+    entry.window = createShelfWindow(track, {
+      videos: group.videos.filter(video => getChannelVideoFormat(video) === selectedFormat),
+      render: video => `<div class="channel-shelf-slot ${video.id === cardOptions.focusedVideoId ? 'channel-refresh-focus' : ''}" data-channel-video-format="${getChannelVideoFormat(video)}" style="--channel-refresh-delay: ${Math.min(group.videos.indexOf(video), 8) * 45}ms">${renderCard(video, false, { ...cardOptions, shelf: true })}</div>`,
+      bind: root => {
+        bindRenderedVideoStateActions(root)
+        bindRenderedVideoShelfPreviewActions(root)
+      },
+      empty: () => `<div class="channel-shelf-format-empty" data-channel-video-format-empty="${entry.format}">${escHtml(t(entry.format === 'shorts' ? 'videos.channel.format.emptyShorts' : 'videos.channel.format.emptyVideos'))}</div>`,
+      isPinned: node => node.contains(activeVideoShelfPreview)
+    })
+    videoShelfWindows.set(track, entry)
+  })
   bindChannelShelfScrollActions(grid, {
     scroll: scrollVideoChannelShelf,
     sync: syncVideoChannelShelfControls
@@ -15672,15 +15713,19 @@ function renderFeed(s) {
     watchedToggle.setAttribute('aria-expanded', String(!watchedCollapsed))
     watchedToggle.setAttribute('aria-label', t(watchedCollapsed ? 'videos.watched.show' : 'videos.watched.hide'))
   }
-  watchedGrid.innerHTML = watchedVideos
-    .map(v => renderCard(v, true, {
+  videoCollectionDefinitions.set(watchedGrid, {
+    videos: watchedVideos,
+    render: video => renderCard(video, true, {
       ...cardOptions,
       hideOrganizationActions: true,
       stateActionSurface: 'watched_card'
-    }))
-    .join('')
-  bindRenderedVideoStateActions(watchedGrid)
-  bindRenderedVideoShelfPreviewActions(watchedGrid)
+    }),
+    bind: root => {
+      bindRenderedVideoStateActions(root)
+      bindRenderedVideoShelfPreviewActions(root)
+    }
+  })
+  updateVideoCollection(watchedGrid, watchedCollapsed)
 
   removedCount.textContent = removedVideos.length
   removedSection.classList.toggle(
@@ -15695,8 +15740,22 @@ function renderFeed(s) {
       ? 'videos.removed.show'
       : 'videos.removed.hide'))
   }
-  removedGrid.innerHTML = removedVideos.map(renderRemovedVideoCard).join('')
-  bindRenderedVideoShelfPreviewActions(removedGrid)
+  videoCollectionDefinitions.set(removedGrid, {
+    videos: removedVideos,
+    render: renderRemovedVideoCard,
+    bind: bindRenderedVideoShelfPreviewActions
+  })
+  updateVideoCollection(removedGrid, isRemovedSectionCollapsed)
+}
+
+function updateVideoCollection(grid, collapsed) {
+  videoCollectionWindows.get(grid)?.destroy()
+  videoCollectionWindows.delete(grid)
+  grid.replaceChildren()
+  const definition = videoCollectionDefinitions.get(grid)
+  if (!collapsed && definition) {
+    videoCollectionWindows.set(grid, createCollectionWindow(grid, definition))
+  }
 }
 
 function toggleWatchedSection() {
@@ -15705,6 +15764,7 @@ function toggleWatchedSection() {
   if (!watchedSection || !watchedToggle) return
   isWatchedSectionCollapsed = !watchedSection.classList.contains('collapsed')
   watchedSection.classList.toggle('collapsed', isWatchedSectionCollapsed)
+  updateVideoCollection(document.getElementById('watchedGrid'), isWatchedSectionCollapsed)
   watchedToggle.setAttribute('aria-expanded', String(!isWatchedSectionCollapsed))
   watchedToggle.setAttribute('aria-label', t(isWatchedSectionCollapsed ? 'videos.watched.show' : 'videos.watched.hide'))
 }
@@ -15715,6 +15775,7 @@ function toggleRemovedSection() {
   if (!removedSection || !removedToggle) return
   isRemovedSectionCollapsed = !removedSection.classList.contains('collapsed')
   removedSection.classList.toggle('collapsed', isRemovedSectionCollapsed)
+  updateVideoCollection(document.getElementById('removedGrid'), isRemovedSectionCollapsed)
   removedToggle.setAttribute('aria-expanded', String(!isRemovedSectionCollapsed))
   removedToggle.setAttribute('aria-label', t(isRemovedSectionCollapsed
     ? 'videos.removed.show'
@@ -15790,18 +15851,12 @@ function applyChannelVideoFormatSelection(shelf, channelKey, format) {
     closeVideoShelfPreview(activeVideoShelfPreview, true)
   }
 
-  let visibleCount = 0
-  shelf.querySelectorAll(
-    '.channel-shelf-slot[data-channel-video-format]'
-  ).forEach(slot => {
-    const isVisible = slot.dataset.channelVideoFormat === selectedFormat
-    slot.hidden = !isVisible
-    if (isVisible) visibleCount += 1
-  })
-  shelf.querySelectorAll('[data-channel-video-format-empty]').forEach(empty => {
-    empty.hidden = empty.dataset.channelVideoFormatEmpty !== selectedFormat
-      || visibleCount > 0
-  })
+  const entry = videoShelfWindows.get(shelf.querySelector('.channel-shelf-track'))
+  if (!entry) return false
+  const videos = entry.group.videos.filter(video => getChannelVideoFormat(video) === selectedFormat)
+  const visibleCount = videos.length
+  entry.format = selectedFormat
+  entry.window.replace(videos)
   shelf.querySelectorAll('[data-channel-video-format-action="select"]').forEach(button => {
     button.setAttribute(
       'aria-pressed',
@@ -15846,9 +15901,8 @@ function selectChannelVideoFormat(control, channelKey, format) {
   const channelName = channel?.name
     || shelf.querySelector('.channel-shelf-heading strong')?.textContent?.trim()
     || channelKey
-  const visibleVideoCount = shelf.querySelectorAll(
-    `.channel-shelf-slot[data-channel-video-format="${selectedFormat}"]:not([hidden])`
-  ).length
+  const visibleVideoCount = videoShelfWindows.get(shelf.querySelector('.channel-shelf-track'))
+    ?.group.videos.filter(video => getChannelVideoFormat(video) === selectedFormat).length || 0
   trackEdeniaEvent('channel_video_format_viewed', {
     channel_id: channelKey,
     channel_name: channelName,
@@ -15887,6 +15941,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
     const visibleCount = formatCounts[selectedFormat]
     const countLabel = getChannelVideoFormatCountLabel(visibleCount)
     const trackId = `channelShelfTrack${index}`
+    pendingShelfGroups.push({ group, trackId, cardOptions, selectedFormat })
     const isArrivingChannel = group.key === cardOptions.arrivingChannelId
     const isRemovedChannel = cardOptions.removedChannelIds?.has(group.key)
     return `
@@ -15956,19 +16011,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
             ${selectedFormat !== CHANNEL_VIDEO_FORMATS.SHORTS || formatCounts[CHANNEL_VIDEO_FORMATS.SHORTS] > 0 ? 'hidden' : ''}>
             ${escHtml(t('videos.channel.format.emptyShorts'))}
           </div>
-          ${group.videos.map((video, videoIndex) => {
-            const videoFormat = getChannelVideoFormat(video)
-            return `
-            <div class="channel-shelf-slot ${video.id === cardOptions.focusedVideoId ? 'channel-refresh-focus' : ''}"
-              data-channel-video-format="${videoFormat}"
-              ${videoFormat !== selectedFormat ? 'hidden' : ''}
-              style="--channel-refresh-delay: ${Math.min(videoIndex, 8) * 45}ms">
-              ${renderCard(video, false, {
-                ...cardOptions,
-                shelf: true
-              })}
-            </div>
-          `}).join('')}
+
         </div>
       </section>
     `
@@ -17243,6 +17286,15 @@ function refreshVideoActionUiWithoutFeedRerender(state, videoId) {
   const card = activeVideoShelfPreview
   const video = state?.videos?.[videoId]
   if (!card || !video || !isActiveVideoShelfPreview(videoId)) return
+
+  // Preview actions deliberately preserve the live card. Refresh its window's
+  // record too, so a later remount uses the updated learner-owned state.
+  for (const entry of videoShelfWindows.values()) {
+    const index = entry.group.videos.findIndex(item => String(item.id) === String(videoId))
+    if (index < 0) continue
+    entry.group.videos[index] = video
+    entry.window.updateVideo(video)
+  }
 
   const template = document.createElement('template')
   template.innerHTML = renderCard(video, false, {

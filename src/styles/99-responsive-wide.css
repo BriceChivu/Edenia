@@ -161,7 +161,7 @@
   }
   .channel-shelf-track {
     margin: -18px -16px -20px;
-    overflow-x: hidden;
+    overflow-x: auto;
     padding: 24px 20px 26px;
     scroll-padding-inline: 20px;
     scrollbar-width: none;

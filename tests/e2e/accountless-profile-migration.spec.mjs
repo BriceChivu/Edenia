@@ -1200,6 +1200,9 @@ test('retained favorite stays rendered through first signed-in progress sync wit
   })
   clientEnabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
+  // Off-screen shelves now defer cards; bring the saved shelf into view before
+  // asserting that the favorite renders without any provider hydration.
+  await page.locator('#videoGrid').scrollIntoViewIfNeeded()
   await expect(page.getByText('Ordinary fetched lesson', { exact: true }))
     .toBeVisible()
 

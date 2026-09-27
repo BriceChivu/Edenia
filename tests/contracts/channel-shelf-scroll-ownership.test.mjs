@@ -324,7 +324,7 @@ test('active-grid replacement binds shelf scrolling before later features', () =
   assert.ok(videoStateBindingIndex > removeBindingIndex)
   assert.match(
     feedSource.slice(groupReplacementIndex, scrollBindingIndex),
-    /grid\.innerHTML = renderChannelVideoGroups\([\s\S]*?\)\s*\}\s*$/
+    /grid\.innerHTML = renderChannelVideoGroups\(/
   )
   assert.match(
     feedSource.slice(scrollBindingIndex, removeBindingIndex),

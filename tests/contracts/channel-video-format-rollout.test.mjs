@@ -101,7 +101,7 @@ test('shelf rendering groups before applying independent format visibility', () 
   )
   assert.match(
     appSource,
-    /data-channel-video-format="\$\{videoFormat\}"/
+    /data-channel-video-format="\$\{getChannelVideoFormat\(video\)\}"/
   )
 })
 
@@ -203,7 +203,7 @@ test('format changes stay shelf-local while persisting the explicit channel pref
 
   assert.match(actionSource, /setChannelVideoFormatPreference\(\s*state,\s*channelKey,\s*selectedFormat/)
   assert.match(actionSource, /saveState\(state, \{ backup: false, syncAnalytics: false \}\)/)
-  assert.match(actionSource, /slot\.hidden = !isVisible/)
+  assert.match(actionSource, /entry\.window\.replace\(videos\)/)
   assert.match(actionSource, /track\.scrollLeft = 0/)
   assert.match(actionSource, /trackEdeniaEvent\('channel_video_format_viewed', \{/)
   assert.doesNotMatch(actionSource, /fetchVideo|refreshFeed/)

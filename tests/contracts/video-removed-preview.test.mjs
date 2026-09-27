@@ -20,7 +20,7 @@ test('Removed cards expose an accessible thumbnail preview action', () => {
   assert.match(renderSource, /aria-label="\$\{escHtml\(video\.title\)\}"/)
   assert.match(
     appSource,
-    /removedGrid\.innerHTML =[\s\S]*?bindRenderedVideoShelfPreviewActions\(removedGrid\)/
+    /videoCollectionDefinitions\.set\(removedGrid,[\s\S]*?bind: bindRenderedVideoShelfPreviewActions/
   )
 })
 
