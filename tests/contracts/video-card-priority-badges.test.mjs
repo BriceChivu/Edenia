@@ -118,7 +118,7 @@ test('shelf ribbons share New geometry and attach to the top edge', () => {
 })
 
 test('preview-only state refreshes replace the unified shelf ribbon', () => {
-  const start = appSource.indexOf('function refreshVideoActionUiWithoutFeedRerender(')
+  const start = appSource.indexOf('function patchVideoShelfPreview(')
   const end = appSource.indexOf('\nfunction cleanupVideoShelfPreview(', start)
   assert.notEqual(start, -1, 'preview refresh source remains discoverable')
   assert.notEqual(end, -1, 'preview refresh boundary remains discoverable')

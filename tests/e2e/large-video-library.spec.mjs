@@ -232,6 +232,7 @@ test('card eviction keeps the active player and persists its progress', async ({
   await expect(page.locator('.video-player-overlay')).toBeVisible()
   await expect.poll(() => page.evaluate(() => window.__playerCreations)).toBe(1)
   const track = page.locator('.channel-shelf').first().locator('.channel-shelf-track')
+  await page.evaluate(() => window.toggleVideoFavorite('large-300'))
   // The overlay owns the player; underlying shelf eviction must not touch it.
   await page.evaluate(() => document.activeElement?.blur())
   await track.evaluate(element => element.scrollTo({ left: element.scrollWidth, behavior: 'instant' }))
@@ -246,6 +247,8 @@ test('card eviction keeps the active player and persists its progress', async ({
   await page.keyboard.press('Escape')
   await expect(page.locator('.video-player-overlay')).toHaveCount(0)
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')).videos['large-0'].resumeAtSeconds)).toBe(45)
+  await expect(playerCard.locator('.thumb-link')).toBeFocused()
+  await expect(playerCard.locator('..')).toBeInViewport({ ratio: .98 })
 })
 
 test('native horizontal wheel and touch gestures browse the window', async ({ page }, testInfo) => {
@@ -356,4 +359,208 @@ test('preview actions remain current after a card is evicted and remounted', asy
   await expect(card).toHaveCount(0)
   await track.evaluate(element => element.scrollTo({ left: 0, behavior: 'instant' }))
   await expect(card.locator('.favorite-btn')).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('deep shelf actions retain position, focus and unrelated shelves', async ({ page }, testInfo) => {
+  await seedLibrary(page)
+  const shelf = page.locator('.channel-shelf').nth(8)
+  const track = shelf.locator('.channel-shelf-track')
+  await shelf.scrollIntoViewIfNeeded()
+  await track.evaluate(element => element.scrollTo({ left: 8000, behavior: 'instant' }))
+  await settle(page)
+  const result = await track.evaluate(async element => {
+    const slots = [...element.querySelectorAll('.channel-shelf-slot')]
+    const slot = slots.find(node => node.getBoundingClientRect().left >= element.getBoundingClientRect().left)
+    const button = slot.querySelector('.favorite-btn')
+    button.focus({ preventScroll: true })
+    await new Promise(resolve => setTimeout(resolve, 300))
+    const id = slot.querySelector('.video-card').dataset.videoId
+    const x = slot.getBoundingClientRect().left
+    const shelves = [...document.querySelectorAll('.channel-shelf')]
+    const tracks = shelves.map(shelf => shelf.querySelector('.channel-shelf-track'))
+    const siblingCard = [...element.querySelectorAll('.video-card')].find(card => card.dataset.videoId !== id)
+    const start = performance.now()
+    button.click()
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const next = document.querySelector(`.video-card[data-video-id="${id}"]`)
+    return {
+      ms: performance.now() - start,
+      retained: shelves.every(node => node.isConnected) && tracks.every(node => node.isConnected),
+      siblingRetained: siblingCard?.isConnected,
+      delta: next ? next.closest('.channel-shelf-slot').getBoundingClientRect().left - x : null,
+      focused: next?.contains(document.activeElement),
+      favorite: next?.querySelector('.favorite-btn').getAttribute('aria-pressed')
+    }
+  })
+  console.log(JSON.stringify({ project: testInfo.project.name, anchorInteraction: result }))
+  expect(result.retained).toBe(true)
+  expect(result.siblingRetained).toBe(true)
+  expect(result.delta).not.toBeNull()
+  expect(Math.abs(result.delta)).toBeLessThan(2)
+  expect(result.focused).toBe(true)
+  expect(result.favorite).toBe('true')
+})
+
+test('Watch later applies priority ordering while retaining the acted-on card and removal uses its neighbor', async ({ page }) => {
+  await seedLibrary(page)
+  const shelf = page.locator('.channel-shelf').nth(8)
+  const track = shelf.locator('.channel-shelf-track')
+  await shelf.scrollIntoViewIfNeeded()
+  await track.evaluate(element => { element.style.scrollSnapType = 'none'; element.scrollTo({ left: 8000, behavior: 'instant' }) })
+  await settle(page)
+  const result = await track.evaluate(async element => {
+    const slot = [...element.querySelectorAll('.channel-shelf-slot')].find(node => node.getBoundingClientRect().left >= element.getBoundingClientRect().left)
+    const button = slot.querySelector('.watch-later-btn')
+    button.focus({ preventScroll: true })
+    await new Promise(resolve => setTimeout(resolve, 300))
+    const id = slot.querySelector('.video-card').dataset.videoId
+    const expectedLeft = Math.max(0, element.getBoundingClientRect().left + parseFloat(getComputedStyle(element).paddingLeft) - slot.getBoundingClientRect().left)
+    button.click()
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const card = element.querySelector(`.video-card[data-video-id="${id}"]`)
+    return { id, expectedLeft, left: element.scrollLeft, focused: card?.contains(document.activeElement), first: element.querySelector('.video-card')?.dataset.videoId }
+  })
+  expect(result.first).toBe(result.id)
+  expect(Math.abs(result.left - result.expectedLeft)).toBeLessThan(2)
+  expect(result.focused).toBe(true)
+  await page.keyboard.press('Escape')
+  await track.evaluate(element => element.scrollTo({ left: 8000, behavior: 'instant' }))
+  await settle(page)
+  const removed = await track.evaluate(async element => {
+    const slot = [...element.querySelectorAll('.channel-shelf-slot')].find(node => node.getBoundingClientRect().left >= element.getBoundingClientRect().left)
+    slot.querySelector('.more-btn').focus({ preventScroll: true })
+    await new Promise(resolve => setTimeout(resolve, 300))
+    const id = slot.querySelector('.video-card').dataset.videoId
+    const neighbor = slot.nextElementSibling.querySelector('.video-card').dataset.videoId
+    const left = slot.getBoundingClientRect().left
+    window.removeVideoFromFeed(id)
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const next = element.querySelector(`.video-card[data-video-id="${neighbor}"]`)
+    return { delta: next?.closest('.channel-shelf-slot').getBoundingClientRect().left - left, focused: next?.contains(document.activeElement) }
+  })
+  expect(Math.abs(removed.delta)).toBeLessThan(2)
+  expect(removed.focused).toBe(true)
+})
+
+test('expanded collection keeps mounted cards through unrelated updates', async ({ page }) => {
+  await seedLibrary(page)
+  await page.locator('#removedSectionToggle').click()
+  await page.locator('#removedGrid').evaluate(element => window.scrollTo({ top: element.getBoundingClientRect().top + scrollY + 3000, behavior: 'instant' }))
+  await settle(page)
+  const retained = await page.locator('#removedGrid').evaluate(async grid => {
+    const cards = [...grid.querySelectorAll('.video-card')]
+    window.toggleVideoFavorite('large-0')
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    return cards.length > 0 && cards.every(card => card.isConnected)
+  })
+  expect(retained).toBe(true)
+})
+
+test('failed favorite persistence leaves the card and focus ready for retry', async ({ page }) => {
+  await seedLibrary(page)
+  const track = page.locator('.channel-shelf').nth(8).locator('.channel-shelf-track')
+  await track.scrollIntoViewIfNeeded()
+  await track.evaluate(element => element.scrollTo({ left: 8000, behavior: 'instant' }))
+  await settle(page)
+  const result = await track.evaluate(async element => {
+    const slot = [...element.querySelectorAll('.channel-shelf-slot')].find(node => node.getBoundingClientRect().left >= element.getBoundingClientRect().left)
+    const button = slot.querySelector('.favorite-btn')
+    button.focus({ preventScroll: true })
+    await new Promise(resolve => setTimeout(resolve, 300))
+    const id = slot.querySelector('.video-card').dataset.videoId
+    const left = element.scrollLeft
+    const setItem = Storage.prototype.setItem
+    Storage.prototype.setItem = function(key, value) {
+      if (key === 'edenia_v1') throw new DOMException('Full', 'QuotaExceededError')
+      return setItem.call(this, key, value)
+    }
+    button.click()
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const failed = element.querySelector(`.video-card[data-video-id="${id}"] .favorite-btn`).getAttribute('aria-pressed')
+    Storage.prototype.setItem = setItem
+    element.querySelector(`.video-card[data-video-id="${id}"] .favorite-btn`).click()
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const retried = element.querySelector(`.video-card[data-video-id="${id}"]`)
+    return { failed, retried: retried.querySelector('.favorite-btn').getAttribute('aria-pressed'), delta: element.scrollLeft - left, focused: retried.contains(document.activeElement) }
+  })
+  expect(result.failed).toBe('false')
+  expect(result.retried).toBe('true')
+  expect(Math.abs(result.delta)).toBeLessThan(2)
+  expect(result.focused).toBe(true)
+})
+
+test('incoming uploads preserve a deep viewport while applying channel and publication ordering', async ({ page }) => {
+  await seedLibrary(page)
+  const track = page.locator('.channel-shelf').nth(8).locator('.channel-shelf-track')
+  await track.scrollIntoViewIfNeeded()
+  await track.evaluate(element => { element.style.scrollSnapType = 'none'; element.scrollTo({ left: 8000, behavior: 'instant' }) })
+  await settle(page)
+  const result = await track.evaluate(async element => {
+    const slot = [...element.querySelectorAll('.channel-shelf-slot')].find(node => node.getBoundingClientRect().left >= element.getBoundingClientRect().left)
+    const id = slot.querySelector('.video-card').dataset.videoId
+    element.focus({ preventScroll: true })
+    const rect = slot.getBoundingClientRect()
+    const state = window.loadState()
+    const channelId = state.videos[id].channelId
+    state.videos['new-upload'] = { ...state.videos[id], id: 'new-upload', publishedAt: '2026-09-27T12:00:00Z' }
+    window.saveState(state)
+    window.renderAll(state)
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const next = document.querySelector(`.video-card[data-video-id="${id}"]`)?.closest('.channel-shelf-slot').getBoundingClientRect()
+    return { x: next?.left - rect.left, y: next?.top - rect.top, retained: element.isConnected, channelId, firstChannel: document.querySelector('.channel-shelf').dataset.channelKey }
+  })
+  expect(result.retained).toBe(true)
+  expect(result.firstChannel).toBe(result.channelId)
+  expect(Math.abs(result.x)).toBeLessThan(2)
+  expect(Math.abs(result.y)).toBeLessThan(2)
+})
+
+test('watched, undo and redo retain the neighbor in both formats through failed writes', async ({ page }) => {
+  await seedLibrary(page)
+  const shelf = page.locator('.channel-shelf').nth(8)
+  await shelf.scrollIntoViewIfNeeded()
+  for (const format of ['videos', 'shorts']) {
+    await shelf.locator(`[data-channel-video-format="${format}"][data-channel-video-format-action="select"]`).click()
+    const track = shelf.locator('.channel-shelf-track')
+    await track.evaluate(element => { element.style.scrollSnapType = 'none'; element.scrollTo({ left: Math.min(8000, (element.scrollWidth - element.clientWidth) / 2), behavior: 'instant' }) })
+    await settle(page)
+    const result = await track.evaluate(async element => {
+      const slot = [...element.querySelectorAll('.channel-shelf-slot')].find(node => node.getBoundingClientRect().left >= element.getBoundingClientRect().left)
+      const id = slot.querySelector('.video-card').dataset.videoId
+      const neighbor = slot.nextElementSibling.querySelector('.video-card').dataset.videoId
+      const state = window.loadState()
+      state.videos[id].watchedConfirmationUnlockedAt = new Date().toISOString()
+      window.saveState(state)
+      slot.querySelector('.favorite-btn').focus({ preventScroll: true })
+      await new Promise(resolve => setTimeout(resolve, 300))
+      const left = slot.getBoundingClientRect().left
+      const setItem = Storage.prototype.setItem
+      const fail = () => { Storage.prototype.setItem = function(key, value) {
+        if (key === 'edenia_v1') throw new DOMException('Full', 'QuotaExceededError')
+        return setItem.call(this, key, value)
+      } }
+      fail()
+      const failed = window.markVideo(id, 'watched')
+      Storage.prototype.setItem = setItem
+      const marked = window.markVideo(id, 'watched')
+      const next = element.querySelector(`.video-card[data-video-id="${neighbor}"]`)
+      const delta = next?.closest('.channel-shelf-slot').getBoundingClientRect().left - left
+      fail()
+      window.undoLastVideoAction()
+      const failedUndoRetained = !element.querySelector(`.video-card[data-video-id="${id}"]`)
+      Storage.prototype.setItem = setItem
+      window.undoLastVideoAction()
+      const undone = Boolean(element.querySelector(`.video-card[data-video-id="${id}"]`))
+      window.redoLastVideoAction()
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      return { failed, marked, delta, failedUndoRetained, undone, redone: !element.querySelector(`.video-card[data-video-id="${id}"]`), focused: element.contains(document.activeElement) }
+    })
+    expect(result.failed).toBe(false)
+    expect(result.marked).toBe(true)
+    expect(Math.abs(result.delta)).toBeLessThan(2)
+    expect(result.failedUndoRetained).toBe(true)
+    expect(result.undone).toBe(true)
+    expect(result.redone).toBe(true)
+    expect(result.focused).toBe(true)
+  }
 })

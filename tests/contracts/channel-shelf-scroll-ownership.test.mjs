@@ -307,7 +307,7 @@ test('active-grid replacement binds shelf scrolling before later features', () =
   )
   const feedSource = getFunctionSource('renderFeed', 'toggleWatchedSection')
   const groupReplacementIndex = feedSource.indexOf(
-    'grid.innerHTML = renderChannelVideoGroups('
+    'shelfTemplate.innerHTML = renderChannelVideoGroups('
   )
   const scrollBindingIndex = feedSource.indexOf(
     'bindChannelShelfScrollActions(grid, {'
@@ -324,7 +324,7 @@ test('active-grid replacement binds shelf scrolling before later features', () =
   assert.ok(videoStateBindingIndex > removeBindingIndex)
   assert.match(
     feedSource.slice(groupReplacementIndex, scrollBindingIndex),
-    /grid\.innerHTML = renderChannelVideoGroups\(/
+    /shelfTemplate\.innerHTML = renderChannelVideoGroups\(/
   )
   assert.match(
     feedSource.slice(scrollBindingIndex, removeBindingIndex),

@@ -1,3 +1,4 @@
+import { resolveWindowAnchor } from './features/videos/window-anchor.js'
 import { createYoutubeRequestGate, isYoutubeQuotaError } from './integrations/youtube-quota.js'
 import { createCollectionWindow } from './features/videos/collection-window.js'
 import { createShelfWindow } from './features/videos/shelf-window.js'
@@ -9285,6 +9286,7 @@ function confirmVideoWatchPrompt(event, videoId, rewatch = false) {
   if (rewatch) {
     const video = loadState()?.videos?.[targetVideoId]
     const completed = completeVideoShelfPlayerRewatchConfirmation(session)
+    restorePlayerReturnPosition(session)
     if (completed) {
       trackEdeniaEvent('video_completion_prompt_accepted', getVideoAnalyticsProperties(video, {
         is_rewatch: true,
@@ -9297,11 +9299,12 @@ function confirmVideoWatchPrompt(event, videoId, rewatch = false) {
     persist: true,
     captureStoppedPlayback: true
   })
-  stopActiveVideoShelfPlayer({ persist: false })
+  const completedPlayer = stopActiveVideoShelfPlayer({ persist: false })
   const marked = markVideo(targetVideoId, 'watched', {
     creditOnlyRecordedProgress: true,
     surface: 'embedded_player_prompt'
   })
+  restorePlayerReturnPosition(completedPlayer)
   if (marked) {
     trackEdeniaEvent(
       'video_completion_prompt_accepted',
@@ -9365,44 +9368,30 @@ function revealFavoritedWatchedVideo(videoId, state) {
   return true
 }
 
-function captureMobileVideoShelfPosition(videoId, surface) {
-  if (!usesPhoneComposition() || surface !== 'video_card') return null
-  const card = findVideoCard(videoId, '#videoGrid .channel-shelf-card')
-  const shelf = card?.closest('.channel-shelf')
-  const track = card?.closest('.channel-shelf-track')
-  if (!shelf || !track) return null
-  return {
-    channelKey: shelf.dataset.channelKey || '',
-    scrollLeft: track.scrollLeft
-  }
+// Snapshot only the affected record and profile metadata, not the full library.
+// Restore in place so a failed write cannot leave the active profile ahead of disk.
+function captureVideoActionState(state, videoId) {
+  const { videos, ...metadata } = state
+  return { metadata: structuredClone(metadata), videoId, video: structuredClone(videos[videoId]) }
 }
 
-function restoreMobileVideoShelfPosition(videoId, position) {
-  if (!position) return
-  window.requestAnimationFrame(() => {
-    const card = findVideoCard(videoId, '#videoGrid .channel-shelf-card')
-    const shelf = card?.closest('.channel-shelf')
-    const track = card?.closest('.channel-shelf-track')
-    if (
-      !card
-      || !shelf
-      || !track
-      || (shelf.dataset.channelKey || '') !== position.channelKey
-    ) return
-    track.scrollLeft = position.scrollLeft
-    syncVideoChannelShelfControls(track)
-    card.querySelector('.favorite-btn')?.focus({ preventScroll: true })
-  })
+function persistVideoAction(state, checkpoint) {
+  if (saveState(state)) return true
+  if (checkpoint) {
+    for (const key of Object.keys(state)) if (key !== 'videos') delete state[key]
+    Object.assign(state, checkpoint.metadata)
+    if (checkpoint.video) state.videos[checkpoint.videoId] = checkpoint.video
+    else delete state.videos[checkpoint.videoId]
+  }
+  showToast(t('toast.progressSaveFailed'), 'error')
+  return false
 }
 
 function toggleVideoFavorite(videoId, options = {}) {
   const s = loadState()
   const video = s?.videos?.[videoId]
   if (!video) return null
-  const mobileShelfPosition = captureMobileVideoShelfPosition(
-    videoId,
-    options.surface
-  )
+  const checkpoint = captureVideoActionState(s, videoId)
   const preservePreview = isActiveVideoShelfPreview(videoId)
   const beforeVideo = cloneVideoForHistoryAction(video)
   video.favorite = !isFavoriteVideo(video)
@@ -9435,15 +9424,14 @@ function toggleVideoFavorite(videoId, options = {}) {
       favorite: isFavoriteVideo(video)
     }
   })
-  saveState(s)
+  if (!persistVideoAction(s, checkpoint)) return false
   trackVideoFavoriteChanged(s, video, isFavoriteVideo(beforeVideo), options.surface)
   if (shouldRevealWatchedFavorite) {
     revealFavoritedWatchedVideo(videoId, s)
   } else if (preservePreview && !shouldRefreshRemovedChannel) {
-    refreshVideoActionUiWithoutFeedRerender(s, videoId)
+    refreshVideoActionUiPreservingPreview(s, videoId)
   } else {
     renderAll(s)
-    restoreMobileVideoShelfPosition(videoId, mobileShelfPosition)
   }
   return isFavoriteVideo(video)
 }
@@ -9476,6 +9464,7 @@ function favoriteVideoFromWatchPrompt(event, videoId) {
   const video = state?.videos?.[videoId]
   if (!video) return false
 
+  const checkpoint = captureVideoActionState(state, videoId)
   const beforeVideo = cloneVideoForHistoryAction(video)
   video.favorite = !isFavoriteVideo(video)
   const isFavorite = isFavoriteVideo(video)
@@ -9497,7 +9486,7 @@ function favoriteVideoFromWatchPrompt(event, videoId) {
       favorite: isFavorite
     }
   })
-  saveState(state)
+  if (!persistVideoAction(state, checkpoint)) return false
   trackVideoFavoriteChanged(state, video, isFavoriteVideo(beforeVideo), 'completion_prompt')
   syncVideoWatchPromptFavoriteAction(videoId, isFavorite)
   if (activeVideoShelfPlayer?.videoId === String(videoId ?? '')) {
@@ -9562,6 +9551,7 @@ function markVideo(videoId, requestedStatus, options = {}) {
   const s     = loadState()
   const video = s.videos[videoId]
   if (!video) return false
+  const checkpoint = captureVideoActionState(s, videoId)
   const preservePreview = (
     requestedStatus === 'watch-later'
     || typeof options.watchLater === 'boolean'
@@ -9690,7 +9680,7 @@ function markVideo(videoId, requestedStatus, options = {}) {
     })
   }
 
-  saveState(s)
+  if (!persistVideoAction(s, checkpoint)) return false
   trackEdeniaEvent('video_status_changed', getVideoAnalyticsProperties(video, {
     previous_status: previousStatus,
     new_status: newStatus,
@@ -9703,7 +9693,7 @@ function markVideo(videoId, requestedStatus, options = {}) {
     surface: options.surface || 'video_card'
   }))
   if (preservePreview && !shouldHideRemovedChannelVideo) {
-    refreshVideoActionUiWithoutFeedRerender(s, videoId)
+    refreshVideoActionUiPreservingPreview(s, videoId)
   } else {
     renderAll(s)
   }
@@ -9836,7 +9826,7 @@ function closeVideoOrganizationMenuOnViewportChange(event) {
   return closeVideoOrganizationMenu(true)
 }
 
-function saveVideoOrganizationChange(state, video, beforeVideo, operation) {
+function saveVideoOrganizationChange(state, video, beforeVideo, operation, checkpoint) {
   const action = pushUndoAction(state, {
     type: 'video-organization',
     operation,
@@ -9857,7 +9847,7 @@ function saveVideoOrganizationChange(state, video, beforeVideo, operation) {
     detail: `"${formatToastTitle(video.title)}"`,
     meta: { videoId: video.id, operation }
   })
-  saveState(state)
+  if (!persistVideoAction(state, checkpoint)) return null
   trackEdeniaEvent(eventNames[operation], getVideoAnalyticsProperties(video, {
     operation,
     current_status: getVideoStatus(video),
@@ -9875,10 +9865,11 @@ function showVideoOrganizationUndoToast(message, action) {
 }
 
 function removeVideoFromContinueWatching(videoId) {
-  closeVideoOrganizationMenu(false)
+  closeVideoOrganizationMenu(true)
   const state = loadState()
   const video = state?.videos?.[videoId]
   if (!video || !hasVideoResumePriority(video)) return false
+  const checkpoint = captureVideoActionState(state, videoId)
   const beforeVideo = cloneVideoForHistoryAction(video)
   if (getVideoStatus(video) !== 'watched') {
     video.status = isVideoWatchLater(video) ? 'watch-later' : 'unwatched'
@@ -9888,34 +9879,39 @@ function removeVideoFromContinueWatching(videoId) {
   delete video.watchCycleCoverage
   delete video.rewatchCoverage
   clearFocusedVideoPreview(videoId)
-  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'remove-continue')
+  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'remove-continue', checkpoint)
+  if (!action) return false
   renderAll(state)
   showVideoOrganizationUndoToast(t('toast.videoRemovedFromContinue'), action)
   return true
 }
 
 function removeVideoFromFeed(videoId) {
-  closeVideoOrganizationMenu(false)
+  closeVideoOrganizationMenu(true)
   const state = loadState()
   const video = state?.videos?.[videoId]
   if (!video || isVideoRemovedFromFeed(video)) return false
+  const checkpoint = captureVideoActionState(state, videoId)
   const beforeVideo = cloneVideoForHistoryAction(video)
   video.removedFromFeedAt = getCurrentAppTimestamp(state)
   clearFocusedVideoPreview(videoId)
-  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'remove-feed')
+  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'remove-feed', checkpoint)
+  if (!action) return false
   renderAll(state)
   showVideoOrganizationUndoToast(t('toast.videoRemovedFromFeed'), action)
   return true
 }
 
 function restoreVideoToFeed(videoId) {
-  closeVideoOrganizationMenu(false)
+  closeVideoOrganizationMenu(true)
   const state = loadState()
   const video = state?.videos?.[videoId]
   if (!video || !isVideoRemovedFromFeed(video)) return false
+  const checkpoint = captureVideoActionState(state, videoId)
   const beforeVideo = cloneVideoForHistoryAction(video)
   delete video.removedFromFeedAt
-  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'restore-feed')
+  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'restore-feed', checkpoint)
+  if (!action) return false
   selectedStatusFilter = 'all'
   forcedSearchVideoId = videoId
   if (getVideoStatus(video) === 'watched') isWatchedSectionCollapsed = false
@@ -9925,6 +9921,7 @@ function restoreVideoToFeed(videoId) {
       className: 'flash-target',
       duration: 1400
     })
+    findVideoCard(videoId)?.querySelector('.more-btn, .thumb-link')?.focus({ preventScroll: true })
     forcedSearchVideoId = null
   })
   showVideoOrganizationUndoToast(t('toast.videoRestoredToFeed'), action)
@@ -11122,6 +11119,7 @@ function applyHistoryAction(direction, actionIndex) {
     return
   }
 
+  const checkpoint = action.videoId ? captureVideoActionState(s, action.videoId) : null
   const targetSnapshot = direction === 'redo' ? action.after : action.before
   const previousSnapshot = direction === 'redo' ? action.before : action.after
   const restoresTrackedChannel = action.type === 'channel-remove'
@@ -11152,7 +11150,7 @@ function applyHistoryAction(direction, actionIndex) {
   }
 
   if (!historyResult) {
-    saveState(s)
+    if (!persistVideoAction(s, checkpoint)) return false
     renderAll(s)
     showToast(t('toast.videoGone'), 'warn')
     return
@@ -11182,7 +11180,7 @@ function applyHistoryAction(direction, actionIndex) {
   }
 
   closeHistoryActionPopovers()
-  saveState(s)
+  if (!persistVideoAction(s, checkpoint)) return false
   const affectedVideo = action.videoId ? s.videos?.[action.videoId] : null
   trackEdeniaEvent(`${direction}_applied`, {
     action_type: action.type,
@@ -13638,13 +13636,14 @@ function getCityLevelLabel(level) {
 // ════════════════════════════════════════════════════════════
 
 function renderAll(s) {
+  const viewport = captureFeedViewport()
   const stats = getWeeklyStats(s)
   const score = getCurrentCityScore(s)
   renderHeader(s)
   renderAnalytics(stats, s)
   renderAnkiStatus(s)
   renderCity(score, s)
-  renderFeed(s)
+  renderFeed(s, viewport)
   renderUndoButton(s)
   syncMobileAddButtonWidth()
 }
@@ -15538,14 +15537,51 @@ function updateCityMilestoneImage(score, options = {}) {
 const videoShelfWindows = new Map()
 const videoCollectionWindows = new Map()
 const videoCollectionDefinitions = new Map()
+const videoCollectionSignatures = new Map()
 let pendingShelfGroups = []
 
-function renderFeed(s) {
-  videoShelfWindows.forEach(entry => entry.window.destroy())
-  videoShelfWindows.clear()
-  videoCollectionWindows.forEach(entry => entry.destroy())
-  videoCollectionWindows.clear()
-  videoCollectionDefinitions.clear()
+function captureFeedViewport() {
+  const nodes = [...document.querySelectorAll('.channel-shelf, #watchedGrid .video-card, #removedGrid .video-card')]
+  const focused = document.activeElement
+  const visible = node => { const rect = node.getBoundingClientRect(); return rect.bottom > 0 && rect.top < innerHeight }
+  let index = nodes.findIndex(node => node.contains(focused) && visible(node))
+  if (index < 0) {
+    let largestVisibleHeight = 0
+    nodes.forEach((node, i) => {
+      const rect = node.getBoundingClientRect()
+      const height = Math.min(innerHeight, rect.bottom) - Math.max(0, rect.top)
+      if (height > largestVisibleHeight) { largestVisibleHeight = height; index = i }
+    })
+  }
+  if (index < 0) return null
+  return { nodes, locations: nodes.map(node => ({ grid: node.closest('#watchedGrid, #removedGrid'), id: node.dataset.videoId })), index, top: nodes[index].getBoundingClientRect().top,
+    focusLost: nodes[index].contains(focused) }
+}
+
+function restoreFeedViewport(anchor) {
+  if (!anchor) return
+  const { nodes, locations, index, top, focusLost } = anchor
+  let target = null
+  for (let distance = 0; distance < nodes.length && !target; distance++) {
+    target = [index + distance, index - distance].map(i => {
+      const node = nodes[i]
+      if (node?.isConnected) return node
+      const location = locations[i]
+      return location?.grid && [...location.grid.querySelectorAll('.video-card')]
+        .find(card => card.dataset.videoId === location.id)
+    }).find(node => node?.isConnected && node.getClientRects().length)
+  }
+  target ||= document.querySelector('#videoGrid .empty-state')
+  if (!target) return
+  window.scrollBy({ top: target.getBoundingClientRect().top - top, behavior: 'instant' })
+  if (focusLost && (document.activeElement === document.body || !document.activeElement?.getClientRects().length)) {
+    const control = target.querySelector('.channel-shelf-track, a, button') || target
+    if (!control.hasAttribute('tabindex')) control.tabIndex = -1
+    control.focus({ preventScroll: true })
+  }
+}
+
+function renderFeed(s, viewport = captureFeedViewport()) {
   pendingShelfGroups = []
   closeVideoOrganizationMenu(false)
   renderChannelFilterOptions(s)
@@ -15566,6 +15602,9 @@ function renderFeed(s) {
     || !removedSection || !removedGrid || !removedCount
   ) return
   grid.classList.add('channel-view')
+  const retainedShelves = new Map([...videoShelfWindows.values()].map(entry => [entry.group.key, entry]))
+  const shelfScrollPositions = new Map([...videoShelfWindows.keys()].map(track => [track, track.scrollLeft]))
+  const feedFocus = document.activeElement
 
   const allVideos = Object.values(s.videos)
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
@@ -15656,28 +15695,79 @@ function renderFeed(s) {
       : t('videos.empty.filtered', { filter: statusFilter === 'all' ? t('videos.filter.active') : filterName, channelText: channelMsg })
     grid.innerHTML = `<div class="empty-state">${escHtml(msg)}</div>`
   } else {
-    grid.innerHTML = renderChannelVideoGroups(
+    const shelfTemplate = document.createElement('template')
+    shelfTemplate.innerHTML = renderChannelVideoGroups(
       activeVideos,
       cardOptions,
       s.config?.channelShelfOrder,
       s.config?.channels
     )
+    let previousShelf = null
+    for (const freshShelf of [...shelfTemplate.content.children]) {
+      const retained = retainedShelves.get(freshShelf.dataset.channelKey)
+      const shelf = retained?.shelf || freshShelf
+      if (retained) {
+        const freshHeader = freshShelf.querySelector('header')
+        const headerMarkup = freshHeader.outerHTML
+        if (retained.headerMarkup !== headerMarkup
+          || shelf.dataset.channelSelectedVideoFormat !== freshShelf.dataset.channelSelectedVideoFormat) {
+          shelf.querySelector('header').replaceWith(freshHeader)
+          retained.headerMarkup = headerMarkup
+        }
+      }
+      const next = previousShelf ? previousShelf.nextElementSibling : grid.firstElementChild
+      if (next !== shelf) grid.insertBefore(shelf, next)
+      previousShelf = shelf
+    }
+    const wantedKeys = new Set(pendingShelfGroups.map(({ group }) => group.key))
+    for (const child of [...grid.children]) {
+      if (!wantedKeys.has(child.dataset.channelKey)) child.remove()
+    }
   }
+  const wantedKeys = new Set(pendingShelfGroups.map(({ group }) => group.key))
+  for (const [track, entry] of videoShelfWindows) {
+    if (wantedKeys.has(entry.group.key)) continue
+    entry.window.destroy()
+    entry.shelf.remove()
+    videoShelfWindows.delete(track)
+  }
+  // Moving a section with insertBefore can reset nested scrollers and focus.
+  for (const [track, left] of shelfScrollPositions) {
+    if (track.isConnected) track.scrollTo({ left, behavior: 'instant' })
+  }
+  if (feedFocus?.isConnected && document.activeElement !== feedFocus) feedFocus.focus({ preventScroll: true })
   pendingShelfGroups.forEach(({ group, trackId, cardOptions, selectedFormat }) => {
     const track = document.getElementById(trackId)
     const shelf = track.closest('.channel-shelf')
-    const entry = { group, shelf, format: selectedFormat }
+    const signature = JSON.stringify([group, cardOptions, selectedFormat, [...removedChannelIds], document.documentElement.lang])
+    const retained = retainedShelves.get(group.key)
+    if (retained) {
+      retained.group = group
+      retained.cardOptions = cardOptions
+      retained.state = s
+      retained.format = selectedFormat
+      shelf.dataset.channelSelectedVideoFormat = selectedFormat
+      if (retained.signature !== signature) {
+        retained.signature = signature
+        retained.window.reconcile(group.videos.filter(video => getChannelVideoFormat(video) === selectedFormat))
+      }
+      return
+    }
+    const entry = { group, shelf, state: s, format: selectedFormat, cardOptions, signature,
+      headerMarkup: shelf.querySelector('header').outerHTML }
     entry.window = createShelfWindow(track, {
       videos: group.videos.filter(video => getChannelVideoFormat(video) === selectedFormat),
-      render: video => `<div class="channel-shelf-slot ${video.id === cardOptions.focusedVideoId ? 'channel-refresh-focus' : ''}" data-channel-video-format="${getChannelVideoFormat(video)}" style="--channel-refresh-delay: ${Math.min(group.videos.indexOf(video), 8) * 45}ms">${renderCard(video, false, { ...cardOptions, shelf: true })}</div>`,
+      render: video => `<div class="channel-shelf-slot ${video.id === entry.cardOptions.focusedVideoId ? 'channel-refresh-focus' : ''}" data-channel-video-format="${getChannelVideoFormat(video)}" style="--channel-refresh-delay: ${Math.min(entry.group.videos.indexOf(video), 8) * 45}ms">${renderCard(video, false, { ...entry.cardOptions, shelf: true })}</div>`,
       bind: root => {
         bindRenderedVideoStateActions(root)
         bindRenderedVideoShelfPreviewActions(root)
       },
       empty: () => `<div class="channel-shelf-format-empty" data-channel-video-format-empty="${entry.format}">${escHtml(t(entry.format === 'shorts' ? 'videos.channel.format.emptyShorts' : 'videos.channel.format.emptyVideos'))}</div>`,
-      isPinned: node => node.contains(activeVideoShelfPreview)
+      isPinned: node => node.contains(activeVideoShelfPreview),
+      patchPinned: video => patchVideoShelfPreview(entry.state, video.id)
     })
     videoShelfWindows.set(track, entry)
+
   })
   bindChannelShelfScrollActions(grid, {
     scroll: scrollVideoChannelShelf,
@@ -15715,6 +15805,7 @@ function renderFeed(s) {
   }
   videoCollectionDefinitions.set(watchedGrid, {
     videos: watchedVideos,
+    renderKey: JSON.stringify([cardOptions, [...removedChannelIds]]),
     render: video => renderCard(video, true, {
       ...cardOptions,
       hideOrganizationActions: true,
@@ -15742,17 +15833,26 @@ function renderFeed(s) {
   }
   videoCollectionDefinitions.set(removedGrid, {
     videos: removedVideos,
+    renderKey: JSON.stringify([cardOptions, [...removedChannelIds]]),
     render: renderRemovedVideoCard,
     bind: bindRenderedVideoShelfPreviewActions
   })
   updateVideoCollection(removedGrid, isRemovedSectionCollapsed)
+  restoreFeedViewport(viewport)
 }
 
 function updateVideoCollection(grid, collapsed) {
+  const definition = videoCollectionDefinitions.get(grid)
+  const signature = JSON.stringify([collapsed, definition?.videos, definition?.renderKey, document.documentElement.lang])
+  if (videoCollectionSignatures.get(grid) === signature) return
+  videoCollectionSignatures.set(grid, signature)
+  if (!collapsed && videoCollectionWindows.has(grid)) {
+    videoCollectionWindows.get(grid).reconcile(definition)
+    return
+  }
   videoCollectionWindows.get(grid)?.destroy()
   videoCollectionWindows.delete(grid)
   grid.replaceChildren()
-  const definition = videoCollectionDefinitions.get(grid)
   if (!collapsed && definition) {
     videoCollectionWindows.set(grid, createCollectionWindow(grid, definition))
   }
@@ -15940,7 +16040,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
     )
     const visibleCount = formatCounts[selectedFormat]
     const countLabel = getChannelVideoFormatCountLabel(visibleCount)
-    const trackId = `channelShelfTrack${index}`
+    const trackId = `channelShelfTrack-${encodeURIComponent(group.key)}`
     pendingShelfGroups.push({ group, trackId, cardOptions, selectedFormat })
     const isArrivingChannel = group.key === cardOptions.arrivingChannelId
     const isRemovedChannel = cardOptions.removedChannelIds?.has(group.key)
@@ -16489,6 +16589,37 @@ function isStudyVideoShelfPlayerSession(session) {
   return session?.mode !== VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW
 }
 
+function capturePlayerReturnPosition(videoId) {
+  const card = [...document.querySelectorAll('.video-card')].find(node => node.dataset.videoId === videoId)
+  if (!card) return null
+  const slot = card.closest('.channel-shelf-slot') || card
+  const track = card.closest('.channel-shelf-track')
+  const entry = videoShelfWindows.get(track)
+  const rect = slot.getBoundingClientRect()
+  return { videoId, viewport: captureFeedViewport(), channelKey: entry?.group.key, ids: entry?.group.videos.map(video => String(video.id)) || [videoId],
+    left: rect.left, top: rect.top }
+}
+
+function restorePlayerReturnPosition(session) {
+  const position = session?.returnPosition
+  if (!position) return
+  const entry = [...videoShelfWindows.values()].find(entry => entry.group.key === position.channelKey)
+  const ids = entry?.group.videos.map(video => String(video.id)) || []
+  const index = position.ids.indexOf(position.videoId)
+  const nextIndex = resolveWindowAnchor(position.ids, ids, index)
+  const videoId = entry && nextIndex >= 0 ? ids[nextIndex] : position.videoId
+  const card = findVideoCard(videoId)
+  if (!card) {
+    restoreFeedViewport(position.viewport && { ...position.viewport, focusLost: true })
+    return
+  }
+  const slot = card.closest('.channel-shelf-slot') || card
+  const track = card.closest('.channel-shelf-track')
+  if (track) track.scrollTo({ left: track.scrollLeft + slot.getBoundingClientRect().left - position.left, behavior: 'instant' })
+  window.scrollBy({ top: slot.getBoundingClientRect().top - position.top, behavior: 'instant' })
+  card.querySelector('.thumb-link, button')?.focus({ preventScroll: true })
+}
+
 function openVideoPlayer(videoId, options = {}) {
   videoId = String(videoId ?? '')
   if (!videoId) return false
@@ -16538,6 +16669,7 @@ function openVideoPlayer(videoId, options = {}) {
     || (!isRemovedPreview && getVideoStatus(video) !== 'partial' && !wasWatched)
   ) return false
 
+  const returnPosition = capturePlayerReturnPosition(videoId)
   const startSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
   const playerElements = renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch)
   if (!playerElements?.iframe) return false
@@ -16545,6 +16677,7 @@ function openVideoPlayer(videoId, options = {}) {
   const session = {
     videoId,
     mode,
+    returnPosition,
     analyticsSurface: isRemovedPreview ? 'removed_section' : 'channel_shelf',
     overlay: playerElements.overlay,
     frame: playerElements.frame,
@@ -16993,9 +17126,11 @@ function stopActiveVideoShelfPlayer(options = {}) {
 function closeVideoShelfPlayer() {
   const stoppedPlayer = stopActiveVideoShelfPlayer({ persist: true, exitReason: 'closed' })
   if (!stoppedPlayer) return
-  if (!isStudyVideoShelfPlayerSession(stoppedPlayer)) return
-  const state = loadState()
-  if (state) renderAll(state)
+  if (isStudyVideoShelfPlayerSession(stoppedPlayer)) {
+    const state = loadState()
+    if (state) renderAll(state)
+  }
+  restorePlayerReturnPosition(stoppedPlayer)
 }
 
 function handleVideoShelfPlayerVisibilityChange() {
@@ -17282,7 +17417,7 @@ function isActiveVideoShelfPreview(videoId) {
   )
 }
 
-function refreshVideoActionUiWithoutFeedRerender(state, videoId) {
+function patchVideoShelfPreview(state, videoId) {
   const card = activeVideoShelfPreview
   const video = state?.videos?.[videoId]
   if (!card || !video || !isActiveVideoShelfPreview(videoId)) return
@@ -17359,23 +17494,13 @@ function refreshVideoActionUiWithoutFeedRerender(state, videoId) {
   }
   bindRenderedVideoStateActions(card)
 
-  const allVideos = Object.values(state.videos)
-    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
-  const channelFilters = getSelectedChannelFilters(state)
-  const removedChannelIds = new Set(state.config?.removedChannelIds || [])
-  const includeShorts = getEffectiveIncludeShorts(state)
-  const activeVideos = getVisibleActiveVideos(allVideos, includeShorts, {
-    limitPerChannel: false
-  }).filter(videoEntry => matchesActiveChannelFilter(videoEntry, channelFilters, removedChannelIds))
-  const favoriteVideos = allVideos
-    .filter(isFavoriteVideo)
-    .filter(videoEntry => !isHiddenFromVideoGrid(videoEntry))
-    .filter(videoEntry => !isHiddenShortVideo(videoEntry, includeShorts))
-    .filter(videoEntry => matchesWatchedChannelFilter(videoEntry, channelFilters, removedChannelIds))
+  return card
+}
 
-  renderStatusFilterOptions(allVideos, channelFilters, includeShorts, removedChannelIds)
-  card.classList.add('is-layout-reanchoring')
-  renderNextStudy(activeVideos, favoriteVideos)
+function refreshVideoActionUiPreservingPreview(state, videoId) {
+  const card = patchVideoShelfPreview(state, videoId)
+  if (!card) return
+  renderFeed(state)
   renderUndoButton(state)
   keepVideoShelfPreviewAnchoredAfterLayout(card, videoId)
 }

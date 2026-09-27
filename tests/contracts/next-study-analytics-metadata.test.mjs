@@ -262,7 +262,7 @@ test('Next Study Remove favorite retains identity, surface, and event ordering c
   assert.notEqual(callbackStart, -1)
   assert.notEqual(callbackEnd, -1)
   const callbackSource = appSource.slice(callbackStart, callbackEnd)
-  const saveIndex = callbackSource.indexOf('saveState(s)')
+  const saveIndex = callbackSource.indexOf('persistVideoAction(s, checkpoint)')
   const explicitEventIndex = callbackSource.indexOf(
     'trackVideoFavoriteChanged(s, video, isFavoriteVideo(beforeVideo), options.surface)'
   )

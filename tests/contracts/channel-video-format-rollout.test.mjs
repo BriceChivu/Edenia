@@ -62,7 +62,7 @@ test('permanent format views include every duration without migrating the saved 
   )
   assert.equal(
     appSource.match(/const includeShorts = getEffectiveIncludeShorts\((?:s|state)\)/g)?.length,
-    5
+    4
   )
   assert.match(
     appSource,

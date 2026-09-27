@@ -66,7 +66,7 @@ test('rendered video-state controls bind after every replacement without globals
   )
   assert.match(
     appSource,
-    /function refreshVideoActionUiWithoutFeedRerender[\s\S]*?bindRenderedVideoStateActions\(card\)/
+    /function patchVideoShelfPreview[\s\S]*?bindRenderedVideoStateActions\(card\)/
   )
   for (const actionName of [
     'markVideo',

@@ -66,7 +66,7 @@ test('Removed previews cannot persist coverage, resume state, or completion', ()
   assert.match(completionSource, /!isStudyVideoShelfPlayerSession\(session\)/)
 
   const closeSource = functionSource('closeVideoShelfPlayer', 'handleVideoShelfPlayerVisibilityChange')
-  const closeGuard = closeSource.indexOf('if (!isStudyVideoShelfPlayerSession(stoppedPlayer)) return')
+  const closeGuard = closeSource.indexOf('if (isStudyVideoShelfPlayerSession(stoppedPlayer)) {')
   const rerender = closeSource.indexOf('renderAll(state)')
   assert.ok(closeGuard >= 0)
   assert.ok(rerender > closeGuard)
