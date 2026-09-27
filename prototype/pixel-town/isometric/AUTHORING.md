@@ -25,3 +25,13 @@ Retain a developer-only preview with stage, time/preset, motion/still and phase 
 Before accepting the implementation, demonstrate that a new preview-only stage can be defined using existing assets without editing the renderer, that an effect can be tuned independently, and that one shared artwork change appears in every intended scene. Keep temporary fixtures out of learner progression. Compare deterministic captures of existing stages to expose unintended changes, and rerun relevant performance checks when art density or effects change.
 
 Exact file names and cache strategy belong to implementation after the performance contract is settled. The required outcome is a documented, narrow edit path for each common change, with a small stable interface for the application.
+
+## Owner-facing asset catalog
+
+Provide a local/developer-only visual catalog backed by the same asset definitions used by the town. The owner must be able to browse recognizable thumbnails, select one item (for example the flowering tree), and work on that item independently.
+
+Each entry has a stable asset ID, plain-language name, source location, supported variants and editable design/motion parameters. Show the selected item at useful pixel scales, under the lighting presets, with still/play controls. Also preview it in an existing town to check scale, occlusion and visual consistency. Show which stages use it.
+
+Distinguish changing a shared asset (updates all its instances) from creating a named variant (only selected scene references change). Make that scope visible before saving. Provide before/after comparison and reset for draft parameter changes. Accepted changes must be reproducible in version-controlled asset definitions, not trapped in browser-only state. Freeform artwork changes can use the linked source and the agent workflow; this does not require a full pixel-painting application.
+
+Acceptance walkthrough: select the flowering tree, adjust one exposed design or breeze parameter, compare before/after in isolation and in the early/mature towns, then save the asset change through the documented source workflow. Only the tree and its dependent previews/caches should change; unrelated artwork, stage layout and learner data must remain intact. The catalog must not load on the ordinary learner route.
