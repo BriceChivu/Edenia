@@ -1,7 +1,14 @@
 import { chromium } from 'playwright'
 import { writeFile } from 'node:fs/promises'
 // A real background tab is needed: headless tabs do not report document.hidden here.
-const browser = await chromium.launch({ headless: false }),
+const browser = await chromium.launch({
+    headless: false,
+    ignoreDefaultArgs: [
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding',
+      '--disable-background-timer-throttling'
+    ]
+  }),
   results = { browser: browser.version(), physicalPhone: false }
 try {
   const context = await browser.newContext({
@@ -74,6 +81,15 @@ try {
     JSON.stringify(results, null, 2)
   )
   console.log(JSON.stringify(results.hiddenWindow))
+} catch (error) {
+  results.status = 'blocked'
+  results.reason = error.message
+  results.hiddenWindow = null
+  await writeFile(
+    'docs/experiments/pixel-town/evidence/visibility.json',
+    JSON.stringify(results, null, 2)
+  )
+  throw error
 } finally {
   await browser.close()
 }

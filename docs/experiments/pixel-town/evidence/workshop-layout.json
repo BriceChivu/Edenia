@@ -1,0 +1,62 @@
+[
+  {
+    "browser": "chromium",
+    "width": 320,
+    "noOverflow": true,
+    "errors": []
+  },
+  {
+    "browser": "chromium",
+    "width": 390,
+    "noOverflow": true,
+    "errors": []
+  },
+  {
+    "browser": "chromium",
+    "width": 430,
+    "noOverflow": true,
+    "errors": []
+  },
+  {
+    "browser": "chromium",
+    "width": 768,
+    "noOverflow": true,
+    "errors": []
+  },
+  {
+    "browser": "chromium",
+    "width": 1440,
+    "noOverflow": true,
+    "errors": []
+  },
+  {
+    "browser": "webkit",
+    "width": 320,
+    "noOverflow": true,
+    "errors": []
+  },
+  {
+    "browser": "webkit",
+    "width": 390,
+    "noOverflow": true,
+    "errors": []
+  },
+  {
+    "browser": "webkit",
+    "width": 430,
+    "noOverflow": true,
+    "errors": []
+  },
+  {
+    "browser": "webkit",
+    "width": 768,
+    "noOverflow": true,
+    "errors": []
+  },
+  {
+    "browser": "webkit",
+    "width": 1440,
+    "noOverflow": true,
+    "errors": []
+  }
+]

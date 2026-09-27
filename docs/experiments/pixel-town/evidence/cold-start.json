@@ -1,0 +1,579 @@
+{
+  "browser": "151.0.7922.34",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "network": {
+    "downloadBitsPerSecond": 4000000,
+    "latencyMs": 150
+  },
+  "physicalPhone": false,
+  "samples": [
+    {
+      "iteration": 0,
+      "stage": 2,
+      "stillMs": 5252.435042,
+      "motionMs": 6451.981042,
+      "encodedBytes": 338371,
+      "assets": [
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/town.css",
+          "encoded": 1042,
+          "transfer": 1342
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/1-day.png",
+          "encoded": 23711,
+          "transfer": 24011
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/4-day.png",
+          "encoded": 26653,
+          "transfer": 26953
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/8-day.png",
+          "encoded": 28962,
+          "transfer": 29262
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day.png",
+          "encoded": 41498,
+          "transfer": 41798
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/0-day.png",
+          "encoded": 7486,
+          "transfer": 7786
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/entry.js",
+          "encoded": 6608,
+          "transfer": 6908
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/2-day.png",
+          "encoded": 25393,
+          "transfer": 25693
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/2-day.json",
+          "encoded": 57367,
+          "transfer": 57667
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/2-day-motion.png",
+          "encoded": 119651,
+          "transfer": 119951
+        }
+      ]
+    },
+    {
+      "iteration": 0,
+      "stage": 12,
+      "stillMs": 4934.384124999999,
+      "motionMs": 6972.810041999999,
+      "encodedBytes": 490324,
+      "assets": [
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/town.css",
+          "encoded": 1042,
+          "transfer": 1342
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/1-day.png",
+          "encoded": 23711,
+          "transfer": 24011
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/4-day.png",
+          "encoded": 26653,
+          "transfer": 26953
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/8-day.png",
+          "encoded": 28962,
+          "transfer": 29262
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day.png",
+          "encoded": 41498,
+          "transfer": 41798
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/0-day.png",
+          "encoded": 7486,
+          "transfer": 7786
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/entry.js",
+          "encoded": 6608,
+          "transfer": 6908
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day.json",
+          "encoded": 71057,
+          "transfer": 71357
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day-motion.png",
+          "encoded": 283307,
+          "transfer": 283607
+        }
+      ]
+    },
+    {
+      "iteration": 1,
+      "stage": 2,
+      "stillMs": 5255.366834,
+      "motionMs": 6455.871917,
+      "encodedBytes": 338371,
+      "assets": [
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/town.css",
+          "encoded": 1042,
+          "transfer": 1342
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/1-day.png",
+          "encoded": 23711,
+          "transfer": 24011
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/4-day.png",
+          "encoded": 26653,
+          "transfer": 26953
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/8-day.png",
+          "encoded": 28962,
+          "transfer": 29262
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day.png",
+          "encoded": 41498,
+          "transfer": 41798
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/0-day.png",
+          "encoded": 7486,
+          "transfer": 7786
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/entry.js",
+          "encoded": 6608,
+          "transfer": 6908
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/2-day.png",
+          "encoded": 25393,
+          "transfer": 25693
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/2-day.json",
+          "encoded": 57367,
+          "transfer": 57667
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/2-day-motion.png",
+          "encoded": 119651,
+          "transfer": 119951
+        }
+      ]
+    },
+    {
+      "iteration": 1,
+      "stage": 12,
+      "stillMs": 4922.414792000003,
+      "motionMs": 6977.476542,
+      "encodedBytes": 490324,
+      "assets": [
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/town.css",
+          "encoded": 1042,
+          "transfer": 1342
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/1-day.png",
+          "encoded": 23711,
+          "transfer": 24011
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/4-day.png",
+          "encoded": 26653,
+          "transfer": 26953
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/8-day.png",
+          "encoded": 28962,
+          "transfer": 29262
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day.png",
+          "encoded": 41498,
+          "transfer": 41798
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/0-day.png",
+          "encoded": 7486,
+          "transfer": 7786
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/entry.js",
+          "encoded": 6608,
+          "transfer": 6908
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day.json",
+          "encoded": 71057,
+          "transfer": 71357
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day-motion.png",
+          "encoded": 283307,
+          "transfer": 283607
+        }
+      ]
+    },
+    {
+      "iteration": 2,
+      "stage": 2,
+      "stillMs": 5254.360499999999,
+      "motionMs": 6457.163042000004,
+      "encodedBytes": 338371,
+      "assets": [
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/town.css",
+          "encoded": 1042,
+          "transfer": 1342
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/1-day.png",
+          "encoded": 23711,
+          "transfer": 24011
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/4-day.png",
+          "encoded": 26653,
+          "transfer": 26953
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/8-day.png",
+          "encoded": 28962,
+          "transfer": 29262
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day.png",
+          "encoded": 41498,
+          "transfer": 41798
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/0-day.png",
+          "encoded": 7486,
+          "transfer": 7786
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/entry.js",
+          "encoded": 6608,
+          "transfer": 6908
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/2-day.png",
+          "encoded": 25393,
+          "transfer": 25693
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/2-day.json",
+          "encoded": 57367,
+          "transfer": 57667
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/2-day-motion.png",
+          "encoded": 119651,
+          "transfer": 119951
+        }
+      ]
+    },
+    {
+      "iteration": 2,
+      "stage": 12,
+      "stillMs": 4934.067834000001,
+      "motionMs": 6978.353667000003,
+      "encodedBytes": 490324,
+      "assets": [
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/town.css",
+          "encoded": 1042,
+          "transfer": 1342
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/1-day.png",
+          "encoded": 23711,
+          "transfer": 24011
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/4-day.png",
+          "encoded": 26653,
+          "transfer": 26953
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/8-day.png",
+          "encoded": 28962,
+          "transfer": 29262
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day.png",
+          "encoded": 41498,
+          "transfer": 41798
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/0-day.png",
+          "encoded": 7486,
+          "transfer": 7786
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/entry.js",
+          "encoded": 6608,
+          "transfer": 6908
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day.json",
+          "encoded": 71057,
+          "transfer": 71357
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day-motion.png",
+          "encoded": 283307,
+          "transfer": 283607
+        }
+      ]
+    },
+    {
+      "iteration": 3,
+      "stage": 2,
+      "stillMs": 5254.470667000001,
+      "motionMs": 6438.352042000006,
+      "encodedBytes": 338371,
+      "assets": [
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/town.css",
+          "encoded": 1042,
+          "transfer": 1342
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/1-day.png",
+          "encoded": 23711,
+          "transfer": 24011
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/4-day.png",
+          "encoded": 26653,
+          "transfer": 26953
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/8-day.png",
+          "encoded": 28962,
+          "transfer": 29262
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day.png",
+          "encoded": 41498,
+          "transfer": 41798
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/0-day.png",
+          "encoded": 7486,
+          "transfer": 7786
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/entry.js",
+          "encoded": 6608,
+          "transfer": 6908
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/2-day.png",
+          "encoded": 25393,
+          "transfer": 25693
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/2-day.json",
+          "encoded": 57367,
+          "transfer": 57667
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/2-day-motion.png",
+          "encoded": 119651,
+          "transfer": 119951
+        }
+      ]
+    },
+    {
+      "iteration": 3,
+      "stage": 12,
+      "stillMs": 4935.482124999995,
+      "motionMs": 6993.701666999994,
+      "encodedBytes": 490324,
+      "assets": [
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/town.css",
+          "encoded": 1042,
+          "transfer": 1342
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/1-day.png",
+          "encoded": 23711,
+          "transfer": 24011
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/4-day.png",
+          "encoded": 26653,
+          "transfer": 26953
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/8-day.png",
+          "encoded": 28962,
+          "transfer": 29262
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day.png",
+          "encoded": 41498,
+          "transfer": 41798
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/0-day.png",
+          "encoded": 7486,
+          "transfer": 7786
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/entry.js",
+          "encoded": 6608,
+          "transfer": 6908
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day.json",
+          "encoded": 71057,
+          "transfer": 71357
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day-motion.png",
+          "encoded": 283307,
+          "transfer": 283607
+        }
+      ]
+    },
+    {
+      "iteration": 4,
+      "stage": 2,
+      "stillMs": 5264.368208,
+      "motionMs": 6464.2435419999965,
+      "encodedBytes": 338371,
+      "assets": [
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/town.css",
+          "encoded": 1042,
+          "transfer": 1342
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/1-day.png",
+          "encoded": 23711,
+          "transfer": 24011
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/4-day.png",
+          "encoded": 26653,
+          "transfer": 26953
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/8-day.png",
+          "encoded": 28962,
+          "transfer": 29262
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day.png",
+          "encoded": 41498,
+          "transfer": 41798
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/0-day.png",
+          "encoded": 7486,
+          "transfer": 7786
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/entry.js",
+          "encoded": 6608,
+          "transfer": 6908
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/2-day.png",
+          "encoded": 25393,
+          "transfer": 25693
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/2-day.json",
+          "encoded": 57367,
+          "transfer": 57667
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/2-day-motion.png",
+          "encoded": 119651,
+          "transfer": 119951
+        }
+      ]
+    },
+    {
+      "iteration": 4,
+      "stage": 12,
+      "stillMs": 4921.283457999991,
+      "motionMs": 6979.341165999998,
+      "encodedBytes": 490324,
+      "assets": [
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/town.css",
+          "encoded": 1042,
+          "transfer": 1342
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/1-day.png",
+          "encoded": 23711,
+          "transfer": 24011
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/4-day.png",
+          "encoded": 26653,
+          "transfer": 26953
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/8-day.png",
+          "encoded": 28962,
+          "transfer": 29262
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day.png",
+          "encoded": 41498,
+          "transfer": 41798
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/0-day.png",
+          "encoded": 7486,
+          "transfer": 7786
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/entry.js",
+          "encoded": 6608,
+          "transfer": 6908
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day.json",
+          "encoded": 71057,
+          "transfer": 71357
+        },
+        {
+          "name": "http://localhost:4188/_site/pixel-town/e384306d6983d221/12-day-motion.png",
+          "encoded": 283307,
+          "transfer": 283607
+        }
+      ]
+    }
+  ]
+}

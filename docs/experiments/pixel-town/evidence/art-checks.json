@@ -1,0 +1,265 @@
+{
+  "version": "e384306d6983d221",
+  "checks": [
+    {
+      "stage": 0,
+      "light": "dawn",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 1,
+      "light": "dawn",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 2,
+      "light": "dawn",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 3,
+      "light": "dawn",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 4,
+      "light": "dawn",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 5,
+      "light": "dawn",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 6,
+      "light": "dawn",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 7,
+      "light": "dawn",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 8,
+      "light": "dawn",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 9,
+      "light": "dawn",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 10,
+      "light": "dawn",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 11,
+      "light": "dawn",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 12,
+      "light": "dawn",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 0,
+      "light": "day",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 1,
+      "light": "day",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 2,
+      "light": "day",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 3,
+      "light": "day",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 4,
+      "light": "day",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 5,
+      "light": "day",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 6,
+      "light": "day",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 7,
+      "light": "day",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 8,
+      "light": "day",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 9,
+      "light": "day",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 10,
+      "light": "day",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 11,
+      "light": "day",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 12,
+      "light": "day",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 0,
+      "light": "sunset",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 1,
+      "light": "sunset",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 2,
+      "light": "sunset",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 3,
+      "light": "sunset",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 4,
+      "light": "sunset",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 5,
+      "light": "sunset",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 6,
+      "light": "sunset",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 7,
+      "light": "sunset",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 8,
+      "light": "sunset",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 9,
+      "light": "sunset",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 10,
+      "light": "sunset",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 11,
+      "light": "sunset",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 12,
+      "light": "sunset",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 0,
+      "light": "night",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 1,
+      "light": "night",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 2,
+      "light": "night",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 3,
+      "light": "night",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 4,
+      "light": "night",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 5,
+      "light": "night",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 6,
+      "light": "night",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 7,
+      "light": "night",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 8,
+      "light": "night",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 9,
+      "light": "night",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 10,
+      "light": "night",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 11,
+      "light": "night",
+      "patchReplay": "four deterministic frames pixel-identical"
+    },
+    {
+      "stage": 12,
+      "light": "night",
+      "patchReplay": "four deterministic frames pixel-identical"
+    }
+  ]
+}
