@@ -150,6 +150,9 @@ export function createPlayer({
     },
     get pending() {
       return timer !== null
+    },
+    get cadence() {
+      return monitor.cadence
     }
   }
 }

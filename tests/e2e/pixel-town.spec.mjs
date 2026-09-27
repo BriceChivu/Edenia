@@ -290,3 +290,36 @@ test('invisible onboarding scenery does not keep a lighting timer alive', async 
     )
     .toBe(false)
 })
+
+test('critical attributed slowdown restores the still and cannot resume a frozen player', async ({ page }) => {
+  test.skip(!enabled, 'Requires the enabled build')
+  await page.goto('/?internal_test=1')
+  await seed(page)
+  await expect(page.locator('.pixel-town-canvas')).toBeVisible()
+  // Inject cost only inside the real town draw callback, not unrelated feed work.
+  await page.evaluate(() => {
+    const drawImage = CanvasRenderingContext2D.prototype.drawImage
+    let last = 0
+    CanvasRenderingContext2D.prototype.drawImage = function (...args) {
+      if (this.canvas.classList.contains('pixel-town-canvas') && performance.now() - last > 120) {
+        last = performance.now()
+        while (performance.now() - last < 60) { /* controlled town cost */ }
+      }
+      return drawImage.apply(this, args)
+    }
+  })
+  await expect.poll(() => page.evaluate(() =>
+    window.EDENIA_PIXEL_TOWN.controller.metrics.samples.some(s => s.cadence === 0)
+  )).toBe(true)
+  await expect(page.locator('.pixel-town-canvas')).toBeHidden()
+  expect(await page.evaluate(() => window.EDENIA_PIXEL_TOWN.controller.metrics.active)).toBe(false)
+  expect(await page.locator('#cityMilestoneImage').evaluate(img => img.complete && img.naturalWidth === 768)).toBe(true)
+  await page.locator('.city-section').evaluate(el => { el.style.display = 'none' })
+  await expect.poll(() => page.evaluate(() => window.EDENIA_PIXEL_TOWN.controller.pending.lighting)).toBe(false)
+  await page.locator('.city-section').evaluate(el => { el.style.display = '' })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  await expect(page.locator('.pixel-town-canvas')).toBeHidden()
+  expect(await page.evaluate(() => window.EDENIA_PIXEL_TOWN.controller.pending.animation)).toBe(false)
+  expect(await page.evaluate(() => window.EDENIA_PIXEL_TOWN.controller.metrics.active)).toBe(false)
+})
