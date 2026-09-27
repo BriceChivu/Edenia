@@ -120,6 +120,10 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
         onSample: (sample) => {
           metrics.samples.push(sample)
           if (metrics.samples.length > 600) metrics.samples.shift()
+          if (!sample.cadence) {
+            canvas.hidden = true
+            metrics.active = false
+          }
         }
       })
       metrics.loads++
@@ -181,7 +185,7 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
     if (!reduced.matches) {
       if (player) {
         player.start()
-        metrics.active = true
+        metrics.active = Boolean(player.cadence)
       } else void prepare(key)
     } else {
       cancel()
@@ -189,7 +193,7 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
       canvas.hidden = true
       metrics.active = false
     }
-    if (player && !reduced.matches) canvas.hidden = false
+    if (player && !reduced.matches) canvas.hidden = !player.cadence
     lightTimer = setTimeout(refresh, 60000)
   }
   const observer = new IntersectionObserver((entries) => {
