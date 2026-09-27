@@ -34,4 +34,4 @@ The prototype prepares 36 deterministic frames incrementally, retaining only 32p
 
 Browser checks passed for moving pixels, manual pause, reduced motion, offscreen suspension/resume, rapid stage/light changes and 320/390/768/1440px layouts. Hidden-document cancellation is implemented but was not separately verified with a real background-tab test. The six-view captures from the previous commit remain historical stills; `animated-refinement-day.png`, `animated-refinement-sunset.png` and `gentle-evening.webm` capture this iteration.
 
-Owner reaction to this animation refinement: pending.
+Owner verdict: approved. The owner said "good. I approve this prototype" and explicitly required easy future incremental improvements to design, animations and levels. The approved visual reference is commit `238297c`. See [Production authoring requirements](AUTHORING.md) for the implementation handoff. Approval covers this representative prototype; full-stage production implementation and performance/deployment acceptance remain subsequent work.
