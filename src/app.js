@@ -574,79 +574,6 @@ const STUDY_GUIDANCE_ENABLED = deriveStudyGuidanceEnabled(
   RUNTIME_ENVIRONMENT,
   getStudyGuidanceEnabled()
 )
-// Experiment: pip-story. Gate: IS_INTERNAL_TEST. Public path: unchanged.
-// The story bundle, styles, and illustrations are requested only by this gate.
-let pipStoryController = null
-let pipStoryModule = null
-let pipStoryLoadGeneration = 0
-let pipStoryLoading = false
-let pipStoryStore = null
-
-function renderInternalPipStory(state) {
-  if (!IS_INTERNAL_TEST) return
-  if (pipStoryController) {
-    pipStoryController.update(pipStoryStore.read())
-    return
-  }
-  if (pipStoryLoading) return
-  const host = document.querySelector('.city-image-wrap')
-  if (!host?.isConnected) return
-  pipStoryLoading = true
-  const generation = ++pipStoryLoadGeneration
-  const moduleUrl = new URL('pip-story.js', document.baseURI)
-  const appScript = document.querySelector('script[src*="app.js"]')
-  if (appScript) moduleUrl.search = new URL(appScript.src).search
-  if (!document.getElementById('pipStoryStyles')) {
-    const style = document.createElement('link')
-    style.id = 'pipStoryStyles'
-    style.rel = 'stylesheet'
-    style.href = moduleUrl.href.replace('pip-story.js', 'pip-story.css')
-    document.head.append(style)
-  }
-  pipStoryModule ||= import(moduleUrl.href)
-  pipStoryModule.then(({ createPipStory, createBrowserStoryStore }) => {
-    if (generation !== pipStoryLoadGeneration || !host.isConnected || !loadState()) return
-    pipStoryStore = createBrowserStoryStore({
-      storage: localStorage,
-      namespace: STORAGE_KEY,
-      context: () => {
-        const profile = loadState()
-        if (!profile || !host.isConnected) return null
-        const access = learnerProfileLifecycleAuthority?.getState()
-        return {
-          profile,
-          identity: access?.status === 'active'
-            ? [access.activation.ownerId, access.activation.profileId, access.activation.generation]
-            : null
-        }
-      },
-      saveProfile: active => saveState(active, { backup: false, syncAnalytics: false, syncCloud: false })
-    })
-    pipStoryController = createPipStory({
-      host,
-      read: pipStoryStore.read,
-      write: pipStoryStore.write
-    })
-  }).catch(() => {
-    pipStoryModule = null
-    if (generation !== pipStoryLoadGeneration || !host.isConnected) return
-    const retry = document.createElement('button')
-    retry.type = 'button'
-    retry.textContent = 'Pip could not load. Try again'
-    retry.style.cssText = 'position:absolute;inset:40% 15%;z-index:5'
-    retry.addEventListener('click', () => { retry.remove(); renderInternalPipStory(loadState()) })
-    host.append(retry)
-  }).finally(() => { if (generation === pipStoryLoadGeneration) pipStoryLoading = false })
-}
-
-function closeInternalPipStory() {
-  if (!IS_INTERNAL_TEST) return
-  pipStoryLoadGeneration++
-  pipStoryLoading = false
-  pipStoryController?.destroy()
-  pipStoryController = null
-  pipStoryStore = null
-}
 const ACCOUNT_FEATURES_ENABLED = deriveAccountFeaturesEnabled(
   RUNTIME_ENVIRONMENT,
   getAccountFeaturesRollout()
@@ -2993,7 +2920,6 @@ let parkedLearnerProfileDom = []
 const protectedConflictAnnouncementIds = new Set()
 
 function parkLearnerProfileDom() {
-  closeInternalPipStory()
   const parkedSelectors = new Set(
     parkedLearnerProfileDom.map(({ selector }) => selector)
   )
@@ -5131,7 +5057,7 @@ function acceptNoAnkiFrequentUserPrompt(event) {
 }
 
 function startWalkthrough(steps = WALKTHROUGH_STEPS, options = {}) {
-  const availableSteps = steps.filter(step => (!IS_INTERNAL_TEST || step.id !== 'town') && getWalkthroughTarget(step))
+  const availableSteps = steps.filter(step => getWalkthroughTarget(step))
   if (!availableSteps.length) return
   if (walkthroughState.active) endWalkthrough({ markCompleted: false })
 
@@ -14368,10 +14294,6 @@ function renderCitySnapshot(snapshot, s, includeTimeline = true) {
   if (includeTimeline) renderLevelUpButton(snapshot)
   if (includeTimeline && snapshot.isToday) maybeStartLevelUpGuidance(s)
 
-  if (IS_INTERNAL_TEST) {
-    renderInternalPipStory(s)
-    return
-  }
   if (includeTimeline) renderCityTimeControls(snapshot)
   updateCityMilestoneImage(snapshot.visualScore, { preloadCenterIndex: getCurrentCityImageIndex(s) })
 }
@@ -14485,7 +14407,6 @@ function maybeStartLevelUpGuidance(s) {
 }
 
 function launchCityLevelUpConfetti() {
-  if (IS_INTERNAL_TEST) return
   const cityImageWrap = document.querySelector('.city-image-wrap')
   if (!cityImageWrap) return
 
@@ -14722,7 +14643,6 @@ function refreshCityWaveformScrollGeometry() {
 }
 
 function initCityWaveformTouchNavigation() {
-  if (IS_INTERNAL_TEST) return
   const bars = document.getElementById('cityWaveBars')
   if (!bars || bars.dataset.touchNavigationReady === 'true') return
   bars.dataset.touchNavigationReady = 'true'
@@ -15025,7 +14945,6 @@ function formatCitySnapshotDate(date) {
 }
 
 function initCityImagePanZoom() {
-  if (IS_INTERNAL_TEST) return
   const wrap = document.querySelector('.city-image-wrap')
   const image = document.getElementById('cityMilestoneImage')
   if (!wrap || !image || wrap.dataset.panZoomReady === 'true') return

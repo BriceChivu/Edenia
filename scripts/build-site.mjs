@@ -213,18 +213,6 @@ await writeFile(
 )
 await writeFile(resolve(outputDir, 'style.css'), minifiedStyle.code)
 
-// Internal-test story is a separate lazy entry, including its scoped CSS.
-await build({
-  entryPoints: [resolve(projectRoot, 'src/features/pip-story/index.js')],
-  outfile: resolve(outputDir, 'pip-story.js'),
-  bundle: true,
-  format: 'esm',
-  target: 'es2022',
-  minify: true,
-  legalComments: 'none',
-  logLevel: 'silent'
-})
-
 await copyPath('analytics.js')
 await copyPath('Edenia_favicon_round.png')
 await copyPath('assets')
