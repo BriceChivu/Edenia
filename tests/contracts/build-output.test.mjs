@@ -162,7 +162,7 @@ test('Pages deployment retires permanent feature inputs and forwards remaining c
   )
   assert.match(
     workflow,
-    /EDENIA_ACCOUNT_FEATURES_ROLLOUT: \$\{\{ vars\.EDENIA_ACCOUNT_FEATURES_ROLLOUT \}\}/
+    /EDENIA_ACCOUNT_FEATURES_ROLLOUT: 'off'/
   )
   assert.match(
     workflow,
@@ -215,7 +215,7 @@ test('Pages deployment retires permanent feature inputs and forwards remaining c
   )
   assert.match(
     workflow,
-    /EDENIA_LEARNER_PROFILE_LIFECYCLE_ENABLED: \$\{\{ vars\.EDENIA_LEARNER_PROFILE_LIFECYCLE_ENABLED \}\}/
+    /EDENIA_LEARNER_PROFILE_LIFECYCLE_ENABLED: 'false'/
   )
   assert.match(
     runtimeConfigWriter,

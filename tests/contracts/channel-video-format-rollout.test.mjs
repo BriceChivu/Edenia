@@ -58,7 +58,7 @@ test('permanent format views include every duration without migrating the saved 
   )
   assert.match(
     appSource,
-    /function init\(\) \{\s*reportMissingI18nKeys\(\)\s*applyPermanentChannelVideoFormatUi\(\)/
+    /function init\(\) \{[\s\S]*?reportMissingI18nKeys\(\)\s*applyPermanentChannelVideoFormatUi\(\)/
   )
   assert.equal(
     appSource.match(/const includeShorts = getEffectiveIncludeShorts\((?:s|state)\)/g)?.length,

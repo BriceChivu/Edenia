@@ -482,10 +482,14 @@ test('ordinary public mode keeps the internal Account settings section unavailab
   expect(exportRequests).toEqual([])
 })
 
-test('global off switch blocks the account deep link and reminder reads', async ({
+test('global off switch preserves the retained session and blocks the account deep link', async ({
   page
 }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-standard')
+  const providerRequests = []
+  page.on('request', request => {
+    if (request.url().includes('account-ui-test.supabase.co')) providerRequests.push(request.url())
+  })
   const reminderRequests = []
   const exportRequests = []
   await seedAuthenticatedSession(page)
@@ -509,12 +513,21 @@ test('global off switch blocks the account deep link and reminder reads', async 
 
   await page.goto('/?internal_test=1')
   await seedReadyState(page, 'en')
+  const retained = await page.evaluate(() => ({
+    profile: localStorage.getItem('edenia_v1_internal_test'),
+    session: localStorage.getItem('edenia_v1_internal_test_plus_auth_v1')
+  }))
   await page.goto('/?internal_test=1&account=1')
 
   await expect(page.locator('#settingsPanel')).toBeHidden()
   await expect(page).toHaveURL(/\?internal_test=1&account=1$/)
-  await page.locator('[data-settings-shell-action="open"]').click()
-  await expect(page.locator('#settingsPanel')).toBeVisible()
+  await expect(page.locator('#internalAuthPaused')).toBeVisible()
+  await expect(page.locator('[data-settings-shell-action="open"]')).toHaveCount(0)
+  expect(await page.evaluate(() => ({
+    profile: localStorage.getItem('edenia_v1_internal_test'),
+    session: localStorage.getItem('edenia_v1_internal_test_plus_auth_v1')
+  }))).toEqual(retained)
+  expect(providerRequests).toEqual([])
   await expect(page.locator('#accountSettings')).toBeHidden()
   await expect(page.locator('#plusAccountSettings')).toHaveCount(0)
   await expect(page.getByText('Edenia Plus account', { exact: true })).toHaveCount(0)

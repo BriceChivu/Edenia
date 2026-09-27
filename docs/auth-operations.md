@@ -6,6 +6,42 @@ under 13. It is an operator procedure, not a browser feature. Never paste a
 database URL, publishable key, session value, email address, or profile
 envelope into a command, issue, chat, or log.
 
+## Internal experiment pause (2026-09-27)
+
+Authentication testing is paused for the internal pixel-town trial. The Pages
+workflow pins account rollout to `off` and profile lifecycle to `false`.
+The server profile gate is off with no developer owner; containment advances
+its timestamp fence so a previously captured enable request cannot reopen it.
+The bounded monitor canary remains disabled.
+
+Pulsetic's **Edenia production Auth** monitor and the GitHub Auth watchdog are
+paused. `EDENIA_AUTH_EXPERIMENT_ENABLED` must be exactly `true` for watchdog or
+manual-probe jobs, restore rehearsals, and profile maintenance to run. It is
+currently `false`. Existing Auth/soak/Packet 1 Codex reminders remain paused.
+Do not interpret an intentionally stale probe as an active Auth incident.
+
+Fresh and accountless internal browsers show the ordinary town. A browser with
+retained ownership, session, sync, migration, or ambiguous access bookkeeping
+shows a pause notice before loading profile data or initializing backup storage.
+It preserves all retained bytes; use a separate browser profile for the town
+trial. Do not clear storage, convert the cache, or authenticate to bypass it.
+Public accountless storage and behavior are unchanged.
+
+Keep the shared Supabase project online: legacy transfer creation/consumption
+and its five-minute cleanup, unsubscribe handling, provider webhook suppression,
+and recovery data remain available. Weekly external disaster dumps and their
+35-day artifact retention continue. Profile cleanup is disabled, and automated
+restore rehearsals/maintenance are gated separately from the backup.
+
+Pip was local experiment-branch work, never part of the deployed master tree.
+Its local runtime entry, town takeover, stylesheet bundle, and illustration
+were retired; story documents and prototypes remain historical material.
+
+Resuming Auth requires a new authorized, reviewed change: reconcile the canary
+journal and provider state, restore the needed monitoring and fresh safety
+proof, then review browser rollout/lifecycle and server gate changes together.
+Do not resume merely by changing the visual trial selector.
+
 ## Auth health monitoring
 
 The production clock is an Independent Auth monitor operated through Pulsetic

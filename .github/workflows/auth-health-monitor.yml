@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   freshness:
-    if: github.event_name == 'schedule'
+    if: vars.EDENIA_AUTH_EXPERIMENT_ENABLED == 'true' && github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     env:
@@ -41,7 +41,7 @@ jobs:
           echo '::error title=Edenia Auth monitor is stale or unavailable::The secondary watchdog could not verify a fresh healthy aggregate record. Check the independent external monitor and its operator notification first; keep the profile-data gate disabled until a successful external probe records healthy aggregate state.'
 
   manual-probe:
-    if: github.event_name == 'workflow_dispatch'
+    if: vars.EDENIA_AUTH_EXPERIMENT_ENABLED == 'true' && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     env:
