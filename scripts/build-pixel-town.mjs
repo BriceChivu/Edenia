@@ -20,6 +20,14 @@ import { LIGHTS } from '../src/experiments/pixel-town/lighting.js'
 export async function buildPixelTown(outputDir) {
   const sourceDir = resolve('src/experiments/pixel-town')
   const hash = createHash('sha256')
+  hash.update(
+    JSON.parse(
+      await readFile(
+        resolve('node_modules/@napi-rs/canvas/package.json'),
+        'utf8'
+      )
+    ).version
+  )
   for (const name of (await readdir(sourceDir)).sort())
     hash.update(await readFile(resolve(sourceDir, name)))
   hash.update(await readFile(new URL(import.meta.url)))

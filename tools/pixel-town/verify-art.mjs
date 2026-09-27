@@ -12,7 +12,7 @@ const root = new URL('../../_site/pixel-town/', import.meta.url),
 const bytes = (canvas) =>
   canvas.getContext('2d').getImageData(0, 0, 768, 460).data
 const digest = (data) => createHash('sha256').update(data).digest('hex')
-await mkdir(out,{recursive:true})
+await mkdir(out, { recursive: true })
 const result = []
 for (const light of ['dawn', 'day', 'sunset', 'night']) {
   const sheet = createCanvas(768 * 4, 460 * 4),

@@ -2,7 +2,11 @@ import { compose } from '../../src/experiments/pixel-town/compose.js'
 import { artwork } from '../../src/experiments/pixel-town/artwork.js'
 import { ASSETS } from '../../src/experiments/pixel-town/catalog-data.js'
 import { SCENES } from '../../src/experiments/pixel-town/scenes.js'
-import { DESIGN, EFFECTS } from '../../src/experiments/pixel-town/parameters.js'
+import {
+  DESIGN,
+  EFFECTS,
+  VARIANTS
+} from '../../src/experiments/pixel-town/parameters.js'
 const $ = (id) => document.getElementById(id)
 let selected = ASSETS[0],
   playing = false,
@@ -16,8 +20,19 @@ function isolated(canvas, asset, options) {
   const scratch = document.createElement('canvas')
   scratch.width = 768
   scratch.height = 460
+  if (asset.variant) {
+    const variant = (options.variants || VARIANTS)[asset.variant]
+    options = {
+      ...options,
+      design: { ...DESIGN, tree: { blossom: variant.blossom } },
+      effects: {
+        ...EFFECTS,
+        foliage: { ...EFFECTS.foliage, amplitude: variant.amplitude }
+      }
+    }
+  }
   const art = artwork(scratch, options)
-  art.at(384, 300, 1, () => art[asset.id](...asset.args))
+  art.at(384, 300, 1, () => art[asset.kind](...asset.args))
   const c = scratch.getContext('2d'),
     data = c.getImageData(0, 0, 768, 460).data
   let left = 768,
@@ -68,11 +83,23 @@ function settings() {
   return { light: $('light').value, time: Number($('phase').value) }
 }
 function draft() {
+  if (selected.variant)
+    return {
+      design: DESIGN,
+      effects: EFFECTS,
+      variants: {
+        ...VARIANTS,
+        [selected.variant]: {
+          blossom: $('blossom').value,
+          amplitude: Number($('breeze').value)
+        }
+      }
+    }
   return {
     design: { ...DESIGN, tree: { blossom: $('blossom').value } },
     effects: {
       ...EFFECTS,
-      foliage: { amplitude: Number($('breeze').value) },
+      foliage: { ...EFFECTS.foliage, amplitude: Number($('breeze').value) },
       smoke: { ...EFFECTS.smoke, height: Number($('smoke').value) }
     }
   }
@@ -91,7 +118,10 @@ function render() {
               at: [384, 300, 1.6],
               items: [
                 { asset: 'island', args: [130, 110] },
-                { asset: 'tree', args: [-25, -10] },
+                {
+                  asset: selected.variant ? selected.id : 'tree',
+                  args: [-25, -10]
+                },
                 { asset: 'tree', args: [25, 15] }
               ]
             }
@@ -113,12 +143,18 @@ function render() {
     .forEach((b) =>
       b.setAttribute('aria-pressed', String(b.dataset.asset === selected.id))
     )
-  $('blossom').disabled = $('breeze').disabled = selected.id !== 'tree'
-  $('smoke').disabled = !['house', 'volcano'].includes(selected.id)
-  $('save').disabled = !['tree','house','volcano'].includes(selected.id)
-  $('scope').disabled = selected.id !== 'tree'
-  if(selected.id !== 'tree')$('scope').value='shared'
-  $('variant').disabled = $('scope').value !== 'variant'
+  $('blossom').disabled = $('breeze').disabled = selected.kind !== 'tree'
+  $('smoke').disabled = !['house', 'volcano'].includes(selected.kind)
+  $('save').disabled = !['tree', 'house', 'volcano'].includes(selected.kind)
+  $('scope').disabled = selected.kind !== 'tree'
+  if (selected.kind !== 'tree') $('scope').value = 'shared'
+  if (selected.variant) {
+    $('scope').value = 'variant'
+    $('scope').disabled = true
+    $('variant').value = selected.variant
+  }
+  $('variant').disabled =
+    Boolean(selected.variant) || $('scope').value !== 'variant'
   $('scope-note').textContent =
     $('scope').value === 'shared'
       ? 'Saving updates all instances of the selected shared asset. Scene placements and study facts stay unchanged.'
@@ -128,8 +164,13 @@ function render() {
   $('town-pair').style.maxWidth = $('phone').checked ? '390px' : ''
 }
 function reset() {
-  $('blossom').value = DESIGN.tree.blossom
-  $('breeze').value = EFFECTS.foliage.amplitude
+  $('scope').value = selected.variant ? 'variant' : 'shared'
+  $('blossom').value = selected.variant
+    ? VARIANTS[selected.variant].blossom
+    : DESIGN.tree.blossom
+  $('breeze').value = selected.variant
+    ? VARIANTS[selected.variant].amplitude
+    : EFFECTS.foliage.amplitude
   $('smoke').value = EFFECTS.smoke.height
   render()
 }
@@ -164,10 +205,15 @@ $('reset').onclick = reset
 $('save').onclick = () => {
   const payload = {
     schema: 1,
-    asset: selected.id,
+    asset: selected.kind,
     scope: $('scope').value,
     variant: $('variant').value,
-    ...draft()
+    design: { ...DESIGN, tree: { blossom: $('blossom').value } },
+    effects: {
+      ...EFFECTS,
+      foliage: { ...EFFECTS.foliage, amplitude: Number($('breeze').value) },
+      smoke: { ...EFFECTS.smoke, height: Number($('smoke').value) }
+    }
   }
   const url = URL.createObjectURL(
       new Blob([JSON.stringify(payload, null, 2) + '\n'], {

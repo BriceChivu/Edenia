@@ -202,3 +202,82 @@ test('missing or mixed animation assets retain new still without legacy fallback
     )
   ).toBe(false)
 })
+
+test('fifty stage, light and mount cycles preserve state and release prior controllers', async ({
+  page
+}) => {
+  test.skip(!enabled, 'Requires the enabled build')
+  await page.goto('/?internal_test=1')
+  await seed(page)
+  const before = await page.evaluate(() =>
+    localStorage.getItem('edenia_v1_internal_test')
+  )
+  for (let i = 0; i < 50; i++) {
+    await page.evaluate(async (i) => {
+      const town = window.EDENIA_PIXEL_TOWN
+      town.controller.dispose()
+      if (Object.values(town.controller.pending).some(Boolean))
+        throw new Error('Disposed controller still pending')
+      const { mountTown } = await import(
+        new URL(town.base + 'entry.js', location.href)
+      )
+      const image = document.getElementById('cityMilestoneImage')
+      image.dataset.pixelStage = String((i % 12) + 1)
+      town.controller = mountTown({
+        image,
+        ...town,
+        clock: () => new Date(2026, 8, 27, [6, 12, 18, 23][i % 4])
+      })
+    }, i)
+    await expect
+      .poll(() =>
+        page.evaluate(() => window.EDENIA_PIXEL_TOWN.controller.metrics.active)
+      )
+      .toBe(true)
+    await expect(page.locator('.pixel-town-canvas')).toHaveCount(1)
+    expect(
+      await page.evaluate(
+        () => window.EDENIA_PIXEL_TOWN.controller.metrics.pixelBytes
+      )
+    ).toBeLessThan(64 * 1024 * 1024)
+  }
+  expect(
+    await page.evaluate(() => localStorage.getItem('edenia_v1_internal_test'))
+  ).toBe(before)
+})
+
+test('invisible onboarding scenery does not keep a lighting timer alive', async ({
+  page
+}) => {
+  test.skip(!enabled, 'Requires the enabled build')
+  await page.goto('/?internal_test=1')
+  await seed(page)
+  await page.evaluate(() => {
+    const intro = document.getElementById('introTrailer')
+    intro.classList.remove('hidden')
+    intro.dataset.scene = '0'
+  })
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () => window.EDENIA_PIXEL_TOWN?.controller?.pending.lighting
+      )
+    )
+    .toBe(false)
+  await page.evaluate(
+    () => (document.getElementById('introTrailer').dataset.scene = '2')
+  )
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.EDENIA_PIXEL_TOWN.controller.pending.lighting)
+    )
+    .toBe(true)
+  await page.evaluate(
+    () => (document.getElementById('introTrailer').dataset.scene = '0')
+  )
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.EDENIA_PIXEL_TOWN.controller.pending.lighting)
+    )
+    .toBe(false)
+})

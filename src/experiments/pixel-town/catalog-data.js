@@ -1,3 +1,4 @@
+import { VARIANTS } from './parameters.js'
 import { SCENES } from './scenes.js'
 export const ASSETS = [
   ['tree', 'Flowering tree', [0, 0]],
@@ -20,12 +21,17 @@ export const ASSETS = [
   ['volcano', 'Volcano', []],
   ['birds', 'Visiting birds', []],
   ['reflection', 'Reflection', [384, 230, 100, 30]],
-  ['sea', 'Water', []]
+  ['sea', 'Water', []],
+  ...Object.keys(VARIANTS).map((id) => [`tree:${id}`, `Tree: ${id}`, [0, 0]])
 ].map(([id, name, args]) => ({
   id,
   name,
+  kind: id.split(':')[0],
+  variant: id.includes(':') ? id.slice(5) : null,
   args,
-  source: 'src/experiments/pixel-town/artwork.js',
+  source: id.includes(':')
+    ? 'src/experiments/pixel-town/parameters.js'
+    : 'src/experiments/pixel-town/artwork.js',
   stages: Object.values(SCENES)
     .filter(
       (scene) =>

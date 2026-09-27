@@ -53,8 +53,15 @@ async function run(mode, feedSize, stage, iteration) {
       })
       s.config.ankiEnabled = false
       s.cityProgress.maxLevelIndex = stage - 1
-      const threshold=[0,60,140,230,320,400,480,570,680,800,920,1050][stage-1]
-      s.anki['2026-09-26']={reviewed:threshold/window.getAnkiPointsFromReviews(1),created:0,loggedAt:'2026-09-26T04:00:00.000Z',observedAt:'2026-09-26T04:00:00.000Z'}
+      const threshold = [
+        0, 60, 140, 230, 320, 400, 480, 570, 680, 800, 920, 1050
+      ][stage - 1]
+      s.anki['2026-09-26'] = {
+        reviewed: threshold / window.getAnkiPointsFromReviews(1),
+        created: 0,
+        loggedAt: '2026-09-26T04:00:00.000Z',
+        observedAt: '2026-09-26T04:00:00.000Z'
+      }
       for (let i = 0; i < feedSize; i++) {
         const id = `fixture${String(i).padStart(4, '0')}`
         s.videos[id] = {
@@ -73,7 +80,11 @@ async function run(mode, feedSize, stage, iteration) {
         'edenia.pixelTown.motion',
         mode === 'still' ? 'off' : 'on'
       )
-      return JSON.stringify({videos:s.videos,anki:s.anki,cityProgress:s.cityProgress})
+      return JSON.stringify({
+        videos: s.videos,
+        anki: s.anki,
+        cityProgress: s.cityProgress
+      })
     },
     { feedSize, stage, mode }
   )
@@ -89,10 +100,19 @@ async function run(mode, feedSize, stage, iteration) {
     await page.waitForFunction(
       () => window.EDENIA_PIXEL_TOWN?.controller?.metrics.active
     )
-  await page.waitForFunction(({stage,mode})=>{
-    const img=document.getElementById('cityMilestoneImage')
-    return img.complete && img.naturalWidth>0 && (mode==='disabled'?decodeURI(img.src).includes(`level ${stage}.`):img.dataset.pixelStage===String(stage))
-  },{stage,mode})
+  await page.waitForFunction(
+    ({ stage, mode }) => {
+      const img = document.getElementById('cityMilestoneImage')
+      return (
+        img.complete &&
+        img.naturalWidth > 0 &&
+        (mode === 'disabled'
+          ? decodeURI(img.src).includes(`level ${stage}.`)
+          : img.dataset.pixelStage === String(stage))
+      )
+    },
+    { stage, mode }
+  )
   const startupMs = performance.now() - start
   const screenshot = `docs/experiments/pixel-town/evidence/${mode}-${stage}-${feedSize}.png`
   if (iteration === 0)
@@ -104,7 +124,16 @@ async function run(mode, feedSize, stage, iteration) {
   await page.waitForTimeout(idleMs)
   await cdp.send('HeapProfiler.collectGarbage')
   const before = (await cdp.send('Runtime.getHeapUsage')).usedSize
-  const initialResources=await page.evaluate(()=>performance.getEntriesByType('resource').filter(r=>r.name.includes('/pixel-town/')).map(r=>({url:r.name,encoded:r.encodedBodySize,start:r.startTime})))
+  const initialResources = await page.evaluate(() =>
+    performance
+      .getEntriesByType('resource')
+      .filter((r) => r.name.includes('/pixel-town/'))
+      .map((r) => ({
+        url: r.name,
+        encoded: r.encodedBodySize,
+        start: r.startTime
+      }))
+  )
   const actions = []
   for (let n = 0; n < 20; n++) {
     actions.push(
@@ -173,6 +202,13 @@ async function run(mode, feedSize, stage, iteration) {
     )
     await page.waitForTimeout(30)
   }
+  await page.evaluate(
+    (stage) =>
+      window.updateCityMilestoneImage(
+        [0, 60, 140, 230, 320, 400, 480, 570, 680, 800, 920, 1050][stage - 1]
+      ),
+    stage
+  )
   await page.waitForTimeout(1000)
   await cdp.send('HeapProfiler.collectGarbage')
   const after = (await cdp.send('Runtime.getHeapUsage')).usedSize
@@ -203,7 +239,7 @@ async function run(mode, feedSize, stage, iteration) {
     scroll,
     warmedHeap,
     afterIdleHeap: before,
-    idleHeapGrowth: before-warmedHeap,
+    idleHeapGrowth: before - warmedHeap,
     initialResources,
     heapBefore: before,
     heapAfter: after,

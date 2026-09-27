@@ -168,3 +168,47 @@ test('shared-tree draft save is source-backed and cannot modify unrelated parame
     await rm(dir, { recursive: true, force: true })
   }
 })
+
+test('named variants affect only explicitly referenced tree instances', () => {
+  const scene = {
+    id: 'variant-preview',
+    groups: [
+      {
+        id: 'variant',
+        at: [250, 300, 1],
+        items: [{ asset: 'tree:blossom', args: [0, 0] }]
+      },
+      {
+        id: 'shared',
+        at: [500, 300, 1],
+        items: [{ asset: 'tree', args: [0, 0] }]
+      }
+    ],
+    overlays: []
+  }
+  const draw = (blossom) => {
+    const c = compose(createCanvas(768, 460), {
+      scene,
+      variants: { blossom: { blossom, amplitude: 0.7 } }
+    })
+    return c.getContext('2d').getImageData(0, 0, 768, 460).data
+  }
+  const before = draw('#d7cd9d'),
+    after = draw('#ef88bb')
+  let left = 0,
+    right = 0
+  for (let y = 0; y < 460; y++)
+    for (let x = 0; x < 768; x++) {
+      const i = (y * 768 + x) * 4
+      if (
+        before[i] !== after[i] ||
+        before[i + 1] !== after[i + 1] ||
+        before[i + 2] !== after[i + 2]
+      ) {
+        if (x < 384) left++
+        else right++
+      }
+    }
+  assert.ok(left > 0)
+  assert.equal(right, 0)
+})

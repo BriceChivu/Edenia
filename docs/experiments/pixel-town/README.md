@@ -27,7 +27,7 @@ The workshop and source geometry are excluded from the Pages build. The learner 
 | --- | --- |
 | Roof tiles, tree shape, landmark geometry | `src/experiments/pixel-town/artwork.js` — named functions |
 | Shared tree blossom color, roof rows | `src/experiments/pixel-town/parameters.js` — `DESIGN` |
-| Breeze or smoke | `parameters.js` — `EFFECTS` |
+| Breeze or smoke | `parameters.js` — `EFFECTS`; deterministic motion functions in `effects.js` |
 | Local clock buckets, materials | `lighting.js` |
 | Stage composition, placement, ordering | `scenes.js` |
 | Scheduling, cancellation, disposal | `entry.js`, `player.js` |

@@ -1,3 +1,4 @@
+import { motionAt } from './effects.js'
 import { paletteFor } from './lighting.js'
 import { EFFECTS, DESIGN } from './parameters.js'
 export const WIDTH = 768,
@@ -15,8 +16,8 @@ export function artwork(
   const p = paletteFor(light, design),
     night = light === 'night',
     sunset = light === 'sunset' || light === 'dawn'
-  const phase = (time * Math.PI) / 3,
-    breeze = (seed = 0) => Math.round(Math.sin(phase + seed))
+  const motion = motionAt(time, effects),
+    breeze = (seed = 0) => motion.foliage(seed)
   const R = (x, y, w, h, col) => {
     c.fillStyle = p[col] || col
     c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h))
@@ -551,7 +552,7 @@ export function artwork(
     )
     const smoke = P(x + w * 0.58 + 4, y + 6, z + h + rh * 0.58 + 29)
     for (let i = 0; i < 5; i++) {
-      const age = (i / 5 + time / effects.smoke.period) % 1
+      const age = motion.smokeAge(i)
       c.globalAlpha = 0.22 * Math.sin(age * Math.PI)
       oval(
         smoke[0] + (Math.sin(age * 5 + x) * 2 + age * 6) * scale,
@@ -586,7 +587,7 @@ export function artwork(
   }
   function boat() {
     const oldY = oy
-    oy += breeze(1) * 0.8
+    oy += motion.boat(1)
     const x = -12,
       y = 105
     face(
@@ -722,7 +723,7 @@ export function artwork(
       c.globalAlpha = (1 - i / 12) * (night ? 0.12 : 0.09)
       const rw = w * (1 - i / 17) * (0.35 + rand(i + 1) * 0.4)
       R(
-        cx - rw / 2 + (rand(i + 71) - 0.5) * 12 + breeze(i) * 2,
+        cx - rw / 2 + (rand(i + 71) - 0.5) * 12 + motion.water(i),
         cy + i * 3,
         rw,
         1,
@@ -742,11 +743,10 @@ export function artwork(
     // Quiet broad bands replace the wallpaper-like ripples of the rejected pass.
     for (let i = 0; i < 380; i++) {
       const moving = i % 6 === 0,
-        x = Math.floor(rand(i + 50) * W) + (moving ? breeze(i) * 2 : 0),
+        x = Math.floor(rand(i + 50) * W) + (moving ? motion.water(i) : 0),
         y = Math.floor(rand(i + 730) * H)
       c.globalAlpha =
-        (0.08 + rand(i + 800) * 0.13) *
-        (moving ? 0.8 + Math.sin(phase + i) * 0.2 : 1)
+        (0.08 + rand(i + 800) * 0.13) * (moving ? motion.waterAlpha(i) : 1)
       R(x, y, 3 + rand(i + 310) * 17, 1, i % 3 ? 'ripple' : 'deep')
     }
     c.globalAlpha = 1
@@ -821,7 +821,7 @@ export function artwork(
   }
   function smokeAt(a, volcanic = false) {
     for (let i = 0; i < 5; i++) {
-      const age = (i / 5 + time / effects.smoke.period) % 1
+      const age = motion.smokeAge(i)
       c.globalAlpha = (volcanic ? 0.13 : 0.22) * Math.sin(age * Math.PI)
       oval(
         a[0] +

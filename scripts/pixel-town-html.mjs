@@ -1,3 +1,4 @@
+import { localLight } from '../src/experiments/pixel-town/lighting.js'
 // Run before the parser discovers image URLs. Disabled/public pages retain original image markup.
 export function preparePixelTownHtml(html, { base, version }, enabled) {
   const setup = `<script>
@@ -7,7 +8,7 @@ if(window.EDENIA_PIXEL_TOWN.enabled){
  document.documentElement.style.setProperty('--city-background','none');
  const link=document.createElement('link');link.rel='stylesheet';link.href=window.EDENIA_PIXEL_TOWN.base+'town.css';document.head.append(link);
 }
-window.EDENIA_PIXEL_TOWN.light=()=>{const d=new Date(),h=d.getHours()+d.getMinutes()/60;return h<5.5||h>=20?'night':h<7.5?'dawn':h<17.5?'day':'sunset'};
+window.EDENIA_PIXEL_TOWN.light=${localLight.toString()};
 </script>`
   html = html.replace(
     '<link rel="preload" as="image"',

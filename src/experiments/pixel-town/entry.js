@@ -6,6 +6,7 @@ let currentMount = null
 export function mountTown({ image, base, version, clock = () => new Date() }) {
   currentMount?.dispose()
   const intro = document.querySelector('.intro-city-viewport')
+  const trailer = document.getElementById('introTrailer')
   let introVisible = false
   const wrap = image.closest('.city-image-wrap'),
     canvas = document.createElement('canvas')
@@ -41,7 +42,28 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
     active: false,
     errors: 0
   }
-  const active = () => visible && !document.hidden && !disposed
+  const active = () =>
+    visible &&
+    !document.hidden &&
+    !disposed &&
+    (!trailer || trailer.classList.contains('hidden'))
+  const introPainted = () => {
+    if (!introVisible || !intro) return false
+    for (
+      let node = intro;
+      node && node !== document.documentElement;
+      node = node.parentElement
+    ) {
+      const style = getComputedStyle(node)
+      if (
+        style.display === 'none' ||
+        style.visibility === 'hidden' ||
+        Number(style.opacity) === 0
+      )
+        return false
+    }
+    return true
+  }
   const release = () => {
     player?.dispose()
     player = null
@@ -147,7 +169,7 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
     lightTimer = null
     syncButton()
     const light = localLight(clock())
-    const introActive = introVisible && !document.hidden && !disposed
+    const introActive = introPainted() && !document.hidden && !disposed
     if (introActive) {
       document.querySelectorAll('[data-intro-city-frame]').forEach((img) => {
         const url = `${base}${img.dataset.introCityFrame}-${light}.png`
@@ -212,6 +234,13 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
     attributes: true,
     attributeFilter: ['data-pixel-stage']
   })
+  const introScene = intro?.closest('[data-intro-scene]')
+  if (introScene) introScene.addEventListener('transitionend', refresh)
+  if (trailer)
+    mutation.observe(trailer, {
+      attributes: true,
+      attributeFilter: ['data-scene', 'class', 'style']
+    })
   document.addEventListener('visibilitychange', refresh)
   window.addEventListener('focus', refresh)
   reduced.addEventListener('change', refresh)
@@ -224,6 +253,7 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
     lightTimer = null
     observer.disconnect()
     mutation.disconnect()
+    introScene?.removeEventListener('transitionend', refresh)
     document.removeEventListener('visibilitychange', refresh)
     window.removeEventListener('focus', refresh)
     window.removeEventListener('pagehide', hide)

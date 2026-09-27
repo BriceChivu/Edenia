@@ -4,7 +4,7 @@ import { SCENES } from './scenes.js'
 export { WIDTH, HEIGHT }
 export function compose(
   canvas,
-  { stage = 12, scene = SCENES[stage], ...options } = {}
+  { stage = 12, scene = SCENES[stage], variants = VARIANTS, ...options } = {}
 ) {
   if (!scene) throw new Error('Unknown visual stage')
   canvas.width = WIDTH
@@ -13,7 +13,7 @@ export function compose(
   let placement = [0, 0, 1]
   const draw = (entry) => {
     if (entry.asset.startsWith('tree:')) {
-      const variant = VARIANTS[entry.asset.slice(5)]
+      const variant = variants[entry.asset.slice(5)]
       if (!variant) throw new Error('Unknown tree variant')
       const scoped = artwork(canvas, {
         ...options,
@@ -23,7 +23,7 @@ export function compose(
         },
         effects: {
           ...(options.effects || EFFECTS),
-          foliage: { amplitude: variant.amplitude }
+          foliage: { ...EFFECTS.foliage, amplitude: variant.amplitude }
         }
       })
       scoped.at(...placement, () => scoped.tree(...entry.args))
