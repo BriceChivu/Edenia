@@ -59,7 +59,7 @@ Run `node tools/pixel-town/verify-art.mjs` after building. It generates four pro
 
 ## Rollback and release
 
-Build without `EDENIA_PIXEL_TOWN_ENABLED=true`, then use the existing Pages publish workflow and reload both URLs. This is a build-time switch; redeployment and open-tab reload are required. No learner data needs changing. Merging this implementation does not enable the release workflow's flag. Preserve the existing public image files until a separate public rollout authorizes removal.
+Build without `EDENIA_PIXEL_TOWN_ENABLED=true`, then use the existing Pages publish workflow and reload both URLs. This is a build-time switch; redeployment and open-tab reload are required. No learner data needs changing. The Pages workflow reads the repository Actions variable `EDENIA_PIXEL_TOWN_ENABLED`; only the exact value `true` enables it. An unset or false value keeps both routes on the existing town. Changing the variable does not change a deployed page until the workflow runs. Preserve the existing public image files until a separate public rollout authorizes removal.
 
 All generated experiment assets share a source-content-hashed directory. Entry, manifest, atlas and still references cannot silently mix versions. Already-open old pages may retain their decoded scene; a missing old asset after deployment falls back to the independent still or reserved area. No cache clearing or profile reset is used.
 
@@ -68,3 +68,24 @@ All generated experiment assets share a source-content-hashed directory. Entry, 
 See `evidence/` and the PR checks. `measure.mjs` records raw startup, scene-switch-to-two-animation-frames, scroll intervals, callback samples, resource sizes and heap readings. Its default run uses short diagnostic windows; `--full` selects the specified 30-second windows, and `--long` records a ten-minute visible run. Fixed fixture hashes and actual mounted card counts are included. Headless focus changes are not physical hidden-tab proof. The diagnostic action measure is not an Event Timing or compositor trace.
 
 The cold-start capture uses 4 Mbit/s and 150 ms RTT with a phone viewport on desktop Chromium. See [the evidence report](evidence/README.md) for measured values, soft-target misses and capture limitations. Physical Android/iPhone measurements, attributable paint traces, full filter/video action comparisons, the full prescribed comparison windows, real hidden-tab suspension, hosted rollback timing and owner acceptance remain pending. Local Chromium and WebKit results cannot substitute for those gates. Never call this deployed or fully performance-accepted from a local suite alone.
+
+
+### Hosted trial operator steps
+
+Enable only the reviewed master revision after its required checks pass:
+
+```sh
+gh variable set EDENIA_PIXEL_TOWN_ENABLED --repo BriceChivu/Edenia --body true
+gh workflow run deploy-pages.yml --repo BriceChivu/Edenia --ref master
+```
+
+Record the workflow run, `/release.json` revision, runtime configuration and pixel-town content hash. Verify both routes with fresh and previously used disposable contexts. Deployment is not owner or device acceptance.
+
+Rollback with the same reviewed source:
+
+```sh
+gh variable set EDENIA_PIXEL_TOWN_ENABLED --repo BriceChivu/Edenia --body false
+gh workflow run deploy-pages.yml --repo BriceChivu/Edenia --ref master
+```
+
+Wait for the successful Pages run, reload both routes, confirm existing town images and zero pixel-town requests/controller. Record elapsed time from dispatch through verified hosted switch-off. Open tabs require reload. Do not clear storage, reset/import a profile, change Auth flags or disable shared services. Re-enabling uses the first two commands and the same verification.

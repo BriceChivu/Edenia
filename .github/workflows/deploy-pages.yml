@@ -40,6 +40,8 @@ jobs:
 
       - name: Build static site
         env:
+          # Internal-only artwork; unset/false restores the existing town on both routes.
+          EDENIA_PIXEL_TOWN_ENABLED: ${{ vars.EDENIA_PIXEL_TOWN_ENABLED }}
           EDENIA_FREE_PLUS_ENABLED: ${{ vars.EDENIA_FREE_PLUS_ENABLED }}
           EDENIA_PLUS_CHECKOUT_ENABLED: ${{ vars.EDENIA_PLUS_CHECKOUT_ENABLED }}
           # Internal Auth is paused; resumption requires a reviewed change.
