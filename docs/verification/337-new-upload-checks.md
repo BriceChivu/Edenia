@@ -74,3 +74,8 @@ in [YouTube's data storage policy](https://developers.google.com/youtube/terms/d
 - Standards and specification reviews ran independently. Their findings about
   retry backoff, cursor error reasons, metadata expiry and timestamp provenance
   were repaired and received regression coverage.
+
+Coverage also retains the oldest publication date in its newest checked page.
+If every saved identity anchor is deleted, this conservative date floor prevents
+falling into older history. Equal timestamps remain eligible; the date floor
+only excludes uploads strictly older than established coverage.

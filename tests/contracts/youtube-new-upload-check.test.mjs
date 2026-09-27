@@ -76,3 +76,14 @@ test('structured invalid-cursor errors restart within the bounded allowance', as
   assert.ok(result.coverage.pending)
   assert.equal(f.requests.length, 2)
 })
+test('deleting every saved head anchor does not turn a new-upload check into history retrieval', async () => {
+  let requests = 0
+  const result = await checkNewUploads({
+    coverage: { headIds: ['deleted'], oldestPublishedAt: '2026-09-01T00:00:00Z' },
+    fetchPage: async () => { requests++; return {
+      videos: [{ id: 'new', publishedAt: '2026-09-26T00:00:00Z' }, { id: 'old-unknown', publishedAt: '2026-08-01T00:00:00Z' }], nextPageToken: 'older'
+    } }
+  })
+  assert.deepEqual(result.videos.map(video => video.id), ['new'])
+  assert.equal(requests, 1)
+})
