@@ -99,3 +99,11 @@ _Avoid_: Account credential, learner token
 **Independent Auth monitor**:
 An Auth health probe scheduler and operator-alert path whose control plane is outside Edenia, Supabase, and GitHub Actions.
 _Avoid_: Auth workflow, internal health job
+
+**Pip story**:
+A branching, easy-English adventure in which the learner chooses how Pip explores, helps others, and travels toward her family.
+_Avoid_: Town progression, study task
+
+**Story panel**:
+The complete Pip story experience within the area used to display Edenia's town, including the illustration, reading, choices, and story controls.
+_Avoid_: Illustration strip, separate story page

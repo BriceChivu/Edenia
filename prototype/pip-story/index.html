@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pip — Just One Little Look</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #eceee5; color: #26382f; font: 17px/1.6 system-ui, sans-serif; }
+  main { max-width: 780px; margin: 28px auto; padding: 0 20px 50px; }
+  header, nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { font: bold 25px monospace; margin: 0; } h2 { font: bold 23px/1.3 monospace; margin: 8px 0 22px; }
+  .small, small { font-size: 13px; } .muted { color: #56645b; }
+  .intro { font-size: 14px; margin: 8px 0 20px; }
+  canvas { display: block; width: 100%; height: 120px; image-rendering: pixelated; background: #bfcfba; border: 2px solid #536951; }
+  #place { font: 12px/1.5 monospace; margin: 12px 0 6px; text-transform: uppercase; }
+  article { background: #fafbf5; border: 1px solid #c2ccbd; padding: 24px; }
+  #text p { margin: 0 0 17px; white-space: pre-line; }
+  button { cursor: pointer; font: inherit; color: inherit; border: 1px solid #a3b19d; background: #fffef5; border-radius: 0; }
+  button:hover { background: #e2e9d5; border-color: #425e3c; } button:focus-visible, summary:focus-visible { outline: 3px solid #796920; outline-offset: 3px; }
+  button:disabled { opacity: .4; cursor: default; }
+  #choices { display: grid; gap: 9px; margin-top: 25px; }
+  #choices button { padding: 13px 16px; text-align: left; border-left: 4px solid #65855c; }
+  #choices button.risk { border-left-color: #9e543b; }
+  nav { margin: 18px 0; } nav button, .tools button { padding: 7px 12px; font-size: 14px; }
+  details { border-top: 1px solid #b6c1ae; padding: 13px 0; } summary { cursor: pointer; font: bold 14px/1.5 monospace; }
+  dl { display: grid; grid-template-columns: 145px 1fr; gap: 8px 16px; font-size: 14px; } dt { font-weight: 650; } dd { margin: 0; overflow-wrap: anywhere; }
+  #journal { font-size: 14px; padding-left: 23px; } #journal li { margin: 9px 0; }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  footer { font-size: 12px; margin-top: 24px; color: #56645b; }
+  @media (max-width: 520px) { main { margin-top: 18px; padding: 0 12px 32px; } article { padding: 19px; } canvas { height: 95px; } dl { grid-template-columns: 1fr; gap: 2px; } dd { margin-bottom: 9px; } }
+</style>
+<main>
+  <header><h1>Just One Little Look</h1><span class="small">Pip · Chapter 1</span></header>
+  <p class="small">Original version · <a href="easy.html">Read the easy-English version</a></p>
+  <p class="intro">A throwaway story prototype: do the choices and their consequences feel right? All decisions are free. No points, study, or waiting.</p>
+  <canvas id="scene" width="192" height="32" role="img" aria-label="A very simple pixel sketch of Pip's current surroundings"></canvas>
+  <div id="place"></div>
+  <article aria-live="polite" aria-atomic="true"><h2 id="title" tabindex="-1"></h2><div id="text"></div><div id="choices"></div></article>
+  <nav><button id="back">← Back one step</button><span class="small muted" id="progress"></span><button id="restart">Start again</button></nav>
+  <details id="memory"><summary>Pip's notebook · what the story remembers</summary><dl id="facts"></dl><ol id="journal"></ol></details>
+  <details><summary>Test shortcuts · skip ahead with a prepared history</summary><p class="small">These start separate example playthroughs at the goose. Use Back to return to your own story.</p><div class="tools"><button data-preset="Moss">Moss · shared crossing</button><button data-preset="Tumble">Tumble · quiet passage</button><button data-preset="alone">Pip alone · bargain</button></div></details>
+  <footer>Based on <em>Edenia Duck Adventure Chapter 1</em>, 24 September 2026. Dialogue adapted from the draft; the goose's specific favor is provisional. Progress lasts in this tab until refresh. Back restores the earlier choices and belongings.</footer>
+</main>
+<script>
+// Throwaway, self-contained story. No Edenia profile, storage, network, points, or timers.
+const initial = () => ({ scene: 'opening', first: '', companion: '', arrangement: '', openingReply: '', route: '', items: [], knowledge: [], friendships: [], promises: [], memories: [], journal: [], bram: '', cargo: '', nursery: '', nurseryRole: '', nurseryAction: '', nurseryDetail: '', nurseryDone: false, approach: '', plan: '', goose: '', crossed: false, riskTaken: false, introduction: '', reply: '', sent: false, rest: '', nextRoute: '', outcome: null });
+const c = (label, text, next, change = {}, note = '') => ({ label, text, next, change, note });
+const page = (step, area, title, text, choices) => ({ step, area, title, text: Array.isArray(text) ? text : [text], choices });
+const has = (s, item) => s.items.includes(item);
+const knows = (s, fact) => s.knowledge.includes(fact);
+const gift = (name) => ({ addItems: [name] });
+const learn = (name) => ({ addKnowledge: [name] });
+const friend = (name) => ({ addFriendships: [name] });
+const present = (s, lines, fallback) => s.companion ? (lines[s.companion] || fallback) : fallback;
+const favor = 'On Pip’s next visit to Reedbank, tell Sedge the goose would like an invitation to the next river gathering.';
+function transition(s, action) {
+  const next = structuredClone(s);
+  if (action.type === 'continue') { next.scene = next.outcome.next; next.outcome = null; return next; }
+  const choice = action.choice;
+  for (const [key, value] of Object.entries(choice.change || {})) {
+    if (key.startsWith('add')) { const name = key[3].toLowerCase() + key.slice(4); next[name] = [...new Set([...next[name], ...value])]; }
+    else if (key === 'removeItems') next.items = next.items.filter(item => !value.includes(item));
+    else next[key] = value;
+  }
+  if (choice.note) next.journal.push(choice.note);
+  if (choice.text) next.outcome = { title: choice.label, text: Array.isArray(choice.text) ? choice.text : [choice.text], next: choice.next };
+  else next.scene = choice.next;
+  return next;
+}
+function story(s) {
+  const first = s.first;
+  const nearby = s.companion || 'a local resident';
+  switch (s.scene) {
+  case 'opening': return page(0, 'The pond', 'Seven whole days', [
+    'Pip has been swimming for seven whole days.\nShe considers herself quite experienced.',
+    'Today, Mama and Papa are taking her beyond the pond.',
+    'Mama slips under a low branch. Papa lowers his head. Pip ducks too early, disappears underwater, and comes up wearing a leaf.',
+    '“Excellent disguise,” says Papa.\nPip keeps the leaf.'
+  ], [c('Swim with Mama and Papa →', '', 'willow')]);
+  case 'willow': return page(0, 'The family swim', 'A tree with cold feet', [
+    '“We’re having lunch at the old willow,” says Mama. “The tree with its feet in the water.”',
+    '“Do trees get cold feet?”\n“Ask it when we arrive.”',
+    'Pip follows, copying the little sideways wiggle of Mama’s tail. A bend in the river hides whatever comes next.',
+    'At the bank: a flower, a warm rounded rock, and a trail of bubbles. What catches Pip’s attention?'
+  ], [c('Sniff the flower', '', 'meeting', { first: 'Luma' }), c('Climb the warm rock', '', 'meeting', { first: 'Moss' }), c('Follow the bubbles', '', 'meeting', { first: 'Tumble' })]);
+  case 'meeting': {
+    if (first === 'Luma') return page(0, 'The flower', 'A very large sneeze', ['Something blue is folded between the petals. Pip takes a very careful sniff.\nThen a very large sneeze.', 'A butterfly tumbles out, catches herself in the air, and finishes with a bow.', '“You arrived just in time for the ending,” she says.\n“Were you asleep?”\n“Only during the middle. I’m Luma.”'], [
+      c('“I’m sorry about the sneeze.”', '“A powerful entrance,” says Luma. “I shall have to rehearse mine.” Pip introduces herself.', 'separation', { openingReply: 'Apologized for the sneeze' }, 'Met Luma in a flower and apologized for sneezing.'),
+      c('“What was the performance about?”', '“A butterfly. Exceptionally well cast.” Luma bows again. Pip gives her name and a small, wet round of applause.', 'separation', { openingReply: 'Asked about the performance' }, 'Met Luma and asked about her performance.'),
+      c('Laugh, then try a bow', 'Pip’s bow puts her beak in the water. “A double act,” says Luma. “We shall need a larger flower.”', 'separation', { openingReply: 'Shared a laugh and a bow' }, 'Met Luma; they made each other laugh.')
+    ]);
+    if (first === 'Moss') return page(0, 'The warm rock', 'Most visitors knock', ['The rock is warm beneath Pip’s feet. She climbs a little higher.\nAn eye opens.', '“Most visitors knock.”\n“I’m sorry. I thought you were a rock.”\n“It has been a restful misunderstanding. I’m Moss.”'], [
+      c('Step down and apologize to the nearby stones too', 'Neither stone answers. Moss watches with quiet amusement. “A considerate visitor,” she says. Pip tells her her name.', 'separation', { openingReply: 'Apologized to two ordinary stones' }, 'Met Moss and apologized to two ordinary stones.'),
+      c('“Do you mind being a rock for a little longer?”', '“Only until I need to go somewhere.” Pip slides gently down beside her. Something below Moss’s shell catches against a root.', 'separation', { openingReply: 'Asked Moss to stay a rock a little longer' }, 'Met Moss, a surprisingly talkative warm rock.')
+    ]);
+    return page(0, 'The bubbles', 'Underwater hats', ['A frog surfaces with a bubble balanced on his head.', '“Underwater hats,” he announces.\nThe bubble pops.\n“That one was for summer. I’m Tumble.”'], [
+      c('“How do the hats work?”', '“Briefly,” says Tumble. “But I’m improving them.” Pip offers her name. He tries a much smaller bubble.', 'separation', { openingReply: 'Asked how bubble hats work' }, 'Met Tumble and his very temporary bubble hats.'),
+      c('“Have you tried a leaf?”', '“A waterproof roof! Pip, this changes everything.” Tumble begins inspecting leaves. Pip’s own leaf slips into the water.', 'separation', { openingReply: 'Suggested a leaf hat' }, 'Met Tumble and suggested a leaf for his hat.'),
+      c('Try a bubble hat herself', 'Pip holds perfectly still. The bubble does not. “Yours was the winter model,” says Tumble solemnly.', 'separation', { openingReply: 'Tried a bubble hat' }, 'Met Tumble and tried an underwater hat.')
+    ]);
+  }
+  case 'separation': return page(0, 'Beyond the bend', 'The empty ribbon of water', ['Pip turns to show Mama.', 'There is the branch.\nThere is the leaf she dropped.\nThere is a long, empty ribbon of water.', '“Mama?”', 'From beyond the reeds comes a faint answer.\n“Pip?”', 'Pip paddles toward it. The reeds divide the stream. The next call seems to come from a different passage. She cannot tell which way to go.', 'She climbs onto a sheltered bank.\nFor the first time all morning, the river seems very big.'], [c('Look up from the sheltered bank →', '', 'bank')]);
+  case 'bank': return page(0, 'The sheltered bank', 'Someone familiar', [
+    ({ Luma: 'Luma lands beside Pip. “Are you looking for the two big ducks?”', Moss: 'Moss raises her head. “They’ll be looking for you, too.”', Tumble: 'Tumble puts his experiment aside. “Which way were you going?”' })[first],
+    '“The willow. The one with its feet in the water.”',
+    '“I know how to begin,” says ' + first + '. “We’ll have to get past the goose.”',
+    '“Is he very big?”\nA tremendous HONK rolls across the water.\n“…He thinks so.”',
+    '“There are plenty of bends before we get there.” Pip sits beside someone familiar. Here, on the bank, she is safe.'
+  ], [c('Begin the journey →', '', 's1')]);
+  case 's1': {
+    if (first === 'Moss') return page(1, 'The sheltered bank', 'Someone answers', ['“I have to find my parents,” says Pip.\n“Yes,” says Moss.\n“Quickly.”\n“Usually.”', 'Moss tries to move. A root catches beneath her shell.\n“I was hoping to make a better first impression.”'], [
+      c('Help Moss turn with the current', 'Pip tests the root, nudges a loose twig away, and pushes in the direction the water wants to go. Moss slides free. “Thank you, Pip. Shall we travel together?”', 's2', { companion: 'Moss', arrangement: 'Traveling together', ...friend('Moss — Pip freed her from the root') }, 'Freed Moss by working with the current; she joined Pip.'),
+      c('Find someone to help pull', 'Pip calls a water beetle. Together they free Moss. “Knowing whom to ask is useful,” says Moss. “Come along, Pip.”', 's2', { companion: 'Moss', arrangement: 'Traveling together', ...friend('Moss — Pip called for help') }, 'Asked a beetle to help free Moss; she joined Pip.'),
+      c('Ask for directions first', 'Moss describes her warm mud bank just ahead. “You can wait there, Pip. I can work this root loose.” Pip finds the little path herself; Moss joins her at home for a brief visit.', 's2', { arrangement: 'Moss is a contact at home' }, 'Asked Moss for directions and set off independently.')
+    ]);
+    if (first === 'Luma') return page(1, 'The sheltered bank', 'A route for feet', ['“Over that hedge, then over that—” Luma looks at Pip. “A small revision.”', 'Pip peers under a bent flower stem. There is a space just big enough for a duck.'], [
+      c('Find a ground route together', 'Pip points out the space. Luma lands on the stem and holds it steady. “A splendid door, Pip. I had been using the roof.” They set off together.', 's2', { companion: 'Luma', arrangement: 'Traveling together', ...friend('Luma — found a ground route together') }, 'Helped Luma translate an aerial route into a path for feet.'),
+      c('“Scout ahead while I follow the bank.”', 'Luma flies only as far as the next landmark, then returns to describe it. Pip tests the ground for herself. They agree to meet at Luma’s flower patch.', 's2', { arrangement: 'Luma scouts and returns' }, 'Luma became a returning scout; Pip walks between meeting places.'),
+      c('“Show me the next landmark.”', '“My flower patch, beyond the bent stem.” Pip finds the low passage. Luma shows her the entrance to the patch before going back to tend her flowers.', 's2', { arrangement: 'Luma is a contact at home' }, 'Took Luma’s directions and traveled independently.')
+    ]);
+    return page(1, 'The sheltered bank', 'Ready, almost', ['“We leave immediately!” says Tumble.', 'His belongings are spread across three leaves. One is a treasured, perfectly smooth seed. It appears to do nothing at all.'], [
+      c('Help gather everything', 'Pip steadies the leaves while Tumble bundles his things. “Nothing left behind,” he says, before remembering himself. “Coming, Pip!”', 's2', { companion: 'Tumble', arrangement: 'Traveling together', ...friend('Tumble — Pip helped gather his belongings') }, 'Gathered Tumble’s scattered belongings; he joined Pip.'),
+      c('Suggest a smaller bundle', 'Pip points to what Tumble can actually carry. He leaves two inventions safe at home, but keeps the smooth seed. “Essential,” he explains. They travel together.', 's2', { companion: 'Tumble', arrangement: 'Traveling together', ...friend('Tumble — Pip helped make a practical bundle') }, 'Helped Tumble pack lightly; he joined Pip.'),
+      c('“Meet me at the next pool.”', 'Tumble describes the pool with the excellent echo. Pip follows the bank; he arrives with his bundle a little later. They agree they can meet again farther on.', 's2', { arrangement: 'Tumble is a contact at his pool' }, 'Set off independently and met Tumble at his home pool.')
+    ]);
+  }
+  case 's2': return page(2, first + '’s home', 'A very small home', [
+    ({ Luma: 'Luma’s flower patch has a landing place for every wind. “The guest room,” she says, indicating a broad leaf. Pip puts one foot on it. They agree the bank will do.', Moss: 'Moss rests in warm mud beside a little collection of things the water brought. Pip can see where a round stone has left a round bed.', Tumble: '“Do you live here?” asks Pip.\n“Mostly,” says Tumble. “Sometimes I live over there. It depends where I left everything.” The pool is full of abandoned inventions and excellent echoes.' })[first],
+    'There is time for one small thing before leaving.'
+  ], [
+    c('Explore the surroundings', 'A loose reed loop lies among the washed-up stems. “No one’s using that,” says ' + first + '. Pip takes it. It could tie or retrieve something light.', 's2bye', gift('Reed loop'), 'Found an unowned reed loop and took it.'),
+    c('Ask how the river works', first + ' drops a leaf into the water. It follows the quiet edge instead of the turning middle. Pip watches until she can see the difference herself.', 's2bye', learn('Quiet water follows the drifting leaves'), 'Learned how floating leaves reveal the quiet edge of a current.'),
+    c('Help before leaving', ({ Luma: 'Pip steadies a flower stem while Luma repairs her landing place. “A guest with excellent feet,” says Luma.', Moss: 'Pip helps sort the little objects the current has misplaced. Moss finds the stone she likes to rest her chin on. “There you are.”', Tumble: 'Pip braces the edge of Tumble’s leaf shelf. This time his inventions stay on it. He gives her a very serious nod.' })[first], 's2bye', friend(first + ' — Pip helped at home'), 'Helped ' + first + ' take care of home.')
+  ]);
+  case 's2bye': return page(2, first + '’s home', 'Until another day', [({ Luma: '“A safe landing whenever you learn to fly,” says Luma.\n“Is walking still allowed?”\n“On special occasions.”', Moss: '“You don’t need an invitation to sit on my bank,” says Moss.', Tumble: 'Tumble demonstrates the echo and says goodbye to himself twice.' })[first]], [
+    c('“Thank you for letting me visit.”', '', 's3', {}, 'Thanked ' + first + ' for the welcome.'),
+    c('“I’ll come back and visit.”', '“Whenever you find your way here,” says ' + first + '. It is an invitation with no deadline.', 's3', { addPromises: ['Visit ' + first + ' at home again'] }, 'Promised to visit ' + first + ' again.'),
+    c('“I hope your home doesn’t float away.”', '“If it does, I’ll send directions,” says ' + first + '. Ahead, an acorn cup is turning in the water.', 's3', {}, 'Left ' + first + '’s home with a joke.')
+  ]);
+  case 's3': return page(3, 'A quiet bend', 'The upside down boat', ['An overturned acorn cup circles against a root. A beetle clings beneath its rim while a bright button, cord, and seed parcels drift nearby.', '“Passenger assistance would be appreciated!”\n“Are there passengers?” asks Pip.\n“One. Very important to the captain.”', 'The water is calm. Pip has time to choose.'], [
+    c('Lift Bram onto the bank first', 'Pip lifts the beetle clear. Some cargo escapes and the cup catches against the root, splitting its side. “Captain Bram,” he says, dripping. “Very much obliged.”', 's4', { bram: 'Damaged boat', cargo: 'Most cargo lost', ...friend('Bram — rescued him first') }, 'Saved Bram first. His boat was damaged and most cargo drifted away.'),
+    c('Steady the cup and turn it carefully', (has(s, 'Reed loop') ? 'Pip catches the rim with her reed loop.' : 'Pip finds a forked twig to catch the rim.') + ' She turns the cup slowly. Bram climbs aboard his intact boat, but some parcels have floated out of reach. “Captain and ship. A respectable rescue!”', 's4', { bram: 'Intact boat', cargo: 'Some cargo saved', ...friend('Bram — saved him and his boat') }, 'Saved Bram and preserved his boat; only part of his cargo survived.'),
+    c('Call for help and organize the rescue', (s.companion ? s.companion + ' holds the drifting cargo at the bank' : 'Nearby insects hold the drifting cargo at the bank') + ' while Pip frees Bram. Most parcels and the cord survive, but the cup splits against the root. Bram thanks each rescuer by name.', 's4', { bram: 'Damaged boat', cargo: 'Most cargo and cord saved', ...friend('Bram — organized a rescue') }, 'Coordinated Bram’s rescue. Most cargo survived; the boat needs repair.')
+  ]);
+  case 's4': return page(4, 'A side stream', 'Across the little stream', ['Pip looks at the far bank.\nIt does not look far until she looks at the water between.', 'A fallen root, a broad leaf in an eddy, and a dark opening beneath the bank suggest three different ways.', present(s, { Luma: s.openingReply === 'Apologized for the sneeze' ? '“I could announce us with a sneeze,” suggests Luma. Pip decides one was enough.' : 'Luma bows toward the far bank. “Our next venue.”', Moss: s.openingReply === 'Apologized to two ordinary stones' ? '“That one really is a rock,” Moss says, before Pip can apologize to it.' : 'Moss inspects the quiet water before offering a suggestion.', Tumble: s.openingReply === 'Suggested a leaf hat' ? '“A leaf boat,” says Tumble. “Your hat idea is growing.”' : '“A stream is harder to wear than a bubble,” says Tumble.' }, 'An insect on the far bank waves. Pip is not the only traveler here.')], [
+    c('Cross with help', present(s, { Moss: 'Moss steadies the calm crossing while Pip paddles beside her.', Luma: 'Luma points out a shallow shelf. Pip tests each step herself.', Tumble: 'Tumble checks the footing before Pip steps across.' }, 'Pip asks the insect to point out the shallow edge, then makes her way across.') + ' The offered help makes the stream feel a little smaller.', 's5', learn('Crossed the stream with help'), 'Crossed the side stream with help.'),
+    c('Make a little leaf raft', knows(s, 'Quiet water follows the drifting leaves') ? 'Pip recognizes the quiet edge and guides her leaf with a stem. She glides past hidden blue flowers and reaches the bank.' : 'The first launch spins Pip safely back to the near bank. She watches a drifting leaf, moves her raft to the quiet edge, and tries again. This time she glides past a patch of hidden blue flowers.', 's5', learn('Quiet water follows the drifting leaves'), 'Made a leaf raft and found blue flowers along the quiet edge.'),
+    c('Investigate the root passage', 'Pip follows the little tunnel, takes one turn that returns to the same root, and greets a harmless beetle. On her second try she finds the hidden exit at the far bank.', 's5', learn('Low passages follow the bank'), 'Explored the low root passage and found the far bank.')
+  ]);
+  case 's5': return page(5, 'The raised bank', 'The world gets bigger', ['Pip had thought the pond was most of the world.\nFrom here, she can see several places the pond has never mentioned.', 'A wild garden follows the higher bank. Quiet lily pools wind through the water below. Farther away, small shelters gather at a settlement called Reedbank.', 'Both ways lead there. Travelers may know how to reach the main river.'], [
+    c('Take the garden bank', 'Dry passages, small households, and a procession of very busy ants lie ahead. Pip steps onto the garden path.', 's6', { route: 'Garden bank' }, 'Chose the garden bank route to Reedbank.'),
+    c('Follow the lily pools', 'Floating leaves make little doorways over the quiet channels. Pip slips into the lily pools.', 's6', { route: 'Lily pools' }, 'Chose the lily pools route to Reedbank.')
+  ]);
+  case 's6': {
+    if (s.route === 'Garden bank') return page(6, 'The garden bank', 'The great crumb', ['Ants are moving a picnic crumb across the path. Their leader studies the ground as though planning a bridge.', '“Is that lunch?” asks Pip.\n“Tuesday,” says an ant.\n“All of Tuesday?”\n“If we get it home.”'], [
+      c('Brace a leaf for the ants', 'Pip plants her feet and holds the leaf steady. Tuesday crosses safely. The ants show her the dry paths and offer to help when she needs them.', 's7', { ...friend('Ants — Pip helped carry Tuesday'), ...learn('Dry garden paths') }, 'Helped the ants move their crumb and earned their goodwill.'),
+      c('Offer to carry a message to the next workers', '“Tell them the crumb is coming by the upper path.” The ants open a passage for Pip. She repeats the message so she will remember it.', 's7', { addPromises: ['Tell the next ants: the crumb is coming by the upper path'] }, 'Promised to carry the ants’ route message.'),
+      c('Find a gap in the hedge', 'Pip squeezes through a gap. An abandoned button lies in the grass, separate from anything Bram owned. She checks that nobody is using it, then takes it.', 's7', gift('Garden button'), 'Found a clearly abandoned garden button at the hedge.')
+    ]);
+    return page(6, 'The lily pools', 'The dragonfly course', ['Dragonflies skim around floating stems, practicing very tight turns.', '“Have you lost something?” asks Pip.\n“Not since the third turn. Are you our judge?”', 'From the water, the course looks quite different.'], [
+      c('Help choose a start marker, then ask for a guide', 'Pip picks a stem visible from both the air and water. A dragonfly shows her a quiet channel in return. “A fair exchange, Judge.”', 's7', { ...friend('Dragonflies — Pip chose their start marker'), ...learn('Quiet dragonfly channel') }, 'Helped the dragonflies mark their course; learned their quiet channel.'),
+      c('Follow the course along the water', 'Pip cannot make every flying turn, so she finds water routes between them. The dragonflies teach her their signal: two short calls, then a pause.', 's7', learn('Boating signal: two short calls, then a pause'), 'Learned the local boating signal while following the course.'),
+      c('Explore beneath the leaves', 'Beneath the lily leaves, Pip finds a sheltered passage. A tiny seed pod floats loose beside it. She takes it as a possible marker.', 's7', { ...gift('Seed pod'), ...learn('Sheltered lily passage') }, 'Found a sheltered lily passage and a loose seed pod.')
+    ]);
+  }
+  case 's7': {
+    if (s.route === 'Garden bank') return page(7, 'The message path', 'Nell and the two messages', [
+      s.promises.some(p => p.startsWith('Tell the next ants')) ? 'Pip finds the next ant workers and delivers the route message. “Upper path. Understood.” The promise is fulfilled.' : 'A snail is looking from one little path to another. This is Nell, a messenger.',
+      'Nell knows which message belongs to which household. It is the paths to those households that have become confused.',
+      '“I remember the left turn,” says Nell.\n“Which left turn?”\n“That is where my remembering becomes less useful.”',
+      'One household needs delivery news. Another is waiting for an invitation. Pip need not read either private message.'
+    ], [
+      c('Visit the nearer home first', 'The householder confirms the next turn and tells Pip how a snail once delivered an invitation to the wrong flowerpot. Both messages now have a route home. Nell offers Pip an introduction to the landing.', 'nellNote', { ...friend('Nell — Pip helped find the delivery paths'), promises: s.promises.filter(p => !p.startsWith('Tell the next ants')) }, 'Helped Nell find both delivery routes, starting with the nearer home.'),
+      c('Take the urgent delivery news first', 'The longer path brings them to a household waiting to know when its supplies will arrive. Nell delivers the news privately. “You understood why it mattered,” she tells Pip. She offers an introduction.', 'nellNote', { ...friend('Nell — Pip prioritized the urgent delivery'), promises: s.promises.filter(p => !p.startsWith('Tell the next ants')) }, 'Helped Nell deliver the urgent news first; both delivery routes are settled.'),
+      c('Ask the ants to guide them', (s.friendships.some(f => f.startsWith('Ants')) ? '“The duck who carried Tuesday!” The ants are happy to point the way.' : 'Pip carries a small twig for the workers, who show Nell the correct paths.') + ' Both messages have a route to their recipients. Nell offers to write an introduction.', 'nellNote', { ...friend('Nell — Pip found guides for her deliveries'), promises: s.promises.filter(p => !p.startsWith('Tell the next ants')) }, 'Found ant guides for Nell; both messages can be delivered.')
+    ]);
+    return page(7, 'An unmarked pool', 'Where did home go?', ['A water beetle peers at several identical entrances beneath the lilies.', '“Mine had a marker,” he explains. “Now they are all equally mine-looking.”', 'His marker has drifted away.'], [
+      c('Search the quiet edge', (knows(s, 'Quiet water follows the drifting leaves') ? 'Pip knows where drifting objects gather.' : 'Pip follows the slow drift of the leaves.') + ' She finds the original marker and helps fasten it at the beetle’s home. He teaches her the arrival signal: two short calls, then a pause.', 's8', { addKnowledge: ['Recovered the beetle’s home marker', 'Boating signal: two short calls, then a pause'], ...friend('Water beetle — Pip found his marker') }, 'Recovered the beetle’s marker and left it at his home; learned the boating signal.'),
+      c('Make a replacement marker', (has(s, 'Seed pod') ? 'Pip offers her seed pod as a new marker.' : 'Pip folds a fallen leaf into a distinctive new marker.') + ' The beetle fastens it to his entrance. “That one is definitely mine.” He teaches Pip the boating signal in thanks.', 's8', { removeItems: has(s, 'Seed pod') ? ['Seed pod'] : [], ...learn('Boating signal: two short calls, then a pause'), ...friend('Water beetle — Pip made a home marker') }, 'Made a replacement marker for the beetle and learned the boating signal.'),
+      c('Ask the dragonflies to look from above', '“The pool with the crooked stem,” says Pip. The first stem is crooked the wrong way; she corrects herself. The dragonflies find the home. The beetle marks it and teaches Pip the arrival signal.', 's8', { ...learn('Boating signal: two short calls, then a pause'), ...friend('Water beetle — Pip called for help') }, 'Asked the dragonflies to find the beetle’s home and learned the boating signal.')
+    ]);
+  }
+  case 'nellNote': return page(7, 'The garden message path', 'A name to ask for', ['“At the main river landing, ask for the keeper,” says Nell. “Would you like a line from me?”', 'She mentions a forgotten picnic basket farther along the bank. It is a place to get out of the rain, not a clue to Pip’s parents.'], [
+    c('Accept Nell’s introduction', 'Nell writes that Pip helped her find the right households. Pip tucks the note safely away.', 's8', { introduction: 'Nell', ...gift('Nell’s introduction') }, 'Accepted a written introduction from Nell.'),
+    c('“Thank you. I can introduce myself.”', '“Of course,” says Nell. “Tell the keeper you came along the garden bank.” She wishes Pip a dry journey.', 's8', {}, 'Declined Nell’s note warmly; kept the directions.')
+  ]);
+  case 's8': {
+    if (s.route === 'Garden bank') return page(8, 'A forgotten picnic basket', 'A very large snore', ['Rain taps the basket lid. Beneath a folded napkin, a small occupant produces a snore far too large for its owner.', 'The basket has become somebody’s home. Its handle is broken.'], [
+      c('Announce herself', '“Excuse me.” The sleeper wakes and makes room under the lid. They trade stories while the rain passes. Pip hears that travelers leave useful things for one another at river landings.', 's8after', learn('River landings have things left for travelers'), 'Shared stories and shelter with the basket’s occupant.'),
+      c('Offer to repair the broken handle', (has(s, 'Reed loop') ? 'Pip asks before using her reed loop to mend the handle.' : 'Pip asks before twisting a fresh grass strip around the handle.') + (has(s, 'Garden button') ? ' The occupant offers future shelter in thanks. “That button of yours will travel farther than I do.”' : ' “Please take this spare button,” says the occupant. Pip accepts the gift.') , 's8after', { removeItems: has(s, 'Reed loop') ? ['Reed loop'] : [], addItems: has(s, 'Garden button') ? [] : ['Garden button'], ...friend('Basket resident — Pip repaired the handle') }, 'Repaired the basket with permission; received thanks and an offered gift.'),
+      c('Continue along the bank', present(s, { Luma: 'Under a dry overhang, Pip tells Luma how Papa called her leaf a disguise. Luma listens without performing.', Moss: 'Pip sits with Moss under a dry overhang. She describes Mama’s sideways tail wiggle. Moss gives her time to finish.', Tumble: 'Pip tells Tumble about Papa taking her leaf disguise seriously. Tumble nods. “An important kind of person.”' }, 'Pip rests under a dry overhang and remembers copying Mama’s little tail wiggle. The memory is sad and warm at the same time.'), 's9', { addMemories: ['Remembered the family swim during the rain'] }, 'Let the basket’s occupant sleep and rested under a dry overhang.')
+    ]);
+    return page(8, 'The bottle bend', 'The whole world, apparently', ['A bottle is lodged among the roots. Inside it is a rolled sketch. A nearby frog watches Pip notice it.', '“My map,” he says. “You can look.” His home takes up most of the paper. The main river is one confident line marked VERY FAR.', '“Have you been all these places?” asks Pip.\n“I have thought about them extensively.”'], [
+      c('Retrieve the bottle and examine the map', 'Pip retrieves it carefully. One little passage matches the bank exactly; most of the world remains a guess. “Keep the sketch,” says its author. “I can draw my home again.”', 's8after', { ...gift('Frog sketch'), ...learn('The frog’s local bank passage') }, 'Received the frog’s sketch with permission; learned one reliable local passage.'),
+      c('Ask the frog to explain the useful part', 'The frog points out the passage he has actually visited. Pip asks him to describe the entrance, and he does. The sketch stays with its owner.', 's8after', { ...learn('The frog’s local bank passage'), ...friend('Mapmaker — Pip took his local knowledge seriously') }, 'Asked the mapmaker about his reliable local passage; left him his map.'),
+      c('Leave the bottle and follow the bank', 'Pip follows the quiet edge until she sees a way onward. The frog waves from his very large part of the world.', 's9', learn('Observed the onward bank route'), 'Left the bottle in place and found the way by observation.')
+    ]);
+  }
+  case 's8after': return page(8, s.route, 'A little more exploring?', [s.route === 'Garden bank' ? 'The basket’s occupant would like to make a dry resting place for the next traveler. Reedbank is still ahead.' : 'The mapmaker asks whether Pip would help test one uncertain inlet. Reedbank is still ahead.'], [c('Continue toward Reedbank', '', 's9'), c('Stay for the optional detour', '', 'detour')]);
+  case 'detour': return page('Optional', s.route, s.route === 'Garden bank' ? 'Room for the next traveler' : 'A small correction to the world', [s.route === 'Garden bank' ? 'Nearby households lend a dry leaf. Pip and the basket’s occupant arrange it beside the path. How should it be supported?' : 'The frog and Pip inspect a quiet inlet together. This bit of the map can now be more than a guess. What should they mark?'], s.route === 'Garden bank' ? [
+    c('Make a low roof against the rain', 'Pip braces the leaf close to the bank. A soaked ant becomes its first guest. The resident promises to keep the little shelter available.', 's9', { addMemories: ['Helped make the basket-bank rain shelter'] }, 'Built a low rain shelter; welcomed its first guest.'),
+    c('Leave room for bigger travelers too', 'A nearby household lends a taller support. There is room for a beetle and its parcel. The resident names it the guest leaf.', 's9', { addMemories: ['Helped build the guest leaf beside the basket'] }, 'Made a taller guest shelter beside the basket.')
+  ] : [
+    c('Mark the safe passage', 'Pip checks the shallow exit while the frog draws it. “A world with fewer guesses,” he says. ' + (has(s, 'Frog sketch') ? 'He corrects Pip’s sketch too.' : 'He keeps the corrected sketch at home.'), 's9', learn('Tested the mapmaker’s safe inlet passage'), 'Explored the inlet with the mapmaker and marked a safe passage.'),
+    c('Mark the pleasant resting place', 'They find a bank where the leaves keep the wind away. The frog gives it a much larger dot than its size requires. “Important places need room.”', 's9', { addMemories: ['Marked a quiet resting place with the mapmaker'] }, 'Explored the inlet and marked its quiet resting place.')
+  ]);
+  case 's9': {
+    const callback = s.bram === 'Intact boat' ? 'Bram arrives in his acorn cup. “The captain and the ship. A very respectable rescue.”' : s.cargo === 'Most cargo lost' ? 'Bram arrives carrying what remains of his delivery. “You lifted me out first. I remember that rather clearly.” His finest vessel is still being repaired.' : 'Bram arrives with his rescued cord. His cup is still under repair. “A crew makes all the difference.”';
+    if (s.route === 'Garden bank') return page(9, 'A wet ditch near Reedbank', 'An earlier choice returns', ['Rain has filled a ditch across the path. The ants’ temporary crossing needs bracing. A narrow side path leads around it.', callback], [
+      c('Ask the ants for help', s.friendships.some(f => f.startsWith('Ants')) ? '“Tuesday’s friend!” The ants help immediately. Pip crosses their braced leaf bridge.' : 'Pip helps steady the bridge while the ants finish it. They guide her across when it is ready.', 's10', {}, 'Crossed the wet ditch with the ants.'),
+      ...(s.cargo === 'Most cargo and cord saved' ? [c('Use the cord Bram offers', '“Borrow this.” Pip stretches Bram’s cord into a guide line, crosses, and returns the unused length. Bram offers to introduce her at Reedbank.', 's10', {}, 'Borrowed Bram’s rescued cord for the ditch and returned it.')] : []),
+      c('Take the drier side route', 'Pip follows the higher path. Reedbank’s shelters come into view. Bram can still introduce her when she arrives; gratitude does not need a boat.', 's10', learn('Dry side route into Reedbank'), 'Found a dry side route to Reedbank.')
+    ]);
+    return page(9, 'Tangled lilies near Reedbank', 'An earlier choice returns', ['A mat of moving lilies blocks the channel.', callback], [
+      ...(s.bram === 'Intact boat' ? [c('Ask Bram to carry a guide line', 'Bram pilots the preserved cup through a small gap. Pip follows the line along the calm edge. “Trading vessel,” he corrects a watching insect. “And occasional rescue ship.”', 's10', {}, 'Bram’s preserved boat carried a guide line through the lilies.')] : s.cargo === 'Most cargo and cord saved' ? [c('Use Bram’s offered cord', 'Bram lends the cord saved in the rescue. Pip secures a loose stem while local helpers open the gap. She returns the cord afterward.', 's10', {}, 'Used Bram’s surviving cord at the lilies, then returned it.')] : []),
+      c('Ask the local creatures', knows(s, 'Boating signal: two short calls, then a pause') ? 'Pip gives the boating signal. A dragonfly answers and shows her an opening from above. Bram waves them onward.' : 'Pip explains where she needs to go. A dragonfly flies above the tangle and points out an opening.', 's10', {}, 'Asked local creatures to guide her through the lily tangle.'),
+      c('Find the quiet edge herself', knows(s, 'Low passages follow the bank') ? 'Pip remembers the root tunnel. She searches along the bank and finds another low passage around the tangle.' : 'Pip watches the drifting leaves and follows the quiet margin around the lilies.', 's10', learn('Quiet edge through the lily tangle'), 'Found her own quiet route past the tangled lilies.')
+    ]);
+  }
+  case 's10': return page(10, 'Reedbank entrance', 'A direction at last', [s.route === 'Garden bank' ? 'Pip arrives near the shared table. Bowls are being set out.' : 'Pip arrives beside the small landing stages. She hears bowls and conversation beyond them.', '“Are you expected?” asks a resident.\nPip thinks of Mama and Papa.\n“Somewhere,” she says.', 'Sedge, a water vole, welcomes Pip and offers food and a safe place to rest.'], [
+    c('Explain the whole morning', 'Pip tells Sedge about the leaf, ' + first + ', and the empty water. Sedge listens. “The old willow is farther along the main river. We can show you how to reach the landing.” There is no lecture.', 's11', learn('The willow is beyond the marsh, along the main river'), 'Told Sedge the whole morning; learned the direction to the main river.'),
+    c('Ask directly for the river route', 'Sedge points out the causeway beyond Reedbank. “The goose has put up a sign. The open channel beside him runs fast, toward a grating. Prepare here first.” The willow lies farther along the river.', 's11', learn('The willow is beyond the marsh, along the main river'), 'Asked for a clear river route and learned about the causeway.'),
+    c('Ask for a quiet place first', 'Sedge finds a dry place behind the busy table. Pip rests. When she is ready, Sedge describes the causeway and the river landing beyond it. The willow is farther on.', 's11', learn('The willow is beyond the marsh, along the main river'), 'Rested safely at Reedbank, then received the river directions.')
+  ]);
+  case 's11': return page(11, 'The shared table', 'A place at the table', ['Sedge finds a bowl small enough for Pip.', '“Do you all live together?”\n“Close enough to borrow things,” says Sedge. “Far enough to argue about returning them.”', 'Pip can sit wherever she likes.'], [
+    c('Sit beside the boat repairers', (s.bram === 'Damaged boat' ? 'Pip recognizes Bram’s split acorn cup on the workbench. The repairers are still sealing it.' : 'Bram’s intact acorn cup bobs beside the table with its smaller load.') + ' The repairers describe the sheltered edges of the causeway. Nearby, caregivers discuss a nursery pool that has become too shallow.', 's11home', learn('The causeway has sheltered edges to inspect'), 'Sat with the repairers; Bram’s boat matched the rescue outcome.'),
+    c('Sit beside Nell and the travelers', (s.friendships.some(f => f.startsWith('Nell')) ? 'Nell makes room. “My excellent path-finder.”' : '“I’m Nell,” says a snail. “I carry messages. Who are you?” Pip introduces herself for the first time.') + ' Pip hears how messages travel between river landings. The table also talks about the shallow nursery pool.', 's11home', { ...learn('Landings exchange messages'), ...friend('Nell — shared the Reedbank table') }, 'Learned about the river message network at the travelers’ table.'),
+    c('Sit beside the tadpole caregivers', 'The caregivers explain that a fallen branch has diverted water from the nursery. The tadpoles are being watched and still have water, but need a lasting solution. “After your meal,” one says. “There is time.”', 's11home', learn('A fallen branch diverted the nursery water'), 'Heard about the nursery from its caregivers.')
+  ]);
+  case 's11home': return page(11, 'The shared table', 'Something about home', ['For a little while, nobody needs directions. Pip listens to the small sounds of everyone eating.'], [
+    c('Describe Mama and Papa', 'Pip describes Mama’s practical voice and Papa taking her leaf disguise seriously. Sedge listens. “They sound like people worth finding.” A place at the table remains Pip’s while she needs it.', 's12', { addMemories: ['Described Mama and Papa at the shared table'] }, 'Told the table about Mama and Papa.'),
+    c('Tell the story of the first curiosity', 'Pip tells them about ' + ({ Luma: 'a sneeze in the middle of a butterfly’s performance', Moss: 'apologizing to a turtle she thought was a rock', Tumble: 'the frog’s very temporary underwater hats' })[first] + '. ' + (s.companion === first ? first + ' adds one small correction, and the table laughs.' : 'Sedge asks what happened next. Pip finds she enjoys telling it.'), 's12', { addMemories: ['Shared the first curiosity at Reedbank'] }, 'Retold her first meeting with ' + first + ' at the table.'),
+    c('Listen for a while', 'Pip listens to an argument about a borrowed bowl. It is a comfortable kind of argument. Afterward, Sedge offers to show her the nursery.', 's12', { addMemories: ['Listened quietly at the Reedbank table'] }, 'Listened at the table before visiting the nursery.')
+  ]);
+  case 's12': return page(12, 'The nursery pool', 'The stranded nursery', ['A fallen branch has sent water away from the shallow nursery. Caregivers keep watch beside it.', '“Are you a very large tadpole?” one asks Pip.\n“I’m a duck.”\n“Is that what happens next?”\n“I don’t think so.”', present(s, { Moss: 'Moss points out where the old flow used to run.', Luma: 'Luma flies above the branch and describes what she can see.', Tumble: 'Tumble inspects the shallow edges before suggesting anything.' }, 'An experienced resident shows Pip the old flow and the suitable pool nearby.'), 'There are three workable plans. Pip can also let experienced residents lead.'], [
+    c('Restore the old flow', 'They will move the branch together and keep the nursery where it is. Sedge begins finding helpers. The tadpoles remain with their caregivers while the plan is prepared.', 's13', { nursery: 'Restored old pool', nurseryRole: 'Helped plan the work' }, 'Chose to restore the old flow; work is not complete yet.'),
+    c('Open a small new channel', 'They will guide a controlled amount of water around the branch. Pip traces a possible route with Sedge. They still need to check where it will go.', 's13', { nursery: 'New channel', nurseryRole: 'Helped plan the work' }, 'Chose to open a controlled new channel; work is not complete yet.'),
+    c('Move the nursery to the nearby pool', 'The nearby pool is suitable, but it must be prepared. ' + (s.bram === 'Intact boat' ? 'Bram offers his intact cup for the move.' : 'Residents bring leaf cups for the move; Bram’s boat is still being repaired.'), 's13', { nursery: 'Moved nursery', nurseryRole: 'Helped plan the work' }, 'Chose a new nursery pool; the move is not complete yet.'),
+    c('Ask experienced residents to lead', 'Sedge brings the caregivers together. They recommend the nearby pool and explain why it is suitable. Pip can choose a small, useful part of the move.', 's13', { nursery: 'Moved nursery', nurseryRole: 'Supported a resident-led plan' }, 'Asked experienced residents to lead the nursery move.')
+  ]);
+  case 's13': {
+    const help = present(s, { Luma: 'Luma coordinates from above.', Moss: 'Moss steadies the bank.', Tumble: '“Ready?” asks Pip.\n“Almost,” says Tumble. For once, he checks before saying anything else.' }, 'Sedge helps the team coordinate.');
+    if (s.nursery === 'Restored old pool') return page(13, 'Beside the fallen branch', 'Putting the plan into motion', ['A team gathers at the branch. ' + (s.friendships.some(f => f.startsWith('Ants')) ? 'The ants Pip helped arrive to clear the little twigs.' : 'Residents have brought the tools they need.'), help], [
+      c('Guide the strongest residents as they lift', 'Pip watches the far end. “A little to the left.” The branch rolls gently onto the bank. Water begins returning to the old pool.', 's14', { nurseryAction: 'Guided a coordinated lift' }, 'Guided the residents as they moved the branch.'),
+      c('Turn the branch with a reed line', 'Residents lend a reed line. Pip shows where to place it so the water helps turn the branch. Afterward she returns the line. Water begins flowing into the pool.', 's14', { nurseryAction: 'Helped turn the branch with a borrowed line' }, 'Used and returned a borrowed reed line to turn the branch.'),
+      c('Clear the little obstructions first', 'Pip removes twigs small enough for her to carry. The team’s first grip slips safely back into place; the second holds. Water finds the cleared path.', 's14', { nurseryAction: 'Cleared small obstructions' }, 'Cleared small obstructions while the team moved the branch.')
+    ]);
+    if (s.nursery === 'New channel') return page(13, 'The proposed channel', 'Water has neighbors', ['The proposed channel passes close to another resident’s resting place. A sleeping hollow could become a very wet hollow.', help], [
+      c('Ask before redirecting the water', 'The resident points out a better line past the hollow. Pip and the helpers open it gradually. A small, steady flow reaches the nursery.', 's14', { nurseryAction: 'Asked the neighbor and changed the channel line' }, 'Asked the neighboring resident before opening the channel.'),
+      c('Take the longer route around the resting place', 'The team makes a longer shallow channel. It takes more work, but the hollow stays dry. Water begins reaching the nursery.', 's14', { nurseryAction: 'Routed the channel around the resting place' }, 'Kept the resting place dry with a longer channel.'),
+      c('Invite the resident to design it together', 'They agree on a bend that leaves the hollow dry. The resident calls it the Little Elbow. Pip watches the first water turn the corner.', 's14', { nurseryAction: 'Designed the Little Elbow with its neighbor' }, 'Designed the Little Elbow channel together with the neighbor.')
+    ]);
+    return page(13, 'Between the nursery pools', 'A careful little move', [s.bram === 'Intact boat' ? 'Bram’s intact boat is ready for short, calm trips between the pools.' : 'The residents prepare broad leaf cups. Bram helps from the bank while his boat is being repaired.', help, 'The caregivers count and accompany the tadpoles. Pip chooses how to help.'], [
+      c('Make many small trips', 'Pip accompanies the little trips. A tadpole asks whether ducks have always had feet. By the last transfer, they have reached no firm conclusion, but everyone has arrived safely.', 's14', { nurseryAction: 'Accompanied many small transfers' }, 'Helped make small, calm trips to the new nursery.'),
+      c('Organize a line of helpers', 'Pip helps arrange the helpers along the calm bank. The caregivers oversee each transfer. The last cup arrives safely, and the borrowed equipment goes home.', 's14', { nurseryAction: 'Organized a line of helpers' }, 'Helped organize the nursery move and return borrowed equipment.'),
+      c('Prepare the new pool first', 'Pip clears a safe approach and checks the shelter with a caregiver. The new pool is ready when the first tadpoles arrive. By the end, all have moved safely.', 's14', { nurseryAction: 'Prepared the new pool' }, 'Prepared the destination while experienced residents led the transfers.')
+    ]);
+  }
+  case 's14': return page(14, 'The nursery', 'Something changes because of Pip', [({ 'Restored old pool': 'The familiar pool fills. The fallen branch is now a resting place on the bank.', 'New channel': 'The new channel brings a gentle flow to the pool. Residents stop to watch the little turn in the water.', 'Moved nursery': 'The new nursery is full of curious tadpoles. The old pool becomes a quiet place for other small creatures.' })[s.nursery], 'Sedge remembers exactly what Pip did: ' + s.nurseryAction.toLowerCase() + '. “Thank you.” There is still a small choice about the place they have made.'], [
+    c('Help make a place to gather', 'Pip helps put up a leaf awning beside the successful nursery. Sedge keeps a small place for her beneath it. The settlement will remember this spot.', 's14after', { nurseryDone: true, nurseryDetail: 'A leaf awning for gathering', ...friend('Reedbank — Pip helped its nursery') }, 'Finished the nursery project and made a gathering place.'),
+    c('Mark a safe route for small creatures', 'Pip places clear markers along the safe approach. A tiny traveler follows them without needing to ask. Sedge notices.', 's14after', { nurseryDone: true, nurseryDetail: 'A marked safe route', ...friend('Reedbank — Pip helped its nursery') }, 'Finished the nursery project and marked a safe route.'),
+    c('Spend time with the tadpoles', '“Are you staying?”\n“I’m looking for my parents.”\n“Oh.” The tadpole thinks. “You can come back afterward.”\nPip promises to tell them about the river when she can.', 's14after', { nurseryDone: true, nurseryDetail: 'Tadpoles waiting for Pip’s river stories', addPromises: ['Tell the tadpoles about the river on a future visit'], ...friend('Reedbank — Pip helped its nursery') }, 'Finished the nursery project and promised the tadpoles a river story.')
+  ]);
+  case 's14after': return page(14, 'Reedbank', 'The riverward path', ['Pip notices the path that leads beyond the settlement. Her safe place here will still be available if she returns.'], [c('Get ready to leave', '', 's15'), c('Stay for the optional nursery evening', '', 'evening')]);
+  case 'evening': return page('Optional', 'Beside the nursery', 'A little evening', ['The first gathering beside the successful nursery is very small. So are most of its guests.'], [
+    c('Tell the story of the acorn boat', 'Pip tells the story without making herself enormous. The tadpoles insist Bram’s boat must have been enormous instead.', 's15', { addMemories: ['Told the acorn-boat story at the nursery evening'] }, 'Shared Bram’s rescue story at the nursery evening.'),
+    c('Make shadows on a leaf screen', 'Pip’s shadow looks like a very large duck. “Is that what happens next?” a tadpole asks. Pip is beginning to recognize the question.', 's15', { addMemories: ['Made duck shadows on a leaf screen'] }, 'Made shadows with the tadpoles at the evening gathering.'),
+    c('Listen to the tadpoles name the surroundings', 'One stone receives four names. Nobody sees a problem with this. Pip listens until the conversation becomes quiet.', 's15', { addMemories: ['Heard the tadpoles give one stone four names'] }, 'Listened to the tadpoles name their new surroundings.')
+  ]);
+  case 's15': return page(15, 'Reedbank departure', 'Something for the journey', ['The residents offer Pip one modest gift for the road. Their goodwill and help are hers whichever she chooses.', '“The goose likes impressive objects and formal agreements,” says Sedge. “But the causeway was a shared crossing before his sign appeared.”', '“Does he own the whole river?”\n“He has not finished writing the sign.”'], [
+    ...(!has(s, 'Reed cord') ? [c('Accept a reed cord', 'Sedge makes clear that this cord is a gift, not a loan. Pip coils it neatly.', 'departure', gift('Reed cord'), 'Accepted a reed cord as a gift from Reedbank.')] : []),
+    ...(!has(s, 'Garden button') ? [c('Accept a polished garden button', '“For a useful exchange, if you find one.” The button is Pip’s now.', 'departure', gift('Garden button'), 'Accepted a polished button as a gift from Reedbank.')] : []),
+    ...(!s.introduction ? [c('Accept a written introduction', 'Sedge writes that Reedbank knows Pip and will vouch for her. She names the help Pip actually gave at the nursery.', 'departure', { introduction: 'Sedge at Reedbank', ...gift('Reedbank introduction') }, 'Accepted Sedge’s written introduction.')] : []),
+    c('Decline the gift with thanks', '“Then travel light,” says Sedge. “You still have friends here.”', 'departure', {}, 'Declined a departure gift; Reedbank’s goodwill remains.')
+  ]);
+  case 'departure': return page(15, 'The riverward path', 'Who goes with Pip?', [s.companion ? s.companion + ' is willing to continue to the crossing. A local guide can also come.' : s.arrangement === 'Luma scouts and returns' ? 'Luma returns to their agreed meeting place. She has been scouting, and Pip tells her what happened at Reedbank. She can join Pip from here.' : first + ' remains at home. Sedge offers a local guide who knows the crossing.', 'Sedge gives one last warning: the open channel runs toward a grating. It is too strong for a little duck. The sheltered edges can be inspected safely.'], [
+    ...(s.companion || s.arrangement === 'Luma scouts and returns' ? [c('Continue with ' + (s.companion || 'Luma'), (s.companion || 'Luma') + ' says goodbye beside ' + s.nurseryDetail.toLowerCase() + '. Pip takes one last look, then follows the riverward path. A tremendous honk comes from beyond the reeds.', 's16', { companion: s.companion || 'Luma', arrangement: 'Traveling together' }, 'Left Reedbank with ' + (s.companion || 'Luma') + '.')] : []),
+    c('Invite a local guide', (s.companion ? s.companion + ' stays to help at Reedbank a little longer. They part warmly. ' : '') + 'A Reedbank guide joins Pip, pointing out the safe banks as they walk.', 's16', { companion: 'Reedbank guide', arrangement: 'A local guide accompanies Pip', addMemories: s.companion ? [s.companion + ' stayed at Reedbank to help'] : [] }, 'Left Reedbank with a local crossing guide.'),
+    c('Go ahead independently', (s.companion ? s.companion + ' stays at Reedbank to help a little longer. They agree Pip can send word through the landings. ' : '') + 'Pip says goodbye at the nursery and follows the path. A large sign appears ahead.', 's16', { companion: '', arrangement: 'Traveling independently', addMemories: s.companion ? [s.companion + ' stayed at Reedbank; Pip can send word'] : [] }, 'Left Reedbank independently with a warm farewell.')
+  ]);
+  case 's16': return page(16, 'The goose causeway', 'The goose crossing', ['The goose stands above a narrow crossing beside a very large sign.', 'CROSSING RULES\n1. ASK THE GOOSE.\n2. THE GOOSE IS BUSY.\n3. NO COMPLAINTS.', 'He inspects Pip as though her size is a paperwork problem.\n“You’re rather small.”\n“I’m the biggest I’ve ever been,” says Pip.', 'Other small travelers are waiting. The causeway spans a fast channel; calmer edges lie beyond the obvious route.'], [
+    c('Negotiate a bargain', '“An impressive object,” says the goose, “or a useful favor.” Pip asks him to be precise. He would accept a polished button, or a specific message delivered on a future visit to Reedbank. Nothing changes hands yet.', 's17', { approach: 'Bargain' }, 'Asked the goose for the exact terms of a bargain.'),
+    c('Question his ownership', (s.companion === 'Moss' ? 'Moss remembers crossing here before the sign existed.' : s.introduction ? 'Pip mentions Reedbank’s account of the shared causeway.' : 'A waiting traveler says the causeway used to be shared.') + ' The goose clears his throat. “Historic arrangements require discussion.” Pip has a chance to make a case.', 's17', { approach: 'Shared passage' }, 'Questioned the goose’s ownership of the shared crossing.'),
+    c('Ask ' + (s.companion || 'a waiting traveler') + ' for ideas', present(s, { Luma: 'Luma notices how often the goose checks his reflection. She proposes a distraction while Pip takes the sheltered edge.', Moss: 'Moss proposes a public discussion of the old crossing arrangement.', Tumble: 'Tumble points out a low passage. “We should check it first,” he says. He gives the fast current a serious look.' }, 'The traveler offers to inspect the sheltered bank with Pip. The open channel is clearly too strong.') , 's17', { approach: s.companion === 'Moss' ? 'Shared passage' : 'Quiet route' }, 'Asked ' + nearby + ' for a crossing plan.'),
+    c('Scout another crossing', 'Pip follows the safe bank. A quiet edge leads beneath the roots; the exposed channel rushes toward a grating. She can inspect the sheltered route without entering that current.', 's17', { approach: 'Quiet route', ...learn('Sheltered edge beside the causeway') }, 'Scouted a quiet alternative and saw the dangerous grating.')
+  ]);
+  case 's17': {
+    const choices = [];
+    if (s.approach === 'Bargain') {
+      if (has(s, 'Garden button')) choices.push(c('Offer the garden button for inspection', 'The goose tries to look unimpressed. He asks to see the other side, then the first side again. “Acceptable.” Pip still holds the button until she confirms the exchange.', 's18', { plan: 'Button trade' }, 'Prepared a button trade; the button is still Pip’s.'));
+      choices.push(c('Consider the specific future favor', 'The goose states the favor: “' + favor + '” No detour, deadline, or extra errand is included. Pip can confirm or change her mind before crossing.', 's18', { plan: 'Specific favor' }, 'Heard the goose’s proposed favor before agreeing.'));
+      choices.push(c('Withdraw from bargaining and inspect the quiet route', '“I’ll look another way,” says Pip. The goose looks briefly offended. Pip returns to the sheltered bank. Nothing has been traded or promised.', 's17', { approach: 'Quiet route', plan: '' }, 'Withdrew from bargaining without a debt or transfer.'));
+    } else if (s.approach === 'Shared passage') {
+      choices.push(c('Find a witness to the old arrangement', (s.companion === 'Moss' ? 'Moss describes the old shared crossing.' : 'An older waiting traveler describes the causeway before the sign.') + ' Pip asks everyone to keep the discussion about passage, not the goose’s importance.', 's18', { plan: 'Shared passage — respectful witness' }, 'Prepared a witness to the old shared arrangement.'));
+      choices.push(c('Ask the waiting travelers to speak together', 'The travelers gather. Pip asks a clear question: “If it was everyone’s crossing yesterday, what changed?” The goose notices he has an audience.', 's18', { plan: 'Shared passage — public challenge' }, 'Gathered the waiting travelers to challenge the new rule.'));
+      choices.push(c('Choose a quiet passage instead', 'Pip has made her question heard. For now, she steps aside to inspect the sheltered bank.', 's17', { approach: 'Quiet route', plan: '' }, 'Changed from public discussion to scouting a quiet route.'));
+    } else {
+      choices.push(c('Check the footing along the sheltered edge', (knows(s, 'Quiet water follows the drifting leaves') ? 'Pip recognizes the calm margin from the drifting leaves. ' : 'Pip watches the leaves until she can distinguish the calm margin. ') + present(s, { Moss: 'Moss tests the bank, not the fast channel.', Tumble: 'Tumble checks each step before calling it safe.', Luma: 'Luma scouts one bend at a time and returns to describe it.' }, 'A waiting traveler helps check the footing.') + ' They have a safe, local route.', 's18', { plan: 'Quiet sheltered edge' }, 'Checked a sheltered route instead of entering the open current.'));
+      choices.push(c('Inspect the low root passage', (knows(s, 'Low passages follow the bank') ? 'Pip recognizes the shape from her earlier root tunnel.' : 'Pip first checks where the tunnel comes out; a local traveler shows her the far opening.') + ' The passage stays above the fast water and reaches the far bank.', 's18', { plan: 'Quiet root passage' }, 'Verified the low root passage before using it.'));
+      if (s.companion === 'Luma') choices.push(c('Let Luma distract him while Pip takes the quiet edge', 'Luma offers to help the goose choose his most impressive reflection. While he compares them, Pip checks the sheltered way. Luma will catch up on the far side.', 's18', { plan: 'Luma’s distraction' }, 'Prepared Luma’s distraction and a checked sheltered route.'));
+    }
+    if (!s.riskTaken) choices.push({ ...c('Consider the fast-current shortcut…', '', 'warning'), risk: true });
+    return page(17, 'The banks beside the causeway', s.riskTaken ? 'A safer plan' : 'A plan or a shortcut', [s.riskTaken ? 'Pip is safe on the near bank with her supplies recovered. The failed shortcut has not moved her across. She can prepare a safe plan here.' : 'Pip can prepare the approach she chose. The fast channel looks direct, but the water pulls hard toward a grating.', 'Current approach: ' + s.approach.toLowerCase() + '.'], choices);
+  }
+  case 'warning': return page(17, 'The fast channel', 'The current is too strong', ['Pip can see the grating. Branches catch against it. This is not the little stream or a harmless practice launch.', present(s, { Tumble: '“No shortcut is worth that,” says Tumble. “I haven’t tested it. I can see enough.”', Moss: '“I cannot safely carry you through that,” says Moss.', Luma: '“I can fly over it,” says Luma, “but I cannot carry you.”' }, 'A waiting traveler warns Pip that even strong swimmers avoid this channel.'), 'If Pip tries it, the current will sweep her away and she will need rescuing. In this story test, recovery is immediate and free.'], [
+    c('Choose another way', '', 's17'),
+    { ...c('Take the risk', 'The current pulls Pip toward the grating. She catches a root and holds on. A nearby traveler reaches her from the sheltered bank and helps her onto a ledge.\n\nShe is safe on the near bank. Her supplies have scattered along it. The shortcut has failed.', 'recovery', { riskTaken: true, suppliesScattered: true, plan: '' }, 'Tried the warned current; was rescued safely to the near bank.'), risk: true }
+  ]);
+  case 'recovery': return page(17, 'A sheltered ledge on the near bank', 'A moment to recover', ['Pip takes a breath. The people who helped her gather her scattered supplies.', 'Nobody asks her to be brave again immediately. The causeway is still ahead, and the safe preparation choices are still available.', 'Recovery is free in this prototype. The dangerous option will close after this one attempt.'], [c('Recover and choose a safe plan →', 'Pip checks that her belongings are back. Then she returns to the safe bank, ready to try a different way.', 's17', { suppliesScattered: false }, 'Recovered all supplies and returned to the same crossing preparation.')]);
+  case 's18': {
+    if (s.plan === 'Button trade') return page(18, 'The causeway', 'The exact exchange', ['One garden button in exchange for passage. The goose has agreed. Pip still holds the button.'], [
+      c('Hand over the button and cross', 'The goose accepts the button and steps aside. “I own finer objects,” he says, looking at this one. Pip crosses the causeway. He keeps his bargain.', 'crossingOthers', { removeItems: ['Garden button'], crossed: true, goose: 'Kept an object bargain' }, 'Traded her garden button once and crossed by agreement.'),
+      c('Keep the button and choose another plan', '', 's17', { plan: '' })
+    ]);
+    if (s.plan === 'Specific favor') return page(18, 'The causeway', 'A promise with edges', ['The goose repeats the complete favor:', favor, 'Pip can accept exactly this promise, or choose another approach.'], [
+      c('Agree to that favor and cross', 'Pip repeats the promise back. The goose agrees it means exactly what they said. He lets her cross. The task will wait for a future visit to Reedbank; it does not grow into a general debt.', 'crossingOthers', { addPromises: [favor], crossed: true, goose: 'Kept a bargain for a specific future favor' }, 'Agreed to the exact message-carrying favor and crossed.'),
+      c('Decline and choose another plan', '', 's17', { approach: 'Quiet route', plan: '' })
+    ]);
+    if (s.plan.startsWith('Shared passage')) return page(18, 'The shared causeway', 'A newly clarified rule', ['Pip presents the old arrangement. The travelers support her account.', s.plan.includes('respectful') ? 'She gives the goose room to answer without making him smaller. He looks from the witness to his sign.' : '“What changed?” Pip asks again, with the waiting travelers listening. The goose sees that the question will not go away.', '“Under a newly clarified rule,” he announces, “the shared crossing is open.”'], [c('Cross under the shared arrangement', 'Pip and the waiting travelers gain passage. The goose edits his sign with great importance. He will remember the duck who asked the question.', 'crossingOthers', { crossed: true, goose: s.plan.includes('respectful') ? 'Grudging respect; shared passage restored' : 'Considers Pip troublesome; shared passage restored' }, 'Restored shared passage with the waiting travelers and crossed.')]);
+    return page(18, 'The sheltered way around', 'Getting across', [(s.plan === 'Luma’s distraction' ? 'Luma keeps the goose busy choosing a reflection while Pip follows the checked edge. She rejoins Pip beyond the reeds.' : s.plan === 'Quiet root passage' ? 'Pip follows the checked low passage. The current is loud below, but the footing is firm and the exit is where she expected.' : 'Pip follows the checked sheltered edge, one safe step at a time.') + (s.riskTaken ? ' This time, she knows exactly where she is putting her feet.' : ''), 'Pip reaches the far side. The goose has not noticed yet.'], [
+      c('Leave unnoticed', 'Pip slips beyond the reeds. The goose continues supervising his sign.', 'crossingOthers', { crossed: true, goose: 'Unaware of Pip’s quiet crossing' }, 'Crossed safely by the quiet route and left unnoticed.'),
+      c('Acknowledge the goose from the far side', '“You could have asked,” the goose calls.\n“I did,” says Pip.\nHe consults the sign.', 'crossingOthers', { crossed: true, goose: 'Noticed and remembers Pip’s evasion' }, 'Crossed safely and acknowledged the goose; he remembers the evasion.')
+    ]);
+  }
+  case 'crossingOthers': return page(18, 'The far bank', 'Someone still waiting', ['A small traveler on the near side calls to ask whether the way is safe. Beyond Pip, the reeds thin and the main river makes a broad, unfamiliar sound.'], [
+    c('Explain the checked route', 'Pip describes the safe route precisely, including where to avoid the fast channel. ' + (s.plan.startsWith('Shared') ? 'The shared causeway is open to them too.' : s.plan.includes('Quiet') || s.plan === 'Luma’s distraction' ? 'The traveler begins checking the same sheltered way.' : 'Her bargain covered her own crossing, so she explains that the traveler must still agree passage or inspect the sheltered alternative.'), 's19', { addMemories: ['Explained the crossing to another traveler'] }, 'Passed on accurate crossing information to the waiting traveler.'),
+    c('Ask the goose to admit the others too', s.plan.startsWith('Shared') ? '“Under the clarified rule,” says the goose. The others cross. Pip thanks the witness who helped.' : 'The goose admits the next small traveler “as a special exception.” Pip does not mistake it for a promise that everyone will be admitted. But this traveler gets across.', 's19', { addMemories: ['Asked for passage for another traveler'] }, 'Asked the goose to let waiting travelers cross.'),
+    ...(s.companion ? [c('Continue while ' + s.companion + ' explains', s.companion + ' stays a moment to explain the route, then catches up. Pip waits where the reeds open onto the main river.', 's19', { addMemories: [s.companion + ' passed on the crossing information'] }, 'Let her companion explain the crossing, then reunited at the river.')] : [])
+  ]);
+  case 's19': return page(19, 'The main river', 'A much bigger ribbon of water', ['The river is too wide to fit between two reeds.\nPip tries looking at all of it at once.\nAfter a moment, she chooses one small landing instead.', 'There is shelter, a set of steps, and a resident replacing a loose boat-signal marker.', present(s, { Luma: 'Luma is briefly silent.', Moss: 'Moss points out a quiet margin beside the steps.', Tumble: '“I haven’t tested any shortcuts here,” says Tumble.' }, 'Pip watches a leaf pass into the wider world, then looks back toward the welcoming landing.')], [
+    c('Help signal an approaching boat', knows(s, 'Boating signal: two short calls, then a pause') ? 'Pip gives the signal she learned in the lily pools. The boat answers. “You know the channels,” says the keeper, welcoming her to the shelter.' : 'Pip holds the loose marker while the resident secures it, then calls at the right moment. The keeper welcomes her through the shared task.', 'landingName', {}, 'Reached the landing by helping signal a boat.'),
+    c('Follow the bank to the steps', (knows(s, 'Low passages follow the bank') ? 'Pip notices a low bank passage like the one she explored earlier. ' : 'Clear markers lead Pip along the quiet bank. ') + 'She arrives at the steps independently. The keeper makes room in the shelter.', 'landingName', {}, 'Reached the landing independently along the bank.'),
+    c(s.introduction ? 'Use ' + s.introduction + '’s introduction' : 'Explain that Reedbank sent her', (s.introduction ? 'The keeper reads the introduction. “' + (s.introduction === 'Nell' ? 'Nell knows her travelers.' : 'Sedge at Reedbank. I know her.') + '”' : 'Pip describes Sedge’s shared table and the nursery she helped. “Then you have come from good neighbors,” says the keeper.') + ' Pip is welcomed into the shelter.', 'landingName', {}, 'Arrived using ' + (s.introduction ? s.introduction + '’s actual introduction.' : 'a truthful description of Reedbank.'))
+  ]);
+  case 'landingName': return page(19, 'The landing shelter', 'A place to ask', ['The keeper explains that landings exchange news and messages. The old willow is a recognized place farther along the river network.', '“And what is your name?”'], [c('“Pip.”', 'The keeper pauses while sorting the notices.', 's20', {}, 'Gave her name at the river landing.')]);
+  case 's20': return page(20, 'The landing shelter', 'Something left for Pip', ['“Pip.”\nThe keeper stops sorting the ropes.\n“Then I have something for you.”', 'A short note has come through the river network. It is from Mama and Papa.'], [
+    c('Read it quietly', '', 'letter', { reading: 'Read the note quietly' }),
+    c('Ask ' + (s.companion || 'the keeper') + ' to stay beside her', '', 'letter', { reading: 'Read with ' + (s.companion || 'the keeper') + ' beside her' }),
+    c('Read the note aloud', '', 'letter', { reading: 'Read the note aloud' })
+  ]);
+  case 'letter': return page(20, 'The landing shelter', 'Mama and Papa', [
+    'Pip,\n\nWe are looking for you.\n\nIf you reach a landing, ask someone kind to help. We are leaving word along the river.\n\nWe love you.\n\nMama and Papa',
+    s.reading === 'Read the note aloud' ? 'Pip’s voice makes the words part of the room around her.' : s.reading === 'Read the note quietly' ? 'Pip stays quiet for a little while. The keeper leaves her room to read it again.' : (s.companion || 'The keeper') + ' stays beside Pip while she reads. Nobody hurries her.',
+    '“Can they get a message from me?” Pip asks.\n“The next boat can carry one,” says the keeper.'
+  ], [c('Choose what to tell them →', '', 'reply')]);
+  case 'reply': {
+    const safety = s.companion ? 'I’m safe. I made a friend.' : 'I’m safe. Some kind people helped me.';
+    return page(20, 'The landing message table', 'What should the message say?', ['The keeper has a small piece of paper ready. Pip can hear the next boat being tied to the landing.'], [safety, 'I miss you. I’m trying to find you.', 'I helped some tadpoles. I’ll tell you everything.'].map(reply => c('“' + reply + '”', '', 'confirmReply', { reply })));
+  }
+  case 'confirmReply': return page(20, 'The landing message table', 'One small message', ['The keeper repeats the words before preparing the note:', '“' + s.reply + '”', 'Pip can still change them.'], [
+    c('Send this message', 'The keeper entrusts Pip’s exact words to the next message boat.\n\nPip watches the little message boat leave.\nFor once, something is going ahead of her.', 'rest', { sent: true }, 'Sent to Mama and Papa: “' + s.reply + '”'),
+    c('Change the message', '', 'reply')
+  ]);
+  case 'rest': return page(20, 'Beside the landing', 'A warm place to sleep', ['Someone has made a warm place for Pip to sleep. Her parents are searching. Her own message is on its way.', 'Tonight she is safe. Where would she like to rest?'], [
+    ...(s.companion ? [c('Near ' + s.companion, s.companion + ' settles nearby. Pip no longer has to keep track of every small sound by herself.', 'nextRoute', { rest: 'Near ' + s.companion }, 'Chose to sleep near ' + s.companion + '.')] : []),
+    c('Near the familiar sounds of the landing', 'Ropes creak gently. Someone checks a knot. Pip lets the ordinary sounds become familiar.', 'nextRoute', { rest: 'Near the sounds of the landing' }, 'Chose a sleeping place near the sounds of the landing.'),
+    c('In a quiet corner', 'The quiet corner is warm and out of the wind. Pip folds herself into it and rests.', 'nextRoute', { rest: 'A quiet corner' }, 'Chose a quiet corner to sleep in.')
+  ]);
+  case 'nextRoute': return page(20, 'The river landing', 'When morning comes', ['The old willow is still ahead. The keeper describes two possibilities for the next part of the river journey: gardens along the bank, or a local boat making several stops.', 'Pip can express a preference. She will learn more before setting out.'], [
+    c('The river garden path sounds interesting', '', 'ending', { nextRoute: 'Bank path through river gardens' }, 'Preferred the river garden path for Chapter 2.'),
+    c('Pip would like to try the local boat', '', 'ending', { nextRoute: 'Local boat with several stops' }, 'Preferred a local boat journey for Chapter 2.')
+  ]);
+  case 'ending': return page(20, 'Safe at the main river landing', 'The world in the reeds', ['Pip has crossed the marsh. She has helped change a small place in it. Somewhere along the river, a boat carries her words:', '“' + s.reply + '”', 'Her parents are still searching. She has not reached the old willow yet. But tonight, she has a warm place to sleep.', 'End of Chapter 1.\nThe next chapter is not included in this story prototype.'], [c('Read Pip’s journey in the notebook', '', 'ending', { notebook: true })]);
+  }
+}
+let state = initial();
+let history = [];
+const $ = id => document.getElementById(id);
+function dispatch(action) {
+  history.push(structuredClone(state));
+  state = transition(state, action);
+  render(true);
+}
+function render(focus = false) {
+  const scene = story(state);
+  $('title').textContent = state.outcome ? state.outcome.title : scene.title;
+  $('place').textContent = scene.area;
+  $('progress').textContent = state.scene === 'ending' ? 'Chapter complete' : scene.step === 0 ? 'The free opening' : scene.step === 'Optional' ? 'Optional encounter' : 'Encounter ' + scene.step + ' / 20';
+  $('text').replaceChildren();
+  (state.outcome ? state.outcome.text : scene.text).forEach(text => { const p = document.createElement('p'); p.textContent = text; $('text').append(p); });
+  $('choices').replaceChildren();
+  if (state.outcome) {
+    const button = document.createElement('button'); button.textContent = 'Continue →'; button.onclick = () => dispatch({ type: 'continue' }); $('choices').append(button);
+  } else scene.choices.forEach(choice => {
+    const button = document.createElement('button'); button.textContent = choice.label; if (choice.risk) button.className = 'risk';
+    button.onclick = () => { if (choice.change.notebook) { $('memory').open = true; $('memory').scrollIntoView({ behavior: 'auto', block: 'start' }); } else dispatch({ type: 'choice', choice }); };
+    $('choices').append(button);
+  });
+  $('back').disabled = !history.length;
+  const fields = [
+    ['Destination', 'The old willow, beyond this chapter’s river landing'],
+    ['First acquaintance', state.first || 'Not met yet'],
+    ['First exchange', state.openingReply || '—'],
+    ['Traveling with', ['opening', 'willow', 'meeting'].includes(state.scene) ? 'Mama and Papa nearby' : state.companion || (state.arrangement ? 'Pip is traveling independently' : state.scene === 'separation' ? 'Pip is alone on the sheltered bank' : state.first + ' is nearby')],
+    ['Arrangement', state.arrangement || (['opening', 'willow', 'meeting'].includes(state.scene) ? 'The family swim' : 'Finding a way onward')],
+    ['Route', state.route || 'Not chosen yet'],
+    ['Belongings', state.suppliesScattered ? 'Scattered nearby; recovery will restore them' : state.items.join(' · ') || 'No carried objects'],
+    ['Discoveries', state.knowledge.join(' · ') || '—'],
+    ['Connections', state.friendships.join(' · ') || '—'],
+    ['Bram’s rescue', state.bram ? state.bram + '; ' + state.cargo.toLowerCase() + '. Cargo remains Bram’s.' : 'Not met yet'],
+    ['Nursery', state.nursery ? state.nursery + (state.nurseryDone ? ' — complete' : state.nurseryAction ? ' — practical work finished; waiting to see the result' : ' — planned') : 'Not reached yet'],
+    ['Pip’s role', [state.nurseryRole, state.nurseryAction, state.nurseryDetail].filter(Boolean).join(' · ') || '—'],
+    ['Crossing', [state.approach, state.plan, state.crossed ? 'Crossed safely' : 'Not crossed yet'].filter(Boolean).join(' · ')],
+    ['The goose', state.goose || 'No relationship yet'],
+    ['Current incident', state.riskTaken ? state.suppliesScattered ? 'Rescued safely; recovering' : 'Recovered; risky option closed' : 'Not attempted'],
+    ['Introduction', state.introduction || 'No written introduction'],
+    ['Promises', state.promises.join(' · ') || 'None'],
+    ['Other memories', state.memories.join(' · ') || '—'],
+    ['Parents’ note', state.reading || 'Not received yet'],
+    ['Outgoing message', state.reply ? (state.sent ? 'Sent: ' : 'Draft: ') + state.reply : 'Not chosen yet'],
+    ['Resting place', state.rest || '—'],
+    ['Next route preference', state.nextRoute || '—']
+  ];
+  $('facts').replaceChildren();
+  fields.forEach(([label, value]) => { const dt = document.createElement('dt'); dt.textContent = label; const dd = document.createElement('dd'); dd.textContent = value; $('facts').append(dt, dd); });
+  $('journal').replaceChildren(); state.journal.forEach(entry => { const li = document.createElement('li'); li.textContent = entry; $('journal').append(li); });
+  draw(scene);
+  if (focus) { $('title').focus({ preventScroll: true }); window.scrollTo({ top: 0, behavior: 'auto' }); }
+}
+function draw(scene) {
+  const ctx = $('scene').getContext('2d');
+  const rect = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); };
+  rect(0, 0, 192, 32, '#bccbb2'); rect(0, 19, 192, 13, '#7eafac');
+  for (let x = 5; x < 192; x += 25) rect(x, 25, 13, 1, '#b2d0be');
+  const step = Number(scene.step) || 0;
+  if (step >= 6 && step <= 15) { rect(0, 15, 192, 8, '#85965c'); rect(0, 21, 192, 2, '#586c48'); }
+  for (let x of [8, 18, 172, 181]) { rect(x, 7 + x % 4, 1, 17, '#4f7149'); rect(x - 1, 5 + x % 4, 3, 5, '#7d6245'); }
+  if (step >= 10 && step <= 15) for (let x of [28, 122, 145]) { rect(x, 9, 17, 9, '#c6b889'); rect(x - 2, 7, 21, 3, '#6d7751'); rect(x + 6, 12, 5, 6, '#586149'); }
+  if (step >= 16 && step <= 18) { rect(105, 17, 45, 3, '#bda579'); rect(139, 6, 1, 14, '#63593e'); rect(130, 4, 18, 8, '#e1d3a8'); }
+  if (step >= 19) { rect(126, 17, 52, 3, '#967950'); for (let x of [130, 155, 170]) rect(x, 17, 2, 12, '#765c40'); rect(146, 6, 20, 11, '#c6b889'); rect(143, 4, 26, 3, '#6d7751'); }
+  const duck = (x, y, color, large = false) => { const k = large ? 1.4 : 1; ctx.save(); ctx.translate(x, y); ctx.scale(k, k); rect(0, 5, 9, 5, color); rect(5, 1, 6, 7, color); rect(10, 4, 4, 2, '#c77c35'); rect(8, 2, 1, 1, '#26382f'); rect(2, 10, 5, 1, '#c77c35'); ctx.restore(); };
+  const family = ['opening', 'willow'].includes(state.scene);
+  duck(65, 13, '#e6c861');
+  if (family) { duck(99, 8, '#ede8cc', true); duck(127, 8, '#ede8cc', true); rect(69, 13, 6, 2, '#567b3f'); }
+  const companion = ['meeting', 'bank', 's1', 's2', 's2bye'].includes(state.scene) ? state.first : state.companion;
+  if (!family && companion) {
+    if (companion === 'Luma') { rect(88, 9, 4, 5, '#738bba'); rect(94, 9, 4, 5, '#738bba'); rect(92, 10, 2, 6, '#465559'); }
+    else if (companion === 'Moss') { rect(85, 19, 13, 6, '#637946'); rect(98, 21, 4, 3, '#88934f'); rect(100, 21, 1, 1, '#26382f'); }
+    else { rect(88, 18, 9, 7, '#698c52'); rect(88, 16, 3, 4, '#8eae60'); rect(94, 16, 3, 4, '#8eae60'); rect(90, 17, 1, 1, '#26382f'); }
+  }
+  if (step >= 16 && step <= 18) duck(115, 0, '#eee9d0', true);
+}
+$('back').onclick = () => { if (history.length) { state = history.pop(); render(true); } };
+$('restart').onclick = () => { history.push(structuredClone(state)); state = initial(); render(true); };
+function preset(name) {
+  const s = initial();
+  Object.assign(s, { scene: 's16', first: name === 'alone' ? 'Luma' : name, companion: name === 'alone' ? '' : name, arrangement: name === 'alone' ? 'Traveling independently' : 'Traveling together', route: name === 'Tumble' ? 'Lily pools' : 'Garden bank', nurseryDone: true, nurseryRole: name === 'alone' ? 'Supported a resident-led plan' : 'Helped plan the work', nursery: name === 'Moss' ? 'Restored old pool' : name === 'Tumble' ? 'New channel' : 'Moved nursery', nurseryAction: name === 'Moss' ? 'Cleared small obstructions' : name === 'Tumble' ? 'Designed the Little Elbow with its neighbor' : 'Prepared the new pool', nurseryDetail: 'A marked safe route', bram: name === 'Tumble' ? 'Intact boat' : 'Damaged boat', cargo: name === 'Moss' ? 'Most cargo lost' : name === 'Tumble' ? 'Some cargo saved' : 'Most cargo and cord saved' });
+  s.openingReply = name === 'Moss' ? 'Apologized to two ordinary stones' : name === 'Tumble' ? 'Tried a bubble hat' : 'Asked about the performance';
+  s.knowledge = name === 'Tumble' ? ['Low passages follow the bank', 'Boating signal: two short calls, then a pause'] : ['Quiet water follows the drifting leaves'];
+  s.items = name === 'Tumble' ? ['Reed loop', 'Frog sketch'] : name === 'Moss' ? ['Garden button'] : ['Reedbank introduction'];
+  if (name === 'alone') s.introduction = 'Sedge at Reedbank';
+  s.friendships = ['Bram — Pip rescued him', 'Reedbank — Pip helped its nursery'];
+  if (name !== 'alone') s.friendships.push(name + ' — traveled with Pip');
+  s.journal = ['Prepared test history: met ' + s.first + ', traveled by ' + s.route.toLowerCase() + ', and helped at the nursery.', 'Bram: ' + s.bram + '; ' + s.cargo.toLowerCase() + '.', 'Nursery: ' + s.nursery + '. Pip’s role: ' + s.nurseryRole + '.'];
+  return s;
+}
+document.querySelectorAll('[data-preset]').forEach(button => { button.onclick = () => { history.push(structuredClone(state)); state = preset(button.dataset.preset); render(true); }; });
+render();
+</script>
+</html>
