@@ -1,7 +1,7 @@
 import { createCanvas, loadImage } from '@napi-rs/canvas'
 import { compose } from '../../src/experiments/pixel-town/compose.js'
 import { DESIGN, EFFECTS } from '../../src/experiments/pixel-town/parameters.js'
-import { readdir, readFile, writeFile } from 'node:fs/promises'
+import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 const out = new URL(
   '../../docs/experiments/pixel-town/evidence/',
@@ -12,6 +12,7 @@ const root = new URL('../../_site/pixel-town/', import.meta.url),
 const bytes = (canvas) =>
   canvas.getContext('2d').getImageData(0, 0, 768, 460).data
 const digest = (data) => createHash('sha256').update(data).digest('hex')
+await mkdir(out,{recursive:true})
 const result = []
 for (const light of ['dawn', 'day', 'sunset', 'night']) {
   const sheet = createCanvas(768 * 4, 460 * 4),

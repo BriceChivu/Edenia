@@ -105,31 +105,66 @@ test('rejects stale version, oversize buffers and out-of-bounds patch metadata',
 })
 
 test('tree color changes leave unrelated flower beds and houses pixel-identical', async () => {
-  const { artwork } = await import('../../src/experiments/pixel-town/artwork.js')
-  const draw=(asset,design)=>{
-    const canvas=createCanvas(768,460),art=artwork(canvas,{design})
-    art.at(384,300,1,()=>art[asset](0,0))
+  const { artwork } = await import(
+    '../../src/experiments/pixel-town/artwork.js'
+  )
+  const draw = (asset, design) => {
+    const canvas = createCanvas(768, 460),
+      art = artwork(canvas, { design })
+    art.at(384, 300, 1, () => art[asset](0, 0))
     return canvas.toBuffer('image/png')
   }
-  const changed={...DESIGN,tree:{blossom:'#ef88bb'}}
-  for(const asset of ['flowers','house','shrub'])assert.deepEqual(draw(asset,DESIGN),draw(asset,changed))
-  assert.notDeepEqual(draw('tree',DESIGN),draw('tree',changed))
+  const changed = { ...DESIGN, tree: { blossom: '#ef88bb' } }
+  for (const asset of ['flowers', 'house', 'shrub'])
+    assert.deepEqual(draw(asset, DESIGN), draw(asset, changed))
+  assert.notDeepEqual(draw('tree', DESIGN), draw('tree', changed))
 })
 
 test('shared-tree draft save is source-backed and cannot modify unrelated parameters', async () => {
-  const {mkdtemp,readFile,writeFile,cp,mkdir,rm}=await import('node:fs/promises')
-  const {tmpdir}=await import('node:os');const {join}=await import('node:path')
-  const {execFileSync}=await import('node:child_process')
-  const dir=await mkdtemp(join(tmpdir(),'pixel-authoring-'))
+  const { mkdtemp, readFile, writeFile, cp, mkdir, rm } = await import(
+    'node:fs/promises'
+  )
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  const { execFileSync } = await import('node:child_process')
+  const dir = await mkdtemp(join(tmpdir(), 'pixel-authoring-'))
   try {
-    await mkdir(join(dir,'tools/pixel-town'),{recursive:true});await mkdir(join(dir,'src/experiments/pixel-town'),{recursive:true})
-    await cp(new URL('../../tools/pixel-town/save-draft.mjs',import.meta.url),join(dir,'tools/pixel-town/save-draft.mjs'))
-    await cp(new URL('../../src/experiments/pixel-town/parameters.js',import.meta.url),join(dir,'src/experiments/pixel-town/parameters.js'))
-    await writeFile(join(dir,'package.json'),'{"type":"module"}')
-    await writeFile(join(dir,'draft.json'),JSON.stringify({schema:1,asset:'tree',scope:'shared',design:{tree:{blossom:'#ef88bb'}},effects:{foliage:{amplitude:1.2},smoke:{height:100}}}))
-    execFileSync(process.execPath,[join(dir,'tools/pixel-town/save-draft.mjs'),join(dir,'draft.json')])
-    const saved=await import(`file://${join(dir,'src/experiments/pixel-town/parameters.js')}`)
-    assert.equal(saved.DESIGN.tree.blossom,'#ef88bb');assert.equal(saved.EFFECTS.foliage.amplitude,1.2)
-    assert.deepEqual(saved.EFFECTS.smoke,EFFECTS.smoke);assert.deepEqual(saved.DESIGN.roof,DESIGN.roof)
-  }finally{await rm(dir,{recursive:true,force:true})}
+    await mkdir(join(dir, 'tools/pixel-town'), { recursive: true })
+    await mkdir(join(dir, 'src/experiments/pixel-town'), { recursive: true })
+    await cp(
+      new URL('../../tools/pixel-town/save-draft.mjs', import.meta.url),
+      join(dir, 'tools/pixel-town/save-draft.mjs')
+    )
+    await cp(
+      new URL(
+        '../../src/experiments/pixel-town/parameters.js',
+        import.meta.url
+      ),
+      join(dir, 'src/experiments/pixel-town/parameters.js')
+    )
+    await writeFile(join(dir, 'package.json'), '{"type":"module"}')
+    await writeFile(
+      join(dir, 'draft.json'),
+      JSON.stringify({
+        schema: 1,
+        asset: 'tree',
+        scope: 'shared',
+        design: { tree: { blossom: '#ef88bb' } },
+        effects: { foliage: { amplitude: 1.2 }, smoke: { height: 100 } }
+      })
+    )
+    execFileSync(process.execPath, [
+      join(dir, 'tools/pixel-town/save-draft.mjs'),
+      join(dir, 'draft.json')
+    ])
+    const saved = await import(
+      `file://${join(dir, 'src/experiments/pixel-town/parameters.js')}`
+    )
+    assert.equal(saved.DESIGN.tree.blossom, '#ef88bb')
+    assert.equal(saved.EFFECTS.foliage.amplitude, 1.2)
+    assert.deepEqual(saved.EFFECTS.smoke, EFFECTS.smoke)
+    assert.deepEqual(saved.DESIGN.roof, DESIGN.roof)
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
 })

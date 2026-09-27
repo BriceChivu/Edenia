@@ -60,7 +60,7 @@ for (const asset of ASSETS) {
   button.dataset.asset = asset.id
   button.onclick = () => {
     selected = asset
-    render()
+    reset()
   }
   $('assets').append(button)
 }
@@ -115,6 +115,10 @@ function render() {
     )
   $('blossom').disabled = $('breeze').disabled = selected.id !== 'tree'
   $('smoke').disabled = !['house', 'volcano'].includes(selected.id)
+  $('save').disabled = !['tree','house','volcano'].includes(selected.id)
+  $('scope').disabled = selected.id !== 'tree'
+  if(selected.id !== 'tree')$('scope').value='shared'
+  $('variant').disabled = $('scope').value !== 'variant'
   $('scope-note').textContent =
     $('scope').value === 'shared'
       ? 'Saving updates all instances of the selected shared asset. Scene placements and study facts stay unchanged.'

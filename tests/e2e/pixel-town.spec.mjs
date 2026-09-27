@@ -143,26 +143,62 @@ test('blocked entry retains independent new still and full-scene phone framing',
   pageDiagnostics.length = 0
 })
 
-test('stale atlas completion after disposal cannot remount a scene',async({page})=>{
- test.skip(!enabled,'Requires the enabled build')
- let release
- const gate=new Promise(resolve=>{release=resolve})
- await page.route('**/*-motion.png',async route=>{await gate;await route.continue().catch(()=>{})})
- await page.goto('/?internal_test=1');await seed(page)
- await expect.poll(()=>page.evaluate(()=>window.EDENIA_PIXEL_TOWN.controller.pending.startup)).toBe(true)
- await page.evaluate(()=>window.EDENIA_PIXEL_TOWN.controller.dispose())
- release()
- await page.waitForTimeout(100)
- await expect(page.locator('.pixel-town-canvas')).toHaveCount(0)
- expect(await page.evaluate(()=>window.EDENIA_PIXEL_TOWN.controller.metrics.active)).toBe(false)
+test('stale atlas completion after disposal cannot remount a scene', async ({
+  page
+}) => {
+  test.skip(!enabled, 'Requires the enabled build')
+  let release
+  const gate = new Promise((resolve) => {
+    release = resolve
+  })
+  await page.route('**/*-motion.png', async (route) => {
+    await gate
+    await route.continue().catch(() => {})
+  })
+  await page.goto('/?internal_test=1')
+  await seed(page)
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.EDENIA_PIXEL_TOWN.controller.pending.startup)
+    )
+    .toBe(true)
+  await page.evaluate(() => window.EDENIA_PIXEL_TOWN.controller.dispose())
+  release()
+  await page.waitForTimeout(100)
+  await expect(page.locator('.pixel-town-canvas')).toHaveCount(0)
+  expect(
+    await page.evaluate(
+      () => window.EDENIA_PIXEL_TOWN.controller.metrics.active
+    )
+  ).toBe(false)
 })
 
-test('missing or mixed animation assets retain new still without legacy fallback',async({page})=>{
- test.skip(!enabled,'Requires the enabled build')
- await page.route('**/pixel-town/**/*.json',r=>r.fulfill({contentType:'application/json',body:JSON.stringify({version:'stale'})}))
- await page.goto('/?internal_test=1');await seed(page)
- await expect.poll(()=>page.evaluate(()=>window.EDENIA_PIXEL_TOWN.controller.metrics.errors)).toBeGreaterThan(0)
- await expect(page.locator('.pixel-town-canvas')).toBeHidden()
- expect(await page.locator('#cityMilestoneImage').evaluate(img=>img.complete&&img.naturalWidth===768)).toBe(true)
- expect(await page.evaluate(()=>window.EDENIA_PIXEL_TOWN.controller.pending.startup)).toBe(false)
+test('missing or mixed animation assets retain new still without legacy fallback', async ({
+  page
+}) => {
+  test.skip(!enabled, 'Requires the enabled build')
+  await page.route('**/pixel-town/**/*.json', (r) =>
+    r.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ version: 'stale' })
+    })
+  )
+  await page.goto('/?internal_test=1')
+  await seed(page)
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.EDENIA_PIXEL_TOWN.controller.metrics.errors)
+    )
+    .toBeGreaterThan(0)
+  await expect(page.locator('.pixel-town-canvas')).toBeHidden()
+  expect(
+    await page
+      .locator('#cityMilestoneImage')
+      .evaluate((img) => img.complete && img.naturalWidth === 768)
+  ).toBe(true)
+  expect(
+    await page.evaluate(
+      () => window.EDENIA_PIXEL_TOWN.controller.pending.startup
+    )
+  ).toBe(false)
 })

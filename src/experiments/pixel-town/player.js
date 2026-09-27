@@ -15,7 +15,8 @@ export function validateManifest(m, version) {
   )
     throw new Error('Incompatible town assets')
   for (const frame of m.frames) {
-    if(!Array.isArray(frame) || frame.length>360)throw new Error('Invalid patch count')
+    if (!Array.isArray(frame) || frame.length > 360)
+      throw new Error('Invalid patch count')
     for (const [x, y, w, h, id] of frame) {
       if (
         ![x, y, w, h, id].every(Number.isInteger) ||

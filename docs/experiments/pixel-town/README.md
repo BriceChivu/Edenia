@@ -12,12 +12,12 @@ Use the Node version in `.nvmrc`, then `npm ci`.
 
 ```sh
 EDENIA_PIXEL_TOWN_ENABLED=true npm run build
-node scripts/serve-static.mjs --host localhost --port 4190 --root .
+node scripts/serve-static.mjs --host localhost --port 4188 --root .
 ```
 
-- Learner trial: `http://localhost:4190/_site/?internal_test=1`
-- Public comparison: `http://localhost:4190/_site/`
-- Local workshop: `http://localhost:4190/tools/pixel-town/`
+- Learner trial: `http://localhost:4188/_site/?internal_test=1`
+- Public comparison: `http://localhost:4188/_site/`
+- Local workshop: `http://localhost:4188/tools/pixel-town/`
 
 The workshop and source geometry are excluded from the Pages build. The learner entry contains only lifecycle, light selection, manifest validation and cached patch playback. There is no Auth dependency, profile migration, provider call, game engine or experiment service worker.
 

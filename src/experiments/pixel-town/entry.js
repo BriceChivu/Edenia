@@ -17,7 +17,7 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
   button.type = 'button'
   button.className = 'pixel-town-toggle'
   button.textContent = 'Town animation'
-  wrap.append(button)
+  wrap.after(button)
   const reduced = matchMedia('(prefers-reduced-motion: reduce)')
   let motion = true
   try {
@@ -149,16 +149,16 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
     const light = localLight(clock())
     const introActive = introVisible && !document.hidden && !disposed
     if (introActive) {
-      document.querySelectorAll('[data-intro-city-frame]').forEach(img => {
+      document.querySelectorAll('[data-intro-city-frame]').forEach((img) => {
         const url = `${base}${img.dataset.introCityFrame}-${light}.png`
-        if(img.getAttribute('src') !== url)img.src=url
+        if (img.getAttribute('src') !== url) img.src = url
       })
     }
     if (!active()) {
       cancel()
       player?.stop()
       metrics.active = false
-      if(introActive)lightTimer=setTimeout(refresh,60000)
+      if (introActive) lightTimer = setTimeout(refresh, 60000)
       return
     }
     const stage = Number(image.dataset.pixelStage || 0),
@@ -199,14 +199,14 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
   }
   button.addEventListener('click', toggle)
   const observer = new IntersectionObserver((entries) => {
-    for(const entry of entries){
-      if(entry.target===wrap)visible=entry.isIntersecting
-      if(entry.target===intro)introVisible=entry.isIntersecting
+    for (const entry of entries) {
+      if (entry.target === wrap) visible = entry.isIntersecting
+      if (entry.target === intro) introVisible = entry.isIntersecting
     }
     refresh()
   })
   observer.observe(wrap)
-  if(intro)observer.observe(intro)
+  if (intro) observer.observe(intro)
   const mutation = new MutationObserver(refresh)
   mutation.observe(image, {
     attributes: true,

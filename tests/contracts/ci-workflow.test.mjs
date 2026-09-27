@@ -109,7 +109,8 @@ test('verify accepts only successful selected suites', () => {
               SCOPE_RESULT: scope,
               CHECKS_RESULT: checks,
               BROWSER_REQUIRED: required,
-              BROWSER_RESULT: browser
+              BROWSER_RESULT: browser,
+              PIXEL_TOWN_RESULT: browser
             },
             encoding: 'utf8'
           })
@@ -131,7 +132,17 @@ test('workflow changes exercise browser shards and verify waits for their aggreg
   assert.match(workflow, /  browser:\n    needs: scope\n    if: needs\.scope\.outputs\.browser == 'true'/)
   assert.match(workflow, /fail-fast: false\n      matrix:\n        shard: \[1, 2, 3, 4\]/)
   assert.match(readStep('Run browser tests'), /--shard=\$\{\{ matrix\.shard \}\}\/4/)
-  assert.match(workflow, /  verify:\n    needs: \[scope, checks, browser\]\n    if: \$\{\{ always\(\) \}\}/)
+  assert.match(workflow, /  verify:\n    needs: \[scope, checks, browser, pixel-town\]\n    if: \$\{\{ always\(\) \}\}/)
   assert.match(readStep('Require all selected suites to pass'),
     /BROWSER_RESULT: \$\{\{ needs\.browser\.result \}\}/)
+})
+
+
+test('required pixel-town failures cannot pass the aggregate check', () => {
+  const script = readStep('Require all selected suites to pass').split('        run: |\n')[1]
+    .split('\n').map(line => line.replace(/^          /, '')).join('\n')
+  for(const town of ['success','failure','cancelled','skipped']) {
+    const result=spawnSync('bash',['-c',script],{env:{...process.env,SCOPE_RESULT:'success',CHECKS_RESULT:'success',BROWSER_REQUIRED:'true',BROWSER_RESULT:'success',PIXEL_TOWN_RESULT:town}})
+    assert.equal(result.status===0,town==='success')
+  }
 })

@@ -3,11 +3,14 @@ import { chromium } from 'playwright'
 import { writeFile, mkdir } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-const url = process.env.PIXEL_TOWN_URL || 'http://localhost:4190/_site/'
+const url = process.env.PIXEL_TOWN_URL || 'http://localhost:4188/_site/'
 const long = process.argv.includes('--long'),
   full = process.argv.includes('--full')
 const browser = await chromium.launch({ headless: true })
 const output = {
+  revision: execFileSync('git', ['rev-parse', 'HEAD'], {
+    encoding: 'utf8'
+  }).trim(),
   started: new Date().toISOString(),
   browser: browser.version(),
   host: execFileSync('uname', ['-a'], { encoding: 'utf8' }).trim(),
@@ -50,6 +53,8 @@ async function run(mode, feedSize, stage, iteration) {
       })
       s.config.ankiEnabled = false
       s.cityProgress.maxLevelIndex = stage - 1
+      const threshold=[0,60,140,230,320,400,480,570,680,800,920,1050][stage-1]
+      s.anki['2026-09-26']={reviewed:threshold/window.getAnkiPointsFromReviews(1),created:0,loggedAt:'2026-09-26T04:00:00.000Z',observedAt:'2026-09-26T04:00:00.000Z'}
       for (let i = 0; i < feedSize; i++) {
         const id = `fixture${String(i).padStart(4, '0')}`
         s.videos[id] = {
@@ -68,7 +73,7 @@ async function run(mode, feedSize, stage, iteration) {
         'edenia.pixelTown.motion',
         mode === 'still' ? 'off' : 'on'
       )
-      return JSON.stringify(s.videos)
+      return JSON.stringify({videos:s.videos,anki:s.anki,cityProgress:s.cityProgress})
     },
     { feedSize, stage, mode }
   )
@@ -84,13 +89,22 @@ async function run(mode, feedSize, stage, iteration) {
     await page.waitForFunction(
       () => window.EDENIA_PIXEL_TOWN?.controller?.metrics.active
     )
+  await page.waitForFunction(({stage,mode})=>{
+    const img=document.getElementById('cityMilestoneImage')
+    return img.complete && img.naturalWidth>0 && (mode==='disabled'?decodeURI(img.src).includes(`level ${stage}.`):img.dataset.pixelStage===String(stage))
+  },{stage,mode})
   const startupMs = performance.now() - start
   const screenshot = `docs/experiments/pixel-town/evidence/${mode}-${stage}-${feedSize}.png`
   if (iteration === 0)
     await page.locator('.city-section').screenshot({ path: screenshot })
-  const before = (await cdp.send('Runtime.getHeapUsage')).usedSize
+  await page.waitForTimeout(1000)
+  await cdp.send('HeapProfiler.collectGarbage')
+  const warmedHeap = (await cdp.send('Runtime.getHeapUsage')).usedSize
   const idleMs = long ? 600000 : full ? 30000 : 2500
   await page.waitForTimeout(idleMs)
+  await cdp.send('HeapProfiler.collectGarbage')
+  const before = (await cdp.send('Runtime.getHeapUsage')).usedSize
+  const initialResources=await page.evaluate(()=>performance.getEntriesByType('resource').filter(r=>r.name.includes('/pixel-town/')).map(r=>({url:r.name,encoded:r.encodedBodySize,start:r.startTime})))
   const actions = []
   for (let n = 0; n < 20; n++) {
     actions.push(
@@ -144,6 +158,7 @@ async function run(mode, feedSize, stage, iteration) {
     const background = await context.newPage()
     await background.bringToFront()
     await page.waitForTimeout(full ? 30000 : 500)
+    output.hiddenDocumentObserved = await page.evaluate(() => document.hidden)
     await background.close()
     await page.bringToFront()
     // Real visibility state is recorded; headless focus is not claimed as hidden-tab proof.
@@ -186,6 +201,10 @@ async function run(mode, feedSize, stage, iteration) {
     actions,
     actionP95: p95(actions),
     scroll,
+    warmedHeap,
+    afterIdleHeap: before,
+    idleHeapGrowth: before-warmedHeap,
+    initialResources,
     heapBefore: before,
     heapAfter: after,
     heapGrowth: after - before,
@@ -195,7 +214,7 @@ async function run(mode, feedSize, stage, iteration) {
   }
   output.runs.push(row)
   await writeFile(
-    'docs/experiments/pixel-town/evidence/measurements.json',
+    `docs/experiments/pixel-town/evidence/${long ? 'longevity' : full ? 'full-windows' : 'measurements'}.json`,
     JSON.stringify(output, null, 2)
   )
   console.log(

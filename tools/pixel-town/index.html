@@ -1,4 +1,214 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pixel-town workshop</title>
-<style>body{margin:0;background:#e9e2d2;color:#263e45;font:16px system-ui}header,main{padding:20px;max-width:1250px;margin:auto}h1{margin:0}button,input,select{font:inherit}button{cursor:pointer;padding:8px;border:1px solid #567078;border-radius:6px;background:#fff8eb}button[aria-pressed=true]{background:#b9d9cb}.controls{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:15px 0}.layout{display:grid;grid-template-columns:240px 1fr;gap:20px}#assets{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:start}#assets canvas{width:95px;display:block;image-rendering:pixelated}.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}figure{margin:0}canvas{width:100%;image-rendering:pixelated;background:#78b5c9}figcaption{padding:5px}fieldset{margin:15px 0;border:1px solid #90a4a2}pre{white-space:pre-wrap;background:#fff8eb;padding:12px;font-size:13px}#phone:checked~.pair{max-width:390px}@media(max-width:700px){.layout{grid-template-columns:1fr}#assets{grid-template-columns:repeat(3,1fr)}.pair{grid-template-columns:1fr}}</style>
-<header><h1>Pixel-town workshop</h1><p>Local authoring preview · edits do not touch study facts or earned stages.</p><div class="controls"><label>Stage <select id="stage"></select></label><label>Lighting <select id="light"><option>dawn</option><option selected>day</option><option>sunset</option><option>night</option></select></label><button id="play" aria-pressed="false">Play motion</button><label>Phase <input id="phase" type="range" min="0" max="5.833333" step="0.166667" value="0"></label><label><input id="phone" type="checkbox"> Phone framing</label></div></header>
-<main class="layout"><nav id="assets" aria-label="Asset catalog"></nav><article><h2 id="name"></h2><p id="usage"></p><a id="source">Open artwork source</a><fieldset><legend>Draft parameters</legend><div class="controls"><label>Tree blossoms <input id="blossom" type="color"></label><label>Breeze <input id="breeze" type="range" min="0" max="2" step="0.1"></label><label>Smoke height <input id="smoke" type="range" min="0.5" max="1.5" step="0.1"></label></div><label>Edit scope <select id="scope"><option value="shared">Shared — every tree instance</option><option value="variant">Named variant — referenced scenes only</option></select></label> <label>Variant ID <input id="variant" value="pink-tree" pattern="[a-z][a-z0-9-]+"></label><p id="scope-note"></p><button id="reset">Reset draft</button> <button id="save">Download source draft</button></fieldset><h3>Isolated asset</h3><div class="pair"><figure><canvas id="isolated-before"></canvas><figcaption>Before</figcaption></figure><figure><canvas id="isolated-after"></canvas><figcaption>Draft</figcaption></figure></div><h3>In town</h3><div class="pair" id="town-pair"><figure><canvas id="before"></canvas><figcaption>Before</figcaption></figure><figure><canvas id="after"></canvas><figcaption>Draft</figcaption></figure></div><h3>Save to source</h3><pre id="command"></pre><p>Freeform roof/tree geometry changes: open the linked source with your agent. Rebuild to regenerate compatible stills and motion patches.</p></article></main><script type="module" src="catalog.js"></script></html>
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>Pixel-town workshop</title>
+  <style>
+    body {
+      margin: 0;
+      background: #e9e2d2;
+      color: #263e45;
+      font: 16px system-ui;
+    }
+    header,
+    main {
+      padding: 20px;
+      max-width: 1250px;
+      margin: auto;
+    }
+    h1 {
+      margin: 0;
+    }
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+    button {
+      cursor: pointer;
+      padding: 8px;
+      border: 1px solid #567078;
+      border-radius: 6px;
+      background: #fff8eb;
+    }
+    button[aria-pressed='true'] {
+      background: #b9d9cb;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+      margin: 15px 0;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 20px;
+    }
+    #assets {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      align-content: start;
+    }
+    #assets canvas {
+      width: 95px;
+      display: block;
+      image-rendering: pixelated;
+    }
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    figure {
+      margin: 0;
+    }
+    canvas {
+      width: 100%;
+      image-rendering: pixelated;
+      background: #78b5c9;
+    }
+    figcaption {
+      padding: 5px;
+    }
+    article,
+    fieldset {
+      min-width: 0;
+    }
+    a,
+    pre {
+      overflow-wrap: anywhere;
+    }
+    input {
+      max-width: 100%;
+    }
+    fieldset {
+      margin: 15px 0;
+      border: 1px solid #90a4a2;
+    }
+    pre {
+      white-space: pre-wrap;
+      background: #fff8eb;
+      padding: 12px;
+      font-size: 13px;
+    }
+    #phone:checked ~ .pair {
+      max-width: 390px;
+    }
+    @media (max-width: 700px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      #assets {
+        grid-template-columns: repeat(3, 1fr);
+      }
+      .pair {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 400px) {
+      #assets {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+  <header>
+    <h1>Pixel-town workshop</h1>
+    <p>
+      Local authoring preview · edits do not touch study facts or earned stages.
+    </p>
+    <div class="controls">
+      <label
+        >Stage
+        <select id="stage"></select></label
+      ><label
+        >Lighting
+        <select id="light">
+          <option>dawn</option>
+          <option selected>day</option>
+          <option>sunset</option>
+          <option>night</option>
+        </select></label
+      ><button id="play" aria-pressed="false">Play motion</button
+      ><label
+        >Phase
+        <input
+          id="phase"
+          type="range"
+          min="0"
+          max="5.833333"
+          step="0.166667"
+          value="0" /></label
+      ><label><input id="phone" type="checkbox" /> Phone framing</label>
+    </div>
+  </header>
+  <main class="layout">
+    <nav id="assets" aria-label="Asset catalog"></nav>
+    <article>
+      <h2 id="name"></h2>
+      <p id="usage"></p>
+      <a id="source">Open artwork source</a>
+      <fieldset>
+        <legend>Draft parameters</legend>
+        <div class="controls">
+          <label>Tree blossoms <input id="blossom" type="color" /></label
+          ><label
+            >Breeze
+            <input id="breeze" type="range" min="0" max="2" step="0.1" /></label
+          ><label
+            >Smoke height
+            <input id="smoke" type="range" min="0.5" max="1.5" step="0.1"
+          /></label>
+        </div>
+        <label
+          >Edit scope
+          <select id="scope">
+            <option value="shared">Shared — every tree instance</option>
+            <option value="variant">
+              Named variant — referenced scenes only
+            </option>
+          </select></label
+        >
+        <label
+          >Variant ID
+          <input id="variant" value="pink-tree" pattern="[a-z][a-z0-9-]+"
+        /></label>
+        <p id="scope-note"></p>
+        <button id="reset">Reset draft</button>
+        <button id="save">Download source draft</button>
+      </fieldset>
+      <h3>Isolated asset</h3>
+      <div class="pair">
+        <figure>
+          <canvas id="isolated-before"></canvas>
+          <figcaption>Before</figcaption>
+        </figure>
+        <figure>
+          <canvas id="isolated-after"></canvas>
+          <figcaption>Draft</figcaption>
+        </figure>
+      </div>
+      <h3>In town</h3>
+      <div class="pair" id="town-pair">
+        <figure>
+          <canvas id="before"></canvas>
+          <figcaption>Before</figcaption>
+        </figure>
+        <figure>
+          <canvas id="after"></canvas>
+          <figcaption>Draft</figcaption>
+        </figure>
+      </div>
+      <h3>Save to source</h3>
+      <pre id="command"></pre>
+      <p>
+        Freeform roof/tree geometry changes: open the linked source with your
+        agent. Rebuild to regenerate compatible stills and motion patches.
+      </p>
+    </article>
+  </main>
+  <script type="module" src="catalog.js"></script>
+</html>

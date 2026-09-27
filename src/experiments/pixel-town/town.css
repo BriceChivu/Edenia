@@ -29,9 +29,8 @@ html.pixel-town .intro-city-viewport {
   background: #78b5c9;
 }
 .pixel-town-toggle {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
+  display: block;
+  margin: 8px 10px 8px auto;
   z-index: 5;
   background: #fff8eb;
   color: #243c45;
