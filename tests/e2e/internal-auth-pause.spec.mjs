@@ -23,6 +23,12 @@ async function seedTown(page, key) {
     window.updatePersistentCityLevel(state, 0)
     Object.assign(state.onboarding, { introSeenAt: date, setupCompleted: true, setupCompletedAt: date, walkthroughCompleted: true, walkthroughCompletedAt: date })
     window.saveState(state, { backup: false, syncAnalytics: false })
+    if (key.endsWith('_internal_test')) {
+      localStorage.setItem(`${key}_learner_profile_access_v1`, JSON.stringify({
+        version: 1, ownerId: null, profileId: `accountless:${key}`,
+        activationId: null, activatedAt: 1, legacy: true
+      }))
+    }
   }, key)
 }
 for (const internal of [false, true]) {
@@ -57,7 +63,7 @@ for (const access of ['owned', 'malformed', 'legacy-auth']) {
       localStorage.setItem(`${key}_backups`, 'retained-backup-fixture')
       if (access === 'legacy-auth') localStorage.setItem(`${key}_plus_auth_v1`, 'retained-session-fixture')
       else localStorage.setItem(`${key}_learner_profile_access_v1`, access === 'owned'
-        ? JSON.stringify({version:1,ownerId:'synthetic-owner',profileId:'synthetic-profile'}) : '{invalid')
+        ? JSON.stringify({version:1,ownerId:'synthetic-owner',profileId:'synthetic-profile',activationId:null,activatedAt:1,generation:1,revision:1}) : '{invalid')
       return Object.fromEntries(Object.entries(localStorage).filter(([k]) => k.startsWith(key)))
     }, {key:internalKey,access})
     await page.addInitScript(key => {

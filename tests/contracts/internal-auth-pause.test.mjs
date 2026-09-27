@@ -22,7 +22,7 @@ test('owner-bound and ambiguous caches are held without reading learner data', (
     keys.accountlessProfileMigrationKey, keys.learnerProfileAccessKey]) {
     assert.equal(check({ [key]: 'retained' }), true)
   }
-  assert.equal(check({ [keys.learnerProfileAccessKey]: JSON.stringify({version:1,ownerId:'owner',profileId:'profile'}) }), true)
+  assert.equal(check({ [keys.learnerProfileAccessKey]: JSON.stringify({version:1,ownerId:'owner',profileId:'profile',activationId:null,activatedAt:1,generation:1,revision:1}) }), true)
   assert.equal(check({ [keys.learnerProfileAccessKey]: JSON.stringify({version:1,ownerId:null,profileId:`accountless:${keys.storageKey}`}) }), true)
   assert.equal(check({}, {readStorage() { throw Error('unavailable') }}), true)
 })
