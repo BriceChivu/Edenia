@@ -129,7 +129,7 @@ export function createPlayer({
   }
   return {
     start() {
-      if (disposed || running) return
+      if (disposed || running || !monitor.cadence) return
       running = true
       epoch = performance.now()
       timer = setTimeout(draw, 1000 / monitor.cadence)
