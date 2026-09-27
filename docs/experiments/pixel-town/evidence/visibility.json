@@ -1,0 +1,7 @@
+{
+  "browser": "151.0.7922.34",
+  "physicalPhone": false,
+  "status": "blocked",
+  "hiddenWindow": null,
+  "reason": "On macOS desktop automation, minimizing the Playwright Chromium window did not change document.hidden within 30 seconds, including after removing backgrounding-disable launch arguments. No real hidden-tab suspension proof is claimed."
+}

@@ -15058,6 +15058,7 @@ function formatCitySnapshotDate(date) {
 }
 
 function initCityImagePanZoom() {
+  if (window.EDENIA_PIXEL_TOWN?.enabled) return
   const wrap = document.querySelector('.city-image-wrap')
   const image = document.getElementById('cityMilestoneImage')
   if (!wrap || !image || wrap.dataset.panZoomReady === 'true') return
@@ -15344,6 +15345,7 @@ function clampCityImagePan() {
 }
 
 function applyCityImageTransform(geometry = getCityImagePanGeometry()) {
+  if (window.EDENIA_PIXEL_TOWN?.enabled) return
   const image = document.getElementById('cityMilestoneImage')
   if (!image) return
   const wrap = document.querySelector('.city-image-wrap')
@@ -15450,6 +15452,7 @@ function getCityImagePreloadOrder(centerIndex) {
 }
 
 function queueCityImagePreloadsAround(centerIndex) {
+  if (window.EDENIA_PIXEL_TOWN?.enabled) return
   if (!Number.isInteger(centerIndex) || CITY_IMAGE_SOURCES.length === 0) return
   if (activeCityImagePreloadCenter === centerIndex) return
 
@@ -15498,6 +15501,17 @@ function updateCityMilestoneImage(score, options = {}) {
 
   const levelIndex = CITY_LEVELS.indexOf(getCityLevel(score))
   const imageIndex = Math.min(Math.max(levelIndex, 0), CITY_IMAGE_SOURCES.length - 1)
+  if (window.EDENIA_PIXEL_TOWN?.enabled) {
+    const town = window.EDENIA_PIXEL_TOWN
+    const stage = imageIndex + 1
+    image.alt = `Study city milestone: ${getCityStage(score).replace(/[^\p{L}\p{N}\s-]/gu, '').trim()}`
+    if (image.dataset.pixelStage !== String(stage)) {
+      image.dataset.pixelStage = String(stage)
+      image.src = `${town.base}${stage}-${town.light()}.png`
+      image.classList.remove('loading')
+    }
+    return
+  }
   const preloadCenterIndex = Number.isInteger(options.preloadCenterIndex)
     ? clampNumber(options.preloadCenterIndex, 0, CITY_IMAGE_SOURCES.length - 1)
     : imageIndex

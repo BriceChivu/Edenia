@@ -1,0 +1,113 @@
+{
+  "reference": "238297c:prototype/pixel-town/isometric/art.js",
+  "checks": [
+    {
+      "stage": 2,
+      "light": "day",
+      "time": 0,
+      "differingPixels": 0
+    },
+    {
+      "stage": 2,
+      "light": "day",
+      "time": 1,
+      "differingPixels": 0
+    },
+    {
+      "stage": 2,
+      "light": "day",
+      "time": 3,
+      "differingPixels": 0
+    },
+    {
+      "stage": 2,
+      "light": "sunset",
+      "time": 0,
+      "differingPixels": 0
+    },
+    {
+      "stage": 2,
+      "light": "sunset",
+      "time": 1,
+      "differingPixels": 0
+    },
+    {
+      "stage": 2,
+      "light": "sunset",
+      "time": 3,
+      "differingPixels": 0
+    },
+    {
+      "stage": 2,
+      "light": "night",
+      "time": 0,
+      "differingPixels": 0
+    },
+    {
+      "stage": 2,
+      "light": "night",
+      "time": 1,
+      "differingPixels": 0
+    },
+    {
+      "stage": 2,
+      "light": "night",
+      "time": 3,
+      "differingPixels": 0
+    },
+    {
+      "stage": 12,
+      "light": "day",
+      "time": 0,
+      "differingPixels": 0
+    },
+    {
+      "stage": 12,
+      "light": "day",
+      "time": 1,
+      "differingPixels": 0
+    },
+    {
+      "stage": 12,
+      "light": "day",
+      "time": 3,
+      "differingPixels": 0
+    },
+    {
+      "stage": 12,
+      "light": "sunset",
+      "time": 0,
+      "differingPixels": 0
+    },
+    {
+      "stage": 12,
+      "light": "sunset",
+      "time": 1,
+      "differingPixels": 0
+    },
+    {
+      "stage": 12,
+      "light": "sunset",
+      "time": 3,
+      "differingPixels": 0
+    },
+    {
+      "stage": 12,
+      "light": "night",
+      "time": 0,
+      "differingPixels": 0
+    },
+    {
+      "stage": 12,
+      "light": "night",
+      "time": 1,
+      "differingPixels": 0
+    },
+    {
+      "stage": 12,
+      "light": "night",
+      "time": 3,
+      "differingPixels": 0
+    }
+  ]
+}

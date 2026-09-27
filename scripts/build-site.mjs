@@ -1,3 +1,4 @@
+import { preparePixelTownHtml } from './pixel-town-html.mjs'
 import { execFileSync } from 'node:child_process'
 import {
   cp,
@@ -65,6 +66,10 @@ html = versionAssetReference(html, 'style.css', assetVersion)
 html = versionAssetReference(html, 'analytics.js', assetVersion)
 html = versionAssetReference(html, 'app.js', assetVersion)
 html = versionAssetReference(html, 'config.local.js', assetVersion)
+if (process.env.EDENIA_PIXEL_TOWN_ENABLED === 'true') {
+  const { buildPixelTown } = await import('./build-pixel-town.mjs')
+  html = preparePixelTownHtml(html, await buildPixelTown(outputDir), true)
+}
 await writeFile(resolve(outputDir, 'index.html'), html)
 
 let plusHtml = await readFile(resolve(projectRoot, 'plus', 'index.html'), 'utf8')
