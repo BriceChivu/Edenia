@@ -266,6 +266,16 @@ jobs:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
+        # Pair the heavier desktop preservation shards with lighter general shards.
+        include:
+          - shard: 1
+            preservationShard: 4
+          - shard: 2
+            preservationShard: 3
+          - shard: 3
+            preservationShard: 2
+          - shard: 4
+            preservationShard: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -286,10 +296,20 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
 
       - name: Run browser tests
+        id: general
         env:
           EDENIA_TEST_NORMAL_PORT: 4173
-          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/results.json
-        run: npx playwright test --shard=${{ matrix.shard }}/4 --reporter=dot,html,json
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/general
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/general/results.json
+        run: npx playwright test --shard=${{ matrix.shard }}/4 --grep-invert='preservation-smoke\.spec\.mjs' --output=test-results/general --reporter=dot,html,json
+
+      - name: Run preservation browser tests
+        if: ${{ !cancelled() && (steps.general.outcome == 'success' || steps.general.outcome == 'failure') }}
+        env:
+          EDENIA_TEST_NORMAL_PORT: 4173
+          PLAYWRIGHT_HTML_OUTPUT_DIR: playwright-report/preservation
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/preservation/results.json
+        run: npx playwright test preservation-smoke.spec.mjs --shard=${{ matrix.preservationShard }}/4 --output=test-results/preservation --reporter=dot,html,json
 
       - name: Upload Playwright diagnostics
         if: ${{ !cancelled() }}
