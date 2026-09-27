@@ -52,7 +52,7 @@ test('browsing saved cards crosses into older uploads without moving the shelf o
   expect(requests).toEqual([])
   await reachEnd(page)
   await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('150 videos')
-  expect(requests).toEqual(['', '50', '100'])
+  expect(requests).toEqual(['', '50', '', '100', '50'])
   expect(details).toEqual(ids.slice(50, 150))
   await expect(page.locator(`.video-card[data-video-id="${ids[49]}"]`)).toBeVisible()
   expect(await page.locator('.video-card').count()).toBeLessThan(25)
@@ -60,7 +60,7 @@ test('browsing saved cards crosses into older uploads without moving the shelf o
   await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('150 videos')
   await reachEnd(page)
   await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('250 videos')
-  expect(requests.slice(3)).toEqual(['100', '150', '200'])
+  expect(requests.slice(5)).toEqual(['100', '150', '100', '200', '150'])
   await reachEnd(page)
   await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('260 videos')
   await expect(page.locator('[data-upload-history-status]')).toHaveText('All available uploads loaded.')
@@ -70,7 +70,7 @@ test('a nonmatching format batch pauses until explicit continuation and keeps bo
   const { requests } = await setup(page, { shorts: true })
   await reachEnd(page)
   await expect(page.locator('[data-upload-history-status]')).toContainText('No more matching uploads in this batch.')
-  expect(requests).toHaveLength(3)
+  expect(requests).toHaveLength(5)
   if (['desktop-standard', 'phone-standard'].includes(testInfo.project.name)) {
     for (const theme of ['dark', 'light']) {
       await page.evaluate(theme => {
@@ -81,9 +81,9 @@ test('a nonmatching format batch pauses until explicit continuation and keeps bo
     }
   }
   await reachEnd(page)
-  expect(requests).toHaveLength(3)
+  expect(requests).toHaveLength(5)
   await page.getByRole('button', { name: 'Continue browsing' }).click()
-  await expect.poll(() => requests.length).toBe(6)
+  await expect.poll(() => requests.length).toBe(10)
   await expect(page.locator('[data-upload-history-status]')).toContainText('No more matching uploads in this batch.')
   await page.locator('[data-channel-video-format-action="select"][data-channel-video-format="shorts"]').click()
   await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('200 videos')
@@ -139,7 +139,7 @@ test('temporary failure can be retried after its cooldown', async ({ page }) => 
   await page.clock.fastForward(31_000)
   await page.getByRole('button', { name: 'Continue browsing' }).click()
   await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('150 videos')
-  expect(requests).toEqual(['', '50', '100'])
+  expect(requests).toEqual(['', '50', '', '100', '50'])
 })
 
 test('leaving the active profile during retrieval discards the result', async ({ page }) => {
@@ -215,7 +215,7 @@ test('two tabs do not perform the same in-flight history attempt', async ({ page
   expect(second.requests).toEqual([])
   release()
   await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('150 videos')
-  expect(first.requests).toHaveLength(3)
+  expect(first.requests).toHaveLength(5)
   await other.reload()
   await expect(other.locator('[data-channel-video-format-count-label]')).toHaveText('150 videos')
   await other.close()
@@ -252,7 +252,9 @@ test('trackpad scrolling and keyboard focus can cross the saved boundary', async
   await setup(page)
   const track = page.locator('.channel-shelf-track')
   await track.scrollIntoViewIfNeeded()
-  await track.hover()
+  // Keep the wheel gesture on the shelf gutter, outside card hover previews.
+  const bounds = await track.boundingBox()
+  await track.hover({ position: { x: bounds.width / 2, y: bounds.height - 1 } })
   await page.mouse.wheel(30000, 0)
   await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('150 videos')
   const lastSaved = page.locator(`.video-card[data-video-id="${ids[49]}"]`)
@@ -268,7 +270,7 @@ test('duplicate playlist entries reuse metadata and keep a complete navigable sa
   await reachEnd(page)
   await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('100 videos')
   expect(details).toEqual(ids.slice(50, 100))
-  expect(requests).toHaveLength(3)
+  expect(requests).toHaveLength(5)
   await reachEnd(page)
   await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('200 videos')
   await page.reload()
@@ -307,7 +309,7 @@ test('history browsing from a legacy library does not turn hourly checks back in
     localStorage.setItem('edenia_v1', JSON.stringify(s))
     return window.refreshFeed({ silent: true })
   }, channelId)
-  expect(requests).toHaveLength(4)
+  expect(requests).toHaveLength(6)
   await expect(page.locator('[data-channel-video-format-count-label]')).toHaveText('150 videos')
 })
 

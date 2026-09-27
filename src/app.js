@@ -16163,13 +16163,9 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
     channelOrder,
     configuredChannels,
     cardOptions.chronologicalOnly,
-    t('videos.search.youtube')
+    t('videos.search.youtube'),
+    cardOptions.historyChannels
   )
-  for (const channel of cardOptions.historyChannels || []) {
-    if (!groups.some(group => group.key === channel.id)) groups.push({
-      key: channel.id, title: channel.name, imageUrl: channel.imageUrl, catalogId: channel.catalogId, videos: []
-    })
-  }
   return groups.map((group, index) => {
     const preferredFormat = getSelectedChannelVideoFormat(
       cardOptions.channelVideoFormats,

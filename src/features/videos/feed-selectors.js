@@ -55,7 +55,8 @@ export function groupActiveVideosByChannel(
   channelOrder = [],
   configuredChannels = [],
   chronologicalOnly = false,
-  fallbackChannelTitle = ''
+  fallbackChannelTitle = '',
+  historyChannels = []
 ) {
   const groups = new Map()
   const configuredChannelsById = new Map(
@@ -77,6 +78,11 @@ export function groupActiveVideosByChannel(
     group.videos.push(video)
     groups.set(key, group)
   })
+  for (const channel of historyChannels) {
+    if (channel?.id && !groups.has(channel.id)) groups.set(channel.id, {
+      key: channel.id, title: channel.name, imageUrl: channel.imageUrl, catalogId: channel.catalogId, videos: []
+    })
+  }
   const orderedChannelIndexes = new Map(
     normalizeChannelShelfOrder(channelOrder).map((key, index) => [key, index])
   )

@@ -240,3 +240,14 @@ test('active visibility preserves hidden, Shorts, caps, manual isolation, and in
   const unlimited = getVisibleActiveVideos(input, false, { limitPerChannel: false })
   assert.equal(unlimited.filter(video => video.id.startsWith('regular-')).length, 6)
 })
+
+test('empty history shelves retain manual order before and after uploads arrive', () => {
+  const channels = [{ id: 'empty', name: 'Older uploads' }]
+  const populated = [{ id: 'v', channelId: 'populated', publishedAt: '2026-09-01' }]
+  const before = groupActiveVideosByChannel(populated, ['empty', 'populated'], channels, false, '', channels)
+  assert.deepEqual(before.map(group => group.key), ['empty', 'populated'])
+  assert.deepEqual(before[0].videos, [])
+  const after = groupActiveVideosByChannel([...populated, { id: 'older', channelId: 'empty' }], ['empty', 'populated'], channels, false, '', channels)
+  assert.deepEqual(after.map(group => group.key), ['empty', 'populated'])
+  assert.equal(after[0].videos.length, 1)
+})

@@ -15,7 +15,7 @@ const history = { pageToken: '50', anchorIds: ids.slice(50, 100), nextPageToken:
 test('history resumes from its retained boundary with a bounded batch and unique identities', async () => {
   const f = fixture()
   const result = await fetchOlderUploads({ ...f, history })
-  assert.deepEqual(f.requests, ['50', '100', '150'])
+  assert.deepEqual(f.requests, ['50', '100', '50', '150', '100'])
   assert.deepEqual(result.videos.map(v => v.id), ids.slice(50, 200))
   assert.equal(result.history.nextPageToken, '200')
   assert.equal(result.exhausted, false)
@@ -34,7 +34,7 @@ test('changed and retired cursors recover across bounded attempts without losing
       const result = await fetchOlderUploads({ ...f, history: cursor })
       result.videos.forEach(v => saved.add(v.id))
       cursor = JSON.parse(JSON.stringify(result.history))
-      assert.ok(f.requests.length - before <= 3)
+      assert.ok(f.requests.length - before <= 5)
       if (result.exhausted) break
     }
     assert.ok(changed.every(id => saved.has(id)))
@@ -68,7 +68,7 @@ test('small playlist shifts retain overlap and leave no gaps in older uploads', 
     const result = await fetchOlderUploads({ ...f, history })
     const saved = new Set([...ids.slice(0, 100), ...result.videos.map(video => video.id)])
     assert.ok(ids.slice(0, 190).every(id => saved.has(id)))
-    assert.equal(f.requests.length, 3)
+    assert.equal(f.requests.length, 5)
     assert.equal(f.requests[0], '50')
   }
 })
@@ -93,5 +93,43 @@ test('malformed retained cursors cannot falsely report an exhausted channel', as
   const f = fixture(ids.slice(0, 75))
   const result = await fetchOlderUploads({ ...f, history: { pageToken: 123, anchorIds: 'video', exhausted: 'yes' } })
   assert.deepEqual(result.videos.map(video => video.id), ids.slice(0, 75))
-  assert.deepEqual(f.requests, ['', '50'])
+  assert.deepEqual(f.requests, ['', '50', ''])
+})
+
+test('playlist removals between page requests recover without gaps or false exhaustion', async () => {
+  for (const mutationCall of [2, 3]) {
+    for (const maxPages of [3, 4, 5]) {
+      let uploads = ids
+      let calls = 0
+      let cursor = { pageToken: '', anchorIds: ids.slice(0, 50), nextPageToken: '50' }
+      const saved = new Set(ids.slice(0, 50))
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const before = calls
+        const result = await fetchOlderUploads({ maxPages, history: cursor, fetchPage: async token => {
+          if (++calls === mutationCall) uploads = ids.slice(10)
+          return fixture(uploads).fetchPage(token)
+        } })
+        assert.ok(calls - before <= maxPages)
+        result.videos.forEach(video => saved.add(video.id))
+        cursor = result.history
+        if (result.exhausted) break
+      }
+      assert.ok(uploads.every(id => saved.has(id)), 'every surviving upload must be retained')
+      assert.equal(cursor.exhausted, true)
+    }
+  }
+})
+
+test('cursor recovery cannot commit an unvalidated page when the allowance runs out', async () => {
+  const f = fixture(ids.slice(0, 75))
+  const result = await fetchOlderUploads({ maxPages: 3, history: { ...history, pageToken: 'retired' }, fetchPage: token => {
+    if (token === 'retired') throw Object.assign(Error('invalid'), { reasons: ['invalidPageToken'] })
+    return f.fetchPage(token)
+  } })
+  assert.equal(result.exhausted, false)
+  assert.equal(result.history.pageToken, '')
+  assert.deepEqual(result.videos.map(video => video.id), ids.slice(0, 50))
+  const next = await fetchOlderUploads({ ...f, history: result.history, maxPages: 3 })
+  assert.equal(next.exhausted, true)
+  assert.deepEqual(next.videos.map(video => video.id), ids.slice(0, 75))
 })
