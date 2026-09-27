@@ -30,7 +30,8 @@
     "verify:domain-migration": "node scripts/verify-domain-migration.mjs",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:update": "npm run build && playwright test --update-snapshots",
-    "test:ci": "npm run build && npm run test:contracts && npm run test:supabase && npm run test:auth-monitor-function && npm run test:reminder-function && npm run test:account-export-function && npm run test:legacy-progress-relay-function && playwright test"
+    "test:ci": "npm run build && npm run test:contracts && npm run test:supabase && npm run test:auth-monitor-function && npm run test:reminder-function && npm run test:account-export-function && npm run test:legacy-progress-relay-function && playwright test",
+    "prototype:pixel-town": "node scripts/serve-static.mjs --host localhost --port 4187 --root ."
   },
   "devDependencies": {
     "@playwright/test": "1.62.0",
