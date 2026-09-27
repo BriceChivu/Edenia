@@ -259,10 +259,18 @@ test('native horizontal wheel and touch gestures browse the window', async ({ pa
   const box = await track.boundingBox()
   if (testInfo.project.use.hasTouch) {
     const session = await page.context().newCDPSession(page)
-    await session.send('Input.synthesizeScrollGesture', {
-      x: box.x + box.width * .75, y: box.y + box.height / 2,
-      xDistance: -200, yDistance: 0, gestureSourceType: 'touch', speed: 600
+    const startX = box.x + box.width * .75
+    const y = box.y + box.height / 2
+    await session.send('Input.dispatchTouchEvent', {
+      type: 'touchStart', touchPoints: [{ x: startX, y }]
     })
+    for (let distance = 25; distance <= 200; distance += 25) {
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchMove', touchPoints: [{ x: startX - distance, y }]
+      })
+      await settle(page)
+    }
+    await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
     await session.detach()
   } else {
     await page.mouse.move(box.x + box.width / 2, box.y + box.height - 8)

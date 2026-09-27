@@ -167,7 +167,10 @@ export function createShelfWindow(track, { videos, render, bind, empty, isPinned
     // Build the complete spacer geometry before assigning the new scroll offset.
     if (!pitch) measure()
     update()
-    track.scrollTo({ left: Math.max(0, nextIndex * pitch - offset), behavior: 'instant' })
+    const nextLeft = Math.max(0, nextIndex * pitch - offset)
+    if (Math.abs(track.scrollLeft - nextLeft) > 1) {
+      track.scrollTo({ left: nextLeft, behavior: 'instant' })
+    }
     update()
     if (focus) {
       const focusIndex = nextIds.indexOf(focus.id)

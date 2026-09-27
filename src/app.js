@@ -10057,8 +10057,12 @@ function revealAddedVideoCard(videoId, state) {
   forcedSearchVideoId = targetVideoId
   renderAll(state)
   const revealCard = () => {
-    if (forcedSearchVideoId === targetVideoId) forcedSearchVideoId = null
     revealRenderedAddedVideoCard(targetVideoId)
+    // Retain the reveal's render options while scrolling and highlighting. A
+    // background feed update must not replace the card being observed.
+    window.setTimeout(() => {
+      if (forcedSearchVideoId === targetVideoId) forcedSearchVideoId = null
+    }, 2500)
   }
 
   if (usesTabletAddedVideoReveal()) {
@@ -15873,7 +15877,9 @@ function renderFeed(s, viewport = captureFeedViewport()) {
   }
   // Moving a section with insertBefore can reset nested scrollers and focus.
   for (const [track, left] of shelfScrollPositions) {
-    if (track.isConnected) track.scrollTo({ left, behavior: 'instant' })
+    if (track.isConnected && Math.abs(track.scrollLeft - left) > 1) {
+      track.scrollTo({ left, behavior: 'instant' })
+    }
   }
   if (feedFocus?.isConnected && document.activeElement !== feedFocus) feedFocus.focus({ preventScroll: true })
   pendingShelfGroups.forEach(({ group, trackId, cardOptions, selectedFormat }) => {
@@ -16306,6 +16312,7 @@ function syncVideoChannelShelfControls(track) {
   if (!track) return
   if (activeVideoShelfPreview && track.contains(activeVideoShelfPreview)) {
     const isPinnedPreview = activeVideoShelfPreview.dataset.videoId === activeNextStudyFocusVideoId
+      || activeVideoShelfPreview.classList.contains('is-layout-reanchoring')
     if (isPinnedPreview) {
       positionVideoShelfPreview(activeVideoShelfPreview)
     } else {
@@ -17644,6 +17651,7 @@ function patchVideoShelfPreview(state, videoId) {
 function refreshVideoActionUiPreservingPreview(state, videoId) {
   const card = patchVideoShelfPreview(state, videoId)
   if (!card) return
+  card.classList.add('is-layout-reanchoring')
   renderFeed(state)
   renderUndoButton(state)
   keepVideoShelfPreviewAnchoredAfterLayout(card, videoId)

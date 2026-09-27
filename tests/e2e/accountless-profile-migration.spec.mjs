@@ -1110,6 +1110,7 @@ test('first signed-in progress sync keeps an active one-channel town rendered wh
     releasePlaylist()
   }
 
+  await page.locator('#videoGrid').scrollIntoViewIfNeeded()
   await expect(page.getByText(HYDRATED_VIDEO_TITLE, { exact: true })).toBeVisible()
   await expect.poll(() => page.evaluate(syncKey => (
     JSON.parse(localStorage.getItem(syncKey))?.pending
