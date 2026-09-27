@@ -7,6 +7,11 @@ import {
   createPortableLearnerProfileEnvelope
 } from '../../src/state/portable-learner-profile.js'
 
+// Finish forwarded localhost fetches before Playwright disposes their request context.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'wait' })
+})
+
 const SUPABASE_ORIGIN = 'https://first-profile-test.supabase.co'
 const ACCOUNT_RETURN_ORIGIN = 'http://localhost:8000'
 const SERVED_APPLICATION_ORIGIN = `http://localhost:${Number(
