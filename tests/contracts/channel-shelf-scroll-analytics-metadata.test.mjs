@@ -291,7 +291,7 @@ test('scroll sync retains preview handling before edge-button state', () => {
 test('active-grid replacement retains generated controls and deferred initial sync', () => {
   assert.match(
     shelfRenderSource,
-    /return groupActiveVideosByChannel\([\s\S]*?\)\.map\(\(group, index\) => \{/
+    /const groups = groupActiveVideosByChannel\([\s\S]*?return groups\.map\(\(group, index\) => \{/
   )
   assert.match(
     shelfRenderSource,

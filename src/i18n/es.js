@@ -1,6 +1,12 @@
 import { EN_CORE } from './en.js'
 
 export const ES_LOCALIZED = {
+  'videos.history.loading': "Cargando vídeos anteriores…",
+  'videos.history.exhausted': "Se han cargado todos los vídeos disponibles.",
+  'videos.history.limited': "No hay más vídeos coincidentes en este lote.",
+  'videos.history.failed': "No se pudieron cargar los vídeos anteriores.",
+  'videos.history.continue': "Seguir explorando",
+
     'intro.skip': 'Omitir introducción',
     'intro.sound.off': 'Sonido desactivado',
     'intro.sound.on': 'Sonido activado',

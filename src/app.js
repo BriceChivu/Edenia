@@ -1,4 +1,6 @@
 import { resolveWindowAnchor } from './features/videos/window-anchor.js'
+import { fetchOlderUploads } from './integrations/youtube-upload-history.js'
+import { bindUploadHistoryActions } from './features/channels/upload-history-actions.js'
 import { createYoutubeRequestGate, isYoutubeQuotaError } from './integrations/youtube-quota.js'
 import { createCollectionWindow } from './features/videos/collection-window.js'
 import { createShelfWindow } from './features/videos/shelf-window.js'
@@ -1124,9 +1126,11 @@ function rememberPersistedPortableProfile(state) {
 
 function saveImportedState(state, options = {}) {
   if (INTERNAL_PROFILE_PAUSED) return { persisted: false, error: null }
-  return learnerProfileLifecycleAuthority
+  const result = learnerProfileLifecycleAuthority
     ? learnerProfileLifecycleAuthority.replaceActiveProfile(state, options)
     : saveImportedPersistedState(state, options)
+  if (result?.persisted) channelHistoryProfileEpoch += 1
+  return result
 }
 
 function saveState(state, options = {}) {
@@ -8609,7 +8613,7 @@ function hasAnyChannelRefreshTimestamp(s) {
 function markChannelRefreshSuccess(s, channelId, timestamp = new Date().toISOString(), coverage) {
   getChannelRefreshes(s)[channelId] = {
     ...getChannelRefreshes(s)[channelId],
-    ...(coverage ? { coverage } : {}),
+    ...(coverage ? { coverage: { ...coverage, history: s.channelRefreshes?.[channelId]?.coverage?.history || coverage.history } } : {}),
     lastFetchedAt: timestamp,
     lastError: null,
     lastFailedAt: null
@@ -8834,7 +8838,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       return { ok: true, sandbox: true }
     }
 
-    const s = loadState()
+    let s = loadState()
     originatingState = s
     if (!hasYoutubeApiKey()) {
       showToast(t('toast.apiKeyMissing'), 'warn')
@@ -8887,6 +8891,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     }
 
+    const pendingActivity = []
     const detailsById = {}
     for (const ch of channelsToRefresh) {
       try {
@@ -8900,7 +8905,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
           ch.name = first.channelTitle
         }
         completedCoverage.set(ch.id, coverage)
-        appendActivityLog(s, {
+        pendingActivity.push({
           actor: 'auto',
           type: 'youtube-refresh',
           status: 'success',
@@ -8911,7 +8916,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       } catch (err) {
         console.warn(`${ch.name}:`, err.message)
         markChannelRefreshError(s, ch.id, err)
-        appendActivityLog(s, {
+        pendingActivity.push({
           actor: 'auto',
           type: 'youtube-refresh',
           status: 'error',
@@ -8925,6 +8930,19 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     if (!isCurrentLearnerProfileOperation(s)) {
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     }
+
+    // History retrieval and study actions can finish while provider calls await.
+    // Apply fetched metadata to the latest library, never the request snapshot.
+    s = loadState()
+    if (!s) return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+    channelsToRefresh.forEach(channel => {
+      const current = s.config.channels.find(entry => entry.id === channel.id)
+      if (current) Object.assign(current, {
+        name: channel.name, imageUrl: channel.imageUrl, metadataFetchedAt: channel.metadataFetchedAt
+      })
+    })
+    pendingActivity.forEach(event => appendActivityLog(s, event))
+    errors.forEach(error => markChannelRefreshError(s, error.channelId, error))
 
     if (successfulChannels === 0) {
       if (!saveState(s)) {
@@ -15534,6 +15552,121 @@ function updateCityMilestoneImage(score, options = {}) {
   }
 }
 
+const channelHistoryRequests = new Set()
+let channelHistoryProfileEpoch = 0
+window.addEventListener('storage', event => {
+  if (event.key === STORAGE_KEY || event.key === null) channelHistoryProfileEpoch += 1
+})
+
+function channelCoverageWithHistory(state, channelId, history, fetched = []) {
+  const coverage = getChannelRefreshes(state)[channelId]?.coverage
+  if (Array.isArray(coverage?.headIds)) return { ...coverage, history }
+  // Browsing a legacy library establishes real playlist coverage too. Without
+  // its head boundary the next hourly check would mistake history for catch-up.
+  const head = (fetched.length ? fetched : Object.values(state.videos)
+    .filter(video => video.channelId === channelId && !video.manuallyAdded)
+    .sort(compareActiveVideos)).slice(0, FETCH_PAGE_SIZE)
+  const dates = head.map(video => Date.parse(video.publishedAt)).filter(Number.isFinite)
+  return {
+    ...coverage, headIds: head.map(video => video.id),
+    oldestPublishedAt: dates.length ? new Date(Math.min(...dates)).toISOString() : null,
+    history
+  }
+}
+
+async function loadOlderChannelUploads(track, entry, started) {
+  const origin = loadState()
+  const profileEpoch = channelHistoryProfileEpoch
+  let state = origin
+  const channelId = entry.group.key
+  const channel = state?.config?.channels?.find(channel => channel.id === channelId)
+  if (!channel || !hasYoutubeApiKey() || channelHistoryRequests.has(channelId)) return null
+  const current = () => isCurrentLearnerProfileOperation(origin)
+    && profileEpoch === channelHistoryProfileEpoch
+    && track.isConnected
+    && ['all', 'unwatched'].includes(selectedStatusFilter)
+    && loadState()?.config?.channels?.some(channel => channel.id === channelId)
+  const run = async () => {
+    if (!current()) return null
+    state = loadState()
+    const refresh = getChannelRefreshes(state)[channelId] || {}
+    const history = refresh.coverage?.history
+    if (history?.exhausted === true) return { exhausted: true }
+    if (history?.retryAt > Date.now()) return { failed: true, retryAt: history.retryAt }
+    started()
+    try {
+      const result = await fetchOlderUploads({
+        history,
+        fetchPage: token => {
+          if (!current()) throw new Error('Inactive profile')
+          return fetchChannelVideosPage(channel, token)
+        }
+      })
+      if (!current()) return null
+      // Retain both formats; a format selection must not punch holes in coverage.
+      state = loadState()
+      const details = await getFetchedVideoDetails(state, result.videos, true)
+      if (!current()) return null
+      state = loadState()
+      const previousVideos = new Map(result.videos.map(video => [video.id, state.videos[video.id]]))
+      const previousRefresh = getChannelRefreshes(state)[channelId]
+      mergeFetchedVideos(state, result.videos, details, true)
+      const latest = getChannelRefreshes(state)[channelId] || {}
+      state.channelRefreshes[channelId] = {
+        ...latest, coverage: channelCoverageWithHistory(state, channelId, result.history, result.videos)
+      }
+      if (!saveState(state)) {
+        previousVideos.forEach((video, id) => {
+          if (video) state.videos[id] = video
+          else delete state.videos[id]
+        })
+        if (previousRefresh) state.channelRefreshes[channelId] = previousRefresh
+        else delete state.channelRefreshes[channelId]
+        throw new Error('History could not be saved')
+      }
+      const known = new Set(entry.group.videos.map(video => video.id))
+      const added = result.videos.map(video => state.videos[video.id]).filter(video =>
+        !known.has(video.id) && !isHiddenFromVideoGrid(video)
+        && (getVideoStatus(video) === 'unwatched' || selectedStatusFilter === 'all' && getVideoStatus(video) === 'partial'))
+      renderFeed(state)
+      return { exhausted: result.exhausted, matched: added.some(video => getChannelVideoFormat(video) === entry.format) }
+    } catch (error) {
+      if (!current()) return null
+      state = loadState()
+      const retryAt = error.retryAt || Date.now() + 30_000
+      const latest = getChannelRefreshes(state)[channelId] || {}
+      state.channelRefreshes[channelId] = {
+        ...latest, coverage: channelCoverageWithHistory(state, channelId, { ...latest.coverage?.history, retryAt })
+      }
+      saveState(state)
+      return { failed: true, retryAt }
+    }
+  }
+  channelHistoryRequests.add(channelId)
+  try {
+    // Co-operating tabs never queue duplicate history work. The profile authority
+    // additionally fences an activation replaced by another tab or profile.
+    return navigator.locks?.request
+      ? await navigator.locks.request(`${STORAGE_KEY}:upload-history:${channelId}`, { ifAvailable: true }, lock => lock ? run() : { busy: true, retryAt: Date.now() + 1000 })
+      : await run()
+  } finally {
+    channelHistoryRequests.delete(channelId)
+  }
+}
+
+function syncChannelHistoryActions(track, entry) {
+  const enabled = !IS_SANDBOX && hasYoutubeApiKey() && ['all', 'unwatched'].includes(selectedStatusFilter)
+  const key = enabled ? `${selectedStatusFilter}:${entry.format}:${document.documentElement.lang}` : ''
+  if (entry.historyViewKey === key) return
+  entry.history?.destroy()
+  entry.history = null
+  entry.historyViewKey = key
+  if (enabled) entry.history = bindUploadHistoryActions(track, {
+    load: started => loadOlderChannelUploads(track, entry, started),
+    text: key => t(`videos.history.${key}`)
+  })
+}
+
 const videoShelfWindows = new Map()
 const videoCollectionWindows = new Map()
 const videoCollectionDefinitions = new Map()
@@ -15670,16 +15803,22 @@ function renderFeed(s, viewport = captureFeedViewport()) {
   }
 
   renderNextStudy(visibleActiveVideos, favoriteVideos)
+  const historyChannels = !IS_SANDBOX && hasYoutubeApiKey() && ['all', 'unwatched'].includes(statusFilter)
+    ? (s.config?.channels || []).filter(channel => channelFilters.has(channel.id)
+      && s.channelRefreshes?.[channel.id]
+      && (s.channelRefreshes[channel.id].coverage?.history?.exhausted !== true || retainedShelves.has(channel.id)))
+    : []
   const cardOptions = {
     currentDateKey: getCurrentAppDateKey(s),
     focusedVideoId: pendingAddedChannelReveal?.videoId || forcedSearchVideoId,
     arrivingChannelId: pendingAddedChannelReveal?.channelId || '',
     removedChannelIds,
     chronologicalOnly: statusFilter === 'favorite',
-    channelVideoFormats: s.config?.channelVideoFormats
+    channelVideoFormats: s.config?.channelVideoFormats,
+    historyChannels
   }
 
-  if (!activeVideos.length) {
+  if (!activeVideos.length && !historyChannels.length) {
     const channelMsg = channelFilters.size === getChannelFilterEntries(s).length ? '' : t('videos.empty.selectedChannels')
     const filterName = statusFilter === 'partial'
       ? t('videos.filter.inProgress')
@@ -15727,6 +15866,7 @@ function renderFeed(s, viewport = captureFeedViewport()) {
   const wantedKeys = new Set(pendingShelfGroups.map(({ group }) => group.key))
   for (const [track, entry] of videoShelfWindows) {
     if (wantedKeys.has(entry.group.key)) continue
+    entry.history?.destroy()
     entry.window.destroy()
     entry.shelf.remove()
     videoShelfWindows.delete(track)
@@ -15751,6 +15891,7 @@ function renderFeed(s, viewport = captureFeedViewport()) {
         retained.signature = signature
         retained.window.reconcile(group.videos.filter(video => getChannelVideoFormat(video) === selectedFormat))
       }
+      syncChannelHistoryActions(track, retained)
       return
     }
     const entry = { group, shelf, state: s, format: selectedFormat, cardOptions, signature,
@@ -15767,7 +15908,7 @@ function renderFeed(s, viewport = captureFeedViewport()) {
       patchPinned: video => patchVideoShelfPreview(entry.state, video.id)
     })
     videoShelfWindows.set(track, entry)
-
+    syncChannelHistoryActions(track, entry)
   })
   bindChannelShelfScrollActions(grid, {
     scroll: scrollVideoChannelShelf,
@@ -15956,6 +16097,7 @@ function applyChannelVideoFormatSelection(shelf, channelKey, format) {
   const videos = entry.group.videos.filter(video => getChannelVideoFormat(video) === selectedFormat)
   const visibleCount = videos.length
   entry.format = selectedFormat
+  syncChannelHistoryActions(shelf.querySelector('.channel-shelf-track'), entry)
   entry.window.replace(videos)
   shelf.querySelectorAll('[data-channel-video-format-action="select"]').forEach(button => {
     button.setAttribute(
@@ -16016,13 +16158,19 @@ function selectChannelVideoFormat(control, channelKey, format) {
 }
 
 function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], configuredChannels = []) {
-  return groupActiveVideosByChannel(
+  const groups = groupActiveVideosByChannel(
     videos,
     channelOrder,
     configuredChannels,
     cardOptions.chronologicalOnly,
     t('videos.search.youtube')
-  ).map((group, index) => {
+  )
+  for (const channel of cardOptions.historyChannels || []) {
+    if (!groups.some(group => group.key === channel.id)) groups.push({
+      key: channel.id, title: channel.name, imageUrl: channel.imageUrl, catalogId: channel.catalogId, videos: []
+    })
+  }
+  return groups.map((group, index) => {
     const preferredFormat = getSelectedChannelVideoFormat(
       cardOptions.channelVideoFormats,
       group.key
@@ -16174,7 +16322,7 @@ function syncVideoChannelShelfControls(track) {
   const previousButton = shelf?.querySelector('[data-shelf-direction="-1"]')
   const nextButton = shelf?.querySelector('[data-shelf-direction="1"]')
   if (previousButton) previousButton.disabled = atStart
-  if (nextButton) nextButton.disabled = atEnd
+  if (nextButton) nextButton.disabled = atEnd && (!videoShelfWindows.get(track)?.history || track.dataset.historyExhausted === 'true')
 }
 
 function scrollVideoChannelShelf(button, direction) {

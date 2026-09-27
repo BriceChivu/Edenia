@@ -1,4 +1,10 @@
 export const EN_CORE = {
+  'videos.history.loading': "Loading older uploads…",
+  'videos.history.exhausted': "All available uploads loaded.",
+  'videos.history.limited': "No more matching uploads in this batch.",
+  'videos.history.failed': "Older uploads could not be loaded.",
+  'videos.history.continue': "Continue browsing",
+
   'app.title.sandbox': 'Sandbox - Edenia',
   'intro.skip': 'Skip intro',
   'intro.sound.off': 'Sound off',
