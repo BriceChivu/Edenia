@@ -1,3 +1,4 @@
+import { checkNewUploads } from './integrations/youtube-upload-check.js'
 /* ═══════════════════════════════════════════════════════════
    EDENIA — app.js
    All logic: state, YouTube API, streak, Anki, city, rendering
@@ -4657,7 +4658,7 @@ async function prepareStarterFeedChannel(catalogId, queuedAt) {
   let detailsById = {}
   let fetchError = null
   try {
-    fetchResult = await fetchChannelVideos(channel, snapshot.videos)
+    fetchResult = await fetchChannelVideos(channel, snapshot.videos, snapshot.channelRefreshes?.[channel.id])
     videos = dedupeVideos(fetchResult.videos)
     detailsById = await getFetchedVideoDetails(snapshot, videos, includeShorts)
   } catch (error) {
@@ -4695,7 +4696,7 @@ async function prepareStarterFeedChannel(catalogId, queuedAt) {
   if (first?.channelTitle && storedChannel && first.channelTitle !== storedChannel.name) {
     storedChannel.name = first.channelTitle
   }
-  markChannelRefreshSuccess(latestState, channel.id)
+  markChannelRefreshSuccess(latestState, channel.id, undefined, fetchResult.coverage)
   appendActivityLog(latestState, {
     actor: 'auto',
     type: 'youtube-refresh',
@@ -7849,7 +7850,7 @@ async function addChannel(options = {}) {
     }
     return
   }
-  addTrackedYoutubeChannelToState(s, { id, name, imageUrl: resolved.thumbnail || '' })
+  addTrackedYoutubeChannelToState(s, { id, name, imageUrl: resolved.thumbnail || '', metadataFetchedAt: resolved.metadataFetchedAt })
   appendActivityLog(s, {
     actor: 'user',
     type: 'channel-add',
@@ -8195,7 +8196,8 @@ async function fetchYoutubeChannelByFilter(filter, value) {
   return {
     id: item.id,
     name: item.snippet?.title || item.id,
-    thumbnail: getBestThumbnail(item.snippet?.thumbnails)
+    thumbnail: getBestThumbnail(item.snippet?.thumbnails),
+    metadataFetchedAt: new Date().toISOString()
   }
 }
 
@@ -8233,10 +8235,16 @@ async function fetchChannelVideosPage(channel, pageToken = '') {
   }
 }
 
+function isYoutubeMetadataFresh(record) {
+  const fetchedAt = Date.parse(record?.metadataFetchedAt)
+  const age = Date.now() - fetchedAt
+  return Number.isFinite(age) && age >= 0 && age < 29 * 86_400_000
+}
+
 async function hydrateYoutubeChannelProfiles(channels = []) {
   const missingChannels = Array.from(new Map(
     channels
-      .filter(channel => channel?.id && !channel.imageUrl)
+      .filter(channel => channel?.id && (!channel.imageUrl || !isYoutubeMetadataFresh(channel)))
       .map(channel => [channel.id, channel])
   ).values())
   let updatedCount = 0
@@ -8253,6 +8261,8 @@ async function hydrateYoutubeChannelProfiles(channels = []) {
       const imageUrl = getBestThumbnail(profile?.snippet?.thumbnails)
       if (!imageUrl) return
       channel.imageUrl = imageUrl
+      channel.name = profile.snippet?.title || channel.name
+      channel.metadataFetchedAt = new Date().toISOString()
       updatedCount += 1
     })
   }
@@ -8261,12 +8271,15 @@ async function hydrateYoutubeChannelProfiles(channels = []) {
 }
 
 async function fetchVideoMetadata(videoId) {
+  const cached = loadState()?.videos?.[videoId]
+  if (cached && isYoutubeMetadataFresh(cached)) return { ...cached }
   const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,player&maxWidth=1920&maxHeight=1080&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(getYoutubeApiKey())}`
   const data = await ytFetch(url)
   const item = data.items?.[0]
   if (!item) throw new Error(t('toast.videoNotFound'))
   const channelId = item.snippet?.channelId || 'manual-youtube'
-  const channelProfile = YOUTUBE_CHANNEL_ID_RE.test(channelId)
+  const cachedChannel = loadState()?.config?.channels?.find(channel => channel.id === channelId && channel.imageUrl && isYoutubeMetadataFresh(channel))
+  const channelProfile = cachedChannel ? { thumbnail: cachedChannel.imageUrl } : YOUTUBE_CHANNEL_ID_RE.test(channelId)
     ? await fetchYoutubeChannelByFilter('id', channelId).catch(err => {
         console.warn('Could not load the manually added video channel profile:', err)
         return null
@@ -8282,6 +8295,7 @@ async function fetchVideoMetadata(videoId) {
     publishedAt: item.snippet?.publishedAt || new Date().toISOString(),
     duration: parseDuration(item.contentDetails?.duration),
     aspectRatio: getVideoAspectRatioFromItem(item),
+    metadataFetchedAt: new Date().toISOString(),
     source: 'manual',
     manuallyAdded: true
   }
@@ -8412,7 +8426,7 @@ function getRefreshCandidateDetails(s, videos) {
     const existing = s.videos[video.id]
     const videoAspectRatio = normalizeVideoAspectRatio(video.aspectRatio)
     const existingAspectRatio = normalizeVideoAspectRatio(existing?.aspectRatio)
-    if (Number.isFinite(Number(video.duration)) && videoAspectRatio !== null) {
+    if (isYoutubeMetadataFresh(video) && Number.isFinite(Number(video.duration)) && videoAspectRatio !== null) {
       detailsById[video.id] = {
         duration: Number(video.duration),
         aspectRatio: videoAspectRatio,
@@ -8420,7 +8434,7 @@ function getRefreshCandidateDetails(s, videos) {
         shortsCheckedAt: video.shortsCheckedAt || null,
         shortsDetectionVersion: video.shortsDetectionVersion || null
       }
-    } else if (existing && typeof existing.duration === 'number' && existingAspectRatio !== null) {
+    } else if (existing && isYoutubeMetadataFresh(existing) && typeof existing.duration === 'number' && existingAspectRatio !== null) {
       detailsById[video.id] = {
         duration: existing.duration,
         aspectRatio: existingAspectRatio,
@@ -8433,35 +8447,16 @@ function getRefreshCandidateDetails(s, videos) {
   return detailsById
 }
 
-async function fetchChannelVideos(channel, knownVideos = {}) {
-  const fetched = []
-  const seenVideoIds = new Set()
-  let newCount = 0
-  const requestedPageTokens = new Set()
-  let pageToken = ''
-
-  // Start at the newest uploads on every refresh. Walking past cached IDs
-  // naturally resumes older history without a saved cursor that can skip
-  // uploads when the playlist changes. Keep cached metadata fresh too, but
-  // only unseen IDs consume the 50-video allowance.
-  while (newCount < FETCH_PAGE_SIZE) {
-    if (requestedPageTokens.has(pageToken)) {
-      throw new Error('YouTube returned a repeated uploads page token')
-    }
-    requestedPageTokens.add(pageToken)
-    const page = await fetchChannelVideosPage(channel, pageToken)
-    for (const video of page.videos) {
-      if (!video.id || seenVideoIds.has(video.id)) continue
-      seenVideoIds.add(video.id)
-      fetched.push(video)
-      if (!knownVideos[video.id]) newCount += 1
-      if (newCount === FETCH_PAGE_SIZE) break
-    }
-    if (!page.nextPageToken) break
-    pageToken = page.nextPageToken
-  }
-
-  return { videos: fetched, filteredShorts: 0 }
+async function fetchChannelVideos(channel, knownVideos = {}, refresh = null) {
+  const legacyIds = refresh?.lastFetchedAt && !refresh?.coverage
+    ? Object.values(knownVideos).filter(video => video.channelId === channel.id && !video.manuallyAdded).map(video => video.id)
+    : []
+  const result = await checkNewUploads({
+    fetchPage: token => fetchChannelVideosPage(channel, token),
+    coverage: refresh?.coverage,
+    legacyIds
+  })
+  return { ...result, filteredShorts: 0 }
 }
 
 async function fetchVideoDetails(videoIds, { detectShorts = false } = {}) {
@@ -8470,7 +8465,22 @@ async function fetchVideoDetails(videoIds, { detectShorts = false } = {}) {
     const batch = videoIds.slice(i, i + 50).join(',')
     const url   = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,player&maxWidth=1920&maxHeight=1080&id=${batch}&key=${encodeURIComponent(getYoutubeApiKey())}`
     const data  = await ytFetch(url)
-    data.items.forEach(item => { result[item.id] = getVideoDetailFromItem(item) })
+    data.items.forEach(item => { result[item.id] = {
+      ...getVideoDetailFromItem(item),
+      ...(item.snippet ? {
+        title: item.snippet.title,
+        channelTitle: item.snippet.channelTitle,
+        thumbnail: getBestThumbnail(item.snippet.thumbnails),
+        publishedAt: item.snippet.publishedAt
+      } : {}),
+      metadataFetchedAt: new Date().toISOString(), metadataUnavailable: false
+    } })
+    videoIds.slice(i, i + 50).forEach(id => {
+      if (!result[id]) result[id] = {
+        title: '', thumbnail: '', channelTitle: '', publishedAt: null,
+        metadataFetchedAt: new Date().toISOString(), metadataUnavailable: true
+      }
+    })
   }
   if (detectShorts) {
     const checkedAt = new Date().toISOString()
@@ -8548,8 +8558,10 @@ function hasAnyChannelRefreshTimestamp(s) {
   return Object.values(getChannelRefreshes(s)).some(entry => isValidTimestamp(entry?.lastFetchedAt))
 }
 
-function markChannelRefreshSuccess(s, channelId, timestamp = new Date().toISOString()) {
+function markChannelRefreshSuccess(s, channelId, timestamp = new Date().toISOString(), coverage) {
   getChannelRefreshes(s)[channelId] = {
+    ...getChannelRefreshes(s)[channelId],
+    ...(coverage ? { coverage } : {}),
     lastFetchedAt: timestamp,
     lastError: null,
     lastFailedAt: null
@@ -8559,6 +8571,7 @@ function markChannelRefreshSuccess(s, channelId, timestamp = new Date().toISOStr
 function markChannelRefreshError(s, channelId, error) {
   const refreshes = getChannelRefreshes(s)
   refreshes[channelId] = {
+    ...refreshes[channelId],
     lastFetchedAt: refreshes[channelId]?.lastFetchedAt || null,
     lastError: String(error?.message || error || 'Refresh failed'),
     lastFailedAt: new Date().toISOString()
@@ -8660,7 +8673,9 @@ function mergeFetchedVideos(s, videos, detailsById, includeShorts) {
     const detail = detailsById[v.id] || {}
     const duration = detail.duration ?? v.duration ?? existing?.duration ?? 0
     s.videos[v.id] = {
+      ...existing,
       ...v,
+      ...detail,
       duration,
       aspectRatio: normalizeVideoAspectRatio(
         detail.aspectRatio ?? v.aspectRatio ?? existing?.aspectRatio
@@ -8797,6 +8812,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     const all    = []
     const errors = []
     let successfulChannels = 0
+    const completedCoverage = new Map()
     let filteredShortsDuringFetch = 0
     const includeShorts = getEffectiveIncludeShorts(s)
 
@@ -8811,7 +8827,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
 
     await Promise.all(channelsToRefresh.map(async ch => {
       try {
-        const { videos: vids, filteredShorts } = await fetchChannelVideos(ch, s.videos)
+        const { videos: vids, filteredShorts, coverage } = await fetchChannelVideos(ch, s.videos, s.channelRefreshes?.[ch.id])
         successfulChannels += 1
         all.push(...vids)
         filteredShortsDuringFetch += filteredShorts
@@ -8819,7 +8835,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
         if (first?.channelTitle && first.channelTitle !== ch.name) {
           ch.name = first.channelTitle
         }
-        markChannelRefreshSuccess(s, ch.id)
+        completedCoverage.set(ch.id, coverage)
         appendActivityLog(s, {
           actor: 'auto',
           type: 'youtube-refresh',
@@ -8861,12 +8877,15 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       return { ok: false, mergedCount: 0, successfulChannels, errors }
     }
 
-    const unique = dedupeVideos(all)
+    // Maintenance only revisits saved identities; it never walks older uploads.
+    const staleMetadata = Object.values(s.videos).filter(video => !isYoutubeMetadataFresh(video))
+    const unique = dedupeVideos([...all, ...staleMetadata])
     const detailsById = await getFetchedVideoDetails(s, unique, includeShorts)
     if (!isCurrentLearnerProfileOperation(s)) {
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     }
     const mergeResult = mergeFetchedVideos(s, unique, detailsById, includeShorts)
+    completedCoverage.forEach((coverage, channelId) => markChannelRefreshSuccess(s, channelId, undefined, coverage))
     const mergedCount = mergeResult.mergedCount
     const skippedShorts = filteredShortsDuringFetch + mergeResult.skippedShorts
     if (skippedShorts) {
@@ -8991,7 +9010,7 @@ async function refreshAddedChannel(channelId, options = {}) {
     if (!isCurrentLearnerProfileOperation(s)) return
 
     const includeShorts = getEffectiveIncludeShorts(s)
-    const fetchResult = await fetchChannelVideos(channel, s.videos)
+    const fetchResult = await fetchChannelVideos(channel, s.videos, s.channelRefreshes?.[channel.id])
     if (!isCurrentLearnerProfileOperation(s)) return
     const videos = dedupeVideos(fetchResult.videos)
     const first = videos[0]
@@ -9020,7 +9039,7 @@ async function refreshAddedChannel(channelId, options = {}) {
       return
     }
 
-    markChannelRefreshSuccess(s, channel.id)
+    markChannelRefreshSuccess(s, channel.id, undefined, fetchResult.coverage)
     appendActivityLog(s, {
       actor: 'auto',
       type: 'youtube-refresh',

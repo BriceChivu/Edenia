@@ -5,7 +5,7 @@ const now = new Date('2026-09-24T04:00:00.000Z')
 const oldIds = Array.from({ length: 180 }, (_, index) => `old${String(index).padStart(8, '0')}`)
 const newIds = ['new00000001', 'new00000002', 'new00000003']
 
-test('hourly refresh adds newest uploads then older history up to 50, and continues after reload', async ({ page }) => {
+test('hourly refresh stops at saved coverage and remains unchanged after reload', async ({ page }) => {
   const listRequests = []
   const detailRequests = []
   await page.clock.install({ time: now })
@@ -39,7 +39,7 @@ test('hourly refresh adds newest uploads then older history up to 50, and contin
   await page.evaluate(({ channelId, oldIds, timestamp }) => {
     const state = window.defaultState(4, [], 'light', [], 'en')
     state.config.ankiEnabled = false
-    state.config.channels = [{ id: channelId, name: 'Hourly channel', imageUrl: '/images/brands/youtube.svg' }]
+    state.config.channels = [{ id: channelId, name: 'Hourly channel', imageUrl: '/images/brands/youtube.svg', metadataFetchedAt: timestamp }]
     state.onboarding.introSeenAt = timestamp
     state.onboarding.setupCompleted = true
     state.onboarding.setupCompletedAt = timestamp
@@ -48,7 +48,7 @@ test('hourly refresh adds newest uploads then older history up to 50, and contin
     state.channelRefreshes = { [channelId]: { lastFetchedAt: timestamp, lastError: null, lastFailedAt: null } }
     state.videos = Object.fromEntries(oldIds.slice(0, 50).map(id => [id, {
       id, channelId, channelTitle: 'Hourly channel', title: id,
-      duration: 600, aspectRatio: 16 / 9, status: 'unwatched', publishedAt: timestamp
+      metadataFetchedAt: timestamp, duration: 600, aspectRatio: 16 / 9, status: 'unwatched', publishedAt: timestamp
     }]))
     state.videos[oldIds[0]].favorite = true
     state.videos[oldIds[0]].status = 'partial'
@@ -65,16 +65,17 @@ test('hourly refresh adds newest uploads then older history up to 50, and contin
   expect(listRequests).toHaveLength(0)
 
   await page.clock.fastForward(60_000)
-  await expect.poll(savedIds).toEqual([...newIds, ...oldIds.slice(0, 97)].sort())
-  expect(listRequests).toHaveLength(2)
-  expect(detailRequests).toEqual([[...newIds, ...oldIds.slice(50, 97)]])
+  await expect.poll(savedIds).toEqual([...newIds, ...oldIds.slice(0, 50)].sort())
+  expect(listRequests).toHaveLength(1)
+  expect(detailRequests).toEqual([newIds])
 
   await page.reload()
   await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
-  expect(listRequests).toHaveLength(2)
+  expect(listRequests).toHaveLength(1)
   await page.clock.fastForward(60 * 60_000)
-  await expect.poll(savedIds).toEqual([...newIds, ...oldIds.slice(0, 147)].sort())
-  expect(detailRequests[1]).toEqual(oldIds.slice(97, 147))
+  await expect.poll(savedIds).toEqual([...newIds, ...oldIds.slice(0, 50)].sort())
+  expect.poll(() => listRequests.length).toBe(2)
+  expect(detailRequests).toEqual([newIds])
   const retained = await page.evaluate(id => JSON.parse(localStorage.getItem('edenia_v1')).videos[id], oldIds[0])
   expect(retained).toMatchObject({ favorite: true, status: 'partial', resumeAtSeconds: 20 })
 })

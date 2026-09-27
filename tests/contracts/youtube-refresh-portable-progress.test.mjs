@@ -42,6 +42,7 @@ function createRefreshHarness(options = {}) {
   const renders = []
   const context = vm.createContext({
     IS_SANDBOX: false,
+    isYoutubeMetadataFresh: () => true,
     starterFeedPreparationPromise: null,
     document: { getElementById: () => null },
     console: { error: error => { throw error }, warn() {} },

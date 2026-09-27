@@ -93,3 +93,12 @@ test('channel refresh normalization handles null and malformed channel collectio
     TypeError
   )
 })
+
+test('successful coverage and pending catch-up survive state normalization and reload', () => {
+  const coverage = { headIds: ['newest'], pending: { pageToken: '100', anchorIds: ['anchor'], headIds: ['new-head'] }, history: { nextPageToken: '50' } }
+  const state = { config: { channels: [{ id: 'one' }] }, channelRefreshes: { one: { lastFetchedAt: fetchedAt, coverage } } }
+  normalizeChannelRefreshState(state)
+  const restored = JSON.parse(JSON.stringify(state))
+  normalizeChannelRefreshState(restored)
+  assert.deepEqual(restored.channelRefreshes.one.coverage, coverage)
+})
