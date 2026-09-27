@@ -90,3 +90,8 @@ test('YouTube adapter preserves structured reasons for cursor recovery', async (
   vm.runInContext(section('async function ytFetch(', '\nasync function fetchYoutubeChannelByFilter('), h.context)
   await assert.rejects(h.context.ytFetch('https://example.com'), error => error.reasons[0] === 'invalidPageToken' && error.status === 400)
 })
+test('an unavailable cached video is revalidated instead of being accepted as a valid addition', async () => {
+  const h = harness({ gone: { id: 'gone', metadataFetchedAt: new Date().toISOString(), metadataUnavailable: true } })
+  h.context.ytFetch = async () => ({ items: [] })
+  await assert.rejects(h.context.fetchVideoMetadata('gone'), /toast.videoNotFound/)
+})

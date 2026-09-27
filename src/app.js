@@ -8272,7 +8272,7 @@ async function hydrateYoutubeChannelProfiles(channels = []) {
 
 async function fetchVideoMetadata(videoId) {
   const cached = loadState()?.videos?.[videoId]
-  if (cached && isYoutubeMetadataFresh(cached)) return { ...cached }
+  if (cached && !cached.metadataUnavailable && isYoutubeMetadataFresh(cached)) return { ...cached }
   const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,player&maxWidth=1920&maxHeight=1080&id=${encodeURIComponent(videoId)}&key=${encodeURIComponent(getYoutubeApiKey())}`
   const data = await ytFetch(url)
   const item = data.items?.[0]
@@ -8297,6 +8297,7 @@ async function fetchVideoMetadata(videoId) {
     duration: parseDuration(item.contentDetails?.duration),
     aspectRatio: getVideoAspectRatioFromItem(item),
     metadataFetchedAt: new Date().toISOString(),
+    metadataUnavailable: false,
     source: 'manual',
     manuallyAdded: true
   }
@@ -10115,6 +10116,7 @@ async function addVideoFromUrl(event) {
       ...metadata,
       ...existing,
       metadataFetchedAt: metadata.metadataFetchedAt,
+      metadataUnavailable: false,
       id: videoId,
       title: metadata.title || existing?.title || t('videos.search.untitled'),
       channelTitle: metadata.channelTitle || existing?.channelTitle || 'YouTube',
