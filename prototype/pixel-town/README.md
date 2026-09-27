@@ -4,7 +4,7 @@ Question: Which overhead composition, pixel language, and local-time lighting sh
 
 Decision ticket: [Approve the pixel-town art, lighting, and responsive composition](https://github.com/BriceChivu/Edenia/issues/347).
 
-**Owner verdict: pending.** This is a visual discussion artifact, not accepted artwork or a production renderer.
+**Owner verdict: first pass rejected.** The owner did not like this overhead pass and considered it far from Pokémon quality. The overhead direction is set aside for now. See [the second, isometric study](isometric/README.md), which reinterprets the existing town visuals in pixels with only two stages and three lighting treatments. Neither pass is accepted artwork or a production renderer.
 
 ## Run
 
