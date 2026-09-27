@@ -1,3 +1,4 @@
+import { createYoutubeRequestGate, isYoutubeQuotaError } from './integrations/youtube-quota.js'
 import { isYoutubeMetadataFresh, expireYoutubeMetadata, refreshSavedYoutubeMetadata } from './integrations/youtube-metadata-cache.js'
 import { checkNewUploads } from './integrations/youtube-upload-check.js'
 /* ═══════════════════════════════════════════════════════════
@@ -6731,7 +6732,7 @@ async function initializeRequestedReminderDestination() {
     openRequestedVideo(false)
   } catch (error) {
     console.warn('Could not open the requested reminder video:', error)
-    showToast(error?.message || t('toast.addVideoFailed'), 'error')
+    if (!recordYoutubeQuotaError(error)) showToast(error?.message || t('toast.addVideoFailed'), 'error')
   }
 }
 
@@ -7845,7 +7846,7 @@ async function addChannel(options = {}) {
         }
       : await resolveYoutubeChannelInput(raw)
   } catch (err) {
-    showToast(err.message || t('toast.channelInvalid'), 'warn')
+    if (!recordYoutubeQuotaError(err)) showToast(err.message || t('toast.channelInvalid'), 'warn')
     idEl?.focus()
     return
   }
@@ -8193,24 +8194,39 @@ async function undoStartOver() {
 // YOUTUBE API
 // ════════════════════════════════════════════════════════════
 
+let youtubeRequestGate
+
+function recordYoutubeQuotaError(error) {
+  if (!isYoutubeQuotaError(error)) return false
+  const state = loadState()
+  if (!state) return true
+  const quotaId = `${error.bucket}:${error.retryAt}`
+  if (!state.activityLog?.some(entry => entry.meta?.youtubeQuotaId === quotaId)) {
+    appendActivityLog(state, {
+      actor: 'auto', type: 'youtube-refresh', status: 'error',
+      title: t('log.refreshFailed.title'),
+      detail: error.message,
+      meta: { youtubeQuotaId: quotaId, reasons: error.reasons, retryAt: error.retryAt, bucket: error.bucket }
+    })
+    saveState(state, { backup: false })
+    renderActivityLog(state)
+  }
+  return true
+}
+
 async function ytFetch(url) {
-  const controller = new AbortController()
-  const timeout = window.setTimeout(() => controller.abort(), YOUTUBE_REQUEST_TIMEOUT_MS)
+  youtubeRequestGate ||= createYoutubeRequestGate({
+    namespace: `${STORAGE_KEY}_youtube_quota`, timeoutMs: YOUTUBE_REQUEST_TIMEOUT_MS
+  })
   try {
-    const res = await fetch(url, { signal: controller.signal })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      const error = new Error(err?.error?.message || `HTTP ${res.status}`)
-      error.reasons = (err?.error?.errors || []).map(entry => entry.reason).filter(Boolean)
-      error.status = res.status
-      throw error
-    }
-    return res.json()
+    return await youtubeRequestGate(url)
   } catch (error) {
+    if (isYoutubeQuotaError(error)) {
+      error.message = t('log.youtubeQuota.detail', { time: formatLocaleDateTime(new Date(error.retryAt)) })
+      recordYoutubeQuotaError(error)
+    }
     if (error?.name === 'AbortError') throw new Error(t('toast.youtubeRequestTimeout'))
     throw error
-  } finally {
-    window.clearTimeout(timeout)
   }
 }
 
@@ -8564,7 +8580,8 @@ function getChannelRefreshWaitMs(s, channelId) {
   const failureWait = lastFailedMs
     ? Math.max(0, YOUTUBE_REFRESH_ERROR_BACKOFF_MS - (Date.now() - lastFailedMs))
     : 0
-  return Math.max(successWait, failureWait)
+  const quotaWait = Math.max(0, (getChannelRefreshes(s)[channelId]?.quotaRetryAt || 0) - Date.now())
+  return Math.max(successWait, failureWait, quotaWait)
 }
 
 function isChannelRefreshDue(s, channelId) {
@@ -8586,6 +8603,7 @@ function markChannelRefreshSuccess(s, channelId, timestamp = new Date().toISOStr
     ...(coverage ? { coverage } : {}),
     lastFetchedAt: timestamp,
     lastError: null,
+    quotaRetryAt: null,
     lastFailedAt: null
   }
 }
@@ -8596,7 +8614,8 @@ function markChannelRefreshError(s, channelId, error) {
     ...refreshes[channelId],
     lastFetchedAt: refreshes[channelId]?.lastFetchedAt || null,
     lastError: String(error?.message || error || 'Refresh failed'),
-    lastFailedAt: new Date().toISOString()
+    lastFailedAt: isYoutubeQuotaError(error) ? null : new Date().toISOString(),
+    quotaRetryAt: isYoutubeQuotaError(error) ? error.retryAt : null
   }
 }
 
@@ -8860,9 +8879,11 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     }
 
-    await Promise.all(channelsToRefresh.map(async ch => {
+    const detailsById = {}
+    for (const ch of channelsToRefresh) {
       try {
         const { videos: vids, filteredShorts, coverage } = await fetchChannelVideos(ch, s.videos, s.channelRefreshes?.[ch.id])
+        Object.assign(detailsById, await getFetchedVideoDetails(s, vids, includeShorts))
         successfulChannels += 1
         all.push(...vids)
         filteredShortsDuringFetch += filteredShorts
@@ -8890,9 +8911,9 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
           detail: `${ch.name}: ${err.message || t('log.unknownError')}`,
           meta: { channelId: ch.id }
         })
-        errors.push({ channelId: ch.id, name: ch.name, message: err.message || t('log.unknownError') })
+        errors.push({ channelId: ch.id, name: ch.name, kind: err.kind, message: err.message || t('log.unknownError') })
       }
-    }))
+    }
     if (!isCurrentLearnerProfileOperation(s)) {
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     }
@@ -8901,7 +8922,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       if (!saveState(s)) {
         return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
       }
-      showToast(t('toast.refreshFailedChannels', { count: errors.length, plural: errors.length > 1 ? 's' : '' }), 'error')
+      if (errors.some(error => error.kind !== 'daily-quota')) showToast(t('toast.refreshFailedChannels', { count: errors.length, plural: errors.length > 1 ? 's' : '' }), 'error')
       trackRefreshCompleted(refreshStartedAtMs, {
         trigger,
         result: 'failure',
@@ -8913,7 +8934,6 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     }
 
     const unique = dedupeVideos(all)
-    const detailsById = await getFetchedVideoDetails(s, unique, includeShorts)
     if (!isCurrentLearnerProfileOperation(s)) {
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     }
@@ -8941,7 +8961,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     const msg = errors.length
       ? t('toast.refreshLoadedWithErrors', { count: mergedCount, shorts: shortsMsg, errors: errors.length, plural: errors.length > 1 ? 's' : '' })
       : t('toast.refreshLoaded', { count: mergedCount, channels: successfulChannels, plural: successfulChannels === 1 ? '' : 's', shorts: shortsMsg })
-    if (!silent || errors.length) showToast(msg, errors.length ? 'warn' : 'success')
+    if ((!silent || errors.length) && !errors.some(error => error.kind === 'daily-quota')) showToast(msg, errors.length ? 'warn' : 'success')
     trackRefreshCompleted(refreshStartedAtMs, {
       trigger,
       result: errors.length ? 'partial' : 'success',
@@ -8978,7 +8998,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       })
       saveState(s)
     }
-    showToast(t('toast.refreshFailed', { message: err.message }), 'error')
+    if (!recordYoutubeQuotaError(err)) showToast(t('toast.refreshFailed', { message: err.message }), 'error')
     trackRefreshCompleted(refreshStartedAtMs, {
       trigger,
       result: 'failure',
@@ -9140,7 +9160,7 @@ async function refreshAddedChannel(channelId, options = {}) {
       })
       saveState(s)
     }
-    showToast(t('toast.channelAddLoadFailed', { message: err.message }), 'warn')
+    if (!recordYoutubeQuotaError(err)) showToast(t('toast.channelAddLoadFailed', { message: err.message }), 'warn')
     trackRefreshCompleted(refreshStartedAtMs, {
       trigger: 'channel_added',
       result: 'failure',
@@ -10225,7 +10245,7 @@ async function addVideoFromUrl(event) {
     }
   } catch (err) {
     console.warn(err)
-    showToast(err.message || t('toast.addVideoFailed'), 'error')
+    if (!recordYoutubeQuotaError(err)) showToast(err.message || t('toast.addVideoFailed'), 'error')
   } finally {
     if (btn) {
       btn.disabled = false
@@ -10721,7 +10741,9 @@ async function searchYoutubeChannels(event) {
     renderYoutubeChannelSearchResults(query, results, { cacheHit: false })
   } catch (error) {
     console.warn(error)
-    renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchUnavailable', query)
+    if (recordYoutubeQuotaError(error)) {
+      renderManualChannelSuggestions()
+    } else renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchUnavailable', query)
     trackEdeniaEvent('search_failed', {
       search_source: 'youtube_channels',
       search_query: query,

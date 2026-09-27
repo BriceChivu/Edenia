@@ -1111,6 +1111,7 @@ export const FR_LOCALIZED = {
   'log.unknownError': 'Erreur inconnue',
   'log.shortsSkipped.title': 'Vidéos courtes ignorées',
   'log.shortsSkipped.detail': '{count} vidéos courtes ignorées pendant l’actualisation.',
+  'log.youtubeQuota.detail': "La capacité quotidienne de YouTube est épuisée pour ces requêtes. Réessayez après {time} (le prochain minuit, heure du Pacifique). Vos vidéos enregistrées et votre progression restent disponibles.",
   'log.refreshFailed.title': 'Échec de l’actualisation YouTube',
   'log.unknownRefreshError': 'Erreur d’actualisation inconnue',
   'log.videoStatus.title': 'État de la vidéo modifié',

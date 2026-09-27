@@ -1111,6 +1111,7 @@ export const ES_LOCALIZED = {
   'log.unknownError': 'Error desconocido',
   'log.shortsSkipped.title': 'Videos cortos omitidos',
   'log.shortsSkipped.detail': 'Se omitieron {count} videos cortos durante la actualización.',
+  'log.youtubeQuota.detail': "Se agotó la capacidad diaria de YouTube para estas solicitudes. Vuelve a intentarlo después de {time} (la próxima medianoche del Pacífico). Tus vídeos guardados y tu progreso siguen disponibles.",
   'log.refreshFailed.title': 'Falló la actualización de YouTube',
   'log.unknownRefreshError': 'Error de actualización desconocido',
   'log.videoStatus.title': 'Estado del video cambiado',

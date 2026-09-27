@@ -227,9 +227,8 @@ test('progress toasts remain visible and sit above the first-run walkthrough', (
 test('YouTube requests have a bounded timeout and refresh cannot race starter work', () => {
   const ytSource = getFunctionSource('ytFetch', 'fetchYoutubeChannelByFilter')
   const refreshSource = getFunctionSource('refreshFeed', 'refreshAddedChannel')
-  assert.match(ytSource, /new AbortController\(\)/)
-  assert.match(ytSource, /window\.setTimeout\(\(\) => controller\.abort\(\), YOUTUBE_REQUEST_TIMEOUT_MS\)/)
-  assert.match(ytSource, /fetch\(url, \{ signal: controller\.signal \}\)/)
+  assert.match(ytSource, /createYoutubeRequestGate/)
+  assert.match(ytSource, /timeoutMs: YOUTUBE_REQUEST_TIMEOUT_MS/)
   assert.match(ytSource, /if \(error\?\.name === 'AbortError'\) throw new Error\(t\('toast\.youtubeRequestTimeout'\)\)/)
   assert.match(refreshSource, /^function refreshFeed[\s\S]*?if \(starterFeedPreparationPromise\)/)
   assert.match(refreshSource, /reason: 'starter-feed-running'/)

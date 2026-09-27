@@ -1088,6 +1088,7 @@ export const EN_CORE = {
   'log.unknownError': 'Unknown error',
   'log.shortsSkipped.title': 'Short videos skipped',
   'log.shortsSkipped.detail': '{count} short videos skipped during refresh.',
+  'log.youtubeQuota.detail': "YouTube daily capacity is exhausted for these requests. Retry after {time} (the next midnight in Pacific time). Saved videos and study progress remain available.",
   'log.refreshFailed.title': 'YouTube refresh failed',
   'log.unknownRefreshError': 'Unknown refresh error',
   'log.videoStatus.title': 'Video status changed',

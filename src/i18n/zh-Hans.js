@@ -1111,6 +1111,7 @@ export const ZH_HANS_LOCALIZED = {
   'log.unknownError': '未知错误',
   'log.shortsSkipped.title': '已跳过短视频',
   'log.shortsSkipped.detail': '刷新时跳过了 {count} 个短视频。',
+  'log.youtubeQuota.detail': "这些请求的 YouTube 每日配额已用完。请在 {time}（下一个太平洋时间午夜）后重试。已保存的视频和学习进度仍可使用。",
   'log.refreshFailed.title': 'YouTube 刷新失败',
   'log.unknownRefreshError': '未知的刷新错误',
   'log.videoStatus.title': '视频状态已更改',
