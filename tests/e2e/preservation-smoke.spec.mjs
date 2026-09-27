@@ -7,6 +7,10 @@ const fixedNow = new Date('2026-07-28T04:00:00.000Z')
 const PHONE_PROJECT_NAMES = new Set(['phone-standard', 'phone-small'])
 const LAYOUT_TOLERANCE_PX = 1
 
+// Each test owns its browser context; allow CI to shard this large suite by test.
+// The runner still uses one worker per machine.
+test.describe.configure({ mode: 'parallel' })
+
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(fixedNow)
 })
