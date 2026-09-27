@@ -150,11 +150,11 @@ test('rendered shelf and Watched cards bind without preview globals', () => {
   )
   assert.match(
     appSource,
-    /bindRenderedVideoStateActions\(watchedGrid\)\s*bindRenderedVideoShelfPreviewActions\(watchedGrid\)/
+    /videoCollectionDefinitions\.set\(watchedGrid,[\s\S]*?bindRenderedVideoStateActions\(root\)\s*bindRenderedVideoShelfPreviewActions\(root\)/
   )
   assert.match(
     appSource,
-    /removedGrid\.innerHTML =[\s\S]*?bindRenderedVideoShelfPreviewActions\(removedGrid\)/
+    /videoCollectionDefinitions\.set\(removedGrid,[\s\S]*?bind: bindRenderedVideoShelfPreviewActions/
   )
   for (const name of [
     'handleVideoThumbnailClick',

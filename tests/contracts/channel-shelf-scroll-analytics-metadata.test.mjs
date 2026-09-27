@@ -291,11 +291,11 @@ test('scroll sync retains preview handling before edge-button state', () => {
 test('active-grid replacement retains generated controls and deferred initial sync', () => {
   assert.match(
     shelfRenderSource,
-    /return groupActiveVideosByChannel\([\s\S]*?\)\.map\(\(group, index\) => \{/
+    /const groups = groupActiveVideosByChannel\([\s\S]*?return groups\.map\(\(group, index\) => \{/
   )
   assert.match(
     shelfRenderSource,
-    /const trackId = `channelShelfTrack\$\{index\}`/
+    /const trackId = `channelShelfTrack-\$\{encodeURIComponent\(group.key\)\}`/
   )
   assert.match(
     shelfRenderSource,
@@ -305,7 +305,7 @@ test('active-grid replacement retains generated controls and deferred initial sy
   assertSourceOrder(
     feedSource,
     [
-      'grid.innerHTML = renderChannelVideoGroups(',
+      'shelfTemplate.innerHTML = renderChannelVideoGroups(',
       'bindChannelShelfScrollActions(grid, {',
       'bindChannelRemoveActions(grid, {',
       'bindRenderedVideoStateActions(grid)',

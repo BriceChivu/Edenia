@@ -1,3 +1,9 @@
+import { resolveWindowAnchor } from './features/videos/window-anchor.js'
+import { fetchOlderUploads } from './integrations/youtube-upload-history.js'
+import { bindUploadHistoryActions } from './features/channels/upload-history-actions.js'
+import { createYoutubeRequestGate, isYoutubeQuotaError } from './integrations/youtube-quota.js'
+import { createCollectionWindow } from './features/videos/collection-window.js'
+import { createShelfWindow } from './features/videos/shelf-window.js'
 import { isYoutubeMetadataFresh, expireYoutubeMetadata, refreshSavedYoutubeMetadata } from './integrations/youtube-metadata-cache.js'
 import { checkNewUploads } from './integrations/youtube-upload-check.js'
 /* ═══════════════════════════════════════════════════════════
@@ -1120,9 +1126,11 @@ function rememberPersistedPortableProfile(state) {
 
 function saveImportedState(state, options = {}) {
   if (INTERNAL_PROFILE_PAUSED) return { persisted: false, error: null }
-  return learnerProfileLifecycleAuthority
+  const result = learnerProfileLifecycleAuthority
     ? learnerProfileLifecycleAuthority.replaceActiveProfile(state, options)
     : saveImportedPersistedState(state, options)
+  if (result?.persisted) channelHistoryProfileEpoch += 1
+  return result
 }
 
 function saveState(state, options = {}) {
@@ -5001,6 +5009,11 @@ function getWalkthroughTargetSelector(step) {
 }
 
 function getWalkthroughTarget(step) {
+  if (step?.id === 'first-study-video') {
+    const entry = videoShelfWindows.values().next().value
+    const video = entry?.group.videos.find(video => getChannelVideoFormat(video) === entry.format)
+    if (video) entry.window.ensure(video.id)
+  }
   const selector = getWalkthroughTargetSelector(step)
   return selector ? document.querySelector(selector) : null
 }
@@ -6731,7 +6744,7 @@ async function initializeRequestedReminderDestination() {
     openRequestedVideo(false)
   } catch (error) {
     console.warn('Could not open the requested reminder video:', error)
-    showToast(error?.message || t('toast.addVideoFailed'), 'error')
+    if (!recordYoutubeQuotaError(error)) showToast(error?.message || t('toast.addVideoFailed'), 'error')
   }
 }
 
@@ -7845,7 +7858,7 @@ async function addChannel(options = {}) {
         }
       : await resolveYoutubeChannelInput(raw)
   } catch (err) {
-    showToast(err.message || t('toast.channelInvalid'), 'warn')
+    if (!recordYoutubeQuotaError(err)) showToast(err.message || t('toast.channelInvalid'), 'warn')
     idEl?.focus()
     return
   }
@@ -8193,24 +8206,39 @@ async function undoStartOver() {
 // YOUTUBE API
 // ════════════════════════════════════════════════════════════
 
+let youtubeRequestGate
+
+function recordYoutubeQuotaError(error) {
+  if (!isYoutubeQuotaError(error)) return false
+  const state = loadState()
+  if (!state) return true
+  const quotaId = `${error.bucket}:${error.retryAt}`
+  if (!state.activityLog?.some(entry => entry.meta?.youtubeQuotaId === quotaId)) {
+    appendActivityLog(state, {
+      actor: 'auto', type: 'youtube-refresh', status: 'error',
+      title: t('log.refreshFailed.title'),
+      detail: error.message,
+      meta: { youtubeQuotaId: quotaId, reasons: error.reasons, retryAt: error.retryAt, bucket: error.bucket }
+    })
+    saveState(state, { backup: false })
+    renderActivityLog(state)
+  }
+  return true
+}
+
 async function ytFetch(url) {
-  const controller = new AbortController()
-  const timeout = window.setTimeout(() => controller.abort(), YOUTUBE_REQUEST_TIMEOUT_MS)
+  youtubeRequestGate ||= createYoutubeRequestGate({
+    namespace: `${STORAGE_KEY}_youtube_quota`, timeoutMs: YOUTUBE_REQUEST_TIMEOUT_MS
+  })
   try {
-    const res = await fetch(url, { signal: controller.signal })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      const error = new Error(err?.error?.message || `HTTP ${res.status}`)
-      error.reasons = (err?.error?.errors || []).map(entry => entry.reason).filter(Boolean)
-      error.status = res.status
-      throw error
-    }
-    return res.json()
+    return await youtubeRequestGate(url)
   } catch (error) {
+    if (isYoutubeQuotaError(error)) {
+      error.message = t('log.youtubeQuota.detail', { time: formatLocaleDateTime(new Date(error.retryAt)) })
+      recordYoutubeQuotaError(error)
+    }
     if (error?.name === 'AbortError') throw new Error(t('toast.youtubeRequestTimeout'))
     throw error
-  } finally {
-    window.clearTimeout(timeout)
   }
 }
 
@@ -8564,7 +8592,9 @@ function getChannelRefreshWaitMs(s, channelId) {
   const failureWait = lastFailedMs
     ? Math.max(0, YOUTUBE_REFRESH_ERROR_BACKOFF_MS - (Date.now() - lastFailedMs))
     : 0
-  return Math.max(successWait, failureWait)
+  const quotaRetryAt = typeof youtubeRequestGate === 'function' ? youtubeRequestGate.retryAt('general') : 0
+  const quotaWait = Math.max(0, quotaRetryAt - Date.now())
+  return Math.max(successWait, failureWait, quotaWait)
 }
 
 function isChannelRefreshDue(s, channelId) {
@@ -8583,7 +8613,7 @@ function hasAnyChannelRefreshTimestamp(s) {
 function markChannelRefreshSuccess(s, channelId, timestamp = new Date().toISOString(), coverage) {
   getChannelRefreshes(s)[channelId] = {
     ...getChannelRefreshes(s)[channelId],
-    ...(coverage ? { coverage } : {}),
+    ...(coverage ? { coverage: { ...coverage, history: s.channelRefreshes?.[channelId]?.coverage?.history || coverage.history } } : {}),
     lastFetchedAt: timestamp,
     lastError: null,
     lastFailedAt: null
@@ -8596,7 +8626,7 @@ function markChannelRefreshError(s, channelId, error) {
     ...refreshes[channelId],
     lastFetchedAt: refreshes[channelId]?.lastFetchedAt || null,
     lastError: String(error?.message || error || 'Refresh failed'),
-    lastFailedAt: new Date().toISOString()
+    lastFailedAt: isYoutubeQuotaError(error) ? null : new Date().toISOString()
   }
 }
 
@@ -8662,7 +8692,8 @@ function scheduleYoutubeAutoRefresh(s = loadState()) {
   clearTimeout(startYoutubeAutoRefresh._timer)
   if (IS_SANDBOX || !hasYoutubeApiKey() || !s || (!s.config?.channels?.length && !Object.keys(s.videos || {}).length)) return
 
-  const waitMs = s.config?.channels?.length ? getYoutubeRefreshRemainingMs(s) : YOUTUBE_REFRESH_INTERVAL_MS
+  const quotaWait = Math.max(0, (youtubeRequestGate?.retryAt('general') || 0) - Date.now())
+  const waitMs = Math.max(quotaWait, s.config?.channels?.length ? getYoutubeRefreshRemainingMs(s) : YOUTUBE_REFRESH_INTERVAL_MS)
   startYoutubeAutoRefresh._timer = setTimeout(maybeRefreshFeed, Math.max(1_000, waitMs))
 }
 
@@ -8807,7 +8838,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       return { ok: true, sandbox: true }
     }
 
-    const s = loadState()
+    let s = loadState()
     originatingState = s
     if (!hasYoutubeApiKey()) {
       showToast(t('toast.apiKeyMissing'), 'warn')
@@ -8860,9 +8891,12 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     }
 
-    await Promise.all(channelsToRefresh.map(async ch => {
+    const pendingActivity = []
+    const detailsById = {}
+    for (const ch of channelsToRefresh) {
       try {
         const { videos: vids, filteredShorts, coverage } = await fetchChannelVideos(ch, s.videos, s.channelRefreshes?.[ch.id])
+        Object.assign(detailsById, await getFetchedVideoDetails(s, vids, includeShorts))
         successfulChannels += 1
         all.push(...vids)
         filteredShortsDuringFetch += filteredShorts
@@ -8871,7 +8905,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
           ch.name = first.channelTitle
         }
         completedCoverage.set(ch.id, coverage)
-        appendActivityLog(s, {
+        pendingActivity.push({
           actor: 'auto',
           type: 'youtube-refresh',
           status: 'success',
@@ -8882,7 +8916,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       } catch (err) {
         console.warn(`${ch.name}:`, err.message)
         markChannelRefreshError(s, ch.id, err)
-        appendActivityLog(s, {
+        pendingActivity.push({
           actor: 'auto',
           type: 'youtube-refresh',
           status: 'error',
@@ -8890,18 +8924,31 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
           detail: `${ch.name}: ${err.message || t('log.unknownError')}`,
           meta: { channelId: ch.id }
         })
-        errors.push({ channelId: ch.id, name: ch.name, message: err.message || t('log.unknownError') })
+        errors.push({ channelId: ch.id, name: ch.name, kind: err.kind, message: err.message || t('log.unknownError') })
       }
-    }))
+    }
     if (!isCurrentLearnerProfileOperation(s)) {
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     }
+
+    // History retrieval and study actions can finish while provider calls await.
+    // Apply fetched metadata to the latest library, never the request snapshot.
+    s = loadState()
+    if (!s) return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
+    channelsToRefresh.forEach(channel => {
+      const current = s.config.channels.find(entry => entry.id === channel.id)
+      if (current) Object.assign(current, {
+        name: channel.name, imageUrl: channel.imageUrl, metadataFetchedAt: channel.metadataFetchedAt
+      })
+    })
+    pendingActivity.forEach(event => appendActivityLog(s, event))
+    errors.forEach(error => markChannelRefreshError(s, error.channelId, error))
 
     if (successfulChannels === 0) {
       if (!saveState(s)) {
         return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
       }
-      showToast(t('toast.refreshFailedChannels', { count: errors.length, plural: errors.length > 1 ? 's' : '' }), 'error')
+      if (errors.some(error => error.kind !== 'daily-quota')) showToast(t('toast.refreshFailedChannels', { count: errors.length, plural: errors.length > 1 ? 's' : '' }), 'error')
       trackRefreshCompleted(refreshStartedAtMs, {
         trigger,
         result: 'failure',
@@ -8913,7 +8960,6 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     }
 
     const unique = dedupeVideos(all)
-    const detailsById = await getFetchedVideoDetails(s, unique, includeShorts)
     if (!isCurrentLearnerProfileOperation(s)) {
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
     }
@@ -8941,7 +8987,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     const msg = errors.length
       ? t('toast.refreshLoadedWithErrors', { count: mergedCount, shorts: shortsMsg, errors: errors.length, plural: errors.length > 1 ? 's' : '' })
       : t('toast.refreshLoaded', { count: mergedCount, channels: successfulChannels, plural: successfulChannels === 1 ? '' : 's', shorts: shortsMsg })
-    if (!silent || errors.length) showToast(msg, errors.length ? 'warn' : 'success')
+    if ((!silent || errors.length) && !errors.some(error => error.kind === 'daily-quota')) showToast(msg, errors.length ? 'warn' : 'success')
     trackRefreshCompleted(refreshStartedAtMs, {
       trigger,
       result: errors.length ? 'partial' : 'success',
@@ -8978,7 +9024,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       })
       saveState(s)
     }
-    showToast(t('toast.refreshFailed', { message: err.message }), 'error')
+    if (!recordYoutubeQuotaError(err)) showToast(t('toast.refreshFailed', { message: err.message }), 'error')
     trackRefreshCompleted(refreshStartedAtMs, {
       trigger,
       result: 'failure',
@@ -9140,7 +9186,7 @@ async function refreshAddedChannel(channelId, options = {}) {
       })
       saveState(s)
     }
-    showToast(t('toast.channelAddLoadFailed', { message: err.message }), 'warn')
+    if (!recordYoutubeQuotaError(err)) showToast(t('toast.channelAddLoadFailed', { message: err.message }), 'warn')
     trackRefreshCompleted(refreshStartedAtMs, {
       trigger: 'channel_added',
       result: 'failure',
@@ -9258,6 +9304,7 @@ function confirmVideoWatchPrompt(event, videoId, rewatch = false) {
   if (rewatch) {
     const video = loadState()?.videos?.[targetVideoId]
     const completed = completeVideoShelfPlayerRewatchConfirmation(session)
+    restorePlayerReturnPosition(session)
     if (completed) {
       trackEdeniaEvent('video_completion_prompt_accepted', getVideoAnalyticsProperties(video, {
         is_rewatch: true,
@@ -9270,11 +9317,12 @@ function confirmVideoWatchPrompt(event, videoId, rewatch = false) {
     persist: true,
     captureStoppedPlayback: true
   })
-  stopActiveVideoShelfPlayer({ persist: false })
+  const completedPlayer = stopActiveVideoShelfPlayer({ persist: false })
   const marked = markVideo(targetVideoId, 'watched', {
     creditOnlyRecordedProgress: true,
     surface: 'embedded_player_prompt'
   })
+  restorePlayerReturnPosition(completedPlayer)
   if (marked) {
     trackEdeniaEvent(
       'video_completion_prompt_accepted',
@@ -9338,44 +9386,30 @@ function revealFavoritedWatchedVideo(videoId, state) {
   return true
 }
 
-function captureMobileVideoShelfPosition(videoId, surface) {
-  if (!usesPhoneComposition() || surface !== 'video_card') return null
-  const card = findVideoCard(videoId, '#videoGrid .channel-shelf-card')
-  const shelf = card?.closest('.channel-shelf')
-  const track = card?.closest('.channel-shelf-track')
-  if (!shelf || !track) return null
-  return {
-    channelKey: shelf.dataset.channelKey || '',
-    scrollLeft: track.scrollLeft
-  }
+// Snapshot only the affected record and profile metadata, not the full library.
+// Restore in place so a failed write cannot leave the active profile ahead of disk.
+function captureVideoActionState(state, videoId) {
+  const { videos, ...metadata } = state
+  return { metadata: structuredClone(metadata), videoId, video: structuredClone(videos[videoId]) }
 }
 
-function restoreMobileVideoShelfPosition(videoId, position) {
-  if (!position) return
-  window.requestAnimationFrame(() => {
-    const card = findVideoCard(videoId, '#videoGrid .channel-shelf-card')
-    const shelf = card?.closest('.channel-shelf')
-    const track = card?.closest('.channel-shelf-track')
-    if (
-      !card
-      || !shelf
-      || !track
-      || (shelf.dataset.channelKey || '') !== position.channelKey
-    ) return
-    track.scrollLeft = position.scrollLeft
-    syncVideoChannelShelfControls(track)
-    card.querySelector('.favorite-btn')?.focus({ preventScroll: true })
-  })
+function persistVideoAction(state, checkpoint) {
+  if (saveState(state)) return true
+  if (checkpoint) {
+    for (const key of Object.keys(state)) if (key !== 'videos') delete state[key]
+    Object.assign(state, checkpoint.metadata)
+    if (checkpoint.video) state.videos[checkpoint.videoId] = checkpoint.video
+    else delete state.videos[checkpoint.videoId]
+  }
+  showToast(t('toast.progressSaveFailed'), 'error')
+  return false
 }
 
 function toggleVideoFavorite(videoId, options = {}) {
   const s = loadState()
   const video = s?.videos?.[videoId]
   if (!video) return null
-  const mobileShelfPosition = captureMobileVideoShelfPosition(
-    videoId,
-    options.surface
-  )
+  const checkpoint = captureVideoActionState(s, videoId)
   const preservePreview = isActiveVideoShelfPreview(videoId)
   const beforeVideo = cloneVideoForHistoryAction(video)
   video.favorite = !isFavoriteVideo(video)
@@ -9408,15 +9442,14 @@ function toggleVideoFavorite(videoId, options = {}) {
       favorite: isFavoriteVideo(video)
     }
   })
-  saveState(s)
+  if (!persistVideoAction(s, checkpoint)) return false
   trackVideoFavoriteChanged(s, video, isFavoriteVideo(beforeVideo), options.surface)
   if (shouldRevealWatchedFavorite) {
     revealFavoritedWatchedVideo(videoId, s)
   } else if (preservePreview && !shouldRefreshRemovedChannel) {
-    refreshVideoActionUiWithoutFeedRerender(s, videoId)
+    refreshVideoActionUiPreservingPreview(s, videoId)
   } else {
     renderAll(s)
-    restoreMobileVideoShelfPosition(videoId, mobileShelfPosition)
   }
   return isFavoriteVideo(video)
 }
@@ -9449,6 +9482,7 @@ function favoriteVideoFromWatchPrompt(event, videoId) {
   const video = state?.videos?.[videoId]
   if (!video) return false
 
+  const checkpoint = captureVideoActionState(state, videoId)
   const beforeVideo = cloneVideoForHistoryAction(video)
   video.favorite = !isFavoriteVideo(video)
   const isFavorite = isFavoriteVideo(video)
@@ -9470,7 +9504,7 @@ function favoriteVideoFromWatchPrompt(event, videoId) {
       favorite: isFavorite
     }
   })
-  saveState(state)
+  if (!persistVideoAction(state, checkpoint)) return false
   trackVideoFavoriteChanged(state, video, isFavoriteVideo(beforeVideo), 'completion_prompt')
   syncVideoWatchPromptFavoriteAction(videoId, isFavorite)
   if (activeVideoShelfPlayer?.videoId === String(videoId ?? '')) {
@@ -9535,6 +9569,7 @@ function markVideo(videoId, requestedStatus, options = {}) {
   const s     = loadState()
   const video = s.videos[videoId]
   if (!video) return false
+  const checkpoint = captureVideoActionState(s, videoId)
   const preservePreview = (
     requestedStatus === 'watch-later'
     || typeof options.watchLater === 'boolean'
@@ -9663,7 +9698,7 @@ function markVideo(videoId, requestedStatus, options = {}) {
     })
   }
 
-  saveState(s)
+  if (!persistVideoAction(s, checkpoint)) return false
   trackEdeniaEvent('video_status_changed', getVideoAnalyticsProperties(video, {
     previous_status: previousStatus,
     new_status: newStatus,
@@ -9676,7 +9711,7 @@ function markVideo(videoId, requestedStatus, options = {}) {
     surface: options.surface || 'video_card'
   }))
   if (preservePreview && !shouldHideRemovedChannelVideo) {
-    refreshVideoActionUiWithoutFeedRerender(s, videoId)
+    refreshVideoActionUiPreservingPreview(s, videoId)
   } else {
     renderAll(s)
   }
@@ -9809,7 +9844,7 @@ function closeVideoOrganizationMenuOnViewportChange(event) {
   return closeVideoOrganizationMenu(true)
 }
 
-function saveVideoOrganizationChange(state, video, beforeVideo, operation) {
+function saveVideoOrganizationChange(state, video, beforeVideo, operation, checkpoint) {
   const action = pushUndoAction(state, {
     type: 'video-organization',
     operation,
@@ -9830,7 +9865,7 @@ function saveVideoOrganizationChange(state, video, beforeVideo, operation) {
     detail: `"${formatToastTitle(video.title)}"`,
     meta: { videoId: video.id, operation }
   })
-  saveState(state)
+  if (!persistVideoAction(state, checkpoint)) return null
   trackEdeniaEvent(eventNames[operation], getVideoAnalyticsProperties(video, {
     operation,
     current_status: getVideoStatus(video),
@@ -9848,10 +9883,11 @@ function showVideoOrganizationUndoToast(message, action) {
 }
 
 function removeVideoFromContinueWatching(videoId) {
-  closeVideoOrganizationMenu(false)
+  closeVideoOrganizationMenu(true)
   const state = loadState()
   const video = state?.videos?.[videoId]
   if (!video || !hasVideoResumePriority(video)) return false
+  const checkpoint = captureVideoActionState(state, videoId)
   const beforeVideo = cloneVideoForHistoryAction(video)
   if (getVideoStatus(video) !== 'watched') {
     video.status = isVideoWatchLater(video) ? 'watch-later' : 'unwatched'
@@ -9861,34 +9897,39 @@ function removeVideoFromContinueWatching(videoId) {
   delete video.watchCycleCoverage
   delete video.rewatchCoverage
   clearFocusedVideoPreview(videoId)
-  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'remove-continue')
+  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'remove-continue', checkpoint)
+  if (!action) return false
   renderAll(state)
   showVideoOrganizationUndoToast(t('toast.videoRemovedFromContinue'), action)
   return true
 }
 
 function removeVideoFromFeed(videoId) {
-  closeVideoOrganizationMenu(false)
+  closeVideoOrganizationMenu(true)
   const state = loadState()
   const video = state?.videos?.[videoId]
   if (!video || isVideoRemovedFromFeed(video)) return false
+  const checkpoint = captureVideoActionState(state, videoId)
   const beforeVideo = cloneVideoForHistoryAction(video)
   video.removedFromFeedAt = getCurrentAppTimestamp(state)
   clearFocusedVideoPreview(videoId)
-  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'remove-feed')
+  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'remove-feed', checkpoint)
+  if (!action) return false
   renderAll(state)
   showVideoOrganizationUndoToast(t('toast.videoRemovedFromFeed'), action)
   return true
 }
 
 function restoreVideoToFeed(videoId) {
-  closeVideoOrganizationMenu(false)
+  closeVideoOrganizationMenu(true)
   const state = loadState()
   const video = state?.videos?.[videoId]
   if (!video || !isVideoRemovedFromFeed(video)) return false
+  const checkpoint = captureVideoActionState(state, videoId)
   const beforeVideo = cloneVideoForHistoryAction(video)
   delete video.removedFromFeedAt
-  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'restore-feed')
+  const action = saveVideoOrganizationChange(state, video, beforeVideo, 'restore-feed', checkpoint)
+  if (!action) return false
   selectedStatusFilter = 'all'
   forcedSearchVideoId = videoId
   if (getVideoStatus(video) === 'watched') isWatchedSectionCollapsed = false
@@ -9898,6 +9939,7 @@ function restoreVideoToFeed(videoId) {
       className: 'flash-target',
       duration: 1400
     })
+    findVideoCard(videoId)?.querySelector('.more-btn, .thumb-link')?.focus({ preventScroll: true })
     forcedSearchVideoId = null
   })
   showVideoOrganizationUndoToast(t('toast.videoRestoredToFeed'), action)
@@ -10015,8 +10057,12 @@ function revealAddedVideoCard(videoId, state) {
   forcedSearchVideoId = targetVideoId
   renderAll(state)
   const revealCard = () => {
-    if (forcedSearchVideoId === targetVideoId) forcedSearchVideoId = null
     revealRenderedAddedVideoCard(targetVideoId)
+    // Retain the reveal's render options while scrolling and highlighting. A
+    // background feed update must not replace the card being observed.
+    window.setTimeout(() => {
+      if (forcedSearchVideoId === targetVideoId) forcedSearchVideoId = null
+    }, 2500)
   }
 
   if (usesTabletAddedVideoReveal()) {
@@ -10225,7 +10271,7 @@ async function addVideoFromUrl(event) {
     }
   } catch (err) {
     console.warn(err)
-    showToast(err.message || t('toast.addVideoFailed'), 'error')
+    if (!recordYoutubeQuotaError(err)) showToast(err.message || t('toast.addVideoFailed'), 'error')
   } finally {
     if (btn) {
       btn.disabled = false
@@ -10710,7 +10756,7 @@ async function searchYoutubeChannels(event) {
   }
 
   searchYoutubeChannels.lastRequestAt = now
-  incrementYoutubeChannelSearchUsage()
+  if (!(youtubeRequestGate?.retryAt('search') > now)) incrementYoutubeChannelSearchUsage()
   list.classList.remove('hidden')
   list.setAttribute('aria-busy', 'true')
   list.innerHTML = `<p class="manual-channel-suggestion-empty">${escHtml(t('videos.manual.searchingYoutube'))}</p>`
@@ -10721,7 +10767,9 @@ async function searchYoutubeChannels(event) {
     renderYoutubeChannelSearchResults(query, results, { cacheHit: false })
   } catch (error) {
     console.warn(error)
-    renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchUnavailable', query)
+    if (recordYoutubeQuotaError(error)) {
+      renderManualChannelSuggestions()
+    } else renderYoutubeChannelSearchMessage('videos.manual.youtubeSearchUnavailable', query)
     trackEdeniaEvent('search_failed', {
       search_source: 'youtube_channels',
       search_query: query,
@@ -11093,6 +11141,7 @@ function applyHistoryAction(direction, actionIndex) {
     return
   }
 
+  const checkpoint = action.videoId ? captureVideoActionState(s, action.videoId) : null
   const targetSnapshot = direction === 'redo' ? action.after : action.before
   const previousSnapshot = direction === 'redo' ? action.before : action.after
   const restoresTrackedChannel = action.type === 'channel-remove'
@@ -11123,7 +11172,7 @@ function applyHistoryAction(direction, actionIndex) {
   }
 
   if (!historyResult) {
-    saveState(s)
+    if (!persistVideoAction(s, checkpoint)) return false
     renderAll(s)
     showToast(t('toast.videoGone'), 'warn')
     return
@@ -11153,7 +11202,7 @@ function applyHistoryAction(direction, actionIndex) {
   }
 
   closeHistoryActionPopovers()
-  saveState(s)
+  if (!persistVideoAction(s, checkpoint)) return false
   const affectedVideo = action.videoId ? s.videos?.[action.videoId] : null
   trackEdeniaEvent(`${direction}_applied`, {
     action_type: action.type,
@@ -12220,6 +12269,14 @@ function scrollToVideoCard(videoId, selector = '.video-card', options = {}) {
 
 function findVideoCard(videoId, selector = '.video-card') {
   const targetId = String(videoId ?? '')
+  for (const entry of videoShelfWindows.values()) {
+    const video = entry.group.videos.find(video => String(video.id) === targetId)
+    if (!video) continue
+    const format = getChannelVideoFormat(video)
+    if (entry.format !== format) applyChannelVideoFormatSelection(entry.shelf, entry.group.key, format)
+    entry.window.ensure(targetId)
+  }
+  videoCollectionWindows.forEach(entry => entry.ensure(targetId))
   return Array.from(document.querySelectorAll(selector))
     .find(element => element.dataset.videoId === targetId) || null
 }
@@ -12542,8 +12599,7 @@ function jumpToVideoFromSearch(videoId) {
 
   closeVideoSearchPopover()
   const isRemovedTarget = isVideoRemovedFromFeed(video)
-  const shouldRevealInWatchedSection = !usesPhoneComposition()
-    && !isRemovedTarget
+  const shouldRevealInWatchedSection = !isRemovedTarget
     && getVideoStatus(video) === 'watched'
     && !isFavoriteVideo(video)
   if (isRemovedTarget) {
@@ -13602,13 +13658,14 @@ function getCityLevelLabel(level) {
 // ════════════════════════════════════════════════════════════
 
 function renderAll(s) {
+  const viewport = captureFeedViewport()
   const stats = getWeeklyStats(s)
   const score = getCurrentCityScore(s)
   renderHeader(s)
   renderAnalytics(stats, s)
   renderAnkiStatus(s)
   renderCity(score, s)
-  renderFeed(s)
+  renderFeed(s, viewport)
   renderUndoButton(s)
   syncMobileAddButtonWidth()
 }
@@ -15499,7 +15556,170 @@ function updateCityMilestoneImage(score, options = {}) {
   }
 }
 
-function renderFeed(s) {
+const channelHistoryRequests = new Set()
+let channelHistoryProfileEpoch = 0
+window.addEventListener('storage', event => {
+  if (event.key === STORAGE_KEY || event.key === null) channelHistoryProfileEpoch += 1
+})
+
+function channelCoverageWithHistory(state, channelId, history, fetched = []) {
+  const coverage = getChannelRefreshes(state)[channelId]?.coverage
+  if (Array.isArray(coverage?.headIds)) return { ...coverage, history }
+  // Browsing a legacy library establishes real playlist coverage too. Without
+  // its head boundary the next hourly check would mistake history for catch-up.
+  const head = (fetched.length ? fetched : Object.values(state.videos)
+    .filter(video => video.channelId === channelId && !video.manuallyAdded)
+    .sort(compareActiveVideos)).slice(0, FETCH_PAGE_SIZE)
+  const dates = head.map(video => Date.parse(video.publishedAt)).filter(Number.isFinite)
+  return {
+    ...coverage, headIds: head.map(video => video.id),
+    oldestPublishedAt: dates.length ? new Date(Math.min(...dates)).toISOString() : null,
+    history
+  }
+}
+
+async function loadOlderChannelUploads(track, entry, started) {
+  const origin = loadState()
+  const profileEpoch = channelHistoryProfileEpoch
+  let state = origin
+  const channelId = entry.group.key
+  const channel = state?.config?.channels?.find(channel => channel.id === channelId)
+  if (!channel || !hasYoutubeApiKey() || channelHistoryRequests.has(channelId)) return null
+  const current = () => isCurrentLearnerProfileOperation(origin)
+    && profileEpoch === channelHistoryProfileEpoch
+    && track.isConnected
+    && ['all', 'unwatched'].includes(selectedStatusFilter)
+    && loadState()?.config?.channels?.some(channel => channel.id === channelId)
+  const run = async () => {
+    if (!current()) return null
+    state = loadState()
+    const refresh = getChannelRefreshes(state)[channelId] || {}
+    const history = refresh.coverage?.history
+    if (history?.exhausted === true) return { exhausted: true }
+    if (history?.retryAt > Date.now()) return { failed: true, retryAt: history.retryAt }
+    started()
+    try {
+      const result = await fetchOlderUploads({
+        history,
+        fetchPage: token => {
+          if (!current()) throw new Error('Inactive profile')
+          return fetchChannelVideosPage(channel, token)
+        }
+      })
+      if (!current()) return null
+      // Retain both formats; a format selection must not punch holes in coverage.
+      state = loadState()
+      const details = await getFetchedVideoDetails(state, result.videos, true)
+      if (!current()) return null
+      state = loadState()
+      const previousVideos = new Map(result.videos.map(video => [video.id, state.videos[video.id]]))
+      const previousRefresh = getChannelRefreshes(state)[channelId]
+      mergeFetchedVideos(state, result.videos, details, true)
+      const latest = getChannelRefreshes(state)[channelId] || {}
+      state.channelRefreshes[channelId] = {
+        ...latest, coverage: channelCoverageWithHistory(state, channelId, result.history, result.videos)
+      }
+      if (!saveState(state)) {
+        previousVideos.forEach((video, id) => {
+          if (video) state.videos[id] = video
+          else delete state.videos[id]
+        })
+        if (previousRefresh) state.channelRefreshes[channelId] = previousRefresh
+        else delete state.channelRefreshes[channelId]
+        throw new Error('History could not be saved')
+      }
+      const known = new Set(entry.group.videos.map(video => video.id))
+      const added = result.videos.map(video => state.videos[video.id]).filter(video =>
+        !known.has(video.id) && !isHiddenFromVideoGrid(video)
+        && (getVideoStatus(video) === 'unwatched' || selectedStatusFilter === 'all' && getVideoStatus(video) === 'partial'))
+      renderFeed(state)
+      return { exhausted: result.exhausted, matched: added.some(video => getChannelVideoFormat(video) === entry.format) }
+    } catch (error) {
+      if (!current()) return null
+      state = loadState()
+      const retryAt = error.retryAt || Date.now() + 30_000
+      const latest = getChannelRefreshes(state)[channelId] || {}
+      state.channelRefreshes[channelId] = {
+        ...latest, coverage: channelCoverageWithHistory(state, channelId, { ...latest.coverage?.history, retryAt })
+      }
+      saveState(state)
+      return { failed: true, retryAt }
+    }
+  }
+  channelHistoryRequests.add(channelId)
+  try {
+    // Co-operating tabs never queue duplicate history work. The profile authority
+    // additionally fences an activation replaced by another tab or profile.
+    return navigator.locks?.request
+      ? await navigator.locks.request(`${STORAGE_KEY}:upload-history:${channelId}`, { ifAvailable: true }, lock => lock ? run() : { busy: true, retryAt: Date.now() + 1000 })
+      : await run()
+  } finally {
+    channelHistoryRequests.delete(channelId)
+  }
+}
+
+function syncChannelHistoryActions(track, entry) {
+  const enabled = !IS_SANDBOX && hasYoutubeApiKey() && ['all', 'unwatched'].includes(selectedStatusFilter)
+  const key = enabled ? `${selectedStatusFilter}:${entry.format}:${document.documentElement.lang}` : ''
+  if (entry.historyViewKey === key) return
+  entry.history?.destroy()
+  entry.history = null
+  entry.historyViewKey = key
+  if (enabled) entry.history = bindUploadHistoryActions(track, {
+    load: started => loadOlderChannelUploads(track, entry, started),
+    text: key => t(`videos.history.${key}`)
+  })
+}
+
+const videoShelfWindows = new Map()
+const videoCollectionWindows = new Map()
+const videoCollectionDefinitions = new Map()
+const videoCollectionSignatures = new Map()
+let pendingShelfGroups = []
+
+function captureFeedViewport() {
+  const nodes = [...document.querySelectorAll('.channel-shelf, #watchedGrid .video-card, #removedGrid .video-card')]
+  const focused = document.activeElement
+  const visible = node => { const rect = node.getBoundingClientRect(); return rect.bottom > 0 && rect.top < innerHeight }
+  let index = nodes.findIndex(node => node.contains(focused) && visible(node))
+  if (index < 0) {
+    let largestVisibleHeight = 0
+    nodes.forEach((node, i) => {
+      const rect = node.getBoundingClientRect()
+      const height = Math.min(innerHeight, rect.bottom) - Math.max(0, rect.top)
+      if (height > largestVisibleHeight) { largestVisibleHeight = height; index = i }
+    })
+  }
+  if (index < 0) return null
+  return { nodes, locations: nodes.map(node => ({ grid: node.closest('#watchedGrid, #removedGrid'), id: node.dataset.videoId })), index, top: nodes[index].getBoundingClientRect().top,
+    focusLost: nodes[index].contains(focused) }
+}
+
+function restoreFeedViewport(anchor) {
+  if (!anchor) return
+  const { nodes, locations, index, top, focusLost } = anchor
+  let target = null
+  for (let distance = 0; distance < nodes.length && !target; distance++) {
+    target = [index + distance, index - distance].map(i => {
+      const node = nodes[i]
+      if (node?.isConnected) return node
+      const location = locations[i]
+      return location?.grid && [...location.grid.querySelectorAll('.video-card')]
+        .find(card => card.dataset.videoId === location.id)
+    }).find(node => node?.isConnected && node.getClientRects().length)
+  }
+  target ||= document.querySelector('#videoGrid .empty-state')
+  if (!target) return
+  window.scrollBy({ top: target.getBoundingClientRect().top - top, behavior: 'instant' })
+  if (focusLost && (document.activeElement === document.body || !document.activeElement?.getClientRects().length)) {
+    const control = target.querySelector('.channel-shelf-track, a, button') || target
+    if (!control.hasAttribute('tabindex')) control.tabIndex = -1
+    control.focus({ preventScroll: true })
+  }
+}
+
+function renderFeed(s, viewport = captureFeedViewport()) {
+  pendingShelfGroups = []
   closeVideoOrganizationMenu(false)
   renderChannelFilterOptions(s)
   renderTrackedChannelAccess(s)
@@ -15519,6 +15739,9 @@ function renderFeed(s) {
     || !removedSection || !removedGrid || !removedCount
   ) return
   grid.classList.add('channel-view')
+  const retainedShelves = new Map([...videoShelfWindows.values()].map(entry => [entry.group.key, entry]))
+  const shelfScrollPositions = new Map([...videoShelfWindows.keys()].map(track => [track, track.scrollLeft]))
+  const feedFocus = document.activeElement
 
   const allVideos = Object.values(s.videos)
     .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
@@ -15584,16 +15807,22 @@ function renderFeed(s) {
   }
 
   renderNextStudy(visibleActiveVideos, favoriteVideos)
+  const historyChannels = !IS_SANDBOX && hasYoutubeApiKey() && ['all', 'unwatched'].includes(statusFilter)
+    ? (s.config?.channels || []).filter(channel => channelFilters.has(channel.id)
+      && s.channelRefreshes?.[channel.id]
+      && (s.channelRefreshes[channel.id].coverage?.history?.exhausted !== true || retainedShelves.has(channel.id)))
+    : []
   const cardOptions = {
     currentDateKey: getCurrentAppDateKey(s),
     focusedVideoId: pendingAddedChannelReveal?.videoId || forcedSearchVideoId,
     arrivingChannelId: pendingAddedChannelReveal?.channelId || '',
     removedChannelIds,
     chronologicalOnly: statusFilter === 'favorite',
-    channelVideoFormats: s.config?.channelVideoFormats
+    channelVideoFormats: s.config?.channelVideoFormats,
+    historyChannels
   }
 
-  if (!activeVideos.length) {
+  if (!activeVideos.length && !historyChannels.length) {
     const channelMsg = channelFilters.size === getChannelFilterEntries(s).length ? '' : t('videos.empty.selectedChannels')
     const filterName = statusFilter === 'partial'
       ? t('videos.filter.inProgress')
@@ -15609,13 +15838,84 @@ function renderFeed(s) {
       : t('videos.empty.filtered', { filter: statusFilter === 'all' ? t('videos.filter.active') : filterName, channelText: channelMsg })
     grid.innerHTML = `<div class="empty-state">${escHtml(msg)}</div>`
   } else {
-    grid.innerHTML = renderChannelVideoGroups(
+    const shelfTemplate = document.createElement('template')
+    shelfTemplate.innerHTML = renderChannelVideoGroups(
       activeVideos,
       cardOptions,
       s.config?.channelShelfOrder,
       s.config?.channels
     )
+    let previousShelf = null
+    for (const freshShelf of [...shelfTemplate.content.children]) {
+      const retained = retainedShelves.get(freshShelf.dataset.channelKey)
+      const shelf = retained?.shelf || freshShelf
+      if (retained) {
+        const freshHeader = freshShelf.querySelector('header')
+        const headerMarkup = freshHeader.outerHTML
+        if (retained.headerMarkup !== headerMarkup
+          || shelf.dataset.channelSelectedVideoFormat !== freshShelf.dataset.channelSelectedVideoFormat) {
+          shelf.querySelector('header').replaceWith(freshHeader)
+          retained.headerMarkup = headerMarkup
+        }
+      }
+      const next = previousShelf ? previousShelf.nextElementSibling : grid.firstElementChild
+      if (next !== shelf) grid.insertBefore(shelf, next)
+      previousShelf = shelf
+    }
+    const wantedKeys = new Set(pendingShelfGroups.map(({ group }) => group.key))
+    for (const child of [...grid.children]) {
+      if (!wantedKeys.has(child.dataset.channelKey)) child.remove()
+    }
   }
+  const wantedKeys = new Set(pendingShelfGroups.map(({ group }) => group.key))
+  for (const [track, entry] of videoShelfWindows) {
+    if (wantedKeys.has(entry.group.key)) continue
+    entry.history?.destroy()
+    entry.window.destroy()
+    entry.shelf.remove()
+    videoShelfWindows.delete(track)
+  }
+  // Moving a section with insertBefore can reset nested scrollers and focus.
+  for (const [track, left] of shelfScrollPositions) {
+    if (track.isConnected && Math.abs(track.scrollLeft - left) > 1) {
+      track.scrollTo({ left, behavior: 'instant' })
+    }
+  }
+  if (feedFocus?.isConnected && document.activeElement !== feedFocus) feedFocus.focus({ preventScroll: true })
+  pendingShelfGroups.forEach(({ group, trackId, cardOptions, selectedFormat }) => {
+    const track = document.getElementById(trackId)
+    const shelf = track.closest('.channel-shelf')
+    const signature = JSON.stringify([group, cardOptions, selectedFormat, [...removedChannelIds], document.documentElement.lang])
+    const retained = retainedShelves.get(group.key)
+    if (retained) {
+      retained.group = group
+      retained.cardOptions = cardOptions
+      retained.state = s
+      retained.format = selectedFormat
+      shelf.dataset.channelSelectedVideoFormat = selectedFormat
+      if (retained.signature !== signature) {
+        retained.signature = signature
+        retained.window.reconcile(group.videos.filter(video => getChannelVideoFormat(video) === selectedFormat))
+      }
+      syncChannelHistoryActions(track, retained)
+      return
+    }
+    const entry = { group, shelf, state: s, format: selectedFormat, cardOptions, signature,
+      headerMarkup: shelf.querySelector('header').outerHTML }
+    entry.window = createShelfWindow(track, {
+      videos: group.videos.filter(video => getChannelVideoFormat(video) === selectedFormat),
+      render: video => `<div class="channel-shelf-slot ${video.id === entry.cardOptions.focusedVideoId ? 'channel-refresh-focus' : ''}" data-channel-video-format="${getChannelVideoFormat(video)}" style="--channel-refresh-delay: ${Math.min(entry.group.videos.indexOf(video), 8) * 45}ms">${renderCard(video, false, { ...entry.cardOptions, shelf: true })}</div>`,
+      bind: root => {
+        bindRenderedVideoStateActions(root)
+        bindRenderedVideoShelfPreviewActions(root)
+      },
+      empty: () => `<div class="channel-shelf-format-empty" data-channel-video-format-empty="${entry.format}">${escHtml(t(entry.format === 'shorts' ? 'videos.channel.format.emptyShorts' : 'videos.channel.format.emptyVideos'))}</div>`,
+      isPinned: node => node.contains(activeVideoShelfPreview),
+      patchPinned: video => patchVideoShelfPreview(entry.state, video.id)
+    })
+    videoShelfWindows.set(track, entry)
+    syncChannelHistoryActions(track, entry)
+  })
   bindChannelShelfScrollActions(grid, {
     scroll: scrollVideoChannelShelf,
     sync: syncVideoChannelShelfControls
@@ -15650,15 +15950,20 @@ function renderFeed(s) {
     watchedToggle.setAttribute('aria-expanded', String(!watchedCollapsed))
     watchedToggle.setAttribute('aria-label', t(watchedCollapsed ? 'videos.watched.show' : 'videos.watched.hide'))
   }
-  watchedGrid.innerHTML = watchedVideos
-    .map(v => renderCard(v, true, {
+  videoCollectionDefinitions.set(watchedGrid, {
+    videos: watchedVideos,
+    renderKey: JSON.stringify([cardOptions, [...removedChannelIds]]),
+    render: video => renderCard(video, true, {
       ...cardOptions,
       hideOrganizationActions: true,
       stateActionSurface: 'watched_card'
-    }))
-    .join('')
-  bindRenderedVideoStateActions(watchedGrid)
-  bindRenderedVideoShelfPreviewActions(watchedGrid)
+    }),
+    bind: root => {
+      bindRenderedVideoStateActions(root)
+      bindRenderedVideoShelfPreviewActions(root)
+    }
+  })
+  updateVideoCollection(watchedGrid, watchedCollapsed)
 
   removedCount.textContent = removedVideos.length
   removedSection.classList.toggle(
@@ -15673,8 +15978,31 @@ function renderFeed(s) {
       ? 'videos.removed.show'
       : 'videos.removed.hide'))
   }
-  removedGrid.innerHTML = removedVideos.map(renderRemovedVideoCard).join('')
-  bindRenderedVideoShelfPreviewActions(removedGrid)
+  videoCollectionDefinitions.set(removedGrid, {
+    videos: removedVideos,
+    renderKey: JSON.stringify([cardOptions, [...removedChannelIds]]),
+    render: renderRemovedVideoCard,
+    bind: bindRenderedVideoShelfPreviewActions
+  })
+  updateVideoCollection(removedGrid, isRemovedSectionCollapsed)
+  restoreFeedViewport(viewport)
+}
+
+function updateVideoCollection(grid, collapsed) {
+  const definition = videoCollectionDefinitions.get(grid)
+  const signature = JSON.stringify([collapsed, definition?.videos, definition?.renderKey, document.documentElement.lang])
+  if (videoCollectionSignatures.get(grid) === signature) return
+  videoCollectionSignatures.set(grid, signature)
+  if (!collapsed && videoCollectionWindows.has(grid)) {
+    videoCollectionWindows.get(grid).reconcile(definition)
+    return
+  }
+  videoCollectionWindows.get(grid)?.destroy()
+  videoCollectionWindows.delete(grid)
+  grid.replaceChildren()
+  if (!collapsed && definition) {
+    videoCollectionWindows.set(grid, createCollectionWindow(grid, definition))
+  }
 }
 
 function toggleWatchedSection() {
@@ -15683,6 +16011,7 @@ function toggleWatchedSection() {
   if (!watchedSection || !watchedToggle) return
   isWatchedSectionCollapsed = !watchedSection.classList.contains('collapsed')
   watchedSection.classList.toggle('collapsed', isWatchedSectionCollapsed)
+  updateVideoCollection(document.getElementById('watchedGrid'), isWatchedSectionCollapsed)
   watchedToggle.setAttribute('aria-expanded', String(!isWatchedSectionCollapsed))
   watchedToggle.setAttribute('aria-label', t(isWatchedSectionCollapsed ? 'videos.watched.show' : 'videos.watched.hide'))
 }
@@ -15693,6 +16022,7 @@ function toggleRemovedSection() {
   if (!removedSection || !removedToggle) return
   isRemovedSectionCollapsed = !removedSection.classList.contains('collapsed')
   removedSection.classList.toggle('collapsed', isRemovedSectionCollapsed)
+  updateVideoCollection(document.getElementById('removedGrid'), isRemovedSectionCollapsed)
   removedToggle.setAttribute('aria-expanded', String(!isRemovedSectionCollapsed))
   removedToggle.setAttribute('aria-label', t(isRemovedSectionCollapsed
     ? 'videos.removed.show'
@@ -15768,18 +16098,13 @@ function applyChannelVideoFormatSelection(shelf, channelKey, format) {
     closeVideoShelfPreview(activeVideoShelfPreview, true)
   }
 
-  let visibleCount = 0
-  shelf.querySelectorAll(
-    '.channel-shelf-slot[data-channel-video-format]'
-  ).forEach(slot => {
-    const isVisible = slot.dataset.channelVideoFormat === selectedFormat
-    slot.hidden = !isVisible
-    if (isVisible) visibleCount += 1
-  })
-  shelf.querySelectorAll('[data-channel-video-format-empty]').forEach(empty => {
-    empty.hidden = empty.dataset.channelVideoFormatEmpty !== selectedFormat
-      || visibleCount > 0
-  })
+  const entry = videoShelfWindows.get(shelf.querySelector('.channel-shelf-track'))
+  if (!entry) return false
+  const videos = entry.group.videos.filter(video => getChannelVideoFormat(video) === selectedFormat)
+  const visibleCount = videos.length
+  entry.format = selectedFormat
+  syncChannelHistoryActions(shelf.querySelector('.channel-shelf-track'), entry)
+  entry.window.replace(videos)
   shelf.querySelectorAll('[data-channel-video-format-action="select"]').forEach(button => {
     button.setAttribute(
       'aria-pressed',
@@ -15824,9 +16149,8 @@ function selectChannelVideoFormat(control, channelKey, format) {
   const channelName = channel?.name
     || shelf.querySelector('.channel-shelf-heading strong')?.textContent?.trim()
     || channelKey
-  const visibleVideoCount = shelf.querySelectorAll(
-    `.channel-shelf-slot[data-channel-video-format="${selectedFormat}"]:not([hidden])`
-  ).length
+  const visibleVideoCount = videoShelfWindows.get(shelf.querySelector('.channel-shelf-track'))
+    ?.group.videos.filter(video => getChannelVideoFormat(video) === selectedFormat).length || 0
   trackEdeniaEvent('channel_video_format_viewed', {
     channel_id: channelKey,
     channel_name: channelName,
@@ -15840,13 +16164,15 @@ function selectChannelVideoFormat(control, channelKey, format) {
 }
 
 function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], configuredChannels = []) {
-  return groupActiveVideosByChannel(
+  const groups = groupActiveVideosByChannel(
     videos,
     channelOrder,
     configuredChannels,
     cardOptions.chronologicalOnly,
-    t('videos.search.youtube')
-  ).map((group, index) => {
+    t('videos.search.youtube'),
+    cardOptions.historyChannels
+  )
+  return groups.map((group, index) => {
     const preferredFormat = getSelectedChannelVideoFormat(
       cardOptions.channelVideoFormats,
       group.key
@@ -15864,7 +16190,8 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
     )
     const visibleCount = formatCounts[selectedFormat]
     const countLabel = getChannelVideoFormatCountLabel(visibleCount)
-    const trackId = `channelShelfTrack${index}`
+    const trackId = `channelShelfTrack-${encodeURIComponent(group.key)}`
+    pendingShelfGroups.push({ group, trackId, cardOptions, selectedFormat })
     const isArrivingChannel = group.key === cardOptions.arrivingChannelId
     const isRemovedChannel = cardOptions.removedChannelIds?.has(group.key)
     return `
@@ -15934,19 +16261,7 @@ function renderChannelVideoGroups(videos, cardOptions = {}, channelOrder = [], c
             ${selectedFormat !== CHANNEL_VIDEO_FORMATS.SHORTS || formatCounts[CHANNEL_VIDEO_FORMATS.SHORTS] > 0 ? 'hidden' : ''}>
             ${escHtml(t('videos.channel.format.emptyShorts'))}
           </div>
-          ${group.videos.map((video, videoIndex) => {
-            const videoFormat = getChannelVideoFormat(video)
-            return `
-            <div class="channel-shelf-slot ${video.id === cardOptions.focusedVideoId ? 'channel-refresh-focus' : ''}"
-              data-channel-video-format="${videoFormat}"
-              ${videoFormat !== selectedFormat ? 'hidden' : ''}
-              style="--channel-refresh-delay: ${Math.min(videoIndex, 8) * 45}ms">
-              ${renderCard(video, false, {
-                ...cardOptions,
-                shelf: true
-              })}
-            </div>
-          `}).join('')}
+
         </div>
       </section>
     `
@@ -15997,6 +16312,7 @@ function syncVideoChannelShelfControls(track) {
   if (!track) return
   if (activeVideoShelfPreview && track.contains(activeVideoShelfPreview)) {
     const isPinnedPreview = activeVideoShelfPreview.dataset.videoId === activeNextStudyFocusVideoId
+      || activeVideoShelfPreview.classList.contains('is-layout-reanchoring')
     if (isPinnedPreview) {
       positionVideoShelfPreview(activeVideoShelfPreview)
     } else {
@@ -16009,7 +16325,7 @@ function syncVideoChannelShelfControls(track) {
   const previousButton = shelf?.querySelector('[data-shelf-direction="-1"]')
   const nextButton = shelf?.querySelector('[data-shelf-direction="1"]')
   if (previousButton) previousButton.disabled = atStart
-  if (nextButton) nextButton.disabled = atEnd
+  if (nextButton) nextButton.disabled = atEnd && (!videoShelfWindows.get(track)?.history || track.dataset.historyExhausted === 'true')
 }
 
 function scrollVideoChannelShelf(button, direction) {
@@ -16424,6 +16740,37 @@ function isStudyVideoShelfPlayerSession(session) {
   return session?.mode !== VIDEO_SHELF_PLAYER_MODE_REMOVED_PREVIEW
 }
 
+function capturePlayerReturnPosition(videoId) {
+  const card = [...document.querySelectorAll('.video-card')].find(node => node.dataset.videoId === videoId)
+  if (!card) return null
+  const slot = card.closest('.channel-shelf-slot') || card
+  const track = card.closest('.channel-shelf-track')
+  const entry = videoShelfWindows.get(track)
+  const rect = slot.getBoundingClientRect()
+  return { videoId, viewport: captureFeedViewport(), channelKey: entry?.group.key, ids: entry?.group.videos.map(video => String(video.id)) || [videoId],
+    left: rect.left, top: rect.top }
+}
+
+function restorePlayerReturnPosition(session) {
+  const position = session?.returnPosition
+  if (!position) return
+  const entry = [...videoShelfWindows.values()].find(entry => entry.group.key === position.channelKey)
+  const ids = entry?.group.videos.map(video => String(video.id)) || []
+  const index = position.ids.indexOf(position.videoId)
+  const nextIndex = resolveWindowAnchor(position.ids, ids, index)
+  const videoId = entry && nextIndex >= 0 ? ids[nextIndex] : position.videoId
+  const card = findVideoCard(videoId)
+  if (!card) {
+    restoreFeedViewport(position.viewport && { ...position.viewport, focusLost: true })
+    return
+  }
+  const slot = card.closest('.channel-shelf-slot') || card
+  const track = card.closest('.channel-shelf-track')
+  if (track) track.scrollTo({ left: track.scrollLeft + slot.getBoundingClientRect().left - position.left, behavior: 'instant' })
+  window.scrollBy({ top: slot.getBoundingClientRect().top - position.top, behavior: 'instant' })
+  card.querySelector('.thumb-link, button')?.focus({ preventScroll: true })
+}
+
 function openVideoPlayer(videoId, options = {}) {
   videoId = String(videoId ?? '')
   if (!videoId) return false
@@ -16473,6 +16820,7 @@ function openVideoPlayer(videoId, options = {}) {
     || (!isRemovedPreview && getVideoStatus(video) !== 'partial' && !wasWatched)
   ) return false
 
+  const returnPosition = capturePlayerReturnPosition(videoId)
   const startSeconds = normalizeResumeAtSeconds(video.resumeAtSeconds, video.duration) || 0
   const playerElements = renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch)
   if (!playerElements?.iframe) return false
@@ -16480,6 +16828,7 @@ function openVideoPlayer(videoId, options = {}) {
   const session = {
     videoId,
     mode,
+    returnPosition,
     analyticsSurface: isRemovedPreview ? 'removed_section' : 'channel_shelf',
     overlay: playerElements.overlay,
     frame: playerElements.frame,
@@ -16928,9 +17277,11 @@ function stopActiveVideoShelfPlayer(options = {}) {
 function closeVideoShelfPlayer() {
   const stoppedPlayer = stopActiveVideoShelfPlayer({ persist: true, exitReason: 'closed' })
   if (!stoppedPlayer) return
-  if (!isStudyVideoShelfPlayerSession(stoppedPlayer)) return
-  const state = loadState()
-  if (state) renderAll(state)
+  if (isStudyVideoShelfPlayerSession(stoppedPlayer)) {
+    const state = loadState()
+    if (state) renderAll(state)
+  }
+  restorePlayerReturnPosition(stoppedPlayer)
 }
 
 function handleVideoShelfPlayerVisibilityChange() {
@@ -17217,10 +17568,19 @@ function isActiveVideoShelfPreview(videoId) {
   )
 }
 
-function refreshVideoActionUiWithoutFeedRerender(state, videoId) {
+function patchVideoShelfPreview(state, videoId) {
   const card = activeVideoShelfPreview
   const video = state?.videos?.[videoId]
   if (!card || !video || !isActiveVideoShelfPreview(videoId)) return
+
+  // Preview actions deliberately preserve the live card. Refresh its window's
+  // record too, so a later remount uses the updated learner-owned state.
+  for (const entry of videoShelfWindows.values()) {
+    const index = entry.group.videos.findIndex(item => String(item.id) === String(videoId))
+    if (index < 0) continue
+    entry.group.videos[index] = video
+    entry.window.updateVideo(video)
+  }
 
   const template = document.createElement('template')
   template.innerHTML = renderCard(video, false, {
@@ -17285,23 +17645,14 @@ function refreshVideoActionUiWithoutFeedRerender(state, videoId) {
   }
   bindRenderedVideoStateActions(card)
 
-  const allVideos = Object.values(state.videos)
-    .sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt))
-  const channelFilters = getSelectedChannelFilters(state)
-  const removedChannelIds = new Set(state.config?.removedChannelIds || [])
-  const includeShorts = getEffectiveIncludeShorts(state)
-  const activeVideos = getVisibleActiveVideos(allVideos, includeShorts, {
-    limitPerChannel: false
-  }).filter(videoEntry => matchesActiveChannelFilter(videoEntry, channelFilters, removedChannelIds))
-  const favoriteVideos = allVideos
-    .filter(isFavoriteVideo)
-    .filter(videoEntry => !isHiddenFromVideoGrid(videoEntry))
-    .filter(videoEntry => !isHiddenShortVideo(videoEntry, includeShorts))
-    .filter(videoEntry => matchesWatchedChannelFilter(videoEntry, channelFilters, removedChannelIds))
+  return card
+}
 
-  renderStatusFilterOptions(allVideos, channelFilters, includeShorts, removedChannelIds)
+function refreshVideoActionUiPreservingPreview(state, videoId) {
+  const card = patchVideoShelfPreview(state, videoId)
+  if (!card) return
   card.classList.add('is-layout-reanchoring')
-  renderNextStudy(activeVideos, favoriteVideos)
+  renderFeed(state)
   renderUndoButton(state)
   keepVideoShelfPreviewAnchoredAfterLayout(card, videoId)
 }

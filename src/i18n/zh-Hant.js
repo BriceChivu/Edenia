@@ -1,6 +1,12 @@
 import { EN_CORE } from './en.js'
 
 export const ZH_HANT_LOCALIZED = {
+  'videos.history.loading': "正在載入較早的影片…",
+  'videos.history.exhausted': "已載入所有可用影片。",
+  'videos.history.limited': "本批次中沒有更多符合條件的影片。",
+  'videos.history.failed': "無法載入較早的影片。",
+  'videos.history.continue': "繼續瀏覽",
+
     'intro.skip': '跳過介紹',
     'intro.sound.off': '聲音關閉',
     'intro.sound.on': '聲音開啟',
@@ -1111,6 +1117,7 @@ export const ZH_HANT_LOCALIZED = {
   'log.unknownError': '未知錯誤',
   'log.shortsSkipped.title': '已略過短影片',
   'log.shortsSkipped.detail': '刷新時略過了 {count} 部短影片。',
+  'log.youtubeQuota.detail': "這些請求的 YouTube 每日配額已用完。請在 {time}（下一個太平洋時間午夜）後重試。已儲存的影片和學習進度仍可使用。",
   'log.refreshFailed.title': 'YouTube 刷新失敗',
   'log.unknownRefreshError': '未知的刷新錯誤',
   'log.videoStatus.title': '影片狀態已變更',

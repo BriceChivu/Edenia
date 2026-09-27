@@ -1,0 +1,1019 @@
+{
+  "issue": 339,
+  "date": "2026-09-27",
+  "machine": "Mac15,13",
+  "conditions": "Unthrottled Chromium, synthetic 7000-video library, mocked external traffic; other local work may affect timings.",
+  "baselinePhoneDeepFavorite": {
+    "ms": 205,
+    "anchorDeltaPx": 8000,
+    "shelvesRetained": false
+  },
+  "summary": [
+    {
+      "project": "desktop-wide",
+      "mountedCardRange": [
+        32,
+        68
+      ],
+      "favoriteMsRange": [
+        165.1,
+        207.9
+      ],
+      "deepFavoriteMs": 150.6,
+      "anchorDeltaPx": 0
+    },
+    {
+      "project": "desktop-standard",
+      "mountedCardRange": [
+        32,
+        60
+      ],
+      "favoriteMsRange": [
+        141.8,
+        184.8
+      ],
+      "deepFavoriteMs": 145.3,
+      "anchorDeltaPx": 0
+    },
+    {
+      "project": "tablet-portrait",
+      "mountedCardRange": [
+        21,
+        74
+      ],
+      "favoriteMsRange": [
+        190.9,
+        224.7
+      ],
+      "deepFavoriteMs": 241.8,
+      "anchorDeltaPx": 0
+    },
+    {
+      "project": "tablet-landscape",
+      "mountedCardRange": [
+        32,
+        68
+      ],
+      "favoriteMsRange": [
+        157.1,
+        205.4
+      ],
+      "deepFavoriteMs": 178.9,
+      "anchorDeltaPx": 0
+    },
+    {
+      "project": "phone-standard",
+      "mountedCardRange": [
+        15,
+        34
+      ],
+      "favoriteMsRange": [
+        156.6,
+        197.7
+      ],
+      "deepFavoriteMs": 228.3,
+      "anchorDeltaPx": 0
+    },
+    {
+      "project": "phone-small",
+      "mountedCardRange": [
+        15,
+        34
+      ],
+      "favoriteMsRange": [
+        157.7,
+        187.3
+      ],
+      "deepFavoriteMs": 186.7,
+      "anchorDeltaPx": 0
+    }
+  ],
+  "samples": [
+    {
+      "project": "desktop-wide",
+      "initialMounted": 8
+    },
+    {
+      "project": "desktop-wide",
+      "sampleTimings": [
+        68.60000000149012,
+        66.5,
+        65.60000000149012,
+        49.899999998509884
+      ]
+    },
+    {
+      "project": "desktop-wide",
+      "initial": 8,
+      "counts": [
+        32,
+        35,
+        35,
+        35,
+        35,
+        32,
+        35,
+        36,
+        35,
+        35,
+        32,
+        64,
+        67,
+        67,
+        67,
+        68,
+        64,
+        68,
+        68,
+        67,
+        67,
+        64,
+        40,
+        43,
+        43,
+        43,
+        44,
+        40,
+        44,
+        44,
+        43,
+        43,
+        40,
+        64,
+        67,
+        67,
+        68,
+        67,
+        64,
+        67,
+        68,
+        67,
+        67,
+        64,
+        32,
+        35,
+        35,
+        36,
+        35,
+        32,
+        35,
+        36,
+        35,
+        35,
+        32
+      ],
+      "formatTimingsMs": [
+        58.400000005960464,
+        77,
+        82.19999999552965,
+        58.100000001490116,
+        56.899999998509884,
+        31.599999994039536,
+        32.900000005960464,
+        35.20000000298023,
+        52.399999998509884,
+        47.29999999701977,
+        55.20000000298023,
+        41.399999998509884,
+        72.10000000149012,
+        60.30000000447035,
+        55.899999998509884,
+        65,
+        64.80000000447035,
+        58.20000000298023,
+        50.899999998509884,
+        30.600000001490116
+      ]
+    },
+    {
+      "project": "desktop-wide",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 60.19999999552965
+        },
+        {
+          "action": "all",
+          "ms": 48.70000000298023
+        },
+        {
+          "action": "unwatched",
+          "ms": 47.19999999552965
+        },
+        {
+          "action": "all",
+          "ms": 49.100000001490116
+        },
+        {
+          "action": "favorite",
+          "ms": 207.89999999850988
+        },
+        {
+          "action": "favorite",
+          "ms": 167.70000000298023
+        },
+        {
+          "action": "favorite",
+          "ms": 165.10000000149012
+        },
+        {
+          "action": "favorite",
+          "ms": 173.20000000298023
+        }
+      ]
+    },
+    {
+      "project": "desktop-wide",
+      "anchorInteraction": {
+        "ms": 150.60000000149012,
+        "retained": true,
+        "delta": 0,
+        "focused": true,
+        "favorite": "true"
+      }
+    },
+    {
+      "project": "desktop-standard",
+      "initialMounted": 0
+    },
+    {
+      "project": "desktop-standard",
+      "sampleTimings": [
+        40.600000001490116,
+        47.5,
+        50.20000000298023,
+        57
+      ]
+    },
+    {
+      "project": "desktop-standard",
+      "initial": 0,
+      "counts": [
+        32,
+        35,
+        35,
+        35,
+        36,
+        32,
+        36,
+        35,
+        35,
+        35,
+        32,
+        56,
+        59,
+        59,
+        60,
+        59,
+        56,
+        60,
+        59,
+        59,
+        59,
+        56,
+        40,
+        43,
+        43,
+        44,
+        43,
+        40,
+        44,
+        43,
+        43,
+        43,
+        40,
+        56,
+        59,
+        59,
+        60,
+        59,
+        56,
+        60,
+        59,
+        59,
+        59,
+        56,
+        32,
+        35,
+        35,
+        36,
+        35,
+        32,
+        36,
+        35,
+        35,
+        35,
+        32
+      ],
+      "formatTimingsMs": [
+        31.100000001490116,
+        28.80000000447035,
+        32.400000005960464,
+        31.399999998509884,
+        44.399999998509884,
+        34.5,
+        35.69999999552965,
+        25.19999999552965,
+        28.5,
+        28.5,
+        27.5,
+        24.899999998509884,
+        29.799999997019768,
+        29.399999998509884,
+        27.899999998509884,
+        27.5,
+        29.700000002980232,
+        27.399999998509884,
+        25.400000005960464,
+        31.5
+      ]
+    },
+    {
+      "project": "desktop-standard",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 45.600000001490116
+        },
+        {
+          "action": "all",
+          "ms": 39.600000001490116
+        },
+        {
+          "action": "unwatched",
+          "ms": 38.399999998509884
+        },
+        {
+          "action": "all",
+          "ms": 40
+        },
+        {
+          "action": "favorite",
+          "ms": 184.80000000447035
+        },
+        {
+          "action": "favorite",
+          "ms": 158.20000000298023
+        },
+        {
+          "action": "favorite",
+          "ms": 174.20000000298023
+        },
+        {
+          "action": "favorite",
+          "ms": 141.79999999701977
+        }
+      ]
+    },
+    {
+      "project": "desktop-standard",
+      "anchorInteraction": {
+        "ms": 145.30000000447035,
+        "retained": true,
+        "delta": 0,
+        "focused": true,
+        "favorite": "true"
+      }
+    },
+    {
+      "project": "tablet-portrait",
+      "initialMounted": 21
+    },
+    {
+      "project": "tablet-portrait",
+      "sampleTimings": [
+        54.899999998509884,
+        40.399999998509884,
+        50.70000000298023,
+        49.79999999701977
+      ]
+    },
+    {
+      "project": "tablet-portrait",
+      "initial": 21,
+      "counts": [
+        21,
+        24,
+        25,
+        25,
+        24,
+        21,
+        24,
+        25,
+        25,
+        24,
+        21,
+        70,
+        73,
+        74,
+        74,
+        73,
+        70,
+        73,
+        74,
+        74,
+        73,
+        70,
+        49,
+        52,
+        53,
+        53,
+        53,
+        49,
+        52,
+        53,
+        53,
+        52,
+        49,
+        70,
+        73,
+        73,
+        74,
+        73,
+        70,
+        73,
+        74,
+        74,
+        73,
+        70,
+        35,
+        38,
+        39,
+        39,
+        39,
+        35,
+        38,
+        39,
+        39,
+        38,
+        35
+      ],
+      "formatTimingsMs": [
+        62.69999999552965,
+        60.79999999701977,
+        33.099999994039536,
+        28.900000005960464,
+        57.399999998509884,
+        44.900000005960464,
+        47.20000000298023,
+        59.19999999552965,
+        34.30000000447035,
+        51.29999999701977,
+        29.5,
+        32.5,
+        34.29999999701977,
+        29.299999997019768,
+        30,
+        26.100000001490116,
+        33.69999999552965,
+        30.600000001490116,
+        33.5,
+        29
+      ]
+    },
+    {
+      "project": "tablet-portrait",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 60
+        },
+        {
+          "action": "all",
+          "ms": 49.29999999701977
+        },
+        {
+          "action": "unwatched",
+          "ms": 45.5
+        },
+        {
+          "action": "all",
+          "ms": 49.899999998509884
+        },
+        {
+          "action": "favorite",
+          "ms": 224.70000000298023
+        },
+        {
+          "action": "favorite",
+          "ms": 212.70000000298023
+        },
+        {
+          "action": "favorite",
+          "ms": 204.89999999850988
+        },
+        {
+          "action": "favorite",
+          "ms": 190.89999999850988
+        }
+      ]
+    },
+    {
+      "project": "tablet-portrait",
+      "anchorInteraction": {
+        "ms": 241.79999999701977,
+        "retained": true,
+        "delta": 0,
+        "focused": true,
+        "favorite": "true"
+      }
+    },
+    {
+      "project": "tablet-landscape",
+      "initialMounted": 8
+    },
+    {
+      "project": "tablet-landscape",
+      "sampleTimings": [
+        68.10000000149012,
+        62.399999998509884,
+        70.89999999850988,
+        51.30000000447035
+      ]
+    },
+    {
+      "project": "tablet-landscape",
+      "initial": 8,
+      "counts": [
+        32,
+        35,
+        35,
+        35,
+        36,
+        32,
+        36,
+        35,
+        35,
+        35,
+        32,
+        64,
+        67,
+        67,
+        67,
+        68,
+        64,
+        68,
+        68,
+        67,
+        67,
+        64,
+        40,
+        43,
+        43,
+        43,
+        44,
+        40,
+        44,
+        44,
+        43,
+        43,
+        40,
+        64,
+        67,
+        67,
+        67,
+        68,
+        64,
+        68,
+        68,
+        67,
+        67,
+        64,
+        32,
+        35,
+        35,
+        36,
+        35,
+        32,
+        36,
+        36,
+        35,
+        35,
+        32
+      ],
+      "formatTimingsMs": [
+        58,
+        33.600000001490116,
+        31.700000002980232,
+        28.100000001490116,
+        66.40000000596046,
+        56.19999999552965,
+        57.100000001490116,
+        53.5,
+        55.69999999552965,
+        38.100000001490116,
+        32.79999999701977,
+        30.5,
+        45.69999999552965,
+        38.899999998509884,
+        46.899999998509884,
+        47.5,
+        45,
+        32.29999999701977,
+        32,
+        30.399999998509884
+      ]
+    },
+    {
+      "project": "tablet-landscape",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 66.20000000298023
+        },
+        {
+          "action": "all",
+          "ms": 50.80000000447035
+        },
+        {
+          "action": "unwatched",
+          "ms": 50.600000001490116
+        },
+        {
+          "action": "all",
+          "ms": 55.70000000298023
+        },
+        {
+          "action": "favorite",
+          "ms": 205.39999999850988
+        },
+        {
+          "action": "favorite",
+          "ms": 176.60000000149012
+        },
+        {
+          "action": "favorite",
+          "ms": 157.10000000149012
+        },
+        {
+          "action": "favorite",
+          "ms": 161.80000000447035
+        }
+      ]
+    },
+    {
+      "project": "tablet-landscape",
+      "anchorInteraction": {
+        "ms": 178.89999999850988,
+        "retained": true,
+        "delta": 0,
+        "focused": true,
+        "favorite": "true"
+      }
+    },
+    {
+      "project": "phone-standard",
+      "initialMounted": 0
+    },
+    {
+      "project": "phone-standard",
+      "sampleTimings": [
+        56.5,
+        49.79999999701977,
+        33,
+        33.70000000298023
+      ]
+    },
+    {
+      "project": "phone-standard",
+      "initial": 0,
+      "counts": [
+        15,
+        19,
+        18,
+        18,
+        18,
+        15,
+        18,
+        18,
+        18,
+        19,
+        15,
+        30,
+        34,
+        33,
+        33,
+        33,
+        30,
+        33,
+        33,
+        33,
+        34,
+        30,
+        20,
+        24,
+        23,
+        23,
+        23,
+        20,
+        23,
+        23,
+        23,
+        24,
+        20,
+        30,
+        34,
+        33,
+        33,
+        33,
+        30,
+        33,
+        33,
+        33,
+        34,
+        30,
+        15,
+        19,
+        18,
+        18,
+        18,
+        15,
+        18,
+        18,
+        18,
+        19,
+        15
+      ],
+      "formatTimingsMs": [
+        56,
+        37.399999998509884,
+        32.100000001490116,
+        32.899999998509884,
+        49.29999999701977,
+        32.899999998509884,
+        29.599999994039536,
+        28.30000000447035,
+        41.70000000298023,
+        28.69999999552965,
+        28.900000005960464,
+        30.5,
+        39.30000000447035,
+        35.69999999552965,
+        27.599999994039536,
+        32.100000001490116,
+        48.69999999552965,
+        29.5,
+        27.299999997019768,
+        28.19999999552965
+      ]
+    },
+    {
+      "project": "phone-standard",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 44.399999998509884
+        },
+        {
+          "action": "all",
+          "ms": 38.19999999552965
+        },
+        {
+          "action": "unwatched",
+          "ms": 40.399999998509884
+        },
+        {
+          "action": "all",
+          "ms": 63.899999998509884
+        },
+        {
+          "action": "favorite",
+          "ms": 197.70000000298023
+        },
+        {
+          "action": "favorite",
+          "ms": 177
+        },
+        {
+          "action": "favorite",
+          "ms": 156.59999999403954
+        },
+        {
+          "action": "favorite",
+          "ms": 196
+        }
+      ]
+    },
+    {
+      "project": "phone-standard",
+      "anchorInteraction": {
+        "ms": 228.30000000447035,
+        "retained": true,
+        "delta": 0,
+        "focused": true,
+        "favorite": "true"
+      }
+    },
+    {
+      "project": "phone-small",
+      "initialMounted": 0
+    },
+    {
+      "project": "phone-small",
+      "sampleTimings": [
+        55.599999994039536,
+        50,
+        31.80000000447035,
+        34.899999998509884
+      ]
+    },
+    {
+      "project": "phone-small",
+      "initial": 0,
+      "counts": [
+        15,
+        19,
+        18,
+        18,
+        18,
+        15,
+        18,
+        18,
+        18,
+        19,
+        15,
+        30,
+        34,
+        33,
+        33,
+        33,
+        30,
+        33,
+        33,
+        33,
+        34,
+        30,
+        20,
+        24,
+        23,
+        23,
+        23,
+        20,
+        23,
+        23,
+        23,
+        24,
+        20,
+        30,
+        34,
+        33,
+        33,
+        33,
+        30,
+        33,
+        33,
+        33,
+        34,
+        30,
+        15,
+        19,
+        18,
+        18,
+        18,
+        15,
+        18,
+        18,
+        18,
+        19,
+        15
+      ],
+      "formatTimingsMs": [
+        43,
+        28.69999999552965,
+        29.899999998509884,
+        32,
+        45,
+        31,
+        33.100000001490116,
+        28.700000002980232,
+        43.80000000447035,
+        28.80000000447035,
+        26.399999998509884,
+        28,
+        41.79999999701977,
+        31.80000000447035,
+        34.5,
+        27.80000000447035,
+        54.80000000447035,
+        28.599999994039536,
+        29.600000001490116,
+        28.200000002980232
+      ]
+    },
+    {
+      "project": "phone-small",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 45.100000001490116
+        },
+        {
+          "action": "all",
+          "ms": 38.70000000298023
+        },
+        {
+          "action": "unwatched",
+          "ms": 48.19999999552965
+        },
+        {
+          "action": "all",
+          "ms": 37.399999998509884
+        },
+        {
+          "action": "favorite",
+          "ms": 187.29999999701977
+        },
+        {
+          "action": "favorite",
+          "ms": 166.69999999552965
+        },
+        {
+          "action": "favorite",
+          "ms": 168.19999999552965
+        },
+        {
+          "action": "favorite",
+          "ms": 157.69999999552965
+        }
+      ]
+    },
+    {
+      "project": "phone-small",
+      "anchorInteraction": {
+        "ms": 186.70000000298023,
+        "retained": true,
+        "delta": 0,
+        "focused": true,
+        "favorite": "true"
+      }
+    }
+  ],
+  "finalAnchorVerification": [
+    {
+      "project": "desktop-wide",
+      "anchorInteraction": {
+        "ms": 154,
+        "retained": true,
+        "siblingRetained": true,
+        "delta": 0,
+        "focused": true,
+        "favorite": "true"
+      }
+    },
+    {
+      "project": "desktop-standard",
+      "anchorInteraction": {
+        "ms": 174.70000000298023,
+        "retained": true,
+        "siblingRetained": true,
+        "delta": 0,
+        "focused": true,
+        "favorite": "true"
+      }
+    },
+    {
+      "project": "tablet-portrait",
+      "anchorInteraction": {
+        "ms": 141.5,
+        "retained": true,
+        "siblingRetained": true,
+        "delta": 0,
+        "focused": true,
+        "favorite": "true"
+      }
+    },
+    {
+      "project": "tablet-landscape",
+      "anchorInteraction": {
+        "ms": 156.60000000149012,
+        "retained": true,
+        "siblingRetained": true,
+        "delta": 0,
+        "focused": true,
+        "favorite": "true"
+      }
+    },
+    {
+      "project": "phone-standard",
+      "anchorInteraction": {
+        "ms": 169,
+        "retained": true,
+        "siblingRetained": true,
+        "delta": 0,
+        "focused": true,
+        "favorite": "true"
+      }
+    },
+    {
+      "project": "phone-small",
+      "anchorInteraction": {
+        "ms": 156.89999999850988,
+        "retained": true,
+        "siblingRetained": true,
+        "delta": 0,
+        "focused": true,
+        "favorite": "true"
+      }
+    }
+  ]
+}

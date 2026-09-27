@@ -1,6 +1,12 @@
 import { EN_CORE } from './en.js'
 
 export const ZH_HANS_LOCALIZED = {
+  'videos.history.loading': "正在加载较早的视频…",
+  'videos.history.exhausted': "已加载所有可用视频。",
+  'videos.history.limited': "本批次中没有更多符合条件的视频。",
+  'videos.history.failed': "无法加载较早的视频。",
+  'videos.history.continue': "继续浏览",
+
     'intro.skip': '跳过介绍',
     'intro.sound.off': '声音关闭',
     'intro.sound.on': '声音开启',
@@ -1111,6 +1117,7 @@ export const ZH_HANS_LOCALIZED = {
   'log.unknownError': '未知错误',
   'log.shortsSkipped.title': '已跳过短视频',
   'log.shortsSkipped.detail': '刷新时跳过了 {count} 个短视频。',
+  'log.youtubeQuota.detail': "这些请求的 YouTube 每日配额已用完。请在 {time}（下一个太平洋时间午夜）后重试。已保存的视频和学习进度仍可使用。",
   'log.refreshFailed.title': 'YouTube 刷新失败',
   'log.unknownRefreshError': '未知的刷新错误',
   'log.videoStatus.title': '视频状态已更改',

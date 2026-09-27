@@ -152,6 +152,7 @@ test('Study History heatmap preserves manual history position until the view is 
       return scroll.scrollLeft
     }
   )
+  await page.locator('#videoGrid .channel-shelf').first().scrollIntoViewIfNeeded()
   await page.locator(
     '[data-video-id="heatmap-scroll-video"] .favorite-btn'
   ).press('Enter')

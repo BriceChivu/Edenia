@@ -27,7 +27,7 @@ test('Watched cards move favorites into the active timeline', () => {
   )
   assert.match(
     appSource,
-    /watchedGrid\.innerHTML =[\s\S]*?hideOrganizationActions: true[\s\S]*?stateActionSurface: 'watched_card'/
+    /videoCollectionDefinitions\.set\(watchedGrid,[\s\S]*?hideOrganizationActions: true[\s\S]*?stateActionSurface: 'watched_card'/
   )
   assert.doesNotMatch(organizationSource, /return-feed|returnToFeed/)
   assert.doesNotMatch(appSource, /function returnWatchedVideoToFeed\(/)

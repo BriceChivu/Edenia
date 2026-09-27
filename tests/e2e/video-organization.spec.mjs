@@ -91,6 +91,7 @@ async function seedVideoOrganizationState(
   }, { locale, storageKey, theme })
   await page.reload()
   await waitForApplication(page)
+  await page.locator('#videoGrid .channel-shelf').first().scrollIntoViewIfNeeded()
   return storageKey
 }
 
@@ -392,6 +393,7 @@ test('Watched Favorite reveals and highlights the active rewatch card', async ({
   const watchedCard = page.locator(
     '#watchedGrid .video-card[data-video-id="watched-favorite-video"]'
   )
+  await page.locator('#watchedSection').scrollIntoViewIfNeeded()
   await expect(watchedCard).toHaveCount(1)
   await expect(watchedCard.locator('[data-video-organization-action="menu"]')).toHaveCount(0)
   await expect(watchedCard.locator('.favorite-btn')).toHaveCount(1)
@@ -442,6 +444,9 @@ test('phone Favorite keeps the same video and shelf position', async ({ page }, 
   const card = page.locator(
     `#videoGrid .channel-shelf-card[data-video-id="${videoId}"]`
   )
+  await track.scrollIntoViewIfNeeded()
+  await track.evaluate(element => element.scrollTo({ left: element.scrollWidth / 2, behavior: 'instant' }))
+  await expect(card).toHaveCount(1)
   await track.evaluate((element, targetVideoId) => {
     const target = element.querySelector(
       `.channel-shelf-card[data-video-id="${targetVideoId}"]`

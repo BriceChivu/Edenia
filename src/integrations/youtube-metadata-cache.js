@@ -77,11 +77,11 @@ export async function refreshSavedYoutubeMetadata({ state, fetchVideos, fetchCha
     })
     state.youtubeMetadataFailedAt = null
     return true
-  } catch {
+  } catch (error) {
     if (!isCurrent()) return false
     Object.assign(state, readCurrent())
-    expireYoutubeMetadata(state, now, true)
-    state.youtubeMetadataFailedAt = new Date(now).toISOString()
+    if (error?.kind !== 'daily-quota') expireYoutubeMetadata(state, now, true)
+    state.youtubeMetadataFailedAt = error?.kind === 'daily-quota' ? null : new Date(now).toISOString()
     return true
   }
 }

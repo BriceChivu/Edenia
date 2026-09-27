@@ -354,7 +354,7 @@ test('filter replacement binds channel removal before filter controls', () => {
 test('active grid binds channel removal after scrolling and before later features', () => {
   const feedSource = getFunctionSource('renderFeed', 'toggleWatchedSection')
   const groupReplacementIndex = feedSource.indexOf(
-    'grid.innerHTML = renderChannelVideoGroups('
+    'shelfTemplate.innerHTML = renderChannelVideoGroups('
   )
   const removeBindingIndex = feedSource.indexOf(
     'bindChannelRemoveActions(grid, {'

@@ -15,7 +15,7 @@ test('video cards expose organization actions and passive priority labels', () =
   assert.match(appSource, /options\.hideOrganizationActions \? '' : `<button class="action-btn more-btn"/)
   assert.match(
     appSource,
-    /watchedGrid\.innerHTML =[\s\S]*?hideOrganizationActions: true[\s\S]*?stateActionSurface: 'watched_card'/
+    /videoCollectionDefinitions\.set\(watchedGrid,[\s\S]*?hideOrganizationActions: true[\s\S]*?stateActionSurface: 'watched_card'/
   )
   assert.doesNotMatch(appSource, /data-video-organization-surface="watched_card"/)
   assert.doesNotMatch(appSource, /data-video-set-aside-action="request"/)

@@ -1,6 +1,12 @@
 import { EN_CORE } from './en.js'
 
 export const ES_LOCALIZED = {
+  'videos.history.loading': "Cargando vídeos anteriores…",
+  'videos.history.exhausted': "Se han cargado todos los vídeos disponibles.",
+  'videos.history.limited': "No hay más vídeos coincidentes en este lote.",
+  'videos.history.failed': "No se pudieron cargar los vídeos anteriores.",
+  'videos.history.continue': "Seguir explorando",
+
     'intro.skip': 'Omitir introducción',
     'intro.sound.off': 'Sonido desactivado',
     'intro.sound.on': 'Sonido activado',
@@ -1111,6 +1117,7 @@ export const ES_LOCALIZED = {
   'log.unknownError': 'Error desconocido',
   'log.shortsSkipped.title': 'Videos cortos omitidos',
   'log.shortsSkipped.detail': 'Se omitieron {count} videos cortos durante la actualización.',
+  'log.youtubeQuota.detail': "Se agotó la capacidad diaria de YouTube para estas solicitudes. Vuelve a intentarlo después de {time} (la próxima medianoche del Pacífico). Tus vídeos guardados y tu progreso siguen disponibles.",
   'log.refreshFailed.title': 'Falló la actualización de YouTube',
   'log.unknownRefreshError': 'Error de actualización desconocido',
   'log.videoStatus.title': 'Estado del video cambiado',

@@ -1,0 +1,1156 @@
+{
+  "date": "2026-09-27",
+  "hardware": "Apple M3 arm64",
+  "browser": "Playwright 1.62.0 Chromium 151.0.7922.34 headless",
+  "workers": 1,
+  "cpuThrottling": false,
+  "syntheticSavedVideos": 7000,
+  "baselineCommit": "140972f280787557f7135cc1a0216a786e962e01",
+  "baselineMountedCards": 7000,
+  "baseline": [
+    {
+      "project": "desktop-standard",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 943.8
+        },
+        {
+          "action": "all",
+          "ms": 1046.1
+        },
+        {
+          "action": "unwatched",
+          "ms": 834.2
+        },
+        {
+          "action": "all",
+          "ms": 1122.2
+        },
+        {
+          "action": "favorite",
+          "ms": 1113.7
+        },
+        {
+          "action": "favorite",
+          "ms": 887
+        },
+        {
+          "action": "favorite",
+          "ms": 1227.5
+        },
+        {
+          "action": "favorite",
+          "ms": 1117.5
+        }
+      ]
+    },
+    {
+      "project": "phone-standard",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 1010.6
+        },
+        {
+          "action": "all",
+          "ms": 866.3
+        },
+        {
+          "action": "unwatched",
+          "ms": 795.4
+        },
+        {
+          "action": "all",
+          "ms": 895.5
+        },
+        {
+          "action": "favorite",
+          "ms": 1104.9
+        },
+        {
+          "action": "favorite",
+          "ms": 1301
+        },
+        {
+          "action": "favorite",
+          "ms": 1133
+        },
+        {
+          "action": "favorite",
+          "ms": 1459.1
+        }
+      ]
+    }
+  ],
+  "after": [
+    {
+      "project": "desktop-standard",
+      "initialMounted": 0
+    },
+    {
+      "project": "desktop-standard",
+      "sampleTimings": [
+        37.4,
+        31.1,
+        34.4,
+        32.1
+      ]
+    },
+    {
+      "project": "desktop-standard",
+      "initial": 0,
+      "counts": [
+        32,
+        35,
+        35,
+        36,
+        35,
+        32,
+        36,
+        35,
+        35,
+        35,
+        32,
+        56,
+        59,
+        59,
+        59,
+        59,
+        56,
+        60,
+        59,
+        59,
+        59,
+        56,
+        40,
+        43,
+        43,
+        43,
+        43,
+        40,
+        43,
+        44,
+        43,
+        43,
+        40,
+        56,
+        59,
+        59,
+        60,
+        60,
+        56,
+        60,
+        59,
+        59,
+        59,
+        56,
+        32,
+        35,
+        35,
+        35,
+        35,
+        32,
+        36,
+        35,
+        35,
+        35,
+        32
+      ],
+      "formatTimingsMs": [
+        34.8,
+        25.9,
+        24.6,
+        28.1,
+        32.9,
+        28.8,
+        27.8,
+        30.4,
+        33.3,
+        28.6,
+        31.8,
+        30.9,
+        34,
+        26.2,
+        29.5,
+        29,
+        34.9,
+        27.4,
+        25.7,
+        25.4
+      ]
+    },
+    {
+      "project": "desktop-standard",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 52.8
+        },
+        {
+          "action": "all",
+          "ms": 36.2
+        },
+        {
+          "action": "unwatched",
+          "ms": 49
+        },
+        {
+          "action": "all",
+          "ms": 46.8
+        },
+        {
+          "action": "favorite",
+          "ms": 162.5
+        },
+        {
+          "action": "favorite",
+          "ms": 148.5
+        },
+        {
+          "action": "favorite",
+          "ms": 155.2
+        },
+        {
+          "action": "favorite",
+          "ms": 138.9
+        }
+      ]
+    },
+    {
+      "project": "phone-standard",
+      "initialMounted": 0
+    },
+    {
+      "project": "phone-standard",
+      "sampleTimings": [
+        47.8,
+        32.5,
+        34.2,
+        33.3
+      ]
+    },
+    {
+      "project": "phone-standard",
+      "initial": 0,
+      "counts": [
+        15,
+        19,
+        18,
+        18,
+        18,
+        15,
+        18,
+        18,
+        18,
+        19,
+        15,
+        30,
+        34,
+        33,
+        33,
+        33,
+        30,
+        33,
+        33,
+        33,
+        34,
+        30,
+        20,
+        24,
+        23,
+        23,
+        23,
+        20,
+        23,
+        23,
+        23,
+        24,
+        20,
+        30,
+        34,
+        33,
+        33,
+        33,
+        30,
+        33,
+        33,
+        33,
+        34,
+        30,
+        15,
+        19,
+        18,
+        18,
+        18,
+        15,
+        18,
+        18,
+        18,
+        19,
+        15
+      ],
+      "formatTimingsMs": [
+        28.1,
+        25.9,
+        26.8,
+        24.7,
+        26.3,
+        25.1,
+        21.3,
+        25,
+        42.4,
+        24,
+        23.3,
+        22.7,
+        25.1,
+        30.9,
+        24.2,
+        22,
+        24.6,
+        22,
+        24.6,
+        21.9
+      ]
+    },
+    {
+      "project": "phone-standard",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 38.6
+        },
+        {
+          "action": "all",
+          "ms": 33.4
+        },
+        {
+          "action": "unwatched",
+          "ms": 31.1
+        },
+        {
+          "action": "all",
+          "ms": 36.7
+        },
+        {
+          "action": "favorite",
+          "ms": 141
+        },
+        {
+          "action": "favorite",
+          "ms": 132.2
+        },
+        {
+          "action": "favorite",
+          "ms": 127.9
+        },
+        {
+          "action": "favorite",
+          "ms": 129.5
+        }
+      ]
+    }
+  ],
+  "timingDefinition": "DOM click through two requestAnimationFrame callbacks",
+  "note": "Representative local samples; baseline run captured timings before exceeding its original overall test timeout. Timing samples are not production INP.",
+  "node": "24.10.0",
+  "repeatConditions": "Frozen staged build; same browser settings, six responsive viewports, other local work active. One-minute system load ranged above 20 during parts of the run. Retained separately from representative samples.",
+  "repeat": [
+    {
+      "project": "desktop-wide",
+      "initial": 8,
+      "counts": [
+        32,
+        35,
+        35,
+        36,
+        35,
+        32,
+        36,
+        35,
+        35,
+        35,
+        32,
+        64,
+        67,
+        67,
+        67,
+        67,
+        64,
+        68,
+        67,
+        67,
+        67,
+        64,
+        40,
+        43,
+        43,
+        43,
+        43,
+        40,
+        44,
+        43,
+        43,
+        43,
+        40,
+        64,
+        67,
+        67,
+        68,
+        67,
+        64,
+        68,
+        67,
+        67,
+        67,
+        64,
+        32,
+        35,
+        35,
+        36,
+        35,
+        32,
+        36,
+        35,
+        35,
+        35,
+        32
+      ],
+      "formatTimingsMs": [
+        32.9,
+        25.5,
+        28.2,
+        21,
+        27.4,
+        22.5,
+        28.3,
+        27.4,
+        25.5,
+        27.9,
+        24.1,
+        29.3,
+        37.4,
+        29.5,
+        29.4,
+        30.3,
+        37,
+        30.1,
+        24.2,
+        29.1
+      ]
+    },
+    {
+      "project": "desktop-wide",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 39
+        },
+        {
+          "action": "all",
+          "ms": 40.8
+        },
+        {
+          "action": "unwatched",
+          "ms": 37
+        },
+        {
+          "action": "all",
+          "ms": 49.4
+        },
+        {
+          "action": "favorite",
+          "ms": 175.8
+        },
+        {
+          "action": "favorite",
+          "ms": 155
+        },
+        {
+          "action": "favorite",
+          "ms": 143.1
+        },
+        {
+          "action": "favorite",
+          "ms": 171.9
+        }
+      ]
+    },
+    {
+      "project": "desktop-standard",
+      "initial": 0,
+      "counts": [
+        32,
+        35,
+        35,
+        36,
+        35,
+        32,
+        36,
+        35,
+        35,
+        35,
+        32,
+        56,
+        59,
+        59,
+        60,
+        59,
+        56,
+        60,
+        59,
+        59,
+        59,
+        56,
+        40,
+        43,
+        43,
+        43,
+        43,
+        40,
+        44,
+        43,
+        43,
+        43,
+        40,
+        56,
+        59,
+        59,
+        59,
+        59,
+        56,
+        60,
+        59,
+        59,
+        59,
+        56,
+        32,
+        35,
+        35,
+        35,
+        36,
+        32,
+        36,
+        36,
+        35,
+        35,
+        32
+      ],
+      "formatTimingsMs": [
+        32,
+        31,
+        28.9,
+        30.5,
+        27.5,
+        27,
+        24.8,
+        28.2,
+        32.4,
+        33.2,
+        26,
+        28.4,
+        57.5,
+        55.5,
+        47.7,
+        55.9,
+        63.6,
+        35.2,
+        47.7,
+        47.4
+      ]
+    },
+    {
+      "project": "desktop-standard",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 55.4
+        },
+        {
+          "action": "all",
+          "ms": 64.8
+        },
+        {
+          "action": "unwatched",
+          "ms": 53.9
+        },
+        {
+          "action": "all",
+          "ms": 51.8
+        },
+        {
+          "action": "favorite",
+          "ms": 196.2
+        },
+        {
+          "action": "favorite",
+          "ms": 282.5
+        },
+        {
+          "action": "favorite",
+          "ms": 213
+        },
+        {
+          "action": "favorite",
+          "ms": 216.7
+        }
+      ]
+    },
+    {
+      "project": "tablet-portrait",
+      "initial": 21,
+      "counts": [
+        21,
+        25,
+        24,
+        25,
+        24,
+        21,
+        24,
+        25,
+        25,
+        25,
+        21,
+        70,
+        73,
+        74,
+        74,
+        73,
+        70,
+        73,
+        74,
+        73,
+        74,
+        70,
+        49,
+        52,
+        52,
+        53,
+        53,
+        49,
+        52,
+        53,
+        52,
+        53,
+        49,
+        70,
+        74,
+        73,
+        74,
+        73,
+        70,
+        73,
+        74,
+        73,
+        73,
+        70,
+        35,
+        39,
+        38,
+        38,
+        38,
+        35,
+        38,
+        38,
+        38,
+        39,
+        35
+      ],
+      "formatTimingsMs": [
+        79.2,
+        52.2,
+        36.5,
+        35.2,
+        58.4,
+        56.3,
+        57.8,
+        33.2,
+        60.2,
+        57.8,
+        47.1,
+        42.8,
+        67.8,
+        75.1,
+        62.7,
+        55.3,
+        91.6,
+        108.7,
+        83.8,
+        62.7
+      ]
+    },
+    {
+      "project": "tablet-portrait",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 63.9
+        },
+        {
+          "action": "all",
+          "ms": 61.8
+        },
+        {
+          "action": "unwatched",
+          "ms": 64.4
+        },
+        {
+          "action": "all",
+          "ms": 52.6
+        },
+        {
+          "action": "favorite",
+          "ms": 194.9
+        },
+        {
+          "action": "favorite",
+          "ms": 197.8
+        },
+        {
+          "action": "favorite",
+          "ms": 220.5
+        },
+        {
+          "action": "favorite",
+          "ms": 200.2
+        }
+      ]
+    },
+    {
+      "project": "tablet-landscape",
+      "initial": 8,
+      "counts": [
+        32,
+        35,
+        35,
+        35,
+        36,
+        32,
+        36,
+        36,
+        35,
+        35,
+        32,
+        64,
+        67,
+        67,
+        67,
+        68,
+        64,
+        68,
+        67,
+        67,
+        67,
+        64,
+        40,
+        43,
+        43,
+        43,
+        43,
+        40,
+        44,
+        43,
+        43,
+        43,
+        40,
+        64,
+        67,
+        67,
+        67,
+        68,
+        64,
+        68,
+        68,
+        67,
+        67,
+        64,
+        32,
+        35,
+        35,
+        35,
+        36,
+        32,
+        36,
+        36,
+        35,
+        35,
+        32
+      ],
+      "formatTimingsMs": [
+        50,
+        30.7,
+        32.5,
+        31.2,
+        53.2,
+        26,
+        26.5,
+        29.2,
+        54.3,
+        31.6,
+        31.7,
+        35.8,
+        51.2,
+        53.8,
+        50.5,
+        52.3,
+        33.6,
+        29.9,
+        33.2,
+        30.2
+      ]
+    },
+    {
+      "project": "tablet-landscape",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 90.6
+        },
+        {
+          "action": "all",
+          "ms": 112.8
+        },
+        {
+          "action": "unwatched",
+          "ms": 82.8
+        },
+        {
+          "action": "all",
+          "ms": 78.9
+        },
+        {
+          "action": "favorite",
+          "ms": 371.1
+        },
+        {
+          "action": "favorite",
+          "ms": 389.4
+        },
+        {
+          "action": "favorite",
+          "ms": 302.7
+        },
+        {
+          "action": "favorite",
+          "ms": 317.8
+        }
+      ]
+    },
+    {
+      "project": "phone-standard",
+      "initial": 0,
+      "counts": [
+        15,
+        19,
+        18,
+        18,
+        18,
+        15,
+        18,
+        18,
+        18,
+        19,
+        15,
+        30,
+        34,
+        33,
+        33,
+        33,
+        30,
+        33,
+        33,
+        33,
+        34,
+        30,
+        20,
+        23,
+        23,
+        23,
+        23,
+        20,
+        23,
+        23,
+        23,
+        24,
+        20,
+        30,
+        34,
+        33,
+        33,
+        33,
+        30,
+        33,
+        33,
+        33,
+        34,
+        30,
+        15,
+        19,
+        18,
+        18,
+        18,
+        15,
+        18,
+        18,
+        18,
+        19,
+        15
+      ],
+      "formatTimingsMs": [
+        51.7,
+        29,
+        29.9,
+        33.4,
+        53.8,
+        30.8,
+        29.7,
+        38.8,
+        48.4,
+        32.7,
+        33.4,
+        28.4,
+        42.7,
+        31.2,
+        29.3,
+        29.6,
+        52.1,
+        32.2,
+        31,
+        29.3
+      ]
+    },
+    {
+      "project": "phone-standard",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 91
+        },
+        {
+          "action": "all",
+          "ms": 96.2
+        },
+        {
+          "action": "unwatched",
+          "ms": 79.1
+        },
+        {
+          "action": "all",
+          "ms": 72.5
+        },
+        {
+          "action": "favorite",
+          "ms": 388.1
+        },
+        {
+          "action": "favorite",
+          "ms": 241.4
+        },
+        {
+          "action": "favorite",
+          "ms": 247.1
+        },
+        {
+          "action": "favorite",
+          "ms": 230.3
+        }
+      ]
+    },
+    {
+      "project": "phone-small",
+      "initial": 0,
+      "counts": [
+        15,
+        18,
+        18,
+        18,
+        18,
+        15,
+        18,
+        18,
+        18,
+        18,
+        15,
+        30,
+        34,
+        33,
+        33,
+        33,
+        30,
+        33,
+        33,
+        33,
+        33,
+        30,
+        20,
+        23,
+        23,
+        23,
+        23,
+        20,
+        23,
+        23,
+        23,
+        23,
+        20,
+        30,
+        33,
+        33,
+        33,
+        33,
+        30,
+        33,
+        33,
+        33,
+        34,
+        30,
+        15,
+        19,
+        18,
+        18,
+        18,
+        15,
+        18,
+        18,
+        18,
+        19,
+        15
+      ],
+      "formatTimingsMs": [
+        87.1,
+        97.8,
+        70.5,
+        73.6,
+        118.3,
+        72.9,
+        73.6,
+        73.2,
+        167.8,
+        94.4,
+        74,
+        59.6,
+        57.5,
+        57.7,
+        39.7,
+        44.4,
+        54.5,
+        69.4,
+        42.6,
+        53.1
+      ]
+    },
+    {
+      "project": "phone-small",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 91.6
+        },
+        {
+          "action": "all",
+          "ms": 86.5
+        },
+        {
+          "action": "unwatched",
+          "ms": 77.7
+        },
+        {
+          "action": "all",
+          "ms": 82
+        },
+        {
+          "action": "favorite",
+          "ms": 350.9
+        },
+        {
+          "action": "favorite",
+          "ms": 330.8
+        },
+        {
+          "action": "favorite",
+          "ms": 289.1
+        },
+        {
+          "action": "favorite",
+          "ms": 361.2
+        }
+      ]
+    }
+  ],
+  "combinedMasterSmoke": [
+    {
+      "project": "desktop-standard",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 36.7
+        },
+        {
+          "action": "all",
+          "ms": 38.6
+        },
+        {
+          "action": "unwatched",
+          "ms": 42.3
+        },
+        {
+          "action": "all",
+          "ms": 32
+        },
+        {
+          "action": "favorite",
+          "ms": 145.5
+        },
+        {
+          "action": "favorite",
+          "ms": 133.2
+        },
+        {
+          "action": "favorite",
+          "ms": 131.6
+        },
+        {
+          "action": "favorite",
+          "ms": 129.6
+        }
+      ]
+    },
+    {
+      "project": "phone-standard",
+      "interactionTimings": [
+        {
+          "action": "unwatched",
+          "ms": 36.9
+        },
+        {
+          "action": "all",
+          "ms": 37.4
+        },
+        {
+          "action": "unwatched",
+          "ms": 41
+        },
+        {
+          "action": "all",
+          "ms": 41.1
+        },
+        {
+          "action": "favorite",
+          "ms": 151.6
+        },
+        {
+          "action": "favorite",
+          "ms": 136
+        },
+        {
+          "action": "favorite",
+          "ms": 136.4
+        },
+        {
+          "action": "favorite",
+          "ms": 132.6
+        }
+      ]
+    }
+  ]
+}

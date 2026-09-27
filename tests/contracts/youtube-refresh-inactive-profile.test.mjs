@@ -33,6 +33,7 @@ function createRefreshHarness() {
   }
   const context = vm.createContext({
     Date: FixedDate,
+    youtubeRequestGate: null,
     refreshSavedYoutubeMetadata: async () => false,
     isCurrentLearnerProfileOperation: state => state === activeProfile,
     IS_SANDBOX: false,

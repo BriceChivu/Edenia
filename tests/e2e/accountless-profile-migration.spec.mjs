@@ -1110,6 +1110,7 @@ test('first signed-in progress sync keeps an active one-channel town rendered wh
     releasePlaylist()
   }
 
+  await page.locator('#videoGrid').scrollIntoViewIfNeeded()
   await expect(page.getByText(HYDRATED_VIDEO_TITLE, { exact: true })).toBeVisible()
   await expect.poll(() => page.evaluate(syncKey => (
     JSON.parse(localStorage.getItem(syncKey))?.pending
@@ -1200,6 +1201,9 @@ test('retained favorite stays rendered through first signed-in progress sync wit
   })
   clientEnabled = true
   await page.reload({ waitUntil: 'domcontentloaded' })
+  // Off-screen shelves now defer cards; bring the saved shelf into view before
+  // asserting that the favorite renders without any provider hydration.
+  await page.locator('#videoGrid').scrollIntoViewIfNeeded()
   await expect(page.getByText('Ordinary fetched lesson', { exact: true }))
     .toBeVisible()
 

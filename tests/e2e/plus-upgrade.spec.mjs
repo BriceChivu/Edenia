@@ -537,7 +537,9 @@ test('Free transition keeps the first five shelves and preserves saved video sta
     }
   })
 
+  await page.locator('.channel-shelf[data-channel-key="c"]').scrollIntoViewIfNeeded()
   await expect(page.locator('.video-card[data-video-id="manual-c"]')).toBeVisible()
+  await page.locator('.channel-shelf[data-channel-key="f"]').scrollIntoViewIfNeeded()
   await expect(page.locator('.video-card[data-video-id="later-f"]')).toBeVisible()
   await expect(page.locator('.video-card[data-video-id="feed-c"]')).toHaveCount(0)
   await expect(page.locator('#toast')).toContainText('Removed: Channel c and Channel f')

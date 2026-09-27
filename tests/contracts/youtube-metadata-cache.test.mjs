@@ -1,3 +1,4 @@
+import { createYoutubeRequestGate, isYoutubeQuotaError } from '../../src/integrations/youtube-quota.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
@@ -86,7 +87,7 @@ test('resolved channel freshness survives the actual tracked-channel add path', 
 })
 test('YouTube adapter preserves structured reasons for cursor recovery', async () => {
   const h = harness()
-  Object.assign(h.context, { AbortController, window: { setTimeout, clearTimeout }, YOUTUBE_REQUEST_TIMEOUT_MS: 1000, fetch: async () => ({ ok: false, status: 400, json: async () => ({ error: { message: 'Invalid page token.', errors: [{ reason: 'invalidPageToken' }] } }) }) })
+  Object.assign(h.context, { youtubeRequestGate: null, isYoutubeQuotaError, STORAGE_KEY: 'test', createYoutubeRequestGate: options => createYoutubeRequestGate({ ...options, storage: null, fetch: h.context.fetch }), AbortController, window: { setTimeout, clearTimeout }, YOUTUBE_REQUEST_TIMEOUT_MS: 1000, fetch: async () => ({ ok: false, status: 400, json: async () => ({ error: { message: 'Invalid page token.', errors: [{ reason: 'invalidPageToken' }] } }) }) })
   vm.runInContext(section('async function ytFetch(', '\nasync function fetchYoutubeChannelByFilter('), h.context)
   await assert.rejects(h.context.ytFetch('https://example.com'), error => error.reasons[0] === 'invalidPageToken' && error.status === 400)
 })
