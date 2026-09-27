@@ -1184,6 +1184,12 @@ test('retained favorite stays rendered through first signed-in progress sync wit
       playlistFulfilled = true
     }
   )
+  // Metadata maintenance is independent of playlist retrieval. Hold both provider
+  // paths so this test still proves the saved favorite renders without hydration.
+  await page.route('https://www.googleapis.com/youtube/v3/videos**', async route => {
+    await playlistBarrier
+    await route.fallback()
+  })
   const { commitOperations, migrationOperations } =
     await installProgressSyncRpcFixture(page)
 
