@@ -14,16 +14,7 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
   canvas.hidden = true
   canvas.setAttribute('aria-hidden', 'true')
   image.after(canvas)
-  const button = document.createElement('button')
-  button.type = 'button'
-  button.className = 'pixel-town-toggle'
-  button.textContent = 'Town animation'
-  wrap.after(button)
   const reduced = matchMedia('(prefers-reduced-motion: reduce)')
-  let motion = true
-  try {
-    motion = localStorage.getItem('edenia.pixelTown.motion') !== 'off'
-  } catch {}
   let visible = false,
     disposed = false,
     player = null,
@@ -81,14 +72,6 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
     startupTimer = null
     pendingKey = ''
   }
-  const syncButton = () => {
-    button.setAttribute('aria-pressed', String(motion && !reduced.matches))
-    button.title = reduced.matches
-      ? 'Paused by reduced-motion setting'
-      : motion
-        ? 'Pause town animation'
-        : 'Play town animation'
-  }
   async function prepare(key) {
     if (pendingKey === key || failedKey === key || disposed) return
     cancel()
@@ -145,7 +128,7 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
       clearTimeout(startupTimer)
       startupTimer = null
       pendingKey = ''
-      if (active() && motion && !reduced.matches) {
+      if (active() && !reduced.matches) {
         player.start()
         metrics.active = true
       }
@@ -167,7 +150,6 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
   function refresh() {
     clearTimeout(lightTimer)
     lightTimer = null
-    syncButton()
     const light = localLight(clock())
     const introActive = introPainted() && !document.hidden && !disposed
     if (introActive) {
@@ -196,7 +178,7 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
       const url = `${base}${img.dataset.introCityFrame}-${light}.png`
       if (img.getAttribute('src') !== url) img.src = url
     })
-    if (motion && !reduced.matches) {
+    if (!reduced.matches) {
       if (player) {
         player.start()
         metrics.active = true
@@ -207,19 +189,9 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
       canvas.hidden = true
       metrics.active = false
     }
-    if (player && motion && !reduced.matches) canvas.hidden = false
+    if (player && !reduced.matches) canvas.hidden = false
     lightTimer = setTimeout(refresh, 60000)
   }
-  const toggle = () => {
-    motion = !motion
-    failedKey = ''
-    player?.retry()
-    try {
-      localStorage.setItem('edenia.pixelTown.motion', motion ? 'on' : 'off')
-    } catch {}
-    refresh()
-  }
-  button.addEventListener('click', toggle)
   const observer = new IntersectionObserver((entries) => {
     for (const entry of entries) {
       if (entry.target === wrap) visible = entry.isIntersecting
@@ -259,7 +231,6 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
     window.removeEventListener('pagehide', hide)
     window.removeEventListener('pageshow', show)
     reduced.removeEventListener('change', refresh)
-    button.remove()
     canvas.remove()
   }
   const hide = (event) => {

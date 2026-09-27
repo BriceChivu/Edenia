@@ -28,22 +28,6 @@ html.pixel-town .intro-city-frame {
 html.pixel-town .intro-city-viewport {
   background: #78b5c9;
 }
-.pixel-town-toggle {
-  display: block;
-  margin: 8px 10px 8px auto;
-  z-index: 5;
-  background: #fff8eb;
-  color: #243c45;
-  border: 1px solid #496670;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font: inherit;
-  font-size: 12px;
-}
-.pixel-town-toggle:focus-visible {
-  outline: 3px solid #143e55;
-  outline-offset: 3px;
-}
 .pixel-town-canvas[hidden] {
   display: none;
 }
