@@ -33,6 +33,7 @@
     "test:ci": "npm run build && npm run test:contracts && npm run test:supabase && npm run test:auth-monitor-function && npm run test:reminder-function && npm run test:account-export-function && npm run test:legacy-progress-relay-function && playwright test"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "1.0.9",
     "@playwright/test": "1.62.0",
     "esbuild": "0.28.1",
     "terser": "5.49.0"
