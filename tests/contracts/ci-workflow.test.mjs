@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 
 const workflow = await readFile(
@@ -30,7 +31,7 @@ test('Supabase backend CI installs Node dependencies before running its tests', 
   assert.match(installStep, /run: npm ci/)
   assert.match(
     installStep,
-    /steps\.scope\.outputs\.supabase == 'true'/
+    /needs\.scope\.outputs\.supabase == 'true'/
   )
   assert.ok(workflow.indexOf(installStep) < workflow.indexOf(backendTestStep))
 })
@@ -90,4 +91,47 @@ test('Start over database changes run their pgTAP acceptance suite', () => {
     databaseStep,
     /^          supabase test db supabase\/tests\/learner_profile_start_over\.test\.sql --local$/m
   )
+})
+
+// Execute the actual required-check shell so skipped or failed dependencies
+// cannot accidentally turn a protected branch's CI check green.
+test('verify accepts only successful selected suites', () => {
+  const step = readStep('Require all selected suites to pass')
+  const script = step.split('        run: |\n')[1]
+    .split('\n').map(line => line.replace(/^          /, '')).join('\n')
+  for (const scope of ['success', 'failure', 'cancelled', 'skipped']) {
+    for (const checks of ['success', 'failure', 'cancelled', 'skipped']) {
+      for (const required of ['true', 'false', '']) {
+        for (const browser of ['success', 'failure', 'cancelled', 'skipped']) {
+          const result = spawnSync('bash', ['-c', script], {
+            env: {
+              ...process.env,
+              SCOPE_RESULT: scope,
+              CHECKS_RESULT: checks,
+              BROWSER_REQUIRED: required,
+              BROWSER_RESULT: browser
+            },
+            encoding: 'utf8'
+          })
+          const shouldPass = scope === 'success' && checks === 'success' && (
+            (required === 'true' && browser === 'success') ||
+            (required === 'false' && browser === 'skipped')
+          )
+          assert.equal(result.status === 0, shouldPass,
+            JSON.stringify({ scope, checks, required, browser }))
+        }
+      }
+    }
+  }
+})
+
+test('workflow changes exercise browser shards and verify waits for their aggregate result', () => {
+  assert.match(readCaseArmContaining(readStep('Determine test scope'),
+    '.github/workflows/ci.yml'), /run_browser=true/)
+  assert.match(workflow, /  browser:\n    needs: scope\n    if: needs\.scope\.outputs\.browser == 'true'/)
+  assert.match(workflow, /fail-fast: false\n      matrix:\n        shard: \[1, 2, 3, 4\]/)
+  assert.match(readStep('Run browser tests'), /--shard=\$\{\{ matrix\.shard \}\}\/4/)
+  assert.match(workflow, /  verify:\n    needs: \[scope, checks, browser\]\n    if: \$\{\{ always\(\) \}\}/)
+  assert.match(readStep('Require all selected suites to pass'),
+    /BROWSER_RESULT: \$\{\{ needs\.browser\.result \}\}/)
 })
