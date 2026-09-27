@@ -107,3 +107,19 @@ _Avoid_: Town progression, study task
 **Story panel**:
 The complete Pip story experience within the area used to display Edenia's town, including the illustration, reading, choices, and story controls.
 _Avoid_: Illustration strip, separate story page
+
+**Video library**:
+The complete collection of video records retained in a learner profile, including their study progress and organization.
+_Avoid_: Visible cards, current feed
+
+**Channel shelf**:
+A horizontally browsable collection of a channel's videos that match the learner's current filters. Learners can browse continuously through the complete matching collection.
+_Avoid_: Channel page, video batch
+
+**New-upload check**:
+A check for videos published on a tracked channel since the previously retrieved newest uploads.
+_Avoid_: History download, fetching older uploads
+
+**Older-upload retrieval**:
+Retrieval of a channel's earlier uploads when a learner browses beyond the saved collection.
+_Avoid_: New-upload check, automatic hourly backfill
