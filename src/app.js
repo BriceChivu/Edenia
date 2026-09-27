@@ -8587,7 +8587,8 @@ function getChannelRefreshWaitMs(s, channelId) {
   const failureWait = lastFailedMs
     ? Math.max(0, YOUTUBE_REFRESH_ERROR_BACKOFF_MS - (Date.now() - lastFailedMs))
     : 0
-  const quotaWait = Math.max(0, (getChannelRefreshes(s)[channelId]?.quotaRetryAt || 0) - Date.now())
+  const quotaRetryAt = typeof youtubeRequestGate === 'function' ? youtubeRequestGate.retryAt('general') : 0
+  const quotaWait = Math.max(0, quotaRetryAt - Date.now())
   return Math.max(successWait, failureWait, quotaWait)
 }
 
@@ -8610,7 +8611,6 @@ function markChannelRefreshSuccess(s, channelId, timestamp = new Date().toISOStr
     ...(coverage ? { coverage } : {}),
     lastFetchedAt: timestamp,
     lastError: null,
-    quotaRetryAt: null,
     lastFailedAt: null
   }
 }
@@ -8621,8 +8621,7 @@ function markChannelRefreshError(s, channelId, error) {
     ...refreshes[channelId],
     lastFetchedAt: refreshes[channelId]?.lastFetchedAt || null,
     lastError: String(error?.message || error || 'Refresh failed'),
-    lastFailedAt: isYoutubeQuotaError(error) ? null : new Date().toISOString(),
-    quotaRetryAt: isYoutubeQuotaError(error) ? error.retryAt : null
+    lastFailedAt: isYoutubeQuotaError(error) ? null : new Date().toISOString()
   }
 }
 
@@ -8688,7 +8687,8 @@ function scheduleYoutubeAutoRefresh(s = loadState()) {
   clearTimeout(startYoutubeAutoRefresh._timer)
   if (IS_SANDBOX || !hasYoutubeApiKey() || !s || (!s.config?.channels?.length && !Object.keys(s.videos || {}).length)) return
 
-  const waitMs = s.config?.channels?.length ? getYoutubeRefreshRemainingMs(s) : YOUTUBE_REFRESH_INTERVAL_MS
+  const quotaWait = Math.max(0, (youtubeRequestGate?.retryAt('general') || 0) - Date.now())
+  const waitMs = Math.max(quotaWait, s.config?.channels?.length ? getYoutubeRefreshRemainingMs(s) : YOUTUBE_REFRESH_INTERVAL_MS)
   startYoutubeAutoRefresh._timer = setTimeout(maybeRefreshFeed, Math.max(1_000, waitMs))
 }
 
@@ -10737,7 +10737,7 @@ async function searchYoutubeChannels(event) {
   }
 
   searchYoutubeChannels.lastRequestAt = now
-  incrementYoutubeChannelSearchUsage()
+  if (!(youtubeRequestGate?.retryAt('search') > now)) incrementYoutubeChannelSearchUsage()
   list.classList.remove('hidden')
   list.setAttribute('aria-busy', 'true')
   list.innerHTML = `<p class="manual-channel-suggestion-empty">${escHtml(t('videos.manual.searchingYoutube'))}</p>`

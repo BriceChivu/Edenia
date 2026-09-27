@@ -21,6 +21,7 @@ test('daily exhaustion stops queued requests in its bucket until Pacific reset, 
   assert.equal(results[0].reason.retryAt, Date.parse('2026-03-09T07:00:00Z'))
   assert.deepEqual(results[0].reason.reasons, ['quotaExceeded'])
   const reloaded = createYoutubeRequestGate(options)
+  assert.equal(reloaded.retryAt('general'), Date.parse('2026-03-09T07:00:00Z'))
   await assert.rejects(reloaded(url('videos')), { kind: 'daily-quota' })
   await reloaded(url('search'))
   assert.equal(requests, 2)

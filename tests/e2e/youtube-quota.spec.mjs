@@ -97,6 +97,7 @@ test('concurrent callers and a second tab share the gate while search remains us
     return route.fulfill({ status: 403, json: quota })
   })
   const other = await context.newPage()
+  await other.clock.setFixedTime(new Date(now))
   await other.goto('/')
   const call = target => target.evaluate(async () => Promise.allSettled([
     window.fetchVideoMetadata('fixture0002'), window.fetchVideoMetadata('fixture0003')

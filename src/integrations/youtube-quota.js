@@ -44,16 +44,20 @@ export function createYoutubeRequestGate({
 } = {}) {
   const queues = new Map()
   const cooldowns = new Map()
-  return function youtubeRequest(url) {
+  function readCooldown(bucket) {
+    let cooldown = cooldowns.get(bucket)
+    try {
+      const stored = JSON.parse(storage?.getItem(`${namespace}:${bucket}`) || 'null')
+      if (Number.isFinite(stored?.retryAt) && stored.retryAt > (cooldown?.retryAt || 0)) cooldown = stored
+    } catch { /* Keep the in-memory gate when storage is unavailable. */ }
+    return cooldown
+  }
+  function youtubeRequest(url) {
     const endpoint = new URL(url).pathname.split('/').at(-1)
     const bucket = endpoint === 'search' ? 'search' : 'general'
     const key = `${namespace}:${bucket}`
     const run = async () => {
-      let cooldown = cooldowns.get(bucket)
-      try {
-        const stored = JSON.parse(storage?.getItem(key) || 'null')
-        if (Number.isFinite(stored?.retryAt) && stored.retryAt > (cooldown?.retryAt || 0)) cooldown = stored
-      } catch { /* Keep the in-memory gate when storage is unavailable. */ }
+      const cooldown = readCooldown(bucket)
       if (cooldown?.retryAt > now()) {
         throw Object.assign(new Error(cooldown.message), cooldown, { kind: 'daily-quota', bucket })
       }
@@ -82,4 +86,6 @@ export function createYoutubeRequestGate({
     queues.set(bucket, pending)
     return pending
   }
+  youtubeRequest.retryAt = bucket => readCooldown(bucket)?.retryAt || 0
+  return youtubeRequest
 }
