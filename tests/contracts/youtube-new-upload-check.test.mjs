@@ -65,3 +65,14 @@ test('duplicates are merged once and transient failures do not advance saved cov
   await assert.rejects(checkNewUploads({ coverage, fetchPage: async () => { throw Error('Network failure') } }))
   assert.deepEqual(coverage, before)
 })
+test('structured invalid-cursor errors restart within the bounded allowance', async () => {
+  const f = fixture([...ids(100, 'new'), ...ids(100)])
+  const fetchPage = async token => {
+    if (token === 'retired') throw Object.assign(Error('The page token is invalid.'), { reasons: ['invalidPageToken'] })
+    return f.fetchPage(token)
+  }
+  const result = await checkNewUploads({ fetchPage, coverage: { headIds: ids(50), pending: { pageToken: 'retired', anchorIds: ['gone'], headIds: ['head'] } } })
+  assert.equal(result.videos.length, 100)
+  assert.ok(result.coverage.pending)
+  assert.equal(f.requests.length, 2)
+})

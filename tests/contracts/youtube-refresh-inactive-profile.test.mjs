@@ -33,6 +33,8 @@ function createRefreshHarness() {
   }
   const context = vm.createContext({
     Date: FixedDate,
+    refreshSavedYoutubeMetadata: async () => false,
+    isCurrentLearnerProfileOperation: state => state === activeProfile,
     IS_SANDBOX: false,
     YOUTUBE_REFRESH_INTERVAL_MS: 6 * 60 * 60 * 1000,
     YOUTUBE_REFRESH_ERROR_BACKOFF_MS: 60 * 1000,

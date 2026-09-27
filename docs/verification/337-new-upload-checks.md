@@ -25,9 +25,13 @@ Provider metadata is timestamped separately and reused for 29 days; missing or
 future timestamps require refresh. Maintenance batches saved video IDs in groups
 of 50 through videos.list, independently of playlist traversal. Legacy libraries
 therefore incur a one-time metadata refresh. Channel snippets use channels.list
-batches, and manual additions reuse valid channel metadata. Unavailable video
-responses clear obsolete display metadata while keeping the identity and study
-record. Learner status, progress, coverage, favorites, Watch later and removal
+batches, and manual additions reuse valid channel metadata. Maintenance also runs for manual-only libraries and has its own 30-minute
+failure backoff. At 30 days, provider fields expire even if refresh fails; opening
+an expired local cache clears those fields. Undated legacy metadata is refreshed
+on first online use and cleared if that attempt fails. Unavailable video and
+channel responses clear provider metadata, including duration and images, while
+keeping identities and learner-owned study records. Missing provider duration is
+zero (unknown), so existing resume positions and coverage are not truncated. Learner status, progress, coverage, favorites, Watch later and removal
 state retain the existing merge protections.
 
 ## Mocked request counts
@@ -57,3 +61,16 @@ this change spends zero in either bucket. Key names do not prove separate
 projects or allocations. No quota, key configuration or account rollout gate is
 changed. The 29-day refresh interval follows the refresh-or-delete requirement
 in [YouTube's data storage policy](https://developers.google.com/youtube/terms/developer-policies#e.-handling-youtube-data-and-content).
+
+## Validation
+
+- Mocked contracts cover large histories, new uploads, continuation after reload,
+  duplicate IDs, playlist shifts, structured invalid cursors, transient failures,
+  metadata batching/expiry, manual-only libraries and inactive-profile fencing.
+- Browser checks cover three and 370 new uploads with reload between hourly
+  continuations on desktop and phone, plus channel entry and video organization:
+  21 passed, 9 intentionally skipped for non-applicable viewport scenarios.
+- `npm test` passed: contracts, backend unit tests and Edge Function typechecks.
+- Standards and specification reviews ran independently. Their findings about
+  retry backoff, cursor error reasons, metadata expiry and timestamp provenance
+  were repaired and received regression coverage.

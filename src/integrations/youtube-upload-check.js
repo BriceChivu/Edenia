@@ -18,7 +18,7 @@ export async function checkNewUploads({ fetchPage, coverage = null, legacyIds = 
       page = await fetchPage(token)
     } catch (error) {
       // A retired cursor is recoverable, but network/provider failures remain retryable.
-      if (token && /invalidPageToken/.test(String(error?.message))) {
+      if (token && error?.reasons?.includes('invalidPageToken')) {
         token = ''; anchors = []; headIds = []
         continue
       }

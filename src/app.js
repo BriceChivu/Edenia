@@ -1,3 +1,4 @@
+import { isYoutubeMetadataFresh, expireYoutubeMetadata, refreshSavedYoutubeMetadata } from './integrations/youtube-metadata-cache.js'
 import { checkNewUploads } from './integrations/youtube-upload-check.js'
 /* ═══════════════════════════════════════════════════════════
    EDENIA — app.js
@@ -1884,6 +1885,7 @@ function normalizeLoadedState(state) {
   if (normalizeOnboardingState(state)) shouldSave = true
   if (normalizeNoAnkiFrequentUserPromptState(state)) shouldSave = true
   if (normalizeChannelRefreshState(state)) shouldSave = true
+  if (!IS_SANDBOX && expireYoutubeMetadata(state)) shouldSave = true
   normalizeSandboxState(state)
   normalizeCityProgress(state)
   delete state.nightVisuals
@@ -7703,11 +7705,13 @@ function addTrackedYoutubeChannelToState(state, channel) {
   if (existing) {
     if (!existing.name && channel.name) existing.name = channel.name
     if (!existing.imageUrl && channel.imageUrl) existing.imageUrl = channel.imageUrl
+    if (channel.metadataFetchedAt) Object.assign(existing, channel)
   } else {
     state.config.channels.push({
       id,
       name: channel.name || id,
-      imageUrl: channel.imageUrl || ''
+      imageUrl: channel.imageUrl || '',
+      ...(channel.metadataFetchedAt ? { metadataFetchedAt: channel.metadataFetchedAt } : {})
     })
     state.config.channelShelfOrder = [
       id,
@@ -8177,7 +8181,10 @@ async function ytFetch(url) {
     const res = await fetch(url, { signal: controller.signal })
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
-      throw new Error(err?.error?.message || `HTTP ${res.status}`)
+      const error = new Error(err?.error?.message || `HTTP ${res.status}`)
+      error.reasons = (err?.error?.errors || []).map(entry => entry.reason).filter(Boolean)
+      error.status = res.status
+      throw error
     }
     return res.json()
   } catch (error) {
@@ -8235,12 +8242,6 @@ async function fetchChannelVideosPage(channel, pageToken = '') {
   }
 }
 
-function isYoutubeMetadataFresh(record) {
-  const fetchedAt = Date.parse(record?.metadataFetchedAt)
-  const age = Date.now() - fetchedAt
-  return Number.isFinite(age) && age >= 0 && age < 29 * 86_400_000
-}
-
 async function hydrateYoutubeChannelProfiles(channels = []) {
   const missingChannels = Array.from(new Map(
     channels
@@ -8259,9 +8260,8 @@ async function hydrateYoutubeChannelProfiles(channels = []) {
     batch.forEach(channel => {
       const profile = profiles.get(channel.id)
       const imageUrl = getBestThumbnail(profile?.snippet?.thumbnails)
-      if (!imageUrl) return
-      channel.imageUrl = imageUrl
-      channel.name = profile.snippet?.title || channel.name
+      channel.imageUrl = imageUrl || ''
+      channel.name = profile?.snippet?.title || channel.id
       channel.metadataFetchedAt = new Date().toISOString()
       updatedCount += 1
     })
@@ -8279,7 +8279,7 @@ async function fetchVideoMetadata(videoId) {
   if (!item) throw new Error(t('toast.videoNotFound'))
   const channelId = item.snippet?.channelId || 'manual-youtube'
   const cachedChannel = loadState()?.config?.channels?.find(channel => channel.id === channelId && channel.imageUrl && isYoutubeMetadataFresh(channel))
-  const channelProfile = cachedChannel ? { thumbnail: cachedChannel.imageUrl } : YOUTUBE_CHANNEL_ID_RE.test(channelId)
+  const channelProfile = cachedChannel ? { thumbnail: cachedChannel.imageUrl, metadataFetchedAt: cachedChannel.metadataFetchedAt } : YOUTUBE_CHANNEL_ID_RE.test(channelId)
     ? await fetchYoutubeChannelByFilter('id', channelId).catch(err => {
         console.warn('Could not load the manually added video channel profile:', err)
         return null
@@ -8291,6 +8291,7 @@ async function fetchVideoMetadata(videoId) {
     channelTitle: item.snippet?.channelTitle || t('videos.search.youtube'),
     channelId,
     channelImageUrl: channelProfile?.thumbnail || '',
+    channelMetadataFetchedAt: channelProfile?.metadataFetchedAt || null,
     thumbnail: getBestThumbnail(item.snippet?.thumbnails) || `https://i.ytimg.com/vi/${encodeURIComponent(item.id)}/hqdefault.jpg`,
     publishedAt: item.snippet?.publishedAt || new Date().toISOString(),
     duration: parseDuration(item.contentDetails?.duration),
@@ -8477,7 +8478,8 @@ async function fetchVideoDetails(videoIds, { detectShorts = false } = {}) {
     } })
     videoIds.slice(i, i + 50).forEach(id => {
       if (!result[id]) result[id] = {
-        title: '', thumbnail: '', channelTitle: '', publishedAt: null,
+        title: '', thumbnail: '', channelTitle: '', channelImageUrl: '', publishedAt: null,
+        duration: 0, aspectRatio: null, isShort: false,
         metadataFetchedAt: new Date().toISOString(), metadataUnavailable: true
       }
     })
@@ -8603,6 +8605,16 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
   const s = loadState()
   try {
     if (!s) return
+    if (!IS_SANDBOX && hasYoutubeApiKey()) {
+      const changed = await refreshSavedYoutubeMetadata({
+        state: s,
+        fetchVideos: ids => fetchVideoDetails(ids),
+        fetchChannels: channels => hydrateYoutubeChannelProfiles(channels),
+        isCurrent: () => isCurrentLearnerProfileOperation(s)
+      })
+      if (!isCurrentLearnerProfileOperation(s)) return
+      if (changed && saveState(s)) renderAll(s)
+    }
     if (shouldRefreshYoutubeFeed(s)) {
       await refreshFeed({ silent: hasAnyChannelRefreshTimestamp(s) })
     } else if (!hasYoutubeApiKey() && notifyMissingKey) {
@@ -8627,9 +8639,9 @@ function startYoutubeAutoRefresh() {
 
 function scheduleYoutubeAutoRefresh(s = loadState()) {
   clearTimeout(startYoutubeAutoRefresh._timer)
-  if (IS_SANDBOX || !hasYoutubeApiKey() || !s?.config?.channels?.length) return
+  if (IS_SANDBOX || !hasYoutubeApiKey() || !s || (!s.config?.channels?.length && !Object.keys(s.videos || {}).length)) return
 
-  const waitMs = getYoutubeRefreshRemainingMs(s)
+  const waitMs = s.config?.channels?.length ? getYoutubeRefreshRemainingMs(s) : YOUTUBE_REFRESH_INTERVAL_MS
   startYoutubeAutoRefresh._timer = setTimeout(maybeRefreshFeed, Math.max(1_000, waitMs))
 }
 
@@ -8761,6 +8773,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
   })
   const btn = document.getElementById('refreshBtn')
   let originatingState = null
+  let attemptedChannelIds = []
   if (btn) {
     btn.textContent = `↻ ${t('videos.refreshing')}`
     btn.classList.add('loading')
@@ -8809,6 +8822,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       return { ok: true, skipped: true, mergedCount: 0, successfulChannels: 0, errors: [] }
     }
 
+    attemptedChannelIds = channelsToRefresh.map(channel => channel.id)
     const all    = []
     const errors = []
     let successfulChannels = 0
@@ -8877,9 +8891,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
       return { ok: false, mergedCount: 0, successfulChannels, errors }
     }
 
-    // Maintenance only revisits saved identities; it never walks older uploads.
-    const staleMetadata = Object.values(s.videos).filter(video => !isYoutubeMetadataFresh(video))
-    const unique = dedupeVideos([...all, ...staleMetadata])
+    const unique = dedupeVideos(all)
     const detailsById = await getFetchedVideoDetails(s, unique, includeShorts)
     if (!isCurrentLearnerProfileOperation(s)) {
       return { ok: false, skipped: true, reason: 'stale-activation', errors: [] }
@@ -8935,6 +8947,7 @@ async function refreshFeed({ silent = false, channelIds = null, trigger = 'autom
     console.error(err)
     const s = loadState()
     if (s) {
+      attemptedChannelIds.forEach(channelId => markChannelRefreshError(s, channelId, err))
       appendActivityLog(s, {
         actor: 'auto',
         type: 'youtube-refresh',
@@ -10089,7 +10102,8 @@ async function addVideoFromUrl(event) {
       ? addTrackedYoutubeChannelToState(s, {
           id: metadata.channelId,
           name: metadata.channelTitle,
-          imageUrl: metadata.channelImageUrl
+          imageUrl: metadata.channelImageUrl,
+          metadataFetchedAt: metadata.channelMetadataFetchedAt
         })
       : false
     const channelTrackingMode = channelWasAdded
@@ -10100,6 +10114,7 @@ async function addVideoFromUrl(event) {
     s.videos[videoId] = {
       ...metadata,
       ...existing,
+      metadataFetchedAt: metadata.metadataFetchedAt,
       id: videoId,
       title: metadata.title || existing?.title || t('videos.search.untitled'),
       channelTitle: metadata.channelTitle || existing?.channelTitle || 'YouTube',

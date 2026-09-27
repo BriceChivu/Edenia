@@ -3,9 +3,10 @@ import { expect, test } from '../support/network-fixture.mjs'
 const channelId = 'UC0000000000000000000000'
 const now = new Date('2026-09-24T04:00:00.000Z')
 const oldIds = Array.from({ length: 180 }, (_, index) => `old${String(index).padStart(8, '0')}`)
-const newIds = ['new00000001', 'new00000002', 'new00000003']
 
-test('hourly refresh stops at saved coverage and remains unchanged after reload', async ({ page }) => {
+for (const newCount of [3, 370]) {
+test(`hourly refresh catches ${newCount} new uploads across reload without expanding history`, async ({ page }) => {
+  const newIds = Array.from({ length: newCount }, (_, index) => `new${String(index).padStart(8, '0')}`)
   const listRequests = []
   const detailRequests = []
   await page.clock.install({ time: now })
@@ -65,17 +66,31 @@ test('hourly refresh stops at saved coverage and remains unchanged after reload'
   expect(listRequests).toHaveLength(0)
 
   await page.clock.fastForward(60_000)
-  await expect.poll(savedIds).toEqual([...newIds, ...oldIds.slice(0, 50)].sort())
-  expect(listRequests).toHaveLength(1)
-  expect(detailRequests).toEqual([newIds])
+  const firstCount = Math.min(150, newCount)
+  await expect.poll(savedIds).toEqual([...newIds.slice(0, firstCount), ...oldIds.slice(0, 50)].sort())
+  expect(listRequests).toHaveLength(newCount === 3 ? 1 : 3)
+  expect(detailRequests.flat()).toEqual(newIds.slice(0, firstCount))
 
+  // Reload between every continuation; the next request validates overlap.
+  for (let savedCount = firstCount; savedCount < newCount;) {
+    await page.reload()
+    await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
+    const before = listRequests.length
+    await page.clock.fastForward(60 * 60_000)
+    savedCount = Math.min(savedCount + 100, newCount)
+    await expect.poll(savedIds).toEqual([...newIds.slice(0, savedCount), ...oldIds.slice(0, 50)].sort())
+    expect(listRequests.length - before).toBeLessThanOrEqual(3)
+  }
   await page.reload()
   await expect(page.locator('#mainApp')).not.toHaveClass(/\bhidden\b/)
-  expect(listRequests).toHaveLength(1)
+  const before = listRequests.length
+  const detailsBefore = detailRequests.length
   await page.clock.fastForward(60 * 60_000)
-  await expect.poll(savedIds).toEqual([...newIds, ...oldIds.slice(0, 50)].sort())
-  expect.poll(() => listRequests.length).toBe(2)
-  expect(detailRequests).toEqual([newIds])
+  await expect.poll(() => listRequests.length).toBe(before + 1)
+  expect(await savedIds()).toEqual([...newIds, ...oldIds.slice(0, 50)].sort())
+  expect(detailRequests.length).toBe(detailsBefore)
   const retained = await page.evaluate(id => JSON.parse(localStorage.getItem('edenia_v1')).videos[id], oldIds[0])
   expect(retained).toMatchObject({ favorite: true, status: 'partial', resumeAtSeconds: 20 })
 })
+
+}
