@@ -49,6 +49,10 @@ test('internal new artwork stays independent of legacy assets and presentation l
   page
 }) => {
   test.skip(!enabled, 'Requires the enabled build')
+  // A preference saved by the retired pause control must not disable animation.
+  await page.addInitScript(() =>
+    localStorage.setItem('edenia.pixelTown.motion', 'off')
+  )
   const legacy = []
   page.on('request', (r) => {
     if (/images\/(city|photoshop)\//.test(r.url())) legacy.push(r.url())
@@ -73,10 +77,15 @@ test('internal new artwork stays independent of legacy assets and presentation l
       new RegExp(`${stage}-.*\\.png`)
     )
   }
-  await page
-    .getByRole('button', { name: 'Town animation', exact: true })
-    .click()
-  await expect(page.locator('.pixel-town-canvas')).toBeHidden()
+  await expect(
+    page.getByRole('button', { name: 'Town animation', exact: true })
+  ).toHaveCount(0)
+  await expect(page.locator('.pixel-town-canvas')).toBeVisible()
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.EDENIA_PIXEL_TOWN.controller.pending.animation)
+    )
+    .toBe(true)
   expect(
     await page.evaluate(() => localStorage.getItem('edenia_v1_internal_test'))
   ).toBe(before)

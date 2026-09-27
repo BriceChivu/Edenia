@@ -25,7 +25,8 @@ const p95 = (a) =>
   [...a].sort((a, b) => a - b)[Math.max(0, Math.ceil(a.length * 0.95) - 1)] || 0
 async function run(mode, feedSize, stage, iteration) {
   const context = await browser.newContext({
-      viewport: { width: 1440, height: 900 }
+      viewport: { width: 1440, height: 900 },
+      reducedMotion: mode === 'still' ? 'reduce' : 'no-preference'
     }),
     page = await context.newPage()
   await page.route('**/*', (route) => {
@@ -76,10 +77,6 @@ async function run(mode, feedSize, stage, iteration) {
         }
       }
       window.saveState(s, { backup: false, syncAnalytics: false })
-      localStorage.setItem(
-        'edenia.pixelTown.motion',
-        mode === 'still' ? 'off' : 'on'
-      )
       return JSON.stringify({
         videos: s.videos,
         anki: s.anki,
