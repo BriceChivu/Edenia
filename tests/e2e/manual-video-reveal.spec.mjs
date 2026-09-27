@@ -48,6 +48,7 @@ async function seedCompletedState(page, options = {}) {
         publishedAt: `2026-07-${String(28 - index).padStart(2, '0')}T04:00:00.000Z`,
         duration: 754,
         status: 'unwatched',
+        metadataFetchedAt: new Date().toISOString(),
         source: 'youtube'
       }
     }
