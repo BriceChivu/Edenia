@@ -14,7 +14,7 @@ test('public and enabled Auth routes never inspect paused internal storage', () 
 })
 test('fresh and explicitly accountless internal profiles remain available', () => {
   assert.equal(check(), false)
-  assert.equal(check({ [keys.learnerProfileAccessKey]: JSON.stringify({version:1,ownerId:null,profileId:`accountless:${keys.storageKey}`}) }), false)
+  assert.equal(check({ [keys.learnerProfileAccessKey]: JSON.stringify({version:1,ownerId:null,activationId:null,activatedAt:1,profileId:`accountless:${keys.storageKey}`}) }), false)
 })
 test('owner-bound and ambiguous caches are held without reading learner data', () => {
   for (const key of [keys.accountAuthStorageKey, keys.accountStudySyncOwnerKey,
@@ -23,5 +23,6 @@ test('owner-bound and ambiguous caches are held without reading learner data', (
     assert.equal(check({ [key]: 'retained' }), true)
   }
   assert.equal(check({ [keys.learnerProfileAccessKey]: JSON.stringify({version:1,ownerId:'owner',profileId:'profile'}) }), true)
+  assert.equal(check({ [keys.learnerProfileAccessKey]: JSON.stringify({version:1,ownerId:null,profileId:`accountless:${keys.storageKey}`}) }), true)
   assert.equal(check({}, {readStorage() { throw Error('unavailable') }}), true)
 })

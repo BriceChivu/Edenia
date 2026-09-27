@@ -30,7 +30,7 @@ function isOwnerReplacement(value) {
     && Number.isFinite(value.startedAt)
 }
 
-function readAccessRecord(storage, accessStorageKey) {
+export function readAccessRecord(storage, accessStorageKey) {
   const serialized = storage.getItem(accessStorageKey)
   if (serialized === null) return { present: false, record: null }
   try {

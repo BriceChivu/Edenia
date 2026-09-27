@@ -1,4 +1,5 @@
 import { deriveStorageKeys } from '../../core/storage-keys.js'
+import { readAccessRecord } from '../../state/learner-profile-local-adapter.js'
 
 // Read only ownership bookkeeping. Never open or normalize the retained profile
 // while authentication is unavailable. Ambiguous metadata stays recoverable.
@@ -14,10 +15,11 @@ export function shouldHoldPausedInternalProfile({
       keys.learnerProfileSyncKey, keys.accountlessProfileMigrationKey]) {
       if (readStorage(key) !== null) return true
     }
-    const raw = readStorage(keys.learnerProfileAccessKey)
-    if (raw === null) return false
-    const record = JSON.parse(raw)
-    return !(record?.version === 1
+    const { present, record } = readAccessRecord(
+      { getItem: readStorage }, keys.learnerProfileAccessKey
+    )
+    if (!present) return false
+    return !(record
       && record.ownerId === null
       && record.profileId === `accountless:${keys.storageKey}`
       && record.replacement === undefined)
@@ -30,9 +32,11 @@ export function showPausedInternalProfile(document) {
   const show = () => {
     const main = document.createElement('main')
     main.id = 'internalAuthPaused'
-    main.className = 'app-container'
+    main.style.cssText = 'max-width:44rem;margin:10vh auto;padding:1.5rem;display:grid;gap:1.25rem'
+    main.tabIndex = -1
     const heading = document.createElement('h1')
     heading.textContent = 'Authentication testing is paused'
+    heading.style.fontSize = '1.5rem'
     const explanation = document.createElement('p')
     explanation.textContent = 'Your saved internal profile is preserved on this browser. It will not be opened or changed while authentication is paused.'
     const instruction = document.createElement('p')
@@ -42,6 +46,7 @@ export function showPausedInternalProfile(document) {
     link.textContent = 'Open public Edenia'
     main.append(heading, explanation, instruction, link)
     document.body.replaceChildren(main)
+    main.focus()
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', show, { once: true })
