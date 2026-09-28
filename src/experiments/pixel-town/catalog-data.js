@@ -31,7 +31,7 @@ export const ASSETS = [
   args,
   source: id.includes(':')
     ? 'src/experiments/pixel-town/parameters.js'
-    : 'src/experiments/pixel-town/artwork.js',
+    : `src/experiments/pixel-town/objects/${id}.js`,
   stages: Object.values(SCENES)
     .filter(
       (scene) =>

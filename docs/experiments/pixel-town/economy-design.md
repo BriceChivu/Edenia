@@ -1,8 +1,8 @@
 # Pixel-town economy: experience, coins, and player choices
 
 Recorded: 2026-09-28
-Status: agreed product direction; first-purchase implementation is described in
-the milestone section at the end. Other balancing and interactions remain draft.
+
+Status: agreed product direction with draft balancing and interaction details.
 
 This document records the discussion about evolving the internal pixel-town at
 `https://www.edenia.study/?internal_test=1`. It describes intended behavior, not
@@ -110,9 +110,9 @@ or trees receive their own IDs even when they reuse artwork. Most draft items ha
 existing artwork; the bench needs new artwork. Exact coordinates, footprints, and
 draw order remain unset pending layout review.
 
-The catalog predates the XP/coins decision and still uses “points” in its comments.
-The intended currency for its `cost` values is now coins; the numbers remain
-provisional. This document does not change that file or wire it into gameplay.
+The catalog uses coins for its `cost` values, separate from XP. All prices remain
+provisional, including the first flower patch at 15 coins. The catalog is not
+connected to gameplay.
 
 Upgrade definitions belong in the shared catalog. Ownership and economy state
 belong to the learner profile. A separate definition of level rewards should
@@ -121,9 +121,10 @@ not yet settled.
 
 ## Pacing and motivation
 
-The first purchase should be reachable during a short first study session. Early
-choices should offer different outcomes: decorate now, or save for a boat or
-larger project.
+The agreed target is that a new learner can afford the first flower patch after
+ten minutes of studying. This target does not settle the earning formula or
+broader balancing. Early choices should offer different outcomes: decorate now,
+or save for a boat or larger project.
 
 Tune prices against actual study earning rules rather than selecting numbers in
 isolation. The intended pacing discussed was:
@@ -155,6 +156,17 @@ For existing learners, the preferred migration direction is to preserve objects
 they already have and mark those upgrades as owned. How historical study maps to
 XP, starting coins, and previous construction remains unresolved. The migration
 must account for previous progress without accidentally counting it twice.
+
+## First implementation slice
+
+The first slice is **study → coins → confirmed first flower purchase → ownership
+survives reload**. A new learner should earn enough coins after ten minutes of
+studying to afford the first flower patch, confirm that purchase, and still own
+it after reloading. Spending coins must leave XP and level unchanged.
+
+The earning formula and broader balancing remain provisional. The draft first
+flower price is 15 coins; no broader final rates have been approved. This slice
+is planned work, not gameplay implemented by this foundation.
 
 ## Open decisions before implementation
 

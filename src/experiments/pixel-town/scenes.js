@@ -17,7 +17,7 @@ const homeObjects = [
   item('pot', [-24, 40], 49),
   item('pot', [7, 34], 48),
   item('fence', [11, 40, 28], 50),
-  item('mailbox', [], 56)
+  item('mailbox', [-30, 33], 56)
 ]
 const home = (wide, playground = false, boat = true) => ({
   id: 'home',
@@ -29,7 +29,7 @@ const home = (wide, playground = false, boat = true) => ({
       ...homeObjects,
       ...(playground ? [item('playground', [31, 7], 60)] : [])
     ].sort((a, b) => a.depth - b.depth),
-    ...(boat ? [item('dock'), item('boat')] : []),
+    ...(boat ? [item('dock', [-21, 53]), item('boat', [-12, 105])] : []),
     item('rocks', [-51, 55])
   ]
 })
@@ -104,54 +104,54 @@ export const SCENES = {
   6: {
     id: 6,
     groups: [poolIsland(poolStages[6]), home(true, true)],
-    overlays: [item('birds')]
+    overlays: [item('birds', [438, 403])]
   },
   7: {
     id: 7,
     groups: [
       poolIsland(poolStages[7]),
-      { id: 'bridge', at: [0, 0, 1], items: [item('bridge')] },
+      { id: 'bridge', at: [0, 0, 1], items: [item('bridge', [200, 283])] },
       home(true, true)
     ],
-    overlays: [item('birds')]
+    overlays: [item('birds', [438, 403])]
   },
   8: {
     id: 8,
     groups: [
       poolIsland(poolStages[8]),
-      { id: 'bridge', at: [0, 0, 1], items: [item('bridge')] },
+      { id: 'bridge', at: [0, 0, 1], items: [item('bridge', [200, 283])] },
       home(true, true)
     ],
-    overlays: [item('birds')]
+    overlays: [item('birds', [438, 403])]
   },
   9: {
     id: 9,
     groups: [
       poolIsland(poolStages[9]),
-      { id: 'bridge', at: [0, 0, 1], items: [item('bridge')] },
+      { id: 'bridge', at: [0, 0, 1], items: [item('bridge', [200, 283])] },
       home(true, true)
     ],
-    overlays: [item('birds')]
+    overlays: [item('birds', [438, 403])]
   },
   10: {
     id: 10,
     groups: [
       neighbor(false),
       poolIsland(poolStages[10]),
-      { id: 'bridge', at: [0, 0, 1], items: [item('bridge')] },
+      { id: 'bridge', at: [0, 0, 1], items: [item('bridge', [200, 283])] },
       home(true, true)
     ],
-    overlays: [item('birds')]
+    overlays: [item('birds', [438, 403])]
   },
   11: {
     id: 11,
     groups: [
       neighbor(true),
       poolIsland(poolStages[11]),
-      { id: 'bridge', at: [0, 0, 1], items: [item('bridge')] },
+      { id: 'bridge', at: [0, 0, 1], items: [item('bridge', [200, 283])] },
       home(true, true)
     ],
-    overlays: [item('birds')]
+    overlays: [item('birds', [438, 403])]
   },
   12: {
     id: 12,
@@ -168,7 +168,7 @@ export const SCENES = {
         at: [0, 0, 1],
         items: [item('reflection', [140, 337, 70, 33])]
       },
-      { id: 'bridge', at: [0, 0, 1], items: [item('bridge')] },
+      { id: 'bridge', at: [0, 0, 1], items: [item('bridge', [200, 283])] },
       home(true, true),
       {
         id: 'home-reflection',
@@ -181,7 +181,7 @@ export const SCENES = {
         items: [item('island', [43, 40]), item('volcano')]
       }
     ],
-    overlays: [item('birds')]
+    overlays: [item('birds', [438, 403])]
   }
 }
 

@@ -28,8 +28,22 @@ export async function buildPixelTown(outputDir) {
       )
     ).version
   )
-  for (const name of (await readdir(sourceDir)).sort())
-    hash.update(await readFile(resolve(sourceDir, name)))
+  // Object geometry and shared drawing helpers live in nested source folders.
+  // Include paths as well as contents so moves also invalidate generated assets.
+  async function hashSources(directory, prefix = '') {
+    const entries = await readdir(directory, { withFileTypes: true })
+    entries.sort((a, b) => a.name.localeCompare(b.name, 'en'))
+    for (const entry of entries) {
+      const name = entry.name
+      const path = resolve(directory, name)
+      if (entry.isDirectory()) await hashSources(path, `${prefix}${name}/`)
+      else {
+        hash.update(`${prefix}${name}\0`)
+        hash.update(await readFile(path))
+      }
+    }
+  }
+  await hashSources(sourceDir)
   hash.update(await readFile(new URL(import.meta.url)))
   const version = hash.digest('hex').slice(0, 16),
     relative = `pixel-town/${version}`

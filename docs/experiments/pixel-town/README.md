@@ -4,6 +4,9 @@ Experiment: pixel-art-town
 Gate: `EDENIA_PIXEL_TOWN_ENABLED=true` at build time **and** `?internal_test=1` at runtime  
 Public path: unchanged (subject to the linked CI and browser evidence)
 
+Future economy direction: [Experience, coins, and player choices](economy-design.md)
+records the agreed design and open questions; it is not implemented gameplay.
+
 This implements [Build the complete internal pixel-town experience](https://github.com/BriceChivu/Edenia/issues/349) using the owner-approved isometric artwork at `238297c`. The default build switch is **off**. An enabled build is available for local review; changing the hosted release switch and owner acceptance belong to [Deploy and accept the internal pixel-town trial](https://github.com/BriceChivu/Edenia/issues/350).
 
 ## Run
@@ -25,7 +28,9 @@ The workshop and source geometry are excluded from the Pages build. The learner 
 
 | Change | Source |
 | --- | --- |
-| Roof tiles, tree shape, landmark geometry | `src/experiments/pixel-town/artwork.js` — named functions |
+| Object geometry (houses, trees, boats, etc.) | `src/experiments/pixel-town/objects/<type>.js` |
+| Pixel primitives and isometric projection | `src/experiments/pixel-town/shared/drawing.js` |
+| Compatible drawing interface | `src/experiments/pixel-town/artwork.js` |
 | Shared tree blossom color, roof rows | `src/experiments/pixel-town/parameters.js` — `DESIGN` |
 | Breeze or smoke | `parameters.js` — `EFFECTS`; deterministic motion functions in `effects.js` |
 | Local clock buckets, materials | `lighting.js` |
@@ -33,17 +38,21 @@ The workshop and source geometry are excluded from the Pages build. The learner 
 | Scheduling, cancellation, disposal | `entry.js`, `player.js` |
 | Build-time stills and patch atlas | `scripts/build-pixel-town.mjs` |
 
-**Change a roof:** edit the `house` geometry or `DESIGN.roof.rows`; inspect stages 1, 2, 9, 10 and 12 at all lights. Both orange and purple houses share the roof definition.
+**Change a roof:** edit `objects/house.js` or `DESIGN.roof.rows`; inspect stages 1, 2, 9, 10 and 12 at all lights. Both orange and purple houses share the roof definition.
 
 **Tune smoke:** select House or Volcano in the workshop, adjust smoke height, inspect motion, download a draft and run the displayed save command. Smoke is a shared effect: the change applies to both chimney and volcano emitters. It does not change foliage or scene placements.
+
+**Module layout:** each object type has one implementation reused by every instance and variant. `pot.js` and `volcano.js` reuse `shrub.js`. The drawing context owns palette, deterministic motion, pixel primitives and projection; its scale is read when an object draws, after the scene selects a group placement. Object modules contain local geometry, with no scene, reward or purchase imports. `scenes.js` owns anchors and draw order. Bridge and bird anchors use screen pixels; the other positioned objects use group-local isometric coordinates. The artwork interface retains legacy no-argument defaults for workshop previews. Build hashing recursively includes object and shared modules.
 
 **Change a tree:** select Flowering tree. Adjust blossoms or breeze. Compare isolated before/after and stages 2 and 12. Reset discards the draft. Download writes only a draft file; `node tools/pixel-town/save-draft.mjs <draft.json>` validates it and writes the version-controlled parameters module. Review `git diff`, rebuild, compare captures, then commit. No browser storage is used for artwork drafts. The save command accepts only exposed bounded parameters, never arbitrary code.
 
 **Create a named tree variant:** choose the variant scope and a stable ID. Saving adds `VARIANTS[id]` without changing existing artwork. Replace only intended scene entries' `asset: 'tree'` with `asset: 'tree:<id>'`. This explicit source reference determines scope. Shared tree edits affect all default trees; variant references use their own blossom/breeze parameters.
 
-**Add a landmark:** add a named geometry function to `artwork`, expose it in that factory's return value, add catalog metadata and reference the ID from scene items. Keep effect parameters separate. No player change is needed.
+**Add a landmark:** add `objects/<type>.js` exporting a drawing function that accepts the shared drawing context and object arguments. Import and expose it in `artwork.js`, add catalog metadata and reference the ID from scene items. Keep effect parameters separate. No player change is needed.
 
 **Add a visual stage:** add a scene object containing groups (`id`, `at`, `items`) and overlays to `SCENES`. The workshop's “Preview-only stage” demonstrates two existing trees on one island without renderer changes. The build deliberately generates earned stages 0–12 only. Extending learner progression requires a separate deliberate change in `features/city/model.js`; authoring a preview does not award progress.
+
+Run `node --test tests/contracts/pixel-town*.test.mjs` for rendering and lifecycle contracts. The pre-extraction RGBA fixture records 560 renders from `dac7673b79bff2c536bb4d65e2680e209b24ed5e` with canvas 1.0.9: all scenes and lights at four animation times, every catalog object at two scales/times and all lights, and a mixed default/variant tree scene. Intentional future artwork changes require reviewing and updating those fingerprints.
 
 Run `node tools/pixel-town/verify-art.mjs` after building. It generates four progression contact sheets, a shared-tree comparison and 208 exact patch-replay checks. Check existing stages for unintended differences. Source content hashes invalidate all related generated artifacts together; `.pixel-town-cache` is a disposable build cache.
 

@@ -1,10 +1,10 @@
 // Purchase catalog: only garden-flower-1 is enabled in the first milestone.
-// Its 15-coin cost is fixed; all other costs and placements remain draft.
+// Its 15-coin cost is fixed; other costs and placements remain provisional.
 // The proposed starting town includes the main island, a small house, a basic
 // path, and an empty garden. Water, reflections, and shoreline are free scenery.
 //
 // Each ID represents one purchase at a fixed location. Save purchases and spent
-// coins in the learner profile, not here. Show an unpurchased item's outline
+// coins in the learner profile, not here. Spending coins must not reduce XP or level. Show an unpurchased item's outline
 // only when all prerequisites are owned and the current unspent balance covers
 // its cost. After buying, deduct the cost and recalculate affordable outlines.
 //
