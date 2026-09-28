@@ -1,7 +1,7 @@
 html.pixel-town .city-image-wrap {
   background: #78b5c9;
   aspect-ratio: 768/460;
-  touch-action: pan-y;
+  touch-action: none;
 }
 html.pixel-town .city-milestone-image,
 html.pixel-town .pixel-town-canvas {
@@ -11,14 +11,11 @@ html.pixel-town .pixel-town-canvas {
   height: 100% !important;
   object-fit: contain;
   image-rendering: pixelated;
-  transform: none !important;
+  transform: var(--town-view, none) !important;
   transition: none;
   cursor: default;
   pointer-events: none;
   will-change: auto;
-}
-html.pixel-town .city-zoom-controls {
-  display: none;
 }
 html.pixel-town .intro-city-frame {
   object-fit: contain;
@@ -46,3 +43,8 @@ html.pixel-town .intro-city-viewport {
 @media (max-width: 600px) {
   .town-build-panel { top: auto; bottom: 8px; }
 }
+
+/* Keep all scene layers in the same coordinate system, with controls outside it. */
+.town-world-targets { position: absolute; inset: 0; transform: var(--town-view, none); transform-origin: center; pointer-events: none; }
+html.pixel-town .city-image-wrap.is-pannable { cursor: grab; }
+html.pixel-town .city-image-wrap.is-dragging { cursor: grabbing; }
