@@ -8657,15 +8657,15 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
   try {
     if (!s) return
     if (!IS_SANDBOX && hasYoutubeApiKey()) {
-      await refreshSavedYoutubeMetadata({
+      const changed = await refreshSavedYoutubeMetadata({
         state: s,
         fetchVideos: ids => fetchVideoDetails(ids),
         fetchChannels: channels => hydrateYoutubeChannelProfiles(channels),
         isCurrent: () => isCurrentLearnerProfileOperation(s),
         readCurrent: loadState,
+        // Persist each batch without rebuilding the feed during an active card reveal.
         onChange: current => {
           if (!isCurrentLearnerProfileOperation(s) || !saveState(current)) return false
-          renderAll(current)
           return true
         },
         onOutcome: (current, outcome) => appendActivityLog(current, {
@@ -8678,6 +8678,7 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
         })
       })
       if (!isCurrentLearnerProfileOperation(s)) return
+      if (changed) renderAll(s)
     }
     if (shouldRefreshYoutubeFeed(s)) {
       await refreshFeed({ silent: hasAnyChannelRefreshTimestamp(s) })
