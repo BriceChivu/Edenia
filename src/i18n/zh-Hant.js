@@ -1,6 +1,18 @@
 import { EN_CORE } from './en.js'
 
 export const ZH_HANT_LOCALIZED = {
+  "townEconomy.coins": "{count} 枚金幣",
+  "townEconomy.flower": "第一片花圃",
+  "townEconomy.build": "建造 · {count} 枚金幣",
+  "townEconomy.cancel": "取消",
+  "townEconomy.purchased": "花圃建好了！",
+  "townEconomy.owned": "已擁有第一片花圃",
+  "townEconomy.unowned": "尚未購買花圃",
+  "townEconomy.insufficient": "金幣不足。",
+  "townEconomy.saveFailed": "無法儲存，請重試。",
+  "townEconomy.notStarted": "尚未開始賺取金幣",
+  "townEconomy.comparison": "小鎮金幣與購買紀錄",
+
   'videos.history.loading': "正在載入較早的影片…",
   'videos.history.exhausted': "已載入所有可用影片。",
   'videos.history.limited': "本批次中沒有更多符合條件的影片。",

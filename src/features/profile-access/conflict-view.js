@@ -8,6 +8,7 @@ function formatList(values, none, formatItem = value => value) {
 }
 
 export function createLearnerProfileConflictView({
+  isTownEconomyEnabled = () => false,
   clearTimer,
   formatDateTime,
   formatNumber,
@@ -101,7 +102,7 @@ export function createLearnerProfileConflictView({
       })
     }
     if (key === 'town-economy') {
-      return value ? `${number(value.coins)} coins · ${value.flowers ? 'First flower patch owned' : 'No purchased flowers'}` : 'Economy not started'
+      return value ? `${translate('townEconomy.coins', { count: number(value.coins) })} · ${translate(value.flowers ? 'townEconomy.owned' : 'townEconomy.unowned')}` : translate('townEconomy.notStarted')
     }
     if (key === 'town-study-progress') {
       return translate('profileConflict.value.townStudy', {
@@ -176,11 +177,12 @@ export function createLearnerProfileConflictView({
       conflict.device.profile,
       conflict.cloud.profile
     )
-    const fragments = comparison.map(row => {
+    const visibleComparison = comparison.filter(row => row.key !== 'town-economy' || isTownEconomyEnabled())
+    const fragments = visibleComparison.map(row => {
       const tableRow = root.createElement('tr')
       const heading = root.createElement('th')
       heading.scope = 'row'
-      heading.textContent = row.key === 'town-economy' ? 'Town coins and purchases' : translate(`profileConflict.category.${row.key}`)
+      heading.textContent = row.key === 'town-economy' ? translate('townEconomy.comparison') : translate(`profileConflict.category.${row.key}`)
       tableRow.append(
         heading,
         createValueCell('device', row),
@@ -189,7 +191,7 @@ export function createLearnerProfileConflictView({
       return tableRow
     })
     rows.replaceChildren(...fragments)
-    empty.hidden = comparison.length > 0
+    empty.hidden = visibleComparison.length > 0
     feedback.textContent = ''
     confirmation.hidden = true
     confirmation.classList.add('hidden')

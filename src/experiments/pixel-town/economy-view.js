@@ -11,8 +11,8 @@ export function mountEconomy(wrap, town) {
     </button>
     <div class="town-build-panel" hidden>
       <strong>First flower patch</strong>
-      <button type="button" class="town-build-confirm">Build · 15 coins</button>
-      <button type="button" class="town-build-cancel" aria-label="Cancel flower purchase">Cancel</button>
+      <button type="button" class="town-build-confirm btn-primary">Build · 15 coins</button>
+      <button type="button" class="town-build-cancel btn-ghost" aria-label="Cancel flower purchase">Cancel</button>
     </div>
     <span class="town-build-status" role="status"></span>`
   wrap.append(layer)
@@ -25,7 +25,16 @@ export function mountEconomy(wrap, town) {
   const refresh = () => {
     const economy = town.economy
     layer.hidden = !economy?.available
-    wallet.textContent = `${economy?.balance || 0} coins`
+    const t = town.translate
+    if (!t) return
+    wallet.textContent = t('townEconomy.coins', { count: economy?.balance || 0 })
+    wallet.setAttribute('aria-label', wallet.textContent)
+    outline.setAttribute('aria-label', `${t('townEconomy.flower')} · ${t('townEconomy.coins', { count: flower.cost })}`)
+    panel.querySelector('strong').textContent = t('townEconomy.flower')
+    confirm.textContent = t('townEconomy.build', { count: flower.cost })
+    const cancel = layer.querySelector('.town-build-cancel')
+    cancel.textContent = t('townEconomy.cancel')
+    cancel.setAttribute('aria-label', t('townEconomy.cancel'))
     outline.hidden = !economy?.available || economy.owned || economy.balance < flower.cost
     if (outline.hidden || purchase !== town.buildFlower) panel.hidden = true
   }
@@ -50,10 +59,7 @@ export function mountEconomy(wrap, town) {
     confirm.disabled = true
     const result = purchase?.()
     panel.hidden = true
-    status.textContent = result === 'purchased' ? 'Flowers built!'
-      : result === 'owned' ? 'You already own these flowers.'
-      : result === 'insufficient' ? 'Not enough coins.'
-      : 'Could not save. Please try again.'
+    status.textContent = town.translate(`townEconomy.${['purchased', 'owned', 'insufficient'].includes(result) ? result : 'saveFailed'}`)
     confirm.disabled = false
     refresh()
   })

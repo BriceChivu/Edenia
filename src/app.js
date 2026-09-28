@@ -968,6 +968,7 @@ const learnerProfileAccessView = createLearnerProfileAccessView({
   translate: t
 })
 const learnerProfileConflictView = createLearnerProfileConflictView({
+  isTownEconomyEnabled: () => Boolean(window.EDENIA_PIXEL_TOWN?.enabled),
   clearTimer: timer => window.clearTimeout(timer),
   formatDateTime: value => formatLocaleDateTime(value, {
     dateStyle: 'medium',
@@ -1125,6 +1126,7 @@ let townEconomyProfile = null
 function refreshTownEconomy(s) {
   if (!window.EDENIA_PIXEL_TOWN?.enabled || !s) return
   const town = window.EDENIA_PIXEL_TOWN
+  town.translate = t
   town.economy = {
     balance: getTownBalance(s.townEconomy),
     owned: Boolean(s.townEconomy && Object.hasOwn(s.townEconomy.purchases, FIRST_FLOWER_ID)),

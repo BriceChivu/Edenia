@@ -221,8 +221,9 @@ new transactional cross-tab storage guarantee.
 
 Portable export/import, backups and recovery retain the optional field and
 include it in the integrity hash. Sync already resolves divergent profiles by
-explicit protected version choice; wallets are never added together. Conflict
-comparisons now expose wallet and flower-ownership differences. A chosen older
+explicit protected version choice; wallets are never added together. Internal conflict
+comparisons expose wallet and flower-ownership differences; public conflict views
+retain the portable state without presenting economy controls or comparisons. A chosen older
 version or explicit recovery remains a whole-profile rollback, including its
 wallet. Older clients reject the unknown portable field rather than silently
 accepting a partial profile. Public profiles without the field keep their
@@ -230,17 +231,19 @@ previous canonical envelope shape and behavior.
 
 Release prerequisite: apply the additive `pixel_town_economy_profile` database
 migration before enabling this client for signed-in economy use. The current
-server schema otherwise rejects the new optional field. This implementation task
-does not authorize applying that migration, deployment, or merge.
+server schema otherwise rejects the new optional field. The migration extends optional portable state and enforces the same balance,
+baseline and safe-integer invariants as the client, without rewriting user profiles.
+The existing hosted Auth pause remains in place during this economy rollout.
 
 ### Local verification
 
 - `EDENIA_PIXEL_TOWN_ENABLED=true npm run build`: passed.
-- `node --test tests/contracts/*.test.mjs`: 1,730 passed. Includes accounting,
+- `node --test tests/contracts/*.test.mjs`: 1,733 passed. Includes accounting,
   failed-save rollback, legacy baselines, first signed-in creation, portable
   round trips, conflict comparison and exact cloud retry preservation.
 - Enabled Playwright `town-economy.spec.mjs` and `pixel-town.spec.mjs` on
-  `desktop-standard` and `phone-small`: 20 passed. The earning test calls the
+  `desktop-standard` and `phone-small`: purchase and lifecycle coverage, plus
+  French dark-theme confirmation and cancellation. The earning test calls the
   player's real progress recorder sixty times with ten-second increments; it
   does not wait for ten minutes of live YouTube playback. It checks immediate
   wallet refresh, confirmation, duplicate purchase rejection, unchanged XP,
@@ -249,7 +252,19 @@ does not authorize applying that migration, deployment, or merge.
 - Visually inspected desktop ownership and the 360px-wide phone Build panel.
 - `git diff --check`: passed.
 
-The SQL regression file is included but has **not been executed**: neither the
-local Docker nor Colima database runtime was available. The migration has not
-been applied. Hosted signed-in sync, actual ten-minute playback, physical-device
-performance, and deployment acceptance are not claimed by these local tests.
+- Disposable local Supabase, with all migrations applied: 10 economy SQL
+  assertions and 170 existing profile creation, sync, conflict, recovery, import,
+  start-over and owner-policy assertions passed. Security advisors reported no
+  warnings. CI now selects this migration and runs the economy SQL regression.
+- Real local Auth and PostgREST: disposable owner creation, initial profile,
+  reward and purchase commits, exact operation retries, reopening, and denial
+  for a second owner passed. No production profiles were used.
+- Signed-in browser against that local backend: cloud opening, another study
+  session, accepted sync, reload, retained ownership and duplicate rejection
+  passed. A separate fresh browser with no cached profile reopened the cloud
+  balance and ownership correctly.
+
+These tests use recorded study increments, not ten minutes of live YouTube
+playback. Hosted signed-in acceptance remains unavailable while the existing
+Auth pause is preserved. Physical-device performance is a separate acceptance
+step. Migration and hosted release results must be recorded after deployment.
