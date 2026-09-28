@@ -1096,6 +1096,7 @@ export const EN_CORE = {
   'log.unknownError': 'Unknown error',
   'log.shortsSkipped.title': 'Short videos skipped',
   'log.shortsSkipped.detail': '{count} short videos skipped during refresh.',
+  'log.youtubeMetadata.budgetPaused': "Recovery paused to limit API use; remaining videos will be retried later.",
   'log.youtubeMetadata.complete': "Saved video metadata recovered",
   'log.youtubeMetadata.partial': "Saved video metadata partially recovered",
   'log.youtubeMetadata.failure': "Saved video metadata recovery failed",

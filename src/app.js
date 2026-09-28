@@ -1,3 +1,4 @@
+import { createYoutubeMetadataBudget } from './integrations/youtube-metadata-budget.js'
 import { resolveWindowAnchor } from './features/videos/window-anchor.js'
 import { fetchOlderUploads } from './integrations/youtube-upload-history.js'
 import { bindUploadHistoryActions } from './features/channels/upload-history-actions.js'
@@ -8650,6 +8651,16 @@ function formatRefreshWait(ms) {
   return t('time.minutesCompact', { minutes })
 }
 
+let youtubeMetadataBudget = null
+
+function visibleYoutubeMetadataIds() {
+  return [...document.querySelectorAll('[data-video-id]')].filter(element => {
+    const rect = element.getBoundingClientRect()
+    return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight
+      && rect.right > 0 && rect.left < window.innerWidth
+  }).map(element => element.dataset.videoId)
+}
+
 async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
   if (maybeRefreshFeed._running) return
   maybeRefreshFeed._running = true
@@ -8657,10 +8668,22 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
   try {
     if (!s) return
     if (!IS_SANDBOX && hasYoutubeApiKey()) {
+      youtubeMetadataBudget ||= createYoutubeMetadataBudget({ namespace: `${STORAGE_KEY}_youtube_metadata_recovery` })
+      const recover = youtubeMetadataBudget.createRun()
       const changed = await refreshSavedYoutubeMetadata({
         state: s,
-        fetchVideos: ids => fetchVideoDetails(ids),
-        fetchChannels: channels => hydrateYoutubeChannelProfiles(channels),
+        priorityIds: visibleYoutubeMetadataIds(),
+        fetchVideos: ids => recover('videos', ids, batch => fetchVideoDetails(batch)),
+        fetchChannels: async channels => {
+          const details = await recover('channels', channels.map(channel => channel.id), async ids => {
+            const batch = channels.filter(channel => ids.includes(channel.id))
+            await hydrateYoutubeChannelProfiles(batch)
+            return Object.fromEntries(batch.map(channel => [channel.id, {
+              name: channel.name, imageUrl: channel.imageUrl, metadataFetchedAt: channel.metadataFetchedAt
+            }]))
+          })
+          channels.forEach(channel => Object.assign(channel, details[channel.id]))
+        },
         isCurrent: () => isCurrentLearnerProfileOperation(s),
         readCurrent: loadState,
         // Persist each batch without rebuilding the feed during an active card reveal.
@@ -8673,7 +8696,8 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
           status: outcome.status === 'complete' ? 'success' : outcome.status === 'partial' ? 'warn' : 'error',
           title: t(`log.youtubeMetadata.${outcome.status}`),
           detail: t('log.youtubeMetadata.counts', { videos: outcome.videos, channels: outcome.channels })
-            + (outcome.failure ? ` ${t(`log.youtubeMetadata.${outcome.failure.kind}`)}` : ''),
+            + (outcome.failure ? ` ${t(`log.youtubeMetadata.${outcome.failure.kind}`)}` : '')
+            + (outcome.deferred ? ` ${t('log.youtubeMetadata.budgetPaused')}` : ''),
           meta: outcome
         })
       })
@@ -8707,7 +8731,9 @@ function scheduleYoutubeAutoRefresh(s = loadState()) {
   if (IS_SANDBOX || !hasYoutubeApiKey() || !s || (!s.config?.channels?.length && !Object.keys(s.videos || {}).length)) return
 
   const quotaWait = Math.max(0, (youtubeRequestGate?.retryAt('general') || 0) - Date.now())
-  const waitMs = Math.max(quotaWait, s.config?.channels?.length ? getYoutubeRefreshRemainingMs(s) : YOUTUBE_REFRESH_INTERVAL_MS)
+  const recoveryWait = Math.max(0, (youtubeMetadataBudget?.retryAt() || 0) - Date.now())
+  const feedWait = s.config?.channels?.length ? getYoutubeRefreshRemainingMs(s) : YOUTUBE_REFRESH_INTERVAL_MS
+  const waitMs = Math.max(quotaWait, recoveryWait > 0 ? Math.min(feedWait, recoveryWait) : feedWait)
   startYoutubeAutoRefresh._timer = setTimeout(maybeRefreshFeed, Math.max(1_000, waitMs))
 }
 

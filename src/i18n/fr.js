@@ -1119,6 +1119,7 @@ export const FR_LOCALIZED = {
   'log.unknownError': 'Erreur inconnue',
   'log.shortsSkipped.title': 'Vidéos courtes ignorées',
   'log.shortsSkipped.detail': '{count} vidéos courtes ignorées pendant l’actualisation.',
+  'log.youtubeMetadata.budgetPaused': "Récupération suspendue pour limiter l’utilisation de l’API ; les vidéos restantes seront réessayées plus tard.",
   'log.youtubeMetadata.complete': "Métadonnées des vidéos enregistrées récupérées",
   'log.youtubeMetadata.partial': "Métadonnées des vidéos enregistrées partiellement récupérées",
   'log.youtubeMetadata.failure': "Échec de récupération des métadonnées des vidéos enregistrées",

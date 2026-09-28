@@ -12,6 +12,8 @@ async function seed(page, overrides = {}, theme = 'light') {
   await page.evaluate(({ now, id, overrides, theme }) => {
     const s = window.defaultState(4, [], theme, [], 'en')
     s.config.ankiEnabled = false
+    // Keep the UI in its missing-metadata state during transient retry backoff.
+    s.youtubeMetadataFailedAt = now
     Object.assign(s.onboarding, { introSeenAt: now, setupCompleted: true, setupCompletedAt: now, walkthroughCompleted: true, walkthroughCompletedAt: now })
     s.videos = { [id]: { id, title: '', thumbnail: '', channelTitle: '', channelId: 'manual-youtube',
       publishedAt: null, duration: 0, metadataFetchedAt: now, status: 'partial', favorite: true,

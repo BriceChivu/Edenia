@@ -1119,6 +1119,7 @@ export const ES_LOCALIZED = {
   'log.unknownError': 'Error desconocido',
   'log.shortsSkipped.title': 'Videos cortos omitidos',
   'log.shortsSkipped.detail': 'Se omitieron {count} videos cortos durante la actualización.',
+  'log.youtubeMetadata.budgetPaused': "Recuperación pausada para limitar el uso de la API; los vídeos restantes se reintentarán más tarde.",
   'log.youtubeMetadata.complete': "Metadatos de vídeos guardados recuperados",
   'log.youtubeMetadata.partial': "Metadatos de vídeos guardados recuperados parcialmente",
   'log.youtubeMetadata.failure': "Error al recuperar metadatos de vídeos guardados",
