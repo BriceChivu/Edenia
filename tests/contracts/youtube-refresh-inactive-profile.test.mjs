@@ -34,6 +34,8 @@ function createRefreshHarness() {
   const context = vm.createContext({
     Date: FixedDate,
     youtubeRequestGate: null,
+    STORAGE_KEY: 'test',
+    createYoutubeMetadataBudget: () => ({ createRun: () => {}, retryAt: () => 0 }),
     refreshSavedYoutubeMetadata: async () => false,
     isCurrentLearnerProfileOperation: state => state === activeProfile,
     IS_SANDBOX: false,
@@ -43,7 +45,7 @@ function createRefreshHarness() {
     learnerProfileLifecycleAuthority: { readActiveProfile: () => activeProfile },
     loadPersistedState: () => { throw new Error('Inactive signed-in profiles must not load persisted state') },
     window: events,
-    document: { ...events, hidden: false },
+    document: { ...events, hidden: false, querySelectorAll: () => [] },
     setTimeout: (callback, delay) => {
       timers.set(++nextTimer, { callback, delay })
       return nextTimer

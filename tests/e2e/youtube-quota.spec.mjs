@@ -251,3 +251,66 @@ test('saved cards recover incrementally, explain partial metadata failure, and r
   expect(requests[2]).toEqual(['recover0050'])
   expect((await saved(page)).activityLog.find(e => e.type === 'youtube-metadata').status).toBe('success')
 })
+
+test('metadata recovery bounds requests and resumes saved progress after reload', async ({ page }) => {
+  await seed(page)
+  const batches = []
+  await page.route('**/youtube/v3/videos?**', route => {
+    const ids = new URL(route.request().url()).searchParams.get('id').split(',')
+    batches.push(ids)
+    return route.fulfill({ json: { items: ids.map(id => ({ id,
+      snippet: { title: `Recovered ${id}`, channelId, publishedAt: now, thumbnails: { high: { url: 'https://i.ytimg.com/test.jpg' } } },
+      contentDetails: { duration: 'PT10M' }, player: { embedWidth: '1280', embedHeight: '720' }
+    })) } })
+  })
+  await page.evaluate(() => {
+    const s = window.loadState(), original = s.videos.fixture0001
+    s.videos = Object.fromEntries(Array.from({ length: 301 }, (_, i) => {
+      const id = i === 300 ? 'fixture0001' : `budget${String(i).padStart(5, '0')}`
+      return [id, { ...original, id, title: '', thumbnail: '', metadataFetchedAt: null, favorite: false,
+        status: i === 300 ? 'partial' : 'unwatched', resumeAtSeconds: i === 300 ? 42 : null }]
+    }))
+    window.saveState(s)
+  })
+  await page.reload()
+  await expect.poll(async () => (await saved(page)).activityLog.find(e => e.type === 'youtube-metadata')?.meta?.deferred).toBe(true)
+  expect(batches).toHaveLength(5)
+  expect(batches[0]).toContain('fixture0001')
+  await expect(page.getByRole('button', { name: 'Continue at 00:00:42: Recovered fixture0001', exact: true })).toBeVisible()
+  const recovered = batches.flat()
+  await page.reload()
+  await page.evaluate(() => window.maybeRefreshFeed())
+  expect(batches).toHaveLength(5)
+  expect((await saved(page)).videos.fixture0001.title).toBe('Recovered fixture0001')
+  await page.clock.setFixedTime(new Date(Date.parse(now) + 30 * 60_000))
+  await page.evaluate(() => window.maybeRefreshFeed())
+  await expect.poll(async () => Object.values((await saved(page)).videos).filter(v => !v.title).length).toBe(0)
+  expect(batches).toHaveLength(7)
+  expect(batches.slice(5).flat().some(id => recovered.includes(id))).toBe(false)
+})
+
+test('a second tab reuses metadata recovery results for its stale active profile', async ({ page, context }) => {
+  await seed(page)
+  let requests = 0
+  await context.route('**/youtube/v3/videos?**', route => {
+    requests++
+    return route.fulfill({ json: { items: [{ id: 'fixture0001',
+      snippet: { title: 'Shared recovery', channelId, publishedAt: now, thumbnails: { high: { url: 'https://i.ytimg.com/test.jpg' } } },
+      contentDetails: { duration: 'PT10M' }, player: { embedWidth: '1280', embedHeight: '720' }
+    }] } })
+  })
+  await page.evaluate(() => {
+    const s = window.loadState()
+    Object.assign(s.videos.fixture0001, { title: '', thumbnail: '', metadataFetchedAt: null })
+    window.saveState(s)
+  })
+  const other = await context.newPage()
+  await other.clock.setFixedTime(new Date(now))
+  await other.route('**/config.local.js*', route => route.fulfill({ contentType: 'application/javascript', body: 'window.EDENIA_CONFIG = { youtubeApiKey: "fixture-key", accountFeaturesRollout: "internal" }' }))
+  await other.goto('/')
+  await expect.poll(async () => (await saved(other)).videos.fixture0001.title).toBe('Shared recovery')
+  await page.evaluate(() => window.maybeRefreshFeed())
+  expect(await page.evaluate(() => window.loadState().videos.fixture0001.title)).toBe('Shared recovery')
+  expect(requests).toBe(1)
+  await other.close()
+})

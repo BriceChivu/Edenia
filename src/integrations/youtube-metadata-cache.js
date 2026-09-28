@@ -44,7 +44,7 @@ export function expireYoutubeMetadata(state, now = Date.now(), includeUndated = 
 // Separate from playlist coverage. A manual-only library needs the same cache lifecycle.
 export async function refreshSavedYoutubeMetadata({
   state, fetchVideos, fetchChannels, isCurrent, readCurrent = () => state,
-  onChange = () => true, onOutcome = () => {}, now = Date.now()
+  onChange = () => true, onOutcome = () => {}, priorityIds = [], now = Date.now()
 }) {
   const reload = () => {
     if (!isCurrent()) return false
@@ -55,7 +55,14 @@ export async function refreshSavedYoutubeMetadata({
   const changed = expireYoutubeMetadata(state, now)
   if (changed && onChange(state) === false) return false
   if (now - Date.parse(state.youtubeMetadataFailedAt) < 30 * 60_000) return changed
-  const stale = Object.values(state.videos || {}).filter(video => !isYoutubeMetadataFresh(video, now))
+  const visible = new Set(priorityIds)
+  const priority = video => visible.has(video.id) ? 0
+    : video.status === 'partial' || video.resumeAtSeconds > 0 ? 1
+    : video.watchLater || video.favorite ? 2 : 3
+  const stale = Object.values(state.videos || {})
+    .filter(video => !isYoutubeMetadataFresh(video, now)
+      || (!video.metadataUnavailable && (!video.title && !video.thumbnail)))
+    .sort((a, b) => priority(a) - priority(b))
   const channels = new Map((state.config?.channels || []).map(channel => [channel.id, { ...channel }]))
   Object.values(state.videos || {}).forEach(video => {
     if (video.channelId?.startsWith('UC') && !channels.has(video.channelId)) channels.set(video.channelId, {
@@ -78,8 +85,9 @@ export async function refreshSavedYoutubeMetadata({
         if (!video) return
         const detail = details[video.id]
         if (!detail || detail.metadataUnavailable) clearYoutubeVideoMetadata(video)
+        else if (video.metadataUnavailable) video.metadataUnavailable = false
         if (detail) Object.assign(video, detail)
-        video.metadataFetchedAt = new Date(now).toISOString()
+        video.metadataFetchedAt = detail?.metadataFetchedAt || new Date(now).toISOString()
       })
       if (onChange(state) === false) return false
       outcome.videos += batch.length
@@ -106,6 +114,13 @@ export async function refreshSavedYoutubeMetadata({
     state.youtubeMetadataFailedAt = null
   } catch (error) {
     if (!reload()) return false
+    if (error?.kind === 'recovery-budget') {
+      if (!outcome.videos && !outcome.channels) return changed
+      outcome.status = 'partial'
+      outcome.deferred = true
+      onOutcome(state, outcome)
+      return onChange(state) !== false
+    }
     if (error?.kind !== 'daily-quota') expireYoutubeMetadata(state, now, true)
     state.youtubeMetadataFailedAt = error?.kind === 'daily-quota' ? null : new Date(now).toISOString()
     outcome.status = outcome.videos || outcome.channels ? 'partial' : 'failure'

@@ -209,3 +209,22 @@ test('each saved batch merges current learner state and stops when the active pr
   assert.equal(current.videos.v50.title, undefined)
   assert.equal(outcomes.length, 0)
 })
+
+test('visible missing cards precede in-progress, watch-later, favorites, and backlog', async () => {
+  const s = { config: { channels: [] }, videos: Object.fromEntries([
+    ['old', {}], ['favorite', { favorite: true }], ['later', { watchLater: true }],
+    ['progress', { status: 'partial' }], ['visible', { metadataFetchedAt: new Date(now).toISOString() }]
+  ].map(([id, flags]) => [id, { id, title: '', thumbnail: '', ...flags }])) }
+  const batches = []
+  await refreshSavedYoutubeMetadata({ state: s, now, priorityIds: ['visible'], isCurrent: () => true,
+    fetchVideos: async ids => { batches.push(ids); return Object.fromEntries(ids.map(id => [id, { title: 'Recovered', thumbnail: 'image' }])) }, fetchChannels: async () => {} })
+  assert.deepEqual(batches, [['visible', 'progress', 'favorite', 'later', 'old']])
+})
+
+test('a shared cached result keeps its original provider fetch timestamp', async () => {
+  const s = state()
+  const fetchedAt = new Date(now - 60_000).toISOString()
+  await refreshSavedYoutubeMetadata({ state: s, now, isCurrent: () => true,
+    fetchVideos: async () => ({ v: { title: 'Recovered', thumbnail: 'image', metadataFetchedAt: fetchedAt } }), fetchChannels: async () => {} })
+  assert.equal(s.videos.v.metadataFetchedAt, fetchedAt)
+})

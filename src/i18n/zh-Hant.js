@@ -1119,6 +1119,7 @@ export const ZH_HANT_LOCALIZED = {
   'log.unknownError': '未知錯誤',
   'log.shortsSkipped.title': '已略過短影片',
   'log.shortsSkipped.detail': '刷新時略過了 {count} 部短影片。',
+  'log.youtubeMetadata.budgetPaused': "為限制 API 使用，恢復已暫停；稍後將重試剩餘影片。",
   'log.youtubeMetadata.complete': "已恢復已儲存影片的中繼資料",
   'log.youtubeMetadata.partial': "已部分恢復已儲存影片的中繼資料",
   'log.youtubeMetadata.failure': "已儲存影片的中繼資料恢復失敗",

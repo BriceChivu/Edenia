@@ -1119,6 +1119,7 @@ export const ZH_HANS_LOCALIZED = {
   'log.unknownError': '未知错误',
   'log.shortsSkipped.title': '已跳过短视频',
   'log.shortsSkipped.detail': '刷新时跳过了 {count} 个短视频。',
+  'log.youtubeMetadata.budgetPaused': "为限制 API 使用，恢复已暂停；稍后将重试剩余视频。",
   'log.youtubeMetadata.complete': "已恢复已保存视频的元数据",
   'log.youtubeMetadata.partial': "已部分恢复已保存视频的元数据",
   'log.youtubeMetadata.failure': "已保存视频的元数据恢复失败",
