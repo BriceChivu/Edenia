@@ -46,3 +46,95 @@ test('maintenance preserves learner edits saved while provider requests are in f
   assert.equal(snapshot.videos.v.status, 'watched')
   assert.equal(snapshot.videos.v.resumeAtSeconds, 95)
 })
+
+test('successful batches are persisted before later failure and only unfinished records retry', async () => {
+  let saved = { config: { channels: [] }, videos: Object.fromEntries(Array.from({ length: 51 }, (_, i) => [`v${i}`, { id: `v${i}`, title: 'Old', favorite: true }])) }
+  const outcomes = []
+  let fail = true
+  const requests = []
+  const options = {
+    state: structuredClone(saved), now, isCurrent: () => true,
+    readCurrent: () => structuredClone(saved),
+    onChange: value => { saved = structuredClone(value); return true },
+    onOutcome: (_value, outcome) => outcomes.push(outcome),
+    fetchVideos: async ids => {
+      requests.push(ids)
+      if (ids.includes('v50') && fail) {
+        assert.equal(saved.videos.v0.title, 'Recovered')
+        saved.videos.v0.favorite = false
+        throw Object.assign(Error('secret-key must not be logged'), { kind: 'provider', status: 503 })
+      }
+      return Object.fromEntries(ids.map(id => [id, { title: 'Recovered', duration: 600 }]))
+    }, fetchChannels: async () => {}
+  }
+  await refreshSavedYoutubeMetadata(options)
+  assert.equal(saved.videos.v0.title, 'Recovered')
+  assert.equal(saved.videos.v0.favorite, false)
+  assert.equal(saved.videos.v50.metadataFetchedAt, undefined)
+  assert.equal(outcomes[0].status, 'partial')
+  assert.equal(outcomes[0].videos, 50)
+  assert.equal(outcomes[0].failure.kind, 'provider')
+  assert.ok(!JSON.stringify(outcomes).includes('secret-key'))
+  await refreshSavedYoutubeMetadata(options)
+  assert.equal(requests.length, 2)
+  fail = false
+  await refreshSavedYoutubeMetadata({ ...options, now: now + 30 * 60_000 })
+  assert.deepEqual(requests[2], ['v50'])
+  assert.equal(saved.videos.v50.title, 'Recovered')
+  assert.equal(outcomes[1].status, 'complete')
+})
+
+test('channel failure retains recovered videos and retries channel metadata without refetching videos', async () => {
+  const s = state(); const outcomes = []; let videos = 0; let fail = true
+  const options = { state: s, now, isCurrent: () => true,
+    onOutcome: (_state, outcome) => outcomes.push(outcome),
+    fetchVideos: async () => { videos++; return { v: { title: 'Recovered', duration: 600 } } },
+    fetchChannels: async channels => {
+      if (fail) throw Object.assign(Error('private provider text'), { kind: 'credentials' })
+      channels.forEach(c => Object.assign(c, { imageUrl: 'Recovered image', metadataFetchedAt: new Date(now).toISOString() }))
+    } }
+  await refreshSavedYoutubeMetadata(options)
+  assert.equal(s.videos.v.title, 'Recovered')
+  assert.deepEqual(outcomes[0].failure, { kind: 'credentials', phase: 'channels' })
+  assert.equal(outcomes[0].status, 'partial')
+  fail = false
+  await refreshSavedYoutubeMetadata({ ...options, now: now + 30 * 60_000 })
+  assert.equal(videos, 1)
+  assert.equal(s.videos.v.channelImageUrl, 'Recovered image')
+})
+
+test('retention runs during retry backoff and quota failures still expire dated provider data', async () => {
+  for (const cooldown of [true, false]) {
+    const s = state()
+    s.youtubeMetadataFailedAt = cooldown ? new Date(now).toISOString() : null
+    await refreshSavedYoutubeMetadata({ state: s, now, isCurrent: () => true,
+      fetchVideos: async () => { throw Object.assign(Error('quota'), { kind: 'daily-quota' }) }, fetchChannels: async () => {} })
+    assert.equal(s.videos.v.title, '')
+    assert.equal(s.videos.v.favorite, true)
+    assert.equal(s.videos.v.resumeAtSeconds, 40)
+  }
+})
+
+test('each saved batch merges current learner state and stops when the active profile changes', async () => {
+  let current = { config: { channels: [] }, videos: Object.fromEntries(Array.from({ length: 101 }, (_, i) => [`v${i}`, { id: `v${i}` }])) }
+  let active = true; let calls = 0; const saved = []; const outcomes = []
+  await refreshSavedYoutubeMetadata({ state: structuredClone(current), now,
+    isCurrent: () => active, readCurrent: () => structuredClone(current),
+    onChange: state => { current = structuredClone(state); saved.push(current) },
+    onOutcome: (_state, outcome) => outcomes.push(outcome),
+    fetchVideos: async ids => {
+      calls++
+      if (calls === 2) active = false
+      current.study = { minutes: 23 }
+      Object.assign(current.videos.v0, { favorite: false, watchLater: true, status: 'watched', resumeAtSeconds: 95, watchProgress: [{ seconds: 95 }] })
+      delete current.videos.v1
+      return Object.fromEntries(ids.map(id => [id, { title: 'Recovered' }]))
+    }, fetchChannels: async () => {} })
+  assert.equal(calls, 2)
+  assert.equal(saved.length, 1)
+  assert.equal(saved[0].videos.v1, undefined)
+  assert.deepEqual(saved[0].study, { minutes: 23 })
+  assert.deepEqual(saved[0].videos.v0, { id: 'v0', title: 'Recovered', metadataFetchedAt: new Date(now).toISOString(), favorite: false, watchLater: true, status: 'watched', resumeAtSeconds: 95, watchProgress: [{ seconds: 95 }] })
+  assert.equal(current.videos.v50.title, undefined)
+  assert.equal(outcomes.length, 0)
+})

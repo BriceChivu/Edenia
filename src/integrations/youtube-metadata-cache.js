@@ -39,9 +39,18 @@ export function expireYoutubeMetadata(state, now = Date.now(), includeUndated = 
 }
 
 // Separate from playlist coverage. A manual-only library needs the same cache lifecycle.
-export async function refreshSavedYoutubeMetadata({ state, fetchVideos, fetchChannels, isCurrent, readCurrent = () => state, now = Date.now() }) {
-  if (!isCurrent()) return false
-  let changed = expireYoutubeMetadata(state, now)
+export async function refreshSavedYoutubeMetadata({
+  state, fetchVideos, fetchChannels, isCurrent, readCurrent = () => state,
+  onChange = () => true, onOutcome = () => {}, now = Date.now()
+}) {
+  const reload = () => {
+    if (!isCurrent()) return false
+    Object.assign(state, readCurrent())
+    return true
+  }
+  if (!reload()) return false
+  const changed = expireYoutubeMetadata(state, now)
+  if (changed && onChange(state) === false) return false
   if (now - Date.parse(state.youtubeMetadataFailedAt) < 30 * 60_000) return changed
   const stale = Object.values(state.videos || {}).filter(video => !isYoutubeMetadataFresh(video, now))
   const channels = new Map((state.config?.channels || []).map(channel => [channel.id, { ...channel }]))
@@ -53,35 +62,56 @@ export async function refreshSavedYoutubeMetadata({ state, fetchVideos, fetchCha
   })
   const staleChannels = [...channels.values()].filter(channel => !isYoutubeMetadataFresh(channel, now))
   if (!stale.length && !staleChannels.length) return changed
+  const outcome = { status: 'complete', videos: 0, channels: 0, failure: null }
+  let phase = 'videos'
   try {
-    const details = await fetchVideos(stale.map(video => video.id))
-    if (!isCurrent()) return false
-    await fetchChannels(staleChannels)
-    if (!isCurrent()) return false
-    Object.assign(state, readCurrent())
-    stale.forEach(candidate => {
-      const video = state.videos?.[candidate.id]
-      if (!video) return
-      const detail = details[video.id]
-      if (!detail || detail.metadataUnavailable) clearYoutubeVideoMetadata(video)
-      if (detail) Object.assign(video, detail)
-      video.metadataFetchedAt = new Date(now).toISOString()
-    })
-    staleChannels.forEach(channel => {
-      const tracked = state.config?.channels?.find(record => record.id === channel.id)
-      if (tracked) Object.assign(tracked, channel)
-      Object.values(state.videos || {}).filter(video => video.channelId === channel.id).forEach(video => {
-        video.channelImageUrl = channel.imageUrl || ''
-        video.channelMetadataFetchedAt = channel.metadataFetchedAt
+    for (let index = 0; index < stale.length; index += 50) {
+      if (!isCurrent()) return false
+      const batch = stale.slice(index, index + 50)
+      const details = await fetchVideos(batch.map(video => video.id))
+      if (!reload()) return false
+      batch.forEach(candidate => {
+        const video = state.videos?.[candidate.id]
+        if (!video) return
+        const detail = details[video.id]
+        if (!detail || detail.metadataUnavailable) clearYoutubeVideoMetadata(video)
+        if (detail) Object.assign(video, detail)
+        video.metadataFetchedAt = new Date(now).toISOString()
       })
-    })
+      if (onChange(state) === false) return false
+      outcome.videos += batch.length
+    }
+    phase = 'channels'
+    for (let index = 0; index < staleChannels.length; index += 50) {
+      if (!isCurrent()) return false
+      const batch = staleChannels.slice(index, index + 50)
+      await fetchChannels(batch)
+      if (!reload()) return false
+      batch.forEach(channel => {
+        const tracked = state.config?.channels?.find(record => record.id === channel.id)
+        if (tracked) Object.assign(tracked, {
+          name: channel.name, imageUrl: channel.imageUrl, metadataFetchedAt: channel.metadataFetchedAt
+        })
+        Object.values(state.videos || {}).filter(video => video.channelId === channel.id).forEach(video => {
+          video.channelImageUrl = channel.imageUrl || ''
+          video.channelMetadataFetchedAt = channel.metadataFetchedAt
+        })
+      })
+      if (onChange(state) === false) return false
+      outcome.channels += batch.length
+    }
     state.youtubeMetadataFailedAt = null
-    return true
   } catch (error) {
-    if (!isCurrent()) return false
-    Object.assign(state, readCurrent())
+    if (!reload()) return false
     if (error?.kind !== 'daily-quota') expireYoutubeMetadata(state, now, true)
     state.youtubeMetadataFailedAt = error?.kind === 'daily-quota' ? null : new Date(now).toISOString()
-    return true
+    outcome.status = outcome.videos || outcome.channels ? 'partial' : 'failure'
+    // Only allow known classifications into learner-visible logs, never provider text/URLs.
+    const kind = ['daily-quota', 'rate-limit', 'credentials', 'unavailable', 'provider', 'timeout'].includes(error?.kind)
+      ? error.kind : error?.name === 'AbortError' ? 'timeout' : 'network'
+    outcome.failure = { kind, phase }
   }
+  if (!isCurrent()) return false
+  onOutcome(state, outcome)
+  return onChange(state) !== false
 }

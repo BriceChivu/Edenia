@@ -8237,7 +8237,7 @@ async function ytFetch(url) {
       error.message = t('log.youtubeQuota.detail', { time: formatLocaleDateTime(new Date(error.retryAt)) })
       recordYoutubeQuotaError(error)
     }
-    if (error?.name === 'AbortError') throw new Error(t('toast.youtubeRequestTimeout'))
+    if (error?.name === 'AbortError') throw Object.assign(new Error(t('toast.youtubeRequestTimeout')), { kind: 'timeout' })
     throw error
   }
 }
@@ -8656,15 +8656,27 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
   try {
     if (!s) return
     if (!IS_SANDBOX && hasYoutubeApiKey()) {
-      const changed = await refreshSavedYoutubeMetadata({
+      await refreshSavedYoutubeMetadata({
         state: s,
         fetchVideos: ids => fetchVideoDetails(ids),
         fetchChannels: channels => hydrateYoutubeChannelProfiles(channels),
         isCurrent: () => isCurrentLearnerProfileOperation(s),
-        readCurrent: loadState
+        readCurrent: loadState,
+        onChange: current => {
+          if (!isCurrentLearnerProfileOperation(s) || !saveState(current)) return false
+          renderAll(current)
+          return true
+        },
+        onOutcome: (current, outcome) => appendActivityLog(current, {
+          actor: 'auto', type: 'youtube-metadata',
+          status: outcome.status === 'complete' ? 'success' : outcome.status === 'partial' ? 'warn' : 'error',
+          title: t(`log.youtubeMetadata.${outcome.status}`),
+          detail: t('log.youtubeMetadata.counts', { videos: outcome.videos, channels: outcome.channels })
+            + (outcome.failure ? ` ${t(`log.youtubeMetadata.${outcome.failure.kind}`)}` : ''),
+          meta: outcome
+        })
       })
       if (!isCurrentLearnerProfileOperation(s)) return
-      if (changed && saveState(s)) renderAll(s)
     }
     if (shouldRefreshYoutubeFeed(s)) {
       await refreshFeed({ silent: hasAnyChannelRefreshTimestamp(s) })

@@ -137,3 +137,51 @@ test('transient failures allow retry and partial channel success remains saved',
   expect((await saved(page)).videos.fixture0002.title).toBe('New lesson')
   expect((await saved(page)).videos.fixture0001).toMatchObject({ favorite: true, resumeAtSeconds: 42, title: 'Saved lesson' })
 })
+
+test('saved cards recover incrementally, explain partial metadata failure, and retry only unfinished work', async ({ page }) => {
+  await seed(page)
+  const requests = []
+  let fail = true
+  let firstBatchPersisted = false
+  await page.route('**/youtube/v3/videos?**', async route => {
+    const ids = new URL(route.request().url()).searchParams.get('id').split(',')
+    requests.push(ids)
+    if (ids.includes('recover0050') && fail) {
+      firstBatchPersisted = (await saved(page)).videos.fixture0001.title === 'Recovered lesson fixture0001'
+      return route.fulfill({ status: 503, json: { error: { message: 'Private provider text with fixture-key', errors: [{ reason: 'backendError' }] } } })
+    }
+    return route.fulfill({ json: { items: ids.map(id => ({ id,
+      snippet: { title: `Recovered lesson ${id}`, channelId, channelTitle: 'Saved channel', publishedAt: now, thumbnails: { high: { url: 'https://i.ytimg.com/test.jpg' } } },
+      contentDetails: { duration: 'PT10M' }, player: { embedWidth: '1280', embedHeight: '720' }
+    })) } })
+  })
+  await page.evaluate(({ now, channelId }) => {
+    const s = window.loadState()
+    const original = s.videos.fixture0001
+    s.videos = Object.fromEntries(Array.from({ length: 51 }, (_, i) => {
+      const id = i === 0 ? 'fixture0001' : `recover${String(i).padStart(4, '0')}`
+      return [id, { ...original, id, title: '', thumbnail: '', metadataFetchedAt: null }]
+    }))
+    window.saveState(s)
+  }, { now, channelId })
+  await page.reload()
+  await expect.poll(async () => (await saved(page)).activityLog.find(e => e.type === 'youtube-metadata')?.status).toBe('warn')
+  expect(firstBatchPersisted).toBe(true)
+  await expect(page.getByRole('button', { name: 'Continue at 00:00:42: Recovered lesson fixture0001', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  await page.evaluate(() => window.setSettingsActivityLogOpen(true))
+  await expect(page.locator('#activityLogList')).toContainText('Saved video metadata partially recovered')
+  await expect(page.locator('#activityLogList')).toContainText('YouTube service error')
+  const partial = await saved(page)
+  expect(JSON.stringify(partial.activityLog)).not.toContain('fixture-key')
+  expect(partial.videos.fixture0001).toMatchObject({ favorite: true, status: 'partial', resumeAtSeconds: 42, duration: 600 })
+  await page.reload()
+  expect(requests).toHaveLength(2)
+  fail = false
+  await page.clock.setFixedTime(new Date(Date.parse(now) + 30 * 60_000))
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  await expect.poll(async () => (await saved(page)).videos.recover0050.title).toBe('Recovered lesson recover0050')
+  expect(requests).toHaveLength(3)
+  expect(requests[2]).toEqual(['recover0050'])
+  expect((await saved(page)).activityLog.find(e => e.type === 'youtube-metadata').status).toBe('success')
+})

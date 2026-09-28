@@ -229,7 +229,7 @@ test('YouTube requests have a bounded timeout and refresh cannot race starter wo
   const refreshSource = getFunctionSource('refreshFeed', 'refreshAddedChannel')
   assert.match(ytSource, /createYoutubeRequestGate/)
   assert.match(ytSource, /timeoutMs: YOUTUBE_REQUEST_TIMEOUT_MS/)
-  assert.match(ytSource, /if \(error\?\.name === 'AbortError'\) throw new Error\(t\('toast\.youtubeRequestTimeout'\)\)/)
+  assert.match(ytSource, /if \(error\?\.name === 'AbortError'\) throw Object\.assign\(new Error\(t\('toast\.youtubeRequestTimeout'\)\), \{ kind: 'timeout' \}\)/)
   assert.match(refreshSource, /^function refreshFeed[\s\S]*?if \(starterFeedPreparationPromise\)/)
   assert.match(refreshSource, /reason: 'starter-feed-running'/)
 })
