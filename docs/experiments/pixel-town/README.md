@@ -4,6 +4,9 @@ Experiment: pixel-art-town
 Gate: `EDENIA_PIXEL_TOWN_ENABLED=true` at build time **and** `?internal_test=1` at runtime  
 Public path: unchanged (subject to the linked CI and browser evidence)
 
+Future economy direction: [Experience, coins, and player choices](economy-design.md)
+records the agreed design and open questions; it is not implemented gameplay.
+
 This implements [Build the complete internal pixel-town experience](https://github.com/BriceChivu/Edenia/issues/349) using the owner-approved isometric artwork at `238297c`. The default build switch is **off**. An enabled build is available for local review; changing the hosted release switch and owner acceptance belong to [Deploy and accept the internal pixel-town trial](https://github.com/BriceChivu/Edenia/issues/350).
 
 ## Run
