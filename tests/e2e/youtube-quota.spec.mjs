@@ -43,6 +43,72 @@ async function saved(page) {
   return page.evaluate(() => JSON.parse(localStorage.getItem('edenia_v1')))
 }
 
+for (const withQuota of [false, true]) {
+  test(`unavailable saved cards recover after a daily retry${withQuota ? ' and quota cooldown' : ''}`, async ({ page }) => {
+    await seed(page)
+    const before = (await saved(page)).videos.fixture0001
+    let requests = 0
+    let unavailable = true
+    let exhausted = false
+    let uploadRequests = 0
+    await page.route('**/youtube/v3/playlistItems?**', route => { uploadRequests++; return route.fallback() })
+    await page.route('**/youtube/v3/videos?**', route => {
+      requests++
+      if (exhausted) return route.fulfill({ status: 403, json: quota })
+      return route.fulfill({ json: { items: unavailable ? [] : [{ id: 'fixture0001',
+        snippet: { title: 'Recovered saved lesson', channelId, channelTitle: 'Saved channel', publishedAt: now,
+          thumbnails: { high: { url: 'https://i.ytimg.com/test.jpg' } } },
+        contentDetails: { duration: 'PT10M' }, player: { embedWidth: '1280', embedHeight: '720' }
+      }] } })
+    })
+    await page.evaluate(() => {
+      const s = window.loadState()
+      s.config.channels = [] // Recovery must not depend on new-upload discovery.
+      s.videos.fixture0001.metadataFetchedAt = null
+      window.saveState(s)
+    })
+    await page.reload()
+    await expect.poll(async () => (await saved(page)).videos.fixture0001.metadataUnavailable).toBe(true)
+    expect(requests).toBe(1)
+    await page.reload()
+    await page.evaluate(() => window.maybeRefreshFeed())
+    expect(requests).toBe(1)
+    await page.clock.setFixedTime(new Date(Date.parse(now) + 86_400_000 - 1))
+    await page.evaluate(() => window.maybeRefreshFeed())
+    expect(requests).toBe(1)
+    await page.clock.setFixedTime(new Date(Date.parse(now) + 86_400_000))
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await expect.poll(async () => (await saved(page)).videos.fixture0001.metadataFetchedAt).toBe('2026-09-28T06:55:00.000Z')
+    expect(requests).toBe(2)
+    unavailable = false
+    exhausted = withQuota
+    await page.clock.setFixedTime(new Date(Date.parse(now) + 2 * 86_400_000))
+    await page.evaluate(() => window.maybeRefreshFeed())
+    if (withQuota) {
+      expect(requests).toBe(3)
+      expect((await saved(page)).videos.fixture0001.metadataUnavailable).toBe(true)
+      await page.reload()
+      await page.evaluate(() => window.maybeRefreshFeed())
+      expect(requests).toBe(3)
+      exhausted = false
+      await page.clock.setFixedTime(new Date('2026-09-29T07:00:01Z'))
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    }
+    await expect(page.getByRole('button', { name: 'Continue at 00:00:42: Recovered saved lesson', exact: true })).toBeVisible()
+    expect((await saved(page)).videos.fixture0001).toMatchObject({
+      id: before.id, channelId: before.channelId, favorite: before.favorite, status: before.status,
+      resumeAtSeconds: before.resumeAtSeconds, watchProgress: before.watchProgress,
+      title: 'Recovered saved lesson', thumbnail: 'https://i.ytimg.com/test.jpg', publishedAt: now,
+      duration: 600, metadataUnavailable: false
+    })
+    await page.clock.setFixedTime(new Date('2026-09-30T07:00:01Z'))
+    await page.reload()
+    await page.evaluate(() => window.maybeRefreshFeed())
+    expect(requests).toBe(withQuota ? 4 : 3)
+    expect(uploadRequests).toBe(0)
+  })
+}
+
 test('refresh quota preserves saved playback and progress, survives reload, and recovers at Pacific midnight', async ({ page }) => {
   await seed(page)
   let requests = 0

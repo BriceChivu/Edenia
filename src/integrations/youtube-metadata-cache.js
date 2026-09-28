@@ -1,7 +1,10 @@
 const DAY = 86_400_000
 export function isYoutubeMetadataFresh(record, now = Date.now()) {
   const age = now - Date.parse(record?.metadataFetchedAt)
-  return Number.isFinite(age) && age >= 0 && age < 29 * DAY
+  // An unavailable lookup only suppresses automatic retries for one day.
+  // Its persisted timestamp must not grant the normal populated-cache lifetime.
+  const lifetime = record?.metadataUnavailable ? DAY : 29 * DAY
+  return Number.isFinite(age) && age >= 0 && age < lifetime
 }
 
 export function clearYoutubeVideoMetadata(video) {

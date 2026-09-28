@@ -3,6 +3,38 @@ import assert from 'node:assert/strict'
 import { refreshSavedYoutubeMetadata, expireYoutubeMetadata } from '../../src/integrations/youtube-metadata-cache.js'
 const now = Date.parse('2026-09-27T00:00:00Z')
 function state() { return { config: { channels: [] }, videos: { v: { id: 'v', channelId: 'UCmanual', title: 'Old', duration: 600, channelImageUrl: 'old-image', metadataFetchedAt: '2026-08-01', resumeAtSeconds: 40, watchProgress: [{ seconds: 40 }], favorite: true, watchLater: true, status: 'partial' } } } }
+test('unavailable saved metadata retries daily across reloads and recovery restores normal freshness', async () => {
+  let saved = state()
+  saved.videos.v.channelMetadataFetchedAt = new Date(now).toISOString()
+  const learnerState = { id: 'v', channelId: 'UCmanual', favorite: true, watchLater: true, status: 'partial', resumeAtSeconds: 40, watchProgress: [{ seconds: 40 }] }
+  const outcomes = []
+  let requests = 0
+  const recovered = { title: 'Recovered lesson', thumbnail: 'image', publishedAt: '2026-09-01', duration: 600, metadataUnavailable: false }
+  const refresh = async time => refreshSavedYoutubeMetadata({
+    state: structuredClone(saved), now: time, isCurrent: () => true,
+    readCurrent: () => structuredClone(saved), onChange: value => { saved = structuredClone(value) },
+    onOutcome: (_state, outcome) => outcomes.push(outcome),
+    fetchVideos: async () => { requests++; return requests <= 2 ? {} : { v: recovered } },
+    fetchChannels: async () => {}
+  })
+  await refresh(now)
+  assert.equal(saved.videos.v.metadataUnavailable, true)
+  await refresh(now)
+  await refresh(now + 86_400_000 - 1)
+  assert.equal(requests, 1)
+  await refresh(now + 86_400_000)
+  assert.equal(requests, 2)
+  assert.equal(saved.videos.v.metadataUnavailable, true)
+  assert.equal(saved.videos.v.metadataFetchedAt, '2026-09-28T00:00:00.000Z')
+  await refresh(now + 2 * 86_400_000 - 1)
+  assert.equal(requests, 2)
+  await refresh(now + 2 * 86_400_000)
+  assert.equal(requests, 3)
+  for (const [key, value] of Object.entries({ ...learnerState, ...recovered })) assert.deepEqual(saved.videos.v[key], value)
+  await refresh(now + 3 * 86_400_000)
+  assert.equal(requests, 3)
+  assert.ok(outcomes.every(outcome => outcome.status === 'complete' && outcome.failure === null))
+})
 test('manual-only libraries refresh metadata independently of upload checks', async () => {
   const s = state(); const calls = []
   await refreshSavedYoutubeMetadata({ state: s, now, isCurrent: () => true,
@@ -10,6 +42,45 @@ test('manual-only libraries refresh metadata independently of upload checks', as
     fetchChannels: async channels => channels.forEach(c => Object.assign(c, { imageUrl: 'new-image', metadataFetchedAt: new Date(now).toISOString() })) })
   assert.deepEqual(calls, [['v']]); assert.equal(s.videos.v.title, 'New'); assert.equal(s.videos.v.channelImageUrl, 'new-image')
   assert.equal(s.videos.v.resumeAtSeconds, 40); assert.deepEqual(s.videos.v.watchProgress, [{ seconds: 40 }])
+})
+test('due unavailable metadata respects transient backoff and preserves error classifications', async () => {
+  for (const kind of ['network', 'provider', 'daily-quota']) {
+    const s = state()
+    Object.assign(s.videos.v, { metadataUnavailable: true, metadataFetchedAt: '2026-09-26', title: '', duration: 0 })
+    s.videos.v.channelMetadataFetchedAt = new Date(now).toISOString()
+    let requests = 0
+    const outcomes = []
+    const options = { state: s, now, isCurrent: () => true,
+      fetchVideos: async () => { requests++; throw Object.assign(Error('failure'), { kind }) },
+      fetchChannels: async () => {}, onOutcome: (_state, outcome) => outcomes.push(outcome) }
+    await refreshSavedYoutubeMetadata(options)
+    assert.equal(s.videos.v.metadataFetchedAt, '2026-09-26')
+    assert.equal(s.videos.v.metadataUnavailable, true)
+    assert.deepEqual(outcomes[0].failure, { kind, phase: 'videos' })
+    if (kind === 'daily-quota') {
+      assert.equal(s.youtubeMetadataFailedAt, null) // The request gate owns the Pacific-midnight cooldown.
+    } else {
+      await refreshSavedYoutubeMetadata({ ...options, now: now + 30 * 60_000 - 1 })
+      assert.equal(requests, 1)
+      await refreshSavedYoutubeMetadata({ ...options, now: now + 30 * 60_000 })
+      assert.equal(requests, 2)
+    }
+  }
+})
+
+test('unavailable recovery cannot write after the active profile changes', async () => {
+  const s = state()
+  Object.assign(s.videos.v, { metadataUnavailable: true, metadataFetchedAt: '2026-09-26', title: '', duration: 0 })
+  let active = true
+  let requests = 0
+  const writes = []
+  await refreshSavedYoutubeMetadata({ state: s, now, isCurrent: () => active,
+    fetchVideos: async () => { requests++; active = false; return { v: { title: 'Recovered', metadataUnavailable: false } } },
+    fetchChannels: async () => {}, onChange: value => writes.push(value) })
+  assert.equal(requests, 1)
+  assert.equal(writes.length, 0)
+  assert.equal(s.videos.v.title, '')
+  assert.equal(s.videos.v.metadataUnavailable, true)
 })
 test('expired metadata is removed on failure and retries back off without losing study facts', async () => {
   const s = state(); let requests = 0
