@@ -31,3 +31,18 @@ html.pixel-town .intro-city-viewport {
 .pixel-town-canvas[hidden] {
   display: none;
 }
+
+.pixel-town-economy { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.pixel-town-economy[hidden], .pixel-town-economy [hidden] { display: none; }
+.town-wallet { position: absolute; right: 12px; top: 12px; padding: 6px 12px; border-radius: 12px; background: var(--surface); color: var(--text); font-weight: 700; }
+.town-flower-outline { position: absolute; left: 38.8%; top: 55.2%; transform: translate(-50%, -50%); width: 8%; min-width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; pointer-events: auto; cursor: pointer; }
+.town-flower-outline svg { width: 100%; fill: var(--surface); stroke: var(--planet-lime); stroke-width: 2; stroke-dasharray: 3 2; filter: drop-shadow(0 1px 1px var(--planet-black)); }
+.town-flower-outline:focus-visible { outline: 2px solid var(--text); border-radius: 8px; }
+.town-build-panel { position: absolute; left: 50%; top: 66%; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: max-content; max-width: 95%; padding: 10px; border-radius: 12px; background: var(--surface); color: var(--text); box-shadow: 0 3px 14px var(--border); pointer-events: auto; }
+.town-build-panel strong { flex-basis: 100%; text-align: center; }
+.town-build-panel button { min-height: 44px; padding: 6px 10px; cursor: pointer; border-radius: 8px;  }
+.town-build-status { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); background: var(--surface); color: var(--text); border-radius: 8px; padding: 3px 8px; }
+.town-build-status:empty { display: none; }
+@media (max-width: 600px) {
+  .town-build-panel { top: auto; bottom: 8px; }
+}

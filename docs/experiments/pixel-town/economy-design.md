@@ -184,3 +184,87 @@ is planned work, not gameplay implemented by this foundation.
 
 Only the draft catalog has been created so far. Earning, spending, outlines,
 customization unlocks, and migration have not been implemented by this discussion.
+
+## First purchase milestone — implemented locally, 2026-09-28
+
+The first slice fixes `garden-flower-1` at 15 coins and awards one coin per 40
+recorded video-study seconds. Ten minutes therefore earns 15 coins; the existing
+30 XP/hour calculation still gives 5 XP. Fractional coin progress carries across
+sessions. Anki retains its existing XP rules; this slice does not invent a
+minutes-to-coins conversion for review counts.
+
+A newly created internal learner profile receives the starter island, house and
+paths. The first patch occupies home coordinates `[-49, 13]`, footprint `[28, 18]`,
+depth 10. Its affordable outline opens a confirmation with Build and Cancel.
+Ownership changes the starter composition from scene 13 to 14. These are the
+only new complete compositions; no catalog-wide combination generation or runtime
+procedural drawing was introduced. XP/level progression continues independently;
+new starter towns stay in this purchase composition as levels rise. Legacy scenes
+and onboarding's demonstration scenes remain unchanged.
+
+Every already-existing profile, including one with no study, keeps its legacy
+scene progression and gets the already-visible first flower patch recorded at
+zero cost. Existing video facts become reward baselines, not a starting grant.
+No other legacy objects are removed or migrated. Newly recorded increases earn
+coins from that point onward. Full existing-town migration remains later work.
+
+`townEconomy` is optional portable profile state. Its reward records use video ID
+and canonical session timestamp, with an initial baseline and monotonic seconds.
+Reprocessing, metadata refresh, removal/reappearance of facts, reload and exact
+sync retries do not award the same interval again. Receipts are not pruned when
+video metadata disappears. Ownership is the debit receipt, and balance is derived
+from rewards minus purchase costs; both are saved in one existing active-profile
+write. Failed writes roll ownership back in memory. Confirm reads the active
+profile again and rechecks ownership and balance. The existing activation fence
+continues to protect profile changes and competing tabs; this does not claim a
+new transactional cross-tab storage guarantee.
+
+Portable export/import, backups and recovery retain the optional field and
+include it in the integrity hash. Sync already resolves divergent profiles by
+explicit protected version choice; wallets are never added together. Internal conflict
+comparisons expose wallet and flower-ownership differences; public conflict views
+retain the portable state without presenting economy controls or comparisons. A chosen older
+version or explicit recovery remains a whole-profile rollback, including its
+wallet. Older clients reject the unknown portable field rather than silently
+accepting a partial profile. Public profiles without the field keep their
+previous canonical envelope shape and behavior.
+
+Release prerequisite: apply the additive `pixel_town_economy_profile` database
+migration before enabling this client for signed-in economy use. The current
+server schema otherwise rejects the new optional field. The migration extends optional portable state and enforces the same balance,
+baseline and safe-integer invariants as the client, without rewriting user profiles.
+The existing hosted Auth pause remains in place during this economy rollout.
+
+### Local verification
+
+- `EDENIA_PIXEL_TOWN_ENABLED=true npm run build`: passed.
+- `node --test tests/contracts/*.test.mjs`: 1,733 passed. Includes accounting,
+  failed-save rollback, legacy baselines, first signed-in creation, portable
+  round trips, conflict comparison and exact cloud retry preservation.
+- Enabled Playwright `town-economy.spec.mjs` and `pixel-town.spec.mjs` on
+  `desktop-standard` and `phone-small`: purchase and lifecycle coverage, plus
+  French dark-theme confirmation and cancellation. The earning test calls the
+  player's real progress recorder sixty times with ten-second increments; it
+  does not wait for ten minutes of live YouTube playback. It checks immediate
+  wallet refresh, confirmation, duplicate purchase rejection, unchanged XP,
+  post-reload ownership, mobile panel containment and public request isolation.
+  Existing lifecycle, reduced-motion, asset-failure and degradation checks pass.
+- Visually inspected desktop ownership and the 360px-wide phone Build panel.
+- `git diff --check`: passed.
+
+- Disposable local Supabase, with all migrations applied: 10 economy SQL
+  assertions and 170 existing profile creation, sync, conflict, recovery, import,
+  start-over and owner-policy assertions passed. Security advisors reported no
+  warnings. CI now selects this migration and runs the economy SQL regression.
+- Real local Auth and PostgREST: disposable owner creation, initial profile,
+  reward and purchase commits, exact operation retries, reopening, and denial
+  for a second owner passed. No production profiles were used.
+- Signed-in browser against that local backend: cloud opening, another study
+  session, accepted sync, reload, retained ownership and duplicate rejection
+  passed. A separate fresh browser with no cached profile reopened the cloud
+  balance and ownership correctly.
+
+These tests use recorded study increments, not ten minutes of live YouTube
+playback. Hosted signed-in acceptance remains unavailable while the existing
+Auth pause is preserved. Physical-device performance is a separate acceptance
+step. Migration and hosted release results must be recorded after deployment.

@@ -1,5 +1,5 @@
-// Draft purchase catalog; not yet connected to town rendering or learner state.
-// Costs are provisional and should be tuned against coins earned from studying.
+// Purchase catalog: only garden-flower-1 is enabled in the first milestone.
+// Its 15-coin cost is fixed; other costs and placements remain provisional.
 // The proposed starting town includes the main island, a small house, a basic
 // path, and an empty garden. Water, reflections, and shoreline are free scenery.
 //
@@ -12,7 +12,7 @@
 // be reviewed together before implementation; new islands must not move items
 // already built. Artwork IDs refer to catalog-data.js. Existing artwork may need
 // adjustment; a null asset marks artwork that still needs to be created.
-// Each placement's coordinates, footprint, and depth remain null until reviewed.
+// Only the first flower placement has reviewed coordinates, footprint and depth.
 
 export const UPGRADES = [
   {
@@ -23,9 +23,9 @@ export const UPGRADES = [
     placement: {
       area: 'home',
       location: 'Beside the front door',
-      coordinates: null,
-      footprint: null,
-      depth: null
+      coordinates: [-49, 13],
+      footprint: [28, 18],
+      depth: 10
     },
     artwork: { asset: 'flowers', status: 'existing' },
     requires: []

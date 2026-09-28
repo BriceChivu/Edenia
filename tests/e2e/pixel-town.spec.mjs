@@ -132,7 +132,7 @@ test('blocked entry retains independent new still and full-scene phone framing',
   await seed(page)
   await expect(page.locator('#cityMilestoneImage')).toHaveAttribute(
     'src',
-    /pixel-town\/.*1-.*\.png/
+    /pixel-town\/.*13-.*\.png/
   )
   expect(
     await page

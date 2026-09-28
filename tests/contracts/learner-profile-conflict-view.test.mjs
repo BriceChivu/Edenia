@@ -246,3 +246,12 @@ test('conflict markup names both versions and offers no automatic merge action',
   assert.doesNotMatch(html, />\s*Combine\s*</i)
   assert.doesNotMatch(html, /data-profile-conflict-action="merge/i)
 })
+
+test('economy comparisons remain hidden publicly even when cloud contains internal economy', () => {
+  const conflict = { status: 'open', device: { profile: {} }, cloud: { profile: { townEconomy: { version: 1, mode: 'legacy', rewards: {}, purchases: { 'garden-flower-1': 0 } } } } }
+  for (const enabled of [false, true]) {
+    const { view, elements } = createHarness({ isTownEconomyEnabled: () => enabled })
+    view.renderConflict(conflict)
+    assert.equal(elements.get('learnerProfileConflictRows').children.length, enabled ? 1 : 0)
+  }
+})

@@ -1,6 +1,18 @@
 import { EN_CORE } from './en.js'
 
 export const ES_LOCALIZED = {
+  "townEconomy.coins": "{count} monedas",
+  "townEconomy.flower": "Primer macizo de flores",
+  "townEconomy.build": "Construir · {count} monedas",
+  "townEconomy.cancel": "Cancelar",
+  "townEconomy.purchased": "¡Flores plantadas!",
+  "townEconomy.owned": "Primer macizo de flores adquirido",
+  "townEconomy.unowned": "Sin flores compradas",
+  "townEconomy.insufficient": "No hay suficientes monedas.",
+  "townEconomy.saveFailed": "No se pudo guardar. Inténtalo de nuevo.",
+  "townEconomy.notStarted": "Economía sin iniciar",
+  "townEconomy.comparison": "Monedas y compras de la ciudad",
+
   'videos.history.loading': "Cargando vídeos anteriores…",
   'videos.history.exhausted': "Se han cargado todos los vídeos disponibles.",
   'videos.history.limited': "No hay más vídeos coincidentes en este lote.",

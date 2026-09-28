@@ -1,3 +1,4 @@
+import { initializeTownEconomy } from './town-economy.js'
 import { normalizeOnboardingState } from './onboarding-state.js'
 
 function cloneJson(value) {
@@ -37,6 +38,8 @@ export async function createInitialSignedInProfileEnvelope(
   ) return null
 
   const completedAt = new Date(now()).toISOString()
+  const hadEconomy = initialState.townEconomy !== undefined
+  delete initialState.townEconomy
   initialState.activityLog = []
   initialState.anki = {}
   initialState.videos = {}
@@ -44,6 +47,7 @@ export async function createInitialSignedInProfileEnvelope(
     maxLevelIndex: 0,
     pendingLevelIndex: null
   }
+  if (hadEconomy) initializeTownEconomy(initialState, { newProfile: true })
   initialState.learnerProfile.createdAt = completedAt
   initialState.learnerProfile.updatedAt = completedAt
   initialState.onboarding.accountStepReachedAt = null

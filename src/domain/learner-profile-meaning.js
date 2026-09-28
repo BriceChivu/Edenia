@@ -64,6 +64,15 @@ function isEmptyRecord(value) {
 }
 
 export function isMeaningfullyEmptyLearnerProfile(profile) {
+  if (profile?.townEconomy !== undefined) {
+    const economy = profile.townEconomy
+    if (!hasExactKeys(economy, ['version', 'mode', 'rewards', 'purchases'])
+      || economy.version !== 1 || economy.mode !== 'starter'
+      || !isEmptyRecord(economy.rewards)
+      || !isEmptyRecord(economy.purchases)) return false
+    const { townEconomy, ...withoutEconomy } = profile
+    profile = withoutEconomy
+  }
   if (
     !hasExactKeys(profile, PORTABLE_PROFILE_KEYS)
     || !isEmptyList(profile.activityLog)

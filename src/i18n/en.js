@@ -1,4 +1,16 @@
 export const EN_CORE = {
+  "townEconomy.coins": "{count} coins",
+  "townEconomy.flower": "First flower patch",
+  "townEconomy.build": "Build · {count} coins",
+  "townEconomy.cancel": "Cancel",
+  "townEconomy.purchased": "Flowers built!",
+  "townEconomy.owned": "First flower patch owned",
+  "townEconomy.unowned": "No purchased flowers",
+  "townEconomy.insufficient": "Not enough coins.",
+  "townEconomy.saveFailed": "Could not save. Please try again.",
+  "townEconomy.notStarted": "Economy not started",
+  "townEconomy.comparison": "Town coins and purchases",
+
   'videos.history.loading': "Loading older uploads…",
   'videos.history.exhausted': "All available uploads loaded.",
   'videos.history.limited': "No more matching uploads in this batch.",

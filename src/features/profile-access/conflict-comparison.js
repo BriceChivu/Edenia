@@ -1,7 +1,10 @@
+import { getTownBalance, FIRST_FLOWER_ID } from '../../state/town-economy.js'
+
 const COMPARISON_GROUPS = Object.freeze([
   ['update-study-time', summarizeUpdateAndStudyTime],
   ['language-level', summarizeLanguageAndLevel],
   ['town-study-progress', summarizeTownAndStudyProgress],
+  ['town-economy', profile => profile?.townEconomy ? { coins: getTownBalance(profile.townEconomy), flowers: Object.hasOwn(profile.townEconomy.purchases, FIRST_FLOWER_ID) } : null],
   ['recent-activity', summarizeRecentActivity],
   ['video-organization', summarizeVideoOrganization],
   ['anki-totals', summarizeAnkiTotals],
