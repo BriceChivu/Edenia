@@ -1,3 +1,4 @@
+import { mountEconomy } from './economy-view.js'
 import { localLight } from './lighting.js'
 import { createPlayer, validateManifest } from './player.js'
 
@@ -14,6 +15,7 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
   canvas.hidden = true
   canvas.setAttribute('aria-hidden', 'true')
   image.after(canvas)
+  const disposeEconomy = mountEconomy(wrap, window.EDENIA_PIXEL_TOWN || {})
   const reduced = matchMedia('(prefers-reduced-motion: reduce)')
   let visible = false,
     disposed = false,
@@ -235,6 +237,7 @@ export function mountTown({ image, base, version, clock = () => new Date() }) {
     window.removeEventListener('pagehide', hide)
     window.removeEventListener('pageshow', show)
     reduced.removeEventListener('change', refresh)
+    disposeEconomy()
     canvas.remove()
   }
   const hide = (event) => {

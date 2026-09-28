@@ -70,3 +70,14 @@ test('an incomplete onboarding draft cannot become a signed-in profile', async (
   }), null)
   assert.equal(createCalls, 0)
 })
+
+test('first signed-in economy is a fresh starter, never copied rewards or purchases from a draft', async () => {
+  const state = onboardingState()
+  state.townEconomy = { version: 1, mode: 'legacy', rewards: { old: { baseline: 0, seconds: 600 } }, purchases: { 'garden-flower-1': 15 } }
+  const result = await createInitialSignedInProfileEnvelope(state, {
+    createEnvelope: async profile => ({ envelope: { profile } }),
+    normalizeLearnerProfile: () => false
+  })
+  assert.deepEqual(result.profile.townEconomy, { version: 1, mode: 'starter', rewards: {}, purchases: {} })
+  assert.equal(state.townEconomy.mode, 'legacy')
+})

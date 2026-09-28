@@ -100,6 +100,9 @@ export function createLearnerProfileConflictView({
           : none()
       })
     }
+    if (key === 'town-economy') {
+      return value ? `${number(value.coins)} coins · ${value.flowers ? 'First flower patch owned' : 'No purchased flowers'}` : 'Economy not started'
+    }
     if (key === 'town-study-progress') {
       return translate('profileConflict.value.townStudy', {
         facts: number(value.studyFacts),
@@ -177,7 +180,7 @@ export function createLearnerProfileConflictView({
       const tableRow = root.createElement('tr')
       const heading = root.createElement('th')
       heading.scope = 'row'
-      heading.textContent = translate(`profileConflict.category.${row.key}`)
+      heading.textContent = row.key === 'town-economy' ? 'Town coins and purchases' : translate(`profileConflict.category.${row.key}`)
       tableRow.append(
         heading,
         createValueCell('device', row),

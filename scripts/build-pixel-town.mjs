@@ -42,7 +42,7 @@ export async function buildPixelTown(outputDir) {
   if (!cached) {
     await mkdir(cache, { recursive: true })
     const statistics = []
-    for (let stage = 0; stage <= 12; stage++)
+    for (let stage = 0; stage <= 14; stage++)
       for (const light of LIGHTS) {
         const base = createCanvas(WIDTH, HEIGHT),
           scratch = createCanvas(WIDTH, HEIGHT)

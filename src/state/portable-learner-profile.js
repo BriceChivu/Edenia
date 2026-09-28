@@ -1,3 +1,4 @@
+import { validateTownEconomy } from './town-economy.js'
 import { isValidTimestamp, toDateKey } from '../core/date-keys.js'
 import {
   isFavoriteVideo,
@@ -477,6 +478,7 @@ function createPortableProfile(state) {
     throw new TypeError('Portable learner profile source is invalid')
   }
   return {
+    ...(state.townEconomy === undefined ? {} : { townEconomy: cloneJson(validateTownEconomy(state.townEconomy)) }),
     activityLog: normalizeActivityLog(state.activityLog),
     anki: reconcilePortableAnkiDays(state.anki),
     cityProgress: normalizeCityProgress(state.cityProgress),

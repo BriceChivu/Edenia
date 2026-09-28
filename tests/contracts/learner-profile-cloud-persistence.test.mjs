@@ -6283,3 +6283,39 @@ for (const scenario of ['available', 'elapsed', 'expired', 'none', 'network', 's
     }
   })
 }
+
+test('town purchase and reward receipts travel together through an exact cloud retry', async () => {
+  const profile = emptyPortableProfile({ townEconomy: {
+    version: 1, mode: 'starter',
+    rewards: { 'video:lesson:2026-09-28T01:00:00.000Z': { baseline: 0, seconds: 600 } },
+    purchases: { 'garden-flower-1': 15 }
+  } })
+  let now = 10000
+  const scheduled = []
+  const calls = []
+  const adapter = createAdapter({
+    now: () => now,
+    setTimer: callback => { scheduled.push(callback); return scheduled.length },
+    rpc: async (name, parameters) => {
+      if (name === 'resolve_my_learner_profile') return { data: [{
+        created: false, envelope: preparedEnvelope(emptyPortableProfile()),
+        generation: 1, profile_id: PROFILE_ID, revision: 1,
+        status: LEARNER_PROFILE_RESOLUTION_STATUSES.PROFILE_READY
+      }], error: null }
+      calls.push(structuredClone(parameters))
+      if (calls.length === 1) throw new TypeError('network unavailable')
+      return { data: [{ base_revision: 1, generation: 1, payload_sha256: 'A'.repeat(43), profile_id: PROFILE_ID, revision: 2, status: 'accepted' }], error: null }
+    }
+  })
+  const resolved = await adapter.resolve({ authentication: { userId: OWNER_ID }, connectivity: { status: 'online' }, localProfile: { ownerId: OWNER_ID, profile: emptyPortableProfile(), profileId: PROFILE_ID, status: 'ready' }, purpose: 'resolve-signed-in-profile' })
+  const activation = { activatedAt: 1, id: 'flower-activation', ownerId: OWNER_ID, profileId: PROFILE_ID }
+  adapter.activate({ activation, generation: resolved.generation, revision: resolved.revision, isCurrent: () => true })
+  adapter.save(profile, { activation, isCurrent: () => true })
+  await flush()
+  assert.deepEqual(calls[0].p_envelope.profile.townEconomy, profile.townEconomy)
+  now = 11000
+  scheduled[0]()
+  await flush()
+  assert.equal(calls.length, 2)
+  assert.deepEqual(calls[0], calls[1])
+})

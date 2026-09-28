@@ -184,3 +184,19 @@ export const SCENES = {
     overlays: [item('birds')]
   }
 }
+
+// Only two purchase compositions in this milestone; legacy level scenes stay intact.
+for (const [stage, owned] of [[13, false], [14, true]]) {
+  SCENES[stage] = {
+    id: stage,
+    groups: [{ id: 'home', at: [384, 308, 1.6], items: [
+      item('island', [109, 108]),
+      item('paving', [-33, -5, 24, 57]),
+      item('paving', [-29, 18, 65, 17]),
+      item('house', [-42, -35], -53),
+      ...(owned ? [item('flowers', [-49, 13, 23], 10)] : []),
+      item('rocks', [-51, 55])
+    ] }],
+    overlays: [item('reflection', [388, 426, 110, 30])]
+  }
+}

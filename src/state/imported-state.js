@@ -39,6 +39,7 @@ export function createImportedStateReader({
         ...state.config
       }
     }
+    if (state.townEconomy === undefined) delete importedState.townEconomy
     removeLegacyVideoWatchReminderState(importedState)
     return importedState
   }

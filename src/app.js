@@ -1,3 +1,10 @@
+import {
+  initializeTownEconomy,
+  recordTownRewards,
+  getTownBalance,
+  purchaseFirstFlower,
+  FIRST_FLOWER_ID
+} from './state/town-economy.js'
 import { createYoutubeMetadataBudget } from './integrations/youtube-metadata-budget.js'
 import { resolveWindowAnchor } from './features/videos/window-anchor.js'
 import { fetchOlderUploads } from './integrations/youtube-upload-history.js'
@@ -676,7 +683,7 @@ const LEGACY_PROGRESS_RELAY_RUNTIME = deriveLegacyProgressRelayRuntime({
 const LEGACY_PROGRESS_HELPER_URL = IS_LEGACY_MIGRATION_TEST
   ? 'http://localhost:8002/_legacy_migration_site/?legacy_migration_test=1'
   : 'https://bricechivu.github.io/edenia-migrate/'
-const defaultState = createDefaultStateFactory({
+const createBaseDefaultState = createDefaultStateFactory({
   defaultChannels: DEFAULT_CHANNELS,
   defaultChannelsVersion: DEFAULT_CHANNELS_VERSION,
   onboardingVersion: ONBOARDING_VERSION,
@@ -684,6 +691,11 @@ const defaultState = createDefaultStateFactory({
   isDefaultChannelId,
   getBrowserDefaultLocale
 })
+function defaultState(...args) {
+  const state = createBaseDefaultState(...args)
+  if (window.EDENIA_PIXEL_TOWN?.enabled) initializeTownEconomy(state, { newProfile: true })
+  return state
+}
 const onboardingProfileDraftStore = createOnboardingProfileDraftStore({
   createDefaultState(locale) {
     return defaultState(4, DEFAULT_CHANNELS, undefined, null, locale)
@@ -1109,6 +1121,28 @@ function loadState() {
 
 const persistedPortableProfileSnapshots = new WeakMap()
 
+let townEconomyProfile = null
+function refreshTownEconomy(s) {
+  if (!window.EDENIA_PIXEL_TOWN?.enabled || !s) return
+  const town = window.EDENIA_PIXEL_TOWN
+  town.economy = {
+    balance: getTownBalance(s.townEconomy),
+    owned: Boolean(s.townEconomy && Object.hasOwn(s.townEconomy.purchases, FIRST_FLOWER_ID)),
+    available: Boolean(s.townEconomy)
+  }
+  if (townEconomyProfile !== s) {
+    townEconomyProfile = s
+    town.buildFlower = () => {
+      if (townEconomyProfile !== s || !isCurrentLearnerProfileOperation(s)) return 'unavailable'
+      const active = loadState()
+      const result = purchaseFirstFlower(active, value => saveState(value))
+      if (active) renderCity(getCurrentCityScore(active), active)
+      return result
+    }
+  }
+  window.dispatchEvent(new Event('pixel-town-economy'))
+}
+
 function getPortableProfileSnapshot(state) {
   if (!state || typeof state !== 'object') return null
   try {
@@ -1137,8 +1171,12 @@ function saveImportedState(state, options = {}) {
 function saveState(state, options = {}) {
   if (INTERNAL_PROFILE_PAUSED) return false
   if (!learnerProfileLifecycleAuthority) {
-    return savePersistedState(state, options)
+    if (window.EDENIA_PIXEL_TOWN?.enabled) recordTownRewards(state)
+    const persisted = savePersistedState(state, options)
+    if (persisted) refreshTownEconomy(state)
+    return persisted
   }
+  if (window.EDENIA_PIXEL_TOWN?.enabled) recordTownRewards(state)
   const portableSnapshot = getPortableProfileSnapshot(state)
   const persistenceOptions = options.syncCloud === undefined
       && portableSnapshot !== null
@@ -1152,6 +1190,7 @@ function saveState(state, options = {}) {
   if (persisted && portableSnapshot !== null) {
     persistedPortableProfileSnapshots.set(state, portableSnapshot)
   }
+  if (persisted) refreshTownEconomy(state)
   return persisted
 }
 
@@ -1913,6 +1952,7 @@ function normalizeLoadedState(state) {
   normalizeSandboxState(state)
   normalizeCityProgress(state)
   delete state.nightVisuals
+  if (window.EDENIA_PIXEL_TOWN?.enabled && initializeTownEconomy(state)) shouldSave = true
   return shouldSave
 }
 
@@ -14387,6 +14427,7 @@ function previewCityDayOffset(offset) {
 }
 
 function renderCity(score, s) {
+  refreshTownEconomy(s)
   updatePersistentCityLevel(s, score)
   const snapshot = getCitySnapshot(score, s)
   renderCitySnapshot(snapshot, s, true)
@@ -15544,7 +15585,10 @@ function updateCityMilestoneImage(score, options = {}) {
   const imageIndex = Math.min(Math.max(levelIndex, 0), CITY_IMAGE_SOURCES.length - 1)
   if (window.EDENIA_PIXEL_TOWN?.enabled) {
     const town = window.EDENIA_PIXEL_TOWN
-    const stage = imageIndex + 1
+    const economy = loadState()?.townEconomy
+    const stage = economy?.mode === 'starter'
+      ? (Object.hasOwn(economy.purchases, FIRST_FLOWER_ID) ? 14 : 13)
+      : imageIndex + 1
     image.alt = `Study city milestone: ${getCityStage(score).replace(/[^\p{L}\p{N}\s-]/gu, '').trim()}`
     if (image.dataset.pixelStage !== String(stage)) {
       image.dataset.pixelStage = String(stage)
