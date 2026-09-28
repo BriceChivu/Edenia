@@ -31,6 +31,23 @@ test('ten recorded minutes buys flowers once, persists after reload, and leaves 
   const xp = await page.locator('#cityScore').textContent()
   expect(xp).toBe('5')
   await expect(page.locator('.town-wallet')).toHaveText('15 coins')
+  // The existing purchase target must follow the zoomed artwork and still open a fixed panel.
+  if (await page.locator('[data-city-zoom-action="in"]').isVisible()) {
+    await page.locator('[data-city-zoom-action="in"]').click()
+    await page.locator('[data-city-zoom-action="in"]').click()
+  } else {
+    const rect = await page.locator('.city-image-wrap').boundingBox()
+    // Start above the flower button, which deliberately owns its own touch target.
+    const x = rect.x + rect.width / 2, y = rect.y + rect.height * .3
+    const cdp = await page.context().newCDPSession(page)
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ id: 1, x: x - 25, y }, { id: 2, x: x + 25, y }] })
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ id: 1, x: x - 37.5, y }, { id: 2, x: x + 37.5, y }] })
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    await cdp.detach()
+  }
+  await expect.poll(() => page.locator('#cityMilestoneImage').evaluate(el => new DOMMatrix(getComputedStyle(el).transform).a)).toBe(1.5)
+  const transforms = await page.locator('#cityMilestoneImage, .town-world-targets').evaluateAll(els => els.map(el => getComputedStyle(el).transform))
+  expect(transforms[0]).toBe(transforms[1])
   await page.locator('.town-flower-outline').click()
   await expect(page.locator('.town-build-panel')).toBeVisible()
   const panelBounds = await page.locator('.town-build-panel').boundingBox()

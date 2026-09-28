@@ -15142,7 +15142,6 @@ function formatCitySnapshotDate(date) {
 }
 
 function initCityImagePanZoom() {
-  if (window.EDENIA_PIXEL_TOWN?.enabled) return
   const wrap = document.querySelector('.city-image-wrap')
   const image = document.getElementById('cityMilestoneImage')
   if (!wrap || !image || wrap.dataset.panZoomReady === 'true') return
@@ -15159,7 +15158,7 @@ function initCityImagePanZoom() {
   applyCityImageTransform()
 
   wrap.addEventListener('wheel', event => {
-    if (event.target.closest('.city-time-waveform')) return
+    if (event.target.closest('.city-time-waveform, .town-build-panel, .town-flower-outline')) return
     const zoomDelta = getCityImageWheelZoomDelta(event)
     if (!canZoomCityImageBy(zoomDelta)) return
     event.preventDefault()
@@ -15167,7 +15166,7 @@ function initCityImagePanZoom() {
   }, { passive: false })
 
   wrap.addEventListener('pointerdown', event => {
-    if (event.target.closest('button, .city-time-waveform')) return
+    if (event.target.closest('button, .city-time-waveform, .town-build-panel')) return
     if (event.pointerType === 'touch') {
       cityImageView.touchPointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
       if (cityImageView.touchPointers.size >= 2) {
@@ -15376,12 +15375,14 @@ function getCityImageMaxZoom() {
 }
 
 function getDefaultCityImageZoom() {
+  if (window.EDENIA_PIXEL_TOWN?.enabled) return CITY_IMAGE_MIN_ZOOM
   return usesPhoneComposition()
     ? CITY_IMAGE_MOBILE_DEFAULT_ZOOM
     : CITY_IMAGE_MIN_ZOOM
 }
 
 function getDefaultCityImageY() {
+  if (window.EDENIA_PIXEL_TOWN?.enabled) return 0
   return usesPhoneComposition() ? CITY_IMAGE_MOBILE_DEFAULT_Y : 0
 }
 
@@ -15394,8 +15395,9 @@ function getCityImagePanGeometry(scale = cityImageView.scale) {
   return getCityImageCoverGeometry({
     viewportWidth: rect.width,
     viewportHeight: rect.height,
-    imageWidth: image.naturalWidth,
-    imageHeight: image.naturalHeight,
+    // The pixel scene fills its viewport; all three layers share these bounds.
+    imageWidth: window.EDENIA_PIXEL_TOWN?.enabled ? rect.width : image.naturalWidth,
+    imageHeight: window.EDENIA_PIXEL_TOWN?.enabled ? rect.height : image.naturalHeight,
     scale
   })
 }
@@ -15429,10 +15431,18 @@ function clampCityImagePan() {
 }
 
 function applyCityImageTransform(geometry = getCityImagePanGeometry()) {
-  if (window.EDENIA_PIXEL_TOWN?.enabled) return
   const image = document.getElementById('cityMilestoneImage')
   if (!image) return
   const wrap = document.querySelector('.city-image-wrap')
+  if (window.EDENIA_PIXEL_TOWN?.enabled) {
+    // Reuse production gestures and bounds for the still, animation and flower target.
+    wrap?.classList.toggle('is-pannable', isCityImagePanGeometryPannable(geometry))
+    wrap?.classList.toggle('is-zoomed', cityImageView.scale > 1)
+    wrap?.style.setProperty('--town-view', cityImageView.scale === 1
+      ? 'none'
+      : `translate(${cityImageView.x}px, ${cityImageView.y}px) scale(${cityImageView.scale})`)
+    return
+  }
   if (geometry) {
     image.style.width = `${geometry.baseWidth}px`
     image.style.height = `${geometry.baseHeight}px`

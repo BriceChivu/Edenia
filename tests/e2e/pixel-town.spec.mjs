@@ -323,3 +323,92 @@ test('critical attributed slowdown restores the still and cannot resume a frozen
   expect(await page.evaluate(() => window.EDENIA_PIXEL_TOWN.controller.pending.animation)).toBe(false)
   expect(await page.evaluate(() => window.EDENIA_PIXEL_TOWN.controller.metrics.active)).toBe(false)
 })
+
+test('production zoom controls and drag keep every pixel-town layer aligned and bounded', async ({ page }, testInfo) => {
+  test.skip(!enabled || testInfo.project.name.startsWith('phone'), 'Production uses touch gestures on phones')
+  await page.goto('/?internal_test=1')
+  await seed(page)
+  const wrap = page.locator('.city-image-wrap')
+  const image = page.locator('#cityMilestoneImage')
+  const zoomIn = page.locator('[data-city-zoom-action="in"]')
+  const zoomOut = page.locator('[data-city-zoom-action="out"]')
+  const reset = page.locator('[data-city-zoom-action="reset"]')
+  await expect(page.locator('.pixel-town-canvas')).toBeVisible()
+  const before = await page.evaluate(() => localStorage.getItem('edenia_v1_internal_test'))
+  const matrix = () => image.evaluate(el => {
+    const m = new DOMMatrix(getComputedStyle(el).transform)
+    return { scale: m.a, x: m.e, y: m.f }
+  })
+  await expect(zoomIn).toBeVisible()
+  await expect.poll(matrix).toEqual({ scale: 1, x: 0, y: 0 })
+  await zoomIn.click()
+  await expect.poll(matrix).toEqual({ scale: 1.25, x: 0, y: 0 })
+  const rect = await wrap.boundingBox()
+  const cx = rect.x + rect.width / 2, cy = rect.y + rect.height / 2
+  for (const direction of [-1, 1]) {
+    await page.mouse.move(cx, cy)
+    await page.mouse.down()
+    await page.mouse.move(cx + direction * rect.width, cy + direction * rect.height, { steps: 4 })
+    await page.mouse.up()
+    const view = await matrix()
+    expect(view.x).toBeCloseTo(direction * rect.width * .125, 1)
+    expect(view.y).toBeCloseTo(direction * rect.height * .125, 1)
+    const layers = await page.locator('#cityMilestoneImage, .pixel-town-canvas, .town-world-targets').evaluateAll(els => els.map(el => getComputedStyle(el).transform))
+    expect(new Set(layers).size).toBe(1)
+    const coverage = await image.evaluate(el => {
+      const a = el.getBoundingClientRect(), b = el.closest('.city-image-wrap').getBoundingClientRect()
+      return a.left <= b.left + .5 && a.top <= b.top + .5 && a.right >= b.right - .5 && a.bottom >= b.bottom - .5
+    })
+    expect(coverage).toBe(true)
+  }
+  await reset.click()
+  await page.mouse.move(cx, cy)
+  await page.mouse.wheel(0, -120)
+  await expect.poll(async () => (await matrix()).scale).toBeGreaterThan(1)
+  await zoomOut.click()
+  await expect.poll(matrix).toEqual({ scale: 1, x: 0, y: 0 })
+  for (let i = 0; i < 15; i++) await zoomIn.click()
+  const max = testInfo.project.name.startsWith('phone') ? 4 : 2
+  expect((await matrix()).scale).toBe(max)
+  await reset.click()
+  await expect.poll(matrix).toEqual({ scale: 1, x: 0, y: 0 })
+  expect(await page.evaluate(() => window.EDENIA_PIXEL_TOWN.controller.pending.animation)).toBe(true)
+  expect(await page.evaluate(() => localStorage.getItem('edenia_v1_internal_test'))).toBe(before)
+})
+
+test('native touch pinch and drag reuse production gestures and cancel cleanly', async ({ page }, testInfo) => {
+  test.skip(!enabled || !testInfo.project.use.hasTouch, 'Requires enabled touch build')
+  await page.goto('/?internal_test=1')
+  await seed(page)
+  const wrap = page.locator('.city-image-wrap')
+  await expect(page.locator('.pixel-town-canvas')).toBeVisible()
+  const rect = await wrap.boundingBox()
+  const x = rect.x + rect.width / 2, y = rect.y + rect.height / 2
+  const cdp = await page.context().newCDPSession(page)
+  const touch = (type, points) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points.map(([id, x, y]) => ({ id, x, y })) })
+  const scale = () => page.locator('#cityMilestoneImage').evaluate(el => new DOMMatrix(getComputedStyle(el).transform).a)
+  await touch('touchStart', [[1, x - 25, y], [2, x + 25, y]])
+  await touch('touchMove', [[1, x - 50, y], [2, x + 50, y]])
+  await expect.poll(scale).toBeCloseTo(2, 1)
+  await touch('touchEnd', [])
+  await expect(wrap).not.toHaveClass(/is-dragging/)
+  await touch('touchStart', [[1, x, y]])
+  await touch('touchMove', [[1, x + 35, y + 25]])
+  await expect.poll(() => page.locator('#cityMilestoneImage').evaluate(el => {
+    const m = new DOMMatrix(getComputedStyle(el).transform)
+    return m.e > 0 && m.f > 0
+  })).toBe(true)
+  await touch('touchCancel', [])
+  await expect(wrap).not.toHaveClass(/is-dragging/)
+  // Match production's phone layout: gestures replace the hidden buttons.
+  if (testInfo.project.name.startsWith('phone')) {
+    await expect(page.locator('.city-zoom-controls')).toBeHidden()
+    await touch('touchStart', [[1, x - 50, y], [2, x + 50, y]])
+    await touch('touchMove', [[1, x - 15, y], [2, x + 15, y]])
+    await touch('touchEnd', [])
+  } else {
+    await page.locator('[data-city-zoom-action="reset"]').tap()
+  }
+  await expect.poll(scale).toBe(1)
+  await cdp.detach()
+})

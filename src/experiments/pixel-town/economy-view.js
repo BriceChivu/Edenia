@@ -6,9 +6,9 @@ export function mountEconomy(wrap, town) {
   layer.className = 'pixel-town-economy'
   layer.innerHTML = `
     <output class="town-wallet" aria-label="Town coins"></output>
-    <button type="button" class="town-flower-outline" aria-label="First flower patch · 15 coins" hidden>
+    <div class="town-world-targets"><button type="button" class="town-flower-outline" aria-label="First flower patch · 15 coins" hidden>
       <svg viewBox="0 0 60 36" aria-hidden="true"><path d="M3 19 30 5 57 19 30 33Z"/><path d="M20 22v-9m-4 1 4-4 4 4-4 4Zm18 12V13m-4 1 4-4 4 4-4 4Z"/></svg>
-    </button>
+    </button></div>
     <div class="town-build-panel" hidden>
       <strong>First flower patch</strong>
       <button type="button" class="town-build-confirm btn-primary">Build · 15 coins</button>
