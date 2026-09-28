@@ -831,6 +831,8 @@ export const EN_CORE = {
   'videos.filter.favorite': 'favorite',
   'videos.search.empty': 'Search videos by title or channel.',
   'videos.search.noMatches': 'No matching videos found.',
+  'videos.card.savedVideo': 'Saved YouTube video ({id})',
+  'videos.card.detailsUnavailable': 'YouTube details unavailable ({id})',
   'videos.search.untitled': 'Untitled video',
   'videos.search.youtube': 'YouTube',
   'videos.card.markWatched': 'Mark watched',

@@ -14,10 +14,11 @@ function functionSource(name, nextName) {
 
 test('Removed cards expose an accessible thumbnail preview action', () => {
   const renderSource = functionSource('renderRemovedVideoCard', 'getFeedbackAssetVersion')
+  assert.match(renderSource, /const title = getVideoDisplayTitle\(video\)/)
   assert.match(renderSource, /<button type="button" class="thumb-link removed-thumb"/)
   assert.match(renderSource, /data-video-preview-action="removed-thumbnail"/)
   assert.match(renderSource, /data-analytics-action="previewRemovedVideo"/)
-  assert.match(renderSource, /aria-label="\$\{escHtml\(video\.title\)\}"/)
+  assert.match(renderSource, /aria-label="\$\{escHtml\(title\)\}"/)
   assert.match(
     appSource,
     /videoCollectionDefinitions\.set\(removedGrid,[\s\S]*?bind: bindRenderedVideoShelfPreviewActions/

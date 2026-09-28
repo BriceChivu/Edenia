@@ -990,6 +990,8 @@ export const ZH_HANT_LOCALIZED = {
   'videos.filter.inProgress': '進行中',
   'videos.filter.watchLater': '稍後觀看',
   'videos.filter.favorite': '收藏',
+  'videos.card.savedVideo': '已儲存的 YouTube 影片（{id}）',
+  'videos.card.detailsUnavailable': 'YouTube 詳細資料無法取得（{id}）',
   'videos.search.untitled': '未命名影片',
   'videos.search.youtube': 'YouTube',
   'videos.card.markProgress': '標記為進行中',

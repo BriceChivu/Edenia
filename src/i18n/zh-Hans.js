@@ -985,6 +985,8 @@ export const ZH_HANS_LOCALIZED = {
   'videos.filter.watchLater': '稍后观看',
   'videos.filter.favorite': '收藏',
   'videos.search.noMatches': '没有匹配的视频',
+  'videos.card.savedVideo': '已保存的 YouTube 视频（{id}）',
+  'videos.card.detailsUnavailable': 'YouTube 详情不可用（{id}）',
   'videos.search.untitled': '未命名视频',
   'videos.search.youtube': 'YouTube',
   'videos.card.markWatchedTitle': '标记为已观看',

@@ -985,6 +985,8 @@ export const FR_LOCALIZED = {
   'videos.filter.watchLater': 'À regarder',
   'videos.filter.favorite': 'favoris',
   'videos.search.noMatches': 'Aucune vidéo correspondante',
+  'videos.card.savedVideo': 'Vidéo YouTube enregistrée ({id})',
+  'videos.card.detailsUnavailable': 'Détails YouTube indisponibles ({id})',
   'videos.search.untitled': 'Vidéo sans titre',
   'videos.search.youtube': 'YouTube',
   'videos.card.markWatchedTitle': 'Marquer comme vue',

@@ -1667,3 +1667,16 @@ body[data-theme="dark"] .action-btn:hover { background: var(--surface-hi); }
 body[data-theme="dark"] .action-btn.active { background: #243a20; color: #dff7a8; }
 body[data-theme="dark"] .action-btn.watch-later-btn.active { background: #173947; color: #b8f0ff; }
 body[data-theme="dark"] .action-btn.favorite-btn.active { background: #4a2030; color: #ffb2ca; }
+
+/* A thumbnail well remains intentional before metadata arrives or an image fails. */
+.next-study-thumb-link { position: relative; }
+.video-thumbnail-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--soft-blue);
+  color: var(--muted);
+}
+.video-thumbnail-placeholder svg { width: 28px; height: 28px; }
+.video-thumbnail-placeholder:has(+ img:not([hidden])) { display: none; }
+img[data-image-fallback-action="hide"][hidden] { display: none; }
