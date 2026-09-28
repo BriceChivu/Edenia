@@ -2504,6 +2504,7 @@ function getCurrentAppTimestamp(state = null) {
 }
 
 function timeAgo(iso, { compact = false } = {}) {
+  if (typeof iso !== 'string' || !iso.trim() || !Number.isFinite(Date.parse(iso))) return ''
   const days = Math.floor((Date.now() - new Date(iso)) / 86_400_000)
   if (days < -1) return t('time.inDays', { count: Math.abs(days) })
   if (days === -1) return t('time.tomorrow')
@@ -8237,7 +8238,7 @@ async function ytFetch(url) {
       error.message = t('log.youtubeQuota.detail', { time: formatLocaleDateTime(new Date(error.retryAt)) })
       recordYoutubeQuotaError(error)
     }
-    if (error?.name === 'AbortError') throw new Error(t('toast.youtubeRequestTimeout'))
+    if (error?.name === 'AbortError') throw Object.assign(new Error(t('toast.youtubeRequestTimeout')), { kind: 'timeout' })
     throw error
   }
 }
@@ -8661,10 +8662,23 @@ async function maybeRefreshFeed({ notifyMissingKey = false } = {}) {
         fetchVideos: ids => fetchVideoDetails(ids),
         fetchChannels: channels => hydrateYoutubeChannelProfiles(channels),
         isCurrent: () => isCurrentLearnerProfileOperation(s),
-        readCurrent: loadState
+        readCurrent: loadState,
+        // Persist each batch without rebuilding the feed during an active card reveal.
+        onChange: current => {
+          if (!isCurrentLearnerProfileOperation(s) || !saveState(current)) return false
+          return true
+        },
+        onOutcome: (current, outcome) => appendActivityLog(current, {
+          actor: 'auto', type: 'youtube-metadata',
+          status: outcome.status === 'complete' ? 'success' : outcome.status === 'partial' ? 'warn' : 'error',
+          title: t(`log.youtubeMetadata.${outcome.status}`),
+          detail: t('log.youtubeMetadata.counts', { videos: outcome.videos, channels: outcome.channels })
+            + (outcome.failure ? ` ${t(`log.youtubeMetadata.${outcome.failure.kind}`)}` : ''),
+          meta: outcome
+        })
       })
       if (!isCurrentLearnerProfileOperation(s)) return
-      if (changed && saveState(s)) renderAll(s)
+      if (changed) renderAll(s)
     }
     if (shouldRefreshYoutubeFeed(s)) {
       await refreshFeed({ silent: hasAnyChannelRefreshTimestamp(s) })
@@ -14123,6 +14137,7 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
     return null
   }
 
+  const title = getVideoDisplayTitle(nextVideo)
   const status = getVideoStatus(nextVideo)
   const isInProgress = hasVideoResumePriority(nextVideo)
   const isRewatch = status === 'watched' && isFavoriteVideo(nextVideo)
@@ -14138,7 +14153,7 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
     : isRewatch
     ? t('nextStudy.watchAgain')
     : t('nextStudy.watch')
-  const panelLabel = `${t(panelTitleKey)}: ${nextVideo.title}`
+  const panelLabel = `${t(panelTitleKey)}: ${title}`
   container.classList.toggle('continue-watching-card', isInProgress)
   container.classList.toggle('study-next-card', !isInProgress && !isRewatch)
   container.classList.toggle('rewatch-card', isRewatch)
@@ -14166,7 +14181,7 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
         data-video-id="${safeVideoId}"
         data-next-study-action="open"
         data-analytics-action="openNextStudyVideoPlayer"
-        aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}">${escHtml(cta)}</button>
+        aria-label="${escHtml(cta)}: ${escHtml(title)}">${escHtml(cta)}</button>
     `
     : isRewatch
     ? `
@@ -14191,13 +14206,13 @@ function renderNextStudy(activeVideos = [], favoriteVideos = []) {
     `
   container.innerHTML = `
     <button type="button" class="next-study-panel-focus" data-video-id="${safeVideoId}" data-next-study-action="focus" data-analytics-action="focusNextStudyVideoCard" aria-label="${escHtml(panelLabel)}"></button>
-    <button type="button" class="next-study-mobile-link" data-video-id="${safeVideoId}" data-next-study-action="open" data-analytics-action="openNextStudyVideoPlayer" aria-label="${escHtml(cta)}: ${escHtml(nextVideo.title)}"></button>
+    <button type="button" class="next-study-mobile-link" data-video-id="${safeVideoId}" data-next-study-action="open" data-analytics-action="openNextStudyVideoPlayer" aria-label="${escHtml(cta)}: ${escHtml(title)}"></button>
     <span class="next-study-thumb-link" aria-hidden="true">
-      <img class="next-study-thumb" src="${escHtml(nextVideo.thumbnail)}" alt="" loading="lazy">
+      ${renderVideoThumbnail(nextVideo, 'next-study-thumb')}
     </span>
     <span class="next-study-copy">
       <span class="next-study-eyebrow">${escHtml(t(panelTitleKey))}</span>
-      <span class="next-study-title" title="${escHtml(nextVideo.title)}">${escHtml(nextVideo.title)}</span>
+      <span class="next-study-title" title="${escHtml(title)}">${escHtml(title)}</span>
       <span class="next-study-meta">${escHtml(nextVideo.channelTitle || '')} · ${escHtml(isRewatch ? t('videos.status.favorite') : formatVideoStatus(status))}</span>
     </span>
     <span class="next-study-actions">
@@ -16714,14 +16729,14 @@ function renderVideoShelfPlayerOverlay(video, startSeconds, isRewatch = false) {
   overlay.className = 'video-player-overlay'
   overlay.setAttribute('role', 'dialog')
   overlay.setAttribute('aria-modal', 'true')
-  overlay.setAttribute('aria-label', video.title)
+  overlay.setAttribute('aria-label', getVideoDisplayTitle(video))
   overlay.setAttribute('tabindex', '-1')
   overlay.innerHTML = `
     <div class="video-player-dialog">
       <div class="video-player-frame">
       <iframe
         src="${escHtml(getVideoShelfEmbedUrl(videoId, startSeconds))}"
-        title="${escHtml(video.title)}"
+        title="${escHtml(getVideoDisplayTitle(video))}"
         allow="autoplay; encrypted-media; picture-in-picture"
         allowfullscreen></iframe>
       </div>
@@ -18649,6 +18664,7 @@ function closeManualVideoPopoverOnEscape(event) {
 
 function renderVideoActionIcon(type) {
   const paths = {
+    play: '<path d="m9 5 11 7-11 7V5Z"></path>',
     partial: '<rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect>',
     'watch-later': '<path d="M6 4h12v16l-6-4-6 4V4Z"></path>',
     favorite: '<path d="M12 20.2 4.2 12.8A5.1 5.1 0 0 1 11.4 5.6L12 6.2l.6-.6a5.1 5.1 0 0 1 7.2 7.2L12 20.2Z"></path>',
@@ -18676,7 +18692,31 @@ function bindRenderedVideoShelfPreviewActions(root) {
   })
 }
 
+function getVideoDisplayTitle(video) {
+  return String(video.title || '').trim() || t(
+    video.metadataUnavailable && isYoutubeMetadataFresh(video)
+      ? 'videos.card.detailsUnavailable'
+      : 'videos.card.savedVideo',
+    { id: video.id }
+  )
+}
+
+function renderVideoThumbnail(video, className = 'thumb', compact = false) {
+  const url = String(video.thumbnail || '').trim()
+  const thumbnailUrl = compact ? url.replace(/\/hqdefault\.jpg(?=\?|$)/, '/mqdefault.jpg') : url
+  return `<span class="video-thumbnail-placeholder ${className}" aria-hidden="true">${renderVideoActionIcon('play')}</span>${thumbnailUrl
+    ? `<img src="${escHtml(thumbnailUrl)}" alt="" class="${className}" loading="lazy" data-image-fallback-action="hide">`
+    : ''}`
+}
+
+function renderVideoDuration(video) {
+  return Number.isFinite(video.duration) && video.duration > 0
+    ? `<span class="dur-badge">${formatDuration(video.duration)}</span>`
+    : ''
+}
+
 function renderCard(v, compact = false, options = {}) {
+  const title = getVideoDisplayTitle(v)
   const status = getVideoStatus(v)
   const videoId = String(v.id ?? '')
   const safeVideoId = escHtml(videoId)
@@ -18688,7 +18728,7 @@ function renderCard(v, compact = false, options = {}) {
   const supportsCompactPublishedAt = options.shelf
     && getChannelVideoFormat(v) === CHANNEL_VIDEO_FORMATS.SHORTS
   const publishedAtLabel = timeAgo(v.publishedAt)
-  const publishedAtMarkup = supportsCompactPublishedAt
+  const publishedAtMarkup = !publishedAtLabel ? '' : supportsCompactPublishedAt
     ? `<span class="pub-ago"><span class="pub-ago-full">${escHtml(publishedAtLabel)}</span><span class="pub-ago-compact">${escHtml(timeAgo(v.publishedAt, { compact: true }))}</span></span>`
     : `<span class="pub-ago">${escHtml(publishedAtLabel)}</span>`
   const stateActionSurface = options.stateActionSurface || 'video_card'
@@ -18698,18 +18738,15 @@ function renderCard(v, compact = false, options = {}) {
   const watchedAtLabel = compact && v.watchedAt
     ? formatWatchedAt(v.watchedAt)
     : ''
-  const thumbnailUrl = compact
-    ? String(v.thumbnail || '').replace(/\/hqdefault\.jpg(?=\?|$)/, '/mqdefault.jpg')
-    : v.thumbnail
   const uploadRibbon = compact
     ? null
     : getVideoUploadRibbon(v, options.currentDateKey)
   const thumbnailContent = `
-    <img src="${escHtml(thumbnailUrl)}" alt="" class="thumb" loading="lazy">
+    ${renderVideoThumbnail(v, 'thumb', compact)}
     ${uploadRibbon && !options.shelf ? `<span class="video-card-ribbon video-upload-ribbon">${escHtml(uploadRibbon)}</span>` : ''}
-    <span class="dur-badge">${formatDuration(v.duration)}</span>
+    ${renderVideoDuration(v)}
   `
-  const thumbnailLink = `<button type="button" class="thumb-link" data-video-id="${safeVideoId}" data-video-preview-action="thumbnail" data-analytics-action="handleVideoThumbnailClick" aria-label="${escHtml(v.title)}">${thumbnailContent}</button>`
+  const thumbnailLink = `<button type="button" class="thumb-link" data-video-id="${safeVideoId}" data-video-preview-action="thumbnail" data-analytics-action="handleVideoThumbnailClick" aria-label="${escHtml(title)}">${thumbnailContent}</button>`
   const shelfPriorityBadge = options.shelf && isPartial
     ? `<span class="video-card-ribbon channel-shelf-priority-badge partial-priority-badge">${escHtml(t('videos.status.partial'))}</span>`
     : options.shelf && isWatchLater
@@ -18733,7 +18770,7 @@ function renderCard(v, compact = false, options = {}) {
         ${isPartial ? `<div class="card-status partial-status">${renderVideoActionIcon('partial')}${escHtml(t('videos.status.partial'))}</div>` : ''}
         ${isWatchLater && !isPartial ? `<div class="card-status watch-later-status">${renderVideoActionIcon('watch-later')}${escHtml(t('videos.card.watchLater'))}</div>` : ''}
         <div class="card-copy">
-          <div class="card-title" title="${escHtml(v.title)}">${escHtml(v.title)}</div>
+          <div class="card-title" title="${escHtml(title)}">${escHtml(title)}</div>
           ${watchedAtLabel ? `<div class="card-watched-at">${escHtml(watchedAtLabel)}</div>` : ''}
         </div>
         <div class="card-footer">
@@ -18776,23 +18813,20 @@ function renderCard(v, compact = false, options = {}) {
 
 function renderRemovedVideoCard(video) {
   const safeVideoId = escHtml(video.id)
-  const thumbnailUrl = String(video.thumbnail || '').replace(
-    /\/hqdefault\.jpg(?=\?|$)/,
-    '/mqdefault.jpg'
-  )
+  const title = getVideoDisplayTitle(video)
   return `
     <div class="video-card compact-card removed-card" data-video-id="${safeVideoId}">
       <button type="button" class="thumb-link removed-thumb"
         data-video-id="${safeVideoId}"
         data-video-preview-action="removed-thumbnail"
         data-analytics-action="previewRemovedVideo"
-        aria-label="${escHtml(video.title)}">
-        <img src="${escHtml(thumbnailUrl)}" alt="" class="thumb" loading="lazy">
-        <span class="dur-badge">${formatDuration(video.duration)}</span>
+        aria-label="${escHtml(title)}">
+        ${renderVideoThumbnail(video, 'thumb', true)}
+        ${renderVideoDuration(video)}
       </button>
       <div class="card-body">
         <div class="card-copy">
-          <div class="card-title" title="${escHtml(video.title)}">${escHtml(video.title)}</div>
+          <div class="card-title" title="${escHtml(title)}">${escHtml(title)}</div>
           <div class="card-watched-at">${escHtml(t('videos.card.removedAt', {
             date: timeAgo(video.removedFromFeedAt)
           }))}</div>

@@ -49,7 +49,7 @@ test('capture-phase image fallback hides only opted-in failed images', () => {
 test('all generated fallbacks use the early capture owner without inline code', () => {
   assert.equal(
     [...appSource.matchAll(/data-image-fallback-action="hide"/g)].length,
-    3
+    4
   )
   assert.doesNotMatch(appSource, /<[^>]*\son[a-z]+\s*=\s*["']/)
   const bindIndex = appSource.indexOf('bindImageFallbackActions(document)')

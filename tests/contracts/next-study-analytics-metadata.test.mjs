@@ -74,7 +74,7 @@ test('Next Study variants retain every generated control and exact branch markup
       nextStudyAction: 'open',
       inlineHandler: null,
       content: '${escHtml(cta)}',
-      ariaLabel: '${escHtml(cta)}: ${escHtml(nextVideo.title)}'
+      ariaLabel: '${escHtml(cta)}: ${escHtml(title)}'
     },
     {
       className: 'next-study-reset',
@@ -114,7 +114,7 @@ test('Next Study variants retain every generated control and exact branch markup
       nextStudyAction: 'open',
       inlineHandler: null,
       content: '',
-      ariaLabel: '${escHtml(cta)}: ${escHtml(nextVideo.title)}'
+      ariaLabel: '${escHtml(cta)}: ${escHtml(title)}'
     }
   ]
 
