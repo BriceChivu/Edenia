@@ -1,6 +1,6 @@
 extends CanvasLayer
 
-signal unlock_requested
+signal unlock_requested(target_level: int)
 signal tool_selected(tool: String)
 signal edit_toggled
 signal undo_requested
@@ -11,6 +11,9 @@ var root: Control
 var panel: PanelContainer
 var collapse_button: Button
 var launch: Button
+var upgrade: Button
+var title_label: Label
+var max_preview_level := 3
 var status: Label
 var buttons := {}
 var action_buttons: Array[Button] = []
@@ -96,8 +99,10 @@ func _ready() -> void:
 			collapsed = false
 			refresh(editing, "", not undo_button.disabled)
 		elif layout.unlocked: edit_toggled.emit()
-		else: unlock_requested.emit())
+		else: unlock_requested.emit(2))
 	root.add_child(launch)
+	upgrade = make_button("Try level 3", func(): unlock_requested.emit(3))
+	root.add_child(upgrade)
 	panel = PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", style("RegularPaper.png"))
 	root.add_child(panel)
@@ -107,6 +112,7 @@ func _ready() -> void:
 	var header := HBoxContainer.new()
 	column.add_child(header)
 	var title := Label.new()
+	title_label = title
 	title.text = "YOUR ISLAND · LEVEL 2"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_color_override("font_color", Color("57452f"))
@@ -184,6 +190,8 @@ func arrange() -> void:
 	var area := size / scale_ui
 	launch.size = Vector2(140, 44)
 	launch.position = area - launch.size - Vector2(14, 14)
+	upgrade.size = Vector2(140, 44)
+	upgrade.position = Vector2(14, area.y - upgrade.size.y - 14)
 	panel.size = Vector2(310, 180) if compact else Vector2(418, 210)
 	panel.position = Vector2(area.x - panel.size.x - 14, area.y - panel.size.y - 14)
 	if celebration != null:
@@ -197,13 +205,17 @@ func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
 	editing = is_editing
 	arrange()
 	launch.text = "Inventory" if editing and collapsed else ("Build island" if layout.unlocked else "Try level 2")
-	launch.visible = (not editing or collapsed) and celebration == null
+	title_label.text = "YOUR ISLAND · LEVEL %s" % layout.level
+	launch.visible = (not editing or collapsed) and celebration == null and (layout.unlocked or max_preview_level > 1)
+	upgrade.visible = layout.level == 2 and max_preview_level >= 3 and celebration == null and not editing
 	panel.visible = editing and not collapsed and celebration == null
 	for kind in buttons:
 		var name: String = {"meadow": "Grass", "gold": "Gold", "violet": "Teal", "high_meadow": "Green +", "high_gold": "Gold +", "tree": "Pine", "stairs": "Stairs", "ground": "Ground"}[kind] if compact else NAMES[kind]
 		var count: int = layout.ground_count() if kind == "ground" else layout.stock[kind]
 		buttons[kind].text = "%s ×%s" % [name, count]
 		buttons[kind].disabled = count == 0
+		if kind == "tree" and layout.level < 3:
+			buttons[kind].text = "Pine · L3"
 		buttons[kind].mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN if buttons[kind].disabled else Control.CURSOR_POINTING_HAND
 		buttons[kind].modulate = Color("ffdf8d") if kind == selected else Color.WHITE
 	undo_button.disabled = not can_undo
@@ -212,6 +224,7 @@ func refresh(is_editing: bool, selected: String, can_undo: bool) -> void:
 
 func celebrate() -> void:
 	launch.hide()
+	upgrade.hide()
 	panel.hide()
 	celebration = Control.new()
 	celebration.size = Vector2(470, 300)
@@ -227,7 +240,7 @@ func celebrate() -> void:
 	ribbon.size = Vector2(470, 118)
 	celebration.add_child(ribbon)
 	var heading := Label.new()
-	heading.text = "LEVEL TWO!"
+	heading.text = "LEVEL TWO!" if layout.level == 2 else "LEVEL THREE!"
 	heading.position = Vector2(0, 34)
 	heading.size = Vector2(470, 45)
 	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -237,14 +250,14 @@ func celebrate() -> void:
 	heading.add_theme_constant_override("shadow_offset_y", 2)
 	celebration.add_child(heading)
 	var message := Label.new()
-	message.text = "Congratulations! Make this island yours.\n\n8 terrain pieces  +  1 pine tree\n6 ground tiles + 2 stair bundles.\nGround style follows its height automatically."
+	message.text = ("Congratulations! Start shaping your island.\n\n4 new items: 3 ground tiles + 1 stair bundle.\nThe stair includes its upper landing.\nYour island grows from here." if layout.level == 2 else "Congratulations! More room to create.\n\n5 new items: 3 ground tiles, 1 stair, 1 pine.\nThe stair includes its upper landing.\nEverything you built stays in place.")
 	message.position = Vector2(40, 113)
 	message.size = Vector2(390, 105)
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	message.add_theme_font_size_override("font_size", 16)
 	message.add_theme_color_override("font_color", Color("57452f"))
 	celebration.add_child(message)
-	var start := make_button("Start building", func():
+	var start := make_button("Start building" if layout.level == 2 else "Keep building", func():
 		celebration.queue_free()
 		celebration = null
 		edit_toggled.emit())

@@ -8,6 +8,10 @@ const MAX_CELL := Vector2i(8, 3)
 const KINDS := ["meadow", "gold", "violet", "high_meadow", "high_gold", "stairs"]
 const COLORS := {"meadow": 3, "gold": 3, "violet": 3, "high_meadow": 1, "high_gold": 1, "stairs": 1}
 const REWARDS := {"meadow": 2, "gold": 1, "violet": 1, "high_meadow": 1, "high_gold": 1, "stairs": 2, "tree": 1}
+const LEVEL_REWARDS := {
+	2: {"meadow": 2, "gold": 1, "stairs": 1},
+	3: {"violet": 1, "high_meadow": 1, "high_gold": 1, "stairs": 1, "tree": 1},
+}
 const STEPS := [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]
 var cells: Dictionary = {}
 var trees: Dictionary = {}
@@ -15,7 +19,9 @@ var stair_directions: Dictionary = {}
 var stock: Dictionary = {}
 var flora := {Vector2i(0, 0): 1, Vector2i(1, 1): 2, Vector2i(3, 2): 1}
 var flora_rng := RandomNumberGenerator.new()
-var unlocked := false
+var level := 1
+var unlocked: bool:
+	get: return level >= 2
 
 func _init() -> void:
 	flora_rng.randomize()
@@ -24,12 +30,14 @@ func _init() -> void:
 	for kind in KINDS + ["tree"]:
 		stock[kind] = 0
 
-func unlock() -> void:
-	if unlocked:
-		return
-	unlocked = true
-	for kind in KINDS + ["tree"]:
-		stock[kind] += REWARDS[kind]
+func unlock(target_level: int = 2) -> bool:
+	# Explicit targets make retries idempotent and prohibit skipping an upgrade.
+	if target_level != level + 1 or not LEVEL_REWARDS.has(target_level):
+		return false
+	for kind in LEVEL_REWARDS[target_level]:
+		stock[kind] += LEVEL_REWARDS[target_level][kind]
+	level = target_level
+	return true
 
 func cell_at(point: Vector2) -> Vector2i:
 	return Vector2i(floor((point.x - ORIGIN.x) / SIZE), floor((point.y - ORIGIN.y) / SIZE))
@@ -209,10 +217,13 @@ func snapshot() -> Dictionary:
 	var tiles: Array = []
 	for cell in cells:
 		tiles.append([cell.x, cell.y, cells[cell], trees.has(cell), stair_direction(cell).x if cells[cell] == "stairs" else 0, flora.get(cell, 0)])
-	return {"version": 5, "tiles": tiles, "stock": stock.duplicate(), "unlocked": unlocked}
+	return {"version": 6, "tiles": tiles, "stock": stock.duplicate(), "level": level}
 
 func restore(data: Dictionary) -> bool:
-	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+	if int(data.get("version", 0)) not in [1, 2, 3, 4, 5, 6] or not data.get("tiles") is Array or not data.get("stock") is Dictionary:
+		return false
+	var next_level := int(data.get("level", 0)) if int(data.version) >= 6 else (3 if data.get("unlocked", false) else 1)
+	if next_level not in [1, 2, 3]:
 		return false
 	var next_cells := {}
 	var next_trees := {}
@@ -252,9 +263,10 @@ func restore(data: Dictionary) -> bool:
 	var total: int = next_cells.size()
 	for kind in KINDS:
 		total += next_stock[kind] * (2 if kind == "stairs" and int(data.version) >= 5 else 1)
-	if total != ((15 if int(data.version) >= 5 else (10 if data.get("version") == 1 else 13)) if data.get("unlocked", false) else 5):
+	var expected_total: int = {1: 5, 2: 10, 3: 15}[next_level] if int(data.version) >= 6 else ((15 if int(data.version) >= 5 else (10 if int(data.version) == 1 else 13)) if next_level == 3 else 5)
+	if total != expected_total:
 		return false
-	if next_trees.size() + next_stock.tree != (1 if data.get("unlocked", false) else 0):
+	if next_trees.size() + next_stock.tree != (1 if next_level == 3 else 0):
 		return false
 	if data.get("version") == 1 and data.get("unlocked", false):
 		next_stock.meadow += 1
@@ -267,7 +279,7 @@ func restore(data: Dictionary) -> bool:
 		if cells[cell] == "stairs" and not stair_directions.has(cell):
 			stair_directions[cell] = proposed_stair_direction(cell)
 	stock = next_stock
-	unlocked = data.get("unlocked", false)
+	level = next_level
 	if int(data.version) < 5:
 		var claimed := {}
 		for cell in stair_directions.keys():

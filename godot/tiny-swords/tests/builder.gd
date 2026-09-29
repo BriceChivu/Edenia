@@ -25,6 +25,7 @@ func run() -> void:
 	level.unlock_level_two()
 	check(level.ui.celebration != null, "Level two ribbon shown")
 	layout.unlock()
+	layout.unlock(3)
 	check(layout.stock.meadow == 2 and layout.stock.stairs == 2 and layout.stock.tree == 1, "Reward granted once")
 	level.ui.celebration.queue_free()
 	level.ui.celebration = null
@@ -88,10 +89,13 @@ func run() -> void:
 	# Old saves gain exactly one flat piece and two stairs, retaining all tiles.
 	var old = load("res://scripts/terrain_layout.gd").new()
 	old.unlock()
+	old.unlock(3)
 	old.stock.meadow -= 1
 	old.stock.stairs = 0
 	var legacy: Dictionary = old.snapshot()
 	legacy.version = 1
+	legacy.unlocked = true
+	legacy.erase("level")
 	legacy.stock.erase("stairs")
 	for tile in legacy.tiles:
 		tile.resize(4)
@@ -100,6 +104,7 @@ func run() -> void:
 	check(restored.restore(restored.snapshot()) and restored.stock.stairs == 2, "Migration cannot grant twice")
 	var automatic = load("res://scripts/terrain_layout.gd").new()
 	automatic.unlock()
+	automatic.unlock(3)
 	check(automatic.ground_count() == 6, "One pooled inventory contains six ground tiles")
 	check(automatic.edit(Vector2i(2, 0), "stairs", Vector2i.ZERO), "Stair and upper landing are created together")
 	check(automatic.ground_count() == 6 and automatic.stock.stairs == 1, "Stair bundle includes its landing without spending ground")
@@ -111,6 +116,7 @@ func run() -> void:
 	check(automatic.restore(JSON.parse_string(JSON.stringify(automatic.snapshot()))), "Automatic stair direction survives a save")
 	var empty_stock = load("res://scripts/terrain_layout.gd").new()
 	empty_stock.unlock()
+	empty_stock.unlock(3)
 	for kind in empty_stock.KINDS:
 		if kind != "stairs":
 			empty_stock.stock[kind] = 0
@@ -120,6 +126,7 @@ func run() -> void:
 	check(not empty_stock.cells.has(Vector2i(3, 0)) and empty_stock.stock.stairs == 2, "Picking up the bundle removes its landing without duplication")
 	var plants = load("res://scripts/terrain_layout.gd").new()
 	plants.unlock()
+	plants.unlock(3)
 	check(plants.edit(Vector2i.ZERO, "remove", Vector2i(1, 0)), "Bush-covered original tile can be collected once pawn moves away")
 	check(not plants.flora.has(Vector2i.ZERO) and plants.spawn_cell() != Vector2i.ZERO, "Bush disappears and respawn moves to existing land")
 	check(plants.restore(JSON.parse_string(JSON.stringify(plants.snapshot()))), "Island without original home survives reload")

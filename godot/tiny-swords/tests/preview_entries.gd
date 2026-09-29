@@ -13,33 +13,42 @@ func run() -> void:
 	var base = load("res://scenes/level_two_preview.tscn").instantiate()
 	check(base.preview_save_enabled, "Existing persistent preview keeps its save behavior")
 	base.free()
-	for entry in ["level_one", "level_one_to_two", "level_two"]:
+	for entry in ["level_one", "level_one_to_two", "level_two", "level_two_to_three", "level_three"]:
 		for iteration in range(2):
 			var scene = load("res://previews/%s.tscn" % entry).instantiate()
 			root.add_child(scene)
 			await process_frame
+			var initial_level := 1 if entry in ["level_one", "level_one_to_two"] else (3 if entry == "level_three" else 2)
 			check(not scene.preview_save_enabled, "Test entry disables persistence before startup")
 			check(scene.layout.cells.size() == 5 and scene.layout.trees.is_empty(), "Every run starts with the original island")
 			check(scene.pawn.position == scene.layout.center(scene.layout.HOME), "Pawn starts at home")
-			if entry == "level_two":
-				check(scene.layout.unlocked and scene.editing and scene.ui.panel.visible and scene.ui.celebration == null, "Direct level two is ready to build without a ribbon")
-			else:
-				check(not scene.layout.unlocked and not scene.editing and scene.layout.ground_count() == 0, "Level one starts locked without rewards")
-				check(scene.ui.launch.visible == (entry == "level_one_to_two"), "Only transition entry exposes Try level 2")
-			if entry == "level_one_to_two":
-				scene.ui.launch.pressed.emit()
-				check(scene.layout.unlocked and scene.ui.celebration != null, "Try level 2 invokes real unlock and ribbon")
+			check(scene.layout.level == initial_level and scene.ui.celebration == null, "Expected initial level without a startup celebration: " + entry)
+			check(scene.editing == (entry in ["level_two", "level_three"]), "Direct unlocked previews open ready to build")
+			check(scene.ui.upgrade.visible == (entry == "level_two_to_three"), "Only second-transition entry offers Try level 3")
+			if entry == "level_one":
+				check(not scene.ui.launch.visible, "Pure level one exposes no upgrade")
+			if initial_level >= 2:
+				check(scene.apply_edit(Vector2i(2,0)), "Shared editing works before upgrade")
+			var cells: Dictionary = scene.layout.cells.duplicate()
+			var stock: Dictionary = scene.layout.stock.duplicate()
+			var position: Vector2 = scene.pawn.position
+			if entry in ["level_one_to_two", "level_two_to_three"]:
+				var target := initial_level + 1
+				if target == 2: scene.ui.launch.pressed.emit()
+				else: scene.ui.upgrade.pressed.emit()
+				check(scene.layout.level == target and scene.ui.celebration != null, "Transition invokes real upgrade and ribbon")
+				check(scene.layout.cells == cells and scene.pawn.position == position, "Transition preserves placements and pawn")
 				var granted: Dictionary = scene.layout.stock.duplicate()
-				scene.unlock_level_two()
-				check(scene.layout.stock == granted, "Transition rewards cannot be granted twice")
+				scene.unlock_level(target)
+				check(scene.layout.stock == granted, "Repeated UI event grants nothing")
 				for child in scene.ui.celebration.get_children():
-					if child is Button and child.text == "Start building":
+					if child is Button and child.text in ["Start building", "Keep building"]:
 						child.pressed.emit()
 						break
-				check(scene.editing and scene.ui.panel.visible and scene.ui.celebration == null, "Real Start building control opens inventory")
-			if scene.layout.unlocked:
-				check(scene.layout.ground_count() == 6 and scene.layout.stock.stairs == 2 and scene.layout.stock.tree == 1, "Shared level-two rewards are exact")
-				check(scene.apply_edit(Vector2i(2,0)), "Normal shared terrain editing works in test entry")
+				check(scene.editing and scene.ui.panel.visible and scene.ui.celebration == null, "Real celebration action opens inventory")
+				# A pre-upgrade undo snapshot must not revoke rewards or recreate them.
+				scene.undo()
+				check(scene.layout.level == target and scene.layout.stock == granted, "Undo cannot revert progression")
 			scene.save_layout()
 			scene.queue_free()
 			await process_frame

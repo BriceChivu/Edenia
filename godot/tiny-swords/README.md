@@ -10,12 +10,14 @@ Mac uses the function keys for system controls):
 | --- | --- |
 | `previews/level_one.tscn` | Fresh level-one island and pawn; building/unlock control hidden. |
 | `previews/level_one_to_two.tscn` | Fresh level one. Click **Try level 2** to run the real unlock, rewards and animated ribbon, then **Start building**. |
-| `previews/level_two.tscn` | Fresh level two with rewards granted and inventory open, ready to build; no celebration step. |
+| `previews/level_two.tscn` | Fresh intermediate level two: three ground tiles and one stair bundle; inventory open. |
+| `previews/level_two_to_three.tscn` | Fresh level two. Build if desired, choose **Done**, then **Try level 3** to run the real second upgrade on that same island. |
+| `previews/level_three.tscn` | Fresh level three with all cumulative rewards; inventory open, no transition required. |
 
 These are thin inherited scenes using the same world, movement and builder code.
 Every F6 run starts fresh: these entries neither load nor save native or browser
 preview layouts. Changes made while testing are discarded when you stop the run.
-The transition grants rewards only once per run. Existing saved layouts remain intact.
+Each transition grants its own rewards only once per run. Existing saved layouts remain intact.
 
 **F5 / Play Project** still runs the existing persistent local preview described
 below; use **F6** to test whichever named scene you opened.
@@ -24,8 +26,21 @@ below; use **F6** to test whichever named scene you opened.
 
 Open `project.godot` in Godot 4.7, then **F5 / Play Project**.
 The default scene is now `scenes/level_two_preview.tscn`, which inherits the preserved
-level-one environment. **Try level 2** simulates the unlock locally: a celebratory
-ribbon grants six interchangeable ground tiles, two stair bundles, and one pine tree.
+level-one environment. **Try level 2**, then **Try level 3** (outside build mode),
+simulate the two local upgrades using the same reward and celebration code:
+
+| Upgrade | Newly granted inventory | Item count |
+| --- | --- | --- |
+| Level 1 → 2 | 3 ground tiles + 1 stair bundle | 4 |
+| Level 2 → 3 | 3 ground tiles + 1 stair bundle + 1 pine tree | 5 |
+
+Cumulatively this is exactly the former nine-item unlock: six ground tiles,
+two stair bundles and one tree. Each stair bundle includes its upper landing;
+that landing is not an additional inventory item. Upgrades preserve every
+placement, decoration and the pawn position. There is no island reset. Undo
+history starts a new editing session after an upgrade so it cannot revoke rewards.
+The progression level is independent of terrain height: no third terrain floor is added.
+
 The inventory has only Ground, Stairs, and Pine: height and art are automatic.
 Flat ground is green; the first elevated floor is gold. A stair placed next to
 flat ground creates a raised landing at its high end in the same action.
@@ -199,7 +214,7 @@ green third palette. Water rocks render below all player-built terrain.
 
 New ground has a 12.5% chance of a small decorative bush or leafy tuft, using
 the pack’s existing plant sprites. Plants do not block removal or movement;
-their choices persist in save version 5. Existing saves retain their plants and
+their choices persist in save version 6. Existing saves retain their plants and
 receive the ground refund for previously paid stair landings once. Splashes
 share the World Y-sort layer with trees and the pawn, so foreground trees
 occlude splashes behind them.
@@ -248,3 +263,18 @@ Motion now interpolates between the measured key positions on every render
 frame. `tests/water_pacing.gd` records actual playback without screenshot reads
 and rejects sustained position holds during the jump; the original stepped
 implementation held position for 12 rendered frames in native playback.
+
+## Progression save compatibility
+
+Save version 6 records an explicit level (1, 2 or 3). Each upgrade has an explicit
+target and can be granted only once, in order. Locked version 1–5 saves remain
+level one. Previously unlocked saves map to level three because they already
+earned the full reward set: inventory, placements, trees and foliage are retained,
+with no new progression grant. Earlier stair-landing compatibility migrations
+still run where needed. Reloading a migrated save does not grant rewards again.
+The existing native save path and browser key remain unchanged. Fresh editor
+previews never load or write either save; the normal persistent preview still does.
+
+`tests/progression.gd` covers both grants, retries, reloads, legacy migrations,
+and placement preservation. `tests/preview_entries.gd` runs all five editor
+entry points twice and checks real transitions plus save isolation.

@@ -56,7 +56,7 @@ func _ready() -> void:
 	Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
 	get_window().mouse_entered.connect(func(): pointer_inside = true)
 	get_window().mouse_exited.connect(func(): pointer_inside = false)
-	ui.unlock_requested.connect(unlock_level_two)
+	ui.unlock_requested.connect(unlock_level)
 	ui.edit_toggled.connect(toggle_editing)
 	ui.tool_selected.connect(func(tool):
 		selected = tool
@@ -76,11 +76,21 @@ func refresh() -> void:
 	ui.refresh(editing, selected, not history.is_empty())
 
 func unlock_level_two() -> void:
-	if water_phase != WaterPhase.READY or layout.unlocked:
+	unlock_level(2)
+
+func unlock_level(target_level: int) -> void:
+	if water_phase != WaterPhase.READY or ui.celebration != null or target_level > ui.max_preview_level:
 		return
+	if not layout.unlock(target_level):
+		return
+	# An upgrade only credits inventory: never replace the island or pawn.
 	waypoints.clear()
 	pawn.walk_to(pawn.position)
-	layout.unlock()
+	editing = false
+	history.clear() # Undo must not restore a snapshot from before the reward grant.
+	selected = "ground"
+	ui.collapsed = false
+	refresh()
 	save_layout()
 	ui.celebrate()
 
@@ -98,6 +108,7 @@ func _process(_delta: float) -> void:
 	if terrain == null:
 		return
 	ui.launch.disabled = water_phase != WaterPhase.READY
+	ui.upgrade.disabled = ui.launch.disabled
 	ui.launch.mouse_default_cursor_shape = Control.CURSOR_FORBIDDEN if ui.launch.disabled else Control.CURSOR_POINTING_HAND
 	if water_phase == WaterPhase.READY or water_phase == WaterPhase.APPROACHING:
 		pawn.sprite.position.y = -32.0 - ground_height(pawn.position)
