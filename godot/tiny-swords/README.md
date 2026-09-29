@@ -9,7 +9,7 @@ Choose an item: the inventory automatically folds away. Click a grid square. **P
 ground on a second click; terrain retains its color and elevation in inventory.
 **Fold** hides the inventory while keeping the selected tool active, so every
 square remains accessible. **Inventory** reopens it; **Done** resumes walking. Cursor 01 is used on build
-controls, Cursor 04 snapped to the exact tile corners for valid edits, Cursor 03 for unavailable edits, and Cursor 02
+controls, Cursor 04 with full-size corner pieces moved inward to fit one tile for valid edits, Cursor 03 for unavailable edits, and Cursor 02
 for ordinary movement.
 **Undo** reverses changes made during the current editing session.
 

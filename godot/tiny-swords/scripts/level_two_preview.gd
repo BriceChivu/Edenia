@@ -17,7 +17,7 @@ var waypoints: Array[Vector2] = []
 var tree_nodes: Array[Node] = []
 var preview_save_enabled := true
 var build_cursor: Texture2D
-var grid_cursor: Sprite2D
+var grid_cursor: Node2D
 var cursor_mode := ""
 
 func _ready() -> void:
@@ -26,9 +26,19 @@ func _ready() -> void:
 	var cursor_image := Image.create(1, 1, false, Image.FORMAT_RGBA8)
 	cursor_image.fill(Color.TRANSPARENT)
 	build_cursor = ImageTexture.create_from_image(cursor_image)
-	grid_cursor = Sprite2D.new()
-	grid_cursor.texture = BUILD_CURSOR
-	grid_cursor.scale = Vector2.ONE * 0.5
+	grid_cursor = Node2D.new()
+	# Keep each original corner at 1:1 scale; only remove the empty gap between
+	# quadrants, matching the stretchable cursor shown in the pack's UI demo.
+	for y in range(2):
+		for x in range(2):
+			var corner := Sprite2D.new()
+			var atlas := AtlasTexture.new()
+			atlas.atlas = BUILD_CURSOR
+			atlas.region = Rect2(x * 96, y * 96, 32, 32)
+			corner.texture = atlas
+			corner.centered = false
+			corner.position = Vector2(x * 32 - 32, y * 32 - 32)
+			grid_cursor.add_child(corner)
 	grid_cursor.z_index = 15
 	grid_cursor.hide()
 	add_child(grid_cursor)
