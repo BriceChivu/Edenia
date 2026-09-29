@@ -36,9 +36,18 @@ func style(file: String, _margins: int = 64) -> StyleBoxTexture:
 	for y in range(3):
 		for x in range(3):
 			assembled.blit_rect(source, Rect2i(x * 128, y * 128, 64, 64), Vector2i(x * 64, y * 64))
-	assembled.resize(48, 48, Image.INTERPOLATE_NEAREST)
+	var is_button := file.begins_with("BigBlueButton")
+	if is_button:
+		# Remove only transparent outer padding; retain every painted source pixel.
+		assembled = assembled.get_region(assembled.get_used_rect())
+	else:
+		assembled.resize(48, 48, Image.INTERPOLATE_NEAREST)
 	var result := StyleBoxTexture.new()
 	result.texture = ImageTexture.create_from_image(assembled)
+	if is_button:
+		# Repeat the straight edges and fill instead of shrinking their pixels.
+		result.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
+		result.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_TILE
 	for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
 		result.set_texture_margin(side, 16)
 		result.set_content_margin(side, 8)
@@ -55,6 +64,7 @@ func ribbon_texture() -> Texture2D:
 func make_button(text: String, action: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
+	b.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	b.add_theme_stylebox_override("normal", style("BigBlueButton_Regular.png"))
 	b.add_theme_stylebox_override("hover", style("BigBlueButton_Regular.png"))
 	b.add_theme_stylebox_override("pressed", style("BigBlueButton_Pressed.png"))

@@ -26,6 +26,10 @@ func run() -> void:
 			if button.size.y < 32 or not button.is_visible_in_tree():
 				failures += 1
 				push_error("Inventory tools remain visible and usable")
+	var button_style = level.ui.launch.get_theme_stylebox("normal")
+	if button_style.texture.get_width() < 128 or button_style.axis_stretch_horizontal != StyleBoxTexture.AXIS_STRETCH_MODE_TILE:
+		failures += 1
+		push_error("Button artwork keeps original pixels and repeats to fit labels")
 	level.ui.collapse_button.pressed.emit()
 	if level.ui.panel.visible or not level.ui.launch.visible or level.ui.action_buttons.size() != 3:
 		failures += 1
