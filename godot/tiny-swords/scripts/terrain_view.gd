@@ -54,16 +54,17 @@ func shadow_rect(cell: Vector2i) -> Rect2:
 func ground_region(cell: Vector2i, kind: String) -> Rect2:
 	# The guide's sixteen full 64px pieces: three edges/center plus a
 	# dedicated narrow-strip column and row. Do not repeat half-tile art.
-	var left := joined(cell, Vector2i.LEFT)
-	var right := joined(cell, Vector2i.RIGHT)
-	var up := joined(cell, Vector2i.UP)
-	var down := joined(cell, Vector2i.DOWN)
+	# The bottom layer is continuous beneath elevated ground. Its shore
+	# follows the island footprint, not changes in walking elevation.
+	var raised := kind.begins_with("high_")
+	var left: bool = joined(cell, Vector2i.LEFT) if raised else layout.cells.has(cell + Vector2i.LEFT)
+	var right: bool = joined(cell, Vector2i.RIGHT) if raised else layout.cells.has(cell + Vector2i.RIGHT)
+	var up: bool = joined(cell, Vector2i.UP) if raised else layout.cells.has(cell + Vector2i.UP)
+	var down: bool = joined(cell, Vector2i.DOWN) if raised else layout.cells.has(cell + Vector2i.DOWN)
 	var column := (1 if left else 0) if right else (2 if left else 3)
 	var row := (1 if up else 0) if down else (2 if up else 3)
-	if kind.begins_with("high_") and (stair_joins(cell, Vector2i.LEFT) or stair_joins(cell, Vector2i.RIGHT)):
-		# Guide examples 1 and 2 use a complete open connector at the
-		# ramp's upper end. A bottom-edge piece draws a lip across the join.
-		row = 1 if up else 0
+	# Stairs open the horizontal join, but never erase the bottom grass
+	# edge. Guide example 2 uses atlas (384,128) above cliff (384,256).
 	return Rect2(column * 64 + (320 if kind.begins_with("high_") else 0), row * 64, 64, 64)
 
 func draw_tile(cell: Vector2i, kind: String, tint := Color.WHITE) -> void:
@@ -104,8 +105,7 @@ func _draw() -> void:
 		draw_texture_rect_region(foam, Rect2(p - Vector2(32, 32), Vector2(128, 128)), Rect2(frame * 192 + 32, 32, 128, 128))
 	# Flat ground first; elevated shadows sit on top of it, one tile below tops.
 	for cell in keys:
-		if layout.height_at(cell) == 0:
-			draw_tile(cell, "meadow" if layout.cells[cell] == "stairs" else layout.cells[cell])
+		draw_tile(cell, "meadow")
 	for cell in keys:
 		if layout.height_at(cell) > 0:
 			draw_texture_rect_region(shadow, shadow_rect(cell), Rect2(32, 32, 128, 128))

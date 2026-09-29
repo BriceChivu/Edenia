@@ -26,20 +26,25 @@ func _initialize() -> void:
     var expected := Rect2(x * 64 + (320 if kind == "high_gold" else 0), y * 64, 64, 64)
     check(view.call("ground_region", Vector2i.ZERO, kind) == expected, "Guide piece (%s,%s) for %s" % [x,y,kind])
  view.layout.cells = {Vector2i.ZERO:"meadow",Vector2i.RIGHT:"high_gold"}
- check(view.call("ground_region",Vector2i.ZERO,"meadow") == Rect2(192,192,64,64), "Different elevations do not merge grass edges")
+ check(view.call("ground_region",Vector2i.ZERO,"meadow") == Rect2(0,192,64,64), "Base shore connects beneath a raised neighbor")
  view.layout.cells = {Vector2i.ZERO:"stairs",Vector2i.RIGHT:"high_gold"}
  view.layout.stair_directions = {Vector2i.ZERO:Vector2i.RIGHT}
  check(view.stair_joins(Vector2i.RIGHT,Vector2i.LEFT), "Ramp joins its upper landing")
  check(view.cliff_region(Vector2i.RIGHT) == Rect2(448,320,64,64), "Stair landing uses complete connected water cliff")
  view.layout.cells[Vector2i(1,1)] = "meadow"
  check(view.cliff_region(Vector2i.RIGHT) == Rect2(448,256,64,64), "Cliff uses the land-facing piece over lower ground")
+ # Pixel comparison with the author's guide identifies these exact pieces.
+ view.layout.cells = {Vector2i.ZERO:"stairs",Vector2i.RIGHT:"high_gold",Vector2i(1,-1):"high_gold",Vector2i(2,0):"high_gold",Vector2i(1,1):"meadow"}
+ view.layout.stair_directions = {Vector2i.ZERO:Vector2i.RIGHT}
+ check(view.ground_region(Vector2i.RIGHT,"high_gold") == Rect2(384,128,64,64), "Guide example 2: bottom-center grass, not center grass")
+ check(view.cliff_region(Vector2i.RIGHT) == Rect2(384,256,64,64), "Guide example 2: land-facing center cliff")
  # Reproduce both illustrated stair joins, mirrored as well as original.
  for direction in [Vector2i.RIGHT,Vector2i.LEFT]:
   var landing: Vector2i = direction
   view.layout.cells = {Vector2i.ZERO:"stairs",landing:"high_gold",landing+Vector2i.UP:"high_gold"}
   view.layout.stair_directions = {Vector2i.ZERO:direction}
   var column := 448 if direction == Vector2i.RIGHT else 320
-  check(view.ground_region(landing,"high_gold") == Rect2(column,64,64,64), "Cliff-side ramp uses a full open grass connector, not two half pieces")
+  check(view.ground_region(landing,"high_gold") == Rect2(column,128,64,64), "Cliff-side ramp retains the leafy bottom edge shown in guide example 2")
   view.layout.cells[landing+Vector2i.DOWN] = "high_gold"
   check(view.ground_region(landing,"high_gold") == Rect2(column,64,64,64), "Walkable-side ramp uses the same continuous connector")
   view.layout.cells.erase(landing+Vector2i.UP)
@@ -51,6 +56,9 @@ func _initialize() -> void:
  check(shadow.size == Vector2(128,128) and shadow.get_center() == top + Vector2(32,96), "Guide shadow is 128px and one tile below the elevated top center")
  view.layout.cells[Vector2i(2,0)] = "high_gold"
  check(shadow.intersection(view.shadow_rect(Vector2i(2,0))).size.x == 64, "Neighbor shadows overlap by one tile")
+ view.layout.cells = {Vector2i.ZERO:"high_gold",Vector2i.DOWN:"meadow"}
+ check(view.ground_region(Vector2i.DOWN,"meadow") == Rect2(192,128,64,64), "Lower grass has no false top shoreline against a cliff")
+ check(view.ground_region(Vector2i.ZERO,"high_gold") == Rect2(512,192,64,64), "Upper grass still ends at its own cliff")
  view.free()
  print("Terrain atlas checks: ", "PASS" if failures == 0 else "FAIL")
  quit(0 if failures == 0 else 1)
